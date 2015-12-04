@@ -176,7 +176,7 @@ if (trainKmeans) {
     var kmeansConfig = {
         type: "kmeans.train",
         params: {
-            trainingData: "select svd* from svd_row_output" },
+            trainingData: "select svd* from svd_row_output",
             outputDataset: { "id": "kmeans_row_output", type: "embedding" }
         }
     };
