@@ -1,0 +1,40 @@
+fieldset {
+  font-size:12px;
+  padding:10px;
+  width:60%;
+  line-height:1.8;
+margin:auto;
+}
+
+.form-inline {
+	display: block;
+}
+
+.form-horizontal {
+	display:block;
+}
+
+textarea {
+        resize: none;
+}
+
+#banner {
+    margin-top: 20px;
+    margin-left: 0px;
+    margin-right: 0px;
+    margin-bottom: 0px;
+    width: 10%;
+    height: 10%;
+    align:middle;
+}
+
+p.product_name {
+    font-family: 'Montserrat', sans-serif;
+    text-align:center;
+    font-size: 40px;
+    margin-top: 20px;
+    margin-left: 0px;
+    margin-right: 0px;
+    margin-bottom: 0px;
+}
+

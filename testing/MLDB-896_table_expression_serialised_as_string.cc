@@ -1,0 +1,57 @@
+// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+
+/* MLDB-896_table_expression_serialised_as_string.cc
+   Francois Maillet, 14 septembre 2015
+   Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+   Check that we're able to start from a JSON, put it into an Any, then
+   convert it to JSON and back again to its structured type.
+*/
+
+#define BOOST_TEST_MAIN
+#define BOOST_TEST_DYN_LINK
+
+#include <string>
+#include <vector>
+#include <boost/test/unit_test.hpp>
+#include "arch/exception.h"
+#include "jml/utils/string_functions.h"
+#include "jml/utils/vector_utils.h"
+#include "plugins/accuracy.h"
+
+
+using namespace std;
+using namespace Datacratic;
+using namespace MLDB;
+
+
+BOOST_AUTO_TEST_CASE( tbl_expression_serialised_as_string )
+{
+    // create config
+    string jsConf = "{\"testingDataset\": {\"id\": \"patate\"}, \
+           \"outputDataset\": {\"type\": \"beh.mutable\", \"id\":\"output_tbl\"}, \
+            \"label\": \"CLICK IS NOT NULL\", \
+            \"score\": \"SCORE\"}";
+
+    Json::Value conf;
+    Json::Reader reader;
+    if (!reader.parse(jsConf, conf))
+        throw ML::Exception("can't parse js conf");
+    
+    // convert it to an Any, the way it would be received in
+    // the params field of a procedure config struct
+    Any params(conf);
+    auto classifierConfig = params.convert<AccuracyConfig>();
+
+    // send it to json
+    auto nowInJson = jsonEncode<AccuracyConfig>(classifierConfig);
+
+    cout << nowInJson.toStyledString() << endl;
+    cout << " --- " << endl;
+
+    // convert it back to it's structured form. this should not fail
+    BOOST_CHECK_NO_THROW(jsonDecode<AccuracyConfig>(nowInJson));
+
+
+}
+

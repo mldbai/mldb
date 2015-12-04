@@ -1,0 +1,80 @@
+<html>
+<head><title>SVDLIBC: Sparse Text Harwell-Boeing Matrix File Format</title></head>
+
+<body bgcolor="#aaaa9999fffff"> 
+
+<center>
+<h2>SVD_F_STH</h2>
+<h3>Sparse Text Harwell-Boeing Matrix File Format</h3>
+</center>
+<hr>
+
+This is the format used by SVDPACKC and many other matrix algebra systems,
+included here for backward compatibility.  SVDLIBC does not support the <a
+href="http://math.nist.gov/MatrixMarket/formats.html#hb">full
+Harwell-Boeing</a> format specification.  In particular, it only supports rra
+(real, rectangular, assembled) formats without right-hand sides.  Files output
+by SVDLIBC do not use fixed width columns but use single-space-separated
+values to reduce wasted space, and therefore may not be compatible with other
+systems.
+
+<h3>Format:</h3>
+<pre>
+<b>header</b>[72] <b>key</b>[8]
+<b>totalLines</b>[14] <b>pointerLines</b>[14] <b>rowIndexLines</b>[14] <b>valueLines</b>[14] <b>rightHandSideLines</b>[14]</b>
+<b>matrixType</b>[14] <b>numRows</b>[14] <b>numCols</b>[14] <b>totalNonZeroValues</b>[14]</b> 0
+<b>pointerFormat</b>[16] <b>rowIndexFormat</b>[16] <b>valueFormat</b>[16] <b>rightHandSideFormat</b>[16]</b>
+<i>for each column plus one:</i>
+  <b>firstValueIndex</b>
+<i>for each non-zero value:</i>
+  <b>rowIndex</b>
+<i>for each non-zero value:</i>
+  <b>value</b>
+</pre>
+<p>
+The <b>header</b> must be 72 characters long, as indicated by the number in
+square brackets.  It is ignored, as is the key.  The line counts on header
+line 2 are not used by SVDLIBC.
+<p>
+The <b>matrixType</b> on line 3 must be "rra",
+since that's the only one supported.  The final item on row 3 is the number of
+elemental matrixes, it must be 0 for an assembled matrix.
+<p>
+The fourth header line contains format specifications.  They aren't used by
+SVDLIBC.  
+<p>
+The <b>firstValueIndex</b> is the cumulative number of values in the columns
+to the left of the current column, plus one.  The final one of these should be
+equivalent to the total number of non-zero values plus one.  The rows are
+indexed starting with 1.  Newlines and spaces are equivalent.
+
+<h3>Example:</h3>
+
+<b>Dense Text Format:</b>
+<pre>
+4 3
+2.3  0  4.2
+0   1.3 2.2
+3.8  0  0.5
+0    0   0 
+</pre>
+
+<b>Sparse Text Harwell-Boeing Format:</b>
+<pre>
+SVDLIBC v. 1.32                                                         <key>   
+             3             1             1             1             0
+rra                        4             3             6             0
+            (8i)            (8i)            (8e)            (8e)
+1 3 4 7 
+1 3 2 1 2 3 
+2.3 3.8 1.3 4.2 2.2 0.5 
+</pre>
+
+<p>
+<hr>
+<address>
+Doug Rohde, <a href="mailto:dr+svd@tedlab.mit.edu">dr+svd@tedlab.mit.edu</a>,<br>
+Department of Brain and Cognitive Science,<br>
+<a href="http://web.mit.edu">Massachusetts Institute of Technology</a>
+</address>
+</body>

@@ -1,0 +1,14 @@
+{
+   "object" : {
+      "array" : [
+         {
+            "value_int2" : 274902,
+            "value_int1" : 973
+         },
+         {
+            "value_int2" : 274906,
+            "value_int1" : 973
+         }
+      ]
+   }
+}

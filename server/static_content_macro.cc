@@ -1,0 +1,550 @@
+// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+
+/** static_content_macro.cc
+    Jeremy Barnes, 23 November 2015
+    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+*/
+
+#include "static_content_macro.h"
+
+#include "mldb/ext/hoedown/src/buffer.h"
+#include "mldb/ext/hoedown/src/html.h"
+#include "mldb/ext/hoedown/src/document.h"
+#include "mldb/ext/hoedown/src/escape.h"
+#include "mldb/rest/in_process_rest_connection.h"
+#include "mldb/server/mldb_server.h"
+#include "mldb/server/mldb_entity.h"
+#include "mldb/jml/utils/file_functions.h"
+#include "mldb/jml/utils/string_functions.h"
+
+
+using namespace std;
+
+namespace Datacratic {
+namespace MLDB {
+
+
+/*****************************************************************************/
+/* UTILITY FUNCTIONS                                                         */
+/*****************************************************************************/
+
+using namespace Json;
+
+static std::string printTypeName(std::string t)
+{
+    if (t.find("Datacratic::") == 0)
+        t = string(t, 12);
+    if (t.find("MLDB::") == 0)
+        t = string(t, 6);
+    return t;
+};
+
+std::string insertAfterFragment(const std::string & uri, const std::string & toInsert )
+{
+    auto pos = uri.find('#');
+    return uri.substr(0, pos) + toInsert + (pos == string::npos ? "" : uri.substr(pos)); 
+}
+
+static std::string getTypeName(const ValueDescription & description)
+{
+    std::string resultSoFar;
+    std::string closing;
+    if (!description.documentationUri.empty()) {
+        resultSoFar += "<a href=\"" + insertAfterFragment(description.documentationUri, ".html") + "\">";
+        closing = "</a>";
+    }
+
+    auto wrap = [&] (const std::string & s)
+        {
+            return resultSoFar + s + closing;
+        };
+
+    switch (description.kind) {
+    case ValueKind::INTEGER:   return wrap("int");
+    case ValueKind::FLOAT:     return wrap("float");
+    case ValueKind::BOOLEAN:   return wrap("bool");
+    case ValueKind::STRING:    return wrap("string");
+    case ValueKind::ARRAY:     return wrap("[ " + getTypeName(description.contained()) + " ]");
+    case ValueKind::STRUCTURE: return wrap(printTypeName(printTypeName(description.typeName)));
+    case ValueKind::ENUM:      return wrap(printTypeName(description.typeName));
+    case ValueKind::ATOM:      return wrap(printTypeName(description.typeName));
+    case ValueKind::LINK:      return wrap("LINK "     + printTypeName(description.typeName));
+    case ValueKind::TUPLE:     {
+        std::string result = "TUPLE [";
+        bool first = true;
+        for (auto & tp: description.getTupleElementDescriptions()) {
+            if (!first)
+                result += ",";
+            first = false;
+            result = result + " " + getTypeName(*tp);
+        }
+        result += " ]";
+        return result;
+    }
+    case ValueKind::OPTIONAL:  return wrap(getTypeName(description.contained())) + " (Optional)";
+    case ValueKind::VARIANT:   return wrap("VARIANT "  + printTypeName(description.typeName));
+    case ValueKind::MAP: {
+        return wrap("MAP {" + getTypeName(description.getKeyValueDescription())
+                    + " : " + getTypeName(description.contained()) + "}");
+    }
+    case ValueKind::ANY:       return description.typeName == "Json::Value" ? "JSON" : printTypeName(description.typeName);
+    default:
+        throw ML::Exception("Unknown description kind");
+    }
+}
+
+static std::string getDefaultValue(const ValueDescription & description)
+{
+    void * val = description.constructDefault();
+    std::ostringstream stream;
+    StreamJsonPrintingContext context(stream);
+    description.printJson(val, context);
+    description.destroy(val);
+
+    if (stream.str() == "null" || stream.str() == "\"\"" || stream.str() == "[]" || stream.str() == "{}")
+        return "";
+
+    return stream.str();
+}
+
+static void renderType(MacroContext & context,
+                       const Utf8String & cppType,
+                       bool jsonFragment = false)
+{
+    const ValueDescription * vd = ValueDescription::get(cppType.rawString()).get();
+        
+    if (!vd) {
+        context.writeHtml("Type with name " + cppType + " not found");
+        return;
+    }
+
+    if (vd->kind == ValueKind::STRUCTURE) {
+        if(jsonFragment) {
+            bool first = true;
+            auto onField = [&] (const ValueDescription::FieldDescription & fd)
+                {
+                    if(first) {
+                        first = false;
+                    }
+                    else {
+                        context.writeHtml(",");
+                    }
+                    context.writeHtml(ML::format("\n        \"%s\": &lt;%s&gt;",
+                                 fd.fieldName.c_str(),
+                                 getTypeName(*fd.description).c_str()));
+                };
+            vd->forEachField(nullptr, onField);
+        }
+        else
+        {
+            context.writeHtml("<table class=\"table\"><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr>\n");
+
+            auto onField = [&] (const ValueDescription::FieldDescription & fd)
+                {
+                    context.writeHtml(ML::format("<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>\n",
+                                         fd.fieldName.c_str(),
+                                         getTypeName(*fd.description).c_str(),
+                                         getDefaultValue(*fd.description).c_str(),
+                                         fd.comment.c_str()));
+                };
+            vd->forEachField(nullptr, onField);
+            context.writeHtml("</table>");
+        }
+    }
+    else if (vd->kind == ValueKind::ENUM) {
+        context.writeHtml("<h4>Enumeration <code>" + printTypeName(cppType.rawString()) +"</code></h4>");
+        context.writeHtml("<table class=\"table\"><tr><th>Value</th><th>Description</th></tr>\n");
+        for (auto & v: vd->getEnumValues()) {
+            context.writeHtml(ML::format("<tr><td>%s</td><td>%s</td></tr>\n",
+                                 std::get<1>(v).c_str(),
+                                 std::get<2>(v).c_str()));
+        }
+        context.writeHtml("</table>");
+    }
+    else {
+        context.writeHtml("non-structure " + cppType);
+    }
+}
+
+
+/*****************************************************************************/
+/* MACRO CONTEXT                                                             */
+/*****************************************************************************/
+
+MacroContext::
+MacroContext(const MacroData * macroData,
+             hoedown_buffer * output,
+             const hoedown_buffer * text)
+    : macroData(macroData),
+      output(output),
+      text(text)
+{
+}
+
+void
+MacroContext::
+writeHtml(const Utf8String & text)
+{
+    hoedown_buffer_put(output, (const uint8_t *)text.rawData(), text.rawLength());
+}
+
+void
+MacroContext::
+writeText(const Utf8String & text)
+{
+    hoedown_escape_html(output, (uint8_t *)text.rawData(), text.rawLength(), 0);
+}
+
+void
+MacroContext::
+writeInternalLink(Utf8String url,
+                  const Utf8String & anchorText,
+                  bool followInternalRedirect)
+{
+    if (followInternalRedirect) {
+        RestRequest request("GET", url.rawString(), {}, "");
+        InProcessRestConnection connection;
+        macroData->server->handleRequest(connection, request);
+        if (connection.responseCode == 301) {
+            url = connection.headers.getValue("location");
+            //cerr << "redirect to " << link << endl;
+        }
+        else {
+            //cerr << "no redirect for " << link << endl;
+        }
+    }
+
+    writeHtml("<a href=\"");
+    writeText(url);
+    writeHtml("\">");
+    writeHtml(anchorText);
+    writeHtml("</a>");
+}
+
+namespace {
+
+struct MacroEntry {
+    MldbMacro macro;
+};
+
+// On static initialization and destruction, it's possible that an
+// earlier library attempts to register before this library has
+// initialized.  The static member in macroData() allows this to
+// happen; however when the macros are deregistered on destruction,
+// this library will already have all members (including the macroData)
+// destroyed.  The macroDataIsAlive variable allows us to track if
+// this is the case, and if so to not try to deregister the member
+// in the (destroyed) map.
+bool macroDataIsAlive = false;
+
+struct MacroData {
+    MacroData()
+    {
+        macroDataIsAlive = true;
+    }
+
+    ~MacroData()
+    {
+        macroDataIsAlive = false;
+    }
+
+    std::recursive_mutex mutex;
+    std::map<std::string, MacroEntry> macros;
+};
+
+static MacroData & macroData()
+{
+    static MacroData data;
+    return data;
+}
+
+} // file scope
+
+std::shared_ptr<void>
+registerMacro(const std::string & macroName,
+              MldbMacro macro,
+              bool failOnError)
+{
+    std::unique_lock<std::recursive_mutex> guard(macroData().mutex);
+
+    MacroEntry entry;
+    entry.macro = std::move(macro);
+
+    if (!macroData().macros.insert(make_pair(macroName, entry)).second) {
+        // TODO: fail on error
+        throw HttpReturnException(500, "Error registering documentation macro "
+                                  + macroName + ": name already registered");
+    }
+
+    auto unregister = [=] (void *)
+        {
+            if (!macroDataIsAlive)
+                return;
+            macroData().macros.erase(macroName);
+        };
+    
+    return std::shared_ptr<void>(nullptr, unregister);
+}
+
+void callMacro(MacroContext & context,
+               const std::string & macroName,
+               const Utf8String & args)
+{
+    std::unique_lock<std::recursive_mutex> guard(macroData().mutex);
+
+    auto it = macroData().macros.find(macroName);
+    
+    if (it == macroData().macros.end()) {
+        context.writeText("Unable to find macro %%" + macroName + " with arguments " + args);
+        return;
+    }
+    
+    try {
+        JML_TRACE_EXCEPTIONS(false);
+        it->second.macro(context, macroName, args);
+    } catch (const std::exception & exc) {
+        context.writeText("Error executing macro %%" + macroName + " with arguments " + args + ": " + exc.what());
+    } JML_CATCH_ALL {
+        context.writeText("Error executing macro %%" + macroName + " with arguments " + args + ": unknown exception");
+    }
+}
+
+void typeMacro(MacroContext & context,
+               const std::string & macroName,
+               const Utf8String & args)
+{
+    renderType(context, args);
+}
+
+void nblinkMacro(MacroContext & context,
+                 const std::string & macroName,
+                 const Utf8String & args)
+{
+    string address = args.rawString();
+
+    int offset = address.find("/")+1;
+
+    if(offset == string::npos){
+        offset = 0;
+    }
+    string nb(address,offset);
+
+    for (size_t pos = address.find(' '); 
+         pos != string::npos; 
+         pos = address.find(' ', pos))
+        {
+            address.replace(pos, 1, "%20");
+        }
+        
+    context.writeHtml("<a href=\"/doc/nblink.html#" + address + "\" " +
+                      "target=\"_blank\">"+nb+"</a>");
+}
+
+void doclinkMacro(MacroContext & context,
+                  const std::string & macroName,
+                  const Utf8String & argsStr)
+{
+    vector<string> args = ML::split(argsStr.rawString(), ' ');
+    if (args.size() < 2) {
+        context.writeHtml("Macro %%doclink needs 2 parameters");
+        return;
+    }
+    string type = args.at(0);
+    string kind = args.at(1);
+    context.writeInternalLink("/v1/types/" + kind + "s/" + type + "/doc",
+                              "<code>"+type+"</code> "+kind + " type",
+                              true /* follow redirect */);
+}
+
+void codeexampleMacro(MacroContext & context,
+                      const std::string & macroName,
+                      const Utf8String & argsStr)
+{
+    try {
+        vector<string> args = ML::split(argsStr.rawString(), ' ');
+        string filename = context.macroData->dir + "/" + args.at(0);
+        string language;
+        if (args.size() > 1)
+            language = " class=\"" + args[1] + "\"";
+
+        ML::File_Read_Buffer buf(filename);
+        
+        string result(buf.start(), buf.end());
+        
+        context.writeHtml("<pre><code" + language + ">");
+        
+        context.writeText(result);
+
+        context.writeHtml("</code></pre>");
+    } catch (const std::exception & exc) {
+        context.writeHtml("Error running codeexample macro: " + string(exc.what()));
+    }
+}
+
+void configMacro(MacroContext & context,
+                 const std::string & macroName,
+                 const Utf8String & argsStr)
+{
+    try {
+        vector<string> args = ML::split(argsStr.rawString(), ' ');
+        if (args.size() < 2) {
+            context.writeHtml("Macro %%config needs 2 parameters");
+            return;
+        }
+        string kind = args.at(0);
+        string type = args.at(1);
+            
+        RestRequest request("GET", "/v1/types/" + kind + "s/" + type + "/info", {}, "");
+        InProcessRestConnection connection;
+        context.macroData->server->handleRequest(connection, request);
+
+        if (connection.responseCode != 200) {
+            context.writeHtml("Error running %%config macro with params " + kind + " " + type);
+            context.writeHtml("<pre><code>");
+            context.writeText(connection.response);
+            context.writeHtml("</code></pre>");
+            return;
+        }
+        Json::Value params = Json::parse(connection.response);
+        string typeName;
+        if (!params.isNull()) {
+            typeName = params["configType"]["typeName"].asString();
+        }
+            
+        //cerr << "params = " << params << endl;
+
+        //context.writeHtml("<h2>Configuration</h2>");
+
+        context.writeHtml("<p>A new " + kind + " of this type is created as follows:</p>");
+
+        context.writeHtml("<pre><code class=\"http\">");
+        context.writeText("PUT /v1/" + kind + "s/<id> \n{\n"+
+                  "    \"type\": \"" + type + "\"");
+
+        if (!typeName.empty()) {
+            context.writeText(",\n    \"params\": {");
+            renderType(context, typeName, true);
+            context.writeText("\n    }");
+        }
+        context.writeHtml("\n}</code></pre>");
+
+        if (!typeName.empty()) {
+            context.writeHtml("<p>with the following key-value definitions for <code>params</code>:</p>");
+            renderType(context, typeName);
+        }
+    } catch (const std::exception & exc) {
+        context.writeHtml("Error running config macro: " + string(exc.what()));
+    }
+}
+
+void availabletypesMacro(MacroContext & context,
+                         const std::string & macroName,
+                         const Utf8String & argsStr)
+{
+    try {
+        vector<string> args = ML::split(argsStr.rawString(), ' ');
+        if (args.size() < 2) {
+            context.writeHtml("Macro %%availabletypes needs 2 parameters");
+            return;
+        }
+        string kind = args.at(0);
+        string format = args.at(1);
+
+        RestRequest request("GET", "/v1/types/" + kind + "s",
+                            {{"details", "true"}}, "");
+        InProcessRestConnection connection;
+        context.macroData->server->handleRequest(connection, request);
+            
+        if (connection.responseCode != 200) {
+            context.writeHtml("Error running %%availabletypes macro for kind " + kind);
+            context.writeHtml("<pre><code>");
+            context.writeText(connection.response);
+            context.writeHtml("</code></pre>");
+            return;
+        }
+
+        auto isInternal = [] (const Json::Value& flags) {
+            for (auto & flag : flags) {
+                if (flag.asString() == MldbEntity::INTERNAL_ENTITY) {
+                    return true;
+                }
+            }
+            return false;
+        };
+
+        // filter internal entities
+        auto internalEntitiesFilter = [&] (const Json::Value& params) {
+            if (context.macroData->hideInternalEntities) {
+                Json::Value filteredParams;
+                for (auto & p : params) {
+                    if (!isInternal(p[1]["flags"])) {
+                        filteredParams.append(p);
+                    }
+                }
+                return std::move(filteredParams);
+            }
+            else
+                return std::move(params);
+        };
+
+        Json::Value params = internalEntitiesFilter(Json::parse(connection.response));
+
+        if(format == "list") {
+            context.writeHtml("<ul>\n");
+            for (auto & p: params) {
+                string name = p[0].asString();
+                string doc = p[1]["docRoute"].asString();
+
+                context.writeHtml("<li>");
+                context.writeInternalLink(doc, name, true /* internal redirects */);
+                context.writeHtml("</li>\n");
+            }
+            context.writeHtml("</ul>\n");
+        }
+        else if(format == "table") {
+            context.writeHtml("<table class=\"table\"><tr><th>Type</th><th>Description</th><th>Doc</th></tr>\n");
+            for (auto & p: params) {
+                string name = p[0].asString();
+                string desc = p[1]["description"].asString();
+                string doc = p[1]["docRoute"].asString();
+
+                context.writeHtml("<tr><td><code>");
+                context.writeText(name);
+                context.writeHtml("</code></td><td>");
+                context.writeText(desc);
+                context.writeHtml("</td><td>");
+                context.writeInternalLink(doc, "[doc]", true /* internal redirects */);
+                context.writeHtml("</td></tr>\n");
+            }
+                
+            context.writeHtml("</table>");
+        }
+            
+        //context.writeHtml("<pre><code>");
+        //context.writeText(params.toStyledString());
+        //context.writeHtml("</code></pre>");
+    } catch (const std::exception & exc) {
+        context.writeHtml("Error running config macro: " + string(exc.what()));
+    }
+}
+
+RegisterMacro::
+RegisterMacro(const std::string & macroName,
+              MldbMacro macro,
+              bool failOnError)
+{
+    handle = registerMacro(macroName, macro, failOnError);
+}
+
+
+// Register all of the built-in macro types
+auto regType = RegisterMacro("type", typeMacro);
+auto regNbLink = RegisterMacro("nblink", nblinkMacro);
+auto regDoclink = RegisterMacro("doclink", doclinkMacro);
+auto regCodeExample = RegisterMacro("codeexaple", codeexampleMacro);
+auto regConfig = RegisterMacro("config", configMacro);
+auto regAvailableTypes = RegisterMacro("availabletypes", availabletypesMacro);
+
+} // namespace MLDB
+} // namespace Datacratic

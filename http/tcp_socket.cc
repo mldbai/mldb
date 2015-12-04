@@ -1,0 +1,24 @@
+// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+
+/* tcp_socket.cc
+   Wolfgang Sourdeau, September 2015
+   Copyright (c) 2015 Datacratic.  All rights reserved.
+*/
+
+
+#include "mldb/http/tcp_socket_impl.h"
+#include "mldb/http/tcp_socket.h"
+
+
+using namespace Datacratic;
+
+TcpSocket::
+TcpSocket(std::shared_ptr<TcpSocketImpl> impl)
+    : impl_(std::move(impl))
+{
+}
+
+TcpSocket::
+~TcpSocket()
+{
+}

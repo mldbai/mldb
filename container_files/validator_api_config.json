@@ -1,0 +1,10 @@
+{
+    "connStr" : "sqlite://",
+    "host"    : "0.0.0.0",
+    "port"    : "13021",
+    "VERSION_PREFIX" : "/v1", 
+    "devMode"	: true,
+    "secret"    : "c97a582b142e9fer",
+    "key" : "/etc/publickey.pem",
+    "activation_key" : "{{MLDB_VALIDATOR_DIR}}/activation_code.txt"
+}

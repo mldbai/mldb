@@ -1,0 +1,659 @@
+// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+
+/** function.h                                                       -*- C++ -*-
+    Jeremy Barnes, 4 December 2014
+    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+
+    Interface for functions into MLDB.
+*/
+
+#include "mldb/sql/dataset_types.h"
+#include "mldb/sql/expression_value.h"
+#include "mldb/types/value_description_fwd.h"
+#include "mldb_entity.h"
+#include "mldb/sql/sql_expression.h"
+#include "mldb/http/http_exception.h"
+
+// NOTE TO MLDB DEVELOPERS: This is an API header file.  No includes
+// should be added, especially value_description.h.
+
+
+#pragma once
+
+namespace Datacratic {
+
+
+/*****************************************************************************/
+/* VALUE MAP KEY                                                             */
+/*****************************************************************************/
+
+/** Key for value maps, that allows lookups without having to make a copy
+    of the value being looked up.
+*/
+
+struct ValueMapKey {
+    ValueMapKey();
+    ValueMapKey(Utf8String str);
+    ValueMapKey(const Id & id);
+    ValueMapKey(const char * utf8Start, size_t utf8Len);
+
+    /// Obtain a ValueMapKey that allocates nothing and has a reference to
+    /// the data in name, which must be immutable and outlive the result
+    static ValueMapKey ref(const Utf8String & name);
+
+    /// Obtain a ValueMapKey that allocates nothing and has a reference to
+    /// the data in name, which must be immutable and outlive the result
+    static ValueMapKey ref(const std::string & name);
+
+    /// Obtain a ValueMapKey that allocates nothing and has a reference to
+    /// the data in name, which must be immutable and outlive the result
+    static ValueMapKey ref(const Id & name);
+
+    bool empty() const { return utf8Len == 0; }
+
+    Id toId() const;
+    Utf8String toUtf8String() const;
+    std::string rawString() const;
+    
+    bool startsWith(const Utf8String & str) const;
+
+    bool operator < (const ValueMapKey & other) const;
+    bool operator == (const ValueMapKey & other) const;
+
+private:
+    Utf8String str;
+    const char * utf8Start;
+    size_t utf8Len;
+};
+
+PREDECLARE_VALUE_DESCRIPTION(ValueMapKey);
+
+ValueMapKey stringToKey(const std::string & str, ValueMapKey *);
+std::string keyToString(const ValueMapKey & key);
+std::string keyToString(ValueMapKey && key);
+
+
+namespace MLDB {
+
+struct Function;
+struct MldbServer;
+struct FunctionOutput;
+struct SqlExpression;
+struct SqlRowExpression;
+struct ExpressionValueInfo;
+struct KnownColumn;
+
+typedef EntityType<Function> FunctionType;
+
+
+
+/*****************************************************************************/
+/* FUNCTION CONTEXT                                                          */
+/*****************************************************************************/
+
+/** Context for functions, containing the values that have been
+    set so far.
+*/
+
+struct FunctionContext {
+
+    /** Initialize by taking the named values set in the
+        other context and putting them into this context.
+    */
+    void initializeFrom(const FunctionContext & other);
+
+    ExpressionValue get(const Utf8String & name) const;
+
+    ExpressionValue getValueOrNull(const Utf8String & name) const;
+    ExpressionValue getValueOrNull(const ColumnName & name) const;
+    ExpressionValue getValueOrNull(const ValueMapKey & key) const;
+
+    /// Used to provide a reference to a missing value
+    static const ExpressionValue NONE;
+
+    const ExpressionValue * findValue(const Utf8String & name) const;
+    const ExpressionValue * findValue(const std::string & name) const;
+    const ExpressionValue * findValue(const char * name) const;
+    const ExpressionValue * findValue(const ColumnName & name) const;
+
+    template<typename Key>
+    const ExpressionValue & get(const Key & name, ExpressionValue & storage) const
+    {
+        auto p = findValue(name);
+        if (!p) return NONE;
+        return *p;
+    }
+
+    template<typename Key>
+    const ExpressionValue & mustGet(const Key & name, ExpressionValue & storage) const
+    {
+        auto p = findValue(name);
+        if (!p) return NONE;
+        return *p;
+    }
+    
+    ExpressionValue get(const std::string & name) const;
+
+    template<typename T>
+    T get(const Utf8String & name) const
+    {
+        return getTyped(name, (T *)0);
+    }
+
+    template<typename T>
+    T get(const std::string & name) const
+    {
+        return get<T>(Utf8String(name));
+    }
+
+    template<typename T>
+    T get(const char * name) const
+    {
+        return get<T>(Utf8String(name));
+    }
+
+    template<typename T>
+    T getTyped(const std::string & name, T * = 0) const
+    {
+        return getTyped(Utf8String(name), (T *)0);
+    }
+
+    CellValue getTyped(const Utf8String & name, CellValue * = 0) const;
+    ExpressionValue getTyped(const Utf8String & name, ExpressionValue * = 0) const;
+    RowValue getTyped(const Utf8String & name, RowValue * = 0) const;
+
+    CellValue getTyped(const std::string & name, CellValue * = 0) const
+    {
+        return getTyped(Utf8String(name), (CellValue *)0);
+    }
+    ExpressionValue getTyped(const std::string & name, ExpressionValue * = 0) const
+    {
+        return getTyped(Utf8String(name), (ExpressionValue *)0);
+    }
+    RowValue getTyped(const std::string & name, RowValue * = 0) const
+    {
+        return getTyped(Utf8String(name), (RowValue *)0);
+    }
+
+    void set(const Utf8String & name, const ExpressionValue & value)
+    {
+        values[name] = value;
+    }
+
+    void set(const std::string & name, const ExpressionValue & value)
+    {
+        set(Utf8String(name), value);
+    }
+
+    void set(const char * name, const ExpressionValue & value)
+    {
+        set(Utf8String(name), value);
+    }
+
+    template<typename Arg>
+    void setT(const std::string & name, const Arg & arg, Date ts)
+    {
+        set(Utf8String(name), ExpressionValue(arg, ts));
+    }
+
+    void update(const FunctionOutput & output);
+    void update(FunctionOutput && output);
+
+private:
+    std::map<ValueMapKey, ExpressionValue> values;
+    friend class FunctionContextDescription;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(FunctionContext);
+
+
+/*****************************************************************************/
+/* FUNCTION OUTPUT                                                           */
+/*****************************************************************************/
+
+struct FunctionOutput {
+    FunctionOutput()
+    {
+    }
+
+    // Only allow moving into the FunctionOutput structure
+    FunctionOutput(ExpressionValue val);
+    FunctionOutput & operator = (ExpressionValue val);
+
+    std::map<ValueMapKey, ExpressionValue> values;
+
+    /** Set a named value. */
+    void set(ValueMapKey key, ExpressionValue value);
+
+    void set(const Utf8String & name, ExpressionValue value)
+    {
+        set(ValueMapKey(name), std::move(value));
+    }
+
+    void set(const std::string & name, ExpressionValue value)
+    {
+        set(ValueMapKey(name), std::move(value));
+    }
+
+    void set(const char * name, ExpressionValue value)
+    {
+        set(ValueMapKey(name), std::move(value));
+    }
+
+    void set(const Id & name, ExpressionValue value)
+    {
+        set(ValueMapKey(name), std::move(value));
+    }
+
+    template<typename Arg>
+    void setT(const std::string & name, const Arg & arg, Date ts)
+    {
+        set(Utf8String(name), ExpressionValue(arg, ts));
+    }
+
+    void update(const FunctionOutput & output);
+    void update(FunctionOutput && output);
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(FunctionOutput);
+
+
+/*****************************************************************************/
+/* FUNCTION VALUE INFO                                                       */
+/*****************************************************************************/
+
+struct FunctionValueInfo {
+    FunctionValueInfo()
+    {
+    }
+
+    FunctionValueInfo(std::shared_ptr<ExpressionValueInfo> info)
+        : valueInfo(std::move(info))
+    {
+    }
+
+    /// Return the expression value info for a named value.  That describes how
+    /// we convert the Any into an ExpressionValue and what that object
+    /// looks like.
+    std::shared_ptr<ExpressionValueInfo> getExpressionValueInfo() const
+    {
+        return valueInfo;
+    }
+
+    /** These two named values are the same.  Merge them together and make sure that
+        they are compatible.
+    */
+    void merge(const FunctionValueInfo & other);
+
+    std::shared_ptr<ExpressionValueInfo> valueInfo;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(FunctionValueInfo);
+
+
+/*****************************************************************************/
+/* FUNCTION VALUES                                                           */
+/*****************************************************************************/
+
+/** This structure describes the types and range of named values in a function, 
+    both for input and for output.
+*/
+
+struct FunctionValues {
+    std::map<ValueMapKey, FunctionValueInfo> values;
+
+    FunctionValues()
+    {
+    }
+
+    /** Construct from the value info of something that returns a row. */
+    FunctionValues(const ExpressionValueInfo & rowInfo);
+
+    void addValue(const Utf8String & name,
+                std::shared_ptr<ExpressionValueInfo> info);
+    
+    /** Add a named value that has an embedding value (fixed length list of
+        real valued coordinates).
+    */
+    void addEmbeddingValue(const std::string & name,
+                         ssize_t numDimensions);
+
+    /** Add a named value that has a row value (key/value/timestamp tuples).  This
+        one is temporary and simply says that there is an open schema and
+        so all columns are known.
+    */
+    void addRowValue(const std::string & name);
+
+    /** Add a named value that has a row value (key/value/timestamp tuples) */
+    void addRowValue(const std::string & name,
+                   const std::vector<KnownColumn> & knownColumns,
+                   SchemaCompleteness completeness = SCHEMA_CLOSED);
+    
+    /** Add a named value that is an atom (null, number, string). */
+    void addAtomValue(const std::string & name);
+
+    /** Add a named value that is a floating point number. */
+    void addNumericValue(const std::string & name);
+
+    /** Return the value info for the given name. */
+    const FunctionValueInfo & getValueInfo(const Utf8String & name) const;
+
+    /** Check that this value is compatible as input to the other value.  Will
+        throw an exception if not.
+    */
+    void checkValueCompatibleAsInputTo(const Utf8String & otherName,
+                                     const FunctionValueInfo & otherValueInfo) const;
+
+    /** Check that the entire set of values is compatible as an input to the
+        function with the given input values requirements.
+    */
+    void checkCompatibleAsInputTo(const FunctionValues & expectedInput) const;
+
+    /** Merge the two together. */
+    void merge(const FunctionValues & other);
+
+    /** Convert to a row information object. */
+    std::shared_ptr<RowValueInfo> toRowInfo() const;
+
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(FunctionValues);
+
+
+/*****************************************************************************/
+/* FUNCTION INFO                                                             */
+/*****************************************************************************/
+
+/** A function is basically described by its input and its output values. */
+
+struct FunctionInfo {
+
+    /// Values that this function takes as an input
+    FunctionValues input;
+
+    /// Values that this function produces as an output
+    FunctionValues output;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(FunctionInfo);
+
+
+/*****************************************************************************/
+/* FUNCTION APPLIER                                                          */
+/*****************************************************************************/
+
+/** This is a structure that can apply a given function over a given set of
+    input data.
+
+    Functions may override to include extra information.
+*/
+
+struct FunctionApplier {
+    FunctionApplier(const Function * function = nullptr)
+        : function(function)
+    {
+    }
+
+    /** Virtual destructor is required so that derived classes will be properly
+        destroyed by a unique_ptr.
+    */
+    virtual ~FunctionApplier()
+    {
+    }
+    
+    const Function * function;  ///< Function to which this applies
+    FunctionInfo info;       ///< Information about the input and output of the applier
+
+    /// Apply the function to the given context
+    FunctionOutput apply(const FunctionContext & input) const;
+};
+
+
+/*****************************************************************************/
+/* FUNCTION                                                                  */
+/*****************************************************************************/
+
+/** This represents a function.
+
+    To use a function, you need to:
+
+    1.  Initialize it from its constructor.  This should load up all of its
+        resources, etc.
+    2.  Call bind() with the input that's going into the function to get an
+        applier, which is bound and optimized to work on the given structure
+        of input.
+    3.  Call the applier on each input context to get an output.
+*/
+
+struct Function: public MldbEntity {
+    Function(MldbServer * server);
+
+    virtual ~Function();
+
+    MldbServer * server;
+    
+    virtual Any getStatus() const = 0;
+
+    virtual std::string getKind() const
+    {
+        return "function";
+    }
+
+    /** Return details about the internal representation of the function.  This
+        can be verbose.  Default implementation returns nothing.
+    */
+    virtual Any getDetails() const;
+
+    /** Initialize a version of the function to operate based upon the given
+        input values.  This gives an opportunity to specialize the function
+        if the range or type of input values is more restricted than the
+        function usually works with.
+
+        Default will use getFunctionInfo(), for functions that don't specialize
+        at all based upon their input.
+    */
+    virtual std::unique_ptr<FunctionApplier>
+    bind(SqlBindingScope & outerContext,
+         const FunctionValues & input) const;
+
+    /** Return the input and the output expected by the function.  Every function
+        needs to be able to say what it expects; there is no such thing as
+        a function that will take "whatever comes in".
+    */
+    virtual FunctionInfo getFunctionInfo() const = 0;
+
+protected:
+    /** Used by the FunctionApplier to actually apply the function.  It allows
+        access to the information put in the applier by the bind()
+        method.
+    */
+    virtual FunctionOutput apply(const FunctionApplier & applier,
+                              const FunctionContext & context) const = 0;
+
+    friend class FunctionApplier;
+};
+
+
+/*****************************************************************************/
+/* SERIAL FUNCTION STEP CONFIG                                               */
+/*****************************************************************************/
+
+struct SerialFunctionStepConfig: public PolyConfigT<Function> {
+    SerialFunctionStepConfig();
+
+    SelectExpression with;      ///< Expression to set values of values for input
+    SelectExpression extract;   ///< Expression to set values of values for output
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(SerialFunctionStepConfig);
+
+
+/*****************************************************************************/
+/* SERIAL FUNCTION CONFIG                                                    */
+/*****************************************************************************/
+
+struct SerialFunctionConfig {
+    std::vector<SerialFunctionStepConfig> steps;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(SerialFunctionConfig);
+
+
+/** Used to apply a single function step (including a with and extract clause).
+ */
+struct FunctionStepApplier {
+    FunctionStepApplier(SqlBindingScope & outerContext,
+                        const FunctionValues & input,
+                        const Function & function,
+                        const SelectExpression & with,
+                        const SelectExpression & extract);
+
+    ~FunctionStepApplier();
+
+    FunctionStepApplier(FunctionStepApplier && other) = default;
+    FunctionStepApplier & operator= (FunctionStepApplier && other) = default;
+
+    /** Apply the function step to the given input, returning the output
+        values which will conform to getOutput().
+    */
+    FunctionOutput apply(const FunctionContext & input) const;
+
+    /** Return the description of the values that this will output when
+        applied.
+    */
+    const FunctionValues & getOutput() const;
+
+    const Function * function;
+    struct Itl;
+    std::unique_ptr<Itl> itl;
+};
+
+
+/*****************************************************************************/
+/* SERIAL FUNCTION                                                           */
+/*****************************************************************************/
+
+struct SerialFunction: public Function {
+    SerialFunction(MldbServer * owner,
+                PolyConfig config,
+                const std::function<bool (const Json::Value &)> & onProgress);
+    
+    struct Step {
+        Step(std::shared_ptr<Function> function,
+             SelectExpression with, SelectExpression extract)
+            : function(std::move(function)),
+              with(std::move(with)), extract(std::move(extract))
+        {
+        }
+        
+        std::shared_ptr<Function> function;
+        SelectExpression with;      ///< Expression to set values for input
+        SelectExpression extract;   ///< Expression to set values for output
+
+        /** Return the information about the input and output of this step,
+            including the with and extract clauses.
+        */
+        FunctionInfo getStepInfo() const;
+    };
+
+    /// Initialize programatically from a series of steps
+    SerialFunction(MldbServer * owner, std::vector<Step> steps);
+
+    /// Initialize programatically from empty.  Init must be called later.
+    SerialFunction(MldbServer * owner);
+
+    void init(std::vector<Step> steps);
+
+    SerialFunctionConfig functionConfig;
+    std::vector<Step> steps;
+
+    virtual std::unique_ptr<FunctionApplier>
+    bind(SqlBindingScope & outerContext,
+         const FunctionValues & input) const;
+
+    /** Used by the FunctionApplier to actually apply the function. */
+    virtual FunctionOutput apply(const FunctionApplier & applier,
+                              const FunctionContext & context) const;
+
+    virtual FunctionInfo getFunctionInfo() const;
+
+    virtual Any getStatus() const;
+};
+
+
+/*****************************************************************************/
+/* UTILITIES                                                                 */
+/*****************************************************************************/
+
+
+std::shared_ptr<Function>
+createFunction(MldbServer * server,
+               const PolyConfig & config,
+               const std::function<bool (const Json::Value & progress)> & onProgress,
+               bool overwrite);
+
+std::shared_ptr<Function>
+obtainFunction(MldbServer * server,
+               const PolyConfig & config,
+               const std::function<bool (const Json::Value & progress)> & onProgress
+                   = nullptr);
+
+DECLARE_STRUCTURE_DESCRIPTION_NAMED(FunctionPolyConfigDescription, PolyConfigT<Function>);
+
+std::shared_ptr<FunctionType>
+registerFunctionType(const Package & package,
+                     const Utf8String & name,
+                     const Utf8String & description,
+                     std::function<Function * (RestDirectory *,
+                                               PolyConfig,
+                                               const std::function<bool (const Json::Value)> &)>
+                     createEntity,
+                     TypeCustomRouteHandler docRoute,
+                     TypeCustomRouteHandler customRoute,
+                     std::shared_ptr<const ValueDescription> config,
+                     std::set<std::string> registryFlags);
+
+/** Register a new function kind.  This takes care of registering everything behind
+    the scenes.
+*/
+template<typename FunctionT, typename Config>
+std::shared_ptr<FunctionType>
+registerFunctionType(const Package & package,
+                     const Utf8String & name,
+                     const Utf8String & description,
+                     const Utf8String & docRoute,
+                     TypeCustomRouteHandler customRoute = nullptr,
+                     std::set<std::string> registryFlags = {})
+{
+    return registerFunctionType(package, name, description,
+                                [] (RestDirectory * server,
+                                    PolyConfig config,
+                                    const std::function<bool (const Json::Value)> & onProgress)
+                                {
+                                    return new FunctionT(FunctionT::getOwner(server), config, onProgress);
+                                },
+                                makeInternalDocRedirect(package, docRoute),
+                                customRoute,
+                                getDefaultDescriptionSharedT<Config>(),
+                                registryFlags);
+}
+
+template<typename FunctionT, typename Config>
+struct RegisterFunctionType {
+    RegisterFunctionType(const Package & package,
+                         const Utf8String & name,
+                         const Utf8String & description,
+                         const Utf8String & docRoute,
+                         TypeCustomRouteHandler customRoute = nullptr,
+                         std::set<std::string> registryFlags = {})
+    {
+        handle = registerFunctionType<FunctionT, Config>
+            (package, name, description, docRoute, customRoute,
+             registryFlags);
+    }
+
+    std::shared_ptr<FunctionType> handle;
+};
+
+} // namespace MLDB
+} // namespace Datacratic

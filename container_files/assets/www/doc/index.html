@@ -1,0 +1,30 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Frameset//EN"
+   "http://www.w3.org/TR/html4/frameset.dtd">
+<html>
+<head>
+    <title>MLDB Documentation</title>
+    <script src="/resources/js/jquery-1.11.2.min.js" type="text/javascript"></script>
+
+    <script type="text/javascript">
+        $(function(){
+            var defaultURL = window.location.hash.slice(1);
+            if(defaultURL == "") { defaultURL = "builtin/Overview.md.html"; }
+            $("#rh")
+                .attr("src", defaultURL)
+                .load(function(){
+                    if(history.replaceState) {
+                        history.replaceState(null, null, 
+                            '#'+this.contentWindow.location.pathname.replace(/^\/doc\//,""));
+                    }
+                });
+        });
+    </script>
+</head>
+<frameset cols="300, *">
+  <frame src="/doc/builtin/toc.md.html">
+  <frame id="rh" name="rh" src="builtin/Overview.md.html">
+  <noframes>
+      <p>This page requires frames</p>
+  </noframes>
+</frameset>
+</html>

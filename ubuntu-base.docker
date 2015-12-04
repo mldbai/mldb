@@ -1,0 +1,36 @@
+FROM phusion/baseimage:0.9.9
+
+# Get the latest packages
+RUN echo "deb http://archive.ubuntu.com/ubuntu precise main universe" > /etc/apt/sources.list
+RUN echo "deb http://security.ubuntu.com/ubuntu/ precise-security universe main multiverse restricted" >> /etc/apt/sources.list
+RUN echo "deb http://mirror.csclub.uwaterloo.ca/ubuntu/ precise-updates universe main multiverse restricted" >> /etc/apt/sources.list
+RUN echo "deb http://mirror.csclub.uwaterloo.ca/ubuntu/ precise-backports universe main multiverse restricted" >> /etc/apt/sources.list
+RUN apt-get update
+
+# We need to pass no-install-recommends to openjdk7 so that we don't
+# install fuse, which fails
+# https://github.com/khanio/docker-images/blob/master/precise-openjdk7/scripts/setup.sh
+RUN apt-get -y -f install --no-install-recommends ca-certificates-java tzdata-java openjdk-7-jre-headless openjdk-7-jre openjdk-7-jdk
+
+# Set up the correct JDK
+RUN update-alternatives --config java
+ENV JAVA_HOME /usr/lib/jvm/default-java
+
+# Install the rest of the packages
+RUN apt-get purge -y libcurl4-openssl-dev \
+    && apt-get install -y libbz2-dev \
+    liblzma-dev libcrypto++-dev libpqxx3-dev libicu-dev \
+    strace gdb linux-tools \
+    libgoogle-perftools-dev \
+    libACE-dev linux-tools uuid-dev liblapack-dev \
+    libblas-dev libevent-dev \
+    libcppunit-dev \
+    libfreetype6-dev libpng-dev \
+    libsigc++-2.0-dev \
+    libcairo2-dev libcairomm-1.0-dev python-virtualenv \
+    libidn11 librtmp0 sudo bash
+
+# Clean up APT when done
+RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+#git-core g++ scons emacs ccache make gdb time automake libtool autoconf bash-completion google-perftools valgrind gfortran flex bison pkg-config python-numpy python-numpy-dev python-matplotlib doxygen python-dev python-tk tk-dev python-virtualenv rake ipmitool mm-common gdb linux-tools ant python-setuptools

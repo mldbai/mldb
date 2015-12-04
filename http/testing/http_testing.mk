@@ -1,0 +1,21 @@
+# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+
+$(eval $(call test,http_header_test,http,boost manual))
+$(eval $(call test,MLDB-1016-http-connection-overflow,http,boost))
+$(eval $(call test,http_parsers_test,http,boost valgrind))
+$(eval $(call test,tcp_acceptor_test+http,http,boost))
+$(eval $(call test,tcp_acceptor_threaded_test+http,http,boost))
+$(eval $(call program,http_service_bench,boost_program_options http))
+$(eval $(call test,logs_test,http,boost))
+
+
+
+# The following tests needs to be adapted to the new network code:
+# $(eval $(call test,endpoint_unit_test,http,boost))
+# $(eval $(call test,test_active_endpoint_nothing_listening,http,boost manual))
+# $(eval $(call test,test_active_endpoint_not_responding,http,boost manual))
+# $(eval $(call test,test_endpoint_ping_pong,http,boost manual))
+# $(eval $(call test,test_endpoint_connection_speed,http,boost manual))
+# $(eval $(call test,test_endpoint_accept_speed,http,boost))
+# $(eval $(call test,endpoint_closed_connection_test,http,boost))
+# $(eval $(call test,http_long_header_test,http,boost manual))

@@ -1,0 +1,47 @@
+// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+
+/**
+ * bucketize_procedure.h
+ * Mich, 2015-10-27
+ * Copyright (c) 2015 Datacratic Inc. All rights reserved.
+ **/
+
+#pragma once
+#include "mldb/server/procedure.h"
+#include "mldb/server/function.h"
+#include "mldb/server/dataset.h"
+#include "mldb/sql/sql_expression.h"
+
+namespace Datacratic {
+namespace MLDB {
+
+struct BucketizeProcedureConfig : ProcedureConfig {
+    BucketizeProcedureConfig();
+    std::shared_ptr<TableExpression> inputDataset;
+    PolyConfigT<Dataset> outputDataset;
+    OrderByExpression orderBy;
+    WhenExpression when;
+    std::shared_ptr<SqlExpression> where;
+    std::map<std::string, std::pair<float, float>> percentileBuckets;
+};
+DECLARE_STRUCTURE_DESCRIPTION(BucketizeProcedureConfig);
+
+struct BucketizeProcedure: public Procedure {
+
+    BucketizeProcedure(
+        MldbServer * owner,
+        PolyConfig config,
+        const std::function<bool (const Json::Value &)> & onProgress);
+
+    virtual RunOutput run(
+        const ProcedureRunConfig & run,
+        const std::function<bool (const Json::Value &)> & onProgress) const;
+
+    virtual Any getStatus() const;
+
+    BucketizeProcedureConfig procedureConfig;
+};
+
+} // namespace MLDB
+} // namespace Datacratic
+

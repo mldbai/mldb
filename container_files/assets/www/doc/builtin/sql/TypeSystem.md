@@ -1,0 +1,84 @@
+# MLDB Type System
+
+This page describes the type system MLDB uses to store and process data.
+
+## Atomic types
+
+MLDB's atomic types are the following:
+
+- A null value
+    - Null values can appear in queries as `null` (case-insensitive)
+- An integer, which can take any value of a signed or unsigned 64 bit integer
+    - Integers can appear in queries directly i.e. `1` or `-3`
+- A double precision floating point value, including infinity, negative infinity
+and NaN
+    - Doubles can appear in queries directly, optionally in exponential notation: `12.2`, `1.22e1`, `inf`, `nan` (case-insensitive)
+- A string, which is any UTF8 encoded sequence of characters.
+    - String literals can appear in queries surrounded in single-quote characters (i.e. `'`). Single-quote characters within string literals must be doubled (i.e. `''`). Strings are *always* encoded as UTF-8 Unicode characters.
+- A timestamp, which is a point in time that is independent of any timezone.  It is
+internally represented as the number of seconds since the 1st of January, 1970,
+at GMT.
+    - Timestamps do not have a literal representation in queries, but can be created with the `to_timestamp()` function (see [Builtin Functions](ValueExpressions.md)).
+- A time interval, which is a difference between two timestamps.  It is
+internally represented as three fields expressing months, days, and seconds.
+    - Time intervals do not have a literal representation in queries, but can be created using the `INTERVAL` keyword (see [Expressing Time Intervals](ValueExpressions.md)).
+
+These types are used in different ways, depending upon whether they are stored
+in a dataset or processed as part of an expression.
+
+## Complex types
+
+Within SQL expressions and functions, the type system is more sophisticated.  In
+addition to the types mentioned above, the following are permitted:
+
+- Rows, which model the row of a dataset.  They are a set of
+(column, value, timestamp) tuples where each value is either an atomic type or a complex type.
+    - Rows can appear as literals in queries as [Select Expressions](SelectExpression.md) surrounded by curly braces (i.e. `{ }`). For example `{1 as x, 'a' as y}` or the equivalent `{x: 1, y: 'a'}`.
+- Embeddings, which model coordinates in a multi dimensional space.  They
+are a fixed length list of floating point numbers.
+    - Embeddings can appear as literals in queries as comma-delimited [Value Expressions](ValueExpression.md) surrounded by square brackets (i.e. `[ ]`). For example `[1, 2, 3]`.
+
+When comparing rows, MLDB first sorts the columns by name and performs a lexicographical comparison of the column's names and values.
+To illustrate this, consider these rows:
+
+| id |  row | 
+| ----- | --- |
+| id_1   | { python : 1, java : 1, c++ : 3 } | 
+| id_2   | { scala : 4, java : 3, c++ : 1 } |
+| id_3   | { python : 1, ada : 2 } |
+
+The rows are ordered in this way by MLDB when doing comparison:
+
+| id |  row | 
+| ----- | --- |
+| id_3   | { ada : 2, python : 1 } |
+| id_2   | { c++ : 1, java : 3, scala : 4 } |
+| id_1   | { c++ : 3, java : 1, python : 1 } | 
+
+Similarly, MLDB uses embedding's values to lexicographical order embeddings.
+
+### Complex type flattening
+
+When a complex type is returned as part of an SQL query result or stored in a dataset, it is flattened into a set of columns with atomic values.
+
+**Rows** are flattened column by column into the parent row with their existing name, either unprefixed if using the query syntax `as *` or prefixed with `<prefix>.` if using the query syntax `as <prefix>`. 
+
+For example, `select {x: 1, y: 2} as output, {x: 3, y: 4} as *` yields 
+
+```
+ output.x    output.y    x   y
+----------  ----------  --- ---
+     1           2       3   4
+```
+
+**Embeddings** are flattened by creating one column per value, with
+the name being an incrementing 6-digit integer from 000000 upwards, prefixed with `<prefix>.` if using the query syntax `as <prefix>`, otherwise a prefix will be automatically generated. 
+
+For example, `select [1,2] as x` yields
+
+```
+ x.000000    x.000001 
+----------  ----------
+     4           6
+```
+

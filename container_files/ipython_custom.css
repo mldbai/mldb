@@ -1,0 +1,21 @@
+@import url(http://fonts.googleapis.com/css?family=Roboto:400,700|Roboto+Slab:400,700);
+
+.rendered_html p, .rendered_html li {
+    font-family: 'Roboto'; 
+    font-size: 18px;
+    line-height: 1.6;
+}
+
+.rendered_html p {
+    padding-bottom: 10px;
+}
+
+.rendered_html h1, .rendered_html h2, .rendered_html h3, .rendered_html h4 {
+    font-family: 'Roboto Slab';
+    padding-bottom: 10px;
+}
+
+a, .rendered_html a pre, .rendered_html a code {
+    color:#3A62AD;
+}
+

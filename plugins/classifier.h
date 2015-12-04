@@ -1,0 +1,209 @@
+// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+
+/** classifier.h                                                   -*- C++ -*-
+    Jeremy Barnes, 22 January 2015
+    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+    Classifier procedure and functions.
+*/
+
+#pragma once
+
+#include "mldb/server/dataset.h"
+#include "mldb/server/procedure.h"
+#include "mldb/server/algorithm.h"
+#include "mldb/server/function.h"
+#include "matrix.h"
+#include "mldb/types/value_description_fwd.h"
+#include "mldb/ml/jml/feature_info.h"
+
+namespace ML {
+struct Mutable_Feature_Set;
+struct Classifier_Impl;
+} // namespace ML
+
+namespace Datacratic {
+namespace MLDB {
+
+
+class SqlExpression;
+
+enum ClassifierMode {
+    CM_REGRESSION,
+    CM_BOOLEAN,
+    CM_CATEGORICAL
+};
+
+DECLARE_ENUM_DESCRIPTION(ClassifierMode);
+
+struct ClassifierConfig : public ProcedureConfig {
+    ClassifierConfig()
+        : select(SelectExpression::STAR),
+          when(WhenExpression::TRUE),
+          where(SqlExpression::TRUE),
+          weight(SqlExpression::ONE),
+          orderBy(OrderByExpression::ROWHASH),
+          offset(0), limit(-1),
+          equalizationFactor(0.0),
+          mode(CM_BOOLEAN)
+    {
+    }
+
+    /// Dataset for training data
+    std::shared_ptr<TableExpression> dataset;
+
+    /// The SELECT clause to tell us which features to keep
+    SelectExpression select;
+
+    /// The WHEN clause for the timespan tuples must belong to
+    WhenExpression when;
+
+    /// The WHERE clause for which rows to include from the dataset
+    std::shared_ptr<SqlExpression> where;
+
+    /// The expression to generate the label
+    std::shared_ptr<SqlExpression> label;
+
+    /// The expression to generate the weight
+    std::shared_ptr<SqlExpression> weight;
+
+    /// How to order the rows when using an offset and a limit
+    OrderByExpression orderBy;
+
+    /// Where to start running
+    ssize_t offset;
+
+    /// Maximum number of rows to use
+    ssize_t limit;
+
+    /// Where to save the classifier to
+    Url modelFileUrl;
+
+    /// Configuration of the algorithm.  If empty, the configurationFile
+    /// will be used instead.
+    Json::Value configuration;
+
+    /// Filename to load algorithm configuration from.  Default is an
+    /// inbuilt file with a few basic configurations.
+    std::string configurationFile;
+
+    /// Classifier algorithm to use from configuration file.  Default is
+    /// the empty string, ie the root object.
+    std::string algorithm;
+
+    /// Equalization factor for rare classes.  Affects the weighting.
+    double equalizationFactor;
+
+    /// What mode to run in
+    ClassifierMode mode;
+
+    // Function name
+    Utf8String functionName;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(ClassifierConfig);
+
+
+/*****************************************************************************/
+/* CLASSIFIER PROCEDURE                                                       */
+/*****************************************************************************/
+
+struct ClassifierProcedure: public Procedure {
+
+    ClassifierProcedure(MldbServer * owner,
+                PolyConfig config,
+                const std::function<bool (const Json::Value &)> & onProgress);
+
+    virtual RunOutput run(const ProcedureRunConfig & run,
+                          const std::function<bool (const Json::Value &)> & onProgress) const;
+
+    virtual Any getStatus() const;
+
+    ClassifierConfig procedureConfig;
+};
+
+
+/*****************************************************************************/
+/* CLASSIFY FUNCTION                                                         */
+/*****************************************************************************/
+
+struct ClassifyFunctionConfig {
+    ClassifyFunctionConfig(const Url & modelFileUrl = Url())
+        : modelFileUrl(modelFileUrl)
+    {
+    }
+
+    Url modelFileUrl;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(ClassifyFunctionConfig);
+
+struct ClassifyFunction: public Function {
+    ClassifyFunction(MldbServer * owner,
+                  PolyConfig config,
+                  const std::function<bool (const Json::Value &)> & onProgress);
+
+    // Construct programatically from a ML::Classifier_Impl
+    ClassifyFunction(MldbServer * owner,
+                  std::shared_ptr<ML::Classifier_Impl> classifier,
+                  const std::string & labelFeatureName);
+    
+    ~ClassifyFunction();
+
+    virtual Any getStatus() const;
+
+    virtual Any getDetails() const;
+
+    // The classify function needs to be able to bind so an optimized classifier
+    // can be produced.
+    virtual std::unique_ptr<FunctionApplier>
+    bind(SqlBindingScope & outerContext,
+         const FunctionValues & input) const;
+
+    virtual FunctionOutput apply(const FunctionApplier & applier,
+                              const FunctionContext & context) const;
+
+    /** Describe what the input and output is for this function. */
+    virtual FunctionInfo getFunctionInfo() const;
+
+    /** Return the feature set for the given function context.  If
+        returnDense is true, then it will attempt to return an optimized
+        (dense) feature vector.
+
+        The first result is the optimized (dense) vector.
+        The second result is the sparse feature vector (if the first result is
+        empty).
+        The third result is the timestamp that should apply to the feature
+        set as a whole.
+    */
+    std::tuple<std::vector<float>, std::shared_ptr<ML::Mutable_Feature_Set>, Date>
+    getFeatureSet(const FunctionContext & context, bool returnDense) const;
+
+    //Classifier classifier;
+    ClassifyFunctionConfig functionConfig;
+
+    struct Itl;
+    std::shared_ptr<Itl> itl;
+};
+
+/*****************************************************************************/
+/* EXPLAIN CLASSIFY FUNCTION                                                    */
+/*****************************************************************************/
+
+struct ExplainFunction: public ClassifyFunction {
+    ExplainFunction(MldbServer * owner,
+                  PolyConfig config,
+                  const std::function<bool (const Json::Value &)> & onProgress);
+    
+    ~ExplainFunction();
+
+    virtual FunctionOutput apply(const FunctionApplier & applier,
+                              const FunctionContext & context) const;
+
+    /** Describe what the input and output is for this function. */
+    virtual FunctionInfo getFunctionInfo() const;
+};
+
+
+} // namespace MLDB
+} // namespace Datacratic
