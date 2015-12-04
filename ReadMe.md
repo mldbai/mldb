@@ -116,6 +116,7 @@ The `mldb` docker is built on top of a few base images:
   - `quay.io/datacratic/baseimage:0.9.17`
 
 Some warnings:
+* you will not be able to push to quay.io/datacratic unless you are a Datacratic employee
 * if you need to rebuild a layer, you must rebuild all layers which depend on it. (all the ones above it)
 * the build is done from the top level of the mldb repo
 * The build process will build whatever is in the current workspace.
@@ -125,13 +126,6 @@ Some warnings:
 
 
 ### `quay.io/datacratic/mldb_base`
-
-----
-
-*All files related to this layer live in the [datacratic/mldb_base](https://github.com/datacratic/mldb_base)* **PUBLIC git repo**.
-Keep that in mind when modifying its contents.
-
-----
 
 This layer is built on top of `baseimage`, it contains all the required system packages and python modules to run the `mldb` layer.
 A change to any of these would require a rebuild of this image:
@@ -152,8 +146,6 @@ docker push quay.io/datacratic/mldb_base:14.04
 The script used to build this layer is `mldb_base/docker_create_mldb_base.sh`
 
 A few things to keep in mind when editing/running the script:
-
-* All these steps are _PUBLIC_. They are accessible on quay.io, so don't put private stuff in there.
 
 Some switches are available if you need to do a custom build of that layer for some reason:
 
