@@ -1,3 +1,4 @@
+# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
 # this script should create an assertion error when training the t-SNE
 

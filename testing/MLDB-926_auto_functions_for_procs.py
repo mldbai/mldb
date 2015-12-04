@@ -1,3 +1,4 @@
+# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
 #####
 #   Test if all procedures,s functionName parameter works correctly

@@ -1,3 +1,5 @@
+# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+
 /* Example script to import a recipe dataset and run an example */
 
 function createDataset()

@@ -1,3 +1,5 @@
+# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+
 // See MLDB-119
 // Selecting no columns should cause a failure
 
