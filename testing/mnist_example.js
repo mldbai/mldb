@@ -1,3 +1,5 @@
+// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+
 /* Example script to import mnist and run an example */
 
 // Last line of file is the result of the script

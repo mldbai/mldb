@@ -2683,10 +2683,10 @@ SelectExpression::
 parse(const std::string & expr,
       const std::string & filename, int row, int col)
 {
-     SelectExpression result
-         = SqlRowExpression::parseList(expr, filename, row, col);
-     result.surface = expr;
-     return result;
+    SelectExpression result
+        = SqlRowExpression::parseList(expr, filename, row, col);
+    result.surface = expr;
+    return result;
 }
 
 SelectExpression
@@ -2702,10 +2702,10 @@ SelectExpression::
 parse(const Utf8String & expr,
       const std::string & filename, int row, int col)
 {
-     SelectExpression result
-         = SqlRowExpression::parseList(expr, filename, row, col);
-     result.surface = expr;
-     return result;
+    SelectExpression result
+        = SqlRowExpression::parseList(expr, filename, row, col);
+    result.surface = expr;
+    return result;
 }
 
 BoundSqlExpression
