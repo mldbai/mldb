@@ -78,34 +78,36 @@ getCredential(const std::string & resourceType,
 
     for (auto it = providers.begin(), end = providers.end();
          it != end;  ++it) {
-        cerr << "testing " << it->first << " against " << resourceType
-             << " " << resource << endl;
+        // cerr << "testing " << it->first << " against " << resourceType
+        //     << " " << resource << endl;
         if (resourceType.find(it->first) != 0)
             break;  // not a prefix
-        cerr << "FOUND" << endl;
+        // cerr << "FOUND" << endl;
 
         auto creds = it->second->getSync(resourceType, resource, context,
                                          extraData);
         if (!creds.empty()) {
-            cerr << "credentials for " << resourceType << " " << resource
-                 << " are " << endl << jsonEncode(creds[0]) << endl;
+            /**** THIS WILL OUTPUT CREDENTIALS IN CLEAR - KEEP COMMENTED OUT EXCEPT WHEN DEBUGGING ****/
+            // cerr << "credentials for " << resourceType << " " << resource
+            //      << " are " << endl << jsonEncode(creds[0]) << endl;
             return creds[0];
         }
     }
 
     for (auto it = providers.lower_bound(resourceType);  it != providers.end();
            ++it) {
-        cerr << "testing " << it->first << " against " << resourceType
-             << endl;
+        // cerr << "testing " << it->first << " against " << resourceType
+        //     << endl;
         if (resourceType.find(it->first) != 0)
             break;  // not a prefix
-        cerr << "FOUND" << endl;
+        // cerr << "FOUND" << endl;
 
         auto creds = it->second->getSync(resourceType, resource, context,
                                          extraData);
         if (!creds.empty()) {
-            cerr << "credentials for " << resourceType << " " << resource
-                 << " are " << endl << jsonEncode(creds[0]) << endl;
+             /**** THIS WILL OUTPUT CREDENTIALS IN CLEAR - KEEP COMMENTED OUT EXCEPT WHEN DEBUGGING ****/
+            // cerr << "credentials for " << resourceType << " " << resource
+            //      << " are " << endl << jsonEncode(creds[0]) << endl;
             return creds[0];
         }
     }
