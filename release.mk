@@ -66,25 +66,10 @@ docker_mldb: \
 	DOCKER_POST_INSTALL_SCRIPT=mldb/container_files/docker_post_install.sh $(RUN_STRIP)
 
 mldb_base:
-	./mldb_base/docker_create_mldb_base.sh -w https://wheelhouse.datacratic.com/public/ubuntu/trusty/x86_64 $(IMG_NAME)
+	./mldb/mldb_base/docker_create_mldb_base.sh -w https://wheelhouse.datacratic.com/public/ubuntu/trusty/x86_64 $(IMG_NAME)
 .PHONY: mldb_base
 
 baseimage:
-	(cd baseimage-docker && make build NAME=quay.io/datacratic/baseimage)
-
-pymldb_pkg:
-	@rm -f pymldb/dist/* || true
-	(cd pymldb && ../$(PYTHON) setup.py sdist)
-	(cd pymldb && ../$(PYTHON) setup.py bdist_wheel)
-
-pymldb_upload:
-	$(VIRTUALENV)/bin/twine upload -u mldb.ai pymldb/dist/pymldb*
-
-it:
-	$(eval IT=1)
-	@true
-so:
-	$(if $(IT),@echo "CiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIF9fX19fLi4tLS09PT09PT09PSsqKz09PT09PT09PT0tLS0uLl9fX19fCiBfX19fX19fX19fX19fX19fX19fX19fIF9fLC09Jz09PT09X19fXyAgPT09PT09PT09PT09PT09PT09PSBfX19fXz09PT09YD0KKC5fX19fX19fX19fX19fX19fX19fX19JX18pIC0gXy09Xy8gICAgYC0tLS0tLS0tLT0rPS0tLS0tLS0tJwogICAgLyAgICAgIC9fXy4uLi0tLT09PT0nLS0tKy0tLV8nCiAgICctLS0tLS0nLS0tLl9fXyAtICBfID0gICBfLi0nICAgICAgICAgICAgIFdhcnAgOSwgRW5nYWdlIQogICAgICAgICAgICAgICAgICBgLS0tLS0tLS0nCgo=" | base64 -d)
-.PHONY: it so
+	(cd mldb/baseimage-docker && make build NAME=quay.io/datacratic/baseimage)
 
 endif
