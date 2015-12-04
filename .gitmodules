@@ -1,0 +1,3 @@
+[submodule "baseimage-docker"]
+	path = baseimage-docker
+	url = git@github.com:datacratic/baseimage-docker.git
