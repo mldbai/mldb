@@ -1,5 +1,3 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* Example script to import a recipe dataset and run an example */
 
 function createDataset()
@@ -131,7 +129,7 @@ createAndTrainProcedure(svdConfig, 'recipes_svd');
 var kmeansConfig = {
     "type": "kmeans.train",
     "params": {
-        "trainingDataset": {"id":"recipes_svd"},
+        "trainingData": "select * from recipes_svd",
         "outputDataset": {"id" : "recipes_svd_kmeans",
                    "type" : "embedding" },
         "centroidsDataset": {"id" : "recipes_svd_kmeans_centroids",

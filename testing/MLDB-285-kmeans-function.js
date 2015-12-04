@@ -1,5 +1,3 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* Example script to import a reddit dataset and run an example */
 
 function assert(expr, msg)
@@ -58,10 +56,9 @@ var kmeansConfig = {
     params: {
         numClusters: 2,
         metric: "euclidean",
-        trainingDataset: { "id": "gaussian" },
+        trainingData: "select * from gaussian",
         outputDataset: { "id": "kmeans_output", type: "embedding" },
-        centroidsDataset: { "id": "kmeans_centroids", type: "embedding" },
-        select: "*"
+        centroidsDataset: { "id": "kmeans_centroids", type: "embedding" }
     }
 };
 

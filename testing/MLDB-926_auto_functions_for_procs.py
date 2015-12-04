@@ -1,5 +1,3 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 
 #####
 #   Test if all procedures,s functionName parameter works correctly
@@ -72,9 +70,8 @@ doChecks(conf)
 conf = {
     "type": "kmeans.train",
     "params": {
-        "trainingDataset": "toy",
+        "trainingData": "select * excluding(label) from toy",
         "centroidsDataset": {"id": "kmean_out", "type": "sparse.mutable" },
-        "select": "* EXCLUDING(label)",
         "functionName": "kmeans_func"
     }
 }

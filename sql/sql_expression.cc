@@ -1,5 +1,4 @@
 // This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** sql_expression.cc
     Jeremy Barnes, 24 January 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
@@ -1891,7 +1890,7 @@ parse(ML::Parse_Context & context, bool allowUtf8)
                     token.ignore();
 
                     auto result = std::make_shared<WildcardExpression>(tableName, prefix, prefixAs, exclusions);
-                    result->surface = capture.captured();
+                    result->surface = boost::trim_copy(capture.captured());
                     return result;
                 }
             }
@@ -2025,7 +2024,7 @@ parse(ML::Parse_Context & context, bool allowUtf8)
         else prefixAs = prefix;
 
         auto result = std::make_shared<WildcardExpression>(tableName, prefix, prefixAs, exclusions);
-        result->surface = capture.captured();
+        result->surface = boost::trim_copy(capture.captured());
         return result;
     }
 
@@ -2095,7 +2094,6 @@ parseList(ML::Parse_Context & context, bool allowUtf8)
         auto expr = SqlRowExpression::parse(context, allowUtf8);
         if (!expr)
             break;
-
         result.push_back(expr);
 
         skip_whitespace(context);
@@ -2669,7 +2667,15 @@ SelectExpression
 SelectExpression::
 parse(ML::Parse_Context & context, bool allowUtf8)
 {
-    return SqlRowExpression::parseList(context, allowUtf8);
+    SelectExpression result
+        = SqlRowExpression::parseList(context, allowUtf8);
+    // concatenate all the surfaces with spaces
+    result.surface = std::accumulate(result.clauses.begin(), result.clauses.end(), Utf8String{},
+                                     [](const Utf8String & prefix,
+                                        std::shared_ptr<SqlRowExpression> & next) {
+                                         return prefix.empty() ? next->surface : prefix + ", " + next->surface;
+                                     });;
+    return result;
 }
 
 SelectExpression
@@ -2677,10 +2683,10 @@ SelectExpression::
 parse(const std::string & expr,
       const std::string & filename, int row, int col)
 {
-    SelectExpression result
-        = SqlRowExpression::parseList(expr, filename, row, col);
-    result.surface = expr;
-    return result;
+     SelectExpression result
+         = SqlRowExpression::parseList(expr, filename, row, col);
+     result.surface = expr;
+     return result;
 }
 
 SelectExpression
@@ -2696,10 +2702,10 @@ SelectExpression::
 parse(const Utf8String & expr,
       const std::string & filename, int row, int col)
 {
-    SelectExpression result
-        = SqlRowExpression::parseList(expr, filename, row, col);
-    result.surface = expr;
-    return result;
+     SelectExpression result
+         = SqlRowExpression::parseList(expr, filename, row, col);
+     result.surface = expr;
+     return result;
 }
 
 BoundSqlExpression
@@ -3353,6 +3359,19 @@ printJsonTyped(const WhenExpression * val,
 /* SELECT STATEMENT                                                           */
 /******************************************************************************/
 
+SelectStatement::
+SelectStatement() :
+    select(SelectExpression::STAR),
+    when(WhenExpression::TRUE),
+    where(SelectExpression::TRUE),
+    having(SelectExpression::TRUE),
+    rowName(SqlExpression::parse("rowName()")),
+    offset(0),
+    limit(-1)
+{
+    //TODO - avoid duplication of default values
+}
+
 SelectStatement
 SelectStatement::
 parse(const Utf8String& body)
@@ -3473,6 +3492,7 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
 
 DEFINE_STRUCTURE_DESCRIPTION(SelectStatement);
 
+
 SelectStatementDescription::
 SelectStatementDescription()
 {
@@ -3486,6 +3506,58 @@ SelectStatementDescription()
     addField("having",  &SelectStatement::having,  "HAVING clause");
     addField("offset",  &SelectStatement::offset,  "OFFSET clause", (ssize_t)0);
     addField("limit",   &SelectStatement::limit,   "LIMIT clause", (ssize_t)-1);
+}
+
+struct InputDataSpecDescription
+    : public ValueDescriptionT<InputDataSpec> {
+
+    InputDataSpecDescription();
+
+    virtual void parseJsonTyped(InputDataSpec * val,
+                                JsonParsingContext & context) const;
+
+    virtual void printJsonTyped(const InputDataSpec * val,
+                                JsonPrintingContext & context) const;
+};
+
+void
+InputDataSpecDescription::
+parseJsonTyped(InputDataSpec * val,
+               JsonParsingContext & context) const
+{
+    if (context.isString())
+        val->stm = make_shared<SelectStatement>(SelectStatement::parse(context.expectStringUtf8()));
+    else if (context.isObject()) {
+        Json::Value v = context.expectJson();
+        //        val->stm.reset(new DatasetSelectStatement(v));
+        SelectStatement stm;
+        SelectStatementDescription desc;
+        desc.parseJson(&stm, context);
+        val->stm = make_shared<SelectStatement>(std::move(stm));
+        val->stm->surface = v.toStringNoNewLine();
+    }
+}
+ 
+void
+InputDataSpecDescription::
+printJsonTyped(const InputDataSpec * val,
+               JsonPrintingContext & context) const
+{
+    if (!val->stm)
+        context.writeNull();
+    else {
+        SelectStatementDescription desc;
+        desc.printJsonTyped(val->stm.get(), context);
+    }
+}
+
+DEFINE_VALUE_DESCRIPTION_NS(InputDataSpec, InputDataSpecDescription);
+
+InputDataSpecDescription::
+InputDataSpecDescription()
+{
+    setTypeName("InputDataSpec");
+    documentationUri = "/doc/builtin/procedures/InputDatasetSpec.md";
 }
 
 } // namespace MLDB

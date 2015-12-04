@@ -1,5 +1,3 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 // See MLDB-119
 // Selecting no columns should cause a failure
 
@@ -16,9 +14,7 @@ dataset.commit();
 var kmeansConfig = {
     type: "kmeans.train",
     params: {
-        trainingDataset: { "id": "ds1" },
-        select: "bonus*",
-        where: "true"
+        trainingData: "select bonus* from ds1",
     }
 };
 

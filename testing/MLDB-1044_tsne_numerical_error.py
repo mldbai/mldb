@@ -1,5 +1,3 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 
 # this script should create an assertion error when training the t-SNE
 
@@ -51,7 +49,7 @@ assert rez["statusCode"] == 201
 conf = {
     "type" : "kmeans.train",
     "params" : {
-        "trainingDataset" : {"id" : "first_party_svd_embedded"},
+        "trainingData" : "select * from first_party_svd_embedded",
         "outputDataset" : {"id" : "first_party_kmeans_clusters", "type" : "embedding" },
         "numClusters" : 5
     }

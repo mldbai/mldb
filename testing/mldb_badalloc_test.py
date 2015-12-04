@@ -1,5 +1,3 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 import gzip, datetime
 
 #####
@@ -89,7 +87,7 @@ print mldb.perform("PUT", "/v1/procedures/receipes_svd/runs/1", [], {})
 kmeanConfig = {
     "type": "kmeans.train",
     "params": {
-        "trainingDataset": {"id":"receipes_svd"},
+        "trainingData": "select * from receipes_svd",
         "outputDataset": {"id" : "receipes_svd_kmeans",
                    "type" : "beh.mutable",
                    "address" : "receipes_svd_kmeans.beh.gz"},

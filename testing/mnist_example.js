@@ -1,5 +1,3 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* Example script to import mnist and run an example */
 
 // Last line of file is the result of the script
@@ -176,10 +174,8 @@ if (trainKmeans) {
     var kmeansConfig = {
         type: "kmeans.train",
         params: {
-            trainingDataset: { "id": "svd_row_output" },
-            outputDataset: { "id": "kmeans_row_output", type: "embedding" },
-            select: "svd*",
-            where: "true"
+            trainingData: "select svd* from svd_row_output" },
+            outputDataset: { "id": "kmeans_row_output", type: "embedding" }
         }
     };
 

@@ -1,5 +1,4 @@
 // This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** kmeans.cc
     Jeremy Barnes, 16 December 2014
     Copyright (c) 2014 Datacratic Inc.  All rights reserved.
@@ -43,11 +42,8 @@ KmeansConfigDescription()
     optional.emplace(PolyConfigT<Dataset>().
                      withType(KmeansConfig::defaultOutputDatasetType));
     
-    addFieldDesc("trainingDataset", &KmeansConfig::dataset,
-                 "Dataset provided for input to the k-means procedure.  This should be "
-                 "organized as an embedding, with each selected row containing the same "
-                 "set of columns with numeric values to be used as coordinates.",
-                 makeInputDatasetDescription());
+    addField("trainingData", &KmeansConfig::trainingData,
+             "TBD ");
     addField("outputDataset", &KmeansConfig::output,
              "Dataset for cluster assignment.  This dataset will contain the same "
              "row names as the input dataset, but the coordinates will be replaced "
@@ -59,30 +55,6 @@ KmeansConfigDescription()
              "dataset, but will have one row per cluster, providing the centroid of "
              "the cluster.",
              PolyConfigT<Dataset>().withType("embedding"));
-    addField("select", &KmeansConfig::select,
-             "Columns to select from the input matrix for the coordinates to input "
-             "into k-means training.  The selected columns must be finite numbers "
-             "and must not have missing values.",
-             SelectExpression("*"));
-    addField("when", &KmeansConfig::when,
-             "Boolean expression determining which tuples from the dataset "
-             "to keep based on their timestamps",
-             WhenExpression::parse("true"));
-    addField("where", &KmeansConfig::where,
-             "Rows to select for k-means training.  This expression allows a subset "
-             "of the rows that were input to the training process to be selected.",
-             SqlExpression::parse("true"));
-    addField("orderBy", &KmeansConfig::orderBy,
-             "How to order the rows.  This only has an effect when OFFSET "
-             "or LIMIT are used.  Default is to order by rowHash.",
-             OrderByExpression::ROWHASH);
-    addField("offset", &KmeansConfig::offset,
-             "How many rows to skip before using data",
-             ssize_t(0));
-    addField("limit", &KmeansConfig::limit,
-             "How many rows of data to use.  -1 (the default) means use all "
-             "of the rows in the dataset.",
-             ssize_t(-1));
     addField("numInputDimensions", &KmeansConfig::numInputDimensions,
              "Number of dimensions from the input to use (-1 = all).  This limits "
              "the number of columns used.  Columns will be ordered alphabetically "
@@ -163,17 +135,9 @@ run(const ProcedureRunConfig & run,
 
     SqlExpressionMldbContext context(server);
 
-    auto boundDataset = runProcConf.dataset->bind(context);
-
-    auto embeddingOutput = getEmbedding(runProcConf.select,
-                                        *boundDataset.dataset,
-                                        boundDataset.asName, 
-                                        runProcConf.when,
-                                        runProcConf.where, {},
+    auto embeddingOutput = getEmbedding(*runProcConf.trainingData.stm,
+                                        context,
                                         runProcConf.numInputDimensions,
-                                        runProcConf.orderBy,
-                                        runProcConf.offset,
-                                        runProcConf.limit,
                                         onProgress2);
 
     std::vector<std::tuple<RowHash, RowName, std::vector<double>,

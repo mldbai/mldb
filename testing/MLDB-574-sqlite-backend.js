@@ -1,5 +1,3 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* Example script to import a reddit dataset and run an example */
 
 function createDataset()
@@ -140,8 +138,7 @@ createAndTrainProcedure(svdConfig, 'reddit_svd');
 var kmeansConfig = {
     type: "kmeans.train",
     params: {
-        trainingDataset: { "id": "reddit_svd_embedding" },
-        select: "*",
+        trainingData: "select * from reddit_svd_embedding",
         outputDataset: {
             id: "reddit_kmeans_clusters", type: "embedding"
         }

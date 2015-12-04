@@ -1,5 +1,3 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 import json
 import datetime
 import requests
@@ -225,12 +223,11 @@ def train_kmeans(when):
     result = mldb.perform("PUT", "/v1/procedures/kmeans", [], {
         'type' : 'kmeans.train',
         'params' : {
-            'trainingDataset' : {'id' : 'kmeans_example'},
+            'trainingData' : 'select * from kmeans_example when ' + when,
             'outputDataset' : {'id' : 'kmeans_dataset_' + str(dataset_index), 'type' : 'embedding',
                         'params': { 'metric': metric }},
             'centroidsDataset' : {'id' : 'kmeans_centroids_' + str(dataset_index), 'type' : 'embedding', 
                            'params': {'metric': metric }},
-            'when' : when,
             'numClusters' : 2,
             'metric': metric
         }

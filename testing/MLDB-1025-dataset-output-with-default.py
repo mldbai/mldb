@@ -1,5 +1,3 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 #   MLDB-1025-dataset-output-with-default.py
 #   Guy Dumais, 4 November 2015
 #   Copyright (c) 2015 Datacratic Inc.  All rights reserved.
@@ -143,7 +141,7 @@ metric = 'euclidean'
 kmeans_config = {
     'type' : 'kmeans.train',
     'params' : {
-        'trainingDataset' : 'dataset1',
+        'trainingData' : 'select * from dataset1',
         'centroidsDataset' : {'id' : 'kmeans_centroids', 
                           'params': {'metric': metric}},
         'numClusters' : 2,
@@ -162,7 +160,7 @@ assert dataset_count_before + 1 == dataset_count_after, 'only the centroids must
 kmeans_config = {
     'type' : 'kmeans.train',
     'params' : {
-        'trainingDataset' : 'dataset1',
+        'trainingData' : 'select * from dataset1',
         'centroidsDataset' : {'id' : 'kmeans_centroids_2',
                               'type' : 'sparse.mutable'},
         'outputDataset': { 'type' : 'embedding'},
