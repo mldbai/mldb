@@ -1,18 +1,15 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* distribution_simd.h                                             -*- C++ -*-
    Jeremy Barnes, 12 March 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
    
-
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    ---
 
    Vectorizes some distribution operations.
 */
 
-#ifndef __stats__distribution_simd_h__
-#define __stats__distribution_simd_h__
+#pragma once
 
 #include "distribution.h"
 #include "mldb/arch/simd_vector.h"
@@ -22,7 +19,7 @@ namespace ML {
 
 template<>
 JML_ALWAYS_INLINE float
-distribution<float>::
+    distribution<float, std::vector<float> >::
 total() const
 {
     return SIMD::vec_sum_dp(&(*this)[0], this->size());
@@ -30,7 +27,7 @@ total() const
 
 template<>
 JML_ALWAYS_INLINE double
-distribution<double>::
+    distribution<double, std::vector<double> >::
 total() const
 {
     return SIMD::vec_sum(&(*this)[0], this->size());
@@ -39,7 +36,7 @@ total() const
 template<>
 JML_ALWAYS_INLINE double
 distribution<float>::
-dotprod(const distribution<float> & d2) const
+dotprod(const distribution<float, std::vector<float> > & d2) const
 {
     if (size() != d2.size())
         wrong_sizes_exception("dotprod", size(), d2.size());
@@ -49,7 +46,7 @@ dotprod(const distribution<float> & d2) const
 template<>
 JML_ALWAYS_INLINE double
 distribution<double>::
-dotprod(const distribution<double> & d2) const
+dotprod(const distribution<double, std::vector<double> > & d2) const
 {
     if (size() != d2.size())
         wrong_sizes_exception("dotprod", size(), d2.size());
@@ -59,8 +56,8 @@ dotprod(const distribution<double> & d2) const
 template<>
 template<>
 JML_ALWAYS_INLINE double
-distribution<double>::
-dotprod(const distribution<float> & d2) const
+distribution<double, std::vector<double> >::
+dotprod(const distribution<float, std::vector<float> > & d2) const
 {
     if (size() != d2.size())
         wrong_sizes_exception("dotprod", size(), d2.size());
@@ -70,8 +67,8 @@ dotprod(const distribution<float> & d2) const
 template<>
 template<>
 JML_ALWAYS_INLINE double
-distribution<float>::
-dotprod(const distribution<double> & d2) const
+distribution<float, std::vector<float> >::
+dotprod(const distribution<double, std::vector<double> > & d2) const
 {
     if (size() != d2.size())
         wrong_sizes_exception("dotprod", size(), d2.size());
@@ -163,8 +160,8 @@ operator *= (distribution<double> & d,
 template<>
 template<>
 inline distribution<double> &
-distribution<double>::
-operator += (const distribution<float> & d)
+distribution<double, std::vector<double> >::
+operator += (const distribution<float, std::vector<float> > & d)
 {
     if (this->size() != d.size())
         wrong_sizes_exception("+= simd", this->size(), size());
@@ -175,9 +172,9 @@ operator += (const distribution<float> & d)
 template<>
 template<>
 inline void
-distribution<float>::
-min_max(distribution<float> & minValues,
-        distribution<float> & maxValues) const
+distribution<float, std::vector<float> >::
+min_max(distribution<float, std::vector<float> > & minValues,
+        distribution<float, std::vector<float> > & maxValues) const
 {
     if (this->size() != minValues.size())
         wrong_sizes_exception("min_max", this->size(), minValues.size());
@@ -188,7 +185,8 @@ min_max(distribution<float> & minValues,
 }
 
 template<class Underlying>
-distribution<float, Underlying> exp(const distribution<float, Underlying> & dist)
+distribution<float, Underlying>
+exp(const distribution<float, Underlying> & dist)
 {
     distribution<float, Underlying> result(dist.size());
     SIMD::vec_exp(&dist[0], &result[0], dist.size());
@@ -196,7 +194,8 @@ distribution<float, Underlying> exp(const distribution<float, Underlying> & dist
 }
 
 template<class Underlying>
-distribution<double, Underlying> exp(const distribution<double, Underlying> & dist)
+distribution<double, Underlying>
+exp(const distribution<double, Underlying> & dist)
 {
     distribution<double, Underlying> result(dist.size());
     SIMD::vec_exp(&dist[0], &result[0], dist.size());
@@ -204,5 +203,3 @@ distribution<double, Underlying> exp(const distribution<double, Underlying> & di
 }
 
 } // namespace ML
-
-#endif /* __stats__distribution_simd_h__ */

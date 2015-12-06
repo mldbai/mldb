@@ -7,15 +7,15 @@
    Procedure support.
 */
 
-#include "mldb/server/procedure.h"
+#include "mldb/core/procedure.h"
 #include "mldb/server/procedure_collection.h"
-#include "procedure_run_collection.h"
+#include "mldb/server/procedure_run_collection.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include <mutex>
 #include "mldb/server/mldb_server.h"
-#include "mldb/server/dataset.h"
-#include "mldb/server/plugin.h"
-#include "mldb/server/function.h"
+#include "mldb/core/dataset.h"
+#include "mldb/core/plugin.h"
+#include "mldb/core/function.h"
 #include "mldb/types/any_impl.h"
 
 

@@ -10,7 +10,7 @@
 #include "tokensplit.h"
 #include "mldb/server/analytics.h"
 #include "mldb/server/mldb_server.h"
-#include "mldb/server/dataset.h"
+#include "mldb/core/dataset.h"
 #include "mldb/server/dataset_context.h"
 #include "mldb/server/function_collection.h"
 #include "types/structure_description.h"
@@ -66,7 +66,6 @@ TokenSplit(MldbServer * owner,
     //get all values from the dataset and add them to our dictionary of tokens
     auto aggregator = [&] (const MatrixNamedRow & row) {
             for (auto & c: row.columns) {
-                ColumnHash columnHash = std::get<0>(c);
                 const CellValue & cellValue = std::get<1>(c);
                 
                 dictionary.emplace_back(std::move(cellValue.toUtf8String()));

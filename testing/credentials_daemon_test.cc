@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** credentials_daemon_test.cc
     Jeremy Barnes, 12 November 2014
     Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Test for the credentials daemon.
 */
@@ -12,7 +12,6 @@
 #include "mldb/credentials/credentials_daemon.h"
 #include "mldb/soa/service/remote_credential_provider.h"
 #include "mldb/rest/collection_config_store.h"
-#include "mldb/soa/utils/future_fix.h"
 #include "mldb/soa/service/runner.h"
 #include "mldb/soa/service/message_loop.h"
 #include "mldb/vfs/filter_streams.h"
@@ -152,7 +151,7 @@ struct SubprocessCredentialsdRunner {
         std::future<std::string> future = gotAddress.get_future();
 
         // Give it 15 seconds to initialize
-        if (!wait_for(future, std::chrono::seconds(15))) {
+        if (future.wait_for(std::chrono::seconds(15)) != std::future_status::ready) {
             throw HttpReturnException(500, "Error waiting for subprocess initialization");
         }
     

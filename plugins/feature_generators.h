@@ -1,17 +1,15 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
-/** feature_generators.h                                                   -*- C++ -*-
+/** feature_generators.h                                           -*- C++ -*-
     Francois Maillet, 27 juillet 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
 
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #pragma once
 
-#include "mldb/server/dataset.h"
-#include "mldb/server/procedure.h"
-#include "mldb/server/algorithm.h"
-#include "mldb/server/function.h"
+#include "mldb/core/dataset.h"
+#include "mldb/core/procedure.h"
+#include "mldb/core/function.h"
 #include "mldb/types/value_description.h"
 #include "mldb/ml/jml/feature_info.h"
 #include "mldb/ml/value_descriptions.h"

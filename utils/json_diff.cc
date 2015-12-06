@@ -18,24 +18,6 @@
 
 using namespace std;
 
-namespace std {
-
-static inline std::string keyToString(const std::pair<int, int> & key)
-{
-    using Datacratic::getDefaultDescription;
-    return Datacratic::jsonEncodeStr(key);
-}
-
-static inline std::pair<int, int> stringToKey(const std::string & str,
-                                              std::pair<int, int> * = 0)
-{
-    using Datacratic::getDefaultDescription;
-    return Datacratic::jsonDecodeStr<std::pair<int, int> >(str);
-}
-
-
-} // namespace std
-
 namespace Datacratic {
 
 JsonDiff::Deleted JsonDiff::deleted;

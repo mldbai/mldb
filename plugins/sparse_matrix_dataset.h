@@ -10,7 +10,7 @@
 
 
 #include "mldb/types/value_description.h"
-#include "mldb/server/dataset.h"
+#include "mldb/core/dataset.h"
 
 
 namespace Datacratic {

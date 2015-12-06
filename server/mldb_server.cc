@@ -22,7 +22,6 @@
 
 #include "mldb/server/dataset_collection.h"
 #include "mldb/server/plugin_collection.h"
-#include "mldb/server/algorithm_collection.h"
 #include "mldb/server/procedure_collection.h"
 #include "mldb/server/function_collection.h"
 #include "mldb/server/dataset_context.h"
@@ -44,10 +43,6 @@ createPluginCollection(MldbServer * server, RestRouteManager & routeManager,
 std::shared_ptr<DatasetCollection>
 createDatasetCollection(MldbServer * server, RestRouteManager & routeManager,
                         std::shared_ptr<CollectionConfigStore> configStore);
-
-std::shared_ptr<AlgorithmCollection>
-createAlgorithmCollection(MldbServer * server, RestRouteManager & routeManager,
-                          std::shared_ptr<CollectionConfigStore> configStore);
 
 std::shared_ptr<ProcedureCollection>
 createProcedureCollection(MldbServer * server, RestRouteManager & routeManager,
@@ -293,14 +288,12 @@ initCollections(std::string configurationPath,
 
     plugins = createPluginCollection(this, *routeManager, makeConfigStore("plugins"));
     datasets = createDatasetCollection(this, *routeManager, makeConfigStore("datasets"));
-    algorithms = createAlgorithmCollection(this, *routeManager, makeConfigStore("algorithms"));
     procedures = createProcedureCollection(this, *routeManager, makeConfigStore("procedures"));
     functions = createFunctionCollection(this, *routeManager, makeConfigStore("functions"));
     types = createTypeClassCollection(this, *routeManager);
 
     plugins->loadConfig();
     datasets->loadConfig();
-    algorithms->loadConfig();
     procedures->loadConfig();
     functions->loadConfig();
 
@@ -352,7 +345,6 @@ shutdown()
     ServicePeer::shutdown();
 
     datasets.reset();
-    algorithms.reset();
     procedures.reset();
     functions.reset();
 
@@ -488,8 +480,7 @@ namespace {
 struct OnInit {
     OnInit()
     {
-        urlDocumentationUri = "/doc/builtin/Url.md";
-        setUrlDocumentationUri(urlDocumentationUri);
+        setUrlDocumentationUri("/doc/builtin/Url.md");
     }
 } onInit;
 }  // file scope

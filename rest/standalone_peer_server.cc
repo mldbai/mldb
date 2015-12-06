@@ -1,9 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* standalone_peer_server.cc
    Jeremy Barnes, 20 June 2014
    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
 
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #include "standalone_peer_server.h"
@@ -12,7 +11,7 @@
 #include "mldb/http/event_loop.h"
 #include "mldb/http/event_loop_impl.h"
 #include "mldb/jml/utils/string_functions.h"
-
+#include <atomic>
 
 using namespace std;
 

@@ -1,16 +1,13 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* exception.h                                                     -*- C++ -*-
    Jeremy Barnes, 26 January 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
    
-
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Defines our exception class.
 */
 
-#ifndef __utils__exception_h__
-#define __utils__exception_h__
+#pragma once
 
 #include <string>
 #include <exception>
@@ -61,6 +58,3 @@ struct Assertion_Failure: public Exception {
 
 
 } // namespace ML
-
-
-#endif /* __utils__exception_h__ */

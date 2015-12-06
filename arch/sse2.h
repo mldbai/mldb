@@ -1,17 +1,17 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* sse2.h                                                           -*- C++ -*-
    Jeremy Barnes, 15 February 2007
    Copyright (c) 2007 Jeremy Barnes.  All rights reserved.
 
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+
    Wrappers around SSE functions.
 */
 
-#ifndef __arch__sse2_h__
-#define __arch__sse2_h__
+#pragma once
 
 #include "mldb/compiler/compiler.h"
 #include <iostream>
+#include <emmintrin.h>
 
 #define USE_SIMD_SSE2 1
 
@@ -52,13 +52,13 @@ JML_ALWAYS_INLINE v4sf vec_d2f(v2df low, v2df high)
 {
     v4sf rr0a  = __builtin_ia32_cvtpd2ps(low);
     v4sf rr0b  = __builtin_ia32_cvtpd2ps(high);
-    return __builtin_ia32_shufps(rr0a, rr0b, 0x44);
+    return _mm_shuffle_ps(rr0a, rr0b, 0x44);
 }
 
 JML_ALWAYS_INLINE void vec_f2d(v4sf ffff, v2df & low, v2df & high)
 {
     low  = __builtin_ia32_cvtps2pd(ffff);
-    ffff = __builtin_ia32_shufps(ffff, ffff, 14);
+    ffff = _mm_shuffle_ps(ffff, ffff, 14);
     high = __builtin_ia32_cvtps2pd(ffff);
 }
 
@@ -94,7 +94,6 @@ inline std::ostream & operator << (std::ostream & stream, const v2di & val)
     return stream << "{ " << vals[0] << ", " << vals[1] << " }";
 }
 
-
 inline void unpack(v2df val, double * where)
 {
     (*(v2df *)where) = val;
@@ -125,9 +124,5 @@ inline v4si pack(int * where)
     return *(v4si *)where;
 }
 
-
 } // namespace SIMD
 } // namespace ML
-
-
-#endif /* __arch__sse2_h__ */

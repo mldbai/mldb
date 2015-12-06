@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* simd_vector.cc
    Jeremy Barnes, 15 March 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
+
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Contains generic implementations (non-vectorised) of SIMD functionality.
 */
@@ -14,8 +14,7 @@
 #include <iostream>
 #include <cmath>
 #include "sse2.h"
-#include "sse2_exp.h"
-#include "sse2_log.h"
+#include <immintrin.h>
 
 using namespace std;
 
@@ -39,22 +38,22 @@ void vec_scale(const float * x, float k, float * r, size_t n)
     if (false) ;
     else {
         for (; i + 16 <= n;  i += 16) {
-            v4sf xxxx0 = __builtin_ia32_loadups(x + i + 0);
+            v4sf xxxx0 = _mm_loadu_ps(x + i + 0);
             xxxx0 *= kkkk;
-            v4sf xxxx1 = __builtin_ia32_loadups(x + i + 4);
+            v4sf xxxx1 = _mm_loadu_ps(x + i + 4);
             __builtin_ia32_storeups(r + i + 0, xxxx0);
             xxxx1 *= kkkk;
-            v4sf xxxx2 = __builtin_ia32_loadups(x + i + 8);
+            v4sf xxxx2 = _mm_loadu_ps(x + i + 8);
             __builtin_ia32_storeups(r + i + 4, xxxx1);
             xxxx2 *= kkkk;
-            v4sf xxxx3 = __builtin_ia32_loadups(x + i + 12);
+            v4sf xxxx3 = _mm_loadu_ps(x + i + 12);
             __builtin_ia32_storeups(r + i + 8, xxxx2);
             xxxx3 *= kkkk;
             __builtin_ia32_storeups(r + i + 12, xxxx3);
         }
     
         for (; i + 4 <= n;  i += 4) {
-            v4sf xxxx0 = __builtin_ia32_loadups(x + i + 0);
+            v4sf xxxx0 = _mm_loadu_ps(x + i + 0);
             xxxx0 *= kkkk;
             __builtin_ia32_storeups(r + i + 0, xxxx0);
         }
@@ -72,27 +71,27 @@ void vec_add(const float * x, const float * y, float * r, size_t n)
         //cerr << "unoptimized" << endl;
 
         for (; i + 16 <= n;  i += 16) {
-            v4sf yyyy0 = __builtin_ia32_loadups(y + i + 0);
-            v4sf xxxx0 = __builtin_ia32_loadups(x + i + 0);
-            v4sf yyyy1 = __builtin_ia32_loadups(y + i + 4);
+            v4sf yyyy0 = _mm_loadu_ps(y + i + 0);
+            v4sf xxxx0 = _mm_loadu_ps(x + i + 0);
+            v4sf yyyy1 = _mm_loadu_ps(y + i + 4);
             yyyy0 += xxxx0;
-            v4sf xxxx1 = __builtin_ia32_loadups(x + i + 4);
+            v4sf xxxx1 = _mm_loadu_ps(x + i + 4);
             __builtin_ia32_storeups(r + i + 0, yyyy0);
-            v4sf yyyy2 = __builtin_ia32_loadups(y + i + 8);
+            v4sf yyyy2 = _mm_loadu_ps(y + i + 8);
             yyyy1 += xxxx1;
-            v4sf xxxx2 = __builtin_ia32_loadups(x + i + 8);
+            v4sf xxxx2 = _mm_loadu_ps(x + i + 8);
             __builtin_ia32_storeups(r + i + 4, yyyy1);
-            v4sf yyyy3 = __builtin_ia32_loadups(y + i + 12);
+            v4sf yyyy3 = _mm_loadu_ps(y + i + 12);
             yyyy2 += xxxx2;
-            v4sf xxxx3 = __builtin_ia32_loadups(x + i + 12);
+            v4sf xxxx3 = _mm_loadu_ps(x + i + 12);
             __builtin_ia32_storeups(r + i + 8, yyyy2);
             yyyy3 += xxxx3;
             __builtin_ia32_storeups(r + i + 12, yyyy3);
         }
 
         for (; i + 4 <= n;  i += 4) {
-            v4sf yyyy0 = __builtin_ia32_loadups(y + i + 0);
-            v4sf xxxx0 = __builtin_ia32_loadups(x + i + 0);
+            v4sf yyyy0 = _mm_loadu_ps(y + i + 0);
+            v4sf xxxx0 = _mm_loadu_ps(x + i + 0);
             yyyy0 += xxxx0;
             __builtin_ia32_storeups(r + i + 0, yyyy0);
         }
@@ -110,27 +109,27 @@ void vec_prod(const float * x, const float * y, float * r, size_t n)
         //cerr << "unoptimized" << endl;
         
         for (; i + 16 <= n;  i += 16) {
-            v4sf yyyy0 = __builtin_ia32_loadups(y + i + 0);
-            v4sf xxxx0 = __builtin_ia32_loadups(x + i + 0);
-            v4sf yyyy1 = __builtin_ia32_loadups(y + i + 4);
+            v4sf yyyy0 = _mm_loadu_ps(y + i + 0);
+            v4sf xxxx0 = _mm_loadu_ps(x + i + 0);
+            v4sf yyyy1 = _mm_loadu_ps(y + i + 4);
             yyyy0 *= xxxx0;
-            v4sf xxxx1 = __builtin_ia32_loadups(x + i + 4);
+            v4sf xxxx1 = _mm_loadu_ps(x + i + 4);
             __builtin_ia32_storeups(r + i + 0, yyyy0);
-            v4sf yyyy2 = __builtin_ia32_loadups(y + i + 8);
+            v4sf yyyy2 = _mm_loadu_ps(y + i + 8);
             yyyy1 *= xxxx1;
-            v4sf xxxx2 = __builtin_ia32_loadups(x + i + 8);
+            v4sf xxxx2 = _mm_loadu_ps(x + i + 8);
             __builtin_ia32_storeups(r + i + 4, yyyy1);
-            v4sf yyyy3 = __builtin_ia32_loadups(y + i + 12);
+            v4sf yyyy3 = _mm_loadu_ps(y + i + 12);
             yyyy2 *= xxxx2;
-            v4sf xxxx3 = __builtin_ia32_loadups(x + i + 12);
+            v4sf xxxx3 = _mm_loadu_ps(x + i + 12);
             __builtin_ia32_storeups(r + i + 8, yyyy2);
             yyyy3 *= xxxx3;
             __builtin_ia32_storeups(r + i + 12, yyyy3);
         }
 
         for (; i + 4 <= n;  i += 4) {
-            v4sf yyyy0 = __builtin_ia32_loadups(y + i + 0);
-            v4sf xxxx0 = __builtin_ia32_loadups(x + i + 0);
+            v4sf yyyy0 = _mm_loadu_ps(y + i + 0);
+            v4sf xxxx0 = _mm_loadu_ps(x + i + 0);
             yyyy0 *= xxxx0;
             __builtin_ia32_storeups(r + i + 0, yyyy0);
         }
@@ -149,32 +148,32 @@ void vec_prod(const float * x, const double * y, float * r, size_t n)
         //cerr << "unoptimized" << endl;
         
         for (; i + 16 <= n;  i += 16) {
-            v2df yy0a  = __builtin_ia32_loadupd(y + i + 0);
-            v2df yy0b  = __builtin_ia32_loadupd(y + i + 2);
+            v2df yy0a  = _mm_loadu_pd(y + i + 0);
+            v2df yy0b  = _mm_loadu_pd(y + i + 2);
             v4sf yyyy0 = __builtin_ia32_cvtpd2ps(yy0a);
 
 
 
-            v4sf xxxx0 = __builtin_ia32_loadups(x + i + 0);
-            v4sf yyyy1 = __builtin_ia32_loadups(y + i + 4);
+            v4sf xxxx0 = _mm_loadu_ps(x + i + 0);
+            v4sf yyyy1 = _mm_loadu_ps(y + i + 4);
             yyyy0 *= xxxx0;
-            v4sf xxxx1 = __builtin_ia32_loadups(x + i + 4);
+            v4sf xxxx1 = _mm_loadu_ps(x + i + 4);
             __builtin_ia32_storeups(r + i + 0, yyyy0);
-            v4sf yyyy2 = __builtin_ia32_loadups(y + i + 8);
+            v4sf yyyy2 = _mm_loadu_ps(y + i + 8);
             yyyy1 *= xxxx1;
-            v4sf xxxx2 = __builtin_ia32_loadups(x + i + 8);
+            v4sf xxxx2 = _mm_loadu_ps(x + i + 8);
             __builtin_ia32_storeups(r + i + 4, yyyy1);
-            v4sf yyyy3 = __builtin_ia32_loadups(y + i + 12);
+            v4sf yyyy3 = _mm_loadu_ps(y + i + 12);
             yyyy2 *= xxxx2;
-            v4sf xxxx3 = __builtin_ia32_loadups(x + i + 12);
+            v4sf xxxx3 = _mm_loadu_ps(x + i + 12);
             __builtin_ia32_storeups(r + i + 8, yyyy2);
             yyyy3 *= xxxx3;
             __builtin_ia32_storeups(r + i + 12, yyyy3);
         }
 
         for (; i + 4 <= n;  i += 4) {
-            v4sf yyyy0 = __builtin_ia32_loadups(y + i + 0);
-            v4sf xxxx0 = __builtin_ia32_loadups(x + i + 0);
+            v4sf yyyy0 = _mm_loadu_ps(y + i + 0);
+            v4sf xxxx0 = _mm_loadu_ps(x + i + 0);
             yyyy0 *= xxxx0;
             __builtin_ia32_storeups(r + i + 0, yyyy0);
         }
@@ -248,22 +247,22 @@ void vec_add(const float * x, float k, const float * y, float * r, size_t n)
         //cerr << "unoptimized" << endl;
 
         for (; i + 16 <= n;  i += 16) {
-            v4sf yyyy0 = __builtin_ia32_loadups(y + i + 0);
-            v4sf xxxx0 = __builtin_ia32_loadups(x + i + 0);
+            v4sf yyyy0 = _mm_loadu_ps(y + i + 0);
+            v4sf xxxx0 = _mm_loadu_ps(x + i + 0);
             yyyy0 *= kkkk;
-            v4sf yyyy1 = __builtin_ia32_loadups(y + i + 4);
+            v4sf yyyy1 = _mm_loadu_ps(y + i + 4);
             yyyy0 += xxxx0;
-            v4sf xxxx1 = __builtin_ia32_loadups(x + i + 4);
+            v4sf xxxx1 = _mm_loadu_ps(x + i + 4);
             __builtin_ia32_storeups(r + i + 0, yyyy0);
             yyyy1 *= kkkk;
-            v4sf yyyy2 = __builtin_ia32_loadups(y + i + 8);
+            v4sf yyyy2 = _mm_loadu_ps(y + i + 8);
             yyyy1 += xxxx1;
-            v4sf xxxx2 = __builtin_ia32_loadups(x + i + 8);
+            v4sf xxxx2 = _mm_loadu_ps(x + i + 8);
             __builtin_ia32_storeups(r + i + 4, yyyy1);
             yyyy2 *= kkkk;
-            v4sf yyyy3 = __builtin_ia32_loadups(y + i + 12);
+            v4sf yyyy3 = _mm_loadu_ps(y + i + 12);
             yyyy2 += xxxx2;
-            v4sf xxxx3 = __builtin_ia32_loadups(x + i + 12);
+            v4sf xxxx3 = _mm_loadu_ps(x + i + 12);
             __builtin_ia32_storeups(r + i + 8, yyyy2);
             yyyy3 *= kkkk;
             yyyy3 += xxxx3;
@@ -271,8 +270,8 @@ void vec_add(const float * x, float k, const float * y, float * r, size_t n)
         }
 
         for (; i + 4 <= n;  i += 4) {
-            v4sf yyyy0 = __builtin_ia32_loadups(y + i + 0);
-            v4sf xxxx0 = __builtin_ia32_loadups(x + i + 0);
+            v4sf yyyy0 = _mm_loadu_ps(y + i + 0);
+            v4sf xxxx0 = _mm_loadu_ps(x + i + 0);
             yyyy0 *= kkkk;
             yyyy0 += xxxx0;
             __builtin_ia32_storeups(r + i + 0, yyyy0);
@@ -289,26 +288,26 @@ void vec_add(const float * x, const float * k, const float * y, float * r,
 
     if (true) {
         for (; i + 16 <= n;  i += 16) {
-            v4sf yyyy0 = __builtin_ia32_loadups(y + i + 0);
-            v4sf kkkk0 = __builtin_ia32_loadups(k + i + 0);
-            v4sf xxxx0 = __builtin_ia32_loadups(x + i + 0);
+            v4sf yyyy0 = _mm_loadu_ps(y + i + 0);
+            v4sf kkkk0 = _mm_loadu_ps(k + i + 0);
+            v4sf xxxx0 = _mm_loadu_ps(x + i + 0);
             yyyy0 *= kkkk0;
-            v4sf yyyy1 = __builtin_ia32_loadups(y + i + 4);
-            v4sf kkkk1 = __builtin_ia32_loadups(k + i + 4);
+            v4sf yyyy1 = _mm_loadu_ps(y + i + 4);
+            v4sf kkkk1 = _mm_loadu_ps(k + i + 4);
             yyyy0 += xxxx0;
-            v4sf xxxx1 = __builtin_ia32_loadups(x + i + 4);
+            v4sf xxxx1 = _mm_loadu_ps(x + i + 4);
             __builtin_ia32_storeups(r + i + 0, yyyy0);
             yyyy1 *= kkkk1;
-            v4sf yyyy2 = __builtin_ia32_loadups(y + i + 8);
-            v4sf kkkk2 = __builtin_ia32_loadups(k + i + 8);
+            v4sf yyyy2 = _mm_loadu_ps(y + i + 8);
+            v4sf kkkk2 = _mm_loadu_ps(k + i + 8);
             yyyy1 += xxxx1;
-            v4sf xxxx2 = __builtin_ia32_loadups(x + i + 8);
+            v4sf xxxx2 = _mm_loadu_ps(x + i + 8);
             __builtin_ia32_storeups(r + i + 4, yyyy1);
             yyyy2 *= kkkk2;
-            v4sf yyyy3 = __builtin_ia32_loadups(y + i + 12);
-            v4sf kkkk3 = __builtin_ia32_loadups(k + i + 12);
+            v4sf yyyy3 = _mm_loadu_ps(y + i + 12);
+            v4sf kkkk3 = _mm_loadu_ps(k + i + 12);
             yyyy2 += xxxx2;
-            v4sf xxxx3 = __builtin_ia32_loadups(x + i + 12);
+            v4sf xxxx3 = _mm_loadu_ps(x + i + 12);
             __builtin_ia32_storeups(r + i + 8, yyyy2);
             yyyy3 *= kkkk3;
             yyyy3 += xxxx3;
@@ -316,9 +315,9 @@ void vec_add(const float * x, const float * k, const float * y, float * r,
         }
 
         for (; i + 4 <= n;  i += 4) {
-            v4sf yyyy0 = __builtin_ia32_loadups(y + i + 0);
-            v4sf xxxx0 = __builtin_ia32_loadups(x + i + 0);
-            v4sf kkkk0 = __builtin_ia32_loadups(k + i + 0);
+            v4sf yyyy0 = _mm_loadu_ps(y + i + 0);
+            v4sf xxxx0 = _mm_loadu_ps(x + i + 0);
+            v4sf kkkk0 = _mm_loadu_ps(k + i + 0);
             yyyy0 *= kkkk0;
             yyyy0 += xxxx0;
             __builtin_ia32_storeups(r + i + 0, yyyy0);
@@ -359,22 +358,22 @@ void vec_scale(const double * x, double k, double * r, size_t n)
     if (false) ;
     else {
         for (; i + 8 <= n;  i += 8) {
-            v2df xx0 = __builtin_ia32_loadupd(x + i + 0);
+            v2df xx0 = _mm_loadu_pd(x + i + 0);
             xx0 *= kk;
-            v2df xx1 = __builtin_ia32_loadupd(x + i + 2);
+            v2df xx1 = _mm_loadu_pd(x + i + 2);
             __builtin_ia32_storeupd(r + i + 0, xx0);
             xx1 *= kk;
-            v2df xx2 = __builtin_ia32_loadupd(x + i + 4);
+            v2df xx2 = _mm_loadu_pd(x + i + 4);
             __builtin_ia32_storeupd(r + i + 2, xx1);
             xx2 *= kk;
-            v2df xx3 = __builtin_ia32_loadupd(x + i + 6);
+            v2df xx3 = _mm_loadu_pd(x + i + 6);
             __builtin_ia32_storeupd(r + i + 4, xx2);
             xx3 *= kk;
             __builtin_ia32_storeupd(r + i + 6, xx3);
         }
     
         for (; i + 2 <= n;  i += 2) {
-            v2df xx0 = __builtin_ia32_loadupd(x + i + 0);
+            v2df xx0 = _mm_loadu_pd(x + i + 0);
             xx0 *= kk;
             __builtin_ia32_storeupd(r + i + 0, xx0);
         }
@@ -391,26 +390,26 @@ void vec_add(const double * x, double k, const double * y, double * r,
 
     if (true) {
         for (; i + 8 <= n;  i += 8) {
-            v2df yy0 = __builtin_ia32_loadupd(y + i + 0);
-            v2df xx0 = __builtin_ia32_loadupd(x + i + 0);
+            v2df yy0 = _mm_loadu_pd(y + i + 0);
+            v2df xx0 = _mm_loadu_pd(x + i + 0);
             yy0 *= kk;
             yy0 += xx0;
             __builtin_ia32_storeupd(r + i + 0, yy0);
 
-            v2df yy1 = __builtin_ia32_loadupd(y + i + 2);
-            v2df xx1 = __builtin_ia32_loadupd(x + i + 2);
+            v2df yy1 = _mm_loadu_pd(y + i + 2);
+            v2df xx1 = _mm_loadu_pd(x + i + 2);
             yy1 *= kk;
             yy1 += xx1;
             __builtin_ia32_storeupd(r + i + 2, yy1);
             
-            v2df yy2 = __builtin_ia32_loadupd(y + i + 4);
-            v2df xx2 = __builtin_ia32_loadupd(x + i + 4);
+            v2df yy2 = _mm_loadu_pd(y + i + 4);
+            v2df xx2 = _mm_loadu_pd(x + i + 4);
             yy2 *= kk;
             yy2 += xx2;
             __builtin_ia32_storeupd(r + i + 4, yy2);
 
-            v2df yy3 = __builtin_ia32_loadupd(y + i + 6);
-            v2df xx3 = __builtin_ia32_loadupd(x + i + 6);
+            v2df yy3 = _mm_loadu_pd(y + i + 6);
+            v2df xx3 = _mm_loadu_pd(x + i + 6);
             yy3 *= kk;
             yy3 += xx3;
             __builtin_ia32_storeupd(r + i + 6, yy3);
@@ -418,8 +417,8 @@ void vec_add(const double * x, double k, const double * y, double * r,
         }
 
         for (; i + 2 <= n;  i += 2) {
-            v2df yy0 = __builtin_ia32_loadupd(y + i + 0);
-            v2df xx0 = __builtin_ia32_loadupd(x + i + 0);
+            v2df yy0 = _mm_loadu_pd(y + i + 0);
+            v2df xx0 = _mm_loadu_pd(x + i + 0);
             yy0 *= kk;
             yy0 += xx0;
             __builtin_ia32_storeupd(r + i + 0, yy0);
@@ -435,39 +434,39 @@ void vec_add(const double * x, const double * k, const double * y,
     unsigned i = 0;
     if (true) {
         for (; i + 8 <= n;  i += 8) {
-            v2df yy0 = __builtin_ia32_loadupd(y + i + 0);
-            v2df xx0 = __builtin_ia32_loadupd(x + i + 0);
-            v2df kk0 = __builtin_ia32_loadupd(k + i + 0);
+            v2df yy0 = _mm_loadu_pd(y + i + 0);
+            v2df xx0 = _mm_loadu_pd(x + i + 0);
+            v2df kk0 = _mm_loadu_pd(k + i + 0);
             yy0 *= kk0;
             yy0 += xx0;
             __builtin_ia32_storeupd(r + i + 0, yy0);
 
-            v2df yy1 = __builtin_ia32_loadupd(y + i + 2);
-            v2df xx1 = __builtin_ia32_loadupd(x + i + 2);
-            v2df kk1 = __builtin_ia32_loadupd(k + i + 2);
+            v2df yy1 = _mm_loadu_pd(y + i + 2);
+            v2df xx1 = _mm_loadu_pd(x + i + 2);
+            v2df kk1 = _mm_loadu_pd(k + i + 2);
             yy1 *= kk1;
             yy1 += xx1;
             __builtin_ia32_storeupd(r + i + 2, yy1);
             
-            v2df yy2 = __builtin_ia32_loadupd(y + i + 4);
-            v2df xx2 = __builtin_ia32_loadupd(x + i + 4);
-            v2df kk2 = __builtin_ia32_loadupd(k + i + 4);
+            v2df yy2 = _mm_loadu_pd(y + i + 4);
+            v2df xx2 = _mm_loadu_pd(x + i + 4);
+            v2df kk2 = _mm_loadu_pd(k + i + 4);
             yy2 *= kk2;
             yy2 += xx2;
             __builtin_ia32_storeupd(r + i + 4, yy2);
 
-            v2df yy3 = __builtin_ia32_loadupd(y + i + 6);
-            v2df xx3 = __builtin_ia32_loadupd(x + i + 6);
-            v2df kk3 = __builtin_ia32_loadupd(k + i + 6);
+            v2df yy3 = _mm_loadu_pd(y + i + 6);
+            v2df xx3 = _mm_loadu_pd(x + i + 6);
+            v2df kk3 = _mm_loadu_pd(k + i + 6);
             yy3 *= kk3;
             yy3 += xx3;
             __builtin_ia32_storeupd(r + i + 6, yy3);
         }
 
         for (; i + 2 <= n;  i += 2) {
-            v2df yy0 = __builtin_ia32_loadupd(y + i + 0);
-            v2df xx0 = __builtin_ia32_loadupd(x + i + 0);
-            v2df kk0 = __builtin_ia32_loadupd(k + i + 0);
+            v2df yy0 = _mm_loadu_pd(y + i + 0);
+            v2df xx0 = _mm_loadu_pd(x + i + 0);
+            v2df kk0 = _mm_loadu_pd(k + i + 0);
             yy0 *= kk0;
             yy0 += xx0;
             __builtin_ia32_storeupd(r + i + 0, yy0);
@@ -504,30 +503,30 @@ double vec_dotprod_sse2(const double * x, const double * y, size_t n)
         v2df rr0 = { 0.0, 0.0 }, rr1 = rr0, rr2 = rr0, rr3 = rr0;
 
         for (; i + 8 <= n;  i += 8) {
-            v2df yy0 = __builtin_ia32_loadupd(y + i + 0);
-            v2df xx0 = __builtin_ia32_loadupd(x + i + 0);
+            v2df yy0 = _mm_loadu_pd(y + i + 0);
+            v2df xx0 = _mm_loadu_pd(x + i + 0);
             rr0 += yy0 * xx0;
 
-            v2df yy1 = __builtin_ia32_loadupd(y + i + 2);
-            v2df xx1 = __builtin_ia32_loadupd(x + i + 2);
+            v2df yy1 = _mm_loadu_pd(y + i + 2);
+            v2df xx1 = _mm_loadu_pd(x + i + 2);
             rr1 += yy1 * xx1;
             
-            v2df yy2 = __builtin_ia32_loadupd(y + i + 4);
-            v2df xx2 = __builtin_ia32_loadupd(x + i + 4);
+            v2df yy2 = _mm_loadu_pd(y + i + 4);
+            v2df xx2 = _mm_loadu_pd(x + i + 4);
             rr2 += yy2 * xx2;
 
-            v2df yy3 = __builtin_ia32_loadupd(y + i + 6);
-            v2df xx3 = __builtin_ia32_loadupd(x + i + 6);
+            v2df yy3 = _mm_loadu_pd(y + i + 6);
+            v2df xx3 = _mm_loadu_pd(x + i + 6);
             rr3 += yy3 * xx3;
         }
 
         for (; i + 4 <= n;  i += 4) {
-            v2df yy0 = __builtin_ia32_loadupd(y + i + 0);
-            v2df xx0 = __builtin_ia32_loadupd(x + i + 0);
+            v2df yy0 = _mm_loadu_pd(y + i + 0);
+            v2df xx0 = _mm_loadu_pd(x + i + 0);
             rr0 += yy0 * xx0;
 
-            v2df yy1 = __builtin_ia32_loadupd(y + i + 2);
-            v2df xx1 = __builtin_ia32_loadupd(x + i + 2);
+            v2df yy1 = _mm_loadu_pd(y + i + 2);
+            v2df xx1 = _mm_loadu_pd(x + i + 2);
             rr1 += yy1 * xx1;
         }
 
@@ -589,60 +588,60 @@ double vec_accum_prod3(const float * x, const float * y, const float * z,
         v2df rr = vec_splat(0.0);
 
         for (; i + 16 <= n;  i += 16) {
-            v4sf yyyy0 = __builtin_ia32_loadups(y + i + 0);
-            v4sf xxxx0 = __builtin_ia32_loadups(x + i + 0);
+            v4sf yyyy0 = _mm_loadu_ps(y + i + 0);
+            v4sf xxxx0 = _mm_loadu_ps(x + i + 0);
             yyyy0 *= xxxx0;
-            v4sf zzzz0 = __builtin_ia32_loadups(z + i + 0);
+            v4sf zzzz0 = _mm_loadu_ps(z + i + 0);
             yyyy0 *= zzzz0;
             v2df dd0a = __builtin_ia32_cvtps2pd(yyyy0);
-            yyyy0 = __builtin_ia32_shufps(yyyy0, yyyy0, 14);
+            yyyy0 = _mm_shuffle_ps(yyyy0, yyyy0, 14);
             v2df dd0b = __builtin_ia32_cvtps2pd(yyyy0);
             rr += dd0a;
             rr += dd0b;
 
-            v4sf yyyy1 = __builtin_ia32_loadups(y + i + 4);
-            v4sf xxxx1 = __builtin_ia32_loadups(x + i + 4);
+            v4sf yyyy1 = _mm_loadu_ps(y + i + 4);
+            v4sf xxxx1 = _mm_loadu_ps(x + i + 4);
             yyyy1 *= xxxx1;
-            v4sf zzzz1 = __builtin_ia32_loadups(z + i + 4);
+            v4sf zzzz1 = _mm_loadu_ps(z + i + 4);
             yyyy1 *= zzzz1;
             v2df dd1a = __builtin_ia32_cvtps2pd(yyyy1);
-            yyyy1 = __builtin_ia32_shufps(yyyy1, yyyy1, 14);
+            yyyy1 = _mm_shuffle_ps(yyyy1, yyyy1, 14);
             v2df dd1b = __builtin_ia32_cvtps2pd(yyyy1);
             rr += dd1a;
             rr += dd1b;
             
-            v4sf yyyy2 = __builtin_ia32_loadups(y + i + 8);
-            v4sf xxxx2 = __builtin_ia32_loadups(x + i + 8);
+            v4sf yyyy2 = _mm_loadu_ps(y + i + 8);
+            v4sf xxxx2 = _mm_loadu_ps(x + i + 8);
             yyyy2 *= xxxx2;
-            v4sf zzzz2 = __builtin_ia32_loadups(z + i + 8);
+            v4sf zzzz2 = _mm_loadu_ps(z + i + 8);
             yyyy2 *= zzzz2;
             v2df dd2a = __builtin_ia32_cvtps2pd(yyyy2);
-            yyyy2 = __builtin_ia32_shufps(yyyy2, yyyy2, 14);
+            yyyy2 = _mm_shuffle_ps(yyyy2, yyyy2, 14);
             v2df dd2b = __builtin_ia32_cvtps2pd(yyyy2);
             rr += dd2a;
             rr += dd2b;
 
-            v4sf yyyy3 = __builtin_ia32_loadups(y + i + 12);
-            v4sf xxxx3 = __builtin_ia32_loadups(x + i + 12);
+            v4sf yyyy3 = _mm_loadu_ps(y + i + 12);
+            v4sf xxxx3 = _mm_loadu_ps(x + i + 12);
             yyyy3 *= xxxx3;
-            v4sf zzzz3 = __builtin_ia32_loadups(z + i + 12);
+            v4sf zzzz3 = _mm_loadu_ps(z + i + 12);
             yyyy3 *= zzzz3;
             v2df dd3a = __builtin_ia32_cvtps2pd(yyyy3);
-            yyyy3 = __builtin_ia32_shufps(yyyy3, yyyy3, 14);
+            yyyy3 = _mm_shuffle_ps(yyyy3, yyyy3, 14);
             v2df dd3b = __builtin_ia32_cvtps2pd(yyyy3);
             rr += dd3a;
             rr += dd3b;
         }
 
         for (; i + 4 <= n;  i += 4) {
-            v4sf yyyy0 = __builtin_ia32_loadups(y + i + 0);
-            v4sf xxxx0 = __builtin_ia32_loadups(x + i + 0);
+            v4sf yyyy0 = _mm_loadu_ps(y + i + 0);
+            v4sf xxxx0 = _mm_loadu_ps(x + i + 0);
             yyyy0 *= xxxx0;
-            v4sf zzzz0 = __builtin_ia32_loadups(z + i + 0);
+            v4sf zzzz0 = _mm_loadu_ps(z + i + 0);
             yyyy0 *= zzzz0;
 
             v2df dd1 = __builtin_ia32_cvtps2pd(yyyy0);
-            yyyy0 = __builtin_ia32_shufps(yyyy0, yyyy0, 14);
+            yyyy0 = _mm_shuffle_ps(yyyy0, yyyy0, 14);
             v2df dd2 = __builtin_ia32_cvtps2pd(yyyy0);
             rr += dd1;
             rr += dd2;
@@ -668,15 +667,15 @@ double vec_accum_prod3(const float * x, const float * y, const double * z,
         v2df rr = vec_splat(0.0);
 
         for (; i + 4 <= n;  i += 4) {
-            v4sf yyyy0 = __builtin_ia32_loadups(y + i + 0);
-            v4sf xxxx0 = __builtin_ia32_loadups(x + i + 0);
+            v4sf yyyy0 = _mm_loadu_ps(y + i + 0);
+            v4sf xxxx0 = _mm_loadu_ps(x + i + 0);
             yyyy0 *= xxxx0;
 
-            v2df zz0a  = __builtin_ia32_loadupd(z + i + 0);
-            v2df zz0b  = __builtin_ia32_loadupd(z + i + 2);
+            v2df zz0a  = _mm_loadu_pd(z + i + 0);
+            v2df zz0b  = _mm_loadu_pd(z + i + 2);
 
             v2df dd0a = __builtin_ia32_cvtps2pd(yyyy0);
-            yyyy0 = __builtin_ia32_shufps(yyyy0, yyyy0, 14);
+            yyyy0 = _mm_shuffle_ps(yyyy0, yyyy0, 14);
             v2df dd0b = __builtin_ia32_cvtps2pd(yyyy0);
 
             dd0a     *= zz0a;
@@ -711,39 +710,39 @@ double vec_accum_prod3(const double * x, const double * y, const double * z,
         v2df rr = vec_splat(0.0);
 
         for (; i + 8 <= n;  i += 8) {
-            v2df yy0 = __builtin_ia32_loadupd(y + i + 0);
-            v2df xx0 = __builtin_ia32_loadupd(x + i + 0);
-            v2df zz0 = __builtin_ia32_loadupd(z + i + 0);
+            v2df yy0 = _mm_loadu_pd(y + i + 0);
+            v2df xx0 = _mm_loadu_pd(x + i + 0);
+            v2df zz0 = _mm_loadu_pd(z + i + 0);
             yy0 *= xx0;
             yy0 *= zz0;
             rr += yy0;
 
-            v2df yy1 = __builtin_ia32_loadupd(y + i + 2);
-            v2df xx1 = __builtin_ia32_loadupd(x + i + 2);
-            v2df zz1 = __builtin_ia32_loadupd(z + i + 2);
+            v2df yy1 = _mm_loadu_pd(y + i + 2);
+            v2df xx1 = _mm_loadu_pd(x + i + 2);
+            v2df zz1 = _mm_loadu_pd(z + i + 2);
             yy1 *= xx1;
             yy1 *= zz1;
             rr += yy1;
             
-            v2df yy2 = __builtin_ia32_loadupd(y + i + 4);
-            v2df xx2 = __builtin_ia32_loadupd(x + i + 4);
-            v2df zz2 = __builtin_ia32_loadupd(z + i + 4);
+            v2df yy2 = _mm_loadu_pd(y + i + 4);
+            v2df xx2 = _mm_loadu_pd(x + i + 4);
+            v2df zz2 = _mm_loadu_pd(z + i + 4);
             yy2 *= xx2;
             yy2 *= zz2;
             rr += yy2;
 
-            v2df yy3 = __builtin_ia32_loadupd(y + i + 6);
-            v2df xx3 = __builtin_ia32_loadupd(x + i + 6);
-            v2df zz3 = __builtin_ia32_loadupd(z + i + 6);
+            v2df yy3 = _mm_loadu_pd(y + i + 6);
+            v2df xx3 = _mm_loadu_pd(x + i + 6);
+            v2df zz3 = _mm_loadu_pd(z + i + 6);
             yy3 *= xx3;
             yy3 *= zz3;
             rr += yy3;
         }
 
         for (; i + 2 <= n;  i += 2) {
-            v2df yy0 = __builtin_ia32_loadupd(y + i + 0);
-            v2df xx0 = __builtin_ia32_loadupd(x + i + 0);
-            v2df zz0 = __builtin_ia32_loadupd(z + i + 0);
+            v2df yy0 = _mm_loadu_pd(y + i + 0);
+            v2df xx0 = _mm_loadu_pd(x + i + 0);
+            v2df zz0 = _mm_loadu_pd(z + i + 0);
             yy0 *= xx0;
             yy0 *= zz0;
             rr += yy0;
@@ -770,19 +769,19 @@ double vec_accum_prod3(const double * x, const double * y, const float * z,
         v2df rr = vec_splat(0.0);
 
         for (; i + 4 <= n;  i += 4) {
-            v4sf zzzz01 = __builtin_ia32_loadups(z + i + 0);
-            v2df yy0 = __builtin_ia32_loadupd(y + i + 0);
+            v4sf zzzz01 = _mm_loadu_ps(z + i + 0);
+            v2df yy0 = _mm_loadu_pd(y + i + 0);
             v2df zz0 = __builtin_ia32_cvtps2pd(zzzz01);
-            v2df xx0 = __builtin_ia32_loadupd(x + i + 0);
+            v2df xx0 = _mm_loadu_pd(x + i + 0);
 
             yy0 *= xx0;
             yy0 *= zz0;
             rr += yy0;
 
-            zzzz01 = __builtin_ia32_shufps(zzzz01, zzzz01, 14);
+            zzzz01 = _mm_shuffle_ps(zzzz01, zzzz01, 14);
             v2df zz1 = __builtin_ia32_cvtps2pd(zzzz01);
-            v2df yy1 = __builtin_ia32_loadupd(y + i + 2);
-            v2df xx1 = __builtin_ia32_loadupd(x + i + 2);
+            v2df yy1 = _mm_loadu_pd(y + i + 2);
+            v2df xx1 = _mm_loadu_pd(x + i + 2);
 
             yy1 *= xx1;
             yy1 *= zz1;
@@ -817,50 +816,50 @@ double vec_dotprod_dp(const float * x, const float * y, size_t n)
         v2df rr = vec_splat(0.0);
 
         for (; i + 16 <= n;  i += 16) {
-            v4sf yyyy0 = __builtin_ia32_loadups(y + i + 0);
-            v4sf xxxx0 = __builtin_ia32_loadups(x + i + 0);
+            v4sf yyyy0 = _mm_loadu_ps(y + i + 0);
+            v4sf xxxx0 = _mm_loadu_ps(x + i + 0);
             yyyy0 *= xxxx0;
             v2df dd0a = __builtin_ia32_cvtps2pd(yyyy0);
-            yyyy0 = __builtin_ia32_shufps(yyyy0, yyyy0, 14);
+            yyyy0 = _mm_shuffle_ps(yyyy0, yyyy0, 14);
             v2df dd0b = __builtin_ia32_cvtps2pd(yyyy0);
             rr += dd0a;
             rr += dd0b;
 
-            v4sf yyyy1 = __builtin_ia32_loadups(y + i + 4);
-            v4sf xxxx1 = __builtin_ia32_loadups(x + i + 4);
+            v4sf yyyy1 = _mm_loadu_ps(y + i + 4);
+            v4sf xxxx1 = _mm_loadu_ps(x + i + 4);
             yyyy1 *= xxxx1;
             v2df dd1a = __builtin_ia32_cvtps2pd(yyyy1);
-            yyyy1 = __builtin_ia32_shufps(yyyy1, yyyy1, 14);
+            yyyy1 = _mm_shuffle_ps(yyyy1, yyyy1, 14);
             v2df dd1b = __builtin_ia32_cvtps2pd(yyyy1);
             rr += dd1a;
             rr += dd1b;
             
-            v4sf yyyy2 = __builtin_ia32_loadups(y + i + 8);
-            v4sf xxxx2 = __builtin_ia32_loadups(x + i + 8);
+            v4sf yyyy2 = _mm_loadu_ps(y + i + 8);
+            v4sf xxxx2 = _mm_loadu_ps(x + i + 8);
             yyyy2 *= xxxx2;
             v2df dd2a = __builtin_ia32_cvtps2pd(yyyy2);
-            yyyy2 = __builtin_ia32_shufps(yyyy2, yyyy2, 14);
+            yyyy2 = _mm_shuffle_ps(yyyy2, yyyy2, 14);
             v2df dd2b = __builtin_ia32_cvtps2pd(yyyy2);
             rr += dd2a;
             rr += dd2b;
 
-            v4sf yyyy3 = __builtin_ia32_loadups(y + i + 12);
-            v4sf xxxx3 = __builtin_ia32_loadups(x + i + 12);
+            v4sf yyyy3 = _mm_loadu_ps(y + i + 12);
+            v4sf xxxx3 = _mm_loadu_ps(x + i + 12);
             yyyy3 *= xxxx3;
             v2df dd3a = __builtin_ia32_cvtps2pd(yyyy3);
-            yyyy3 = __builtin_ia32_shufps(yyyy3, yyyy3, 14);
+            yyyy3 = _mm_shuffle_ps(yyyy3, yyyy3, 14);
             v2df dd3b = __builtin_ia32_cvtps2pd(yyyy3);
             rr += dd3a;
             rr += dd3b;
         }
 
         for (; i + 4 <= n;  i += 4) {
-            v4sf yyyy0 = __builtin_ia32_loadups(y + i + 0);
-            v4sf xxxx0 = __builtin_ia32_loadups(x + i + 0);
+            v4sf yyyy0 = _mm_loadu_ps(y + i + 0);
+            v4sf xxxx0 = _mm_loadu_ps(x + i + 0);
             yyyy0 *= xxxx0;
             
             v2df dd1 = __builtin_ia32_cvtps2pd(yyyy0);
-            yyyy0 = __builtin_ia32_shufps(yyyy0, yyyy0, 14);
+            yyyy0 = _mm_shuffle_ps(yyyy0, yyyy0, 14);
             v2df dd2 = __builtin_ia32_cvtps2pd(yyyy0);
             rr += dd1;
             rr += dd2;
@@ -886,39 +885,39 @@ double vec_dotprod_dp(const double * x, const float * y, size_t n)
         v2df rr0 = vec_splat(0.0), rr1 = vec_splat(0.0);
         
         for (; i + 8 <= n;  i += 8) {
-            v4sf yyyy01 = __builtin_ia32_loadups(y + i + 0);
+            v4sf yyyy01 = _mm_loadu_ps(y + i + 0);
             v2df yy0    = __builtin_ia32_cvtps2pd(yyyy01);
-            yyyy01      = __builtin_ia32_shufps(yyyy01, yyyy01, 14);
+            yyyy01      = _mm_shuffle_ps(yyyy01, yyyy01, 14);
             v2df yy1    = __builtin_ia32_cvtps2pd(yyyy01);
 
-            v2df xx0    = __builtin_ia32_loadupd(x + i + 0);
+            v2df xx0    = _mm_loadu_pd(x + i + 0);
             rr0        += xx0 * yy0;
 
-            v2df xx1    = __builtin_ia32_loadupd(x + i + 2);
+            v2df xx1    = _mm_loadu_pd(x + i + 2);
             rr1        += xx1 * yy1;
 
-            v4sf yyyy23 = __builtin_ia32_loadups(y + i + 4);
+            v4sf yyyy23 = _mm_loadu_ps(y + i + 4);
             v2df yy2    = __builtin_ia32_cvtps2pd(yyyy23);
-            yyyy23      = __builtin_ia32_shufps(yyyy23, yyyy23, 14);
+            yyyy23      = _mm_shuffle_ps(yyyy23, yyyy23, 14);
             v2df yy3    = __builtin_ia32_cvtps2pd(yyyy23);
 
-            v2df xx2    = __builtin_ia32_loadupd(x + i + 4);
+            v2df xx2    = _mm_loadu_pd(x + i + 4);
             rr0        += xx2 * yy2;
 
-            v2df xx3    = __builtin_ia32_loadupd(x + i + 6);
+            v2df xx3    = _mm_loadu_pd(x + i + 6);
             rr1        += xx3 * yy3;
         }
 
         for (; i + 4 <= n;  i += 4) {
-            v4sf yyyy01 = __builtin_ia32_loadups(y + i + 0);
+            v4sf yyyy01 = _mm_loadu_ps(y + i + 0);
             v2df yy0    = __builtin_ia32_cvtps2pd(yyyy01);
-            yyyy01      = __builtin_ia32_shufps(yyyy01, yyyy01, 14);
+            yyyy01      = _mm_shuffle_ps(yyyy01, yyyy01, 14);
             v2df yy1    = __builtin_ia32_cvtps2pd(yyyy01);
 
-            v2df xx0    = __builtin_ia32_loadupd(x + i + 0);
+            v2df xx0    = _mm_loadu_pd(x + i + 0);
             rr0        += xx0 * yy0;
 
-            v2df xx1    = __builtin_ia32_loadupd(x + i + 2);
+            v2df xx1    = _mm_loadu_pd(x + i + 2);
             rr1        += xx1 * yy1;
         }
 
@@ -949,30 +948,30 @@ void vec_add(const double * x, const double * y, double * r, size_t n)
     unsigned i = 0;
     if (true) {
         for (; i + 8 <= n;  i += 8) {
-            v2df yy0 = __builtin_ia32_loadupd(y + i + 0);
-            v2df xx0 = __builtin_ia32_loadupd(x + i + 0);
+            v2df yy0 = _mm_loadu_pd(y + i + 0);
+            v2df xx0 = _mm_loadu_pd(x + i + 0);
             yy0 += xx0;
             __builtin_ia32_storeupd(r + i + 0, yy0);
 
-            v2df yy1 = __builtin_ia32_loadupd(y + i + 2);
-            v2df xx1 = __builtin_ia32_loadupd(x + i + 2);
+            v2df yy1 = _mm_loadu_pd(y + i + 2);
+            v2df xx1 = _mm_loadu_pd(x + i + 2);
             yy1 += xx1;
             __builtin_ia32_storeupd(r + i + 2, yy1);
             
-            v2df yy2 = __builtin_ia32_loadupd(y + i + 4);
-            v2df xx2 = __builtin_ia32_loadupd(x + i + 4);
+            v2df yy2 = _mm_loadu_pd(y + i + 4);
+            v2df xx2 = _mm_loadu_pd(x + i + 4);
             yy2 += xx2;
             __builtin_ia32_storeupd(r + i + 4, yy2);
 
-            v2df yy3 = __builtin_ia32_loadupd(y + i + 6);
-            v2df xx3 = __builtin_ia32_loadupd(x + i + 6);
+            v2df yy3 = _mm_loadu_pd(y + i + 6);
+            v2df xx3 = _mm_loadu_pd(x + i + 6);
             yy3 += xx3;
             __builtin_ia32_storeupd(r + i + 6, yy3);
         }
 
         for (; i + 2 <= n;  i += 2) {
-            v2df yy0 = __builtin_ia32_loadupd(y + i + 0);
-            v2df xx0 = __builtin_ia32_loadupd(x + i + 0);
+            v2df yy0 = _mm_loadu_pd(y + i + 0);
+            v2df xx0 = _mm_loadu_pd(x + i + 0);
             yy0 += xx0;
             __builtin_ia32_storeupd(r + i + 0, yy0);
         }
@@ -989,50 +988,50 @@ void vec_add(const double * x, double k, const float * y, double * r, size_t n)
 
     if (true) {
         for (; i + 8 <= n;  i += 8) {
-            v4sf yyyy01 = __builtin_ia32_loadups(y + i + 0);
+            v4sf yyyy01 = _mm_loadu_ps(y + i + 0);
             v2df yy0    = __builtin_ia32_cvtps2pd(yyyy01);
-            yyyy01      = __builtin_ia32_shufps(yyyy01, yyyy01, 14);
+            yyyy01      = _mm_shuffle_ps(yyyy01, yyyy01, 14);
             v2df yy1    = __builtin_ia32_cvtps2pd(yyyy01);
             yy0        *= kk;
             yy1        *= kk;
 
-            v2df xx0    = __builtin_ia32_loadupd(x + i + 0);
+            v2df xx0    = _mm_loadu_pd(x + i + 0);
             yy0        += xx0;
             __builtin_ia32_storeupd(r + i + 0, yy0);
 
-            v2df xx1    = __builtin_ia32_loadupd(x + i + 2);
+            v2df xx1    = _mm_loadu_pd(x + i + 2);
             yy1        += xx1;
             __builtin_ia32_storeupd(r + i + 2, yy1);
 
-            v4sf yyyy23 = __builtin_ia32_loadups(y + i + 4);
+            v4sf yyyy23 = _mm_loadu_ps(y + i + 4);
             v2df yy2    = __builtin_ia32_cvtps2pd(yyyy23);
-            yyyy23      = __builtin_ia32_shufps(yyyy23, yyyy23, 14);
+            yyyy23      = _mm_shuffle_ps(yyyy23, yyyy23, 14);
             v2df yy3    = __builtin_ia32_cvtps2pd(yyyy23);
             yy2        *= kk;
             yy3        *= kk;
 
-            v2df xx2    = __builtin_ia32_loadupd(x + i + 4);
+            v2df xx2    = _mm_loadu_pd(x + i + 4);
             yy2        += xx2;
             __builtin_ia32_storeupd(r + i + 4, yy2);
 
-            v2df xx3    = __builtin_ia32_loadupd(x + i + 6);
+            v2df xx3    = _mm_loadu_pd(x + i + 6);
             yy3        += xx3;
             __builtin_ia32_storeupd(r + i + 6, yy3);
         }
 
         for (; i + 4 <= n;  i += 4) {
-            v4sf yyyy01 = __builtin_ia32_loadups(y + i + 0);
+            v4sf yyyy01 = _mm_loadu_ps(y + i + 0);
             v2df yy0    = __builtin_ia32_cvtps2pd(yyyy01);
-            yyyy01      = __builtin_ia32_shufps(yyyy01, yyyy01, 14);
+            yyyy01      = _mm_shuffle_ps(yyyy01, yyyy01, 14);
             v2df yy1    = __builtin_ia32_cvtps2pd(yyyy01);
             yy0        *= kk;
             yy1        *= kk;
 
-            v2df xx0    = __builtin_ia32_loadupd(x + i + 0);
+            v2df xx0    = _mm_loadu_pd(x + i + 0);
             yy0        += xx0;
             __builtin_ia32_storeupd(r + i + 0, yy0);
 
-            v2df xx1    = __builtin_ia32_loadupd(x + i + 2);
+            v2df xx1    = _mm_loadu_pd(x + i + 2);
             yy1        += xx1;
             __builtin_ia32_storeupd(r + i + 2, yy1);
         }
@@ -1051,30 +1050,30 @@ void vec_prod(const double * x, const double * y, double * r, size_t n)
     unsigned i = 0;
     if (true) {
         for (; i + 8 <= n;  i += 8) {
-            v2df yy0 = __builtin_ia32_loadupd(y + i + 0);
-            v2df xx0 = __builtin_ia32_loadupd(x + i + 0);
+            v2df yy0 = _mm_loadu_pd(y + i + 0);
+            v2df xx0 = _mm_loadu_pd(x + i + 0);
             yy0 *= xx0;
             __builtin_ia32_storeupd(r + i + 0, yy0);
 
-            v2df yy1 = __builtin_ia32_loadupd(y + i + 2);
-            v2df xx1 = __builtin_ia32_loadupd(x + i + 2);
+            v2df yy1 = _mm_loadu_pd(y + i + 2);
+            v2df xx1 = _mm_loadu_pd(x + i + 2);
             yy1 *= xx1;
             __builtin_ia32_storeupd(r + i + 2, yy1);
             
-            v2df yy2 = __builtin_ia32_loadupd(y + i + 4);
-            v2df xx2 = __builtin_ia32_loadupd(x + i + 4);
+            v2df yy2 = _mm_loadu_pd(y + i + 4);
+            v2df xx2 = _mm_loadu_pd(x + i + 4);
             yy2 *= xx2;
             __builtin_ia32_storeupd(r + i + 4, yy2);
 
-            v2df yy3 = __builtin_ia32_loadupd(y + i + 6);
-            v2df xx3 = __builtin_ia32_loadupd(x + i + 6);
+            v2df yy3 = _mm_loadu_pd(y + i + 6);
+            v2df xx3 = _mm_loadu_pd(x + i + 6);
             yy3 *= xx3;
             __builtin_ia32_storeupd(r + i + 6, yy3);
         }
 
         for (; i + 2 <= n;  i += 2) {
-            v2df yy0 = __builtin_ia32_loadupd(y + i + 0);
-            v2df xx0 = __builtin_ia32_loadupd(x + i + 0);
+            v2df yy0 = _mm_loadu_pd(y + i + 0);
+            v2df xx0 = _mm_loadu_pd(x + i + 0);
             yy0 *= xx0;
             __builtin_ia32_storeupd(r + i + 0, yy0);
         }
@@ -1089,44 +1088,44 @@ void vec_prod(const double * x, const float * y, double * r, size_t n)
 
     if (true) {
         for (; i + 8 <= n;  i += 8) {
-            v4sf yyyy01 = __builtin_ia32_loadups(y + i + 0);
+            v4sf yyyy01 = _mm_loadu_ps(y + i + 0);
             v2df yy0    = __builtin_ia32_cvtps2pd(yyyy01);
-            yyyy01      = __builtin_ia32_shufps(yyyy01, yyyy01, 14);
+            yyyy01      = _mm_shuffle_ps(yyyy01, yyyy01, 14);
             v2df yy1    = __builtin_ia32_cvtps2pd(yyyy01);
 
-            v2df xx0    = __builtin_ia32_loadupd(x + i + 0);
+            v2df xx0    = _mm_loadu_pd(x + i + 0);
             yy0        *= xx0;
             __builtin_ia32_storeupd(r + i + 0, yy0);
 
-            v2df xx1    = __builtin_ia32_loadupd(x + i + 2);
+            v2df xx1    = _mm_loadu_pd(x + i + 2);
             yy1        *= xx1;
             __builtin_ia32_storeupd(r + i + 2, yy1);
 
-            v4sf yyyy23 = __builtin_ia32_loadups(y + i + 4);
+            v4sf yyyy23 = _mm_loadu_ps(y + i + 4);
             v2df yy2    = __builtin_ia32_cvtps2pd(yyyy23);
-            yyyy23      = __builtin_ia32_shufps(yyyy23, yyyy23, 14);
+            yyyy23      = _mm_shuffle_ps(yyyy23, yyyy23, 14);
             v2df yy3    = __builtin_ia32_cvtps2pd(yyyy23);
 
-            v2df xx2    = __builtin_ia32_loadupd(x + i + 4);
+            v2df xx2    = _mm_loadu_pd(x + i + 4);
             yy2        *= xx2;
             __builtin_ia32_storeupd(r + i + 4, yy2);
 
-            v2df xx3    = __builtin_ia32_loadupd(x + i + 6);
+            v2df xx3    = _mm_loadu_pd(x + i + 6);
             yy3        *= xx3;
             __builtin_ia32_storeupd(r + i + 6, yy3);
         }
 
         for (; i + 4 <= n;  i += 4) {
-            v4sf yyyy01 = __builtin_ia32_loadups(y + i + 0);
+            v4sf yyyy01 = _mm_loadu_ps(y + i + 0);
             v2df yy0    = __builtin_ia32_cvtps2pd(yyyy01);
-            yyyy01      = __builtin_ia32_shufps(yyyy01, yyyy01, 14);
+            yyyy01      = _mm_shuffle_ps(yyyy01, yyyy01, 14);
             v2df yy1    = __builtin_ia32_cvtps2pd(yyyy01);
 
-            v2df xx0    = __builtin_ia32_loadupd(x + i + 0);
+            v2df xx0    = _mm_loadu_pd(x + i + 0);
             yy0        *= xx0;
             __builtin_ia32_storeupd(r + i + 0, yy0);
 
-            v2df xx1    = __builtin_ia32_loadupd(x + i + 2);
+            v2df xx1    = _mm_loadu_pd(x + i + 2);
             yy1        *= xx1;
             __builtin_ia32_storeupd(r + i + 2, yy1);
         }
@@ -1146,36 +1145,36 @@ void vec_k1_x_plus_k2_y_z(double k1, const double * x,
 
     if (true) {
         for (; i + 8 <= n;  i += 8) {
-            v2df yy0 = __builtin_ia32_loadupd(y + i + 0);
-            v2df xx0 = __builtin_ia32_loadupd(x + i + 0);
-            v2df zz0 = __builtin_ia32_loadupd(z + i + 0);
+            v2df yy0 = _mm_loadu_pd(y + i + 0);
+            v2df xx0 = _mm_loadu_pd(x + i + 0);
+            v2df zz0 = _mm_loadu_pd(z + i + 0);
             yy0 *= kk2;
             xx0 *= kk1;
             yy0 *= zz0;
             yy0 += xx0;
             __builtin_ia32_storeupd(r + i + 0, yy0);
 
-            v2df yy1 = __builtin_ia32_loadupd(y + i + 2);
-            v2df xx1 = __builtin_ia32_loadupd(x + i + 2);
-            v2df zz1 = __builtin_ia32_loadupd(z + i + 2);
+            v2df yy1 = _mm_loadu_pd(y + i + 2);
+            v2df xx1 = _mm_loadu_pd(x + i + 2);
+            v2df zz1 = _mm_loadu_pd(z + i + 2);
             yy1 *= kk2;
             xx1 *= kk1;
             yy1 *= zz1;
             yy1 += xx1;
             __builtin_ia32_storeupd(r + i + 2, yy1);
             
-            v2df yy2 = __builtin_ia32_loadupd(y + i + 4);
-            v2df xx2 = __builtin_ia32_loadupd(x + i + 4);
-            v2df zz2 = __builtin_ia32_loadupd(z + i + 4);
+            v2df yy2 = _mm_loadu_pd(y + i + 4);
+            v2df xx2 = _mm_loadu_pd(x + i + 4);
+            v2df zz2 = _mm_loadu_pd(z + i + 4);
             yy2 *= kk2;
             xx2 *= kk1;
             yy2 *= zz2;
             yy2 += xx2;
             __builtin_ia32_storeupd(r + i + 4, yy2);
 
-            v2df yy3 = __builtin_ia32_loadupd(y + i + 6);
-            v2df xx3 = __builtin_ia32_loadupd(x + i + 6);
-            v2df zz3 = __builtin_ia32_loadupd(z + i + 6);
+            v2df yy3 = _mm_loadu_pd(y + i + 6);
+            v2df xx3 = _mm_loadu_pd(x + i + 6);
+            v2df zz3 = _mm_loadu_pd(z + i + 6);
             yy3 *= kk2;
             xx3 *= kk1;
             yy3 *= zz3;
@@ -1184,9 +1183,9 @@ void vec_k1_x_plus_k2_y_z(double k1, const double * x,
         }
 
         for (; i + 2 <= n;  i += 2) {
-            v2df yy0 = __builtin_ia32_loadupd(y + i + 0);
-            v2df xx0 = __builtin_ia32_loadupd(x + i + 0);
-            v2df zz0 = __builtin_ia32_loadupd(z + i + 0);
+            v2df yy0 = _mm_loadu_pd(y + i + 0);
+            v2df xx0 = _mm_loadu_pd(x + i + 0);
+            v2df zz0 = _mm_loadu_pd(z + i + 0);
             yy0 *= kk2;
             xx0 *= kk1;
             yy0 *= zz0;
@@ -1209,36 +1208,36 @@ void vec_k1_x_plus_k2_y_z(float k1, const float * x,
 
     if (true) {
         for (; i + 16 <= n;  i += 16) {
-            v4sf yyyy0 = __builtin_ia32_loadups(y + i + 0);
-            v4sf xxxx0 = __builtin_ia32_loadups(x + i + 0);
-            v4sf zzzz0 = __builtin_ia32_loadups(z + i + 0);
+            v4sf yyyy0 = _mm_loadu_ps(y + i + 0);
+            v4sf xxxx0 = _mm_loadu_ps(x + i + 0);
+            v4sf zzzz0 = _mm_loadu_ps(z + i + 0);
             yyyy0 *= kkkk2;
             xxxx0 *= kkkk1;
             yyyy0 *= zzzz0;
             yyyy0 += xxxx0;
             __builtin_ia32_storeups(r + i + 0, yyyy0);
 
-            v4sf yyyy1 = __builtin_ia32_loadups(y + i + 4);
-            v4sf xxxx1 = __builtin_ia32_loadups(x + i + 4);
-            v4sf zzzz1 = __builtin_ia32_loadups(z + i + 4);
+            v4sf yyyy1 = _mm_loadu_ps(y + i + 4);
+            v4sf xxxx1 = _mm_loadu_ps(x + i + 4);
+            v4sf zzzz1 = _mm_loadu_ps(z + i + 4);
             yyyy1 *= kkkk2;
             xxxx1 *= kkkk1;
             yyyy1 *= zzzz1;
             yyyy1 += xxxx1;
             __builtin_ia32_storeups(r + i + 4, yyyy1);
             
-            v4sf yyyy2 = __builtin_ia32_loadups(y + i + 8);
-            v4sf xxxx2 = __builtin_ia32_loadups(x + i + 8);
-            v4sf zzzz2 = __builtin_ia32_loadups(z + i + 8);
+            v4sf yyyy2 = _mm_loadu_ps(y + i + 8);
+            v4sf xxxx2 = _mm_loadu_ps(x + i + 8);
+            v4sf zzzz2 = _mm_loadu_ps(z + i + 8);
             yyyy2 *= kkkk2;
             xxxx2 *= kkkk1;
             yyyy2 *= zzzz2;
             yyyy2 += xxxx2;
             __builtin_ia32_storeups(r + i + 8, yyyy2);
 
-            v4sf yyyy3 = __builtin_ia32_loadups(y + i + 12);
-            v4sf xxxx3 = __builtin_ia32_loadups(x + i + 12);
-            v4sf zzzz3 = __builtin_ia32_loadups(z + i + 12);
+            v4sf yyyy3 = _mm_loadu_ps(y + i + 12);
+            v4sf xxxx3 = _mm_loadu_ps(x + i + 12);
+            v4sf zzzz3 = _mm_loadu_ps(z + i + 12);
             yyyy3 *= kkkk2;
             xxxx3 *= kkkk1;
             yyyy3 *= zzzz3;
@@ -1247,9 +1246,9 @@ void vec_k1_x_plus_k2_y_z(float k1, const float * x,
         }
 
         for (; i + 4 <= n;  i += 4) {
-            v4sf yyyy0 = __builtin_ia32_loadups(y + i + 0);
-            v4sf xxxx0 = __builtin_ia32_loadups(x + i + 0);
-            v4sf zzzz0 = __builtin_ia32_loadups(z + i + 0);
+            v4sf yyyy0 = _mm_loadu_ps(y + i + 0);
+            v4sf xxxx0 = _mm_loadu_ps(x + i + 0);
+            v4sf zzzz0 = _mm_loadu_ps(z + i + 0);
             yyyy0 *= kkkk2;
             xxxx0 *= kkkk1;
             yyyy0 *= zzzz0;
@@ -1270,26 +1269,26 @@ void vec_add_sqr(const float * x, float k, const float * y, float * r, size_t n)
         //cerr << "unoptimized" << endl;
 
         for (; i + 16 <= n;  i += 16) {
-            v4sf yyyy0 = __builtin_ia32_loadups(y + i + 0);
-            v4sf xxxx0 = __builtin_ia32_loadups(x + i + 0);
+            v4sf yyyy0 = _mm_loadu_ps(y + i + 0);
+            v4sf xxxx0 = _mm_loadu_ps(x + i + 0);
             yyyy0 *= yyyy0;
             yyyy0 *= kkkk;
-            v4sf yyyy1 = __builtin_ia32_loadups(y + i + 4);
+            v4sf yyyy1 = _mm_loadu_ps(y + i + 4);
             yyyy1 *= yyyy1;
             yyyy0 += xxxx0;
-            v4sf xxxx1 = __builtin_ia32_loadups(x + i + 4);
+            v4sf xxxx1 = _mm_loadu_ps(x + i + 4);
             __builtin_ia32_storeups(r + i + 0, yyyy0);
             yyyy1 *= kkkk;
-            v4sf yyyy2 = __builtin_ia32_loadups(y + i + 8);
+            v4sf yyyy2 = _mm_loadu_ps(y + i + 8);
             yyyy1 += xxxx1;
             yyyy2 *= yyyy2;
-            v4sf xxxx2 = __builtin_ia32_loadups(x + i + 8);
+            v4sf xxxx2 = _mm_loadu_ps(x + i + 8);
             __builtin_ia32_storeups(r + i + 4, yyyy1);
             yyyy2 *= kkkk;
-            v4sf yyyy3 = __builtin_ia32_loadups(y + i + 12);
+            v4sf yyyy3 = _mm_loadu_ps(y + i + 12);
             yyyy2 += xxxx2;
             yyyy3 *= yyyy3;
-            v4sf xxxx3 = __builtin_ia32_loadups(x + i + 12);
+            v4sf xxxx3 = _mm_loadu_ps(x + i + 12);
             __builtin_ia32_storeups(r + i + 8, yyyy2);
             yyyy3 *= kkkk;
             yyyy3 += xxxx3;
@@ -1297,8 +1296,8 @@ void vec_add_sqr(const float * x, float k, const float * y, float * r, size_t n)
         }
 
         for (; i + 4 <= n;  i += 4) {
-            v4sf yyyy0 = __builtin_ia32_loadups(y + i + 0);
-            v4sf xxxx0 = __builtin_ia32_loadups(x + i + 0);
+            v4sf yyyy0 = _mm_loadu_ps(y + i + 0);
+            v4sf xxxx0 = _mm_loadu_ps(x + i + 0);
             yyyy0 *= yyyy0;
             yyyy0 *= kkkk;
             yyyy0 += xxxx0;
@@ -1317,29 +1316,29 @@ void vec_add_sqr(const double * x, double k, const double * y, double * r,
 
     if (true) {
         for (; i + 8 <= n;  i += 8) {
-            v2df yy0 = __builtin_ia32_loadupd(y + i + 0);
-            v2df xx0 = __builtin_ia32_loadupd(x + i + 0);
+            v2df yy0 = _mm_loadu_pd(y + i + 0);
+            v2df xx0 = _mm_loadu_pd(x + i + 0);
             yy0 *= yy0;
             yy0 *= kk;
             yy0 += xx0;
             __builtin_ia32_storeupd(r + i + 0, yy0);
 
-            v2df yy1 = __builtin_ia32_loadupd(y + i + 2);
-            v2df xx1 = __builtin_ia32_loadupd(x + i + 2);
+            v2df yy1 = _mm_loadu_pd(y + i + 2);
+            v2df xx1 = _mm_loadu_pd(x + i + 2);
             yy1 *= yy1;
             yy1 *= kk;
             yy1 += xx1;
             __builtin_ia32_storeupd(r + i + 2, yy1);
             
-            v2df yy2 = __builtin_ia32_loadupd(y + i + 4);
-            v2df xx2 = __builtin_ia32_loadupd(x + i + 4);
+            v2df yy2 = _mm_loadu_pd(y + i + 4);
+            v2df xx2 = _mm_loadu_pd(x + i + 4);
             yy2 *= yy2;
             yy2 *= kk;
             yy2 += xx2;
             __builtin_ia32_storeupd(r + i + 4, yy2);
 
-            v2df yy3 = __builtin_ia32_loadupd(y + i + 6);
-            v2df xx3 = __builtin_ia32_loadupd(x + i + 6);
+            v2df yy3 = _mm_loadu_pd(y + i + 6);
+            v2df xx3 = _mm_loadu_pd(x + i + 6);
             yy3 *= yy3;
             yy3 *= kk;
             yy3 += xx3;
@@ -1348,8 +1347,8 @@ void vec_add_sqr(const double * x, double k, const double * y, double * r,
         }
 
         for (; i + 2 <= n;  i += 2) {
-            v2df yy0 = __builtin_ia32_loadupd(y + i + 0);
-            v2df xx0 = __builtin_ia32_loadupd(x + i + 0);
+            v2df yy0 = _mm_loadu_pd(y + i + 0);
+            v2df xx0 = _mm_loadu_pd(x + i + 0);
             yy0 *= yy0;
             yy0 *= kk;
             yy0 += xx0;
@@ -1373,53 +1372,53 @@ void vec_add_sqr(const double * x, double k, const float * y, double * r,
     if (true) {
         v2df kk = vec_splat(k);
         for (; i + 8 <= n;  i += 8) {
-            v4sf yyyy01 = __builtin_ia32_loadups(y + i + 0);
+            v4sf yyyy01 = _mm_loadu_ps(y + i + 0);
             yyyy01     *= yyyy01;
             v2df yy0    = __builtin_ia32_cvtps2pd(yyyy01);
-            yyyy01      = __builtin_ia32_shufps(yyyy01, yyyy01, 14);
+            yyyy01      = _mm_shuffle_ps(yyyy01, yyyy01, 14);
             v2df yy1    = __builtin_ia32_cvtps2pd(yyyy01);
             yy0        *= kk;
             yy1        *= kk;
 
-            v2df xx0    = __builtin_ia32_loadupd(x + i + 0);
+            v2df xx0    = _mm_loadu_pd(x + i + 0);
             yy0        += xx0;
             __builtin_ia32_storeupd(r + i + 0, yy0);
 
-            v2df xx1    = __builtin_ia32_loadupd(x + i + 2);
+            v2df xx1    = _mm_loadu_pd(x + i + 2);
             yy1        += xx1;
             __builtin_ia32_storeupd(r + i + 2, yy1);
 
-            v4sf yyyy23 = __builtin_ia32_loadups(y + i + 4);
+            v4sf yyyy23 = _mm_loadu_ps(y + i + 4);
             yyyy23     *= yyyy23;
             v2df yy2    = __builtin_ia32_cvtps2pd(yyyy23);
-            yyyy23      = __builtin_ia32_shufps(yyyy23, yyyy23, 14);
+            yyyy23      = _mm_shuffle_ps(yyyy23, yyyy23, 14);
             v2df yy3    = __builtin_ia32_cvtps2pd(yyyy23);
             yy2        *= kk;
             yy3        *= kk;
 
-            v2df xx2    = __builtin_ia32_loadupd(x + i + 4);
+            v2df xx2    = _mm_loadu_pd(x + i + 4);
             yy2        += xx2;
             __builtin_ia32_storeupd(r + i + 4, yy2);
 
-            v2df xx3    = __builtin_ia32_loadupd(x + i + 6);
+            v2df xx3    = _mm_loadu_pd(x + i + 6);
             yy3        += xx3;
             __builtin_ia32_storeupd(r + i + 6, yy3);
         }
 
         for (; i + 4 <= n;  i += 4) {
-            v4sf yyyy01 = __builtin_ia32_loadups(y + i + 0);
+            v4sf yyyy01 = _mm_loadu_ps(y + i + 0);
             yyyy01     *= yyyy01;
             v2df yy0    = __builtin_ia32_cvtps2pd(yyyy01);
-            yyyy01      = __builtin_ia32_shufps(yyyy01, yyyy01, 14);
+            yyyy01      = _mm_shuffle_ps(yyyy01, yyyy01, 14);
             v2df yy1    = __builtin_ia32_cvtps2pd(yyyy01);
             yy0        *= kk;
             yy1        *= kk;
 
-            v2df xx0    = __builtin_ia32_loadupd(x + i + 0);
+            v2df xx0    = _mm_loadu_pd(x + i + 0);
             yy0        += xx0;
             __builtin_ia32_storeupd(r + i + 0, yy0);
 
-            v2df xx1    = __builtin_ia32_loadupd(x + i + 2);
+            v2df xx1    = _mm_loadu_pd(x + i + 2);
             yy1        += xx1;
             __builtin_ia32_storeupd(r + i + 2, yy1);
         }
@@ -1436,11 +1435,11 @@ void vec_add(const float * x, const double * k, const double * y, float * r,
     if (false) ;
     else {
         for (; i + 4 <= n;  i += 4) {
-            v2df yy0a  = __builtin_ia32_loadupd(y + i + 0);
-            v2df yy0b  = __builtin_ia32_loadupd(y + i + 2);
-            v2df kk0a  = __builtin_ia32_loadupd(k + i + 0);
-            v2df kk0b  = __builtin_ia32_loadupd(k + i + 2);
-            v4sf xxxx0 = __builtin_ia32_loadups(x + i + 0);
+            v2df yy0a  = _mm_loadu_pd(y + i + 0);
+            v2df yy0b  = _mm_loadu_pd(y + i + 2);
+            v2df kk0a  = _mm_loadu_pd(k + i + 0);
+            v2df kk0b  = _mm_loadu_pd(k + i + 2);
+            v4sf xxxx0 = _mm_loadu_ps(x + i + 0);
 
             yy0a *= kk0a;
             yy0b *= kk0b;
@@ -1468,10 +1467,10 @@ void vec_add(const float * x, const float * k, const double * y, float * r,
     if (false) ;
     else {
         for (; i + 4 <= n;  i += 4) {
-            v2df yy0a  = __builtin_ia32_loadupd(y + i + 0);
-            v2df yy0b  = __builtin_ia32_loadupd(y + i + 2);
-            v4sf kkkk0 = __builtin_ia32_loadups(k + i + 0);
-            v4sf xxxx0 = __builtin_ia32_loadups(x + i + 0);
+            v2df yy0a  = _mm_loadu_pd(y + i + 0);
+            v2df yy0b  = _mm_loadu_pd(y + i + 2);
+            v4sf kkkk0 = _mm_loadu_ps(k + i + 0);
+            v4sf xxxx0 = _mm_loadu_ps(x + i + 0);
             
             v2df kk0a, kk0b;
             vec_f2d(kkkk0, kk0a, kk0b);
@@ -1502,10 +1501,10 @@ void vec_add(const double * x, const float * k, const float * y, double * r,
     if (false) ;
     else {
         for (; i + 4 <= n;  i += 4) {
-            v4sf kkkk0 = __builtin_ia32_loadups(k + i + 0);
-            v4sf yyyy0 = __builtin_ia32_loadups(y + i + 0);
-            v2df xx0a  = __builtin_ia32_loadupd(x + i + 0);
-            v2df xx0b  = __builtin_ia32_loadupd(x + i + 2);
+            v4sf kkkk0 = _mm_loadu_ps(k + i + 0);
+            v4sf yyyy0 = _mm_loadu_ps(y + i + 0);
+            v2df xx0a  = _mm_loadu_pd(x + i + 0);
+            v2df xx0b  = _mm_loadu_pd(x + i + 2);
 
             v4sf ykyk0 = yyyy0 * kkkk0;
             
@@ -1531,11 +1530,11 @@ void vec_add(const double * x, const float * k, const double * y, double * r,
     if (false) ;
     else {
         for (; i + 4 <= n;  i += 4) {
-            v2df yy0a  = __builtin_ia32_loadupd(y + i + 0);
-            v2df yy0b  = __builtin_ia32_loadupd(y + i + 2);
-            v4sf kkkk0 = __builtin_ia32_loadups(k + i + 0);
-            v2df xx0a  = __builtin_ia32_loadupd(x + i + 0);
-            v2df xx0b  = __builtin_ia32_loadupd(x + i + 2);
+            v2df yy0a  = _mm_loadu_pd(y + i + 0);
+            v2df yy0b  = _mm_loadu_pd(y + i + 2);
+            v4sf kkkk0 = _mm_loadu_ps(k + i + 0);
+            v2df xx0a  = _mm_loadu_pd(x + i + 0);
+            v2df xx0b  = _mm_loadu_pd(x + i + 2);
             
             v2df kk0a, kk0b;
             vec_f2d(kkkk0, kk0a, kk0b);
@@ -1578,23 +1577,6 @@ void vec_exp(const float * x, double * r, size_t n)
 void vec_exp(const float * x, double k, double * r, size_t n)
 {
     unsigned i = 0;
-
-    if (true) {
-        v2df kk = vec_splat(k);
-
-        for (; i + 4 <= n;  i += 4) {
-            v4sf xxxx0 = __builtin_ia32_loadups(x + i + 0);
-            v2df xx0a, xx0b;
-            vec_f2d(xxxx0, xx0a, xx0b);
-
-            v2df rr0a = sse2_exp(kk * xx0a);
-            v2df rr0b = sse2_exp(kk * xx0b);
-
-            __builtin_ia32_storeupd(r + i + 0, rr0a);
-            __builtin_ia32_storeupd(r + i + 2, rr0b);
-        }
-    }
-
     for (; i < n;  ++i) r[i] = exp((double)(k * x[i]));
 }
 
@@ -1643,29 +1625,6 @@ double vec_kl(const float * p, const float * q, size_t n)
 
     double total = 0.0;
 
-    if (true) {
-        v2df ttotal = vec_splat(0.0);
-
-        for (; i + 4 <= n;  i += 4) {
-            v4sf pppp0 = __builtin_ia32_loadups(p + i + 0);
-            v4sf qqqq0 = __builtin_ia32_loadups(q + i + 0);
-                 qqqq0 = pppp0 / qqqq0;
-                 qqqq0 = sse2_logf(qqqq0);
-            v4sf klkl0 = qqqq0 * pppp0;
-
-            v2df kl0a, kl0b;
-            vec_f2d(klkl0, kl0a, kl0b);
-
-            ttotal += kl0a;
-            ttotal += kl0b;
-        }
-
-        double results[2];
-        *(v2df *)results = ttotal;
-        
-        total = results[0] + results[1];
-    }
-
     for (; i < n;  ++i) total += p[i] * logf(p[i] / q[i]);
 
     return total;
@@ -1678,9 +1637,9 @@ void vec_min_max_el(const float * x, float * mins, float * maxs, size_t n)
     if (false) ;
     else {
         for (; i + 4 <= n;  i += 4) {
-            v4sf xxxx0 = __builtin_ia32_loadups(x + i + 0);
-            v4sf iiii0 = __builtin_ia32_loadups(mins + i + 0);
-            v4sf aaaa0 = __builtin_ia32_loadups(maxs + i + 0);
+            v4sf xxxx0 = _mm_loadu_ps(x + i + 0);
+            v4sf iiii0 = _mm_loadu_ps(mins + i + 0);
+            v4sf aaaa0 = _mm_loadu_ps(maxs + i + 0);
             iiii0      = __builtin_ia32_minps(iiii0, xxxx0);
             aaaa0      = __builtin_ia32_maxps(aaaa0, xxxx0);
             __builtin_ia32_storeups(mins + i + 0, iiii0);

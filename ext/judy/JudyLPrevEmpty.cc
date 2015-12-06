@@ -45,6 +45,8 @@
 
 #include "config.h"
 
+#pragma clang diagnostic ignored "-Wempty-body"
+
 #if (! (defined(JUDY1) || defined(JUDYL)))
 #error:  One of -DJUDY1 or -DJUDYL must be specified.
 #endif

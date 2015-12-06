@@ -10,7 +10,7 @@
 #pragma once
 
 #include "mldb/sql/sql_expression.h"
-#include "mldb/server/dataset.h"
+#include "mldb/core/dataset.h"
 #include "mldb/types/value_description.h"
 
 namespace Datacratic {

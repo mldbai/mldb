@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "mldb/server/function.h"
+#include "mldb/core/function.h"
 #include "mldb/server/plugin_resource.h"
 
 namespace Datacratic {

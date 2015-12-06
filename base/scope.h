@@ -1,9 +1,9 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* scope.h                                                         -*- C++ -*-
    Mathieu Stefani, 26 November 2014
    Copyright (c) 2014 Datacratic.  All rights reserved.
    
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+
   * When you exit a scope, you might want to execute a piece of code depending on the
   * context in which the scope exited. For example, when an exception occurs, it can
   * be considered as a "failure" and you might want to execute a certain piece of code
@@ -47,8 +47,8 @@ namespace Scope {
     template<typename Func>
     struct Base {
         Base(Func func)
-            : func { func }
-            , active { true }
+        : func(std::move(func))
+        , active { true }
         {
             static_assert(noexcept(func()), "The function must be declared noexcept");
         }

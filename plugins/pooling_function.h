@@ -6,12 +6,11 @@
 
 #pragma once
 
-#include "types/value_description.h"
-#include "server/mldb_server.h"
-#include "server/function.h"
-#include "sql/sql_expression.h"
-#include "types/optional.h"
-#include "mldb/jml/stats/distribution.h"
+#include "mldb/types/value_description.h"
+#include "mldb/server/mldb_server.h"
+#include "mldb/core/function.h"
+#include "mldb/sql/sql_expression.h"
+#include "mldb/types/optional.h"
 
 namespace Datacratic {
 namespace MLDB {

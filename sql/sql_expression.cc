@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** sql_expression.cc
     Jeremy Barnes, 24 January 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Basic components of SQL expressions.
 */
@@ -19,7 +19,7 @@
 #include "table_expression_operations.h"
 #include "interval.h"
 #include "tokenize.h"
-#include "mldb/server/dataset.h"
+#include "mldb/core/dataset.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/server/dataset_context.h"
 #include "mldb/types/value_description.h"
@@ -1034,8 +1034,6 @@ const SqlExpression::Operator operators[] = {
     { "LIKE", true,     SqlExpression::unimp,  7, "Like operator" },
     { "SOME", true,     SqlExpression::unimp,  7, "Some true" }
 };
-
-static const int numOperators = sizeof(operators) / sizeof(SqlExpression::Operator);
 
 } // file scope
 
