@@ -4,7 +4,7 @@ MLDB is a new kind of database, one that is specifically designed for operationa
 
 This repository contains the source code for MLDB, which can be used to [build the MLDB Community Edition](Building.md), which is a Docker image that makes it easy to get started with MLDB.
 
-Please [create a Github Issue](https://github.com/mldbai/mldb/issues) if you have any questions or encounter problems while building or running MLDB. 
+Please [create a Github Issue](https://github.com/mldbai/mldb/issues/new) if you have any questions or encounter problems while building or running MLDB. 
 
 ## Copyright & License (Apache License v2.0)
 
