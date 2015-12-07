@@ -67,10 +67,11 @@ void iterateDatasetGrouped(const SelectExpression & select,
                            const OrderByExpression & orderBy,
                            ssize_t offset,
                            ssize_t limit,
-                           std::function<bool (const Json::Value &)> onProgress)
+                           std::function<bool (const Json::Value &)> onProgress,
+                           bool allowMT)
 {
     BoundGroupByQuery(select, from, alias, when, where, groupBy, aggregators, having, rowName, orderBy)
-      .execute(aggregator, offset, limit, onProgress);
+      .execute(aggregator, offset, limit, onProgress, allowMT);
 }
 
 void iterateDataset(const SelectExpression & select,

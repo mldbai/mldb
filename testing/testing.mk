@@ -246,6 +246,7 @@ $(eval $(call mldb_unit_test,MLDB-989-complex-order-by.py))
 $(eval $(call mldb_unit_test,MLDB-1126_stemming.py))
 $(eval $(call mldb_unit_test,MLDB-1127-order-by-and-where-in-svd.py))
 $(eval $(call mldb_unit_test,MLDB-284-tsne-apply-function.py))
+$(eval $(call mldb_unit_test,MLDB-1119_pooling_function.py))
 $(eval $(call mldb_unit_test,MLDB-1172_column_expr_fail.py))
 
 $(eval $(call mldb_unit_test,pytanic_plugin_test.py))
