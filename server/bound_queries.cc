@@ -40,7 +40,7 @@ struct BoundSelectQuery::Executor {
                                              int bucketNum)> aggregator,
                          ssize_t offset,
                          ssize_t limit,
-                         std::function<bool (const Json::Value &)> onProgress) = 0;
+                         std::function<bool (const Json::Value &)> onProgress, bool allowMT) = 0;
 
     virtual std::shared_ptr<ExpressionValueInfo> getOutputInfo() const = 0;
 };
@@ -80,7 +80,8 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                                              int rowNum)> aggregator,
                          ssize_t offset,
                          ssize_t limit,
-                         std::function<bool (const Json::Value &)> onProgress)
+                         std::function<bool (const Json::Value &)> onProgress,
+                         bool allowMT)
     {   
         //cerr << "bound query num buckets: " << numBuckets << endl;
         QueryThreadTracker parentTracker;
@@ -155,24 +156,36 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                 return aggregator(outputRow, calcd, bucketNumber);
             };
 
-            if (numBuckets > 0)
-            {
-              int numRows = rows.size();
-              auto doBucket = [&] (int bucketNumber) -> bool
-              {   
-                  size_t it = bucketNumber * numPerBucket;
-                  for (size_t i = 0;  i < numPerBucket && it < numRows;  ++i, ++it)
-                  {
-                      if (!doRow(it))
-			return false;
-                  }
-                  return true;
-              };
+        if (numBuckets > 0) {
+            int numRows = rows.size();
+            auto doBucket = [&] (int bucketNumber) -> bool
+                {
+                    size_t it = bucketNumber * numPerBucket;
+                    for (size_t i=0;  i<numPerBucket && it<numRows;  ++i, ++it)
+                    {
+                        if (!doRow(it))
+                            return false;
+                    }
+                    return true;
+                };
 
-              ML::run_in_parallel(0, numBuckets, doBucket);
+            if (allowMT) {
+                ML::run_in_parallel(0, numBuckets, doBucket);
             }
-            else
-               ML::run_in_parallel_blocked(0, rows.size(), doRow);
+            else {
+                for (int i = 0; i < numBuckets; ++i)
+                    doBucket(i);
+            }
+        }
+        else {
+            if (allowMT) {
+                ML::run_in_parallel_blocked(0, rows.size(), doRow);
+            }
+            else {
+                for (int i = 0; i < rows.size(); ++i)
+                    doRow(i);
+            }
+        }
     }
 
     virtual std::shared_ptr<ExpressionValueInfo> getOutputInfo() const
@@ -216,7 +229,8 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
                                              int rowNum)> aggregator,
         ssize_t offset,
         ssize_t limit,
-        std::function<bool (const Json::Value &)> onProgress)
+        std::function<bool (const Json::Value &)> onProgress,
+        bool allowMT)
     {
         QueryThreadTracker parentTracker;
 
@@ -398,7 +412,8 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
                                              int rowNum)> aggregator,
                          ssize_t offset,
                          ssize_t limit,
-                         std::function<bool (const Json::Value &)> onProgress)
+                         std::function<bool (const Json::Value &)> onProgress,
+                         bool allowMT)
     {
         QueryThreadTracker parentTracker;
 
@@ -727,7 +742,8 @@ execute(std::function<bool (const NamedRowValue & output,
                             std::vector<ExpressionValue> & calcd)> aggregator,
         ssize_t offset,
         ssize_t limit,
-        std::function<bool (const Json::Value &)> onProgress)
+        std::function<bool (const Json::Value &)> onProgress,
+        bool allowMT)
 {
     auto subAggregator = [&] (const NamedRowValue & row,
                               std::vector<ExpressionValue> & calc,
@@ -736,7 +752,7 @@ execute(std::function<bool (const NamedRowValue & output,
        return aggregator(row, calc);
     };
 
-    return execute(subAggregator, offset, limit, onProgress);
+    return execute(subAggregator, offset, limit, onProgress, allowMT);
 
 }
 
@@ -747,12 +763,13 @@ execute(std::function<bool (const NamedRowValue & output,
                             int groupNum)> aggregator,
         ssize_t offset,
         ssize_t limit,
-        std::function<bool (const Json::Value &)> onProgress)
+        std::function<bool (const Json::Value &)> onProgress,
+        bool allowMT)
 {
     ExcAssert(aggregator);
 
     try {
-        executor->execute(aggregator, offset, limit, onProgress);
+        executor->execute(aggregator, offset, limit, onProgress, allowMT);
     } JML_CATCH_ALL {
         rethrowHttpException(-1, "Error executing non-grouped query: "
                              + ML::getExceptionString(),
@@ -786,8 +803,12 @@ typedef std::vector<std::shared_ptr<void> > GroupMapValue;
 
 struct GroupContext: public SqlExpressionDatasetContext {
 
-    GroupContext(const Dataset& dataset, const Utf8String& alias, const TupleExpression & groupByExpression)
-        : SqlExpressionDatasetContext(dataset, alias), groupByExpression(groupByExpression), argCounter(0), argOffset(0), evaluateEmptyGroups(false)
+    GroupContext(const Dataset& dataset, const Utf8String& alias, 
+            const TupleExpression & groupByExpression) : 
+        SqlExpressionDatasetContext(dataset, alias), 
+        groupByExpression(groupByExpression),
+        argCounter(0), argOffset(0),
+        evaluateEmptyGroups(false)
     {
     }
 
@@ -1037,7 +1058,8 @@ BoundGroupByQuery::
 execute(std::function<bool (const NamedRowValue & output)> aggregator,
              ssize_t offset,
              ssize_t limit,
-             std::function<bool (const Json::Value &)> onProgress)
+             std::function<bool (const Json::Value &)> onProgress,
+             bool allowMT)
 {
     typedef std::tuple<std::vector<ExpressionValue>,
                        NamedRowValue,
@@ -1075,7 +1097,7 @@ execute(std::function<bool (const NamedRowValue & output)> aggregator,
        return true;
     };  
             
-    subSelect->execute(onRow, 0, -1, onProgress);
+    subSelect->execute(onRow, 0, -1, onProgress, allowMT);
   
     //merge the maps in fixed order
     GroupByMapType destMap;
