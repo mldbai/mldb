@@ -50,7 +50,7 @@ nice make -j16 -k docker_mldb DOCKER_ALLOW_DIRTY=1
 
 The final lines of output will give you a docker hash for this image, and the image is also tagged as `<username>_latest` where `<username>` is your Unix username on the box.
 
-To *run* a development Docker image you just built, follow the Running instructions from http://mldb.ai/doc/#builtin/Running.md.html except where the tag there is `latest` just substitute `<username>_latest` and where the name there is `mldb` just substitute something unique to you (e.g. `<username>` is a good candidate!).
+To *run* a development Docker image you just built, follow the Docker instructions from http://mldb.ai/doc/#builtin/Running.md.html except where the tag there is `latest` just substitute `<username>_latest` and where the container name there is `mldb` just substitute something unique to you (e.g. `<username>` is a good candidate!).
 
 Docker images built this way will have the internal/experimental entities shown in the documentation.  For external releases, the flags `RUN_STRIP=-s` is passed which, as a side effect, will hide the internal entities in the documentation.
 
