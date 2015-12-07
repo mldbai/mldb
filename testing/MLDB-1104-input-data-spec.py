@@ -44,6 +44,7 @@ now = datetime.datetime.now()
 # KMEANS TRAIN PROCEDURE WITH BOTH TYPE OF INPUT DATA
 load_kmeans_dataset()
 train_kmeans('select * from kmeans_example')
+train_kmeans('select x + y as x, y + x as y from kmeans_example')
 train_kmeans({'select' : '*', 'from' : {'id' : 'kmeans_example'}})
 
 mldb.script.set_return('success')

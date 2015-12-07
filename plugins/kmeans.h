@@ -31,7 +31,7 @@ struct KmeansConfig : public ProcedureConfig {
         centroids.withType("embedding");
     }
 
-    InputDataSpec trainingData;
+    InputQuery trainingData;
     Optional<PolyConfigT<Dataset> > output;
     static constexpr char const * defaultOutputDatasetType = "embedding";
 

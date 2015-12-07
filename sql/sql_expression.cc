@@ -3508,21 +3508,21 @@ SelectStatementDescription()
     addField("limit",   &SelectStatement::limit,   "LIMIT clause", (ssize_t)-1);
 }
 
-struct InputDataSpecDescription
-    : public ValueDescriptionT<InputDataSpec> {
+struct InputQueryDescription
+    : public ValueDescriptionT<InputQuery> {
 
-    InputDataSpecDescription();
+    InputQueryDescription();
 
-    virtual void parseJsonTyped(InputDataSpec * val,
+    virtual void parseJsonTyped(InputQuery * val,
                                 JsonParsingContext & context) const;
 
-    virtual void printJsonTyped(const InputDataSpec * val,
+    virtual void printJsonTyped(const InputQuery * val,
                                 JsonPrintingContext & context) const;
 };
 
 void
-InputDataSpecDescription::
-parseJsonTyped(InputDataSpec * val,
+InputQueryDescription::
+parseJsonTyped(InputQuery * val,
                JsonParsingContext & context) const
 {
     if (context.isString())
@@ -3539,8 +3539,8 @@ parseJsonTyped(InputDataSpec * val,
 }
  
 void
-InputDataSpecDescription::
-printJsonTyped(const InputDataSpec * val,
+InputQueryDescription::
+printJsonTyped(const InputQuery * val,
                JsonPrintingContext & context) const
 {
     if (!val->stm)
@@ -3551,13 +3551,13 @@ printJsonTyped(const InputDataSpec * val,
     }
 }
 
-DEFINE_VALUE_DESCRIPTION_NS(InputDataSpec, InputDataSpecDescription);
+DEFINE_VALUE_DESCRIPTION_NS(InputQuery, InputQueryDescription);
 
-InputDataSpecDescription::
-InputDataSpecDescription()
+InputQueryDescription::
+InputQueryDescription()
 {
-    setTypeName("InputDataSpec");
-    documentationUri = "/doc/builtin/procedures/InputDatasetSpec.md";
+    setTypeName("InputQuery");
+    documentationUri = "/doc/builtin/procedures/InputQuery.md";
 }
 
 } // namespace MLDB

@@ -43,7 +43,10 @@ KmeansConfigDescription()
                      withType(KmeansConfig::defaultOutputDatasetType));
     
     addField("trainingData", &KmeansConfig::trainingData,
-             "TBD ");
+             "Specification of the data for input to the k-means procedure.  This should be "
+             "organized as an embedding, with each selected row containing the same "
+             "set of columns with numeric values to be used as coordinates.  The select statement "
+             "does not support groupby and having clauses.");
     addField("outputDataset", &KmeansConfig::output,
              "Dataset for cluster assignment.  This dataset will contain the same "
              "row names as the input dataset, but the coordinates will be replaced "

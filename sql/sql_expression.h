@@ -1401,12 +1401,12 @@ struct SelectStatement
 
 DECLARE_STRUCTURE_DESCRIPTION(SelectStatement);
 
-struct InputDataSpec
+struct InputQuery
 {
     std::shared_ptr<SelectStatement> stm;
 };
 
-PREDECLARE_VALUE_DESCRIPTION(InputDataSpec);
+PREDECLARE_VALUE_DESCRIPTION(InputQuery);
 
 } // namespace MLDB
 } // namespace Datacratic

@@ -1,4 +1,4 @@
-# Input Data Specifications
+# Input Query Specifications
 
 When a procedure accepts data as input, the data can be specified in one of two ways:
 
@@ -44,14 +44,9 @@ offers the ability to first create a dataset.  In this example,
 the dataset `dataset1` is first created by loading a csv file.
 
 <div id=contrained-data-spec>
-## Constrained Data Specifications
+## Limitations
 
-For performance reason, some procedures do not accept a full SQL query as their data input.  This table
-summarize the different constraints
+For performance reason, some procedures do not accept a full SQL query as their data input.  For details on what
+is supported for a given procedure, read its documentation.
 
-|  *constraint*   |  *description* |
-|----------|---|
-| Restricted Select Expression | column only ... |
-| No Group By | group by clause not permitted ... |
-| ...     | ... |
 
