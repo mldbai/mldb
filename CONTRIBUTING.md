@@ -1,4 +1,4 @@
-## Contributing to MLDB
+## Getting Help with MLDB & Contributing to MLDB
 
 Bug reports and requests for help with installing, running or using the MLDB 
 Community Edition are very welcome, and the preferred mechanism for this is to 
