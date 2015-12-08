@@ -64,7 +64,10 @@ for f in failed:
         'message' : 'Check log'
     })
     ansi_escape.sub('', fail_content)
-    builder.data(unicode(fail_content, 'utf-8'))
+    try:
+        builder.data(unicode(fail_content, 'utf-8'))
+    except:
+        builder.data(unicode(fail_content, 'latin-1'))
     builder.end('failure')
     builder.end('testcase')
 
