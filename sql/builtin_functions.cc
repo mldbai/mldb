@@ -15,9 +15,9 @@
 #include "mldb/jml/utils/csv.h"
 #include "mldb/types/vector_description.h"
 #include "mldb/ml/confidence_intervals.h"
+#include "mldb/jml/math/xdiv.h"
 
 #include <boost/regex/icu.hpp>
-
 
 using namespace std;
 
@@ -1117,7 +1117,6 @@ static RegisterBuiltin registerHorizontal_Count(horizontal_count, "horizontal_co
 
 BoundFunction horizontal_sum(const std::vector<BoundSqlExpression> & args)
 {
-
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & context) -> ExpressionValue
             {
@@ -1143,6 +1142,98 @@ BoundFunction horizontal_sum(const std::vector<BoundSqlExpression> & args)
             std::make_shared<Float64ValueInfo>()};
 }
 static RegisterBuiltin registerHorizontal_Sum(horizontal_sum, "horizontal_sum");
+
+BoundFunction horizontal_avg(const std::vector<BoundSqlExpression> & args)
+{
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & context) -> ExpressionValue
+            {
+                int64_t num_cols = 0;
+                double accum = 0;
+                Date ts = Date::negativeInfinity();
+
+                auto onAtom = [&] (const Id & columnName,
+                                   const Id & prefix,
+                                   const CellValue & val,
+                                   Date atomTs)
+                    {
+                        if (!val.empty()) {
+                            num_cols++;
+                            accum += val.toDouble();
+                            ts.setMax(atomTs);
+                        }
+                        return true;
+                    };
+
+                args.at(0).forEachAtom(onAtom);
+
+                return ExpressionValue(ML::xdiv(accum, num_cols), ts);
+            },
+            std::make_shared<Float64ValueInfo>()};
+}
+static RegisterBuiltin registerHorizontal_Avg(horizontal_avg, "horizontal_avg");
+
+BoundFunction horizontal_min(const std::vector<BoundSqlExpression> & args)
+{
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & context) -> ExpressionValue
+            {
+                double min_val = nan("");
+                Date ts = Date::negativeInfinity();
+
+                auto onAtom = [&] (const Id & columnName,
+                                   const Id & prefix,
+                                   const CellValue & val,
+                                   Date atomTs)
+                    {
+                        if (!val.empty()) {
+                            double curr = val.toDouble();
+                            if(std::isnan(min_val) || curr < min_val) {
+                                ts = atomTs;
+                                min_val = curr;
+                            }
+                        }
+                        return true;
+                    };
+
+                args.at(0).forEachAtom(onAtom);
+
+                return ExpressionValue(min_val, ts);
+            },
+            std::make_shared<Float64ValueInfo>()};
+}
+static RegisterBuiltin registerHorizontal_Min(horizontal_min, "horizontal_min");
+
+BoundFunction horizontal_max(const std::vector<BoundSqlExpression> & args)
+{
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & context) -> ExpressionValue
+            {
+                double max_val = nan("");
+                Date ts = Date::negativeInfinity();
+
+                auto onAtom = [&] (const Id & columnName,
+                                   const Id & prefix,
+                                   const CellValue & val,
+                                   Date atomTs)
+                    {
+                        if (!val.empty()) {
+                            double curr = val.toDouble();
+                            if(std::isnan(max_val) || curr > max_val) {
+                                ts = atomTs;
+                                max_val = curr;
+                            }
+                        }
+                        return true;
+                    };
+
+                args.at(0).forEachAtom(onAtom);
+
+                return ExpressionValue(max_val, ts);
+            },
+            std::make_shared<Float64ValueInfo>()};
+}
+static RegisterBuiltin registerHorizontal_Max(horizontal_max, "horizontal_max");
 
 struct DiffOp {
     static ML::distribution<double> apply(ML::distribution<double> & d1,
