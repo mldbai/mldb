@@ -303,5 +303,21 @@ regTransposed(builtinPackage(),
               "Dataset that interchanges rows and columns",
               "datasets/TransposedDataset.md.html");
 
+extern std::shared_ptr<Dataset> (*createTransposedDatasetFn) (MldbServer *, std::shared_ptr<Dataset> dataset);
+
+std::shared_ptr<Dataset> createTransposedDataset(MldbServer * server, std::shared_ptr<Dataset> dataset)
+{  
+    return std::make_shared<TransposedDataset>(server, dataset);
+}
+
+namespace {
+struct AtInit {
+    AtInit()
+    {
+        createTransposedDatasetFn = createTransposedDataset;
+    }
+} atInit;
+}
+
 } // namespace MLDB
 } // namespace Datacratic

@@ -161,6 +161,10 @@ namespace {
 std::recursive_mutex externalFunctionsMutex;
 std::unordered_map<Utf8String, ExternalFunction> externalFunctions;
 
+std::recursive_mutex externalDatasetFunctionsMutex;
+std::unordered_map<Utf8String, ExternalDatasetFunction> externalDatasetFunctions;
+
+
 } // file scope
 
 std::shared_ptr<void> registerFunction(Utf8String name, ExternalFunction function)
@@ -216,6 +220,49 @@ doGetFunction(const Utf8String & tableName,
     //                    + functionName);
 }
 
+//These are functions in table expression, i.e. in FROM clauses
+
+std::shared_ptr<void> registerDatasetFunction(Utf8String name, ExternalDatasetFunction function)
+{
+    auto unregister = [=] (void *)
+        {
+            //cerr << "unregistering external function " << name << endl;
+            std::unique_lock<std::recursive_mutex> guard(externalDatasetFunctionsMutex);
+            externalDatasetFunctions.erase(name);
+        };
+
+    std::unique_lock<std::recursive_mutex> guard(externalDatasetFunctionsMutex);
+    if (!externalDatasetFunctions.insert({name, std::move(function)}).second)
+        throw HttpReturnException(400, "Attempt to double register Dataset function",
+                                  "name", name);
+
+    //cerr << "registering external function " << name << endl;
+    return std::shared_ptr<void>(nullptr, unregister);
+}
+
+ExternalDatasetFunction tryLookupDatasetFunction(const Utf8String & name)
+{
+    std::unique_lock<std::recursive_mutex> guard(externalDatasetFunctionsMutex);
+    auto it = externalDatasetFunctions.find(name);
+    if (it == externalDatasetFunctions.end())
+        return nullptr;
+    return it->second;
+}
+
+BoundTableExpression
+SqlBindingScope::
+doGetDatasetFunction(const Utf8String & functionName,
+                     const std::vector<BoundTableExpression> & args,
+                     const Utf8String & alias)
+{
+    auto factory = tryLookupDatasetFunction(functionName);
+    if (factory) {
+        return factory(functionName, args, *this, alias);
+    }
+    
+    return BoundTableExpression();
+}
+
 namespace {
 
 std::recursive_mutex externalAggregatorsMutex;
@@ -227,7 +274,6 @@ std::shared_ptr<void> registerAggregator(Utf8String name, ExternalAggregator agg
 {
     auto unregister = [=] (void *)
         {
-            //cerr << "unregistering external aggregator " << name << endl;
             std::unique_lock<std::recursive_mutex> guard(externalAggregatorsMutex);
             externalAggregators.erase(name);
         };
@@ -237,7 +283,6 @@ std::shared_ptr<void> registerAggregator(Utf8String name, ExternalAggregator agg
         throw HttpReturnException(400, "Attempt to double register aggregator",
                                   "name", name);
 
-    //cerr << "registering external aggregator " << name << endl;
     return std::shared_ptr<void>(nullptr, unregister);
 }
 
@@ -2958,18 +3003,33 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
     }
 
     if (!result) {
-        Utf8String tableName = matchIdentifier(context, allowUtf8);
+        std::shared_ptr<NamedDatasetExpression> expr;
+        Utf8String identifier = matchIdentifier(context, allowUtf8);
 
-        if (!tableName.empty()) {
+        if (!identifier.empty()) {
+
+            if (context.match_literal('('))
+            {
+                std::shared_ptr<TableExpression> subTable = TableExpression::parse(context, currentPrecedence, allowUtf8);
+                context.expect_literal(')');
+                expr.reset(new DatasetFunctionExpression(identifier, subTable, ""));
+            }
+            else
+            {
+                expr.reset(new DatasetExpression(identifier, ""));
+            }
+
             Utf8String asName;
 
             if (matchKeyword(context, "AS ")) {
                 asName = matchIdentifier(context, allowUtf8);
                 if (asName.empty())
                     context.exception("Expected identifier after the AS clause");
+
+                expr->setDatasetAlias(asName);
             }
 
-            result.reset(new DatasetExpression(tableName, asName.empty() ? tableName : asName));
+            result = expr;
             result->surface = boost::trim_copy(token.captured());
         }
     }

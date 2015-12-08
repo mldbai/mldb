@@ -8,6 +8,7 @@ SQL_EXPRESSION_SOURCES := \
 	table_expression_operations.cc \
 	binding_contexts.cc \
 	builtin_functions.cc \
+	builtin_datasetfunctions.cc \
 	builtin_aggregators.cc \
 	interval.cc \
 	join_utils.cc \

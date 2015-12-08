@@ -99,7 +99,7 @@ a large server if they are presented in small batches of 1,000 events
 or so.  The actual speed depends upon the following characteristics:
 
 - The characteristics of the underlying recording dataset.  For example,
-  the `beh.mutable` dataset is slow when recording real-valued variables.
+  the ![](%%doclink beh.mutable dataset) is slow when recording real-valued variables.
 - The cardinality of the row and column space.  A very high cardinality
   (over 10,000 columns or so) requires extra memory accesses which
   reduces the speed.  A very low cardinality (under 100 columns or so)
@@ -177,7 +177,7 @@ The metadata dataset contains three main sets of data:
   (ie, to bulk-load data that is already in MLDB).  This can be done 
   manually by writing it to a persistent dataset and adding the
   appropriate entries to the metadata database.
-- Currently, only the `beh.binary.mutable` dataset type implements all
+- Currently, only the ![](%%doclink beh.binary.mutable dataset) dataset type implements all
   of the functionality required to be reliably used with MLDB.
 
 # Example

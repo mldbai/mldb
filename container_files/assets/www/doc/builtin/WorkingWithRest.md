@@ -4,7 +4,7 @@ Interactions with MLDB occurs via a REST API ([fully documented here](/doc/rest.
 
 ## Structure
 
-The structure of a REST API call is `<verb> <resource> <arguments>`, e.g. `PUT /v1/datasets {"type": "beh"}`.
+The structure of a REST API call is `<verb> <resource> <arguments>`, e.g. `PUT /v1/datasets {"type": "sparse.mutable"}`.
 
 * **verbs**: There are only four possible verbs: `GET`, `POST`, `PUT` and `DELETE`. These four verbs correspond to those available in the [Hypertext Transfer Protocol](http://en.wikipedia.org/wiki/Hypertext_Transfer_Protocol) (HTTP) but it is possible to work with the MLDB API in-process without making use of HTTP or the network (see below).
 * **resources**: MLDB exposes a number of resources ([fully documented here](/doc/rest.html)) which correspond to the basic MLDB entities (datasets, procedures, functions, plugins) and their components (rows and columns for datasets, runs for procedures etc).
@@ -22,4 +22,4 @@ Beyond that, if MLDB is running on a server named `<host>` on port `<port>` then
 
 ## Calling the API over HTTP from Python with `pymldb`
 
-If you are using the built-in [Notebook interface](Notebooks.md) or want to work with MLDB from Python, you can install [`pymldb`](Notebooks.md), which gives you access to an MLDB-specific library to interact with the API over HTTP, while hiding the details of HTTP from you.
+If you are using the built-in [Notebook interface](Notebooks.md) or want to work with MLDB from Python, you can install [`pymldb`](Notebooks.md), which gives you access to an MLDB-specific library to interact with the API over HTTP, while hiding the details of HTTP from you. The ![](%%nblink _tutorials/Using pymldb Tutorial) will show you how to use `pymldb`.

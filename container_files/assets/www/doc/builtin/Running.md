@@ -6,14 +6,12 @@ hr {margin: 40px;}
 
 # Running MLDB
 
-MLDB is available in two editions:
-
           &nbsp;            | Community Edition | Enterprise Edition
 :---------------------------:|:-:|:-:
 **MLDB**    | ✓ | ✓
 **MLDB Pro Plugin[<sup>?</sup>](ProPlugin.md)**            |  &nbsp; | ✓
-**Licensing**     | [Apache License v2.0](https://github.com/mldbai/mldb/blob/master/LICENSE) | Commercial with [free trial](/resources/MLDB_License.pdf)
-**Support**     | [Github Issues](https://github.com/mldbai/mldb/issues/new) | Commercial Support
+**Licensing**     | [Apache License v2.0](https://github.com/mldbai/mldb/blob/master/LICENSE) | [Commercial with free trial](licenses.md)
+**Support**     | [Github Issues](https://github.com/mldbai/mldb/issues/new) | <a href="mailto:mldb@datacratic.com" target="_blank">Datacratic Support</a>
 **Packaging**   | [build from source](https://github.com/mldbai/mldb/blob/master/Building.md) |  [see below](#packages)
 **Pricing**     | free! | <a href="mailto:mldb@datacratic.com" target="_blank">contact sales</a>
 

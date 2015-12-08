@@ -50,5 +50,4 @@ writes will end up completing once the commit operation is done).
 
 # See also
 
-* ![](%%doclink beh dataset)
 * ![](%%doclink beh.mutable dataset)
