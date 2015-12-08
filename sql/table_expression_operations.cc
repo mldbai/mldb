@@ -403,10 +403,10 @@ getUnbound() const
 /** Used when doing a select inside a FROM clause **/
 
 DatasetFunctionExpression::
-DatasetFunctionExpression(Utf8String functionName, std::vector<std::shared_ptr<TableExpression>>& args, Utf8String asName)
-    : NamedDatasetExpression(asName), functionName(functionName), args(args)
+DatasetFunctionExpression(Utf8String functionName, std::vector<std::shared_ptr<TableExpression>>& args)
+    : NamedDatasetExpression(""), functionName(functionName), args(args)
 {
-
+    setDatasetAlias(print());
 }
 
 DatasetFunctionExpression::
@@ -436,7 +436,13 @@ print() const
     Utf8String output = functionName + "(";
     for (auto arg : args)
         output += arg->print() + ",";
-    return output + ")" + " AS " + asName ;
+
+    output += ")" ;
+
+    if (asName != "")
+        output += " AS " + asName ;
+
+    return output;
 }
 
 std::string

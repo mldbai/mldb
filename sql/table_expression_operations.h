@@ -155,7 +155,7 @@ struct SelectSubtableExpression: public NamedDatasetExpression {
 
 struct DatasetFunctionExpression: public NamedDatasetExpression {
 
-    DatasetFunctionExpression(Utf8String functionName, std::vector<std::shared_ptr<TableExpression>>& args, Utf8String asName);
+    DatasetFunctionExpression(Utf8String functionName, std::vector<std::shared_ptr<TableExpression>>& args);
 
     virtual ~DatasetFunctionExpression();
 
