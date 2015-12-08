@@ -229,6 +229,8 @@ struct TableOperations {
                                      ssize_t limit,
                                      bool allowParallel)>
     runQuery;
+
+    bool operator ! () const {return !getRowInfo && !getFunction  && !runQuery; }
 };
 
 /*****************************************************************************/
@@ -243,6 +245,8 @@ struct BoundTableExpression {
     std::shared_ptr<Dataset> dataset;  // deprecated -- use table ops instead
     TableOperations table;
     Utf8String asName;
+
+    bool operator ! () const {return !dataset && !table;}
 };
 
 

@@ -15,6 +15,7 @@ typedef std::function<BoundTableExpression (const std::vector<BoundTableExpressi
 // Overridden by libmldb.so when it loads up to break circular link dependency
 // and allow expression parsing to be in a separate library
 std::shared_ptr<Dataset> (*createTransposedDatasetFn) (MldbServer *, std::shared_ptr<Dataset> dataset);
+std::shared_ptr<Dataset> (*createMergedDatasetFn) (MldbServer *, std::vector<std::shared_ptr<Dataset> >);
 
 // defined in table_expression_operations.cc
 BoundTableExpression
@@ -71,6 +72,27 @@ BoundTableExpression transpose(const SqlBindingScope & context, const std::vecto
 }
 
 static RegisterBuiltin registerTranspose(transpose, "transpose");
+
+BoundTableExpression merge(const SqlBindingScope & context, const std::vector<BoundTableExpression> & args, const Utf8String& alias)
+{
+    if (args.size() < 2)
+        throw HttpReturnException(500, "merge() needs at least 2 arguments");
+
+    std::vector<std::shared_ptr<Dataset> > datasets;
+    datasets.reserve(args.size());
+    for (auto arg : args)
+    {
+        if (arg.dataset)
+            datasets.push_back(arg.dataset);
+    }
+
+    auto ds = createMergedDatasetFn(context.getMldbServer(), datasets);
+
+    return bindDataset(ds, alias);
+}
+
+static RegisterBuiltin registerMerge(merge, "merge");
+
 
 
 }

@@ -3010,9 +3010,23 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
 
             if (context.match_literal('('))
             {
-                std::shared_ptr<TableExpression> subTable = TableExpression::parse(context, currentPrecedence, allowUtf8);
+                skip_whitespace(context);
+                std::vector<std::shared_ptr<TableExpression>> args;
+                if (!context.match_literal(')'))
+                {
+                  do
+                  {
+                      skip_whitespace(context);
+                      std::shared_ptr<TableExpression> subTable = TableExpression::parse(context, currentPrecedence, allowUtf8);
+                      if (subTable)
+                        args.push_back(subTable);
+
+                      skip_whitespace(context);
+                  } while (context.match_literal(','));
+                }
+
                 context.expect_literal(')');
-                expr.reset(new DatasetFunctionExpression(identifier, subTable, ""));
+                expr.reset(new DatasetFunctionExpression(identifier, args, ""));
             }
             else
             {
