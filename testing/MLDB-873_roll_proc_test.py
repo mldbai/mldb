@@ -8,7 +8,6 @@ dataset_config = {
     'id'      : 'toy'
 }
 
-
 dataset = mldb.create_dataset(dataset_config)
 now = datetime.datetime.now()
 dataset.record_row("br_1", [["host", "pataté.com", now], ["region", "qc", now], ["CLICK", "1", now]])
@@ -157,6 +156,59 @@ mldb.log(jsRez)
 assertValForCol(jsRez[0]["columns"], "ctr_host", 1/2.)
 assertValForCol(jsRez[0]["columns"], "ctr_region", 1)
 assertValForCol(jsRez[0]["columns"], "hoho_host", math.log(3))
+
+
+
+######
+# PosNeg Test
+
+dataset_config = {
+    'type'    : 'sparse.mutable',
+    'id'      : 'posneg'
+}
+
+dataset = mldb.create_dataset(dataset_config)
+now = datetime.datetime.now()
+dataset.record_row("a", [["text", "I like apples", now], ["CLICK", "1", now]])
+dataset.record_row("b", [["text", "I like Macs", now]])
+dataset.record_row("c", [["text", "What about bananas?", now]])
+dataset.record_row("d", [["text", "Apples are red", now], ["CLICK", "1", now]])
+dataset.record_row("e", [["text", "Bananas are yellow", now]])
+dataset.record_row("f", [["text", "Oranges are ... orange", now]])
+dataset.commit()
+
+
+conf = {
+    "type": "posneg.train",
+    "params": {
+        "trainingDataset": "posneg",
+        "select": "tokenize(text, {splitchars: ' '}) as *",
+        "outcomes": [["label", "CLICK IS NOT NULL"]],
+        "statsTableFileUrl": "file://build/x86_64/tmp/mldb-873-stats_table_posneg.st",
+    }
+}
+rez = mldb.perform("PUT", "/v1/procedures/myroll_posneg_%s" % output_id, [], conf)
+mldb.log(rez)
+rez = mldb.perform("POST", "/v1/procedures/myroll_posneg_%s/runs" % output_id)
+mldb.log(rez)
+
+
+conf = {
+    "type": "posneg.apply",
+    "params": {
+        "numPos": 4,
+        "numNeg": 4,
+        "minTrials": 1,
+        "outcomeToUse": "label",
+        "statsTableFileUrl": "file://build/x86_64/tmp/mldb-873-stats_table_posneg.st",
+    }
+}
+rez = mldb.perform("PUT", "/v1/functions/posnegz", [], conf)
+mldb.log(rez)
+
+rez = mldb.perform("GET", "/v1/query", [["q", "select posnegz({words: tokenize(text, {splitchars: ' .'})}) as * from posneg"]])
+mldb.log(json.loads(rez["response"]))
+
 
 
 mldb.script.set_return("success")

@@ -21,6 +21,44 @@ namespace Datacratic {
 namespace MLDB {
 
 
+
+
+/*****************************************************************************/
+/* STATS TABLE                                                               */
+/*****************************************************************************/
+
+struct StatsTable {
+
+    StatsTable(const ColumnName & colName=ColumnName("ND"),
+            const std::vector<std::string> & outcome_names = {})
+        : colName(colName), outcome_names(outcome_names),
+          zeroCounts(std::make_pair(0, std::vector<int64_t>(outcome_names.size())))
+    {
+    }
+
+    StatsTable(const std::string & filename);
+
+    typedef std::pair<int64_t, std::vector<int64_t>> BucketCounts;
+    const BucketCounts & increment(const CellValue & val,
+                                   const std::vector<uint> & outcomes);
+    const BucketCounts & getCounts(const CellValue & val) const;
+
+    void save(const std::string & filename) const;
+    void serialize(ML::DB::Store_Writer & store) const;
+    void reconstitute(ML::DB::Store_Reader & store);
+
+
+    ColumnName colName;
+
+    std::vector<std::string> outcome_names;
+    std::map<Utf8String, BucketCounts> counts;
+
+    std::pair<int64_t, std::vector<int64_t>> zeroCounts;
+};
+
+
+
+
 /*****************************************************************************/
 /* STATS TABLE PROCEDURE CONFIG                                              */
 /*****************************************************************************/
@@ -60,40 +98,6 @@ DECLARE_STRUCTURE_DESCRIPTION(StatsTableProcedureConfig);
 
 
 /*****************************************************************************/
-/* STATS TABLE                                                               */
-/*****************************************************************************/
-
-struct StatsTable {
-
-    StatsTable(const ColumnName & colName=ColumnName("ND"),
-            const std::vector<std::string> & outcome_names = {})
-        : colName(colName), outcome_names(outcome_names),
-          zeroCounts(std::make_pair(0, std::vector<int64_t>(outcome_names.size())))
-    {
-    }
-
-    StatsTable(const std::string & filename);
-
-    typedef std::pair<int64_t, std::vector<int64_t>> BucketCounts;
-    const BucketCounts & increment(const CellValue & val,
-                                   const std::vector<uint> & outcomes);
-    const BucketCounts & getCounts(const CellValue & val) const;
-
-    void save(const std::string & filename) const;
-    void serialize(ML::DB::Store_Writer & store) const;
-    void reconstitute(ML::DB::Store_Reader & store);
-
-
-    ColumnName colName;
-
-    std::vector<std::string> outcome_names;
-    std::map<Utf8String, BucketCounts> counts;
-
-    std::pair<int64_t, std::vector<int64_t>> zeroCounts;
-};
-
-
-/*****************************************************************************/
 /* STATS TABLE PROCEDURE                                                     */
 /*****************************************************************************/
     
@@ -112,6 +116,7 @@ struct StatsTableProcedure: public Procedure {
 
     StatsTableProcedureConfig procConfig;
 };
+
 
 /*****************************************************************************/
 /* STATS TABLE FUNCTION                                                      */
@@ -183,6 +188,109 @@ struct StatsTableDerivedColumnsGeneratorProcedure: public Procedure {
 
     StatsTableDerivedColumnsGeneratorProcedureConfig procConfig;
 };
+
+
+/*****************************************************************************/
+/* POS NEG PROCEDURE CONFIG                                                  */
+/*****************************************************************************/
+
+struct PosNegProcedureConfig {
+    PosNegProcedureConfig() :
+          select("*"),
+          when(WhenExpression::TRUE),
+          where(SqlExpression::TRUE)
+    {
+    }
+
+    std::shared_ptr<TableExpression> dataset;
+
+    /// The SELECT clause to tell us which features to keep
+    SelectExpression select;
+
+    /// The WHEN clause for the timespan tuples must belong to
+    WhenExpression when;
+
+    /// The WHERE clause for which rows to include from the dataset
+    std::shared_ptr<SqlExpression> where;
+
+    /// The expression to generate the outcomes
+    std::vector<std::pair<std::string, std::shared_ptr<SqlExpression>>> outcomes;
+
+    OrderByExpression orderBy;
+
+    Url statsTableFileUrl;
+
+    Utf8String functionName;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(PosNegProcedureConfig);
+
+
+/*****************************************************************************/
+/* POS NEG PROCEDURE                                                         */
+/*****************************************************************************/
+    
+struct PosNegProcedure: public Procedure {
+
+    PosNegProcedure(MldbServer * owner,
+                PolyConfig config,
+                const std::function<bool (const Json::Value &)> & onProgress);
+
+    virtual RunOutput run(const ProcedureRunConfig & run,
+                          const std::function<bool (const Json::Value &)> & onProgress) const;
+
+    virtual Any getStatus() const;
+
+    StatsTableProcedureConfig procConfig;
+};
+
+
+/*****************************************************************************/
+/* POS NEG FUNCTION                                                          */
+/*****************************************************************************/
+
+struct PosNegFunctionConfig {
+    PosNegFunctionConfig(const Url & statsTableFileUrl = Url()) :
+        numPos(50), numNeg(50), minTrials(50),
+        statsTableFileUrl(statsTableFileUrl)
+    {
+    }
+
+    size_t numPos;
+    size_t numNeg;
+    size_t minTrials;
+
+    std::string outcomeToUse;
+
+    Url statsTableFileUrl;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(PosNegFunctionConfig);
+
+struct PosNegFunction: public Function {
+    PosNegFunction(MldbServer * owner,
+                  PolyConfig config,
+                  const std::function<bool (const Json::Value &)> & onProgress);
+
+    ~PosNegFunction();
+
+    virtual Any getStatus() const;
+
+    virtual Any getDetails() const;
+
+    virtual FunctionOutput apply(const FunctionApplier & applier,
+                              const FunctionContext & context) const;
+
+    /** Describe what the input and output is for this function. */
+    virtual FunctionInfo getFunctionInfo() const;
+
+    PosNegFunctionConfig functionConfig;
+
+
+    std::map<Utf8String, float> p_outcomes;
+};
+
+
 
 
 } // namespace MLDB

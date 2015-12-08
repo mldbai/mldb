@@ -35,48 +35,6 @@ namespace MLDB {
 
 
 
-/*****************************************************************************/
-/* STATS TABLE PROCEDURE CONFIG                                              */
-/*****************************************************************************/
-
-DEFINE_STRUCTURE_DESCRIPTION(StatsTableProcedureConfig);
-
-StatsTableProcedureConfigDescription::
-StatsTableProcedureConfigDescription()
-{
-    addFieldDesc("trainingDataset", &StatsTableProcedureConfig::dataset,
-                 "Dataset on which the rolling operations will be performed.",
-                 makeInputDatasetDescription());
-    addField("outputDataset", &StatsTableProcedureConfig::output,
-             "Output dataset",
-             PolyConfigT<Dataset>().withType("sparse.mutable"));
-    addField("select", &StatsTableProcedureConfig::select,
-             "Select these columns (default all columns).  Only plain "
-             "column names may be "
-             "used; it is not possible to select on an expression (like x + 1)",
-             SelectExpression::STAR);
-    addField("where", &StatsTableProcedureConfig::where,
-             "Only use rows matching this clause (default all rows)",
-             SqlExpression::TRUE);
-    addField("when", &StatsTableProcedureConfig::when,
-             "Only use values matching this timestamp expression (default all values)",
-             WhenExpression::TRUE);
-    addField("orderBy", &StatsTableProcedureConfig::orderBy,
-             "Process rows in this order. This is extermely important because "
-             "each row's counts will be influenced by rows that came before it.",
-             OrderByExpression::ROWHASH);
-    addField("outcomes", &StatsTableProcedureConfig::outcomes,
-             "List of expressions to generate the outcomes. Each can be any expression "
-             "involving the columns in the dataset. The type of the outcomes "
-             "must be a boolean (0 or 1)");
-    addField("statsTableFileUrl", &StatsTableProcedureConfig::statsTableFileUrl,
-             "URL where the stats table file (with extension '.st') should be saved. "
-             "This file can be loaded by a function of type 'statsTable.getCounts'.");
-    addField("functionName", &StatsTableProcedureConfig::functionName,
-             "If specified, a 'statsTable.getCounts' function of this name will be "
-             "created using the trained stats tables.");
-}
-
 
 /*****************************************************************************/
 /* STATS TABLE                                                               */
@@ -156,7 +114,51 @@ reconstitute(ML::DB::Store_Reader & store)
 
 
 /*****************************************************************************/
-/* ROLL PROCEDURE                                                            */
+/* STATS TABLE PROCEDURE CONFIG                                              */
+/*****************************************************************************/
+
+DEFINE_STRUCTURE_DESCRIPTION(StatsTableProcedureConfig);
+
+StatsTableProcedureConfigDescription::
+StatsTableProcedureConfigDescription()
+{
+    addFieldDesc("trainingDataset", &StatsTableProcedureConfig::dataset,
+                 "Dataset on which the rolling operations will be performed.",
+                 makeInputDatasetDescription());
+    addField("outputDataset", &StatsTableProcedureConfig::output,
+             "Output dataset",
+             PolyConfigT<Dataset>().withType("sparse.mutable"));
+    addField("select", &StatsTableProcedureConfig::select,
+             "Select these columns (default all columns).  Only plain "
+             "column names may be "
+             "used; it is not possible to select on an expression (like x + 1)",
+             SelectExpression::STAR);
+    addField("where", &StatsTableProcedureConfig::where,
+             "Only use rows matching this clause (default all rows)",
+             SqlExpression::TRUE);
+    addField("when", &StatsTableProcedureConfig::when,
+             "Only use values matching this timestamp expression (default all values)",
+             WhenExpression::TRUE);
+    addField("orderBy", &StatsTableProcedureConfig::orderBy,
+             "Process rows in this order. This is extermely important because "
+             "each row's counts will be influenced by rows that came before it.",
+             OrderByExpression::ROWHASH);
+    addField("outcomes", &StatsTableProcedureConfig::outcomes,
+             "List of expressions to generate the outcomes. Each can be any expression "
+             "involving the columns in the dataset. The type of the outcomes "
+             "must be a boolean (0 or 1)");
+    addField("statsTableFileUrl", &StatsTableProcedureConfig::statsTableFileUrl,
+             "URL where the stats table file (with extension '.st') should be saved. "
+             "This file can be loaded by a function of type 'statsTable.getCounts'.");
+    addField("functionName", &StatsTableProcedureConfig::functionName,
+             "If specified, a 'statsTable.getCounts' function of this name will be "
+             "created using the trained stats tables.");
+}
+
+
+
+/*****************************************************************************/
+/* STATS TABLE PROCEDURE                                                     */
 /*****************************************************************************/
 
 StatsTableProcedure::
@@ -543,6 +545,317 @@ run(const ProcedureRunConfig & run,
     return RunOutput(funcPC);
 }
 
+
+
+/*****************************************************************************/
+/* POS NEG PROCEDURE CONFIG                                              */
+/*****************************************************************************/
+
+DEFINE_STRUCTURE_DESCRIPTION(PosNegProcedureConfig);
+
+PosNegProcedureConfigDescription::
+PosNegProcedureConfigDescription()
+{
+    addFieldDesc("trainingDataset", &PosNegProcedureConfig::dataset,
+                 "Dataset on which the rolling operations will be performed.",
+                 makeInputDatasetDescription());
+    addField("select", &PosNegProcedureConfig::select,
+             "Select these columns (default all columns).  Only plain "
+             "column names may be "
+             "used; it is not possible to select on an expression (like x + 1)",
+             SelectExpression::STAR);
+    addField("where", &PosNegProcedureConfig::where,
+             "Only use rows matching this clause (default all rows)",
+             SqlExpression::TRUE);
+    addField("when", &PosNegProcedureConfig::when,
+             "Only use values matching this timestamp expression (default all values)",
+             WhenExpression::TRUE);
+    addField("orderBy", &PosNegProcedureConfig::orderBy,
+             "Process rows in this order. This is extermely important because "
+             "each row's counts will be influenced by rows that came before it.",
+             OrderByExpression::ROWHASH);
+    addField("outcomes", &PosNegProcedureConfig::outcomes,
+             "List of expressions to generate the outcomes. Each can be any expression "
+             "involving the columns in the dataset. The type of the outcomes "
+             "must be a boolean (0 or 1)");
+    addField("statsTableFileUrl", &PosNegProcedureConfig::statsTableFileUrl,
+             "URL where the stats table file (with extension '.st') should be saved. "
+             "This file can be loaded by a function of type 'posneg.apply'.");
+}
+
+/*****************************************************************************
+ * POS NEG PROCEDURE                                                         */
+/*****************************************************************************/
+
+PosNegProcedure::
+PosNegProcedure(MldbServer * owner,
+            PolyConfig config,
+            const std::function<bool (const Json::Value &)> & onProgress)
+    : Procedure(owner)
+{
+    procConfig = config.params.convert<StatsTableProcedureConfig>();
+}
+
+Any
+PosNegProcedure::
+getStatus() const
+{
+    return Any();
+}
+
+RunOutput
+PosNegProcedure::
+run(const ProcedureRunConfig & run,
+      const std::function<bool (const Json::Value &)> & onProgress) const
+{
+
+    StatsTableProcedureConfig runProcConf =
+        applyRunConfOverProcConf(procConfig, run);
+
+    SqlExpressionMldbContext context(server);
+    auto boundDataset = runProcConf.dataset->bind(context);
+    
+    vector<string> outcome_names;
+    for(const pair<string, std::shared_ptr<SqlExpression>> & lbl : runProcConf.outcomes)
+        outcome_names.push_back(lbl.first);
+
+    StatsTable statsTable(ColumnName("words"), outcome_names);
+
+
+    auto onProgress2 = [&] (const Json::Value & progress)
+        {
+            Json::Value value;
+            value["dataset"] = progress;
+            return onProgress(value);
+        };
+
+    int num_req = 0;
+    Date start = Date::now();
+
+    auto aggregator = [&] (const MatrixNamedRow & row,
+                           const std::vector<ExpressionValue> & extraVals)
+        {
+            if(num_req++ % 10000 == 0) {
+                double secs = Date::now().secondsSinceEpoch() - start.secondsSinceEpoch();
+                string progress = ML::format("done %d. %0.4f/sec", num_req, num_req / secs);
+                onProgress(progress);
+                cerr << progress << endl;
+            }
+
+            vector<uint> encodedLabels;
+            for(int lbl_idx=0; lbl_idx<runProcConf.outcomes.size(); lbl_idx++) {
+                CellValue outcome = extraVals.at(lbl_idx).getAtom();
+                encodedLabels.push_back( !outcome.empty() && outcome.isTrue() );
+            }
+  
+            for(const std::tuple<ColumnName, CellValue, Date> & col : row.columns) {
+                statsTable.increment(CellValue(get<0>(col).toUtf8String()), encodedLabels);
+            }
+
+            return true;
+        };
+
+
+    // We want to calculate the outcome and weight of each row as well
+    // as the select expression
+    std::vector<std::shared_ptr<SqlExpression> > extra;
+    for(const pair<string, std::shared_ptr<SqlExpression>> & lbl : runProcConf.outcomes)
+        extra.push_back(lbl.second);
+
+    iterateDataset(runProcConf.select,
+                   *boundDataset.dataset, boundDataset.asName, 
+                   runProcConf.when, runProcConf.where,
+                   extra,
+                   aggregator, runProcConf.orderBy);
+
+
+    // save if required
+    if(!runProcConf.statsTableFileUrl.empty()) {
+        ML::filter_ostream stream(runProcConf.statsTableFileUrl.toString());
+        ML::DB::Store_Writer store(stream);
+        store << statsTable;
+    }
+    
+    return RunOutput();
+}
+
+
+/*****************************************************************************/
+/* POS NEG FUNCTION                                                          */
+/*****************************************************************************/
+
+DEFINE_STRUCTURE_DESCRIPTION(PosNegFunctionConfig);
+
+PosNegFunctionConfigDescription::
+PosNegFunctionConfigDescription()
+{
+    addField("numPos", &PosNegFunctionConfig::numPos,
+            "Number of top positive words to use");//, ssize_t(50));
+    addField("numNeg", &PosNegFunctionConfig::numNeg,
+            "Number of top negative words to use");//, ssize_t(50));
+    addField("minTrials", &PosNegFunctionConfig::minTrials,
+            "Minimum number of occurences (trials) a words needs to have "
+            "to be considered in the top words");//, ssize_t(50));
+    addField("outcomeToUse", &PosNegFunctionConfig::outcomeToUse,
+            "Outcome to use. This must be one of the outcomes the stats "
+            "table was trained with.");
+    addField("statsTableFileUrl", &PosNegFunctionConfig::statsTableFileUrl,
+             "URL of the stats tables file (with extension '.st') to load. "
+             "This file is created by a procedure of type 'experimental.statsTable.train'.");
+}
+
+PosNegFunction::
+PosNegFunction(MldbServer * owner,
+               PolyConfig config,
+               const std::function<bool (const Json::Value &)> & onProgress)
+    : Function(owner)
+{
+    functionConfig = config.params.convert<PosNegFunctionConfig>();
+
+    StatsTable statsTable;
+
+    // Load saved stats tables
+    ML::filter_istream stream(functionConfig.statsTableFileUrl.toString());
+    ML::DB::Store_Reader store(stream);
+    store >> statsTable;
+
+    // find the index of the outcome we're requesting in the config
+    int outcomeToUseIdx = -1;
+    for(int i=0; i<statsTable.outcome_names.size(); i++) {
+        if(statsTable.outcome_names[i] == functionConfig.outcomeToUse) {
+            outcomeToUseIdx = i;
+        }
+    }
+    if(outcomeToUseIdx == -1) {
+        throw ML::Exception("Outcome '"+functionConfig.outcomeToUse+
+                "' not found in stats table!");
+    }
+   
+    // sort all the keys by their p(outcome)
+    vector<pair<Utf8String, float>> accum;
+    for(auto it = statsTable.counts.begin(); it!=statsTable.counts.end(); it++) {
+        const pair<int64_t, std::vector<int64_t>> & counts = it->second;
+
+        if(counts.first < functionConfig.minTrials)
+            continue;
+
+        float poutcome = counts.second[outcomeToUseIdx] / float(counts.first);
+        accum.push_back(make_pair(it->first, poutcome));
+    }
+
+    if(accum.size() < functionConfig.numPos + functionConfig.numNeg) {
+        for(const auto & col : accum)
+            p_outcomes.insert(col);
+    }
+    else {
+        auto comparer = [](const pair<Utf8String, float> & a,
+                           const pair<Utf8String, float> & b)
+            {
+                return a.second > b.second;
+            };
+        std::sort(accum.begin(), accum.end(), comparer);
+
+        for(int i=0; i<functionConfig.numPos; i++) {
+            auto & a = accum[i];
+            p_outcomes.insert(make_pair(a.first, a.second));
+        }
+        
+        for(int i=0; i<functionConfig.numNeg; i++) {
+            auto & a = accum[accum.size() - 1 - i];
+            p_outcomes.insert(make_pair(a.first, a.second));
+        }
+    }
+}
+
+PosNegFunction::
+~PosNegFunction()
+{
+}
+
+Any
+PosNegFunction::
+getStatus() const
+{
+    Json::Value result;
+    return result;
+}
+
+Any
+PosNegFunction::
+getDetails() const
+{
+    return Any();
+}
+
+FunctionOutput
+PosNegFunction::
+apply(const FunctionApplier & applier,
+      const FunctionContext & context) const
+{
+    FunctionOutput result;
+
+    ExpressionValue args = context.get<ExpressionValue>("words");
+
+    if(args.isObject()) {
+        RowValue rtnRow;
+
+        // TODO should we cache column names as we did in the procedure?
+        auto onAtom = [&] (const ColumnName & columnName,
+                           const ColumnName & prefix,
+                           const CellValue & val,
+                           Date ts)
+            {
+
+                auto it = p_outcomes.find(columnName.toUtf8String());
+                if(it == p_outcomes.end()) {
+                    return true;
+                }
+
+                rtnRow.push_back(make_tuple(Id(columnName.toUtf8String() + "_" + functionConfig.outcomeToUse),
+                                            it->second,
+                                            ts));
+
+
+//                 auto st = statsTables.find(columnName);
+//                 if(st == statsTables.end())
+//                     return true;
+// 
+//                 auto counts = st->second.getCounts(val);
+// 
+//                 auto strCol = columnName.toUtf8String(); 
+//                 rtnRow.push_back(make_tuple(Id("trial_"+strCol), counts.first, ts));
+// 
+//                 for(int lbl_idx=0; lbl_idx<st->second.outcome_names.size(); lbl_idx++) {
+//                     rtnRow.push_back(make_tuple(Id(st->second.outcome_names[lbl_idx]+"_"+strCol),
+//                                                 counts.second[lbl_idx],
+//                                                 ts));
+//                 }
+
+                return true;
+            };
+
+        args.forEachAtom(onAtom);
+        result.set("counts", ExpressionValue(std::move(rtnRow)));
+    }
+    else {
+        throw ML::Exception("wrong input type");
+    }
+
+    return result;
+}
+
+FunctionInfo
+PosNegFunction::
+getFunctionInfo() const
+{
+    FunctionInfo result;
+    result.input.addRowValue("words");
+    result.output.addRowValue("counts");
+    return result;
+}
+
+
+
 /*****************************************************************************/
 /*****************************************************************************/
 /*****************************************************************************/
@@ -574,6 +887,24 @@ regSTTrain(builtinPackage(),
            "procedures/StatsTableProcedure.md.html",
            nullptr,
            { MldbEntity::INTERNAL_ENTITY });
+
+
+RegisterProcedureType<PosNegProcedure, PosNegProcedureConfig>
+regPosNegTrain(builtinPackage(),
+           "posneg.train",
+           "Create statistical tables of trials against outcomes",
+           "procedures/PosNegProcedure.md.html",
+           nullptr,
+           { MldbEntity::INTERNAL_ENTITY });
+
+RegisterFunctionType<PosNegFunction, PosNegFunctionConfig>
+regPosNegFunction(builtinPackage(),
+                    "posneg.apply",
+                    "Get the pos/neg p(outcome)",
+                    "functions/PosNegApply.md.html",
+                    nullptr,
+                    { MldbEntity::INTERNAL_ENTITY });
+
 
 } // file scope
 
