@@ -280,6 +280,7 @@ $(eval $(call python_addon,py_cell_conv_test_module,python_cell_converter_test_s
 
 $(eval $(call python_test,python_cell_converter_test,py_cell_conv_test_module))
 
+$(eval $(call mldb_unit_test,MLDB-1011-excel-import.js))
 $(eval $(call mldb_unit_test,MLDB-1121-csv-import-duplicates.py))
 $(eval $(call mldb_unit_test,MLDB-1098-csv-export.py))
 $(eval $(call mldb_unit_test,MLDB-1098-csv-export-advanced.py))
