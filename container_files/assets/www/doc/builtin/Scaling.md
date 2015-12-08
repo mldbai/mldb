@@ -8,7 +8,7 @@ The following diagram shows a typical distributed MLDB deployment. At the center
 * Scoring: continuously applying machine learning models (defined by files retrieved from shared storage) in response to HTTP GET requests
 * Model training & batch application: running long analytic queries and jobs on data from shared storage, and save the results back in shared storage
 
-IMAGE HERE
+![Distributed Setup](/doc/builtin/img/DistributedSetup.svg)
 
 Data collection and scoring scale horizontally: you can add more nodes to collect data or score faster.
 
