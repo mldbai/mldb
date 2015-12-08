@@ -40,6 +40,9 @@ ul {
 * [Notebooks and pymldb](Notebooks.md)
 * [Demos & Tutorials](Demos.md)
 * [Files and URLs](Url.md)
+* [MLDB Pro](ProPlugin.md)
+* [Algorithm Support](Algorithms.md)
+* [Scaling MLDB](Scaling.md)
 * [Help and Feedback](help.md)
 * [Licenses](licenses.md)
 

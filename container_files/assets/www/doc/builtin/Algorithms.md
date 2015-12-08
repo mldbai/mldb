@@ -1,22 +1,29 @@
 # Algorithm Support
 
-* Regression & Classification:
-    * Generalized Linear Models via the ![](%%doclink classifier.train procedure)
-    * Logistic Regression via the ![](%%doclink classifier.train procedure)
-    * Decision Trees via the ![](%%doclink classifier.train procedure)
-    * Neural Networks via the ![](%%doclink classifier.train procedure)
-    * Naive Bayes via the ![](%%doclink classifier.train procedure)
-    * Bagging via the ![](%%doclink classifier.train procedure)
-    * Boosting via the ![](%%doclink classifier.train procedure)
-    * Random Forests via the ![](%%doclink classifier.train procedure)
-    * Support Vector Machines (SVM) via the ![](%%doclink svm.train procedure)
-    * Model Calibration via the ![](%%doclink probabilizer.train procedure)
-* Clustering:
-    * K-Means via the ![](%%doclink kmeans.train procedure)
-* Dimensionality Reduction, Visualization & Manifold Learning:
-    * Singular Value Decomposition (SVD) via the ![](%%doclink svd.train procedure)
-    * t-Stochastic Neighbor Embedding (t-SNE) via the ![](%%doclink tsne.train procedure)
-* Feature Engineering
-    * Sentiment Analysis via the ![](%%doclink import.sentiwordnet procedure)
-    * Word-space Embedding via the ![](%%doclink import.word2vec procedure)
+## Regression & Classification
+
+* The ![](%%doclink classifier.train procedure) can train:
+    * [Generalized Linear Models](https://en.wikipedia.org/wiki/Generalized_linear_model) 
+    * [Logistic Regressions](https://en.wikipedia.org/wiki/Logistic_regression)
+    * [Decision Trees](https://en.wikipedia.org/wiki/Decision_tree_learning) (including [Random Forests](https://en.wikipedia.org/wiki/Random_forest))
+    * [Neural Networks](https://en.wikipedia.org/wiki/Artificial_neural_network)
+    * [Naive Bayes models](https://en.wikipedia.org/wiki/Naive_Bayes_classifier)
+    * with [Bagging](https://en.wikipedia.org/wiki/Bootstrap_aggregating)
+    * with [Boosting](https://en.wikipedia.org/wiki/Boosting_(machine_learning))
+* The ![](%%doclink svm.train procedure) can train [Support Vector Machines (SVM)](https://en.wikipedia.org/wiki/Support_vector_machine)
+* The ![](%%doclink probabilizer.train procedure) can calibrate classifiers
+
+## Clustering 
+
+* The ![](%%doclink kmeans.train procedure) can train [K-Means models](https://en.wikipedia.org/wiki/K-means_clustering) 
+
+## Dimensionality Reduction, Visualization & Manifold Learning
+
+* The ![](%%doclink svd.train procedure) can perform [Truncated Singular Value Decompositions (SVD)](https://en.wikipedia.org/wiki/Singular_value_decomposition)
+* The ![](%%doclink tsne.train procedure) can perform [t-distributed Stochastic Neighbor Embedding (t-SNE)](https://en.wikipedia.org/wiki/T-distributed_stochastic_neighbor_embedding)
+
+## Feature Engineering
+
+* The ![](%%doclink import.sentiwordnet procedure) can import [SentiWordNet](http://sentiwordnet.isti.cnr.it/) models 
+* The ![](%%doclink import.word2vec procedure) can import [Word2Vec](https://code.google.com/p/word2vec/) embeddings 
 
