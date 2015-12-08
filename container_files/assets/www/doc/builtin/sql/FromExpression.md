@@ -39,3 +39,13 @@ SELECT x.* FROM transpose(dataset) AS x
 ```
 
 See ![](%%doclink transposed dataset) for more details.
+
+## Merge
+
+Queries can be made to the union of several datasets by using the merge() function in the FROM expression. For example:
+
+```
+SELECT x.* FROM merge(dataset1, dataset2, dataset3) AS x
+```
+
+See ![](%%doclink merged dataset) for more details.

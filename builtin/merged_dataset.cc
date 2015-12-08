@@ -515,5 +515,21 @@ regMerged(builtinPackage(),
           "Merges together several datasets into one virtual dataset",
           "datasets/MergedDataset.md.html");
 
+extern std::shared_ptr<Dataset> (*createMergedDatasetFn) (MldbServer *, std::vector<std::shared_ptr<Dataset> > datasets);
+
+std::shared_ptr<Dataset> createMergedDataset(MldbServer * server, std::vector<std::shared_ptr<Dataset> > datasets)
+{
+    return std::make_shared<MergedDataset>(server, datasets);
+}
+
+namespace {
+struct AtInit {
+    AtInit()
+    {
+        createMergedDatasetFn = createMergedDataset;
+    }
+} atInit;
+}
+
 } // namespace MLDB
 } // namespace Datacratic

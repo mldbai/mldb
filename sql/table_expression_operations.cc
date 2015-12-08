@@ -403,8 +403,8 @@ getUnbound() const
 /** Used when doing a select inside a FROM clause **/
 
 DatasetFunctionExpression::
-DatasetFunctionExpression(Utf8String functionName, std::shared_ptr<TableExpression> childDataset, Utf8String asName)
-    : NamedDatasetExpression(asName), functionName(functionName), childDataset(childDataset)
+DatasetFunctionExpression(Utf8String functionName, std::vector<std::shared_ptr<TableExpression>>& args, Utf8String asName)
+    : NamedDatasetExpression(asName), functionName(functionName), args(args)
 {
 
 }
@@ -419,15 +419,24 @@ DatasetFunctionExpression::
 bind(SqlBindingScope & context) const
 {
     std::vector<BoundTableExpression> boundArgs;
-    boundArgs.push_back(childDataset->bind(context));
-    return context.doGetDatasetFunction(functionName, boundArgs, asName);
+    for (auto arg : args)
+        boundArgs.push_back(arg->bind(context));
+    auto fn = context.doGetDatasetFunction(functionName, boundArgs, asName);
+
+    if (!fn)
+        throw HttpReturnException(400, "could not bind dataset function " + functionName);
+
+    return fn;
 }
 
 Utf8String
 DatasetFunctionExpression::
 print() const
 {
-    return functionName + "(" + childDataset->print() + ")" + " AS " + asName ;
+    Utf8String output = functionName + "(";
+    for (auto arg : args)
+        output += arg->print() + ",";
+    return output + ")" + " AS " + asName ;
 }
 
 std::string
