@@ -1,4 +1,5 @@
 # MLDB is the Machine Learning Database
+### by [Datacratic](http://datacratic.com/)
 
 MLDB is a new kind of database, one that is specifically designed for operationalizing machine learning. You install it wherever you want and send it commands over a RESTful API to store and explore data, train machine learning models on that data, and then expose those models as APIs. More information is available at http://mldb.ai
 
