@@ -32,7 +32,7 @@ FROM (SELECT * FROM dataset WHERE column1 = 2) as subselect
 
 ## Transpose
 
-Queries can be made to the transpose of a dataset by using a transpose() function in the FROM expression. For example:
+Queries can be made to the transpose of a dataset by using the transpose() function in the FROM expression. For example:
 
 ```
 SELECT x.* FROM transpose(dataset) AS x
