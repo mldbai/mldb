@@ -3026,11 +3026,11 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
                 }
 
                 context.expect_literal(')');
-                expr.reset(new DatasetFunctionExpression(identifier, args, ""));
+                expr.reset(new DatasetFunctionExpression(identifier, args));
             }
             else
             {
-                expr.reset(new DatasetExpression(identifier, ""));
+                expr.reset(new DatasetExpression(identifier, identifier));
             }
 
             Utf8String asName;
