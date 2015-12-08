@@ -79,6 +79,7 @@ struct MldbServer;
 struct BasicRowGenerator;
 struct WhenExpression;
 struct SqlExpressionDatasetContext;
+struct TableOperations;
 
 
 extern const OrderByExpression ORDER_BY_NOTHING;
@@ -199,6 +200,52 @@ struct BoundSqlExpression {
 
 DECLARE_STRUCTURE_DESCRIPTION(BoundSqlExpression);
 
+/*****************************************************************************/
+/* TABLE OPERATIONS                                                          */
+/*****************************************************************************/
+
+/** Represents a generalized table, with enough information for MLDB to
+    work with it.
+*/
+
+struct TableOperations {
+
+    /// Get a description of a row of the table, including all known columns
+    std::function<std::shared_ptr<RowValueInfo> ()> getRowInfo;
+
+    /// Get a function bound to the given dataset
+    std::function<BoundFunction (SqlBindingScope & context,
+                                 const Utf8String &,
+                                 const std::vector<std::shared_ptr<ExpressionValueInfo> > & args)>
+    getFunction;
+
+    /// Run a basic query on the table
+    std::function<BasicRowGenerator (const SqlBindingScope & context,
+                                     const SelectExpression & select,
+                                     const WhenExpression & when,
+                                     const SqlExpression & where,
+                                     const OrderByExpression & orderBy,
+                                     ssize_t offset,
+                                     ssize_t limit,
+                                     bool allowParallel)>
+    runQuery;
+};
+
+/*****************************************************************************/
+/* BOUND TABLE EXPRESSION                                                    */
+/*****************************************************************************/
+
+/** A table expression bound to a context.  This indicates a concrete
+    dataset on which an operation can be performed.
+*/
+
+struct BoundTableExpression {
+    std::shared_ptr<Dataset> dataset;  // deprecated -- use table ops instead
+    TableOperations table;
+    Utf8String asName;
+};
+
+
 
 /*****************************************************************************/
 /* VARIABLE GETTER                                                           */
@@ -271,7 +318,6 @@ struct BoundFunction {
     }
 };
 
-
 /*****************************************************************************/
 /* EXTERNAL FUNCTION                                                         */
 /*****************************************************************************/
@@ -306,7 +352,6 @@ struct RegisterFunction {
 
     std::shared_ptr<void> handle;
 };
-
 
 /*****************************************************************************/
 /* BOUND AGGREGATOR                                                          */
@@ -378,36 +423,49 @@ struct RegisterAggregator {
 
 
 /*****************************************************************************/
-/* TABLE OPERATIONS                                                          */
+/* BOUND DATASET FUNCTION                                                    */
 /*****************************************************************************/
 
-/** Represents a generalized table, with enough information for MLDB to
-    work with it.
+/** Result of binding a function to be used in a FROM expression.
+  This provides an executor as well as information on the range of the function.
 */
 
-struct TableOperations {
+/*struct BoundDatasetFunction {
+    typedef std::function<BoundTableExpression (const std::vector<BoundTableExpression> &,
+                          const SqlRowScope & context) > Exec;
 
-    /// Get a description of a row of the table, including all known columns
-    std::function<std::shared_ptr<RowValueInfo> ()> getRowInfo;
+    BoundDatasetFunction()
+    {
+    }
 
-    /// Get a function bound to the given dataset
-    std::function<BoundFunction (SqlBindingScope & context,
-                                 const Utf8String &,
-                                 const std::vector<std::shared_ptr<ExpressionValueInfo> > & args)>
-    getFunction;
+    BoundDatasetFunction(Exec exec)
+        : exec(std::move(exec))
+    {
+    }
 
-    /// Run a basic query on the table
-    std::function<BasicRowGenerator (const SqlBindingScope & context,
-                                     const SelectExpression & select,
-                                     const WhenExpression & when,
-                                     const SqlExpression & where,
-                                     const OrderByExpression & orderBy,
-                                     ssize_t offset,
-                                     ssize_t limit,
-                                     bool allowParallel)>
-    runQuery;
-};
+    operator bool () const { return !!exec; }
 
+    Exec exec;
+
+    TableOperations operator () () const
+    {
+        return exec();
+    }
+};*/
+
+/*****************************************************************************/
+/* EXTERNAL FUNCTION                                                         */
+/*****************************************************************************/
+
+/** Type of an external dataset function factory.  This should return the bound
+    version of the function.
+*/
+typedef std::function<BoundTableExpression(const Utf8String & str, const std::vector<BoundTableExpression> & args,
+                                    const SqlBindingScope & context,
+                                    const Utf8String& alias)>
+    ExternalDatasetFunction;
+
+std::shared_ptr<void> registerDatasetFunction(Utf8String name, ExternalDatasetFunction function);
 
 /*****************************************************************************/
 /* GET ALL COLUMNS OUTPUT                                                    */
@@ -453,6 +511,10 @@ struct SqlBindingScope {
     virtual BoundFunction doGetFunction(const Utf8String & tableName,
                                         const Utf8String & functionName,
                                         const std::vector<BoundSqlExpression> & args);
+
+    virtual BoundTableExpression doGetDatasetFunction(const Utf8String & functionName,
+                                                      const std::vector<BoundTableExpression> & args,
+                                                      const Utf8String & alias);
 
     virtual BoundAggregator doGetAggregator(const Utf8String & functionName,
                                             const std::vector<BoundSqlExpression> & args);
@@ -1207,21 +1269,6 @@ struct BasicRowGenerator {
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(BasicRowGenerator);
-
-
-/*****************************************************************************/
-/* BOUND TABLE EXPRESSION                                                    */
-/*****************************************************************************/
-
-/** A table expression bound to a context.  This indicates a concrete
-    dataset on which an operation can be performed.
-*/
-
-struct BoundTableExpression {
-    std::shared_ptr<Dataset> dataset;  // deprecated -- use table ops instead
-    TableOperations table;
-    Utf8String asName;
-};
 
 
 /*****************************************************************************/

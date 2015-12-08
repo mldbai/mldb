@@ -118,4 +118,48 @@ assertEqual(mldb.get('/v1/datasets/test_embedding/query').json,
 assertEqual(mldb.get('/v1/datasets/test_row_embedding/query').json,
             mldb.get('/v1/datasets/test2_row_embedding/query').json);
 
+// MLDB-1175 transposed dataset as a FROM function
+
+var expected = [
+   [ "_rowName", "ex00" ],
+   [ "x", 0 ]
+]
+
+var resp = mldb.get("/v1/query", {q:"SELECT ex00 FROM transpose(test) WHERE rowName() = 'x'", format:'table'});
+plugin.log(resp)
+assertEqual(resp.json, expected);
+
+var resp = mldb.get("/v1/query", {q:"SELECT watcha.ex00 as ex00 FROM transpose(test) as watcha WHERE rowName() = 'x'", format:'table'});
+plugin.log(resp)
+assertEqual(resp.json, expected);
+
+var ref = mldb.get("/v1/query", {q:"SELECT watcha.* FROM test as watcha"});
+plugin.log(resp)
+
+var resp = mldb.get("/v1/query", {q:"SELECT watcha.* FROM transpose(transpose(test)) as watcha"});
+plugin.log(resp)
+assertEqual(resp.json, ref.json);
+
+var resp = mldb.get("/v1/query", {q:"SELECT watcha.ex00 as ex00 FROM transpose((select * from test)) as watcha WHERE rowName() = 'x'", format:'table'});
+plugin.log(resp)
+assertEqual(resp.json, expected);
+
+var expectedjoin = [
+      [ "_rowName", "ex00-x" ],
+      [ "transposed_table.ex00", 0 ],
+      [ "transposed_table.ex10", 1 ],
+      [ "table.label", 0 ],
+      [ "transposed_table.ex22", 2 ],
+      [ "table.x", 0 ],
+      [ "table.y", 0 ],
+      [ "transposed_table.ex111", 1 ],
+      [ "transposed_table.ex31", 3 ],
+      [ "transposed_table.ex110", 1 ],
+      [ "transposed_table.ex01", 0 ]
+   ]
+
+var resp = mldb.get("/v1/query", {q:'SELECT "ex00-x" FROM transpose(test as table JOIN transpose(test) as transposed_table) as watcha', format:'table'});
+plugin.log(resp)
+assertEqual(resp.json, expectedjoin);
+
 "success"
