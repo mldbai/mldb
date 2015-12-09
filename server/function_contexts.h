@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** function_contexts.h                                               -*- C++ -*-
     Jeremy Barnes, 14 March 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Contexts in which to execute the WITH and EXTRACT clauses of applying
     functions.
@@ -11,7 +11,7 @@
 #pragma once
 
 #include "mldb/sql/binding_contexts.h"
-#include "mldb/server/function.h"
+#include "mldb/core/function.h"
 
 namespace Datacratic {
 namespace MLDB {

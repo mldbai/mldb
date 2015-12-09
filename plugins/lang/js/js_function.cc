@@ -1,9 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* js_function.cc
    Jeremy Barnes, 12 June 2015
    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
 
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #include "js_common.h"
@@ -83,9 +82,6 @@ initialize(const JsFunctionData & data)
     // Enter the created context for compiling and
     // running the hello world script. 
     Context::Scope context_scope(this->context);
-
-    v8::Local<v8::Object> globalPrototype
-        = v8::Local<v8::Object>::Cast(context->Global()->GetPrototype());
 
     // Add the mldb object to the context
     auto mldb = MldbJS::registerMe()->NewInstance();

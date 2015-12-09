@@ -9,7 +9,7 @@
 */
 
 #include "mldb/server/function_contexts.h"
-#include "mldb/server/dataset.h"
+#include "mldb/core/dataset.h"
 #include "mldb/types/basic_value_descriptions.h"
 
 

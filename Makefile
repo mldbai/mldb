@@ -1,5 +1,4 @@
-CC := gcc
-CXX := g++
+toolchain ?= gcc
 PYTHON_ENABLED:=1
 DOCUMENTATION_ENABLED:=1
 TCMALLOC_ENABLED?=1
@@ -7,14 +6,9 @@ TCMALLOC_ENABLED?=1
 DOCKER_REGISTRY:=quay.io/
 DOCKER_USER:=datacratic/
 
-LOCAL_DIR?=$(HOME)/local
-LOCAL_LIB_DIR?=$(LOCAL_DIR)/lib /usr/local/lib
-LOCAL_INCLUDE_DIR?=$(LOCAL_DIR)/include
-
 # Shim for the 14.04 migration
 DIST_CODENAME:=$(shell lsb_release -sc)
 
-V8_INCLUDE_PATH?=$(LOCAL_INCLUDE_DIR)/v8
 MACHINE_NAME:=$(shell uname -n)
 
 V8_LIB:=v8
@@ -58,22 +52,13 @@ export BUILD
 export TEST_TMP
 export TMP
 
+$(if $(wildcard $(JML_BUILD)/$(toolchain).mk),,$(error toolchain $(toolchain) is unknown.  Currently 'gcc' and 'clang' are supported.))
+
 include $(JML_BUILD)/arch/$(ARCH).mk
+include $(JML_BUILD)/$(toolchain).mk
 
-CXX_VERSION?=$(shell g++ --version | head -n1 | sed 's/.* //g')
-
-CFLAGS += -fno-strict-overflow -msse4.2
-
-CXXFLAGS += -Wno-deprecated -Winit-self -fno-omit-frame-pointer -std=c++0x -fno-deduce-init-list -msse3 -Wno-unused-but-set-variable -I$(LOCAL_INCLUDE_DIR) -I/usr/local/include -Wno-psabi -D__GXX_EXPERIMENTAL_CXX0X__=1 -msse4.2 -I$(V8_INCLUDE_PATH) -DNODEJS_DISABLED=1 -D_GLIBCXX_USE_NANOSLEEP=1 -D_GLIBCXX_USE_SCHED_YIELD=1
-CXXLINKFLAGS += -Wl,--copy-dt-needed-entries -Wl,--no-as-needed -L/usr/local/lib
-CFLAGS +=  -Wno-unused-but-set-variable
-
+VALGRIND ?= valgrind
 VALGRINDFLAGS := --suppressions=valgrind.supp --error-exitcode=1 --leak-check=full --soname-synonyms=somalloc=*tcmalloc*
-
-$(if $(findstring x4.5,x$(CXX_VERSION)),$(eval CXXFLAGS += -Dnoexcept= -Dnullptr=NULL))
-$(if $(findstring x4.8,x$(CXX_VERSION)),$(eval CXXFLAGS += -Wno-unused-local-typedefs -Wno-return-local-addr))
-$(if $(findstring x4.9,x$(CXX_VERSION)),$(eval CXXFLAGS += -Wno-unused-local-typedefs))
-$(if $(findstring x5.1,x$(CXX_VERSION)),$(eval CXXFLAGS += -Wno-unused-local-typedefs -Wno-unused-variable))
 
 include $(JML_BUILD)/functions.mk
 include $(JML_BUILD)/rules.mk

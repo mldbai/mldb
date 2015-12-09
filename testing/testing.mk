@@ -272,10 +272,9 @@ $(eval $(call python_test,mldb-417_svd,mldb_py_runner))
 
 $(eval $(call include_sub_make,mldb_py_runner))
 
-# Python interation tests; need to be here because they depend on the MLDB server
-#$(eval $(call set_compile_option,python_cell_converter_test.cc,-I$(PYTHON_INCLUDE_PATH)))
+$(eval $(call python_addon,py_conv_test_module,python_converters_test_support.cc,mldb_python_plugin python2.7 boost_python types arch mldb))
 
-#$(eval $(call test,python_cell_converter_test,python2.7 boost_python types,boost))
+$(eval $(call python_test,python_converters_test,py_conv_test_module))
 
 $(eval $(call python_addon,py_cell_conv_test_module,python_cell_converter_test_support.cc,python2.7 boost_python types mldb services))
 

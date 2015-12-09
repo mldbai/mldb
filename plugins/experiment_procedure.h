@@ -14,7 +14,7 @@
 #include "types/value_description.h"
 #include "server/plugin_resource.h"
 #include "server/mldb_server.h"
-#include "server/procedure.h"
+#include "mldb/core/procedure.h"
 #include "sql/sql_expression.h"
 #include "plugins/classifier.h"
 #include "plugins/accuracy.h"

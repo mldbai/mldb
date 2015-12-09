@@ -1040,7 +1040,7 @@ match_date(ML::Parse_Context & context,
             }
             break;
         case 'y':
-            if (!context.match_int(year, 1400, 9999));
+            context.match_int(year, 1400, 9999);
             break;
         default:
             throw Exception("expect_date: format " + string(1, *f)
@@ -1971,7 +1971,7 @@ isDefaultTyped(const Date * val) const
     return *val == Date();
 }
 
-template class ValueDescriptionI<Datacratic::Date, ValueKind::ATOM, DateDescription>;
+template struct ValueDescriptionI<Datacratic::Date, ValueKind::ATOM, DateDescription>;
 
 void
 JavaTimestampValueDescription::

@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "mldb/server/dataset.h"
+#include "mldb/core/dataset.h"
 #include "mldb/rest/poly_collection.h"
 
 namespace Datacratic {

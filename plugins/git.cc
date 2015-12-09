@@ -5,8 +5,8 @@
     Copyright (c) Datacratic Inc.  All rights reserved.
 */
 
-#include "mldb/server/procedure.h"
-#include "mldb/server/dataset.h"
+#include "mldb/core/procedure.h"
+#include "mldb/core/dataset.h"
 #include "mldb/server/per_thread_accumulator.h"
 #include "mldb/types/url.h"
 #include "mldb/types/structure_description.h"
@@ -285,7 +285,7 @@ struct GitImporter: public Procedure {
     
     GitImporterConfig config;
 
-    std::string encodeOid(const git_oid & oid)
+    std::string encodeOid(const git_oid & oid) const
     {
         char shortsha[10] = {0};
         git_oid_tostr(shortsha, 9, &oid);
@@ -294,7 +294,7 @@ struct GitImporter: public Procedure {
 
     // Process an individual commit
     std::vector<std::tuple<ColumnName, CellValue, Date> >
-    processCommit(git_repository * repo, const git_oid & oid)
+    processCommit(git_repository * repo, const git_oid & oid) const
     {
         string sha = encodeOid(oid);
 

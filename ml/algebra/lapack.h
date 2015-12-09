@@ -1,15 +1,13 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* lapack.h                                                        -*- C++ -*-
    Jeremy Barnes, 5 November 2004
    Copyright (c) 2004 Jeremy Barnes  All rights reserved.
-   $Source$
+
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Interface to lapack.
 */
 
-#ifndef __boosting__lapack_h__
-#define __boosting__lapack_h__
+#pragma once
 
 #include <boost/multi_array.hpp>
 #include <numeric>
@@ -27,7 +25,7 @@ fortran(const boost::multi_array<Float, 2> & A)
        one.  The copying was probably necessary as most of the LAPACK
        routines destroy their arguments.
     */
-    boost::multi_array<Float, 2> X(A.shape()[0], std::max<size_t>(A.shape()[1], 1));
+    boost::multi_array<Float, 2> X(boost::extents[A.shape()[0]][std::max<size_t>(A.shape()[1], 1)]);
     for (unsigned i = 0;  i < A.shape()[0];  ++i)
         for (unsigned j = 0;  j < A.shape()[1];  ++j)
             X[i][j] = A[i][j];
@@ -133,5 +131,3 @@ int gemm(char transa, char transb, int m, int n, int k, double alpha,
 
 } // namespace LAPack
 } // namespace ML
-
-#endif /* __boosting__lapack_h__ */

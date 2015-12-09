@@ -187,9 +187,9 @@ void calc_stats(const Classifier_Impl & current,
     double correct = 0.0, total = 0.0;
     vector<unsigned> num_label(nl);
 
-    Graphic_Metrics metrics[2][nl];
-    Graphic_Metrics margins[nl];
-    Graphic_Metrics rankings[nl];
+    std::vector<std::vector<Graphic_Metrics> > metrics(2, vector<Graphic_Metrics>(nl));
+    std::vector<Graphic_Metrics> margins(nl);
+    std::vector<Graphic_Metrics> rankings(nl);
     Graphic_Metrics correct_graph, incorrect_graph;
     Graphic_Metrics ranking_graph, margin_graph;
 

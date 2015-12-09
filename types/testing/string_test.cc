@@ -21,14 +21,8 @@ using namespace Datacratic;
 BOOST_AUTO_TEST_CASE( test_print_format )
 {
    	std::string raw = "saint-jérôme";
-   	// Test 1 - Iterate through the raw string with normal iterators we should not find 'é'
    	unsigned numAccentedChars = 0;
-   	for(string::const_iterator it = raw.begin() ; it != raw.end(); ++it)
-   	{
-   		if (*it ==  L'é' || *it ==  L'ô')
-   			numAccentedChars++;
-   	}
-   	BOOST_CHECK_EQUAL(numAccentedChars, 0);
+
    	Utf8String utf8(raw);
    	// Now iterate through the utf8 string
    	for (Utf8String::const_iterator it = utf8.begin(); it != utf8.end(); ++it)

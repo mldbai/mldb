@@ -1,13 +1,13 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* dataset.cc
    Jeremy Barnes, 21 January 2014
    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
 
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+
    Dataset support.
 */
 
-#include "mldb/server/dataset.h"
+#include "mldb/core/dataset.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/sql/sql_expression_operations.h"
 #include "mldb/types/tuple_description.h"

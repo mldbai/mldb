@@ -85,7 +85,6 @@ main(int argc, char * argv[])
         return 1;
     }
 
-    ExcAssert(port >= 0);
     ExcAssert(concurrency > 0);
 
     EventLoop loop;

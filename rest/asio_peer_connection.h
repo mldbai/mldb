@@ -1,15 +1,15 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* asio_peer_connection.h                                          -*- C++ -*-
    Jeremy Barnes, 1 June 2014
    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
 
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #pragma once
 
 #include "peer_connection.h"
 #include <boost/asio.hpp>
+#include <atomic>
 
 namespace Datacratic {
 

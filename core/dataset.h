@@ -10,7 +10,7 @@
 #include "mldb/sql/dataset_fwd.h"
 #include "mldb/sql/dataset_types.h"
 #include "mldb/types/value_description_fwd.h"
-#include "mldb_entity.h"
+#include "mldb/core/mldb_entity.h"
 #include "mldb/sql/cell_value.h"
 #include "mldb/types/url.h"
 

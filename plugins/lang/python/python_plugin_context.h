@@ -18,9 +18,9 @@
 #include <boost/python/to_python_converter.hpp>
 
 #include "mldb/server/plugin_resource.h"
-#include "mldb/server/plugin.h"
-#include "mldb/server/dataset.h"
-#include "mldb/server/procedure.h"
+#include "mldb/core/plugin.h"
+#include "mldb/core/dataset.h"
+#include "mldb/core/procedure.h"
 #include "mldb/server/mldb_server.h"
 #include "mldb/server/script_output.h"
 

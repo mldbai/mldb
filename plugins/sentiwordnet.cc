@@ -7,8 +7,8 @@
     Importer class for SentiWordNet: http://sentiwordnet.isti.cnr.it
 */
 
-#include "mldb/server/procedure.h"
-#include "mldb/server/dataset.h"
+#include "mldb/core/procedure.h"
+#include "mldb/core/dataset.h"
 #include "mldb/types/url.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/any_impl.h"

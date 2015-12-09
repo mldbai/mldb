@@ -79,7 +79,7 @@ inline int hexToDec3(int c)
     int i = (c & 0x60) >> 5;
     d += (i == 1) * -16;
     d += (i >= 2) * 9;
-    bool h = __builtin_isxdigit(c);
+    bool h = isxdigit(c);
     return h * d - (!h);
 }
 
@@ -463,12 +463,12 @@ toString() const
         return "null";
     case UUID:
         return ML::format(
-            "%08lx-%04x-%04x-%04x-%012llx",
+            "%08x-%04x-%04x-%04x-%012llx",
             (unsigned)f1, (unsigned)f2, (unsigned)f3, (unsigned)f4,
             (unsigned long long)f5);
     case UUID_CAPS:
         return ML::format(
-            "%08lX-%04X-%04X-%04X-%012llX",
+            "%08X-%04X-%04X-%04X-%012llX",
             (unsigned)f1, (unsigned)f2, (unsigned)f3, (unsigned)f4,
             (unsigned long long)f5);
     case GOOG128: {

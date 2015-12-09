@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* value_description_fwd.h                                         -*- C++ -*-
    Jeremy Barnes, 29 March 2013
    Copyright (c) 2013 Datacratic Inc.  All rights reserved.
+
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Code for description and introspection of values and structures.  Used
    to allow for automated formatters and parsers to be built.
@@ -14,13 +14,13 @@
 #include <memory>
 
 namespace Json {
-struct Value;
+class Value;
 } // namespace Json
 
 namespace Datacratic {
 
-struct Utf8String;
-struct Utf32String;
+class Utf8String;
+class Utf32String;
 struct JsonParsingContext;
 struct JsonPrintingContext;
 struct JsonParsingContext;
@@ -216,7 +216,7 @@ getDefaultDescriptionUninitialized(T *)
     
 #define DECLARE_VALUE_DESCRIPTION(T)                                    \
     PREDECLARE_VALUE_DESCRIPTION(T)                                     \
-    extern template class ValueDescriptionT<T>;                         \
+    extern template struct ValueDescriptionT<T>;                         \
 
 #define DEFINE_VALUE_DESCRIPTION_NS(T, Desc)                            \
     Datacratic::ValueDescriptionT<T> * \
@@ -240,7 +240,7 @@ getDefaultDescriptionUninitialized(T *)
 
 #define DEFINE_VALUE_DESCRIPTION(T, Desc)                               \
     DEFINE_VALUE_DESCRIPTION_NS(T, Desc)                                \
-    template class ValueDescriptionT<T>;                                \
+    template struct ValueDescriptionT<T>;                                \
 
 #define VD_SINGLE_ARG(...) __VA_ARGS__
 

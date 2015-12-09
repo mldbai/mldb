@@ -1,10 +1,10 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* mldb_server.h                                                   -*- C++ -*-
    Jeremy Barnes, 12 December 2014
    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
 
-   Server for MLDB.
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+
+   Server class for MLDB.
 */
 
 #pragma once
@@ -25,14 +25,12 @@ namespace MLDB {
 
 struct PluginCollection;
 struct DatasetCollection;
-struct AlgorithmCollection;
 struct ProcedureCollection;
 struct FunctionCollection;
 struct TypeClassCollection;
 
 struct Plugin;
 struct Dataset;
-struct Algorithm;
 struct Procedure;
 struct Function;
 
@@ -100,7 +98,6 @@ struct MldbServer: public ServicePeer, public EventRecorder {
 
     std::shared_ptr<PluginCollection> plugins;
     std::shared_ptr<DatasetCollection> datasets;
-    std::shared_ptr<AlgorithmCollection> algorithms;
     std::shared_ptr<ProcedureCollection> procedures;
     std::shared_ptr<FunctionCollection> functions;
     std::shared_ptr<TypeClassCollection> types;

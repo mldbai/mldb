@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* tsne.cc
    Jeremy Barnes, 15 January 2010
    Copyright (c) 2010 Jeremy Barnes.  All rights reserved.
+
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Implementation of the t-SNE algorithm.
 */
@@ -500,12 +500,12 @@ double calc_D_row(float * Di, int n)
         for (; i + 16 <= n;  i += 16) {
             __builtin_prefetch(Di + i + 48, 1, 3);
 
-            v4sf xxxx0 = __builtin_ia32_loadups(Di + i + 0);
-            v4sf xxxx1 = __builtin_ia32_loadups(Di + i + 4);
+            v4sf xxxx0 = _mm_loadu_ps(Di + i + 0);
+            v4sf xxxx1 = _mm_loadu_ps(Di + i + 4);
             xxxx0      = xxxx0 + one;
             xxxx1      = xxxx1 + one;
             xxxx0      = one / xxxx0;
-            v4sf xxxx2 = __builtin_ia32_loadups(Di + i + 8);
+            v4sf xxxx2 = _mm_loadu_ps(Di + i + 8);
             xxxx1      = one / xxxx1;
             __builtin_ia32_storeups(Di + i + 0, xxxx0);
             xxxx2      = xxxx2 + one;
@@ -513,7 +513,7 @@ double calc_D_row(float * Di, int n)
             __builtin_ia32_storeups(Di + i + 4, xxxx1);
             xx0a       = xx0a + xx0b;
             rr         = rr + xx0a;
-            v4sf xxxx3 = __builtin_ia32_loadups(Di + i + 12);
+            v4sf xxxx3 = _mm_loadu_ps(Di + i + 12);
             v2df xx1a, xx1b;  vec_f2d(xxxx1, xx1a, xx1b);
             xxxx2      = one / xxxx2;
             xx1a       = xx1a + xx1b;
@@ -531,7 +531,7 @@ double calc_D_row(float * Di, int n)
         }
 
         for (; i + 4 <= n;  i += 4) {
-            v4sf xxxx0 = __builtin_ia32_loadups(Di + i + 0);
+            v4sf xxxx0 = _mm_loadu_ps(Di + i + 0);
             xxxx0      = xxxx0 + one;
             xxxx0      = one / xxxx0;
             __builtin_ia32_storeups(Di + i + 0, xxxx0);
@@ -626,8 +626,8 @@ double calc_stiffness_row(float * Di, const float * Pi, float qfactor,
 
         for (; i + 4 <= n;  i += 4) {
 
-            v4sf dddd0 = __builtin_ia32_loadups(Di + i + 0);
-            v4sf pppp0 = __builtin_ia32_loadups(Pi + i + 0);
+            v4sf dddd0 = _mm_loadu_ps(Di + i + 0);
+            v4sf pppp0 = _mm_loadu_ps(Pi + i + 0);
             v4sf qqqq0 = __builtin_ia32_maxps(mmmm, dddd0 * ffff);
             v4sf ssss0 = (pppp0 - qqqq0) * dddd0;
             __builtin_ia32_storeups(Di + i + 0, ssss0);
@@ -805,8 +805,8 @@ calc_dY_rows_2d(boost::multi_array<float, 2> & dY,
         ffff01 = ffff01 * four;
         ffff23 = ffff23 * four;
         
-        v4sf yi01   = __builtin_ia32_loadups(&Y[i][0]);
-        v4sf yi23   = __builtin_ia32_loadups(&Y[i + 2][0]);
+        v4sf yi01   = _mm_loadu_ps(&Y[i][0]);
+        v4sf yi23   = _mm_loadu_ps(&Y[i + 2][0]);
 
         v4sf xxxx01 = ffff01 * (yi01 - yjyj);
         v4sf xxxx23 = ffff23 * (yi23 - yjyj);
@@ -1684,7 +1684,7 @@ struct CalcRepContext {
         // If we have points we are bringing along for the ride, then split them
         // by quadrant.
         if (!pointsInside.empty()) {
-            std::vector<int> quadrantPoints[1 << nd];
+            std::vector<std::vector<int> > quadrantPoints(1 << nd);
             for (int p: pointsInside) {
                 QCoord coord = getPointCoord(p);
                 int quad = node.quadrant(coord);
@@ -1899,7 +1899,11 @@ tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
         // This accumulates the sum_j p[x][j] log Z*q[x][j] for each example.  From this and
         // Z, we can calculate the cost of each example.  Only relevant if calcC is true.
         double exampleCFactor[nx];
-        std::fill(exampleCFactor, exampleCFactor  +nx, 0.0);
+        std::fill(exampleCFactor, exampleCFactor + nx, 0.0);
+        
+        // clang 3.4: lambda can't capture a variable length array
+        auto * exampleCFactorPtr = exampleCFactor;
+        
 
         // Do we calculate the cost?
         bool calcC = iter < 10 || (iter + 1) % 100 == 0 || iter == params.max_iter - 1;
@@ -1909,6 +1913,7 @@ tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
         ML::Spinlock Zmutex;
         std::vector<double> ZApproxValues;
         ZApproxValues.reserve(nx);
+
 
         auto calcExample = [&] (int x)
             {
@@ -1998,7 +2003,7 @@ tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
 
                     double logqCellZ = log(qCellZ);
                     for (unsigned p: pointsOfInterest) {
-                        exampleCFactor[x] += pFactor * neighbours.probs[p] * logqCellZ;
+                        exampleCFactorPtr[x] += pFactor * neighbours.probs[p] * logqCellZ;
                     }
 
                     poiDone += pointsOfInterest.size();
@@ -2037,7 +2042,7 @@ tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
                     ExcAssertEqual(poiDone, neighbours.indexes.size());
                     //if (!isfinite(exampleCFactor[x]))
                     //    cerr << "x = " << x << " factor " << exampleCFactor[x] << endl;
-                    ExcAssert(isfinite(exampleCFactor[x]));
+                    ExcAssert(isfinite(exampleCFactorPtr[x]));
                 } else {
                     calcRep(*qtree.root, 0, true /* inside */,
                             y, &FrepZ[x][0], exampleZ, nodesTouched, nd, exact,

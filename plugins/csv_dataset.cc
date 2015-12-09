@@ -24,7 +24,7 @@
 
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/types/compact_vector_value_description.h"
-#include "mldb/server/dataset.h"
+#include "mldb/core/dataset.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/server/dataset_context.h"
 #include "mldb/server/per_thread_accumulator.h"
@@ -754,13 +754,17 @@ struct CsvDataset::Itl: public TabularDataStore {
                     //threadAccum.chunkLineNumber = chunkLineNum;
                 }
 
-                /// Values that come in from the CSV file
-                CellValue values[inputColumnNames.size()];
+                // Values that come in from the CSV file
+                // TODO: clang doesn't like a variable length array
+                // here.  Find another way to allocate it on the
+                // stack.
+                vector<CellValue> values(inputColumnNames.size());
+                //CellValue values[inputColumnNames.size()];
 
                 const char * lineStart = line;
 
                 const char * errorMsg
-                    = parseFixedWidthCsvRow(line, length, values,
+                    = parseFixedWidthCsvRow(line, length, &values[0],
                                             inputColumnNames.size(),
                                             separator, quote, encoding,
                                             replaceInvalidCharactersWith);
@@ -779,7 +783,7 @@ struct CsvDataset::Itl: public TabularDataStore {
 
                 //cerr << "got values " << jsonEncode(vector<CellValue>(values, values + inputColumnNames.size())) << endl;
                     
-                auto row = scope.bindRow(values, ts, lineNum, 0 /* todo: chunk ofs */);
+                auto row = scope.bindRow(&values[0], ts, lineNum, 0 /* todo: chunk ofs */);
 
                 // If it doesn't match the where, don't add it 
                 if (!isWhereTrue) {
@@ -804,13 +808,17 @@ struct CsvDataset::Itl: public TabularDataStore {
                 if (isIdentitySelect) {
                     // If it's a select *, we don't really need to run the
                     // select clause.  We simply go for it.
-                    threadAccum.add(lineNum, std::move(rowName), rowTs, values);
+                    threadAccum.add(lineNum, std::move(rowName), rowTs, &values[0]);
                 }
                 else {
                     // TODO: optimization for
                     // SELECT * excluding (...)
 
-                    CellValue valuesOut[columnNames.size()];
+                    // TODO: clang doesn't like a variable length array
+                    // here.  Find another way to allocate it on the
+                    // stack.
+                    // CellValue valuesOut[columnNames.size()];
+                    vector<CellValue> valuesOut(columnNames.size());
 
                     ExpressionValue selectStorage;
                     const ExpressionValue & selectOutput
@@ -836,7 +844,7 @@ struct CsvDataset::Itl: public TabularDataStore {
                             valuesOut[i] = std::get<1>(selectRow[i]).getAtom();
                     }
                     
-                    threadAccum.add(lineNum, std::move(rowName), rowTs, valuesOut);
+                    threadAccum.add(lineNum, std::move(rowName), rowTs, &valuesOut[0]);
                 }
                 //cerr << "row = " << jsonEncodeStr(selectRow) << endl;
 
@@ -886,7 +894,7 @@ struct CsvDataset::Itl: public TabularDataStore {
 
         auto doLeftoverChunk = [&] (int threadNum)
             {
-                TabularDatasetChunk * ent = accum.threads[threadNum].get();
+                TabularDatasetChunk * ent = accum.threads.at(threadNum).get();
                 ent->freeze();
                 std::unique_lock<std::mutex> guard(doneChunksLock);
                 doneChunks.emplace_back(std::move(*ent));

@@ -1,18 +1,17 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** svm.h                                                   -*- C++ -*-
     Mathieu Marquis Bolduc, October 28th, 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Support-Vector Machine procedure and functions.
 */
 
 #pragma once
 
-#include "mldb/server/dataset.h"
-#include "mldb/server/procedure.h"
-#include "mldb/server/algorithm.h"
-#include "mldb/server/function.h"
+#include "mldb/core/dataset.h"
+#include "mldb/core/procedure.h"
+#include "mldb/core/function.h"
 #include "matrix.h"
 #include "mldb/types/value_description_fwd.h"
 

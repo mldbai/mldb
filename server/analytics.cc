@@ -7,8 +7,8 @@
 */
 
 #include "mldb/server/analytics.h"
-#include "mldb/server/function.h"
-#include "mldb/server/dataset.h"
+#include "mldb/core/function.h"
+#include "mldb/core/dataset.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/sql/sql_expression_operations.h"
 #include "mldb/jml/utils/worker_task.h"

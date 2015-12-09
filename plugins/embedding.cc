@@ -235,7 +235,7 @@ struct EmbeddingDataset::Itl
 
     ~Itl()
     {
-        delete uncommitted;
+        delete uncommitted.load();
     }
 
     MetricSpace metric;
@@ -448,7 +448,6 @@ struct EmbeddingDataset::Itl
 
         for (auto & col: repr->columnIndex) {
             ColumnStats toStoreResult;
-            ColumnHash columnHash = col.first;
             const ColumnName & columnName = repr->columnNames.at(col.second);
             if (!onColumnStats(columnName,
                                getColumnStats(columnName, toStoreResult)))
