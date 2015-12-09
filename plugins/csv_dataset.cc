@@ -69,7 +69,7 @@ CsvDatasetConfigDescription::CsvDatasetConfigDescription()
              "Row filter for CSV dataset",
              SqlExpression::TRUE);
     addField("named", &CsvDatasetConfig::named,
-             "Row name expression for output dataset.  Note that each row"
+             "Row name expression for output dataset. Note that each row "
              "must have a unique name.",
              SqlExpression::parse("lineNumber()"));
     addField("timestamp", &CsvDatasetConfig::timestamp,
