@@ -29,17 +29,11 @@ struct SvdConfig : ProcedureConfig {
     SvdConfig()
         : outputColumn("svd"),
           numSingularValues(100),
-          numDenseBasisVectors(1000),
-          select("*"),
-          when(WhenExpression::TRUE),
-          where(SqlExpression::TRUE),
-          orderBy(ORDER_BY_NOTHING),
-          offset(0),
-          limit(-1)
+          numDenseBasisVectors(1000)
     {
     }
 
-    std::shared_ptr<TableExpression> dataset;
+    InputQuery trainingData;
     Optional<PolyConfigT<Dataset> > columnOutput;      ///< Embedding per column of input dataset
     Optional<PolyConfigT<Dataset> > rowOutput;   ///< Embedding per row of input dataset
     static constexpr char const * defaultOutputDatasetType = "embedding";
@@ -48,12 +42,6 @@ struct SvdConfig : ProcedureConfig {
     std::string outputColumn;
     int numSingularValues;
     int numDenseBasisVectors;
-    SelectExpression select;
-    WhenExpression when;
-    std::shared_ptr<SqlExpression> where;
-    OrderByExpression orderBy;
-    ssize_t offset;
-    ssize_t limit;
     Utf8String functionName;
 };
 

@@ -97,7 +97,7 @@ doChecks(conf)
 conf = {
     "type": "svd.train",
     "params": {
-        "trainingDataset": "toy",
+        "trainingData": "select * from toy",
         "modelFileUrl": "file://build/x86_64/tmp/bouya-svd.model",
         "functionName": "svd_func"
     }
@@ -110,7 +110,7 @@ doChecks(conf)
 conf = {
     "type": "tsne.train",
     "params": {
-        "trainingDataset": "toy",
+        "trainingData": "select * from toy",
         "modelFileUrl": "file://build/x86_64/tmp/bouya-tsne.model",
         "numOutputDimensions": 2,
         "functionName": "tsne_func"

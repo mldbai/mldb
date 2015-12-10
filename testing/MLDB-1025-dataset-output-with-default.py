@@ -57,7 +57,7 @@ def train_svd_with_default():
         'type' : 'svd.train',
         'params' :
 	{
-            "trainingDataset": "dataset1", 
+            "trainingData": "select * from dataset1", 
             "rowOutputDataset": "svd_row", # first way to specify output dataset using default
             "columnOutputDataset" : {  # second way to specify an output dataset using default
                 "id": "svd_column"

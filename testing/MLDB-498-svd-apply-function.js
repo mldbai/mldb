@@ -98,9 +98,8 @@ var dataset = createDataset();
 var svdConfig = {
     type: "svd.train",
     params: {
-        trainingDataset: { "id": "reddit_dataset" },
+        trainingData: "select COLUMN EXPR (AS columnName() WHERE rowCount() > 100 ORDER BY rowCount() DESC, columnName() LIMIT 1000) from reddit_dataset",
         modelFileUrl: "file://tmp/MLDB-498.svd.json.gz",
-        select: "COLUMN EXPR (AS columnName() WHERE rowCount() > 100 ORDER BY rowCount() DESC, columnName() LIMIT 1000)",
         numSingularValues: 10
     }
 };

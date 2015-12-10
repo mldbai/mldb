@@ -59,7 +59,9 @@ def train_svd(when, output_index):
         'type' : 'svd.train',
         'params' :
 	{
-            "trainingDataset": {"id": "svd_example"}, 
+            "trainingData": {"from" : {"id": "svd_example"}, 
+                             "when" : when
+                         },
             "rowOutputDataset": {
                 "id": "when_svd_row_" + str(dataset_index),
                 'type': "embedding" 
@@ -67,8 +69,7 @@ def train_svd(when, output_index):
             "columnOutputDataset" : {
                 "id": "svd_embedding_" + str(output_index),
                 "type" : "embedding"
-            },
-            "when": when
+            }
 	}
     }
     
@@ -135,12 +136,12 @@ def train_tsne(when):
         'type' : 'tsne.train',
         'params' :
 	{
-            "trainingDataset": {"id": "svd_example"}, 
+            "trainingData": {"from" : {"id": "svd_example"},
+                                "when" : when}, 
             "rowOutputDataset": {
                 "id": "tsne_embedding_" + str(dataset_index),
                 'type': "embedding" 
-            },
-            "when": when
+            }
 	}
     }
     

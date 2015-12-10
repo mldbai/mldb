@@ -80,6 +80,8 @@ KmeansConfigDescription()
              "If specified, a kmeans function of this name will be created using "
              "the training result.");
     addParent<ProcedureConfig>();
+
+    onPostValidate = validate<KmeansConfig, NoGroupByHaving>("kmeans");
 }
 
 // TODO: see http://www.eecs.tufts.edu/~dsculley/papers/fastkmeans.pdf

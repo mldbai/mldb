@@ -69,7 +69,8 @@ BOOST_AUTO_TEST_CASE( test_two_members )
 
     // Now, let's train an SVD
     SvdConfig svdParams;
-    svdParams.dataset = TableExpression::parse(Utf8String("test1"));
+    svdParams.trainingData.stm = make_shared<SelectStatement>();
+    svdParams.trainingData.stm->from = TableExpression::parse(Utf8String("test1"));
 
     PolyConfig applyProcedureConfig;
     applyProcedureConfig.type = "svd.train";

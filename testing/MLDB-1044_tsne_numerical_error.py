@@ -35,7 +35,7 @@ assert rez["statusCode"] == 201
 conf = {
     "type" : "svd.train",
     "params" : {
-        "trainingDataset" : {"id" : "first_party_reduced"},
+        "trainingData" : {"from" : {"id" : "first_party_reduced"}},
         "rowOutputDataset" : {"id" : "first_party_svd_embedded", "type" : "embedding"}
     }
 }
@@ -65,7 +65,7 @@ assert rez["statusCode"] == 201
 conf = {
     "type" : "tsne.train",
     "params" : {
-        "trainingDataset" : {"id" : "first_party_svd_embedded"},
+        "trainingData" : {"from" : {"id" : "first_party_svd_embedded"}},
         "rowOutputDataset" : {"id" : "first_party_tsne_subembedded", "type" : "embedding" }
     }
 }

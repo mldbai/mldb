@@ -68,14 +68,13 @@ print mldb.perform("DELETE", "/v1/datasets/receipes_svd", [], {})
 svdConfig = {
     "type": "svd.train",
     "params": {
-        "trainingDataset": { "id": "receipes" },
+        "trainingData": " select * EXCLUDING (label) from receipes",
         "columnOutputDataset" : {"id" : "receipes_svd",
                     "type" : "beh.mutable",
                     "address" : "receipes_svd.beh.gz"},
         "rowOutputDataset" : {"id": "receipes_svd_embedding",
                        "type": "embedding",
-                       "address" : "receipes_svd.embedding.gz" },
-        "select" : "* EXCLUDING (label)"
+                       "address" : "receipes_svd.embedding.gz" }
     }
 }
 
@@ -110,14 +109,12 @@ print mldb.perform("PUT", "/v1/procedures/receipes_kmeans/runs/1", [], {})
 tsneConfig = {
     "type": "tsne.train",
     "params": {
-        "trainingDataset": {"id":"receipes_svd"},
+        "trainingData": "select svd* from receipes_svd",
         "rowOutputDataset": {"id" : "receipes_svd_tsne",
                    "type" : "beh.mutable",
                    "address" : "receipes_svd_tsne.beh.gz"},
         "numOutputDimensions": 2,
-        "perplexity": 6,
-        "select": "svd*",
-        "where": "true"
+        "perplexity": 6
     }
 }
 

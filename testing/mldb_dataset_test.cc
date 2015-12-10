@@ -100,7 +100,7 @@ BOOST_AUTO_TEST_CASE( test_two_members )
     //cerr << proxy.get("/v1/datasets/airlines/columns/status/values");
 
     SvdConfig svdConfig;
-    svdConfig.dataset = TableExpression::parse(Utf8String("airlines"));
+    svdConfig.trainingData.stm->from = TableExpression::parse(Utf8String("airlines"));
 
     PolyConfig procedureConfig;
     procedureConfig.type = "svd.train";

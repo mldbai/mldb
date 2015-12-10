@@ -97,7 +97,7 @@ assertEqual(mldb.get('/v1/datasets/test/query').json,
 var svdConfig = {
     type: "svd.train",
     params: {
-        trainingDataset: { id: "test" },
+        trainingData: { "from" : {id: "test" }},
         columnOutputDataset: { id: "test_embedding", type: "embedding" },
         rowOutputDataset: { id: "test_row_embedding", type: "embedding" },
         numSingularValues: 10
@@ -106,7 +106,7 @@ var svdConfig = {
 
 createAndTrainProcedure(svdConfig, 'svd1');
 
-svdConfig.params.trainingDataset.id = "test2";
+svdConfig.params.trainingData.from.id = "test2";
 svdConfig.params.columnOutputDataset.id = "test2_embedding";
 svdConfig.params.rowOutputDataset.id = "test2_row_embedding";
 

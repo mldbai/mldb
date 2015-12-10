@@ -158,11 +158,10 @@ if (trainSvd) {
     var svdConfig = {
         type: "svd.train",
         params: {
-            trainingDataset: { "id": "mnist_testing" },
+            trainingData: "select * EXCLUDING (label) from mnist_testing",
             columnOutputDataset: { "id": "svd_col_output", type: "embedding" },
             rowOutputDataset: { "id": "svd_row_output", type: "embedding" },
-            numSingularValues: 50,
-            select: "* EXCLUDING (label)"
+            numSingularValues: 50
         }
     };
 
@@ -191,10 +190,8 @@ if (trainTsne) {
     var tsneConfig = {
         type: "tsne.train",
         params: {
-            trainingDataset: { "id": "svd_row_output" },
-            rowOutputDataset: { "id": "tsne_row_output", "type": "embedding" },
-            select: "svd*",
-            where: "true"
+            trainingData: "select * from svd_row_output",
+            rowOutputDataset: { "id": "tsne_row_output", "type": "embedding" }
         }
     };
 

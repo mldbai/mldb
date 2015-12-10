@@ -3,7 +3,7 @@
 # MLDB-684 test case: server
 
 import json
-from bottle import route, request, abort, default_app
+from bottle import route, abort, default_app
 
 @route('/ping', method='GET')
 def ping():
