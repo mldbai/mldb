@@ -1,5 +1,4 @@
 // This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** analytics.h                                                    -*- C++ -*-
     Jeremy Barnes, 30 January 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
@@ -93,7 +92,7 @@ void iterateDatasetGrouped(const SelectExpression & select,
     (tuples of row name, embedding, and extra parameters) and the
     list of variable info for the variables in the embedding.
 */
-    std::pair<std::vector<std::tuple<RowHash, RowName, std::vector<double>, std::vector<ExpressionValue> > >,
+std::pair<std::vector<std::tuple<RowHash, RowName, std::vector<double>, std::vector<ExpressionValue> > >,
           std::vector<KnownColumn> >
 getEmbedding(const SelectExpression & select,
              const Dataset & from,
@@ -105,6 +104,13 @@ getEmbedding(const SelectExpression & select,
              const OrderByExpression & orderBy = ORDER_BY_NOTHING,
              int offset = 0,
              int limit = -1,
+             const std::function<bool (const Json::Value &)> & onProgress = nullptr);
+
+std::pair<std::vector<std::tuple<RowHash, RowName, std::vector<double>, std::vector<ExpressionValue> > >,
+          std::vector<KnownColumn> >
+getEmbedding(const SelectStatement & stm,
+             SqlExpressionMldbContext & context,
+             int maxDimensions = -1,
              const std::function<bool (const Json::Value &)> & onProgress = nullptr);
 
 /* SELECT without FROM */

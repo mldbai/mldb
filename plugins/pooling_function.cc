@@ -11,7 +11,7 @@
 #include "mldb/types/any_impl.h"
 #include "server/dataset_context.h"
 #include "mldb/server/analytics.h"
-#include "server/dataset.h"
+#include "mldb/core/dataset.h"
 #include "mldb/jml/utils/string_functions.h"
 #include "mldb/jml/utils/profile.h"
 

@@ -11,25 +11,19 @@
 
 ifneq ($(PREMAKE),1)
 
-header_deps_onefile=$(shell $(CXX) $(CXXFLAGS) -MM -o - $(1) | tr ' ' '\n' | tr -d '\\' | sort | uniq | grep -v ':' | grep -v '^/' | sed 's!^mldb/!!')
+header_deps_onefile=$(shell $(CXX) $(CXXFLAGS) -MM -o - $(1) | tr ' ' '\n' | tr -d '\\' | sort | uniq | grep -v sdk_include_seed | grep -v ':' | grep -v '^/' | sed 's!^mldb/mldb/!!')
 
 $(INC)/mldb/%.h:			./%.h
 	mkdir -p $(dir $@) && cp $*.h $@
 
 
-MLDB_HEADER_SEED:=mldb/server/dataset.h mldb/server/plugin.h mldb/server/function.h mldb/server/procedure.h mldb/types/basic_value_descriptions.h
 
-MLDB_ALL_HEADERS:=$(sort $(foreach header,$(MLDB_HEADER_SEED),$(header) $(call header_deps_onefile,$(header))))
+
+MLDB_ALL_HEADERS=$(call header_deps_onefile,sdk/sdk_include_seed.cc)
 
 mldb_dev_headers: $(MLDB_ALL_HEADERS:%=$(INC)/mldb/%)
 
-#MLDB_LOCAL_SEED := $(HOME)/local/include/boost
-
 expand_wildcards=$(shell find $(1) -type f)
-
-#MLDB_LOCAL_HEADERS := $(foreach dir,$(MLDB_LOCAL_SEED),$(call expand_wildcards,$(dir)))
-
-#MLDB_LOCAL_HEADER_FILES := $(MLDB_LOCAL_HEADERS:$(HOME)/local/include/%=%)
 
 #$(warning mldb_local_headers=$(MLDB_LOCAL_HEADER_FILES))
 

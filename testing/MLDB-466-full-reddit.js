@@ -2,6 +2,20 @@
 
 /* Example script to import a reddit dataset and run an example */
 
+function assertEqual(expr, val, msg)
+{
+    if (expr == val)
+        return;
+    if (JSON.stringify(expr) == JSON.stringify(val))
+        return;
+
+    plugin.log("expected", val);
+    plugin.log("received", expr);
+
+    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
+        + " not equal to " + JSON.stringify(val);
+}
+
 function succeeded(response)
 {
     return response.responseCode >= 200 && response.responseCode < 400;
@@ -186,9 +200,10 @@ plugin.log(mldb.get("/v1/datasets/reddit_user_counts/query", {limit:100}));
 var svdConfig = {
     type: "svd.train",
     params: {
-        trainingDataset: { "id": "reddit_dataset" },
-        columnOutputDataset: { "id": "reddit_svd_embedding", type: "embedding" },
-        select: "COLUMN EXPR (AS columnName() WHERE rowCount() > 100 ORDER BY rowCount() DESC, columnName() LIMIT 1000)"
+        trainingData: { "from" : {"id": "reddit_dataset" },
+                        select: "COLUMN EXPR (AS columnName() WHERE rowCount() > 100 ORDER BY rowCount() DESC, columnName() LIMIT 1000)"
+                      },
+        columnOutputDataset: { "id": "reddit_svd_embedding", type: "embedding" }
     }
 };
 
@@ -199,8 +214,7 @@ plugin.log(mldb.get("/v1/datasets/svd_output/query", {select:'rowName()', limit:
 var kmeansConfig = {
     type: "kmeans.train",
     params: {
-        trainingDataset: { "id": "reddit_svd_embedding" },
-        select: "*",
+        trainingData: "select * from reddit_svd_embedding",
         outputDataset: {
             id: "reddit_kmeans_clusters", type: "embedding"
         }
@@ -212,10 +226,8 @@ createAndTrainProcedure(kmeansConfig, 'reddit_kmeans');
 var tsneConfig = {
     type: "tsne.train",
     params: {
-        trainingDataset: { "id": "reddit_svd_embedding" },
-        rowOutputDataset: { "id": "reddit_tsne_embedding", "type": "embedding" },
-        select: "*",
-        where: "true"
+        trainingData: { "from" : { "id": "reddit_svd_embedding" } },
+        rowOutputDataset: { "id": "reddit_tsne_embedding", "type": "embedding" }
     }
 };
 
@@ -236,5 +248,15 @@ var mergedConfig = {
 var merged = mldb.createDataset(mergedConfig);
 
 plugin.log(mldb.get("/v1/datasets/reddit_merged/query", {select:'*', limit:100}).json);
+
+//MLDB-1176 merge function in FROM expression
+
+var expected = mldb.get("/v1/query", {q:"SELECT * FROM reddit_merged LIMIT 10", format:'table'});
+plugin.log(expected)
+
+var resp = mldb.get("/v1/query", {q:"SELECT * FROM merge(reddit_kmeans_clusters, reddit_tsne_embedding, reddit_user_counts) LIMIT 10", format:'table'});
+plugin.log(resp)
+
+assertEqual(resp.json, expected.json);
 
 "success"

@@ -21,7 +21,7 @@ To build and run the Docker image, you will need to install Docker: https://docs
 ## Cloning, compiling and test
 
 ```bash
-git clone git@github.com:datacratic/mldb.git
+git clone git@github.com:mldbai/mldb.git
 cd mldb
 git submodule update --init
 make dependencies

@@ -27,11 +27,10 @@ var trainSvdProcedureConfig = {
     id: "trainSvdProcedure",
     type: "svd.train",
     params: {
-        trainingDataset: { id: "test" },
+        trainingData: { "from" : {id: "test" }},
         rowOutputDataset: { id: "svdRowOutput", type: "embedding" },
         columnOutputDataset: { id: "svdColOutput", type: "embedding" },
-        svdUri: svdUri,
-        select: "*"
+        svdUri: svdUri
     }
 };
 

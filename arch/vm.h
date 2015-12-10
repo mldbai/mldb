@@ -7,8 +7,7 @@
    Virtual memory functions.
 */
 
-#ifndef __jml__arch__vm_h__
-#define __jml__arch__vm_h__
+#pragma once
 
 #include <stdint.h>
 #include <iostream>
@@ -27,10 +26,6 @@ enum {
 static const size_t page_num_mask = ~(size_t)page_offset_mask;
 
 struct Pagemap_Entry {
-    Pagemap_Entry(uint64_t mapping = 0)
-        : mapping(mapping)
-    {
-    }
 
     // Note that this just looks at the pfn.  The other flags might change
     // even if it's at the same place.
@@ -263,5 +258,3 @@ operator << (std::ostream & stream, const Pagemap_Reader & reader)
 }
 
 } // namespace ML
-
-#endif /* __jml__arch__vm_h__ */

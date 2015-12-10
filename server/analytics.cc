@@ -1,5 +1,4 @@
 // This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** analytics.cc
     Jeremy Barnes, 30 January 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
@@ -7,8 +6,8 @@
 */
 
 #include "mldb/server/analytics.h"
-#include "mldb/server/function.h"
-#include "mldb/server/dataset.h"
+#include "mldb/core/function.h"
+#include "mldb/core/dataset.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/sql/sql_expression_operations.h"
 #include "mldb/jml/utils/worker_task.h"
@@ -301,6 +300,22 @@ getEmbedding(const SelectExpression & select,
     return { std::move(rows), std::move(vars) };
 }
 
+std::pair<std::vector<std::tuple<RowHash, RowName, std::vector<double>, std::vector<ExpressionValue> > >,
+          std::vector<KnownColumn> >
+getEmbedding(const SelectStatement & stm,
+             SqlExpressionMldbContext & context,
+             int maxDimensions,
+             const std::function<bool (const Json::Value &)> & onProgress)
+{
+    auto boundDataset = stm.from->bind(context);
+    return getEmbedding(stm.select, 
+                        *boundDataset.dataset, 
+                        boundDataset.asName, 
+                        stm.when, stm.where, {},
+                        maxDimensions, stm.orderBy, 
+                        stm.offset, stm.limit, onProgress);
+}
+
 std::vector<MatrixNamedRow>
 queryWithoutDataset(SelectStatement& stm, SqlExpressionMldbContext& mldbContext)
 {
@@ -308,7 +323,7 @@ queryWithoutDataset(SelectStatement& stm, SqlExpressionMldbContext& mldbContext)
     SqlRowScope context;
     ExpressionValue val = boundSelect(context);
     MatrixNamedRow row;
-    row.rowName = RowName(stm.select.surface);
+    //row.rowName = RowName(stm.select.surface); //TO BE REVIEWED AS PART OF MLDBFB-264
     row.rowHash = row.rowName;
     val.mergeToRowDestructive(row.columns);
 

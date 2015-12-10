@@ -16,9 +16,7 @@ dataset.commit();
 var kmeansConfig = {
     type: "kmeans.train",
     params: {
-        trainingDataset: { "id": "ds1" },
-        select: "bonus*",
-        where: "true"
+        trainingData: "select bonus* from ds1",
     }
 };
 

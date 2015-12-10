@@ -6,7 +6,7 @@
 
 */
 
-#include "mldb/server/dataset.h"
+#include "mldb/core/dataset.h"
 
 #pragma once
 

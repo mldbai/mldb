@@ -10,7 +10,7 @@
 #include "mldb_js.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/rest/in_process_rest_connection.h"
-#include "mldb/server/dataset.h"
+#include "mldb/core/dataset.h"
 #include "dataset_js.h"
 #include "mldb/server/mldb_server.h"
 
@@ -67,7 +67,6 @@ registerMe()
     HandleScope scope;
 
     auto fntmpl = CreateFunctionTemplate("Atom");
-    auto objtmpl = fntmpl->InstanceTemplate();
 
     return scope.Close(fntmpl);
 }

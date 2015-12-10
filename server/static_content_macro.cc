@@ -14,7 +14,7 @@
 #include "mldb/ext/hoedown/src/escape.h"
 #include "mldb/rest/in_process_rest_connection.h"
 #include "mldb/server/mldb_server.h"
-#include "mldb/server/mldb_entity.h"
+#include "mldb/core/mldb_entity.h"
 #include "mldb/jml/utils/file_functions.h"
 #include "mldb/jml/utils/string_functions.h"
 
@@ -208,10 +208,6 @@ writeInternalLink(Utf8String url,
         macroData->server->handleRequest(connection, request);
         if (connection.responseCode == 301) {
             url = connection.headers.getValue("location");
-            //cerr << "redirect to " << link << endl;
-        }
-        else {
-            //cerr << "no redirect for " << link << endl;
         }
     }
 
@@ -412,8 +408,6 @@ void configMacro(MacroContext & context,
             typeName = params["configType"]["typeName"].asString();
         }
             
-        //cerr << "params = " << params << endl;
-
         //context.writeHtml("<h2>Configuration</h2>");
 
         context.writeHtml("<p>A new " + kind + " of this type is created as follows:</p>");
@@ -474,7 +468,7 @@ void availabletypesMacro(MacroContext & context,
         };
 
         // filter internal entities
-        auto internalEntitiesFilter = [&] (const Json::Value& params) {
+        auto internalEntitiesFilter = [&] (const Json::Value& params) -> Json::Value {
             if (context.macroData->hideInternalEntities) {
                 Json::Value filteredParams;
                 for (auto & p : params) {

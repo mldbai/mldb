@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** date_description.h                                             -*- C++ -*-
     Jeremy Barnes, 23 August 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Value descriptions for date.
 */
@@ -24,8 +24,8 @@ struct DateDescription
     virtual bool isDefaultTyped(const Date * val) const JML_OVERRIDE;
 };
 
-extern template class ValueDescriptionT<Datacratic::Date>;
-extern template class ValueDescriptionI<Datacratic::Date, ValueKind::ATOM, DateDescription>;
+extern template struct ValueDescriptionT<Datacratic::Date>;
+extern template struct ValueDescriptionI<Datacratic::Date, ValueKind::ATOM, DateDescription>;
 
 struct JavaTimestampValueDescription: public DateDescription {
 

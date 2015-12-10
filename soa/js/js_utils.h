@@ -1095,7 +1095,7 @@ struct PropertySetter {
                 (info.Data());
             Obj & o = *Base::getShared(info.This());
             (o.*setter) (from_js(JSValue(value), (const T *)0));
-        } HANDLE_JS_EXCEPTIONS;
+        } HANDLE_JS_EXCEPTIONS_SETTER;
     }
 };
 

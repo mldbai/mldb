@@ -146,6 +146,7 @@ createHttpWatch(RestConnection & connection,
                 dataPtr->connection.sendPayload(jsonEncode(valueIn).toString());
             };
 
+#if 0
         auto onError = [=] (const WatchError & error)
             {
                 if (this->shutdown_)
@@ -153,6 +154,7 @@ createHttpWatch(RestConnection & connection,
                 cerr << "watchRouter onError"
                 << jsonEncode(error) << endl;
             };
+#endif
 
         // Send a header for chunked encoding
         data->connection.sendHttpResponseHeader(200, "application/json",

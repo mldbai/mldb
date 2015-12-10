@@ -28,5 +28,10 @@ mldb.log(res)
 
 assert res["statusCode"] != 400
 
+res = mldb.perform("GET", "/v1/query", [["q", "select COLUMN EXPR (WHERE regex_match(columnName(), 'feat[[:digit:]]') ORDER BY rowCount() DESC LIMIT 2) from toy"]])
+mldb.log(res)
+
+assert res["statusCode"] != 400
+
 mldb.script.set_return("success")
 

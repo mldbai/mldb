@@ -5,7 +5,7 @@
  */
 
 #include "dataset_feature_space.h"
-#include "mldb/server/dataset.h"
+#include "mldb/core/dataset.h"
 #include "mldb/ml/jml/registry.h"
 #include "mldb/jml/utils/worker_task.h"
 #include "mldb/types/value_description.h"

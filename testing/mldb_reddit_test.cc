@@ -8,8 +8,8 @@
 */
 
 #include "mldb/server/mldb_server.h"
-#include "mldb/server/dataset.h"
-#include "mldb/server/procedure.h"
+#include "mldb/core/dataset.h"
+#include "mldb/core/procedure.h"
 #include "mldb/http/http_rest_proxy.h"
 #include "mldb/server/plugin_resource.h"
 

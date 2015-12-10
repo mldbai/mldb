@@ -155,7 +155,7 @@ struct SelectSubtableExpression: public NamedDatasetExpression {
 
 struct DatasetFunctionExpression: public NamedDatasetExpression {
 
-    DatasetFunctionExpression(Utf8String functionName, std::shared_ptr<TableExpression> childDataset, Utf8String asName);
+    DatasetFunctionExpression(Utf8String functionName, std::vector<std::shared_ptr<TableExpression>>& args);
 
     virtual ~DatasetFunctionExpression();
 
@@ -173,7 +173,7 @@ struct DatasetFunctionExpression: public NamedDatasetExpression {
     virtual UnboundEntities getUnbound() const;
 
     Utf8String functionName;
-    std::shared_ptr<TableExpression> childDataset;
+    std::vector<std::shared_ptr<TableExpression>> args;
 };
 
 

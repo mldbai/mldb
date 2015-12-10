@@ -8,7 +8,7 @@
     adaptor on top of an existing dataset implementation.
 */
 
-#include "dataset.h"
+#include "mldb/core/dataset.h"
 
 #pragma once
 

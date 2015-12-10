@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include "mldb/server/function.h"
+#include "mldb/core/function.h"
 #include "mldb/ext/libstemmer/libstemmer.h"
 #include <mutex>
 

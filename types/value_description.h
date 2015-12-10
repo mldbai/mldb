@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* value_description.h                                             -*- C++ -*-
    Jeremy Barnes, 29 March 2013
    Copyright (c) 2013 Datacratic Inc.  All rights reserved.
+
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Code for description and introspection of values and structures.  Used
    to allow for automated formatters and parsers to be built.
@@ -445,12 +445,12 @@ RegisterValueDescriptionI<T, Impl>
 ValueDescriptionI<T, kind, Impl>::
 regme;
 
-inline constexpr void * addOffset(void * base, ssize_t offset)
+inline void * addOffset(void * base, ssize_t offset)
 {
     return reinterpret_cast<char *>(base) + offset;
 }
 
-inline constexpr const void * addOffset(const void * base, ssize_t offset)
+inline const void * addOffset(const void * base, ssize_t offset)
 {
     return reinterpret_cast<const char *>(base) + offset;
 }
@@ -598,19 +598,19 @@ inline Json::Value jsonEncode(const char * str)
 }
 
 // Explicit instantiations of builtin value description classes
-extern template class ValueDescriptionT<std::string>;
-extern template class ValueDescriptionT<Utf8String>;
-extern template class ValueDescriptionT<Utf32String>;
-extern template class ValueDescriptionT<signed int>;
-extern template class ValueDescriptionT<unsigned int>;
-extern template class ValueDescriptionT<signed long>;
-extern template class ValueDescriptionT<unsigned long>;
-extern template class ValueDescriptionT<signed long long>;
-extern template class ValueDescriptionT<unsigned long long>;
-extern template class ValueDescriptionT<float>;
-extern template class ValueDescriptionT<double>;
-extern template class ValueDescriptionT<Json::Value>;
-extern template class ValueDescriptionT<bool>;
+extern template struct ValueDescriptionT<std::string>;
+extern template struct ValueDescriptionT<Utf8String>;
+extern template struct ValueDescriptionT<Utf32String>;
+extern template struct ValueDescriptionT<signed int>;
+extern template struct ValueDescriptionT<unsigned int>;
+extern template struct ValueDescriptionT<signed long>;
+extern template struct ValueDescriptionT<unsigned long>;
+extern template struct ValueDescriptionT<signed long long>;
+extern template struct ValueDescriptionT<unsigned long long>;
+extern template struct ValueDescriptionT<float>;
+extern template struct ValueDescriptionT<double>;
+extern template struct ValueDescriptionT<Json::Value>;
+extern template struct ValueDescriptionT<bool>;
 
 template<typename T>
 struct ValueDescriptionInit {

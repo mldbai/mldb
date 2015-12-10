@@ -18,7 +18,7 @@ mldb.perform("PUT", "/v1/procedures/svd", [],
     {
         "type":"svd.train", 
         "params" : {
-        "trainingDataset" : {"id" : "x"},
+        "trainingData" : "select * from x",
         "columnOutputDataset" :  {"id" : "svd", "type" : "sparse.mutable"},
         "rowOutputDataset" : {"id": "svd_embed", "type": "embedding",
             "address": "svd_embed"}
@@ -31,7 +31,7 @@ mldb.perform("PUT", "/v1/procedures/tsne", [],
     {
         "type":"tsne.train", 
         "params":{
-            "trainingDataset":{"id":"svd_embed"},
+            "trainingData":{"from":{"id":"svd_embed"}},
             "rowOutputDataset": {"id": "tsne_output", "type": "sparse.mutable",
             "address": "tsne_output"}
         }

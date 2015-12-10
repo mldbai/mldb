@@ -30,7 +30,7 @@ struct Any {
 
     template<typename T>
     Any(const T & val,
-        const ValueDescription * desc = getDefaultDescriptionShared((T *)0).get(),
+        const ValueDescriptionT<T> * desc = getDefaultDescriptionShared((T *)0).get(),
         typename std::enable_if<!std::is_same<T, Any>::value>::type * = 0)
     : obj_(new T(val)),
       type_(&typeid(val)),

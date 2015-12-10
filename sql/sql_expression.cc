@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** sql_expression.cc
     Jeremy Barnes, 24 January 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Basic components of SQL expressions.
 */
@@ -19,7 +19,7 @@
 #include "table_expression_operations.h"
 #include "interval.h"
 #include "tokenize.h"
-#include "mldb/server/dataset.h"
+#include "mldb/core/dataset.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/server/dataset_context.h"
 #include "mldb/types/value_description.h"
@@ -1035,8 +1035,6 @@ const SqlExpression::Operator operators[] = {
     { "SOME", true,     SqlExpression::unimp,  7, "Some true" }
 };
 
-static const int numOperators = sizeof(operators) / sizeof(SqlExpression::Operator);
-
 } // file scope
 
 std::shared_ptr<SqlExpression>
@@ -1936,7 +1934,7 @@ parse(ML::Parse_Context & context, bool allowUtf8)
                     token.ignore();
 
                     auto result = std::make_shared<WildcardExpression>(tableName, prefix, prefixAs, exclusions);
-                    result->surface = capture.captured();
+                    result->surface = boost::trim_copy(capture.captured());
                     return result;
                 }
             }
@@ -2070,7 +2068,7 @@ parse(ML::Parse_Context & context, bool allowUtf8)
         else prefixAs = prefix;
 
         auto result = std::make_shared<WildcardExpression>(tableName, prefix, prefixAs, exclusions);
-        result->surface = capture.captured();
+        result->surface = boost::trim_copy(capture.captured());
         return result;
     }
 
@@ -2140,7 +2138,6 @@ parseList(ML::Parse_Context & context, bool allowUtf8)
         auto expr = SqlRowExpression::parse(context, allowUtf8);
         if (!expr)
             break;
-
         result.push_back(expr);
 
         skip_whitespace(context);
@@ -2714,7 +2711,15 @@ SelectExpression
 SelectExpression::
 parse(ML::Parse_Context & context, bool allowUtf8)
 {
-    return SqlRowExpression::parseList(context, allowUtf8);
+    SelectExpression result
+        = SqlRowExpression::parseList(context, allowUtf8);
+    // concatenate all the surfaces with spaces
+    result.surface = std::accumulate(result.clauses.begin(), result.clauses.end(), Utf8String{},
+                                     [](const Utf8String & prefix,
+                                        std::shared_ptr<SqlRowExpression> & next) {
+                                         return prefix.empty() ? next->surface : prefix + ", " + next->surface;
+                                     });;
+    return result;
 }
 
 SelectExpression
@@ -3010,13 +3015,27 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
 
             if (context.match_literal('('))
             {
-                std::shared_ptr<TableExpression> subTable = TableExpression::parse(context, currentPrecedence, allowUtf8);
+                skip_whitespace(context);
+                std::vector<std::shared_ptr<TableExpression>> args;
+                if (!context.match_literal(')'))
+                {
+                  do
+                  {
+                      skip_whitespace(context);
+                      std::shared_ptr<TableExpression> subTable = TableExpression::parse(context, currentPrecedence, allowUtf8);
+                      if (subTable)
+                        args.push_back(subTable);
+
+                      skip_whitespace(context);
+                  } while (context.match_literal(','));
+                }
+
                 context.expect_literal(')');
-                expr.reset(new DatasetFunctionExpression(identifier, subTable, ""));
+                expr.reset(new DatasetFunctionExpression(identifier, args));
             }
             else
             {
-                expr.reset(new DatasetExpression(identifier, ""));
+                expr.reset(new DatasetExpression(identifier, identifier));
             }
 
             Utf8String asName;
@@ -3413,6 +3432,19 @@ printJsonTyped(const WhenExpression * val,
 /* SELECT STATEMENT                                                           */
 /******************************************************************************/
 
+SelectStatement::
+SelectStatement() :
+    select(SelectExpression::STAR),
+    when(WhenExpression::TRUE),
+    where(SelectExpression::TRUE),
+    having(SelectExpression::TRUE),
+    rowName(SqlExpression::parse("rowName()")),
+    offset(0),
+    limit(-1)
+{
+    //TODO - avoid duplication of default values
+}
+
 SelectStatement
 SelectStatement::
 parse(const Utf8String& body)
@@ -3533,6 +3565,7 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
 
 DEFINE_STRUCTURE_DESCRIPTION(SelectStatement);
 
+
 SelectStatementDescription::
 SelectStatementDescription()
 {
@@ -3546,6 +3579,57 @@ SelectStatementDescription()
     addField("having",  &SelectStatement::having,  "HAVING clause");
     addField("offset",  &SelectStatement::offset,  "OFFSET clause", (ssize_t)0);
     addField("limit",   &SelectStatement::limit,   "LIMIT clause", (ssize_t)-1);
+}
+
+struct InputQueryDescription
+    : public ValueDescriptionT<InputQuery> {
+
+    InputQueryDescription();
+
+    virtual void parseJsonTyped(InputQuery * val,
+                                JsonParsingContext & context) const;
+
+    virtual void printJsonTyped(const InputQuery * val,
+                                JsonPrintingContext & context) const;
+};
+
+void
+InputQueryDescription::
+parseJsonTyped(InputQuery * val,
+               JsonParsingContext & context) const
+{
+    if (context.isString())
+        val->stm = make_shared<SelectStatement>(SelectStatement::parse(context.expectStringUtf8()));
+    else if (context.isObject()) {
+        Json::Value v = context.expectJson();
+        SelectStatement stm;
+        SelectStatementDescription desc;
+        desc.parseJson(&stm, context);
+        val->stm = make_shared<SelectStatement>(std::move(stm));
+        val->stm->surface = v.toStringNoNewLine();
+    }
+}
+ 
+void
+InputQueryDescription::
+printJsonTyped(const InputQuery * val,
+               JsonPrintingContext & context) const
+{
+    if (!val->stm)
+        context.writeNull();
+    else {
+        SelectStatementDescription desc;
+        desc.printJsonTyped(val->stm.get(), context);
+    }
+}
+
+DEFINE_VALUE_DESCRIPTION_NS(InputQuery, InputQueryDescription);
+
+InputQueryDescription::
+InputQueryDescription()
+{
+    setTypeName("InputQuery");
+    documentationUri = "/doc/builtin/procedures/InputQuery.md";
 }
 
 } // namespace MLDB

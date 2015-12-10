@@ -1,17 +1,16 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** tokensplit.h                                      -*- C++ -*-
     Mathieu Marquis Bolduc, November 24th 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Function to parse strings for tokens and insert separators
 */
 
 #pragma once
 
-#include "mldb/server/dataset.h"
-#include "mldb/server/algorithm.h"
-#include "mldb/server/function.h"
+#include "mldb/core/dataset.h"
+#include "mldb/core/function.h"
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/types/optional.h"
 

@@ -11,7 +11,7 @@
 #pragma once
 
 
-#include "mldb/server/plugin.h"
+#include "mldb/core/plugin.h"
 #include "mldb/utils/command_expression.h"
 
 

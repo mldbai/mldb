@@ -1,18 +1,15 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* nested_archive.h                                                -*- C++ -*-
    Jeremy Barnes, 30 January 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
 
-
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    ---
 
    A nested archive, that allows one to be embedded within another.
 */
 
-#ifndef __db__nested_archive_h__
-#define __db__nested_arhcive_h__
+#pragma once
 
 #include "persistent.h"
 #include <sstream>
@@ -71,7 +68,3 @@ private:
 
 } // namespace DB
 } // namespace ML
-
-
-#endif /* __db__nested_archive_h__ */
-

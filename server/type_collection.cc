@@ -1,9 +1,9 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** type_collection.cc
     Jeremy Barnes, 2 March 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
 
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    
     Implementation of our collection of types.
 */
 
@@ -11,7 +11,6 @@
 #include "mldb/server/mldb_server.h"
 #include "mldb/server/function_collection.h"
 #include "mldb/server/plugin_collection.h"
-#include "mldb/server/algorithm_collection.h"
 #include "mldb/server/procedure_collection.h"
 #include "mldb/server/dataset_collection.h"
 #include "mldb/rest/rest_collection_impl.h"
@@ -196,7 +195,6 @@ TypeClassCollection(MldbServer * server)
     : RestDirectory(server, "Operations on classes of types registered in MLDB"),
       plugins(new TypeCollection<Plugin>("plugin", "plugins", server, this)),
       datasets(new TypeCollection<Dataset>("dataset", "datasets", server, this)),
-      algorithms(new TypeCollection<Algorithm>("algorithm", "algorithms", server, this)),
       procedures(new TypeCollection<Procedure>("procedure", "procedures", server, this)),
       functions(new TypeCollection<Function>("function", "functions", server, this)),
       pluginSetup(new TypeCollection<ExternalPluginSetup>("plugin.setup", "plugin.setups", server, this)),
@@ -205,7 +203,6 @@ TypeClassCollection(MldbServer * server)
     addEntity("plugins", plugins);
     addEntity("functions", functions);
     addEntity("procedures", procedures);
-    addEntity("algorithms", algorithms);
     addEntity("datasets", datasets);
     addEntity("plugin.setups", pluginSetup);
     addEntity("plugin.startups", pluginStartup);
@@ -242,7 +239,6 @@ initRoutes(RouteManager & manager)
     initRoutesOfType(&TypeClassCollection::plugins, manager, "plugin", "plugins");
     initRoutesOfType(&TypeClassCollection::functions, manager, "function", "functions");
     initRoutesOfType(&TypeClassCollection::procedures, manager, "procedure", "procedures");
-    initRoutesOfType(&TypeClassCollection::algorithms, manager, "algorithm", "algorithms");
     initRoutesOfType(&TypeClassCollection::datasets, manager, "dataset", "datasets");
     initRoutesOfType(&TypeClassCollection::pluginSetup, manager, "plugin.setup", "plugin.setups");
     initRoutesOfType(&TypeClassCollection::pluginSetup, manager, "plugin.startup", "plugin.startups");

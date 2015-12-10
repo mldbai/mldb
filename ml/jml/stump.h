@@ -1,21 +1,20 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* stump.h                                                         -*- C++ -*-
    Jeremy Barnes, 6 June 2003
    Copyright (c) 2003 Jeremy Barnes.  All rights reserved.
-   $Source$
 
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   
    A decision stump.
 */
 
-#ifndef __boosting__stump_h__
-#define __boosting__stump_h__
+#pragma once
 
 #include "mldb/ml/jml/classifier.h"
 #include "feature_set.h"
 #include <boost/multi_array.hpp>
 #include "mldb/jml/utils/enum_info.h"
 #include "split.h"
+
 
 namespace ML {
 
@@ -49,9 +48,9 @@ public:
     /** Apply to a distribution, updating in place */
     void apply(Label_Dist & result, const Split::Weights & weights) const
     {
-        if (weights[false])   result += weights[false]   * pred_false;
-        if (weights[true])    result += weights[true]    * pred_true;
-        if (weights[MISSING]) result += weights[MISSING] * pred_missing;
+        if (weights[false] != 0.0)   result += weights[false]   * pred_false;
+        if (weights[true] != 0.0)    result += weights[true]    * pred_true;
+        if (weights[MISSING] != 0.0) result += weights[MISSING] * pred_missing;
     }
 
     /** Apply to a single label */
@@ -225,5 +224,3 @@ public:
 } // namespace ML
 
 DECLARE_ENUM_INFO(ML::Stump::Update, 3);
-
-#endif /* __boosting__stump_h__ */

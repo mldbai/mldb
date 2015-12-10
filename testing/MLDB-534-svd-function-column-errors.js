@@ -77,7 +77,7 @@ var svdConfig = {
     'type': 'svd.train',
     'params':
     {
-        "trainingDataset": {"id": "random_dataset"},
+        "trainingData": {"from" : {"id": "random_dataset"}},
         "columnOutputDataset": {
             "type": "embedding",
             "id": "svd_random_col"
@@ -88,7 +88,6 @@ var svdConfig = {
         },
         "numSingularValues": 1000,
         "numDenseBasisVectors": 20,
-        "select": "*",
         "modelFileUrl": "file://tmp/MLDB-534-svd.json.gz"
     }
 };

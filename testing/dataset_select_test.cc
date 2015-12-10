@@ -8,8 +8,8 @@
 */
 
 #include "mldb/server/mldb_server.h"
-#include "mldb/server/dataset.h"
-#include "mldb/server/procedure.h"
+#include "mldb/core/dataset.h"
+#include "mldb/core/procedure.h"
 #include "mldb/plugins/svd.h"
 #include "mldb/plugins/sql_functions.h"
 #include "mldb/types/vector_description.h"

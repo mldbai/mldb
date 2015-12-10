@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** binding_contexts.cc                                              -*- C++ -*-
     Jeremy Barnes, 14 March 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+
 
     Contexts in which to execute scoped SQL expressions.
 */
@@ -25,7 +25,7 @@ BoundSqlExpression
 ReadThroughBindingContext::
 rebind(BoundSqlExpression expr)
 {
-    auto outerExec = std::move(expr.exec);
+    auto outerExec = expr.exec;
 
     // Call the exec function with the context pivoted to the output context
     expr.exec = [=] (const SqlRowScope & context,
@@ -169,13 +169,24 @@ doGetFunction(const Utf8String & tableName,
 
     auto fn = outer.doGetColumnFunction(functionName);
 
-    return {[=] (const std::vector<ExpressionValue> & args,
+    if (fn)
+    {
+         return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & context)
             {
                 auto & col = static_cast<const ColumnContext &>(context);
                 return fn(col.columnName, args);
             },
             std::make_shared<Utf8StringValueInfo>()};
+    }
+
+    auto sqlfn = SqlBindingScope::doGetFunction(tableName, functionName, args);
+
+    if (sqlfn)
+        return sqlfn;
+
+    throw HttpReturnException(400, "Unknown function " + functionName + " in column expression");
+
 }
 
 /*****************************************************************************/

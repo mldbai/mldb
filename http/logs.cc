@@ -347,6 +347,7 @@ void Logging::Printer::operator&(std::ostream & stream) {
 }
 
 void Logging::Thrower::operator&(std::ostream & stream) {
+
     std::stringstream & text = (std::stringstream &) stream;
     std::string message(text.str());
     text.str("");

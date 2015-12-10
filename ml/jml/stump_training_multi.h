@@ -26,7 +26,8 @@ namespace ML {
 
 inline void clip_bucket(float * p, int n)
 {
-    if (false) ;
+    if (false)
+        ;
 
 #if (USE_SIMD_SSE1)
 
@@ -53,7 +54,8 @@ inline void clip_bucket(float * p, int n)
 
 inline void clip_bucket(double * p, int n)
 {
-    if (false) ;
+    if (false)
+        ;
 
 #if (USE_SIMD_SSE2)
 
@@ -89,7 +91,8 @@ transfer_core(float * from, float * to, const float * weights, float k,
               int label, int nl)
 {
 
-    if (false) ;
+    if (false)
+        ;
 
 #if (USE_SIMD_SSE1)
 
@@ -155,7 +158,8 @@ JML_ALWAYS_INLINE void
 transfer_core(double * from, double * to, const float * weights, float k,
               int label, int nl)
 {
-    if (false) ;
+    if (false)
+        ;
 
 #if (USE_SIMD_SSE2)
 
@@ -610,7 +614,8 @@ inline float accum_sum_sqrt_prod(const float * p1, const float * p2, int n)
 
     double result = 0.0;
 
-    if (false) ;
+    if (false)
+        ;
 
 #if (USE_SIMD_SSE1)
 
@@ -670,7 +675,8 @@ inline double accum_sum_sqrt_prod(const double * p1, const double * p2, int n)
 {
     double result = 0.0;
 
-    if (false) ;
+    if (false)
+        ;
 
 #if (USE_SIMD_SSE2)
 

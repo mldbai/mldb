@@ -1,9 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** svd_utils.cc
     Jeremy Barnes, 16 December 2014
     Copyright (c) 2014 Datacratic Inc.  All rights reserved.
 
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #include "svd_utils.h"
@@ -296,9 +295,9 @@ intersectionCountOptimized(const uint16_t * it1, const uint16_t * end1,
     //auto start1 = it1, start2 = it2;
 
     while (it1 < end1 && it2 < end2) {
-        auto v1 = (v16qi)__builtin_ia32_loadups((float *)it1);
-        auto v2 = (v16qi)__builtin_ia32_loadups((float *)it2);
-
+        auto v1 = (v16qi)_mm_loadu_ps((float *)it1);
+        auto v2 = (v16qi)_mm_loadu_ps((float *)it2);
+        
         int len1 = end1 - it1;
         int len2 = end2 - it2;
 
@@ -329,7 +328,7 @@ intersectionCountOptimized(const uint16_t * it1, const uint16_t * end1,
         auto v3 = __builtin_ia32_pcmpestrm128(v1, len1, v2, len2,
                                               mode);
 
-        int mask = __builtin_ia32_vec_ext_v4si((v4si)v3, 0);
+        int mask = _mm_extract_epi32((__m128i)v3, 0);
 
         int lastOffset1 = std::min<int>(7, len1 - 1);
         int lastOffset2 = std::min<int>(7, len2 - 1);
