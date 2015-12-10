@@ -490,7 +490,7 @@ doGetColumnFunction(const Utf8String & functionName)
                 }};
     }
 
-    throw HttpReturnException(400, "Unknown column function " + functionName);
+    return nullptr;
 }
 
 /*****************************************************************************/
