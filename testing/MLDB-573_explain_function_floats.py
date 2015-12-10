@@ -29,7 +29,11 @@ train_classifier_procedure_config = {
     "id":"float_encoding_cls_train",
     "type":"classifier.train",
     "params":{
-        "trainingDataset":{"id":"x"},
+        "trainingData":{
+            "where":"Year < 2014 AND rowHash() != 1",
+            "select":"* EXCLUDING(label)",
+            "from" : {"id":"x"}
+        },
         "configuration": {        
             "type": "bagging",
             "verbosity": 3,
@@ -49,8 +53,6 @@ train_classifier_procedure_config = {
             "num_bags": 5
         },
         "modelFileUrl":"file://tmp/MLDB-573-float_encoding.cls",
-        "where":"Year < 2014 AND rowHash() != 1",
-        "select":"* EXCLUDING(label)",
         "label":"label = 1",
         "weight":"1.0"
         }

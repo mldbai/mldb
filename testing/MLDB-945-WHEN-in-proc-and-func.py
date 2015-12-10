@@ -171,7 +171,11 @@ def train_classifier(when):
     result = mldb.perform("PUT", "/v1/procedures/tng_classif", [], {
         "type": "classifier.train",
         "params": {
-            "trainingDataset": { "id": "dataset1" },
+            "trainingData": { 
+                "select" : "*",
+                "when" : when,
+                "from" : { "id": "dataset1" }
+            },
             "configuration": {
                 "glz": {
                     "type": "glz",
@@ -183,8 +187,7 @@ def train_classifier(when):
             "algorithm": "glz",
             "modelFileUrl": "file://tmp/MLDB-945.tng.cls",
             "label": "x",
-            "weight": "1.0",
-            "when": when
+            "weight": "1.0"
         }
     })
     response = json.loads(result['response'])

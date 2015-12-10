@@ -64,7 +64,10 @@ plugin.log(mldb.get("/v1/datasets/iris/query", {limit:10}).json);
 var trainClassifierProcedureConfig = {
     type: "classifier.train",
     params: {
-        trainingDataset: { id: "iris" },
+        trainingData: { 
+            select: "* EXCLUDING (class)",
+            from : { id: "iris" }
+        },
         configuration: {
             glz: {
                 type: "glz",
@@ -75,7 +78,6 @@ var trainClassifierProcedureConfig = {
             }
         },
         algorithm: "glz",
-        select: "* EXCLUDING (class)",
         label: "class",
         weight: "1",
         equalizationFactor: 0.0,

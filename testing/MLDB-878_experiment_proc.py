@@ -28,9 +28,8 @@ conf = {
     "type": "classifier.experiment",
     "params": {
         "experimentName": "my_test_exp",
-        "trainingDataset": "toy",
+        "trainingData": "select * EXCLUDING(label) from toy",
         "testingDataset": "toy",
-        "select": "* EXCLUDING(label)",
         "label": "label",
         "datasetFolds" : [
             {

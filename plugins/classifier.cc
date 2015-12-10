@@ -63,9 +63,9 @@ DEFINE_STRUCTURE_DESCRIPTION(ClassifierConfig);
 ClassifierConfigDescription::
 ClassifierConfigDescription()
 {
-    addFieldDesc("trainingDataset", &ClassifierConfig::dataset,
-             "Dataset for classifier training",
-             makeInputDatasetDescription());
+    addField("trainingData", &ClassifierConfig::trainingData,
+             "Specification of the data for input to the classifier procedure. "
+             "The select statement does not support groupby and having clauses.");
     addField("modelFileUrl", &ClassifierConfig::modelFileUrl,
              "URL where the model file (with extension '.cls') should be saved. "
              "This file can be loaded by a function of type 'classifier'.");
@@ -82,22 +82,6 @@ ClassifierConfigDescription()
              "only objects, strings and numbers.  If the configuration object is "
              "non-empty, then that will be used preferentially.",
              string("/opt/bin/classifiers.json"));
-    addField("select", &ClassifierConfig::select,
-             "The SELECT clause for which columns to include from the dataset. "
-             "Unlike most select expressions, this one can only select whole "
-             "columns, not expressions involving columns.  So X will work, but "
-             "not X + 1.  If you need derived values in the select expression, "
-             "create a dataset with the derived columns as a previous step and "
-             "run the classifier over that dataset instead.",
-             SelectExpression::STAR);
-    addField("when", &ClassifierConfig::when,
-             "Boolean expression determining which tuples from the dataset "
-             "to keep based on their timestamps",
-             WhenExpression::TRUE);
-    addField("where", &ClassifierConfig::where,
-             "The WHERE clause for which rows to include from the dataset. "
-             "This can be any expression involving the columns in the dataset. ",
-             SqlExpression::TRUE);
     addField("label", &ClassifierConfig::label,
              "The expression to generate the label.  This can be any expression "
              "involving the columns in the dataset.  The type of the label "
@@ -111,17 +95,6 @@ ClassifierConfigDescription()
              "be a real number.  Rows with a null weight will cause a training "
              "error.",
              SqlExpression::parse("1.0"));
-    addField("orderBy", &ClassifierConfig::orderBy,
-             "How to order the rows.  This only has an effect when OFFSET "
-             "and LIMIT are used.  Default is to order by rowHash(). ",
-             OrderByExpression::parse("rowHash()"));
-    addField("offset", &ClassifierConfig::offset,
-             "How many rows to skip before using data.",
-             ssize_t(0));
-    addField("limit", &ClassifierConfig::limit,
-             "How many rows of data to use.  -1 (the default) means use all "
-             "of the rest of the rows in the dataset after skipping OFFSET rows.",
-             ssize_t(-1));
     addField("equalizationFactor", &ClassifierConfig::equalizationFactor,
              "Amount to adjust weights so that all classes have an equal "
              "total weight.  A value of 0 (default) will not equalize weights "
@@ -137,6 +110,8 @@ ClassifierConfigDescription()
              "If specified, a classifier function of this name will be created using "
              "the trained classifier.");
     addParent<ProcedureConfig>();
+
+    onPostValidate = validate<ClassifierConfig, NoGroupByHaving>("classifier");
 }
 
 /*****************************************************************************/
@@ -179,7 +154,7 @@ run(const ProcedureRunConfig & run,
     // 1.  Get the input dataset
     SqlExpressionMldbContext context(server);
 
-    auto boundDataset = runProcConf.dataset->bind(context);
+    auto boundDataset = runProcConf.trainingData.stm->from->bind(context);
 
     std::shared_ptr<ML::Mutable_Categorical_Info> categorical;
 
@@ -208,7 +183,7 @@ run(const ProcedureRunConfig & run,
         // Find only those variables used
         SqlExpressionDatasetContext context(boundDataset);
         
-        auto selectBound = runProcConf.select.bind(context);
+        auto selectBound = runProcConf.trainingData.stm->select.bind(context);
 
         for (auto & c: selectBound.info->getKnownColumns()) {
             knownInputColumns.insert(c.columnName);
@@ -381,17 +356,20 @@ run(const ProcedureRunConfig & run,
         };
 
     // If no order by or limit, the order doesn't matter
-    if (runProcConf.limit == -1 && runProcConf.offset == 0)
-        runProcConf.orderBy.clauses.clear();
+    if (runProcConf.trainingData.stm->limit == -1 && runProcConf.trainingData.stm->offset == 0)
+        runProcConf.trainingData.stm->orderBy.clauses.clear();
 
     timer.restart();
 
-    BoundSelectQuery(runProcConf.select, *boundDataset.dataset,
-                     boundDataset.asName, runProcConf.when,
-                     runProcConf.where,
-                     runProcConf.orderBy, extra,
+    BoundSelectQuery(runProcConf.trainingData.stm->select, *boundDataset.dataset,
+                     boundDataset.asName, runProcConf.trainingData.stm->when,
+                     runProcConf.trainingData.stm->where,
+                     runProcConf.trainingData.stm->orderBy, extra,
                      false /* implicit order by row hash */)
-        .execute(aggregator, runProcConf.offset, runProcConf.limit, nullptr /* progress */);
+        .execute(aggregator, 
+                 runProcConf.trainingData.stm->offset, 
+                 runProcConf.trainingData.stm->limit, 
+                 nullptr /* progress */);
 
     cerr << "extracted feature vectors in " << timer.elapsed() << endl;
     
@@ -475,10 +453,10 @@ run(const ProcedureRunConfig & run,
                                   "datasetConfig", boundDataset.dataset->config_,
                                   "datasetName", boundDataset.dataset->config_->id,
                                   "datasetStatus", boundDataset.dataset->getStatus(),
-                                  "whenClause", runProcConf.when,
-                                  "whereClause", runProcConf.where,
-                                  "offsetClause", runProcConf.offset,
-                                  "limitClause", runProcConf.limit);
+                                  "whenClause", runProcConf.trainingData.stm->when,
+                                  "whereClause", runProcConf.trainingData.stm->where,
+                                  "offsetClause", runProcConf.trainingData.stm->offset,
+                                  "limitClause", runProcConf.trainingData.stm->limit);
     }
     
     timer.restart();

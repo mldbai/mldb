@@ -25,7 +25,11 @@ dataset.commit()
 result = mldb.perform("PUT", "/v1/procedures/iris_cls", [], {
     'type' : 'classifier.train',
     'params' : {
-        'trainingDataset' : {'id' : 'iris_dataset'},
+        'trainingData' : {
+            'select' : "* EXCLUDING(class)",
+            'where': "rowHash() % 15 = 0",
+            'from' : {'id' : 'iris_dataset'}
+        },
         "configuration": {
             "type": "decision_tree",
             "max_depth": 8,
@@ -33,9 +37,7 @@ result = mldb.perform("PUT", "/v1/procedures/iris_cls", [], {
             "update_alg": "prob"
         },
         "modelFileUrl": "file://tmp/MLDB-647.cls",
-        'select' : "* EXCLUDING(class)",
         'label' : 'class',
-        'where': "rowHash() % 15 = 0",
         "mode": "categorical"
     }
 })

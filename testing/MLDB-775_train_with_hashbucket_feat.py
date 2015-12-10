@@ -66,7 +66,11 @@ assert rez["statusCode"] < 400
 rez = mldb.perform("PUT", "/v1/procedures/tng_classif", [], {
         "type": "classifier.train",
         "params": {
-            "trainingDataset": { "id": "toy_feats" },
+            "trainingData": {
+                "where": "rowHash() % 3 != 1",
+                "select": "* EXCLUDING(LABEL)",
+                "from" : { "id": "toy_feats" }
+            },
             "configuration": {
                 "glz": {
                     "type": "glz",
@@ -78,9 +82,7 @@ rez = mldb.perform("PUT", "/v1/procedures/tng_classif", [], {
             "algorithm": "glz",
             "modelFileUrl": "file://models/tng.cls",
             "label": "LABEL = 'true'",
-            "weight": "1.0",
-            "where": "rowHash() % 3 != 1",
-            "select": "* EXCLUDING(LABEL)"
+            "weight": "1.0"
         }
     })
 

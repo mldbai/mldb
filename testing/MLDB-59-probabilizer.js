@@ -101,7 +101,12 @@ if (trainClassifier) {
         id: "reddit_cls_train",
         type: "classifier.train",
         params: {
-            trainingDataset: { id: "reddit_embeddings" },
+            trainingData: { 
+                select: "svd* EXCLUDING (adventuretime)",
+                where: "rowHash() % 4 = 1",
+                from : {
+                    id: "reddit_embeddings" }
+            },
             configuration: {
                 bbdt: {
                     type: "bagging",
@@ -130,8 +135,6 @@ if (trainClassifier) {
             },
             algorithm: "glz",
             modelFileUrl: "file://tmp/reddit.cls",
-            select: "svd* EXCLUDING (adventuretime)",
-            where: "rowHash() % 4 = 1",
             label: "adventuretime IS NOT NULL",
             equalizationFactor: 1.0
         }

@@ -81,9 +81,16 @@ ExperimentProcedureConfigDescription()
 //              "be aggregated in an output dataset.", false);
     addField("keepArtifacts", &ExperimentProcedureConfig::keepArtifacts,
              "If true, all procedures and intermediary datasets are kept.", false);
-    addFieldDesc("trainingDataset", &ExperimentProcedureConfig::training_dataset,
-                 "Dataset for classifier training",
-                 makeInputDatasetDescription());
+    addField("trainingData", &ExperimentProcedureConfig::trainingData,
+             "Specification of the data for input to the classifier procedure. "
+             "The select statement does not support groupby and having clauses.");
+    /** TODO see if this is the case "The SELECT clause for which columns to include from the dataset. "
+             "Unlike most select expressions, this one can only select whole "
+             "columns, not expressions involving columns.  So X will work, but "
+             "not X + 1.  If you need derived values in the select expression, "
+             "create a dataset with the derived columns as a previous step and "
+             "run the classifier over that dataset instead.",
+    */
     typedef OptionalDescription<shared_ptr<TableExpression> > OptionalTableExpressionDescription;
     addFieldDesc("testingDataset", &ExperimentProcedureConfig::testing_dataset,
                  "Dataset for classifier testing. Default to the training_dataset.",
@@ -115,14 +122,6 @@ ExperimentProcedureConfigDescription()
              "only objects, strings and numbers.  If the configuration object is "
              "non-empty, then that will be used preferentially.",
              string("/opt/bin/classifiers.json"));
-    addField("select", &ExperimentProcedureConfig::select,
-             "The SELECT clause for which columns to include from the dataset. "
-             "Unlike most select expressions, this one can only select whole "
-             "columns, not expressions involving columns.  So X will work, but "
-             "not X + 1.  If you need derived values in the select expression, "
-             "create a dataset with the derived columns as a previous step and "
-             "run the classifier over that dataset instead.",
-             SelectExpression("*"));
     addField("label", &ExperimentProcedureConfig::label,
              "The expression to generate the label.  This can be any expression "
              "involving the columns in the dataset.  The type of the label "
@@ -156,6 +155,8 @@ ExperimentProcedureConfigDescription()
              "If true, an output dataset for scored examples will created for each fold.",
              true);
     addParent<ProcedureConfig>();
+
+    onPostValidate = validate<ExperimentProcedureConfig, NoGroupByHaving>("classfier.experiment");
 
 }
 
@@ -275,8 +276,8 @@ run(const ProcedureRunConfig & run,
     Json::Value rtn_results(Json::ValueType::arrayValue);
     Json::Value rtn_details(Json::ValueType::arrayValue);
 
-    if(!runProcConf.training_dataset) {
-        throw ML::Exception("A training dataset must be specified.");
+    if(!runProcConf.trainingData.stm) {
+        throw ML::Exception("Training data must be specified.");
     }
 
     // validation
@@ -329,14 +330,9 @@ run(const ProcedureRunConfig & run,
          * TRAIN
          * **/
         ClassifierConfig clsProcConf;
-        clsProcConf.dataset = runProcConf.training_dataset;
-        clsProcConf.select = runProcConf.select;
-        clsProcConf.where = datasetFold.training_where;
+        clsProcConf.trainingData = runProcConf.trainingData;
         clsProcConf.label = runProcConf.label;
         clsProcConf.weight = runProcConf.training_weight;
-        clsProcConf.orderBy = datasetFold.orderBy;
-        clsProcConf.offset = datasetFold.training_offset;
-        clsProcConf.limit = datasetFold.training_limit;
 
         string baseUrl = runProcConf.modelFileUrlPattern.toString();
         ML::replace_all(baseUrl, "$runid",
@@ -403,12 +399,12 @@ run(const ProcedureRunConfig & run,
         }
 
         accuracyConf.testingDataset = runProcConf.testing_dataset ? *runProcConf.testing_dataset : 
-                                                             runProcConf.training_dataset;
+                                                             runProcConf.trainingData.stm->from;
         accuracyConf.where = datasetFold.testing_where;
         accuracyConf.score = SqlExpression::parse(ML::format(
                     "\"%s\"({{%s} as features})[score]",
                     clsProcConf.functionName.utf8String(),
-                    runProcConf.select.surface.utf8String()));
+                    runProcConf.trainingData.stm->select.surface.utf8String()));
         accuracyConf.label = runProcConf.label;
         accuracyConf.weight = runProcConf.testing_weight;
         accuracyConf.orderBy = datasetFold.orderBy;

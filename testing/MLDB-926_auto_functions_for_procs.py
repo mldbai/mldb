@@ -47,8 +47,7 @@ def doChecks(conf):
 conf = {
     "type": "classifier.train",
     "params": {
-        "trainingDataset": "toy",
-        "select": "* EXCLUDING(label)",
+        "trainingData": "select * EXCLUDING(label) from toy",
         "label": "label",
         "modelFileUrl": "file://build/x86_64/tmp/bouya.cls",
         "algorithm": "glz",
