@@ -14,10 +14,6 @@ using namespace std;
 namespace Datacratic {
 namespace MLDB {
 
-// Static instance of a behaviour manager, shared between all beh datasets
-extern BehaviourManager behManager;
-
-
 const Package & caffePackage()
 {
     static const Package result("caffe");

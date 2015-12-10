@@ -1,3 +1,6 @@
 [submodule "baseimage-docker"]
 	path = baseimage-docker
 	url = git@github.com:datacratic/baseimage-docker.git
+[submodule "ext/caffe"]
+	path = ext/caffe
+	url = https://github.com/BVLC/caffe.git

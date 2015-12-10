@@ -3,11 +3,15 @@
 
 # Caffe plugins
 LIBMLDB_CAFFE_PLUGIN_SOURCES:= \
-	caffe_plugin.cc
+	caffe_plugin.cc \
+	caffe_train.cc \
 
-$(eval $(call set_compile_option,$(LIBMLDB_CAFFE_PLUGIN_SOURCES),-Icaffe))
 
-$(eval $(call mldb_plugin_library,caffe,mldb_caffe_plugin,$(LIBMLDB_CAFFE_PLUGIN_SOURCES),behaviour ml lookalike))
+#	caffe_predict.cc
+
+$(eval $(call set_compile_option,$(LIBMLDB_CAFFE_PLUGIN_SOURCES),-I../caffe/include -I../caffe/build/src -DCPU_ONLY))
+
+$(eval $(call mldb_plugin_library,caffe,mldb_caffe_plugin,$(LIBMLDB_CAFFE_PLUGIN_SOURCES),ml protobuf caffe,-L../caffe/build/lib))
 
 $(eval $(call mldb_builtin_plugin,caffe,mldb_caffe_plugin,doc))
 

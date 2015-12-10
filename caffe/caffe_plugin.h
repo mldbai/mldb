@@ -9,8 +9,8 @@
 
 #pragma once
 
-#include "mldb/server/mldb_entity.h"
-#include "mldb/server/plugin.h"
+#include "mldb/core/mldb_entity.h"
+#include "mldb/core/plugin.h"
 
 namespace Datacratic {
 namespace MLDB {

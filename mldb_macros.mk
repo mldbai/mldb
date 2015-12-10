@@ -45,16 +45,17 @@ endef
 # Add an MLDB plugin library
 #
 # Synopsis:
-#    $(eval $(call mldb_plugin_library,<pluginName>,<libName>,<sourceFiles>,<libDeps>))
+#    $(eval $(call mldb_plugin_library,<pluginName>,<libName>,<sourceFiles>,<libDeps>,<linkFlags>))
 #
 # Arguments:
 #    $(1): <pluginName>: name of the plugin
 #    $(2): <libName>: name of the library within the plugin
 #    $(3): <sourceFiles>: source files to include within the library
 #    $(4): <libDeps>: dependency libraries to link with
+#    $(5): <linkFlags>: extra flags to pass to the linker
 
 define mldb_plugin_library
-$$(eval $$(call library,$(2),$(3),$(4),,,"$(COLOR_VIOLET)[MLDB PLUGIN SO]$(COLOR_RESET)",$(PLUGINS)/$(1)/lib))
+$$(eval $$(call library,$(2),$(3),$(4),,,"$(COLOR_VIOLET)[MLDB PLUGIN SO]$(COLOR_RESET)",$(PLUGINS)/$(1)/lib,$(5)))
 mldb_plugins: $(PLUGINS)/$(1)/lib/lib$(2).so
 endef
 
