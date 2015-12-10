@@ -138,6 +138,9 @@ struct TransformDatasetConfig : ProcedureConfig {
 
     /// Allow setting of the row name for the output dataset
     std::shared_ptr<SqlExpression> rowName;
+
+    /// Skip rows with no columns
+    bool skipEmptyRows;
 };
 
 
