@@ -1,14 +1,13 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* js_value_fwd.h                                                  -*- C++ -*-
    Jeremy Barnes, 27 October 2010
    Copyright (c) 2010 Datacratic.  All rights reserved.
 
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+   
    Forward definitions for js_value.
 */
 
-#ifndef __js__js_value_fwd_h__
-#define __js__js_value_fwd_h__
+#pragma once
 
 #include <string>
 #include "mldb/types/string.h"
@@ -16,7 +15,7 @@
 
 namespace Json {
 
-struct Value;
+class Value;
 
 } // namespace Json
 
@@ -75,6 +74,3 @@ from_js(const JSValue & val, T *)
 
 } // namespace JS
 } // namespace Datacratic
-
-
-#endif /* __js__js_value_fwd_h__ */

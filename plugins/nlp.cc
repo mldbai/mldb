@@ -261,7 +261,7 @@ apply(const FunctionApplier & applier,
     // the stemmer is not thread safe
     unique_lock<mutex> guard(apply_mutex);
 
-    string accum;
+    Utf8String accum;
 
     auto onGram = [&](Utf8String& word) -> bool
     {
@@ -274,7 +274,7 @@ apply(const FunctionApplier & applier,
             throw ML::Exception("Out of memory when stemming");
         }
 
-        string out((const char*)stemmed);
+        Utf8String out((const char*)stemmed);
 
         if (accum.empty())
           accum = out;

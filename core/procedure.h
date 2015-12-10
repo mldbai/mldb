@@ -8,7 +8,7 @@
 */
 
 #include "mldb/types/value_description_fwd.h"
-#include "mldb_entity.h"
+#include "mldb/core/mldb_entity.h"
 #include "mldb/rest/rest_entity.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/sql/sql_expression_operations.h"

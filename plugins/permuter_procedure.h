@@ -9,7 +9,7 @@
 
 #include "mldb/types/value_description.h"
 #include "mldb/server/mldb_server.h"
-#include "mldb/server/procedure.h"
+#include "mldb/core/procedure.h"
 
 namespace Datacratic {
 namespace MLDB {

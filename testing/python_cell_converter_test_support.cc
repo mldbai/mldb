@@ -25,7 +25,6 @@ using namespace Datacratic::Python;
 using namespace Datacratic::MLDB;
 namespace bp = boost::python;
 
-
 struct Tester {
     RestParams getRestParamsFromCpp()
     {

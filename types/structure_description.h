@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** structure_value_descriptions.h                                 -*- C++ -*-
     Jeremy Barnes, 21 August 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Value desriptions for structures.
 */
@@ -147,18 +147,6 @@ struct StructureDescription
         }
     }
 
-#if 0
-    template<typename V, typename Base>
-    void addField(std::string name,
-                  V Base::* field,
-                  std::string comment,
-                  ValueDescriptionT<V> * description)
-    {
-        addField(name, field, comment,
-                 std::shared_ptr<const ValueDescriptionT<V> >(description));
-    }
-#endif
-
     template<typename V, typename Base>
     void addField(std::string name,
                   V Base::* field,
@@ -178,6 +166,8 @@ struct StructureDescription
                       std::string comment,
                       std::shared_ptr<Desc> description)
     {
+        ExcAssert(description);
+
         if (fields.count(name.c_str()))
             throw ML::Exception("field '" + name + "' added twice");
 

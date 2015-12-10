@@ -267,7 +267,7 @@ ElementExecutor::
 takeAll(std::function<bool (std::shared_ptr<PipelineResults> &)> onResult)
 {
     std::shared_ptr<PipelineResults> res;
-    while (res = take())
+    while ((res = take()))
         if (!onResult(res))
             return false;
     return true;

@@ -14,6 +14,20 @@
 namespace Datacratic {
 namespace MLDB {
 
+/*****************************************************************************/
+/* NAMED DATASET EXPRESSION                                                  */
+/*****************************************************************************/
+
+struct NamedDatasetExpression : public TableExpression {
+
+    NamedDatasetExpression(const Utf8String& asName);
+
+    void setDatasetAlias(const Utf8String& newAlias) { asName = newAlias; }
+
+    virtual Utf8String getAs() const { return asName; }
+
+    Utf8String asName;
+};
 
 /*****************************************************************************/
 /* DATASET EXPRESSION                                                        */
@@ -21,7 +35,7 @@ namespace MLDB {
 
 /** Used when selecting directly from a dataset. */
 
-struct DatasetExpression: public TableExpression {
+struct DatasetExpression: public NamedDatasetExpression {
     DatasetExpression(Utf8String datasetName, Utf8String asName);
     DatasetExpression(Any config, Utf8String asName);
 
@@ -37,16 +51,13 @@ struct DatasetExpression: public TableExpression {
     virtual std::string getType() const;
 
     virtual Utf8String getOperation() const;
-
-    virtual Utf8String getAs() const;
-    
+  
     virtual std::set<Utf8String> getTableNames() const;
 
     virtual UnboundEntities getUnbound() const;
 
     Any config;
     Utf8String datasetName;
-    Utf8String asName;
 };
 
 
@@ -113,7 +124,7 @@ struct NoTable: public TableExpression {
 
 /** Used when doing a select inside a FROM clause **/
 
-struct SelectSubtableExpression: public TableExpression {
+struct SelectSubtableExpression: public NamedDatasetExpression {
 
     SelectSubtableExpression(SelectStatement statement,
                              Utf8String asName);
@@ -131,13 +142,40 @@ struct SelectSubtableExpression: public TableExpression {
 
     virtual std::set<Utf8String> getTableNames() const;
 
-    virtual Utf8String getAs() const;
-
     virtual UnboundEntities getUnbound() const;
 
     SelectStatement statement;
-    Utf8String asName;
 };
+
+/*****************************************************************************/
+/* DATASET FUNCTION EXPRESSION                                               */
+/*****************************************************************************/
+
+/** Used when doing a select inside a FROM clause **/
+
+struct DatasetFunctionExpression: public NamedDatasetExpression {
+
+    DatasetFunctionExpression(Utf8String functionName, std::vector<std::shared_ptr<TableExpression>>& args);
+
+    virtual ~DatasetFunctionExpression();
+
+    virtual BoundTableExpression
+    bind(SqlBindingScope & context) const;
+
+    virtual Utf8String print() const;
+
+    virtual std::string getType() const;
+
+    virtual Utf8String getOperation() const;
+
+    virtual std::set<Utf8String> getTableNames() const;
+
+    virtual UnboundEntities getUnbound() const;
+
+    Utf8String functionName;
+    std::vector<std::shared_ptr<TableExpression>> args;
+};
+
 
 } // namespace MLDB
 } // namespace Datacratic

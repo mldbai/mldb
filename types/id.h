@@ -19,7 +19,7 @@
 
 
 namespace Json {
-struct Value;
+class Value;
 } // namespace Json
 
 namespace Datacratic {

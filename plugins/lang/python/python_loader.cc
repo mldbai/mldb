@@ -1,18 +1,18 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** python_plugin_loader.cc
     Jeremy Barnes, 6 January 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
 
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    
     Plugin loader for Python plugins.
 */
 
 #include <Python.h>
 
 #include "mldb/server/mldb_server.h"
-#include "mldb/server/dataset.h"
-#include "mldb/server/plugin.h"
-#include "mldb/server/procedure.h"
+#include "mldb/core/dataset.h"
+#include "mldb/core/plugin.h"
+#include "mldb/core/procedure.h"
 #include "mldb/server/plugin_resource.h"
 
 #include "pointer_fix.h" // must come before boost/python
@@ -38,6 +38,8 @@
 #include "mldb/http/logs.h"
 #include "mldb_python_converters.h"
 #include "mldb/types/any_impl.h"
+
+#include "datetime.h"
 
 using namespace std;
 using namespace Datacratic::Python;

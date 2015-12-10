@@ -12,7 +12,7 @@
 #include <boost/filesystem.hpp>
 
 #include "mldb/server/mldb_server.h"
-#include "mldb/server/dataset.h"
+#include "mldb/core/dataset.h"
 #include "mldb/server/analytics.h"
 
 #include "types/structure_description.h"

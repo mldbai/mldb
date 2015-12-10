@@ -367,7 +367,7 @@ run(const ProcedureRunConfig & run,
 
         // create run configuration
         ProcedureRunConfig clsProcRunConf;
-        clsProcRunConf.id = "run_"+(int)progress;
+        clsProcRunConf.id = "run_"+to_string(progress);
         clsProcRunConf.params = jsonEncode(clsProcConf);
         Date trainStart = Date::now();
         RunOutput output = clsProcedure->run(clsProcRunConf, onProgress2);
@@ -433,7 +433,7 @@ run(const ProcedureRunConfig & run,
         }
 
         ProcedureRunConfig accuracyProcRunConf;
-        accuracyProcRunConf.id = "run_"+progress;
+        accuracyProcRunConf.id = "run_"+to_string(progress);
         accuracyProcRunConf.params = jsonEncode(accuracyConf);
         Date testStart = Date::now();
         RunOutput accuracyOutput = accuracyProc->run(accuracyProcRunConf, onProgress2);

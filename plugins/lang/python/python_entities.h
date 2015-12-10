@@ -1,29 +1,19 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** python_core_components.h                                       -*- C++ -*-
     Francois Maillet, 6 mars 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
 
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    
     Wrappers for core MLDB objects
 */
 
 #pragma once
 
-#include <boost/python.hpp>
-#include <boost/python/return_value_policy.hpp>
-#include <frameobject.h>
-
-#include "python_converters.h"
-#include "from_python_converter.h"
-#include "callback.h"
-#include <boost/python/to_python_converter.hpp>
-
 #include "python_plugin_context.h"
 
-#include "mldb/server/plugin.h"
-#include "mldb/server/dataset.h"
-#include "mldb/server/function.h"
-#include "mldb/server/procedure.h"
+#include "mldb/core/dataset.h"
+#include "mldb/core/function.h"
+#include "mldb/core/procedure.h"
 
 
 using namespace std;

@@ -3,7 +3,7 @@
 /*  -*- C++ -*- */
 #pragma once
 
-#include "mldb/server/function.h"
+#include "mldb/core/function.h"
 #include "mldb/types/value_description.h"
 
 namespace Datacratic {

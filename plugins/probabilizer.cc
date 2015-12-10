@@ -11,7 +11,7 @@
 #include "probabilizer.h"
 #include "mldb/ml/jml/probabilizer.h"
 #include "mldb/server/mldb_server.h"
-#include "mldb/server/dataset.h"
+#include "mldb/core/dataset.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/jml/stats/distribution.h"
 #include "mldb/jml/utils/guard.h"
@@ -289,7 +289,7 @@ run(const ProcedureRunConfig & run,
             probaFuncPC.id = runProcConf.functionName;
             probaFuncPC.params = ProbabilizeFunctionConfig(runProcConf.modelFileUrl);
 
-            obtainFunction(server, probaFuncPC, onProgress);
+            obtainFunction(server, probaFuncPC, onProgress2);
         }
     }
 

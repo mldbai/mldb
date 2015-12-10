@@ -1,14 +1,19 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+/** simd_vector_avx.h                               
 
-/** simd_vector_avx.h                                              -*- C++ -*-
     Jeremy Barnes, 11 October 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     SIMD vector operations; AVX specializations.
 */
 
 #include "simd_vector_avx.h"
 #include "simd_vector.h"
+#include <immintrin.h>
+#include <iostream>
+
+using namespace std;
 
 namespace ML {
 namespace SIMD {
@@ -42,6 +47,8 @@ inline double horiz_sum_8_avx(v4df rr0, v4df rr1)
     return result;
 }
 
+
+
 double vec_dotprod(const double * x, const double * y, size_t n)
 {
     unsigned i = 0;
@@ -51,44 +58,40 @@ double vec_dotprod(const double * x, const double * y, size_t n)
         v4df rr0 = { 0.0, 0.0, 0.0, 0.0 }, rr1 = rr0;
 
         for (; i + 16 <= n;  i += 16) {
-            v4df yy0 = __builtin_ia32_loadupd256(y + i + 0);
-            v4df xx0 = __builtin_ia32_loadupd256(x + i + 0);
+            v4df yy0 = _mm256_loadu_pd(y + i);
+            v4df xx0 = _mm256_loadu_pd(x + i);
             yy0 *= xx0;
             rr0 += yy0;
-            //rr0 += yy0 * xx0;
 
-            v4df yy1 = __builtin_ia32_loadupd256(y + i + 4);
-            v4df xx1 = __builtin_ia32_loadupd256(x + i + 4);
+            v4df yy1 = _mm256_loadu_pd(y + i + 4);
+            v4df xx1 = _mm256_loadu_pd(x + i + 4);
             yy1 *= xx1;
             rr1 += yy1;
-            //rr1 += yy1 * xx1;
             
-            v4df yy2 = __builtin_ia32_loadupd256(y + i + 8);
-            v4df xx2 = __builtin_ia32_loadupd256(x + i + 8);
+            v4df yy2 = _mm256_loadu_pd(y + i + 8);
+            v4df xx2 = _mm256_loadu_pd(x + i + 8);
             yy2 *= xx2;
             rr0 += yy2;
-            //rr0 += yy2 * xx2;
 
-            v4df yy3 = __builtin_ia32_loadupd256(y + i + 12);
-            v4df xx3 = __builtin_ia32_loadupd256(x + i + 12);
+            v4df yy3 = _mm256_loadu_pd(y + i + 12);
+            v4df xx3 = _mm256_loadu_pd(x + i + 12);
             yy3 *= xx3;
             rr1 += yy3;
-            //rr1 += yy3 * xx3;
         }
 
         for (; i + 8 <= n;  i += 8) {
-            v4df yy0 = __builtin_ia32_loadupd256(y + i + 0);
-            v4df xx0 = __builtin_ia32_loadupd256(x + i + 0);
+            v4df yy0 = _mm256_loadu_pd(y + i);
+            v4df xx0 = _mm256_loadu_pd(x + i);
             rr0 += yy0 * xx0;
 
-            v4df yy1 = __builtin_ia32_loadupd256(y + i + 4);
-            v4df xx1 = __builtin_ia32_loadupd256(x + i + 4);
+            v4df yy1 = _mm256_loadu_pd(y + i + 4);
+            v4df xx1 = _mm256_loadu_pd(x + i + 4);
             rr1 += yy1 * xx1;
         }
 
         for (; i + 4 <= n;  i += 4) {
-            v4df yy0 = __builtin_ia32_loadupd256(y + i + 0);
-            v4df xx0 = __builtin_ia32_loadupd256(x + i + 0);
+            v4df yy0 = _mm256_loadu_pd(y + i);
+            v4df xx0 = _mm256_loadu_pd(x + i);
             rr0 += yy0 * xx0;
         }
 

@@ -21,8 +21,6 @@
 #include "mldb/jml/utils/vector_utils.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/vfs/filter_streams_registry.h"
-#include <chrono>
-#include <thread>
 #include "mldb/jml/utils/ring_buffer.h"
 #include "mldb/jml/utils/hash.h"
 #include "mldb/jml/utils/file_functions.h"
@@ -36,6 +34,7 @@
 #include <boost/iostreams/stream_buffer.hpp>
 #include <exception>
 #include <thread>
+#include <chrono>
 #include <unordered_map>
 #include <boost/filesystem.hpp>
 
@@ -281,8 +280,7 @@ performSync() const
             ::fprintf(stderr,
                       "S3 operation retry in %f seconds: %s %s\n",
                       numSeconds, params.verb.c_str(), uri.c_str());
-            std::this_thread::sleep_for(std::chrono::milliseconds(
-                int(numSeconds * 1000)));
+            std::this_thread::sleep_for(std::chrono::milliseconds(int(numSeconds * 1000)));
         }
 
         string responseHeaders;
@@ -1875,8 +1873,7 @@ struct StreamingDownloadSource {
                             break;
                         }
                         else {
-                            std::this_thread::sleep_for(
-                                std::chrono::milliseconds(100));
+                            std::this_thread::sleep_for(std::chrono::milliseconds(100));
                         }
                     }
                 }
@@ -1975,7 +1972,7 @@ struct StreamingUploadSource {
         size_t offset;
         size_t chunkSize;
         size_t chunkIndex;
-        bool shutdown;
+        atomic<bool> shutdown;
         std::vector<std::thread> tg;
 
         Date startDate;
@@ -2057,6 +2054,7 @@ struct StreamingUploadSource {
 
         void start()
         {
+            shutdown = false;
             S3Api::MultiPartUpload upload;
             try {
                 upload = owner->obtainMultiPartUpload(bucket, "/" + object,
@@ -2080,9 +2078,11 @@ struct StreamingUploadSource {
 
         void stop()
         {
-            shutdown = true;
-            for (auto & t: tg)
-                t.join();
+            if (!shutdown) {
+                shutdown = true;
+                for (auto & t: tg)
+                    t.join();
+            }
         }
 
         std::streamsize write(const char_type* s, std::streamsize n)

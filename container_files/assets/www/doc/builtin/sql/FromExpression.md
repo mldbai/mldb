@@ -29,3 +29,23 @@ FROM (SELECT * FROM dataset WHERE column1 = 2) as subselect
     JOIN  dataset2 as x ON subselect.column2 = x.column3 + 1
 
 ```
+
+## Transpose
+
+Queries can be made to the transpose of a dataset by using the transpose() function in the FROM expression. For example:
+
+```
+SELECT x.* FROM transpose(dataset) AS x
+```
+
+See ![](%%doclink transposed dataset) for more details.
+
+## Merge
+
+Queries can be made to the union of several datasets by using the merge() function in the FROM expression. For example:
+
+```
+SELECT x.* FROM merge(dataset1, dataset2, dataset3) AS x
+```
+
+See ![](%%doclink merged dataset) for more details.

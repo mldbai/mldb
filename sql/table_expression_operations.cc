@@ -56,6 +56,15 @@ bindDataset(std::shared_ptr<Dataset> dataset, Utf8String asName)
     return result;
 }
 
+/*****************************************************************************/
+/* NAMED DATASET EXPRESSION                                                  */
+/*****************************************************************************/
+
+NamedDatasetExpression::
+    NamedDatasetExpression(const Utf8String& asName) : asName(asName)
+{
+
+}
 
 /*****************************************************************************/
 /* DATASET EXPRESSION                                                        */
@@ -63,13 +72,13 @@ bindDataset(std::shared_ptr<Dataset> dataset, Utf8String asName)
 
 DatasetExpression::
 DatasetExpression(Utf8String datasetName, Utf8String asName)
-    : datasetName(datasetName), asName(asName)
+    : NamedDatasetExpression(asName), datasetName(datasetName)
 {
 }
 
 DatasetExpression::
 DatasetExpression(Any config, Utf8String asName)
-    : config(std::move(config)), asName(std::move(asName))
+    : NamedDatasetExpression(asName), config(std::move(config))
 {
 }
 
@@ -118,13 +127,6 @@ DatasetExpression::
 getOperation() const
 {
     return Utf8String();
-}
-
-Utf8String
-DatasetExpression::
-getAs() const
-{
-    return asName;
 }
 
 std::set<Utf8String>
@@ -272,7 +274,7 @@ getUnbound() const
 SelectSubtableExpression::
 SelectSubtableExpression(SelectStatement statement,
                          Utf8String asName)
-    : statement(std::move(statement)), asName(std::move(asName))
+    : NamedDatasetExpression(asName), statement(std::move(statement))
 {
 
 }
@@ -316,13 +318,6 @@ SelectSubtableExpression::
 getOperation() const
 {
     return Utf8String();
-}
-
-Utf8String
-SelectSubtableExpression::
-getAs() const
-{
-    return asName;
 }
 
 std::set<Utf8String>
@@ -400,6 +395,86 @@ getUnbound() const
     UnboundEntities result;
     return result;
 }
+
+/*****************************************************************************/
+/* DATASET FUNCTION EXPRESSION                                               */
+/*****************************************************************************/
+
+/** Used when doing a select inside a FROM clause **/
+
+DatasetFunctionExpression::
+DatasetFunctionExpression(Utf8String functionName, std::vector<std::shared_ptr<TableExpression>>& args)
+    : NamedDatasetExpression(""), functionName(functionName), args(args)
+{
+    setDatasetAlias(print());
+}
+
+DatasetFunctionExpression::
+~DatasetFunctionExpression()
+{
+}
+
+BoundTableExpression
+DatasetFunctionExpression::
+bind(SqlBindingScope & context) const
+{
+    std::vector<BoundTableExpression> boundArgs;
+    for (auto arg : args)
+        boundArgs.push_back(arg->bind(context));
+    auto fn = context.doGetDatasetFunction(functionName, boundArgs, asName);
+
+    if (!fn)
+        throw HttpReturnException(400, "could not bind dataset function " + functionName);
+
+    return fn;
+}
+
+Utf8String
+DatasetFunctionExpression::
+print() const
+{
+    Utf8String output = functionName + "(";
+    for (auto arg : args)
+        output += arg->print() + ",";
+
+    output += ")" ;
+
+    if (asName != "")
+        output += " AS " + asName ;
+
+    return output;
+}
+
+std::string
+DatasetFunctionExpression::
+getType() const
+{
+    return "datasetFunction";
+}
+
+Utf8String
+DatasetFunctionExpression::
+getOperation() const
+{
+    return Utf8String();
+}
+
+std::set<Utf8String>
+DatasetFunctionExpression::
+getTableNames() const
+{
+    return { asName };
+}
+
+UnboundEntities
+DatasetFunctionExpression::
+getUnbound() const
+{
+    UnboundEntities result;
+    throw HttpReturnException(500, "getUnbound() for DatasetFunctionExpression: not done");
+    return result;
+}
+
 
 
 } // namespace MLDB

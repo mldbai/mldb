@@ -285,10 +285,6 @@ writeString(const std::string & s)
 
 void
 StreamJsonPrintingContext::
-writeStringUtf8(const Utf8String & s);
-
-void
-StreamJsonPrintingContext::
 writeJson(const Json::Value & val)
 {
     stream << val.toStringNoNewLine();

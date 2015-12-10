@@ -169,13 +169,24 @@ doGetFunction(const Utf8String & tableName,
 
     auto fn = outer.doGetColumnFunction(functionName);
 
-    return {[=] (const std::vector<ExpressionValue> & args,
+    if (fn)
+    {
+         return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & context)
             {
                 auto & col = static_cast<const ColumnContext &>(context);
                 return fn(col.columnName, args);
             },
             std::make_shared<Utf8StringValueInfo>()};
+    }
+
+    auto sqlfn = SqlBindingScope::doGetFunction(tableName, functionName, args);
+
+    if (sqlfn)
+        return sqlfn;
+
+    throw HttpReturnException(400, "Unknown function " + functionName + " in column expression");
+
 }
 
 /*****************************************************************************/

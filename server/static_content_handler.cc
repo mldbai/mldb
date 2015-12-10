@@ -18,7 +18,7 @@
 #include "mldb/ext/hoedown/src/escape.h"
 #include "mldb/rest/in_process_rest_connection.h"
 #include "mldb/server/mldb_server.h"
-#include "mldb/server/mldb_entity.h"
+#include "mldb/core/mldb_entity.h"
 #include "static_content_macro.h"
 
 using namespace std;

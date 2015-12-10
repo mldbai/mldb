@@ -1,18 +1,19 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 /** kmeans.h                                                          -*- C++ -*-
     Jeremy Barnes, 16 December 2014
     Copyright (c) 2014 Datacratic Inc.  All rights reserved.
 
-    KMEANS algorithm for a dataset.
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+
+    K-means algorithm.
 */
 
 #pragma once
 
-#include "mldb/server/dataset.h"
-#include "mldb/server/procedure.h"
-#include "mldb/server/algorithm.h"
-#include "mldb/server/function.h"
+
 #include "mldb/sql/sql_expression.h"
+#include "mldb/core/dataset.h"
+#include "mldb/core/procedure.h"
+#include "mldb/core/function.h"
 #include "matrix.h"
 #include "mldb/types/value_description.h"
 #include "mldb/types/optional.h"

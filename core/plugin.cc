@@ -7,7 +7,7 @@
    Plugin support.
 */
 
-#include "mldb/server/plugin.h"
+#include "mldb/core/plugin.h"
 #include "mldb/server/plugin_collection.h"
 #include "mldb/server/mldb_server.h"
 #include "mldb/server/static_content_handler.h"

@@ -141,11 +141,7 @@ open(const asio::ip::tcp::endpoint & asioEndpoint,
 {
     /* Exception safety: we close the socket if we could not bind it
        appropriately */
-    Scope_Exit([&] {
-        if (!isOpen_) {
-            acceptor_.close();
-        }
-    });
+    auto cleanupAcceptor = ScopeExit([&] () noexcept { if (!isOpen_) { acceptor_.close(); } });
 
     asio::ip::tcp::endpoint bindEndpoint = asioEndpoint;
     std::unique_ptr<asio::ip::tcp::acceptor> acceptorPtr;

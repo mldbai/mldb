@@ -8,7 +8,7 @@
 */
 
 #include "dataset_js.h"
-#include "mldb/server/dataset.h"
+#include "mldb/core/dataset.h"
 #include "mldb/types/js/id_js.h"
 
 
@@ -52,7 +52,6 @@ registerMe()
     HandleScope scope;
 
     auto fntmpl = CreateFunctionTemplate("Dataset");
-    auto objtmpl = fntmpl->InstanceTemplate();
     auto prototmpl = fntmpl->PrototypeTemplate();
 
     prototmpl->Set(String::New("recordRow"), FunctionTemplate::New(recordRow));

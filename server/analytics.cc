@@ -6,8 +6,8 @@
 */
 
 #include "mldb/server/analytics.h"
-#include "mldb/server/function.h"
-#include "mldb/server/dataset.h"
+#include "mldb/core/function.h"
+#include "mldb/core/dataset.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/sql/sql_expression_operations.h"
 #include "mldb/jml/utils/worker_task.h"
@@ -66,10 +66,11 @@ void iterateDatasetGrouped(const SelectExpression & select,
                            const OrderByExpression & orderBy,
                            ssize_t offset,
                            ssize_t limit,
-                           std::function<bool (const Json::Value &)> onProgress)
+                           std::function<bool (const Json::Value &)> onProgress,
+                           bool allowMT)
 {
     BoundGroupByQuery(select, from, alias, when, where, groupBy, aggregators, having, rowName, orderBy)
-      .execute(aggregator, offset, limit, onProgress);
+      .execute(aggregator, offset, limit, onProgress, allowMT);
 }
 
 void iterateDataset(const SelectExpression & select,

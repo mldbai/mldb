@@ -511,7 +511,7 @@ BOOST_AUTO_TEST_CASE( profile_expf_test )
     cerr << endl;
     cerr << "profiling expf" << endl;
 
-    static const int NVALS = 512;
+    static const int NVALS = 131072;
 
     warm_up_cpu();
 
@@ -748,7 +748,7 @@ BOOST_AUTO_TEST_CASE( profile_logf_test )
     cerr << endl;
     cerr << "profiling logf" << endl;
 
-    static const int NVALS = 512;
+    static const int NVALS = 131072;
 
     warm_up_cpu();
 

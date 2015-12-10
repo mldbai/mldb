@@ -72,5 +72,22 @@ mldb.log(jsRes)
 
 find_column(jsRes, "output.document", "I like have lot")
 
+
+conf = {
+    "type": "stemmerdoc",
+    "params": {
+        "language": "french"
+    }
+}
+res = mldb.perform("PUT", "/v1/functions/stemmerdoc_fr", [], conf)
+mldb.log(res)
+
+result = mldb.perform('GET', '/v1/query', [['q', "SELECT stemmerdoc_fr({document: 'Je aimé aimer François'}) as output"]])
+jsRes = json.loads(result["response"])
+mldb.log(jsRes)
+
+find_column(jsRes, "output.document", unicode("Je aim aim François", "utf-8"))
+
+
 mldb.script.set_return("success")
 

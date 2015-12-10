@@ -1,8 +1,8 @@
 # Data Persistence and Consistency
 
-Data persistence will vary from dataset type to dataset type. For starters, not all datasets types are persistable (e.g. the ![](%%doclink embedding dataset)) or even writable/mutable (e.g. the ![](%%doclink beh dataset) is not but the ![](%%doclink beh.mutable dataset) is).
+Data persistence will vary from dataset type to dataset type. For starters, not all datasets types are persistable (e.g. the ![](%%doclink sqliteSparse dataset) is but the ![](%%doclink embedding dataset) is not) or even writable/mutable (e.g. the ![](%%doclink sparse.mutable dataset) is but the ![](%%doclink embedding dataset) is not).
 
-In general, however, dataset types which can be persisted will take an `dataFileUrl` (or equivalent) parameter, which specifies a [Url](../Url.md) where to read or write data. The ![](%%doclink beh.mutable dataset) will write data to that location when `commit`ed and the ![](%%doclink beh dataset) will read data from that location when loaded. If the `dataFileUrl` parameter is ommitted for a ![](%%doclink beh.mutable dataset), the data will not be persisted.
+In general, however, dataset types which can be persisted will take an `dataFileUrl` (or equivalent) parameter, which specifies a [Url](../Url.md) where to read or write data.
 
 The persistence characteristics of that dataset type therefore depend on the underlying protocol: data loaded from `file://` can be memory-mapped directly but data loaded from `s3://` cannot etc. Note that `file://` is *volatile* if the MLDB docker container is not booted with an `mldb_data` persistent directory mapped to a directory in the host filesystem! See [Running MLDB](../Running.md) for more details.
 

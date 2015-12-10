@@ -1,6 +1,6 @@
 // This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
-/** thread_test.h                                 -*- C++ -*-
+/** thread_test.cc                                -*- C++ -*-
     Rémi Attab, 26 Jul 2013
     Copyright (c) 2013 Datacratic.  All rights reserved.
 
@@ -9,7 +9,6 @@
 */
 
 #include "threaded_test.h"
-#include "future_fix.h"
 #include "mldb/arch/timers.h"
 #include "mldb/base/exc_check.h"
 
@@ -53,7 +52,8 @@ join(int group, uint64_t timeout)
     int r = 0;
     for (int id = 0; id < promises[group].size(); ++id) {
         future<int> future = promises[group][id].get_future();
-        ExcCheck(wait_for(future, dur), "Test thread is timed out");
+        ExcCheck(future.wait_for(dur) == std::future_status::ready,
+                 "Test thread is timed out");
         r += future.get();
     }
 
@@ -137,7 +137,7 @@ run(unsigned durationMs)
                 auto& future = futures[i][j];
 
                 if (!future.valid()) continue;
-                if (!Datacratic::wait_for(future, chrono::seconds(0))) {
+                if (future.wait_for(chrono::seconds(0)) != std::future_status::ready) {
                     remaining++;
                     continue;
                 }

@@ -10,7 +10,7 @@
 #include "mldb/sql/dataset_fwd.h"
 #include "mldb/sql/dataset_types.h"
 #include "mldb/types/value_description_fwd.h"
-#include "mldb_entity.h"
+#include "mldb/core/mldb_entity.h"
 #include "mldb/sql/cell_value.h"
 #include "mldb/types/url.h"
 
@@ -260,7 +260,8 @@ struct Dataset: public MldbEntity {
                     const std::shared_ptr<SqlExpression> & rowName,
                     ssize_t offset,
                     ssize_t limit,
-                    Utf8String alias = "") const;
+                    Utf8String alias = "",
+                    bool allowMT = true) const;
 
     /** Select from the database. */
     virtual std::vector<MatrixNamedRow>

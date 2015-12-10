@@ -2,6 +2,20 @@
 
 /* Example script to import a reddit dataset and run an example */
 
+function assertEqual(expr, val, msg)
+{
+    if (expr == val)
+        return;
+    if (JSON.stringify(expr) == JSON.stringify(val))
+        return;
+
+    plugin.log("expected", val);
+    plugin.log("received", expr);
+
+    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
+        + " not equal to " + JSON.stringify(val);
+}
+
 function succeeded(response)
 {
     return response.responseCode >= 200 && response.responseCode < 400;
@@ -234,5 +248,15 @@ var mergedConfig = {
 var merged = mldb.createDataset(mergedConfig);
 
 plugin.log(mldb.get("/v1/datasets/reddit_merged/query", {select:'*', limit:100}).json);
+
+//MLDB-1176 merge function in FROM expression
+
+var expected = mldb.get("/v1/query", {q:"SELECT * FROM reddit_merged LIMIT 10", format:'table'});
+plugin.log(expected)
+
+var resp = mldb.get("/v1/query", {q:"SELECT * FROM merge(reddit_kmeans_clusters, reddit_tsne_embedding, reddit_user_counts) LIMIT 10", format:'table'});
+plugin.log(resp)
+
+assertEqual(resp.json, expected.json);
 
 "success"

@@ -8,7 +8,7 @@
     adaptor on top of an existing dataset implementation.
 */
 
-#include "dataset.h"
+#include "mldb/core/dataset.h"
 
 #pragma once
 
@@ -67,7 +67,8 @@ struct ForwardedDataset: public Dataset {
                     const std::shared_ptr<SqlExpression> & rowName,
                     ssize_t offset,
                     ssize_t limit,
-                    Utf8String alias = "") const;
+                    Utf8String alias = "",
+                    bool allowMT = true) const;
 
     virtual std::vector<MatrixNamedRow>
     queryString(const Utf8String & query) const;

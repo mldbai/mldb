@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* gc_test.cc
    Jeremy Barnes, 23 February 2010
    Copyright (c) 2010 Datacratic.  All rights reserved.
+
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Test of the garbage collector locking.
 */
@@ -355,6 +355,25 @@ struct Allocator {
     }
 };
 
+struct BlockHolder {
+    BlockHolder(int ** p = nullptr)
+        : block(p)
+    {
+    }
+    
+    BlockHolder & operator = (const BlockHolder & other)
+    {
+        block = other.block.load();
+        return *this;
+    }
+
+    std::atomic<int **> block;
+
+    int ** load() const { return block.load(); }
+
+    operator int ** const () { return load(); }
+};
+
 template<typename Lock>
 struct TestBase {
     TestBase(int nthreads, int nblocks, int nSpinThreads = 0)
@@ -375,7 +394,7 @@ struct TestBase {
     ~TestBase()
     {
         for (unsigned i = 0;  i < nthreads;  ++i)
-            delete[] allBlocks[i];
+            delete[] allBlocks[i].load();
     }
 
     volatile bool finished;
@@ -390,7 +409,7 @@ struct TestBase {
        here by another thread should always refer to exactly the same
        value.
     */
-    vector<atomic<int **>> allBlocks;
+    vector<BlockHolder> allBlocks;
 
     void checkVisible(int threadNum, unsigned long long start)
     {

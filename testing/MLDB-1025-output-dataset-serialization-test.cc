@@ -20,8 +20,8 @@
 #include "plugins/stats_table_procedure.h"
 #include "plugins/kmeans.h"
 #include "plugins/tsne.h"
-#include "server/procedure.h"
-#include "server/dataset.h"
+#include "mldb/core/procedure.h"
+#include "mldb/core/dataset.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/types/optional_description.h"
 

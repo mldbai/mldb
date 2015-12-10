@@ -59,10 +59,14 @@ template<class T>
 JML_ALWAYS_INLINE
 T do_shrd(T low, T high, int bits)
 {
+    cerr << "**** do_shrd " << (unsigned long)low << ", " << (unsigned long) high << "," << bits << endl;
     T val1 = shrd_emulated(low, high, bits);
     T val2 = shrd(low, high, bits);
 
+    cerr << "val1 = " << (unsigned long)val1 << " val2 = " << (unsigned long)val2 << endl;
+
     if (val1 != val2) {
+        //*(volatile int *)0 = 0;
         cerr << "size: " << sizeof(T) << endl;
 	cerr << "type: " << demangle(typeid(T).name()) << endl;
         cerr << "val1 = " << val1 << endl;

@@ -1,6 +1,27 @@
+<style>
+table {font-size: 18px; border: 2px solid white; border-collapse: collapse;}
+td, th {padding: 12px;}
+hr {margin: 40px;}
+</style>
+
 # Running MLDB
 
-MLDB is currently available [under a non-commercial license](licenses.md) as:
+          &nbsp;            | Community Edition | Enterprise Edition
+:---------------------------:|:-:|:-:
+**MLDB**    | ✓ | ✓
+**MLDB Pro Plugin[<sup>?</sup>](ProPlugin.md)**            |  &nbsp; | ✓
+**Licensing**     | [Apache License v2.0](https://github.com/mldbai/mldb/blob/master/LICENSE) | [Commercial with free trial](licenses.md)
+**Support**     | [Github Issues](https://github.com/mldbai/mldb/issues/new) | <a href="mailto:mldb@datacratic.com" target="_blank">Datacratic Support</a>
+**Packaging**   | [build from source](https://github.com/mldbai/mldb/blob/master/Building.md) |  [see below](#packages)
+**Pricing**     | free! | <a href="mailto:mldb@datacratic.com" target="_blank">contact sales</a>
+
+
+------------------------
+
+
+<a name="packages"></a>
+## MLDB Enterprise Edition Packages
+You can try the MLDB Enterprise Edition [under a non-commercial license](/resources/MLDB_License.pdf) as:
 
 * a Docker image, runnable wherever [Docker][docker] will run (recommended for **Linux, Private Cloud**)
     * [Getting Started with the Docker image](#docker)

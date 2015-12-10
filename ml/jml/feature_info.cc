@@ -436,7 +436,7 @@ Feature_Info promote(const Feature_Info & i1, const Feature_Info & i2)
     else if (i2.type() == CATEGORICAL)
         return i2;
 
-    if (i1.type() < 0 || i1.type() >= 8 || i2.type() < 0 || i2.type() >= 8)
+    if (i1.type() < 0 || (int)i1.type() >= 8 || i2.type() < 0 || (int)i2.type() >= 8)
         throw Exception("promote(): bad feature info passed");
     
     Feature_Info result(lookup[i1.type()][i2.type()],

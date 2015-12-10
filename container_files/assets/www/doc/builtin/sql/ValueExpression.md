@@ -435,16 +435,16 @@ or millions of column feasible.
 ## Horizontal Operations
 
 It is possible to perform operations across a subset of values in a row
-using these functions.
+using these functions. All the following functions operate on the non-null 
+values in a row or a subset of the row. Note that the row is flattened to calculate
+the values.
 
-- `horizontal_count(<row>)` returns the number of non-null values in the row or
-  subset of the row.  As an example, `horizontal_count({x*})` returns the
-  number of values that start with x.  Note that the row is flattened to calculate
-  this value.
-- `horizontal_sum(<row>)` returns the sum of the non-null values in the row or
-  subset of the row.  As an example, `horizontal_sum({price*})` returns the
-  sum of the values that start with `price`.  Note that the row is flattened to
-  calculate this value.
+- `horizontal_count(<row>)` returns the number of non-null values in the row.
+- `horizontal_sum(<row>)` returns the sum of the non-null values in the row.
+- `horizontal_avg(<row>)` returns the average of the non-null values in the row.
+- `horizontal_min(<row>)` returns the minimum of the non-null values in the row.
+- `horizontal_max(<row>)` returns the maximum of the non-null value in the row.
+
 
 <h2 id="ExpressingTimeIntervals">Expressing Time Intervals</h2>
 

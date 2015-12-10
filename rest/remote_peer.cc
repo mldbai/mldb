@@ -141,7 +141,7 @@ start()
     auto gotPingResponse = [=] (const PeerMessage & msg,
                                 std::vector<std::string> && payload)
         {
-            Date received = jsonDecodeStr<Date>(payload.at(0));
+            //Date received = jsonDecodeStr<Date>(payload.at(0));
 
             Date now = Date::now();
             //double queueTimeMs = msg.timeSent.secondsSince(msg.timeEnqueued) * 1000;
@@ -207,8 +207,8 @@ checkConnectionState()
 {
     Date now = Date::now();
 
-    double timeSinceLast = Date::now().secondsSince(lastMessageReceived);
-    double timeSincePing = Date::now().secondsSince(stats.ping.latestReceived);
+    double timeSinceLast = now.secondsSince(lastMessageReceived);
+    double timeSincePing = now.secondsSince(stats.ping.latestReceived);
 
     if (timeSinceLast > 1.5) {
         if (state == PS_OK) {

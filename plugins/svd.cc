@@ -10,7 +10,7 @@
 #include "svd.h"
 #include "matrix.h"
 #include "mldb/server/mldb_server.h"
-#include "mldb/server/dataset.h"
+#include "mldb/core/dataset.h"
 #include "mldb/jml/stats/distribution.h"
 #include <boost/multi_array.hpp>
 #include "mldb/jml/utils/guard.h"
@@ -437,19 +437,24 @@ calcSvdBasis(const ColumnCorrelations & correlations,
     cerr << "done SVD " << timer.elapsed() << endl;
 
     // It doesn't clean up the ones that didn't converge properly... do it ourselves
-    while (svdResult->d
-           && (!isfinite(svdResult->S[svdResult->d - 1])
-               || svdResult->S[svdResult->d - 1] == 0.0)) {
-        //break;  // TODO: hack; remove me
-        cerr << "skipping bad singular value " << svdResult->S[svdResult->d - 1]
-             << endl;
-        --svdResult->d;
-    }
+    // We go until we get a NaN or one with too small a ratio.
+    // Eg, seen in the wild:
+    // svalues = { 3.06081 2.01797 1.91045 1.39165 1.20556 1.0859 1.01295 0.973041 0.96686 0.795663 0.787847 0.753074 0.663018 0.58732 0.566861 0.53674 0.507972 0.481893 0.476135 0.451054 0.434212 0.428739 0.406749 0.396502 0.388368 0.383147 0.381553 0.34724 0.322744 0.311273 0.297784 0.285271 0.275972 0.272025 0.271609 0.265779 0.254749 0.244108 0.234286 0.229235 0.21586 0.208849 0.207129 0.194427 0.186311 0.184302 0.18284 0.170876 0.1612 0.153722 0.145908 0.145039 0.139881 0.136478 0.134853 0.131319 0.124427 0.112027 0.0839514 0.0766772 0.0687135 0.0484199 0.0354719 0.034498 9.62614e-05 7.98612e-05 7.48308e-05 6.6479e-05 5.5881e-05 5.00391e-05 4.59796e-05 4.33525e-05 3.0214e-05 2.67698e-05 2.66379e-05 1.749e-05 1.64916e-05 1.20429e-05 5.02268e-08 -nan -nan -nan -nan 2.46486e-09 -nan -nan -nan -nan -nan -nan -nan -nan -nan -nan -nan 1.61711e-08 }
+
+    unsigned realD = 0;
+    while (realD < params.ncols
+           && isfinite(svdResult->S[realD])
+           && svdResult->S[realD] / svdResult->S[0] > 1e-9)
+        ++realD;
+
+    cerr << "skipped " << svdResult->d - realD << " bad singular values" << endl;
+    svdResult->d = realD;
 
     cerr << "got " << svdResult->d << " singular values" << endl;
     
     numSingularValues = svdResult->d;
 
+    
 #if 0
     cerr    << "Vt rows " << svdResult->Vt->rows << endl
             << "Vt cols " << svdResult->Vt->cols << endl;
