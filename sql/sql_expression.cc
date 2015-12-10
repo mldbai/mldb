@@ -3602,7 +3602,6 @@ parseJsonTyped(InputQuery * val,
         val->stm = make_shared<SelectStatement>(SelectStatement::parse(context.expectStringUtf8()));
     else if (context.isObject()) {
         Json::Value v = context.expectJson();
-        //        val->stm.reset(new DatasetSelectStatement(v));
         SelectStatement stm;
         SelectStatementDescription desc;
         desc.parseJson(&stm, context);
