@@ -9,6 +9,8 @@
 
 #pragma once
 
+
+#include "mldb/sql/sql_expression.h"
 #include "mldb/core/dataset.h"
 #include "mldb/core/procedure.h"
 #include "mldb/core/function.h"
@@ -22,13 +24,7 @@ namespace MLDB {
 
 struct KmeansConfig : public ProcedureConfig {
     KmeansConfig()
-        : select("*"),
-          when(WhenExpression::TRUE),
-          where(SqlExpression::TRUE),
-          orderBy(ORDER_BY_NOTHING),
-          offset(0),
-          limit(-1),
-          numInputDimensions(-1),
+        : numInputDimensions(-1),
           numClusters(10),
           maxIterations(100),
           metric(METRIC_COSINE)
@@ -36,17 +32,11 @@ struct KmeansConfig : public ProcedureConfig {
         centroids.withType("embedding");
     }
 
-    std::shared_ptr<TableExpression> dataset;
+    InputQuery trainingData;
     Optional<PolyConfigT<Dataset> > output;
     static constexpr char const * defaultOutputDatasetType = "embedding";
 
     PolyConfigT<Dataset> centroids;
-    SelectExpression select;
-    WhenExpression when;
-    std::shared_ptr<SqlExpression> where;
-    OrderByExpression orderBy;
-    ssize_t offset;
-    ssize_t limit;
     int numInputDimensions;
     int numClusters;
     int maxIterations;

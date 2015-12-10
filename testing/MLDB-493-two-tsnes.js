@@ -117,12 +117,13 @@ function createAndTrainProcedure(config, name)
 var svdConfig = {
     "type": "svd.train",
     "params": {
-        "trainingDataset": { "id": "recipes" },
+        "trainingData": { "from" : {"id": "recipes" },
+                          "select" : "* EXCLUDING (label)"
+                        }
         "columnOutputDataset" : {"id" : "recipes_svd",
                     "type" : "embedding" },
         "rowOutputDataset" : {"id": "recipes_svd_embedding",
-                       "type": "embedding" },
-        "select" : "* EXCLUDING (label)"
+                       "type": "embedding" }
     }
 };
 
@@ -131,7 +132,7 @@ createAndTrainProcedure(svdConfig, 'recipes_svd');
 var kmeansConfig = {
     "type": "kmeans.train",
     "params": {
-        "trainingDataset": {"id":"recipes_svd"},
+        "trainingData": "select * from recipes_svd",
         "outputDataset": {"id" : "recipes_svd_kmeans",
                    "type" : "embedding" },
         "centroidsDataset": {"id" : "recipes_svd_kmeans_centroids",
@@ -145,13 +146,11 @@ createAndTrainProcedure(kmeansConfig, 'recipes_kmeans');
 var tsneConfig = {
     "type": "tsne.train",
     "params": {
-        "trainingDataset": {"id":"recipes_svd"},
+        "trainingData": "select svd* from recipes_svd",
         "rowOutputDataset": {"id" : "recipes_svd_tsne",
                    "type" : "embedding"},
         "numOutputDimensions": 2,
-        "perplexity": 6,
-        "select": "svd*",
-        "where": "true"
+        "perplexity": 6
     }
 };
 

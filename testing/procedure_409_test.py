@@ -2,7 +2,6 @@
 
 
 # Load data
-import requests
 import datetime
 import json
 
@@ -35,7 +34,9 @@ svd_config = {
     'type' : 'svd.train',
     'params' :
     {
-        "trainingDataset": {"id": "iris_dataset"},
+        "trainingData": {"from" : {"id": "iris_dataset"},
+                         "select": '"petal width", "petal length", "sepal length", "sepal width"'
+                     },
         "columnOutputDataset": {
             "type": "sparse.mutable",
             "id": "svd_iris_col"
@@ -45,8 +46,7 @@ svd_config = {
             'type': "embedding"
         },
         "numSingularValues": 4,
-        "numDenseBasisVectors": 2,
-        "select": "\"petal width\", \"petal length\", \"sepal length\", \"sepal width\""
+        "numDenseBasisVectors": 2
     }
 }
 

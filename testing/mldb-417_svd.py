@@ -68,7 +68,9 @@ class DatasetTest(unittest.TestCase):
             'type' : 'svd.train',
             'params' :
             {
-                "trainingDataset": {"id": "iris_dataset"},
+                "trainingData": {"from" : {"id": "iris_dataset"},
+                                 "select": "\"petal\", \"width\", \"sepal\", \"length\""
+                                },
                 "columnOutputDataset": {
                     "type": "sparse.mutable",
                     "id": "svd_iris_col"
@@ -78,8 +80,7 @@ class DatasetTest(unittest.TestCase):
                     'type': "embedding"
                 },
                 "numSingularValues": 4,
-                "numDenseBasisVectors": 2,
-                "select": "\"petal\", \"width\", \"sepal\", \"length\""
+                "numDenseBasisVectors": 2
             }
         }
 

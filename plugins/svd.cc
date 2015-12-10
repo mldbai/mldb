@@ -64,9 +64,13 @@ SvdConfigDescription()
     optionalOutputDataset.emplace(PolyConfigT<Dataset>().
                                   withType(SvdConfig::defaultOutputDatasetType));
 
-    addFieldDesc("trainingDataset", &SvdConfig::dataset,
-                 "Dataset on which the SVD is trained.",
-                 makeInputDatasetDescription());
+    addField("trainingData", &SvdConfig::trainingData,
+             "Specification of the data for input to the SVD Procedure.  This should be "
+             "organized as an embedding, with each selected row containing the same "
+             "set of columns with numeric values to be used as coordinates.  The select statement "
+             "does not support groupby and having clauses. "
+             "Only plain column names may be used; it is not possible to select on "
+             "an expression (like x + 1)");
     addField("columnOutputDataset", &SvdConfig::columnOutput,
              "Output dataset for embedding (column singular vectors go here)",
              optionalOutputDataset);
@@ -92,33 +96,12 @@ SvdConfigDescription()
              "Base name of the column that will be written by the SVD.  "
              "A number will be appended from 0 to numSingularValues.",
              string("svd"));
-    addField("select", &SvdConfig::select,
-             "Select these columns (default all columns).  Only plain "
-             "column names may be "
-             "used; it is not possible to select on an expression (like x + 1)",
-             SelectExpression("*"));
-    addField("when", &SvdConfig::when,
-             "Boolean expression determining which tuples from the dataset "
-             "to keep based on their timestamps",
-             WhenExpression::TRUE);
-    addField("where", &SvdConfig::where,
-             "Only use rows matching this clause (default all rows)",
-             SqlExpression::parse("true"));
-    addField("orderBy", &SvdConfig::orderBy,
-             "How to order the rows.  This only has an effect when OFFSET "
-             "or LIMIT are used.  Default is to order by rowHash.",
-             OrderByExpression::ROWHASH);
-    addField("offset", &SvdConfig::offset,
-             "How many rows to skip before using data",
-             ssize_t(0));
-    addField("limit", &SvdConfig::limit,
-             "How many rows of data to use.  -1 (the default) means use all "
-             "of the rows in the dataset.",
-             ssize_t(-1));
     addField("functionName", &SvdConfig::functionName,
              "If specified, an svd.embedRow function of this name will be created using "
              "the trained model.");
     addParent<ProcedureConfig>();
+
+    onPostValidate = validate<SvdConfig, NoGroupByHaving, PlainColumnSelect>("svd");
 }
 
 DEFINE_STRUCTURE_DESCRIPTION(SvdColumnEntry);
@@ -678,9 +661,9 @@ run(const ProcedureRunConfig & run,
     
     SqlExpressionMldbContext context(server);
 
-    auto dataset = runProcConf.dataset->bind(context).dataset;
+    auto dataset = runProcConf.trainingData.stm->from->bind(context).dataset;
     
-    ClassifiedColumns columns = classifyColumns(*dataset, runProcConf.select);
+    ClassifiedColumns columns = classifyColumns(*dataset, runProcConf.trainingData.stm->select);
 
 #if 0
     cerr << "columns: " << columns.continuousColumns.size()
@@ -698,11 +681,11 @@ run(const ProcedureRunConfig & run,
 #endif
 
     FeatureBuckets extractedFeatures = extractFeaturesFromRows(*dataset, 
-                                                               runProcConf.when,
-                                                               runProcConf.where,
-                                                               runProcConf.orderBy,
-                                                               runProcConf.offset,
-                                                               runProcConf.limit,
+                                                               runProcConf.trainingData.stm->when,
+                                                               runProcConf.trainingData.stm->where,
+                                                               runProcConf.trainingData.stm->orderBy,
+                                                               runProcConf.trainingData.stm->offset,
+                                                               runProcConf.trainingData.stm->limit,
                                                                columns);
     ColumnIndexEntries columnIndex = invertFeatures(columns, extractedFeatures);
     ColumnCorrelations correlations = calculateCorrelations(columnIndex, numBasisVectors);

@@ -71,9 +71,10 @@ var loadDatasetConfig = {
 var svdConfig = {
     type: "svd.train",
     params: {
-        trainingDataset: { "id": datasetId },
+        trainingData: { "from" : {"id": datasetId },
+                        "select": "COLUMN EXPR (AS columnName() WHERE rowCount() > 100 ORDER BY rowCount() DESC, columnName() LIMIT 500)"
+                      },
         columnOutputDataset: { "id": "reddit_svd_embedding", type: "embedding" },
-        select: "COLUMN EXPR (AS columnName() WHERE rowCount() > 100 ORDER BY rowCount() DESC, columnName() LIMIT 500)",
         modelFileUrl: "file://tmp/MLDB-284-tsne.svd.json.gz"
     }
 };
@@ -81,7 +82,7 @@ var svdConfig = {
 var tsneConfig = {
     type: "tsne.train",
     params: {
-        trainingDataset: { "id": "reddit_svd_embedding" },
+        trainingData: { "from" : {"id": "reddit_svd_embedding" }},
         rowOutputDataset: { "id": "reddit_tsne_embedding", "type": "embedding" },
         modelFileUrl: "file://tmp/MLDB-284-tsne.bin.gz"
     }

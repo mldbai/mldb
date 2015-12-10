@@ -71,9 +71,8 @@ mldb.log(resp);
 var svdConfig = {
     type: "svd.train",
     params: {
-        trainingDataset: "git",
-        columnOutputDataset: { "id": "git_svd_embedding", type: "embedding" },
-        select: "* excluding (message, parent)"
+        trainingData: "select  *excluding (message, parent) from git",
+        columnOutputDataset: { "id": "git_svd_embedding", type: "embedding" }
     }
 };
 
@@ -92,7 +91,7 @@ mldb.log(res3);
 var tsneConfig = {
     type: "tsne.train",
     params: {
-        trainingDataset: "git_svd_embedding",
+        trainingData: "select * from git_svd_embedding",
         rowOutputDataset: { "id": "git_tsne_embedding", "type": "embedding" }
     }
 };

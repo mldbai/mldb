@@ -49,7 +49,8 @@ var svd_config = {
     'type' : 'svd.train',
     'params' :
     {
-        "trainingDataset": {"id": "iris"},
+        "trainingData": {"from" : {"id": "iris"},
+                         "select" : "\"petal\", \"width\", \"sepal\", \"length\"" },
         "columnOutputDataset": {
             "type": "sparse.mutable",
             "id": "svd_iris_col"
@@ -59,8 +60,7 @@ var svd_config = {
             'type': "embedding"
         },
         "numSingularValues": 4,
-        "numDenseBasisVectors": 2,
-        "select": "\"petal\", \"width\", \"sepal\", \"length\""
+        "numDenseBasisVectors": 2
     }
 };
 

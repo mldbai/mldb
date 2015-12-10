@@ -58,10 +58,9 @@ var kmeansConfig = {
     params: {
         numClusters: 2,
         metric: "euclidean",
-        trainingDataset: { "id": "gaussian" },
+        trainingData: "select * from gaussian",
         outputDataset: { "id": "kmeans_output", type: "embedding" },
-        centroidsDataset: { "id": "kmeans_centroids", type: "embedding" },
-        select: "*"
+        centroidsDataset: { "id": "kmeans_centroids", type: "embedding" }
     }
 };
 

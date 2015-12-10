@@ -30,40 +30,12 @@ DECLARE_ENUM_DESCRIPTION(SVMType);
 
 struct SVMConfig : public ProcedureConfig {
    SVMConfig()
-        : select(SelectExpression::STAR),
-          when(WhenExpression::TRUE),
-          where(SqlExpression::TRUE),
-          orderBy(ORDER_BY_NOTHING),
-          offset(0), limit(-1), svmType(SVM_CLASSIFICATION)
+        : svmType(SVM_CLASSIFICATION)
     {
     }
 
-    /// Dataset for training data
-    std::shared_ptr<TableExpression> dataset;
-
-    /// The SELECT clause to tell us which features to keep
-    SelectExpression select;
-
-    /// The WHEN clause for the timespan tuples must belong to
-    WhenExpression when;
-
-    /// The WHERE clause for which rows to include from the dataset
-    std::shared_ptr<SqlExpression> where;
-
-    /// The expression to generate the label
-    std::shared_ptr<SqlExpression> label;
-
-    /// The expression to generate the weight
-    std::shared_ptr<SqlExpression> weight;
-
-    /// How to order the rows when using an offset and a limit
-    OrderByExpression orderBy;
-
-    /// Where to start running
-    ssize_t offset;
-
-    /// Maximum number of rows to use
-    ssize_t limit;
+    /// Input data for training
+    InputQuery trainingData;
 
     /// Where to save the classifier to
     Url modelFileUrl;

@@ -157,8 +157,11 @@ DEFINE_STRUCTURE_DESCRIPTION(SVMConfig);
 SVMConfigDescription::
 SVMConfigDescription()
 {
-    addField("trainingDataset", &SVMConfig::dataset,
-             "Dataset for support vector machine training");
+    addField("trainingData", &SVMConfig::trainingData,
+             "Specification of the data for input to the SVM Procedure.  This should be "
+             "organized as an embedding, with each selected row containing the same "
+             "set of columns with numeric values to be used as coordinates.  The select statement "
+             "does not support groupby and having clauses.");
     addField("modelFileUrl", &SVMConfig::modelFileUrl,
              "URL where the model file (with extension '.svm') should be saved. "
              "This file can be loaded by a function of type 'svm'.");
@@ -167,33 +170,6 @@ SVMConfigDescription()
              "its own parameters.  If none is passed, then the configuration "
              "will be loaded from the ConfigurationFile parameter",
              Json::Value());
-    addField("select", &SVMConfig::select,
-             "The SELECT clause for which columns to include from the dataset. "
-             "Unlike most select expressions, this one can only select whole "
-             "columns, not expressions involving columns.  So X will work, but "
-             "not X + 1.  If you need derived values in the select expression, "
-             "create a dataset with the derived columns as a previous step and "
-             "run the classifier over that dataset instead",
-             SelectExpression::STAR);
-    addField("when", &SVMConfig::when,
-             "Boolean expression determining which tuples from the dataset "
-             "to keep based on their timestamps",
-             WhenExpression::TRUE);
-    addField("where", &SVMConfig::where,
-             "The WHERE clause for which rows to include from the dataset. "
-             "This can be any expression involving the columns in the dataset",
-             SqlExpression::TRUE);
-    addField("orderBy", &SVMConfig::orderBy,
-             "How to order the rows.  This only has an effect when OFFSET "
-             "or LIMIT are used.  Default is to order by rowHash.",
-             OrderByExpression::ROWHASH);
-    addField("offset", &SVMConfig::offset,
-             "How many rows to skip before using data",
-             ssize_t(0));
-    addField("limit", &SVMConfig::limit,
-             "How many rows of data to use.  -1 (the default) means use all "
-             "of the rows in the dataset.",
-             ssize_t(-1));
     addField("functionName", &SVMConfig::functionName,
              "If specified, a SVM function of this name will be created using "
              "the trained SVM");
@@ -202,6 +178,8 @@ SVMConfigDescription()
              "If specified, a SVM function of this name will be created using "
              "the trained SVM.", SVM_CLASSIFICATION);
     addParent<ProcedureConfig>();
+
+    onPostValidate = validate<SVMConfig, NoGroupByHaving>("svm");
 }
 
 /*****************************************************************************/
@@ -263,17 +241,7 @@ run(const ProcedureRunConfig & run,
 
     SqlExpressionMldbContext context(server);
 
-    auto boundDataset = runProcConf.dataset->bind(context);
-
-    auto embeddingOutput = getEmbedding(runProcConf.select,
-                                        *boundDataset.dataset, boundDataset.asName, 
-                                        runProcConf.when,
-                                        runProcConf.where, {},
-                                        -1, 
-                                        runProcConf.orderBy,
-                                        runProcConf.offset,
-                                        runProcConf.limit,
-                                        onProgress2);
+    auto embeddingOutput = getEmbedding(*runProcConf.trainingData.stm, context, -1, onProgress2);
 
     std::vector<std::tuple<RowHash, RowName, std::vector<double>,
                            std::vector<ExpressionValue> > > & rows

@@ -22,12 +22,7 @@ struct TsneItl;
 
 struct TsneConfig : public ProcedureConfig {
     TsneConfig()
-        : select(SelectExpression::STAR),
-          when(WhenExpression::TRUE),
-          where(SqlExpression::TRUE),
-          orderBy(ORDER_BY_NOTHING),
-          offset(0), limit(-1),
-          numInputDimensions(-1),
+        : numInputDimensions(-1),
           numOutputDimensions(2),
           tolerance(1e-5),
           perplexity(30.0)
@@ -35,17 +30,10 @@ struct TsneConfig : public ProcedureConfig {
         output.withType("embedding");
     }
 
-    std::shared_ptr<TableExpression> dataset;
+    InputQuery trainingData;
     PolyConfigT<Dataset> output;   ///< Dataset config to hold the output embedding
 
     Url modelFileUrl;  ///< URI to save the artifact output by t-SNE training
-
-    SelectExpression select;
-    WhenExpression when;
-    std::shared_ptr<SqlExpression> where;
-    OrderByExpression orderBy;
-    ssize_t offset;
-    ssize_t limit;
 
     int numInputDimensions;
     int numOutputDimensions;

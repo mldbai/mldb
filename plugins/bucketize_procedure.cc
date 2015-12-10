@@ -1,5 +1,4 @@
 // This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /**
  * bucketize_procedure.cc
  * Mich, 2015-10-27
@@ -132,7 +131,6 @@ run(const ProcedureRunConfig & run,
 
     SelectExpression select(SelectExpression::parse("1"));
     vector<shared_ptr<SqlExpression> > calc;
-    OrderByExpression order;
     ssize_t offset = 0;
     ssize_t limit = -1;
 
