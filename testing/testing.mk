@@ -249,6 +249,8 @@ $(eval $(call mldb_unit_test,MLDB-284-tsne-apply-function.py))
 $(eval $(call mldb_unit_test,MLDB-1119_pooling_function.py))
 $(eval $(call mldb_unit_test,MLDB-1172_column_expr_fail.py))
 
+$(eval $(call mldb_unit_test,emtest.js))
+
 $(eval $(call mldb_unit_test,pytanic_plugin_test.py))
 $(eval $(call python_test,mldb_merged_dataset_test,mldb_py_runner))
 

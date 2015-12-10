@@ -36,6 +36,7 @@ LIBMLDB_BUILTIN_PLUGIN_SOURCES:= \
 	tfidf.cc \
 	tokensplit.cc \
 	csv_export_procedure.cc \
+	em.cc \
 	pooling_function.cc \
 
 # Needed so that Python plugin can find its header
