@@ -3056,8 +3056,9 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
     if (!result)
         throw HttpReturnException(400, "Expected table expression");
 
+    JoinQualification joinQualify = JOIN_INNER;
     
-    while (matchKeyword(context, "JOIN ")) {
+    while (TableExpression::matchJoinQualification(context, joinQualify)) {
         auto joinTable = TableExpression::parse(context, currentPrecedence, allowUtf8);
             
         std::shared_ptr<SqlExpression> condition;
@@ -3066,7 +3067,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
             condition = SqlExpression::parse(context, 10 /* precedence */, allowUtf8);
         }
             
-        result.reset(new JoinExpression(result, joinTable, condition));
+        result.reset(new JoinExpression(result, joinTable, condition, joinQualify));
         result->surface = boost::trim_copy(token.captured());
 
         skip_whitespace(context);
@@ -3108,6 +3109,52 @@ printJson(JsonPrintingContext & context)
                                   "expressionType", ML::type_name(*this),
                                   "expressionTree", print());
     else context.writeStringUtf8(surface);
+}
+
+bool 
+TableExpression::
+matchJoinQualification(ML::Parse_Context & context, JoinQualification& joinQualify)
+{
+    joinQualify = JOIN_INNER;
+    bool inner = matchKeyword(context, "INNER ");
+    if (!inner)
+    { 
+        bool right = false;
+        bool full = false;
+        bool left = matchKeyword(context, "LEFT ");
+        if (!left)
+        {
+            right = matchKeyword(context, "RIGHT ");
+            if (!right)
+            {
+               full = matchKeyword(context, "FULL ");
+            }
+        }
+
+        if (right || left || full)
+        {
+           //outer is optional, eat it
+           skip_whitespace(context);
+           matchKeyword(context, "FULL ");
+
+           joinQualify = right ? JOIN_RIGHT : (left ? JOIN_LEFT : JOIN_FULL);
+
+           //MUST match the 'JOIN'
+           expectKeyword(context, "JOIN ");
+           return true;
+        }
+        else
+        {
+           return matchKeyword(context, "JOIN ");
+        }
+    }
+    else
+    {
+        expectKeyword(context,"JOIN ");
+        return true;
+    }
+
+    return false;
 }
 
 struct TableExpressionDescription

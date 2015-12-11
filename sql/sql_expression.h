@@ -91,6 +91,12 @@ enum OrderByDirection {
 
 DECLARE_ENUM_DESCRIPTION(OrderByDirection);
 
+enum JoinQualification {
+    JOIN_INNER,
+    JOIN_LEFT,
+    JOIN_RIGHT,
+    JOIN_FULL
+};
 
 /*****************************************************************************/
 /* BOUND PARAMETERS                                                          */
@@ -423,38 +429,6 @@ struct RegisterAggregator {
 
     std::shared_ptr<void> handle;
 };
-
-
-/*****************************************************************************/
-/* BOUND DATASET FUNCTION                                                    */
-/*****************************************************************************/
-
-/** Result of binding a function to be used in a FROM expression.
-  This provides an executor as well as information on the range of the function.
-*/
-
-/*struct BoundDatasetFunction {
-    typedef std::function<BoundTableExpression (const std::vector<BoundTableExpression> &,
-                          const SqlRowScope & context) > Exec;
-
-    BoundDatasetFunction()
-    {
-    }
-
-    BoundDatasetFunction(Exec exec)
-        : exec(std::move(exec))
-    {
-    }
-
-    operator bool () const { return !!exec; }
-
-    Exec exec;
-
-    TableOperations operator () () const
-    {
-        return exec();
-    }
-};*/
 
 /*****************************************************************************/
 /* EXTERNAL FUNCTION                                                         */
@@ -1331,6 +1305,10 @@ struct TableExpression: public std::enable_shared_from_this<TableExpression> {
         dependencies on query parameters.
     */
     virtual UnboundEntities getUnbound() const = 0;
+
+    /** Match join qualification (Inner, left, right, full)
+    */
+    static bool matchJoinQualification(ML::Parse_Context & context, JoinQualification& joinQualify);
 
     /// This is the text that was originally parsed to create the
     /// expression.

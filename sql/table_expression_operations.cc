@@ -156,8 +156,9 @@ getUnbound() const
 JoinExpression::
 JoinExpression(std::shared_ptr<TableExpression> left,
                std::shared_ptr<TableExpression> right,
-               std::shared_ptr<SqlExpression> on)
-    : left(std::move(left)), right(std::move(right)), on(std::move(on))
+               std::shared_ptr<SqlExpression> on,
+               JoinQualification& qualification)
+    : left(std::move(left)), right(std::move(right)), on(std::move(on)), qualification(qualification)
 {
     ExcAssert(this->left);
     ExcAssert(this->right);
@@ -189,7 +190,16 @@ Utf8String
 JoinExpression::
 print() const
 {
-    Utf8String result = "join(" + left->print() + "," + right->print();
+    Utf8String result = "join(";
+
+    if (qualification == JOIN_LEFT)
+        result += "LEFT,";
+    else if (qualification == JOIN_RIGHT)
+        result += "RIGHT,";
+    else if (qualification == JOIN_FULL)
+        result += "FULL,";
+
+    result += left->print() + "," + right->print();
     if (on)
         result += "," + on->print();
     result += ")";
