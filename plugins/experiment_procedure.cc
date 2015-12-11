@@ -75,22 +75,16 @@ ExperimentProcedureConfigDescription()
 {
     addField("experimentName", &ExperimentProcedureConfig::experimentName,
              "Name of the experiment that will be used to name the artifacts.");
-//     addField("doExplain", &ExperimentProcedureConfig::doExplain,
-//              "If true, the classifier.explain function will be run over all "
-//              "examples of the test set and the results for each feature will "
-//              "be aggregated in an output dataset.", false);
     addField("keepArtifacts", &ExperimentProcedureConfig::keepArtifacts,
              "If true, all procedures and intermediary datasets are kept.", false);
     addField("trainingData", &ExperimentProcedureConfig::trainingData,
              "Specification of the data for input to the classifier procedure. "
-             "The select statement does not support groupby and having clauses.");
-    /** TODO see if this is the case "The SELECT clause for which columns to include from the dataset. "
-             "Unlike most select expressions, this one can only select whole "
+             "The select statement does not support groupby and having clauses. "
+             "Also, unlike most select expressions, this one can only select whole "
              "columns, not expressions involving columns.  So X will work, but "
              "not X + 1.  If you need derived values in the select expression, "
              "create a dataset with the derived columns as a previous step and "
-             "run the classifier over that dataset instead.",
-    */
+             "run the classifier over that dataset instead.");
     typedef OptionalDescription<shared_ptr<TableExpression> > OptionalTableExpressionDescription;
     addFieldDesc("testingDataset", &ExperimentProcedureConfig::testing_dataset,
                  "Dataset for classifier testing. Default to the training_dataset.",
