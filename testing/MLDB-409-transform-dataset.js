@@ -110,4 +110,46 @@ var expected = [
 assertEqual(mldb.diff(expected, resp.json, false /* strict */), {},
             "Output was not the same as expected output");
 
+// transform and skip empty rows
+
+var dataset2 = mldb.createDataset({type:'sparse.mutable',id:'test2'});
+
+function recordExample2(row, x, y, label)
+{
+    dataset2.recordRow(row, [ [ "x", x, ts ], ["y", y, ts], ["label", label, ts] ]);
+}
+
+dataset2.recordRow("ex1", [ [ "x", 1, ts ], ["y", 2, ts]]);
+dataset2.recordRow("ex2", [ ["y", 3, ts]]);
+dataset2.recordRow("ex3", [ [ "x", 4, ts ]]);
+
+dataset2.commit()
+
+var transform_config3 = {
+    type: 'transform',
+    params: {
+        inputDataset: { id: 'test2' },
+        outputDataset: { id: 'transformed3', type: 'sparse.mutable' },
+        select: 'x',
+        rowName: "rowName() + '_transformed'",
+        orderBy: "rowName()",
+        skipEmptyRows: true,
+    }
+};
+
+createAndRunProcedure(transform_config3, "transform3");
+
+var resp = mldb.get("/v1/datasets/transformed3/query", {select: '*', format: 'table', orderBy: 'rowName()'});
+
+plugin.log(resp);
+
+var expected = [
+    [ "_rowName", "x"],
+    [ "ex1_transformed", 1],
+    [ "ex3_transformed", 4]
+];
+
+assertEqual(mldb.diff(expected, resp.json, false /* strict */), {},
+            "Output was not the same as expected output");
+
 "success"
