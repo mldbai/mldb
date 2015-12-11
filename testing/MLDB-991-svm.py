@@ -23,7 +23,7 @@ ds1.commit()
 result = mldb.perform("PUT", "/v1/procedures/svm_classif", [], {
         "type": "svm.train",
         "params": {
-            "trainingDataset": { "id": "dataset1" },
+            "trainingData": { "from" : {"id": "dataset1" }},
             "modelFileUrl": "file://tmp/MLDB-991.svm"            
         }
     })
@@ -60,7 +60,7 @@ assert json.loads(result['response'])['output']['output'] == 72
 test_procedure_config = {
     "type":"svm.train",
     "params":{
-        "trainingDataset":{"id":"dataset1"},
+        "trainingData": { "from" : {"id":"dataset1"}},
         "configuration":{"kernel": 1},
         "modelFileUrl": "file://tmp/MLDB-991-2.svm"
     }
@@ -119,7 +119,7 @@ mldb.log(result)
 result = mldb.perform("PUT", "/v1/procedures/svm_iris", [], {
         "type": "svm.train",
         "params": {
-            "trainingDataset": { "id": "iris_dataset" },
+            "trainingData": { "from" : {"id": "iris_dataset" }},
             "modelFileUrl": "file://tmp/MLDB-991-iris.svm"
         }
     })
@@ -188,7 +188,7 @@ mldb.log(result)
 result = mldb.perform("PUT", "/v1/procedures/svm_regression", [], {
         "type": "svm.train",
         "params": {
-            "trainingDataset": { "id": "dataset3" },
+            "trainingData": { "from" : {"id": "dataset3" }},
             "modelFileUrl": "file://tmp/MLDB-991-regression.svm",
             "svmType":"regression"
         }

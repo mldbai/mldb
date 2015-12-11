@@ -37,9 +37,10 @@ dataset.commit()
 conf = {
     "type": "tsne.train",
     "params": {
-        "trainingDataset": "toy",
+        "trainingData": { "from" : { "id" : "toy"},
+                          "limit" : 200
+                      },
         "rowOutputDataset": {"id": "toy_tsne", "type": "embedding" },
-        "limit": 200,
         "modelFileUrl": "file://tmp/MLDB-1081-tsne.bin.gz",
         "functionName": "tsne_embed",
         "runOnCreation": True
@@ -48,7 +49,8 @@ conf = {
 
 def runProcedure():
     rez = mldb.perform("PUT", "/v1/procedures/rocket_science", [], conf)
-    assert rez["statusCode"] == 201
+    mldb.log(rez['response'])
+    assert rez["statusCode"] == 201, "creation of procedure failed"
 
     rez = mldb.perform("GET", "/v1/query", [["q", "select * from toy_tsne"]])
     return json.loads(rez["response"])
@@ -69,7 +71,7 @@ for idx, row in enumerate(firstRunRows):
 
 # make sure that the offset works
 offset = 10
-conf['params']['offset'] = offset
+conf['params']['trainingData']['offset'] = offset
 thirdRunRows = runProcedure()
 assert len(thirdRunRows) == 200, 'the limit to 200 did not work when an offset is set'
 
@@ -79,13 +81,13 @@ for idx, row in enumerate(firstRunRows[offset:]):
     assert row['columns'][1][1] != thirdRunRows[idx]['columns'][1][1], 'rows must differ in y coordinate'
 
 # test specific error messages
-conf['params']['offset'] = 1000
+conf['params']['trainingData']['offset'] = 1000
 rez = mldb.perform("PUT", "/v1/procedures/rocket_science", [], conf)
 assert rez["statusCode"] == 400, 'expected an error when offset is too large'
 assert rez['response'].find('offset') != -1, 'expected a mention of offset in the error message'
 
-conf['params']['offset'] = 0
-conf['params']['limit'] = 0
+conf['params']['trainingData']['offset'] = 0
+conf['params']['trainingData']['limit'] = 0
 rez = mldb.perform("PUT", "/v1/procedures/rocket_science", [], conf)
 assert rez["statusCode"] == 400, 'expected an error when limit is 0'
 assert rez['response'].find('limit') != -1, 'expected a mention of limit in the error message'

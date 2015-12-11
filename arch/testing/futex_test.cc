@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
-/* futext_test.cc
+/* futex_test.cc
    Wolfgang Sourdeau, october 10th 2014
    Copyright (c) 2014 Datacratic.  All rights reserved.
+
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Test of the futex utility functions
 */
@@ -22,24 +22,29 @@
 
 using namespace std;
 
+using ML::futex_wait;
+using ML::futex_wake;
+
 /* this helper ensures that the futex_wait does not return before futex_wake
  * is called */
 template<typename T>
 void
 test_futex()
 {
-    T value(0);
+    T value;
+    // To avoid LLVM 3.4 ICE
+    value = 0;
 
-    auto wakerFn = [&] () {
+    std::function<void ()> wakerFn = [&] () {
         std::this_thread::sleep_for(std::chrono::milliseconds(1500));
         value = 5;
-        ML::futex_wake(value);
+        futex_wake(value);
     };
     thread wakerTh(wakerFn);
 
     time_t start = ::time(nullptr);
     while (!value) {
-        ML::futex_wait(value, 0);
+        futex_wait(value, 0);
     }
     time_t now = ::time(nullptr);
     BOOST_CHECK(now > start);

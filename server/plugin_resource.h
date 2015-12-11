@@ -13,7 +13,7 @@
 #include "mldb/rest/poly_entity.h"
 #include "mldb/types/any.h"
 #include "mldb/soa/js/js_utils.h"
-#include "mldb/server/plugin.h"
+#include "mldb/core/plugin.h"
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/types/url.h"
 #include <boost/filesystem.hpp>

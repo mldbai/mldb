@@ -87,7 +87,7 @@ var dataset = createDataset();
 var svdConfig = {
     type: "svd.train",
     params: {
-        trainingDataset: { "id": "reddit_dataset" },
+        trainingData: { "from" : {"id": "reddit_dataset" }},
         columnOutputDataset: { "id": "reddit_svd_embedding", type: "embedding" },
         numSingularValues: 10
     }

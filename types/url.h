@@ -59,8 +59,6 @@ inline std::ostream & operator << (std::ostream & stream, const Url & url)
     return stream << url.toString();
 }
 
-extern std::string urlDocumentationUri;
-
 /** Reach inside the URL's value description, and set its documentation
     URI to the given string.
 */

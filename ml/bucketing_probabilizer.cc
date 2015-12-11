@@ -271,7 +271,7 @@ getProbForBucket(size_t bucket) const
     if(ctr_buckets.size()==0)
         throw ML::Exception("ctr buckets is empty!");
 
-    if(bucket < 0 || bucket > ctr_buckets.size() - 1)
+    if(bucket >= ctr_buckets.size())
         throw ML::Exception("bucket id out of bounds");
 
     return ctrs[bucket];

@@ -9,7 +9,7 @@
 #include "mldb/server/mldb_server.h"
 #include "mldb/http/http_rest_proxy.h"
 #include "mldb/server/plugin_resource.h"
-#include "mldb/server/procedure.h"
+#include "mldb/core/procedure.h"
 
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK

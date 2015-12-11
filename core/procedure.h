@@ -8,9 +8,13 @@
 */
 
 #include "mldb/types/value_description_fwd.h"
-#include "mldb_entity.h"
+#include "mldb/core/mldb_entity.h"
 #include "mldb/rest/rest_entity.h"
+#include "mldb/sql/sql_expression.h"
+#include "mldb/sql/sql_expression_operations.h"
 #include <set>
+#include <iostream>
+#include <typeinfo>
 
 // NOTE TO MLDB DEVELOPERS: This is an API header file.  No includes
 // should be added, especially value_description.h.
@@ -354,6 +358,104 @@ struct RegisterProcedureType {
     }
 
     std::shared_ptr<ProcedureType> handle;
+};
+
+// VALIDATION HELPERS
+template<typename ConfigType, template<typename> class Validator1> 
+std::function<void (ConfigType *, JsonParsingContext &)>
+validate(const char * name)
+{
+    return [=](ConfigType * cfg, JsonParsingContext & context)
+        {
+            Validator1<ConfigType>()(cfg, name);
+        };
+}
+
+// consider using a variadic parameter
+template<typename ConfigType, template<typename> class Validator1, template<typename> class Validator2> 
+std::function<void (ConfigType *, JsonParsingContext & context)>
+validate(const char * name)
+{
+     return [=](ConfigType * cfg, JsonParsingContext & context)
+        {
+            Validator1<ConfigType>()(cfg, name);
+            Validator2<ConfigType>()(cfg, name);
+        };
+}
+
+/** 
+ *  Accept any select statement with empty GROUP BY/HAVING clause.
+ */
+template<typename ConfigType> struct NoGroupByHaving 
+{
+    void operator()(ConfigType * cfg, const char * name)
+    {
+        if (cfg->trainingData.stm) {
+            if (!cfg->trainingData.stm->groupBy.empty()) {
+                throw ML::Exception("cannot train %s with a groupBy clause", name);
+            }
+            else if (!cfg->trainingData.stm->having->isConstantTrue()) {
+                throw ML::Exception("cannot train %s with a having clause", name);
+            }
+        }
+    }
+};
+
+/**
+ *  Accept simple select expressions like column1, column2, wildcard expressions
+ *  and column expressions but reject operations on columns like sum(column1, column2).
+ */
+template<typename ConfigType> struct PlainColumnSelect
+{
+    void operator()(ConfigType *cfg, const char * name)
+    {
+        auto getWildcard = [] (const std::shared_ptr<SqlRowExpression> expression) 
+            -> std::shared_ptr<const WildcardExpression>
+            {
+                return std::dynamic_pointer_cast<const WildcardExpression>(expression);
+            };
+
+        auto getColumnExpression = [] (const std::shared_ptr<SqlRowExpression> expression)
+            -> std::shared_ptr<const SelectColumnExpression>
+            {
+                return std::dynamic_pointer_cast<const SelectColumnExpression>(expression);
+            };
+
+        auto getComputedVariable = [] (const std::shared_ptr<SqlRowExpression> expression)
+            -> std::shared_ptr<const ComputedVariable>
+            {
+                return std::dynamic_pointer_cast<const ComputedVariable>(expression);
+            };
+
+        auto getReadVariable = [] (const std::shared_ptr<SqlExpression> expression) 
+            -> std::shared_ptr<const ReadVariableExpression>
+            {
+                return std::dynamic_pointer_cast<const ReadVariableExpression>(expression);
+            };
+
+        if (cfg->trainingData.stm) {
+            auto select = cfg->trainingData.stm->select;
+            for (const auto & clause : select.clauses) {
+                auto wildcard = getWildcard(clause);
+                if (wildcard)
+                    continue;
+
+                auto columnExpression = getColumnExpression(clause);
+                if (columnExpression)
+                    continue;
+
+                auto computedVariable = getComputedVariable(clause);
+                if (computedVariable) {
+                    auto readVariable = getReadVariable(computedVariable->expression);
+                    if (readVariable)
+                        continue;
+                    
+                }
+                //std::cerr << clause->surface << std::endl;
+                throw ML::Exception("%s training only accept wildcard and column names", name);
+            }
+        }
+    }
 };
 
 } // namespace MLDB

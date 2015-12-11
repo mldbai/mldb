@@ -57,7 +57,7 @@ def train_svd_with_default():
         'type' : 'svd.train',
         'params' :
 	{
-            "trainingDataset": "dataset1", 
+            "trainingData": "select * from dataset1", 
             "rowOutputDataset": "svd_row", # first way to specify output dataset using default
             "columnOutputDataset" : {  # second way to specify an output dataset using default
                 "id": "svd_column"
@@ -143,7 +143,7 @@ metric = 'euclidean'
 kmeans_config = {
     'type' : 'kmeans.train',
     'params' : {
-        'trainingDataset' : 'dataset1',
+        'trainingData' : 'select * from dataset1',
         'centroidsDataset' : {'id' : 'kmeans_centroids', 
                           'params': {'metric': metric}},
         'numClusters' : 2,
@@ -162,7 +162,7 @@ assert dataset_count_before + 1 == dataset_count_after, 'only the centroids must
 kmeans_config = {
     'type' : 'kmeans.train',
     'params' : {
-        'trainingDataset' : 'dataset1',
+        'trainingData' : 'select * from dataset1',
         'centroidsDataset' : {'id' : 'kmeans_centroids_2',
                               'type' : 'sparse.mutable'},
         'outputDataset': { 'type' : 'embedding'},

@@ -56,12 +56,12 @@ if (trainSvd) {
     var svdConfig = {
         type: "svd.train",
         params: {
-            //select: "* EXCLUDING adventuretime",
             numSingularValues: 200,
-            trainingDataset: { "id": "reddit_dataset" },
-            columnOutputDataset: { "id": "svd_output", type: "embedding" },
-            rowOutputDataset: { "id": "svd_embedding", type: "embedding" },
+            trainingData: { from : {"id": "reddit_dataset" },
             select: "* EXCLUDING (adventuretime)"
+                             },
+            columnOutputDataset: { "id": "svd_output", type: "embedding" },
+            rowOutputDataset: { "id": "svd_embedding", type: "embedding" }
         }
     };
 

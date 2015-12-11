@@ -131,7 +131,7 @@ jsonPrintAbbreviated(const Json::Value & val,
     }
 }
 
-const HashSeed defaultSeedStable { i64: { 0x1958DF94340e7cbaULL, 0x8928Fc8B84a0ULL } };
+const HashSeed defaultSeedStable { .i64 = { 0x1958DF94340e7cbaULL, 0x8928Fc8B84a0ULL } };
 
 uint64_t jsonHashObject(const Json::Value & val,
                         HashSeed seed)

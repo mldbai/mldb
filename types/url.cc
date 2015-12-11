@@ -260,7 +260,11 @@ reconstitute(ML::DB::Store_Reader & store)
 /* VALUE DESCRIPTION                                                         */
 /*****************************************************************************/
 
-std::string urlDocumentationUri;
+std::string & getUrlDocumentationUri()
+{
+    static std::string result;
+    return result;
+}
 
 struct UrlDescription
     : public ValueDescriptionI<Url, ValueKind::ATOM, UrlDescription> {
@@ -283,7 +287,7 @@ DEFINE_VALUE_DESCRIPTION(Url, UrlDescription);
 UrlDescription::
 UrlDescription()
 {
-        this->documentationUri = urlDocumentationUri;
+    this->documentationUri = getUrlDocumentationUri();
 }
 
 void
@@ -312,6 +316,7 @@ isDefaultTyped(const Url * val) const
 
 void setUrlDocumentationUri(const std::string & newUri)
 {
+    getUrlDocumentationUri() = newUri;
     ((UrlDescription *)(getDefaultDescriptionSharedT<Url>().get()))
         ->documentationUri = "/doc/builtin/Url.md";
 }

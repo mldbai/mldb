@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** kmeans.cc
     Jeremy Barnes, 31 January 2014
     Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Implementation of the k-means algorithm.
 */
@@ -87,9 +87,22 @@ train(const std::vector<distribution<float>> & points,
         // contents are stable
         std::atomic<int> changes(0);
 
-        std::vector<std::atomic<int> > clusterNumMembers(nbClusters);
-        for (auto & c: clusterNumMembers)
-            c = 0;
+        // Unfortunately, std::atomic can't be copied or moved, so we need
+        // a wrapper to put it in a vector
+        struct AI: public std::atomic<int> {
+            AI(int n = 0)
+                : std::atomic<int>(n)
+            {
+            }
+
+            AI & operator = (const AI & other) noexcept
+            {
+                store(other.load());
+                return *this;
+            }
+        };
+
+        std::vector<AI> clusterNumMembers(nbClusters);
 
         auto findNewCluster = [&] (int i) {
 

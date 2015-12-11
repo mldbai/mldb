@@ -7,9 +7,9 @@
  **/
 
 #pragma once
-#include "mldb/server/procedure.h"
-#include "mldb/server/function.h"
-#include "mldb/server/dataset.h"
+#include "mldb/core/procedure.h"
+#include "mldb/core/function.h"
+#include "mldb/core/dataset.h"
 #include "mldb/sql/sql_expression.h"
 
 namespace Datacratic {

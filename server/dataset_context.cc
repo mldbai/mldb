@@ -1,5 +1,3 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** dataset_context.cc
     Jeremy Barnes, 24 February 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
@@ -8,7 +6,7 @@
 */
 
 #include "mldb/server/dataset_context.h"
-#include "mldb/server/dataset.h"
+#include "mldb/core/dataset.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/server/mldb_server.h"
 #include "mldb/server/function_collection.h"

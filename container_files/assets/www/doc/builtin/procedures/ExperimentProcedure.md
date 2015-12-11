@@ -9,7 +9,7 @@ folds over the data to use for training and testing.
 
 ![](%%config procedure classifier.experiment)
 
-<div id=DatasetFoldConfig>
+<div id="DatasetFoldConfig">
 ## Cross-validation
 
 The experiment procedure supports k-fold 
@@ -24,7 +24,6 @@ implementing a standard k-fold cross-validation. The dataset will be split in $$
 each fold will use one subsample as its test set and train on the other $$k-1$$ folds.
 
 When using the `kfold` parameter, the `testing_dataset` parameter should not be specified.
-<div>
 
 ### Default behaviour
 

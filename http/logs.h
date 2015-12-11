@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* logs.h                                                          -*- C++ -*-
    Eric Robert, 9 October 2013
    Copyright (c) 2013 Datacratic.  All rights reserved.
+
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Basic log interface
 
@@ -210,13 +210,11 @@ struct Logging
     };
 
     struct Thrower {
-        Thrower(Category & category) : category(category) {
+        Thrower()
+        {
         }
 
         void operator&(std::ostream & stream) __attribute__((noreturn));
-
-    private:
-        Category & category;
     };
 
     struct Progress

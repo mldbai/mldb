@@ -102,9 +102,9 @@ inline v4sf sse2_logf_unsafe(v4sf xx)
     x = xx;
     x = sse2_frexpf_unsafe_nz_nodn( x, e );
 
-    v4sf ltsqrthf = (v4sf)__builtin_ia32_cmpltps(x, vec_splat(SQRTHF));
-    v4si minusone = (v4si)__builtin_ia32_andps(ltsqrthf, (v4sf)vec_splat(-1));
-    v4sf xmasked  = __builtin_ia32_andps(ltsqrthf, x);
+    v4sf ltsqrthf = (v4sf)_mm_cmplt_ps(x, vec_splat(SQRTHF));
+    v4si minusone = (v4si)_mm_and_ps(ltsqrthf, (v4sf)vec_splat(-1));
+    v4sf xmasked  = _mm_and_ps(ltsqrthf, x);
 
     x = x + xmasked;
     x = x - vec_splat(1.0f);
@@ -164,5 +164,6 @@ v2df sse2_log(v2df val)
 
 } // namespace SIMD
 } // namespace ML
+
 
 #endif /* __jml__arch__sse2_log_h__ */

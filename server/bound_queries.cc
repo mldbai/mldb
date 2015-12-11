@@ -7,7 +7,7 @@
 */
 
 #include "mldb/server/bound_queries.h"
-#include "mldb/server/dataset.h"
+#include "mldb/core/dataset.h"
 #include "mldb/server/dataset_context.h"
 #include "mldb/jml/utils/worker_task.h"
 #include "mldb/server/per_thread_accumulator.h"

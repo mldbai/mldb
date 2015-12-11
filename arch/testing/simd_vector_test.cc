@@ -455,8 +455,6 @@ void vec_add_sqr_test_case(int nvals)
     SIMD::vec_add_sqr(x, k, y, r, nvals);
 
     for (unsigned i = 0;  i < nvals;  ++i) {
-        if (r[i] != r2[i]) ;
-            
         BOOST_CHECK_EQUAL(r[i], r2[i]);
     }
 }

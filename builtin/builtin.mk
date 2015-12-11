@@ -7,7 +7,7 @@ LIBMLDB_BUILTIN_SOURCES:= \
 	sub_dataset.cc \
 	filtered_dataset.cc \
 
-LIBMLDB_BUILTIN_LINK:= \
+LIBMLDB_BUILTIN_LINK:= mldb_core
 
 
 $(eval $(call library,mldb_builtin,$(LIBMLDB_BUILTIN_SOURCES),$(LIBMLDB_BUILTIN_LINK)))

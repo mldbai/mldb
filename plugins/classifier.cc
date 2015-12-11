@@ -11,7 +11,7 @@
 #include "mldb/ml/jml/classifier.h"
 #include "dataset_feature_space.h"
 #include "mldb/server/mldb_server.h"
-#include "mldb/server/dataset.h"
+#include "mldb/core/dataset.h"
 #include "mldb/server/bound_queries.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/jml/stats/distribution.h"
@@ -175,13 +175,6 @@ run(const ProcedureRunConfig & run,
 
     ClassifierConfig runProcConf =
         applyRunConfOverProcConf(procedureConfig, run);
-
-    auto onProgress2 = [&] (const Json::Value & progress)
-        {
-            Json::Value value;
-            value["dataset"] = progress;
-            return onProgress(value);
-        };
 
     // 1.  Get the input dataset
     SqlExpressionMldbContext context(server);

@@ -26,12 +26,11 @@ metric = "cosine"
 result = mldb.perform("PUT", "/v1/procedures/kmeans", [], {
     'type' : 'kmeans.train',
     'params' : {
-        'trainingDataset' : {'id' : 'iris_dataset'},
+        'trainingData' : 'select * excluding(class) from iris_dataset',
         'outputDataset' : {'id' : 'iris_kmeans_dataset', 'type' : 'embedding',
                     'params': { 'metric': metric }},
         'centroidsDataset' : {'id' : 'iris_kmeans_centroids', 'type' : 'embedding', 
             'params': {'metric': metric }},
-        'select' : "* EXCLUDING(class)",
         'numClusters' : 3,
         'metric': metric
     }

@@ -96,6 +96,7 @@ BOOST_AUTO_TEST_CASE( test_double_parsing2 )
             string s2 = format(fmt.c_str(), f2);
             string s3 = format(fmt.c_str(), f3);
 
+#if 0
             auto to_i = [] (double d)
                 {
                     union {
@@ -106,7 +107,6 @@ BOOST_AUTO_TEST_CASE( test_double_parsing2 )
                     return u.i;
                 };
 
-#if 0
             cerr << endl;
 
             uint64_t u1 = to_i(f);
