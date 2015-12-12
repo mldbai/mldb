@@ -5,9 +5,7 @@
 LIBMLDB_CAFFE_PLUGIN_SOURCES:= \
 	caffe_plugin.cc \
 	caffe_train.cc \
-
-
-#	caffe_predict.cc
+	caffe_predict.cc
 
 $(eval $(call set_compile_option,$(LIBMLDB_CAFFE_PLUGIN_SOURCES),-I../caffe/include -I../caffe/build/src -DCPU_ONLY))
 

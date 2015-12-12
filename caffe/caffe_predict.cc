@@ -27,7 +27,7 @@ namespace MLDB {
 /*****************************************************************************/
 
 struct CaffePredicterConfig {
-    Url modelFile;
+    Url modelFileUrl;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(CaffePredicterConfig);
@@ -37,9 +37,9 @@ DEFINE_STRUCTURE_DESCRIPTION(CaffePredicterConfig);
 CaffePredicterConfigDescription::
 CaffePredicterConfigDescription()
 {
-    addField("modelFileUrl", &CaffePredicterConfig::modelFileUrl,
-             "URL that contains the Protobuf file that tells Caffe "
-             "how to train the model.");
+    //addField("modelFileUrl", &CaffePredicterConfig::modelFileUrl,
+    //         "URL that contains the Protobuf file that tells Caffe "
+    //         "how to train the model.");
 }
 
 struct CaffePredicter: public Function {
@@ -49,6 +49,7 @@ struct CaffePredicter: public Function {
                    const std::function<bool (const Json::Value &)> & onProgress)
         : Function(owner)
     {
+#if 0
         config = config_.params.convert<CaffePredicterConfig>();
 
         std::ostringstream configStr;
@@ -58,9 +59,6 @@ struct CaffePredicter: public Function {
             configStr << stream.rdbuf();
         }
 
-        RunOutput result;
-
-#if 0
         std::string solverFilename;
 
         using namespace caffe;
@@ -74,9 +72,6 @@ struct CaffePredicter: public Function {
 
         // ...
 #endif
-
-        return result;
-
     }
     
     CaffePredicterConfig config;
@@ -97,27 +92,27 @@ struct CaffePredicter: public Function {
         Applier(const Function * owner)
             : FunctionApplier(owner)
         {
+            info = owner->getFunctionInfo();
         }
     };
 
-    std::unique_ptr<FunctionApplier>
+    virtual std::unique_ptr<FunctionApplier>
     bind(SqlBindingScope & outerContext,
          const FunctionValues & input) const
     {
-        // Assume there is one of each features
-        vector<ML::Feature> features(itl->featureSpace->columnInfo.size());
-
-        for (auto & col: itl->featureSpace->columnInfo)
-            features[col.second.index] = itl->featureSpace->getFeature(col.first);
-
-        std::unique_ptr<ClassifyFunctionApplier> result
-            (new ClassifyFunctionApplier(this));
-        result->optInfo = itl->classifier.impl->optimize(features);
- 
+        std::unique_ptr<Applier> result
+            (new Applier(this));
         return std::move(result);
     }
 
-    FunctionOutput
+    virtual FunctionInfo
+    getFunctionInfo() const
+    {
+        FunctionInfo result;
+        return result;
+    }
+
+    virtual FunctionOutput
     apply(const FunctionApplier & applier_,
           const FunctionContext & context) const
     {
@@ -125,15 +120,10 @@ struct CaffePredicter: public Function {
         return result;
     }
 
-    virtual Any getStatus() const
-    {
-        return Any();
-    }
-    
     CaffePredicterConfig procConfig;
 };
 
-static RegisterProcedureType<CaffePredicter, CaffePredicterConfig>
+static RegisterFunctionType<CaffePredicter, CaffePredicterConfig>
 regCaffePredict(builtinPackage(),
                 "neural.caffe.predict",
                 "Apply a trained Caffe deep learning model",
