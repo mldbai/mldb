@@ -127,6 +127,8 @@ struct JsPluginContext {
     v8::Persistent<v8::FunctionTemplate> Stream;
     v8::Persistent<v8::FunctionTemplate> CellValue;
     v8::Persistent<v8::FunctionTemplate> Dataset;
+    v8::Persistent<v8::FunctionTemplate> Function;
+    v8::Persistent<v8::FunctionTemplate> Procedure;
     v8::Persistent<v8::FunctionTemplate> RandomNumberGenerator;
 };
 
