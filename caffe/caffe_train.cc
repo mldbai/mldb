@@ -14,6 +14,7 @@
 #include "mldb/http/http_exception.h"
 #include "caffe/caffe.hpp"
 #include <google/protobuf/text_format.h>
+#include <glog/logging.h>
 
 
 using namespace std;
@@ -28,7 +29,7 @@ namespace MLDB {
 /*****************************************************************************/
 
 struct CaffeTrainerConfig {
-    Url solverUrl;
+    Url networkUrl;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(CaffeTrainerConfig);
@@ -38,9 +39,9 @@ DEFINE_STRUCTURE_DESCRIPTION(CaffeTrainerConfig);
 CaffeTrainerConfigDescription::
 CaffeTrainerConfigDescription()
 {
-    addField("solverUrl", &CaffeTrainerConfig::solverUrl,
+    addField("networkUrl", &CaffeTrainerConfig::networkUrl,
              "URL that contains the Protobuf file that tells Caffe "
-             "how to train the model.");
+             "how to construct its network.");
 }
 
 struct CaffeTrainer: public Procedure {
@@ -61,27 +62,38 @@ struct CaffeTrainer: public Procedure {
         std::ostringstream configStr;
 
         {
-            ML::filter_istream stream(config.solverUrl.toString());
+            ML::filter_istream stream(config.networkUrl.toString());
             configStr << stream.rdbuf();
         }
 
         RunOutput result;
 
-        std::string solverFilename;
+        std::string networkFilename;
 
         using namespace caffe;
 
-        SolverParameter solver_param;
+        NetParameter network_param;
 
-        bool success = google::protobuf::TextFormat::ParseFromString(configStr.str(), &solver_param);
+        bool success = google::protobuf::TextFormat::ParseFromString(configStr.str(), &network_param);
         if (!success)
-            throw HttpReturnException(400, "Unable to read Caffe solver file",
-                                      "solverUrl", config.solverUrl);
+            throw HttpReturnException(400, "Unable to read Caffe network file",
+                                      "networkUrl", config.networkUrl);
 
+        for (auto & l: *network_param.mutable_layer()) {
+            cerr << "layer of type " << l.type() << endl;
+        }
+
+#if 0
         Caffe::set_mode(Caffe::CPU);
+
+        Caffe::Net net;
+        
+
 
         std::shared_ptr<Solver<float> >
             solver(SolverRegistry<float>::CreateSolver(solver_param));
+
+        
 
 #if 0
         SignalHandler signal_handler(
@@ -94,6 +106,7 @@ struct CaffeTrainer: public Procedure {
         cerr << "Starting Optimization";
         solver->Solve();
         cerr << "Optimization Done.";
+#endif
 
         return result;
     }
@@ -112,6 +125,26 @@ regCaffeTrain(builtinPackage(),
               "Train a Caffe deep learning model",
               "procedures/CaffeTrainer.md.html");
 
+namespace {
+
+static void glogFatal() JML_NORETURN;
+
+static void glogFatal()
+{
+    throw HttpReturnException(400, "Caffe fatal error");
+}
+
+static struct AtInit {
+
+    AtInit()
+    {
+        // Throw an exception, rather than abort, on a fatal error
+        google::InstallFailureFunction(glogFatal);
+    }
+
+} atInit;
+
+} // file scope
 
 } // namespace MLDB
 } // namespace Datacratic

@@ -2,7 +2,7 @@ var procConfig = {
     id: 'caffe',
     type: 'neural.caffe.train',
     params: {
-        solverUrl: 'file://ext/caffe/examples/mnist/lenet_solver.prototxt'
+        networkUrl: 'file://ext/caffe/examples/mnist/lenet_train_test.prototxt'
     }
 };
 

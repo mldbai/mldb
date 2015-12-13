@@ -110,8 +110,8 @@ int main(int argc, char ** argv)
     string peerPublishHost;
 #endif
     string configurationPath;
-    std::string staticAssetsPath = "mldb/static";
-    std::string staticDocPath = "mldb/container_files/assets/doc";
+    std::string staticAssetsPath = "container_files/assets";
+    std::string staticDocPath = "container_files/assets/www/doc/builtin";
 
     string etcdUri;
     string etcdPath;
