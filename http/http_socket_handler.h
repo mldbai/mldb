@@ -1,6 +1,4 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
-/* http_socket_handler.h                                           -*- C++ -*-
+/* http_socket_handler.h - This file is part of MLDB               -*- C++ -*-
    Wolfgang Sourdeau, September 2015
    Copyright (c) 2015 Datacratic.  All rights reserved.
 
@@ -71,9 +69,9 @@ struct HttpResponse {
                      = std::vector<std::pair<std::string, std::string> >())
         : responseCode(responseCode),
           responseStatus(getResponseReasonPhrase(responseCode)),
-          contentType(contentType),
-          body(body),
-          extraHeaders(extraHeaders),
+          contentType(std::move(contentType)),
+          body(std::move(body)),
+          extraHeaders(std::move(extraHeaders)),
           sendBody(true)
     {
     }
@@ -87,8 +85,8 @@ struct HttpResponse {
                      = std::vector<std::pair<std::string, std::string> >())
         : responseCode(responseCode),
           responseStatus(getResponseReasonPhrase(responseCode)),
-          contentType(contentType),
-          extraHeaders(extraHeaders),
+          contentType(std::move(contentType)),
+          extraHeaders(std::move(extraHeaders)),
           sendBody(false)
     {
     }
@@ -101,7 +99,7 @@ struct HttpResponse {
           responseStatus(getResponseReasonPhrase(responseCode)),
           contentType("application/json"),
           body(boost::trim_copy(body.toString())),
-          extraHeaders(extraHeaders),
+          extraHeaders(std::move(extraHeaders)),
           sendBody(true)
     {
     }
@@ -143,7 +141,7 @@ struct HttpLegacySocketHandler : public HttpSocketHandler {
                            std::function<void ()> onSendFinished
                            = std::function<void ()>(),
                            NextAction next = NEXT_CONTINUE);
-    void send(const std::string & str,
+    void send(std::string str,
               NextAction action = NEXT_CONTINUE,
               OnWriteFinished onWriteFinished = nullptr);
 

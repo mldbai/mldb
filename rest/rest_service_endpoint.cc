@@ -25,9 +25,7 @@ namespace Datacratic {
 
 void
 RestServiceEndpoint::ConnectionId::
-sendResponse(int responseCode,
-             const std::string & response,
-             const std::string & contentType)
+sendResponse(int responseCode, std::string response, std::string contentType)
 {
     if (itl->responseSent)
         throw ML::Exception("response already sent");
@@ -37,7 +35,8 @@ sendResponse(int responseCode,
                                    contentType);
 
     if (itl->http)
-        itl->http->sendResponse(responseCode, response, contentType);
+        itl->http->sendResponse(responseCode,
+                                std::move(response), std::move(contentType));
     else
         throw ML::Exception("missing connection handler");
 
@@ -47,8 +46,7 @@ sendResponse(int responseCode,
 void
 RestServiceEndpoint::ConnectionId::
 sendResponse(int responseCode,
-                  const Json::Value & response,
-                  const std::string & contentType)
+             const Json::Value & response, std::string contentType)
 {
     if (itl->responseSent)
         throw ML::Exception("response already sent");
@@ -58,7 +56,8 @@ sendResponse(int responseCode,
                                    contentType);
 
     if (itl->http)
-        itl->http->sendResponse(responseCode, response, contentType);
+        itl->http->sendResponse(responseCode,
+                                std::move(response), std::move(contentType));
     else
         throw ML::Exception("missing connection handler");
 
@@ -68,8 +67,7 @@ sendResponse(int responseCode,
 void
 RestServiceEndpoint::ConnectionId::
 sendErrorResponse(int responseCode,
-                       const std::string & error,
-                       const std::string & contentType)
+                  std::string error, std::string contentType)
 {
     using namespace std;
     cerr << "sent error response " << responseCode << " " << error
@@ -84,7 +82,7 @@ sendErrorResponse(int responseCode,
                                    contentType);
             
     if (itl->http)
-        itl->http->sendResponse(responseCode, error);
+        itl->http->sendResponse(responseCode, std::move(error));
     else
         throw ML::Exception("missing connection handler");
     
@@ -116,7 +114,7 @@ sendErrorResponse(int responseCode, const Json::Value & error)
 
 void
 RestServiceEndpoint::ConnectionId::
-sendRedirect(int responseCode, const std::string & location)
+sendRedirect(int responseCode, std::string location)
 {
     if (itl->responseSent)
         throw ML::Exception("response already sent");
@@ -127,7 +125,7 @@ sendRedirect(int responseCode, const std::string & location)
 
     if (itl->http)
         itl->http->sendResponse(responseCode, string(""), "",
-                                { { "Location", location } });
+                                { { "Location", std::move(location) } });
     else
         throw ML::Exception("missing connection handler");
     
@@ -137,9 +135,8 @@ sendRedirect(int responseCode, const std::string & location)
 void
 RestServiceEndpoint::ConnectionId::
 sendHttpResponse(int responseCode,
-                 const std::string & response,
-                 const std::string & contentType,
-                 const RestParams & headers)
+                 std::string response, std::string contentType,
+                 RestParams headers)
 {
     if (itl->responseSent)
         throw ML::Exception("response already sent");
@@ -149,8 +146,9 @@ sendHttpResponse(int responseCode,
                                    contentType);
 
     if (itl->http)
-        itl->http->sendResponse(responseCode, response, contentType,
-                                headers);
+        itl->http->sendResponse(responseCode,
+                                std::move(response), std::move(contentType),
+                                std::move(headers));
     else
         throw ML::Exception("missing connection handler");
     
@@ -160,9 +158,8 @@ sendHttpResponse(int responseCode,
 void
 RestServiceEndpoint::ConnectionId::
 sendHttpResponseHeader(int responseCode,
-                       const std::string & contentType,
-                       ssize_t contentLength,
-                       const RestParams & headers_)
+                       std::string contentType, ssize_t contentLength,
+                       RestParams headers_)
 {
     if (itl->responseSent)
         throw ML::Exception("response already sent");
@@ -186,23 +183,23 @@ sendHttpResponseHeader(int responseCode,
     }
 
     if (itl->http)
-        itl->http->sendResponseHeader(responseCode, contentType, headers);
+        itl->http->sendResponseHeader(responseCode, std::move(contentType), std::move(headers));
     else
         throw ML::Exception("missing connection handler");
 }
 
 void
 RestServiceEndpoint::ConnectionId::
-sendPayload(const std::string & payload)
+sendPayload(std::string payload)
 {
     if (itl->chunkedEncoding) {
         if (payload.empty()) {
             throw ML::Exception("Can't send empty chunk over a chunked connection");
         }
-        itl->http->sendHttpChunk(payload,
+        itl->http->sendHttpChunk(std::move(payload),
                                  HttpLegacySocketHandler::NEXT_CONTINUE);
     }
-    else itl->http->sendHttpPayload(payload);
+    else itl->http->send(std::move(payload));
 }
 
 void
