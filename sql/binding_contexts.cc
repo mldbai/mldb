@@ -32,8 +32,19 @@ rebind(BoundSqlExpression expr)
                      ExpressionValue & storage)
         -> const ExpressionValue &
         {
-            auto & row = static_cast<const RowContext &>(context);
-            return outerExec(row.outer, storage);
+            auto * row = dynamic_cast<const RowContext *>(&context);
+            if (row) {
+                return expr.exec(row->outer, storage);
+            }
+            else {
+                // The context might not be type RowContext.
+                // For example - when calling BoundSqlExpression::constantValue()
+                // the context is a plain SqlRowScope.
+                // In such, case it is fine to pass the inner context since the
+                // bound expression is constant and should not access the row
+                // value.
+                return expr.exec(context, storage);
+            }
         };
 
     return expr;
