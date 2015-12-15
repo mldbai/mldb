@@ -8,7 +8,6 @@
 
 #include "hash.h"
 #include "string_functions.h"
-#include <boost/algorithm/string.hpp>
 
 #define CRYPTOPP_ENABLE_NAMESPACE_WEAK 1
 #include "crypto++/sha.h"
@@ -65,7 +64,7 @@ std::string md5HashToBase64(const char * buf, size_t nBytes)
 
     //cerr << "got " << got << " characters" << endl;
 
-    return boost::trim_copy(std::string(outBuf));
+    return ML::trim(std::string(outBuf));
 }
 
 std::string hmacSha1Base64(const std::string & stringToSign,

@@ -7,8 +7,9 @@
     Utilities for JSON values.
 */
 
+#include <algorithm>
 #include "json_utils.h"
-#include <boost/algorithm/string.hpp>
+#include "mldb/jml/utils/string_functions.h"
 #include "mldb/ext/siphash/csiphash.h"
 #include "mldb/types/json_parsing.h"
 #include "mldb/types/json_printing.h"
@@ -45,7 +46,7 @@ std::string
 jsonPrintAbbreviatedString(const Json::Value & val,
                            int maxLength)
 {
-    string s = boost::trim_copy(val.toString());
+    string s = ML::trim(val.toString());
     if (maxLength < 0)
         return s;
     if (s.length() < maxLength)
@@ -56,7 +57,7 @@ jsonPrintAbbreviatedString(const Json::Value & val,
     string contents = val.asString();
     string reduced(contents, 0, maxLength);
 
-    return boost::trim_copy(Json::Value(reduced).toString()) + "...";
+    return ML::trim(Json::Value(reduced).toString()) + "...";
 }
 
 std::string
@@ -127,7 +128,7 @@ jsonPrintAbbreviated(const Json::Value & val,
     case Json::stringValue:
         return jsonPrintAbbreviatedString(val, maxLengthPerItem);
     default:
-        return boost::trim_copy(val.toString());
+        return ML::trim(val.toString());
     }
 }
 

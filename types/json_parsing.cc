@@ -6,11 +6,11 @@
 
 */
 
+#include "mldb/jml/utils/string_functions.h"
 #include "json_parsing.h"
 #include "json_parsing_impl.h"
 #include "string.h"
 #include "value_description.h"
-#include <boost/algorithm/string.hpp>
 #include "mldb/base/parse_context.h"
 
 
@@ -1111,7 +1111,7 @@ printCurrent()
 {
     try {
         ML::Parse_Context::Revert_Token token(*context);
-        return boost::trim_copy(expectJson().toString());
+        return ML::trim(expectJson().toString());
     } catch (const std::exception & exc) {
         ML::Parse_Context::Revert_Token token(*context);
         return context->expect_text("\n");
@@ -1426,7 +1426,7 @@ exception(const std::string & message)
     //cerr << *top << endl;
     throw ML::Exception("At path " + printPath() + ": "
                         + message + " parsing "
-                        + boost::trim_copy(top->toString()));
+                        + ML::trim(top->toString()));
 }
     
 std::string
@@ -1734,7 +1734,7 @@ std::string
 StructuredJsonParsingContext::
 printCurrent()
 {
-    return boost::trim_copy(current->toString());
+    return ML::trim(current->toString());
 }
 
 
