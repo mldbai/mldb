@@ -39,9 +39,9 @@ TcpAcceptorImpl(EventLoop & eventLoop,
                 TcpAcceptor & frontAcceptor)
     : eventLoop_(eventLoop),
       frontAcceptor_(frontAcceptor),
+      threadPool_(),
       v4Endpoint_(eventLoop_.impl().ioService()),
-      v6Endpoint_(eventLoop_.impl().ioService()),
-      acceptCnt_(0)
+      v6Endpoint_(eventLoop_.impl().ioService())
 {
 }
 
@@ -91,6 +91,7 @@ shutdown()
 {
     v4Endpoint_.close();
     v6Endpoint_.close();
+    threadPool_.shutdown();
 }
 
 void
@@ -98,9 +99,10 @@ TcpAcceptorImpl::
 accept(TcpAcceptorImpl::Endpoint & endpoint)
 {
     auto & acceptor = endpoint.acceptor_;
-    auto & loopService = eventLoop_.impl().ioService();
+    auto & loopService = threadPool_.nextLoop().impl().ioService();
     auto nextSocket = make_shared<TcpSocketImpl>(loopService);
     auto onAcceptFn = [&, nextSocket] (const system::error_code & ec) {
+        cerr << "accept...\n";
         if (ec) {
             if (acceptor.is_open() || ec != asio::error::operation_aborted) {
                 cerr << "exception in accept: " + ec.message() + "\n";

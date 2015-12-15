@@ -238,7 +238,6 @@ captureInConnection(std::shared_ptr<void> toCapture)
 HttpRestService::
 HttpRestService()
     : eventLoop(new EventLoop()),
-      threadPool(new AsioThreadPool(*eventLoop)),
       httpEndpoint(new HttpRestEndpoint(*eventLoop))
 {
 }
@@ -256,8 +255,6 @@ shutdown()
     // 1.  Shut down the http endpoint, since it needs our threads to
     //     complete its shutdown
     httpEndpoint->shutdown();
-
-    threadPool->shutdown();
 }
 
 void
@@ -272,10 +269,19 @@ init()
                const std::string & payload)
         {
             std::string requestId = this->getHttpRequestId();
-            HttpRestConnection restConnection(connection, requestId, this);
+            HttpRestConnection restConnection(connection,
+                                              std::move(requestId), this);
             this->doHandleRequest(restConnection,
                                   RestRequest(header, payload));
         };
+}
+
+void
+HttpRestService::
+ensureThreads(int numThreads)
+{
+    ExcAssert(httpEndpoint != nullptr);
+    httpEndpoint->ensureThreads(numThreads);
 }
 
 std::string
@@ -321,9 +327,14 @@ std::string
 HttpRestService::
 getHttpRequestId() const
 {
-    std::string s = Date::now().print(9) + ML::format("%d", random());
-    uint64_t jobId = CityHash64(s.c_str(), s.size());
-    return ML::format("%016llx", jobId);
+    union {
+        char string[sizeof(long int)];
+        long int rnd;
+    } requestId;
+    requestId.rnd = random();
+    // std::string s = Date::now().print(9) + ML::format("%d", random());
+    auto jobId = CityHash64(requestId.string, sizeof(long int));
+    return to_string(jobId);
 }
 
 void
