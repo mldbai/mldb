@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <boost/asio/io_service.hpp>
 #include "mldb/http/event_loop.h"
 
@@ -18,6 +19,11 @@ namespace Datacratic {
 /****************************************************************************/
 
 struct EventLoopImpl {
+    EventLoopImpl()
+        : returned_(false)
+    {
+    }
+
     boost::asio::io_service & ioService()
     {
         return ioService_;
@@ -32,6 +38,7 @@ struct EventLoopImpl {
     }
 
 private:
+    std::atomic<int> returned_;
     std::unique_ptr<boost::asio::io_service::work> work_;
     boost::asio::io_service ioService_;
 };
