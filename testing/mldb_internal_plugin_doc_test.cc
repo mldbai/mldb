@@ -10,7 +10,6 @@
 #include "mldb/server/plugin_collection.h"
 #include "mldb/http/http_rest_proxy.h"
 #include "mldb/server/plugin_resource.h"
-#include <boost/algorithm/string/trim.hpp>
 
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
@@ -46,7 +45,7 @@ BOOST_AUTO_TEST_CASE( test_plugin_loading )
                                  {}, {}, -1, true, nullptr, nullptr, true /* redirect */);
             string error;
             if (doc.code() != 200) {
-                error = boost::algorithm::trim_copy(doc.body());
+                error = ML::trim(doc.body());
             }
             //BOOST_CHECK_EQUAL(doc.code(), 200);
             BOOST_CHECK_EQUAL(error, "");
