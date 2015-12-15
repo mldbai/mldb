@@ -36,9 +36,6 @@ def create_ds(name, rowName):
     })
     assert res['statusCode'] == 201, str(res)
 
-    res = mldb.perform('GET', '/v1/query', [['q', 'SELECT * FROM ' + name + 'rows']])
-    mldb.log(res)
-
 def run_query(ds_name):
     mldb.log("Running query on " + ds_name)
     query = ('SELECT * FROM {} WHERE colA IS NULL AND colB IS NOT NULL'
