@@ -221,7 +221,11 @@ if (trainClassifier) {
     var trainClassifierProcedureConfig = {
         type: "classifier.train",
         params: {
-            trainingDataset: { id: "cls_training" },
+            trainingData: { 
+                where: "rowHash() % 2 = 1",
+                select: "{* EXCLUDING (label)} as features, label > 4 as label",
+                from: "cls_training" 
+            },
             configuration: {
                 "bbdt": {
                     type: "bagging",
@@ -244,9 +248,6 @@ if (trainClassifier) {
             },
             algorithm: "bbdt",
             modelFileUrl: "file://tmp/mnist.cls",
-            where: "rowHash() % 2 = 1",
-            select: "* EXCLUDING (label)",
-            label: "label > 4",
             weight: "1.0"
         }
     };
@@ -269,11 +270,9 @@ if (testClassifier) {
     var testClassifierProcedureConfig = {
         type: "classifier.test",
         params: {
-            testingDataset: { id: "cls_training" },
+            testingData: "select {*} as features, label > 4 as label from cls_training where rowHash() % 2 = 0",
             outputDataset: { id: "cls_test_results", type: "beh.mutable" },
             score: "APPLY FUNCTION { 'type': 'classifier', 'params': { 'modelFileUrl': 'file://mnist.cls'}} WITH (* EXCLUDING (LABEL)) EXTRACT (score)",
-            where: "rowHash() % 2 = 0",
-            label: "label > 4",
             weight: "1.0"
         }
     };

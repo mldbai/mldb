@@ -81,19 +81,6 @@ BOOST_AUTO_TEST_CASE( test_goog64_id )
     checkSerializeReconstitute(id);
 }
 
-/* ensures that the upper 64 bits of val are equal to val2 and the lower ones
- * to val1 */
-BOOST_AUTO_TEST_CASE( test_int128_64_union_alignment )
-{
-    Id id;
-
-    id.val = 0x0123456789abcdefLL;
-    id.val <<= 64;
-    id.val |= 0x1122334455667788;
-    BOOST_CHECK_EQUAL(id.val1, 0x1122334455667788);
-    BOOST_CHECK_EQUAL(id.val2, 0x0123456789abcdef);
-}
-
 BOOST_AUTO_TEST_CASE( test_bigdec_id )
 {
     string s = "999999999999";
@@ -192,19 +179,22 @@ BOOST_AUTO_TEST_CASE( test_id_basics )
 {
     Id id1("++++++++++++++++");
     BOOST_CHECK_EQUAL(id1.type, Id::BASE64_96);
-    BOOST_CHECK(id1.val == 0);
+    BOOST_CHECK(id1.val1 == 0);
+    BOOST_CHECK(id1.val2 == 0);
 
     Id id2("+++++++++++++++/");
     BOOST_CHECK_EQUAL(id2.type, Id::BASE64_96);
-    BOOST_CHECK(id2.val == 1);
+    BOOST_CHECK(id2.val1 == 1);
+    BOOST_CHECK(id1.val2 == 0);
 
     Id id3("+++++++++++++++0");
     BOOST_CHECK_EQUAL(id3.type, Id::BASE64_96);
-    BOOST_CHECK(id3.val == 2);
+    BOOST_CHECK(id3.val1 == 2);
+    BOOST_CHECK(id1.val2 == 0);
 
     Id id4("++++/+++++++++++");
     BOOST_CHECK_EQUAL(id4.type, Id::BASE64_96);
-    BOOST_CHECK(id4.val == __uint128_t(1) << (11 * 6));
+    BOOST_CHECK(id4.val2 == 1ULL << (11 * 6 - 64));
     BOOST_CHECK_LT(id3, id4);
 
     BOOST_CHECK_EQUAL(id1.toString().size(), id1.toStringLength());

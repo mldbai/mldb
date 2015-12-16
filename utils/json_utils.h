@@ -1,9 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** json_utils.h                                                   -*- C++ -*-
     Jeremy Barnes, 10 November 2013
     Copyright (c) 2013 Datacratic Inc.  All rights reserved.
 
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #pragma once
@@ -19,13 +18,10 @@ std::string jsonPrintAbbreviated(const Json::Value & val,
                                  int maxCharsPerItem = 100,
                                  int maxCharsOverall = -1);
 
-typedef __int128_t int128_t;
-
 /** Type used for the seed of a hash. */
 union HashSeed {
     char b[16];
     int64_t i64[2];
-    __int128_t i128;
 };
 
 /** Hash seed used by default for hashes that need to be stable over
