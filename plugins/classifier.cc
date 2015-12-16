@@ -217,14 +217,6 @@ run(const ProcedureRunConfig & run,
         
         auto selectBound = select.bind(context);
 
-        // for (auto & parentColumn : selectBound.info->getKnownColumns()) {
-        //     if (parentColumn.columnName == ColumnName("features")) {
-        //         for (auto & c : parentColumn.valueInfo->getKnownColumns()) {
-        //             knownInputColumns.insert(c.columnName);
-        //         }
-        //     }
-        // }
-
         for (auto & c : selectBound.info->getKnownColumns()) {
             knownInputColumns.insert(c.columnName);
         }
