@@ -482,7 +482,7 @@ template<typename FieldType> struct PlainColumnSelect
             };
 
         if (query.stm) {
-            auto select = query.stm->select;
+            auto & select = query.stm->select;
             for (const auto & clause : select.clauses) {
                 //std::cerr << clause->surface << std::endl;
                 auto wildcard = getWildcard(clause);
@@ -539,7 +539,7 @@ template<typename FieldType> struct FeaturesLabelSelect
             };
 
         if (query.stm) {
-            auto select = query.stm->select;
+            auto & select = query.stm->select;
             bool foundFeatures = false;
             bool foundLabel = false;
             for (const auto & clause : select.clauses) {

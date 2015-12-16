@@ -185,9 +185,8 @@ run(const ProcedureRunConfig & run,
         {
             for (const auto & clause : select.clauses) {
                 auto computedVariable = std::dynamic_pointer_cast<const ComputedVariable>(clause);
-                if (computedVariable)
-                    if (computedVariable->alias == name)
-                        return computedVariable->expression;
+                if (computedVariable && computedVariable->alias == name)
+                    return computedVariable->expression;
             }
             return nullptr;
         };
