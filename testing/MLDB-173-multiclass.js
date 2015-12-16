@@ -44,7 +44,7 @@ var modelFileUrl = "file://tmp/MLDB-173.cls";
 var trainClassifierProcedureConfig = {
     type: "classifier.train",
     params: {
-        trainingData: "select {{x,y} as features}, label from test",
+        trainingData: "select {x,y} as features, label from test",
         configuration: {
             glz: {
                 type: "glz",
