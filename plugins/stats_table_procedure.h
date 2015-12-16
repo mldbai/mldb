@@ -191,11 +191,11 @@ struct StatsTableDerivedColumnsGeneratorProcedure: public Procedure {
 
 
 /*****************************************************************************/
-/* POS NEG PROCEDURE CONFIG                                                  */
+/* BOW STATS TABLE PROCEDURE CONFIG                                          */
 /*****************************************************************************/
 
-struct PosNegProcedureConfig {
-    PosNegProcedureConfig() :
+struct BagOfWordsStatsTableProcedureConfig {
+    BagOfWordsStatsTableProcedureConfig() :
           select("*"),
           when(WhenExpression::TRUE),
           where(SqlExpression::TRUE)
@@ -223,16 +223,16 @@ struct PosNegProcedureConfig {
     Utf8String functionName;
 };
 
-DECLARE_STRUCTURE_DESCRIPTION(PosNegProcedureConfig);
+DECLARE_STRUCTURE_DESCRIPTION(BagOfWordsStatsTableProcedureConfig);
 
 
 /*****************************************************************************/
-/* POS NEG PROCEDURE                                                         */
+/* BOW STATS TABLE PROCEDURE                                                 */
 /*****************************************************************************/
     
-struct PosNegProcedure: public Procedure {
+struct BagOfWordsStatsTableProcedure: public Procedure {
 
-    PosNegProcedure(MldbServer * owner,
+    BagOfWordsStatsTableProcedure(MldbServer * owner,
                 PolyConfig config,
                 const std::function<bool (const Json::Value &)> & onProgress);
 
@@ -246,11 +246,11 @@ struct PosNegProcedure: public Procedure {
 
 
 /*****************************************************************************/
-/* POS NEG FUNCTION                                                          */
+/* STATS TABLE POS NEG FUNCTION                                              */
 /*****************************************************************************/
 
-struct PosNegFunctionConfig {
-    PosNegFunctionConfig(const Url & statsTableFileUrl = Url()) :
+struct StatsTablePosNegFunctionConfig {
+    StatsTablePosNegFunctionConfig(const Url & statsTableFileUrl = Url()) :
         numPos(50), numNeg(50), minTrials(50),
         statsTableFileUrl(statsTableFileUrl)
     {
@@ -265,14 +265,14 @@ struct PosNegFunctionConfig {
     Url statsTableFileUrl;
 };
 
-DECLARE_STRUCTURE_DESCRIPTION(PosNegFunctionConfig);
+DECLARE_STRUCTURE_DESCRIPTION(StatsTablePosNegFunctionConfig);
 
-struct PosNegFunction: public Function {
-    PosNegFunction(MldbServer * owner,
+struct StatsTablePosNegFunction: public Function {
+    StatsTablePosNegFunction(MldbServer * owner,
                   PolyConfig config,
                   const std::function<bool (const Json::Value &)> & onProgress);
 
-    ~PosNegFunction();
+    ~StatsTablePosNegFunction();
 
     virtual Any getStatus() const;
 
@@ -284,7 +284,7 @@ struct PosNegFunction: public Function {
     /** Describe what the input and output is for this function. */
     virtual FunctionInfo getFunctionInfo() const;
 
-    PosNegFunctionConfig functionConfig;
+    StatsTablePosNegFunctionConfig functionConfig;
 
 
     std::map<Utf8String, float> p_outcomes;

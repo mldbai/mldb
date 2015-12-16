@@ -160,7 +160,7 @@ assertValForCol(jsRez[0]["columns"], "hoho_host", math.log(3))
 
 
 ######
-# PosNeg Test
+# BagOfWordsStatsTable Test
 
 dataset_config = {
     'type'    : 'sparse.mutable',
@@ -179,7 +179,7 @@ dataset.commit()
 
 
 conf = {
-    "type": "posneg.train",
+    "type": "experimental.bagOfWordStatsTable.train",
     "params": {
         "trainingDataset": "posneg",
         "select": "tokenize(text, {splitchars: ' '}) as *",
@@ -194,7 +194,7 @@ mldb.log(rez)
 
 
 conf = {
-    "type": "posneg.apply",
+    "type": "experimental.bagOfWordStatsTable.posneg",
     "params": {
         "numPos": 4,
         "numNeg": 4,

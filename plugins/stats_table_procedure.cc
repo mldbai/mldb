@@ -548,47 +548,47 @@ run(const ProcedureRunConfig & run,
 
 
 /*****************************************************************************/
-/* POS NEG PROCEDURE CONFIG                                              */
+/* BAG OF WORDS STATS TABLE PROCEDURE CONFIG                                 */
 /*****************************************************************************/
 
-DEFINE_STRUCTURE_DESCRIPTION(PosNegProcedureConfig);
+DEFINE_STRUCTURE_DESCRIPTION(BagOfWordsStatsTableProcedureConfig);
 
-PosNegProcedureConfigDescription::
-PosNegProcedureConfigDescription()
+BagOfWordsStatsTableProcedureConfigDescription::
+BagOfWordsStatsTableProcedureConfigDescription()
 {
-    addFieldDesc("trainingDataset", &PosNegProcedureConfig::dataset,
+    addFieldDesc("trainingDataset", &BagOfWordsStatsTableProcedureConfig::dataset,
                  "Dataset on which the rolling operations will be performed.",
                  makeInputDatasetDescription());
-    addField("select", &PosNegProcedureConfig::select,
+    addField("select", &BagOfWordsStatsTableProcedureConfig::select,
              "Select these columns (default all columns).  Only plain "
              "column names may be "
              "used; it is not possible to select on an expression (like x + 1)",
              SelectExpression::STAR);
-    addField("where", &PosNegProcedureConfig::where,
+    addField("where", &BagOfWordsStatsTableProcedureConfig::where,
              "Only use rows matching this clause (default all rows)",
              SqlExpression::TRUE);
-    addField("when", &PosNegProcedureConfig::when,
+    addField("when", &BagOfWordsStatsTableProcedureConfig::when,
              "Only use values matching this timestamp expression (default all values)",
              WhenExpression::TRUE);
-    addField("orderBy", &PosNegProcedureConfig::orderBy,
+    addField("orderBy", &BagOfWordsStatsTableProcedureConfig::orderBy,
              "Process rows in this order. This is extermely important because "
              "each row's counts will be influenced by rows that came before it.",
              OrderByExpression::ROWHASH);
-    addField("outcomes", &PosNegProcedureConfig::outcomes,
+    addField("outcomes", &BagOfWordsStatsTableProcedureConfig::outcomes,
              "List of expressions to generate the outcomes. Each can be any expression "
              "involving the columns in the dataset. The type of the outcomes "
              "must be a boolean (0 or 1)");
-    addField("statsTableFileUrl", &PosNegProcedureConfig::statsTableFileUrl,
+    addField("statsTableFileUrl", &BagOfWordsStatsTableProcedureConfig::statsTableFileUrl,
              "URL where the stats table file (with extension '.st') should be saved. "
              "This file can be loaded by a function of type 'posneg.apply'.");
 }
 
-/*****************************************************************************
- * POS NEG PROCEDURE                                                         */
+/*****************************************************************************/
+/* BOW STATS TABLE PROCEDURE                                                 */
 /*****************************************************************************/
 
-PosNegProcedure::
-PosNegProcedure(MldbServer * owner,
+BagOfWordsStatsTableProcedure::
+BagOfWordsStatsTableProcedure(MldbServer * owner,
             PolyConfig config,
             const std::function<bool (const Json::Value &)> & onProgress)
     : Procedure(owner)
@@ -597,14 +597,14 @@ PosNegProcedure(MldbServer * owner,
 }
 
 Any
-PosNegProcedure::
+BagOfWordsStatsTableProcedure::
 getStatus() const
 {
     return Any();
 }
 
 RunOutput
-PosNegProcedure::
+BagOfWordsStatsTableProcedure::
 run(const ProcedureRunConfig & run,
       const std::function<bool (const Json::Value &)> & onProgress) const
 {
@@ -681,36 +681,36 @@ run(const ProcedureRunConfig & run,
 
 
 /*****************************************************************************/
-/* POS NEG FUNCTION                                                          */
+/* STATS TABLE POS NEG FUNCTION                                              */
 /*****************************************************************************/
 
-DEFINE_STRUCTURE_DESCRIPTION(PosNegFunctionConfig);
+DEFINE_STRUCTURE_DESCRIPTION(StatsTablePosNegFunctionConfig);
 
-PosNegFunctionConfigDescription::
-PosNegFunctionConfigDescription()
+StatsTablePosNegFunctionConfigDescription::
+StatsTablePosNegFunctionConfigDescription()
 {
-    addField("numPos", &PosNegFunctionConfig::numPos,
+    addField("numPos", &StatsTablePosNegFunctionConfig::numPos,
             "Number of top positive words to use");//, ssize_t(50));
-    addField("numNeg", &PosNegFunctionConfig::numNeg,
+    addField("numNeg", &StatsTablePosNegFunctionConfig::numNeg,
             "Number of top negative words to use");//, ssize_t(50));
-    addField("minTrials", &PosNegFunctionConfig::minTrials,
-            "Minimum number of occurences (trials) a words needs to have "
-            "to be considered in the top words");//, ssize_t(50));
-    addField("outcomeToUse", &PosNegFunctionConfig::outcomeToUse,
+    addField("minTrials", &StatsTablePosNegFunctionConfig::minTrials,
+            "Minimum number of trials a words needs to have "
+            "to be considered");//, ssize_t(50));
+    addField("outcomeToUse", &StatsTablePosNegFunctionConfig::outcomeToUse,
             "Outcome to use. This must be one of the outcomes the stats "
             "table was trained with.");
-    addField("statsTableFileUrl", &PosNegFunctionConfig::statsTableFileUrl,
+    addField("statsTableFileUrl", &StatsTablePosNegFunctionConfig::statsTableFileUrl,
              "URL of the stats tables file (with extension '.st') to load. "
              "This file is created by a procedure of type 'experimental.statsTable.train'.");
 }
 
-PosNegFunction::
-PosNegFunction(MldbServer * owner,
+StatsTablePosNegFunction::
+StatsTablePosNegFunction(MldbServer * owner,
                PolyConfig config,
                const std::function<bool (const Json::Value &)> & onProgress)
     : Function(owner)
 {
-    functionConfig = config.params.convert<PosNegFunctionConfig>();
+    functionConfig = config.params.convert<StatsTablePosNegFunctionConfig>();
 
     StatsTable statsTable;
 
@@ -767,13 +767,13 @@ PosNegFunction(MldbServer * owner,
     }
 }
 
-PosNegFunction::
-~PosNegFunction()
+StatsTablePosNegFunction::
+~StatsTablePosNegFunction()
 {
 }
 
 Any
-PosNegFunction::
+StatsTablePosNegFunction::
 getStatus() const
 {
     Json::Value result;
@@ -781,14 +781,14 @@ getStatus() const
 }
 
 Any
-PosNegFunction::
+StatsTablePosNegFunction::
 getDetails() const
 {
     return Any();
 }
 
 FunctionOutput
-PosNegFunction::
+StatsTablePosNegFunction::
 apply(const FunctionApplier & applier,
       const FunctionContext & context) const
 {
@@ -845,7 +845,7 @@ apply(const FunctionApplier & applier,
 }
 
 FunctionInfo
-PosNegFunction::
+StatsTablePosNegFunction::
 getFunctionInfo() const
 {
     FunctionInfo result;
@@ -874,8 +874,8 @@ RegisterProcedureType<StatsTableDerivedColumnsGeneratorProcedure,
                       StatsTableDerivedColumnsGeneratorProcedureConfig>
 regSTDerColGenProc(builtinPackage(),
                    "experimental.statsTable.derivedColumnsGenerator",
-                   "Generate an sql.expression function to be used to compute derived statistics "
-                   "from a stats table",
+                   "Generate an sql.expression function to be used to compute "
+                   "derived statistics from a stats table",
                    "procedures/StatsTableDerivedColumnsGeneratorProcedure.md.html",
                    nullptr,
                    { MldbEntity::INTERNAL_ENTITY });
@@ -889,19 +889,20 @@ regSTTrain(builtinPackage(),
            { MldbEntity::INTERNAL_ENTITY });
 
 
-RegisterProcedureType<PosNegProcedure, PosNegProcedureConfig>
+RegisterProcedureType<BagOfWordsStatsTableProcedure,
+                      BagOfWordsStatsTableProcedureConfig>
 regPosNegTrain(builtinPackage(),
-           "posneg.train",
-           "Create statistical tables of trials against outcomes",
-           "procedures/PosNegProcedure.md.html",
+           "experimental.bagOfWordStatsTable.train",
+           "Create statistical tables of trials against outcomes for bag of words",
+           "procedures/BagOfWordsStatsTableProcedure.md.html",
            nullptr,
            { MldbEntity::INTERNAL_ENTITY });
 
-RegisterFunctionType<PosNegFunction, PosNegFunctionConfig>
+RegisterFunctionType<StatsTablePosNegFunction, StatsTablePosNegFunctionConfig>
 regPosNegFunction(builtinPackage(),
-                    "posneg.apply",
+                    "experimental.bagOfWordStatsTable.posneg",
                     "Get the pos/neg p(outcome)",
-                    "functions/PosNegApply.md.html",
+                    "functions/BagOfWordsStatsTablePosNeg.md.html",
                     nullptr,
                     { MldbEntity::INTERNAL_ENTITY });
 
