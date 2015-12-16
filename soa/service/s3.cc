@@ -289,7 +289,7 @@ performSync() const
         size_t received(0);
 
         auto connection = owner->proxy.getConnection();
-        CurlWrapper::Easy & myRequest = *connection;
+        CurlWrapper::Easy & myRequest = (CurlWrapper::Easy &)(*connection);
         myRequest.reset();
 
 
