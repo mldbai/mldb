@@ -28,6 +28,7 @@ export VIRTUALENV
 default: all
 .PHONY: default
 
+PWD     := $(shell pwd)
 BUILD   ?= build
 ARCH    ?= $(shell uname -m)
 OBJ     := $(BUILD)/$(ARCH)/obj
@@ -38,6 +39,13 @@ TMPBIN	:= $(BUILD)/$(ARCH)/tmp
 INC     := $(BUILD)/$(ARCH)/include
 SRC     := .
 TMP     ?= $(BUILD)/$(ARCH)/tmp
+
+# These are for cross-compilation, where binaries used in the build need
+# be be built for the host.
+HOSTARCH ?= $(ARCH)
+HOSTBIN ?= $(BUILD)/$(HOSTARCH)/bin
+HOSTLIB ?= $(BUILD)/$(HOSTARCH)/lib
+
 TEST_TMP := $(TESTS)
 # Vars for configuration files or files that live outside bin and lib
 ALTROOT := $(BUILD)/$(ARCH)/altroot

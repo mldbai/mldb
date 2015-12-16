@@ -1,3 +1,9 @@
 [submodule "baseimage-docker"]
 	path = baseimage-docker
 	url = git@github.com:datacratic/baseimage-docker.git
+[submodule "ext/tensorflow"]
+	path = ext/tensorflow
+	url = https://github.com/tensorflow/tensorflow
+[submodule "ext/re2"]
+	path = ext/re2
+	url = https://github.com/google/re2.git
