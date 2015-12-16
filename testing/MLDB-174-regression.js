@@ -31,7 +31,7 @@ var trainClassifierProcedureConfig = {
     type: "classifier.train",
     params: {
         trainingData: { 
-            select: "x",
+            select: "{x} as features, y as label",
             from: { id: "test" }
         },
         configuration: {
@@ -45,7 +45,6 @@ var trainClassifierProcedureConfig = {
         },
         algorithm: "glz",
         modelFileUrl: modelFileUrl,
-        label: "y",
         weight: "1",
         equalizationFactor: 0.0,
         mode: "regression"
