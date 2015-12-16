@@ -77,7 +77,7 @@ TsneConfigDescription()
              "created using the trained model.");
     addParent<ProcedureConfig>();
 
-    onPostValidate = validate<TsneConfig, NoGroupByHaving>("tsne");
+    onPostValidate = validate<TsneConfig, InputQuery, NoGroupByHaving>(&TsneConfig::trainingData, "tsne");
 }
 
 
