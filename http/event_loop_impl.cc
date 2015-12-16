@@ -5,8 +5,6 @@
    Copyright (c) 2015 Datacratic.  All rights reserved.
 */
 
-#include <iostream>
-#include "mldb/arch/futex.h"
 #include "mldb/http/event_loop.h"
 #include "event_loop_impl.h"
 
@@ -23,11 +21,8 @@ void
 EventLoopImpl::
 run()
 {
-    returned_ = false;
     work_.reset(new asio::io_service::work(ioService_));
     ioService_.run();
-    returned_ = true;
-    ML::futex_wake(returned_);
 }
 
 void
@@ -39,8 +34,5 @@ terminate()
     };
     ioService_.post(clearFn);
     ioService_.stop();
-    while (!returned_) {
-        ML::futex_wait(returned_, false);
-    }
     ioService_.reset();
 }

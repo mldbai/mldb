@@ -31,7 +31,7 @@ namespace Datacratic {
 */
 struct RestServiceEndpoint {
     RestServiceEndpoint()
-        : httpEndpoint(eventLoop)
+        : threadPool(eventLoop), httpEndpoint(eventLoop)
     {
     }
 
@@ -231,6 +231,7 @@ struct RestServiceEndpoint {
     void logToStream(std::ostream & stream);
 
     EventLoop eventLoop;
+    AsioThreadPool threadPool;
     HttpRestEndpoint httpEndpoint;
 };
 

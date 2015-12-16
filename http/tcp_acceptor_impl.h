@@ -14,7 +14,6 @@
 #include <vector>
 
 #include <boost/asio/ip/tcp.hpp>
-#include "mldb/http/asio_thread_pool.h"
 #include "mldb/http/tcp_acceptor.h"
 
 
@@ -36,11 +35,6 @@ struct TcpSocketImpl;
 struct TcpAcceptorImpl {
     TcpAcceptorImpl(EventLoop & parentLoop, TcpAcceptor & frontAcceptor);
     virtual ~TcpAcceptorImpl();
-
-    void ensureThreads(int numThreads)
-    {
-        threadPool_.ensureThreads(numThreads);
-    }
 
     /* Starts listening on the first available of the given ports (in
      * ascending order) and interface. */
@@ -90,9 +84,9 @@ private:
     EventLoop & eventLoop_;
     TcpAcceptor & frontAcceptor_;
 
-    AsioThreadPool threadPool_;
     Endpoint v4Endpoint_;
     Endpoint v6Endpoint_;
+    int acceptCnt_;
 };
 
 } // namespace Datacratic

@@ -42,10 +42,10 @@ struct HttpRestConnection: public RestConnection {
         
     /// Initialize for http
     HttpRestConnection(std::shared_ptr<HttpRestEndpoint::RestConnectionHandler> http,
-                       std::string requestId,
+                       const std::string & requestId,
                        HttpRestService * endpoint)
         : http(http),
-          requestId(std::move(requestId)),
+          requestId(requestId),
           endpoint(endpoint),
           responseSent_(false),
           startDate(Date::now()),
@@ -152,7 +152,6 @@ struct HttpRestService {
     void shutdown();
 
     void init();
-    void ensureThreads(int numThreads);
 
     /** Bind to TCP/IP port */
     std::string bindTcp(PortRange const & httpRange = PortRange(),
@@ -201,7 +200,8 @@ struct HttpRestService {
     */
     void logToStream(std::ostream & stream);
 
-    AsioThreadPool listeningPool;
+    std::unique_ptr<EventLoop> eventLoop;
+    std::unique_ptr<AsioThreadPool> threadPool;
     std::unique_ptr<HttpRestEndpoint> httpEndpoint;
 };
 

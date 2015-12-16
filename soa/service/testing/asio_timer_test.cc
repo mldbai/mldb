@@ -28,16 +28,16 @@ using namespace Datacratic;
 // deadlock
 BOOST_AUTO_TEST_CASE( test_destroy_from_handler_no_deadlock )
 {
-    AsioThreadPool threads;
-    threads.ensureThreads(4);
-    getTimer(Date::now().plusSeconds(0.1), -1, threads.nextLoop()).wait();
+    EventLoop eventLoop;
+    AsioThreadPool threads(eventLoop, 4 /* threads */);
+    getTimer(Date::now().plusSeconds(0.1), -1, eventLoop).wait();
 
     std::atomic<int> numFired(0);
 
     // Make sure the test bombs if there is a deadlock rather than hanging
     ML::Watchdog watchdog(5);
 
-    auto timer = getTimer(Date::now().plusSeconds(0.01), -1, threads.nextLoop());
+    auto timer = getTimer(Date::now().plusSeconds(0.01), -1, eventLoop);
     timer.bind([&] (Date now) {  timer = WatchT<Date>();  ++numFired;  });
 
     for (int i = 0;  i < 10 && numFired == 0;  ++i) {
@@ -49,16 +49,16 @@ BOOST_AUTO_TEST_CASE( test_destroy_from_handler_no_deadlock )
 
 BOOST_AUTO_TEST_CASE( test_rapid_creation_destruction_1 )
 {
-    AsioThreadPool threads;
-    threads.ensureThreads(4);
-    getTimer(Date::now().plusSeconds(0.1), -1, threads.nextLoop()).wait();
+    EventLoop eventLoop;
+    AsioThreadPool threads(eventLoop, 4 /* min threads */);
+    getTimer(Date::now().plusSeconds(0.1), -1, eventLoop).wait();
 
     Date future = Date::now().plusSeconds(1);
 
     std::atomic<int> numFired(0);
 
     for (unsigned i = 0;  i < 10000;  ++i) {
-        auto timer = getTimer(future, -1, threads.nextLoop());
+        auto timer = getTimer(future, -1, eventLoop);
         timer.bind([&] (Date now) { ++numFired; });
         // now let it die
     }
@@ -68,16 +68,16 @@ BOOST_AUTO_TEST_CASE( test_rapid_creation_destruction_1 )
 
 BOOST_AUTO_TEST_CASE( test_rapid_creation_destruction_2 )
 {
-    AsioThreadPool threads;
-    threads.ensureThreads(4);
-    getTimer(Date::now().plusSeconds(0.1), -1, threads.nextLoop()).wait();
+    EventLoop eventLoop;
+    AsioThreadPool threads(eventLoop, 4 /* min threads */);
+    getTimer(Date::now().plusSeconds(0.1), -1, eventLoop).wait();
 
     Date past = Date::now();
 
     std::atomic<int> numFired(0);
 
     for (unsigned i = 0;  i < 10000;  ++i) {
-        auto timer = getTimer(past, 1.0, threads.nextLoop());
+        auto timer = getTimer(past, 1.0, eventLoop);
         timer.bind([&] (Date now) { ++numFired; });
         // Again, let it die
     }
@@ -88,16 +88,16 @@ BOOST_AUTO_TEST_CASE( test_rapid_creation_destruction_2 )
 // Try to find a race condition between firing and destroying
 BOOST_AUTO_TEST_CASE( test_rapid_creation_destruction_3 )
 {
-    AsioThreadPool threads;
-    threads.ensureThreads(4);
-    getTimer(Date::now().plusSeconds(0.1), -1, threads.nextLoop()).wait();
+    EventLoop eventLoop;
+    AsioThreadPool threads(eventLoop, 4 /* threads */);
+    getTimer(Date::now().plusSeconds(0.1), -1, eventLoop).wait();
 
     std::atomic<int> numFired(0);
 
     for (unsigned i = 0;  i < 1000;  ++i) {
-        auto timer = getTimer(Date::now().plusSeconds(0.00001), 0.1, threads.nextLoop());
+        auto timer = getTimer(Date::now().plusSeconds(0.00001), 0.1, eventLoop);
         timer.bind([&] (Date now) { ++numFired; });
-        getTimer(Date::now().plusSeconds(0.000001), -0.1, threads.nextLoop()).wait();
+        getTimer(Date::now().plusSeconds(0.000001), -0.1, eventLoop).wait();
         //std::this_thread::yield();
         //timer.wait();
         // Again, let it die
@@ -109,20 +109,20 @@ BOOST_AUTO_TEST_CASE( test_rapid_creation_destruction_3 )
 // Disarm from a different thread whilst it's firing
 BOOST_AUTO_TEST_CASE( test_rapid_creation_destruction_4 )
 {
-    AsioThreadPool threads;
-    threads.ensureThreads(4);
-    getTimer(Date::now().plusSeconds(0.1), -1, threads.nextLoop()).wait();
+    EventLoop eventLoop;
+    AsioThreadPool threads(eventLoop, 4 /* threads */);
+    getTimer(Date::now().plusSeconds(0.1), -1, eventLoop).wait();
 
     std::atomic<int> numFired(0);
 
     for (unsigned i = 0;  i < 100;  ++i) {
         auto timer = getTimer(Date::now().plusSeconds(0.00001), 0.00001,
-                              threads.nextLoop());
+                              eventLoop);
         timer.bind([&] (Date now) { ++numFired; });
         
         std::atomic<bool> done(false);
         
-        auto fn = [&] () { getTimer(Date::now().plusSeconds(0.0001), -1, threads.nextLoop()).wait();  timer = WatchT<Date>();  done = true; };
+        auto fn = [&] () { getTimer(Date::now().plusSeconds(0.0001), -1, eventLoop).wait();  timer = WatchT<Date>();  done = true; };
         std::thread t(fn);
         t.join();
     }

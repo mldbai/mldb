@@ -254,7 +254,7 @@ shutdown()
     httpEndpoint.shutdown();
 
     // 2.  Shut down the thread pool
-    eventLoop.terminate();
+    threadPool.shutdown();
 }
 
 void

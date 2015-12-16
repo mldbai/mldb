@@ -5,7 +5,6 @@
    Copyright (c) 2015 Datacratic.  All rights reserved.
 */
 
-#include <iostream>
 #include "event_loop_impl.h"
 #include "event_loop.h"
 

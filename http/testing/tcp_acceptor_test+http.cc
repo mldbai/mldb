@@ -69,15 +69,15 @@ handleHttpPayload(const HttpHeader & header,
 /* Test simple random request */
 BOOST_AUTO_TEST_CASE( tcp_acceptor_http_test )
 {
-    AsioThreadPool pool;
-    pool.ensureThreads(1);
+    EventLoop loop;
+    AsioThreadPool pool(loop);
 
     auto onNewConnection = [&] (TcpSocket && socket) {
         return std::make_shared<MyHandler>(std::move(socket));
     };
 
-    TcpAcceptor acceptor(pool.nextLoop(), onNewConnection);
-    acceptor.ensureThreads(1);
+    TcpAcceptor acceptor(loop, onNewConnection);
+    // acceptor.spinup(concurrency);
     acceptor.listen(0, "localhost");
 
     cerr << ("service accepting connections on port "
@@ -90,23 +90,21 @@ BOOST_AUTO_TEST_CASE( tcp_acceptor_http_test )
     auto resp = proxy.get("/v1/ping");
     BOOST_REQUIRE_EQUAL(resp.code(), 200);
 
-    cerr << "shutting down acceptor\n";
+    pool.shutdown();
 }
 
 
 /* Test request and close the socket before the response */
 BOOST_AUTO_TEST_CASE( tcp_acceptor_http_disconnect_test )
 {
-    AsioThreadPool pool;
-    pool.ensureThreads(1);
+    EventLoop loop;
+    AsioThreadPool pool(loop);
 
     auto onNewConnection = [&] (TcpSocket && socket) {
         return std::make_shared<MyHandler>(std::move(socket));
     };
 
-    auto & loop = pool.nextLoop();
     TcpAcceptor acceptor(loop, onNewConnection);
-    acceptor.ensureThreads(1);
     acceptor.listen(0, "localhost");
 
     auto address = asio::ip::address::from_string("127.0.0.1");
@@ -124,4 +122,6 @@ BOOST_AUTO_TEST_CASE( tcp_acceptor_http_disconnect_test )
         cerr << "sent\n";
     }
     ::sleep(1);
+
+    pool.shutdown();
 }

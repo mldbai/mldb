@@ -86,12 +86,10 @@ BOOST_AUTO_TEST_CASE( test_connection_overflow )
         return std::make_shared<TestHandler>(std::move(socket));
     };
     
-    AsioThreadPool threadPool;
-    threadPool.ensureThreads(1);
-    EventLoop & eventLoop = threadPool.nextLoop();
+    EventLoop eventLoop;
+    AsioThreadPool threadPool(eventLoop);
     TcpAcceptor acceptor(eventLoop, onMakeNewHandler);
 
-    acceptor.ensureThreads(1);
     acceptor.listen(0);
     int port = acceptor.effectiveTCPv4Port();
 

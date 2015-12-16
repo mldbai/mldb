@@ -40,13 +40,6 @@ TcpAcceptor::
 
 void
 TcpAcceptor::
-ensureThreads(int numThreads)
-{
-    impl_->ensureThreads(numThreads);
-}
-
-void
-TcpAcceptor::
 listen(const PortRange & portRange, const string & hostname, int backlog)
 {
     impl_->listen(portRange, hostname, backlog);

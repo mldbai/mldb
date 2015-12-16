@@ -206,7 +206,9 @@ runHttpQuery(const Utf8String& query,
              bool rowNames,
              bool rowHashes) const
 {
-    auto stm = SelectStatement::parse(query);
+    cerr << "running query " << query << endl;
+
+    auto stm = SelectStatement::parse(query.rawString());
     SqlExpressionMldbContext mldbContext(this);
 
     BoundTableExpression table = stm.from->bind(mldbContext);
@@ -295,23 +297,23 @@ initCollections(std::string configurationPath,
     procedures->loadConfig();
     functions->loadConfig();
 
-    // logRequest = [&] (const HttpRestConnection & conn, const RestRequest & req)
-    //     {
-    //         this->recordHit("rest.request.count");
-    //         this->recordHit("rest.request.verbs.%s", req.verb.c_str());
-    //     };
+    logRequest = [&] (const HttpRestConnection & conn, const RestRequest & req)
+        {
+            this->recordHit("rest.request.count");
+            this->recordHit("rest.request.verbs.%s", req.verb.c_str());
+        };
 
-    // logResponse = [&] (const HttpRestConnection & conn,
-    //                    int code,
-    //                    const std::string & resp,
-    //                    const std::string & contentType)
-    //     {
-    //         double processingTimeMs
-    //             = Date::now().secondsSince(conn.startDate) * 1000.0;
-    //         this->recordOutcome(processingTimeMs,
-    //                             "rest.response.processingTimeMs");
-    //         this->recordHit("rest.response.codes.%d", code);
-    //     };
+    logResponse = [&] (const HttpRestConnection & conn,
+                       int code,
+                       const std::string & resp,
+                       const std::string & contentType)
+        {
+            double processingTimeMs
+                = Date::now().secondsSince(conn.startDate) * 1000.0;
+            this->recordOutcome(processingTimeMs,
+                                "rest.response.processingTimeMs");
+            this->recordHit("rest.response.codes.%d", code);
+        };
 
     // Serve up static documentation for the plugins
     serveDocumentationDirectory(router, "/doc/builtin",

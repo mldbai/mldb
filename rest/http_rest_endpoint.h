@@ -36,7 +36,6 @@ struct HttpRestEndpoint {
     void allowAllOrigins();
 
     void init();
-    void ensureThreads(int numThreads);
     void shutdown();
     void closePeer();
 

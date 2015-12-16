@@ -25,6 +25,7 @@ namespace Datacratic {
 struct StandalonePeerServer::Impl {
     Impl(StandalonePeerServer * server)
         : server(server),
+          threads(eventLoop),
           shutdown_(false)
     {
         threads.ensureThreads(4);  // So connect and accept can happen

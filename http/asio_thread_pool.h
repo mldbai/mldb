@@ -28,7 +28,8 @@ struct EventLoop;
 */
 
 struct AsioThreadPool {
-    AsioThreadPool(double probeIntervalSeconds = 0.1);
+    AsioThreadPool(EventLoop & eventLoop,
+                   double probeIntervalSeconds = 0.1);
 
     ~AsioThreadPool();
 
@@ -47,8 +48,6 @@ struct AsioThreadPool {
     };
 
     WatchT<Stats> watchStats();
-
-    EventLoop & nextLoop();
 
 private:
     struct Impl;

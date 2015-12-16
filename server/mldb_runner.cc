@@ -95,7 +95,6 @@ int main(int argc, char ** argv)
     options_description script_options("Script options");
     options_description plugin_options("Plugin options");
 
-    int numThreads(1);
     // Defaults for operational characteristics
     string httpListenPort = "11700-18000";
     string httpListenHost = "0.0.0.0";
@@ -135,7 +134,6 @@ int main(int argc, char ** argv)
         ("etcd-path", value(&etcdPath),
          "Base path in etcd")
 #endif
-        ("num-threads,t", value(&numThreads), "Number of workers threads")
         ("http-listen-port,p",
          value(&httpListenPort)->default_value(httpListenPort),
          "Port to listen on for HTTP")
@@ -295,10 +293,10 @@ int main(int argc, char ** argv)
 
 
     MldbServer server("mldb", etcdUri, etcdPath);
+    
     bool hideInternalEntities = vm.count("hide-internal-entities");
 
     server.init(configurationPath, staticAssetsPath, staticDocPath, hideInternalEntities);
-    server.ensureThreads(numThreads);
 
     // Set up the SSD cache, if configured
     if (!cacheDir.empty()) {

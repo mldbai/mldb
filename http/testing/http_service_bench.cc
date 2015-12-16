@@ -87,15 +87,14 @@ main(int argc, char * argv[])
 
     ExcAssert(concurrency > 0);
 
-    AsioThreadPool pool;
-    pool.ensureThreads(1);
+    EventLoop loop;
+    AsioThreadPool pool(loop);
 
     auto onNewConnection = [&] (TcpSocket && socket) {
         return std::make_shared<MyHandler>(std::move(socket));
     };
 
-    TcpAcceptor acceptor(pool.nextLoop(), onNewConnection);
-    acceptor.ensureThreads(concurrency);
+    TcpAcceptor acceptor(loop, onNewConnection);
     acceptor.listen(port);
 
     cerr << ("service accepting connections on port "

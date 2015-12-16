@@ -86,7 +86,7 @@ int main(int argc, char ** argv)
     }
 
     service.init(configStore);
-    service.httpEndpoint.ensureThreads(1);
+
     service.httpEndpoint.allowAllOrigins();
     string uri = service.bindTcp(listenPortRange, listenHost);
     cout << "Credentials available on " << uri << endl;

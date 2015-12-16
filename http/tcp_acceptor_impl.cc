@@ -35,10 +35,13 @@ static asio::ip::tcp::resolver::iterator endIterator;
 /****************************************************************************/
 
 TcpAcceptorImpl::
-TcpAcceptorImpl(EventLoop & eventLoop, TcpAcceptor & frontAcceptor)
-    : eventLoop_(eventLoop), frontAcceptor_(frontAcceptor),
+TcpAcceptorImpl(EventLoop & eventLoop,
+                TcpAcceptor & frontAcceptor)
+    : eventLoop_(eventLoop),
+      frontAcceptor_(frontAcceptor),
       v4Endpoint_(eventLoop_.impl().ioService()),
-      v6Endpoint_(eventLoop_.impl().ioService())
+      v6Endpoint_(eventLoop_.impl().ioService()),
+      acceptCnt_(0)
 {
 }
 
@@ -88,7 +91,6 @@ shutdown()
 {
     v4Endpoint_.close();
     v6Endpoint_.close();
-    threadPool_.shutdown();
 }
 
 void
@@ -96,8 +98,7 @@ TcpAcceptorImpl::
 accept(TcpAcceptorImpl::Endpoint & endpoint)
 {
     auto & acceptor = endpoint.acceptor_;
-    auto & eventLoop = threadPool_.nextLoop();
-    auto & loopService = eventLoop.impl().ioService();
+    auto & loopService = eventLoop_.impl().ioService();
     auto nextSocket = make_shared<TcpSocketImpl>(loopService);
     auto onAcceptFn = [&, nextSocket] (const system::error_code & ec) {
         if (ec) {

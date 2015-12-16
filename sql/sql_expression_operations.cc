@@ -782,11 +782,11 @@ BoundSqlExpression
 ConstantExpression::
 bind(SqlBindingScope & context) const
 {
-    // ExpressionValue val = constant;
+    ExpressionValue val = constant;
 
     return {[=] (const SqlRowScope &, ExpressionValue & storage) -> const ExpressionValue &
             {
-                return constant;
+                return storage=val;
             },
             this,
             constant.getSpecializedValueInfo(),

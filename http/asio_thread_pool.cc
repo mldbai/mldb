@@ -9,7 +9,6 @@
 
 #include "asio_thread_pool.h"
 #include "asio_timer.h"
-#include "event_loop.h"
 #include <boost/asio.hpp>
 #include "mldb/watch/watch_impl.h"
 #include "mldb/types/structure_description.h"
@@ -28,53 +27,46 @@ namespace Datacratic {
 /*****************************************************************************/
 
 struct AsioThreadPool::Impl {
-    Impl(double probeIntervalSeconds = 0.1)
-        : loopCnt(0)
+    Impl(boost::asio::io_service & ioService,
+         double probeIntervalSeconds = 0.1)
+        : ioService(ioService), shutdown(false)
     {
-        // work.reset(new boost::asio::io_service::work(ioService));
+        work.reset(new boost::asio::io_service::work(ioService));
 
-        // threads.emplace_back([=] () { this->run(0); });
+        threads.emplace_back([=] () { this->run(0); });
 
         lastProbe = Date::now();
         lastLatency = 0;
 
-        // timer = getTimer(Date::now().plusSeconds(probeIntervalSeconds),
-        //                  probeIntervalSeconds,
-        //                  nextLoop().impl().ioService(),
-        //                  std::bind(&Impl::onProbe,
-        //                            this,
-        //                            std::placeholders::_1));
+        timer = getTimer(Date::now().plusSeconds(probeIntervalSeconds),
+                         probeIntervalSeconds,
+                         ioService,
+                         std::bind(&Impl::onProbe,
+                                   this,
+                                   std::placeholders::_1));
         numIdles = 0;
     }
 
     ~Impl()
     {
-        for (size_t i = 0; i < threads.size(); i++) {
-            loops[i]->terminate();
-            threads[i].join();
+        shutdown = true;
+        ioService.stop();
+        work.reset();
+        for (auto & t: threads) {
+            ioService.post([] () {});
+            t.join();
         }
+        ioService.stop();
     }
 
     void ensureThreads(int minNumThreads)
     {
         std::unique_lock<std::mutex> guard(threadsLock);
         for (size_t i = threads.size(); i < minNumThreads; i++) {
-            loops.emplace_back(new EventLoop());
-            EventLoop & loop = *loops.back();
-            threads.emplace_back([&] () { loop.run(); });
+            threads.emplace_back([=] () { this->run(i); });
         }
     }
-
-    EventLoop & nextLoop()
-    {
-        std::unique_lock<std::mutex> guard(threadsLock);
-        ExcAssert(loops.size() > 0);
-        EventLoop & loop = *loops[loopCnt];
-        loopCnt = (loopCnt + 1) % loops.size();
-        return loop;
-    }
-
-#if 0
+    
     void run(int threadNum)
     {
         //cerr << "starting thread " << threadNum << endl;
@@ -178,7 +170,6 @@ struct AsioThreadPool::Impl {
             }
         }
     }
-#endif
 
     void onProbe(Date date)
     {
@@ -188,7 +179,8 @@ struct AsioThreadPool::Impl {
         //cerr << "latency = " << latency * 1000.0 << "ms" << endl;
     }
 
-    // std::unique_ptr<boost::asio::io_service::work> work;
+    boost::asio::io_service & ioService;
+    std::unique_ptr<boost::asio::io_service::work> work;
     std::atomic<int64_t> nanosSleeping;
     std::atomic<int64_t> nanosProcessing;
     std::atomic<int> numEvents;
@@ -200,17 +192,15 @@ struct AsioThreadPool::Impl {
 
     std::mutex threadsLock;
     std::vector<std::thread> threads;
-    std::vector<std::unique_ptr<EventLoop> > loops;
-    unsigned int loopCnt;
-
-    // WatchT<Date> timer;
+    WatchT<Date> timer;
     WatchesT<Stats> statsWatches;
     Date lastProbe;
+    std::atomic<bool> shutdown;
 };
 
 AsioThreadPool::
-AsioThreadPool(double probeIntervalSeconds)
-    : impl(new Impl(probeIntervalSeconds))
+AsioThreadPool(EventLoop & eventLoop, double probeIntervalSeconds)
+    : impl(new Impl(eventLoop.impl().ioService(), probeIntervalSeconds))
 {
 }
 
@@ -239,14 +229,6 @@ watchStats()
 {
     return impl->statsWatches.add();
 }
-
-EventLoop &
-AsioThreadPool::
-nextLoop()
-{
-    return impl->nextLoop();
-}
-
 
 DEFINE_STRUCTURE_DESCRIPTION_NAMED(AsioThreadPoolStatsDescription, AsioThreadPool::Stats);
 

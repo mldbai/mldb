@@ -31,7 +31,7 @@ int main(int argc, char ** argv)
     bool listenForever = (argc > 1 && argv[1] == string("--listen-forever"));
 
     server.init();
-    server.ensureThreads(4);
+
     string httpBoundAddress = server.bindTcp(PortRange(17000,18000), "0.0.0.0");
     
     cerr << "http listening on " << httpBoundAddress << endl;
