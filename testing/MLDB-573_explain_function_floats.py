@@ -31,7 +31,7 @@ train_classifier_procedure_config = {
     "params":{
         "trainingData":{
             "where":"Year < 2014 AND rowHash() != 1",
-            "select":"* EXCLUDING(label)",
+            "select":"{* EXCLUDING(label)} as features,  label = 1 as label",
             "from" : {"id":"x"}
         },
         "configuration": {        
@@ -53,7 +53,6 @@ train_classifier_procedure_config = {
             "num_bags": 5
         },
         "modelFileUrl":"file://tmp/MLDB-573-float_encoding.cls",
-        "label":"label = 1",
         "weight":"1.0"
         }
     }

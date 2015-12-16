@@ -121,7 +121,7 @@ function trainClassifier(algorithm)
     var trainClassifierProcedureConfig = {
         type: "classifier.train",
         params: {
-            trainingData: "select x,y from test",
+            trainingData: "select {x,y} as features, label from test",
             configuration: {
                 dt: {
                     type: "decision_tree",
@@ -166,7 +166,6 @@ function trainClassifier(algorithm)
             },
             algorithm: algorithm,
             modelFileUrl: modelFileUrl,
-            label: "label",
             weight: "1",
             equalizationFactor: 0.0,
             mode: "boolean",

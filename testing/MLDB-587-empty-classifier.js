@@ -63,7 +63,7 @@ var modelFileUrl = "file://tmp/MLDB-174.cls";
 var trainClassifierProcedureConfig = {
     type: "classifier.train",
     params: {
-        trainingData: "select x from test where false",
+        trainingData: "select {x} as features, y as label from test where false",
         configuration: {
             glz: {
                 type: "glz",
@@ -74,7 +74,6 @@ var trainClassifierProcedureConfig = {
             }
         },
         algorithm: "glz",
-        label: "y",
         weight: "1",
         equalizationFactor: 0.0,
         mode: "regression"
@@ -94,7 +93,7 @@ plugin.log("training output", trainingOutput);
 assertEqual(trainingOutput.responseCode, 400);
 assertContains(trainingOutput.json.error, "all rows were filtered");
 
-trainClassifierProcedureConfig.params.trainingData = "select x from test2 where false";
+trainClassifierProcedureConfig.params.trainingData = "select {x} as features, y as label from test2 where false";
 
 procedureOutput
     = mldb.put("/v1/procedures/cls_train2", trainClassifierProcedureConfig);

@@ -26,7 +26,7 @@ result = mldb.perform("PUT", "/v1/procedures/iris_cls", [], {
     'type' : 'classifier.train',
     'params' : {
         'trainingData' : {
-            'select' : "* EXCLUDING(class)",
+            'select' : "{* EXCLUDING(class)} as features, class as label",
             'where': "rowHash() % 15 = 0",
             'from' : {'id' : 'iris_dataset'}
         },
@@ -37,7 +37,6 @@ result = mldb.perform("PUT", "/v1/procedures/iris_cls", [], {
             "update_alg": "prob"
         },
         "modelFileUrl": "file://tmp/MLDB-647.cls",
-        'label' : 'class',
         "mode": "categorical"
     }
 })

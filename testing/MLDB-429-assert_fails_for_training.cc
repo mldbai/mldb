@@ -64,13 +64,13 @@ BOOST_AUTO_TEST_CASE( test_two_members )
 
     // Classifier config
     ClassifierConfig clsConfig;
-    SelectStatement stm = SelectStatement::parse("select * EXCLUDING (event_hangup) "
-                                                        "from nuance_hangup "
-                                                        "where rowHash() % 10 != 1");
+    SelectStatement stm = SelectStatement::parse("select * EXCLUDING (event_hangup) as features, "
+                                                 "event_hangup='XA' OR event_hangup='XH' as label "
+                                                 "from nuance_hangup "
+                                                 "where rowHash() % 10 != 1");
     clsConfig.trainingData.stm = make_shared<SelectStatement>(stm);
     clsConfig.algorithm = "bbdt";
     clsConfig.modelFileUrl = Url("file://nuance_hangup_bbdt.cls");
-    clsConfig.label = SqlExpression::parse("event_hangup='XA' OR event_hangup='XH'");
     clsConfig.weight = SqlExpression::parse("1.0");
 
     // Procedure config

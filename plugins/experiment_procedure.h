@@ -77,10 +77,7 @@ struct ExperimentProcedureConfig : public ProcedureConfig {
 
     /// SQL query to select the training data
     InputQuery trainingData;
-    Optional<std::shared_ptr<TableExpression> > testing_dataset;
-
-    /// The expression to generate the label
-    std::shared_ptr<SqlExpression> label;
+    Optional<InputQuery> testingData;
 
     /// The expression to generate the weight
     std::shared_ptr<SqlExpression> training_weight;

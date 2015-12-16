@@ -221,7 +221,11 @@ if (trainClassifier) {
     var trainClassifierProcedureConfig = {
         type: "classifier.train",
         params: {
-            trainingDataset: { id: "cls_training" },
+            trainingData: { 
+                where: "rowHash() % 2 = 1",
+                select: "* EXCLUDING (label)",
+                from: "cls_training" 
+            },
             configuration: {
                 "bbdt": {
                     type: "bagging",
@@ -244,8 +248,6 @@ if (trainClassifier) {
             },
             algorithm: "bbdt",
             modelFileUrl: "file://tmp/mnist.cls",
-            where: "rowHash() % 2 = 1",
-            select: "* EXCLUDING (label)",
             label: "label > 4",
             weight: "1.0"
         }

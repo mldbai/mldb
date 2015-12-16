@@ -28,9 +28,8 @@ procedure_conf = {
     "type": "classifier.experiment",
     "params": {
         "experimentName": "my_test-exp_$permutation",
-        "trainingData": "select * EXCLUDING(label) from toy",
-        "testingDataset": "toy",
-        "label": "label",
+        "trainingData": "select {* EXCLUDING(label)} as features, label from toy",
+        "testingData": "select {* EXCLUDING(label)} as features, label from toy",
         "datasetFolds" : [
             {
                 "training_where": "rowHash() % 5 != 3",

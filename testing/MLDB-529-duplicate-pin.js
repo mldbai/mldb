@@ -82,7 +82,7 @@ var trainClassifierProcedureConfig = {
     type: "classifier.train",
     params: {
         trainingData: { 
-            select : "x, score",
+            select : "{x, score} as features, label",
             from : { id: "test" }
         },
         configuration: {
@@ -96,7 +96,6 @@ var trainClassifierProcedureConfig = {
         },
         algorithm: "glz",
         modelFileUrl: modelFileUrl,
-        label: "label",
         equalizationFactor: 0.0
     }
 };

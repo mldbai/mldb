@@ -45,7 +45,7 @@ for cls in ["bdt", "glz", "bs"]:
             "params": {
                 "trainingData": { 
                     "where": "rowHash() % 3 != 1",
-                    "select": "* EXCLUDING(LABEL)",
+                    "select": "{* EXCLUDING(LABEL)} as features, LABEL = 'true' as label",
                     "from" : { "id": "toy" }
                 },
                 "configuration": {
@@ -75,7 +75,6 @@ for cls in ["bdt", "glz", "bs"]:
                 },
                 "algorithm": cls,
                 "modelFileUrl": "file://models/tng.cls",
-                "label": "LABEL = 'true'",
                 "weight": "1.0"
             }
         })
@@ -107,10 +106,12 @@ for cls in ["bdt", "glz", "bs"]:
     rez = mldb.perform("PUT", "/v1/procedures/tng_score_proc", [], {
         "type": "classifier.test",
         "params": {
-            "testingDataset": { "id": "toy" },
+            "testingData": { 
+                "select" : "{*} as features, LABEL = 'true' as label",
+                "from": {"id": "toy" },
+                "where" : "rowHash() % 3 = 1"
+            },
             "outputDataset": { "id":"toy_cls_baseline_scorer_rez", "type": "sparse.mutable" },
-            "where": "rowHash() % 3 = 1",
-            "label": "LABEL = 'true'",
             "weight": "1.0",
             "score": "tng_scorer({{* EXCLUDING(LABEL)} as features})[score]",
         }

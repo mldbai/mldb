@@ -41,7 +41,7 @@ var modelFileUrl = "file://tmp/MLDB-429_" + name + ".cls";
 var trainClassifierProcedureConfig = {
     type: "classifier.train",
     params: {
-        trainingData: { select : "x,y",
+        trainingData: { select : "{x,y} as features, label",
                         from : { id: "test" } },
         configuration: {
             glz: {
@@ -54,7 +54,6 @@ var trainClassifierProcedureConfig = {
         },
         algorithm: "glz",
         modelFileUrl: modelFileUrl,
-        label: "label",
         equalizationFactor: 0.0
     }
 };

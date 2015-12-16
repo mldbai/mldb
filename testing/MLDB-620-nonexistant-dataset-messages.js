@@ -33,21 +33,17 @@ var config1 = {
     id: "test1",
     type: "classifier.test",
     params: {
-        testingDataset: { },
-        score: "1",
-        where: "true",
-        label: "1"
+        testingData: { },
+        score: "1"
     }
 };
 
 var resp1 = mldb.post("/v1/procedures", config1);
-var resp2 = mldb.put("/v1/procedures/test1/runs/1", {});
 
 plugin.log(resp1);
-plugin.log(resp2);
 
-assertEqual(resp1.responseCode, 201);
-assertContains(resp2.json.error, "Attempt to obtain dataset without setting 'id'");
+assertEqual(resp1.responseCode, 400);
+assertContains(resp1.json.error, "accuracy training expect a row named 'features' and a scalar named 'label'");
 
 "success"
 

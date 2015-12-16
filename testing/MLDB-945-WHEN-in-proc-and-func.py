@@ -172,7 +172,7 @@ def train_classifier(when):
         "type": "classifier.train",
         "params": {
             "trainingData": { 
-                "select" : "*",
+                "select" : "{*} as features, x as label",
                 "when" : when,
                 "from" : { "id": "dataset1" }
             },
@@ -186,7 +186,6 @@ def train_classifier(when):
             },
             "algorithm": "glz",
             "modelFileUrl": "file://tmp/MLDB-945.tng.cls",
-            "label": "x",
             "weight": "1.0"
         }
     })

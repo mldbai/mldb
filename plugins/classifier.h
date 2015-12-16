@@ -46,9 +46,6 @@ struct ClassifierConfig : public ProcedureConfig {
     /// Query to select the training data
     InputQuery trainingData;
 
-    /// The expression to generate the label
-    std::shared_ptr<SqlExpression> label;
-
     /// The expression to generate the weight
     std::shared_ptr<SqlExpression> weight;
 

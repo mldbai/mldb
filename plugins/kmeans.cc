@@ -81,7 +81,7 @@ KmeansConfigDescription()
              "the training result.");
     addParent<ProcedureConfig>();
 
-    onPostValidate = validate<KmeansConfig, NoGroupByHaving>("kmeans");
+    onPostValidate = validate<KmeansConfig, InputQuery, NoGroupByHaving>(&KmeansConfig::trainingData, "kmeans");
 }
 
 // TODO: see http://www.eecs.tufts.edu/~dsculley/papers/fastkmeans.pdf

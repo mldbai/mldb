@@ -61,7 +61,10 @@ function trainClassifier(name, weight)
     var trainClassifierProcedureConfig = {
         type: "classifier.train",
         params: {
-            trainingDataset: { id: "test" },
+            trainingData: { 
+                select: "x, y",
+                from: "test"
+            },
             configuration: {
                 glz: {
                     type: "glz",
@@ -73,7 +76,6 @@ function trainClassifier(name, weight)
             },
             algorithm: "glz",
             modelFileUrl: modelFileUrl,
-            select: "x, y",
             label: "label",
             weight: weight,
             equalizationFactor: 0.0

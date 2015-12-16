@@ -65,6 +65,12 @@ ClassifierConfigDescription()
 {
     addField("trainingData", &ClassifierConfig::trainingData,
              "Specification of the data for input to the classifier procedure. "
+             "The select expression must contain expresssions: one row expression "
+             "to identify the features on which to train and one scalar expression "
+             "to identify the label.  The type of the label expression must match "
+             "that of the classifier mode: a boolean (0 or 1) for `boolean` mode; "
+             "a real for regression mode, and any combination of numbers and strings "
+             "for `categorical` mode.  Labels with a null value will have their row skipped. "
              "The select statement does not support groupby and having clauses.");
     addField("modelFileUrl", &ClassifierConfig::modelFileUrl,
              "URL where the model file (with extension '.cls') should be saved. "
@@ -82,13 +88,6 @@ ClassifierConfigDescription()
              "only objects, strings and numbers.  If the configuration object is "
              "non-empty, then that will be used preferentially.",
              string("/opt/bin/classifiers.json"));
-    addField("label", &ClassifierConfig::label,
-             "The expression to generate the label.  This can be any expression "
-             "involving the columns in the dataset.  The type of the label "
-             "expression must match that of the classifier mode: a boolean (0 "
-             "or 1) for `boolean` mode; a real for regression mode, and any "
-             "combination of numbers and strings for `categorical` mode.  "
-             "Labels with a null value will have their row skipped.");
     addField("weight", &ClassifierConfig::weight,
              "The expression to generate the weight for each row.  The weight "
              "allows the relative importance of examples to be set.  It must "
@@ -111,7 +110,11 @@ ClassifierConfigDescription()
              "the trained classifier.");
     addParent<ProcedureConfig>();
 
-    onPostValidate = validate<ClassifierConfig, NoGroupByHaving>("classifier");
+    onPostValidate = validate<ClassifierConfig, 
+                              InputQuery,
+                              NoGroupByHaving,
+                              PlainColumnSelect,
+                              FeaturesLabelSelect>(&ClassifierConfig::trainingData, "classifier");
 }
 
 /*****************************************************************************/
@@ -177,20 +180,58 @@ run(const ProcedureRunConfig & run,
 
     labelInfo.set_biased(true);
 
-    std::set<ColumnName> knownInputColumns;
+    auto extractSubExpression = [](const Utf8String & name, const SelectExpression & select) 
+        -> std::shared_ptr<Datacratic::MLDB::SqlExpression>
+        {
+            for (const auto & clause : select.clauses) {
+                auto computedVariable = std::dynamic_pointer_cast<const ComputedVariable>(clause);
+                if (computedVariable)
+                    if (computedVariable->alias == name)
+                        return computedVariable->expression;
+            }
+            return nullptr;
+        };
 
+    auto extractWithinExpression = [](shared_ptr<SqlExpression> expr) 
+        -> std::shared_ptr<Datacratic::MLDB::SqlRowExpression>
+        {
+            auto withinExpression = std::dynamic_pointer_cast<const SelectWithinExpression>(expr);
+            if (withinExpression)
+                return withinExpression->select;
+            
+            return nullptr;
+        };
+
+    shared_ptr<SqlExpression> label = extractSubExpression("label", runProcConf.trainingData.stm->select);
+    shared_ptr<SqlExpression> features = extractSubExpression("features", runProcConf.trainingData.stm->select);
+    shared_ptr<SqlRowExpression> subSelect = extractWithinExpression(features);
+
+    if (!label || !subSelect)
+        throw HttpReturnException(400, "trainingData must return a 'features' row and a 'label'");
+
+    SelectExpression select({subSelect});
+
+    std::set<ColumnName> knownInputColumns;
     {
         // Find only those variables used
         SqlExpressionDatasetContext context(boundDataset);
         
-        auto selectBound = runProcConf.trainingData.stm->select.bind(context);
+        auto selectBound = select.bind(context);
 
-        for (auto & c: selectBound.info->getKnownColumns()) {
+        // for (auto & parentColumn : selectBound.info->getKnownColumns()) {
+        //     if (parentColumn.columnName == ColumnName("features")) {
+        //         for (auto & c : parentColumn.valueInfo->getKnownColumns()) {
+        //             knownInputColumns.insert(c.columnName);
+        //         }
+        //     }
+        // }
+
+        for (auto & c : selectBound.info->getKnownColumns()) {
             knownInputColumns.insert(c.columnName);
         }
     }
 
-    //cerr << "knownInputColumns are " << jsonEncode(knownInputColumns);
+    // cerr << "knownInputColumns are " << jsonEncode(knownInputColumns);
 
     ML::Timer timer;
 
@@ -204,7 +245,7 @@ run(const ProcedureRunConfig & run,
     // We want to calculate the label and weight of each row as well
     // as the select expression
     std::vector<std::shared_ptr<SqlExpression> > extra
-        = { runProcConf.label, runProcConf.weight };
+        = { label, runProcConf.weight };
 
     struct Fv {
         Fv()
@@ -302,7 +343,6 @@ run(const ProcedureRunConfig & run,
                            const std::vector<ExpressionValue> & extraVals)
         {
             CellValue label = extraVals.at(0).getAtom();
-
             if (label.empty())
                 return true;
 
@@ -361,7 +401,7 @@ run(const ProcedureRunConfig & run,
 
     timer.restart();
 
-    BoundSelectQuery(runProcConf.trainingData.stm->select, *boundDataset.dataset,
+    BoundSelectQuery(select, *boundDataset.dataset,
                      boundDataset.asName, runProcConf.trainingData.stm->when,
                      runProcConf.trainingData.stm->where,
                      runProcConf.trainingData.stm->orderBy, extra,

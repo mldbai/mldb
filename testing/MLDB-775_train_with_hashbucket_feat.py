@@ -68,7 +68,7 @@ rez = mldb.perform("PUT", "/v1/procedures/tng_classif", [], {
         "params": {
             "trainingData": {
                 "where": "rowHash() % 3 != 1",
-                "select": "* EXCLUDING(LABEL)",
+                "select": "{* EXCLUDING(LABEL)} as features, LABEL = 'true' as label",
                 "from" : { "id": "toy_feats" }
             },
             "configuration": {
@@ -81,7 +81,6 @@ rez = mldb.perform("PUT", "/v1/procedures/tng_classif", [], {
             },
             "algorithm": "glz",
             "modelFileUrl": "file://models/tng.cls",
-            "label": "LABEL = 'true'",
             "weight": "1.0"
         }
     })
@@ -110,10 +109,8 @@ tng_scorer({{ * EXCLUDING(LABEL)} as features})[score]
 rez = mldb.perform("PUT", "/v1/procedures/tng_score_proc", [], {
     "type": "classifier.test",
     "params": {
-        "testingDataset": { "id": "toy_feats" },
+        "testingData": "select {*} as features, LABEL = 'true' as label from toy_feats where rowHash() % 3 = 1",
         "outputDataset": { "id":"toy_cls_baseline_scorer_rez", "type": "sparse.mutable" },
-        "where": "rowHash() % 3 = 1",
-        "label": "LABEL = 'true'",
         "weight": "1.0",
         "score": score_sql
     }

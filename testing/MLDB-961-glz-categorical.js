@@ -69,8 +69,8 @@ var trainClassifierProcedureConfig = {
     type: "classifier.train",
     params: {
         trainingData: { 
-            select: "* EXCLUDING (class)",
-            from: { id: "iris" }
+            select: "{* EXCLUDING (class)} as features, class as label",
+            from: "iris"
         },
         configuration: {
             glz: {
@@ -83,7 +83,6 @@ var trainClassifierProcedureConfig = {
             }
         },
         algorithm: "glz",
-        label: "class",
         weight: "1",
         equalizationFactor: 0.0,
         modelFileUrl: "file://tmp/MLDB-961.cls",
