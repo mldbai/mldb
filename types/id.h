@@ -17,7 +17,6 @@
 #include "mldb/types/value_description_fwd.h"
 #include <atomic>
 
-
 namespace Json {
 class Value;
 } // namespace Json
@@ -232,7 +231,7 @@ struct Id {
         if (type != other.type) return false;
         if (type == NONE || type == NULLID) return true;
         if (JML_UNLIKELY(type >= STR)) return complexEqual(other);
-        return val == other.val;  // works for SHORTSTR too
+        return val1 == other.val1 && val2 == other.val2;  // works for SHORTSTR too
     }
 
     bool operator != (const Id & other) const
@@ -247,7 +246,8 @@ struct Id {
         if (type < other.type) return true;
         if (other.type < type) return false;
         if (JML_UNLIKELY(type > STR)) return complexLess(other);
-        return val < other.val;
+        return (valHigh < other.valHigh
+                || (valHigh == other.valHigh && valLow < other.valLow));
     }
 
     bool operator > (const Id & other) const
@@ -279,16 +279,19 @@ struct Id {
     union {
         // 128 byte integer
         struct {
-            uint64_t val1;
-            uint64_t val2;
+            uint64_t val1;  // low order bits
+            uint64_t val2;  // high order bits
+        };
+
+        struct {
+            uint64_t valLow;
+            uint64_t valHigh;
         };
 
         struct {
             uint32_t v1h, v1l;
             uint32_t v2h, v2l;
         };
-
-        __uint128_t val;
 
         // uuid
         struct {
