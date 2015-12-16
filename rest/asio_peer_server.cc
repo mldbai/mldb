@@ -59,7 +59,6 @@ struct AsioPeerServer::Impl {
     Impl(AsioPeerServer * server)
         : server(server),
           acceptor(eventLoop.impl().ioService()),
-          threads(eventLoop),
           shutdown_(false)
     {
         threads.ensureThreads(4);  // So connect and accept can happen

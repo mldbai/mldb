@@ -127,20 +127,23 @@ sendRequest(int port)
 /* Test request and close the socket before the response */
 BOOST_AUTO_TEST_CASE( tcp_acceptor_http_disconnect_test )
 {
+    AsioThreadPool pool;
+    pool.ensureThreads(1);
+
     RequestQueue queue(16);
     auto processRequestsFn = [&] () {
         processRequests(queue);
     };
     std::thread queueThread(processRequestsFn);
 
-    EventLoop loop;
-    AsioThreadPool pool(loop);
-
     auto onNewConnection = [&] (TcpSocket && socket) {
         return std::make_shared<MyHandler>(std::move(socket), &queue);
     };
 
+    auto & loop = pool.nextLoop();
+
     TcpAcceptor acceptor(loop, onNewConnection);
+    acceptor.ensureThreads(32);
     acceptor.listen(0, "localhost");
     sendRequest(acceptor.effectiveTCPv4Port());
     while (queue.writePosition == 0) {
@@ -150,6 +153,4 @@ BOOST_AUTO_TEST_CASE( tcp_acceptor_http_disconnect_test )
     cerr << "pushing finalisation request\n";
     queue.push(ThreadedRequest());
     queueThread.join();
-
-    pool.shutdown();
 }
