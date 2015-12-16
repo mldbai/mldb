@@ -606,7 +606,7 @@ bind(SqlBindingScope & context) const
                 auto onColumn = [&] (Coord & columnName, ExpressionValue & val)
                 {
                     MatrixNamedRow row;
-                    row.rowHash = row.rowName = ColumnName(to_string(n));
+                    row.rowHash = row.rowName = ColumnName(to_string(n++));
                     row.columns.emplace_back(columnNameName,
                                              columnName.toUtf8String(),
                                              val.getEffectiveTimestamp());
@@ -614,6 +614,7 @@ bind(SqlBindingScope & context) const
                                              val.stealAtom(),
                                              val.getEffectiveTimestamp());
                     rows.emplace_back(std::move(row));
+
                     return true;
                 };
 

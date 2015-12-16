@@ -150,11 +150,15 @@ MLDB_PLUGIN_FILES_$(1) := \
 
 # Our plugin target depends upon the files in the plugin...
 mldb_plugin_$(1): $$(MLDB_PLUGIN_FILES_$(1))
+.PHONY: mldb_plugin_$(1)
 
 # Order-only prerequisite on the directory
 $(PLUGINS)/$(1)/mldb_plugin.json:	$(CWD)/mldb_plugin.json | $(PLUGINS)/$(1)/lib
 	@echo "   $(COLOR_VIOLET)[MLDB PLUGIN MF]$(COLOR_RESET)" $(CWD)/mldb_plugin.json
 	@install -D $$< $$@
+
+# When we compile we should also compile the plugin
+compile: mldb_plugin_$(1)
 
 endif
 endef

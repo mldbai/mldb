@@ -65,4 +65,3 @@ The `fetcher` function is a function, and not a builtin, to allow
 configuration of authentication, caching and other parameters in
 a future release to address the limitations above.
 
-

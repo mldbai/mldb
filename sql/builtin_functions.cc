@@ -2169,6 +2169,40 @@ BoundFunction upper(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerUpper(upper, "upper");
 
+BoundFunction flatten(const std::vector<BoundSqlExpression> & args)
+{
+    // Return the result indexed on a single dimension
+
+    checkArgsSize(args.size(), 1);
+
+    std::vector<ssize_t> shape = args[0].info->getEmbeddingShape();
+
+    ssize_t outputShape = 1;
+    for (auto s: shape) {
+        if (s < 0) {
+            outputShape = -1;
+            break;
+        }
+        outputShape *= s;
+    }
+    auto st = args[0].info->getEmbeddingType();
+
+    auto outputInfo
+        = std::make_shared<EmbeddingValueInfo>(outputShape, st);
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                ExcAssertEqual(args.size(), 1);
+                size_t len = args[0].rowLength();
+                return args[0].reshape({len});
+            },
+            outputInfo
+        };
+}
+
+static RegisterBuiltin registerFlatten(flatten, "flatten");
+
 
 } // namespace Builtins
 } // namespace MLDB
