@@ -45,6 +45,8 @@ JoinedDatasetConfigDescription()
              "Right dataset for the join");
     addField("on", &JoinedDatasetConfig::on,
              "Field to join on");
+    addField("qualification", &JoinedDatasetConfig::qualification,
+             "Type of join");
 }
 
 struct JoinedDataset::Itl
@@ -107,7 +109,7 @@ struct JoinedDataset::Itl
         BoundTableExpression left = joinConfig.left->bind(mldbContext);
         BoundTableExpression right = joinConfig.right->bind(mldbContext);
 
-        bool debug = false;
+        bool debug = true;
 
         std::set<Utf8String> leftTables = joinConfig.left->getTableNames();
         std::set<Utf8String> rightTables = joinConfig.right->getTableNames();
@@ -146,34 +148,15 @@ struct JoinedDataset::Itl
         SqlRowScope scope;
         ExpressionValue storage;
         if (!boundConstant(scope, storage).isTrue())
-            return;
-        
-        /* This is called to record a new entry from the join. */
-        auto gotRow = [&] (const RowName & leftName, RowHash leftHash,
-                           const RowName & rightName, RowHash rightHash)
-            {
-                RowName rowName(leftName.toUtf8String() + "-" + rightName.toUtf8String());
-                RowHash rowHash(rowName);
-
-                RowEntry entry;
-                entry.rowName = rowName;
-                entry.rowHash = rowHash;
-                entry.leftName = leftName;
-                entry.rightName = rightName;
-
-                if (debug)
-                    cerr << "added entry number " << rows.size()
-                         << endl;
-
-                rows.emplace_back(std::move(entry));
-                rowIndex[rowHash] = rows.size() - 1;
-
-                leftRowIndex[leftHash].push_back(rowName);
-                rightRowIndex[rightHash].push_back(rowName);
-            };
+            return;       
+       
 
         if (!condition.crossWhere
             || condition.crossWhere->isConstant()) {
+
+            cerr << "FAST PATH" << endl;
+            cerr << "qualify: " << joinConfig.qualification << endl;
+
             if (condition.crossWhere
                 && !condition.crossWhere->constantValue().isTrue())
                 return;
@@ -181,118 +164,34 @@ struct JoinedDataset::Itl
             // We can use a fast path, since we have simple non-filtered
             // equijoin
 
-            // Where expressions for the left and right side
-            auto runSide = [&] (const AnnotatedJoinCondition::Side & side,
-                                const Dataset & dataset)
-                -> std::vector<std::tuple<ExpressionValue, RowName, RowHash> >
+            makeJoinFast(condition, context, left, right, joinConfig.qualification);
+
+            if (joinConfig.qualification == JOIN_LEFT || joinConfig.qualification == JOIN_FULL)
+            {
+                cerr << "doing LEFT side" << endl;
+                auto record = [&] (const RowName & leftName, RowHash leftHash)
                 {
-                    auto generator = dataset.queryBasic
-                    (context, side.select, side.when, *side.where, side.orderBy,
-                     0, -1, true /* allowParallel */);
-                    auto rows = generator(-1);
-                
-                    if (debug)
-                        cerr << "got rows " << jsonEncode(rows) << endl;
-                    
-                    // Now we extract all values and re-sort.  This is necessary because
-                    // a row may have multiple values for the same column.
-                    std::vector<std::tuple<ExpressionValue, RowName, RowHash> > sorted;
-
-                    for (auto & r: rows) {
-                        for (auto & c: r.columns) {
-                            sorted.emplace_back(std::get<1>(c), r.rowName, r.rowHash);
-                        }
-                    }
-
-                    std::sort(sorted.begin(), sorted.end());
-
-                    return sorted;
+                    recordJoinRow(leftName, leftHash, RowName(), RowHash());
                 };
 
-            std::vector<std::tuple<ExpressionValue, RowName, RowHash> > leftRows, rightRows;
-
-            leftRows = runSide(condition.left, *left.dataset);
-            rightRows = runSide(condition.right, *right.dataset);
-
-            switch (condition.style) {
-            case AnnotatedJoinCondition::CROSS_JOIN: {
-                // Join with no restrictions on the joined column
-                if (leftRows.size() * rightRows.size() > 100000000) {
-                    throw HttpReturnException(400, "Cross join too big: cowardly refusing to materialize row IDs for a dataset with > 100,000,000 rows",
-                                              "leftSize", leftRows.size(),
-                                              "rightSize", rightRows.size(),
-                                              "joinOn", joinConfig.on);
-                }
-                break;
+                makeSide(context, condition.left, *(left.dataset), record);
             }
-            case AnnotatedJoinCondition::EQUIJOIN: {
-                // Join on f(leftrow) = f(rightrow)
-                break;
-            }
-            default:
-                throw HttpReturnException(400, "Join expression requires an equality operator; needs to be in the form f(left) = f(right)",
-                                          "joinOn", joinConfig.on,
-                                          "condition", condition);
+            if (joinConfig.qualification == JOIN_RIGHT || joinConfig.qualification == JOIN_FULL)
+            {
+                cerr << "doing RIGHT side" << endl;
+                auto record = [&] (const RowName & rightName, RowHash rightHash)
+                {
+                    recordJoinRow(RowName(), RowHash(), rightName, rightHash);
+                };
+
+                makeSide(context, condition.right, *(right.dataset), record);
             }
 
-            // Finally, perform the join
-            // We keep a list of the row hashes of those that join up
-            auto it1 = leftRows.begin(), end1 = leftRows.end();
-            auto it2 = rightRows.begin(), end2 = rightRows.end();
-
-            while (it1 != end1 && it2 != end2) {
-                // TODO: there could be multiple values...
-                const ExpressionValue & val1 = std::get<0>(*it1);
-                const ExpressionValue & val2 = std::get<0>(*it2);
-
-                if (debug)
-                    cerr << "joining " << jsonEncodeStr(val1) << " and " << jsonEncodeStr(val2) << endl;
-
-                if (val1 < val2) {
-                    ++it1;
-                }
-                else if (val2 < val1) {
-                    ++it2;
-                }
-                else {
-                    ExcAssertEqual(val1, val2);
-
-                    // We got a match on the join condition.  So now
-                    // we take the cross product of the matching rows.
-
-                    // First figure out how many of each are there?
-                    auto erng1 = it1;  ++erng1;
-                    while (erng1 < end1 && std::get<0>(*erng1) == val1)
-                        ++erng1;
-
-                    auto erng2 = it2;  ++erng2;
-                    while (erng2 < end2 && std::get<0>(*erng2) == val2)
-                        ++erng2;
-
-                    // Now the cross product
-                    if (!val1.empty()) {
-                        for (auto it1a = it1; it1a < erng1;  ++it1a) {
-                            for (auto it2a = it2; it2a < erng2;  ++it2a) {
-                                const RowName & leftName = std::get<1>(*it1a);
-                                const RowName & rightName = std::get<1>(*it2a);
-                                const RowHash & leftHash = std::get<2>(*it1a);
-                                const RowHash & rightHash = std::get<2>(*it2a);
-
-                                if (debug)
-                                    cerr << "rows " << leftName << " and " << rightName << " join on value " << val1 << endl;
-                                
-                                gotRow(leftName, leftHash, rightName, rightHash);
-                            }
-                        }
-                    }
-
-                    it1 = erng1;
-                    it2 = erng2;
-                }
-            }
         } else {
             // Complex join condition.  We need to generate the full set of
             // values.  To do this, we use the new executor.
+
+            cerr << "COMPLEX PATH" << endl;
 
             auto gotElement = [&] (std::shared_ptr<PipelineResults> & res) -> bool
                 {
@@ -302,7 +201,7 @@ struct JoinedDataset::Itl
                     RowName leftName(res->values.at(0).toUtf8String());
                     RowName rightName(res->values.at(2).toUtf8String());
 
-                    gotRow(leftName, leftName, rightName, rightName);
+                    recordJoinRow(leftName, leftName, rightName, rightName);
 
                     return true;
                 };
@@ -357,6 +256,214 @@ struct JoinedDataset::Itl
                  << rows.size() << " rows returned from join" << endl;
                 
             cerr << jsonEncode(getColumnNames());
+        }
+    }
+
+     /* This is called to record a new entry from the join. */
+    void recordJoinRow(const RowName & leftName, RowHash leftHash, const RowName & rightName, RowHash rightHash)
+    {
+        bool debug = true;
+
+        RowName rowName(leftName.toUtf8String() + "-" + rightName.toUtf8String());
+        RowHash rowHash(rowName);
+
+        RowEntry entry;
+        entry.rowName = rowName;
+        entry.rowHash = rowHash;
+        entry.leftName = leftName;
+        entry.rightName = rightName;
+
+        if (debug)
+            cerr << "added entry number " << rows.size()
+                 << endl;
+
+        rows.emplace_back(std::move(entry));
+        rowIndex[rowHash] = rows.size() - 1;
+
+        leftRowIndex[leftHash].push_back(rowName);
+        rightRowIndex[rightHash].push_back(rowName);
+    };
+
+    void makeSide(SqlExpressionMldbContext& context, 
+                  const AnnotatedJoinCondition::Side & side, 
+                  const Dataset & dataset, 
+                  const std::function<void (const RowName &, RowHash)> & record)
+    {
+        cerr << "Make side" << endl;
+
+        std::shared_ptr<SqlExpression> lhs;
+        auto notExpr = std::make_shared<BooleanOperatorExpression>(BooleanOperatorExpression(lhs, side.where, "NOT"));
+
+        cerr << "Make side Query" << endl;
+
+        auto generator = dataset.queryBasic(context, side.select, side.when, *notExpr, side.orderBy, 0, -1, true /* allowParallel */);
+
+        cerr << "Make side Query Done" << endl;
+
+        auto rows = generator(-1);
+
+        cerr << "num side" << rows.size() << endl;
+    //    std::vector<std::tuple<ExpressionValue, RowName, RowHash> > extract;
+
+        for (auto & r: rows) {
+            //for (auto & c: r.columns) {
+               // extract.emplace_back(std::get<1>(c), r.rowName, r.rowHash);
+               // recordJoinRow(leftName, leftHash, rightName, rightHash);
+                
+           // }
+
+            record(r.rowName, r.rowHash);
+        }
+    }
+
+    void makeJoinFast(AnnotatedJoinCondition& condition, SqlExpressionMldbContext& context, BoundTableExpression& left, BoundTableExpression& right, JoinQualification qualification)
+    {
+        bool debug = true;
+        bool doLeft = qualification == JOIN_LEFT || qualification == JOIN_FULL;
+        bool doRight = qualification == JOIN_RIGHT || qualification == JOIN_FULL;
+
+        cerr << "join fast path" << doLeft << doRight << endl;
+
+        // Where expressions for the left and right side
+        auto runSide = [&] (const AnnotatedJoinCondition::Side & side,
+                            const Dataset & dataset)
+            -> std::vector<std::tuple<ExpressionValue, RowName, RowHash> >
+            {
+                auto generator = dataset.queryBasic
+                (context, side.select, side.when, *side.where, side.orderBy,
+                 0, -1, true /* allowParallel */);
+                auto rows = generator(-1);
+            
+                if (debug)
+                    cerr << "got rows " << jsonEncode(rows) << endl;
+                
+                // Now we extract all values and re-sort.  This is necessary because
+                // a row may have multiple values for the same column.
+                std::vector<std::tuple<ExpressionValue, RowName, RowHash> > sorted;
+
+                for (auto & r: rows) {
+                    for (auto & c: r.columns) {
+                        sorted.emplace_back(std::get<1>(c), r.rowName, r.rowHash);
+                    }
+                }
+
+                std::sort(sorted.begin(), sorted.end());
+
+                return sorted;
+            };
+
+        std::vector<std::tuple<ExpressionValue, RowName, RowHash> > leftRows, rightRows;
+
+        leftRows = runSide(condition.left, *left.dataset);
+        rightRows = runSide(condition.right, *right.dataset);
+
+        switch (condition.style) {
+        case AnnotatedJoinCondition::CROSS_JOIN: {
+            // Join with no restrictions on the joined column
+            if (leftRows.size() * rightRows.size() > 100000000) {
+                throw HttpReturnException(400, "Cross join too big: cowardly refusing to materialize row IDs for a dataset with > 100,000,000 rows",
+                                          "leftSize", leftRows.size(),
+                                          "rightSize", rightRows.size());//,
+                                          //"joinOn", joinConfig.on);
+            }
+            break;
+        }
+        case AnnotatedJoinCondition::EQUIJOIN: {
+            // Join on f(leftrow) = f(rightrow)
+            break;
+        }
+        default:
+            throw HttpReturnException(400, "Join expression requires an equality operator; needs to be in the form f(left) = f(right)",
+                                      //"joinOn", joinConfig.on,
+                                      "condition", condition);
+        }
+
+        // Finally, perform the join
+        // We keep a list of the row hashes of those that join up
+
+        cerr << "what is this " << leftRows.size() << " " << rightRows.size() << endl;
+
+        auto it1 = leftRows.begin(), end1 = leftRows.end();
+        auto it2 = rightRows.begin(), end2 = rightRows.end();
+        bool unused1 = true, unused2 = true;
+
+        while (it1 != end1 && it2 != end2) {
+            // TODO: there could be multiple values...
+            const ExpressionValue & val1 = std::get<0>(*it1);
+            const ExpressionValue & val2 = std::get<0>(*it2);
+
+            if (debug)
+                cerr << "joining " << jsonEncodeStr(val1) << " and " << jsonEncodeStr(val2) << endl;
+
+            if (val1 < val2) {
+                cerr << "ta";
+                if (unused1 && doLeft)
+                    recordJoinRow(std::get<1>(*it1), std::get<2>(*it1), RowName(), RowHash()); //For LEFT and FULL joins
+                unused1 = true;
+                ++it1;
+            }
+            else if (val2 < val1) {
+                cerr << "ti";
+                if (unused2 && doRight)
+                    recordJoinRow(RowName(), RowHash(),std::get<1>(*it2), std::get<2>(*it2)); //For RIGHT and FULL joins
+                unused2 = true;
+                ++it2;
+            }
+            else {
+                cerr << "to";
+                ExcAssertEqual(val1, val2);
+
+                // We got a match on the join condition.  So now
+                // we take the cross product of the matching rows.
+
+                // First figure out how many of each are there?
+                auto erng1 = it1;  ++erng1;
+                while (erng1 < end1 && std::get<0>(*erng1) == val1)
+                    ++erng1;
+
+                auto erng2 = it2;  ++erng2;
+                while (erng2 < end2 && std::get<0>(*erng2) == val2)
+                    ++erng2;
+
+                // Now the cross product
+                if (!val1.empty()) {
+                    for (auto it1a = it1; it1a < erng1;  ++it1a) {
+                        cerr << "tu";
+                        for (auto it2a = it2; it2a < erng2;  ++it2a) {
+                            cerr << "te";
+                            const RowName & leftName = std::get<1>(*it1a);
+                            const RowName & rightName = std::get<1>(*it2a);
+                            const RowHash & leftHash = std::get<2>(*it1a);
+                            const RowHash & rightHash = std::get<2>(*it2a);
+
+                            unused1 = false;
+                            unused2 = false;
+
+                            if (debug)
+                                cerr << "rows " << leftName << " and " << rightName << " join on value " << val1 << endl;
+                            
+                            recordJoinRow(leftName, leftHash, rightName, rightHash);
+                        }
+                    }
+                }
+                else if (qualification != JOIN_INNER)
+                {
+                    for (auto it1a = it1; it1a < erng1 && doLeft;  ++it1a)
+                    {
+                        recordJoinRow(std::get<1>(*it1), std::get<2>(*it1), RowName(), RowHash()); //For LEFT and FULL joins
+                    }
+
+                    for (auto it2a = it2; it2a < erng2 && doRight;  ++it2a)
+                    {
+                        recordJoinRow(RowName(), RowHash(),std::get<1>(*it2), std::get<2>(*it2)); //For RIGHT and FULL joins
+                    }
+                }
+
+                unused1 = true;
+                unused2 = true;
+                it1 = erng1;
+                it2 = erng2;
+            }
         }
     }
 

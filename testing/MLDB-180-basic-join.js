@@ -251,4 +251,24 @@ expected = [
 testQuery('SELECT test1.* FROM test1 JOIN test2 ON test1.x = test2.x',
           expected);
 
+// MLDB-1189
+
+//var resp = mldb.get('/v1/query', {q: 'SELECT * FROM test1 INNER JOIN test2 ON test1.x = 1', format: 'table'});
+//mldb.log("received", resp.json);
+
+//var resp = mldb.get('/v1/query', {q: 'SELECT * FROM test1 LEFT JOIN test2 ON test1.x = 1', format: 'table'});
+//mldb.log("received", resp.json);
+
+//var resp = mldb.get('/v1/query', {q: 'SELECT * FROM test1 RIGHT JOIN test2 ON test1.x = 1', format: 'table'});
+//mldb.log("received", resp.json);
+
+//var resp = mldb.get('/v1/query', {q: 'SELECT * FROM test1 RIGHT JOIN test2 ON test2.x = 1', format: 'table'});
+//mldb.log("received", resp.json);
+
+//var resp = mldb.get('/v1/query', {q: 'SELECT * FROM test1 FULL JOIN test2 ON test1.x = 1 AND test2.x = 1', format: 'table'});
+//mldb.log("received", resp.json);
+
+var resp = mldb.get('/v1/query', {q: 'SELECT * FROM test1 FULL JOIN test2 ON test1.x = test2.x', format: 'table'});
+mldb.log("received", resp.json);
+
 "success"

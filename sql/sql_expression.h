@@ -98,6 +98,8 @@ enum JoinQualification {
     JOIN_FULL
 };
 
+DECLARE_ENUM_DESCRIPTION(JoinQualification);
+
 /*****************************************************************************/
 /* BOUND PARAMETERS                                                          */
 /*****************************************************************************/

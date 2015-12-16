@@ -71,7 +71,7 @@ struct JoinExpression: public TableExpression {
     JoinExpression(std::shared_ptr<TableExpression> left,
                    std::shared_ptr<TableExpression> right,
                    std::shared_ptr<SqlExpression> on,
-                   JoinQualification& qualification);
+                   JoinQualification qualification);
 
     virtual ~JoinExpression();
 
@@ -91,7 +91,7 @@ struct JoinExpression: public TableExpression {
     std::shared_ptr<TableExpression> left;
     std::shared_ptr<TableExpression> right;
     std::shared_ptr<SqlExpression> on;
-    JoinQualification& qualification;
+    JoinQualification qualification;
 };
 
 /*****************************************************************************/

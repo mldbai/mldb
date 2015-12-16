@@ -25,6 +25,7 @@ struct JoinedDatasetConfig {
     std::shared_ptr<TableExpression> left;
     std::shared_ptr<TableExpression> right;
     std::shared_ptr<SqlExpression> on;
+    JoinQualification qualification;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(JoinedDatasetConfig);

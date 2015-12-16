@@ -1040,7 +1040,9 @@ BoundSqlExpression
 BooleanOperatorExpression::
 bind(SqlBindingScope & context) const
 {
+    cerr << "bind left";
     auto boundLhs = lhs ? lhs->bind(context) : BoundSqlExpression();
+    cerr << "bind right";
     auto boundRhs = rhs->bind(context);
 
     if (op == "AND" && lhs) {
@@ -1112,13 +1114,15 @@ bind(SqlBindingScope & context) const
                 std::make_shared<BooleanValueInfo>()};
     }
     else if (op == "NOT" && !lhs) {
+        cerr << "not";
         return {[=] (const SqlRowScope & row, ExpressionValue & storage)
                 -> const ExpressionValue &
                 {
                     ExpressionValue rstorage;
                     const ExpressionValue & r = boundRhs(row, rstorage);
                     if (r.empty())
-                        return storage = std::move(r);
+                        return storage = ExpressionValue(true, r.getEffectiveTimestamp());
+                        //return storage = std::move(r);
                     return storage = std::move(ExpressionValue(!r.isTrue(), r.getEffectiveTimestamp()));
                 },
                 this,
