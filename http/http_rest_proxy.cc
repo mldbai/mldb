@@ -12,6 +12,7 @@
 #include <chrono>
 #include <thread>
 #include "mldb/types/structure_description.h"
+#include "curl_wrapper.h"
 
 #include "http_rest_proxy.h"
 
@@ -27,11 +28,12 @@ namespace Datacratic {
 /* HTTP REST PROXY                                                           */
 /*****************************************************************************/
 
+struct HttpRestProxy::ConnectionHandler: public CurlWrapper::Easy {
+};
+
 HttpRestProxy::
 ~HttpRestProxy()
 {
-    for (auto c: inactive)
-        delete c;
 }
 
 HttpRestProxy::Response
@@ -196,11 +198,14 @@ perform(const std::string & verb,
 }
 
 HttpRestProxy::Connection::
-~Connection()
+~Connection() noexcept
 {
     if (!conn)
         return;
-    proxy->doneConnection(conn);
+
+    if (proxy)
+        proxy->doneConnection(conn);
+    else delete conn;
 }
 
 HttpRestProxy::Connection
@@ -210,22 +215,30 @@ getConnection() const
     std::unique_lock<std::mutex> guard(lock);
 
     if (inactive.empty()) {
-        return Connection(new CurlWrapper::Easy, const_cast<HttpRestProxy *>(this));
+        return Connection(new ConnectionHandler,
+                          const_cast<HttpRestProxy *>(this));
     }
     else {
-        auto res = inactive.back();
+        Connection res(std::move(inactive.back()));
         inactive.pop_back();
-        return Connection(res, const_cast<HttpRestProxy *>(this));
+
+        // Set proxy to this, so when it's destroyed it's put on our list
+        ExcAssert(res.proxy == nullptr);
+        res.proxy = const_cast<HttpRestProxy *>(this);
+        return std::move(res);
     }
 }
 
 void
 HttpRestProxy::
-doneConnection(CurlWrapper::Easy * conn)
+doneConnection(ConnectionHandler * conn)
 {
     std::unique_lock<std::mutex> guard(lock);
     conn->reset();
-    inactive.push_back(conn);
+
+    // Put a Connection with a null handler on the list so it's
+    // destroyed when done
+    inactive.emplace_back(conn, nullptr);
 }
 
 
