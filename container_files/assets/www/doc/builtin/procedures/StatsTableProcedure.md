@@ -4,8 +4,8 @@ This procedure does a rolling sum of keys and one or more outcomes over multiple
 the result of creating statistical tables, one per column, to track co-occurrence of each
 key with each outcome, over all rows in a table.
 
-This procedure is related to the the ![](%%doclink bagOfWordStatsTable.train procedure) but 
-is different in the sense that the `bagOfWordStatsTable.train` procedure is meant to 
+This procedure is related to the the ![](%%doclink statsTable.bagOfWords.train procedure) but 
+is different in the sense that the `statsTable.bagOfWords.train` procedure is meant to 
 operate on sparse bags of words. This procedure expects a dense input dataset with a fixed
 number of columns.
 
@@ -63,5 +63,5 @@ values for the current row would take into account the row's outcomes.
 ## See also
 * The ![](%%doclink statsTable.getCounts function) does a lookup in stats tables for a row of keys.
 * The ![](%%doclink experimental.statsTable.derivedColumnsGenerator procedure) can be used to generate derived columns from stats table counts.
-* The ![](%%doclink bagOfWordStatsTable.train procedure) trains a stats table on bags of words.
+* The ![](%%doclink statsTable.bagOfWords.train procedure) trains a stats table on bags of words.
 

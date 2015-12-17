@@ -10,11 +10,11 @@ fixed number of columns. This procedure treats columns as words in a document,
 where a missing *word* for a document does not impact the counts.
 
 The resulting statistical tables can be persisted using the `statsTableFileUrl` parameter
-and used later on to lookup counts using the ![](%%doclink bagOfWordStatsTable.posneg function).
+and used later on to lookup counts using the ![](%%doclink statsTable.bagOfWords.posneg function).
 
 ## Configuration
 
-![](%%config procedure bagOfWordStatsTable.train)
+![](%%config procedure statsTable.bagOfWords.train)
 
 ## See also
 * The ![](%%doclink statsTable.train procedure) is used to train stats tables on dense datasets

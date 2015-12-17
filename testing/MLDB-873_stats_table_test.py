@@ -188,7 +188,7 @@ dataset.commit()
 
 
 conf = {
-    "type": "bagOfWordStatsTable.train",
+    "type": "statsTable.bagOfWords.train",
     "params": {
         "trainingDataset": "posneg",
         "select": "tokenize(text, {splitchars: ' '}) as *",
@@ -203,7 +203,7 @@ mldb.log(rez)
 
 
 conf = {
-    "type": "bagOfWordStatsTable.posneg",
+    "type": "statsTable.bagOfWords.posneg",
     "params": {
         "numPos": 4,
         "numNeg": 4,

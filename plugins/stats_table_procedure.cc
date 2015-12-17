@@ -580,7 +580,7 @@ BagOfWordsStatsTableProcedureConfigDescription()
              "must be a boolean (0 or 1)");
     addField("statsTableFileUrl", &BagOfWordsStatsTableProcedureConfig::statsTableFileUrl,
              "URL where the stats table file (with extension '.st') should be saved. "
-             "This file can be loaded by a function of type 'posneg.apply'.");
+             "This file can be loaded by a function of type 'statsTable.bagOfWords.posneg'.");
 }
 
 /*****************************************************************************/
@@ -887,13 +887,13 @@ regSTTrain(builtinPackage(),
 RegisterProcedureType<BagOfWordsStatsTableProcedure,
                       BagOfWordsStatsTableProcedureConfig>
 regPosNegTrain(builtinPackage(),
-           "bagOfWordStatsTable.train",
+           "statsTable.bagOfWords.train",
            "Create statistical tables of trials against outcomes for bag of words",
            "procedures/BagOfWordsStatsTableProcedure.md.html");
 
 RegisterFunctionType<StatsTablePosNegFunction, StatsTablePosNegFunctionConfig>
 regPosNegFunction(builtinPackage(),
-                    "bagOfWordStatsTable.posneg",
+                    "statsTable.bagOfWords.posneg",
                     "Get the pos/neg p(outcome)",
                     "functions/BagOfWordsStatsTablePosNeg.md.html");
 
