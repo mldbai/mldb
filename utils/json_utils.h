@@ -18,13 +18,10 @@ std::string jsonPrintAbbreviated(const Json::Value & val,
                                  int maxCharsPerItem = 100,
                                  int maxCharsOverall = -1);
 
-typedef __int128_t int128_t;
-
 /** Type used for the seed of a hash. */
 union HashSeed {
     char b[16];
     int64_t i64[2];
-    __int128_t i128;
 };
 
 /** Hash seed used by default for hashes that need to be stable over
