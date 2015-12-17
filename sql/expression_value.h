@@ -489,6 +489,10 @@ struct ExpressionValue {
     ExpressionValue getField(const Utf8String & fieldName,
                              const VariableFilter & filter = GET_LATEST) const;
 
+    // Return the given field by index.  Valid for anything that is a
+    // arrays or embedding.
+    ExpressionValue getField(int fieldIndex) const;
+
     const ExpressionValue* findNestedField(const Utf8String & fieldName,
                                        const VariableFilter & filter = GET_LATEST) const;
 

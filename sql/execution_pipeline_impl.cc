@@ -12,6 +12,7 @@
 #include "mldb/types/basic_value_descriptions.h"
 #include "table_expression_operations.h"
 #include <algorithm>
+#include "mldb/sql/sql_expression_operations.h"
 
 using namespace std;
 
@@ -538,13 +539,16 @@ JoinElement(std::shared_ptr<PipelineElement> root,
             std::shared_ptr<TableExpression> left,
             std::shared_ptr<TableExpression> right,
             std::shared_ptr<SqlExpression> on,
+            JoinQualification joinQualification,
             SelectExpression select,
             std::shared_ptr<SqlExpression> where,
             OrderByExpression orderBy)
     : root(root), left(left), right(right), on(on),
       select(select), where(where), orderBy(orderBy),
-      condition(left, right, on, where)
+      condition(left, right, on, where), joinQualification(joinQualification)
 {
+    cerr << "JOIN ELEMENT CONSTRUCT" << endl;
+
     switch (condition.style) {
     case AnnotatedJoinCondition::CROSS_JOIN:
     case AnnotatedJoinCondition::EQUIJOIN:
@@ -560,17 +564,71 @@ JoinElement(std::shared_ptr<PipelineElement> root,
     // JOIN do not support when expression
     auto when = WhenExpression::parse("true");
 
+    bool outerLeft = joinQualification == JOIN_LEFT || joinQualification == JOIN_FULL;
+    bool outerRight = joinQualification == JOIN_RIGHT || joinQualification == JOIN_FULL;
+
+    auto constantWhere = condition.constantWhere;
+
+    //These are the values that we need to compute to see if the rows "match"
+    //EmbeddingLiteralExpression(std::vector<std::shared_ptr<SqlExpression> >& clauses
+    std::vector<std::shared_ptr<SqlExpression> > leftclauses = { condition.left.selectExpression };    
+    std::vector<std::shared_ptr<SqlExpression> > rightclauses= { condition.right.selectExpression };    
+
+    auto leftCondition = condition.left.where;
+    auto rightCondition = condition.right.where;
+
+    // if outer join, we need to grab all row on one or both sides  
+    if (outerLeft)
+    {
+        cerr << "outerleft" << endl;
+
+        //remove the condition, we want all rows from left
+        leftCondition = SqlExpression::TRUE;
+
+        auto notnullExpr = std::make_shared<IsTypeExpression>(condition.left.where, true, "null");
+        auto conditionExpr = std::make_shared<BooleanOperatorExpression>(BooleanOperatorExpression(condition.left.where, constantWhere, "AND"));
+        auto complementExpr = std::make_shared<BooleanOperatorExpression>(BooleanOperatorExpression(conditionExpr, notnullExpr, "AND"));
+
+        //add the condition to the select expression instead
+
+        leftclauses.push_back(complementExpr);
+    }
+
+    if (outerRight)
+    {
+        cerr << "outerright" << endl;
+
+        //remove the condition, we want all rows from left
+        rightCondition = SqlExpression::TRUE;
+
+        auto notnullExpr = std::make_shared<IsTypeExpression>(condition.right.where, true, "null");
+        auto conditionExpr = std::make_shared<BooleanOperatorExpression>(BooleanOperatorExpression(condition.right.where, constantWhere, "AND"));
+        auto complementExpr = std::make_shared<BooleanOperatorExpression>(BooleanOperatorExpression(conditionExpr, notnullExpr, "AND"));
+
+        //add the condition to the select expression instead
+
+        rightclauses.push_back(complementExpr);
+    }
+
+    if (outerLeft || outerRight)
+    {
+        constantWhere = SqlExpression::TRUE;
+    }
+
+    auto leftEmbedding = std::make_shared<EmbeddingLiteralExpression>(leftclauses);
+    auto rightEmbedding = std::make_shared<EmbeddingLiteralExpression>(rightclauses);
+
     leftImpl= root
-        ->where(condition.constantWhere)
-        ->from(left, when, selectAll, condition.left.where,
+        ->where(constantWhere)
+        ->from(left, when, selectAll, leftCondition,
                condition.left.orderBy)
-        ->select(condition.left.selectExpression);
+        ->select(leftEmbedding);
 
     rightImpl = root
-        ->where(condition.constantWhere)
-        ->from(right, when, selectAll, condition.right.where,
+        ->where(constantWhere)
+        ->from(right, when, selectAll, rightCondition,
                condition.right.orderBy)
-        ->select(condition.right.selectExpression);
+        ->select(rightEmbedding);
 }
 
 std::shared_ptr<BoundPipelineElement>
@@ -580,7 +638,8 @@ bind() const
     return std::make_shared<Bound>(root->bind(),
                                    leftImpl->bind(),
                                    rightImpl->bind(),
-                                   condition);
+                                   condition,
+                                   joinQualification);
 }
 
 
@@ -607,6 +666,7 @@ std::shared_ptr<PipelineResults>
 JoinElement::CrossJoinExecutor::
 take()
 {
+    cerr << "cross-join executor" << endl;
     for (;;) {
 
         if (!l) {
@@ -675,37 +735,173 @@ EquiJoinExecutor(const Bound * parent,
     r = this->right->take();
     takeMoreInput();
 
-    //cerr << "After starting equijoin: r = " << r << endl;
+    cerr << "After starting equijoin: r = " << r << endl;
 }
 
 void
 JoinElement::EquiJoinExecutor::
 takeMoreInput()
 {
-    while (l && l->values.back().empty())
-        l = this->left->take();
-    while (r && r->values.back().empty())
-        r = this->right->take();
+    bool doLeft = parent->joinQualification_ == JOIN_LEFT || parent->joinQualification_ == JOIN_FULL;
+    bool doRight = parent->joinQualification_ == JOIN_RIGHT || parent->joinQualification_ == JOIN_FULL;
+
+  //  if (parent->joinQualification_ != JOIN_LEFT && parent->joinQualification_ != JOIN_FULL)
+    cerr << "EQUIJOIN MORE INPUT" << endl;
+    do
+    {
+        while (l && l->values.back().empty())
+        {               
+            //HERE            
+            cerr << "EQUIJOIN MORE INPUT SKIP LEFT EMPTY" << endl;
+            l = this->left->take();
+        }
+
+        //its ok if the result of the select is NULL
+        if (l)
+        {
+             ExpressionValue & lEmbedding = l->values.back();
+             ExpressionValue lField = lEmbedding.getField(0);
+
+            if (!lField.empty() || doLeft)
+            {
+                break;
+            }
+            else 
+            {
+                cerr << "EQUIJOIN MORE INPUT SKIP LEFT WRONG" << endl;
+                l = this->left->take();
+            }
+
+        }
+    }
+    while (l);
+
+   // if (parent->joinQualification_ != JOIN_RIGHT && parent->joinQualification_ != JOIN_FULL)
+    do
+    {
+        while (r && r->values.back().empty())
+        {               
+            //HERE            
+            cerr << "EQUIJOIN MORE INPUT SKIP RIGHT EMPTY" << endl;
+            r = this->right->take();
+        }
+
+        //its ok if the result of the select is NULL
+        if (r)
+        {
+             ExpressionValue & embedding = r->values.back();
+             ExpressionValue field = embedding.getField(0);
+
+             if (!field.empty() || doRight)
+             {
+                break;
+            }
+            else
+            {
+                cerr << "EQUIJOIN MORE INPUT SKIP RIGHT WRONG" << endl;
+                r = this->right->take();
+            }
+        }
+    }
+    while (r);
 }
             
 std::shared_ptr<PipelineResults>
 JoinElement::EquiJoinExecutor::
 take()
 {
-    while (l && r) {
-        //cerr << "equijoin executor" << endl;
-        //cerr << "l = " << jsonEncode(l) << endl;
-        //cerr << "r = " << r << endl;
-        //cerr << "r = " << jsonEncode(r) << endl;
+    cerr << "EQUIJOIN TAKE" << endl;
 
-        ExpressionValue & lField = l->values.back();
-        ExpressionValue & rField = r->values.back();
+    bool doLeft = parent->joinQualification_ == JOIN_LEFT || parent->joinQualification_ == JOIN_FULL;
+    bool doRight = parent->joinQualification_ == JOIN_RIGHT || parent->joinQualification_ == JOIN_FULL;
+
+    while (l && r) {
+
+     //   bool skip = false;
+
+        cerr << "equijoin executor" << endl;
+        cerr << "qualification " << parent->joinQualification_ << endl;
+        cerr << "l = " << jsonEncode(l) << endl;
+        cerr << "r = " << jsonEncode(r) << endl;      
+
+    //    if (l->values.back().empty())
+      //  {
+           // skip = true;
+          //  if (parent->joinQualification_ == JOIN_LEFT || parent->joinQualification_ == JOIN_FULL)
+      //      {
+      //          cerr << "outer_left empty" << endl;
+      //          auto result = std::move(l);
+      //          l = this->left->take();
+      //          return result;
+      //      }
+      //  }
+
+      //  if (r->values.back().empty())
+      //  {
+          //  skip = true;
+          //  if (parent->joinQualification_ == JOIN_RIGHT || parent->joinQualification_ == JOIN_FULL)
+      //      {
+      //          cerr << "outer_right empty" << endl;
+       //         auto result = std::move(r);
+       //         r = this->right->take();
+       //         return result;
+       //     }
+       // }
+
+        //auto leftCondition = condition.left.where;
+      //  if (joinQualification == JOIN_LEFT || joinQualification == JOIN_FULL)
+      //  {
+      //
+      //  }
+
+        ExpressionValue & lEmbedding = l->values.back();
+        ExpressionValue & rEmbedding = r->values.back();
+
+        ExpressionValue lField = lEmbedding.getField(0);
+        ExpressionValue rField = rEmbedding.getField(0);
+
+        if (doLeft)
+        {
+            cerr << "has do left" << endl;
+            //Check if the where condition would have been true
+            ExpressionValue lWhere = lEmbedding.getField(1);
+            if (lField.empty() || !lWhere.asBool())
+            {
+                //pop and return left
+                cerr << "pop and return left" << endl;
+                l->values.pop_back();
+                l->values.emplace_back(ExpressionValue("", Date()));
+                l->values.emplace_back(ExpressionValue("", Date()));
+                auto result = std::move(l);                
+                l = left->take();
+                return result;
+            }
+        }
+
+        if (doRight)
+        {
+            cerr << "has do right" << endl;
+            //Check if the where condition would have been true            
+            ExpressionValue rWhere = rEmbedding.getField(1);
+            if (rField.empty() || !rWhere.asBool())
+            {
+                //pop and return right
+                cerr << "pop and return right" << endl;
+                r->values.pop_back();
+                r->values.insert(r->values.begin(), ExpressionValue("", Date()));
+                r->values.insert(r->values.begin(), ExpressionValue("", Date()));
+                auto result = std::move(r);
+
+                r = right->take();
+                return result;
+            }
+        }
 
         if (lField == rField) {
             // Got a row!
-            //cerr << "*** got row match on " << jsonEncode(lField) << endl;
-            //cerr << "l = " << jsonEncode(l) << endl;
-            //cerr << "r = " << jsonEncode(r) << endl;
+            cerr << "*** got row match on " << jsonEncode(lField) << endl;
+          //  cerr << "l = " << jsonEncode(l) << endl;
+          //  cerr << "r = " << jsonEncode(r) << endl;
 
             // Pop the selected join condition from l
             l->values.pop_back();
@@ -728,21 +924,76 @@ take()
 
             ExpressionValue storage;
             if (!parent->crossWhere_(*result, storage).isTrue())
+            {
+                cerr << "crossWhere_ rejects" << endl;
                 continue;
+            }
 
             return result;
         }
         else if (lField < rField) {
             do {
-                l = this->left->take();
+               /* if (parent->joinQualification_ == JOIN_LEFT || parent->joinQualification_ == JOIN_FULL)
+                {
+                    cerr << "outer_left" << endl;
+                    auto result = std::move(l);
+                    l = this->left->take();
+                    return result;
+                }
+                else*/
+                {
+                    cerr << "POST take left" << endl;
+                    l = this->left->take();
+                }                
             } while (l && l->values.back() < rField);
         }
         else {
             do {
-                r = this->right->take();
+               /* if (parent->joinQualification_ == JOIN_RIGHT || parent->joinQualification_ == JOIN_FULL)
+                {
+                    cerr << "outer_right" << endl;
+                    auto result = std::move(r);
+                    r = this->right->take();
+                    return result;
+                }
+                else*/
+                {
+                    cerr << "POST take right" << endl;
+                    r = this->right->take();
+                }    
+                
             } while (r && r->values.back() < lField);
         }
     }
+
+    if (doLeft && l)
+    {
+        //while(l)
+        {
+            cerr << "outer_left empty end" << endl;
+            l->values.pop_back();
+            l->values.emplace_back(ExpressionValue("", Date()));
+            l->values.emplace_back(ExpressionValue("", Date()));
+            auto result = std::move(l);                
+            l = left->take();
+            return result;
+        }
+    }
+
+    if (doRight && r)
+    {
+        //while(r)
+        {
+            cerr << "outer_right empty end" << endl;
+            r->values.pop_back();
+            r->values.insert(r->values.begin(), ExpressionValue("", Date()));
+            r->values.insert(r->values.begin(), ExpressionValue("", Date()));
+            auto result = std::move(r);
+
+            r = right->take();
+            return result;
+        }
+    }   
             
     // Nothing more found
     return nullptr;
@@ -769,13 +1020,15 @@ JoinElement::Bound::
 Bound(std::shared_ptr<BoundPipelineElement> root,
       std::shared_ptr<BoundPipelineElement> left,
       std::shared_ptr<BoundPipelineElement> right,
-      AnnotatedJoinCondition condition)
+      AnnotatedJoinCondition condition,
+      JoinQualification joinQualification)
     : root_(std::move(root)),
       left_(std::move(left)),
       right_(std::move(right)),
       outputScope_(createOutputScope()),
       crossWhere_(condition.crossWhere->bind(*outputScope_)),
-      condition_(std::move(condition))
+      condition_(std::move(condition)),
+      joinQualification_(joinQualification)
 {
 }
 
@@ -952,7 +1205,7 @@ FromElement(std::shared_ptr<PipelineElement> root_,
             = std::dynamic_pointer_cast<JoinExpression>(from);
         ExcAssert(join);
 
-        impl.reset(new JoinElement(root, join->left, join->right, join->on, select, where, orderBy_));
+        impl.reset(new JoinElement(root, join->left, join->right, join->on, join->qualification, select, where, orderBy_));
         // TODO: order by for join output
             
     }

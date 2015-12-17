@@ -151,8 +151,8 @@ struct JoinedDataset::Itl
             return;       
        
 
-        if (!condition.crossWhere
-            || condition.crossWhere->isConstant()) {
+        if (/*!condition.crossWhere
+            || condition.crossWhere->isConstant()*/false) {
 
             cerr << "FAST PATH" << endl;
             cerr << "qualify: " << joinConfig.qualification << endl;
@@ -198,8 +198,17 @@ struct JoinedDataset::Itl
                     // This has xxx results
                     //gotRow(...);
 
-                    RowName leftName(res->values.at(0).toUtf8String());
-                    RowName rightName(res->values.at(2).toUtf8String());
+                    cerr << "got rows complex " << res->values.size() << endl;
+                    Utf8String leftNameUtf8 = res->values.at(0).toUtf8String();
+                    size_t i = 2;
+                    for (; i+ 2 < res->values.size(); i+=2)
+                    {
+                        cerr << "adding join name " << endl;
+                        leftNameUtf8 += "-" + res->values.at(i).toUtf8String();
+                    }                        
+
+                    RowName leftName(leftNameUtf8);
+                    RowName rightName(res->values.at(i).toUtf8String());
 
                     recordJoinRow(leftName, leftName, rightName, rightName);
 
@@ -213,7 +222,7 @@ struct JoinedDataset::Itl
                 };
 
             PipelineElement::root(context)
-                ->join(joinConfig.left, joinConfig.right, joinConfig.on)
+                ->join(joinConfig.left, joinConfig.right, joinConfig.on, joinConfig.qualification)
                 ->bind()
                 ->start(getParam, true)
                 ->takeAll(gotElement);
@@ -275,6 +284,7 @@ struct JoinedDataset::Itl
 
         if (debug)
             cerr << "added entry number " << rows.size()
+                 << "named " << "("<< rowName.toUtf8String() <<")"
                  << endl;
 
         rows.emplace_back(std::move(entry));
@@ -293,10 +303,12 @@ struct JoinedDataset::Itl
 
         std::shared_ptr<SqlExpression> lhs;
         auto notExpr = std::make_shared<BooleanOperatorExpression>(BooleanOperatorExpression(lhs, side.where, "NOT"));
+        auto nullExpr = std::make_shared<IsTypeExpression>(side.where, false, "null");
+        auto complementExpr = std::make_shared<BooleanOperatorExpression>(BooleanOperatorExpression(notExpr, nullExpr, "OR"));
 
         cerr << "Make side Query" << endl;
 
-        auto generator = dataset.queryBasic(context, side.select, side.when, *notExpr, side.orderBy, 0, -1, true /* allowParallel */);
+        auto generator = dataset.queryBasic(context, side.select, side.when, *complementExpr, side.orderBy, 0, -1, true /* allowParallel */);
 
         cerr << "Make side Query Done" << endl;
 
@@ -505,20 +517,31 @@ struct JoinedDataset::Itl
 
     virtual MatrixNamedRow getRow(const RowName & rowName) const
     {
+        cerr << "Join dataset get row " << rowName.toUtf8String() << endl;
+
         auto it = rowIndex.find(rowName);
         if (it == rowIndex.end())
+        {
+            cerr << "count not find rowName" << endl;
+            cerr << "row index size" << rowIndex.size() << endl;
             return MatrixNamedRow();
+        }
         
         const RowEntry & row = rows.at(it->second);
 
         if (rowName != row.rowName)
+         {
+            cerr << "rowName does not match" << endl;
             return MatrixNamedRow();
+        }
 
         MatrixNamedRow result;
         result.rowName = rowName;
         result.rowHash = rowName;
 
+        cerr << "get left" << endl;
         auto leftRow = matrices[0]->getRow(row.leftName);
+        cerr << "get right" << endl;
         auto rightRow = matrices[1]->getRow(row.rightName);
         
         /// This function copies columns from a sub-row to the result of
