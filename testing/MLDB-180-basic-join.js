@@ -91,6 +91,8 @@ expected = [
    [ "ex2-ex5-ex5", 2, 4, 2, 2, 2, 2 ]
 ];
 
+//THIS HERE
+
 testQuery('SELECT * FROM test1 AS t1 JOIN test2 AS t2 ON t1.x = t2.x' +
           ' JOIN test2 AS t3 ON t1.z = t3.x * 2', expected);
 
@@ -268,7 +270,16 @@ testQuery('SELECT test1.* FROM test1 JOIN test2 ON test1.x = test2.x',
 //var resp = mldb.get('/v1/query', {q: 'SELECT * FROM test1 FULL JOIN test2 ON test1.x = 1 AND test2.x = 1', format: 'table'});
 //mldb.log("received", resp.json);
 
-var resp = mldb.get('/v1/query', {q: 'SELECT * FROM test1 FULL JOIN test2 ON test1.x = test2.x', format: 'table'});
+//var resp = mldb.get('/v1/query', {q: 'SELECT * FROM test1 FULL JOIN test2 ON test1.x = test2.x', format: 'table'});
+//mldb.log("received", resp.json);
+
+//var resp = mldb.get('/v1/query', {q: 'SELECT * FROM test1 FULL JOIN test2 ON test1.x = test2.x AND test2.x != 2', format: 'table'});
+//mldb.log("received", resp.json);
+
+//var resp = mldb.get('/v1/query', {q: 'SELECT * FROM test1 LEFT JOIN test2 ON test1.x = test2.x AND test2.x != 2', format: 'table'});
+//mldb.log("received", resp.json);
+
+var resp = mldb.get('/v1/query', {q: 'SELECT * FROM test1 RIGHT JOIN test2 ON test1.x = test2.x AND test2.x != 2', format: 'table'});
 mldb.log("received", resp.json);
 
 "success"

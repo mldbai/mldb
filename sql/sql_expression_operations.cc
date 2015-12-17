@@ -1040,9 +1040,7 @@ BoundSqlExpression
 BooleanOperatorExpression::
 bind(SqlBindingScope & context) const
 {
-    cerr << "bind left";
     auto boundLhs = lhs ? lhs->bind(context) : BoundSqlExpression();
-    cerr << "bind right";
     auto boundRhs = rhs->bind(context);
 
     if (op == "AND" && lhs) {
@@ -1086,6 +1084,7 @@ bind(SqlBindingScope & context) const
                     ExpressionValue lstorage, rstorage;
                     const ExpressionValue & l = boundLhs(row, lstorage);
                     const ExpressionValue & r = boundRhs(row, rstorage);
+
                     if (l.isTrue() && r.isTrue()) {
                         Date ts = std::max(l.getEffectiveTimestamp(),
                                            r.getEffectiveTimestamp());
@@ -1121,8 +1120,7 @@ bind(SqlBindingScope & context) const
                     ExpressionValue rstorage;
                     const ExpressionValue & r = boundRhs(row, rstorage);
                     if (r.empty())
-                        return storage = ExpressionValue(true, r.getEffectiveTimestamp());
-                        //return storage = std::move(r);
+                        return storage = std::move(r);
                     return storage = std::move(ExpressionValue(!r.isTrue(), r.getEffectiveTimestamp()));
                 },
                 this,
