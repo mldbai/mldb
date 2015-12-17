@@ -32,19 +32,8 @@ rebind(BoundSqlExpression expr)
                      ExpressionValue & storage)
         -> const ExpressionValue &
         {
-            auto * row = dynamic_cast<const RowContext *>(&context);
-            if (row) {
-                return expr.exec(row->outer, storage);
-            }
-            else {
-                // The context might not be type RowContext.
-                // For example - when calling BoundSqlExpression::constantValue()
-                // the context is a plain SqlRowScope.
-                // In such, case it is fine to pass the inner context since the
-                // bound expression is constant and should not access the row
-                // value.
-                return expr.exec(context, storage);
-            }
+            auto & row = static_cast<const RowContext &>(context);
+            return outerExec(row.outer, storage);
         };
 
     return expr;
@@ -59,7 +48,10 @@ doGetFunction(const Utf8String & tableName,
     // Rebind the function parameters to the outer
     std::vector<BoundSqlExpression> outerArgs;
     for (auto & arg: args) {
-        outerArgs.emplace_back(std::move(rebind(arg)));
+        if (arg.metadata.isConstant)  //don't rebind constant expression since they don't need to access the row
+            outerArgs.emplace_back(std::move(arg));
+        else
+            outerArgs.emplace_back(std::move(rebind(arg)));
     }
 
     // Get the outer function
