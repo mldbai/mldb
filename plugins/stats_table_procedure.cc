@@ -320,7 +320,7 @@ run(const ProcedureRunConfig & run,
     if(!runProcConf.statsTableFileUrl.empty() && !runProcConf.functionName.empty()) {
         cerr << "Saving stats tables to " << runProcConf.statsTableFileUrl.toString() << endl;
         PolyConfig clsFuncPC;
-        clsFuncPC.type = "experimental.statsTable.getCounts";
+        clsFuncPC.type = "statsTable.getCounts";
         clsFuncPC.id = runProcConf.functionName;
         clsFuncPC.params = StatsTableFunctionConfig(runProcConf.statsTableFileUrl);
 
@@ -345,7 +345,7 @@ StatsTableFunctionConfigDescription()
 {
     addField("statsTableFileUrl", &StatsTableFunctionConfig::statsTableFileUrl,
              "URL of the stats tables file (with extension '.st') to load. "
-             "This file is created by a procedure of type 'experimental.statsTable.train'.");
+             "This file is created by a procedure of type 'statsTable.train'.");
 }
 
 StatsTableFunction::
@@ -452,7 +452,7 @@ StatsTableDerivedColumnsGeneratorProcedureConfigDescription()
             "ID to use for the sql.expression function that will be created");
     addField("statsTableFileUrl", &StatsTableDerivedColumnsGeneratorProcedureConfig::statsTableFileUrl,
              "URL of the stats tables file (with extension '.st') to load. "
-             "This file is created by a procedure of type 'experimental.statsTable.train'.");
+             "This file is created by a procedure of type 'statsTable.train'.");
     addField("expression", &StatsTableDerivedColumnsGeneratorProcedureConfig::expression,
              "Expression to be expanded");
 }
@@ -690,18 +690,18 @@ StatsTablePosNegFunctionConfigDescription::
 StatsTablePosNegFunctionConfigDescription()
 {
     addField("numPos", &StatsTablePosNegFunctionConfig::numPos,
-            "Number of top positive words to use");//, ssize_t(50));
+            "Number of top positive words to use", ssize_t(50));
     addField("numNeg", &StatsTablePosNegFunctionConfig::numNeg,
-            "Number of top negative words to use");//, ssize_t(50));
+            "Number of top negative words to use", ssize_t(50));
     addField("minTrials", &StatsTablePosNegFunctionConfig::minTrials,
             "Minimum number of trials a words needs to have "
-            "to be considered");//, ssize_t(50));
+            "to be considered", ssize_t(50));
     addField("outcomeToUse", &StatsTablePosNegFunctionConfig::outcomeToUse,
             "Outcome to use. This must be one of the outcomes the stats "
             "table was trained with.");
     addField("statsTableFileUrl", &StatsTablePosNegFunctionConfig::statsTableFileUrl,
              "URL of the stats tables file (with extension '.st') to load. "
-             "This file is created by a procedure of type 'experimental.statsTable.train'.");
+             "This file is created by a procedure of type 'statsTable.train'.");
 }
 
 StatsTablePosNegFunction::
@@ -776,8 +776,7 @@ Any
 StatsTablePosNegFunction::
 getStatus() const
 {
-    Json::Value result;
-    return result;
+    return Any();
 }
 
 Any
@@ -835,7 +834,7 @@ apply(const FunctionApplier & applier,
             };
 
         args.forEachAtom(onAtom);
-        result.set("counts", ExpressionValue(std::move(rtnRow)));
+        result.set("probs", ExpressionValue(std::move(rtnRow)));
     }
     else {
         throw ML::Exception("wrong input type");
@@ -850,7 +849,7 @@ getFunctionInfo() const
 {
     FunctionInfo result;
     result.input.addRowValue("words");
-    result.output.addRowValue("counts");
+    result.output.addRowValue("probs");
     return result;
 }
 
@@ -864,11 +863,9 @@ namespace {
 
 RegisterFunctionType<StatsTableFunction, StatsTableFunctionConfig>
 regClassifyFunction(builtinPackage(),
-                    "experimental.statsTable.getCounts",
+                    "statsTable.getCounts",
                     "Get stats table counts for a row of keys",
-                    "functions/StatsTableGetCounts.md.html",
-                    nullptr,
-                    { MldbEntity::INTERNAL_ENTITY });
+                    "functions/StatsTableGetCounts.md.html");
 
 RegisterProcedureType<StatsTableDerivedColumnsGeneratorProcedure,
                       StatsTableDerivedColumnsGeneratorProcedureConfig>
@@ -882,30 +879,23 @@ regSTDerColGenProc(builtinPackage(),
 
 RegisterProcedureType<StatsTableProcedure, StatsTableProcedureConfig>
 regSTTrain(builtinPackage(),
-           "experimental.statsTable.train",
+           "statsTable.train",
            "Create statistical tables of trials against outcomes",
-           "procedures/StatsTableProcedure.md.html",
-           nullptr,
-           { MldbEntity::INTERNAL_ENTITY });
+           "procedures/StatsTableProcedure.md.html");
 
 
 RegisterProcedureType<BagOfWordsStatsTableProcedure,
                       BagOfWordsStatsTableProcedureConfig>
 regPosNegTrain(builtinPackage(),
-           "experimental.bagOfWordStatsTable.train",
+           "bagOfWordStatsTable.train",
            "Create statistical tables of trials against outcomes for bag of words",
-           "procedures/BagOfWordsStatsTableProcedure.md.html",
-           nullptr,
-           { MldbEntity::INTERNAL_ENTITY });
+           "procedures/BagOfWordsStatsTableProcedure.md.html");
 
 RegisterFunctionType<StatsTablePosNegFunction, StatsTablePosNegFunctionConfig>
 regPosNegFunction(builtinPackage(),
-                    "experimental.bagOfWordStatsTable.posneg",
+                    "bagOfWordStatsTable.posneg",
                     "Get the pos/neg p(outcome)",
-                    "functions/BagOfWordsStatsTablePosNeg.md.html",
-                    nullptr,
-                    { MldbEntity::INTERNAL_ENTITY });
-
+                    "functions/BagOfWordsStatsTablePosNeg.md.html");
 
 } // file scope
 

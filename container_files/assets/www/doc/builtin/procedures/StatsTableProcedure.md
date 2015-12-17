@@ -1,8 +1,13 @@
-# Stats Table Procedure (Experimental)
+# Stats Table Procedure
 
 This procedure does a rolling sum of keys and one or more outcomes over multiple columns. It is 
 the result of creating statistical tables, one per column, to track co-occurrence of each
 key with each outcome, over all rows in a table.
+
+This procedure is related to the the ![](%%doclink bagOfWordStatsTable.train procedure) but 
+is different in the sense that the `bagOfWordStatsTable.train` procedure is meant to 
+operate on sparse bags of words. This procedure expects a dense input dataset with a fixed
+number of columns.
 
 When using this procedure, a new output dataset will be created. It will have the same number
 of rows as the input dataset. The counts in each row of the output dataset will represent 
@@ -10,11 +15,11 @@ the counts in the stats tables at that point in the input dataset while going
 sequentially through it.
 
 The resulting statistical tables can be persisted using the `statsTableFileUrl` parameter
-and used later on to lookup counts using the ![](%%doclink experimental.statsTable.getCounts function).
+and used later on to lookup counts using the ![](%%doclink statsTable.getCounts function).
 
 ## Configuration
 
-![](%%config procedure experimental.statsTable.train)
+![](%%config procedure statsTable.train)
 
 ## Example
 
@@ -56,6 +61,7 @@ for that specific row are generated. This is done to prevent introducing bias as
 values for the current row would take into account the row's outcomes.
 
 ## See also
-* The ![](%%doclink experimental.statsTable.getCounts function) does a lookup in stats tables for a row of keys.
+* The ![](%%doclink statsTable.getCounts function) does a lookup in stats tables for a row of keys.
 * The ![](%%doclink experimental.statsTable.derivedColumnsGenerator procedure) can be used to generate derived columns from stats table counts.
+* The ![](%%doclink bagOfWordStatsTable.train procedure) trains a stats table on bags of words.
 

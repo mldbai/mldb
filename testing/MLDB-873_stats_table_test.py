@@ -27,7 +27,7 @@ def valForKey(lst, key):
 for output_type, output_id in [("sparse.mutable", "out_beh"), ("sparse.mutable", "out_sparse")]:
     mldb.log("Running for id:%s type:%s" % (output_id, output_type))
     conf = {
-        "type": "experimental.statsTable.train",
+        "type": "statsTable.train",
         "params": {
             "trainingDataset": "toy",
             "outputDataset": {"type": output_type, "id": output_id},
@@ -130,7 +130,16 @@ def assertValForCol(rows, key, goodVal):
         if rowName == key:
             assert abs(rowVal - goodVal) < 0.001
             return True
+    mldb.log(str(rows))
     raise Exception("Could not find key: " + key)
+
+def assertForRows(rows, name, col, goodVal):
+    for row in rows:
+        if row["rowName"] == name:
+            return assertValForCol(row["columns"], col, goodVal)
+    
+    raise Exception("Could not find row: " + name)
+
 
 
 #########
@@ -179,7 +188,7 @@ dataset.commit()
 
 
 conf = {
-    "type": "experimental.bagOfWordStatsTable.train",
+    "type": "bagOfWordStatsTable.train",
     "params": {
         "trainingDataset": "posneg",
         "select": "tokenize(text, {splitchars: ' '}) as *",
@@ -194,7 +203,7 @@ mldb.log(rez)
 
 
 conf = {
-    "type": "experimental.bagOfWordStatsTable.posneg",
+    "type": "bagOfWordStatsTable.posneg",
     "params": {
         "numPos": 4,
         "numNeg": 4,
@@ -207,7 +216,12 @@ rez = mldb.perform("PUT", "/v1/functions/posnegz", [], conf)
 mldb.log(rez)
 
 rez = mldb.perform("GET", "/v1/query", [["q", "select posnegz({words: tokenize(text, {splitchars: ' .'})}) as * from posneg"]])
-mldb.log(json.loads(rez["response"]))
+jsRez = json.loads(rez["response"])
+mldb.log(jsRez)
+
+assertForRows(jsRez, "d", "probs.red_label", 1)
+assertForRows(jsRez, "a", "probs.I_label", 0.5)
+assertForRows(jsRez, "b", "probs.I_label", 0.5)
 
 
 

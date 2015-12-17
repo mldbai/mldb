@@ -256,9 +256,9 @@ struct StatsTablePosNegFunctionConfig {
     {
     }
 
-    size_t numPos;
-    size_t numNeg;
-    size_t minTrials;
+    ssize_t numPos;
+    ssize_t numNeg;
+    ssize_t minTrials;
 
     std::string outcomeToUse;
 
