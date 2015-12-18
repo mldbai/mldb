@@ -27,40 +27,37 @@ struct InProcessRestConnection: public HttpRestConnection {
 
     /** Send the given response back on the connection. */
     virtual void sendResponse(int responseCode,
-                              const std::string & response,
-                              const std::string & contentType);
+                              std::string response,
+                              std::string contentType);
 
     /** Send the given response back on the connection. */
     virtual void
     sendResponse(int responseCode,
                  const Json::Value & response,
-                 const std::string & contentType = "application/json");
+                 std::string contentType = "application/json");
 
-    virtual void sendRedirect(int responseCode,
-                              const std::string & location);
+    virtual void sendRedirect(int responseCode, std::string location);
 
     /** Send an HTTP-only response with the given headers.  If it's not
         an HTTP connection, this will fail.
     */
     virtual void sendHttpResponse(int responseCode,
-                                  const std::string & response,
-                                  const std::string & contentType,
-                                  const RestParams & headers);
+                                  std::string response, std::string contentType,
+                                  RestParams headers);
 
     virtual void
     sendHttpResponseHeader(int responseCode,
-                           const std::string & contentType,
-                           ssize_t contentLength,
-                           const RestParams & headers = RestParams());
+                           std::string contentType, ssize_t contentLength,
+                           RestParams headers = RestParams());
 
-    virtual void sendPayload(const std::string & payload);
+    virtual void sendPayload(std::string payload);
 
     virtual void finishResponse();
 
     /** Send the given error string back on the connection. */
     virtual void sendErrorResponse(int responseCode,
-                                   const std::string & error,
-                                   const std::string & contentType);
+                                   std::string error,
+                                   std::string contentType);
 
     using RestConnection::sendErrorResponse;
 
