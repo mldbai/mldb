@@ -100,13 +100,13 @@ send(std::string str,
                 requestClose();
             }
         };
-        requestWrite(str, onWritten);
+        requestWrite(std::move(str), onWritten);
     }
 }
 
 void
 HttpLegacySocketHandler::
-putResponseOnWire(const HttpResponse & response,
+putResponseOnWire(HttpResponse response,
                   std::function<void ()> onSendFinished,
                   NextAction next)
 {
@@ -121,7 +121,7 @@ putResponseOnWire(const HttpResponse & response,
 
     if (response.contentType != "") {
         responseStr.append("Content-Type: ");
-        responseStr.append(response.contentType);
+        responseStr.append(std::move(response.contentType));
         responseStr.append("\r\n");
     }
 
@@ -133,14 +133,14 @@ putResponseOnWire(const HttpResponse & response,
     }
 
     for (auto & h: response.extraHeaders) {
-        responseStr.append(h.first);
+        responseStr.append(std::move(h.first));
         responseStr.append(": ");
-        responseStr.append(h.second);
+        responseStr.append(std::move(h.second));
         responseStr.append("\r\n");
     }
 
     responseStr.append("\r\n");
-    responseStr.append(response.body);
+    responseStr.append(std::move(response.body));
 
     send(std::move(responseStr), next, onSendFinished);
 }
