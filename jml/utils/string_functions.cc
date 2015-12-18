@@ -17,6 +17,7 @@
 #include "mldb/arch/exception.h"
 #include <sys/errno.h>
 #include <stdlib.h>
+#include <boost/algorithm/string.hpp>
 
 using namespace std;
 
@@ -215,7 +216,9 @@ unsigned replace_all(std::string & haystack, const std::string & search,
 string
 trim(const string & other)
 {
-    size_t len = other.size();
+    return boost::trim_copy(other);
+
+    /*size_t len = other.size();
 
     size_t start;
     for (start = 0; start < len; start++) {
@@ -240,7 +243,7 @@ trim(const string & other)
         result = other.substr(start, end-start);
     }
 
-    return result;
+    return result;*/
 }
 
 
