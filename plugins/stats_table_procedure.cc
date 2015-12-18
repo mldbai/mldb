@@ -702,7 +702,7 @@ StatsTablePosNegFunctionConfigDescription()
             "table was trained with.");
     addField("statsTableFileUrl", &StatsTablePosNegFunctionConfig::statsTableFileUrl,
              "URL of the stats tables file (with extension '.st') to load. "
-             "This file is created by a procedure of type 'statsTable.train'.");
+             "This file is created by a procedure of type 'statsTable.bagOfWords.train'.");
 }
 
 StatsTablePosNegFunction::
