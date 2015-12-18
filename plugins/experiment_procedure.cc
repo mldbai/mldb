@@ -325,6 +325,7 @@ run(const ProcedureRunConfig & run,
          * **/
         ClassifierConfig clsProcConf;
         clsProcConf.trainingData = runProcConf.trainingData;
+        clsProcConf.trainingData.stm->where = datasetFold.training_where;
         clsProcConf.weight = runProcConf.training_weight;
 
         string baseUrl = runProcConf.modelFileUrlPattern.toString();
