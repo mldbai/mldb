@@ -7,7 +7,8 @@ key with each outcome, over all rows in a table.
 This procedure is related to the the ![](%%doclink statsTable.bagOfWords.train procedure) but 
 is different in the sense that the `statsTable.bagOfWords.train` procedure is meant to 
 operate on sparse bags of words. This procedure expects a dense input dataset with a fixed
-number of columns.
+number of columns. Each column will have its own stats table. The keys used in the stats table
+will be the value of each cell.
 
 When using this procedure, a new output dataset will be created. It will have the same number
 of rows as the input dataset. The counts in each row of the output dataset will represent 
