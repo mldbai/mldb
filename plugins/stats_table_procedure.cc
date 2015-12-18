@@ -581,6 +581,7 @@ BagOfWordsStatsTableProcedureConfigDescription()
     addField("statsTableFileUrl", &BagOfWordsStatsTableProcedureConfig::statsTableFileUrl,
              "URL where the stats table file (with extension '.st') should be saved. "
              "This file can be loaded by a function of type 'statsTable.bagOfWords.posneg'.");
+    addParent<ProcedureConfig>();
 }
 
 /*****************************************************************************/

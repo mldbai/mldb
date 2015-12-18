@@ -194,7 +194,7 @@ struct StatsTableDerivedColumnsGeneratorProcedure: public Procedure {
 /* BOW STATS TABLE PROCEDURE CONFIG                                          */
 /*****************************************************************************/
 
-struct BagOfWordsStatsTableProcedureConfig {
+struct BagOfWordsStatsTableProcedureConfig : ProcedureConfig {
     BagOfWordsStatsTableProcedureConfig() :
           select("*"),
           when(WhenExpression::TRUE),
