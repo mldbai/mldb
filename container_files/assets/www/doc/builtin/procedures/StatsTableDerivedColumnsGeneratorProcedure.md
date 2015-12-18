@@ -20,7 +20,7 @@ In the following, `TBL` represents the current stat table's name.
 
 ## Example
 
-We will reuse the same example as in the ![](%%doclink experimental.statsTable.train procedure), which 
+We will reuse the same example as in the ![](%%doclink statsTable.train procedure), which 
 is using an online ad campaign. Below are the stats table counts:
 
 |  *rowName*   |  *trial-host*  |  *click-host* | *purchase-host* | *trial-region*  | *click-region* | *purchase-region* |
@@ -59,6 +59,6 @@ Applying the expanded expression to the `br_4` row will produce the following ou
 
 
 ## See also
-* The ![](%%doclink experimental.statsTable.train procedure) trains stats tables.
-* The ![](%%doclink experimental.statsTable.getCounts function) does a lookup in stats tables for a row of keys.
+* The ![](%%doclink statsTable.train procedure) trains stats tables.
+* The ![](%%doclink statsTable.getCounts function) does a lookup in stats tables for a row of keys.
 

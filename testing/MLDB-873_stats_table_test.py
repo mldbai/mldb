@@ -8,7 +8,6 @@ dataset_config = {
     'id'      : 'toy'
 }
 
-
 dataset = mldb.create_dataset(dataset_config)
 now = datetime.datetime.now()
 dataset.record_row("br_1", [["host", "pataté.com", now], ["region", "qc", now], ["CLICK", "1", now]])
@@ -28,7 +27,7 @@ def valForKey(lst, key):
 for output_type, output_id in [("sparse.mutable", "out_beh"), ("sparse.mutable", "out_sparse")]:
     mldb.log("Running for id:%s type:%s" % (output_id, output_type))
     conf = {
-        "type": "experimental.statsTable.train",
+        "type": "statsTable.train",
         "params": {
             "trainingDataset": "toy",
             "outputDataset": {"type": output_type, "id": output_id},
@@ -131,7 +130,16 @@ def assertValForCol(rows, key, goodVal):
         if rowName == key:
             assert abs(rowVal - goodVal) < 0.001
             return True
+    mldb.log(str(rows))
     raise Exception("Could not find key: " + key)
+
+def assertForRows(rows, name, col, goodVal):
+    for row in rows:
+        if row["rowName"] == name:
+            return assertValForCol(row["columns"], col, goodVal)
+    
+    raise Exception("Could not find row: " + name)
+
 
 
 #########
@@ -157,6 +165,64 @@ mldb.log(jsRez)
 assertValForCol(jsRez[0]["columns"], "ctr_host", 1/2.)
 assertValForCol(jsRez[0]["columns"], "ctr_region", 1)
 assertValForCol(jsRez[0]["columns"], "hoho_host", math.log(3))
+
+
+
+######
+# BagOfWordsStatsTable Test
+
+dataset_config = {
+    'type'    : 'sparse.mutable',
+    'id'      : 'posneg'
+}
+
+dataset = mldb.create_dataset(dataset_config)
+now = datetime.datetime.now()
+dataset.record_row("a", [["text", "I like apples", now], ["CLICK", "1", now]])
+dataset.record_row("b", [["text", "I like Macs", now]])
+dataset.record_row("c", [["text", "What about bananas?", now]])
+dataset.record_row("d", [["text", "Apples are red", now], ["CLICK", "1", now]])
+dataset.record_row("e", [["text", "Bananas are yellow", now]])
+dataset.record_row("f", [["text", "Oranges are ... orange", now]])
+dataset.commit()
+
+
+conf = {
+    "type": "statsTable.bagOfWords.train",
+    "params": {
+        "trainingDataset": "posneg",
+        "select": "tokenize(text, {splitchars: ' '}) as *",
+        "outcomes": [["label", "CLICK IS NOT NULL"]],
+        "statsTableFileUrl": "file://build/x86_64/tmp/mldb-873-stats_table_posneg.st",
+    }
+}
+rez = mldb.perform("PUT", "/v1/procedures/myroll_posneg_%s" % output_id, [], conf)
+mldb.log(rez)
+rez = mldb.perform("POST", "/v1/procedures/myroll_posneg_%s/runs" % output_id)
+mldb.log(rez)
+
+
+conf = {
+    "type": "statsTable.bagOfWords.posneg",
+    "params": {
+        "numPos": 4,
+        "numNeg": 4,
+        "minTrials": 1,
+        "outcomeToUse": "label",
+        "statsTableFileUrl": "file://build/x86_64/tmp/mldb-873-stats_table_posneg.st",
+    }
+}
+rez = mldb.perform("PUT", "/v1/functions/posnegz", [], conf)
+mldb.log(rez)
+
+rez = mldb.perform("GET", "/v1/query", [["q", "select posnegz({words: tokenize(text, {splitchars: ' .'})}) as * from posneg"]])
+jsRez = json.loads(rez["response"])
+mldb.log(jsRez)
+
+assertForRows(jsRez, "d", "probs.red_label", 1)
+assertForRows(jsRez, "a", "probs.I_label", 0.5)
+assertForRows(jsRez, "b", "probs.I_label", 0.5)
+
 
 
 mldb.script.set_return("success")
