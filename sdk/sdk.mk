@@ -11,15 +11,15 @@
 
 ifneq ($(PREMAKE),1)
 
-header_deps_onefile=$(shell $(CXX) $(CXXFLAGS) -MM -o - $(1) | tr ' ' '\n' | tr -d '\\' | sort | uniq | grep -v sdk_include_seed | grep -v ':' | grep -v '^/' | sed 's!^mldb/mldb/!!')
+header_deps_onefile=$(shell $(CXX) $(CXXFLAGS) -MM -o - $(1) | tr ' ' '\n' | tr -d '\\' | sort | uniq | grep -v sdk_include_seed | grep -v ':' | grep -v '^/' | sed -e 's!^mldb/mldb/!!' -e 's!^mldb/!!')
 
-$(INC)/mldb/%.h:			./%.h
-	mkdir -p $(dir $@) && cp $*.h $@
-
-
+$(INC)/mldb/%.h:			./mldb/%.h
+	mkdir -p $(dir $@) && cp ./mldb/$*.h $@
 
 
-MLDB_ALL_HEADERS=$(call header_deps_onefile,sdk/sdk_include_seed.cc)
+
+
+MLDB_ALL_HEADERS=$(call header_deps_onefile,mldb/sdk/sdk_include_seed.cc)
 
 mldb_dev_headers: $(MLDB_ALL_HEADERS:%=$(INC)/mldb/%)
 

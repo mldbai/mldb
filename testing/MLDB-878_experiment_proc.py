@@ -28,10 +28,8 @@ conf = {
     "type": "classifier.experiment",
     "params": {
         "experimentName": "my_test_exp",
-        "trainingDataset": "toy",
-        "testingDataset": "toy",
-        "select": "* EXCLUDING(label)",
-        "label": "label",
+        "trainingData": "select {* EXCLUDING(label)} as features, label from toy",
+        "testingData": "select {* EXCLUDING(label)} as features, label from toy",
         "datasetFolds" : [
             {
                 "training_where": "rowHash() % 5 != 3",
@@ -72,7 +70,7 @@ trained_files = [x["modelFileUrl"].replace("file://", "") for x in jsRez["status
 # did we run two training jobs that both got a good auc ?
 assert len(jsRez["status"]["folds"]) == 2
 for i in xrange(2):
-    jsRez["status"]["folds"][i]["results"]["auc"] > 0.95
+    assert jsRez["status"]["folds"][i]["results"]["auc"] > 0.95, 'expected AUC to be above 0.95'
 
 # score using the predictor (MLDB-1070)
 def applyPredictor():
@@ -103,11 +101,12 @@ trained_files_mod_ts = max([os.path.getmtime(path) for path in trained_files])
 mldb.log(trained_files_mod_ts)
 
 # repost and inverse label
-conf["params"]["label"] = "NOT label"
+conf["params"]["trainingData"] = "select {* EXCLUDING(label)} as features, NOT label as label from toy"
 rez = mldb.perform("PUT", "/v1/procedures/rocket_science", [], conf)
-assert rez["statusCode"] == 201
+assert rez["statusCode"] == 201, 'procedure creation failed with :' + rez['response']
+
 rez = mldb.perform("POST", "/v1/procedures/rocket_science/runs")
-assert rez["statusCode"] == 201
+assert rez["statusCode"] == 201, 'procedure run faild with :' + rez['response']
 
 new_trained_files_mod_ts = min([os.path.getmtime(path) for path in trained_files])
 mldb.log(new_trained_files_mod_ts)
@@ -119,7 +118,7 @@ assert trained_files_mod_ts < new_trained_files_mod_ts
 score_run2 = applyPredictor()
 mldb.log(score_run2)
 assert set(score_run1) != set(score_run2)
-conf["params"]["label"] = "label"
+conf["params"]["trainingData"] = "select {* EXCLUDING(label)} as features, label from toy"
 
 
 #######
@@ -154,7 +153,7 @@ assert any(("results_" in x for x in jsRez))
 ##no split specified
 ######
 
-del conf["params"]["testingDataset"]
+del conf["params"]["testingData"]
 conf["params"]["experimentName"] = "no_fold_&_no_testing"
 
 rez = mldb.perform("PUT", "/v1/procedures/rocket_science8", [], conf)
@@ -162,7 +161,7 @@ mldb.log(rez)
 
 rez = mldb.perform("POST", "/v1/procedures/rocket_science8/runs")
 mldb.log(rez)
-assert rez["statusCode"] == 201
+assert rez["statusCode"] == 201, 'procedure run failed with ' + rez['response']
 
 jsRez = json.loads(rez["response"])
 mldb.log(jsRez)
@@ -182,6 +181,7 @@ conf["params"]["runOnCreation"] = True
 
 
 rez = mldb.perform("PUT", "/v1/procedures/rocket_science3", [], conf)
+mldb.log(conf)
 mldb.log(rez)
 assert rez["statusCode"] == 201
 
@@ -194,7 +194,7 @@ assert len(jsRez["status"]["firstRun"]["status"]["folds"]) == 5
 
 # make sure all the AUCs are ok
 for fold in jsRez["status"]["firstRun"]["status"]["folds"]:
-    assert fold["results"]["auc"] > 0.5
+    assert fold["results"]["auc"] > 0.5, 'expect an AUC above 0.5, got ' + str(fold)
 
 
 #######
@@ -203,7 +203,7 @@ for fold in jsRez["status"]["firstRun"]["status"]["folds"]:
 ######
 
 conf["params"]["experimentName"] = "5fold_fold_diff_dataset"
-conf["params"]["testingDataset"] = "toy2"
+conf["params"]["testingData"] =  "select {* EXCLUDING(label)} as features, label from toy2"
 conf["params"]["kfold"] = 5
 
 rez = mldb.perform("PUT", "/v1/procedures/rocket_science4", [], conf)
@@ -217,7 +217,7 @@ assert rez["statusCode"] == 400
 ######
 
 conf["params"]["experimentName"] = "diff_dataset"
-conf["params"]["testingDataset"] = "toy2"
+conf["params"]["testingData"] =  "select {* EXCLUDING(label)} as features, label from toy2"
 del conf["params"]["kfold"]
 
 rez = mldb.perform("PUT", "/v1/procedures/rocket_science5", [], conf)

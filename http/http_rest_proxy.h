@@ -1,9 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* http_rest_proxy.h                                               -*- C++ -*-
    Jeremy Barnes, 10 April 2013
    Copyright (c) 2013 Datacratic Inc.  All rights reserved.
 
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #pragma once
@@ -14,7 +13,6 @@
 #include "mldb/base/exc_assert.h"
 #include "mldb/jml/utils/string_functions.h"
 #include "mldb/types/value_description.h"
-#include "mldb/http/curl_wrapper.h"
 #include "mldb/http/http_header.h"
 
 
@@ -258,36 +256,28 @@ struct HttpRestProxy {
     /** Are we debugging? */
     bool debug;
 
-private:    
-    /** Lock for connection pool. */
-    mutable std::mutex lock;
-
-    /** List of inactive handles.  These can be selected from when a new
-        connection needs to be made.
-    */
-    //TODO replace with a safer storage - typedef std::shared_ptr<CurlWrapper::Easy> EasyPtr;
-    mutable std::vector<CurlWrapper::Easy*> inactive;
-
-    std::vector<std::string> cookies;
+private:
+    /** Private type that implements a connection handler. */
+    struct ConnectionHandler;
 
 public:
     /** Get a connection. */
     struct Connection {
-        Connection(CurlWrapper::Easy * conn,
+        Connection(ConnectionHandler * conn,
                    HttpRestProxy * proxy)
             : conn(conn), proxy(proxy)
         {
         }
 
-        ~Connection();
+        ~Connection() noexcept;
 
-        Connection(Connection && other)
+        Connection(Connection && other) noexcept
             : conn(other.conn), proxy(other.proxy)
         {
-            other.conn = 0;
+            other.conn = nullptr;
         }
 
-        Connection & operator = (Connection && other)
+        Connection & operator = (Connection && other) noexcept
         {
             this->conn = other.conn;
             this->proxy = other.proxy;
@@ -295,15 +285,37 @@ public:
             return *this;
         }
 
-        CurlWrapper::Easy & operator * () { ExcAssert(conn);  return *conn; }
+        ConnectionHandler & operator * ()
+        {
+            ExcAssert(conn);
+            return *conn;
+        }
+
+        ConnectionHandler * operator -> ()
+        {
+            ExcAssert(conn);
+            return conn;
+        }
 
     private:
-        CurlWrapper::Easy * conn;
+        friend class HttpRestProxy;
+        ConnectionHandler * conn;
         HttpRestProxy * proxy;
     };
 
     Connection getConnection() const;
-    void doneConnection(CurlWrapper::Easy * conn);
+    void doneConnection(ConnectionHandler * conn);
+
+private:    
+    /** Lock for connection pool. */
+    mutable std::mutex lock;
+
+    /** List of inactive handles.  These can be selected from when a new
+        connection needs to be made.
+    */
+    mutable std::vector<Connection> inactive;
+
+    std::vector<std::string> cookies;
 };
 
 inline std::ostream &

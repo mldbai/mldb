@@ -69,4 +69,32 @@ BOOST_AUTO_TEST_CASE( test_string_trim )
         string result = ML::trim(original);
         BOOST_CHECK_EQUAL(result, expected);
     }
+
+    {
+        string original = "";
+        string expected = "";
+        string result = ML::trim(original);
+        BOOST_CHECK_EQUAL(result, expected);
+    }
+
+    {
+        string original = " ";
+        string expected = "";
+        string result = ML::trim(original);
+        BOOST_CHECK_EQUAL(result, expected);
+    }
+
+    {
+        string original = "\t\t\ta";
+        string expected = "a";
+        string result = ML::trim(original);
+        BOOST_CHECK_EQUAL(result, expected);
+    }
+
+    {
+        string original = "a ";
+        string expected = "a";
+        string result = ML::trim(original);
+        BOOST_CHECK_EQUAL(result, expected);
+    }
 }

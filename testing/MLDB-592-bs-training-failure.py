@@ -40,14 +40,9 @@ def getClsConfig(pipe_id, algo):
         "params": {
             "modelFileUrl": "file://models/mldb-592-test-%s.cls" % pipe_id,
             "configuration": algo,
-            "trainingDataset": {
-                "id": "toy"
-            },
+            "trainingData": "select {* EXCLUDING (label)} as features, label='1' as label from toy where true",
             "equalizationFactor": 0,
-            "label": "label='1'",
-            "mode": "boolean",
-            "select": "* EXCLUDING (label)",
-            "where": "true"
+            "mode": "boolean"
         },
         "type": "classifier.train"
     }
@@ -93,16 +88,12 @@ for algoName, algoConf in [["dtAlgo", dtAlgo], ["bsAlgo", bsAlgo]]:
         "id": testPipe,
         "type": "classifier.test",
         "params": {
-            "testingDataset": {
-                "id": "toy"
-            },
-            "label": "label='1'",
+            "testingData": "select {*} as features, label='1' as label from toy where true",
             "outputDataset": {
                 "id": "mldb-592-test-%s-output" % algoName,
                 "type": "sparse.mutable"
             },
-            "score": "APPLY FUNCTION \"%s\" WITH (object(* EXCLUDING (Label)) AS features) EXTRACT(score)" % functionName,
-            "where": "true"
+            "score": "APPLY FUNCTION \"%s\" WITH (object(* EXCLUDING (Label)) AS features) EXTRACT(score)" % functionName
         }
     }
 

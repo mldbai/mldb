@@ -179,7 +179,7 @@ SVMConfigDescription()
              "the trained SVM.", SVM_CLASSIFICATION);
     addParent<ProcedureConfig>();
 
-    onPostValidate = validate<SVMConfig, NoGroupByHaving>("svm");
+    onPostValidate = validate<SVMConfig, InputQuery, NoGroupByHaving>(&SVMConfig::trainingData, "svm");
 }
 
 /*****************************************************************************/

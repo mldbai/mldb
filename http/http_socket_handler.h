@@ -7,8 +7,8 @@
 
 #pragma once
 
-#include <boost/algorithm/string/trim.hpp>
 #include "mldb/ext/jsoncpp/value.h"
+#include "mldb/jml/utils/string_functions.h"
 #include "mldb/http/http_header.h"
 #include "mldb/http/http_parsers.h"
 #include "mldb/http/tcp_socket_handler.h"
@@ -98,7 +98,7 @@ struct HttpResponse {
         : responseCode(responseCode),
           responseStatus(getResponseReasonPhrase(responseCode)),
           contentType("application/json"),
-          body(boost::trim_copy(body.toString())),
+          body(ML::trim(body.toString())),
           extraHeaders(std::move(extraHeaders)),
           sendBody(true)
     {
