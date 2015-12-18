@@ -3493,7 +3493,8 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
         skip_whitespace(context);
     }
     else {
-        statement.rowName = SqlExpression::parse("rowName()");
+        static string rowNameFn("rowName()");
+        statement.rowName = SqlExpression::parse(rowNameFn);
     }
 
     if (matchKeyword(context, "FROM ")) {
