@@ -6,7 +6,6 @@
 
 */
 
-#include "mldb/jml/utils/string_functions.h"
 #include "json_parsing.h"
 #include "json_parsing_impl.h"
 #include "string.h"
@@ -16,6 +15,46 @@
 
 using namespace std;
 using namespace ML;
+
+
+namespace {
+
+/* This is a duplicate of ML::trim, reimplemented here in order to avoid a
+ * circular dependency between libvalue_description and libutils. */
+
+string
+trim(const string & other)
+{
+    size_t len = other.size();
+
+    size_t start;
+    for (start = 0; start < len; start++) {
+        if (other[start] != ' ' && other[start] != '\t') {
+            break;
+        }
+    }
+
+    size_t end;
+    for (end = len; end > start; end--) {
+        if (other[end-1] != ' ' && other[end-1] != '\t') {
+            break;
+        }
+    }
+
+    if (start == 0 && end == len) {
+        return other;
+    }
+
+    string result;
+    if (start != end) {
+        result = other.substr(start, end-start);
+    }
+
+    return result;
+}
+
+}
+
 
 namespace Datacratic {
 
@@ -1111,7 +1150,7 @@ printCurrent()
 {
     try {
         ML::Parse_Context::Revert_Token token(*context);
-        return ML::trim(expectJson().toString());
+        return trim(expectJson().toString());
     } catch (const std::exception & exc) {
         ML::Parse_Context::Revert_Token token(*context);
         return context->expect_text("\n");
@@ -1426,7 +1465,7 @@ exception(const std::string & message)
     //cerr << *top << endl;
     throw ML::Exception("At path " + printPath() + ": "
                         + message + " parsing "
-                        + ML::trim(top->toString()));
+                        + trim(top->toString()));
 }
     
 std::string
@@ -1734,7 +1773,7 @@ std::string
 StructuredJsonParsingContext::
 printCurrent()
 {
-    return ML::trim(current->toString());
+    return trim(current->toString());
 }
 
 

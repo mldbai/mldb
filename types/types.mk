@@ -16,7 +16,7 @@ LIBVALUE_DESCRIPTION_SOURCES := \
 	distribution_description.cc
 
 LIBVALUE_DESCRIPTION_LINK := \
-	arch utils jsoncpp base
+	arch jsoncpp base
 
 $(eval $(call library,value_description,$(LIBVALUE_DESCRIPTION_SOURCES),$(LIBVALUE_DESCRIPTION_LINK)))
 
