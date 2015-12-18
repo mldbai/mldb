@@ -148,11 +148,9 @@ struct JoinedDataset::Itl
         SqlRowScope scope;
         ExpressionValue storage;
         if (!boundConstant(scope, storage).isTrue())
-            return;       
-       
+            return;
 
-        if (/*!condition.crossWhere
-            || condition.crossWhere->isConstant()*/false) {
+        if (!condition.crossWhere || condition.crossWhere->isConstant()) {
 
             cerr << "FAST PATH" << endl;
             cerr << "qualify: " << joinConfig.qualification << endl;
@@ -164,28 +162,7 @@ struct JoinedDataset::Itl
             // We can use a fast path, since we have simple non-filtered
             // equijoin
 
-            makeJoinFast(condition, context, left, right, joinConfig.qualification);
-
-            if (joinConfig.qualification == JOIN_LEFT || joinConfig.qualification == JOIN_FULL)
-            {
-                cerr << "doing LEFT side" << endl;
-                auto record = [&] (const RowName & leftName, RowHash leftHash)
-                {
-                    recordJoinRow(leftName, leftHash, RowName(), RowHash());
-                };
-
-                makeSide(context, condition.left, *(left.dataset), record);
-            }
-            if (joinConfig.qualification == JOIN_RIGHT || joinConfig.qualification == JOIN_FULL)
-            {
-                cerr << "doing RIGHT side" << endl;
-                auto record = [&] (const RowName & rightName, RowHash rightHash)
-                {
-                    recordJoinRow(RowName(), RowHash(), rightName, rightHash);
-                };
-
-                makeSide(context, condition.right, *(right.dataset), record);
-            }
+            makeJoinFast(condition, context, left, right, joinConfig.qualification);            
 
         } else {
             // Complex join condition.  We need to generate the full set of
@@ -198,7 +175,7 @@ struct JoinedDataset::Itl
                     // This has xxx results
                     //gotRow(...);
 
-                    cerr << "got rows complex " << res->values.size() << endl;
+                    //cerr << "got rows complex " << res->values.size() << endl;
                     Utf8String leftNameUtf8 = res->values.at(0).toUtf8String();
                     size_t i = 2;
                     for (; i+ 2 < res->values.size(); i+=2)
@@ -294,47 +271,30 @@ struct JoinedDataset::Itl
         rightRowIndex[rightHash].push_back(rowName);
     };
 
-    void makeSide(SqlExpressionMldbContext& context, 
+    void makeOuterSide(SqlExpressionMldbContext& context, 
                   const AnnotatedJoinCondition::Side & side, 
                   const Dataset & dataset, 
                   const std::function<void (const RowName &, RowHash)> & record)
     {
-        cerr << "Make side" << endl;
+        //We create an expression that will return the complement
 
         std::shared_ptr<SqlExpression> lhs;
         auto notExpr = std::make_shared<BooleanOperatorExpression>(BooleanOperatorExpression(lhs, side.where, "NOT"));
         auto nullExpr = std::make_shared<IsTypeExpression>(side.where, false, "null");
         auto complementExpr = std::make_shared<BooleanOperatorExpression>(BooleanOperatorExpression(notExpr, nullExpr, "OR"));
-
-        cerr << "Make side Query" << endl;
-
         auto generator = dataset.queryBasic(context, side.select, side.when, *complementExpr, side.orderBy, 0, -1, true /* allowParallel */);
-
-        cerr << "Make side Query Done" << endl;
-
         auto rows = generator(-1);
-
-        cerr << "num side" << rows.size() << endl;
-    //    std::vector<std::tuple<ExpressionValue, RowName, RowHash> > extract;
-
-        for (auto & r: rows) {
-            //for (auto & c: r.columns) {
-               // extract.emplace_back(std::get<1>(c), r.rowName, r.rowHash);
-               // recordJoinRow(leftName, leftHash, rightName, rightHash);
-                
-           // }
-
+        for (auto & r: rows)
             record(r.rowName, r.rowHash);
-        }
     }
 
     void makeJoinFast(AnnotatedJoinCondition& condition, SqlExpressionMldbContext& context, BoundTableExpression& left, BoundTableExpression& right, JoinQualification qualification)
     {
-        bool debug = true;
+        bool debug = false;
         bool doLeft = qualification == JOIN_LEFT || qualification == JOIN_FULL;
         bool doRight = qualification == JOIN_RIGHT || qualification == JOIN_FULL;
 
-        cerr << "join fast path" << doLeft << doRight << endl;
+        //cerr << "join fast path" << doLeft << doRight << endl;
 
         // Where expressions for the left and right side
         auto runSide = [&] (const AnnotatedJoinCondition::Side & side,
@@ -392,12 +352,8 @@ struct JoinedDataset::Itl
 
         // Finally, perform the join
         // We keep a list of the row hashes of those that join up
-
-        cerr << "what is this " << leftRows.size() << " " << rightRows.size() << endl;
-
         auto it1 = leftRows.begin(), end1 = leftRows.end();
         auto it2 = rightRows.begin(), end2 = rightRows.end();
-        bool unused1 = true, unused2 = true;
 
         while (it1 != end1 && it2 != end2) {
             // TODO: there could be multiple values...
@@ -408,21 +364,16 @@ struct JoinedDataset::Itl
                 cerr << "joining " << jsonEncodeStr(val1) << " and " << jsonEncodeStr(val2) << endl;
 
             if (val1 < val2) {
-                cerr << "ta";
-                if (unused1 && doLeft)
+                if (doLeft)
                     recordJoinRow(std::get<1>(*it1), std::get<2>(*it1), RowName(), RowHash()); //For LEFT and FULL joins
-                unused1 = true;
                 ++it1;
             }
             else if (val2 < val1) {
-                cerr << "ti";
-                if (unused2 && doRight)
+                if (doRight)
                     recordJoinRow(RowName(), RowHash(),std::get<1>(*it2), std::get<2>(*it2)); //For RIGHT and FULL joins
-                unused2 = true;
                 ++it2;
             }
             else {
-                cerr << "to";
                 ExcAssertEqual(val1, val2);
 
                 // We got a match on the join condition.  So now
@@ -440,16 +391,11 @@ struct JoinedDataset::Itl
                 // Now the cross product
                 if (!val1.empty()) {
                     for (auto it1a = it1; it1a < erng1;  ++it1a) {
-                        cerr << "tu";
                         for (auto it2a = it2; it2a < erng2;  ++it2a) {
-                            cerr << "te";
                             const RowName & leftName = std::get<1>(*it1a);
                             const RowName & rightName = std::get<1>(*it2a);
                             const RowHash & leftHash = std::get<2>(*it1a);
                             const RowHash & rightHash = std::get<2>(*it2a);
-
-                            unused1 = false;
-                            unused2 = false;
 
                             if (debug)
                                 cerr << "rows " << leftName << " and " << rightName << " join on value " << val1 << endl;
@@ -471,11 +417,31 @@ struct JoinedDataset::Itl
                     }
                 }
 
-                unused1 = true;
-                unused2 = true;
                 it1 = erng1;
                 it2 = erng2;
             }
+        }
+
+
+        if (qualification == JOIN_LEFT || qualification == JOIN_FULL)
+        {
+            //cerr << "doing LEFT side" << endl;
+            auto record = [&] (const RowName & leftName, RowHash leftHash)
+            {
+                recordJoinRow(leftName, leftHash, RowName(), RowHash());
+            };
+
+            makeOuterSide(context, condition.left, *(left.dataset), record);
+        }
+        if (qualification == JOIN_RIGHT || qualification == JOIN_FULL)
+        {
+            //cerr << "doing RIGHT side" << endl;
+            auto record = [&] (const RowName & rightName, RowHash rightHash)
+            {
+                recordJoinRow(RowName(), RowHash(), rightName, rightHash);
+            };
+
+            makeOuterSide(context, condition.right, *(right.dataset), record);
         }
     }
 
@@ -517,31 +483,20 @@ struct JoinedDataset::Itl
 
     virtual MatrixNamedRow getRow(const RowName & rowName) const
     {
-        cerr << "Join dataset get row " << rowName.toUtf8String() << endl;
-
         auto it = rowIndex.find(rowName);
         if (it == rowIndex.end())
-        {
-            cerr << "count not find rowName" << endl;
-            cerr << "row index size" << rowIndex.size() << endl;
             return MatrixNamedRow();
-        }
         
         const RowEntry & row = rows.at(it->second);
 
         if (rowName != row.rowName)
-         {
-            cerr << "rowName does not match" << endl;
             return MatrixNamedRow();
-        }
 
         MatrixNamedRow result;
         result.rowName = rowName;
         result.rowHash = rowName;
 
-        cerr << "get left" << endl;
         auto leftRow = matrices[0]->getRow(row.leftName);
-        cerr << "get right" << endl;
         auto rightRow = matrices[1]->getRow(row.rightName);
         
         /// This function copies columns from a sub-row to the result of
