@@ -650,7 +650,6 @@ std::shared_ptr<PipelineResults>
 JoinElement::CrossJoinExecutor::
 take()
 {
-    cerr << "cross-join executor" << endl;
     for (;;) {
 
         if (!l) {
@@ -718,8 +717,6 @@ EquiJoinExecutor(const Bound * parent,
     l = this->left->take();
     r = this->right->take();
     takeMoreInput();
-
-    cerr << "After starting equijoin: r = " << r << endl;
 }
 
 void
@@ -844,7 +841,7 @@ take()
         }
         else {
             do {
-                r = this->right->take();              
+                r = this->right->take();
             } while (r && r->values.back() < lField);
         }
     }

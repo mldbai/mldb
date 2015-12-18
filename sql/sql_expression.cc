@@ -3080,9 +3080,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         if (matchKeyword(context, "ON ")) {
             condition = SqlExpression::parse(context, 10 /* precedence */, allowUtf8);
         }
-
-        cerr << joinQualify << endl;
-            
+           
         result.reset(new JoinExpression(result, joinTable, condition, joinQualify));
         result->surface = boost::trim_copy(token.captured());
 
@@ -3149,15 +3147,11 @@ matchJoinQualification(ML::Parse_Context & context, JoinQualification& joinQuali
 
         if (right || left || full)
         {
-          cerr << "right or left or full" << endl;
-
            //outer is optional, eat it
            skip_whitespace(context);
            matchKeyword(context, "FULL ");
 
            joinQualify = right ? JOIN_RIGHT : (left ? JOIN_LEFT : JOIN_FULL);
-
-           cerr << "JQ " << joinQualify << endl;
 
            //MUST match the 'JOIN'
            expectKeyword(context, "JOIN ");

@@ -109,7 +109,7 @@ struct JoinedDataset::Itl
         BoundTableExpression left = joinConfig.left->bind(mldbContext);
         BoundTableExpression right = joinConfig.right->bind(mldbContext);
 
-        bool debug = true;
+        bool debug = false;
 
         std::set<Utf8String> leftTables = joinConfig.left->getTableNames();
         std::set<Utf8String> rightTables = joinConfig.right->getTableNames();
@@ -152,9 +152,6 @@ struct JoinedDataset::Itl
 
         if (!condition.crossWhere || condition.crossWhere->isConstant()) {
 
-            cerr << "FAST PATH" << endl;
-            cerr << "qualify: " << joinConfig.qualification << endl;
-
             if (condition.crossWhere
                 && !condition.crossWhere->constantValue().isTrue())
                 return;
@@ -168,8 +165,6 @@ struct JoinedDataset::Itl
             // Complex join condition.  We need to generate the full set of
             // values.  To do this, we use the new executor.
 
-            cerr << "COMPLEX PATH" << endl;
-
             auto gotElement = [&] (std::shared_ptr<PipelineResults> & res) -> bool
                 {
                     // This has xxx results
@@ -180,7 +175,6 @@ struct JoinedDataset::Itl
                     size_t i = 2;
                     for (; i+ 2 < res->values.size(); i+=2)
                     {
-                        cerr << "adding join name " << endl;
                         leftNameUtf8 += "-" + res->values.at(i).toUtf8String();
                     }                        
 
@@ -248,7 +242,7 @@ struct JoinedDataset::Itl
      /* This is called to record a new entry from the join. */
     void recordJoinRow(const RowName & leftName, RowHash leftHash, const RowName & rightName, RowHash rightHash)
     {
-        bool debug = true;
+        bool debug = false;
 
         RowName rowName(leftName.toUtf8String() + "-" + rightName.toUtf8String());
         RowHash rowHash(rowName);
@@ -277,7 +271,6 @@ struct JoinedDataset::Itl
                   const std::function<void (const RowName &, RowHash)> & record)
     {
         //We create an expression that will return the complement
-
         std::shared_ptr<SqlExpression> lhs;
         auto notExpr = std::make_shared<BooleanOperatorExpression>(BooleanOperatorExpression(lhs, side.where, "NOT"));
         auto nullExpr = std::make_shared<IsTypeExpression>(side.where, false, "null");
@@ -293,8 +286,6 @@ struct JoinedDataset::Itl
         bool debug = false;
         bool doLeft = qualification == JOIN_LEFT || qualification == JOIN_FULL;
         bool doRight = qualification == JOIN_RIGHT || qualification == JOIN_FULL;
-
-        //cerr << "join fast path" << doLeft << doRight << endl;
 
         // Where expressions for the left and right side
         auto runSide = [&] (const AnnotatedJoinCondition::Side & side,
@@ -422,25 +413,33 @@ struct JoinedDataset::Itl
             }
         }
 
+        while (doLeft && it1 != end1)
+        {
+            recordJoinRow(std::get<1>(*it1), std::get<2>(*it1), RowName(), RowHash()); //For LEFT and FULL joins
+            ++it1;
+        }
+
+        while (doRight && it2 != end2)
+        {
+            recordJoinRow(RowName(), RowHash(),std::get<1>(*it2), std::get<2>(*it2)); //For RIGHT and FULL joins
+            ++it2;
+        }
+
 
         if (qualification == JOIN_LEFT || qualification == JOIN_FULL)
         {
-            //cerr << "doing LEFT side" << endl;
             auto record = [&] (const RowName & leftName, RowHash leftHash)
             {
                 recordJoinRow(leftName, leftHash, RowName(), RowHash());
             };
-
             makeOuterSide(context, condition.left, *(left.dataset), record);
         }
         if (qualification == JOIN_RIGHT || qualification == JOIN_FULL)
         {
-            //cerr << "doing RIGHT side" << endl;
             auto record = [&] (const RowName & rightName, RowHash rightHash)
             {
                 recordJoinRow(RowName(), RowHash(), rightName, rightHash);
             };
-
             makeOuterSide(context, condition.right, *(right.dataset), record);
         }
     }

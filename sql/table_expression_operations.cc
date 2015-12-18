@@ -160,7 +160,6 @@ JoinExpression(std::shared_ptr<TableExpression> left,
                JoinQualification qualification)
     : left(std::move(left)), right(std::move(right)), on(std::move(on)), qualification(qualification)
 {
-    cerr << "FDASDSA" << qualification;
     ExcAssert(this->left);
     ExcAssert(this->right);
 }
@@ -182,8 +181,6 @@ bind(SqlBindingScope & context) const
     config.left = left;
     config.right = right;
     config.on = on;
-
-    cerr << "qualification " << qualification << endl;
 
     config.qualification = qualification;
     auto ds = createJoinedDatasetFn(context.getMldbServer(), config);
