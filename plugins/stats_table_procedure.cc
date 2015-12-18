@@ -748,12 +748,12 @@ StatsTablePosNegFunction(MldbServer * owner,
             p_outcomes.insert(col);
     }
     else {
-        auto comparer = [](const pair<Utf8String, float> & a,
+        auto compareFunc = [](const pair<Utf8String, float> & a,
                            const pair<Utf8String, float> & b)
             {
                 return a.second > b.second;
             };
-        std::sort(accum.begin(), accum.end(), comparer);
+        std::sort(accum.begin(), accum.end(), compareFunc);
 
         for(int i=0; i<functionConfig.numPos; i++) {
             auto & a = accum[i];
@@ -813,22 +813,6 @@ apply(const FunctionApplier & applier,
                 rtnRow.push_back(make_tuple(Id(columnName.toUtf8String() + "_" + functionConfig.outcomeToUse),
                                             it->second,
                                             ts));
-
-
-//                 auto st = statsTables.find(columnName);
-//                 if(st == statsTables.end())
-//                     return true;
-// 
-//                 auto counts = st->second.getCounts(val);
-// 
-//                 auto strCol = columnName.toUtf8String(); 
-//                 rtnRow.push_back(make_tuple(Id("trial_"+strCol), counts.first, ts));
-// 
-//                 for(int lbl_idx=0; lbl_idx<st->second.outcome_names.size(); lbl_idx++) {
-//                     rtnRow.push_back(make_tuple(Id(st->second.outcome_names[lbl_idx]+"_"+strCol),
-//                                                 counts.second[lbl_idx],
-//                                                 ts));
-//                 }
 
                 return true;
             };

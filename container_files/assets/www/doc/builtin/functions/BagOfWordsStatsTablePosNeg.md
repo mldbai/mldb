@@ -17,5 +17,5 @@ The row will contain the probability of the P(outcome | word) for each valid wor
 given the function configuration.
 
 ## See also
-* The ![](%%doclink statsTable.bagOfWords.train procedure) trains a bag of words stats tables.
+* The ![](%%doclink statsTable.bagOfWords.train procedure) trains a bag of words stats table.
 

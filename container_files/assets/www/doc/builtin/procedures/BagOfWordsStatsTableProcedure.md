@@ -1,6 +1,6 @@
 # Bag Of Words Stats Table Procedure
 
-This procedure type is meant to work with bags of words, like the output of the
+This procedure type is meant to work with bags of words, as returned by the
 `tokenize` function. It creates a statistical table to track the co-occurrence of each
 word with the specified outcome, over all rows in a table.
 
