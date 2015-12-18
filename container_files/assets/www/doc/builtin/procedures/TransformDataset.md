@@ -14,9 +14,8 @@ all of the features in place.
 
 ## Examples
 
-* The ![](%%nblink _demos/Predicting Titanic Survival) demo notebook
+* The ![](%%nblink _tutorials/Loading Data Tutorial) notebook
 
 ## See also
 
 * [MLDB's SQL Implementation](../sql/Sql.md)
-* the ![](%%doclink merged dataset) and ![](%%doclink transposed dataset) can be used in combination with a transform dataset procedure to implement joins on datasets.
