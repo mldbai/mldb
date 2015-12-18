@@ -1,5 +1,7 @@
 /* parse_context_test.cc                                           -*- C++ -*-
    Jeremy Barnes, 16 February 2007
+   Copyright (c) 2007 Jeremy Barnes.
+
    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Test of tick counter functionality.
