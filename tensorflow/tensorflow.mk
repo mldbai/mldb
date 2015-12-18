@@ -4,9 +4,9 @@
 LIBMLDB_TENSORFLOW_PLUGIN_SOURCES:= \
 	tensorflow_plugin.cc
 
-$(eval $(call set_compile_option,$(LIBMLDB_TENSORFLOW_PLUGIN_SOURCES),-Imldb/ext))
+$(eval $(call set_compile_option,$(LIBMLDB_TENSORFLOW_PLUGIN_SOURCES),$(TENSORFLOW_COMPILE_FLAGS) -Imldb/ext/tensorflow))
 
-$(eval $(call mldb_plugin_library,tensorflow,mldb_tensorflow_plugin,$(LIBMLDB_TENSORFLOW_PLUGIN_SOURCES),tensorflow))
+$(eval $(call mldb_plugin_library,tensorflow,mldb_tensorflow_plugin,$(LIBMLDB_TENSORFLOW_PLUGIN_SOURCES),tensorflow_cpp_interface))
 
 $(eval $(call mldb_builtin_plugin,tensorflow,mldb_tensorflow_plugin,doc))
 
