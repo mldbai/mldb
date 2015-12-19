@@ -24,7 +24,7 @@ $(eval $(call test,svd_utils_test,mldb,boost))
 #$(eval $(call test,mldb_sql_test,mldb,boost))  # plugin is disabled
 $(eval $(call test,mldb_mnist_test,mldb,boost))
 $(eval $(call test,mldb_reddit_test,mldb,boost))
-$(eval $(call test,cell_value_test,mldb,boost))
+$(eval $(call test,cell_value_test,sql_expression,boost))
 
 # NOTE: sql_expression_test should NOT depend on the MLDB library.  If you
 # are tempted to add it, you have coupled them together and broken

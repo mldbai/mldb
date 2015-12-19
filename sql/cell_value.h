@@ -217,6 +217,7 @@ struct CellValue {
         UTF8_STRING,
         TIMESTAMP,
         TIMEINTERVAL,
+        BLOB,
         NUM_CELL_TYPES
     };
 
@@ -254,14 +255,18 @@ struct CellValue {
     bool isInt64() const;
     bool isUInt64() const;
 
+    bool isBlob() const;
+
     CellValue coerceToInteger() const;
     CellValue coerceToNumber() const;
     CellValue coerceToString() const;
     CellValue coerceToBoolean() const;
     CellValue coerceToTimestamp() const;
+    CellValue coerceToBlob() const;
     
-    /** This is always, without exception, the SIPhash of the toString()
-        representation.
+    /** This is always the SIPhash of the toString() representation.
+        Only for blobs, which have a base64 toString(), is it calculated
+        on the raw.
     */
     CellValueHash hash() const;
 
@@ -346,7 +351,9 @@ private:
         ST_UTF8_LONG_STRING,
         ST_UNOWNED_STRING,
         ST_TIMESTAMP,
-        ST_TIMEINTERVAL
+        ST_TIMEINTERVAL,
+        ST_SHORT_BLOB,
+        ST_LONG_BLOB
     };
 
     struct StringRepr {

@@ -162,3 +162,8 @@ BOOST_AUTO_TEST_CASE( test_date )
     BOOST_CHECK_EQUAL(jsonEncodeStr(CellValue(jsonDecodeStr<Date>(string("\"2015-10-06T20:52:18.842Z\"")))),
                       "{\"ts\":\"2015-10-06T20:52:18.842Z\"}");
 }
+
+BOOST_AUTO_TEST_CASE(test_blob)
+{
+    
+}
