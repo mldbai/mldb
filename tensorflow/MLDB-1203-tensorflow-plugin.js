@@ -54,8 +54,8 @@ var preprocessConfig = {
                 op: 'Div'
             }
         ]
-    }
 */
+    }
 };
 
 var fn = mldb.createFunction(preprocessConfig);

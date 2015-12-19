@@ -8,21 +8,14 @@
 #include "mldb/core/function.h"
 #include "mldb/core/plugin.h"
 #include "mldb/types/structure_description.h"
+#include "mldb/types/url.h"
+#include "mldb/types/any_impl.h"
 #include "mldb/arch/timers.h"
 #include "mldb/jml/utils/worker_task.h"
+#include "mldb/vfs/filter_streams.h"
 #include "google/protobuf/util/json_util.h"
 #include "google/protobuf/util/type_resolver_util.h"
-
-//#include "tensorflow/cc/ops/const_op.h"
-//#include "tensorflow/cc/ops/image_ops.h"
-//#include "tensorflow/cc/ops/standard_ops.h"
-
-#if 0
-namespace tensorflow {
-using std::string;
-} // namespace tensorflow
-#endif
-
+#include "google/protobuf/io/zero_copy_stream_impl.h"
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/op_def.pb.h"
 #include "tensorflow/core/platform/init_main.h"
@@ -355,23 +348,24 @@ struct TensorflowGraph: public Function {
     {
         functionConfig = config.params.convert<TensorflowGraphConfig>();   
 
+        using namespace tensorflow;
+
+        std::string graphContents;
+
+        ML::filter_istream stream(functionConfig.modelFileUrl.toString());
         
-
-
-        string graph_file_name = "inception/tensorflow_inception_graph.pb";
-
+        google::protobuf::io::IstreamInputStream pstream(&stream);
+        
         tensorflow::GraphDef graph_def;
-        Status load_graph_status =
-            ReadBinaryProto(tensorflow::Env::Default(), graph_file_name, &graph_def);
-        if (!load_graph_status.ok()) {
-            throw HttpReturnException(500, "Couldn't load Inception model");
+        if (!graph_def.ParseFromZeroCopyStream(&pstream)) {
+            throw HttpReturnException(500, "Couldn't load tensorflow graph model: parse error");
         }
-
+        
         session.reset(tensorflow::NewSession(tensorflow::SessionOptions()));
         Status session_create_status = session->Create(graph_def);
     
         if (!session_create_status.ok()) {
-            throw HttpReturnException(500, "Couldn't initialize Inception session");
+            throw HttpReturnException(500, "Couldn't initialize tensorflow graph model: " + session_create_status.error_message());
         }
     }
 
