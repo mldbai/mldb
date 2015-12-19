@@ -8,6 +8,7 @@
 #include "mldb/core/function.h"
 #include "mldb/core/plugin.h"
 #include "mldb/types/structure_description.h"
+#include "mldb/arch/timers.h"
 
 //#include "tensorflow/cc/ops/const_op.h"
 //#include "tensorflow/cc/ops/image_ops.h"
@@ -166,6 +167,8 @@ mldbPluginEnterV100(Datacratic::MLDB::MldbServer * server)
     // Actually run the image through the model.
     Tensor output;
 
+    ML::Timer timer;
+
     for (unsigned i = 0;  i < 20;  ++i) {
 
         std::vector<Tensor> outputs;
@@ -181,6 +184,8 @@ mldbPluginEnterV100(Datacratic::MLDB::MldbServer * server)
 
         output = std::move(outputs.at(0));
     }
+
+    cerr << "elapsed " << timer.elapsed() << endl;
 
     auto scores = output.flat<float>();
 
@@ -204,6 +209,7 @@ mldbPluginEnterV100(Datacratic::MLDB::MldbServer * server)
     }
 #endif
     
+    return nullptr;
 }
 
 
