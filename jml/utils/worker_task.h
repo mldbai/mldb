@@ -1,9 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* worker_task.h                                                   -*- C++ -*-
    Jeremy Barnes, 30 October 2005
    Copyright (c) 2005 Jeremy Barnes  All rights reserved.
-   $Source$
+
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Task list of work to do.
 */

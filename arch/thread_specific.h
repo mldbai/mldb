@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** thread_specific.h                                              -*- C++ -*-
     Jeremy Barnes, 13 November 2011
     Copyright (c) 2011 Datacratic.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Placed under the BSD license.
 
@@ -13,8 +13,8 @@
     The downside is that each needs to be tagged with a unique type as
     it requires static variables.
 */
-#ifndef __arch__thread_specific_h__
-#define __arch__thread_specific_h__
+
+#pragma once
 
 #include "exception.h"
 #include "spinlock.h"
@@ -281,6 +281,3 @@ unsigned
 ThreadSpecificInstanceInfo<T, Tag>::nextIndex = 0;
 
 } // namespace ML
-
-
-#endif /* __arch__thread_specific_h__ */
