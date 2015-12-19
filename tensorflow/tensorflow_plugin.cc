@@ -9,6 +9,9 @@
 #include "mldb/core/plugin.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/arch/timers.h"
+#include "mldb/jml/utils/worker_task.h"
+#include "google/protobuf/util/json_util.h"
+#include "google/protobuf/util/type_resolver_util.h"
 
 //#include "tensorflow/cc/ops/const_op.h"
 //#include "tensorflow/cc/ops/image_ops.h"
@@ -38,6 +41,7 @@ using std::string;
 #include "tensorflow/core/lib/io/path.h"
 #include "tensorflow/core/lib/strings/stringprintf.h"
 #include "tensorflow/core/platform/logging.h"
+#include "tensorflow/core/framework/graph_def_util.h"
 
 using namespace std;
 
@@ -59,7 +63,8 @@ mldbPluginEnterV100(Datacratic::MLDB::MldbServer * server)
     tensorflow::port::InitMain(argv[0], &argc, &argv);
 
     using namespace tensorflow;
-    
+
+#if 0    
     bool include_internal = true;
     OpList ops;
     OpRegistry::Global()->Export(include_internal, &ops);
@@ -68,6 +73,7 @@ mldbPluginEnterV100(Datacratic::MLDB::MldbServer * server)
     for (unsigned i = 0;  i < ops.op_size();  ++i) {
         cerr << ops.op(i).name() << " " << ops.op(i).summary() << endl;
     }
+#endif
 
     string graph_file_name = "inception/tensorflow_inception_graph.pb";
 
@@ -140,10 +146,42 @@ mldbPluginEnterV100(Datacratic::MLDB::MldbServer * server)
         // This runs the GraphDef network definition that we've just constructed, and
         // returns the results in the output tensor.
         tensorflow::GraphDef graph;
+
         auto graphRes = b.ToGraphDef(&graph);
         if (!graphRes.ok())
             throw HttpReturnException(400, "Unable to construct the graph: "
                                       + graphRes.error_message());
+
+
+        cerr << "Graph is" << endl;
+        cerr << SummarizeGraphDef(graph);
+
+        std::string type_url = "/" + graph.GetDescriptor()->full_name();
+        std::string bin;
+        graph.SerializeToString(&bin);
+        std::string jstring;
+
+        std::string url_prefix;
+
+        google::protobuf::util::TypeResolver* resolver
+            = google::protobuf::util::NewTypeResolverForDescriptorPool
+            (url_prefix, google::protobuf::DescriptorPool::generated_pool());
+        
+        cerr << "resolver = " << resolver << endl;
+
+        protobuf::util::JsonOptions options;
+        options.add_whitespace = true;
+
+        auto res = protobuf::util::BinaryToJsonString(resolver,
+                                                      type_url,
+                                                      bin,
+                                                      &jstring,
+                                                      options);
+        
+        cerr << "res.error_message() = " << res.error_message() << endl;
+
+        cerr << "def is " << jstring << endl;
+
 
         std::unique_ptr<Session> session(tensorflow::NewSession(tensorflow::SessionOptions()));
 
@@ -169,21 +207,24 @@ mldbPluginEnterV100(Datacratic::MLDB::MldbServer * server)
 
     ML::Timer timer;
 
-    for (unsigned i = 0;  i < 20;  ++i) {
+    auto onRun = [&] (int n)
+        {
+            std::vector<Tensor> outputs;
+            Status run_status = session->Run({{input_layer, resizedImage}},
+                {output_layer}, {}, &outputs);
 
-        std::vector<Tensor> outputs;
-        Status run_status = session->Run({{input_layer, resizedImage}},
-                                         {output_layer}, {}, &outputs);
+            if (!run_status.ok()) {
+                throw HttpReturnException(400, "Unable to run model: "
+                                          + run_status.error_message());
+            }
 
-        if (!run_status.ok()) {
-            throw HttpReturnException(400, "Unable to run model: "
-                                      + run_status.error_message());
-        }
+            cerr << "outputs " << outputs.size() << " tensors" << endl;
 
-        cerr << "outputs " << outputs.size() << " tensors" << endl;
+            if (n == 0)
+                output = std::move(outputs.at(0));
+        };
 
-        output = std::move(outputs.at(0));
-    }
+    ML::run_in_parallel(0, 20, onRun);
 
     cerr << "elapsed " << timer.elapsed() << endl;
 
@@ -280,6 +321,97 @@ struct TensorflowKernel: public Function {
     }
 
 };
+
+
+/*****************************************************************************/
+/* TENSORFLOW GRAPH                                                          */
+/*****************************************************************************/
+
+struct TensorflowGraphConfig {
+    Url modelFileUrl;
+};
+
+
+DECLARE_STRUCTURE_DESCRIPTION(TensorflowGraphConfig);
+
+DEFINE_STRUCTURE_DESCRIPTION(TensorflowGraphConfig);
+
+TensorflowGraphConfigDescription::
+TensorflowGraphConfigDescription()
+{
+    addField("modelFileUrl", &TensorflowGraphConfig::modelFileUrl,
+             "Model file to load graph from.  This is probable a .pb "
+             "file (protobuf file).");
+}
+
+struct TensorflowGraph: public Function {
+
+    TensorflowGraphConfig functionConfig;
+
+    TensorflowGraph(MldbServer * owner,
+                    PolyConfig config,
+                    const std::function<bool (const Json::Value &)> & onProgress)
+        : Function(owner)
+    {
+        functionConfig = config.params.convert<TensorflowGraphConfig>();   
+
+        
+
+
+        string graph_file_name = "inception/tensorflow_inception_graph.pb";
+
+        tensorflow::GraphDef graph_def;
+        Status load_graph_status =
+            ReadBinaryProto(tensorflow::Env::Default(), graph_file_name, &graph_def);
+        if (!load_graph_status.ok()) {
+            throw HttpReturnException(500, "Couldn't load Inception model");
+        }
+
+        session.reset(tensorflow::NewSession(tensorflow::SessionOptions()));
+        Status session_create_status = session->Create(graph_def);
+    
+        if (!session_create_status.ok()) {
+            throw HttpReturnException(500, "Couldn't initialize Inception session");
+        }
+    }
+
+    std::unique_ptr<tensorflow::Session> session;
+
+    Any getStatus() const
+    {
+        return Any();
+    }
+
+    FunctionOutput
+    apply(const FunctionApplier & applier,
+          const FunctionContext & context) const
+    {
+        FunctionOutput result;
+
+        Utf8String output("output");
+        result.set("output", ExpressionValue("hello", Date::notADate()));
+    
+        return result;
+    }
+
+    FunctionInfo
+    getFunctionInfo() const
+    {
+        FunctionInfo result;
+
+        result.input.addAtomValue("text");
+        result.output.addAtomValue("output");
+    
+        return result;
+    }
+
+};
+
+static RegisterFunctionType<TensorflowGraph, TensorflowGraphConfig>
+regTensorflowGraph(tensorflowPackage(),
+                   "tensorflow.graph",
+                   "Graph parameters for a trained TensorFlow model",
+                   "TensorflowGraph.md");
 
 
 } // namespace MLDB
