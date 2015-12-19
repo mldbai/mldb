@@ -2176,6 +2176,18 @@ bind(SqlBindingScope & context) const
                 this,
                 std::make_shared<BooleanValueInfo>()};
     }
+    else if (type == "blob") {
+        return {[=] (const SqlRowScope & row,
+                     ExpressionValue & storage) -> const ExpressionValue &
+                {
+                    ExpressionValue valStorage;
+                    const ExpressionValue & val = boundExpr(row, valStorage);
+                    return storage = std::move(ExpressionValue(val.coerceToBlob(),
+                                                               val.getEffectiveTimestamp()));
+                },
+                this,
+                    std::make_shared<BooleanValueInfo>()};
+    }
     else throw HttpReturnException(400, "Unknown type '" + type
                                    + "' for CAST (" + expr->surface
                                    + " AS " + type + ")");
