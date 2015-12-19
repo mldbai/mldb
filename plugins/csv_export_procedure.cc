@@ -11,7 +11,7 @@
 #include "mldb/sql/sql_expression.h"
 #include "mldb/server/dataset_context.h"
 #include "mldb/types/basic_value_descriptions.h"
-#include "mldb/jml/utils/worker_task.h"
+#include "mldb/base/parallel.h"
 #include "mldb/server/function_contexts.h"
 #include "mldb/server/bound_queries.h"
 #include "mldb/sql/table_expression_operations.h"

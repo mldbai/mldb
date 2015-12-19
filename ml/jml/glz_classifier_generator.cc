@@ -17,6 +17,7 @@
 #include "mldb/ml/algebra/matrix_ops.h"
 #include "mldb/ml/algebra/lapack.h"
 #include "mldb/arch/timers.h"
+#include "mldb/base/parallel.h"
 
 using namespace std;
 
@@ -314,7 +315,7 @@ train_weighted(Thread_Context & thread_context,
             }
         };
     
-    run_in_parallel_blocked(0, indexes.size(), onIndex);
+    Datacratic::parallelMap(0, indexes.size(), onIndex);
 
     cerr << "marshalling: " << t.elapsed() << endl;
     t.restart();

@@ -11,7 +11,7 @@
 #include "mldb/sql/sql_expression.h"
 #include "mldb/jml/stats/distribution.h"
 #include "mldb/jml/utils/guard.h"
-#include "mldb/jml/utils/worker_task.h"
+#include "mldb/base/parallel.h"
 #include "mldb/ml/jml/thread_context.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/ml/value_descriptions.h"

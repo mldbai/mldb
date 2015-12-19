@@ -13,7 +13,7 @@
 #include "mldb/core/dataset.h"
 #include "mldb/jml/stats/distribution.h"
 #include "mldb/jml/utils/guard.h"
-#include "mldb/jml/utils/worker_task.h"
+#include "mldb/base/parallel.h"
 #include "mldb/jml/utils/pair_utils.h"
 #include "mldb/jml/utils/vector_utils.h"
 #include "mldb/types/basic_value_descriptions.h"

@@ -16,7 +16,7 @@
 #include <cstring>
 #include "mldb/jml/utils/ring_buffer.h"
 #include "mldb/vfs/filter_streams.h"
-#include "mldb/jml/utils/worker_task.h"
+#include "mldb/base/thread_pool.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/types/date.h"
 
@@ -255,9 +255,7 @@ void forEachLineBlock(std::istream & stream,
     std::atomic<int64_t> byteOffset(0);
     std::atomic<int> chunkNumber(0);
 
-    ML::Worker_Task & worker = ML::Worker_Task::instance();
-
-    int group = worker.get_group(nullptr, "csv");
+    ThreadPool tp(8);
 
     // Memory map if possible
     const char * mapped = nullptr;
@@ -313,7 +311,7 @@ void forEachLineBlock(std::istream & stream,
                     (maxLines == -1 || doneLines < maxLines)) // don't schedule a new block if we have enough lines
                 {
                     // Ready for another chunk
-                    worker.add(doBlock, "", group);
+                    tp.add(doBlock);
                 } else if (current == end) {
                     lastBlock = true;
                 }
@@ -412,7 +410,7 @@ void forEachLineBlock(std::istream & stream,
                     (maxLines == -1 || doneLines < maxLines)) // don't schedule a new block if we have enough lines
                 {
                     // Ready for another chunk
-                    worker.add(doBlock, "", group);
+                    tp.add(doBlock);
                 } else if (stream.eof()) {
                     lastBlock = true;
                 }
@@ -444,9 +442,9 @@ void forEachLineBlock(std::istream & stream,
             }
 
         };
-            
-    worker.add(doBlock, "start", group);
-    worker.run_until_finished(group, true /* unlock */);
+    
+    tp.add(doBlock);
+    tp.waitForAll();
 }
 
 } // namespace Datacratic

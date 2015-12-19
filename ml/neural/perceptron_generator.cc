@@ -20,7 +20,7 @@
 #include <iomanip>
 #include "mldb/jml/utils/environment.h"
 #include "mldb/jml/utils/profile.h"
-#include "mldb/jml/utils/worker_task.h"
+#include "mldb/base/parallel.h"
 #include "mldb/jml/utils/guard.h"
 #include "mldb/ml/jml/evaluation.h"
 #include <boost/scoped_ptr.hpp>

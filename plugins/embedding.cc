@@ -12,7 +12,7 @@
 #include "mldb/arch/rcu_protected.h"
 #include "mldb/rest/rest_request_binding.h"
 #include "mldb/arch/simd_vector.h"
-#include "mldb/jml/utils/worker_task.h"
+#include "mldb/base/parallel.h"
 #include "mldb/jml/utils/lightweight_hash.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/types/tuple_description.h"
@@ -837,7 +837,7 @@ struct EmbeddingDataset::Itl
                     (*uncommitted).columns[j][i] = (*uncommitted).rows[i].coords[j];
             };
 
-        ML::run_in_parallel_blocked(0, (*uncommitted).rows.size(), indexRow);
+        parallelMap(0, (*uncommitted).rows.size(), indexRow);
 
         // Create the vantage point tree
         cerr << "creating vantage point tree" << endl;
@@ -877,7 +877,7 @@ struct EmbeddingDataset::Itl
                     for (unsigned n = 0;  n < items.size();  ++n)
                         doItem(n);
                 }
-                else ML::run_in_parallel_blocked(0, items.size(), doItem);
+                else parallelMap(0, items.size(), doItem);
                 
                 return result;
             };

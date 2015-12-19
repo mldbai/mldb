@@ -14,7 +14,7 @@
 #include "mldb/jml/stats/distribution.h"
 #include <boost/multi_array.hpp>
 #include "mldb/jml/utils/guard.h"
-#include "mldb/jml/utils/worker_task.h"
+#include "mldb/base/parallel.h"
 #include "mldb/jml/utils/pair_utils.h"
 #include "mldb/arch/timers.h"
 #include "mldb/arch/simd_vector.h"

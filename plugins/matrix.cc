@@ -8,7 +8,7 @@
 
 #include "matrix.h"
 #include "mldb/types/basic_value_descriptions.h"
-#include "mldb/jml/utils/worker_task.h"
+#include "mldb/base/parallel.h"
 #include "mldb/arch/timers.h"
 #include "mldb/server/analytics.h"
 #include "mldb/sql/sql_expression.h"
@@ -246,7 +246,7 @@ extractFeaturesFromRows(const Dataset & dataset,
                                                   r1.sparse, r2.sparse);
                           });
         };
-    ML::run_in_parallel(0, featureBuckets.size(), sortBucket);
+    parallelMap(0, featureBuckets.size(), sortBucket);
 
     cerr << "done sorting buckets in " << timer.elapsed() << endl;
     
@@ -364,7 +364,7 @@ invertFeatures(const ClassifiedColumns & columns,
             }
         };
     
-    ML::run_in_parallel_blocked(0, featureBuckets.size(), doBucket);
+    parallelMap(0, featureBuckets.size(), doBucket);
 
     cerr << "done indexes and correlations" << endl;
     cerr << timer.elapsed() << endl;
@@ -374,7 +374,7 @@ invertFeatures(const ClassifiedColumns & columns,
             result[i].normalize();
         };
 
-    ML::run_in_parallel_blocked(0, result.size(), sortIndex);
+    parallelMap(0, result.size(), sortIndex);
     
     cerr << "done feature matrix inversion" << endl;
     cerr << timer.elapsed() << endl;
@@ -434,7 +434,7 @@ calculateCorrelations(const ColumnIndexEntries & columnIndex,
 #endif
         };
     
-    ML::run_in_parallel_blocked(0, featurePairs.size(), doCorrelation);
+    parallelMap(0, featurePairs.size(), doCorrelation);
 
     cerr << timer.elapsed() << endl;
 

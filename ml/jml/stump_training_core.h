@@ -1,17 +1,14 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* stump_training_core.h                                           -*- C++ -*-
    Jeremy Barnes, 20 February 2004
    Copyright (c) 2004 Jeremy Barnes.  All rights reserved.
-   $Source$
+
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Core routines of the stump training.  Header file only, since it is
    templated on the parts which can be specialised.
 */
 
-#ifndef __boosting__stump_training_core_h__
-#define __boosting__stump_training_core_h__
-
+#pragma once
 
 #include <vector>
 #include <boost/multi_array.hpp>
@@ -25,6 +22,7 @@
 #include "training_index.h"
 #include "mldb/jml/utils/guard.h"
 #include "mldb/ml/jml/thread_context.h"
+#include "mldb/base/parallel.h"
 
 namespace ML {
 
@@ -337,26 +335,16 @@ struct Stump_Trainer {
                 << default_w.print() << endl;
         }
 
-        Worker_Task & worker = context.worker();
+        auto onFeature = [&] (size_t i)
+            {
+                Test_Feature_Job<Results, Weights>
+                    (this, features[i], data, predicted,
+                     weights, in_class, default_w,
+                     results, advance)();
+            };
+        
 
-        int group = worker.get_group(NO_JOB,
-                                     "test all group",
-                                     context.group());
-        {
-            Call_Guard guard(std::bind(&Worker_Task::unlock_group,
-                                         std::ref(worker),
-                                         group));
-            
-            for (unsigned i = 0;  i < features.size();  ++i)
-                worker.add(Test_Feature_Job<Results, Weights>
-                           (this, features[i], data, predicted,
-                            weights, in_class, default_w,
-                            results, advance),
-                           "test feature job",
-                           group);
-        }
-
-        worker.run_until_finished(group);
+        Datacratic::parallelMap(0, features.size(), onFeature);
     }
 
     /* Test all of the given features, and return them sorted by their best
@@ -1251,6 +1239,3 @@ struct Stump_Trainer {
 
 
 } // namespace ML
-
-
-#endif /* __boosting__stump_training_core_h__ */

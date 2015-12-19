@@ -8,7 +8,7 @@
 */
 
 #include "data_partition.h"
-#include "mldb/jml/utils/worker_task.h"
+#include "mldb/base/parallel.h"
 
 using namespace std;
 
@@ -51,7 +51,7 @@ forEachExample(const ForEachExampleCallback & cb,
                 cb(std::get<0>(ex), std::get<1>(ex), std::get<2>(ex), i);
             };
 
-        ML::run_in_parallel_blocked(0, examples.size(), onExample);
+        parallelMap(0, examples.size(), onExample);
     }
     else {
         for (unsigned i = 0;  i < examples.size();  ++i) {

@@ -14,7 +14,7 @@
 #include "mldb/types/any_impl.h"
 #include "mldb/arch/timers.h"
 #include "mldb/sql/binding_contexts.h"
-#include "mldb/jml/utils/worker_task.h"
+#include "mldb/base/parallel.h"
 #include "mldb/jml/utils/string_functions.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/vfs/fs_utils.h"
@@ -273,7 +273,7 @@ mldbPluginEnterV100(Datacratic::MLDB::MldbServer * server)
                 output = std::move(outputs.at(0));
         };
 
-    ML::run_in_parallel(0, 20, onRun);
+    parallelMap(0, 20, onRun);
 
     cerr << "elapsed " << timer.elapsed() << endl;
 

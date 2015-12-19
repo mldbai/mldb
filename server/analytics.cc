@@ -10,7 +10,7 @@
 #include "mldb/core/dataset.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/sql/sql_expression_operations.h"
-#include "mldb/jml/utils/worker_task.h"
+#include "mldb/base/parallel.h"
 #include "mldb/arch/timers.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/server/dataset_context.h"
@@ -19,6 +19,7 @@
 #include <boost/algorithm/string.hpp>
 #include "mldb/server/bound_queries.h"
 #include "mldb/jml/stats/distribution.h"
+#include <mutex>
 
 
 using namespace std;
@@ -173,7 +174,7 @@ void iterateDense(const SelectExpression & select,
             return aggregator(row.rowHash, rowName, rowNum, embedding, calcd);
         };
 
-    ML::run_in_parallel_blocked(0, rows.size(), doRow);
+    parallelMap(0, rows.size(), doRow);
 }
 
 std::pair<std::vector<std::tuple<RowHash, RowName, std::vector<double>, std::vector<ExpressionValue> > >,

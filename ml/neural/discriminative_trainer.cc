@@ -8,7 +8,7 @@
 */
 
 #include "discriminative_trainer.h"
-#include "mldb/jml/utils/worker_task.h"
+#include "mldb/base/parallel.h"
 #include "mldb/jml/utils/guard.h"
 #include <boost/progress.hpp>
 
@@ -20,7 +20,6 @@ using namespace std;
 
 
 namespace ML {
-
 
 /*****************************************************************************/
 /* DISCRIMINATIVE_TRAINER                                                    */
@@ -241,11 +240,9 @@ train_iter(const std::vector<const float *> & data,
            float sample_proportion,
            bool randomize_order) const
 {
-    Worker_Task & worker = thread_context.worker();
-
     int nx = data.size();
 
-    int microbatch_size = std::max(minibatch_size / (num_threads() * 4), 1);
+    int microbatch_size = std::max(minibatch_size / (Datacratic::numCpus() * 4), 1);
             
     Lock update_lock;
 
@@ -276,50 +273,28 @@ train_iter(const std::vector<const float *> & data,
         Parameters_Copy<double> updates(*layer);
         updates.fill(0.0);
 
-        // Now, submit it as jobs to the worker task to be done
-        // multithreaded
-        int group;
-        {
-            int parent = -1;  // no parent group
-            group = worker.get_group(NO_JOB, "dump user results task",
-                                     parent);
-                    
-            // Make sure the group gets unlocked once we've populated
-            // everything
-            Call_Guard guard(std::bind(&Worker_Task::unlock_group,
-                                         std::ref(worker),
-                                         group));
-                    
-                    
-            for (unsigned x2 = x;  x2 < nx2 && x2 < x + minibatch_size;
-                 x2 += microbatch_size) {
-                
-                Train_Examples_Job
-                    job(*this,
-                        data,
-                        labels,
-                        weights,
-                        output_encoder,
-                        thread_context,
-                        examples,
-                        x2,
-                        min<int>(nx2,
-                                 min(x + minibatch_size,
-                                     x2 + microbatch_size)),
-                        updates,
-                        outputs,
-                        total_mse,
-                        update_lock,
-                        progress.get(),
-                        verbosity);
-
-                // Send it to a thread to be processed
-                worker.add(job, "backprop job", group);
-            }
-        }
+        auto onBatch = [&] (size_t x0, size_t x1)
+            {
+                Train_Examples_Job(*this,
+                                   data,
+                                   labels,
+                                   weights,
+                                   output_encoder,
+                                   thread_context,
+                                   examples,
+                                   x0, x1,
+                                   updates,
+                                   outputs,
+                                   total_mse,
+                                   update_lock,
+                                   progress.get(),
+                                   verbosity)();
+            };
         
-        worker.run_until_finished(group);
-
+        Datacratic::parallelMapChunked
+            (x, std::min<size_t>(nx2, x + minibatch_size),
+             microbatch_size, onBatch);
+        
         //cerr << "finished minibatch: updates = " << updates.values
         //     << " learning_rate = " << learning_rate << endl;
 
@@ -549,46 +524,27 @@ test(const std::vector<const float *> & data,
     std::auto_ptr<boost::progress_display> progress;
     if (verbosity >= 3) progress.reset(new boost::progress_display(nx, cerr));
 
-    Worker_Task & worker = thread_context.worker();
-
     distribution<float> outputs;
     outputs.resize(nx);
-            
-    // Now, submit it as jobs to the worker task to be done
-    // multithreaded
-    int group;
-    {
-        int parent = -1;  // no parent group
-        group = worker.get_group(NO_JOB, "dump user results task",
-                                 parent);
-        
-        // Make sure the group gets unlocked once we've populated
-        // everything
-        Call_Guard guard(std::bind(&Worker_Task::unlock_group,
-                                     std::ref(worker),
-                                     group));
-        
-        // 20 jobs per CPU
-        int batch_size = nx / (num_threads() * 20);
-        
-        for (unsigned x = 0; x < nx;  x += batch_size) {
-            
-            Test_Examples_Job job(*this, data, labels, weights,
-                                  output_encoder,
-                                  x, min<int>(x + batch_size, nx),
-                                  thread_context,
-                                  update_lock,
-                                  mse_total, outputs,
-                                  progress.get(),
-                                  verbosity);
-            
-            // Send it to a thread to be processed
-            worker.add(job, "test discrim job", group);
-        }
-    }
     
-    worker.run_until_finished(group);
     
+    // 20 jobs per CPU
+    int batch_size = nx / (Datacratic::numCpus() * 20);
+        
+    auto onBatch = [&] (size_t x0, size_t x1)
+        {
+            Test_Examples_Job(*this, data, labels, weights,
+                              output_encoder,
+                              x0, x1,
+                              thread_context,
+                              update_lock,
+                              mse_total, outputs,
+                              progress.get(),
+                              verbosity)();
+        };
+    
+    Datacratic::parallelMapChunked(0, nx, batch_size, onBatch);
+
     return make_pair(sqrt(mse_total / nx),
                      output_encoder.calc_auc(outputs, labels));
 }

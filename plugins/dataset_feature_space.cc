@@ -7,7 +7,7 @@
 #include "dataset_feature_space.h"
 #include "mldb/core/dataset.h"
 #include "mldb/ml/jml/registry.h"
-#include "mldb/jml/utils/worker_task.h"
+#include "mldb/base/parallel.h"
 #include "mldb/types/value_description.h"
 #include "mldb/types/hash_wrapper_description.h"
 
@@ -101,7 +101,7 @@ DatasetFeatureSpace(std::shared_ptr<Dataset> dataset,
             return true;
         };
 
-    ML::run_in_parallel_blocked(0, filteredColumns.size(), onColumn);
+    parallelMap(0, filteredColumns.size(), onColumn);
 }
 
 float
