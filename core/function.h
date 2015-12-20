@@ -332,6 +332,9 @@ struct FunctionValues {
     /** Add a named value that is an atom (null, number, string). */
     void addAtomValue(const std::string & name);
 
+    /** Add a named value that is a blob. */
+    void addBlobValue(const std::string & name);
+
     /** Add a named value that is a floating point number. */
     void addNumericValue(const std::string & name);
 

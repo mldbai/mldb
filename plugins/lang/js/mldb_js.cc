@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** mldb_js.cc
     Jeremy Barnes, 20 June 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     JS bindings for MLDB.
 */
@@ -348,6 +348,19 @@ struct StreamJS::Methods {
             return JS::toJS(stream->eof());
         } HANDLE_JS_EXCEPTIONS;
     }
+
+    static v8::Handle<v8::Value>
+    blob(const v8::Arguments & args)
+    {
+        try {
+            JsContextScope scope(args.This());
+            auto stream = getShared(args.This());
+            std::ostringstream buf;
+            buf << stream->rdbuf();
+
+            return JS::toJS(CellValue::blob(std::move(buf.str())));
+        } HANDLE_JS_EXCEPTIONS;
+    }
 };
 
 v8::Handle<v8::Object>
@@ -400,6 +413,7 @@ registerMe()
     objtmpl->Set(String::New("readJson"), FunctionTemplate::New(Methods::readJson));
 
     objtmpl->Set(String::New("eof"), FunctionTemplate::New(Methods::eof));
+    objtmpl->Set(String::New("blob"), FunctionTemplate::New(Methods::blob));
         
 
     return scope.Close(fntmpl);

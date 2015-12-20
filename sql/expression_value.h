@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** expression_value.h                                             -*- C++ -*-
     Jeremy Barnes, 14 February 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Code for the type that holds the value of an expression.
 */
@@ -120,6 +120,9 @@ enum VariableFilter {
 /** This function can be used for optimizations where it is known that
     only one value is possible for a given variable.  It returns whether
     the filter can be ignored for this case.
+
+    Currently, we don't allow GET_ALL to be set anywhere, and so this
+    will always return true.
 */
 constexpr bool canIgnoreIfExactlyOneValue(VariableFilter) { return true; }
 
@@ -703,6 +706,7 @@ PREDECLARE_VALUE_DESCRIPTION(ExpressionValue);
 std::shared_ptr<ValueDescriptionT<ExpressionValue> >
 getExpressionValueDescriptionNoTimestamp();
 
+
 /*****************************************************************************/
 /* EXPRESSION VALUE INFO TEMPLATE                                            */
 /*****************************************************************************/
@@ -759,6 +763,7 @@ extern template class ExpressionValueInfoT<double>;
 extern template class ExpressionValueInfoT<CellValue>;
 extern template class ExpressionValueInfoT<std::string>;
 extern template class ExpressionValueInfoT<Utf8String>;
+extern template class ExpressionValueInfoT<std::vector<unsigned char> >;
 extern template class ExpressionValueInfoT<int64_t>;
 extern template class ExpressionValueInfoT<uint64_t>;
 extern template class ExpressionValueInfoT<char>;
@@ -768,6 +773,7 @@ extern template class ScalarExpressionValueInfoT<double>;
 extern template class ScalarExpressionValueInfoT<CellValue>;
 extern template class ScalarExpressionValueInfoT<std::string>;
 extern template class ScalarExpressionValueInfoT<Utf8String>;
+extern template class ScalarExpressionValueInfoT<std::vector<unsigned char> >;
 extern template class ScalarExpressionValueInfoT<int64_t>;
 extern template class ScalarExpressionValueInfoT<uint64_t>;
 extern template class ScalarExpressionValueInfoT<char>;
@@ -813,6 +819,19 @@ struct StringValueInfo: public ScalarExpressionValueInfoT<std::string> {
 };
 
 struct Utf8StringValueInfo: public ScalarExpressionValueInfoT<Utf8String> {
+};
+
+struct BlobValueInfo: public ScalarExpressionValueInfoT<std::vector<unsigned char> > {
+    /// Is the other value compatible with this info?
+    virtual bool isCompatible(const ExpressionValue & value) const
+    {
+        return value.isAtom() && value.getAtom().isBlob();
+    }
+
+    virtual std::string getScalarDescription() const
+    {
+        return "blob";
+    }
 };
 
 struct BooleanValueInfo: public ScalarExpressionValueInfoT<char> {
