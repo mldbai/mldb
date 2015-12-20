@@ -1236,6 +1236,39 @@ BoundFunction horizontal_max(const std::vector<BoundSqlExpression> & args)
 }
 static RegisterBuiltin registerHorizontal_Max(horizontal_max, "horizontal_max");
 
+BoundFunction horizontal_max_key(const std::vector<BoundSqlExpression> & args)
+{
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & context) -> ExpressionValue
+            {
+                double max_val = nan("");
+                Utf8String max_key;
+                Date ts = Date::negativeInfinity();
+
+                auto onAtom = [&] (const Id & columnName,
+                                   const Id & prefix,
+                                   const CellValue & val,
+                                   Date atomTs)
+                    {
+                        if (!val.empty()) {
+                            double curr = val.toDouble();
+                            if(std::isnan(max_val) || curr > max_val) {
+                                ts = atomTs;
+                                max_val = curr;
+                                max_key = prefix.toString() + "." + columnName.toString();
+                            }
+                        }
+                        return true;
+                    };
+
+                args.at(0).forEachAtom(onAtom);
+
+                return ExpressionValue(max_key, ts);
+            },
+            std::make_shared<Utf8StringValueInfo>()};
+}
+static RegisterBuiltin registerHorizontal_MaxKey(horizontal_max_key, "horizontal_max_key");
+
 struct DiffOp {
     static ML::distribution<double> apply(ML::distribution<double> & d1,
                                           ML::distribution<double> & d2)
