@@ -71,7 +71,7 @@ $(INC)/external/re2:
 	mkdir -p $(dir $(@)) && ln -s $(PWD)/mldb/ext/re2 $(@)
 
 # Here is the list of files we need to compile for tensorflow to be incorporated
-$(TENSORFLOW_CC_FILES):	$(TENSORFLOW_PROTOBUF_FILES:%.proto=%.pb.cc) | $(TENSORFLOW_INCLUDES) $(INC)/external/re2 $(INC)/external/jpeg_archive/jpeg-9a
+$(TENSORFLOW_CC_FILES):	$(TENSORFLOW_PROTOBUF_FILES:%.proto=%.pb.cc) | $(TENSORFLOW_INCLUDES) $(INC)/external/re2 $(INC)/external/jpeg_archive/jpeg-9a $(HOSTBIN)/protoc
 
 # To create a protobuf file, we compile the input file
 $(CWD)/%.pb.cc:		$(CWD)/%.proto $(HOSTBIN)/protoc
