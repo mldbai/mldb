@@ -6,6 +6,10 @@ LIBMLDB_TENSORFLOW_PLUGIN_SOURCES:= \
 
 $(eval $(call set_compile_option,$(LIBMLDB_TENSORFLOW_PLUGIN_SOURCES),$(TENSORFLOW_COMPILE_FLAGS) -Imldb/ext/tensorflow))
 
+# Make these depend upon Tensorflow's version of the protobuf compiler
+# since the headers that they need are installed with it.
+$(LIBMLDB_TENSORFLOW_PLUGIN_SOURCES): $(HOSTBIN)/protoc
+
 $(eval $(call mldb_plugin_library,tensorflow,mldb_tensorflow_plugin,$(LIBMLDB_TENSORFLOW_PLUGIN_SOURCES),tensorflow_cpp_interface))
 
 $(eval $(call mldb_builtin_plugin,tensorflow,mldb_tensorflow_plugin,doc))
