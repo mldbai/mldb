@@ -8,10 +8,12 @@
 #include "mldb/core/function.h"
 #include "mldb/core/plugin.h"
 #include "mldb/types/structure_description.h"
+#include "mldb/types/vector_description.h"
 #include "mldb/types/url.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/arch/timers.h"
 #include "mldb/jml/utils/worker_task.h"
+#include "mldb/jml/utils/string_functions.h"
 #include "mldb/vfs/filter_streams.h"
 #include "google/protobuf/util/json_util.h"
 #include "google/protobuf/util/type_resolver_util.h"
@@ -68,6 +70,7 @@ mldbPluginEnterV100(Datacratic::MLDB::MldbServer * server)
     }
 #endif
 
+#if 0
     string graph_file_name = "inception/tensorflow_inception_graph.pb";
 
     tensorflow::GraphDef graph_def;
@@ -235,6 +238,8 @@ mldbPluginEnterV100(Datacratic::MLDB::MldbServer * server)
              << endl;
     }
 
+#endif
+
 #if 0
     cerr << "output tensor has " << output.shape().dims() << " dims" << endl;
     for (unsigned i = 0;  i < output.shape().dims();  ++i) {
@@ -256,7 +261,7 @@ const Package & tensorflowPackage()
     return result;
 }
 
-
+#if 0
 /*****************************************************************************/
 /* TENSORFLOW KERNEL                                                         */
 /*****************************************************************************/
@@ -314,6 +319,7 @@ struct TensorflowKernel: public Function {
     }
 
 };
+#endif
 
 
 /*****************************************************************************/
@@ -322,6 +328,8 @@ struct TensorflowKernel: public Function {
 
 struct TensorflowGraphConfig {
     Url modelFileUrl;
+    SelectExpression inputs;
+    SelectExpression outputs;
 };
 
 
@@ -335,6 +343,11 @@ TensorflowGraphConfigDescription()
     addField("modelFileUrl", &TensorflowGraphConfig::modelFileUrl,
              "Model file to load graph from.  This is probable a .pb "
              "file (protobuf file).");
+    addField("inputs", &TensorflowGraphConfig::inputs,
+             "Inputs to the graph, including names");
+    addField("outputs", &TensorflowGraphConfig::outputs,
+             "Outputs of the graph that are returned as the result of "
+             "the function");
 }
 
 struct TensorflowGraph: public Function {
@@ -355,20 +368,26 @@ struct TensorflowGraph: public Function {
         ML::filter_istream stream(functionConfig.modelFileUrl.toString());
         
         google::protobuf::io::IstreamInputStream pstream(&stream);
+
+        ::tensorflow::protobuf::io::CodedInputStream cstream(&pstream);
+
+        // Allow large objects to be loaded
+        cstream.SetTotalBytesLimit(1024LL << 20, 512LL << 20);
         
-        tensorflow::GraphDef graph_def;
-        if (!graph_def.ParseFromZeroCopyStream(&pstream)) {
+        graph.reset(new tensorflow::GraphDef());
+        if (!graph->ParseFromCodedStream(&cstream)) {
             throw HttpReturnException(500, "Couldn't load tensorflow graph model: parse error");
         }
         
         session.reset(tensorflow::NewSession(tensorflow::SessionOptions()));
-        Status session_create_status = session->Create(graph_def);
+        Status session_create_status = session->Create(*graph);
     
         if (!session_create_status.ok()) {
             throw HttpReturnException(500, "Couldn't initialize tensorflow graph model: " + session_create_status.error_message());
         }
     }
 
+    std::unique_ptr<tensorflow::GraphDef> graph;
     std::unique_ptr<tensorflow::Session> session;
 
     Any getStatus() const
@@ -376,14 +395,62 @@ struct TensorflowGraph: public Function {
         return Any();
     }
 
-    FunctionOutput
+    Any getDetails() const
+    {
+        Json::Value result;
+        result["graph"] = jsonEncode(ML::split(SummarizeGraphDef(*graph), '\n'));
+        return result;
+    }
+
+#if 0
+    virtual std::unique_ptr<FunctionApplier>
+    bind(SqlBindingScope & outerContext,
+         const FunctionValues & input) const
+    {
+        // 1.  Collect what is known for each of the input clauses.
+        
+
+        auto boundInputs = functionConfig.inputs.bind(outerContext);
+    }
+#endif
+
+    virtual FunctionOutput
     apply(const FunctionApplier & applier,
           const FunctionContext & context) const
     {
         FunctionOutput result;
 
+        CellValue input = context.get<CellValue>("jpeg");
+        
+        const unsigned char * data = input.blobData();
+        const size_t len = input.blobLength();
+
+        using namespace tensorflow;
+
+        Tensor inputTensor(DT_STRING, { });
+        
+        auto str = inputTensor.flat<std::string>();
+        str(0) = string(data, data + len);
+
+        string input_layer = "DecodeJpeg/contents";
+        string output_layer = "softmax";
+
+        std::vector<Tensor> outputs;
+        Status run_status = session->Run({{input_layer, inputTensor}},
+                                         {output_layer}, {}, &outputs);
+
+        if (!run_status.ok()) {
+            throw HttpReturnException(400, "Unable to run model: "
+                                      + run_status.error_message());
+        }
+        
+        cerr << "outputs " << outputs.size() << " tensors" << endl;
+
+        auto scores = outputs.at(0).flat<float>();
+        vector<float> scores2(scores.data(), scores.data() + scores.size());
+
         Utf8String output("output");
-        result.set("output", ExpressionValue("hello", Date::notADate()));
+        result.set("output", ExpressionValue(scores2, Date::notADate()));
     
         return result;
     }
@@ -393,7 +460,7 @@ struct TensorflowGraph: public Function {
     {
         FunctionInfo result;
 
-        result.input.addAtomValue("text");
+        result.input.addBlobValue("jpeg");
         result.output.addAtomValue("output");
     
         return result;
