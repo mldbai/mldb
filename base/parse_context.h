@@ -29,6 +29,7 @@ namespace ML {
 /*****************************************************************************/
 
 struct Parse_Context {
+    static const std::string NO_FILE;
 
     struct Exception: ML::Exception {
         Exception(const char * what,
