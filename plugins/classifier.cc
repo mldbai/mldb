@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** classifier.cc
     Jeremy Barnes, 16 December 2014
     Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Integration of JML machine learning library to train classifiers.
 */
@@ -23,7 +23,8 @@
 #include "mldb/jml/utils/vector_utils.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/ml/value_descriptions.h"
-
+#include "mldb/plugins/sql_config_validator.h"
+#include "mldb/plugins/sql_expression_extractors.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/ml/jml/training_data.h"
 #include "mldb/ml/jml/training_index.h"
@@ -180,19 +181,8 @@ run(const ProcedureRunConfig & run,
 
     labelInfo.set_biased(true);
 
-    auto extractSubExpression = [](const Utf8String & name, const SelectExpression & select) 
-        -> std::shared_ptr<Datacratic::MLDB::SqlExpression>
-        {
-            for (const auto & clause : select.clauses) {
-                auto computedVariable = std::dynamic_pointer_cast<const ComputedVariable>(clause);
-                if (computedVariable && computedVariable->alias == name)
-                    return computedVariable->expression;
-            }
-            return nullptr;
-        };
-
-    auto extractWithinExpression = [](shared_ptr<SqlExpression> expr) 
-        -> std::shared_ptr<Datacratic::MLDB::SqlRowExpression>
+    auto extractWithinExpression = [](std::shared_ptr<SqlExpression> expr) 
+        -> std::shared_ptr<SqlRowExpression>
         {
             auto withinExpression = std::dynamic_pointer_cast<const SelectWithinExpression>(expr);
             if (withinExpression)
@@ -201,8 +191,8 @@ run(const ProcedureRunConfig & run,
             return nullptr;
         };
 
-    shared_ptr<SqlExpression> label = extractSubExpression("label", runProcConf.trainingData.stm->select);
-    shared_ptr<SqlExpression> features = extractSubExpression("features", runProcConf.trainingData.stm->select);
+    shared_ptr<SqlExpression> label = extractNamedSubSelect("label", runProcConf.trainingData.stm->select);
+    shared_ptr<SqlExpression> features = extractNamedSubSelect("features", runProcConf.trainingData.stm->select);
     shared_ptr<SqlRowExpression> subSelect = extractWithinExpression(features);
 
     if (!label || !subSelect)

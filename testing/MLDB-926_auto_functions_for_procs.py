@@ -81,10 +81,8 @@ doChecks(conf)
 conf = {
     "type": "probabilizer.train",
     "params": {
-        "trainingDataset": "toy",
+        "trainingData": "select cls_func({{* EXCLUDING(label)} as features})[score] as score, label from toy",
         "modelFileUrl": "file://build/x86_64/tmp/bouya-proba.json",
-        "select": "cls_func({{* EXCLUDING(label)} as features})[score]",
-        "label": "label",
         "functionName": "probabilizer_func"
     }
 }

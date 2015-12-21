@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** experiment_procedure.cc
     Francois Maillet, 8 septembre 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Experiment procedure
 */
@@ -20,6 +20,8 @@
 #include "jml/utils/string_functions.h"
 #include "arch/timers.h"
 #include "types/optional_description.h"
+#include "mldb/plugins/sql_config_validator.h"
+#include "mldb/plugins/sql_expression_extractors.h"
 
 using namespace std;
 
@@ -391,22 +393,11 @@ run(const ProcedureRunConfig & run,
             accuracyConf.outputDataset.emplace(outputPC);
         }
 
-        auto extractSubExpression = [](const Utf8String & name, const SelectExpression & select) 
-        -> std::shared_ptr<const SqlExpression>
-        {
-            for (const auto & clause : select.clauses) {
-                auto computedVariable = std::dynamic_pointer_cast<const ComputedVariable>(clause);
-                if (computedVariable && computedVariable->alias == name)
-                    return computedVariable;
-            }
-            return nullptr;
-        };
-
         accuracyConf.testingData = runProcConf.testingData ? *runProcConf.testingData : runProcConf.trainingData;
         accuracyConf.testingData.stm->where = datasetFold.testing_where;
-        shared_ptr<const SqlExpression> features = extractSubExpression("features", accuracyConf.testingData.stm->select);
+        shared_ptr<const SqlExpression> features = extractNamedSubSelect("features", accuracyConf.testingData.stm->select);
         accuracyConf.score = SqlExpression::parse(ML::format(
-                    "\"%s\"({%s})[score]",
+                    "\"%s\"({%s as features})[score]",
                     clsProcConf.functionName.utf8String(),
                     features->surface.utf8String()));
         accuracyConf.weight = runProcConf.testing_weight;

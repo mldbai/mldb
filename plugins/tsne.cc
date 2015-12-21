@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** tsne.cc
     Jeremy Barnes, 16 December 2014
     Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Implementation of an TSNE algorithm for embedding of a dataset.
 */
@@ -22,7 +22,7 @@
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/ml/value_descriptions.h"
 #include "mldb/types/any_impl.h"
-
+#include "mldb/plugins/sql_config_validator.h"
 #include "mldb/ml/tsne/vantage_point_tree.h"
 #include "mldb/ml/tsne/tsne.h"
 #include "mldb/sql/sql_expression.h"

@@ -1,10 +1,10 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** probabilizer.cc
     Jeremy Barnes, 16 December 2014
     Copyright (c) 2014 Datacratic Inc.  All rights reserved.
 
-    Implementation of an algorithm to transform an arbitrary score into a
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    
+Implementation of an algorithm to transform an arbitrary score into a
     calibrated probability.
 */
 
@@ -13,6 +13,8 @@
 #include "mldb/server/mldb_server.h"
 #include "mldb/core/dataset.h"
 #include "mldb/sql/sql_expression.h"
+#include "mldb/plugins/sql_config_validator.h"
+#include "mldb/plugins/sql_expression_extractors.h"
 #include "mldb/jml/stats/distribution.h"
 #include "mldb/jml/utils/guard.h"
 #include "mldb/jml/utils/worker_task.h"
@@ -45,46 +47,20 @@ DEFINE_STRUCTURE_DESCRIPTION(ProbabilizerConfig);
 ProbabilizerConfigDescription::
 ProbabilizerConfigDescription()
 {
-    addFieldDesc("trainingDataset", &ProbabilizerConfig::dataset,
-                 "Dataset for probabilizer training.  The select, where, label and "
-                 "weight expressions will be calculated over this dataset.",
-                 makeInputDatasetDescription());
-    addField("modelFileUrl", &ProbabilizerConfig::modelFileUrl,
-             "URL where the model file (with extension '.prb') should be saved. "
-             "This file can be loaded by a function of type 'probabilizer'.");
-    addField("select", &ProbabilizerConfig::select,
-             "The expression used to calculate the score for a given dataset "
-             "row.  Normally this will be the output of a classifier applied "
-             "to that row.");
-    addField("where", &ProbabilizerConfig::where,
-             "The WHERE clause for which dataset examples we train the "
-             "probabilizer over.  Note that these examples should be distinct "
-             "from those that any previous computation was trained over, or "
-             "biasing will result.  "
-             "The default uses all rows in the dataset.",
-             SqlExpression::parse("true"));
-    addField("label", &ProbabilizerConfig::label,
-             "The expression to generate the label.  This is used to "
-             "know the correctness of the probabilizer.");
-    addField("weight", &ProbabilizerConfig::weight,
+    addField("trainingData", &ProbabilizerConfig::trainingData,
+             "Specification of the data for input to the probabilizer procedure. "
+             "The expression is used to calculate the score for a given dataset row. "
+             "Normally this will be the output of a classifier applied to that row. "
+             "The select statement does not support groupby and having clauses. "
              "The expression to generate the weight.  A weight of 2.0 is "
              "equivalent "
              "to including the identical row twice in the training dataset.  "
              "This can be used to counteract the effect of sampling or weighting "
              "over the dataset that the probabilizer is trained on.  The "
-             "default will weight each example the same.",
-             SqlExpression::parse("1.0"));
-    addField("orderBy", &ProbabilizerConfig::orderBy,
-             "How to order the rows.  This only has an effect when OFFSET "
-             "and LIMIT are used.  Default is to order by rowHash(). ",
-             OrderByExpression::parse("rowHash()"));
-    addField("offset", &ProbabilizerConfig::offset,
-             "How many rows to skip before using data",
-             ssize_t(0));
-    addField("limit", &ProbabilizerConfig::limit,
-             "How many rows of data to use.  -1 (the default) means use all "
-             "of the rows in the dataset.",
-             ssize_t(-1));
+             "default will weight each example the same.");
+    addField("modelFileUrl", &ProbabilizerConfig::modelFileUrl,
+             "URL where the model file (with extension '.prb') should be saved. "
+             "This file can be loaded by a function of type 'probabilizer'.");
     addField("link", &ProbabilizerConfig::link,
              "Link function to use.  See documentation.  Generally the "
              "default, PROBIT, is a good place to start for binary "
@@ -94,6 +70,10 @@ ProbabilizerConfigDescription()
              "If specified, a probabilizer function of this name will be created using "
              "the trained probabilizer.");
     addParent<ProcedureConfig>();
+
+    onPostValidate = validate<ProbabilizerConfig, 
+                              InputQuery, 
+                              NoGroupByHaving>(&ProbabilizerConfig::trainingData, "probabilizer");
 }
 
 struct ProbabilizerRepr {
@@ -161,14 +141,16 @@ run(const ProcedureRunConfig & run,
 
     SqlExpressionMldbContext context(server);
 
-    auto boundDataset = runProcConf.dataset->bind(context);
+    auto boundDataset = runProcConf.trainingData.stm->from->bind(context);
+    auto score = extractNamedSubSelect("score", runProcConf.trainingData.stm->select);
+    auto label = extractNamedSubSelect("label", runProcConf.trainingData.stm->select);
+    auto weight = extractNamedSubSelect("weight", runProcConf.trainingData.stm->select);
+    if (!weight)
+        weight = SqlExpression::parse("1.0");
 
-    // Here is what we need to calcualate for each row in the dataset
+    // Here is what we need to calculate for each row in the dataset
     std::vector<std::shared_ptr<SqlExpression> > extra
-        = { runProcConf.select,   ///< Score expression
-            runProcConf.label,    ///< Label expression
-            runProcConf.weight    ///< Weight expression
-    };
+        = { score, label, weight };
 
     // Build it
 
@@ -194,12 +176,12 @@ run(const ProcedureRunConfig & run,
         };
 
     iterateDataset(SelectExpression(), *boundDataset.dataset, boundDataset.asName, 
-                   runProcConf.when,
-                   runProcConf.where,
+                   runProcConf.trainingData.stm->when,
+                   runProcConf.trainingData.stm->where,
                    extra, aggregator,
-                   runProcConf.orderBy,
-                   runProcConf.offset,
-                   runProcConf.limit);
+                   runProcConf.trainingData.stm->orderBy,
+                   runProcConf.trainingData.stm->offset,
+                   runProcConf.trainingData.stm->limit);
     
 
     int nx = numRows;

@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** svm.cc
     Mathieu Marquis Bolduc, October 28th, 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Support Vector Machine Procedure and Function
 */
@@ -14,7 +14,7 @@
 #include "mldb/server/mldb_server.h"
 #include "mldb/core/dataset.h"
 #include "mldb/server/analytics.h"
-
+#include "mldb/plugins/sql_config_validator.h"
 #include "types/structure_description.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/jml/db/persistent.h"
