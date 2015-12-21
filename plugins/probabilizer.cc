@@ -4,7 +4,7 @@
 
     This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
     
-Implementation of an algorithm to transform an arbitrary score into a
+    Implementation of an algorithm to transform an arbitrary score into a
     calibrated probability.
 */
 
