@@ -18,8 +18,6 @@ using namespace std;
 using namespace Datacratic;
 
 
-
-
 /****************************************************************************/
 /* HTTP PARSER :: BUFFER STATE                                              */
 /****************************************************************************/
@@ -426,7 +424,7 @@ finalizeParsing()
 
 HttpParser::BufferState::
 BufferState(const char * start, size_t length, bool fromBuffer)
-    : ML::Parse_Context("-", start, start + length),
+    : ML::Parse_Context(ML::Parse_Context::NO_FILE, start, start + length),
       start_(start), fromBuffer_(fromBuffer)
 {
 }
