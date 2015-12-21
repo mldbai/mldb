@@ -49,15 +49,17 @@ ProbabilizerConfigDescription()
 {
     addField("trainingData", &ProbabilizerConfig::trainingData,
              "Specification of the data for input to the probabilizer procedure. "
-             "The expression is used to calculate the score for a given dataset row. "
-             "Normally this will be the output of a classifier applied to that row. "
-             "The select statement does not support groupby and having clauses. "
-             "The expression to generate the weight.  A weight of 2.0 is "
-             "equivalent "
+             "The select expression is used to calculate the score for a given dataset row. "
+             "Normally this will be the output of a classifier function applied to that row. "
+             "The select expression is also used to generate the label.  The label is used to "
+             "know the correctness of the probabilizer. "
+             "The select expression can also contain an optional weight sub-expression. "
+             "A weight of 2.0 is equivalent "
              "to including the identical row twice in the training dataset.  "
              "This can be used to counteract the effect of sampling or weighting "
              "over the dataset that the probabilizer is trained on.  The "
-             "default will weight each example the same.");
+             "default will weight each example the same."
+             "The select statement does not support groupby and having clauses. ");
     addField("modelFileUrl", &ProbabilizerConfig::modelFileUrl,
              "URL where the model file (with extension '.prb') should be saved. "
              "This file can be loaded by a function of type 'probabilizer'.");
