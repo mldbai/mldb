@@ -97,10 +97,10 @@ createRequestValidater(const Json::Value & argHelp,
 {
     std::set<Utf8String> acceptedParams = std::move(ignored);
 
-    if (!argHelp.isNull()) {
-        for (auto & p: argHelp["requestParams"]) {
+    if (!argHelp.isNull() && argHelp.isMember("requestParams")) {
+        for (const auto & p: argHelp["requestParams"]) {
             Utf8String s = p["name"].asStringUtf8();
-            acceptedParams.insert(s);
+            acceptedParams.insert(std::move(s));
         }
     }
 
@@ -108,33 +108,32 @@ createRequestValidater(const Json::Value & argHelp,
                        const RestRequest & request,
                        const RestRequestParsingContext & context)
         {
-            bool hadError = false;
-            Json::Value details;
+            vector<Json::Value> unknowns;
             
-            details["argHelp"] = argHelp;
-        
             for (auto & s: request.params) {
                 if (!acceptedParams.count(s.first)) {
-                    hadError = true;
                     Json::Value detail;
                     detail["paramName"] = s.first;
                     detail["paramValue"] = s.second;
 
-                    details["unknownParameters"].append(detail);
+                    unknowns.emplace_back(std::move(detail));
                 }
             }
 
-            if (!hadError)
+            if (unknowns.empty()) {
                 return true;  // pass the request
+            }
             
-            details["help"] = argHelp;
-            details["verb"] = request.verb;
-            details["resource"] = request.resource;
-
             Json::Value exc;
             exc["error"] = "Unknown parameter(s) in REST call";
             exc["httpCode"] = 400;
-            exc["details"] = details;
+            Json::Value & details = exc["details"];
+            details["help"] = argHelp;
+            details["verb"] = request.verb;
+            details["resource"] = request.resource;
+            for (auto & detail: unknowns) {
+                details["unknownParameters"].append(std::move(detail));
+            }
 
             connection.sendErrorResponse(400, exc);
             return false;

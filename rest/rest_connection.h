@@ -31,38 +31,37 @@ struct RestConnection {
 
     virtual void sendResponse(int responseCode,
                               const char * response,
-                              const std::string & contentType)
+                              std::string contentType)
     {
         return sendResponse(responseCode, std::string(response),
-                            contentType);
+                            std::move(contentType));
     }
     
     /** Send the given response back on the connection. */
     virtual void sendResponse(int responseCode,
-                              const std::string & response,
-                              const std::string & contentType) = 0;
+                              std::string response,
+                              std::string contentType) = 0;
     
     /** Send the given response back on the connection. */
     virtual void
     sendResponse(int responseCode,
                  const Json::Value & response,
-                 const std::string & contentType = "application/json") = 0;
+                 std::string contentType = "application/json") = 0;
     
     virtual void sendResponse(int responseCode)
     {
         return sendResponse(responseCode, "", "");
     }
 
-    virtual void sendRedirect(int responseCode,
-                              const std::string & location) = 0;
+    virtual void sendRedirect(int responseCode, std::string location) = 0;
 
     /** Send an HTTP-only response with the given headers.  If it's not
         an HTTP connection, this will fail.
     */
     virtual void sendHttpResponse(int responseCode,
-                                  const std::string & response,
-                                  const std::string & contentType,
-                                  const RestParams & headers) = 0;
+                                  std::string response,
+                                  std::string contentType,
+                                  RestParams headers) = 0;
     
     enum {
         UNKNOWN_CONTENT_LENGTH = -1,
@@ -76,23 +75,22 @@ struct RestConnection {
     */
     virtual void
     sendHttpResponseHeader(int responseCode,
-                           const std::string & contentType,
-                           ssize_t contentLength,
-                           const RestParams & headers = RestParams()) = 0;
+                           std::string contentType, ssize_t contentLength,
+                           RestParams headers = RestParams()) = 0;
     
     /** Send a payload (or a chunk of a payload) for an HTTP connection. */
-    virtual void sendPayload(const std::string & payload) = 0;
+    virtual void sendPayload(std::string payload) = 0;
 
     /** Finish the response, recycling or closing the connection. */
     virtual void finishResponse() = 0;
 
     /** Send the given error string back on the connection. */
     virtual void sendErrorResponse(int responseCode,
-                                   const std::string & error,
-                                   const std::string & contentType) = 0;
+                                   std::string error,
+                                   std::string contentType) = 0;
     
     virtual void sendErrorResponse(int responseCode, const char * error,
-                                   const std::string & contentType)
+                                   std::string contentType)
     {
         sendErrorResponse(responseCode, std::string(error), "application/json");
     }

@@ -48,7 +48,10 @@ doGetFunction(const Utf8String & tableName,
     // Rebind the function parameters to the outer
     std::vector<BoundSqlExpression> outerArgs;
     for (auto & arg: args) {
-        outerArgs.emplace_back(std::move(rebind(arg)));
+        if (arg.metadata.isConstant)  //don't rebind constant expression since they don't need to access the row
+            outerArgs.emplace_back(std::move(arg));
+        else
+            outerArgs.emplace_back(std::move(rebind(arg)));
     }
 
     // Get the outer function
