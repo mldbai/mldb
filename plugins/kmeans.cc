@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 /** kmeans.cc
     Jeremy Barnes, 16 December 2014
     Copyright (c) 2014 Datacratic Inc.  All rights reserved.
 
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
     Implementation of an KMEANS algorithm for embedding of a dataset.
 */
 
@@ -23,6 +23,7 @@
 #include "mldb/ml/value_descriptions.h"
 #include "mldb/ml/kmeans.h"
 #include "mldb/sql/sql_expression.h"
+#include "mldb/plugins/sql_config_validator.h"
 #include "mldb/server/analytics.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/types/optional_description.h"

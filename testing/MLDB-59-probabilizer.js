@@ -160,11 +160,12 @@ if (trainProbabilizer) {
         id: "reddit_prob_train",
         type: "probabilizer.train",
         params: {
-            trainingDataset: { id: "reddit_embeddings" },
+            trainingData: { 
+                select: "classifier({{ * EXCLUDING (adventuretime)} AS features})[score] as score, adventuretime IS NOT NULL as label",
+                where: "rowHash() % 4 = 2",
+                from: { id: "reddit_embeddings" },
+            },
             modelFileUrl: "file://tmp/reddit_probabilizer.json",
-            select: "classifier({{ * EXCLUDING (adventuretime)} AS features})[score]",
-            where: "rowHash() % 4 = 2",
-            label: "adventuretime IS NOT NULL",
         }
     };
 

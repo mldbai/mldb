@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** accuracy.cc
     Jeremy Barnes, 16 December 2014
     Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Implementation of an ACCURACY algorithm for embedding of a dataset.
 */
@@ -29,6 +29,8 @@
 #include "mldb/server/per_thread_accumulator.h"
 #include "mldb/types/optional_description.h"
 #include "mldb/http/http_exception.h"
+#include "mldb/plugins/sql_config_validator.h"
+#include "mldb/plugins/sql_expression_extractors.h"
 
 using namespace std;
 
@@ -144,19 +146,8 @@ run(const ProcedureRunConfig & run,
         };
 
     // 5.  Run it
-     auto extractSubExpression = [](const Utf8String & name, const SelectExpression & select) 
-        -> std::shared_ptr<Datacratic::MLDB::SqlExpression>
-        {
-            for (const auto & clause : select.clauses) {
-                auto computedVariable = std::dynamic_pointer_cast<const ComputedVariable>(clause);
-                if (computedVariable && computedVariable->alias == name)
-                    return computedVariable->expression;
-            }
-            return nullptr;
-        };
-
-
-    shared_ptr<SqlExpression> label = extractSubExpression("label", runAccuracyConf.testingData.stm->select);
+ 
+    shared_ptr<SqlExpression> label = extractNamedSubSelect("label", runAccuracyConf.testingData.stm->select);
 
     std::vector<std::shared_ptr<SqlExpression> > calc = {
         runAccuracyConf.score,
