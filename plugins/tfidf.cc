@@ -174,7 +174,8 @@ run(const ProcedureRunConfig & run,
         PolyConfig tfidfFuncPC;
         tfidfFuncPC.type = "tfidf";
         tfidfFuncPC.id = runProcConf.functionName;
-        tfidfFuncPC.params = TfidfFunctionConfig(runProcConf.output, boundDataset.dataset->getMatrixView()->getRowCount());
+        tfidfFuncPC.params = TfidfFunctionConfig(runProcConf.output,
+                boundDataset.dataset->getMatrixView()->getRowCount());
 
         obtainFunction(server, tfidfFuncPC, onProgress);
     }
@@ -188,7 +189,8 @@ TfidfFunctionConfigDescription::
 TfidfFunctionConfigDescription()
 {
     addField("dataset", &TfidfFunctionConfig::dataset,
-             "Dataset describing the number of document each term appears in.");    
+             "Dataset describing the number of document each term appears in. "
+             "It is generated using the tfidf.train procedure.");
     addField("sizeOfCorpus", &TfidfFunctionConfig::N,
              "Number of documents in the corpus");
     addField("tfType", &TfidfFunctionConfig::tf_type,
