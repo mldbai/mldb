@@ -237,6 +237,29 @@ runHttpQuery(const Utf8String& query,
     }
 }
 
+std::vector<MatrixNamedRow>
+MldbServer::
+query(const Utf8String& query) const
+{
+    auto stm = SelectStatement::parse(query.rawString());
+
+    SqlExpressionMldbContext mldbContext(this);
+
+    BoundTableExpression table = stm.from->bind(mldbContext);
+    
+    if (table.dataset) {
+        return table.dataset->queryStructured(stm.select, stm.when, stm.where,
+                                              stm.orderBy, stm.groupBy,
+                                              stm.having,
+                                              stm.rowName,
+                                              stm.offset, stm.limit, 
+                                              table.asName);
+    }
+    else {
+        return queryWithoutDataset(stm, mldbContext);
+    }
+}
+
 Json::Value
 MldbServer::
 getTypeInfo(const std::string & typeName)

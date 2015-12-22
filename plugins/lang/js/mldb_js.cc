@@ -11,9 +11,13 @@
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/rest/in_process_rest_connection.h"
 #include "mldb/core/dataset.h"
+#include "mldb/core/procedure.h"
+#include "mldb/core/function.h"
+#include "procedure_js.h"
+#include "function_js.h"
 #include "dataset_js.h"
 #include "mldb/server/mldb_server.h"
-
+#include "mldb/sql/sql_utils.h"
 #include <boost/random/normal_distribution.hpp>
 #include <boost/random/uniform_01.hpp>
 #include <boost/random/mersenne_twister.hpp>
@@ -571,6 +575,62 @@ struct MldbJS::Methods {
     }
 
     static v8::Handle<v8::Value>
+    createFunction(const v8::Arguments & args)
+    {
+        try {
+            JsPluginContext * context = MldbJS::getContext(args.This());
+            MldbServer * server = MldbJS::getShared(args.This());
+            Json::Value configJson = JS::getArg<Json::Value>(args, 0, "Config");
+            PolyConfig config = jsonDecode<PolyConfig>(configJson);
+
+            auto function = obtainFunction(server, config);
+
+            // We may have changed config (id, params, etc).  Modify the
+            // input argument to reflect these changes
+
+            auto & configOut = function->getConfig();
+
+            auto objectIn = JS::toObject(args[0]);
+
+            objectIn->Set(v8::String::New("id"), JS::toJS(configOut.id));
+            Json::Value paramsOut = jsonEncode(configOut.params);
+            if (paramsOut != configJson["params"]) {
+                objectIn->Set(v8::String::New("params"), JS::toJS(paramsOut));
+            }
+
+            return FunctionJS::create(function, context);
+        } HANDLE_JS_EXCEPTIONS;
+    }
+
+    static v8::Handle<v8::Value>
+    createProcedure(const v8::Arguments & args)
+    {
+        try {
+            JsPluginContext * context = MldbJS::getContext(args.This());
+            MldbServer * server = MldbJS::getShared(args.This());
+            Json::Value configJson = JS::getArg<Json::Value>(args, 0, "Config");
+            PolyConfig config = jsonDecode<PolyConfig>(configJson);
+
+            auto procedure = obtainProcedure(server, config);
+
+            // We may have changed config (id, params, etc).  Modify the
+            // input argument to reflect these changes
+
+            auto & configOut = procedure->getConfig();
+
+            auto objectIn = JS::toObject(args[0]);
+
+            objectIn->Set(v8::String::New("id"), JS::toJS(configOut.id));
+            Json::Value paramsOut = jsonEncode(configOut.params);
+            if (paramsOut != configJson["params"]) {
+                objectIn->Set(v8::String::New("params"), JS::toJS(paramsOut));
+            }
+
+            return ProcedureJS::create(procedure, context);
+        } HANDLE_JS_EXCEPTIONS;
+    }
+
+    static v8::Handle<v8::Value>
     createRandomNumberGenerator(const v8::Arguments & args)
     {
         try {
@@ -901,7 +961,32 @@ struct MldbJS::Methods {
             return scope.Close(CellValueJS::create(val, context));
         } HANDLE_JS_EXCEPTIONS;
     }
+    
+    static v8::Handle<v8::Value>
+    sqlEscape(const v8::Arguments & args)
+    {
+        v8::HandleScope scope;
+        try {
+            Utf8String str = JS::getArg<Utf8String>(args, 0, "str");
 
+            auto result = JS::toJS(escapeSql(str));
+            
+            return scope.Close(result);
+        } HANDLE_JS_EXCEPTIONS;
+    }
+
+    static v8::Handle<v8::Value>
+    query(const v8::Arguments & args)
+    {
+        v8::HandleScope scope;
+        try {
+            MldbServer * server = MldbJS::getShared(args.This());
+            Utf8String query = JS::getArg<Utf8String>(args, 0, "sql");
+            std::vector<MatrixNamedRow> result = server->query(query);
+
+            return scope.Close(JS::toJS(jsonEncode(result)));
+        } HANDLE_JS_EXCEPTIONS;
+    }
 };
 
 MldbServer *
@@ -939,6 +1024,10 @@ registerMe()
                 FunctionTemplate::New(Methods::openStream));
     result->Set(String::New("createDataset"),
                 FunctionTemplate::New(Methods::createDataset));
+    result->Set(String::New("createFunction"),
+                FunctionTemplate::New(Methods::createFunction));
+    result->Set(String::New("createProcedure"),
+                FunctionTemplate::New(Methods::createProcedure));
     result->Set(String::New("createInterval"),
                 FunctionTemplate::New(Methods::createInterval));
     result->Set(String::New("createRandomNumberGenerator"),
@@ -953,6 +1042,11 @@ registerMe()
 
     result->Set(String::New("diff"), FunctionTemplate::New(Methods::diff));
     result->Set(String::New("patch"), FunctionTemplate::New(Methods::patch));
+
+    result->Set(String::New("query"),
+                FunctionTemplate::New(Methods::query));
+    result->Set(String::New("sqlEscape"),
+                FunctionTemplate::New(Methods::sqlEscape));
 
     result->Set(String::New("ls"), FunctionTemplate::New(Methods::ls));
 
