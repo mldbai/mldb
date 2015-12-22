@@ -49,26 +49,18 @@ AccuracyConfigDescription()
 
     addField("testingData", &AccuracyConfig::testingData,
              "Specification of the data for input to the classifier procedure. "
-             "The select expression must contain expresssions: one row expression "
-             "to identify the features on which to train and one scalar expression "
-             "to identify the label.  The type of the label expression must match "
-             "that of the classifier mode: a boolean (0 or 1) for `boolean` mode; "
-             "a real for regression mode, and any combination of numbers and strings "
-             "for `categorical` mode.  Labels with a null value will have their row skipped. "
-             "The select statement does not support groupby and having clauses.");
-    addField("outputDataset", &AccuracyConfig::outputDataset,
-             "Output dataset for scored examples. The score for each "
-             "example will be written to this dataset. Specifying a "
-             "dataset is optional",
-             optionalOutputDataset);
-    addField("score", &AccuracyConfig::score,
-             "The expression to generate the score, representing the output "
+             "The select expression must contain these expressions: one scalar expression "
+             "to identify the label and one scalar expression to identify the score. "
+             "The type of the label expression must match "
+             "that of the classifier mode from which the model was trained. "
+             "Labels with a null value will have their row skipped. "
+             "The expression to generate the score represents the output "
              "of whatever is having its accuracy tested.  This needs to be "
              "a number, and normally should be a floating point number that "
              "represents the degree of confidence in the prediction, not "
-             "just the class.");
-    addField("weight", &AccuracyConfig::weight,
-             "The expression to generate the relative weight for this example (e.g. " 
+             "just the class. "  
+             "The select expression can also contain an optional weight sub-expression. "
+             "This expression generates the relative weight for each example (e.g. " 
              "something like \"2.34*x+y\" if x and y are columns, or "
              "\"x\" or simply \"1.0\").  In some "
              "circumstances it is necessary to calculate accuracy statistics "
@@ -78,15 +70,19 @@ AccuracyConfigDescription()
              "examples, in other words having all examples weighted 1 or all "
              "examples weighted 10 will have the same effect.  That being "
              "said, it is a good idea to keep the weights centered around 1 "
-             "to avoid numeric errors in the calculations/",
-             SqlExpression::ONE);
+             "to avoid numeric errors in the calculations."
+             "The select statement does not support groupby and having clauses.");
+    addField("outputDataset", &AccuracyConfig::outputDataset,
+             "Output dataset for scored examples. The score for each "
+             "example will be written to this dataset. Specifying a "
+             "dataset is optional", optionalOutputDataset);
     addParent<ProcedureConfig>();
 
     onPostValidate = validate<AccuracyConfig, 
                               InputQuery,
                               NoGroupByHaving,
                               PlainColumnSelect,
-                              FeaturesLabelSelect>(&AccuracyConfig::testingData, "accuracy");
+                              ScoreLabelSelect>(&AccuracyConfig::testingData, "accuracy");
 
 }
 
@@ -102,8 +98,8 @@ AccuracyProcedure(MldbServer * owner,
     : Procedure(owner)
 {
     this->accuracyConfig = config.params.convert<AccuracyConfig>();
-    if (!accuracyConfig.score || !accuracyConfig.testingData.stm)
-        throw HttpReturnException(400, "Classifier testing procedure requires 'testingData' and 'score' expressions to be set",
+    if (!accuracyConfig.testingData.stm)
+        throw HttpReturnException(400, "Classifier testing procedure requires 'testingData' to be set",
                                   "config", this->accuracyConfig);
 }
 
@@ -146,13 +142,17 @@ run(const ProcedureRunConfig & run,
         };
 
     // 5.  Run it
- 
-    shared_ptr<SqlExpression> label = extractNamedSubSelect("label", runAccuracyConf.testingData.stm->select);
+    auto score = extractNamedSubSelect("score", runAccuracyConf.testingData.stm->select)->expression; 
+    auto label = extractNamedSubSelect("label", runAccuracyConf.testingData.stm->select)->expression;
+    auto weightSubSelect = extractNamedSubSelect("weight", runAccuracyConf.testingData.stm->select);
+    shared_ptr<SqlExpression> weight = SqlExpression::ONE;
+    if (weightSubSelect)
+        weight = weightSubSelect->expression;
 
     std::vector<std::shared_ptr<SqlExpression> > calc = {
-        runAccuracyConf.score,
+        score,
         label,
-        runAccuracyConf.weight
+        weight
     };
 
     BoundSelectQuery({} /* select */, *dataset, "" /* table alias */,

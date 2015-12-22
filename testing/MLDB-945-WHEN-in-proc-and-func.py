@@ -185,8 +185,7 @@ def train_classifier(when):
                 }
             },
             "algorithm": "glz",
-            "modelFileUrl": "file://tmp/MLDB-945.tng.cls",
-            "weight": "1.0"
+            "modelFileUrl": "file://tmp/MLDB-945.tng.cls"
         }
     })
     response = json.loads(result['response'])

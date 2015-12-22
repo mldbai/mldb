@@ -78,7 +78,6 @@ var trainClassifierProcedureConfig = {
             }
         },
         algorithm: "glz",
-        weight: "1",
         equalizationFactor: 0.0,
         modelFileUrl: "file://tmp/MLDB-654.cls",
         mode: 'categorical'

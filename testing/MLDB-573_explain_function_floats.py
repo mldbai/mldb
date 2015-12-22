@@ -52,8 +52,7 @@ train_classifier_procedure_config = {
             },
             "num_bags": 5
         },
-        "modelFileUrl":"file://tmp/MLDB-573-float_encoding.cls",
-        "weight":"1.0"
+        "modelFileUrl":"file://tmp/MLDB-573-float_encoding.cls"
         }
     }
 procedure_output = mldb.perform("PUT","/v1/procedures/float_encoding_cls_train", [], 
