@@ -77,7 +77,11 @@ ClassifierConfigDescription()
              "allows the relative importance of examples to be set.  It must "
              "be a real number.  If the expression is not specified each example will have "
              "a weight of one.  Rows with a null weight will cause a training error. "
-             "The select statement does not support groupby and having clauses. ");
+             "The select statement does not support groupby and having clauses. "
+             "Also, unlike most select expressions, this one can only select whole columns, "
+             "not expressions involving columns. So X will work, but not X + 1. "
+             "If you need derived values in the select expression, create a dataset with "
+             "the derived columns as a previous step and run the classifier over that dataset instead.");
     addField("modelFileUrl", &ClassifierConfig::modelFileUrl,
              "URL where the model file (with extension '.cls') should be saved. "
              "This file can be loaded by a function of type 'classifier'.");
