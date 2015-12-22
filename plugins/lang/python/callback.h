@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** callback.h                                 -*- C++ -*-
     Rémi Attab, 16 Jan 2013
     Copyright (c) 2013 Datacratic.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     std::function and std::function compatible python callbacks.
 
@@ -20,12 +20,10 @@
     Not ideal, but that's life.
 */
 
-#ifndef __recoset__callback_h__
-#define __recoset__callback_h__
-
+#pragma once
 
 #include <boost/python.hpp>
-
+#include <iostream>
 
 namespace Datacratic {
 namespace Python {
@@ -115,10 +113,5 @@ private:
 
 } // namespace Python
 } // Datacratic
-
-
-#endif // __recoset__callback_h__
-
-
 
 // * I always wanted to do that.

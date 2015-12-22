@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** script_output.h                                                -*- C++ -*-
     Jeremy Barnes, 13 October 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Common definitions for the output of scripts.  Used to enforce some
     commonality over the different languages available.
@@ -13,6 +13,7 @@
 #include "mldb/types/string.h"
 #include "mldb/types/date.h"
 #include "mldb/ext/jsoncpp/json.h"
+#include "mldb/arch/exception.h"
 #include <vector>
 
 #pragma once

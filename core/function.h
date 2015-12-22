@@ -462,6 +462,21 @@ struct Function: public MldbEntity {
     */
     virtual FunctionInfo getFunctionInfo() const = 0;
 
+    /** Call an unbound function directly with the given input.  Note
+        that this will re-bind the function on every call and is therefore
+        horrendously inefficient; it should be used only for when the
+        input is truly dynamic and there is no possible way to bind it.
+
+        It's not a virtual method as it's complex in how it interprets
+        its input.
+
+        This method is actually defined in function_collection.cc, since it
+        requires functionality from the server to create the scope for the
+        bind.
+    */
+    FunctionOutput
+    call(const std::map<Utf8String, ExpressionValue> & input) const;
+
 protected:
     /** Used by the FunctionApplier to actually apply the function.  It allows
         access to the information put in the applier by the bind()

@@ -14,7 +14,8 @@ SQL_EXPRESSION_SOURCES := \
 	join_utils.cc \
 	tokenize.cc \
 	execution_pipeline.cc \
-	execution_pipeline_impl.cc
+	execution_pipeline_impl.cc \
+	sql_utils.cc \
 
 # NOTE: the SQL library should NOT depend on MLDB.  See the comment in testing/testing.mk
 $(eval $(call library,sql_expression,$(SQL_EXPRESSION_SOURCES),types utils value_description any ml services_base json_diff siphash))

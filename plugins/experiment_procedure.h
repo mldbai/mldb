@@ -62,8 +62,6 @@ DECLARE_STRUCTURE_DESCRIPTION(DatasetFoldConfig);
 struct ExperimentProcedureConfig : public ProcedureConfig {
     ExperimentProcedureConfig()
         : keepArtifacts(false),
-          training_weight(SqlExpression::parse("1.0")),
-          testing_weight(SqlExpression::parse("1.0")),
           kfold(0),
           equalizationFactor(0.5),
           mode(CM_BOOLEAN),
@@ -78,10 +76,6 @@ struct ExperimentProcedureConfig : public ProcedureConfig {
     /// SQL query to select the training data
     InputQuery trainingData;
     Optional<InputQuery> testingData;
-
-    /// The expression to generate the weight
-    std::shared_ptr<SqlExpression> training_weight;
-    std::shared_ptr<SqlExpression> testing_weight;
 
     ssize_t kfold;
     std::vector<DatasetFoldConfig> datasetFolds;

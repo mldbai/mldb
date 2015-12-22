@@ -747,5 +747,6 @@ getFunctionInfo() const
                         + " needs to override getFunctionInfo()");
 }
 
+
 } // namespace MLDB
 } // namespace Datacratic

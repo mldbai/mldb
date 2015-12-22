@@ -71,15 +71,15 @@ TfidfConfigDescription()
              "Columns to select from the input matrix for the coordinates to input "
              "into training.  The selected columns must be finite numbers "
              "and must not have missing values.",
-             SelectExpression("*"));
+             SelectExpression::STAR);
     addField("when", &TfidfConfig::when,
              "Boolean expression determining which tuples from the dataset "
              "to keep based on their timestamps",
-             WhenExpression::parse("true"));
+             WhenExpression::TRUE);
     addField("where", &TfidfConfig::where,
              "Rows to select for training.  This expression allows a subset "
              "of the rows that were input to the training process to be selected.",
-             SqlExpression::parse("true"));
+             SqlExpression::TRUE);
     addField("orderBy", &TfidfConfig::orderBy,
              "How to order the rows.  This only has an effect when OFFSET "
              "or LIMIT are used.  Default is to order by rowHash.",
@@ -276,8 +276,8 @@ apply(const FunctionApplier & applier,
         };
 
     iterateDataset(select, *dataset, "", 
-                   WhenExpression::parse("true"),
-                   SqlExpression::parse("true"),
+                   WhenExpression::TRUE,
+                   SqlExpression::TRUE,
                    aggregator,
                    ORDER_BY_NOTHING,
                    0,

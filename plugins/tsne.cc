@@ -28,6 +28,7 @@
 #include "mldb/sql/sql_expression.h"
 #include "mldb/server/analytics.h"
 #include "mldb/vfs/fs_utils.h"
+#include "mldb/vfs/filter_streams.h"
 #include "mldb/types/jml_serialization.h"
 
 using namespace std;

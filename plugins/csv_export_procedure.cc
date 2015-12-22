@@ -57,11 +57,11 @@ CsvExportProcedureConfigDescription()
     addField("when", &CsvExportProcedureConfig::when,
              "Boolean expression determining which tuples from the dataset "
              "to keep based on their timestamps",
-             WhenExpression::parse("true"));
+             WhenExpression::TRUE);
     addField("where", &CsvExportProcedureConfig::where,
              "Boolean expression determining which rows from the input "
              "dataset will be processed.",
-             SqlExpression::parse("true"));
+             SqlExpression::TRUE);
     addField("groupBy", &CsvExportProcedureConfig::groupBy,
              "Expression used to group values for aggregation queries.  "
              "Default is to run a row-by-row query, not an aggregation.");
@@ -69,7 +69,7 @@ CsvExportProcedureConfigDescription()
              "Boolean expression used to select which groups will write a "
              "value to the output for a grouped query. Default is to "
              "write all groups",
-             SqlExpression::parse("true"));
+             SqlExpression::TRUE);
     addField("orderBy", &CsvExportProcedureConfig::orderBy,
              "Expression dictating how output rows will be ordered. This is "
              "only meaningful when offset and/or limit is used, as it "

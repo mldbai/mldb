@@ -14,13 +14,13 @@ namespace MLDB {
 /**  Iterates over the select sub expressions of type ComputedVariable to match a given named.
  *   Returns the matched expression or nullptr if there are no matches.
 */
-inline std::shared_ptr<SqlExpression>
+inline std::shared_ptr<ComputedVariable>
 extractNamedSubSelect (const Utf8String & name, const SelectExpression & select) 
 {
     for (const auto & clause : select.clauses) {
-        auto computedVariable = std::dynamic_pointer_cast<const ComputedVariable>(clause);
+        auto computedVariable = std::dynamic_pointer_cast<ComputedVariable>(clause);
         if (computedVariable && computedVariable->alias == name)
-            return computedVariable->expression;
+            return computedVariable;
     }
     return nullptr;
 }

@@ -33,8 +33,7 @@ var config1 = {
     id: "test1",
     type: "classifier.test",
     params: {
-        testingData: { },
-        score: "1"
+        testingData: { }
     }
 };
 
@@ -43,7 +42,7 @@ var resp1 = mldb.post("/v1/procedures", config1);
 plugin.log(resp1);
 
 assertEqual(resp1.responseCode, 400);
-assertContains(resp1.json.error, "accuracy training expect a row named 'features' and a scalar named 'label'");
+assertContains(resp1.json.error, "accuracy training expect a scalar named 'score' and a scalar named 'label'");
 
 "success"
 

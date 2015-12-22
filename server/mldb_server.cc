@@ -26,6 +26,7 @@
 #include "mldb/server/function_collection.h"
 #include "mldb/server/dataset_context.h"
 #include "mldb/vfs/fs_utils.h"
+#include "mldb/vfs/filter_streams.h"
 #include "mldb/server/analytics.h"
 #include "mldb/types/meta_value_description.h"
 
@@ -233,6 +234,29 @@ runHttpQuery(const Utf8String& query,
             };
 
         MLDB::runHttpQuery(runQuery, connection, format, createHeaders,rowNames, rowHashes);
+    }
+}
+
+std::vector<MatrixNamedRow>
+MldbServer::
+query(const Utf8String& query) const
+{
+    auto stm = SelectStatement::parse(query.rawString());
+
+    SqlExpressionMldbContext mldbContext(this);
+
+    BoundTableExpression table = stm.from->bind(mldbContext);
+    
+    if (table.dataset) {
+        return table.dataset->queryStructured(stm.select, stm.when, stm.where,
+                                              stm.orderBy, stm.groupBy,
+                                              stm.having,
+                                              stm.rowName,
+                                              stm.offset, stm.limit, 
+                                              table.asName);
+    }
+    else {
+        return queryWithoutDataset(stm, mldbContext);
     }
 }
 

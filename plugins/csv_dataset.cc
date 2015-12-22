@@ -29,6 +29,7 @@
 #include "mldb/server/dataset_context.h"
 #include "mldb/server/per_thread_accumulator.h"
 #include "mldb/server/parallel_merge_sort.h"
+#include "mldb/base/parse_context.h"
 #include <mutex>
 
 using namespace std;

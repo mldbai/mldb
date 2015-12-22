@@ -135,10 +135,22 @@ template<typename FieldType> struct PlainColumnSelect
                 return std::dynamic_pointer_cast<const BooleanOperatorExpression>(expression);
             };
 
+        auto getFunctionCallExpression = [] (const std::shared_ptr<SqlExpression> expression) 
+            -> std::shared_ptr<const FunctionCallWrapper>
+            {
+                return std::dynamic_pointer_cast<const FunctionCallWrapper>(expression);
+            };
+
+        auto getConstantExpression = [] (const std::shared_ptr<SqlExpression> expression) 
+            -> std::shared_ptr<const ConstantExpression>
+            {
+                return std::dynamic_pointer_cast<const ConstantExpression>(expression);
+            };
+
         if (query.stm) {
             auto & select = query.stm->select;
             for (const auto & clause : select.clauses) {
-                //std::cerr << clause->surface << std::endl;
+
                 auto wildcard = getWildcard(clause);
                 if (wildcard)
                     continue;
@@ -168,6 +180,14 @@ template<typename FieldType> struct PlainColumnSelect
                     auto booleanExpression = getBooleanExpression(computedVariable->expression);
                     if (booleanExpression)
                         continue;
+                    // function(args)[extract]
+                    auto functionCallExpression = getFunctionCallExpression(computedVariable->expression);
+                    if (functionCallExpression)
+                        continue;
+                     // 1.0
+                    auto constantExpression = getConstantExpression(computedVariable->expression);
+                    if (constantExpression)
+                        continue;
                 }
 
                 throw ML::Exception(std::string(name) + 
@@ -178,6 +198,28 @@ template<typename FieldType> struct PlainColumnSelect
     }
 };
 
+
+inline bool containsNamedSubSelect(const InputQuery& query, const std::string& name) 
+{
+
+    auto getComputedVariable = [] (const std::shared_ptr<SqlRowExpression> expression)
+        -> std::shared_ptr<const ComputedVariable>
+        {
+            return std::dynamic_pointer_cast<const ComputedVariable>(expression);
+        };
+
+    if (query.stm) {
+        auto & select = query.stm->select;
+        for (const auto & clause : select.clauses) {
+            
+            auto computedVariable = getComputedVariable(clause);
+            if (computedVariable && computedVariable->alias ==  name)
+                return true;
+        }
+    }
+    return false;
+}
+
 /**
  *  Ensure the select contains a row named "features" and a scalar named "label".
  *  FieldType must contain a SelectStatement named stm.
@@ -186,30 +228,23 @@ template<typename FieldType> struct FeaturesLabelSelect
 {
     void operator()(const FieldType & query, const char * name)
     {
-        auto getComputedVariable = [] (const std::shared_ptr<SqlRowExpression> expression)
-            -> std::shared_ptr<const ComputedVariable>
-            {
-                return std::dynamic_pointer_cast<const ComputedVariable>(expression);
-            };
+        if (!containsNamedSubSelect(query, "features") ||
+            !containsNamedSubSelect(query, "label") )
+            throw ML::Exception("%s training expect a row named 'features' and a scalar named 'label'", name);
+    }
+};
 
-        if (query.stm) {
-            auto & select = query.stm->select;
-            bool foundFeatures = false;
-            bool foundLabel = false;
-            for (const auto & clause : select.clauses) {
-                //std::cerr << clause->surface << std::endl;
-                auto computedVariable = getComputedVariable(clause);
-                if (computedVariable) {
-                    if (computedVariable->alias == "features")
-                        foundFeatures = true;
-                    if (computedVariable->alias == "label")
-                        foundLabel = true;
-                    
-                }
-            }
-            if (!foundFeatures || !foundLabel)
-                throw ML::Exception("%s training expect a row named 'features' and a scalar named 'label'", name);
-        }
+/**
+ *  Ensure the select contains a scalar named "score" and a scalar named "label".
+ *  FieldType must contain a SelectStatement named stm.
+ */
+template<typename FieldType> struct ScoreLabelSelect
+{
+    void operator()(const FieldType & query, const char * name)
+    {
+        if (!containsNamedSubSelect(query, "score") ||
+            !containsNamedSubSelect(query, "label") )
+            throw ML::Exception("%s training expect a scalar named 'score' and a scalar named 'label'", name);
     }
 };
 

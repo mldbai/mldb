@@ -25,7 +25,6 @@ class SqlExpression;
 
 struct AccuracyConfig : public ProcedureConfig {
     AccuracyConfig()
-        :  weight(SqlExpression::ONE)
     {
     }
 
@@ -35,12 +34,6 @@ struct AccuracyConfig : public ProcedureConfig {
     /// Dataset we output to
     Optional<PolyConfigT<Dataset> > outputDataset;
     static constexpr char const * defaultOutputDatasetType = "sparse.mutable";
-
-    /// The expression to generate the score, normally the name of the score value
-    std::shared_ptr<SqlExpression> score;
-
-    /// The expression to generate the weight
-    std::shared_ptr<SqlExpression> weight;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(AccuracyConfig);

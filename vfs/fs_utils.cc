@@ -105,7 +105,7 @@ Url makeUrl(const string & urlStr)
     }
     /* relative filenames */
     else {
-        char cCurDir[PATH_MAX + 1];
+        char cCurDir[65536]; // http://insanecoding.blogspot.ca/2007/11/pathmax-simply-isnt.html
         string filename(getcwd(cCurDir, sizeof(cCurDir)));
         filename += "/" + urlStr;
 

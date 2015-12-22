@@ -62,7 +62,7 @@ function trainClassifier(name, weight)
         type: "classifier.train",
         params: {
             trainingData: { 
-                select: "{x, y} as features, label",
+                select: "{x, y} as features, label, " + weight  + " as weight",
                 from: "test"
             },
             configuration: {
@@ -76,7 +76,6 @@ function trainClassifier(name, weight)
             },
             algorithm: "glz",
             modelFileUrl: modelFileUrl,
-            weight: weight,
             equalizationFactor: 0.0
         }
     };

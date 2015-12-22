@@ -166,7 +166,6 @@ function trainClassifier(algorithm)
             },
             algorithm: algorithm,
             modelFileUrl: modelFileUrl,
-            weight: "1",
             equalizationFactor: 0.0,
             mode: "boolean",
             functionName: "classifier"
