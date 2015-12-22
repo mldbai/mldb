@@ -1208,7 +1208,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         ExpressionValue constant;
         if (matchConstant(context, constant, allowUtf8)) {
             lhs = std::make_shared<ConstantExpression>(constant);
-            lhs->surface = ML::trim(token.captured());
+            lhs->surface = token.captured();
         }
     }
 
