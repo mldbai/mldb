@@ -56,7 +56,6 @@ var trainClassifierProcedureConfig = {
         },
         algorithm: "glz",
         modelFileUrl: modelFileUrl,
-        weight: "1",
         equalizationFactor: 0.0,
         mode: "categorical"
     }
@@ -66,6 +65,7 @@ var procedureOutput
     = mldb.put("/v1/procedures/cls_train", trainClassifierProcedureConfig);
 
 plugin.log("procedure output", procedureOutput);
+assertEqual(procedureOutput.responseCode, 201);
 
 var trainingOutput
     = mldb.put("/v1/procedures/cls_train/runs/1", {});

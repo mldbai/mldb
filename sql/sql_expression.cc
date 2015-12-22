@@ -2705,6 +2705,12 @@ SelectExpression::
 SelectExpression(std::vector<std::shared_ptr<SqlRowExpression> > clauses)
     : clauses(std::move(clauses))
 {
+    // concatenate all the surfaces with spaces
+    surface = std::accumulate(this->clauses.begin(), this->clauses.end(), Utf8String{},
+                              [](const Utf8String & prefix,
+                                 std::shared_ptr<SqlRowExpression> & next) {
+                                  return prefix.empty() ? next->surface : prefix + ", " + next->surface;
+                              });;
 }
 
 SelectExpression

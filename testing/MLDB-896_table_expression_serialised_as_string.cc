@@ -29,9 +29,9 @@ BOOST_AUTO_TEST_CASE( tbl_expression_serialised_as_string )
 {
     // create config
     string jsConf = "{\"testingData\": { \"from\": {\"id\": \"patate\"},   \
-                                        \"select\": \"{*} as features, CLICK IS NOT NULL as label\" }, \
-           \"outputDataset\": {\"type\": \"beh.mutable\", \"id\":\"output_tbl\"}, \
-           \"score\": \"SCORE\"}";
+                                        \"select\": \"{*} as features, CLICK IS NOT NULL as label, SCORE as score\" }, \
+                      \"outputDataset\": {\"type\": \"beh.mutable\", \"id\":\"output_tbl\"} \
+                     }";
 
     Json::Value conf;
     Json::Reader reader;

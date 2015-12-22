@@ -67,13 +67,17 @@ ClassifierConfigDescription()
 {
     addField("trainingData", &ClassifierConfig::trainingData,
              "Specification of the data for input to the classifier procedure. "
-             "The select expression must contain expresssions: one row expression "
+             "The select expression must contain these two sub-expressions: one row expression "
              "to identify the features on which to train and one scalar expression "
              "to identify the label.  The type of the label expression must match "
              "that of the classifier mode: a boolean (0 or 1) for `boolean` mode; "
              "a real for regression mode, and any combination of numbers and strings "
              "for `categorical` mode.  Labels with a null value will have their row skipped. "
-             "The select statement does not support groupby and having clauses.");
+             "The select expression can contain an optional weigth expression.  The weight "
+             "allows the relative importance of examples to be set.  It must "
+             "be a real number.  If the expression is not specified each example will have "
+             "a weight of one.  Rows with a null weight will cause a training error. "
+             "The select statement does not support groupby and having clauses. ");
     addField("modelFileUrl", &ClassifierConfig::modelFileUrl,
              "URL where the model file (with extension '.cls') should be saved. "
              "This file can be loaded by a function of type 'classifier'.");
@@ -90,12 +94,6 @@ ClassifierConfigDescription()
              "only objects, strings and numbers.  If the configuration object is "
              "non-empty, then that will be used preferentially.",
              string("/opt/bin/classifiers.json"));
-    addField("weight", &ClassifierConfig::weight,
-             "The expression to generate the weight for each row.  The weight "
-             "allows the relative importance of examples to be set.  It must "
-             "be a real number.  Rows with a null weight will cause a training "
-             "error.",
-             SqlExpression::parse("1.0"));
     addField("equalizationFactor", &ClassifierConfig::equalizationFactor,
              "Amount to adjust weights so that all classes have an equal "
              "total weight.  A value of 0 (default) will not equalize weights "
@@ -192,8 +190,10 @@ run(const ProcedureRunConfig & run,
             return nullptr;
         };
 
-    shared_ptr<SqlExpression> label = extractNamedSubSelect("label", runProcConf.trainingData.stm->select);
-    shared_ptr<SqlExpression> features = extractNamedSubSelect("features", runProcConf.trainingData.stm->select);
+    auto label = extractNamedSubSelect("label", runProcConf.trainingData.stm->select)->expression;
+    auto features = extractNamedSubSelect("features", runProcConf.trainingData.stm->select)->expression;
+    auto weightSubSelect = extractNamedSubSelect("weight", runProcConf.trainingData.stm->select);
+    shared_ptr<SqlExpression> weight = weightSubSelect ? weightSubSelect->expression : SqlExpression::ONE;
     shared_ptr<SqlRowExpression> subSelect = extractWithinExpression(features);
 
     if (!label || !subSelect)
@@ -227,7 +227,7 @@ run(const ProcedureRunConfig & run,
     // We want to calculate the label and weight of each row as well
     // as the select expression
     std::vector<std::shared_ptr<SqlExpression> > extra
-        = { label, runProcConf.weight };
+        = { label, weight };
 
     struct Fv {
         Fv()

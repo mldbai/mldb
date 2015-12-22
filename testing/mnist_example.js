@@ -247,8 +247,7 @@ if (trainClassifier) {
                 }
             },
             algorithm: "bbdt",
-            modelFileUrl: "file://tmp/mnist.cls",
-            weight: "1.0"
+            modelFileUrl: "file://tmp/mnist.cls"
         }
     };
 
@@ -270,10 +269,10 @@ if (testClassifier) {
     var testClassifierProcedureConfig = {
         type: "classifier.test",
         params: {
-            testingData: "select {*} as features, label > 4 as label from cls_training where rowHash() % 2 = 0",
-            outputDataset: { id: "cls_test_results", type: "beh.mutable" },
-            score: "APPLY FUNCTION { 'type': 'classifier', 'params': { 'modelFileUrl': 'file://mnist.cls'}} WITH (* EXCLUDING (LABEL)) EXTRACT (score)",
-            weight: "1.0"
+            testingData: "label > 4 as label \ 
+                          APPLY FUNCTION { 'type': 'classifier', 'params': { 'modelFileUrl': 'file://mnist.cls'}} WITH (* EXCLUDING (LABEL)) EXTRACT (score) as score \
+                          from cls_training where rowHash() % 2 = 0",
+            outputDataset: { id: "cls_test_results", type: "beh.mutable" }
         }
     };
     
