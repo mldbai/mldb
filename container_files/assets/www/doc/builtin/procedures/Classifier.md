@@ -45,10 +45,9 @@ requiring the classifiers to focus more on separating the positive and negative
 classes rather then getting really high scores for the dominant class.
 
 * Setting this parameter to 0.0 (the default) weights the parameters according to
-  the `weight` configuration expression.
+  the `weight` expression in `trainingData`.
 * Setting this parameter to 1.0 will adjust the weights such that each class has
   exactly identical weight.
-
 * Setting it to something else (0.5 is a good value for most unbalanced training
   set use cases) will multiply the weights of each class according to
   $$
@@ -57,8 +56,8 @@ classes rather then getting really high scores for the dominant class.
 
 ### Setting example weight explicitly
 
-The `weight` parameter of the configuration is used to set an SQL expression for
-the weight of the example.  This is a positive number that implies how many
+The optional `weight` expression in the `trainingData` parameter of the
+configuration must evaluate to a positive number that implies how many
 examples this counts for.  For example, a single row with a weight of 2, or the
 same single row duplicated twice with a weight of 1 will have the same effect.
 
@@ -74,7 +73,8 @@ used to set the relative weight per example within its label class, and the
 
 ## `configuration`/`configurationFile` Contents
 
-A `configuration` JSON object or the contents of a `configurationFile` looks like this (see below for the contents of the default, overrideable `configurationFile`:
+A `configuration` JSON object or the contents of a `configurationFile` looks like this
+(see below for the contents of the default, overrideable `configurationFile`:
 
 ```json
 {
