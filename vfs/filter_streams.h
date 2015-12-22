@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* filter_streams.h                                                -*- C++ -*-
    Jeremy Barnes, 12 March 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
+   
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
    
    This file is part of "Jeremy's Machine Learning Library", copyright (c)
    1999-2015 Jeremy Barnes.

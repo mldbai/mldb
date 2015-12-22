@@ -11,6 +11,8 @@
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/base/scope.h"
 #include "mldb/vfs/filter_streams_registry.h"
+#include "mldb/arch/exception.h"
+#include <sstream>
 
 // libarchive support
 #include <archive.h>

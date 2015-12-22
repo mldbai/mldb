@@ -11,6 +11,7 @@
 #include "mldb/types/structure_description.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/vfs/fs_utils.h"
+#include "mldb/vfs/filter_streams.h"
 #include "mldb/jml/stats/distribution.h"
 #include <boost/algorithm/string.hpp>
 

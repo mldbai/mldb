@@ -23,6 +23,7 @@
 #include "mldb/types/pointer_description.h"
 #include "mldb/types/date.h"
 #include "mldb/types/id.h"
+#include "mldb/base/parse_context.h"
 
 
 using namespace std;

@@ -11,6 +11,7 @@
 #include "mldb/jml/utils/string_functions.h"
 #include "mldb/plugins/for_each_line.h"
 #include "mldb/vfs/fs_utils.h"
+#include "mldb/vfs/filter_streams.h"
 #include <boost/regex.hpp>
 #include <boost/algorithm/string.hpp>
 #include <memory>

@@ -95,8 +95,6 @@ SqlQueryFunction(MldbServer * owner,
     : Function(owner)
 {
     functionConfig = config.params.convert<SqlQueryFunctionConfig>();
-
-    SqlExpressionMldbContext context(owner);
 }
 
 Any

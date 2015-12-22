@@ -12,6 +12,7 @@
 #include "mldb/server/function_contexts.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/sql/tokenize.h"
+#include "mldb/base/parse_context.h"
 
 using namespace std;
 
