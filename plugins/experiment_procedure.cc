@@ -41,11 +41,11 @@ DatasetFoldConfigDescription()
     addField("training_where", &DatasetFoldConfig::training_where,
              "The WHERE clause for which rows to include from the training dataset. "
              "This can be any expression involving the columns in the dataset. ",
-             SqlExpression::parse("true"));
+             SqlExpression::TRUE);
     addField("testing_where", &DatasetFoldConfig::testing_where,
              "The WHERE clause for which rows to include from the testing dataset. "
              "This can be any expression involving the columns in the dataset. ",
-             SqlExpression::parse("true"));
+             SqlExpression::TRUE);
     addField("training_offset", &DatasetFoldConfig::training_offset,
              "How many rows to skip before using data.",
              ssize_t(0));
@@ -294,8 +294,8 @@ run(const ProcedureRunConfig & run,
         // for test and train
         else {
             runProcConf.datasetFolds.push_back(
-                DatasetFoldConfig(SqlExpression::parse("true"),
-                                  SqlExpression::parse("true")));
+                DatasetFoldConfig(SqlExpression::TRUE,
+                                  SqlExpression::TRUE));
         }
     }
 
