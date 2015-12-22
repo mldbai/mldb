@@ -109,6 +109,11 @@ struct CellValue {
     */
     static CellValue blob(std::string blobContents);
 
+    /** Construct a blob CellValue from the memory range, which will be
+        copied in.
+    */
+    static CellValue blob(const char * p, size_t size);
+
     CellValue & operator = (const CellValue & other)
     {
         CellValue newMe(other);

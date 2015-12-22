@@ -77,6 +77,15 @@ blob(std::string blobContents)
     return result;
 }
 
+CellValue
+CellValue::
+blob(const char * mem, size_t sz)
+{
+    CellValue result;
+    result.initBlob(mem, sz);
+    return result;
+}
+
 void
 CellValue::
 initStringFromAscii(const char * val, size_t len, bool check)
