@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** svd.cc
     Jeremy Barnes, 16 December 2014
     Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Implementation of an SVD algorithm for embedding of a dataset.
 */
@@ -26,6 +26,7 @@
 #include "mldb/types/optional_description.h"
 #include "mldb/ml/value_descriptions.h"
 #include "mldb/sql/sql_expression.h"
+#include "mldb/plugins/sql_config_validator.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/types/map_description.h"
 #include "mldb/types/any_impl.h"

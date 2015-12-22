@@ -37,17 +37,13 @@ DECLARE_ENUM_DESCRIPTION(ClassifierMode);
 
 struct ClassifierConfig : public ProcedureConfig {
     ClassifierConfig()
-        : weight(SqlExpression::ONE),
-          equalizationFactor(0.0),
+        : equalizationFactor(0.0),
           mode(CM_BOOLEAN)
     {
     }
 
     /// Query to select the training data
     InputQuery trainingData;
-
-    /// The expression to generate the weight
-    std::shared_ptr<SqlExpression> weight;
 
     /// Where to save the classifier to
     Url modelFileUrl;

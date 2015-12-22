@@ -52,8 +52,7 @@ train_classifier_procedure_config = {
             },
             "num_bags": 5
         },
-        "modelFileUrl":"file://tmp/MLDB-573-float_encoding.cls",
-        "weight":"1.0"
+        "modelFileUrl":"file://tmp/MLDB-573-float_encoding.cls"
         }
     }
 procedure_output = mldb.perform("PUT","/v1/procedures/float_encoding_cls_train", [], 
@@ -84,13 +83,14 @@ train_probabilizer_procedure_config = {
     "id":"float_encoding_prob_train",
     "type":"probabilizer.train",
     "params":{
-        "trainingDataset":{"id":"x"},
+        "trainingData":{
+            "select":"classifyFunction({{* EXCLUDING (label)} as features})[score] as score, label = 1 as label",
+             "from": {"id":"x"},
+            "where":"Year < 2014 AND rowHash() % 5 = 1"
+        },
         "modelFileUrl":"file://tmp/MLDB-573-probabilizer.json",
-        "where":"Year < 2014 AND rowHash() % 5 = 1",
-        "select":"classifyFunction({{* EXCLUDING (label)} as features})[score]",
-        "label":"label = 1"
-        }
     }
+}
 
 prob_procedure_output = mldb.perform("PUT", "/v1/procedures/float_encoding_prob_train" , 
                    [], 

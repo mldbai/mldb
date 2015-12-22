@@ -23,6 +23,8 @@
 #include "js_common.h"
 #include "mldb_js.h"
 #include "dataset_js.h"
+#include "function_js.h"
+#include "procedure_js.h"
 #include <v8.h>
 
 #include "mldb/soa/js/js_utils.h"
@@ -384,6 +386,8 @@ JsPluginContext(const Utf8String & pluginName,
 
     Stream = v8::Persistent<v8::FunctionTemplate>::New(StreamJS::registerMe());
     Dataset = v8::Persistent<v8::FunctionTemplate>::New(DatasetJS::registerMe());
+    Function = v8::Persistent<v8::FunctionTemplate>::New(FunctionJS::registerMe());
+    Procedure = v8::Persistent<v8::FunctionTemplate>::New(ProcedureJS::registerMe());
     CellValue = v8::Persistent<v8::FunctionTemplate>::New(CellValueJS::registerMe());
     RandomNumberGenerator = v8::Persistent<v8::FunctionTemplate>::New(RandomNumberGeneratorJS::registerMe());
 }

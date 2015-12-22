@@ -48,10 +48,12 @@ ul {
 
 ### SQL Support
 
-* [Intro to SQL Support](sql/Sql.md)
-* [Type System](sql/TypeSystem.md)
+* [SQL Queries](sql/Sql.md)
 * [Query API](sql/QueryAPI.md)
+* [Type System](sql/TypeSystem.md)
 * [Value Expressions](sql/ValueExpression.md)
+    * [Operators](sql/ValueExpression.md.html#operators)
+    * [Built-in functions](sql/ValueExpression.md.html#builtinfunctions)
 * [Select Expressions](sql/SelectExpression.md)
 * [Where Expressions](sql/WhereExpression.md)
 * [When Expressions](sql/WhenExpression.md)

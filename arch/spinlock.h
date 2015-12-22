@@ -1,20 +1,32 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** spinlock.h                                                     -*- C++ -*-
     Jeremy Barnes, 13 December 2009.  All rights reserved.
     Implementation of a spinlock.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
-#ifndef __jml__arch__spinlock_h__
-#define __jml__arch__spinlock_h__
+#pragma once
 
 #include <sched.h>
+#include <atomic>
 
 namespace ML {
 
+
+/*****************************************************************************/
+/* SPINLOCK                                                                  */
+/*****************************************************************************/
+
+/** This is the simplest possible locking primitive, which spins on an
+    atomic flag until it acquires it.  This version is extended to allow
+    for a spinning thread to yield the CPU if it has been unsuccessful
+    for a while; the number of times to spin before yielding is passed
+    in to the constructor.
+*/
+
 struct Spinlock {
-    Spinlock(bool yield = true)
-        : value(0), yield(yield)
+    Spinlock(int yieldAfter = 100)
+        : value(ATOMIC_FLAG_INIT), yieldAfter(yieldAfter)
     {
     }
 
@@ -28,29 +40,12 @@ struct Spinlock {
         release();
     }
 
-    bool locked() const
-    {
-        return value;
-    }
-
-    int try_acquire()
-    {
-        if (__sync_bool_compare_and_swap(&value, 0, 1))
-            return 0;
-        return -1;
-    }
-    
-    bool try_lock()
-    {
-        return try_acquire() == 0;
-    }
-
     int acquire()
     {
-        for (int tries = 0; true;  ++tries) {
-            if (!__sync_lock_test_and_set(&value, 1))
+        for (int tries = 0;  true;  ++tries) {
+            if (!value.test_and_set(std::memory_order_acquire))
                 return 0;
-            if (tries == 100 && yield) {
+            if (tries == yieldAfter) {
                 tries = 0;
                 sched_yield();
             }
@@ -59,15 +54,12 @@ struct Spinlock {
 
     int release()
     {
-        __sync_lock_release(&value);
+        value.clear(std::memory_order_release);
         return 0;
     }
 
-    volatile int value;
-    bool yield;
+    std::atomic_flag value;
+    int yieldAfter;
 };
 
 } // namespace ML
-
-#endif /* __jml__arch__spinlock_h__ */
-

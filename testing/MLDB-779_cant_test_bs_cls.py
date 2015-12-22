@@ -74,8 +74,7 @@ for cls in ["bdt", "glz", "bs"]:
                     }
                 },
                 "algorithm": cls,
-                "modelFileUrl": "file://models/tng.cls",
-                "weight": "1.0"
+                "modelFileUrl": "file://models/tng.cls"
             }
         })
 
@@ -107,13 +106,11 @@ for cls in ["bdt", "glz", "bs"]:
         "type": "classifier.test",
         "params": {
             "testingData": { 
-                "select" : "{*} as features, LABEL = 'true' as label",
+                "select" : "{*} as features, LABEL = 'true' as label, tng_scorer({{* EXCLUDING(LABEL)} as features})[score] as score",
                 "from": {"id": "toy" },
                 "where" : "rowHash() % 3 = 1"
             },
-            "outputDataset": { "id":"toy_cls_baseline_scorer_rez", "type": "sparse.mutable" },
-            "weight": "1.0",
-            "score": "tng_scorer({{* EXCLUDING(LABEL)} as features})[score]",
+            "outputDataset": { "id":"toy_cls_baseline_scorer_rez", "type": "sparse.mutable" }
         }
     })
     mldb.log(rez)

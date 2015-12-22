@@ -14,6 +14,7 @@
 #include "mldb/types/structure_description.h"
 #include "mldb/types/enum_description.h"
 #include "cell_value_impl.h"
+#include "mldb/base/parse_context.h"
 #include "interval.h"
 
 using namespace std;

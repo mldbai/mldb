@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** classifier.cc
     Jeremy Barnes, 16 December 2014
     Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Integration of JML machine learning library to train classifiers.
 */
@@ -23,8 +23,10 @@
 #include "mldb/jml/utils/vector_utils.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/ml/value_descriptions.h"
-
+#include "mldb/plugins/sql_config_validator.h"
+#include "mldb/plugins/sql_expression_extractors.h"
 #include "mldb/vfs/fs_utils.h"
+#include "mldb/vfs/filter_streams.h"
 #include "mldb/ml/jml/training_data.h"
 #include "mldb/ml/jml/training_index.h"
 #include "mldb/ml/jml/classifier_generator.h"
@@ -65,13 +67,17 @@ ClassifierConfigDescription()
 {
     addField("trainingData", &ClassifierConfig::trainingData,
              "Specification of the data for input to the classifier procedure. "
-             "The select expression must contain expresssions: one row expression "
+             "The select expression must contain these two sub-expressions: one row expression "
              "to identify the features on which to train and one scalar expression "
              "to identify the label.  The type of the label expression must match "
              "that of the classifier mode: a boolean (0 or 1) for `boolean` mode; "
              "a real for regression mode, and any combination of numbers and strings "
              "for `categorical` mode.  Labels with a null value will have their row skipped. "
-             "The select statement does not support groupby and having clauses.");
+             "The select expression can contain an optional weigth expression.  The weight "
+             "allows the relative importance of examples to be set.  It must "
+             "be a real number.  If the expression is not specified each example will have "
+             "a weight of one.  Rows with a null weight will cause a training error. "
+             "The select statement does not support groupby and having clauses. ");
     addField("modelFileUrl", &ClassifierConfig::modelFileUrl,
              "URL where the model file (with extension '.cls') should be saved. "
              "This file can be loaded by a function of type 'classifier'.");
@@ -88,12 +94,6 @@ ClassifierConfigDescription()
              "only objects, strings and numbers.  If the configuration object is "
              "non-empty, then that will be used preferentially.",
              string("/opt/bin/classifiers.json"));
-    addField("weight", &ClassifierConfig::weight,
-             "The expression to generate the weight for each row.  The weight "
-             "allows the relative importance of examples to be set.  It must "
-             "be a real number.  Rows with a null weight will cause a training "
-             "error.",
-             SqlExpression::parse("1.0"));
     addField("equalizationFactor", &ClassifierConfig::equalizationFactor,
              "Amount to adjust weights so that all classes have an equal "
              "total weight.  A value of 0 (default) will not equalize weights "
@@ -180,19 +180,8 @@ run(const ProcedureRunConfig & run,
 
     labelInfo.set_biased(true);
 
-    auto extractSubExpression = [](const Utf8String & name, const SelectExpression & select) 
-        -> std::shared_ptr<Datacratic::MLDB::SqlExpression>
-        {
-            for (const auto & clause : select.clauses) {
-                auto computedVariable = std::dynamic_pointer_cast<const ComputedVariable>(clause);
-                if (computedVariable && computedVariable->alias == name)
-                    return computedVariable->expression;
-            }
-            return nullptr;
-        };
-
-    auto extractWithinExpression = [](shared_ptr<SqlExpression> expr) 
-        -> std::shared_ptr<Datacratic::MLDB::SqlRowExpression>
+    auto extractWithinExpression = [](std::shared_ptr<SqlExpression> expr) 
+        -> std::shared_ptr<SqlRowExpression>
         {
             auto withinExpression = std::dynamic_pointer_cast<const SelectWithinExpression>(expr);
             if (withinExpression)
@@ -201,8 +190,10 @@ run(const ProcedureRunConfig & run,
             return nullptr;
         };
 
-    shared_ptr<SqlExpression> label = extractSubExpression("label", runProcConf.trainingData.stm->select);
-    shared_ptr<SqlExpression> features = extractSubExpression("features", runProcConf.trainingData.stm->select);
+    auto label = extractNamedSubSelect("label", runProcConf.trainingData.stm->select)->expression;
+    auto features = extractNamedSubSelect("features", runProcConf.trainingData.stm->select)->expression;
+    auto weightSubSelect = extractNamedSubSelect("weight", runProcConf.trainingData.stm->select);
+    shared_ptr<SqlExpression> weight = weightSubSelect ? weightSubSelect->expression : SqlExpression::ONE;
     shared_ptr<SqlRowExpression> subSelect = extractWithinExpression(features);
 
     if (!label || !subSelect)
@@ -236,7 +227,7 @@ run(const ProcedureRunConfig & run,
     // We want to calculate the label and weight of each row as well
     // as the select expression
     std::vector<std::shared_ptr<SqlExpression> > extra
-        = { label, runProcConf.weight };
+        = { label, weight };
 
     struct Fv {
         Fv()
@@ -572,8 +563,8 @@ run(const ProcedureRunConfig & run,
     }
     else {
         ML::filter_istream stream(runProcConf.configurationFile.size() > 0 ?
-                                    runProcConf.configurationFile :
-                                    "/opt/bin/classifiers.json");
+                                  runProcConf.configurationFile :
+                                  "/opt/bin/classifiers.json");
         classifierConfig = jsonDecodeStream<ML::Configuration>(stream);
     }
 

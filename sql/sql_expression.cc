@@ -1795,13 +1795,13 @@ parse(ML::Parse_Context & context, bool allowUtf8)
         if (matchKeyword(context, "WHEN ")) {
             throw HttpReturnException(400, "WHEN clause not supported in row expression");
         }
-        else when = SqlExpression::parse("true");
+        else when = SqlExpression::TRUE;
 
         if (matchKeyword(context, "WHERE ")) {
             where = SqlExpression::parse(context, 10, allowUtf8);
             // Where expression consumes whitespace
         }
-        else where = SqlExpression::parse("true");
+        else where = SqlExpression::TRUE;
 
         if (matchKeyword(context, "ORDER BY ")) {
             orderBy = OrderByExpression::parse(context, allowUtf8);
@@ -2705,6 +2705,12 @@ SelectExpression::
 SelectExpression(std::vector<std::shared_ptr<SqlRowExpression> > clauses)
     : clauses(std::move(clauses))
 {
+    // concatenate all the surfaces with spaces
+    surface = std::accumulate(this->clauses.begin(), this->clauses.end(), Utf8String{},
+                              [](const Utf8String & prefix,
+                                 std::shared_ptr<SqlRowExpression> & next) {
+                                  return prefix.empty() ? next->surface : prefix + ", " + next->surface;
+                              });;
 }
 
 SelectExpression
@@ -3510,7 +3516,7 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
         skip_whitespace(context);
     }
     else {
-        statement.when = WhenExpression::parse("true");
+        statement.when = WhenExpression::TRUE;
     }
 
     if (matchKeyword(context, "WHERE ")) {
@@ -3518,7 +3524,7 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
         skip_whitespace(context);
     }
     else {
-        statement.where = SqlExpression::parse("true");
+        statement.where = SqlExpression::TRUE;
     }
 
     if (matchKeyword(context, "GROUP BY ")) {
@@ -3531,7 +3537,7 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
         skip_whitespace(context);
     }
     else {
-        statement.having = SqlExpression::parse("true");
+        statement.having = SqlExpression::TRUE;
     }
 
     if (matchKeyword(context, "ORDER BY ")) {

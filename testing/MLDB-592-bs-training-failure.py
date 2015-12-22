@@ -88,12 +88,13 @@ for algoName, algoConf in [["dtAlgo", dtAlgo], ["bsAlgo", bsAlgo]]:
         "id": testPipe,
         "type": "classifier.test",
         "params": {
-            "testingData": "select {*} as features, label='1' as label from toy where true",
+            "testingData": """label='1' as label,
+                              APPLY FUNCTION \"%s\" WITH (object(* EXCLUDING (Label)) AS features) EXTRACT(score) as score
+                              from toy where true""" % functionName,
             "outputDataset": {
                 "id": "mldb-592-test-%s-output" % algoName,
                 "type": "sparse.mutable"
-            },
-            "score": "APPLY FUNCTION \"%s\" WITH (object(* EXCLUDING (Label)) AS features) EXTRACT(score)" % functionName
+            }
         }
     }
 

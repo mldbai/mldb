@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** experiment_procedure.cc
     Francois Maillet, 8 septembre 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Experiment procedure
 */
@@ -20,6 +20,8 @@
 #include "jml/utils/string_functions.h"
 #include "arch/timers.h"
 #include "types/optional_description.h"
+#include "mldb/plugins/sql_config_validator.h"
+#include "mldb/plugins/sql_expression_extractors.h"
 
 using namespace std;
 
@@ -39,11 +41,11 @@ DatasetFoldConfigDescription()
     addField("training_where", &DatasetFoldConfig::training_where,
              "The WHERE clause for which rows to include from the training dataset. "
              "This can be any expression involving the columns in the dataset. ",
-             SqlExpression::parse("true"));
+             SqlExpression::TRUE);
     addField("testing_where", &DatasetFoldConfig::testing_where,
              "The WHERE clause for which rows to include from the testing dataset. "
              "This can be any expression involving the columns in the dataset. ",
-             SqlExpression::parse("true"));
+             SqlExpression::TRUE);
     addField("training_offset", &DatasetFoldConfig::training_offset,
              "How many rows to skip before using data.",
              ssize_t(0));
@@ -84,7 +86,11 @@ ExperimentProcedureConfigDescription()
              "columns, not expressions involving columns.  So X will work, but "
              "not X + 1.  If you need derived values in the select expression, "
              "create a dataset with the derived columns as a previous step and "
-             "run the classifier over that dataset instead.");
+             "run the classifier over that dataset instead. "
+             "The expression to generate the weight for each row.  The weight "
+             "allows the relative importance of examples to be set.  It must "
+             "be a real number.  Rows with a null weight will cause a training "
+             "error. ");
     addField("testingData", &ExperimentProcedureConfig::testingData,
              "Specification of the data for input to the classifier procedure. "
              "The select statement does not support groupby and having clauses. "
@@ -92,7 +98,11 @@ ExperimentProcedureConfigDescription()
              "columns, not expressions involving columns.  So X will work, but "
              "not X + 1.  If you need derived values in the select expression, "
              "create a dataset with the derived columns as a previous step and "
-             "run the classifier over that dataset instead.");
+             "run the classifier over that dataset instead. "
+             "The expression to generate the weight for each row.  The weight "
+             "allows the relative importance of examples to be set.  It must "
+             "be a real number.  Rows with a null weight will cause a training "
+             "error." );
     addField("datasetFolds", &ExperimentProcedureConfig::datasetFolds,
             "Dataset folds to use. This parameter can be used if the dataset folds "
             "required are more complex than a simple k-fold cross-validation. "
@@ -120,19 +130,7 @@ ExperimentProcedureConfigDescription()
              "only objects, strings and numbers.  If the configuration object is "
              "non-empty, then that will be used preferentially.",
              string("/opt/bin/classifiers.json"));
-    addField("training_weight", &ExperimentProcedureConfig::training_weight,
-             "The expression to generate the weight for each row.  The weight "
-             "allows the relative importance of examples to be set.  It must "
-             "be a real number.  Rows with a null weight will cause a training "
-             "error.",
-             SqlExpression::parse("1.0"));
-    addField("testing_weight", &ExperimentProcedureConfig::testing_weight,
-             "The expression to generate the weight for each row.  The weight "
-             "allows the relative importance of examples to be set.  It must "
-             "be a real number.  Rows with a null weight will cause a training "
-             "error.",
-             SqlExpression::parse("1.0"));
-    addField("equalizationFactor", &ExperimentProcedureConfig::equalizationFactor,
+     addField("equalizationFactor", &ExperimentProcedureConfig::equalizationFactor,
              "Amount to adjust weights so that all classes have an equal "
              "total weight.  A value of 0 (default) will not equalize weights "
              "at all.  A value of 1 will ensure that the total weight for "
@@ -296,8 +294,8 @@ run(const ProcedureRunConfig & run,
         // for test and train
         else {
             runProcConf.datasetFolds.push_back(
-                DatasetFoldConfig(SqlExpression::parse("true"),
-                                  SqlExpression::parse("true")));
+                DatasetFoldConfig(SqlExpression::TRUE,
+                                  SqlExpression::TRUE));
         }
     }
 
@@ -319,24 +317,26 @@ run(const ProcedureRunConfig & run,
 
     ExcAssertGreater(runProcConf.datasetFolds.size(), 0);
 
+
     for(auto & datasetFold : runProcConf.datasetFolds) {
         /***
          * TRAIN
          * **/
         ClassifierConfig clsProcConf;
         clsProcConf.trainingData = runProcConf.trainingData;
-        clsProcConf.weight = runProcConf.training_weight;
+        clsProcConf.trainingData.stm->where = datasetFold.training_where;
 
         string baseUrl = runProcConf.modelFileUrlPattern.toString();
         ML::replace_all(baseUrl, "$runid",
-                                ML::format("%s-%d", runProcConf.experimentName, (int)progress));
+                        ML::format("%s-%d", runProcConf.experimentName, (int)progress));
         clsProcConf.modelFileUrl = Url(baseUrl);
-
         clsProcConf.configuration = runProcConf.configuration;
         clsProcConf.configurationFile = runProcConf.configurationFile;
         clsProcConf.algorithm = runProcConf.algorithm;
         clsProcConf.equalizationFactor = runProcConf.equalizationFactor;
         clsProcConf.mode = runProcConf.mode;
+      
+     
         clsProcConf.functionName = ML::format("%s_scorer_%d", runProcConf.experimentName, (int)progress);
 
         if(progress == 0) {
@@ -390,26 +390,19 @@ run(const ProcedureRunConfig & run,
             }
             accuracyConf.outputDataset.emplace(outputPC);
         }
-
-        auto extractSubExpression = [](const Utf8String & name, const SelectExpression & select) 
-        -> std::shared_ptr<const SqlExpression>
-        {
-            for (const auto & clause : select.clauses) {
-                auto computedVariable = std::dynamic_pointer_cast<const ComputedVariable>(clause);
-                if (computedVariable && computedVariable->alias == name)
-                    return computedVariable;
-            }
-            return nullptr;
-        };
-
+        
         accuracyConf.testingData = runProcConf.testingData ? *runProcConf.testingData : runProcConf.trainingData;
         accuracyConf.testingData.stm->where = datasetFold.testing_where;
-        shared_ptr<const SqlExpression> features = extractSubExpression("features", accuracyConf.testingData.stm->select);
-        accuracyConf.score = SqlExpression::parse(ML::format(
-                    "\"%s\"({%s})[score]",
-                    clsProcConf.functionName.utf8String(),
-                    features->surface.utf8String()));
-        accuracyConf.weight = runProcConf.testing_weight;
+
+        auto features = extractNamedSubSelect("features", accuracyConf.testingData.stm->select);
+        auto label = extractNamedSubSelect("label", accuracyConf.testingData.stm->select);
+        shared_ptr<SqlRowExpression> weight = extractNamedSubSelect("weight", accuracyConf.testingData.stm->select);
+        if (!weight)
+            weight = SqlRowExpression::parse("1.0 as weight");
+        auto score = SqlRowExpression::parse(ML::format("\"%s\"({%s})[score] as score",
+                                                        clsProcConf.functionName.utf8String(),
+                                                        features->surface.utf8String()));
+        accuracyConf.testingData.stm->select = SelectExpression({features, label, weight, score});
 
         ML::Timer timer;
 

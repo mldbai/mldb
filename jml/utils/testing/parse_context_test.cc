@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* parse_context_test.cc                                           -*- C++ -*-
    Jeremy Barnes, 16 February 2007
-   Copyright (c) 2007 Jeremy Barnes.  All rights reserved.
+   Copyright (c) 2007 Jeremy Barnes.
+
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Test of tick counter functionality.
 */
@@ -21,6 +21,7 @@
 #include "mldb/arch/format.h"
 #include "mldb/ext/utf8cpp/source/utf8.h"
 #include <boost/test/unit_test.hpp>
+#include <boost/filesystem.hpp>
 #include <sstream>
 #include <iomanip>
 #include <fstream>
@@ -335,6 +336,7 @@ BOOST_AUTO_TEST_CASE( test1 )
 BOOST_AUTO_TEST_CASE( test2 )
 {
     string tmp_filename = "tmp/parse_context_test_file";
+    boost::filesystem::create_directory("tmp");
     Call_Guard guard;
     {
         ofstream stream(tmp_filename.c_str());
