@@ -145,9 +145,7 @@ run(const ProcedureRunConfig & run,
     auto score = extractNamedSubSelect("score", runAccuracyConf.testingData.stm->select)->expression; 
     auto label = extractNamedSubSelect("label", runAccuracyConf.testingData.stm->select)->expression;
     auto weightSubSelect = extractNamedSubSelect("weight", runAccuracyConf.testingData.stm->select);
-    shared_ptr<SqlExpression> weight = SqlExpression::ONE;
-    if (weightSubSelect)
-        weight = weightSubSelect->expression;
+    shared_ptr<SqlExpression> weight = weightSubSelect ? weightSubSelect->expression : SqlExpression::ONE;
 
     std::vector<std::shared_ptr<SqlExpression> > calc = {
         score,

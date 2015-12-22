@@ -201,8 +201,7 @@ if (testClassifier) {
         id: "accuracy",
         type: "classifier.test",
         params: {
-            testingData: "select {*} as features, \
-                          adventuretime IS NOT NULL as label, \
+            testingData: "select adventuretime IS NOT NULL as label, \
                           probabilizer({{ * EXCLUDING (adventuretime) } AS features})[score] as score \
                           from reddit_embeddings where rowHash() % 4 = 3",
             outputDataset: { id: "cls_test_results", type: "sparse.mutable" }

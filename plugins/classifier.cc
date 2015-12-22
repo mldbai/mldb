@@ -192,10 +192,7 @@ run(const ProcedureRunConfig & run,
     auto label = extractNamedSubSelect("label", runProcConf.trainingData.stm->select)->expression;
     auto features = extractNamedSubSelect("features", runProcConf.trainingData.stm->select)->expression;
     auto weightSubSelect = extractNamedSubSelect("weight", runProcConf.trainingData.stm->select);
-    shared_ptr<SqlExpression> weight = SqlExpression::ONE;
-    if (weightSubSelect)
-        weight = weightSubSelect->expression;
-
+    shared_ptr<SqlExpression> weight = weightSubSelect ? weightSubSelect->expression : SqlExpression::ONE;
     shared_ptr<SqlRowExpression> subSelect = extractWithinExpression(features);
 
     if (!label || !subSelect)

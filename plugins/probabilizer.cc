@@ -147,9 +147,7 @@ run(const ProcedureRunConfig & run,
     auto score = extractNamedSubSelect("score", runProcConf.trainingData.stm->select)->expression;
     auto label = extractNamedSubSelect("label", runProcConf.trainingData.stm->select)->expression;
     auto weightSubSelect = extractNamedSubSelect("weight", runProcConf.trainingData.stm->select);
-    shared_ptr<SqlExpression> weight = SqlExpression::ONE;
-    if (weightSubSelect)
-        weight = weightSubSelect->expression;
+    shared_ptr<SqlExpression> weight = weightSubSelect ? weightSubSelect->expression : SqlExpression::ONE;
 
     // Here is what we need to calculate for each row in the dataset
     std::vector<std::shared_ptr<SqlExpression> > extra

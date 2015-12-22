@@ -213,10 +213,8 @@ inline bool containsNamedSubSelect(const InputQuery& query, const std::string& n
         for (const auto & clause : select.clauses) {
             
             auto computedVariable = getComputedVariable(clause);
-            if (computedVariable) {
-                if (computedVariable->alias ==  name)
-                    return true;
-            }
+            if (computedVariable && computedVariable->alias ==  name)
+                return true;
         }
     }
     return false;

@@ -45,7 +45,6 @@ var trainClassifierProcedureConfig = {
         },
         algorithm: "glz",
         modelFileUrl: modelFileUrl,
-        weight: "1",
         equalizationFactor: 0.0,
         mode: "regression"
     }
