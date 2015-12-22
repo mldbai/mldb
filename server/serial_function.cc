@@ -30,8 +30,8 @@ namespace MLDB {
 
 SerialFunctionStepConfig::
 SerialFunctionStepConfig()
-    : with(SelectExpression::parse("*")),
-      extract(SelectExpression::parse("*"))
+    : with(SelectExpression::STAR),
+      extract(SelectExpression::STAR)
 {
 }
 
@@ -50,14 +50,14 @@ SerialFunctionStepConfigDescription()
              "place.  The default will extract all values from all previous "
              "functions and input values and make them available to values with the "
              "same name.",
-             SelectExpression::parse("*"));
+             SelectExpression::STAR);
     addField("extract", &SerialFunctionStepConfig::extract,
              "SQL select expression that extracts values from the output values "
              "of the function and adds them to the final output of the function.  "
              "This allows for the output of values to be renamed, modified or "
              "ignored.  The default will extract all output values of the function "
              "and add them with the same name to the Serial function's result.",
-             SelectExpression::parse("*"));
+             SelectExpression::STAR);
 }
 
 

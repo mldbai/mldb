@@ -41,11 +41,11 @@ DatasetFoldConfigDescription()
     addField("training_where", &DatasetFoldConfig::training_where,
              "The WHERE clause for which rows to include from the training dataset. "
              "This can be any expression involving the columns in the dataset. ",
-             SqlExpression::parse("true"));
+             SqlExpression::TRUE);
     addField("testing_where", &DatasetFoldConfig::testing_where,
              "The WHERE clause for which rows to include from the testing dataset. "
              "This can be any expression involving the columns in the dataset. ",
-             SqlExpression::parse("true"));
+             SqlExpression::TRUE);
     addField("training_offset", &DatasetFoldConfig::training_offset,
              "How many rows to skip before using data.",
              ssize_t(0));
@@ -127,13 +127,13 @@ ExperimentProcedureConfigDescription()
              "allows the relative importance of examples to be set.  It must "
              "be a real number.  Rows with a null weight will cause a training "
              "error.",
-             SqlExpression::parse("1.0"));
+             SqlExpression::ONE);
     addField("testing_weight", &ExperimentProcedureConfig::testing_weight,
              "The expression to generate the weight for each row.  The weight "
              "allows the relative importance of examples to be set.  It must "
              "be a real number.  Rows with a null weight will cause a training "
              "error.",
-             SqlExpression::parse("1.0"));
+             SqlExpression::ONE);
     addField("equalizationFactor", &ExperimentProcedureConfig::equalizationFactor,
              "Amount to adjust weights so that all classes have an equal "
              "total weight.  A value of 0 (default) will not equalize weights "
@@ -298,8 +298,8 @@ run(const ProcedureRunConfig & run,
         // for test and train
         else {
             runProcConf.datasetFolds.push_back(
-                DatasetFoldConfig(SqlExpression::parse("true"),
-                                  SqlExpression::parse("true")));
+                DatasetFoldConfig(SqlExpression::TRUE,
+                                  SqlExpression::TRUE));
         }
     }
 

@@ -94,7 +94,7 @@ ClassifierConfigDescription()
              "allows the relative importance of examples to be set.  It must "
              "be a real number.  Rows with a null weight will cause a training "
              "error.",
-             SqlExpression::parse("1.0"));
+             SqlExpression::ONE);
     addField("equalizationFactor", &ClassifierConfig::equalizationFactor,
              "Amount to adjust weights so that all classes have an equal "
              "total weight.  A value of 0 (default) will not equalize weights "
