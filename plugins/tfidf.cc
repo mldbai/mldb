@@ -318,10 +318,10 @@ apply(const FunctionApplier & applier,
         return 1.0f;
     };
     auto idf_inverse = [=] (double numberOfRelevantDoc) {
-        return std::log((N +1 )/ (1 + numberOfRelevantDoc));
+        return std::log(N / (1 + numberOfRelevantDoc));
     };
     auto idf_inverseSmooth = [=] (double numberOfRelevantDoc) {
-        return std::log(1 + (N +1 )/ (1 + numberOfRelevantDoc));
+        return std::log(1 + (N / (1 + numberOfRelevantDoc)));
     };
     auto idf_inverseMax = [=] (double numberOfRelevantDoc) {
         return std::log(1 + (maxNt)/ (1 + numberOfRelevantDoc));

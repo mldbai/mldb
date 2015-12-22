@@ -18,7 +18,7 @@ loading it with the ![](%%doclink tfidf function).
 In the input dataset of the procedure, each row is a document and each column is a term, with the value being something other than 0 if the term appears in
 the document. This can be prepared using the tokenize function or any other method.
 
-In the output dataset, a single row is added, with the columns being each term present in the corpus, and the value being the number of document the term appears in.
+In the output dataset, a single row is added, with the columns being each term present in the corpus, and the value being the number of documents the term appears in.
 
 ## See also
 * The ![](%%doclink tfidf function) is used to find how relevant certain words are to a document.
