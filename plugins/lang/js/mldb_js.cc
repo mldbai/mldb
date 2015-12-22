@@ -20,6 +20,7 @@
 #include <boost/random/variate_generator.hpp>
 
 #include "mldb/vfs/fs_utils.h"
+#include "mldb/vfs/filter_streams.h"
 #include "mldb/utils/json_diff.h"
 #include "mldb/types/map_description.h"
 

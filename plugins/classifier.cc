@@ -26,6 +26,7 @@
 #include "mldb/plugins/sql_config_validator.h"
 #include "mldb/plugins/sql_expression_extractors.h"
 #include "mldb/vfs/fs_utils.h"
+#include "mldb/vfs/filter_streams.h"
 #include "mldb/ml/jml/training_data.h"
 #include "mldb/ml/jml/training_index.h"
 #include "mldb/ml/jml/classifier_generator.h"
@@ -562,8 +563,8 @@ run(const ProcedureRunConfig & run,
     }
     else {
         ML::filter_istream stream(runProcConf.configurationFile.size() > 0 ?
-                                    runProcConf.configurationFile :
-                                    "/opt/bin/classifiers.json");
+                                  runProcConf.configurationFile :
+                                  "/opt/bin/classifiers.json");
         classifierConfig = jsonDecodeStream<ML::Configuration>(stream);
     }
 
