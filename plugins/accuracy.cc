@@ -48,8 +48,8 @@ AccuracyConfigDescription()
                                   withType(AccuracyConfig::defaultOutputDatasetType));
 
     addField("testingData", &AccuracyConfig::testingData,
-             "Specification of the data for input to the classifier procedure. "
-             "The select expression must contain these expressions: one scalar expression "
+             "Specification of the data for input to the accuracy procedure. "
+             "The select expression must contain these sub-expressions: one scalar expression "
              "to identify the label and one scalar expression to identify the score. "
              "The type of the label expression must match "
              "that of the classifier mode from which the model was trained. "
@@ -58,11 +58,10 @@ AccuracyConfigDescription()
              "of whatever is having its accuracy tested.  This needs to be "
              "a number, and normally should be a floating point number that "
              "represents the degree of confidence in the prediction, not "
-             "just the class. "  
+             "just the class. This is typically, the training function returned "  
+             "by a classifier.train procedure. "
              "The select expression can also contain an optional weight sub-expression. "
-             "This expression generates the relative weight for each example (e.g. " 
-             "something like \"2.34*x+y\" if x and y are columns, or "
-             "\"x\" or simply \"1.0\").  In some "
+             "This expression generates the relative weight for each example.  In some "
              "circumstances it is necessary to calculate accuracy statistics "
              "with uneven weighting, for example to counteract the effect of "
              "non-uniform sampling in dataset.  By default, each class will "
