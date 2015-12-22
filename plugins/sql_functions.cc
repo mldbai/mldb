@@ -57,7 +57,7 @@ SqlQueryFunctionConfigDescription()
              "SQL select expression to run.  The values in the dataset, as "
              "well as the input values, will be available for the expression "
              "calculation",
-             SelectExpression("*"));
+             SelectExpression::STAR);
     addField("from", &SqlQueryFunctionConfig::from,
              "Dataset to select from.  The dataset is fixed at initialization "
              "time and cannot be changed in the query.");
@@ -362,10 +362,10 @@ regSqlExpressionFunction(builtinPackage(),
 
 TransformDatasetConfig::
 TransformDatasetConfig()
-    : select(SelectExpression::parse("*")),
-      when(WhenExpression::parse("true")),
-      where(SqlExpression::parse("true")),
-      having(SqlExpression::parse("true")),
+    : select(SelectExpression::STAR),
+      when(WhenExpression::TRUE),
+      where(SqlExpression::TRUE),
+      having(SqlExpression::TRUE),
       offset(0),
       limit(-1),
       rowName(SqlExpression::parse("rowName()")),
@@ -390,15 +390,15 @@ TransformDatasetConfigDescription()
     addField("select", &TransformDatasetConfig::select,
              "Values to select.  These columns will be written as the output "
              "of the dataset.",
-             SelectExpression::parse("*"));
+             SelectExpression::STAR);
     addField("when", &TransformDatasetConfig::when,
              "Boolean expression determining which tuples from the dataset "
              "to keep based on their timestamps",
-             WhenExpression::parse("true"));
+             WhenExpression::TRUE);
     addField("where", &TransformDatasetConfig::where,
              "Boolean expression determining which rows from the input "
              "dataset will be processed.",
-             SqlExpression::parse("true"));
+             SqlExpression::TRUE);
     addField("groupBy", &TransformDatasetConfig::groupBy,
              "Expression used to group values for aggregation queries.  "
              "Default is to run a row-by-row query, not an aggregation.");
@@ -406,7 +406,7 @@ TransformDatasetConfigDescription()
              "Boolean expression used to select which groups will write a "
              "value to the output for a grouped query.  Default is to "
              "write all groups",
-             SqlExpression::parse("true"));
+             SqlExpression::TRUE);
     addField("orderBy", &TransformDatasetConfig::orderBy,
              "Expression dictating how output rows will be ordered.  This is "
              "only meaningful when offset and/or limit is used, as it "

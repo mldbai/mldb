@@ -251,16 +251,16 @@ KmeansFunctionConfigDescription()
              "Fields to select to calculate k-means over.  Only those fields "
              "that are selected here need to be matched.  Default is to use "
              "all fields.",
-             SelectExpression("*"));
+             SelectExpression::STAR);
     addField("when", &KmeansFunctionConfig::when,
              "Boolean expression determining which tuples from the dataset "
              "to keep based on their timestamps",
-             WhenExpression::parse("true"));
+             WhenExpression::TRUE);
     addField("where", &KmeansFunctionConfig::where,
              "Rows to select for k-means training.  This will effectively "
              "limit which clusters are active.  Default is to use all "
              "clusters.",
-             SqlExpression::parse("true"));
+             SqlExpression::TRUE);
 }
 
 
