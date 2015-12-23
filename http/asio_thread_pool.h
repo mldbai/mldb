@@ -34,11 +34,16 @@ struct AsioThreadPool {
 
     void shutdown();
 
-    /** Ensure that there are at least this number of threads active.
-        Necessary to avoid deadlocks in some situations.
+    /** Ensure "minNumThreads" threads and event loops are active. Any
+        value below 1 will throw an exception. This function must be
+        called at least once in order to make event loops available to
+        the caller.
     */
     void ensureThreads(int minNumThreads);
 
+    /** Returns the next available EventLoop in the pool. Currently,
+	loops are returned in a round-robin fashion. A call to this
+	function without any available loop will throw an exception. */
     EventLoop & nextLoop();
 
 private:

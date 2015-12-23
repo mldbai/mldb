@@ -88,6 +88,7 @@ void
 AsioThreadPool::
 ensureThreads(int numThreads)
 {
+    ExcAssertGreaterEqual(numThreads, 1);
     impl->ensureThreads(numThreads);
 }
 
