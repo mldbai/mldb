@@ -1208,7 +1208,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         ExpressionValue constant;
         if (matchConstant(context, constant, allowUtf8)) {
             lhs = std::make_shared<ConstantExpression>(constant);
-            lhs->surface = token.captured();
+            lhs->surface = ML::trim(token.captured());
         }
     }
 
@@ -3499,8 +3499,7 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
         skip_whitespace(context);
     }
     else {
-        static string rowNameFn("rowName()");
-        statement.rowName = SqlExpression::parse(rowNameFn);
+        statement.rowName = SqlExpression::parse("rowName()");
     }
 
     if (matchKeyword(context, "FROM ")) {

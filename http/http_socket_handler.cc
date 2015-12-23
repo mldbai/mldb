@@ -100,7 +100,7 @@ send(std::string str,
                 requestClose();
             }
         };
-        requestWrite(std::move(str), onWritten);
+        requestWrite(str, onWritten);
     }
 }
 
