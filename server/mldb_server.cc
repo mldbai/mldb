@@ -207,7 +207,7 @@ runHttpQuery(const Utf8String& query,
              bool rowNames,
              bool rowHashes) const
 {
-    auto stm = SelectStatement::parse(query);
+    auto stm = SelectStatement::parse(query.rawString());
     SqlExpressionMldbContext mldbContext(this);
 
     BoundTableExpression table = stm.from->bind(mldbContext);
