@@ -5,7 +5,6 @@
    Copyright (c) 2015 Datacratic.  All rights reserved.
 */
 
-#include <iostream>
 #include "mldb/arch/futex.h"
 #include "mldb/http/event_loop.h"
 #include "event_loop_impl.h"

@@ -55,7 +55,7 @@ ensureThreads(int numThreads)
 {
     acceptor_->ensureThreads(numThreads);
 }
-    
+
 void
 HttpRestEndpoint::
 shutdown()

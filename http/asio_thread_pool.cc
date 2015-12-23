@@ -28,7 +28,7 @@ namespace Datacratic {
 /*****************************************************************************/
 
 struct AsioThreadPool::Impl {
-    Impl(double probeIntervalSeconds = 0.1)
+    Impl()
         : loopCnt(0)
     {
     }
@@ -67,8 +67,8 @@ struct AsioThreadPool::Impl {
 };
 
 AsioThreadPool::
-AsioThreadPool(double probeIntervalSeconds)
-    : impl(new Impl(probeIntervalSeconds))
+AsioThreadPool()
+    : impl(new Impl())
 {
 }
 

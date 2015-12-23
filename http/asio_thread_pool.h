@@ -28,7 +28,7 @@ struct EventLoop;
 */
 
 struct AsioThreadPool {
-    AsioThreadPool(double probeIntervalSeconds = 0.1);
+    AsioThreadPool();
 
     ~AsioThreadPool();
 

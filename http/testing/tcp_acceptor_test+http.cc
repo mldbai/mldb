@@ -89,8 +89,6 @@ BOOST_AUTO_TEST_CASE( tcp_acceptor_http_test )
                         + to_string(acceptor.effectiveTCPv4Port()));
     auto resp = proxy.get("/v1/ping");
     BOOST_REQUIRE_EQUAL(resp.code(), 200);
-
-    cerr << "shutting down acceptor\n";
 }
 
 
