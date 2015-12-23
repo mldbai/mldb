@@ -331,7 +331,6 @@ getHttpRequestId() const
         long int rnd;
     } requestId;
     requestId.rnd = random();
-    // std::string s = Date::now().print(9) + ML::format("%d", random());
     auto jobId = CityHash64(requestId.string, sizeof(long int));
     return to_string(jobId);
 }
