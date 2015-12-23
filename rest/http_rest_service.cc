@@ -237,10 +237,9 @@ captureInConnection(std::shared_ptr<void> toCapture)
 
 HttpRestService::
 HttpRestService()
-    : eventLoop(new EventLoop()),
-      threadPool(new AsioThreadPool(*eventLoop)),
-      httpEndpoint(new HttpRestEndpoint(*eventLoop))
 {
+    listeningPool.ensureThreads(1);
+    httpEndpoint.reset(new HttpRestEndpoint(listeningPool.nextLoop()));
 }
 
 HttpRestService::
@@ -253,11 +252,8 @@ void
 HttpRestService::
 shutdown()
 {
-    // 1.  Shut down the http endpoint, since it needs our threads to
-    //     complete its shutdown
     httpEndpoint->shutdown();
-
-    threadPool->shutdown();
+    listeningPool.shutdown();
 }
 
 void
@@ -272,10 +268,19 @@ init()
                const std::string & payload)
         {
             std::string requestId = this->getHttpRequestId();
-            HttpRestConnection restConnection(connection, requestId, this);
+            HttpRestConnection restConnection(connection,
+                                              std::move(requestId), this);
             this->doHandleRequest(restConnection,
                                   RestRequest(header, payload));
         };
+}
+
+void
+HttpRestService::
+ensureThreads(int numThreads)
+{
+    ExcAssert(httpEndpoint != nullptr);
+    httpEndpoint->ensureThreads(numThreads);
 }
 
 std::string

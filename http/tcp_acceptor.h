@@ -41,6 +41,8 @@ struct TcpAcceptor {
                 const OnNewConnection & onNewConnection);
     ~TcpAcceptor();
 
+    void ensureThreads(int numThreads);
+
     /* Starts listening on either of the given ports (in ascending order) and
      * interface. Returns the effective port of the listening socket. */
     void listen(const PortRange & portRange,

@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "mldb/watch/watch.h"
+#include <memory>
 
 
 namespace Datacratic {
@@ -28,32 +28,27 @@ struct EventLoop;
 */
 
 struct AsioThreadPool {
-    AsioThreadPool(EventLoop & eventLoop,
-                   double probeIntervalSeconds = 0.1);
+    AsioThreadPool();
 
     ~AsioThreadPool();
 
     void shutdown();
 
-    /** Ensure that there are at least this number of threads active.
-        Necessary to avoid deadlocks in some situations.
+    /** Ensure "minNumThreads" threads and event loops are active. Any
+        value below 1 will throw an exception. This function must be
+        called at least once in order to make event loops available to
+        the caller.
     */
     void ensureThreads(int minNumThreads);
 
-    struct Stats {
-        double duty;
-        int numThreadsRunning;
-        double numThreadsRequired;
-        double latency;
-    };
-
-    WatchT<Stats> watchStats();
+    /** Returns the next available EventLoop in the pool. Currently,
+	loops are returned in a round-robin fashion. A call to this
+	function without any available loop will throw an exception. */
+    EventLoop & nextLoop();
 
 private:
     struct Impl;
     std::unique_ptr<Impl> impl;
 };
-
-DECLARE_STRUCTURE_DESCRIPTION_NAMED(AsioThreadPoolStatsDescription, AsioThreadPool::Stats);
 
 } // namespace Datacratic
