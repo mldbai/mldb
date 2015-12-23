@@ -216,9 +216,7 @@ unsigned replace_all(std::string & haystack, const std::string & search,
 string
 trim(const string & other)
 {
-    return boost::trim_copy(other);
-
-    /*size_t len = other.size();
+    size_t len = other.size();
 
     size_t start;
     for (start = 0; start < len; start++) {
@@ -243,7 +241,7 @@ trim(const string & other)
         result = other.substr(start, end-start);
     }
 
-    return result;*/
+    return result;
 }
 
 
