@@ -223,7 +223,7 @@ sendResponse(int code,
 
     if (contentType != "") {
         responseStr.append("Content-Type: ");
-        responseStr.append(std::move(contentType));
+        responseStr.append(contentType);
         responseStr.append("\r\n");
     }
 
@@ -248,7 +248,7 @@ sendResponse(int code,
     }
 
     responseStr.append("\r\n");
-    responseStr.append(std::move(body));
+    responseStr.append(body);
 
     auto onSendFinished = [=] {};
 

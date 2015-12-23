@@ -137,7 +137,7 @@ struct HttpLegacySocketHandler : public HttpSocketHandler {
     virtual void handleHttpPayload(const HttpHeader & header,
                                    const std::string & payload) = 0;
 
-    void putResponseOnWire(HttpResponse response,
+    void putResponseOnWire(const HttpResponse & response,
                            std::function<void ()> onSendFinished
                            = std::function<void ()>(),
                            NextAction next = NEXT_CONTINUE);
