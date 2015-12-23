@@ -204,48 +204,12 @@ sendResponse(int code,
              std::string body, std::string contentType,
              RestParams headers)
 {
+    for (auto & h: endpoint->extraHeaders)
+        headers.push_back(h);
 
-    string responseStr;
-    responseStr.reserve(16384 + body.length());
-
-    responseStr.append("HTTP/1.1 ");
-    responseStr.append(to_string(code));
-    responseStr.append(" ");
-    responseStr.append(getResponseReasonPhrase(code));
-    responseStr.append("\r\n");
-
-    if (contentType != "") {
-        responseStr.append("Content-Type: ");
-        responseStr.append(contentType);
-        responseStr.append("\r\n");
-    }
-
-    if (body.length() > 0) {
-        responseStr.append("Content-Length: ");
-        responseStr.append(to_string(body.length()));
-        responseStr.append("\r\n");
-        responseStr.append("Connection: Keep-Alive\r\n");
-    }
-
-    for (auto & h: headers) {
-        responseStr.append(h.first.rawString());
-        responseStr.append(": ");
-        responseStr.append(h.second.rawString());
-        responseStr.append("\r\n");
-    }
-    for (const auto & h: endpoint->extraHeaders) {
-        responseStr.append(h.first);
-        responseStr.append(": ");
-        responseStr.append(h.second);
-        responseStr.append("\r\n");
-    }
-
-    responseStr.append("\r\n");
-    responseStr.append(body);
-
-    auto onSendFinished = [=] {};
-
-    send(std::move(responseStr), NEXT_CONTINUE, onSendFinished);
+    putResponseOnWire(HttpResponse(code,
+                                   std::move(contentType), std::move(body),
+                                   std::move(headers)));
 }
 
 void
