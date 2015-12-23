@@ -348,7 +348,7 @@ parseExpression(ML::Parse_Context & context, bool stopOnWhitespace)
 
         if (!context || isspace(*context)) {
             current += "%";
-            break;
+            continue;
         }
 
         if (context.match_literal('{')) {
