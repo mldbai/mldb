@@ -321,9 +321,13 @@ std::string
 HttpRestService::
 getHttpRequestId() const
 {
-    std::string s = Date::now().print(9) + ML::format("%d", random());
-    uint64_t jobId = CityHash64(s.c_str(), s.size());
-    return ML::format("%016llx", jobId);
+    union {
+        char string[sizeof(long int)];
+        long int rnd;
+    } requestId;
+    requestId.rnd = random();
+    auto jobId = CityHash64(requestId.string, sizeof(long int));
+    return to_string(jobId);
 }
 
 void
