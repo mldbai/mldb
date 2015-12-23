@@ -7,7 +7,6 @@
 
 #pragma once
 
-#include <sched.h>
 #include <atomic>
 
 namespace ML {
@@ -35,6 +34,11 @@ struct Spinlock {
         acquire();
     }
 
+    bool try_lock()
+    {
+        return value.test_and_set(std::memory_order_acquire) == 0;
+    }
+
     void unlock()
     {
         release();
@@ -47,7 +51,7 @@ struct Spinlock {
                 return 0;
             if (tries == yieldAfter) {
                 tries = 0;
-                sched_yield();
+                yield();
             }
         }
     }
@@ -58,7 +62,13 @@ struct Spinlock {
         return 0;
     }
 
+    /// Yields the CPU.  Simply forwards to the standard function, but this
+    /// way we can avoid including <thread>.
+    static void yield();
+
     std::atomic_flag value;
+
+    /// How many times to spin before we yield?
     int yieldAfter;
 };
 
