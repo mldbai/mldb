@@ -39,22 +39,11 @@ struct AsioThreadPool {
     */
     void ensureThreads(int minNumThreads);
 
-    struct Stats {
-        double duty;
-        int numThreadsRunning;
-        double numThreadsRequired;
-        double latency;
-    };
-
-    WatchT<Stats> watchStats();
-
     EventLoop & nextLoop();
 
 private:
     struct Impl;
     std::unique_ptr<Impl> impl;
 };
-
-DECLARE_STRUCTURE_DESCRIPTION_NAMED(AsioThreadPoolStatsDescription, AsioThreadPool::Stats);
 
 } // namespace Datacratic
