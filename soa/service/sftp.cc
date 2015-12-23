@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* sftp.cc
    Jeremy Barnes, 21 June 2012
    Copyright (c) 2012 Datacratic.  All rights reserved.
+
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    sftp connection.
 */
@@ -23,6 +23,7 @@
 #include <fstream>
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/vfs/filter_streams_registry.h"
+#include "mldb/vfs/fs_utils.h"
 #include "mldb/base/exc_assert.h"
 #include <thread>
 #include <unordered_map>
@@ -961,7 +962,18 @@ struct RegisterSftpHandler {
             std::shared_ptr<std::streambuf> buf
                 (connection->streamingDownloadStreambuf("sftp://" + resource)
                  .release());
-            return ML::UriHandler(buf.get(), buf);
+
+            SftpConnection::Attributes attr;
+            if (!connection->getAttributes(resource, attr))
+                throw ML::Exception("Couldn't read attributes for sftp resource");
+
+            auto info = std::make_shared<FsObjectInfo>();
+            info->exists = true;
+            info->size = attr.filesize;
+            info->ownerId = std::to_string(attr.uid);
+            info->lastModified = Date::fromSecondsSinceEpoch(attr.mtime);
+
+            return ML::UriHandler(buf.get(), buf, info);
         }
         else if (mode == ios::out) {
             std::shared_ptr<std::streambuf> buf

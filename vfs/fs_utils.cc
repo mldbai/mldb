@@ -346,8 +346,9 @@ struct LocalUrlFsHandler : public UrlFsHandler {
                         if (!options.empty())
                             throw ML::Exception("Options not accepted by S3");
 
-                        std::shared_ptr<std::istream> result(new ML::filter_istream(filename));
-                        return ML::UriHandler(result->rdbuf(), std::move(result));
+                        std::shared_ptr<std::istream> result(new ML::filter_istream(filename, options));
+                        return ML::UriHandler(result->rdbuf(), std::move(result),
+                                              getInfo(Url(filename)));
                     };
                     
                     result = onObject(filename,

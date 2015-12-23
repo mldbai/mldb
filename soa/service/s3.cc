@@ -107,7 +107,9 @@ struct S3UrlFsHandler : public UrlFsHandler {
                         throw ML::Exception("Options not accepted by S3");
 
                     std::shared_ptr<std::istream> result(new ML::filter_istream(filename));
-                    return ML::UriHandler(result->rdbuf(), result);
+                    auto into = getInfo(Url(filename));
+
+                    return ML::UriHandler(result->rdbuf(), result, info);
                 };
 
                 return onObject(filename, info, open, depth);
@@ -1657,6 +1659,12 @@ struct StreamingDownloadSource {
         impl->start(numThreads);
     }
 
+    const FsObjectInfo & info()
+    {
+        ExcAssert(impl);
+        return impl->info;
+    }
+
     typedef char char_type;
     struct category
         : //input_seekable,
@@ -1910,17 +1918,17 @@ struct StreamingDownloadSource {
     }
 };
 
-std::unique_ptr<std::streambuf>
+std::pair<std::unique_ptr<std::streambuf>, FsObjectInfo>
 makeStreamingDownload(const std::string & uri)
 {
     std::unique_ptr<std::streambuf> result;
+    StreamingDownloadSource source(uri);
     result.reset(new boost::iostreams::stream_buffer<StreamingDownloadSource>
-                 (StreamingDownloadSource(uri),
-                  131072));
-    return result;
+                 (source,131072));
+    return make_pair(std::move(result), source.info());
 }
 
-std::unique_ptr<std::streambuf>
+std::pair<std::unique_ptr<std::streambuf>, FsObjectInfo>
 makeStreamingDownload(const std::string & bucket,
                       const std::string & object)
 {
@@ -2439,9 +2447,13 @@ struct RegisterS3Handler {
         string bucket(resource, 0, pos);
 
         if (mode == ios::in) {
-            std::shared_ptr<std::streambuf> buf
-                (makeStreamingDownload("s3://" + resource).release());
-            return ML::UriHandler(buf.get(), buf);
+            std::unique_ptr<std::streambuf> source;
+            FsObjectInfo info;
+            auto dl = makeStreamingDownload("s3://" + resource);
+            source = std::move(dl.first);
+            info = std::move(dl.second);
+            std::shared_ptr<std::streambuf> buf(source.release());
+            return ML::UriHandler(buf.get(), buf, info);
         }
         else if (mode == ios::out) {
 
