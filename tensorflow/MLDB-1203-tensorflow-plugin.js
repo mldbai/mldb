@@ -112,9 +112,9 @@ var preprocessConfig = {
     }
 };
 
-var fn = mldb.createFunction(preprocessConfig);
+//var fn = mldb.createFunction(preprocessConfig);
 
-var query = mldb.sql("select @incept({ image: @preprocess({image: load_image('image.png')})})");
+//var query = mldb.sql("select @incept({ image: @preprocess({image: load_image('image.png')})})");
 
 
 
