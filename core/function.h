@@ -332,6 +332,12 @@ struct FunctionValues {
     /** Add a named value that is an atom (null, number, string). */
     void addAtomValue(const std::string & name);
 
+    /** Add a named value that is a string (ASCII or UTF-8). */
+    void addStringValue(const std::string & name);
+
+    /** Add a named value that is a timestamp. */
+    void addTimestampValue(const std::string & name);
+
     /** Add a named value that is a blob. */
     void addBlobValue(const std::string & name);
 

@@ -597,6 +597,20 @@ addAtomValue(const std::string & name)
 
 void
 FunctionValues::
+addStringValue(const std::string & name)
+{
+    addValue(Utf8String(name), std::make_shared<Utf8StringValueInfo>());
+}
+
+void
+FunctionValues::
+addTimestampValue(const std::string & name)
+{
+    addValue(Utf8String(name), std::make_shared<TimestampValueInfo>());
+}
+
+void
+FunctionValues::
 addBlobValue(const std::string & name)
 {
     addValue(Utf8String(name), std::make_shared<BlobValueInfo>());
