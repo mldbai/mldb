@@ -62,7 +62,7 @@ $(TENSORFLOW_INCLUDES):
 
 # We need the 9a release of libjpeg, which is incldued in ext.  Here we set
 # up the include path so it can be found.
-$(INC)/external/jpeg_archive/jpeg-9a:
+$(INC)/external/jpeg_archive/jpeg-9a: $(JPEG_INCLUDE_FILES)
 	mkdir -p $(dir $(@)) && ln -s $(PWD)/mldb/ext/jpeg $(@)
 
 # It also needs re2, which we have locally in ext.  We create the necessary
@@ -71,10 +71,11 @@ $(INC)/external/re2:
 	mkdir -p $(dir $(@)) && ln -s $(PWD)/mldb/ext/re2 $(@)
 
 # Here is the list of files we need to compile for tensorflow to be incorporated
-$(TENSORFLOW_CC_FILES):	$(TENSORFLOW_PROTOBUF_FILES:%.proto=%.pb.cc) | $(TENSORFLOW_INCLUDES) $(INC)/external/re2 $(INC)/external/jpeg_archive/jpeg-9a $(HOSTBIN)/protoc
+$(TENSORFLOW_CC_FILES):	$(TENSORFLOW_PROTOBUF_FILES:%.proto=%.pb.h) | $(TENSORFLOW_INCLUDES) $(INC)/external/re2 $(INC)/external/jpeg_archive/jpeg-9a $(HOSTBIN)/protoc
 
-# To create a protobuf file, we compile the input file
-$(CWD)/%.pb.cc:		$(CWD)/%.proto $(HOSTBIN)/protoc
+# To create a protobuf file, we compile the input file.  Same for the .h
+# file.
+$(CWD)/%.pb.cc $(CWD)/%.pb.h:		$(CWD)/%.proto $(HOSTBIN)/protoc
 	$(HOSTBIN)/protoc $< -Imldb/ext/tensorflow --cpp_out=$(TF_CWD)
 
 # Here are the flags that anything that includes TensorFlow needs to
@@ -115,6 +116,10 @@ $(eval $(call program,cc_op_gen,tensorflow,$(TENSORFLOW_CC_OP_GEN_FILES)))
 TENSORFLOW_OPS_SOURCES := $(shell find $(CWD)/tensorflow/core/ops -name "*_ops.cc")
 TENSORFLOW_OPS := $(TENSORFLOW_OPS_SOURCES:$(CWD)/tensorflow/core/ops/%_ops.cc=%)
 
+# Each op file may include protobuf files or other headers, so these are also
+# dependent on those.
+$(TENSORFLOW_OPS_SOURCES): $(TENSORFLOW_PROTOBUF_FILES:%.proto=%.pb.h) | $(TENSORFLOW_INCLUDES) $(INC)/external/re2 $(INC)/external/jpeg_archive/jpeg-9a $(HOSTBIN)/protoc
+
 # Create a library for each of the ops.  We also have to adjust the compilation
 # flags so that it actually compiles
 $(foreach op,$(TENSORFLOW_OPS), \
@@ -135,7 +140,7 @@ $(eval $(call library,tensorflow_ops,tensorflow/core/ops/no_op.cc,$(foreach op,$
 # tensorflow in-tree.  Since MLDB provides other means for extension, and we
 # don't want to modify the source tree, we put a dummy, empty header in there
 # to signify that there are no user operations available.
-$(CWD)/tensorflow/cc/ops/%_ops.cc:	$(BIN)/cc_op_gen $(LIB)/libtensorflow_%_ops.so
+$(CWD)/tensorflow/cc/ops/%_ops.cc $(CWD)/tensorflow/cc/ops/%_ops.h:	$(BIN)/cc_op_gen $(LIB)/libtensorflow_%_ops.so
 	LD_PRELOAD=$(LIB)/libtensorflow_$(*)_ops.so $(BIN)/cc_op_gen $(TF_CWD)/tensorflow/cc/ops/$(*)_ops.h $(TF_CWD)/tensorflow/cc/ops/$(*)_ops.cc 0
 	touch $(TF_CWD)/tensorflow/cc/ops/user_ops.h
 
@@ -143,10 +148,20 @@ $(CWD)/tensorflow/cc/ops/%_ops.cc:	$(BIN)/cc_op_gen $(LIB)/libtensorflow_%_ops.s
 # others were generated above.
 TENSORFLOW_CC_INTERFACE_FILES:=$(sort $(shell (find $(CWD)/tensorflow/cc -name "*.cc" | grep -v example)) $(foreach op,$(TENSORFLOW_OPS),$(CWD)/tensorflow/cc/ops/$(op)_ops.cc))
 
+# Each of these may include protobuf files or other headers, so these are also
+# dependent on those.
+$(TENSORFLOW_CC_INTERFACE_FILES): $(TENSORFLOW_PROTOBUF_FILES:%.proto=%.pb.h) | $(TENSORFLOW_INCLUDES) $(INC)/external/re2 $(INC)/external/jpeg_archive/jpeg-9a $(HOSTBIN)/protoc
+
+# Turn them into arguments for the library macro by stripping the CWD
 TENSORFLOW_CC_INTERFACE_BUILD:=$(TENSORFLOW_CC_INTERFACE_FILES:$(CWD)/%=%)
 
 # Create the interface library
 $(eval $(call set_compile_option,$(TENSORFLOW_CC_INTERFACE_BUILD),$(TENSORFLOW_COMPILE_FLAGS)))
 $(eval $(call library,tensorflow_cpp_interface,$(TENSORFLOW_CC_INTERFACE_BUILD),tensorflow_ops))
+
+# This variable can be used by something that includes tensorflow to say that
+# it depends on the tensorflow include files.
+
+DEPENDS_ON_TENSORFLOW_HEADERS:=$(TENSORFLOW_PROTOBUF_FILES:%.proto=%.pb.h) $(foreach op,$(TENSORFLOW_OPS),$(CWD)/tensorflow/cc/ops/$(op)_ops.h)
 
 endif
