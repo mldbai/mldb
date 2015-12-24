@@ -1529,9 +1529,94 @@ BoundFunction base64_decode(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerBase64Decode(base64_decode, "base64_decode");
 
+static const auto cellValueDesc = getDefaultDescriptionShared((CellValue *)0);
 
+ExpressionValue
+parseJson(JsonParsingContext & context, Date timestamp)
+{
+    if (context.isObject()) {
 
+        std::vector<std::tuple<ColumnName, ExpressionValue> > out;
 
+        auto onObjectField = [&] ()
+            {
+                out.emplace_back
+                (ColumnName(context.printPath(false /* include leading dot */)),
+                 parseJson(context, timestamp));
+                                 
+            };
+        context.forEachMember(onObjectField);
+
+        return std::move(out);
+    }
+    else if (context.isArray()) {
+        std::vector<std::tuple<ColumnName, ExpressionValue> > out;
+
+        auto onArrayElement = [&] ()
+            {
+                out.emplace_back
+                (ColumnName(context.printPath(false /* include leading dot */)),
+                                 parseJson(context, timestamp));
+                                 
+            };
+
+        context.forEachElement(onArrayElement);
+
+        return std::move(out);
+    }
+    else {
+        // It's a cell value
+        CellValue val;
+        cellValueDesc->parseJson(&val, context);
+        return ExpressionValue(std::move(val), timestamp);
+    }
+}
+
+BoundFunction json_decode(const std::vector<BoundSqlExpression> & args)
+{
+    if (args.size() != 1)
+        throw HttpReturnException(400, "json_decode function takes 1 argument");
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & context) -> ExpressionValue
+            {
+                ExcAssertEqual(args.size(), 1);
+                Utf8String str = args[0].toUtf8String();
+                Json::Value val = Json::parse(str.rawString());
+
+                StreamingJsonParsingContext parser(str.rawString(),
+                                                   str.rawData(),
+                                                   str.rawLength());
+                return parseJson(parser, args[0].getEffectiveTimestamp());
+            },
+            std::make_shared<BlobValueInfo>()
+            };
+}
+
+static RegisterBuiltin registerJsonDecode(json_decode, "json_decode");
+
+BoundFunction extract_column(const std::vector<BoundSqlExpression> & args)
+{
+    if (args.size() != 2)
+        throw HttpReturnException(400, "extract_column function takes 2 arguments");
+
+    // TODO: there is a better implementation if the field name is
+    // a constant expression
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & context) -> ExpressionValue
+            {
+                ExcAssertEqual(args.size(), 2);
+                Utf8String fieldName = args[0].toUtf8String();
+                cerr << "extracting " << jsonEncodeStr(args[0])
+                     << " from " << jsonEncodeStr(args[1]) << endl;
+
+                return args[1].getField(fieldName);
+            },
+            std::make_shared<AnyValueInfo>()
+            };
+}
+
+static RegisterBuiltin registerExtractColumn(extract_column, "extract_column");
 
 BoundFunction lower(const std::vector<BoundSqlExpression> & args)
 {

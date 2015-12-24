@@ -1,9 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** json_parsing_impl.h                                            -*- C++ -*-
     Jeremy Barnes, 28 November 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
 
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #pragma once
@@ -25,7 +24,7 @@ struct JsonPath: public ML::compact_vector<JsonPathEntry, 8> {
     JsonPath();
 
     /// Print the path out as a dotted series of elements
-    std::string print() const;
+    std::string print(bool includeLeadingDot = true) const;
 
     /// Return the name of the outermost element.  Throws if in an array.
     std::string fieldName() const;

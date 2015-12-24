@@ -339,6 +339,10 @@ Note that this syntax is not part of SQL, it is an MLDB extension.
   (or string) argument as a string.
 - `base64_decode(string)` returns a blob containing the decoding of the
   base-64 data provided in its argument.
+- `json_decode(string)` returns a row with the JSON decoding of the
+  string in the argument.
+- `extract_column(row)` extracts the given column from the row, keeping
+  only its latest value by timestamp.
 
 ### Numeric functions
 

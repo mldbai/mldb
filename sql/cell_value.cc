@@ -264,9 +264,11 @@ toUtf8String() const
     switch (type) {
     case ST_UTF8_SHORT_STRING:
     case ST_ASCII_SHORT_STRING:
+    case ST_SHORT_BLOB:
         return Utf8String(shortString, strLength);
     case ST_UTF8_LONG_STRING:
     case ST_ASCII_LONG_STRING:
+    case ST_LONG_BLOB:
         try {
             return Utf8String(longString->repr, strLength);
         } catch (...) {

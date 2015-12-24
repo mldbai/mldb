@@ -169,7 +169,7 @@ struct JsonParsingContext {
     std::unique_ptr<JsonPath> path;
 
     /// Return the current path in . or [] notation as a string.
-    std::string printPath() const;
+    std::string printPath(bool includeLeadingDot = true) const;
 
     /// Return the outermost field name.  Throws if currently in an array or
     /// at the root.
