@@ -29,18 +29,27 @@ while (!labelsStream.eof()) {
 var filename = "ext/tensorflow/tensorflow/examples/label_image/data/grace_hopper.jpg";
 var filename = "https://upload.wikimedia.org/wikipedia/commons/thumb/6/68/The_Wrestlers_by_William_Etty_YORAG_89.JPG/1920px-The_Wrestlers_by_William_Etty_YORAG_89.JPG";
 var filename = "https://upload.wikimedia.org/wikipedia/commons/6/6f/Soyuz_TMA-19M_spacecraft_approaches_the_ISS.jpg";
+var filename = "https://upload.wikimedia.org/wikipedia/commons/1/18/Cardiff_City_Hall_cropped.jpg";
+var filename = "https://upload.wikimedia.org/wikipedia/commons/thumb/6/66/Maureen_O%27Hara_1947_2.jpg/198px-Maureen_O%27Hara_1947_2.jpg";
+var filename = "https://upload.wikimedia.org/wikipedia/commons/thumb/5/58/Calle_E_Monroe_St%2C_Chicago%2C_Illinois%2C_Estados_Unidos%2C_2012-10-20%2C_DD_04.jpg/560px-Calle_E_Monroe_St%2C_Chicago%2C_Illinois%2C_Estados_Unidos%2C_2012-10-20%2C_DD_04.jpg";
 
 var blob = mldb.openStream(filename).blob();
 
 var result = fn.call({ jpeg: blob});
 
-mldb.log("result is ", result);
+
+//mldb.log("result is ", result);
 
 var vals = result.values.output[0];
 var maxVal = 0;
 var maxIdx = 0;
 
+mldb.log("categories for image", filename);
+
 for (var i = 0;  i < vals.length;  ++i) {
+    if (vals[i] > 0.01) {
+        mldb.log(labels[i], vals[i]);
+    }
     if (vals[i] > maxVal) {
         maxVal = vals[i];
         maxIdx = i;
