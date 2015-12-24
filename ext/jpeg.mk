@@ -11,4 +11,11 @@ JPEG_SOURCE = jaricom.c jcapimin.c jcapistd.c jcarith.c \
 	jidctfst.c jidctint.c jquant1.c jquant2.c jutils.c \
 	jmemmgr.c jmemnobs.c
 
+$(CWD)/jconfig.h:
+	cd mldb/ext/jpeg && ./configure
+
+$(JPEG_SOURCE):	$(CWD)/jconfig.h
+
+JPEG_INCLUDE_FILES:=$(CWD)/jconfig.h
+
 $(eval $(call library,jpeg,$(JPEG_SOURCE)))

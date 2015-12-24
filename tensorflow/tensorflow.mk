@@ -8,7 +8,9 @@ $(eval $(call set_compile_option,$(LIBMLDB_TENSORFLOW_PLUGIN_SOURCES),$(TENSORFL
 
 # Make these depend upon Tensorflow's version of the protobuf compiler
 # since the headers that they need are installed with it.
-$(LIBMLDB_TENSORFLOW_PLUGIN_SOURCES): $(HOSTBIN)/protoc
+#
+# They also need access to the generated tensorflow headers
+$(LIBMLDB_TENSORFLOW_PLUGIN_SOURCES:%=$(CWD)/%): $(HOSTBIN)/protoc $(DEPENDS_ON_TENSORFLOW_HEADERS)
 
 $(eval $(call mldb_plugin_library,tensorflow,mldb_tensorflow_plugin,$(LIBMLDB_TENSORFLOW_PLUGIN_SOURCES),tensorflow_cpp_interface))
 
