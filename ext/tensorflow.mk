@@ -42,8 +42,8 @@ TENSORFLOW_PROTOBUF_BUILD:=$(TENSORFLOW_PROTOBUF_FILES:$(CWD)/%.proto=%.pb.cc)
 # Find all of the .cc files that we need to bundle up to run the tensorflow
 # kernels.  For the moment, we don't use any Cuda constructs, so we strip those
 # out.
-TENSORFLOW_CC_FILES:=$(shell (find $(CWD)/tensorflow/core -name "*.cc"; find $(CWD)/tensorflow/stream_executor -name "*.cc") | grep -v '\.cu\.cc' | grep -v '\.pb\.cc' | grep -v '.*_ops\.cc' | grep -v 'ops/no_op.cc' | grep -v test | grep -v cuda | grep -v tutorial | grep -v user_ops)
-TENSORFLOW_CC_FILES+=$(shell find $(CWD)/tensorflow/core/kernels -name "*.cc" | grep -v test | grep -v '\.cu\.cc' | grep -v '\.pb\.cc')
+TENSORFLOW_CC_FILES:=$(shell (find $(CWD)/tensorflow/core -name "*.cc"; find $(CWD)/tensorflow/stream_executor -name "*.cc") | grep -v '\.cu\.cc' | grep -v '\.pb\.cc' | grep -v '.*_ops\.cc' | grep -v 'ops/no_op.cc' | grep -v test | grep -v cuda | grep -v tutorial | grep -v user_ops | grep -v 'fact_op.cc')
+TENSORFLOW_CC_FILES+=$(shell find $(CWD)/tensorflow/core/kernels -name "*.cc" | grep -v test | grep -v '\.cu\.cc' | grep -v '\.pb\.cc' | grep -v 'fact_op.cc')
 
 # Turn them into relative pathnames that our rule system can understand to turn
 # it into a library.

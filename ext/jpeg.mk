@@ -11,8 +11,10 @@ JPEG_SOURCE = jaricom.c jcapimin.c jcapistd.c jcarith.c \
 	jidctfst.c jidctint.c jquant1.c jquant2.c jutils.c \
 	jmemmgr.c jmemnobs.c
 
+ifneq ($(PREMAKE),1)
 $(CWD)/jconfig.h:
 	cd mldb/ext/jpeg && ./configure
+endif
 
 $(JPEG_SOURCE):	$(CWD)/jconfig.h
 
