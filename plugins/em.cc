@@ -3,7 +3,6 @@
 #include "em.h"
 #include "matrix.h"
 #include "mldb/server/mldb_server.h"
-#include "mldb/server/dataset.h"
 #include "mldb/server/procedure_collection.h"
 #include "mldb/server/function_collection.h"
 #include "jml/stats/distribution.h"
