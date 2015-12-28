@@ -265,49 +265,68 @@ struct JoinedDataset::Itl
         rightRowIndex[rightHash].push_back(rowName);
     };
 
-    void makeOuterSide(SqlExpressionMldbContext& context, 
-                  const AnnotatedJoinCondition::Side & side, 
-                  const Dataset & dataset, 
-                  const std::function<void (const RowName &, RowHash)> & record)
-    {
-        //We create an expression that will return the complement
-        std::shared_ptr<SqlExpression> lhs;
-        auto notExpr = std::make_shared<BooleanOperatorExpression>(BooleanOperatorExpression(lhs, side.where, "NOT"));
-        auto nullExpr = std::make_shared<IsTypeExpression>(side.where, false, "null");
-        auto complementExpr = std::make_shared<BooleanOperatorExpression>(BooleanOperatorExpression(notExpr, nullExpr, "OR"));
-        auto generator = dataset.queryBasic(context, side.select, side.when, *complementExpr, side.orderBy, 0, -1, true /* allowParallel */);
-        auto rows = generator(-1);
-        for (auto & r: rows)
-            record(r.rowName, r.rowHash);
-    }
-
     void makeJoinFast(AnnotatedJoinCondition& condition, SqlExpressionMldbContext& context, BoundTableExpression& left, BoundTableExpression& right, JoinQualification qualification)
     {
         bool debug = false;
-        bool doLeft = qualification == JOIN_LEFT || qualification == JOIN_FULL;
-        bool doRight = qualification == JOIN_RIGHT || qualification == JOIN_FULL;
+        bool outerLeft = qualification == JOIN_LEFT || qualification == JOIN_FULL;
+        bool outerRight = qualification == JOIN_RIGHT || qualification == JOIN_FULL;
 
         // Where expressions for the left and right side
         auto runSide = [&] (const AnnotatedJoinCondition::Side & side,
-                            const Dataset & dataset)
+                            const Dataset & dataset,
+                            bool outer,
+                            const std::function<void (const RowName&, const RowHash& )> & recordOuterRow)
             -> std::vector<std::tuple<ExpressionValue, RowName, RowHash> >
             {
+                auto condition = side.where;
+
+                std::vector<std::shared_ptr<SqlExpression> > clauses = { side.selectExpression };
+
+                if (outer)
+                {
+                    //return all rows
+                    condition = SqlExpression::TRUE;
+
+                    //but evaluate if the row is valid to join with the other side
+                    auto notnullExpr = std::make_shared<IsTypeExpression>(side.where, true, "null");
+                    auto complementExpr = std::make_shared<BooleanOperatorExpression>(BooleanOperatorExpression(side.where, notnullExpr, "AND"));
+
+                    clauses.push_back(complementExpr);
+                }
+
+                auto embedding = std::make_shared<EmbeddingLiteralExpression>(clauses);
+                auto rowExpression = std::make_shared<ComputedVariable>("var", embedding);
+
+                SelectExpression queryExpression;
+                queryExpression.clauses.push_back(rowExpression);
+
                 auto generator = dataset.queryBasic
-                (context, side.select, side.when, *side.where, side.orderBy,
+                (context, queryExpression, side.when, *condition, side.orderBy,
                  0, -1, true /* allowParallel */);
                 auto rows = generator(-1);
             
                 if (debug)
                     cerr << "got rows " << jsonEncode(rows) << endl;
                 
-                // Now we extract all values and re-sort.  This is necessary because
-                // a row may have multiple values for the same column.
+                // Now we extract all values 
                 std::vector<std::tuple<ExpressionValue, RowName, RowHash> > sorted;
 
                 for (auto & r: rows) {
-                    for (auto & c: r.columns) {
-                        sorted.emplace_back(std::get<1>(c), r.rowName, r.rowHash);
+                    ExcAssertEqual(r.columns.size(), 1);
+
+                    const ExpressionValue & embedding = std::get<1>(r.columns[0]);
+                    if (outer)
+                    {
+                        const ExpressionValue & condition = embedding.getField(1);
+                        if (!condition.asBool())
+                        {
+                            recordOuterRow(r.rowName, r.rowHash);
+                            continue;
+                        }
                     }
+
+                    const ExpressionValue & value = embedding.getField(0);
+                    sorted.emplace_back(value, r.rowName, r.rowHash);
                 }
 
                 std::sort(sorted.begin(), sorted.end());
@@ -315,10 +334,20 @@ struct JoinedDataset::Itl
                 return sorted;
             };
 
+        auto recordOuterLeft = [&] ( const RowName& rowName, const RowHash& rowHash )
+        {
+            recordJoinRow(rowName, rowHash, RowName(), RowHash());
+        };
+
+        auto recordOuterRight = [&] ( const RowName& rowName, const RowHash& rowHash  )
+        {
+            recordJoinRow( RowName(), RowHash(), rowName, rowHash);
+        };
+
         std::vector<std::tuple<ExpressionValue, RowName, RowHash> > leftRows, rightRows;
 
-        leftRows = runSide(condition.left, *left.dataset);
-        rightRows = runSide(condition.right, *right.dataset);
+        leftRows = runSide(condition.left, *left.dataset, outerLeft, recordOuterLeft);
+        rightRows = runSide(condition.right, *right.dataset, outerRight, recordOuterRight);
 
         switch (condition.style) {
         case AnnotatedJoinCondition::CROSS_JOIN: {
@@ -348,19 +377,20 @@ struct JoinedDataset::Itl
 
         while (it1 != end1 && it2 != end2) {
             // TODO: there could be multiple values...
+
             const ExpressionValue & val1 = std::get<0>(*it1);
             const ExpressionValue & val2 = std::get<0>(*it2);
-
+            
             if (debug)
                 cerr << "joining " << jsonEncodeStr(val1) << " and " << jsonEncodeStr(val2) << endl;
 
             if (val1 < val2) {
-                if (doLeft)
+                if (outerLeft)
                     recordJoinRow(std::get<1>(*it1), std::get<2>(*it1), RowName(), RowHash()); //For LEFT and FULL joins
                 ++it1;
             }
             else if (val2 < val1) {
-                if (doRight)
+                if (outerRight)
                     recordJoinRow(RowName(), RowHash(),std::get<1>(*it2), std::get<2>(*it2)); //For RIGHT and FULL joins
                 ++it2;
             }
@@ -397,12 +427,12 @@ struct JoinedDataset::Itl
                 }
                 else if (qualification != JOIN_INNER)
                 {
-                    for (auto it1a = it1; it1a < erng1 && doLeft;  ++it1a)
+                    for (auto it1a = it1; it1a < erng1 && outerLeft;  ++it1a)
                     {
                         recordJoinRow(std::get<1>(*it1), std::get<2>(*it1), RowName(), RowHash()); //For LEFT and FULL joins
                     }
 
-                    for (auto it2a = it2; it2a < erng2 && doRight;  ++it2a)
+                    for (auto it2a = it2; it2a < erng2 && outerRight;  ++it2a)
                     {
                         recordJoinRow(RowName(), RowHash(),std::get<1>(*it2), std::get<2>(*it2)); //For RIGHT and FULL joins
                     }
@@ -413,34 +443,16 @@ struct JoinedDataset::Itl
             }
         }
 
-        while (doLeft && it1 != end1)
+        while (outerLeft && it1 != end1)
         {
             recordJoinRow(std::get<1>(*it1), std::get<2>(*it1), RowName(), RowHash()); //For LEFT and FULL joins
             ++it1;
         }
 
-        while (doRight && it2 != end2)
+        while (outerRight && it2 != end2)
         {
             recordJoinRow(RowName(), RowHash(),std::get<1>(*it2), std::get<2>(*it2)); //For RIGHT and FULL joins
             ++it2;
-        }
-
-
-        if (qualification == JOIN_LEFT || qualification == JOIN_FULL)
-        {
-            auto record = [&] (const RowName & leftName, RowHash leftHash)
-            {
-                recordJoinRow(leftName, leftHash, RowName(), RowHash());
-            };
-            makeOuterSide(context, condition.left, *(left.dataset), record);
-        }
-        if (qualification == JOIN_RIGHT || qualification == JOIN_FULL)
-        {
-            auto record = [&] (const RowName & rightName, RowHash rightHash)
-            {
-                recordJoinRow(RowName(), RowHash(), rightName, rightHash);
-            };
-            makeOuterSide(context, condition.right, *(right.dataset), record);
         }
     }
 
