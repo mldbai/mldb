@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** tsne.cc
     Jeremy Barnes, 16 December 2014
     Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Implementation of an TSNE algorithm for embedding of a dataset.
 */
@@ -10,7 +10,7 @@
 #include "tsne.h"
 #include "matrix.h"
 #include "mldb/server/mldb_server.h"
-#include "mldb/server/dataset.h"
+#include "mldb/core/dataset.h"
 #include "mldb/jml/stats/distribution.h"
 #include <boost/multi_array.hpp>
 #include "mldb/jml/utils/guard.h"
@@ -22,12 +22,13 @@
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/ml/value_descriptions.h"
 #include "mldb/types/any_impl.h"
-
+#include "mldb/plugins/sql_config_validator.h"
 #include "mldb/ml/tsne/vantage_point_tree.h"
 #include "mldb/ml/tsne/tsne.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/server/analytics.h"
 #include "mldb/vfs/fs_utils.h"
+#include "mldb/vfs/filter_streams.h"
 #include "mldb/types/jml_serialization.h"
 
 using namespace std;
@@ -41,42 +42,16 @@ DEFINE_STRUCTURE_DESCRIPTION(TsneConfig);
 TsneConfigDescription::
 TsneConfigDescription()
 {
-    addFieldDesc("trainingDataset", &TsneConfig::dataset,
-                 "Dataset to be used for input to train the TSNE.  This should "
-                 "be an embedding, that is have one row per data point with a "
-                 "fixed length list of numeric attributes that describe the "
-                 "point.",
-                 makeInputDatasetDescription());
+    addField("trainingData", &TsneConfig::trainingData,
+             "Specification of the data for input to the TSNE procedure.  This should be "
+             "organized as an embedding, with each selected row containing the same "
+             "set of columns with numeric values to be used as coordinates.  The select statement "
+             "does not support groupby and having clauses.");
     addField("rowOutputDataset", &TsneConfig::output,
              "Dataset for TSNE output, with embeddings of training data. "
              "One row will be added for each row in the input dataset, "
              "with a list of coordinates",
              PolyConfigT<Dataset>().withType("embedding"));
-    addField("select", &TsneConfig::select,
-             "Fields in the input dataset select for t-SNE training to "
-             "obtain the embedding.  Note that all rows must have one "
-             "single value for all fields in the input dataset.",
-             SelectExpression::STAR);
-    addField("when", &TsneConfig::when,
-             "Boolean expression determining which tuples from the dataset "
-             "to keep based on their timestamps",
-             WhenExpression::TRUE);
-    addField("where", &TsneConfig::where,
-             "Rows to select for t-SNE training.  This allows rows to be "
-             "excluded from the training set.",
-             SqlExpression::TRUE);
-   addField("orderBy", &TsneConfig::orderBy,
-             "How to order the rows.  This only has an effect when OFFSET "
-             "or LIMIT are used.  Default is to order by rowHash.",
-            OrderByExpression::ROWHASH);
-    addField("offset", &TsneConfig::offset,
-             "Number of rows to ignore before starting processing.  "
-             "Rarely used "
-             "unless you want to break up a dataset into mutually exclusive "
-             "chunks.  The default (0) doesn't ignore any rows.", int64_t(0));
-    addField("limit", &TsneConfig::limit,
-             "Maximum number of rows to keep.  This can be used to control the "
-             "runtime.  The default (-1) means keep all rows.", int64_t(-1));
     addField("modelFileUrl", &TsneConfig::modelFileUrl,
              "URL where the t-SNE model file (with extension '.tsn') should be saved. "
              "This file can be loaded by a function of type 'tsne.embedRow'.");
@@ -102,6 +77,8 @@ TsneConfigDescription()
              "If specified, an tsne.embedRow function of this name will be "
              "created using the trained model.");
     addParent<ProcedureConfig>();
+
+    onPostValidate = validate<TsneConfig, InputQuery, NoGroupByHaving>(&TsneConfig::trainingData, "tsne");
 }
 
 
@@ -253,19 +230,11 @@ run(const ProcedureRunConfig & run,
 
     SqlExpressionMldbContext context(server);
 
-    auto dataset = runProcConf.dataset->bind(context).dataset;
-
     //cerr << "numDims = " << numDims << endl;
 
-    auto embeddingOutput = getEmbedding(runProcConf.select,
-                                        *dataset, "",
-                                        runProcConf.when,
-                                        runProcConf.where,
-                                        { } /* calc */,
+    auto embeddingOutput = getEmbedding(*runProcConf.trainingData.stm,
+                                        context,
                                         runProcConf.numInputDimensions,
-                                        runProcConf.orderBy,
-                                        runProcConf.offset,
-                                        runProcConf.limit,
                                         onProgress2);
 
     std::vector<std::tuple<RowHash, RowName, std::vector<double>,

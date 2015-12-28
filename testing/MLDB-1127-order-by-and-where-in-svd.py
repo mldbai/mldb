@@ -11,7 +11,13 @@ def train_svd(order_by, where, offset, limit):
         'type' : 'svd.train',
         'params' :
 	{
-            "trainingDataset": {"id": "svd_example"}, 
+            "trainingData": {"from" : {"id": "svd_example"}, 
+                             "select" : "x, y, z",
+                             "orderBy": order_by,
+                             "where": where,
+                             "offset" : offset,
+                             "limit" : limit
+                         },
             "rowOutputDataset": {
                 "id": "svd_row",
                 'type': "embedding" 
@@ -19,12 +25,7 @@ def train_svd(order_by, where, offset, limit):
             "columnOutputDataset" : {
                 "id": "svd_column",
                 "type" : "embedding"
-            },
-            "select" : "x, y, z",
-            "orderBy": order_by,
-            "where": where,
-            "offset" : offset,
-            "limit" : limit
+            }
 	}
     }
     

@@ -24,6 +24,46 @@ using namespace std;
 namespace Datacratic {
 
 
+typedef __uint128_t UInt128;
+
+typedef union {
+    __uint128_t hl;
+    struct {
+        uint64_t l;
+        uint64_t h;
+    };
+} U128Repr;
+
+static inline UInt128 make128(uint64_t l, uint64_t h)
+{
+    U128Repr r;
+    r.l = l;  r.h = h;
+    return r.hl;
+}
+
+static inline uint64_t getLow(UInt128 res)
+{
+    U128Repr r;
+    r.hl = res;
+    return r.l;
+}
+
+static inline uint64_t getHigh(UInt128 res)
+{
+    U128Repr r;
+    r.hl = res;
+    return r.h;
+}
+
+static inline unsigned divmod10(UInt128 & val)
+{
+    unsigned res = val % 10;
+    val /= 10;
+    return res;
+}
+
+
+
 /*****************************************************************************/
 /* ID                                                                        */
 /*****************************************************************************/
@@ -79,7 +119,7 @@ inline int hexToDec3(int c)
     int i = (c & 0x60) >> 5;
     d += (i == 1) * -16;
     d += (i >= 2) * 9;
-    bool h = __builtin_isxdigit(c);
+    bool h = isxdigit(c);
     return h * d - (!h);
 }
 
@@ -147,7 +187,7 @@ parse(const char * value, size_t len, Type type)
 
     if ((type == UNKNOWN || type == BIGDEC) && (len == 1 && value[0] == '0')) {
         r.type = BIGDEC;
-        r.val = 0;
+        r.val1 = r.val2 = 0;
         finish();
         return;
     }
@@ -226,7 +266,7 @@ parse(const char * value, size_t len, Type type)
 
         // Google ID: --> CAESEAYra3NIxLT9C8twKrzqaA
 
-        __uint128_t res = 0;
+        auto res = make128(0, 0);
 
         auto b64Decode = [] (int c) -> int
             {
@@ -252,7 +292,8 @@ parse(const char * value, size_t len, Type type)
 
         if (!error) {
             r.type = GOOG128;
-            r.val = res;
+            r.valLow = getLow(res);
+            r.valHigh = getHigh(res);
             finish();
             return;
         }
@@ -282,17 +323,18 @@ parse(const char * value, size_t len, Type type)
                 return;
             }
             else {
-                __uint128_t res128 = res64;
+                auto res128 = make128(res64, 0);
                 for (unsigned i = maxLowLen; i < len; ++i) {
                     if (!isdigit(value[i])) {
                         error = true;
                         break;
                     }
-                    res128 = res128 * 10 + value[i] - '0';
+                    res128 = res128 * 10 + (value[i] - '0');
                 }
                 if (!error) {
                     r.type = BIGDEC;
-                    r.val = res128;
+                    r.valLow = getLow(res128);
+                    r.valHigh = getHigh(res128);
                     finish();
                     return;
                 }
@@ -316,12 +358,9 @@ parse(const char * value, size_t len, Type type)
         int64_t low  = scanRange(value + 8, 8);
 
         if (low != -1 && high != -1) {
-            __int128_t val = high;
-            val <<= 48;
-            val |= low;
-            
             r.type = BASE64_96;
-            r.val = val;
+            r.valLow = low | (high << 48);
+            r.valHigh = high >> 16;
             finish();
             return;
         }
@@ -374,7 +413,7 @@ parse(const char * value, size_t len, Type type)
     // Short string if possible
     if (len <= 16) {
         r.type = SHORTSTR;
-        val = 0;
+        val1 = val2 = 0;
         std::copy(value, value + len, r.shortStr);
         finish();
         return;
@@ -463,12 +502,12 @@ toString() const
         return "null";
     case UUID:
         return ML::format(
-            "%08lx-%04x-%04x-%04x-%012llx",
+            "%08x-%04x-%04x-%04x-%012llx",
             (unsigned)f1, (unsigned)f2, (unsigned)f3, (unsigned)f4,
             (unsigned long long)f5);
     case UUID_CAPS:
         return ML::format(
-            "%08lX-%04X-%04X-%04X-%012llX",
+            "%08X-%04X-%04X-%04X-%012llX",
             (unsigned)f1, (unsigned)f2, (unsigned)f3, (unsigned)f4,
             (unsigned long long)f5);
     case GOOG128: {
@@ -485,7 +524,7 @@ toString() const
                 throw ML::Exception("bad goog base64 char");
             };
 
-        __uint128_t v = val;
+        auto v = make128(valLow, valHigh);
         for (unsigned i = 0;  i < 21;  ++i) {
             result[25 - i] = b64Encode(v & 63);  v = v >> 6;
         }
@@ -506,11 +545,10 @@ toString() const
             }
         }
         else {
-            __uint128_t v = val;
+            auto v = make128(valLow, valHigh);
             result.reserve(32);
-            while (v) {
-                int c = v % 10;
-                v /= 10;
+            while (v != 0) {
+                int c = divmod10(v);
                 result += c + '0';
             }
         }
@@ -529,8 +567,8 @@ toString() const
                 if (i < 64) return 'a' + i - 38;
                 throw ML::Exception("bad base64 char");
             };
-
-        __uint128_t v = val;
+        
+        auto v = make128(val1, val2);
         for (unsigned i = 0;  i < 16;  ++i) {
             result[15 - i] = b64Encode(v & 63);  v = v >> 6;
         }

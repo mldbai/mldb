@@ -66,7 +66,11 @@ assert rez["statusCode"] < 400
 rez = mldb.perform("PUT", "/v1/procedures/tng_classif", [], {
         "type": "classifier.train",
         "params": {
-            "trainingDataset": { "id": "toy_feats" },
+            "trainingData": {
+                "where": "rowHash() % 3 != 1",
+                "select": "{* EXCLUDING(LABEL)} as features, LABEL = 'true' as label",
+                "from" : { "id": "toy_feats" }
+            },
             "configuration": {
                 "glz": {
                     "type": "glz",
@@ -76,11 +80,7 @@ rez = mldb.perform("PUT", "/v1/procedures/tng_classif", [], {
                 }
             },
             "algorithm": "glz",
-            "modelFileUrl": "file://models/tng.cls",
-            "label": "LABEL = 'true'",
-            "weight": "1.0",
-            "where": "rowHash() % 3 != 1",
-            "select": "* EXCLUDING(LABEL)"
+            "modelFileUrl": "file://models/tng.cls"
         }
     })
 
@@ -108,12 +108,8 @@ tng_scorer({{ * EXCLUDING(LABEL)} as features})[score]
 rez = mldb.perform("PUT", "/v1/procedures/tng_score_proc", [], {
     "type": "classifier.test",
     "params": {
-        "testingDataset": { "id": "toy_feats" },
-        "outputDataset": { "id":"toy_cls_baseline_scorer_rez", "type": "sparse.mutable" },
-        "where": "rowHash() % 3 = 1",
-        "label": "LABEL = 'true'",
-        "weight": "1.0",
-        "score": score_sql
+        "testingData": "select {*} as features, LABEL = 'true' as label, " + score_sql + " as score from toy_feats where rowHash() % 3 = 1",
+        "outputDataset": { "id":"toy_cls_baseline_scorer_rez", "type": "sparse.mutable" }
     }
 })
 rez = mldb.perform("POST", "/v1/procedures/tng_score_proc/runs")

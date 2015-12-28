@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* date.h                                                          -*- C++ -*-
    Jeremy Barnes, 18 July 2010
    Copyright (c) 2010 Datacratic.  All rights reserved.
+
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Basic class that holds and manipulates a date.  Not designed for ultimate
    accuracy, but shouldn't be too bad.
@@ -12,14 +12,18 @@
 
 #include <chrono>
 #include <string>
-#include "mldb/base/parse_context.h"
+#include <cmath>
 #include "value_description_fwd.h"
 
 namespace Json {
 
-struct Value;
+class Value;
 
 } // namespace Json
+
+namespace ML {
+struct Parse_Context;
+} // namespace ML
 
 namespace Datacratic {
 namespace JS {
@@ -458,8 +462,8 @@ from_js_ref(const JSValue & val, Date *)
 /* ISO8601PARSER                                                             */
 /*****************************************************************************/
 
-struct Iso8601Parser : public ML::Parse_Context
-{
+ struct Iso8601Parser {
+
     static Date parseDateTimeString(const std::string & dateTimeStr)
     {
         Iso8601Parser parser(dateTimeStr);
@@ -472,11 +476,9 @@ struct Iso8601Parser : public ML::Parse_Context
         return parser.expectTime();
     }
 
-    Iso8601Parser(const std::string & dateStr)
-        : Parse_Context(dateStr, dateStr.c_str(),
-                        dateStr.c_str() + dateStr.size())
-    {}
-
+     Iso8601Parser(const std::string & dateStr);
+     ~Iso8601Parser();
+     
     Date expectDateTime();
     bool matchDateTime(Date & date);
     Date expectDate();
@@ -507,7 +509,9 @@ private:
     bool matchSeconds(int & result);
     int expectTimeZoneMinutes();
     bool matchTimeZoneMinutes(int & result);
-};
+
+     std::unique_ptr<ML::Parse_Context> parser;
+ };
 
 PREDECLARE_VALUE_DESCRIPTION(Date);
 

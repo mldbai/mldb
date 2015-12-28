@@ -13,7 +13,7 @@
 
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/types/compact_vector_value_description.h"
-#include "mldb/server/dataset.h"
+#include "mldb/core/dataset.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/http/http_exception.h"
@@ -181,7 +181,7 @@ struct TextLineDataset::Itl: public ColumnIndex, public MatrixView {
             return lineNumber;
         else if (column == lineTextHash)
             return lineText;
-        throw HttpReturnException(400, "Line text dataset has no column named " + column);
+        throw HttpReturnException(400, "Line text dataset has no column named " + column.toString());
     }
 
     virtual size_t getRowCount() const

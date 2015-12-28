@@ -1,9 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* parse_context.h                                                  -*- C++ -*-
    Jeremy Barnes, 27 January 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
-      
+   
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.   
 
    A class to ease the recursive-descent parsing of strings.
 */
@@ -674,7 +673,7 @@ protected:
         Token * prev;              ///< The previous token in the series
         Token * next;              ///< The next token in the series
 
-        friend class Parse_Context;
+        friend struct Parse_Context;
     };
     
 public:

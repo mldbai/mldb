@@ -87,7 +87,7 @@ HttpLegacySocketHandler(TcpSocket && socket)
 
 void
 HttpLegacySocketHandler::
-send(const std::string & str,
+send(std::string str,
      NextAction action, OnWriteFinished onWriteFinished)
 {
     if (str.size() > 0) {
@@ -142,7 +142,7 @@ putResponseOnWire(const HttpResponse & response,
     responseStr.append("\r\n");
     responseStr.append(response.body);
 
-    send(responseStr, next, onSendFinished);
+    send(std::move(responseStr), next, onSendFinished);
 }
 
 void

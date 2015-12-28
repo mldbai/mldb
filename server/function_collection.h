@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "mldb/server/function.h"
+#include "mldb/core/function.h"
 #include "mldb/rest/poly_collection.h"
 
 namespace Datacratic {
@@ -31,10 +31,15 @@ struct FunctionCollection: public PolyCollection<Function> {
     virtual Any getEntityStatus(const Function & function) const;
 
     void applyFunction(const Function * function,
-                    const std::map<Utf8String, ExpressionValue> & input,
-                    const std::vector<Utf8String> & keepPins,
-                    RestConnection & connection) const;
-
+                       const std::map<Utf8String, ExpressionValue> & input,
+                       const std::vector<Utf8String> & keepPins,
+                       RestConnection & connection) const;
+    
+    static FunctionOutput call(MldbServer * server,
+                               const Function * function,
+                               const std::map<Utf8String, ExpressionValue> & input,
+                               const std::vector<Utf8String> & keepPins);
+    
     FunctionInfo getFunctionInfo(const Function * function) const;
 };
 

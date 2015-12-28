@@ -1,15 +1,15 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** js_plugin_loader.cc
     Jeremy Barnes, 6 January 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Plugin loader for Javascript plugins.
 */
 
 #include "mldb/types/basic_value_descriptions.h"
-#include "mldb/server/plugin.h"
-#include "mldb/server/dataset.h"
+#include "mldb/core/plugin.h"
+#include "mldb/core/dataset.h"
 #include "mldb/server/mldb_server.h"
 #include "mldb/server/plugin_resource.h"
 #include "mldb/server/static_content_handler.h"
@@ -23,6 +23,8 @@
 #include "js_common.h"
 #include "mldb_js.h"
 #include "dataset_js.h"
+#include "function_js.h"
+#include "procedure_js.h"
 #include <v8.h>
 
 #include "mldb/soa/js/js_utils.h"
@@ -384,6 +386,8 @@ JsPluginContext(const Utf8String & pluginName,
 
     Stream = v8::Persistent<v8::FunctionTemplate>::New(StreamJS::registerMe());
     Dataset = v8::Persistent<v8::FunctionTemplate>::New(DatasetJS::registerMe());
+    Function = v8::Persistent<v8::FunctionTemplate>::New(FunctionJS::registerMe());
+    Procedure = v8::Persistent<v8::FunctionTemplate>::New(ProcedureJS::registerMe());
     CellValue = v8::Persistent<v8::FunctionTemplate>::New(CellValueJS::registerMe());
     RandomNumberGenerator = v8::Persistent<v8::FunctionTemplate>::New(RandomNumberGeneratorJS::registerMe());
 }
@@ -447,9 +451,6 @@ JavascriptPlugin(MldbServer * server,
         throw HttpReturnException(400, "Exception compiling plugin script", rep);
     }
 
-    v8::Local<v8::Object> globalPrototype
-        = v8::Local<v8::Object>::Cast(itl->context->Global()->GetPrototype());
-    
     itl->script = v8::Persistent<v8::Script>::New(script);
 
     // Run the script to get the result.

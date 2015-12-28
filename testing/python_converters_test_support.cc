@@ -12,6 +12,7 @@
 #include <boost/python.hpp>
 
 #include <iostream>
+#include "datetime.h"
 #include "mldb/plugins/lang/python/from_python_converter.h"
 #include "mldb/plugins/lang/python/python_converters.h"
 #include "mldb/plugins/lang/python/callback.h"

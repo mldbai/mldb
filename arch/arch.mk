@@ -19,7 +19,9 @@ LIBARCH_SOURCES := \
 	info.cc \
 	rtti_utils.cc \
 	rt.cc \
-	abort.cc
+	abort.cc \
+	spinlock.cc \
+
 
 LIBARCH_LINK := dl
 

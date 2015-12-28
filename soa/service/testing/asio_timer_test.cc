@@ -92,8 +92,6 @@ BOOST_AUTO_TEST_CASE( test_rapid_creation_destruction_3 )
     AsioThreadPool threads(eventLoop, 4 /* threads */);
     getTimer(Date::now().plusSeconds(0.1), -1, eventLoop).wait();
 
-    Date now = Date::now();
-
     std::atomic<int> numFired(0);
 
     for (unsigned i = 0;  i < 1000;  ++i) {
@@ -114,8 +112,6 @@ BOOST_AUTO_TEST_CASE( test_rapid_creation_destruction_4 )
     EventLoop eventLoop;
     AsioThreadPool threads(eventLoop, 4 /* threads */);
     getTimer(Date::now().plusSeconds(0.1), -1, eventLoop).wait();
-
-    Date now = Date::now();
 
     std::atomic<int> numFired(0);
 

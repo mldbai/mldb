@@ -128,8 +128,7 @@ static bool matchUtf8Literal(ML::Parse_Context & context, const Utf8String& lite
 static bool matchOneOfUtf8(ML::Parse_Context & context, const Utf8String& literals)
 {
     ML::Parse_Context::Revert_Token token(context);
-    auto it = literals.begin();
-        
+
     if (context.eof())
        return false;
 

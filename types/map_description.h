@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** map_description.h                                        -*- C++ -*-
     Jeremy Barnes, 21 August 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Value description implementations for maps.
 */
@@ -59,9 +59,13 @@ struct MapValueDescription
     }
 
     MapValueDescription(std::shared_ptr<const ValueDescriptionT<T> > inner
-                        = getDefaultDescriptionShared((T *)0))
-        : inner(inner)
+                        = getDefaultDescriptionShared((T *)0),
+                        std::shared_ptr<const ValueDescriptionT<K> > key
+                        = getDefaultDescriptionShared((K *)0))
+        : inner(std::move(inner)), key(std::move(key))
     {
+        ExcAssert(this->inner);
+        ExcAssert(this->key);
     }
 
     std::shared_ptr<const ValueDescriptionT<T> > inner;
@@ -146,11 +150,13 @@ struct MapValueDescription
 
     virtual const ValueDescription & getKeyValueDescription() const JML_OVERRIDE
     {
+        ExcAssert(this->key);
         return *this->key;
     }
 
     virtual const ValueDescription & contained() const JML_OVERRIDE
     {
+        ExcAssert(this->inner);
         return *this->inner;
     }
 
@@ -158,6 +164,8 @@ struct MapValueDescription
     {
         this->key = getDefaultDescriptionSharedT<K>();
         this->inner = getDefaultDescriptionSharedT<T>();
+        ExcAssert(this->key);
+        ExcAssert(this->inner);
     }
 };
 
@@ -173,8 +181,10 @@ struct MapDescription
     }
 
     MapDescription(std::shared_ptr<const ValueDescriptionT<Value> > inner
-                       = getDefaultDescriptionShared((Value *)0))
-        : MapValueDescription<Key, Value, KeyCodec, Compare, Alloc>(inner)
+                       = getDefaultDescriptionShared((Value *)0),
+                   std::shared_ptr<const ValueDescriptionT<Key> > key
+                       = getDefaultDescriptionShared((Key *)0))
+        : MapValueDescription<Key, Value, KeyCodec, Compare, Alloc>(std::move(inner), std::move(key))
     {
     }
 
@@ -183,24 +193,6 @@ struct MapDescription
     {
     }
 };
-
-/** These functions allow it to be used to hold recursive data types. */
-
-#if 0
-template<typename Key, typename Value, typename Compare, typename Alloc>
-MapDescription<Key, Value, Compare, Alloc> *
-getDefaultDescriptionUninitialized(std::map<Key, Value, Compare, Alloc> * = 0)
-{
-    return new MapDescription<Key, Value, Compare, Alloc>(constructOnly);
-}
-
-template<typename Key, typename Value>
-void
-initializeDefaultDescription(MapDescription<Key, Value> & desc)
-{
-    desc = std::move(MapDescription<Key, Value>());
-}
-#endif
 
 DECLARE_TEMPLATE_VALUE_DESCRIPTION_4(MapDescription, std::map, typename, Key, typename, Value, typename, Compare, typename, Alloc);
 

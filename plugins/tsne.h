@@ -1,18 +1,17 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** tsne.h                                                          -*- C++ -*-
     Jeremy Barnes, 16 December 2014
     Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     TSNE algorithm for a dataset.
 */
 
 #pragma once
 
-#include "mldb/server/dataset.h"
-#include "mldb/server/procedure.h"
-#include "mldb/server/algorithm.h"
-#include "mldb/server/function.h"
+#include "mldb/core/dataset.h"
+#include "mldb/core/procedure.h"
+#include "mldb/core/function.h"
 #include "matrix.h"
 #include "mldb/types/value_description.h"
 
@@ -23,12 +22,7 @@ struct TsneItl;
 
 struct TsneConfig : public ProcedureConfig {
     TsneConfig()
-        : select(SelectExpression::STAR),
-          when(WhenExpression::TRUE),
-          where(SqlExpression::TRUE),
-          orderBy(ORDER_BY_NOTHING),
-          offset(0), limit(-1),
-          numInputDimensions(-1),
+        : numInputDimensions(-1),
           numOutputDimensions(2),
           tolerance(1e-5),
           perplexity(30.0)
@@ -36,17 +30,10 @@ struct TsneConfig : public ProcedureConfig {
         output.withType("embedding");
     }
 
-    std::shared_ptr<TableExpression> dataset;
+    InputQuery trainingData;
     PolyConfigT<Dataset> output;   ///< Dataset config to hold the output embedding
 
     Url modelFileUrl;  ///< URI to save the artifact output by t-SNE training
-
-    SelectExpression select;
-    WhenExpression when;
-    std::shared_ptr<SqlExpression> where;
-    OrderByExpression orderBy;
-    ssize_t offset;
-    ssize_t limit;
 
     int numInputDimensions;
     int numOutputDimensions;

@@ -7,7 +7,7 @@
 */
 
 #include "mldb/server/mldb_server.h"
-#include "mldb/server/function.h"
+#include "mldb/core/function.h"
 #include "mldb/http/http_rest_proxy.h"
 #include "mldb/types/vector_description.h"
 #include "mldb/types/tuple_description.h"

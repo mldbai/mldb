@@ -1,5 +1,4 @@
 // This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** sql_expression.h                                               -*- C++ -*-
     Jeremy Barnes, 24 January 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
@@ -1042,6 +1041,7 @@ struct SelectExpression: public SqlRowExpression {
     {
         return ! operator == (other);
     }
+
 };
 
 PREDECLARE_VALUE_DESCRIPTION(SelectExpression);
@@ -1427,6 +1427,8 @@ PREDECLARE_VALUE_DESCRIPTION(WhenExpression);
 
 struct SelectStatement
 {
+    SelectStatement();
+
     SelectExpression select;
     std::shared_ptr<TableExpression> from;
     WhenExpression when;
@@ -1449,6 +1451,13 @@ struct SelectStatement
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(SelectStatement);
+
+struct InputQuery
+{
+    std::shared_ptr<SelectStatement> stm;
+};
+
+PREDECLARE_VALUE_DESCRIPTION(InputQuery);
 
 } // namespace MLDB
 } // namespace Datacratic

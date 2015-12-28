@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** dataset.h                                                       -*- C++ -*-
     Jeremy Barnes, 4 December 2014
     Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Interface for datasets into MLDB.
 */
@@ -10,7 +10,7 @@
 #include "mldb/sql/dataset_fwd.h"
 #include "mldb/sql/dataset_types.h"
 #include "mldb/types/value_description_fwd.h"
-#include "mldb_entity.h"
+#include "mldb/core/mldb_entity.h"
 #include "mldb/sql/cell_value.h"
 #include "mldb/types/url.h"
 

@@ -1598,7 +1598,6 @@ void machar(long *ibeta, long *it, long *irnd, long *machep, long *negep, double
     a = a + a;
     temp = a + ONE;
     temp1 = temp - a;
-    b += a; /* to prevent icc compiler error */
   }
   b = ONE;
   itemp = 0;

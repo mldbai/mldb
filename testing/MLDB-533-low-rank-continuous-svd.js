@@ -47,7 +47,7 @@ var svdConfig = {
     'type': 'svd.train',
     'params':
     {
-        "trainingDataset": {"id": "random_dataset"},
+        "trainingData": "select * from random_dataset",
         "columnOutputDataset": {
             "type": "embedding",
             "id": "svd_random_col"
@@ -57,8 +57,7 @@ var svdConfig = {
             'type': "embedding"
         },
         "numSingularValues": 1000,
-        "numDenseBasisVectors": 20,
-        "select": "*"
+        "numDenseBasisVectors": 20
     }
 };
 

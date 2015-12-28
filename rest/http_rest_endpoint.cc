@@ -87,7 +87,7 @@ bindTcpAddress(const std::string & address)
             return bindTcp(PortRange(port, last), hostPart);
         }
 
-        throw ML::Exception("invalid port " + port);
+        throw ML::Exception("invalid port " + to_string(port));
     }
 
     return bindTcp(boost::lexical_cast<int>(portPart), hostPart);
@@ -166,7 +166,7 @@ handleHttpPayload(const HttpHeader & header, const std::string & payload)
 
 void
 HttpRestEndpoint::RestConnectionHandler::
-sendErrorResponse(int code, const std::string & error)
+sendErrorResponse(int code, std::string error)
 {
     Json::Value val;
     val["error"] = error;
@@ -181,7 +181,8 @@ sendErrorResponse(int code, const Json::Value & error)
     std::string encodedError = error.toString();
 
     putResponseOnWire(HttpResponse(code, "application/json",
-                                   encodedError, endpoint->extraHeaders),
+                                   std::move(encodedError),
+                                   endpoint->extraHeaders),
                       nullptr, NEXT_CLOSE);
 }
 
@@ -189,33 +190,31 @@ void
 HttpRestEndpoint::RestConnectionHandler::
 sendResponse(int code,
              const Json::Value & response,
-             const std::string & contentType,
+             std::string contentType,
              RestParams headers)
 {
-    std::string body = response.toStyledString();
-    return sendResponse(code, body, contentType, std::move(headers));
+    return sendResponse(code,
+                        response.toString(), std::move(contentType),
+                        std::move(headers));
 }
-
-        
 
 void
 HttpRestEndpoint::RestConnectionHandler::
 sendResponse(int code,
-             const std::string & body,
-             const std::string & contentType,
+             std::string body, std::string contentType,
              RestParams headers)
 {
     for (auto & h: endpoint->extraHeaders)
         headers.push_back(h);
 
-    putResponseOnWire(HttpResponse(code, contentType, body, headers));
+    putResponseOnWire(HttpResponse(code,
+                                   std::move(contentType), std::move(body),
+                                   std::move(headers)));
 }
 
 void
 HttpRestEndpoint::RestConnectionHandler::
-sendResponseHeader(int code,
-                   const std::string & contentType,
-                   RestParams headers)
+sendResponseHeader(int code, std::string contentType, RestParams headers)
 {
     auto onSendFinished = [=] {
         // Do nothing once we've finished sending the response, so that
@@ -225,26 +224,21 @@ sendResponseHeader(int code,
     for (auto & h: endpoint->extraHeaders)
         headers.push_back(h);
 
-    putResponseOnWire(HttpResponse(code, contentType, headers),
+    putResponseOnWire(HttpResponse(code,
+                                   std::move(contentType),
+                                   std::move(headers)),
                       onSendFinished);
 }
 
 void
 HttpRestEndpoint::RestConnectionHandler::
-sendHttpChunk(const std::string & chunk,
+sendHttpChunk(std::string chunk,
               NextAction next,
               OnWriteFinished onWriteFinished)
 {
-    HttpLegacySocketHandler::send(chunk, next, onWriteFinished);
+    HttpLegacySocketHandler::send(std::move(chunk), next, onWriteFinished);
 }
 
-
-void
-HttpRestEndpoint::RestConnectionHandler::
-sendHttpPayload(const std::string & str)
-{
-    send(str);
-}
 
 } // namespace Datacratic
 

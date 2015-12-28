@@ -312,7 +312,7 @@ struct ForkedTestPeer: public Runner {
         {
             cerr << "test peer wrote output " << data << endl;
             std::unique_lock<std::mutex> guard(runResultLock);
-            httpAddr = boost::algorithm::trim_copy(data);
+            httpAddr = ML::trim(data);
             started.unlock();
         };
 

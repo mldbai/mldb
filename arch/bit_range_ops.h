@@ -1,18 +1,18 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* bit_range_ops.h                                                 -*- C++ -*-
    Jeremy Barnes, 23 March 2009
    Copyright (c) 2009 Jeremy Barnes.  All rights reserved.
 
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+
    Operations for operating over a range of bits.
 */
 
-#ifndef __arch__bit_range_ops_h__
-#define __arch__bit_range_ops_h__
+#pragma once
 
 #include "mldb/arch/arch.h"
 #include "mldb/compiler/compiler.h"
 #include "mldb/arch/format.h"
+#include "mldb/base/exc_assert.h"
 #include <cstddef>
 #include <stdint.h>
 #include <algorithm>
@@ -41,12 +41,11 @@ template<typename T>
 JML_ALWAYS_INLINE JML_COMPUTE_METHOD
 T shrd_emulated(T low, T high, shift_t bits)
 {
-    enum { TBITS = sizeof(T) * 8 };
-    //
-    //if (JML_UNLIKELY(bits >= TBITS)) return high >> (bits - TBITS);
-    //if (JML_UNLIKELY(bits == TBITS)) return high;
+    static constexpr int TBITS = sizeof(T) * 8;
+    ExcAssert(bits < TBITS);
+    //if (JML_UNLIKELY(bits == 0)) return low;
     low >>= bits;
-    high <<= (TBITS - bits);
+    high = (high << (TBITS - bits)) * (bits != 0);
     return low | high;
 }
 
@@ -56,14 +55,14 @@ template<typename T>
 JML_ALWAYS_INLINE JML_PURE_FN JML_COMPUTE_METHOD
 T shrd(T low, T high, shift_t bits)
 {
-    enum { TBITS = sizeof(T) * 8 };
-    if (JML_UNLIKELY(bits > TBITS)) return 0;
-
-    __asm__("shrd   %[bits], %[high], %[low] \n\t"
+    static constexpr int TBITS = sizeof(T) * 8;
+    ExcAssert(bits < TBITS);
+    if (JML_UNLIKELY(bits == TBITS)) return low;
+    __asm__ ("shrd   %[bits], %[high], %[low] \n\t"
             : [low] "+r,r" (low)
             : [bits] "J,c" ((uint8_t)bits), [high] "r,r" (high)
             : "cc"
-            );
+             );
 
     return low;
 
@@ -130,8 +129,11 @@ template<typename T>
 JML_ALWAYS_INLINE JML_COMPUTE_METHOD
 T maskLower(T val, shift_t bits)
 {
-    T full = bits < sizeof(T) * 8;
-    T mask = ((full << bits) - 1);
+    static constexpr int TBITS = sizeof(T) * 8;
+    ExcAssertLessEqual(bits, TBITS);
+    if (JML_UNLIKELY(bits == TBITS))
+        return val;
+    T mask = ((1 << bits) - 1);
     return val & mask;
 }
 
@@ -672,5 +674,3 @@ struct BitArrayIterator
 
 } // namespace ML
 
-
-#endif /* __arch__bit_range_ops_h__ */

@@ -8,8 +8,8 @@
 */
 
 #include "mldb/server/mldb_server.h"
-#include "mldb/server/dataset.h"
-#include "mldb/server/procedure.h"
+#include "mldb/core/dataset.h"
+#include "mldb/core/procedure.h"
 #include "mldb/plugins/svd.h"
 #include "mldb/plugins/sql_functions.h"
 #include "mldb/http/http_rest_proxy.h"
@@ -69,7 +69,8 @@ BOOST_AUTO_TEST_CASE( test_two_members )
 
     // Now, let's train an SVD
     SvdConfig svdParams;
-    svdParams.dataset = TableExpression::parse(Utf8String("test1"));
+    svdParams.trainingData.stm = make_shared<SelectStatement>();
+    svdParams.trainingData.stm->from = TableExpression::parse(Utf8String("test1"));
 
     PolyConfig applyProcedureConfig;
     applyProcedureConfig.type = "svd.train";

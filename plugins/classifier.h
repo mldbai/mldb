@@ -1,18 +1,17 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** classifier.h                                                   -*- C++ -*-
     Jeremy Barnes, 22 January 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Classifier procedure and functions.
 */
 
 #pragma once
 
-#include "mldb/server/dataset.h"
-#include "mldb/server/procedure.h"
-#include "mldb/server/algorithm.h"
-#include "mldb/server/function.h"
+#include "mldb/core/dataset.h"
+#include "mldb/core/procedure.h"
+#include "mldb/core/function.h"
 #include "matrix.h"
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/ml/jml/feature_info.h"
@@ -38,43 +37,13 @@ DECLARE_ENUM_DESCRIPTION(ClassifierMode);
 
 struct ClassifierConfig : public ProcedureConfig {
     ClassifierConfig()
-        : select(SelectExpression::STAR),
-          when(WhenExpression::TRUE),
-          where(SqlExpression::TRUE),
-          weight(SqlExpression::ONE),
-          orderBy(OrderByExpression::ROWHASH),
-          offset(0), limit(-1),
-          equalizationFactor(0.0),
+        : equalizationFactor(0.0),
           mode(CM_BOOLEAN)
     {
     }
 
-    /// Dataset for training data
-    std::shared_ptr<TableExpression> dataset;
-
-    /// The SELECT clause to tell us which features to keep
-    SelectExpression select;
-
-    /// The WHEN clause for the timespan tuples must belong to
-    WhenExpression when;
-
-    /// The WHERE clause for which rows to include from the dataset
-    std::shared_ptr<SqlExpression> where;
-
-    /// The expression to generate the label
-    std::shared_ptr<SqlExpression> label;
-
-    /// The expression to generate the weight
-    std::shared_ptr<SqlExpression> weight;
-
-    /// How to order the rows when using an offset and a limit
-    OrderByExpression orderBy;
-
-    /// Where to start running
-    ssize_t offset;
-
-    /// Maximum number of rows to use
-    ssize_t limit;
+    /// Query to select the training data
+    InputQuery trainingData;
 
     /// Where to save the classifier to
     Url modelFileUrl;

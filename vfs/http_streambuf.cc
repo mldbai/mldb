@@ -12,7 +12,9 @@
 #include "mldb/jml/utils/ring_buffer.h"
 #include "mldb/vfs/filter_streams_registry.h"
 #include "mldb/vfs/fs_utils.h"
+#include "mldb/http/http_exception.h"
 #include <chrono>
+#include <future>
 
 
 using namespace std;
@@ -20,6 +22,40 @@ using namespace std;
 
 namespace Datacratic {
 
+static FsObjectInfo
+convertHeaderToInfo(const HttpHeader & header)
+{
+    FsObjectInfo result;
+
+    if (header.responseCode() == 200) {
+        result.exists = true;
+        result.etag = header.tryGetHeader("etag");
+        result.size = header.contentLength;
+        string lastModified = header.tryGetHeader("last-modified");
+        if (!lastModified.empty()) {
+            static const char format[] = "%a, %d %b %Y %H:%M:%S %Z"; // rfc 1123
+            struct tm tm;
+            bzero(&tm, sizeof(tm));
+            if (strptime(lastModified.c_str(), format, &tm)) {
+                result.lastModified = Date(1900 + tm.tm_year, tm.tm_mon + 1, tm.tm_mday,
+                                           tm.tm_hour, tm.tm_min, tm.tm_sec);
+            }
+        }
+                
+        return result;
+    }
+
+    if (header.responseCode() >= 400 && header.responseCode() < 500) {
+        result.exists = false;
+        return result;
+    }
+
+    throw HttpReturnException(header.responseCode(),
+                              "Unable to convert unknown header code "
+                              + to_string(header.responseCode()) +
+                              " to object info",
+                              "code", header.responseCode());
+}
 
 struct HttpStreamingDownloadSource {
 
@@ -35,6 +71,19 @@ struct HttpStreamingDownloadSource {
         impl->start();
     }
 
+    ~HttpStreamingDownloadSource()
+    {
+    }
+
+    /** Wait for the HTTP header to be available from the connection, and
+        return it.
+    */
+    const HttpHeader & getHeader() const
+    {
+        auto future = impl->headerPromise.get_future();
+        return future.get();
+    }
+
     typedef char char_type;
     struct category
         : //input_seekable,
@@ -47,7 +96,7 @@ struct HttpStreamingDownloadSource {
         Impl(const std::string & urlStr,
              const std::map<std::string, std::string> & options)
             : proxy(urlStr), urlStr(urlStr), shutdown(false), dataQueue(100),
-              eof(false), currentDone(0)
+              eof(false), currentDone(0), headerSet(false)
         {
             for (auto & o: options) {
                 if (o.first == "http-set-cookie")
@@ -79,6 +128,9 @@ struct HttpStreamingDownloadSource {
 
         vector<std::thread> threads; /* thread pool */
 
+        std::atomic<bool> headerSet;
+        std::promise<HttpHeader> headerPromise;
+
         /* cleanup all the variables that are used during reading, the
            "static" ones are left untouched */
         void reset()
@@ -109,6 +161,12 @@ struct HttpStreamingDownloadSource {
             }
 
             threads.clear();
+
+            if (!headerSet) {
+                if (lastExc)
+                    headerPromise.set_exception(lastExc);
+                else headerPromise.set_value(HttpHeader());
+            }
         }
 
         /* reader thread */
@@ -168,6 +226,18 @@ struct HttpStreamingDownloadSource {
 
                 auto onHeader = [&] (const HttpHeader & header)
                     {
+                        // Don't set the promise on a 3xx... it's a redirect
+                        // and we will get the correct header later on
+                        if (header.responseCode() < 300
+                            || header.responseCode() >= 400) {
+                            if (headerSet)
+                                throw std::logic_error("set header twice");
+                            
+                            if (!headerSet.exchange(true)) {
+                                this->headerPromise.set_value(header);
+                            }
+                        }
+
                         if (shutdown)
                             return false;
 
@@ -199,6 +269,9 @@ struct HttpStreamingDownloadSource {
             } catch (const std::exception & exc) {
                 lastExc = std::current_exception();
                 dataQueue.tryPush("");
+                if (!headerSet.exchange(true)) {
+                    headerPromise.set_exception(lastExc);
+                }
             }
         }
 
@@ -222,15 +295,16 @@ struct HttpStreamingDownloadSource {
     }
 };
 
-std::unique_ptr<std::streambuf>
+std::pair<std::unique_ptr<std::streambuf>, FsObjectInfo>
 makeHttpStreamingDownload(const std::string & uri,
                           const std::map<std::string, std::string> & options)
 {
     std::unique_ptr<std::streambuf> result;
+    HttpStreamingDownloadSource source(uri, options);
+    const HttpHeader & header = source.getHeader();
     result.reset(new boost::iostreams::stream_buffer<HttpStreamingDownloadSource>
-                 (HttpStreamingDownloadSource(uri, options),
-                  131072));
-    return result;
+                 (source, 131072));
+    return { std::move(result), convertHeaderToInfo(header) };
 }
 
 struct HttpUrlFsHandler: UrlFsHandler {
@@ -286,34 +360,16 @@ struct HttpUrlFsHandler: UrlFsHandler {
             cerr << "header.responseCode() = " << header.responseCode() << endl;
 #endif
 
-            if (header.responseCode() == 200) {
-                result.exists = true;
-                result.etag = header.tryGetHeader("etag");
-                result.size = header.contentLength;
-                string lastModified = header.tryGetHeader("last-modified");
-                if (!lastModified.empty()) {
-                    static const char format[] = "%a, %d %b %Y %H:%M:%S %Z"; // rfc 1123
-                    struct tm tm;
-                    bzero(&tm, sizeof(tm));
-                    if (strptime(lastModified.c_str(), format, &tm)) {
-                        result.lastModified = Date(1900 + tm.tm_year, tm.tm_mon + 1, tm.tm_mday,
-                                                   tm.tm_hour, tm.tm_min, tm.tm_sec);
-                    }
-                }
-                
-                return result;
-            }
-
-            if (header.responseCode() >= 400 && header.responseCode() < 500) {
-                result.exists = false;
-                return result;
+            if (header.responseCode() >= 200 && header.responseCode() < 500) {
+                return convertHeaderToInfo(header);
             }
 
             if (header.responseCode() >= 500 && header.responseCode() < 600) {
                 continue;
             }
 
-            cerr << "don't know what to do with response code " << header.responseCode()
+            cerr << "don't know what to do with response code "
+                 << header.responseCode()
                  << " from HEAD" << endl;
         }
 
@@ -381,8 +437,10 @@ struct RegisterHttpHandler {
         string bucket(resource, 0, pos);
 
         if (mode == ios::in) {
-            std::shared_ptr<std::streambuf> buf(makeHttpStreamingDownload(scheme+"://"+resource, options).release());
-            return ML::UriHandler(buf.get(), buf);
+            std::pair<std::unique_ptr<std::streambuf>, FsObjectInfo> sb_info
+                = makeHttpStreamingDownload(scheme+"://"+resource, options);
+            std::shared_ptr<std::streambuf> buf(sb_info.first.release());
+            return ML::UriHandler(buf.get(), buf, sb_info.second);
         }
         else if (mode == ios::out) {
             throw ML::Exception("Can't currently upload files via HTTP/HTTPs");

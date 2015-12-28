@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "mldb/server/dataset.h"
+#include "mldb/core/dataset.h"
 
 namespace Datacratic {
 namespace MLDB {

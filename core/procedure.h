@@ -1,16 +1,20 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** procedure.h                                                       -*- C++ -*-
     Jeremy Barnes, 4 December 2014
     Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Interface for procedures into MLDB.
 */
 
 #include "mldb/types/value_description_fwd.h"
-#include "mldb_entity.h"
+#include "mldb/core/mldb_entity.h"
 #include "mldb/rest/rest_entity.h"
+#include "mldb/sql/sql_expression.h"
+#include "mldb/sql/sql_expression_operations.h"
 #include <set>
+#include <iostream>
+#include <typeinfo>
 
 // NOTE TO MLDB DEVELOPERS: This is an API header file.  No includes
 // should be added, especially value_description.h.

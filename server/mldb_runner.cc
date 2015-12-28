@@ -310,6 +310,7 @@ int main(int argc, char ** argv)
     
     string httpBoundAddress = server.bindTcp(httpListenPort, httpListenHost);
     server.router.addAutodocRoute("/autodoc", "/v1/help", "autodoc");
+    server.threadPool->ensureThreads(16);
     server.httpEndpoint->allowAllOrigins();
 
     cout << httpBoundAddress << endl;

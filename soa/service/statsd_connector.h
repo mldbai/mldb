@@ -21,7 +21,6 @@ namespace Datacratic {
 class StatsdConnector {
     int fd;
     std::string hostname;
-    int port;
 
 public:
     StatsdConnector();

@@ -1,18 +1,17 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** svd.h                                                          -*- C++ -*-
     Jeremy Barnes, 16 December 2014
     Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     SVD algorithm for a dataset.
 */
 
 #pragma once
 
-#include "mldb/server/dataset.h"
-#include "mldb/server/procedure.h"
-#include "mldb/server/algorithm.h"
-#include "mldb/server/function.h"
+#include "mldb/core/dataset.h"
+#include "mldb/core/procedure.h"
+#include "mldb/core/function.h"
 #include "matrix.h"
 #include "mldb/types/value_description.h"
 #include "mldb/types/optional.h"
@@ -29,17 +28,11 @@ struct SvdConfig : ProcedureConfig {
     SvdConfig()
         : outputColumn("svd"),
           numSingularValues(100),
-          numDenseBasisVectors(1000),
-          select("*"),
-          when(WhenExpression::TRUE),
-          where(SqlExpression::TRUE),
-          orderBy(ORDER_BY_NOTHING),
-          offset(0),
-          limit(-1)
+          numDenseBasisVectors(1000)
     {
     }
 
-    std::shared_ptr<TableExpression> dataset;
+    InputQuery trainingData;
     Optional<PolyConfigT<Dataset> > columnOutput;      ///< Embedding per column of input dataset
     Optional<PolyConfigT<Dataset> > rowOutput;   ///< Embedding per row of input dataset
     static constexpr char const * defaultOutputDatasetType = "embedding";
@@ -48,12 +41,6 @@ struct SvdConfig : ProcedureConfig {
     std::string outputColumn;
     int numSingularValues;
     int numDenseBasisVectors;
-    SelectExpression select;
-    WhenExpression when;
-    std::shared_ptr<SqlExpression> where;
-    OrderByExpression orderBy;
-    ssize_t offset;
-    ssize_t limit;
     Utf8String functionName;
 };
 

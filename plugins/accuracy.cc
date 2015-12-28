@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** accuracy.cc
     Jeremy Barnes, 16 December 2014
     Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Implementation of an ACCURACY algorithm for embedding of a dataset.
 */
@@ -10,7 +10,7 @@
 #include "accuracy.h"
 #include "matrix.h"
 #include "mldb/server/mldb_server.h"
-#include "mldb/server/dataset.h"
+#include "mldb/core/dataset.h"
 #include "mldb/server/bound_queries.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/jml/stats/distribution.h"
@@ -29,6 +29,8 @@
 #include "mldb/server/per_thread_accumulator.h"
 #include "mldb/types/optional_description.h"
 #include "mldb/http/http_exception.h"
+#include "mldb/plugins/sql_config_validator.h"
+#include "mldb/plugins/sql_expression_extractors.h"
 
 using namespace std;
 
@@ -45,31 +47,21 @@ AccuracyConfigDescription()
     optionalOutputDataset.emplace(PolyConfigT<Dataset>().
                                   withType(AccuracyConfig::defaultOutputDatasetType));
 
-    addFieldDesc("testingDataset", &AccuracyConfig::testingDataset,
-                 "Dataset for accuracy testing.  This is read-only.",
-                 makeInputDatasetDescription());
-    addField("outputDataset", &AccuracyConfig::outputDataset,
-             "Output dataset for scored examples. The score for each "
-             "example will be written to this dataset. Specifying a "
-             "dataset is optional",
-             optionalOutputDataset);
-    addField("where", &AccuracyConfig::where,
-             "The WHERE clause for which rows to include from the dataset. "
-             "Only rows for which this expression returns TRUE will be "
-             "included in the output.",
-             SqlExpression::TRUE);
-    addField("score", &AccuracyConfig::score,
-             "The expression to generate the score, representing the output "
+    addField("testingData", &AccuracyConfig::testingData,
+             "Specification of the data for input to the accuracy procedure. "
+             "The select expression must contain these sub-expressions: one scalar expression "
+             "to identify the label and one scalar expression to identify the score. "
+             "The type of the label expression must match "
+             "that of the classifier mode from which the model was trained. "
+             "Labels with a null value will have their row skipped. "
+             "The expression to generate the score represents the output "
              "of whatever is having its accuracy tested.  This needs to be "
              "a number, and normally should be a floating point number that "
              "represents the degree of confidence in the prediction, not "
-             "just the class.");
-    addField("label", &AccuracyConfig::label,
-             "The expression to generate the label");
-    addField("weight", &AccuracyConfig::weight,
-             "The expression to generate the relative weight for this example (e.g. " 
-             "something like \"2.34*x+y\" if x and y are columns, or "
-             "\"x\" or simply \"1.0\").  In some "
+             "just the class. This is typically, the training function returned "  
+             "by a classifier.train procedure. "
+             "The select expression can also contain an optional weight sub-expression. "
+             "This expression generates the relative weight for each example.  In some "
              "circumstances it is necessary to calculate accuracy statistics "
              "with uneven weighting, for example to counteract the effect of "
              "non-uniform sampling in dataset.  By default, each class will "
@@ -77,23 +69,20 @@ AccuracyConfigDescription()
              "examples, in other words having all examples weighted 1 or all "
              "examples weighted 10 will have the same effect.  That being "
              "said, it is a good idea to keep the weights centered around 1 "
-             "to avoid numeric errors in the calculations/",
-             SqlExpression::ONE);
-    addField("orderBy", &AccuracyConfig::orderBy,
-             "How to order the rows.  This only has an effect when OFFSET "
-             "and LIMIT are used.  Default is to order by rowHash(). ",
-             OrderByExpression::parse("rowHash()"));
-    addField("offset", &AccuracyConfig::offset,
-             "How many rows to skip before using data.  This can be used "
-             "to ensure that a testing and training set are distinct, although "
-             "normally it's better to use a molulus on the rowHash() to "
-             "achieve that goal",
-             ssize_t(0));
-    addField("limit", &AccuracyConfig::limit,
-             "How many rows of data to use.  -1 (the default) means use all "
-             "of the rest of the rows in the dataset after skipping OFFSET rows.",
-             ssize_t(-1));
+             "to avoid numeric errors in the calculations."
+             "The select statement does not support groupby and having clauses.");
+    addField("outputDataset", &AccuracyConfig::outputDataset,
+             "Output dataset for scored examples. The score for each "
+             "example will be written to this dataset. Specifying a "
+             "dataset is optional", optionalOutputDataset);
     addParent<ProcedureConfig>();
+
+    onPostValidate = validate<AccuracyConfig, 
+                              InputQuery,
+                              NoGroupByHaving,
+                              PlainColumnSelect,
+                              ScoreLabelSelect>(&AccuracyConfig::testingData, "accuracy");
+
 }
 
 
@@ -108,9 +97,8 @@ AccuracyProcedure(MldbServer * owner,
     : Procedure(owner)
 {
     this->accuracyConfig = config.params.convert<AccuracyConfig>();
-    if (!accuracyConfig.score || !accuracyConfig.label
-        || !accuracyConfig.testingDataset)
-        throw HttpReturnException(400, "Classifier testing procedure requires 'testingDataset', 'label', and 'score' expressions to be set",
+    if (!accuracyConfig.testingData.stm)
+        throw HttpReturnException(400, "Classifier testing procedure requires 'testingData' to be set",
                                   "config", this->accuracyConfig);
 }
 
@@ -131,7 +119,7 @@ run(const ProcedureRunConfig & run,
     // 1.  Get the input dataset
     SqlExpressionMldbContext context(server);
 
-    auto dataset = runAccuracyConf.testingDataset->bind(context).dataset;
+    auto dataset = runAccuracyConf.testingData.stm->from->bind(context).dataset;
 
     // 3.  Create our aggregator function, which records the output of
     //     this row.
@@ -147,33 +135,29 @@ run(const ProcedureRunConfig & run,
             bool label = scoreLabelWeight[1].asBool();
             double weight = scoreLabelWeight[2].toDouble();
             
-            //cerr << "score = " << score << " label = " << label << " weight = "
-            //     << weight << endl;
-
             accum.get().update(label, score, weight, row.rowName);
             
             return true;
         };
 
     // 5.  Run it
+    auto score = extractNamedSubSelect("score", runAccuracyConf.testingData.stm->select)->expression; 
+    auto label = extractNamedSubSelect("label", runAccuracyConf.testingData.stm->select)->expression;
+    auto weightSubSelect = extractNamedSubSelect("weight", runAccuracyConf.testingData.stm->select);
+    shared_ptr<SqlExpression> weight = weightSubSelect ? weightSubSelect->expression : SqlExpression::ONE;
 
     std::vector<std::shared_ptr<SqlExpression> > calc = {
-        runAccuracyConf.score,
-        runAccuracyConf.label,
-        runAccuracyConf.weight
+        score,
+        label,
+        weight
     };
 
-
-    // If no order by or limit, the order doesn't matter
-    if (runAccuracyConf.limit == -1 && runAccuracyConf.offset == 0)
-        runAccuracyConf.orderBy.clauses.clear();
-
     BoundSelectQuery({} /* select */, *dataset, "" /* table alias */,
-                     runAccuracyConf.when, runAccuracyConf.where,
-                     runAccuracyConf.orderBy,
+                     runAccuracyConf.testingData.stm->when, runAccuracyConf.testingData.stm->where,
+                     runAccuracyConf.testingData.stm->orderBy,
                      calc,
                      false /* implicit order by row hash */)
-        .execute(aggregator, runAccuracyConf.offset, runAccuracyConf.limit,
+        .execute(aggregator, runAccuracyConf.testingData.stm->offset, runAccuracyConf.testingData.stm->limit,
                  nullptr /* progress */);
 
     // Now merge out stats together

@@ -10,7 +10,7 @@
 #include "tfidf.h"
 #include "matrix.h"
 #include "mldb/server/mldb_server.h"
-#include "mldb/server/dataset.h"
+#include "mldb/core/dataset.h"
 #include "mldb/jml/stats/distribution.h"
 #include <boost/multi_array.hpp>
 #include "mldb/jml/utils/guard.h"
@@ -71,15 +71,15 @@ TfidfConfigDescription()
              "Columns to select from the input matrix for the coordinates to input "
              "into training.  The selected columns must be finite numbers "
              "and must not have missing values.",
-             SelectExpression("*"));
+             SelectExpression::STAR);
     addField("when", &TfidfConfig::when,
              "Boolean expression determining which tuples from the dataset "
              "to keep based on their timestamps",
-             WhenExpression::parse("true"));
+             WhenExpression::TRUE);
     addField("where", &TfidfConfig::where,
              "Rows to select for training.  This expression allows a subset "
              "of the rows that were input to the training process to be selected.",
-             SqlExpression::parse("true"));
+             SqlExpression::TRUE);
     addField("orderBy", &TfidfConfig::orderBy,
              "How to order the rows.  This only has an effect when OFFSET "
              "or LIMIT are used.  Default is to order by rowHash.",
@@ -174,7 +174,8 @@ run(const ProcedureRunConfig & run,
         PolyConfig tfidfFuncPC;
         tfidfFuncPC.type = "tfidf";
         tfidfFuncPC.id = runProcConf.functionName;
-        tfidfFuncPC.params = TfidfFunctionConfig(runProcConf.output, boundDataset.dataset->getMatrixView()->getRowCount());
+        tfidfFuncPC.params = TfidfFunctionConfig(runProcConf.output,
+                boundDataset.dataset->getMatrixView()->getRowCount());
 
         obtainFunction(server, tfidfFuncPC, onProgress);
     }
@@ -188,7 +189,8 @@ TfidfFunctionConfigDescription::
 TfidfFunctionConfigDescription()
 {
     addField("dataset", &TfidfFunctionConfig::dataset,
-             "Dataset describing the number of document each term appears in.");    
+             "Dataset describing the number of document each term appears in. "
+             "It is generated using the tfidf.train procedure.");
     addField("sizeOfCorpus", &TfidfFunctionConfig::N,
              "Number of documents in the corpus");
     addField("tfType", &TfidfFunctionConfig::tf_type,
@@ -274,8 +276,8 @@ apply(const FunctionApplier & applier,
         };
 
     iterateDataset(select, *dataset, "", 
-                   WhenExpression::parse("true"),
-                   SqlExpression::parse("true"),
+                   WhenExpression::TRUE,
+                   SqlExpression::TRUE,
                    aggregator,
                    ORDER_BY_NOTHING,
                    0,
@@ -316,10 +318,10 @@ apply(const FunctionApplier & applier,
         return 1.0f;
     };
     auto idf_inverse = [=] (double numberOfRelevantDoc) {
-        return std::log((N +1 )/ (1 + numberOfRelevantDoc));
+        return std::log(N / (1 + numberOfRelevantDoc));
     };
     auto idf_inverseSmooth = [=] (double numberOfRelevantDoc) {
-        return std::log(1 + (N +1 )/ (1 + numberOfRelevantDoc));
+        return std::log(1 + (N / (1 + numberOfRelevantDoc)));
     };
     auto idf_inverseMax = [=] (double numberOfRelevantDoc) {
         return std::log(1 + (maxNt)/ (1 + numberOfRelevantDoc));

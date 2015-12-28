@@ -10,7 +10,7 @@
 
 #pragma once
 
-#include "mldb/server/dataset.h"
+#include "mldb/core/dataset.h"
 #include "mldb/sql/sql_expression_operations.h"
 #include "mldb/types/value_description.h"
 

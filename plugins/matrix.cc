@@ -56,7 +56,7 @@ classifyColumns(const Dataset & dataset, SelectExpression select)
 
     // Default is all columns
     if (select.clauses.empty())
-        select = SelectExpression::parse("*");
+        select = SelectExpression::STAR;
 
     SqlExpressionDatasetContext context(dataset, "");
 

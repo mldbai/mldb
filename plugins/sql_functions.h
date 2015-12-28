@@ -1,17 +1,17 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** sql_functions.h                                               -*- C++ -*-
     Jeremy Barnes, 6 January 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Functions to deal with datasets.
 */
 
 #pragma once
 
-#include "mldb/server/procedure.h"
-#include "mldb/server/function.h"
-#include "mldb/server/dataset.h"
+#include "mldb/core/procedure.h"
+#include "mldb/core/function.h"
+#include "mldb/core/dataset.h"
 #include "mldb/sql/sql_expression.h"
 
 namespace Datacratic {
@@ -138,6 +138,9 @@ struct TransformDatasetConfig : ProcedureConfig {
 
     /// Allow setting of the row name for the output dataset
     std::shared_ptr<SqlExpression> rowName;
+
+    /// Skip rows with no columns
+    bool skipEmptyRows;
 };
 
 

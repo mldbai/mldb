@@ -1,15 +1,13 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** dense_feature_generator.h                                      -*- C++ -*-
     Jeremy Barnes, 13 May 2012
     Copyright (c) 2012 Datacratic.  All rights reserved.
 
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+
     Feature generator for dense feature sets.
 */
 
-#ifndef __ml__dense_feature_generator_h__
-#define __ml__dense_feature_generator_h__
-
+#pragma once
 
 #include "mldb/jml/db/persistent.h"
 #include "mldb/base/exc_assert.h"
@@ -601,10 +599,8 @@ struct CombinedFeatureGeneratorT
 };
 
 template<typename... Args>
-DoInitialize<CombinedFeatureGeneratorT<Args...>::doInitialize>
+DoInitialize<&CombinedFeatureGeneratorT<Args...>::doInitialize>
 CombinedFeatureGeneratorT<Args...>::init;
 
 
 } // namespace Datacratic
-
-#endif /* __ml__dense_feature_generator_h__ */

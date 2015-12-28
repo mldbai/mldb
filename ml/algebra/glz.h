@@ -1,18 +1,16 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* glz.h                                                           -*- C++ -*-
    Jeremy Barnes, 26 February 2003
    Copyright (c) 2003 Jeremy Barnes.  All rights reserved.
    $Source$
+   
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Generalised linear modeling.  Contains functions to calculate the link
    functions and their inverses, to solve for the model given a set of
-   variables, and to save and load models to and from disk.  (Well, it
-   might eventually...)
+   variables.
 */
 
-#ifndef __stats__glz_h__
-#define __stats__glz_h__
+#pragma once
 
 #include <cmath>
 #include <utility>
@@ -21,6 +19,7 @@
 #include <boost/multi_array.hpp>
 #include "irls.h"
 #include "least_squares.h"
+#include "matrix_ops.h"
 #include <iomanip>
 
 namespace ML {
@@ -128,7 +127,6 @@ struct Probit_Link {
     static Float forward(Float mu, Float m)
     {
         static const double SQRT2 = std::sqrt(2.0);
-        static const double RSQRT2 = 1.0 / SQRT2;
 
         return SQRT2 * erfinv(2.0 * (mu / m) - 1.0);
     }
@@ -190,8 +188,6 @@ struct Probit_Link {
 
     static Float diff(Float mu, Float m)
     {
-        static const double SQRT2 = std::sqrt(2.0);
-        static const double RSQRT2 = 1.0 / SQRT2;
         static const double SQRT2PI = std::sqrt(2.0 * M_PI);
         
         return (SQRT2PI / m) * exp(sqr(erfinv((2.0 * mu / m) - 1.0)));
@@ -570,6 +566,3 @@ public:
 
 } // namespace ML
 
-
-
-#endif /* __stats__glz_h__ */

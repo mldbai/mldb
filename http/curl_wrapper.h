@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "arch/exception.h"
+#include "mldb/arch/exception.h"
 
 #include <curl/curl.h>
 #include <functional>

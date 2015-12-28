@@ -27,9 +27,8 @@ dataset.commit()
 conf = {
     "type": "tsne.train",
     "params": {
-        "trainingDataset": "toy",
+        "trainingData": "select * from toy limit 200",
         "rowOutputDataset": {"id": "toy_tsne", "type": "embedding" },
-        "limit": 200,
         "modelFileUrl": "file://tmp/MLDB-1081-tsne.bin.gz",
         "functionName": "tsne_embed",
         "runOnCreation": True

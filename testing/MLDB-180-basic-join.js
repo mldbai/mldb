@@ -7,9 +7,7 @@ function assertEqual(expr, val)
     if (JSON.stringify(expr) == JSON.stringify(val))
         return;
 
-    mldb.log(expr);
-    mldb.log('IS NOT EQUAL TO');
-    mldb.log(val);
+    mldb.log(expr, 'IS NOT EQUAL TO', val);
 
     throw "Assertion failure";
 }
@@ -20,10 +18,8 @@ function testQuery(query, expected) {
 
     var resp = mldb.get('/v1/query', {q: query, format: 'table'});
 
-    mldb.log(resp);
+    mldb.log("received", resp.json);
     mldb.log("expected", expected);
-    if (resp.responseCode != 200 || resp.json != expected)
-        mldb.log(resp.json);
     
     assertEqual(resp.responseCode, 200);
     assertEqual(resp.json, expected);

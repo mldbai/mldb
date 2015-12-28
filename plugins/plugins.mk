@@ -38,6 +38,8 @@ LIBMLDB_BUILTIN_PLUGIN_SOURCES:= \
 	csv_export_procedure.cc \
 	em.cc \
 	pooling_function.cc \
+	xlsx_importer.cc \
+
 
 # Needed so that Python plugin can find its header
 $(eval $(call set_compile_option,python_plugin_loader.cc,-I$(PYTHON_INCLUDE_PATH)))

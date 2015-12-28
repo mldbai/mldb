@@ -1,9 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** python_plugin_context.cc
     Francois Maillet, 6 mars 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
 
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #include <boost/algorithm/string.hpp>
@@ -12,6 +11,7 @@
 #include "mldb/jml/utils/string_functions.h"
 #include "mldb/plugins/for_each_line.h"
 #include "mldb/vfs/fs_utils.h"
+#include "mldb/vfs/filter_streams.h"
 #include <boost/regex.hpp>
 #include <boost/algorithm/string.hpp>
 #include <memory>
@@ -100,13 +100,6 @@ releaseGil()
     // release gilles
     PyEval_ReleaseLock();
     hasGil = false;
-}
-
-
-// trim from end
-static inline std::string &rtrim(std::string &s) {
-        s.erase(std::find_if(s.rbegin(), s.rend(), std::not1(std::ptr_fun<int, int>(std::isspace))).base(), s.end());
-        return s;
 }
 
 ScriptException

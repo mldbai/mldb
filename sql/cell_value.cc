@@ -14,6 +14,7 @@
 #include "mldb/types/structure_description.h"
 #include "mldb/types/enum_description.h"
 #include "cell_value_impl.h"
+#include "mldb/base/parse_context.h"
 #include "interval.h"
 
 using namespace std;
@@ -559,7 +560,7 @@ isFalse() const
     }
 }
 
-const HashSeed defaultSeedStable { i64: { 0x1958DF94340e7cbaULL, 0x8928Fc8B84a0ULL } };
+const HashSeed defaultSeedStable { .i64 = { 0x1958DF94340e7cbaULL, 0x8928Fc8B84a0ULL } };
 
 template<typename T>
 static uint64_t siphash24_bin(const T & v, HashSeed key)

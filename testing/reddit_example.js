@@ -51,7 +51,7 @@ if (trainSvd) {
     var svdConfig = {
         type: "svd.train",
         params: {
-            trainingDataset: { "id": "reddit_dataset" },
+            trainingData: { "from" : {"id": "reddit_dataset" }},
             columnOutputDataset: { "id": "svd_output", type: "embedding" },
             rowOutputDataset: { "id": "svd_embedding", type: "embedding" }
         }
@@ -81,9 +81,7 @@ if (trainKmeans) {
     var kmeansConfig = {
         type: "kmeans.train",
         params: {
-            trainingDataset: { "id": "svd_embedding" },
-            select: "svd*",
-            where: "true",
+            trainingData: "select svd* from svd_embedding",
             outputDataset: {
                 id: "kmeans_output", type: "embedding"
             }
@@ -112,10 +110,9 @@ if (trainTsne) {
     var tsneConfig = {
         type: "tsne.train",
         params: {
-            trainingDataset: { "id": "svd_embedding" },
+            trainingData: { "select" : "svd*",
+                            "from" : { "id": "svd_embedding" }},
             rowOutputDataset: { "id": "tsne_output", "type": "embedding" },
-            select: "svd*",
-            where: "true"
         }
     };
 

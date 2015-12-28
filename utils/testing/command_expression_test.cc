@@ -102,7 +102,21 @@ BOOST_AUTO_TEST_CASE( test_expressions )
                       "2 3 4");
     BOOST_CHECK_EQUAL(StringTemplate("%{map x: [0,1], y: [0,1] -> x + y}")({}),
                       "0 1 1 2");
+    BOOST_CHECK_EQUAL(CommandTemplate("%")({}).renderShell(), "%");
+    BOOST_CHECK_EQUAL(CommandTemplate("%%")({}).renderShell(), "%");
+    BOOST_CHECK_EQUAL(CommandTemplate("3 % 2")({}).renderShell(), "3 % 2");
+    BOOST_CHECK_EQUAL(CommandTemplate("%%coco")({}).renderShell(), "%coco");
 
+    string sql = "SELECT * FROM ds WHERE rowName() % 2 = 0";
+    vector<string> cmd = {sql};
+    BOOST_CHECK_EQUAL(CommandTemplate(cmd)({}).renderShell(), "'" + sql + "'");
+    {
+        Json::Value val;
+        val["sql"] = sql;
+        cmd = {val.toString()};
+        BOOST_CHECK_EQUAL(CommandTemplate(cmd)({}).renderShell(),
+                          "'{\"sql\":\"" + sql + "\"}\n'");
+    }
 
     {
         Json::Value val;

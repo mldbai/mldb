@@ -33,6 +33,7 @@
 #include <unordered_map>
 #include "ext/lzma/lzma.h"
 #include "lz4_filter.h"
+#include "fs_utils.h"
 
 
 using namespace std;
@@ -56,6 +57,19 @@ getScheme(const std::string & uri)
 
     return make_pair(scheme, resource);
 }
+
+UriHandler::
+UriHandler(std::streambuf * buf,
+           std::shared_ptr<void> bufOwnership,
+           const Datacratic::FsObjectInfo & info,
+           UriHandlerOptions options)
+    : buf(buf),
+      bufOwnership(std::move(bufOwnership)),
+      options(std::move(options))
+{
+    this->info.reset(new Datacratic::FsObjectInfo(info));
+}
+
 
 /*****************************************************************************/
 /* FILTER_OSTREAM                                                            */
@@ -570,6 +584,11 @@ openFromHandler(const UriHandler & handler,
         compression = cmpIt->second;
     
     this->handlerOptions = handler.options;
+    this->info_ = handler.info;
+    if (!this->info_)
+        throw ML::Exception("Handler for resource '" + resource
+                            + "' didn't set info");
+    ExcAssert(this->info_);
     openFromStreambuf(handler.buf, handler.bufOwnership, resource, compression);
 }
 
@@ -713,6 +732,15 @@ mapped() const
     return { handlerOptions.mapped, handlerOptions.mappedSize };
 }
 
+Datacratic::FsObjectInfo
+filter_istream::
+info() const
+{
+    if (!info_)
+        throw ML::Exception("Resource '" + resource + "' doesn't have info");
+    return *info_;
+}
+
 
 /*****************************************************************************/
 /* REGISTRATION                                                              */
@@ -770,8 +798,15 @@ struct RegisterFileHandler {
             resource = "/dev/null";
 
         if (mode == ios::in) {
-            if (resource == "-")
-                return UriHandler(cin.rdbuf(), nullptr);
+            if (resource == "-") {
+                Datacratic::FsObjectInfo info;
+                info.exists = true;
+                info.lastModified = Datacratic::Date::now();
+                return UriHandler(cin.rdbuf(), nullptr, info);
+            }
+
+            Datacratic::FsObjectInfo info
+                = Datacratic::getUriObjectInfo(scheme + "://" + resource);
 
             if (options.count("mapped")) {
 
@@ -783,7 +818,7 @@ struct RegisterFileHandler {
                 UriHandlerOptions options;
                 options.mapped = source.data();
                 options.mappedSize = source.size();
-                return UriHandler(buf.get(), buf, options);
+                return UriHandler(buf.get(), buf, info, options);
             }
             else {
                 shared_ptr<std::filebuf> buf(new std::filebuf);
@@ -793,7 +828,7 @@ struct RegisterFileHandler {
                     throw ML::Exception("couldn't open file %s: %s",
                                         resource.c_str(), strerror(errno));
 
-                return UriHandler(buf.get(), buf);
+                return UriHandler(buf.get(), buf, info);
             }
         }
         else if (mode & ios::out) {
@@ -977,7 +1012,9 @@ struct RegisterMemHandler {
         else {
             throw ML::Exception("unable to create mem handler");
         }
-        return UriHandler(streamBuf.get(), streamBuf);
+        Datacratic::FsObjectInfo info;
+        info.exists = true;
+        return UriHandler(streamBuf.get(), streamBuf, info);
     }
 
     RegisterMemHandler()

@@ -1,9 +1,9 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** csv_dataset.cc
     Jeremy Barnes, 11 June 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
 
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    
     Dataset that reads a tabular CSV file into an indexed dataset.
 */
 
@@ -24,11 +24,12 @@
 
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/types/compact_vector_value_description.h"
-#include "mldb/server/dataset.h"
+#include "mldb/core/dataset.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/server/dataset_context.h"
 #include "mldb/server/per_thread_accumulator.h"
 #include "mldb/server/parallel_merge_sort.h"
+#include "mldb/base/parse_context.h"
 #include <mutex>
 
 using namespace std;
@@ -69,7 +70,7 @@ CsvDatasetConfigDescription::CsvDatasetConfigDescription()
              "Row filter for CSV dataset",
              SqlExpression::TRUE);
     addField("named", &CsvDatasetConfig::named,
-             "Row name expression for output dataset.  Note that each row"
+             "Row name expression for output dataset. Note that each row "
              "must have a unique name.",
              SqlExpression::parse("lineNumber()"));
     addField("timestamp", &CsvDatasetConfig::timestamp,
@@ -408,12 +409,31 @@ parseFixedWidthCsvRow(const char * & line,
         }
         else if (c == quote) {
             // quoted string
-            static constexpr size_t STRLEN = 4096;
-            char s[STRLEN];  // holds the extracted string
+            static constexpr size_t FIXED_BUF_LEN = 4096;
+            char sbuf[FIXED_BUF_LEN];  // holds the extracted string
+            char * s = sbuf;
+            size_t buflen = FIXED_BUF_LEN;
+            std::unique_ptr<char[]> sdynamic;
             int len = 0;   // and its length
 
             bool eightBit = false;
             bool ok = false;
+
+            auto pushChar = [&] (char c)
+                {
+                    if (len == buflen) {
+                        std::unique_ptr<char[]> newBuf(new char[buflen * 2]);
+                        std::copy(s, s + len, newBuf.get());
+                        sdynamic.swap(newBuf);
+                        s = sdynamic.get();
+                        buflen *= 2;
+                    }
+
+                    
+                    ExcAssertLess(len, buflen);
+                    eightBit = eightBit || !isascii(c);
+                    s[len++] = c;
+                };
 
             for (; line < lineEnd;  ++line) {
                 c = *line;
@@ -431,8 +451,7 @@ parseFixedWidthCsvRow(const char * & line,
                     }
                     else if (*line == quote) {
                         // doubled quote; take a literal value
-                        ExcAssertLess(len, STRLEN);
-                        s[len++] = quote;
+                        pushChar(quote);
                     }
                     else {
                         // Error
@@ -440,16 +459,8 @@ parseFixedWidthCsvRow(const char * & line,
                         break;
                     }
                 }
-                else if (isascii(c)) {
-                    // Normal character set
-                    ExcAssertLess(len, STRLEN);
-                    s[len++] = c;
-                }
                 else {
-                    // Non-ascii character
-                    ExcAssertLess(len, STRLEN);
-                    eightBit = true;
-                    s[len++] = c;
+                    pushChar(c);
                 }
             }
 
@@ -754,13 +765,17 @@ struct CsvDataset::Itl: public TabularDataStore {
                     //threadAccum.chunkLineNumber = chunkLineNum;
                 }
 
-                /// Values that come in from the CSV file
-                CellValue values[inputColumnNames.size()];
+                // Values that come in from the CSV file
+                // TODO: clang doesn't like a variable length array
+                // here.  Find another way to allocate it on the
+                // stack.
+                vector<CellValue> values(inputColumnNames.size());
+                //CellValue values[inputColumnNames.size()];
 
                 const char * lineStart = line;
 
                 const char * errorMsg
-                    = parseFixedWidthCsvRow(line, length, values,
+                    = parseFixedWidthCsvRow(line, length, &values[0],
                                             inputColumnNames.size(),
                                             separator, quote, encoding,
                                             replaceInvalidCharactersWith);
@@ -779,7 +794,7 @@ struct CsvDataset::Itl: public TabularDataStore {
 
                 //cerr << "got values " << jsonEncode(vector<CellValue>(values, values + inputColumnNames.size())) << endl;
                     
-                auto row = scope.bindRow(values, ts, lineNum, 0 /* todo: chunk ofs */);
+                auto row = scope.bindRow(&values[0], ts, lineNum, 0 /* todo: chunk ofs */);
 
                 // If it doesn't match the where, don't add it 
                 if (!isWhereTrue) {
@@ -804,13 +819,17 @@ struct CsvDataset::Itl: public TabularDataStore {
                 if (isIdentitySelect) {
                     // If it's a select *, we don't really need to run the
                     // select clause.  We simply go for it.
-                    threadAccum.add(lineNum, std::move(rowName), rowTs, values);
+                    threadAccum.add(lineNum, std::move(rowName), rowTs, &values[0]);
                 }
                 else {
                     // TODO: optimization for
                     // SELECT * excluding (...)
 
-                    CellValue valuesOut[columnNames.size()];
+                    // TODO: clang doesn't like a variable length array
+                    // here.  Find another way to allocate it on the
+                    // stack.
+                    // CellValue valuesOut[columnNames.size()];
+                    vector<CellValue> valuesOut(columnNames.size());
 
                     ExpressionValue selectStorage;
                     const ExpressionValue & selectOutput
@@ -836,7 +855,7 @@ struct CsvDataset::Itl: public TabularDataStore {
                             valuesOut[i] = std::get<1>(selectRow[i]).getAtom();
                     }
                     
-                    threadAccum.add(lineNum, std::move(rowName), rowTs, valuesOut);
+                    threadAccum.add(lineNum, std::move(rowName), rowTs, &valuesOut[0]);
                 }
                 //cerr << "row = " << jsonEncodeStr(selectRow) << endl;
 
@@ -886,7 +905,7 @@ struct CsvDataset::Itl: public TabularDataStore {
 
         auto doLeftoverChunk = [&] (int threadNum)
             {
-                TabularDatasetChunk * ent = accum.threads[threadNum].get();
+                TabularDatasetChunk * ent = accum.threads.at(threadNum).get();
                 ent->freeze();
                 std::unique_lock<std::mutex> guard(doneChunksLock);
                 doneChunks.emplace_back(std::move(*ent));

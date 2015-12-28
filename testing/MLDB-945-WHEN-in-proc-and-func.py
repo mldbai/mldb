@@ -59,7 +59,9 @@ def train_svd(when, output_index):
         'type' : 'svd.train',
         'params' :
 	{
-            "trainingDataset": {"id": "svd_example"}, 
+            "trainingData": {"from" : {"id": "svd_example"}, 
+                             "when" : when
+                         },
             "rowOutputDataset": {
                 "id": "when_svd_row_" + str(dataset_index),
                 'type': "embedding" 
@@ -67,8 +69,7 @@ def train_svd(when, output_index):
             "columnOutputDataset" : {
                 "id": "svd_embedding_" + str(output_index),
                 "type" : "embedding"
-            },
-            "when": when
+            }
 	}
     }
     
@@ -135,12 +136,12 @@ def train_tsne(when):
         'type' : 'tsne.train',
         'params' :
 	{
-            "trainingDataset": {"id": "svd_example"}, 
+            "trainingData": {"from" : {"id": "svd_example"},
+                                "when" : when}, 
             "rowOutputDataset": {
                 "id": "tsne_embedding_" + str(dataset_index),
                 'type': "embedding" 
-            },
-            "when": when
+            }
 	}
     }
     
@@ -170,7 +171,11 @@ def train_classifier(when):
     result = mldb.perform("PUT", "/v1/procedures/tng_classif", [], {
         "type": "classifier.train",
         "params": {
-            "trainingDataset": { "id": "dataset1" },
+            "trainingData": { 
+                "select" : "{*} as features, x as label",
+                "when" : when,
+                "from" : { "id": "dataset1" }
+            },
             "configuration": {
                 "glz": {
                     "type": "glz",
@@ -180,10 +185,7 @@ def train_classifier(when):
                 }
             },
             "algorithm": "glz",
-            "modelFileUrl": "file://tmp/MLDB-945.tng.cls",
-            "label": "x",
-            "weight": "1.0",
-            "when": when
+            "modelFileUrl": "file://tmp/MLDB-945.tng.cls"
         }
     })
     response = json.loads(result['response'])
@@ -225,12 +227,11 @@ def train_kmeans(when):
     result = mldb.perform("PUT", "/v1/procedures/kmeans", [], {
         'type' : 'kmeans.train',
         'params' : {
-            'trainingDataset' : {'id' : 'kmeans_example'},
+            'trainingData' : 'select * from kmeans_example when ' + when,
             'outputDataset' : {'id' : 'kmeans_dataset_' + str(dataset_index), 'type' : 'embedding',
                         'params': { 'metric': metric }},
             'centroidsDataset' : {'id' : 'kmeans_centroids_' + str(dataset_index), 'type' : 'embedding', 
                            'params': {'metric': metric }},
-            'when' : when,
             'numClusters' : 2,
             'metric': metric
         }

@@ -20,7 +20,7 @@ svd_file = 'file://tmp/MLDB-805.svd'
 res = mldb.perform('PUT', '/v1/procedures/train_svd', [], {
     'type': 'svd.train',
     'params': {
-        'trainingDataset': {'id': 'ds1'},
+        'trainingData': 'select * from ds1',
         'modelFileUrl': svd_file,
         'numSingularValues': 5,
         'numDenseBasisVectors': 10}})

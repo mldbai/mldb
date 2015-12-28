@@ -28,7 +28,10 @@ svd_config = {
     'type' : 'svd.train',
     'params' :
     {
-        "trainingDataset": {"id": "tweets_dataset"},
+        "trainingData": {"from" : {"id": "tweets_dataset"},
+                         "select": "*",
+                         "where": "rowHash() % 10 = 0"
+                     },
         "columnOutputDataset": {
             "type": "embedding",
             "id": "svd_tweets_col"
@@ -39,9 +42,7 @@ svd_config = {
             'address' : "svd_tweets_row.beh.gz"
         },
         "numSingularValues": 200,
-        "numDenseBasisVectors": 500,
-        "select": "*",
-        "where": "rowHash() % 10 = 0"
+        "numDenseBasisVectors": 500
     }
 }
 

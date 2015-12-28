@@ -179,7 +179,7 @@ $(eval $(call mldb_unit_test,MLDB-861-character-encoding.py))
 $(eval $(call mldb_unit_test,MLDB-865-javascript-unicode.js))
 $(eval $(call mldb_unit_test,MLDB-869-select-expression.py))
 $(eval $(call mldb_unit_test,MLDB-871-json-non-ascii-keys.js))
-$(eval $(call mldb_unit_test,MLDB-873_roll_proc_test.py))
+$(eval $(call mldb_unit_test,MLDB-873_stats_table_test.py))
 $(eval $(call mldb_unit_test,MLDB-878_experiment_proc.py))
 $(eval $(call mldb_unit_test,MLDB-894_runs_can_override_conf.py))
 $(eval $(call mldb_unit_test,MLDB-917_replace_nan_inf.py))
@@ -248,6 +248,9 @@ $(eval $(call mldb_unit_test,MLDB-1127-order-by-and-where-in-svd.py))
 $(eval $(call mldb_unit_test,MLDB-284-tsne-apply-function.py))
 $(eval $(call mldb_unit_test,MLDB-1119_pooling_function.py))
 $(eval $(call mldb_unit_test,MLDB-1172_column_expr_fail.py))
+$(eval $(call mldb_unit_test,MLDB-1104-input-data-spec.py))
+$(eval $(call mldb_unit_test,MLDB-1190_segfault_sqlexpr_jseval.py))
+$(eval $(call mldb_unit_test,MLDB-1212_csv_import_long_quoted_lines.py))
 
 $(eval $(call mldb_unit_test,emtest.js))
 
@@ -274,15 +277,15 @@ $(eval $(call python_test,mldb-417_svd,mldb_py_runner))
 
 $(eval $(call include_sub_make,mldb_py_runner))
 
-# Python interation tests; need to be here because they depend on the MLDB server
-#$(eval $(call set_compile_option,python_cell_converter_test.cc,-I$(PYTHON_INCLUDE_PATH)))
+$(eval $(call python_addon,py_conv_test_module,python_converters_test_support.cc,mldb_python_plugin python2.7 boost_python types arch mldb))
 
-#$(eval $(call test,python_cell_converter_test,python2.7 boost_python types,boost))
+$(eval $(call python_test,python_converters_test,py_conv_test_module))
 
 $(eval $(call python_addon,py_cell_conv_test_module,python_cell_converter_test_support.cc,python2.7 boost_python types mldb services))
 
 $(eval $(call python_test,python_cell_converter_test,py_cell_conv_test_module))
 
+$(eval $(call mldb_unit_test,MLDB-1011-excel-import.js))
 $(eval $(call mldb_unit_test,MLDB-1121-csv-import-duplicates.py))
 $(eval $(call mldb_unit_test,MLDB-1098-csv-export.py))
 $(eval $(call mldb_unit_test,MLDB-1098-csv-export-advanced.py))
@@ -290,3 +293,5 @@ $(eval $(call mldb_unit_test,MLDB-1098-csv-export-advanced.py))
 $(eval $(call mldb_unit_test,MLDB-1128-transform-utf8.js,,manual))
 $(eval $(call mldb_unit_test,MLDB-1140-csv_reading_compression_test.py,,manual))
 $(eval $(call mldb_unit_test,MLDB-980-unquoted-string-crash.js))
+$(eval $(call mldb_unit_test,MLDB-1195-query-where-test.py))
+$(eval $(call mldb_unit_test,MLDB-1192-js-procedure-function.js))

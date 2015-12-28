@@ -6,18 +6,12 @@ $(eval $(call python_program,validator_api.wsgi,validator_api.wsgi,))
 
 LIBMLDB_SOURCES:= \
 	mldb_server.cc \
-	plugin.cc \
 	plugin_collection.cc \
 	plugin_manifest.cc \
-	dataset.cc \
 	dataset_utils.cc \
 	dataset_collection.cc \
-	algorithm.cc \
-	algorithm_collection.cc \
-	procedure.cc \
 	procedure_collection.cc \
 	procedure_run_collection.cc \
-	function.cc \
 	function_collection.cc \
 	function_contexts.cc \
 	sql_expression_function_operations.cc \
@@ -30,10 +24,11 @@ LIBMLDB_SOURCES:= \
 	external_plugin.cc \
 	bound_queries.cc \
 	script_output.cc \
-	forwarded_dataset.cc
+	forwarded_dataset.cc \
+	serial_function.cc \
 
 LIBMLDB_LINK:= \
-	service_peer mldb_builtin_plugins sql_expression git2 hoedown credentials_daemon mldb_builtin command_expression cloud
+	service_peer mldb_builtin_plugins sql_expression git2 hoedown credentials_daemon mldb_builtin command_expression cloud mldb_core
 
 
 $(eval $(call library,mldb,$(LIBMLDB_SOURCES),$(LIBMLDB_LINK)))

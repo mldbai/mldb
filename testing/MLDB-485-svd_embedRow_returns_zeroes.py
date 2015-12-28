@@ -44,7 +44,7 @@ svd_config = {
     'type': 'svd.train',
     'params':
     {
-        "trainingDataset": {"id": "random_dataset"},
+        "trainingData": {"from" : {"id": "random_dataset"}},
         "columnOutputDataset": {
             "type": "embedding",
             "id": "svd_random_col"
@@ -55,7 +55,6 @@ svd_config = {
         },
         "numSingularValues": 1000,
         "numDenseBasisVectors": 20,
-        "select": "*",
         "modelFileUrl": "file://tmp/MLDB-485.svd.json.gz"
     }
 }

@@ -57,7 +57,7 @@ SqlQueryFunctionConfigDescription()
              "SQL select expression to run.  The values in the dataset, as "
              "well as the input values, will be available for the expression "
              "calculation",
-             SelectExpression("*"));
+             SelectExpression::STAR);
     addField("from", &SqlQueryFunctionConfig::from,
              "Dataset to select from.  The dataset is fixed at initialization "
              "time and cannot be changed in the query.");
@@ -95,8 +95,6 @@ SqlQueryFunction(MldbServer * owner,
     : Function(owner)
 {
     functionConfig = config.params.convert<SqlQueryFunctionConfig>();
-
-    SqlExpressionMldbContext context(owner);
 }
 
 Any
@@ -364,13 +362,14 @@ regSqlExpressionFunction(builtinPackage(),
 
 TransformDatasetConfig::
 TransformDatasetConfig()
-    : select(SelectExpression::parse("*")),
-      when(WhenExpression::parse("true")),
-      where(SqlExpression::parse("true")),
-      having(SqlExpression::parse("true")),
+    : select(SelectExpression::STAR),
+      when(WhenExpression::TRUE),
+      where(SqlExpression::TRUE),
+      having(SqlExpression::TRUE),
       offset(0),
       limit(-1),
-      rowName(SqlExpression::parse("rowName()"))
+      rowName(SqlExpression::parse("rowName()")),
+      skipEmptyRows(false)
 {
     outputDataset.withType("sparse.mutable");
 }
@@ -391,15 +390,15 @@ TransformDatasetConfigDescription()
     addField("select", &TransformDatasetConfig::select,
              "Values to select.  These columns will be written as the output "
              "of the dataset.",
-             SelectExpression::parse("*"));
+             SelectExpression::STAR);
     addField("when", &TransformDatasetConfig::when,
              "Boolean expression determining which tuples from the dataset "
              "to keep based on their timestamps",
-             WhenExpression::parse("true"));
+             WhenExpression::TRUE);
     addField("where", &TransformDatasetConfig::where,
              "Boolean expression determining which rows from the input "
              "dataset will be processed.",
-             SqlExpression::parse("true"));
+             SqlExpression::TRUE);
     addField("groupBy", &TransformDatasetConfig::groupBy,
              "Expression used to group values for aggregation queries.  "
              "Default is to run a row-by-row query, not an aggregation.");
@@ -407,7 +406,7 @@ TransformDatasetConfigDescription()
              "Boolean expression used to select which groups will write a "
              "value to the output for a grouped query.  Default is to "
              "write all groups",
-             SqlExpression::parse("true"));
+             SqlExpression::TRUE);
     addField("orderBy", &TransformDatasetConfig::orderBy,
              "Expression dictating how output rows will be ordered.  This is "
              "only meaningful when offset and/or limit is used, as it "
@@ -431,6 +430,9 @@ TransformDatasetConfigDescription()
              "expression that gives non-unique row names; this will lead to "
              "errors in some dataset implementations.",
              SqlExpression::parse("rowName()"));
+    addField("skipEmptyRows", &TransformDatasetConfig::skipEmptyRows,
+             "Skip rows from the input dataset where no values are selected",
+             false);
     addParent<ProcedureConfig>();
 }
 
@@ -460,6 +462,8 @@ run(const ProcedureRunConfig & run,
         output = createDataset(server, procedureConfig.outputDataset, nullptr, true /*overwrite*/);
     }
 
+    bool skipEmptyRows = procedureConfig.skipEmptyRows;
+
     // Run it
     if (procedureConfig.groupBy.clauses.empty()) {
 
@@ -484,13 +488,16 @@ run(const ProcedureRunConfig & run,
                     cols.push_back(c);
                 }
 
-                auto & rows = accum.get();
-                rows.reserve(10000);
-                rows.emplace_back(RowName(calc.at(0).toString()), std::move(cols));
+                if (!skipEmptyRows || cols.size() > 0)
+                {
+                    auto & rows = accum.get();
+                    rows.reserve(10000);
+                    rows.emplace_back(RowName(calc.at(0).toString()), std::move(cols));
 
-                if (rows.size() >= 10000) {
-                    output->recordRows(rows);
-                    rows.clear();
+                    if (rows.size() >= 10000) {
+                        output->recordRows(rows);
+                        rows.clear();
+                    }
                 }
 
                 return true;

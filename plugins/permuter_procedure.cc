@@ -181,7 +181,7 @@ run(const ProcedureRunConfig & run,
 
         // create run configuration
         ProcedureRunConfig procRunConf;
-        procRunConf.id = "run_"+(int)permutation_num;
+        procRunConf.id = "run_"+to_string(permutation_num);
         procRunConf.params = permutedConf;
         RunOutput output = procedure->run(procRunConf, onProgress);
 

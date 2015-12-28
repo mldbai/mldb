@@ -1,6 +1,5 @@
 # This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
-
 #####
 #   Test if all procedures,s functionName parameter works correctly
 #   Francois Maillet, 22 sept 2015
@@ -48,9 +47,7 @@ def doChecks(conf):
 conf = {
     "type": "classifier.train",
     "params": {
-        "trainingDataset": "toy",
-        "select": "* EXCLUDING(label)",
-        "label": "label",
+        "trainingData": "select {* EXCLUDING(label)} as features, label from toy",
         "modelFileUrl": "file://build/x86_64/tmp/bouya.cls",
         "algorithm": "glz",
         "mode": "boolean",
@@ -72,9 +69,8 @@ doChecks(conf)
 conf = {
     "type": "kmeans.train",
     "params": {
-        "trainingDataset": "toy",
+        "trainingData": "select * excluding(label) from toy",
         "centroidsDataset": {"id": "kmean_out", "type": "sparse.mutable" },
-        "select": "* EXCLUDING(label)",
         "functionName": "kmeans_func"
     }
 }
@@ -85,10 +81,8 @@ doChecks(conf)
 conf = {
     "type": "probabilizer.train",
     "params": {
-        "trainingDataset": "toy",
+        "trainingData": "select cls_func({{* EXCLUDING(label)} as features})[score] as score, label from toy",
         "modelFileUrl": "file://build/x86_64/tmp/bouya-proba.json",
-        "select": "cls_func({{* EXCLUDING(label)} as features})[score]",
-        "label": "label",
         "functionName": "probabilizer_func"
     }
 }
@@ -99,7 +93,7 @@ doChecks(conf)
 conf = {
     "type": "svd.train",
     "params": {
-        "trainingDataset": "toy",
+        "trainingData": "select * from toy",
         "modelFileUrl": "file://build/x86_64/tmp/bouya-svd.model",
         "functionName": "svd_func"
     }
@@ -112,7 +106,7 @@ doChecks(conf)
 conf = {
     "type": "tsne.train",
     "params": {
-        "trainingDataset": "toy",
+        "trainingData": "select * from toy",
         "modelFileUrl": "file://build/x86_64/tmp/bouya-tsne.model",
         "numOutputDimensions": 2,
         "functionName": "tsne_func"
