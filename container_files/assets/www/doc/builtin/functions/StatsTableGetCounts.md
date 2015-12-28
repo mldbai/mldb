@@ -1,12 +1,11 @@
 # Stats Table Get Counts Function
 
-Functions of this type do a lookup in a stats table trained with the ![](%%doclink experimental.statsTable.train procedure) and returns 
+Functions of this type do a lookup in a stats table trained with the ![](%%doclink statsTable.train procedure) and returns 
 the counts for each of the keys provided as input.
 
 ## Configuration
 
-![](%%config function experimental.statsTable.getCounts)
-
+![](%%config function statsTable.getCounts)
 
 ## Input and Output Values
 
@@ -23,6 +22,6 @@ for the key and one containing the number of labels for that key. For example, f
 
 
 ## See also
-* The ![](%%doclink experimental.statsTable.train procedure) trains stats tables.
+* The ![](%%doclink statsTable.train procedure) trains stats tables.
 * The ![](%%doclink experimental.statsTable.derivedColumnsGenerator procedure) can be used to generate derived columns from stats table counts.
 

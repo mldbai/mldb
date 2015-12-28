@@ -5,6 +5,7 @@
 
 #include "mldb/types/periodic_utils.h"
 #include <boost/test/unit_test.hpp>
+#include "mldb/arch/exception.h"
 
 using namespace std;
 using namespace ML;

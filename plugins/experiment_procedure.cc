@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** experiment_procedure.cc
     Francois Maillet, 8 septembre 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Experiment procedure
 */
@@ -20,6 +20,8 @@
 #include "jml/utils/string_functions.h"
 #include "arch/timers.h"
 #include "types/optional_description.h"
+#include "mldb/plugins/sql_config_validator.h"
+#include "mldb/plugins/sql_expression_extractors.h"
 
 using namespace std;
 
@@ -39,11 +41,11 @@ DatasetFoldConfigDescription()
     addField("training_where", &DatasetFoldConfig::training_where,
              "The WHERE clause for which rows to include from the training dataset. "
              "This can be any expression involving the columns in the dataset. ",
-             SqlExpression::parse("true"));
+             SqlExpression::TRUE);
     addField("testing_where", &DatasetFoldConfig::testing_where,
              "The WHERE clause for which rows to include from the testing dataset. "
              "This can be any expression involving the columns in the dataset. ",
-             SqlExpression::parse("true"));
+             SqlExpression::TRUE);
     addField("training_offset", &DatasetFoldConfig::training_offset,
              "How many rows to skip before using data.",
              ssize_t(0));
@@ -73,31 +75,61 @@ DEFINE_STRUCTURE_DESCRIPTION(ExperimentProcedureConfig);
 ExperimentProcedureConfigDescription::
 ExperimentProcedureConfigDescription()
 {
+    addField("trainingData", &ExperimentProcedureConfig::trainingData,
+             "Specification of the data for input to the classifier procedure. "
+             "The select expression must contain these two sub-expressions: one row expression "
+             "to identify the features on which to train and one scalar expression "
+             "to identify the label.  The type of the label expression must match "
+             "that of the classifier mode: a boolean (0 or 1) for `boolean` mode; "
+             "a real for regression mode, and any combination of numbers and strings "
+             "for `categorical` mode.  Labels with a null value will have their row skipped. "
+             "The select expression can contain an optional weigth expression.  The weight "
+             "allows the relative importance of examples to be set.  It must "
+             "be a real number.  If the expression is not specified each example will have "
+             "a weight of one.  Rows with a null weight will cause a training error. "
+             "The select statement does not support groupby and having clauses. "
+             "Also, unlike most select expressions, this one can only select whole columns, "
+             "not expressions involving columns. So X will work, but not X + 1. "
+             "If you need derived values in the select expression, create a dataset with "
+             "the derived columns as a previous step and run the classifier over that dataset instead.");
+    addField("testingData", &ExperimentProcedureConfig::testingData,
+             "Specification of the data for input to the accuracy procedure. "
+             "The select expression must contain these sub-expressions: one scalar expression "
+             "to identify the label and one scalar expression to identify the score. "
+             "The type of the label expression must match "
+             "that of the classifier mode from which the model was trained. "
+             "Labels with a null value will have their row skipped. "
+             "The expression to generate the score represents the output "
+             "of whatever is having its accuracy tested.  This needs to be "
+             "a number, and normally should be a floating point number that "
+             "represents the degree of confidence in the prediction, not "
+             "just the class. This is typically, the training function returned "  
+             "by a classifier.train procedure. "
+             "The select expression can also contain an optional weight sub-expression. "
+             "This expression generates the relative weight for each example.  In some "
+             "circumstances it is necessary to calculate accuracy statistics "
+             "with uneven weighting, for example to counteract the effect of "
+             "non-uniform sampling in dataset.  By default, each class will "
+             "get the same weight.  This value is relative to the other "
+             "examples, in other words having all examples weighted 1 or all "
+             "examples weighted 10 will have the same effect.  That being "
+             "said, it is a good idea to keep the weights centered around 1 "
+             "to avoid numeric errors in the calculations."
+             "The select statement does not support groupby and having clauses.");
     addField("experimentName", &ExperimentProcedureConfig::experimentName,
              "Name of the experiment that will be used to name the artifacts.");
-//     addField("doExplain", &ExperimentProcedureConfig::doExplain,
-//              "If true, the classifier.explain function will be run over all "
-//              "examples of the test set and the results for each feature will "
-//              "be aggregated in an output dataset.", false);
     addField("keepArtifacts", &ExperimentProcedureConfig::keepArtifacts,
              "If true, all procedures and intermediary datasets are kept.", false);
-    addFieldDesc("trainingDataset", &ExperimentProcedureConfig::training_dataset,
-                 "Dataset for classifier training",
-                 makeInputDatasetDescription());
-    typedef OptionalDescription<shared_ptr<TableExpression> > OptionalTableExpressionDescription;
-    addFieldDesc("testingDataset", &ExperimentProcedureConfig::testing_dataset,
-                 "Dataset for classifier testing. Default to the training_dataset.",
-                 make_shared<OptionalTableExpressionDescription>(makeInputDatasetDescription()));
     addField("datasetFolds", &ExperimentProcedureConfig::datasetFolds,
-            "Dataset folds to use. This parameter can be used if the dataset folds "
-            "required are more complex than a simple k-fold cross-validation. "
-            "It cannot be specified as the same time as the kfold parameter.");
+             "Dataset folds to use. This parameter can be used if the dataset folds "
+             "required are more complex than a simple k-fold cross-validation. "
+             "It cannot be specified as the same time as the kfold parameter.");
     addField("kfold", &ExperimentProcedureConfig::kfold,
-            "Do a k-fold cross-validation. This is a helper parameter that "
-            "generates a datasetFolds configuration splitting the dataset in k subsamples, "
-            "each fold testing on one subsample and training on the rest. 0 means it is not used and "
-            "1 is an invalid number. It cannot be specified at the "
-            "same time as the datasetFolds parameter.", ssize_t(0));
+             "Do a k-fold cross-validation. This is a helper parameter that "
+             "generates a datasetFolds configuration splitting the dataset in k subsamples, "
+             "each fold testing on one subsample and training on the rest. 0 means it is not used and "
+             "1 is an invalid number. It cannot be specified at the "
+             "same time as the datasetFolds parameter.", ssize_t(0));
     addField("modelFileUrlPattern", &ExperimentProcedureConfig::modelFileUrlPattern,
              "URL where the model file (with extension '.cls') should be saved. It "
              "should include the string $runid that will be replaced by an identifier "
@@ -115,47 +147,25 @@ ExperimentProcedureConfigDescription()
              "only objects, strings and numbers.  If the configuration object is "
              "non-empty, then that will be used preferentially.",
              string("/opt/bin/classifiers.json"));
-    addField("select", &ExperimentProcedureConfig::select,
-             "The SELECT clause for which columns to include from the dataset. "
-             "Unlike most select expressions, this one can only select whole "
-             "columns, not expressions involving columns.  So X will work, but "
-             "not X + 1.  If you need derived values in the select expression, "
-             "create a dataset with the derived columns as a previous step and "
-             "run the classifier over that dataset instead.",
-             SelectExpression("*"));
-    addField("label", &ExperimentProcedureConfig::label,
-             "The expression to generate the label.  This can be any expression "
-             "involving the columns in the dataset.  The type of the label "
-             "expression must match that of the classifier mode: a boolean (0 "
-             "or 1) for `boolean` mode; a real for regression mode, and any "
-             "combination of numbers and strings for `categorical` mode.  "
-             "Labels with a null value will have their row skipped.");
-    addField("training_weight", &ExperimentProcedureConfig::training_weight,
-             "The expression to generate the weight for each row.  The weight "
-             "allows the relative importance of examples to be set.  It must "
-             "be a real number.  Rows with a null weight will cause a training "
-             "error.",
-             SqlExpression::parse("1.0"));
-    addField("testing_weight", &ExperimentProcedureConfig::testing_weight,
-             "The expression to generate the weight for each row.  The weight "
-             "allows the relative importance of examples to be set.  It must "
-             "be a real number.  Rows with a null weight will cause a training "
-             "error.",
-             SqlExpression::parse("1.0"));
     addField("equalizationFactor", &ExperimentProcedureConfig::equalizationFactor,
-             "Amount to adjust weights so that all classes have an equal "
-             "total weight.  A value of 0 (default) will not equalize weights "
-             "at all.  A value of 1 will ensure that the total weight for "
-             "both positive and negative examples is exactly identical. "
-             "A number between will choose a balanced tradeoff.  Typically 0.5 "
-             "is a good number to use for unbalanced probabilities", 0.5);
-    addField("mode", &ExperimentProcedureConfig::mode,
-             "Mode of classifier.  Controls how the label is interpreted and "
-             "what is the output of the classifier.");
-    addField("outputAccuracyDataset", &ExperimentProcedureConfig::outputAccuracyDataset,
-             "If true, an output dataset for scored examples will created for each fold.",
-             true);
+              "Amount to adjust weights so that all classes have an equal "
+              "total weight.  A value of 0 (default) will not equalize weights "
+              "at all.  A value of 1 will ensure that the total weight for "
+              "both positive and negative examples is exactly identical. "
+              "A number between will choose a balanced tradeoff.  Typically 0.5 "
+              "is a good number to use for unbalanced probabilities", 0.5);
+     addField("mode", &ExperimentProcedureConfig::mode,
+              "Mode of classifier.  Controls how the label is interpreted and "
+              "what is the output of the classifier.");
+     addField("outputAccuracyDataset", &ExperimentProcedureConfig::outputAccuracyDataset,
+              "If true, an output dataset for scored examples will created for each fold.",
+              true);
     addParent<ProcedureConfig>();
+
+    onPostValidate = validate<ExperimentProcedureConfig, 
+                              InputQuery,
+                              NoGroupByHaving, 
+                              PlainColumnSelect>(&ExperimentProcedureConfig::trainingData, "classfier.experiment");
 
 }
 
@@ -275,8 +285,8 @@ run(const ProcedureRunConfig & run,
     Json::Value rtn_results(Json::ValueType::arrayValue);
     Json::Value rtn_details(Json::ValueType::arrayValue);
 
-    if(!runProcConf.training_dataset) {
-        throw ML::Exception("A training dataset must be specified.");
+    if(!runProcConf.trainingData.stm) {
+        throw ML::Exception("Training data must be specified.");
     }
 
     // validation
@@ -291,7 +301,7 @@ run(const ProcedureRunConfig & run,
     // default behaviour if nothing is defined
     if(runProcConf.datasetFolds.size() == 0 && runProcConf.kfold == 0) {
         // if we're not using a testing dataset
-        if(!runProcConf.testing_dataset) {
+        if(!runProcConf.testingData) {
             runProcConf.datasetFolds.push_back(
                 DatasetFoldConfig(
                     SqlExpression::parse("rowHash() % 2 != 1"),
@@ -300,15 +310,14 @@ run(const ProcedureRunConfig & run,
         // if we're using different train and test, use each one of them completely
         // for test and train
         else {
-            runProcConf.datasetFolds.push_back(
-                DatasetFoldConfig(SqlExpression::parse("true"),
-                                  SqlExpression::parse("true")));
+            runProcConf.datasetFolds.push_back(DatasetFoldConfig(SqlExpression::parse("true"), 
+                                                                 SqlExpression::parse("true")));
         }
     }
 
     // generate dataset_splits if using the kfold helper parameter
     if(runProcConf.kfold >= 2) {
-        if(runProcConf.testing_dataset) {
+        if(runProcConf.testingData) {
             throw ML::Exception("Should not use a k-fold cross-validation if testing "
                 "dataset is specified.");
         }
@@ -324,30 +333,26 @@ run(const ProcedureRunConfig & run,
 
     ExcAssertGreater(runProcConf.datasetFolds.size(), 0);
 
+
     for(auto & datasetFold : runProcConf.datasetFolds) {
         /***
          * TRAIN
          * **/
         ClassifierConfig clsProcConf;
-        clsProcConf.dataset = runProcConf.training_dataset;
-        clsProcConf.select = runProcConf.select;
-        clsProcConf.where = datasetFold.training_where;
-        clsProcConf.label = runProcConf.label;
-        clsProcConf.weight = runProcConf.training_weight;
-        clsProcConf.orderBy = datasetFold.orderBy;
-        clsProcConf.offset = datasetFold.training_offset;
-        clsProcConf.limit = datasetFold.training_limit;
+        clsProcConf.trainingData = runProcConf.trainingData;
+        clsProcConf.trainingData.stm->where = datasetFold.training_where;
 
         string baseUrl = runProcConf.modelFileUrlPattern.toString();
         ML::replace_all(baseUrl, "$runid",
-                                ML::format("%s-%d", runProcConf.experimentName, (int)progress));
+                        ML::format("%s-%d", runProcConf.experimentName, (int)progress));
         clsProcConf.modelFileUrl = Url(baseUrl);
-
         clsProcConf.configuration = runProcConf.configuration;
         clsProcConf.configurationFile = runProcConf.configurationFile;
         clsProcConf.algorithm = runProcConf.algorithm;
         clsProcConf.equalizationFactor = runProcConf.equalizationFactor;
         clsProcConf.mode = runProcConf.mode;
+      
+     
         clsProcConf.functionName = ML::format("%s_scorer_%d", runProcConf.experimentName, (int)progress);
 
         if(progress == 0) {
@@ -401,19 +406,19 @@ run(const ProcedureRunConfig & run,
             }
             accuracyConf.outputDataset.emplace(outputPC);
         }
+        
+        accuracyConf.testingData = runProcConf.testingData ? *runProcConf.testingData : runProcConf.trainingData;
+        accuracyConf.testingData.stm->where = datasetFold.testing_where;
 
-        accuracyConf.testingDataset = runProcConf.testing_dataset ? *runProcConf.testing_dataset : 
-                                                             runProcConf.training_dataset;
-        accuracyConf.where = datasetFold.testing_where;
-        accuracyConf.score = SqlExpression::parse(ML::format(
-                    "\"%s\"({{%s} as features})[score]",
-                    clsProcConf.functionName.utf8String(),
-                    runProcConf.select.surface.utf8String()));
-        accuracyConf.label = runProcConf.label;
-        accuracyConf.weight = runProcConf.testing_weight;
-        accuracyConf.orderBy = datasetFold.orderBy;
-        accuracyConf.offset = datasetFold.testing_offset;
-        accuracyConf.limit = datasetFold.testing_limit;
+        auto features = extractNamedSubSelect("features", accuracyConf.testingData.stm->select);
+        auto label = extractNamedSubSelect("label", accuracyConf.testingData.stm->select);
+        shared_ptr<SqlRowExpression> weight = extractNamedSubSelect("weight", accuracyConf.testingData.stm->select);
+        if (!weight)
+            weight = SqlRowExpression::parse("1.0 as weight");
+        auto score = SqlRowExpression::parse(ML::format("\"%s\"({%s})[score] as score",
+                                                        clsProcConf.functionName.utf8String(),
+                                                        features->surface.utf8String()));
+        accuracyConf.testingData.stm->select = SelectExpression({features, label, weight, score});
 
         ML::Timer timer;
 

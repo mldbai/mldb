@@ -13,6 +13,7 @@
 #include "mldb/arch/format.h"
 #include "mldb/soa/js/js_value.h"
 #include "mldb/ext/jsoncpp/json.h"
+#include "mldb/base/parse_context.h"
 #include <cmath>
 #include "mldb/arch/exception.h"
 #include "dtoa.h"
@@ -1548,13 +1549,25 @@ void Date::addFromString(string str){
 /* ISO8601PARSER                                                             */
 /*****************************************************************************/
 
+Iso8601Parser::
+Iso8601Parser(const std::string & dateStr)
+    : parser(new Parse_Context(dateStr, dateStr.c_str(),
+                               dateStr.c_str() + dateStr.size()))
+{
+}
+
+Iso8601Parser::
+~Iso8601Parser()
+{
+}
+
 Date
 Iso8601Parser::
 expectDateTime()
 {
     Date date;
     if (!matchDateTime(date))
-        exception("failed to parse date time");
+        parser->exception("failed to parse date time");
 
     return date;
 }
@@ -1580,7 +1593,7 @@ matchDateTime(Date & date)
     if (!matchDate(tempDate))
         return false;
 
-    if (!eof() && (match_literal('T') || match_literal(' '))) {
+    if (!parser->eof() && (parser->match_literal('T') || parser->match_literal(' '))) {
         Date tempTime;
         if (!matchTime(tempTime))
             return false;
@@ -1596,7 +1609,7 @@ expectDate()
 {
     Date date;
     if (!matchDate(date))
-        exception("failed to parse date");
+        parser->exception("failed to parse date");
 
     return date;
 }
@@ -1610,14 +1623,14 @@ matchDate(Date &date)
     if (!matchYear(year))
         return false;
 
-    match_literal('-');
-    if (match_literal('W')) {
+    parser->match_literal('-');
+    if (parser->match_literal('W')) {
         int week(0);
         if (!matchWeekNumber(week))
             return false;
-        match_literal('-');
+        parser->match_literal('-');
         int day;
-        if (eof()) {
+        if (parser->eof()) {
             day = 1;
         }
         else {
@@ -1631,9 +1644,9 @@ matchDate(Date &date)
         int day(1);
 
         {
-            ML::Parse_Context::Revert_Token token(*this);
+            ML::Parse_Context::Revert_Token token(*parser);
 
-            if (matchYearDay(day) && (eof() || !isdigit(*(*this)))) {
+            if (matchYearDay(day) && (parser->eof() || !isdigit(*(*parser)))) {
                 Date tempDate(year, 1, 1);
                 tempDate.addDays(day - 1);
                 token.ignore();
@@ -1643,11 +1656,11 @@ matchDate(Date &date)
         }
 
         int month(1);
-        if (!eof()) {
+        if (!parser->eof()) {
             if (!matchMonth(month))
                 return false;
-            match_literal('-');
-            if (!eof() && isdigit(*(*this))) {
+            parser->match_literal('-');
+            if (!parser->eof() && isdigit(*(*parser))) {
                 if (!matchMonthDay(day))
                     return false;
             }
@@ -1664,7 +1677,7 @@ expectTime()
 {
     Date date;
     if (!matchTime(date))
-        exception("failed to parse time");
+        parser->exception("failed to parse time");
 
     return date;
 }
@@ -1678,45 +1691,45 @@ matchTime(Date & date)
     if (!matchHours(hours))
         return false;
     tempDate.addHours(hours);
-    if (eof()) {
+    if (parser->eof()) {
         date = tempDate;
         return true;
     }
 
-    match_literal(':');
+    parser->match_literal(':');
 
     int minutes(0);
     if (!matchMinutes(minutes))
         return false;
     tempDate.addMinutes(minutes);
-    if (eof()) {
+    if (parser->eof()) {
         date = tempDate;
         return true;
     }
 
-    match_literal(':');
+    parser->match_literal(':');
     int seconds(0);
     if (!matchSeconds(seconds))
         return false;
     tempDate.addSeconds(seconds);
-    if (eof()) {
+    if (parser->eof()) {
         date = tempDate;
         return true;
     }
 
-    if (match_literal('.')) {
+    if (parser->match_literal('.')) {
         // To parse the fractional seconds properly, we need to convert
         // the non-fractional part to a double, add the fraction, and
         // parse the whole lot as a string.
 
         string toParse = to_string((int64_t)tempDate.secondsSinceEpoch());
         toParse += '.';
-        while (!eof() && isdigit(**this))
-            toParse += *(*this)++;
+        while (!parser->eof() && isdigit(**parser))
+            toParse += *(*parser)++;
         tempDate = Date::fromSecondsSinceEpoch(jsonDecodeStr<double>(toParse));
     }
 
-    if (eof()) {
+    if (parser->eof()) {
         date = tempDate;
         return true;
     }
@@ -1727,7 +1740,7 @@ matchTime(Date & date)
         date = tempDate;
         return true;
     }
-    else if (match_literal('Z')) {
+    else if (parser->match_literal('Z')) {
             date = tempDate;
             return true;
         }
@@ -1739,15 +1752,15 @@ bool
 Iso8601Parser::
 matchTimezone(int& tzminutes)
 {
-    ML::Parse_Context::Revert_Token token(*this);
-    if (match_literal('+')) {
+    ML::Parse_Context::Revert_Token token(*parser);
+    if (parser->match_literal('+')) {
         if (matchTimeZoneMinutes(tzminutes))
         {
             token.ignore();
             return true;
         }
     }
-    else if (match_literal('-')) {
+    else if (parser->match_literal('-')) {
         if (matchTimeZoneMinutes(tzminutes)) {
             token.ignore();
             tzminutes = -tzminutes;   
@@ -1764,7 +1777,7 @@ expectTimezone()
 {
     int tzminutes(0);
     if (!matchTimezone(tzminutes))
-        exception("failed to parse timezone");
+        parser->exception("failed to parse timezone");
 
     return tzminutes;
 }
@@ -1773,126 +1786,126 @@ int
 Iso8601Parser::
 expectYear()
 {
-    return expectFixedWidthInt(*this, 4, 4, 1400, 9999, "bad year");
+    return expectFixedWidthInt(*parser, 4, 4, 1400, 9999, "bad year");
 }
 
 bool
 Iso8601Parser::
 matchYear(int & result)
 {
-    return matchFixedWidthInt(*this, 4, 4, 1400, 9999, result);
+    return matchFixedWidthInt(*parser, 4, 4, 1400, 9999, result);
 }
 
 int
 Iso8601Parser::
 expectMonth()
 {
-    return expectFixedWidthInt(*this, 2, 2, 1, 12, "bad month");
+    return expectFixedWidthInt(*parser, 2, 2, 1, 12, "bad month");
 }
 
 bool
 Iso8601Parser::
 matchMonth(int & result)
 {
-    return matchFixedWidthInt(*this, 2, 2, 1, 12, result);
+    return matchFixedWidthInt(*parser, 2, 2, 1, 12, result);
 }
 
 int
 Iso8601Parser::
 expectWeekNumber()
 {
-    return expectFixedWidthInt(*this, 2, 2, 1, 53, "bad week number");
+    return expectFixedWidthInt(*parser, 2, 2, 1, 53, "bad week number");
 }
 
 bool
 Iso8601Parser::
 matchWeekNumber(int & result)
 {
-    return matchFixedWidthInt(*this, 2, 2, 1, 53, result);
+    return matchFixedWidthInt(*parser, 2, 2, 1, 53, result);
 }
 
 int
 Iso8601Parser::
 expectWeekDay()
 {
-    return expectFixedWidthInt(*this, 1, 1, 1, 7, "bad week day");
+    return expectFixedWidthInt(*parser, 1, 1, 1, 7, "bad week day");
 }
 
 bool
 Iso8601Parser::
 matchWeekDay(int & result)
 {
-    return matchFixedWidthInt(*this, 1, 1, 1, 7, result);
+    return matchFixedWidthInt(*parser, 1, 1, 1, 7, result);
 }
 
 int
 Iso8601Parser::
 expectMonthDay()
 {
-    return expectFixedWidthInt(*this, 2, 2, 1, 31, "bad month day");
+    return expectFixedWidthInt(*parser, 2, 2, 1, 31, "bad month day");
 }
 
 bool
 Iso8601Parser::
 matchMonthDay(int & result)
 {
-    return matchFixedWidthInt(*this, 2, 2, 1, 31, result);
+    return matchFixedWidthInt(*parser, 2, 2, 1, 31, result);
 }
 
 int
 Iso8601Parser::
 expectYearDay()
 {
-    return expectFixedWidthInt(*this, 3, 3, 1, 366, "bad year day");
+    return expectFixedWidthInt(*parser, 3, 3, 1, 366, "bad year day");
 }
 
 bool
 Iso8601Parser::
 matchYearDay(int & result)
 {
-    return matchFixedWidthInt(*this, 3, 3, 1, 366, result);
+    return matchFixedWidthInt(*parser, 3, 3, 1, 366, result);
 }
 
 int
 Iso8601Parser::
 expectHours()
 {
-    return expectFixedWidthInt(*this, 2, 2, 0, 23, "wrong hour value");
+    return expectFixedWidthInt(*parser, 2, 2, 0, 23, "wrong hour value");
 }
 
 bool
 Iso8601Parser::
 matchHours(int & result)
 {
-    return matchFixedWidthInt(*this, 2, 2, 0, 23, result);
+    return matchFixedWidthInt(*parser, 2, 2, 0, 23, result);
 }
 
 int
 Iso8601Parser::
 expectMinutes()
 {
-    return expectFixedWidthInt(*this, 2, 2, 0, 59, "bad minute value");
+    return expectFixedWidthInt(*parser, 2, 2, 0, 59, "bad minute value");
 }
 
 bool
 Iso8601Parser::
 matchMinutes(int & result)
 {
-    return matchFixedWidthInt(*this, 2, 2, 0, 59, result);
+    return matchFixedWidthInt(*parser, 2, 2, 0, 59, result);
 }
 
 int
 Iso8601Parser::
 expectSeconds()
 {
-    return expectFixedWidthInt(*this, 2, 2, 0, 60, "bad second value");
+    return expectFixedWidthInt(*parser, 2, 2, 0, 60, "bad second value");
 }
 
 bool
 Iso8601Parser::
 matchSeconds(int & result)
 {
-    return matchFixedWidthInt(*this, 2, 2, 0, 60, result);
+    return matchFixedWidthInt(*parser, 2, 2, 0, 60, result);
 }
 
 int
@@ -1902,7 +1915,7 @@ expectTimeZoneMinutes()
     int minutes(0);
 
     int hours = expectHours();
-    match_literal(':');
+    parser->match_literal(':');
     matchMinutes(minutes);
     minutes += hours * 60;
 
@@ -1918,7 +1931,7 @@ matchTimeZoneMinutes(int & result)
     int hours(0);
     if (!matchHours(hours))
         return false;
-    bool mustHaveMinutes = match_literal(':');
+    bool mustHaveMinutes = parser->match_literal(':');
     bool hasMinutes = matchMinutes(minutes);
 
     minutes += hours * 60;

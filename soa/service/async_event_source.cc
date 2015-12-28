@@ -10,6 +10,7 @@
 #include "mldb/arch/futex.h"
 #include <iostream>
 #include "message_loop.h"
+#include <cstring>
 
 
 using namespace std;

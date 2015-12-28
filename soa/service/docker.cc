@@ -207,17 +207,17 @@ struct DockerLayersUrlFsHandler: UrlFsHandler {
             auto resp4 = proxy.get("/v1/images/" + image + "/json");
             auto md = resp4.jsonBody();
 
-            FsObjectInfo info;
-            info.exists = true;
-            info.userMetadata = jsonDecode(md, (map<string, Json::Value> *)0);
-            info.size = md["Size"].asUInt();
-            info.lastModified = jsonDecode<Date>(md["created"]);
+            auto info = std::make_shared<FsObjectInfo>();
+            info->exists = true;
+            info->userMetadata = jsonDecode(md, (map<string, Json::Value> *)0);
+            info->size = md["Size"].asUInt();
+            info->lastModified = jsonDecode<Date>(md["created"]);
 
             string uri = prefix.toString() + "/layer" + ML::format("%03d", layerNum);
             string setCookie = resp4.getHeader("set-cookie");
             string directUri = "https://" + c.registry + "/v1/images/" + image + "/layer";
-            info.objectMetadata["directUri"] = directUri;
-            info.objectMetadata["cookie"] = setCookie;
+            info->objectMetadata["directUri"] = directUri;
+            info->objectMetadata["cookie"] = setCookie;
 
             auto open = [&] (const std::map<std::string, std::string> & options)
                 {
@@ -237,11 +237,11 @@ struct DockerLayersUrlFsHandler: UrlFsHandler {
                     options2["http-set-cookie"] = setCookie;
                     
                     auto stream = std::make_shared<ML::filter_istream>(directUri, options2);
-                    return ML::UriHandler(stream->rdbuf(), stream);
+                    return ML::UriHandler(stream->rdbuf(), stream, info);
                 };
 
 
-            if (!onObject(uri, info, open, 1 /* depth */))
+            if (!onObject(uri, *info, open, 1 /* depth */))
                 return false;
             
         }

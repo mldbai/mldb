@@ -26,9 +26,7 @@ namespace Datacratic {
 
 void
 HttpRestConnection::
-sendResponse(int responseCode,
-             const std::string & response,
-             const std::string & contentType)
+sendResponse(int responseCode, std::string response, std::string contentType)
 {
     if (responseSent_)
         throw ML::Exception("response already sent");
@@ -37,7 +35,8 @@ sendResponse(int responseCode,
         endpoint->logResponse(*this, responseCode, response,
                               contentType);
     
-    http->sendResponse(responseCode, response, contentType);
+    http->sendResponse(responseCode,
+                       std::move(response), std::move(contentType));
     
     responseSent_ = true;
 }
@@ -45,8 +44,8 @@ sendResponse(int responseCode,
 void
 HttpRestConnection::
 sendResponse(int responseCode,
-                  const Json::Value & response,
-                  const std::string & contentType)
+             const Json::Value & response,
+             std::string contentType)
 {
     using namespace std;
     //cerr << "sent response " << responseCode << " " << response
@@ -59,15 +58,14 @@ sendResponse(int responseCode,
         endpoint->logResponse(*this, responseCode, response.toString(),
                                    contentType);
 
-    http->sendResponse(responseCode, response, contentType);
+    http->sendResponse(responseCode, response, std::move(contentType));
     
     responseSent_ = true;
 }
 
 void
 HttpRestConnection::
-sendErrorResponse(int responseCode,
-                  const std::string & error, const std::string & contentType)
+sendErrorResponse(int responseCode, string error, string contentType)
 {
     using namespace std;
     cerr << "sent error response " << responseCode << " " << error
@@ -79,9 +77,9 @@ sendErrorResponse(int responseCode,
 
     if (endpoint->logResponse)
         endpoint->logResponse(*this, responseCode, error,
-                                   contentType);
+                              contentType);
             
-    http->sendResponse(responseCode, error);
+    http->sendResponse(responseCode, std::move(error));
 
     responseSent_ = true;
 }
@@ -108,7 +106,7 @@ sendErrorResponse(int responseCode, const Json::Value & error)
 
 void
 HttpRestConnection::
-sendRedirect(int responseCode, const std::string & location)
+sendRedirect(int responseCode, std::string location)
 {
     if (responseSent_)
         throw ML::Exception("response already sent");
@@ -118,7 +116,7 @@ sendRedirect(int responseCode, const std::string & location)
                                    "REDIRECT");
     
     http->sendResponse(responseCode, string(""), "",
-                       { { "Location", location } });
+                       { { "Location", std::move(location) } });
 
     responseSent_ = true;
 }
@@ -126,28 +124,26 @@ sendRedirect(int responseCode, const std::string & location)
 void
 HttpRestConnection::
 sendHttpResponse(int responseCode,
-                 const std::string & response,
-                 const std::string & contentType,
-                 const RestParams & headers)
+                 std::string response, std::string contentType,
+                 RestParams headers)
 {
     if (responseSent_)
         throw ML::Exception("response already sent");
 
     if (endpoint->logResponse)
         endpoint->logResponse(*this, responseCode, response,
-                                   contentType);
+                              contentType);
 
-    http->sendResponse(responseCode, response, contentType,
-                       headers);
+    http->sendResponse(responseCode, std::move(response), std::move(contentType),
+                       std::move(headers));
     responseSent_ = true;
 }
 
 void
 HttpRestConnection::
 sendHttpResponseHeader(int responseCode,
-                       const std::string & contentType,
-                       ssize_t contentLength,
-                       const RestParams & headers_)
+                       std::string contentType, ssize_t contentLength,
+                       RestParams headers_)
 {
     if (responseSent_)
         throw ML::Exception("response already sent");
@@ -170,7 +166,8 @@ sendHttpResponseHeader(int responseCode,
         keepAlive = false;
     }
 
-    http->sendResponseHeader(responseCode, contentType, headers);
+    http->sendResponseHeader(responseCode,
+                             std::move(contentType), std::move(headers));
 }
 
 bool
@@ -183,15 +180,15 @@ isConnected()
 
 void
 HttpRestConnection::
-sendPayload(const std::string & payload)
+sendPayload(std::string payload)
 {
     if (chunkedEncoding) {
         if (payload.empty()) {
             throw ML::Exception("Can't send empty chunk over a chunked connection");
         }
-        http->sendHttpChunk(payload, HttpLegacySocketHandler::NEXT_CONTINUE);
+        http->sendHttpChunk(std::move(payload), HttpLegacySocketHandler::NEXT_CONTINUE);
     }
-    else http->sendHttpPayload(payload);
+    else http->send(std::move(payload));
 }
 
 void

@@ -2,11 +2,21 @@
 
 An SQL Value Expression is the basic building block of an SQL query: it is an expression that evaluates to a single value. A value expression is either a constant, a column reference, or the result of applying operators and/or functions to constants and/or column references.
 
-## Constants
+## Table of Contents
+
+* [Constants](#constants)
+* [Column references](#Columnreferences)
+* [Operators](#constants)
+* [Calling Functions](#CallingFunctions)
+* [List of Built-in Functions](#builtinfunctions)
+* [List of Built-in Aggregate Functions](#aggregatefunctions)
+
+
+## <a name="constants"></a>Constants
 
 A Value expression can include [literal representations of constants](TypeSystem.md) such as numbers and strings etc.
 
-<h2 id="Columnreferences">Column references</h2>
+## <a name="Columnreferences"></a>Column references
 
 To refer to a column, you use its name, in accordance with the [quoting rules](Sql.md).  So to read the value of the column `x` and add one, use `x + 1`.
 
@@ -41,7 +51,7 @@ red.z       will refer to dataset red (y.z) column z
 </pre>
 
 
-## Operators
+## <a name="operators"></a>Operators
 
 The following standard SQL operators are supported by MLDB.  An
 operator with lower precedence binds tighter than one with a
@@ -88,7 +98,7 @@ always are left associative, that is the expression
 
 -->
 
-## Operators on time values
+### Operators on time values
 
 Timestamps and time intervals have specific rules when using binary operators. Here are the supported operators and 
 the types that will result from each operation:
@@ -113,13 +123,13 @@ the types that will result from each operation:
 Note that the operators + and * are commutative in all cases.
 
 
-## `BETWEEN` expressions
+### `BETWEEN` expressions
 
 SQL `BETWEEN` expressions are a shorthand way of testing for an
 open interval.  The expression `x BETWEEN y AND z` is the same as `x >= y AND x <= z` except that the `x` expression will only be evaluated once.
 
 
-## `CASE` expressions
+### `CASE` expressions
 
 SQL `CASE` expressions are used to return different expressions
 depending upon the value or truth of an expression.  There are two flavors:
@@ -159,7 +169,7 @@ for example,
 In both cases, there are an arbitrary number of `WHEN`s and the `ELSE` clauses are
 optional.
 
-## `CAST` expressions
+### `CAST` expressions
 
 SQL `CAST` expressions allow the type of an expression to be coerced
 into another type.  The main use is to convert between strings and
@@ -212,7 +222,7 @@ into an enumeration of values on the right hand side. For example: `expr IN (3,5
 The right hand side can also be the result of a sub `SELECT` statement. For example `expr IN (SELECT x FROM dataset)` will test if the value expressed by `expr` is equal to any of the values in the x column
 of the dataset. If the `SELECT` statement returns more than a single column, they will all be tested.
 
-<h2 id="CallingFunctions">Calling Functions</h2>
+## <a name="CallingFunctions"></a>Calling Functions</h2>
 
 Built-in functions (see below for a list) can accept multiple arguments of any type and return a single value of any type and can be applied by name with parameters in parentheses, for example:
 
@@ -260,7 +270,7 @@ example( {x: 10, y: [1, 2, 3]} )[ {sum_scaled_y, input_length} ]
 Note that this syntax is not part of SQL, it is an MLDB extension.
 
 
-## List of Built-in Functions
+## <a name="builtinfunctions"></a>List of Built-in Functions
 
 ### Dataset-provided functions
 
@@ -401,7 +411,7 @@ number of occurrences of those tokens within `str`. For example `tokenize('a b b
 - `token_extract(str, n, {splitchars: ',', quotechar: '"', offset: 0, limit: null, min_token_length: 1})` will return the `n`th token from `str` using the same tokenizing rules as `tokenize()` above. Only the tokens respecting the `min_token_length` will be considered
 
 
-## Aggregate Functions
+## <a name="aggregatefunctions"></a>Aggregate Functions
 
 - `avg` calculates the average of all values in the group.  It works in
   double precision floating point only.

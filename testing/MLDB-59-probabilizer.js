@@ -101,7 +101,11 @@ if (trainClassifier) {
         id: "reddit_cls_train",
         type: "classifier.train",
         params: {
-            trainingDataset: { id: "reddit_embeddings" },
+            trainingData: { 
+                select: '{svd*} as features, adventuretime IS NOT NULL as label',
+                where: "rowHash() % 4 = 1",
+                from : "reddit_embeddings"
+            },
             configuration: {
                 bbdt: {
                     type: "bagging",
@@ -130,9 +134,6 @@ if (trainClassifier) {
             },
             algorithm: "glz",
             modelFileUrl: "file://tmp/reddit.cls",
-            select: "svd* EXCLUDING (adventuretime)",
-            where: "rowHash() % 4 = 1",
-            label: "adventuretime IS NOT NULL",
             equalizationFactor: 1.0
         }
     };
@@ -159,11 +160,12 @@ if (trainProbabilizer) {
         id: "reddit_prob_train",
         type: "probabilizer.train",
         params: {
-            trainingDataset: { id: "reddit_embeddings" },
+            trainingData: { 
+                select: "classifier({{ * EXCLUDING (adventuretime)} AS features})[score] as score, adventuretime IS NOT NULL as label",
+                where: "rowHash() % 4 = 2",
+                from: { id: "reddit_embeddings" },
+            },
             modelFileUrl: "file://tmp/reddit_probabilizer.json",
-            select: "classifier({{ * EXCLUDING (adventuretime)} AS features})[score]",
-            where: "rowHash() % 4 = 2",
-            label: "adventuretime IS NOT NULL",
         }
     };
 
@@ -199,11 +201,10 @@ if (testClassifier) {
         id: "accuracy",
         type: "classifier.test",
         params: {
-            testingDataset: { id: "reddit_embeddings" },
-            outputDataset: { id: "cls_test_results", type: "sparse.mutable" },
-             score: "probabilizer({{ * EXCLUDING (adventuretime) } AS features})[score]",
-            where: "rowHash() % 4 = 3",
-            label: "adventuretime IS NOT NULL"
+            testingData: "select adventuretime IS NOT NULL as label, \
+                          probabilizer({{ * EXCLUDING (adventuretime) } AS features})[score] as score \
+                          from reddit_embeddings where rowHash() % 4 = 3",
+            outputDataset: { id: "cls_test_results", type: "sparse.mutable" }
         }
     };
 

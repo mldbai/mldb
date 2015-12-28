@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* js_utils.h                                                      -*- C++ -*-
    Jeremy Barnes, 21 July 2010
    Copyright (c) 2010 Datacratic.  All rights reserved.
+
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Utility functions for js.
 */
@@ -235,6 +235,46 @@ from_js(const JSValue & val, const std::map<std::string, T> * = 0)
         v8::Local<v8::Value> val = objPtr->Get(key);
         T val2 = from_js(JSValue(val), (T *)0);
         result[cstr(key)] = val2;
+    }
+
+    return result;
+}
+
+template<typename T, typename Str>
+void to_js(JSValue & val, const std::map<Utf8String, T> & s)
+{
+    v8::HandleScope scope;
+    v8::Local<v8::Object> obj= v8::Object::New();
+    for(auto i = s.begin(); i != s.end(); ++i)
+    {
+        obj->Set(v8::String::NewSymbol(i->first.rawData(), i->first.rawLength()),
+                 toJS(i->second));
+    }
+    val = scope.Close(obj);
+}
+
+template<typename T>
+std::map<Utf8String, T>
+from_js(const JSValue & val, const std::map<Utf8String, T> * = 0)
+{
+    if(!val->IsObject()) {
+        throw ML::Exception("invalid JSValue for map extraction");
+    }
+    
+    std::map<Utf8String, T> result;
+
+    v8::HandleScope scope;
+
+    auto objPtr = v8::Object::Cast(*val);
+
+    v8::Local<v8::Array> properties = objPtr->GetOwnPropertyNames();
+
+    for(int i=0; i<properties->Length(); ++i)
+    {
+        v8::Local<v8::Value> key = properties->Get(i);
+        v8::Local<v8::Value> val = objPtr->Get(key);
+        T val2 = from_js(JSValue(val), (T *)0);
+        result[utf8str(key)] = val2;
     }
 
     return result;
@@ -1131,6 +1171,15 @@ inline std::vector<T>
 from_js_ref(const JSValue & val, std::vector<T> *)
 {
     return from_js(val, (std::vector<T> *)0);
+}
+
+// And maps
+
+template<typename K, typename V, class C, class A>
+inline std::map<K, V, C, A>
+from_js_ref(const JSValue & val, std::map<K, V, C, A> *)
+{
+    return from_js(val, (std::map<K, V, C, A> *)0);
 }
 
 // Anything else we require that we can extract a pointer to a real object

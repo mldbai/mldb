@@ -61,10 +61,7 @@ DECLARE_STRUCTURE_DESCRIPTION(DatasetFoldConfig);
 
 struct ExperimentProcedureConfig : public ProcedureConfig {
     ExperimentProcedureConfig()
-        : //doExplain(false), 
-          keepArtifacts(false),
-          training_weight(SqlExpression::parse("1.0")),
-          testing_weight(SqlExpression::parse("1.0")),
+        : keepArtifacts(false),
           kfold(0),
           equalizationFactor(0.5),
           mode(CM_BOOLEAN),
@@ -74,22 +71,11 @@ struct ExperimentProcedureConfig : public ProcedureConfig {
 
     std::string experimentName;
 
-//     bool doExplain;
     bool keepArtifacts;
 
-    /// Dataset for training data
-    std::shared_ptr<TableExpression> training_dataset;
-    Optional<std::shared_ptr<TableExpression> > testing_dataset;
-
-    /// The SELECT clause to tell us which features to keep
-    SelectExpression select;
-
-    /// The expression to generate the label
-    std::shared_ptr<SqlExpression> label;
-
-    /// The expression to generate the weight
-    std::shared_ptr<SqlExpression> training_weight;
-    std::shared_ptr<SqlExpression> testing_weight;
+    /// SQL query to select the training data
+    InputQuery trainingData;
+    Optional<InputQuery> testingData;
 
     ssize_t kfold;
     std::vector<DatasetFoldConfig> datasetFolds;

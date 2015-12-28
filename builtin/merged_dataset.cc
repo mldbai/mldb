@@ -363,37 +363,37 @@ struct MergedDataset::Itl
     getColumnValues(const ColumnName & columnName,
                     const std::function<bool (const CellValue &)> & filter) const
     {
+        std::vector<std::tuple<RowName, CellValue> > result;
         uint32_t bitmap = getColumnBitmap(columnName);
-        if (!bitmap)
-            throw ML::Exception("Column not known");
-
-        int bit = ML::lowest_bit(bitmap, -1);
-        std::vector<std::tuple<RowName, CellValue> > result
-            = std::move(datasets[bit]->getColumnIndex()->getColumnValues(columnName));
-
-        bitmap = bitmap & ~(1 << bit);
-        bool sorted = std::is_sorted(result.begin(), result.end());  // true
-
-        while (bitmap) {
+        if (bitmap)
+        {
             int bit = ML::lowest_bit(bitmap, -1);
-            auto column = datasets[bit]->getColumnIndex()->getColumnValues(columnName, filter);
-            if (column.empty())
-                continue;
+            result = std::move(datasets[bit]->getColumnIndex()->getColumnValues(columnName));
 
-            if (!result.empty())
-                sorted = false;
-
-            result.insert(result.end(),
-                          std::make_move_iterator(column.begin()),
-                          std::make_move_iterator(column.end()));
-            
             bitmap = bitmap & ~(1 << bit);
-        }
+            bool sorted = std::is_sorted(result.begin(), result.end());  // true
 
-        if (!sorted) {
-            std::sort(result.begin(), result.end());
-            result.erase(std::unique(result.begin(), result.end()),
-                         result.end());
+            while (bitmap) {
+                int bit = ML::lowest_bit(bitmap, -1);
+                auto column = datasets[bit]->getColumnIndex()->getColumnValues(columnName, filter);
+                if (column.empty())
+                    continue;
+
+                if (!result.empty())
+                    sorted = false;
+
+                result.insert(result.end(),
+                              std::make_move_iterator(column.begin()),
+                              std::make_move_iterator(column.end()));
+
+                bitmap = bitmap & ~(1 << bit);
+            }
+
+            if (!sorted) {
+                std::sort(result.begin(), result.end());
+                result.erase(std::unique(result.begin(), result.end()),
+                             result.end());
+            }
         }
 
         return result;

@@ -1,9 +1,9 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** csv_dataset.cc
     Jeremy Barnes, 11 June 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
 
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    
     Dataset that reads a tabular CSV file into an indexed dataset.
 */
 
@@ -29,6 +29,7 @@
 #include "mldb/server/dataset_context.h"
 #include "mldb/server/per_thread_accumulator.h"
 #include "mldb/server/parallel_merge_sort.h"
+#include "mldb/base/parse_context.h"
 #include <mutex>
 
 using namespace std;
@@ -408,12 +409,31 @@ parseFixedWidthCsvRow(const char * & line,
         }
         else if (c == quote) {
             // quoted string
-            static constexpr size_t STRLEN = 4096;
-            char s[STRLEN];  // holds the extracted string
+            static constexpr size_t FIXED_BUF_LEN = 4096;
+            char sbuf[FIXED_BUF_LEN];  // holds the extracted string
+            char * s = sbuf;
+            size_t buflen = FIXED_BUF_LEN;
+            std::unique_ptr<char[]> sdynamic;
             int len = 0;   // and its length
 
             bool eightBit = false;
             bool ok = false;
+
+            auto pushChar = [&] (char c)
+                {
+                    if (len == buflen) {
+                        std::unique_ptr<char[]> newBuf(new char[buflen * 2]);
+                        std::copy(s, s + len, newBuf.get());
+                        sdynamic.swap(newBuf);
+                        s = sdynamic.get();
+                        buflen *= 2;
+                    }
+
+                    
+                    ExcAssertLess(len, buflen);
+                    eightBit = eightBit || !isascii(c);
+                    s[len++] = c;
+                };
 
             for (; line < lineEnd;  ++line) {
                 c = *line;
@@ -431,8 +451,7 @@ parseFixedWidthCsvRow(const char * & line,
                     }
                     else if (*line == quote) {
                         // doubled quote; take a literal value
-                        ExcAssertLess(len, STRLEN);
-                        s[len++] = quote;
+                        pushChar(quote);
                     }
                     else {
                         // Error
@@ -440,16 +459,8 @@ parseFixedWidthCsvRow(const char * & line,
                         break;
                     }
                 }
-                else if (isascii(c)) {
-                    // Normal character set
-                    ExcAssertLess(len, STRLEN);
-                    s[len++] = c;
-                }
                 else {
-                    // Non-ascii character
-                    ExcAssertLess(len, STRLEN);
-                    eightBit = true;
-                    s[len++] = c;
+                    pushChar(c);
                 }
             }
 

@@ -32,32 +32,28 @@ InProcessRestConnection::
 
 /** Send the given response back on the connection. */
 void InProcessRestConnection::
-sendResponse(int responseCode,
-            const std::string & response,
-            const std::string & contentType)
+sendResponse(int responseCode, std::string response, std::string contentType)
 {
     this->responseCode = responseCode;
-    this->response = response;
-    this->contentType = contentType;
+    this->response = std::move(response);
+    this->contentType = std::move(contentType);
 }
 
 /** Send the given response back on the connection. */
 void InProcessRestConnection::
 sendResponse(int responseCode,
-             const Json::Value & response,
-             const std::string & contentType)
+             const Json::Value & response, std::string contentType)
 {
     this->responseCode = responseCode;
     this->response = response.toStringNoNewLine();
-    this->contentType = contentType;
+    this->contentType = std::move(contentType);
 }
 
 void InProcessRestConnection::
-sendRedirect(int responseCode,
-            const std::string & location)
+sendRedirect(int responseCode, std::string location)
 {
     this->responseCode = responseCode;
-    this->headers.emplace_back("location", location);
+    this->headers.emplace_back("location", std::move(location));
 }
 
 /** Send an HTTP-only response with the given headers.  If it's not
@@ -65,31 +61,30 @@ sendRedirect(int responseCode,
 */
 void InProcessRestConnection::
 sendHttpResponse(int responseCode,
-                 const std::string & response,
-                 const std::string & contentType,
-                 const RestParams & headers)
+                 std::string response, std::string contentType,
+                 RestParams headers)
 {
     this->responseCode = responseCode;
-    this->response = response;
-    this->contentType = contentType;
-    this->headers = headers;
+    this->response = std::move(response);
+    this->contentType = std::move(contentType);
+    this->headers = std::move(headers);
 }
 
 void InProcessRestConnection::
 sendHttpResponseHeader(int responseCode,
-                       const std::string & contentType,
+                       std::string contentType,
                        ssize_t contentLength,
-                       const RestParams & headers)
+                       RestParams headers)
 {
     this->responseCode = responseCode;
-    this->contentType = contentType;
-    this->headers = headers;
+    this->contentType = std::move(contentType);
+    this->headers = std::move(headers);
 }
 
 void InProcessRestConnection::
-sendPayload(const std::string & payload)
+sendPayload(std::string payload)
 {
-    this->response += payload;
+    this->response += std::move(payload);
 }
 
 void InProcessRestConnection::
@@ -100,12 +95,11 @@ finishResponse()
 /** Send the given error string back on the connection. */
 void InProcessRestConnection::
 sendErrorResponse(int responseCode,
-                  const std::string & error,
-                  const std::string & contentType)
+                  std::string error, std::string contentType)
 {
     this->responseCode = responseCode;
-    this->response = error;
-    this->contentType = contentType;
+    this->response = std::move(error);
+    this->contentType = std::move(contentType);
 }
 
 void InProcessRestConnection::

@@ -105,7 +105,7 @@ Url makeUrl(const string & urlStr)
     }
     /* relative filenames */
     else {
-        char cCurDir[PATH_MAX + 1];
+        char cCurDir[65536]; // http://insanecoding.blogspot.ca/2007/11/pathmax-simply-isnt.html
         string filename(getcwd(cCurDir, sizeof(cCurDir)));
         filename += "/" + urlStr;
 
@@ -346,8 +346,9 @@ struct LocalUrlFsHandler : public UrlFsHandler {
                         if (!options.empty())
                             throw ML::Exception("Options not accepted by S3");
 
-                        std::shared_ptr<std::istream> result(new ML::filter_istream(filename));
-                        return ML::UriHandler(result->rdbuf(), std::move(result));
+                        std::shared_ptr<std::istream> result(new ML::filter_istream(filename, options));
+                        return ML::UriHandler(result->rdbuf(), std::move(result),
+                                              getInfo(Url(filename)));
                     };
                     
                     result = onObject(filename,
