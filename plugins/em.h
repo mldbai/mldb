@@ -7,12 +7,7 @@
 #include "mldb/ml/value_descriptions.h"
 #include "metric_space.h"
 
- #include <boost/numeric/ublas/vector.hpp>
- #include <boost/numeric/ublas/vector_proxy.hpp>
- #include <boost/numeric/ublas/matrix.hpp>
- #include <boost/numeric/ublas/triangular.hpp>
- #include <boost/numeric/ublas/lu.hpp>
- #include <boost/numeric/ublas/io.hpp>
+#include "mldb/plugins/Eigen/Dense"
 
 namespace Datacratic {
 namespace MLDB {
@@ -99,7 +94,7 @@ struct EMFunction: public Function {
      struct Cluster {
         CellValue clusterName;
         ML::distribution<float> centroid;
-        boost::numeric::ublas::matrix<double> covarianceMatrix;
+        Eigen::MatrixXd covarianceMatrix;
     };
 
     std::vector<Cluster> clusters;

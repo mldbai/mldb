@@ -25,14 +25,6 @@
 #include "jml/utils/smart_ptr_utils.h"
 #include <boost/random/uniform_int.hpp>
 
-
- #include <boost/numeric/ublas/vector.hpp>
- #include <boost/numeric/ublas/vector_proxy.hpp>
- #include <boost/numeric/ublas/matrix.hpp>
- #include <boost/numeric/ublas/triangular.hpp>
- #include <boost/numeric/ublas/lu.hpp>
- #include <boost/numeric/ublas/io.hpp>
-
 #include "mldb/plugins/Eigen/Dense"
 #include "mldb/plugins/Eigen/SVD"
 
@@ -86,204 +78,17 @@ EMConfigDescription()
              "will be returned.", 2);
 }
 
- namespace ublas = boost::numeric::ublas;
 
-
- /*bool InvertMatrix (const ublas::matrix<double>& input, ublas::matrix<double>& inverse) {
-
-    cerr << "Interting matrix" << endl;
-
-    using namespace boost::numeric::ublas;
-    typedef permutation_matrix<std::size_t> pmatrix;
-    // create a working copy of the input
-    matrix<double> A(input);
-    // create a permutation matrix for the LU-factorization
-    pmatrix pm(A.size1());
-
-    // perform LU-factorization
-    int res = lu_factorize(A,pm);
-          if( res != 0 ) return false;
-
-    // create identity matrix of "inverse"
-    inverse.assign(ublas::identity_matrix<double>(A.size1()));
-
-    cerr << "lu_substitute" << endl;
-    // backsubstitute to get the inverse
-    lu_substitute(A, pm, inverse);
-
-    cerr << "done" << endl;
-
-    return true;
- }*/
-/*template<class T>
-ublas::matrix<T> InvertMatrix (const ublas::matrix<T>& m) 
- {
-  cerr << "invert matrix" << endl;
-    bool singular = false;
-    using namespace boost::numeric::ublas;
-    const size_t size = m.size1();
-    // Cannot invert if non-square matrix or 0x0 matrix.
-    // Report it as singular in these cases, and return 
-    // a 0x0 matrix.
-    if (size != m.size2() || size == 0)
+    Eigen::VectorXd toEigenVector(const ML::distribution<float> & distribution)
     {
-        singular = true;
-        matrix<T> A(0,0);
-        return A;
-    }
-    // Handle 1x1 matrix edge case as general purpose 
-    // inverter below requires 2x2 to function properly.
-    if (size == 1)
-    {
-        matrix<T> A(1, 1);
-        if (m(0,0) == 0.0)
-        {
-            singular = true;
-            return A;
-        }
-        singular = false;
-        A(0,0) = 1/m(0,0);
-        return A;
-    }
-    // Create an augmented matrix A to invert. Assign the
-    // matrix to be inverted to the left hand side and an
-    // identity matrix to the right hand side.
-    matrix<T> A(size, 2*size);
-    matrix_range<matrix<T> > Aleft(A, 
-        range(0, size), 
-        range(0, size));
-    Aleft = m;
-    matrix_range<matrix<T> > Aright(A, 
-        range(0, size), 
-        range(size, 2*size));
-    Aright = identity_matrix<T>(size);
-    // Doing partial pivot
-    for (size_t k = 0; k < size; k++)
-    {
-        // Swap rows to eliminate zero diagonal elements.
-        for (size_t kk = 0; kk < size; kk++)
-        {
-            if ( A(kk,kk) == 0 ) // XXX: test for "small" instead
-            {
-                // Find a row(l) to swap with row(k)
-                int l = -1;
-                for (size_t i = kk+1; i < size; i++) 
-                {
-                    if ( A(i,kk) != 0 )
-                    {
-                        l = i; 
-                        break;
-                    }
-                }
-                // Swap the rows if found
-                if ( l < 0 ) 
-                {
-                    std::cerr << "Error:" <<  __FUNCTION__ << ":"
-                        << "Input matrix is singular, because cannot find"
-                        << " a row to swap while eliminating zero-diagonal.";
-                    singular = true;
-                    return Aleft;
-                }
-                else 
-                {
-                    matrix_row<matrix<T> > rowk(A, kk);
-                    matrix_row<matrix<T> > rowl(A, l);
-                    rowk.swap(rowl);
-#if defined(DEBUG) || !defined(NDEBUG)
-                    std::cerr << __FUNCTION__ << ":"
-                        << "Swapped row " << kk << " with row " << l 
-                        << ":" << A << "\n";
-#endif
-                }
-            }
-        }
-        ///////////////////////////////////////////////////////////////////////////////////////////////////////// 
-        // normalize the current row
-        for (size_t j = k+1; j < 2*size; j++)
-            A(k,j) /= A(k,k);
-        A(k,k) = 1;
-        // normalize other rows
-        for (size_t i = 0; i < size; i++)
-        {
-            if ( i != k )  // other rows  // FIX: PROBLEM HERE
-            {
-                if ( A(i,k) != 0 )
-                {
-                    for (size_t j = k+1; j < 2*size; j++)
-                        A(i,j) -= A(k,j) * A(i,k);
-                    A(i,k) = 0;
-                }
-            }
-        }
-#if defined(DEBUG) || !defined(NDEBUG)
-        std::cerr << __FUNCTION__ << ":"
-            << "GJ row " << k << " : " << A << "\n";
-#endif
-    }
-    singular = false;
-    return Aright;
-}   */
-
- int determinant_sign(const ublas::permutation_matrix<std ::size_t>& pm)
-{
-    int pm_sign=1;
-    std::size_t size = pm.size();
-    for (std::size_t i = 0; i < size; ++i)
-        if (i != pm(i))
-            pm_sign *= -1.0; // swap_rows would swap a pair of rows here, so we change sign1`
-    return pm_sign;
-}
- 
-double determinant( const ublas::matrix<double>& m ) {
-    ublas::matrix<double> mcopy = m;
-    ublas::permutation_matrix<size_t> pm(m.size1());
-    double det = 1.0;
-    if( ublas::lu_factorize(mcopy,pm) ) {
-        det = 0.0;
-    } else {
-        for(int i = 0; i < m.size1(); i++)
-            det *= m(i,i); // multiply by elements on diagonal
-        det = det * determinant_sign( pm );
-    }
-    return det;
-}
- 
-
-    ublas::vector<double> toUblasVector(const ML::distribution<float> & distribution)
-    {
-      ublas::vector<double> result(distribution.size());
+      Eigen::VectorXd result(distribution.size());
       for (int i = 0; i < distribution.size(); ++i)
       {
-          result[i] = distribution[i];
+          result(i) = distribution[i];
       }
 
       return result;
-    }
-
-    void FromUblasToEigen(Eigen::MatrixXd& output, const ublas::matrix<double>& input)
-    {
-        output = Eigen::MatrixXd(input.size1(), input.size2());
-        for(int i = 0; i < input.size1(); i++)
-        {
-            for(int j = 0; j < input.size2(); j++)
-            {
-                 output(i,j) = input (i,j);
-            }
-        }    
-    }
-
-    void FromEigenToUblas(ublas::matrix<double>& output, const Eigen::MatrixXd& input)
-    {
-        output = ublas::matrix<double>(input.rows(), input.cols());
-
-        for(int i = 0; i < input.rows(); i++)
-        {
-            for(int j = 0; j < input.cols(); j++)
-            {
-                 output(i,j) = input (i,j);
-            }
-        }  
-    }
+    }   
 
     void contributeToAverage(ML::distribution<float> & average,
                              const ML::distribution<float> & point, double weight)
@@ -307,44 +112,20 @@ double determinant( const ublas::matrix<double>& m ) {
         return avg;
     }    
     
- /*   ML::distribution<float> matrixmul(const ML::distribution<float> & matrix, const ML::distribution<float> v)
-    {
-
-        const int vsize = v.size();
-
-        ML::distribution<float> result(vsize, 0.0f);
-
-        int i = 0;
-        while (i*vsize < matrix.size())
-        {
-            ML::distribution<float> mv (matrix.begin() + i*vsize, matrix.begin() + (i+1) * vsize);
-            double value = mv.dotprod(v);
-            result[i] = value;
-        }
-
-        return result;
-    }*/
-
-    double gaussianDistance(const ML::distribution<float> & pt, const ML::distribution<float> & origin, const ublas::matrix<double> & covarianceMatrix, 
-                                   const ublas::matrix<double> & invertCovarianceMatrix, float determinant)
+    double gaussianDistance(const ML::distribution<float> & pt, const ML::distribution<float> & origin, const Eigen::MatrixXd & covarianceMatrix, 
+                            const Eigen::MatrixXd & invertCovarianceMatrix, float determinant)
     {
        cerr << "gaussian distance(" << pt[0] << "," << pt[1] << "vs centroid(" << origin[0] << "," << origin[1] << endl;
 
-        ublas::vector<double> ublasMean = toUblasVector(origin);
-        ublas::vector<double> ublasPt = toUblasVector(pt);
+        Eigen::VectorXd mean = toEigenVector(origin);
+        Eigen::VectorXd eigenPt = toEigenVector(pt);
 
-      //  cerr << "mid " << endl;
+        Eigen::VectorXd xToU = eigenPt - mean;
+        Eigen::VectorXd variance = invertCovarianceMatrix * xToU ;
 
-        ublas::vector<double> xToU = ublasPt - ublasMean;
-        ublas::vector<double> variance = ublas::prod(invertCovarianceMatrix, xToU);
+        double value_exponent = -0.5f*xToU.dot(variance);
 
-        // cerr << "mid2 " << xToU.size() << "," << variance.size() << "." << invertCovarianceMatrix.size1() << "." << invertCovarianceMatrix.size2() << endl;
-
-        double value_exponent = -0.5f*ublas::inner_prod(xToU, variance);
-
-        //cerr << "before determinant " << endl;
-
-        float determinantCovMatrix = determinant;//determinant(covarianceMatrix);
+        float determinantCovMatrix = determinant;
 
         cerr << "cov matrix determinant " << determinantCovMatrix << endl;
 
@@ -359,50 +140,11 @@ double determinant( const ublas::matrix<double>& m ) {
 
     }
 
-/*    ublas::matrix<double> EstimateCovariant(int i, const std::vector<ML::distribution<float>> & points, std::vector<int> & in_cluster, ML::distribution<float> average)
+
+   Eigen::MatrixXd EstimateCovariant(int i, const std::vector<ML::distribution<float>> & points, 
+                                                  const Eigen::MatrixXd& distanceMatrix, double totalWeight, ML::distribution<float> average)
     {
-      ublas::matrix<double> variant;
-
-        //Hard partitionning version
-        //Find the number of samples
-      int count = 0;
-      for (auto& p : in_cluster)
-      {
-          if (p == i)
-            count++;
-      }
-
-      if (count == 0)
-        return variant;
-
-      cerr << "EstimateCovariant num point " << count << " average " << average[0] << "," << average[1] << endl;
-
-      variant.resize(count, average.size());
-
-      int pcount = 0;
-      for (int n = 0; n < in_cluster.size(); ++n)
-      {
-          int p = in_cluster[n];
-          if (p == i)
-          {
-              ML::distribution<float> pt = points[n] - average;
-              for (int j = 0; j < pt.size(); ++j)
-              {
-                  variant(pcount, j) = pt[j];
-              }
-              pcount++;
-          }          
-      }
-
-      //square it
-      ublas::matrix<double> covariant = ublas::prod(variant,variant);
-
-      return covariant;
-    }*/
-   ublas::matrix<double> EstimateCovariant(int i, const std::vector<ML::distribution<float>> & points, 
-                                                  const ublas::matrix<double>& distanceMatrix, double totalWeight, ML::distribution<float> average)
-    {
-      ublas::matrix<double> variant;
+      Eigen::MatrixXd variant;
 
       if (totalWeight < 0.000001f)
         return variant;
@@ -411,35 +153,29 @@ double determinant( const ublas::matrix<double>& m ) {
 
       variant.resize(average.size(), average.size());
 
-        cerr<< "EstimateCovariant num points " << distanceMatrix.size1() << " total weight " << totalWeight << endl;
+        cerr<< "EstimateCovariant num points " << distanceMatrix.rows() << " total weight " << totalWeight << endl;
 
    //   int pcount = 0;
-      for (int n = 0; n < distanceMatrix.size1(); ++n)
+      for (int n = 0; n < distanceMatrix.rows(); ++n)
       {
         
-        //  if (p == i)
+
           {
               ML::distribution<float> pt = points[n] - average;
 
-              auto vec = toUblasVector(pt);
+              auto vec = toEigenVector(pt);
 
           //    cerr << "EstimateCovariant vec (" << pt[0] << "," << pt[1] << endl;
 
               if (n == 0)
               {                                    
-                  variant = ublas::outer_prod(vec, vec) * distanceMatrix(n, i);
+                  variant = vec * vec.transpose() * distanceMatrix(n, i);
               }
               else
               {
-                  variant += ublas::outer_prod(vec, vec) * distanceMatrix(n,i);
+                  variant += vec * vec.transpose() * distanceMatrix(n,i);
               }
 
-
-           /*   for (int j = 0; j < pt.size(); ++j)
-              {
-                  variant(pcount, j) = pt[j];
-              }*/
-            //  pcount++;
           }          
       }
 
@@ -447,22 +183,15 @@ double determinant( const ublas::matrix<double>& m ) {
 
       variant /= totalWeight;
 
-    //  cerr << variant(0,0) << endl;
-
-      //square it
-     // ublas::matrix<double> covariant = ublas::prod(variant,variant);
-
-    //  cerr << covariant(0,0) << endl;
-
       return variant;
     }
 
-std::vector<double> tovector(ublas::matrix<double>& m)
+std::vector<double> tovector(Eigen::MatrixXd& m)
 {
   std::vector<double> embedding;
-      for(int i = 0; i < m.size1(); i++)
+      for(int i = 0; i < m.rows(); i++)
       {
-          for(int j = 0; j < m.size2(); j++)
+          for(int j = 0; j < m.cols(); j++)
           {
                embedding.push_back(m(i,j)); // multiply by elements on diagonal
           }
@@ -478,8 +207,8 @@ struct EstimationMaximisation
      //   int nbMembers;
         double totalWeight;
         ML::distribution<float> centroid;
-        ublas::matrix<double> covarianceMatrix;
-        ublas::matrix<double> invertCovarianceMatrix;
+        Eigen::MatrixXd covarianceMatrix;
+        Eigen::MatrixXd invertCovarianceMatrix;
         float pseudoDeterminant;
     };
 
@@ -508,7 +237,7 @@ maxIterations = 10;
     in_cluster.resize(npoints, -1);
     clusters.resize(nbClusters);
 
-    ublas::matrix<double> distanceMatrix(npoints, nbClusters);
+    Eigen::MatrixXd distanceMatrix(npoints, nbClusters);
 
     // Smart initialization of the centroids
     // Stolen from kmeans - why not
@@ -559,7 +288,7 @@ maxIterations = 10;
     int numdimensions = points[0].size();
     for (int i=0; i < nbClusters; ++i) {
 
-      clusters[i].covarianceMatrix = ublas::identity_matrix<double>(numdimensions);
+      clusters[i].covarianceMatrix = Eigen::MatrixXd::Identity(numdimensions, numdimensions);
       clusters[i].invertCovarianceMatrix = clusters[i].covarianceMatrix;
       clusters[i].pseudoDeterminant = 1.0f; 
     }
@@ -648,12 +377,10 @@ maxIterations = 10;
           //HERE:
           //Calculate SVD
 
-          ExcAssert(clusters[i].covarianceMatrix.size1() == clusters[i].covarianceMatrix.size2());
+          ExcAssert(clusters[i].covarianceMatrix.rows() == clusters[i].covarianceMatrix.cols());
        //   int sizem = clusters[i].covarianceMatrix.size1();
 
-          Eigen::MatrixXd covarianceMatrixCopy;
-          FromUblasToEigen(covarianceMatrixCopy, clusters[i].covarianceMatrix);
-          Eigen::JacobiSVD<Eigen::MatrixXd> svd(covarianceMatrixCopy, Eigen::ComputeFullU | Eigen::ComputeFullV);
+          Eigen::JacobiSVD<Eigen::MatrixXd> svd(clusters[i].covarianceMatrix, Eigen::ComputeFullU | Eigen::ComputeFullV);
 
           //Remove small values and calculate pseudo determinant
 
@@ -689,14 +416,10 @@ maxIterations = 10;
 
           //calculate pseudo inverse
 
-          Eigen::MatrixXd pseudoCovariantInverse = svd.matrixV() * invertSingularValues.asDiagonal() * svd.matrixU().transpose();
-
-      //    clusters[i].invertCovarianceMatrix = InvertMatrix(clusters[i].covarianceMatrix);
-          FromEigenToUblas(clusters[i].invertCovarianceMatrix, pseudoCovariantInverse);
+          clusters[i].invertCovarianceMatrix = svd.matrixV() * invertSingularValues.asDiagonal() * svd.matrixU().transpose();
 
           //test
           clusters[i].pseudoDeterminant = pseudoDeterminant;
-          FromEigenToUblas(clusters[i].covarianceMatrix, pseudoCovariant);
          // clusters[i].nbMembers = 0;
         }
 
@@ -707,7 +430,7 @@ maxIterations = 10;
   }
 
   int
-  assign(const ML::distribution<float> & point, ublas::matrix<double>& distanceMatrix, int pIndex) const
+  assign(const ML::distribution<float> & point, Eigen::MatrixXd& distanceMatrix, int pIndex) const
   {
    //   cerr << "Assign start" << endl;
       using namespace std;
@@ -970,7 +693,7 @@ EMFunction(MldbServer * owner,
         {
             cluster.centroid.push_back(values[i]);
         }
-        cluster.covarianceMatrix = ublas::matrix<double>(numDim, numDim);
+        cluster.covarianceMatrix = Eigen::MatrixXd(numDim, numDim);
         for (int i = 0; i < numDim; ++i)
         {
             for (int j = 0; j < numDim; ++j)
