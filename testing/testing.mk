@@ -253,6 +253,7 @@ $(eval $(call mldb_unit_test,MLDB-1190_segfault_sqlexpr_jseval.py))
 $(eval $(call mldb_unit_test,MLDB-1212_csv_import_long_quoted_lines.py))
 
 $(eval $(call mldb_unit_test,emtest.js))
+$(eval $(call mldb_unit_test,emlong.py))
 
 $(eval $(call mldb_unit_test,pytanic_plugin_test.py))
 $(eval $(call python_test,mldb_merged_dataset_test,mldb_py_runner))
