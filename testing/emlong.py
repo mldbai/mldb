@@ -24,12 +24,11 @@ dataset.commit()
 
 result = mldb.perform("PUT", "/v1/procedures/em", [], {
     'type' : 'EM.train',
-    'params' : {
-        'dataset' : {'id': 'iris_dataset' },
-        'output' : {'id' : 'em_output', 'type' : 'embedding'},
-        'centroids' : {'id' : 'em_centroids', 'type' : 'embedding'},            
+     'params' : {
+        'trainingData' : 'select * excluding(class) from iris_dataset',
+        'outputDataset' : {'id' : 'em_output', 'type' : 'embedding'},
+        'centroidsDataset' : {'id' : 'iris_em_centroids', 'type' : 'embedding'},
         'numClusters' : 3,
-        'select': '* excluding(class)'
     }
 })
 assert result["statusCode"] < 400, result["response"]

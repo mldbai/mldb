@@ -11,6 +11,7 @@
 #include "jml/utils/worker_task.h"
 #include "jml/utils/pair_utils.h"
 #include "mldb/arch/timers.h"
+#include "mldb/types/optional_description.h"
 
 #include "jml/utils/vector_utils.h"
 #include "mldb/types/basic_value_descriptions.h"
@@ -46,29 +47,26 @@ DEFINE_STRUCTURE_DESCRIPTION(EMConfig);
 EMConfigDescription::
 EMConfigDescription()
 {
-    addField("dataset", &EMConfig::dataset,
-             "Dataset provided for input to the k-means procedure.  This should be "
+    Optional<PolyConfigT<Dataset> > optional;
+    optional.emplace(PolyConfigT<Dataset>().
+                     withType(EMConfig::defaultOutputDatasetType));
+    
+    addField("trainingData", &EMConfig::trainingData,
+             "Specification of the data for input to the procedure.  This should be "
              "organized as an embedding, with each selected row containing the same "
-             "set of columns with numeric values to be used as coordinates.");
-    addField("output", &EMConfig::output,
+             "set of columns with numeric values to be used as coordinates.  The select statement "
+             "does not support groupby and having clauses.");
+    addField("outputDataset", &EMConfig::output,
              "Dataset for cluster assignment.  This dataset will contain the same "
              "row names as the input dataset, but the coordinates will be replaced "
-             "by a single column giving the cluster number that the row was assigned "
-             "to.");
-    addField("centroids", &EMConfig::centroids,
+             "by a single column giving the cluster number that the row was assigned to.",
+              optional);
+    addField("centroidsDataset", &EMConfig::centroids,
              "Dataset in which the centroids will be recorded.  This dataset will "
              "have the same coordinates (columns) as those selected from the input "
              "dataset, but will have one row per cluster, providing the centroid of "
-             "the cluster.");
-    addField("select", &EMConfig::select,
-             "Columns to select from the input matrix for the coordinates to input "
-             "into k-means training.  The selected columns must be finite numbers "
-             "and must not have missing values.",
-             SelectExpression("*"));
-    addField("where", &EMConfig::where,
-             "Rows to select for k-means training.  This expression allows a subset "
-             "of the rows that were input to the training process to be selected.",
-             SqlExpression::parse("true"));
+             "the cluster.",
+             PolyConfigT<Dataset>().withType("embedding"));
     addField("numInputDimensions", &EMConfig::numInputDimensions,
              "Number of dimensions from the input to use (-1 = all).  This limits "
              "the number of columns used.  Columns will be ordered alphabetically "
@@ -81,7 +79,12 @@ EMConfigDescription()
     addField("maxIterations", &EMConfig::maxIterations,
              "Maximum number of iterations to perform.  If no convergeance is "
              "reached within this number of iterations, the current clustering "
-             "will be returned.", 2);
+             "will be returned.", 100);
+    addField("functionName", &EMConfig::functionName,
+             "If specified, a function of this name will be created using "
+             "the training result.");
+    addParent<ProcedureConfig>();
+
 }
 
 /*****************************************************************************/
@@ -110,44 +113,43 @@ EMProcedure::
 run(const ProcedureRunConfig & run,
       const std::function<bool (const Json::Value &)> & onProgress) const
 {
-   ML::EstimationMaximisation em;
+  auto runProcConf = applyRunConfOverProcConf(emConfig, run);
 
-    auto onProgress2 = [&] (const Json::Value & progress)
-        {
-            Json::Value value;
-            value["dataset"] = progress;
-            return onProgress(value);
-        };
+  auto onProgress2 = [&] (const Json::Value & progress)
+  {
+      Json::Value value;
+      value["dataset"] = progress;
+      return onProgress(value);
+  };
 
-    SqlExpressionMldbContext context(server);
+  SqlExpressionMldbContext context(server);
 
-    //cerr << "binding dataset" << endl;
-    auto boundDataset = emConfig.dataset->bind(context);
+  auto embeddingOutput = getEmbedding(*runProcConf.trainingData.stm,
+                                      context,
+                                      runProcConf.numInputDimensions,
+                                      onProgress2);
 
-    auto embeddingOutput = getEmbedding(emConfig.select, *boundDataset.dataset, boundDataset.asName,
-                                        
-                                        WhenExpression::parse("true"),
-                                        emConfig.where, {},
-                                        emConfig.numInputDimensions, 
-                                        ORDER_BY_NOTHING,
-                                        0, -1,
-                                        onProgress2);
+  auto rows = embeddingOutput.first;
+  std::vector<KnownColumn> & vars = embeddingOutput.second;
 
-    auto rows = embeddingOutput.first;
-    std::vector<KnownColumn> & vars = embeddingOutput.second;
+  std::vector<ColumnName> columnNames;
+  for (auto & v: vars) {
+    columnNames.push_back(v.columnName);
+  }
 
-    std::vector<ColumnName> columnNames;
-    for (auto & v: vars) {
-        columnNames.push_back(v.columnName);
-    }
+  std::vector<ML::distribution<float> > vecs;
 
-    std::vector<ML::distribution<float> > vecs;
-
-    for (unsigned i = 0;  i < rows.size();  ++i) {
-        vecs.emplace_back(ML::distribution<float>(std::get<2>(rows[i]).begin(),
+  for (unsigned i = 0;  i < rows.size();  ++i) {
+    vecs.emplace_back(ML::distribution<float>(std::get<2>(rows[i]).begin(),
                                                   std::get<2>(rows[i]).end()));
-    }
+  }
 
+  if (vecs.size() == 0)
+        throw HttpReturnException(400, "EM training requires at least 1 datapoint. "
+                                  "Make sure your dataset is not empty and that your WHERE expression "
+                                  "does not filter all the rows");
+
+    ML::EstimationMaximisation em;
     vector<int> inCluster;
 
     int numClusters = emConfig.numClusters;
@@ -158,9 +160,14 @@ run(const ProcedureRunConfig & run,
     //cerr << "EM training end" << endl;
 
     // output
-    
-    if (emConfig.output.type != "" || emConfig.output.id != "") {
-        auto output = createDataset(server, emConfig.output, onProgress2, true /*overwrite*/);
+
+    if (runProcConf.output.get()) {
+
+        PolyConfigT<Dataset> outputDataset = *runProcConf.output;
+        if (outputDataset.type.empty())
+            outputDataset.type = EMConfig::defaultOutputDatasetType;
+
+        auto output = createDataset(server, outputDataset, onProgress2, true /*overwrite*/);
 
         Date applyDate = Date::now();
         
@@ -173,11 +180,9 @@ run(const ProcedureRunConfig & run,
         output->commit();
     }
 
-    //cerr << "centroids type" << emConfig.centroids.type << endl;
-    if (emConfig.centroids.type != "" || emConfig.centroids.id != "") {
+    if (runProcConf.centroids.type != "" || emConfig.centroids.id != "") {
 
-        //cerr << "writing centroids" << emConfig.centroids.type << endl;
-        auto centroids = createDataset(server, emConfig.centroids, onProgress2, true /*overwrite*/);
+        auto centroids = createDataset(server, runProcConf.centroids, onProgress2, true /*overwrite*/);
 
         Date applyDate = Date::now();
 
@@ -186,7 +191,7 @@ run(const ProcedureRunConfig & run,
 
             std::vector<std::tuple<ColumnName, CellValue, Date> > cols;
 
-            for (unsigned j = 0;  j < cluster.centroid.size();  ++j) {
+           for (unsigned j = 0;  j < cluster.centroid.size();  ++j) {
                 cols.emplace_back(columnNames[j], cluster.centroid[j], applyDate);
             }
 
@@ -200,9 +205,21 @@ run(const ProcedureRunConfig & run,
         }
         
         centroids->commit();
-    }   
+    }
 
-    return Any();
+    if(!runProcConf.functionName.empty()) {
+        EMFunctionConfig funcConf;
+        funcConf.centroids = runProcConf.centroids;
+
+        PolyConfig emFuncPC;
+        emFuncPC.type = "em";
+        emFuncPC.id = runProcConf.functionName;
+        emFuncPC.params = funcConf;
+
+        obtainFunction(server, emFuncPC, onProgress);
+    }
+
+    return Any();  
 }
 
 DEFINE_STRUCTURE_DESCRIPTION(EMFunctionConfig);

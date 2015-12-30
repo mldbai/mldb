@@ -102,10 +102,9 @@ var emConfig = {
     type: "EM.train",
     params: {
         numClusters: 2,
-        dataset: { "id": "gaussian" },
-        output: { "id": "em_output", type: "embedding" },
-        centroids: { "id": "em_centroids", type: "embedding" },
-        select: "*"
+        trainingData: "select * from gaussian",
+        outputDataset: { "id": "em_output", type: "embedding" },
+        centroidsDataset: { "id": "em_centroids", type: "embedding" }
     }
 };
 
@@ -143,7 +142,7 @@ var centroids = mldb.perform("GET", "/v1/datasets/em_centroids/query");
 
 plugin.log(mldb.perform("GET", "/v1/datasets/em_centroids/query"));
 
-// Create a function to re-run the kmeans
+// Create a function to re-run the em
 var functionConfig = {
     type: "EM",
     params: {

@@ -6,31 +6,32 @@
 #include "matrix.h"
 #include "mldb/ml/value_descriptions.h"
 #include "metric_space.h"
+#include "mldb/types/optional.h"
 
 #include "mldb/ml/Eigen/Dense"
 
 namespace Datacratic {
 namespace MLDB {
 
-struct EMConfig {
+struct EMConfig : public ProcedureConfig  {
     EMConfig()
-        : select("*"),
-          where(SqlExpression::parse("true")),
-          numInputDimensions(-1),
+        : numInputDimensions(-1),
           numClusters(10),
           maxIterations(100)
     {
+        centroids.withType("embedding");
     }
 
-    std::shared_ptr<TableExpression> dataset;
-    PolyConfigT<Dataset> output;
-    PolyConfigT<Dataset> centroids;
-    SelectExpression select;
-    std::shared_ptr<SqlExpression> where;
+    InputQuery trainingData;
+    Optional<PolyConfigT<Dataset> > output;
+    static constexpr char const * defaultOutputDatasetType = "embedding";
 
+    PolyConfigT<Dataset> centroids;
     int numInputDimensions;
     int numClusters;
     int maxIterations;
+
+    Utf8String functionName;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(EMConfig);
