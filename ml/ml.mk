@@ -15,6 +15,7 @@ LIBML_SOURCES := \
 	bucketing_probabilizer.cc \
 	distribution_pooler.cc \
 	kmeans.cc \
+	em.cc \
 	value_descriptions.cc \
 	confidence_intervals.cc \
 	svd_utils.cc

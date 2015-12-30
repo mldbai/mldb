@@ -7,7 +7,7 @@
 #include "mldb/ml/value_descriptions.h"
 #include "metric_space.h"
 
-#include "mldb/plugins/Eigen/Dense"
+#include "mldb/ml/Eigen/Dense"
 
 namespace Datacratic {
 namespace MLDB {
