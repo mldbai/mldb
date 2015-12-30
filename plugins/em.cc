@@ -359,12 +359,12 @@ namespace {
 RegisterProcedureType<EMProcedure, EMConfig>
 regEM(builtinPackage(), "EM.train",
           "Estimation-Maximisation; Generic clustering algorithm based on making statistical models converge",
-          "procedures/KmeansProcedure.md.html");
+          "procedures/EMProcedure.md.html");
 
 RegisterFunctionType<EMFunction, EMFunctionConfig>
 regEMFunction(builtinPackage(), "EM",
                "Apply an Estimation-Maximization clustering to new data",
-               "functions/Kmeans.md.html");
+               "functions/EM.md.html");
 
 } // file scope
 
