@@ -39,12 +39,12 @@ dataset.commit()
 baggify_conf = {
     "type": "transform",
     "params": {
-        "inputDataset": "example",
+        "inputData": "select tokenize(test, {splitchars:' ', quotechar:'', min_token_length: 2}) as * from example",
         "outputDataset": {
             "id": "bag_of_words",
             "type": "sparse.mutable"
         },
-        "select": "tokenize(test, {splitchars:' ', quotechar:'', min_token_length: 2}) as *",
+        
     }
 }
 baggify_output = mldb.perform("PUT", "/v1/procedures/baggify", [], baggify_conf)

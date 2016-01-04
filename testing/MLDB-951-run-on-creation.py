@@ -27,10 +27,9 @@ response =  mldb.perform('PUT', "/v1/procedures/transform_procedure", [],
                          {
                              "type": "transform",
                              "params": {
-                                 "inputDataset": { "id": "dataset1" },
+                                 "inputData": "select x + 1 as x from dataset1",
                                  "outputDataset": { "id": "dataset2", "type":"sparse.mutable" },
-                                 "select": "x + 1 as x",
-                                "runOnCreation" : False
+                                 "runOnCreation" : False
                              }
                          })
 mldb.log(response)
@@ -54,10 +53,12 @@ response =  mldb.perform('PUT', "/v1/procedures/transform_procedure", [],
                          {
                              "type": "transform",
                              "params": {
-                                 "inputDataset": { "id": "dataset1" },
+                                 "inputData": {
+                                     "select": "x + 1 as x",
+                                     "from" : { "id": "dataset1" }
+                                 },
                                  "outputDataset": { "id": "dataset3", "type":"sparse.mutable" },
-                                 "select": "x + 1 as x",
-                                "runOnCreation" : True
+                                 "runOnCreation" : True
                              }
                          })
 mldb.log(json.loads(response['response']))
@@ -75,10 +76,9 @@ response =  mldb.perform('PUT', "/v1/procedures/transform_procedure",[],
                          {
                              "type": "transform",
                              "params": {
-                                 "inputDataset": { "id": "dataset1" },
+                                 "inputData": "select x + 1 as x from dataset1",
                                  "outputDataset": { "id": "dataset4", "type":"sparse.mutable" },
-                                 "select": "x + 1 as x",
-                                "runOnCreation" : True
+                                 "runOnCreation" : True
                              }
                          },  [['async', 'true']])
 mldb.log(response)
@@ -103,10 +103,9 @@ response =  mldb.perform('PUT', "/v1/procedures/transform_procedure", [],
                          {
                              "type": "transform",
                              "params": {
-                                 "inputDataset": { "id": "dataset1" },
+                                 "inputData": "select x + 1 as x from dataset1",
                                  "outputDataset": { "id": "dataset2", "type":"beh" }, # try to create a non-mutable
-                                 "select": "x + 1 as x",
-                                "runOnCreation" : True
+                                 "runOnCreation" : True
                              }
                          })
 mldb.log(response)

@@ -106,35 +106,11 @@ struct TransformDatasetConfig : ProcedureConfig {
 
     TransformDatasetConfig();
 
-    /// The dataset to which we apply this function, once per row
-    std::shared_ptr<TableExpression> inputDataset;
+    /// The data to which we apply this function, once per row
+    InputQuery inputData;
 
     /// The output dataset.  Rows will be dumped into here via insertRows.
     PolyConfigT<Dataset> outputDataset;
-
-    /// The SELECT clause telling us what to actually put in the dataset
-    SelectExpression select;
-
-    /// The WHEN clause for which timespan tuples must belong to
-    WhenExpression when;
-
-    /// The WHERE clause for which rows to include from the dataset
-    std::shared_ptr<SqlExpression> where;
-
-    /// The GROUP BY clause for which rows to include from the dataset
-    TupleExpression groupBy;
-
-    /// The HAVING clause for which groups to include from the output
-    std::shared_ptr<SqlExpression> having;
-
-    /// The ORDER BY clause for which groups to include from the output
-    OrderByExpression orderBy;
-
-    /// Offset (how many output rows to skip).
-    ssize_t offset;
-
-    /// Limit (the maximum number of rows to output).
-    ssize_t limit;
 
     /// Allow setting of the row name for the output dataset
     std::shared_ptr<SqlExpression> rowName;

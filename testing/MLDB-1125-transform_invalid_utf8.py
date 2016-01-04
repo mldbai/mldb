@@ -19,10 +19,9 @@ mldb.log(res)
 conf = {
     "type": "transform",
     "params": {
-        "inputDataset": "utf8",
+        "inputData": "select tokenize(text, {splitchars:' ', quotechar: '', ngram_range:[1,3]}) as * from utf8",
         "outputDataset": "bag_of_words",
-        "select": """tokenize(text, {splitchars:' ', quotechar: '', ngram_range:[1,3]}) as *""",
-        "runOnCreation": True,
+        "runOnCreation": True
     }
 }
 res = mldb.perform("PUT", "/v1/procedures/token_it", [], conf)
@@ -41,11 +40,9 @@ mldb.log(" ======================== ")
 conf = {
     "type": "transform",
     "params": {
-        "inputDataset": "utf8",
+        "inputData": "select text from utf8",
         "outputDataset": "bag_of_words",
-        "select": """text""",
-        #"select": """tokenize(replace_invalid_utf8(text), {splitchars:' ', quotechar: '', ngram_range:[1,3]}) as *""",
-        "runOnCreation": True,
+        "runOnCreation": True
     }
 }
 res = mldb.perform("PUT", "/v1/procedures/token_it", [], conf)
