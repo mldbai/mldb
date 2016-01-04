@@ -567,6 +567,9 @@ struct ExpressionValue {
     /// Destructively merge into the given row
     void mergeToRowDestructive(StructValue & row);
 
+    /** Apply filter to select values in the row according to their timestamp */
+    Row getFiltered(const VariableFilter & filter = GET_LATEST) const;
+
     int compare(const ExpressionValue & other) const;
 
     bool operator == (const ExpressionValue & other) const;

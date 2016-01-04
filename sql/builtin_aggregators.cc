@@ -149,19 +149,25 @@ struct AggregatorT {
 
         void process(const ExpressionValue * args, size_t nargs)
         {
+            cerr << "row process" << endl;
             ExcAssertEqual(nargs, 1);
             const ExpressionValue & val = args[0];
 
             // This must be a row...
             auto onSubExpression = [&] (const Id & columnName,
-                                        const Id & prefix,
+                                        //const Id & prefix,
                                         const ExpressionValue & val)
                 {
+                    cerr << "sub expr process" << endl;
                     columns[columnName].process(&val, 1);
                     return true;
                 };
-            
-            val.forEachSubexpression(onSubExpression);
+
+            // will keep only the LATEST of each column (if there are duplicates)
+            auto filteredRow = std::move(val.getFiltered(GET_LATEST));
+
+            for (auto c : filteredRow)
+                onSubExpression(std::get<0>(c), std::get<1>(c));
         }
 
         ExpressionValue extract()
