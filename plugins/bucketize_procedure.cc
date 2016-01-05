@@ -1,8 +1,9 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 /**
  * bucketize_procedure.cc
  * Mich, 2015-10-27
  * Copyright (c) 2015 Datacratic Inc. All rights reserved.
+ *
+ * This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
  **/
 
 #include "bucketize_procedure.h"
@@ -31,7 +32,6 @@ namespace MLDB {
 
 BucketizeProcedureConfig::
 BucketizeProcedureConfig()
-    : when(WhenExpression::TRUE), where(SqlExpression::TRUE)
 {
     outputDataset.withType("sparse.mutable");
 }
@@ -41,25 +41,15 @@ DEFINE_STRUCTURE_DESCRIPTION(BucketizeProcedureConfig);
 BucketizeProcedureConfigDescription::
 BucketizeProcedureConfigDescription()
 {
-    addFieldDesc("inputDataset", &BucketizeProcedureConfig::inputDataset,
-                 "Input dataset. This must be an existing dataset.",
-                 makeInputDatasetDescription());
+    addField("inputData", &BucketizeProcedureConfig::inputData,
+             "An SQL statement to select the input data. The select expression is required "
+             "but has no effect.  The order by expression is used to rank the rows prior to "
+             "bucketization.");
     addField("outputDataset", &BucketizeProcedureConfig::outputDataset,
              "Output dataset configuration. This may refer either to an "
              "existing dataset, or a fully specified but non-existing dataset "
              "which will be created by the procedure.",
              PolyConfigT<Dataset>().withType("sparse.mutable"));
-    addField("orderBy", &BucketizeProcedureConfig::orderBy,
-             "The order to use to rank the rows prior to bucketization.");
-    addField("when", &BucketizeProcedureConfig::when,
-             "Boolean expression determining which tuples from the dataset "
-             "to keep based on their timestamps",
-             WhenExpression::TRUE);
-    addField("where", &BucketizeProcedureConfig::where,
-             "Boolean expression to choose which row to select. In almost all "
-             "cases this should be set to restrict the query to the part of "
-             "the dataset that is interesting in the context of the query.",
-             SqlExpression::TRUE);
     addField("percentileBuckets", &BucketizeProcedureConfig::percentileBuckets,
              "Key/ranges of the buckets to create. Buckets ranges can share "
              "start and end values but cannot overlap such that a row can "
@@ -127,12 +117,10 @@ run(const ProcedureRunConfig & run,
 {
     SqlExpressionMldbContext context(server);
 
-    auto boundDataset = procedureConfig.inputDataset->bind(context);
+    auto boundDataset = procedureConfig.inputData.stm->from->bind(context);
 
     SelectExpression select(SelectExpression::parse("1"));
     vector<shared_ptr<SqlExpression> > calc;
-    ssize_t offset = 0;
-    ssize_t limit = -1;
 
     vector<Id> orderedRowNames;
     auto getSize = [&] (const MatrixNamedRow & row,
@@ -145,11 +133,15 @@ run(const ProcedureRunConfig & run,
     BoundSelectQuery(select,
                      *boundDataset.dataset,
                      boundDataset.asName,
-                     procedureConfig.when,
-                     procedureConfig.where,
-                     procedureConfig.orderBy,
+                     procedureConfig.inputData.stm->when,
+                     procedureConfig.inputData.stm->where,
+                     procedureConfig.inputData.stm->orderBy,
                      calc)
-        .execute(getSize, offset, limit, onProgress);
+        .execute(getSize, 
+                 procedureConfig.inputData.stm->offset, 
+                 procedureConfig.inputData.stm->limit, 
+                 onProgress);
+
     int64_t rowCount = orderedRowNames.size();
     cerr << "Row count: " << rowCount  << endl;
 
