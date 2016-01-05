@@ -894,7 +894,7 @@ bool matchConstant(ML::Parse_Context & context, ExpressionValue & result,
         uint32_t months = 0, days = 0;
         double seconds = 0.0f;
 
-        context.skip_whitespace();
+        skip_whitespace(context);
         char closingLiteral = '\"';
 
         if (context.match_literal('\''))
@@ -1100,9 +1100,9 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
 
         vector<std::shared_ptr<SqlRowExpression> > clauses;
         do {
-            context.skip_whitespace();
+            skip_whitespace(context);
             auto expr = SqlRowExpression::parse(context, allowUtf8);
-            context.skip_whitespace();
+            skip_whitespace(context);
             clauses.emplace_back(std::move(expr));
         } while (context.match_literal(','));
 
@@ -1119,7 +1119,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
             lhs = arg;  
         }
 
-        context.skip_whitespace();
+        skip_whitespace(context);
         context.expect_literal('}');
         
         lhs->surface = ML::trim(token.captured());
@@ -1139,7 +1139,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
 
         lhs = std::make_shared<EmbeddingLiteralExpression>(clauses);
 
-        context.skip_whitespace();
+        skip_whitespace(context);
         context.expect_literal(']');
         
         lhs->surface = ML::trim(token.captured());
@@ -1343,7 +1343,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
             expect_whitespace(context);
             context.expect_literal('(');
             
-            context.skip_whitespace();
+            skip_whitespace(context);
             if (peekKeyword(context, "SELECT"))
             { 
                 //sub-table
@@ -2982,7 +2982,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
 
     if (context.match_literal('(')) {
 
-        context.skip_whitespace();
+        skip_whitespace(context);
         if (peekKeyword(context, "SELECT"))
         {
             //sub-table
