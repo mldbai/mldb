@@ -48,9 +48,8 @@ function runTest(testNumber, buckets, goldStandard) {
     res = mldb.put(url, {
         type: 'bucketize',
         params: {
-            inputDataset: "rNamedScores",
+            inputData: "select 1 from rNamedScores order by score DESC",
             outputDataset: {id : datasetName, type: "sparse.mutable"},
-            orderBy: "score DESC",
             percentileBuckets: buckets
         }
     });
@@ -195,9 +194,8 @@ assertEqual(res['responseCode'], 200);
 res = mldb.put("/v1/procedures/bucketizeEmptyDataset", {
     type: 'bucketize',
     params: {
-        inputDataset: "emptyDataset",
+        inputData: "select * from emptyDataset order by score DESC",
         outputDataset: {id : "bucketedEmptyDataset", type: "sparse.mutable"},
-        orderBy: "score DESC",
         percentileBuckets: {b1: [0, 50], b2: [50, 100]}
     }
 });

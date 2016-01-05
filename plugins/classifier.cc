@@ -158,6 +158,11 @@ run(const ProcedureRunConfig & run,
     ClassifierConfig runProcConf =
         applyRunConfOverProcConf(procedureConfig, run);
 
+
+    if(runProcConf.modelFileUrl.toString().empty()) {
+        throw ML::Exception("modelFileUrl cannot be empty");
+    }
+
     // 1.  Get the input dataset
     SqlExpressionMldbContext context(server);
 

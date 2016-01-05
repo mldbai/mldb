@@ -106,13 +106,15 @@ function createAndTrainProcedure(config, name)
 var userCountsConfig = {
     type: "transform",
     params: {
-        inputDataset: { type: 'transposed',
-                        params: { dataset: { id: 'reddit_dataset' } } },
-        outputDataset: { type: 'embedding', id: 'reddit_user_counts' },
-        select: 'columnCount() AS numUsers',
-        orderBy: 'columnCount() DESC, rowName()',
-        limit: 1000,
-        rowName: "rowName() + '|1'"
+        inputData: { 
+            select: 'columnCount() AS numUsers',
+            from: { type: 'transposed',
+                     params: { dataset: { id: 'reddit_dataset' } } },
+            orderBy: 'columnCount() DESC, rowName()',
+            named: "rowName() + '|1'",
+            limit: 1000
+        },
+        outputDataset: { type: 'embedding', id: 'reddit_user_counts' }
     }
 };
 
@@ -163,9 +165,11 @@ createAndTrainProcedure(tsneConfig, 'reddit_tsne');
 var transform_config = {
     type: 'transform',
     params: {
-        inputDataset: { id: 'reddit_dataset' },
-        outputDataset: { id: 'reddit_user_counts', type: 'beh.mutable' },
-        select: ''
+        inputData: {
+            select : '',
+            from : { id: 'reddit_dataset' }
+        },
+        outputDataset: { id: 'reddit_user_counts', type: 'beh.mutable' }
     }
 };
 

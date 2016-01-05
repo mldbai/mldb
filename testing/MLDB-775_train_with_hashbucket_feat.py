@@ -46,11 +46,11 @@ rez = mldb.perform("PUT", "/v1/procedures/dataset_creator", [],
     {
         "type": "transform",
         "params": {
-            "inputDataset": { "id": "toy" },
-            "outputDataset": { "id": "toy_feats", "type":"sparse.mutable" },
-            "select": """ {
-                    featHasher({{* EXCLUDING(LABEL)} as columns})[hash] } as features, LABEL"""
-                    
+            "inputData": { 
+                "select" :  "{ featHasher({{* EXCLUDING(LABEL)} as columns})[hash] } as features, LABEL",
+                "from" : { "id": "toy" }
+            },
+            "outputDataset": { "id": "toy_feats", "type":"sparse.mutable" }
         }
     })
 mldb.log(rez)

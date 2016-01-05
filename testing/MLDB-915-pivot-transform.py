@@ -34,10 +34,8 @@ rez = mldb.perform("PUT", "/v1/procedures/dataset_creator", [],
     {
         "type": "transform",
         "params": {
-            "inputDataset": { "id": "example" },
-            "outputDataset": { "id": "example2", "type":"sparse.mutable" },
-            "select": "pivot(thing, has) as *",
-            "groupBy": "person"
+            "inputData": "select pivot(thing, has) as * from example group by person",
+            "outputDataset": { "id": "example2", "type":"sparse.mutable" }
         }
     })
 

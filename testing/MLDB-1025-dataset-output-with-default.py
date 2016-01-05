@@ -18,11 +18,13 @@ def run_transform(output):
                           {
                               "type": "transform",
                               "params": {
-                                  "inputDataset": { "id": "dataset1" },
+                                  "inputData": { 
+                                      "from" : { "id": "dataset1" },
+                                      "where": "rowName() = '2'"
+                                  },
                                   "outputDataset": output,
-                                  "runOnCreation" : True,
-                                  "where": "rowName() = '2'"
-                                  }
+                                  "runOnCreation" : True
+                              }
                           })
 
     mldb.log(result)

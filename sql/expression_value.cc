@@ -1005,6 +1005,22 @@ getMaxTimestamp() const
     return result;
 }
 
+bool 
+ExpressionValue::
+isEarlier(const Date& compareTimeStamp, const ExpressionValue& compareValue) const
+{
+    Date ts = getEffectiveTimestamp();
+    return (ts < compareTimeStamp) || (ts == compareTimeStamp && *this < compareValue);
+}
+
+bool 
+ExpressionValue::
+isLater(const Date& compareTimeStamp, const ExpressionValue& compareValue) const
+{
+    Date ts = getEffectiveTimestamp();
+    return (ts > compareTimeStamp) || (ts == compareTimeStamp && *this < compareValue);
+}
+
 ExpressionValue
 ExpressionValue::
 getField(const Utf8String & fieldName, const VariableFilter & filter) const
@@ -1040,7 +1056,6 @@ getField(const Utf8String & fieldName, const VariableFilter & filter) const
     return ExpressionValue();
 }
 
-
 ExpressionValue
 ExpressionValue::
 getField(int fieldIndex) const
@@ -1052,8 +1067,9 @@ getField(int fieldIndex) const
     return ExpressionValue();
 }
 
-const ExpressionValue* ExpressionValue::findNestedField(const Utf8String & fieldName,
-                                       const VariableFilter & filter /*= GET_LATEST*/) const
+const ExpressionValue*
+ExpressionValue::
+findNestedField(const Utf8String & fieldName, const VariableFilter & filter /*= GET_LATEST*/) const
 {
     if (type_ == ROW) {
 
@@ -1448,6 +1464,61 @@ forEachColumnDestructive(const std::function<bool (Id & columnName, ExpressionVa
                                   "expression", *this,
                                   "type", (int)type_);
     }
+}
+
+ExpressionValue::Row
+ExpressionValue::
+getFiltered(const VariableFilter & filter /*= GET_LATEST*/) const
+{
+    ExcAssertEqual(type_, ROW);
+
+    std::function<bool(const ExpressionValue&, const ExpressionValue&)> filterFn = [](const ExpressionValue& left, const ExpressionValue& right){return false;};
+
+     switch (filter) {
+        case GET_ANY_ONE:
+            //default is fine
+            break;
+        case GET_EARLIEST:
+            filterFn = [](const ExpressionValue& left, const ExpressionValue& right){
+                return right.isEarlier(left.getEffectiveTimestamp(), left);
+            };
+            break;
+        case GET_LATEST:
+            filterFn = [](const ExpressionValue& left, const ExpressionValue& right){
+               return right.isLater(right.getEffectiveTimestamp(), left);
+            };
+            break;
+        case GET_ALL:
+            throw HttpReturnException(500, "GET_ALL not implemented for datasets");
+        default:
+            throw HttpReturnException(500, "Unknown variable filter");
+     }
+
+    //Remove any duplicated columns according to the filter
+    std::unordered_map<ColumnName, ExpressionValue> values;
+    for (auto & col: *row_) {
+        Id columnName = std::get<0>(col);
+        auto iter = values.find(columnName);
+        if (iter != values.end()) {
+            const ExpressionValue& val = std::get<1>(col);
+            if (filterFn(iter->second, val)) {
+                iter->second = val;
+            }
+        }
+        else {
+            values.insert({columnName, std::get<1>(col)});
+        }
+
+        ExpressionValue val = std::get<1>(col);
+    }
+
+    //re-flatten to row
+    Row output;
+    for (auto & c : values)
+        output.emplace_back(std::move(c.first), std::move(c.second));
+
+    return output;
+
 }
 
 size_t
@@ -2172,9 +2243,7 @@ doSearchRow(const std::vector<std::tuple<Key, ExpressionValue> > & columns,
             if (std::get<0>(c) == key) {
                 const ExpressionValue & v = std::get<1>(c);
                 Date ts = v.getEffectiveTimestamp();
-                if (index == -1
-                    || ts < foundDate
-                    || (ts == foundDate && v < std::get<1>(columns[index]))) {
+                if (index == -1 || v.isEarlier(ts, std::get<1>(columns[index]))){
                     index = i;
                     foundDate = ts;
                 }
@@ -2192,9 +2261,7 @@ doSearchRow(const std::vector<std::tuple<Key, ExpressionValue> > & columns,
             if (std::get<0>(c) == key) {
                 const ExpressionValue & v = std::get<1>(c);
                 Date ts = v.getEffectiveTimestamp();
-                if (index == -1
-                    || ts > foundDate
-                    || (ts == foundDate && v < std::get<1>(columns[index]))) {
+                if (index == -1 || v.isLater(ts, std::get<1>(columns[index]))){
                     index = i;
                     foundDate = ts;
                 }

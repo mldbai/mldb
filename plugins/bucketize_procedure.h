@@ -1,9 +1,9 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /**
  * bucketize_procedure.h
  * Mich, 2015-10-27
  * Copyright (c) 2015 Datacratic Inc. All rights reserved.
+
+ * This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
  **/
 
 #pragma once
@@ -17,13 +17,12 @@ namespace MLDB {
 
 struct BucketizeProcedureConfig : ProcedureConfig {
     BucketizeProcedureConfig();
-    std::shared_ptr<TableExpression> inputDataset;
+    
+    InputQuery inputData;
     PolyConfigT<Dataset> outputDataset;
-    OrderByExpression orderBy;
-    WhenExpression when;
-    std::shared_ptr<SqlExpression> where;
     std::map<std::string, std::pair<float, float>> percentileBuckets;
 };
+
 DECLARE_STRUCTURE_DESCRIPTION(BucketizeProcedureConfig);
 
 struct BucketizeProcedure: public Procedure {

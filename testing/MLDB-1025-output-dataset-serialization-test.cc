@@ -34,7 +34,7 @@ using namespace MLDB;
 BOOST_AUTO_TEST_CASE( test_output_dataset_parsing )
 {
     // create config
-    string jsConf = "{\"inputDataset\": {\"id\": \"patate\"}, \
+    string jsConf = "{\"inputData\": { \"from\" : {\"id\": \"patate\"}}, \
            \"outputDataset\": \"plum\"}";
     
     Json::Value conf;
