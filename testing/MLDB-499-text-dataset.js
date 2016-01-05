@@ -95,12 +95,12 @@ var transformConfig = {
     params: {
         inputData: { 
             select: "parse_sparse_csv(lineText)",
-            from : { id: 'reddit_text_file' }
+            from : "reddit_text_file",
+            //rowName: "regex_replace(lineText, '([^,]\+).*', '\\1')",
+            //rowName: "lineNumber"
+            named : "jseval('return x.substr(0, x.indexOf('',''));', 'x', lineText)"
         },
-        outputDataset: { type: 'sparse.mutable', id: 'reddit_dataset' },
-        //rowName: "regex_replace(lineText, '([^,]\+).*', '\\1')",
-        //rowName: "lineNumber"
-        rowName: "jseval('return x.substr(0, x.indexOf('',''));', 'x', lineText)"
+        outputDataset: { type: 'sparse.mutable', id: 'reddit_dataset' }
     }
 };
 

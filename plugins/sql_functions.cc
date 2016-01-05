@@ -362,8 +362,7 @@ regSqlExpressionFunction(builtinPackage(),
 
 TransformDatasetConfig::
 TransformDatasetConfig()
-    : rowName(SqlExpression::parse("rowName()")),
-      skipEmptyRows(false)
+    : skipEmptyRows(false)
 {
     outputDataset.withType("sparse.mutable");
 }
@@ -382,14 +381,6 @@ TransformDatasetConfigDescription()
              "Output dataset configuration.  This may refer either to an "
              "existing dataset, or a fully specified but non-existing dataset "
              "which will be created by the procedure.", PolyConfigT<Dataset>().withType("sparse.mutable"));
-    addField("rowName", &TransformDatasetConfig::rowName,
-             "Expression to set the row name for the output dataset.  Default "
-             "depends on whether it's a grouping query or not: for a grouped "
-             "query, it's the groupBy expression.  For a non-grouped query, "
-             "it's the rowName() of the input dataset.  Beware of a rowName "
-             "expression that gives non-unique row names; this will lead to "
-             "errors in some dataset implementations.",
-             SqlExpression::parse("rowName()"));
     addField("skipEmptyRows", &TransformDatasetConfig::skipEmptyRows,
              "Skip rows from the input dataset where no values are selected",
              false);
@@ -476,7 +467,7 @@ run(const ProcedureRunConfig & run,
                          procedureConfig.inputData.stm->when,
                          procedureConfig.inputData.stm->where,
                          procedureConfig.inputData.stm->orderBy,
-                         { procedureConfig.rowName },
+                         { procedureConfig.inputData.stm->rowName },
                          implicitOrderByRowHash)
             .execute(recordRowInOutputDataset,
                      procedureConfig.inputData.stm->offset,
@@ -505,7 +496,7 @@ run(const ProcedureRunConfig & run,
                           procedureConfig.inputData.stm->groupBy,
                           aggregators,
                           *procedureConfig.inputData.stm->having,
-                          *procedureConfig.rowName,
+                          *procedureConfig.inputData.stm->rowName,
                           procedureConfig.inputData.stm->orderBy)
             .execute(recordRowInOutputDataset,
                      procedureConfig.inputData.stm->offset,

@@ -108,13 +108,13 @@ var userCountsConfig = {
     params: {
         inputData: { 
             select: 'columnCount() AS numUsers',
-            from : { type: 'transposed',
+            from: { type: 'transposed',
                      params: { dataset: { id: 'reddit_dataset' } } },
             orderBy: 'columnCount() DESC, rowName()',
+            named: "rowName() + '|1'",
             limit: 1000
         },
-        outputDataset: { type: 'embedding', id: 'reddit_user_counts' },
-        rowName: "rowName() + '|1'"
+        outputDataset: { type: 'embedding', id: 'reddit_user_counts' }
     }
 };
 

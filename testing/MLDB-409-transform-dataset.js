@@ -58,12 +58,12 @@ var transform_config = {
     type: 'transform',
     params: {
         inputData: {
-            select : "x, y, x * 10 AS z, y + 6 AS q",
-            from : { id: 'test' },
-            limit : 3
+            select: "x, y, x * 10 AS z, y + 6 AS q",
+            from: 'test',
+            named: "rowName() + '_transformed'",
+            limit: 3
         },
-        outputDataset: { id: 'transformed', type: 'sparse.mutable' },
-        rowName: "rowName() + '_transformed'"
+        outputDataset: { id: 'transformed', type: 'sparse.mutable' }
     }
 };
 
@@ -89,11 +89,11 @@ var transform_config2 = {
     params: {
         inputData: { 
             select: 'x, y, x * 10 AS z, y + 6 AS q',
-            from : { id: 'test' },
-            orderBy: "rowName()"
+            from : 'test',
+            orderBy: "rowName()",
+            named: "rowName() + '_transformed'"
         },
-        outputDataset: { id: 'transformed2', type: 'sparse.mutable' },
-        rowName: "rowName() + '_transformed'"
+        outputDataset: { id: 'transformed2', type: 'sparse.mutable' }
     }
 };
 
@@ -134,11 +134,11 @@ var transform_config3 = {
     params: {
         inputData: { 
             select: 'x',
-            from: { id: 'test2' },
-            orderBy: "rowName()"
+            from: 'test2',
+            orderBy: "rowName()",
+            named: "rowName() + '_transformed'"
         },
         outputDataset: { id: 'transformed3', type: 'sparse.mutable' },
-        rowName: "rowName() + '_transformed'",
         skipEmptyRows: true
     }
 };

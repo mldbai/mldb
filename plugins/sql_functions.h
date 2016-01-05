@@ -112,9 +112,6 @@ struct TransformDatasetConfig : ProcedureConfig {
     /// The output dataset.  Rows will be dumped into here via insertRows.
     PolyConfigT<Dataset> outputDataset;
 
-    /// Allow setting of the row name for the output dataset
-    std::shared_ptr<SqlExpression> rowName;
-
     /// Skip rows with no columns
     bool skipEmptyRows;
 };
