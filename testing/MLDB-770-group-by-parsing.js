@@ -62,5 +62,26 @@ expected = [
 assertEqual(mldb.diff(expected, resp.json, false /* strict */), {},
             "Query 2 output was not the same as expected output");
 
+
+var resp = mldb.get("/v1/query", {q:"select min(x) from test group by y"});
+assertEqual(resp.responseCode, 200, "Error executing query");
+var expected2 = resp.json
+
+var resp = mldb.get("/v1/query", {q:"select min(x) from test group by y\n"});
+assertEqual(resp.responseCode, 200, "Error executing query");
+assertEqual(mldb.diff(expected2, resp.json, false /* strict */), {},
+            "Query output was not the same as expected output");
+
+var resp = mldb.get("/v1/query", {q:"\n\tselect min(x) from test group by y\t"});
+assertEqual(resp.responseCode, 200, "Error executing query");
+assertEqual(mldb.diff(expected2, resp.json, false /* strict */), {},
+            "Query output was not the same as expected output");
+
+var resp = mldb.get("/v1/query", {q:"select\nmin(x)\nfrom\ntest \ngroup\nby\ny\n"});
+assertEqual(resp.responseCode, 200, "Error executing query");
+assertEqual(mldb.diff(expected2, resp.json, false /* strict */), {},
+            "Query output was not the same as expected output");
+
+
 "success"
 

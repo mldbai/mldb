@@ -1795,13 +1795,13 @@ parse(ML::Parse_Context & context, bool allowUtf8)
         if (matchKeyword(context, "WHEN ")) {
             throw HttpReturnException(400, "WHEN clause not supported in row expression");
         }
-        else when = SqlExpression::TRUE;
+        else when = SqlExpression::parse("true");
 
         if (matchKeyword(context, "WHERE ")) {
             where = SqlExpression::parse(context, 10, allowUtf8);
             // Where expression consumes whitespace
         }
-        else where = SqlExpression::TRUE;
+        else where = SqlExpression::parse("true");
 
         if (matchKeyword(context, "ORDER BY ")) {
             orderBy = OrderByExpression::parse(context, allowUtf8);
@@ -3576,7 +3576,7 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
         skip_whitespace(context);
     }
     else {
-        statement.when = WhenExpression::TRUE;
+        statement.when = WhenExpression::parse("true");
     }
 
     if (matchKeyword(context, "WHERE ")) {
@@ -3584,7 +3584,7 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
         skip_whitespace(context);
     }
     else {
-        statement.where = SqlExpression::TRUE;
+        statement.where = SqlExpression::parse("true");
     }
 
     if (matchKeyword(context, "GROUP BY ")) {
@@ -3597,7 +3597,7 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
         skip_whitespace(context);
     }
     else {
-        statement.having = SqlExpression::TRUE;
+        statement.having = SqlExpression::parse("true");
     }
 
     if (matchKeyword(context, "ORDER BY ")) {
