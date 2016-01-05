@@ -27,15 +27,7 @@ struct SqlExpression;
 /** Function that runs a single-row SQL query against a dataset. */
 
 struct SqlQueryFunctionConfig {
-    SqlQueryFunctionConfig();
-    
-    SelectExpression select;
-    std::shared_ptr<TableExpression> from;
-    WhenExpression when;
-    std::shared_ptr<SqlExpression> where;
-    OrderByExpression orderBy;
-    TupleExpression groupBy;
-    std::shared_ptr<SqlExpression> having;
+    InputQuery inputData;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(SqlQueryFunctionConfig);

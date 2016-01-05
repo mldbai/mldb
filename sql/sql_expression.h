@@ -1448,6 +1448,8 @@ struct SelectStatement
     static SelectStatement parse(const char * body);
     static SelectStatement parse(const Utf8String& body);
     static SelectStatement parse(ML::Parse_Context& context, bool allowUtf8);
+
+    Utf8String print() const;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(SelectStatement);

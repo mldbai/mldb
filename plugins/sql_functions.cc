@@ -39,53 +39,15 @@ getMldbRoot(MldbServer * server)
 /* SQL QUERY FUNCTION                                                        */
 /*****************************************************************************/
 
-SqlQueryFunctionConfig::
-SqlQueryFunctionConfig()
-    : select("*"),
-      when(WhenExpression::TRUE),
-      where(SqlExpression::TRUE),
-      having(SqlExpression::TRUE)
-{
-}
-
 DEFINE_STRUCTURE_DESCRIPTION(SqlQueryFunctionConfig);
 
 SqlQueryFunctionConfigDescription::
 SqlQueryFunctionConfigDescription()
 {
-    addField("select", &SqlQueryFunctionConfig::select,
-             "SQL select expression to run.  The values in the dataset, as "
+    addField("inputData", &SqlQueryFunctionConfig::inputData,
+             "SQL query to run.  The values in the dataset, as "
              "well as the input values, will be available for the expression "
-             "calculation",
-             SelectExpression("*"));
-    addField("from", &SqlQueryFunctionConfig::from,
-             "Dataset to select from.  The dataset is fixed at initialization "
-             "time and cannot be changed in the query.");
-    addField("when", &SqlQueryFunctionConfig::when,
-             "Boolean expression determining which tuples from the dataset "
-             "to keep based on their timestamps",
-             WhenExpression::TRUE);
-    addField("where", &SqlQueryFunctionConfig::where,
-             "Boolean expression to choose which row to select.  In almost all "
-             "cases this should be set to restrict the query to the part of "
-             "the dataset that is interesting in the context of the query.",
-             SqlExpression::TRUE);
-    addField("orderBy", &SqlQueryFunctionConfig::orderBy,
-             "Expression to choose how to order multiple rows.  The function will "
-             "only return the first row, so this effectively chooses which of "
-             "multiple rows will be chosen.  If not defined, the selected row "
-             "will be an abitrary one of those that match.");
-    addField("groupBy", &SqlQueryFunctionConfig::groupBy,
-             "Expression to choose how to group rows for an aggregate query. "
-             "If this is specified, the having and order by clauses will "
-             "choose which row is actually selected.  Leaving this unset "
-             "will disable grouping.  Grouping can cause queries to run slowly "
-             "and so should be avoided for real-time queries if possible.");
-    addField("having", &SqlQueryFunctionConfig::having,
-             "Boolean expression to choose which group to select.  Only the "
-             "groups where this expression evaluates to true will be "
-             "selected.",
-             SqlExpression::TRUE);
+             "calculation");
 }
                       
 SqlQueryFunction::
@@ -102,16 +64,8 @@ SqlQueryFunction::
 getStatus() const
 {
     Json::Value result;
-    result["expression"]["select"]["surface"] = functionConfig.select.surface;
-    result["expression"]["select"]["ast"] = functionConfig.select.print();
-    result["expression"]["where"]["surface"] = functionConfig.where->surface;
-    result["expression"]["where"]["ast"] = functionConfig.where->print();
-    result["expression"]["orderBy"]["surface"] = functionConfig.orderBy.surface;
-    result["expression"]["orderBy"]["ast"] = functionConfig.orderBy.print();
-    result["expression"]["groupBy"]["surface"] = functionConfig.groupBy.surface;
-    result["expression"]["groupBy"]["ast"] = functionConfig.groupBy.print();
-    result["expression"]["having"]["surface"] = functionConfig.having->surface;
-    result["expression"]["having"]["ast"] = functionConfig.having->print();
+    result["expression"]["inputData"]["surface"] = functionConfig.inputData.stm->surface;
+    result["expression"]["inputData"]["ast"] = functionConfig.inputData.stm->print();
     return result;
 }
 
@@ -132,21 +86,21 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
                 return info;
             };
 
-        if (!config.groupBy.empty()) {
+        if (!config.inputData.stm->groupBy.empty()) {
             // Create our pipeline
 
             pipeline
                 = getMldbRoot(function->server)
                 ->params(getParamInfo)
-                ->from(config.from, config.when)
-                ->where(config.where)
-                ->select(config.groupBy)
-                ->sort(config.groupBy)
-                ->partition(config.groupBy.clauses.size())
-                ->where(config.having)
-                ->select(config.orderBy)
-                ->sort(config.orderBy)
-                ->select(config.select);
+                ->from(config.inputData.stm->from, config.inputData.stm->when)
+                ->where(config.inputData.stm->where)
+                ->select(config.inputData.stm->groupBy)
+                ->sort(config.inputData.stm->groupBy)
+                ->partition(config.inputData.stm->groupBy.clauses.size())
+                ->where(config.inputData.stm->having)
+                ->select(config.inputData.stm->orderBy)
+                ->sort(config.inputData.stm->orderBy)
+                ->select(config.inputData.stm->select);
         }
         else {
                 
@@ -154,11 +108,11 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
             pipeline
                 = getMldbRoot(function->server)
                 ->params(getParamInfo)
-                ->from(config.from, config.when)
-                ->where(config.where)
-                ->select(config.orderBy)
-                ->sort(config.orderBy)
-                ->select(config.select);
+                ->from(config.inputData.stm->from, config.inputData.stm->when)
+                ->where(config.inputData.stm->where)
+                ->select(config.inputData.stm->orderBy)
+                ->sort(config.inputData.stm->orderBy)
+                ->select(config.inputData.stm->select);
         }
 
         // Bind the pipeline
