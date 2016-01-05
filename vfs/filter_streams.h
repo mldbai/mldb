@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* filter_streams.h                                                -*- C++ -*-
    Jeremy Barnes, 12 March 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
+   
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
    
    This file is part of "Jeremy's Machine Learning Library", copyright (c)
    1999-2015 Jeremy Barnes.
@@ -18,8 +18,11 @@
 #include <memory>
 #include <map>
 
-namespace ML {
+namespace Datacratic {
+struct FsObjectInfo;  // Structure for file system or URL metadata; in fs_utils.h
+} // namespace Datacratic
 
+namespace ML {
 
 /*****************************************************************************/
 /* BASE STRUCTURES                                                           */
@@ -61,15 +64,23 @@ struct UriHandler {
 
     UriHandler(std::streambuf * buf,
                std::shared_ptr<void> bufOwnership,
+               std::shared_ptr<Datacratic::FsObjectInfo> info = nullptr,
                UriHandlerOptions options = UriHandlerOptions())
         : buf(buf),
           bufOwnership(std::move(bufOwnership)),
+          info(std::move(info)),
           options(std::move(options))
     {
     }
                      
+    UriHandler(std::streambuf * buf,
+               std::shared_ptr<void> bufOwnership,
+               const Datacratic::FsObjectInfo & info,
+               UriHandlerOptions options = UriHandlerOptions());
+    
     std::streambuf * buf;                ///< Streambuf to operate on
     std::shared_ptr<void> bufOwnership;  ///< Ownership of the stream buffer
+    std::shared_ptr<Datacratic::FsObjectInfo> info;  ///< Known information/metadata
     UriHandlerOptions options;
 };    
 
@@ -275,6 +286,11 @@ public:
     */
     std::pair<const char *, size_t>
     mapped() const;
+
+    /** Return the information and metadata about the underlying object,
+        for example last modified date, etc.
+    */
+    Datacratic::FsObjectInfo info() const;
     
 private:
     std::unique_ptr<std::istream> stream;
@@ -283,6 +299,7 @@ private:
     std::shared_ptr<void> sink;            ///< Ownership of streambuf
     std::atomic<bool> deferredFailure;
     std::string resource;
+    std::shared_ptr<Datacratic::FsObjectInfo> info_;
 };
 
 

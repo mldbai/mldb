@@ -1065,14 +1065,14 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         int paramIndex;
         if (context.match_int(paramIndex)) {
             lhs.reset(new BoundParameterExpression(Utf8String(std::to_string(paramIndex))));
-            lhs->surface = boost::trim_copy(token.captured());
+            lhs->surface = ML::trim(token.captured());
         }
         else {
             Utf8String paramName = matchIdentifier(context, allowUtf8);
             if (paramName.empty())
                 context.exception("Expected identifier after $");
             lhs.reset(new BoundParameterExpression(paramName));
-            lhs->surface = boost::trim_copy(token.captured());
+            lhs->surface = ML::trim(token.captured());
         }
     }
 
@@ -1122,7 +1122,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         context.skip_whitespace();
         context.expect_literal('}');
         
-        lhs->surface = boost::trim_copy(token.captured());
+        lhs->surface = ML::trim(token.captured());
     }
 
     if (!lhs && context.match_literal('[')) {
@@ -1142,7 +1142,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         context.skip_whitespace();
         context.expect_literal(']');
         
-        lhs->surface = boost::trim_copy(token.captured());
+        lhs->surface = ML::trim(token.captured());
     }
 
     if (!lhs && matchKeyword(context, "CAST")) {
@@ -1164,7 +1164,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         context.expect_literal(')');
 
         lhs = std::make_shared<CastExpression>(expr, type);
-        lhs->surface = boost::trim_copy(token.captured());
+        lhs->surface = ML::trim(token.captured());
     }
 
     if (!lhs && matchKeyword(context, "CASE")) {
@@ -1200,7 +1200,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         
         lhs = std::make_shared<CaseExpression>(std::move(expr), std::move(when),
                                                std::move(elseExpr));
-        lhs->surface = boost::trim_copy(token.captured());
+        lhs->surface = ML::trim(token.captured());
     }
 
     // Otherwise, look for a constant
@@ -1208,7 +1208,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         ExpressionValue constant;
         if (matchConstant(context, constant, allowUtf8)) {
             lhs = std::make_shared<ConstantExpression>(constant);
-            lhs->surface = boost::trim_copy(token.captured());
+            lhs->surface = ML::trim(token.captured());
         }
     }
 
@@ -1218,7 +1218,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         Utf8String tableName;  // can't know the table name without context
         if (!identifier.empty()) {
             lhs = std::make_shared<ReadVariableExpression>(tableName, identifier);
-            lhs->surface = boost::trim_copy(token.captured());
+            lhs->surface = ML::trim(token.captured());
 
             skip_whitespace(context);
             if (context.match_literal('(')) {
@@ -1268,7 +1268,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
 
                 lhs = std::make_shared<FunctionCallWrapper>("", identifier, args, extractExpression);
 
-                lhs->surface = boost::trim_copy(token.captured());
+                lhs->surface = ML::trim(token.captured());
         
             } // if '(''
         } // if ! identifier empty
@@ -1289,7 +1289,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         skip_whitespace(context);
         
         if (context.eof()) {
-            lhs->surface = boost::trim_copy(token.captured());
+            lhs->surface = ML::trim(token.captured());
             return lhs;
         }
 
@@ -1316,7 +1316,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
                 lhs = std::make_shared<IsTypeExpression>(lhs, notExpr, "integer");
             else context.exception("Expected NULL, TRUE, FALSE, STRING, NUMBER or INTEGER after IS {NOT}");
 
-            lhs->surface = boost::trim_copy(token.captured());
+            lhs->surface = ML::trim(token.captured());
 
             continue;
         }
@@ -1331,7 +1331,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
             auto upper = SqlExpression::parse(context, 5 /* precedence */, allowUtf8);
             
             lhs = std::make_shared<BetweenExpression>(lhs, lower, upper, notBetween);
-            lhs->surface = boost::trim_copy(token.captured());
+            lhs->surface = ML::trim(token.captured());
             continue;
         }
 
@@ -1356,7 +1356,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
 
                 auto rhs = std::make_shared<SelectSubtableExpression>(statement, asName);
                 lhs = std::make_shared<InExpression>(lhs, rhs, negative);
-                lhs->surface = boost::trim_copy(token.captured());                
+                lhs->surface = ML::trim(token.captured());                
             }
             else
             {
@@ -1365,7 +1365,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
                 context.expect_literal(')');
                 
                 lhs = std::make_shared<InExpression>(lhs, rhs, negative);
-                lhs->surface = boost::trim_copy(token.captured());
+                lhs->surface = ML::trim(token.captured());
                 continue;
             }     
         }
@@ -1382,14 +1382,14 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
             if (matchOperator(context, op.token)) {
                 auto rhs = parse(context, op.precedence - 1, allowUtf8);
                 lhs = op.handler(lhs, rhs, op.token);
-                lhs->surface = boost::trim_copy(token.captured());
+                lhs->surface = ML::trim(token.captured());
                 found = true;
                 break;
             }
         }
         
         if (!found) {
-            lhs->surface = boost::trim_copy(token.captured());
+            lhs->surface = ML::trim(token.captured());
             return lhs;
         }
     }
@@ -1934,7 +1934,7 @@ parse(ML::Parse_Context & context, bool allowUtf8)
                     token.ignore();
 
                     auto result = std::make_shared<WildcardExpression>(tableName, prefix, prefixAs, exclusions);
-                    result->surface = boost::trim_copy(capture.captured());
+                    result->surface = ML::trim(capture.captured());
                     return result;
                 }
             }
@@ -2068,7 +2068,7 @@ parse(ML::Parse_Context & context, bool allowUtf8)
         else prefixAs = prefix;
 
         auto result = std::make_shared<WildcardExpression>(tableName, prefix, prefixAs, exclusions);
-        result->surface = boost::trim_copy(capture.captured());
+        result->surface = ML::trim(capture.captured());
         return result;
     }
 
@@ -2705,6 +2705,12 @@ SelectExpression::
 SelectExpression(std::vector<std::shared_ptr<SqlRowExpression> > clauses)
     : clauses(std::move(clauses))
 {
+    // concatenate all the surfaces with spaces
+    surface = std::accumulate(this->clauses.begin(), this->clauses.end(), Utf8String{},
+                              [](const Utf8String & prefix,
+                                 std::shared_ptr<SqlRowExpression> & next) {
+                                  return prefix.empty() ? next->surface : prefix + ", " + next->surface;
+                              });;
 }
 
 SelectExpression
@@ -2996,14 +3002,14 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
             }
 
             result.reset(new SelectSubtableExpression(statement, asName));
-            result->surface = boost::trim_copy(token.captured());
+            result->surface = ML::trim(token.captured());
         }
         else
         {
             result = TableExpression::parse(context, currentPrecedence, allowUtf8);
             skip_whitespace(context);
             context.expect_literal(')');
-            result->surface = boost::trim_copy(token.captured());
+            result->surface = ML::trim(token.captured());
         }
     }
 
@@ -3049,7 +3055,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
             }
 
             result = expr;
-            result->surface = boost::trim_copy(token.captured());
+            result->surface = ML::trim(token.captured());
         }
     }
 
@@ -3067,12 +3073,12 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         }
             
         result.reset(new JoinExpression(result, joinTable, condition));
-        result->surface = boost::trim_copy(token.captured());
+        result->surface = ML::trim(token.captured());
 
         skip_whitespace(context);
     }
 
-    result->surface = boost::trim_copy(token.captured());
+    result->surface = ML::trim(token.captured());
     
     return result;
 }
@@ -3554,7 +3560,7 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
         statement.offset = 0;
     }
 
-    statement.surface = boost::trim_copy(token.captured());
+    statement.surface = ML::trim(token.captured());
 
     skip_whitespace(context);
 

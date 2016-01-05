@@ -142,7 +142,7 @@ inline ML::DB::Store_Reader & operator >> (ML::DB::Store_Reader & store, Id & id
         store >> s;
         if (s.length() <= 16) {
             r.type = Id::SHORTSTR;
-            r.val = 0;
+            r.val1 = r.val2 = 0;
             std::copy(s.c_str(), s.c_str() + s.length(), r.shortStr);
         }
         else {

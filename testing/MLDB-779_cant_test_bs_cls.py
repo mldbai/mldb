@@ -43,7 +43,11 @@ for cls in ["bdt", "glz", "bs"]:
     rez = mldb.perform("PUT", "/v1/procedures/tng_classif", [], {
             "type": "classifier.train",
             "params": {
-                "trainingDataset": { "id": "toy" },
+                "trainingData": { 
+                    "where": "rowHash() % 3 != 1",
+                    "select": "{* EXCLUDING(LABEL)} as features, LABEL = 'true' as label",
+                    "from" : { "id": "toy" }
+                },
                 "configuration": {
                     "glz": {
                         "type": "glz",
@@ -70,11 +74,7 @@ for cls in ["bdt", "glz", "bs"]:
                     }
                 },
                 "algorithm": cls,
-                "modelFileUrl": "file://models/tng.cls",
-                "label": "LABEL = 'true'",
-                "weight": "1.0",
-                "where": "rowHash() % 3 != 1",
-                "select": "* EXCLUDING(LABEL)"
+                "modelFileUrl": "file://models/tng.cls"
             }
         })
 
@@ -105,12 +105,12 @@ for cls in ["bdt", "glz", "bs"]:
     rez = mldb.perform("PUT", "/v1/procedures/tng_score_proc", [], {
         "type": "classifier.test",
         "params": {
-            "testingDataset": { "id": "toy" },
-            "outputDataset": { "id":"toy_cls_baseline_scorer_rez", "type": "sparse.mutable" },
-            "where": "rowHash() % 3 = 1",
-            "label": "LABEL = 'true'",
-            "weight": "1.0",
-            "score": "tng_scorer({{* EXCLUDING(LABEL)} as features})[score]",
+            "testingData": { 
+                "select" : "{*} as features, LABEL = 'true' as label, tng_scorer({{* EXCLUDING(LABEL)} as features})[score] as score",
+                "from": {"id": "toy" },
+                "where" : "rowHash() % 3 = 1"
+            },
+            "outputDataset": { "id":"toy_cls_baseline_scorer_rez", "type": "sparse.mutable" }
         }
     })
     mldb.log(rez)

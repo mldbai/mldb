@@ -91,36 +91,36 @@ struct RestServiceEndpoint {
 
         void sendResponse(int responseCode,
                           const char * response,
-                          const std::string & contentType)
+                          std::string contentType)
         {
             return sendResponse(responseCode, std::string(response),
-                                contentType);
+                                std::move(contentType));
         }
 
         /** Send the given response back on the connection. */
         void sendResponse(int responseCode,
-                          const std::string & response,
-                          const std::string & contentType);
+                          std::string response,
+                          std::string contentType);
 
         /** Send the given response back on the connection. */
         void sendResponse(int responseCode,
                           const Json::Value & response,
-                          const std::string & contentType = "application/json");
+                          std::string contentType = "application/json");
 
         void sendResponse(int responseCode)
         {
             return sendResponse(responseCode, "", "");
         }
 
-        void sendRedirect(int responseCode, const std::string & location);
+        void sendRedirect(int responseCode, std::string location);
 
         /** Send an HTTP-only response with the given headers.  If it's not
             an HTTP connection, this will fail.
         */
         void sendHttpResponse(int responseCode,
-                              const std::string & response,
-                              const std::string & contentType,
-                              const RestParams & headers);
+                              std::string response,
+                              std::string contentType,
+                              RestParams headers);
 
         enum {
             UNKNOWN_CONTENT_LENGTH = -1,
@@ -133,23 +133,23 @@ struct RestServiceEndpoint {
             transfer encoding
         */
         void sendHttpResponseHeader(int responseCode,
-                                    const std::string & contentType,
+                                    std::string contentType,
                                     ssize_t contentLength,
-                                    const RestParams & headers = RestParams());
+                                    RestParams headers = RestParams());
 
         /** Send a payload (or a chunk of a payload) for an HTTP connection. */
-        void sendPayload(const std::string & payload);
+        void sendPayload(std::string payload);
 
         /** Finish the response, recycling or closing the connection. */
         void finishResponse();
 
         /** Send the given error string back on the connection. */
         void sendErrorResponse(int responseCode,
-                               const std::string & error,
-                               const std::string & contentType);
+                               std::string error,
+                               std::string contentType);
 
         void sendErrorResponse(int responseCode, const char * error,
-                               const std::string & contentType)
+                               std::string contentType)
         {
             sendErrorResponse(responseCode, std::string(error), "application/json");
         }

@@ -8,6 +8,7 @@
 
 #include "js_common.h"
 #include "mldb/sql/cell_value.h"
+#include "mldb/sql/expression_value.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb_js.h"
 #include <boost/algorithm/string.hpp>
@@ -130,46 +131,21 @@ void to_js(JS::JSValue & value, const CellValue & val)
         to_js(value, val.toString());
 }
 
-#if 0
 ExpressionValue from_js(const JS::JSValue & value, ExpressionValue *)
 {
-    if (value->IsNull() || value->IsUndefined())
-        return ExpressionValue();
-    else if (value->IsNumber())
-        return ExpressionValue(value->NumberValue());
-    else if (value->IsDate())
-        return ExpressionValue(Date::fromSecondsSinceEpoch(value->NumberValue() / 1000.0));
-    else
-        return ExpressionValue(utf8str(value));
+    // NOTE: we currently pretend that CellValue and ExpressionValue
+    // are the same thing; they are not.  We will eventually need to
+    // allow proper JS access to full-blown ExpressionValue objects,
+    // backed with a JS object.
+
+    CellValue val = from_js(value, (CellValue *)0);
+    return ExpressionValue(val, Date::notADate());
 }
 
 void to_js(JS::JSValue & value, const ExpressionValue & val)
 {
-    if (val.empty())
-        value = v8::Null();
-    else if (val.isExactDouble())
-        to_js(value, val.toDouble());
-    else if (val.isUtf8String())
-        to_js(value, val.toUtf8String());
-    else if (val.isTimestamp()) {
-        to_js(value, val.toTimestamp());
-    }
-    else
-        to_js(value, val.toString());
+    to_js(value, val.getAtom());
 }
-
-ExpressionValue from_js(const JS::JSValue & value, ExpressionValue *)
-{
-    if (value->IsNull() || value->IsUndefined())
-        return ExpressionValue();
-    else if (value->IsNumber())
-        return ExpressionValue(value->NumberValue());
-    else if (value->IsDate())
-        return ExpressionValue(Date::fromSecondsSinceEpoch(value->NumberValue() / 1000.0));
-    else
-        return ExpressionValue(utf8str(value));
-}
-#endif
 
 ScriptStackFrame
 parseV8StackFrame(const std::string & v8StackFrameMessage)

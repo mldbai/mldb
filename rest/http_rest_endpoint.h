@@ -78,34 +78,28 @@ struct HttpRestEndpoint {
         handleHttpPayload(const HttpHeader & header,
                           const std::string & payload);
 
-        void sendErrorResponse(int code, const std::string & error);
+        void sendErrorResponse(int code, std::string error);
 
         void sendErrorResponse(int code, const Json::Value & error);
 
         void sendResponse(int code,
                           const Json::Value & response,
-                          const std::string & contentType = "application/json",
+                          std::string contentType = "application/json",
                           RestParams headers = RestParams());
 
         void sendResponse(int code,
-                          const std::string & body,
-                          const std::string & contentType,
+                          std::string body, std::string contentType,
                           RestParams headers = RestParams());
 
         void sendResponseHeader(int code,
-                                const std::string & contentType,
+                                std::string contentType,
                                 RestParams headers = RestParams());
 
         /** Send an HTTP chunk with the appropriate headers back down the
             wire. */
-        void sendHttpChunk(const std::string & chunk,
+        void sendHttpChunk(std::string chunk,
                            NextAction next = NEXT_CONTINUE,
                            OnWriteFinished onWriteFinished = OnWriteFinished());
-
-        /** Send the entire HTTP payload.  Its length must match that of
-            the response header.
-        */
-        void sendHttpPayload(const std::string & str);
     };
 
     typedef std::function<void (std::shared_ptr<RestConnectionHandler> connection,

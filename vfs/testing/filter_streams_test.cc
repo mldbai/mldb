@@ -14,6 +14,7 @@
 
 #include "mldb/jml/utils/file_functions.h"
 #include "mldb/vfs/filter_streams.h"
+#include "mldb/vfs/fs_utils.h"
 #include "mldb/vfs/filter_streams_registry.h"
 #include "mldb/arch/exception.h"
 #include "mldb/arch/exception_handler.h"
@@ -447,8 +448,9 @@ struct RegisterExcHandlers {
         handler.reset(new boost::iostreams::stream_buffer<ExceptionSource>
                       (ExceptionSource(onException, throwType),
                        1));
-
-        return UriHandler(handler.get(), handler);
+        Datacratic::FsObjectInfo info;
+        info.exists = true;
+        return UriHandler(handler.get(), handler, info);
     }
 
     static UriHandler

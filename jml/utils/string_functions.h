@@ -57,6 +57,10 @@ int antoi(const char * start, const char * end, int base = 10);
 unsigned replace_all(std::string & haystack, const std::string & search,
         const std::string & replace);
 
+/* Remove space and tab characters from both ends of a copy of the given
+ * string. */
+std::string trim(const std::string & other);
+
 } // namespace ML
 
 

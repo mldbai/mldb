@@ -68,26 +68,18 @@ registerFunctionType(const Package & package,
                                             config, registryFlags);
 }
 
+
 /*****************************************************************************/
-/* FUNCTION COLLECTION                                                          */
+/* FUNCTION                                                                  */
 /*****************************************************************************/
 
-FunctionCollection::
-FunctionCollection(MldbServer * server)
-    : PolyCollection<Function>("function", "functions", server)
-{
-}
-
-void
-FunctionCollection::
-applyFunction(const Function * function,
-              const std::map<Utf8String, ExpressionValue> & input,
-              const std::vector<Utf8String> & keepValues,
-              RestConnection & connection) const
+FunctionOutput
+Function::
+call(const std::map<Utf8String, ExpressionValue> & input) const
 {
     SqlExpressionMldbContext outerContext(MldbEntity::getOwner(this->server));
     
-    auto info = function->getFunctionInfo();
+    auto info = this->getFunctionInfo();
 
     //cerr << "function info is " << jsonEncode(info) << endl;
 
@@ -116,35 +108,54 @@ applyFunction(const Function * function,
             Json::Value details;
             details["valueName"] = name;
             details["value"] = jsonEncode(v);
-            details["functionName"] = function->config_->id;
-            details["functionType"] = function->type_;
+            details["functionName"] = this->config_->id;
+            details["functionType"] = this->type_;
             if (valueInfo)
                 details["valueExpectedType"] = jsonEncode(it->second.valueInfo);
 
             rethrowHttpException(400, "Parsing value '" + name + "' with value '"
                                  + jsonEncodeStr(v) + "' for function '"
-                                 + function->config_->id + "': " + exc.what(),
+                                 + this->config_->id + "': " + exc.what(),
                                  details);
         }
     }
 
     //cerr << "inputContext = " << jsonEncode(inputContext) << endl;
 
-    auto applier = function->bind(outerContext, info.input);
+    auto applier = this->bind(outerContext, info.input);
+    
+    return applier->apply(inputContext);
+}
 
-    FunctionOutput output = applier->apply(inputContext);
+/*****************************************************************************/
+/* FUNCTION COLLECTION                                                       */
+/*****************************************************************************/
+
+FunctionCollection::
+FunctionCollection(MldbServer * server)
+    : PolyCollection<Function>("function", "functions", server)
+{
+}
+
+void
+FunctionCollection::
+applyFunction(const Function * function,
+              const std::map<Utf8String, ExpressionValue> & input,
+              const std::vector<Utf8String> & keepValues,
+              RestConnection & connection) const
+{
+    FunctionOutput output = function->call(input);
 
     //cerr << "output = " << jsonEncode(output) << endl;
 
     FunctionOutput result;
 
-
     if (!keepValues.empty()) {
         for (auto & p: keepValues)
-            result.values[p] = output.values[p];
+            result.values[p] = std::move(output.values[p]);
     }
     else {
-        result = output;
+        result = std::move(output);
     }
 
     static auto valDesc = getExpressionValueDescriptionNoTimestamp();
@@ -155,7 +166,7 @@ applyFunction(const Function * function,
     context.startObject();
     context.startMember("output");
     context.startObject();
-    for (auto & p: output.values) {
+    for (auto & p: result.values) {
         context.startMember(p.first.rawString());
         valDesc->printJsonTyped(&p.second, context);
     }

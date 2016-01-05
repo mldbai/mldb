@@ -9,7 +9,16 @@ In addition, a plugin can register its own documentation, which is served under 
 
 If you see a sidebar on the left, this document is being served within the Documentation Browser under `/doc`.
 
-If you want to link to a specific piece of documentation through the Documentation Browser, you can deep-link all the way to an anchor inside a document like this: `/doc#builtin/DocumentationServing.md.html#linking`. You can create an anchor anywhere with `<a name="anchor"></a>`.
+If you want to link to a specific piece of documentation through the Documentation Browser, you can deep-link all the way to an anchor inside a document like this: `/doc#builtin/DocumentationServing.md.html#linking`. You can create an anchor anywhere with `<a name="anchor"></a>`. 
+
+For example: 
+[this is a local link to this section](#linking) and 
+[this is a remote link to this section](DocumentationServing.md.html#linking)
+
+```
+[this is a local link to this section](#linking)
+[this is a remote link to this section](DocumentationServing.md.html#linking)
+```
 
 If you want to deep-link to a specific REST route within the Interactive Documentation, you can use something like `/doc#/doc/rest.html#GET:/v1/query`.
 

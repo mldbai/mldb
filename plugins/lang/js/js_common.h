@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** js_common.h                                                    -*- C++ -*-
     Jeremy Barnes, 12 June 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Common code for JS handling.
 */
@@ -26,6 +26,7 @@ struct RestRequestRouter;
 namespace MLDB {
 
 struct CellValue;
+struct ExpressionValue;
 struct MldbServer;
 struct LoadedPluginResource;
 
@@ -75,6 +76,12 @@ void to_js(JS::JSValue & value, const CellValue & val);
 CellValue from_js(const JS::JSValue & value, CellValue * = 0);
 
 CellValue from_js_ref(const JS::JSValue & value, CellValue * = 0);
+
+void to_js(JS::JSValue & value, const ExpressionValue & val);
+
+ExpressionValue from_js(const JS::JSValue & value, ExpressionValue * = 0);
+
+ExpressionValue from_js_ref(const JS::JSValue & value, ExpressionValue * = 0);
 
 /** Convert an exception to its representation. */
 ScriptException convertException(const v8::TryCatch & trycatch,
@@ -127,6 +134,8 @@ struct JsPluginContext {
     v8::Persistent<v8::FunctionTemplate> Stream;
     v8::Persistent<v8::FunctionTemplate> CellValue;
     v8::Persistent<v8::FunctionTemplate> Dataset;
+    v8::Persistent<v8::FunctionTemplate> Function;
+    v8::Persistent<v8::FunctionTemplate> Procedure;
     v8::Persistent<v8::FunctionTemplate> RandomNumberGenerator;
 };
 

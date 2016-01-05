@@ -159,7 +159,7 @@ scp -P2222 /path/to/file.ext ubuntu@localhost:/mldb_data/file.ext
 
 Inside the virtual machine, MLDB runs as a Docker container (see above) controlled by an `upstart` service. This means that you can stop/restart the container by SSHing into the machine and running `sudo stop mldb` and/or `sudo start mldb`.
 
-To upgrade MLDB to the latest version hosted, just SSH into the virtual machine, stop your container, run `docker pull quay.io/datacratic/mldb:latest` and restart your container.
+To upgrade MLDB to the latest version, you will need to download a new OVA.
 
 -----------
 
@@ -239,6 +239,6 @@ scp /path/to/file.ext ubuntu@<remotehost>:/mldb_data/file.ext
 
 Inside the virtual machine, MLDB runs as a Docker container (see above) controlled by an `upstart` service. This means that you can stop/restart the container by SSHing into the machine and running `sudo stop mldb` and/or `sudo start mldb`.
 
-To upgrade MLDB to the latest version hosted, just SSH into the virtual machine, stop your container, run `docker pull quay.io/datacratic/mldb:latest` and restart your container.
+To upgrade MLDB to the latest version, you will need to launch a new AMI.
 
 

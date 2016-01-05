@@ -17,6 +17,7 @@
 #include "mldb/arch/exception.h"
 #include <sys/errno.h>
 #include <stdlib.h>
+#include <boost/algorithm/string.hpp>
 
 using namespace std;
 
@@ -211,5 +212,39 @@ unsigned replace_all(std::string & haystack, const std::string & search,
     }
     return num_found;
 }
+
+string
+trim(const string & other)
+{
+    return boost::trim_copy(other);
+
+    /*size_t len = other.size();
+
+    size_t start;
+    for (start = 0; start < len; start++) {
+        if (other[start] != ' ' && other[start] != '\t') {
+            break;
+        }
+    }
+
+    size_t end;
+    for (end = len; end > start; end--) {
+        if (other[end-1] != ' ' && other[end-1] != '\t') {
+            break;
+        }
+    }
+
+    if (start == 0 && end == len) {
+        return other;
+    }
+
+    string result;
+    if (start != end) {
+        result = other.substr(start, end-start);
+    }
+
+    return result;*/
+}
+
 
 } // namespace ML

@@ -46,3 +46,55 @@ BOOST_AUTO_TEST_CASE( test_string_replace_in_place )
     num_found = replace_all(my_str, "$toRep", "hoho");
     BOOST_CHECK_EQUAL(my_str, "hohoBouyahoho");
 }
+
+BOOST_AUTO_TEST_CASE( test_string_trim )
+{
+    {
+        string original = "notrimming";
+        string expected = original;
+        string result = ML::trim(original);
+        BOOST_CHECK_EQUAL(result, expected);
+    }
+
+    {
+        string original = " \t  left trimming";
+        string expected = "left trimming";
+        string result = ML::trim(original);
+        BOOST_CHECK_EQUAL(result, expected);
+    }
+
+    {
+        string original = "right trimming    \t  ";
+        string expected = "right trimming";
+        string result = ML::trim(original);
+        BOOST_CHECK_EQUAL(result, expected);
+    }
+
+    {
+        string original = "";
+        string expected = "";
+        string result = ML::trim(original);
+        BOOST_CHECK_EQUAL(result, expected);
+    }
+
+    {
+        string original = " ";
+        string expected = "";
+        string result = ML::trim(original);
+        BOOST_CHECK_EQUAL(result, expected);
+    }
+
+    {
+        string original = "\t\t\ta";
+        string expected = "a";
+        string result = ML::trim(original);
+        BOOST_CHECK_EQUAL(result, expected);
+    }
+
+    {
+        string original = "a ";
+        string expected = "a";
+        string result = ML::trim(original);
+        BOOST_CHECK_EQUAL(result, expected);
+    }
+}

@@ -11,6 +11,8 @@
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/base/scope.h"
 #include "mldb/vfs/filter_streams_registry.h"
+#include "mldb/arch/exception.h"
+#include <sstream>
 
 // libarchive support
 #include <archive.h>
@@ -85,20 +87,20 @@ bool iterateArchive(std::streambuf * archive,
 
             switch (filetype) {
             case AE_IFREG: {
-                FsObjectInfo info;
-                info.size
+                auto info = std::make_shared<FsObjectInfo>();
+                info->size
                     = archive_entry_size_is_set(entry) ?
                     archive_entry_size(entry) : -1;
-                info.exists = true;
+                info->exists = true;
                 if (archive_entry_mtime_is_set(entry)) {
-                    info.lastModified = Date::fromSecondsSinceEpoch(archive_entry_mtime(entry) + 0.000000001 * archive_entry_mtime_nsec(entry));
+                    info->lastModified = Date::fromSecondsSinceEpoch(archive_entry_mtime(entry) + 0.000000001 * archive_entry_mtime_nsec(entry));
                 }
-                else info.lastModified = Date::notADate();
+                else info->lastModified = Date::notADate();
 
-                info.ownerId = std::to_string(archive_entry_uid(entry));
+                info->ownerId = std::to_string(archive_entry_uid(entry));
                 const char * gname = archive_entry_gname(entry);
                 if (gname)
-                    info.ownerName = gname;
+                    info->ownerName = gname;
                 //info.permissions = archive_entry_strmode(entry);
 
                 auto open = [=] (const std::map<std::string, std::string> & options)
@@ -125,10 +127,10 @@ bool iterateArchive(std::streambuf * archive,
 
                         std::shared_ptr<std::istream> result
                         (new std::istringstream(stream.str()));
-                        return ML::UriHandler(result->rdbuf(), result);
+                        return ML::UriHandler(result->rdbuf(), result, info);
                     };
 
-                return onObject(filename, info, open, 1 /* depth */);
+                return onObject(filename, *info, open, 1 /* depth */);
             }
             case AE_IFDIR: 
                 //cerr << "*** got directory " << filename << endl;

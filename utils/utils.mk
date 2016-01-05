@@ -3,7 +3,7 @@
 # RTB simulator makefile
 # Jeremy Barnes, 16 January 2010
 
-$(eval $(call library,json_diff,json_diff.cc json_utils.cc,jsoncpp value_description types siphash))
+$(eval $(call library,json_diff,json_diff.cc json_utils.cc,jsoncpp value_description types utils siphash))
 
 LIBCOMMAND_EXPRESSION_SOURCES := \
 	command.cc \

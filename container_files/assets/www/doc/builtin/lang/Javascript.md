@@ -157,6 +157,23 @@ apply a JSON patch:
   object.  The return value is an array; element 0 is the patched object,
   and element 1 is the set of diffs that couldn't be applied.
 
+### SQL
+
+The following functions aid in working with SQL from within Javascript.
+
+- `mldb.query(<sql statement>)` will parse and run the given query (which is
+  an SQL string), and return an object with the full set of rows
+  returned.  It is important to limit the number of results when querying
+  large datasets, as otherwise MLDB could run out of memory.  For example,
+  `mldb.query('SELECT * FROM dataset1 LIMIT 5')` will return the first five
+  rows of the given table.
+- `mldb.sqlEscape(<string>)` will turn the given string into an SQL string,
+  including adding delimiters and escaping any SQL characters that need it.
+  For example, `mldb.sqlEscape("It's hot")` will return "`'It''s hot'".  This
+  can be used to help construct SQL queries containing strings that may
+  include special characters.
+  
+
 ### Interacting with MLDB data types
 
 MLDB's atomic types are represented in Javascript as follows:
@@ -242,5 +259,41 @@ This object has the following methods defined:
 - `dataset.id()` returns the id of the dataset
 - `dataset.type()` returns the type of the dataset
 - `dataset.config()` returns the configuration of the dataset
+- `dataset.status()` returns the status of the dataset
+- `dataset.details()` returns the details of the dataset
 - `dataset.getTimestampRange()` returns the range of timestamps present in
   the dataset
+
+### Procedure objects
+
+A procedure object can be created using `mldb.createProcedure(config)`.
+The `config` is the same JSON object that would be `POST`ed to `/v1/procedures`
+to create the procedure.  If no `id` is passed, then the procedure is
+anonymous and will have an `id` auto-generated.
+
+The procedure object has the following methods defined:
+
+- `procedure.run(args)` runs the procedure, with the given arguments,
+  waits for it to finish, and returns the output of the procedure.  It's
+  equivalent to `POST`ing to the `/runs` route of the procedure.
+- `procedure.id()` returns the id of the procedure
+- `procedure.type()` returns the type of the procedure
+- `procedure.config()` returns the configuration of the procedure
+- `procedure.status()` returns the status of the procedure
+- `procedure.details()` returns the details of the procedure
+
+
+### Function objects
+
+A function object is created similarly to procedure and dataset objects.
+
+It has the following methods defined:
+
+- `function.call(args)` calls the function, with the given arguments,
+  waits for it to finish, and returns the output of the function.
+- `function.id()` returns the id of the function
+- `function.type()` returns the type of the function
+- `function.config()` returns the configuration of the function
+- `function.status()` returns the status of the function
+- `function.details()` returns the details of the function
+
