@@ -484,6 +484,11 @@ struct ExpressionValue {
     */
     Date getMaxTimestamp() const;
 
+    /** return if this value should be sorted as earlier or later than the one provided
+    */
+    bool isEarlier(const Date& compareTimeStamp, const ExpressionValue& compareValue) const;
+    bool isLater(const Date& compareTimeStamp, const ExpressionValue& compareValue) const;
+
     // Return the given field name.  Valid for anything that is a
     // structured type... rows, JSON values, objects, arrays, embeddings.
     ExpressionValue getField(const Utf8String & fieldName,

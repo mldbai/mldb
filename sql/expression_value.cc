@@ -1005,6 +1005,22 @@ getMaxTimestamp() const
     return result;
 }
 
+bool 
+ExpressionValue::
+isEarlier(const Date& compareTimeStamp, const ExpressionValue& compareValue) const
+{
+    Date ts = getEffectiveTimestamp();
+    return (ts < compareTimeStamp) || (ts == compareTimeStamp && *this < compareValue);
+}
+
+bool 
+ExpressionValue::
+isLater(const Date& compareTimeStamp, const ExpressionValue& compareValue) const
+{
+    Date ts = getEffectiveTimestamp();
+    return (ts > compareTimeStamp) || (ts == compareTimeStamp && *this < compareValue);
+}
+
 ExpressionValue
 ExpressionValue::
 getField(const Utf8String & fieldName, const VariableFilter & filter) const
@@ -1040,8 +1056,9 @@ getField(const Utf8String & fieldName, const VariableFilter & filter) const
     return ExpressionValue();
 }
 
-const ExpressionValue* ExpressionValue::findNestedField(const Utf8String & fieldName,
-                                       const VariableFilter & filter /*= GET_LATEST*/) const
+const ExpressionValue*
+ExpressionValue::
+findNestedField(const Utf8String & fieldName, const VariableFilter & filter /*= GET_LATEST*/) const
 {
     if (type_ == ROW) {
 
@@ -1452,18 +1469,12 @@ getFiltered(const VariableFilter & filter /*= GET_LATEST*/) const
             break;
         case GET_EARLIEST:
             filterFn = [](const ExpressionValue& left, const ExpressionValue& right){
-                Date leftTs = left.getEffectiveTimestamp();
-                Date ts = right.getEffectiveTimestamp();
-
-                return (ts < leftTs || (ts == leftTs && right < left));
+                return right.isEarlier(left.getEffectiveTimestamp(), left);
             };
             break;
         case GET_LATEST:
             filterFn = [](const ExpressionValue& left, const ExpressionValue& right){
-                Date leftTs = left.getEffectiveTimestamp();
-                Date ts = right.getEffectiveTimestamp();
-
-                return (ts > leftTs || (ts == leftTs && right < left));
+               return right.isLater(right.getEffectiveTimestamp(), left);
             };
             break;
         case GET_ALL:
@@ -2221,9 +2232,7 @@ doSearchRow(const std::vector<std::tuple<Key, ExpressionValue> > & columns,
             if (std::get<0>(c) == key) {
                 const ExpressionValue & v = std::get<1>(c);
                 Date ts = v.getEffectiveTimestamp();
-                if (index == -1
-                    || ts < foundDate
-                    || (ts == foundDate && v < std::get<1>(columns[index]))) {
+                if (index == -1 || v.isEarlier(ts, std::get<1>(columns[index]))){
                     index = i;
                     foundDate = ts;
                 }
@@ -2241,9 +2250,7 @@ doSearchRow(const std::vector<std::tuple<Key, ExpressionValue> > & columns,
             if (std::get<0>(c) == key) {
                 const ExpressionValue & v = std::get<1>(c);
                 Date ts = v.getEffectiveTimestamp();
-                if (index == -1
-                    || ts > foundDate
-                    || (ts == foundDate && v < std::get<1>(columns[index]))) {
+                if (index == -1 || v.isLater(ts, std::get<1>(columns[index]))){
                     index = i;
                     foundDate = ts;
                 }

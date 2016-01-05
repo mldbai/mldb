@@ -48,4 +48,22 @@ for col, val in zip(cols, vals):
         assert count == val, ('First sum ({}) != second sum ({})'
                               .format(count, val))
 
+query = 'SELECT count("colA") as "colA" FROM ds'
+res = mldb.perform('GET', '/v1/query', [['q', query], ['format', 'table']])
+assert res['statusCode'] == 200, str(res)
+count = json.loads(res['response'])[1][1]
+mldb.log("First query count: {}".format(count))
+
+query = "SELECT count({*}) AS * FROM ds"
+res = mldb.perform('GET', '/v1/query', [['q', query], ['format', 'table']])
+assert res['statusCode'] == 200, str(res)
+data = json.loads(res['response'])
+cols = data[0]
+vals = data[1]
+for col, val in zip(cols, vals):
+    if col == 'colA':
+        mldb.log(val)
+        assert count == val, ('First sum ({}) != second sum ({})'
+                              .format(count, val))
+
 mldb.script.set_return("success")
