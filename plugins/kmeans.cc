@@ -248,8 +248,8 @@ KmeansFunctionConfigDescription()
              "Metric to use to calculate distances.  This should match the "
              "metric used in training.");
     addField("inputData", &KmeansFunctionConfig::inputData,
-             "Fields to select to calculate k-means over.  Only those fields "
-             "that are selected here need to be matched.  Default is to use ");
+             "SQL expression to select fields to calculate k-means over.  Only those fields "
+             "that are selected here need to be matched.  Default is to use all the fields.");
 }
 
 
@@ -267,11 +267,14 @@ KmeansFunction(MldbServer * owner,
 
     auto dataset = obtainDataset(server, functionConfig.centroids, onProgress);
 
+    SelectStatement query = functionConfig.inputData.stm ? 
+        *functionConfig.inputData.stm : SelectStatement();
+
     // Load up the embeddings
-    auto embeddingOutput = getEmbedding(functionConfig.inputData.stm->select,
+    auto embeddingOutput = getEmbedding(query.select,
                                         *dataset, "", 
-                                        functionConfig.inputData.stm->when,
-                                        functionConfig.inputData.stm->where,
+                                        query.when,
+                                        query.where,
                                         { },
                                         -1 /* max dimensions */,
                                         ORDER_BY_NOTHING, 0, -1,
