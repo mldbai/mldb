@@ -250,6 +250,7 @@ $(eval $(call mldb_unit_test,MLDB-1119_pooling_function.py))
 $(eval $(call mldb_unit_test,MLDB-1172_column_expr_fail.py))
 $(eval $(call mldb_unit_test,MLDB-1104-input-data-spec.py))
 $(eval $(call mldb_unit_test,MLDB-1190_segfault_sqlexpr_jseval.py))
+$(eval $(call mldb_unit_test,MLDB-1198-sum-inconsistency-test.py))
 $(eval $(call mldb_unit_test,MLDB-1212_csv_import_long_quoted_lines.py))
 
 $(eval $(call mldb_unit_test,pytanic_plugin_test.py))
