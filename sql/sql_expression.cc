@@ -1119,10 +1119,8 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
             lhs = arg;  
         }
 
-        cerr << "test1" << endl;
         skip_whitespace(context);
         context.expect_literal('}');
-        cerr << "test2" << endl;
         
         lhs->surface = ML::trim(token.captured());
     }
