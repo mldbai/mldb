@@ -57,7 +57,7 @@ SqlQueryFunctionConfigDescription()
              "SQL select expression to run.  The values in the dataset, as "
              "well as the input values, will be available for the expression "
              "calculation",
-             SelectExpression::STAR);
+             SelectExpression("*"));
     addField("from", &SqlQueryFunctionConfig::from,
              "Dataset to select from.  The dataset is fixed at initialization "
              "time and cannot be changed in the query.");

@@ -1,4 +1,4 @@
-Token Split Function
+# Token Split Function
 
 The token split function is a utility function that will insert a separating character before and after specified tokens in a string.
 This can be useful when preparing bags of words data for training. The function will add the specified split character only if there
