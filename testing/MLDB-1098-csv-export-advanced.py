@@ -54,10 +54,8 @@ def select_star_test():
     res = mldb.perform('PUT', '/v1/procedures/export', [], {
         'type' : 'export.csv',
         'params' : {
-            'inputDataset' : 'myDataset',
-            'dataFileUrl' : 'file://' + tmp_file.name,
-            'select' : '*',
-            'orderBy' : 'rowName()'
+            'exportData' : 'select * from myDataset order by rowName()',
+            'dataFileUrl' : 'file://' + tmp_file.name
         }
     })
     assert res['statusCode'] == 201, str(res)
@@ -78,10 +76,8 @@ def select_row_name_and_star_test():
     res = mldb.perform('PUT', '/v1/procedures/export', [], {
         'type' : 'export.csv',
         'params' : {
-            'inputDataset' : 'myDataset',
-            'dataFileUrl' : 'file://' + tmp_file.name,
-            'select' : 'rowName() as rowName, *',
-            'orderBy' : 'rowName()'
+            'exportData' : 'select rowName() as rowName, * from myDataset order by rowName()',
+            'dataFileUrl' : 'file://' + tmp_file.name
         }
     })
     assert res['statusCode'] == 201, str(res)
@@ -101,10 +97,8 @@ def select_dual_col_test():
     res = mldb.perform('PUT', '/v1/procedures/export', [], {
         'type' : 'export.csv',
         'params' : {
-            'inputDataset' : 'myDataset',
-            'dataFileUrl' : 'file://' + tmp_file.name,
-            'select' : "B, B, B as D",
-            'where' : "B = 'B2'"
+            'exportData' : "select B, B, B as D from myDataset where B = 'B2'",
+            'dataFileUrl' : 'file://' + tmp_file.name
         }
     })
     assert res['statusCode'] == 201, str(res)
@@ -121,10 +115,8 @@ def select_mixed_up_test():
     res = mldb.perform('PUT', '/v1/procedures/export', [], {
         'type' : 'export.csv',
         'params' : {
-            'inputDataset' : 'myDataset',
-            'dataFileUrl' : 'file://' + tmp_file.name,
-            'select' : "'foo' as foo, bar, rowName() as rowName, *, B, B as D",
-            'orderBy' : 'rowName()',
+            'exportData' : "select 'foo' as foo, bar, rowName() as rowName, *, B, B as D from myDataset order by rowName()",
+            'dataFileUrl' : 'file://' + tmp_file.name
         }
     })
     assert res['statusCode'] == 201, str(res)

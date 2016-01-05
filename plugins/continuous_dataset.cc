@@ -467,7 +467,7 @@ regContinuous(builtinPackage(),
 
 ContinuousWindowDatasetConfig::
 ContinuousWindowDatasetConfig()
-    : datasetFilter(SqlExpression::TRUE)
+    : datasetFilter(SqlExpression::parse("true"))
 {
 }
 
@@ -485,7 +485,7 @@ ContinuousWindowDatasetConfigDescription()
              "Latest date to include within the dataset");
     addField("datasetFilter", &ContinuousWindowDatasetConfig::datasetFilter,
              "Filter to apply to dataset metadata when choosing datasets",
-             SqlExpression::TRUE);
+             SqlExpression::parse("true"));
 }
 
 
@@ -537,12 +537,12 @@ getDatasetConfig(std::shared_ptr<SqlExpression> datasetsWhere,
     // Query our metadata dataset for the datasets to load up
     auto datasets
         = metadataDataset
-        ->queryStructured(SelectExpression::STAR,
-                          WhenExpression::TRUE /* when */,
+        ->queryStructured(SelectExpression::parse("*"),
+                          WhenExpression::parse("true") /* when */,
                           SqlExpression::parse(where) /* where */,
                           OrderByExpression::parse("rowName() ASC"),
                           TupleExpression(),
-                          SqlExpression::TRUE /* having */,
+                          SqlExpression::parse("true") /* having */,
                           SqlExpression::parse("rowName()") /* rowName */,
                           0 /* offset */,
                           -1 /* limit */,
