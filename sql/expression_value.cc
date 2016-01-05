@@ -1463,7 +1463,7 @@ getFiltered(const VariableFilter & filter /*= GET_LATEST*/) const
                 Date leftTs = left.getEffectiveTimestamp();
                 Date ts = right.getEffectiveTimestamp();
 
-                return (ts > leftTs || (ts == leftTs && right > left));
+                return (ts > leftTs || (ts == leftTs && right < left));
             };
             break;
         case GET_ALL:
