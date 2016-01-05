@@ -247,20 +247,9 @@ KmeansFunctionConfigDescription()
     addField("metric", &KmeansFunctionConfig::metric,
              "Metric to use to calculate distances.  This should match the "
              "metric used in training.");
-    addField("select", &KmeansFunctionConfig::select,
+    addField("inputData", &KmeansFunctionConfig::inputData,
              "Fields to select to calculate k-means over.  Only those fields "
-             "that are selected here need to be matched.  Default is to use "
-             "all fields.",
-             SelectExpression("*"));
-    addField("when", &KmeansFunctionConfig::when,
-             "Boolean expression determining which tuples from the dataset "
-             "to keep based on their timestamps",
-             WhenExpression::parse("true"));
-    addField("where", &KmeansFunctionConfig::where,
-             "Rows to select for k-means training.  This will effectively "
-             "limit which clusters are active.  Default is to use all "
-             "clusters.",
-             SqlExpression::parse("true"));
+             "that are selected here need to be matched.  Default is to use ");
 }
 
 
@@ -279,10 +268,10 @@ KmeansFunction(MldbServer * owner,
     auto dataset = obtainDataset(server, functionConfig.centroids, onProgress);
 
     // Load up the embeddings
-    auto embeddingOutput = getEmbedding(functionConfig.select,
+    auto embeddingOutput = getEmbedding(functionConfig.inputData.stm->select,
                                         *dataset, "", 
-                                        functionConfig.when,
-                                        functionConfig.where,
+                                        functionConfig.inputData.stm->when,
+                                        functionConfig.inputData.stm->where,
                                         { },
                                         -1 /* max dimensions */,
                                         ORDER_BY_NOTHING, 0, -1,
