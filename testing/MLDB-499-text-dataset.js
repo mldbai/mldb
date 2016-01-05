@@ -93,12 +93,14 @@ assertEqual(resp2.json[1][2], "4_603,politics,trees,pics");
 var transformConfig = {
     type: "transform",
     params: {
-        inputDataset: { id: 'reddit_text_file' },
-        outputDataset: { type: 'sparse.mutable', id: 'reddit_dataset' },
-        select: "parse_sparse_csv(lineText)",
-        //rowName: "regex_replace(lineText, '([^,]\+).*', '\\1')",
-        //rowName: "lineNumber"
-        rowName: "jseval('return x.substr(0, x.indexOf('',''));', 'x', lineText)"
+        inputData: { 
+            select: "parse_sparse_csv(lineText)",
+            from : "reddit_text_file",
+            //rowName: "regex_replace(lineText, '([^,]\+).*', '\\1')",
+            //rowName: "lineNumber"
+            named : "jseval('return x.substr(0, x.indexOf('',''));', 'x', lineText)"
+        },
+        outputDataset: { type: 'sparse.mutable', id: 'reddit_dataset' }
     }
 };
 

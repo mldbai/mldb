@@ -31,12 +31,11 @@ mldb.log(func_output)
 baggify_conf = {
     "type": "transform",
     "params": {
-        "inputDataset": "toy",
+        "inputData": "select tokenize(title, {splitchars:' ', quotechar:'', min_token_length: 2}) as * from toy",
         "outputDataset": {
             "id": "bag_of_words",
             "type": "sparse.mutable"
-        },
-        "select": """tokenize(title, {splitchars:' ', quotechar:'', min_token_length: 2}) as *""",
+        }
     }
 }
 baggify_output = mldb.perform("PUT", "/v1/procedures/baggify", [], baggify_conf)

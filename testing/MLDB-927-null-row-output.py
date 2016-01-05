@@ -13,12 +13,13 @@ def run_transform(when, format):
                           {
                               "type": "transform",
                               "params": {
-                                  "inputDataset": { "id": "dataset1" },
-                                "outputDataset": { "id": "dataset_out_" + str(dataset_index), "type":"sparse.mutable" },
-                                  "select": "*",
-                                  "when": when
-                            }
-    })
+                                  "inputData": "select * from dataset1 when " + when,
+                                  "outputDataset": { 
+                                      "id": "dataset_out_" + str(dataset_index), 
+                                      "type":"sparse.mutable" 
+                                  }
+                              }
+                          })
 
     assert result['statusCode'] == 201, "failed to create the procedure with a WHEN clause: %s" % result['response']
 

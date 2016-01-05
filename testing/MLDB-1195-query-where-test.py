@@ -28,9 +28,8 @@ def create_ds(name, rowName):
     res = mldb.perform('POST', '/v1/procedures', [], {
         'type' : 'transform',
         'params' : {
-            'inputDataset' : name,
+            'inputData' : 'select rowName(), "{0}" from {0}'.format(name),
             'outputDataset' : name + 'rows',
-            'select' : 'rowName(), "{}"'.format(name),
             'runOnCreation' : True
         }
     })

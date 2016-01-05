@@ -64,9 +64,8 @@ dataset2.commit()
 var transform_config2 = {
     type: 'transform',
     params: {
-        inputDataset: 'test1 join test2 on test1.x = test2.x and test1.y is not null',
-        outputDataset: { id: 'transformed', type: 'sparse.mutable' },
-        select: '*'
+        inputData: 'select * from test1 join test2 on test1.x = test2.x and test1.y is not null',
+        outputDataset: { id: 'transformed', type: 'sparse.mutable' }
     }
 };
 

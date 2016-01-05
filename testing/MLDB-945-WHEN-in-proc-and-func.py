@@ -14,10 +14,8 @@ def run_transform(when):
                           {
                               "type": "transform",
                               "params": {
-                                  "inputDataset": { "id": "dataset1" },
-                                  "outputDataset": { "id": "dataset" + str(dataset_index), "type":"sparse.mutable" },
-                                  "select": "*",
-                                  "when": when
+                                  "inputData": "select * from dataset1 when " + when,
+                                  "outputDataset": { "id": "dataset" + str(dataset_index), "type":"sparse.mutable" }
                               }
     })
 

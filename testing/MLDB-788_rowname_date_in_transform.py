@@ -25,12 +25,16 @@ assert res['statusCode'] == 200
 res = mldb.perform('PUT', '/v1/procedures/poil', [], {
     'type': 'transform',
     'params': {
-        'inputDataset': {'id': 'ds1'},
+        'inputData': {
+            'select': 'x, 1 as y, rowName() as rowname',
+            'from' : {'id': 'ds1'}
+        },
         'outputDataset': {
             'id': 'ds2',
             'type': 'sparse.mutable'
-        },
-        'select': 'x, 1 as y, rowName() as rowname' }})
+        }
+    }
+})
 
 assert res['statusCode'] == 201
 response = json.loads(res['response'])

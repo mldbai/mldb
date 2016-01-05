@@ -362,14 +362,7 @@ regSqlExpressionFunction(builtinPackage(),
 
 TransformDatasetConfig::
 TransformDatasetConfig()
-    : select(SelectExpression::parse("*")),
-      when(WhenExpression::parse("true")),
-      where(SqlExpression::parse("true")),
-      having(SqlExpression::parse("true")),
-      offset(0),
-      limit(-1),
-      rowName(SqlExpression::parse("rowName()")),
-      skipEmptyRows(false)
+    : skipEmptyRows(false)
 {
     outputDataset.withType("sparse.mutable");
 }
@@ -380,56 +373,14 @@ DEFINE_STRUCTURE_DESCRIPTION(TransformDatasetConfig);
 TransformDatasetConfigDescription::
 TransformDatasetConfigDescription()
 {
-    addFieldDesc("inputDataset", &TransformDatasetConfig::inputDataset,
-                 "Dataset to be transformed.  This must be an existing dataset.",
-                 makeInputDatasetDescription());
+    addField("inputData", &TransformDatasetConfig::inputData,
+             "A SQL statement to select the rows from a dataset to be transformed.  This supports "
+             "all MLDB's SQL expressions including but not limited to where, when, order by and "
+             "group by clauses.  These expressions can be used to refine the rows to transform.");
     addField("outputDataset", &TransformDatasetConfig::outputDataset,
              "Output dataset configuration.  This may refer either to an "
              "existing dataset, or a fully specified but non-existing dataset "
              "which will be created by the procedure.", PolyConfigT<Dataset>().withType("sparse.mutable"));
-    addField("select", &TransformDatasetConfig::select,
-             "Values to select.  These columns will be written as the output "
-             "of the dataset.",
-             SelectExpression::parse("*"));
-    addField("when", &TransformDatasetConfig::when,
-             "Boolean expression determining which tuples from the dataset "
-             "to keep based on their timestamps",
-             WhenExpression::parse("true"));
-    addField("where", &TransformDatasetConfig::where,
-             "Boolean expression determining which rows from the input "
-             "dataset will be processed.",
-             SqlExpression::parse("true"));
-    addField("groupBy", &TransformDatasetConfig::groupBy,
-             "Expression used to group values for aggregation queries.  "
-             "Default is to run a row-by-row query, not an aggregation.");
-    addField("having", &TransformDatasetConfig::having,
-             "Boolean expression used to select which groups will write a "
-             "value to the output for a grouped query.  Default is to "
-             "write all groups",
-             SqlExpression::parse("true"));
-    addField("orderBy", &TransformDatasetConfig::orderBy,
-             "Expression dictating how output rows will be ordered.  This is "
-             "only meaningful when offset and/or limit is used, as it "
-             "affects in which order those rows will be seen by the "
-             "windowing code.");
-    addField("offset", &TransformDatasetConfig::offset,
-             "Number of rows of output to skip.  Default is to skip none. "
-             "Note that selecting a subset of data is usally better done "
-             "using the where clause (eg, `where rowHash() % 10 = 0`) as "
-             "it is more efficient and repeatable.");
-    addField("limit", &TransformDatasetConfig::limit,
-             "Number of rows of output to produce.  Default is to produce all. "
-             "This can be used to produce a cut-down dataset, but again it's "
-             "normally better to use where as that doesn't require that "
-             "results be sorted for repeatability.");
-    addField("rowName", &TransformDatasetConfig::rowName,
-             "Expression to set the row name for the output dataset.  Default "
-             "depends on whether it's a grouping query or not: for a grouped "
-             "query, it's the groupBy expression.  For a non-grouped query, "
-             "it's the rowName() of the input dataset.  Beware of a rowName "
-             "expression that gives non-unique row names; this will lead to "
-             "errors in some dataset implementations.",
-             SqlExpression::parse("rowName()"));
     addField("skipEmptyRows", &TransformDatasetConfig::skipEmptyRows,
              "Skip rows from the input dataset where no values are selected",
              false);
@@ -453,8 +404,9 @@ run(const ProcedureRunConfig & run,
     // Get the input dataset
     SqlExpressionMldbContext context(server);
 
-    auto boundDataset = procedureConfig.inputDataset->bind(context);
-    std::vector< std::shared_ptr<SqlExpression> > aggregators = procedureConfig.select.findAggregators();
+    auto boundDataset = procedureConfig.inputData.stm->from->bind(context);
+    std::vector< std::shared_ptr<SqlExpression> > aggregators = 
+        procedureConfig.inputData.stm->select.findAggregators();
 
     // Create the output 
     std::shared_ptr<Dataset> output;
@@ -465,7 +417,7 @@ run(const ProcedureRunConfig & run,
     bool skipEmptyRows = procedureConfig.skipEmptyRows;
 
     // Run it
-    if (procedureConfig.groupBy.clauses.empty()) {
+    if (procedureConfig.inputData.stm->groupBy.clauses.empty()) {
 
         // We accumulate multiple rows per thread and insert with recordRows
         // to be more efficient.
@@ -506,19 +458,20 @@ run(const ProcedureRunConfig & run,
         // We only add an implicit order by (which defeats parallelization)
         // if we have a limit or offset parameter.
         bool implicitOrderByRowHash
-            = (procedureConfig.offset != 0 || procedureConfig.limit != -1);
+            = (procedureConfig.inputData.stm->offset != 0 || 
+               procedureConfig.inputData.stm->limit != -1);
 
-        BoundSelectQuery(procedureConfig.select,
+        BoundSelectQuery(procedureConfig.inputData.stm->select,
                          *boundDataset.dataset,
                          boundDataset.asName,
-                         procedureConfig.when,
-                         procedureConfig.where,
-                         procedureConfig.orderBy,
-                         { procedureConfig.rowName },
+                         procedureConfig.inputData.stm->when,
+                         procedureConfig.inputData.stm->where,
+                         procedureConfig.inputData.stm->orderBy,
+                         { procedureConfig.inputData.stm->rowName },
                          implicitOrderByRowHash)
             .execute(recordRowInOutputDataset,
-                     procedureConfig.offset,
-                     procedureConfig.limit,
+                     procedureConfig.inputData.stm->offset,
+                     procedureConfig.inputData.stm->limit,
                      onProgress);
 
         // Finish off the last bits of each thread
@@ -535,19 +488,19 @@ run(const ProcedureRunConfig & run,
                 return true;
             };
 
-        BoundGroupByQuery(procedureConfig.select,
+        BoundGroupByQuery(procedureConfig.inputData.stm->select,
                           *boundDataset.dataset,
                           boundDataset.asName,
-                          procedureConfig.when,
-                          procedureConfig.where,
-                          procedureConfig.groupBy,
+                          procedureConfig.inputData.stm->when,
+                          procedureConfig.inputData.stm->where,
+                          procedureConfig.inputData.stm->groupBy,
                           aggregators,
-                          *procedureConfig.having,
-                          *procedureConfig.rowName,
-                          procedureConfig.orderBy)
+                          *procedureConfig.inputData.stm->having,
+                          *procedureConfig.inputData.stm->rowName,
+                          procedureConfig.inputData.stm->orderBy)
             .execute(recordRowInOutputDataset,
-                     procedureConfig.offset,
-                     procedureConfig.limit,
+                     procedureConfig.inputData.stm->offset,
+                     procedureConfig.inputData.stm->limit,
                      onProgress);
     }
     // Save the dataset we created

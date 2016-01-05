@@ -129,10 +129,12 @@ var functionConfig2 = {
 var transformConfig = {
     type: "transform",
     params: {
-        inputDataset: { id: "reddit_svd_embedding" },
-        outputDataset: { id: 'transformed', type: 'embedding' },
-        select: 'APPLY FUNCTION tsne_apply WITH (object(SELECT svd*) AS embedding) EXTRACT (x,y)',
-        rowName: 'rowName()'
+        inputData: {
+            select: 'APPLY FUNCTION tsne_apply WITH (object(SELECT svd*) AS embedding) EXTRACT (x,y)',
+            from: "reddit_svd_embedding",
+            named: 'rowName()'
+        },
+        outputDataset: { id: 'transformed', type: 'embedding' }
     }
 };
 
