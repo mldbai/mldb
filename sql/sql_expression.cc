@@ -3569,6 +3569,20 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
     return std::move(statement);
 }
 
+Utf8String
+SelectStatement::
+print() const
+{
+    return select.print() + 
+        rowName->print() +
+        from->print() +
+        when.print() +
+        where->print() +
+        orderBy.print() +
+        groupBy.print() +
+        having->print();
+}
+
 DEFINE_STRUCTURE_DESCRIPTION(SelectStatement);
 
 

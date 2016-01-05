@@ -133,18 +133,22 @@ testQuery(
 var resp = mldb.put('/v1/functions/poil', {
     'type': 'sql.query',
     'params': {
-        'select': '*',
-        'from': 'test1 join test2 on test1.x = test2.x',
-        'orderBy': 'rowName()'}});
+        'inputData': 'select * from test1 join test2 on test1.x = test2.x order by rowName()'
+    }
+});
 assertEqual(resp.responseCode, 201);
 
 // (with the AS)
 var resp = mldb.put('/v1/functions/poil_as', {
     'type': 'sql.query',
     'params': {
-        'select': '*',
-        'from': 'test1 as t1 join test2 as t2 on t1.x = t2.x',
-        'orderBy': 'rowName()'}});
+        'inputData' : {
+            'select': '*',
+            'from': 'test1 as t1 join test2 as t2 on t1.x = t2.x',
+            'orderBy': 'rowName()'
+        }
+    }
+});
 assertEqual(resp.responseCode, 201);
 
 testQuery(
@@ -165,13 +169,16 @@ testQuery(
 var resp = mldb.put('/v1/functions/poil_group', {
     'type': 'sql.query',
     'params': {
-        'select': 't1.x, max(t1.y), min(t3.x), rowName() as rn',
-        'from': 'test1 as t1' +
+        'inputData' : {
+            'select': 't1.x, max(t1.y), min(t3.x), rowName() as rn',
+            'from': 'test1 as t1' +
                 ' join test2 as t2 on t1.x = t2.x' +
                 ' join test2 as t3 on t3.x = 1',
-        'groupBy': 't1.x',
-        'orderBy': 'rowName()'
-    }});
+            'groupBy': 't1.x',
+            'orderBy': 'rowName()'
+        }
+    }
+});
 assertEqual(resp.responseCode, 201);
 
 mldb.log("testing query poil_group");
@@ -187,26 +194,31 @@ testQuery(
 var resp = mldb.put('/v1/functions/patate', {
     'type': 'sql.query',
     'params': {
-        'select': 't1.x, max(t1.y), min(t3.x)',
-        'from': 'test1 as t1' +
+        'inputData' : {
+            'select': 't1.x, max(t1.y), min(t3.x)',
+            'from': 'test1 as t1' +
                 ' join test2 as t2 on t1.x = t2.x' +
                 ' join test2 as t3 on t3.x = 1',
-        'where': 't1.x = 1',
-        'groupBy': 't1.x'
-    }});
+            'where': 't1.x = 1',
+            'groupBy': 't1.x'
+        }
+    }
+});
 assertEqual(resp.responseCode, 201);
 
 var resp = mldb.put('/v1/functions/patate_params', {
     'type': 'sql.query',
     'params': {
-        'select': 't1.x, max(t1.y), min(t3.x)',
-        'from': 'test1 as t1' +
+        'inputData' : {
+            'select': 't1.x, max(t1.y), min(t3.x)',
+            'from': 'test1 as t1' +
                 ' join test2 as t2 on t1.x = t2.x' +
                 ' join test2 as t3',
-        'where': 't1.x = $b and t3.x = $a',
-        'groupBy': 't1.x'
-    }});
-
+            'where': 't1.x = $b and t3.x = $a',
+            'groupBy': 't1.x'
+        }
+    }
+});
 
 mldb.log(resp.json);
 assertEqual(resp.responseCode, 201);
@@ -215,13 +227,16 @@ assertEqual(resp.responseCode, 201);
 var resp = mldb.put('/v1/functions/patate_params_on_clause', {
     'type': 'sql.query',
     'params': {
-        'select': 't1.x, max(t1.y), min(t3.x)',
-        'from': 'test1 as t1' +
+        'inputData' : {
+            'select': 't1.x, max(t1.y), min(t3.x)',
+            'from': 'test1 as t1' +
                 ' join test2 as t2 on t1.x = t2.x' +
                 ' join test2 as t3 on t3.x = $a',
-        'where': 't1.x = $b',
-        'groupBy': 't1.x'
-    }});
+            'where': 't1.x = $b',
+            'groupBy': 't1.x'
+        }
+    }
+});
 
 mldb.log(resp.json);
 assertEqual(resp.responseCode, 201);
