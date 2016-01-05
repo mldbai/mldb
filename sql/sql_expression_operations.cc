@@ -1113,7 +1113,6 @@ bind(SqlBindingScope & context) const
                 std::make_shared<BooleanValueInfo>()};
     }
     else if (op == "NOT" && !lhs) {
-        cerr << "not";
         return {[=] (const SqlRowScope & row, ExpressionValue & storage)
                 -> const ExpressionValue &
                 {

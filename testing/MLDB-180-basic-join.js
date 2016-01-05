@@ -91,8 +91,6 @@ expected = [
    [ "ex2-ex5-ex5", 2, 4, 2, 2, 2, 2 ]
 ];
 
-//THIS HERE
-
 testQuery('SELECT * FROM test1 AS t1 JOIN test2 AS t2 ON t1.x = t2.x' +
           ' JOIN test2 AS t3 ON t1.z = t3.x * 2', expected);
 

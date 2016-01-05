@@ -159,7 +159,7 @@ struct JoinedDataset::Itl
             // We can use a fast path, since we have simple non-filtered
             // equijoin
 
-            makeJoinFast(condition, context, left, right, joinConfig.qualification);            
+            makeJoinConstantWhere(condition, context, left, right, joinConfig.qualification);            
 
         } else {
             // Complex join condition.  We need to generate the full set of
@@ -167,9 +167,6 @@ struct JoinedDataset::Itl
 
             auto gotElement = [&] (std::shared_ptr<PipelineResults> & res) -> bool
                 {
-                    // This has xxx results
-                    //gotRow(...);
-
                     //cerr << "got rows complex " << res->values.size() << endl;
                     Utf8String leftNameUtf8 = res->values.at(0).toUtf8String();
                     size_t i = 2;
@@ -265,7 +262,8 @@ struct JoinedDataset::Itl
         rightRowIndex[rightHash].push_back(rowName);
     };
 
-    void makeJoinFast(AnnotatedJoinCondition& condition, SqlExpressionMldbContext& context, BoundTableExpression& left, BoundTableExpression& right, JoinQualification qualification)
+    //Easiest case with constant Where
+    void makeJoinConstantWhere(AnnotatedJoinCondition& condition, SqlExpressionMldbContext& context, BoundTableExpression& left, BoundTableExpression& right, JoinQualification qualification)
     {
         bool debug = false;
         bool outerLeft = qualification == JOIN_LEFT || qualification == JOIN_FULL;
@@ -278,14 +276,14 @@ struct JoinedDataset::Itl
                             const std::function<void (const RowName&, const RowHash& )> & recordOuterRow)
             -> std::vector<std::tuple<ExpressionValue, RowName, RowHash> >
             {
-                auto condition = side.where;
+                auto sideCondition = side.where;
 
                 std::vector<std::shared_ptr<SqlExpression> > clauses = { side.selectExpression };
 
                 if (outer)
                 {
                     //return all rows
-                    condition = SqlExpression::TRUE;
+                    sideCondition = SqlExpression::TRUE;
 
                     //but evaluate if the row is valid to join with the other side
                     auto notnullExpr = std::make_shared<IsTypeExpression>(side.where, true, "null");
@@ -301,7 +299,7 @@ struct JoinedDataset::Itl
                 queryExpression.clauses.push_back(rowExpression);
 
                 auto generator = dataset.queryBasic
-                (context, queryExpression, side.when, *condition, side.orderBy,
+                (context, queryExpression, side.when, *sideCondition, side.orderBy,
                  0, -1, true /* allowParallel */);
                 auto rows = generator(-1);
             
@@ -317,8 +315,8 @@ struct JoinedDataset::Itl
                     const ExpressionValue & embedding = std::get<1>(r.columns[0]);
                     if (outer)
                     {
-                        const ExpressionValue & condition = embedding.getField(1);
-                        if (!condition.asBool())
+                        const ExpressionValue & embeddingCondition = embedding.getField(1);
+                        if (!embeddingCondition.asBool())
                         {
                             recordOuterRow(r.rowName, r.rowHash);
                             continue;
@@ -365,7 +363,7 @@ struct JoinedDataset::Itl
             break;
         }
         default:
-            throw HttpReturnException(400, "Join expression requires an equality operator; needs to be in the form f(left) = f(right)",
+            throw HttpReturnException(400, "Unknown or empty Join expression",
                                       //"joinOn", joinConfig.on,
                                       "condition", condition);
         }

@@ -846,6 +846,8 @@ take()
         }
     }
 
+    //Return unmatched rows if we have a LEFT/RIGHT/OUTER join
+    //Fill unmatched with empty values
     if (outerLeft && l)
     {
         l->values.pop_back();
