@@ -23,6 +23,8 @@
 #include "tensorflow/core/platform/init_main.h"
 #include "tensorflow/core/framework/graph.pb.h"
 #include "tensorflow/core/public/session.h"
+#include "tensorflow/core/common_runtime/device_factory.h"
+#include "tensorflow/core/common_runtime/device.h"
 
 #include "tensorflow/cc/ops/const_op.h"
 #include "tensorflow/cc/ops/image_ops.h"
@@ -37,6 +39,8 @@
 #include "tensorflow/core/lib/strings/stringprintf.h"
 #include "tensorflow/core/platform/logging.h"
 #include "tensorflow/core/framework/graph_def_util.h"
+#include "tensorflow/core/graph/default_device.h"
+#include "tensorflow/core/platform/tracing.h"
 
 using namespace std;
 
@@ -178,19 +182,27 @@ mldbPluginEnterV100(Datacratic::MLDB::MldbServer * server)
 
         cerr << "def is " << jstring << endl;
 
+        tensorflow::SessionOptions options;
+        options.config.mutable_device_count->at("GPU") = 0;
+        options.config.mutable_device_count->at("gpu") = 0;
+        options.config.mutable_device_count->at("CPU") = 1;
+        options.config.add_device_filters("/cpu:0");
 
-        std::unique_ptr<Session> session(tensorflow::NewSession(tensorflow::SessionOptions()));
+        std::unique_ptr<Session> session(tensorflow::NewSession(options));
 
         auto createRes = session->Create(graph);
         if (!createRes.ok())
             throw HttpReturnException(400, "Unable to create graph: " + createRes.error_message());
 
         std::vector<Tensor> out_tensors;
-        auto runRes = session->Run({}, {output_name}, {}, &out_tensors);
+        tensorflow::StepStats stats;
+        auto runRes = session->RunWithStats({}, {output_name}, {}, &out_tensors, &stats);
         if (!runRes.ok())
             throw HttpReturnException(400, "Unable to run output tensors: " + runRes.error_message());
 
         cerr << "returned " << out_tensors.size() << " tensors" << endl;
+
+        cerr << stats->DebugPrint();
 
         resizedImage = std::move(out_tensors.at(0));
     }
@@ -379,17 +391,176 @@ struct TensorflowGraph: public Function {
         if (!graph->ParseFromCodedStream(&cstream)) {
             throw HttpReturnException(500, "Couldn't load tensorflow graph model: parse error");
         }
+
+        // Those without a device set can be bound to multiple
+        // places.
+        std::set<std::string> nodesWithoutDevices;
+
+        // These nodes have constants which we shouldn't need to spend
+        // time running one after the other
+        std::map<std::string, Tensor> constants;
+
+        size_t constantTotalBytes = 0;
+
+        // Tell it not to use cudnn, since it's not necessarily available
+        for (auto & node: *graph->mutable_node()) {
+            //cerr << node.DebugString() << endl;
+            //cerr << "found node " << node.name() << endl;
+            //cerr << "op = " << node.op() << endl;
+            //cerr << "device = " << node.device() << endl;
+            //cerr << "dtype = " << node.attr().find("dtype")->second.DebugString() << endl;
+            if (node.op() == "Const") {
+                auto it = node.attr().find("value");
+                if (it == node.attr().end())
+                    throw HttpReturnException(500, "Const with no value");
+
+                Tensor tensor;
+                if (!tensor.FromProto(it->second.tensor()))
+                    throw HttpReturnException(500, "Const is not parseable");
+                
+                constantTotalBytes += tensor.TotalBytes();
+
+                // Returned the constant
+                constants[node.name()] = std::move(tensor);
+            }
+
+            if (node.device().empty())
+                nodesWithoutDevices.insert(node.name());
+
+            for (auto & attr: *node.mutable_attr()) {
+                if (attr.first == "value")
+                    continue;
+                //cerr << "attr " << attr.first << " " << attr.second.DebugString()
+                //<< endl;
+                if (attr.first == "use_cudnn_on_gpu") {
+                    attr.second.set_b(false);
+                }
+            }
+            //for (auto & input: node.input()) {
+            //    cerr << "input " << input << endl;
+            //}
+        }
+
+        cerr << "got " << constants.size() << " constants with "
+             << constantTotalBytes << " total bytes" << endl;
+
+        // Set them up as a list
+        this->constants.insert(this->constants.end(),
+                               constants.begin(),
+                               constants.end());
+
+        tensorflow::SessionOptions options;
+        // Allow it to use all GPUs
+        options.config.mutable_device_count()->insert({"GPU", 128});
+
+        // As well as the CPU
+        options.config.mutable_device_count()->insert({"CPU", 1});
+        //options.config.set_log_device_placement(true);
+
+        // We need to create a session for each device, unfortunately,
+        // due to Tensorflow having a "first matching" policy to
+        // allocate devices to an executing graph.
+        std::vector<::tensorflow::Device *> devices;
+        tensorflow::DeviceFactory::AddDevices(options, "", &devices);
         
-        session.reset(tensorflow::NewSession(tensorflow::SessionOptions()));
-        Status session_create_status = session->Create(*graph);
-    
-        if (!session_create_status.ok()) {
-            throw HttpReturnException(500, "Couldn't initialize tensorflow graph model: " + session_create_status.error_message());
+        int sessionsPerDevice = 1;
+
+        // Operations hardcoded to the CPU.  These are those that
+        // can't use GPUs or need large amounts of data to be
+        // transferred back and forth and so don't make sense.
+        set<string> hardcodedCpu = {
+            "ExpandDims", "ResizeBilinear", "Cast", "Sub", "Mul", "ExpandDims/dim" };
+
+        for (auto & d: devices) {
+            std::string deviceName = d->name();
+            bool isCpuDevice = deviceName.find("/cpu:") != std::string::npos;
+
+            // Set the device for all nodes where it's not hardcoded
+            for (auto & node: *graph->mutable_node()) {
+                if (nodesWithoutDevices.count(node.name())) {
+                    bool isCpu = false;
+                    for (auto & c: hardcodedCpu) {
+                        if (node.name().find(c) == 0)
+                            isCpu = true;
+                    }
+
+                    //auto it = hardcodedCpu.lower_bound(node.name());
+                    //if (it != hardcodedCpu.end() && node.name().find(*it) == 0)
+                    //isCpu = true;
+                    if (isCpu) {
+                        cerr << "node " << node.name() << " runs on CPU" << endl;
+                        node.set_device("/cpu:0");
+                    }
+                    else {
+                        node.set_device(d->name());
+                    }
+                }
+            }
+
+            if (isCpuDevice) {
+                // Use the thread pool for CPU threads
+                options.config.set_use_per_session_threads(true);
+                options.config.set_inter_op_parallelism_threads(2);
+            }
+            else {
+                // The GPU gets some CPU threads of its own so that
+                // CPU operations can't block GPU operations.  This
+                // is necessary to achieve maximum occupancy of the
+                // GPU.
+                options.config.set_allow_soft_placement(true);
+                options.config.set_use_per_session_threads(true);
+                options.config.set_inter_op_parallelism_threads(4);
+            }
+
+            // NOTE: eventually, this will work... but until it does, we
+            // need to go through the above.  Currently Tensorflow just
+            // ignores the device_filters fields.
+            //options.config.add_device_filters(d->name());
+
+            for (unsigned i = 0;  i < sessionsPerDevice;  ++i) {
+                std::unique_ptr<tensorflow::Session> session;
+                session.reset(tensorflow::NewSession(options));
+                Status session_create_status = session->Create(*graph);
+                
+                if (!session_create_status.ok()) {
+                    throw HttpReturnException(500, "Couldn't initialize tensorflow graph model: " + session_create_status.error_message());
+                }
+                
+                sessions.emplace_back(d->name(), std::move(session), 2 /* queue length */);
+            }
         }
     }
 
     std::unique_ptr<tensorflow::GraphDef> graph;
-    std::unique_ptr<tensorflow::Session> session;
+
+    struct DeviceSession {
+        DeviceSession(std::string device,
+                      std::unique_ptr<tensorflow::Session> session,
+                      int queueLength)
+            : device(std::move(device)),
+              session(std::move(session)),
+              queueLength(queueLength),
+              numQueued(0)
+        {
+        }
+
+        std::string device;
+        std::unique_ptr<tensorflow::Session> session;
+        int queueLength;
+        int numQueued;
+    };
+
+    std::vector<std::pair<std::string, tensorflow::Tensor> > constants;
+
+    mutable std::vector<DeviceSession> sessions;  // mutable for numQueued
+
+    struct Job {
+        std::function<void ()> done;
+    };
+
+    mutable std::mutex queueLock;
+    mutable std::condition_variable queueCond;
+    
 
     Any getStatus() const
     {
@@ -449,6 +620,154 @@ struct TensorflowGraph: public Function {
         return ExpressionValue::null(ts);
     }
 
+    std::pair<std::shared_ptr<tensorflow::Session>, std::string>
+    getSession() const
+    {
+        std::unique_lock<std::mutex> guard(queueLock);
+        while (true) {
+            int bestSession = -1;
+            double bestSessionScore = INFINITY;
+            for (unsigned i = 0;  i < sessions.size();  ++i) {
+                if (sessions[i].numQueued < sessions[i].queueLength) {
+                    double score = 1.0 * sessions[i].numQueued / sessions[i].queueLength;
+                    if (score < bestSessionScore || bestSession == -1) {
+                        bestSession = i;
+                        bestSessionScore = score;
+                    }
+                }
+            }
+
+            if (bestSession != -1) {
+                ++sessions[bestSession].numQueued;
+                auto onDel = [bestSession, this] (tensorflow::Session *)
+                    {
+                        std::unique_lock<std::mutex> guard(queueLock);
+                        --sessions[bestSession].numQueued;
+                        queueCond.notify_one();
+                    };
+
+                return { std::shared_ptr<tensorflow::Session>(sessions[bestSession].session.get(), onDel), sessions[bestSession].device };
+            }
+
+            queueCond.wait(guard);
+        }
+    }
+
+    std::vector<tensorflow::Tensor>
+    call(const std::vector<tensorflow::Tensor> & inputs,
+         const std::vector<string> & inputLayers,
+         const std::vector<string> & outputLayers,
+         int n)
+    {
+        using namespace tensorflow;
+
+        ExcAssertEqual(inputs.size(), inputLayers.size());
+
+        // Note: passing constants in makes startup faster but causes
+        // problems accessing them, so it's not done.
+        vector<pair<string, Tensor> > inputTensors; // = constants;
+        for (unsigned i = 0;  i < inputs.size();  ++i) {
+            bool foundInput = false;
+            // For each of them, replace the given entry with the
+            // input version.
+            for (unsigned j = 0;  j < inputTensors.size();  ++j) {
+                if (inputTensors[j].first == inputLayers[i]) {
+                    inputTensors[j].second = inputs[i];
+                    foundInput = true;
+                }
+                if (!foundInput)
+                    inputTensors.emplace_back(inputLayers[i], inputs[i]);
+            }
+        }
+
+        Date before = Date::now();
+
+        std::vector<Tensor> outputs;
+
+        auto session = getSession();
+
+        tensorflow::StepStats stats;
+        Status run_status = session.first
+            ->RunWithStats(inputTensors, outputLayers,
+                           {}, &outputs, &stats);
+        
+        if (!run_status.ok()) {
+            throw HttpReturnException(400, "Unable to run model: "
+                                      + run_status.error_message());
+        }
+        
+        Date after = Date::now();
+        cerr << "latency on " << session.second << " was "
+             << after.secondsSince(before) * 1000 << "ms" << endl;
+
+#if 0
+        uint64_t earliest = -1;
+
+        struct NodeStats {
+            uint64_t sched;     ///< Time until it was scheduled
+            uint64_t wait;      ///< Time from scheduled until started running
+            uint64_t pre;       ///< Time from start running to op running
+            uint64_t run;       ///< Time spent running in op
+            uint64_t post;      ///< Time post-operation
+            double mem;         ///< Memory used
+        };
+
+        std::map<std::pair<std::string, std::string>, NodeStats> nodeStats;
+
+        for (auto & d: stats.dev_stats()) {
+            for (auto & n: d.node_stats()) {
+                earliest = std::min<uint64_t>(earliest, n.scheduled_micros());
+            }
+        }
+
+        for (auto & d: stats.dev_stats()) {
+            for (auto & n: d.node_stats()) {
+                NodeStats stats;
+                stats.sched = n.scheduled_micros() - earliest;
+                stats.wait  = n.all_start_micros() - n.scheduled_micros();
+                stats.pre = n.op_start_rel_micros();
+                stats.run = n.op_end_rel_micros();
+                stats.post = n.all_end_rel_micros() - n.op_end_rel_micros();
+
+                nodeStats.insert({{d.device(), n.node_name()}, stats});
+            }
+        }
+
+        std::vector<std::pair<std::pair<std::string, std::string>, NodeStats> > sortedStats(nodeStats.begin(), nodeStats.end());
+
+        auto cmp = [] (const std::pair<std::pair<std::string, std::string>, NodeStats> & s1,
+                        const std::pair<std::pair<std::string, std::string>, NodeStats> & s2) -> bool
+            {
+                return s1.second.sched < s2.second.sched;
+            };
+        
+        std::sort(sortedStats.begin(), sortedStats.end(),
+                  cmp);
+        
+        static std::mutex mtx;
+        std::unique_lock<std::mutex> guard(mtx);
+
+        cerr << "-------------------------------------" << endl;
+
+        int i = 0;
+        for (auto & st: sortedStats) {
+            if (i++ % 50 == 0)
+                cerr << "device    \tkernel                                            \tsched\twait\tpre\trun\tpost" << endl;
+                    cerr << ML::format("%-10s", string(st.first.first, st.first.first.length() - 5).c_str())
+                 << "\t" << ML::format("%-50s", st.first.second.c_str()) << "\t"
+                 << st.second.sched << "\t" << st.second.wait << "\t"
+                 << st.second.pre << "\t" << st.second.run << "\t"
+                 << st.second.post << endl;
+        }
+#endif
+        
+        //cerr << "stats = " << stats.DebugString() << endl;
+
+        //cerr << "outputs " << outputs.size() << " tensors" << endl;
+
+        return std::move(outputs);
+    }
+
     virtual FunctionOutput
     apply(const FunctionApplier & applier,
           const FunctionContext & context) const
@@ -473,16 +792,33 @@ struct TensorflowGraph: public Function {
         auto str = inputTensor.flat<std::string>();
         str(0) = string(data, data + len);
 
-        std::vector<Tensor> outputs;
-        Status run_status = session->Run({{input_layer, inputTensor}},
-                                         {output_layer}, {}, &outputs);
+        string input_layer = "DecodeJpeg/contents";
+        string output_layer = "softmax";
 
-        if (!run_status.ok()) {
-            throw HttpReturnException(400, "Unable to run model: "
-                                      + run_status.error_message());
+        vector<Tensor> outputs;
+
+        auto doRun = [&] (int i)
+            {
+                auto output = call({ inputTensor }, { input_layer },
+                                   { output_layer }, i);
+
+                if (i == 0)
+                    outputs = std::move(output);
+            };
+
+
+        vector<std::thread> threads;
+        for (int i = 0;  i < 1000;  ++i) {
+            threads.emplace_back([&,i] () { doRun(i); });
+            //std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
-        
-        cerr << "outputs " << outputs.size() << " tensors" << endl;
+
+        for (auto & t: threads)
+            t.join();
+
+
+        //ML::run_in_parallel(0, 100, doRun);
+
 
         auto scores = outputs.at(0).flat<float>();
         vector<float> scores2(scores.data(), scores.data() + scores.size());
