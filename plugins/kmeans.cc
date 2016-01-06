@@ -247,20 +247,9 @@ KmeansFunctionConfigDescription()
     addField("metric", &KmeansFunctionConfig::metric,
              "Metric to use to calculate distances.  This should match the "
              "metric used in training.");
-    addField("select", &KmeansFunctionConfig::select,
-             "Fields to select to calculate k-means over.  Only those fields "
-             "that are selected here need to be matched.  Default is to use "
-             "all fields.",
-             SelectExpression("*"));
-    addField("when", &KmeansFunctionConfig::when,
-             "Boolean expression determining which tuples from the dataset "
-             "to keep based on their timestamps",
-             WhenExpression::parse("true"));
-    addField("where", &KmeansFunctionConfig::where,
-             "Rows to select for k-means training.  This will effectively "
-             "limit which clusters are active.  Default is to use all "
-             "clusters.",
-             SqlExpression::parse("true"));
+    addField("inputData", &KmeansFunctionConfig::inputData,
+             "SQL expression to select fields to calculate k-means over.  Only those fields "
+             "that are selected here need to be matched.  Default is to use all the fields.");
 }
 
 
@@ -278,11 +267,14 @@ KmeansFunction(MldbServer * owner,
 
     auto dataset = obtainDataset(server, functionConfig.centroids, onProgress);
 
+    SelectStatement query = functionConfig.inputData.stm ? 
+        *functionConfig.inputData.stm : SelectStatement();
+
     // Load up the embeddings
-    auto embeddingOutput = getEmbedding(functionConfig.select,
+    auto embeddingOutput = getEmbedding(query.select,
                                         *dataset, "", 
-                                        functionConfig.when,
-                                        functionConfig.where,
+                                        query.when,
+                                        query.where,
                                         { },
                                         -1 /* max dimensions */,
                                         ORDER_BY_NOTHING, 0, -1,
