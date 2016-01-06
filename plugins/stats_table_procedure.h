@@ -64,30 +64,16 @@ struct StatsTable {
 /*****************************************************************************/
 
 struct StatsTableProcedureConfig {
-    StatsTableProcedureConfig() :
-          select("*"),
-          when(WhenExpression::TRUE),
-          where(SqlExpression::TRUE)
+    StatsTableProcedureConfig()
     {
         output.withType("sparse.mutable");
     }
 
-    std::shared_ptr<TableExpression> dataset;
+    InputQuery trainingData;
     PolyConfigT<Dataset> output;
-
-    /// The SELECT clause to tell us which features to keep
-    SelectExpression select;
-
-    /// The WHEN clause for the timespan tuples must belong to
-    WhenExpression when;
-
-    /// The WHERE clause for which rows to include from the dataset
-    std::shared_ptr<SqlExpression> where;
 
     /// The expression to generate the outcomes
     std::vector<std::pair<std::string, std::shared_ptr<SqlExpression>>> outcomes;
-
-    OrderByExpression orderBy;
 
     Url statsTableFileUrl;
 
@@ -195,28 +181,11 @@ struct StatsTableDerivedColumnsGeneratorProcedure: public Procedure {
 /*****************************************************************************/
 
 struct BagOfWordsStatsTableProcedureConfig : ProcedureConfig {
-    BagOfWordsStatsTableProcedureConfig() :
-          select("*"),
-          when(WhenExpression::TRUE),
-          where(SqlExpression::TRUE)
-    {
-    }
 
-    std::shared_ptr<TableExpression> dataset;
-
-    /// The SELECT clause to tell us which features to keep
-    SelectExpression select;
-
-    /// The WHEN clause for the timespan tuples must belong to
-    WhenExpression when;
-
-    /// The WHERE clause for which rows to include from the dataset
-    std::shared_ptr<SqlExpression> where;
-
+    InputQuery trainingData;
+    
     /// The expression to generate the outcomes
     std::vector<std::pair<std::string, std::shared_ptr<SqlExpression>>> outcomes;
-
-    OrderByExpression orderBy;
 
     Url statsTableFileUrl;
 
