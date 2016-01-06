@@ -544,7 +544,7 @@ BagOfWordsStatsTableProcedureConfigDescription::
 BagOfWordsStatsTableProcedureConfigDescription()
 {
     addField("trainingData", &BagOfWordsStatsTableProcedureConfig::trainingData,
-             "Dataset on which the rolling operations will be performed.");
+             "SQL query to select the data on which the rolling operations will be performed.");
     addField("outcomes", &BagOfWordsStatsTableProcedureConfig::outcomes,
              "List of expressions to generate the outcomes. Each can be any expression "
              "involving the columns in the dataset. The type of the outcomes "
