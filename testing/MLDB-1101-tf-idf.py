@@ -60,7 +60,7 @@ mldb.log(rez)
 tf_idf_conf = {
     "type": "tfidf.train",
     "params": {
-        "trainingDataset": "bag_of_words",
+        "trainingData": "select * from bag_of_words",
         "outputDataset": {
             "id": "tf_idf",
             "type": "sparse.mutable"
