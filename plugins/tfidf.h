@@ -38,27 +38,10 @@ DECLARE_ENUM_DESCRIPTION(TFType);
 DECLARE_ENUM_DESCRIPTION(IDFType);
 
 struct TfidfConfig : public ProcedureConfig {
-    TfidfConfig()
-        : select("*"),
-          when(WhenExpression::TRUE),
-          where(SqlExpression::TRUE),
-          orderBy(ORDER_BY_NOTHING),
-          offset(0),
-          limit(-1)         
-    {
 
-    }
-
-    std::shared_ptr<TableExpression> dataset;
+    InputQuery trainingData;
     PolyConfigT<Dataset> output;
     static constexpr char const * defaultOutputDatasetType = "sparse.mutable";
-
-    SelectExpression select;
-    WhenExpression when;
-    std::shared_ptr<SqlExpression> where;
-    OrderByExpression orderBy;
-    ssize_t offset;
-    ssize_t limit; 
 
     Utf8String functionName;
 };
