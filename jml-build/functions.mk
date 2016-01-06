@@ -171,29 +171,29 @@ $$(BUILD_$(CWD)/$(2).lo_OBJ):	$(SRC)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists
 endif
 endef
 
+# Add a CUDA source file
 define add_cuda_source
 ifneq ($(PREMAKE),1)
-$(if $(trace),$$(warning called add_cuda_source "$(1)" "$(2)"))
+$(if $(trace),$(warning called add_cuda_source "$(1)" "$(2)"))
 $(OBJ)/$(CWD)/$(2).d: $(SRC)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists
-	($(NVCC) $(NVCCFLAGS) -D__CUDACC__ -M $$< | awk 'NR == 1 { print "$$(BUILD_$(CWD)/$(2).lo_OBJ)", "$$@", ":", $$$$3, "\\"; next; } /usr/ { next; } /\/ \\$$$$/ { next; } { files[$$$$1] = 1; print; } END { print("\n"); for (file in files) { printf("%s: \n\n", file); } }') > $$@~
+	@($(NVCC) $(NVCCFLAGS) $$(OPTIONS_$(CWD)/$(1)) -M $$< | awk 'NR == 1 { print "$$(BUILD_$(CWD)/$(1).lo_OBJ)", "$$@", ":", $$$$3, "\\"; next; } /usr/ { next; } /\/ \\$$$$/ { next; } { files[$$$$1] = 1; print; } END { print("\n"); for (file in files) { printf("%s: \n\n", file); } }') > $$@~
 	mv $$@~ $$@
 
-BUILD_$(CWD)/$(2).lo_COMMAND:=$(NVCC) $(NVCCFLAGS) -c -o $(OBJ)/$(CWD)/$(2).lo --verbose $(SRC)/$(CWD)/$(1)
-$(if $(trace),$$(warning BUILD_$(CWD)/$(2).lo_COMMAND := "$$(BUILD_$(CWD)/$(2).lo_COMMAND)"))
+BUILD_$(CWD)/$(1).lo_COMMAND:=$(NVCC) $(NVCCFLAGS) -c -o __OBJECT_FILE_PLACEHOLDER__ $$(OPTIONS_$(CWD)/$(1)) $(SRC)/$(CWD)/$(1) --x cu
+$(if $(trace),$$(warning BUILD_$(CWD)/$(1).lo_COMMAND := $$(BUILD_$(CWD)/$(1).lo_COMMAND)))
 
-BUILD_$(CWD)/$(2).lo_HASH := $$(call hash_command,$$(BUILD_$(CWD)/$(2).lo_COMMAND))
-BUILD_$(CWD)/$(2).lo_OBJ  := $$(OBJ)/$(CWD)/$(2).$$(BUILD_$(CWD)/$(2).lo_HASH).lo
+BUILD_$(CWD)/$(1).lo_HASH := $$(call hash_command,$$(BUILD_$(CWD)/$(1).lo_COMMAND))
+BUILD_$(CWD)/$(1).lo_OBJ  := $$(OBJ)/$(CWD)/$(1).$$(BUILD_$(CWD)/$(1).lo_HASH).lo
 
-BUILD_$(CWD)/$(2).lo_COMMAND2 := $$(subst $(OBJ)/$(CWD)/$(2).lo,$$(BUILD_$(CWD)/$(2).lo_OBJ),$$(BUILD_$(CWD)/$(2).lo_COMMAND))
+BUILD_$(CWD)/$(1).lo_COMMAND2 := $$(subst __OBJECT_FILE_PLACEHOLDER__,$$(BUILD_$(CWD)/$(1).lo_OBJ),$$(BUILD_$(CWD)/$(1).lo_COMMAND))
 
 
-$$(BUILD_$(CWD)/$(2).lo_OBJ):	$(SRC)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists
-	$$(if $(verbose_build),@echo $$(BUILD_$(CWD)/$(2).lo_COMMAND2),@echo "$(COLOR_CYAN)[CUDA]$(COLOR_RESET) $(CWD)/$(1)")
-	@$$(BUILD_$(CWD)/$(2).lo_COMMAND2)
-
+$$(BUILD_$(CWD)/$(1).lo_OBJ):	$(SRC)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists
+	$$(if $(verbose_build),@echo $$(BUILD_$(CWD)/$(1).lo_COMMAND2),@echo "$(COLOR_CYAN)[CUDA]$(COLOR_RESET) $(CWD)/$(1)")
+	@$$(BUILD_$(CWD)/$(1).lo_COMMAND2)
 
 ifneq ($(__BASH_MAKE_COMPLETION__),1)
--include $(OBJ)/$(CWD)/$(2).d
+-include $(OBJ)/$(CWD)/$(1).d
 endif
 endif
 endef
@@ -230,7 +230,9 @@ endef
 
 
 # Set up the map to map an extension to the name of a function to call
+$(call set,EXT_FUNCTIONS,.cu.cc,add_cuda_source)
 $(call set,EXT_FUNCTIONS,.cc,add_c++_source)
+$(call set,EXT_FUNCTIONS,.pb.cc,add_c++_source)
 $(call set,EXT_FUNCTIONS,.cpp,add_c++_source)
 $(call set,EXT_FUNCTIONS,.c,add_c_source)
 $(call set,EXT_FUNCTIONS,.f,add_fortran_source)
@@ -246,11 +248,16 @@ ifneq ($(PREMAKE),1)
 $$(if $(trace),$$(warning called add_source "$(1)" "$(2)"))
 $$(if $$(ADDED_SOURCE_$(CWD)_$(1)),,\
     $$(if $$(call defined,EXT_FUNCTIONS,$(2)),\
-	$$(eval $$(call $$(call get,EXT_FUNCTIONS,$(2)),$(1),$$(basename $(1))))\
+	$$(eval $$(call $$(call get,EXT_FUNCTIONS,$(2)),$(1),$(1))) \
 	    $$(eval ADDED_SOURCE_$(CWD)_$(1):=$(true)),\
 	$$(error Extension "$(2)" is not known adding source file $(1))))
 endif
 endef
+
+# Simple recursive function to return all suffixes, not just the last one that
+# the suffix builtin function returns.
+suffixes=$(if $(suffix $(1)),$(call suffixes,$(basename $(1)))$(suffix $(1)))
+
 
 
 # add a list of source files
@@ -258,7 +265,7 @@ endef
 define add_sources
 ifneq ($(PREMAKE),1)
 $$(if $(trace),$$(warning called add_sources "$(1)"))
-$$(foreach file,$$(strip $(1)),$$(eval $$(call add_source,$$(file),$$(suffix $$(file)))))
+$$(foreach file,$$(strip $(1)),$$(eval $$(call add_source,$$(file),$$(call suffixes,$$(file)))))
 endif
 endef
 
@@ -285,6 +292,7 @@ endef
 # $(5): output extension; default .so
 # $(6): build name; default SO
 # $(7): output dir; default $(LIB)
+# $(8): extra linker options
 
 define library
 ifneq ($(PREMAKE),1)
@@ -297,9 +305,9 @@ $$(eval sodir := $(if $(7),$(7),$(LIB)))
 
 LIB_$(1)_BUILD_NAME := $(if $(6),$(6),"            $(COLOR_YELLOW)[SO]$(COLOR_RESET)")
 
-OBJFILES_$(1):=$$(foreach file,$(addsuffix .lo,$(basename $(2:%=$(CWD)/%))),$$(BUILD_$$(file)_OBJ))
+OBJFILES_$(1):=$$(foreach file,$(2:%=$(CWD)/%.lo),$$(BUILD_$$(file)_OBJ))
 
-LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXLIBRARYFLAGS) $$(CXXNODEBUGFLAGS) -o $$(sodir)/$$(tmpLIBNAME)$$(so) $$(OBJFILES_$(1)) $$(foreach lib,$(3), $$(LIB_$$(lib)_LINKER_OPTIONS) -l$$(lib))
+LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXLIBRARYFLAGS) $$(CXXNODEBUGFLAGS) -o $$(sodir)/$$(tmpLIBNAME)$$(so) $$(OBJFILES_$(1)) $$(foreach lib,$(3), $$(LIB_$$(lib)_LINKER_OPTIONS) -l$$(lib)) $(8)
 
 LINK_$(1)_HASH := $$(call hash_command,$$(LINK_$(1)_COMMAND))
 LIB_$(1)_SO   := $(TMPBIN)/$$(tmpLIBNAME).$$(LINK_$(1)_HASH)$$(so)
@@ -367,7 +375,7 @@ $$(eval $$(call add_sources,$$($(1)_PROGFILES)))
 
 #$$(warning $(1)_PROGFILES = $$($(1)_PROGFILES))
 
-$(1)_OBJFILES:=$$(foreach file,$$(addsuffix .lo,$$(basename $$($(1)_PROGFILES:%=$(CWD)/%))),$$(BUILD_$$(file)_OBJ))
+$(1)_OBJFILES:=$$(foreach file,$$($(1)_PROGFILES:%=$(CWD)/%.lo),$$(BUILD_$$(file)_OBJ))
 
 #$$(warning $(1)_OBJFILES = $$($(1)_OBJFILES))
 #$$(warning $(1)_PROGFILES = "$$($(1)_PROGFILES)")

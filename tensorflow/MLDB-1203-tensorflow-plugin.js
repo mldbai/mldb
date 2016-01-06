@@ -35,8 +35,17 @@ var filename = "https://upload.wikimedia.org/wikipedia/commons/thumb/5/58/Calle_
 
 var blob = mldb.openStream(filename).blob();
 
-var result = fn.call({ jpeg: blob});
 
+for (var i = 0;  i < 10;  ++i) {
+
+    var before = new Date();
+
+    var result = fn.call({ jpeg: blob});
+
+    var after = new Date();
+
+    mldb.log("scoring took", (after - before), "ms");
+}
 
 //mldb.log("result is ", result);
 
