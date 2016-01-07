@@ -27,6 +27,7 @@
 #include "mldb/server/analytics.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/types/optional_description.h"
+#include "mldb/vfs/fs_utils.h"
 
 using namespace std;
 
@@ -48,6 +49,13 @@ KmeansConfigDescription()
              "organized as an embedding, with each selected row containing the same "
              "set of columns with numeric values to be used as coordinates.  The select statement "
              "does not support groupby and having clauses.");
+    addField("modelFileUrl", &KmeansConfig::modelFileUrl,
+             "URL where the model file (with extension '.kms') should be saved. "
+             "This file can be loaded by a function of type 'kmeans' to apply "
+             "the trained model to new data. "
+             "If someone is only interested in how the training input is clustered "
+             "then the parameter can be omitted and the outputDataset param can "
+             "be provided instead.");
     addField("outputDataset", &KmeansConfig::output,
              "Dataset for cluster assignment.  This dataset will contain the same "
              "row names as the input dataset, but the coordinates will be replaced "
@@ -58,7 +66,7 @@ KmeansConfigDescription()
              "have the same coordinates (columns) as those selected from the input "
              "dataset, but will have one row per cluster, providing the centroid of "
              "the cluster.",
-             PolyConfigT<Dataset>().withType("embedding"));
+             optional);
     addField("numInputDimensions", &KmeansConfig::numInputDimensions,
              "Number of dimensions from the input to use (-1 = all).  This limits "
              "the number of columns used.  Columns will be ordered alphabetically "
@@ -132,6 +140,12 @@ run(const ProcedureRunConfig & run,
 {
     auto runProcConf = applyRunConfOverProcConf(kmeansConfig, run);
 
+    // an empty url is allowed but other invalid urls are not
+    if(!runProcConf.modelFileUrl.empty() && !runProcConf.modelFileUrl.valid()) {
+        throw ML::Exception("modelFileUrl \"" + 
+                            runProcConf.modelFileUrl.toString() + "\" is not valid");
+    }
+
     auto onProgress2 = [&] (const Json::Value & progress)
         {
             Json::Value value;
@@ -180,6 +194,18 @@ run(const ProcedureRunConfig & run,
 
     kmeans.train(vecs, inCluster, numClusters, numIterations);
 
+    bool saved = false;
+    if (!runProcConf.modelFileUrl.empty()) {
+        try {
+            Datacratic::makeUriDirectory(runProcConf.modelFileUrl.toString());
+            kmeans.save(runProcConf.modelFileUrl.toString());
+            saved = true;
+        }
+        catch (const std::exception & exc) {
+            throw ML::Exception("Error saving kmeans centroids: %s", exc.what());
+        }
+    }
+
     //doProgress("finished k-means");
     if (runProcConf.output.get()) {
 
@@ -200,9 +226,13 @@ run(const ProcedureRunConfig & run,
         output->commit();
     }
 
-    if (runProcConf.centroids.type != "" || kmeansConfig.centroids.id != "") {
+    if (runProcConf.centroids.get()) {
 
-        auto centroids = createDataset(server, runProcConf.centroids, onProgress2, true /*overwrite*/);
+        PolyConfigT<Dataset> centroidsDataset = *runProcConf.centroids;
+        if (centroidsDataset.type.empty())
+            centroidsDataset.type = KmeansConfig::defaultOutputDatasetType;
+
+        auto centroids = createDataset(server, centroidsDataset, onProgress2, true /*overwrite*/);
 
         Date applyDate = Date::now();
 
@@ -221,10 +251,9 @@ run(const ProcedureRunConfig & run,
         centroids->commit();
     }
 
-    if(!runProcConf.functionName.empty()) {
+    if(saved && !runProcConf.functionName.empty()) {
         KmeansFunctionConfig funcConf;
-        funcConf.metric = runProcConf.metric;
-        funcConf.centroids = runProcConf.centroids;
+        funcConf.modelFileUrl = runProcConf.modelFileUrl;
 
         PolyConfig kmeansFuncPC;
         kmeansFuncPC.type = "kmeans";
@@ -242,14 +271,18 @@ DEFINE_STRUCTURE_DESCRIPTION(KmeansFunctionConfig);
 KmeansFunctionConfigDescription::
 KmeansFunctionConfigDescription()
 {
-    addField("centroids", &KmeansFunctionConfig::centroids,
-             "Dataset containing centroids of each cluster: one row per cluster.");
-    addField("metric", &KmeansFunctionConfig::metric,
-             "Metric to use to calculate distances.  This should match the "
-             "metric used in training.");
-    addField("inputData", &KmeansFunctionConfig::inputData,
-             "SQL expression to select fields to calculate k-means over.  Only those fields "
-             "that are selected here need to be matched.  Default is to use all the fields.");
+    addField("modelFileUrl", &KmeansFunctionConfig::modelFileUrl,
+             "URL of the model file (with extension '.kms') to load. "
+             "This file is created by a procedure of type 'kmeans.train'.");
+
+    onPostValidate = [] (KmeansFunctionConfig * cfg, 
+                         JsonParsingContext & context) {
+        // this includes empty url
+        if(!cfg->modelFileUrl.valid()) {
+            throw ML::Exception("modelFileUrl \"" + cfg->modelFileUrl.toString() 
+                                + "\" is not valid");
+        }
+    };
 }
 
 
@@ -257,50 +290,28 @@ KmeansFunctionConfigDescription()
 /* KMEANS FUNCTION                                                              */
 /*****************************************************************************/
 
+struct KmeansFunction::Impl {
+    ML::KMeans kmeans;
+    
+    Impl(const Url & modelFileUrl) {
+        kmeans.load(modelFileUrl.toString());
+    }
+};
+
 KmeansFunction::
 KmeansFunction(MldbServer * owner,
-            PolyConfig config,
-            const std::function<bool (const Json::Value &)> & onProgress)
+               PolyConfig config,
+               const std::function<bool (const Json::Value &)> & onProgress)
     : Function(owner)
 {
     functionConfig = config.params.convert<KmeansFunctionConfig>();
 
-    auto dataset = obtainDataset(server, functionConfig.centroids, onProgress);
-
-    SelectStatement query = functionConfig.inputData.stm ? 
-        *functionConfig.inputData.stm : SelectStatement();
-
-    // Load up the embeddings
-    auto embeddingOutput = getEmbedding(query.select,
-                                        *dataset, "", 
-                                        query.when,
-                                        query.where,
-                                        { },
-                                        -1 /* max dimensions */,
-                                        ORDER_BY_NOTHING, 0, -1,
-                                        onProgress);
+    impl.reset(new Impl(functionConfig.modelFileUrl));
     
-    // Each row is a cluster
-    std::vector<std::tuple<RowHash, RowName, std::vector<double>,
-                           std::vector<ExpressionValue> > > & rows
-        = embeddingOutput.first;
-    std::vector<KnownColumn> & vars = embeddingOutput.second;
+    dimension = impl->kmeans.clusters[0].centroid.size();
 
-    for (auto & v: vars) {
-        columnNames.push_back(v.columnName);
-    }
-    
-    for (auto & r: rows) {
-        Cluster cluster;
-        cluster.clusterName = jsonDecodeStr<CellValue>(std::get<1>(r).toString());
-        cluster.centroid.insert(cluster.centroid.end(),
-                                std::get<2>(r).begin(),
-                                std::get<2>(r).end());
-        clusters.emplace_back(std::move(cluster));
-    }
-
-    cerr << "got " << clusters.size()
-         << " clusters with " << columnNames.size()
+    cerr << "got " << impl->kmeans.clusters.size()
+         << " clusters with " << dimension
          << "values" << endl;
 }
 
@@ -318,28 +329,14 @@ apply(const FunctionApplier & applier,
 {
     FunctionOutput result;
 
-    //cerr << "context = " << jsonEncode(context) << endl;
-
     // Extract an embedding with the given column names
     ExpressionValue storage;
     const ExpressionValue & inputVal = context.get("embedding", storage);
-    //cerr << "getting embedding" << endl;
-    ML::distribution<float> input = inputVal.getEmbedding(columnNames.size());
+
+    ML::distribution<float> input = inputVal.getEmbedding(dimension);
     Date ts = inputVal.getEffectiveTimestamp();
 
-    std::unique_ptr<ML::KMeansMetric> metric(makeMetric(functionConfig.metric));
-
-    double bestDist = INFINITY;
-    CellValue bestCluster;
-
-    for (unsigned i = 0;  i < clusters.size();  ++i) {
-        double dist = metric->distance(input, clusters[i].centroid);
-        if (dist < bestDist
-            || (dist == bestDist && clusters[i].clusterName < bestCluster)) {
-            bestDist = dist;
-            bestCluster = clusters[i].clusterName;
-        }
-    }
+    int bestCluster = impl->kmeans.assign(input);
 
     result.set("cluster", ExpressionValue(bestCluster, ts));
     
@@ -352,7 +349,7 @@ getFunctionInfo() const
 {
     FunctionInfo result;
 
-    result.input.addEmbeddingValue("embedding", columnNames.size());
+    result.input.addEmbeddingValue("embedding", dimension);
     result.output.addAtomValue("cluster");
 
     return result;
