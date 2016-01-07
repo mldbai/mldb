@@ -292,20 +292,20 @@ apply(const FunctionApplier & applier,
     }
 
     // the different possible IDF scores
-    auto idf_unary = [=] (unsigned long long numberOfRelevantDoc) {
+    auto idf_unary = [=] (uint64_t numberOfRelevantDoc) {
         return 1.0f;
     };
-    auto idf_inverse = [=] (unsigned long long numberOfRelevantDoc) {
-        return std::log(N / std::max(1ULL, numberOfRelevantDoc));
+    auto idf_inverse = [=] (uint64_t numberOfRelevantDoc) {
+        return std::log(N / (1 + numberOfRelevantDoc));
     };
-    auto idf_inverseSmooth = [=] (unsigned long long numberOfRelevantDoc) {
-        return std::log(1 + (N / std::max(1ULL, numberOfRelevantDoc)));
+    auto idf_inverseSmooth = [=] (uint64_t numberOfRelevantDoc) {
+        return std::log(1 + (N / (1 + numberOfRelevantDoc)));
     };
-    auto idf_inverseMax = [=] (unsigned long long numberOfRelevantDoc) {
-        return std::log(1 + (maxNt)/ std::max(1ULL, numberOfRelevantDoc));
+    auto idf_inverseMax = [=] (uint64_t numberOfRelevantDoc) {
+        return std::log(1 + (maxNt)/ (1 +  numberOfRelevantDoc));
     };
-    auto idf_probabilistic_inverse = [=] (unsigned long long numberOfRelevantDoc) {
-        return std::log((N - numberOfRelevantDoc) / std::max(1ULL, numberOfRelevantDoc));
+    auto idf_probabilistic_inverse = [=] (uint64_t numberOfRelevantDoc) {
+        return std::log((N - numberOfRelevantDoc) / (1 + numberOfRelevantDoc));
     };
 
     std::function<double(double)> idf_fct = idf_unary;
