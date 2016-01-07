@@ -1210,6 +1210,8 @@ struct GenerateRowsWhereFunction {
                           (ssize_t numToGenerate, Any token,
                            const BoundParameters & params)> Exec;
 
+    typedef std::function<RowName(int& index)> NextExec;
+
     GenerateRowsWhereFunction(Exec exec = nullptr, const std::string & explain = "",
                      OrderByExpression orderedBy = ORDER_BY_NOTHING)
         : exec(std::move(exec)),
@@ -1226,6 +1228,9 @@ struct GenerateRowsWhereFunction {
     }
 
     Exec exec;
+
+    NextExec nextExec;
+    int      upperBound;
 
     operator bool () const { return !!exec; };
 

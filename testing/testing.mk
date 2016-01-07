@@ -271,6 +271,7 @@ $(eval $(call python_test,batframe_column_function_test,mldb_py_runner))
 $(eval $(call python_test,batframe_column_unary_test,mldb_py_runner))
 $(eval $(call python_test,batframe_property_test,mldb_py_runner))
 
+$(eval $(call mldb_unit_test,temptest.py))
 
 $(eval $(call python_test,mldb-417_svd,mldb_py_runner))
 

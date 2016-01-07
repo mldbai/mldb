@@ -448,6 +448,20 @@ struct TabularDataStore: public ColumnIndex, public MatrixView {
         return result;
     }
 
+    RowName
+    getRowNameByIndex(ssize_t index = 0) const
+    {
+        ssize_t sum = 0; 
+        for (auto & c: chunks) {
+            if (index > sum + c.rowNames.size())
+                sum += c.rowNames.size();
+            else
+                return c.rowNames[index - sum - 1];
+        }       
+
+        return RowName();
+    }
+
     virtual std::vector<RowHash>
     getRowHashes(ssize_t start = 0, ssize_t limit = -1) const
     {
