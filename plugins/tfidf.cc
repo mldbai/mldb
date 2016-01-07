@@ -243,8 +243,11 @@ apply(const FunctionApplier & applier,
 
                 Utf8String word = get<0>(col).toUtf8String();
                 const CellValue& cell = get<1>(col);
-                maxNt = std::max(maxNt, cell.toInt());
-                bagOfWords[word] = cell.toInt();               
+                // if the value is not set it is because the term
+                // was never seen in the corpus
+                int64_t value = cell.isInteger() ? cell.toInt() : 0;
+                maxNt = std::max(maxNt, value);
+                bagOfWords[word] = value;               
             }
 
             return true;
@@ -289,20 +292,20 @@ apply(const FunctionApplier & applier,
     }
 
     // the different possible IDF scores
-    auto idf_unary = [=] (double numberOfRelevantDoc) {
+    auto idf_unary = [=] (unsigned long long numberOfRelevantDoc) {
         return 1.0f;
     };
-    auto idf_inverse = [=] (double numberOfRelevantDoc) {
-        return std::log(N / (1 + numberOfRelevantDoc));
+    auto idf_inverse = [=] (unsigned long long numberOfRelevantDoc) {
+        return std::log(N / std::max(1ULL, numberOfRelevantDoc));
     };
-    auto idf_inverseSmooth = [=] (double numberOfRelevantDoc) {
-        return std::log(1 + (N / (1 + numberOfRelevantDoc)));
+    auto idf_inverseSmooth = [=] (unsigned long long numberOfRelevantDoc) {
+        return std::log(1 + (N / std::max(1ULL, numberOfRelevantDoc)));
     };
-    auto idf_inverseMax = [=] (double numberOfRelevantDoc) {
-        return std::log(1 + (maxNt)/ (1 + numberOfRelevantDoc));
+    auto idf_inverseMax = [=] (unsigned long long numberOfRelevantDoc) {
+        return std::log(1 + (maxNt)/ std::max(1ULL, numberOfRelevantDoc));
     };
-    auto idf_probabilistic_inverse = [=] (double numberOfRelevantDoc) {
-        return std::log((N - numberOfRelevantDoc) / (1 + numberOfRelevantDoc));
+    auto idf_probabilistic_inverse = [=] (unsigned long long numberOfRelevantDoc) {
+        return std::log((N - numberOfRelevantDoc) / std::max(1ULL, numberOfRelevantDoc));
     };
 
     std::function<double(double)> idf_fct = idf_unary;
@@ -328,10 +331,12 @@ apply(const FunctionApplier & applier,
     // Compute the score for every word in the input
     for (auto& col : inputVal.getRow() ) {
         Utf8String colName = std::get<0>(col).toUtf8String();
+     
 
         double frequency = std::get<1>(col).toDouble() / documentCount;
         double tf = tf_fct(frequency);
         double idf = idf_fct(bagOfWords[colName]);
+
         values.emplace_back(std::get<0>(col),
                             tf*idf,
                             ts);

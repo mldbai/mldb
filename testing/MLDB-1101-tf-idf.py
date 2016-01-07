@@ -84,7 +84,7 @@ mldb.log(rez)
 rez = mldb.perform("GET", "/v1/query", [["q", "select tokenize('jelly time', {' ' as splitchars}) as input from tf_idf order by rowName() ASC"]])
 mldb.log(rez)
 
-rez = mldb.perform("GET", "/v1/query", [["q", "select tfidffunction({tokenize('jelly time', {' ' as splitchars}) as input}) as * from tf_idf order by rowName() ASC"]])
+rez = mldb.perform("GET", "/v1/query", [["q", "select tfidffunction({tokenize('jelly time butter bristol', {' ' as splitchars}) as input}) as * from tf_idf order by rowName() ASC"]])
 mldb.log(rez)
 
 #'time' should be more relevant than 'jelly' because its rarer in the corpus
