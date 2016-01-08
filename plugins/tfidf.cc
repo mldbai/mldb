@@ -267,9 +267,9 @@ TfidfFunctionConfigDescription()
     addField("modelFileUrl", &TfidfFunctionConfig::modelFileUrl,
              "An URL to a model file previously created with a 'tfidf.train' procedure.");
     addField("tfType", &TfidfFunctionConfig::tf_type,
-             "Type of TF scoring", TF_log);
+             "Type of TF scoring", TF_raw);
     addField("idfType", &TfidfFunctionConfig::idf_type,
-             "Type of IDF scoring", IDF_inverse);
+             "Type of IDF scoring", IDF_inverseSmooth);
 
     onPostValidate = [] (TfidfFunctionConfig * cfg, 
                          JsonParsingContext & context) {
@@ -314,14 +314,12 @@ apply(const FunctionApplier & applier,
     const ExpressionValue & inputVal = context.get("input", storage);
 
     uint64_t maxFrequency = 0; // max term frequency for the current document
-    uint64_t documentSize = 0; // number of terms in the document
     uint64_t maxNt = 0;        // max document frequency for terms in the current doc
 
     for (auto& col : inputVal.getRow() ) {
         Utf8String term = std::get<0>(col).toUtf8String();
         uint64_t value = std::get<1>(col).getAtom().toUInt();
         maxFrequency = std::max(value, maxFrequency);
-        documentSize += value;
         const auto termFrequency = dfs.find(term);
         if (termFrequency != dfs.end())
             maxNt = std::max(maxNt, termFrequency->second); 
@@ -335,7 +333,7 @@ apply(const FunctionApplier & applier,
         return (std::log(1.0f + frequency));
     };
     auto tf_augmented = [=] (double frequency) {
-        return 0.5f + (0.5f * frequency * documentSize) / maxFrequency;
+        return 0.5f + (0.5f * frequency) / maxFrequency;
     };
 
     std::function<double(double)> tf_fct = tf_raw;
@@ -364,7 +362,7 @@ apply(const FunctionApplier & applier,
         return std::log(1 + (corpusSize / (1 + numberOfRelevantDoc)));
     };
     auto idf_inverseMax = [=] (double numberOfRelevantDoc) {
-        return std::log(1 + (maxNt) / (1 +  numberOfRelevantDoc));
+        return std::log(1 + (maxNt) / (1 + numberOfRelevantDoc));
     };
     auto idf_probabilistic_inverse = [=] (double numberOfRelevantDoc) {
         return std::log((corpusSize - numberOfRelevantDoc) / (1 + numberOfRelevantDoc));
@@ -394,11 +392,9 @@ apply(const FunctionApplier & applier,
     Date ts = inputVal.getEffectiveTimestamp();
 
     // Compute the score for every word in the input
-    //cerr << "corpus size " << corpusSize << " document size " << documentSize << endl;
-
     for (auto& col : inputVal.getRow() ) {
         Utf8String term = std::get<0>(col).toUtf8String(); // the term is the columnName
-        double frequency = (double) std::get<1>(col).getAtom().toUInt() / documentSize;
+        double frequency = (double) std::get<1>(col).getAtom().toUInt();
 
         double tf = tf_fct(frequency);
         const auto docFrequency = dfs.find(term);

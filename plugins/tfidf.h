@@ -76,8 +76,8 @@ struct TfidfProcedure: public Procedure {
 
 struct TfidfFunctionConfig {
     TfidfFunctionConfig()
-        : tf_type(TF_log),
-          idf_type(IDF_inverse)
+        : tf_type(TF_raw),
+          idf_type(IDF_inverseSmooth)
     {
     }
 

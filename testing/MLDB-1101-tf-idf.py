@@ -29,7 +29,7 @@ dataset = mldb.create_dataset(dataset_config)
 #this is our corpus
 dataset.record_row("row1", [ ["test", "peanut butter jelly peanut butter jelly", 0]])
 dataset.record_row("row2", [ ["test", "peanut butter jelly time peanut butter jelly time", 0]])
-dataset.record_row("row3", [ ["test", "this is the song", 0]])
+dataset.record_row("row3", [ ["test", "this is the jelly song", 0]])
 
 dataset.commit()
 

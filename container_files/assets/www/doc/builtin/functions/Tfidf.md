@@ -30,10 +30,10 @@ The types of IDF weighting schemes are:
 | *weighting scheme* | *description* | *IDF weight*  |
 |--------------------|---------------|--------------|
 | `unary` | unary IDF score, i.e. don't use IDF | \\( 1 \\) |
-| `inverse` | the logarithm of the number of documents in the corpus divided by the number of documents the term appears in | \\( \log \left( \frac {N}{1 + n_t } \right) \\) |
-| `inverseSmooth` | similar to `inverse` but with logarithmic terms above 1 | \\( \log \left( 1 + \frac {N}{1 + n_t } \right) \\) |
+| `inverse` | the logarithm of the number of documents in the corpus divided by the number of documents the term appears in (this will lead to negative scores for terms appearing in all documents in the corpus) | \\( \log \left( \frac {N}{1 + n_t } \right) \\) |
+| `inverseSmooth` | similar to `inverse` but with 1 added to the logarithmic term (this ensures that the score will never be negative) | \\( \log \left( 1 + \frac {N}{1 + n_t } \right) \\) |
 | `inverseMax` | similar to `inverseSmooth` but using the maximum term frequency | \\( \log \left(1 + \frac {\max_{\{t' \in d\}} n_{t'}} {1 + n_t}\right)  \\)
-| `probabilisticInverse` | similar to `inverse` but substracting the number of documents the term appears in from the total number of documents | \\(  \log \left( \frac {N - n_t} {1 + n_t} \right) \\)
+| `probabilisticInverse` | similar to `inverse` but substracting the number of documents the term appears in from the total number of documents in the training corpus (this can leads to positive and negative scores) | \\(  \log \left( \frac {N - n_t} {1 + n_t} \right) \\)
 
 
 ## Input and Output Values
