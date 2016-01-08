@@ -29,13 +29,13 @@ using namespace std;
 namespace Datacratic {
 namespace MLDB {
 
-std::vector<double> tovector(Eigen::MatrixXd& m)
+std::vector<double> tovector(boost::multi_array<double, 2>& m)
 {
     std::vector<double> embedding;
-    for(int i = 0; i < m.rows(); i++)
+    for(int i = 0; i < m.shape()[0]; i++)
     {
-        for(int j = 0; j < m.cols(); j++) {
-             embedding.push_back(m(i,j)); // multiply by elements on diagonal
+        for(int j = 0; j < m.shape()[1]; j++) {
+             embedding.push_back(m[i][j]); // multiply by elements on diagonal
         }
     }       
 
@@ -137,10 +137,10 @@ run(const ProcedureRunConfig & run,
     columnNames.push_back(v.columnName);
   }
 
-  std::vector<ML::distribution<float> > vecs;
+  std::vector<ML::distribution<double> > vecs;
 
   for (unsigned i = 0;  i < rows.size();  ++i) {
-    vecs.emplace_back(ML::distribution<float>(std::get<2>(rows[i]).begin(),
+    vecs.emplace_back(ML::distribution<double>(std::get<2>(rows[i]).begin(),
                                                   std::get<2>(rows[i]).end()));
   }
 
@@ -287,12 +287,12 @@ EMFunction(MldbServer * owner,
         {
             cluster.centroid.push_back(values[i]);
         }
-        cluster.covarianceMatrix = Eigen::MatrixXd(numDim, numDim);
+        cluster.covarianceMatrix = boost::multi_array<float, 2>(boost::extents[numDim][numDim]);
         for (int i = 0; i < numDim; ++i)
         {
             for (int j = 0; j < numDim; ++j)
             {
-              cluster.covarianceMatrix(i,j) = values[numDim + i*numDim + j];
+              cluster.covarianceMatrix[i][j] = values[numDim + i*numDim + j];
             }
         }
 
@@ -321,7 +321,7 @@ apply(const FunctionApplier & applier,
     ExpressionValue storage;
     const ExpressionValue & inputVal = context.get("embedding", storage);
     //cerr << "getting embedding" << endl;
-    ML::distribution<float> input = inputVal.getEmbedding(numDim);
+    ML::distribution<double> input = inputVal.getEmbeddingDouble(numDim);
     Date ts = inputVal.getEffectiveTimestamp();
 
     double bestDist = INFINITY;

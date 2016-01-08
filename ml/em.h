@@ -11,7 +11,6 @@
 
 #include "mldb/jml/stats/distribution.h"
 #include <boost/multi_array.hpp>
-#include "mldb/ml/Eigen/Dense"
 
 namespace ML {
 
@@ -19,23 +18,23 @@ struct EstimationMaximisation
 {
     struct Cluster {
         double totalWeight;
-        ML::distribution<float> centroid;
-        Eigen::MatrixXd covarianceMatrix;
-        Eigen::MatrixXd invertCovarianceMatrix;
-        float pseudoDeterminant;
+        ML::distribution<double> centroid;
+        boost::multi_array<double, 2> covarianceMatrix;
+        boost::multi_array<double, 2> invertCovarianceMatrix;
+        double pseudoDeterminant;
     };
 
     std::vector<Cluster> clusters;
 
   void
-  train(const std::vector<ML::distribution<float>> & points,
+  train(const std::vector<ML::distribution<double>> & points,
         std::vector<int> & in_cluster,
         int nbClusters,
         int maxIterations,
         int randomSeed); 
 
   int
-  assign(const ML::distribution<float> & point, Eigen::MatrixXd& distanceMatrix, int pIndex) const;
+  assign(const ML::distribution<double> & point, boost::multi_array<double, 2>& distanceMatrix, int pIndex) const;
   
 
 };

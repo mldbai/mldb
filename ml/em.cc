@@ -20,59 +20,51 @@
 #include <boost/random/mersenne_twister.hpp>
 #include <mutex>
 
-#include "mldb/ml/Eigen/SVD"
+#include "mldb/ml/algebra/matrix_ops.h"
+#include "mldb/ml/algebra/least_squares.h"
 
 using namespace std;
 
+typedef boost::multi_array<double, 2> MatrixType;
+
 namespace ML {
 
-Eigen::VectorXd toEigenVector(const ML::distribution<float> & distribution)
-{
-  Eigen::VectorXd result(distribution.size());
-  for (int i = 0; i < distribution.size(); ++i)
-  {
-      result(i) = distribution[i];
-  }
-
-  return result;
-}   
-
-void contributeToAverage(ML::distribution<float> & average,
-                         const ML::distribution<float> & point, double weight)
+void contributeToAverage(ML::distribution<double> & average,
+                         const ML::distribution<double> & point, double weight)
 {
     // if [0,0,...,0], do not contribue to average
     if (point.any())
         average += point * weight; 
 }
 
-double distance(const ML::distribution<float> & x,
-                const ML::distribution<float> & y)
+double distance(const ML::distribution<double> & x,
+                const ML::distribution<double> & y)
 { return (x - y).two_norm(); }
 
-ML::distribution<float>
-average(const std::vector<ML::distribution<float>> & points)
+ML::distribution<double>
+average(const std::vector<ML::distribution<double>> & points)
 {
-    ML::distribution<float> avg(points[0].size(), 0.0);
+    ML::distribution<double> avg(points[0].size(), 0.0);
     double weight = 1. / points.size();
     for (auto & x : points)
         contributeToAverage(avg, x, weight);
     return avg;
 }    
 
-double gaussianDistance(const ML::distribution<float> & pt, const ML::distribution<float> & origin, const Eigen::MatrixXd & covarianceMatrix, 
-                        const Eigen::MatrixXd & invertCovarianceMatrix, float determinant)
+double gaussianDistance(const ML::distribution<double> & pt, const ML::distribution<double> & origin, const MatrixType& covarianceMatrix, 
+                        const  MatrixType & invertCovarianceMatrix, float determinant)
 {
-    //cerr << "gaussian distance(" << pt[0] << "," << pt[1] << "vs centroid(" << origin[0] << "," << origin[1] << endl;
+    cerr << "gaussian distance(" << pt[0] << "," << pt[1] << "vs centroid(" << origin[0] << "," << origin[1] << endl;
 
-    Eigen::VectorXd mean = toEigenVector(origin);
-    Eigen::VectorXd eigenPt = toEigenVector(pt);
+    //Eigen::VectorXd mean = toEigenVector(origin);
+    //Eigen::VectorXd eigenPt = toEigenVector(pt);
 
-    Eigen::VectorXd xToU = eigenPt - mean;
-    Eigen::VectorXd variance = invertCovarianceMatrix * xToU ;
+    auto xToU = pt - origin;
+    auto variance = invertCovarianceMatrix * xToU ;
 
-    double value_exponent = -0.5f*xToU.dot(variance);
+    double value_exponent = -0.5f*xToU.dotprod(variance);
 
-    float determinantCovMatrix = determinant;
+    double determinantCovMatrix = determinant;
 
     //cerr << "cov matrix determinant " << determinantCovMatrix << endl;
 
@@ -88,47 +80,48 @@ double gaussianDistance(const ML::distribution<float> & pt, const ML::distributi
 }
 
 
-Eigen::MatrixXd EstimateCovariant(int i, const std::vector<ML::distribution<float>> & points, 
-                                 const Eigen::MatrixXd& distanceMatrix, double totalWeight, ML::distribution<float> average)
+ boost::multi_array<double, 2> EstimateCovariant(int i, const std::vector<ML::distribution<double>> & points, 
+                                 const  MatrixType& distanceMatrix, double totalWeight, ML::distribution<double> average)
 {
-    Eigen::MatrixXd variant;
+    boost::multi_array<double, 2> variant;
 
     if (totalWeight < 0.000001f)
       return variant;
 
    // cerr << "EstimateCovariant num point " << count << " average " << average[0] << "," << average[1] << endl;
 
-    variant.resize(average.size(), average.size());
+    variant.resize(boost::extents[average.size()][average.size()]);
 
    // cerr<< "EstimateCovariant num points " << distanceMatrix.rows() << " total weight " << totalWeight << endl;
 
-    for (int n = 0; n < distanceMatrix.rows(); ++n)
+    for (int n = 0; n < distanceMatrix.shape()[0]; ++n)
     {
-        ML::distribution<float> pt = points[n] - average;
-        auto vec = toEigenVector(pt);
+        ML::distribution<double> pt = points[n] - average;
 
     //    cerr << "EstimateCovariant vec (" << pt[0] << "," << pt[1] << endl;
 
-        Eigen::MatrixXd variantPt = vec * vec.transpose() * distanceMatrix(n, i);
+        double distance = distanceMatrix[n][i];
+        MatrixType variantPt(boost::extents[average.size()][average.size()]);
+        variantPt = outerProd(pt) * distance;
 
         if (n == 0) {                                    
             variant = variantPt;
         }
         else {
-            variant += variantPt;
+            variant = variant + variantPt;
         }
     }
 
    // cerr << variant(0,0) << endl;
 
-    variant /= totalWeight;
+    variant = variant / totalWeight;
 
     return variant;
 }
 
 void
 EstimationMaximisation::
-train(const std::vector<ML::distribution<float>> & points,
+train(const std::vector<ML::distribution<double>> & points,
     std::vector<int> & in_cluster,
     int nbClusters,
     int maxIterations,
@@ -147,7 +140,7 @@ train(const std::vector<ML::distribution<float>> & points,
 	in_cluster.resize(npoints, -1);
 	clusters.resize(nbClusters);
 
-	Eigen::MatrixXd distanceMatrix(npoints, nbClusters);
+    boost::multi_array<double, 2> distanceMatrix(boost::extents[npoints][nbClusters]);
 
 	// Smart initialization of the centroids
 	// Stolen from kmeans - why not
@@ -158,7 +151,7 @@ train(const std::vector<ML::distribution<float>> & points,
 	    // This is my version of the wiki algorithm :
 	    // Amongst 100 random points, I take the farthest from the closest
 	    // centroid as the next centroid
-	    float distMax = -INFINITY;
+	    double distMax = -INFINITY;
 	    int bestPoint = -1;
 	    // We try it for 100 points
 	    for (int j=0; j < n; ++j) {
@@ -169,9 +162,9 @@ train(const std::vector<ML::distribution<float>> & points,
 	        // For each cluster
 	        for (int k=0; k < i; ++k) {
 
-	            float dist = distance(points[randomIdx], clusters[k].centroid);
+	            double dist = distance(points[randomIdx], clusters[k].centroid);
 
-	            distanceMatrix(j, i) = dist;
+	            distanceMatrix[j][i] = dist;
 
 	            if (dist < distMin) {
 	                distMin = dist;
@@ -195,14 +188,19 @@ train(const std::vector<ML::distribution<float>> & points,
 
 	//cerr << "initialize cov matrices" << endl;
 	int numdimensions = points[0].size();
+	cerr << "num dims " << numdimensions << endl;
 	for (int i=0; i < nbClusters; ++i) {
 
-	  clusters[i].covarianceMatrix = Eigen::MatrixXd::Identity(numdimensions, numdimensions);
+	  ML::setIdentity<double>(numdimensions, clusters[i].covarianceMatrix);
+	  cerr << clusters[i].covarianceMatrix.shape()[0] << endl;
+	  cerr << clusters[i].covarianceMatrix.shape()[1] << endl;
+	  clusters[i].invertCovarianceMatrix.resize(boost::extents[numdimensions][numdimensions]);
 	  clusters[i].invertCovarianceMatrix = clusters[i].covarianceMatrix;
+	  cerr << clusters[i].invertCovarianceMatrix.shape()[0] << endl;
 	  clusters[i].pseudoDeterminant = 1.0f; 
 	}
 
-	//cerr << "EM iterations" << endl;
+	cerr << "EM iterations" << endl;
 	for (int iter = 0;  iter < maxIterations;  ++iter) {
 
 	    // How many have changed cluster?  Used to know when the cluster
@@ -221,12 +219,12 @@ train(const std::vector<ML::distribution<float>> & points,
 	        }
 	    };
 
-	    // cerr << "EM find clusters" << endl;        
+	    cerr << "EM find clusters" << endl;        
 
 	    for (int i = 0; i < points.size(); ++i)
 	      findNewCluster(i);
 
-	    //cerr << "EM find end" << endl;
+	    cerr << "EM find end" << endl;
 
 	    //Step 2: maximizing distribution's parameters 
 	    for (auto & c : clusters)
@@ -243,7 +241,7 @@ train(const std::vector<ML::distribution<float>> & points,
 	        auto point = points[i];
 	         for (int cluster = 0; cluster < clusters.size(); ++cluster)    
 	        {
-	            double distance = distanceMatrix(i, cluster);
+	            double distance = distanceMatrix[i][cluster];
 	            // cerr << "(" << point[0] << "," << point[1] << ") : " << cluster << endl;
 	            clusters[cluster].centroid += point * distance;
 		            clusters[cluster].totalWeight += distance;
@@ -266,37 +264,49 @@ train(const std::vector<ML::distribution<float>> & points,
 	    }
 	     
 	    //calculate covariant matrix
-	    //  cerr << "EM find covariant" << endl;
+	     cerr << "EM find covariant" << endl;
 	    for (int i = 0; i < clusters.size(); ++i)
 	    {
 	      clusters[i].covarianceMatrix = EstimateCovariant(i, points, distanceMatrix, clusters[i].totalWeight, clusters[i].centroid);
-	      ExcAssert(clusters[i].covarianceMatrix.rows() == clusters[i].covarianceMatrix.cols());
-	      Eigen::JacobiSVD<Eigen::MatrixXd> svd(clusters[i].covarianceMatrix, Eigen::ComputeFullU | Eigen::ComputeFullV);
+	      cerr << "Estimate covariant Done" << endl;
+	      ExcAssert(clusters[i].covarianceMatrix.shape()[0] == clusters[i].covarianceMatrix.shape()[1]);
+	      //Eigen::JacobiSVD<Eigen::MatrixXd> svd(clusters[i].covarianceMatrix, Eigen::ComputeFullU | Eigen::ComputeFullV);
+
+	      auto svdMatrix = clusters[i].covarianceMatrix;
+
+	      MatrixType VT,U;
+	      ML::distribution<double> svalues;
+
+	   //   int = int gesdd("A", shape[0], shape[1],
+		//		          svdMatrix.data(), shape[0], float * S, float * U, int ldu,
+		//		          float * vt, int ldvt)
+
+	      ML::svd_square(svdMatrix, VT, U, svalues);
 
 	      //Remove small values and calculate pseudo determinant
 	      double pseudoDeterminant = 1.0f;
-	      Eigen::VectorXd singularValues = svd.singularValues();
-	      Eigen::VectorXd invertSingularValues = svd.singularValues();
+	      //Eigen::VectorXd singularValues = svd.singularValues();
+	      auto invertSingularValues = svalues;
 
 	      //cerr << "checking " << singularValues.size() << "singular values" << endl;
 
-	      for (int i = 0; i < singularValues.size(); ++i) {
+	      for (int i = 0; i < svalues.size(); ++i) {
 	          //cerr << singularValues(i) << endl;
-	          if (singularValues(i) < 0.0001f) {
+	          if (svalues[i] < 0.0001f) {
 	              //cerr << "DROPPING SINGULAR VALUE " << singularValues(i) << endl;
-	              singularValues(i) = 0.0f;
-	              invertSingularValues(i) = 0.0f;
+	              svalues[i] = 0.0f;
+	              invertSingularValues[i] = 0.0f;
 	          }
 	          else {
-	              pseudoDeterminant *= singularValues(i);
-	              invertSingularValues(i) = 1.0f / singularValues(i);
+	              pseudoDeterminant *= svalues[i];
+	              invertSingularValues[i] = 1.0f / svalues[i];
 	          }
 	      }
 
 	      //calculate pseudo matrix, pseudo inverse and pseudo determinant
 
-	      Eigen::MatrixXd pseudoCovariant = svd.matrixU() * singularValues.asDiagonal() * svd.matrixV();
-	      clusters[i].invertCovarianceMatrix = svd.matrixV() * invertSingularValues.asDiagonal() * svd.matrixU().transpose();
+	      MatrixType pseudoCovariant = U * diag(svalues) * VT;
+	      //clusters[i].invertCovarianceMatrix = svd.matrixV() * invertSingularValues.asDiagonal() * svd.matrixU().transpose();
 	      clusters[i].pseudoDeterminant = pseudoDeterminant;
 	    }
     //cerr << "EM END ITER " << iter << endl << endl << endl;
@@ -305,18 +315,21 @@ train(const std::vector<ML::distribution<float>> & points,
 
 int
 EstimationMaximisation::
-assign(const ML::distribution<float> & point, Eigen::MatrixXd& distanceMatrix, int pIndex) const
+assign(const ML::distribution<double> & point, boost::multi_array<double, 2>& distanceMatrix, int pIndex) const
 {
+  cerr << "start assign" << endl;
   using namespace std;
   if (clusters.size() == 0)
       throw ML::Exception("Did you train your em?");
 
-  ML::distribution<float> distances(clusters.size());
+  ML::distribution<double> distances(clusters.size());
   for (int i=0; i < clusters.size(); ++i) {
       distances[i] = gaussianDistance(point, clusters[i].centroid, clusters[i].covarianceMatrix, clusters[i].invertCovarianceMatrix, clusters[i].pseudoDeterminant);
   }
 
-  float distMin = 0;
+  cerr << "end distances" << endl;
+
+  double distMin = 0;
   int best_cluster = -1;
   double totalWeight = 0.0f;
 
@@ -325,7 +338,7 @@ assign(const ML::distribution<float> & point, Eigen::MatrixXd& distanceMatrix, i
       double distance = distances[i];
 
       totalWeight += distance;
-      distanceMatrix(pIndex, i) = distance;
+      distanceMatrix[pIndex][i] = distance;
 
       if (distances[i] > distMin) {
           distMin = distances[i];
@@ -336,13 +349,15 @@ assign(const ML::distribution<float> & point, Eigen::MatrixXd& distanceMatrix, i
    if (totalWeight > 0) {
 
         for (int i=0; i < clusters.size(); ++i) {
-            distanceMatrix(pIndex, i) /= totalWeight;
+            distanceMatrix[pIndex][i] /= totalWeight;
         }
    }
 
   //Most likely these are points with all distance at 0, often during the first iteration
   if (best_cluster == -1)
       best_cluster = 0;
+
+  cerr << "end assign" << endl;
 
   return best_cluster;
 }

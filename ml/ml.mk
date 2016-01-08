@@ -21,7 +21,7 @@ LIBML_SOURCES := \
 	svd_utils.cc
 
 
-LIBML_LINK := boosting neural boost_filesystem jsoncpp types value_description
+LIBML_LINK := boosting neural boost_filesystem jsoncpp types value_description algebra
 
 $(eval $(call library,ml,$(LIBML_SOURCES),$(LIBML_LINK)))
 

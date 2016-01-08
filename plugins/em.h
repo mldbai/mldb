@@ -8,8 +8,6 @@
 #include "metric_space.h"
 #include "mldb/types/optional.h"
 
-#include "mldb/ml/Eigen/Dense"
-
 namespace Datacratic {
 namespace MLDB {
 
@@ -94,8 +92,8 @@ struct EMFunction: public Function {
 
      struct Cluster {
         CellValue clusterName;
-        ML::distribution<float> centroid;
-        Eigen::MatrixXd covarianceMatrix;
+        ML::distribution<double> centroid;
+        boost::multi_array<double, 2> covarianceMatrix;
     };
 
     std::vector<Cluster> clusters;
