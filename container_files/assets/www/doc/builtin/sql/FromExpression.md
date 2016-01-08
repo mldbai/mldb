@@ -34,10 +34,21 @@ FROM (SELECT * FROM dataset WHERE column1 = 2) as subselect
 
 The following `<JoinType>`s are supported:
 
-* `left JOIN right` and `left INNER JOIN right` are synonymous. The output contains a row for each combination of rows of `left` and rows of `right` that satisfies the join condition.
-* `left LEFT JOIN right`, `left LEFT OUTER JOIN right` are synonymous. First, an inner join is performed. Then, for each row in `left` that does not satisfy the join condition with any row in `right`, a joined row is added with null values in columns of `right`. The output therefore always has at least one row for each row in `left`.
-* `left RIGHT JOIN right` and `left RIGHT OUTER JOIN right` are synonymous. First, an inner join is performed. Then, for each row in `right` that does not satisfy the join condition with any row in `left`, a joined row is added with null values in columns of `left`. This is the converse of a left join: the output will always have a row for each row in `right`.
-* `left OUTER JOIN right`, `left FULL JOIN right` and `left FULL OUTER JOIN right` are synonymous. First, an inner join is performed. Then, for each row in `left` that does not satisfy the join condition with any row in `right`, a joined row is added with null values in columns of `right`. Also, for each row of `right` that does not satisfy the join condition with any row in `left`, a joined row with null values in the columns of `left` is added. The output therefore always has at least one row for each row of both `left` and `right`.
+**`left JOIN right`, `left INNER JOIN right`**
+
+The output contains a row for each combination of rows of `left` and rows of `right` that satisfies the join condition.
+
+**`left LEFT JOIN right`, `left LEFT OUTER JOIN right`**
+
+First, an inner join is performed. Then, for each row in `left` that does not satisfy the join condition with any row in `right`, a joined row is added with null values in columns of `right`. The output therefore always has at least one row for each row in `left`.
+
+**`left RIGHT JOIN right`, `left RIGHT OUTER JOIN right`**
+
+First, an inner join is performed. Then, for each row in `right` that does not satisfy the join condition with any row in `left`, a joined row is added with null values in columns of `left`. This is the converse of a left join: the output will always have a row for each row in `right`.
+
+**`left OUTER JOIN right`, `left FULL JOIN right`, `left FULL OUTER JOIN right`**
+
+First, an inner join is performed. Then, for each row in `left` that does not satisfy the join condition with any row in `right`, a joined row is added with null values in columns of `right`. Also, for each row of `right` that does not satisfy the join condition with any row in `left`, a joined row with null values in the columns of `left` is added. The output therefore always has at least one row for each row of both `left` and `right`.
 
 ## Transpose 
 Queries can be made to the transpose of a dataset by using the transpose() function in the FROM expression. For example:
