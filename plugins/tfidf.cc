@@ -353,21 +353,21 @@ apply(const FunctionApplier & applier,
     }
 
     // the different possible IDF scores
-    auto idf_unary = [=] (uint64_t numberOfRelevantDoc) {
+    auto idf_unary = [=] (double numberOfRelevantDoc) {
         return 1.0f;
     };
 
-    auto idf_inverse = [=] (uint64_t numberOfRelevantDoc) {
-        return std::log((double) corpusSize / (1 + numberOfRelevantDoc));
+    auto idf_inverse = [=] (double numberOfRelevantDoc) {
+        return std::log(corpusSize / (1 + numberOfRelevantDoc));
     };
-    auto idf_inverseSmooth = [=] (uint64_t numberOfRelevantDoc) {
-        return std::log(1 + ((double) corpusSize / (1 + numberOfRelevantDoc)));
+    auto idf_inverseSmooth = [=] (double numberOfRelevantDoc) {
+        return std::log(1 + (corpusSize / (1 + numberOfRelevantDoc)));
     };
-    auto idf_inverseMax = [=] (uint64_t numberOfRelevantDoc) {
-        return std::log(1 + (double) (maxNt) / (1 +  numberOfRelevantDoc));
+    auto idf_inverseMax = [=] (double numberOfRelevantDoc) {
+        return std::log(1 + (maxNt) / (1 +  numberOfRelevantDoc));
     };
-    auto idf_probabilistic_inverse = [=] (uint64_t numberOfRelevantDoc) {
-        return std::log((double) (corpusSize - numberOfRelevantDoc) / (1 + numberOfRelevantDoc));
+    auto idf_probabilistic_inverse = [=] (double numberOfRelevantDoc) {
+        return std::log((corpusSize - numberOfRelevantDoc) / (1 + numberOfRelevantDoc));
     };
 
     std::function<double(double)> idf_fct = idf_unary;
