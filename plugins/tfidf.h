@@ -40,7 +40,8 @@ DECLARE_ENUM_DESCRIPTION(IDFType);
 struct TfidfConfig : public ProcedureConfig {
 
     InputQuery trainingData;
-    PolyConfigT<Dataset> output;
+    Url modelFileUrl;
+    Optional<PolyConfigT<Dataset> > output;
     static constexpr char const * defaultOutputDatasetType = "sparse.mutable";
 
     Utf8String functionName;
@@ -74,24 +75,13 @@ struct TfidfProcedure: public Procedure {
 /*****************************************************************************/
 
 struct TfidfFunctionConfig {
-    TfidfFunctionConfig(PolyConfigT<Dataset> dataset, int sizeOfCorpus = 1)
-        : dataset(dataset),         
-          N(sizeOfCorpus),
-          tf_type(TF_log),
-          idf_type(IDF_inverse)
-
-    {
-    }
-
     TfidfFunctionConfig()
-        : N(1),
-          tf_type(TF_log),
+        : tf_type(TF_log),
           idf_type(IDF_inverse)
     {
     }
-    
-    PolyConfigT<Dataset> dataset;       
-    int N;
+
+    Url modelFileUrl;
     TFType tf_type;
     IDFType idf_type;
 };
@@ -111,8 +101,10 @@ struct TfidfFunction: public Function {
     /** Describe what the input and output is for this function. */
     virtual FunctionInfo getFunctionInfo() const;
     
-    std::shared_ptr<Dataset> dataset;
     TfidfFunctionConfig functionConfig;
+    // document frequencies for terms
+    std::unordered_map<Utf8String, uint64_t> dfs;
+    uint64_t corpusSize;
 };
 
 } // namespace MLDB

@@ -61,6 +61,7 @@ tf_idf_conf = {
     "type": "tfidf.train",
     "params": {
         "trainingData": "select * from bag_of_words",
+        "modelFileUrl": "file://tmp/MLDB-1101.idf",
         "outputDataset": {
             "id": "tf_idf",
             "type": "sparse.mutable"

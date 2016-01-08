@@ -87,7 +87,8 @@ KmeansConfigDescription()
              METRIC_COSINE);
     addField("functionName", &KmeansConfig::functionName,
              "If specified, a kmeans function of this name will be created using "
-             "the training result.");
+             "the training result.  Note that the 'modelFileUrl' must "
+             "also be provided.");
     addParent<ProcedureConfig>();
 
     onPostValidate = validate<KmeansConfig, InputQuery, NoGroupByHaving>(&KmeansConfig::trainingData, "kmeans");
@@ -190,8 +191,6 @@ run(const ProcedureRunConfig & run,
     int numClusters = runProcConf.numClusters;
     int numIterations = runProcConf.maxIterations;
 
-    //doProgress("running k-means");
-
     kmeans.train(vecs, inCluster, numClusters, numIterations);
 
     bool saved = false;
@@ -206,7 +205,6 @@ run(const ProcedureRunConfig & run,
         }
     }
 
-    //doProgress("finished k-means");
     if (runProcConf.output.get()) {
 
         PolyConfigT<Dataset> outputDataset = *runProcConf.output;
@@ -251,16 +249,22 @@ run(const ProcedureRunConfig & run,
         centroids->commit();
     }
 
-    if(saved && !runProcConf.functionName.empty()) {
-        KmeansFunctionConfig funcConf;
-        funcConf.modelFileUrl = runProcConf.modelFileUrl;
+    if(!runProcConf.functionName.empty()) {
+        if (saved) {
+            KmeansFunctionConfig funcConf;
+            funcConf.modelFileUrl = runProcConf.modelFileUrl;
 
-        PolyConfig kmeansFuncPC;
-        kmeansFuncPC.type = "kmeans";
-        kmeansFuncPC.id = runProcConf.functionName;
-        kmeansFuncPC.params = funcConf;
+            PolyConfig kmeansFuncPC;
+            kmeansFuncPC.type = "kmeans";
+            kmeansFuncPC.id = runProcConf.functionName;
+            kmeansFuncPC.params = funcConf;
 
-        obtainFunction(server, kmeansFuncPC, onProgress);
+            obtainFunction(server, kmeansFuncPC, onProgress);
+        } else {
+            throw ML::Exception("Can't create kmeans function " +
+                                runProcConf.functionName.rawString() + 
+                                " Have you provided a valid modelFileUrl?");
+        }
     }
 
     return Any();
