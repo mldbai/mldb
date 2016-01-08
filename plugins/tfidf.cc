@@ -358,16 +358,16 @@ apply(const FunctionApplier & applier,
     };
 
     auto idf_inverse = [=] (uint64_t numberOfRelevantDoc) {
-        return std::log(corpusSize / (1 + numberOfRelevantDoc));
+        return std::log((double) corpusSize / (1 + numberOfRelevantDoc));
     };
     auto idf_inverseSmooth = [=] (uint64_t numberOfRelevantDoc) {
-        return std::log(1 + (corpusSize / (1 + numberOfRelevantDoc)));
+        return std::log(1 + ((double) corpusSize / (1 + numberOfRelevantDoc)));
     };
     auto idf_inverseMax = [=] (uint64_t numberOfRelevantDoc) {
-        return std::log(1 + (maxNt)/ (1 +  numberOfRelevantDoc));
+        return std::log(1 + (double) (maxNt) / (1 +  numberOfRelevantDoc));
     };
     auto idf_probabilistic_inverse = [=] (uint64_t numberOfRelevantDoc) {
-        return std::log((corpusSize - numberOfRelevantDoc) / (1 + numberOfRelevantDoc));
+        return std::log((double) (corpusSize - numberOfRelevantDoc) / (1 + numberOfRelevantDoc));
     };
 
     std::function<double(double)> idf_fct = idf_unary;
@@ -394,16 +394,19 @@ apply(const FunctionApplier & applier,
     Date ts = inputVal.getEffectiveTimestamp();
 
     // Compute the score for every word in the input
+    //cerr << "corpus size " << corpusSize << " document size " << documentSize << endl;
+
     for (auto& col : inputVal.getRow() ) {
         Utf8String term = std::get<0>(col).toUtf8String(); // the term is the columnName
+        double frequency = (double) std::get<1>(col).getAtom().toUInt() / documentSize;
 
-        double frequency = std::get<1>(col).getAtom().toUInt() / documentSize;
         double tf = tf_fct(frequency);
         const auto docFrequency = dfs.find(term);
         double idf = (docFrequency != dfs.end() 
                       ? idf_fct(docFrequency->second) 
                       : idf_fct(0)); 
 
+        //cerr << term << " tf " << tf << " idf " << idf << endl;
         values.emplace_back(std::get<0>(col),
                             tf*idf,
                             ts);
