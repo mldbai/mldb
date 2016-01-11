@@ -74,18 +74,13 @@ struct KmeansProcedure: public Procedure {
 
 struct KmeansFunctionConfig {
     KmeansFunctionConfig()
-        : metric(METRIC_COSINE),
-          select(SelectExpression::parse("*")),
-          when(WhenExpression::TRUE),
-          where(SqlExpression::TRUE)
+        : metric(METRIC_COSINE)
     {
     }
     
-    PolyConfigT<Dataset> centroids;        ///< Dataset containing the centroids
+    PolyConfigT<Dataset> centroids;       ///< Dataset containing the centroids
     MetricSpace metric;                   ///< Actual metric
-    SelectExpression select;               ///< What to select from dataset
-    WhenExpression when;  //
-    std::shared_ptr<SqlExpression> where;  ///< Which centroids to take
+    InputQuery inputData;                 ///< What to select from dataset
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(KmeansFunctionConfig);

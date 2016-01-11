@@ -2,6 +2,8 @@
 
 # Test for the presence of ~/.cloud_credentials with an S3 entry.  If present,
 # some extra tests can be enabled.  This will be "1" or empty for true or false.
+# these tests access *public* files in the dev.mldb.datacratic.com bucket, so any old
+# valid credentials will do
 HAS_S3_CREDENTIALS:=$(shell grep -l "^s3" ~/.cloud_credentials >/dev/null 2>/dev/null && echo "1")
 
 # Make a test manual if there are no S3 credentials available

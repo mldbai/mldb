@@ -60,37 +60,12 @@ TfidfConfigDescription()
     optional.emplace(PolyConfigT<Dataset>().
                      withType(TfidfConfig::defaultOutputDatasetType));
     
-    addFieldDesc("trainingDataset", &TfidfConfig::dataset,
-                 "Dataset provided for input to the tfidf procedure."
-                 "Contains the list of terms for each document.",
-                 makeInputDatasetDescription());
+    addField("trainingData", &TfidfConfig::trainingData,
+             "An SQL query to provided for input to the tfidf procedure."
+             "Returns the list of terms for each document.");
     addField("outputDataset", &TfidfConfig::output,
              "Output dataset.  This dataset will contain a single row "
              "containing the number of documents each term appears in");
-    addField("select", &TfidfConfig::select,
-             "Columns to select from the input matrix for the coordinates to input "
-             "into training.  The selected columns must be finite numbers "
-             "and must not have missing values.",
-             SelectExpression("*"));
-    addField("when", &TfidfConfig::when,
-             "Boolean expression determining which tuples from the dataset "
-             "to keep based on their timestamps",
-             WhenExpression::parse("true"));
-    addField("where", &TfidfConfig::where,
-             "Rows to select for training.  This expression allows a subset "
-             "of the rows that were input to the training process to be selected.",
-             SqlExpression::parse("true"));
-    addField("orderBy", &TfidfConfig::orderBy,
-             "How to order the rows.  This only has an effect when OFFSET "
-             "or LIMIT are used.  Default is to order by rowHash.",
-             OrderByExpression::ROWHASH);
-    addField("offset", &TfidfConfig::offset,
-             "How many rows to skip before using data",
-             ssize_t(0));
-    addField("limit", &TfidfConfig::limit,
-             "How many rows of data to use.  -1 (the default) means use all "
-             "of the rows in the dataset.",
-             ssize_t(-1));
     addField("functionName", &TfidfConfig::functionName,
              "If specified, a function of this name will be created using "
              "the training result.");
@@ -127,7 +102,7 @@ run(const ProcedureRunConfig & run,
 
     SqlExpressionMldbContext context(server);
 
-    auto boundDataset = runProcConf.dataset->bind(context);
+    auto boundDataset = runProcConf.trainingData.stm->from->bind(context);
 
     //This will cummulate the number of documents each word is in 
     std::unordered_map<Utf8String, int> bagOfWords;
@@ -142,13 +117,13 @@ run(const ProcedureRunConfig & run,
             return true;
         };
 
-    iterateDataset(runProcConf.select, *boundDataset.dataset, boundDataset.asName, 
-                   runProcConf.when,
-                   runProcConf.where,
+    iterateDataset(runProcConf.trainingData.stm->select, *boundDataset.dataset, boundDataset.asName, 
+                   runProcConf.trainingData.stm->when,
+                   runProcConf.trainingData.stm->where,
                    aggregator,
-                   runProcConf.orderBy,
-                   runProcConf.offset,
-                   runProcConf.limit,
+                   runProcConf.trainingData.stm->orderBy,
+                   runProcConf.trainingData.stm->offset,
+                   runProcConf.trainingData.stm->limit,
                    onProgress);     
 
     PolyConfigT<Dataset> outputDataset = runProcConf.output;
