@@ -74,3 +74,28 @@ BOOST_AUTO_TEST_CASE(test_utf8_bad_string)
     StreamingJsonParsingContext context(payload, start, start + payload.size());
     BOOST_CHECK_THROW(context.expectStringUtf8(), ML::Parse_Context::Exception);
 }
+
+BOOST_AUTO_TEST_CASE(test_json_encode_decode_long_strings)
+{
+    string needsEscaping;
+    string needsNoEscaping;
+    for (unsigned i = 0;  i < 10000000;  ++i) {
+        needsEscaping += (' ' + (i % 90));
+        needsNoEscaping += 'A' + (i % 26);
+    }
+
+    string result1 = jsonEscape(needsEscaping);
+
+    BOOST_CHECK_GT(result1.length(), needsEscaping.length());
+
+    string result2 = jsonEscape(needsNoEscaping);
+
+    BOOST_CHECK_EQUAL(result2.length(), needsNoEscaping.length());
+    BOOST_CHECK(result2 == needsNoEscaping);
+
+
+    const std::string payload = "\"http\\u00253A\\u00252F\\u";
+    const char* start = payload.c_str();                                        
+    StreamingJsonParsingContext context(payload, start, start + payload.size());
+    BOOST_CHECK_THROW(context.expectStringUtf8(), ML::Parse_Context::Exception);
+}
