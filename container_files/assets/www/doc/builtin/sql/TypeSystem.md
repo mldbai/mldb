@@ -24,6 +24,9 @@ at GMT.
 internally represented as three fields expressing months, days, and seconds.
     - Time intervals can appear in queries using the `INTERVAL` keyword, for example `INTERVAL '1 month 2 days 5 minutes'`
     - See [Expressing Time Intervals](ValueExpression.md) for full details on input format.
+- A binary blob, which is an array of bytes which can have any value.  This
+  can be used to store or process arbitrary binary data, including that which
+  contains characters that can't be represented as a string.
 
 These types are used in different ways, depending upon whether they are stored
 in a dataset or processed as part of an expression.

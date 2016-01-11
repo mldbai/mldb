@@ -323,7 +323,7 @@ struct StreamJS::Methods {
         try {
             auto stream = getShared(args.This());
             
-            int numBytes = JS::getArg(args, 0, -1, "Number of bytes to load");
+            int64_t numBytes = JS::getArg<int64_t>(args, 0, -1, "Number of bytes to load");
 
             std::vector<unsigned char> bytes;
 
@@ -350,15 +350,39 @@ struct StreamJS::Methods {
     }
 
     static v8::Handle<v8::Value>
-    blob(const v8::Arguments & args)
+    readBlob(const v8::Arguments & args)
     {
         try {
             JsContextScope scope(args.This());
             auto stream = getShared(args.This());
-            std::ostringstream buf;
-            buf << stream->rdbuf();
 
-            return JS::toJS(CellValue::blob(std::move(buf.str())));
+            int64_t size = JS::getArg<int64_t>(args, 0, -1, "Number of bytes to load");
+            bool allowShort = JS::getArg(args, 1, false, "Allow short reads");
+
+            if (size == -1) {
+                // Load all
+                std::ostringstream buf;
+                buf << stream->rdbuf();
+
+                return JS::toJS(CellValue::blob(std::move(buf.str())));
+            }
+            else {
+                // Load from the blob
+                std::vector<unsigned char> bytes(size);
+                stream->read((char *)&bytes[0], size);
+
+                size_t bytesRead = stream->gcount();
+                if (bytesRead != size) {
+                    if (!allowShort)
+                        throw HttpReturnException(400, "Not enough bytes reading bloband short reads not allowed",
+                                                  "bytesRequested", size,
+                                                  "bytesAvailable", bytesRead);
+                }
+                    
+                return JS::toJS(CellValue::blob((const char *)&bytes[0],
+                                                bytesRead));
+            }
+            
         } HANDLE_JS_EXCEPTIONS;
     }
 };
@@ -411,9 +435,9 @@ registerMe()
 
     objtmpl->Set(String::New("readBytes"), FunctionTemplate::New(Methods::readBytes));
     objtmpl->Set(String::New("readJson"), FunctionTemplate::New(Methods::readJson));
+    objtmpl->Set(String::New("readBlob"), FunctionTemplate::New(Methods::readBlob));
 
     objtmpl->Set(String::New("eof"), FunctionTemplate::New(Methods::eof));
-    objtmpl->Set(String::New("blob"), FunctionTemplate::New(Methods::blob));
         
 
     return scope.Close(fntmpl);
