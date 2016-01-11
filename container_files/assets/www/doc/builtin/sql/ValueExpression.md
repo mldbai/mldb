@@ -397,7 +397,7 @@ These functions deal with timestamps.
   both are assumed to be embeddings.  The lengths of the two must be the same.
   Divisions by zero will result in NaN values.
 
-### Data import functions
+### <a name="importfunctions"></a>Data import functions
 
 - `tokenize(str, {splitchars: ',', quotechar: '"', offset: 0, limit: null, value: null, min_token_length: 1, ngram_range:[1, 1]})`
 can be used to create bag-of-tokens representations of strings, by returning a row whose
