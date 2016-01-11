@@ -44,7 +44,7 @@ DEFINE_STRUCTURE_DESCRIPTION(SqlQueryFunctionConfig);
 SqlQueryFunctionConfigDescription::
 SqlQueryFunctionConfigDescription()
 {
-    addField("inputData", &SqlQueryFunctionConfig::inputData,
+    addField("query", &SqlQueryFunctionConfig::query,
              "SQL query to run.  The values in the dataset, as "
              "well as the input values, will be available for the expression "
              "calculation");
@@ -64,8 +64,8 @@ SqlQueryFunction::
 getStatus() const
 {
     Json::Value result;
-    result["expression"]["inputData"]["surface"] = functionConfig.inputData.stm->surface;
-    result["expression"]["inputData"]["ast"] = functionConfig.inputData.stm->print();
+    result["expression"]["query"]["surface"] = functionConfig.query.stm->surface;
+    result["expression"]["query"]["ast"] = functionConfig.query.stm->print();
     return result;
 }
 
@@ -86,21 +86,21 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
                 return info;
             };
 
-        if (!config.inputData.stm->groupBy.empty()) {
+        if (!config.query.stm->groupBy.empty()) {
             // Create our pipeline
 
             pipeline
                 = getMldbRoot(function->server)
                 ->params(getParamInfo)
-                ->from(config.inputData.stm->from, config.inputData.stm->when)
-                ->where(config.inputData.stm->where)
-                ->select(config.inputData.stm->groupBy)
-                ->sort(config.inputData.stm->groupBy)
-                ->partition(config.inputData.stm->groupBy.clauses.size())
-                ->where(config.inputData.stm->having)
-                ->select(config.inputData.stm->orderBy)
-                ->sort(config.inputData.stm->orderBy)
-                ->select(config.inputData.stm->select);
+                ->from(config.query.stm->from, config.query.stm->when)
+                ->where(config.query.stm->where)
+                ->select(config.query.stm->groupBy)
+                ->sort(config.query.stm->groupBy)
+                ->partition(config.query.stm->groupBy.clauses.size())
+                ->where(config.query.stm->having)
+                ->select(config.query.stm->orderBy)
+                ->sort(config.query.stm->orderBy)
+                ->select(config.query.stm->select);
         }
         else {
                 
@@ -108,11 +108,11 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
             pipeline
                 = getMldbRoot(function->server)
                 ->params(getParamInfo)
-                ->from(config.inputData.stm->from, config.inputData.stm->when)
-                ->where(config.inputData.stm->where)
-                ->select(config.inputData.stm->orderBy)
-                ->sort(config.inputData.stm->orderBy)
-                ->select(config.inputData.stm->select);
+                ->from(config.query.stm->from, config.query.stm->when)
+                ->where(config.query.stm->where)
+                ->select(config.query.stm->orderBy)
+                ->sort(config.query.stm->orderBy)
+                ->select(config.query.stm->select);
         }
 
         // Bind the pipeline

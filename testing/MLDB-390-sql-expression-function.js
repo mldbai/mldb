@@ -83,7 +83,7 @@ var functionConfig2 = {
     id: "query",
     type: "sql.query",
     params: {
-        inputData: {
+        query: {
             select: "x + y + $offset AS z",
             from: { id: 'test' },
             where: 'rowName() = $row'
