@@ -19,27 +19,13 @@ namespace MLDB {
 
 struct TokenSplitConfig {
     TokenSplitConfig() : 
-        select(SelectExpression::STAR),
-          when(WhenExpression::TRUE),
-          where(SqlExpression::TRUE),
-          splitchars(" ,"),
-          splitcharToInsert(" ")
+        splitchars(" ,"),      //<space><comma>
+        splitcharToInsert(" ") // <space>
     {
     }
 
-    std::shared_ptr<TableExpression> dictionaryDataset;  
-
-     /// The SELECT clause to tell us which features to keep
-    SelectExpression select;
-
-    /// The WHEN clause for the timespan tuples must belong to
-    WhenExpression when;
-
-    /// The WHERE clause for which rows to include from the dataset
-    std::shared_ptr<SqlExpression> where;
-
+    InputQuery tokens;
     Utf8String splitchars;
-
     Utf8String splitcharToInsert;
 };
 
