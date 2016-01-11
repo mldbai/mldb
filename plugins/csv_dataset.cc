@@ -948,6 +948,8 @@ struct CsvDataset::Itl: public TabularDataStore {
         cerr << "done creating row index" << endl;
         cerr << "row index took " << rowIndexTimer.elapsed() << endl;
 
+        setRowStarts();
+
         Date end = Date::now();
    
         double elapsed = start.secondsUntil(end);

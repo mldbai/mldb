@@ -971,10 +971,10 @@ generateRowsWhere(const SqlBindingScope & context,
 
              //  typedef std::function<RowName(int& index)> NextExec;
 
-            wheregen.nextExec = [&] (int& index)
+            wheregen.nextExec = [&] (int& index, ssize_t& cache)
             {
                 auto rowName = this->getMatrixView()
-                            ->getRowNameByIndex(index);
+                            ->getRowNameByIndex(index, cache);
 
                 index++;
 

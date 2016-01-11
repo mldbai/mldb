@@ -60,7 +60,7 @@ struct MatrixView {
     getRowNames(ssize_t start = 0, ssize_t limit = -1) const = 0;
 
     virtual RowName
-    getRowNameByIndex(ssize_t index = 0) const { ExcAssert(false); }
+    getRowNameByIndex(ssize_t index, ssize_t& cache) const { ExcAssert(false); }
 
     virtual std::vector<RowHash>
     getRowHashes(ssize_t start = 0, ssize_t limit = -1) const = 0;

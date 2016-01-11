@@ -247,15 +247,15 @@ struct TabularDatasetChunk {
     /// Not really required
     TabularDatasetChunk()
         : chunkNumber(-1), chunkLineNumber(-1), lineNumber(-1),
-          numColumns(-1), numRows(0), numLines(0)
+          numColumns(-1), numRows(0), numLines(0), startRows(0)
     {
         throw ML::Exception("Default constructor shouldn't be called");
     }
 
     TabularDatasetChunk(size_t numColumns, size_t reservedSize)
         : chunkNumber(-1), chunkLineNumber(-1), lineNumber(-1),
-          numColumns(numColumns), numRows(0), numLines(0),
-          columns(numColumns)
+          numColumns(numColumns), numRows(0), numLines(0), startRows(0),
+          columns(numColumns) 
     {
         rowNames.reserve(reservedSize);
         timestamps.reserve(reservedSize);
@@ -265,7 +265,7 @@ struct TabularDatasetChunk {
 
     TabularDatasetChunk(TabularDatasetChunk && other) noexcept
     : chunkNumber(-1), chunkLineNumber(-1), lineNumber(-1),
-        numColumns(-1), numRows(0), numLines(0)
+        numColumns(-1), numRows(0), numLines(0), startRows(0)
     {
         swap(other);
     }
@@ -287,6 +287,7 @@ struct TabularDatasetChunk {
         std::swap(numRows, other.numRows);
         std::swap(numLines, other.numLines);
         std::swap(numColumns, other.numColumns);
+        other.startRows = 0;
     }
 
     size_t rowCount() const
@@ -329,6 +330,9 @@ struct TabularDatasetChunk {
 
     /// Total number of lines that have been added
     size_t numLines;
+
+    /// Number of rows that comes in chunks before this one
+    size_t startRows;
 
     std::vector<TabularDatasetColumn> columns;
     std::vector<RowName> rowNames;
@@ -448,17 +452,47 @@ struct TabularDataStore: public ColumnIndex, public MatrixView {
         return result;
     }
 
-    RowName
-    getRowNameByIndex(ssize_t index = 0) const
+/*    RowName
+    getRowNameByIndex(ssize_t index = 0, Any any = Any()) const
     {
+        int chunkIndex = 0;
+        if (any == Any())
+            any = any.assign<int>(0);
+        else
+            chunkIndex = any.as<int>();
+
         ssize_t sum = 0; 
-        for (auto & c: chunks) {
+        //for (auto & c: chunks) {
+        for (; chunkIndex < chunks.size(); ++chunkIndex)
+            auto c = chunks[chunkIndex];
             if (index > sum + c.rowNames.size())
                 sum += c.rowNames.size();
             else
                 return c.rowNames[index - sum - 1];
         }       
 
+        any = any.assign<int>(chunkIndex);
+
+        return RowName();
+    }*/
+
+    RowName
+    getRowNameByIndex(ssize_t index, ssize_t& cache) const
+    {
+     //   std::cerr << "getRowNameByIndex " << index << " " << cache << std::endl;
+        ssize_t sum = this->chunks[cache].startRows; 
+        //for (auto & c: chunks) {
+        for (; cache < chunks.size(); ++cache) {
+            const auto& c = this->chunks[cache];
+            if (index - sum >= c.rowNames.size())
+                sum += c.rowNames.size();
+            else
+            {
+                return c.rowNames[index - sum];
+            }
+        }       
+
+        std::cerr << "row not found" << std::endl;
         return RowName();
     }
 
@@ -605,6 +639,15 @@ struct TabularDataStore: public ColumnIndex, public MatrixView {
     {
         GenerateRowsWhereFunction result;
         return result;
+    }
+
+    void setRowStarts()
+    {
+        size_t accum = 0;
+        for (int i = 1; i < chunks.size(); ++i) {
+            accum += this->chunks[i-1].numRows;
+            this->chunks[i].startRows = accum;
+        }
     }
 };
 
