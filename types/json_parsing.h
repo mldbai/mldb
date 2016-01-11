@@ -1,9 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* json_parsing.h                                                  -*- C++ -*-
    Jeremy Barnes, 22 February 2013
    Copyright (c) 2013 Datacratic Inc.  All rights reserved.
 
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #pragma once

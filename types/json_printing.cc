@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* json_printing.cc
    Jeremy Barnes, 8 March 2013
    Copyright (c) 2013 Datacratic Inc.  All rights reserved.
+
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Functionality to print JSON values.
 */
@@ -19,17 +19,31 @@ using namespace std;
 
 namespace Datacratic {
 
+namespace {
 
+static constexpr char * BUFFER_TOO_SMALL = (char *)0;
+static constexpr char * NO_ESCAPING = (char *)1;
+
+/** Escape JSON in an existing buffer.  Will return BUFFER_TOO_SMALL if the
+    underlying buffer is too small.  Will return NO_ESCAPING 1 (as a char *)
+    if the output was identical to the input, in other words no escaping was
+    required.  Otherwise returns the pointer of the end of the buffer
+    which will contain the JSON escaped version of the character.
+
+    UTF-8 characters are passed through as their UTF-8 encoded equivalent.
+*/
 char * jsonEscapeCore(const std::string & str, char * p, char * end)
 {
+    bool anyEscaped = false;
     for (unsigned i = 0;  i < str.size();  ++i) {
         if (p + 4 >= end)
-            return 0;
+            return BUFFER_TOO_SMALL;
 
         char c = str[i];
         if (c >= ' ' && c < 127 && c != '\"' && c != '\\')
             *p++ = c;
         else {
+            anyEscaped = true;
             *p++ = '\\';
             switch (c) {
             case '\t': *p++ = ('t');  break;
@@ -49,50 +63,96 @@ char * jsonEscapeCore(const std::string & str, char * p, char * end)
         }
     }
 
-    return p;
+    return anyEscaped ? p : NO_ESCAPING;
 }
+
+static constexpr size_t MAX_STACK_CHARS = 16384;
+
+} // file scope
 
 std::string
 jsonEscape(const std::string & str)
 {
-    size_t sz = str.size() * 4 + 4;
-    char buf[sz];
-    char * p = buf, * end = buf + sz;
+    // No character can expand to more than two, so this should be
+    // enough.
+    size_t sz = str.size() * 2 + 4;
 
-    p = jsonEscapeCore(str, p, end);
+    if (sz <= MAX_STACK_CHARS) {
+        char buf[sz];
+        char * p = buf, * end = buf + sz;
 
-    if (!p)
-        throw ML::Exception("To fix: logic error in JSON escaping");
+        p = jsonEscapeCore(str, p, end);
+        
+        if (p == BUFFER_TOO_SMALL)
+            throw ML::Exception("To fix: logic error in JSON escaping");
+        else if (p == NO_ESCAPING)
+            return str;
+        return string(buf, p);
+    }
+    else {
+        std::string heap_buf(sz, 0);
+        char * p = (char *)heap_buf.data(), * end = p + sz;
 
-    return string(buf, p);
+        p = jsonEscapeCore(str, p, end);
+        
+        if (p == BUFFER_TOO_SMALL)
+            throw ML::Exception("To fix: logic error in JSON escaping");
+        else if (p == NO_ESCAPING)
+            return str;
+        heap_buf.resize(p - heap_buf.data());
+        return std::move(heap_buf);
+    }
 }
 
 void jsonEscape(const std::string & str, std::ostream & stream)
 {
-    size_t sz = str.size() * 4 + 4;
-    char buf[sz];
-    char * p = buf, * end = buf + sz;
+    // No character can expand to more than two, so this should be
+    // enough.
+    size_t sz = str.size() * 2 + 4;
 
-    p = jsonEscapeCore(str, p, end);
+    if (sz <= MAX_STACK_CHARS) {
+        char buf[sz];
+        char * p = buf, * end = buf + sz;
 
-    if (!p)
-        throw ML::Exception("To fix: logic error in JSON escaping");
+        p = jsonEscapeCore(str, p, end);
 
-    stream.write(buf, p - buf);
+        if (p == BUFFER_TOO_SMALL)
+            throw ML::Exception("To fix: logic error in JSON escaping");
+        else if (p == NO_ESCAPING)
+            p = buf + str.size();
+
+        stream.write(buf, p - buf);
+    }
+    else {
+        // We need an allocation anyway, so use the simple solution
+        stream << jsonEscape(str);
+    }
 }
 
 void jsonEscape(const std::string & str, std::string & out)
 {
-    size_t sz = str.size() * 4 + 4;
-    char buf[sz];
-    char * p = buf, * end = buf + sz;
+    // No character can expand to more than two, so this should be
+    // enough.
+    size_t sz = str.size() * 2 + 4;
 
-    p = jsonEscapeCore(str, p, end);
+    if (sz <= MAX_STACK_CHARS) {
+        char buf[sz];
+        char * p = buf, * end = buf + sz;
 
-    if (!p)
-        throw ML::Exception("To fix: logic error in JSON escaping");
+        p = jsonEscapeCore(str, p, end);
 
-    out.append(buf, p - buf);
+        if (p == BUFFER_TOO_SMALL)
+            throw ML::Exception("To fix: logic error in JSON escaping");
+        else if (p == NO_ESCAPING)
+            p = buf + str.size();
+
+        out.append(buf, p - buf);
+    } else {
+        // We need an allocation anyway, so use the simple solution
+        if (out.empty())
+            out = std::move(jsonEscape(str));
+        else out += jsonEscape(str);
+    }
 }
 
 void
