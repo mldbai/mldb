@@ -371,7 +371,8 @@ struct TensorflowGraph: public Function {
 
         ::tensorflow::protobuf::io::CodedInputStream cstream(&pstream);
 
-        // Allow large objects to be loaded
+        // Allow large objects to be loaded, bypassing security
+        // restrictions in Protobuf to avoid DOS attacks.
         cstream.SetTotalBytesLimit(1024LL << 20, 512LL << 20);
         
         graph.reset(new tensorflow::GraphDef());
@@ -402,6 +403,9 @@ struct TensorflowGraph: public Function {
         return result;
     }
 
+    struct Applier: public FunctionApplier {
+    };
+
 #if 0
     virtual std::unique_ptr<FunctionApplier>
     bind(SqlBindingScope & outerContext,
@@ -413,6 +417,37 @@ struct TensorflowGraph: public Function {
         auto boundInputs = functionConfig.inputs.bind(outerContext);
     }
 #endif
+
+    tensorflow::Tensor getTensorFor(const std::string & layer,
+                                    const ExpressionValue & val) const
+    {
+        tensorflow::Tensor result;
+
+        for (auto & node: graph->node()) {
+            if (node.name() == layer) {
+                cerr << "found node " << layer << endl;
+                cerr << "op = " << node.op() << endl;
+                cerr << "device = " << node.device() << endl;
+                cerr << "dtype = " << node.attr().find("dtype")->second.DebugString() << endl;
+                for (auto & attr: node.attr()) {
+                    cerr << "attr " << attr.first << " " << attr.second.DebugString()
+                         << endl;
+                }
+                for (auto & input: node.input()) {
+                    cerr << "input " << input << endl;
+                }
+
+            }
+        }
+
+        return result;
+    }
+
+    ExpressionValue tensorToValue(const tensorflow::Tensor & tensor,
+                                  Date ts) const
+    {
+        return ExpressionValue::null(ts);
+    }
 
     virtual FunctionOutput
     apply(const FunctionApplier & applier,
@@ -427,13 +462,16 @@ struct TensorflowGraph: public Function {
 
         using namespace tensorflow;
 
+        string input_layer = "DecodeJpeg/contents";
+        string output_layer = "softmax";
+
+
+        Tensor inputTensor2 = getTensorFor(input_layer, context.get<ExpressionValue>("jpeg"));
+
         Tensor inputTensor(DT_STRING, { });
         
         auto str = inputTensor.flat<std::string>();
         str(0) = string(data, data + len);
-
-        string input_layer = "DecodeJpeg/contents";
-        string output_layer = "softmax";
 
         std::vector<Tensor> outputs;
         Status run_status = session->Run({{input_layer, inputTensor}},

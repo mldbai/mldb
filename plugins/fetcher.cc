@@ -37,6 +37,7 @@ DEFINE_STRUCTURE_DESCRIPTION(FetcherFunctionConfig);
 FetcherFunctionConfigDescription::
 FetcherFunctionConfigDescription()
 {
+    nullAccepted = true;
 }
 
 struct FetcherFunction: public Function {

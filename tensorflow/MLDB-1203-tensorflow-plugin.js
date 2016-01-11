@@ -1,24 +1,44 @@
+var inceptionUrl = 'file://inception_dec_2015.zip';
+
+var fetcherConfig = {
+    id: 'fetch',
+    type: 'fetcher',
+    params: {
+    }
+};
+
+var fetcher = mldb.createFunction(fetcherConfig);
+
 var fnConfig = {
-    id: 'inception',
+    id: 'incept',
     type: 'tensorflow.graph',
     params: {
-        modelFileUrl: 'archive+file://inception_dec_2015.zip#tensorflow_inception_graph.pb',
+        modelFileUrl: 'archive+' + inceptionUrl + '#tensorflow_inception_graph.pb',
     }
 };
 
 var fn = mldb.createFunction(fnConfig);
 
-var labelsStream = mldb.openStream('archive+file://inception_dec_2015.zip#imagenet_comp_graph_label_strings.txt');
-
-var labels = [];
-
-while (!labelsStream.eof()) {
-    try {
-        labels.push(labelsStream.readLine());
-    } catch (e) {
-        break;
+var labelsConfig = {
+    id: 'imagenetLabels',
+    type: 'text.csv.tabular',
+    params: {
+        dataFileUrl: 'archive+' + inceptionUrl + '#imagenet_comp_graph_label_strings.txt',
+        headers: ['label']
     }
-}
+};
+
+var lbls = mldb.createDataset(labelsConfig);
+
+var classifyConfig = {
+    id: 'incept',
+    type: 'sql.expression',
+    params: {
+        expression: 'SELECT label, score FROM '
+    }
+};
+
+mldb.log(mldb.get('/v1/functions'));
 
 //mldb.log('labels are', labels);
 
@@ -33,30 +53,37 @@ var filename = "https://upload.wikimedia.org/wikipedia/commons/1/18/Cardiff_City
 var filename = "https://upload.wikimedia.org/wikipedia/commons/thumb/6/66/Maureen_O%27Hara_1947_2.jpg/198px-Maureen_O%27Hara_1947_2.jpg";
 var filename = "https://upload.wikimedia.org/wikipedia/commons/thumb/5/58/Calle_E_Monroe_St%2C_Chicago%2C_Illinois%2C_Estados_Unidos%2C_2012-10-20%2C_DD_04.jpg/560px-Calle_E_Monroe_St%2C_Chicago%2C_Illinois%2C_Estados_Unidos%2C_2012-10-20%2C_DD_04.jpg";
 
-var blob = mldb.openStream(filename).blob();
+var res = mldb.query('SELECT incept({jpeg: fetch({url: ' + mldb.sqlEscape(filename) + '})[content]})[output] AS val');
 
-var result = fn.call({ jpeg: blob});
+mldb.log(res);
+
+if (false) {
+
+    var blob = mldb.openStream(filename).readBlob();
+
+    var result = fn.call({ jpeg: blob});
 
 
-//mldb.log("result is ", result);
+    //mldb.log("result is ", result);
 
-var vals = result.values.output[0];
-var maxVal = 0;
-var maxIdx = 0;
+    var vals = result.values.output[0];
+    var maxVal = 0;
+    var maxIdx = 0;
 
-mldb.log("categories for image", filename);
+    mldb.log("categories for image", filename);
 
-for (var i = 0;  i < vals.length;  ++i) {
-    if (vals[i] > 0.01) {
-        mldb.log(labels[i], vals[i]);
+    for (var i = 0;  i < vals.length;  ++i) {
+        if (vals[i] > 0.01) {
+            mldb.log(labels[i], vals[i]);
+        }
+        if (vals[i] > maxVal) {
+            maxVal = vals[i];
+            maxIdx = i;
+        }
     }
-    if (vals[i] > maxVal) {
-        maxVal = vals[i];
-        maxIdx = i;
-    }
+
+    mldb.log("max val is", maxVal, "at index", maxIdx, labels[maxIdx]);
 }
-
-mldb.log("max val is", maxVal, "at index", maxIdx, labels[maxIdx]);
 
 //mldb.log("details = ", fn.details());
 
