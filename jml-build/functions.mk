@@ -425,7 +425,7 @@ $$(if $(3),,$$(error test $(1) needs to define a test style))
 
 $$(eval $$(call add_sources,$(1).cc))
 
-$(1)_OBJFILES:=$$(BUILD_$(CWD)/$(1).lo_OBJ)
+$(1)_OBJFILES:=$$(BUILD_$(CWD)/$(1).cc.lo_OBJ)
 
 LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXEXEFLAGS) $$(CXXNODEBUGFLAGS) -o $(TESTS)/$(1) -lexception_hook -ldl  $$($(1)_OBJFILES) $$(foreach lib,$(2), $$(LIB_$$(lib)_LINKER_OPTIONS) -l$$(lib)) $(if $(findstring boost,$(3)), -lboost_unit_test_framework) $$(CXXEXEPOSTFLAGS)
 
