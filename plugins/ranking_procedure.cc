@@ -37,7 +37,7 @@ RankingTypeDescription()
 }
 
 RankingProcedureConfig::
-RankingProcedureConfig()
+RankingProcedureConfig() : rankingColumnName("rank")
 {
     outputDataset.withType("sparse.mutable");
 }
@@ -58,6 +58,8 @@ RankingProcedureConfigDescription()
              PolyConfigT<Dataset>().withType("sparse.mutable"));
     addField("rankingType", &RankingProcedureConfig::rankingType,
              "The type of the rank to output. Either percentile or index");
+    addField("rankingColumnName", &RankingProcedureConfig::rankingColumnName,
+             "The name to give the ranking column.");
     addParent<ProcedureConfig>();
 }
 
@@ -109,7 +111,7 @@ run(const ProcedureRunConfig & run,
 
     typedef tuple<ColumnName, CellValue, Date> cell;
     PerThreadAccumulator<vector<pair<RowName, vector<cell>>>> accum;
-    const ColumnName columnName("rank");
+    const ColumnName columnName(procedureConfig.rankingColumnName);
     function<void(int64_t)> applyFct;
     float countD100 = (rowCount - 1) / 100.0;
     if (procedureConfig.rankingType == RankingType::PERCENTILE) {

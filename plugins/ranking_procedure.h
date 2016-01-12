@@ -25,6 +25,7 @@ struct RankingProcedureConfig : ProcedureConfig {
     InputQuery inputData;
     PolyConfigT<Dataset> outputDataset;
     RankingType rankingType;
+    std::string rankingColumnName;
 
 };
 DECLARE_STRUCTURE_DESCRIPTION(RankingProcedureConfig);
