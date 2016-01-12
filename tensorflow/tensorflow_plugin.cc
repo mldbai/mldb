@@ -468,11 +468,14 @@ struct TensorflowGraph: public Function {
         // can't use GPUs or need large amounts of data to be
         // transferred back and forth and so don't make sense.
         set<string> hardcodedCpu = {
-            "ExpandDims", "ResizeBilinear", "Cast", "Sub", "Mul", "ExpandDims/dim" };
+            "ExpandDims", "ResizeBilinear" /*, "Cast", "Sub", "Mul", "ExpandDims/dim"*/ };
 
         for (auto & d: devices) {
             std::string deviceName = d->name();
             bool isCpuDevice = deviceName.find("/cpu:") != std::string::npos;
+
+            //if (isCpuDevice)
+            //    continue;
 
             // Set the device for all nodes where it's not hardcoded
             for (auto & node: *graph->mutable_node()) {
@@ -485,7 +488,7 @@ struct TensorflowGraph: public Function {
 
                     //auto it = hardcodedCpu.lower_bound(node.name());
                     //if (it != hardcodedCpu.end() && node.name().find(*it) == 0)
-                    //isCpu = true;
+                    //isCpu = false;//true;
                     if (isCpu) {
                         cerr << "node " << node.name() << " runs on CPU" << endl;
                         node.set_device("/cpu:0");
@@ -528,6 +531,8 @@ struct TensorflowGraph: public Function {
                 sessions.emplace_back(d->name(), std::move(session), 2 /* queue length */);
             }
         }
+
+        //std::this_thread::sleep_for(std::chrono::seconds(120));
     }
 
     std::unique_ptr<tensorflow::GraphDef> graph;
@@ -652,9 +657,13 @@ struct TensorflowGraph: public Function {
         auto session = getSession();
 
         tensorflow::StepStats stats;
+        //Status run_status = session.first
+        //    ->RunWithStats(inputTensors, outputLayers,
+        //                   {}, &outputs, &stats);
+
         Status run_status = session.first
-            ->RunWithStats(inputTensors, outputLayers,
-                           {}, &outputs, &stats);
+            ->Run(inputTensors, outputLayers,
+                  {}, &outputs);
         
         if (!run_status.ok()) {
             throw HttpReturnException(400, "Unable to run model: "
@@ -752,7 +761,7 @@ struct TensorflowGraph: public Function {
         str(0) = string(data, data + len);
 
         string input_layer = "DecodeJpeg/contents";
-        string output_layer = "softmax";
+        string output_layer = "softmax"; //"Cast";//softmax";
 
         vector<Tensor> outputs;
 
@@ -766,6 +775,7 @@ struct TensorflowGraph: public Function {
             };
 
 
+#if 1
         vector<std::thread> threads;
         for (int i = 0;  i < 1000;  ++i) {
             threads.emplace_back([&,i] () { doRun(i); });
@@ -777,7 +787,9 @@ struct TensorflowGraph: public Function {
 
 
         //ML::run_in_parallel(0, 100, doRun);
-
+#else
+        doRun(0);
+#endif
 
         auto scores = outputs.at(0).flat<float>();
         vector<float> scores2(scores.data(), scores.data() + scores.size());
