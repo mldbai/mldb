@@ -11,7 +11,6 @@
 #include "thread_pool_impl.h"
 #include "mldb/arch/thread_specific.h"
 #include "mldb/arch/futex.h"
-#include "mldb/arch/rcu_protected.h"
 #include "arch/cpu_info.h"
 #include <atomic>
 #include <vector>
@@ -75,9 +74,6 @@ struct ThreadPool::Itl {
         Itl * owner;
         int threadNum;
         std::shared_ptr<ThreadQueue<ThreadJob> > queue;
-
-        /// List of queues on other threads
-        std::vector<std::shared_ptr<ThreadQueue<ThreadJob> > > queues;
     };
 
     /// This allows us to have one threadEntry per thread
@@ -129,13 +125,18 @@ struct ThreadPool::Itl {
     /// Number of sleeping threads
     std::atomic<int> threadsSleeping;
 
+    typedef std::vector<std::shared_ptr<ThreadQueue<ThreadJob> > > Queues;
+
+    /// List of all the queues that we know about
+    std::atomic<Queues *> queues;
+
     Itl(int numThreads)
         : jobsStolen(0),
           jobsWithFullQueue(0),
           jobsRunLocally(0),
           shutdown(0),
           threadsSleeping(0),
-          knownThreads(gcLock)
+          queues(new Queues())
     {
         jobs.submitted = 0;
         jobs.finished = 0;
@@ -148,26 +149,12 @@ struct ThreadPool::Itl {
             ;
 
         getEntry();
-
-        std::vector<std::shared_ptr<ThreadQueue<ThreadJob> > > threadQueues;
-
-        for (auto & t: *knownThreads()) {
-            threadQueues.emplace_back(t->queue);
-        }
-
-        for (auto & t: *knownThreads()) {
-            t->queues = threadQueues;
-        }
     }
 
     ~Itl()
     {
         this->shutdown = 1;
         
-        knownThreads.replace(new std::vector<ThreadEntry *>(), false /* defer */);
-        
-        this->shutdown = 2;
-
         ML::futex_wake(threadsSleeping, -1 /* all threads */);
         
         for (auto & w: workers)
@@ -232,51 +219,21 @@ struct ThreadPool::Itl {
     */
     bool stealWork()
     {
-#if 1
-        RcuLocked<std::vector<ThreadEntry *> > thr;
-
-        {
-            //std::unique_lock<std::mutex> guard(knownThreadsLock);
-            thr = knownThreads();
-        }
-
         bool result = false;
         
-        for (ThreadEntry * thread: *thr) {
+        for (const std::shared_ptr<ThreadQueue<ThreadJob> > & q: *queues.load()) {
             if (shutdown)
                 return false;
-
-            ExcAssert(thread);
+            
             ThreadJob job;
-            while (thread->queue->steal(job)) {
-                // TODO: if there is a local job enqeued, bail out
+            while (q->steal(job)) {
                 ++jobsStolen;
                 runJob(job);
+                //runMine();
             }
         }
         
         return result;
-#else
-        ThreadEntry & entry = getEntry();
-
-        bool result = false;
-
-        //cerr << "size is " << entry.queues.size() << endl;
-
-        for (auto & q: entry.queues) {
-            if (q == entry.queue)
-                continue;
-
-            ThreadJob job;
-            while (q->steal(job)) {
-                // TODO: if there is a local job enqeued, bail out
-                ++jobsStolen;
-                runJob(job);
-            }
-        }
-
-        return result;
-#endif
     }
 
     void runJob(const ThreadJob & job)
@@ -310,11 +267,12 @@ struct ThreadPool::Itl {
                     ++itersWithNoWork;
                     if (itersWithNoWork == 10) {
                         ++threadsSleeping;
-                        ML::futex_wait(threadsSleeping, threadsSleeping, 0.005);
+                        ML::futex_wait(threadsSleeping, threadsSleeping, 0.1);
                         --threadsSleeping;
                         itersWithNoWork = 0;
                     }
                     else {
+                        //std::this_thread::yield();
                         std::this_thread::sleep_for(std::chrono::microseconds(100));
                     }
                 }
@@ -325,75 +283,43 @@ struct ThreadPool::Itl {
     void publishThread(ThreadEntry * thread)
     {
         ExcAssert(thread);
+        
+        //cerr << "publishing thread" << endl;
 
-        if (shutdown)
-            return;
+        while (!shutdown) {
+            Queues * oldQueues = queues.load();
+            
+            std::unique_ptr<Queues> newQueues(new Queues(*oldQueues));
+            newQueues->emplace_back(thread->queue);
 
-        std::unique_lock<std::mutex> guard(knownThreadsLock);
-
-        for (;;) {
-            auto oldThreads = knownThreads();
-
-            if (shutdown)
+            if (queues.compare_exchange_strong(oldQueues, newQueues.get())) {
+                newQueues.release();
+                // TODO: delete oldQueues :)
                 return;
-
-            std::unique_ptr<std::vector<ThreadEntry *> > newThreads
-                (new std::vector<ThreadEntry *>(*oldThreads));
-            for (ThreadEntry * t: *newThreads) {
-                if (!t) {
-                    //for (ThreadEntry * t: *newThreads) {
-                    //    cerr << "got thread " << t << endl;
-                    //}
-                    cerr << "old threads had size of " << oldThreads->size() << endl;
-                    cerr << "known threads has size of " << knownThreads()->size() << endl;
-                    cerr << "total of " << newThreads->size() << " threads" << endl;
-                    cerr << "old threads is at " << oldThreads.ptr << endl;
-                    cerr << "known threads is at " << knownThreads().ptr << endl;
-                }
-                ExcAssert(t);
             }
-            newThreads->push_back(thread);
-            if (knownThreads.cmp_xchg(oldThreads, newThreads,
-                                      true /* defer */))
-                return;
         }
     }
 
     void unpublishThread(ThreadEntry * thread)
     {
-        if (shutdown)
-            return;
+        ExcAssert(thread);
 
-        std::unique_lock<std::mutex> guard(knownThreadsLock);
+        while (!shutdown) {
 
-        for (;;) {
-            auto oldThreads = knownThreads();
+            Queues * oldQueues = queues.load();
+            
+            std::unique_ptr<Queues> newQueues(new Queues(*oldQueues));
+            auto it = std::find(newQueues->begin(), newQueues->end(), thread->queue);
+            ExcAssert(it != newQueues->end());
+            newQueues->erase(it);
 
-            if (shutdown)
+            if (queues.compare_exchange_strong(oldQueues, newQueues.get())) {
+                newQueues.release();
+                // TODO: delete oldQueues :)
                 return;
-
-            std::unique_ptr<std::vector<ThreadEntry *> > newThreads
-                (new std::vector<ThreadEntry *>(*oldThreads));
-            for (ThreadEntry * t: *newThreads)
-                ExcAssert(t);
-            auto it = std::find(newThreads->begin(), newThreads->end(),
-                                thread);
-            if (it == newThreads->end()) {
-                throw std::logic_error("didn't find thread to unpublish");
             }
-            newThreads->erase(it);
-            if (knownThreads.cmp_xchg(oldThreads, newThreads,
-                                      true /* defer */))
-                return;
         }
     }
-
-    /// List of all the queues that we know about
-    //std::vector<std::shared_ptr<ThreadQueue<ThreadJob> > > queues;
-
-    std::mutex knownThreadsLock;
-    GcLock gcLock;
-    RcuProtected<std::vector<ThreadEntry *> > knownThreads;
 };
 
 ThreadPool::
@@ -405,6 +331,8 @@ ThreadPool(int numThreads)
 ThreadPool::
 ~ThreadPool()
 {
+    itl.reset();
+    cerr << "done destructor" << endl;
 }
 
 void
