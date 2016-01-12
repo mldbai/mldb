@@ -158,9 +158,9 @@ run(const ProcedureRunConfig & run,
     ClassifierConfig runProcConf =
         applyRunConfOverProcConf(procedureConfig, run);
 
-
-    if(runProcConf.modelFileUrl.toString().empty()) {
-        throw ML::Exception("modelFileUrl cannot be empty");
+    // this includes being empty
+    if(!runProcConf.modelFileUrl.valid()) {
+        throw ML::Exception("modelFileUrl is not valid");
     }
 
     // 1.  Get the input dataset
