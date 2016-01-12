@@ -14,13 +14,30 @@
 import os
 import sys
 
+sigmap = { 4: "SIGILL: illegal instruction - internal error",
+           6: "SIGABRT: abort(3) called - internal error",
+           9: "SIGKILL: killed from outside, did we run out of memory (OOM killed?)",
+           11: "SIGSEGV: segfault - internal error",
+           15: "SIGTERM: regular shutdown",
+         }
+
 msg = ""
+sig = None
 if len(sys.argv) == 3:
     exit_code = sys.argv[1]
     status_code = sys.argv[2]
     if os.WIFSIGNALED(int(status_code)):
         sig = os.WTERMSIG(int(status_code))
-        msg = " Killed by signal %d." % sig
 
-print "MLDB exited.%s" % (msg)
+print  # we like space
+print
+if sig == None:
+    print "MLDB exited."
+else:
+    msg = "MLDB exited due to signal %d." % (sig)
+    if sig in sigmap:
+        msg += " " + sigmap[sig]
+    print msg
+print
+print
 
