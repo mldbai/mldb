@@ -33,6 +33,8 @@ $(eval $(call mldb_install_templated_file,mldb/container_files/version.json,$(AL
 
 $(eval $(call mldb_install_templated_file,mldb/container_files/init/05-mldb-id-mapping.sh,$(ETC)/my_init.d/05-mldb-id-mapping.sh,555))
 $(eval $(call mldb_install_templated_file,mldb/container_files/init/mldb_runner.sh,$(ETC)/service/mldb_runner/run,555))
+$(eval $(call mldb_install_templated_file,mldb/container_files/init/mldb_logger.py,$(ETC)/service/mldb_runner/log/run,555))
+$(eval $(call mldb_install_templated_file,mldb/container_files/init/mldb_finish.py,$(ETC)/service/mldb_runner/finish,555))
 $(eval $(call mldb_install_templated_file,mldb/container_files/init/nginx_runner.sh,$(ETC)/service/nginx/run,555))
 $(eval $(call mldb_install_templated_file,mldb/container_files/mldb_nginx_site.conf,$(ETC)/nginx/sites-enabled/mldb))
 $(eval $(call mldb_install_templated_file,mldb/container_files/nginx.conf,$(ETC)/nginx/nginx.conf))
