@@ -121,7 +121,6 @@ run(const ProcedureRunConfig & run,
                               Date::negativeInfinity());
 
             auto & rows = accum.get();
-            rows.reserve(1024);
             rows.emplace_back(orderedRowNames[idx], cols);
 
             if (rows.size() >= 1024) {
@@ -140,7 +139,6 @@ run(const ProcedureRunConfig & run,
                               Date::negativeInfinity());
 
             auto & rows = accum.get();
-            rows.reserve(1024);
             rows.emplace_back(orderedRowNames[idx], cols);
 
             if (rows.size() >= 1024) {
