@@ -33,7 +33,7 @@ if len(sys.argv) == 3:
 print  # we like space
 print
 if sig == None:
-    print "MLDB exited due to unknown signal"
+    print "MLDB exited"
 else:
     msg = "MLDB exited due to signal %d" % (sig)
     if sig in sigmap:
