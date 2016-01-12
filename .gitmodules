@@ -10,3 +10,6 @@
 [submodule "ext/jpeg"]
 	path = ext/jpeg
 	url = https://github.com/BRAINSia/JPeg9A.git
+[submodule "ext/eigen"]
+	path = ext/eigen
+	url = https://github.com/mldbai/eigen.git
