@@ -238,17 +238,17 @@ forEachLineStr(const std::string & filename,
 /*****************************************************************************/
 
 void forEachLineBlock(std::istream & stream,
-                      int64_t lineOffset,
                       std::function<bool (const char * line,
                                           size_t lineLength,
                                           int64_t blockNumber,
-                                          int64_t lineNumber)> onLine)
+                                          int64_t lineNumber)> onLine,
+                      int64_t lineOffset, // 0
+                      int64_t maxLines)   // -1
 {
     //static constexpr int64_t BLOCK_SIZE = 100000000;  // 100MB blocks
     static constexpr int64_t BLOCK_SIZE = 10000000;  // 10MB blocks
     static constexpr int64_t READ_SIZE = 200000;  // read&scan 200kb to fit in cache
 
-    int64_t maxLines = -1;
     std::atomic<int64_t> doneLines(lineOffset);
     std::atomic<int64_t> byteOffset(0);
     std::atomic<int> chunkNumber(0);
@@ -410,6 +410,9 @@ void forEachLineBlock(std::istream & stream,
                 if (!onLine(line, len, chunkNumber, chunkLineNumber++))
                     return;
                 lastLineOffset = lineOffsets[i] + 1;
+
+                if (maxLines != -1 && i >= maxLines)
+                    break;
             }
         };
             
