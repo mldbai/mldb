@@ -32,12 +32,13 @@ DEFINE_ENUM_DESCRIPTION(RankingType);
 RankingTypeDescription::
 RankingTypeDescription()
 {
-    addValue("percentile", PERCENTILE);
+    //addValue("percentile", PERCENTILE);
     addValue("index", INDEX);
 }
 
 RankingProcedureConfig::
-RankingProcedureConfig() : rankingColumnName("rank")
+RankingProcedureConfig() :
+    rankingType(RankingType::INDEX), rankingColumnName("rank")
 {
     outputDataset.withType("sparse.mutable");
 }
@@ -57,7 +58,7 @@ RankingProcedureConfigDescription()
              "which will be created by the procedure.",
              PolyConfigT<Dataset>().withType("sparse.mutable"));
     addField("rankingType", &RankingProcedureConfig::rankingType,
-             "The type of the rank to output. Either percentile or index");
+             "The type of the rank to output.");
     addField("rankingColumnName", &RankingProcedureConfig::rankingColumnName,
              "The name to give the ranking column.");
     addParent<ProcedureConfig>();
@@ -113,13 +114,16 @@ run(const ProcedureRunConfig & run,
     PerThreadAccumulator<vector<pair<RowName, vector<cell>>>> accum;
     const ColumnName columnName(procedureConfig.rankingColumnName);
     function<void(int64_t)> applyFct;
-    float countD100 = (rowCount - 1) / 100.0;
-    if (procedureConfig.rankingType == RankingType::PERCENTILE) {
+    float countD100 = (rowCount) / 100.0;
+    if (false) {
+    //if (procedureConfig.rankingType == RankingType::PERCENTILE) {
+        // Improper implementation, see
+        // https://en.wikipedia.org/wiki/Percentile_rank
         applyFct = [&](int64_t idx)
         {
             std::vector<cell> cols;
             cols.emplace_back(columnName,
-                              idx / countD100,
+                              (idx + 1) / countD100,
                               Date::negativeInfinity());
 
             auto & rows = accum.get();
