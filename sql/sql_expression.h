@@ -463,7 +463,9 @@ struct RegisterAggregator {
 /** Type of an external dataset function factory.  This should return the bound
     version of the function.
 */
-typedef std::function<BoundTableExpression(const Utf8String & str, const std::vector<BoundTableExpression> & args,
+typedef std::function<BoundTableExpression(const Utf8String & str,
+                                    const std::vector<BoundTableExpression> & args,
+                                    const std::shared_ptr<SqlRowExpression> options,
                                     const SqlBindingScope & context,
                                     const Utf8String& alias)>
     ExternalDatasetFunction;
@@ -517,6 +519,7 @@ struct SqlBindingScope {
 
     virtual BoundTableExpression doGetDatasetFunction(const Utf8String & functionName,
                                                       const std::vector<BoundTableExpression> & args,
+                                                      const std::shared_ptr<SqlRowExpression> options,
                                                       const Utf8String & alias);
 
     virtual BoundAggregator doGetAggregator(const Utf8String & functionName,

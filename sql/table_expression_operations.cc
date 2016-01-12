@@ -1,8 +1,6 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** table_expression_operations.cc
     Jeremy Barnes, 27 July, 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
 */
 
@@ -403,8 +401,11 @@ getUnbound() const
 /** Used when doing a select inside a FROM clause **/
 
 DatasetFunctionExpression::
-DatasetFunctionExpression(Utf8String functionName, std::vector<std::shared_ptr<TableExpression>>& args)
-    : NamedDatasetExpression(""), functionName(functionName), args(args)
+DatasetFunctionExpression(Utf8String functionName, 
+                          std::vector<std::shared_ptr<TableExpression>> & args,
+                          std::shared_ptr<SqlRowExpression> options)
+    : NamedDatasetExpression(""), functionName(functionName),
+      args(args), options(options)
 {
     setDatasetAlias(print());
 }
@@ -421,7 +422,7 @@ bind(SqlBindingScope & context) const
     std::vector<BoundTableExpression> boundArgs;
     for (auto arg : args)
         boundArgs.push_back(arg->bind(context));
-    auto fn = context.doGetDatasetFunction(functionName, boundArgs, asName);
+    auto fn = context.doGetDatasetFunction(functionName, boundArgs, options, asName);
 
     if (!fn)
         throw HttpReturnException(400, "could not bind dataset function " + functionName);

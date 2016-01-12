@@ -253,11 +253,12 @@ BoundTableExpression
 SqlBindingScope::
 doGetDatasetFunction(const Utf8String & functionName,
                      const std::vector<BoundTableExpression> & args,
+                     const std::shared_ptr<SqlRowExpression> options,
                      const Utf8String & alias)
 {
     auto factory = tryLookupDatasetFunction(functionName);
     if (factory) {
-        return factory(functionName, args, *this, alias);
+        return factory(functionName, args, options, *this, alias);
     }
     
     return BoundTableExpression();
@@ -3023,21 +3024,39 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
             {
                 skip_whitespace(context);
                 std::vector<std::shared_ptr<TableExpression>> args;
+                std::shared_ptr<SqlRowExpression> options;
                 if (!context.match_literal(')'))
                 {
-                  do
-                  {
-                      skip_whitespace(context);
-                      std::shared_ptr<TableExpression> subTable = TableExpression::parse(context, currentPrecedence, allowUtf8);
-                      if (subTable)
-                        args.push_back(subTable);
+                    do
+                    {
+                        if(options) {
+                            context.exception("options to table expression should "
+                                    "be last argument");
+                        }
 
-                      skip_whitespace(context);
-                  } while (context.match_literal(','));
+                        skip_whitespace(context);
+
+                        if(context.match_literal('{')) {
+                            skip_whitespace(context);
+                            options = SqlRowExpression::parse(context, true);
+                            skip_whitespace(context);
+                            context.expect_literal('}');
+                        }
+                        else {
+
+                            auto subTable = TableExpression::parse(
+                                    context, currentPrecedence, allowUtf8);
+
+                            if (subTable)
+                                args.push_back(subTable);
+
+                            skip_whitespace(context);
+                        }
+                    } while (context.match_literal(','));
                 }
 
                 context.expect_literal(')');
-                expr.reset(new DatasetFunctionExpression(identifier, args));
+                expr.reset(new DatasetFunctionExpression(identifier, args, options));
             }
             else
             {

@@ -1,6 +1,6 @@
-/** transposed_dataset.h                                               -*- C++ -*-
-    Jeremy Barnes, 28 February 2015
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+/** sampled_dataset.h                                               -*- C++ -*-
+    Francois Maillet, 11 janvier 2016
+    This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
 
 */
 
@@ -14,31 +14,45 @@ namespace MLDB {
 
 
 /*****************************************************************************/
-/* TRANSPOSED DATASET CONFIG                                                 */
+/* SAMPLED DATASET CONFIG                                                    */
 /*****************************************************************************/
+        
+struct SampledDatasetConfig {
 
-struct TransposedDatasetConfig {
+//     SampledDatasetConfig() :
+//         rows(0), fraction(0), withReplacement(false)
+//     {
+//     }
+
+    SampledDatasetConfig();
+
     PolyConfigT<const Dataset> dataset;
+
+    unsigned seed;
+    unsigned rows;
+    float fraction;
+    bool withReplacement;
 };
 
-DECLARE_STRUCTURE_DESCRIPTION(TransposedDatasetConfig);
+DECLARE_STRUCTURE_DESCRIPTION(SampledDatasetConfig);
 
 
 /*****************************************************************************/
-/* TRANSPOSED DATASET                                                        */
+/* SAMPLED DATASET                                                        */
 /*****************************************************************************/
 
-struct TransposedDataset: public Dataset {
+struct SampledDataset: public Dataset {
 
-    TransposedDataset(MldbServer * owner,
+    SampledDataset(MldbServer * owner,
                       PolyConfig config,
                       const std::function<bool (const Json::Value &)> & onProgress);
     
     /** Constructor used internally when creating a temporary transposition. */
-    TransposedDataset(MldbServer * owner,
-                      std::shared_ptr<Dataset> dataset);
+    SampledDataset(MldbServer * owner,
+                   std::shared_ptr<Dataset> dataset,
+                   const SampledDatasetConfig & sampleConfig);
 
-    virtual ~TransposedDataset();
+    virtual ~SampledDataset();
 
     virtual Any getStatus() const;
 
@@ -48,7 +62,7 @@ struct TransposedDataset: public Dataset {
     virtual std::shared_ptr<ColumnIndex> getColumnIndex() const;
 
 private:
-    TransposedDatasetConfig datasetConfig;
+    SampledDatasetConfig datasetConfig;
     struct Itl;
     std::shared_ptr<Itl> itl;
 };
