@@ -14,10 +14,11 @@
 import os
 import sys
 
-sigmap = { 4: "SIGILL: illegal instruction - internal error",
-           6: "SIGABRT: abort(3) called - internal error",
-           9: "SIGKILL: killed from outside, did we run out of memory (OOM killed?)",
-           11: "SIGSEGV: segfault - internal error",
+sigmap = { 4:  "SIGILL: illegal instruction (internal error)",
+           6:  "SIGABRT: abort(3) called (internal error)",
+           8:  "SIGFPE: divide-by-zero (internal error)",
+           9:  "SIGKILL: killed from outside (external cause, maybe the OOM Killer)",
+           11: "SIGSEGV: segmentation fault (internal error)",
            15: "SIGTERM: regular shutdown",
          }
 
@@ -32,9 +33,9 @@ if len(sys.argv) == 3:
 print  # we like space
 print
 if sig == None:
-    print "MLDB exited."
+    print "MLDB exited due to unknown signal"
 else:
-    msg = "MLDB exited due to signal %d." % (sig)
+    msg = "MLDB exited due to signal %d" % (sig)
     if sig in sigmap:
         msg += " " + sigmap[sig]
     print msg
