@@ -3,14 +3,15 @@
         <style> body {font-family: "Helvetica Neue",Helvetica,Arial,sans-serif;} </style>
     </head>
     <body bgcolor="white">
-        <div align="center" style="width: 700px; margin: 50px auto;">
+        <div align="center" style="width: 800px; margin: 50px auto;">
           <h2>Well this is embarrasing... it looks like MLDB crashed!</h2>
 
           <p> The process currently restarting, please try again in a few moments.</p>
 
-          <p> More information about the crash can be found in the <a href="/logs/mldb" target="_blank">mldb log file</a>. </p>
-
           <p>The MLDB Team at Datacratic would love to help you debug this problem! Please feel free to reach out to us at <a href="mailto:mldb@datacratic.com" target="_blank">mldb@datacratic.com</a>.</p>
+
+          <p> More information about the crash can be found in the MLDB log: </p>
+          <iframe src="/logs/mldb" height="500" width="800" />
 
         </center>
     </body>
