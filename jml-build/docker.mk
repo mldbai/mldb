@@ -138,6 +138,25 @@ $(target_add_prereq): $(new_target)
 .PHONY: $(new_target)
 endef
 
+# install_file
+# $(1): source file
+# $(2): destination target (file)
+# $(3): destination file mode
+# $(4): make target to add the rule as a prerequisite
+# Will create the destination directory if necessary
+define install_file
+$$(if $(trace),$$(warning called "$(0)" "$(1)" "$(2)" "$(3)" "$(4)"))
+$(eval new_target := $(0)-$(1)-$(2))
+$(eval target_add_prereq := $(4))
+
+$(new_target): $(1)
+	install -d `dirname $(2)`
+	install -m $(3) $(1) $(2)
+
+$(target_add_prereq): $(new_target)
+.PHONY: $(new_target)
+endef
+
 # install_directory
 #  $(1): source dir
 #  $(2): destination dir
