@@ -10,6 +10,7 @@
 #include "mldb/types/any_impl.h"
 #include "mldb/types/structure_description.h"
 #include <random>
+#include <unordered_set>
 
 using namespace std;
 
@@ -73,7 +74,7 @@ struct SampledDataset::Itl
     std::shared_ptr<ColumnIndex> index;
     size_t columnCount;
 
-    std::set<RowName> sampledRowsIndex;
+    std::unordered_set<RowName> sampledRowsIndex;
     std::vector<RowName> sampledRows;
     std::vector<RowHash> sampledRowsHash;
 
@@ -113,8 +114,8 @@ struct SampledDataset::Itl
         std::mt19937 gen(config.seed);
         std::uniform_int_distribution<> dis(0, rows.size() - 1);
 
-        set<unsigned> sampledIndexes;
-        set<unsigned>::iterator sampledIt;
+        unordered_set<unsigned> sampledIndexes;
+        unordered_set<unsigned>::iterator sampledIt;
         while(sampledRows.size() < numRows) {
             unsigned sample_index = dis(gen);
 

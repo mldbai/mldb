@@ -29,7 +29,7 @@ namespace Builtins {
 
 typedef BoundTableExpression (*BuiltinDatasetFunction) (const SqlBindingScope & context,
                                                         const std::vector<BoundTableExpression> &,
-                                                        const std::shared_ptr<SqlRowExpression> options,
+                                                        const ExpressionValue & options,
                                                         const Utf8String& alias);
 
 struct RegisterBuiltin {
@@ -49,7 +49,7 @@ struct RegisterBuiltin {
     {
         auto fn = [=] (const Utf8String & str,
                        const std::vector<BoundTableExpression> & args,
-                       const std::shared_ptr<SqlRowExpression> options,
+                       const ExpressionValue & options,
                        const SqlBindingScope & context,
                        const Utf8String& alias)
             -> BoundTableExpression
@@ -76,13 +76,13 @@ struct RegisterBuiltin {
 
 BoundTableExpression transpose(const SqlBindingScope & context,
                                const std::vector<BoundTableExpression> & args,
-                               const std::shared_ptr<SqlRowExpression> options,
+                               const ExpressionValue & options,
                                const Utf8String& alias)
 {
     if (args.size() != 1)
         throw HttpReturnException(500, "transpose() takes a single argument");
-    if(options)
-        throw HttpReturnException(500, "transpose() does not take any options");
+     if(!options.empty())
+         throw HttpReturnException(500, "transpose() does not take any options");
 
 
     auto ds = createTransposedDatasetFn(context.getMldbServer(), args[0].dataset);
@@ -99,12 +99,12 @@ static RegisterBuiltin registerTranspose(transpose, "transpose");
 
 BoundTableExpression merge(const SqlBindingScope & context,
                            const std::vector<BoundTableExpression> & args,
-                           const std::shared_ptr<SqlRowExpression> options,
+                           const ExpressionValue & options,
                            const Utf8String& alias)
 {
     if (args.size() < 2)
         throw HttpReturnException(500, "merge() needs at least 2 arguments");
-    if(options)
+    if(!options.empty())
         throw HttpReturnException(500, "merge() does not take any options");
 
     std::vector<std::shared_ptr<Dataset> > datasets;
@@ -130,7 +130,7 @@ static RegisterBuiltin registerMerge(merge, "merge");
 
 BoundTableExpression sample(const SqlBindingScope & context,
                             const std::vector<BoundTableExpression> & args,
-                            const std::shared_ptr<SqlRowExpression> options,
+                            const ExpressionValue & options,
                             const Utf8String& alias)
 {
     if (args.size() != 1)
@@ -139,29 +139,27 @@ BoundTableExpression sample(const SqlBindingScope & context,
 
     SampledDatasetConfig config;
 
-    if(options) {
-        SqlBindingScope scope(context);
-        auto bound = options->bind(scope); //const_cast<SqlBindingScope &>(context));
-        auto expVal = bound(SqlRowScope());
+    if(!options.isRow())
+        throw ML::Exception("options should be a row");
 
-        if(!expVal.isRow())
-            throw ML::Exception("options should be a row");
+    for(auto elem : options.getRow()) {
+        const ColumnName& columnName = std::get<0>(elem);
 
-        for(auto elem : expVal.getRow()) {
-            const ColumnName& columnName = std::get<0>(elem);
-
-            if (columnName == ColumnName("rows")) {
-                config.rows = std::get<1>(elem).toInt();
-            }
-            else if (columnName == ColumnName("fraction")) {
-                config.fraction = std::get<1>(elem).toDouble();
-            }
-            else if (columnName == ColumnName("withReplacement")) {
-                config.withReplacement = std::get<1>(elem).asBool();
-            }
-            else {
-                throw ML::Exception("unknown option: '"+columnName.toString()+"'");
-            }
+        if (columnName == ColumnName("rows")) {
+            config.rows = std::get<1>(elem).toInt();
+        }
+        else if (columnName == ColumnName("fraction")) {
+            config.fraction = std::get<1>(elem).toDouble();
+        }
+        else if (columnName == ColumnName("withReplacement")) {
+            config.withReplacement = std::get<1>(elem).asBool();
+        }
+        else if (columnName == ColumnName("seed")) {
+            config.seed = std::get<1>(elem).toInt();
+        }
+        else {
+            auto expVal2 = std::get<1>(elem);
+            throw ML::Exception("unknown option: '"+columnName.toString()+"'");
         }
     }
 

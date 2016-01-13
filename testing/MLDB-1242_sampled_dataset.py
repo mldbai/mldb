@@ -92,16 +92,25 @@ assert rez["statusCode"] == 400
 
 
 
-rez = mldb.perform("GET", "/v1/query", [["q", "select * from sample(toy, {rows: 25})"]])
-#mldb.log(json.loads(rez["response"]))
-assert len(json.loads(rez["response"])) == 25
-
 rez = mldb.perform("GET", "/v1/query", [["q", "select * from sample(toy, {rows: 25000, withReplacement: 1})"]])
-mldb.log(rez)
 assert rez["statusCode"] == 200
 assert len(json.loads(rez["response"])) == 25000
 
+rez = mldb.perform("GET", "/v1/query", [["q", "select * from sample(toy, {rows: 25})"]])
+mldb.log(json.loads(rez["response"]))
+assert rez["statusCode"] == 200
+assert len(json.loads(rez["response"])) == 25
 
+# test seed works
+rez = mldb.perform("GET", "/v1/query", [["q", "select * from sample(toy, {rows: 1, seed: 5})"]])
+rez2 = mldb.perform("GET", "/v1/query", [["q", "select * from sample(toy, {rows: 1, seed: 5})"]])
+assert rez["statusCode"] == 200
+assert json.loads(rez["response"])[0] == json.loads(rez2["response"])[0]
+
+rez = mldb.perform("GET", "/v1/query", [["q", "select * from sample(toy, {rows: 1})"]])
+rez2 = mldb.perform("GET", "/v1/query", [["q", "select * from sample(toy, {rows: 1})"]])
+assert rez["statusCode"] == 200
+assert json.loads(rez["response"])[0] != json.loads(rez2["response"])[0]
 
 
 mldb.script.set_return("success")

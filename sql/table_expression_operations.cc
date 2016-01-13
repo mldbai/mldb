@@ -403,7 +403,7 @@ getUnbound() const
 DatasetFunctionExpression::
 DatasetFunctionExpression(Utf8String functionName, 
                           std::vector<std::shared_ptr<TableExpression>> & args,
-                          std::shared_ptr<SqlRowExpression> options)
+                          std::shared_ptr<SqlExpression> options)
     : NamedDatasetExpression(""), functionName(functionName),
       args(args), options(options)
 {
@@ -422,7 +422,14 @@ bind(SqlBindingScope & context) const
     std::vector<BoundTableExpression> boundArgs;
     for (auto arg : args)
         boundArgs.push_back(arg->bind(context));
-    auto fn = context.doGetDatasetFunction(functionName, boundArgs, options, asName);
+
+    ExpressionValue expValOptions;
+    if(options) {
+        BoundSqlExpression bound = options->bind(context);
+        expValOptions = bound(SqlRowScope());
+    }
+
+    auto fn = context.doGetDatasetFunction(functionName, boundArgs, expValOptions, asName);
 
     if (!fn)
         throw HttpReturnException(400, "could not bind dataset function " + functionName);

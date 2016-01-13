@@ -253,7 +253,7 @@ BoundTableExpression
 SqlBindingScope::
 doGetDatasetFunction(const Utf8String & functionName,
                      const std::vector<BoundTableExpression> & args,
-                     const std::shared_ptr<SqlRowExpression> options,
+                     const ExpressionValue & options,
                      const Utf8String & alias)
 {
     auto factory = tryLookupDatasetFunction(functionName);
@@ -3024,7 +3024,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
             {
                 skip_whitespace(context);
                 std::vector<std::shared_ptr<TableExpression>> args;
-                std::shared_ptr<SqlRowExpression> options;
+                std::shared_ptr<SqlExpression> options;
                 if (!context.match_literal(')'))
                 {
                     do
@@ -3036,11 +3036,14 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
 
                         skip_whitespace(context);
 
-                        if(context.match_literal('{')) {
-                            skip_whitespace(context);
-                            options = SqlRowExpression::parse(context, true);
-                            skip_whitespace(context);
-                            context.expect_literal('}');
+                        bool found = false;
+                        {
+                            ML::Parse_Context::Revert_Token token(context);
+                            found = context.match_literal('{');
+                        }
+
+                        if(found) {
+                            options = SqlExpression::parse(context, 10, true);
                         }
                         else {
 

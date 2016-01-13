@@ -157,7 +157,7 @@ struct DatasetFunctionExpression: public NamedDatasetExpression {
 
     DatasetFunctionExpression(Utf8String functionName,
                               std::vector<std::shared_ptr<TableExpression>>& args,
-                              std::shared_ptr<SqlRowExpression> options);
+                              std::shared_ptr<SqlExpression> options);
 
     virtual ~DatasetFunctionExpression();
 
@@ -176,7 +176,7 @@ struct DatasetFunctionExpression: public NamedDatasetExpression {
 
     Utf8String functionName;
     std::vector<std::shared_ptr<TableExpression>> args;
-    std::shared_ptr<SqlRowExpression> options;
+    std::shared_ptr<SqlExpression> options;
 };
 
 
