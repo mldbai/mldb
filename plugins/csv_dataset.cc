@@ -222,7 +222,7 @@ struct SqlCsvScope: public SqlExpressionMldbContext {
     {
         if (functionName == "lineNumber") {
             lineNumberUsed = true;
-            return {[=] (const std::vector<ExpressionValue> & args,
+            return {[=] (const std::vector<BoundSqlExpression> & args,
                          const SqlRowScope & scope)
                     {
                         auto & row = static_cast<const RowScope &>(scope);
@@ -232,7 +232,7 @@ struct SqlCsvScope: public SqlExpressionMldbContext {
                     };
         }
         else if (functionName == "fileTimestamp") {
-            return {[=] (const std::vector<ExpressionValue> & args,
+            return {[=] (const std::vector<BoundSqlExpression> & args,
                          const SqlRowScope & scope)
                     {
                         return ExpressionValue(fileTimestamp, fileTimestamp);
@@ -241,7 +241,7 @@ struct SqlCsvScope: public SqlExpressionMldbContext {
                     };
         }
         else if (functionName == "dataFileUrl") {
-            return {[=] (const std::vector<ExpressionValue> & args,
+            return {[=] (const std::vector<BoundSqlExpression> & args,
                          const SqlRowScope & scope)
                     {
                         return ExpressionValue(dataFileUrl, fileTimestamp);
@@ -250,7 +250,7 @@ struct SqlCsvScope: public SqlExpressionMldbContext {
                     };
         }
         else if (functionName == "lineOffset") {
-            return {[=] (const std::vector<ExpressionValue> & args,
+            return {[=] (const std::vector<BoundSqlExpression> & args,
                          const SqlRowScope & scope)
                     {
                         auto & row = static_cast<const RowScope &>(scope);

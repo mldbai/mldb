@@ -63,7 +63,7 @@ doGetFunction(const Utf8String & tableName,
         return result;
 
     // Call it with the outer context
-    result.exec = [=] (const std::vector<ExpressionValue> & args,
+    result.exec = [=] (const std::vector<BoundSqlExpression> & args,
                        const SqlRowScope & context)
         {
             auto & row = static_cast<const RowContext &>(context);
@@ -160,7 +160,7 @@ doGetFunction(const Utf8String & tableName,
 {
 
     if (functionName == "columnName") {
-        return {[=] (const std::vector<ExpressionValue> & args,
+        return {[=] (const std::vector<BoundSqlExpression> & args,
                      const SqlRowScope & context)
                 {
                     auto & col = static_cast<const ColumnContext &>(context);
@@ -174,11 +174,11 @@ doGetFunction(const Utf8String & tableName,
 
     if (fn)
     {
-         return {[=] (const std::vector<ExpressionValue> & args,
+         return {[=] (const std::vector<BoundSqlExpression> & args,
                  const SqlRowScope & context)
             {
                 auto & col = static_cast<const ColumnContext &>(context);
-                return fn(col.columnName, args);
+                return fn(col.columnName, {ExpressionValue()}); //TODO - see if we should evaluate the args here or change the signature
             },
             std::make_shared<Utf8StringValueInfo>()};
     }
@@ -204,7 +204,7 @@ doGetFunction(const Utf8String & tableName,
 {
     if (functionName == "timestamp") {
         isTupleDependent = true;
-        return  {[=] (const std::vector<ExpressionValue> & args,
+        return  {[=] (const std::vector<BoundSqlExpression> & args,
                       const SqlRowScope & scope)
                 {
                     auto & row = static_cast<const RowScope &>(scope);

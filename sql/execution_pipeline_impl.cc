@@ -141,7 +141,7 @@ doGetFunction(const Utf8String & functionName,
     //    return override;
         
     if (functionName == "rowName") {
-        return {[=] (const std::vector<ExpressionValue> & args,
+        return {[=] (const std::vector<BoundSqlExpression> & args,
                      const SqlRowScope & rowScope)
                 {
                     auto & row = static_cast<const PipelineResults &>(rowScope);
@@ -152,7 +152,7 @@ doGetFunction(const Utf8String & functionName,
     }
 
     else if (functionName == "rowHash") {
-        return {[=] (const std::vector<ExpressionValue> & args,
+        return {[=] (const std::vector<BoundSqlExpression> & args,
                      const SqlRowScope & rowScope)
                 {
                     auto & row = static_cast<const PipelineResults &>(rowScope);
@@ -478,7 +478,7 @@ doGetFunction(const Utf8String & functionName,
         auto rightRowName
             = right->doGetFunction(functionName, args, rightFieldOffset(fieldOffset));
             
-        auto exec = [=] (const std::vector<ExpressionValue> & args,
+        auto exec = [=] (const std::vector<BoundSqlExpression> & args,
                          const SqlRowScope & context)
             -> ExpressionValue
             {
@@ -1349,7 +1349,7 @@ doGetFunction(const Utf8String & functionName,
     auto aggregate = inner->doGetAggregator(functionName, args);
 
     if (aggregate) {
-        auto exec = [=] (const std::vector<ExpressionValue> & argValues,
+        auto exec = [=] (const std::vector<BoundSqlExpression> & argValues,
                          const SqlRowScope & rowScope) -> ExpressionValue
             {
                 auto & row = static_cast<const PipelineResults &>(rowScope);

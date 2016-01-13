@@ -1384,22 +1384,22 @@ bindBuiltinFunction(SqlBindingScope & context, std::vector<BoundSqlExpression>& 
             throw HttpReturnException(400, "Builtin function " + functionName
                                    + " should not have an extract [] expression, got " + extract->print() );
 
-    Utf8String functionNameLower(boost::algorithm::to_lower_copy(functionName.extractAscii()));
+    //Utf8String functionNameLower(boost::algorithm::to_lower_copy(functionName.extractAscii()));
 
-    bool isAggregate = tryLookupAggregator(functionNameLower) != nullptr;
+    //bool isAggregate = tryLookupAggregator(functionNameLower) != nullptr;
 
-    if (isAggregate)
-    {
-             return {[=] (const SqlRowScope & row,
-                            ExpressionValue & storage) -> const ExpressionValue &
+    //    if (isAggregate)
+    //{
+    return {[=] (const SqlRowScope & row,
+                 ExpressionValue & storage) -> const ExpressionValue &
             {
-                std::vector<ExpressionValue> evaluatedArgs;
-                //Don't evaluate the args for aggregator
-                evaluatedArgs.resize(boundArgs.size());
-                return storage = std::move(fn(evaluatedArgs, row));
+                //lazy evaluation of args - the function will evaluate them as required
+                return storage = std::move(fn(boundArgs, row));
             },
             this,
             fn.resultInfo};
+}
+#if 0   
     }
     else
     {
@@ -1419,6 +1419,7 @@ bindBuiltinFunction(SqlBindingScope & context, std::vector<BoundSqlExpression>& 
             fn.resultInfo};
     }
 }
+#endif
 
 Utf8String
 FunctionCallWrapper::

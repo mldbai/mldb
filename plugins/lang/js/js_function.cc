@@ -229,10 +229,15 @@ BoundFunction bindJsEval(const Utf8String & name,
     auto info = std::make_shared<AnyValueInfo>();
 
     // 4.  Do the binding
-    auto fn =  [=] (const std::vector<ExpressionValue> & args,
+    auto fn =  [=] (const std::vector<BoundSqlExpression> & args,
                     const SqlRowScope & context) -> ExpressionValue
         {
-            return runJsFunction(args, context, runner);
+            std::vector<ExpressionValue> evaluatedArgs;
+            evaluatedArgs.reserve(args.size());
+            for (auto & arg: args)
+                evaluatedArgs.emplace_back(std::move(arg(context)));
+
+            return runJsFunction(evaluatedArgs, context, runner);
         };
 
     // 5.  Return it

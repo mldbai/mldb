@@ -295,7 +295,7 @@ struct VariableGetter {
 */
 
 struct BoundFunction {
-    typedef std::function<ExpressionValue (const std::vector<ExpressionValue> &,
+    typedef std::function<ExpressionValue (const std::vector<BoundSqlExpression> &,
                           const SqlRowScope & context) > Exec;
 
     BoundFunction()
@@ -314,7 +314,7 @@ struct BoundFunction {
     Exec exec;
     std::shared_ptr<ExpressionValueInfo> resultInfo;
 
-    ExpressionValue operator () (const std::vector<ExpressionValue> & args,
+    ExpressionValue operator () (const std::vector<BoundSqlExpression> & args,
                                  const SqlRowScope & context) const
     {
         return exec(args, context);

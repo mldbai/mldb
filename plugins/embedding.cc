@@ -986,11 +986,14 @@ overrideFunction(const Utf8String & functionName,
         // 1.  We need the rowName() function
         //auto rowName = context.getfunction("rowName");
 
-        return {[=] (const std::vector<ExpressionValue> & args,
+        return {[=] (const std::vector<BoundSqlExpression> & _args,
                      const SqlRowScope & context) -> ExpressionValue
                 {
                     //cerr << "calling overridden distance with args " << jsonEncode(args)
                     //     << endl;
+
+                    //TOOD evaluate the args
+                    std::vector<ExpressionValue> args;
 
                     auto row1 = args.at(1).getRow();
                     string row2Name = args.at(2).toString();

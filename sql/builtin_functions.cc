@@ -53,7 +53,7 @@ struct RegisterBuiltin {
                 try {
                     BoundFunction result = std::move(function(args));
                     auto fn = result.exec;
-                    result.exec = [=] (const std::vector<ExpressionValue> & args,
+                    result.exec = [=] (const std::vector<BoundSqlExpression> & args,
                                         const SqlRowScope & context)
                         -> ExpressionValue
                     {
@@ -109,7 +109,7 @@ ExpressionValue oneArgFunction(const std::vector<ExpressionValue> & args, Double
     double v1 = args[0].toDouble();
     return ExpressionValue(func(v1), calcTs(args[0], args[1]));
 }
-
+#if 0
 ExpressionValue replaceIf(const std::vector<ExpressionValue> & args,
                           std::function<bool(double)> ifFunc)
 {
@@ -271,6 +271,7 @@ BoundFunction ln(const std::vector<BoundSqlExpression> & args)
 }
 
 static RegisterBuiltin registerLn(ln, "ln");
+
 
 BoundFunction exp(const std::vector<BoundSqlExpression> & args)
 {
@@ -600,7 +601,26 @@ BoundFunction now(const std::vector<BoundSqlExpression> & args)
 }
 
 static RegisterBuiltin registerNow(now, "now");
+#endif
 
+BoundFunction temporal_min(const std::vector<BoundSqlExpression> & args)
+{
+    return {[] (const std::vector<BoundSqlExpression> & args,
+                const SqlRowScope & context) -> ExpressionValue
+            {
+                ExcAssertEqual(args.size(), 1);
+                auto v = args[0](context);
+                //if (v <= 0)
+                //    throw HttpReturnException(400, "ln function supports positive numbers only");
+
+                return ExpressionValue(v);
+            },
+            std::make_shared<Float64ValueInfo>()};//TODO change this
+}
+
+static RegisterBuiltin registerTempMin(temporal_min, "temporal_min");
+
+#if 0
 BoundFunction date_part(const std::vector<BoundSqlExpression> & args)
 {
     // extract the requested part of a timestamp
@@ -1306,7 +1326,7 @@ RegisterVectorOp<DiffOp> registerVectorDiff("vector_diff");
 RegisterVectorOp<SumOp> registerVectorSum("vector_sum");
 RegisterVectorOp<ProductOp> registerVectorProduct("vector_product");
 RegisterVectorOp<QuotientOp> registerVectorQuotient("vector_quotient");
-
+#endif
 } // namespace Builtins
 } // namespace MLDB
 } // namespace Datacratic

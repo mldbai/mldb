@@ -312,7 +312,7 @@ doGetFunction(const Utf8String & tableName,
         return fnoverride;
 
     if (functionName == "rowName") {
-        return {[=] (const std::vector<ExpressionValue> & args,
+        return {[=] (const std::vector<BoundSqlExpression> & args,
                      const SqlRowScope & context)
                 {
                     auto & row = static_cast<const RowContext &>(context);
@@ -324,7 +324,7 @@ doGetFunction(const Utf8String & tableName,
     }
 
     if (functionName == "rowHash") {
-        return {[=] (const std::vector<ExpressionValue> & args,
+        return {[=] (const std::vector<BoundSqlExpression> & args,
                      const SqlRowScope & context)
                 {
                     auto & row = static_cast<const RowContext &>(context);
@@ -339,7 +339,7 @@ doGetFunction(const Utf8String & tableName,
        in the current row.
     */
     if (functionName == "columnCount") {
-        return {[=] (const std::vector<ExpressionValue> & args,
+        return {[=] (const std::vector<BoundSqlExpression> & args,
                      const SqlRowScope & context)
                 {
                     auto & row = static_cast<const RowContext &>(context);
