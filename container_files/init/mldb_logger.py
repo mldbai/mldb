@@ -12,6 +12,8 @@ import os
 import fcntl
 import sys
 import time
+import pwd
+import grp
 
 import tornado.web
 
@@ -20,10 +22,24 @@ from datetime import datetime
 from collections import namedtuple, deque
 
 RINGBUFSIZE = 1024
+HTTP_LISTEN_PORT = {{MLDB_LOGGER_HTTP_PORT}}  # From template_vars.mk
+RUNAS = "_mldb"
 
 LogLine = namedtuple('LogLine', ['dt', 'data', ])
 
 logline_cnt = 0
+
+def droppriv():
+    if os.getuid() != 0:
+        return  # not root?
+
+    new_uid = pwd.getpwnam(RUNAS).pw_uid
+    new_gid = grp.getgrnam(RUNAS).gr_gid
+
+    os.setgroups([])
+    os.setgid(new_gid)
+    os.setuid(new_uid)
+    old_umask = os.umask(077)
 
 def stdin_ready(f, ringbuf, fd, events):
   global logline_cnt
@@ -54,6 +70,8 @@ class LogsMldbHandler(tornado.web.RequestHandler):
 
 if __name__ == "__main__":
 
+  droppriv()  # Early on, we don't need privileges for anything.
+
   log_lines_ringbuf = deque(maxlen=RINGBUFSIZE)
   io_loop = IOLoop.current()
 
@@ -66,7 +84,7 @@ if __name__ == "__main__":
                       io_loop.READ | io_loop.ERROR)
 
   app = tornado.web.Application([ ("/logs/mldb", LogsMldbHandler) ])
-  app.listen(12346, '0.0.0.0')
+  app.listen(HTTP_LISTEN_PORT)
 
   try:
     t1 = time.time()
