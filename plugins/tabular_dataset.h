@@ -373,6 +373,73 @@ struct TabularDatasetChunk {
 
 struct TabularDataStore: public ColumnIndex, public MatrixView {
 
+    /*
+        RowName
+    getRowNameByIndex(ssize_t index, ssize_t& cache) const
+    {
+     //   std::cerr << "getRowNameByIndex " << index << " " << cache << std::endl;
+        ssize_t sum = this->chunks[cache].startRows; 
+        //for (auto & c: chunks) {
+        for (; cache < chunks.size(); ++cache) {
+            const auto& c = this->chunks[cache];
+            if (index - sum >= c.rowNames.size())
+                sum += c.rowNames.size();
+            else
+            {
+                return c.rowNames[index - sum];
+            }
+        }   
+            
+
+        std::cerr << "row not found" << std::endl;
+        return RowName();
+    }
+    */
+
+    struct TabularDataStoreRowStream : public RowStream {
+
+        TabularDataStoreRowStream(TabularDataStore * store) : store(store)
+        {}
+
+        virtual std::shared_ptr<RowStream> clone() const{
+            auto ptr = std::make_shared<TabularDataStoreRowStream>(store);
+            return ptr;
+        }
+
+        virtual void initAt(size_t start){
+            size_t sum = 0;
+            chunkiter = store->chunks.begin();
+            while (chunkiter != store->chunks.end() && start > sum + chunkiter->rowNames.size())  {
+                sum += chunkiter->rowNames.size();
+                ++chunkiter;
+            }
+
+            if (chunkiter != store->chunks.end()) {
+                rowiter = chunkiter->rowNames.begin() + (start - sum);
+            }
+        }
+
+        virtual RowName next() {
+            RowName row = *rowiter;
+            rowiter++;
+            if (rowiter == chunkiter->rowNames.end())
+            {
+                ++chunkiter;
+                if (chunkiter != store->chunks.end())
+                {
+                    rowiter = chunkiter->rowNames.begin();
+                    ExcAssert(rowiter != chunkiter->rowNames.end());
+                }
+            }
+            return row;
+        }
+
+        TabularDataStore* store;
+        std::vector<TabularDatasetChunk>::const_iterator chunkiter;
+        std::vector<RowName>::const_iterator rowiter;
+
+    };
+
     int64_t rowCount;
 
     std::vector<ColumnName> columnNames;
@@ -452,30 +519,6 @@ struct TabularDataStore: public ColumnIndex, public MatrixView {
         return result;
     }
 
-/*    RowName
-    getRowNameByIndex(ssize_t index = 0, Any any = Any()) const
-    {
-        int chunkIndex = 0;
-        if (any == Any())
-            any = any.assign<int>(0);
-        else
-            chunkIndex = any.as<int>();
-
-        ssize_t sum = 0; 
-        //for (auto & c: chunks) {
-        for (; chunkIndex < chunks.size(); ++chunkIndex)
-            auto c = chunks[chunkIndex];
-            if (index > sum + c.rowNames.size())
-                sum += c.rowNames.size();
-            else
-                return c.rowNames[index - sum - 1];
-        }       
-
-        any = any.assign<int>(chunkIndex);
-
-        return RowName();
-    }*/
-
     RowName
     getRowNameByIndex(ssize_t index, ssize_t& cache) const
     {
@@ -490,7 +533,8 @@ struct TabularDataStore: public ColumnIndex, public MatrixView {
             {
                 return c.rowNames[index - sum];
             }
-        }       
+        }   
+
 
         std::cerr << "row not found" << std::endl;
         return RowName();

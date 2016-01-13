@@ -125,6 +125,12 @@ struct FilteredDataset::Itl
         return matrixView->getRowNames(start, limit);
     }
 
+    virtual RowName
+    getRowNameByIndex(ssize_t index, ssize_t& cache) const
+    {    
+        return matrixView->getRowNameByIndex(index, cache);
+    }
+    
     virtual std::vector<RowHash>
     getRowHashes(ssize_t start = 0, ssize_t limit = -1) const
     {

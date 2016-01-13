@@ -79,6 +79,7 @@ struct MatrixReadTransaction {
                             const std::function<bool (const BaseEntry & entry)> & onEntry) = 0;
     virtual bool iterateRows(const std::function<bool (uint64_t row)> & onRow) = 0;
     virtual bool knownRow(uint64_t rowNum) = 0;
+    virtual uint64_t getRow(ssize_t index) const = 0;
 
     virtual size_t rowCount() const = 0;
 

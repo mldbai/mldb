@@ -286,6 +286,16 @@ struct EmbeddingDataset::Itl
         return result;
     }
 
+    virtual RowName
+    getRowNameByIndex(ssize_t index, ssize_t& cache) const
+    {
+        auto repr = committed();
+        if (!repr->initialized() || index >= repr->rows.size())
+            return {};
+
+        return repr->rows[index].rowName;
+    }
+
     virtual std::vector<RowHash>
     getRowHashes(ssize_t start = 0, ssize_t limit = -1) const
     {

@@ -57,6 +57,30 @@ struct JoinedDataset::Itl
         //ML::compact_vector<RowHash, 2> rowHashes;   ///< Row hash from input datasets
     };
 
+     struct JoinedRowStream : public RowStream {
+
+        JoinedRowStream(JoinedDataset::Itl* source) : source(source)
+        {
+            
+        }
+
+        virtual std::shared_ptr<RowStream> clone() const{
+            auto ptr = std::make_shared<JoinedRowStream>(source);
+            return ptr;
+        }
+
+        virtual void initAt(size_t start){
+            iter = source->rows.begin() + start;
+        }
+
+        virtual RowName next() {
+            return (iter++)->rowName;
+        }
+
+        std::vector<RowEntry>::const_iterator iter;
+        JoinedDataset::Itl* source;
+    };
+
     /// Rows in the joined dataset
     std::vector<RowEntry> rows;
 
@@ -372,6 +396,15 @@ struct JoinedDataset::Itl
         return result;
     }
 
+    virtual RowName
+    getRowNameByIndex(ssize_t index, ssize_t& cache) const
+    {
+        if (index < rows.size())
+            return rows[index].rowName;
+        else
+            return RowName();
+    }
+
     virtual std::vector<RowHash>
     getRowHashes(ssize_t start = 0, ssize_t limit = -1) const
     {
@@ -598,6 +631,13 @@ JoinedDataset::
 getColumnIndex() const
 {
     return itl;
+}
+
+std::shared_ptr<RowStream> 
+JoinedDataset::
+getRowStream() const
+{
+    return make_shared<JoinedDataset::Itl::JoinedRowStream>(itl.get());
 }
 
 void 

@@ -182,7 +182,7 @@ struct MergedDataset::Itl
              << " rows and " << this->getColumnNames().size()
              << " columns" << endl;
     }
-
+       
     virtual std::vector<RowName>
     getRowNames(ssize_t start = 0, ssize_t limit = -1) const
     {
@@ -194,6 +194,17 @@ struct MergedDataset::Itl
             result.emplace_back(std::move(getRowName(h)));
 
         return result;
+    }
+
+    virtual RowName
+    getRowNameByIndex(ssize_t index, ssize_t& cache) const
+    {
+        //Todo: Optimize this, because this is ineficient.
+        auto rowNames = getRowNames(index, 1);
+        if (rowNames.size() > 0)
+            return rowNames[0];
+        else
+            return RowName();
     }
 
     virtual std::vector<RowHash>

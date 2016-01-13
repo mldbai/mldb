@@ -446,6 +446,7 @@ struct SparseMatrixDataset::Itl
     virtual std::vector<RowName>
     getRowNames(ssize_t start = 0, ssize_t limit = -1) const
     {
+        cerr << "orange" << endl;
         std::vector<RowName> result;
         auto trans = getReadTransaction();
         trans->matrix
@@ -455,11 +456,11 @@ struct SparseMatrixDataset::Itl
                               return true;
                           });
 
-        std::sort(result.begin(), result.end(),
-                  [&] (const RowName & r1, const RowName & r2)
-                  {
-                      return r1.hash() < r2.hash();
-                  });
+         std::sort(result.begin(), result.end(),
+              [&] (const RowName & r1, const RowName & r2)
+              {
+                  return r1.hash() < r2.hash();
+              });
 
         if (start < 0)
             throw HttpReturnException(400, "Invalid start for row names",
@@ -473,12 +474,41 @@ struct SparseMatrixDataset::Itl
             return result;
         }
 
+        result.erase(result.begin(), result.begin() + start);
+
         if (limit != -1 && limit < result.size())
             result.erase(result.begin() + limit, result.end());
 
-        result.erase(result.begin(), result.begin() + start);
+        cerr << "orange done" << endl;
 
         return result;
+    }
+
+    virtual RowName
+    getRowNameByIndex(ssize_t index, ssize_t& cache) const
+    {
+        //Todo: breaking MLDB-1081 need to find why
+     /*   std::vector<RowName> rowNames = getRowNames(index, 1);
+        if (rowNames.size() > 0)
+        {
+            return rowNames[0];
+        }
+        else
+        {
+            return RowName();
+        }*/
+
+        auto trans = getReadTransaction();
+
+     //   cerr << "patate 1" << trans->matrix->rowCount() << endl;
+
+        if (index >= trans->matrix->rowCount())
+            return RowName();
+
+     //   cerr << "patate 1 " << index << endl;
+        uint64_t row = trans->matrix->getRow(index);
+      //  cerr << "patate 2 " << row << endl;
+        return getRowNameTrans(RowHash(row), *trans);
     }
 
     virtual std::vector<RowHash>
@@ -545,10 +575,13 @@ struct SparseMatrixDataset::Itl
     RowName getRowNameTrans(const RowHash & rowHash,
                             ReadTransaction & trans) const
     {
+        //cerr << "poil" << endl;
+
         RowName result;
 
         auto onRow = [&] (const BaseEntry & entry)
             {
+            //    cerr << "menton" << endl;
                 result = RowName(entry.metadata.at(0));
                 return false;
             };
@@ -918,6 +951,38 @@ struct MutableBaseData {
             return true;
         }
 
+        uint64_t getRow(ssize_t index) const
+        {
+            //todo: we need to find something better
+           // cerr << "foo" << endl;
+            ssize_t count = 0;
+            for (size_t i = 0; i < entries.size(); ++i)
+            {
+            //    cerr << "a";
+                const auto& map = entries[i];
+                ssize_t size = map->size();
+                if (index < count + size)
+                {
+                   // cerr << "b";
+                    auto iter = map->begin();
+                    while (count < index)
+                    {
+                     //   cerr << "c";
+                        ++iter;
+                        ++count;
+                    }
+                    return iter->first;
+                }
+                else
+                {
+                 //q   cerr << "d";
+                    count += size;
+                }
+            }  
+
+            return 0;         
+        }
+
         bool knownRow(uint64_t rowNum) const
         {
             for (auto & e: entries) {
@@ -1187,6 +1252,11 @@ struct MutableWriteTransaction: public MatrixWriteTransaction {
         return rows.iterateRows(onRow);
     }
 
+    virtual uint64_t getRow(ssize_t index) const
+    {
+        return rows.getRow(index);
+    }
+
     virtual bool knownRow(uint64_t rowNum)
     {
         return rows.knownRow(rowNum);
@@ -1279,6 +1349,11 @@ struct MutableReadTransaction: public MatrixReadTransaction {
     virtual size_t rowCount() const
     {
         return rows.rowCount();
+    }
+
+    virtual uint64_t getRow(ssize_t index) const
+    {
+        return rows.getRow(index);
     }
 
     virtual std::shared_ptr<MatrixWriteTransaction> startWriteTransaction() const

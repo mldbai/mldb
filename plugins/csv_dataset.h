@@ -71,6 +71,8 @@ struct CsvDataset: public Dataset {
 
     virtual std::shared_ptr<ColumnIndex> getColumnIndex() const;
 
+    virtual std::shared_ptr<RowStream> getRowStream() const;
+    
     virtual std::pair<Date, Date> getTimestampRange() const;
 
     virtual GenerateRowsWhereFunction

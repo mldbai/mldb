@@ -946,7 +946,7 @@ generateRowsWhere(const SqlBindingScope & context,
             cerr << "TRUE WHERE" << endl;
             GenerateRowsWhereFunction wheregen= {[=] (ssize_t numToGenerate, Any token,
                          const BoundParameters & params)
-                    {
+                    {                        
                         ssize_t start = 0;
                         ssize_t limit = numToGenerate;
 
@@ -955,8 +955,12 @@ generateRowsWhere(const SqlBindingScope & context,
                         if (!token.empty())
                             start = token.convert<size_t>();
 
+                   //     cerr << "test banane" << start << limit << endl;
+
                         auto rows = this->getMatrixView()
                             ->getRowNames(start, limit);
+
+                     //   cerr << "test pomme" << rows.size() << endl;
 
                         start += rows.size();
                         Any newToken;
@@ -971,15 +975,18 @@ generateRowsWhere(const SqlBindingScope & context,
 
              //  typedef std::function<RowName(int& index)> NextExec;
 
-            wheregen.nextExec = [&] (int& index, ssize_t& cache)
+          /*  wheregen.nextExec = [&] (int& index, ssize_t& cache)
             {
+             //   cerr << "nextExec" << endl;
                 auto rowName = this->getMatrixView()
                             ->getRowNameByIndex(index, cache);
 
                 index++;
 
                 return rowName;
-            };
+            };*/
+
+            wheregen.rowStream = this->getRowStream();
 
             return wheregen;
 
