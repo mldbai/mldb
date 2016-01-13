@@ -9,6 +9,7 @@
 
 #include "thread_pool.h"
 #include "thread_pool_impl.h"
+#include "mldb/base/exc_assert.h"
 #include "mldb/arch/thread_specific.h"
 #include "arch/cpu_info.h"
 #include <atomic>
