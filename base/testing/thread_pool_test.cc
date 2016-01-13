@@ -108,4 +108,3 @@ BOOST_AUTO_TEST_CASE(thread_pool_test)
 
     BOOST_CHECK_EQUAL(jobsDone.load(), numJobs);
 }
-
