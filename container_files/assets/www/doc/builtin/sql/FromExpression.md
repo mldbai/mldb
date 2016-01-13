@@ -30,6 +30,16 @@ FROM (SELECT * FROM dataset WHERE column1 = 2) as subselect
 
 ```
 
+## Sample
+
+Queries can be made to a sample of a dataset by using the sample() function in the FROM expression. For example:
+
+```
+SELECT x.* FROM sample(dataset, {rows: 25, withReplacement: FALSE}) AS x
+```
+
+See ![](%%doclink sampled dataset) for more details.
+
 ## Transpose
 
 Queries can be made to the transpose of a dataset by using the transpose() function in the FROM expression. For example:
