@@ -157,7 +157,9 @@ struct ThreadPool::Itl {
     /// Mutex to protect modification to the queue state
     std::mutex queuesMutex;
 
-    // Note: unsigned so we wrap around properly
+    /** Return the number of jobs running.  If there are more than
+        2^31 jobs running, this may give the wrong answer.
+    */
     unsigned jobsRunning() const
     {
         uint64_t val = startedFinished;
@@ -172,11 +174,13 @@ struct ThreadPool::Itl {
         return jobs.submitted - jobs.finished;
     }
 
+    /** Return the number of jobs submitted.  Wraps around at INT_MAX. */
     int jobsSubmitted() const
     {
         return jobs.submitted;
     }
 
+    /** Return the number of jobs finished.  Wraps around at INT_MAX. */
     int jobsFinished() const
     {
         return jobs.finished;
@@ -207,10 +211,7 @@ struct ThreadPool::Itl {
             std::unique_lock<std::mutex> guard(queuesMutex);
             this->shutdown = 1;
         }
-        
-        {
-            wakeupCv.notify_all();
-        }
+        wakeupCv.notify_all();
         
         for (auto & w: workers)
             w.join();
@@ -233,10 +234,16 @@ struct ThreadPool::Itl {
         return *threadEntry;
     }
 
+    /** Add a new job to be run.  This is lock-free except for the very
+        first call from a given thread to a given thread pool, in which
+        case there are locks taken for some of the bookkeeping.
+
+        If this thread's queue is full, then it will run the job
+        immediately to make forward progress and give time to the rest of
+        the system to clear out some work from the queue.
+    */
     void add(ThreadJob job)
     {
-        //ThreadEntry & entry = getEntry();
-
         jobs.submitted += 1;
 
         if (getEntry().queue->push(job)) {
@@ -382,6 +389,10 @@ struct ThreadPool::Itl {
         }
     }
 
+    /** A new thread has made itself known to this thread pool.  Publish
+        its queue in the list of known queues so that other threads may
+        steal work from it.
+    */
     void publishThread(ThreadEntry * thread)
     {
         if (shutdown)
@@ -393,6 +404,8 @@ struct ThreadPool::Itl {
         
         std::shared_ptr<Queues> newQueues(new Queues(*queues));
 
+        // Don't allow epoch zero to be used on a wraparound, as its
+        // reserved for the empty set in the constructor.
         do {
             newQueues->epoch = threadCreationEpoch.fetch_add(1) + 1;
         } while (newQueues->epoch == 0);
@@ -401,6 +414,9 @@ struct ThreadPool::Itl {
         queues = newQueues;
     }
 
+    /** A thread has exited and so its queue is no longer available for
+        work stealing.  Publish the reduced list of queues.
+    */
     void unpublishThread(ThreadEntry * thread)
     {
         if (shutdown)
@@ -412,6 +428,8 @@ struct ThreadPool::Itl {
         
         std::shared_ptr<Queues> newQueues(new Queues(*queues));
 
+        // Don't allow epoch zero to be used on a wraparound, as its
+        // reserved for the empty set in the constructor.
         do {
             newQueues->epoch = threadCreationEpoch.fetch_add(1) + 1;
         } while (newQueues->epoch == 0);
@@ -442,7 +460,6 @@ ThreadPool::
 ~ThreadPool()
 {
     itl.reset();
-    cerr << "done destructor" << endl;
 }
 
 void
