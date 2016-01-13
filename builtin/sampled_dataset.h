@@ -19,11 +19,6 @@ namespace MLDB {
         
 struct SampledDatasetConfig {
 
-//     SampledDatasetConfig() :
-//         rows(0), fraction(0), withReplacement(false)
-//     {
-//     }
-
     SampledDatasetConfig();
 
     PolyConfigT<const Dataset> dataset;
@@ -47,10 +42,10 @@ struct SampledDataset: public Dataset {
                       PolyConfig config,
                       const std::function<bool (const Json::Value &)> & onProgress);
     
-    /** Constructor used internally when creating a temporary transposition. */
+    /** Constructor used internally when creating a temporary sample */
     SampledDataset(MldbServer * owner,
                    std::shared_ptr<Dataset> dataset,
-                   const SampledDatasetConfig & sampleConfig);
+                   const ExpressionValue & options);
 
     virtual ~SampledDataset();
 

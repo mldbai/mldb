@@ -1,8 +1,6 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** sql_expression_operations.h                                    -*- C++ -*-
     Jeremy Barnes, 24 February 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
 */
 
@@ -449,7 +447,9 @@ struct FunctionCallWrapper: public SqlRowExpression {
 
 private:
 
-    BoundSqlExpression bindBuiltinFunction(SqlBindingScope & context, std::vector<BoundSqlExpression>& boundArgs, BoundFunction& fn) const;
+    BoundSqlExpression bindBuiltinFunction(SqlBindingScope & context,
+                                           std::vector<BoundSqlExpression> & boundArgs,
+                                           BoundFunction& fn) const;
     BoundSqlExpression bindUserFunction(SqlBindingScope & context) const;
 };
 

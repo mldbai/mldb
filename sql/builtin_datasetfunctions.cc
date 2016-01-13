@@ -4,7 +4,6 @@
 #include "sql_expression.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/builtin/transposed_dataset.h"
-#include "mldb/builtin/sampled_dataset.h"
 
 using namespace std;
 
@@ -19,7 +18,7 @@ std::shared_ptr<Dataset> (*createTransposedDatasetFn) (MldbServer *, std::shared
 std::shared_ptr<Dataset> (*createMergedDatasetFn) (MldbServer *, std::vector<std::shared_ptr<Dataset> >);
 std::shared_ptr<Dataset> (*createSampledDatasetFn) (MldbServer *,
                                                     std::shared_ptr<Dataset> dataset,
-                                                    SampledDatasetConfig sampleConfig);
+                                                    const ExpressionValue & options);
 
 // defined in table_expression_operations.cc
 BoundTableExpression
@@ -137,35 +136,12 @@ BoundTableExpression sample(const SqlBindingScope & context,
         throw HttpReturnException(500, "sample() takes 1 dataset as input, "
                 "followed by a options");
 
-    SampledDatasetConfig config;
-
     if(!options.isRow())
         throw ML::Exception("options should be a row");
 
-    for(auto elem : options.getRow()) {
-        const ColumnName& columnName = std::get<0>(elem);
-
-        if (columnName == ColumnName("rows")) {
-            config.rows = std::get<1>(elem).toInt();
-        }
-        else if (columnName == ColumnName("fraction")) {
-            config.fraction = std::get<1>(elem).toDouble();
-        }
-        else if (columnName == ColumnName("withReplacement")) {
-            config.withReplacement = std::get<1>(elem).asBool();
-        }
-        else if (columnName == ColumnName("seed")) {
-            config.seed = std::get<1>(elem).toInt();
-        }
-        else {
-            auto expVal2 = std::get<1>(elem);
-            throw ML::Exception("unknown option: '"+columnName.toString()+"'");
-        }
-    }
-
     auto ds = createSampledDatasetFn(context.getMldbServer(),
                                      args[0].dataset,
-                                     config);
+                                     options); //config);
 
     return bindDataset(ds, alias); 
 }

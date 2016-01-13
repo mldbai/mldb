@@ -272,11 +272,37 @@ SampledDataset(MldbServer * owner,
 
 SampledDataset::
 SampledDataset(MldbServer * owner,
-                  std::shared_ptr<Dataset> dataset,
-                  const SampledDatasetConfig & sampleConfig)
+               std::shared_ptr<Dataset> dataset,
+               const ExpressionValue & options)
     : Dataset(owner)
 {
-    itl.reset(new Itl(server, dataset, sampleConfig));
+     SampledDatasetConfig config;
+
+    if(!options.isRow())
+        throw ML::Exception("options should be a row");
+
+    for(auto elem : options.getRow()) {
+        const ColumnName& columnName = std::get<0>(elem);
+
+        if (columnName == ColumnName("rows")) {
+            config.rows = std::get<1>(elem).toInt();
+        }
+        else if (columnName == ColumnName("fraction")) {
+            config.fraction = std::get<1>(elem).toDouble();
+        }
+        else if (columnName == ColumnName("withReplacement")) {
+            config.withReplacement = std::get<1>(elem).asBool();
+        }
+        else if (columnName == ColumnName("seed")) {
+            config.seed = std::get<1>(elem).toInt();
+        }
+        else {
+            auto expVal2 = std::get<1>(elem);
+            throw ML::Exception("unknown option: '"+columnName.toString()+"'");
+        }
+    }
+
+    itl.reset(new Itl(server, dataset, config));
 }
 
 SampledDataset::
@@ -320,13 +346,13 @@ regSampled(builtinPackage(),
 
 extern std::shared_ptr<Dataset> (*createSampledDatasetFn) (MldbServer *,
                                                            std::shared_ptr<Dataset> dataset,
-                                                           SampledDatasetConfig sampleConfig);
+                                                           const ExpressionValue & options);
 
 std::shared_ptr<Dataset> createSampledDataset(MldbServer * server,
                                               std::shared_ptr<Dataset> dataset,
-                                              SampledDatasetConfig sampleConfig)
+                                              const ExpressionValue & options)
 {  
-    return std::make_shared<SampledDataset>(server, dataset, sampleConfig);
+    return std::make_shared<SampledDataset>(server, dataset, options);
 }
 
 namespace {
