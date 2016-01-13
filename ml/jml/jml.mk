@@ -57,7 +57,7 @@ LIBBOOSTING_SOURCES := \
 	label.cc \
 	buckets.cc
 
-LIBBOOSTING_LINK :=	utils db algebra arch judy boost_regex boost_thread worker_task
+LIBBOOSTING_LINK :=	utils db algebra arch judy boost_regex worker_task
 
 #$(eval $(call set_compile_option,perceptron_generator.cc perceptron.cc,-ffast-math))
 

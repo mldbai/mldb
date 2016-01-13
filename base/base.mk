@@ -4,7 +4,7 @@
 LIBBASE_SOURCES := \
         parse_context.cc \
 
-LIBBASE_LINK :=	arch boost_thread
+LIBBASE_LINK :=	arch
 
 $(eval $(call library,base,$(LIBBASE_SOURCES),$(LIBBASE_LINK)))
 

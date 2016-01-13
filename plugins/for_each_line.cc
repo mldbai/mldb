@@ -13,11 +13,11 @@
 #include "mldb/arch/threads.h"
 #include <chrono>
 #include <thread>
+#include <cstring>
 #include "mldb/jml/utils/ring_buffer.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/jml/utils/worker_task.h"
 #include "mldb/base/exc_assert.h"
-#include <boost/thread.hpp>
 #include "mldb/types/date.h"
 
 
@@ -189,17 +189,19 @@ forEachLineStr(std::istream & stream,
 {
     Processing processing;
 
-    boost::thread_group threads;
+    std::vector<std::thread> threads;
     for (unsigned i = 0;  i < numThreads;  ++i)
-        threads.create_thread(std::bind(parseLinesThreadStr,
-                                        std::ref(processing),
-                                        std::ref(processLine)));
+        threads.emplace_back(std::bind(parseLinesThreadStr,
+                                       std::ref(processing),
+                                       std::ref(processLine)));
         
     size_t result = readStream(stream, processing,
                                ignoreStreamExceptions, maxLines);
         
     processing.shutdown = true;
-    threads.join_all();
+
+    for (auto & t: threads)
+        t.join();
 
     if (processing.hasException()) {
         std::rethrow_exception(processing.excPtr);

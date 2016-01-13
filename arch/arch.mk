@@ -37,7 +37,7 @@ LIBGC_SOURCES := \
 LIBGC_SOURCES := \
 	gc_lock.cc 
 
-$(eval $(call library,gc,$(LIBGC_SOURCES),rt arch boost_thread))
+$(eval $(call library,gc,$(LIBGC_SOURCES),rt arch))
 
 # Note: we should be able to get away without this, but we get a segfault on
 # shared library loading if it's not here.
