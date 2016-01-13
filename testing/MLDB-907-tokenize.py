@@ -78,7 +78,7 @@ mldb.log(result)
 assert result['statusCode'] == 200
 assert json.loads(result['response'])[0]['columns'][0][1] == "e"
 
-result = mldb.perform('GET', '/v1/query', [['q', "SELECT token_extract('a b c d e f', -1, {' ' as whatever, 2 as limit, 1 as offset}) as token"]])
+result = mldb.perform('GET', '/v1/query', [['q', "SELECT token_extract('a b c d e f', -1, {' ' as splitchars, 2 as limit, 1 as offset}) as token"]])
 mldb.log(result)
 assert result['statusCode'] == 200
 assert json.loads(result['response'])[0]['columns'][0][1] == "c"
