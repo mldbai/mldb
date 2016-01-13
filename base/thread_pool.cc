@@ -10,9 +10,9 @@
 #include "thread_pool.h"
 #include "thread_pool_impl.h"
 #include "mldb/arch/thread_specific.h"
-#include "mldb/arch/futex.h"
 #include "arch/cpu_info.h"
 #include <atomic>
+#include <condition_variable>
 #include <vector>
 #include <thread>
 #include <iostream>
@@ -137,6 +137,12 @@ struct ThreadPool::Itl {
     /// to be woken.
     std::atomic<int> threadsSleeping;
     
+    /// Mutex for the wakeup condition variable
+    std::mutex wakeupMutex;
+
+    /// Wakeup condition variable
+    std::condition_variable wakeupCv;
+
     /// Epoch number for thread creation.  We can use this to
     /// tell if a set of queues is current, by checking for
     /// matching epoch numbers.
@@ -201,7 +207,9 @@ struct ThreadPool::Itl {
             this->shutdown = 1;
         }
         
-        ML::futex_wake(threadsSleeping, -1 /* all threads */);
+        {
+            wakeupCv.notify_all();
+        }
         
         for (auto & w: workers)
             w.join();
@@ -236,8 +244,9 @@ struct ThreadPool::Itl {
             // then it will miss the wakeup.  We deal with this by having
             // the threads never sleep for too long, so that if we do
             // miss a wakeup it won't be the end of the world.
-            if (threadsSleeping)
-                ML::futex_wake(threadsSleeping, 1);
+            if (threadsSleeping) {
+                wakeupCv.notify_one();
+            }
         }
         else {
             // The queue was full.  Do the work here, hopefully someone
@@ -350,7 +359,13 @@ struct ThreadPool::Itl {
                     ++itersWithNoWork;
                     if (itersWithNoWork == 10) {
                         ++threadsSleeping;
-                        ML::futex_wait(threadsSleeping, threadsSleeping, 0.001);
+                        std::unique_lock<std::mutex> guard(wakeupMutex);
+
+                        // We can't sleep forever, since we allow for
+                        // wakeups to be missed for efficiency reasons,
+                        // and so we need to poll every now and again.
+                        wakeupCv.wait_for(guard, std::chrono::milliseconds(1));
+
                         --threadsSleeping;
                         itersWithNoWork = 0;
                     }
