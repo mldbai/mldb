@@ -29,14 +29,14 @@ struct KmeansConfig : public ProcedureConfig {
           maxIterations(100),
           metric(METRIC_COSINE)
     {
-        centroids.withType("embedding");
     }
 
     InputQuery trainingData;
+    Url modelFileUrl;
     Optional<PolyConfigT<Dataset> > output;
+    Optional<PolyConfigT<Dataset> > centroids;
     static constexpr char const * defaultOutputDatasetType = "embedding";
 
-    PolyConfigT<Dataset> centroids;
     int numInputDimensions;
     int numClusters;
     int maxIterations;
@@ -73,19 +73,8 @@ struct KmeansProcedure: public Procedure {
 /*****************************************************************************/
 
 struct KmeansFunctionConfig {
-    KmeansFunctionConfig()
-        : metric(METRIC_COSINE),
-          select(SelectExpression::parse("*")),
-          when(WhenExpression::TRUE),
-          where(SqlExpression::TRUE)
-    {
-    }
     
-    PolyConfigT<Dataset> centroids;        ///< Dataset containing the centroids
-    MetricSpace metric;                   ///< Actual metric
-    SelectExpression select;               ///< What to select from dataset
-    WhenExpression when;  //
-    std::shared_ptr<SqlExpression> where;  ///< Which centroids to take
+    Url modelFileUrl;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(KmeansFunctionConfig);
@@ -104,14 +93,12 @@ struct KmeansFunction: public Function {
     virtual FunctionInfo getFunctionInfo() const;
     
     KmeansFunctionConfig functionConfig;
-    std::vector<ColumnName> columnNames;
 
-    struct Cluster {
-        CellValue clusterName;
-        ML::distribution<float> centroid;
-    };
+    // holds the dimension of the embedding space
+    size_t dimension;
 
-    std::vector<Cluster> clusters;
+    struct Impl;
+    std::unique_ptr<Impl> impl;
 };
 
 } // namespace MLDB

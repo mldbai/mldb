@@ -14,10 +14,11 @@ ds1.commit()
 res = mldb.perform('PUT', '/v1/functions/patate', [], {
     'type': 'sql.query',
     'params': {
-        'from': {'id': 'ds1'},
-        'where': 'rowName() = $x'}})
+        'query': 'select * from ds1 where rowName() = $x'
+    }
+})
 
-assert res['statusCode'] == 201
+assert res['statusCode'] == 201, res['response']
 
 res = mldb.perform('GET', '/v1/functions/patate/info')
 mldb.log("patate function info")

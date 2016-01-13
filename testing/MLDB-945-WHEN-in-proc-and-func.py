@@ -35,9 +35,13 @@ def run_query_function(when):
     result = mldb.perform('PUT', '/v1/functions/when_function', [], {
         'type': 'sql.query',
         'params': {
-            'from': {'id': 'dataset1'},
-            'when': when,
-            'where': "rowName() = '9'"}})
+            'query' : {
+                'from': {'id': 'dataset1'},
+                'when': when,
+                'where': "rowName() = '9'"
+            }
+        }
+    })
 
     #mldb.log(result)
     assert result['statusCode'] == 201, 'failed to create the function: %s' % result['response']

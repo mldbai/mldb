@@ -17,16 +17,7 @@ namespace MLDB {
 
 struct CsvExportProcedureConfig : ProcedureConfig {
     CsvExportProcedureConfig();
-    SelectExpression select;
-    std::shared_ptr<TableExpression> inputDataset;
-    std::shared_ptr<TableExpression> outputDataset;
-    OrderByExpression orderBy;
-    WhenExpression when;
-    std::shared_ptr<SqlExpression> where;
-    TupleExpression groupBy;
-    std::shared_ptr<SqlExpression> having;
-    ssize_t offset;
-    ssize_t limit;
+    InputQuery exportData;
     Url dataFileUrl;
     bool headers;
     std::string delimiter;

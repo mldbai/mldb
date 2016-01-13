@@ -67,7 +67,6 @@ BOOST_AUTO_TEST_CASE( test_output_dataset_defaults )
 {
     std::vector<std::pair<PolyConfigT<Dataset>, std::string> > expectedDatasetType = {
         { createConfig<BucketizeProcedureConfig>("outputDataset").outputDataset, "sparse.mutable" },
-        { createConfig<KmeansConfig>("centroidsDataset").centroids, "embedding" },
         { createConfig<StatsTableProcedureConfig>("outputDataset").output, "sparse.mutable" },
         { createConfig<TransformDatasetConfig>("outputDataset").outputDataset, "sparse.mutable" },
         { createConfig<TsneConfig>("rowOutputDataset").output, "embedding" }

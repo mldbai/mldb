@@ -22,5 +22,6 @@ export MLDB_SSD_CACHE_PATH = /ssd_cache
 export MLDB_EXTRA_FLAGS =  # these flags will be passed as-is to the mldb_runner executable
 export MLDB_GLOBAL_PLUGINS_PATH = file:///opt/mldb/plugins
 export MLDB_LOCAL_PLUGINS_PATH = file:///mldb_data/plugins/autoload
+export MLDB_LOGFILE = /var/log/mldb_runner.log
 
 
