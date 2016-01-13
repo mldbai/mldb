@@ -24,5 +24,6 @@ export MLDB_GLOBAL_PLUGINS_PATH = file:///opt/mldb/plugins
 export MLDB_LOCAL_PLUGINS_PATH = file:///mldb_data/plugins/autoload
 export MLDB_LOGFILE = /var/log/mldb_runner.log
 export MLDB_LOGGER_HTTP_PORT = 13500
+export MLDB_USER = _mldb
 
 
