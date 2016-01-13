@@ -27,7 +27,7 @@ struct SqlExpression;
 /** Function that runs a single-row SQL query against a dataset. */
 
 struct SqlQueryFunctionConfig {
-    InputQuery inputData;
+    InputQuery query;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(SqlQueryFunctionConfig);

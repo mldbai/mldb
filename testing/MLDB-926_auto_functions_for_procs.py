@@ -70,6 +70,7 @@ conf = {
     "type": "kmeans.train",
     "params": {
         "trainingData": "select * excluding(label) from toy",
+        "modelFileUrl": "file://tmp/MLDB-926.mks",
         "centroidsDataset": {"id": "kmean_out", "type": "sparse.mutable" },
         "functionName": "kmeans_func"
     }

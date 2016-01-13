@@ -207,8 +207,6 @@ runHttpQuery(const Utf8String& query,
              bool rowNames,
              bool rowHashes) const
 {
-    cerr << "running query " << query << endl;
-
     auto stm = SelectStatement::parse(query.rawString());
     SqlExpressionMldbContext mldbContext(this);
 

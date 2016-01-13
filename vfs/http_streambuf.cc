@@ -78,7 +78,7 @@ struct HttpStreamingDownloadSource {
     /** Wait for the HTTP header to be available from the connection, and
         return it.
     */
-    const HttpHeader & getHeader() const
+    HttpHeader getHeader() const
     {
         auto future = impl->headerPromise.get_future();
         return future.get();
