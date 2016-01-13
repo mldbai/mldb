@@ -2,8 +2,10 @@
 # Copyright Datacratic 2016
 # Author: Jean Raby <jean@datacratic.com>
 
-# Wrapper around tee -a
-# Read from stdin and write to logfile and to stdout
+# TODO:
+#  - configure logging so that access/error logs go somewhere else than stderr
+#  - see if we can force line buffering on stdout in a more beautiful way
+#  - add proper content-type
 
 import functools
 import os
@@ -32,6 +34,9 @@ def stdin_ready(f, ringbuf, fd, events):
         ringbuf.append(logline)
         logline_cnt += 1
         sys.stdout.write(line)
+        # line buffering is needed to make sure message are emitted in realtime
+        # simulate that by flushing every line...
+        sys.stdout.flush()
     except IOError:
       # If we get a EWOULDBLOCK, continue
       # EOF handled below
