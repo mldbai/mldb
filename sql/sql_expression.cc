@@ -3141,6 +3141,7 @@ matchJoinQualification(ML::Parse_Context & context, JoinQualification& joinQuali
     { 
         bool right = false;
         bool full = false;
+        bool outer = false;
         bool left = matchKeyword(context, "LEFT ");
         if (!left)
         {
@@ -3148,14 +3149,16 @@ matchJoinQualification(ML::Parse_Context & context, JoinQualification& joinQuali
             if (!right)
             {
                full = matchKeyword(context, "FULL ");
+               outer = matchKeyword(context, "OUTER ");
             }
         }
 
-        if (right || left || full)
+        if (right || left || full || outer)
         {
            //outer is optional, eat it
            skip_whitespace(context);
-           matchKeyword(context, "FULL ");
+           if (!outer)
+              matchKeyword(context, "OUTER ");
 
            joinQualify = right ? JOIN_RIGHT : (left ? JOIN_LEFT : JOIN_FULL);
 
