@@ -11,7 +11,7 @@ def find_column(result, column, value):
 		row = response[rowIndex]['columns']
 		numCol = len(row)
 		for colIndex in range (0, numCol):
-			if row[colIndex][0] == column:				
+			if row[colIndex][0] == column:
 				found = True
 				assert row[colIndex][1] == value
 				break
@@ -27,7 +27,7 @@ def not_find_column(result, column):
 		row = response[rowIndex]['columns']
 		numCol = len(row)
 		for colIndex in range (0, numCol):
-			assert row[colIndex][0] != column				
+			assert row[colIndex][0] != column
 
 result = mldb.perform('GET', '/v1/query', [['q', "SELECT tokenize('a,b,c,a') as tokens"]])
 mldb.log(result)
@@ -78,7 +78,7 @@ mldb.log(result)
 assert result['statusCode'] == 200
 assert json.loads(result['response'])[0]['columns'][0][1] == "e"
 
-result = mldb.perform('GET', '/v1/query', [['q', "SELECT token_extract('a b c d e f', -1, {' ' as splitchars, 2 as limit, 1 as offset}) as token"]])
+result = mldb.perform('GET', '/v1/query', [['q', "SELECT token_extract('a b c d e f', -1, {' ' as whatever, 2 as limit, 1 as offset}) as token"]])
 mldb.log(result)
 assert result['statusCode'] == 200
 assert json.loads(result['response'])[0]['columns'][0][1] == "c"

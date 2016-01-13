@@ -932,7 +932,7 @@ ParseTokenizeArguments(Utf8String& splitchar, Utf8String& quotechar,
     auto assertArg = [&] (size_t field, const string & name)
         {
             if (check[field])
-                throw HttpReturnException(400, "Argument " + name + "is specified more than once");
+                throw HttpReturnException(400, "Argument " + name + " is specified more than once");
             check[field] = true;
         };
 
@@ -1306,6 +1306,92 @@ RegisterVectorOp<DiffOp> registerVectorDiff("vector_diff");
 RegisterVectorOp<SumOp> registerVectorSum("vector_sum");
 RegisterVectorOp<ProductOp> registerVectorProduct("vector_product");
 RegisterVectorOp<QuotientOp> registerVectorQuotient("vector_quotient");
+
+void
+ParseConcatArguments(bool& skipNulls, Utf8String& separator, bool& columnValue,
+                     const ExpressionValue::Row & argRow)
+{
+    bool check[3] = {false, false, false};
+    auto assertArg = [&] (size_t field, const string & name) {
+        if (check[field]) {
+            throw HttpReturnException(
+                400, "Argument " + name + " is specified more than once");
+        }
+        check[field] = true;
+    };
+
+    for (auto& arg : argRow) {
+        const ColumnName& columnName = std::get<0>(arg);
+        if (columnName == ColumnName("skipNulls")) {
+            assertArg(0, "splitNulls");
+            skipNulls = std::get<1>(arg).asBool();
+        }
+        else if (columnName == ColumnName("separator")) {
+            assertArg(1, "separator");
+            separator = std::get<1>(arg).toUtf8String();
+        }
+        else if (columnName == ColumnName("columnValue")) {
+            assertArg(2, "columnValue");
+            columnValue = std::get<1>(arg).asBool();
+        }
+        else {
+            throw HttpReturnException(400, "Unknown argument in tokenize",
+                                      "argument", columnName);
+        }
+    }
+}
+
+BoundFunction concat(const std::vector<BoundSqlExpression> & args)
+{
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & context) -> ExpressionValue
+            {
+                bool skipNulls = true;
+                Utf8String separator(",");
+                bool columnValue = true;
+
+                if (args.size() == 0) {
+                    throw HttpReturnException(
+                        400, "concat requires at least one argument");
+                }
+
+                if (args.size() > 2) {
+                    throw HttpReturnException(
+                        400, "concat requires at most two arguments");
+                }
+
+                if (args.size() == 2) {
+                    ParseConcatArguments(skipNulls, separator, columnValue,
+                                         args.at(1).getRow());
+                }
+
+                Utf8String result = "";
+                Date ts = Date::negativeInfinity();
+                bool first = true;
+                auto onAtom = [&] (const Id & columnName,
+                                   const Id & prefix,
+                                   const CellValue & val,
+                                   Date atomTs)
+                {
+                    if (!val.empty() || !skipNulls) {
+                        if (first) {
+                            first = false;
+                        }
+                        else {
+                            result += separator;
+                        }
+                        result += columnValue ?
+                            val.toUtf8String() : columnName.toUtf8String();
+                    }
+                    return true;
+                };
+
+                args.at(0).forEachAtom(onAtom);
+                return ExpressionValue(result, ts);
+            },
+            std::make_shared<UnknownRowValueInfo>()};
+}
+static RegisterBuiltin registerConcat(concat, "concat");
 
 } // namespace Builtins
 } // namespace MLDB
