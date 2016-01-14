@@ -96,6 +96,45 @@ def test_column_value():
     assert res[2][1] == 'colA,colC'
 
 
+@test_case
+def test_bad_params():
+    try:
+        query('SELECT concat({*}, {patate: 1}) FROM sample')
+    except AssertionError:
+        pass
+    else:
+        assert False, 'should not be here'
+
+
+@test_case
+def test_alias():
+    res = query('SELECT concat({*}) AS alias FROM sample')
+    assert res[0][1] == 'alias'
+
+
+@test_case
+def test_partial_columns():
+    res = query('SELECT concat({colA, colC}) FROM sample')
+    assert res[1][1] == 'val1A'
+    assert res[2][1] == 'val2A,val2C'
+
+
+@test_case
+def test_static_columns():
+    res = query('SELECT concat({colA, \'static\', colB}) FROM sample')
+    assert res[1][1] == 'val1A,static,val1B'
+    assert res[2][1] == 'val2A,static'
+
+
+@test_case
+def test_static_columns_name():
+    res = query(
+        "SELECT concat({colA, 'static', colB}, {columnValue: false}) "
+        "FROM sample")
+    assert res[1][1] == "colA,'static',colB"
+    assert res[2][1] == "colA,'static'"
+
+
 if __name__ == '__main__':
     create_sample_dataset()
     run_tests()
