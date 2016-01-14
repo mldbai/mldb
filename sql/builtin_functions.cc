@@ -1323,7 +1323,7 @@ ParseConcatArguments(bool& skipNulls, Utf8String& separator, bool& columnValue,
     for (auto& arg : argRow) {
         const ColumnName& columnName = std::get<0>(arg);
         if (columnName == ColumnName("skipNulls")) {
-            assertArg(0, "splitNulls");
+            assertArg(0, "skipNulls");
             skipNulls = std::get<1>(arg).asBool();
         }
         else if (columnName == ColumnName("separator")) {
