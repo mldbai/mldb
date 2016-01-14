@@ -1349,17 +1349,18 @@ BoundFunction concat(const std::vector<BoundSqlExpression> & args)
             400, "concat requires at most two arguments");
     }
 
+    Utf8String separator(",");
+    bool columnValue = true;
+
+    if (args.size() == 2) {
+        SqlRowScope emptyScope;
+        ParseConcatArguments(separator, columnValue,
+                             args[1](emptyScope).getRow());
+    }
+
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & context) -> ExpressionValue
         {
-            Utf8String separator(",");
-            bool columnValue = true;
-
-            if (args.size() == 2) {
-                ParseConcatArguments(separator, columnValue,
-                                     args.at(1).getRow());
-            }
-
             Utf8String result = "";
             Date ts = Date::negativeInfinity();
             bool first = true;
