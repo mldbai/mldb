@@ -151,8 +151,26 @@ struct BoundSqlExpression {
         This allows for values to be returned as references without copying.
     */
     typedef std::function<const ExpressionValue & (const SqlRowScope & context,
+                                                   ExpressionValue & storage,
+                                                   const VariableFilter & filter)> ExecFunction;
+
+#if 0
+    typedef std::function<const ExpressionValue & (const SqlRowScope & context,
                                                    ExpressionValue & storage)> ExecFunction;
 
+    struct DefaultExecutor {
+        ExecFunction exec;
+        DefaultExecutor() {}
+        DefaultExecutor(ExecFunction & exec) : exec(exec) {}
+        const ExpressionValue & operator()(const SqlRowScope & context,
+                                           ExpressionValue & storage,
+                                           const VariableFilter & filter)
+        {
+            // default executor uses the default filter
+            return exec(context, storage);
+        }
+    };
+#endif
     BoundSqlExpression()
     {
     }
@@ -180,16 +198,18 @@ struct BoundSqlExpression {
 
     const ExpressionValue &
     operator () (const SqlRowScope & context,
-                 ExpressionValue & storage) const
+                 ExpressionValue & storage,
+                 const VariableFilter & filter = GET_LATEST) const
     {
-        return exec(context, storage);
+        return exec(context, storage, filter);
     }
 
     ExpressionValue
-    operator () (const SqlRowScope & context) const
+    operator () (const SqlRowScope & context,
+                 const VariableFilter & filter = GET_LATEST) const
     {
         ExpressionValue storage;
-        const ExpressionValue & res = exec(context, storage);
+        const ExpressionValue & res = exec(context, storage, filter);
         if (&res == &storage)
             return std::move(storage);
         return res;

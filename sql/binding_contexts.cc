@@ -29,11 +29,12 @@ rebind(BoundSqlExpression expr)
 
     // Call the exec function with the context pivoted to the output context
     expr.exec = [=] (const SqlRowScope & context,
-                     ExpressionValue & storage)
+                     ExpressionValue & storage,
+                     const VariableFilter & filter)
         -> const ExpressionValue &
         {
             auto & row = static_cast<const RowContext &>(context);
-            return outerExec(row.outer, storage);
+            return outerExec(row.outer, storage, filter);
         };
 
     return expr;

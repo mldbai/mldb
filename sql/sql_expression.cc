@@ -2791,12 +2791,13 @@ bind(SqlBindingScope & context) const
          hasUnknownColumns ? SCHEMA_OPEN : SCHEMA_CLOSED);
 
     auto exec = [=] (const SqlRowScope & context,
-                     ExpressionValue & storage) -> const ExpressionValue &
+                     ExpressionValue & storage,
+                     const VariableFilter & filter) -> const ExpressionValue &
         {
             StructValue result;
 
             for (auto & c: boundClauses) {
-                ExpressionValue v = c(context);
+                ExpressionValue v = c(context, filter);
                 v.mergeToRowDestructive(result);
             }
             

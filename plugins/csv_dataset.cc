@@ -799,17 +799,17 @@ struct CsvDataset::Itl: public TabularDataStore {
                 // If it doesn't match the where, don't add it 
                 if (!isWhereTrue) {
                     ExpressionValue storage;
-                    if (!whereBound.exec(row, storage).isTrue())
+                    if (!whereBound(row, storage).isTrue())
                         return true;
                 }
                 
                 // Get the timestamp for the row
                 Date rowTs = ts;
                 ExpressionValue tsStorage;
-                rowTs = timestampBound.exec(row, tsStorage).coerceToTimestamp().toTimestamp();
+                rowTs = timestampBound(row, tsStorage).coerceToTimestamp().toTimestamp();
                 
                 ExpressionValue nameStorage;
-                RowName rowName(namedBound.exec(row, nameStorage).toUtf8String());
+                RowName rowName(namedBound(row, nameStorage).toUtf8String());
 
                 //cerr << "adding row with rowName " << rowName << endl;
                 
@@ -833,7 +833,7 @@ struct CsvDataset::Itl: public TabularDataStore {
 
                     ExpressionValue selectStorage;
                     const ExpressionValue & selectOutput
-                        = selectBound.exec(row, selectStorage);
+                        = selectBound(row, selectStorage);
 
                     if (&selectOutput == &selectStorage) {
                         // We can destructively work with it
