@@ -66,13 +66,14 @@ doGetFunction(const Utf8String & tableName,
     result.exec = [=] (const std::vector<ExpressionValue> & args,
                        const SqlRowScope & context)
         {
-            auto & row = static_cast<const RowContext &>(context);
-            //cerr << "rebinding to apply function " << functionName
-            //<< ": context type is "
-            //<< ML::type_name(context) << " outer type is "
-            //<< ML::type_name(row.outer) << endl;
-
-            return outerFunction(args, row.outer);
+            const RowContext * row = dynamic_cast<const RowContext*>(&context);
+            if (row) {
+                return outerFunction(args, row->outer);
+            }
+            else {
+                return outerFunction(args, context);
+            }
+           
         };
 
     return result;
