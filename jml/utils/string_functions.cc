@@ -216,22 +216,16 @@ unsigned replace_all(std::string & haystack, const std::string & search,
 string
 trim(const string & other)
 {
-    return boost::trim_copy(other);
+    size_t len = other.size();
 
-    /*size_t len = other.size();
-
-    size_t start;
-    for (start = 0; start < len; start++) {
-        if (other[start] != ' ' && other[start] != '\t') {
-            break;
-        }
+    size_t start(0);
+    while (start < len && isspace_nolocale(other[start])) {
+        start++;
     }
 
-    size_t end;
-    for (end = len; end > start; end--) {
-        if (other[end-1] != ' ' && other[end-1] != '\t') {
-            break;
-        }
+    size_t end(len);
+    while (end > start && isspace_nolocale(other[end-1])) {
+        end--;
     }
 
     if (start == 0 && end == len) {
@@ -243,7 +237,7 @@ trim(const string & other)
         result = other.substr(start, end-start);
     }
 
-    return result;*/
+    return result;
 }
 
 
