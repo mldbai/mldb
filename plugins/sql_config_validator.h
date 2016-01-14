@@ -14,6 +14,7 @@ namespace Datacratic {
 
 namespace MLDB {
 
+
 // VALIDATION HELPERS
 template<typename ConfigType, 
     typename FieldType,
@@ -59,6 +60,25 @@ validate(FieldType ConfigType::* field, const char * name)
         };
 }
 
+// really consider using a variadic parameter
+template<typename ConfigType,
+    typename FieldType,
+    template<typename> class Validator1,
+    template<typename> class Validator2,
+    template<typename> class Validator3,
+    template<typename> class Validator4>
+std::function<void (ConfigType *, JsonParsingContext & context)>
+validate(FieldType ConfigType::* field, const char * name)
+{
+     return [=](ConfigType * cfg, JsonParsingContext & context)
+        {
+            Validator1<FieldType>()(cfg->*field, name);
+            Validator2<FieldType>()(cfg->*field, name);
+            Validator3<FieldType>()(cfg->*field, name);
+            Validator4<FieldType>()(cfg->*field, name);
+        };
+}
+
 /** 
  *  Accept any select statement with empty GROUP BY/HAVING clause.
  *  FieldType must contain a SelectStatement named stm.
@@ -75,6 +95,19 @@ template<typename FieldType> struct NoGroupByHaving
                 throw ML::Exception("cannot train %s with a having clause", name);
             }
         }
+    }
+};
+
+/** 
+ *  Accept any select statement with empty GROUP BY/HAVING clause.
+ *  FieldType must contain a SelectStatement named stm.
+ */
+template<typename FieldType> struct MustContainFrom
+{
+    void operator()(const FieldType & query, const char * name)
+    {
+        if (!query.stm || !query.stm->from)
+            throw ML::Exception("%s must contain a FROM clause", name);
     }
 };
 
