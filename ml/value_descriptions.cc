@@ -21,7 +21,6 @@
 #include "mldb/ml/jml/glz_classifier.h"
 #include "mldb/ml/jml/stump.h"
 #include "mldb/ml/jml/boosted_stumps.h"
-#include "mldb/arch/thread_specific.h"
 
 
 using namespace std;
@@ -267,27 +266,26 @@ struct JmlConfigurationDescription
 DEFINE_VALUE_DESCRIPTION_NS(ML::Configuration,
                             JmlConfigurationDescription);
 
-//thread_local std::vector<const ML::Feature_Space *> featureSpaceContextStack;
-ML::Thread_Specific<std::vector<const ML::Feature_Space *> > featureSpaceContextStack;
+static thread_local std::vector<const ML::Feature_Space *> featureSpaceContextStack;
 
 void FeatureSpaceContext::push(const ML::Feature_Space * fs)
 {
     ExcAssert(fs);
-    featureSpaceContextStack->push_back(fs);
+    featureSpaceContextStack.push_back(fs);
 }
 
 void FeatureSpaceContext::pop(const ML::Feature_Space * fs)
 {
     ExcAssert(fs);
-    ExcAssertGreater(featureSpaceContextStack->size(), 0);
-    ExcAssertEqual(featureSpaceContextStack->back(), fs);
-    featureSpaceContextStack->pop_back();
+    ExcAssertGreater(featureSpaceContextStack.size(), 0);
+    ExcAssertEqual(featureSpaceContextStack.back(), fs);
+    featureSpaceContextStack.pop_back();
 }
 
 const ML::Feature_Space * FeatureSpaceContext::current()
 {
-    ExcAssertGreater(featureSpaceContextStack->size(), 0);
-    return featureSpaceContextStack->back();
+    ExcAssertGreater(featureSpaceContextStack.size(), 0);
+    return featureSpaceContextStack.back();
 }
 
 

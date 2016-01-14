@@ -1,5 +1,7 @@
 #!/bin/bash
 
+exec 2>&1  # stderr to stdout for logging purposes
+
 cd {{IPYTHON_NB_DIR}}
 
 /sbin/setuser _mldb mkdir -p {{IPYTHON_NB_DIR}}/_demos
@@ -18,5 +20,5 @@ if [ ! -e {{IPYTHON_DIR}}/profile_default ] ; then
     /sbin/setuser _mldb cp {{IPYTHON_DIR}}/custom.css {{IPYTHON_DIR}}/profile_default/static/custom/custom.css
 fi
 
-IPYTHONDIR={{IPYTHON_DIR}} /sbin/setuser _mldb /usr/local/bin/ipython notebook --log-level=ERROR --config={{IPYTHON_DIR}}/ipython_extra_config.py 2>&1 | tee /var/log/ipython_notebook.log
+IPYTHONDIR={{IPYTHON_DIR}} exec /sbin/setuser _mldb /usr/local/bin/ipython notebook --log-level=ERROR --config={{IPYTHON_DIR}}/ipython_extra_config.py
  

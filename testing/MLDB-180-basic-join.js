@@ -133,7 +133,7 @@ testQuery(
 var resp = mldb.put('/v1/functions/poil', {
     'type': 'sql.query',
     'params': {
-        'inputData': 'select * from test1 join test2 on test1.x = test2.x order by rowName()'
+        'query': 'select * from test1 join test2 on test1.x = test2.x order by rowName()'
     }
 });
 assertEqual(resp.responseCode, 201);
@@ -142,7 +142,7 @@ assertEqual(resp.responseCode, 201);
 var resp = mldb.put('/v1/functions/poil_as', {
     'type': 'sql.query',
     'params': {
-        'inputData' : {
+        'query' : {
             'select': '*',
             'from': 'test1 as t1 join test2 as t2 on t1.x = t2.x',
             'orderBy': 'rowName()'
@@ -169,7 +169,7 @@ testQuery(
 var resp = mldb.put('/v1/functions/poil_group', {
     'type': 'sql.query',
     'params': {
-        'inputData' : {
+        'query' : {
             'select': 't1.x, max(t1.y), min(t3.x), rowName() as rn',
             'from': 'test1 as t1' +
                 ' join test2 as t2 on t1.x = t2.x' +
@@ -194,7 +194,7 @@ testQuery(
 var resp = mldb.put('/v1/functions/patate', {
     'type': 'sql.query',
     'params': {
-        'inputData' : {
+        'query' : {
             'select': 't1.x, max(t1.y), min(t3.x)',
             'from': 'test1 as t1' +
                 ' join test2 as t2 on t1.x = t2.x' +
@@ -209,7 +209,7 @@ assertEqual(resp.responseCode, 201);
 var resp = mldb.put('/v1/functions/patate_params', {
     'type': 'sql.query',
     'params': {
-        'inputData' : {
+        'query' : {
             'select': 't1.x, max(t1.y), min(t3.x)',
             'from': 'test1 as t1' +
                 ' join test2 as t2 on t1.x = t2.x' +
@@ -227,7 +227,7 @@ assertEqual(resp.responseCode, 201);
 var resp = mldb.put('/v1/functions/patate_params_on_clause', {
     'type': 'sql.query',
     'params': {
-        'inputData' : {
+        'query' : {
             'select': 't1.x, max(t1.y), min(t3.x)',
             'from': 'test1 as t1' +
                 ' join test2 as t2 on t1.x = t2.x' +

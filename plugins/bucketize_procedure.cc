@@ -145,10 +145,8 @@ run(const ProcedureRunConfig & run,
     int64_t rowCount = orderedRowNames.size();
     cerr << "Row count: " << rowCount  << endl;
 
-    std::shared_ptr<Dataset> output;
-    if (!procedureConfig.outputDataset.type.empty() || !procedureConfig.outputDataset.id.empty()) {
-        output = createDataset(server, procedureConfig.outputDataset, nullptr, true /*overwrite*/);
-    }
+    auto output = createDataset(server, procedureConfig.outputDataset,
+                                nullptr, true /*overwrite*/);
 
     typedef tuple<ColumnName, CellValue, Date> cell;
     PerThreadAccumulator<vector<pair<RowName, vector<cell>>>> accum;

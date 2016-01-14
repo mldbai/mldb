@@ -27,26 +27,16 @@ DEFINE_STRUCTURE_DESCRIPTION(TokenSplitConfig);
 TokenSplitConfigDescription::
 TokenSplitConfigDescription()
 {
-    addField("dictionaryDataset", &TokenSplitConfig::dictionaryDataset,
-             "Dataset to gather the list of tokens to separate");
-    addField("select", &TokenSplitConfig::select,
-             "The SELECT clause for which columns to include from the dataset. ",
-             SelectExpression::STAR);
-    addField("when", &TokenSplitConfig::when,
-             "Boolean expression determining which tuples from the dataset "
-             "to keep based on their timestamps",
-             WhenExpression::TRUE);
-    addField("where", &TokenSplitConfig::where,
-             "The WHERE clause for which rows to include from the dataset. "
-             "This can be any expression involving the columns in the dataset",
-             SqlExpression::TRUE);
+    addField("tokens", &TokenSplitConfig::tokens,
+             "An SQL expression specifiying the list of tokens to separate.");
     addField("splitchars", &TokenSplitConfig::splitchars,
-             "A string containing the list of possible split characters"
-             ",",
-             Utf8String(" ,"));
+             "A string containing the list of possible split characters. "
+             "Each character in the list is interpreted as a splitchar. ",
+             Utf8String("&lt;space&gt;,"));
     addField("splitcharToInsert", &TokenSplitConfig::splitcharToInsert,
-             "A string containing the split character to insert if missing",
-             Utf8String(" "));
+             "A string containing the split character to insert if none of the characters "
+             "in 'splitchars' are already present.",
+             Utf8String("&lt;space&gt;"));
 }
 
 /*****************************************************************************/
@@ -61,8 +51,7 @@ TokenSplit(MldbServer * owner,
 {
     functionConfig = config.params.convert<TokenSplitConfig>();   
     SqlExpressionMldbContext context(owner);
-    auto boundDataset = functionConfig.dictionaryDataset->bind(context);
-
+ 
     //get all values from the dataset and add them to our dictionary of tokens
     auto aggregator = [&] (const MatrixNamedRow & row) {
             for (auto & c: row.columns) {
@@ -74,18 +63,24 @@ TokenSplit(MldbServer * owner,
             return true;
         };
 
-    OrderByExpression orderby(ORDER_BY_NOTHING);
+    auto boundDataset = functionConfig.tokens.stm->from->bind(context);
 
-    iterateDataset(functionConfig.select,
-                    *boundDataset.dataset, boundDataset.asName, 
-                    functionConfig.when,
-                    functionConfig.where,
-                    aggregator,
-		    orderby,
-                    0,
-                   -1,
-                    onProgress);
-
+    if (boundDataset.dataset)
+        iterateDataset(functionConfig.tokens.stm->select,
+                       *boundDataset.dataset, boundDataset.asName, 
+                       functionConfig.tokens.stm->when,
+                       functionConfig.tokens.stm->where,
+                       aggregator,
+                       functionConfig.tokens.stm->orderBy,
+                       functionConfig.tokens.stm->offset,
+                       functionConfig.tokens.stm->limit,
+                       onProgress);
+    else { // query containing only a select (e.g. select "token1", "token2", "token3")
+        std::vector<MatrixNamedRow> rows  = queryWithoutDataset(*functionConfig.tokens.stm, context);
+        std::for_each(rows.begin(), rows.end(), aggregator);
+    }
+    
+    // sorting is important here - it is used to optimize the tokenization
     std::sort(dictionary.begin(), dictionary.end());
 }
 
