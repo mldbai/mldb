@@ -444,9 +444,9 @@ runPythonScript(std::shared_ptr<PythonContext> titl,
     try {
         if(elementToRun == PackageElement::MAIN) {
             JML_TRACE_EXCEPTIONS(false);
-            int argc = 1;
             char argv1[] = "mldb-boost-python";
             char *argv[] = {argv1};
+            int argc = sizeof(argv[0]) / sizeof(char *);
             PySys_SetArgv(argc, argv);
             boost::python::object obj =
                 boost::python::exec(scriptSourceStr, pyControl.main_namespace);
