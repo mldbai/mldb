@@ -78,10 +78,6 @@ AccuracyConfigDescription()
              "dataset is optional.", optionalOutputDataset);
     addParent<ProcedureConfig>();
             
-        // the difference between included population of the current versus
-            // last stats.stats represents the number of exemples included in the stats.
-            // examples get grouped when they have the same score
-
     onPostValidate = validate<AccuracyConfig, 
                               InputQuery,
                               NoGroupByHaving,
