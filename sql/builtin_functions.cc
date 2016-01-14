@@ -1335,7 +1335,7 @@ ParseConcatArguments(bool& skipNulls, Utf8String& separator, bool& columnValue,
             columnValue = std::get<1>(arg).asBool();
         }
         else {
-            throw HttpReturnException(400, "Unknown argument in tokenize",
+            throw HttpReturnException(400, "Unknown argument in concat",
                                       "argument", columnName);
         }
     }
