@@ -99,8 +99,7 @@ template<typename FieldType> struct NoGroupByHaving
 };
 
 /** 
- *  Accept any select statement with empty GROUP BY/HAVING clause.
- *  FieldType must contain a SelectStatement named stm.
+  *  Must contain a FROM clause
  */
 template<typename FieldType> struct MustContainFrom
 {
