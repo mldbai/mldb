@@ -1,19 +1,15 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* rng.h                                                           -*- C++ -*-
    Jeremy Barnes, 12 May 2012
    Copyright (c) 2012 Datacratic.  All rights reserved.
 
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+
    RNG wrapper.
 */
 
-#ifndef __jml__utils__rng_h__
-#define __jml__utils__rng_h__
+#pragma once
 
-#include <boost/random/mersenne_twister.hpp>
-#include <boost/random/uniform_int.hpp>
-#include <boost/random/uniform_01.hpp>
-#include <boost/thread/tss.hpp>
+#include <memory>
 
 namespace ML {
 
@@ -23,44 +19,24 @@ namespace ML {
 
 struct RNG {
     
-    RNG()
-        : uniform01_(rng_)
-    {
-        seed(random());
-    }
+    RNG();
 
-    RNG(uint32_t seedValue)
-        : uniform01_(rng_)
-    {
-        seed(seedValue);
-    }
+    RNG(uint32_t seedValue);
 
-    void seed(uint32_t value)
-    {
-        if (value == 0) value = 1;
-        rng_.seed(value);
-        uniform01_.base().seed(value);
-    }
+    ~RNG();
+
+    void seed(uint32_t value);
 
     /** Get a random number in a deterministic way */
-    uint32_t random()
-    {
-        return rng_();
-    }
+    uint32_t random();
 
     /** Get a random number between 0 and max-1 */
-    uint32_t random(uint32_t max)
-    {
-        return rng_() % max;
-    }
-    
+    uint32_t random(uint32_t max);
 
     /** Get a uniform (0, 1) random number in a deterministic way */
-    float random01()
-    {
-        return uniform01_();
-    }
+    float random01();
 
+    /** Used for eg passing to std::random_shuffle. */
     struct StandardRng {
 
         StandardRng(RNG & rng)
@@ -83,15 +59,10 @@ struct RNG {
     static RNG & defaultRNG();
 
 private:
-    boost::mt19937 rng_;
-    boost::uniform_01<boost::mt19937> uniform01_;
-
-    static boost::thread_specific_ptr<RNG> defaultRNGs;
+    struct Itl;
+    std::unique_ptr<Itl> itl;
 };
 
 
 
 } // namespace ML
-
-
-#endif /* __jml__utils__rng_h__ */

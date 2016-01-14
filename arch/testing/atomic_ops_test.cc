@@ -16,19 +16,55 @@
 #include "mldb/arch/tick_counter.h"
 
 #include <boost/test/unit_test.hpp>
-#include <boost/thread.hpp>
-#include <boost/thread/barrier.hpp>
 #include <vector>
 #include <stdint.h>
 #include <iostream>
 #include <stdarg.h>
 #include <errno.h>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+
 
 using namespace ML;
 using namespace std;
 
 using boost::unit_test::test_suite;
 
+struct ThreadGroup {
+    void create_thread(std::function<void ()> fn)
+    {
+        threads.emplace_back(std::move(fn));
+    }
+
+    void join_all()
+    {
+        for (auto & t: threads)
+            t.join();
+        threads.clear();
+    }
+    std::vector<std::thread> threads;
+};
+
+// http://stackoverflow.com/questions/24465533/implementing-boostbarrier-in-c11
+class Barrier
+{
+private:
+    std::mutex _mutex;
+    std::condition_variable _cv;
+    std::size_t _count;
+public:
+    explicit Barrier(std::size_t count) : _count{count} { }
+    void wait()
+    {
+        std::unique_lock<std::mutex> lock{_mutex};
+        if (--_count == 0) {
+            _cv.notify_all();
+        } else {
+            _cv.wait(lock, [this] { return _count == 0; });
+        }
+    }
+};
 
 template<class X>
 void test1_type()
@@ -58,12 +94,12 @@ BOOST_AUTO_TEST_CASE( test1 )
 
 template<class X>
 struct test_atomic_add2_thread {
-    test_atomic_add2_thread(boost::barrier & barrier, X & val, int iter, int tnum)
+    test_atomic_add2_thread(Barrier & barrier, X & val, int iter, int tnum)
         : barrier(barrier), val(val), iter(iter), tnum(tnum)
     {
     }
 
-    boost::barrier & barrier;
+    Barrier & barrier;
     X & val;
     int iter;
     int tnum;
@@ -88,9 +124,9 @@ void test_atomic_add2_type()
 {
     cerr << "testing type " << demangle(typeid(X).name()) << endl;
     int nthreads = 8, iter = 1000000;
-    boost::barrier barrier(nthreads);
+    Barrier barrier(nthreads);
     X val = 0;
-    boost::thread_group tg;
+    ThreadGroup tg;
 
     for (unsigned i = 0;  i < nthreads;  ++i)
         tg.create_thread(test_atomic_add2_thread<X>(barrier, val, iter, i));
@@ -111,14 +147,14 @@ BOOST_AUTO_TEST_CASE( test_atomic_add2 )
 
 template<class X>
 struct test_atomic_max_thread {
-    test_atomic_max_thread(boost::barrier & barrier, X & val, int iter,
+    test_atomic_max_thread(Barrier & barrier, X & val, int iter,
                            int tnum, size_t & num_errors)
         : barrier(barrier), val(val), iter(iter), tnum(tnum),
           num_errors(num_errors)
     {
     }
 
-    boost::barrier & barrier;
+    Barrier & barrier;
     X & val;
     int iter;
     int tnum;
@@ -141,9 +177,9 @@ void test_atomic_max_type()
     int nthreads = 8, iter = 1000000;
     X iter2 = (X)-1;
     if (iter2 < iter) iter = iter2;
-    boost::barrier barrier(nthreads);
+    Barrier barrier(nthreads);
     X val = 0;
-    boost::thread_group tg;
+    ThreadGroup tg;
     size_t num_errors = 0;
     for (unsigned i = 0;  i < nthreads;  ++i)
         tg.create_thread(test_atomic_max_thread<X>(barrier, val, iter, i,

@@ -30,7 +30,7 @@ LIBHTTP_SOURCES := \
 #	message_loop.cc \
 
 
-LIBHTTP_LINK := curl arch jsoncpp boost_thread types boost_system value_description boost_filesystem cityhash services_base watch
+LIBHTTP_LINK := curl arch jsoncpp types boost_system value_description boost_filesystem cityhash services_base watch
 
 $(eval $(call library,http,$(LIBHTTP_SOURCES),$(LIBHTTP_LINK)))
 

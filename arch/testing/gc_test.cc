@@ -23,9 +23,6 @@
 #include <iostream>
 #include <atomic>
 
-#include <boost/thread.hpp>
-#include <boost/thread/barrier.hpp>
-
 
 using namespace ML;
 using namespace Datacratic;
@@ -36,6 +33,20 @@ namespace Datacratic {
 extern int32_t gcLockStartingEpoch;
 };
 
+struct ThreadGroup {
+    void create_thread(std::function<void ()> fn)
+    {
+        threads.emplace_back(std::move(fn));
+    }
+
+    void join_all()
+    {
+        for (auto & t: threads)
+            t.join();
+        threads.clear();
+    }
+    std::vector<std::thread> threads;
+};
 
 #if 1
 
@@ -126,7 +137,7 @@ BOOST_AUTO_TEST_CASE(test_mutual_exclusion)
     {
         cerr << "single shared" << endl;
         sharedIterations = exclusiveIterations = multiShared = finished = 0;
-        boost::thread_group tg;
+        ThreadGroup tg;
         tg.create_thread(sharedThread);
         sleep(1);
         finished = true;
@@ -140,7 +151,7 @@ BOOST_AUTO_TEST_CASE(test_mutual_exclusion)
     {
         cerr << "multi shared" << endl;
         sharedIterations = exclusiveIterations = multiShared = finished = 0;
-        boost::thread_group tg;
+        ThreadGroup tg;
         for (unsigned i = 0;  i < nthreads;  ++i)
             tg.create_thread(sharedThread);
         sleep(1);
@@ -157,7 +168,7 @@ BOOST_AUTO_TEST_CASE(test_mutual_exclusion)
     {
         cerr << "single exclusive" << endl;
         sharedIterations = exclusiveIterations = multiShared = finished = 0;
-        boost::thread_group tg;
+        ThreadGroup tg;
         tg.create_thread(exclusiveThread);
         sleep(1);
         finished = true;
@@ -171,7 +182,7 @@ BOOST_AUTO_TEST_CASE(test_mutual_exclusion)
     {
         cerr << "multi exclusive" << endl;
         sharedIterations = exclusiveIterations = multiShared = finished = 0;
-        boost::thread_group tg;
+        ThreadGroup tg;
         for (unsigned i = 0;  i < nthreads;  ++i)
             tg.create_thread(exclusiveThread);
         sleep(1);
@@ -186,7 +197,7 @@ BOOST_AUTO_TEST_CASE(test_mutual_exclusion)
     {
         cerr << "mixed shared and exclusive" << endl;
         sharedIterations = exclusiveIterations = multiShared = finished = 0;
-        boost::thread_group tg;
+        ThreadGroup tg;
         for (unsigned i = 0;  i < nthreads;  ++i)
             tg.create_thread(sharedThread);
         for (unsigned i = 0;  i < nthreads;  ++i)
@@ -206,7 +217,7 @@ BOOST_AUTO_TEST_CASE(test_mutual_exclusion)
         cerr << "overflow" << endl;
         gcLockStartingEpoch = 0xFFFFFFF0;
         sharedIterations = exclusiveIterations = multiShared = finished = 0;
-        boost::thread_group tg;
+        ThreadGroup tg;
         tg.create_thread(sharedThread);
         sleep(1);
         finished = true;
@@ -221,7 +232,7 @@ BOOST_AUTO_TEST_CASE(test_mutual_exclusion)
         cerr << "INT_MIN to INT_MAX" << endl;
         gcLockStartingEpoch = 0x7FFFFFF0;
         sharedIterations = exclusiveIterations = multiShared = finished = 0;
-        boost::thread_group tg;
+        ThreadGroup tg;
         tg.create_thread(sharedThread);
         sleep(1);
         finished = true;
@@ -236,7 +247,7 @@ BOOST_AUTO_TEST_CASE(test_mutual_exclusion)
         cerr << "benign overflow" << endl;
         gcLockStartingEpoch = 0xBFFFFFF0;
         sharedIterations = exclusiveIterations = multiShared = finished = 0;
-        boost::thread_group tg;
+        ThreadGroup tg;
         tg.create_thread(sharedThread);
         sleep(1);
         finished = true;
@@ -573,7 +584,7 @@ struct TestBase {
              int runTime = 1)
     {
         gc.getEntry();
-        boost::thread_group tg;
+        ThreadGroup tg;
 
         for (unsigned i = 0;  i < nthreads;  ++i)
             tg.create_thread(std::bind<void>(&TestBase::doReadThread, this, i));
@@ -721,7 +732,7 @@ BOOST_AUTO_TEST_CASE ( test_defer_race )
     cerr << "testing defer race" << endl;
     GcLock gc;
 
-    boost::thread_group tg;
+    ThreadGroup tg;
 
     volatile bool finished = false;
 

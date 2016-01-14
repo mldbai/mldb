@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** thread_specific.h                                              -*- C++ -*-
     Jeremy Barnes, 13 November 2011
     Copyright (c) 2011 Datacratic.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Placed under the BSD license.
 
@@ -13,96 +13,17 @@
     The downside is that each needs to be tagged with a unique type as
     it requires static variables.
 */
-#ifndef __arch__thread_specific_h__
-#define __arch__thread_specific_h__
 
-#include "exception.h"
+#pragma once
+
 #include "spinlock.h"
-#include "mldb/base/exc_assert.h"
+#include "mldb/compiler/compiler.h"
 #include <thread>
 #include <deque>
-
 #include <unordered_set>
 #include <mutex>
-#include <boost/thread/tss.hpp>
 
 namespace ML {
-
-/*****************************************************************************/
-/* THREAD SPECIFIC                                                           */
-/*****************************************************************************/
-
-/** A fast thread specific variable. */
-
-template<typename Contained, typename Tag = void>
-struct Thread_Specific {
-
-    static Contained * defaultCreateFn ()
-    {
-        return new Contained();
-    }
-
-    Thread_Specific()
-        : createFn(defaultCreateFn)
-    {
-    }
-
-    Thread_Specific(std::function<Contained * ()> createFn)
-        : createFn(createFn)
-    {
-    }
-
-    std::function<Contained * ()> createFn;
-
-    static __thread Contained * ptr_;
-
-    void create() const
-    {
-        ptr_ = createFn();
-        if (!ptr_)
-            throw Exception("bad pointer");
-        ExcAssert(!deleter.get());
-        deleter.reset(new Deleter(ptr_));
-    }
-
-    JML_ALWAYS_INLINE Contained * operator -> () const
-    {
-        return get();
-    }
-
-    JML_ALWAYS_INLINE Contained * get(bool * hadInfo = nullptr) const
-    {
-        if (hadInfo) *hadInfo = ptr_;
-        if (!ptr_) create();
-        return ptr_;
-    }
-
-    JML_ALWAYS_INLINE Contained & operator * () const
-    {
-        return * get();
-    }
-
-    struct Deleter {
-
-        Contained * ptr;
-
-        Deleter(Contained * ptr)
-            : ptr(ptr)
-        {
-        }
-
-        ~Deleter()
-        {
-            delete ptr;
-        }
-    };
-
-    mutable boost::thread_specific_ptr<Deleter> deleter;
-};
-
-template<typename Contained, typename Tag>
-__thread Contained * Thread_Specific<Contained, Tag>::ptr_ = 0;
-
 
 /*****************************************************************************/
 /* THREAD SPECIFIC INSTANCE INFO                                             */
@@ -116,7 +37,7 @@ __thread Contained * Thread_Specific<Contained, Tag>::ptr_ = 0;
     instance is created, destroyed or first accessed. Past the first access,
     reads equate to a deque probe.
 
- */
+*/
 template<typename T, typename Tag>
 struct ThreadSpecificInstanceInfo
 {
@@ -253,7 +174,7 @@ private:
         return &val.storage.value;
     }
 
-    static Thread_Specific<PerThreadInfo> staticInfo;
+    static thread_local std::unique_ptr<PerThreadInfo> staticInfo;
 
     static ML::Spinlock freeIndexLock;
     static std::deque<size_t> freeIndexes;
@@ -265,8 +186,8 @@ private:
 };
 
 template<typename T, typename Tag>
-Thread_Specific<typename ThreadSpecificInstanceInfo<T, Tag>::PerThreadInfo>
-ThreadSpecificInstanceInfo<T, Tag>::staticInfo;
+thread_local std::unique_ptr<typename ThreadSpecificInstanceInfo<T, Tag>::PerThreadInfo>
+ThreadSpecificInstanceInfo<T, Tag>::staticInfo(new typename ThreadSpecificInstanceInfo<T, Tag>::PerThreadInfo());
 
 template<typename T, typename Tag>
 ML::Spinlock
@@ -281,6 +202,3 @@ unsigned
 ThreadSpecificInstanceInfo<T, Tag>::nextIndex = 0;
 
 } // namespace ML
-
-
-#endif /* __arch__thread_specific_h__ */
