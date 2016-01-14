@@ -894,7 +894,7 @@ struct CsvDataset::Itl: public TabularDataStore {
                 //threadAccum.emplace_back(std::move(lineEntry));
             };
 
-        forEachLineBlock(stream, lineOffset, onLine);
+        forEachLineBlock(stream, onLine, lineOffset, config.limit);
 
         cerr << timer.elapsed() << endl;
         timer.restart();
