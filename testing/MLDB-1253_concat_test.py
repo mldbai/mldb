@@ -76,13 +76,6 @@ def test_default():
 
 
 @test_case
-def test_keep_nulls():
-    res = query('SELECT concat({*}, {skipNulls: false}) FROM sample')
-    assert res[1][1] == 'val1A,val1B,'
-    assert res[2][1] == 'val2A,,val2C'
-
-
-@test_case
 def test_separator():
     res = query('SELECT concat({*}, {separator: \':\'}) FROM sample')
     assert res[1][1] == 'val1A:val1B'
