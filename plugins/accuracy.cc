@@ -72,11 +72,12 @@ AccuracyConfigDescription()
              "to avoid numeric errors in the calculations."
              "The select statement does not support groupby and having clauses.");
     addField("outputDataset", &AccuracyConfig::outputDataset,
-             "Output dataset for scored examples. The score for each "
-             "example will be written to this dataset. Specifying a "
-             "dataset is optional", optionalOutputDataset);
+             "Output dataset for scored examples. The score for the test "
+             "example will be written to this dataset. Examples get grouped when "
+              "they have the same score. Specifying a "
+             "dataset is optional.", optionalOutputDataset);
     addParent<ProcedureConfig>();
-
+            
     onPostValidate = validate<AccuracyConfig, 
                               InputQuery,
                               NoGroupByHaving,
