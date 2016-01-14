@@ -29,12 +29,10 @@ for output_type, output_id in [("sparse.mutable", "out_beh"), ("sparse.mutable",
     conf = {
         "type": "statsTable.train",
         "params": {
-            "trainingDataset": "toy",
+            "trainingData": "select * EXCLUDING(CLICK) from toy order by rowName() ASC",
             "outputDataset": {"type": output_type, "id": output_id},
-            "select": "* EXCLUDING(CLICK)",
             "outcomes": [["label", "CLICK IS NOT NULL"],
                        ["not_label", "CLICK IS NULL"]],
-            "orderBy": "rowName() ASC",
             "statsTableFileUrl": "file://build/x86_64/tmp/mldb-873-stats_table.st",
             "functionName": "mySt"
         }
@@ -190,8 +188,7 @@ dataset.commit()
 conf = {
     "type": "statsTable.bagOfWords.train",
     "params": {
-        "trainingDataset": "posneg",
-        "select": "tokenize(text, {splitchars: ' '}) as *",
+        "trainingData": "select tokenize(text, {splitchars: ' '}) as * from posneg",
         "outcomes": [["label", "CLICK IS NOT NULL"]],
         "statsTableFileUrl": "file://build/x86_64/tmp/mldb-873-stats_table_posneg.st",
     }

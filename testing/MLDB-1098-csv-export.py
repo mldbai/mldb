@@ -53,9 +53,8 @@ tmp_file = tempfile.NamedTemporaryFile(dir='build/x86_64/tmp')
 res = mldb.perform('PUT', '/v1/procedures/export', [], {
     'type' : 'export.csv',
     'params' : {
-        'inputDataset' : 'myDataset',
-        'dataFileUrl' : 'file://' + tmp_file.name,
-        'select' : 'rowName() as rowName, colA, colB'
+        'exportData' : 'select rowName() as rowName, colA, colB from myDataset',
+        'dataFileUrl' : 'file://' + tmp_file.name
     }
 })
 assert res['statusCode'] == 201, str(res)
@@ -91,9 +90,8 @@ tmp_file2 = tempfile.NamedTemporaryFile(dir='build/x86_64/tmp')
 res = mldb.perform('PUT', '/v1/procedures/export2', [], {
     'type' : 'export.csv',
     'params' : {
-        'inputDataset' : 'myDataset2',
-        'dataFileUrl' : 'file://' + tmp_file2.name,
-        'select' : 'rowName() as rowName, colA, colB'
+        'exportData' : 'select rowName() as rowName, colA, colB from myDataset2',
+        'dataFileUrl' : 'file://' + tmp_file2.name
     }
 })
 assert res['statusCode'] == 201, str(res)
@@ -107,9 +105,8 @@ assert_file_content(tmp_file2.name, lines_expect)
 res = mldb.perform('PUT', '/v1/procedures/export3', [], {
     'type' : 'export.csv',
     'params' : {
-        'inputDataset' : 'myDataset2',
+        'exportData' : 'select rowName() as rowName, colA, colB from myDataset2',
         'dataFileUrl' : 'file://' + tmp_file2.name,
-        'select' : 'rowName() as rowName, colA, colB',
         'headers' : False,
         'quoteChar' : 'o',
         'delimiter' : ';'
@@ -128,9 +125,8 @@ assert_file_content(tmp_file2.name, lines_expect)
 res = mldb.perform('PUT', '/v1/procedures/export4', [], {
     'type' : 'export.csv',
     'params' : {
-        'inputDataset' : 'myDataset2',
+        'exportData' : 'select rowName() as rowName, colA, colB from myDataset2',
         'dataFileUrl' : 'space',
-        'select' : 'rowName() as rowName, colA, colB',
         'headers' : False,
         'quoteChar' : 'o',
         'delimiter' : ';'

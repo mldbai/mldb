@@ -61,12 +61,15 @@ createAndRunProcedure(importConfig, "import");
 
 var deriveConfig = {
     "type": "transform",
-    "params": { "inputDataset": "git",
-                "where": "parentCount=1",
-                "select": "regex_replace(authorEmail, '.*@', '') as company, *",
-                "outputDataset": { "id": "gitderived", "type": "sparse.mutable"},
-                "runOnCreation": true
-              }
+    "params": { 
+        "inputData": {
+            "select": "regex_replace(authorEmail, '.*@', '') as company, *",
+            "from": "git",
+            "where": "parentCount=1"
+        },
+        "outputDataset": { "id": "gitderived", "type": "sparse.mutable"},
+        "runOnCreation": true
+    }
 };
 
 createAndRunProcedure(deriveConfig, "derive");
@@ -74,10 +77,12 @@ createAndRunProcedure(deriveConfig, "derive");
 var countConfig = {
     "type": "transform",
     "params": {
-        "inputDataset": "gitderived",
-        "select": "count(*) as count",
-        "groupBy": "company",
-        "rowName": "'company|' + company",   
+        "inputData": {
+            "select": "count(*) as count",
+            "from": "gitderived",
+            "groupBy": "company",
+            "named": "'company|' + company"
+        },
         "outputDataset": { "id": "companycounts", "type": "sparse.mutable"},
         "runOnCreation": true
     }

@@ -26,7 +26,7 @@ ds1.commit()
 
 result = mldb.perform('PUT', '/v1/functions/tokensplit_function', [], {
         'type': 'tokensplit',
-        'params': {"dictionaryDataset": "example"}})
+        'params': {"tokens": "select * from example"}})
 
 mldb.log(result)
 
@@ -46,4 +46,26 @@ mldb.log(result)
 response = json.loads(result["response"])
 
 assert response[0]['columns'][0][1] == unicode("aaahhhhh ¯\_(ツ)_/¯", encoding='utf-8')
+
+query = "'test'"
+config = {
+    'type': 'tokensplit',
+    'params': {'tokens': "select ':P', '(>_<)', ':-)'",
+               'splitchars': ' ', #split on spaces only
+               'splitcharToInsert': ' '
+           }
+}
+
+result = mldb.perform('PUT', '/v1/functions/split_smiley', [], config)
+
+mldb.log(result)
+assert result['statusCode'] == 201, 'failed to create split_smiley'
+
+result = mldb.perform('GET', '/v1/query', [['q', "select split_smiley({':PGreat day!!! (>_<)(>_<) :P :P :P:-)' as text}) as query"]])
+
+response = json.loads(result["response"])
+mldb.log(response)
+assert response[0]['columns'][0][1] == unicode(":P Great day!!! (>_<) (>_<) :P :P :P :-)", encoding='utf-8'), \
+'tokenized string does not match the expected value'
+
 mldb.script.set_return("success")

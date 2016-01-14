@@ -75,7 +75,8 @@ var trainClassifierProcedureConfig = {
         },
         algorithm: "glz",
         equalizationFactor: 0.0,
-        mode: "regression"
+        mode: "regression",
+        modelFileUrl: modelFileUrl
     }
 };
 

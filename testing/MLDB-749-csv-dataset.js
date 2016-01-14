@@ -287,7 +287,6 @@ if(rowName.substr(rowName.length-1) != "9") {
     throw "Wrong rowName!";
 }
 
-
 var res = mldb.get("/v1/datasets/broken")
 mldb.log(res);
 if(res["json"]["status"]["numLineErrors"] != 4) {
@@ -373,4 +372,30 @@ try {
     mldb.log(res);
     throw e;
 }
+
+function getCountWithOffsetLimit(dataset, offset, limit) {
+    // Test offset and limit
+    var offsetLimitConfig = {
+        type: 'text.csv.tabular',
+        id: dataset,
+        params: {
+            dataFileUrl: 'https://raw.githubusercontent.com/datacratic/mldb-pytanic-plugin/master/titanic_train.csv',
+            offset: offset,
+            limit: limit
+        }
+    };
+
+    mldb.createDataset(offsetLimitConfig);
+
+    var res = mldb.get("/v1/query", { q: 'select count(*) as count from ' + dataset });
+    mldb.log(res["json"]);
+    return res["json"][0].columns[0][1];
+}
+
+var totalSize = getCountWithOffsetLimit("test1", 0, -1);
+assertEqual(getCountWithOffsetLimit("test2", 0, 10), 10, "expecting 10 rows only");
+assertEqual(getCountWithOffsetLimit("test3", 0, totalSize + 2000), totalSize, "we can't get more than what there is!");
+assertEqual(getCountWithOffsetLimit("test4", 10, -1), totalSize - 10, "expecting all set except 10 rows");
+
+
 "success"

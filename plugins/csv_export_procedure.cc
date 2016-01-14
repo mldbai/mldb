@@ -34,9 +34,7 @@ namespace MLDB {
 
 CsvExportProcedureConfig::
 CsvExportProcedureConfig()
-    : when(WhenExpression::TRUE),
-      where(SqlExpression::TRUE), offset(0), limit(-1), headers(true),
-      delimiter(","), quoteChar("\"")
+    : headers(true), delimiter(","), quoteChar("\"")
 {
 }
 
@@ -45,46 +43,12 @@ DEFINE_STRUCTURE_DESCRIPTION(CsvExportProcedureConfig);
 CsvExportProcedureConfigDescription::
 CsvExportProcedureConfigDescription()
 {
-    addFieldDesc("inputDataset", &CsvExportProcedureConfig::inputDataset,
-                 "Input dataset. This must be an existing dataset.",
-                 makeInputDatasetDescription());
+    addField("exportData", &CsvExportProcedureConfig::exportData,
+             "An SQL query to select the data to be exported.  This could "
+             "be any query on an existing dataset.");
     addField("dataFileUrl", &CsvExportProcedureConfig::dataFileUrl,
              "URL where the csv file should be written to. If a file already "
              "exists, it will be overwritten.");
-    addField("select", &CsvExportProcedureConfig::select,
-             "Values to select. These columns will be written as the output "
-             "of the dataset.");
-    addField("when", &CsvExportProcedureConfig::when,
-             "Boolean expression determining which tuples from the dataset "
-             "to keep based on their timestamps",
-             WhenExpression::TRUE);
-    addField("where", &CsvExportProcedureConfig::where,
-             "Boolean expression determining which rows from the input "
-             "dataset will be processed.",
-             SqlExpression::TRUE);
-    addField("groupBy", &CsvExportProcedureConfig::groupBy,
-             "Expression used to group values for aggregation queries.  "
-             "Default is to run a row-by-row query, not an aggregation.");
-    addField("having", &CsvExportProcedureConfig::having,
-             "Boolean expression used to select which groups will write a "
-             "value to the output for a grouped query. Default is to "
-             "write all groups",
-             SqlExpression::TRUE);
-    addField("orderBy", &CsvExportProcedureConfig::orderBy,
-             "Expression dictating how output rows will be ordered. This is "
-             "only meaningful when offset and/or limit is used, as it "
-             "affects in which order those rows will be seen by the "
-             "windowing code.");
-    addField("offset", &CsvExportProcedureConfig::offset,
-             "Number of rows of output to skip. Default is to skip none. "
-             "Note that selecting a subset of data is usally better done "
-             "using the where clause (eg, `where rowHash() % 10 = 0`) as "
-             "it is more efficient and repeatable.");
-    addField("limit", &CsvExportProcedureConfig::limit,
-             "Number of rows of output to produce.  Default is to produce "
-             "all. This can be used to produce a cut-down dataset, but again "
-             "it's normally better to use where as that doesn't require that "
-             "results be sorted for repeatability.");
     addField("headers", &CsvExportProcedureConfig::headers,
              "Whether to print headers", true);
     addField("delimiter", &CsvExportProcedureConfig::delimiter,
@@ -125,15 +89,15 @@ run(const ProcedureRunConfig & run,
     CsvWriter csv(out, procedureConfig.delimiter.at(0),
                   procedureConfig.quoteChar.at(0));
 
-    auto boundDataset = procedureConfig.inputDataset->bind(context);
+    auto boundDataset = procedureConfig.exportData.stm->from->bind(context);
 
     vector<shared_ptr<SqlExpression> > calc;
-    BoundSelectQuery bsq(procedureConfig.select,
+    BoundSelectQuery bsq(procedureConfig.exportData.stm->select,
                          *boundDataset.dataset,
                          boundDataset.asName,
-                         procedureConfig.when,
-                         procedureConfig.where,
-                         procedureConfig.orderBy,
+                         procedureConfig.exportData.stm->when,
+                         procedureConfig.exportData.stm->where,
+                         procedureConfig.exportData.stm->orderBy,
                          calc);
 
     const auto columnNames = bsq.getSelectOutputInfo()->allColumnNames();
@@ -232,7 +196,9 @@ run(const ProcedureRunConfig & run,
         }
         csv.endl();
     }
-    bsq.execute(outputCsvLine, procedureConfig.offset, procedureConfig.limit,
+    bsq.execute(outputCsvLine, 
+                procedureConfig.exportData.stm->offset, 
+                procedureConfig.exportData.stm->limit,
                 onProgress);
     RunOutput output;
     return output;

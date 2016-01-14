@@ -2,6 +2,8 @@
 
 # Test for the presence of ~/.cloud_credentials with an S3 entry.  If present,
 # some extra tests can be enabled.  This will be "1" or empty for true or false.
+# these tests access *public* files in the dev.mldb.datacratic.com bucket, so any old
+# valid credentials will do
 HAS_S3_CREDENTIALS:=$(shell grep -l "^s3" ~/.cloud_credentials >/dev/null 2>/dev/null && echo "1")
 
 # Make a test manual if there are no S3 credentials available
@@ -250,6 +252,7 @@ $(eval $(call mldb_unit_test,MLDB-1119_pooling_function.py))
 $(eval $(call mldb_unit_test,MLDB-1172_column_expr_fail.py))
 $(eval $(call mldb_unit_test,MLDB-1104-input-data-spec.py))
 $(eval $(call mldb_unit_test,MLDB-1190_segfault_sqlexpr_jseval.py))
+$(eval $(call mldb_unit_test,MLDB-1198-sum-inconsistency-test.py))
 $(eval $(call mldb_unit_test,MLDB-1212_csv_import_long_quoted_lines.py))
 
 $(eval $(call mldb_unit_test,pytanic_plugin_test.py))
@@ -293,3 +296,4 @@ $(eval $(call mldb_unit_test,MLDB-1140-csv_reading_compression_test.py,,manual))
 $(eval $(call mldb_unit_test,MLDB-980-unquoted-string-crash.js))
 $(eval $(call mldb_unit_test,MLDB-1195-query-where-test.py))
 $(eval $(call mldb_unit_test,MLDB-1192-js-procedure-function.js))
+$(eval $(call mldb_unit_test,MLDB-1253_concat_test.py))

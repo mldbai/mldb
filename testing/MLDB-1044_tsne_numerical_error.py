@@ -19,9 +19,8 @@ assert rez["statusCode"] == 201
 conf = {
     "type":"transform",
     "params": {
-        "inputDataset": { "id": "first_party" },
-        "outputDataset": { "id": "first_party_reduced", "type": "beh.binary.mutable" },
-        "where": "(rowHash() / 32) % 500 = 0"
+        "inputData": "select * from first_party where (rowHash() / 32) % 500 = 0",
+        "outputDataset": { "id": "first_party_reduced", "type": "beh.binary.mutable" }
     }
 }
 rez = mldb.perform("PUT", "/v1/procedures/reduce", [], conf)

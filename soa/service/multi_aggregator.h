@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* multi_aggregator.h                                              -*- C++ -*-
    Jeremy Barnes, 3 August 2011
    Copyright (c) 2011 Datacratic.  All rights reserved.
+
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #pragma once
@@ -12,9 +12,9 @@
 #include <mutex>
 #include <thread>
 #include <condition_variable>
-#include <boost/thread.hpp>
 #include "mldb/soa/service/stat_aggregator.h"
-
+#include "mldb/arch/thread_specific.h"
+#include <iostream>
 
 namespace Datacratic {
 
@@ -130,15 +130,15 @@ private:
 
     typedef std::unordered_map<std::string, Stats::iterator> LookupCache;
 
-    // Cache of lookups for each thread to avoid needing to acquire a lock
-    // very much.
-    boost::thread_specific_ptr<LookupCache> lookupCache;
-
     /** Thread that's started up to start dumping. */
     void runDumpingThread();
 
     /** Shutdown everything. */
     void shutdown();
+
+    // Cache of lookups for each thread to avoid needing to acquire a lock
+    // very much.
+    ML::ThreadSpecificInstanceInfo<LookupCache, void> lookupCache;
 
     /** Look for the aggregator for this given stat.  If it doesn't exist,
         then initialize it from the given function.
@@ -148,12 +148,14 @@ private:
                                    StatAggregator * (*createFn) (Args...),
                                    Args&&... args)
     {
-        if (!lookupCache.get())
-            lookupCache.reset(new LookupCache());
+        using namespace std;
 
-        auto found = lookupCache->find(stat);
-        if (found != lookupCache->end())
+        auto & threadCache = *lookupCache.get();
+
+        auto found = threadCache.find(stat);
+        if (found != threadCache.end()) {
             return *found->second->second;
+        }
 
         // Get the read lock to look for the aggregator
         std::unique_lock<Lock> guard(lock);
@@ -163,7 +165,7 @@ private:
         if (found2 != stats.end()) {
             guard.unlock();
 
-            (*lookupCache)[stat] = found2;
+            threadCache[stat] = found2;
 
             return *found2->second;
         }
@@ -178,7 +180,7 @@ private:
                 make_pair(stat, std::shared_ptr<StatAggregator>(createFn(std::forward<Args>(args)...)))).first;
 
         guard2.unlock();
-        (*lookupCache)[stat] = found2;
+        threadCache[stat] = found2;
         return *found2->second;
     }
     

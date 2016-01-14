@@ -894,7 +894,7 @@ bool matchConstant(ML::Parse_Context & context, ExpressionValue & result,
         uint32_t months = 0, days = 0;
         double seconds = 0.0f;
 
-        context.skip_whitespace();
+        skip_whitespace(context);
         char closingLiteral = '\"';
 
         if (context.match_literal('\''))
@@ -1100,9 +1100,9 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
 
         vector<std::shared_ptr<SqlRowExpression> > clauses;
         do {
-            context.skip_whitespace();
+            skip_whitespace(context);
             auto expr = SqlRowExpression::parse(context, allowUtf8);
-            context.skip_whitespace();
+            skip_whitespace(context);
             clauses.emplace_back(std::move(expr));
         } while (context.match_literal(','));
 
@@ -1119,7 +1119,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
             lhs = arg;  
         }
 
-        context.skip_whitespace();
+        skip_whitespace(context);
         context.expect_literal('}');
         
         lhs->surface = ML::trim(token.captured());
@@ -1139,7 +1139,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
 
         lhs = std::make_shared<EmbeddingLiteralExpression>(clauses);
 
-        context.skip_whitespace();
+        skip_whitespace(context);
         context.expect_literal(']');
         
         lhs->surface = ML::trim(token.captured());
@@ -1343,7 +1343,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
             expect_whitespace(context);
             context.expect_literal('(');
             
-            context.skip_whitespace();
+            skip_whitespace(context);
             if (peekKeyword(context, "SELECT"))
             { 
                 //sub-table
@@ -1794,13 +1794,13 @@ parse(ML::Parse_Context & context, bool allowUtf8)
         if (matchKeyword(context, "WHEN ")) {
             throw HttpReturnException(400, "WHEN clause not supported in row expression");
         }
-        else when = SqlExpression::TRUE;
+        else when = SqlExpression::parse("true");
 
         if (matchKeyword(context, "WHERE ")) {
             where = SqlExpression::parse(context, 10, allowUtf8);
             // Where expression consumes whitespace
         }
-        else where = SqlExpression::TRUE;
+        else where = SqlExpression::parse("true");
 
         if (matchKeyword(context, "ORDER BY ")) {
             orderBy = OrderByExpression::parse(context, allowUtf8);
@@ -2981,7 +2981,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
 
     if (context.match_literal('(')) {
 
-        context.skip_whitespace();
+        skip_whitespace(context);
         if (peekKeyword(context, "SELECT"))
         {
             //sub-table
@@ -3515,7 +3515,7 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
         skip_whitespace(context);
     }
     else {
-        statement.when = WhenExpression::TRUE;
+        statement.when = WhenExpression::parse("true");
     }
 
     if (matchKeyword(context, "WHERE ")) {
@@ -3523,7 +3523,7 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
         skip_whitespace(context);
     }
     else {
-        statement.where = SqlExpression::TRUE;
+        statement.where = SqlExpression::parse("true");
     }
 
     if (matchKeyword(context, "GROUP BY ")) {
@@ -3536,7 +3536,7 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
         skip_whitespace(context);
     }
     else {
-        statement.having = SqlExpression::TRUE;
+        statement.having = SqlExpression::parse("true");
     }
 
     if (matchKeyword(context, "ORDER BY ")) {
@@ -3567,6 +3567,20 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
     //cerr << jsonEncode(statement) << endl;
     
     return std::move(statement);
+}
+
+Utf8String
+SelectStatement::
+print() const
+{
+    return select.print() + 
+        rowName->print() +
+        from->print() +
+        when.print() +
+        where->print() +
+        orderBy.print() +
+        groupBy.print() +
+        having->print();
 }
 
 DEFINE_STRUCTURE_DESCRIPTION(SelectStatement);

@@ -48,6 +48,15 @@ def run_query(select, expected):
 # simple queries like in the doc
 run_query('*',
           'a b c x1 x2 x3')
+run_query('{*} as *',
+          'a b c x1 x2 x3')
+run_query('{*\n} as *',
+          'a b c x1 x2 x3')
+run_query('{{*} as *} as *',
+          'a b c x1 x2 x3')
+# following test case shows the bug from MLDB-1205
+run_query('{{*} as *\n} as *',
+          'a b c x1 x2 x3')
 run_query('a,b,c,x1',
           'a b c x1')
 run_query('* EXCLUDING (a)',
