@@ -1343,53 +1343,54 @@ ParseConcatArguments(bool& skipNulls, Utf8String& separator, bool& columnValue,
 
 BoundFunction concat(const std::vector<BoundSqlExpression> & args)
 {
+    if (args.size() == 0) {
+        throw HttpReturnException(
+            400, "concat requires at least one argument");
+    }
+
+    if (args.size() > 2) {
+        throw HttpReturnException(
+            400, "concat requires at most two arguments");
+    }
+
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & context) -> ExpressionValue
+        {
+            bool skipNulls = true;
+            Utf8String separator(",");
+            bool columnValue = true;
+
+            if (args.size() == 2) {
+                ParseConcatArguments(skipNulls, separator, columnValue,
+                                        args.at(1).getRow());
+            }
+
+            Utf8String result = "";
+            Date ts = Date::negativeInfinity();
+            bool first = true;
+            auto onAtom = [&] (const Id & columnName,
+                                const Id & prefix,
+                                const CellValue & val,
+                                Date atomTs)
             {
-                bool skipNulls = true;
-                Utf8String separator(",");
-                bool columnValue = true;
-
-                if (args.size() == 0) {
-                    throw HttpReturnException(
-                        400, "concat requires at least one argument");
-                }
-
-                if (args.size() > 2) {
-                    throw HttpReturnException(
-                        400, "concat requires at most two arguments");
-                }
-
-                if (args.size() == 2) {
-                    ParseConcatArguments(skipNulls, separator, columnValue,
-                                         args.at(1).getRow());
-                }
-
-                Utf8String result = "";
-                Date ts = Date::negativeInfinity();
-                bool first = true;
-                auto onAtom = [&] (const Id & columnName,
-                                   const Id & prefix,
-                                   const CellValue & val,
-                                   Date atomTs)
-                {
-                    if (!val.empty() || !skipNulls) {
-                        if (first) {
-                            first = false;
-                        }
-                        else {
-                            result += separator;
-                        }
-                        result += columnValue ?
-                            val.toUtf8String() : columnName.toUtf8String();
+                if (!val.empty() || !skipNulls) {
+                    if (first) {
+                        first = false;
                     }
-                    return true;
-                };
+                    else {
+                        result += separator;
+                    }
+                    result += columnValue ?
+                        val.toUtf8String() : columnName.toUtf8String();
+                }
+                return true;
+            };
 
-                args.at(0).forEachAtom(onAtom);
-                return ExpressionValue(result, ts);
-            },
-            std::make_shared<UnknownRowValueInfo>()};
+            args.at(0).forEachAtom(onAtom);
+            return ExpressionValue(result, ts);
+        },
+        std::make_shared<UnknownRowValueInfo>()
+    };
 }
 static RegisterBuiltin registerConcat(concat, "concat");
 
