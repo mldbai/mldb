@@ -82,8 +82,8 @@ AccuracyConfigDescription()
                               InputQuery,
                               NoGroupByHaving,
                               PlainColumnSelect,
-                              MustContainFrom,
-                              ScoreLabelSelect>(&AccuracyConfig::testingData, "accuracy");
+                              ScoreLabelSelect,
+                              MustContainFrom>(&AccuracyConfig::testingData, "accuracy");
 
 }
 
