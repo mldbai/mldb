@@ -440,14 +440,18 @@ runPythonScript(std::shared_ptr<PythonContext> titl,
     ScriptOutput result;
     auto scriptSourceStr = boost::python::str(scriptSource.rawString());
 
+    auto pySetArgv = [] {
+        char argv1[] = "mldb-boost-python";
+        char *argv[] = {argv1};
+        int argc = sizeof(argv[0]) / sizeof(char *);
+        PySys_SetArgv(argc, argv);
+    };
+
     // if we're simply executing the body of the script
     try {
         if(elementToRun == PackageElement::MAIN) {
             JML_TRACE_EXCEPTIONS(false);
-            char argv1[] = "mldb-boost-python";
-            char *argv[] = {argv1};
-            int argc = sizeof(argv[0]) / sizeof(char *);
-            PySys_SetArgv(argc, argv);
+            pySetArgv();
             boost::python::object obj =
                 boost::python::exec(scriptSourceStr, pyControl.main_namespace);
 
@@ -467,6 +471,7 @@ runPythonScript(std::shared_ptr<PythonContext> titl,
         // if we need to call the routes function
         else if(elementToRun == PackageElement::ROUTES) {
 
+            pySetArgv();
             boost::python::object obj
                 = boost::python::exec(scriptSourceStr, pyControl.main_namespace);
 
