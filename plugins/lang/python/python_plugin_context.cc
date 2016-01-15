@@ -199,6 +199,8 @@ class CatchOutErr:
         self.method=method
     def write(self, txt):
         self.catchOut.write(txt, self.method)
+    def flush(self):
+        pass
 
 
 catchOut = CatchOutContainer()
