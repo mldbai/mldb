@@ -90,9 +90,9 @@ check_res(mldb.perform("PUT", "/v1/functions/recurse", [], {
     "params": { "expression": "recurse({input})[output] as output" }
 }), 201)
 
-# this hangs - see MLDB-1251
-#rez = mldb.perform("GET", "/v1/query", [["q", "select recurse({input: -1})"]])
-#check_res(rez, 500)
+# MLDB-1251
+rez = mldb.perform("GET", "/v1/query", [["q", "select recurse({input: -1})"]])
+check_res(rez, 500)
 
 mldb.script.set_return("success")
 
