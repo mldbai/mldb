@@ -18,10 +18,12 @@ and NaN
 - A timestamp, which is a point in time that is independent of any timezone.  It is
 internally represented as the number of seconds since the 1st of January, 1970,
 at GMT.
-    - Timestamps do not have a literal representation in queries, but can be created with the `to_timestamp()` function (see [Builtin Functions](ValueExpressions.md)).
+    - Timestamps can appear queries with the `to_timestamp()` function, for example `to_timestamp('2010-01-02T23:45:33Z')`
+    - See [Builtin Functions](ValueExpression.md) for full details on input format.
 - A time interval, which is a difference between two timestamps.  It is
 internally represented as three fields expressing months, days, and seconds.
-    - Time intervals do not have a literal representation in queries, but can be created using the `INTERVAL` keyword (see [Expressing Time Intervals](ValueExpressions.md)).
+    - Time intervals can appear in queries using the `INTERVAL` keyword, for example `INTERVAL '1 month 2 days 5 minutes'`
+    - See [Expressing Time Intervals](ValueExpression.md) for full details on input format.
 
 These types are used in different ways, depending upon whether they are stored
 in a dataset or processed as part of an expression.
