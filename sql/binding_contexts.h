@@ -74,11 +74,6 @@ struct ReadThroughBindingContext: public SqlBindingScope {
     virtual std::shared_ptr<Dataset>
     doGetDatasetFromConfig(const Any & datasetConfig);
 
-    static RowContext getRowContext(const SqlRowScope & outerRow)
-    {
-        return RowContext(outerRow);
-    }
-
     virtual MldbServer * getMldbServer() const
     {
         return outer.getMldbServer();

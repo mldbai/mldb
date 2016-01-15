@@ -59,7 +59,7 @@ bindApplyFunctionExpression(const Utf8String & functionName,
                 context.update(std::move(withOutput));
 
                 if (function) {
-                    FunctionOutput functionOutput = applier->apply(context);
+                    FunctionOutput functionOutput = applier->apply(row, context);
                     //cerr << "functionoutput = " << jsonEncode(functionOutput) << endl;
                     context.update(std::move(functionOutput));
                 }
@@ -133,7 +133,7 @@ bindSelectApplyFunctionExpression(const Utf8String & functionName,
                 context.update(std::move(withOutput));
 
                 if (function) {
-                    FunctionOutput functionOutput = applier->apply(context);
+                    FunctionOutput functionOutput = applier->apply(row, context);
                     //cerr << "functionoutput = " << jsonEncode(functionOutput) << endl;
                     context.update(std::move(functionOutput));
                 }

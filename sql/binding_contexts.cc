@@ -66,14 +66,8 @@ doGetFunction(const Utf8String & tableName,
     result.exec = [=] (const std::vector<ExpressionValue> & args,
                        const SqlRowScope & context)
         {
-            const RowContext * row = dynamic_cast<const RowContext*>(&context);
-            if (row) {
-                return outerFunction(args, row->outer);
-            }
-            else {
-                return outerFunction(args, context);
-            }
-           
+             const RowContext & row = dynamic_cast<const RowContext&>(context);
+            return outerFunction(args, row.outer);
         };
 
     return result;

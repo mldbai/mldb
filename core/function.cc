@@ -684,10 +684,10 @@ toRowInfo() const
 
 FunctionOutput
 FunctionApplier::
-apply(const FunctionContext & input) const
-{
+apply(const SqlRowScope & outer, const FunctionContext & input) const
+{ 
     ExcAssert(function);
-    return function->apply(*this, input);
+    return function->applyOuter(outer, *this, input);
 }
 
 
