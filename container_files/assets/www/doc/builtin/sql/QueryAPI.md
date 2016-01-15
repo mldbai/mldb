@@ -26,22 +26,45 @@ This route operates on a single dataset (i.e. has an implicit `from` clause) and
 The output format of a query API call is always JSON, and the specifics are controlled by
 the following query string parameters:
 
-- `format`: gives the output format.  Possible values are (see examples below)
-  - `full` (default): full sparse output, including timestamps
-  - `sparse`: sparse output, with a set of column names and values per row
-  - `soa` (for "structure of array"): an object, with one entry per column.
-    Each column has an array with one value per row.  Missing values are
-    represented as nulls.
-  - `aos` (for "array of structures"): an array of structures, one per row.
-    Each row is represented by a structure, with column names as keys and
-   cell values as the value.
-  - `table`: a table represented as an array of arrays, with an optional
-    header row.  Missing values are represented as null.
-- `headers`: if true (default), the table format will include a header.
-- `rowNames`: if true (default), an implicit column called `_rowName` will
+- `format`: string (default `full`), gives the output format.  Possible values are:
+  - `full` (default): full sparse output as array of deep objects. 
+    - All values for each cell are returned, with timestamps.
+  - `table`: a table represented as an array of rows represented as
+    a position arrays of values,with an optional header row (like a CSV file in JSON).   
+    - Missing values are represented as null. 
+    - Timestamp, interval and Nan/Inf values are converted to strings.
+    - Latest value returned per cell, without timestamp
+  - `aos` (for "array of structures"): an array of objects, one per row.
+    - Each row is represented by an object, with column names as keys and
+ cell values as the value.
+    - Latest value returned per cell, without timestamp
+  - `soa` (for "structure of arrays"): an object, with one entry per column.
+    - Each column has an array with one value per row.
+    - Missing values are represented as nulls.
+    - Latest value returned per cell, without timestamp
+  - `sparse`: an array of arrays of arrays. Same as `aos` format except that
+    rows are represented as arrays of 2-element [column, value] arrays instead
+    of objects. 
+    - All values for each cell are returned, without timestamps
+- `headers`: boolean (default `true`), if `true` the table format will include a header.
+- `rowNames`: boolean (default `true`), if `true` an implicit column called `_rowName` will
    be added, containing the row name.
-- `rowHashes`: if true (default is false), an implicit column called
-  `_rowHash` will be added
+- `rowHashes`: boolean (default `false`), if `true` an implicit column called
+  `_rowHash` will be added. Forced to `true` when `format=full`.
+
+### Cell value representation
+
+JSON defines numerical, string, boolean and null representations, but not timestamps, intervals, NaN or Inf.
+In order to deal with this, the output of the Query API (except when in `format=table` mode) will represent
+these types of values as a JSON object as follows:
+
+```
+{"ts" : "1969-07-20T01:02:03.000Z"}
+{"interval": "3 MONTH 14D 1S"}
+{"num": "NaN"}
+{"num": "Inf"}
+{"num": "-Inf"}
+```
 
 ### Examples
 
@@ -60,36 +83,8 @@ Then the query
 
 would return, depending on the parameters:
 
-#### Table with headers
 
-With `format=table` and `headers=true` or no `headers` parameter
-
-```
- [
-   [ "_rowName", "x", "y", "z" ],
-   [ "ex1", 0, 3, null ],
-   [ "ex2", 1, 2, "yes" ],
-   [ "ex3", 2, 1, null ],
-   [ "ex4", 3, 0, "no" ]
-]
-```
-
-#### Table without headers
-
-With `format=table` and `headers=false`
-
-```
-[
-   [ "ex1", 0, 3, null ],
-   [ "ex2", 1, 2, "yes" ],
-   [ "ex3", 2, 1, null ],
-   [ "ex4", 3, 0, "no" ]
-]
-```
-
-#### Default format (sparse with columns broken out)
-
-With no `format` parameter or `format=full`
+#### Default format with no `format` parameter or `format=full`
 
 ```
 [
@@ -130,9 +125,41 @@ With no `format` parameter or `format=full`
 ]
 ```
 
-#### Sparse format (`sparse`)
+#### Table with `format=table`
 
-With `format=sparse`
+```
+ [
+   [ "_rowName", "x", "y", "z" ],
+   [ "ex1", 0, 3, null ],
+   [ "ex2", 1, 2, "yes" ],
+   [ "ex3", 2, 1, null ],
+   [ "ex4", 3, 0, "no" ]
+]
+```
+
+#### Structure of Arrays with `format=soa`
+
+```
+ {
+   "_rowName" : [ "ex1", "ex2", "ex3", "ex4" ],
+   "x" : [ 0, 1, 2, 3 ],
+   "y" : [ 3, 2, 1, 0 ],
+   "z" : [ null, "yes", null, "no" ]
+}
+```
+
+### Array of Structures with `format=aos`
+
+```
+[
+ { "_rowName" : "ex1", "x" : 0, "y" : 3 },
+ { "_rowName" : "ex2", "x" : 1, "y" : 2, "z" : "yes" },
+ { "_rowName" : "ex3", "x" : 2, "y" : 1 },
+ { "_rowName" : "ex4", "x" : 3, "y" : 0, "z" : "no"  }
+]
+```
+
+#### Sparse format with `format=sparse`
 
 ```
 [
@@ -158,49 +185,5 @@ With `format=sparse`
       [ "z", "no" ],
       [ "y", 0 ]
    ]
-]
-```
-
-#### Array per column (`soa` format)
-
-With `format=soa`
-
-```
- {
-   "_rowName" : [ "ex1", "ex2", "ex3", "ex4" ],
-   "x" : [ 0, 1, 2, 3 ],
-   "y" : [ 3, 2, 1, 0 ],
-   "z" : [ null, "yes", null, "no" ]
-}
-```
-
-### Object per row (`aos` format)
-
-With `format=aos`
-
-```
-[
-   {
-      "_rowName" : "ex1",
-      "x" : 0,
-      "y" : 3
-   },
-   {
-      "_rowName" : "ex2",
-      "x" : 1,
-      "y" : 2,
-      "z" : "yes"
-   },
-   {
-      "_rowName" : "ex3",
-      "x" : 2,
-      "y" : 1
-   },
-   {
-      "_rowName" : "ex4",
-      "x" : 3,
-      "y" : 0,
-      "z" : "no"
-   }
 ]
 ```
