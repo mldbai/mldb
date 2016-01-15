@@ -28,6 +28,7 @@ function testQuery(query, expected) {
 
 var dataset1 = mldb.createDataset({type:'sparse.mutable',id:'test1'});
 var dataset2 = mldb.createDataset({type:'sparse.mutable',id:'test2'});
+var dataset2 = mldb.createDataset({type:'sparse.mutable',id:'test2'});
 
 var ts = new Date("2015-01-01");
 
@@ -264,6 +265,119 @@ expected = [
 ];
 
 testQuery('SELECT test1.* FROM test1 JOIN test2 ON test1.x = test2.x',
+          expected);
+
+// MLDB-1189 OUTER JOINS
+
+expected = [
+   [ "_rowName", "test1.x", "test1.y", "test2.x", "test2.z" ],
+   [ "ex1-ex4", 1, 2, 1, 2 ],
+   [ "ex1-ex6", 1, 2, null, 3 ],
+   [ "ex1-ex5", 1, 2, 2, 2 ]
+];
+
+testQuery('SELECT * FROM test1 INNER JOIN test2 ON test1.x = 1',
+          expected);
+
+expected = [
+   [ "_rowName", "test1.x", "test1.y", "test2.x", "test2.z", "test1.z" ],
+   [ "ex1-ex4", 1, 2, 1, 2, null ],
+   [ "ex1-ex6", 1, 2, null, 3, null ],
+   [ "ex2-", 2, null, null, null, 4 ],
+   [ "ex3-", null, null, null, null, 3 ],
+   [ "ex1-ex5", 1, 2, 2, 2, null ]
+];
+
+testQuery('SELECT * FROM test1 LEFT JOIN test2 ON test1.x = 1',
+          expected);
+
+expected = [
+   [ "_rowName", "test1.x", "test1.y", "test2.x", "test2.z" ],
+   [ "ex1-ex4", 1, 2, 1, 2 ],
+   [ "ex1-ex6", 1, 2, null, 3 ],
+   [ "ex1-ex5", 1, 2, 2, 2 ]
+];
+
+testQuery('SELECT * FROM test1 RIGHT JOIN test2 ON test1.x = 1',
+          expected);
+
+expected = [
+   [ "_rowName", "test1.x", "test1.y", "test2.x", "test2.z", "test1.z" ],
+   [ "ex1-ex4", 1, 2, 1, 2, null ],
+   [ "ex2-ex4", 2, null, 1, 2, 4 ],
+   [ "-ex5", null, null, 2, 2, null ],
+   [ "-ex6", null, null, null, 3, null ],
+   [ "ex3-ex4", null, null, 1, 2, 3 ]
+];
+
+testQuery('SELECT * FROM test1 RIGHT JOIN test2 ON test2.x = 1',
+          expected);
+
+expected = [
+[ "_rowName", "test1.x", "test1.y", "test2.x", "test2.z", "test1.z" ],
+   [ "ex1-ex4", 1, 2, 1, 2, null ],
+   [ "ex2-", 2, null, null, null, 4 ],
+   [ "-ex5", null, null, 2, 2, null ],
+   [ "ex3-", null, null, null, null, 3 ],
+   [ "-ex6", null, null, null, 3, null ]
+];
+
+testQuery('SELECT * FROM test1 FULL JOIN test2 ON test1.x = 1 AND test2.x = 1',
+          expected);
+
+testQuery('SELECT * FROM test1 OUTER JOIN test2 ON test1.x = 1 AND test2.x = 1',
+          expected);
+
+testQuery('SELECT * FROM test1 FULL OUTER JOIN test2 ON test1.x = 1 AND test2.x = 1',
+          expected);
+
+expected = [
+   [ "_rowName", "test1.x", "test1.y", "test2.x", "test2.z", "test1.z" ],
+   [ "ex1-ex4", 1, 2, 1, 2, null ],
+   [ "ex3-", null, null, null, null, 3 ],
+   [ "-ex6", null, null, null, 3, null ],
+   [ "ex2-ex5", 2, null, 2, 2, 4 ]
+];
+
+testQuery('SELECT * FROM test1 FULL JOIN test2 ON test1.x = test2.x',
+          expected);
+
+expected = [
+   [ "_rowName", "test1.x", "test1.y", "test2.x", "test2.z", "test1.z" ],
+   [ "ex1-ex4", 1, 2, 1, 2, null ],
+   [ "ex2-", 2, null, null, null, 4 ],
+   [ "-ex5", null, null, 2, 2, null ],
+   [ "ex3-", null, null, null, null, 3 ],
+   [ "-ex6", null, null, null, 3, null ]
+];
+
+testQuery('SELECT * FROM test1 FULL JOIN test2 ON (test1.x = test2.x) AND (test2.x != 2)',
+          expected);
+
+expected = [
+   [ "_rowName", "test1.x", "test1.y", "test2.x", "test2.z", "test1.z" ],
+   [ "ex1-ex4", 1, 2, 1, 2, null ],
+   [ "ex2-", 2, null, null, null, 4 ],
+   [ "ex3-", null, null, null, null, 3 ]
+];
+
+testQuery('SELECT * FROM test1 LEFT JOIN test2 ON test1.x = test2.x AND test2.x != 2',
+          expected);
+
+testQuery('SELECT * FROM test1 LEFT OUTER JOIN test2 ON test1.x = test2.x AND test2.x != 2',
+          expected);
+
+expected = [
+   [ "_rowName", "test1.x", "test1.y", "test2.x", "test2.z" ],
+   [ "ex1-ex4", 1, 2, 1, 2 ],
+   [ "-ex5", null, null, 2, 2 ],
+   [ "-ex6", null, null, null, 3 ]
+];
+
+testQuery('SELECT * FROM test1 RIGHT JOIN test2 ON test1.x = test2.x AND test2.x != 2',
+          expected);
+
+testQuery('SELECT * FROM test1 RIGHT OUTER JOIN test2 ON test1.x = test2.x AND test2.x != 2',
           expected);
 
 "success"

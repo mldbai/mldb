@@ -21,7 +21,7 @@ SELECT * FROM (SELECT * FROM dataset WHERE column1 = 2) as subselect WHERE colum
 
 ## Joins
 
-From expressions can be combined together to perform outer joins with the pattern `<FromExpression> JOIN <FromExpression> ON <ValueExpression>`. For example:
+From Expressions can be combined together to perform joins with the pattern `<FromExpression1> <JoinType> <FromExpression2> ON <ValueExpression>`. For example:
 
 ```
 SELECT * 
@@ -30,8 +30,27 @@ FROM (SELECT * FROM dataset WHERE column1 = 2) as subselect
 
 ```
 
-## Transpose
+`<FromExpression1>` and `<FromExpression2>` are called the "left side" and "right side" of the join, respectively, and the `<ValueExpression>` is called the "join condition".
 
+The following `<JoinType>`s are supported:
+
+**`left JOIN right`, `left INNER JOIN right`**
+
+The output contains a row for each combination of rows of `left` and rows of `right` that satisfies the join condition.
+
+**`left LEFT JOIN right`, `left LEFT OUTER JOIN right`**
+
+First, an inner join is performed. Then, for each row in `left` that does not satisfy the join condition with any row in `right`, a joined row is added with null values in columns of `right`. The output therefore always has at least one row for each row in `left`.
+
+**`left RIGHT JOIN right`, `left RIGHT OUTER JOIN right`**
+
+First, an inner join is performed. Then, for each row in `right` that does not satisfy the join condition with any row in `left`, a joined row is added with null values in columns of `left`. This is the converse of a left join: the output will always have a row for each row in `right`.
+
+**`left OUTER JOIN right`, `left FULL JOIN right`, `left FULL OUTER JOIN right`**
+
+First, an inner join is performed. Then, for each row in `left` that does not satisfy the join condition with any row in `right`, a joined row is added with null values in columns of `right`. Also, for each row of `right` that does not satisfy the join condition with any row in `left`, a joined row with null values in the columns of `left` is added. The output therefore always has at least one row for each row of both `left` and `right`.
+
+## Transpose 
 Queries can be made to the transpose of a dataset by using the transpose() function in the FROM expression. For example:
 
 ```

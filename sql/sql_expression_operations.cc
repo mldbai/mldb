@@ -1084,6 +1084,7 @@ bind(SqlBindingScope & context) const
                     ExpressionValue lstorage, rstorage;
                     const ExpressionValue & l = boundLhs(row, lstorage);
                     const ExpressionValue & r = boundRhs(row, rstorage);
+
                     if (l.isTrue() && r.isTrue()) {
                         Date ts = std::max(l.getEffectiveTimestamp(),
                                            r.getEffectiveTimestamp());
