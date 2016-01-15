@@ -14,6 +14,15 @@
 namespace Datacratic {
 namespace MLDB {
 
+enum JoinQualification {
+    JOIN_INNER,
+    JOIN_LEFT,
+    JOIN_RIGHT,
+    JOIN_FULL
+};
+
+DECLARE_ENUM_DESCRIPTION(JoinQualification);
+
 /*****************************************************************************/
 /* NAMED DATASET EXPRESSION                                                  */
 /*****************************************************************************/

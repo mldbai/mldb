@@ -781,8 +781,8 @@ take()
             if (field.empty() || !where.asBool())
             {
                 s->values.pop_back();
-                s->values.emplace_back(ExpressionValue("", Date()));
-                s->values.emplace_back(ExpressionValue("", Date()));
+                s->values.emplace_back(ExpressionValue("", Date::notADate()));
+                s->values.emplace_back(ExpressionValue("", Date::notADate()));
                 return true;
             }
 
@@ -851,8 +851,8 @@ take()
     if (outerLeft && l)
     {
         l->values.pop_back();
-        l->values.emplace_back(ExpressionValue("", Date()));
-        l->values.emplace_back(ExpressionValue("", Date()));
+        l->values.emplace_back(ExpressionValue("", Date::notADate()));
+        l->values.emplace_back(ExpressionValue("", Date::notADate()));
         auto result = std::move(l);                
         l = left->take();
         return result;
@@ -861,8 +861,8 @@ take()
     if (outerRight && r)
     {
         r->values.pop_back();
-        r->values.insert(r->values.begin(), ExpressionValue("", Date()));
-        r->values.insert(r->values.begin(), ExpressionValue("", Date()));
+        r->values.insert(r->values.begin(), ExpressionValue("", Date::notADate()));
+        r->values.insert(r->values.begin(), ExpressionValue("", Date::notADate()));
         auto result = std::move(r);
 
         r = right->take();

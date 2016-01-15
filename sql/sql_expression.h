@@ -91,15 +91,6 @@ enum OrderByDirection {
 
 DECLARE_ENUM_DESCRIPTION(OrderByDirection);
 
-enum JoinQualification {
-    JOIN_INNER,
-    JOIN_LEFT,
-    JOIN_RIGHT,
-    JOIN_FULL
-};
-
-DECLARE_ENUM_DESCRIPTION(JoinQualification);
-
 /*****************************************************************************/
 /* BOUND PARAMETERS                                                          */
 /*****************************************************************************/
@@ -1307,10 +1298,6 @@ struct TableExpression: public std::enable_shared_from_this<TableExpression> {
         dependencies on query parameters.
     */
     virtual UnboundEntities getUnbound() const = 0;
-
-    /** Match join qualification (Inner, left, right, full)
-    */
-    static bool matchJoinQualification(ML::Parse_Context & context, JoinQualification& joinQualify);
 
     /// This is the text that was originally parsed to create the
     /// expression.

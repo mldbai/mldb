@@ -10,6 +10,7 @@
 
 #include "sql_expression.h"
 #include "binding_contexts.h"
+#include "table_expression_operations.h"
 
 namespace Datacratic {
 namespace MLDB {
