@@ -45,17 +45,39 @@ SampledDatasetConfigDescription()
     nullAccepted = true;
 
     addField("rows", &SampledDatasetConfig::rows,
-            "Number of rows to sample. It cannot be set when fraction is "
-            "set.");
+            "Number of rows to sample. This option cannot be set when fraction is "
+            "set. This option cannot be set higher than the number of rows of "
+            "input unless withReplacement is set to true.");
     addField("fraction", &SampledDatasetConfig::fraction,
             "Fraction of rows in dataset to sample. It cannot be set when "
             "rows is set.");
     addField("withReplacement", &SampledDatasetConfig::withReplacement,
-            "Sample with or without replacement", false);
+            "Sample with or without replacement. Sampling with replacement "
+            "means that the same input row can appear in the output more "
+            "than once.", false);
     addField("dataset", &SampledDatasetConfig::dataset,
              "Dataset to sample");
     addField("seed", &SampledDatasetConfig::seed,
-             "Seed value for the random number generator");
+              "Seed value for the random number generator. The purpose of "
+              "this parameter is to permit reproducible random samples. "
+              "This parameter is optional, with the default value being "
+              "selected randomly for each sample.");
+
+    onPostValidate = [] (SampledDatasetConfig * config,
+                         JsonParsingContext & context) {
+
+        if (config->rows != 0 && config->fraction != 0) {
+            throw ML::Exception("rows and fraction parameters cannot be set "
+                    "at the same time");
+        }
+        if (config->rows != 0 && config->fraction != 0) {
+            throw ML::Exception("rows or fraction parameters need to be set");
+        }
+        if(config->rows == 0 && (config->fraction >= 1 || config->fraction <= 0)) {
+            throw ML::Exception("fraction needs to be between 0 and 1");
+        }
+    };
+
 }
 
 
@@ -88,18 +110,6 @@ struct SampledDataset::Itl
         // get all existing  rows
         auto rows = matrix->getRowHashes();
 
-        if (config.rows != 0 && config.fraction != 0) {
-            throw ML::Exception("rows and fraction parameters cannot be set "
-                    "at the same time");
-        }
-        if (config.rows != 0 && config.fraction != 0) {
-            throw ML::Exception("rows or fraction parameters need to be set");
-        }
-        if(config.rows == 0 && (config.fraction >= 1 || config.fraction <= 0)) {
-            throw ML::Exception("fraction needs to be between 0 and 1");
-        }
-
-
         unsigned numRows = config.rows != 0 ? config.rows
                                             : rows.size() * config.fraction;
 
@@ -115,19 +125,18 @@ struct SampledDataset::Itl
         std::uniform_int_distribution<> dis(0, rows.size() - 1);
 
         unordered_set<unsigned> sampledIndexes;
-        unordered_set<unsigned>::iterator sampledIt;
         while(sampledRows.size() < numRows) {
             unsigned sample_index = dis(gen);
 
             // if we're not sampling with replacement, check if
             // we already sampled this index
             if(!config.withReplacement) {
-                sampledIt = sampledIndexes.find(sample_index);
-                if(sampledIt != sampledIndexes.end())
+                if(sampledIndexes.count(sample_index))
                     continue;
+
+                sampledIndexes.insert(sample_index);
             }
 
-            sampledIndexes.insert(sample_index);
             sampledRowsHash.emplace_back(rows[sample_index]);
 
             auto rowName = matrix->getRowName(rows[sample_index]);
@@ -138,7 +147,11 @@ struct SampledDataset::Itl
     
     virtual RowName getRowName(const RowHash & row) const 
     {
-        return matrix->getRowName(row);
+        auto rowName = matrix->getRowName(row);
+        if(!knownRow(rowName))
+            throw ML::Exception("Can't get name of unknown row");
+
+        return rowName;
     }
 
     virtual std::vector<RowName>
@@ -175,7 +188,7 @@ struct SampledDataset::Itl
     
     virtual bool knownRow(const RowName & row) const
     {
-        return sampledRowsIndex.find(row) != sampledRowsIndex.end();
+        return sampledRowsIndex.count(row);
     }
     
     virtual MatrixNamedRow getRow(const RowName & rowName) const
@@ -216,7 +229,7 @@ struct SampledDataset::Itl
 
     virtual size_t getColumnCount() const
     {
-        return matrix->getRowCount();
+        return matrix->getColumnCount();
     }
 
     std::pair<Date, Date>
@@ -247,6 +260,12 @@ struct SampledDataset::Itl
         }
 
         return col;
+    }
+
+    virtual void recordRowItl(const RowName & rowName,
+          const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
+    {
+        throw ML::Exception("Dataset type doesn't allow recording");
     }
 
 };
