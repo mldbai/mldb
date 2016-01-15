@@ -569,6 +569,8 @@ struct SqlBindingScope {
         pointer which means we're running outside of MLDB.
     */
     virtual MldbServer * getMldbServer() const;
+
+    size_t functionStackDepth;
 };
 
 

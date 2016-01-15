@@ -92,7 +92,7 @@ check_res(mldb.perform("PUT", "/v1/functions/recurse", [], {
 
 # MLDB-1251
 rez = mldb.perform("GET", "/v1/query", [["q", "select recurse({input: -1})"]])
-check_res(rez, 500)
+check_res(rez, 400)
 
 mldb.script.set_return("success")
 

@@ -147,7 +147,7 @@ BoundSqlExpressionDescription()
 /*****************************************************************************/
 
 SqlBindingScope::
-SqlBindingScope()
+SqlBindingScope() : functionStackDepth(0)
 {
 }
 

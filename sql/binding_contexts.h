@@ -32,6 +32,7 @@ struct ReadThroughBindingContext: public SqlBindingScope {
     ReadThroughBindingContext(SqlBindingScope & outer)
         : outer(outer)
     {
+        functionStackDepth = outer.functionStackDepth;
     }
 
     /// Outer context, which we can pass through non-mutating operations to
