@@ -28,7 +28,7 @@ namespace ML {
 /* PARSE_CONTEXT                                                             */
 /*****************************************************************************/
 
-const std::string Parse_Context::NO_FILE("-");
+const std::string Parse_Context::CONSOLE("-");
 
 Parse_Context::
 Parse_Context()
