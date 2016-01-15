@@ -36,7 +36,6 @@ using namespace std;
 namespace Datacratic {
 namespace MLDB {
 
-
 /*****************************************************************************/
 /* CONSTANTS                                                                 */
 /*****************************************************************************/
@@ -830,6 +829,14 @@ static bool matchKeyword(ML::Parse_Context & context, const char * keyword)
     return false;
 }
 
+// Expect a keyword in any case
+static void expectKeyword(ML::Parse_Context & context, const char * keyword)
+{
+    if (!matchKeyword(context, keyword)) {
+        context.exception("expected keyword " + string(keyword));
+    }
+}
+
 // Read ahead to see if a keyword matches
 static bool peekKeyword(ML::Parse_Context & context, const char * keyword)
 {
@@ -995,12 +1002,52 @@ static bool matchOperator(ML::Parse_Context & context, const char * keyword)
     return false;
 }
 
-// Expect a keyword in any case
-static void expectKeyword(ML::Parse_Context & context, const char * keyword)
+bool
+matchJoinQualification(ML::Parse_Context & context, JoinQualification& joinQualify)
 {
-    if (!matchKeyword(context, keyword)) {
-        context.exception("expected keyword " + string(keyword));
+    joinQualify = JOIN_INNER;
+    bool inner = matchKeyword(context, "INNER ");
+    if (!inner)
+    {
+        bool right = false;
+        bool full = false;
+        bool outer = false;
+        bool left = matchKeyword(context, "LEFT ");
+        if (!left)
+        {
+            right = matchKeyword(context, "RIGHT ");
+            if (!right)
+            {
+               full = matchKeyword(context, "FULL ");
+               outer = matchKeyword(context, "OUTER ");
+            }
+        }
+
+        if (right || left || full || outer)
+        {
+           //outer is optional, eat it
+           context.skip_whitespace();
+           if (!outer)
+              matchKeyword(context, "OUTER ");
+
+           joinQualify = right ? JOIN_RIGHT : (left ? JOIN_LEFT : JOIN_FULL);
+
+           //MUST match the 'JOIN'
+           expectKeyword(context, "JOIN ");
+           return true;
+        }
+        else
+        {
+           return matchKeyword(context, "JOIN ");
+        }
     }
+    else
+    {
+        expectKeyword(context,"JOIN ");
+        return true;
+    }
+
+    return false;
 }
 
 const SqlExpression::Operator operators[] = {
@@ -2960,6 +3007,20 @@ printJsonTyped(const SelectExpression * val,
     else context.writeStringUtf8(val->surface);
 }
 
+/*****************************************************************************/
+/* JOIN QUALIFICATION                                                        */
+/*****************************************************************************/
+
+DEFINE_ENUM_DESCRIPTION(JoinQualification);
+
+JoinQualificationDescription::
+JoinQualificationDescription()
+{
+    addValue("JOIN_INNER", JOIN_INNER, "Inner join");
+    addValue("JOIN_LEFT", JOIN_LEFT, "Left join");
+    addValue("JOIN_RIGHT", JOIN_RIGHT, "Right join");
+    addValue("JOIN_FULL", JOIN_FULL, "Full join");
+}
 
 /*****************************************************************************/
 /* TABLE EXPRESSION                                                          */
@@ -3062,8 +3123,9 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
     if (!result)
         throw HttpReturnException(400, "Expected table expression");
 
+    JoinQualification joinQualify = JOIN_INNER;
     
-    while (matchKeyword(context, "JOIN ")) {
+    while (matchJoinQualification(context, joinQualify)) {
         auto joinTable = TableExpression::parse(context, currentPrecedence, allowUtf8);
             
         std::shared_ptr<SqlExpression> condition;
@@ -3071,10 +3133,10 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         if (matchKeyword(context, "ON ")) {
             condition = SqlExpression::parse(context, 10 /* precedence */, allowUtf8);
         }
-            
-        result.reset(new JoinExpression(result, joinTable, condition));
+          
+        result.reset(new JoinExpression(result, joinTable, condition, joinQualify));
         result->surface = ML::trim(token.captured());
-
+            
         skip_whitespace(context);
     }
 
