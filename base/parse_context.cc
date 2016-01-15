@@ -28,6 +28,8 @@ namespace ML {
 /* PARSE_CONTEXT                                                             */
 /*****************************************************************************/
 
+const std::string Parse_Context::CONSOLE("-");
+
 Parse_Context::
 Parse_Context()
     : stream_(0), chunk_size_(0), first_token_(0), last_token_(0),
@@ -73,7 +75,7 @@ Parse_Context::
 Parse_Context(const std::string & filename, std::istream & stream,
               unsigned line, unsigned col, size_t chunk_size)
     : stream_(&stream), chunk_size_(chunk_size), first_token_(0), last_token_(0),
-      cur_(0), ebuf_(0),
+      filename_(filename), cur_(0), ebuf_(0),
       line_(1), col_(1), ofs_(0)
 {
     current_ = read_new_buffer();
