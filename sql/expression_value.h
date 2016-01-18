@@ -1,8 +1,6 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** expression_value.h                                             -*- C++ -*-
     Jeremy Barnes, 14 February 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Code for the type that holds the value of an expression.
 */
@@ -253,7 +251,9 @@ struct ExpressionValueInfo {
     /** Get the expression value info of a value nested at any level
         with columns name separated by a '.'
     */
-    virtual std::shared_ptr<ExpressionValueInfo> findNestedColumn(const Utf8String& variableName, SchemaCompleteness& schemaCompleteness)
+    virtual std::shared_ptr<ExpressionValueInfo> findNestedColumn(
+            const Utf8String& variableName,
+            SchemaCompleteness& schemaCompleteness)
     {
         schemaCompleteness = SCHEMA_CLOSED;
         return std::shared_ptr<ExpressionValueInfo>();
@@ -917,7 +917,9 @@ struct RowValueInfo: public ExpressionValueInfoT<RowValue> {
                                                    const CellValue & value,
                                                    Date timestamp)> & write) const;
 
-    virtual std::shared_ptr<ExpressionValueInfo> findNestedColumn(const Utf8String& variableName, SchemaCompleteness& schemaCompleteness);
+    virtual std::shared_ptr<ExpressionValueInfo> findNestedColumn(
+            const Utf8String& variableName,
+            SchemaCompleteness& schemaCompleteness);
 
     virtual std::vector<KnownColumn> getKnownColumns() const;
     virtual SchemaCompleteness getSchemaCompleteness() const;

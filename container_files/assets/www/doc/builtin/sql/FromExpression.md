@@ -50,6 +50,16 @@ First, an inner join is performed. Then, for each row in `right` that does not s
 
 First, an inner join is performed. Then, for each row in `left` that does not satisfy the join condition with any row in `right`, a joined row is added with null values in columns of `right`. Also, for each row of `right` that does not satisfy the join condition with any row in `left`, a joined row with null values in the columns of `left` is added. The output therefore always has at least one row for each row of both `left` and `right`.
 
+## Sample
+
+Queries can be made to a sample of a dataset by using the sample() function in the FROM expression. For example:
+
+```
+SELECT x.* FROM sample(dataset, {rows: 25, withReplacement: FALSE}) AS x
+```
+
+See ![](%%doclink sampled dataset) for more details.
+
 ## Transpose 
 Queries can be made to the transpose of a dataset by using the transpose() function in the FROM expression. For example:
 

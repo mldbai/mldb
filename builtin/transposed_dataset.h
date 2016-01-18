@@ -1,13 +1,7 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** transposed_dataset.h                                               -*- C++ -*-
     Jeremy Barnes, 28 February 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
-    Dataset that is the combination of multiple underlying datasets.  The
-    merge is done per row ID; those with the same row names will have the
-    columns transposed together.  In this way it's neither a union nor a join,
-    but a merge.
 */
 
 #pragma once
