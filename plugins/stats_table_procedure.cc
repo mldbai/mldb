@@ -610,7 +610,7 @@ run(const ProcedureRunConfig & run,
             if(num_req++ % 10000 == 0) {
                 double secs = Date::now().secondsSinceEpoch() - start.secondsSinceEpoch();
                 string progress = ML::format("done %d. %0.4f/sec", num_req, num_req / secs);
-                onProgress(progress);
+                onProgress2(progress);
                 cerr << progress << endl;
             }
 

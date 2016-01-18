@@ -21,8 +21,8 @@ namespace Datacratic {
 
 namespace {
 
-static constexpr char * BUFFER_TOO_SMALL = (char *)0;
-static constexpr char * NO_ESCAPING = (char *)1;
+static char * BUFFER_TOO_SMALL = reinterpret_cast<char *>(0);
+static char * NO_ESCAPING = reinterpret_cast<char *>(1);
 
 /** Escape JSON in an existing buffer.  Will return BUFFER_TOO_SMALL if the
     underlying buffer is too small.  Will return NO_ESCAPING 1 (as a char *)
