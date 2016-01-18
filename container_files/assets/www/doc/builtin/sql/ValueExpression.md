@@ -222,6 +222,18 @@ into an enumeration of values on the right hand side. For example: `expr IN (3,5
 The right hand side can also be the result of a sub `SELECT` statement. For example `expr IN (SELECT x FROM dataset)` will test if the value expressed by `expr` is equal to any of the values in the x column
 of the dataset. If the `SELECT` statement returns more than a single column, they will all be tested.
 
+
+<h2 id="ExpressingTimeIntervals">Expressing Time Intervals</h2>
+
+Time intervals can be expressed using the `INTERVAL` keyword and a sequence of values 
+followed by one of the supported time units: second, minute, hour, day, week, month, and year,
+encapsulated within single quotes. For example, `INTERVAL '2 day 37 minute'`
+The time units can be wholy capilalized (for example, `YEAR`), and are always singular. 
+You can also use the following abreviations: 's' for second, 'm' for minute, 'h' for hour, 'd' for day,
+'w' for week, and 'y' for years. The time units abbreviations can also be capitalized.
+The time interval can be made negative by using a single minus '-' sign in front of the chain of values.
+For example, `INTERVAL '-3 month 2 week'`.
+
 ## <a name="CallingFunctions"></a>Calling Functions</h2>
 
 Built-in functions (see below for a list) can accept multiple arguments of any type and return a single value of any type and can be applied by name with parameters in parentheses, for example:
@@ -455,17 +467,6 @@ the values.
 - `horizontal_min(<row>)` returns the minimum of the non-null values in the row.
 - `horizontal_max(<row>)` returns the maximum of the non-null value in the row.
 
-
-<h2 id="ExpressingTimeIntervals">Expressing Time Intervals</h2>
-
-Time intervals can be expressed using the `INTERVAL` keyword and a sequence of values 
-followed by one of the supported time units: second, minute, hour, day, week, month, and year,
-encapsulated within single quotes. For example, `INTERVAL '2 day 37 minute'`
-The time units can be wholy capilalized (for example, `YEAR`), and are always singular. 
-You can also use the following abreviations: 's' for second, 'm' for minute, 'h' for hour, 'd' for day,
-'w' for week, and 'y' for years. The time units abbreviations can also be capitalized.
-The time interval can be made negative by using a single minus '-' sign in front of the chain of values.
-For example, `INTERVAL -'3 month 2 week'`.
 
 ## Evaluating a JS function from SQL (Experimental)
 

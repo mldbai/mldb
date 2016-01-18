@@ -10,6 +10,7 @@
 
 #include "sql_expression.h"
 #include "binding_contexts.h"
+#include "table_expression_operations.h"
 
 namespace Datacratic {
 namespace MLDB {
@@ -317,6 +318,7 @@ struct PipelineElement: public std::enable_shared_from_this<PipelineElement> {
     join(std::shared_ptr<TableExpression> left,
          std::shared_ptr<TableExpression> right,
          std::shared_ptr<SqlExpression> on,
+         JoinQualification joinQualification,
          SelectExpression select = SelectExpression(),
          std::shared_ptr<SqlExpression> where = SqlExpression::parse("true"),
          OrderByExpression orderBy = OrderByExpression());

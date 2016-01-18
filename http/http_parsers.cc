@@ -424,7 +424,7 @@ finalizeParsing()
 
 HttpParser::BufferState::
 BufferState(const char * start, size_t length, bool fromBuffer)
-    : ML::Parse_Context(ML::Parse_Context::NO_FILE, start, start + length),
+    : ML::Parse_Context(ML::Parse_Context::CONSOLE, start, start + length),
       start_(start), fromBuffer_(fromBuffer)
 {
 }

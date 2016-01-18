@@ -1,9 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** rest_collection_impl.h                                         -*- C++ -*-
     Jeremy Barnes, 21 January 2014
     Copyright (c) 2014 Datacratic Inc.  All rights reserved.
 
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #pragma once
@@ -159,20 +158,35 @@ clear()
     // 5% of performance.
     // auto exclusiveLock = impl->childWatches.getExclusiveAccess();
     
-    if (!impl->childWatches.empty()) {
-        for (auto & e: *cleanup) {
-            ChildEvent event;
-            event.event = CE_DELETED;
-            event.parent = event.parentCollection = this;
-            event.key = e.first;
-            event.name = restEncode(event.key);
-            event.object = e.second.value.get();
-            event.entity = getChildEntity(e.second.value.get());
-            event.value = e.second.value;
+    for (auto & e: *cleanup) {
+        // First, wait until it has actually be cleaned up
+        if (e.second.underConstruction) {
+            // Stop it, and wait for it to finish
+            e.second.underConstruction->cancel();
+            ExcAssert(e.second.underConstruction->cancelled);
             
-            //cerr << "triggering child watch for delete on " << event.name << endl;
+            // Note that even if there is a race condition where the
+            // construction finished after we swapped the collections,
+            // it will be blocked on the mutateMutex in addEntryItl,
+            // and once this routine exits (and the mutex is released),
+            // it will see that it was cancelled and the add will abort.
+        }
+        else {
+            // Let the watch know it's being deleted
+            if (!impl->childWatches.empty()) {
+                ChildEvent event;
+                event.event = CE_DELETED;
+                event.parent = event.parentCollection = this;
+                event.key = e.first;
+                event.name = restEncode(event.key);
+                event.object = e.second.value.get();
+                event.entity = getChildEntity(e.second.value.get());
+                event.value = e.second.value;
+            
+                //cerr << "triggering child watch for delete on " << event.name << endl;
 
-            impl->childWatches.trigger(event);
+                impl->childWatches.trigger(event);
+            }
         }
     }
 }
@@ -588,6 +602,7 @@ addBackgroundJobInThread(Key key,
         if (impl->entries.cmp_xchg(oldEntries, newEntries, true)) {
             // Now we can start the task, since the commit succeeded
             onProgressFn(Json::Value());
+
             std::thread thread(toRun);
 
             auto handle = thread.native_handle();
@@ -607,7 +622,8 @@ template<typename Key, class Value>
 void
 RestCollection<Key, Value>::
 finishedBackgroundJob(Key key,
-                      std::shared_ptr<BackgroundTask> task, bool mustBeNewEntry)
+                      std::shared_ptr<BackgroundTask> task,
+                      bool mustBeNewEntry)
 {
     using namespace std;
     //cerr << "finished background job " << restEncode(key) << endl;
@@ -620,17 +636,22 @@ finishedBackgroundJob(Key key,
         return;
     }
 
+    // If this check triggers, we've somehow destroyed our object
+    // without waiting for background tasks to finish.
+    ExcAssert(impl);
+
     // Only promote it if it's not in the error state
+    // If we're currently clearing, then we shouldn't add anything
+    // at all.
     if (task->value) {
         if (mustBeNewEntry)
-            this->addEntryItl(key, task->value);
+            this->addEntryItl(key, task->value, true /* must add */,
+                              task->cancelled);
         else
-            this->replaceEntry(key, task->value);
+            this->replaceEntry(key, task->value,
+                               task->cancelled);
     }
 
-    //cerr << "entry added joined" << endl;
-
-    //cerr << "running " << task->onDoneFunctions.size() << " functions" << endl;
     for (auto & f: task->onDoneFunctions)
         f(task->value);
 }
@@ -640,9 +661,19 @@ bool
 RestCollection<Key, Value>::
 addEntryItl(Key key,
             std::shared_ptr<Value> val,
-            bool  mustBeNewEntry)
+            bool mustBeNewEntry,
+            std::atomic<bool> & wasCancelled)
 {
+    if (!val)
+        return false;  // should only happen when being destroyed
+
     std::unique_lock<typename Impl::MutateMutex> mutateGuard(impl->mutateMutex);
+
+    // In the case of an entry that's created and then removed before
+    // it can be added, it may be cancelled before it can obtain the
+    // mutate guard.  In that case, we don't add it.
+    if (wasCancelled)
+        return false;
 
     // NOTE: Should not be necessary... investigation needed
     GcLock::SharedGuard guard(impl->entriesLock);
@@ -697,11 +728,18 @@ addEntryItl(Key key,
 template<typename Key, class Value>
 bool
 RestCollection<Key, Value>::
-replaceEntry(Key key,
-             std::shared_ptr<Value> val,
-             bool mustAlreadyExist)
+replaceEntryItl(Key key,
+                std::shared_ptr<Value> val,
+                bool mustAlreadyExist,
+                std::atomic<bool> & wasCancelled)
 {
     std::unique_lock<typename Impl::MutateMutex> mutateGuard(impl->mutateMutex);
+
+    // In the case of an entry that's created and then removed before
+    // it can be added, it may be cancelled before it can obtain the
+    // mutate guard.  In that case, we don't add it.
+    if (wasCancelled)
+        return false;
 
     // NOTE: Should not be necessary... investigation needed
     GcLock::SharedGuard guard(impl->entriesLock);
@@ -1211,6 +1249,7 @@ template<typename Key, typename Value,
 RestConfigurableCollection<Key, Value, Config, Status>::
 ~RestConfigurableCollection()
 {
+    this->shutdown();
 }
 
 template<typename Key, typename Value, 
@@ -1365,7 +1404,22 @@ constructCancellable(Config config,
                      const OnProgress & onProgress,
                      WatchT<bool> cancelled) const
 {
+    // NOTE: if you get a "pure virtual function call" here,
+    // it's because you didn't call shutdown() from the destructor
+    // of the most derived class in your hierarchy.
     return construct(config, onProgress);
+}
+
+template<typename Key, typename Value, 
+         typename Config, typename Status>
+std::shared_ptr<Value>
+RestConfigurableCollection<Key, Value, Config, Status>::
+construct(Config config,
+          const OnProgress & onProgress) const
+{
+    // This should ONLY be called when we are destroying a
+    // collection with items just added into it.
+    return nullptr;
 }
 
 template<typename Key, typename Value, 
@@ -1710,8 +1764,11 @@ handlePutItl(Key key, Config config,  const OnDone & onDone, bool mustBeNew)
     }
     else {
         WatchT<bool> cancelled;
+        std::atomic<bool> wasCancelled(false);
         this->addEntryItl(key, constructCancellable(std::move(config), nullptr,
-                                                    std::move(cancelled)));
+                                                    std::move(cancelled)),
+                          true /* must add */,
+                          wasCancelled);
     }
 
     if (isPersistent) {

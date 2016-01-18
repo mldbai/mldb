@@ -680,14 +680,19 @@ toRowInfo() const
 
 /*****************************************************************************/
 /* FUNCTION APPLIER                                                          */
+/*                                                                           */
+/* 'outer' is the original row scope in which the function is evaluated      */
+/* as needed by FunctionExpressionContext                                    */
+/* or any binding scope inherited from ReadThroughBindingContext             */
+/* in order to evaluate sub-select expressions in the expression             */                                     
 /*****************************************************************************/
 
 FunctionOutput
 FunctionApplier::
-apply(const FunctionContext & input) const
-{
+apply(const SqlRowScope & outer, const FunctionContext & input) const
+{ 
     ExcAssert(function);
-    return function->apply(*this, input);
+    return function->applyOuter(outer, *this, input);
 }
 
 

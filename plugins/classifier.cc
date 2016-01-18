@@ -105,7 +105,7 @@ ClassifierConfigDescription()
              "both positive and negative examples is exactly identical. "
              "A number between will choose a balanced tradeoff.  Typically 0.5 "
              "is a good number to use for unbalanced probabilities",
-             0.0);
+             0.5);
     addField("mode", &ClassifierConfig::mode,
              "Mode of classifier.  Controls how the label is interpreted and "
              "what is the output of the classifier.");

@@ -1082,6 +1082,7 @@ bind(SqlBindingScope & context) const
                     ExpressionValue lstorage, rstorage;
                     const ExpressionValue & l = boundLhs(row, lstorage);
                     const ExpressionValue & r = boundRhs(row, rstorage);
+
                     if (l.isTrue() && r.isTrue()) {
                         Date ts = std::max(l.getEffectiveTimestamp(),
                                            r.getEffectiveTimestamp());
@@ -1306,6 +1307,10 @@ FunctionCallWrapper::
 bind(SqlBindingScope & context) const
 {
     //check whether it is a builtin or not
+    if (context.functionStackDepth > 100)
+            throw HttpReturnException(400, "Reached a stack depth of over 100 functions while analysing query, possible infinite recursion");
+
+    context.functionStackDepth++;
     std::vector<BoundSqlExpression> boundArgs;
     for (auto& arg : args)
     {
@@ -1313,16 +1318,20 @@ bind(SqlBindingScope & context) const
     }
 
     BoundFunction fn = context.doGetFunction(tableName, functionName, boundArgs);
+    BoundSqlExpression boundOutput;
+
     if (fn)
     {
         //context confirm it is builtin
-        return bindBuiltinFunction(context, boundArgs, fn);
+        boundOutput = bindBuiltinFunction(context, boundArgs, fn);
     }
     else
     {
-        //assume user    
-        return bindUserFunction(context);
+        //assume user
+        boundOutput = bindUserFunction(context);
     }
+    context.functionStackDepth--;
+    return boundOutput;
 }
 
 BoundSqlExpression

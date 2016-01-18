@@ -124,7 +124,8 @@ call(const std::map<Utf8String, ExpressionValue> & input) const
 
     auto applier = this->bind(outerContext, info.input);
     
-    return applier->apply(inputContext);
+    SqlRowScope outer; //we dont have a row in this case, use an empty scope
+    return applier->apply(outer, inputContext);
 }
 
 /*****************************************************************************/

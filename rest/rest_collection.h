@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* rest_collection.h                                               -*- C++ -*-
    Jeremy Barnes, 21 January 2014
    Copyright (C) 2014 Datacratic Inc.  All rights reserved.
+
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Helpers for creating a collection of REST objects.
 */
@@ -109,6 +109,11 @@ getDefaultDescription(RestCollectionChildEvent<Key, Value> * = 0);
 
 struct BackgroundTaskBase {
     BackgroundTaskBase();
+
+    /** When destroying a background task, we make sure it's cancelled or
+        finished so that there is nothing outstanding.
+    */
+    ~BackgroundTaskBase();
 
     Json::Value getProgress() const;
 
@@ -319,14 +324,21 @@ struct RestCollection : public RestCollectionBase {
 
     bool addEntry(Key key,
                   std::shared_ptr<Value> value,
-                  bool  mustBeNewEntry = true)
+                  bool mustBeNewEntry = true)
     {
-        return addEntryItl(key, std::move(value), mustBeNewEntry);
+        std::atomic<bool> wasCancelled(false);
+        return addEntryItl(key, std::move(value), mustBeNewEntry,
+                           wasCancelled);
     }
 
     bool replaceEntry(Key key,
                       std::shared_ptr<Value> value,
-                      bool mustAlreadyExist = true);
+                      bool mustAlreadyExist = true)
+    {
+        std::atomic<bool> wasCancelled(false);
+        return replaceEntryItl(key, std::move(value), mustAlreadyExist,
+                               wasCancelled);
+    }
 
     std::pair<std::shared_ptr<Value>,
               std::shared_ptr<BackgroundTask> >
@@ -402,8 +414,13 @@ struct RestCollection : public RestCollectionBase {
 protected:
     bool addEntryItl(Key key,
                      std::shared_ptr<Value> value,
-                     bool mustBeNewEntry = true);
+                     bool mustBeNewEntry,
+                     std::atomic<bool> & wasCancelled);
 
+    bool replaceEntryItl(Key key,
+                         std::shared_ptr<Value> value,
+                         bool mustAlreadyExist,
+                         std::atomic<bool> & wasCancelled);
     struct Entry {
         std::shared_ptr<BackgroundTask> underConstruction;
         std::shared_ptr<Value> value;
@@ -576,9 +593,13 @@ struct RestConfigurableCollection: public RestCollection<Key, Value> {
                          const OnProgress & onProgress,
                          WatchT<bool> cancelled) const;
 
+    /** NOTE: This method should be pure virtual, except that we want
+        to be able to call it during destruction and for that to
+        perform a no-op.
+    */
     virtual std::shared_ptr<Value>
     construct(Config config,
-              const OnProgress & onProgress) const = 0;
+              const OnProgress & onProgress) const;
 
     virtual WatchT<Key, std::shared_ptr<Config> >
     watchConfig(const Utf8String & spec, bool catchUp, Any info);

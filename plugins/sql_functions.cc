@@ -242,9 +242,9 @@ struct SqlExpressionFunctionApplier: public FunctionApplier {
     {
     }
 
-    FunctionOutput apply(const FunctionContext & context) const
+    FunctionOutput apply(const SqlRowScope& outerScope, const FunctionContext & context) const
     {
-        return bound(this->context.getRowContext(context));
+        return bound(this->context.getRowContext(outerScope, context));
     }
 
     FunctionExpressionContext context;
@@ -267,13 +267,22 @@ bind(SqlBindingScope & outerContext,
     return std::move(result);
 }
 
+FunctionOutput 
+SqlExpressionFunction::
+applyOuter(const SqlRowScope& outer, const FunctionApplier & applier,
+                              const FunctionContext & context) const
+{
+  return static_cast<const SqlExpressionFunctionApplier &>(applier)
+        .apply(outer, context);
+}
+
 FunctionOutput
 SqlExpressionFunction::
 apply(const FunctionApplier & applier,
       const FunctionContext & context) const
 {
-    return static_cast<const SqlExpressionFunctionApplier &>(applier)
-        .apply(context);
+    //applyOuter should get called instead 
+    ExcAssert(false);
 }
 
 FunctionInfo
