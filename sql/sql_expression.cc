@@ -1255,7 +1255,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         ExpressionValue constant;
         if (matchConstant(context, constant, allowUtf8)) {
             lhs = std::make_shared<ConstantExpression>(constant);
-            lhs->surface = token.captured();
+            lhs->surface = ML::trim(token.captured());
         }
     }
 
@@ -1448,7 +1448,7 @@ parse(const std::string & expression, const std::string & filename,
       int row, int col)
 {
     //cerr << "parsing " << expression << endl;
-    ML::Parse_Context context(filename.empty() ? ML::Parse_Context::NO_FILE : filename,
+    ML::Parse_Context context(filename.empty() ? expression : filename,
                               expression.c_str(),
                               expression.length(), row, col);
     auto result = parse(context, 10 /* starting precedence */, false /* allowUtf8 */);
