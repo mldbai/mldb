@@ -65,7 +65,8 @@ struct SubDataset::Itl
                                                   statement.orderBy, statement.groupBy,
                                                   statement.having,
                                                   statement.rowName,
-                                                  statement.offset, statement.limit);
+                                                  statement.offset, statement.limit,
+                                                  table.asName);
         }
         else
         {

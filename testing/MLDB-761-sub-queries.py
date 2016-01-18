@@ -65,7 +65,6 @@ QueryAndCheck('SELECT x.* FROM (select {1 as y} as z ) as x', 1)
 QueryAndCheck('SELECT * FROM (select {*} as y from dataset1) as x', 10)
 
 # MLDB-1257 test case
-# uncomment last element in equiv to show problem
 res1 = mldb.perform('GET', '/v1/query', [['q', 'SELECT ln(10) as r']])
 assert res1['statusCode'] == 200
 
@@ -73,16 +72,15 @@ equiv = [
     '                 SELECT ln(x)   as r FROM ( SELECT 10 as x )        ', 
     '                 SELECT ln(x)   as r FROM ( SELECT 10 as x )   as t ', 
     '                 SELECT ln(t.x) as r FROM ( SELECT 10 as x )   as t ', 
-    'SELECT * FROM  ( SELECT ln(x)   as r FROM ( SELECT 10 as x ) )       ', 
+    'SELECT * FROM  ( SELECT ln(x)   as r FROM ( SELECT 10 as x ) )      ', 
     'SELECT * FROM  ( SELECT ln(x)   as r FROM ( SELECT 10 as x )   as t )', 
-# uncomment next line to make test case fail
-# the only difference with the above sequence is ln(t.x) vs ln(x) 
-#   'SELECT * FROM  ( SELECT ln(t.x) as r FROM ( SELECT 10 as x )   as t )'
+    'SELECT * FROM  ( SELECT ln(t.x) as r FROM ( SELECT 10 as x )   as t )'
 ]
 
 for q in equiv:
     res2 = mldb.perform('GET', '/v1/query', [['q', q]])
-    assert res2['statusCode'] == 200
+    mldb.log(res2)
+    assert res2['statusCode'] == 200    
     assert json.loads(res1['response']) == json.loads(res2['response'])
 
 
