@@ -135,7 +135,7 @@ std::ostream & operator << (std::ostream & stream, const HttpHeader & header);
 /** Returns the reason phrase for the given code.
     See http://www.w3.org/Protocols/rfc2616/rfc2616-sec6.html
 */
-std::string getResponseReasonPhrase(int code);
+const std::string & getResponseReasonPhrase(int code);
 
 DECLARE_STRUCTURE_DESCRIPTION(HttpHeader);
 

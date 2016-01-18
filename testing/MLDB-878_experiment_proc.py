@@ -7,7 +7,10 @@ import json, random, datetime, os
 for dataset_id in ["toy", "toy2"]:
     dataset_config = {
         'type'    : 'sparse.mutable',
-        'id'      : dataset_id
+        'id'      : dataset_id,
+        'params': {
+                "writeLevel": "readAfterCommit"
+        }
     }
 
 

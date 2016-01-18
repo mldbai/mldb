@@ -8,19 +8,15 @@ The merge is done on the fly (only an index is created of rows and columns
 in the merged dataset), which means it is relatively rapid to merge even
 large datasets together.
 
-In SQL, it's similar to an outer join:
+Creating a merged dataset is equivalent to the following SQL:
 
 ```
-SELECT ds1.*, ds2.* FROM ds1 OUTER JOIN ds2 ON ds1.rowName = ds2.rowName
+SELECT ds1.*, ds2.* FROM ds1 OUTER JOIN ds2 ON ds1.rowName() = ds2.rowName()
 ```
 
 ## Configuration
 
 ![](%%config dataset merged)
-
-## Examples
-
-* The ![](%%nblink _demos/Mapping Reddit) demo notebook
 
 ## See Also
 

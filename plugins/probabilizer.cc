@@ -75,6 +75,7 @@ ProbabilizerConfigDescription()
 
     onPostValidate = validate<ProbabilizerConfig, 
                               InputQuery, 
+                              MustContainFrom,
                               NoGroupByHaving>(&ProbabilizerConfig::trainingData, "probabilizer");
 }
 

@@ -91,7 +91,6 @@ enum OrderByDirection {
 
 DECLARE_ENUM_DESCRIPTION(OrderByDirection);
 
-
 /*****************************************************************************/
 /* BOUND PARAMETERS                                                          */
 /*****************************************************************************/
@@ -424,38 +423,6 @@ struct RegisterAggregator {
     std::shared_ptr<void> handle;
 };
 
-
-/*****************************************************************************/
-/* BOUND DATASET FUNCTION                                                    */
-/*****************************************************************************/
-
-/** Result of binding a function to be used in a FROM expression.
-  This provides an executor as well as information on the range of the function.
-*/
-
-/*struct BoundDatasetFunction {
-    typedef std::function<BoundTableExpression (const std::vector<BoundTableExpression> &,
-                          const SqlRowScope & context) > Exec;
-
-    BoundDatasetFunction()
-    {
-    }
-
-    BoundDatasetFunction(Exec exec)
-        : exec(std::move(exec))
-    {
-    }
-
-    operator bool () const { return !!exec; }
-
-    Exec exec;
-
-    TableOperations operator () () const
-    {
-        return exec();
-    }
-};*/
-
 /*****************************************************************************/
 /* EXTERNAL FUNCTION                                                         */
 /*****************************************************************************/
@@ -572,6 +539,8 @@ struct SqlBindingScope {
         pointer which means we're running outside of MLDB.
     */
     virtual MldbServer * getMldbServer() const;
+
+    size_t functionStackDepth;
 };
 
 

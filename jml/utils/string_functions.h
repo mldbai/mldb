@@ -36,6 +36,14 @@ std::string lowercase(const std::string & str);
 
 std::string remove_trailing_whitespace(const std::string & str);
 
+/** Implementation of "isspace" that emulates the use of the "C" locale only,
+ * without actually executing any locale code. */
+inline int isspace_nolocale(int c)
+{
+    return (c == ' ' || c == '\t' || c == '\n' || c == '\r'
+            || c == '\v' || c == '\f');
+}
+
 /** If the given string ends with the ending, then remove that ending from the
     string and return true.  Otherwise return false.
 */

@@ -22,31 +22,13 @@
 using namespace std;
 using namespace Datacratic;
 
-#if 0
-
-BOOST_AUTO_TEST_CASE( test_s3_collection_store )
-{
-    S3CollectionConfigStore config("s3://tests.datacratic.com/unit_tests/rest_collection_test");
-    
-    cerr << jsonEncode(config.getAll());
-
-    config.clear();
-
-    BOOST_CHECK_EQUAL(config.keys(), vector<string>());
-
-    config.set("hello", "world");
-    cerr << jsonEncode(config.get("hello")) << endl;
-    
-    BOOST_CHECK_EQUAL(config.get("hello"), "world");
-
-}
-
 struct TestConfig {
     std::string id;
     std::map<std::string, std::string> params;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(TestConfig);
+DEFINE_STRUCTURE_DESCRIPTION(TestConfig);
 
 TestConfigDescription::
 TestConfigDescription()
@@ -62,6 +44,7 @@ struct TestStatus {
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(TestStatus);
+DEFINE_STRUCTURE_DESCRIPTION(TestStatus);
 
 TestStatusDescription::
 TestStatusDescription()
@@ -82,8 +65,8 @@ struct TestCollection
     typedef RestConfigurableCollection<std::string, TestObject,
                                        TestConfig, TestStatus> Base;
     
-    TestCollection()
-        : Base("object", "objects")
+    TestCollection(RestEntity * owner = nullptr)
+        : Base("object", "objects", owner ? owner : this)
     {
     }
 
@@ -119,6 +102,26 @@ struct TestCollection
         return result;
     }
 };
+
+
+#if 0
+
+BOOST_AUTO_TEST_CASE( test_s3_collection_store )
+{
+    S3CollectionConfigStore config("s3://tests.datacratic.com/unit_tests/rest_collection_test");
+    
+    cerr << jsonEncode(config.getAll());
+
+    config.clear();
+
+    BOOST_CHECK_EQUAL(config.keys(), vector<string>());
+
+    config.set("hello", "world");
+    cerr << jsonEncode(config.get("hello")) << endl;
+    
+    BOOST_CHECK_EQUAL(config.get("hello"), "world");
+
+}
 
 BOOST_AUTO_TEST_CASE( test_s3_collection_config_persistence )
 {
@@ -458,7 +461,36 @@ BOOST_AUTO_TEST_CASE( test_watching_multi_level )
     BOOST_CHECK(!w.any());
 }
 
-BOOST_AUTO_TEST_CASE ( test_watching_typed )
-{
+struct SlowToCreateTestCollection: public TestCollection {
+
+    ~SlowToCreateTestCollection()
+    {
+        // don't do this to test that we can shutdown from the
+        // base class without a pure virtual method call
+        //this->shutdown();
+    }
     
+    std::shared_ptr<TestObject>
+    construct(TestConfig config, const OnProgress & onProgress) const
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        auto result = std::make_shared<TestObject>();
+        result->config.reset(new TestConfig(std::move(config)));
+        return result;
+    }
+};
+
+// Stress test for MLDB-1259
+BOOST_AUTO_TEST_CASE ( test_destroying_while_creating )
+{
+    int numTests = 100;
+
+    for (unsigned i = 0;  i < numTests;  ++i) {
+        cerr << "test " << i << " of " << numTests << endl;
+        SlowToCreateTestCollection collection;
+        TestConfig config{"item1", {}};
+        collection.handlePost("item1", config, true /* must be true */);
+        // Destroy it while still being created, to test that we
+        // don't crash
+    }
 }

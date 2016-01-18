@@ -1,3 +1,5 @@
 #!/bin/bash
 
-/usr/sbin/nginx -g 'daemon off;'  
+exec 2>&1  # stderr to stdout for logging purposes
+
+exec /usr/sbin/nginx -g 'daemon off;'

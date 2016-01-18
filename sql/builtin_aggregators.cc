@@ -277,7 +277,7 @@ struct AggregatorT {
             if (srcState->isRow)
                 state->rowState.merge(&srcState->rowState);
             else
-                srcState->scalarState.merge(&srcState->scalarState);
+                state->scalarState.merge(&srcState->scalarState);
 
             state->isRow = srcState->isRow;
             state->isDetermined = true;
@@ -463,6 +463,7 @@ struct CountAccum {
         const ExpressionValue & val = args[0];
         if (val.empty())
             return;
+
         n += 1;
         ts.setMax(val.getEffectiveTimestamp());
     };

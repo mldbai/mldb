@@ -37,7 +37,7 @@ DECLARE_ENUM_DESCRIPTION(ClassifierMode);
 
 struct ClassifierConfig : public ProcedureConfig {
     ClassifierConfig()
-        : equalizationFactor(0.0),
+        : equalizationFactor(0.5),
           mode(CM_BOOLEAN)
     {
     }

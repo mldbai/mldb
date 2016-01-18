@@ -20,6 +20,53 @@ using namespace std;
 using namespace ML;
 
 
+namespace {
+
+const string Continue("Continue");
+const string SwitchingProtocols("Switching Protocols");
+const string OK("OK");
+const string Created("Created");
+const string Accepted("Accepted");
+const string NonAuthoritativeInformation("Non-Authoritative Information");
+const string NoContent("No Content");
+const string ResetContent("Reset Content");
+const string PartialContent("Partial Content");
+const string MultipleChoices("Multiple Choices");
+const string MovedPermanently("Moved Permanently");
+const string Found("Found");
+const string SeeOther("See Other");
+const string NotModified("Not Modified");
+const string UseProxy("Use Proxy");
+const string TemporaryRedirect("Temporary Redirect");
+const string BadRequest("Bad Request");
+const string Unauthorized("Unauthorized");
+const string PaymentRequired("Payment Required");
+const string Forbidden("Forbidden");
+const string NotFound("Not Found");
+const string MethodNotAllowed("Method Not Allowed");
+const string NotAcceptable("Not Acceptable");
+const string ProxyAuthenticationRequired("Proxy Authentication Required");
+const string RequestTimeout("Request Time-out");
+const string Conflict("Conflict");
+const string Gone("Gone");
+const string LengthRequired("Length Required");
+const string PreconditionFailed("Precondition Failed");
+const string RequestEntityTooLarge("Request Entity Too Large");
+const string RequestURITooLarge("Request-URI Too Large");
+const string UnsupportedMediaType("Unsupported Media Type");
+const string RequestedRangeNotSatisfiable("Requested range not satisfiable");
+const string ExpectationFailed("Expectation Failed");
+const string InternalServerError("Internal Server Error");
+const string NotImplemented("Not Implemented");
+const string BadGateway("Bad Gateway");
+const string ServiceUnavailable("Service Unavailable");
+const string GatewayTimeout("Gateway Time-out");
+const string HTTPVersionNotSupported("HTTP Version not supported");
+const string UnknownResponseCode("Unknown response code");
+
+}
+
+
 namespace Datacratic {
 
 
@@ -293,51 +340,51 @@ std::ostream & operator << (std::ostream & stream, const HttpHeader & header)
     return stream;
 }
 
-std::string getResponseReasonPhrase(int code)
+const string & getResponseReasonPhrase(int code)
 {
     switch (code) {
-    case 100: return "Continue";
-    case 101: return "Switching Protocols";
-    case 200: return "OK";
-    case 201: return "Created";
-    case 202: return "Accepted";
-    case 203: return "Non-Authoritative Information";
-    case 204: return "No Content";
-    case 205: return "Reset Content";
-    case 206: return "Partial Content";
-    case 300: return "Multiple Choices";
-    case 301: return "Moved Permanently";
-    case 302: return "Found";
-    case 303: return "See Other";
-    case 304: return "Not Modified";
-    case 305: return "Use Proxy";
-    case 307: return "Temporary Redirect";
-    case 400: return "Bad Request";
-    case 401: return "Unauthorized";
-    case 402: return "Payment Required";
-    case 403: return "Forbidden";
-    case 404: return "Not Found";
-    case 405: return "Method Not Allowed";
-    case 406: return "Not Acceptable";
-    case 407: return "Proxy Authentication Required";
-    case 408: return "Request Time-out";
-    case 409: return "Conflict";
-    case 410: return "Gone";
-    case 411: return "Length Required";
-    case 412: return "Precondition Failed";
-    case 413: return "Request Entity Too Large";
-    case 414: return "Request-URI Too Large";
-    case 415: return "Unsupported Media Type";
-    case 416: return "Requested range not satisfiable";
-    case 417: return "Expectation Failed";
-    case 500: return "Internal Server Error";
-    case 501: return "Not Implemented";
-    case 502: return "Bad Gateway";
-    case 503: return "Service Unavailable";
-    case 504: return "Gateway Time-out";
-    case 505: return "HTTP Version not supported";
+    case 100: return Continue;
+    case 101: return SwitchingProtocols;
+    case 200: return OK;
+    case 201: return Created;
+    case 202: return Accepted;
+    case 203: return NonAuthoritativeInformation;
+    case 204: return NoContent;
+    case 205: return ResetContent;
+    case 206: return PartialContent;
+    case 300: return MultipleChoices;
+    case 301: return MovedPermanently;
+    case 302: return Found;
+    case 303: return SeeOther;
+    case 304: return NotModified;
+    case 305: return UseProxy;
+    case 307: return TemporaryRedirect;
+    case 400: return BadRequest;
+    case 401: return Unauthorized;
+    case 402: return PaymentRequired;
+    case 403: return Forbidden;
+    case 404: return NotFound;
+    case 405: return MethodNotAllowed;
+    case 406: return NotAcceptable;
+    case 407: return ProxyAuthenticationRequired;
+    case 408: return RequestTimeout;
+    case 409: return Conflict;
+    case 410: return Gone;
+    case 411: return LengthRequired;
+    case 412: return PreconditionFailed;
+    case 413: return RequestEntityTooLarge;
+    case 414: return RequestURITooLarge;
+    case 415: return UnsupportedMediaType;
+    case 416: return RequestedRangeNotSatisfiable;
+    case 417: return ExpectationFailed;
+    case 500: return InternalServerError;
+    case 501: return NotImplemented;
+    case 502: return BadGateway;
+    case 503: return ServiceUnavailable;
+    case 504: return GatewayTimeout;
+    case 505: return HTTPVersionNotSupported;
     default:
-        return ML::format("unknown response code %d", code);
+      return UnknownResponseCode;
     }
 }
 

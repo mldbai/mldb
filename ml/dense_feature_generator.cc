@@ -1,16 +1,14 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* dense_feature_generator.cc                                      -*- C++ -*-
    Jeremy Barnes, 20 June 2012
    Copyright (c) 2012 Datacratic.  All rights reserved.
 
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #include "dense_feature_generator.h"
-#include <boost/thread/thread.hpp>
 #include <unordered_map>
 #include "mldb/arch/demangle.h"
-#include <boost/thread/recursive_mutex.hpp>
+#include <mutex>
 
 
 using namespace std;
@@ -53,7 +51,7 @@ struct FGInfo {
 };
 
 struct FactoryRegistry {
-    boost::recursive_mutex featureGeneratorsLock;
+    std::recursive_mutex featureGeneratorsLock;
     std::unordered_map<std::string, FGInfo> featureGenerators;
 };
 
@@ -108,7 +106,7 @@ polyReconstitute(ML::DB::Store_Reader & store)
     store >> type >> args;
 
     FactoryRegistry & registry = getRegistry();
-    boost::unique_lock<boost::recursive_mutex> guard(registry.featureGeneratorsLock);
+    std::unique_lock<std::recursive_mutex> guard(registry.featureGeneratorsLock);
     auto it = registry.featureGenerators.find(type);
     if (it == registry.featureGenerators.end())
         throw ML::Exception("couldn't reconstitute DenseFeatureGenerator "
@@ -151,7 +149,7 @@ registerFactory(const std::string & className,
 {
     //cerr << "registerFactory " << className << endl;
     FactoryRegistry & registry = getRegistry();
-    boost::unique_lock<boost::recursive_mutex> guard(registry.featureGeneratorsLock);
+    std::unique_lock<std::recursive_mutex> guard(registry.featureGeneratorsLock);
     if (registry.featureGenerators.count(className))
         throw ML::Exception("attempt to double register feature generator "
                             + className);

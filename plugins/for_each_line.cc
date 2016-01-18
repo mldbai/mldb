@@ -13,11 +13,11 @@
 #include "mldb/arch/threads.h"
 #include <chrono>
 #include <thread>
+#include <cstring>
 #include "mldb/jml/utils/ring_buffer.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/jml/utils/worker_task.h"
 #include "mldb/base/exc_assert.h"
-#include <boost/thread.hpp>
 #include "mldb/types/date.h"
 
 
@@ -189,17 +189,19 @@ forEachLineStr(std::istream & stream,
 {
     Processing processing;
 
-    boost::thread_group threads;
+    std::vector<std::thread> threads;
     for (unsigned i = 0;  i < numThreads;  ++i)
-        threads.create_thread(std::bind(parseLinesThreadStr,
-                                        std::ref(processing),
-                                        std::ref(processLine)));
+        threads.emplace_back(std::bind(parseLinesThreadStr,
+                                       std::ref(processing),
+                                       std::ref(processLine)));
         
     size_t result = readStream(stream, processing,
                                ignoreStreamExceptions, maxLines);
         
     processing.shutdown = true;
-    threads.join_all();
+
+    for (auto & t: threads)
+        t.join();
 
     if (processing.hasException()) {
         std::rethrow_exception(processing.excPtr);
@@ -238,17 +240,17 @@ forEachLineStr(const std::string & filename,
 /*****************************************************************************/
 
 void forEachLineBlock(std::istream & stream,
-                      int64_t lineOffset,
                       std::function<bool (const char * line,
                                           size_t lineLength,
                                           int64_t blockNumber,
-                                          int64_t lineNumber)> onLine)
+                                          int64_t lineNumber)> onLine,
+                      int64_t lineOffset, // 0
+                      int64_t maxLines)   // -1
 {
     //static constexpr int64_t BLOCK_SIZE = 100000000;  // 100MB blocks
     static constexpr int64_t BLOCK_SIZE = 10000000;  // 10MB blocks
     static constexpr int64_t READ_SIZE = 200000;  // read&scan 200kb to fit in cache
 
-    int64_t maxLines = -1;
     std::atomic<int64_t> doneLines(lineOffset);
     std::atomic<int64_t> byteOffset(0);
     std::atomic<int> chunkNumber(0);
@@ -410,6 +412,9 @@ void forEachLineBlock(std::istream & stream,
                 if (!onLine(line, len, chunkNumber, chunkLineNumber++))
                     return;
                 lastLineOffset = lineOffsets[i] + 1;
+
+                if (maxLines != -1 && i >= maxLines)
+                    break;
             }
         };
             

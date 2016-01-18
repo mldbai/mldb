@@ -650,6 +650,14 @@ BackgroundTaskBase()
 {
 }
 
+BackgroundTaskBase::
+~BackgroundTaskBase()
+{
+    if (!cancelled) {
+        cancel();
+    }
+}
+
 Json::Value
 BackgroundTaskBase::
 getProgress() const
@@ -663,10 +671,9 @@ BackgroundTaskBase::
 cancel()
 {
     bool wasCancelled = this->cancelled.exchange(true);
-    if (wasCancelled)
-        return;
-
-    cancelledWatches.trigger(true);
+    if (!wasCancelled) {
+        cancelledWatches.trigger(true);
+    }
 
 #if 0
     // Give it one second to stop
@@ -686,7 +693,7 @@ cancel()
     //thread->join();
 
     while (!error && !finished) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        std::this_thread::sleep_for(std::chrono::microseconds(100));
     }
 }
 

@@ -18,7 +18,6 @@
 #include "mldb/ml/jml/dense_features.h"
 #include "mldb/jml/utils/smart_ptr_utils.h"
 #include "mldb/jml/utils/vector_utils.h"
-#include <boost/thread/tss.hpp>
 #include "mldb/base/exc_assert.h"
 #include "mldb/jml/math/xdiv.h"
 #include "mldb/vfs/filter_streams.h"
@@ -951,35 +950,35 @@ summary() const
 
 namespace {
 
+vector<std::shared_ptr<const Feature_Space> > &
+fs_stack()
+{
+    static thread_local vector<std::shared_ptr<const Feature_Space> >
+        result;
+    return result;
+}
+
 /* Put one of these objects per thread. */
-boost::thread_specific_ptr<vector<std::shared_ptr<const Feature_Space> > >
-    fs_stack;
 
 } // file scope
 
 FS_Context::
 FS_Context(const std::shared_ptr<const Feature_Space> & feature_space)
 {
-    if (!fs_stack.get())
-        fs_stack.reset(new vector<std::shared_ptr<const Feature_Space> >());
-    fs_stack->push_back(feature_space);
+    fs_stack().push_back(feature_space);
 }
 
 FS_Context::~FS_Context()
 {
-    if (!fs_stack.get())
-        throw Exception("FS_Context never initialized");
-    if (fs_stack->empty())
+    if (fs_stack().empty())
         throw Exception("FS stack was empty in destructor; bad problem");
-    fs_stack->pop_back();
+    fs_stack().pop_back();
 }
 
 const std::shared_ptr<const Feature_Space> & FS_Context::inner()
 {
-    if (!fs_stack.get())
-        throw Exception("FS_Context never initialized");
-    if (fs_stack->empty()) throw Exception("feature space stack is empty");
-    return fs_stack->back();
+    if (fs_stack().empty()) throw Exception("feature space stack is empty");
+    return fs_stack().back();
 }
 
 DB::Store_Writer &
