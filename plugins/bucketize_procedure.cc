@@ -158,7 +158,7 @@ run(const ProcedureRunConfig & run,
             std::vector<cell> cols;
             cols.emplace_back(ColumnName("bucket"),
                               bucketName,
-                              Date::negativeInfinity());
+                              Date::now());
 
             auto & rows = accum.get();
             rows.reserve(1024);
