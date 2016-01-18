@@ -166,6 +166,7 @@ ExperimentProcedureConfigDescription()
     onPostValidate = validate<ExperimentProcedureConfig, 
                               InputQuery,
                               NoGroupByHaving, 
+                              MustContainFrom,
                               PlainColumnSelect>(&ExperimentProcedureConfig::trainingData, "classfier.experiment");
 
 }

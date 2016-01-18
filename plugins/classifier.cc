@@ -118,6 +118,7 @@ ClassifierConfigDescription()
                               InputQuery,
                               NoGroupByHaving,
                               PlainColumnSelect,
+                              MustContainFrom,
                               FeaturesLabelSelect>(&ClassifierConfig::trainingData, "classifier");
 }
 

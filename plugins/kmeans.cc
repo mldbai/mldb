@@ -91,7 +91,10 @@ KmeansConfigDescription()
              "also be provided.");
     addParent<ProcedureConfig>();
 
-    onPostValidate = validate<KmeansConfig, InputQuery, NoGroupByHaving>(&KmeansConfig::trainingData, "kmeans");
+    onPostValidate = validate<KmeansConfig,
+                              InputQuery,
+                              MustContainFrom,
+                              NoGroupByHaving>(&KmeansConfig::trainingData, "kmeans");
 }
 
 // TODO: see http://www.eecs.tufts.edu/~dsculley/papers/fastkmeans.pdf
