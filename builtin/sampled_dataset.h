@@ -21,7 +21,7 @@ struct SampledDatasetConfig {
 
     SampledDatasetConfig();
 
-    PolyConfigT<const Dataset> dataset;
+    std::shared_ptr<TableExpression> dataset;
 
     unsigned seed;
     unsigned rows;
@@ -57,7 +57,10 @@ struct SampledDataset: public Dataset {
     virtual std::shared_ptr<ColumnIndex> getColumnIndex() const;
 
 private:
+    
     SampledDatasetConfig datasetConfig;
+    BoundTableExpression bondTableExpression;
+
     struct Itl;
     std::shared_ptr<Itl> itl;
 };

@@ -55,12 +55,20 @@ rez = mldb.perform("PUT", "/v1/datasets/patate", [], sampled_dataset_conf)
 mldb.log(json.loads(rez["response"]))
 assert rez["statusCode"] == 201
 
+# try to insert and make sure we get an exception
+rez = mldb.perform("POST", "/v1/datasets/patate/rows", [], {
+    "rowName": "patato",
+    "columns": [["a", "b", 0]]
+})
+mldb.log(rez)
+assert rez["statusCode"] == 400
+
 
 # with fraction
 sampled_dataset_conf = {
     "type": "sampled",
     "params": {
-        "dataset": {"id": "toy"},
+        "dataset": "toy",
         "fraction": 0.5
     }
 }

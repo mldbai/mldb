@@ -9,6 +9,7 @@
 #include "mldb/jml/utils/lightweight_hash.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/types/structure_description.h"
+#include "mldb/server/dataset_context.h"
 #include <random>
 #include <unordered_set>
 
@@ -235,8 +236,9 @@ struct SampledDataset::Itl
     std::pair<Date, Date>
     getTimestampRange() const
     {
-        // TODO
-        return dataset->getTimestampRange();
+        // TODO MLDB-1262
+        throw ML::Exception("not implemented");
+        // return dataset->getTimestampRange();
     }
     
     virtual MatrixColumn getColumn(const ColumnName & column) const
@@ -283,10 +285,10 @@ SampledDataset(MldbServer * owner,
 {
     auto sampleConfig = config.params.convert<SampledDatasetConfig>();
     
-    std::shared_ptr<Dataset> dataset = obtainDataset(owner, sampleConfig.dataset,
-                                                     onProgress);
+    SqlExpressionMldbContext context(owner);
+    bondTableExpression = sampleConfig.dataset->bind(context);
 
-    itl.reset(new Itl(server, dataset, sampleConfig));
+    itl.reset(new Itl(server, bondTableExpression.dataset, sampleConfig));
 }
 
 SampledDataset::
