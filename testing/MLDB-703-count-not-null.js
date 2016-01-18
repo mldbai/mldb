@@ -29,12 +29,14 @@ var expected = [
 ];
 assertEqual(resp.json, expected)
 
-var resp1 = mldb.get('/v1/query', { q: 'select x, count(x) as a from test1 group by x', format: 'table' });
+//  MLDB-1256
+var resp1 = mldb.get('/v1/query', { q: 'select x, count(x) as a from test1 where x is not null group by x', format: 'table' });
+mldb.log(resp1.json);
 assertEqual(resp1.responseCode, 200);
-var resp2 = mldb.get('/v1/query', { q: 'select x, count(*) as a from test1 group by x', format: 'table' });
+var resp2 = mldb.get('/v1/query', { q: 'select x, count(*) as a from test1 where x is not null group by x', format: 'table' });
+mldb.log(resp2.json);
 assertEqual(resp2.responseCode, 200);
 
-// test case for MLDB-1256
-//assertEqual(resp1.json, resp2.json)
+assertEqual(resp1.json, resp2.json)
 
 "success"
