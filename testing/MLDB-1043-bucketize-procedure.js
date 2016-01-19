@@ -62,6 +62,11 @@ function runTest(testNumber, buckets, goldStandard) {
     assertEqual(res['responseCode'], 200);
     checkResults(res, goldStandard);
 
+    res = mldb.get("/v1/query", {q: "SELECT *, when({*}) FROM " + datasetName,
+                                 format: "full"});
+
+    // MLDB-1267
+    assertEqual(res.json[0].columns[1][1].ts, "2015-12-22T14:26:51Z");
 }
 
 // Create base dataset --------------------------------------------------------

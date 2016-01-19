@@ -122,10 +122,27 @@ run(const ProcedureRunConfig & run,
     SelectExpression select(SelectExpression::parse("1"));
     vector<shared_ptr<SqlExpression> > calc;
 
+    // We calculate an expression with the timestamp of the order by
+    // clause.  First, we need to calculate each of the order by clauses
+    for (auto & c: procedureConfig.inputData.stm->orderBy.clauses) {
+        auto whenClause = std::make_shared<FunctionCallWrapper>
+            ("", "when", vector<shared_ptr<SqlExpression> >(1, c.first),
+             nullptr /* extract */);
+        calc.emplace_back(whenClause);
+    }
+
     vector<Id> orderedRowNames;
+    Date globalMaxOrderByTimestamp = Date::negativeInfinity();
     auto getSize = [&] (const MatrixNamedRow & row,
                         const vector<ExpressionValue> & calc)
     {
+        for (auto & c: calc) {
+            auto ts = c.getAtom().toTimestamp();
+            if (ts.isADate()) {
+                globalMaxOrderByTimestamp.setMax(c.getAtom().toTimestamp());
+            }
+        }
+
         orderedRowNames.emplace_back(row.rowName);
         return true;
     };
@@ -143,26 +160,29 @@ run(const ProcedureRunConfig & run,
                  onProgress);
 
     int64_t rowCount = orderedRowNames.size();
-    cerr << "Row count: " << rowCount  << endl;
+    //cerr << "Row count: " << rowCount  << endl;
 
     auto output = createDataset(server, procedureConfig.outputDataset,
                                 nullptr, true /*overwrite*/);
 
-    typedef tuple<ColumnName, CellValue, Date> cell;
-    PerThreadAccumulator<vector<pair<RowName, vector<cell>>>> accum;
+    typedef tuple<ColumnName, CellValue, Date> Cell;
+    PerThreadAccumulator<vector<pair<RowName, vector<Cell> > > > accum;
 
     for (const auto & mappedRange: procedureConfig.percentileBuckets) {
-        string bucketName(mappedRange.first);
+        ColumnName bucketColumn("bucket");
+        CellValue bucketValue(mappedRange.first);
+
+        std::vector<Cell> rowValue;
+        rowValue.emplace_back(ColumnName("bucket"),
+                              mappedRange.first,
+                              globalMaxOrderByTimestamp);
+        
+
         auto applyFct = [&] (int64_t index)
         {
-            std::vector<cell> cols;
-            cols.emplace_back(ColumnName("bucket"),
-                              bucketName,
-                              Date::now());
-
             auto & rows = accum.get();
             rows.reserve(1024);
-            rows.emplace_back(orderedRowNames[index], cols);
+            rows.emplace_back(orderedRowNames[index], rowValue);
 
             if (rows.size() >= 1024) {
                 output->recordRows(rows);
@@ -177,14 +197,14 @@ run(const ProcedureRunConfig & run,
         
         ExcAssert(higherBound <= rowCount);
 
-        cerr << "Bucket " << bucketName << " from " << lowerBound
-             << " to " << higherBound << endl;
+        //cerr << "Bucket " << mappedRange.first << " from " << lowerBound
+        //     << " to " << higherBound << endl;
 
         ML::run_in_parallel_blocked(lowerBound, higherBound, applyFct);
     }
 
     // record remainder
-    accum.forEach([&] (vector<pair<RowName, vector<cell>>> * rows)
+    accum.forEach([&] (vector<pair<RowName, vector<Cell> > > * rows)
     {
         output->recordRows(*rows);
     });
