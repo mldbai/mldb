@@ -827,7 +827,7 @@ struct GroupContext: public SqlExpressionDatasetContext {
 
     virtual BoundFunction doGetFunction(const Utf8String & tableName,
                                         const Utf8String & functionName,
-                                        const std::vector<BoundSqlExpression> & args)
+                                        const std::vector<std::shared_ptr<SqlExpression> > & args)
     {
         if (functionName == "rowName") {
             return {[] (const std::vector<BoundSqlExpression> & args,
@@ -865,6 +865,7 @@ struct GroupContext: public SqlExpressionDatasetContext {
 
         //check aggregators
         Utf8String functionNameLower(boost::algorithm::to_lower_copy(functionName.extractAscii()));
+     
         auto aggFn = SqlBindingScope::doGetAggregator(functionNameLower, args);
         if (aggFn)
         {

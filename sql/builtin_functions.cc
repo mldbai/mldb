@@ -28,11 +28,9 @@ namespace MLDB {
 namespace Builtins {
 
 
-
 typedef BoundFunction (*BuiltinFunction) (const std::vector<BoundSqlExpression> &);
 
 struct RegisterBuiltin {
-
     template<typename... Names>
     RegisterBuiltin(const BuiltinFunction & function, Names&&... names)
     {
@@ -48,19 +46,25 @@ struct RegisterBuiltin {
                     Names&&... names)
     {
         auto fn = [=] (const Utf8String & str,
-                       const std::vector<BoundSqlExpression> & args,
-                       const SqlBindingScope & context)
+                       const std::vector<std::shared_ptr<SqlExpression> > & args,
+                       SqlBindingScope & context)
             -> BoundFunction
             {
                 try {
-                    BoundFunction result = std::move(function(args));
+                    std::vector<BoundSqlExpression> boundArgs;
+                    for (auto& arg : args)
+                    {
+                        boundArgs.emplace_back(std::move(arg->bind(context)));
+                    }
+
+                    BoundFunction result = std::move(function(boundArgs));
                     auto fn = result.exec;
                     result.exec = [=] (const std::vector<BoundSqlExpression> & args,
                                         const SqlRowScope & context)
                         -> ExpressionValue
                     {
                         try {
-                            return fn(args, context);
+                            return fn(boundArgs, context);
                         } JML_CATCH_ALL {
                             rethrowHttpException(-1, "Executing builtin function "
                                                  + str + ": " + ML::getExceptionString(),
@@ -408,7 +412,7 @@ BoundFunction regex_replace(const std::vector<BoundSqlExpression> & args)
                 const auto expr2 = args[1](context);
                 const auto expr3 = args[2](context);
 
-                if (expr1.empty() || expr2.empty())
+                if (expr1.empty() || expr3.empty())
                     return ExpressionValue::null(calcTs(expr1, expr2, expr3));
 
                 std::basic_string<char32_t> matchStr = expr1.toWideString();

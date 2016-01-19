@@ -154,23 +154,6 @@ struct BoundSqlExpression {
                                                    ExpressionValue & storage,
                                                    const VariableFilter & filter)> ExecFunction;
 
-#if 0
-    typedef std::function<const ExpressionValue & (const SqlRowScope & context,
-                                                   ExpressionValue & storage)> ExecFunction;
-
-    struct DefaultExecutor {
-        ExecFunction exec;
-        DefaultExecutor() {}
-        DefaultExecutor(ExecFunction & exec) : exec(exec) {}
-        const ExpressionValue & operator()(const SqlRowScope & context,
-                                           ExpressionValue & storage,
-                                           const VariableFilter & filter)
-        {
-            // default executor uses the default filter
-            return exec(context, storage);
-        }
-    };
-#endif
     BoundSqlExpression()
     {
     }
@@ -349,8 +332,8 @@ struct BoundFunction {
     version of the function.
 */
 typedef std::function<BoundFunction(const Utf8String &,
-                                    const std::vector<BoundSqlExpression> & args,
-                                    const SqlBindingScope & context)>
+                                    const std::vector<std::shared_ptr<SqlExpression> > & args,
+                                    SqlBindingScope & context)>
     ExternalFunction;
 
 /** Register a new function into the SQL system under the given name.  The
@@ -417,8 +400,8 @@ struct BoundAggregator {
     version of the aggregator.
 */
 typedef std::function<BoundAggregator(const Utf8String &,
-                                      const std::vector<BoundSqlExpression> & args,
-                                      const SqlBindingScope & context)>
+                                      const std::vector<std::shared_ptr<SqlExpression> > & args,
+                                      SqlBindingScope & context)>
 ExternalAggregator;
 
 /** Register a new aggregator into the SQL system under the given name.  The
@@ -533,14 +516,15 @@ struct SqlBindingScope {
 
     virtual BoundFunction doGetFunction(const Utf8String & tableName,
                                         const Utf8String & functionName,
-                                        const std::vector<BoundSqlExpression> & args);
+                                        const std::vector<std::shared_ptr<SqlExpression> > & args);
+
 
     virtual BoundTableExpression doGetDatasetFunction(const Utf8String & functionName,
                                                       const std::vector<BoundTableExpression> & args,
                                                       const Utf8String & alias);
 
     virtual BoundAggregator doGetAggregator(const Utf8String & functionName,
-                                            const std::vector<BoundSqlExpression> & args);
+                                            const std::vector<std::shared_ptr<SqlExpression> > & args);
     
     // Used to get a variable
     virtual VariableGetter doGetVariable(const Utf8String & tableName,

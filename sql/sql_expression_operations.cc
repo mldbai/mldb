@@ -1333,14 +1333,14 @@ bind(SqlBindingScope & context) const
         boundArgs.emplace_back(std::move(arg->bind(context)));
     }
 
-    BoundFunction fn = context.doGetFunction(tableName, functionName, boundArgs);
+    BoundFunction fn = context.doGetFunction(tableName, functionName, args);
+
     if (fn)
     {
-        //context confirm it is builtin
         return bindBuiltinFunction(context, boundArgs, fn);
     }
     else
-    {
+        {
         //assume user    
         return bindUserFunction(context);
     }
@@ -1403,12 +1403,6 @@ bindBuiltinFunction(SqlBindingScope & context, std::vector<BoundSqlExpression>& 
             throw HttpReturnException(400, "Builtin function " + functionName
                                    + " should not have an extract [] expression, got " + extract->print() );
 
-    //Utf8String functionNameLower(boost::algorithm::to_lower_copy(functionName.extractAscii()));
-
-    //bool isAggregate = tryLookupAggregator(functionNameLower) != nullptr;
-
-    //    if (isAggregate)
-    //{
     return {[=] (const SqlRowScope & row,
                  ExpressionValue & storage,
                  const VariableFilter & filter) -> const ExpressionValue &
@@ -1419,27 +1413,6 @@ bindBuiltinFunction(SqlBindingScope & context, std::vector<BoundSqlExpression>& 
             this,
             fn.resultInfo};
 }
-#if 0   
-    }
-    else
-    {
-         return {[=] (const SqlRowScope & row,
-                 ExpressionValue & storage) -> const ExpressionValue &
-            {
-                std::vector<ExpressionValue> evaluatedArgs;
-                evaluatedArgs.reserve(boundArgs.size());
-                for (auto & a: boundArgs)
-                    evaluatedArgs.emplace_back(std::move(a(row)));
-                
-                // TODO: function call that allows function to own its args & have
-                // storage
-                return storage = std::move(fn(evaluatedArgs, row));
-            },
-            this,
-            fn.resultInfo};
-    }
-}
-#endif
 
 Utf8String
 FunctionCallWrapper::

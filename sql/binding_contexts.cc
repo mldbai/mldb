@@ -44,9 +44,10 @@ BoundFunction
 ReadThroughBindingContext::
 doGetFunction(const Utf8String & tableName,
               const Utf8String & functionName,
-              const std::vector<BoundSqlExpression> & args)
+              const std::vector<std::shared_ptr<SqlExpression> > & args)
 {
-    // Rebind the function parameters to the outer
+#if 0
+   // Rebind the function parameters to the outer
     std::vector<BoundSqlExpression> outerArgs;
     for (auto & arg: args) {
         if (arg.metadata.isConstant)  //don't rebind constant expression since they don't need to access the row
@@ -54,9 +55,9 @@ doGetFunction(const Utf8String & tableName,
         else
             outerArgs.emplace_back(std::move(rebind(arg)));
     }
-
+#endif
     // Get the outer function
-    auto outerFunction = outer.doGetFunction(tableName, functionName, outerArgs);
+    auto outerFunction = outer.doGetFunction(tableName, functionName, args);
 
     BoundFunction result = outerFunction;
 
@@ -68,10 +69,10 @@ doGetFunction(const Utf8String & tableName,
                        const SqlRowScope & context)
         {
             auto & row = static_cast<const RowContext &>(context);
-            //cerr << "rebinding to apply function " << functionName
-            //<< ": context type is "
-            //<< ML::type_name(context) << " outer type is "
-            //<< ML::type_name(row.outer) << endl;
+            cerr << "rebinding to apply function " << functionName
+            << ": context type is "
+            << ML::type_name(context) << " outer type is "
+            << ML::type_name(row.outer) << endl;
 
             return outerFunction(args, row.outer);
         };
@@ -91,6 +92,10 @@ doGetVariable(const Utf8String & tableName,
                  const VariableFilter & filter) -> const ExpressionValue &
             {
                 auto & row = static_cast<const RowContext &>(context);
+                cerr << "getting variable " << variableName
+                     << " from outer: context type is "
+                     << ML::type_name(context) << " outer type is "
+                     << ML::type_name(row.outer) << endl;
                 return outerImpl(row.outer, storage, filter);
             },
             outerImpl.info};
@@ -157,7 +162,7 @@ BoundFunction
 ColumnExpressionBindingContext::
 doGetFunction(const Utf8String & tableName,
               const Utf8String & functionName,
-              const std::vector<BoundSqlExpression> & args)
+              const std::vector<std::shared_ptr<SqlExpression> > & args)
 {
 
     if (functionName == "columnName") {
@@ -179,7 +184,15 @@ doGetFunction(const Utf8String & tableName,
                  const SqlRowScope & context)
             {
                 auto & col = static_cast<const ColumnContext &>(context);
-                return fn(col.columnName, {ExpressionValue()}); //TODO - see if we should evaluate the args here or change the signature
+
+                // consider changing the signature of the column function 
+                // to let them evaluate their args as a potential speed improvement
+                std::vector<ExpressionValue> evaluatedArgs;
+                evaluatedArgs.reserve(args.size());
+                for (auto & arg: args)
+                    evaluatedArgs.emplace_back(std::move(arg(context)));
+
+                return fn(col.columnName, evaluatedArgs); 
             },
             std::make_shared<Utf8StringValueInfo>()};
     }
@@ -201,7 +214,7 @@ BoundFunction
 SqlExpressionWhenScope::
 doGetFunction(const Utf8String & tableName,
               const Utf8String & functionName,
-              const std::vector<BoundSqlExpression> & args)
+              const std::vector<std::shared_ptr<SqlExpression> > & args)
 {
     if (functionName == "timestamp") {
         isTupleDependent = true;

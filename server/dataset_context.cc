@@ -36,7 +36,7 @@ BoundFunction
 SqlExpressionMldbContext::
 doGetFunction(const Utf8String & tableName,
               const Utf8String & functionName,
-              const std::vector<BoundSqlExpression> & args)
+              const std::vector<std::shared_ptr<SqlExpression> > & args)
 {
     return SqlBindingScope::doGetFunction(tableName, functionName, args);
 }
@@ -288,6 +288,8 @@ doGetVariable(const Utf8String & tableName,
                  const VariableFilter & filter) -> const ExpressionValue &
             {
                 auto & row = static_cast<const RowContext &>(context);
+                cerr << "getVariable context type is "
+                     << ML::type_name(context) << endl;
 
                 const ExpressionValue * fromOutput
                     = searchRow(row.row.columns, columnName, filter, storage);
@@ -303,7 +305,7 @@ BoundFunction
 SqlExpressionDatasetContext::
 doGetFunction(const Utf8String & tableName,
               const Utf8String & functionName,
-              const std::vector<BoundSqlExpression> & args)
+              const std::vector<std::shared_ptr<SqlExpression> > & args)
 {
     // First, let the dataset either override or implement the function
     // itself.

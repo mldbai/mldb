@@ -131,7 +131,7 @@ doGetAllColumns(std::function<Utf8String (const Utf8String &)> keep, int fieldOf
 BoundFunction
 TableLexicalScope::
 doGetFunction(const Utf8String & functionName,
-              const std::vector<BoundSqlExpression> & args,
+              const std::vector<std::shared_ptr<SqlExpression> > & args,
               int fieldOffset)
 {
     // First, let the dataset either override or implement the function
@@ -466,7 +466,7 @@ doGetAllColumns(std::function<Utf8String (const Utf8String &)> keep, int fieldOf
 BoundFunction
 JoinLexicalScope::
 doGetFunction(const Utf8String & functionName,
-              const std::vector<BoundSqlExpression> & args,
+              const std::vector<std::shared_ptr<SqlExpression> > & args,
               int fieldOffset)
 {
     //cerr << "Asking join for function " << functionName
@@ -1343,7 +1343,7 @@ doGetAllColumns(std::function<Utf8String (const Utf8String &)> keep,
 BoundFunction
 AggregateLexicalScope::
 doGetFunction(const Utf8String & functionName,
-              const std::vector<BoundSqlExpression> & args,
+              const std::vector<std::shared_ptr<SqlExpression> > & args,
               int fieldOffset)
 {
     auto aggregate = inner->doGetAggregator(functionName, args);
@@ -1361,10 +1361,10 @@ doGetFunction(const Utf8String & functionName,
                 for (auto & r: row.group) {
                     // Apply the arguments to the row
 
-                    for (unsigned i = 0;  i != args.size();  ++i)
-                        rowArgs[i] = args[i](*r);
+                    for (unsigned i = 0;  i != argValues.size();  ++i)
+                        rowArgs[i] = argValues[i](*r);
 
-                    aggregate.process(&rowArgs[0], args.size(), storage.get());
+                    aggregate.process(&rowArgs[0], argValues.size(), storage.get());
                 }
 
                 return aggregate.extract(storage.get());
@@ -1375,8 +1375,6 @@ doGetFunction(const Utf8String & functionName,
     else {
         return inner->doGetFunction(Utf8String(), functionName, args);
     }
-
-    return BoundFunction();
 }
 
 Utf8String

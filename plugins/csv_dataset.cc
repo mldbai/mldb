@@ -218,7 +218,7 @@ struct SqlCsvScope: public SqlExpressionMldbContext {
     virtual BoundFunction
     doGetFunction(const Utf8String & tableName,
                   const Utf8String & functionName,
-                  const std::vector<BoundSqlExpression> & args)
+                  const std::vector<std::shared_ptr<SqlExpression> > & args)
     {
         if (functionName == "lineNumber") {
             lineNumberUsed = true;

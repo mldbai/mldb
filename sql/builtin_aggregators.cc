@@ -40,11 +40,16 @@ struct RegisterAggregator {
                     Names&&... names)
     {
         auto fn = [&] (const Utf8String & str,
-                       const std::vector<BoundSqlExpression> & args,
-                       const SqlBindingScope & context)
+                       const std::vector<std::shared_ptr<SqlExpression> > & args,
+                       SqlBindingScope & context)
             -> BoundAggregator
             {
-                return std::move(aggregator(args));
+                std::vector<BoundSqlExpression> boundArgs;
+                for (auto& arg : args)
+                {
+                    boundArgs.emplace_back(std::move(arg->bind(context)));
+                }
+                return std::move(aggregator(boundArgs));
             };
         handles.push_back(registerAggregator(Utf8String(name), fn));
         doRegister(aggregator, std::forward<Names>(names)...);

@@ -142,6 +142,7 @@ def assertForRows(rows, name, col, goodVal):
 
 #########
 # Test the function within a select statement
+mldb.log("HERRRRE")
 rez = mldb.perform("GET", "/v1/query", [["q", "select getDerived({counts: {label_host:5, trial_host: 500, label_region:0, trial_region:250}}) as *"]])
 jsRez = json.loads(rez["response"])
 mldb.log(jsRez)

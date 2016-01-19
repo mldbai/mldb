@@ -207,7 +207,7 @@ BoundFunction
 SqlBindingScope::
 doGetFunction(const Utf8String & tableName,
               const Utf8String & functionName,
-              const std::vector<BoundSqlExpression> & args)
+              const std::vector<std::shared_ptr<SqlExpression> > & args)
 {
     auto factory = tryLookupFunction(functionName);
     if (factory) {
@@ -215,9 +215,6 @@ doGetFunction(const Utf8String & tableName,
     }
     
     return {nullptr, nullptr};
-    //throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
-    //                    + " must override getFunction: wanted "
-    //                    + functionName);
 }
 
 //These are functions in table expression, i.e. in FROM clauses
@@ -307,7 +304,7 @@ ExternalAggregator tryLookupAggregator(const Utf8String & name)
 BoundAggregator
 SqlBindingScope::
 doGetAggregator(const Utf8String & aggregatorName,
-                const std::vector<BoundSqlExpression> & args)
+                const std::vector<std::shared_ptr<SqlExpression> > & args)
 {
     auto factory = tryLookupAggregator(aggregatorName);
     if (factory) {

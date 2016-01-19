@@ -207,11 +207,11 @@ runJsFunction(const std::vector<ExpressionValue> & args,
 }
 
 BoundFunction bindJsEval(const Utf8String & name,
-                         const std::vector<BoundSqlExpression> & args,
-                         const SqlBindingScope & context)
+                         const std::vector<std::shared_ptr<SqlExpression> > & args,
+                         SqlBindingScope & context)
 {
     // 1.  Get the constant source value
-    Utf8String scriptSource = args[0].constantValue().toUtf8String();
+    Utf8String scriptSource = args[0]->bind(context).constantValue().toUtf8String();
 
     // 2.  Create the runner, including test compiling the script
     auto runner = std::make_shared<JsFunctionData>();
@@ -221,7 +221,7 @@ BoundFunction bindJsEval(const Utf8String & name,
     runner->context.reset(new JsPluginContext(name, runner->server,
                                               nullptr /* no plugin context */));
                           
-    string params = args[1].constantValue().toString();
+    string params = args[1]->bind(context).constantValue().toString();
     boost::split(runner->params, params,
                  boost::is_any_of(","));
     

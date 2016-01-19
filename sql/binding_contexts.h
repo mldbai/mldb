@@ -54,7 +54,7 @@ struct ReadThroughBindingContext: public SqlBindingScope {
     virtual BoundFunction
     doGetFunction(const Utf8String & tableName,
                   const Utf8String & functionName,
-                  const std::vector<BoundSqlExpression> & args);
+                  const std::vector<std::shared_ptr<SqlExpression> > & args);
 
     virtual VariableGetter doGetVariable(const Utf8String & tableName,
                                          const Utf8String & variableName);
@@ -117,7 +117,7 @@ struct ColumnExpressionBindingContext: public SqlBindingScope {
     virtual BoundFunction
     doGetFunction(const Utf8String & tableName,
                   const Utf8String & functionName,
-                  const std::vector<BoundSqlExpression> & args);
+                  const std::vector<std::shared_ptr<SqlExpression> > & args);
 
     ColumnContext getColumnContext(const ColumnName & columnName)
     {
@@ -158,7 +158,7 @@ struct SqlExpressionWhenScope: public ReadThroughBindingContext {
     virtual BoundFunction
     doGetFunction(const Utf8String & tableName,
                   const Utf8String & functionName,
-                  const std::vector<BoundSqlExpression> & args);
+                  const std::vector<std::shared_ptr<SqlExpression> > & args);
 
     static RowScope getRowScope(const SqlRowScope & outer,
                                 Date ts)
