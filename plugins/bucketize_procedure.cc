@@ -169,9 +169,6 @@ run(const ProcedureRunConfig & run,
     PerThreadAccumulator<vector<pair<RowName, vector<Cell> > > > accum;
 
     for (const auto & mappedRange: procedureConfig.percentileBuckets) {
-        ColumnName bucketColumn("bucket");
-        CellValue bucketValue(mappedRange.first);
-
         std::vector<Cell> rowValue;
         rowValue.emplace_back(ColumnName("bucket"),
                               mappedRange.first,
