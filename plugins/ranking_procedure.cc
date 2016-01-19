@@ -85,10 +85,27 @@ run(const ProcedureRunConfig & run,
     SelectExpression select(SelectExpression::parse("1"));
     vector<shared_ptr<SqlExpression> > calc;
 
+    // We calculate an expression with the timestamp of the order by
+    // clause.  First, we need to calculate each of the order by clauses
+    for (auto & c: procedureConfig.inputData.stm->orderBy.clauses) {
+        auto whenClause = std::make_shared<FunctionCallWrapper>
+            ("", "when", vector<shared_ptr<SqlExpression> >(1, c.first),
+             nullptr /* extract */);
+        calc.emplace_back(whenClause);
+    }
+
     vector<Id> orderedRowNames;
+    Date globalMaxOrderByTimestamp = Date::negativeInfinity();
     auto getSize = [&] (const MatrixNamedRow & row,
                         const vector<ExpressionValue> & calc)
     {
+        for (auto & c: calc) {
+            auto ts = c.getAtom().toTimestamp();
+            if (ts.isADate()) {
+                globalMaxOrderByTimestamp.setMax(c.getAtom().toTimestamp());
+            }
+        }
+
         orderedRowNames.emplace_back(row.rowName);
         return true;
     };
@@ -110,8 +127,8 @@ run(const ProcedureRunConfig & run,
     auto output = createDataset(server, procedureConfig.outputDataset,
                                 nullptr, true /*overwrite*/);
 
-    typedef tuple<ColumnName, CellValue, Date> cell;
-    PerThreadAccumulator<vector<pair<RowName, vector<cell>>>> accum;
+    typedef tuple<ColumnName, CellValue, Date> Cell;
+    PerThreadAccumulator<vector<pair<RowName, vector<Cell> > > > accum;
     const ColumnName columnName(procedureConfig.rankingColumnName);
     function<void(int64_t)> applyFct;
     float countD100 = (rowCount) / 100.0;
@@ -121,13 +138,13 @@ run(const ProcedureRunConfig & run,
         // https://en.wikipedia.org/wiki/Percentile_rank
         applyFct = [&](int64_t idx)
         {
-            std::vector<cell> cols;
-            cols.emplace_back(columnName,
-                              (idx + 1) / countD100,
-                              Date::negativeInfinity());
+            vector<Cell> rowValue;
+            rowValue.emplace_back(columnName,
+                                  (idx + 1) / countD100,
+                                  globalMaxOrderByTimestamp);
 
             auto & rows = accum.get();
-            rows.emplace_back(orderedRowNames[idx], cols);
+            rows.emplace_back(orderedRowNames[idx], rowValue);
 
             if (rows.size() >= 1024) {
                 output->recordRows(rows);
@@ -139,13 +156,13 @@ run(const ProcedureRunConfig & run,
         ExcAssert(procedureConfig.rankingType == RankingType::INDEX);
         applyFct = [&](int64_t idx)
         {
-            std::vector<cell> cols;
-            cols.emplace_back(columnName,
-                              idx,
-                              Date::negativeInfinity());
+            vector<Cell> rowValue;
+            rowValue.emplace_back(columnName,
+                                  idx,
+                                  globalMaxOrderByTimestamp);
 
             auto & rows = accum.get();
-            rows.emplace_back(orderedRowNames[idx], cols);
+            rows.emplace_back(orderedRowNames[idx], rowValue);
 
             if (rows.size() >= 1024) {
                 output->recordRows(rows);
@@ -158,7 +175,7 @@ run(const ProcedureRunConfig & run,
     ML::run_in_parallel_blocked(0, rowCount, applyFct);
 
     // record remainder
-    accum.forEach([&] (vector<pair<RowName, vector<cell>>> * rows)
+    accum.forEach([&] (vector<pair<RowName, vector<Cell> > > * rows)
     {
         output->recordRows(*rows);
     });
