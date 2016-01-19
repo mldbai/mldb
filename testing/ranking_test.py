@@ -27,7 +27,7 @@ size = 123
 for i in xrange(size):
     mldb_perform('POST', '/v1/datasets/ds/rows', [], {
         'rowName' : 'row{}'.format(i),
-        'columns' : [['score', i, 0], ['index', i * 2, 0], ['prob', i * 3, 0]]
+        'columns' : [['score', i, 1], ['index', i * 2, 2], ['prob', i * 3, 3]]
     })
 
 mldb_perform('POST', '/v1/procedures', [], {
@@ -39,6 +39,14 @@ mldb_perform('POST', '/v1/procedures', [], {
         'runOnCreation' : True
     }
 })
+
+# MLDB-1267
+res = mldb_perform('GET', "/v1/query",
+                   [['q',  "SELECT when({*}) FROM out"], ['format', 'table']])
+data = json.loads(res['response'])
+assert data[1][1] == '1970-01-01T00:00:01Z', str(data)
+
+log(data[1])
 mldb_perform('PUT', '/v1/datasets/result', [], {
     'type' : 'merged',
     'params' : {
