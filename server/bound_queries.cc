@@ -537,9 +537,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
                          std::function<bool (const Json::Value &)> onProgress,
                          bool allowMT)
     {
-        cerr << "EXECUTOR" << endl;
-
-        STACK_PROFILE(unoptimizedExecutor);
+//        STACK_PROFILE(RowHashOrderedExecutor.execute_bloc);
 
         QueryThreadTracker parentTracker;
 
@@ -761,11 +759,12 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
                          std::function<bool (const Json::Value &)> onProgress,
                          bool allowMT)
     {
-        cerr << "EXECUTOR" << endl;
-        cerr << allowMT << " " << allowParallelOutput << endl;
-        STACK_PROFILE(optimizedExecutor);
+//        STACK_PROFILE(RowHashOrderedExecutor.execute_iter);
 
         QueryThreadTracker parentTracker;
+
+        if (limit == 0)
+          throw HttpReturnException(400, "limit must be non-zero");
 
         ML::Timer rowsTimer;
 
@@ -777,16 +776,12 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
         int numNeeded = offset + limit;
 
         int upperBound = whereGenerator.upperBound;
-        cerr << "upperbound " << upperBound << endl;
-        //int chunkSize = 1000000;
         int numChunk = upperBound < 32*32 ? (upperBound / 32) : 32;
         numChunk = std::max(numChunk, (int)1U);
         int chunkSize = (int)std::ceil((float)upperBound / numChunk);
-        cerr << "numchunks " << numChunk << endl;
 
         auto doChunk = [&] (int bucketIndex)
         {
-          cerr << "chunk " << bucketIndex << endl;
           int index = bucketIndex*chunkSize;
           int stopIndex = std::min(index + chunkSize, upperBound);   
           AccumRows& rows = accum.get();
@@ -794,29 +789,16 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
           auto stream = whereGenerator.rowStream->clone();
           stream->initAt(index);
 
-       //   ssize_t cache = 0;
-         cerr << "index " << index << " stopindex " << stopIndex << endl;
           while (index < stopIndex)
           {
-           // cerr << "loop";
-              //nextExec updates the index            
-            //  RowName rowName = whereGenerator.nextExec(index, cache);
-            RowName rowName = stream->next();
-              //this needs to actually evaluated the WHERE
+              RowName rowName = stream->next();
 
-            //  cerr << "loop 2";
               if (rowName == RowName())
-              {
-                  cerr << "done";
                   break;
-              }
 
-//              cerr << "rowHash" << endl;
               RowHash r1 = RowHash(rowName);
-
               bool spaceLeft = rows.size() < numNeeded;
 
-  //            cerr << "rowHash2" << endl;
               if (spaceLeft || RowHash(rows[numNeeded-1]) > r1)
               {
                   //evaluate the BoundWhere here?
@@ -826,32 +808,22 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
 
                   //sorted insert
                   auto iter = rows.begin();
-                  for (; iter != rows.end(); ++iter)
-                  {
-                      if (r1 < RowHash(*iter))
-                      {
-                       // cerr << "insert1";
+                  for (; iter != rows.end(); ++iter) {
+                      if (r1 < RowHash(*iter)) {
                           rows.insert(iter, rowName);
                           break;
                       }
                   }   
 
                   if (iter == rows.end())
-                  {
-                 //   cerr << "insert2";
                     rows.insert(iter, rowName);  
-                  }
 
               }
 
-              //++index;
+              ++index;
           }
-
-          cerr << "chunk done " << bucketIndex << endl;
         };      
 
-        cerr << "CHUNKS START" << endl;
-       // ML::run_in_parallel_blocked(0, numChunk, doChunk);
        if (allowMT)
        {
           ML::run_in_parallel(0, numChunk, doChunk);
@@ -862,9 +834,6 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
             doChunk(i);
        }
        
-
-        cerr << "CHUNKS DONE" << endl;
-
         STACK_PROFILE(optimizedExecutor_chunksdone);
 
           // Compare two rows according to the sort criteria
@@ -876,17 +845,13 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
             
         auto rowsMerged = parallelMergeSort(accum.threads, compareRows);
 
-         cerr << "rowsmerged sise " << rowsMerged.size() << endl;
-
         if (rowsMerged.size() < offset )
           return;
 
         rowsMerged.erase(rowsMerged.begin(), rowsMerged.begin() + offset);
 
         if (rowsMerged.size() > limit)
-        {
           rowsMerged.erase(rowsMerged.begin() + limit, rowsMerged.end());
-        }
 
         //Assuming the limit is small enough we can output the rows in order
 

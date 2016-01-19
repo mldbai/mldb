@@ -71,6 +71,16 @@ struct BaseEntry {
 struct MatrixWriteTransaction;
 
 struct MatrixReadTransaction {
+
+      struct Stream {       
+
+        virtual std::shared_ptr<MatrixReadTransaction::Stream> clone() const = 0;
+
+        virtual void initAt(size_t start) = 0;
+
+        virtual uint64_t next() = 0;
+    };
+
     virtual ~MatrixReadTransaction()
     {
     }
@@ -82,6 +92,8 @@ struct MatrixReadTransaction {
     virtual uint64_t getRow(ssize_t index) const = 0;
 
     virtual size_t rowCount() const = 0;
+
+    virtual std::shared_ptr<MatrixReadTransaction::Stream> getStream() const = 0;
 
     virtual std::shared_ptr<MatrixWriteTransaction> startWriteTransaction() const = 0;
 };
