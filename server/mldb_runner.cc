@@ -314,10 +314,10 @@ int main(int argc, char ** argv)
         server.scanPlugins(d);
     }
     
-    string httpBoundAddress = server.bindTcp(httpListenPort, httpListenHost);
-    server.router.addAutodocRoute("/autodoc", "/v1/help", "autodoc");
-    server.threadPool->ensureThreads(numThreads);
+    server.ensureThreads(numThreads);
     server.httpEndpoint->allowAllOrigins();
+    server.router.addAutodocRoute("/autodoc", "/v1/help", "autodoc");
+    string httpBoundAddress = server.bindTcp(httpListenPort, httpListenHost);
 
     cout << httpBoundAddress << endl;
     cerr << "http listening on " << httpBoundAddress << endl;

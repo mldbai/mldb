@@ -51,6 +51,13 @@ init()
 
 void
 HttpRestEndpoint::
+ensureThreads(int numThreads)
+{
+    acceptor_->ensureThreads(numThreads);
+}
+
+void
+HttpRestEndpoint::
 shutdown()
 {
     acceptor_->shutdown();
