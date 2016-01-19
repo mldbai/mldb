@@ -254,6 +254,7 @@ $(eval $(call mldb_unit_test,MLDB-1104-input-data-spec.py))
 $(eval $(call mldb_unit_test,MLDB-1190_segfault_sqlexpr_jseval.py))
 $(eval $(call mldb_unit_test,MLDB-1198-sum-inconsistency-test.py))
 $(eval $(call mldb_unit_test,MLDB-1242_sampled_dataset.py))
+$(eval $(call mldb_unit_test,MLDB-1266-import_json.py))
 $(eval $(call mldb_unit_test,MLDB-1258_nofrom_segfault.py))
 $(eval $(call mldb_unit_test,MLDB-1212_csv_import_long_quoted_lines.py))
 
