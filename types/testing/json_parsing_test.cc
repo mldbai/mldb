@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* json_parsing_test.cc
    Jeremy Barnes, 21 February 2007
    Copyright (c) 2007 Jeremy Barnes.  All rights reserved.
+
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Test for the environment functions.
 */
