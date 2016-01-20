@@ -167,7 +167,7 @@ struct JSONImporter: public Procedure {
                             for(int i=0; i<val.size(); i++) {
                                 string key;
                                 if(val[i].isString())      key = val[i].asString();
-                                else if(val[i].isBool())   key = val[i].asBool() ? "true" : false;
+                                else if(val[i].isBool())   key = val[i].asBool() ? "true" : "false";
                                 else if(val[i].isDouble()) key = boost::lexical_cast<string>(val[i].asDouble());
                                 else if(val[i].isInt())    key = boost::lexical_cast<string>(val[i].asInt());
                                 else                       key = val[i].toString();
