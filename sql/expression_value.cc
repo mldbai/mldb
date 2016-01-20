@@ -1333,7 +1333,7 @@ forEachAtom(const std::function<bool (const Id & columnName,
             }
             else {
                 std::string newPrefix
-                    = !prefix.notNull() ? std::get<0>(col).toString() + "."
+                    = !prefix.notNull() ? std::get<0>(col).toString()
                     : prefix.toString() + "." + std::get<0>(col).toString();
             
                 if (!val.forEachAtom(onAtom, Id(newPrefix)))
