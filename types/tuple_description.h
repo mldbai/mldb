@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** tuple_description.h                                            -*- C++ -*-
     Jeremy Barnes, 24 April 2014
     Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Value description for a tuple.
 */
@@ -89,6 +89,9 @@ struct TupleDescription
         int elNum = 0;
         auto onElement = [&] ()
             {
+                if (elNum >= elements.size()) {
+                    context.exception("Error parsing JSON tuple: too many elements in JSON array");
+                }
                 elements[elNum].desc
                     ->parseJson(this->getArrayElement(val, elNum), context);
                 ++elNum;
@@ -96,7 +99,9 @@ struct TupleDescription
         
         context.forEachElement(onElement);        
 
-        ExcAssertEqual(elNum, sizeof...(T));
+        if (elNum < sizeof...(T)) {
+            context.exception("Error parsing JSON tuple: not enough elements in JSON array");
+        }
     }
 
     virtual void printJsonTyped(const std::tuple<T...> * val, JsonPrintingContext & context) const

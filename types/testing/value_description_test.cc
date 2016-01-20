@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
-/* value_description_test.h                                        -*- C++ -*-
+/* value_description_test.cc                                        -*- C++ -*-
    Wolfgang Sourdeau, June 2013
    Copyright (c) 2013 Datacratic Inc.  All rights reserved.
+
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Test value_description mechanisms
 */
@@ -21,6 +21,7 @@
 #include "mldb/types/enum_description.h"
 #include "mldb/types/vector_description.h"
 #include "mldb/types/pointer_description.h"
+#include "mldb/types/tuple_description.h"
 #include "mldb/types/date.h"
 #include "mldb/types/id.h"
 #include "mldb/base/parse_context.h"
@@ -553,4 +554,57 @@ BOOST_AUTO_TEST_CASE( test_date_value_description_validation )
 
     BOOST_CHECK_EQUAL(numChildValidations, 1);
     BOOST_CHECK_EQUAL(numParentValidations, 1);
+}
+
+// MLDB-1265
+BOOST_AUTO_TEST_CASE(test_tuple_description_wrong_length)
+{
+    TupleDescription<int, string, int> desc;
+    std::tuple<int, string, int> testTuple;
+
+    {
+        // 4 elements, but only 3 in tuple
+        string testJson("[ 1, \"two\", 3, 4 ]");
+        StreamingJsonParsingContext context(testJson,
+                                            testJson.c_str(),
+                                            testJson.c_str()
+                                        + testJson.size());
+        JML_TRACE_EXCEPTIONS(false);
+        BOOST_CHECK_THROW(desc.parseJson(&testTuple, context), std::exception);
+    }
+
+    {
+        // 2 elements, but 3 required in tuple
+        string testJson("[ 1, \"two\" ]");
+        StreamingJsonParsingContext context(testJson,
+                                            testJson.c_str(),
+                                            testJson.c_str()
+                                        + testJson.size());
+        JML_TRACE_EXCEPTIONS(false);
+        BOOST_CHECK_THROW(desc.parseJson(&testTuple, context), std::exception);
+    }
+
+    {
+        // 3 elements, wrong type
+        string testJson("[ \"one\", \"two\", 3 ]");
+        StreamingJsonParsingContext context(testJson,
+                                            testJson.c_str(),
+                                            testJson.c_str()
+                                            + testJson.size());
+        JML_TRACE_EXCEPTIONS(false);
+        BOOST_CHECK_THROW(desc.parseJson(&testTuple, context), std::exception);
+    }
+
+    {
+        // 3 elements, correct
+        string testJson("[ 1, \"two\", 3 ]");
+        StreamingJsonParsingContext context(testJson,
+                                            testJson.c_str(),
+                                            testJson.c_str()
+                                            + testJson.size());
+        desc.parseJson(&testTuple, context);
+        BOOST_CHECK_EQUAL(std::get<0>(testTuple), 1);
+        BOOST_CHECK_EQUAL(std::get<1>(testTuple), "two");
+        BOOST_CHECK_EQUAL(std::get<2>(testTuple), 3);
+    }
 }

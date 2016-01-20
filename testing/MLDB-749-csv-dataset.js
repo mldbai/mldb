@@ -163,84 +163,79 @@ var res = mldb.get("/v1/query", { q: 'select * from cities where cast (rowName()
 mldb.log(res);
 
 expected = [
-   {
-      "columns" : [
-         [ "Country", "ad", "1970-01-01T00:00:00Z" ],
-         [ "City", "aixas", "1970-01-01T00:00:00Z" ],
-         [ "AccentCity", "Aixàs", "1970-01-01T00:00:00Z" ],
-         [ "Region", 6, "1970-01-01T00:00:00Z" ],
-         [ "Population", null, "1970-01-01T00:00:00Z" ],
-         [ "Latitude", 42.48333330, "1970-01-01T00:00:00Z" ],
-         [ "Longitude", 1.46666670, "1970-01-01T00:00:00Z" ]
-      ],
-      "rowHash" : "2ef190d7a29f2916",
-      "rowName" : 2
-   },
-   {
-      "columns" : [
-         [ "Country", "af", "1970-01-01T00:00:00Z" ],
-         [ "City", "`abd ur rahim khel", "1970-01-01T00:00:00Z" ],
-         [ "AccentCity", "`Abd ur Rahim Khel", "1970-01-01T00:00:00Z" ],
-         [ "Region", 27, "1970-01-01T00:00:00Z" ],
-         [ "Population", null, "1970-01-01T00:00:00Z" ],
-         [ "Latitude", 33.9111520, "1970-01-01T00:00:00Z" ],
-         [ "Longitude", 68.4411010, "1970-01-01T00:00:00Z" ]
-      ],
-      "rowHash" : "f03303280841601c",
-      "rowName" : 1000
-   },
-   {
-      "columns" : [
-         [ "Country", "gb", "1970-01-01T00:00:00Z" ],
-         [ "City", "ryde", "1970-01-01T00:00:00Z" ],
-         [ "AccentCity", "Ryde", "1970-01-01T00:00:00Z" ],
-         [ "Region", "G2", "1970-01-01T00:00:00Z" ],
-         [ "Population", 24107, "1970-01-01T00:00:00Z" ],
-         [ "Latitude", 50.7166670, "1970-01-01T00:00:00Z" ],
-         [ "Longitude", -1.1666670, "1970-01-01T00:00:00Z" ]
-      ],
-      "rowHash" : "3514bc1ed7064254",
-      "rowName" : 1000000
-   },
-   {
-      "columns" : [
-         [ "Country", "ng", "1970-01-01T00:00:00Z" ],
-         [ "City", "kajia", "1970-01-01T00:00:00Z" ],
-         [ "AccentCity", "Kajia", "1970-01-01T00:00:00Z" ],
-         [ "Region", 44, "1970-01-01T00:00:00Z" ],
-         [ "Population", null, "1970-01-01T00:00:00Z" ],
-         [ "Latitude", 12.62740, "1970-01-01T00:00:00Z" ],
-         [ "Longitude", 10.81920, "1970-01-01T00:00:00Z" ]
-      ],
-      "rowHash" : "bb7fbc8842295295",
-      "rowName" : 2000000
-   },
-   {
-      "columns" : [
-         [ "Country", "us", "1970-01-01T00:00:00Z" ],
-         [ "City", "greasy ridge", "1970-01-01T00:00:00Z" ],
-         [ "AccentCity", "Greasy Ridge", "1970-01-01T00:00:00Z" ],
-         [ "Region", "OH", "1970-01-01T00:00:00Z" ],
-         [ "Population", null, "1970-01-01T00:00:00Z" ],
-         [ "Latitude", 38.64527780, "1970-01-01T00:00:00Z" ],
-         [ "Longitude", -82.42111110, "1970-01-01T00:00:00Z" ]
-      ],
-      "rowHash" : "ec051b54935e150d",
-      "rowName" : 3000000
-   },
-   {
-      "columns" : [
-         [ "Country", "zw", "1970-01-01T00:00:00Z" ],
-         [ "City", "zvishavane", "1970-01-01T00:00:00Z" ],
-         [ "AccentCity", "Zvishavane", "1970-01-01T00:00:00Z" ],
-         [ "Region", 7, "1970-01-01T00:00:00Z" ],
-         [ "Population", 79876, "1970-01-01T00:00:00Z" ],
-         [ "Latitude", -20.33333330, "1970-01-01T00:00:00Z" ],
-         [ "Longitude", 30.03333330, "1970-01-01T00:00:00Z" ]
-      ],
-      "rowHash" : "ac6161ca77cad488",
-      "rowName" : 3173959
-   }
+    {
+        "columns": [
+            ["Country","ad","2012-05-03T03:14:46Z"],
+            ["City","aixas","2012-05-03T03:14:46Z"],
+            ["AccentCity","Aixàs","2012-05-03T03:14:46Z"],
+            ["Region",6,"2012-05-03T03:14:46Z"],
+            ["Population",null,"2012-05-03T03:14:46Z"],
+            ["Latitude",42.4833333,"2012-05-03T03:14:46Z"],
+            ["Longitude",1.4666667,"2012-05-03T03:14:46Z"]
+        ],
+        "rowHash":"2ef190d7a29f2916",
+        "rowName":2
+    } ,{
+        "columns":[
+            ["Country","af","2012-05-03T03:14:46Z"],
+            ["City","`abd ur rahim khel","2012-05-03T03:14:46Z"],
+            ["AccentCity","`Abd ur Rahim Khel","2012-05-03T03:14:46Z"],
+            ["Region",27,"2012-05-03T03:14:46Z"],
+            ["Population",null,"2012-05-03T03:14:46Z"],
+            ["Latitude",33.911152,"2012-05-03T03:14:46Z"],
+            ["Longitude",68.441101,"2012-05-03T03:14:46Z"]
+        ],
+        "rowHash":"f03303280841601c",
+        "rowName":1000
+    },{
+        "columns":[
+            ["Country","gb","2012-05-03T03:14:46Z"],
+            ["City","ryde","2012-05-03T03:14:46Z"],
+            ["AccentCity","Ryde","2012-05-03T03:14:46Z"],
+            ["Region","G2","2012-05-03T03:14:46Z"],
+            ["Population",24107,"2012-05-03T03:14:46Z"],
+            ["Latitude",50.716667,"2012-05-03T03:14:46Z"],
+            ["Longitude",-1.166667,"2012-05-03T03:14:46Z"]
+        ],
+        "rowHash":"3514bc1ed7064254",
+        "rowName":1000000
+    },{
+        "columns":[
+            ["Country","ng","2012-05-03T03:14:46Z"],
+            ["City","kajia","2012-05-03T03:14:46Z"],
+            ["AccentCity","Kajia","2012-05-03T03:14:46Z"],
+            ["Region",44,"2012-05-03T03:14:46Z"],
+            ["Population",null,"2012-05-03T03:14:46Z"],
+            ["Latitude",12.6274,"2012-05-03T03:14:46Z"],
+            ["Longitude",10.8192,"2012-05-03T03:14:46Z"]
+        ],
+        "rowHash":"bb7fbc8842295295",
+        "rowName":2000000
+    },{
+        "columns":[
+            ["Country","us","2012-05-03T03:14:46Z"],
+            ["City","greasy ridge","2012-05-03T03:14:46Z"],
+            ["AccentCity","Greasy Ridge","2012-05-03T03:14:46Z"],
+            ["Region","OH","2012-05-03T03:14:46Z"],
+            ["Population",null,"2012-05-03T03:14:46Z"],
+            ["Latitude",38.6452778,"2012-05-03T03:14:46Z"],
+            ["Longitude",-82.4211111,"2012-05-03T03:14:46Z"]
+        ],
+        "rowHash":"ec051b54935e150d",
+        "rowName":3000000
+    },{
+        "columns":[
+            ["Country","zw","2012-05-03T03:14:46Z"],
+            ["City","zvishavane","2012-05-03T03:14:46Z"],
+            ["AccentCity","Zvishavane","2012-05-03T03:14:46Z"],
+            ["Region",7,"2012-05-03T03:14:46Z"],
+            ["Population",79876,"2012-05-03T03:14:46Z"],
+            ["Latitude",-20.3333333,"2012-05-03T03:14:46Z"],
+            ["Longitude",30.0333333,"2012-05-03T03:14:46Z"]
+        ],
+        "rowHash":"ac6161ca77cad488",
+        "rowName":3173959
+    }
 ];
 
 assertEqual(res, expected, "City populations CSV");

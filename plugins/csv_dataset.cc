@@ -126,6 +126,7 @@ struct SqlCsvScope: public SqlExpressionMldbContext {
     SqlCsvScope(MldbServer * server, const std::vector<ColumnName> & columnNames,
                 Date fileTimestamp, Utf8String dataFileUrl)
         : SqlExpressionMldbContext(server), columnNames(columnNames),
+          fileTimestamp(fileTimestamp),
           dataFileUrl(std::move(dataFileUrl))
     {
         columnsUsed.resize(columnNames.size(), false);
@@ -573,10 +574,12 @@ struct CsvDataset::Itl: public TabularDataStore {
         config = conf;
         filename = config.dataFileUrl.toString();
         
-        Date ts = getUriObjectInfo(filename).lastModified;
-
         // Ask for a memory mappable stream if possible
         ML::filter_istream stream(filename, { { "mapped", "true" } });
+
+        // Get the file timestamp out
+        Date ts = stream.info().lastModified;
+
 
         string header;
 
