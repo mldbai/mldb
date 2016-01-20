@@ -151,7 +151,7 @@ class SimpleWhenExpressionTest(unittest.TestCase):
 
     def test_multiple_ts(self):
         ds = mldb.create_dataset({
-            'type': 'beh.binary.mutable',
+            'type': 'sparse.mutable',
             'id': 'dataset3'
         })
 
