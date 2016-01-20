@@ -42,7 +42,8 @@ class SimpleWhenExpressionTest(unittest.TestCase):
     def setUpClass(cls):
         ds1 = mldb.create_dataset({
             'type': 'sparse.mutable',
-            'id': 'dataset1'})
+            'id': 'dataset1'
+        })
 
         row_count = 10
         for i in xrange(row_count - 1):
@@ -50,6 +51,17 @@ class SimpleWhenExpressionTest(unittest.TestCase):
             ds1.record_row(str(i), [['x', i, now]])
         ds1.record_row(str(row_count - 1), [['x', 9, same_time_tomorrow]])
         ds1.commit()
+
+        ds = mldb.create_dataset({
+            'type': 'sparse.mutable',
+            'id': 'dataset2'
+        })
+
+        ds.record_row("row1", [['colA', 1, '1970-01-02T00:00:00Z'],
+                               ['colA', 1, '1970-01-04T00:00:00Z'],
+                               ['colA', 1, '1970-01-06T00:00:00Z']])
+
+        ds.commit()
 
     def test_get_all_tuples(self):
         rows = query("SELECT * FROM dataset1")
@@ -103,6 +115,87 @@ class SimpleWhenExpressionTest(unittest.TestCase):
             "expecting the tuple to be filtered out by when clause")
         self.assertEqual(rows[0]['rowName'], 9,
                          "expecting only row 9 to remain")
+
+    def test_multiple_ts_same_row_col(self):
+        res = None
+
+        def expect():
+            self.assertEqual(len(res), 1)
+            self.assertEqual(len(res[0]['columns']), 1)
+            self.assertEqual(res[0]['columns'][0][2], '1970-01-04T00:00:00Z')
+
+        res = query('SELECT * FROM dataset2 WHEN timestamp() BETWEEN '
+                    "'1970-01-03T00:00:00Z' AND '1970-01-05T00:00:00Z'")
+        expect()
+
+        res = query("SELECT * FROM dataset2 WHEN "
+                    "timestamp() >= '1970-01-03T00:00:00Z' AND "
+                    " timestamp() <= '1970-01-05T00:00:00Z'")
+        expect()
+
+        res = query('SELECT * FROM dataset2 WHEN timestamp() BETWEEN '
+                    "'1970-01-04T00:00:00Z' AND '1970-01-04T00:00:00Z'")
+        expect()
+
+        res = query('SELECT * FROM dataset2 WHEN timestamp() BETWEEN '
+                    "'1970-01-03T23:59:59Z' AND '1970-01-04T23:59:59Z'")
+        expect()
+
+        res = query('SELECT * FROM dataset2 WHEN '
+                    "timestamp() = '1970-01-04T00:00:00Z'")
+        expect()
+
+        res = query('SELECT * FROM dataset2 WHEN timestamp() BETWEEN '
+                    "'1970-01-04T23:59:59Z' AND '1970-01-03T23:59:59Z'")
+        self.assertTrue('columns' not in res[0])
+
+    def test_multiple_ts(self):
+        ds = mldb.create_dataset({
+            'type': 'beh.binary.mutable',
+            'id': 'dataset3'
+        })
+
+        ds.record_row("row1", [['colA', 1, '1970-01-02T00:00:00Z'],
+                               ['colB', 1, '1970-01-04T00:00:00Z'],
+                               ['colB', 1, '1970-01-06T00:00:00Z']])
+
+        ds.commit()
+
+        res = query('SELECT * FROM dataset3 WHEN timestamp() < '
+                    "'1970-01-03T00:00:00Z'")
+        self.assertEqual(len(res), 1)
+        self.assertEqual(len(res[0]['columns']), 1)
+        self.assertEqual(res[0]['columns'][0][2], '1970-01-02T00:00:00Z')
+
+    @unittest.expectedFailure
+    def test_timezone(self):
+        def expect():
+            self.assertEqual(len(res), 1)
+            self.assertEqual(len(res[0]['columns']), 1)
+            self.assertEqual(res[0]['columns'][0][2], '1970-01-04T00:00:00Z')
+
+        res = query('SELECT * FROM dataset2 WHEN timestamp() BETWEEN '
+                    "'1970-01-04T01:00:00+01:00' AND "
+                    "'1970-01-04T01:00:00+01:00'")
+        expect()
+
+        res = query('SELECT * FROM dataset2 WHEN timestamp() '
+                    "= '1970-01-04T01:00:00+01:00'")
+        expect()
+
+        res = query('SELECT * FROM dataset2 WHEN timestamp() < '
+                    "'1970-01-04T00:00:00+01:00'")
+        self.assertTrue('columns' not in res[0])
+
+        res = query('SELECT * FROM dataset2 WHEN timestamp() BETWEEN '
+                    "'1970-01-03T23:00:00-01:00' AND "
+                    "'1970-01-03T23:00:00-01:00'")
+        expect()
+
+        res = query('SELECT * FROM dataset2 WHEN timestamp() '
+                    "= '1970-01-03T23:00:00-01:00'")
+        expect()
+
 
 if __name__ == '__main__':
     res = unittest.main(exit=False).result
