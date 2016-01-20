@@ -14,6 +14,7 @@
 #include "mldb/types/any_impl.h"
 #include "mldb/plugins/for_each_line.h"
 #include <boost/lexical_cast.hpp>
+#include "mldb/vfs/filter_streams.h"
 
 using namespace std;
 
@@ -35,7 +36,7 @@ struct JSONImporterConfig : ProcedureConfig {
     {}
 
     Url dataFileUrl;
-    PolyConfigT<Dataset> output;
+    PolyConfigT<Dataset> outputDataset;
     
     int64_t limit;
     int64_t offset;
@@ -51,15 +52,16 @@ JSONImporterConfigDescription()
 {
     addField("dataFileUrl", &JSONImporterConfig::dataFileUrl,
              "URL to load text file from");
-    addField("output", &JSONImporterConfig::output,
+    addField("outputDataset", &JSONImporterConfig::outputDataset,
              "Configuration for output dataset",
              PolyConfigT<Dataset>().withType("sparse.mutable"));
     addField("limit", &JSONImporterConfig::limit,
              "Maximum number of lines to process");
     addField("offset", &JSONImporterConfig::offset,
-            "Skip the first n lines (excluding the header if present).", int64_t(0));
+            "Skip the first n lines.", int64_t(0));
     addField("ignoreBadLines", &JSONImporterConfig::ignoreBadLines,
-             "If true, any line causing an error will be skipped.", false);
+             "If true, any line causing an error will be skipped. Any line "
+             "with an invalid JSON object will cause an error.", false);
     
     addParent<ProcedureConfig>();
 }
@@ -83,14 +85,14 @@ struct JSONImporter: public Procedure {
         auto runProcConf = applyRunConfOverProcConf(config, run);
         
         // Create the output dataset
-        std::shared_ptr<Dataset> output;
+        std::shared_ptr<Dataset> outputDataset;
  
-        if (!runProcConf.output.type.empty()
-            || !runProcConf.output.id.empty()) {
-            output = obtainDataset(server, runProcConf.output);
+        if (!runProcConf.outputDataset.type.empty()
+            || !runProcConf.outputDataset.id.empty()) {
+            outputDataset = obtainDataset(server, runProcConf.outputDataset);
         }
 
-        if(!output) {
+        if(!outputDataset) {
             throw ML::Exception("Unable to obtain output dataset");
         }
 
@@ -98,46 +100,37 @@ struct JSONImporter: public Procedure {
 
         std::mutex recordMutex;
 
-        std::atomic<int64_t> atLine(0);
         std::atomic<int64_t> errors(0);
         std::atomic<int64_t> recordedLines(0);
-        auto doForEach = [&] (const std::string & line, int64_t lineNum)
+        auto onLine = [& ](const char * line,
+                           size_t lineLength,
+                           int64_t blockNumber,
+                           int64_t lineNumber)
         {
-            int64_t currLine = ++atLine;
-
-            if(runProcConf.limit>-1 && currLine > runProcConf.limit + runProcConf.offset)
-                return false;
-            if(currLine < runProcConf.offset)
-                return true;
-
-            if(line.size() == 0)
+            if(lineLength == 0)
                 return true;
 
             Json::Reader reader;
             Json::Value root;
 
-            if (!reader.parse(line, root)) {
-                if(runProcConf.ignoreBadLines) {
-                    errors++;
-                    return true;
-                }
-                else {
-                    throw ML::Exception(ML::format("Unable to parse line %d to JSON", currLine));
-                }
+            if (!reader.parse(line, line+lineLength, root)) {
+                if(!runProcConf.ignoreBadLines)
+                    throw ML::Exception(ML::format("Unable to parse line %d to JSON", lineNumber));
+
+                errors++;
+                return true;
             }
 
             if(!root.isObject()) {
-                if(runProcConf.ignoreBadLines) {
-                    errors++;
-                    return true;
-                }
-                else {
-                    throw ML::Exception(ML::format("JSON at line %d is not an object", currLine));
-                }
+                if(!runProcConf.ignoreBadLines)
+                    throw ML::Exception(ML::format("JSON at line %d is not an object", lineNumber));
+
+                errors++;
+                return true;
             }
 
             MatrixNamedRow outputRow;
-            outputRow.rowName = RowName(ML::format("row%d", currLine));
+            outputRow.rowName = RowName(ML::format("row%d", lineNumber+1));
 
 
             std::function<void (const std::string & id,
@@ -178,7 +171,7 @@ struct JSONImporter: public Procedure {
                                 else if(val[i].isDouble()) key = boost::lexical_cast<string>(val[i].asDouble());
                                 else if(val[i].isInt())    key = boost::lexical_cast<string>(val[i].asInt());
                                 else                       key = val[i].toString();
-                                emplaceCol(id + '_' + key, Json::Value(true));
+                                emplaceCol(id + '.' + key, Json::Value(true));
                             }
                         }
                         else {
@@ -190,7 +183,7 @@ struct JSONImporter: public Procedure {
                     }
                     else if(val.isObject()) {
                         for (const std::string & sub_id : val.getMemberNames()) {
-                            emplaceCol(id + '_' + sub_id, val[sub_id]);
+                            emplaceCol(id + '.' + sub_id, val[sub_id]);
                         }
                     }
                 };
@@ -202,17 +195,14 @@ struct JSONImporter: public Procedure {
             recordedLines++;
 
             std::unique_lock<std::mutex> guard(recordMutex);
-            output->recordRow(outputRow.rowName, outputRow.columns);
+            outputDataset->recordRow(outputRow.rowName, outputRow.columns);
             return true;
         };
 
 
-        forEachLineStr(runProcConf.dataFileUrl.toString(),
-                        doForEach,
-                        8 /** numThreads **/,
-                        false /** ignoreStreamExceptions **/);
-
-        output->commit();
+        ML::filter_istream stream(runProcConf.dataFileUrl.toString());
+        forEachLineBlock(stream, onLine, runProcConf.offset, runProcConf.limit);
+        outputDataset->commit();
 
         Json::Value result;
         result["rowCount"] = (int64_t)recordedLines;

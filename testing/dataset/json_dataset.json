@@ -3,3 +3,4 @@
 {"colA":3, "colB": "pwet pwet 3", "colC": {"a":1, "b":2}}
 {"colD": [{"a":1}, {"b":2}]}
 {"colD": [1, 2, 3, true, 5.25, "abc"]}
+{"colC": {"a": {"b":2}}}

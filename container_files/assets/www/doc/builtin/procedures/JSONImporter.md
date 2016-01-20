@@ -29,17 +29,18 @@ between the keys at each level.
 
 The line:
 
-    {"a": 5, "b": true, "c": {"x": "hola"}}
+    {"a": 5, "c": {"x": "hola"}, "d": {"e": {"f": "amigo"}}}
 
 is recorded as:
 
-| *rowName* | *a* | *b* | *c_x* |
-|-----------|-----|-----|-------|
-| row1 | 5 | true | hola |
+| *rowName* | *a* | *c.x* | *d.e.f* |
+|-----------|-----|-------|---------|
+| row1 | 5 | hola | amigo |
 
 
 If the value is an array that contains only atomic types (strings, bool or numeric), we
-encode them as one hot vectors.
+encode them as a one-hot vector. As shown in the example below, the `value` in the JSON
+will be appended to the column name and the cell value will be set to `true`. 
 
 
 The line:
@@ -48,7 +49,7 @@ The line:
 
 is recorded as:
 
-| *rowName* | *a* | *b_1* | *b_2* | *b_abc* |
+| *rowName* | *a* | *b.1* | *b.2* | *b.abc* |
 |-----------|-----|-----|-------|-----------|
 | row1 | 5 | true | true | true |
 
