@@ -9,6 +9,7 @@
 #include "mldb/core/plugin.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/vector_description.h"
+#include "mldb/types/enum_description.h"
 #include "mldb/types/url.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/arch/timers.h"
@@ -43,6 +44,40 @@
 #include "tensorflow/core/platform/tracing.h"
 
 using namespace std;
+
+#define DEFINE_ENUM_DESCRIPTION_PROTO(Namespace, Name, Type) \
+    struct Name                                                     \
+        : public Datacratic::EnumDescription<Namespace::Type> {     \
+        Name();                                                     \
+    };                                                              \
+                                                                    \
+    Datacratic::ValueDescriptionT<Namespace::Type> *                \
+    getDefaultDescription(Namespace::Type *)                        \
+    {                                                               \
+        return new Name();                                          \
+    }                                                               \
+                                                                    \
+    Datacratic::ValueDescriptionT<Namespace::Type> *                \
+    getDefaultDescriptionUninitialized(Namespace::Type *)           \
+    {                                                               \
+        return new Name();                                          \
+    }                                                               \
+                                                                    \
+    Name::Name()                                                    \
+    {                                                               \
+        auto desc = Namespace::Type##_descriptor();                 \
+        google::protobuf::DebugStringOptions options;               \
+        options.include_comments = true;                            \
+        for (unsigned i = 0;  i < desc->value_count();  ++i) {      \
+            addValue(desc->value(i)->name(),                        \
+                     (Namespace::Type)desc->value(i)->number(),     \
+                     desc->value(i)->DebugStringWithOptions(options));\
+        }                                                           \
+    }
+
+
+DECLARE_ENUM_DESCRIPTION_NAMED(TensorflowDataTypeDescription, tensorflow::DataType);
+DEFINE_ENUM_DESCRIPTION_PROTO(tensorflow, TensorflowDataTypeDescription, DataType);
 
 // Plugin entry point.  This is called by MLDB once the plugin is loaded.
 // We initialize the TensorFlow system.
@@ -529,7 +564,7 @@ struct TensorflowGraph: public Function {
                     throw HttpReturnException(500, "Couldn't initialize tensorflow graph model: " + session_create_status.error_message());
                 }
                 
-                sessions.emplace_back(d->name(), std::move(session), 2 /* queue length */);
+                sessions.emplace_back(d->name(), std::move(session), 16 /* queue length */);
             }
         }
 
@@ -594,16 +629,76 @@ struct TensorflowGraph: public Function {
     }
 #endif
 
-    tensorflow::Tensor getTensorFor(const std::string & layer,
-                                    const ExpressionValue & val) const
+    static tensorflow::Tensor
+    castToSizedAndTypedTensor(const ExpressionValue & val,
+                              const tensorflow::TensorShape & shape,
+                              tensorflow::DataType type)
     {
-        tensorflow::Tensor result;
+        const CellValue & input = val.getAtom();
 
+        const unsigned char * data = input.blobData();
+        const size_t len = input.blobLength();
+
+
+        tensorflow::Tensor result(tensorflow::DT_STRING, { 1 });
+        
+        auto str = result.flat<std::string>();
+        str(0) = string(data, data + len);
+
+        return result;
+    }
+
+    static tensorflow::Tensor
+    castToTypedTensor(const ExpressionValue & val,
+                      tensorflow::DataType type)
+    {
+        throw HttpReturnException(500, "Unable to cast value to typed tensor");
+    }
+    
+    static tensorflow::Tensor
+    castToTensor(const ExpressionValue & val)
+    {
+        throw HttpReturnException(500, "Unable to cast value to tensor");
+    }
+    
+    tensorflow::Tensor
+    getTensorFor(const std::string & layer,
+                 const ExpressionValue & val) const
+    {
         for (auto & node: graph->node()) {
             if (node.name() == layer) {
+                auto it = node.attr().find("value");
+                if (it != node.attr().end()) {
+                    // It has a value.  Attempt to match the datatype and
+                    // the entire size.
+                    return castToSizedAndTypedTensor
+                        (val,
+                         tensorflow::TensorShape(it->second.tensor().tensor_shape()),
+                         it->second.tensor().dtype());
+                }
+                it = node.attr().find("dtype");
+                if (it != node.attr().end()) {
+                    auto it2 = node.attr().find("shape");
+                    if (it2 != node.attr().end()) {
+                        // Match datatype and shape
+                        return castToSizedAndTypedTensor
+                            (val,
+                             tensorflow::TensorShape(it2->second.shape()),
+                             it->second.type());
+                    }
+
+                    // It has a datatype, but no value (and hence size).
+                    // Attempt to match the data type only.
+                    return castToTypedTensor(val, it->second.type());
+                }
+
+                // The layer has neither a size nor a datatype.  Convert it
+                // in the natural way, and hope for the best.
+                return castToTensor(val);
+
+#if 0
                 cerr << "found node " << layer << endl;
                 cerr << "op = " << node.op() << endl;
-                cerr << "device = " << node.device() << endl;
                 cerr << "dtype = " << node.attr().find("dtype")->second.DebugString() << endl;
                 for (auto & attr: node.attr()) {
                     cerr << "attr " << attr.first << " " << attr.second.DebugString()
@@ -612,17 +707,121 @@ struct TensorflowGraph: public Function {
                 for (auto & input: node.input()) {
                     cerr << "input " << input << endl;
                 }
-
+#endif
             }
         }
 
-        return result;
+        throw HttpReturnException(400, "Unable to find layer to get tensor for");
     }
 
-    ExpressionValue tensorToValue(const tensorflow::Tensor & tensor,
-                                  Date ts) const
+    template<typename T>
+    static ExpressionValue tensorToValue1dT(const tensorflow::Tensor & tensor,
+                                            Date ts)
     {
+        auto flattened = tensor.flat<T>();
+        size_t n = flattened.size();
+        vector<CellValue> cells(n);
+        for (size_t i = 0;  i < n;  ++i) {
+            cells[i] = flattened(i);
+        }
+        return ExpressionValue(std::move(cells), ts);
+    }
+
+    template<typename T>
+    static ExpressionValue tensorToValue2dT(const tensorflow::Tensor & tensor,
+                                    Date ts)
+    {
+        auto flattened = tensor.flat<T>();
+        size_t n = flattened.size();
+        vector<CellValue> cells(n);
+        for (size_t i = 0;  i < n;  ++i) {
+            cells[i] = flattened(i);
+        }
+        return ExpressionValue(std::move(cells), ts);
+    }
+
+    template<typename T>
+    static ExpressionValue tensorToValue3dT(const tensorflow::Tensor & tensor,
+                                    Date ts)
+    {
+        auto flattened = tensor.flat<T>();
+        size_t n = flattened.size();
+        vector<CellValue> cells(n);
+        for (size_t i = 0;  i < n;  ++i) {
+            cells[i] = flattened(i);
+        }
+        return ExpressionValue(std::move(cells), ts);
+    }
+
+    template<typename T>
+    static ExpressionValue tensorToValue4dT(const tensorflow::Tensor & tensor,
+                                     Date ts)
+    {
+        auto flattened = tensor.flat<T>();
+        size_t n = flattened.size();
+        vector<CellValue> cells(n);
+        for (size_t i = 0;  i < n;  ++i) {
+            cells[i] = flattened(i);
+        }
+        return ExpressionValue(std::move(cells), ts);
+    }
+
+    template<typename T>
+    static ExpressionValue tensorToValueT(const tensorflow::Tensor & tensor,
+                                          Date ts)
+    {
+        switch (tensor.dims()) {
+        case 1:
+            return tensorToValue1dT<T>(tensor, ts);
+        case 2:
+            return tensorToValue2dT<T>(tensor, ts);
+        case 3:
+            return tensorToValue3dT<T>(tensor, ts);
+        case 4:
+            return tensorToValue4dT<T>(tensor, ts);
+        default:
+            throw HttpReturnException(400, "Unable to turn " + to_string(tensor.dims()) + "-dimensional tensor into ExpressionValue");
+        }
+
         return ExpressionValue::null(ts);
+    }
+
+    static ExpressionValue tensorToValue(const tensorflow::Tensor & tensor,
+                                         Date ts)
+    {
+        using namespace tensorflow;
+
+        switch (tensor.dtype()) {
+        case DT_FLOAT:
+            return tensorToValueT<float>(tensor, ts);
+        case DT_DOUBLE:
+            return tensorToValueT<double>(tensor, ts);
+        case DT_INT32:
+            return tensorToValueT<int32_t>(tensor, ts);
+        case DT_UINT8:
+            return tensorToValueT<uint8_t>(tensor, ts);
+        case DT_INT16:
+            return tensorToValueT<int16_t>(tensor, ts);
+        case DT_INT8:
+            return tensorToValueT<int8_t>(tensor, ts);
+        case DT_STRING:
+            return tensorToValueT<std::string>(tensor, ts);
+            //case DT_INT64:
+            //return tensorToValueT<int64_t>(tensor, ts);
+        case DT_BOOL:
+            return tensorToValueT<bool>(tensor, ts);
+            /*
+              DT_QINT8 = 11;     // Quantized int8
+              DT_QUINT8 = 12;    // Quantized uint8
+              DT_QINT32 = 13;    // Quantized int32
+              DT_BFLOAT16 = 14;  // Float32 truncated to 16 bits.  Only for cast ops.
+              DT_QINT16 = 15;    // Quantized int16
+              DT_QUINT16 = 16;   // Quantized uint16
+            */
+        default:
+            throw HttpReturnException(400, "Can't return tensor of this type from TensorFlow"/*,
+                                                                                               "type", tensor.dtype()*/);
+        }
     }
 
     std::pair<std::shared_ptr<tensorflow::Session>, std::string>
@@ -784,25 +983,13 @@ struct TensorflowGraph: public Function {
         FunctionOutput result;
 
         CellValue input = context.get<CellValue>("jpeg");
-        
-        const unsigned char * data = input.blobData();
-        const size_t len = input.blobLength();
 
         using namespace tensorflow;
 
         string input_layer = "DecodeJpeg/contents";
-        string output_layer = "softmax";
-
-
-        Tensor inputTensor2 = getTensorFor(input_layer, context.get<ExpressionValue>("jpeg"));
-
-        Tensor inputTensor(DT_STRING, { });
-        
-        auto str = inputTensor.flat<std::string>();
-        str(0) = string(data, data + len);
-
-        string input_layer = "DecodeJpeg/contents";
         string output_layer = "softmax"; //"Cast";//softmax";
+
+        Tensor inputTensor = getTensorFor(input_layer, context.get<ExpressionValue>("jpeg"));
 
         vector<Tensor> outputs;
 
@@ -816,9 +1003,9 @@ struct TensorflowGraph: public Function {
             };
 
 
-#if 1
+#if 0
         vector<std::thread> threads;
-        for (int i = 0;  i < 1000;  ++i) {
+        for (int i = 0;  i < 100;  ++i) {
             threads.emplace_back([&,i] () { doRun(i); });
             //std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
@@ -832,11 +1019,8 @@ struct TensorflowGraph: public Function {
         doRun(0);
 #endif
 
-        auto scores = outputs.at(0).flat<float>();
-        vector<float> scores2(scores.data(), scores.data() + scores.size());
-
-        Utf8String output("output");
-        result.set("output", ExpressionValue(scores2, Date::notADate()));
+        //cerr << jsonEncode(tensorToValue(outputs.at(0), Date::notADate())) << endl;
+        result.set("output", tensorToValue(outputs.at(0), Date::notADate()));
     
         return result;
     }
