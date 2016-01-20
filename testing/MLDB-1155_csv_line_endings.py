@@ -28,7 +28,6 @@ for ext in open_functions:
     assert result["statusCode"] == 200
     assert json.loads(result['response'])[3][2] == "hello"
 
-
     # CSV importation should not complain about number of values when missing last column
     # with DOS line endings
     with open_function("tmp/csv_newline_missing_last_column_dos"+ext, 'wb') as f:
@@ -129,8 +128,6 @@ for ext in open_functions:
     assert json.loads(result['response'])[1][1] == 1
     assert json.loads(result['response'])[1][2] == "hello"
 
-
-
     # CSV importation should not fail with "bad seek" if missing trailing newline
     with open_function("tmp/csv_newline_missing_last"+ext, 'wb') as f:
         f.write("a,b\n")
@@ -176,7 +173,7 @@ for ext in open_functions:
     assert json.loads(result['response'])[1][2] == 1
 
 
-    # CSV importation should accept a blank trailing line
+    # CSV importation should accept a blank trailing line if ignoreBadLines is set to true
     with open_function("tmp/csv_newline_trailing_newlines"+ext, 'wb') as f:
         f.write("a,b\n")
         f.write("1.0,1.0\n") 
@@ -184,7 +181,8 @@ for ext in open_functions:
 
     result = mldb.perform("PUT", "/v1/datasets/x", [], {
         "type": "text.csv.tabular",
-        "params": { "dataFileUrl": "file://tmp/csv_newline_trailing_newlines"+ext }
+        "params": { "dataFileUrl": "file://tmp/csv_newline_trailing_newlines"+ext,
+                    "ignoreBadLines": True}
     })
     mldb.log(result)
 
@@ -199,7 +197,7 @@ for ext in open_functions:
     assert json.loads(result['response'])[1][2] == 1
 
 
-    # CSV importation should accept a blank trailing line with DOS
+    # CSV importation should accept a blank trailing line with DOS if ignoreBadLines is set to true
     with open_function("tmp/csv_newline_trailing_newlines_dos"+ext, 'wb') as f:
         f.write("a,b\r\n")
         f.write("1.0,1.0\r\n") 
@@ -207,7 +205,8 @@ for ext in open_functions:
 
     result = mldb.perform("PUT", "/v1/datasets/x", [], {
         "type": "text.csv.tabular",
-        "params": { "dataFileUrl": "file://tmp/csv_newline_trailing_newlines_dos"+ext }
+        "params": { "dataFileUrl": "file://tmp/csv_newline_trailing_newlines_dos"+ext,
+                    "ignoreBadLines": True}
     })
     mldb.log(result)
 
