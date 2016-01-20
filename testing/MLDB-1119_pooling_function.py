@@ -1,4 +1,6 @@
 
+# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+
 import json, datetime
 
 ## Create embedding dataset
