@@ -196,22 +196,15 @@ class SimpleWhenExpressionTest(unittest.TestCase):
                     "= '1970-01-03T23:00:00-01:00'")
         expect()
 
-    @unittest.expectedFailure # MLFBFB-316
-    def test_expect_no_row(self):
-        query_str = ("SELECT when({*}) FROM dataset1 "
-                     # WHEN should leave nothing
-                     "WHEN timestamp() < '1970-01-01T00:00:00Z' "
-                     # Since there is nothing left, WHERE when({*}) should be
-                     # null
-                     "WHERE when({*}) IS NOT NULL")
-        res = query(query_str)
-        log(query_str)
-        log(res)
-        self.assertEqual(len(res), 0)
-
 
 if __name__ == '__main__':
-    res = unittest.main(exit=False).result
+    if mldb.script.args:
+        assert type(mldb.script.args) is list
+        argv = ['python'] + mldb.script.args
+    else:
+        argv = None
+
+    res = unittest.main(exit=False, argv=argv).result
     log(res)
     got_err = False
     for err in res.errors + res.failures:
