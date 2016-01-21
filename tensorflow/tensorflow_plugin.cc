@@ -4,6 +4,11 @@
 
 */
 
+#include "mldb/types/value_description_fwd.h"
+#include "tensorflow/core/public/tensor.h"
+
+DECLARE_ENUM_DESCRIPTION_NAMED(TensorflowDataTypeDescription, tensorflow::DataType);
+
 #include "mldb/core/mldb_entity.h"
 #include "mldb/core/function.h"
 #include "mldb/core/plugin.h"
@@ -30,7 +35,6 @@
 #include "tensorflow/cc/ops/const_op.h"
 #include "tensorflow/cc/ops/image_ops.h"
 #include "tensorflow/cc/ops/standard_ops.h"
-#include "tensorflow/core/public/tensor.h"
 #include "tensorflow/core/graph/default_device.h"
 #include "tensorflow/core/graph/graph_def_builder.h"
 #include "tensorflow/core/lib/core/errors.h"
@@ -76,7 +80,6 @@ using namespace std;
     }
 
 
-DECLARE_ENUM_DESCRIPTION_NAMED(TensorflowDataTypeDescription, tensorflow::DataType);
 DEFINE_ENUM_DESCRIPTION_PROTO(tensorflow, TensorflowDataTypeDescription, DataType);
 
 // Plugin entry point.  This is called by MLDB once the plugin is loaded.
@@ -413,6 +416,8 @@ struct TensorflowGraph: public Function {
         std::string graphContents;
 
         ML::filter_istream stream(functionConfig.modelFileUrl.toString());
+
+        this->modelTs = stream.info().lastModified;
         
         google::protobuf::io::IstreamInputStream pstream(&stream);
 
@@ -570,6 +575,8 @@ struct TensorflowGraph: public Function {
 
         //std::this_thread::sleep_for(std::chrono::seconds(120));
     }
+
+    Date modelTs;
 
     std::unique_ptr<tensorflow::GraphDef> graph;
 
@@ -786,9 +793,57 @@ struct TensorflowGraph: public Function {
         return ExpressionValue::null(ts);
     }
 
+    static StorageType dataTypeToStorage(tensorflow::DataType dt)
+    {
+        using namespace tensorflow;
+
+        switch (dt) {
+        case DT_FLOAT:
+            return ST_FLOAT32;
+        case DT_DOUBLE:
+            return ST_FLOAT64;
+        case DT_INT32:
+        case DT_QINT32:
+            return ST_INT32;
+        case DT_UINT8:
+        case DT_QUINT8:
+            return ST_UINT8;
+        case DT_INT8:
+        case DT_QINT8:
+            return ST_INT8;
+        case DT_INT16:
+        case DT_QINT16:
+            return ST_INT16;
+        case DT_QUINT16:
+            return ST_UINT16;
+        case DT_STRING:
+            return ST_BLOB;
+        case DT_BOOL:
+            return ST_INT32;
+        default:
+            throw HttpReturnException(400, "Can't return tensor of this type from TensorFlow"/*,
+                                                                                               "type", tensor.dtype()*/);
+        }
+    }
+
     static ExpressionValue tensorToValue(const tensorflow::Tensor & tensor,
                                          Date ts)
     {
+        // Keep a reference to the tensor so it gets destroyed only
+        // when the expression value goes out of scope
+
+        std::shared_ptr<tensorflow::Tensor> keep(new tensorflow::Tensor(tensor));
+        const void * dataPtr = tensor.tensor_data().data();
+
+        vector<size_t> dims(tensor.dims());
+        for (unsigned i = 0;  i < tensor.dims();  ++i)
+            dims[i] = tensor.shape().dim_size(i);
+
+        return ExpressionValue::tensor(ts,
+                                       std::shared_ptr<const void>(keep, dataPtr),
+                                       dataTypeToStorage(tensor.dtype()),
+                                       dims);
+#if 0
         using namespace tensorflow;
 
         switch (tensor.dtype()) {
@@ -822,6 +877,7 @@ struct TensorflowGraph: public Function {
             throw HttpReturnException(400, "Can't return tensor of this type from TensorFlow"/*,
                                                                                                "type", tensor.dtype()*/);
         }
+#endif
     }
 
     std::pair<std::shared_ptr<tensorflow::Session>, std::string>
@@ -989,7 +1045,13 @@ struct TensorflowGraph: public Function {
         string input_layer = "DecodeJpeg/contents";
         string output_layer = "softmax"; //"Cast";//softmax";
 
+        auto in = context.get<ExpressionValue>("jpeg");
+        
         Tensor inputTensor = getTensorFor(input_layer, context.get<ExpressionValue>("jpeg"));
+
+        Date inputTs = in.getEffectiveTimestamp();
+        Date outputTs = inputTs;
+        outputTs.setMax(modelTs);
 
         vector<Tensor> outputs;
 
@@ -1020,7 +1082,7 @@ struct TensorflowGraph: public Function {
 #endif
 
         //cerr << jsonEncode(tensorToValue(outputs.at(0), Date::notADate())) << endl;
-        result.set("output", tensorToValue(outputs.at(0), Date::notADate()));
+        result.set("output", tensorToValue(outputs.at(0), outputTs));
     
         return result;
     }

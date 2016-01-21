@@ -35,6 +35,28 @@ ColumnSparsityDescription()
     addValue("sparse", COLUMN_IS_SPARSE, "Column is present in some rows");
 }
 
+DEFINE_ENUM_DESCRIPTION(StorageType);
+
+StorageTypeDescription::
+StorageTypeDescription()
+{
+    addValue("FLOAT32",    ST_FLOAT32,    "32 bit floating point number");
+    addValue("FLOAT64",    ST_FLOAT64,    "64 bit floating point number");
+    addValue("INT8",       ST_INT8,       "8 bit signed integer");
+    addValue("UINT8",      ST_UINT8,      "8 bit unsigned integer");
+    addValue("INT16",      ST_INT16,      "16 bit signed integer");
+    addValue("UINT16",     ST_UINT16,     "16 bit unsigned integer");
+    addValue("INT32",      ST_INT32,      "32 bit signed integer");
+    addValue("UINT32",     ST_UINT32,     "32 bit unsigned integer");
+    addValue("INT64",      ST_INT64,      "64 bit signed integer");
+    addValue("UINT64",     ST_UINT64,     "64 bit unsigned integer");
+    addValue("BLOB",       ST_BLOB,       "Binary blob");
+    addValue("STRING",     ST_STRING,     "Ascii string");
+    addValue("UTF8STRING", ST_UTF8STRING, "UTF-8 encoded string");
+    addValue("CELLVALUE",  ST_CELLVALUE,  "Any atomic value");
+    addValue("BOOL",       ST_BOOL,       "32 bit boolean value");
+}
+
 /*****************************************************************************/
 /* EXPRESSION VALUE INFO                                                     */
 /*****************************************************************************/
@@ -475,6 +497,181 @@ findNestedColumn(const Utf8String& variableName, SchemaCompleteness& schemaCompl
 /* EXPRESSION VALUE                                                          */
 /*****************************************************************************/
 
+/// This is how we store a structure with a single value for each
+/// element and an external set of column names
+struct ExpressionValue::Struct {
+    std::shared_ptr<const std::vector<ColumnName> > columnNames;
+    std::vector<CellValue> values;
+    std::vector<float> embedding;
+    std::vector<double> dembedding;
+
+    size_t length() const
+    {
+        return columnNames ? columnNames->size()
+            : std::max(std::max(values.size(), embedding.size()),
+                       dembedding.size());
+    }
+
+    CellValue value(int i) const
+    {
+        if (!embedding.empty())
+            return embedding.at(i);
+        else if (!dembedding.empty())
+            return dembedding.at(i);
+        else return values.at(i);
+    }
+
+    CellValue moveValue(int i)
+    {
+        if (!embedding.empty())
+            return embedding.at(i);
+        else if (!dembedding.empty())
+            return dembedding.at(i);
+        else return std::move(values.at(i));
+    }
+
+    ColumnName columnName(int i) const
+    {
+        if (columnNames)
+            return columnNames->at(i);
+        // TODO: static list of the first 1,000 column names to avoid allocs
+        else return ColumnName(ML::format("%06d", i));
+    }
+};
+
+/// This is how we store a tensor, which is a dense array of a
+/// uniform data type.
+struct ExpressionValue::Tensor {
+    std::shared_ptr<const void> data_;
+    StorageType storageType_;
+    std::vector<size_t> dims_;
+    std::shared_ptr<const TensorMetadata> metadata_;
+
+    template<typename T>
+    const T & getValueT(size_t n)
+    {
+        return n[(T *)(data_.get())];
+    }
+
+    CellValue getValue(size_t n)
+    {
+        switch (storageType_) {
+        case ST_FLOAT32:
+            return getValueT<float>(n);
+        case ST_FLOAT64:
+            return getValueT<double>(n);
+        case ST_INT8:
+            return getValueT<int8_t>(n);
+        case ST_UINT8:
+            return getValueT<uint8_t>(n);
+        case ST_INT16:
+            return getValueT<int16_t>(n);
+        case ST_UINT16:
+            return getValueT<uint16_t>(n);
+        case ST_INT32:
+            return getValueT<int32_t>(n);
+        case ST_UINT32:
+            return getValueT<uint32_t>(n);
+        case ST_INT64:
+            return getValueT<int64_t>(n);
+        case ST_UINT64:
+            return getValueT<uint64_t>(n);
+        case ST_BLOB:
+            return CellValue::blob(getValueT<std::string>(n));
+        case ST_STRING:
+            return getValueT<std::string>(n);
+        case ST_UTF8STRING:
+            return getValueT<Utf8String>(n);
+        case ST_CELLVALUE:
+            return getValueT<CellValue>(n);
+        case ST_BOOL:
+            return getValueT<bool>(n);
+        }
+        
+        throw HttpReturnException(500, "Unknown tensor storage type",
+                                  "storageType", storageType_);
+    }
+
+    bool forEachValue(std::function<bool (const std::vector<int> & indexes,
+                                          CellValue & val)> onVal) const
+    {
+        vector<int> indexes(dims_.size());
+        size_t n = 0;
+
+        std::function<bool (int level)> runLevel = [&] (int i)
+            {
+                if (i == dims_.size()) {
+                    CellValue val = getValue(n++);
+                    return onVal(indexes, val);
+                }
+                else {
+                    for (indexes[i] = 0;  indexes[i] < dims_[i];
+                         ++indexes[i]) {
+                        if (!runLevel(i + 1))
+                            return false;
+                    }
+                    return true;
+                }
+            };
+
+        return runLevel(0);
+    }
+
+    bool forEachColumn(std::function<bool (ColumnName & col,
+                                           CellValue & val)> onColumn) const
+    {
+        auto onValue = [&] (const vector<int> & indexes, CellValue & val)
+            {
+                std::string n = "[";
+                for (auto & i: indexes) {
+                    if (n.length() != 1)
+                        n += ',';
+                    n += to_string(i);
+                }
+                n += ']';
+
+                ColumnName columnName(n);
+                return onColumn(columnName, val);
+            };
+
+        return forEachValue(onValue);
+    }
+
+    void writeJson(JsonPrintingContext & context) const
+    {
+        context.startObject();
+        context.startMember("shape");
+        context.writeJson(jsonEncode(dims_));
+        context.startMember("val");
+
+        vector<int> indexes(dims_.size());
+        size_t n = 0;
+
+        std::function<void (int level)> runLevel = [&] (int i)
+            {
+                static auto cellDesc = getDefaultDescriptionShared((CellValue *)0);
+                if (i == dims_.size()) {
+                    CellValue val(getValue(n++));
+                    cellDesc->printJsonTyped(&val, context);
+                }
+                else {
+                    context.startArray(dims_[i]);
+                    for (indexes[i] = 0;  indexes[i] < dims_[i];
+                         ++indexes[i]) {
+                        context.newArrayElement();
+                        runLevel(i + 1);
+                    }
+                    context.endArray();
+                }
+            };
+        
+        runLevel(0);
+
+        context.endObject();
+    }
+};
+
+
 static_assert(sizeof(CellValue) <= 24, "CellValue is too big to fit");
 static_assert(sizeof(ExpressionValue::Row) <= 24, "Row is too big to fit");
 
@@ -620,12 +817,14 @@ ExpressionValue::
 {
     typedef std::shared_ptr<const Row> RowRepr;
     typedef std::shared_ptr<const Struct> StructRepr;
+    typedef std::shared_ptr<const Tensor> TensorRepr;
 
     switch (type_) {
     case NONE: break;
     case ATOM: cell_.~CellValue();  break;
     case ROW:  row_.~RowRepr();  break;
     case STRUCT: struct_.~StructRepr();  break;
+    case TENSOR: tensor_.~TensorRepr();  break;
     default:
         throw HttpReturnException(400, "Unknown expression value type");
     }
@@ -645,6 +844,12 @@ ExpressionValue(const ExpressionValue & other)
         type_ = STRUCT;
         break;
     }
+    case TENSOR: {
+        ts_ = other.ts_;
+        new (storage_) std::shared_ptr<const Tensor>(other.tensor_);
+        type_ = TENSOR;
+        break;
+    }
     default:
         throw HttpReturnException(400, "Unknown expression value type");
     }
@@ -661,6 +866,7 @@ ExpressionValue(ExpressionValue && other) noexcept
     case ATOM: new (storage_) CellValue(std::move(other.cell_));  break;
     case ROW:  new (storage_) std::shared_ptr<const Row>(std::move(other.row_));  break;
     case STRUCT: new (storage_) std::shared_ptr<const Struct>(std::move(other.struct_));  break;
+    case TENSOR: new (storage_) std::shared_ptr<const Tensor>(std::move(other.tensor_));  break;
     default:
         throw HttpReturnException(400, "Unknown expression value type");
     }
@@ -769,6 +975,28 @@ ExpressionValue(std::vector<double> values, Date ts)
     content->dembedding = std::move(values);
     new (storage_) std::shared_ptr<const Struct>(std::move(content));
     type_ = STRUCT;
+}
+
+ExpressionValue
+ExpressionValue::
+tensor(Date ts,
+       std::shared_ptr<const void> data,
+       StorageType storageType,
+       std::vector<size_t> dims,
+       std::shared_ptr<const TensorMetadata> md)
+{
+    auto tensorData = std::make_shared<Tensor>();
+    tensorData->data_ = std::move(data);
+    tensorData->storageType_ = storageType;
+    tensorData->dims_ = std::move(dims);
+    tensorData->metadata_ = std::move(md);
+
+    ExpressionValue result;
+    result.ts_ = ts;
+    result.type_ = TENSOR;
+    new (result.storage_) std::shared_ptr<const Tensor>(std::move(tensorData));
+
+    return result;
 }
 
 ExpressionValue
@@ -1048,6 +1276,9 @@ getField(const Utf8String & fieldName, const VariableFilter & filter) const
                 return ExpressionValue(struct_->value(i), ts_);
         }
         return ExpressionValue();
+    }
+    case TENSOR: {
+        throw ML::Exception("TODO: field access for tensor type");
     }
     case NONE:
     case ATOM:
@@ -1367,6 +1598,14 @@ forEachAtom(const std::function<bool (const Id & columnName,
         }
         return true;
     }
+    case TENSOR: {
+        auto onCol = [&] (ColumnName & columnName, CellValue & val)
+            {
+                return onAtom(columnName, prefix, val, ts_);
+            };
+        
+        return tensor_->forEachColumn(onCol);
+    }
     case NONE: {
         return onAtom(Id(), prefix, CellValue(), ts_);
     }
@@ -1404,6 +1643,9 @@ forEachSubexpression(const std::function<bool (const Id & columnName,
                 return false;
         }
         return true;
+    }
+    case TENSOR: {
+        throw ML::Exception("Not implemented: forEachAtom for Tensor value");
     }
     case NONE: {
         return onSubexpression(Id(), prefix, ExpressionValue::null(ts_));
@@ -1626,6 +1868,7 @@ hash() const
         return cell_.hash();
     case ROW:
     case STRUCT:
+    case TENSOR:
         // TODO: a more reasonable speed in hashing
         return jsonHash(jsonEncode(*this));
     default:
@@ -1980,6 +2223,8 @@ extractJson(JsonPrintingContext & context) const
         context.writeJson(output);
         break;
     }
+    case ExpressionValue::TENSOR: {
+    }
     default:
         throw HttpReturnException(400, "unknown ExpressionValue type");
     }
@@ -2150,6 +2395,10 @@ printJsonTyped(const ExpressionValue * val,
         }
 
         context.writeJson(output);
+        break;
+    }
+    case ExpressionValue::TENSOR: {
+        val->tensor_->writeJson(context);
         break;
     }
     default:
