@@ -162,7 +162,7 @@ apply(const FunctionApplier & applier,
     // the stemmer is not thread safe
     unique_lock<mutex> guard(apply_mutex);
 
-    map<Id, pair<int, Date>> accum;
+    map<Id, pair<double, Date>> accum;
 
     auto onAtom = [&] (const Id & columnName,
                        const Id & prefix,
@@ -174,25 +174,23 @@ apply(const FunctionApplier & applier,
             const sb_symbol * stemmed = sb_stemmer_stem(stemmer.get(),
                     (const unsigned char*)str.c_str(), str.size());
 
-            if (stemmed == NULL) {
+            if (stemmed == nullptr) {
                 throw ML::Exception("Out of memory when stemming");
             }
 
             Id col(string((const char*)stemmed));
             auto it = accum.find(col);
             if(it == accum.end()) {
-                accum.emplace(col, std::move(make_pair(1, ts)));
+                accum.emplace(col, std::move(make_pair(val.toDouble(), ts)));
             }
             else {
-                it->second.first ++;
+                it->second.first += val.toDouble();
                 if(it->second.second > ts)
                     it->second.second = ts;
             }
 
-
             return true;
         };
-
 
     ExpressionValue args = context.get<ExpressionValue>("words");
     args.forEachAtom(onAtom);
