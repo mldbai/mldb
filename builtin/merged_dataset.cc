@@ -182,6 +182,38 @@ struct MergedDataset::Itl
              << " rows and " << this->getColumnNames().size()
              << " columns" << endl;
     }
+
+    struct MergedRowStream : public RowStream {
+
+        MergedRowStream(const MergedDataset::Itl* source) : source(source)
+        {            
+        }
+
+        virtual std::shared_ptr<RowStream> clone() const
+        {
+            return make_shared<MergedRowStream>(source);
+        }
+
+        /* set where the stream should start*/
+        virtual void initAt(size_t start)
+        {
+            it = source->rowIndex.begin();
+            for (size_t i = 0; i < start; ++i)
+                ++it;
+        }
+
+        virtual RowName next()
+        {
+            uint64_t hash = (*it).first;
+            ++it;
+
+            return source->getRowName(RowHash(hash));
+        }
+
+        const MergedDataset::Itl* source;
+        IdHashes::const_iterator it;
+
+    };
        
     virtual std::vector<RowName>
     getRowNames(ssize_t start = 0, ssize_t limit = -1) const
@@ -507,6 +539,13 @@ MergedDataset::
 getColumnIndex() const
 {
     return itl;
+}
+
+std::shared_ptr<RowStream> 
+MergedDataset::
+getRowStream() const
+{
+    return make_shared<MergedDataset::Itl::MergedRowStream>(itl.get());
 }
 
 static RegisterDatasetType<MergedDataset, MergedDatasetConfig> 
