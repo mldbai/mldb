@@ -244,7 +244,6 @@ void forEachLineBlock(std::istream & stream,
                                           size_t lineLength,
                                           int64_t blockNumber,
                                           int64_t lineNumber)> onLine,
-                      int64_t lineOffset, // 0
                       int64_t maxLines)   // -1
 {
     //static constexpr int64_t BLOCK_SIZE = 100000000;  // 100MB blocks
@@ -275,13 +274,13 @@ void forEachLineBlock(std::istream & stream,
 
     std::function<void ()> doBlock = [&] ()
         {
-            //cerr << "block starting at line " << doneLines + lineOffset << endl;
+            //cerr << "block starting at line " << doneLines << endl;
 
             std::shared_ptr<const char> blockOut;
 
             int64_t startOffset = byteOffset;
 
-            int64_t startLine = doneLines + lineOffset;
+            int64_t startLine = doneLines;
             vector<size_t> lineOffsets = {0};
 
             if (mapped) {
@@ -289,7 +288,8 @@ void forEachLineBlock(std::istream & stream,
                 const char * current = start;
                 const char * end = mapped + mappedSize;
 
-                while (current && current < end && (current - start) < BLOCK_SIZE) {
+                while (current && current < end && (current - start) < BLOCK_SIZE
+                       && (maxLines == -1 || doneLines < maxLines)) { //stop processing new line when we have enough)
                     current = (const char *)memchr(current, '\n', end - current);
                     if (current && current < end) {
                         ExcAssertEqual(*current, '\n');
@@ -309,7 +309,9 @@ void forEachLineBlock(std::istream & stream,
 
                 ++chunkNumber;
 
-                if (current && current < end) {
+                if (current && current < end &&
+                    (maxLines == -1 || doneLines < maxLines)) // don't schedule a new block if we have enough lines
+                {
                     // Ready for another chunk
                     worker.add(doBlock, "", group);
                 }
@@ -347,7 +349,6 @@ void forEachLineBlock(std::istream & stream,
                     const char * end = block.get() + offset;
 
                     while (current && current < end) {
-                        //const char * next = (const char *)memchr(current, '\n', end - current);
                         current = (const char *)memchr(current, '\n', end - current);
                         if (current && current < end) {
                             ExcAssertEqual(*current, '\n');
@@ -410,7 +411,7 @@ void forEachLineBlock(std::istream & stream,
                 {
                     // Ready for another chunk
                     worker.add(doBlock, "", group);
-                } 
+                }
             }
                     
             //cerr << "processing block of " << lineOffsets.size() - 1
@@ -420,9 +421,7 @@ void forEachLineBlock(std::istream & stream,
             int64_t chunkLineNumber = startLine;
             size_t lastLineOffset = lineOffsets[0];
 
-            for (unsigned i = 1;  i < lineOffsets.size() && (maxLines == -1 || returnedLines < maxLines);  ++i) {
-
-                ++returnedLines;
+            for (unsigned i = 1;  i < lineOffsets.size() && (maxLines == -1 || returnedLines++ < maxLines);  ++i) {
 
                 const char * line = blockOut.get() + lastLineOffset;
                 size_t len = lineOffsets[i] - lastLineOffset;
@@ -436,9 +435,6 @@ void forEachLineBlock(std::istream & stream,
                 
                 lastLineOffset = lineOffsets[i] + 1;
 
-                if (maxLines != -1 && i >= maxLines) {
-                    break;
-                }
             }
 
         };

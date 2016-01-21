@@ -619,7 +619,6 @@ struct CsvDataset::Itl: public TabularDataStore {
             // Read header line
             std::getline(stream, header);
             lineOffset += 1;
-
             ML::Parse_Context pcontext(filename, 
                                        header.c_str(), header.length(), 1, 0);
             
@@ -770,7 +769,9 @@ struct CsvDataset::Itl: public TabularDataStore {
                 //cerr << "doing line with lineNum " << lineNum << endl;
                 //cerr << "online " << string(line, length) << endl;
                 
+                int64_t actualLineNum = lineNum + lineOffset;
                 uint64_t linesDone = totalLinesProcessed.fetch_add(1);
+
                 if (linesDone && linesDone % 1000000 == 0) {
                     double wall = timer.elapsed_wall();
                     cerr << "done " << linesDone << " in " << wall
@@ -779,7 +780,7 @@ struct CsvDataset::Itl: public TabularDataStore {
                 }
 
                 if (length == 0) 
-                    return handleError("empty line", lineNum, 0, ""); // MLDB-1111 empty lines are treated as error
+                    return handleError("empty line", actualLineNum, 0, ""); // MLDB-1111 empty lines are treated as error
                 
                 TabularDatasetChunk & threadAccum = accum.get();
 
@@ -803,11 +804,11 @@ struct CsvDataset::Itl: public TabularDataStore {
                                             separator, quote, encoding,
                                             replaceInvalidCharactersWith);
                 if (errorMsg)
-                    return handleError(errorMsg, lineNum, line - lineStart + 1, string(line, length));
+                    return handleError(errorMsg, actualLineNum, line - lineStart + 1, string(line, length));
 
                 //cerr << "got values " << jsonEncode(vector<CellValue>(values, values + inputColumnNames.size())) << endl;
                     
-                auto row = scope.bindRow(&values[0], ts, lineNum, 0 /* todo: chunk ofs */);
+                auto row = scope.bindRow(&values[0], ts, actualLineNum, 0 /* todo: chunk ofs */);
 
                 // If it doesn't match the where, don't add it 
                 if (!isWhereTrue) {
@@ -832,7 +833,7 @@ struct CsvDataset::Itl: public TabularDataStore {
                 if (isIdentitySelect) {
                     // If it's a select *, we don't really need to run the
                     // select clause.  We simply go for it.
-                    threadAccum.add(lineNum, std::move(rowName), rowTs, &values[0]);
+                    threadAccum.add(actualLineNum, std::move(rowName), rowTs, &values[0]);
                 }
                 else {
                     // TODO: optimization for
@@ -868,7 +869,7 @@ struct CsvDataset::Itl: public TabularDataStore {
                             valuesOut[i] = std::get<1>(selectRow[i]).getAtom();
                     }
                     
-                    threadAccum.add(lineNum, std::move(rowName), rowTs, &valuesOut[0]);
+                    threadAccum.add(actualLineNum, std::move(rowName), rowTs, &valuesOut[0]);
                 }
                 //cerr << "row = " << jsonEncodeStr(selectRow) << endl;
 
@@ -907,7 +908,7 @@ struct CsvDataset::Itl: public TabularDataStore {
                 //threadAccum.emplace_back(std::move(lineEntry));
             };
 
-        forEachLineBlock(stream, onLine, lineOffset, config.limit);
+        forEachLineBlock(stream, onLine, config.limit);
 
         cerr << timer.elapsed() << endl;
         timer.restart();

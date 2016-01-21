@@ -97,9 +97,6 @@ forEachLineStr(const std::string & filename,
     with the "mapped" option.
 
     This is the fastest way to parse a text file.
-
-    The offset value should be set to the number of lines that were already
-    read from the stream before calling this function.
 */
 
 void forEachLineBlock(std::istream & stream,
@@ -107,7 +104,6 @@ void forEachLineBlock(std::istream & stream,
                                           size_t lineLength,
                                           int64_t blockNumber,
                                           int64_t lineNumber)> onLine,
-                      int64_t lineOffset = 0,
                       int64_t maxLines = -1);
     
     

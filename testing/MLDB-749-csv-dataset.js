@@ -422,7 +422,7 @@ function getCountWithOffsetLimit2(dataset, offset, limit) {
 var totalSize = getCountWithOffsetLimit2("test_total", 0, -1);
 assertEqual(getCountWithOffsetLimit2("test_100000", 0, 100000), 100000, "expecting 100000 rows only");
 assertEqual(getCountWithOffsetLimit2("test_98765", 0, 98765), 98765, "expecting 98765 rows only");
-assertEqual(getCountWithOffsetLimit2("test_1234567", 0, 1234567), 1234567, "expecting 1234567 rows only");
+assertEqual(getCountWithOffsetLimit2("test_1234567", 0, 999999), 999999, "expecting 999999 rows only");
 assertEqual(getCountWithOffsetLimit2("test_0", 0, 0), 0, "expecting 0 rows only");
 assertEqual(getCountWithOffsetLimit2("test_1", 0, 1), 1, "expecting 1 row only");
 assertEqual(getCountWithOffsetLimit2("test_10_1", 10, 1), 1, "expecting 1 row only");
