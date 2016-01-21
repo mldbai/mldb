@@ -1,0 +1,7 @@
+{
+    "httpCode": 502,
+    "error": "MLDB Unavailable",
+    "details": {
+        "message": "MLDB is unable to respond either because it has not finished booting or because it has crashed and has not finished rebooting. Recent log messages are available via HTTP at /logs/mldb"
+    }
+}

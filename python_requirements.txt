@@ -57,3 +57,4 @@ pycrypto==2.6.1
 
 # benchmarks
 elasticsearch==2.1.0
+psutil==3.3.0

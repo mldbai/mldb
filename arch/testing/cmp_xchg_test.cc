@@ -16,18 +16,54 @@
 #include "mldb/arch/format.h"
 
 #include <boost/test/unit_test.hpp>
-#include <boost/thread.hpp>
-#include <boost/thread/barrier.hpp>
 #include <vector>
 #include <stdint.h>
 #include <iostream>
 #include <stdarg.h>
 #include <errno.h>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
 
 using namespace ML;
 using namespace std;
 
 using boost::unit_test::test_suite;
+
+struct ThreadGroup {
+    void create_thread(std::function<void ()> fn)
+    {
+        threads.emplace_back(std::move(fn));
+    }
+
+    void join_all()
+    {
+        for (auto & t: threads)
+            t.join();
+        threads.clear();
+    }
+    std::vector<std::thread> threads;
+};
+
+// http://stackoverflow.com/questions/24465533/implementing-boostbarrier-in-c11
+class Barrier
+{
+private:
+    std::mutex _mutex;
+    std::condition_variable _cv;
+    std::size_t _count;
+public:
+    explicit Barrier(std::size_t count) : _count{count} { }
+    void wait()
+    {
+        std::unique_lock<std::mutex> lock{_mutex};
+        if (--_count == 0) {
+            _cv.notify_all();
+        } else {
+            _cv.wait(lock, [this] { return _count == 0; });
+        }
+    }
+};
 
 struct uint128_t {
     uint128_t(uint64_t l = 0, uint64_t h = 0)
@@ -137,12 +173,12 @@ BOOST_AUTO_TEST_CASE( test1 )
 
 template<class X>
 struct test2_thread {
-    test2_thread(boost::barrier & barrier, X & val, int iter)
+    test2_thread(Barrier & barrier, X & val, int iter)
         : barrier(barrier), val(val), iter(iter)
     {
     }
 
-    boost::barrier & barrier;
+    Barrier & barrier;
     X & val;
     int iter;
 
@@ -164,9 +200,9 @@ void test2_type()
 {
     cerr << "testing type " << demangle(typeid(X).name()) << endl;
     int nthreads = 2, iter = 1000000;
-    boost::barrier barrier(nthreads);
+    Barrier barrier(nthreads);
     X val = 0;
-    boost::thread_group tg;
+    ThreadGroup tg;
     for (unsigned i = 0;  i < nthreads;  ++i)
         tg.create_thread(test2_thread<X>(barrier, val, iter));
 

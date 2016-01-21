@@ -12,7 +12,7 @@ LIBUTILS_SOURCES := \
 	rng.cc \
 	hash.cc
 
-LIBUTILS_LINK :=	arch boost_thread cryptopp vfs
+LIBUTILS_LINK :=	arch cryptopp vfs
 
 $(eval $(call library,utils,$(LIBUTILS_SOURCES),$(LIBUTILS_LINK)))
 

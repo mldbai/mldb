@@ -14,7 +14,7 @@ LIB_TEST_UTILS_SOURCES := \
         threaded_test.cc
 
 LIB_TEST_UTILS_LINK := \
-	arch utils boost_filesystem boost_thread
+	arch utils boost_filesystem
 
 $(eval $(call library,test_utils,$(LIB_TEST_UTILS_SOURCES),$(LIB_TEST_UTILS_LINK)))
 

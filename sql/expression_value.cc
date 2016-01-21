@@ -1056,6 +1056,17 @@ getField(const Utf8String & fieldName, const VariableFilter & filter) const
     return ExpressionValue();
 }
 
+ExpressionValue
+ExpressionValue::
+getField(int fieldIndex) const
+{
+    if (type_ == STRUCT) {
+        return ExpressionValue(struct_->value(fieldIndex), ts_);
+    }
+
+    return ExpressionValue();
+}
+
 const ExpressionValue*
 ExpressionValue::
 findNestedField(const Utf8String & fieldName, const VariableFilter & filter /*= GET_LATEST*/) const
@@ -1322,7 +1333,7 @@ forEachAtom(const std::function<bool (const Id & columnName,
             }
             else {
                 std::string newPrefix
-                    = !prefix.notNull() ? std::get<0>(col).toString() + "."
+                    = !prefix.notNull() ? std::get<0>(col).toString()
                     : prefix.toString() + "." + std::get<0>(col).toString();
             
                 if (!val.forEachAtom(onAtom, Id(newPrefix)))

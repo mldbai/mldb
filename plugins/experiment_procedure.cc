@@ -22,6 +22,7 @@
 #include "types/optional_description.h"
 #include "mldb/plugins/sql_config_validator.h"
 #include "mldb/plugins/sql_expression_extractors.h"
+#include "mldb/plugins/sparse_matrix_dataset.h"
 
 using namespace std;
 
@@ -165,6 +166,7 @@ ExperimentProcedureConfigDescription()
     onPostValidate = validate<ExperimentProcedureConfig, 
                               InputQuery,
                               NoGroupByHaving, 
+                              MustContainFrom,
                               PlainColumnSelect>(&ExperimentProcedureConfig::trainingData, "classfier.experiment");
 
 }
@@ -398,6 +400,10 @@ run(const ProcedureRunConfig & run,
             PolyConfigT<Dataset> outputPC;
             outputPC.id = ML::format("%s_results_%d", runProcConf.experimentName, (int)progress);
             outputPC.type = "sparse.mutable";
+
+            MutableSparseMatrixDatasetConfig params;
+            params.writeLevel = WT_READ_AFTER_COMMIT;
+            outputPC.params = params;
 
             {
                 InProcessRestConnection connection;

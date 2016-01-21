@@ -32,6 +32,7 @@ struct ReadThroughBindingContext: public SqlBindingScope {
     ReadThroughBindingContext(SqlBindingScope & outer)
         : outer(outer)
     {
+        functionStackDepth = outer.functionStackDepth;
     }
 
     /// Outer context, which we can pass through non-mutating operations to
@@ -73,11 +74,6 @@ struct ReadThroughBindingContext: public SqlBindingScope {
 
     virtual std::shared_ptr<Dataset>
     doGetDatasetFromConfig(const Any & datasetConfig);
-
-    static RowContext getRowContext(const SqlRowScope & outerRow)
-    {
-        return RowContext(outerRow);
-    }
 
     virtual MldbServer * getMldbServer() const
     {

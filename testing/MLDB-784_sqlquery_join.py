@@ -39,7 +39,7 @@ ds2.commit()
 res = mldb.perform('PUT', '/v1/functions/patate', [], {
     'type': 'sql.query',
     'params': {
-        'inputData': 'select * from ds1 where rowName() = $id'
+        'query': 'select * from ds1 where rowName() = $id'
     }
 })
 
@@ -75,7 +75,7 @@ assert response[0]['x'] == 2
 res = mldb.perform('PUT', '/v1/functions/poil', [], {
     'type': 'sql.query',
     'params': {
-        'inputData' : {
+        'query' : {
             'select': 'min(x), max(y)',
             'from': {'id': 'ds1'},
             'where': 'x <= $x_max',

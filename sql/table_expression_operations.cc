@@ -1,8 +1,6 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** table_expression_operations.cc
     Jeremy Barnes, 27 July, 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
 */
 
@@ -156,8 +154,9 @@ getUnbound() const
 JoinExpression::
 JoinExpression(std::shared_ptr<TableExpression> left,
                std::shared_ptr<TableExpression> right,
-               std::shared_ptr<SqlExpression> on)
-    : left(std::move(left)), right(std::move(right)), on(std::move(on))
+               std::shared_ptr<SqlExpression> on,
+               JoinQualification qualification)
+    : left(std::move(left)), right(std::move(right)), on(std::move(on)), qualification(qualification)
 {
     ExcAssert(this->left);
     ExcAssert(this->right);
@@ -180,6 +179,8 @@ bind(SqlBindingScope & context) const
     config.left = left;
     config.right = right;
     config.on = on;
+
+    config.qualification = qualification;
     auto ds = createJoinedDatasetFn(context.getMldbServer(), config);
 
     return bindDataset(ds, Utf8String());
@@ -189,7 +190,16 @@ Utf8String
 JoinExpression::
 print() const
 {
-    Utf8String result = "join(" + left->print() + "," + right->print();
+    Utf8String result = "join(";
+
+    if (qualification == JOIN_LEFT)
+        result += "LEFT,";
+    else if (qualification == JOIN_RIGHT)
+        result += "RIGHT,";
+    else if (qualification == JOIN_FULL)
+        result += "FULL,";
+
+    result += left->print() + "," + right->print();
     if (on)
         result += "," + on->print();
     result += ")";
@@ -403,8 +413,11 @@ getUnbound() const
 /** Used when doing a select inside a FROM clause **/
 
 DatasetFunctionExpression::
-DatasetFunctionExpression(Utf8String functionName, std::vector<std::shared_ptr<TableExpression>>& args)
-    : NamedDatasetExpression(""), functionName(functionName), args(args)
+DatasetFunctionExpression(Utf8String functionName, 
+                          std::vector<std::shared_ptr<TableExpression>> & args,
+                          std::shared_ptr<SqlExpression> options)
+    : NamedDatasetExpression(""), functionName(functionName),
+      args(args), options(options)
 {
     setDatasetAlias(print());
 }
@@ -421,7 +434,14 @@ bind(SqlBindingScope & context) const
     std::vector<BoundTableExpression> boundArgs;
     for (auto arg : args)
         boundArgs.push_back(arg->bind(context));
-    auto fn = context.doGetDatasetFunction(functionName, boundArgs, asName);
+
+    ExpressionValue expValOptions;
+    if(options) {
+        BoundSqlExpression bound = options->bind(context);
+        expValOptions = bound(SqlRowScope());
+    }
+
+    auto fn = context.doGetDatasetFunction(functionName, boundArgs, expValOptions, asName);
 
     if (!fn)
         throw HttpReturnException(400, "could not bind dataset function " + functionName);

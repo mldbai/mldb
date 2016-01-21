@@ -1,15 +1,14 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* multi_aggregator.cc
    Jeremy Barnes, 3 August 2011
    Copyright (c) 2011 Datacratic.  All rights reserved.
 
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 
 #include "stat_aggregator.h"
 #include "multi_aggregator.h"
-
+#include <iostream>
 
 using namespace std;
 using namespace Datacratic;

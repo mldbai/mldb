@@ -91,7 +91,6 @@ enum OrderByDirection {
 
 DECLARE_ENUM_DESCRIPTION(OrderByDirection);
 
-
 /*****************************************************************************/
 /* BOUND PARAMETERS                                                          */
 /*****************************************************************************/
@@ -424,38 +423,6 @@ struct RegisterAggregator {
     std::shared_ptr<void> handle;
 };
 
-
-/*****************************************************************************/
-/* BOUND DATASET FUNCTION                                                    */
-/*****************************************************************************/
-
-/** Result of binding a function to be used in a FROM expression.
-  This provides an executor as well as information on the range of the function.
-*/
-
-/*struct BoundDatasetFunction {
-    typedef std::function<BoundTableExpression (const std::vector<BoundTableExpression> &,
-                          const SqlRowScope & context) > Exec;
-
-    BoundDatasetFunction()
-    {
-    }
-
-    BoundDatasetFunction(Exec exec)
-        : exec(std::move(exec))
-    {
-    }
-
-    operator bool () const { return !!exec; }
-
-    Exec exec;
-
-    TableOperations operator () () const
-    {
-        return exec();
-    }
-};*/
-
 /*****************************************************************************/
 /* EXTERNAL FUNCTION                                                         */
 /*****************************************************************************/
@@ -463,7 +430,9 @@ struct RegisterAggregator {
 /** Type of an external dataset function factory.  This should return the bound
     version of the function.
 */
-typedef std::function<BoundTableExpression(const Utf8String & str, const std::vector<BoundTableExpression> & args,
+typedef std::function<BoundTableExpression(const Utf8String & str,
+                                    const std::vector<BoundTableExpression> & args,
+                                    const ExpressionValue & options,
                                     const SqlBindingScope & context,
                                     const Utf8String& alias)>
     ExternalDatasetFunction;
@@ -517,6 +486,7 @@ struct SqlBindingScope {
 
     virtual BoundTableExpression doGetDatasetFunction(const Utf8String & functionName,
                                                       const std::vector<BoundTableExpression> & args,
+                                                      const ExpressionValue & options,
                                                       const Utf8String & alias);
 
     virtual BoundAggregator doGetAggregator(const Utf8String & functionName,
@@ -569,6 +539,8 @@ struct SqlBindingScope {
         pointer which means we're running outside of MLDB.
     */
     virtual MldbServer * getMldbServer() const;
+
+    size_t functionStackDepth;
 };
 
 

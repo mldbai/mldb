@@ -71,7 +71,6 @@ doGetFunction(const Utf8String & tableName,
             //<< ": context type is "
             //<< ML::type_name(context) << " outer type is "
             //<< ML::type_name(row.outer) << endl;
-
             return outerFunction(args, row.outer);
         };
 

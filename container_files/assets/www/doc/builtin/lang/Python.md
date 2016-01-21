@@ -74,7 +74,7 @@ There are two functions that allow access to the virtual filesystem of MLDB:
     * `payload`: HTTP body
     * `contentType`: content type of HTTP body
     * `contentLength`: content length of HTTP body
-    * `set_return(body, return_code=200)`: function called to write to HTTP response body and HTTP return code
+* `mldb.plugin.set_return(body, return_code=200)`: available within `routes.py`, function called to write to HTTP response body and HTTP return code
     
 ### Handling a custom route
 

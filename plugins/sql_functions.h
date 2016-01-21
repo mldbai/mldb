@@ -27,7 +27,7 @@ struct SqlExpression;
 /** Function that runs a single-row SQL query against a dataset. */
 
 struct SqlQueryFunctionConfig {
-    InputQuery inputData;
+    InputQuery query;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(SqlQueryFunctionConfig);
@@ -76,6 +76,9 @@ struct SqlExpressionFunction: public Function {
     virtual std::unique_ptr<FunctionApplier>
     bind(SqlBindingScope & outerContext,
          const FunctionValues & inputInfo) const;
+
+    virtual FunctionOutput applyOuter(const SqlRowScope& outer, const FunctionApplier & applier,
+                              const FunctionContext & context) const;
 
     virtual FunctionOutput apply(const FunctionApplier & applier,
                               const FunctionContext & context) const;

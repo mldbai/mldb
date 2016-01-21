@@ -105,7 +105,7 @@ ClassifierConfigDescription()
              "both positive and negative examples is exactly identical. "
              "A number between will choose a balanced tradeoff.  Typically 0.5 "
              "is a good number to use for unbalanced probabilities",
-             0.0);
+             0.5);
     addField("mode", &ClassifierConfig::mode,
              "Mode of classifier.  Controls how the label is interpreted and "
              "what is the output of the classifier.");
@@ -118,6 +118,7 @@ ClassifierConfigDescription()
                               InputQuery,
                               NoGroupByHaving,
                               PlainColumnSelect,
+                              MustContainFrom,
                               FeaturesLabelSelect>(&ClassifierConfig::trainingData, "classifier");
 }
 
@@ -158,9 +159,9 @@ run(const ProcedureRunConfig & run,
     ClassifierConfig runProcConf =
         applyRunConfOverProcConf(procedureConfig, run);
 
-
-    if(runProcConf.modelFileUrl.toString().empty()) {
-        throw ML::Exception("modelFileUrl cannot be empty");
+    // this includes being empty
+    if(!runProcConf.modelFileUrl.valid()) {
+        throw ML::Exception("modelFileUrl is not valid");
     }
 
     // 1.  Get the input dataset
@@ -226,8 +227,8 @@ run(const ProcedureRunConfig & run,
 
     ML::Timer timer;
 
-    // TODO: it's not the feature space itself, but indeed the output of the select
-    // expression that's important...
+    // TODO: it's not the feature space itself, but indeed the output of
+    // the select expression that's important...
     auto featureSpace = std::make_shared<DatasetFeatureSpace>
         (boundDataset.dataset, labelInfo, knownInputColumns);
     
@@ -1002,7 +1003,7 @@ apply(const FunctionApplier & applier,
     std::shared_ptr<ML::Mutable_Feature_Set> fset;
     Date ts;
 
-    std::tie(dense, fset, ts) = getFeatureSet(context, false /* attemp to optimize */);
+    std::tie(dense, fset, ts) = getFeatureSet(context, false /* attempt to optimize */);
 
     ML::Explanation expl
         = itl->classifier.impl

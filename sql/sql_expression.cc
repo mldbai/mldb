@@ -36,7 +36,6 @@ using namespace std;
 namespace Datacratic {
 namespace MLDB {
 
-
 /*****************************************************************************/
 /* CONSTANTS                                                                 */
 /*****************************************************************************/
@@ -147,7 +146,7 @@ BoundSqlExpressionDescription()
 /*****************************************************************************/
 
 SqlBindingScope::
-SqlBindingScope()
+SqlBindingScope() : functionStackDepth(0)
 {
 }
 
@@ -253,11 +252,12 @@ BoundTableExpression
 SqlBindingScope::
 doGetDatasetFunction(const Utf8String & functionName,
                      const std::vector<BoundTableExpression> & args,
+                     const ExpressionValue & options,
                      const Utf8String & alias)
 {
     auto factory = tryLookupDatasetFunction(functionName);
     if (factory) {
-        return factory(functionName, args, *this, alias);
+        return factory(functionName, args, options, *this, alias);
     }
     
     return BoundTableExpression();
@@ -830,6 +830,14 @@ static bool matchKeyword(ML::Parse_Context & context, const char * keyword)
     return false;
 }
 
+// Expect a keyword in any case
+static void expectKeyword(ML::Parse_Context & context, const char * keyword)
+{
+    if (!matchKeyword(context, keyword)) {
+        context.exception("expected keyword " + string(keyword));
+    }
+}
+
 // Read ahead to see if a keyword matches
 static bool peekKeyword(ML::Parse_Context & context, const char * keyword)
 {
@@ -995,12 +1003,52 @@ static bool matchOperator(ML::Parse_Context & context, const char * keyword)
     return false;
 }
 
-// Expect a keyword in any case
-static void expectKeyword(ML::Parse_Context & context, const char * keyword)
+bool
+matchJoinQualification(ML::Parse_Context & context, JoinQualification& joinQualify)
 {
-    if (!matchKeyword(context, keyword)) {
-        context.exception("expected keyword " + string(keyword));
+    joinQualify = JOIN_INNER;
+    bool inner = matchKeyword(context, "INNER ");
+    if (!inner)
+    {
+        bool right = false;
+        bool full = false;
+        bool outer = false;
+        bool left = matchKeyword(context, "LEFT ");
+        if (!left)
+        {
+            right = matchKeyword(context, "RIGHT ");
+            if (!right)
+            {
+               full = matchKeyword(context, "FULL ");
+               outer = matchKeyword(context, "OUTER ");
+            }
+        }
+
+        if (right || left || full || outer)
+        {
+           //outer is optional, eat it
+           context.skip_whitespace();
+           if (!outer)
+              matchKeyword(context, "OUTER ");
+
+           joinQualify = right ? JOIN_RIGHT : (left ? JOIN_LEFT : JOIN_FULL);
+
+           //MUST match the 'JOIN'
+           expectKeyword(context, "JOIN ");
+           return true;
+        }
+        else
+        {
+           return matchKeyword(context, "JOIN ");
+        }
     }
+    else
+    {
+        expectKeyword(context,"JOIN ");
+        return true;
+    }
+
+    return false;
 }
 
 const SqlExpression::Operator operators[] = {
@@ -2960,6 +3008,20 @@ printJsonTyped(const SelectExpression * val,
     else context.writeStringUtf8(val->surface);
 }
 
+/*****************************************************************************/
+/* JOIN QUALIFICATION                                                        */
+/*****************************************************************************/
+
+DEFINE_ENUM_DESCRIPTION(JoinQualification);
+
+JoinQualificationDescription::
+JoinQualificationDescription()
+{
+    addValue("JOIN_INNER", JOIN_INNER, "Inner join");
+    addValue("JOIN_LEFT", JOIN_LEFT, "Left join");
+    addValue("JOIN_RIGHT", JOIN_RIGHT, "Right join");
+    addValue("JOIN_FULL", JOIN_FULL, "Full join");
+}
 
 /*****************************************************************************/
 /* TABLE EXPRESSION                                                          */
@@ -3023,21 +3085,42 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
             {
                 skip_whitespace(context);
                 std::vector<std::shared_ptr<TableExpression>> args;
+                std::shared_ptr<SqlExpression> options;
                 if (!context.match_literal(')'))
                 {
-                  do
-                  {
-                      skip_whitespace(context);
-                      std::shared_ptr<TableExpression> subTable = TableExpression::parse(context, currentPrecedence, allowUtf8);
-                      if (subTable)
-                        args.push_back(subTable);
+                    do
+                    {
+                        if(options) {
+                            context.exception("options to table expression should "
+                                    "be last argument");
+                        }
 
-                      skip_whitespace(context);
-                  } while (context.match_literal(','));
+                        skip_whitespace(context);
+
+                        bool found = false;
+                        {
+                            ML::Parse_Context::Revert_Token token(context);
+                            found = context.match_literal('{');
+                        }
+
+                        if(found) {
+                            options = SqlExpression::parse(context, 10, true);
+                        }
+                        else {
+
+                            auto subTable = TableExpression::parse(
+                                    context, currentPrecedence, allowUtf8);
+
+                            if (subTable)
+                                args.push_back(subTable);
+
+                            skip_whitespace(context);
+                        }
+                    } while (context.match_literal(','));
                 }
 
                 context.expect_literal(')');
-                expr.reset(new DatasetFunctionExpression(identifier, args));
+                expr.reset(new DatasetFunctionExpression(identifier, args, options));
             }
             else
             {
@@ -3062,8 +3145,9 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
     if (!result)
         throw HttpReturnException(400, "Expected table expression");
 
+    JoinQualification joinQualify = JOIN_INNER;
     
-    while (matchKeyword(context, "JOIN ")) {
+    while (matchJoinQualification(context, joinQualify)) {
         auto joinTable = TableExpression::parse(context, currentPrecedence, allowUtf8);
             
         std::shared_ptr<SqlExpression> condition;
@@ -3071,10 +3155,10 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         if (matchKeyword(context, "ON ")) {
             condition = SqlExpression::parse(context, 10 /* precedence */, allowUtf8);
         }
-            
-        result.reset(new JoinExpression(result, joinTable, condition));
+          
+        result.reset(new JoinExpression(result, joinTable, condition, joinQualify));
         result->surface = ML::trim(token.captured());
-
+            
         skip_whitespace(context);
     }
 

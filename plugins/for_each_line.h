@@ -100,11 +100,12 @@ forEachLineStr(const std::string & filename,
 */
 
 void forEachLineBlock(std::istream & stream,
-                      int64_t lineOffset,
                       std::function<bool (const char * line,
                                           size_t lineLength,
                                           int64_t blockNumber,
-                                          int64_t lineNumber)> onLine);
+                                          int64_t lineNumber)> onLine,
+                      int64_t lineOffset = 0,
+                      int64_t maxLines = -1);
     
     
 } // namespace Datacratic

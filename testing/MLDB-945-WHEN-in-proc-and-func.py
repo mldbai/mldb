@@ -35,7 +35,7 @@ def run_query_function(when):
     result = mldb.perform('PUT', '/v1/functions/when_function', [], {
         'type': 'sql.query',
         'params': {
-            'inputData' : {
+            'query' : {
                 'from': {'id': 'dataset1'},
                 'when': when,
                 'where': "rowName() = '9'"

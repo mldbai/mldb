@@ -66,9 +66,9 @@ struct ExtractContext: public SqlBindingScope {
 
 struct FunctionExpressionContext: public ReadThroughBindingContext {
 
-    struct RowContext: public SqlRowScope {
-        RowContext(const FunctionContext & input)
-            : input(input)
+    struct RowContext: public ReadThroughBindingContext::RowContext {
+        RowContext(const SqlRowScope& outer, const FunctionContext & input)
+            : ReadThroughBindingContext::RowContext(outer), input(input)
         {
         }
 
@@ -97,9 +97,9 @@ struct FunctionExpressionContext: public ReadThroughBindingContext {
     doGetAllColumns(const Utf8String & tableName,
                     std::function<Utf8String (const Utf8String &)> keep);
 
-    RowContext getRowContext(const FunctionContext & input) const
+    RowContext getRowContext(const SqlRowScope& outer, const FunctionContext & input) const
     {
-        return RowContext(input);
+        return RowContext(outer, input);
     }
 
 private:

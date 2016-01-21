@@ -28,6 +28,9 @@ using namespace Datacratic;
 using namespace Datacratic::MLDB;
 namespace fs = boost::filesystem;
 
+
+constexpr int minimumWorkerThreads(4);
+
 std::atomic<int> serviceShutdown(false);
 
 void onSignal(int sig)
@@ -95,6 +98,7 @@ int main(int argc, char ** argv)
     options_description script_options("Script options");
     options_description plugin_options("Plugin options");
 
+    int numThreads(16);
     // Defaults for operational characteristics
     string httpListenPort = "11700-18000";
     string httpListenHost = "0.0.0.0";
@@ -134,6 +138,7 @@ int main(int argc, char ** argv)
         ("etcd-path", value(&etcdPath),
          "Base path in etcd")
 #endif
+        ("num-threads,t", value(&numThreads), "Number of HTTP worker threads")
         ("http-listen-port,p",
          value(&httpListenPort)->default_value(httpListenPort),
          "Port to listen on for HTTP")
@@ -211,9 +216,11 @@ int main(int argc, char ** argv)
         exit(1);
     }
 
-    //if (!cacheDir.empty()) {
-    //    throw ML::Exception("Cache dir is disabled");
-    //}
+    if (numThreads < minimumWorkerThreads) {
+        cerr << ML::format("'num-threads' cannot be less than %d: %d\n",
+                           minimumWorkerThreads, numThreads);
+        exit(1);
+    }
 
     // Add these first so that if needed they can be used to load the credentials
     // file
@@ -293,7 +300,6 @@ int main(int argc, char ** argv)
 
 
     MldbServer server("mldb", etcdUri, etcdPath);
-    
     bool hideInternalEntities = vm.count("hide-internal-entities");
 
     server.init(configurationPath, staticAssetsPath, staticDocPath, hideInternalEntities);
@@ -310,7 +316,7 @@ int main(int argc, char ** argv)
     
     string httpBoundAddress = server.bindTcp(httpListenPort, httpListenHost);
     server.router.addAutodocRoute("/autodoc", "/v1/help", "autodoc");
-    server.threadPool->ensureThreads(16);
+    server.threadPool->ensureThreads(numThreads);
     server.httpEndpoint->allowAllOrigins();
 
     cout << httpBoundAddress << endl;

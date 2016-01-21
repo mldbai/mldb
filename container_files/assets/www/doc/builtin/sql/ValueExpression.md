@@ -222,6 +222,18 @@ into an enumeration of values on the right hand side. For example: `expr IN (3,5
 The right hand side can also be the result of a sub `SELECT` statement. For example `expr IN (SELECT x FROM dataset)` will test if the value expressed by `expr` is equal to any of the values in the x column
 of the dataset. If the `SELECT` statement returns more than a single column, they will all be tested.
 
+
+<h2 id="ExpressingTimeIntervals">Expressing Time Intervals</h2>
+
+Time intervals can be expressed using the `INTERVAL` keyword and a sequence of values 
+followed by one of the supported time units: second, minute, hour, day, week, month, and year,
+encapsulated within single quotes. For example, `INTERVAL '2 day 37 minute'`
+The time units can be wholy capilalized (for example, `YEAR`), and are always singular. 
+You can also use the following abreviations: 's' for second, 'm' for minute, 'h' for hour, 'd' for day,
+'w' for week, and 'y' for years. The time units abbreviations can also be capitalized.
+The time interval can be made negative by using a single minus '-' sign in front of the chain of values.
+For example, `INTERVAL '-3 month 2 week'`.
+
 ## <a name="CallingFunctions"></a>Calling Functions</h2>
 
 Built-in functions (see below for a list) can accept multiple arguments of any type and return a single value of any type and can be applied by name with parameters in parentheses, for example:
@@ -397,7 +409,7 @@ These functions deal with timestamps.
   both are assumed to be embeddings.  The lengths of the two must be the same.
   Divisions by zero will result in NaN values.
 
-### Data import functions
+### <a name="importfunctions"></a>Data import functions
 
 - `tokenize(str, {splitchars: ',', quotechar: '"', offset: 0, limit: null, value: null, min_token_length: 1, ngram_range:[1, 1]})`
 can be used to create bag-of-tokens representations of strings, by returning a row whose
@@ -407,7 +419,7 @@ number of occurrences of those tokens within `str`. For example `tokenize('a b b
   - `value` (if not set to `null`) will be used instead of token-counts for the values of the columns in the output row
   - `quotechar` is interpreted as a single character to delimit tokens which may contain the `splitchars`, so by default `tokenize('a,"b,c"')` will return the row `{'a':1,'b,c':1}`
   - `min_token_length` is used to specify the minimum length of tokens that are returned
-  - `ngram_range` is used to specify the n-grams to return. `[1, 1]` will return only unigrams, while `[1, 2]` will return both unigrams and bigrams, where tokens are joined by underscores. For example, `tokenize('Hello world', {ngram_range:[1,2]})` will return the row `{'Hello': 1, 'Hello_world': 1}`
+  - `ngram_range` is used to specify the n-grams to return. `[1, 1]` will return only unigrams, while `[2, 3]` will return bigrams and trigrams, where tokens are joined by underscores. For example, `tokenize('Good day world', {splitchars:' ', ngram_range:[2,3]})` will return the row `{'Good_day': 1, 'Good_day_world': 1, 'day_world': 1}`
 - `token_extract(str, n, {splitchars: ',', quotechar: '"', offset: 0, limit: null, min_token_length: 1})` will return the `n`th token from `str` using the same tokenizing rules as `tokenize()` above. Only the tokens respecting the `min_token_length` will be considered
 
 
@@ -455,17 +467,6 @@ the values.
 - `horizontal_min(<row>)` returns the minimum of the non-null values in the row.
 - `horizontal_max(<row>)` returns the maximum of the non-null value in the row.
 
-
-<h2 id="ExpressingTimeIntervals">Expressing Time Intervals</h2>
-
-Time intervals can be expressed using the `INTERVAL` keyword and a sequence of values 
-followed by one of the supported time units: second, minute, hour, day, week, month, and year,
-encapsulated within single quotes. For example, `INTERVAL '2 day 37 minute'`
-The time units can be wholy capilalized (for example, `YEAR`), and are always singular. 
-You can also use the following abreviations: 's' for second, 'm' for minute, 'h' for hour, 'd' for day,
-'w' for week, and 'y' for years. The time units abbreviations can also be capitalized.
-The time interval can be made negative by using a single minus '-' sign in front of the chain of values.
-For example, `INTERVAL -'3 month 2 week'`.
 
 ## Evaluating a JS function from SQL (Experimental)
 

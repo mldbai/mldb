@@ -14,7 +14,7 @@ ds1.commit()
 res = mldb.perform('PUT', '/v1/functions/patate', [], {
     'type': 'sql.query',
     'params': {
-        'inputData': 'select * from ds1 where rowName() = $x'
+        'query': 'select * from ds1 where rowName() = $x'
     }
 })
 
