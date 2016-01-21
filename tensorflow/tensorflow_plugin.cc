@@ -6,9 +6,6 @@
 
 #include "mldb/types/value_description_fwd.h"
 #include "tensorflow/core/public/tensor.h"
-
-DECLARE_ENUM_DESCRIPTION_NAMED(TensorflowDataTypeDescription, tensorflow::DataType);
-
 #include "mldb/core/mldb_entity.h"
 #include "mldb/core/function.h"
 #include "mldb/core/plugin.h"
@@ -18,9 +15,13 @@ DECLARE_ENUM_DESCRIPTION_NAMED(TensorflowDataTypeDescription, tensorflow::DataTy
 #include "mldb/types/url.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/arch/timers.h"
+#include "mldb/sql/binding_contexts.h"
 #include "mldb/jml/utils/worker_task.h"
 #include "mldb/jml/utils/string_functions.h"
 #include "mldb/vfs/filter_streams.h"
+#include "mldb/vfs/fs_utils.h"
+#include "mldb/server/function_contexts.h"
+#include "mldb/server/dataset_context.h"
 #include "google/protobuf/util/json_util.h"
 #include "google/protobuf/util/type_resolver_util.h"
 #include "google/protobuf/io/zero_copy_stream_impl.h"
@@ -49,6 +50,7 @@ DECLARE_ENUM_DESCRIPTION_NAMED(TensorflowDataTypeDescription, tensorflow::DataTy
 
 using namespace std;
 
+namespace tensorflow {
 #define DEFINE_ENUM_DESCRIPTION_PROTO(Namespace, Name, Type) \
     struct Name                                                     \
         : public Datacratic::EnumDescription<Namespace::Type> {     \
@@ -80,7 +82,10 @@ using namespace std;
     }
 
 
+DECLARE_ENUM_DESCRIPTION_NAMED(TensorflowDataTypeDescription, tensorflow::DataType);
+
 DEFINE_ENUM_DESCRIPTION_PROTO(tensorflow, TensorflowDataTypeDescription, DataType);
+} // namespace tensorflow
 
 // Plugin entry point.  This is called by MLDB once the plugin is loaded.
 // We initialize the TensorFlow system.
@@ -621,20 +626,197 @@ struct TensorflowGraph: public Function {
         return result;
     }
 
-    struct Applier: public FunctionApplier {
+    /** Used to bind the output of a Tensorflow graph into an SQL
+        expression that extracts from it.
+    */
+    struct GraphExtractScope: public ReadThroughBindingContext {
+        GraphExtractScope(SqlBindingScope & outerScope,
+                          const tensorflow::GraphDef & graph)
+            : ReadThroughBindingContext(outerScope)
+        {
+            // Go through all of the layers of the graph and index
+            // them by node name
+            for (auto & node: graph.node()) {
+                graphNodes[node.name()] = &node;
+            }            
+        }
+        
+        // Derives from inner row scope, so we can pass directly through
+        struct RowScope: public ReadThroughBindingContext::RowContext {
+            RowScope(const SqlRowScope & innerScope,
+                     const std::vector<tensorflow::Tensor> & graphOutput,
+                     Date ts)
+                : ReadThroughBindingContext::RowContext(innerScope),
+                  graphOutput(graphOutput),
+                  ts(ts)
+            {
+            }
+
+            /// The output of the graph
+            const std::vector<tensorflow::Tensor> & graphOutput;
+
+            /// The timestamp to apply to outputs
+            Date ts;
+        };
+
+        std::map<Utf8String, const tensorflow::NodeDef *> graphNodes;
+        std::map<Utf8String, int> nodesRead;  // index into outputLayers
+        std::vector<Utf8String> outputLayers;
+
+        VariableGetter doGetVariable(const Utf8String & tableName,
+                                     const Utf8String & variableName)
+        {
+            if (!tableName.empty())
+                return ReadThroughBindingContext
+                    ::doGetVariable(tableName, variableName);
+
+            cerr << "looking for graph variable " << variableName << endl;
+
+            auto it = graphNodes.find(variableName);
+            if (it == graphNodes.end()) {
+                // Not found in nodes; read through to the outside
+                return ReadThroughBindingContext
+                    ::doGetVariable(tableName, variableName);
+            }
+            
+            // Record that this is a required output layer and what its
+            // index is.  We use the index to look up the correct tensor
+            // in the list of output tensors for the graph.
+            int index = outputLayers.size();
+            if (nodesRead.insert({variableName, index}).second)
+                outputLayers.push_back(variableName);
+            else index = nodesRead[variableName];
+
+            // Find the node, so we can figure out what kind of output
+            // we have
+            //const tensorflow::NodeDef * node = it->second;
+
+            // TODO: tensor value info from the node
+            auto info = std::make_shared<AnyValueInfo>();
+
+            VariableGetter result;
+            result.exec = [=] (const SqlRowScope & scope_,
+                               ExpressionValue & storage,
+                               const VariableFilter & filter)
+                -> const ExpressionValue &
+                {
+                    const RowScope & scope = static_cast<const RowScope &>(scope_);
+                    return storage = tensorToValue(scope.graphOutput.at(index),
+                                                   scope.ts);
+                };
+            
+            result.info = info;
+
+            return result;
+        }
     };
 
+    struct Applier: public FunctionApplier {
+        Applier(const TensorflowGraph * owner,
+                SqlBindingScope & outerScope,
+                const FunctionValues & input)
+            : FunctionApplier(owner),
+              owner(owner),
+              functionScope(outerScope, input),
+              graphScope(functionScope, *owner->graph)
+        {
+            // 1.  Collect what is known for each of the input clauses.
+            boundInputs = owner->functionConfig.inputs.bind(functionScope);
+
+            // 2.  Collect whatever we need for the outputs.  We need to
+            //     infer what is read from the graph to make it work.
+            boundOutputs = owner->functionConfig.outputs.bind(graphScope);
+
+            info.input = input;
+            info.output = *boundOutputs.info;
+
+            // Check that all values on the passed input are compatible with the
+            // required inputs.
+            for (auto & p: info.input.values) {
+                input.checkValueCompatibleAsInputTo(p.first.toUtf8String(), p.second);
+            }
+        }
+
+        const TensorflowGraph * owner;
+        FunctionExpressionContext functionScope;
+        GraphExtractScope graphScope;
+        BoundSqlExpression boundInputs, boundOutputs;
+
+        FunctionOutput apply(const FunctionContext & inputData) const
+        {
+            FunctionOutput result;
+
+            using namespace tensorflow;
+
+            string output_layer = "softmax"; //"Cast";//softmax";
+
+            vector<Tensor> inputTensors;
+            vector<string> inputLayers;
+
+            auto rowScope = functionScope.getRowContext(inputData);
+
+            ExpressionValue inStorage;
+            const ExpressionValue & in = boundInputs(rowScope, inStorage);
+
+            Date outputTs = owner->modelTs;
+
+            for (auto & inputColumn: boundInputs.info->getKnownColumns()) {
+                std::string nodeName = inputColumn.columnName.toUtf8String().rawString();
+                ExpressionValue field = in.getField(nodeName);
+                outputTs.setMax(field.getEffectiveTimestamp());
+                Tensor inputTensor = owner->getTensorFor(nodeName, field);
+                
+                inputTensors.emplace_back(std::move(inputTensor));
+                inputLayers.emplace_back(std::move(nodeName));
+            }
+
+            vector<Tensor> outputs;
+
+            auto doRun = [&] (int i)
+                {
+                    auto output = owner->call(inputTensors, inputLayers,
+                                              { output_layer }, i);
+
+                    if (i == 0)
+                        outputs = std::move(output);
+                };
+
+
 #if 0
+            vector<std::thread> threads;
+            for (int i = 0;  i < 100;  ++i) {
+                threads.emplace_back([&,i] () { doRun(i); });
+                //std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            }
+
+            for (auto & t: threads)
+                t.join();
+
+
+            //ML::run_in_parallel(0, 100, doRun);
+#else
+            doRun(0);
+#endif
+
+            GraphExtractScope::RowScope outputRowScope(rowScope, outputs, outputTs);
+            
+            result = boundOutputs(outputRowScope);
+
+
+            //cerr << jsonEncode(tensorToValue(outputs.at(0), Date::notADate())) << endl;
+            //result.set("output", tensorToValue(outputs.at(0), outputTs));
+    
+            return result;
+        }
+    };
+
     virtual std::unique_ptr<FunctionApplier>
-    bind(SqlBindingScope & outerContext,
+    bind(SqlBindingScope & outerScope,
          const FunctionValues & input) const
     {
-        // 1.  Collect what is known for each of the input clauses.
-        
-
-        auto boundInputs = functionConfig.inputs.bind(outerContext);
+        std::unique_ptr<FunctionApplier> result(new Applier(this, outerScope, input));
+        return result;
     }
-#endif
 
     static tensorflow::Tensor
     castToSizedAndTypedTensor(const ExpressionValue & val,
@@ -821,8 +1003,8 @@ struct TensorflowGraph: public Function {
         case DT_BOOL:
             return ST_INT32;
         default:
-            throw HttpReturnException(400, "Can't return tensor of this type from TensorFlow"/*,
-                                                                                               "type", tensor.dtype()*/);
+            throw HttpReturnException(400, "Can't return tensor of this type from TensorFlow",
+                                      "type", dt);
         }
     }
 
@@ -917,7 +1099,7 @@ struct TensorflowGraph: public Function {
     call(const std::vector<tensorflow::Tensor> & inputs,
          const std::vector<string> & inputLayers,
          const std::vector<string> & outputLayers,
-         int n)
+         int n) const
     {
         using namespace tensorflow;
 
@@ -1036,65 +1218,31 @@ struct TensorflowGraph: public Function {
     apply(const FunctionApplier & applier,
           const FunctionContext & context) const
     {
-        FunctionOutput result;
-
-        CellValue input = context.get<CellValue>("jpeg");
-
-        using namespace tensorflow;
-
-        string input_layer = "DecodeJpeg/contents";
-        string output_layer = "softmax"; //"Cast";//softmax";
-
-        auto in = context.get<ExpressionValue>("jpeg");
-        
-        Tensor inputTensor = getTensorFor(input_layer, context.get<ExpressionValue>("jpeg"));
-
-        Date inputTs = in.getEffectiveTimestamp();
-        Date outputTs = inputTs;
-        outputTs.setMax(modelTs);
-
-        vector<Tensor> outputs;
-
-        auto doRun = [&] (int i)
-            {
-                auto output = call({ inputTensor }, { input_layer },
-                                   { output_layer }, i);
-
-                if (i == 0)
-                    outputs = std::move(output);
-            };
-
-
-#if 0
-        vector<std::thread> threads;
-        for (int i = 0;  i < 100;  ++i) {
-            threads.emplace_back([&,i] () { doRun(i); });
-            //std::this_thread::sleep_for(std::chrono::milliseconds(10));
-        }
-
-        for (auto & t: threads)
-            t.join();
-
-
-        //ML::run_in_parallel(0, 100, doRun);
-#else
-        doRun(0);
-#endif
-
-        //cerr << jsonEncode(tensorToValue(outputs.at(0), Date::notADate())) << endl;
-        result.set("output", tensorToValue(outputs.at(0), outputTs));
-    
-        return result;
+        return static_cast<const Applier &>(applier)
+            .apply(context);
     }
 
     FunctionInfo
     getFunctionInfo() const
     {
-        FunctionInfo result;
+        // Infer the inputs
+        SqlExpressionMldbContext outerScope(server);
 
-        result.input.addBlobValue("jpeg");
-        result.output.addAtomValue("output");
-    
+        // Create a function binding context that can infer the
+        // required inputs
+        FunctionExpressionContext functionScope(outerScope);
+
+        // 1.  Collect what is known for each of the input clauses.
+        auto boundInputs = functionConfig.inputs.bind(functionScope);
+
+        GraphExtractScope graphScope(functionScope, *graph);
+
+        auto boundOutputs = functionConfig.outputs.bind(graphScope);
+
+        FunctionInfo result;
+        result.input = std::move(functionScope.input);
+        result.output = *boundOutputs.info;
+        
         return result;
     }
 

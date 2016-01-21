@@ -14,6 +14,8 @@ var fnConfig = {
     type: 'tensorflow.graph',
     params: {
         modelFileUrl: 'archive+' + inceptionUrl + '#tensorflow_inception_graph.pb',
+        inputs: 'fetch({url})[content] AS "DecodeJpeg/contents"',
+        outputs: 'softmax AS labels'
     }
 };
 
@@ -53,7 +55,7 @@ var filename = "https://upload.wikimedia.org/wikipedia/commons/1/18/Cardiff_City
 var filename = "https://upload.wikimedia.org/wikipedia/commons/thumb/6/66/Maureen_O%27Hara_1947_2.jpg/198px-Maureen_O%27Hara_1947_2.jpg";
 var filename = "https://upload.wikimedia.org/wikipedia/commons/thumb/5/58/Calle_E_Monroe_St%2C_Chicago%2C_Illinois%2C_Estados_Unidos%2C_2012-10-20%2C_DD_04.jpg/560px-Calle_E_Monroe_St%2C_Chicago%2C_Illinois%2C_Estados_Unidos%2C_2012-10-20%2C_DD_04.jpg";
 
-var res = mldb.query('SELECT incept({jpeg: fetch({url: ' + mldb.sqlEscape(filename) + '})[content]})[output] AS val');
+var res = mldb.query('SELECT incept({url: ' + mldb.sqlEscape(filename) + '})[labels] AS val');
 
 mldb.log(res);
 
