@@ -10,40 +10,25 @@ dataset = mldb.create_dataset({
     } 
 })
 
-
-result = mldb.perform("PUT", "/v1/procedures/import", [], {
-    "type": "transform",
-    "params": {
-        "inputData": "select tokenize(lineText, {offset: 1, value: 1}) as * from reddit_raw",
-        "outputDataset": "reddit_dataset",
-        "runOnCreation": True
-    }
+dataset = mldb.create_dataset({ 
+    "id": "reddit_svd_embedding", 
+    "type": "text.csv.tabular",  
+    "params": { 
+        "dataFileUrl": "https://s3.amazonaws.com/public.mldb.ai/reddit_embedding.csv.gz",
+    } 
 })
-assert result["statusCode"] < 400, result["response"]
 
-result = mldb.perform("PUT", "/v1/procedures/svd", [], {
-    "type" : "svd.train",
-    "params" : {
-        "trainingData" : """
-            SELECT 
-                COLUMN EXPR (AS columnName() ORDER BY rowCount() DESC, columnName() LIMIT 4000) 
-            FROM reddit_dataset
-        """,
-        "columnOutputDataset" : "reddit_svd_embedding",
-        "runOnCreation": True
-    }
-})
-assert result["statusCode"] < 400, result["response"]
 
 result = mldb.perform("PUT", "/v1/procedures/rename", [], {
     "type" : "transform",
     "params" : {
-        "inputData" : "select * named regex_replace(rowName(), '\|1', '') from reddit_svd_embedding",
+        "inputData" : "select * excluding(name) named name from reddit_svd_embedding",
         "outputDataset" : {"id":"reddit_svd_embedding2", "type":"embedding"},
         "runOnCreation": True
     }
 })
 assert result["statusCode"] < 400, result["response"]
+
 
 result = mldb.perform("PUT", "/v1/functions/pooler", [], {
     "type": "pooling",
@@ -53,6 +38,16 @@ result = mldb.perform("PUT", "/v1/functions/pooler", [], {
 })
 assert result["statusCode"] < 400, result["response"]
 
+
+result = mldb.perform("PUT", "/v1/functions/wrapper", [], {
+    "type": "sql.expression",
+    "params": {
+        "expression": "pooler({words: tokenize(lineText)})[embedding] as x"
+    }
+})
+assert result["statusCode"] < 400, result["response"]
+
+
 def query(sql):
     result = mldb.perform("GET", "/v1/query", [["q", sql], ["format", "table"]], {})
     assert result["statusCode"] < 400, result["response"]
@@ -60,11 +55,9 @@ def query(sql):
 
 mldb.log('start')
 query("""
-select count(*) from (
-    select 
-    pooler({words: tokenize(lineText)})[embedding] as x
-    from reddit_raw limit 1000
-)
+
+    select wrapper({lineText}) from reddit_raw limit 1000
+
 """)
 mldb.log('stop')
 
