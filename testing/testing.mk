@@ -258,6 +258,7 @@ $(eval $(call mldb_unit_test,MLDB-1266-import_json.py))
 $(eval $(call mldb_unit_test,MLDB-1258_nofrom_segfault.py))
 $(eval $(call mldb_unit_test,MLDB-1212_csv_import_long_quoted_lines.py))
 $(eval $(call mldb_unit_test,MLDB-1273-classifier-row_input.py,,manual)) #manual - awaiting fix
+$(eval $(call mldb_unit_test,MLDB-1272-regression-training-failure.py,,manual)) #until MLDB-1272 is fixed
 
 
 $(eval $(call mldb_unit_test,pytanic_plugin_test.py))

@@ -44,11 +44,11 @@ set to be more balanced for training, which frequently has the effect of
 requiring the classifiers to focus more on separating the positive and negative
 classes rather then getting really high scores for the dominant class.
 
-* Setting this parameter to 0.0 (the default) weights the parameters according to
+* Setting this parameter to 0.0 weights the parameters according to
   the `weight` expression in `trainingData`.
 * Setting this parameter to 1.0 will adjust the weights such that each class has
   exactly identical weight.
-* Setting it to something else (0.5 is a good value for most unbalanced training
+* Setting it to something else (0.5, the default, is a good value for most unbalanced training
   set use cases) will multiply the weights of each class according to
   $$
   w_{class} \rightarrow w_{\textrm{class}} \times \left( \sum {w_{\textrm{class}}} \right) ^{-\textrm{equalizationFactor}}
