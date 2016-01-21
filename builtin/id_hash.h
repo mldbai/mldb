@@ -203,6 +203,53 @@ struct IdHashes {
         }
         return true;
     }
+
+    struct const_iterator
+    {
+        const_iterator() : source(nullptr), bucket(0)
+        {
+
+        }
+
+        const_iterator(const IdHashes* source) : source(source), bucket(0)
+        {
+            bucketIter = source->buckets[bucket].begin();
+            while (bucketIter == source->buckets[bucket].end())
+            {
+                bucket++;
+                if (bucket == NBUCKETS)
+                    break;
+                else
+                    bucketIter = source->buckets[bucket].begin();
+            }
+        }
+        IdHashBucket operator *()
+        {
+            return bucketIter.dereference();
+        }
+        void operator ++()
+        {
+            ++bucketIter;
+            while (bucketIter == source->buckets[bucket].end())
+            {
+                bucket++;
+                if (bucket == NBUCKETS)
+                    break;
+                else
+                    bucketIter = source->buckets[bucket].begin();
+            }
+        }
+        private:
+
+        const IdHashes* source;
+        unsigned bucket;
+        IdHash::const_iterator bucketIter;
+    };
+
+    const_iterator begin() const
+    {
+        return const_iterator(this);
+    }
 };
 
 
