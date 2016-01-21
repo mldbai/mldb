@@ -257,6 +257,8 @@ $(eval $(call mldb_unit_test,MLDB-1242_sampled_dataset.py))
 $(eval $(call mldb_unit_test,MLDB-1266-import_json.py))
 $(eval $(call mldb_unit_test,MLDB-1258_nofrom_segfault.py))
 $(eval $(call mldb_unit_test,MLDB-1212_csv_import_long_quoted_lines.py))
+$(eval $(call mldb_unit_test,MLDB-1273-classifier-row_input.py))
+
 
 $(eval $(call mldb_unit_test,pytanic_plugin_test.py))
 $(eval $(call python_test,mldb_merged_dataset_test,mldb_py_runner))
