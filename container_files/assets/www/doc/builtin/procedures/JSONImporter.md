@@ -53,6 +53,18 @@ is recorded as:
 |-----------|-----|-----|-------|-----------|
 | row1 | 5 | true | true | true |
 
+If the value is an array that contains only objects, we unpack the array putting one
+JSON object per column.
+
+The line:
+
+    {"a": 5, "b": [{"z": 1}, {"y": 2}]}
+
+is recorded as:
+
+| *rowName* | *a* | *b.0* | *b.1* |
+|-----------|-----|-----|-------|
+| row1 | 5 | {"z": 1} | {"y": 2} |
 
 If the value is an array that contains at least one non-atomic type (array, object), we
 encode them as the string representation of the JSON.
@@ -69,5 +81,7 @@ is recorded as:
 
 ## See also
 
+* The [unpack_json](../sql/ValueExpression.md.html#unpack_json) builtin function can apply the above
+JSON unpacking algorithm to a text cell in an SQL query
 * The ![](%%doclink text.csv.tabular dataset) can be used to import a CSV file
 
