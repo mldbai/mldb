@@ -146,16 +146,6 @@ struct TransposedDataset::Itl
         return cols;
     }
 
-    virtual RowName
-    getRowNameByIndex(ssize_t index, ssize_t& cache) const
-    {
-        vector<ColumnName> cols = matrix->getColumnNames();
-        if (index < cols.size())
-            return colToRow(cols[index]);
-        else
-            return RowName();
-    }
-
     virtual std::vector<RowHash>
     getRowHashes(ssize_t start = 0, ssize_t limit = -1) const
     {

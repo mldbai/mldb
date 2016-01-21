@@ -511,33 +511,6 @@ struct SparseMatrixDataset::Itl
         return result;
     }
 
-    virtual RowName
-    getRowNameByIndex(ssize_t index, ssize_t& cache) const
-    {
-        //Todo: breaking MLDB-1081 need to find why
-     /*   std::vector<RowName> rowNames = getRowNames(index, 1);
-        if (rowNames.size() > 0)
-        {
-            return rowNames[0];
-        }
-        else
-        {
-            return RowName();
-        }*/
-
-        auto trans = getReadTransaction();
-
-     //   cerr << "patate 1" << trans->matrix->rowCount() << endl;
-
-        if (index >= trans->matrix->rowCount())
-            return RowName();
-
-     //   cerr << "patate 1 " << index << endl;
-        uint64_t row = trans->matrix->getRow(index);
-      //  cerr << "patate 2 " << row << endl;
-        return getRowNameTrans(RowHash(row), *trans);
-    }
-
     virtual std::vector<RowHash>
     getRowHashes(ssize_t start = 0, ssize_t limit = -1) const
     {

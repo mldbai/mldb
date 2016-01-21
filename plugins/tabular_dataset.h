@@ -373,29 +373,6 @@ struct TabularDatasetChunk {
 
 struct TabularDataStore: public ColumnIndex, public MatrixView {
 
-    /*
-        RowName
-    getRowNameByIndex(ssize_t index, ssize_t& cache) const
-    {
-     //   std::cerr << "getRowNameByIndex " << index << " " << cache << std::endl;
-        ssize_t sum = this->chunks[cache].startRows; 
-        //for (auto & c: chunks) {
-        for (; cache < chunks.size(); ++cache) {
-            const auto& c = this->chunks[cache];
-            if (index - sum >= c.rowNames.size())
-                sum += c.rowNames.size();
-            else
-            {
-                return c.rowNames[index - sum];
-            }
-        }   
-            
-
-        std::cerr << "row not found" << std::endl;
-        return RowName();
-    }
-    */
-
     struct TabularDataStoreRowStream : public RowStream {
 
         TabularDataStoreRowStream(TabularDataStore * store) : store(store)
@@ -517,27 +494,6 @@ struct TabularDataStore: public ColumnIndex, public MatrixView {
                   });
 
         return result;
-    }
-
-    RowName
-    getRowNameByIndex(ssize_t index, ssize_t& cache) const
-    {
-     //   std::cerr << "getRowNameByIndex " << index << " " << cache << std::endl;
-        ssize_t sum = this->chunks[cache].startRows; 
-        //for (auto & c: chunks) {
-        for (; cache < chunks.size(); ++cache) {
-            const auto& c = this->chunks[cache];
-            if (index - sum >= c.rowNames.size())
-                sum += c.rowNames.size();
-            else
-            {
-                return c.rowNames[index - sum];
-            }
-        }   
-
-
-        std::cerr << "row not found" << std::endl;
-        return RowName();
     }
 
     virtual std::vector<RowHash>

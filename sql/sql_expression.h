@@ -1230,7 +1230,6 @@ struct GenerateRowsWhereFunction {
 
     Exec exec;
 
-    NextExec nextExec;
     std::shared_ptr<RowStream> rowStream;
     int      upperBound;
 

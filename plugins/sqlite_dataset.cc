@@ -330,17 +330,6 @@ struct SqliteSparseDataset::Itl
         return runQuery<RowName>(query);
     }
 
-    virtual RowName
-    getRowNameByIndex(ssize_t index, ssize_t& cache) const
-    {
-        //Todo: Is there a more efficient way
-        auto rowNames = getRowNames(index, 1);
-        if (rowNames.size() > 0)
-            return rowNames[0];
-        else
-            return RowName();
-    }
-
     virtual std::vector<RowHash>
     getRowHashes(ssize_t start = 0, ssize_t limit = -1) const
     {

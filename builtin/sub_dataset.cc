@@ -151,15 +151,6 @@ struct SubDataset::Itl
         return result;
     }
 
-    virtual RowName
-    getRowNameByIndex(ssize_t index, ssize_t& cache) const
-    {
-        if (index < subOutput.size())
-            return subOutput[index].rowName;
-        else
-            return RowName();
-    }
-
     virtual std::vector<RowHash>
     getRowHashes(ssize_t start = 0, ssize_t limit = -1) const
     {

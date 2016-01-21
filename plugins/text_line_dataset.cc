@@ -122,15 +122,6 @@ struct TextLineDataset::Itl: public ColumnIndex, public MatrixView {
         return result;
     }
 
-    virtual RowName
-    getRowNameByIndex(ssize_t index, ssize_t& cache) const
-    {
-        if (index < lines.size())
-            return RowName(to_string(index + 1));
-        else
-            return RowName();
-    }
-
     virtual std::vector<RowHash>
     getRowHashes(ssize_t start = 0, ssize_t limit = -1) const
     {

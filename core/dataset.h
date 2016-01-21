@@ -59,9 +59,6 @@ struct MatrixView {
     virtual std::vector<RowName>
     getRowNames(ssize_t start = 0, ssize_t limit = -1) const = 0;
 
-    virtual RowName
-    getRowNameByIndex(ssize_t index, ssize_t& cache) const = 0;
-
     virtual std::vector<RowHash>
     getRowHashes(ssize_t start = 0, ssize_t limit = -1) const = 0;
 
@@ -368,7 +365,7 @@ struct Dataset: public MldbEntity {
 
     virtual std::shared_ptr<MatrixView> getMatrixView() const = 0;
     virtual std::shared_ptr<ColumnIndex> getColumnIndex() const = 0;
-    virtual std::shared_ptr<RowStream> getRowStream() const { return std::shared_ptr<RowStream>(); } //optional
+    virtual std::shared_ptr<RowStream> getRowStream() const { return std::shared_ptr<RowStream>(); } //optional but recommanded for performance
 
     /** Return the range of timestamps in the file.  The default implementation
         will scan the whole dataset, but other implementions may override for
