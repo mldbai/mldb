@@ -82,9 +82,7 @@ namespace tensorflow {
     }
 
 
-DECLARE_ENUM_DESCRIPTION_NAMED(TensorflowDataTypeDescription, tensorflow::DataType);
-
-DEFINE_ENUM_DESCRIPTION_PROTO(tensorflow, TensorflowDataTypeDescription, DataType);
+DECLARE_ENUM_DESCRIPTION_NAMED(TensorflowDataTypeDescription, tensorflow::DataTyDEFINE_ENUM_DESCRIPTION_PROTO(tensorflow, TensorflowDataTypeDescription, DataType);
 } // namespace tensorflow
 
 // Plugin entry point.  This is called by MLDB once the plugin is loaded.
