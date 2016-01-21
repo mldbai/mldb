@@ -62,7 +62,7 @@ ipykernel==4.0.3
 ipython-genutils==0.1.0
 ipywidgets==4.0.2
 itsdangerous==0.24
-jdcal==1.0
+jdcal==1.0.1
 jsonschema==2.5.1
 jupyter-client==4.0.0
 jupyter-console==4.0.2
