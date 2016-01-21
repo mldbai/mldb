@@ -250,6 +250,13 @@ getColumnIndex() const
     return underlying->getColumnIndex();
 }
 
+std::shared_ptr<RowStream> 
+ForwardedDataset::
+getRowStream() const
+{
+    return underlying->getRowStream();
+}
+
 
 } // namespace MLDB
 } // namespace Datacratic
