@@ -520,7 +520,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
         if (!std::is_sorted(rows.begin(), rows.end(), SortByRowHash()))
             std::sort(rows.begin(), rows.end(), SortByRowHash());
 
-        cerr << "ROWS MEMORY SIZE " << rows.size() * sizeof(RowName) << endl;
+        //cerr << "ROWS MEMORY SIZE " << rows.size() * sizeof(RowName) << endl;
 
         cerr << "Generated " << rows.size() << " rows in "
              << rowsTimer.elapsed()
