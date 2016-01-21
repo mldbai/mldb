@@ -88,4 +88,4 @@ Note that at a minimum, you will likely want to load up plugins from
 # Muting last log on error
 
 When MLDB ends with an error condition, by default it logs data about the run.
-It can be disabled by using the --mute-final-output flag.
+It can be disabled by using the `--mute-final-output` flag.
