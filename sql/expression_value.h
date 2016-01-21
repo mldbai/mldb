@@ -309,6 +309,48 @@ DECLARE_STRUCTURE_DESCRIPTION(KnownColumn);
 
 
 /*****************************************************************************/
+/* STORAGE TYPE                                                              */
+/*****************************************************************************/
+
+/** Declares the underlying binary type of a tensor's stored data element. */
+
+enum StorageType {
+    ST_FLOAT32,
+    ST_FLOAT64,
+    ST_INT8,
+    ST_UINT8,
+    ST_INT16,
+    ST_UINT16,
+    ST_INT32,
+    ST_UINT32,
+    ST_INT64,
+    ST_UINT64,
+    ST_BLOB,
+    ST_STRING,
+    ST_UTF8STRING,
+    ST_CELLVALUE,
+    ST_BOOL
+};
+
+DECLARE_ENUM_DESCRIPTION(StorageType);
+
+
+/*****************************************************************************/
+/* TENSOR METADATA                                                           */
+/*****************************************************************************/
+
+/** Used to add metadata and structure to a tensor valued expression. */
+
+struct TensorMetadata {
+
+    /// Name of each dimension
+    std::vector<Utf8String> dimNames;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(TensorMetadata);
+
+
+/*****************************************************************************/
 /* EXPRESSION VALUE                                                          */
 /*****************************************************************************/
 
@@ -365,8 +407,9 @@ struct ExpressionValue {
     ExpressionValue(const char16_t * utf16StringValue, Date ts);
     ExpressionValue(const char32_t * utf32StringValue, Date ts);
 
-    // Construct from a structure or embedding of simple values with common names
-    // This is more efficient than a row as only the values are kept
+    // Construct from a structure or embedding of simple values with
+    // common names.  This is more efficient than a row as only the
+    // values are kept in memory; the column names are shared
     ExpressionValue(std::vector<CellValue> values,
                     std::shared_ptr<const std::vector<ColumnName> > cols,
                     Date ts);
@@ -387,6 +430,29 @@ struct ExpressionValue {
     // Construct from a pure embedding
     ExpressionValue(std::vector<double> values,
                     Date ts);
+    
+    /** Construct from a generalized uniform tensor, which is stored as
+        a contiguous (flat), column-major array (ie, standard c storage).
+        
+        Parameters:
+        - ts: the timestamp at which the tensor occurs;
+        - data: a shared pointer to the data of the tensor;
+        - storage: the data type that's stored in the data
+        - dims: a list of dimensions.  Length zero is a single scalar.
+          Length 1 is a one-dimensional array with length dims[0].
+          And so on.
+        - md: metadata about the tensor, to allow us to better understand
+          and present what the information is (eg, if it's an image, what
+          the channels are).  Optional.
+
+        When accessed as a row, the column names will be like [1,2].
+    */
+    static ExpressionValue
+    tensor(Date ts,
+           std::shared_ptr<const void> data,
+           StorageType storage,
+           std::vector<size_t> dims,
+           std::shared_ptr<const TensorMetadata> md = nullptr);
     
     //Construct from a m/d/s time interval
     static ExpressionValue
@@ -441,6 +507,8 @@ struct ExpressionValue {
     bool isAtom() const;
 
     bool isRow() const;
+
+    bool isTensor() const;
 
     std::string toString() const;
 
@@ -668,52 +736,19 @@ private:
         NONE,     ///< Expression is empty or not initialized yet.  Shouldn't be exposed to user.
         ATOM,     ///< Expression is an atom (CellValue), including null
         ROW,      ///< Expression is a row, ie a destructured complex type with independent timestamps
-        STRUCT    ///< Expression is a structure of keys and elements
+        STRUCT,   ///< Expression is a structure of keys and elements.
+        TENSOR    ///< Uniform typed n-dimensional array of atoms
     };
 
     Type type_;
 
     /// This is how we store a structure with a single value for each
     /// element and an external set of column names
-    struct Struct {
-        std::shared_ptr<const std::vector<ColumnName> > columnNames;
-        std::vector<CellValue> values;
-        std::vector<float> embedding;
-        std::vector<double> dembedding;
+    struct Struct;
 
-        size_t length() const
-        {
-            return columnNames ? columnNames->size()
-                : std::max(std::max(values.size(), embedding.size()),
-                           dembedding.size());
-        }
-
-        CellValue value(int i) const
-        {
-            if (!embedding.empty())
-                return embedding.at(i);
-            else if (!dembedding.empty())
-                return dembedding.at(i);
-            else return values.at(i);
-        }
-
-        CellValue moveValue(int i)
-        {
-            if (!embedding.empty())
-                return embedding.at(i);
-            else if (!dembedding.empty())
-                return dembedding.at(i);
-            else return std::move(values.at(i));
-        }
-
-        ColumnName columnName(int i) const
-        {
-            if (columnNames)
-                return columnNames->at(i);
-            // TODO: static list of the first 1,000 column names to avoid allocs
-            else return ColumnName(ML::format("%06d", i));
-        }
-    };
+    /// This is how we store a tensor, which is a dense array of a
+    /// uniform data type.
+    struct Tensor;
 
     /// This is where the underlying values are actually stored
     union {
@@ -721,6 +756,7 @@ private:
         CellValue cell_;
         std::shared_ptr<const Row> row_;
         std::shared_ptr<const Struct> struct_;
+        std::shared_ptr<const Tensor> tensor_;
     };
     Date ts_;   ///< Nominal timestamp that the information was known
 
