@@ -102,14 +102,14 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                          std::function<bool (const Json::Value &)> onProgress,
                          bool allowMT)
     {   
-      STACK_PROFILE(UnorderedExecutor);
-        cerr << "bound query unordered num buckets: " << numBuckets << endl;
+        //STACK_PROFILE(UnorderedExecutor);
+        //cerr << "bound query unordered num buckets: " << numBuckets << endl;
         QueryThreadTracker parentTracker;
 
         // Get a list of rows that we run over        
         auto rows = whereGenerator(-1, Any()).first;
 
-        cerr << "ROWS MEMORY SIZE " << rows.size() * sizeof(RowName) << endl;
+        //cerr << "ROWS MEMORY SIZE " << rows.size() * sizeof(RowName) << endl;
 
         // Simple case... no order by and no limit
 
@@ -181,8 +181,8 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                          std::function<bool (const Json::Value &)> onProgress,
                          bool allowMT)
     {   
-      STACK_PROFILE(UnorderedExecutor_optimized);
-        cerr << "UnorderedIterExecutor num buckets: " << numBuckets << " allowMT " << allowMT << endl;
+        //STACK_PROFILE(UnorderedExecutor_optimized);
+        //cerr << "UnorderedIterExecutor num buckets: " << numBuckets << " allowMT " << allowMT << endl;
         QueryThreadTracker parentTracker;
 
         // Simple case... no order by and no limit
@@ -199,53 +199,24 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
 
         size_t numPerBucket = (size_t)std::ceil((float)whereGenerator.upperBound / numBuckets);
 
-        /*auto doRow = [&] (int rowNum, ssize_t& localCache) -> bool
-            {
-    
-              int rowNumLocal = rowNum;
-                RowName rowName = whereGenerator.nextExec(rowNumLocal, localCache);
-
-                QueryThreadTracker childTracker = parentTracker.child();
-
-                if (rowName == RowName())
-                  return false;
-
-                //note that this is a copy of the row
-                auto row = matrix->getRow(rowName);
-
-                // Check it matches the where expression.  If not, we don't process
-                // it.
-                return processRow(row, rowNum, numPerBucket, whereTrue, selectStar, aggregator);
-            };*/
-
         int numRows = whereGenerator.upperBound;
         auto doBucket = [&] (int bucketNumber) -> bool
             {                
-              //  ssize_t cache = 0;
-              //STACK_PROFILE(UnorderedExecutor_optimized_dobucket);
                 size_t it = bucketNumber * numPerBucket;
                 auto stream = whereGenerator.rowStream->clone();
                 stream->initAt(it);
-                cerr << "bucket start " << it << "end " << it + numPerBucket << endl;
                 for (size_t i=0;  i<numPerBucket && it<numRows;  ++i, ++it)
                 {
                     RowName rowName = stream->next();
                     auto row = matrix->getRow(rowName);
-                    if (!processRow(row, it, numPerBucket, whereTrue, selectStar, aggregator));
-                    {
-                   //   cerr << "cancelled " << bucketNumber << " " << it << endl;
-                     // return false;
-                    }
-                    //if (!doRow(it, cache))
-                      //  return false;
+                    if (!processRow(row, it, numPerBucket, whereTrue, selectStar, aggregator))
+                       return false;
                 }
                 return true;
             };
 
         if (allowMT) {
-          cerr << "run buckets in MT" << endl;
             ML::run_in_parallel(0, numBuckets, doBucket);
-            cerr << "run buckets MT Done" << endl;
         }
         else {
             for (int i = 0; i < numBuckets; ++i)
@@ -776,7 +747,8 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
         int numNeeded = offset + limit;
 
         int upperBound = whereGenerator.upperBound;
-        int numChunk = upperBound < 32*32 ? (upperBound / 32) : 32;
+        int numThread = ML::num_threads();
+        int numChunk = upperBound < numThread*32 ? (upperBound / numThread) : numThread;
         numChunk = std::max(numChunk, (int)1U);
         int chunkSize = (int)std::ceil((float)upperBound / numChunk);
 
@@ -834,9 +806,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
             doChunk(i);
        }
        
-        STACK_PROFILE(optimizedExecutor_chunksdone);
-
-          // Compare two rows according to the sort criteria
+        // Compare two rows according to the sort criteria
         auto compareRows = [&] (const RowName & row1,
                                 const RowName & row2) -> bool
             {
@@ -965,7 +935,7 @@ BoundSelectQuery(const SelectExpression & select,
  
         if (orderByRowHash) {
             ExcAssert(numBuckets < 0);
-               executor.reset(new RowHashOrderedExecutor(std::move(matrix),
+            executor.reset(new RowHashOrderedExecutor(std::move(matrix),
                                                       std::move(whereGenerator),
                                                       *context,
                                                       std::move(whereBound),
@@ -1018,7 +988,7 @@ execute(std::function<bool (const NamedRowValue & output,
         std::function<bool (const Json::Value &)> onProgress,
         bool allowMT)
 {
-  STACK_PROFILE(BoundSelectQuery);
+    //STACK_PROFILE(BoundSelectQuery);
 
     auto subAggregator = [&] (const NamedRowValue & row,
                               std::vector<ExpressionValue> & calc,
@@ -1041,7 +1011,7 @@ execute(std::function<bool (const NamedRowValue & output,
         std::function<bool (const Json::Value &)> onProgress,
         bool allowMT)
 {
-  STACK_PROFILE(BoundSelectQuery);
+    //STACK_PROFILE(BoundSelectQuery);
 
     ExcAssert(aggregator);
 
@@ -1321,7 +1291,8 @@ BoundGroupByQuery(const SelectExpression & select,
     boundRowName = rowName.bind(*groupContext);
 
     size_t maxNumRow = from.getMatrixView()->getRowCount();
-    numBuckets = maxNumRow <= 32*32? maxNumRow / 32 : 32;
+    int numThreads = ML::num_threads();
+    numBuckets = maxNumRow <= numThreads*32? maxNumRow / numThreads : numThreads;
     numBuckets = std::max(numBuckets, (size_t)1U);
 
     // And bind the subselect
@@ -1338,7 +1309,7 @@ execute(std::function<bool (const NamedRowValue & output)> aggregator,
              std::function<bool (const Json::Value &)> onProgress,
              bool allowMT)
 {
-    STACK_PROFILE(BoundGroupByQuery);
+    //STACK_PROFILE(BoundGroupByQuery);
 
     typedef std::tuple<std::vector<ExpressionValue>,
                        NamedRowValue,

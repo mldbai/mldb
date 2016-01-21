@@ -72,7 +72,7 @@ BaseEntryDescription()
 /*****************************************************************************/
 
 struct SparseMatrixDataset::Itl
-    : public MatrixView, public ColumnIndex {   
+    : public MatrixView, public ColumnIndex {
 
     Itl()
         : epoch(0), defaultTransaction(gc), timeQuantumSeconds(1.0)
@@ -959,7 +959,7 @@ struct MutableBaseData {
             }
 
             return true;
-        }        
+        }
 
         bool knownRow(uint64_t rowNum) const
         {
