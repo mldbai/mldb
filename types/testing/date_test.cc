@@ -54,6 +54,14 @@ BOOST_AUTO_TEST_CASE(test_date_parse_iso8601_date_time)
         expected = "2013-Apr-01 13:38:07.000";
         BOOST_CHECK_EQUAL(date.print(3), expected);
 
+        date = Date::parseIso8601DateTime("2013-04-01T09:08:07+04:00");
+        expected = "2013-Apr-01 05:08:07.000";
+        BOOST_CHECK_EQUAL(date.print(3), expected);
+
+        date = Date::parseIso8601DateTime("2013-04-01T09:08:07+04:30");
+        expected = "2013-Apr-01 04:38:07.000";
+        BOOST_CHECK_EQUAL(date.print(3), expected);
+
         date = Date::parseIso8601DateTime("20130401T090807");
         expected = "2013-Apr-01 09:08:07.000";
         BOOST_CHECK_EQUAL(date.print(3), expected);
@@ -68,6 +76,14 @@ BOOST_AUTO_TEST_CASE(test_date_parse_iso8601_date_time)
 
         date = Date::parseIso8601DateTime("20130401T090807-0430");
         expected = "2013-Apr-01 13:38:07.000";
+        BOOST_CHECK_EQUAL(date.print(3), expected);
+
+        date = Date::parseIso8601DateTime("20130401T090807+0400");
+        expected = "2013-Apr-01 05:08:07.000";
+        BOOST_CHECK_EQUAL(date.print(3), expected);
+
+        date = Date::parseIso8601DateTime("20130401T090807+0430");
+        expected = "2013-Apr-01 04:38:07.000";
         BOOST_CHECK_EQUAL(date.print(3), expected);
     }
 
