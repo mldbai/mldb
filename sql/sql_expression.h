@@ -14,7 +14,6 @@
 #include "mldb/types/value_description_fwd.h"
 #include <memory>
 #include <set>
-#include "mldb/core/dataset.h"
 
 // NOTE TO MLDB DEVELOPERS: This is an API header file.  No includes
 // should be added, especially value_description.h.
@@ -80,7 +79,7 @@ struct BasicRowGenerator;
 struct WhenExpression;
 struct SqlExpressionDatasetContext;
 struct TableOperations;
-
+struct RowStream;
 
 extern const OrderByExpression ORDER_BY_NOTHING;
 
@@ -1210,8 +1209,6 @@ struct GenerateRowsWhereFunction {
     typedef std::function<std::pair<std::vector<RowName>, Any>
                           (ssize_t numToGenerate, Any token,
                            const BoundParameters & params)> Exec;
-
-    typedef std::function<RowName(int& index, ssize_t& cache)> NextExec;
 
     GenerateRowsWhereFunction(Exec exec = nullptr, const std::string & explain = "",
                      OrderByExpression orderedBy = ORDER_BY_NOTHING)

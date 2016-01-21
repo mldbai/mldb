@@ -730,7 +730,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
                          std::function<bool (const Json::Value &)> onProgress,
                          bool allowMT)
     {
-//        STACK_PROFILE(RowHashOrderedExecutor.execute_iter);
+        //STACK_PROFILE(RowHashOrderedExecutor_execute_iter);
 
         QueryThreadTracker parentTracker;
 
