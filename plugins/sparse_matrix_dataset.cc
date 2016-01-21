@@ -482,7 +482,6 @@ struct SparseMatrixDataset::Itl
     virtual std::vector<RowName>
     getRowNames(ssize_t start = 0, ssize_t limit = -1) const
     {
-        cerr << "orange" << endl;
         std::vector<RowName> result;
         auto trans = getReadTransaction();
         trans->matrix
@@ -514,8 +513,6 @@ struct SparseMatrixDataset::Itl
 
         if (limit != -1 && limit < result.size())
             result.erase(result.begin() + limit, result.end());
-
-        cerr << "orange done" << endl;
 
         return result;
     }
@@ -584,13 +581,10 @@ struct SparseMatrixDataset::Itl
     RowName getRowNameTrans(const RowHash & rowHash,
                             ReadTransaction & trans) const
     {
-        //cerr << "poil" << endl;
-
         RowName result;
 
         auto onRow = [&] (const BaseEntry & entry)
             {
-            //    cerr << "menton" << endl;
                 result = RowName(entry.metadata.at(0));
                 return false;
             };
@@ -965,39 +959,7 @@ struct MutableBaseData {
             }
 
             return true;
-        }
-
-        uint64_t getRow(ssize_t index) const
-        {
-            //todo: we need to find something better
-           // cerr << "foo" << endl;
-            ssize_t count = 0;
-            for (size_t i = 0; i < entries.size(); ++i)
-            {
-            //    cerr << "a";
-                const auto& map = entries[i];
-                ssize_t size = map->size();
-                if (index < count + size)
-                {
-                   // cerr << "b";
-                    auto iter = map->begin();
-                    while (count < index)
-                    {
-                     //   cerr << "c";
-                        ++iter;
-                        ++count;
-                    }
-                    return iter->first;
-                }
-                else
-                {
-                 //q   cerr << "d";
-                    count += size;
-                }
-            }  
-
-            return 0;         
-        }
+        }        
 
         bool knownRow(uint64_t rowNum) const
         {
@@ -1319,11 +1281,6 @@ struct MutableWriteTransaction: public MatrixWriteTransaction {
         return rows.iterateRows(onRow);
     }
 
-    virtual uint64_t getRow(ssize_t index) const
-    {
-        return rows.getRow(index);
-    }
-
     virtual bool knownRow(uint64_t rowNum)
     {
         return rows.knownRow(rowNum);
@@ -1451,11 +1408,6 @@ struct MutableReadTransaction: public MatrixReadTransaction {
     virtual size_t rowCount() const
     {
         return rows.rowCount();
-    }
-
-    virtual uint64_t getRow(ssize_t index) const
-    {
-        return rows.getRow(index);
     }
 
     virtual std::shared_ptr<MatrixWriteTransaction> startWriteTransaction() const

@@ -943,10 +943,9 @@ generateRowsWhere(const SqlBindingScope & context,
     // Where constant
     if (where.isConstant()) {
         if (where.constantValue().isTrue()) {
-            cerr << "TRUE WHERE" << endl;
             GenerateRowsWhereFunction wheregen= {[=] (ssize_t numToGenerate, Any token,
                          const BoundParameters & params)
-                    {                        
+                    {
                         ssize_t start = 0;
                         ssize_t limit = numToGenerate;
 

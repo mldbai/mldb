@@ -247,15 +247,14 @@ struct TabularDatasetChunk {
     /// Not really required
     TabularDatasetChunk()
         : chunkNumber(-1), chunkLineNumber(-1), lineNumber(-1),
-          numColumns(-1), numRows(0), numLines(0), startRows(0)
+          numColumns(-1), numRows(0), numLines(0)
     {
         throw ML::Exception("Default constructor shouldn't be called");
     }
 
     TabularDatasetChunk(size_t numColumns, size_t reservedSize)
         : chunkNumber(-1), chunkLineNumber(-1), lineNumber(-1),
-          numColumns(numColumns), numRows(0), numLines(0), startRows(0),
-          columns(numColumns) 
+          numColumns(numColumns), numRows(0), numLines(0), columns(numColumns) 
     {
         rowNames.reserve(reservedSize);
         timestamps.reserve(reservedSize);
@@ -265,7 +264,7 @@ struct TabularDatasetChunk {
 
     TabularDatasetChunk(TabularDatasetChunk && other) noexcept
     : chunkNumber(-1), chunkLineNumber(-1), lineNumber(-1),
-        numColumns(-1), numRows(0), numLines(0), startRows(0)
+        numColumns(-1), numRows(0), numLines(0)
     {
         swap(other);
     }
@@ -287,7 +286,6 @@ struct TabularDatasetChunk {
         std::swap(numRows, other.numRows);
         std::swap(numLines, other.numLines);
         std::swap(numColumns, other.numColumns);
-        other.startRows = 0;
     }
 
     size_t rowCount() const
@@ -330,9 +328,6 @@ struct TabularDatasetChunk {
 
     /// Total number of lines that have been added
     size_t numLines;
-
-    /// Number of rows that comes in chunks before this one
-    size_t startRows;
 
     std::vector<TabularDatasetColumn> columns;
     std::vector<RowName> rowNames;
@@ -639,15 +634,6 @@ struct TabularDataStore: public ColumnIndex, public MatrixView {
     {
         GenerateRowsWhereFunction result;
         return result;
-    }
-
-    void setRowStarts()
-    {
-        size_t accum = 0;
-        for (int i = 1; i < chunks.size(); ++i) {
-            accum += this->chunks[i-1].numRows;
-            this->chunks[i].startRows = accum;
-        }
     }
 };
 
