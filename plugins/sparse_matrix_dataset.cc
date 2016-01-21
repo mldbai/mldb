@@ -157,6 +157,15 @@ struct SparseMatrixDataset::Itl
         SparseMatrixDataset::Itl* source;
     };
 
+    std::shared_ptr<SparseRowStream> getRowStream()
+    {
+        auto trans = getReadTransaction();
+        if (trans->matrix->isSingleReadEntry())
+            return make_shared<SparseRowStream>(this);
+        else
+            return std::shared_ptr<SparseRowStream>();
+    }
+
     GcLock gc;
 
     /// Default transaction when none was passed
@@ -854,7 +863,7 @@ std::shared_ptr<RowStream>
 SparseMatrixDataset::
 getRowStream() const
 {
-    return make_shared<SparseMatrixDataset::Itl::SparseRowStream>(itl.get());
+    return itl->getRowStream();
 }
 
 RestRequestMatchResult
@@ -1107,6 +1116,11 @@ struct MutableBaseData {
             RowsEntry::const_iterator subIter;
             const MutableBaseData::Rows* source;
         };
+
+        bool isSingleReadEntry() const
+        {
+            return entries.size() == 1;
+        }
 
     };
 
@@ -1447,6 +1461,11 @@ struct MutableReadTransaction: public MatrixReadTransaction {
     virtual std::shared_ptr<MatrixWriteTransaction> startWriteTransaction() const
     {
         return std::make_shared<MutableWriteTransaction>(data);
+    }
+
+    virtual bool isSingleReadEntry() const
+    {
+        return rows.isSingleReadEntry();
     }
 };
 

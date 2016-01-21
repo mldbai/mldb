@@ -96,6 +96,8 @@ struct MatrixReadTransaction {
     virtual std::shared_ptr<MatrixReadTransaction::Stream> getStream() const = 0;
 
     virtual std::shared_ptr<MatrixWriteTransaction> startWriteTransaction() const = 0;
+
+    virtual bool isSingleReadEntry() const = 0;
 };
 
 struct MatrixWriteTransaction: virtual public MatrixReadTransaction {
@@ -110,6 +112,8 @@ struct MatrixWriteTransaction: virtual public MatrixReadTransaction {
 
     virtual bool commitNeedsThread() const = 0;
     virtual void commit() = 0;
+
+    virtual bool isSingleReadEntry() const {return false;}
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(BaseEntry);
