@@ -31,19 +31,17 @@ var irisConfig = {
 
 var res = mldb.post('/v1/datasets', irisConfig);
 assertEqual(res["responseCode"], 400, "expected an empty line failure at line 151");
+assertEqual(res["json"]["details"]["lineNumber"], 151, "expected to report line 151");
 
 irisConfig.params.ignoreBadLines = true;
 res = mldb.post('/v1/datasets', irisConfig);
 assertEqual(res["responseCode"], 201);
 
 res = mldb.get('/v1/datasets/iris');
-try {
-    assertEqual(res['json']['status']['rowCount'], 150);
-    assertEqual(res['json']['status']['numLineErrors'], 1);
-} catch (e) {
-    mldb.log(res);
-    throw e;
-}
+assertEqual(res['json']['status']['rowCount'], 150);
+assertEqual(res['json']['status']['numLineErrors'], 1);
+mldb.log(res);
+
 
 res = mldb.get('/v1/datasets/iris/query', { limit: 10, format: 'table', orderBy: 'CAST (rowName() AS NUMBER)'});
 
@@ -242,12 +240,13 @@ assertEqual(res, expected, "City populations CSV");
 
 // Test loading of broken file (MLDB-994)
 // broken that fails
+
 var brokenConfigFail = {
     type: 'text.csv.tabular',
     id: 'broken_fail',
     params: {
         dataFileUrl: 'file://mldb/testing/MLDB-749_broken_csv.csv',
-        encoding: 'latin1',
+        encoding: 'latin1'
     }
 };
 
@@ -255,6 +254,30 @@ var failed = false;
 try {
     var res = mldb.createDataset(brokenConfigFail);
 } catch (e) {
+    mldb.log(e);
+    assertEqual(e.details.lineNumber, 5, "expected bad line number at 5");
+    failed = true;
+}
+if(!failed) {
+    throw "did not throw !!"
+}
+
+var brokenConfigNoHeader = {
+    type: 'text.csv.tabular',
+    id: 'broken_fail',
+    params: {
+        dataFileUrl: 'file://mldb/testing/MLDB-749_broken_csv_no_header.csv',
+        encoding: 'latin1',
+        headers: ['a', 'b', 'c']
+    }
+};
+
+var failed = false;
+try {
+    var res = mldb.createDataset(brokenConfigNoHeader);
+} catch (e) {
+    mldb.log(e);
+    assertEqual(e.details.lineNumber, 4, "expected bad line number at 4");
     failed = true;
 }
 if(!failed) {
