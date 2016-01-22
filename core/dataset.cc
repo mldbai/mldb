@@ -943,7 +943,7 @@ generateRowsWhere(const SqlBindingScope & context,
     // Where constant
     if (where.isConstant()) {
         if (where.constantValue().isTrue()) {
-            return {[=] (ssize_t numToGenerate, Any token,
+            GenerateRowsWhereFunction wheregen= {[=] (ssize_t numToGenerate, Any token,
                          const BoundParameters & params)
                     {
                         ssize_t start = 0;
@@ -965,6 +965,11 @@ generateRowsWhere(const SqlBindingScope & context,
                         return std::move(make_pair(std::move(rows), std::move(newToken)));
                     },
                     "Scan table keeping all rows"};
+
+            wheregen.upperBound = this->getMatrixView()->getRowCount();
+            wheregen.rowStream = this->getRowStream();
+
+            return wheregen;
 
         }
         else {

@@ -254,8 +254,7 @@ struct TabularDatasetChunk {
 
     TabularDatasetChunk(size_t numColumns, size_t reservedSize)
         : chunkNumber(-1), chunkLineNumber(-1), lineNumber(-1),
-          numColumns(numColumns), numRows(0), numLines(0),
-          columns(numColumns)
+          numColumns(numColumns), numRows(0), numLines(0), columns(numColumns) 
     {
         rowNames.reserve(reservedSize);
         timestamps.reserve(reservedSize);
@@ -368,6 +367,50 @@ struct TabularDatasetChunk {
 */
 
 struct TabularDataStore: public ColumnIndex, public MatrixView {
+
+    struct TabularDataStoreRowStream : public RowStream {
+
+        TabularDataStoreRowStream(TabularDataStore * store) : store(store)
+        {}
+
+        virtual std::shared_ptr<RowStream> clone() const{
+            auto ptr = std::make_shared<TabularDataStoreRowStream>(store);
+            return ptr;
+        }
+
+        virtual void initAt(size_t start){
+            size_t sum = 0;
+            chunkiter = store->chunks.begin();
+            while (chunkiter != store->chunks.end() && start > sum + chunkiter->rowNames.size())  {
+                sum += chunkiter->rowNames.size();
+                ++chunkiter;
+            }
+
+            if (chunkiter != store->chunks.end()) {
+                rowiter = chunkiter->rowNames.begin() + (start - sum);
+            }
+        }
+
+        virtual RowName next() {
+            RowName row = *rowiter;
+            rowiter++;
+            if (rowiter == chunkiter->rowNames.end())
+            {
+                ++chunkiter;
+                if (chunkiter != store->chunks.end())
+                {
+                    rowiter = chunkiter->rowNames.begin();
+                    ExcAssert(rowiter != chunkiter->rowNames.end());
+                }
+            }
+            return row;
+        }
+
+        TabularDataStore* store;
+        std::vector<TabularDatasetChunk>::const_iterator chunkiter;
+        std::vector<RowName>::const_iterator rowiter;
+
+    };
 
     int64_t rowCount;
 

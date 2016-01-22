@@ -57,6 +57,7 @@ struct EmbeddingDataset: public Dataset {
 
     virtual std::shared_ptr<MatrixView> getMatrixView() const;
     virtual std::shared_ptr<ColumnIndex> getColumnIndex() const;
+    virtual std::shared_ptr<RowStream> getRowStream() const;
 
     virtual BoundFunction
     overrideFunction(const Utf8String & functionName,
