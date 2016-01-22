@@ -297,8 +297,9 @@ ExternalAggregator lookupAggregator(const Utf8String & name)
 
 ExternalAggregator tryLookupAggregator(const Utf8String & name)
 {
+    Utf8String functionNameLower(boost::algorithm::to_lower_copy(name.extractAscii()));
     std::unique_lock<std::recursive_mutex> guard(externalAggregatorsMutex);
-    auto it = externalAggregators.find(name);
+    auto it = externalAggregators.find(functionNameLower);
     if (it == externalAggregators.end())
         return nullptr;
     return it->second;
