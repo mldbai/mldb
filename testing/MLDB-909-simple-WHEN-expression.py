@@ -167,7 +167,6 @@ class SimpleWhenExpressionTest(unittest.TestCase):
         self.assertEqual(len(res[0]['columns']), 1)
         self.assertEqual(res[0]['columns'][0][2], '1970-01-02T00:00:00Z')
 
-    @unittest.expectedFailure # MLDBFB-314
     def test_timezone(self):
         def expect():
             self.assertEqual(len(res), 1)
@@ -184,7 +183,7 @@ class SimpleWhenExpressionTest(unittest.TestCase):
         expect()
 
         res = query('SELECT * FROM dataset2 WHEN timestamp() < '
-                    "'1970-01-04T00:00:00+01:00'")
+                    "'1970-01-02T00:00:00+01:00'")
         self.assertTrue('columns' not in res[0])
 
         res = query('SELECT * FROM dataset2 WHEN timestamp() BETWEEN '
