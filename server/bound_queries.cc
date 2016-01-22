@@ -271,8 +271,8 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
             selectOutput.mergeToRowDestructive(outputRow.columns);
         }
 
-        int bucketNumber = numBuckets > 0 ? rowNum/numPerBucket : -1;
-        
+        int bucketNumber = numBuckets > 0 ? std::min(rowNum/numPerBucket, numBuckets-1) : -1;
+
         /* Finally, pass to the terminator to continue. */
         return aggregator(outputRow, calcd, bucketNumber);
     }
