@@ -179,11 +179,17 @@ struct ColumnIndex {
 
 struct RowStream {
 
+    /* Clone the stream with just enough information to use the initAt 
+       clones streams should be un-initialized                        */
     virtual std::shared_ptr<RowStream> clone() const = 0;
 
     /* set where the stream should start*/
     virtual void initAt(size_t start) = 0;
 
+    /* Return the current RowName and move the stream forward 
+       for performance, this method shall NOT do bound checking 
+       so be sure to obtain the maximum number of rows beforehand 
+       using MatrixView::getRowCount for example */
     virtual RowName next() = 0;
 
 };

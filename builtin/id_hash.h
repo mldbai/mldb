@@ -241,8 +241,8 @@ struct IdHashes {
         }
         private:
 
-        const IdHashes* source;
-        unsigned bucket;
+        const IdHashes * source;
+        size_t bucket;
         IdHash::const_iterator bucketIter;
     };
 

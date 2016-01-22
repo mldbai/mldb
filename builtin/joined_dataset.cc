@@ -79,6 +79,7 @@ struct JoinedDataset::Itl
             return (iter++)->rowName;
         }
 
+    private:
         std::vector<RowEntry>::const_iterator iter;
         JoinedDataset::Itl* source;
     };

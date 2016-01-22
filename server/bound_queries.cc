@@ -27,6 +27,9 @@ using namespace std;
 namespace Datacratic {
 namespace MLDB {
 
+const int MIN_ROW_PER_TASK = 32;
+const int TASK_PER_THREAD = 8;
+
 __thread int QueryThreadTracker::depth = 0;
 
 
@@ -94,6 +97,8 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
           return execute_bloc(aggregator, offset, limit, onProgress, allowMT);
      }
 
+    /* execute_bloc will query all the relevant rowNames in advance
+       using the whereGenerator()                                  */
     void execute_bloc(std::function<bool (const NamedRowValue & output,
                                              std::vector<ExpressionValue> & calcd,
                                              int rowNum)> aggregator,
@@ -123,7 +128,9 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
         // Do we have where TRUE?  In that case we can avoid evaluating 
         bool whereTrue = whereBound.expr->isConstantTrue();
 
-        size_t numPerBucket = (size_t)std::ceil((float)rows.size() / numBuckets);
+        size_t numRows = rows.size();
+        size_t numPerBucket = std::max((size_t)std::floor((float)numRows / numBuckets), (size_t)1);
+        size_t effectiveNumBucket = std::min((size_t)numBuckets, numRows);
 
         auto doRow = [&] (int rowNum) -> bool
             {
@@ -142,11 +149,11 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
             };
 
         if (numBuckets > 0) {
-            int numRows = rows.size();
             auto doBucket = [&] (int bucketNumber) -> bool
                 {
                     size_t it = bucketNumber * numPerBucket;
-                    for (size_t i=0;  i<numPerBucket && it<numRows;  ++i, ++it)
+                    int stopIt = bucketNumber == numBuckets - 1 ? numRows : it + numPerBucket;
+                    for (; it < stopIt; ++it)
                     {
                         if (!doRow(it))
                             return false;
@@ -155,10 +162,10 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                 };
 
             if (allowMT) {
-                ML::run_in_parallel(0, numBuckets, doBucket);
+                ML::run_in_parallel(0, effectiveNumBucket, doBucket);
             }
             else {
-                for (int i = 0; i < numBuckets; ++i)
+                for (int i = 0; i < effectiveNumBucket; ++i)
                     doBucket(i);
             }
         }
@@ -173,6 +180,8 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
         }
     }
 
+    /* execute_iterative will use the whereGenerator rowStream to get the rowNames one by one
+       in order to avoid having a big array of all the relevant rowNames                    */
      void execute_iterative(std::function<bool (const NamedRowValue & output,
                                              std::vector<ExpressionValue> & calcd,
                                              int rowNum)> aggregator,
@@ -197,7 +206,8 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
         // Do we have where TRUE?  In that case we can avoid evaluating 
         bool whereTrue = whereBound.expr->isConstantTrue();
 
-        size_t numPerBucket = (size_t)std::ceil((float)whereGenerator.upperBound / numBuckets);
+        size_t numPerBucket = std::max((size_t)std::ceil((float)whereGenerator.upperBound / numBuckets), (size_t)1);
+        size_t effectiveNumBucket = std::min((size_t)numBuckets, (size_t)whereGenerator.upperBound);
 
         int numRows = whereGenerator.upperBound;
         auto doBucket = [&] (int bucketNumber) -> bool
@@ -216,10 +226,10 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
             };
 
         if (allowMT) {
-            ML::run_in_parallel(0, numBuckets, doBucket);
+            ML::run_in_parallel(0, effectiveNumBucket, doBucket);
         }
         else {
-            for (int i = 0; i < numBuckets; ++i)
+            for (int i = 0; i < effectiveNumBucket; ++i)
                 doBucket(i);
         }
 
@@ -500,6 +510,8 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
           return execute_iter(aggregator, offset, limit, onProgress, allowMT);
     }
 
+     /* execute_bloc will query all the relevant rowNames in advance
+       using the whereGenerator()                                           */          
      virtual void execute_bloc(std::function<bool (const NamedRowValue & output,
                                              std::vector<ExpressionValue> & calcd,
                                              int rowNum)> aggregator,
@@ -722,6 +734,8 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
         return;
     }
 
+   /* execute_iterative will use the whereGenerator rowStream to get the rowNames one by one
+       in order to avoid having a big array of all the relevant rowNames                    */
     virtual void execute_iter(std::function<bool (const NamedRowValue & output,
                                              std::vector<ExpressionValue> & calcd,
                                              int rowNum)> aggregator,
@@ -747,15 +761,16 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
         int numNeeded = offset + limit;
 
         int upperBound = whereGenerator.upperBound;
-        int numThread = ML::num_threads();
-        int numChunk = upperBound < numThread*32 ? (upperBound / numThread) : numThread;
+        int maxNumTask = ML::num_threads() * TASK_PER_THREAD;
+        //try to have at least MIN_ROW_PER_TASK element per task
+        int numChunk = upperBound < maxNumTask*MIN_ROW_PER_TASK ? (upperBound / maxNumTask) : maxNumTask;
         numChunk = std::max(numChunk, (int)1U);
-        int chunkSize = (int)std::ceil((float)upperBound / numChunk);
+        int chunkSize = (int)std::floor((float)upperBound / numChunk);
 
         auto doChunk = [&] (int bucketIndex)
         {
           int index = bucketIndex*chunkSize;
-          int stopIndex = std::min(index + chunkSize, upperBound);   
+          int stopIndex = bucketIndex == numChunk - 1 ? upperBound : index + chunkSize;
           AccumRows& rows = accum.get();
 
           auto stream = whereGenerator.rowStream->clone();
@@ -796,12 +811,10 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
           }
         };      
 
-       if (allowMT)
-       {
+       if (allowMT) {
           ML::run_in_parallel(0, numChunk, doChunk);
        }
-       else
-       {
+       else {
          for (int i = 0; i < numChunk; ++i)
             doChunk(i);
        }
@@ -829,8 +842,8 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
         bool selectStar = boundSelect.expr->isIdentitySelect(context);
 
         int count = 0;
-        for (auto r : rowsMerged)
-        {
+        for (auto r : rowsMerged) {
+
             MatrixNamedRow row = std::move(matrix->getRow(r));
             auto rowContext = context.getRowContext(row);
 
@@ -1291,8 +1304,9 @@ BoundGroupByQuery(const SelectExpression & select,
     boundRowName = rowName.bind(*groupContext);
 
     size_t maxNumRow = from.getMatrixView()->getRowCount();
-    int numThreads = ML::num_threads();
-    numBuckets = maxNumRow <= numThreads*32? maxNumRow / numThreads : numThreads;
+    int maxNumTask = ML::num_threads() * TASK_PER_THREAD;
+    //try to have at least MIN_ROW_PER_TASK rows per task
+    numBuckets = maxNumRow <= maxNumTask*MIN_ROW_PER_TASK? maxNumRow / maxNumTask : maxNumTask;
     numBuckets = std::max(numBuckets, (size_t)1U);
 
     // And bind the subselect
