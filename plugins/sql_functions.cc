@@ -92,7 +92,8 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
             pipeline
                 = getMldbRoot(function->server)
                 ->params(getParamInfo)
-                ->from(config.query.stm->from, config.query.stm->when)
+                ->from(config.query.stm->from, config.query.stm->when,
+                       SelectExpression::STAR, config.query.stm->where)
                 ->where(config.query.stm->where)
                 ->select(config.query.stm->groupBy)
                 ->sort(config.query.stm->groupBy)
@@ -108,7 +109,8 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
             pipeline
                 = getMldbRoot(function->server)
                 ->params(getParamInfo)
-                ->from(config.query.stm->from, config.query.stm->when)
+                ->from(config.query.stm->from, config.query.stm->when,
+                       SelectExpression::STAR, config.query.stm->where)
                 ->where(config.query.stm->where)
                 ->select(config.query.stm->orderBy)
                 ->sort(config.query.stm->orderBy)
