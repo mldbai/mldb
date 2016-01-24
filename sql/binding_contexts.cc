@@ -217,5 +217,25 @@ doGetFunction(const Utf8String & tableName,
 }
 
 
+/*****************************************************************************/
+/* SQL EXPRESSION PARAM SCOPE                                                */
+/*****************************************************************************/
+
+VariableGetter
+SqlExpressionParamScope::
+doGetBoundParameter(const Utf8String & paramName)
+{
+    return {[=] (const SqlRowScope & scope,
+                 ExpressionValue & storage,
+                 const VariableFilter & filter) -> const ExpressionValue &
+            {
+                
+                auto & row = static_cast<const RowScope &>(scope);
+                return row.params(paramName);
+            },
+            std::make_shared<AnyValueInfo>() };
+}
+
+
 } // namespace MLDB
 } // namespace Datacratic

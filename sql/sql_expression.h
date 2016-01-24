@@ -1159,6 +1159,9 @@ struct TupleExpression {  // TODO: should be a row expression
         expression so that the order by expression stands on its own.
     */
     TupleExpression substitute(const SelectExpression & select) const;
+
+    /** Are all clauses constant? */
+    bool isConstant() const;
 };
 
 PREDECLARE_VALUE_DESCRIPTION(TupleExpression);

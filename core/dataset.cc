@@ -797,25 +797,14 @@ generateRowsWhere(const SqlBindingScope & scope,
         return generateVariableIsTrue(*this, *variable);
     }
 
-    //Optimize for rowName() IN (constant, constant, constant)
+    //cOptimize for rowName() IN (constant, constant, constant)
+    // Optimize for rowName() IN ROWS / IN KEYS (...)
     auto inExpression = dynamic_cast<const InExpression *>(&where);
-    if (inExpression && inExpression->tuple.get())
+    if (inExpression) 
     {
         auto fexpr = getFunction(*(inExpression->expr));
-        if (fexpr && fexpr->functionName == "rowName" )
-        {
-            //check that all the clauses in the tuple are constant
-            std::vector<std::shared_ptr<SqlExpression> > clauses;
-            bool constant = true;
-            for (auto& c : inExpression->tuple->clauses) {
-                if (!c->isConstant()) {
-                    constant = false;
-                    break;
-                }
-            }
-
-            if (constant)
-            {
+        if (fexpr && fexpr->functionName == "rowName" ) {
+            if (inExpression->tuple && inExpression->tuple->isConstant()) {
                 return {[=] (ssize_t numToGenerate, Any token,
                              const BoundParameters & params)
                         -> std::pair<std::vector<RowName>, Any>
@@ -834,9 +823,76 @@ generateRowsWhere(const SqlBindingScope & scope,
                         },
                         "rowName in tuple " + inExpression->tuple->print().rawString() };
             }
+            else if (inExpression->setExpr) {
+                // in keys or in values expression
+                // Make sure they are constant or depend only upon the
+                // bound parameters
+                auto unbound = inExpression->setExpr->getUnbound();
+                if (unbound.vars.empty() && unbound.tables.empty()
+                    && unbound.wildcards.empty()) {
+                    //cerr << "*** rowName() IN (constant set expr)" << endl;
+
+                    SqlExpressionParamScope paramScope;
+
+                    auto boundSet = inExpression->setExpr->bind(paramScope);
+                    auto matrixView = this->getMatrixView();
+
+                    if (inExpression->setExpr) {
+
+                        bool keys = (inExpression->kind == InExpression::KEYS);
+                        bool values = (inExpression->kind == InExpression::VALUES);
+                        ExcAssert(keys || values);
+
+                        return {[=] (ssize_t numToGenerate, Any token,
+                                     const BoundParameters & params)
+                                -> std::pair<std::vector<RowName>, Any>
+                                {
+                                    SqlExpressionParamScope::RowScope rowScope(params);
+                                    ExpressionValue evaluatedSet
+                                        = boundSet(rowScope);
+
+                                    std::vector<RowName> filtered;
+
+                                    // Lambda for KEYS, which looks for a
+                                    // matching row from the key
+                                    auto onKey = [&] (const ColumnName & key,
+                                                      const ColumnName & prefix,
+                                                      const ExpressionValue & val)
+                                        {
+                                            if (matrixView->knownRow(key)) {
+                                                filtered.push_back(key);
+                                            }
+                                            return true;
+                                        };
+                                
+                                    // Lambda for VALUES, which looks for a
+                                    // matching row from the value
+                                    auto onValue = [&] (const ColumnName & key,
+                                                        const ColumnName & prefix,
+                                                        const ExpressionValue & val)
+                                        {
+                                            auto str = RowName(val.toUtf8String());
+                                            if (matrixView->knownRow(str)) {
+                                                filtered.push_back(str);
+                                            }
+                                            return true;
+                                        };
+                                    
+                                    
+                                    if (keys)
+                                        evaluatedSet.forEachSubexpression(onKey);
+                                    else evaluatedSet.forEachSubexpression(onValue);
+                                    
+                                    return { std::move(filtered), Any() };
+                                },
+                                "rowName in keys of (expr) " + inExpression->print().rawString()
+                                    };
+                    }
+                }
+            }
         }
     }
-
+    
     auto comparison = dynamic_cast<const ComparisonExpression *>(&where);
 
     if (comparison) {

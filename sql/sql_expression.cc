@@ -2672,6 +2672,20 @@ transform(const TransformArgs & transformArgs) const
     return transformedExpression;
 }
 
+bool
+TupleExpression::
+isConstant() const
+{
+    bool constant = true;
+    for (auto& c : clauses) {
+        if (!c->isConstant()) {
+            constant = false;
+            break;
+        }
+    }
+    return constant;
+}
+
 struct TupleExpressionDescription
     : public ValueDescriptionT<TupleExpression> {
 
