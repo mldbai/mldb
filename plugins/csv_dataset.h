@@ -1,9 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** csv_dataset.h                                           -*- C++ -*-
     Jeremy Barnes, 16 December 2014
     Copyright (c) 2014 Datacratic Inc.  All rights reserved.
 
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #include "mldb/core/dataset.h"
@@ -78,6 +77,8 @@ struct CsvDataset: public Dataset {
                       const SqlExpression & where,
                       ssize_t offset,
                       ssize_t limit) const;
+
+    virtual KnownColumn getKnownColumnInfo(const ColumnName & columnName) const;
 
 protected:
     // To initialize from a subclass
