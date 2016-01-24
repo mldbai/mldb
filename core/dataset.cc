@@ -1168,6 +1168,12 @@ queryBasic(const SqlBindingScope & scope,
     
     auto boundOrderBy = newOrderBy.bindAll(orderByScope);
 
+    // Do we select *?  In that case we can avoid a lot of copying
+    bool selectStar = select.isIdentitySelect(selectScope);
+
+    // Do we have when TRUE?  In that case we can avoid filtering
+    bool whenTrue = when.when->isConstantTrue();
+
     auto exec = [=] (ssize_t numToGenerate,
                      const BoundParameters & params)
         {
@@ -1199,29 +1205,56 @@ queryBasic(const SqlBindingScope & scope,
                     {
                         auto row = matrix->getRow(rows[rowNum]);
 
-                        auto rowContext = selectContext.getRowContext(row);
-
-                        // Filter the tuple using the WHEN expression
-                        boundWhen.filterInPlace(row, rowContext);
-
                         NamedRowValue outputRow;
                         outputRow.rowName = row.rowName;
                         outputRow.rowHash = row.rowName;
 
-                        ExpressionValue selectOutput
-                            = boundSelect(rowContext);
+                        auto rowScope = selectScope.getRowContext(row);
 
-                        selectOutput.mergeToRowDestructive(outputRow.columns);
+                        // Filter the tuple using the WHEN expression
+                        if (!whenTrue)
+                            boundWhen.filterInPlace(row, rowScope);
 
                         std::vector<ExpressionValue> calcd;
+                        std::vector<ExpressionValue> sortFields;
 
-                        // Get the order by context, which can read from both the result
-                        // of the select and the underlying row.
-                        auto orderByRowContext
-                            = orderByContext.getRowContext(rowContext, outputRow);
+                        if (selectStar) {
 
-                        std::vector<ExpressionValue> sortFields
-                            = boundOrderBy.apply(orderByRowContext);
+                            outputRow.columns.reserve(row.columns.size());
+                            for (auto & c: row.columns) {
+                                outputRow.columns.emplace_back
+                                    (std::get<0>(c),
+                                     ExpressionValue(std::move(std::get<1>(c)),
+                                                     std::move(std::get<2>(c))));
+                            }
+
+                            // We can move things out of the row scope,
+                            // since they will be found in the output
+                            // row anyway
+                            auto orderByRowScope
+                                = orderByScope.getRowContext(rowScope,
+                                                             outputRow);
+
+                            
+                            sortFields = boundOrderBy.apply(orderByRowScope);
+
+                        }
+                        else {
+                            ExpressionValue selectOutput
+                                = boundSelect(rowScope);
+                            
+                            selectOutput.mergeToRowDestructive(outputRow.columns);
+
+                            // Get the order by scope, which can read from both the result
+                            // of the select and the underlying row.
+                            auto orderByRowScope
+                                = orderByScope.getRowContext(rowScope, outputRow);
+
+                            sortFields
+                                = boundOrderBy.apply(orderByRowScope);
+
+                            
+                        }
 
                         //cerr << "sort fields for row " << rowNum << " are "
                         //<< jsonEncode(sortFields) << endl;
