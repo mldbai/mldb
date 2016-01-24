@@ -688,7 +688,7 @@ generateRownameIsConstant(const Dataset & dataset,
     
 GenerateRowsWhereFunction
 Dataset::
-generateRowsWhere(const SqlBindingScope & context,
+generateRowsWhere(const SqlBindingScope & scope,
                   const SqlExpression & where,
                   ssize_t offset,
                   ssize_t limit) const
@@ -729,8 +729,8 @@ generateRowsWhere(const SqlBindingScope & context,
         // Optimize a boolean operator
 
         if (boolean->op == "AND") {
-            GenerateRowsWhereFunction lhsGen = generateRowsWhere(context, *boolean->lhs, 0, -1);
-            GenerateRowsWhereFunction rhsGen = generateRowsWhere(context, *boolean->rhs, 0, -1);
+            GenerateRowsWhereFunction lhsGen = generateRowsWhere(scope, *boolean->lhs, 0, -1);
+            GenerateRowsWhereFunction rhsGen = generateRowsWhere(scope, *boolean->rhs, 0, -1);
             cerr << "AND between " << lhsGen.explain << " and " << rhsGen.explain
                  << endl;
 
@@ -758,8 +758,8 @@ generateRowsWhere(const SqlBindingScope & context,
             }
         }
         else if (boolean->op == "OR") {
-            GenerateRowsWhereFunction lhsGen = generateRowsWhere(context, *boolean->lhs, 0, -1);
-            GenerateRowsWhereFunction rhsGen = generateRowsWhere(context, *boolean->rhs, 0, -1);
+            GenerateRowsWhereFunction lhsGen = generateRowsWhere(scope, *boolean->lhs, 0, -1);
+            GenerateRowsWhereFunction rhsGen = generateRowsWhere(scope, *boolean->rhs, 0, -1);
             cerr << "OR between " << lhsGen.explain << " and " << rhsGen.explain
                  << endl;
 
@@ -991,14 +991,12 @@ generateRowsWhere(const SqlBindingScope & context,
     // Couldn't optimize.  Fall through to scanning, evaluating the where
     // expression at each point
 
-    SqlExpressionDatasetContext dsContext(*this, "");
-    auto whereBound = where.bind(dsContext);
-
+    SqlExpressionDatasetContext dsScope(*this, "");
+    auto whereBound = where.bind(dsScope);
 
     // Detect if where needs columns or not, by looking at what is unbound
     // in the expression.  For example rowName() or rowHash() don't need
     // the columns at all.
-
     UnboundEntities unbound = where.getUnbound();
 
     // Look for a free variable
@@ -1037,9 +1035,9 @@ generateRowsWhere(const SqlBindingScope & context,
                             row.rowHash = row.rowName = r;
                         }
 
-                        auto rowContext = dsContext.getRowContext(row, &params);
+                        auto rowScope = dsScope.getRowContext(row, &params);
                         
-                        bool keep = whereBound(rowContext).isTrue();
+                        bool keep = whereBound(rowScope).isTrue();
                         
                         if (keep)
                             accum.get().push_back(r);
@@ -1080,7 +1078,7 @@ generateRowsWhere(const SqlBindingScope & context,
 
 BasicRowGenerator
 Dataset::
-queryBasic(const SqlBindingScope & context,
+queryBasic(const SqlBindingScope & scope,
            const SelectExpression & select,
            const WhenExpression & when,
            const SqlExpression & where,
@@ -1090,7 +1088,7 @@ queryBasic(const SqlBindingScope & context,
            bool allowParallel) const
 {
     // 1.  Get the rows that match the where clause
-    auto rowGenerator = generateRowsWhere(context, where, 0 /* offset */, -1 /* limit */);
+    auto rowGenerator = generateRowsWhere(scope, where, 0 /* offset */, -1 /* limit */);
 
     // 2.  Find all the variables needed by the orderBy
     // Remove any constants from the order by clauses
@@ -1104,15 +1102,15 @@ queryBasic(const SqlBindingScope & context,
         newOrderBy.clauses.push_back(x);
     }
 
-    SqlExpressionDatasetContext selectContext(*this, "");
-    SqlExpressionWhenScope whenContext(selectContext);
-    auto boundWhen = when.bind(whenContext);
+    SqlExpressionDatasetContext selectScope(*this, "");
+    SqlExpressionWhenScope whenScope(selectScope);
+    auto boundWhen = when.bind(whenScope);
 
-    auto boundSelect = select.bind(selectContext);
+    auto boundSelect = select.bind(selectScope);
     
-    SqlExpressionOrderByContext orderByContext(selectContext);
+    SqlExpressionOrderByContext orderByScope(selectScope);
     
-    auto boundOrderBy = newOrderBy.bindAll(orderByContext);
+    auto boundOrderBy = newOrderBy.bindAll(orderByScope);
 
     auto exec = [=] (ssize_t numToGenerate,
                      const BoundParameters & params)
