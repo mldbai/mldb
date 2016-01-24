@@ -1464,7 +1464,7 @@ AggregateLexicalScope::
 doGetAllColumns(std::function<Utf8String (const Utf8String &)> keep,
                 int fieldOffset)
 {
-    throw HttpReturnException(400, "Can't use wildcards within group by");
+    return inner->doGetAllColumns("" /* table name */, keep);
 }
 
 BoundFunction
