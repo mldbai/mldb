@@ -579,6 +579,13 @@ struct ExpressionValue {
     /** Apply filter to select values in the row according to their timestamp */
     Row getFiltered(const VariableFilter & filter = GET_LATEST) const;
 
+    /// Return if it is a row, and contains the given key
+    std::pair<bool, Date> hasKey(const Utf8String & key) const;
+
+    /// Return if it is a row, and one of the elements is the given value,
+    /// treating it like a set
+    std::pair<bool, Date> hasValue(const ExpressionValue & value) const;
+
     int compare(const ExpressionValue & other) const;
 
     bool operator == (const ExpressionValue & other) const;

@@ -1521,6 +1521,74 @@ getFiltered(const VariableFilter & filter /*= GET_LATEST*/) const
 
 }
 
+std::pair<bool, Date>
+ExpressionValue::
+hasKey(const Utf8String & key) const
+{
+    switch (type_) {
+    case NONE:
+    case ATOM:
+        return { false, Date::negativeInfinity() };
+    case ROW: 
+    case STRUCT: {
+        Date outputDate = Date::negativeInfinity();
+        auto onExpr = [&] (const Id & columnName,
+                           const Id & prefix,
+                           const ExpressionValue & val)
+            {
+                if (columnName.toUtf8String() == key) {
+                    outputDate = val.getEffectiveTimestamp();
+                    return false;
+                }
+
+                return true;
+            };
+     
+        // Can't be with next line due to sequence points
+        bool result = !forEachSubexpression(onExpr);
+        return { result, outputDate };
+    }
+    }
+
+    throw HttpReturnException(500, "Unknown expression type",
+                              "expression", *this,
+                              "type", (int)type_);
+}
+
+std::pair<bool, Date>
+ExpressionValue::
+hasValue(const ExpressionValue & val) const
+{
+    switch (type_) {
+    case NONE:
+    case ATOM:
+        return { false, Date::negativeInfinity() };
+    case ROW: 
+    case STRUCT: {
+        Date outputDate = Date::negativeInfinity();
+        auto onExpr = [&] (const Id & columnName,
+                           const Id & prefix,
+                           const ExpressionValue & value)
+            {
+                if (val == value) {
+                    outputDate = value.getEffectiveTimestamp();
+                    return false;
+                }
+
+                return true;
+            };
+        
+        // Can't be with next line due to sequence points
+        bool result = !forEachSubexpression(onExpr);
+        return { result, outputDate };
+    }
+    }
+
+    throw HttpReturnException(500, "Unknown expression type",
+                              "expression", *this,
+                              "type", (int)type_);
+}
+
 size_t
 ExpressionValue::
 hash() const

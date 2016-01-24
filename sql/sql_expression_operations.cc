@@ -1,9 +1,10 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+// 
 
 /** sql_expression_operations.cc
     Jeremy Barnes, 24 February 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
 
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #include "sql_expression_operations.h"
@@ -1779,7 +1780,8 @@ InExpression(std::shared_ptr<SqlExpression> expr,
              bool negative)
     : expr(std::move(expr)),
       tuple(std::move(tuple)),
-      isnegative(negative)
+      isnegative(negative),
+      kind(TUPLE)
 {
 }
 
@@ -1787,11 +1789,25 @@ InExpression::
 InExpression(std::shared_ptr<SqlExpression> expr,
              std::shared_ptr<SelectSubtableExpression> subtable,
              bool negative)
-: expr(std::move(expr)),
+    : expr(std::move(expr)),
       subtable(std::move(subtable)),
-      isnegative(negative)
+      isnegative(negative),
+      kind(SUBTABLE)
 {
 
+}
+
+InExpression::
+InExpression(std::shared_ptr<SqlExpression> expr,
+             std::shared_ptr<SqlExpression> setExpr,
+             bool negative,
+             Kind kind)
+    : expr(std::move(expr)),
+      setExpr(std::move(setExpr)),
+      isnegative(negative),
+      kind(kind)
+{
+    ExcAssert(kind == KEYS || kind == VALUES);
 }
 
 BoundSqlExpression
@@ -1800,11 +1816,15 @@ bind(SqlBindingScope & context) const
 {
     BoundSqlExpression boundExpr  = expr->bind(context);
 
-    if (subtable)
-    {
+    //cerr << "boundExpr: " << expr->print() << " has subtable " << subtable
+    //     << endl;
+
+    switch (kind) {
+    case SUBTABLE: {
         BoundTableExpression boundTable = subtable->bind(context);
 
-        // TODO: we need to detect a correlated subquery
+        // TODO: we need to detect a correlated subquery.  This means that
+        // the query depends upon variables from the surrounding scope.
         bool correlatedSubquery = false;
 
         if (correlatedSubquery) {
@@ -1819,10 +1839,10 @@ bind(SqlBindingScope & context) const
             // for all.  We do this by getting the first column and making
             // it into a set
 
-            static const SelectExpression select = SelectExpression::parse("*");
-            static const WhenExpression when = WhenExpression::parse("true");
+            static const SelectExpression select = SelectExpression::STAR;
+            static const WhenExpression when = WhenExpression::TRUE;
             static const OrderByExpression orderBy;
-            static const std::shared_ptr<SqlExpression> where = SqlExpression::parse("true");
+            static const std::shared_ptr<SqlExpression> where = SqlExpression::TRUE;
             ssize_t offset = 0;
             ssize_t limit = -1;
 
@@ -1870,8 +1890,7 @@ bind(SqlBindingScope & context) const
             return { exec, this, std::make_shared<BooleanValueInfo>() };
         }
     }
-    else
-    {
+    case TUPLE: {
         // We have an explicit tuple, not a subquery.
 
         std::vector<BoundSqlExpression> tupleExpressions;
@@ -1891,7 +1910,9 @@ bind(SqlBindingScope & context) const
             if (v.empty())
                 return storage = v;
 
-            for (auto item : tupleExpressions)
+
+
+            for (auto & item : tupleExpressions)
             {
                 const ExpressionValue & itemValue = item(rowScope, istorage);
 
@@ -1911,6 +1932,65 @@ bind(SqlBindingScope & context) const
         this,
         std::make_shared<BooleanValueInfo>()};
     }
+    case KEYS: {
+        BoundSqlExpression boundSet = setExpr->bind(context);
+
+        return {[=] (const SqlRowScope & rowScope,
+                     ExpressionValue & storage) -> const ExpressionValue &
+        {
+            ExpressionValue vstorage, istorage;
+
+            const ExpressionValue & s = boundSet(rowScope, istorage);
+
+            if (s.empty())
+                return storage = s;
+
+            const ExpressionValue & v = boundExpr(rowScope, vstorage);
+
+            std::pair<bool, Date> found = s.hasKey(v.toUtf8String());
+            
+            if (found.first) {
+                return storage = std::move(ExpressionValue(!isnegative,
+                                                           std::max(v.getEffectiveTimestamp(),
+                                                                    found.second)));
+            }
+
+            return storage = std::move(ExpressionValue(isnegative, v.getEffectiveTimestamp()));
+        
+        },
+        this,
+        std::make_shared<BooleanValueInfo>()};
+    }
+    case VALUES: {
+        BoundSqlExpression boundSet = setExpr->bind(context);
+
+        return {[=] (const SqlRowScope & rowScope,
+                     ExpressionValue & storage) -> const ExpressionValue &
+        {
+            ExpressionValue vstorage, istorage;
+
+            const ExpressionValue & s = boundSet(rowScope, istorage);
+
+            if (s.empty())
+                return storage = s;
+
+            const ExpressionValue & v = boundExpr(rowScope, vstorage);
+
+            std::pair<bool, Date> found = s.hasValue(v);
+            
+            if (found.first) {
+                return storage = std::move(ExpressionValue(!isnegative,
+                                                           std::max(v.getEffectiveTimestamp(),
+                                                                    found.second)));
+            }
+
+            return storage = std::move(ExpressionValue(isnegative, v.getEffectiveTimestamp()));
+        },
+        this,
+        std::make_shared<BooleanValueInfo>()};
+    }
+    }
+    throw HttpReturnException(500, "Unknown IN expression type");
 }
 
 Utf8String
@@ -1920,10 +2000,19 @@ print() const
     Utf8String result
         = "in(\""
         + expr->print()
-        + ","
-        + (subtable ? subtable->print() : tuple->print())
-        + ")";
-    return result;
+        + ",";
+
+    switch (kind) {
+    case SUBTABLE:
+        result += "subtable," + subtable->print();  break;
+    case TUPLE:
+        result += "tuple," + tuple->print();  break;
+    case KEYS:
+        result += "keys," + setExpr->print();  break;
+    case VALUES:
+        result += "values," + setExpr->print();  break;
+    }
+    return result + ")";
 }
 
 std::shared_ptr<SqlExpression>
@@ -1933,10 +2022,18 @@ transform(const TransformArgs & transformArgs) const
     auto result = std::make_shared<InExpression>(*this);
     result->expr  = result->expr->transform(transformArgs);
 
-    if (subtable)
+    switch (kind) {
+    case SUBTABLE:
         result->subtable = std::make_shared<SelectSubtableExpression>(*(result->subtable));
-    else
+        break;
+    case TUPLE:
         result->tuple = std::make_shared<TupleExpression>(result->tuple->transform(transformArgs));
+        break;
+    case KEYS:
+    case VALUES:
+        result->setExpr = setExpr->transform(transformArgs);
+        break;
+    }
 
     return result;
 }
@@ -1952,24 +2049,43 @@ Utf8String
 InExpression::
 getOperation() const
 {
-    return Utf8String();
+    switch (kind) {
+    case SUBTABLE:
+        return "subtable";
+    case TUPLE:
+        return "tuple";
+    case KEYS:
+        return "keys";
+    case VALUES:
+        return "values";
+    }
+
+    throw HttpReturnException(500, "Unknown IN expression type");
 }
 
 std::vector<std::shared_ptr<SqlExpression> >
 InExpression::
 getChildren() const
 {
-    std::vector<std::shared_ptr<SqlExpression> > childrens;
+    std::vector<std::shared_ptr<SqlExpression> > children;
 
-    childrens.emplace_back(std::move(expr));
+    children.emplace_back(std::move(expr));
 
-    if (tuple)
-    {
-        childrens.insert(childrens.end(), tuple->clauses.begin(), tuple->clauses.end());
+    switch (kind) {
+    case SUBTABLE:
+        return children;
+    case TUPLE:
+        children.insert(children.end(), tuple->clauses.begin(), tuple->clauses.end());
+        return children;
+    case KEYS:
+    case VALUES:
+        children.emplace_back(setExpr);
+        return children;
     }
 
-    return childrens;
+    throw HttpReturnException(500, "Unknown IN expression type");
 }
+
 
 /*****************************************************************************/
 /* CAST EXPRESSION                                                           */

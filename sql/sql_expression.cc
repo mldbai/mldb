@@ -1389,11 +1389,10 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         if ((negative = matchKeyword(context, "NOT IN")) || matchKeyword(context, "IN"))
         {
             expect_whitespace(context);
+
             context.expect_literal('(');
-            
             skip_whitespace(context);
-            if (peekKeyword(context, "SELECT"))
-            { 
+            if (peekKeyword(context, "SELECT")) {
                 //sub-table
                 auto statement = SelectStatement::parse(context, allowUtf8);
                            
@@ -1406,8 +1405,21 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
                 lhs = std::make_shared<InExpression>(lhs, rhs, negative);
                 lhs->surface = ML::trim(token.captured());                
             }
-            else
-            {
+            else if (matchKeyword(context, "KEYS OF")) {
+                auto rhs = SqlExpression::parse(context, allowUtf8, 10);
+                skip_whitespace(context);
+                context.expect_literal(')');
+                lhs = std::make_shared<InExpression>(lhs, rhs, negative, InExpression::KEYS);
+                lhs->surface = ML::trim(token.captured());                
+            }
+            else if (matchKeyword(context, "VALUES OF")) {
+                auto rhs = SqlExpression::parse(context, allowUtf8, 10);
+                skip_whitespace(context);
+                context.expect_literal(')');
+                lhs = std::make_shared<InExpression>(lhs, rhs, negative, InExpression::VALUES);
+                lhs->surface = ML::trim(token.captured());                
+            }
+            else {
                 auto rhs = std::make_shared<TupleExpression>(TupleExpression::parse(context, allowUtf8));
 
                 context.expect_literal(')');
@@ -1415,7 +1427,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
                 lhs = std::make_shared<InExpression>(lhs, rhs, negative);
                 lhs->surface = ML::trim(token.captured());
                 continue;
-            }     
+            }
         }
 
         // Now look for an operator
