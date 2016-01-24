@@ -480,6 +480,17 @@ getKnownColumnInfo(const ColumnName & columnName) const
                        COLUMN_IS_SPARSE);
 }
 
+std::vector<KnownColumn>
+Dataset::
+getKnownColumnInfos(const std::vector<ColumnName> & columnNames) const
+{
+    std::vector<KnownColumn> result;
+    result.reserve(columnNames.size());
+    for (auto & columnName: columnNames)
+        result.emplace_back(getKnownColumnInfo(columnName));
+    return result;
+}
+
 std::shared_ptr<RowValueInfo>
 Dataset::
 getRowInfo() const
