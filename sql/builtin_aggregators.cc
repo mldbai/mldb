@@ -114,56 +114,29 @@ struct AggregatorT {
 
     //////// Row ///////////
 
-    // Analyzes the input arguments for a row, and figures out:
-    // a) what kind of output will be produced
-    // b) what is the best way to implement the query
-    // First output: information about the row
-    // Second output: is it dense (in other words, all rows are the same)?
-    static std::pair<std::shared_ptr<RowValueInfo>, bool>
-    getRowInfo(const std::vector<BoundSqlExpression> & args)
-    {
-        ExcAssertEqual(args.size(), 1);
-        ExcAssert(args[0].info);
-
-        // Create a value info object for the output.  It has the same
-        // shape as the input row, but the field type is whatever the
-        // value info provides.
-        auto outputColumnInfo = State::info(args);
-
-        auto cols = args[0].info->getKnownColumns();
-        SchemaCompleteness hasUnknown = args[0].info->getSchemaCompleteness();
-
-        // Is this regular (one and only one value)?  If so, then we
-        // can be far more optimized about it
-        bool oneOnly = true;
-
-        // For each known column, give the output type
-        for (KnownColumn & c: cols) {
-            if (c.sparsity == COLUMN_IS_SPARSE)
-                oneOnly = false;
-            c.valueInfo = outputColumnInfo;
-            c.sparsity = COLUMN_IS_DENSE;  // always one for each
-        }
-
-        std::sort(cols.begin(), cols.end(),
-                  [] (const KnownColumn & c1, const KnownColumn & c2)
-                  {
-                      return c1.columnName < c2.columnName;
-                  });
-        
-        return { std::make_shared<RowValueInfo>(cols, hasUnknown), oneOnly };
-    }
-
     /** Structure used to keep the state when in row mode.  It keeps a separate
         state for each of the columns.
     */
     struct SparseRowState {
+        SparseRowState()
+        {
+        }
+        
         std::unordered_map<ColumnName, State> columns;
 
         void process(const ExpressionValue * args, size_t nargs)
         {
             ExcAssertEqual(nargs, 1);
             const ExpressionValue & val = args[0];
+
+            if (false /* dense */) {
+                for (auto & col: val.getRow()) {
+                    columns[std::get<0>(col)].process(&std::get<1>(col), 1);
+                }
+
+                return;
+            }
+
 
             // This must be a row...
             auto onSubExpression = [&] (const Id & columnName,
@@ -200,7 +173,6 @@ struct AggregatorT {
 
     };
 
-#if 0
     /** Structure used to keep the state when in row mode.  It must be
         passed exactly the same values in exactly the same order from
         invocation to invocation.  It keeps a much cheaper separate
@@ -214,80 +186,156 @@ struct AggregatorT {
         }
         
         std::vector<ColumnName> columnNames;
-        std::vector<ColumnName> columnState;
+        std::vector<State> columnState;
 
         void process(const ExpressionValue * args, size_t nargs)
         {
             ExcAssertEqual(nargs, 1);
             const ExpressionValue & val = args[0];
-
-            // This must be a row... which we can use to process
-            // exactly the same elements in exactly the same order
-            auto onSubExpression = [&] (const Id & columnName,
-                                        const ExpressionValue & val)
-                {
-                    columns[columnName].process(&val, 1);
-                    return true;
-                };
-
-            // will keep only the LATEST of each column (if there are duplicates)
-            auto filteredRow = std::move(val.getFiltered(GET_LATEST));
-
-            for (auto c : filteredRow)
-                onSubExpression(std::get<0>(c), std::get<1>(c));
+            
+            int64_t n = 0;
+            for (auto & col: val.getRow()) {
+                ExcAssertLess(n, columnNames.size());
+                ExcAssertEqual(columnNames[n], std::get<0>(col));
+                columnState[n++].process(&std::get<1>(col), 1);
+            }
         }
 
         ExpressionValue extract()
         {
             StructValue result;
 
-            for (auto & v: columns) {
-                result.emplace_back(v.first, v.second.extract());
+            for (unsigned i = 0;  i < columnNames.size();  ++i) {
+                result.emplace_back(columnNames[i],
+                                    columnState[i].extract());
             }
 
             return ExpressionValue(std::move(result));
         }
 
-        void merge(RowState* from)
+        void merge(DenseRowState* from)
         {
-            for (auto & v: from->columns) {
-                columns[v.first].merge(&v.second);
+            for (unsigned i = 0;  i < columnNames.size();  ++i) {
+                columnState[i].merge(&from->columnState[i]);
             }
         }
     };
 
-    static std::shared_ptr<RowState> rowInit()
+    static std::shared_ptr<SparseRowState> sparseRowInit()
     {
-        return std::make_shared<RowState>();
+        return std::make_shared<SparseRowState>();
     }
     
-    static void rowProcess(const ExpressionValue * args,
-                           size_t nargs,
-                           void * data)
+    static void sparseRowProcess(const ExpressionValue * args,
+                                 size_t nargs,
+                                 void * data)
     {
-        RowState * state = static_cast<RowState *>(data);
+        SparseRowState * state = static_cast<SparseRowState *>(data);
         state->process(args, nargs);
     }
 
-    static void rowMerge(void* dest, void* src)
+    static void sparseRowMerge(void* dest, void* src)
     {
-        RowState * state = static_cast<RowState *>(dest);
-        RowState * srcState = static_cast<RowState *>(src);
+        SparseRowState * state = static_cast<SparseRowState *>(dest);
+        SparseRowState * srcState = static_cast<SparseRowState *>(src);
         state->merge(srcState);
     }
 
-    static ExpressionValue rowExtract(void * data)
+    static ExpressionValue sparseRowExtract(void * data)
     {
-        RowState * state = static_cast<RowState *>(data);
+        SparseRowState * state = static_cast<SparseRowState *>(data);
         return state->extract();
     }
+
+    static std::shared_ptr<DenseRowState>
+    denseRowInit(const std::vector<ColumnName> & columnNames)
+    {
+        return std::make_shared<DenseRowState>(columnNames);
+    }
+    
+    static void denseRowProcess(const ExpressionValue * args,
+                                 size_t nargs,
+                                 void * data)
+    {
+        DenseRowState * state = static_cast<DenseRowState *>(data);
+        state->process(args, nargs);
+    }
+
+    static void denseRowMerge(void* dest, void* src)
+    {
+        DenseRowState * state = static_cast<DenseRowState *>(dest);
+        DenseRowState * srcState = static_cast<DenseRowState *>(src);
+        state->merge(srcState);
+    }
+
+    static ExpressionValue denseRowExtract(void * data)
+    {
+        DenseRowState * state = static_cast<DenseRowState *>(data);
+        return state->extract();
+    }
+
 
     /** Entry point for when we are called with the first argument returning a
         row.  This does an aggregation per column in the row.
     */
     static BoundAggregator enterRow(const std::vector<BoundSqlExpression> & args)
     {
-        return { rowInit, rowProcess, rowExtract, rowMerge, RowState::info(args) };
+        // Analyzes the input arguments for a row, and figures out:
+        // a) what kind of output will be produced
+        // b) what is the best way to implement the query
+        // First output: information about the row
+        // Second output: is it dense (in other words, all rows are the same)?
+        ExcAssertEqual(args.size(), 1);
+        ExcAssert(args[0].info);
+
+        // Create a value info object for the output.  It has the same
+        // shape as the input row, but the field type is whatever the
+        // value info provides.
+        auto outputColumnInfo = State::info(args);
+
+        auto cols = args[0].info->getKnownColumns();
+        SchemaCompleteness hasUnknown = args[0].info->getSchemaCompleteness();
+
+        // Is this regular (one and only one value)?  If so, then we
+        // can be far more optimized about it
+        bool isDense = true;
+
+        std::vector<ColumnName> denseColumnNames;
+
+        // For each known column, give the output type
+        for (KnownColumn & c: cols) {
+            if (c.sparsity == COLUMN_IS_SPARSE)
+                isDense = false;
+            c.valueInfo = outputColumnInfo;
+            c.sparsity = COLUMN_IS_DENSE;  // always one for each
+            denseColumnNames.push_back(c.columnName);
+        }
+
+        std::sort(cols.begin(), cols.end(),
+                  [] (const KnownColumn & c1, const KnownColumn & c2)
+                  {
+                      return c1.columnName < c2.columnName;
+                  });
+
+        
+        auto rowInfo = std::make_shared<RowValueInfo>(cols, hasUnknown);
+
+        if (!isDense) {
+            return { sparseRowInit,
+                     sparseRowProcess,
+                     sparseRowExtract,
+                     sparseRowMerge,
+                     rowInfo };
+        }
+        else {
+            // Use an optimized version, assuming everything comes in in the
+            // same order as the 
+            return { std::bind(denseRowInit, denseColumnNames),
+                     denseRowProcess,
+                     denseRowExtract,
+                     denseRowMerge,
+                     rowInfo };
+        }
     }
 
     //////// Ambiguous ///////////
@@ -295,7 +343,7 @@ struct AggregatorT {
     {
         AmbiguousState() { isDetermined = false; isRow = false;}
 
-        RowState rowState;
+        SparseRowState rowState;
         State    scalarState;
         bool     isDetermined;
         bool     isRow;
