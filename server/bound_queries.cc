@@ -555,7 +555,8 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
         //     << sorted.size() << " total" << endl;
 
         size_t numProcessed = std::min(NUM_TO_SAMPLE, rows.size());
-        while (limit == -1 || sorted.size() < offset + limit) {
+        while (numProcessed < rows.size()
+               && (limit == -1 || sorted.size() < offset + limit)) {
             double hitRate = 1.0 * sorted.size() / numProcessed;
             size_t numRequired = rows.size();
             if (limit != -1) {
