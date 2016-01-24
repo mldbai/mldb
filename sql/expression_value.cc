@@ -1281,10 +1281,26 @@ appendToRow(const Id & columnName, StructValue & row) const
     forEachSubexpression(onSubexpr, columnName);
 }
 
+size_t
+ExpressionValue::
+rowLength() const
+{
+    if (type_ == ROW) {
+        return row_->size();
+    }
+    else if (type_ == STRUCT) {
+        return struct_->length();
+    }
+    else throw HttpReturnException(500, "Attempt to access non-row as row",
+                                   "value", *this);
+}
+
 void
 ExpressionValue::
 mergeToRowDestructive(StructValue & row)
 {
+    row.reserve(row.size() + rowLength());
+
     auto onSubexpr = [&] (ColumnName & columnName,
                           ExpressionValue & val)
         {
@@ -1292,13 +1308,15 @@ mergeToRowDestructive(StructValue & row)
             return true;
         };
 
-    forEachColumnDestructive(onSubexpr);
+    forEachColumnDestructiveT(onSubexpr);
 }
 
 void 
 ExpressionValue::
 mergeToRowDestructive(RowValue & row)
 {
+    row.reserve(row.size() + rowLength());
+
     auto onSubexpr = [&] (ColumnName & columnName,
                           ExpressionValue & val)
         {
@@ -1306,7 +1324,7 @@ mergeToRowDestructive(RowValue & row)
             return true;
         };
 
-    forEachColumnDestructive(onSubexpr);
+    forEachColumnDestructiveT(onSubexpr);
 }
 
 bool
@@ -1404,6 +1422,14 @@ bool
 ExpressionValue::
 forEachColumnDestructive(const std::function<bool (Id & columnName, ExpressionValue & val)>
                                 & onSubexpression) const
+{
+    return forEachColumnDestructiveT(onSubexpression);
+}
+
+template<typename Fn>
+bool
+ExpressionValue::
+forEachColumnDestructiveT(Fn && onSubexpression) const
 {
     switch (type_) {
     case ROW: {
