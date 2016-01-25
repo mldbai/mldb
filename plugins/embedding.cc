@@ -286,6 +286,37 @@ struct EmbeddingDataset::Itl
         return result;
     }
 
+    struct EmbeddingRowStream : public RowStream {
+
+        EmbeddingRowStream(const EmbeddingDataset::Itl* source) : index(0), source(source)
+        {
+         
+        }
+
+        virtual std::shared_ptr<RowStream> clone() const{
+            auto ptr = std::make_shared<EmbeddingRowStream>(source);
+            return ptr;
+        }
+
+        virtual void initAt(size_t start){
+            index = start;
+        }
+
+        virtual RowName next() {
+            auto repr = source->committed();     
+            return repr->rows[index++].rowName;
+        }
+
+        size_t index;
+        const EmbeddingDataset::Itl* source;
+    };
+
+    std::shared_ptr<RowStream>
+    getRowStream() const
+    {
+        return std::make_shared<EmbeddingRowStream>(this);
+    }
+
     virtual std::vector<RowHash>
     getRowHashes(ssize_t start = 0, ssize_t limit = -1) const
     {
@@ -1044,6 +1075,13 @@ EmbeddingDataset::
 getColumnIndex() const
 {
     return itl;
+}
+
+std::shared_ptr<RowStream> 
+EmbeddingDataset::
+getRowStream() const
+{
+    return itl->getRowStream();
 }
 
 BoundFunction

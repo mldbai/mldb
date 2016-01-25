@@ -52,6 +52,7 @@ struct JoinedDataset: public Dataset {
     
     virtual std::shared_ptr<MatrixView> getMatrixView() const;
     virtual std::shared_ptr<ColumnIndex> getColumnIndex() const;
+    virtual std::shared_ptr<RowStream> getRowStream() const;
 
     virtual void getChildAliases(std::vector<Utf8String>&) const;
 

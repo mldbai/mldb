@@ -49,14 +49,17 @@ CsvDatasetConfigDescription::CsvDatasetConfigDescription()
     addField("delimiter", &CsvDatasetConfig::delimiter,
              "Delimiter for column separation", string(","));
     addField("limit", &CsvDatasetConfig::limit,
-             "Maximum number of lines to process");
+             "Maximum number of lines to process.  Bad lines including empty lines "
+             "contribute to the limit.  As a result, it is possible for the dataset "
+             "to contain less rows that the requested limit.");
     addField("offset", &CsvDatasetConfig::offset,
             "Skip the first n lines (excluding the header if present).", int64_t(0));
     addField("encoding", &CsvDatasetConfig::encoding,
              "Character encoding of file: 'us-ascii', 'ascii', 'latin1', 'iso8859-1', 'utf8' or 'utf-8'",
              string("utf-8"));
     addField("ignoreBadLines", &CsvDatasetConfig::ignoreBadLines,
-             "If true, any line causing an error will be skipped.", false);
+             "If true, any line causing an error will be skipped. "
+             "Empty lines are considered bad lines.", false);
     addField("replaceInvalidCharactersWith",
              &CsvDatasetConfig::replaceInvalidCharactersWith,
              "If this is set, it should be a single Unicode character that badly "
@@ -616,7 +619,6 @@ struct CsvDataset::Itl: public TabularDataStore {
             // Read header line
             std::getline(stream, header);
             lineOffset += 1;
-            
             ML::Parse_Context pcontext(filename, 
                                        header.c_str(), header.length(), 1, 0);
             
@@ -743,6 +745,22 @@ struct CsvDataset::Itl: public TabularDataStore {
 
         ML::Timer timer;
 
+        auto handleError = [&](const std::string & message, 
+                               int64_t lineNumber, 
+                               int64_t columnNumber, 
+                               const std::string& line) {
+            if (config.ignoreBadLines) {
+                ++numSkipped;
+                return true;
+            }
+            
+            throw HttpReturnException(400, "Error parsing CSV row: "
+                                      + message,
+                                      "lineNumber", lineNumber,
+                                      "columnNumber", columnNumber, 
+                                      "line", line);
+        };
+
         auto onLine = [&] (const char * line,
                            size_t length,
                            int chunkNum,
@@ -751,15 +769,18 @@ struct CsvDataset::Itl: public TabularDataStore {
                 //cerr << "doing line with lineNum " << lineNum << endl;
                 //cerr << "online " << string(line, length) << endl;
                 
+                int64_t actualLineNum = lineNum + lineOffset;
                 uint64_t linesDone = totalLinesProcessed.fetch_add(1);
+
                 if (linesDone && linesDone % 1000000 == 0) {
                     double wall = timer.elapsed_wall();
                     cerr << "done " << linesDone << " in " << wall
                          << "s at " << linesDone / wall * 0.000001 << "M lines/second on "
                          << timer.elapsed_cpu() / timer.elapsed_wall() << " CPUs" << endl;
                 }
-                if (length == 0)
-                    return true;
+
+                if (length == 0) 
+                    return handleError("empty line", actualLineNum, 0, ""); // MLDB-1111 empty lines are treated as error
                 
                 TabularDatasetChunk & threadAccum = accum.get();
 
@@ -782,22 +803,12 @@ struct CsvDataset::Itl: public TabularDataStore {
                                             inputColumnNames.size(),
                                             separator, quote, encoding,
                                             replaceInvalidCharactersWith);
-                if (errorMsg) {
-                    if (config.ignoreBadLines) {
-                        ++numSkipped;
-                        return true;
-                    }
-
-                    throw HttpReturnException(400, "Error parsing CSV row: "
-                                              + string(errorMsg),
-                                              "lineNumber", lineNum,
-                                              "columnNumber", line - lineStart + 1,
-                                              "line", string(line, length));
-                }
+                if (errorMsg)
+                    return handleError(errorMsg, actualLineNum, line - lineStart + 1, string(line, length));
 
                 //cerr << "got values " << jsonEncode(vector<CellValue>(values, values + inputColumnNames.size())) << endl;
                     
-                auto row = scope.bindRow(&values[0], ts, lineNum, 0 /* todo: chunk ofs */);
+                auto row = scope.bindRow(&values[0], ts, actualLineNum, 0 /* todo: chunk ofs */);
 
                 // If it doesn't match the where, don't add it 
                 if (!isWhereTrue) {
@@ -822,7 +833,7 @@ struct CsvDataset::Itl: public TabularDataStore {
                 if (isIdentitySelect) {
                     // If it's a select *, we don't really need to run the
                     // select clause.  We simply go for it.
-                    threadAccum.add(lineNum, std::move(rowName), rowTs, &values[0]);
+                    threadAccum.add(actualLineNum, std::move(rowName), rowTs, &values[0]);
                 }
                 else {
                     // TODO: optimization for
@@ -858,7 +869,7 @@ struct CsvDataset::Itl: public TabularDataStore {
                             valuesOut[i] = std::get<1>(selectRow[i]).getAtom();
                     }
                     
-                    threadAccum.add(lineNum, std::move(rowName), rowTs, &valuesOut[0]);
+                    threadAccum.add(actualLineNum, std::move(rowName), rowTs, &valuesOut[0]);
                 }
                 //cerr << "row = " << jsonEncodeStr(selectRow) << endl;
 
@@ -897,7 +908,7 @@ struct CsvDataset::Itl: public TabularDataStore {
                 //threadAccum.emplace_back(std::move(lineEntry));
             };
 
-        forEachLineBlock(stream, onLine, lineOffset, config.limit);
+        forEachLineBlock(stream, onLine, config.limit);
 
         cerr << timer.elapsed() << endl;
         timer.restart();
@@ -1031,6 +1042,13 @@ getColumnIndex() const
 {
     return itl;
 }
+
+std::shared_ptr<RowStream> 
+CsvDataset::
+getRowStream() const 
+{ 
+    return std::make_shared<TabularDataStore::TabularDataStoreRowStream>(itl.get()); 
+} 
 
 GenerateRowsWhereFunction
 CsvDataset::

@@ -173,6 +173,26 @@ struct ColumnIndex {
     virtual uint64_t getColumnRowCount(const ColumnName & column) const;
 };
 
+/*****************************************************************************/
+/* ROW STREAM                                                                */
+/*****************************************************************************/
+
+struct RowStream {
+
+    /* Clone the stream with just enough information to use the initAt 
+       clones streams should be un-initialized                        */
+    virtual std::shared_ptr<RowStream> clone() const = 0;
+
+    /* set where the stream should start*/
+    virtual void initAt(size_t start) = 0;
+
+    /* Return the current RowName and move the stream forward 
+       for performance, this method shall NOT do bound checking 
+       so be sure to obtain the maximum number of rows beforehand 
+       using MatrixView::getRowCount for example */
+    virtual RowName next() = 0;
+
+};
 
 /*****************************************************************************/
 /* DATASET                                                                   */
@@ -358,6 +378,7 @@ struct Dataset: public MldbEntity {
 
     virtual std::shared_ptr<MatrixView> getMatrixView() const = 0;
     virtual std::shared_ptr<ColumnIndex> getColumnIndex() const = 0;
+    virtual std::shared_ptr<RowStream> getRowStream() const { return std::shared_ptr<RowStream>(); } //optional but recommanded for performance
 
     /** Return the range of timestamps in the file.  The default implementation
         will scan the whole dataset, but other implementions may override for

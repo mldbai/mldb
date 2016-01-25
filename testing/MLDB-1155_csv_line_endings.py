@@ -28,7 +28,6 @@ for ext in open_functions:
     assert result["statusCode"] == 200
     assert json.loads(result['response'])[3][2] == "hello"
 
-
     # CSV importation should not complain about number of values when missing last column
     # with DOS line endings
     with open_function("tmp/csv_newline_missing_last_column_dos"+ext, 'wb') as f:
@@ -128,8 +127,6 @@ for ext in open_functions:
     assert result["statusCode"] == 200
     assert json.loads(result['response'])[1][1] == 1
     assert json.loads(result['response'])[1][2] == "hello"
-
-
 
     # CSV importation should not fail with "bad seek" if missing trailing newline
     with open_function("tmp/csv_newline_missing_last"+ext, 'wb') as f:

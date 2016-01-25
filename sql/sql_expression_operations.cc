@@ -1394,9 +1394,7 @@ bindBuiltinFunction(SqlBindingScope & context, std::vector<BoundSqlExpression>& 
             throw HttpReturnException(400, "Builtin function " + functionName
                                    + " should not have an extract [] expression, got " + extract->print() );
 
-    Utf8String functionNameLower(boost::algorithm::to_lower_copy(functionName.extractAscii()));
-
-    bool isAggregate = tryLookupAggregator(functionNameLower) != nullptr;
+    bool isAggregate = tryLookupAggregator(functionName) != nullptr;
 
     if (isAggregate)
     {
