@@ -424,7 +424,7 @@ number of occurrences of those tokens within `str`. For example `tokenize('a b b
 
 ### JSON unpacking <a name="unpack_json"></a>
 
-The `unpack_json(str)` function will parse the string `str` as a JSON object and unpack it into multiple columns following the following algorithm: 
+The `unpack_json(str)` function will parse the string `str` as a JSON object and unpack it into multiple columns following the  algorithm outlined below. Note that JSON objects shown in the tables below are string reprensetations of the JSONs.
 
 Each `(key, value)` pair will be recorded as the column name and cell value respectively. The line `{"a": 5, "b": true}` is recorded as:
 
@@ -449,7 +449,7 @@ will be appended to the column name and the cell value will be set to `true`. Th
 | row1 | 5 | true | true | true |
 
 If the value is an array that contains only objects, we unpack the array putting one
-JSON object per column. The line `{"a": 5, "b": [{"z": 1}, {"y": 2}]}` is recorded as:
+JSON object per column encoded as a string. The line `{"a": 5, "b": [{"z": 1}, {"y": 2}]}` is recorded as:
 
 | *rowName* | *a* | *b.0* | *b.1* |
 |-----------|-----|-----|-------|
