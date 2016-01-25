@@ -209,11 +209,15 @@ SqlExpressionFunctionConfigDescription()
              "Do we pre-prepare the expression to be run many times quickly?  "
              "If this is true, it will only be bound once, for generic "
              "inputs, and so will allow for quick individual queries, "
-             "possibly at the expense of batch queries being slower.  "
+             "possibly at the expense of batch queries being slower.  In "
+             "this case, the expression also cannot refer to variables "
+             "outside of the arguments to the expression.  "
              "If this is false, the default, then for every query the "
-             "expression will be specialized for that query's data type. "
+             "expression will be specialized (rebound) for that query's "
+             "data type.  "
              "This can lead to faster batch queries, at the expense of a "
-             "possibly high per-query overhead for individual queries.");
+             "possibly high per-query overhead for individual queries.",
+             false);
 }
 
 SqlExpressionFunction::
