@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** binding_contexts.h                                             -*- C++ -*-
     Jeremy Barnes, 15 March 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Binding contexts for dealing with scopes.
 */
@@ -168,6 +168,34 @@ struct SqlExpressionWhenScope: public ReadThroughBindingContext {
      * optimize the execution of SQL query.
      */
     bool isTupleDependent;
+};
+
+
+/*****************************************************************************/
+/* SQL EXPRESSION PARAM SCOPE                                                */
+/*****************************************************************************/
+
+/** Scope that only binds parameters, ie entities referenced as $xxx which
+    are passed in after binding but are constant for each query execution.
+*/
+
+struct SqlExpressionParamScope: public SqlBindingScope {
+
+    struct RowScope: public SqlRowScope {
+        RowScope(const BoundParameters & params)
+            : params(params)
+        {
+        }
+
+        const BoundParameters & params;
+    };
+    
+    virtual VariableGetter doGetBoundParameter(const Utf8String & paramName);
+
+    static RowScope getRowScope(const BoundParameters & params)
+    {
+        return RowScope(params);
+    }
 };
 
 

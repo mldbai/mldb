@@ -1,9 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** execution_pipeline.h                                           -*- C++ -*-
     Jeremy Barnes, 27 August 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
 
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #pragma once
@@ -309,8 +308,8 @@ struct PipelineElement: public std::enable_shared_from_this<PipelineElement> {
     std::shared_ptr<PipelineElement>
     from(std::shared_ptr<TableExpression> from,
          WhenExpression when,
-         SelectExpression select = SelectExpression::parse("*"),
-         std::shared_ptr<SqlExpression> where = SqlExpression::parse("true"),
+         SelectExpression select = SelectExpression::STAR,
+         std::shared_ptr<SqlExpression> where = SqlExpression::TRUE,
          OrderByExpression orderBy = OrderByExpression());
 
     /** Add a join to the pipeline. */
@@ -320,7 +319,7 @@ struct PipelineElement: public std::enable_shared_from_this<PipelineElement> {
          std::shared_ptr<SqlExpression> on,
          JoinQualification joinQualification,
          SelectExpression select = SelectExpression(),
-         std::shared_ptr<SqlExpression> where = SqlExpression::parse("true"),
+         std::shared_ptr<SqlExpression> where = SqlExpression::TRUE,
          OrderByExpression orderBy = OrderByExpression());
     
     std::shared_ptr<PipelineElement>

@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 /** sql_expression.h                                               -*- C++ -*-
     Jeremy Barnes, 24 January 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
 
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #pragma once
@@ -172,8 +172,8 @@ struct BoundSqlExpression {
     /// Metadata for the expression
     BoundExpressionMetadata metadata;
 
-    /** Attempt to extract the value of this expression as a constant.  Only really
-        makes sense when metadata.isConstant is true.
+    /** Attempt to extract the value of this expression as a constant.  Only
+        really makes sense when metadata.isConstant is true.
     */
     ExpressionValue constantValue() const;
 
@@ -1159,6 +1159,9 @@ struct TupleExpression {  // TODO: should be a row expression
         expression so that the order by expression stands on its own.
     */
     TupleExpression substitute(const SelectExpression & select) const;
+
+    /** Are all clauses constant? */
+    bool isConstant() const;
 };
 
 PREDECLARE_VALUE_DESCRIPTION(TupleExpression);

@@ -563,6 +563,12 @@ struct ExpressionValue {
                                                Date ts) > & onAtom,
                      const Id & columnName = Id()) const;
 
+    /** For a row (structured) storage, returns the number of elements
+        that are in it.  Note that this is the non-flattened version,
+        ie the number of times forEachColumnDestructive will be called.
+    */
+    size_t rowLength() const;
+    
     /** Write a flattened representation of the current value to the given
         dataset row or event.
     */
@@ -578,6 +584,13 @@ struct ExpressionValue {
 
     /** Apply filter to select values in the row according to their timestamp */
     Row getFiltered(const VariableFilter & filter = GET_LATEST) const;
+
+    /// Return if it is a row, and contains the given key
+    std::pair<bool, Date> hasKey(const Utf8String & key) const;
+
+    /// Return if it is a row, and one of the elements is the given value,
+    /// treating it like a set
+    std::pair<bool, Date> hasValue(const ExpressionValue & value) const;
 
     int compare(const ExpressionValue & other) const;
 
@@ -639,6 +652,12 @@ private:
     void initRow(std::shared_ptr<const Row> row) noexcept;
 
     void setAtom(CellValue value, Date ts);
+
+    /** Same as forEachColumnDestructive, but templated on the function
+        type to allow for inlining.  Defined in expression_value.cc.
+    */
+    template<typename Fn>
+    bool forEachColumnDestructiveT(Fn && onSubexpression) const;
 
     enum Type {
         NONE,     ///< Expression is empty or not initialized yet.  Shouldn't be exposed to user.
