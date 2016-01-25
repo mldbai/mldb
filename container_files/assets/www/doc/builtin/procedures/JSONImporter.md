@@ -17,5 +17,7 @@ to store the data.
 
 * The [unpack_json](../sql/ValueExpression.md.html#unpack_json) builtin function can apply the above
 JSON unpacking algorithm to a text cell in an SQL query
-* The ![](%%doclink text.csv.tabular dataset) can be used to import a CSV file
+* The ![](%%doclink text.csv.tabular dataset) is used to import a CSV file
+* The ![](%%doclink melt procedure) is used to melt columns into many rows. This is useful
+when dealing with a JSON array of objects
 
