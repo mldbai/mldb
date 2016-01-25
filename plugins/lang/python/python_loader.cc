@@ -514,10 +514,6 @@ class mldb_wrapper(object):
     def wrap(mldb):
         return Wrapped(mldb)
 
-
-    class Exception(Exception):
-        pass
-
     class ResponseException(Exception):
         def __init__(self, response):
             self.response = response
@@ -576,33 +572,15 @@ class mldb_wrapper(object):
         def script(self):
             return self.mldb.script
 
-        def _is_args_configured(self, args, kwargs):
-            if args:
-                if bool(args) == bool(kwargs):
-                    raise mldb_wrapper.Exception(
-                        "You must define either args or kwargs")
-                if len(args) > 1:
-                    raise mldb_wrapper.Exception(
-                        "Only one argument accepted as *args")
-                if type(args[0]) is not dict:
-                    raise mldb_wrapper.Exception(
-                        "*args must be of type dict")
-                return True
-            return False
-
-        def get(self, url, *args, **kwargs):
+        def get(self, url, **kwargs):
             iter_on = None
-            if self._is_args_configured(args, kwargs):
-                iter_on = args[0]
-            else:
-                iter_on = kwargs
-            query_string = [[str(k), str(v)] for k, v in iter_on.iteritems()]
+            query_string = [[str(k), str(v)] for k, v in kwargs.iteritems()]
             return self._perform('GET', url, query_string)
 
-        def _post_put(self, verb, url, *args, **kwargs):
-            if self._is_args_configured(args, kwargs):
-                return self._perform(verb, url, [], args[0])
-            return self._perform(verb, url, [], kwargs)
+        def _post_put(self, verb, url, data=None):
+            if data is None:
+                data = {}
+            return self._perform(verb, url, [], data)
 
         def delete(self, url):
             return self._perform('DELETE', url)
@@ -626,7 +604,7 @@ class mldb_wrapper(object):
             got_err = False
             for err in res.errors + res.failures:
                 got_err = True
-                log(str(err[0]) + "\n" + err[1])
+                self.log(str(err[0]) + "\n" + err[1])
 
             if not got_err:
                 self.script.set_return("success")

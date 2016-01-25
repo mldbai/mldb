@@ -26,17 +26,6 @@ class PythonMldbInterfaceTest(unittest.TestCase):
         with self.assertRaises(mldb_wrapper.ResponseException):
             mldb.get("/unexisting")
 
-        with self.assertRaises(mldb_wrapper.Exception):
-            mldb.get("/unexisting", "this is expected to be a dict")
-
-        with self.assertRaises(mldb_wrapper.Exception):
-            # expects a single *args
-            mldb.get("/unexisting", {"a" : "b"}, {"c" : "d"})
-
-        with self.assertRaises(mldb_wrapper.Exception):
-            # shouldn't define args + xargs
-            mldb.get("/unexisting", {"a" : "b"}, a='coco')
-
     def test_put(self):
         mldb.put("/v1/datasets/test_put", {
             'type' : 'sparse.mutable'
@@ -53,7 +42,6 @@ class PythonMldbInterfaceTest(unittest.TestCase):
             'rowName' : 'row1',
             'columns' : [['colA', 1, 0]]
         })
-        mldb.post(url + '/rows', rowName='row2', columns=[['colB', 1, 0]])
         mldb.post(url + '/commit')
 
     def test_delete(self):
@@ -85,9 +73,6 @@ class PythonMldbInterfaceTest(unittest.TestCase):
         self.assertEqual(res[0]['rowName'], 'row1')
         self.assertEqual(res[0]['columns'],
                          [['colA', 1, '1970-01-01T00:00:00Z']])
-
-        res2 = mldb.get('/v1/query', {'q' : 'SELECT * FROM ds'}).json()
-        self.assertEqual(res2, res)
 
     def test_query(self):
         url = '/v1/datasets/ds'
