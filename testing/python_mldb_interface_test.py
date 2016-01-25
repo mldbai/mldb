@@ -17,12 +17,7 @@ class PythonMldbInterfaceTest(unittest.TestCase):
         mldb.log("Testing log")
 
     def test_get(self):
-        res = mldb.get('/ping')
-        mldb.log(res)
-        mldb.log(res.text)
-        mldb.log(type(res))
-        mldb.log(dir(res))
-
+        mldb.get('/ping')
         with self.assertRaises(mldb_wrapper.ResponseException):
             mldb.get("/unexisting")
 
@@ -87,6 +82,17 @@ class PythonMldbInterfaceTest(unittest.TestCase):
 
         res = mldb.query('SELECT * FROM ds').json()
         self.assertEqual(res, [['_rowName', u'colA'], ['row1', 1]])
+
+    def test_response_exception(self):
+        url = "/unexisting"
+        try:
+            mldb.get(url)
+        except mldb_wrapper.ResponseException as response_exception:
+            pass
+
+        res = response_exception.response
+        self.assertEqual(res.status_code, 404)
+        self.assertEqual(res.url, url)
 
 if __name__ == '__main__':
     mldb.run_tests()
