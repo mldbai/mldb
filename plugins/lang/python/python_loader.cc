@@ -597,11 +597,6 @@ class mldb_wrapper(object):
             else:
                 iter_on = kwargs
             query_string = [[str(k), str(v)] for k, v in iter_on.iteritems()]
-<<<<<<< HEAD
-=======
-            self.mldb.log("QUERY STRING")
-            self.mldb.log(str(query_string))
->>>>>>> e5c819815332a662eb91f2a14e6483b0834b536c
             return self._perform('GET', url, query_string)
 
         def _post_put(self, verb, url, *args, **kwargs):
