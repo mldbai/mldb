@@ -575,7 +575,13 @@ struct CsvDataset::Itl: public TabularDataStore {
         filename = config.dataFileUrl.toString();
         
         // Ask for a memory mappable stream if possible
-        ML::filter_istream stream(filename, { { "mapped", "true" } });
+        ML::filter_istream stream;
+        try {
+            stream.open(filename, { { "mapped", "true" } });
+        }
+        catch (const std::exception & e) {
+             throw HttpReturnException(400, "dataFileUrl pointed to an empty file");
+        }
 
         // Get the file timestamp out
         Date ts = stream.info().lastModified;

@@ -1,6 +1,6 @@
 # This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
-import json, gzip
+import json, gzip, os
 
 open_functions = {".csv": open, ".csv.gz": gzip.open}
 
@@ -218,5 +218,22 @@ for ext in open_functions:
     assert json.loads(result['response'])[1][1] == 1
     assert json.loads(result['response'])[1][2] == 1
 
+
+# importing an empty CSV gives a specific error message
+# the problem is with boost implementation of mapped file
+# which is only possible when the file is not compressed
+path = "tmp/csv_empty.csv"
+with open(path, 'wb') as f:
+    os.utime(path, None)
+    
+result = mldb.perform("PUT", "/v1/datasets/empty_csv", [], {
+    "type": "text.csv.tabular",
+    "params": { "dataFileUrl": "file://"+path }
+})
+mldb.log(result)
+
+assert result["statusCode"] == 400, "expected the call to fail"
+assert json.loads(result['response'])["error"] == "dataFileUrl pointed to an empty file", \
+    "did not get the expected message MLDB-1299"
 
 mldb.script.set_return("success")
