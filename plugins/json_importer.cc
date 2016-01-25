@@ -13,6 +13,7 @@
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/plugins/for_each_line.h"
+#include "mldb/http/http_exception.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/sql/builtin_functions.h"
 
@@ -102,35 +103,56 @@ struct JSONImporter: public Procedure {
 
         std::atomic<int64_t> errors(0);
         std::atomic<int64_t> recordedLines(0);
+        int64_t lineOffset = 1;
+        std::string line;
+
+        ML::filter_istream stream(runProcConf.dataFileUrl.toString());
+
+        // Skip those up to the offset
+        for (size_t i = 0;  stream && i < config.offset;  ++i, ++lineOffset) {
+            getline(stream, line);
+        }
+
+        auto handleError = [&](const std::string & message, 
+                               int64_t lineNumber, 
+                               const std::string& line) {
+            if (config.ignoreBadLines) {
+                ++errors;
+                return true;
+            }
+            
+            throw HttpReturnException(400, "Error parsing CSV row: "
+                                      + message,
+                                      "lineNumber", lineNumber,
+                                      "line", line);
+        };
+
         auto onLine = [& ](const char * line,
                            size_t lineLength,
                            int64_t blockNumber,
                            int64_t lineNumber)
         {
+            int64_t actualLineNum = lineNumber + lineOffset;
+                          
+            // MLDB-1111 empty lines are treated as error
             if(lineLength == 0)
-                return true;
+                return handleError("empty line", actualLineNum, "");
 
             Json::Reader reader;
             Json::Value root;
 
-            if (!reader.parse(line, line+lineLength, root)) {
-                if(!runProcConf.ignoreBadLines)
-                    throw ML::Exception(ML::format("Unable to parse line %d to JSON", lineNumber));
-
-                errors++;
-                return true;
-            }
-
-            if(!root.isObject()) {
-                if(!runProcConf.ignoreBadLines)
-                    throw ML::Exception(ML::format("JSON at line %d is not an object", lineNumber));
-
-                errors++;
-                return true;
-            }
+            if (!reader.parse(line, line+lineLength, root))
+                return handleError("Unable to parse line %d to JSON", 
+                                   actualLineNum,
+                                   string(line, lineLength));
+            
+            if(!root.isObject())
+                return handleError("JSON is not an object",
+                                   actualLineNum,
+                                   string(line, lineLength));
 
             MatrixNamedRow outputRow;
-            outputRow.rowName = RowName(ML::format("row%d", lineNumber+1));
+            outputRow.rowName = RowName(ML::format("row%d", actualLineNum));
 
             for (const std::string & id : root.getMemberNames()) {
                 Builtins::unpackJson(outputRow.columns, id, root[id], zeroTs);
@@ -143,9 +165,7 @@ struct JSONImporter: public Procedure {
             return true;
         };
 
-
-        ML::filter_istream stream(runProcConf.dataFileUrl.toString());
-        forEachLineBlock(stream, onLine, runProcConf.offset, runProcConf.limit);
+        forEachLineBlock(stream, onLine, runProcConf.limit);
         outputDataset->commit();
 
         Json::Value result;

@@ -104,7 +104,6 @@ void forEachLineBlock(std::istream & stream,
                                           size_t lineLength,
                                           int64_t blockNumber,
                                           int64_t lineNumber)> onLine,
-                      int64_t lineOffset = 0,
                       int64_t maxLines = -1);
     
     
