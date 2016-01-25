@@ -279,9 +279,9 @@ void forEachLineBlock(std::istream & stream,
             std::shared_ptr<const char> blockOut;
 
             int64_t startOffset = byteOffset;
-
             int64_t startLine = doneLines;
             vector<size_t> lineOffsets = {0};
+            bool lastBlock = false;
 
             if (mapped) {
                 const char * start = mapped + stream.tellg();
@@ -314,6 +314,8 @@ void forEachLineBlock(std::istream & stream,
                 {
                     // Ready for another chunk
                     worker.add(doBlock, "", group);
+                } else if (current == end) {
+                    lastBlock = true;
                 }
 
                 blockOut = std::shared_ptr<const char>(start,
@@ -411,6 +413,8 @@ void forEachLineBlock(std::istream & stream,
                 {
                     // Ready for another chunk
                     worker.add(doBlock, "", group);
+                } else if (stream.eof()) {
+                    lastBlock = true;
                 }
             }
                     
@@ -430,8 +434,10 @@ void forEachLineBlock(std::istream & stream,
                 if (len > 0 && line[len - 1] == '\r')
                     --len;
 
-                if (!onLine(line, len, chunkNumber, chunkLineNumber++))
-                    return;
+                // if we are not at the last line
+                if (!lastBlock || len != 0 || i != lineOffsets.size() - 1)
+                    if (!onLine(line, len, chunkNumber, chunkLineNumber++))
+                        return;
                 
                 lastLineOffset = lineOffsets[i] + 1;
 

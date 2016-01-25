@@ -58,6 +58,37 @@ struct TransposedDataset::Itl
     {
     }
 
+    struct TransposedRowStream : public RowStream {
+
+        TransposedRowStream(TransposedDataset::Itl* source) : source(source)
+        {
+            matrix = source->matrix;
+            columns = matrix->getColumnNames();
+            column_iterator = columns.begin();
+        }
+
+        virtual std::shared_ptr<RowStream> clone() const{
+            auto ptr = std::make_shared<TransposedRowStream>(source);
+            return ptr;
+        }
+
+        virtual void initAt(size_t start){
+            column_iterator = column_iterator + start;
+        }
+
+        virtual RowName next() {
+            return TransposedDataset::Itl::colToRow(*(column_iterator++));             
+        }
+
+        //todo: suboptimal for large number of columns
+        //need a column iter interface
+        //or cache this in the transposed dataset
+        vector<ColumnName>::const_iterator column_iterator;
+        vector<ColumnName> columns;
+        std::shared_ptr<MatrixView> matrix;
+        TransposedDataset::Itl* source;
+    };
+
     static RowHash colToRow(ColumnHash col)
     {
         return RowHash(col.hash());
@@ -106,9 +137,7 @@ struct TransposedDataset::Itl
         vector<ColumnName> cols = matrix->getColumnNames();
 
         vector<RowName> result;
-        for (unsigned i = 0;  i < cols.size();  ++i) {
-            if (i < start)
-                continue;
+        for (unsigned i = start; i < cols.size();  ++i) {
             if (limit != -1 && result.size() >= limit)
                 break;
             result.push_back(colToRow(cols[i]));
@@ -295,6 +324,13 @@ TransposedDataset::
 getColumnIndex() const
 {
     return itl;
+}
+
+std::shared_ptr<RowStream> 
+TransposedDataset::
+getRowStream() const
+{
+    return make_shared<TransposedDataset::Itl::TransposedRowStream>(itl.get());
 }
 
 RegisterDatasetType<TransposedDataset, TransposedDatasetConfig> 

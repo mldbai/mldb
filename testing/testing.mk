@@ -257,7 +257,8 @@ $(eval $(call mldb_unit_test,MLDB-1242_sampled_dataset.py))
 $(eval $(call mldb_unit_test,MLDB-1266-import_json.py))
 $(eval $(call mldb_unit_test,MLDB-1258_nofrom_segfault.py))
 $(eval $(call mldb_unit_test,MLDB-1212_csv_import_long_quoted_lines.py))
-$(eval $(call mldb_unit_test,MLDB-1273-classifier-row_input.py,,manual)) #manual - awaiting fix
+$(eval $(call mldb_unit_test,MLDB-1273-classifier-row_input.py))
+$(eval $(call mldb_unit_test,MLDB-1277-pooling-performance.py,,manual)) #manual -- awaiting fix
 
 
 $(eval $(call mldb_unit_test,pytanic_plugin_test.py))
@@ -277,7 +278,6 @@ $(eval $(call python_test,batframe_column_comparison_test,mldb_py_runner))
 $(eval $(call python_test,batframe_column_function_test,mldb_py_runner))
 $(eval $(call python_test,batframe_column_unary_test,mldb_py_runner))
 $(eval $(call python_test,batframe_property_test,mldb_py_runner))
-
 
 $(eval $(call python_test,mldb-417_svd,mldb_py_runner))
 

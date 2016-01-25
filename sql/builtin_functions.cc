@@ -1,12 +1,11 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** builtin_functions.cc
     Jeremy Barnes, 14 June 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Builtin functions for SQL.
 */
 
+#include "mldb/sql/builtin_functions.h"
 #include "sql_expression.h"
 #include "tokenize.h"
 #include "mldb/http/http_exception.h"
@@ -17,6 +16,7 @@
 #include "mldb/ml/confidence_intervals.h"
 #include "mldb/jml/math/xdiv.h"
 #include "mldb/base/parse_context.h"
+#include <boost/lexical_cast.hpp>
 
 #include <boost/regex/icu.hpp>
 
@@ -921,6 +921,100 @@ BoundFunction parse_sparse_csv(const std::vector<BoundSqlExpression> & args)
 }
 
 static RegisterBuiltin registerParseSparseCsv(parse_sparse_csv, "parse_sparse_csv");
+
+
+void
+unpackJson(RowValue & row, const std::string & id, const Json::Value & val, const Date & ts)
+{
+    auto concatIds = [&] (const std::string & suffix)
+        {
+            return id.size() > 0 ? id + '.' + suffix
+                                 : suffix;
+        };
+
+    if(val.isNull()) {
+        return;
+    }
+    else if(val.isBool()) {
+        row.emplace_back(ColumnName(id), val.asBool(), ts); 
+    }
+    else if(val.isInt()) {
+        row.emplace_back(ColumnName(id), val.asInt(), ts); 
+    }
+    else if(val.isDouble()) {
+        row.emplace_back(ColumnName(id), val.asDouble(), ts); 
+    }
+    else if(val.isString()) {
+        row.emplace_back(ColumnName(id), val.asString(), ts); 
+    }
+    else if(val.isArray()) {
+        // is it only atomic types?
+        bool onlyAtomic = true;
+        bool onlyObject = true;
+        for(int i=0; i<val.size(); i++) {
+            if(val[i].isArray() || val[i].isObject()) {
+                onlyAtomic = false;
+            }
+            if(!val[i].isObject()) {
+                onlyObject = false;
+            }
+        }
+
+        if(onlyAtomic) {
+            for(int i=0; i<val.size(); i++) {
+                string key;
+                if(val[i].isString())      key = val[i].asString();
+                else if(val[i].isBool())   key = val[i].asBool() ? "true" : "false";
+                else if(val[i].isDouble()) key = boost::lexical_cast<string>(val[i].asDouble());
+                else if(val[i].isInt())    key = boost::lexical_cast<string>(val[i].asInt());
+                else                       key = val[i].toString();
+                unpackJson(row, concatIds(key), Json::Value(true), ts);
+            }
+        }
+        else if(onlyObject) {
+            for(int i=0; i<val.size(); i++) {
+                row.emplace_back(ColumnName(ML::format("%s.%d", id, i)),
+                                 std::move(val[i].toStringNoNewLine()),
+                                 ts);
+            }
+        }
+        else {
+            row.emplace_back(ColumnName(id), std::move(val.toStringNoNewLine()), ts); 
+        }
+    }
+    else if(val.isObject()) {
+        for (const std::string & sub_id : val.getMemberNames()) {
+            unpackJson(row, concatIds(sub_id), val[sub_id], ts);
+        }
+    }
+}
+
+BoundFunction get_bound_unpack_json(const std::vector<BoundSqlExpression> & args)
+{
+    // Comma separated list, first is row name, rest are row columns
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & context) -> ExpressionValue
+            {
+                std::string str = args.at(0).toString();
+                Date ts = args.at(0).getEffectiveTimestamp();
+
+                Json::Reader reader;
+                Json::Value root;
+
+                if (!reader.parse(str, root) || !root.isObject())
+                    throw ML::Exception(ML::format("Unable to parse text as JSON or JSON is not an object"));
+
+                RowValue row;
+                unpackJson(row, "", root, ts);
+
+                return ExpressionValue(std::move(row));
+            },
+            std::make_shared<UnknownRowValueInfo>()};
+}
+
+static RegisterBuiltin registerUnpackJson(get_bound_unpack_json, "unpack_json");
+
 
 void
 ParseTokenizeArguments(Utf8String& splitchar, Utf8String& quotechar,

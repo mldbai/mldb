@@ -14,8 +14,8 @@
 #include "mldb/types/any_impl.h"
 #include "mldb/plugins/for_each_line.h"
 #include "mldb/http/http_exception.h"
-#include <boost/lexical_cast.hpp>
 #include "mldb/vfs/filter_streams.h"
+#include "mldb/sql/builtin_functions.h"
 
 using namespace std;
 
@@ -154,66 +154,10 @@ struct JSONImporter: public Procedure {
             MatrixNamedRow outputRow;
             outputRow.rowName = RowName(ML::format("row%d", actualLineNum));
 
-
-            std::function<void (const std::string & id,
-                                const Json::Value & val)> emplaceCol = 
-                    [&] (const std::string & id,
-                         const Json::Value & val)
-                {
-                    if(val.isNull()) {
-                        return;
-                    }
-                    else if(val.isBool()) {
-                        outputRow.columns.emplace_back(ColumnName(id), val.asBool(), zeroTs); 
-                    }
-                    else if(val.isInt()) {
-                        outputRow.columns.emplace_back(ColumnName(id), val.asInt(), zeroTs); 
-                    }
-                    else if(val.isDouble()) {
-                        outputRow.columns.emplace_back(ColumnName(id), val.asDouble(), zeroTs); 
-                    }
-                    else if(val.isString()) {
-                        outputRow.columns.emplace_back(ColumnName(id), val.asString(), zeroTs); 
-                    }
-                    else if(val.isArray()) {
-                        // is it only atomic types?
-                        bool onlyAtomic = true;
-                        for(int i=0; i<val.size(); i++) {
-                            if(val[i].isArray() || val[i].isObject()) {
-                                onlyAtomic = false;
-                                break;
-                            }
-                        }
-
-                        if(onlyAtomic) {
-                            for(int i=0; i<val.size(); i++) {
-                                string key;
-                                if(val[i].isString())      key = val[i].asString();
-                                else if(val[i].isBool())   key = val[i].asBool() ? "true" : false;
-                                else if(val[i].isDouble()) key = boost::lexical_cast<string>(val[i].asDouble());
-                                else if(val[i].isInt())    key = boost::lexical_cast<string>(val[i].asInt());
-                                else                       key = val[i].toString();
-                                emplaceCol(id + '.' + key, Json::Value(true));
-                            }
-                        }
-                        else {
-                            auto str = val.toString();
-                            if(str.substr(str.size()-1) == "\n")
-                                str = str.substr(0, str.size() -1);
-                            outputRow.columns.emplace_back(ColumnName(id), std::move(str), zeroTs); 
-                        }
-                    }
-                    else if(val.isObject()) {
-                        for (const std::string & sub_id : val.getMemberNames()) {
-                            emplaceCol(id + '.' + sub_id, val[sub_id]);
-                        }
-                    }
-                };
-
             for (const std::string & id : root.getMemberNames()) {
-                emplaceCol(id, root[id]);
+                Builtins::unpackJson(outputRow.columns, id, root[id], zeroTs);
             }
-            
+
             recordedLines++;
 
             std::unique_lock<std::mutex> guard(recordMutex);

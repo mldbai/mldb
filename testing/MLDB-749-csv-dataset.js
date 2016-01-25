@@ -25,21 +25,17 @@ var irisConfig = {
     id: 'iris',
     params: {
         dataFileUrl: 'file://mldb/testing/dataset/iris.data',
-        headers: [ 'sepal length', 'sepal width', 'petal length', 'petal width', 'class' ]
+        headers: [ 'sepal length', 'sepal width', 'petal length', 'petal width', 'class' ],
+        ignoreBadLines: true
     }
 };
 
-var res = mldb.post('/v1/datasets', irisConfig);
-assertEqual(res["responseCode"], 400, "expected an empty line failure at line 151");
-assertEqual(res["json"]["details"]["lineNumber"], 151, "expected to report line 151");
-
-irisConfig.params.ignoreBadLines = true;
 res = mldb.post('/v1/datasets', irisConfig);
 assertEqual(res["responseCode"], 201);
 
 res = mldb.get('/v1/datasets/iris');
 assertEqual(res['json']['status']['rowCount'], 150);
-assertEqual(res['json']['status']['numLineErrors'], 1);
+assertEqual(res['json']['status']['numLineErrors'], 0);
 mldb.log(res);
 
 
