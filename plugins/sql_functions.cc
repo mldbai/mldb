@@ -224,17 +224,18 @@ SqlExpressionFunction(MldbServer * owner,
 {
     functionConfig = config.params.convert<SqlExpressionFunctionConfig>();
 
-    // 1.  Bind the expression in.  That will tell us what it is expecting
-    //     as an input.
-    this->bound = functionConfig.expression.bind(innerScope);
+    if (functionConfig.prepared) {
+        // 1.  Bind the expression in.  That will tell us what it is expecting
+        //     as an input.
+        this->bound = functionConfig.expression.bind(innerScope);
 
-    // 2.  Our output is known by the bound expression
-    info.output = *bound.info;
+        // 2.  Our output is known by the bound expression
+        this->info.output = *this->bound.info;
     
-    // 3.  Our required input is known by the binding context, as it records
-    //     what was read.
-    info.input = innerScope.input;
-
+        // 3.  Our required input is known by the binding context, as it records
+        //     what was read.
+        info.input = innerScope.input;
+    }
 }
 
 Any
@@ -249,19 +250,21 @@ getStatus() const
 
 /** Structure that does all the work of the SQL expression function. */
 struct SqlExpressionFunctionApplier: public FunctionApplier {
-    SqlExpressionFunctionApplier(SqlBindingScope & outerContext,
+    SqlExpressionFunctionApplier(SqlBindingScope & outerScope,
                                  const SqlExpressionFunction * function,
                                  const FunctionValues & input)
-        : FunctionApplier(function), function(function),
-          innerScope(const_cast<SqlExpressionMldbContext &>
-                     (function->outerScope), input)
+        : FunctionApplier(function),
+          function(function),
+          innerScope(outerScope, input)
     {
-        this->info = function->info;
         if (!function->functionConfig.prepared) {
             // Specialize to this input
             this->bound = function->functionConfig.expression.bind(innerScope);
             // That leads to a specialized output
-            info.output = *bound.info;
+            this->info.output = *bound.info;
+        }
+        else {
+            this->info = function->info;
         }
     }
     
@@ -273,11 +276,15 @@ struct SqlExpressionFunctionApplier: public FunctionApplier {
                          const FunctionContext & context) const
     {
         if (function->functionConfig.prepared) {
-            // Use the pre-bound version
-            return function->bound(function->innerScope.getRowContext(outerRowScope, context));
+            // Use the pre-bound version.    Note that we ignore the outer
+            // row scope, which wasn't available when we prepared the
+            // expression.
+            SqlRowScope emptyOuterRowScope;
+            return function->bound(function->innerScope.getRowContext(emptyOuterRowScope, context));
         }
         else {
-            // Use the specialized version
+            // Use the specialized version.  The outer row scope is available
+            // from the expression.
             return bound(this->innerScope.getRowContext(outerRowScope, context));
         }
     }
@@ -323,9 +330,29 @@ FunctionInfo
 SqlExpressionFunction::
 getFunctionInfo() const
 {
-    return this->info;
+    if (functionConfig.prepared) {
+        return this->info;
+    }
+
     FunctionInfo result;
 
+    // 0.  We want the pure function information, so we assume there is
+    //     no context for it apart from MLDB itself.
+    SqlExpressionMldbContext outerContext(MldbEntity::getOwner(this->server));
+
+    // 1.  Create a binding context to see what this function takes
+    FunctionExpressionContext context(outerContext);
+
+    // 2.  Bind the expression in.  That will tell us what it is expecting
+    //     as an input.
+    BoundSqlExpression bound = functionConfig.expression.bind(context);
+
+    // 3.  Our output is known by the bound expression
+    result.output = *bound.info;
+    
+    // 4.  Our required input is known by the binding context, as it records
+    //     what was read.
+    result.input = context.input;
 
     return result;
 }
