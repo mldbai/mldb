@@ -36,17 +36,17 @@ dataset = mldb.create_dataset(dataset_config)
 now = datetime.datetime.now()
 
 row1 = {
-    "name": "frank",
+    "name": "bill",
     "age": 25,
-    "friends": [{"name": "mich", "age": "cougar"}, {"name": "jean", "age": "young"}]
+    "friends": [{"name": "mich", "age": 20}, {"name": "jean", "age": 18}]
 }
 dataset.record_row("row1" , [["data", json.dumps(row1), now]])
 
 row2 = {
     "name": "alexis",
     "age": 22,
-    "friends": [{"name": "cross", "age": "cougar"},
-                {"name": "fit", "age": "young"},
+    "friends": [{"name": "cross", "age": 20},
+                {"name": "fit", "age": 18},
                 {"name": "foot", "region": "south"}]
 }
 dataset.record_row("row2" , [["data", json.dumps(row2), now]])
@@ -61,7 +61,7 @@ mldb.log(jsRes)
 
 
 assertVal(jsRes, "row1", "age", 25)
-assertVal(jsRes, "row1", "friends.1", "{\"age\":\"young\",\"name\":\"jean\"}")
+assertVal(jsRes, "row1", "friends.1", "{\"age\":18,\"name\":\"jean\"}")
 
 
 conf = {
@@ -86,9 +86,9 @@ res = mldb.perform("GET", "/v1/query", [["q", """SELECT
 jsRes = json.loads(res["response"])
 mldb.log(jsRes)
 
-assertVal(jsRes, "row1_friends.1", "name", "frank")
+assertVal(jsRes, "row1_friends.1", "name", "bill")
 assertVal(jsRes, "row1_friends.1", "key", "friends.1")
-assertVal(jsRes, "row1_friends.1", "friends.age", "young")
+assertVal(jsRes, "row1_friends.1", "friends.age", 18)
 
 
 

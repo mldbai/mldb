@@ -138,6 +138,7 @@ run(const ProcedureRunConfig & run,
     ColumnName keyColumnName(runProcConf.keyColumnName);
     ColumnName valueColumnName(runProcConf.valueColumnName);
 
+    std::mutex recordMutex;
     auto aggregator = [&] (const MatrixNamedRow & row,
                            const std::vector<ExpressionValue> & extraVals)
         {
@@ -164,6 +165,8 @@ run(const ProcedureRunConfig & run,
                 currOutputRow.emplace_back(valueColumnName, get<1>(col), rowTs);
 
                 RowName rowName(ML::format("%s_%s", row.rowName.toString(), get<0>(col).toString()));
+
+                std::unique_lock<std::mutex> guard(recordMutex);
                 outputDataset->recordRow(rowName, currOutputRow);
             }
             return true;
@@ -193,7 +196,7 @@ namespace {
 RegisterProcedureType<MeltProcedure, MeltProcedureConfig>
 regMelt(builtinPackage(),
           "melt",
-          "Perform a melt operation on a dataset",
+          "Performs a melt operation on a dataset",
           "procedures/MeltProcedure.md.html");
 
 } // file scope
