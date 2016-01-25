@@ -528,10 +528,11 @@ struct EmbeddingDataset::Itl
     virtual KnownColumn getKnownColumnInfo(const ColumnName & columnName) const
     {
         auto repr = committed();
-        if (!repr->initialized())
-            throw HttpReturnException(500, "Asking for column information in uncommitted embedding dataset",
-                                      "columnName", columnName);
-
+        if (!repr->initialized()) {
+            throw HttpReturnException(400, "Can't get info of unknown column",
+                                      "columnName", columnName,
+                                      "knownColumns", repr->columnNames);
+        }
         
         auto it = repr->columnIndex.find(columnName);
         if (it == repr->columnIndex.end())
@@ -547,11 +548,16 @@ struct EmbeddingDataset::Itl
     virtual std::vector<KnownColumn>
     getKnownColumnInfos(const std::vector<ColumnName> & columnNames) const
     {
-        auto repr = committed();
-        if (!repr->initialized())
-            throw HttpReturnException(500, "Asking for column information in uncommitted embedding dataset");
-
         std::vector<KnownColumn> result;
+
+        if (columnNames.empty())
+            return result;
+
+        auto repr = committed();
+        if (!repr->initialized()) {
+            throw HttpReturnException(500, "Asking for column information in uncommitted embedding dataset");
+        }
+
         result.reserve(columnNames.size());
 
         for (auto & columnName: columnNames) {
