@@ -216,11 +216,42 @@ intended. See also [the MLDB Type System](TypeSystem.md).
 
 ### [NOT] IN expression
 
-This expression test if the value in the left hand side is (or is not) included
-into an enumeration of values on the right hand side. For example: `expr IN (3,5,7,11)`
+This expression tests if the value in the left hand side is (or is not) included
+in a set of values on the right hand side.  There are four ways to specify the set on the right hand side:
 
-The right hand side can also be the result of a sub `SELECT` statement. For example `expr IN (SELECT x FROM dataset)` will test if the value expressed by `expr` is equal to any of the values in the x column
-of the dataset. If the `SELECT` statement returns more than a single column, they will all be tested.
+1.  As a sub-select (`x IN (SELECT ...)`)
+2.  As an explicit tuple (`x IN (val1, val2, ...)`)
+3.  As the keys of a row expression (`x IN (KEYS OF expr)`)
+4.  As the values of a row expression (`x IN (VALUES OF expr)`)
+
+The first two are standard SQL; the second two are MLDB extensions and are
+made possible by MLDB's sparse data model.
+
+#### IN expression with sub-select
+
+The right hand side can be the result of a sub `SELECT` statement.
+For example `expr IN (SELECT x FROM dataset)` will test if the value
+expressed by `expr` is equal to any of the values in the x column of
+the dataset. If the `SELECT` statement returns more than a single column,
+they will all be tested (this is different from standard SQL, which will
+ignore all but the first column, and due to MLDB's sparse column model).
+
+#### IN expression with explicit tuple expression
+
+For example: `expr IN (3,5,7,11)`
+
+#### IN (KEYS OF ...) expression
+
+For example: `expr IN (KEYS OF tokenize({text: sentence}))`
+
+That will evaluate to true if expr is a word within the given sentence.
+
+#### IN (VALUES OF ...) expression
+
+For example: `expr IN (VALUES OF [3, 5, 7, 11])`
+
+is equivalent to expr IN (3, 5, 7, 11), but allows a full row expression
+to be used to construct the set, rather than enumerating tuple elements.
 
 
 <h2 id="ExpressingTimeIntervals">Expressing Time Intervals</h2>
@@ -421,6 +452,51 @@ number of occurrences of those tokens within `str`. For example `tokenize('a b b
   - `min_token_length` is used to specify the minimum length of tokens that are returned
   - `ngram_range` is used to specify the n-grams to return. `[1, 1]` will return only unigrams, while `[2, 3]` will return bigrams and trigrams, where tokens are joined by underscores. For example, `tokenize('Good day world', {splitchars:' ', ngram_range:[2,3]})` will return the row `{'Good_day': 1, 'Good_day_world': 1, 'day_world': 1}`
 - `token_extract(str, n, {splitchars: ',', quotechar: '"', offset: 0, limit: null, min_token_length: 1})` will return the `n`th token from `str` using the same tokenizing rules as `tokenize()` above. Only the tokens respecting the `min_token_length` will be considered
+
+### JSON unpacking <a name="unpack_json"></a>
+
+The `unpack_json(str)` function will parse the string `str` as a JSON object and unpack it into multiple columns following the  algorithm outlined below. Note that JSON objects shown in the tables below are string reprensetations of the JSONs.
+
+Each `(key, value)` pair will be recorded as the column name and cell value respectively. The line `{"a": 5, "b": true}` is recorded as:
+
+| *rowName* | *a* | *b* |
+|-----------|-----|-----|
+| row1 | 5 | true |
+
+If the value is an object, we apply the same logic recursively, adding an underscore
+between the keys at each level. The line `{"a": 5, "c": {"x": "hola"}, "d": {"e": {"f": "amigo"}}}` is recorded as:
+
+| *rowName* | *a* | *c.x* | *d.e.f* |
+|-----------|-----|-------|---------|
+| row1 | 5 | hola | amigo |
+
+
+If the value is an array that contains only atomic types (strings, bool or numeric), we
+encode them as a one-hot vector. As shown in the example below, the `value` in the JSON
+will be appended to the column name and the cell value will be set to `true`. The line `{"a": 5, "b": [1, 2, "abc"]}` is recorded as:
+
+| *rowName* | *a* | *b.1* | *b.2* | *b.abc* |
+|-----------|-----|-----|-------|-----------|
+| row1 | 5 | true | true | true |
+
+If the value is an array that contains only objects, we unpack the array putting one
+JSON object per column encoded as a string. The line `{"a": 5, "b": [{"z": 1}, {"y": 2}]}` is recorded as:
+
+| *rowName* | *a* | *b.0* | *b.1* |
+|-----------|-----|-----|-------|
+| row1 | 5 | {"z": 1} | {"y": 2} |
+
+If the value is an array that contains at least one non-atomic type (array, object), we
+encode them as the string representation of the JSON. The line `{"a": 5, "b": [1, 2, {"xyz":"abc"}]}` is recorded as:
+
+| *rowName* | *a* | *b* |
+|-----------|-----|-----|
+| row1 | 5 | [1, 2, {"xyz":"abc"}] |
+
+
+The ![](%%doclink import.json procedure) can be used to import a text file where each line
+is a JSON object. The ![](%%doclink melt procedure) can be used on columns repsenting
+arrays of objects to create a row per array element.
 
 
 ## <a name="aggregatefunctions"></a>Aggregate Functions

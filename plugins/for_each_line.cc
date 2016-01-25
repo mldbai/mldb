@@ -244,14 +244,14 @@ void forEachLineBlock(std::istream & stream,
                                           size_t lineLength,
                                           int64_t blockNumber,
                                           int64_t lineNumber)> onLine,
-                      int64_t lineOffset, // 0
                       int64_t maxLines)   // -1
 {
     //static constexpr int64_t BLOCK_SIZE = 100000000;  // 100MB blocks
     static constexpr int64_t BLOCK_SIZE = 10000000;  // 10MB blocks
     static constexpr int64_t READ_SIZE = 200000;  // read&scan 200kb to fit in cache
 
-    std::atomic<int64_t> doneLines(lineOffset);
+    std::atomic<int64_t> doneLines(0); //number of lines processed but not yet returned
+    std::atomic<int64_t> returnedLines(0); //number of lines returned
     std::atomic<int64_t> byteOffset(0);
     std::atomic<int> chunkNumber(0);
 
@@ -281,13 +281,15 @@ void forEachLineBlock(std::istream & stream,
             int64_t startOffset = byteOffset;
             int64_t startLine = doneLines;
             vector<size_t> lineOffsets = {0};
+            bool lastBlock = false;
 
             if (mapped) {
                 const char * start = mapped + stream.tellg();
                 const char * current = start;
                 const char * end = mapped + mappedSize;
 
-                while (current && current < end && (current - start) < BLOCK_SIZE) {
+                while (current && current < end && (current - start) < BLOCK_SIZE
+                       && (maxLines == -1 || doneLines < maxLines)) { //stop processing new line when we have enough)
                     current = (const char *)memchr(current, '\n', end - current);
                     if (current && current < end) {
                         ExcAssertEqual(*current, '\n');
@@ -307,9 +309,13 @@ void forEachLineBlock(std::istream & stream,
 
                 ++chunkNumber;
 
-                if (current && current < end) {
+                if (current && current < end &&
+                    (maxLines == -1 || doneLines < maxLines)) // don't schedule a new block if we have enough lines
+                {
                     // Ready for another chunk
                     worker.add(doBlock, "", group);
+                } else if (current == end) {
+                    lastBlock = true;
                 }
 
                 blockOut = std::shared_ptr<const char>(start,
@@ -329,7 +335,7 @@ void forEachLineBlock(std::istream & stream,
                 // First line starts at offset 0
 
                 while (stream && !stream.eof()
-                       && (maxLines == -1 || doneLines < maxLines)
+                       && (maxLines == -1 || doneLines < maxLines)  //stop processing new line when we have enough
                        && (byteOffset - startOffset < BLOCK_SIZE)) {
                         
                     stream.read((char *)block.get() + offset,
@@ -337,8 +343,6 @@ void forEachLineBlock(std::istream & stream,
 
                     // Check how many bytes we actually read
                     size_t bytesRead = stream.gcount();
-                        
-                    //cerr << "read " << bytesRead << " bytes" << endl;
                         
                     offset += bytesRead;
 
@@ -362,46 +366,67 @@ void forEachLineBlock(std::istream & stream,
                     byteOffset += bytesRead;
                 }
 
-                // Get the last line, as we probably got just a partial
-                // line in the last one
-                std::string lastLine;
-                getline(stream, lastLine);
                 
-                size_t cnt = stream.gcount();
-
-                if (cnt != 0) {
-                    // Check for overflow on the buffer size
-                    if (offset + lastLine.size() + 1 > BLOCK_SIZE + EXTRA_SIZE) {
-                        // reallocate and copy
-                        std::shared_ptr<char> newBlock(new char[offset + lastLine.size() + 1],
-                                                       [] (char * c) { delete[] c; });
-                        std::copy(block.get(), block.get() + offset,
-                                  newBlock.get());
-                        block = newBlock;
+                if (stream.eof()) {
+                    // If we are at the end of the stream
+                    // make sure we include the last line 
+                    // if there was no newline
+                    if (lineOffsets.back() != offset - 1) {
+                        lineOffsets.push_back(offset);
+                        ++doneLines;
                     }
-
-                    std::copy(lastLine.data(), lastLine.data() + lastLine.length(),
-                              block.get() + offset);
-                    
-                    lineOffsets.emplace_back(offset + lastLine.length());
-                    ++doneLines;
-                    offset += cnt;
-                }                
+                }
+                else {
+                    // If we are not at the end of the stream
+                    // get the last line, as we probably got just a partial
+                    // line in the last one
+                    std::string lastLine;
+                    getline(stream, lastLine);
                 
+                    size_t cnt = stream.gcount();
+
+                    if (cnt != 0) {
+                        // Check for overflow on the buffer size
+                        if (offset + lastLine.size() + 1 > BLOCK_SIZE + EXTRA_SIZE) {
+                            // reallocate and copy
+                            std::shared_ptr<char> newBlock(new char[offset + lastLine.size() + 1],
+                                                           [] (char * c) { delete[] c; });
+                            std::copy(block.get(), block.get() + offset,
+                                      newBlock.get());
+                            block = newBlock;
+                            blockOut = block;
+                        }
+
+                        std::copy(lastLine.data(), lastLine.data() + lastLine.length(),
+                                  block.get() + offset);
+                    
+                        lineOffsets.emplace_back(offset + lastLine.length());
+                        ++doneLines;
+                        offset += cnt;
+                    }                
+                }
+
                 ++chunkNumber;
 
-                if (stream) {
+                if (stream && !stream.eof() &&
+                    (maxLines == -1 || doneLines < maxLines)) // don't schedule a new block if we have enough lines
+                {
                     // Ready for another chunk
                     worker.add(doBlock, "", group);
+                } else if (stream.eof()) {
+                    lastBlock = true;
                 }
             }
                     
             //cerr << "processing block of " << lineOffsets.size() - 1
             //     << " lines starting at " << startLine << endl;
 
+
             int64_t chunkLineNumber = startLine;
             size_t lastLineOffset = lineOffsets[0];
-            for (unsigned i = 1;  i < lineOffsets.size();  ++i) {
+
+            for (unsigned i = 1;  i < lineOffsets.size() && (maxLines == -1 || returnedLines++ < maxLines);  ++i) {
+
                 const char * line = blockOut.get() + lastLineOffset;
                 size_t len = lineOffsets[i] - lastLineOffset;
 
@@ -409,13 +434,15 @@ void forEachLineBlock(std::istream & stream,
                 if (len > 0 && line[len - 1] == '\r')
                     --len;
 
-                if (!onLine(line, len, chunkNumber, chunkLineNumber++))
-                    return;
+                // if we are not at the last line
+                if (!lastBlock || len != 0 || i != lineOffsets.size() - 1)
+                    if (!onLine(line, len, chunkNumber, chunkLineNumber++))
+                        return;
+                
                 lastLineOffset = lineOffsets[i] + 1;
 
-                if (maxLines != -1 && i >= maxLines)
-                    break;
             }
+
         };
             
     worker.add(doBlock, "start", group);

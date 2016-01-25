@@ -56,7 +56,7 @@ def query(sql):
 mldb.log('start')
 query("""
 
-    select wrapper({lineText}) from reddit_raw limit 1000
+    select wrapper({lineText}) from reddit_raw limit 100000
 
 """)
 mldb.log('stop')

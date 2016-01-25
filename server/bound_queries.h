@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** bound_queries.h                                                -*- C++ -*-
     Jeremy Barnes, 12 August 2015
     Bound form of SQL queries, that can be executed.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #pragma once

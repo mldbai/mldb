@@ -25,19 +25,19 @@ var irisConfig = {
     id: 'iris',
     params: {
         dataFileUrl: 'file://mldb/testing/dataset/iris.data',
-        headers: [ 'sepal length', 'sepal width', 'petal length', 'petal width', 'class' ]
+        headers: [ 'sepal length', 'sepal width', 'petal length', 'petal width', 'class' ],
+        ignoreBadLines: true
     }
 };
 
-mldb.createDataset(irisConfig);
+res = mldb.post('/v1/datasets', irisConfig);
+assertEqual(res["responseCode"], 201);
 
-var res = mldb.get('/v1/datasets/iris');
-try {
-    assertEqual(res['json']['status']['rowCount'], 150);
-} catch (e) {
-    mldb.log(res);
-    throw e;
-}
+res = mldb.get('/v1/datasets/iris');
+assertEqual(res['json']['status']['rowCount'], 150);
+assertEqual(res['json']['status']['numLineErrors'], 0);
+mldb.log(res);
+
 
 res = mldb.get('/v1/datasets/iris/query', { limit: 10, format: 'table', orderBy: 'CAST (rowName() AS NUMBER)'});
 
@@ -236,12 +236,13 @@ assertEqual(res, expected, "City populations CSV");
 
 // Test loading of broken file (MLDB-994)
 // broken that fails
+
 var brokenConfigFail = {
     type: 'text.csv.tabular',
     id: 'broken_fail',
     params: {
         dataFileUrl: 'file://mldb/testing/MLDB-749_broken_csv.csv',
-        encoding: 'latin1',
+        encoding: 'latin1'
     }
 };
 
@@ -249,6 +250,30 @@ var failed = false;
 try {
     var res = mldb.createDataset(brokenConfigFail);
 } catch (e) {
+    mldb.log(e);
+    assertEqual(e.details.lineNumber, 5, "expected bad line number at 5");
+    failed = true;
+}
+if(!failed) {
+    throw "did not throw !!"
+}
+
+var brokenConfigNoHeader = {
+    type: 'text.csv.tabular',
+    id: 'broken_fail',
+    params: {
+        dataFileUrl: 'file://mldb/testing/MLDB-749_broken_csv_no_header.csv',
+        encoding: 'latin1',
+        headers: ['a', 'b', 'c']
+    }
+};
+
+var failed = false;
+try {
+    var res = mldb.createDataset(brokenConfigNoHeader);
+} catch (e) {
+    mldb.log(e);
+    assertEqual(e.details.lineNumber, 4, "expected bad line number at 4");
     failed = true;
 }
 if(!failed) {
@@ -392,5 +417,36 @@ assertEqual(getCountWithOffsetLimit("test2", 0, 10), 10, "expecting 10 rows only
 assertEqual(getCountWithOffsetLimit("test3", 0, totalSize + 2000), totalSize, "we can't get more than what there is!");
 assertEqual(getCountWithOffsetLimit("test4", 10, -1), totalSize - 10, "expecting all set except 10 rows");
 
+function getCountWithOffsetLimit2(dataset, offset, limit) {
+    var offsetLimitConfig = {
+        type: "text.csv.tabular",
+        id: dataset,
+        params: {
+            dataFileUrl: "http://s3.amazonaws.com/public.mldb.ai/tweets.gz",
+            offset: offset,
+            limit: limit,
+            delimiter: "\t",
+            headers: ["a", "b", "tweet", "date"],
+            select: "tweet",
+            ignoreBadLines: true
+        }
+    };
+
+    mldb.createDataset(offsetLimitConfig);
+    res = mldb.get("/v1/datasets/"+dataset);
+    mldb.log(res["json"]);
+    return res["json"]["status"]["numLineErrors"] + res["json"]["status"]["rowCount"];
+}
+
+var totalSize = getCountWithOffsetLimit2("test_total", 0, -1);
+assertEqual(getCountWithOffsetLimit2("test_100000", 0, 100000), 100000, "expecting 100000 rows only");
+assertEqual(getCountWithOffsetLimit2("test_98765", 0, 98765), 98765, "expecting 98765 rows only");
+assertEqual(getCountWithOffsetLimit2("test_1234567", 0, 999999), 999999, "expecting 999999 rows only");
+assertEqual(getCountWithOffsetLimit2("test_0", 0, 0), 0, "expecting 0 rows only");
+assertEqual(getCountWithOffsetLimit2("test_1", 0, 1), 1, "expecting 1 row only");
+assertEqual(getCountWithOffsetLimit2("test_10_1", 10, 1), 1, "expecting 1 row only");
+assertEqual(getCountWithOffsetLimit2("test_12", 0, 12), 12, "expecting 12 rows only");
+assertEqual(getCountWithOffsetLimit2("test_total+2000", 0, totalSize + 2000), totalSize, "we can't get more than what there is!");
+assertEqual(getCountWithOffsetLimit2("test_total-10", 10, -1), totalSize - 10, "expecting all set except 10 rows");
 
 "success"
