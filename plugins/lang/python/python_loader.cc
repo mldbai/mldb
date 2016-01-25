@@ -553,24 +553,24 @@ class mldb_wrapper(object):
 
     class wrap(object):
         def __init__(self, mldb):
-            self.mldb = mldb
+            self._mldb = mldb
             import functools
             self.post = functools.partial(self._post_put, 'POST')
             self.put = functools.partial(self._post_put, 'PUT')
 
         def _perform(self, method, url, *args, **kwargs):
-            raw_res = self.mldb.perform(method, url, *args, **kwargs)
+            raw_res = self._mldb.perform(method, url, *args, **kwargs)
             response = mldb_wrapper.Response(url, raw_res)
             if response.status_code < 200 or response.status_code >= 400:
                 raise mldb_wrapper.ResponseException(response)
             return response
 
         def log(self, thing):
-            self.mldb.log(str(thing))
+            self._mldb.log(str(thing))
 
         @property
         def script(self):
-            return self.mldb.script
+            return self._mldb.script
 
         def get(self, url, **kwargs):
             iter_on = None
@@ -595,7 +595,11 @@ class mldb_wrapper(object):
             import unittest
             if self.script.args:
                 assert type(self.script.args) is list
-                argv = ['python'] + self.script.args
+                if self.script.args[0]:
+                    argv = ['python'] + self.script.args
+                else:
+                    # avoid the only one empty arg issue
+                    argv = None
             else:
                 argv = None
 
