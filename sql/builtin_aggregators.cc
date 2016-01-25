@@ -161,6 +161,8 @@ struct AggregatorT {
                 result.emplace_back(v.first, v.second.extract());
             }
 
+            std::sort(result.begin(), result.end());
+            
             return ExpressionValue(std::move(result));
         }
 
@@ -209,6 +211,8 @@ struct AggregatorT {
                 result.emplace_back(columnNames[i],
                                     columnState[i].extract());
             }
+
+            std::sort(result.begin(), result.end());
 
             return ExpressionValue(std::move(result));
         }
