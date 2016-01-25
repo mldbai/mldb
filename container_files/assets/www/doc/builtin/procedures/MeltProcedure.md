@@ -21,7 +21,7 @@ Suppose the following dataset `data` with the `friends` column containing string
 | row1 | bill | 25 | [{"name": "mich", "age": 20}, {"name": "jean", "age": 18}] |
 
 We may want to perform operations on the contents of the JSON object in the 
-`friends` column. To do so, we can perform a `melt` operation on to the output
+`friends` column. To do so, we can perform a `melt` operation on the output
 of the `unpack_json()` function.
 
 Doing the query `select unpack_json(friends) from data` will return:

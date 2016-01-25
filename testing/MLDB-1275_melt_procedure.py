@@ -68,7 +68,7 @@ conf = {
     "id": "melter",
     "type": "melt",
     "params": {
-        "trainingData": """
+        "inputData": """
                         SELECT {name, age} as to_fix,
                                {friends*} as to_melt
                         FROM (select unpack_json(data) as * from my_json_dataset)

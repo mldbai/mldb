@@ -1,6 +1,6 @@
 /** melt_procedure.cc
     Francois Maillet, 21 janvier 2016
-    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
 */
 
 #include "melt_procedure.h"
@@ -51,7 +51,7 @@ DEFINE_STRUCTURE_DESCRIPTION(MeltProcedureConfig);
 MeltProcedureConfigDescription::
 MeltProcedureConfigDescription()
 {
-    addField("trainingData", &MeltProcedureConfig::inputData,
+    addField("inputData", &MeltProcedureConfig::inputData,
              "Specification of the data for input to the melt procedure. "
              "The select expression must contain these two sub-expressions: one row expression "
              "to identify the columns to keep fixed and another row expression "
