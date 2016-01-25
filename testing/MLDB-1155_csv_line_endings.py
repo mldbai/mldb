@@ -173,7 +173,7 @@ for ext in open_functions:
     assert json.loads(result['response'])[1][2] == 1
 
 
-    # CSV importation should accept a blank trailing line if ignoreBadLines is set to true
+    # CSV importation should accept a blank trailing line
     with open_function("tmp/csv_newline_trailing_newlines"+ext, 'wb') as f:
         f.write("a,b\n")
         f.write("1.0,1.0\n") 
@@ -181,8 +181,7 @@ for ext in open_functions:
 
     result = mldb.perform("PUT", "/v1/datasets/x", [], {
         "type": "text.csv.tabular",
-        "params": { "dataFileUrl": "file://tmp/csv_newline_trailing_newlines"+ext,
-                    "ignoreBadLines": True}
+        "params": { "dataFileUrl": "file://tmp/csv_newline_trailing_newlines"+ext }
     })
     mldb.log(result)
 
@@ -197,7 +196,7 @@ for ext in open_functions:
     assert json.loads(result['response'])[1][2] == 1
 
 
-    # CSV importation should accept a blank trailing line with DOS if ignoreBadLines is set to true
+    # CSV importation should accept a blank trailing line with DOS
     with open_function("tmp/csv_newline_trailing_newlines_dos"+ext, 'wb') as f:
         f.write("a,b\r\n")
         f.write("1.0,1.0\r\n") 
@@ -205,8 +204,7 @@ for ext in open_functions:
 
     result = mldb.perform("PUT", "/v1/datasets/x", [], {
         "type": "text.csv.tabular",
-        "params": { "dataFileUrl": "file://tmp/csv_newline_trailing_newlines_dos"+ext,
-                    "ignoreBadLines": True}
+        "params": { "dataFileUrl": "file://tmp/csv_newline_trailing_newlines_dos"+ext }
     })
     mldb.log(result)
 

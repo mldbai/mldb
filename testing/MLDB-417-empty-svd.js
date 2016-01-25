@@ -3,7 +3,7 @@
 /* Example script to import a reddit dataset and run an example */
 
 
-var file1 = "https://archive.ics.uci.edu/ml/machine-learning-databases/iris/iris.data";
+var file1 = "file://mldb/testing/dataset/iris.data";
 
 var dataset_config = {
     'type'    : 'sparse.mutable',

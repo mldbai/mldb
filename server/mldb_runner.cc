@@ -131,6 +131,8 @@ int main(int argc, char ** argv)
     // List of directories to scan for plugins
     vector<string> pluginDirectory;
 
+    bool muteFinalOutput = false;
+
     configuration_options.add_options()
 #if 0
         ("etcd-uri", value(&etcdUri),
@@ -173,7 +175,10 @@ int main(int argc, char ** argv)
          "path that persistent configuration is stored to allow the service "
          "to stop and restart (file:// for filesystem or s3:// for S3 uri)")
         ("hide-internal-entities",
-         "hide in the documentation entities that are not meant to be exposed");
+         "hide in the documentation entities that are not meant to be exposed")
+        ("mute-final-output", bool_switch(&muteFinalOutput),
+         "Mutes the output printed right before mldb_runner ends with an error"
+         "condition");
 
     script_options.add_options()
         ("run-script", value(&runScript),
@@ -385,7 +390,9 @@ int main(int argc, char ** argv)
             success = true;
 
         if (!success) {
-            cerr << output << endl;
+            if (!muteFinalOutput) {
+                cerr << output << endl;
+            }
             return 1;  // startup script didn't succeed
         }
 

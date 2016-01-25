@@ -482,8 +482,7 @@ getTyped(const Utf8String & name, RowValue *) const
 
     if (it->first == name) {
         // The value was represented directly
-        
-        it->second.appendToRow(ColumnName(""), result);
+        it->second.appendToRow(ColumnName(), result);
         return result;
     }
 

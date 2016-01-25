@@ -85,12 +85,14 @@ for score in scores:
     feat2 = columns[1][1]
     expected_score = linear_regression(feat1, feat2)
     score = columns[2][1]
+    # score's type will be dict if it is NaN
+    assert type(score) == type(1.0), 'expecting the type of the score to be a float'
     diff.append(abs(score - expected_score))
     mldb.log("expected: " + str(expected_score) + " score: " + str(score))
 
 avg_diff = sum(diff) / float(len(diff))
 mldb.log(avg_diff)
-#assert avg_diff < 3.0, "expecting the regression errors to be lower than 3 on average"
+assert avg_diff < 3.0, "expecting the regression errors to be lower than 3 on average"
 
 
 mldb.script.set_return('success')
