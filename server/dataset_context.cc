@@ -390,14 +390,11 @@ doGetAllColumns(const Utf8String & tableName,
 
     auto columns = dataset.getMatrixView()->getColumnNames();
 
-    std::sort(columns.begin(), columns.end(),
-              [] (const ColumnName & c1, const ColumnName & c2)     
-        { return c1.toString() < c2.toString(); });
-
-    
-    auto filterColumnName = [&] (const Utf8String & inputColumnName) -> Utf8String
+    auto filterColumnName = [&] (const Utf8String & inputColumnName)
+        -> Utf8String
     {
-        if (!tableName.empty() && !childaliases.empty() && !inputColumnName.startsWith(tableName)) {
+        if (!tableName.empty() && !childaliases.empty()
+            && !inputColumnName.startsWith(tableName)) {
             return "";
         }
 
