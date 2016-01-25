@@ -6,10 +6,9 @@
 import unittest
 
 if False:
-    mldb = None
     mldb_wrapper = None
 
-mldb = mldb_wrapper.wrap(mldb)
+mldb = mldb_wrapper.wrap(mldb) # noqa
 
 
 class PythonMldbInterfaceTest(unittest.TestCase):
@@ -58,7 +57,7 @@ class PythonMldbInterfaceTest(unittest.TestCase):
         mldb.post(url + '/commit')
 
     def test_delete(self):
-        # this test depends actually depends on put and postsc
+        # this test depends on put and post
         url = '/v1/datasets/ds'
         mldb.put(url, {
             'type' : 'sparse.mutable'
