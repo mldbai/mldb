@@ -555,13 +555,19 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
         //     << sorted.size() << " total" << endl;
 
         size_t numProcessed = std::min(NUM_TO_SAMPLE, rows.size());
+
         while (numProcessed < rows.size()
-               && (limit == -1 || sorted.size() < offset + limit)) {
+               && (limit == -1 || (sorted.size() < offset + limit))) {
             double hitRate = 1.0 * sorted.size() / numProcessed;
             size_t numRequired = rows.size();
             if (limit != -1) {
                 // Project how many we need to get to the limit
-                numRequired = (offset + limit) / hitRate;
+                // Make sure we always make progress
+                numRequired
+                    = std::min<size_t>(rows.size(),
+                                       std::max<size_t>
+                                       (numProcessed + 100,
+                                        (offset + limit) / hitRate));
             }
 
             cerr << "hit rate after " << numProcessed << " is "
@@ -569,15 +575,17 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
                  << numRequired << " rows in total" << endl;
 
             // Do another block
-            if (numRequired - numProcessed < 100) {
-                for (size_t n = numProcessed;  n < numRequired;  ++n) {
+            if (numRequired - numProcessed <= 100) {
+                for (size_t n = numProcessed;  n < numRequired
+                         && (limit == -1 || sorted.size() < offset + limit);
+                     ++n) {
                     doRow(n);
                 }
             }
             else {
                 ML::run_in_parallel_blocked(numProcessed, numRequired, doRow);
             }
-
+            
             numProcessed = numRequired;
         }
 
