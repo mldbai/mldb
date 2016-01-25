@@ -1,9 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** sql_functions.cc
     Jeremy Barnes, 6 January 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
 
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #include "sql_functions.h"
@@ -206,15 +205,41 @@ SqlExpressionFunctionConfigDescription()
              "SQL expression function to run.  Takes the same syntax as a SELECT "
              "clause (but without the SELECT keyword); for example "
              "'x, y + 1 AS z'");
+    addField("prepared", &SqlExpressionFunctionConfig::prepared,
+             "Do we pre-prepare the expression to be run many times quickly?  "
+             "If this is true, it will only be bound once, for generic "
+             "inputs, and so will allow for quick individual queries, "
+             "possibly at the expense of batch queries being slower.  In "
+             "this case, the expression also cannot refer to variables "
+             "outside of the arguments to the expression.  "
+             "If this is false, the default, then for every query the "
+             "expression will be specialized (rebound) for that query's "
+             "data type.  "
+             "This can lead to faster batch queries, at the expense of a "
+             "possibly high per-query overhead for individual queries.",
+             false);
 }
 
 SqlExpressionFunction::
 SqlExpressionFunction(MldbServer * owner,
                       PolyConfig config,
                       const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner)
+    : Function(owner), outerScope(owner), innerScope(outerScope)
 {
     functionConfig = config.params.convert<SqlExpressionFunctionConfig>();
+
+    if (functionConfig.prepared) {
+        // 1.  Bind the expression in.  That will tell us what it is expecting
+        //     as an input.
+        this->bound = functionConfig.expression.bind(innerScope);
+
+        // 2.  Our output is known by the bound expression
+        this->info.output = *this->bound.info;
+    
+        // 3.  Our required input is known by the binding context, as it records
+        //     what was read.
+        info.input = innerScope.input;
+    }
 }
 
 Any
@@ -229,27 +254,47 @@ getStatus() const
 
 /** Structure that does all the work of the SQL expression function. */
 struct SqlExpressionFunctionApplier: public FunctionApplier {
-    SqlExpressionFunctionApplier(SqlBindingScope & outerContext,
+    SqlExpressionFunctionApplier(SqlBindingScope & outerScope,
                                  const SqlExpressionFunction * function,
-                                 const SelectExpression & expression,
                                  const FunctionValues & input)
         : FunctionApplier(function),
-          context(outerContext, input),
-          bound(expression.bind(context))
+          function(function),
+          innerScope(outerScope, input)
     {
-        this->info.output = *bound.info;
+        if (!function->functionConfig.prepared) {
+            // Specialize to this input
+            this->bound = function->functionConfig.expression.bind(innerScope);
+            // That leads to a specialized output
+            this->info.output = *bound.info;
+        }
+        else {
+            this->info = function->info;
+        }
     }
-
+    
     virtual ~SqlExpressionFunctionApplier()
     {
     }
 
-    FunctionOutput apply(const SqlRowScope& outerScope, const FunctionContext & context) const
+    FunctionOutput apply(const SqlRowScope& outerRowScope,
+                         const FunctionContext & context) const
     {
-        return bound(this->context.getRowContext(outerScope, context));
+        if (function->functionConfig.prepared) {
+            // Use the pre-bound version.    Note that we ignore the outer
+            // row scope, which wasn't available when we prepared the
+            // expression.
+            SqlRowScope emptyOuterRowScope;
+            return function->bound(function->innerScope.getRowContext(emptyOuterRowScope, context));
+        }
+        else {
+            // Use the specialized version.  The outer row scope is available
+            // from the expression.
+            return bound(this->innerScope.getRowContext(outerRowScope, context));
+        }
     }
 
-    FunctionExpressionContext context;
+    const SqlExpressionFunction * function;
+    FunctionExpressionContext innerScope;
     BoundSqlExpression bound;
 };
 
@@ -259,9 +304,7 @@ bind(SqlBindingScope & outerContext,
      const FunctionValues & input) const
 {
     std::unique_ptr<SqlExpressionFunctionApplier> result
-        (new SqlExpressionFunctionApplier(outerContext, this,
-                                          functionConfig.expression,
-                                          input));
+        (new SqlExpressionFunctionApplier(outerContext, this, input));
 
     // Check that these input values can provide everything needed for the result
     input.checkCompatibleAsInputTo(result->info.input);
@@ -291,6 +334,10 @@ FunctionInfo
 SqlExpressionFunction::
 getFunctionInfo() const
 {
+    if (functionConfig.prepared) {
+        return this->info;
+    }
+
     FunctionInfo result;
 
     // 0.  We want the pure function information, so we assume there is
