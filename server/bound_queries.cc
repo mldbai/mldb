@@ -1124,11 +1124,10 @@ struct GroupContext: public SqlExpressionDatasetContext {
         }
 
         //check aggregators
-        Utf8String functionNameLower(boost::algorithm::to_lower_copy(functionName.extractAscii()));
-        auto aggFn = SqlBindingScope::doGetAggregator(functionNameLower, args);
+        auto aggFn = SqlBindingScope::doGetAggregator(functionName, args);
         if (aggFn)
         {
-            if (functionNameLower == "count")
+            if (functionName == "count")
             {
                 //count is *special*
                 evaluateEmptyGroups = true;
