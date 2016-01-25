@@ -420,8 +420,52 @@ number of occurrences of those tokens within `str`. For example `tokenize('a b b
   - `quotechar` is interpreted as a single character to delimit tokens which may contain the `splitchars`, so by default `tokenize('a,"b,c"')` will return the row `{'a':1,'b,c':1}`
   - `min_token_length` is used to specify the minimum length of tokens that are returned
   - `ngram_range` is used to specify the n-grams to return. `[1, 1]` will return only unigrams, while `[2, 3]` will return bigrams and trigrams, where tokens are joined by underscores. For example, `tokenize('Good day world', {splitchars:' ', ngram_range:[2,3]})` will return the row `{'Good_day': 1, 'Good_day_world': 1, 'day_world': 1}`
-- `token_extract(str, n, {splitchars: ',', quotechar: '"', offset: 0, limit: null, min_token_length: 1})` will return the `n`th token from `str` using the same tokenizing rules as `tokenize()` above. Only the tokens respecting the `min_token_length` will be considered
-- <a name="unpack_json"></a> `unpack_json(str)` will parse the string `str` as a JSON object and unpack it into multiple columns following the same algorithm as the ![](%%doclink import.json procedure).
+ - `token_extract(str, n, {splitchars: ',', quotechar: '"', offset: 0, limit: null, min_token_length: 1})` will return the `n`th token from `str` using the same tokenizing rules as `tokenize()` above. Only the tokens respecting the `min_token_length` will be considered
+
+### JSON unpacking <a name="unpack_json"></a>
+
+The `unpack_json(str)` function will parse the string `str` as a JSON object and unpack it into multiple columns following the following algorithm: 
+
+Each `(key, value)` pair will be recorded as the column name and cell value respectively. The line `{"a": 5, "b": true}` is recorded as:
+
+| *rowName* | *a* | *b* |
+|-----------|-----|-----|
+| row1 | 5 | true |
+
+If the value is an object, we apply the same logic recursively, adding an underscore
+between the keys at each level. The line `{"a": 5, "c": {"x": "hola"}, "d": {"e": {"f": "amigo"}}}` is recorded as:
+
+| *rowName* | *a* | *c.x* | *d.e.f* |
+|-----------|-----|-------|---------|
+| row1 | 5 | hola | amigo |
+
+
+If the value is an array that contains only atomic types (strings, bool or numeric), we
+encode them as a one-hot vector. As shown in the example below, the `value` in the JSON
+will be appended to the column name and the cell value will be set to `true`. The line `{"a": 5, "b": [1, 2, "abc"]}` is recorded as:
+
+| *rowName* | *a* | *b.1* | *b.2* | *b.abc* |
+|-----------|-----|-----|-------|-----------|
+| row1 | 5 | true | true | true |
+
+If the value is an array that contains only objects, we unpack the array putting one
+JSON object per column. The line `{"a": 5, "b": [{"z": 1}, {"y": 2}]}` is recorded as:
+
+| *rowName* | *a* | *b.0* | *b.1* |
+|-----------|-----|-----|-------|
+| row1 | 5 | {"z": 1} | {"y": 2} |
+
+If the value is an array that contains at least one non-atomic type (array, object), we
+encode them as the string representation of the JSON. The line `{"a": 5, "b": [1, 2, {"xyz":"abc"}]}` is recorded as:
+
+| *rowName* | *a* | *b* |
+|-----------|-----|-----|
+| row1 | 5 | [1, 2, {"xyz":"abc"}] |
+
+
+The ![](%%doclink import.json procedure) can be used to import a text file where each line
+is a JSON object. The ![](%%doclink melt procedure) can be used on columns repsenting
+arrays of objects to create a row per array element.
 
 
 ## <a name="aggregatefunctions"></a>Aggregate Functions
