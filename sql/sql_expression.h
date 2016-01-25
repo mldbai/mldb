@@ -79,7 +79,7 @@ struct BasicRowGenerator;
 struct WhenExpression;
 struct SqlExpressionDatasetContext;
 struct TableOperations;
-
+struct RowStream;
 
 extern const OrderByExpression ORDER_BY_NOTHING;
 
@@ -1198,6 +1198,9 @@ struct GenerateRowsWhereFunction {
     }
 
     Exec exec;
+
+    std::shared_ptr<RowStream> rowStream;
+    int      upperBound;
 
     operator bool () const { return !!exec; };
 

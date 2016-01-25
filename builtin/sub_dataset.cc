@@ -113,6 +113,31 @@ struct SubDataset::Itl
 
     ~Itl() { }
 
+     struct SubRowStream : public RowStream {
+
+        SubRowStream(SubDataset::Itl* source) : source(source)
+        {
+            
+        }
+
+        virtual std::shared_ptr<RowStream> clone() const{
+            auto ptr = std::make_shared<SubRowStream>(source);
+            return ptr;
+        }
+
+        virtual void initAt(size_t start){
+            iter = source->subOutput.begin() + start;
+        }
+
+        virtual RowName next() {
+            return (iter++)->rowName;
+        }
+
+        std::vector<MatrixNamedRow>::const_iterator iter;
+        SubDataset::Itl* source;
+    };
+
+
     virtual std::vector<RowName>
     getRowNames(ssize_t start = 0, ssize_t limit = -1) const
     {    
@@ -313,6 +338,13 @@ SubDataset::
 getColumnIndex() const
 {
     return itl;
+}
+
+std::shared_ptr<RowStream> 
+SubDataset::
+getRowStream() const
+{
+    return make_shared<SubDataset::Itl::SubRowStream>(itl.get());
 }
 
 static RegisterDatasetType<SubDataset, SubDatasetConfig> 

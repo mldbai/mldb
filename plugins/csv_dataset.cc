@@ -1032,6 +1032,13 @@ getColumnIndex() const
     return itl;
 }
 
+std::shared_ptr<RowStream> 
+CsvDataset::
+getRowStream() const 
+{ 
+    return std::make_shared<TabularDataStore::TabularDataStoreRowStream>(itl.get()); 
+} 
+
 GenerateRowsWhereFunction
 CsvDataset::
 generateRowsWhere(const SqlBindingScope & context,

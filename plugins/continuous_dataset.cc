@@ -353,6 +353,14 @@ struct ContinuousDataset::Itl {
         return myCurrent->dataset->getColumnIndex();
     }
 
+    std::shared_ptr<RowStream> 
+    getRowStream() const
+    {
+        auto myCurrent = current();
+        return myCurrent->dataset->getRowStream();
+    }
+
+
     std::pair<Date, Date>
     getTimestampRange() const
     {
@@ -443,6 +451,13 @@ ContinuousDataset::
 getColumnIndex() const
 {
     return itl->getColumnIndex();
+}
+
+std::shared_ptr<RowStream> 
+ContinuousDataset::
+getRowStream() const
+{
+    return itl->getRowStream();
 }
 
 RestRequestMatchResult

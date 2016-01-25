@@ -420,11 +420,11 @@ number of occurrences of those tokens within `str`. For example `tokenize('a b b
   - `quotechar` is interpreted as a single character to delimit tokens which may contain the `splitchars`, so by default `tokenize('a,"b,c"')` will return the row `{'a':1,'b,c':1}`
   - `min_token_length` is used to specify the minimum length of tokens that are returned
   - `ngram_range` is used to specify the n-grams to return. `[1, 1]` will return only unigrams, while `[2, 3]` will return bigrams and trigrams, where tokens are joined by underscores. For example, `tokenize('Good day world', {splitchars:' ', ngram_range:[2,3]})` will return the row `{'Good_day': 1, 'Good_day_world': 1, 'day_world': 1}`
- - `token_extract(str, n, {splitchars: ',', quotechar: '"', offset: 0, limit: null, min_token_length: 1})` will return the `n`th token from `str` using the same tokenizing rules as `tokenize()` above. Only the tokens respecting the `min_token_length` will be considered
+- `token_extract(str, n, {splitchars: ',', quotechar: '"', offset: 0, limit: null, min_token_length: 1})` will return the `n`th token from `str` using the same tokenizing rules as `tokenize()` above. Only the tokens respecting the `min_token_length` will be considered
 
 ### JSON unpacking <a name="unpack_json"></a>
 
-The `unpack_json(str)` function will parse the string `str` as a JSON object and unpack it into multiple columns following the following algorithm: 
+The `unpack_json(str)` function will parse the string `str` as a JSON object and unpack it into multiple columns following the  algorithm outlined below. Note that JSON objects shown in the tables below are string reprensetations of the JSONs.
 
 Each `(key, value)` pair will be recorded as the column name and cell value respectively. The line `{"a": 5, "b": true}` is recorded as:
 
@@ -449,7 +449,7 @@ will be appended to the column name and the cell value will be set to `true`. Th
 | row1 | 5 | true | true | true |
 
 If the value is an array that contains only objects, we unpack the array putting one
-JSON object per column. The line `{"a": 5, "b": [{"z": 1}, {"y": 2}]}` is recorded as:
+JSON object per column encoded as a string. The line `{"a": 5, "b": [{"z": 1}, {"y": 2}]}` is recorded as:
 
 | *rowName* | *a* | *b.0* | *b.1* |
 |-----------|-----|-----|-------|
