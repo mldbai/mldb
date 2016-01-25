@@ -510,6 +510,8 @@ injectMldbWrapper(PythonSubinterpreter & pyControl)
 
 class mldb_wrapper(object):
 
+    import json as jsonlib
+
     @staticmethod
     def wrap(mldb):
         return Wrapped(mldb)
@@ -523,8 +525,6 @@ class mldb_wrapper(object):
                     'Response text: {r.text}'.format(r=self.response))
 
     class Response(object):
-
-        import json as jsonlib
 
         def __init__(self, url, raw_response):
             self.url         = url
@@ -549,7 +549,7 @@ class mldb_wrapper(object):
             self.request           = 'unimplemented'
 
         def json(self):
-            return self.__class__.jsonlib.loads(self.text)
+            return mldb_wrapper.jsonlib.loads(self.text)
 
     class wrap(object):
         def __init__(self, mldb):
@@ -566,6 +566,8 @@ class mldb_wrapper(object):
             return response
 
         def log(self, thing):
+            if type(thing) in [dict, list]:
+                thing = mldb_wrapper.jsonlib.dumps(thing, indent=4)
             self._mldb.log(str(thing))
 
         @property
@@ -573,13 +575,10 @@ class mldb_wrapper(object):
             return self._mldb.script
 
         def get(self, url, **kwargs):
-            iter_on = None
             query_string = [[str(k), str(v)] for k, v in kwargs.iteritems()]
             return self._perform('GET', url, query_string)
 
         def _post_put(self, verb, url, data=None):
-            if data is None:
-                data = {}
             return self._perform(verb, url, [], data)
 
         def delete(self, url):
