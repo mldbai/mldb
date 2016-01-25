@@ -129,15 +129,6 @@ struct AggregatorT {
             ExcAssertEqual(nargs, 1);
             const ExpressionValue & val = args[0];
 
-            if (false /* dense */) {
-                for (auto & col: val.getRow()) {
-                    columns[std::get<0>(col)].process(&std::get<1>(col), 1);
-                }
-
-                return;
-            }
-
-
             // This must be a row...
             auto onSubExpression = [&] (const Id & columnName,
                                         const ExpressionValue & val)

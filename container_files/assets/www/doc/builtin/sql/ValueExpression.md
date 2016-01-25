@@ -229,7 +229,7 @@ made possible by MLDB's sparse data model.
 
 #### IN expression with sub-select
 
-The right hand side can also be the result of a sub `SELECT` statement.
+The right hand side can be the result of a sub `SELECT` statement.
 For example `expr IN (SELECT x FROM dataset)` will test if the value
 expressed by `expr` is equal to any of the values in the x column of
 the dataset. If the `SELECT` statement returns more than a single column,
