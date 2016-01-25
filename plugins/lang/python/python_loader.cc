@@ -98,6 +98,8 @@ struct PythonPlugin: public Plugin {
                     const RestRequest & request,
                     RestRequestParsingContext & context);
 
+    static void injectMldbWrapper(PythonSubinterpreter & pyControl);
+
     std::shared_ptr<PythonPluginContext> itl;
     std::shared_ptr<MldbPythonContext> mldbPy;
 
@@ -122,7 +124,7 @@ PythonPlugin(MldbServer * server,
                                       (PYTHON,
                                        LoadedPluginResource::PLUGIN,
                                        config.id, res), routeHandlingMutex));
-}
+    }
     catch(const std::exception & exc) {
         throw HttpReturnException(400, ML::format("Exception opening plugin: %s", exc.what()));
     }
@@ -155,7 +157,8 @@ PythonPlugin(MldbServer * server,
 
     try {
         JML_TRACE_EXCEPTIONS(false);
-        pyControl.main_namespace["mldb"] = boost::python::object(boost::python::ptr(mldbPy.get()));
+        pyControl.main_namespace["mldb"] =
+            boost::python::object(boost::python::ptr(mldbPy.get()));
     } catch (const boost::python::error_already_set & exc) {
         ScriptException pyexc = convertException(pyControl, exc, "PyPlugin init");
 
@@ -419,6 +422,7 @@ runPythonScript(std::shared_ptr<PythonContext> titl,
     try {
         JML_TRACE_EXCEPTIONS(false);
         pyControl.main_namespace["mldb"] = boost::python::object(boost::python::ptr(mldbPy.get()));
+        injectMldbWrapper(pyControl);
 
     } catch (const boost::python::error_already_set & exc) {
         ScriptException pyexc = convertException(pyControl, exc, "PyRunner init");
@@ -496,6 +500,127 @@ runPythonScript(std::shared_ptr<PythonContext> titl,
         return result;
     };
 }
+
+void
+PythonPlugin::
+injectMldbWrapper(PythonSubinterpreter & pyControl)
+{
+    std::string code = R"code(
+
+
+class mldb_wrapper(object):
+
+    @staticmethod
+    def wrap(mldb):
+        return Wrapped(mldb)
+
+
+    class Exception(Exception):
+        pass
+
+    class ResponseException(Exception):
+        def __init__(self, response):
+            self.response = response
+
+        def __str__(self):
+            return ('Response status code: {r.status_code}. '
+                    'Response text: {r.text}'.format(r=self.response))
+
+    class Response(object):
+
+        import json as jsonlib
+
+        def __init__(self, url, raw_response):
+            self.url         = url
+            self.headers     = {k: v for k, v in
+                                raw_response.get('headers', {})}
+            self.status_code = raw_response['statusCode']
+            self.text        = raw_response.get('response', '')
+            self.raw         = raw_response
+
+            self.apparent_encoding = 'unimplemented'
+            self.close             = 'unimplemented'
+            self.conection         = 'unimplemented'
+            self.elapsed           = 'unimplemented'
+            self.encoding          = 'unimplemented'
+            self.history           = 'unimplemented'
+            self.iter_content      = 'unimplemented'
+            self.iter_lines        = 'unimplemented'
+            self.links             = 'unimplemented'
+            self.ok                = 'unimplemented'
+            self.raise_for_status  = 'unimplemented'
+            self.reason            = 'unimplemented'
+            self.request           = 'unimplemented'
+
+        def json(self):
+            return self.__class__.jsonlib.loads(self.text)
+
+    class wrap(object):
+        def __init__(self, mldb):
+            self.mldb = mldb
+            import functools
+            self.post = functools.partial(self._post_put, 'POST')
+            self.put = functools.partial(self._post_put, 'PUT')
+
+        def _perform(self, method, url, *args, **kwargs):
+            raw_res = self.mldb.perform(method, url, *args, **kwargs)
+            response = mldb_wrapper.Response(url, raw_res)
+            if response.status_code < 200 or response.status_code >= 400:
+                raise mldb_wrapper.ResponseException(response)
+            return response
+
+        def log(self, thing):
+            self.mldb.log(str(thing))
+
+        @property
+        def script(self):
+            return self.mldb.script
+
+        def _is_args_configured(self, args, kwargs):
+            if args:
+                if bool(args) == bool(kwargs):
+                    raise mldb_wrapper.Exception(
+                        "You must define either args or kwargs")
+                if len(args) > 1:
+                    raise mldb_wrapper.Exception(
+                        "Only one argument accepted as *args")
+                if type(args[0]) is not dict:
+                    raise mldb_wrapper.Exception(
+                        "*args must be of type dict")
+                return True
+            return False
+
+        def get(self, url, *args, **kwargs):
+            iter_on = None
+            if self._is_args_configured(args, kwargs):
+                iter_on = args[0]
+            else:
+                iter_on = kwargs
+            query_string = [[str(k), str(v)] for k, v in iter_on.iteritems()]
+            self.mldb.log("QUERY STRING")
+            self.mldb.log(str(query_string))
+            return self._perform('GET', url, query_string)
+
+        def _post_put(self, verb, url, *args, **kwargs):
+            if self._is_args_configured(args, kwargs):
+                return self._perform(verb, url, [], args[0])
+            return self._perform(verb, url, [], kwargs)
+
+        def delete(self, url):
+            return self._perform('DELETE', url)
+
+        def query(self, query):
+            return self._perform('GET', '/v1/query', [
+                ['q', query],
+                ['format', 'table']
+            ])
+
+    )code"; //this is python code
+
+    auto pyCode = boost::python::str(code);
+    boost::python::exec(pyCode, pyControl.main_namespace);
+}
+
 
 namespace {
 
