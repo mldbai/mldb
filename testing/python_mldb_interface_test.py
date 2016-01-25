@@ -104,18 +104,4 @@ class PythonMldbInterfaceTest(unittest.TestCase):
         self.assertEqual(res, [['_rowName', u'colA'], ['row1', 1]])
 
 if __name__ == '__main__':
-    if mldb.script.args:
-        assert type(mldb.script.args) is list
-        argv = ['python'] + mldb.script.args
-    else:
-        argv = None
-
-    res = unittest.main(exit=False, argv=argv).result
-    mldb.log(res)
-    got_err = False
-    for err in res.errors + res.failures:
-        got_err = True
-        mldb.log(str(err[0]) + "\n" + err[1])
-
-    if not got_err:
-        mldb.script.set_return("success")
+    mldb.run_tests()

@@ -613,6 +613,24 @@ class mldb_wrapper(object):
                 ['format', 'table']
             ])
 
+        def run_tests(self):
+            import unittest
+            if self.script.args:
+                assert type(self.script.args) is list
+                argv = ['python'] + self.script.args
+            else:
+                argv = None
+
+            res = unittest.main(exit=False, argv=argv).result
+            self.log(res)
+            got_err = False
+            for err in res.errors + res.failures:
+                got_err = True
+                log(str(err[0]) + "\n" + err[1])
+
+            if not got_err:
+                self.script.set_return("success")
+
     )code"; //this is python code
 
     auto pyCode = boost::python::str(code);
