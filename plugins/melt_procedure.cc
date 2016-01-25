@@ -127,7 +127,7 @@ run(const ProcedureRunConfig & run,
     // Create the output dataset
     std::shared_ptr<Dataset> outputDataset;
     if (!runProcConf.outputDataset.type.empty() || !runProcConf.outputDataset.id.empty()) {
-        outputDataset = obtainDataset(server, runProcConf.outputDataset);
+        outputDataset = createDataset(server, runProcConf.outputDataset, nullptr, true /** overwrite **/);
     }
 
     if(!outputDataset) {

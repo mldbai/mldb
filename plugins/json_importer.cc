@@ -89,7 +89,7 @@ struct JSONImporter: public Procedure {
  
         if (!runProcConf.outputDataset.type.empty()
             || !runProcConf.outputDataset.id.empty()) {
-            outputDataset = obtainDataset(server, runProcConf.outputDataset);
+            outputDataset = createDataset(server, runProcConf.outputDataset, nullptr, true);
         }
 
         if(!outputDataset) {
