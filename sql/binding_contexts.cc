@@ -57,8 +57,9 @@ doGetFunction(const Utf8String & tableName,
     }
 #endif
     // Get the outer function
-    auto outerFunction = outer.doGetFunction(tableName, functionName, args);
+    return outer.doGetFunction(tableName, functionName, args);
 
+#if 0
     BoundFunction result = outerFunction;
 
     if (!outerFunction)
@@ -79,6 +80,7 @@ doGetFunction(const Utf8String & tableName,
         };
 
     return result;
+#endif
 }
 
 VariableGetter
