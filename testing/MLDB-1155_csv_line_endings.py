@@ -233,7 +233,17 @@ result = mldb.perform("PUT", "/v1/datasets/empty_csv", [], {
 mldb.log(result)
 
 assert result["statusCode"] == 400, "expected the call to fail"
-assert json.loads(result['response'])["error"] == "dataFileUrl pointed to an empty file", \
+assert "the file is empty" in json.loads(result['response'])["error"], \
+    "did not get the expected message MLDB-1299"
+
+result = mldb.perform("PUT", "/v1/datasets/does_not_exist_csv", [], {
+    "type": "text.csv.tabular",
+    "params": { "dataFileUrl": "file://this/path/does/not/exist.csv" }
+})
+mldb.log(result)
+
+assert result["statusCode"] == 400, "expected the call to fail"
+assert "No such file or directory" in json.loads(result['response'])["error"], \
     "did not get the expected message MLDB-1299"
 
 mldb.script.set_return("success")

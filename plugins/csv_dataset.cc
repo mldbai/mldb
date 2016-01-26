@@ -579,8 +579,14 @@ struct CsvDataset::Itl: public TabularDataStore {
         try {
             stream.open(filename, { { "mapped", "true" } });
         }
-        catch (const std::exception & e) {
-             throw HttpReturnException(400, "dataFileUrl pointed to an empty file");
+        catch (const std::exception & exc) {
+            // this is necessary because boost::mapped_file does not return an
+            // explicit message in that case
+            string reason("the file is empty");
+            if (exc.what() != string("std::exception"))
+                reason = exc.what();
+            rethrowHttpException(400, "failed to open file '" + config.dataFileUrl.toString() + 
+                                 "' pointed to by dataFileUrl: " + reason);
         }
 
         // Get the file timestamp out
