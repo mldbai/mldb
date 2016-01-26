@@ -557,6 +557,7 @@ class mldb_wrapper(object):
             import functools
             self.post = functools.partial(self._post_put, 'POST')
             self.put = functools.partial(self._post_put, 'PUT')
+            self.create_dataset = self._mldb.create_dataset
 
         def _perform(self, method, url, *args, **kwargs):
             raw_res = self._mldb.perform(method, url, *args, **kwargs)
@@ -575,7 +576,11 @@ class mldb_wrapper(object):
             return self._mldb.script
 
         def get(self, url, **kwargs):
-            query_string = [[str(k), str(v)] for k, v in kwargs.iteritems()]
+            query_string = []
+            for k, v in kwargs.iteritems():
+                if type(v) in [list, dict]:
+                    v = json.dumps(v)
+                query_string.append([str(k), str(v)])
             return self._perform('GET', url, query_string)
 
         def _post_put(self, verb, url, data=None):
@@ -588,7 +593,7 @@ class mldb_wrapper(object):
             return self._perform('GET', '/v1/query', [
                 ['q', query],
                 ['format', 'table']
-            ])
+            ]).json()
 
         def run_tests(self):
             import unittest
