@@ -217,7 +217,7 @@ $(eval $(call mldb_unit_test,MLDB-991-svm.py))
 $(eval $(call mldb_unit_test,MLDB-995-sub-query-sparse.js))
 $(eval $(call mldb_unit_test,MLDB-1116-tokensplit.py))
 $(eval $(call mldb_unit_test,MLDB-1030_apply_stopwords.py))
-$(eval $(call mldb_unit_test,MLDB-1165-where-rowname-in-optim.py))
+$(eval $(call mldb_unit_test,MLDB-1165-where-rowname-in-optim.py,,manual)) # based on perf of specific machine
 $(eval $(call mldb_unit_test,MLDB-1044_tsne_numerical_error.py,,manual)) # manual---requires large local data file
 
 $(eval $(call mldb_unit_test,MLDB-1000-type-documentation-valid.js))
@@ -258,7 +258,7 @@ $(eval $(call mldb_unit_test,MLDB-1266-import_json.py))
 $(eval $(call mldb_unit_test,MLDB-1258_nofrom_segfault.py))
 $(eval $(call mldb_unit_test,MLDB-1212_csv_import_long_quoted_lines.py))
 $(eval $(call mldb_unit_test,MLDB-1273-classifier-row_input.py))
-$(eval $(call mldb_unit_test,MLDB-1277-pooling-performance.py,,manual)) #manual -- awaiting fix
+$(eval $(call mldb_unit_test,MLDB-1277-pooling-performance.py))
 
 
 $(eval $(call mldb_unit_test,pytanic_plugin_test.py))
@@ -304,3 +304,4 @@ $(eval $(call mldb_unit_test,MLDB-1192-js-procedure-function.js))
 $(eval $(call mldb_unit_test,MLDB-1253_concat_test.py))
 $(eval $(call mldb_unit_test,MLDBFB-308-where-outer-join-test.py,,manual))
 $(eval $(call mldb_unit_test,MLDB-1267-bucketize-ts-test.py))
+$(eval $(call mldb_unit_test,python_mldb_interface_test.py))
