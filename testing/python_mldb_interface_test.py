@@ -80,7 +80,7 @@ class PythonMldbInterfaceTest(unittest.TestCase):
         })
         mldb.post(url + '/commit')
 
-        res = mldb.query('SELECT * FROM ds').json()
+        res = mldb.query('SELECT * FROM ds')
         self.assertEqual(res, [['_rowName', u'colA'], ['row1', 1]])
 
     def test_response_exception(self):
