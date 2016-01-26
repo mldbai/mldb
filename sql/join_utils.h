@@ -14,7 +14,7 @@ namespace Datacratic {
 namespace MLDB {
 
 std::shared_ptr<SqlExpression>
-removeTableName(const SqlExpression & expr, const Utf8String & tableName);
+removeTableName(const SqlExpression & expr, const Utf8String & tableName, const std::set<Utf8String>& aliases);
 
 
 /*****************************************************************************/

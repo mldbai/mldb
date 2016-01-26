@@ -145,7 +145,11 @@ struct JoinedDataset::Itl
         matrices.emplace_back(left.dataset->getMatrixView());
         matrices.emplace_back(right.dataset->getMatrixView());
 
+        cerr << "table names: " << left.asName << "," << right.asName << endl;
+
         tableNames = {left.asName, right.asName};
+        left.dataset->getChildAliases(tableNames);
+        right.dataset->getChildAliases(tableNames);
 
         //if table aliases contains a dot '.', surround it with quotes to prevent ambiguity
         Utf8String quotedLeftName = left.asName;
