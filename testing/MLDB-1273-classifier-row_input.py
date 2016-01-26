@@ -77,5 +77,46 @@ without_flattening =  query("""
 
 assert with_flattening == without_flattening, "results do not match"
 
+with_aliasing =  query("""
+                select cls({features: {{a,b,c,d} as row}}) as *
+                from iris 
+                limit 10
+                """)
+
+assert with_flattening == with_aliasing, "results do not match"
+
+with_aliasing =  query("""
+                select cls({features: {* as "row."*}}) as *
+                from iris 
+                limit 10
+                """)
+
+assert with_flattening == with_aliasing, "results do not match"
+
+without_aliasing =  query("""
+                select cls({features: feats({*}) }) as *
+                from iris 
+                limit 10
+                """)
+
+assert with_flattening == without_aliasing, "results do not match"
+
+result = mldb.perform("PUT", "/v1/functions/feats2", [], {
+    'type' : 'sql.expression',
+    'params' : {
+        "expression": "feats({*}) as features"
+    }
+})
+assert result["statusCode"] < 400, result["response"]
+
+without_name =  query("""
+                select cls( feats2({*}) ) as *
+                from iris 
+                limit 10
+                """)
+
+# uncomment for MLDB-1314 test case
+# assert with_flattening == without_name, "results do not match"
+
 mldb.script.set_return("success")
 
