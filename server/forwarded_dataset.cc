@@ -167,11 +167,12 @@ getColumnNames(ssize_t offset, ssize_t limit) const
 
 BoundFunction
 ForwardedDataset::
-overrideFunction(const Utf8String & functionName,
+overrideFunction(const Utf8String & tableName, 
+                 const Utf8String & functionName,
                  SqlBindingScope & context) const
 {
     ExcAssert(underlying);
-    return underlying->overrideFunction(functionName, context);
+    return underlying->overrideFunction(tableName, functionName, context);
 }
 
 GenerateRowsWhereFunction

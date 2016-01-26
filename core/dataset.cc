@@ -1348,7 +1348,8 @@ commit()
 
 BoundFunction
 Dataset::
-overrideFunction(const Utf8String & functionName,
+overrideFunction(const Datacratic::Utf8String&,
+                 const Utf8String & functionName,
                  SqlBindingScope & context) const
 {
     return BoundFunction();

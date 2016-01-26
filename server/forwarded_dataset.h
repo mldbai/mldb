@@ -81,7 +81,8 @@ struct ForwardedDataset: public Dataset {
     getColumnNames(ssize_t offset = 0, ssize_t limit = -1) const;
 
     virtual BoundFunction
-    overrideFunction(const Utf8String & functionName,
+    overrideFunction(const Utf8String & tableName, 
+                     const Utf8String & functionName,
                      SqlBindingScope & context) const;
 
     virtual GenerateRowsWhereFunction
