@@ -59,6 +59,13 @@ struct JoinedDataset::Itl
         //ML::compact_vector<RowHash, 2> rowHashes;   ///< Row hash from input datasets
     };
 
+    enum JoinSide
+    {
+        JOIN_SIDE_LEFT = 0,
+        JOIN_SIDE_RIGHT,
+        JOIN_SIDE_MAX
+    };
+
      struct JoinedRowStream : public RowStream {
 
         JoinedRowStream(JoinedDataset::Itl* source) : source(source)
@@ -146,6 +153,9 @@ struct JoinedDataset::Itl
         matrices.emplace_back(right.dataset->getMatrixView());
 
         tableNames = {left.asName, right.asName};
+       
+        left.dataset->getChildAliases(tableNames);
+        right.dataset->getChildAliases(tableNames);
 
         //if table aliases contains a dot '.', surround it with quotes to prevent ambiguity
         Utf8String quotedLeftName = left.asName;
@@ -667,6 +677,24 @@ struct JoinedDataset::Itl
     {
         return columnIndex.size();
     }
+
+    RowName getSubRowName(const RowName & name, JoinSide side)
+    {   
+        ExcAssert(side < JOIN_SIDE_MAX);
+        RowHash rowHash(name);
+        auto iter = rowIndex.find(rowHash);
+        if (iter == rowIndex.end())
+            return RowName();
+
+        int64_t index = iter->second;
+        const RowEntry& entry = rows[index];
+        return JOIN_SIDE_LEFT == side ? entry.leftName : entry.rightName;
+    };
+
+    Utf8String getTableAlias(JoinSide side) const
+    {
+        return tableNames[side];
+    }
 };
 
 
@@ -731,6 +759,37 @@ JoinedDataset::
 getChildAliases(std::vector<Utf8String> & outAliases) const
 {
     outAliases.insert(outAliases.begin(), itl->tableNames.begin(), itl->tableNames.end());
+}
+
+BoundFunction
+JoinedDataset::
+overrideFunction(const Utf8String & tableName,
+                 const Utf8String & functionName,
+                 SqlBindingScope & context) const
+{
+    if (functionName == "rowName") {
+
+        JoinedDataset::Itl::JoinSide tableSide = JoinedDataset::Itl::JOIN_SIDE_MAX;
+
+        if (tableName == itl->getTableAlias(JoinedDataset::Itl::JOIN_SIDE_LEFT))
+            tableSide = JoinedDataset::Itl::JOIN_SIDE_LEFT;
+        else if (tableName == itl->getTableAlias(JoinedDataset::Itl::JOIN_SIDE_RIGHT))
+            tableSide = JoinedDataset::Itl::JOIN_SIDE_RIGHT;
+
+        if (tableSide != JoinedDataset::Itl::JOIN_SIDE_MAX)
+        {
+            return {[&, tableSide] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & context)
+                { 
+                    auto & row = static_cast<const SqlExpressionDatasetContext::RowContext &>(context);
+                    return ExpressionValue(itl->getSubRowName(row.row.rowName, tableSide).toUtf8String(), Date::negativeInfinity());
+                },
+                std::make_shared<Utf8StringValueInfo>()
+            };
+        }        
+    }
+
+    return BoundFunction();
 }
 
 static RegisterDatasetType<JoinedDataset, JoinedDatasetConfig> 

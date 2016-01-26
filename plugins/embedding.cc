@@ -1086,7 +1086,8 @@ getRowStream() const
 
 BoundFunction
 EmbeddingDataset::
-overrideFunction(const Utf8String & functionName,
+overrideFunction(const Utf8String & tableName,
+                 const Utf8String & functionName,
                  SqlBindingScope & context) const
 {
     if (functionName == "distance") {

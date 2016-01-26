@@ -28,7 +28,6 @@ function testQuery(query, expected) {
 
 var dataset1 = mldb.createDataset({type:'sparse.mutable',id:'test1'});
 var dataset2 = mldb.createDataset({type:'sparse.mutable',id:'test2'});
-var dataset2 = mldb.createDataset({type:'sparse.mutable',id:'test2'});
 
 var ts = new Date("2015-01-01");
 
@@ -378,6 +377,58 @@ testQuery('SELECT * FROM test1 RIGHT JOIN test2 ON test1.x = test2.x AND test2.x
           expected);
 
 testQuery('SELECT * FROM test1 RIGHT OUTER JOIN test2 ON test1.x = test2.x AND test2.x != 2',
+          expected);
+
+// MLDB-1255
+
+mldb.log("row name queries");
+
+var dataset3 = mldb.createDataset({type:'sparse.mutable',id:'test3'});
+var dataset4 = mldb.createDataset({type:'sparse.mutable',id:'test4'});
+var dataset5 = mldb.createDataset({type:'sparse.mutable',id:'test5'});
+
+var ts = new Date("2015-01-01");
+
+dataset3.recordRow("ex1", [ [ "x", 1, ts ], ["y", 2, ts] ]);
+dataset3.recordRow("ex2", [ [ "x", 2, ts ], ["z", 4, ts] ]);
+dataset3.recordRow("ex3", [ [ "x", null, ts ], ["z", 3, ts] ]);
+
+dataset4.recordRow("ex3", [ [ "x", 1, ts ], ["z", 2, ts] ]);
+dataset4.recordRow("ex4", [ [ "x", 2, ts ], ["z", 2, ts] ]);
+dataset4.recordRow("ex5", [ [ "x", null, ts ], ["z", 3, ts] ]);
+
+dataset5.recordRow("ex5", [ [ "x", 1, ts ], ["z", 2, ts] ]);
+dataset5.recordRow("ex6", [ [ "x", 2, ts ], ["z", 2, ts] ]);
+dataset5.recordRow("ex1", [ [ "x", null, ts ], ["z", 3, ts] ]);
+
+dataset3.commit()
+dataset4.commit()
+dataset5.commit()
+
+expected = [
+   [ "_rowName", "test3.x", "test3.y", "test3.z", "test4.x", "test4.z" ],
+   [ "ex1-", 1, 2, null, null, null ],
+   [ "ex2-", 2, null, 4, null, null ],
+   [ "-ex5", null, null, null, null, 3 ],
+   [ "ex3-ex3", null, null, 3, 1, 2 ],
+   [ "-ex4", null, null, null, 2, 2 ]
+];
+
+testQuery('SELECT * FROM test3 OUTER JOIN test4 ON test3.rowName() = test4.rowName()',
+          expected);
+
+expected = [
+   [ "_rowName", "test4.x", "test4.z", "test5.x", "test5.z", "test3.x", "test3.z", "test3.y" ],
+   [ "-ex5-", null, 3, null, null, null, null, null ],
+   [ "-ex4-", 2, 2, null, null, null, null, null ],
+   [ "-ex5", null, null, 1, 2, null, null, null ],
+   [ "ex2--", null, null, null, null, 2, 4, null ],
+   [ "ex3-ex3-", 1, 2, null, null, null, 3, null ],
+   [ "-ex6", null, null, 2, 2, null, null, null ],
+   [ "ex1--ex1", null, null, null, 3, 1, null, 2 ]
+];
+
+testQuery('SELECT * FROM test3 OUTER JOIN test4 ON test3.rowName() = test4.rowName() OUTER JOIN test5 on test3.rowName() = test5.rowName()',
           expected);
 
 "success"

@@ -312,7 +312,8 @@ struct Dataset: public MldbEntity {
         Default implementation returns a null function.
     */
     virtual BoundFunction
-    overrideFunction(const Utf8String & functionName,
+    overrideFunction(const Utf8String & tableName,
+                     const Utf8String & functionName,
                      SqlBindingScope & context) const;
 
     /** Allow the dataset to override the generation of row IDs for a
