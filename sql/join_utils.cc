@@ -132,9 +132,6 @@ removeTableName(const SqlExpression & expr, const Utf8String & tableName, const 
                         name.replace(0, std::get<2>(prefixt), Utf8String());
                         ExcAssert(!name.empty());
                         ExcAssert(!name.startsWith("."));
-
-                        cerr << "removed table name in var : " << var->variableName << " is now " << name << " from table " << std::get<0>(prefixt) << endl;
-
                         return std::make_shared<ReadVariableExpression>(std::get<0>(prefixt), name);
                     }
                 }               
@@ -153,9 +150,6 @@ removeTableName(const SqlExpression & expr, const Utf8String & tableName, const 
                         for (auto & a: func->args) {
                             newArgs.emplace_back(std::move(doArg(a)));
                         }
-
-                        cerr << "removed table name in function : " << func->functionName << " is now " << name << " from table " << std::get<0>(prefixt) << endl;
-
                         return std::make_shared<FunctionCallWrapper>(std::get<0>(prefixt), name, std::move(newArgs), func->extract);
                     }
                 }
@@ -227,11 +221,7 @@ AnnotatedClause(std::shared_ptr<SqlExpression> c,
         }
 
         Utf8String tableName(v.begin(), dotIt);
-
-        cerr << "func " << v << " with table name " << tableName << endl;
-
         if (leftTables.count(tableName)) {
-            cerr << "left" << endl;
             v.replace(0, tableName.length() + 1,
                       Utf8String(""));
             ExcAssert(!v.empty());
@@ -239,7 +229,6 @@ AnnotatedClause(std::shared_ptr<SqlExpression> c,
             leftFuncs.emplace_back(std::move(v));
         }
         else if (rightTables.count(tableName)) {
-            cerr << "right" << endl;
             v.replace(0, tableName.length() + 1,
                       Utf8String(""));
             ExcAssert(!v.empty());
@@ -463,13 +452,7 @@ AnnotatedJoinCondition(std::shared_ptr<TableExpression> leftTable,
             // expression locally to the table, not in the context of the
             // join.
 
-            for (auto& n : side.table->getTableNames())
-            {
-                cerr << "table name in do side: " << n << endl;
-            }
-
             auto localExpr = removeTableName(*side.equalExpression, side.table->getAs(), side.table->getTableNames());
-
             side.selectExpression = localExpr;
 
             // Construct the select expression.  It's simply the value of
@@ -484,9 +467,7 @@ AnnotatedJoinCondition(std::shared_ptr<TableExpression> leftTable,
             side.orderBy.clauses.emplace_back(localExpr, ASC);
         };
 
-    cerr << "do left side" << endl;
     doSide(left);
-    cerr << "do right side" << endl;
     doSide(right);
 }
 
