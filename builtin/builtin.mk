@@ -6,6 +6,7 @@ LIBMLDB_BUILTIN_SOURCES:= \
 	joined_dataset.cc \
 	sub_dataset.cc \
 	filtered_dataset.cc \
+	sampled_dataset.cc \
 
 LIBMLDB_BUILTIN_LINK:= mldb_core
 

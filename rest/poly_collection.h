@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** poly_collection.h                                              -*- C++ -*-
     Jeremy Barnes, 22 December 2014
     Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Collection of polymorphic objects.
 */
@@ -32,6 +32,7 @@ struct PolyCollectionBase
     PolyCollectionBase(const Utf8String & nounSingular,
                        const Utf8String & nounPlural,
                        RestDirectory * server);
+    virtual ~PolyCollectionBase();
     
     RestDirectory * server;
         
@@ -73,6 +74,8 @@ struct PolyCollection: public PolyCollectionBase {
     PolyCollection(const Utf8String & nounSingular,
                    const Utf8String & nounPlural,
                    RestDirectory * server);
+
+    virtual ~PolyCollection();
 
     virtual std::shared_ptr<PolyConfig>
     getConfig(Utf8String key, const PolyEntity & value) const;

@@ -1056,6 +1056,17 @@ getField(const Utf8String & fieldName, const VariableFilter & filter) const
     return ExpressionValue();
 }
 
+ExpressionValue
+ExpressionValue::
+getField(int fieldIndex) const
+{
+    if (type_ == STRUCT) {
+        return ExpressionValue(struct_->value(fieldIndex), ts_);
+    }
+
+    return ExpressionValue();
+}
+
 const ExpressionValue*
 ExpressionValue::
 findNestedField(const Utf8String & fieldName, const VariableFilter & filter /*= GET_LATEST*/) const
@@ -1270,10 +1281,26 @@ appendToRow(const Id & columnName, StructValue & row) const
     forEachSubexpression(onSubexpr, columnName);
 }
 
+size_t
+ExpressionValue::
+rowLength() const
+{
+    if (type_ == ROW) {
+        return row_->size();
+    }
+    else if (type_ == STRUCT) {
+        return struct_->length();
+    }
+    else throw HttpReturnException(500, "Attempt to access non-row as row",
+                                   "value", *this);
+}
+
 void
 ExpressionValue::
 mergeToRowDestructive(StructValue & row)
 {
+    row.reserve(row.size() + rowLength());
+
     auto onSubexpr = [&] (ColumnName & columnName,
                           ExpressionValue & val)
         {
@@ -1281,13 +1308,15 @@ mergeToRowDestructive(StructValue & row)
             return true;
         };
 
-    forEachColumnDestructive(onSubexpr);
+    forEachColumnDestructiveT(onSubexpr);
 }
 
 void 
 ExpressionValue::
 mergeToRowDestructive(RowValue & row)
 {
+    row.reserve(row.size() + rowLength());
+
     auto onSubexpr = [&] (ColumnName & columnName,
                           ExpressionValue & val)
         {
@@ -1295,7 +1324,7 @@ mergeToRowDestructive(RowValue & row)
             return true;
         };
 
-    forEachColumnDestructive(onSubexpr);
+    forEachColumnDestructiveT(onSubexpr);
 }
 
 bool
@@ -1322,7 +1351,7 @@ forEachAtom(const std::function<bool (const Id & columnName,
             }
             else {
                 std::string newPrefix
-                    = !prefix.notNull() ? std::get<0>(col).toString() + "."
+                    = !prefix.notNull() ? std::get<0>(col).toString()
                     : prefix.toString() + "." + std::get<0>(col).toString();
             
                 if (!val.forEachAtom(onAtom, Id(newPrefix)))
@@ -1393,6 +1422,14 @@ bool
 ExpressionValue::
 forEachColumnDestructive(const std::function<bool (Id & columnName, ExpressionValue & val)>
                                 & onSubexpression) const
+{
+    return forEachColumnDestructiveT(onSubexpression);
+}
+
+template<typename Fn>
+bool
+ExpressionValue::
+forEachColumnDestructiveT(Fn && onSubexpression) const
 {
     switch (type_) {
     case ROW: {
@@ -1508,6 +1545,74 @@ getFiltered(const VariableFilter & filter /*= GET_LATEST*/) const
 
     return output;
 
+}
+
+std::pair<bool, Date>
+ExpressionValue::
+hasKey(const Utf8String & key) const
+{
+    switch (type_) {
+    case NONE:
+    case ATOM:
+        return { false, Date::negativeInfinity() };
+    case ROW: 
+    case STRUCT: {
+        Date outputDate = Date::negativeInfinity();
+        auto onExpr = [&] (const Id & columnName,
+                           const Id & prefix,
+                           const ExpressionValue & val)
+            {
+                if (columnName.toUtf8String() == key) {
+                    outputDate = val.getEffectiveTimestamp();
+                    return false;
+                }
+
+                return true;
+            };
+     
+        // Can't be with next line due to sequence points
+        bool result = !forEachSubexpression(onExpr);
+        return { result, outputDate };
+    }
+    }
+
+    throw HttpReturnException(500, "Unknown expression type",
+                              "expression", *this,
+                              "type", (int)type_);
+}
+
+std::pair<bool, Date>
+ExpressionValue::
+hasValue(const ExpressionValue & val) const
+{
+    switch (type_) {
+    case NONE:
+    case ATOM:
+        return { false, Date::negativeInfinity() };
+    case ROW: 
+    case STRUCT: {
+        Date outputDate = Date::negativeInfinity();
+        auto onExpr = [&] (const Id & columnName,
+                           const Id & prefix,
+                           const ExpressionValue & value)
+            {
+                if (val == value) {
+                    outputDate = value.getEffectiveTimestamp();
+                    return false;
+                }
+
+                return true;
+            };
+        
+        // Can't be with next line due to sequence points
+        bool result = !forEachSubexpression(onExpr);
+        return { result, outputDate };
+    }
+    }
+
+    throw HttpReturnException(500, "Unknown expression type",
+                              "expression", *this,
+                              "type", (int)type_);
 }
 
 size_t

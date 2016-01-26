@@ -7,4 +7,4 @@ percentile or an index.
 
 ## Configuration
 
-![](%%config procedure bucketize)
+![](%%config procedure ranking)

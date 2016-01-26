@@ -126,14 +126,15 @@ apply(const FunctionContext & input) const
     //cerr << "input is " << jsonEncode(input) << endl;
             
     // Run the WITH expression to get our values from the input
-    auto withRow = itl->withBindingContext.getRowContext(input);
+    SqlRowScope outerScope;
+    auto withRow = itl->withBindingContext.getRowContext(outerScope, input);
     FunctionOutput withOutput;
     withOutput = itl->boundWith(withRow);
 
     FunctionContext selectContext;
     selectContext.update(std::move(withOutput));
 
-    FunctionOutput stepOutput = itl->applier->apply(selectContext);
+    FunctionOutput stepOutput = itl->applier->apply(outerScope, selectContext);
 
     //cerr << "stepOutput = " << jsonEncode(stepOutput) << endl;
 
@@ -141,7 +142,7 @@ apply(const FunctionContext & input) const
     extractContext.update(std::move(stepOutput));
 
     // Now the extract
-    auto extractRow = itl->extractBindingContext.getRowContext(extractContext);
+    auto extractRow = itl->extractBindingContext.getRowContext(outerScope, extractContext);
     return itl->boundExtract(extractRow);
 }
 

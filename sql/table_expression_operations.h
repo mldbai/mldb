@@ -14,6 +14,15 @@
 namespace Datacratic {
 namespace MLDB {
 
+enum JoinQualification {
+    JOIN_INNER,
+    JOIN_LEFT,
+    JOIN_RIGHT,
+    JOIN_FULL
+};
+
+DECLARE_ENUM_DESCRIPTION(JoinQualification);
+
 /*****************************************************************************/
 /* NAMED DATASET EXPRESSION                                                  */
 /*****************************************************************************/
@@ -70,7 +79,8 @@ struct DatasetExpression: public NamedDatasetExpression {
 struct JoinExpression: public TableExpression {
     JoinExpression(std::shared_ptr<TableExpression> left,
                    std::shared_ptr<TableExpression> right,
-                   std::shared_ptr<SqlExpression> on);
+                   std::shared_ptr<SqlExpression> on,
+                   JoinQualification qualification);
 
     virtual ~JoinExpression();
 
@@ -90,6 +100,7 @@ struct JoinExpression: public TableExpression {
     std::shared_ptr<TableExpression> left;
     std::shared_ptr<TableExpression> right;
     std::shared_ptr<SqlExpression> on;
+    JoinQualification qualification;
 };
 
 /*****************************************************************************/
@@ -155,7 +166,9 @@ struct SelectSubtableExpression: public NamedDatasetExpression {
 
 struct DatasetFunctionExpression: public NamedDatasetExpression {
 
-    DatasetFunctionExpression(Utf8String functionName, std::vector<std::shared_ptr<TableExpression>>& args);
+    DatasetFunctionExpression(Utf8String functionName,
+                              std::vector<std::shared_ptr<TableExpression>>& args,
+                              std::shared_ptr<SqlExpression> options);
 
     virtual ~DatasetFunctionExpression();
 
@@ -174,6 +187,7 @@ struct DatasetFunctionExpression: public NamedDatasetExpression {
 
     Utf8String functionName;
     std::vector<std::shared_ptr<TableExpression>> args;
+    std::shared_ptr<SqlExpression> options;
 };
 
 

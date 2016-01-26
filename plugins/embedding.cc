@@ -1,10 +1,10 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** embedding.cc
     Jeremy Barnes, 9 February 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
 
-    Implementation of embedding database.
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+    
+    Implementation of embedding dataset.
 */
 
 #include "embedding.h"
@@ -286,6 +286,37 @@ struct EmbeddingDataset::Itl
         return result;
     }
 
+    struct EmbeddingRowStream : public RowStream {
+
+        EmbeddingRowStream(const EmbeddingDataset::Itl* source) : index(0), source(source)
+        {
+         
+        }
+
+        virtual std::shared_ptr<RowStream> clone() const{
+            auto ptr = std::make_shared<EmbeddingRowStream>(source);
+            return ptr;
+        }
+
+        virtual void initAt(size_t start){
+            index = start;
+        }
+
+        virtual RowName next() {
+            auto repr = source->committed();     
+            return repr->rows[index++].rowName;
+        }
+
+        size_t index;
+        const EmbeddingDataset::Itl* source;
+    };
+
+    std::shared_ptr<RowStream>
+    getRowStream() const
+    {
+        return std::make_shared<EmbeddingRowStream>(this);
+    }
+
     virtual std::vector<RowHash>
     getRowHashes(ssize_t start = 0, ssize_t limit = -1) const
     {
@@ -503,6 +534,75 @@ struct EmbeddingDataset::Itl
             result.rows.emplace_back(repr->rows[i].rowName, columnVals[i],
                                      repr->rows[i].timestamp);
         }
+        return result;
+    }
+
+    /** Return a RowValueInfo that describes all rows that could be returned
+        from the dataset.
+    */
+    virtual std::shared_ptr<RowValueInfo> getRowInfo() const
+    {
+        std::vector<KnownColumn> knownColumns;
+        
+        auto valueInfo = std::make_shared<Float32ValueInfo>();
+        
+        auto repr = committed();
+        if (repr->initialized()) {
+            for (auto & c: repr->columnNames) {
+                knownColumns.emplace_back(c, valueInfo, COLUMN_IS_DENSE);
+            }
+        }
+
+        return std::make_shared<RowValueInfo>(knownColumns);
+    }
+
+    virtual KnownColumn getKnownColumnInfo(const ColumnName & columnName) const
+    {
+        auto repr = committed();
+        if (!repr->initialized()) {
+            throw HttpReturnException(400, "Can't get info of unknown column",
+                                      "columnName", columnName,
+                                      "knownColumns", repr->columnNames);
+        }
+        
+        auto it = repr->columnIndex.find(columnName);
+        if (it == repr->columnIndex.end())
+            throw HttpReturnException(400, "Can't get info of unknown column",
+                                      "columnName", columnName,
+                                      "knownColumns", repr->columnNames);
+        
+        return KnownColumn(columnName, std::make_shared<Float32ValueInfo>(),
+                           COLUMN_IS_DENSE);
+    }
+    
+
+    virtual std::vector<KnownColumn>
+    getKnownColumnInfos(const std::vector<ColumnName> & columnNames) const
+    {
+        std::vector<KnownColumn> result;
+
+        if (columnNames.empty())
+            return result;
+
+        auto repr = committed();
+        if (!repr->initialized()) {
+            throw HttpReturnException(500, "Asking for column information in uncommitted embedding dataset");
+        }
+
+        result.reserve(columnNames.size());
+
+        for (auto & columnName: columnNames) {
+            auto it = repr->columnIndex.find(columnName);
+            if (it == repr->columnIndex.end())
+                throw HttpReturnException(400, "Can't get info of unknown column",
+                                          "columnName", columnName,
+                                          "knownColumns", repr->columnNames);
+            
+            result.emplace_back(columnName,
+                                std::make_shared<Float32ValueInfo>(),
+                                COLUMN_IS_DENSE);
+        }
+
         return result;
     }
 
@@ -977,6 +1077,13 @@ getColumnIndex() const
     return itl;
 }
 
+std::shared_ptr<RowStream> 
+EmbeddingDataset::
+getRowStream() const
+{
+    return itl->getRowStream();
+}
+
 BoundFunction
 EmbeddingDataset::
 overrideFunction(const Utf8String & functionName,
@@ -1070,6 +1177,20 @@ overrideFunction(const Utf8String & functionName,
     }
 
     return BoundFunction();
+}
+
+KnownColumn
+EmbeddingDataset::
+getKnownColumnInfo(const ColumnName & columnName) const
+{
+    return itl->getKnownColumnInfo(columnName);
+}
+
+std::vector<KnownColumn>
+EmbeddingDataset::
+getKnownColumnInfos(const std::vector<ColumnName> & columnNames) const
+{
+    return itl->getKnownColumnInfos(columnNames);
 }
 
 RestRequestMatchResult

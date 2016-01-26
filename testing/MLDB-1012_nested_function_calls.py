@@ -64,8 +64,6 @@ mldb.log(jsRez)
 
 assert jsRez[0]['columns'][0][1] == 42
 
-mldb.script.set_return("success")
-
 
 check_res(mldb.perform("PUT", "/v1/functions/a", [], {
     "type": "sql.expression",
@@ -82,17 +80,19 @@ check_res(mldb.perform("PUT", "/v1/functions/c", [], {
     "params": { "expression": "b({input})[output] as output" }
 }), 201)
 
-# this segfaults - see MLDB-1250
-#rez = mldb.perform("GET", "/v1/query", [["q", "select c({input: -1})"]])
-#check_res(rez, 200)
-
+rez = mldb.perform("GET", "/v1/query", [["q", "select c({input: -1})"]])
+check_res(rez, 200)
+jsRez = json.loads(rez["response"])
+assert jsRez[0]['columns'][0][1] == 1
 
 check_res(mldb.perform("PUT", "/v1/functions/recurse", [], {
     "type": "sql.expression",
     "params": { "expression": "recurse({input})[output] as output" }
 }), 201)
 
-# this hangs - see MLDB-1251
-#rez = mldb.perform("GET", "/v1/query", [["q", "select recurse({input: -1})"]])
-#check_res(rez, 500)
+# MLDB-1251
+rez = mldb.perform("GET", "/v1/query", [["q", "select recurse({input: -1})"]])
+check_res(rez, 400)
+
+mldb.script.set_return("success")
 

@@ -17,6 +17,7 @@ table{
 td,th{
     border: solid 1px lightgrey;
     padding: 5px;
+    vertical-align: top;
 }
 table.frametable td { border: 0;}
 

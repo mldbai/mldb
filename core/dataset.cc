@@ -480,6 +480,17 @@ getKnownColumnInfo(const ColumnName & columnName) const
                        COLUMN_IS_SPARSE);
 }
 
+std::vector<KnownColumn>
+Dataset::
+getKnownColumnInfos(const std::vector<ColumnName> & columnNames) const
+{
+    std::vector<KnownColumn> result;
+    result.reserve(columnNames.size());
+    for (auto & columnName: columnNames)
+        result.emplace_back(getKnownColumnInfo(columnName));
+    return result;
+}
+
 std::shared_ptr<RowValueInfo>
 Dataset::
 getRowInfo() const
@@ -677,7 +688,7 @@ generateRownameIsConstant(const Dataset & dataset,
     
 GenerateRowsWhereFunction
 Dataset::
-generateRowsWhere(const SqlBindingScope & context,
+generateRowsWhere(const SqlBindingScope & scope,
                   const SqlExpression & where,
                   ssize_t offset,
                   ssize_t limit) const
@@ -718,8 +729,8 @@ generateRowsWhere(const SqlBindingScope & context,
         // Optimize a boolean operator
 
         if (boolean->op == "AND") {
-            GenerateRowsWhereFunction lhsGen = generateRowsWhere(context, *boolean->lhs, 0, -1);
-            GenerateRowsWhereFunction rhsGen = generateRowsWhere(context, *boolean->rhs, 0, -1);
+            GenerateRowsWhereFunction lhsGen = generateRowsWhere(scope, *boolean->lhs, 0, -1);
+            GenerateRowsWhereFunction rhsGen = generateRowsWhere(scope, *boolean->rhs, 0, -1);
             cerr << "AND between " << lhsGen.explain << " and " << rhsGen.explain
                  << endl;
 
@@ -747,8 +758,8 @@ generateRowsWhere(const SqlBindingScope & context,
             }
         }
         else if (boolean->op == "OR") {
-            GenerateRowsWhereFunction lhsGen = generateRowsWhere(context, *boolean->lhs, 0, -1);
-            GenerateRowsWhereFunction rhsGen = generateRowsWhere(context, *boolean->rhs, 0, -1);
+            GenerateRowsWhereFunction lhsGen = generateRowsWhere(scope, *boolean->lhs, 0, -1);
+            GenerateRowsWhereFunction rhsGen = generateRowsWhere(scope, *boolean->rhs, 0, -1);
             cerr << "OR between " << lhsGen.explain << " and " << rhsGen.explain
                  << endl;
 
@@ -786,25 +797,14 @@ generateRowsWhere(const SqlBindingScope & context,
         return generateVariableIsTrue(*this, *variable);
     }
 
-    //Optimize for rowName() IN (constant, constant, constant)
+    //cOptimize for rowName() IN (constant, constant, constant)
+    // Optimize for rowName() IN ROWS / IN KEYS (...)
     auto inExpression = dynamic_cast<const InExpression *>(&where);
-    if (inExpression && inExpression->tuple.get())
+    if (inExpression) 
     {
         auto fexpr = getFunction(*(inExpression->expr));
-        if (fexpr && fexpr->functionName == "rowName" )
-        {
-            //check that all the clauses in the tuple are constant
-            std::vector<std::shared_ptr<SqlExpression> > clauses;
-            bool constant = true;
-            for (auto& c : inExpression->tuple->clauses) {
-                if (!c->isConstant()) {
-                    constant = false;
-                    break;
-                }
-            }
-
-            if (constant)
-            {
+        if (fexpr && fexpr->functionName == "rowName" ) {
+            if (inExpression->tuple && inExpression->tuple->isConstant()) {
                 return {[=] (ssize_t numToGenerate, Any token,
                              const BoundParameters & params)
                         -> std::pair<std::vector<RowName>, Any>
@@ -823,9 +823,76 @@ generateRowsWhere(const SqlBindingScope & context,
                         },
                         "rowName in tuple " + inExpression->tuple->print().rawString() };
             }
+            else if (inExpression->setExpr) {
+                // in keys or in values expression
+                // Make sure they are constant or depend only upon the
+                // bound parameters
+                auto unbound = inExpression->setExpr->getUnbound();
+                if (unbound.vars.empty() && unbound.tables.empty()
+                    && unbound.wildcards.empty()) {
+                    //cerr << "*** rowName() IN (constant set expr)" << endl;
+
+                    SqlExpressionParamScope paramScope;
+
+                    auto boundSet = inExpression->setExpr->bind(paramScope);
+                    auto matrixView = this->getMatrixView();
+
+                    if (inExpression->setExpr) {
+
+                        bool keys = (inExpression->kind == InExpression::KEYS);
+                        bool values = (inExpression->kind == InExpression::VALUES);
+                        ExcAssert(keys || values);
+
+                        return {[=] (ssize_t numToGenerate, Any token,
+                                     const BoundParameters & params)
+                                -> std::pair<std::vector<RowName>, Any>
+                                {
+                                    SqlExpressionParamScope::RowScope rowScope(params);
+                                    ExpressionValue evaluatedSet
+                                        = boundSet(rowScope);
+
+                                    std::vector<RowName> filtered;
+
+                                    // Lambda for KEYS, which looks for a
+                                    // matching row from the key
+                                    auto onKey = [&] (const ColumnName & key,
+                                                      const ColumnName & prefix,
+                                                      const ExpressionValue & val)
+                                        {
+                                            if (matrixView->knownRow(key)) {
+                                                filtered.push_back(key);
+                                            }
+                                            return true;
+                                        };
+                                
+                                    // Lambda for VALUES, which looks for a
+                                    // matching row from the value
+                                    auto onValue = [&] (const ColumnName & key,
+                                                        const ColumnName & prefix,
+                                                        const ExpressionValue & val)
+                                        {
+                                            auto str = RowName(val.toUtf8String());
+                                            if (matrixView->knownRow(str)) {
+                                                filtered.push_back(str);
+                                            }
+                                            return true;
+                                        };
+                                    
+                                    
+                                    if (keys)
+                                        evaluatedSet.forEachSubexpression(onKey);
+                                    else evaluatedSet.forEachSubexpression(onValue);
+                                    
+                                    return { std::move(filtered), Any() };
+                                },
+                                "rowName in keys of (expr) " + inExpression->print().rawString()
+                                    };
+                    }
+                }
+            }
         }
     }
-
+    
     auto comparison = dynamic_cast<const ComparisonExpression *>(&where);
 
     if (comparison) {
@@ -943,7 +1010,7 @@ generateRowsWhere(const SqlBindingScope & context,
     // Where constant
     if (where.isConstant()) {
         if (where.constantValue().isTrue()) {
-            return {[=] (ssize_t numToGenerate, Any token,
+            GenerateRowsWhereFunction wheregen= {[=] (ssize_t numToGenerate, Any token,
                          const BoundParameters & params)
                     {
                         ssize_t start = 0;
@@ -966,6 +1033,11 @@ generateRowsWhere(const SqlBindingScope & context,
                     },
                     "Scan table keeping all rows"};
 
+            wheregen.upperBound = this->getMatrixView()->getRowCount();
+            wheregen.rowStream = this->getRowStream();
+
+            return wheregen;
+
         }
         else {
             return { [=] (ssize_t numToGenerate, Any token,
@@ -980,14 +1052,12 @@ generateRowsWhere(const SqlBindingScope & context,
     // Couldn't optimize.  Fall through to scanning, evaluating the where
     // expression at each point
 
-    SqlExpressionDatasetContext dsContext(*this, "");
-    auto whereBound = where.bind(dsContext);
-
+    SqlExpressionDatasetContext dsScope(*this, "");
+    auto whereBound = where.bind(dsScope);
 
     // Detect if where needs columns or not, by looking at what is unbound
     // in the expression.  For example rowName() or rowHash() don't need
     // the columns at all.
-
     UnboundEntities unbound = where.getUnbound();
 
     // Look for a free variable
@@ -1026,9 +1096,9 @@ generateRowsWhere(const SqlBindingScope & context,
                             row.rowHash = row.rowName = r;
                         }
 
-                        auto rowContext = dsContext.getRowContext(row, &params);
+                        auto rowScope = dsScope.getRowContext(row, &params);
                         
-                        bool keep = whereBound(rowContext).isTrue();
+                        bool keep = whereBound(rowScope).isTrue();
                         
                         if (keep)
                             accum.get().push_back(r);
@@ -1069,7 +1139,7 @@ generateRowsWhere(const SqlBindingScope & context,
 
 BasicRowGenerator
 Dataset::
-queryBasic(const SqlBindingScope & context,
+queryBasic(const SqlBindingScope & scope,
            const SelectExpression & select,
            const WhenExpression & when,
            const SqlExpression & where,
@@ -1079,7 +1149,7 @@ queryBasic(const SqlBindingScope & context,
            bool allowParallel) const
 {
     // 1.  Get the rows that match the where clause
-    auto rowGenerator = generateRowsWhere(context, where, 0 /* offset */, -1 /* limit */);
+    auto rowGenerator = generateRowsWhere(scope, where, 0 /* offset */, -1 /* limit */);
 
     // 2.  Find all the variables needed by the orderBy
     // Remove any constants from the order by clauses
@@ -1093,15 +1163,21 @@ queryBasic(const SqlBindingScope & context,
         newOrderBy.clauses.push_back(x);
     }
 
-    SqlExpressionDatasetContext selectContext(*this, "");
-    SqlExpressionWhenScope whenContext(selectContext);
-    auto boundWhen = when.bind(whenContext);
+    SqlExpressionDatasetContext selectScope(*this, "");
+    SqlExpressionWhenScope whenScope(selectScope);
+    auto boundWhen = when.bind(whenScope);
 
-    auto boundSelect = select.bind(selectContext);
+    auto boundSelect = select.bind(selectScope);
     
-    SqlExpressionOrderByContext orderByContext(selectContext);
+    SqlExpressionOrderByContext orderByScope(selectScope);
     
-    auto boundOrderBy = newOrderBy.bindAll(orderByContext);
+    auto boundOrderBy = newOrderBy.bindAll(orderByScope);
+
+    // Do we select *?  In that case we can avoid a lot of copying
+    bool selectStar = select.isIdentitySelect(selectScope);
+
+    // Do we have when TRUE?  In that case we can avoid filtering
+    bool whenTrue = when.when->isConstantTrue();
 
     auto exec = [=] (ssize_t numToGenerate,
                      const BoundParameters & params)
@@ -1134,29 +1210,56 @@ queryBasic(const SqlBindingScope & context,
                     {
                         auto row = matrix->getRow(rows[rowNum]);
 
-                        auto rowContext = selectContext.getRowContext(row);
-
-                        // Filter the tuple using the WHEN expression
-                        boundWhen.filterInPlace(row, rowContext);
-
                         NamedRowValue outputRow;
                         outputRow.rowName = row.rowName;
                         outputRow.rowHash = row.rowName;
 
-                        ExpressionValue selectOutput
-                            = boundSelect(rowContext);
+                        auto rowScope = selectScope.getRowContext(row);
 
-                        selectOutput.mergeToRowDestructive(outputRow.columns);
+                        // Filter the tuple using the WHEN expression
+                        if (!whenTrue)
+                            boundWhen.filterInPlace(row, rowScope);
 
                         std::vector<ExpressionValue> calcd;
+                        std::vector<ExpressionValue> sortFields;
 
-                        // Get the order by context, which can read from both the result
-                        // of the select and the underlying row.
-                        auto orderByRowContext
-                            = orderByContext.getRowContext(rowContext, outputRow);
+                        if (selectStar) {
 
-                        std::vector<ExpressionValue> sortFields
-                            = boundOrderBy.apply(orderByRowContext);
+                            outputRow.columns.reserve(row.columns.size());
+                            for (auto & c: row.columns) {
+                                outputRow.columns.emplace_back
+                                    (std::get<0>(c),
+                                     ExpressionValue(std::move(std::get<1>(c)),
+                                                     std::move(std::get<2>(c))));
+                            }
+
+                            // We can move things out of the row scope,
+                            // since they will be found in the output
+                            // row anyway
+                            auto orderByRowScope
+                                = orderByScope.getRowContext(rowScope,
+                                                             outputRow);
+
+                            
+                            sortFields = boundOrderBy.apply(orderByRowScope);
+
+                        }
+                        else {
+                            ExpressionValue selectOutput
+                                = boundSelect(rowScope);
+                            
+                            selectOutput.mergeToRowDestructive(outputRow.columns);
+
+                            // Get the order by scope, which can read from both the result
+                            // of the select and the underlying row.
+                            auto orderByRowScope
+                                = orderByScope.getRowContext(rowScope, outputRow);
+
+                            sortFields
+                                = boundOrderBy.apply(orderByRowScope);
+
+                            
+                        }
 
                         //cerr << "sort fields for row " << rowNum << " are "
                         //<< jsonEncode(sortFields) << endl;

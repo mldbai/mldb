@@ -100,12 +100,12 @@ ClassifierConfigDescription()
              string("/opt/bin/classifiers.json"));
     addField("equalizationFactor", &ClassifierConfig::equalizationFactor,
              "Amount to adjust weights so that all classes have an equal "
-             "total weight.  A value of 0 (default) will not equalize weights "
+             "total weight.  A value of 0 will not equalize weights "
              "at all.  A value of 1 will ensure that the total weight for "
              "both positive and negative examples is exactly identical. "
-             "A number between will choose a balanced tradeoff.  Typically 0.5 "
+             "A number between will choose a balanced tradeoff.  Typically 0.5 (default) "
              "is a good number to use for unbalanced probabilities",
-             0.0);
+             0.5);
     addField("mode", &ClassifierConfig::mode,
              "Mode of classifier.  Controls how the label is interpreted and "
              "what is the output of the classifier.");
@@ -118,6 +118,7 @@ ClassifierConfigDescription()
                               InputQuery,
                               NoGroupByHaving,
                               PlainColumnSelect,
+                              MustContainFrom,
                               FeaturesLabelSelect>(&ClassifierConfig::trainingData, "classifier");
 }
 
@@ -226,8 +227,8 @@ run(const ProcedureRunConfig & run,
 
     ML::Timer timer;
 
-    // TODO: it's not the feature space itself, but indeed the output of the select
-    // expression that's important...
+    // TODO: it's not the feature space itself, but indeed the output of
+    // the select expression that's important...
     auto featureSpace = std::make_shared<DatasetFeatureSpace>
         (boundDataset.dataset, labelInfo, knownInputColumns);
     
@@ -1002,7 +1003,7 @@ apply(const FunctionApplier & applier,
     std::shared_ptr<ML::Mutable_Feature_Set> fset;
     Date ts;
 
-    std::tie(dense, fset, ts) = getFeatureSet(context, false /* attemp to optimize */);
+    std::tie(dense, fset, ts) = getFeatureSet(context, false /* attempt to optimize */);
 
     ML::Explanation expl
         = itl->classifier.impl

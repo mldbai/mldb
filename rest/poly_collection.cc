@@ -92,6 +92,12 @@ PolyCollectionBase(const Utf8String & nounSingular,
 {
 }
 
+PolyCollectionBase::
+~PolyCollectionBase()
+{
+    shutdown();
+}
+
 void
 PolyCollectionBase::
 initRoutes(RouteManager & manager)

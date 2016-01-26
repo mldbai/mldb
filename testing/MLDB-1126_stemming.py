@@ -88,6 +88,16 @@ mldb.log(jsRes)
 
 find_column(jsRes, "output.document", unicode("Je aim aim François", "utf-8"))
 
+# Now an example where the column values are counts
+#
+# potato | potatoes       -- stemming -->      potato
+#   2    |    3                                  5
+#
+res = mldb.perform('GET', '/v1/query',
+    [['q', 'SELECT stemmer({words:{*}})[words] as * FROM'
+      ' (SELECT 2 as potato, 3 as potatoes)']])
+jsRes = json.loads(res['response'])
+find_column(jsRes, 'potato', 5)
+mldb.log(jsRes)
 
 mldb.script.set_return("success")
-

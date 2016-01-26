@@ -1,13 +1,12 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** dense_classifier_scorer.cc
     Jeremy Barnes, 13 May 2012
     Copyright (c) 2012 Datacratic.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #include "dense_classifier_scorer.h"
 #include "mldb/types/date.h"
-#include <boost/thread/thread.hpp>
 #include "mldb/arch/spinlock.h"
 #include "mldb/ml/jml/probabilizer.h"
 #include "mldb/vfs/filter_streams.h"
@@ -254,7 +253,7 @@ generateFeatures(const DataPartition & partition,
     // Generate training data for the classifier from the partition
     // examples.
 
-    boost::mutex lock;
+    std::mutex lock;
 
     auto onExample = [&] (bool label, const boost::any & user, double weight,
                           int exampleNum)
@@ -272,7 +271,7 @@ generateFeatures(const DataPartition & partition,
                 = training_fs->encode(training_features);
             fset->locked = true;
 
-            boost::unique_lock<boost::mutex> guard(lock);
+            std::unique_lock<std::mutex> guard(lock);
             training_data.add_example(fset);
             return true;
         };

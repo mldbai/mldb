@@ -219,6 +219,7 @@ $(eval $(call mldb_unit_test,MLDB-1116-tokensplit.py))
 $(eval $(call mldb_unit_test,MLDB-1030_apply_stopwords.py))
 $(eval $(call mldb_unit_test,MLDB-1165-where-rowname-in-optim.py))
 $(eval $(call mldb_unit_test,MLDB-1044_tsne_numerical_error.py,,manual)) # manual---requires large local data file
+$(eval $(call mldb_unit_test,MLDB-1304-titanic-demo.py,,manual)) # manual--- awaiting fix
 
 $(eval $(call mldb_unit_test,MLDB-1000-type-documentation-valid.js))
 $(eval $(call mldb_unit_test,MLDB-1003-s3-load-dataset.js,,$(MANUAL_IF_NO_S3)))
@@ -253,8 +254,16 @@ $(eval $(call mldb_unit_test,MLDB-1172_column_expr_fail.py))
 $(eval $(call mldb_unit_test,MLDB-1104-input-data-spec.py))
 $(eval $(call mldb_unit_test,MLDB-1190_segfault_sqlexpr_jseval.py))
 $(eval $(call mldb_unit_test,MLDB-1198-sum-inconsistency-test.py))
+$(eval $(call mldb_unit_test,MLDB-1242_sampled_dataset.py))
+$(eval $(call mldb_unit_test,MLDB-1266-import_json.py))
+$(eval $(call mldb_unit_test,MLDB-1258_nofrom_segfault.py))
 $(eval $(call mldb_unit_test,MLDB-1212_csv_import_long_quoted_lines.py))
+$(eval $(call mldb_unit_test,MLDB-1275_melt_procedure.py))
+$(eval $(call mldb_unit_test,MLDB-1273-classifier-row_input.py))
+$(eval $(call mldb_unit_test,MLDB-1272-regression-training-failure.py,,manual)) #until MLDB-1272 is fixed
+$(eval $(call mldb_unit_test,MLDB-1277-pooling-performance.py,,manual)) #manual -- awaiting fix
 $(eval $(call mldb_unit_test,MLDB-1235-temporal-aggregators.py))
+
 
 $(eval $(call mldb_unit_test,pytanic_plugin_test.py))
 $(eval $(call python_test,mldb_merged_dataset_test,mldb_py_runner))
@@ -273,7 +282,6 @@ $(eval $(call python_test,batframe_column_comparison_test,mldb_py_runner))
 $(eval $(call python_test,batframe_column_function_test,mldb_py_runner))
 $(eval $(call python_test,batframe_column_unary_test,mldb_py_runner))
 $(eval $(call python_test,batframe_property_test,mldb_py_runner))
-
 
 $(eval $(call python_test,mldb-417_svd,mldb_py_runner))
 
@@ -297,3 +305,6 @@ $(eval $(call mldb_unit_test,MLDB-1140-csv_reading_compression_test.py,,manual))
 $(eval $(call mldb_unit_test,MLDB-980-unquoted-string-crash.js))
 $(eval $(call mldb_unit_test,MLDB-1195-query-where-test.py))
 $(eval $(call mldb_unit_test,MLDB-1192-js-procedure-function.js))
+$(eval $(call mldb_unit_test,MLDB-1253_concat_test.py))
+$(eval $(call mldb_unit_test,MLDBFB-308-where-outer-join-test.py,,manual))
+$(eval $(call mldb_unit_test,MLDB-1267-bucketize-ts-test.py))

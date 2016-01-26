@@ -69,10 +69,11 @@ doGetFunction(const Utf8String & tableName,
                        const SqlRowScope & context)
         {
             auto & row = static_cast<const RowContext &>(context);
-            cerr << "rebinding to apply function " << functionName
-            << ": context type is "
-            << ML::type_name(context) << " outer type is "
-            << ML::type_name(row.outer) << endl;
+
+            //cerr << "rebinding to apply function " << functionName
+            //<< ": context type is "
+            //<< ML::type_name(context) << " outer type is "
+            //<< ML::type_name(row.outer) << endl;
 
             return outerFunction(args, row.outer);
         };
@@ -229,6 +230,26 @@ doGetFunction(const Utf8String & tableName,
 
     return ReadThroughBindingContext::doGetFunction(tableName, functionName,
                                                     args);
+}
+
+
+/*****************************************************************************/
+/* SQL EXPRESSION PARAM SCOPE                                                */
+/*****************************************************************************/
+
+VariableGetter
+SqlExpressionParamScope::
+doGetBoundParameter(const Utf8String & paramName)
+{
+    return {[=] (const SqlRowScope & scope,
+                 ExpressionValue & storage,
+                 const VariableFilter & filter) -> const ExpressionValue &
+            {
+                
+                auto & row = static_cast<const RowScope &>(scope);
+                return row.params(paramName);
+            },
+            std::make_shared<AnyValueInfo>() };
 }
 
 

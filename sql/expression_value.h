@@ -1,8 +1,6 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** expression_value.h                                             -*- C++ -*-
     Jeremy Barnes, 14 February 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Code for the type that holds the value of an expression.
 */
@@ -253,7 +251,9 @@ struct ExpressionValueInfo {
     /** Get the expression value info of a value nested at any level
         with columns name separated by a '.'
     */
-    virtual std::shared_ptr<ExpressionValueInfo> findNestedColumn(const Utf8String& variableName, SchemaCompleteness& schemaCompleteness)
+    virtual std::shared_ptr<ExpressionValueInfo> findNestedColumn(
+            const Utf8String& variableName,
+            SchemaCompleteness& schemaCompleteness)
     {
         schemaCompleteness = SCHEMA_CLOSED;
         return std::shared_ptr<ExpressionValueInfo>();
@@ -494,6 +494,10 @@ struct ExpressionValue {
     ExpressionValue getField(const Utf8String & fieldName,
                              const VariableFilter & filter = GET_LATEST) const;
 
+    // Return the given field by index.  Valid for anything that is a
+    // arrays or embedding.
+    ExpressionValue getField(int fieldIndex) const;
+
     const ExpressionValue* findNestedField(const Utf8String & fieldName,
                                        const VariableFilter & filter = GET_LATEST) const;
 
@@ -559,6 +563,12 @@ struct ExpressionValue {
                                                Date ts) > & onAtom,
                      const Id & columnName = Id()) const;
 
+    /** For a row (structured) storage, returns the number of elements
+        that are in it.  Note that this is the non-flattened version,
+        ie the number of times forEachColumnDestructive will be called.
+    */
+    size_t rowLength() const;
+    
     /** Write a flattened representation of the current value to the given
         dataset row or event.
     */
@@ -574,6 +584,13 @@ struct ExpressionValue {
 
     /** Apply filter to select values in the row according to their timestamp */
     Row getFiltered(const VariableFilter & filter = GET_LATEST) const;
+
+    /// Return if it is a row, and contains the given key
+    std::pair<bool, Date> hasKey(const Utf8String & key) const;
+
+    /// Return if it is a row, and one of the elements is the given value,
+    /// treating it like a set
+    std::pair<bool, Date> hasValue(const ExpressionValue & value) const;
 
     int compare(const ExpressionValue & other) const;
 
@@ -635,6 +652,12 @@ private:
     void initRow(std::shared_ptr<const Row> row) noexcept;
 
     void setAtom(CellValue value, Date ts);
+
+    /** Same as forEachColumnDestructive, but templated on the function
+        type to allow for inlining.  Defined in expression_value.cc.
+    */
+    template<typename Fn>
+    bool forEachColumnDestructiveT(Fn && onSubexpression) const;
 
     enum Type {
         NONE,     ///< Expression is empty or not initialized yet.  Shouldn't be exposed to user.
@@ -913,7 +936,9 @@ struct RowValueInfo: public ExpressionValueInfoT<RowValue> {
                                                    const CellValue & value,
                                                    Date timestamp)> & write) const;
 
-    virtual std::shared_ptr<ExpressionValueInfo> findNestedColumn(const Utf8String& variableName, SchemaCompleteness& schemaCompleteness);
+    virtual std::shared_ptr<ExpressionValueInfo> findNestedColumn(
+            const Utf8String& variableName,
+            SchemaCompleteness& schemaCompleteness);
 
     virtual std::vector<KnownColumn> getKnownColumns() const;
     virtual SchemaCompleteness getSchemaCompleteness() const;

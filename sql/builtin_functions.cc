@@ -1,12 +1,11 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** builtin_functions.cc
     Jeremy Barnes, 14 June 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Builtin functions for SQL.
 */
 
+#include "mldb/sql/builtin_functions.h"
 #include "sql_expression.h"
 #include "tokenize.h"
 #include "mldb/http/http_exception.h"
@@ -17,6 +16,7 @@
 #include "mldb/ml/confidence_intervals.h"
 #include "mldb/jml/math/xdiv.h"
 #include "mldb/base/parse_context.h"
+#include <boost/lexical_cast.hpp>
 
 #include <boost/regex/icu.hpp>
 
@@ -955,6 +955,101 @@ BoundFunction parse_sparse_csv(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerParseSparseCsv(parse_sparse_csv, "parse_sparse_csv");
 
+
+void
+unpackJson(RowValue & row, const std::string & id, const Json::Value & val, const Date & ts)
+{
+    auto concatIds = [&] (const std::string & suffix)
+        {
+            return id.size() > 0 ? id + '.' + suffix
+                                 : suffix;
+        };
+
+    if(val.isNull()) {
+        return;
+    }
+    else if(val.isBool()) {
+        row.emplace_back(ColumnName(id), val.asBool(), ts); 
+    }
+    else if(val.isInt()) {
+        row.emplace_back(ColumnName(id), val.asInt(), ts); 
+    }
+    else if(val.isDouble()) {
+        row.emplace_back(ColumnName(id), val.asDouble(), ts); 
+    }
+    else if(val.isString()) {
+        row.emplace_back(ColumnName(id), val.asString(), ts); 
+    }
+    else if(val.isArray()) {
+        // is it only atomic types?
+        bool onlyAtomic = true;
+        bool onlyObject = true;
+        for(int i=0; i<val.size(); i++) {
+            if(val[i].isArray() || val[i].isObject()) {
+                onlyAtomic = false;
+            }
+            if(!val[i].isObject()) {
+                onlyObject = false;
+            }
+        }
+
+        if(onlyAtomic) {
+            for(int i=0; i<val.size(); i++) {
+                string key;
+                if(val[i].isString())      key = val[i].asString();
+                else if(val[i].isBool())   key = val[i].asBool() ? "true" : "false";
+                else if(val[i].isDouble()) key = boost::lexical_cast<string>(val[i].asDouble());
+                else if(val[i].isInt())    key = boost::lexical_cast<string>(val[i].asInt());
+                else                       key = val[i].toString();
+                unpackJson(row, concatIds(key), Json::Value(true), ts);
+            }
+        }
+        else if(onlyObject) {
+            for(int i=0; i<val.size(); i++) {
+                row.emplace_back(ColumnName(ML::format("%s.%d", id, i)),
+                                 std::move(val[i].toStringNoNewLine()),
+                                 ts);
+            }
+        }
+        else {
+            row.emplace_back(ColumnName(id), std::move(val.toStringNoNewLine()), ts); 
+        }
+    }
+    else if(val.isObject()) {
+        for (const std::string & sub_id : val.getMemberNames()) {
+            unpackJson(row, concatIds(sub_id), val[sub_id], ts);
+        }
+    }
+}
+
+    BoundFunction get_bound_unpack_json(const std::vector<BoundSqlExpression> & args) 
+{
+    // Comma separated list, first is row name, rest are row columns
+
+    return {[=] (const std::vector<BoundSqlExpression> & args,
+                 const SqlRowScope & context) -> ExpressionValue
+            {
+                auto val = args.at(0)(context);
+                std::string str = val.toString();
+                Date ts = val.getEffectiveTimestamp();
+
+                Json::Reader reader;
+                Json::Value root;
+
+                if (!reader.parse(str, root) || !root.isObject())
+                    throw ML::Exception(ML::format("Unable to parse text as JSON or JSON is not an object"));
+
+                RowValue row;
+                unpackJson(row, "", root, ts);
+
+                return ExpressionValue(std::move(row));
+            },
+            std::make_shared<UnknownRowValueInfo>()};
+}
+
+static RegisterBuiltin registerUnpackJson(get_bound_unpack_json, "unpack_json");
+
+
 void
 ParseTokenizeArguments(Utf8String& splitchar, Utf8String& quotechar,
                        int& offset, int& limit, int& min_token_length,
@@ -965,7 +1060,7 @@ ParseTokenizeArguments(Utf8String& splitchar, Utf8String& quotechar,
     auto assertArg = [&] (size_t field, const string & name)
         {
             if (check[field])
-                throw HttpReturnException(400, "Argument " + name + "is specified more than once");
+                throw HttpReturnException(400, "Argument " + name + " is specified more than once");
             check[field] = true;
         };
 
@@ -1344,6 +1439,89 @@ RegisterVectorOp<DiffOp> registerVectorDiff("vector_diff");
 RegisterVectorOp<SumOp> registerVectorSum("vector_sum");
 RegisterVectorOp<ProductOp> registerVectorProduct("vector_product");
 RegisterVectorOp<QuotientOp> registerVectorQuotient("vector_quotient");
+
+void
+ParseConcatArguments(Utf8String& separator, bool& columnValue,
+                     const ExpressionValue::Row & argRow)
+{
+    bool check[3] = {false, false, false};
+    auto assertArg = [&] (size_t field, const string & name) {
+        if (check[field]) {
+            throw HttpReturnException(
+                400, "Argument " + name + " is specified more than once");
+        }
+        check[field] = true;
+    };
+
+    for (const auto &arg : argRow) {
+        const ColumnName& columnName = std::get<0>(arg);
+        if (columnName == ColumnName("separator")) {
+            assertArg(1, "separator");
+            separator = std::get<1>(arg).toUtf8String();
+        }
+        else if (columnName == ColumnName("columnValue")) {
+            assertArg(2, "columnValue");
+            columnValue = std::get<1>(arg).asBool();
+        }
+        else {
+            throw HttpReturnException(400, "Unknown argument in concat",
+                                      "argument", columnName);
+        }
+    }
+}
+
+BoundFunction concat(const std::vector<BoundSqlExpression> & args)
+{
+    if (args.size() == 0) {
+        throw HttpReturnException(
+            400, "concat requires at least one argument");
+    }
+
+    if (args.size() > 2) {
+        throw HttpReturnException(
+            400, "concat requires at most two arguments");
+    }
+
+    Utf8String separator(",");
+    bool columnValue = true;
+
+    if (args.size() == 2) {
+        SqlRowScope emptyScope;
+        ParseConcatArguments(separator, columnValue,
+                             args[1](emptyScope).getRow());
+    }
+
+    return {[=] (const std::vector<BoundSqlExpression> & args,
+                 const SqlRowScope & context) -> ExpressionValue
+        {
+            Utf8String result = "";
+            Date ts = Date::negativeInfinity();
+            bool first = true;
+            auto onAtom = [&] (const Id & columnName,
+                               const Id & prefix,
+                               const CellValue & val,
+                               Date atomTs)
+            {
+                if (!val.empty()) {
+                    if (first) {
+                        first = false;
+                    }
+                    else {
+                        result += separator;
+                    }
+                    result += columnValue ?
+                        val.toUtf8String() : columnName.toUtf8String();
+                }
+                return true;
+            };
+
+            args.at(0)(context).forEachAtom(onAtom);
+            return ExpressionValue(result, ts);
+        },
+        std::make_shared<UnknownRowValueInfo>()
+    };
+}
+static RegisterBuiltin registerConcat(concat, "concat");
 
 } // namespace Builtins
 } // namespace MLDB

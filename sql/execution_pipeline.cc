@@ -322,6 +322,7 @@ PipelineElement::
 join(std::shared_ptr<TableExpression> left,
      std::shared_ptr<TableExpression> right,
      std::shared_ptr<SqlExpression> on,
+     JoinQualification joinQualification,
      SelectExpression select,
      std::shared_ptr<SqlExpression> where,
      OrderByExpression orderBy)
@@ -330,6 +331,7 @@ join(std::shared_ptr<TableExpression> left,
                                          std::move(left),
                                          std::move(right),
                                          std::move(on),
+                                         joinQualification,
                                          std::move(select),
                                          std::move(where),
                                          std::move(orderBy));

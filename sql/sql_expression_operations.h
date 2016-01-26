@@ -1,8 +1,6 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** sql_expression_operations.h                                    -*- C++ -*-
     Jeremy Barnes, 24 February 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
 */
 
@@ -277,13 +275,28 @@ struct BetweenExpression: public SqlExpression {
 
 struct InExpression: public SqlExpression {
 
-    InExpression(std::shared_ptr<SqlExpression> expr,
-                      std::shared_ptr<TupleExpression> tuple,
-                      bool negative);
+    enum Kind {
+        SUBTABLE,  ///< IN (select ...)
+        TUPLE,     ///< IN (val1, val2, ...)
+        KEYS,      ///< IN (KEYS OF expr)
+        VALUES     ///< IN (VALUES OF expr)
+    };
 
+    // Constructor for IN (tuple)
     InExpression(std::shared_ptr<SqlExpression> expr,
-                      std::shared_ptr<SelectSubtableExpression> subtable,
-                      bool negative);
+                 std::shared_ptr<TupleExpression> tuple,
+                 bool negative);
+
+    // Constructor for IN (SELECT ...)
+    InExpression(std::shared_ptr<SqlExpression> expr,
+                 std::shared_ptr<SelectSubtableExpression> subtable,
+                 bool negative);
+
+    // Constructor for IN (KEYS OF ...) or IN (VALUES OF ...)
+    InExpression(std::shared_ptr<SqlExpression> expr,
+                 std::shared_ptr<SqlExpression> setExpr,
+                 bool negative,
+                 Kind kind);
 
     virtual BoundSqlExpression
     bind(SqlBindingScope & context) const;
@@ -300,8 +313,10 @@ struct InExpression: public SqlExpression {
     std::shared_ptr<SqlExpression> expr;
     std::shared_ptr<TupleExpression> tuple;
     std::shared_ptr<SelectSubtableExpression> subtable;
+    std::shared_ptr<SqlExpression> setExpr;
 
     bool isnegative;
+    Kind kind;
 };
 
 /** Represents CAST (expression AS type) */
@@ -449,7 +464,9 @@ struct FunctionCallWrapper: public SqlRowExpression {
 
 private:
 
-    BoundSqlExpression bindBuiltinFunction(SqlBindingScope & context, std::vector<BoundSqlExpression>& boundArgs, BoundFunction& fn) const;
+    BoundSqlExpression bindBuiltinFunction(SqlBindingScope & context,
+                                           std::vector<BoundSqlExpression> & boundArgs,
+                                           BoundFunction& fn) const;
     BoundSqlExpression bindUserFunction(SqlBindingScope & context) const;
 };
 

@@ -25,19 +25,19 @@ var irisConfig = {
     id: 'iris',
     params: {
         dataFileUrl: 'file://mldb/testing/dataset/iris.data',
-        headers: [ 'sepal length', 'sepal width', 'petal length', 'petal width', 'class' ]
+        headers: [ 'sepal length', 'sepal width', 'petal length', 'petal width', 'class' ],
+        ignoreBadLines: true
     }
 };
 
-mldb.createDataset(irisConfig);
+res = mldb.post('/v1/datasets', irisConfig);
+assertEqual(res["responseCode"], 201);
 
-var res = mldb.get('/v1/datasets/iris');
-try {
-    assertEqual(res['json']['status']['rowCount'], 150);
-} catch (e) {
-    mldb.log(res);
-    throw e;
-}
+res = mldb.get('/v1/datasets/iris');
+assertEqual(res['json']['status']['rowCount'], 150);
+assertEqual(res['json']['status']['numLineErrors'], 0);
+mldb.log(res);
+
 
 res = mldb.get('/v1/datasets/iris/query', { limit: 10, format: 'table', orderBy: 'CAST (rowName() AS NUMBER)'});
 
@@ -157,96 +157,92 @@ var res = mldb.get("/v1/query", { q: 'select * from cities where cast (rowName()
 mldb.log(res);
 
 expected = [
-   {
-      "columns" : [
-         [ "Country", "ad", "1970-01-01T00:00:00Z" ],
-         [ "City", "aixas", "1970-01-01T00:00:00Z" ],
-         [ "AccentCity", "Aixàs", "1970-01-01T00:00:00Z" ],
-         [ "Region", 6, "1970-01-01T00:00:00Z" ],
-         [ "Population", null, "1970-01-01T00:00:00Z" ],
-         [ "Latitude", 42.48333330, "1970-01-01T00:00:00Z" ],
-         [ "Longitude", 1.46666670, "1970-01-01T00:00:00Z" ]
-      ],
-      "rowHash" : "2ef190d7a29f2916",
-      "rowName" : 2
-   },
-   {
-      "columns" : [
-         [ "Country", "af", "1970-01-01T00:00:00Z" ],
-         [ "City", "`abd ur rahim khel", "1970-01-01T00:00:00Z" ],
-         [ "AccentCity", "`Abd ur Rahim Khel", "1970-01-01T00:00:00Z" ],
-         [ "Region", 27, "1970-01-01T00:00:00Z" ],
-         [ "Population", null, "1970-01-01T00:00:00Z" ],
-         [ "Latitude", 33.9111520, "1970-01-01T00:00:00Z" ],
-         [ "Longitude", 68.4411010, "1970-01-01T00:00:00Z" ]
-      ],
-      "rowHash" : "f03303280841601c",
-      "rowName" : 1000
-   },
-   {
-      "columns" : [
-         [ "Country", "gb", "1970-01-01T00:00:00Z" ],
-         [ "City", "ryde", "1970-01-01T00:00:00Z" ],
-         [ "AccentCity", "Ryde", "1970-01-01T00:00:00Z" ],
-         [ "Region", "G2", "1970-01-01T00:00:00Z" ],
-         [ "Population", 24107, "1970-01-01T00:00:00Z" ],
-         [ "Latitude", 50.7166670, "1970-01-01T00:00:00Z" ],
-         [ "Longitude", -1.1666670, "1970-01-01T00:00:00Z" ]
-      ],
-      "rowHash" : "3514bc1ed7064254",
-      "rowName" : 1000000
-   },
-   {
-      "columns" : [
-         [ "Country", "ng", "1970-01-01T00:00:00Z" ],
-         [ "City", "kajia", "1970-01-01T00:00:00Z" ],
-         [ "AccentCity", "Kajia", "1970-01-01T00:00:00Z" ],
-         [ "Region", 44, "1970-01-01T00:00:00Z" ],
-         [ "Population", null, "1970-01-01T00:00:00Z" ],
-         [ "Latitude", 12.62740, "1970-01-01T00:00:00Z" ],
-         [ "Longitude", 10.81920, "1970-01-01T00:00:00Z" ]
-      ],
-      "rowHash" : "bb7fbc8842295295",
-      "rowName" : 2000000
-   },
-   {
-      "columns" : [
-         [ "Country", "us", "1970-01-01T00:00:00Z" ],
-         [ "City", "greasy ridge", "1970-01-01T00:00:00Z" ],
-         [ "AccentCity", "Greasy Ridge", "1970-01-01T00:00:00Z" ],
-         [ "Region", "OH", "1970-01-01T00:00:00Z" ],
-         [ "Population", null, "1970-01-01T00:00:00Z" ],
-         [ "Latitude", 38.64527780, "1970-01-01T00:00:00Z" ],
-         [ "Longitude", -82.42111110, "1970-01-01T00:00:00Z" ]
-      ],
-      "rowHash" : "ec051b54935e150d",
-      "rowName" : 3000000
-   },
-   {
-      "columns" : [
-         [ "Country", "zw", "1970-01-01T00:00:00Z" ],
-         [ "City", "zvishavane", "1970-01-01T00:00:00Z" ],
-         [ "AccentCity", "Zvishavane", "1970-01-01T00:00:00Z" ],
-         [ "Region", 7, "1970-01-01T00:00:00Z" ],
-         [ "Population", 79876, "1970-01-01T00:00:00Z" ],
-         [ "Latitude", -20.33333330, "1970-01-01T00:00:00Z" ],
-         [ "Longitude", 30.03333330, "1970-01-01T00:00:00Z" ]
-      ],
-      "rowHash" : "ac6161ca77cad488",
-      "rowName" : 3173959
-   }
+    {
+        "columns": [
+            ["Country","ad","2012-05-03T03:14:46Z"],
+            ["City","aixas","2012-05-03T03:14:46Z"],
+            ["AccentCity","Aixàs","2012-05-03T03:14:46Z"],
+            ["Region",6,"2012-05-03T03:14:46Z"],
+            ["Population",null,"2012-05-03T03:14:46Z"],
+            ["Latitude",42.4833333,"2012-05-03T03:14:46Z"],
+            ["Longitude",1.4666667,"2012-05-03T03:14:46Z"]
+        ],
+        "rowHash":"2ef190d7a29f2916",
+        "rowName":2
+    } ,{
+        "columns":[
+            ["Country","af","2012-05-03T03:14:46Z"],
+            ["City","`abd ur rahim khel","2012-05-03T03:14:46Z"],
+            ["AccentCity","`Abd ur Rahim Khel","2012-05-03T03:14:46Z"],
+            ["Region",27,"2012-05-03T03:14:46Z"],
+            ["Population",null,"2012-05-03T03:14:46Z"],
+            ["Latitude",33.911152,"2012-05-03T03:14:46Z"],
+            ["Longitude",68.441101,"2012-05-03T03:14:46Z"]
+        ],
+        "rowHash":"f03303280841601c",
+        "rowName":1000
+    },{
+        "columns":[
+            ["Country","gb","2012-05-03T03:14:46Z"],
+            ["City","ryde","2012-05-03T03:14:46Z"],
+            ["AccentCity","Ryde","2012-05-03T03:14:46Z"],
+            ["Region","G2","2012-05-03T03:14:46Z"],
+            ["Population",24107,"2012-05-03T03:14:46Z"],
+            ["Latitude",50.716667,"2012-05-03T03:14:46Z"],
+            ["Longitude",-1.166667,"2012-05-03T03:14:46Z"]
+        ],
+        "rowHash":"3514bc1ed7064254",
+        "rowName":1000000
+    },{
+        "columns":[
+            ["Country","ng","2012-05-03T03:14:46Z"],
+            ["City","kajia","2012-05-03T03:14:46Z"],
+            ["AccentCity","Kajia","2012-05-03T03:14:46Z"],
+            ["Region",44,"2012-05-03T03:14:46Z"],
+            ["Population",null,"2012-05-03T03:14:46Z"],
+            ["Latitude",12.6274,"2012-05-03T03:14:46Z"],
+            ["Longitude",10.8192,"2012-05-03T03:14:46Z"]
+        ],
+        "rowHash":"bb7fbc8842295295",
+        "rowName":2000000
+    },{
+        "columns":[
+            ["Country","us","2012-05-03T03:14:46Z"],
+            ["City","greasy ridge","2012-05-03T03:14:46Z"],
+            ["AccentCity","Greasy Ridge","2012-05-03T03:14:46Z"],
+            ["Region","OH","2012-05-03T03:14:46Z"],
+            ["Population",null,"2012-05-03T03:14:46Z"],
+            ["Latitude",38.6452778,"2012-05-03T03:14:46Z"],
+            ["Longitude",-82.4211111,"2012-05-03T03:14:46Z"]
+        ],
+        "rowHash":"ec051b54935e150d",
+        "rowName":3000000
+    },{
+        "columns":[
+            ["Country","zw","2012-05-03T03:14:46Z"],
+            ["City","zvishavane","2012-05-03T03:14:46Z"],
+            ["AccentCity","Zvishavane","2012-05-03T03:14:46Z"],
+            ["Region",7,"2012-05-03T03:14:46Z"],
+            ["Population",79876,"2012-05-03T03:14:46Z"],
+            ["Latitude",-20.3333333,"2012-05-03T03:14:46Z"],
+            ["Longitude",30.0333333,"2012-05-03T03:14:46Z"]
+        ],
+        "rowHash":"ac6161ca77cad488",
+        "rowName":3173959
+    }
 ];
 
 assertEqual(res, expected, "City populations CSV");
 
 // Test loading of broken file (MLDB-994)
 // broken that fails
+
 var brokenConfigFail = {
     type: 'text.csv.tabular',
     id: 'broken_fail',
     params: {
         dataFileUrl: 'file://mldb/testing/MLDB-749_broken_csv.csv',
-        encoding: 'latin1',
+        encoding: 'latin1'
     }
 };
 
@@ -254,6 +250,30 @@ var failed = false;
 try {
     var res = mldb.createDataset(brokenConfigFail);
 } catch (e) {
+    mldb.log(e);
+    assertEqual(e.details.lineNumber, 5, "expected bad line number at 5");
+    failed = true;
+}
+if(!failed) {
+    throw "did not throw !!"
+}
+
+var brokenConfigNoHeader = {
+    type: 'text.csv.tabular',
+    id: 'broken_fail',
+    params: {
+        dataFileUrl: 'file://mldb/testing/MLDB-749_broken_csv_no_header.csv',
+        encoding: 'latin1',
+        headers: ['a', 'b', 'c']
+    }
+};
+
+var failed = false;
+try {
+    var res = mldb.createDataset(brokenConfigNoHeader);
+} catch (e) {
+    mldb.log(e);
+    assertEqual(e.details.lineNumber, 4, "expected bad line number at 4");
     failed = true;
 }
 if(!failed) {
@@ -286,7 +306,6 @@ rowName = res["json"][4][0]
 if(rowName.substr(rowName.length-1) != "9") {
     throw "Wrong rowName!";
 }
-
 
 var res = mldb.get("/v1/datasets/broken")
 mldb.log(res);
@@ -373,4 +392,61 @@ try {
     mldb.log(res);
     throw e;
 }
+
+function getCountWithOffsetLimit(dataset, offset, limit) {
+    // Test offset and limit
+    var offsetLimitConfig = {
+        type: 'text.csv.tabular',
+        id: dataset,
+        params: {
+            dataFileUrl: 'https://raw.githubusercontent.com/datacratic/mldb-pytanic-plugin/master/titanic_train.csv',
+            offset: offset,
+            limit: limit
+        }
+    };
+
+    mldb.createDataset(offsetLimitConfig);
+
+    var res = mldb.get("/v1/query", { q: 'select count(*) as count from ' + dataset });
+    mldb.log(res["json"]);
+    return res["json"][0].columns[0][1];
+}
+
+var totalSize = getCountWithOffsetLimit("test1", 0, -1);
+assertEqual(getCountWithOffsetLimit("test2", 0, 10), 10, "expecting 10 rows only");
+assertEqual(getCountWithOffsetLimit("test3", 0, totalSize + 2000), totalSize, "we can't get more than what there is!");
+assertEqual(getCountWithOffsetLimit("test4", 10, -1), totalSize - 10, "expecting all set except 10 rows");
+
+function getCountWithOffsetLimit2(dataset, offset, limit) {
+    var offsetLimitConfig = {
+        type: "text.csv.tabular",
+        id: dataset,
+        params: {
+            dataFileUrl: "http://s3.amazonaws.com/public.mldb.ai/tweets.gz",
+            offset: offset,
+            limit: limit,
+            delimiter: "\t",
+            headers: ["a", "b", "tweet", "date"],
+            select: "tweet",
+            ignoreBadLines: true
+        }
+    };
+
+    mldb.createDataset(offsetLimitConfig);
+    res = mldb.get("/v1/datasets/"+dataset);
+    mldb.log(res["json"]);
+    return res["json"]["status"]["numLineErrors"] + res["json"]["status"]["rowCount"];
+}
+
+var totalSize = getCountWithOffsetLimit2("test_total", 0, -1);
+assertEqual(getCountWithOffsetLimit2("test_100000", 0, 100000), 100000, "expecting 100000 rows only");
+assertEqual(getCountWithOffsetLimit2("test_98765", 0, 98765), 98765, "expecting 98765 rows only");
+assertEqual(getCountWithOffsetLimit2("test_1234567", 0, 999999), 999999, "expecting 999999 rows only");
+assertEqual(getCountWithOffsetLimit2("test_0", 0, 0), 0, "expecting 0 rows only");
+assertEqual(getCountWithOffsetLimit2("test_1", 0, 1), 1, "expecting 1 row only");
+assertEqual(getCountWithOffsetLimit2("test_10_1", 10, 1), 1, "expecting 1 row only");
+assertEqual(getCountWithOffsetLimit2("test_12", 0, 12), 12, "expecting 12 rows only");
+assertEqual(getCountWithOffsetLimit2("test_total+2000", 0, totalSize + 2000), totalSize, "we can't get more than what there is!");
+assertEqual(getCountWithOffsetLimit2("test_total-10", 10, -1), totalSize - 10, "expecting all set except 10 rows");
+
 "success"

@@ -38,6 +38,8 @@ LIBMLDB_BUILTIN_PLUGIN_SOURCES:= \
 	csv_export_procedure.cc \
 	pooling_function.cc \
 	xlsx_importer.cc \
+	json_importer.cc \
+	melt_procedure.cc \
 	ranking_procedure.cc \
 
 

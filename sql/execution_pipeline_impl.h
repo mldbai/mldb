@@ -194,6 +194,7 @@ struct JoinElement: public PipelineElement {
                 std::shared_ptr<TableExpression> left,
                 std::shared_ptr<TableExpression> right,
                 std::shared_ptr<SqlExpression> on,
+                JoinQualification joinQualification,
                 SelectExpression select,
                 std::shared_ptr<SqlExpression> where,
                 OrderByExpression orderBy);
@@ -206,6 +207,7 @@ struct JoinElement: public PipelineElement {
     std::shared_ptr<SqlExpression> where;
     OrderByExpression orderBy;
     AnnotatedJoinCondition condition;
+    JoinQualification joinQualification;
 
     std::shared_ptr<PipelineElement> leftImpl;
     std::shared_ptr<PipelineElement> rightImpl;
@@ -255,7 +257,8 @@ struct JoinElement: public PipelineElement {
         Bound(std::shared_ptr<BoundPipelineElement> root,
               std::shared_ptr<BoundPipelineElement> left,
               std::shared_ptr<BoundPipelineElement> right,
-              AnnotatedJoinCondition condition);
+              AnnotatedJoinCondition condition,
+              JoinQualification joinQualification);
 
         std::shared_ptr<BoundPipelineElement> root_;
         std::shared_ptr<BoundPipelineElement> left_;
@@ -263,6 +266,7 @@ struct JoinElement: public PipelineElement {
         std::shared_ptr<PipelineExpressionScope> outputScope_;
         BoundSqlExpression crossWhere_;
         AnnotatedJoinCondition condition_;
+        JoinQualification joinQualification_;
 
         /** Our output scope has:
             - The left and right tables

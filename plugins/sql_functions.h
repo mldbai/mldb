@@ -14,6 +14,11 @@
 #include "mldb/core/dataset.h"
 #include "mldb/sql/sql_expression.h"
 
+// TODO: hide these from the .h file
+#include "mldb/server/dataset_context.h"
+#include "mldb/server/function_contexts.h"
+
+
 namespace Datacratic {
 namespace MLDB {
 
@@ -60,7 +65,13 @@ struct SqlQueryFunction: public Function {
 /** Function that runs an SQL expression. */
 
 struct SqlExpressionFunctionConfig {
+    SqlExpressionFunctionConfig()
+        : prepared(false)
+    {
+    }
+
     SelectExpression expression;
+    bool prepared;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(SqlExpressionFunctionConfig);
@@ -77,12 +88,20 @@ struct SqlExpressionFunction: public Function {
     bind(SqlBindingScope & outerContext,
          const FunctionValues & inputInfo) const;
 
+    virtual FunctionOutput applyOuter(const SqlRowScope& outer, const FunctionApplier & applier,
+                              const FunctionContext & context) const;
+
     virtual FunctionOutput apply(const FunctionApplier & applier,
                               const FunctionContext & context) const;
 
     virtual FunctionInfo getFunctionInfo() const;
 
     SqlExpressionFunctionConfig functionConfig;
+
+    SqlExpressionMldbContext outerScope;
+    FunctionExpressionContext innerScope;
+    FunctionInfo info;
+    BoundSqlExpression bound;
 };
 
 
