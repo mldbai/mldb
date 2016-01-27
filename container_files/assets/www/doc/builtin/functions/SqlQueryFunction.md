@@ -6,14 +6,17 @@ The query is parameterized on the function input values.
 SQL query function allows for joins to be implemented
 in MLDB.
 
-Functions created this way executes the given query against the given dataset
-and outputs the `SELECT` expression applied to the first matching
-row (ie, with an `OFFSET` of 0 and a `LIMIT` of 1).  If multiple
-rows are matched, all but the first will be ignored.
+Functions created this way executes the given query against the given dataset,
+and return a single row (the details of row construction is given below).
 
 ## Configuration
 
 ![](%%config function sql.query)
+
+The `output` field has the following possible values:
+
+![](%%type Datacratic::MLDB::SqlQueryOutput)
+
 
 ## Accessing function input values
 
@@ -25,15 +28,59 @@ put them inside '"' characters.  For example,
 - `$x` refers to the input value named `x`.
 - `$"x and y"` refers to the input value named `x and y`.
 
+The input values are available in the entire expression, including
+as part of table expressions or join expressions.
+
+## Output format
+
+There are two possibilities for the output:
+
+1.  If the `output` field is set to `FIRST_ROW` (the default), then
+    it will outputs the `SELECT` expression applied to the first matching
+    row (ie, with an `OFFSET` of 0 and a `LIMIT` of 1).  If multiple
+    rows are matched, all but the first will be ignored.
+2.  If the `output` field is set to `NAMED_COLUMNS`, then the query
+    must return a two-column dataset with a `column` and a `value`
+    each column.  Each row  in the output will generate a single
+    column in the output row, with the column name equal to value of the
+    `column` column, and the column value equal to the value of the
+    `value` column.  In this case the `OFFSET` and `LIMIT` will be
+    respected.  This allows for more sophisticated rows to be returned
+    from queries, and is especially useful in conjunction with joins.
+
+As an example, if the table returned from the query is the following
+
+```
+column value
+x      1
+y      2
+```
+
+then for a `FIRST_ROW` output, we will produce the row corresponding
+to the first row of the table, viz
+
+```
+column value
+x      1
+```
+
+whereas for a `NAMED_COLUMNS` output, we will produce the row with one
+column per output row:
+
+```
+x y
+1 2
+```
+
+Note that the `FIRST_ROW` could accept any output format from the query,
+whereas the output for `NAMED_COLUMNS` must have exactly the two columns
+given.
+
 ## Restrictions
 
-- It is normally best to use a query with a tight where clause
+- It is normally best to use a query with a tight `WHERE` clause
   so that it is not necessary to scan the whole table.  Otherwise
   the queries may be very slow.
-- Input values (`$x`) cannot be used within the FROM clause
-  (in particular, as part of the conditions for the JOIN).  In some
-  cases, this can be worked around by putting the condition in the
-  WHERE clause.
   
 
 ## Example
@@ -60,7 +107,8 @@ The function outputs three values:
     params: {
         select: "age, gender, CASE WHEN $details THEN activationDays / 365.0 ELSE NULL AS activationYears",
         from: { id: 'users' },
-        where: 'rowName() = $userId'
+        where: 'rowName() = $userId',
+        output: 'FIRST_ROW'
     }
 }
 ```
