@@ -110,14 +110,13 @@ result = mldb.perform("PUT", "/v1/functions/feats2", [], {
 })
 assert result["statusCode"] < 400, result["response"]
 
-without_name =  query("""
-                select cls( {feats2({*})} ) as *
-                from iris 
-                limit 10
-                """)
-
-mldb.log(without_name)
 # uncomment for MLDB-1314 test case
+#without_name =  query("""
+#                select cls( feats2({*}) ) as *
+#                from iris 
+#                limit 10
+#                """)
+#mldb.log(without_name)
 # assert with_flattening == without_name, "results do not match"
 
 mldb.script.set_return("success")
