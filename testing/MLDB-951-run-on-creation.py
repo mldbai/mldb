@@ -99,18 +99,21 @@ for row in transformed_rows:
     assert int(row['rowName']) + 1 == row['columns'][0][1], 'the transform was not applied correctly'
 
 # checking return code for invalid runs
-response =  mldb.perform('PUT', "/v1/procedures/transform_procedure", [], 
+res =  mldb.perform('PUT', "/v1/procedures/transform_procedure", [], 
                          {
                              "type": "transform",
                              "params": {
                                  "inputData": "select x + 1 as x from dataset1",
-                                 "outputDataset": { "id": "dataset2", "type":"beh" }, # try to create a non-mutable
+                                 "outputDataset": { "id": "dataset2", "type":"beh" }, # try to create a type that is not available
                                  "runOnCreation" : True
                              }
                          })
+mldb.log(res)
+response = json.loads(res['response'])
 mldb.log(response)
-assert response['statusCode'] == 400, 'expected a 400'
-assert 'runError' in json.loads(response['response'])['details'], 'expected a runError param'
-
+assert res['statusCode'] == 400, 'expected a 400'
+assert 'runError' in response['details'], 'expected a runError param'
+assert 'error' in response['details']['runError'], 'expected an error description for the failure'
+assert 'httpCode' in response['details']['runError'], 'expected an error code'
 
 mldb.script.set_return('success')
