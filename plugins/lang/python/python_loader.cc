@@ -579,7 +579,7 @@ class mldb_wrapper(object):
             query_string = []
             for k, v in kwargs.iteritems():
                 if type(v) in [list, dict]:
-                    v = json.dumps(v)
+                    v = mldb_wrapper.jsonlib.dumps(v)
                 query_string.append([unicode(k), unicode(v)])
             return self._perform('GET', url, query_string)
 
