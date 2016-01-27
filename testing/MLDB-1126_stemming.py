@@ -100,4 +100,26 @@ jsRes = json.loads(res['response'])
 find_column(jsRes, 'potato', 5)
 mldb.log(jsRes)
 
+# same with some floats
+res = mldb.perform('GET', '/v1/query',
+    [['q', 'SELECT stemmer({words:{*}})[words] as * FROM'
+      ' (SELECT 2.5 as potato, 3 as potatoes)']])
+jsRes = json.loads(res['response'])
+find_column(jsRes, 'potato', 5.5)
+
+# same with bool
+res = mldb.perform('GET', '/v1/query',
+    [['q', 'SELECT stemmer({words:{*}})[words] as * FROM'
+      ' (SELECT true as potato, false as potatoes)']])
+jsRes = json.loads(res['response'])
+find_column(jsRes, 'potato', 1)
+
+# should fail with strings
+res = mldb.perform('GET', '/v1/query',
+    [['q', 'SELECT stemmer({words:{*}})[words] as * FROM'
+      " (SELECT 'a' as potato, 'b' as potatoes)"]])
+jsRes = json.loads(res['response'])
+assert "Can't convert value 'a' to double" in jsRes['error']
+mldb.log(jsRes)
+
 mldb.script.set_return("success")
