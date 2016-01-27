@@ -174,4 +174,33 @@ expected = {
     }}
 check_output(res, expected)
 
+
+# Step 6: same thing but from a merged dataset
+ds = mldb.create_dataset({
+    'type': 'sparse.mutable',
+    'id': 'label2'})
+ds.record_row('row_0', [['label2',2, 0]])
+ds.record_row('row_1', [['label2', 2, 0]])
+ds.record_row('row_2', [['label2',3, 0]])
+
+q = '''
+SELECT sum(stem({words: {tokenize(txt) as *}})[words]) as *
+FROM merge(veggies, label2)
+GROUP BY label2
+'''
+res = query(q)
+res = check_res(res, 200)
+
+expected = {
+    '[2]': {
+        'potato': 4,
+        'carrot': 1,
+        'label2': 2},
+    '[3]': {
+        'carrot': 2,
+        'label2': 3
+    }}
+
+check_output(res, expected)
+
 mldb.script.set_return('success')
