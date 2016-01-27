@@ -57,9 +57,11 @@ struct SubDataset::Itl
         SqlExpressionMldbContext mldbContext(owner);
         BoundTableExpression table = statement.from->bind(mldbContext);  
 
+        std::vector<MatrixNamedRow> rows;
+
         if (table.dataset)
         {  
-            subOutput = table.dataset->queryStructured(statement.select, statement.when, 
+            rows = table.dataset->queryStructured(statement.select, statement.when, 
                                                   *statement.where,
                                                   statement.orderBy,
                                                   statement.groupBy,
@@ -71,8 +73,20 @@ struct SubDataset::Itl
         }
         else
         {
-            subOutput = queryWithoutDataset(statement, mldbContext);
+            rows = queryWithoutDataset(statement, mldbContext);
         }
+
+        init(std::move(rows));
+    }
+
+    Itl(std::vector<MatrixNamedRow> rows)
+    {
+        init(std::move(rows));
+    }
+
+    void init(std::vector<MatrixNamedRow> rows)
+    {
+        this->subOutput = std::move(rows);
 
         earliest = latest = Date::notADate();
 
@@ -305,6 +319,13 @@ SubDataset(MldbServer * owner, SubDatasetConfig config)
     : Dataset(owner)
 {
     itl.reset(new Itl(config.statement, owner));
+}
+
+SubDataset::
+SubDataset(MldbServer * owner, std::vector<MatrixNamedRow> rows)
+    : Dataset(owner)
+{
+    itl.reset(new Itl(std::move(rows)));
 }
 
 SubDataset::
