@@ -1228,6 +1228,7 @@ struct BasicRowGenerator {
 
     typedef std::function<std::vector<NamedRowValue>
                           (ssize_t numToGenerate,
+                           SqlRowScope & rowScope,
                            const BoundParameters & params)> Exec;
 
     BasicRowGenerator(Exec exec = nullptr, const std::string & explain = "")
@@ -1238,9 +1239,10 @@ struct BasicRowGenerator {
 
     std::vector<NamedRowValue>
     operator () (ssize_t numToGenerate,
+                 SqlRowScope & rowScope,
                  const BoundParameters & params = BoundParameters()) const
     {
-        return exec(numToGenerate, params);
+        return exec(numToGenerate, rowScope, params);
     }
 
     Exec exec;

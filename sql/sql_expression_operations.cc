@@ -1854,8 +1854,19 @@ bind(SqlBindingScope & context) const
             // This is a set of all values we can search for in our expression
             auto valsPtr = std::make_shared<std::unordered_set<ExpressionValue> >();
 
+            // NOTE: this is where we REQUIRE that the subquery is non-
+            // correlated.  We can only pass a naked SqlRowScope like this
+            // to those that are non-correlated... if there are crashes in
+            // the generation, it's because we're executing a correlated
+            // subquery as if it were non-correlated, and it's trying to
+            // look up a variable in the wrong place.  The solution is to
+            // fix detection of non-correlated subqueries above.
+            SqlRowScope fakeRowScopeForConstantSubqueryGeneration;
+
+
             // Generate all outputs of the query
-            std::vector<NamedRowValue> rowOutputs = generator(-1);
+            std::vector<NamedRowValue> rowOutputs
+                = generator(-1, fakeRowScopeForConstantSubqueryGeneration);
             
             // Scan them to add to our set
             for (auto & row: rowOutputs) {

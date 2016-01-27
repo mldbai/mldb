@@ -1180,6 +1180,7 @@ queryBasic(const SqlBindingScope & scope,
     bool whenTrue = when.when->isConstantTrue();
 
     auto exec = [=] (ssize_t numToGenerate,
+                     SqlRowScope & rowScope,
                      const BoundParameters & params)
         {
             // Get a list of rows that we run over

@@ -72,7 +72,7 @@ struct GenerateRowsExecutor: public ElementExecutor {
     size_t currentDone;
     bool finished;
 
-    bool generateMore();
+    bool generateMore(SqlRowScope & scope);
 
     virtual std::shared_ptr<PipelineResults> take();
 
