@@ -83,6 +83,7 @@ with_aliasing =  query("""
                 limit 10
                 """)
 
+mldb.log(with_aliasing)
 assert with_flattening == with_aliasing, "results do not match"
 
 with_aliasing =  query("""
@@ -110,11 +111,12 @@ result = mldb.perform("PUT", "/v1/functions/feats2", [], {
 assert result["statusCode"] < 400, result["response"]
 
 without_name =  query("""
-                select cls( feats2({*}) ) as *
+                select cls( {feats2({*})} ) as *
                 from iris 
                 limit 10
                 """)
 
+mldb.log(without_name)
 # uncomment for MLDB-1314 test case
 # assert with_flattening == without_name, "results do not match"
 
