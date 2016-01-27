@@ -449,6 +449,8 @@ AnnotatedJoinCondition(std::shared_ptr<TableExpression> leftTable,
 
     auto doSide = [&] (Side & side)
         {
+            ExcAssert(!side.table->getAs().empty());
+
             // Remove the "table." from "table.var" as we are running the
             // expression locally to the table, not in the context of the
             // join.
