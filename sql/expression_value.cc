@@ -547,6 +547,14 @@ struct ExpressionValue::Tensor {
     std::vector<size_t> dims_;
     std::shared_ptr<const TensorMetadata> metadata_;
 
+    size_t length() const
+    {
+        size_t result = 1;
+        for (auto & d: dims_)
+            result *= d;
+        return result;
+    }
+
     template<typename T>
     const T & getValueT(size_t n)
     {
@@ -1522,6 +1530,9 @@ rowLength() const
     else if (type_ == STRUCT) {
         return struct_->length();
     }
+    else if (type_ == TENSOR) {
+        return tensor_->length();
+    }
     else throw HttpReturnException(500, "Attempt to access non-row as row",
                                    "value", *this);
 }
@@ -1645,7 +1656,7 @@ forEachSubexpression(const std::function<bool (const Id & columnName,
         return true;
     }
     case TENSOR: {
-        throw ML::Exception("Not implemented: forEachAtom for Tensor value");
+        throw ML::Exception("Not implemented: forEachSubexpression for Tensor value");
     }
     case NONE: {
         return onSubexpression(Id(), prefix, ExpressionValue::null(ts_));
@@ -1721,6 +1732,15 @@ forEachColumnDestructiveT(Fn && onSubexpression) const
             }
         }
         return true;
+    }
+    case TENSOR: {
+        auto onCol = [&] (ColumnName & columnName, CellValue & val)
+            {
+                ExpressionValue eval(std::move(val), ts_);
+                return onSubexpression(columnName, eval);
+            };
+        
+        return tensor_->forEachColumn(onCol);
     }
     case NONE:
     case ATOM:
