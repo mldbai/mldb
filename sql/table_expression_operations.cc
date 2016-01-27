@@ -435,9 +435,8 @@ bind(SqlBindingScope & context) const
         boundArgs.push_back(arg->bind(context));
 
     ExpressionValue expValOptions;
-    if(options) {
-        BoundSqlExpression bound = options->bind(context);
-        expValOptions = bound(SqlRowScope());
+    if (options) {
+        expValOptions = options->constantValue();
     }
 
     auto fn = context.doGetDatasetFunction(functionName, boundArgs, expValOptions, asName);

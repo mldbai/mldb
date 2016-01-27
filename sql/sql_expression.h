@@ -822,7 +822,18 @@ struct SqlExpression: public std::enable_shared_from_this<SqlExpression> {
     virtual bool isConstant() const;
 
     /** For expressions that are constant, return the result of the expression.
-        Default will throw.
+        This will be done by evaluation within a context that only has
+        builtin functions available.  If there is something that depends
+        upon something outside the context, it will be false.
+
+        Note that the isConstant() function returning true guarantees that
+        this call will succeed, but if isConstant() returns false it is
+        possible that the call succeeds anyway, due to SQL mandating lazy
+        evaluation.  Similarly for getUnbound().
+
+        Expression types that know how to rapidly evaluate a constant
+        can override to make this more efficient, eg to do so without
+        binding.
     */
     virtual ExpressionValue constantValue() const;
 
