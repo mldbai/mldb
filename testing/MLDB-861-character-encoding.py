@@ -1,6 +1,9 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
-allGood = True
+#
+# MLDB-861-character-encoding.py
+# datacratic, 2015
+# this file is part of mldb. copyright 2015 datacratic. all rights reserved.
+#
+mldb = mldb_wrapper.wrap(mldb) # noqa
 
 """
 there are two files with the same contents, differently encoded
@@ -10,7 +13,7 @@ Age,Nâme
 12,Niçolâß
 """
 
-result = mldb.perform("POST", "/v1/datasets", [], {
+result = mldb.post("/v1/datasets", {
     "type": 'text.csv.tabular',
     "id": 'utf8',
     "params": {
@@ -19,9 +22,8 @@ result = mldb.perform("POST", "/v1/datasets", [], {
     }
 })
 mldb.log(result)
-allGood = allGood and result["statusCode"] == 201
 
-result = mldb.perform("POST", "/v1/datasets", [], {
+result = mldb.post("/v1/datasets", {
     "type": 'text.csv.tabular',
     "id": 'latin1',
     "params": {
@@ -30,20 +32,11 @@ result = mldb.perform("POST", "/v1/datasets", [], {
     }
 })
 mldb.log(result)
-allGood = allGood and  result["statusCode"] == 201
 
-result = mldb.perform("GET", "/v1/query", 
-    [["q", "select * from utf8"]])
+result = mldb.get("/v1/query", q="select * from utf8")
 mldb.log(result)
-allGood = allGood and  result["statusCode"] == 200
 
-
-result = mldb.perform("GET", "/v1/query", 
-    [["q", "select * from latin1"]])
+result = mldb.get("/v1/query", q="select * from latin1")
 mldb.log(result)
-allGood = allGood and  result["statusCode"] == 200
 
-mldb.log(allGood)
-
-if allGood:
-    mldb.script.set_return("success")
+mldb.script.set_return("success")

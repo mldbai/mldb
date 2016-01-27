@@ -1,7 +1,11 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+#
+# MLDB-873_stats_table_test.py
+# datacratic, 2015
+# this file is part of mldb. copyright 2015 datacratic. all rights reserved.
+#
+import datetime, math
 
-
-import datetime, json, random, math
+mldb = mldb_wrapper.wrap(mldb) # noqa
 
 dataset_config = {
     'type'    : 'sparse.mutable',
@@ -10,21 +14,24 @@ dataset_config = {
 
 dataset = mldb.create_dataset(dataset_config)
 now = datetime.datetime.now()
-dataset.record_row("br_1", [["host", "pataté.com", now], ["region", "qc", now], ["CLICK", "1", now]])
+dataset.record_row("br_1", [["host", "pataté.com", now], ["region", "qc", now],
+                            ["CLICK", "1", now]])
 now += datetime.timedelta(seconds=1)
 dataset.record_row("br_2", [["host", "poire.com", now], ["region", "on", now]])
 now += datetime.timedelta(seconds=1)
-dataset.record_row("br_3", [["host", "pataté.com", now], ["region", "on", now]])
+dataset.record_row("br_3", [["host", "pataté.com", now],
+                            ["region", "on", now]])
 dataset.commit()
 
 
-def valForKey(lst, key):
+def val_for_key(lst, key):
     for row in lst:
         if row[0] == key:
             return row[1]
     raise Exception("Key not in list!")
 
-for output_type, output_id in [("sparse.mutable", "out_beh"), ("sparse.mutable", "out_sparse")]:
+for output_type, output_id in [("sparse.mutable", "out_beh"),
+                               ("sparse.mutable", "out_sparse")]:
     mldb.log("Running for id:%s type:%s" % (output_id, output_type))
     conf = {
         "type": "statsTable.train",
@@ -37,39 +44,40 @@ for output_type, output_id in [("sparse.mutable", "out_beh"), ("sparse.mutable",
             "functionName": "mySt"
         }
     }
-    rez = mldb.perform("PUT", "/v1/procedures/myroll_%s" % output_id, [], conf)
+    rez = mldb.put("/v1/procedures/myroll_%s" % output_id, conf)
     mldb.log(rez)
 
-    rez = mldb.perform("POST", "/v1/procedures/myroll_%s/runs" % output_id)
+    rez = mldb.post("/v1/procedures/myroll_%s/runs" % output_id)
     mldb.log(rez)
 
-    rez = mldb.perform("GET", "/v1/query", [["q", "select * from %s order by rowName() ASC" % output_id]])
-    jsResp = json.loads(rez["response"])
-    mldb.log(jsResp)
+    rez = mldb.get("/v1/query",
+                   q="select * from %s order by rowName() ASC" % output_id)
+    js_resp = rez.json()
+    mldb.log(js_resp)
 
-    assert jsResp[0]["rowName"] == "br_1"
-    assert valForKey(jsResp[2]["columns"], "label_region") == 0
-    assert valForKey(jsResp[2]["columns"], "trial_region") == 1
-    assert valForKey(jsResp[2]["columns"], "label_host") == 1
-    
-    assert valForKey(jsResp[2]["columns"], "not_label_region") == 1
-    assert valForKey(jsResp[2]["columns"], "not_label_host") == 0
+    assert js_resp[0]["rowName"] == "br_1"
+    assert val_for_key(js_resp[2]["columns"], "label_region") == 0
+    assert val_for_key(js_resp[2]["columns"], "trial_region") == 1
+    assert val_for_key(js_resp[2]["columns"], "label_host") == 1
+
+    assert val_for_key(js_resp[2]["columns"], "not_label_region") == 1
+    assert val_for_key(js_resp[2]["columns"], "not_label_host") == 0
 
 
 ############
 # Test the function
-rez = mldb.perform("GET", "/v1/functions/mySt/application", [
-    ["input", {
+rez = mldb.get("/v1/functions/mySt/application",
+    input={
         "keys": {
             "host": "poire.com",
             "prout": "existe pas",
             "region": "verdun"
         }
-    }]])
-jsRez = json.loads(rez["response"])
-mldb.log(jsRez)
+    })
+js_rez = rez.json()
+mldb.log(js_rez)
 
-assert jsRez == {
+assert js_rez == {
         "output" : {
          "counts" : [
              ["trial_host", [ 1, "NaD" ]],
@@ -84,17 +92,17 @@ assert jsRez == {
 
 #########
 # Test the function within a select statement
-rez = mldb.perform("GET", "/v1/query", [["q", "select mySt({{*} as keys}) AS * from toy order by rowName() ASC"]])
-jsRez = json.loads(rez["response"])
-mldb.log(jsRez)
+rez = mldb.get(
+    "/v1/query",
+    q="select mySt({{*} as keys}) AS * from toy order by rowName() ASC")
+js_rez = rez.json()
+mldb.log(js_rez)
 
-assert valForKey(jsRez[0]["columns"], "counts.label_region") == 1
-assert valForKey(jsRez[1]["columns"], "counts.label_region") == 0
+assert val_for_key(js_rez[0]["columns"], "counts.label_region") == 1
+assert val_for_key(js_rez[1]["columns"], "counts.label_region") == 0
 
-assert valForKey(jsRez[1]["columns"], "counts.trial_host") == 1
-assert valForKey(jsRez[2]["columns"], "counts.trial_host") == 2
-
-
+assert val_for_key(js_rez[1]["columns"], "counts.trial_host") == 1
+assert val_for_key(js_rez[2]["columns"], "counts.trial_host") == 2
 
 
 #######
@@ -112,18 +120,16 @@ conf = {
         "functionId": "getDerived"
     }
 }
-rez = mldb.perform("PUT", "/v1/procedures/getDerivedGen", [], conf)
+rez = mldb.put("/v1/procedures/getDerivedGen", conf)
 mldb.log(rez)
-rez = mldb.perform("POST", "/v1/procedures/getDerivedGen/runs")
+rez = mldb.post("/v1/procedures/getDerivedGen/runs")
 mldb.log(rez)
 
-rez = mldb.perform("GET", "/v1/functions/getDerived")
-jsRez = json.loads(rez["response"])
-mldb.log(jsRez)
+rez = mldb.get("/v1/functions/getDerived")
+js_rez = rez.json()
+mldb.log(js_rez)
 
-
-
-def assertValForCol(rows, key, goodVal):
+def assert_val_for_col(rows, key, goodVal):
     for rowName, rowVal, rowTs in rows:
         if rowName == key:
             assert abs(rowVal - goodVal) < 0.001
@@ -131,40 +137,40 @@ def assertValForCol(rows, key, goodVal):
     mldb.log(str(rows))
     raise Exception("Could not find key: " + key)
 
-def assertForRows(rows, name, col, goodVal):
+def assert_for_rows(rows, name, col, goodVal):
     for row in rows:
         if row["rowName"] == name:
-            return assertValForCol(row["columns"], col, goodVal)
-    
+            return assert_val_for_col(row["columns"], col, goodVal)
+
     raise Exception("Could not find row: " + name)
-
-
 
 #########
 # Test the function within a select statement
-rez = mldb.perform("GET", "/v1/query", [["q", "select getDerived({counts: {label_host:5, trial_host: 500, label_region:0, trial_region:250}}) as *"]])
-jsRez = json.loads(rez["response"])
-mldb.log(jsRez)
+rez = mldb.get(
+    "/v1/query",
+    q="select getDerived({counts: {label_host:5, trial_host: 500, label_region:0, trial_region:250}}) as *")
+js_rez = rez.json()
+mldb.log(js_rez)
 
-assertValForCol(jsRez[0]["columns"], "ctr_host", 5/500.)
-assertValForCol(jsRez[0]["columns"], "ctr_region", 0)
-assertValForCol(jsRez[0]["columns"], "pwet_host", 1)
+assert_val_for_col(js_rez[0]["columns"], "ctr_host", 5/500.)
+assert_val_for_col(js_rez[0]["columns"], "ctr_region", 0)
+assert_val_for_col(js_rez[0]["columns"], "pwet_host", 1)
 
+rez = mldb.get(
+    "/v1/query",
+    q="select mySt({keys: {*}}) as * from toy order by rowName() ASC limit 1")
+js_rez = rez.json()
+mldb.log(js_rez)
 
+rez = mldb.get(
+    "/v1/query",
+    q="select getDerived({mySt({keys: {*}}) as *}) as * from toy order by rowName() ASC limit 1")
+js_rez = rez.json()
+mldb.log(js_rez)
 
-rez = mldb.perform("GET", "/v1/query", [["q", "select mySt({keys: {*}}) as * from toy order by rowName() ASC limit 1"]])
-jsRez = json.loads(rez["response"])
-mldb.log(jsRez)
-
-rez = mldb.perform("GET", "/v1/query", [["q", "select getDerived({mySt({keys: {*}}) as *}) as * from toy order by rowName() ASC limit 1"]])
-jsRez = json.loads(rez["response"])
-mldb.log(jsRez)
-
-assertValForCol(jsRez[0]["columns"], "ctr_host", 1/2.)
-assertValForCol(jsRez[0]["columns"], "ctr_region", 1)
-assertValForCol(jsRez[0]["columns"], "hoho_host", math.log(3))
-
-
+assert_val_for_col(js_rez[0]["columns"], "ctr_host", 1/2.)
+assert_val_for_col(js_rez[0]["columns"], "ctr_region", 1)
+assert_val_for_col(js_rez[0]["columns"], "hoho_host", math.log(3))
 
 ######
 # BagOfWordsStatsTable Test
@@ -193,9 +199,9 @@ conf = {
         "statsTableFileUrl": "file://build/x86_64/tmp/mldb-873-stats_table_posneg.st",
     }
 }
-rez = mldb.perform("PUT", "/v1/procedures/myroll_posneg_%s" % output_id, [], conf)
+rez = mldb.put("/v1/procedures/myroll_posneg_%s" % output_id, conf)
 mldb.log(rez)
-rez = mldb.perform("POST", "/v1/procedures/myroll_posneg_%s/runs" % output_id)
+rez = mldb.post("/v1/procedures/myroll_posneg_%s/runs" % output_id)
 mldb.log(rez)
 
 
@@ -209,18 +215,17 @@ conf = {
         "statsTableFileUrl": "file://build/x86_64/tmp/mldb-873-stats_table_posneg.st",
     }
 }
-rez = mldb.perform("PUT", "/v1/functions/posnegz", [], conf)
+rez = mldb.put("/v1/functions/posnegz", conf)
 mldb.log(rez)
 
-rez = mldb.perform("GET", "/v1/query", [["q", "select posnegz({words: tokenize(text, {splitchars: ' .'})}) as * from posneg"]])
-jsRez = json.loads(rez["response"])
-mldb.log(jsRez)
+rez = mldb.get(
+    "/v1/query",
+    q="select posnegz({words: tokenize(text, {splitchars: ' .'})}) as * from posneg")
+js_rez = rez.json()
+mldb.log(js_rez)
 
-assertForRows(jsRez, "d", "probs.red_label", 1)
-assertForRows(jsRez, "a", "probs.I_label", 0.5)
-assertForRows(jsRez, "b", "probs.I_label", 0.5)
-
-
+assert_for_rows(js_rez, "d", "probs.red_label", 1)
+assert_for_rows(js_rez, "a", "probs.I_label", 0.5)
+assert_for_rows(js_rez, "b", "probs.I_label", 0.5)
 
 mldb.script.set_return("success")
-

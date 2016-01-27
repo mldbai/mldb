@@ -595,6 +595,9 @@ class mldb_wrapper(object):
         def delete(self, url):
             return self._perform('DELETE', url)
 
+        def delete_async(self, url):
+            return self._perform('DELETE', url, [], {}, [['async', 'true']])
+
         def query(self, query):
             return self._perform('GET', '/v1/query', [
                 ['q', query],
