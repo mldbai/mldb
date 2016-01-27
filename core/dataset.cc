@@ -1212,7 +1212,7 @@ queryBasic(const SqlBindingScope & scope,
                         outputRow.rowName = row.rowName;
                         outputRow.rowHash = row.rowName;
 
-                        auto rowScope = selectScope.getRowContext(row);
+                        auto rowScope = selectScope.getRowContext(row, &params);
 
                         // Filter the tuple using the WHEN expression
                         if (!whenTrue)

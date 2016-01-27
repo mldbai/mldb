@@ -171,7 +171,8 @@ ArithmeticExpression::
 template<typename ReturnInfo, typename Op>
 BoundSqlExpression
 doBinaryArithmetic(const SqlExpression * expr,
-                   const BoundSqlExpression & boundLhs, const BoundSqlExpression & boundRhs,
+                   const BoundSqlExpression & boundLhs,
+                   const BoundSqlExpression & boundRhs,
                    const Op & op)
 {
     return {[=] (const SqlRowScope & row, ExpressionValue & storage)
@@ -208,7 +209,8 @@ doUnaryArithmetic(const SqlExpression * expr,
             std::make_shared<ReturnInfo>()};
 }
 
-static CellValue binaryPlusOnTimestamp(const ExpressionValue & l, const ExpressionValue & r)
+static CellValue
+binaryPlusOnTimestamp(const ExpressionValue & l, const ExpressionValue & r)
 {
     ExcAssert(l.isTimestamp());
 
@@ -2195,7 +2197,7 @@ CastExpression::
 transform(const TransformArgs & transformArgs) const
 {
     auto result = std::make_shared<CastExpression>(*this);
-    result->expr  = result->expr->transform(transformArgs);
+    result->expr = transformArgs({expr}).at(0);
     return result;
 }
 
