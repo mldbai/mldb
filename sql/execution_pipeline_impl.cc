@@ -576,8 +576,7 @@ JoinElement(std::shared_ptr<PipelineElement> root,
     auto leftCondition = condition.left.where;
     auto rightCondition = condition.right.where;
 
-    // if outer join, we need to grab all row on one or both sides  
-
+    // if outer join, we need to grab all rows on one or both sides  
     auto fixOuterSide = [&] (std::shared_ptr<SqlExpression>& condition, AnnotatedJoinCondition::Side& side, std::vector<std::shared_ptr<SqlExpression> >& clauses)
         {
             //remove the condition, we want all rows from this side
@@ -725,10 +724,14 @@ void
 JoinElement::EquiJoinExecutor::
 takeMoreInput()
 {
-    bool outerLeft = parent->joinQualification_ == JOIN_LEFT || parent->joinQualification_ == JOIN_FULL;
-    bool outerRight = parent->joinQualification_ == JOIN_RIGHT || parent->joinQualification_ == JOIN_FULL;
+    bool outerLeft = parent->joinQualification_ == JOIN_LEFT
+        || parent->joinQualification_ == JOIN_FULL;
+    bool outerRight = parent->joinQualification_ == JOIN_RIGHT
+        || parent->joinQualification_ == JOIN_FULL;
 
-    auto takeValueFromSide = [] (std::shared_ptr<PipelineResults>& s, std::shared_ptr<ElementExecutor>& executor, bool doOuter)
+    auto takeValueFromSide = [] (std::shared_ptr<PipelineResults>& s,
+                                 std::shared_ptr<ElementExecutor>& executor,
+                                 bool doOuter)
     {
         do
         {
@@ -763,8 +766,10 @@ std::shared_ptr<PipelineResults>
 JoinElement::EquiJoinExecutor::
 take()
 {
-    bool outerLeft = parent->joinQualification_ == JOIN_LEFT || parent->joinQualification_ == JOIN_FULL;
-    bool outerRight = parent->joinQualification_ == JOIN_RIGHT || parent->joinQualification_ == JOIN_FULL;
+    bool outerLeft = parent->joinQualification_ == JOIN_LEFT
+        || parent->joinQualification_ == JOIN_FULL;
+    bool outerRight = parent->joinQualification_ == JOIN_RIGHT
+        || parent->joinQualification_ == JOIN_FULL;
 
     while (l && r) {
 
@@ -776,7 +781,10 @@ take()
 
         //in case of outer join
         //check the where condition that we took out and put in the embedding instead
-        auto checkOuterWhere = [] ( std::shared_ptr<PipelineResults>& s, std::shared_ptr<ElementExecutor>& executor, ExpressionValue& field, ExpressionValue & embedding) -> bool
+        auto checkOuterWhere = [] ( std::shared_ptr<PipelineResults>& s,
+                                    std::shared_ptr<ElementExecutor>& executor,
+                                    ExpressionValue& field,
+                                    ExpressionValue & embedding) -> bool
         {
             ExpressionValue where = embedding.getField(1);
             //if the condition would have failed, or the select value is null, return the row.
@@ -1089,11 +1097,13 @@ FromElement(std::shared_ptr<PipelineElement> root_,
         auto rootBound = root->bind();
         auto scope = rootBound->outputScope();
 
+#if 0
         if (!unbound.params.empty())
             throw HttpReturnException(400, "Can't deal with from expression "
                                       "with unbound parameters",
                                       "exprType", from->getType(),
                                       "unbound", unbound);
+#endif
             
 
         // Need to bound here to get the dataset
