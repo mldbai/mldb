@@ -14,6 +14,7 @@
 #include "table_expression_operations.h"
 #include <unordered_set>
 #include "mldb/server/dataset_context.h"
+#include "mldb/base/scope.h"
 
 
 using namespace std;
@@ -1311,7 +1312,9 @@ bind(SqlBindingScope & context) const
     if (context.functionStackDepth > 100)
             throw HttpReturnException(400, "Reached a stack depth of over 100 functions while analysing query, possible infinite recursion");
 
-    context.functionStackDepth++;
+    ++context.functionStackDepth;
+    Scope_Exit(--context.functionStackDepth);
+
     std::vector<BoundSqlExpression> boundArgs;
     for (auto& arg : args)
     {
@@ -1331,7 +1334,6 @@ bind(SqlBindingScope & context) const
         //assume user
         boundOutput = bindUserFunction(context);
     }
-    context.functionStackDepth--;
     return boundOutput;
 }
 

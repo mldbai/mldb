@@ -127,6 +127,7 @@ struct ReadVariableExpression: public SqlExpression {
     virtual std::string getType() const;
     virtual Utf8String getOperation() const;
     virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
+    virtual bool isConstant() const { return false; }
 
     Utf8String tableName;
     Utf8String variableName;
@@ -309,6 +310,7 @@ struct InExpression: public SqlExpression {
     virtual std::string getType() const;
     virtual Utf8String getOperation() const;
     virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
+    virtual bool isConstant() const { return false; } // TODO: not always
 
     std::shared_ptr<SqlExpression> expr;
     std::shared_ptr<TupleExpression> tuple;
@@ -358,9 +360,11 @@ struct BoundParameterExpression: public SqlExpression {
     virtual std::string getType() const;
     virtual Utf8String getOperation() const;
     virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
+    virtual bool isConstant() const { return false; }
 
     Utf8String paramName;
 };
+
 
 /*****************************************************************************/
 /* SQL ROW EXPRESSIONS                                                       */
@@ -400,6 +404,8 @@ struct WildcardExpression: public SqlRowExpression {
 
     virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
 
+    virtual bool isConstant() const { return false; }
+
     std::map<ScopedName, UnboundWildcard>
     wildcards() const;
 
@@ -435,7 +441,9 @@ struct ComputedVariable: public SqlRowExpression {
     virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
 };
 
-/** Wrapper when we dont know at parsing time if it is a user function or a builtin function */
+/** Wrapper when we dont know at parsing time if it is a user function
+    or a built-in function.
+*/
 struct FunctionCallWrapper: public SqlRowExpression {
     FunctionCallWrapper(Utf8String tableName,
                         Utf8String function,
@@ -459,6 +467,7 @@ struct FunctionCallWrapper: public SqlRowExpression {
     virtual std::string getType() const;
     virtual Utf8String getOperation() const;
     virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
+    virtual bool isConstant() const { return false; } // TODO: not always
 
     std::map<ScopedName, UnboundFunction> functionNames() const;
 
@@ -493,6 +502,8 @@ struct SelectColumnExpression: public SqlRowExpression {
 
     virtual std::shared_ptr<SqlExpression>
     transform(const TransformArgs & transformArgs) const;
+
+    virtual bool isConstant() const { return false; }
 
     virtual std::string getType() const
     {

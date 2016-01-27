@@ -1539,16 +1539,21 @@ bool
 SqlExpression::
 isConstant() const
 {
-    return false;
+    for (auto & c: getChildren()) {
+        if (!c->isConstant())
+            return false;
+    }
+    return true;
 }
 
 ExpressionValue
 SqlExpression::
 constantValue() const
 {
-    throw HttpReturnException(400, "Expression is not provably constant",
-                              "surface", surface,
-                              "ast", print());
+    SqlExpressionConstantScope scope;
+    auto bound = this->bind(scope);
+    SqlRowScope rowScope = scope.getRowScope();
+    return bound(rowScope);
 }
 
 std::map<ScopedName, UnboundVariable>
