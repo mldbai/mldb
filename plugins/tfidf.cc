@@ -205,7 +205,7 @@ run(const ProcedureRunConfig & run,
 
     iterateDataset(runProcConf.trainingData.stm->select, *boundDataset.dataset, boundDataset.asName, 
                    runProcConf.trainingData.stm->when,
-                   runProcConf.trainingData.stm->where,
+                   *runProcConf.trainingData.stm->where,
                    aggregator,
                    runProcConf.trainingData.stm->orderBy,
                    runProcConf.trainingData.stm->offset,

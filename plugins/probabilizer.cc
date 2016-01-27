@@ -179,7 +179,7 @@ run(const ProcedureRunConfig & run,
 
     iterateDataset(SelectExpression(), *boundDataset.dataset, boundDataset.asName, 
                    runProcConf.trainingData.stm->when,
-                   runProcConf.trainingData.stm->where,
+                   *runProcConf.trainingData.stm->where,
                    extra, aggregator,
                    runProcConf.trainingData.stm->orderBy,
                    runProcConf.trainingData.stm->offset,

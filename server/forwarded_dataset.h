@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** forwarded_dataset.h                                            -*- C++ -*-
     Jeremy Barnes, 6 October 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Dataset that forwards to another, after setup is done.  Used to provide an
     adaptor on top of an existing dataset implementation.
@@ -60,11 +60,11 @@ struct ForwardedDataset: public Dataset {
     virtual std::vector<MatrixNamedRow>
     queryStructured(const SelectExpression & select,
                     const WhenExpression & when,
-                    const std::shared_ptr<SqlExpression> & where,
+                    const SqlExpression & where,
                     const OrderByExpression & orderBy,
                     const TupleExpression & groupBy,
-                    const std::shared_ptr<SqlExpression> & having,
-                    const std::shared_ptr<SqlExpression> & rowName,
+                    const SqlExpression & having,
+                    const SqlExpression & rowName,
                     ssize_t offset,
                     ssize_t limit,
                     Utf8String alias = "",

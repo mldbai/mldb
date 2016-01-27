@@ -1,5 +1,3 @@
-// 
-
 /** sql_expression_operations.cc
     Jeremy Barnes, 24 February 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
