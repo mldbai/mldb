@@ -925,7 +925,7 @@ BoundSelectQuery(const SelectExpression & select,
                  const Dataset & from,
                  const Utf8String& alias,
                  const WhenExpression & when,
-                 std::shared_ptr<SqlExpression> where,
+                 const SqlExpression & where,
                  const OrderByExpression & orderBy,
                  std::vector<std::shared_ptr<SqlExpression> > calc,
                  bool implicitOrderByRowHash, 
@@ -935,16 +935,16 @@ BoundSelectQuery(const SelectExpression & select,
 {
     try {
 
-        ExcAssert(where);
+        ExcAssert(&where);
  
         SqlExpressionWhenScope whenScope(*context);
         auto whenBound = when.bind(whenScope);
 
         // Bind our where statement
-        auto whereBound = where->bind(*context);
+        auto whereBound = where.bind(*context);
 
         // Get a generator for the rows that match 
-        auto whereGenerator = context->doCreateRowsWhereGenerator(*where, 0, -1);
+        auto whereGenerator = context->doCreateRowsWhereGenerator(where, 0, -1);
 
         auto matrix = from.getMatrixView();
 
@@ -1021,7 +1021,7 @@ BoundSelectQuery(const SelectExpression & select,
                              + ML::getExceptionString(),
                              "select", select.surface,
                              "from", from.getStatus(),
-                             "where", where,
+                             "where", where.shallowCopy(),
                              "calc", calc,
                              "orderBy", orderBy);
     }
@@ -1070,7 +1070,7 @@ execute(std::function<bool (const NamedRowValue & output,
                              + ML::getExceptionString(),
                              "select", select.surface,
                              "from", from.getStatus(),
-                             "where", where,
+                             "where", where.shallowCopy(),
                              "calc", calc,
                              "orderBy", orderBy,
                              "offset", offset,
@@ -1299,7 +1299,7 @@ BoundGroupByQuery(const SelectExpression & select,
                   const Dataset & from,
                   const Utf8String& alias,
                   const WhenExpression & when,
-                  std::shared_ptr<SqlExpression> where,
+                  const SqlExpression & where,
                   const TupleExpression & groupBy,
                   const std::vector< std::shared_ptr<SqlExpression> >& aggregatorsExpr,
                   const SqlExpression & having,

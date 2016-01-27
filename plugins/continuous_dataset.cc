@@ -552,13 +552,13 @@ getDatasetConfig(std::shared_ptr<SqlExpression> datasetsWhere,
     // Query our metadata dataset for the datasets to load up
     auto datasets
         = metadataDataset
-        ->queryStructured(SelectExpression::parse("*"),
-                          WhenExpression::parse("true") /* when */,
-                          SqlExpression::parse(where) /* where */,
+        ->queryStructured(SelectExpression::STAR,
+                          WhenExpression::TRUE /* when */,
+                          *SqlExpression::parse(where) /* where */,
                           OrderByExpression::parse("rowName() ASC"),
                           TupleExpression(),
-                          SqlExpression::parse("true") /* having */,
-                          SqlExpression::parse("rowName()") /* rowName */,
+                          *SqlExpression::TRUE /* having */,
+                          *SqlExpression::parse("rowName()") /* rowName */,
                           0 /* offset */,
                           -1 /* limit */,
                           "" /* alias */);

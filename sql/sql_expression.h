@@ -214,6 +214,7 @@ struct TableOperations {
     /// Get a function bound to the given dataset
     std::function<BoundFunction (SqlBindingScope & context,
                                  const Utf8String &,
+                                 const Utf8String &,
                                  const std::vector<std::shared_ptr<ExpressionValueInfo> > & args)>
     getFunction;
 
@@ -1227,6 +1228,7 @@ struct BasicRowGenerator {
 
     typedef std::function<std::vector<NamedRowValue>
                           (ssize_t numToGenerate,
+                           SqlRowScope & rowScope,
                            const BoundParameters & params)> Exec;
 
     BasicRowGenerator(Exec exec = nullptr, const std::string & explain = "")
@@ -1237,9 +1239,10 @@ struct BasicRowGenerator {
 
     std::vector<NamedRowValue>
     operator () (ssize_t numToGenerate,
+                 SqlRowScope & rowScope,
                  const BoundParameters & params = BoundParameters()) const
     {
-        return exec(numToGenerate, params);
+        return exec(numToGenerate, rowScope, params);
     }
 
     Exec exec;

@@ -280,11 +280,11 @@ struct Dataset: public MldbEntity {
     virtual std::vector<MatrixNamedRow>
     queryStructured(const SelectExpression & select,
                     const WhenExpression & when,
-                    const std::shared_ptr<SqlExpression> & where,
+                    const SqlExpression & where,
                     const OrderByExpression & orderBy,
                     const TupleExpression & groupBy,
-                    const std::shared_ptr<SqlExpression> & having,
-                    const std::shared_ptr<SqlExpression> & rowName,
+                    const SqlExpression & having,
+                    const SqlExpression & rowName,
                     ssize_t offset,
                     ssize_t limit,
                     Utf8String alias = "",
@@ -312,7 +312,8 @@ struct Dataset: public MldbEntity {
         Default implementation returns a null function.
     */
     virtual BoundFunction
-    overrideFunction(const Utf8String & functionName,
+    overrideFunction(const Utf8String & tableName,
+                     const Utf8String & functionName,
                      SqlBindingScope & context) const;
 
     /** Allow the dataset to override the generation of row IDs for a

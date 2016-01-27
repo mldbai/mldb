@@ -1653,6 +1653,19 @@ getUnbound() const
     return result;
 }
 
+std::shared_ptr<SqlExpression>
+SqlExpression::
+shallowCopy() const
+{
+    auto onArgs = [] (std::vector<std::shared_ptr<SqlExpression> > args)
+        -> std::vector<std::shared_ptr<SqlExpression> >
+        {
+            return std::move(args);
+        };
+
+    return transform(onArgs);
+}
+
 void
 SqlExpression::
 traverse(const TraverseFunction & visitor) const

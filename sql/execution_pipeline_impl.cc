@@ -195,7 +195,7 @@ GenerateRowsExecutor()
 
 bool
 GenerateRowsExecutor::
-generateMore()
+generateMore(SqlRowScope & rowScope)
 {
     // HACK: for the moment, generators will generate all rows,
     // but not keep any state, so we arrange for them to be
@@ -208,7 +208,7 @@ generateMore()
     // Ask for some more
     current.clear();
 
-    current = generator(1000, params);
+    current = generator(1000, rowScope, params);
     currentDone = 0;
     if (current.empty()) {
         finished = true;
@@ -221,14 +221,17 @@ std::shared_ptr<PipelineResults>
 GenerateRowsExecutor::
 take()
 {
-    if (currentDone == current.size()) {
-        if (!generateMore())
-            return nullptr;
-    }
-            
     // Return the row itself as the value, and the row's name as
     // metadata.
     auto result = source->take();
+    if (!result)
+        return result;
+
+    if (currentDone == current.size() && !generateMore(*result))
+        return nullptr;
+
+    //cerr << "got row " << current[currentDone].rowName << " "
+    //     << jsonEncodeStr(current[currentDone].columns) << endl;
 
     result->values.emplace_back(current[currentDone].rowName.toUtf8String(),
                                 Date::notADate());
@@ -308,7 +311,6 @@ start(const BoundParameters & getParam,
                                 allowParallel);
     result->params = getParam;
     ExcAssert(result->params);
-    result->generateMore();
     return result;
 }
 
