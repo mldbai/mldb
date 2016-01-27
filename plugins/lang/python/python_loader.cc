@@ -580,7 +580,7 @@ class mldb_wrapper(object):
             for k, v in kwargs.iteritems():
                 if type(v) in [list, dict]:
                     v = json.dumps(v)
-                query_string.append([str(k), str(v)])
+                query_string.append([unicode(k), unicode(v)])
             return self._perform('GET', url, query_string)
 
         def _post_put(self, verb, url, data=None):
