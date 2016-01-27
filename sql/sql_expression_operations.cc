@@ -1825,6 +1825,9 @@ bind(SqlBindingScope & context) const
 
         // TODO: we need to detect a correlated subquery.  This means that
         // the query depends upon variables from the surrounding scope.
+        // This should be done with subtable->getUnbound(), but currently
+        // that function isn't implemented for table expressions.
+
         bool correlatedSubquery = false;
 
         if (correlatedSubquery) {

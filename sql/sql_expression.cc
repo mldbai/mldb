@@ -3118,6 +3118,28 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
             result->surface = ML::trim(token.captured());
         }
     }
+    
+    if (matchKeyword(context, "ROW TABLE")) {
+        skip_whitespace(context);
+        context.expect_literal('(');
+        skip_whitespace(context);
+        // Row expression, presented as a table
+        auto statement = SqlExpression::parse(context, allowUtf8, 10 /* precedence */);
+        skip_whitespace(context);
+        context.expect_literal(')');
+        skip_whitespace(context);
+
+        Utf8String asName;
+        if (matchKeyword(context, "AS")) {
+            expect_whitespace(context);
+            asName = matchIdentifier(context, allowUtf8);
+            if (asName.empty())
+                context.exception("Expected identifier after the ROW TABLE (...) AS clause");
+        }
+        
+        result = std::make_shared<RowTableExpression>(statement, asName);
+        result->surface = ML::trim(token.captured());
+    }
 
     if (!result) {
         std::shared_ptr<NamedDatasetExpression> expr;
