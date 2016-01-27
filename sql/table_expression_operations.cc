@@ -411,8 +411,6 @@ getUnbound() const
 /* DATASET FUNCTION EXPRESSION                                               */
 /*****************************************************************************/
 
-/** Used when doing a select inside a FROM clause **/
-
 DatasetFunctionExpression::
 DatasetFunctionExpression(Utf8String functionName, 
                           std::vector<std::shared_ptr<TableExpression>> & args,

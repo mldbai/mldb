@@ -298,7 +298,11 @@ struct JoinedDataset::Itl
     };
 
     //Easiest case with constant Where
-    void makeJoinConstantWhere(AnnotatedJoinCondition& condition, SqlExpressionMldbContext& context, BoundTableExpression& left, BoundTableExpression& right, JoinQualification qualification)
+    void makeJoinConstantWhere(AnnotatedJoinCondition& condition,
+                               SqlExpressionMldbContext& context,
+                               BoundTableExpression& left,
+                               BoundTableExpression& right,
+                               JoinQualification qualification)
     {
         bool debug = false;
         bool outerLeft = qualification == JOIN_LEFT || qualification == JOIN_FULL;
@@ -336,7 +340,14 @@ struct JoinedDataset::Itl
                 auto generator = dataset.queryBasic
                 (context, queryExpression, side.when, *sideCondition, side.orderBy,
                  0, -1, true /* allowParallel */);
-                auto rows = generator(-1);
+
+                // Because we know that our outer context is an
+                // SqlExpressionMldbContext, we know that it takes an
+                // empty rowScope with nothing that depends on the current
+                // row.
+                SqlRowScope rowScope;
+
+                auto rows = generator(-1, rowScope);
             
                 if (debug)
                     cerr << "got rows " << jsonEncode(rows) << endl;
