@@ -557,6 +557,10 @@ class mldb_wrapper(object):
             import functools
             self.post = functools.partial(self._post_put, 'POST')
             self.put = functools.partial(self._post_put, 'PUT')
+            self.post_async = functools.partial(self._post_put, 'POST',
+                                                async=True)
+            self.put_async = functools.partial(self._post_put, 'PUT',
+                                               async=True)
             self.create_dataset = self._mldb.create_dataset
 
         def _perform(self, method, url, *args, **kwargs):
@@ -583,7 +587,9 @@ class mldb_wrapper(object):
                 query_string.append([unicode(k), unicode(v)])
             return self._perform('GET', url, query_string)
 
-        def _post_put(self, verb, url, data=None):
+        def _post_put(self, verb, url, data=None, async=False):
+            if async:
+                return self._perform(verb, url, [], data, [['async', 'true']])
             return self._perform(verb, url, [], data)
 
         def delete(self, url):

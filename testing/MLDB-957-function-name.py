@@ -1,7 +1,12 @@
+#
+# MLDB-957-function-name.py
+# Datacratic, 2015
 # This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+#
 
-
-import json
+if False:
+    mldb_wrapper = None
+mldb = mldb_wrapper.wrap(mldb) # noqa
 
 dataset_config = {
     'type'    : 'sparse.mutable',
@@ -10,21 +15,22 @@ dataset_config = {
 
 dataset = mldb.create_dataset(dataset_config)
 
-dataset.record_row('row1', [ [ "x", 15, 0 ] ])
+dataset.record_row('row1', [[ "x", 15, 0 ]])
 
 mldb.log("Committing dataset")
 dataset.commit()
 
-result = mldb.perform('GET', '/v1/query', [['q', 'select power(x, 2) from example']])
+result = mldb.get('/v1/query', q='select power(x, 2) from example')
 mldb.log(result)
 
-assert result["statusCode"] == 200
-assert json.loads(result['response'])[0]['columns'][0][1] == 225
+assert result.json()[0]['columns'][0][1] == 225
 
 
-result = mldb.perform('GET', '/v1/query', [['q', 'select POWER(x, 2) from example']])
-mldb.log(result)
-
-assert result["statusCode"] >= 400
+try:
+    mldb.get('/v1/query', q='select POWER(x, 2) from example')
+except mldb_wrapper.ResponseException as exc:
+    mldb.log(exc.response)
+else:
+    assert False, "should have failed"
 
 mldb.script.set_return('success')

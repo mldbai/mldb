@@ -1,17 +1,24 @@
+#
+# MLDB-951-run-on-creation.py
+# Datacratic, 2015
 # This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+#
 
 import json
 import datetime
-import requests
-import random
-import requests
 import time
+
+if False:
+    mldb_wrapper = None
+_legacy = mldb
+mldb = mldb_wrapper.wrap(mldb) # noqa
+
 
 def load_test_dataset():
     ds1 = mldb.create_dataset({
         'type': 'sparse.mutable',
         'id': 'dataset1'})
-    
+
     row_count = 100
     for i in xrange(row_count - 1):
         # row name is x's value
@@ -23,94 +30,94 @@ load_test_dataset()
 
 # TRANSFORM PROCEDURE
 # without first run
-response =  mldb.perform('PUT', "/v1/procedures/transform_procedure", [], 
-                         {
-                             "type": "transform",
-                             "params": {
-                                 "inputData": "select x + 1 as x from dataset1",
-                                 "outputDataset": { "id": "dataset2", "type":"sparse.mutable" },
-                                 "runOnCreation" : False
-                             }
-                         })
+response = mldb.put("/v1/procedures/transform_procedure", {
+    "type": "transform",
+    "params": {
+        "inputData": "select x + 1 as x from dataset1",
+        "outputDataset": {"id": "dataset2", "type": "sparse.mutable"},
+        "runOnCreation" : False
+    }
+})
 mldb.log(response)
-assert response['statusCode'] == 201, 'expected a 201'
-assert 'status' not in json.loads(response['response']), 'not expecting a status field since there are no first run'
+assert 'status' not in response.json(), \
+    'not expecting a status field since there are no first run'
 
 
-# test that location points to the actual created object (that was a bug found during testing)
-response = mldb.perform('POST', "/v1/procedures/transform_procedure/runs", [], {}, [['async', 'true']])
+# test that location points to the actual created object (that was a bug
+# found during testing)
+response = mldb.post_async("/v1/procedures/transform_procedure/runs")
 mldb.log(response)
-location = response['headers'][0][1]
-mldb.log(mldb.perform('GET', location, [], {}))
+location = response.headers['Location']
+mldb.log(mldb.get(location))
 id = location.split('/')[-1]
-assert json.loads(mldb.perform('GET', "/v1/procedures/transform_procedure/runs", [], {})
-                  ["response"])[0] == id, 'expected ids to match'
-assert mldb.perform('GET', location, [], {})['statusCode'] == 200, 'could not find the created run!'
+assert mldb.get("/v1/procedures/transform_procedure/runs").json()[0] \
+    == id, 'expected ids to match'
 
 
 # with a first run
-response =  mldb.perform('PUT', "/v1/procedures/transform_procedure", [], 
-                         {
-                             "type": "transform",
-                             "params": {
-                                 "inputData": {
-                                     "select": "x + 1 as x",
-                                     "from" : { "id": "dataset1" }
-                                 },
-                                 "outputDataset": { "id": "dataset3", "type":"sparse.mutable" },
-                                 "runOnCreation" : True
-                             }
-                         })
-mldb.log(json.loads(response['response']))
-assert response['statusCode'] == 201, 'expected a 201'
-assert 'firstRun' in json.loads(response['response'])['status'], 'expected a firstRun param'
+response = mldb.put("/v1/procedures/transform_procedure", {
+    "type": "transform",
+    "params": {
+        "inputData": {
+            "select": "x + 1 as x",
+            "from" : {"id": "dataset1"}
+        },
+        "outputDataset": {"id": "dataset3", "type": "sparse.mutable"},
+        "runOnCreation" : True
+    }
+})
+mldb.log(response.json())
+assert 'firstRun' in response.json()['status'], 'expected a firstRun param'
 
 # check that the transformed dataset is as expected
-transformed_rows = json.loads(mldb.perform('GET', '/v1/query', [['q', 'select x from dataset3']])['response'])
-#mldb.log(transformed_rows)
+transformed_rows = mldb.get('/v1/query', q='select x from dataset3').json()
 for row in transformed_rows:
-    assert int(row['rowName']) + 1 == row['columns'][0][1], 'the transform was not applied correctly'
+    assert int(row['rowName']) + 1 == row['columns'][0][1], \
+        'the transform was not applied correctly'
 
 # with a first run async
-response =  mldb.perform('PUT', "/v1/procedures/transform_procedure",[], 
-                         {
-                             "type": "transform",
-                             "params": {
-                                 "inputData": "select x + 1 as x from dataset1",
-                                 "outputDataset": { "id": "dataset4", "type":"sparse.mutable" },
-                                 "runOnCreation" : True
-                             }
-                         },  [['async', 'true']])
+response = mldb.put_async("/v1/procedures/transform_procedure", {
+    "type": "transform",
+    "params": {
+        "inputData": "select x + 1 as x from dataset1",
+        "outputDataset": {"id": "dataset4", "type": "sparse.mutable"},
+        "runOnCreation" : True
+    }
+})
 mldb.log(response)
-assert response['statusCode'] == 201, 'expected a 201'
-assert 'firstRun' in json.loads(response['response'])['status'], 'expected a firstRun param'
+assert 'firstRun' in response.json()['status'], 'expected a firstRun param'
 
 running = True
-run_url = '/v1/procedures/transform_procedure/runs/' + json.loads(response['response'])['status']['firstRun']['id']
+run_url = '/v1/procedures/transform_procedure/runs/' \
+    + response.json()['status']['firstRun']['id']
 while(running):
     time.sleep(0.2)
-    resp = mldb.perform('GET', run_url, [], {});
-    if json.loads(resp['response'])['state'] == 'finished':
+    resp = mldb.get(run_url)
+    if resp.json()['state'] == 'finished':
         running = False
 
 # check that the transformed dataset is as expected
-transformed_rows = json.loads(mldb.perform('GET', '/v1/query', [['q', 'select x from dataset4']])['response'])
+transformed_rows = mldb.get('/v1/query', q='select x from dataset4').json()
 for row in transformed_rows:
-    assert int(row['rowName']) + 1 == row['columns'][0][1], 'the transform was not applied correctly'
+    assert int(row['rowName']) + 1 == row['columns'][0][1], \
+        'the transform was not applied correctly'
 
-# checking return code for invalid runs
-response =  mldb.perform('PUT', "/v1/procedures/transform_procedure", [], 
-                         {
-                             "type": "transform",
-                             "params": {
-                                 "inputData": "select x + 1 as x from dataset1",
-                                 "outputDataset": { "id": "dataset2", "type":"beh" }, # try to create a non-mutable
-                                 "runOnCreation" : True
-                             }
-                         })
+try:
+    # checking return code for invalid runs
+    mldb.put("/v1/procedures/transform_procedure", {
+        "type": "transform",
+        "params": {
+            "inputData": "select x + 1 as x from dataset1",
+            # try to create a non-mutable
+            "outputDataset": {"id": "dataset2", "type": "sparse"},
+            "runOnCreation" : True
+        }
+    })
+except mldb_wrapper.ResponseException as exc:
+    response = exc.response
+else:
+    assert False, "should have failed"
 mldb.log(response)
-assert response['statusCode'] == 400, 'expected a 400'
-assert 'runError' in json.loads(response['response'])['details'], 'expected a runError param'
-
+assert 'runError' in response.json()['details'], 'expected a runError param'
 
 mldb.script.set_return('success')
