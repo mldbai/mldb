@@ -1,7 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 /** analytics.h                                                    -*- C++ -*-
     Jeremy Barnes, 30 January 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Analytics queries for mldb.
 */
@@ -47,7 +48,7 @@ void iterateDataset(const SelectExpression & select,
                     const Dataset & from,
                     const Utf8String & alias,
                     const WhenExpression & when,
-                    std::shared_ptr<SqlExpression> where,
+                    const SqlExpression & where,
                     std::function<bool (const NamedRowValue & output)> aggregator,
                     const OrderByExpression & orderBy,
                     ssize_t offset,
@@ -61,7 +62,7 @@ void iterateDataset(const SelectExpression & select,
                     const Dataset & from,
                     const Utf8String& alias,
                     const WhenExpression & when,
-                    std::shared_ptr<SqlExpression> where,
+                    const SqlExpression & where,
                     std::vector<std::shared_ptr<SqlExpression> > calc,
                     std::function<bool (const NamedRowValue & output,
                                         const std::vector<ExpressionValue> & calc)> aggregator,
@@ -75,7 +76,7 @@ void iterateDatasetGrouped(const SelectExpression & select,
                            const Dataset & from,
                            const Utf8String& alias,
                            const WhenExpression & when,
-                           std::shared_ptr<SqlExpression> where,
+                           const SqlExpression & where,
                            const TupleExpression & groupBy,
                            const std::vector< std::shared_ptr<SqlExpression> >& aggregators,
                            const SqlExpression & having,
@@ -98,7 +99,7 @@ getEmbedding(const SelectExpression & select,
              const Dataset & from,
              const Utf8String& alias,
              const WhenExpression & when,
-             std::shared_ptr<SqlExpression> where,
+             const SqlExpression & where,
              std::vector<std::shared_ptr<SqlExpression> > calc,
              int maxDimensions = -1,
              const OrderByExpression & orderBy = ORDER_BY_NOTHING,

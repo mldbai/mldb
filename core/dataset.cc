@@ -356,18 +356,15 @@ getTimestampRange() const
 {
     static const SelectExpression select
         = SelectExpression::parseList("min(min_timestamp({*})) as earliest, max(max_timestamp({*})) as latest");
-    static const std::shared_ptr<SqlExpression> trueExpr
-        = SqlExpression::parse("true");
-    static const WhenExpression whenExpr = WhenExpression::parse("true");
 
     std::vector<MatrixNamedRow> res
         = queryStructured(select,
-                          whenExpr,
-                          trueExpr,
+                          WhenExpression::TRUE,
+                          *SqlExpression::TRUE /* where */,
                           OrderByExpression(),
                           TupleExpression(),
-                          trueExpr,
-                          trueExpr,
+                          *SqlExpression::TRUE /* having */,
+                          *SqlExpression::TRUE,
                           0, 1, "" /* alias */);
     
     std::pair<Date, Date> result;
@@ -509,16 +506,19 @@ std::vector<MatrixNamedRow>
 Dataset::
 queryStructured(const SelectExpression & select,
                 const WhenExpression & when,
-                const std::shared_ptr<SqlExpression> & where,
+                const SqlExpression & where,
                 const OrderByExpression & orderBy,
                 const TupleExpression & groupBy,
-                const std::shared_ptr<SqlExpression> & having,
-                const std::shared_ptr<SqlExpression> & rowName,
+                const SqlExpression & having,
+                const SqlExpression & rowName,
                 ssize_t offset,
                 ssize_t limit,
                 Utf8String alias,
                 bool allowMT) const
 {
+    ExcAssert(&where);
+    ExcAssert(&having);
+    ExcAssert(&rowName);
     //cerr << "limit = " << limit << endl;
     //cerr << "offset = " << offset << endl;
 
@@ -547,7 +547,9 @@ queryStructured(const SelectExpression & select,
         }
         
         //cerr << "orderBy_ = " << jsonEncode(orderBy_) << endl;
-        iterateDataset(select, *this, alias, when, where, { rowName }, aggregator, orderBy_, offset, limit, nullptr);
+        iterateDataset(select, *this, alias, when, where,
+                       { rowName.shallowCopy() }, aggregator, orderBy_, offset, limit,
+                       nullptr);
     }
     else {
 
@@ -559,15 +561,10 @@ queryStructured(const SelectExpression & select,
                 return true;
             };
 
-        std::shared_ptr<SqlExpression> having_ = having;
-
-        if (!having_)
-            having_ = SqlExpression::parse("true");
-
-        ExcAssert(rowName);
-
-        iterateDatasetGrouped(select, *this, alias, when, where, groupBy, aggregators, *having_, *rowName,
-                              aggregator, orderBy, offset, limit, nullptr, allowMT);
+        iterateDatasetGrouped(select, *this, alias, when, where,
+                              groupBy, aggregators, having, rowName,
+                              aggregator, orderBy, offset, limit,
+                              nullptr, allowMT);
     }
 
     return output;
@@ -1369,13 +1366,16 @@ queryString(const Utf8String & query) const
 {
     auto stm = SelectStatement::parse(query);
     ExcCheck(!stm.from, "FROM clauses are not allowed on dataset queries");
+    ExcAssert(stm.where && stm.having && stm.rowName);
 
     return queryStructured(
-            stm.select, stm.when,
-            stm.where,
-            stm.orderBy, stm.groupBy,
-            stm.having,
-            stm.rowName,
+            stm.select,
+            stm.when,
+            *stm.where,
+            stm.orderBy,
+            stm.groupBy,
+            *stm.having,
+            *stm.rowName,
             stm.offset, stm.limit);
 }
 

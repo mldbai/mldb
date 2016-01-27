@@ -155,11 +155,13 @@ run(const ProcedureRunConfig & run,
     };
 
     BoundSelectQuery({} /* select */, *dataset, "" /* table alias */,
-                     runAccuracyConf.testingData.stm->when, runAccuracyConf.testingData.stm->where,
+                     runAccuracyConf.testingData.stm->when,
+                     *runAccuracyConf.testingData.stm->where,
                      runAccuracyConf.testingData.stm->orderBy,
                      calc,
                      false /* implicit order by row hash */)
-        .execute(aggregator, runAccuracyConf.testingData.stm->offset, runAccuracyConf.testingData.stm->limit,
+        .execute(aggregator, runAccuracyConf.testingData.stm->offset,
+                 runAccuracyConf.testingData.stm->limit,
                  nullptr /* progress */);
 
     // Now merge out stats together

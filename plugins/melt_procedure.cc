@@ -177,7 +177,7 @@ run(const ProcedureRunConfig & run,
     BoundSelectQuery(select,
                      *boundDataset.dataset,
                      boundDataset.asName, runProcConf.inputData.stm->when,
-                     runProcConf.inputData.stm->where,
+                     *runProcConf.inputData.stm->where,
                      runProcConf.inputData.stm->orderBy, extra,
                      false /* implicit order by row hash */)
         .execute(aggregator, 

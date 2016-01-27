@@ -47,7 +47,6 @@ SubDatasetConfigDescription()
 struct SubDataset::Itl
     : public MatrixView, public ColumnIndex {
 
-    BoundTableExpression table;
     std::vector<MatrixNamedRow> subOutput;
     std::vector<ColumnName> columnNames;
     ML::Lightweight_Hash<RowHash, int64_t> rowIndex;
@@ -56,16 +55,18 @@ struct SubDataset::Itl
     Itl(SelectStatement statement, MldbServer* owner)
     {
         SqlExpressionMldbContext mldbContext(owner);
-        table = statement.from->bind(mldbContext);  
+        BoundTableExpression table = statement.from->bind(mldbContext);  
 
         if (table.dataset)
         {  
             subOutput = table.dataset->queryStructured(statement.select, statement.when, 
-                                                  statement.where,
-                                                  statement.orderBy, statement.groupBy,
-                                                  statement.having,
-                                                  statement.rowName,
-                                                  statement.offset, statement.limit,
+                                                  *statement.where,
+                                                  statement.orderBy,
+                                                  statement.groupBy,
+                                                  *statement.having,
+                                                  *statement.rowName,
+                                                  statement.offset,
+                                                  statement.limit,
                                                   table.asName);
         }
         else
