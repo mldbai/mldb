@@ -81,7 +81,7 @@ def do_tfidf():
 
     q = '''
     SELECT sum(stem({words: {tokenize(name, {splitchars:' '}) as *}})[words]) as *
-    NAME cluster
+    NAMED cluster
     FROM merge(rcp_names, rcp_kmeans_clusters)
     GROUP BY cluster
     '''
