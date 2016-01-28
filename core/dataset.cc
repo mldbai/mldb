@@ -1355,6 +1355,13 @@ overrideFunction(const Datacratic::Utf8String&,
     return BoundFunction();
 }
 
+RowName 
+Dataset::
+getOriginalRowName(const Utf8String& tableName, const RowName & name) const
+{
+    return name;
+}
+
 } // namespace MLDB
 } // namespace Datacratic
 

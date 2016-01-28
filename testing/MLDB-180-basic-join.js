@@ -431,4 +431,28 @@ expected = [
 testQuery('SELECT * FROM test3 OUTER JOIN test4 ON test3.rowName() = test4.rowName() OUTER JOIN test5 on test3.rowName() = test5.rowName()',
           expected);
 
+var dataset6 = mldb.createDataset({type:'sparse.mutable',id:'test6'});
+dataset6.recordRow("ex3", [ [ "x", 1, ts ], ["z", 2, ts] ]);
+dataset6.recordRow("ex4", [ [ "x", 2, ts ], ["z", 2, ts] ]);
+dataset6.recordRow("ex6", [ [ "x", null, ts ], ["z", 3, ts] ]);
+
+dataset6.commit()
+
+expected = [
+   [  "_rowName", "test3.x", "test3.z", "test4.x", "test4.z", "test6.x", "test6.z", "test3.y", "test5.x", "test5.z" ],
+   [ "ex3-ex3--ex3", null, 3, 1, 2, 1, 2, null, null, null ],
+   [ "ex1--ex1-", 1, null, null, null, null, null, 2, null, 3 ],
+   [ "-ex4--", null, null, 2, 2, null, null, null, null, null ],
+   [ "-ex5-", null, null, null, null, null, null, null, 1, 2 ],
+   [ "ex2---", 2, 4, null, null, null, null, null, null, null ],
+   [ "-ex6-", null, null, null, null, null, null, null, 2, 2 ],
+   [ "-ex6", null, null, null, null, null, 3, null, null, null ],
+   [ "-ex4", null, null, null, null, 2, 2, null, null, null ],
+   [ "-ex5--", null, null, null, 3, null, null, null, null, null ]
+];
+
+
+testQuery('SELECT * FROM test3 OUTER JOIN test4 ON test3.rowName() = test4.rowName() OUTER JOIN test5 on test3.rowName() = test5.rowName() OUTER JOIN test6 on test3.rowName() = test6.rowName()',
+          expected);
+
 "success"
