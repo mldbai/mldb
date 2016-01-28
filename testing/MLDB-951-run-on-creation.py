@@ -104,7 +104,7 @@ res =  mldb.perform('PUT', "/v1/procedures/transform_procedure", [],
                              "type": "transform",
                              "params": {
                                  "inputData": "select x + 1 as x from dataset1",
-                                 "outputDataset": { "id": "dataset2", "type":"beh" }, # try to create a type that is not available
+                                 "outputDataset": { "id": "dataset2", "type":"beh" }, # failing because beh may not be available or is not mutable
                                  "runOnCreation" : True
                              }
                          })
