@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** bound_queries.h                                                -*- C++ -*-
     Jeremy Barnes, 12 August 2015
     Bound form of SQL queries, that can be executed.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #pragma once
@@ -78,7 +78,7 @@ struct BoundSelectQuery {
     const SelectExpression & select;
     const Dataset & from;
     const WhenExpression & when;
-    std::shared_ptr<SqlExpression> where;
+    const SqlExpression & where;
     std::vector<std::shared_ptr<SqlExpression> > calc;
     const OrderByExpression & orderBy;
     std::shared_ptr<SqlExpressionDatasetContext> context;
@@ -95,7 +95,7 @@ struct BoundSelectQuery {
                      const Dataset & from,
                      const Utf8String& alias,
                      const WhenExpression & when,
-                     std::shared_ptr<SqlExpression> where,
+                     const SqlExpression & where,
                      const OrderByExpression & orderBy,
                      std::vector<std::shared_ptr<SqlExpression> > calc,
                      bool implicitOrderByRowHash = true,
@@ -127,15 +127,15 @@ struct BoundSelectQuery {
 struct BoundGroupByQuery {
 
    BoundGroupByQuery(const SelectExpression & select,
-                      const Dataset & from,
-                      const Utf8String& alias,
-                      const WhenExpression & when,
-                      std::shared_ptr<SqlExpression> where,
-                      const TupleExpression & groupBy,
-                      const std::vector< std::shared_ptr<SqlExpression> >& aggregatorsExpr,
-                      const SqlExpression & having,
-                      const SqlExpression & rowName,
-                      const OrderByExpression & orderBy);
+                     const Dataset & from,
+                     const Utf8String& alias,
+                     const WhenExpression & when,
+                     const SqlExpression & where,
+                     const TupleExpression & groupBy,
+                     const std::vector< std::shared_ptr<SqlExpression> >& aggregatorsExpr,
+                     const SqlExpression & having,
+                     const SqlExpression & rowName,
+                     const OrderByExpression & orderBy);
 
     void execute(std::function<bool (const NamedRowValue & output)> aggregator,  
             ssize_t offset, ssize_t limit,
@@ -143,7 +143,7 @@ struct BoundGroupByQuery {
 
     const Dataset & from;
     WhenExpression when;
-    std::shared_ptr<SqlExpression> where;
+    const SqlExpression & where;
     std::shared_ptr<SqlExpressionDatasetContext> rowContext;
     std::shared_ptr<GroupContext> groupContext;
     TupleExpression groupBy;

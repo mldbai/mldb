@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** table_expression_operations.h                                  -*- C++ -*-
     Jeremy Barnes, 27 July 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Operations on tables (implementations of a table expression).
 */

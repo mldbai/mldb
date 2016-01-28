@@ -210,7 +210,7 @@ struct BagOfWordsStatsTableProcedure: public Procedure {
 
     virtual Any getStatus() const;
 
-    StatsTableProcedureConfig procConfig;
+    BagOfWordsStatsTableProcedureConfig procConfig;
 };
 
 

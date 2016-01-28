@@ -254,6 +254,13 @@ struct Dataset: public MldbEntity {
     */
     virtual KnownColumn getKnownColumnInfo(const ColumnName & columnName) const;
 
+    /** Return what is known about the given columns.  Default forwards
+        to getKnownColumnInfo.  Some datasets can do a batch much more
+        efficiently, so this function should be preferred if possible.
+    */
+    virtual std::vector<KnownColumn>
+    getKnownColumnInfos(const std::vector<ColumnName> & columnNames) const;
+
     /** Record multiple embedding rows.  This forwards to recordRows in the
         default implementation, but is much more efficient in datasets that
         are designed for embeddings.
@@ -273,11 +280,11 @@ struct Dataset: public MldbEntity {
     virtual std::vector<MatrixNamedRow>
     queryStructured(const SelectExpression & select,
                     const WhenExpression & when,
-                    const std::shared_ptr<SqlExpression> & where,
+                    const SqlExpression & where,
                     const OrderByExpression & orderBy,
                     const TupleExpression & groupBy,
-                    const std::shared_ptr<SqlExpression> & having,
-                    const std::shared_ptr<SqlExpression> & rowName,
+                    const SqlExpression & having,
+                    const SqlExpression & rowName,
                     ssize_t offset,
                     ssize_t limit,
                     Utf8String alias = "",

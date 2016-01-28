@@ -1,9 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
-/** join_utils.h                                                   -*- C++ -*-
+/** join_utils.cc                                                  -*- C++ -*-
     Jeremy Barnes, 24 August 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
 
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #include "join_utils.h"
@@ -119,7 +118,20 @@ removeTableName(const SqlExpression & expr, const Utf8String & tableName, const 
     // If an expression refers to a variable, then remove the table name
     // from it.  Otherwise return the same expression.
     std::function<std::shared_ptr<SqlExpression> (std::shared_ptr<SqlExpression> a)>
-        doArg = [&] (std::shared_ptr<SqlExpression> a)
+        doArg;
+
+    // Function used by transform to allow a traversal of the expression
+    // tree, replacing the reading of table.var with var
+    auto onChild = [&] (std::vector<std::shared_ptr<SqlExpression> > args)
+        {
+            for (auto & a: args) {
+                a = doArg(a);
+            }
+            
+            return std::move(args);
+        };
+
+    doArg = [&] (std::shared_ptr<SqlExpression> a)
         -> std::shared_ptr<SqlExpression>
         {
             auto var = std::dynamic_pointer_cast<ReadVariableExpression>(a);
@@ -155,18 +167,7 @@ removeTableName(const SqlExpression & expr, const Utf8String & tableName, const 
                 }
             }
 
-            return std::move(a);
-        };
-
-    // Function used by transform to allow a traversal of the expression
-    // tree, replacing the reading of table.var with var
-    auto onChild = [&] (std::vector<std::shared_ptr<SqlExpression> > args)
-        {
-            for (auto & a: args) {
-                a = doArg(a);
-            }
-            
-            return std::move(args);
+            return a->transform(onChild);
         };
 
     // Walk the tree.  The doArg() on the outside is to deal with the case

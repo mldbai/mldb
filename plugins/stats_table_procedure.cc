@@ -289,7 +289,8 @@ run(const ProcedureRunConfig & run,
 
     iterateDataset(runProcConf.trainingData.stm->select,
                    *boundDataset.dataset, boundDataset.asName, 
-                   runProcConf.trainingData.stm->when, runProcConf.trainingData.stm->where,
+                   runProcConf.trainingData.stm->when,
+                   *runProcConf.trainingData.stm->where,
                    extra,
                    aggregator, runProcConf.trainingData.stm->orderBy,
                    runProcConf.trainingData.stm->offset,
@@ -565,7 +566,7 @@ BagOfWordsStatsTableProcedure(MldbServer * owner,
             const std::function<bool (const Json::Value &)> & onProgress)
     : Procedure(owner)
 {
-    procConfig = config.params.convert<StatsTableProcedureConfig>();
+    procConfig = config.params.convert<BagOfWordsStatsTableProcedureConfig>();
 }
 
 Any
@@ -581,7 +582,7 @@ run(const ProcedureRunConfig & run,
       const std::function<bool (const Json::Value &)> & onProgress) const
 {
 
-    StatsTableProcedureConfig runProcConf =
+    BagOfWordsStatsTableProcedureConfig runProcConf =
         applyRunConfOverProcConf(procConfig, run);
 
     SqlExpressionMldbContext context(server);
@@ -637,7 +638,7 @@ run(const ProcedureRunConfig & run,
     iterateDataset(runProcConf.trainingData.stm->select,
                    *boundDataset.dataset, boundDataset.asName, 
                    runProcConf.trainingData.stm->when, 
-                   runProcConf.trainingData.stm->where,
+                   *runProcConf.trainingData.stm->where,
                    extra,
                    aggregator, runProcConf.trainingData.stm->orderBy,
                    runProcConf.trainingData.stm->offset,

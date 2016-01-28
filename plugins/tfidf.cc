@@ -205,7 +205,7 @@ run(const ProcedureRunConfig & run,
 
     iterateDataset(runProcConf.trainingData.stm->select, *boundDataset.dataset, boundDataset.asName, 
                    runProcConf.trainingData.stm->when,
-                   runProcConf.trainingData.stm->where,
+                   *runProcConf.trainingData.stm->where,
                    aggregator,
                    runProcConf.trainingData.stm->orderBy,
                    runProcConf.trainingData.stm->offset,
@@ -214,8 +214,15 @@ run(const ProcedureRunConfig & run,
 
     bool saved = false;
     if (!runProcConf.modelFileUrl.empty()) {
-        save(runProcConf.modelFileUrl.toString(), dfs.size(), dfs);
-        saved = true;
+        try {
+            save(runProcConf.modelFileUrl.toString(), dfs.size(), dfs);
+            saved = true;
+        }
+        catch (const std::exception & exc) {
+             throw HttpReturnException(400, "Error saving tfidf at location'" +
+                                      runProcConf.modelFileUrl.toString() + "': " +
+                                      exc.what());
+        }
     }
 
     if (runProcConf.output) {
@@ -250,9 +257,10 @@ run(const ProcedureRunConfig & run,
 
             obtainFunction(server, tfidfFuncPC, onProgress);
         } else {
-            throw ML::Exception("Can't create tfidf function " +
-                                runProcConf.functionName.rawString() + 
-                                " Have you provided a valid modelFileUrl?");
+            throw HttpReturnException(400, "Can't create tfidf function '" +
+                                      runProcConf.functionName.rawString() + 
+                                      "'. Have you provided a valid modelFileUrl?",
+                                      "modelFileUrl", runProcConf.modelFileUrl.toString());
         }
     }
 

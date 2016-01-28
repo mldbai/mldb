@@ -411,8 +411,6 @@ getUnbound() const
 /* DATASET FUNCTION EXPRESSION                                               */
 /*****************************************************************************/
 
-/** Used when doing a select inside a FROM clause **/
-
 DatasetFunctionExpression::
 DatasetFunctionExpression(Utf8String functionName, 
                           std::vector<std::shared_ptr<TableExpression>> & args,
@@ -437,9 +435,8 @@ bind(SqlBindingScope & context) const
         boundArgs.push_back(arg->bind(context));
 
     ExpressionValue expValOptions;
-    if(options) {
-        BoundSqlExpression bound = options->bind(context);
-        expValOptions = bound(SqlRowScope());
+    if (options) {
+        expValOptions = options->constantValue();
     }
 
     auto fn = context.doGetDatasetFunction(functionName, boundArgs, expValOptions, asName);

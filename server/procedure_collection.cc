@@ -144,22 +144,23 @@ handlePutWithFirstRun(Utf8String key, PolyConfig config, bool mustBeNew, bool as
         RestRequest request(header, "{}");
         mldb->handleRequest(connection, request);
         
+        Json::Value runResponse;
+        Json::Reader reader;
+        if (!reader.parse(connection.response, runResponse, false)) {
+            throw HttpReturnException(500, "failed to create the initial run",
+                                      "entry", key,
+                                      "runError", "could not parse the run response");
+        }
+
         if (connection.responseCode == 201) {
-	    Json::Value status = polyStatus.status.asJson();
-	    Json::Value runResponse;
-	    Json::Reader reader;
-	    if (!reader.parse(connection.response, runResponse, false)) {
-                throw HttpReturnException(500, "failed to create the initial run",
-                                          "entry", key,
-                                          "runError", "could not parse the run response");
-	    }
+	    Json::Value status = polyStatus.status.asJson();  
             status["firstRun"] = runResponse;
             polyStatus.status = status;
         }
         else {
             throw HttpReturnException(connection.responseCode, "failed to create the initial run",
                                       "entry", key,
-                                      "runError", connection.response);
+                                      "runError", runResponse);
         }
     }
 
