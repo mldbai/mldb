@@ -1818,7 +1818,9 @@ hasKey(const Utf8String & key) const
     case ATOM:
         return { false, Date::negativeInfinity() };
     case ROW: 
-    case STRUCT: {
+    case STRUCT:
+    case TENSOR: {
+        // TODO: for Tensor, we can do much, much better
         Date outputDate = Date::negativeInfinity();
         auto onExpr = [&] (const Id & columnName,
                            const Id & prefix,
@@ -1836,6 +1838,24 @@ hasKey(const Utf8String & key) const
         bool result = !forEachSubexpression(onExpr);
         return { result, outputDate };
     }
+#if 0
+    case TENSOR: {
+        // Look for a key of the form [x,y,z]
+        int indexes[10];
+        int n = -1;
+        int64_t current = 0;
+
+        for (char32_t c: key) {
+            if (n == -1) {
+                if (c != '[')
+                    return { false, Date::negativeInfinity() };
+                n = 0;
+            }
+            if (c == 0) {
+            }
+        }
+    }
+#endif
     }
 
     throw HttpReturnException(500, "Unknown expression type",
@@ -1852,7 +1872,9 @@ hasValue(const ExpressionValue & val) const
     case ATOM:
         return { false, Date::negativeInfinity() };
     case ROW: 
-    case STRUCT: {
+    case STRUCT:
+    case TENSOR: {
+        // TODO: for tensor, we can do much, much better
         Date outputDate = Date::negativeInfinity();
         auto onExpr = [&] (const Id & columnName,
                            const Id & prefix,
