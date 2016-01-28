@@ -310,4 +310,4 @@ $(eval $(call mldb_unit_test,MLDB-1253_concat_test.py))
 $(eval $(call mldb_unit_test,MLDBFB-308-where-outer-join-test.py,,manual))
 $(eval $(call mldb_unit_test,MLDB-1267-bucketize-ts-test.py))
 $(eval $(call mldb_unit_test,MLDB-1319-new-executor-function-binding.js))
-
+$(eval $(call mldb_unit_test,MLDB-1328-join_empty_dataset_test.py,,manual)) # Issue
