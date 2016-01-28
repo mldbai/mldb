@@ -566,7 +566,7 @@ BagOfWordsStatsTableProcedure(MldbServer * owner,
             const std::function<bool (const Json::Value &)> & onProgress)
     : Procedure(owner)
 {
-    procConfig = config.params.convert<StatsTableProcedureConfig>();
+    procConfig = config.params.convert<BagOfWordsStatsTableProcedureConfig>();
 }
 
 Any
@@ -582,7 +582,7 @@ run(const ProcedureRunConfig & run,
       const std::function<bool (const Json::Value &)> & onProgress) const
 {
 
-    StatsTableProcedureConfig runProcConf =
+    BagOfWordsStatsTableProcedureConfig runProcConf =
         applyRunConfOverProcConf(procConfig, run);
 
     SqlExpressionMldbContext context(server);
