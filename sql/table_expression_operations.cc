@@ -548,6 +548,7 @@ bind(SqlBindingScope & context) const
     
     // Allow the dataset to override functions
     result.table.getFunction = [=] (SqlBindingScope & context,
+                                    const Utf8String & tableName,
                                     const Utf8String & functionName,
                                     const std::vector<std::shared_ptr<ExpressionValueInfo> > & args)
         -> BoundFunction 
