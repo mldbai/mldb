@@ -595,7 +595,8 @@ queryStructured(const Dataset * dataset,
         = OrderByExpression::parse(orderBy);
     TupleExpression groupByParsed
         = TupleExpression::parse(groupBy);
-    std::shared_ptr<SqlExpression> havingParsed;
+    std::shared_ptr<SqlExpression> havingParsed
+        = SqlExpression::TRUE;
     if (!having.empty())
         havingParsed = SqlExpression::parse(having);
     std::shared_ptr<SqlExpression> rowNameParsed;
@@ -608,9 +609,9 @@ queryStructured(const Dataset * dataset,
 
     auto runQuery = [&] ()
         {
-            return dataset->queryStructured(selectParsed, whenParsed, whereParsed, orderByParsed,
-                                            groupByParsed, havingParsed,
-                                            rowNameParsed, offset, limit);
+            return dataset->queryStructured
+                (selectParsed, whenParsed, *whereParsed, orderByParsed,
+                 groupByParsed, *havingParsed, *rowNameParsed, offset, limit);
         };
     
     runHttpQuery(runQuery, connection, format, createHeaders,rowNames, rowHashes);

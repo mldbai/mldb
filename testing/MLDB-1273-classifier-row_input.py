@@ -78,5 +78,48 @@ class ClassifierRowInputTest(unittest.TestCase):
 
         self.assertEqual(with_flattening, without_flattening)
 
+        with_aliasing = mldb.query("""
+            select cls({features: {{a,b,c,d} as row}}) as *
+            from iris
+            limit 10
+        """)
+
+        mldb.log(with_aliasing)
+        self.assertEqual(with_flattening, with_aliasing,
+                         "results do not match")
+
+        with_aliasing = mldb.query("""
+            select cls({features: {* as "row."*}}) as *
+            from iris
+            limit 10
+        """)
+
+        self.assertEqual(with_flattening, with_aliasing, "results do not match")
+
+        without_aliasing = mldb.query("""
+            select cls({features: feats({*}) }) as *
+            from iris
+            limit 10
+        """)
+
+        self.assertEqual(with_flattening, without_aliasing,
+                         "results do not match")
+
+        mldb.put("/v1/functions/feats2", {
+            'type' : 'sql.expression',
+            'params' : {
+                "expression": "feats({*}) as features"
+            }
+        })
+
+        # uncomment for MLDB-1314 test case
+        #without_name =  query("""
+        #                select cls( feats2({*}) ) as *
+        #                from iris
+        #                limit 10
+        #                """)
+        #mldb.log(without_name)
+        # assert with_flattening == without_name, "results do not match"
+
 if __name__ == '__main__':
     mldb.run_tests()

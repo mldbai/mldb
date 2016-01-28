@@ -74,6 +74,33 @@ conf = {
 }
 do_checks(conf)
 
+# test also the error code returned
+del conf['params']['modelFileUrl']
+conf['params']['runOnCreation'] = True
+rez = mldb.perform("PUT", "/v1/procedures/" + conf["type"], [], conf)
+response = json.loads(rez['response'])
+mldb.log(response)
+
+assert rez['statusCode'] == 400, 'expecting call to fail when no model file URL'
+assert 'error' in response['details']['runError'], 'expecting the error message to appear'
+assert 'httpCode' in response['details']['runError'], 'expecting an httpCode for the run error'
+
+rez = mldb.perform("POST", "/v1/procedures/" +conf["type"] + "/runs", [], {})
+mldb.log(json.loads(rez['response']))
+assert rez['statusCode'] == 400, 'expecting call to fail when no model file URL'
+assert 'error' in response['details']['runError'], 'expecting the error message to appear'
+assert 'httpCode' in response['details']['runError'], 'expecting an httpCode for the run error'
+
+conf['params']['modelFileUrl'] = "not://a/valid/path"
+conf['params']['runOnCreation'] = True
+rez = mldb.perform("PUT", "/v1/procedures/" + conf["type"], [], conf)
+response = json.loads(rez['response'])
+mldb.log(response)
+
+assert rez['statusCode'] == 400, 'expecting call to fail when no model file URL'
+assert 'error' in response['details']['runError'], 'expecting the error message to appear'
+assert 'httpCode' in response['details']['runError'], 'expecting an httpCode for the run error'
+
 
 # probabilizer.train -> probabilizer
 conf = {

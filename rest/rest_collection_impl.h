@@ -582,7 +582,7 @@ addBackgroundJobInThread(Key key,
                     task->value = fn(onProgressFn, std::move(cancelled));
                     task->setFinished();
                 } catch (const std::exception & exc) {
-                    task->progress["exception"] = extractException(exc);
+                    task->progress["exception"] = extractException(exc, 500);
                     task->setError(std::current_exception());
                 }
 

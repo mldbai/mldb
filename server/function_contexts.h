@@ -59,7 +59,7 @@ struct ExtractContext: public SqlBindingScope {
 };
 
 /*****************************************************************************/
-/* FUNCTION EXPRESSION CONTEXT                                                  */
+/* FUNCTION EXPRESSION CONTEXT                                               */
 /*****************************************************************************/
 
 /** Used to run an expression in a purely function context. */

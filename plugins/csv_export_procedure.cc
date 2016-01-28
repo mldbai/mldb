@@ -96,7 +96,7 @@ run(const ProcedureRunConfig & run,
                          *boundDataset.dataset,
                          boundDataset.asName,
                          procedureConfig.exportData.stm->when,
-                         procedureConfig.exportData.stm->where,
+                         *procedureConfig.exportData.stm->where,
                          procedureConfig.exportData.stm->orderBy,
                          calc);
 

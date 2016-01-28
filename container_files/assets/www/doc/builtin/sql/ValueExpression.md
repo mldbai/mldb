@@ -216,11 +216,42 @@ intended. See also [the MLDB Type System](TypeSystem.md).
 
 ### [NOT] IN expression
 
-This expression test if the value in the left hand side is (or is not) included
-into an enumeration of values on the right hand side. For example: `expr IN (3,5,7,11)`
+This expression tests if the value in the left hand side is (or is not) included
+in a set of values on the right hand side.  There are four ways to specify the set on the right hand side:
 
-The right hand side can also be the result of a sub `SELECT` statement. For example `expr IN (SELECT x FROM dataset)` will test if the value expressed by `expr` is equal to any of the values in the x column
-of the dataset. If the `SELECT` statement returns more than a single column, they will all be tested.
+1.  As a sub-select (`x IN (SELECT ...)`)
+2.  As an explicit tuple (`x IN (val1, val2, ...)`)
+3.  As the keys of a row expression (`x IN (KEYS OF expr)`)
+4.  As the values of a row expression (`x IN (VALUES OF expr)`)
+
+The first two are standard SQL; the second two are MLDB extensions and are
+made possible by MLDB's sparse data model.
+
+#### IN expression with sub-select
+
+The right hand side can be the result of a sub `SELECT` statement.
+For example `expr IN (SELECT x FROM dataset)` will test if the value
+expressed by `expr` is equal to any of the values in the x column of
+the dataset. If the `SELECT` statement returns more than a single column,
+they will all be tested (this is different from standard SQL, which will
+ignore all but the first column, and due to MLDB's sparse column model).
+
+#### IN expression with explicit tuple expression
+
+For example: `expr IN (3,5,7,11)`
+
+#### IN (KEYS OF ...) expression
+
+For example: `expr IN (KEYS OF tokenize({text: sentence}))`
+
+That will evaluate to true if expr is a word within the given sentence.
+
+#### IN (VALUES OF ...) expression
+
+For example: `expr IN (VALUES OF [3, 5, 7, 11])`
+
+is equivalent to expr IN (3, 5, 7, 11), but allows a full row expression
+to be used to construct the set, rather than enumerating tuple elements.
 
 
 <h2 id="ExpressingTimeIntervals">Expressing Time Intervals</h2>

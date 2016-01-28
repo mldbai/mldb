@@ -29,11 +29,12 @@ bindDataset(std::shared_ptr<Dataset> dataset, Utf8String asName)
 
     // Allow the dataset to override functions
     result.table.getFunction = [=] (SqlBindingScope & context,
+                                    const Utf8String & tableName,
                                     const Utf8String & functionName,
                                     const std::vector<std::shared_ptr<ExpressionValueInfo> > & args)
         -> BoundFunction 
         {
-            return dataset->overrideFunction(functionName, context);
+            return dataset->overrideFunction(tableName, functionName, context);
         };
 
     // Allow the dataset to run queries
@@ -410,8 +411,6 @@ getUnbound() const
 /* DATASET FUNCTION EXPRESSION                                               */
 /*****************************************************************************/
 
-/** Used when doing a select inside a FROM clause **/
-
 DatasetFunctionExpression::
 DatasetFunctionExpression(Utf8String functionName, 
                           std::vector<std::shared_ptr<TableExpression>> & args,
@@ -436,9 +435,8 @@ bind(SqlBindingScope & context) const
         boundArgs.push_back(arg->bind(context));
 
     ExpressionValue expValOptions;
-    if(options) {
-        BoundSqlExpression bound = options->bind(context);
-        expValOptions = bound(SqlRowScope());
+    if (options) {
+        expValOptions = options->constantValue();
     }
 
     auto fn = context.doGetDatasetFunction(functionName, boundArgs, expValOptions, asName);

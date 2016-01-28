@@ -54,9 +54,7 @@ class PoolingPerformanceTest(unittest.TestCase):
         })
 
         mldb.log('start')
-        mldb.query("""
-            select wrapper({lineText}) from reddit_raw limit 1000
-        """)
+        mldb.query("select wrapper({lineText}) from reddit_raw limit 10000")
         mldb.log('stop')
 
 if __name__ == '__main__':

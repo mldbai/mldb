@@ -11,6 +11,7 @@
 #include "mldb/core/function.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/types/optional.h"
+#include "mldb/plugins/sql_functions.h"
 
 namespace Datacratic {
 namespace MLDB {
@@ -21,11 +22,12 @@ namespace MLDB {
 /*****************************************************************************/
 
 struct PoolingFunctionConfig {
-    PoolingFunctionConfig() : zeroForUnknown(false), aggregators({"avg"})
-    {}
+    PoolingFunctionConfig()
+        : aggregators({"avg"})
+    {
+    }
 
-    bool zeroForUnknown;
-    std::vector<std::string> aggregators;
+    std::vector<Utf8String> aggregators;
     std::shared_ptr<TableExpression> embeddingDataset;
 };
 
@@ -33,7 +35,7 @@ DECLARE_STRUCTURE_DESCRIPTION(PoolingFunctionConfig);
 
 
 /*****************************************************************************/
-/* APPLY STOP WORDS FUNCTION                                                 */
+/* POOLING FUNCTION                                                          */
 /*****************************************************************************/
 
 struct PoolingFunction: public Function {
@@ -43,10 +45,16 @@ struct PoolingFunction: public Function {
    
     virtual Any getStatus() const;
 
+    virtual std::unique_ptr<FunctionApplier>
+    bind(SqlBindingScope & outerContext,
+         const FunctionValues & input) const;
+    
     virtual FunctionOutput apply(const FunctionApplier & applier,
                               const FunctionContext & context) const;
 
     virtual FunctionInfo getFunctionInfo() const;
+
+    std::shared_ptr<SqlQueryFunction> queryFunction;
 
     BoundTableExpression boundEmbeddingDataset;
 

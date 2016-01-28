@@ -976,10 +976,10 @@ RestRequestMatchResult
 sendExceptionResponse(RestConnection & connection,
                       const std::exception & exc)
 {
-    Json::Value val = extractException(exc);
+    int defaultCode = 400;
+    Json::Value val = extractException(exc, defaultCode);
 
-    int code = 400;
-
+    int code = defaultCode;
     if (val.isMember("httpCode")) {
         code = val["httpCode"].asInt();
     }
@@ -988,7 +988,7 @@ sendExceptionResponse(RestConnection & connection,
     return RestRequestRouter::MR_ERROR;
 }
 
-Json::Value extractException(const std::exception & exc)
+Json::Value extractException(const std::exception & exc, int defaultCode)
 {
     const HttpReturnException * http
         = dynamic_cast<const HttpReturnException *>(&exc);
@@ -1000,6 +1000,8 @@ Json::Value extractException(const std::exception & exc)
         val["httpCode"] = http->httpCode;
         if (!http->details.empty())
             val["details"] = jsonEncode(http->details);
+    } else {
+        val["httpCode"] = defaultCode;
     }
     
     return val;

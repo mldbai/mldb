@@ -1,9 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** join_utils.h                                                   -*- C++ -*-
     Jeremy Barnes, 24 August 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
 
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #pragma once
@@ -14,7 +13,7 @@ namespace Datacratic {
 namespace MLDB {
 
 std::shared_ptr<SqlExpression>
-removeTableName(const SqlExpression & expr, const Utf8String & tableName);
+removeTableName(const SqlExpression & expr, const Utf8String & tableName, const std::set<Utf8String>& aliases);
 
 
 /*****************************************************************************/

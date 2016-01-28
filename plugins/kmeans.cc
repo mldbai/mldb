@@ -204,7 +204,9 @@ run(const ProcedureRunConfig & run,
             saved = true;
         }
         catch (const std::exception & exc) {
-            throw ML::Exception("Error saving kmeans centroids: %s", exc.what());
+            throw HttpReturnException(400, "Error saving kmeans centroids at location'" +
+                                      runProcConf.modelFileUrl.toString() + "': " +
+                                      exc.what());
         }
     }
 
@@ -264,9 +266,10 @@ run(const ProcedureRunConfig & run,
 
             obtainFunction(server, kmeansFuncPC, onProgress);
         } else {
-            throw ML::Exception("Can't create kmeans function " +
-                                runProcConf.functionName.rawString() + 
-                                " Have you provided a valid modelFileUrl?");
+            throw HttpReturnException(400, "Can't create kmeans function '" +
+                                      runProcConf.functionName.rawString() + 
+                                      "'. Have you provided a valid modelFileUrl?",
+                                      "modelFileUrl", runProcConf.modelFileUrl.toString());
         }
     }
 

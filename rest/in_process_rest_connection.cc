@@ -105,8 +105,20 @@ sendErrorResponse(int responseCode,
 void InProcessRestConnection::
 sendErrorResponse(int responseCode, const Json::Value & error)
 {
+    Json::Value augmentedError;
+    Json::ValueType type = error.type();
+    if (type == Json::nullValue || type == Json::objectValue) {
+        augmentedError = error;
+        if ( !error.isMember("httpCode") ){
+            augmentedError["httpCode"] = responseCode;
+        }
+    }
+    else {
+        augmentedError["error"] = error.asString();
+        augmentedError["httpCode"] = responseCode;
+    }
     this->responseCode = responseCode;
-    this->response = error.toStringNoNewLine();
+    this->response = augmentedError.toStringNoNewLine();
     this->contentType = "application/json";
 }
 
