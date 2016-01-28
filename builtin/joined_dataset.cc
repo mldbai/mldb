@@ -847,6 +847,7 @@ overrideFunction(const Utf8String & tableName,
                  const Utf8String & functionName,
                  SqlBindingScope & context) const
 {
+    //cerr << "JoinedDataset function name: " << functionName << " from table: " << tableName << endl;
     if (functionName == "rowName") {
 
         if (tableName.empty())
@@ -889,6 +890,13 @@ overrideFunction(const Utf8String & tableName,
                 std::make_shared<Utf8StringValueInfo>()
             };
         }
+    }
+    else if (tableName.empty() && functionName.endsWith(".rowName"))
+    {
+        const Utf8String newFunctionName("rowName");
+        Utf8String newTableName = functionName;
+        newTableName.removeSuffix(".rowName");
+        return overrideFunction(newTableName, newFunctionName, context);
     }
 
     return BoundFunction();
