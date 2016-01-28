@@ -29,26 +29,10 @@ struct SqlExpression;
 /* SQL QUERY FUNCTION                                                        */
 /*****************************************************************************/
 
-/** Enum that tells us how we encode the output of an SQL query object.
- */
-enum SqlQueryOutput {
-    FIRST_ROW = 0,       ///< Take the first row and return it directly
-    NAMED_COLUMNS = 1    ///< Each row produces an explicitly named column
-};
-
-DECLARE_ENUM_DESCRIPTION(SqlQueryOutput);
-
-
 /** Function that runs a single-row SQL query against a dataset. */
 
 struct SqlQueryFunctionConfig {
-    SqlQueryFunctionConfig()
-        : output(FIRST_ROW)
-    {
-    }
-
     InputQuery query;
-    SqlQueryOutput output;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(SqlQueryFunctionConfig);
