@@ -1,6 +1,9 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
-import json
+#
+# MLDB-668-object-column-name.py
+# datacratic, 2015
+# this file is part of mldb. copyright 2015 datacratic. all rights reserved.
+#
+mldb = mldb_wrapper.wrap(mldb) # noqa
 
 ds1 = mldb.create_dataset({
     'type': 'sparse.mutable',
@@ -11,12 +14,12 @@ for i in xrange(1):
                    [['x', i, 0]])
 ds1.commit()
 
-result = mldb.perform('GET', '/v1/query', [['q', 'SELECT { 1 as x } as y FROM dataset1']])
-mldb.log(result)
-assert json.loads(result['response'])[0]['columns'][0][0] == 'y.x'
+result = mldb.get('/v1/query', q='SELECT { 1 as x } as y FROM dataset1')
+mldb.log(result.text)
+assert result.json()[0]['columns'][0][0] == 'y.x'
 
-result = mldb.perform('GET', '/v1/query', [['q', 'SELECT { 1 as x } as y']])
-mldb.log(result)
-assert json.loads(result['response'])[0]['columns'][0][0] == 'y.x'
+result = mldb.get('/v1/query', q='SELECT { 1 as x } as y')
+mldb.log(result.text)
+assert result.json()[0]['columns'][0][0] == 'y.x'
 
-mldb.script.set_return('success')  
+mldb.script.set_return('success')
