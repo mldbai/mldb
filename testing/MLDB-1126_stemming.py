@@ -51,8 +51,9 @@ mldb.log(res)
 
 result = mldb.get(
     '/v1/query',
-    q="SELECT stemmer_fr({words: {tokenize("
-      "'Je aimé aimer aimerais les chiens', {splitchars:' '}) as *}}) as *")
+    q=unicode("SELECT stemmer_fr({words: {tokenize("
+              "'Je aimé aimer aimerais les chiens', {splitchars:' '}) as *}}) "
+              "as *", encoding='utf-8'))
 js_res = result.json()
 mldb.log(js_res)
 
@@ -91,8 +92,9 @@ mldb.log(res)
 
 result = mldb.get(
     '/v1/query',
-    q="SELECT stemmerdoc_fr("
-      "{document: 'Je aimé aimer François'}) as output")
+    q=unicode("SELECT stemmerdoc_fr("
+              "{document: 'Je aimé aimer François'}) as output",
+              encoding='utf-8'))
 js_res = result.json()
 mldb.log(js_res)
 

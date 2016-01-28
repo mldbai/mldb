@@ -3,6 +3,8 @@
 # datacratic, 2015
 # this file is part of mldb. copyright 2015 datacratic. all rights reserved.
 #
+import random
+
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
 ds1 = mldb.create_dataset({
@@ -35,7 +37,7 @@ mldb.log(res.json())
 
 # verify that the function works
 res = mldb.get('/v1/functions/embed/application',
-               input={'row': { 'x': .5, 'y': .5}}]])
+               input={'row': { 'x': .5, 'y': .5}})
 
 # now use it in a query
 res = mldb.get('/v1/datasets/ds1/query', select='embed({{*} as row})')
