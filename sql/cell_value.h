@@ -104,6 +104,16 @@ struct CellValue {
     */
     static CellValue fromMonthDaySecond( int64_t months, int64_t days, double seconds);
 
+    /** Construct a blob CellValue from the given string, which may be
+        stolen to reduce memory use.
+    */
+    static CellValue blob(std::string blobContents);
+
+    /** Construct a blob CellValue from the memory range, which will be
+        copied in.
+    */
+    static CellValue blob(const char * p, size_t size);
+
     CellValue & operator = (const CellValue & other)
     {
         CellValue newMe(other);
@@ -128,7 +138,8 @@ struct CellValue {
     
     ~CellValue()
     {
-        if (type == ST_ASCII_LONG_STRING || type == ST_UTF8_LONG_STRING)
+        if (type == ST_ASCII_LONG_STRING || type == ST_UTF8_LONG_STRING
+            || type == ST_LONG_BLOB)
             deleteString();
     }
 
@@ -155,6 +166,14 @@ struct CellValue {
 
     /** Length of the result of the toString() function */
     uint32_t toStringLength() const;
+
+    /** Pointer to the immutable static storage for the blob.  Has the
+        same lifetime as the CellValue object.
+    */
+    const unsigned char * blobData() const;
+
+    /** Length of the data stored for the blob. */
+    uint32_t blobLength() const;
 
     /** Is it exactly representable as a 32 bit signed integer? */
     bool isExactInt32() const;
@@ -217,6 +236,7 @@ struct CellValue {
         UTF8_STRING,
         TIMESTAMP,
         TIMEINTERVAL,
+        BLOB,
         NUM_CELL_TYPES
     };
 
@@ -254,14 +274,21 @@ struct CellValue {
     bool isInt64() const;
     bool isUInt64() const;
 
+    bool isBlob() const
+    {
+        return cellType() == BLOB;
+    }
+
     CellValue coerceToInteger() const;
     CellValue coerceToNumber() const;
     CellValue coerceToString() const;
     CellValue coerceToBoolean() const;
     CellValue coerceToTimestamp() const;
+    CellValue coerceToBlob() const;
     
-    /** This is always, without exception, the SIPhash of the toString()
-        representation.
+    /** This is always the SIPhash of the toString() representation.
+        Only for blobs, which have no toString(), is it calculated
+        on the raw.
     */
     CellValueHash hash() const;
 
@@ -331,6 +358,9 @@ private:
     void initString(const char * val, size_t len,
                     bool isUtf8, bool checkValidity);
 
+    /** Initialize a blob. */
+    void initBlob(const char * data, size_t len);
+
     void deleteString();
 
     std::string printInterval() const;
@@ -346,7 +376,9 @@ private:
         ST_UTF8_LONG_STRING,
         ST_UNOWNED_STRING,
         ST_TIMESTAMP,
-        ST_TIMEINTERVAL
+        ST_TIMEINTERVAL,
+        ST_SHORT_BLOB,
+        ST_LONG_BLOB
     };
 
     struct StringRepr {
@@ -398,6 +430,7 @@ private:
     };
 
     static bool isStringType(StorageType type);
+    static bool isBlobType(StorageType type);
 } __attribute__((__packed__)) ;
 
 inline void swap(CellValue & val1, CellValue & val2)

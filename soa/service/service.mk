@@ -63,7 +63,7 @@ LIBCLOUD_SOURCES := \
 
 #	hdfs.cc
 
-LIBCLOUD_LINK := utils arch types value_description tinyxml2 services crypto++ ssh2 boost_filesystem archive #hdfs3
+LIBCLOUD_LINK := utils arch types value_description tinyxml2 services crypto++ ssh2 boost_filesystem archive hash #hdfs3
 
 
 $(eval $(call library,cloud,$(LIBCLOUD_SOURCES),$(LIBCLOUD_LINK)))
