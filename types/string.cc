@@ -522,7 +522,7 @@ bool
 Utf8String::
 removeSuffix(const Utf8String & suffix)
 {
-   if (suffix.empty())
+    if (suffix.empty())
         return true;
     if (empty())
         return false;
