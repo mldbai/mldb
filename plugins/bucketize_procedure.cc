@@ -151,7 +151,7 @@ run(const ProcedureRunConfig & run,
                      *boundDataset.dataset,
                      boundDataset.asName,
                      procedureConfig.inputData.stm->when,
-                     procedureConfig.inputData.stm->where,
+                     *procedureConfig.inputData.stm->where,
                      procedureConfig.inputData.stm->orderBy,
                      calc)
         .execute(getSize, 

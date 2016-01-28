@@ -1076,6 +1076,13 @@ generateRowsWhere(const SqlBindingScope & context,
     return fn;
 }
 
+KnownColumn
+CsvDataset::
+getKnownColumnInfo(const ColumnName & columnName) const
+{
+    return itl->getKnownColumnInfo(columnName);
+}
+
 namespace {
 
 RegisterDatasetType<CsvDataset, CsvDatasetConfig>

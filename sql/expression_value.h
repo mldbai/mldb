@@ -1,5 +1,6 @@
 /** expression_value.h                                             -*- C++ -*-
     Jeremy Barnes, 14 February 2015
+
     This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Code for the type that holds the value of an expression.
@@ -118,6 +119,9 @@ enum VariableFilter {
 /** This function can be used for optimizations where it is known that
     only one value is possible for a given variable.  It returns whether
     the filter can be ignored for this case.
+
+    Currently, we don't allow GET_ALL to be set anywhere, and so this
+    will always return true.
 */
 constexpr bool canIgnoreIfExactlyOneValue(VariableFilter) { return true; }
 
@@ -459,6 +463,7 @@ struct ExpressionValue {
     CellValue coerceToBoolean() const;
     CellValue coerceToTimestamp() const;
     CellValue coerceToAtom() const;
+    CellValue coerceToBlob() const;
 
     // Return the timestamp at which all of the information in this value
     // was known.  This is used to determine the timestamp of the output
@@ -563,6 +568,12 @@ struct ExpressionValue {
                                                Date ts) > & onAtom,
                      const Id & columnName = Id()) const;
 
+    /** For a row (structured) storage, returns the number of elements
+        that are in it.  Note that this is the non-flattened version,
+        ie the number of times forEachColumnDestructive will be called.
+    */
+    size_t rowLength() const;
+    
     /** Write a flattened representation of the current value to the given
         dataset row or event.
     */
@@ -578,6 +589,13 @@ struct ExpressionValue {
 
     /** Apply filter to select values in the row according to their timestamp */
     Row getFiltered(const VariableFilter & filter = GET_LATEST) const;
+
+    /// Return if it is a row, and contains the given key
+    std::pair<bool, Date> hasKey(const Utf8String & key) const;
+
+    /// Return if it is a row, and one of the elements is the given value,
+    /// treating it like a set
+    std::pair<bool, Date> hasValue(const ExpressionValue & value) const;
 
     int compare(const ExpressionValue & other) const;
 
@@ -639,6 +657,12 @@ private:
     void initRow(std::shared_ptr<const Row> row) noexcept;
 
     void setAtom(CellValue value, Date ts);
+
+    /** Same as forEachColumnDestructive, but templated on the function
+        type to allow for inlining.  Defined in expression_value.cc.
+    */
+    template<typename Fn>
+    bool forEachColumnDestructiveT(Fn && onSubexpression) const;
 
     enum Type {
         NONE,     ///< Expression is empty or not initialized yet.  Shouldn't be exposed to user.
@@ -715,6 +739,7 @@ PREDECLARE_VALUE_DESCRIPTION(ExpressionValue);
 std::shared_ptr<ValueDescriptionT<ExpressionValue> >
 getExpressionValueDescriptionNoTimestamp();
 
+
 /*****************************************************************************/
 /* EXPRESSION VALUE INFO TEMPLATE                                            */
 /*****************************************************************************/
@@ -771,6 +796,7 @@ extern template class ExpressionValueInfoT<double>;
 extern template class ExpressionValueInfoT<CellValue>;
 extern template class ExpressionValueInfoT<std::string>;
 extern template class ExpressionValueInfoT<Utf8String>;
+extern template class ExpressionValueInfoT<std::vector<unsigned char> >;
 extern template class ExpressionValueInfoT<int64_t>;
 extern template class ExpressionValueInfoT<uint64_t>;
 extern template class ExpressionValueInfoT<char>;
@@ -780,6 +806,7 @@ extern template class ScalarExpressionValueInfoT<double>;
 extern template class ScalarExpressionValueInfoT<CellValue>;
 extern template class ScalarExpressionValueInfoT<std::string>;
 extern template class ScalarExpressionValueInfoT<Utf8String>;
+extern template class ScalarExpressionValueInfoT<std::vector<unsigned char> >;
 extern template class ScalarExpressionValueInfoT<int64_t>;
 extern template class ScalarExpressionValueInfoT<uint64_t>;
 extern template class ScalarExpressionValueInfoT<char>;
@@ -825,6 +852,19 @@ struct StringValueInfo: public ScalarExpressionValueInfoT<std::string> {
 };
 
 struct Utf8StringValueInfo: public ScalarExpressionValueInfoT<Utf8String> {
+};
+
+struct BlobValueInfo: public ScalarExpressionValueInfoT<std::vector<unsigned char> > {
+    /// Is the other value compatible with this info?
+    virtual bool isCompatible(const ExpressionValue & value) const
+    {
+        return value.isAtom() && value.getAtom().isBlob();
+    }
+
+    virtual std::string getScalarDescription() const
+    {
+        return "blob";
+    }
 };
 
 struct BooleanValueInfo: public ScalarExpressionValueInfoT<char> {

@@ -215,10 +215,11 @@ runHttpQuery(const Utf8String& query,
     if (table.dataset) {
         auto runQuery = [&] ()
             {
-                return table.dataset->queryStructured(stm.select, stm.when, stm.where,
+                return table.dataset->queryStructured(stm.select, stm.when,
+                                                      *stm.where,
                                                       stm.orderBy, stm.groupBy,
-                                                      stm.having,
-                                                      stm.rowName,
+                                                      *stm.having,
+                                                      *stm.rowName,
                                                       stm.offset, stm.limit, 
                                                       table.asName);
             };
@@ -246,10 +247,11 @@ query(const Utf8String& query) const
     BoundTableExpression table = stm.from->bind(mldbContext);
     
     if (table.dataset) {
-        return table.dataset->queryStructured(stm.select, stm.when, stm.where,
+        return table.dataset->queryStructured(stm.select, stm.when,
+                                              *stm.where,
                                               stm.orderBy, stm.groupBy,
-                                              stm.having,
-                                              stm.rowName,
+                                              *stm.having,
+                                              *stm.rowName,
                                               stm.offset, stm.limit, 
                                               table.asName);
     }

@@ -133,11 +133,16 @@ BoundTableExpression sample(const SqlBindingScope & context,
                             const Utf8String& alias)
 {
     if (args.size() != 1)
-        throw HttpReturnException(500, "sample() takes 1 dataset as input, "
-                "followed by a options");
+        throw HttpReturnException(400, "sample() takes 1 dataset as input, "
+                                  "followed by a row of dataset options",
+                                  "options", options,
+                                  "alias", alias);
 
     if(!options.isRow())
-        throw ML::Exception("options should be a row");
+        throw HttpReturnException(400, "options should be a row; we got "
+                                  + jsonEncodeStr(options),
+                                  "options", options,
+                                  "alias", alias);
 
     auto ds = createSampledDatasetFn(context.getMldbServer(),
                                      args[0].dataset,

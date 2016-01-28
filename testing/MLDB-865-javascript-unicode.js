@@ -15,7 +15,9 @@ function assertSucceeded(process, response)
 }
 
 
-mldb.createDataset({"id": "hellô", "type":"embedding"})
+var ds = mldb.createDataset({"id": "hellô", "type":"embedding"})
+
+ds.commit();
 
 assertSucceeded("", mldb.get("/v1/query", {"q": 'select * from "hellô"'}))
 

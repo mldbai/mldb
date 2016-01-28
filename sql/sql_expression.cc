@@ -1389,11 +1389,10 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         if ((negative = matchKeyword(context, "NOT IN")) || matchKeyword(context, "IN"))
         {
             expect_whitespace(context);
+
             context.expect_literal('(');
-            
             skip_whitespace(context);
-            if (peekKeyword(context, "SELECT"))
-            { 
+            if (peekKeyword(context, "SELECT")) {
                 //sub-table
                 auto statement = SelectStatement::parse(context, allowUtf8);
                            
@@ -1406,8 +1405,21 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
                 lhs = std::make_shared<InExpression>(lhs, rhs, negative);
                 lhs->surface = ML::trim(token.captured());                
             }
-            else
-            {
+            else if (matchKeyword(context, "KEYS OF")) {
+                auto rhs = SqlExpression::parse(context, allowUtf8, 10);
+                skip_whitespace(context);
+                context.expect_literal(')');
+                lhs = std::make_shared<InExpression>(lhs, rhs, negative, InExpression::KEYS);
+                lhs->surface = ML::trim(token.captured());                
+            }
+            else if (matchKeyword(context, "VALUES OF")) {
+                auto rhs = SqlExpression::parse(context, allowUtf8, 10);
+                skip_whitespace(context);
+                context.expect_literal(')');
+                lhs = std::make_shared<InExpression>(lhs, rhs, negative, InExpression::VALUES);
+                lhs->surface = ML::trim(token.captured());                
+            }
+            else {
                 auto rhs = std::make_shared<TupleExpression>(TupleExpression::parse(context, allowUtf8));
 
                 context.expect_literal(')');
@@ -1415,7 +1427,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
                 lhs = std::make_shared<InExpression>(lhs, rhs, negative);
                 lhs->surface = ML::trim(token.captured());
                 continue;
-            }     
+            }
         }
 
         // Now look for an operator
@@ -1527,16 +1539,21 @@ bool
 SqlExpression::
 isConstant() const
 {
-    return false;
+    for (auto & c: getChildren()) {
+        if (!c->isConstant())
+            return false;
+    }
+    return true;
 }
 
 ExpressionValue
 SqlExpression::
 constantValue() const
 {
-    throw HttpReturnException(400, "Expression is not provably constant",
-                              "surface", surface,
-                              "ast", print());
+    SqlExpressionConstantScope scope;
+    auto bound = this->bind(scope);
+    SqlRowScope rowScope = scope.getRowScope();
+    return bound(rowScope);
 }
 
 std::map<ScopedName, UnboundVariable>
@@ -1639,6 +1656,19 @@ getUnbound() const
     }
     
     return result;
+}
+
+std::shared_ptr<SqlExpression>
+SqlExpression::
+shallowCopy() const
+{
+    auto onArgs = [] (std::vector<std::shared_ptr<SqlExpression> > args)
+        -> std::vector<std::shared_ptr<SqlExpression> >
+        {
+            return std::move(args);
+        };
+
+    return transform(onArgs);
 }
 
 void
@@ -2658,6 +2688,20 @@ transform(const TransformArgs & transformArgs) const
     }
 
     return transformedExpression;
+}
+
+bool
+TupleExpression::
+isConstant() const
+{
+    bool constant = true;
+    for (auto& c : clauses) {
+        if (!c->isConstant()) {
+            constant = false;
+            break;
+        }
+    }
+    return constant;
 }
 
 struct TupleExpressionDescription

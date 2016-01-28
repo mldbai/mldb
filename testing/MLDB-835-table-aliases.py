@@ -39,6 +39,14 @@ result = mldb.perform('GET', '/v1/query', [['q', 'SELECT a.b FROM x.y']])
 
 Check(result, 2)
 
+result = mldb.perform('GET', '/v1/query', [['q', 'SELECT "a."* FROM x.y']])
+
+Check(result, 2)
+
+# uncomment for MLDB-1313 test case
+#result = mldb.perform('GET', '/v1/query', [['q', 'SELECT a.* FROM x.y']])
+#Check(result, 2)
+
 result = mldb.perform('GET', '/v1/query', [['q', 'SELECT q.r.a.b FROM x.y as q.r']])
 
 Check(result, 2)

@@ -242,10 +242,11 @@ getKnownColumnInfo(const ColumnName & columnName) const
 
 BoundFunction
 FilteredDataset::
-overrideFunction(const Utf8String & functionName,
-                     SqlBindingScope & context) const
+overrideFunction(const Utf8String & tableName,
+                 const Utf8String & functionName,
+                 SqlBindingScope & context) const
 {
-    return dataset.overrideFunction(functionName, context);
+    return dataset.overrideFunction(tableName, functionName, context);
 }
 
 std::shared_ptr<MatrixView>

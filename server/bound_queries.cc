@@ -1,7 +1,7 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** bound_queries.cc
     Jeremy Barnes, 12 August 2015
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Bound version of SQL queries.
 */
@@ -563,7 +563,13 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
 
         auto doRow = [&] (ssize_t rowNum) -> bool
             {
-                QueryThreadTracker childTracker = std::move(parentTracker.child());
+                //if (rowNum % 1000 == 0)
+                //    cerr << "doing row " << rowNum << " with minRowNum "
+                //         << minRowNum << " maxRowNumNeeded " << maxRowNumNeeded
+                //         << " maxRowNum " << maxRowNum << endl;
+
+                QueryThreadTracker childTracker
+                    = std::move(parentTracker.child());
 
                 MatrixNamedRow row;
                 try {
@@ -654,15 +660,44 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
                  && (limit == -1 || sorted.size() < offset + limit);  ++i)
             doRow(i);
 
+        //cerr << "Done first " << NUM_TO_SAMPLE << " rows with "
+        //     << sorted.size() << " total" << endl;
 
-        if ((limit == -1 || sorted.size() < offset + limit)
-            && rows.size() > NUM_TO_SAMPLE) {
-            cerr << "hit rate is " << sorted.size() << "%" << endl;
-            // TODO: knowing the hit rate, we can start off with a
-            // smaller number of rows to test
-            ML::run_in_parallel_blocked(NUM_TO_SAMPLE, rows.size(), doRow);
+        size_t numProcessed = std::min(NUM_TO_SAMPLE, rows.size());
+
+        while (numProcessed < rows.size()
+               && (limit == -1 || (sorted.size() < offset + limit))) {
+            double hitRate = 1.0 * sorted.size() / numProcessed;
+            size_t numRequired = rows.size();
+            if (limit != -1) {
+                // Project how many we need to get to the limit
+                // Make sure we always make progress
+                numRequired
+                    = std::min<size_t>(rows.size(),
+                                       std::max<size_t>
+                                       (numProcessed + 100,
+                                        (offset + limit) / hitRate));
+            }
+
+            cerr << "hit rate after " << numProcessed << " is "
+                 << 100.0 * hitRate << "%; estimate that we need to scan "
+                 << numRequired << " rows in total" << endl;
+
+            // Do another block
+            if (numRequired - numProcessed <= 100) {
+                for (size_t n = numProcessed;  n < numRequired
+                         && (limit == -1 || sorted.size() < offset + limit);
+                     ++n) {
+                    doRow(n);
+                }
+            }
+            else {
+                ML::run_in_parallel_blocked(numProcessed, numRequired, doRow);
+            }
+            
+            numProcessed = numRequired;
         }
-        
+
         //cerr << "got " << maxRowNumNeeded << " rows with min row num " << minRowNum << endl;
         //cerr << "sorted.size() = " << sorted.size() << endl;
         cerr << "Scanned " << sorted.size() << " in " << scanTimer.elapsed()
@@ -890,7 +925,7 @@ BoundSelectQuery(const SelectExpression & select,
                  const Dataset & from,
                  const Utf8String& alias,
                  const WhenExpression & when,
-                 std::shared_ptr<SqlExpression> where,
+                 const SqlExpression & where,
                  const OrderByExpression & orderBy,
                  std::vector<std::shared_ptr<SqlExpression> > calc,
                  bool implicitOrderByRowHash, 
@@ -900,16 +935,16 @@ BoundSelectQuery(const SelectExpression & select,
 {
     try {
 
-        ExcAssert(where);
+        ExcAssert(&where);
  
         SqlExpressionWhenScope whenScope(*context);
         auto whenBound = when.bind(whenScope);
 
         // Bind our where statement
-        auto whereBound = where->bind(*context);
+        auto whereBound = where.bind(*context);
 
         // Get a generator for the rows that match 
-        auto whereGenerator = context->doCreateRowsWhereGenerator(*where, 0, -1);
+        auto whereGenerator = context->doCreateRowsWhereGenerator(where, 0, -1);
 
         auto matrix = from.getMatrixView();
 
@@ -986,7 +1021,7 @@ BoundSelectQuery(const SelectExpression & select,
                              + ML::getExceptionString(),
                              "select", select.surface,
                              "from", from.getStatus(),
-                             "where", where,
+                             "where", where.shallowCopy(),
                              "calc", calc,
                              "orderBy", orderBy);
     }
@@ -1035,7 +1070,7 @@ execute(std::function<bool (const NamedRowValue & output,
                              + ML::getExceptionString(),
                              "select", select.surface,
                              "from", from.getStatus(),
-                             "where", where,
+                             "where", where.shallowCopy(),
                              "calc", calc,
                              "orderBy", orderBy,
                              "offset", offset,
@@ -1264,7 +1299,7 @@ BoundGroupByQuery(const SelectExpression & select,
                   const Dataset & from,
                   const Utf8String& alias,
                   const WhenExpression & when,
-                  std::shared_ptr<SqlExpression> where,
+                  const SqlExpression & where,
                   const TupleExpression & groupBy,
                   const std::vector< std::shared_ptr<SqlExpression> >& aggregatorsExpr,
                   const SqlExpression & having,

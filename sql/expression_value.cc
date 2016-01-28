@@ -1281,10 +1281,26 @@ appendToRow(const Id & columnName, StructValue & row) const
     forEachSubexpression(onSubexpr, columnName);
 }
 
+size_t
+ExpressionValue::
+rowLength() const
+{
+    if (type_ == ROW) {
+        return row_->size();
+    }
+    else if (type_ == STRUCT) {
+        return struct_->length();
+    }
+    else throw HttpReturnException(500, "Attempt to access non-row as row",
+                                   "value", *this);
+}
+
 void
 ExpressionValue::
 mergeToRowDestructive(StructValue & row)
 {
+    row.reserve(row.size() + rowLength());
+
     auto onSubexpr = [&] (ColumnName & columnName,
                           ExpressionValue & val)
         {
@@ -1292,13 +1308,15 @@ mergeToRowDestructive(StructValue & row)
             return true;
         };
 
-    forEachColumnDestructive(onSubexpr);
+    forEachColumnDestructiveT(onSubexpr);
 }
 
 void 
 ExpressionValue::
 mergeToRowDestructive(RowValue & row)
 {
+    row.reserve(row.size() + rowLength());
+
     auto onSubexpr = [&] (ColumnName & columnName,
                           ExpressionValue & val)
         {
@@ -1306,7 +1324,7 @@ mergeToRowDestructive(RowValue & row)
             return true;
         };
 
-    forEachColumnDestructive(onSubexpr);
+    forEachColumnDestructiveT(onSubexpr);
 }
 
 bool
@@ -1404,6 +1422,14 @@ bool
 ExpressionValue::
 forEachColumnDestructive(const std::function<bool (Id & columnName, ExpressionValue & val)>
                                 & onSubexpression) const
+{
+    return forEachColumnDestructiveT(onSubexpression);
+}
+
+template<typename Fn>
+bool
+ExpressionValue::
+forEachColumnDestructiveT(Fn && onSubexpression) const
 {
     switch (type_) {
     case ROW: {
@@ -1519,6 +1545,74 @@ getFiltered(const VariableFilter & filter /*= GET_LATEST*/) const
 
     return output;
 
+}
+
+std::pair<bool, Date>
+ExpressionValue::
+hasKey(const Utf8String & key) const
+{
+    switch (type_) {
+    case NONE:
+    case ATOM:
+        return { false, Date::negativeInfinity() };
+    case ROW: 
+    case STRUCT: {
+        Date outputDate = Date::negativeInfinity();
+        auto onExpr = [&] (const Id & columnName,
+                           const Id & prefix,
+                           const ExpressionValue & val)
+            {
+                if (columnName.toUtf8String() == key) {
+                    outputDate = val.getEffectiveTimestamp();
+                    return false;
+                }
+
+                return true;
+            };
+     
+        // Can't be with next line due to sequence points
+        bool result = !forEachSubexpression(onExpr);
+        return { result, outputDate };
+    }
+    }
+
+    throw HttpReturnException(500, "Unknown expression type",
+                              "expression", *this,
+                              "type", (int)type_);
+}
+
+std::pair<bool, Date>
+ExpressionValue::
+hasValue(const ExpressionValue & val) const
+{
+    switch (type_) {
+    case NONE:
+    case ATOM:
+        return { false, Date::negativeInfinity() };
+    case ROW: 
+    case STRUCT: {
+        Date outputDate = Date::negativeInfinity();
+        auto onExpr = [&] (const Id & columnName,
+                           const Id & prefix,
+                           const ExpressionValue & value)
+            {
+                if (val == value) {
+                    outputDate = value.getEffectiveTimestamp();
+                    return false;
+                }
+
+                return true;
+            };
+        
+        // Can't be with next line due to sequence points
+        bool result = !forEachSubexpression(onExpr);
+        return { result, outputDate };
+    }
+    }
+
+    throw HttpReturnException(500, "Unknown expression type",
+                              "expression", *this,
+                              "type", (int)type_);
 }
 
 size_t
@@ -1686,6 +1780,15 @@ coerceToTimestamp() const
     if (type_ != ATOM)
         return CellValue();
     return cell_.coerceToTimestamp();
+}
+
+CellValue
+ExpressionValue::
+coerceToBlob() const
+{
+    if (type_ != ATOM)
+        return CellValue();
+    return cell_.coerceToBlob();
 }
 
 void
@@ -2088,6 +2191,7 @@ template class ExpressionValueInfoT<double>;
 template class ExpressionValueInfoT<CellValue>;
 template class ExpressionValueInfoT<std::string>;
 template class ExpressionValueInfoT<Utf8String>;
+template class ExpressionValueInfoT<std::vector<unsigned char> >;
 template class ExpressionValueInfoT<int64_t>;
 template class ExpressionValueInfoT<uint64_t>;
 template class ExpressionValueInfoT<char>;
@@ -2097,6 +2201,7 @@ template class ScalarExpressionValueInfoT<double>;
 template class ScalarExpressionValueInfoT<CellValue>;
 template class ScalarExpressionValueInfoT<std::string>;
 template class ScalarExpressionValueInfoT<Utf8String>;
+template class ScalarExpressionValueInfoT<std::vector<unsigned char> >;
 template class ScalarExpressionValueInfoT<int64_t>;
 template class ScalarExpressionValueInfoT<uint64_t>;
 template class ScalarExpressionValueInfoT<char>;
