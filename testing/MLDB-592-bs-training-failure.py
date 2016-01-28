@@ -104,10 +104,10 @@ for algoName, algoConf in [["dtAlgo", dtAlgo], ["bsAlgo", bsAlgo]]:
     mldb.log(str(type(rtn)))
     mldb.log(json.dumps(rtn))
     mldb.log(" ---- ")
-    
-    if rtn["statusCode"] == 400:
+
+    if rtn["statusCode"] >= 400:
         broken = True
-        mldb.log("ERROR CODE 400!!! for " + algoName)
+        mldb.log("ERROR CODE {} for {}".format(rtn["statusCode"], algoName))
         break
 
 if not broken:
