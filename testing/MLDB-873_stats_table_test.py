@@ -197,13 +197,11 @@ conf = {
         "trainingData": "select tokenize(text, {splitchars: ' '}) as * from posneg",
         "outcomes": [["label", "CLICK IS NOT NULL"]],
         "statsTableFileUrl": "file://build/x86_64/tmp/mldb-873-stats_table_posneg.st",
+        "runOnCreation": True
     }
 }
 rez = mldb.put("/v1/procedures/myroll_posneg_%s" % output_id, conf)
 mldb.log(rez)
-rez = mldb.post("/v1/procedures/myroll_posneg_%s/runs" % output_id)
-mldb.log(rez)
-
 
 conf = {
     "type": "statsTable.bagOfWords.posneg",
