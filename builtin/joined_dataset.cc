@@ -283,8 +283,23 @@ struct JoinedDataset::Itl
     void recordJoinRow(const RowName & leftName, RowHash leftHash, const RowName & rightName, RowHash rightHash)
     {
         bool debug = false;
+        RowName rowName;
 
-        RowName rowName(leftName.toUtf8String() + "-" + rightName.toUtf8String());
+        if (leftName == RowName())
+        {
+            ExcAssert(rightName != RowName());
+            rowName = std::move(RowName(Utf8String("null") + "-" + rightName.toUtf8String()));
+        }
+        else if (rightName == RowName())
+        {
+            ExcAssert(leftName != RowName());
+            rowName = std::move(RowName(leftName.toUtf8String() + "-" + "null"));
+        }
+        else
+        {
+            rowName = std::move(RowName(leftName.toUtf8String() + "-" + rightName.toUtf8String()));
+        }
+
         RowHash rowHash(rowName);
 
         RowEntry entry;
