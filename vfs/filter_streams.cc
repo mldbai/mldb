@@ -807,13 +807,12 @@ struct RegisterFileHandler {
                 return UriHandler(cin.rdbuf(), nullptr, info);
             }
 
-            std::string uri = scheme +  "://" + resource;
             Datacratic::FsObjectInfo info
-                = Datacratic::getUriObjectInfo(uri);
+                = Datacratic::getUriObjectInfo(scheme +  "://" + resource);
 
             // MLDB-1303 mmap fails on empty files - force filebuf interface
             // on empty files despite the mapped option
-            if (!options.count("mapped") || !Datacratic::getUriSize(uri)) {
+            if (!options.count("mapped") || !info.size) {
                 shared_ptr<std::filebuf> buf(new std::filebuf);
                 buf->open(resource, ios_base::openmode(mode));
 
