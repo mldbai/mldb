@@ -1,0 +1,172 @@
+----------------------------------------------------------
+Multi threaded benchmarks.. (100 threads,  1,000,000 lines)
+----------------------------------------------------------
+**************** boost-bench-mt ****************
+running with 100 thread(s) and deactivate set to false
+
+real	0m10.074s
+user	0m19.310s
+sys	0m21.076s
+running with 100 thread(s) and deactivate set to false
+
+real	0m10.153s
+user	0m19.686s
+sys	0m15.280s
+running with 100 thread(s) and deactivate set to false
+
+real	0m16.864s
+user	0m21.529s
+sys	0m3.536s
+**************** easylogging-bench-mt ****************
+running with 100 thread(s) and deactivate set to false
+./run_all.sh: line 10: 76911 Aborted                 (core dumped) ./$1 $2 $3
+
+real	0m0.346s
+user	0m0.171s
+sys	0m0.063s
+running with 100 thread(s) and deactivate set to false
+./run_all.sh: line 10: 76943 Aborted                 (core dumped) ./$1 $2 $3
+
+real	0m11.198s
+user	0m0.176s
+sys	0m0.334s
+running with 100 thread(s) and deactivate set to false
+./run_all.sh: line 10: 77153 Aborted                 (core dumped) ./$1 $2 $3
+
+real	0m0.241s
+user	0m0.140s
+sys	0m0.066s
+**************** zf_log-bench-mt ****************
+running with 100 thread(s) and deactivate set to false
+
+real	0m0.876s
+user	0m0.494s
+sys	0m0.385s
+running with 100 thread(s) and deactivate set to false
+
+real	0m1.337s
+user	0m0.532s
+sys	0m0.469s
+running with 100 thread(s) and deactivate set to false
+
+real	0m1.378s
+user	0m0.556s
+sys	0m0.479s
+**************** spdlog-bench-mt ****************
+running with 100 thread(s) and deactivate set to false
+
+real	0m1.389s
+user	0m0.925s
+sys	0m0.494s
+running with 100 thread(s) and deactivate set to false
+
+real	0m1.378s
+user	0m0.962s
+sys	0m0.473s
+running with 100 thread(s) and deactivate set to false
+
+real	0m1.393s
+user	0m0.955s
+sys	0m0.467s
+**************** soalog-bench-mt ****************
+running with 100 thread(s) and deactivate set to false
+
+real	0m4.432s
+user	0m2.946s
+sys	0m1.427s
+running with 100 thread(s) and deactivate set to false
+
+real	0m4.697s
+user	0m2.845s
+sys	0m1.404s
+running with 100 thread(s) and deactivate set to false
+
+real	0m4.587s
+user	0m3.239s
+sys	0m1.843s
+----------------------------------------------------------
+Multi threaded benchmarks disabled.. (100 threads,  1,000,000 lines)
+----------------------------------------------------------
+**************** boost-bench-mt ****************
+running with 100 thread(s) and deactivate set to true
+
+real	0m0.627s
+user	0m1.055s
+sys	0m10.599s
+running with 100 thread(s) and deactivate set to true
+
+real	0m0.621s
+user	0m1.051s
+sys	0m12.476s
+running with 100 thread(s) and deactivate set to true
+
+real	0m0.594s
+user	0m0.857s
+sys	0m13.653s
+**************** easylogging-bench-mt ****************
+running with 100 thread(s) and deactivate set to true
+./run_all.sh: line 10: 80176 Aborted                 (core dumped) ./$1 $2 $3
+
+real	0m0.073s
+user	0m0.010s
+sys	0m0.020s
+running with 100 thread(s) and deactivate set to true
+./run_all.sh: line 10: 80285 Aborted                 (core dumped) ./$1 $2 $3
+
+real	0m0.084s
+user	0m0.010s
+sys	0m0.001s
+running with 100 thread(s) and deactivate set to true
+./run_all.sh: line 10: 80862 Aborted                 (core dumped) ./$1 $2 $3
+
+real	0m0.074s
+user	0m0.000s
+sys	0m0.011s
+**************** zf_log-bench-mt ****************
+running with 100 thread(s) and deactivate set to true
+
+real	0m0.048s
+user	0m0.154s
+sys	0m0.031s
+running with 100 thread(s) and deactivate set to true
+
+real	0m0.023s
+user	0m0.293s
+sys	0m0.004s
+running with 100 thread(s) and deactivate set to true
+
+real	0m0.031s
+user	0m0.295s
+sys	0m0.004s
+**************** spdlog-bench-mt ****************
+running with 100 thread(s) and deactivate set to true
+
+real	0m0.042s
+user	0m0.429s
+sys	0m0.005s
+running with 100 thread(s) and deactivate set to true
+
+real	0m0.038s
+user	0m0.354s
+sys	0m0.017s
+running with 100 thread(s) and deactivate set to true
+
+real	0m0.039s
+user	0m0.514s
+sys	0m0.008s
+**************** soalog-bench-mt ****************
+running with 100 thread(s) and deactivate set to true
+
+real	0m0.063s
+user	0m0.610s
+sys	0m0.033s
+running with 100 thread(s) and deactivate set to true
+
+real	0m0.032s
+user	0m0.168s
+sys	0m0.009s
+running with 100 thread(s) and deactivate set to true
+
+real	0m0.031s
+user	0m0.250s
+sys	0m0.011s
