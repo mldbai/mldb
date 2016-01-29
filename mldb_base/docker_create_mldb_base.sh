@@ -50,10 +50,10 @@ done
 docker run -i --cidfile "$CIDFILE" -v $PWD:$BUILD_DOCKER_DIR:ro "$BASE_IMG" bash -c 'cat > /tmp/command-to-run && chmod +x /tmp/command-to-run && exec /tmp/command-to-run' <<EOF
 set -e
 set -x
-echo "deb http://archive.ubuntu.com/ubuntu trusty main universe" >/etc/apt/sources.list
+echo "deb http://us-east-1.ec2.archive.ubuntu.com/ubuntu/ trusty main universe" >/etc/apt/sources.list
 echo "deb http://security.ubuntu.com/ubuntu/ trusty-security universe main multiverse restricted" >> /etc/apt/sources.list
-echo "deb http://mirror.pnl.gov/ubuntu/ trusty-updates universe main multiverse restricted" >> /etc/apt/sources.list
-echo "deb http://mirror.pnl.gov/ubuntu/ trusty-backports universe main multiverse restricted" >> /etc/apt/sources.list
+echo "deb http://us-east-1.ec2.archive.ubuntu.com/ubuntu/ trusty-updates universe main multiverse restricted" >> /etc/apt/sources.list
+echo "deb http://us-east-1.ec2.archive.ubuntu.com/ubuntu/ trusty-backports universe main multiverse restricted" >> /etc/apt/sources.list
 apt-get update
 apt-get upgrade -y
 apt-get install -y python-software-properties software-properties-common
@@ -88,8 +88,8 @@ apt-get install -y \
     libpython2.7 \
     libgit2-0 \
     libicu52 \
-    liblapack3gf \
-    libblas3gf \
+    liblapack3 \
+    libblas3 \
     libevent-1.4-2 \
     libidn11 \
     python-tk \
@@ -114,7 +114,7 @@ locale-gen en_US.UTF-8
 # Python stuff cleanup
 # rm .pycs and rebuild them on boot
 find /usr/local/lib/python2.7/dist-packages -name '*.pyc' -delete
-install -m 555 $BUILD_DOCKER_DIR/mldb_base/rebuild_pycs.py  /usr/local/bin/
+install -m 555 $BUILD_DOCKER_DIR/mldb/mldb_base/rebuild_pycs.py  /usr/local/bin/
 cat >/etc/my_init.d/10-rebuild_pycs.sh <<BIF
 #!/bin/bash
 
