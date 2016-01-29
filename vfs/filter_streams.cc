@@ -794,6 +794,8 @@ struct RegisterFileHandler {
                    const std::map<std::string, std::string> & options,
                    const OnUriHandlerException & onException)
     {
+        using namespace boost::iostreams;
+
         if (resource == "")
             resource = "/dev/null";
 
@@ -805,22 +807,13 @@ struct RegisterFileHandler {
                 return UriHandler(cin.rdbuf(), nullptr, info);
             }
 
+            std::string uri = scheme +  "://" + resource;
             Datacratic::FsObjectInfo info
-                = Datacratic::getUriObjectInfo(scheme + "://" + resource);
+                = Datacratic::getUriObjectInfo(uri);
 
-            if (options.count("mapped")) {
-
-                boost::iostreams::mapped_file_source source(resource);
-                shared_ptr<std::streambuf> buf(new boost::iostreams::stream_buffer<boost::iostreams::mapped_file_source>(source));
-                //if (!buf->is_open())
-                //    throw ML::Exception("couldn't open file %s: %s",
-                //                        resource.c_str(), strerror(errno));
-                UriHandlerOptions options;
-                options.mapped = source.data();
-                options.mappedSize = source.size();
-                return UriHandler(buf.get(), buf, info, options);
-            }
-            else {
+            // MLDB-1303 mmap fails on empty files - force filebuf interface
+            // on empty files despite the mapped option
+            if (!options.count("mapped") || !Datacratic::getUriSize(uri)) {
                 shared_ptr<std::filebuf> buf(new std::filebuf);
                 buf->open(resource, ios_base::openmode(mode));
 
@@ -829,6 +822,15 @@ struct RegisterFileHandler {
                                         resource.c_str(), strerror(errno));
 
                 return UriHandler(buf.get(), buf, info);
+            } 
+            else {
+                mapped_file_source source(resource);
+                shared_ptr<std::streambuf> buf(new stream_buffer<mapped_file_source>(source));
+                
+                UriHandlerOptions options;
+                options.mapped = source.data();
+                options.mappedSize = source.size();
+                return UriHandler(buf.get(), buf, info, options);
             }
         }
         else if (mode & ios::out) {
