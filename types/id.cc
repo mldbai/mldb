@@ -597,6 +597,13 @@ toUtf8String() const
     return Utf8String(toString());
 }
 
+bool
+Id::
+empty() const
+{
+    return !notNull();
+}
+
 uint64_t
 Id::
 hash() const

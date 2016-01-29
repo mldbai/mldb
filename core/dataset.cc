@@ -399,7 +399,7 @@ validateNames(const RowName & rowName,
 {
     if (rowName == RowName())
         throw HttpReturnException(400, "empty row names are not allowed");
-    for (auto val : vals) {
+    for (auto & val : vals) {
         if (get<0>(val) == ColumnName())
             throw HttpReturnException(400, "empty column names are not allowed");
     }
@@ -529,9 +529,10 @@ queryStructured(const SelectExpression & select,
     
     // Do it ungrouped if possible
     if (groupBy.clauses.empty() && aggregators.empty()) {
-        auto aggregator = [&] (MatrixNamedRow row,
+        auto aggregator = [&] (NamedRowValue & row_,
                                const std::vector<ExpressionValue> & calc)
             {
+                MatrixNamedRow row = row_.flattenDestructive();
                 row.rowName = RowName(calc.at(0).toUtf8String());
                 row.rowHash = row.rowName;
                 std::unique_lock<std::mutex> guard(lock);
@@ -554,8 +555,9 @@ queryStructured(const SelectExpression & select,
     else {
 
         // Otherwise do it grouped...
-        auto aggregator = [&] (const NamedRowValue & row)
+        auto aggregator = [&] (NamedRowValue & row_)
             {
+                MatrixNamedRow row = row_.flattenDestructive();
                 std::unique_lock<std::mutex> guard(lock);
                 output.emplace_back(row);
                 return true;

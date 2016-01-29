@@ -331,9 +331,10 @@ run(const ProcedureRunConfig & run,
     PerThreadAccumulator<ThreadAccum> accum;
 
 
-    auto aggregator = [&] (const MatrixNamedRow & row,
+    auto aggregator = [&] (NamedRowValue & row_,
                            const std::vector<ExpressionValue> & extraVals)
         {
+            MatrixNamedRow row = row_.flattenDestructive();
             CellValue label = extraVals.at(0).getAtom();
             if (label.empty())
                 return true;
