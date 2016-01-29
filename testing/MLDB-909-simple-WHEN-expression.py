@@ -1,12 +1,12 @@
+#
+# MLDB-909-simple-WHEN-expression.py
+# Datacratic, 2015
 # This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
-
-import json
+#
 import datetime
 import unittest
 
-if False:
-    mldb = None
+mldb = mldb_wrapper.wrap(mldb) # noqa
 
 now = datetime.datetime.now()
 a_second_before_now = now + datetime.timedelta(seconds=-1)
@@ -21,17 +21,8 @@ year_from_now_str = (now + datetime.timedelta(days=365)).strftime("%Y-%m-%d")
 def log(thing):
     mldb.log(str(thing))
 
-
-def perform(*args, **kwargs):
-    res = mldb.perform(*args, **kwargs)
-    assert res['statusCode'] in [200, 201], str(res)
-    return res
-
-
-def query(query, fmt='full'):
-    res = perform('GET', '/v1/query', [['q', query], ['format', fmt]])
-    return json.loads(res['response'])
-
+def query(qry):
+    return mldb.get('/v1/query', q=qry, format='full').json()
 
 class SimpleWhenExpressionTest(unittest.TestCase):
 
@@ -71,7 +62,8 @@ class SimpleWhenExpressionTest(unittest.TestCase):
                 'expected tuple matching row name %s' % row["rowName"])
 
         rows = query("SELECT * FROM dataset1 WHEN timestamp() BETWEEN "
-                     "'{}' AND '{}'".format(year_ago_str, year_from_now_str))
+                          "'{}' AND '{}'"
+                          .format(year_ago_str, year_from_now_str))
 
         for row in rows:
             self.assertEqual(
@@ -79,8 +71,9 @@ class SimpleWhenExpressionTest(unittest.TestCase):
                 'expected tuple matching row name %s' % row["rowName"])
 
     def test_get_no_tuples(self):
-        rows = query("SELECT * FROM dataset1 WHEN timestamp() BETWEEN "
-                     "'{}' AND '{}'".format(year_ago_str, week_ago_str))
+        rows = query(
+            "SELECT * FROM dataset1 WHEN timestamp() BETWEEN "
+            "'{}' AND '{}'".format(year_ago_str, week_ago_str))
         log(rows)
         for row in rows:
             self.assertTrue(
@@ -96,8 +89,9 @@ class SimpleWhenExpressionTest(unittest.TestCase):
                          "expecting row 9 to be selected by where clause")
 
     def test_last_tuple_filtered_out(self):
-        rows = query("SELECT x FROM dataset1 WHEN timestamp() BETWEEN "
-                     "'%s' and '%s'" % (a_second_before_now, in_two_hours))
+        rows = query(
+            "SELECT x FROM dataset1 WHEN timestamp() BETWEEN "
+            "'%s' and '%s'" % (a_second_before_now, in_two_hours))
         log(rows)
         for row in rows:
             if row['rowName'] is 9:
@@ -108,8 +102,8 @@ class SimpleWhenExpressionTest(unittest.TestCase):
     def test_when_exec_after_where(self):
         # check that the when clause is executed after the where one
         rows = query("SELECT x FROM dataset1 WHEN timestamp() BETWEEN "
-                     "'%s' and '%s' WHERE x = 9"
-                     % (a_second_before_now, in_two_hours))
+                          "'%s' and '%s' WHERE x = 9"
+                          % (a_second_before_now, in_two_hours))
         self.assertTrue(
             rows[0]["columns"][0][1] is None and len(rows) == 1,
             "expecting the tuple to be filtered out by when clause")
@@ -125,28 +119,28 @@ class SimpleWhenExpressionTest(unittest.TestCase):
             self.assertEqual(res[0]['columns'][0][2], '1970-01-04T00:00:00Z')
 
         res = query('SELECT * FROM dataset2 WHEN timestamp() BETWEEN '
-                    "'1970-01-03T00:00:00Z' AND '1970-01-05T00:00:00Z'")
+                         "'1970-01-03T00:00:00Z' AND '1970-01-05T00:00:00Z'")
         expect()
 
         res = query("SELECT * FROM dataset2 WHEN "
-                    "timestamp() >= '1970-01-03T00:00:00Z' AND "
-                    " timestamp() <= '1970-01-05T00:00:00Z'")
+                         "timestamp() >= '1970-01-03T00:00:00Z' AND "
+                         " timestamp() <= '1970-01-05T00:00:00Z'")
         expect()
 
         res = query('SELECT * FROM dataset2 WHEN timestamp() BETWEEN '
-                    "'1970-01-04T00:00:00Z' AND '1970-01-04T00:00:00Z'")
+                        "'1970-01-04T00:00:00Z' AND '1970-01-04T00:00:00Z'")
         expect()
 
         res = query('SELECT * FROM dataset2 WHEN timestamp() BETWEEN '
-                    "'1970-01-03T23:59:59Z' AND '1970-01-04T23:59:59Z'")
+                         "'1970-01-03T23:59:59Z' AND '1970-01-04T23:59:59Z'")
         expect()
 
         res = query('SELECT * FROM dataset2 WHEN '
-                    "timestamp() = '1970-01-04T00:00:00Z'")
+                         "timestamp() = '1970-01-04T00:00:00Z'")
         expect()
 
         res = query('SELECT * FROM dataset2 WHEN timestamp() BETWEEN '
-                    "'1970-01-04T23:59:59Z' AND '1970-01-03T23:59:59Z'")
+                         "'1970-01-04T23:59:59Z' AND '1970-01-03T23:59:59Z'")
         self.assertTrue('columns' not in res[0])
 
     def test_multiple_ts(self):
@@ -162,7 +156,7 @@ class SimpleWhenExpressionTest(unittest.TestCase):
         ds.commit()
 
         res = query('SELECT * FROM dataset3 WHEN timestamp() < '
-                    "'1970-01-03T00:00:00Z'")
+                        "'1970-01-03T00:00:00Z'")
         self.assertEqual(len(res), 1)
         self.assertEqual(len(res[0]['columns']), 1)
         self.assertEqual(res[0]['columns'][0][2], '1970-01-02T00:00:00Z')
@@ -183,12 +177,12 @@ class SimpleWhenExpressionTest(unittest.TestCase):
         expect()
 
         res = query('SELECT * FROM dataset2 WHEN timestamp() < '
-                    "'1970-01-02T00:00:00+01:00'")
+                         "'1970-01-02T00:00:00+01:00'")
         self.assertTrue('columns' not in res[0])
 
         res = query('SELECT * FROM dataset2 WHEN timestamp() BETWEEN '
-                    "'1970-01-03T23:00:00-01:00' AND "
-                    "'1970-01-03T23:00:00-01:00'")
+                         "'1970-01-03T23:00:00-01:00' AND "
+                         "'1970-01-03T23:00:00-01:00'")
         expect()
 
         res = query('SELECT * FROM dataset2 WHEN timestamp() '
@@ -197,18 +191,4 @@ class SimpleWhenExpressionTest(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    if mldb.script.args:
-        assert type(mldb.script.args) is list
-        argv = ['python'] + mldb.script.args
-    else:
-        argv = None
-
-    res = unittest.main(exit=False, argv=argv).result
-    log(res)
-    got_err = False
-    for err in res.errors + res.failures:
-        got_err = True
-        log(str(err[0]) + "\n" + err[1])
-
-    if not got_err:
-        mldb.script.set_return("success")
+    mldb.run_tests()

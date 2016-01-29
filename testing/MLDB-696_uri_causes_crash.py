@@ -2,8 +2,8 @@
 
 
 try:
-    mldb.create_dataset({ 
-            "type": "beh.mutable", "id": "x", 
+    mldb.create_dataset({
+            "type": "beh.mutable", "id": "x",
             "params":{
                 "dataFileUrl": "relative/path/without/protocol.beh"
                 }}).commit() #should complain about missing protocol!
@@ -14,8 +14,8 @@ except:
     pass
 
 try:
-    mldb.create_dataset({ 
-            "type": "beh.mutable", "id": "y", 
+    mldb.create_dataset({
+            "type": "beh.mutable", "id": "y",
             "params":{
                 "dataFileUrl": "/asbolute/path/without/protocol.beh"
                 }}).commit() #should complain about missing protocol!
@@ -23,7 +23,7 @@ try:
     exit()
 except:
     pass
-    
+
 
 mldb.script.set_return("success")
 

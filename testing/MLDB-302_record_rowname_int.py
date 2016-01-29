@@ -1,8 +1,11 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
-
+#
+# MLDB-302_record_rowname_int.py
+# datacratic, 2015
+# this file is part of mldb. copyright 2015 datacratic. all rights reserved.
+#
 import datetime
-import json
+
+mldb = mldb_wrapper.wrap(mldb) # noqa
 
 # create a mutable beh dataset
 datasetConfig = {
@@ -21,7 +24,7 @@ dataset.record_row(0, [[5, 5, datetime.datetime.now()]])
 dataset.record_row("0", [[6, 6, datetime.datetime.now()]])
 dataset.commit()
 
-resp = json.loads(mldb.perform("GET", "/v1/datasets/recordWork/query", [], {})["response"])
+resp = mldb.get("/v1/datasets/recordWork/query", ).json()
 
 answers = [0, "a", 1]
 good = True
@@ -33,4 +36,3 @@ if good:
     mldb.script.set_return("success")
 else:
     print resp
-

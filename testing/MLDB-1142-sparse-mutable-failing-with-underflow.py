@@ -1,18 +1,25 @@
+#
+# MLDB-1142-sparse-mutable-failing-with-underflow.py
+# Datacratic, 2015
 # This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+#
 
-import json
 import datetime
-import requests
 import random
 
+mldb = mldb_wrapper.wrap(mldb) # noqa
+
 def load_kmeans_dataset():
-    """A dataset with two 'time slices' 
+    """A dataset with two 'time slices'
     - a slice with two clear clusters along the x axis _now_ timestamp and
     - a slice with two clear clusters along the y axis with tomorrow's timestamp
     This will serve at testing if the when clause was applied correctly"""
 
-    kmeans_example = mldb.create_dataset({"type": "sparse.mutable", 'id' : 'kmeans_example'})
-    for j in range(0,10):
+    kmeans_example = mldb.create_dataset({
+        "type": "sparse.mutable",
+        'id' : 'kmeans_example'
+    })
+    for j in xrange(10):
         val_x = float(random.randint(-5, 5))
         val_y = float(random.randint(-5, 5))
         row = [
@@ -22,15 +29,8 @@ def load_kmeans_dataset():
         mldb.log("x %f, y %f" % (val_x, val_y))
 
     kmeans_example.commit()
-
-    response = mldb.perform('GET', '/v1/query', [['q','select * from kmeans_example']])
-    mldb.log(response['response'])
-    mldb.log(json.loads(response['response']))
-
+    mldb.get('/v1/query', q='select * from kmeans_example')
 
 now = datetime.datetime.now()
-
 load_kmeans_dataset()
-
-
 mldb.script.set_return('success')

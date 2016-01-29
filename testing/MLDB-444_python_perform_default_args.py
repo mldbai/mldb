@@ -4,7 +4,7 @@
 import json
 
 result = mldb.perform("PUT", "/v1/plugins/mirror", [], {
-    "type": "python", 
+    "type": "python",
     "params":{
         "source":{
             "routes":

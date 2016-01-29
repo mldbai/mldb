@@ -1,17 +1,21 @@
+#
+# MLDB-1127-order-by-and-where-in-svd.py
+# Datacratic, 2015
 # This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+#
 
-import json
 import datetime
 import random
+
+mldb = mldb_wrapper.wrap(mldb) # noqa
 
 def train_svd(order_by, where, offset, limit):
     svd_procedure = "/v1/procedures/order_svd"
     # svd procedure configuration
     svd_config = {
         'type' : 'svd.train',
-        'params' :
-	{
-            "trainingData": {"from" : {"id": "svd_example"}, 
+        'params' : {
+            "trainingData": {"from" : {"id": "svd_example"},
                              "select" : "x, y, z",
                              "orderBy": order_by,
                              "where": where,
@@ -20,46 +24,32 @@ def train_svd(order_by, where, offset, limit):
                          },
             "rowOutputDataset": {
                 "id": "svd_row",
-                'type': "embedding" 
+                'type': "embedding"
             },
             "columnOutputDataset" : {
                 "id": "svd_column",
                 "type" : "embedding"
             }
-	}
+        }
     }
-    
-    result = mldb.perform('PUT', svd_procedure, [], svd_config)
-    response = json.loads(result['response'])
-    msg = "Could not create the svd procedure - got status {}\n{}"
-    #mldb.log(response)
-    msg = msg.format(result['statusCode'], response)
-    assert result['statusCode'] == 201, msg
 
-    result = mldb.perform('POST', svd_procedure + '/runs')
-    response = json.loads(result['response'])
-    msg = "Could not train the svd procedure - got status {}\n{}"
-    #mldb.log(response)
-    msg = msg.format(result['statusCode'], response)
-    assert 300 > result['statusCode'] >= 200, msg
+    mldb.put(svd_procedure, svd_config)
+    mldb.post(svd_procedure + '/runs')
 
-    result = mldb.perform('GET', '/v1/query', [['q', "SELECT * FROM svd_row"]])
-    response = json.loads(result['response'])
-    msg = "Could not get the svd embedding output - got status {}\n{}"
-    #mldb.log(response)
-    msg = msg.format(result['statusCode'], response)
-    assert result['statusCode'] == 200, msg
-    mldb.log(response[0]["columns"])
-    return len(response[0]["columns"])
-    
+    result = mldb.get('/v1/query', q="SELECT * FROM svd_row")
+    return len(result.json()[0]["columns"])
+
+
 def load_svd_dataset():
     """A dataset with two very different type of rows
     - first 50 rows have 3 independent columns
     - last 50 rows have 2 independent columns
     """
 
-    svd_example = mldb.create_dataset({"type": "sparse.mutable", 'id' : 'svd_example'})
-    for i in range(0,50):
+    svd_example = mldb.create_dataset(
+        {"type": "sparse.mutable", 'id' : 'svd_example'}
+    )
+    for i in xrange(0,50):
         val_x = random.randint(1, 1000)
         val_y = random.randint(1, 1000)
         val_z = random.randint(1, 1000)
@@ -81,10 +71,14 @@ def load_svd_dataset():
 
 now = datetime.datetime.now()
 load_svd_dataset()
-assert train_svd("rowName() ASC", "true", 0, 50) == 3, 'expected three independent columns in the first 50 rows'
-assert train_svd("rowName() DESC", "true", 0, 50) == 2, 'expected two independent columns in the last 50 rows'
+assert train_svd("rowName() ASC", "true", 0, 50) == 3, \
+    'expected three independent columns in the first 50 rows'
+assert train_svd("rowName() DESC", "true", 0, 50) == 2, \
+    'expected two independent columns in the last 50 rows'
 
-assert train_svd("rowName() ASC", "index < 50", 0, 100) == 3, 'expected three independent columns in the first 50 rows'
-assert train_svd("rowName() ASC", "index > 50", 0, 100) == 2, 'expected two independent columns in the last 50 rows'
+assert train_svd("rowName() ASC", "index < 50", 0, 100) == 3, \
+    'expected three independent columns in the first 50 rows'
+assert train_svd("rowName() ASC", "index > 50", 0, 100) == 2, \
+    'expected two independent columns in the last 50 rows'
 
 mldb.script.set_return('success')

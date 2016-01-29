@@ -359,4 +359,10 @@ assertEqual(query.json[0].columns[0][1]['ts'], "2015-01-03T00:00:00Z");
 assertEqual(query.json[0].columns[1][1]['ts'], "2015-01-01T00:00:00Z");
 assertEqual(query.json[0].columns[2][1]['ts'], "2015-01-03T00:00:00Z");
 
+//MLDB-1230
+
+query = mldb.get('/v1/datasets/test3/query',
+                      { select: 'CAST (INTERVAL \'1s\' as integer) as x'});
+plugin.log(query);
+
 "success"

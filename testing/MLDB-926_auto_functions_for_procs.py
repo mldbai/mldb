@@ -1,14 +1,16 @@
+#
+# Test if all procedures,s functionName parameter works correctly
+# Francois Maillet, 22 sept 2015
 # This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+#
 
-#####
-#   Test if all procedures,s functionName parameter works correctly
-#   Francois Maillet, 22 sept 2015
-#   Copyright Datacratic 2015
-####
+import random, datetime
 
-import json, random, datetime
+if False:
+    mldb_wrapper = None
+mldb = mldb_wrapper.wrap(mldb) # noqa
 
-## Create toy dataset
+# Create toy dataset
 dataset_config = {
     'type'    : 'sparse.mutable',
     'id'      : "toy"
@@ -28,26 +30,23 @@ for i in xrange(50):
 dataset.commit()
 
 
-def doChecks(conf):
+def do_checks(conf):
     mldb.log(">> Checking " + conf["type"])
-    rez = mldb.perform("PUT", "/v1/procedures/" + conf["type"], [], conf)
+    rez = mldb.put("/v1/procedures/" + conf["type"], conf)
     mldb.log(rez)
 
-    rez = mldb.perform("POST", "/v1/procedures/"+conf["type"]+"/runs")
+    rez = mldb.post("/v1/procedures/"+conf["type"] + "/runs")
     mldb.log(rez)
-    assert rez["statusCode"] == 201
 
-    rez = mldb.perform("GET", "/v1/functions/"+conf["params"]["functionName"])
+    rez = mldb.get("/v1/functions/" + conf["params"]["functionName"])
     mldb.log(rez)
-    assert rez["statusCode"] == 200
-
-
 
 # classifier.train -> classifier
 conf = {
     "type": "classifier.train",
     "params": {
-        "trainingData": "select {* EXCLUDING(label)} as features, label from toy",
+        "trainingData":
+            "select {* EXCLUDING(label)} as features, label from toy",
         "modelFileUrl": "file://build/x86_64/tmp/bouya.cls",
         "algorithm": "glz",
         "mode": "boolean",
@@ -63,7 +62,7 @@ conf = {
         "functionName": "cls_func"
     }
 }
-doChecks(conf)
+do_checks(conf)
 
 # kmeans.train -> kmeans
 conf = {
@@ -75,46 +74,63 @@ conf = {
         "functionName": "kmeans_func"
     }
 }
-doChecks(conf)
+do_checks(conf)
 
 # test also the error code returned
 del conf['params']['modelFileUrl']
 conf['params']['runOnCreation'] = True
-rez = mldb.perform("PUT", "/v1/procedures/" + conf["type"], [], conf)
-response = json.loads(rez['response'])
+try:
+    mldb.put("/v1/procedures/" + conf["type"], conf)
+except mldb_wrapper.ResponseException as exc:
+    rez = exc.response
+else:
+    assert False, 'should not be here'
+response = rez.json()
 mldb.log(response)
 
-assert rez['statusCode'] == 400, 'expecting call to fail when no model file URL'
-assert 'error' in response['details']['runError'], 'expecting the error message to appear'
-assert 'httpCode' in response['details']['runError'], 'expecting an httpCode for the run error'
+assert rez.status_code == 400, 'expecting call to fail when no model file URL'
+assert 'error' in response, 'expecting the error message to appear'
+assert 'httpCode' in response, 'expecting an httpCode for the run error'
 
-rez = mldb.perform("POST", "/v1/procedures/" +conf["type"] + "/runs", [], {})
-mldb.log(json.loads(rez['response']))
-assert rez['statusCode'] == 400, 'expecting call to fail when no model file URL'
-assert 'error' in response['details']['runError'], 'expecting the error message to appear'
-assert 'httpCode' in response['details']['runError'], 'expecting an httpCode for the run error'
+try:
+    mldb.post("/v1/procedures/" + conf["type"] + "/runs")
+except mldb_wrapper.ResponseException as exc:
+    rez = exc.response
+else:
+    assert False, 'should not be here'
+response = rez.json()
+mldb.log(response)
+assert rez.status_code == 400, 'expecting call to fail when no model file URL'
+assert 'error' in response, 'expecting the error message to appear'
+assert 'httpCode' in response, 'expecting an httpCode for the run error'
 
 conf['params']['modelFileUrl'] = "not://a/valid/path"
 conf['params']['runOnCreation'] = True
-rez = mldb.perform("PUT", "/v1/procedures/" + conf["type"], [], conf)
-response = json.loads(rez['response'])
+try:
+    mldb.put("/v1/procedures/" + conf["type"], conf)
+except mldb_wrapper.ResponseException as exc:
+    rez = exc.response
+else:
+    assert False, 'should not be here'
+response = rez.json()
 mldb.log(response)
 
-assert rez['statusCode'] == 400, 'expecting call to fail when no model file URL'
-assert 'error' in response['details']['runError'], 'expecting the error message to appear'
-assert 'httpCode' in response['details']['runError'], 'expecting an httpCode for the run error'
+assert rez.status_code == 400, 'expecting call to fail when no model file URL'
+assert 'error' in response, 'expecting the error message to appear'
+assert 'httpCode' in response, 'expecting an httpCode for the run error'
 
 
 # probabilizer.train -> probabilizer
 conf = {
     "type": "probabilizer.train",
     "params": {
-        "trainingData": "select cls_func({{* EXCLUDING(label)} as features})[score] as score, label from toy",
+        "trainingData":
+            "select cls_func({{* EXCLUDING(label)} as features})[score] as score, label from toy",
         "modelFileUrl": "file://build/x86_64/tmp/bouya-proba.json",
         "functionName": "probabilizer_func"
     }
 }
-doChecks(conf)
+do_checks(conf)
 
 
 # svd.train -> svd.embedRow
@@ -126,7 +142,7 @@ conf = {
         "functionName": "svd_func"
     }
 }
-doChecks(conf)
+do_checks(conf)
 
 
 
@@ -140,8 +156,7 @@ conf = {
         "functionName": "tsne_func"
     }
 }
-doChecks(conf)
-
+do_checks(conf)
 
 mldb.script.set_return("success")
 

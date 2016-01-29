@@ -213,7 +213,7 @@ public:
 
     void open(const std::string & uri,
               std::ios_base::openmode mode = std::ios_base::in,
-              const std::string & comparession = "");
+              const std::string & compression = "");
 
     /** Open.  See the documentation from the constructor with similar
         arguments.
