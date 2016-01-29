@@ -1488,7 +1488,7 @@ TransactionFavorDescription()
 MutableSparseMatrixDatasetConfig::
 MutableSparseMatrixDatasetConfig()
     : timeQuantumSeconds(1.0),
-      writeLevel(WT_READ_AFTER_WRITE),
+      writeLevel(WT_READ_AFTER_COMMIT),
       favor(TF_FAVOR_READS)
 {
 }
@@ -1506,11 +1506,11 @@ MutableSparseMatrixDatasetConfigDescription()
 
     addField("writeLevel", &MutableSparseMatrixDatasetConfig::writeLevel,
              "Transaction level for reading of written values.  In the "
-             "default level (`readAfterWrite`), a written value can "
-             "immediately be read back.  The `readAfterCommit` level only "
-             "guarantees that a written value will be readable once a commit "
-             "has finished, which is faster for insertions but less "
-             "consistent.", WT_READ_AFTER_WRITE);
+             "default level (`readAfterCommit`), a value is only guaranteed "
+             "to be readable after a commit, but writes are fast. "
+             "With the `readAfterWrite` level, a written value can "
+             "immediately be read back but writes are slower.", 
+             WT_READ_AFTER_COMMIT);
     addField("favor", &MutableSparseMatrixDatasetConfig::favor,
              "Whether to favor reads or writes.  Only has effect for when "
              "`writeLevel` is set to `readAfterWrite`.",
