@@ -138,6 +138,7 @@ StatsTableProcedureConfigDescription()
     addField("functionName", &StatsTableProcedureConfig::functionName,
              "If specified, a 'statsTable.getCounts' function of this name will be "
              "created using the trained stats tables.");
+    addParent<ProcedureConfig>();
 }
 
 

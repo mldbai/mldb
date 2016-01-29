@@ -596,6 +596,13 @@ addAtomValue(const std::string & name)
 
 void
 FunctionValues::
+addBlobValue(const std::string & name)
+{
+    addValue(Utf8String(name), std::make_shared<BlobValueInfo>());
+}
+
+void
+FunctionValues::
 addNumericValue(const std::string & name)
 {
     addValue(Utf8String(name), std::make_shared<NumericValueInfo>());

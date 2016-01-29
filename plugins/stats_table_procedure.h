@@ -63,7 +63,7 @@ struct StatsTable {
 /* STATS TABLE PROCEDURE CONFIG                                              */
 /*****************************************************************************/
 
-struct StatsTableProcedureConfig {
+struct StatsTableProcedureConfig : public ProcedureConfig {
     StatsTableProcedureConfig()
     {
         output.withType("sparse.mutable");

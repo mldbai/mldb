@@ -35,8 +35,7 @@ If we run the following procedure:
     {
         "type": "statsTable.bagOfWords.train",
         "params": {
-            "trainingDataset": "text_dataset",
-            "select": "tokenize(text, {splitchars: ' '}) as *",
+            "trainingData": "SELECT tokenize(text, {splitchars: ' '}) as * FROM text_dataset",
             "outcomes": [["label", "label IS NOT NULL"]],
             "statsTableFileUrl": "file://my_st.st",
         }

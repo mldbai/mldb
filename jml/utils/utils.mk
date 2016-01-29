@@ -9,10 +9,9 @@ LIBUTILS_SOURCES := \
 	csv.cc \
 	hex_dump.cc \
 	floating_point.cc \
-	rng.cc \
-	hash.cc
+	rng.cc
 
-LIBUTILS_LINK :=	arch cryptopp vfs
+LIBUTILS_LINK :=	arch vfs
 
 $(eval $(call library,utils,$(LIBUTILS_SOURCES),$(LIBUTILS_LINK)))
 

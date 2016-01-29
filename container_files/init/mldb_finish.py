@@ -34,6 +34,7 @@ print  # we like space
 print
 if sig == None:
     print "MLDB exited"
+    os.kill(1,15)
 else:
     msg = "MLDB exited due to signal %d" % (sig)
     if sig in sigmap:
