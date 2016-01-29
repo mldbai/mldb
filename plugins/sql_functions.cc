@@ -138,14 +138,18 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
         
         auto executor = boundPipeline->start(params,
                                              !QueryThreadTracker::inChildThread() /* allowParallel */);
+
         auto output = executor->take();
 
-        //if (output)
-        //    cerr << "got output " << jsonEncode(output) << endl;
-
         FunctionOutput result;
-        if (output)
+        if (output) {
+            // MLDB-1329 band-aid fix.  This appears to break a circlar
+            // reference chain that stops the elements from being
+            // released.
+            output->group.clear();
+
             result = std::move(output->values.back());
+        }
         return result;
     }
 
