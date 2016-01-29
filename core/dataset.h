@@ -408,6 +408,10 @@ struct Dataset: public MldbEntity {
         the query is inappropriate.
     */
     virtual Date quantizeTimestamp(Date timestamp) const;
+
+    /* In the case of a dataset with rows composed from other datasets (i.e., joins)
+       This will return the name that the row has in the table with this alias*/
+    virtual RowName getOriginalRowName(const Utf8String& tableName, const RowName & name) const;
 };
 
 

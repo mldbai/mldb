@@ -260,6 +260,7 @@ $(eval $(call mldb_unit_test,MLDB-1258_nofrom_segfault.py))
 $(eval $(call mldb_unit_test,MLDB-1212_csv_import_long_quoted_lines.py))
 $(eval $(call mldb_unit_test,MLDB-1275_melt_procedure.py))
 $(eval $(call mldb_unit_test,MLDB-1273-classifier-row_input.py))
+$(eval $(call mldb_unit_test,MLDB-1305_rowNames_join.py))
 $(eval $(call mldb_unit_test,MLDB-1272-regression-training-failure.py,,manual)) #until MLDB-1272 is fixed
 $(eval $(call mldb_unit_test,MLDB-1277-pooling-performance.py,,manual)) #manual -- awaiting fix
 $(eval $(call mldb_unit_test,MLDB-1260-json-errors.py))
@@ -312,3 +313,4 @@ $(eval $(call mldb_unit_test,MLDB-1267-bucketize-ts-test.py))
 $(eval $(call mldb_unit_test,MLDB-1319-new-executor-function-binding.js))
 $(eval $(call mldb_unit_test,MLDB-1328-join_empty_dataset_test.py,,manual)) # Issue
 $(eval $(call mldb_unit_test,MLDB-1213-blob-support.js))
+
