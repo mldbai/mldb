@@ -121,7 +121,7 @@ $(eval $(call mldb_unit_test,MLDB-541-record-column.js))
 $(eval $(call mldb_unit_test,MLDB-581-multiple-select.js))
 $(eval $(call mldb_unit_test,MLDB-529-duplicate-pin.js))
 $(eval $(call mldb_unit_test,MLDB-284-tsne-reapply.js,,manual))  #manual - waiting for fix
-$(eval $(call mldb_unit_test,MLDB-592-bs-training-failure.py,,manual)) # 500 error, MLDBFB-324
+$(eval $(call mldb_unit_test,MLDB-592-bs-training-failure.py)) 
 $(eval $(call mldb_unit_test,MLDB-390-sql-expression-function.js))
 $(eval $(call mldb_unit_test,MLDB-593-serial-function-with-extract.js))
 $(eval $(call mldb_unit_test,MLDB-587-empty-classifier.js))
