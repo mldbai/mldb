@@ -22,7 +22,7 @@
 #include "mldb/types/jml_serialization.h"
 #include "mldb/types/hash_wrapper_description.h"
 #include "mldb/vfs/filter_streams.h"
-
+#include "mldb/arch/timers.h"
 
 using namespace std;
 
@@ -827,6 +827,7 @@ struct EmbeddingDataset::Itl
 
         // Create the vantage point tree
         cerr << "creating vantage point tree" << endl;
+        ML::Timer timer;
         
         std::vector<int> items;
         for (unsigned i = 0;  i < (*uncommitted).rows.size();  ++i) {
@@ -840,27 +841,37 @@ struct EmbeddingDataset::Itl
             {
                 ExcAssertLessEqual(depth, 100);  // 2^100 items is enough
 
-                ML::distribution<float> result;
-                result.reserve(items.size());
+                ML::distribution<float> result(items.size());
 
-                for (auto & i: items) {
-                    result.push_back((*uncommitted).dist(item, i));
+                auto doItem = [&] (int n)
+                {
+                    int i = items[n];
+
+                    result[n] = (*uncommitted).dist(item, i);
 
                     if (item == i)
-                        ExcAssertEqual(result.back(), 0.0);
+                        ExcAssertEqual(result[n], 0.0);
 
-                    if (!isfinite(result.back())) {
+                    if (!isfinite(result[n])) {
                         cerr << "dist between " << i << " and " << item << " is "
                              << result.back() << endl;
                     }
-                    ExcAssert(isfinite(result.back()));
-                }
+                    ExcAssert(isfinite(result[n]));
+                };
 
+                if (items.size() < 10000 || depth > 2) {
+                    for (unsigned n = 0;  n < items.size();  ++n)
+                        doItem(n);
+                }
+                else ML::run_in_parallel_blocked(0, items.size(), doItem);
+                
                 return result;
             };
         
         // Create the VP tree for indexed lookups on distance
         (*uncommitted).vpTree.reset(ML::VantagePointTreeT<int>::createParallel(items, dist));
+
+        cerr << "VP tree done in " << timer.elapsed() << endl;
         
         committed.replace(uncommitted);
         uncommitted = nullptr;

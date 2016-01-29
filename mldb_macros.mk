@@ -30,8 +30,11 @@ $(TESTS)/$(1).passed:	$$(BIN)/mldb_runner  $(CWD)/$(1)
 	@date -u +%s.%N >> $(TESTS)/$(1).timing
 	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "                 $(COLOR_GREEN)$(1) passed $(COLOR_RESET)$(COLOR_DARK_GRAY)[" `cat $(TESTS)/$(1).timing | awk 'FNR == 1 { start = $$$$1; } FNR == 2 { end = $$$$1; } END { printf("%.1fs", 1.0 * end - 1.0 * start) }'` "]$(COLOR_RESET)")
 
+# If ARGS
+TEST_$(1)_ARGS := $$(if $$(findstring $(ARGS), $(ARGS)), $(ARGS), )
+
 $(1):	$$(BIN)/mldb_runner  $(CWD)/$(1)  $$(foreach plugin,$(2),mldb_plugin_$$(plugin))
-	$$(TEST_$(1)_SETUP) $$(TEST_$(1)_RAW_COMMAND)
+	$$(TEST_$(1)_SETUP) $$(TEST_$(1)_RAW_COMMAND) $$(TEST_$(1)_ARGS)
 
 .PHONY: $(1)
 mldb_unit_tests: $(1)

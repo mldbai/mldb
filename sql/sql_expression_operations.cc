@@ -1369,8 +1369,13 @@ bindUserFunction(SqlBindingScope & context) const
          }
          else
          {
-            throw HttpReturnException(400, "User function " + functionName
-                                   + " expect a row argument ({ }), got " + args[0]->print() );
+            auto functionresult = std::dynamic_pointer_cast<FunctionCallWrapper>(args[0]);
+
+            if (functionresult)
+                clauses.push_back(functionresult);
+            else
+                throw HttpReturnException(400, "User function " + functionName
+                                       + " expect a row argument ({ }) or a user function, got " + args[0]->print() );
          }
     }    
 

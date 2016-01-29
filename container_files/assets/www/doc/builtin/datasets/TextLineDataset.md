@@ -28,10 +28,6 @@ var dataset_config = {
     };
 ```
 
-## Examples
-
-* The ![](%%nblink _tutorials/Loading Data Tutorial)
-
 ## See also
 
 * The ![](%%doclink transform procedure) can be used to process a dataset

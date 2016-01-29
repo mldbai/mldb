@@ -111,9 +111,10 @@ run(const ProcedureRunConfig & run,
     lineBuffer.resize(columnNames.size());
     const auto columnNamesEnd = columnNames.end();
     const auto columnNamesBegin = columnNames.begin();
-    auto outputCsvLine = [&] (const MatrixNamedRow & row,
+    auto outputCsvLine = [&] (NamedRowValue & row_,
                               const vector<ExpressionValue> & calc)
     {
+        MatrixNamedRow row = row_.flattenDestructive();
         ExcAssert(lineBuffer.size() == columnNames.size());
         size_t lineBufferIndex = 0; // position of the buffered value ready to
                                     // be outputed

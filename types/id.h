@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* id.h                                                            -*- C++ -*-
    Jeremy Barnes, 17 February 2012
    Copyright (c) 2012 Datacratic.  All rights reserved.
+
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Basic ID type for binary IDs of all types.
 */
@@ -181,6 +181,9 @@ struct Id {
     std::string toString() const;
 
     Utf8String toUtf8String() const;
+
+    /// Is toString() non-empty?
+    bool empty() const;
 
     /// Optimized comparison of result of toString() with other string
     /// Equivalent to toString() == other

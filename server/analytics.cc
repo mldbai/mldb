@@ -40,7 +40,7 @@ void iterateDataset(const SelectExpression & select,
                     const WhenExpression & when,
                     const SqlExpression & where,
                     std::vector<std::shared_ptr<SqlExpression> > calc,
-                    std::function<bool (const NamedRowValue & output,
+                    std::function<bool (NamedRowValue & output,
                                         const std::vector<ExpressionValue> & calcd)> aggregator,
                     const OrderByExpression & orderBy,
                     ssize_t offset,
@@ -62,7 +62,7 @@ void iterateDatasetGrouped(const SelectExpression & select,
                            const std::vector< std::shared_ptr<SqlExpression> >& aggregators,
                            const SqlExpression & having,
                            const SqlExpression & rowName,
-                           std::function<bool (const NamedRowValue & output)> aggregator,
+                           std::function<bool (NamedRowValue & output)> aggregator,
                            const OrderByExpression & orderBy,
                            ssize_t offset,
                            ssize_t limit,
@@ -78,15 +78,15 @@ void iterateDataset(const SelectExpression & select,
                     const Utf8String & alias,
                     const WhenExpression & when,
                     const SqlExpression & where,
-                    std::function<bool (const NamedRowValue & output)> aggregator,
+                    std::function<bool (NamedRowValue & output)> aggregator,
                     const OrderByExpression & orderBy,
                     ssize_t offset,
                     ssize_t limit,
                     std::function<bool (const Json::Value &)> onProgress)
 {
-    std::function<bool (const NamedRowValue & output,
+    std::function<bool (NamedRowValue & output,
                         const std::vector<ExpressionValue> & calcd)>
-    aggregator2 = [&] (const NamedRowValue & output,
+    aggregator2 = [&] (NamedRowValue & output,
                        const std::vector<ExpressionValue> & calcd)
         {
             return aggregator(output);
@@ -240,9 +240,9 @@ getEmbedding(const SelectExpression & select,
                 return result;
             };
 
-        std::function<bool (const NamedRowValue & output,
+        std::function<bool (NamedRowValue & output,
                             const std::vector<ExpressionValue> & calcd)>
-            aggregator = [&] (const NamedRowValue & output,
+            aggregator = [&] (NamedRowValue & output,
                               const std::vector<ExpressionValue> & calcd)
             {
                 std::unique_lock<std::mutex> guard(rowsLock);

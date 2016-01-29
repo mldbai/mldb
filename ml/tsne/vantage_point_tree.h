@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** vantage_point_tree.h                                           -*- C++ -*-
     Jeremy Barnes, 18 November 2014
     Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Available under the BSD license, no attribution required.
 */
@@ -15,6 +15,8 @@
 #include "mldb/jml/utils/compact_vector.h"
 #include "mldb/jml/utils/compact_vector_persistence.h"
 #include <iostream>
+#include <thread>
+#include <future>
 
 namespace ML {
 
@@ -272,9 +274,71 @@ struct VantagePointTreeT {
             }
 #endif
 
-            std::sort(insideObjects.begin(), insideObjects.end());
-            std::sort(outsideObjects.begin(), outsideObjects.end());
-        
+            std::unique_ptr<VantagePointTreeT> inside, outside;
+            std::thread insideThread, outsideThread;
+
+            auto doInside = [&] ()
+                {
+                    std::sort(insideObjects.begin(), insideObjects.end());
+                    if (!insideObjects.empty())
+                        inside.reset(createParallel(insideObjects, distance, depth + 1));
+                };
+
+            auto doOutside = [&] ()
+                {
+                    std::sort(outsideObjects.begin(), outsideObjects.end());
+                    if (!outsideObjects.empty())
+                        outside.reset(createParallel(outsideObjects, distance, depth + 1));
+                };
+
+            std::packaged_task<void ()> insideTask(doInside), outsideTask(doOutside);
+            std::future<void> insideFuture, outsideFuture;
+
+            static constexpr int PARALLEL_MAX_DEPTH = 5;
+            static constexpr size_t PARALLEL_LIMIT = 10000;
+            static constexpr float PARALLEL_MAX_RATIO=10;
+
+            float ratio =
+                1.0 * std::max(insideObjects.size(), outsideObjects.size())
+                / std::min(insideObjects.size(), outsideObjects.size());
+
+            bool parallelInside
+                = isfinite(ratio)
+                && ratio < PARALLEL_MAX_RATIO
+                && insideObjects.size() >= PARALLEL_LIMIT
+                && depth <= PARALLEL_MAX_DEPTH;
+
+            bool parallelOutside
+                = isfinite(ratio)
+                && ratio < PARALLEL_MAX_RATIO
+                && outsideObjects.size() >= PARALLEL_LIMIT
+                && depth <= PARALLEL_MAX_DEPTH;
+
+            if (parallelInside) {
+                insideFuture = insideTask.get_future();
+                insideThread = std::thread(std::move(insideTask));
+            }
+
+            if (parallelOutside) {
+                outsideFuture = outsideTask.get_future();
+                outsideThread = std::thread(std::move(outsideTask));
+            }
+
+            if (!parallelInside) {
+                doInside();
+            }
+            if (!parallelOutside) {
+                doOutside();
+            }
+
+            if (parallelInside) {
+                insideThread.join();
+                insideFuture.wait();
+            }
+            if (parallelOutside) {
+                outsideThread.join();
+                outsideFuture.wait();
+            }
 #if 0
             cerr << "depth = " << depth << " to insert " << objectsToInsert.size()
                  << " pivot items " << items.size()
@@ -288,11 +352,6 @@ struct VantagePointTreeT {
             }
 #endif
 
-            std::unique_ptr<VantagePointTreeT> inside, outside;
-            if (!insideObjects.empty())
-                inside.reset(createParallel(insideObjects, distance, depth + 1));
-            if (!outsideObjects.empty())
-                outside.reset(createParallel(outsideObjects, distance, depth + 1));
 
             return new VantagePointTreeT(items, radius,
                                          std::move(inside), std::move(outside));

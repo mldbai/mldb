@@ -551,6 +551,9 @@ class mldb_wrapper(object):
         def json(self):
             return mldb_wrapper.jsonlib.loads(self.text)
 
+        def __str__(self):
+            return self.text
+
     class wrap(object):
         def __init__(self, mldb):
             self._mldb = mldb
