@@ -279,6 +279,10 @@ built_in_function(1, 'a')
 user_defined_function( {some_number: 1, some_string: 'a'} )
 ```
 
+It can also accept the row returned from another user-defined function, for example:
+
+user_defined_function_a(user_defined_function_b( {some_number: 1, some_string: 'a'} ))
+
 Furthermore, since it is frequently necessary to access a subset of the columns from the output of a user-defined function, their application can be followed by an accessor in square brackets, for example:
 
 ```
