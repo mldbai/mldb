@@ -132,7 +132,7 @@ FsObjectInfo getUriObjectInfo(const std::string & filename);
 // it doesn't exist
 FsObjectInfo tryGetUriObjectInfo(const std::string & filename);
 
-// Return an URI for either a file or an s3 object
+// Return the size of an URI for either a file or an s3 object
 size_t getUriSize(const std::string & filename);
 
 // Return an etag for either a file or an s3 object
