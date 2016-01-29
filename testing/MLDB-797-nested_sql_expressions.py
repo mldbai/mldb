@@ -1,11 +1,12 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
-import json
+#
+# MLDB-797-nested_sql_expressions.py
+# datacratic, 2015
+# this file is part of mldb. copyright 2015 datacratic. all rights reserved.
+#
+mldb = mldb_wrapper.wrap(mldb) # noqa
 
 def check_res(res, code):
-    if res['statusCode'] != code:
-        mldb.log(json.loads(res['response']))
-        assert False
+    assert res.status_code == code, res.text
 
 ds1 = mldb.create_dataset({
     'type': 'sparse.mutable',
@@ -18,23 +19,21 @@ ds1.record_row('row_2', [['y', 4, 0]])
 ds1.commit()
 
 # first void sql.expression
-res = mldb.perform('PUT', '/v1/functions/patate', [], {
+res = mldb.put('/v1/functions/patate', {
     'type': 'sql.expression',
     'params': {
         'expression': '*'}})
 check_res(res, 201)
 
 # second void sql.expression that uses the first one
-res = mldb.perform('PUT', '/v1/functions/poil', [], {
+res = mldb.put('/v1/functions/poil', {
     'type': 'sql.expression',
     'params': {
         'expression': 'patate({*})'}})
 check_res(res, 201)
 
 # query calling through both
-res = mldb.perform('GET', '/v1/datasets/ds1/query',
-                   [['select', 'poil({*})']],
-                   {})
+res = mldb.get('/v1/datasets/ds1/query', select='poil({*})')
 check_res(res, 200)
 
 

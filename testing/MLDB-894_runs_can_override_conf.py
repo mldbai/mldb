@@ -1,7 +1,9 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
-
-import json
+#
+# MLDB-894_runs_can_override_conf.py
+# datacratic, 2015
+# this file is part of mldb. copyright 2015 datacratic. all rights reserved.
+#
+mldb = mldb_wrapper.wrap(mldb) # noqa
 
 conf = {
     "type": "experimental.external.procedure",
@@ -31,27 +33,24 @@ print json.dumps({"stdin_data": std_in})
         }
     }
 }
-   
-rez = mldb.perform("PUT", "/v1/procedures/externalProc", [], conf)
-mldb.log(rez)    
-assert rez["statusCode"] == 201
 
-rez = mldb.perform("PUT", "/v1/procedures/externalProc/runs/1")
+rez = mldb.put("/v1/procedures/externalProc", conf)
 mldb.log(rez)
-assert rez["statusCode"] == 201
 
-jsResp = json.loads(rez["response"])
-mldb.log(jsResp)
-assert jsResp["status"]["return"] == {"stdin_data" : "pwet"}
-
-
-
-rez = mldb.perform("PUT", "/v1/procedures/externalProc/runs/2", [], {"params": {"stdInData": "I CHANGED IT!!"}})
+rez = mldb.put("/v1/procedures/externalProc/runs/1")
 mldb.log(rez)
-assert rez["statusCode"] == 201
 
-jsResp = json.loads(rez["response"])
-mldb.log(jsResp)
-assert jsResp["status"]["return"] == {"stdin_data" : "I CHANGED IT!!"}
+js_resp = rez.json()
+mldb.log(js_resp)
+assert js_resp["status"]["return"] == {"stdin_data" : "pwet"}
+
+rez = mldb.put("/v1/procedures/externalProc/runs/2", {
+    "params": {"stdInData": "I CHANGED IT!!"}
+})
+mldb.log(rez)
+
+js_resp = rez.json()
+mldb.log(js_resp)
+assert js_resp["status"]["return"] == {"stdin_data" : "I CHANGED IT!!"}
 
 mldb.script.set_return("success")

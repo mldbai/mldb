@@ -1,250 +1,218 @@
+#
+# MLDB-1155_csv_line_endings.py
+# Datacratic, 2015
 # This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+#
+import gzip
+import unittest
+import os
 
-import json, gzip, os
-
-open_functions = {".csv": open, ".csv.gz": gzip.open}
-
-for ext in open_functions:
-    open_function = open_functions[ext]
-    # CSV importation should not complain about number of values when missing last column
-    with open_function("tmp/csv_newline_missing_last_column"+ext, 'wb') as f:
-        f.write("a,b\n")
-        f.write("1.0,\n") #NOTE missing value in last position
-        f.write("1.0,1.0\n")
-        f.write("1.0,\"hello\"\n")
-
-    result = mldb.perform("PUT", "/v1/datasets/x", [], {
-        "type": "text.csv.tabular",
-        "params": { "dataFileUrl": "file://tmp/csv_newline_missing_last_column"+ext }
-    })
-    mldb.log(result)
-
-    assert result["statusCode"] == 201
-    assert json.loads(result['response'])["status"]["rowCount"] == 3
-
-    result = mldb.perform("GET", "/v1/query", [
-        ["q", "select * from x order by cast (rowName() as number)"], ["format", "table"]], {})
-    mldb.log(result)
-    assert result["statusCode"] == 200
-    assert json.loads(result['response'])[3][2] == "hello"
-
-    # CSV importation should not complain about number of values when missing last column
-    # with DOS line endings
-    with open_function("tmp/csv_newline_missing_last_column_dos"+ext, 'wb') as f:
-        f.write("a,b\r\n")
-        f.write("1.0,\r\n") #NOTE missing value in last position
-        f.write("1.0,1.0\r\n")
-        f.write("1.0,\"hello\"\r\n")
-
-    result = mldb.perform("PUT", "/v1/datasets/x", [], {
-        "type": "text.csv.tabular",
-        "params": { "dataFileUrl": "file://tmp/csv_newline_missing_last_column_dos"+ext }
-    })
-    mldb.log(result)
-
-    assert result["statusCode"] == 201
-    assert json.loads(result['response'])["status"]["rowCount"] == 3
-
-    result = mldb.perform("GET", "/v1/query", [
-        ["q", "select * from x order by cast (rowName() as number)"], ["format", "table"]], {})
-    mldb.log(result)
-    assert result["statusCode"] == 200
-    assert json.loads(result['response'])[3][2] == "hello"
-
-    #CSV importation should correctly read float values at the ends of lines
-    with open_function("tmp/csv_newline_float_last"+ext, 'wb') as f:
-        f.write("a,b\n")
-        f.write("1.0,1.0\n")
-
-    result = mldb.perform("PUT", "/v1/datasets/x", [], {
-        "type": "text.csv.tabular",
-        "params": { "dataFileUrl": "file://tmp/csv_newline_float_last"+ext }
-    })
-    assert result["statusCode"] == 201
-    assert json.loads(result['response'])["status"]["rowCount"] == 1
-
-    result = mldb.perform("GET", "/v1/query", [
-        ["q", "select * from x"], ["format", "table"]], {})
-    mldb.log(result)
-    assert result["statusCode"] == 200
-    assert json.loads(result['response'])[1][1] == 1
-    assert json.loads(result['response'])[1][2] == 1
-
-    # CSV importation should correctly read float values at the ends of lines
-    # with DOS
-    with open_function("tmp/csv_newline_float_last_dos"+ext, 'wb') as f:
-        f.write("a,b\r\n")
-        f.write("1.0,1.0\r\n")
-
-    result = mldb.perform("PUT", "/v1/datasets/x", [], {
-        "type": "text.csv.tabular",
-        "params": { "dataFileUrl": "file://tmp/csv_newline_float_last_dos"+ext }
-    })
-    assert result["statusCode"] == 201
-    assert json.loads(result['response'])["status"]["rowCount"] == 1
-
-    result = mldb.perform("GET", "/v1/query", [
-        ["q", "select * from x"], ["format", "table"]], {})
-    mldb.log(result)
-    assert result["statusCode"] == 200
-    assert json.loads(result['response'])[1][1] == 1
-    assert json.loads(result['response'])[1][2] == 1
-
-    #CSV importation should correctly read quoted string values at the ends of lines
-    with open_function("tmp/csv_newline_qstring_last"+ext, 'wb') as f:
-        f.write("a,b\n")
-        f.write("1.0,\"hello\"\n")
-
-    result = mldb.perform("PUT", "/v1/datasets/x", [], {
-        "type": "text.csv.tabular",
-        "params": { "dataFileUrl": "file://tmp/csv_newline_qstring_last"+ext }
-    })
-    assert result["statusCode"] == 201
-    assert json.loads(result['response'])["status"]["rowCount"] == 1
-
-    result = mldb.perform("GET", "/v1/query", [
-        ["q", "select * from x"], ["format", "table"]], {})
-    mldb.log(result)
-    assert result["statusCode"] == 200
-    assert json.loads(result['response'])[1][1] == 1
-    assert json.loads(result['response'])[1][2] == "hello"
-
-    # CSV importation should correctly read string values at end of lines
-    with open_function("tmp/csv_newline_string_last"+ext, 'wb') as f:
-        f.write("a,b\n")
-        f.write("1.0,\"hello\"\n")
-
-    result = mldb.perform("PUT", "/v1/datasets/x", [], {
-        "type": "text.csv.tabular",
-        "params": { "dataFileUrl": "file://tmp/csv_newline_string_last"+ext }
-    })
-    assert result["statusCode"] == 201
-    assert json.loads(result['response'])["status"]["rowCount"] == 1
-
-    result = mldb.perform("GET", "/v1/query", [
-        ["q", "select * from x"], ["format", "table"]], {})
-    mldb.log(result)
-    assert result["statusCode"] == 200
-    assert json.loads(result['response'])[1][1] == 1
-    assert json.loads(result['response'])[1][2] == "hello"
-
-    # CSV importation should not fail with "bad seek" if missing trailing newline
-    with open_function("tmp/csv_newline_missing_last"+ext, 'wb') as f:
-        f.write("a,b\n")
-        f.write("1.0,1.0") #NOTE no trailing newline on the last line
-
-    result = mldb.perform("PUT", "/v1/datasets/x", [], {
-        "type": "text.csv.tabular",
-        "params": { "dataFileUrl": "file://tmp/csv_newline_missing_last"+ext }
-    })
-    mldb.log(result)
-
-    assert result["statusCode"] == 201
-    assert json.loads(result['response'])["status"]["rowCount"] == 1
-
-    result = mldb.perform("GET", "/v1/query", [
-        ["q", "select * from x"], ["format", "table"]], {})
-    mldb.log(result)
-    assert result["statusCode"] == 200
-    assert json.loads(result['response'])[1][1] == 1
-    assert json.loads(result['response'])[1][2] == 1
+if False:
+    mldb_wrapper = None
+mldb = mldb_wrapper.wrap(mldb) # noqa
 
 
-    # CSV importation should not fail with "bad seek" if missing trailing newline
-    # with DOS line endings
-    with open_function("tmp/csv_newline_missing_last_dos"+ext, 'wb') as f:
-        f.write("a,b\r\n")
-        f.write("1.0,1.0") #NOTE no trailing newline on the last line
+class CsvLineEndingsGeneric(object):
 
-    result = mldb.perform("PUT", "/v1/datasets/x", [], {
-        "type": "text.csv.tabular",
-        "params": { "dataFileUrl": "file://tmp/csv_newline_missing_last_dos"+ext }
-    })
-    mldb.log(result)
+    def store_load_into_file(self, filename, lines):
+        filename += self.__class__.data['ext']
+        with self.__class__.data['open_fct'](filename, 'wb') as f:
+            for line in lines:
+                f.write(line)
 
-    assert result["statusCode"] == 201
-    assert json.loads(result['response'])["status"]["rowCount"] == 1
+        ds_result = mldb.put("/v1/datasets/x", {
+            "type": "text.csv.tabular",
+            "params": {
+                "dataFileUrl": "file://" + filename
+            }
+        })
+        q_result = mldb.query("select * from x")
+        return ds_result, q_result
 
-    result = mldb.perform("GET", "/v1/query", [
-        ["q", "select * from x"], ["format", "table"]], {})
-    mldb.log(result)
-    assert result["statusCode"] == 200
-    assert json.loads(result['response'])[1][1] == 1
-    assert json.loads(result['response'])[1][2] == 1
+    def test_missing_last_column_test(self):
+        # CSV importation should not complain about number of values when
+        # missing last column
+        ds_result, q_result = self.store_load_into_file(
+            "tmp/csv_newline_missing_last_column",
+            [
+                "a,b\n",
+                "1.0,\n", # NOTE missing value in last position
+                "1.0,1.0\n",
+                "1.0,\"hello\"\n"
+            ]
+        )
+        self.assertEqual(ds_result.json()["status"]["rowCount"], 3)
+        result = mldb.query(
+            "select * from x order by cast (rowName() as number)")
+        self.assertEqual(result[3][2], "hello")
+
+    def test_missing_values_dos_line_endings(self):
+        # CSV importation should not complain about number of values when
+        # missing last column with DOS line endings
+        ds_result, q_result = self.store_load_into_file(
+            "tmp/csv_newline_missing_last_column_dos",
+            [
+                "a,b\r\n",
+                "1.0,\r\n", # NOTE missing value in last position
+                "1.0,1.0\r\n",
+                "1.0,\"hello\"\r\n"
+            ]
+        )
+        self.assertEqual(ds_result.json()["status"]["rowCount"], 3)
+
+        result = mldb.query(
+            "select * from x order by cast (rowName() as number)")
+        self.assertEqual(result[3][2], "hello")
+
+    def test_import_read_float_values_at_end_of_line(self):
+        # CSV importation should correctly read float values at the ends of
+        # lines
+        ds_result, q_result = self.store_load_into_file(
+            "tmp/csv_newline_float_last",
+            [
+                "a,b\n",
+                "1.0,1.0\n"
+            ]
+        )
+        self.assertEqual(ds_result.json()["status"]["rowCount"], 1)
+        self.assertEqual(q_result[1][1], 1)
+        self.assertEqual(q_result[1][2], 1)
+
+    def test_import_read_float_values_end_of_line_with_dos(self):
+        # CSV importation should correctly read float values at the ends of
+        # lines with DOS
+        ds_result, q_result = self.store_load_into_file(
+            "tmp/csv_newline_float_last_dos",
+            [
+                "a,b\r\n",
+                "1.0,1.0\r\n"
+            ]
+        )
+        self.assertEqual(ds_result.json()["status"]["rowCount"], 1)
+        self.assertEqual(q_result[1][1], 1)
+        self.assertEqual(q_result[1][2], 1)
+
+    def test_import_read_quoted_strings_at_end_of_lines(self):
+        # CSV importation should correctly read quoted string values at the
+        # ends of lines
+        ds_result, q_result = self.store_load_into_file(
+            "tmp/csv_newline_qstring_last",
+            [
+                "a,b\n",
+                "1.0,\"hello\"\n"
+            ]
+        )
+        self.assertEqual(ds_result.json()["status"]["rowCount"], 1)
+        self.assertEqual(q_result[1][1], 1)
+        self.assertEqual(q_result[1][2], "hello")
+
+    def test_import_string_val_end_of_line(self):
+        # CSV importation should correctly read string values at end of lines
+        ds_result, q_result = self.store_load_into_file(
+            "tmp/csv_newline_string_last",
+            [
+                "a,b\n",
+                "1.0,\"hello\"\n"
+            ]
+        )
+        self.assertEqual(ds_result.json()["status"]["rowCount"], 1)
+        self.assertEqual(q_result[1][1], 1)
+        self.assertEqual(q_result[1][2], "hello")
+
+    def test_no_bad_seek_fail_on_missing_trailing_new_line(self):
+        # CSV importation should not fail with "bad seek" if missing trailing
+        # newline
+        ds_result, q_result = self.store_load_into_file(
+            "tmp/csv_newline_missing_last",
+            [
+                "a,b\n",
+                "1.0,1.0" # NOTE no trailing newline on the last line
+            ]
+        )
+        self.assertEqual(ds_result.json()["status"]["rowCount"], 1)
+        self.assertEqual(q_result[1][1], 1)
+        self.assertEqual(q_result[1][2], 1)
+
+    def test_no_bad_seek_fail_on_missing_trailing_new_line_dos(self):
+        # CSV importation should not fail with "bad seek" if missing trailing
+        # newline with DOS line endings
+        ds_result, q_result = self.store_load_into_file(
+            "tmp/csv_newline_missing_last_dos",
+            [
+                "a,b\r\n",
+                "1.0,1.0" # NOTE no trailing newline on the last line
+            ]
+        )
+        self.assertEqual(ds_result.json()["status"]["rowCount"], 1)
+        self.assertEqual(q_result[1][1], 1)
+        self.assertEqual(q_result[1][2], 1)
+
+    def test_import_accepts_blank_trailing_line(self):
+        # CSV importation should accept a blank trailing line
+        ds_result, q_result = self.store_load_into_file(
+            "tmp/csv_newline_trailing_newlines",
+            [
+                "a,b\n",
+                "1.0,1.0\n",
+                "\n"  # NOTE: blank line at end
+            ]
+        )
+        self.assertEqual(ds_result.json()["status"]["rowCount"], 1)
+        self.assertEqual(q_result[1][1], 1)
+        self.assertEqual(q_result[1][2], 1)
+
+    def test_import_accept_blank_trailing_line_dos(self):
+        # CSV importation should accept a blank trailing line with DOS
+        ds_result, q_result = self.store_load_into_file(
+            "tmp/csv_newline_trailing_newlines_dos",
+            [
+                "a,b\r\n",
+                "1.0,1.0\r\n",
+                "\r\n" # NOTE: blank line at end
+            ]
+        )
+        self.assertEqual(ds_result.json()["status"]["rowCount"], 1)
+        self.assertEqual(q_result[1][1], 1)
+        self.assertEqual(q_result[1][2], 1)
+
+    def test_empty_csv(self):
+        # importing an empty file leads to an empty dataset
+        path = "tmp/csv_empty.csv"
+        with open(path, 'wb'):
+            os.utime(path, None)
+
+        result = mldb.put("/v1/datasets/empty_csv", {
+            "type": "text.csv.tabular",
+            "params": {"dataFileUrl": "file://" + path}
+        })
+        mldb.log(result)
+
+        result = mldb.get("/v1/query", q="SELECT count(*) FROM empty_csv")
+        mldb.log(result.text)
+        self.assertEqual(result.json()[0]["columns"][0][1], 0,
+                         "expected row count of empty dataset to be 0")
+
+        with self.assertRaises(mldb_wrapper.ResponseException) as exc:
+            mldb.put("/v1/datasets/does_not_exist_csv", {
+                "type": "text.csv.tabular",
+                "params": {
+                    "dataFileUrl": "file://this/path/does/not/exist.csv"
+                }
+            })
+        result = exc.exception.response
+        mldb.log(result.text)
+
+        self.assertTrue("No such file or directory" in result.json()["error"],
+                        "did not get the expected message MLDB-1299")
 
 
-    # CSV importation should accept a blank trailing line
-    with open_function("tmp/csv_newline_trailing_newlines"+ext, 'wb') as f:
-        f.write("a,b\n")
-        f.write("1.0,1.0\n") 
-        f.write("\n");  # NOTE: blank line at end
-
-    result = mldb.perform("PUT", "/v1/datasets/x", [], {
-        "type": "text.csv.tabular",
-        "params": { "dataFileUrl": "file://tmp/csv_newline_trailing_newlines"+ext }
-    })
-    mldb.log(result)
-
-    assert result["statusCode"] == 201
-    assert json.loads(result['response'])["status"]["rowCount"] == 1
-
-    result = mldb.perform("GET", "/v1/query", [
-        ["q", "select * from x"], ["format", "table"]], {})
-    mldb.log(result)
-    assert result["statusCode"] == 200
-    assert json.loads(result['response'])[1][1] == 1
-    assert json.loads(result['response'])[1][2] == 1
+class CsvLineEndingsCsv(CsvLineEndingsGeneric, unittest.TestCase):
+    # held in a dict to counter unbount method issues
+    data = {'open_fct' : open, 'ext' : '.csv'}
 
 
-    # CSV importation should accept a blank trailing line with DOS
-    with open_function("tmp/csv_newline_trailing_newlines_dos"+ext, 'wb') as f:
-        f.write("a,b\r\n")
-        f.write("1.0,1.0\r\n") 
-        f.write("\r\n");  # NOTE: blank line at end
+class CsvLineEndingsCsvGz(CsvLineEndingsGeneric, unittest.TestCase):
+    data = {'open_fct' : gzip.open, 'ext' : '.csv.gz'}
 
-    result = mldb.perform("PUT", "/v1/datasets/x", [], {
-        "type": "text.csv.tabular",
-        "params": { "dataFileUrl": "file://tmp/csv_newline_trailing_newlines_dos"+ext }
-    })
-    mldb.log(result)
-
-    assert result["statusCode"] == 201
-    assert json.loads(result['response'])["status"]["rowCount"] == 1
-
-    result = mldb.perform("GET", "/v1/query", [
-        ["q", "select * from x"], ["format", "table"]], {})
-    mldb.log(result)
-    assert result["statusCode"] == 200
-    assert json.loads(result['response'])[1][1] == 1
-    assert json.loads(result['response'])[1][2] == 1
-
-
-# importing an empty file leads to an empty dataset
-path = "tmp/csv_empty.csv"
-with open(path, 'wb') as f:
-    os.utime(path, None)
-    
-result = mldb.perform("PUT", "/v1/datasets/empty_csv", [], {
-    "type": "text.csv.tabular",
-    "params": { "dataFileUrl": "file://"+path }
-})
-mldb.log(result)
-
-assert result["statusCode"] == 201, "expected an empty file to succeed"
-
-result = mldb.perform("GET", "/v1/query", [["q","SELECT count(*) FROM empty_csv"]], {})
-mldb.log(result)
-assert result["statusCode"] == 200, "expected query to empty dataset to succeed"
-assert json.loads(result["response"])[0]["columns"][0][1] == 0, "expected row count of empty dataset to be 0"
-
-result = mldb.perform("PUT", "/v1/datasets/does_not_exist_csv", [], {
-    "type": "text.csv.tabular",
-    "params": { "dataFileUrl": "file://this/path/does/not/exist.csv" }
-})
-mldb.log(result)
-
-assert result["statusCode"] == 400, "expected the call to fail"
-assert "No such file or directory" in json.loads(result['response'])["error"], \
-    "did not get the expected message MLDB-1299"
-
-mldb.script.set_return("success")
+if __name__ == '__main__':
+    mldb.run_tests()

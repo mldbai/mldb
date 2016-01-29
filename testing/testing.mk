@@ -217,7 +217,7 @@ $(eval $(call mldb_unit_test,MLDB-991-svm.py))
 $(eval $(call mldb_unit_test,MLDB-995-sub-query-sparse.js))
 $(eval $(call mldb_unit_test,MLDB-1116-tokensplit.py))
 $(eval $(call mldb_unit_test,MLDB-1030_apply_stopwords.py))
-$(eval $(call mldb_unit_test,MLDB-1165-where-rowname-in-optim.py))
+$(eval $(call mldb_unit_test,MLDB-1165-where-rowname-in-optim.py,,manual)) # based on perf of specific machine
 $(eval $(call mldb_unit_test,MLDB-1044_tsne_numerical_error.py,,manual)) # manual---requires large local data file
 $(eval $(call mldb_unit_test,MLDB-1304-titanic-demo.py))
 
@@ -227,7 +227,7 @@ $(eval $(call mldb_unit_test,MLDB-1003-s3-load-dataset.js,,$(MANUAL_IF_NO_S3)))
 $(eval $(call mldb_unit_test,MLDB-1010-put-no-payload-error.js))
 
 $(eval $(call mldb_unit_test,MLDB-1019-word2vec.js,,manual)) # manual---requires large local data file
-$(eval $(call mldb_unit_test,MLDB-1084_sentiwordnet.py,,manual)) # manual---requires large local data file
+$(eval $(call mldb_unit_test,MLDB-1084_sentiwordnet.py,,$(MANUAL_IF_NO_S3)))
 $(eval $(call mldb_unit_test,MLDB-1101-tf-idf.py))
 $(eval $(call mldb_unit_test,MLDB-1117-git-import.js))
 $(eval $(call mldb_unit_test,MLDB-1120-sparse-mutable-values.js))
@@ -303,13 +303,14 @@ $(eval $(call mldb_unit_test,MLDB-1098-csv-export.py))
 $(eval $(call mldb_unit_test,MLDB-1098-csv-export-advanced.py))
 
 $(eval $(call mldb_unit_test,MLDB-1128-transform-utf8.js,,manual))
-$(eval $(call mldb_unit_test,MLDB-1140-csv_reading_compression_test.py,,manual))
+$(eval $(call mldb_unit_test,MLDB-1140-csv_reading_compression_test.py))
 $(eval $(call mldb_unit_test,MLDB-980-unquoted-string-crash.js))
 $(eval $(call mldb_unit_test,MLDB-1195-query-where-test.py))
 $(eval $(call mldb_unit_test,MLDB-1192-js-procedure-function.js))
 $(eval $(call mldb_unit_test,MLDB-1253_concat_test.py))
 $(eval $(call mldb_unit_test,MLDBFB-308-where-outer-join-test.py,,manual))
 $(eval $(call mldb_unit_test,MLDB-1267-bucketize-ts-test.py))
+$(eval $(call mldb_unit_test,python_mldb_interface_test.py))
 $(eval $(call mldb_unit_test,MLDB-1319-new-executor-function-binding.js))
 $(eval $(call mldb_unit_test,MLDB-1328-join_empty_dataset_test.py,,manual)) # Issue
 $(eval $(call mldb_unit_test,MLDB-1213-blob-support.js))

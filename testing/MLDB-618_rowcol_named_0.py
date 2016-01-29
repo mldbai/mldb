@@ -1,6 +1,11 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+#
+# MLDB-618_rowcol_named_0.py
+# datacratic, 2015
+# this file is part of mldb. copyright 2015 datacratic. all rights reserved.
+#
+import random
 
-import random, json
+mldb = mldb_wrapper.wrap(mldb) # noqa
 
 dataset = mldb.create_dataset({ "type": "sparse.mutable", "id": "x" })
 
@@ -17,8 +22,5 @@ for r in range(100, 200):
     dataset.record_row( str(r), [ [c, random.random(), 0] for c in range(100)] )
 dataset.commit()
 
-res = mldb.perform("GET", "/v1/query", [["q", "select * from x"]],{})
-if res["statusCode"] == 200:
-    mldb.script.set_return("success")
-else:
-    mldb.log(json.dumps(res))
+res = mldb.get("/v1/query", q="select * from x")
+mldb.script.set_return("success")

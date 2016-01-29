@@ -1,9 +1,16 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+#
+# MLDB-621_serial_procedure_deadlock.py
+# datacratic, 2015
+# this file is part of mldb. copyright 2015 datacratic. all rights reserved.
+#
+mldb = mldb_wrapper.wrap(mldb) # noqa
 
-mldb.perform("PUT", "/v1/procedures/q", [], {
-    "type":"serial",
-    "params": { "steps": [ {"id":"q", "type": "null"} ] }
-})
-
+try:
+    mldb.perform("PUT", "/v1/procedures/q", [], {
+        "type": "serial",
+        "params": {"steps": [{"id": "q", "type": "null"}]}
+    })
+except Exception:
+    pass
 
 mldb.script.set_return("success")

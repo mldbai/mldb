@@ -1,7 +1,10 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+#
+# MLDB-643_script_function.py
+# datacratic, 2015
+# this file is part of mldb. copyright 2015 datacratic. all rights reserved.
+#
+mldb = mldb_wrapper.wrap(mldb) # noqa
 
-
-import json
 import datetime
 
 #add an explain function
@@ -15,34 +18,31 @@ script_func_conf = {
 mldb.log(str(mldb.script.args))
 
 rtn = [[mldb.script.args[0][0][0], mldb.script.args[0][0][1][0], mldb.script.args[0][0][1][1]]];
-    
+
 mldb.script.set_return(rtn)
 """
             }
         }
     }
-script_func_output = mldb.perform("PUT", "/v1/functions/" + script_func_conf["id"], [], 
-                                    script_func_conf)
-mldb.log("The resulf of the script function creation " + json.dumps(script_func_output))
-assert script_func_output["statusCode"] < 400
+script_func_output = mldb.put("/v1/functions/" + script_func_conf["id"],
+                              script_func_conf)
+mldb.log("The resulf of the script function creation "
+         + script_func_output.text)
 mldb.log("passed assert")
 
 
 # now call the script
 args = {"Warp": 9}
-rest_params = [["input", { "args": args}]]
-
-res = mldb.perform("GET", "/v1/functions/"+script_func_conf["id"]+"/application", rest_params)
+res = mldb.get("/v1/functions/" + script_func_conf["id"] + "/application",
+               input={"args": args})
 mldb.log("the result of calling the script ")
-mldb.log(json.dumps(res))
+mldb.log(res.text)
 
-mldb.log(json.loads(res["response"]))
-mldb.log(json.loads(res["response"])["output"]["return"])
+mldb.log(res.json())
+mldb.log(res.json()["output"]["return"])
 
-assert json.loads(res["response"])["output"]["return"][0][0] == "Warp"
+assert res.json()["output"]["return"][0][0] == "Warp"
 mldb.log("passed assert")
-
-
 
 ###
 ###
@@ -70,10 +70,10 @@ mldb.script.set_return(results)
             }
         }
     }
-script_func_output = mldb.perform("PUT", "/v1/functions/" + script_func_conf["id"], [], 
-                                    script_func_conf)
-mldb.log("The resulf of the script function creation " + json.dumps(script_func_output))
-assert script_func_output["statusCode"] < 400
+script_func_output = mldb.put("/v1/functions/" + script_func_conf["id"],
+                              script_func_conf)
+mldb.log("The resulf of the script function creation "
+         + script_func_output.text)
 mldb.log("passed assert")
 
 
@@ -98,12 +98,12 @@ dataset.commit()
 # requires "as args" because args is the input argument
 select = "scriptApplier2({{*} as args})[{return}] as *"
 
-queryOutput = mldb.perform("GET", "/v1/datasets/toy/query", [["select", select], ["limit", "10" ]])
+query_output = mldb.get("/v1/datasets/toy/query", select=select, limit="10")
 
-jsResp = json.loads(queryOutput["response"])
-mldb.log(jsResp)
+js_resp = query_output.json()
+mldb.log(js_resp)
 
-for row in jsResp:
+for row in js_resp:
     assert row["rowName"] in ["example-0", "example-1"]
     assert len(row["columns"]) == 2
     vals = {"return.fwine": 0, "return.fwin": 0}

@@ -1,26 +1,20 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+#
+# MLDB-906-date-function.py
+# datacratic, 2015
+# this file is part of mldb. copyright 2015 datacratic. all rights reserved.
+#
 
-import json
 import datetime
 import unittest
 
-if False:
-    mldb = None
-
+mldb = mldb_wrapper.wrap(mldb) # noqa
 
 def log(thing):
     mldb.log(str(thing))
 
-
-def perform(*args, **kwargs):
-    res = mldb.perform(*args, **kwargs)
-    assert res['statusCode'] in [200, 201], str(res)
-    return res
-
-
 def query(query, fmt='full'):
-    res = perform('GET', '/v1/query', [['q', query], ['format', fmt]])
-    return json.loads(res['response'])
+    res = mldb.get('/v1/query', q=query, format=fmt)
+    return res.json()
 
 d = datetime.datetime.now()
 
@@ -302,20 +296,5 @@ class DateFunctionTest(unittest.TestCase):
                     "FROM example2")
         self.assertEqual(res[0]['columns'][0][1]['ts'], "2014-12-31T07:00:00Z")
 
-
 if __name__ == '__main__':
-    if mldb.script.args:
-        assert type(mldb.script.args) is list
-        argv = ['python'] + mldb.script.args
-    else:
-        argv = None
-
-    res = unittest.main(exit=False, argv=argv).result
-    log(res)
-    got_err = False
-    for err in res.errors + res.failures:
-        got_err = True
-        log(str(err[0]) + "\n" + err[1])
-
-    if not got_err:
-        mldb.script.set_return("success")
+    mldb.run_tests()

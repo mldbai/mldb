@@ -1,23 +1,33 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
-
-import json
+#
+# MLDB-153_pyscript_state_pollution.py
+# datacratic, 2015
+# this file is part of mldb. copyright 2015 datacratic. all rights reserved.
+#
+if False:
+    mldb_wrapper = None
+mldb = mldb_wrapper.wrap(mldb) # noqa
 
 conf = {
     "source": "a=1"
 }
-rtn = mldb.perform("POST", "/v1/types/plugins/python/routes/run", [], conf)
-mldb.log(rtn["response"])
+rtn = mldb.post("/v1/types/plugins/python/routes/run", conf)
+mldb.log(rtn.text)
 
 conf = {
     "source": "print a"
 }
-rtn = mldb.perform("POST", "/v1/types/plugins/python/routes/run", [], conf)
 
-jsRtn = json.loads(rtn["response"])
-mldb.log(jsRtn)
+try:
+    mldb.post("/v1/types/plugins/python/routes/run", conf)
+except mldb_wrapper.ResponseException as exc:
+    rtn = exc.response
+else:
+    assert False, 'should not be here'
 
-assert jsRtn["exception"]["message"] == "name 'a' is not defined"
+mldb.log(rtn.text)
+js_rtn = rtn.json()
+mldb.log(js_rtn)
+
+assert js_rtn["exception"]["message"] == "name 'a' is not defined"
 
 mldb.script.set_return("success")
-

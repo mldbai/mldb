@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
-# Copyright (c) 2015 Datacratic Inc.  All rights reserved.
 # @Author:             Alexis Tremblay
 # @Email:              atremblay@datacratic.com
 # @Date:               2015-04-02 15:20:49
@@ -11,21 +9,21 @@
 # @File Name:          MLDB-485-svd_embedRow_returns_zeroes.py
 
 
-import json
 from collections import Counter
 import numpy as np
 import datetime
 import sys
 import random
 
+mldb = mldb_wrapper.wrap(mldb) # noqa
 
 def random_dataset():
-    datasetConfig = {
+    dataset_config = {
             "type": "sparse.mutable",
             "id": "random_dataset"
         }
 
-    dataset = mldb.create_dataset(datasetConfig)
+    dataset = mldb.create_dataset(dataset_config)
     ts = datetime.datetime.now().isoformat(' ')
 
     for i in range(10):
@@ -42,8 +40,7 @@ random_dataset()
 svd_procedure = "/v1/procedures/svd_random"
 svd_config = {
     'type': 'svd.train',
-    'params':
-    {
+    'params': {
         "trainingData": {"from" : {"id": "random_dataset"}},
         "columnOutputDataset": {
             "type": "embedding",
@@ -59,36 +56,25 @@ svd_config = {
     }
 }
 
-r = mldb.perform("GET", '/v1/datasets/random_dataset/query', [], '{}')
+r = mldb.get('/v1/datasets/random_dataset/query')
 #mldb.log(json.dumps(json.loads(r["response"]), indent=4))
 
-r = mldb.perform("PUT", svd_procedure, [], svd_config)
+r = mldb.put(svd_procedure, svd_config)
 #mldb.log(json.dumps(json.reads(r.response), indent=4))
 
-mldb.log("Status code for creating the procedure: {}".format(r["statusCode"]))
+mldb.log("Status code for creating the procedure: {}".format(r.status_code))
 
 # Training the procedure
-r = mldb.perform("PUT", svd_procedure + "/runs/1", [], {})
-if not 300 > r["statusCode"] >= 200:
-    mldb.log(json.dumps(r, indent=4))
-    mldb.script.set_return("FAILURE")
-    mldb.log(str(r["statusCode"]))
-
+r = mldb.put(svd_procedure + "/runs/1")
 
 # Creating the function
 svd_function = "/v1/functions/svd_function"
 svdFunctionConfig = {
-        "id": "svd_function",
-        "type": "svd.embedRow",
-        "params": { "modelFileUrl": "file://tmp/MLDB-485.svd.json.gz", "maxSingularValues": 20 }
-    }
-r = mldb.perform("PUT", svd_function, [], svdFunctionConfig)
-if not 300 > r["statusCode"] >= 200:
-    mldb.log(json.dumps(r, indent=4))
-    mldb.script.set_return("FAILURE")
-    mldb.log(str(r["statusCode"]))
-    sys.exit(0)
-
+    "id": "svd_function",
+    "type": "svd.embedRow",
+    "params": { "modelFileUrl": "file://tmp/MLDB-485.svd.json.gz", "maxSingularValues": 20 }
+}
+r = mldb.put(svd_function, svdFunctionConfig)
 
 phrase = "1 5 8 1 5 7"
 c = Counter(phrase.split(" "))
@@ -96,12 +82,11 @@ words = {}
 for word, count in c.items():
     words[str(word)] =  count
 
-input = { "row": words }
+input = {"row": words}
 
-r = mldb.perform("GET", "/v1/functions/svd_function/application", [["input", input]], {})
-mldb.log(r["response"])
-mldb.log(json.dumps(json.loads(r["response"]), indent=4))
-features = np.array(json.loads(r["response"])["output"]["embedding"])
+r = mldb.get("/v1/functions/svd_function/application", input=input)
+mldb.log(r.json())
+features = np.array(r.json()["output"]["embedding"])
 
 if not features[features > 0].any():
     mldb.script.set_return("FAILURE")
@@ -109,5 +94,4 @@ if not features[features > 0].any():
     mldb.log(str(r["statusCode"]))
     sys.exit(0)
 
-else:
-    mldb.script.set_return("success")
+mldb.script.set_return("success")

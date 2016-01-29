@@ -1,19 +1,13 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+#
+# MLDB-798-sql-operation-precision.py
+# datacratic, 2015
+# this file is part of mldb. copyright 2015 datacratic. all rights reserved.
+#
+mldb = mldb_wrapper.wrap(mldb) # noqa
 
-import json
 import random
 import math
 import sys
-import operator
-
-def parse_response(res):
-    return json.loads(res['response'])
-
-def check_res(res, value):
-    if res['statusCode'] != value:
-        mldb.log(parse_response(res))
-        assert False, "response status code is %s but expected code %s" % (res["statusCode"], value)
-    return parse_response(res)
 
 ds1 = mldb.create_dataset({
     'type': 'sparse.mutable',
@@ -25,50 +19,53 @@ ds1.commit()
 
 # mldb should be as precise as python
 no_overflow_op_of_1_float = {
-    'ceil':math.ceil,
-    'floor':math.floor,
-    'abs':math.fabs,
-    'sqrt':math.sqrt,
-    'ln':math.log
+    'ceil'  : math.ceil,
+    'floor' : math.floor,
+    'abs'   : math.fabs,
+    'sqrt'  : math.sqrt,
+    'ln'    : math.log
 }
 
 overflow_op_of_1_float = {
-    'exp':math.exp
+    'exp': math.exp
 }
 
 overflow_op_of_2_float = {
-    'pow':math.pow
+    'pow': math.pow
 }
 
-# unlike C, python returns moduli, that is the remainders, with the sign of the divisor y
-def c_style_mod(x,y):
+
+def c_style_mod(x, y):
+    # unlike C, python returns moduli, that is the remainders, with the sign of
+    # the divisor y
     mod = x % y
-    return mod if math.copysign(1,x) == math.copysign(1,y) or mod == 0 else mod - y
+    return mod if math.copysign(1, x) == math.copysign(1, y) or mod == 0 \
+        else mod - y
 
 no_overflow_op_of_2_int = {
-    'mod':c_style_mod
+    'mod': c_style_mod
 }
 
 
-def test_op(sql_op_name, op, float1, float2 = None):
- 
+def test_op(sql_op_name, op, float1, float2=None):
     if float2:
-        equality = '{0} = {3}({1}, {2})'.format(repr(op(float1, float2)), repr(float1), repr(float2), sql_op_name)
+        equality = '{0} = {3}({1}, {2})'.format(repr(op(float1, float2)),
+                                                repr(float1), repr(float2),
+                                                sql_op_name)
     else:
-        equality = '{0} = {2}({1})'.format(repr(op(float1)), repr(float1), sql_op_name)
+        equality = '{0} = {2}({1})'.format(repr(op(float1)), repr(float1),
+                                           sql_op_name)
 
     mldb.log('testing {}'.format(equality))
-    res = mldb.perform('GET', '/v1/query',
-                       [['q', 'SELECT {0} AS result FROM dummy'.format(equality)]])
-        
-    response = check_res(res, 200)
+    res = mldb.get('/v1/query',
+                   q='SELECT {0} AS result FROM dummy'.format(equality))
+    response = res.json()
 
     # if the equality above does not hold true
-    if not response[0]['columns'][0][1]:
-        assert False, 'there is lost of precision with this query [{}]'.format(equality)
-             
-def test_ops(ops, float1, float2 = None):
+    assert response[0]['columns'][0][1], \
+        'there is lost of precision with this query [{}]'.format(equality)
 
+def test_ops(ops, float1, float2=None):
     for sql_op_name, op in ops.iteritems():
         test_op(sql_op_name, op, float1, float2)
 

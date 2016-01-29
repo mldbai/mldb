@@ -1,7 +1,10 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+#
+# MLDB-694_external_python_procedure.py
+# datacratic, 2015
+# this file is part of mldb. copyright 2015 datacratic. all rights reserved.
+#
+mldb = mldb_wrapper.wrap(mldb) # noqa
 
-
-import json
 
 conf = {
     "type": "experimental.external.procedure",
@@ -38,20 +41,17 @@ print json.dumps({"bouya": 5, "stdin_data": std_in})
         }
     }
 }
-   
-rez = mldb.perform("PUT", "/v1/procedures/externalProc", [], conf)
-mldb.log(rez)    
-assert rez["statusCode"] == 201
 
-rez = mldb.perform("PUT", "/v1/procedures/externalProc/runs/1")
-mldb.log(rez)
+rez = mldb.put("/v1/procedures/externalProc", conf)
+mldb.log(rez.text)
 
-assert rez["statusCode"] == 201
+rez = mldb.put("/v1/procedures/externalProc/runs/1")
+mldb.log(rez.text)
 
-jsResp = json.loads(rez["response"])
-mldb.log(jsResp)
+js_resp = rez.json()
+mldb.log(js_resp)
 
-assert jsResp["status"]["stdout"] == "[ 0.  0.  0.  0.  0.]"
-assert jsResp["status"]["return"] == {"bouya": 5, "stdin_data" : "pwet"}
+assert js_resp["status"]["stdout"] == "[ 0.  0.  0.  0.  0.]"
+assert js_resp["status"]["return"] == {"bouya": 5, "stdin_data" : "pwet"}
 
 mldb.script.set_return("success")
