@@ -333,6 +333,13 @@ Note that this syntax is not part of SQL, it is an MLDB extension.
   - if `x` is a string that can be converted to a number, return the number
   - otherwise, return `x` unchanged
 
+### Encoding and decoding functions
+
+- `base64_encode(blob)` returns the base-64 encoded version of the blob
+  (or string) argument as a string.
+- `base64_decode(string)` returns a blob containing the decoding of the
+  base-64 data provided in its argument.
+
 ### Numeric functions
 
 - `pow(x, y)`: returns x to the power of y.

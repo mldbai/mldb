@@ -122,13 +122,14 @@ void to_js(JS::JSValue & value, const CellValue & val)
     else if (val.isTimestamp()) {
         to_js(value, val.toTimestamp());
     }
-    else if (val.isTimeinterval()) {
+    else if (val.isString()) {
+        to_js(value, val.toString());
+    }
+    else {
         // Get our context so we can return a proper object
         JsPluginContext * cxt = JsContextScope::current();
         value = CellValueJS::create(val, cxt);
     }
-    else
-        to_js(value, val.toString());
 }
 
 ExpressionValue from_js(const JS::JSValue & value, ExpressionValue *)

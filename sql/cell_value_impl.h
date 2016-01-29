@@ -1,9 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
-/** cell_value.h                                                   -*- C++ -*-
+/** cell_value_impl.h                                              -*- C++ -*-
     Jeremy Barnes, 24 December 2014
     Copyright (c) 2014 Datacratic Inc.  All rights reserved.
 
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #pragma once
@@ -126,6 +125,13 @@ CellValue::
 isStringType(StorageType type)
 {
     return type == ST_ASCII_SHORT_STRING || type == ST_ASCII_LONG_STRING || type == ST_UTF8_SHORT_STRING || type == ST_UTF8_LONG_STRING;
+}
+
+bool
+CellValue::
+isBlobType(StorageType type)
+{
+    return type == ST_SHORT_BLOB || type == ST_LONG_BLOB;
 }
 
 

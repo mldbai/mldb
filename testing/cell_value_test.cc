@@ -162,3 +162,36 @@ BOOST_AUTO_TEST_CASE( test_date )
     BOOST_CHECK_EQUAL(jsonEncodeStr(CellValue(jsonDecodeStr<Date>(string("\"2015-10-06T20:52:18.842Z\"")))),
                       "{\"ts\":\"2015-10-06T20:52:18.842Z\"}");
 }
+
+BOOST_AUTO_TEST_CASE(test_blob)
+{
+    char blobData[] = "\1\1\2\3\4\5\0";
+    string blobContents(blobData, blobData + 7);
+
+    BOOST_CHECK_EQUAL(blobContents.size(), 7);
+
+    CellValue blob = CellValue::blob(blobContents);
+    
+    BOOST_CHECK_EQUAL(blob.cellType(), CellValue::BLOB);
+    BOOST_CHECK(blob.isBlob());
+    BOOST_CHECK_EQUAL(blob, blob);
+    BOOST_CHECK(!(blob != blob));
+    BOOST_CHECK(!(blob < blob));
+    
+    BOOST_CHECK_EQUAL(blob.blobLength(), blobContents.size());
+    BOOST_CHECK_EQUAL(string(blob.blobData(), blob.blobData() + blob.blobLength()),
+                      blobContents);
+
+    BOOST_CHECK_EQUAL(jsonEncodeStr(blob), "{\"blob\":[1,1,2,3,4,5,0]}");
+    BOOST_CHECK_EQUAL(jsonEncodeStr(CellValue::blob("")),
+                      "{\"blob\":[]}");
+    BOOST_CHECK_EQUAL(jsonEncodeStr(jsonDecode<CellValue>(jsonEncode(CellValue::blob("")))),
+                      jsonEncodeStr(CellValue::blob("")));
+    BOOST_CHECK_EQUAL(jsonEncodeStr(CellValue::blob("hello\1")),
+                      "{\"blob\":[\"hello\",1]}");
+    BOOST_CHECK_EQUAL(jsonEncodeStr(jsonDecode<CellValue>(jsonEncode(CellValue::blob("hello\1")))),
+                      jsonEncodeStr(CellValue::blob("hello\1")));
+
+    BOOST_CHECK_EQUAL(jsonEncodeStr(jsonDecodeStr<CellValue>(jsonEncodeStr(blob))),
+                      jsonEncodeStr(blob));
+}

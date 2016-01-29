@@ -24,7 +24,7 @@ $(eval $(call test,svd_utils_test,mldb,boost))
 #$(eval $(call test,mldb_sql_test,mldb,boost))  # plugin is disabled
 $(eval $(call test,mldb_mnist_test,mldb,boost))
 $(eval $(call test,mldb_reddit_test,mldb,boost))
-$(eval $(call test,cell_value_test,mldb,boost))
+$(eval $(call test,cell_value_test,sql_expression,boost))
 
 # NOTE: sql_expression_test should NOT depend on the MLDB library.  If you
 # are tempted to add it, you have coupled them together and broken
@@ -263,6 +263,7 @@ $(eval $(call mldb_unit_test,MLDB-1273-classifier-row_input.py))
 $(eval $(call mldb_unit_test,MLDB-1272-regression-training-failure.py,,manual)) #until MLDB-1272 is fixed
 $(eval $(call mldb_unit_test,MLDB-1277-pooling-performance.py,,manual)) #manual -- awaiting fix
 $(eval $(call mldb_unit_test,MLDB-1260-json-errors.py))
+$(eval $(call mldb_unit_test,MLDB-1239-utf8-literal.py))
 
 
 $(eval $(call mldb_unit_test,pytanic_plugin_test.py))
@@ -310,4 +311,4 @@ $(eval $(call mldb_unit_test,MLDBFB-308-where-outer-join-test.py,,manual))
 $(eval $(call mldb_unit_test,MLDB-1267-bucketize-ts-test.py))
 $(eval $(call mldb_unit_test,MLDB-1319-new-executor-function-binding.js))
 $(eval $(call mldb_unit_test,MLDB-1328-join_empty_dataset_test.py,,manual)) # Issue
-
+$(eval $(call mldb_unit_test,MLDB-1213-blob-support.js))

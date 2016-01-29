@@ -22,7 +22,7 @@
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/vfs/filter_streams_registry.h"
 #include "mldb/jml/utils/ring_buffer.h"
-#include "mldb/jml/utils/hash.h"
+#include "mldb/utils/hash.h"
 #include "mldb/jml/utils/file_functions.h"
 #include "mldb/jml/utils/info.h"
 #include "mldb/jml/utils/environment.h"
