@@ -55,6 +55,15 @@ find_column(result, 'tokens.a', 'found')
 find_column(result, 'tokens.b', 'found')
 find_column(result, 'tokens.c', 'found')
 
+# MLDB-1338
+#result = mldb.get(
+#    '/v1/query',
+#    q="SELECT tokenize('a b c a', {' ' as splitchars, 1 as value}) as tokens")
+#mldb.log(result)
+#find_column(result, 'tokens.a', 1)
+#find_column(result, 'tokens.b', 1)
+#find_column(result, 'tokens.c', 1)
+
 result = mldb.get(
     '/v1/query',
     q="SELECT tokenize('a,b,$c,a$,a', {'$' as quotechar, ',' as splitchars}) as tokens")
