@@ -105,7 +105,7 @@ template<typename FieldType> struct MustContainFrom
 {
     void operator()(const FieldType & query, const char * name)
     {
-        if (!query.stm || !query.stm->from)
+        if (!query.stm || !query.stm->from || query.stm->from->surface.empty())
             throw ML::Exception("%s must contain a FROM clause", name);
     }
 };

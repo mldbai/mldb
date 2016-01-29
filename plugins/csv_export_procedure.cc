@@ -24,6 +24,7 @@
 #include "mldb/sql/sql_expression.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/soa/utils/csv_writer.h"
+#include "mldb/plugins/sql_config_validator.h"
 #include <memory>
 
 using namespace std;
@@ -67,6 +68,7 @@ CsvExportProcedureConfigDescription()
         if (cfg->quoteChar.size() != 1) {
             throw ML::Exception("Quotechar must be 1 char long.");
         }
+        MustContainFrom<InputQuery>()(cfg->exportData, "export.csv");
     };
 }
 

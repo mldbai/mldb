@@ -26,6 +26,7 @@
 #include "mldb/jml/db/persistent.h"
 #include "mldb/types/jml_serialization.h"
 #include "mldb/vfs/filter_streams.h"
+#include "mldb/plugins/sql_config_validator.h"
 
 
 using namespace std;
@@ -139,6 +140,10 @@ StatsTableProcedureConfigDescription()
              "If specified, a 'statsTable.getCounts' function of this name will be "
              "created using the trained stats tables.");
     addParent<ProcedureConfig>();
+
+    onPostValidate = validate<StatsTableProcedureConfig,
+                              InputQuery,
+                              MustContainFrom>(&StatsTableProcedureConfig::trainingData, "statsTable.train");
 }
 
 
@@ -555,6 +560,11 @@ BagOfWordsStatsTableProcedureConfigDescription()
              "URL where the stats table file (with extension '.st') should be saved. "
              "This file can be loaded by a function of type 'statsTable.bagOfWords.posneg'.");
     addParent<ProcedureConfig>();
+
+    onPostValidate = validate<BagOfWordsStatsTableProcedureConfig,
+                              InputQuery,
+                              MustContainFrom>(&BagOfWordsStatsTableProcedureConfig::trainingData,
+                                               "statsTable.bagOfWords.train");
 }
 
 /*****************************************************************************/

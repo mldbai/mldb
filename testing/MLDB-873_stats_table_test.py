@@ -41,14 +41,15 @@ for output_type, output_id in [("sparse.mutable", "out_beh"),
             "outcomes": [["label", "CLICK IS NOT NULL"],
                        ["not_label", "CLICK IS NULL"]],
             "statsTableFileUrl": "file://build/x86_64/tmp/mldb-873-stats_table.st",
-            "functionName": "mySt"
+            "functionName": "mySt",
+            "runOnCreation": True
         }
     }
     rez = mldb.put("/v1/procedures/myroll_%s" % output_id, conf)
-    mldb.log(rez)
+    mldb.log(rez.json())
 
-    rez = mldb.post("/v1/procedures/myroll_%s/runs" % output_id)
-    mldb.log(rez)
+   # rez = mldb.post("/v1/procedures/myroll_%s/runs" % output_id)
+   # mldb.log(rez)
 
     rez = mldb.get("/v1/query",
                    q="select * from %s order by rowName() ASC" % output_id)
@@ -121,9 +122,9 @@ conf = {
     }
 }
 rez = mldb.put("/v1/procedures/getDerivedGen", conf)
-mldb.log(rez)
+mldb.log(rez.json())
 rez = mldb.post("/v1/procedures/getDerivedGen/runs")
-mldb.log(rez)
+mldb.log(rez.json())
 
 rez = mldb.get("/v1/functions/getDerived")
 js_rez = rez.json()
@@ -201,7 +202,7 @@ conf = {
     }
 }
 rez = mldb.put("/v1/procedures/myroll_posneg_%s" % output_id, conf)
-mldb.log(rez)
+mldb.log(rez.json())
 
 conf = {
     "type": "statsTable.bagOfWords.posneg",
@@ -214,7 +215,7 @@ conf = {
     }
 }
 rez = mldb.put("/v1/functions/posnegz", conf)
-mldb.log(rez)
+mldb.log(rez.json())
 
 rez = mldb.get(
     "/v1/query",

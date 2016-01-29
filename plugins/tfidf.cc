@@ -23,6 +23,7 @@
 #include "mldb/types/any_impl.h"
 #include "mldb/types/optional_description.h"
 #include "mldb/vfs/filter_streams.h"
+#include "mldb/plugins/sql_config_validator.h"
 
 using namespace std;
 
@@ -155,6 +156,7 @@ TfidfConfigDescription()
                                 + "\" is not valid.  A valid modelFileUrl parameter "
                                 + "is required to create a function.");
         }
+        MustContainFrom<InputQuery>()(cfg->trainingData, "tfidf.train");
     };
 }
 

@@ -63,7 +63,9 @@ TokenSplit(MldbServer * owner,
             return true;
         };
 
-    auto boundDataset = functionConfig.tokens.stm->from->bind(context);
+    BoundTableExpression boundDataset;
+    if (functionConfig.tokens.stm->from)
+        boundDataset = functionConfig.tokens.stm->from->bind(context);
 
     if (boundDataset.dataset)
         iterateDataset(functionConfig.tokens.stm->select,

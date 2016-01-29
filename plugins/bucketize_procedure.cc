@@ -22,6 +22,7 @@
 #include "mldb/server/per_thread_accumulator.h"
 #include "mldb/types/date.h"
 #include "mldb/sql/sql_expression.h"
+#include "mldb/plugins/sql_config_validator.h"
 #include <memory>
 
 using namespace std;
@@ -98,6 +99,7 @@ BucketizeProcedureConfigDescription()
             }
             last = range;
         }
+        MustContainFrom<InputQuery>()(cfg->inputData, "bucketize");
     };
 }
 
