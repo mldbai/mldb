@@ -576,19 +576,7 @@ struct CsvDataset::Itl: public TabularDataStore {
         
         // Ask for a memory mappable stream if possible
         ML::filter_istream stream;
-        try {
-            stream.open(filename, { { "mapped", "true" } });
-        }
-        catch (const std::exception & exc) {
-            // this is necessary because boost::mapped_file does not return an
-            // explicit message in that case
-            string reason("the file is empty");
-            if (exc.what() != string("std::exception"))
-                reason = exc.what();
-            rethrowHttpException(400, "failed to open file '" + config.dataFileUrl.toString() + 
-                                 "' pointed to by dataFileUrl: " + reason);
-        }
-
+        stream.open(filename, { { "mapped", "true" } });
         // Get the file timestamp out
         Date ts = stream.info().lastModified;
 

@@ -219,9 +219,7 @@ for ext in open_functions:
     assert json.loads(result['response'])[1][2] == 1
 
 
-# importing an empty CSV gives a specific error message
-# the problem is with boost implementation of mapped file
-# which is only possible when the file is not compressed
+# importing an empty file leads to an empty dataset
 path = "tmp/csv_empty.csv"
 with open(path, 'wb') as f:
     os.utime(path, None)
@@ -232,9 +230,12 @@ result = mldb.perform("PUT", "/v1/datasets/empty_csv", [], {
 })
 mldb.log(result)
 
-assert result["statusCode"] == 400, "expected the call to fail"
-assert "the file is empty" in json.loads(result['response'])["error"], \
-    "did not get the expected message MLDB-1299"
+assert result["statusCode"] == 201, "expected an empty file to succeed"
+
+result = mldb.perform("GET", "/v1/query", [["q","SELECT count(*) FROM empty_csv"]], {})
+mldb.log(result)
+assert result["statusCode"] == 200, "expected query to empty dataset to succeed"
+assert json.loads(result["response"])[0]["columns"][0][1] == 0, "expected row count of empty dataset to be 0"
 
 result = mldb.perform("PUT", "/v1/datasets/does_not_exist_csv", [], {
     "type": "text.csv.tabular",
