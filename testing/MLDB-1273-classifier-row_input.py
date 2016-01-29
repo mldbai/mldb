@@ -2,7 +2,6 @@
 # MLDB-1273-classifier-row_input.py
 # 2015
 # This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-#
 
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
@@ -112,14 +111,14 @@ class ClassifierRowInputTest(unittest.TestCase):
             }
         })
 
-        # uncomment for MLDB-1314 test case
-        #without_name =  query("""
-        #                select cls( feats2({*}) ) as *
-        #                from iris
-        #                limit 10
-        #                """)
-        #mldb.log(without_name)
-        # assert with_flattening == without_name, "results do not match"
+        # MLDB-1314 
+        without_name =  mldb.query("""
+                        select cls( feats2({*}) ) as *
+                        from iris
+                        limit 10
+                        """)
+        mldb.log(without_name)
+        self.assertEqual(with_flattening,without_name, "results do not match")
 
 if __name__ == '__main__':
     mldb.run_tests()
