@@ -5,7 +5,10 @@
 #
 import gzip
 import unittest
+import os
 
+if False:
+    mldb_wrapper = None
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
 
@@ -171,6 +174,36 @@ class CsvLineEndingsGeneric(object):
         self.assertEqual(ds_result.json()["status"]["rowCount"], 1)
         self.assertEqual(q_result[1][1], 1)
         self.assertEqual(q_result[1][2], 1)
+
+    def test_empty_csv(self):
+        # importing an empty file leads to an empty dataset
+        path = "tmp/csv_empty.csv"
+        with open(path, 'wb'):
+            os.utime(path, None)
+
+        result = mldb.put("/v1/datasets/empty_csv", {
+            "type": "text.csv.tabular",
+            "params": {"dataFileUrl": "file://" + path}
+        })
+        mldb.log(result)
+
+        result = mldb.get("/v1/query", q="SELECT count(*) FROM empty_csv")
+        mldb.log(result.text)
+        self.assertEqual(result.json()[0]["columns"][0][1], 0,
+                         "expected row count of empty dataset to be 0")
+
+        with self.assertRaises(mldb_wrapper.ResponseException) as exc:
+            mldb.put("/v1/datasets/does_not_exist_csv", {
+                "type": "text.csv.tabular",
+                "params": {
+                    "dataFileUrl": "file://this/path/does/not/exist.csv"
+                }
+            })
+        result = exc.exception.response
+        mldb.log(result.text)
+
+        self.assertTrue("No such file or directory" in result.json()["error"],
+                        "did not get the expected message MLDB-1299")
 
 
 class CsvLineEndingsCsv(CsvLineEndingsGeneric, unittest.TestCase):

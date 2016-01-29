@@ -1,10 +1,10 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** mldb_js.h                                                   -*- C++ -*-
     Jeremy Barnes, 14 June 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
 
-    JS interface for mldbs.
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+
+    JS interface for mldb.
 */
 
 #pragma once

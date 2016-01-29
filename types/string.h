@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* string.h                                                          -*- C++ -*-
    Sunil Rottoo, 27 April 2012
    Copyright (c) 20102 Datacratic.  All rights reserved.
+
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Basic classes for dealing with string including internationalisation
 */
@@ -158,10 +158,11 @@ public:
     bool endsWith(const char32_t * suffix) const;
     bool endsWith(const std::string & suffix) const;
 
-    /** Checks for a prefix match and, if it does match, removes
-        the prefix from the string (mutate operation).
+    /** Checks for a prefix or suffix match and, if it does match, removes
+        the prefix/suffix from the string (mutate operation).
     */
     bool removePrefix(const Utf8String & prefix);
+    bool removeSuffix(const Utf8String & prefix);    
 
     /** Replaces the characters at the given range with a new
         string.  Note that this is an expensive operation as

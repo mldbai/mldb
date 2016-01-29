@@ -1782,6 +1782,15 @@ coerceToTimestamp() const
     return cell_.coerceToTimestamp();
 }
 
+CellValue
+ExpressionValue::
+coerceToBlob() const
+{
+    if (type_ != ATOM)
+        return CellValue();
+    return cell_.coerceToBlob();
+}
+
 void
 ExpressionValue::
 setAtom(CellValue value, Date ts)
@@ -2182,6 +2191,7 @@ template class ExpressionValueInfoT<double>;
 template class ExpressionValueInfoT<CellValue>;
 template class ExpressionValueInfoT<std::string>;
 template class ExpressionValueInfoT<Utf8String>;
+template class ExpressionValueInfoT<std::vector<unsigned char> >;
 template class ExpressionValueInfoT<int64_t>;
 template class ExpressionValueInfoT<uint64_t>;
 template class ExpressionValueInfoT<char>;
@@ -2191,6 +2201,7 @@ template class ScalarExpressionValueInfoT<double>;
 template class ScalarExpressionValueInfoT<CellValue>;
 template class ScalarExpressionValueInfoT<std::string>;
 template class ScalarExpressionValueInfoT<Utf8String>;
+template class ScalarExpressionValueInfoT<std::vector<unsigned char> >;
 template class ScalarExpressionValueInfoT<int64_t>;
 template class ScalarExpressionValueInfoT<uint64_t>;
 template class ScalarExpressionValueInfoT<char>;

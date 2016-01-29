@@ -466,15 +466,15 @@ bool Utf8String::startsWith(const std::string & prefix) const
     return startsWith(Utf8String(prefix));
 }
 
-bool Utf8String::endsWith(const Utf8String & prefix) const
+bool Utf8String::endsWith(const Utf8String & suffix) const
 {
-    if (prefix.empty())
+    if (suffix.empty())
         return true;
     if (empty())
         return false;
 
     auto it1 = boost::prior(end()), start1 = begin();
-    auto it2 = boost::prior(prefix.end()), start2 = prefix.begin();
+    auto it2 = boost::prior(suffix.end()), start2 = suffix.begin();
     
     for (;;) {
         if (*it1 != *it2)
@@ -493,9 +493,9 @@ bool Utf8String::endsWith(const char * prefix) const
     return endsWith(Utf8String(prefix));
 }
 
-bool Utf8String::endsWith(const std::string & prefix) const
+bool Utf8String::endsWith(const std::string & suffix) const
 {
-    return endsWith(Utf8String(prefix));
+    return endsWith(Utf8String(suffix));
 }
 
 bool
@@ -516,6 +516,32 @@ removePrefix(const Utf8String & prefix)
     }
 
     return false;
+}
+
+bool
+Utf8String::
+removeSuffix(const Utf8String & suffix)
+{
+    if (suffix.empty())
+        return true;
+    if (empty())
+        return false;
+
+    auto it1 = boost::prior(end()), start1 = begin();
+    auto it2 = boost::prior(suffix.end()), start2 = suffix.begin();
+    
+    for (;;) {
+        if (*it1 != *it2)
+            return false;
+        if (it2 == start2) {
+            data_.erase(it1.base(), data_.end());
+            return true;
+        }
+        if (it1 == start1)
+            return false;
+        --it1;
+        --it2;
+    }
 }
 
 void Utf8String::replace(ssize_t startIndex, ssize_t endIndex,
