@@ -16,10 +16,6 @@ dataset.
 ![](%%config dataset transposed)
 
 
-## Examples
-
-* The ![](%%nblink _demos/Mapping Reddit) demo notebook
-
 ## See also
 
 * The ![](%%doclink merged dataset) is another dataset transformation
