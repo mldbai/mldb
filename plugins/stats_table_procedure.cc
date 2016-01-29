@@ -208,9 +208,10 @@ run(const ProcedureRunConfig & run,
     // columns cache
     map<ColumnName, vector<ColumnName>> colCache;
 
-    auto aggregator = [&] (const MatrixNamedRow & row,
+    auto aggregator = [&] (NamedRowValue & row_,
                            const std::vector<ExpressionValue> & extraVals)
         {
+            MatrixNamedRow row = row_.flattenDestructive();
             if(num_req++ % 5000 == 0) {
                 double secs = Date::now().secondsSinceEpoch() - start.secondsSinceEpoch();
                 string progress = ML::format("done %d. %0.4f/sec", num_req, num_req / secs);
@@ -606,9 +607,10 @@ run(const ProcedureRunConfig & run,
     int num_req = 0;
     Date start = Date::now();
 
-    auto aggregator = [&] (const MatrixNamedRow & row,
+    auto aggregator = [&] (NamedRowValue & row_,
                            const std::vector<ExpressionValue> & extraVals)
         {
+            MatrixNamedRow row = row_.flattenDestructive();
             if(num_req++ % 10000 == 0) {
                 double secs = Date::now().secondsSinceEpoch() - start.secondsSinceEpoch();
                 string progress = ML::format("done %d. %0.4f/sec", num_req, num_req / secs);

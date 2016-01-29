@@ -1281,6 +1281,42 @@ appendToRow(const Id & columnName, StructValue & row) const
     forEachSubexpression(onSubexpr, columnName);
 }
 
+void
+ExpressionValue::
+appendToRowDestructive(ColumnName & columnName, RowValue & row)
+{
+    if (type_ == NONE) {
+        row.emplace_back(std::move(columnName), CellValue(), ts_);
+    }
+    else if (type_ == ATOM) {
+        row.emplace_back(std::move(columnName), stealAtom(), ts_);
+    }
+    else {
+        if (row.capacity() == 0)
+            row.reserve(rowLength());
+        else if (row.capacity() < row.size() + rowLength())
+            row.reserve(row.capacity() * 2);
+
+        auto onSubexpr = [&] (ColumnName & innerColumnName,
+                              ExpressionValue & val)
+            {
+                ColumnName newColumnName;
+                if (columnName.empty())
+                    newColumnName = std::move(innerColumnName);
+                else if (innerColumnName.empty())
+                    newColumnName = columnName;
+                else newColumnName = ColumnName(columnName.toUtf8String()
+                                                + "."
+                                                + innerColumnName.toUtf8String());
+                val.appendToRowDestructive(newColumnName, row);
+                return true;
+            };
+
+        forEachColumnDestructiveT(onSubexpr);
+    }
+}
+
+
 size_t
 ExpressionValue::
 rowLength() const
@@ -2414,6 +2450,7 @@ NamedRowValueDescription()
     addField("columns", &NamedRowValue::columns, "Columns active for this row");
 }
 
+#if 0
 NamedRowValue::operator MatrixNamedRow() const
 {
     MatrixNamedRow result;
@@ -2428,7 +2465,24 @@ NamedRowValue::operator MatrixNamedRow() const
     
     return result;
 }
+#endif
 
+MatrixNamedRow
+NamedRowValue::flattenDestructive()
+{
+    MatrixNamedRow result;
+
+    result.rowName = std::move(rowName);
+    result.rowHash = std::move(rowHash);
+
+    for (auto & c: columns) {
+        ColumnName & columnName = std::get<0>(c);
+        ExpressionValue & val = std::get<1>(c);
+        val.appendToRowDestructive(columnName, result.columns);
+    }
+    
+    return result;
+}
 
 } // namespace MLDB
 } // namespace Datacratic

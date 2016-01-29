@@ -193,8 +193,9 @@ run(const ProcedureRunConfig & run,
     //This will cummulate the number of documents each word is in 
     std::unordered_map<Utf8String, uint64_t> dfs;
 
-    auto aggregator = [&] (const MatrixNamedRow & row)
+    auto aggregator = [&] (NamedRowValue & row_)
         {
+            MatrixNamedRow row = row_.flattenDestructive();
             for (auto& col : row.columns) {            
                 Utf8String word = get<0>(col).toUtf8String();
                 dfs[word] += 1;               

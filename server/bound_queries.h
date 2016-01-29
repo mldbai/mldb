@@ -101,14 +101,14 @@ struct BoundSelectQuery {
                      bool implicitOrderByRowHash = true,
                      int numBuckets = -1);
 
-    void execute(std::function<bool (const NamedRowValue & output,
+    void execute(std::function<bool (NamedRowValue & output,
                                      std::vector<ExpressionValue> & calcd)> aggregator,
                  ssize_t offset,
                  ssize_t limit,
                  std::function<bool (const Json::Value &)> onProgress,
                  bool allowMT = true);
 
-    void execute(std::function<bool (const NamedRowValue & output,
+    void execute(std::function<bool (NamedRowValue & output,
                                      std::vector<ExpressionValue> & calcd, int rowNum)> aggregator,
                  ssize_t offset,
                  ssize_t limit,
@@ -137,7 +137,7 @@ struct BoundGroupByQuery {
                      const SqlExpression & rowName,
                      const OrderByExpression & orderBy);
 
-    void execute(std::function<bool (const NamedRowValue & output)> aggregator,  
+    void execute(std::function<bool (NamedRowValue & output)> aggregator,  
             ssize_t offset, ssize_t limit,
             std::function<bool (const Json::Value &)> onProgress, bool allowMT = true);
 

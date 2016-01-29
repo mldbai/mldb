@@ -581,6 +581,13 @@ struct ExpressionValue {
     void appendToRow(const Id & columnName, RowValue & row) const;
     void appendToRow(const Id & columnName, StructValue & row) const;
 
+    /** Write a flattened representation of the current value to the given
+        dataset row or event, moving values and destroying this object in
+        the process.
+    */
+    void appendToRowDestructive(Id & columnName, RowValue & row);
+    void appendToRowDestructive(Id & columnName, StructValue & row);
+
     /// Destructively merge into the given row
     void mergeToRowDestructive(RowValue & row);
 
@@ -1020,7 +1027,8 @@ struct NamedRowValue {
     RowHash rowHash;
     StructValue columns;
 
-    operator MatrixNamedRow() const;
+    //operator MatrixNamedRow() const;
+    MatrixNamedRow flattenDestructive();
 };
 
 

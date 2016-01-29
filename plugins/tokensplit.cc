@@ -63,6 +63,10 @@ TokenSplit(MldbServer * owner,
             return true;
         };
 
+    auto aggregator2 = [&] (NamedRowValue & row) {
+        return aggregator(row.flattenDestructive());
+        };
+
     auto boundDataset = functionConfig.tokens.stm->from->bind(context);
 
     if (boundDataset.dataset)
@@ -70,7 +74,7 @@ TokenSplit(MldbServer * owner,
                        *boundDataset.dataset, boundDataset.asName, 
                        functionConfig.tokens.stm->when,
                        *functionConfig.tokens.stm->where,
-                       aggregator,
+                       aggregator2,
                        functionConfig.tokens.stm->orderBy,
                        functionConfig.tokens.stm->offset,
                        functionConfig.tokens.stm->limit,
