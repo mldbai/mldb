@@ -162,17 +162,6 @@ var tsneConfig = {
 
 createAndTrainProcedure(tsneConfig, 'reddit_tsne');
 
-var transform_config = {
-    type: 'transform',
-    params: {
-        inputData: {
-            select : '',
-            from : { id: 'reddit_dataset' }
-        },
-        outputDataset: { id: 'reddit_user_counts', type: 'beh.mutable' }
-    }
-};
-
 var mergedConfig = {
     type: "merged",
     id: "reddit_merged",

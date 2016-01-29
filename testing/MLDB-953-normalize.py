@@ -6,11 +6,6 @@
 
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
-dataset_config = {
-    'type'    : 'beh.mutable',
-    'id'      : 'example'
-}
-
 result = mldb.get('/v1/query', q='select normalize({1, 2, 3, 4}, 1)')
 mldb.log(result)
 

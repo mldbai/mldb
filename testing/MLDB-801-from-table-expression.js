@@ -44,8 +44,6 @@ function createAndRunProcedure(config, name)
 
 var dataset1 = mldb.createDataset({type:'sparse.mutable',id:'test1'});
 var dataset2 = mldb.createDataset({type:'sparse.mutable',id:'test2'});
-//var dataset1 = mldb.createDataset({type:'beh.mutable',id:'test1'});
-//var dataset2 = mldb.createDataset({type:'beh.mutable',id:'test2'});
 
 var ts = new Date("2015-01-01");
 
