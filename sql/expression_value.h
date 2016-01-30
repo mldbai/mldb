@@ -9,6 +9,7 @@
 #pragma once
 
 #include "dataset_fwd.h"
+#include "coord.h"
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/types/date.h"
 #include "mldb/arch/demangle.h"
@@ -26,68 +27,7 @@ struct distribution;
 } // namespace ML
 
 namespace Datacratic {
-
 struct Date;
-
-inline bool operator == (const std::string & str1, const Id & str2)
-{
-    return str2.stringEqual(str1);
-}
-
-inline bool operator != (const std::string & str1, const Id & str2)
-{
-    return !str2.stringEqual(str1);
-}
-
-inline bool operator <  (const std::string & str1, const Id & str2)
-{
-    return str2.stringGreaterEqual(str1);
-}
-
-inline bool operator == (const Utf8String & str1, const Id & str2)
-{
-    return str2.stringEqual(str1.rawString());
-}
-
-inline bool operator != (const Utf8String & str1, const Id & str2)
-{
-    return !str2.stringEqual(str1.rawString());
-}
-
-inline bool operator <  (const Utf8String & str1, const Id & str2)
-{
-    return !str2.stringGreaterEqual(str1.rawString());
-}
-
-inline bool operator == (const Id & str1, const std::string & str2)
-{
-    return str1.stringEqual(str2);
-}
-
-inline bool operator != (const Id & str1, const std::string & str2)
-{
-    return !str1.stringEqual(str2);
-}
-
-inline bool operator <  (const Id & str1, const std::string & str2)
-{
-    return str1.stringLess(str2);
-}
-
-inline bool operator == (const Id & str1, const Utf8String & str2)
-{
-    return str1.stringEqual(str2.rawString());
-}
-
-inline bool operator != (const Id & str1, const Utf8String & str2)
-{
-    return !str1.stringEqual(str2.rawString());
-}
-
-inline bool operator <  (const Id & str1, const Utf8String & str2)
-{
-    return str1.stringLess(str2.rawString());
-}
 
 namespace MLDB {
 
@@ -99,10 +39,10 @@ struct ExpressionValue;
 struct RowValueInfo;
 
 /** A row in an expression value is a set of (key, atom, timestamp) pairs. */
-typedef std::vector<std::tuple<Id, CellValue, Date> > RowValue;
+typedef std::vector<std::tuple<Coord, CellValue, Date> > RowValue;
 
 /** A struct in an expression value is a set of (key, value) pairs. */
-typedef std::vector<std::tuple<Id, ExpressionValue> > StructValue;
+typedef std::vector<std::tuple<Coord, ExpressionValue> > StructValue;
 
 enum SchemaCompleteness {
     SCHEMA_OPEN,   ///< Schema is open; columns may exist that aren't known
@@ -467,7 +407,7 @@ struct ExpressionValue {
     ExpressionValue(RowValue row) noexcept;
 
     // Construct from a set of named values as a row
-    ExpressionValue(std::vector<std::tuple<Id, ExpressionValue> > vals) noexcept;
+    ExpressionValue(std::vector<std::tuple<Coord, ExpressionValue> > vals) noexcept;
     // Construct from JSON.  Will convert to an atom or a row.
     ExpressionValue(const Json::Value & json, Date ts);
     
@@ -627,11 +567,11 @@ struct ExpressionValue {
                  size_t numDone = 0) const;
 
     /** Iterate over the child expression. */
-    bool forEachSubexpression(const std::function<bool (const Id & columnName,
-                                                        const Id & prefix,
+    bool forEachSubexpression(const std::function<bool (const Coord & columnName,
+                                                        const Coord & prefix,
                                                         const ExpressionValue & val)>
                                                   & onSubexpression,
-                              const Id & prefix = Id()) const;
+                              const Coord & prefix = Coord()) const;
 
     /** Iterate over child columns, returning a reference that may be moved
         elsewhere.
@@ -639,15 +579,15 @@ struct ExpressionValue {
         Only works for row-typed values.
     */
     bool forEachColumnDestructive
-        (const std::function<bool (Id & columnName, ExpressionValue & val)>
+        (const std::function<bool (Coord & columnName, ExpressionValue & val)>
          & onSubexpression) const;
 
     /** Iterate over the flattened representation. */
-    bool forEachAtom(const std::function<bool (const Id & columnName,
-                                               const Id & prefix,
+    bool forEachAtom(const std::function<bool (const Coord & columnName,
+                                               const Coord & prefix,
                                                const CellValue & val,
                                                Date ts) > & onAtom,
-                     const Id & columnName = Id()) const;
+                     const Coord & columnName = Coord()) const;
 
     /** For a row (structured) storage, returns the number of elements
         that are in it.  Note that this is the non-flattened version,
@@ -658,9 +598,9 @@ struct ExpressionValue {
     /** Write a flattened representation of the current value to the given
         dataset row or event.
     */
-    void appendToRow(const Id & columnName, MatrixNamedRow & row) const;
-    void appendToRow(const Id & columnName, RowValue & row) const;
-    void appendToRow(const Id & columnName, StructValue & row) const;
+    void appendToRow(const Coord & columnName, MatrixNamedRow & row) const;
+    void appendToRow(const Coord & columnName, RowValue & row) const;
+    void appendToRow(const Coord & columnName, StructValue & row) const;
 
     /** Write a flattened representation of the current value to the given
         dataset row or event, moving values and destroying this object in

@@ -233,8 +233,8 @@ BOOST_AUTO_TEST_CASE(test_simple_comparison)
         cerr << parsed->print() << endl;
         auto expr = parsed->bind(context);
         cerr << jsonEncode(expr) << endl;
-        vector<tuple<Id, ExpressionValue> > expected;
-        expected.emplace_back(Id("x + 1"), ExpressionValue(11, Date()));
+        vector<tuple<Coord, ExpressionValue> > expected;
+        expected.emplace_back(Coord("x + 1"), ExpressionValue(11, Date()));
         BOOST_CHECK_EQUAL(expr(createRow({{"x", 10}, {"y", 3}, {"z", 2}})),
                           ExpressionValue(expected));
     }
@@ -1245,6 +1245,8 @@ BOOST_AUTO_TEST_CASE(test_colon_as)
     cerr << "alignof(CellValue) = " << alignof(CellValue) << endl;
     cerr << "sizeof(ExpressionValue) = " << sizeof(ExpressionValue) << endl;
     cerr << "alignof(ExpressionValue) = " << alignof(ExpressionValue) << endl;
+    cerr << "sizeof(Coord) = " << sizeof(Coord) << endl;
+    cerr << "alignof(Coord) = " << alignof(Coord) << endl;
     cerr << "sizeof(Id) = " << sizeof(Id) << endl;
     cerr << "alignof(Id) = " << alignof(Id) << endl;
     cerr << "sizeof(Utf8String) = " << sizeof(Utf8String) << endl;

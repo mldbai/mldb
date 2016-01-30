@@ -221,7 +221,7 @@ getEmbedding(const SelectExpression & select,
 
                 std::vector<std::pair<ColumnName, double> > features;
              
-                auto onColumnValue = [&] (const std::tuple<Id, ExpressionValue> & column)
+                auto onColumnValue = [&] (const std::tuple<Coord, ExpressionValue> & column)
                 {
                     features.emplace_back(get<0>(column), get<1>(column).toDouble());
                     return true;
