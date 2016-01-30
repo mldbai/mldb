@@ -1191,8 +1191,8 @@ BoundFunction horizontal_count(const std::vector<BoundSqlExpression> & args)
                 size_t result = 0;
                 Date ts = Date::negativeInfinity();
 
-                auto onAtom = [&] (const Id & columnName,
-                                   const Id & prefix,
+                auto onAtom = [&] (const Coord & columnName,
+                                   const Coord & prefix,
                                    const CellValue & val,
                                    Date atomTs)
                     {
@@ -1219,8 +1219,8 @@ BoundFunction horizontal_sum(const std::vector<BoundSqlExpression> & args)
                 double result = 0;
                 Date ts = Date::negativeInfinity();
                 
-                auto onAtom = [&] (const Id & columnName,
-                                   const Id & prefix,
+                auto onAtom = [&] (const Coord & columnName,
+                                   const Coord & prefix,
                                    const CellValue & val,
                                    Date atomTs)
                     {
@@ -1248,8 +1248,8 @@ BoundFunction horizontal_avg(const std::vector<BoundSqlExpression> & args)
                 double accum = 0;
                 Date ts = Date::negativeInfinity();
 
-                auto onAtom = [&] (const Id & columnName,
-                                   const Id & prefix,
+                auto onAtom = [&] (const Coord & columnName,
+                                   const Coord & prefix,
                                    const CellValue & val,
                                    Date atomTs)
                     {
@@ -1277,8 +1277,8 @@ BoundFunction horizontal_min(const std::vector<BoundSqlExpression> & args)
                 double min_val = nan("");
                 Date ts = Date::negativeInfinity();
 
-                auto onAtom = [&] (const Id & columnName,
-                                   const Id & prefix,
+                auto onAtom = [&] (const Coord & columnName,
+                                   const Coord & prefix,
                                    const CellValue & val,
                                    Date atomTs)
                     {
@@ -1308,8 +1308,8 @@ BoundFunction horizontal_max(const std::vector<BoundSqlExpression> & args)
                 double max_val = nan("");
                 Date ts = Date::negativeInfinity();
 
-                auto onAtom = [&] (const Id & columnName,
-                                   const Id & prefix,
+                auto onAtom = [&] (const Coord & columnName,
+                                   const Coord & prefix,
                                    const CellValue & val,
                                    Date atomTs)
                     {
@@ -1459,8 +1459,8 @@ BoundFunction concat(const std::vector<BoundSqlExpression> & args)
             Utf8String result = "";
             Date ts = Date::negativeInfinity();
             bool first = true;
-            auto onAtom = [&] (const Id & columnName,
-                               const Id & prefix,
+            auto onAtom = [&] (const Coord & columnName,
+                               const Coord & prefix,
                                const CellValue & val,
                                Date atomTs)
             {

@@ -225,14 +225,14 @@ struct SqliteSparseDataset::Itl
         return ColumnHash(rows.get<long long>(0));
     }
 
-    static Id decodeQuery(const sqlite3pp::query::rows & rows, Id *)
+    static Coord decodeQuery(const sqlite3pp::query::rows & rows, Coord *)
     {
-        return Id(rows.get<const char *>(0));
+        return Coord(rows.get<const char *>(0));
     }
 
-    static std::pair<int, Id> decodeQuery(const sqlite3pp::query::rows & rows, std::pair<int, Id> *)
+    static std::pair<int, Coord> decodeQuery(const sqlite3pp::query::rows & rows, std::pair<int, Coord> *)
     {
-        return make_pair(rows.get<int>(0), Id(rows.get<const char *>(1)));
+        return make_pair(rows.get<int>(0), Coord(rows.get<const char *>(1)));
     }
 
     static std::pair<Date, Date>

@@ -26,6 +26,8 @@ dataset.commit()
 
 resp = mldb.get("/v1/datasets/recordWork/query", ).json()
 
+mldb.log(resp);
+
 answers = [0, "a", 1]
 good = True
 for row, name in zip(resp, answers):

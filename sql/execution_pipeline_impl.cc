@@ -106,8 +106,8 @@ doGetAllColumns(std::function<Utf8String (const Utf8String &)> keep, int fieldOf
 
             StructValue result;
 
-            auto onSubexpression = [&] (const Id & columnName,
-                                        const Id & prefix,  // always null
+            auto onSubexpression = [&] (const Coord & columnName,
+                                        const Coord & prefix,  // always null
                                         const ExpressionValue & value)
             {
                 auto it = index.find(columnName);
@@ -157,7 +157,7 @@ doGetFunction(const Utf8String & functionName,
                      const SqlRowScope & rowScope)
                 {
                     auto & row = static_cast<const PipelineResults &>(rowScope);
-                    RowHash result(Id(row.values.at(fieldOffset + ROW_NAME).toUtf8String()));
+                    RowHash result(Coord(row.values.at(fieldOffset + ROW_NAME).toUtf8String()));
                     return ExpressionValue(result.hash(),
                                            Date::notADate());
                 },

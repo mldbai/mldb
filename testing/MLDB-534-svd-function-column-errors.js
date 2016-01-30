@@ -96,6 +96,8 @@ createAndTrainProcedure(svdConfig, "svd");
 
 var cols = mldb.get("/v1/datasets/svd_random_col/query").json;
 
+mldb.log(cols[0]);
+
 //if (cols.length != 52) {
 //    throw "Expected 52 columns, got " + cols.length;
 //}

@@ -69,7 +69,7 @@ public:
 
     Utf8String(const char * in, bool check=true) ;
     
-    Utf8String(const char *start, unsigned int len, bool check=true);
+    Utf8String(const char *start, size_t len, bool check=true);
 
     Utf8String(const std::basic_string<char32_t> & str);
 

@@ -100,7 +100,7 @@ Utf8String::Utf8String(const string & in, bool check)
         doCheck();
 }
 
-Utf8String::Utf8String(const char *start, unsigned int len, bool check)
+Utf8String::Utf8String(const char *start, size_t len, bool check)
     :data_(start, len)
 {
     if (check)
@@ -414,7 +414,7 @@ rfind(const Utf8String & s)
 
     // Point to the first place it could match
     auto it = end();
-    for (unsigned i = 0;  i < s.length();  ++i) {
+    for (size_t i = 0;  i < s.length();  ++i) {
         if (it == begin())
             return end();
         --it;

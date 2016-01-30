@@ -103,7 +103,7 @@ getRow(const RowName & row) const
     }
 
     if (result.columns.empty())
-        throw ML::Exception("unknown row '%s'", row.toString().c_str());
+        throw ML::Exception("unknown row '%s'", row.toUtf8String().rawData());
 
     return result;
 }
@@ -164,14 +164,14 @@ getColumn(const ColumnName & column) const
         if (!index->knownColumn(column)) continue;
 
         auto ret = index->getColumn(column);
-        if (!result.columnName)
+        if (result.columnName.empty())
             result.columnName = std::move(ret.columnName);
 
         result.rows.insert(result.rows.end(), ret.rows.begin(), ret.rows.end());
     }
 
     if (result.rows.empty())
-        throw ML::Exception("unknown column '%s'", column.toString().c_str());
+        throw ML::Exception("unknown column '%s'", column.toUtf8String().rawData());
 
     return result;
 }

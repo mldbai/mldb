@@ -13,6 +13,8 @@
 #include "mldb/core/mldb_entity.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/http/http_exception.h"
+#include "mldb/sql/coord.h"
+
 
 // NOTE TO MLDB DEVELOPERS: This is an API header file.  No includes
 // should be added, especially value_description.h.
@@ -34,7 +36,9 @@ namespace Datacratic {
 struct ValueMapKey {
     ValueMapKey();
     ValueMapKey(Utf8String str);
-    ValueMapKey(const Id & id);
+    ValueMapKey(std::string str);
+    ValueMapKey(const MLDB::Coord & coord);
+    ValueMapKey(const char * utf8Start);
     ValueMapKey(const char * utf8Start, size_t utf8Len);
 
     /// Obtain a ValueMapKey that allocates nothing and has a reference to
@@ -46,12 +50,12 @@ struct ValueMapKey {
     static ValueMapKey ref(const std::string & name);
 
     /// Obtain a ValueMapKey that allocates nothing and has a reference to
-    /// the data in name, which must be immutable and outlive the result
-    static ValueMapKey ref(const Id & name);
+    /// the data in coord, which must be immutable and outlive the result
+    static ValueMapKey ref(const MLDB::Coord & coord);
 
     bool empty() const { return utf8Len == 0; }
 
-    Id toId() const;
+    MLDB::Coord toCoord() const;
     Utf8String toUtf8String() const;
     std::string rawString() const;
     
@@ -240,7 +244,7 @@ struct FunctionOutput {
         set(ValueMapKey(name), std::move(value));
     }
 
-    void set(const Id & name, ExpressionValue value)
+    void set(const Coord & name, ExpressionValue value)
     {
         set(ValueMapKey(name), std::move(value));
     }

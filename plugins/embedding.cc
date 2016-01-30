@@ -30,6 +30,22 @@ using namespace std;
 namespace Datacratic {
 namespace MLDB {
 
+inline ML::DB::Store_Writer &
+operator << (ML::DB::Store_Writer & store, const Coord & coord)
+{
+    // Currently not used, since we haven't exposed serialization
+    // of embedding datasets.
+    throw ML::Exception("Coord serialization");
+}
+
+inline ML::DB::Store_Reader &
+operator >> (ML::DB::Store_Reader & store, Coord & coord)
+{
+    // Currently not used, since we haven't exposed serialization
+    // of embedding datasets.
+    throw ML::Exception("Coord deserialization");
+}
+
 
 /*****************************************************************************/
 /* EMBEDDING DATASET CONFIG                                                  */
@@ -123,7 +139,7 @@ struct EmbeddingDatasetRepr {
 
         void serialize(ML::DB::Store_Writer & store) const
         {
-            store << rowName.toString() << coords << timestamp;
+            store << rowName.toUtf8String() << coords << timestamp;
         }
     };
 
@@ -635,10 +651,6 @@ struct EmbeddingDataset::Itl
             const RowName & rowName = std::get<0>(r);
             uint64_t rowHash = EmbeddingDatasetRepr::getRowHashForIndex(rowName);
 
-            if (rowName.stringEqual("null") || rowName.stringEqual("0"))
-                cerr << "inserting " << rowName << " with hash " << rowHash
-                     << endl;
-
             const auto & vec = std::get<1>(r);
             ML::distribution<float> embedding(vec.begin(), vec.end());
             Date ts = std::get<2>(r);
@@ -658,13 +670,13 @@ struct EmbeddingDataset::Itl
                         .rowName;
                     if (oldName == rowName)
                         throw HttpReturnException
-                            (400, "Row '" + rowName.toString()
+                            (400, "Row '" + rowName.toUtf8String()
                              + "' has already been recorded into embedding dataset.  "
-                             + "Are you re-using an output dataset?");
+                             + "Are you re-using an output dataset (1)?");
                     else {
                         throw HttpReturnException
-                            (400, "Row '" + rowName.toString() + "' and '"
-                             + oldName.toString() + "' both hash to '"
+                            (400, "Row '" + rowName.toUtf8String() + "' and '"
+                             + oldName.toUtf8String() + "' both hash to '"
                              + RowHash(rowName).toString() + "' (hash collision). "
                              + "You may be able to modify your names to avoid the collision.");
                     }
@@ -693,6 +705,8 @@ struct EmbeddingDataset::Itl
     recordRowItl(const RowName & rowName,
                  const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
     {
+        cerr << "recording row " << rowName << endl;
+
         auto repr = committed();
 
         uint64_t rowHash = EmbeddingDatasetRepr::getRowHashForIndex(rowName);
@@ -749,7 +763,7 @@ struct EmbeddingDataset::Itl
                 auto it = (*uncommitted).columnIndex.find(std::get<0>(v));
                 if (it == (*uncommitted).columnIndex.end())
                     throw HttpReturnException(400, "Couldn't extract column with name 2 "
-                                        + std::get<0>(v).toString());
+                                        + std::get<0>(v).toUtf8String());
                 
                 embedding[it->second] = std::get<1>(v).toDouble();
                 latestDate.setMax(std::get<2>(v));
@@ -773,14 +787,14 @@ struct EmbeddingDataset::Itl
                     .rowName;
                 if (oldName == rowName)
                     throw HttpReturnException
-                        (400, "Row '" + rowName.toString()
+                        (400, "Row '" + rowName.toUtf8String()
                          + "' has already been recorded into embedding dataset.  "
-                         + "Are you re-using an output dataset?");
+                         + "Are you re-using an output dataset (2)?");
                 else {
                     return;
                     throw HttpReturnException
-                        (400, "Row '" + rowName.toString() + "' and '"
-                         + oldName.toString() + "' both hash to '"
+                        (400, "Row '" + rowName.toUtf8String() + "' and '"
+                         + oldName.toUtf8String() + "' both hash to '"
                          + RowHash(rowName).toString() + "' (hash collision). "
                          + "You may be able to modify your names to avoid the collision.");
                 }
@@ -1101,7 +1115,7 @@ overrideFunction(const Utf8String & tableName,
                     //     << endl;
 
                     auto row1 = args.at(1).getRow();
-                    string row2Name = args.at(2).toString();
+                    Utf8String row2Name = args.at(2).toUtf8String();
                     auto row2 = itl->getRow(RowName(row2Name)).columns;
 
                     // Work out the timestamp at which this was known
@@ -1113,7 +1127,7 @@ overrideFunction(const Utf8String & tableName,
 
                     //cerr << "row = " << jsonEncode(row) << endl;
 
-                    if (args.at(0).toString() == "pythag") {
+                    if (args.at(0).toUtf8String() == "pythag") {
                         ExcAssertEqual(row1.size(), row2.size());
                         double total = 0.0;
                         for (unsigned i = 0;  i < row1.size();  ++i) {
@@ -1131,7 +1145,7 @@ overrideFunction(const Utf8String & tableName,
 
                         return ExpressionValue(sqrt(total), ts);
                     }
-                    else if (args.at(0).toString() == "cosine") {
+                    else if (args.at(0).toUtf8String() == "cosine") {
                         ExcAssertEqual(row1.size(), row2.size());
                         size_t nd = row1.size();
                         
@@ -1148,7 +1162,7 @@ overrideFunction(const Utf8String & tableName,
 
                         return ExpressionValue(1 - vec1.dotprod(vec2) / (vec1.two_norm() * vec2.two_norm()), ts);
                     }
-                    else if (args.at(0).toString() == "angular") {
+                    else if (args.at(0).toUtf8String() == "angular") {
                         ExcAssertEqual(row1.size(), row2.size());
                         size_t nd = row1.size();
                         
@@ -1167,7 +1181,7 @@ overrideFunction(const Utf8String & tableName,
                     }
                     
                     throw HttpReturnException(400,
-                                              "unknown distance metric " + args.at(0).toString());
+                                              "unknown distance metric " + args.at(0).toUtf8String());
                 },
                 std::make_shared<Float64ValueInfo>() };
     }

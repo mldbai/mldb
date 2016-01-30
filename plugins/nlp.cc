@@ -68,8 +68,8 @@ apply(const FunctionApplier & applier,
       const FunctionContext & context) const
 {
     RowValue rtnRow;
-    auto onAtom = [&] (const Id & columnName,
-                       const Id & prefix,
+    auto onAtom = [&] (const Coord & columnName,
+                       const Coord & prefix,
                        const CellValue & val,
                        Date ts)
         {
@@ -162,10 +162,10 @@ apply(const FunctionApplier & applier,
     // the stemmer is not thread safe
     unique_lock<mutex> guard(apply_mutex);
 
-    map<Id, pair<double, Date>> accum;
+    map<Coord, pair<double, Date>> accum;
 
-    auto onAtom = [&] (const Id & columnName,
-                       const Id & prefix,
+    auto onAtom = [&] (const Coord & columnName,
+                       const Coord & prefix,
                        const CellValue & val,
                        Date ts)
         {
@@ -178,7 +178,7 @@ apply(const FunctionApplier & applier,
                 throw ML::Exception("Out of memory when stemming");
             }
 
-            Id col(string((const char*)stemmed));
+            Coord col(string((const char*)stemmed));
             auto it = accum.find(col);
             if(it == accum.end()) {
                 accum.emplace(col, std::move(make_pair(val.toDouble(), ts)));

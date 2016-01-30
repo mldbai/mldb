@@ -131,7 +131,7 @@ run(const ProcedureRunConfig & run,
         calc.emplace_back(whenClause);
     }
 
-    vector<Id> orderedRowNames;
+    vector<RowName> orderedRowNames;
     Date globalMaxOrderByTimestamp = Date::negativeInfinity();
     auto getSize = [&] (const MatrixNamedRow & row,
                         const vector<ExpressionValue> & calc)

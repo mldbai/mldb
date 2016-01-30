@@ -264,11 +264,11 @@ toUtf8String() const
     switch (type) {
     case ST_UTF8_SHORT_STRING:
     case ST_ASCII_SHORT_STRING:
-        return Utf8String(shortString, strLength);
+        return Utf8String((const char *)shortString, (size_t)strLength);
     case ST_UTF8_LONG_STRING:
     case ST_ASCII_LONG_STRING:
         try {
-            return Utf8String(longString->repr, strLength);
+            return Utf8String(longString->repr, (size_t)strLength);
         } catch (...) {
             for (unsigned i = 0;  i < strLength;  ++i) {
                 cerr << "char at index " << i << " of " << strLength << " is "
@@ -292,7 +292,7 @@ toWideString() const
         
     case ST_UTF8_SHORT_STRING:
     case ST_UTF8_LONG_STRING: {
-        Utf8String str(stringChars(), strLength);
+        Utf8String str(stringChars(), (size_t)strLength);
         return std::basic_string<char32_t>(str.begin(), str.end());
     }
     default: {

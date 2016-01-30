@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** expression_value.h                                             -*- C++ -*-
     Jeremy Barnes, 14 February 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Code for the type that holds the value of an expression.
 */
@@ -882,7 +882,7 @@ ExpressionValue(ExpressionValue && other) noexcept
 }
 
 ExpressionValue::
-ExpressionValue(std::vector<std::tuple<Id, ExpressionValue> > vals) noexcept
+ExpressionValue(std::vector<std::tuple<Coord, ExpressionValue> > vals) noexcept
     : type_(NONE)
 {
     initRow(std::move(vals));
@@ -1206,8 +1206,8 @@ getMinTimestamp() const
 
     Date result = Date::positiveInfinity();
 
-    auto onSubex = [&] (const Id & columnName,
-                        const Id & prefix,
+    auto onSubex = [&] (const Coord & columnName,
+                        const Coord & prefix,
                         const ExpressionValue & val)
         {
             result.setMin(val.getMinTimestamp());
@@ -1228,8 +1228,8 @@ getMaxTimestamp() const
 
     Date result = Date::negativeInfinity();
 
-    auto onSubex = [&] (const Id & columnName,
-                        const Id & prefix,
+    auto onSubex = [&] (const Coord & columnName,
+                        const Coord & prefix,
                         const ExpressionValue & val)
         {
             result.setMax(val.getMaxTimestamp());
@@ -1479,21 +1479,18 @@ ExpressionValue::
 appendToRow(const ColumnName & columnName, RowValue & row) const
 {
     auto onAtom = [&] (const ColumnName & columnName,
-                       const Id & prefix,
+                       const Coord & prefix,
                        const CellValue & val,
                        Date ts)
         {
-            if (prefix == Id()) {
+            if (prefix == Coord()) {
                 row.emplace_back(columnName, val, ts);
             }
             else if (columnName == ColumnName()) {
                 row.emplace_back(prefix, val, ts);
             }
             else {
-                row.emplace_back(ColumnName(prefix.toUtf8String()
-                                            + "."
-                                            + columnName.toUtf8String()),
-                                 val, ts);
+                row.emplace_back(prefix + columnName, val, ts);
             }
             return true;
         };
@@ -1503,17 +1500,13 @@ appendToRow(const ColumnName & columnName, RowValue & row) const
 
 void
 ExpressionValue::
-appendToRow(const Id & columnName, StructValue & row) const
+appendToRow(const Coord & columnName, StructValue & row) const
 {
     auto onSubexpr = [&] (const ColumnName & columnName,
-                          const Id & prefix,
+                          const Coord & prefix,
                           const ExpressionValue & val)
         {
-            if (prefix == Id())
-                row.emplace_back(columnName, val);
-            else {
-                row.emplace_back(ColumnName(prefix.toUtf8String() + "." + columnName.toUtf8String()), val);
-            }
+            row.emplace_back(prefix + columnName, val);
             return true;
         };
 
@@ -1571,11 +1564,11 @@ mergeToRowDestructive(RowValue & row)
 
 bool
 ExpressionValue::
-forEachAtom(const std::function<bool (const Id & columnName,
-                                      const Id & prefix,
+forEachAtom(const std::function<bool (const Coord & columnName,
+                                      const Coord & prefix,
                                       const CellValue & val,
                                       Date ts) > & onAtom,
-            const Id & prefix) const
+            const Coord & prefix) const
 {
     switch (type_) {
     case ROW: {
@@ -1592,11 +1585,7 @@ forEachAtom(const std::function<bool (const Id & columnName,
                     return false;
             }
             else {
-                std::string newPrefix
-                    = !prefix.notNull() ? std::get<0>(col).toString()
-                    : prefix.toString() + "." + std::get<0>(col).toString();
-            
-                if (!val.forEachAtom(onAtom, Id(newPrefix)))
+                if (!val.forEachAtom(onAtom, prefix + std::get<0>(col)))
                     return false;
             }
         }
@@ -1618,10 +1607,10 @@ forEachAtom(const std::function<bool (const Id & columnName,
         return tensor_->forEachColumn(onCol);
     }
     case NONE: {
-        return onAtom(Id(), prefix, CellValue(), ts_);
+        return onAtom(Coord(), prefix, CellValue(), ts_);
     }
     case ATOM: {
-        return onAtom(Id(), prefix, cell_, ts_);
+        return onAtom(Coord(), prefix, cell_, ts_);
     }
     }
 
@@ -1632,11 +1621,11 @@ forEachAtom(const std::function<bool (const Id & columnName,
 
 bool
 ExpressionValue::
-forEachSubexpression(const std::function<bool (const Id & columnName,
-                                               const Id & prefix,
+forEachSubexpression(const std::function<bool (const Coord & columnName,
+                                               const Coord & prefix,
                                                const ExpressionValue & val)>
                          & onSubexpression,
-                     const Id & prefix) const
+                     const Coord & prefix) const
 {
     switch (type_) {
     case ROW: {
@@ -1659,10 +1648,10 @@ forEachSubexpression(const std::function<bool (const Id & columnName,
         throw ML::Exception("Not implemented: forEachSubexpression for Tensor value");
     }
     case NONE: {
-        return onSubexpression(Id(), prefix, ExpressionValue::null(ts_));
+        return onSubexpression(Coord(), prefix, ExpressionValue::null(ts_));
     }
     case ATOM: {
-        return onSubexpression(Id(), prefix, ExpressionValue(cell_, ts_));
+        return onSubexpression(Coord(), prefix, ExpressionValue(cell_, ts_));
     }
     }
 
@@ -1673,7 +1662,7 @@ forEachSubexpression(const std::function<bool (const Id & columnName,
 
 bool
 ExpressionValue::
-forEachColumnDestructive(const std::function<bool (Id & columnName, ExpressionValue & val)>
+forEachColumnDestructive(const std::function<bool (Coord & columnName, ExpressionValue & val)>
                                 & onSubexpression) const
 {
     return forEachColumnDestructiveT(onSubexpression);
@@ -1695,7 +1684,7 @@ forEachColumnDestructiveT(Fn && onSubexpression) const
 
             for (auto & col: const_cast<Row &>(*row_)) {
                 ExpressionValue val(std::move(std::get<1>(col)));
-                Id columnName(std::move(std::get<0>(col)));
+                Coord columnName(std::move(std::get<0>(col)));
                 if (!onSubexpression(columnName, val))
                     return false;
             }
@@ -1703,7 +1692,7 @@ forEachColumnDestructiveT(Fn && onSubexpression) const
         else {
             for (auto & col: *row_) {
                 ExpressionValue val = std::get<1>(col);
-                Id columnName = std::get<0>(col);
+                Coord columnName = std::get<0>(col);
                 if (!onSubexpression(columnName, val))
                     return false;
             }
@@ -1717,7 +1706,7 @@ forEachColumnDestructiveT(Fn && onSubexpression) const
 
             for (unsigned i = 0;  i < s.length();  ++i) {
                 ExpressionValue val(std::move(s.moveValue(i)), ts_);
-                Id columnName = s.columnName(i);
+                Coord columnName = s.columnName(i);
                 if (!onSubexpression(columnName, val))
                     return false;
             }
@@ -1726,7 +1715,7 @@ forEachColumnDestructiveT(Fn && onSubexpression) const
         else {
             for (unsigned i = 0;  i < struct_->length();  ++i) {
                 ExpressionValue val(struct_->value(i), ts_);
-                Id columnName = struct_->columnName(i);
+                Coord columnName = struct_->columnName(i);
                 if (!onSubexpression(columnName, val))
                     return false;
             }
@@ -1785,7 +1774,7 @@ getFiltered(const VariableFilter & filter /*= GET_LATEST*/) const
     //Remove any duplicated columns according to the filter
     std::unordered_map<ColumnName, ExpressionValue> values;
     for (auto & col: *row_) {
-        Id columnName = std::get<0>(col);
+        Coord columnName = std::get<0>(col);
         auto iter = values.find(columnName);
         if (iter != values.end()) {
             const ExpressionValue& val = std::get<1>(col);
@@ -1822,8 +1811,8 @@ hasKey(const Utf8String & key) const
     case TENSOR: {
         // TODO: for Tensor, we can do much, much better
         Date outputDate = Date::negativeInfinity();
-        auto onExpr = [&] (const Id & columnName,
-                           const Id & prefix,
+        auto onExpr = [&] (const Coord & columnName,
+                           const Coord & prefix,
                            const ExpressionValue & val)
             {
                 if (columnName.toUtf8String() == key) {
@@ -1876,8 +1865,8 @@ hasValue(const ExpressionValue & val) const
     case TENSOR: {
         // TODO: for tensor, we can do much, much better
         Date outputDate = Date::negativeInfinity();
-        auto onExpr = [&] (const Id & columnName,
-                           const Id & prefix,
+        auto onExpr = [&] (const Coord & columnName,
+                           const Coord & prefix,
                            const ExpressionValue & value)
             {
                 if (val == value) {
@@ -2208,6 +2197,8 @@ getSpecializedValueInfo() const
     }
 }
 
+using Datacratic::getDefaultDescriptionShared;
+
 namespace {
 auto cellDesc = getDefaultDescriptionShared((CellValue *)0);
 auto rowDesc = getDefaultDescriptionShared((ExpressionValue::Row *)0);
@@ -2232,7 +2223,7 @@ extractJson(JsonPrintingContext & context) const
         Json::Value output(Json::objectValue);
 
         for (auto & r: *row_)
-            output[std::get<0>(r).toString()] = std::get<1>(r).extractJson();
+            output[std::get<0>(r).toUtf8String()] = std::get<1>(r).extractJson();
 
         context.writeJson(output);
         break;
@@ -2250,7 +2241,7 @@ extractJson(JsonPrintingContext & context) const
             
             for (unsigned i = 0;  i < struct_->length();  ++i) {
                 output[i] = jsonEncode(struct_->value(i));
-                if (struct_->columnNames->at(i).toString()
+                if (struct_->columnNames->at(i).toUtf8String()
                     != ML::format("%06d", i)) {
                     // Not really an array or embedding...
                     output = Json::Value();
@@ -2267,7 +2258,7 @@ extractJson(JsonPrintingContext & context) const
         output = Json::Value(Json::objectValue);
 
         for (unsigned i = 0;  i < struct_->length();  ++i) {
-            output[struct_->columnName(i).toString()]
+            output[struct_->columnName(i).toUtf8String()]
                 = jsonEncode(struct_->value(i));
         }
 
@@ -2424,7 +2415,7 @@ printJsonTyped(const ExpressionValue * val,
             
             for (unsigned i = 0;  i < val->struct_->length();  ++i) {
                 output[i] = jsonEncode(val->struct_->value(i));
-                if (val->struct_->columnName(i).toString()
+                if (val->struct_->columnName(i).toUtf8String()
                     != ML::format("%06d", i)) {
                     // Not really an array or embedding...
                     output = Json::Value();
@@ -2441,7 +2432,7 @@ printJsonTyped(const ExpressionValue * val,
         output = Json::Value(Json::objectValue);
 
         for (unsigned i = 0;  i < val->struct_->length();  ++i) {
-            output[val->struct_->columnName(i).toString()]
+            output[val->struct_->columnName(i).toUtf8String()]
                 = jsonEncode(val->struct_->value(i));
         }
 

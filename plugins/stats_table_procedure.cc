@@ -33,6 +33,21 @@ using namespace std;
 namespace Datacratic {
 namespace MLDB {
 
+inline ML::DB::Store_Writer &
+operator << (ML::DB::Store_Writer & store, const Coord & coord)
+{
+    return store << Id(coord.toUtf8String());
+}
+
+inline ML::DB::Store_Reader &
+operator >> (ML::DB::Store_Reader & store, Coord & coord)
+{
+    Id id;
+    store >> id;
+    coord = id.toUtf8String();
+    return store;
+}
+
 
 
 
@@ -253,9 +268,9 @@ run(const ProcedureRunConfig & run,
                         Utf8String keySuffix = get<0>(col).toUtf8String();
 
                         vector<ColumnName> names;
-                        names.emplace_back(Id("trial_"+keySuffix));
+                        names.emplace_back(Coord("trial_"+keySuffix));
                         for(int lbl_idx=0; lbl_idx<encodedLabels.size(); lbl_idx++) {
-                            names.emplace_back(Id(outcome_names[lbl_idx]+"_"+keySuffix));
+                            names.emplace_back(Coord(outcome_names[lbl_idx]+"_"+keySuffix));
                         }
 
                         auto inserted = colCache.emplace(get<0>(col), names);
@@ -396,10 +411,10 @@ apply(const FunctionApplier & applier,
                 auto counts = st->second.getCounts(val);
 
                 auto strCol = columnName.toUtf8String(); 
-                rtnRow.push_back(make_tuple(Id("trial_"+strCol), counts.first, ts));
+                rtnRow.push_back(make_tuple(Coord("trial_"+strCol), counts.first, ts));
 
                 for(int lbl_idx=0; lbl_idx<st->second.outcome_names.size(); lbl_idx++) {
-                    rtnRow.push_back(make_tuple(Id(st->second.outcome_names[lbl_idx]+"_"+strCol),
+                    rtnRow.push_back(make_tuple(Coord(st->second.outcome_names[lbl_idx]+"_"+strCol),
                                                 counts.second[lbl_idx],
                                                 ts));
                 }
@@ -480,18 +495,18 @@ run(const ProcedureRunConfig & run,
 
     /*******/
     // Expand the expression. this is painfully naive and slow for now
-    vector<string> stNames;
-    vector<string> tempExpressions;
+    vector<std::string> stNames; // UTF-8 encoded raw strings
+    vector<std::string> tempExpressions;  // UTF-8 encoded raw strings
 
 
     // mettre toutes les expression dans une liste
     for(auto it=statsTables.begin(); it != statsTables.end(); it++) {
-        stNames.emplace_back(it->first.toString());
+        stNames.emplace_back(it->first.toUtf8String().rawString());
         tempExpressions.emplace_back(runProcConf.expression);
     }
 
     // looper sur toutes les replace. trial, outcome1, outcome2. si un replace retourne 0, skip
-    auto do_replace = [&] (const string & outcome)
+    auto do_replace = [&] (const std::string & outcome)
         {
             for(int i=0; i<tempExpressions.size(); i++) {
                 if(!ML::replace_all(tempExpressions[i], outcome, outcome+"_"+stNames[i]))
@@ -512,7 +527,7 @@ run(const ProcedureRunConfig & run,
 
 
     // assemble the final select expression
-    string assembled = "";
+    std::string assembled;
     for(auto & ts : tempExpressions)
         assembled += ts + ",";
     assembled.pop_back();
@@ -787,9 +802,9 @@ apply(const FunctionApplier & applier,
                     return true;
                 }
 
-                rtnRow.push_back(make_tuple(Id(columnName.toUtf8String() + "_" + functionConfig.outcomeToUse),
-                                            it->second,
-                                            ts));
+                rtnRow.emplace_back(Coord(columnName.toUtf8String() + "_" + functionConfig.outcomeToUse),
+                                    it->second,
+                                    ts);
 
                 return true;
             };

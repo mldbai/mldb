@@ -71,7 +71,7 @@ createAndRunProcedure(transform_config, "transform");
 
 var resp = mldb.get("/v1/datasets/transformed/query", {select: 'x,y,z,q', format: 'table'});
 
-plugin.log("transform limit 3 query result", resp);
+plugin.log("transform limit 3 query result", resp.json);
 
 var expected = [
     [ "_rowName", "x", "y", "z", "q" ],

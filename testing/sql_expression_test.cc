@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** sql_expression_test.cc
     Jeremy Barnes, 25 January 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Test of row expressions.
 */
@@ -233,8 +233,8 @@ BOOST_AUTO_TEST_CASE(test_simple_comparison)
         cerr << parsed->print() << endl;
         auto expr = parsed->bind(context);
         cerr << jsonEncode(expr) << endl;
-        vector<tuple<Id, ExpressionValue> > expected;
-        expected.emplace_back(Id("x + 1"), ExpressionValue(11, Date()));
+        vector<tuple<Coord, ExpressionValue> > expected;
+        expected.emplace_back(Coord("x + 1"), ExpressionValue(11, Date()));
         BOOST_CHECK_EQUAL(expr(createRow({{"x", 10}, {"y", 3}, {"z", 2}})),
                           ExpressionValue(expected));
     }

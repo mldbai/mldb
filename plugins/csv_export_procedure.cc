@@ -192,7 +192,7 @@ run(const ProcedureRunConfig & run,
 
     if (procedureConfig.headers) {
         for (const auto & name: bsq.getSelectOutputInfo()->allColumnNames()) {
-            csv << name;
+            csv << name.toUtf8String();
         }
         csv.endl();
     }

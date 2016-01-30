@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* id.h                                                            -*- C++ -*-
    Jeremy Barnes, 17 February 2012
    Copyright (c) 2012 Datacratic.  All rights reserved.
+
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Basic ID type for binary IDs of all types.
 */
