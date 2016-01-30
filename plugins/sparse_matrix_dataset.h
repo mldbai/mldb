@@ -89,7 +89,7 @@ struct MutableSparseMatrixDatasetConfig
     double timeQuantumSeconds;
 
     /// Write transaction level.  Can data be read straight away or after commit
-    WriteTransactionLevel writeLevel;
+    WriteTransactionLevel consistencyLevel;
 
     /// Transaction favor.  When reads and writes are mixed, which do we favor?
     TransactionFavor favor;

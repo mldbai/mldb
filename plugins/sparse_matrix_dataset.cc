@@ -1458,11 +1458,11 @@ DEFINE_ENUM_DESCRIPTION(WriteTransactionLevel);
 WriteTransactionLevelDescription::
 WriteTransactionLevelDescription()
 {
-    addValue("readAfterWrite", WT_READ_AFTER_WRITE,
+    addValue("consistentAfterWrite", WT_READ_AFTER_WRITE,
              "A value written will be available immediately after writing.  "
              "This provides the most consistency as operations are "
              "serializable, at the expense of slower writes and reads.");
-    addValue("readAfterCommit", WT_READ_AFTER_COMMIT,
+    addValue("consistentAfterCommit", WT_READ_AFTER_COMMIT,
              "A value written will only be guaranteed to be available after "
              "a `commit()` call has returned successfully, and may not be "
              "readable until that point.  This provides much faster write "
@@ -1488,7 +1488,7 @@ TransactionFavorDescription()
 MutableSparseMatrixDatasetConfig::
 MutableSparseMatrixDatasetConfig()
     : timeQuantumSeconds(1.0),
-      writeLevel(WT_READ_AFTER_COMMIT),
+      consistencyLevel(WT_READ_AFTER_COMMIT),
       favor(TF_FAVOR_READS)
 {
 }
@@ -1504,16 +1504,17 @@ MutableSparseMatrixDatasetConfigDescription()
              "in seconds. 1 means one second, 0.001 means one millisecond, 60 means one minute. "
              "Higher resolution requires more memory to store timestamps.", 1.0);
 
-    addField("writeLevel", &MutableSparseMatrixDatasetConfig::writeLevel,
+    addField("consistencyLevel", &MutableSparseMatrixDatasetConfig::consistencyLevel,
              "Transaction level for reading of written values.  In the "
-             "default level (`readAfterCommit`), a value is only guaranteed "
-             "to be readable after a commit, but writes are fast. "
-             "With the `readAfterWrite` level, a written value can "
+             "default level, which is `consistentAfterCommit`, a value is "
+             "only guaranteed to be readable after a commit (so it may seem "
+             "like data is being lost if read before a commit) but writes are fast. "
+             "With the `consistentAfterWrite` level, a written value can "
              "immediately be read back but writes are slower.", 
              WT_READ_AFTER_COMMIT);
     addField("favor", &MutableSparseMatrixDatasetConfig::favor,
              "Whether to favor reads or writes.  Only has effect for when "
-             "`writeLevel` is set to `readAfterWrite`.",
+             "`consistencyLevel` is set to `consistentAfterWrite`.",
              TF_FAVOR_READS);
 }
 
@@ -1527,11 +1528,11 @@ struct MutableSparseMatrixDataset::Itl
     GcLock gc;
 
     Itl(double timeQuantumSeconds,
-        WriteTransactionLevel writeLevel,
+        WriteTransactionLevel consistencyLevel,
         TransactionFavor favor) 
     {
         CommitMode mode;
-        if (writeLevel == WT_READ_AFTER_COMMIT)
+        if (consistencyLevel == WT_READ_AFTER_COMMIT)
             mode = READ_ON_COMMIT;
         else if (favor == TF_FAVOR_READS)
             mode = READ_FAST;
@@ -1554,7 +1555,7 @@ MutableSparseMatrixDataset(MldbServer * owner,
     : SparseMatrixDataset(owner)
 {
     auto params = config.params.convert<MutableSparseMatrixDatasetConfig>();
-    itl.reset(new Itl(params.timeQuantumSeconds, params.writeLevel, params.favor));
+    itl.reset(new Itl(params.timeQuantumSeconds, params.consistencyLevel, params.favor));
 }
 
 static RegisterDatasetType<MutableSparseMatrixDataset,

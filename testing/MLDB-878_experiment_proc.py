@@ -13,10 +13,7 @@ mldb = mldb_wrapper.wrap(mldb) # noqa
 for dataset_id in ["toy", "toy2"]:
     dataset_config = {
         'type'    : 'sparse.mutable',
-        'id'      : dataset_id,
-        'params': {
-            "writeLevel": "readAfterCommit"
-        }
+        'id'      : dataset_id
     }
 
     dataset = mldb.create_dataset(dataset_config)
