@@ -737,7 +737,7 @@ private:
 
     /// This is where the underlying values are actually stored
     union {
-        uint64_t storage_[4];
+        uint64_t storage_[2];
         CellValue cell_;
         std::shared_ptr<const Row> row_;
         std::shared_ptr<const Struct> struct_;
