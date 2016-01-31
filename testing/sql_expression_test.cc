@@ -1245,4 +1245,12 @@ BOOST_AUTO_TEST_CASE(test_colon_as)
     cerr << "alignof(CellValue) = " << alignof(CellValue) << endl;
     cerr << "sizeof(ExpressionValue) = " << sizeof(ExpressionValue) << endl;
     cerr << "alignof(ExpressionValue) = " << alignof(ExpressionValue) << endl;
+    cerr << "sizeof(Coord) = " << sizeof(Coord) << endl;
+    cerr << "alignof(Coord) = " << alignof(Coord) << endl;
+    cerr << "sizeof(Id) = " << sizeof(Id) << endl;
+    cerr << "alignof(Id) = " << alignof(Id) << endl;
+    cerr << "sizeof(Utf8String) = " << sizeof(Utf8String) << endl;
+    cerr << "alignof(Utf8String) = " << alignof(Utf8String) << endl;
+    cerr << "sizeof(std::string) = " << sizeof(std::string) << endl;
+    cerr << "alignof(std::string) = " << alignof(std::string) << endl;
 }

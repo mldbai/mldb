@@ -33,8 +33,8 @@ namespace MLDB {
 
 struct Coord {
     Coord();
-    Coord(const Utf8String & str);
-    Coord(const std::string & str);
+    Coord(Utf8String str);
+    Coord(std::string str);
     Coord(const char * str);
     Coord(const char * str, size_t len);
 

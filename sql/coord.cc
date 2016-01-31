@@ -13,6 +13,10 @@
 #include "mldb/ext/siphash/csiphash.h"
 #include "mldb/utils/json_utils.h"
 
+
+using namespace std;
+
+
 namespace Datacratic {
 namespace MLDB {
 
@@ -28,14 +32,14 @@ Coord()
 }
 
 Coord::
-Coord(const Utf8String & str)
-    : str(str)
+Coord(Utf8String str)
+    : str(std::move(str))
 {
 }
 
 Coord::
-Coord(const std::string & str)
-    : str(str)
+Coord(std::string str)
+    : str(std::move(str))
 {
 }
 
