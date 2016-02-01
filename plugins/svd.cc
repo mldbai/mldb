@@ -102,7 +102,11 @@ SvdConfigDescription()
              "the trained model.");
     addParent<ProcedureConfig>();
 
-    onPostValidate = validate<SvdConfig, InputQuery, NoGroupByHaving, PlainColumnSelect>(&SvdConfig::trainingData, "svd");
+    onPostValidate = validate<SvdConfig, 
+                              InputQuery, 
+                              NoGroupByHaving, 
+                              PlainColumnSelect,
+                              MustContainFrom>(&SvdConfig::trainingData, "svd");
 }
 
 DEFINE_STRUCTURE_DESCRIPTION(SvdColumnEntry);

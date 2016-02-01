@@ -20,6 +20,7 @@
 #include "mldb/types/any_impl.h"
 #include "mldb/server/per_thread_accumulator.h"
 #include "mldb/rest/in_process_rest_connection.h"
+#include "mldb/plugins/sql_config_validator.h"
 #include <memory>
 
 using namespace std;
@@ -72,8 +73,7 @@ getStatus() const
 struct SqlQueryFunctionApplier: public FunctionApplier {
     SqlQueryFunctionApplier(const SqlQueryFunction * function,
                             const SqlQueryFunctionConfig & config)
-        : FunctionApplier(function),
-          from(std::move(from))
+        : FunctionApplier(function)
     {
         // Called when we bind a parameter, to get its information
         auto getParamInfo = [&] (const Utf8String & paramName)
@@ -153,7 +153,6 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
         return result;
     }
 
-    std::shared_ptr<Dataset> from;
     std::shared_ptr<PipelineElement> pipeline;
     std::shared_ptr<BoundPipelineElement> boundPipeline;
 };
@@ -385,6 +384,10 @@ TransformDatasetConfigDescription()
              "Skip rows from the input dataset where no values are selected",
              false);
     addParent<ProcedureConfig>();
+
+    onPostValidate = validate<TransformDatasetConfig, 
+                              InputQuery, 
+                              MustContainFrom>(&TransformDatasetConfig::inputData, "transform");
 }
 
 TransformDataset::

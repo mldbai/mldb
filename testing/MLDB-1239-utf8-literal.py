@@ -3,7 +3,7 @@
 utf8LiteralConfig = {
     "type": "transform",
     "params": {
-        "inputData": "SELECT 'françois'",
+        "inputData": "SELECT 'françois' FROM dummy",
         "outputDataset": "output"
     }
 }

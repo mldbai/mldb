@@ -20,6 +20,7 @@
 #include "mldb/server/per_thread_accumulator.h"
 #include "mldb/types/date.h"
 #include "mldb/sql/sql_expression.h"
+#include "mldb/plugins/sql_config_validator.h"
 #include <memory>
 
 using namespace std;
@@ -62,6 +63,9 @@ RankingProcedureConfigDescription()
     addField("rankingColumnName", &RankingProcedureConfig::rankingColumnName,
              "The name to give the ranking column.");
     addParent<ProcedureConfig>();
+    onPostValidate = validate<RankingProcedureConfig, 
+                              InputQuery, 
+                              MustContainFrom>(&RankingProcedureConfig::inputData, "ranking");
 }
 
 RankingProcedure::
