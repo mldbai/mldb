@@ -39,6 +39,20 @@ getMldbRoot(MldbServer * server)
 /* SQL QUERY FUNCTION                                                        */
 /*****************************************************************************/
 
+DEFINE_ENUM_DESCRIPTION(SqlQueryOutput);
+
+SqlQueryOutputDescription::
+SqlQueryOutputDescription()
+{
+    addValue("FIRST_ROW", FIRST_ROW, "Return only the first row of the query");
+    addValue("NAMED_COLUMNS", NAMED_COLUMNS,
+             "Output is a table with a 'value' and optional 'column' "
+             "column.  Output row will be constructed from all of the "
+             "returned columns, assembled into a single row, with column "
+             "names provided by the 'column' column, or if null, the "
+             "row name.");
+}
+
 DEFINE_STRUCTURE_DESCRIPTION(SqlQueryFunctionConfig);
 
 SqlQueryFunctionConfigDescription::
@@ -48,6 +62,14 @@ SqlQueryFunctionConfigDescription()
              "SQL query to run.  The values in the dataset, as "
              "well as the input values, will be available for the expression "
              "calculation");
+    addField("output", &SqlQueryFunctionConfig::output,
+             "Controls how the query output is converted into a row. "
+             "'FIRST_ROW' (default) will return only the first row produced "
+             "by the query.  'NAMED_COLUMNS' will construct a row from the "
+             "whole returned table, which must have a 'value' column "
+             "containing the value.  If there is a 'column' column, it will "
+             "be used as a column name, otherwise the row name will be used.",
+             FIRST_ROW);
 }
                       
 SqlQueryFunction::
@@ -73,7 +95,7 @@ getStatus() const
 struct SqlQueryFunctionApplier: public FunctionApplier {
     SqlQueryFunctionApplier(const SqlQueryFunction * function,
                             const SqlQueryFunctionConfig & config)
-        : FunctionApplier(function)
+        : FunctionApplier(function), function(function)
     {
         // Called when we bind a parameter, to get its information
         auto getParamInfo = [&] (const Utf8String & paramName)
@@ -119,8 +141,15 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
         // Bind the pipeline
         boundPipeline = pipeline->bind();
 
-        // What type does the pipeline return?
-        this->info.output = *boundPipeline->outputScope()->outputInfo().back();
+        switch (function->functionConfig.output) {
+        case FIRST_ROW:
+            // What type does the pipeline return?
+            this->info.output = *boundPipeline->outputScope()->outputInfo().back();
+            break;
+        case NAMED_COLUMNS:
+            this->info.output.addRowValue("output");
+            break;
+        }
     }
 
     virtual ~SqlQueryFunctionApplier()
@@ -139,20 +168,106 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
         auto executor = boundPipeline->start(params,
                                              !QueryThreadTracker::inChildThread() /* allowParallel */);
 
-        auto output = executor->take();
+        switch (function->functionConfig.output) {
+        case FIRST_ROW: {
+            FunctionOutput result;
 
-        FunctionOutput result;
-        if (output) {
-            // MLDB-1329 band-aid fix.  This appears to break a circlar
-            // reference chain that stops the elements from being
-            // released.
-            output->group.clear();
+            auto output = executor->take();
 
-            result = std::move(output->values.back());
+            if (output) {
+                // MLDB-1329 band-aid fix.  This appears to break a circlar
+                // reference chain that stops the elements from being
+                // released.
+                output->group.clear();
+
+                result = std::move(output->values.back());
+            }
+
+            return result;
         }
-        return result;
+        case NAMED_COLUMNS:
+            std::vector<std::tuple<ColumnName, ExpressionValue> > row;
+
+            ssize_t limit = function->functionConfig.query.stm->limit;
+            ssize_t offset = function->functionConfig.query.stm->offset;
+
+            auto output = executor->take();
+            for (size_t n = 0;
+                 output && (limit == -1 || n < limit + offset);
+                 output = executor->take(), ++n) {
+
+                if (output) {
+                    // MLDB-1329 band-aid fix.  This appears to break a circlar
+                    // reference chain that stops the elements from being
+                    // released.
+                    output->group.clear();
+                }
+
+                if (n < offset) {
+                    continue;
+                }
+
+                ColumnName foundCol;
+                ExpressionValue foundVal;
+                int numFoundCol = 0;
+                int numFoundVal = 0;
+
+                auto onVal = [&] (ColumnName & col,
+                                  ExpressionValue & val)
+                    {
+                        if (col == ColumnName("column")) {
+                            foundCol = ColumnName(val.getAtom().toUtf8String());
+                            ++numFoundCol;
+                        }
+                        else if (col == ColumnName("value")) {
+                            foundVal = std::move(val);
+                            ++numFoundVal;
+                        }
+                        else {
+                            throw HttpReturnException
+                                (400, "Rows returned from NAMED_COLUMNS SQL "
+                                 "query can only contain 'column' and 'value' "
+                                 "columns",
+                                 "unknownColumn", col,
+                                 "unknownColumnValue", val);
+                        }
+
+                        return true;
+                    };
+
+                output->values.back().forEachColumnDestructive(onVal);
+
+                if (numFoundCol != 1 || numFoundVal != 1) {
+                    throw HttpReturnException
+                        (400, "Rows returned from NAMED_COLUMNS SQL query "
+                         "must contain exactly one 'column' and one "
+                         "'value' column",
+                         "numTimesFoundColumn", numFoundCol,
+                         "numTimesFoundValue", numFoundVal);
+                }
+                
+                if (foundCol == ColumnName()) {
+                    throw HttpReturnException
+                        (400, "Empty or null column names cannot be "
+                         "returned from NAMED_COLUMNS sql query");
+                }
+
+                row.emplace_back(std::move(foundCol), std::move(foundVal));
+            }
+
+            FunctionOutput result;
+
+            ExpressionValue val(std::move(row));
+            result.set("output", std::move(val));
+
+            return result;
+        }
+
+        ExcAssert(false);
     }
 
+    const SqlQueryFunction * function;
+    std::shared_ptr<Dataset> from;
     std::shared_ptr<PipelineElement> pipeline;
     std::shared_ptr<BoundPipelineElement> boundPipeline;
 };
