@@ -489,8 +489,192 @@ DatasetFunctionExpression::
 getUnbound() const
 {
     UnboundEntities result;
-    throw HttpReturnException(500, "getUnbound() for DatasetFunctionExpression: not done");
+    for (auto & a: args) {
+        cerr << "getting unbound for arg " << a->print() << endl;
+        result.merge(a->getUnbound());
+    }
+
+    cerr << "unbound is " << jsonEncode(result) << endl;
+
     return result;
+}
+
+/*****************************************************************************/
+/* ROW TABLE EXPRESSION                                                      */
+/*****************************************************************************/
+
+RowTableExpression::
+RowTableExpression(std::shared_ptr<SqlExpression> expr,
+                   Utf8String asName)
+    : expr(std::move(expr)), asName(std::move(asName))
+{
+    ExcAssert(this->expr);
+}
+
+RowTableExpression::
+~RowTableExpression()
+{
+}
+
+// Overridden by libmldb.so when it loads up to break circular link dependency
+// and allow expression parsing to be in a separate library
+std::vector<NamedRowValue>
+(*querySubDatasetFn) (MldbServer * server,
+                      std::vector<MatrixNamedRow> rows,
+                      const SelectExpression & select,
+                      const WhenExpression & when,
+                      const SqlExpression & where,
+                      const OrderByExpression & orderBy,
+                      const TupleExpression & groupBy,
+                      const SqlExpression & having,
+                      const SqlExpression & named,
+                      uint64_t offset,
+                      int64_t limit,
+                      const Utf8String & tableAlias,
+                      bool allowMultiThreading) = nullptr;
+
+BoundTableExpression
+RowTableExpression::
+bind(SqlBindingScope & context) const
+{
+    ExcAssert(querySubDatasetFn);
+
+    MldbServer * server = context.getMldbServer();
+    ExcAssert(server);
+
+    auto boundExpr = expr->bind(context);
+
+    // TODO: infer value expression from row, especially if there is only
+    // one column available and thus its value type is simple
+
+    std::vector<KnownColumn> knownColumns;
+    knownColumns.emplace_back(ColumnName("value"),
+                              std::make_shared<AnyValueInfo>(),
+                              COLUMN_IS_DENSE);
+    knownColumns.emplace_back(ColumnName("column"),
+                              std::make_shared<AnyValueInfo>(),
+                              COLUMN_IS_DENSE);
+    auto info = std::make_shared<RowValueInfo>(knownColumns);
+
+    BoundTableExpression result;
+    result.dataset = nullptr;
+    result.asName = asName;
+
+    // Allow us to query row information from the dataset
+    result.table.getRowInfo = [=] () { return info; };
+    
+    // Allow the dataset to override functions
+    result.table.getFunction = [=] (SqlBindingScope & context,
+                                    const Utf8String & tableName,
+                                    const Utf8String & functionName,
+                                    const std::vector<std::shared_ptr<ExpressionValueInfo> > & args)
+        -> BoundFunction 
+        {
+            return BoundFunction();
+        };
+
+    static const ColumnName valueName("value");
+    static const ColumnName columnNameName("column");
+
+    // Allow the dataset to run queries
+    result.table.runQuery = [=] (const SqlBindingScope & context,
+                                 const SelectExpression & select,
+                                 const WhenExpression & when,
+                                 const SqlExpression & where_,
+                                 const OrderByExpression & orderBy,
+                                 ssize_t offset,
+                                 ssize_t limit,
+                                 bool allowParallel)
+        -> BasicRowGenerator
+        {
+            // Copy the where expression
+            std::shared_ptr<SqlExpression> where = where_.shallowCopy();
+
+            auto exec = [=] (ssize_t numToGenerate,
+                             SqlRowScope & rowScope,
+                             const BoundParameters & params)
+                -> std::vector<NamedRowValue>
+            {
+                // 1.  Get the row
+                ExpressionValue row = boundExpr(rowScope);
+                
+                // 2.  Put it in a sub dataset
+                std::vector<MatrixNamedRow> rows;
+                rows.reserve(row.rowLength());
+                int n = 0;
+
+                auto onColumn = [&] (Id & columnName, ExpressionValue & val)
+                {
+                    MatrixNamedRow row;
+                    row.rowHash = row.rowName = ColumnName(to_string(n));
+                    row.columns.emplace_back(columnNameName,
+                                             columnName.toUtf8String(),
+                                             val.getEffectiveTimestamp());
+                    row.columns.emplace_back(valueName,
+                                             val.stealAtom(),
+                                             val.getEffectiveTimestamp());
+                    rows.emplace_back(std::move(row));
+                    return true;
+                };
+
+                row.forEachColumnDestructive(onColumn);
+
+                return querySubDatasetFn(server, std::move(rows),
+                                         select, when, *where, orderBy,
+                                         TupleExpression(),
+                                         *SqlExpression::TRUE,
+                                         *SqlExpression::parse("rowName()"),
+                                         offset, limit, "" /* dataset alias */,
+                                         false /* allow multithreading */);
+            };
+
+            BasicRowGenerator result(exec, "row table expression generator");
+            return result;
+        };
+
+    return result;
+}
+    
+Utf8String
+RowTableExpression::
+print() const
+{
+    return "row_table(" + expr->print() + ")";
+}
+
+void
+RowTableExpression::
+printJson(JsonPrintingContext & context)
+{
+    context.writeStringUtf8(print());
+}
+
+std::string
+RowTableExpression::
+getType() const
+{
+    return "row_table";
+}
+
+Utf8String
+RowTableExpression::
+getOperation() const
+{
+    return expr->print();
+}
+
+std::set<Utf8String>
+RowTableExpression::
+getTableNames() const
+{
+    return { asName };
+}
+
+UnboundEntities
+RowTableExpression::
+getUnbound() const
+{
+    return expr->getUnbound();
 }
 
 

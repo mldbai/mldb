@@ -379,6 +379,12 @@ quantize(-217, 100) = -200
 
 More details on the [Binomial proportion confidence interval Wikipedia page](https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval).
 
+### Basic string functions
+
+- `lower(string)` returns the lowercase version of the string, according to the
+  system locale.
+- `upper(string)` returns the uppercase version of the string, according to the
+  system locale.
 
 ### Regular expression functions
 

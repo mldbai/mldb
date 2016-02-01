@@ -39,6 +39,9 @@ struct SubDataset : public Dataset {
 
     SubDataset(MldbServer * owner, SubDatasetConfig config);
 
+    SubDataset(MldbServer * owner,
+               std::vector<MatrixNamedRow> rows);
+
     virtual ~SubDataset();
 
     virtual Any getStatus() const;

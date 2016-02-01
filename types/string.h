@@ -210,6 +210,9 @@ public:
     /** Return a lowercase version of this string. */
     Utf8String toLower() const;
 
+    /** Return an uppercase version of this string. */
+    Utf8String toUpper() const;
+
     bool operator == (const Utf8String & other) const
     {
         return data_ == other.data_;
