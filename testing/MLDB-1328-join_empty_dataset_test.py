@@ -28,8 +28,8 @@ class JoinEmptyDatasetTest(unittest.TestCase):
         })
         perform('POST', '/v1/datasets/ds/commit', [], {})
         qry = "SELECT uid, count(1) AS size FROM ds GROUP BY uid"
-        perform('GET', '/v1/query', [['q', qry]])
-        # TODO: Once this query no longer fails, add the appropriate asserts
+        res = perform('GET', '/v1/query', [['q', qry]])
+        assert res['response'] == '[]'
 
 if __name__ == '__main__':
     if mldb.script.args:
