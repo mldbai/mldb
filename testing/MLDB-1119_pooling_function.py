@@ -74,10 +74,10 @@ def assert_val(res, rowName, colName, value):
     assert False
 
 # max of x dim for allo or coco
-assert_val(js_res, "doc1", "word2vec.000002", 0.2)
+assert_val(js_res, "doc1", "word2vec.2", 0.2)
 # avg of y dim for allo, mon, beau
-assert_val(js_res, "doc2", "word2vec.000001", 0.32)
+assert_val(js_res, "doc2", "word2vec.1", 0.32)
 # no match
-assert_val(js_res, "doc4", "word2vec.000000", 0)
+assert_val(js_res, "doc4", "word2vec.0", 0)
 
 mldb.script.set_return("success")

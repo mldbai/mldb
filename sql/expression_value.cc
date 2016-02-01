@@ -535,7 +535,7 @@ struct ExpressionValue::Struct {
         if (columnNames)
             return columnNames->at(i);
         // TODO: static list of the first 1,000 column names to avoid allocs
-        else return ColumnName(ML::format("%06d", i));
+        else return ColumnName(i);
     }
 };
 
@@ -781,7 +781,7 @@ ExpressionValue(const Json::Value & val, Date timestamp)
     }
     else if (val.isArray()) {
         for (unsigned i = 0;  i < val.size();  ++i) {
-            ColumnName columnName(ML::format("%06d", i));
+            ColumnName columnName(i);
             row.emplace_back(columnName, ExpressionValue(val[i], timestamp));
         }
     }
@@ -2239,8 +2239,7 @@ extractJson(JsonPrintingContext & context) const
             
             for (unsigned i = 0;  i < struct_->length();  ++i) {
                 output[i] = jsonEncode(struct_->value(i));
-                if (struct_->columnNames->at(i).toUtf8String()
-                    != ML::format("%06d", i)) {
+                if (struct_->columnNames->at(i) != i) {
                     // Not really an array or embedding...
                     output = Json::Value();
                     break;
@@ -2408,13 +2407,12 @@ printJsonTyped(const ExpressionValue * val,
                 output[i] = jsonEncode(val->struct_->value(i));
         }
         else if (val->struct_->length() > 0
-                 && val->struct_->columnName(0) == ColumnName("000000")) {
+                 && val->struct_->columnName(0) == Coord(0)) {
             // Assume it's an array
             
             for (unsigned i = 0;  i < val->struct_->length();  ++i) {
                 output[i] = jsonEncode(val->struct_->value(i));
-                if (val->struct_->columnName(i).toUtf8String()
-                    != ML::format("%06d", i)) {
+                if (val->struct_->columnName(i) != i) {
                     // Not really an array or embedding...
                     output = Json::Value();
                     break;
