@@ -125,10 +125,6 @@ is:
 }
 ```
 
-## Examples
-
-* The ![](%%nblink _demos/Predicting Titanic Survival) demo notebook
-
 ## See Also
 
 - [Functions] (Functions.md) for a description of functions

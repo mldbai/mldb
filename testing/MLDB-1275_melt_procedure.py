@@ -26,10 +26,7 @@ def assertVal(res, rowName, colName, value):
 
 dataset_config = {
     'type'    : 'sparse.mutable',
-    'id'      : "my_json_dataset",
-    'params': {
-        "writeLevel": "readAfterCommit"
-    }
+    'id'      : "my_json_dataset"
 }
 
 dataset = mldb.create_dataset(dataset_config)

@@ -15,6 +15,7 @@
 #include "mldb/types/vector_description.h"
 #include "mldb/ml/confidence_intervals.h"
 #include "mldb/jml/math/xdiv.h"
+#include "mldb/utils/hash.h"
 #include "mldb/base/parse_context.h"
 #include <boost/lexical_cast.hpp>
 
@@ -1483,6 +1484,51 @@ BoundFunction concat(const std::vector<BoundSqlExpression> & args)
     };
 }
 static RegisterBuiltin registerConcat(concat, "concat");
+
+BoundFunction base64_encode(const std::vector<BoundSqlExpression> & args)
+{
+    // Convert a blob into base64
+    if (args.size() != 1)
+        throw HttpReturnException(400, "base64_encode function takes 1 argument");
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & context) -> ExpressionValue
+            {
+                ExcAssertEqual(args.size(), 1);
+                Utf8String str = args[0].toUtf8String();
+                return ExpressionValue(base64Encode(str.rawData(),
+                                                    str.rawLength()),
+                                       args[0].getEffectiveTimestamp());
+            },
+            std::make_shared<StringValueInfo>()
+            };
+}
+
+static RegisterBuiltin registerBase64Encode(base64_encode, "base64_encode");
+
+BoundFunction base64_decode(const std::vector<BoundSqlExpression> & args)
+{
+    // Return an expression but with the timestamp modified to something else
+
+    if (args.size() != 1)
+        throw HttpReturnException(400, "base64_decode function takes 1 argument");
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & context) -> ExpressionValue
+            {
+                ExcAssertEqual(args.size(), 1);
+                CellValue blob = args[0].coerceToBlob();
+                return ExpressionValue(base64Decode((const char *)blob.blobData(),
+                                                    blob.blobLength()),
+                                       args[0].getEffectiveTimestamp());
+            },
+            std::make_shared<BlobValueInfo>()
+            };
+}
+
+static RegisterBuiltin registerBase64Decode(base64_decode, "base64_decode");
+
+
+
+
 
 } // namespace Builtins
 } // namespace MLDB

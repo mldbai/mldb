@@ -139,9 +139,10 @@ run(const ProcedureRunConfig & run,
     ColumnName valueColumnName(runProcConf.valueColumnName);
 
     std::mutex recordMutex;
-    auto aggregator = [&] (const MatrixNamedRow & row,
+    auto aggregator = [&] (NamedRowValue & row_,
                            const std::vector<ExpressionValue> & extraVals)
         {
+            MatrixNamedRow row = row_.flattenDestructive();
             Date rowTs = Date::negativeInfinity();
             for(auto & col : row.columns) {
                 if(get<2>(col) > rowTs)

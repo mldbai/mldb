@@ -12,6 +12,7 @@
 # If runsv cannot start ./run for some reason, the exit code is 111 and the status is 0.
 
 import os
+import signal
 import sys
 
 sigmap = { 4:  "SIGILL: illegal instruction (internal error)",
@@ -33,7 +34,8 @@ if len(sys.argv) == 3:
 print  # we like space
 print
 if sig == None:
-    print "MLDB exited"
+    print "MLDB exited, shutting down container."
+    os.kill(1, signal.SIGTERM)  # Tell init to terminate every process.
 else:
     msg = "MLDB exited due to signal %d" % (sig)
     if sig in sigmap:

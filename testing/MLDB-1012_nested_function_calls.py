@@ -1,12 +1,12 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+#
+# MLDB-1012_nested_function_calls.py
+# Datacratic, 2015
+# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+#
 
-
-import json
-
-def check_res(res, code):
-    if res['statusCode'] != code:
-        mldb.log(json.loads(res['response']))
-        assert False
+if False:
+    mldb_wrapper = None
+mldb = mldb_wrapper.wrap(mldb) # noqa
 
 conf = {
     "type": "sql.expression",
@@ -14,8 +14,7 @@ conf = {
         "expression": "input.x*2 as x2, input.y*2 as y2"
     }
 }
-rez = mldb.perform("PUT", "/v1/functions/f1", [], conf)
-check_res(rez, 201)
+mldb.put("/v1/functions/f1", conf)
 
 conf2 = {
     "type": "sql.expression",
@@ -23,29 +22,26 @@ conf2 = {
         "expression": "input.x3*2 as x4, input.y3*2 as y4"
     }
 }
-rez = mldb.perform("PUT", "/v1/functions/f2", [], conf2)
-check_res(rez, 201)
+mldb.put("/v1/functions/f2", conf2)
 
+rez = mldb.get("/v1/query", q="select f1( {input: {x: 1, y: 2}} ) as *")
+js_rez = rez.json()
+mldb.log(js_rez)
 
-rez = mldb.perform("GET", "/v1/query", [["q", "select f1( {input: {x: 1, y: 2}} ) as *"]])
-check_res(rez, 200)
+assert js_rez[0]['columns'][0][1] == 2
+assert js_rez[0]['columns'][1][1] == 4
 
-jsRez = json.loads(rez["response"])
-mldb.log(jsRez)
+rez = mldb.get("/v1/query",
+               q="""select f2( {input: f1( {input: {x: 1, y: 2}} )
+                    [{x3: x2, y3: y2}] }) as * """)
 
-assert jsRez[0]['columns'][0][1] == 2
-assert jsRez[0]['columns'][1][1] == 4
+js_rez = rez.json()
+mldb.log(js_rez)
 
-rez = mldb.perform("GET", "/v1/query", [["q", """select f2( {input: f1( {input: {x: 1, y: 2}} )[{x3: x2, y3: y2}] }) as * """]])
-check_res(rez, 200)
+assert js_rez[0]['columns'][0][1] == 4
+assert js_rez[0]['columns'][1][1] == 8
 
-jsRez = json.loads(rez["response"])
-mldb.log(jsRez)
-
-assert jsRez[0]['columns'][0][1] == 4
-assert jsRez[0]['columns'][1][1] == 8
-
-#Test for 3-deep nested arguments
+# Test for 3-deep nested arguments
 
 conf3 = {
     "type": "sql.expression",
@@ -53,46 +49,47 @@ conf3 = {
         "expression": "input.nested.x as foo"
     }
 }
-rez = mldb.perform("PUT", "/v1/functions/f3", [], conf3)
-check_res(rez, 201)
+rez = mldb.put("/v1/functions/f3", conf3)
 mldb.log(rez)
 
-rez = mldb.perform("GET", "/v1/query", [["q", "select f3( { {{ 42 as x } as nested} as input } ) as *"]])
-check_res(rez, 200)
-jsRez = json.loads(rez["response"])
-mldb.log(jsRez)
+rez = mldb.get("/v1/query",
+               q="select f3( { {{ 42 as x } as nested} as input } ) as *")
+js_rez = rez.json()
+mldb.log(js_rez)
 
-assert jsRez[0]['columns'][0][1] == 42
+assert js_rez[0]['columns'][0][1] == 42
 
 
-check_res(mldb.perform("PUT", "/v1/functions/a", [], {
+mldb.put("/v1/functions/a", {
     "type": "sql.expression",
-    "params": { "expression": "abs(input) as output" }
-}), 201)
+    "params": {"expression": "abs(input) as output"}
+})
 
-check_res(mldb.perform("PUT", "/v1/functions/b", [], {
+mldb.put("/v1/functions/b", {
     "type": "sql.expression",
-    "params": { "expression": "a({input})[output] as output" }
-}), 201)
+    "params": {"expression": "a({input})[output] as output"}
+})
 
-check_res(mldb.perform("PUT", "/v1/functions/c", [], {
+mldb.put("/v1/functions/c", {
     "type": "sql.expression",
-    "params": { "expression": "b({input})[output] as output" }
-}), 201)
+    "params": {"expression": "b({input})[output] as output"}
+})
 
-rez = mldb.perform("GET", "/v1/query", [["q", "select c({input: -1})"]])
-check_res(rez, 200)
-jsRez = json.loads(rez["response"])
-assert jsRez[0]['columns'][0][1] == 1
+rez = mldb.get("/v1/query", q="select c({input: -1})")
+js_rez = rez.json()
+assert js_rez[0]['columns'][0][1] == 1
 
-check_res(mldb.perform("PUT", "/v1/functions/recurse", [], {
+mldb.put("/v1/functions/recurse", {
     "type": "sql.expression",
-    "params": { "expression": "recurse({input})[output] as output" }
-}), 201)
+    "params": {"expression": "recurse({input})[output] as output"}
+})
 
 # MLDB-1251
-rez = mldb.perform("GET", "/v1/query", [["q", "select recurse({input: -1})"]])
-check_res(rez, 400)
+try:
+    mldb.get("/v1/query", q="select recurse({input: -1})")
+except mldb_wrapper.ResponseException as exc:
+    pass
+else:
+    assert False, 'Should have failed with a 400'
 
 mldb.script.set_return("success")
-

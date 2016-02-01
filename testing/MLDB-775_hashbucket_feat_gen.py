@@ -1,7 +1,12 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+#
+# MLDB-775_hashbucket_feat_gen.py
+# datacratic, 2015
+# this file is part of mldb. copyright 2015 datacratic. all rights reserved.
+#
+mldb = mldb_wrapper.wrap(mldb) # noqa
 
 
-import datetime, json
+import datetime
 
 dataset_config = {
     'type'    : 'sparse.mutable',
@@ -20,8 +25,6 @@ for i in xrange(5):
 mldb.log("Committing dataset")
 dataset.commit()
 
-
-
 #add an explain function
 script_func_conf = {
     "id":"featHasher",
@@ -30,29 +33,23 @@ script_func_conf = {
         "numBits": 8
     }
 }
-script_func_output = mldb.perform("PUT", "/v1/functions/" + script_func_conf["id"], [], 
-                                    script_func_conf)
-mldb.log("The resulf of the script function creation " + json.dumps(script_func_output))
-assert script_func_output["statusCode"] < 400
+script_func_output = mldb.put("/v1/functions/" + script_func_conf["id"],
+                              script_func_conf)
+mldb.log("The resulf of the script function creation "
+         + script_func_output.text)
 mldb.log("passed assert")
-
-
-
 
 
 # requires "as args" because args is the input pin
 select = "featHasher({{*} as columns})[hash]";
 
-queryOutput = mldb.perform("GET", "/v1/datasets/toy/query", [["select", select], ["limit", "10" ]])
+query_output = mldb.get("/v1/datasets/toy/query", select=select, limit="10")
 
-jsResp = json.loads(queryOutput["response"])
-#mldb.log(jsResp)
+js_resp = query_output.json()
 
-for line in jsResp:
+for line in js_resp:
     assert len(line["columns"]) == 256
     mldb.log(line)
     mldb.log("----")
 
-
 mldb.script.set_return("success")
-

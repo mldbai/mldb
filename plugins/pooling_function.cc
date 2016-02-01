@@ -137,9 +137,8 @@ apply(const FunctionApplier & applier_,
 
     auto & applier = static_cast<const PoolingFunctionApplier &>(applier_);
 
-    auto queryOutput = queryFunction->apply(*applier.queryApplier, context);
-
-    //cerr << "queryOutput = " << jsonEncode(queryOutput) << endl;
+    FunctionOutput queryOutput
+        = queryFunction->apply(*applier.queryApplier, context);
 
     std::vector<double> outputEmbedding;
     outputEmbedding.reserve(num_embed_cols);

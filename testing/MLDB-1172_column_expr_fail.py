@@ -1,8 +1,11 @@
+#
+# MLDB-1172_column_expr_fail.py
+# Datacratic, 2015
 # This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+#
+import datetime
 
-
-import json, datetime
-
+mldb = mldb_wrapper.wrap(mldb) # noqa
 
 dataset_config = {
     'type'    : 'sparse.mutable',
@@ -23,15 +26,14 @@ dataset.record_row("rowC", [["feat1", 1, now]])
 dataset.commit()
 
 
-res = mldb.perform("GET", "/v1/query", [["q", "select COLUMN EXPR (ORDER BY rowCount() DESC LIMIT 2) from toy"]])
-mldb.log(res)
+res = mldb.get(
+    "/v1/query",
+    q="select COLUMN EXPR (ORDER BY rowCount() DESC LIMIT 2) from toy")
 
-assert res["statusCode"] != 400
-
-res = mldb.perform("GET", "/v1/query", [["q", "select COLUMN EXPR (WHERE regex_match(columnName(), 'feat[[:digit:]]') ORDER BY rowCount() DESC LIMIT 2) from toy"]])
-mldb.log(res)
-
-assert res["statusCode"] != 400
+res = mldb.get(
+    "/v1/query",
+    q="select COLUMN EXPR (WHERE regex_match(columnName(), 'feat[[:digit:]]') "
+      "ORDER BY rowCount() DESC LIMIT 2) from toy")
 
 mldb.script.set_return("success")
 

@@ -138,14 +138,18 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
         
         auto executor = boundPipeline->start(params,
                                              !QueryThreadTracker::inChildThread() /* allowParallel */);
+
         auto output = executor->take();
 
-        //if (output)
-        //    cerr << "got output " << jsonEncode(output) << endl;
-
         FunctionOutput result;
-        if (output)
+        if (output) {
+            // MLDB-1329 band-aid fix.  This appears to break a circlar
+            // reference chain that stops the elements from being
+            // released.
+            output->group.clear();
+
             result = std::move(output->values.back());
+        }
         return result;
     }
 
@@ -437,9 +441,13 @@ run(const ProcedureRunConfig & run,
 
 
         auto recordRowInOutputDataset
-            = [&] (const MatrixNamedRow & row,
+            = [&] (NamedRowValue & row_,
                    const std::vector<ExpressionValue> & calc)
             {
+                MatrixNamedRow row = row_.flattenDestructive();
+
+                //cerr << "got row " << jsonEncodeStr(row) << endl;
+
                 // Nulls with non-finite timestamp are not recorded; they
                 // come from an expression that matched nothing and can't
                 // be represented (they will be read automatically as nulls).
@@ -449,7 +457,7 @@ run(const ProcedureRunConfig & run,
                     if (std::get<1>(c).empty()
                         && !std::get<2>(c).isADate())
                         continue;
-                    cols.push_back(c);
+                    cols.emplace_back(std::move(c));
                 }
 
                 if (!skipEmptyRows || cols.size() > 0)
@@ -494,8 +502,9 @@ run(const ProcedureRunConfig & run,
     }
     else {
         auto recordRowInOutputDataset
-            = [&] (const MatrixNamedRow & row)
+            = [&] (NamedRowValue & row_)
             {
+                MatrixNamedRow row = row_.flattenDestructive();
                 output->recordRow(row.rowName, row.columns);
                 return true;
             };

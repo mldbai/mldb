@@ -128,7 +128,7 @@ run(const ProcedureRunConfig & run,
     
     PerThreadAccumulator<ScoredStats> accum;
 
-    auto aggregator = [&] (const MatrixNamedRow & row,
+    auto aggregator = [&] (NamedRowValue & row,
                            const std::vector<ExpressionValue> & scoreLabelWeight)
         {
             //cerr << "got vals " << labelWeight << " " << score << endl;

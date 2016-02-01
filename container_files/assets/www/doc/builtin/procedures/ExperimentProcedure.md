@@ -9,7 +9,7 @@ folds over the data to use for training and testing.
 
 ![](%%config procedure classifier.experiment)
 
-<div id="DatasetFoldConfig">
+<a name="DatasetFoldConfig">
 ## Cross-validation
 
 The experiment procedure supports k-fold 
@@ -97,6 +97,11 @@ The following example would be for a 2-fold run:
             ]
         }
     }
+
+
+## Examples
+
+* The ![](%%nblink _demos/Predicting Titanic Survival) demo notebook
 
 ## See also
 

@@ -1,7 +1,10 @@
+#
+# MLDB-915-pivot-transform.py
+# Datacratic, 2015
 # This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+#
 
-
-import json
+mldb = mldb_wrapper.wrap(mldb) # noqa
 
 dataset_config = {
     'type'    : 'sparse.mutable',
@@ -26,30 +29,27 @@ dataset.record_row("r4", [["person", "francois", 0],
 mldb.log("Committing dataset")
 dataset.commit()
 
-result = mldb.perform('GET', '/v1/query', [['q', 'select pivot(thing, has) as * from example group by person']])
-
+result = mldb.get(
+    '/v1/query',
+    q='select pivot(thing, has) as * from example group by person')
 mldb.log(result)
 
-rez = mldb.perform("PUT", "/v1/procedures/dataset_creator", [], 
-    {
-        "type": "transform",
-        "params": {
-            "inputData": "select pivot(thing, has) as * from example group by person",
-            "outputDataset": { "id": "example2", "type":"sparse.mutable" }
-        }
-    })
-
+rez = mldb.put("/v1/procedures/dataset_creator", {
+    "type": "transform",
+    "params": {
+        "inputData": "select pivot(thing, has) as * from example group by person",
+        "outputDataset": { "id": "example2", "type":"sparse.mutable" }
+    }
+})
 mldb.log(rez)
 
-rez = mldb.perform("POST", "/v1/procedures/dataset_creator/runs")
+rez = mldb.post("/v1/procedures/dataset_creator/runs")
 mldb.log(rez)
 
-result = mldb.perform('GET', '/v1/query', [['q', 'select * from example2']])
-
+result = mldb.get('/v1/query', q='select * from example2')
 mldb.log(result)
 
-assert result['statusCode'] == 200
-row = json.loads(result['response'])[0]
+row = result.json()[0]
 assert row['columns'][0][0] == "tsla" or row['columns'][0][0] == "appl"
 
 #MLDB-914
@@ -77,12 +77,14 @@ dataset2.record_row("r4", [["person", "françois", 0],
 mldb.log("Committing dataset")
 dataset2.commit()
 
-result = mldb.perform('GET', '/v1/query', [['q', 'select count(*) from example3 group by person']])
+result = mldb.get('/v1/query',
+                  q='select count(*) from example3 group by person')
 
 mldb.log(result)
 
-assert result['statusCode'] == 200
-assert json.loads(result['response'])[0]['rowName'] == unicode('["françois"]',encoding='utf-8'), 'failed non-ascii support'
-assert json.loads(result['response'])[1]['rowName'] == unicode('["nick"]',encoding='utf-8'), 'failed non-ascii support'
+assert result.json()[0]['rowName'] \
+    == unicode('["françois"]',encoding='utf-8'), 'failed non-ascii support'
+assert result.json()[1]['rowName'] \
+    == unicode('["nick"]',encoding='utf-8'), 'failed non-ascii support'
 
 mldb.script.set_return("success")

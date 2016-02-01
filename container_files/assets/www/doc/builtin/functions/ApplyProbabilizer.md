@@ -12,10 +12,6 @@ the probability associated with the input score.
 
 ![](%%config function probabilizer)
 
-## Examples
-
-* The ![](%%nblink _demos/Predicting Titanic Survival) demo notebook
-
 ## See also
 
 * The ![](%%doclink classifier.train procedure) trains a classifier.

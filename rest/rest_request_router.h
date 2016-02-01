@@ -579,7 +579,7 @@ sendExceptionResponse(RestConnection & connection,
 /** Turn an exception into a structure containing the information contained
     within it.
 */
-Json::Value extractException(const std::exception & exc);
+ Json::Value extractException(const std::exception & exc, int defaultCode);
 
 
 } // namespace Datacratic

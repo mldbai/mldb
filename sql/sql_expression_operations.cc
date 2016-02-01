@@ -14,6 +14,7 @@
 #include "table_expression_operations.h"
 #include <unordered_set>
 #include "mldb/server/dataset_context.h"
+#include "mldb/base/scope.h"
 
 
 using namespace std;
@@ -171,7 +172,8 @@ ArithmeticExpression::
 template<typename ReturnInfo, typename Op>
 BoundSqlExpression
 doBinaryArithmetic(const SqlExpression * expr,
-                   const BoundSqlExpression & boundLhs, const BoundSqlExpression & boundRhs,
+                   const BoundSqlExpression & boundLhs,
+                   const BoundSqlExpression & boundRhs,
                    const Op & op)
 {
     return {[=] (const SqlRowScope & row, ExpressionValue & storage)
@@ -208,7 +210,8 @@ doUnaryArithmetic(const SqlExpression * expr,
             std::make_shared<ReturnInfo>()};
 }
 
-static CellValue binaryPlusOnTimestamp(const ExpressionValue & l, const ExpressionValue & r)
+static CellValue
+binaryPlusOnTimestamp(const ExpressionValue & l, const ExpressionValue & r)
 {
     ExcAssert(l.isTimestamp());
 
@@ -1311,7 +1314,9 @@ bind(SqlBindingScope & context) const
     if (context.functionStackDepth > 100)
             throw HttpReturnException(400, "Reached a stack depth of over 100 functions while analysing query, possible infinite recursion");
 
-    context.functionStackDepth++;
+    ++context.functionStackDepth;
+    Scope_Exit(--context.functionStackDepth);
+
     std::vector<BoundSqlExpression> boundArgs;
     for (auto& arg : args)
     {
@@ -1331,7 +1336,6 @@ bind(SqlBindingScope & context) const
         //assume user
         boundOutput = bindUserFunction(context);
     }
-    context.functionStackDepth--;
     return boundOutput;
 }
 
@@ -1365,8 +1369,13 @@ bindUserFunction(SqlBindingScope & context) const
          }
          else
          {
-            throw HttpReturnException(400, "User function " + functionName
-                                   + " expect a row argument ({ }), got " + args[0]->print() );
+            auto functionresult = std::dynamic_pointer_cast<FunctionCallWrapper>(args[0]);
+
+            if (functionresult)
+                clauses.push_back(functionresult);
+            else
+                throw HttpReturnException(400, "User function " + functionName
+                                       + " expect a row argument ({ }) or a user function, got " + args[0]->print() );
          }
     }    
 
@@ -2172,6 +2181,18 @@ bind(SqlBindingScope & context) const
                 this,
                 std::make_shared<BooleanValueInfo>()};
     }
+    else if (type == "blob") {
+        return {[=] (const SqlRowScope & row,
+                     ExpressionValue & storage) -> const ExpressionValue &
+                {
+                    ExpressionValue valStorage;
+                    const ExpressionValue & val = boundExpr(row, valStorage);
+                    return storage = std::move(ExpressionValue(val.coerceToBlob(),
+                                                               val.getEffectiveTimestamp()));
+                },
+                this,
+                    std::make_shared<BooleanValueInfo>()};
+    }
     else throw HttpReturnException(400, "Unknown type '" + type
                                    + "' for CAST (" + expr->surface
                                    + " AS " + type + ")");
@@ -2195,7 +2216,7 @@ CastExpression::
 transform(const TransformArgs & transformArgs) const
 {
     auto result = std::make_shared<CastExpression>(*this);
-    result->expr  = result->expr->transform(transformArgs);
+    result->expr = transformArgs({expr}).at(0);
     return result;
 }
 

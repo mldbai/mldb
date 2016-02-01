@@ -1,65 +1,61 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+#
+# MLDB-1277-pooling-performance.py
+# 2016
+# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+#
 
-import json
+mldb = mldb_wrapper.wrap(mldb) # noqa
 
+import unittest
 
-dataset = mldb.create_dataset({ 
-    "id": "reddit_raw", "type": "text.line",  
-    "params": { 
-        "dataFileUrl": "http://files.figshare.com/1310438/reddit_user_posting_behavior.csv.gz" 
-    } 
-})
+class PoolingPerformanceTest(unittest.TestCase):
 
-dataset = mldb.create_dataset({ 
-    "id": "reddit_svd_embedding", 
-    "type": "text.csv.tabular",  
-    "params": { 
-        "dataFileUrl": "https://s3.amazonaws.com/public.mldb.ai/reddit_embedding.csv.gz",
-    } 
-})
+    def test_it(self):
+        mldb.create_dataset({
+            "id": "reddit_raw", "type": "text.line",
+            "params": {
+                "dataFileUrl": "http://files.figshare.com/1310438/reddit_user_posting_behavior.csv.gz"
+            }
+        })
 
+        mldb.create_dataset({
+            "id": "reddit_svd_embedding",
+            "type": "text.csv.tabular",
+            "params": {
+                "dataFileUrl": "https://s3.amazonaws.com/public.mldb.ai/reddit_embedding.csv.gz",
+            }
+        })
 
-result = mldb.perform("PUT", "/v1/procedures/rename", [], {
-    "type" : "transform",
-    "params" : {
-        "inputData" : "select * excluding(name) named name from reddit_svd_embedding",
-        "outputDataset" : {"id":"reddit_svd_embedding2", "type":"embedding"},
-        "runOnCreation": True
-    }
-})
-assert result["statusCode"] < 400, result["response"]
+        mldb.put("/v1/procedures/rename", {
+            "type" : "transform",
+            "params" : {
+                "inputData" : "select * excluding(name) named name "
+                              "from reddit_svd_embedding",
+                "outputDataset" : {
+                    "id" : "reddit_svd_embedding2",
+                    "type" : "embedding"},
+                "runOnCreation": True
+            }
+        })
 
+        mldb.put("/v1/functions/pooler", {
+            "type": "pooling",
+            "params": {
+                "embeddingDataset": "reddit_svd_embedding2"
+            }
+        })
 
-result = mldb.perform("PUT", "/v1/functions/pooler", [], {
-    "type": "pooling",
-    "params": {
-        "embeddingDataset": "reddit_svd_embedding2"
-    }
-})
-assert result["statusCode"] < 400, result["response"]
+        mldb.put("/v1/functions/wrapper", {
+            "type": "sql.expression",
+            "params": {
+                "expression":
+                    "pooler({words: tokenize(lineText)})[embedding] as x"
+            }
+        })
 
+        mldb.log('start')
+        mldb.query("select wrapper({lineText}) from reddit_raw limit 10000")
+        mldb.log('stop')
 
-result = mldb.perform("PUT", "/v1/functions/wrapper", [], {
-    "type": "sql.expression",
-    "params": {
-        "expression": "pooler({words: tokenize(lineText)})[embedding] as x"
-    }
-})
-assert result["statusCode"] < 400, result["response"]
-
-
-def query(sql):
-    result = mldb.perform("GET", "/v1/query", [["q", sql], ["format", "table"]], {})
-    assert result["statusCode"] < 400, result["response"]
-    return result["response"]
-
-mldb.log('start')
-query("""
-
-    select wrapper({lineText}) from reddit_raw limit 100000
-
-""")
-mldb.log('stop')
-
-mldb.script.set_return("success")
-
+if __name__ == '__main__':
+    mldb.run_tests()
