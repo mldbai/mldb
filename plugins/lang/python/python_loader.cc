@@ -584,7 +584,7 @@ class mldb_wrapper(object):
 
         @property
         def plugin(self):
-            return self._mldb.script
+            return self._mldb.plugin
 
         def get(self, url, **kwargs):
             query_string = []
