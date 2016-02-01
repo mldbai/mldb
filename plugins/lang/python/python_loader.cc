@@ -582,6 +582,10 @@ class mldb_wrapper(object):
         def script(self):
             return self._mldb.script
 
+        @property
+        def plugin(self):
+            return self._mldb.script
+
         def get(self, url, **kwargs):
             query_string = []
             for k, v in kwargs.iteritems():
