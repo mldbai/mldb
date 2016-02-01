@@ -12,7 +12,7 @@ class SumDoesNotExistTest(unittest.TestCase):
     def test_it(self):
         ds = mldb.create_dataset({
             'id' : 'ds',
-            'type' : 'beh.binary.mutable'
+            'type' : 'sparse.mutable'
         })
         ds.record_row('row1', [['colA', 1, 1]])
         ds.commit()
@@ -27,7 +27,7 @@ class SumDoesNotExistTest(unittest.TestCase):
                 },
                 'outputDataset' : {
                     'id' : 'res',
-                    'type' : 'beh.mutable'
+                    'type' : 'sparse.mutable'
                 },
                 'runOnCreation' : True
             }
