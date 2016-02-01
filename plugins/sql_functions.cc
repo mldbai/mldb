@@ -224,7 +224,7 @@ SqlExpressionFunction::
 SqlExpressionFunction(MldbServer * owner,
                       PolyConfig config,
                       const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner), outerScope(owner), innerScope(outerScope)
+    : Function(owner), outerScope(owner), innerScope(owner)
 {
     functionConfig = config.params.convert<SqlExpressionFunctionConfig>();
 
@@ -259,7 +259,7 @@ struct SqlExpressionFunctionApplier: public FunctionApplier {
                                  const FunctionValues & input)
         : FunctionApplier(function),
           function(function),
-          innerScope(outerScope, input)
+          innerScope(outerScope.getMldbServer(), input, outerScope.functionStackDepth)
     {
         if (!function->functionConfig.prepared) {
             // Specialize to this input
@@ -276,20 +276,15 @@ struct SqlExpressionFunctionApplier: public FunctionApplier {
     {
     }
 
-    FunctionOutput apply(const SqlRowScope& outerRowScope,
-                         const FunctionContext & context) const
+    FunctionOutput apply(const FunctionContext & context) const
     {
         if (function->functionConfig.prepared) {
-            // Use the pre-bound version.    Note that we ignore the outer
-            // row scope, which wasn't available when we prepared the
-            // expression.
-            SqlRowScope emptyOuterRowScope;
-            return function->bound(function->innerScope.getRowContext(emptyOuterRowScope, context));
+            // Use the pre-bound version.   
+            return function->bound(function->innerScope.getRowContext(context));
         }
         else {
-            // Use the specialized version.  The outer row scope is available
-            // from the expression.
-            return bound(this->innerScope.getRowContext(outerRowScope, context));
+            // Use the specialized version. 
+            return bound(this->innerScope.getRowContext(context));
         }
     }
 
@@ -312,22 +307,13 @@ bind(SqlBindingScope & outerContext,
     return std::move(result);
 }
 
-FunctionOutput 
-SqlExpressionFunction::
-applyOuter(const SqlRowScope& outer, const FunctionApplier & applier,
-                              const FunctionContext & context) const
-{
-  return static_cast<const SqlExpressionFunctionApplier &>(applier)
-        .apply(outer, context);
-}
-
 FunctionOutput
 SqlExpressionFunction::
 apply(const FunctionApplier & applier,
       const FunctionContext & context) const
 {
-    //applyOuter should get called instead 
-    ExcAssert(false);
+    return static_cast<const SqlExpressionFunctionApplier &>(applier)
+           .apply(context);
 }
 
 FunctionInfo
@@ -340,12 +326,10 @@ getFunctionInfo() const
 
     FunctionInfo result;
 
-    // 0.  We want the pure function information, so we assume there is
-    //     no context for it apart from MLDB itself.
-    SqlExpressionMldbContext outerContext(MldbEntity::getOwner(this->server));
-
     // 1.  Create a binding context to see what this function takes
-    FunctionExpressionContext context(outerContext);
+    //     We want the pure function information, so we assume there is
+    //     no context for it apart from MLDB itself.
+    FunctionExpressionContext context(MldbEntity::getOwner(this->server));
 
     // 2.  Bind the expression in.  That will tell us what it is expecting
     //     as an input.

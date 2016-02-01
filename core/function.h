@@ -300,11 +300,10 @@ DECLARE_STRUCTURE_DESCRIPTION(FunctionValueInfo);
 */
 
 struct FunctionValues {
+
     std::map<ValueMapKey, FunctionValueInfo> values;
 
-    FunctionValues()
-    {
-    }
+    FunctionValues(){}
 
     /** Construct from the value info of something that returns a row. */
     FunctionValues(const ExpressionValueInfo & rowInfo);
@@ -408,7 +407,7 @@ struct FunctionApplier {
     FunctionInfo info;       ///< Information about the input and output of the applier
 
     /// Apply the function to the given context
-    FunctionOutput apply(const SqlRowScope & outer, const FunctionContext & input) const;
+    FunctionOutput apply(const FunctionContext & input) const;
 };
 
 
@@ -485,11 +484,6 @@ protected:
         access to the information put in the applier by the bind()
         method.
     */
-
-    //if sub class doesnt override this version we ignore the "outer"    
-    virtual FunctionOutput applyOuter(const SqlRowScope & outer, const FunctionApplier & applier, const FunctionContext & context) const {
-        return apply(applier, context); 
-    }
 
     virtual FunctionOutput apply(const FunctionApplier & applier, const FunctionContext & context) const = 0;
 
