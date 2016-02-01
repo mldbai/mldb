@@ -88,9 +88,6 @@ struct SqlExpressionFunction: public Function {
     bind(SqlBindingScope & outerContext,
          const FunctionValues & inputInfo) const;
 
-    virtual FunctionOutput applyOuter(const SqlRowScope& outer, const FunctionApplier & applier,
-                              const FunctionContext & context) const;
-
     virtual FunctionOutput apply(const FunctionApplier & applier,
                               const FunctionContext & context) const;
 
