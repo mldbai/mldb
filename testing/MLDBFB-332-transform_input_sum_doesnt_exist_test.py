@@ -21,7 +21,7 @@ class SumDoesNotExistTest(unittest.TestCase):
             'type' : 'transform',
             'params' : {
                 'inputData' : {
-                    'select' : 'sum({* EXCLUDING(toto)}) AS *',
+                    'select' : 'sum({*})',
                     'from' : 'ds',
                     'named' : 'res'
                 },
