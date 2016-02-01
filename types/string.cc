@@ -577,6 +577,13 @@ toLower() const
     return std::move(boost::locale::to_lower(data_));
 }
 
+Utf8String
+Utf8String::
+toUpper() const
+{
+    return std::move(boost::locale::to_upper(data_));
+}
+
 Utf8String::iterator
 Utf8String::
 wrapIterator(std::string::iterator it)

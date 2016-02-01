@@ -304,3 +304,4 @@ $(eval $(call mldb_unit_test,MLDB-1328-join_empty_dataset_test.py,,manual)) # ma
 $(eval $(call mldb_unit_test,MLDB-1213-blob-support.js))
 $(eval $(call mldb_unit_test,MLDBFB-332-transform_input_sum_doesnt_exist_test.py,,manual)) # manual -- awaiting fix
 $(eval $(call mldb_unit_test,MLDB-1320-sql-query-whole-table.js))
+$(eval $(call mldb_unit_test,MLDB-1315-row-table-expressions.js))
