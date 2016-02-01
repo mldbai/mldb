@@ -31,66 +31,6 @@ struct Date;
 
 namespace MLDB {
 
-inline bool operator == (const std::string & str1, const Coord & str2)
-{
-    return str2.stringEqual(str1);
-}
-
-inline bool operator != (const std::string & str1, const Coord & str2)
-{
-    return !str2.stringEqual(str1);
-}
-
-inline bool operator <  (const std::string & str1, const Coord & str2)
-{
-    return str2.stringGreaterEqual(str1);
-}
-
-inline bool operator == (const Utf8String & str1, const Coord & str2)
-{
-    return str2.stringEqual(str1.rawString());
-}
-
-inline bool operator != (const Utf8String & str1, const Coord & str2)
-{
-    return !str2.stringEqual(str1.rawString());
-}
-
-inline bool operator <  (const Utf8String & str1, const Coord & str2)
-{
-    return !str2.stringGreaterEqual(str1.rawString());
-}
-
-inline bool operator == (const Coord & str1, const std::string & str2)
-{
-    return str1.stringEqual(str2);
-}
-
-inline bool operator != (const Coord & str1, const std::string & str2)
-{
-    return !str1.stringEqual(str2);
-}
-
-inline bool operator <  (const Coord & str1, const std::string & str2)
-{
-    return str1.stringLess(str2);
-}
-
-inline bool operator == (const Coord & str1, const Utf8String & str2)
-{
-    return str1.stringEqual(str2.rawString());
-}
-
-inline bool operator != (const Coord & str1, const Utf8String & str2)
-{
-    return !str1.stringEqual(str2.rawString());
-}
-
-inline bool operator <  (const Coord & str1, const Utf8String & str2)
-{
-    return str1.stringLess(str2.rawString());
-}
-
 struct MatrixNamedRow;
 struct MatrixRow;
 struct MatrixNamedEvent;

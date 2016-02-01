@@ -8,6 +8,7 @@
 #include "dataset_fwd.h"
 #include "mldb/types/string.h"
 #include "mldb/types/value_description_fwd.h"
+#include "mldb/base/exc_assert.h"
 
 // NOTE TO MLDB DEVELOPERS: This is an API header file.  No includes
 // should be added, especially value_description.h.
@@ -16,6 +17,7 @@
 
 namespace Datacratic {
 namespace MLDB {
+
 
 /*****************************************************************************/
 /* COORD                                                                     */
@@ -35,8 +37,65 @@ struct Coord {
     Coord();
     Coord(Utf8String str);
     Coord(std::string str);
-    Coord(const char * str);
     Coord(const char * str, size_t len);
+
+    Coord(const Coord & other)
+        : words{other.words[0], other.words[1], other.words[2], other.words[3]}
+    {
+        if (other.complex_) {
+            complexCopyConstruct(other);
+        }
+    }
+
+    Coord(Coord && other) noexcept
+        : words{other.words[0], other.words[1], other.words[2], other.words[3]}
+    {
+        if (other.complex_) {
+            complexMoveConstruct(std::move(other));
+        }
+        else {
+            other.words[0] = 0;
+        }
+    }
+
+    ~Coord()
+    {
+        if (complex_)
+            complexDestroy();
+    }
+
+    Coord & operator = (Coord && other) noexcept
+    {
+        Coord newMe(std::move(other));
+        swap(newMe);
+        return *this;
+    }
+
+    void swap(Coord & other) noexcept
+    {
+        // NOTE: this is only possible because there are no self-referential
+        // pointers (ie, this can't point to itself in its contents).
+        std::swap(words[0], other.words[0]);
+        std::swap(words[1], other.words[1]);
+        std::swap(words[2], other.words[2]);
+        std::swap(words[3], other.words[3]);
+    }
+
+    Coord & operator = (const Coord & other) noexcept
+    {
+        Coord newMe(other);
+        swap(newMe);
+        return *this;
+    }
+
+    template<size_t N>
+    inline Coord(const char (&str)[N])
+        : Coord(str, (N && str[N - 1])?N:N-1)  // remove null char from end
+    {
+    }
+
+    // Create as an array index
+    Coord(uint64_t i);
 
     bool stringEqual(const std::string & other) const;
     bool stringEqual(const Utf8String & other) const;
@@ -67,17 +126,108 @@ struct Coord {
     operator RowHash() const;
     operator ColumnHash() const;
 
-private:
-    Utf8String str;
+    //private:
+    void complexDestroy();
+    void complexCopyConstruct(const Coord & other);
+    void complexMoveConstruct(Coord && other);
+    void initString(Utf8String str);
+    void initChars(const char * str, size_t len);
+
+    const char * data() const;
+    size_t dataLength() const;
+
+
+    int compareString(const char * str, size_t len) const;
+    int compareStringNullTerminated(const char * str) const;
+
+    const Utf8String & getComplex() const;
+    Utf8String & getComplex();
+
+    struct Itl;
+
+    struct Str {
+        uint64_t md;
+        Utf8String str;
+        uint64_t savedHash;
+    };
+
+    union {
+        // The complex_ flag means we can't simply copy the words around;
+        // we need to do some more work.
+        struct { uint8_t complex_: 1; uint8_t simpleLen_:5; };
+        uint8_t bytes[32];
+        uint64_t words[4];
+        Str str;
+    };
 };
 
 std::ostream & operator << (std::ostream & stream, const Coord & id);
 
 std::istream & operator >> (std::istream & stream, Coord & id);
 
-inline Utf8String to_string(const Coord & coord)
+inline bool operator == (const std::string & str1, const Coord & str2)
 {
-    return coord.toUtf8String();
+    return str2.stringEqual(str1);
+}
+
+inline bool operator != (const std::string & str1, const Coord & str2)
+{
+    return !str2.stringEqual(str1);
+}
+
+inline bool operator <  (const std::string & str1, const Coord & str2)
+{
+    return str2.stringGreaterEqual(str1);
+}
+
+inline bool operator == (const Utf8String & str1, const Coord & str2)
+{
+    return str2.stringEqual(str1.rawString());
+}
+
+inline bool operator != (const Utf8String & str1, const Coord & str2)
+{
+    return !str2.stringEqual(str1.rawString());
+}
+
+inline bool operator <  (const Utf8String & str1, const Coord & str2)
+{
+    return !str2.stringGreaterEqual(str1.rawString());
+}
+
+inline bool operator == (const Coord & str1, const std::string & str2)
+{
+    return str1.stringEqual(str2);
+}
+
+inline bool operator != (const Coord & str1, const std::string & str2)
+{
+    return !str1.stringEqual(str2);
+}
+
+inline bool operator <  (const Coord & str1, const std::string & str2)
+{
+    return str1.stringLess(str2);
+}
+
+inline bool operator == (const Coord & str1, const Utf8String & str2)
+{
+    return str1.stringEqual(str2.rawString());
+}
+
+inline bool operator != (const Coord & str1, const Utf8String & str2)
+{
+    return !str1.stringEqual(str2.rawString());
+}
+
+inline bool operator <  (const Coord & str1, const Utf8String & str2)
+{
+    return str1.stringLess(str2.rawString());
+}
+
+inline Utf8String keyToString(const Coord & key)
+{
+    return key.toUtf8String();
 }
 
 inline Coord stringToKey(const Utf8String & str, Coord *)

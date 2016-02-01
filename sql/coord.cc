@@ -25,104 +25,107 @@ namespace MLDB {
 /* COORD                                                                     */
 /*****************************************************************************/
 
-
 Coord::
 Coord()
+    : words{0, 0, 0, 0}
 {
 }
 
 Coord::
 Coord(Utf8String str)
-    : str(std::move(str))
 {
+    initString(std::move(str));
 }
 
 Coord::
 Coord(std::string str)
-    : str(std::move(str))
 {
-}
-
-Coord::
-Coord(const char * str)
-    : str(str)
-{
+    initString(std::move(str));
 }
 
 Coord::
 Coord(const char * str, size_t len)
-    : str(str, len, false /* known valid UTF8 */)
 {
+    initChars(str, len);
+}
+
+Coord::
+Coord(uint64_t i)
+{
+    initString(std::to_string(i));
 }
 
 bool
 Coord::
 stringEqual(const std::string & other) const
 {
-    return str.rawString() == other;
+    return dataLength() == other.size()
+        && compareString(other.data(), other.size()) == 0;
 }
 
 bool
 Coord::
 stringEqual(const Utf8String & other) const
 {
-    return str == other;
+    return dataLength() == other.rawLength()
+        && compareString(other.rawData(), other.rawLength()) == 0;
 }
 
 bool
 Coord::
 stringEqual(const char * other) const
 {
-    return strcmp(str.rawData(), other) == 0;
+    return compareStringNullTerminated(other) == 0;
 }
 
 bool
 Coord::
 stringLess(const std::string & other) const
 {
-    return str.rawString() < other;
+    return compareString(other.data(), other.size()) < 0;
 }
 
 bool
 Coord::
 stringLess(const Utf8String & other) const
 {
-    return str < other;
+    return compareString(other.rawData(), other.rawLength()) < 0;
 }
 
 bool
 Coord::
 stringLess(const char * other) const
 {
-    return strcmp(str.rawData(), other) < 0;
+    return compareStringNullTerminated(other) < 0;
 }
 
 bool
 Coord::
 stringGreaterEqual(const std::string & other) const
 {
-    return str.rawString() >= other;
+    return compareString(other.data(), other.size()) >= 0;
 }
 
 bool
 Coord::
 stringGreaterEqual(const Utf8String & other) const
 {
-    return str >= other;
+    return compareString(other.rawData(), other.rawLength()) >= 0;
 }
 
 bool
 Coord::
 stringGreaterEqual(const char * other) const
 {
-    return strcmp(str.rawData(), other) >= 0;
+    return compareStringNullTerminated(other) >= 0;
 }
     
 bool
 Coord::
 operator == (const Coord & other) const
 {
-    return str == other.str;
+    return dataLength() == other.dataLength()
+        && compareString(other.data(), other.dataLength()) == 0;
 }
 
 bool
@@ -136,21 +139,23 @@ bool
 Coord::
 operator <  (const Coord & other) const
 {
-    return str < other.str;
+    return compareString(other.data(), other.dataLength()) < 0;
 }
 
 Utf8String
 Coord::
 toUtf8String() const
 {
-    return str;
+    if (complex_)
+        return getComplex();
+    else return Utf8String(data(), dataLength(), true /* is valid UTF-8 */);
 }
 
 std::string
 Coord::
 toString() const
 {
-    return str.rawString();
+    return toUtf8String().stealRawString();
 }
 
 constexpr HashSeed defaultSeedStable { .i64 = { 0x1958DF94340e7cbaULL, 0x8928Fc8B84a0ULL } };
@@ -159,15 +164,15 @@ uint64_t
 Coord::
 hash() const
 {
-    return Id(str).hash();
-    return ::mldb_siphash24(str.rawData(), str.rawLength(), defaultSeedStable.b);
+    return Id(data(), dataLength()).hash();
+    //return ::mldb_siphash24(str.rawData(), str.rawLength(), defaultSeedStable.b);
 }
 
 bool
 Coord::
 empty() const
 {
-    return str.empty();
+    return complex_ == 0 && simpleLen_ == 0;
 }
 
 Coord
@@ -178,7 +183,7 @@ operator + (const Coord & other) const
         return std::move(other);
     if (other.empty())
         return *this;
-    return str + "." + other.str;
+    return toUtf8String() + "." + other.toUtf8String();
 }
 
 Coord
@@ -189,7 +194,7 @@ operator + (Coord && other) const
         return std::move(other);
     if (other.empty())
         return *this;
-    return str + "." + std::move(other.str);
+    return toUtf8String() + "." + other.toUtf8String();
 }
 
 Coord::
@@ -202,6 +207,116 @@ Coord::
 operator ColumnHash() const
 {
     return ColumnHash(hash());
+}
+
+void
+Coord::
+complexDestroy()
+{
+    getComplex().~Utf8String();
+}
+
+void
+Coord::
+complexCopyConstruct(const Coord & other)
+{
+    new (&str.str) Utf8String(other.getComplex());
+}
+
+void
+Coord::
+complexMoveConstruct(Coord && other)
+{
+    new (&str.str) Utf8String(std::move(other.getComplex()));
+}
+
+void
+Coord::
+initString(Utf8String str)
+{
+    ExcAssertEqual(strlen(str.rawData()), str.rawLength());
+    words[0] = words[1] = words[2] = words[3] = 0;
+    if (str.rawLength() <= 31) {
+        complex_ = 0;
+        simpleLen_ = str.rawLength();
+        std::copy(str.rawData(), str.rawData() + str.rawLength(),
+                  bytes + 1);
+    }
+    else {
+        complex_ = 1;
+        new (&this->str.str) Utf8String(std::move(str));
+    }
+}
+
+void
+Coord::
+initChars(const char * str, size_t len)
+{
+    ExcAssertEqual(strlen(str), len);
+    words[0] = words[1] = words[2] = words[3] = 0;
+    if (len <= 31) {
+        complex_ = 0;
+        simpleLen_ = len;
+        std::copy(str, str + len, bytes + 1);
+    }
+    else {
+        complex_ = 1;
+        new (&this->str.str) Utf8String(str, len);
+    }
+}
+
+const char *
+Coord::
+data() const
+{
+    if (complex_)
+        return getComplex().rawData();
+    else return (const char *)bytes + 1;
+}
+
+size_t
+Coord::
+dataLength() const
+{
+    if (complex_)
+        return getComplex().rawLength();
+    else return simpleLen_;
+}
+
+int
+Coord::
+compareString(const char * str, size_t len) const
+{
+    int res = std::strncmp(data(), str, std::min(dataLength(), len));
+
+    if (res) return res;
+
+    // Equal for the whole common part.  Return based upon which
+    // is longer
+    return (ssize_t)len - (ssize_t)dataLength();
+}
+
+int
+Coord::
+compareStringNullTerminated(const char * str) const
+{
+    return compareString(str, ::strlen(str));
+}
+
+const Utf8String &
+Coord::
+getComplex() const
+{
+    ExcAssert(complex_);
+    return str.str;
+}
+
+Utf8String &
+Coord::
+getComplex()
+{
+    ExcAssert(complex_);
+    return str.str;
 }
 
 std::ostream & operator << (std::ostream & stream, const Coord & coord)
