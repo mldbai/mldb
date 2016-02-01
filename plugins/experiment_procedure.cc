@@ -401,10 +401,6 @@ run(const ProcedureRunConfig & run,
             outputPC.id = ML::format("%s_results_%d", runProcConf.experimentName, (int)progress);
             outputPC.type = "sparse.mutable";
 
-            MutableSparseMatrixDatasetConfig params;
-            params.writeLevel = WT_READ_AFTER_COMMIT;
-            outputPC.params = params;
-
             {
                 InProcessRestConnection connection;
                 RestRequest request("DELETE", "/v1/datasets/"+outputPC.id.utf8String(), RestParams(), "{}");

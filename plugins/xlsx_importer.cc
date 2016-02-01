@@ -792,7 +792,7 @@ struct XlsxImporter: public Procedure {
                 }
             }
         }
-
+        output->commit();
         return RunOutput();
     }
 
