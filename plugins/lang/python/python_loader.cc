@@ -613,6 +613,10 @@ class mldb_wrapper(object):
 
         def run_tests(self):
             import unittest
+            import StringIO
+            io_stream = StringIO.StringIO()
+            runner = unittest.TextTestRunner(stream=io_stream, verbosity=2,
+                                             buffer=True)
             if self.script.args:
                 assert type(self.script.args) is list
                 if self.script.args[0]:
@@ -623,14 +627,11 @@ class mldb_wrapper(object):
             else:
                 argv = None
 
-            res = unittest.main(exit=False, argv=argv).result
-            self.log(res)
-            got_err = False
-            for err in res.errors + res.failures:
-                got_err = True
-                self.log(str(err[0]) + "\n" + err[1])
+            res = unittest.main(exit=False, argv=argv,
+                                testRunner=runner).result
+            self.log(io_stream.getvalue())
 
-            if not got_err:
+            if res.wasSuccessful():
                 self.script.set_return("success")
 
     )code"; //this is python code
