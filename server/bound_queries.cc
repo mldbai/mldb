@@ -1426,7 +1426,7 @@ execute(std::function<bool (NamedRowValue & output)> aggregator,
         }
     }
 
-    if (destMap.empty() && groupContext->evaluateEmptyGroups)
+    if (destMap.empty() && groupContext->evaluateEmptyGroups && groupBy.clauses.empty())
     {
         auto pair = destMap.emplace(RowKey(), GroupMapValue());
         groupContext->initializePerThreadAggregators(pair.first->second);
