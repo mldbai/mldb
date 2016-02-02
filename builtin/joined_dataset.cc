@@ -875,7 +875,7 @@ overrideFunction(const Utf8String & tableName,
 
         if (tableSide != JoinedDataset::Itl::JOIN_SIDE_MAX)
         {
-            return {[&, tableSide] (const std::vector<ExpressionValue> & args,
+            return {[&, tableSide] (const std::vector<BoundSqlExpression> & args,
                      const SqlRowScope & context)
                 { 
                     auto & row = static_cast<const SqlExpressionDatasetContext::RowContext &>(context);
@@ -892,7 +892,7 @@ overrideFunction(const Utf8String & tableName,
 
         if (tableSide != JoinedDataset::Itl::JOIN_SIDE_MAX)
         {
-            return {[&, tableName, tableSide] (const std::vector<ExpressionValue> & args,
+            return {[&, tableName, tableSide] (const std::vector<BoundSqlExpression> & args,
                      const SqlRowScope & context)
                 {
                     auto & row = static_cast<const SqlExpressionDatasetContext::RowContext &>(context);

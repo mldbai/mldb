@@ -2198,7 +2198,8 @@ bind(SqlBindingScope & context) const
     }
     else if (type == "blob") {
         return {[=] (const SqlRowScope & row,
-                     ExpressionValue & storage) -> const ExpressionValue &
+                     ExpressionValue & storage,
+                     const VariableFilter & filter) -> const ExpressionValue &
                 {
                     ExpressionValue valStorage;
                     const ExpressionValue & val = boundExpr(row, valStorage);

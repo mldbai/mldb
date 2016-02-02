@@ -1530,15 +1530,17 @@ BoundFunction base64_encode(const std::vector<BoundSqlExpression> & args)
     if (args.size() != 1)
         throw HttpReturnException(400, "base64_encode function takes 1 argument");
 
-    return {[=] (const std::vector<ExpressionValue> & args,
+    return {[=] (const std::vector<BoundSqlExpression> & args,
                  const SqlRowScope & context) -> ExpressionValue
             {
                 ExcAssertEqual(args.size(), 1);
 
-                Utf8String str = args[0].toUtf8String();
+                const auto expr = args[0](context);
+                
+                Utf8String str = expr.toUtf8String();
                 return ExpressionValue(base64Encode(str.rawData(),
                                                     str.rawLength()),
-                                       args[0].getEffectiveTimestamp());
+                                       expr.getEffectiveTimestamp());
             },
             std::make_shared<StringValueInfo>()
             };
@@ -1553,14 +1555,15 @@ BoundFunction base64_decode(const std::vector<BoundSqlExpression> & args)
     if (args.size() != 1)
         throw HttpReturnException(400, "base64_decode function takes 1 argument");
 
-    return {[=] (const std::vector<ExpressionValue> & args,
+    return {[=] (const std::vector<BoundSqlExpression> & args,
                  const SqlRowScope & context) -> ExpressionValue
             {
                 ExcAssertEqual(args.size(), 1);
-                CellValue blob = args[0].coerceToBlob();
+                const auto expr = args[0](context);
+                CellValue blob = expr.coerceToBlob();
                 return ExpressionValue(base64Decode((const char *)blob.blobData(),
                                                     blob.blobLength()),
-                                       args[0].getEffectiveTimestamp());
+                                       expr.getEffectiveTimestamp());
             },
             std::make_shared<BlobValueInfo>()
             };
@@ -1579,13 +1582,13 @@ BoundFunction lower(const std::vector<BoundSqlExpression> & args)
     if (args.size() != 1)
         throw HttpReturnException(400, "lower function takes 1 argument");
 
-    return {[=] (const std::vector<ExpressionValue> & args,
+    return {[=] (const std::vector<BoundSqlExpression> & args,
                  const SqlRowScope & context) -> ExpressionValue
             {
                 ExcAssertEqual(args.size(), 1);
-
-                ExpressionValue result(args[0].getAtom().toUtf8String().toLower(),
-                                       args[0].getEffectiveTimestamp());
+                const auto expr = args[0](context);
+                ExpressionValue result(expr.getAtom().toUtf8String().toLower(),
+                                       expr.getEffectiveTimestamp());
                 return result;
             },
             std::make_shared<Utf8StringValueInfo>()
@@ -1601,13 +1604,13 @@ BoundFunction upper(const std::vector<BoundSqlExpression> & args)
     if (args.size() != 1)
         throw HttpReturnException(400, "upper function takes 1 argument");
 
-    return {[=] (const std::vector<ExpressionValue> & args,
+    return {[=] (const std::vector<BoundSqlExpression> & args,
                  const SqlRowScope & context) -> ExpressionValue
             {
                 ExcAssertEqual(args.size(), 1);
-
-                ExpressionValue result(args[0].getAtom().toUtf8String().toUpper(),
-                                       args[0].getEffectiveTimestamp());
+                const auto expr = args[0](context);
+                ExpressionValue result(expr.getAtom().toUtf8String().toUpper(),
+                                       expr.getEffectiveTimestamp());
                 return result;
             },
             std::make_shared<Utf8StringValueInfo>()
