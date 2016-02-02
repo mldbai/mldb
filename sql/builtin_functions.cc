@@ -701,7 +701,7 @@ BoundFunction date_trunc(const std::vector<BoundSqlExpression> & args)
     // extract the requested part of a timestamp
 
     if (args.size() < 2 || args.size() > 3)
-        throw HttpReturnException(400, "date_trunc function takes between two and three arguments, got " + to_string(args.size()));
+        throw HttpReturnException(400, "takes between two and three arguments, got " + to_string(args.size()));
 
     std::string timeUnitStr = args[0].constantValue().toString();
 
