@@ -6,6 +6,7 @@ def get_favorites():
     mldb.perform('PUT', '/v1/datasets/rcp_raw', [], {
         'type': 'text.csv.tabular',
         'params': {
+            'limit': 1000,
             'headers': ['user_id', 'recipe_id'],
             'dataFileUrl': data_base_url + 'favorites.csv'}})
 
