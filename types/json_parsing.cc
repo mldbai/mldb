@@ -742,6 +742,13 @@ fieldNamePtr() const
     return this->back().fieldNamePtr();
 }
 
+int
+JsonPath::
+fieldNumber() const
+{
+    return this->back().fieldNumber;
+}
+
 void
 JsonPath::
 push(JsonPathEntry entry, int fieldNum)
@@ -815,6 +822,13 @@ JsonParsingContext::
 fieldNamePtr() const
 {
     return path->fieldNamePtr();
+}
+
+int
+JsonParsingContext::
+fieldNumber() const
+{
+    return path->fieldNumber();
 }
 
 void

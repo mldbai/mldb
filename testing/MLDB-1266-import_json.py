@@ -25,9 +25,17 @@ class ImportJsonTest(unittest.TestCase):
                     return
 
             # did not find col
+            mldb.log(res)
+            mldb.log(rowName)
+            mldb.log(colName)
+            mldb.log(value)
             assert False
 
         # did not find row
+        mldb.log(res)
+        mldb.log(rowName)
+        mldb.log(colName)
+        mldb.log(value)
         assert False
 
     def do_asserts(self, row_prefix, js_res):
@@ -44,7 +52,6 @@ class ImportJsonTest(unittest.TestCase):
 
         assert_val(row_prefix + "5", "colD.1", 1)
         assert_val(row_prefix + "5", "colD.abc", 1)
-        assert_val(row_prefix + "5", "colD.true", 1)
 
     def test_import_json_procedure(self):
         conf = {
@@ -63,7 +70,7 @@ class ImportJsonTest(unittest.TestCase):
 
         res = mldb.get("/v1/query",
                        q="select * from my_json_dataset order by rowName()")
-        self.do_asserts("row", res.json())
+        self.do_asserts("", res.json())
 
     def test_import_invalid_json(self):
         conf = {
@@ -103,8 +110,8 @@ class ImportJsonTest(unittest.TestCase):
         res = mldb.get("/v1/query",
                        q="select * from my_json_dataset2 order by rowName()")
         js_res = res.json()
-        self.assert_val(js_res, "row1", "colA", 1)
-        self.assert_val(js_res, "row3", "colB", "pwet pwet 2")
+        self.assert_val(js_res, "1", "colA", 1)
+        self.assert_val(js_res, "3", "colB", "pwet pwet 2")
 
     def test_unpack_json_builtin_function(self):
         conf = {

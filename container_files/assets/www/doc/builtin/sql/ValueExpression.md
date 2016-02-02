@@ -476,48 +476,60 @@ number of occurrences of those tokens within `str`. For example `tokenize('a b b
 
 ### JSON unpacking <a name="unpack_json"></a>
 
-The `unpack_json(str)` function will parse the string `str` as a JSON object and unpack it into multiple columns following the  algorithm outlined below. Note that JSON objects shown in the tables below are string reprensetations of the JSONs.
+The `unpack_json(str)` function will parse the string `str` as a JSON
+object and unpack it into multiple columns following the  algorithm
+outlined below. Note that JSON objects shown in the tables below are
+string reprensetations of the JSON.
 
 Each `(key, value)` pair will be recorded as the column name and cell value respectively. The line `{"a": 5, "b": true}` is recorded as:
 
 | *rowName* | *a* | *b* |
 |-----------|-----|-----|
-| row1 | 5 | true |
+| row1 | 5 | 1 |
 
-If the value is an object, we apply the same logic recursively, adding an underscore
-between the keys at each level. The line `{"a": 5, "c": {"x": "hola"}, "d": {"e": {"f": "amigo"}}}` is recorded as:
+(note that `true` and `false` in JSON come out as `1` and `0`, since
+SQL doesn't have a boolean type).
+
+If the value is an object, we apply the same logic recursively, adding a
+period (`.`) between the keys at each level. The line
+ `{"a": 5, "c": {"x": "hola"}, "d": {"e": {"f": "amigo"}}}`
+is recorded as:
 
 | *rowName* | *a* | *c.x* | *d.e.f* |
 |-----------|-----|-------|---------|
 | row1 | 5 | hola | amigo |
 
 
-If the value is an array that contains only atomic types (strings, bool or numeric), we
-encode them as a one-hot vector. As shown in the example below, the `value` in the JSON
-will be appended to the column name and the cell value will be set to `true`. The line `{"a": 5, "b": [1, 2, "abc"]}` is recorded as:
+If the value is an array that contains only atomic types (strings, bool or
+numeric), we encode them as a one-hot vector. As shown in the example below,
+the `value` in the JSON will be appended to the column name and the cell
+value will be set to `true`. The line `{"a": 5, "b": [1, 2, "abc"]}`
+is recorded as:
 
 | *rowName* | *a* | *b.1* | *b.2* | *b.abc* |
 |-----------|-----|-----|-------|-----------|
-| row1 | 5 | true | true | true |
+| row1 | 5 | 1 | 1 | 1 |
 
-If the value is an array that contains only objects, we unpack the array putting one
-JSON object per column encoded as a string. The line `{"a": 5, "b": [{"z": 1}, {"y": 2}]}` is recorded as:
+If the value is an array that contains only objects, we unpack the array
+putting one JSON object per column encoded as a string. The line
+`{"a": 5, "b": [{"z": 1}, {"y": 2}]}` is recorded as:
 
 | *rowName* | *a* | *b.0* | *b.1* |
 |-----------|-----|-----|-------|
 | row1 | 5 | {"z": 1} | {"y": 2} |
 
-If the value is an array that contains at least one non-atomic type (array, object), we
-encode them as the string representation of the JSON. The line `{"a": 5, "b": [1, 2, {"xyz":"abc"}]}` is recorded as:
+If the value is an array that contains at least one non-atomic type (array,
+object), we encode them as the string representation of the JSON. The line
+`{"a": 5, "b": [1, 2, {"xyz":"abc"}]}` is recorded as:
 
 | *rowName* | *a* | *b* |
 |-----------|-----|-----|
 | row1 | 5 | [1, 2, {"xyz":"abc"}] |
 
 
-The ![](%%doclink import.json procedure) can be used to import a text file where each line
-is a JSON object. The ![](%%doclink melt procedure) can be used on columns repsenting
-arrays of objects to create a row per array element.
+The ![](%%doclink import.json procedure) can be used to import a text file
+where each line is a JSON object. The ![](%%doclink melt procedure) can be
+used on columns repsenting arrays of objects to create a row per array element.
 
 
 ## <a name="aggregatefunctions"></a>Aggregate Functions

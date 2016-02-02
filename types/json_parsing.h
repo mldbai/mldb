@@ -180,6 +180,10 @@ struct JsonParsingContext {
     /// modified.
     const char * fieldNamePtr() const;
 
+    /// Returns the outermost array index.  Throws if not currently in an
+    /// array.
+    int fieldNumber() const;
+
     /// Push an element onto the path
     void pushPath(JsonPathEntry entry, int memberNumber = 0);
 

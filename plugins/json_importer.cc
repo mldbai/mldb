@@ -15,6 +15,7 @@
 #include "mldb/plugins/for_each_line.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/vfs/filter_streams.h"
+#include "mldb/vfs/fs_utils.h"
 #include "mldb/sql/builtin_functions.h"
 
 using namespace std;
@@ -105,8 +106,11 @@ struct JSONImporter: public Procedure {
         std::atomic<int64_t> recordedLines(0);
         int64_t lineOffset = 1;
         std::string line;
+        std::string filename = runProcConf.dataFileUrl.toString();
+        
+        ML::filter_istream stream(filename);
 
-        ML::filter_istream stream(runProcConf.dataFileUrl.toString());
+        Date timestamp = stream.info().lastModified;
 
         // Skip those up to the offset
         for (size_t i = 0;  stream && i < config.offset;  ++i, ++lineOffset) {
@@ -121,8 +125,9 @@ struct JSONImporter: public Procedure {
                 return true;
             }
             
-            throw HttpReturnException(400, "Error parsing CSV row: "
+            throw HttpReturnException(400, "Error parsing JSON row: "
                                       + message,
+                                      "filename", filename,
                                       "lineNumber", lineNumber,
                                       "line", line);
         };
@@ -138,30 +143,22 @@ struct JSONImporter: public Procedure {
             if(lineLength == 0)
                 return handleError("empty line", actualLineNum, "");
 
-            Json::Reader reader;
-            Json::Value root;
+            StreamingJsonParsingContext parser(filename, line, lineLength,
+                                               actualLineNum);
 
-            if (!reader.parse(line, line+lineLength, root))
-                return handleError("Unable to parse line %d to JSON", 
-                                   actualLineNum,
-                                   string(line, lineLength));
+            // TODO: in the configuration
+            JsonArrayHandling arrays = ENCODE_ARRAYS;
             
-            if(!root.isObject())
-                return handleError("JSON is not an object",
-                                   actualLineNum,
-                                   string(line, lineLength));
-
-            MatrixNamedRow outputRow;
-            outputRow.rowName = RowName(ML::format("row%d", actualLineNum));
-
-            for (const std::string & id : root.getMemberNames()) {
-                Builtins::unpackJson(outputRow.columns, id, root[id], zeroTs);
+            ExpressionValue expr;
+            try {
+                expr = ExpressionValue::parseJson(parser, timestamp, arrays);
+            } catch (const std::exception & exc) {
+                return handleError(exc.what(), actualLineNum, string(line, lineLength));
             }
 
             recordedLines++;
 
-            std::unique_lock<std::mutex> guard(recordMutex);
-            outputDataset->recordRow(outputRow.rowName, outputRow.columns);
+            outputDataset->recordRowExpr(RowName(actualLineNum), expr);
             return true;
         };
 

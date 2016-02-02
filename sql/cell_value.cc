@@ -1097,8 +1097,16 @@ struct CellValueDescription: public ValueDescriptionT<CellValue> {
                 throw HttpReturnException(400, "Unknown JSON CellValue '" + v.toStringNoNewLine() + "'");
             }
         }
-        else throw HttpReturnException(400, "Unknown cell value",
-                                       "json", context.expectJson().toStringNoNewLine());
+        else if (context.isBool()) {
+            *val = CellValue(context.expectBool());
+        }
+        else {
+            Json::Value val = context.expectJson();
+            cerr << "val = " << val << endl;
+            throw HttpReturnException(400, "Unknown cell value",
+                                      "json",
+                                      val.toStringNoNewLine());
+        }
     }
 
     virtual void printJsonTyped(const CellValue * val,

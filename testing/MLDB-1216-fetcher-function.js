@@ -21,7 +21,7 @@ assertEqual(res.responseCode, 201);
 var getCountryConfig = {
     type: 'sql.expression',
     params: {
-        expression: "extract_column('geoplugin_countryCode', json_decode(CAST (fetch({url: 'http://www.geoplugin.net/json.gp?ip=' + ip})[content] AS STRING))) as country"
+        expression: "extract_column('geoplugin_countryCode', parse_json(CAST (fetch({url: 'http://www.geoplugin.net/json.gp?ip=' + ip})[content] AS STRING))) as country"
     }
 };
 

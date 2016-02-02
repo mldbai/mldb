@@ -924,92 +924,50 @@ BoundFunction parse_sparse_csv(const std::vector<BoundSqlExpression> & args)
 static RegisterBuiltin registerParseSparseCsv(parse_sparse_csv, "parse_sparse_csv");
 
 
-void
-unpackJson(RowValue & row, const std::string & id, const Json::Value & val, const Date & ts)
+BoundFunction parse_json(const std::vector<BoundSqlExpression> & args)
 {
-    auto concatIds = [&] (const std::string & suffix)
-        {
-            return id.size() > 0 ? id + '.' + suffix
-                                 : suffix;
-        };
-
-    if(val.isNull()) {
-        return;
-    }
-    else if(val.isBool()) {
-        row.emplace_back(ColumnName(id), val.asBool(), ts); 
-    }
-    else if(val.isInt()) {
-        row.emplace_back(ColumnName(id), val.asInt(), ts); 
-    }
-    else if(val.isDouble()) {
-        row.emplace_back(ColumnName(id), val.asDouble(), ts); 
-    }
-    else if(val.isString()) {
-        row.emplace_back(ColumnName(id), val.asString(), ts); 
-    }
-    else if(val.isArray()) {
-        // is it only atomic types?
-        bool onlyAtomic = true;
-        bool onlyObject = true;
-        for(int i=0; i<val.size(); i++) {
-            if(val[i].isArray() || val[i].isObject()) {
-                onlyAtomic = false;
-            }
-            if(!val[i].isObject()) {
-                onlyObject = false;
-            }
-        }
-
-        if(onlyAtomic) {
-            for(int i=0; i<val.size(); i++) {
-                string key;
-                if(val[i].isString())      key = val[i].asString();
-                else if(val[i].isBool())   key = val[i].asBool() ? "true" : "false";
-                else if(val[i].isDouble()) key = boost::lexical_cast<string>(val[i].asDouble());
-                else if(val[i].isInt())    key = boost::lexical_cast<string>(val[i].asInt());
-                else                       key = val[i].toString();
-                unpackJson(row, concatIds(key), Json::Value(true), ts);
-            }
-        }
-        else if(onlyObject) {
-            for(int i=0; i<val.size(); i++) {
-                row.emplace_back(ColumnName(ML::format("%s.%d", id, i)),
-                                 std::move(val[i].toStringNoNewLine()),
-                                 ts);
-            }
-        }
-        else {
-            row.emplace_back(ColumnName(id), std::move(val.toStringNoNewLine()), ts); 
-        }
-    }
-    else if(val.isObject()) {
-        for (const std::string & sub_id : val.getMemberNames()) {
-            unpackJson(row, concatIds(sub_id), val[sub_id], ts);
-        }
-    }
+    if (args.size() != 1)
+        throw HttpReturnException(400, "parse_json function takes 1 argument");
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & context) -> ExpressionValue
+            {
+                ExcAssertEqual(args.size(), 1);
+                Utf8String str = args[0].toUtf8String();
+                StreamingJsonParsingContext parser(str.rawString(),
+                                                   str.rawData(),
+                                                   str.rawLength());
+                return ExpressionValue::
+                    parseJson(parser, args[0].getEffectiveTimestamp(),
+                              PARSE_ARRAYS);
+            },
+            std::make_shared<AnyValueInfo>()
+            };
 }
+
+static RegisterBuiltin registerJsonDecode(parse_json, "parse_json");
+
 
 BoundFunction get_bound_unpack_json(const std::vector<BoundSqlExpression> & args)
 {
-    // Comma separated list, first is row name, rest are row columns
 
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & context) -> ExpressionValue
             {
-                std::string str = args.at(0).toString();
+                ExcAssertEqual(args.size(), 1);
                 Date ts = args.at(0).getEffectiveTimestamp();
 
-                Json::Reader reader;
-                Json::Value root;
+                Utf8String str = args[0].toUtf8String();
+                StreamingJsonParsingContext parser(str.rawString(),
+                                                   str.rawData(),
+                                                   str.rawLength());
 
-                if (!reader.parse(str, root) || !root.isObject())
-                    throw ML::Exception(ML::format("Unable to parse text as JSON or JSON is not an object"));
-
-                RowValue row;
-                unpackJson(row, "", root, ts);
-
-                return ExpressionValue(std::move(row));
+                if (!parser.isObject())
+                    throw HttpReturnException(400, "JSON passed to unpack_json must be an object",
+                                              "json", str);
+                
+                return ExpressionValue::
+                    parseJson(parser, args[0].getEffectiveTimestamp(),
+                              ENCODE_ARRAYS);
             },
             std::make_shared<UnknownRowValueInfo>()};
 }
@@ -1528,71 +1486,6 @@ BoundFunction base64_decode(const std::vector<BoundSqlExpression> & args)
 }
 
 static RegisterBuiltin registerBase64Decode(base64_decode, "base64_decode");
-
-static const auto cellValueDesc = getDefaultDescriptionShared((CellValue *)0);
-
-ExpressionValue
-parseJson(JsonParsingContext & context, Date timestamp)
-{
-    if (context.isObject()) {
-
-        std::vector<std::tuple<ColumnName, ExpressionValue> > out;
-
-        auto onObjectField = [&] ()
-            {
-                out.emplace_back
-                (ColumnName(context.printPath(false /* include leading dot */)),
-                 parseJson(context, timestamp));
-                                 
-            };
-        context.forEachMember(onObjectField);
-
-        return std::move(out);
-    }
-    else if (context.isArray()) {
-        std::vector<std::tuple<ColumnName, ExpressionValue> > out;
-
-        auto onArrayElement = [&] ()
-            {
-                out.emplace_back
-                (ColumnName(context.printPath(false /* include leading dot */)),
-                                 parseJson(context, timestamp));
-                                 
-            };
-
-        context.forEachElement(onArrayElement);
-
-        return std::move(out);
-    }
-    else {
-        // It's a cell value
-        CellValue val;
-        cellValueDesc->parseJson(&val, context);
-        return ExpressionValue(std::move(val), timestamp);
-    }
-}
-
-BoundFunction json_decode(const std::vector<BoundSqlExpression> & args)
-{
-    if (args.size() != 1)
-        throw HttpReturnException(400, "json_decode function takes 1 argument");
-    return {[=] (const std::vector<ExpressionValue> & args,
-                 const SqlRowScope & context) -> ExpressionValue
-            {
-                ExcAssertEqual(args.size(), 1);
-                Utf8String str = args[0].toUtf8String();
-                Json::Value val = Json::parse(str.rawString());
-
-                StreamingJsonParsingContext parser(str.rawString(),
-                                                   str.rawData(),
-                                                   str.rawLength());
-                return parseJson(parser, args[0].getEffectiveTimestamp());
-            },
-            std::make_shared<BlobValueInfo>()
-            };
-}
-
-static RegisterBuiltin registerJsonDecode(json_decode, "json_decode");
 
 BoundFunction extract_column(const std::vector<BoundSqlExpression> & args)
 {

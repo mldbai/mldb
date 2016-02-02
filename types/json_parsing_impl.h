@@ -33,6 +33,9 @@ struct JsonPath: public ML::compact_vector<JsonPathEntry, 8> {
     /// in an array.  String is owned by this and reference must not outlive it.
     const char * fieldNamePtr() const;
 
+    /// Field number of the outermost element.  Throws if not in an array.
+    int fieldNumber() const;
+
     /// Push a new path element
     void push(JsonPathEntry entry, int fieldNum = 0);
 
