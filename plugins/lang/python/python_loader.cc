@@ -649,9 +649,7 @@ class MldbUnitTest(unittest.TestCase):
             key: index for index, key in enumerate(expected[0])}
 
         reorder_directives = [expected_order[key] for key in res[0]]
-        ordered_res = []
-        for v in res[1:]:
-            ordered_res.append([v[pos] for pos in reorder_directives])
+        ordered_res = [[v[pos] for pos in reorder_directives] for v in res[1:]]
         for res_row, expected_row in zip(ordered_res, expected[1:]):
             self.assertEqual(res_row, expected_row)
 
