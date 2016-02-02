@@ -109,12 +109,16 @@ struct SqlExpressionDatasetContext: public SqlExpressionMldbContext {
     {
         return RowContext(row, params);
     }
+
+    virtual Utf8String 
+    doResolveTableName(const Utf8String & fullVariableName, Utf8String &tableName) const;
     
 protected:
 
     Utf8String removeTableName(const Utf8String & variableName) const;
     Utf8String removeQuotes(const Utf8String & variableName) const;
     Utf8String resolveTableName(const Utf8String& variableName) const;
+    Utf8String resolveTableName(const Utf8String& variableName, Utf8String& resolvedTableName) const;
 };
 
 
