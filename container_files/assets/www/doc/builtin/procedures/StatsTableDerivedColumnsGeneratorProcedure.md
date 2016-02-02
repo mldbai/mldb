@@ -37,7 +37,7 @@ situations, we have many stats table to consider so we will provide a template f
 The following expression:
 
 ```
-"click"/"trial" as "ctr_$tbl", log("purchase"+1) as "logPurchase_$tbl"
+"click"/"trial" as "ctr_$tbl", ln("purchase"+1) as "logPurchase_$tbl"
 ```
 
 will produce this expanded expression for the dataset above:

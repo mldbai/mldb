@@ -56,6 +56,10 @@ struct JoinedDataset: public Dataset {
 
     virtual void getChildAliases(std::vector<Utf8String>&) const;
 
+    virtual BoundFunction overrideFunction(const Utf8String & tableName, const Utf8String & functionName, SqlBindingScope & context) const;
+
+    virtual RowName getOriginalRowName(const Utf8String& tableName, const RowName & name) const;
+
 private:
     JoinedDatasetConfig datasetConfig;
     struct Itl;

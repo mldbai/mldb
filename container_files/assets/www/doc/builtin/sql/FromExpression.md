@@ -78,3 +78,53 @@ SELECT x.* FROM merge(dataset1, dataset2, dataset3) AS x
 ```
 
 See ![](%%doclink merged dataset) for more details.
+
+## Using rows as a dataset
+
+In some circumstances, it may be useful to use a row as a dataset,
+particularly when using the ![](%%doclink sql.query function) or a
+sub-select.  This can be done using the syntax
+
+```
+SELECT ... FROM row_dataset(expression) ...
+```
+
+When this construct is used, a dataset is constructed with one row
+for each column in the expression, with one column called `value`
+containing the value of the column, and one column called `column`
+with the column name.  For example, the following expression
+
+```
+row_dataset({x: 1, y:2, z: 'three'})
+```
+
+would yield the following dataset:
+
+```
+column    value
+x         1
+y         2
+z         "three"
+```
+
+As an example, the following `sql.query` object would strip
+out any numeric-valued columns and uppercase all names from a
+passed in row:
+
+```
+POST /v1/functions/row_transform {
+    type: 'sql.query',
+    params: {
+        query: 'SELECT upper(column) AS column, value FROM row_dataset($input) WHERE CAST (value AS NUMBER) IS NULL',
+        output: 'NAMED_COLUMNS'
+    }
+}
+
+SELECT row_transform({input: {x: 1, y: 2, z: "three"}})[output] AS *
+
+{ Z: "three" }
+```
+
+It can also be used to join a row against another dataset, in order to
+look up rows from another dataset based upon the keys or values in a row,
+in other words perform a "gather" operation.

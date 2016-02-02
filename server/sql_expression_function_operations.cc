@@ -31,7 +31,6 @@ bindApplyFunctionExpression(const Utf8String & functionName,
                             SqlBindingScope & context)
 {
     // Ask what our function needs
-
     std::shared_ptr<Function> function = context.doGetFunctionEntity(functionName);
 
     auto boundWith = with.bind(context);
@@ -61,7 +60,7 @@ bindApplyFunctionExpression(const Utf8String & functionName,
                 context.update(std::move(withOutput));
 
                 if (function) {
-                    FunctionOutput functionOutput = applier->apply(row, context);
+                    FunctionOutput functionOutput = applier->apply(context);
                     //cerr << "functionoutput = " << jsonEncode(functionOutput) << endl;
                     context.update(std::move(functionOutput));
                 }
@@ -135,7 +134,7 @@ bindSelectApplyFunctionExpression(const Utf8String & functionName,
                 context.update(std::move(withOutput));
 
                 if (function) {
-                    FunctionOutput functionOutput = applier->apply(row, context);
+                    FunctionOutput functionOutput = applier->apply(context);
                     //cerr << "functionoutput = " << jsonEncode(functionOutput) << endl;
                     context.update(std::move(functionOutput));
                 }

@@ -224,6 +224,11 @@ The Stream object has the following methods:
 - `readU32BE()` reads and returns the next four bytes as an unsigned big endian integer
 - `readI32LE()` reads and returns the next four bytes as an signed little endian integer
 - `readI32BE()` reads and returns the next four bytes as an signed big endian integer
+- `readBlob(numBytes=-1,allowShortReads=false)` reads and returns the given
+  number of bytes (or all remaining bytes, if `numBytes` is -1) into a `BLOB`
+  Atom.  If EOF is reached before the required `numBytes` has been read, and
+  `numBytes` is not -1, and `allowShortReads` is `false`, then an exception will
+  be thrown.
 
 
 ### Dataset objects

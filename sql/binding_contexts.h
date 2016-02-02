@@ -199,6 +199,23 @@ struct SqlExpressionParamScope: public SqlBindingScope {
 };
 
 
+/*****************************************************************************/
+/* SQL EXPRESSION CONSTANT SCOPE                                             */
+/*****************************************************************************/
+
+/** Scope that will fail to bind anything apart from built-in function.
+    This is used to bind and evaluate constant expressions.
+*/
+
+struct SqlExpressionConstantScope: public SqlBindingScope {
+
+    static SqlRowScope getRowScope()
+    {
+        return SqlRowScope();
+    }
+};
+
+
 
 
 } // namespace MLDB

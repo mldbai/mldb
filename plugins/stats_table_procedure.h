@@ -63,7 +63,7 @@ struct StatsTable {
 /* STATS TABLE PROCEDURE CONFIG                                              */
 /*****************************************************************************/
 
-struct StatsTableProcedureConfig {
+struct StatsTableProcedureConfig : public ProcedureConfig {
     StatsTableProcedureConfig()
     {
         output.withType("sparse.mutable");
@@ -210,7 +210,7 @@ struct BagOfWordsStatsTableProcedure: public Procedure {
 
     virtual Any getStatus() const;
 
-    StatsTableProcedureConfig procConfig;
+    BagOfWordsStatsTableProcedureConfig procConfig;
 };
 
 

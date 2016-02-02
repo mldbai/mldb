@@ -1,7 +1,11 @@
 # This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
-# RTB simulator makefile
-# Jeremy Barnes, 16 January 2010
+# gcc 4.7
+$(eval $(call set_compile_option,hash.cc,-fpermissive))
+
+$(eval $(call library,hash,hash.cc,cryptopp))
+
+$(eval $(call library,log,log.cc,))
 
 $(eval $(call library,json_diff,json_diff.cc json_utils.cc,jsoncpp value_description types utils siphash))
 

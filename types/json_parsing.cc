@@ -315,6 +315,82 @@ std::string expectJsonStringAscii(Parse_Context & context)
     return result;
 }
 
+Utf8String expectJsonStringUtf8(Parse_Context & context)
+{
+    skipJsonWhitespace(context);
+    context.expect_literal('"');
+
+    char internalBuffer[4096];
+
+    char * buffer = internalBuffer;
+    size_t bufferSize = 4096;
+    size_t pos = 0;
+
+    // Keep expanding until it fits
+    while (!context.match_literal('"')) {
+        // We need up to 4 characters to add a new UTF-8 code point
+        if (pos >= bufferSize - 4) {
+            size_t newBufferSize = bufferSize * 8;
+            char * newBuffer = new char[newBufferSize];
+            std::copy(buffer, buffer + bufferSize, newBuffer);
+            if (buffer != internalBuffer)
+                delete[] buffer;
+            buffer = newBuffer;
+            bufferSize = newBufferSize;
+        }
+
+        int c = *context;
+        
+        //cerr << "c = " << c << " " << (char)c << endl;
+
+        if (c < 0 || c > 127) {
+            // Unicode
+            c = utf8::unchecked::next(context);
+
+            char * p1 = buffer + pos;
+            char * p2 = p1;
+            pos += utf8::append(c, p2) - p1;
+
+            continue;
+        }
+        ++context;
+
+        if (c == '\\') {
+            c = *context++;
+            switch (c) {
+            case 't': c = '\t';  break;
+            case 'n': c = '\n';  break;
+            case 'r': c = '\r';  break;
+            case 'f': c = '\f';  break;
+            case 'b': c = '\b';  break;
+            case '/': c = '/';   break;
+            case '\\':c = '\\';  break;
+            case '"': c = '"';   break;
+            case 'u': {
+                int code = context.expect_hex4();
+                c = code;
+                break;
+            }
+            default:
+                context.exception("invalid escaped char");
+            }
+        }
+
+        if (c < ' ' || c >= 127) {
+            char * p1 = buffer + pos;
+            char * p2 = p1;
+            pos += utf8::append(c, p2) - p1;
+        }
+        else buffer[pos++] = c;
+    }
+
+    Utf8String result(string(buffer, buffer + pos));
+    if (buffer != internalBuffer)
+        delete[] buffer;
+    
+    return result;
+}
+
 bool
 matchJsonNull(Parse_Context & context)
 {
@@ -367,7 +443,7 @@ expectJsonObject(Parse_Context & context,
     for (;;) {
         skipJsonWhitespace(context);
 
-        string key = expectJsonStringAscii(context);
+        string key = expectJsonStringUtf8(context).rawString();
 
         skipJsonWhitespace(context);
 
@@ -1230,78 +1306,7 @@ Utf8String
 StreamingJsonParsingContext::
 expectStringUtf8()
 {
-    skipJsonWhitespace((*context));
-    context->expect_literal('"');
-
-    char internalBuffer[4096];
-
-    char * buffer = internalBuffer;
-    size_t bufferSize = 4096;
-    size_t pos = 0;
-
-    // Keep expanding until it fits
-    while (!context->match_literal('"')) {
-        // We need up to 4 characters to add a new UTF-8 code point
-        if (pos >= bufferSize - 4) {
-            size_t newBufferSize = bufferSize * 8;
-            char * newBuffer = new char[newBufferSize];
-            std::copy(buffer, buffer + bufferSize, newBuffer);
-            if (buffer != internalBuffer)
-                delete[] buffer;
-            buffer = newBuffer;
-            bufferSize = newBufferSize;
-        }
-
-        int c = *(*context);
-        
-        //cerr << "c = " << c << " " << (char)c << endl;
-
-        if (c < 0 || c > 127) {
-            // Unicode
-            c = utf8::unchecked::next(*context);
-
-            char * p1 = buffer + pos;
-            char * p2 = p1;
-            pos += utf8::append(c, p2) - p1;
-
-            continue;
-        }
-        ++(*context);
-
-        if (c == '\\') {
-            c = *(*context)++;
-            switch (c) {
-            case 't': c = '\t';  break;
-            case 'n': c = '\n';  break;
-            case 'r': c = '\r';  break;
-            case 'f': c = '\f';  break;
-            case 'b': c = '\b';  break;
-            case '/': c = '/';   break;
-            case '\\':c = '\\';  break;
-            case '"': c = '"';   break;
-            case 'u': {
-                int code = context->expect_hex4();
-                c = code;
-                break;
-            }
-            default:
-                context->exception("invalid escaped char");
-            }
-        }
-
-        if (c < ' ' || c >= 127) {
-            char * p1 = buffer + pos;
-            char * p2 = p1;
-            pos += utf8::append(c, p2) - p1;
-        }
-        else buffer[pos++] = c;
-    }
-
-    Utf8String result(string(buffer, buffer + pos));
-    if (buffer != internalBuffer)
-        delete[] buffer;
-    
-    return result;
+    return Datacratic::expectJsonStringUtf8(*context);
 }
 
 void
@@ -1364,7 +1369,7 @@ expectJson(Parse_Context & context)
 {
     context.skip_whitespace();
     if (*context == '"')
-        return expectJsonStringAscii(context);
+        return expectJsonStringUtf8(context);
     else if (context.match_literal("null"))
         return Json::Value();
     else if (context.match_literal("true"))

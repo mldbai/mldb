@@ -29,10 +29,6 @@ caller:
 ![](%%type Datacratic::MLDB::CreateEntityProcedureOutput)
 
 
-## Examples
-
-* The ![](%%nblink _demos/Predicting Titanic Survival) demo notebook
-
 # See also
 
 - [Procedures] (Procedures.md) for a description of procedures and what they can do.

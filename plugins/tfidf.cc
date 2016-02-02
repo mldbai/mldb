@@ -23,6 +23,7 @@
 #include "mldb/types/any_impl.h"
 #include "mldb/types/optional_description.h"
 #include "mldb/vfs/filter_streams.h"
+#include "mldb/plugins/sql_config_validator.h"
 
 using namespace std;
 
@@ -155,6 +156,7 @@ TfidfConfigDescription()
                                 + "\" is not valid.  A valid modelFileUrl parameter "
                                 + "is required to create a function.");
         }
+        MustContainFrom<InputQuery>()(cfg->trainingData, "tfidf.train");
     };
 }
 
@@ -193,8 +195,9 @@ run(const ProcedureRunConfig & run,
     //This will cummulate the number of documents each word is in 
     std::unordered_map<Utf8String, uint64_t> dfs;
 
-    auto aggregator = [&] (const MatrixNamedRow & row)
+    auto aggregator = [&] (NamedRowValue & row_)
         {
+            MatrixNamedRow row = row_.flattenDestructive();
             for (auto& col : row.columns) {            
                 Utf8String word = get<0>(col).toUtf8String();
                 dfs[word] += 1;               
@@ -205,7 +208,7 @@ run(const ProcedureRunConfig & run,
 
     iterateDataset(runProcConf.trainingData.stm->select, *boundDataset.dataset, boundDataset.asName, 
                    runProcConf.trainingData.stm->when,
-                   runProcConf.trainingData.stm->where,
+                   *runProcConf.trainingData.stm->where,
                    aggregator,
                    runProcConf.trainingData.stm->orderBy,
                    runProcConf.trainingData.stm->offset,
@@ -214,8 +217,15 @@ run(const ProcedureRunConfig & run,
 
     bool saved = false;
     if (!runProcConf.modelFileUrl.empty()) {
-        save(runProcConf.modelFileUrl.toString(), dfs.size(), dfs);
-        saved = true;
+        try {
+            save(runProcConf.modelFileUrl.toString(), dfs.size(), dfs);
+            saved = true;
+        }
+        catch (const std::exception & exc) {
+             throw HttpReturnException(400, "Error saving tfidf at location'" +
+                                      runProcConf.modelFileUrl.toString() + "': " +
+                                      exc.what());
+        }
     }
 
     if (runProcConf.output) {
@@ -250,9 +260,10 @@ run(const ProcedureRunConfig & run,
 
             obtainFunction(server, tfidfFuncPC, onProgress);
         } else {
-            throw ML::Exception("Can't create tfidf function " +
-                                runProcConf.functionName.rawString() + 
-                                " Have you provided a valid modelFileUrl?");
+            throw HttpReturnException(400, "Can't create tfidf function '" +
+                                      runProcConf.functionName.rawString() + 
+                                      "'. Have you provided a valid modelFileUrl?",
+                                      "modelFileUrl", runProcConf.modelFileUrl.toString());
         }
     }
 

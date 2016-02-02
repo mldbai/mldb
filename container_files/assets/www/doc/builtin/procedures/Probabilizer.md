@@ -48,10 +48,6 @@ A probabilizer is trained on the output of a classifier applied over a
 dataset.  The dataset should *not* have been used to train the classifier,
 or a biased probabilizer will result.
 
-## Examples
-
-* The ![](%%nblink _demos/Predicting Titanic Survival) demo notebook
-
 ## See also
 
 * The ![](%%doclink classifier.train procedure) trains a classifier.

@@ -331,9 +331,10 @@ run(const ProcedureRunConfig & run,
     PerThreadAccumulator<ThreadAccum> accum;
 
 
-    auto aggregator = [&] (const MatrixNamedRow & row,
+    auto aggregator = [&] (NamedRowValue & row_,
                            const std::vector<ExpressionValue> & extraVals)
         {
+            MatrixNamedRow row = row_.flattenDestructive();
             CellValue label = extraVals.at(0).getAtom();
             if (label.empty())
                 return true;
@@ -395,7 +396,7 @@ run(const ProcedureRunConfig & run,
 
     BoundSelectQuery(select, *boundDataset.dataset,
                      boundDataset.asName, runProcConf.trainingData.stm->when,
-                     runProcConf.trainingData.stm->where,
+                     *runProcConf.trainingData.stm->where,
                      runProcConf.trainingData.stm->orderBy, extra,
                      false /* implicit order by row hash */)
         .execute(aggregator, 

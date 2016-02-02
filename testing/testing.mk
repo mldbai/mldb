@@ -16,15 +16,12 @@ $(eval $(call library,mldb_test_function,test_function.cc,mldb))
 
 $(eval $(call test,mldb_plugin_test,mldb,boost))
 $(eval $(call test,mldb_python_plugin_test,mldb,boost))
-$(eval $(call test,mldb_dataset_test,mldb,boost))
 $(eval $(call test,MLDB-642_script_procedure_test,mldb,boost))
 $(eval $(call test,for_each_line_test,mldb,boost))
 $(eval $(call test,svd_utils_test,mldb,boost))
 
-#$(eval $(call test,mldb_sql_test,mldb,boost))  # plugin is disabled
-$(eval $(call test,mldb_mnist_test,mldb,boost))
 $(eval $(call test,mldb_reddit_test,mldb,boost))
-$(eval $(call test,cell_value_test,mldb,boost))
+$(eval $(call test,cell_value_test,sql_expression,boost))
 
 # NOTE: sql_expression_test should NOT depend on the MLDB library.  If you
 # are tempted to add it, you have coupled them together and broken
@@ -34,7 +31,7 @@ $(eval $(call test,sql_expression_test,sql_expression,boost))
 $(eval $(call test,dataset_select_test,mldb,boost))
 $(eval $(call test,embedding_dataset_test,mldb,boost))
 $(eval $(call test,procedure_run_test,mldb,boost))
-$(eval $(call test,python_procedure_test,mldb,boost manual))
+$(eval $(call test,python_procedure_test,mldb,boost manual)) #manual -- unclear why
 $(eval $(call test,mldb_internal_plugin_doc_test,mldb,boost))
 
 
@@ -46,7 +43,6 @@ $(eval $(call test,pyplugin_static_folder_test,mldb,boost))
 $(eval $(call test,mldb_function_delete_test,mldb mldb_test_function,boost))
 $(eval $(call test,MLDB-204-circular-references-initialization,mldb,boost))
 $(eval $(call test,MLDB-267-delete-while-loading,mldb,boost))
-$(eval $(call test,MLDB-429-assert_fails_for_training,mldb,boost))
 $(eval $(call test,mldb_crash_multiple_py_routes,mldb,boost manual))  #manual - intermittent - MLDB-787
 $(eval $(call test,mldb_function_pin_test,mldb,boost))
 $(eval $(call test,mldb_determinism_test,mldb,boost))
@@ -97,7 +93,6 @@ $(eval $(call mldb_unit_test,MLDB-434-beh-dataset-nulls.js))
 $(eval $(call mldb_unit_test,MLDB-301-commit-empty-dataset.js))
 $(eval $(call mldb_unit_test,MLDB-283-embedding-nearest-neighbours.js))
 $(eval $(call mldb_unit_test,MLDB-417-empty-svd.js))
-$(eval $(call mldb_unit_test,MLDB-452-svd_procedure.py,,manual)) #manual - slow
 $(eval $(call mldb_unit_test,MLDB-485-svd_embedRow_returns_zeroes.py))
 $(eval $(call mldb_unit_test,MLDB-481-vp-tree-high-dimensional-cube.js))
 $(eval $(call mldb_unit_test,MLDB-466-full-reddit.js,,manual)) #manual - slow
@@ -105,8 +100,6 @@ $(eval $(call mldb_unit_test,MLDB-489-svd-nonvarying-reals.js))
 $(eval $(call mldb_unit_test,MLDB-462-transposed-dataset.js))
 $(eval $(call mldb_unit_test,MLDB-461_horizontal_ops_test.py))
 $(eval $(call mldb_unit_test,MLDB-494-stream-destructor-hang.js))
-$(eval $(call mldb_unit_test,mldb_badalloc_test.py,,manual)) #manual - hardcoded path
-$(eval $(call mldb_unit_test,MLDB-493-two-tsnes.js,,manual)) #manual - hardcoded path
 $(eval $(call mldb_unit_test,MLDB-487-scikit-learn-comparison.py,,manual)) #manual - slow
 $(eval $(call mldb_unit_test,MLDB-498-svd-apply-function.js))
 $(eval $(call mldb_unit_test,MLDB-497-get-config-type-info.js))
@@ -121,22 +114,18 @@ $(eval $(call mldb_unit_test,MLDB-541-record-column.js))
 $(eval $(call mldb_unit_test,MLDB-581-multiple-select.js))
 $(eval $(call mldb_unit_test,MLDB-529-duplicate-pin.js))
 $(eval $(call mldb_unit_test,MLDB-284-tsne-reapply.js,,manual))  #manual - waiting for fix
-$(eval $(call mldb_unit_test,MLDB-592-bs-training-failure.py))
+$(eval $(call mldb_unit_test,MLDB-592-bs-training-failure.py)) 
 $(eval $(call mldb_unit_test,MLDB-390-sql-expression-function.js))
 $(eval $(call mldb_unit_test,MLDB-593-serial-function-with-extract.js))
 $(eval $(call mldb_unit_test,MLDB-587-empty-classifier.js))
-$(eval $(call mldb_unit_test,MLDB-631-legacy-beh-files.js,,manual)) # manual as points to specific file on S3
 $(eval $(call mldb_unit_test,MLDB-620-nonexistant-dataset-messages.js))
 $(eval $(call mldb_unit_test,MLDB-572-error-procedure-config.js))
 
-$(eval $(call mldb_unit_test,MLDB-452-svd-segfault.js,,manual)) #manual - slow
-$(eval $(call mldb_unit_test,MLDB-303-small-select-big-runtimejs,,manual)) #manual - hardcoded path
 $(eval $(call mldb_unit_test,plugin_delete_test.py,,manual)) #manual - unclear reason for existence
 $(eval $(call mldb_unit_test,MLDB-573_explain_function_floats.py))
 $(eval $(call mldb_unit_test,MLDB-618_rowcol_named_0.py))
 $(eval $(call mldb_unit_test,MLDB-619_newlines_in_sql.py))
 $(eval $(call mldb_unit_test,MLDB-647_multiclass_apply_function_pins.py))
-$(eval $(call mldb_unit_test,MLDB-657-legacy-lal.js,,manual)) #manual - depends on bulky files not in git
 $(eval $(call mldb_unit_test,MLDB-665_nearest_neighbours.py))
 $(eval $(call mldb_unit_test,MLDB-538_route_deadlock.py))
 $(eval $(call mldb_unit_test,MLDB-643_script_function.py))
@@ -149,7 +138,6 @@ $(eval $(call mldb_unit_test,MLDB-684-remote-plugin.js,,virtualenv))
 $(eval $(call mldb_unit_test,MLDB-136-value-dataset.js))
 $(eval $(call mldb_unit_test,MLDB-499-text-dataset.js))
 $(eval $(call mldb_unit_test,MLDB-694_external_python_procedure.py))
-$(eval $(call mldb_unit_test,MLDB-696_uri_causes_crash.py))
 $(eval $(call mldb_unit_test,MLDB-704-jseval-row.js))
 $(eval $(call mldb_unit_test,MLDB-723-jseval-exceptions.js))
 $(eval $(call mldb_unit_test,MLDB-761-sub-queries.py))
@@ -217,9 +205,8 @@ $(eval $(call mldb_unit_test,MLDB-991-svm.py))
 $(eval $(call mldb_unit_test,MLDB-995-sub-query-sparse.js))
 $(eval $(call mldb_unit_test,MLDB-1116-tokensplit.py))
 $(eval $(call mldb_unit_test,MLDB-1030_apply_stopwords.py))
-$(eval $(call mldb_unit_test,MLDB-1165-where-rowname-in-optim.py))
-$(eval $(call mldb_unit_test,MLDB-1044_tsne_numerical_error.py,,manual)) # manual---requires large local data file
-$(eval $(call mldb_unit_test,MLDB-1304-titanic-demo.py,,manual)) # manual--- awaiting fix
+$(eval $(call mldb_unit_test,MLDB-1165-where-rowname-in-optim.py,,manual)) # based on perf of specific machine
+$(eval $(call mldb_unit_test,MLDB-1304-titanic-demo.py))
 
 $(eval $(call mldb_unit_test,MLDB-1000-type-documentation-valid.js))
 $(eval $(call mldb_unit_test,MLDB-1003-s3-load-dataset.js,,$(MANUAL_IF_NO_S3)))
@@ -227,11 +214,12 @@ $(eval $(call mldb_unit_test,MLDB-1003-s3-load-dataset.js,,$(MANUAL_IF_NO_S3)))
 $(eval $(call mldb_unit_test,MLDB-1010-put-no-payload-error.js))
 
 $(eval $(call mldb_unit_test,MLDB-1019-word2vec.js,,manual)) # manual---requires large local data file
-$(eval $(call mldb_unit_test,MLDB-1084_sentiwordnet.py,,manual)) # manual---requires large local data file
+$(eval $(call mldb_unit_test,MLDB-1084_sentiwordnet.py,,$(MANUAL_IF_NO_S3)))
 $(eval $(call mldb_unit_test,MLDB-1101-tf-idf.py))
 $(eval $(call mldb_unit_test,MLDB-1117-git-import.js))
 $(eval $(call mldb_unit_test,MLDB-1120-sparse-mutable-values.js))
 $(eval $(call mldb_unit_test,MLDB-1142-sparse-mutable-failing-with-underflow.py))
+$(eval $(call mldb_unit_test,MLDBFB-261-null_row_name_demonstration.py,,manual)) #manual -- awaiting fix
 
 $(eval $(call mldb_unit_test,MLDB-1033-sparse-timestamp-interval.js))
 $(eval $(call mldb_unit_test,MLDB-1026-slow-not-in.js))
@@ -243,7 +231,6 @@ $(eval $(call mldb_unit_test,MLDB-951-run-on-creation.py))
 $(eval $(call mldb_unit_test,MLDB-1092_conf_interval.py))
 $(eval $(call test,MLDB-1092_confidence_intervals_test,mldb,boost))
 $(eval $(call mldb_unit_test,MLDB-1043-bucketize-procedure.js))
-$(eval $(call mldb_unit_test,MLDB-1125-transform_invalid_utf8.py,,manual))
 $(eval $(call mldb_unit_test,MLDB-1025-dataset-output-with-default.py))
 $(eval $(call mldb_unit_test,MLDB-989-complex-order-by.py))
 $(eval $(call mldb_unit_test,MLDB-1126_stemming.py))
@@ -260,9 +247,12 @@ $(eval $(call mldb_unit_test,MLDB-1258_nofrom_segfault.py))
 $(eval $(call mldb_unit_test,MLDB-1212_csv_import_long_quoted_lines.py))
 $(eval $(call mldb_unit_test,MLDB-1275_melt_procedure.py))
 $(eval $(call mldb_unit_test,MLDB-1273-classifier-row_input.py))
-$(eval $(call mldb_unit_test,MLDB-1272-regression-training-failure.py,,manual)) #until MLDB-1272 is fixed
+$(eval $(call mldb_unit_test,MLDB-1305_rowNames_join.py))
+$(eval $(call mldb_unit_test,MLDB-1272-regression-training-failure.py,,manual)) #manual -- awaiting fix
 $(eval $(call mldb_unit_test,MLDB-1277-pooling-performance.py,,manual)) #manual -- awaiting fix
 $(eval $(call mldb_unit_test,MLDB-1235-temporal-aggregators.py))
+$(eval $(call mldb_unit_test,MLDB-1260-json-errors.py))
+$(eval $(call mldb_unit_test,MLDB-1239-utf8-literal.py))
 
 
 $(eval $(call mldb_unit_test,pytanic_plugin_test.py))
@@ -300,11 +290,21 @@ $(eval $(call mldb_unit_test,MLDB-1121-csv-import-duplicates.py))
 $(eval $(call mldb_unit_test,MLDB-1098-csv-export.py))
 $(eval $(call mldb_unit_test,MLDB-1098-csv-export-advanced.py))
 
-$(eval $(call mldb_unit_test,MLDB-1128-transform-utf8.js,,manual))
-$(eval $(call mldb_unit_test,MLDB-1140-csv_reading_compression_test.py,,manual))
+$(eval $(call mldb_unit_test,MLDB-1128-transform-utf8.js,,manual)) #manual -- requires specific local file?
+$(eval $(call mldb_unit_test,MLDB-1140-csv_reading_compression_test.py))
 $(eval $(call mldb_unit_test,MLDB-980-unquoted-string-crash.js))
 $(eval $(call mldb_unit_test,MLDB-1195-query-where-test.py))
 $(eval $(call mldb_unit_test,MLDB-1192-js-procedure-function.js))
 $(eval $(call mldb_unit_test,MLDB-1253_concat_test.py))
-$(eval $(call mldb_unit_test,MLDBFB-308-where-outer-join-test.py,,manual))
+$(eval $(call mldb_unit_test,MLDBFB-308-where-outer-join-test.py,,manual)) #manual -- awaiting fix
 $(eval $(call mldb_unit_test,MLDB-1267-bucketize-ts-test.py))
+$(eval $(call mldb_unit_test,MLDB-1322-sum_stem_token.py))
+$(eval $(call mldb_unit_test,python_mldb_interface_test.py))
+$(eval $(call mldb_unit_test,MLDB-1319-new-executor-function-binding.js))
+$(eval $(call mldb_unit_test,MLDB-1328-join_empty_dataset_test.py,,manual)) # manual -- awaiting fix
+$(eval $(call mldb_unit_test,MLDB-1213-blob-support.js))
+$(eval $(call mldb_unit_test,MLDBFB-332-transform_input_sum_doesnt_exist_test.py,,manual)) # manual -- awaiting fix
+$(eval $(call mldb_unit_test,MLDB-1320-sql-query-whole-table.js))
+$(eval $(call mldb_unit_test,MLDB-1315-row-table-expressions.js))
+$(eval $(call mldb_unit_test,MLDB-1345-having.py,,manual)) # manual -- awaiting fix
+

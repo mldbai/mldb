@@ -1536,16 +1536,21 @@ bool
 SqlExpression::
 isConstant() const
 {
-    return false;
+    for (auto & c: getChildren()) {
+        if (!c->isConstant())
+            return false;
+    }
+    return true;
 }
 
 ExpressionValue
 SqlExpression::
 constantValue() const
 {
-    throw HttpReturnException(400, "Expression is not provably constant",
-                              "surface", surface,
-                              "ast", print());
+    SqlExpressionConstantScope scope;
+    auto bound = this->bind(scope);
+    SqlRowScope rowScope = scope.getRowScope();
+    return bound(rowScope);
 }
 
 std::map<ScopedName, UnboundVariable>
@@ -1648,6 +1653,19 @@ getUnbound() const
     }
     
     return result;
+}
+
+std::shared_ptr<SqlExpression>
+SqlExpression::
+shallowCopy() const
+{
+    auto onArgs = [] (std::vector<std::shared_ptr<SqlExpression> > args)
+        -> std::vector<std::shared_ptr<SqlExpression> >
+        {
+            return std::move(args);
+        };
+
+    return transform(onArgs);
 }
 
 void
@@ -3097,6 +3115,30 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
             context.expect_literal(')');
             result->surface = ML::trim(token.captured());
         }
+    }
+    
+    // MLDB-1315.  Note that although this looks like a dataset function,
+    // in actual fact it's argument is a normal row-valued expression.
+    if (matchKeyword(context, "row_dataset")) {
+        skip_whitespace(context);
+        context.expect_literal('(');
+        skip_whitespace(context);
+        // Row expression, presented as a table
+        auto statement = SqlExpression::parse(context, allowUtf8, 10 /* precedence */);
+        skip_whitespace(context);
+        context.expect_literal(')');
+        skip_whitespace(context);
+
+        Utf8String asName;
+        if (matchKeyword(context, "AS")) {
+            expect_whitespace(context);
+            asName = matchIdentifier(context, allowUtf8);
+            if (asName.empty())
+                context.exception("Expected identifier after the row_dataset(...) AS clause");
+        }
+        
+        result = std::make_shared<RowTableExpression>(statement, asName);
+        result->surface = ML::trim(token.captured());
     }
 
     if (!result) {

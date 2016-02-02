@@ -587,3 +587,16 @@ BOOST_AUTO_TEST_CASE(test_filter_stream_mapping)
     BOOST_CHECK_EQUAL(str, "hello");
     stream2.close();
 }
+
+BOOST_AUTO_TEST_CASE(test_empty_filter_stream_mapped)
+{
+    filter_istream stream;
+    stream.open("file://mldb/jml/utils/testing/fixtures/empty.txt",
+                { { "mapped", "true" } });
+    // we cannot map an empty file
+    auto mapped = stream.mapped();
+    BOOST_CHECK_EQUAL(mapped.first, (char *)nullptr);
+    BOOST_CHECK_EQUAL(mapped.second, 0);
+    // but we can read it without failing
+    BOOST_CHECK_EQUAL(stream.readAll(), "");
+}

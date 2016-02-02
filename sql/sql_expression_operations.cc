@@ -1,5 +1,3 @@
-// 
-
 /** sql_expression_operations.cc
     Jeremy Barnes, 24 February 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
@@ -16,6 +14,7 @@
 #include "table_expression_operations.h"
 #include <unordered_set>
 #include "mldb/server/dataset_context.h"
+#include "mldb/base/scope.h"
 
 
 using namespace std;
@@ -173,7 +172,8 @@ ArithmeticExpression::
 template<typename ReturnInfo, typename Op>
 BoundSqlExpression
 doBinaryArithmetic(const SqlExpression * expr,
-                   const BoundSqlExpression & boundLhs, const BoundSqlExpression & boundRhs,
+                   const BoundSqlExpression & boundLhs,
+                   const BoundSqlExpression & boundRhs,
                    const Op & op)
 {
     return {[=] (const SqlRowScope & row,
@@ -214,7 +214,8 @@ doUnaryArithmetic(const SqlExpression * expr,
             std::make_shared<ReturnInfo>()};
 }
 
-static CellValue binaryPlusOnTimestamp(const ExpressionValue & l, const ExpressionValue & r)
+static CellValue
+binaryPlusOnTimestamp(const ExpressionValue & l, const ExpressionValue & r)
 {
     ExcAssert(l.isTimestamp());
 
@@ -1333,7 +1334,9 @@ bind(SqlBindingScope & context) const
     if (context.functionStackDepth > 100)
             throw HttpReturnException(400, "Reached a stack depth of over 100 functions while analysing query, possible infinite recursion");
 
-    context.functionStackDepth++;
+    ++context.functionStackDepth;
+    Scope_Exit(--context.functionStackDepth);
+
     std::vector<BoundSqlExpression> boundArgs;
     for (auto& arg : args)
     {
@@ -1353,7 +1356,6 @@ bind(SqlBindingScope & context) const
         //assume user
         boundOutput = bindUserFunction(context);
     }
-    context.functionStackDepth--;
     return boundOutput;
 }
 
@@ -1387,8 +1389,13 @@ bindUserFunction(SqlBindingScope & context) const
          }
          else
          {
-            throw HttpReturnException(400, "User function " + functionName
-                                   + " expect a row argument ({ }), got " + args[0]->print() );
+            auto functionresult = std::dynamic_pointer_cast<FunctionCallWrapper>(args[0]);
+
+            if (functionresult)
+                clauses.push_back(functionresult);
+            else
+                throw HttpReturnException(400, "User function " + functionName
+                                       + " expect a row argument ({ }) or a user function, got " + args[0]->print() );
          }
     }    
 
@@ -1826,6 +1833,9 @@ bind(SqlBindingScope & context) const
 
         // TODO: we need to detect a correlated subquery.  This means that
         // the query depends upon variables from the surrounding scope.
+        // This should be done with subtable->getUnbound(), but currently
+        // that function isn't implemented for table expressions.
+
         bool correlatedSubquery = false;
 
         if (correlatedSubquery) {
@@ -1857,8 +1867,19 @@ bind(SqlBindingScope & context) const
             // This is a set of all values we can search for in our expression
             auto valsPtr = std::make_shared<std::unordered_set<ExpressionValue> >();
 
+            // NOTE: this is where we REQUIRE that the subquery is non-
+            // correlated.  We can only pass a naked SqlRowScope like this
+            // to those that are non-correlated... if there are crashes in
+            // the generation, it's because we're executing a correlated
+            // subquery as if it were non-correlated, and it's trying to
+            // look up a variable in the wrong place.  The solution is to
+            // fix detection of non-correlated subqueries above.
+            SqlRowScope fakeRowScopeForConstantSubqueryGeneration;
+
+
             // Generate all outputs of the query
-            std::vector<NamedRowValue> rowOutputs = generator(-1);
+            std::vector<NamedRowValue> rowOutputs
+                = generator(-1, fakeRowScopeForConstantSubqueryGeneration);
             
             // Scan them to add to our set
             for (auto & row: rowOutputs) {
@@ -2175,6 +2196,18 @@ bind(SqlBindingScope & context) const
                 this,
                 std::make_shared<BooleanValueInfo>()};
     }
+    else if (type == "blob") {
+        return {[=] (const SqlRowScope & row,
+                     ExpressionValue & storage) -> const ExpressionValue &
+                {
+                    ExpressionValue valStorage;
+                    const ExpressionValue & val = boundExpr(row, valStorage);
+                    return storage = std::move(ExpressionValue(val.coerceToBlob(),
+                                                               val.getEffectiveTimestamp()));
+                },
+                this,
+                    std::make_shared<BooleanValueInfo>()};
+    }
     else throw HttpReturnException(400, "Unknown type '" + type
                                    + "' for CAST (" + expr->surface
                                    + " AS " + type + ")");
@@ -2198,7 +2231,7 @@ CastExpression::
 transform(const TransformArgs & transformArgs) const
 {
     auto result = std::make_shared<CastExpression>(*this);
-    result->expr  = result->expr->transform(transformArgs);
+    result->expr = transformArgs({expr}).at(0);
     return result;
 }
 

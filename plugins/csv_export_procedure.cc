@@ -24,6 +24,7 @@
 #include "mldb/sql/sql_expression.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/soa/utils/csv_writer.h"
+#include "mldb/plugins/sql_config_validator.h"
 #include <memory>
 
 using namespace std;
@@ -67,6 +68,7 @@ CsvExportProcedureConfigDescription()
         if (cfg->quoteChar.size() != 1) {
             throw ML::Exception("Quotechar must be 1 char long.");
         }
+        MustContainFrom<InputQuery>()(cfg->exportData, "export.csv");
     };
 }
 
@@ -96,7 +98,7 @@ run(const ProcedureRunConfig & run,
                          *boundDataset.dataset,
                          boundDataset.asName,
                          procedureConfig.exportData.stm->when,
-                         procedureConfig.exportData.stm->where,
+                         *procedureConfig.exportData.stm->where,
                          procedureConfig.exportData.stm->orderBy,
                          calc);
 
@@ -109,9 +111,10 @@ run(const ProcedureRunConfig & run,
     lineBuffer.resize(columnNames.size());
     const auto columnNamesEnd = columnNames.end();
     const auto columnNamesBegin = columnNames.begin();
-    auto outputCsvLine = [&] (const MatrixNamedRow & row,
+    auto outputCsvLine = [&] (NamedRowValue & row_,
                               const vector<ExpressionValue> & calc)
     {
+        MatrixNamedRow row = row_.flattenDestructive();
         ExcAssert(lineBuffer.size() == columnNames.size());
         size_t lineBufferIndex = 0; // position of the buffered value ready to
                                     // be outputed

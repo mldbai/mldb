@@ -1,9 +1,13 @@
-
+#
+# MLDB-1119_pooling_function.py
+# Datacratic, 2016
 # This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+#
+import datetime
 
-import json, datetime
+mldb = mldb_wrapper.wrap(mldb) # noqa
 
-## Create embedding dataset
+# Create embedding dataset
 dataset_config = {
     'type'    : 'embedding',
     'id'      : 'wordEmbedding'
@@ -19,7 +23,7 @@ dataset.record_row("coco", [["x", 0, now],   ["y", 0.5, now]])
 dataset.commit()
 
 
-## Create bag of words dataset
+# Create bag of words dataset
 dataset_config = {
     'type'    : 'sparse.mutable',
     'id'      : 'bag_o_words'
@@ -28,7 +32,8 @@ dataset_config = {
 dataset = mldb.create_dataset(dataset_config)
 
 dataset.record_row("doc1",  [["allo", 1, now], ["coco", 1, now]])
-dataset.record_row("doc2",  [["allo", 1, now], ["mon", 1, now], ["beau", 1, now]])
+dataset.record_row("doc2",  [["allo", 1, now], ["mon", 1, now],
+                             ["beau", 1, now]])
 dataset.record_row("doc3",  [["patate", 1, now]])
 dataset.record_row("doc4",  [["j'ai", 1, now]])
 dataset.commit()
@@ -42,18 +47,20 @@ conf = {
         "aggregators": ["avg", "max"]
     }
 }
-res = mldb.perform("PUT", "/v1/functions/poolz", [], conf)
-jsRes = json.loads(res["response"])
-mldb.log(jsRes)
+res = mldb.put("/v1/functions/poolz", conf)
+mldb.log(res.json())
+
+res = mldb.get(
+    "/v1/query",
+    q="select poolz({words: {*}})[embedding] as word2vec from bag_o_words")
+js_res = res.json()
+mldb.log(js_res)
 
 
-res = mldb.perform("GET", "/v1/query", [["q", "select poolz({words: {*}})[embedding] as word2vec from bag_o_words"]])
-jsRes = json.loads(res["response"])
-mldb.log(jsRes)
-
-def assertVal(res, rowName, colName, value):
+def assert_val(res, rowName, colName, value):
     for row in res:
-        if row["rowName"] != rowName: continue
+        if row["rowName"] != rowName:
+            continue
 
         for col in row["columns"]:
             if col[0] == colName:
@@ -66,10 +73,11 @@ def assertVal(res, rowName, colName, value):
     # did not find row
     assert False
 
-
-assertVal(jsRes, "doc1", "word2vec.000002", 0.2)    # max of x dim for allo or coco
-assertVal(jsRes, "doc2", "word2vec.000001", 0.32)    # avg of y dim for allo, mon, beau
-assertVal(jsRes, "doc4", "word2vec.000000", 0)      # no match
+# max of x dim for allo or coco
+assert_val(js_res, "doc1", "word2vec.000002", 0.2)
+# avg of y dim for allo, mon, beau
+assert_val(js_res, "doc2", "word2vec.000001", 0.32)
+# no match
+assert_val(js_res, "doc4", "word2vec.000000", 0)
 
 mldb.script.set_return("success")
-

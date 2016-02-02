@@ -1,185 +1,166 @@
+#
+# MLDB-1104-input-data-spec.py
+# Datacratic, 2015
 # This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+#
+import unittest
 
 import datetime
-import json
 import random
 
-def load_kmeans_dataset():
-    kmeans_example = mldb.create_dataset({"type": "sparse.mutable", 'id' : 'kmeans_example'})
-    for i in range(0,100):
-        val_x = float(random.randint(-5, 5))
-        val_y = float(random.randint(-5, 5))
-        row = [['x', val_x, now], ['y', val_y, now]]
-        kmeans_example.record_row('row_%d' % i, row)
-    kmeans_example.commit()
-
-def train_kmeans(trainingData):
-    metric = "euclidean"
-    result = mldb.perform("PUT", "/v1/procedures/kmeans", [], {
-        'type' : 'kmeans.train',
-        'params' : {
-            'trainingData' : trainingData,
-            'centroidsDataset' : {'id' : 'kmeans_centroids', 'type' : 'embedding', 
-                           'params': {'metric': metric }},
-            'numClusters' : 2,
-            'metric': metric
-        }
-    })
-
-    response = json.loads(result['response'])
-    msg = "Could not create the kmeans classifier procedure - got status {}\n{}"
-    msg = msg.format(result['statusCode'], response)
-    assert result['statusCode'] == 201, msg
-
-    result = mldb.perform('POST', '/v1/procedures/kmeans/runs')
-    response = json.loads(result['response'])
-    msg = "Could not train the kmeans cluster - got status {}\n{}"
-    msg = msg.format(result['statusCode'], response)
-    assert 300 > result['statusCode'] >= 200, msg
-
-def test_config_error_kmeans(trainingData):
-    metric = "euclidean"
-    result = mldb.perform("PUT", "/v1/procedures/kmeans", [], {
-        'type' : 'kmeans.train',
-        'params' : {
-            'trainingData' : trainingData,
-            'centroidsDataset' : {'id' : 'kmeans_centroids', 'type' : 'embedding', 
-                           'params': {'metric': metric }},
-            'numClusters' : 2,
-            'metric': metric
-        }
-    })
-
-    response = json.loads(result['response'])
-    mldb.log(response)
-    msg = "Could not create the kmeans classifier procedure - got status {}\n{}"
-    msg = msg.format(result['statusCode'], response)
-    return result['statusCode']
-
-def train_svd(trainingData):
-    result = mldb.perform("PUT", "/v1/procedures/svd", [], {
-        'type' : 'svd.train',
-        'params' : {
-            'trainingData' : trainingData,
-            'runOnCreation' : True
-        }
-    })
-
-    response = json.loads(result['response'])
-    msg = "Could not create the svd classifier procedure - got status {}\n{}"
-    msg = msg.format(result['statusCode'], response)
-    assert result['statusCode'] == 201, msg
-
-def test_config_error_svd(trainingData):
-    result = mldb.perform("PUT", "/v1/procedures/svd", [], {
-        'type' : 'svd.train',
-        'params' : {
-            'trainingData' : trainingData
-        }
-    })
-
-    response = json.loads(result['response'])
-    mldb.log(response)
-    msg = "Could not create the svd classifier procedure - got status {}\n{}"
-    msg = msg.format(result['statusCode'], response)
-    return result['statusCode']
-
-def load_classifier_dataset():
-    dataset = mldb.create_dataset({ "type": "sparse.mutable", "id": "iris_dataset" })
-    
-    with open("./mldb/testing/dataset/iris.data") as f:
-        for i, line in enumerate(f):
-            
-            cols = []
-            line_split = line.split(',')
-            if len(line_split) != 5:
-                continue
-            # Jemery's what if a feature is named label
-            cols.append(["label", float(line_split[0]), 0]) #sepal length
-            cols.append(["labels", float(line_split[1]), 0]) #sepal width
-            cols.append(["petal length", float(line_split[2]), 0])
-            cols.append(["petal width", float(line_split[3]), 0])
-            cols.append(["features", line_split[4].strip('\n"'), 0]) #class
-            dataset.record_row(str(i+1), cols)
-
-    dataset.commit()
-
-def train_classifier(trainingData):
-    result = mldb.perform("PUT", "/v1/procedures/classifier", [], {
-        'type' : 'classifier.train',
-        'params' : {
-            'trainingData' : trainingData,
-            "configuration": {
-                "type": "decision_tree",
-                "max_depth": 8,
-                "verbosity": 3,
-                "update_alg": "prob"
-            },
-            "modelFileUrl": "file://tmp/MLDB-1104.cls",
-            "mode": "categorical",
-            "functionName": "classifier_apply",
-            'runOnCreation' : True
-        }
-    })
-
-    response = json.loads(result['response'])
-    msg = "Could not create the classifier procedure - got status {}\n{}"
-    msg = msg.format(result['statusCode'], response)
-    assert result['statusCode'] == 201, msg
-    
-    return response
-
-    
+if False:
+    mldb_wrapper = None
+mldb = mldb_wrapper.wrap(mldb) # noqa
 
 
-now = datetime.datetime.now()
+class InputDataSpecTest(unittest.TestCase):
 
-# KMEANS TRAIN PROCEDURE WITH BOTH TYPE OF INPUT DATA
-load_kmeans_dataset()
-train_kmeans('select * from kmeans_example')
-train_kmeans('select x + y as x, y + x as y from kmeans_example')
-train_kmeans({'select' : '*', 'from' : {'id' : 'kmeans_example'}})
+    @classmethod
+    def setUpClass(cls):
+        cls.load_kmeans_dataset()
+        cls.load_classifier_dataset()
 
-# TEST ERROR CASES
-assert test_config_error_kmeans(
-    'select x, y from kmeans_example group by x') == 400, "expected 400 when group by is specified"
-assert test_config_error_kmeans(
-    'select x, y from kmeans_example group by x having y > 2') == 400, "expected 400 when having is specified"
+    @classmethod
+    def load_kmeans_dataset(cls):
+        kmeans_example = mldb.create_dataset({
+            "type": "sparse.mutable",
+            'id' : 'kmeans_example'
+        })
+        now = datetime.datetime.now()
+        for i in xrange(100):
+            val_x = float(random.randint(-5, 5))
+            val_y = float(random.randint(-5, 5))
+            row = [['x', val_x, now], ['y', val_y, now]]
+            kmeans_example.record_row('row_%d' % i, row)
+        kmeans_example.commit()
 
-train_svd('select * from kmeans_example')
-train_svd('select x, y from kmeans_example')
-train_svd('select x AS z, y from kmeans_example')
-train_svd('select * EXCLUDING(x) from kmeans_example')
-train_svd({'select' : '*', 'from' : {'id' : 'kmeans_example'}})
+    def train_kmeans(self, training_data):
+        metric = "euclidean"
+        mldb.put("/v1/procedures/kmeans", {
+            'type' : 'kmeans.train',
+            'params' : {
+                'trainingData' : training_data,
+                'centroidsDataset' : {
+                    'id' : 'kmeans_centroids',
+                    'type' : 'embedding',
+                    'params': {
+                        'metric': metric
+                    }
+                },
+                'numClusters' : 2,
+                'metric': metric
+            }
+        })
 
-assert test_config_error_svd(
-    'select x, y from kmeans_example group by x') == 400, "expected 400 when group by is specified"
-assert test_config_error_svd(
-    'select x, y from kmeans_example group by x having y > 2') == 400, "expected 400 when having is specified"
-assert test_config_error_svd(
-    'select x + 1, y from kmeans_example') == 400, "expected 400 when column operations are specified"
+    def train_svd(self, training_data):
+        mldb.put("/v1/procedures/svd", {
+            'type' : 'svd.train',
+            'params' : {
+                'trainingData' : training_data,
+                'runOnCreation' : True
+            }
+        })
 
-load_classifier_dataset()
-mldb.log(train_classifier("select {label, labels} as features, features as label from iris_dataset"))
+    @classmethod
+    def load_classifier_dataset(cls):
+        dataset = mldb.create_dataset({
+            "type": "sparse.mutable",
+            "id": "iris_dataset"
+        })
 
-result = mldb.perform("GET", "/v1/datasets/iris_dataset/query", 
-                      [["select", 'classifier_apply({{label, labels} as features}) as *, features']], {})
-rows = json.loads(result['response'])
+        with open("./mldb/testing/dataset/iris.data") as f:
+            for i, line in enumerate(f):
+                cols = []
+                line_split = line.split(',')
+                if len(line_split) != 5:
+                    continue
+                # Jemery's what if a feature is named label
+                cols.append(["label", float(line_split[0]), 0]) # sepal length
+                cols.append(["labels", float(line_split[1]), 0]) # sepal width
+                cols.append(["petal length", float(line_split[2]), 0])
+                cols.append(["petal width", float(line_split[3]), 0])
+                cols.append(["features", line_split[4].strip('\n"'), 0]) #class
+                dataset.record_row(str(i+1), cols)
 
-# compare the classifier results on the train data with the original label
-count = 0
-for row in rows:
-    max = 0
-    category = ""
-    for column in row['columns'][0:3]:
-        if column[1] > max:
-            max = column[1]
-            category = column[0][8:-1] # remove the leading scores. and quotation marks
-    if category != row['columns'][3][1]:
-        count += 1
-    
-# misclassified result should be a small fraction
-assert float(count) / len(rows) < 0.2, 'the classifier results on the train data are starngely low'
-    
+        dataset.commit()
 
-mldb.script.set_return('success')
+    def train_classifier(self, training_data):
+        result = mldb.put("/v1/procedures/classifier", {
+            'type' : 'classifier.train',
+            'params' : {
+                'trainingData' : training_data,
+                "configuration": {
+                    "type": "decision_tree",
+                    "max_depth": 8,
+                    "verbosity": 3,
+                    "update_alg": "prob"
+                },
+                "modelFileUrl": "file://tmp/MLDB-1104.cls",
+                "mode": "categorical",
+                "functionName": "classifier_apply",
+                'runOnCreation' : True
+            }
+        })
+        return result.json()
+
+    def test_train_kmeans(self):
+        # KMEANS TRAIN PROCEDURE WITH BOTH TYPE OF INPUT DATA
+        self.train_kmeans('select * from kmeans_example')
+        self.train_kmeans('select x + y as x, y + x as y from kmeans_example')
+        self.train_kmeans({'select' : '*', 'from' : {'id' : 'kmeans_example'}})
+
+        # TEST ERROR CASE
+        with self.assertRaises(mldb_wrapper.ResponseException):
+            self.train_kmeans(
+                'select x, y from kmeans_example group by x')
+        with self.assertRaises(mldb_wrapper.ResponseException):
+            self.train_kmeans(
+                'select x, y from kmeans_example group by x having y > 2')
+
+    def test_train_svd(self):
+        self.train_svd('select * from kmeans_example')
+        self.train_svd('select x, y from kmeans_example')
+        self.train_svd('select x AS z, y from kmeans_example')
+        self.train_svd('select * EXCLUDING(x) from kmeans_example')
+        self.train_svd({'select' : '*', 'from' : {'id' : 'kmeans_example'}})
+
+        with self.assertRaises(mldb_wrapper.ResponseException):
+            self.train_svd('select x, y from kmeans_example group by x')
+        with self.assertRaises(mldb_wrapper.ResponseException):
+            self.train_svd(
+                'select x, y from kmeans_example group by x having y > 2')
+        with self.assertRaises(mldb_wrapper.ResponseException):
+            self.train_svd('select x + 1, y from kmeans_example')
+
+    def test_train_classifier(self):
+        mldb.log(self.train_classifier(
+            "select {label, labels} as features, features as label "
+            "from iris_dataset"))
+
+        result = mldb.get(
+            "/v1/datasets/iris_dataset/query",
+            select='classifier_apply({{label, labels} as features}) as *, '
+                   'features')
+        rows = result.json()
+
+        # compare the classifier results on the train data with the original
+        # label
+        count = 0
+        for row in rows:
+            _max = 0
+            category = ""
+            for column in row['columns'][0:3]:
+                if column[1] > _max:
+                    _max = column[1]
+                    # remove the leading scores. and quotation marks
+                    category = column[0][8:-1]
+            if category != row['columns'][3][1]:
+                count += 1
+
+        # misclassified result should be a small fraction
+        self.assertTrue(
+            float(count) / len(rows) < 0.2,
+            'the classifier results on the train data are starngely low')
+
+if __name__ == '__main__':
+    mldb.run_tests()

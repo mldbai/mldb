@@ -250,6 +250,7 @@ struct AggregatorT {
     static std::shared_ptr<DenseRowState>
     denseRowInit(const std::vector<ColumnName> & columnNames)
     {
+        ExcAssert(columnNames.size() > 0);
         return std::make_shared<DenseRowState>(columnNames);
     }
     
@@ -298,7 +299,7 @@ struct AggregatorT {
 
         // Is this regular (one and only one value)?  If so, then we
         // can be far more optimized about it
-        bool isDense = true;
+        bool isDense = hasUnknown == SCHEMA_CLOSED;
 
         std::vector<ColumnName> denseColumnNames;
 

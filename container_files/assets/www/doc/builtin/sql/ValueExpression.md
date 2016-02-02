@@ -279,6 +279,10 @@ built_in_function(1, 'a')
 user_defined_function( {some_number: 1, some_string: 'a'} )
 ```
 
+It can also accept the row returned from another user-defined function, for example:
+
+user_defined_function_a(user_defined_function_b( {some_number: 1, some_string: 'a'} ))
+
 Furthermore, since it is frequently necessary to access a subset of the columns from the output of a user-defined function, their application can be followed by an accessor in square brackets, for example:
 
 ```
@@ -329,6 +333,13 @@ Note that this syntax is not part of SQL, it is an MLDB extension.
   - if `x` is a string that can be converted to a number, return the number
   - otherwise, return `x` unchanged
 
+### Encoding and decoding functions
+
+- `base64_encode(blob)` returns the base-64 encoded version of the blob
+  (or string) argument as a string.
+- `base64_decode(string)` returns a blob containing the decoding of the
+  base-64 data provided in its argument.
+
 ### Numeric functions
 
 - `pow(x, y)`: returns x to the power of y.
@@ -368,6 +379,12 @@ quantize(-217, 100) = -200
 
 More details on the [Binomial proportion confidence interval Wikipedia page](https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval).
 
+### Basic string functions
+
+- `lower(string)` returns the lowercase version of the string, according to the
+  system locale.
+- `upper(string)` returns the uppercase version of the string, according to the
+  system locale.
 
 ### Regular expression functions
 

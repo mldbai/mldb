@@ -309,7 +309,7 @@ doGetFunction(const Utf8String & tableName,
 {
     // First, let the dataset either override or implement the function
     // itself.
-    auto fnoverride = dataset.overrideFunction(functionName, *this);
+    auto fnoverride = dataset.overrideFunction(tableName, functionName, *this);
     if (fnoverride)
         return fnoverride;
 

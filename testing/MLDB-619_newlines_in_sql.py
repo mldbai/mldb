@@ -1,21 +1,21 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+#
+# MLDB-619_newlines_in_sql.py
+# datacratic, 2015
+# this file is part of mldb. copyright 2015 datacratic. all rights reserved.
+#
+mldb = mldb_wrapper.wrap(mldb) # noqa
 
-import random, json
-
-dataset = mldb.create_dataset({ "type": "sparse.mutable", "id": "x" })
+dataset = mldb.create_dataset({"type": "sparse.mutable", "id": "x" })
 dataset.record_row("rowname", [["colname", 0, 0]])
 dataset.commit()
 
 res = [
-    mldb.perform("GET", "/v1/datasets/x/query", [["where", "colname=\n1"]],{}),
-    mldb.perform("GET", "/v1/query", [["q", "select *\nfrom x"]],{})
+    mldb.get("/v1/datasets/x/query", where="colname=\n1"),
+    mldb.get("/v1/query", q="select *\nfrom x")
     ]
 
 broken = False
 for r in res:
-    if r["statusCode"] != 200:
-        broken = True
-        mldb.log(json.dumps(r))
+    mldb.log(r.text)
 
-if not broken:
-    mldb.script.set_return("success")
+mldb.script.set_return("success")

@@ -86,10 +86,10 @@ struct FunctionStepApplier::Itl {
         const Function & function,
         const SelectExpression & with,
         const SelectExpression & extract)
-        : withBindingContext(outerContext, input),
+        : withBindingContext(outerContext.getMldbServer(), input, outerContext.functionStackDepth),
           boundWith(with.bind(withBindingContext)),
           applier(function.bind(withBindingContext, *boundWith.info)),
-          extractBindingContext(outerContext, applier->info.output),
+          extractBindingContext(outerContext.getMldbServer(), applier->info.output, outerContext.functionStackDepth),
           boundExtract(extract.bind(extractBindingContext)),
           outputValues(*boundExtract.info)
     {
@@ -126,15 +126,14 @@ apply(const FunctionContext & input) const
     //cerr << "input is " << jsonEncode(input) << endl;
             
     // Run the WITH expression to get our values from the input
-    SqlRowScope outerScope;
-    auto withRow = itl->withBindingContext.getRowContext(outerScope, input);
+    auto withRow = itl->withBindingContext.getRowContext(input);
     FunctionOutput withOutput;
     withOutput = itl->boundWith(withRow);
 
     FunctionContext selectContext;
     selectContext.update(std::move(withOutput));
 
-    FunctionOutput stepOutput = itl->applier->apply(outerScope, selectContext);
+    FunctionOutput stepOutput = itl->applier->apply(selectContext);
 
     //cerr << "stepOutput = " << jsonEncode(stepOutput) << endl;
 
@@ -142,7 +141,7 @@ apply(const FunctionContext & input) const
     extractContext.update(std::move(stepOutput));
 
     // Now the extract
-    auto extractRow = itl->extractBindingContext.getRowContext(outerScope, extractContext);
+    auto extractRow = itl->extractBindingContext.getRowContext(extractContext);
     return itl->boundExtract(extractRow);
 }
 

@@ -356,18 +356,15 @@ getTimestampRange() const
 {
     static const SelectExpression select
         = SelectExpression::parseList("min(min_timestamp({*})) as earliest, max(max_timestamp({*})) as latest");
-    static const std::shared_ptr<SqlExpression> trueExpr
-        = SqlExpression::parse("true");
-    static const WhenExpression whenExpr = WhenExpression::parse("true");
 
     std::vector<MatrixNamedRow> res
         = queryStructured(select,
-                          whenExpr,
-                          trueExpr,
+                          WhenExpression::TRUE,
+                          *SqlExpression::TRUE /* where */,
                           OrderByExpression(),
                           TupleExpression(),
-                          trueExpr,
-                          trueExpr,
+                          *SqlExpression::TRUE /* having */,
+                          *SqlExpression::TRUE,
                           0, 1, "" /* alias */);
     
     std::pair<Date, Date> result;
@@ -402,7 +399,7 @@ validateNames(const RowName & rowName,
 {
     if (rowName == RowName())
         throw HttpReturnException(400, "empty row names are not allowed");
-    for (auto val : vals) {
+    for (auto & val : vals) {
         if (get<0>(val) == ColumnName())
             throw HttpReturnException(400, "empty column names are not allowed");
     }
@@ -509,16 +506,19 @@ std::vector<MatrixNamedRow>
 Dataset::
 queryStructured(const SelectExpression & select,
                 const WhenExpression & when,
-                const std::shared_ptr<SqlExpression> & where,
+                const SqlExpression & where,
                 const OrderByExpression & orderBy,
                 const TupleExpression & groupBy,
-                const std::shared_ptr<SqlExpression> & having,
-                const std::shared_ptr<SqlExpression> & rowName,
+                const SqlExpression & having,
+                const SqlExpression & rowName,
                 ssize_t offset,
                 ssize_t limit,
                 Utf8String alias,
                 bool allowMT) const
 {
+    ExcAssert(&where);
+    ExcAssert(&having);
+    ExcAssert(&rowName);
     //cerr << "limit = " << limit << endl;
     //cerr << "offset = " << offset << endl;
 
@@ -529,9 +529,10 @@ queryStructured(const SelectExpression & select,
     
     // Do it ungrouped if possible
     if (groupBy.clauses.empty() && aggregators.empty()) {
-        auto aggregator = [&] (MatrixNamedRow row,
+        auto aggregator = [&] (NamedRowValue & row_,
                                const std::vector<ExpressionValue> & calc)
             {
+                MatrixNamedRow row = row_.flattenDestructive();
                 row.rowName = RowName(calc.at(0).toUtf8String());
                 row.rowHash = row.rowName;
                 std::unique_lock<std::mutex> guard(lock);
@@ -547,27 +548,25 @@ queryStructured(const SelectExpression & select,
         }
         
         //cerr << "orderBy_ = " << jsonEncode(orderBy_) << endl;
-        iterateDataset(select, *this, alias, when, where, { rowName }, aggregator, orderBy_, offset, limit, nullptr);
+        iterateDataset(select, *this, alias, when, where,
+                       { rowName.shallowCopy() }, aggregator, orderBy_, offset, limit,
+                       nullptr);
     }
     else {
 
         // Otherwise do it grouped...
-        auto aggregator = [&] (const NamedRowValue & row)
+        auto aggregator = [&] (NamedRowValue & row_)
             {
+                MatrixNamedRow row = row_.flattenDestructive();
                 std::unique_lock<std::mutex> guard(lock);
                 output.emplace_back(row);
                 return true;
             };
 
-        std::shared_ptr<SqlExpression> having_ = having;
-
-        if (!having_)
-            having_ = SqlExpression::parse("true");
-
-        ExcAssert(rowName);
-
-        iterateDatasetGrouped(select, *this, alias, when, where, groupBy, aggregators, *having_, *rowName,
-                              aggregator, orderBy, offset, limit, nullptr, allowMT);
+        iterateDatasetGrouped(select, *this, alias, when, where,
+                              groupBy, aggregators, having, rowName,
+                              aggregator, orderBy, offset, limit,
+                              nullptr, allowMT);
     }
 
     return output;
@@ -1180,6 +1179,7 @@ queryBasic(const SqlBindingScope & scope,
     bool whenTrue = when.when->isConstantTrue();
 
     auto exec = [=] (ssize_t numToGenerate,
+                     SqlRowScope & rowScope,
                      const BoundParameters & params)
         {
             // Get a list of rows that we run over
@@ -1214,7 +1214,7 @@ queryBasic(const SqlBindingScope & scope,
                         outputRow.rowName = row.rowName;
                         outputRow.rowHash = row.rowName;
 
-                        auto rowScope = selectScope.getRowContext(row);
+                        auto rowScope = selectScope.getRowContext(row, &params);
 
                         // Filter the tuple using the WHEN expression
                         if (!whenTrue)
@@ -1368,13 +1368,16 @@ queryString(const Utf8String & query) const
 {
     auto stm = SelectStatement::parse(query);
     ExcCheck(!stm.from, "FROM clauses are not allowed on dataset queries");
+    ExcAssert(stm.where && stm.having && stm.rowName);
 
     return queryStructured(
-            stm.select, stm.when,
-            stm.where,
-            stm.orderBy, stm.groupBy,
-            stm.having,
-            stm.rowName,
+            stm.select,
+            stm.when,
+            *stm.where,
+            stm.orderBy,
+            stm.groupBy,
+            *stm.having,
+            *stm.rowName,
             stm.offset, stm.limit);
 }
 
@@ -1446,10 +1449,18 @@ commit()
 
 BoundFunction
 Dataset::
-overrideFunction(const Utf8String & functionName,
+overrideFunction(const Datacratic::Utf8String&,
+                 const Utf8String & functionName,
                  SqlBindingScope & context) const
 {
     return BoundFunction();
+}
+
+RowName 
+Dataset::
+getOriginalRowName(const Utf8String& tableName, const RowName & name) const
+{
+    return name;
 }
 
 } // namespace MLDB

@@ -38,9 +38,9 @@ void iterateDataset(const SelectExpression & select,
                     const Dataset & from,
                     const Utf8String & alias,
                     const WhenExpression & when,
-                    std::shared_ptr<SqlExpression> where,
+                    const SqlExpression & where,
                     std::vector<std::shared_ptr<SqlExpression> > calc,
-                    std::function<bool (const NamedRowValue & output,
+                    std::function<bool (NamedRowValue & output,
                                         const std::vector<ExpressionValue> & calcd)> aggregator,
                     const OrderByExpression & orderBy,
                     ssize_t offset,
@@ -57,12 +57,12 @@ void iterateDatasetGrouped(const SelectExpression & select,
                            const Dataset & from,
                            const Utf8String & alias,
                            const WhenExpression & when,
-                           std::shared_ptr<SqlExpression> where,
+                           const SqlExpression & where,
                            const TupleExpression & groupBy,
                            const std::vector< std::shared_ptr<SqlExpression> >& aggregators,
                            const SqlExpression & having,
                            const SqlExpression & rowName,
-                           std::function<bool (const NamedRowValue & output)> aggregator,
+                           std::function<bool (NamedRowValue & output)> aggregator,
                            const OrderByExpression & orderBy,
                            ssize_t offset,
                            ssize_t limit,
@@ -77,16 +77,16 @@ void iterateDataset(const SelectExpression & select,
                     const Dataset & from,
                     const Utf8String & alias,
                     const WhenExpression & when,
-                    std::shared_ptr<SqlExpression> where,
-                    std::function<bool (const NamedRowValue & output)> aggregator,
+                    const SqlExpression & where,
+                    std::function<bool (NamedRowValue & output)> aggregator,
                     const OrderByExpression & orderBy,
                     ssize_t offset,
                     ssize_t limit,
                     std::function<bool (const Json::Value &)> onProgress)
 {
-    std::function<bool (const NamedRowValue & output,
+    std::function<bool (NamedRowValue & output,
                         const std::vector<ExpressionValue> & calcd)>
-    aggregator2 = [&] (const NamedRowValue & output,
+    aggregator2 = [&] (NamedRowValue & output,
                        const std::vector<ExpressionValue> & calcd)
         {
             return aggregator(output);
@@ -100,7 +100,7 @@ void iterateDense(const SelectExpression & select,
                   const Dataset & from,
                   const Utf8String& alias,
                   const WhenExpression & when,
-                  std::shared_ptr<SqlExpression> where,
+                  const SqlExpression & where,
                   std::vector<std::shared_ptr<SqlExpression> > calc,
                   std::function<bool (const RowHash & rowHash,
                                       const RowName & rowName,
@@ -109,14 +109,13 @@ void iterateDense(const SelectExpression & select,
                                       const std::vector<ExpressionValue> & extra)> aggregator,
                   std::function<bool (const Json::Value &)> onProgress)
 {
-    ExcAssert(where);
     ExcAssert(aggregator);
 
     SqlExpressionDatasetContext context(from, alias);
     SqlExpressionWhenScope whenContext(context);
     auto whenBound = when.bind(whenContext);
     // Bind our where statement
-    auto whereBound = where->bind(context);
+    auto whereBound = where.bind(context);
 
     auto matrix = from.getMatrixView();
 
@@ -182,7 +181,7 @@ getEmbedding(const SelectExpression & select,
              const Dataset & dataset,
              const Utf8String& alias,
              const WhenExpression & when,
-             std::shared_ptr<SqlExpression> where,
+             const SqlExpression & where,
              std::vector<std::shared_ptr<SqlExpression> > calc,
              int maxDimensions,
              const OrderByExpression & orderBy,
@@ -241,9 +240,9 @@ getEmbedding(const SelectExpression & select,
                 return result;
             };
 
-        std::function<bool (const NamedRowValue & output,
+        std::function<bool (NamedRowValue & output,
                             const std::vector<ExpressionValue> & calcd)>
-            aggregator = [&] (const NamedRowValue & output,
+            aggregator = [&] (NamedRowValue & output,
                               const std::vector<ExpressionValue> & calcd)
             {
                 std::unique_lock<std::mutex> guard(rowsLock);
@@ -311,7 +310,7 @@ getEmbedding(const SelectStatement & stm,
     return getEmbedding(stm.select, 
                         *boundDataset.dataset, 
                         boundDataset.asName, 
-                        stm.when, stm.where, {},
+                        stm.when, *stm.where, {},
                         maxDimensions, stm.orderBy, 
                         stm.offset, stm.limit, onProgress);
 }

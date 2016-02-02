@@ -20,6 +20,7 @@
 #include "mldb/server/per_thread_accumulator.h"
 #include "mldb/types/date.h"
 #include "mldb/sql/sql_expression.h"
+#include "mldb/plugins/sql_config_validator.h"
 #include <memory>
 
 using namespace std;
@@ -62,6 +63,9 @@ RankingProcedureConfigDescription()
     addField("rankingColumnName", &RankingProcedureConfig::rankingColumnName,
              "The name to give the ranking column.");
     addParent<ProcedureConfig>();
+    onPostValidate = validate<RankingProcedureConfig, 
+                              InputQuery, 
+                              MustContainFrom>(&RankingProcedureConfig::inputData, "ranking");
 }
 
 RankingProcedure::
@@ -96,7 +100,7 @@ run(const ProcedureRunConfig & run,
 
     vector<Id> orderedRowNames;
     Date globalMaxOrderByTimestamp = Date::negativeInfinity();
-    auto getSize = [&] (const MatrixNamedRow & row,
+    auto getSize = [&] (NamedRowValue & row,
                         const vector<ExpressionValue> & calc)
     {
         for (auto & c: calc) {
@@ -114,7 +118,7 @@ run(const ProcedureRunConfig & run,
                      *boundDataset.dataset,
                      boundDataset.asName,
                      procedureConfig.inputData.stm->when,
-                     procedureConfig.inputData.stm->where,
+                     *procedureConfig.inputData.stm->where,
                      procedureConfig.inputData.stm->orderBy,
                      calc)
         .execute(getSize,

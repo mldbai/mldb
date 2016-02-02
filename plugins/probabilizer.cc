@@ -163,7 +163,7 @@ run(const ProcedureRunConfig & run,
     
     std::atomic<int> numRows(0);
 
-    auto aggregator = [&] (const MatrixNamedRow & row,
+    auto aggregator = [&] (NamedRowValue & row,
                            const std::vector<ExpressionValue> & extraVals)
         {
             float score = extraVals.at(0).toDouble();
@@ -179,7 +179,7 @@ run(const ProcedureRunConfig & run,
 
     iterateDataset(SelectExpression(), *boundDataset.dataset, boundDataset.asName, 
                    runProcConf.trainingData.stm->when,
-                   runProcConf.trainingData.stm->where,
+                   *runProcConf.trainingData.stm->where,
                    extra, aggregator,
                    runProcConf.trainingData.stm->orderBy,
                    runProcConf.trainingData.stm->offset,

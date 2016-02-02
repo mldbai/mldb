@@ -26,6 +26,7 @@
 #include "mldb/jml/db/persistent.h"
 #include "mldb/types/jml_serialization.h"
 #include "mldb/vfs/filter_streams.h"
+#include "mldb/plugins/sql_config_validator.h"
 
 
 using namespace std;
@@ -138,6 +139,11 @@ StatsTableProcedureConfigDescription()
     addField("functionName", &StatsTableProcedureConfig::functionName,
              "If specified, a 'statsTable.getCounts' function of this name will be "
              "created using the trained stats tables.");
+    addParent<ProcedureConfig>();
+
+    onPostValidate = validate<StatsTableProcedureConfig,
+                              InputQuery,
+                              MustContainFrom>(&StatsTableProcedureConfig::trainingData, "statsTable.train");
 }
 
 
@@ -207,9 +213,10 @@ run(const ProcedureRunConfig & run,
     // columns cache
     map<ColumnName, vector<ColumnName>> colCache;
 
-    auto aggregator = [&] (const MatrixNamedRow & row,
+    auto aggregator = [&] (NamedRowValue & row_,
                            const std::vector<ExpressionValue> & extraVals)
         {
+            MatrixNamedRow row = row_.flattenDestructive();
             if(num_req++ % 5000 == 0) {
                 double secs = Date::now().secondsSinceEpoch() - start.secondsSinceEpoch();
                 string progress = ML::format("done %d. %0.4f/sec", num_req, num_req / secs);
@@ -289,7 +296,8 @@ run(const ProcedureRunConfig & run,
 
     iterateDataset(runProcConf.trainingData.stm->select,
                    *boundDataset.dataset, boundDataset.asName, 
-                   runProcConf.trainingData.stm->when, runProcConf.trainingData.stm->where,
+                   runProcConf.trainingData.stm->when,
+                   *runProcConf.trainingData.stm->where,
                    extra,
                    aggregator, runProcConf.trainingData.stm->orderBy,
                    runProcConf.trainingData.stm->offset,
@@ -553,6 +561,11 @@ BagOfWordsStatsTableProcedureConfigDescription()
              "URL where the stats table file (with extension '.st') should be saved. "
              "This file can be loaded by a function of type 'statsTable.bagOfWords.posneg'.");
     addParent<ProcedureConfig>();
+
+    onPostValidate = validate<BagOfWordsStatsTableProcedureConfig,
+                              InputQuery,
+                              MustContainFrom>(&BagOfWordsStatsTableProcedureConfig::trainingData,
+                                               "statsTable.bagOfWords.train");
 }
 
 /*****************************************************************************/
@@ -565,7 +578,7 @@ BagOfWordsStatsTableProcedure(MldbServer * owner,
             const std::function<bool (const Json::Value &)> & onProgress)
     : Procedure(owner)
 {
-    procConfig = config.params.convert<StatsTableProcedureConfig>();
+    procConfig = config.params.convert<BagOfWordsStatsTableProcedureConfig>();
 }
 
 Any
@@ -581,7 +594,7 @@ run(const ProcedureRunConfig & run,
       const std::function<bool (const Json::Value &)> & onProgress) const
 {
 
-    StatsTableProcedureConfig runProcConf =
+    BagOfWordsStatsTableProcedureConfig runProcConf =
         applyRunConfOverProcConf(procConfig, run);
 
     SqlExpressionMldbContext context(server);
@@ -604,9 +617,10 @@ run(const ProcedureRunConfig & run,
     int num_req = 0;
     Date start = Date::now();
 
-    auto aggregator = [&] (const MatrixNamedRow & row,
+    auto aggregator = [&] (NamedRowValue & row_,
                            const std::vector<ExpressionValue> & extraVals)
         {
+            MatrixNamedRow row = row_.flattenDestructive();
             if(num_req++ % 10000 == 0) {
                 double secs = Date::now().secondsSinceEpoch() - start.secondsSinceEpoch();
                 string progress = ML::format("done %d. %0.4f/sec", num_req, num_req / secs);
@@ -637,7 +651,7 @@ run(const ProcedureRunConfig & run,
     iterateDataset(runProcConf.trainingData.stm->select,
                    *boundDataset.dataset, boundDataset.asName, 
                    runProcConf.trainingData.stm->when, 
-                   runProcConf.trainingData.stm->where,
+                   *runProcConf.trainingData.stm->where,
                    extra,
                    aggregator, runProcConf.trainingData.stm->orderBy,
                    runProcConf.trainingData.stm->offset,

@@ -1,38 +1,35 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+#
+# MLDB-881-DELETE-fails-on-in-construction.py
+# datacratic, 2015
+# this file is part of mldb. copyright 2015 datacratic. all rights reserved.
+#
 
-import json
-import sys
-import time
+if False:
+    mldb_wrapper = None
+mldb = mldb_wrapper.wrap(mldb) # noqa
 
 
-def parse_response(res):
-    return json.loads(res['response'])
+# create an expensive resource async
+resp = mldb.put_async("/v1/datasets/dummy2", {
+    'type' : 'text.line',
+    'params' : {
+        'dataFileUrl':
+            'http://files.figshare.com/1310438/reddit_user_posting_behavior.csv.gz'
+    }
+})
+assert resp.json()['state'] == 'initializing', \
+    'the resource should still be under construction'
 
-def check_res(res, value):
-    if res['statusCode'] != value:
-        mldb.log(res)
-        assert False, "response status code is %s but expected code %s" % (res["statusCode"], value)
+# deleting that resource will wait until it is constructed
+resp = mldb.delete_async("/v1/datasets/dummy2")
+assert resp.status_code == 204
 
-def test_delete_on_construction():
-    # create an expensive resource async
-    resp = mldb.perform("PUT", "/v1/datasets/dummy2", [], {
-        'type' : 'text.line',
-        'params' : {
-            'dataFileUrl': 'http://files.figshare.com/1310438/reddit_user_posting_behavior.csv.gz'
-        }
-    },  [['async','true']])
-    # resource should be under construction
-    check_res(resp, 201)
-    assert parse_response(resp)['state'] == 'initializing', 'the resource should still be under construction'
-    
-    # deleting that resource will wait until it is constructed
-    resp = mldb.perform("DELETE", "/v1/datasets/dummy2", [], {}, [['async','true']])
-    check_res(resp, 204) 
-        
-    # once the DELETE returns the resource should have been deleted
-    resp = mldb.perform("GET", "/v1/datasets/dummy2", [], {});
-    check_res(resp, 404)
-
-test_delete_on_construction()
+# once the DELETE returns the resource should have been deleted
+try:
+    mldb.get("/v1/datasets/dummy2")
+except mldb_wrapper.ResponseException:
+    pass
+else:
+    assert False, 'should not be here'
 
 mldb.script.set_return('success')

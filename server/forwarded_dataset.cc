@@ -125,11 +125,11 @@ std::vector<MatrixNamedRow>
 ForwardedDataset::
 queryStructured(const SelectExpression & select,
                 const WhenExpression & when,
-                const std::shared_ptr<SqlExpression> & where,
+                const SqlExpression & where,
                 const OrderByExpression & orderBy,
                 const TupleExpression & groupBy,
-                const std::shared_ptr<SqlExpression> & having,
-                const std::shared_ptr<SqlExpression> & rowName,
+                const SqlExpression & having,
+                const SqlExpression & rowName,
                 ssize_t offset,
                 ssize_t limit,
                 Utf8String alias,
@@ -167,11 +167,12 @@ getColumnNames(ssize_t offset, ssize_t limit) const
 
 BoundFunction
 ForwardedDataset::
-overrideFunction(const Utf8String & functionName,
+overrideFunction(const Utf8String & tableName, 
+                 const Utf8String & functionName,
                  SqlBindingScope & context) const
 {
     ExcAssert(underlying);
-    return underlying->overrideFunction(functionName, context);
+    return underlying->overrideFunction(tableName, functionName, context);
 }
 
 GenerateRowsWhereFunction
