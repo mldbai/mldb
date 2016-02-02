@@ -65,14 +65,14 @@ Note that strings are coerced to the integer value 1.
 We can also nicely use it in conjunction with the tokenize function:
 
 ```
-SELECT my_stemmer({words: {tokenize('I like having lots', {splitchars:' '}) as *}}) as *
+SELECT my_stemmer({words: {tokenize('I have liked having celeries', {splitchars:' '}) as *}}) as *
 ```
 
 This returns:
 
-|*words.I*|*words.have*|*words.like*|*words.lot*|
-|---------|------------|------------|-----------|
-|    1    |     1      |     1      |     1     |
+|*words.I*|*words.celeri*|*words.have*|*words.like*|
+|---------|--------------|------------|------------|
+|    1    |     1        |     2      |      1     |
 
 
 # Stemmer on documents Function
@@ -102,11 +102,11 @@ PUT /v1/functions/my_stemmer
 
 we can apply the stemming algorithm on the provided string:
 
-`SELECT my_stemmer({document: 'I like having lots'})`
+`SELECT my_stemmer({document: 'I like having celeries'})`
 
 This returns:
 
-"I like have lot"
+"I like have celeri"
 
 ## See also
 
