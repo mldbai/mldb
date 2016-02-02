@@ -264,9 +264,11 @@ toUtf8String() const
     switch (type) {
     case ST_UTF8_SHORT_STRING:
     case ST_ASCII_SHORT_STRING:
+    case ST_SHORT_BLOB:
         return Utf8String(shortString, strLength);
     case ST_UTF8_LONG_STRING:
     case ST_ASCII_LONG_STRING:
+    case ST_LONG_BLOB:
         try {
             return Utf8String(longString->repr, strLength);
         } catch (...) {
@@ -1095,8 +1097,16 @@ struct CellValueDescription: public ValueDescriptionT<CellValue> {
                 throw HttpReturnException(400, "Unknown JSON CellValue '" + v.toStringNoNewLine() + "'");
             }
         }
-        else throw HttpReturnException(400, "Unknown cell value",
-                                       "json", context.expectJson().toStringNoNewLine());
+        else if (context.isBool()) {
+            *val = CellValue(context.expectBool());
+        }
+        else {
+            Json::Value val = context.expectJson();
+            cerr << "val = " << val << endl;
+            throw HttpReturnException(400, "Unknown cell value",
+                                      "json",
+                                      val.toStringNoNewLine());
+        }
     }
 
     virtual void printJsonTyped(const CellValue * val,

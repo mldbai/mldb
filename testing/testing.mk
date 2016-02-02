@@ -306,4 +306,5 @@ $(eval $(call mldb_unit_test,MLDBFB-332-transform_input_sum_doesnt_exist_test.py
 $(eval $(call mldb_unit_test,MLDB-1320-sql-query-whole-table.js))
 $(eval $(call mldb_unit_test,MLDB-1315-row-table-expressions.js))
 $(eval $(call mldb_unit_test,MLDB-1345-having.py,,manual)) # manual -- awaiting fix
-
+$(eval $(call mldb_unit_test,mldb_unit_test_test.py))
+$(eval $(call mldb_unit_test,MLDB-1216-fetcher-function.js))

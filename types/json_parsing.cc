@@ -714,12 +714,15 @@ JsonPath()
 
 std::string
 JsonPath::
-print() const
+print(bool includeLeadingDot) const
 {
     std::string result;
     for (auto & e: *this) {
-        if (e.index == -1)
-            result += "." + std::string(e.fieldName());
+        if (e.index == -1) {
+            if (includeLeadingDot || !result.empty())
+                result += "." + std::string(e.fieldName());
+            else result = e.fieldName();
+        }
         else result += '[' + std::to_string(e.index) + ']';
     }
     return result;
@@ -737,6 +740,13 @@ JsonPath::
 fieldNamePtr() const
 {
     return this->back().fieldNamePtr();
+}
+
+int
+JsonPath::
+fieldNumber() const
+{
+    return this->back().fieldNumber;
 }
 
 void
@@ -795,9 +805,9 @@ pathEntry(int n) const
 
 std::string
 JsonParsingContext::
-printPath() const
+printPath(bool includeLeadingDot) const
 {
-    return path->print();
+    return path->print(includeLeadingDot);
 }
 
 std::string
@@ -812,6 +822,13 @@ JsonParsingContext::
 fieldNamePtr() const
 {
     return path->fieldNamePtr();
+}
+
+int
+JsonParsingContext::
+fieldNumber() const
+{
+    return path->fieldNumber();
 }
 
 void
