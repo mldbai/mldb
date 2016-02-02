@@ -339,8 +339,9 @@ Note that this syntax is not part of SQL, it is an MLDB extension.
   (or string) argument as a string.
 - `base64_decode(string)` returns a blob containing the decoding of the
   base-64 data provided in its argument.
-- `json_decode(string)` returns a row with the JSON decoding of the
-  string in the argument.
+- `parse_json(string)` returns a row with the JSON decoding of the
+  string in the argument.  Nested arrays and objects will be parsed
+  recursively; no flattening is performed.
 - `extract_column(row)` extracts the given column from the row, keeping
   only its latest value by timestamp.
 
@@ -479,7 +480,7 @@ number of occurrences of those tokens within `str`. For example `tokenize('a b b
 The `unpack_json(str)` function will parse the string `str` as a JSON
 object and unpack it into multiple columns following the  algorithm
 outlined below. Note that JSON objects shown in the tables below are
-string reprensetations of the JSON.
+string representations of the JSON.
 
 Each `(key, value)` pair will be recorded as the column name and cell value respectively. The line `{"a": 5, "b": true}` is recorded as:
 
@@ -529,7 +530,8 @@ object), we encode them as the string representation of the JSON. The line
 
 The ![](%%doclink import.json procedure) can be used to import a text file
 where each line is a JSON object. The ![](%%doclink melt procedure) can be
-used on columns repsenting arrays of objects to create a row per array element.
+used on columns representing arrays of objects to create a row per array
+element.
 
 
 ## <a name="aggregatefunctions"></a>Aggregate Functions
