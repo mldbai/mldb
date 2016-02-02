@@ -26,7 +26,7 @@ class HavingTest(unittest.TestCase):
             group by Sex, PClass, Embarked
             having count(*) > 5
         ''')
-        #mldb.log(res)
+
         for row in res[1:]:
             assert row[1] > 5
 
