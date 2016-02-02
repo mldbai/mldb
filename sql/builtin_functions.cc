@@ -628,7 +628,6 @@ BoundFunction temporal_min(const std::vector<BoundSqlExpression> & args)
             args[0].info};
 }
 
-
 static RegisterBuiltin registerTempMin(temporal_min, "temporal_min");
 
 BoundFunction date_part(const std::vector<BoundSqlExpression> & args)

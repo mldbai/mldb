@@ -57,13 +57,21 @@ doGetFunction(const Utf8String & tableName,
     }
 #endif
     // Get the outer function
-    return outer.doGetFunction(tableName, functionName, args);
+    //   return outer.doGetFunction(tableName, functionName, args);
 
-#if 0
+#if 1
+    auto outerFunction = outer.doGetFunction(tableName, functionName, args);
+
     BoundFunction result = outerFunction;
 
     if (!outerFunction)
         return result;
+
+    std::vector<BoundSqlExpression> boundArgs;
+    for (auto& arg : args)
+    {
+        boundArgs.emplace_back(std::move(arg->bind(outer)));
+    }
 
     // Call it with the outer context
     result.exec = [=] (const std::vector<BoundSqlExpression> & args,
@@ -77,7 +85,7 @@ doGetFunction(const Utf8String & tableName,
             //<< ML::type_name(context) << " outer type is "
             //<< ML::type_name(row.outer) << endl;
 
-            return outerFunction(args, row.outer);
+            return outerFunction(boundArgs, row.outer);
         };
 
     return result;

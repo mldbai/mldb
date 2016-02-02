@@ -254,7 +254,6 @@ $(eval $(call mldb_unit_test,MLDB-1235-temporal-aggregators.py))
 $(eval $(call mldb_unit_test,MLDB-1260-json-errors.py))
 $(eval $(call mldb_unit_test,MLDB-1239-utf8-literal.py))
 
-
 $(eval $(call mldb_unit_test,pytanic_plugin_test.py))
 $(eval $(call python_test,mldb_merged_dataset_test,mldb_py_runner))
 
