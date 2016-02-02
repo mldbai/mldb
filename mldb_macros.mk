@@ -16,7 +16,7 @@ TEST_$(1)_SETUP := $$(if $$(findstring .py,$(1))$$(findstring virtualenv,$(3)),.
 
 # Command to actually run for the test.  Constructs the call to mldb_runner and the
 # command line options to pass to it.
-TEST_$(1)_RAW_COMMAND := $$(BIN)/mldb_runner -h localhost -p '11700-12700' $$(foreach plugin,$(2),--plugin-directory file://$(PLUGINS)/$$(plugin)) --run-script $(CWD)/$(1)
+TEST_$(1)_RAW_COMMAND := $$(BIN)/mldb_runner -h localhost -p '11700-12700' $$(foreach plugin,$(2),--plugin-directory file://$(PLUGINS)/$$(plugin)) --run-script $(CWD)/$(1) --mute-final-output
 
 # Command that is run in the shell.  This takes care of printing the right message
 # out and capturing the output in the right place.
