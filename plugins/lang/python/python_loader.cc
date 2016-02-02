@@ -652,14 +652,10 @@ class MldbUnitTest(unittest.TestCase):
         ordered_res = []
         for v in res[1:]:
             ordered_res.append([v[pos] for pos in reorder_directives])
-        ordered_res = sorted(ordered_res)
-        expected = sorted(expected[1:])
-        for res_row, expected_row in zip(ordered_res, expected):
+        for res_row, expected_row in zip(ordered_res, expected[1:]):
             self.assertEqual(res_row, expected_row)
 
     def _assert_json_result(self, res, expected):
-        res = sorted(res, key=lambda(v): v['rowName'])
-        expected = sorted(expected, key=lambda(v): v['rowName'])
         for res_row, expected_row in zip(res, expected):
             self.assertEqual(res_row["rowName"], expected_row["rowName"])
             res_columns = sorted(res_row["columns"])
