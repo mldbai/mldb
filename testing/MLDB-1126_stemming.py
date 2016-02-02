@@ -113,4 +113,13 @@ js_res = res.json()
 find_column(js_res, 'potato', 5)
 mldb.log(js_res)
 
+# string value should be treated as a "1", true=1 and false=0
+res = mldb.get(
+    '/v1/query',
+    q='SELECT stemmer({words:{*}})[words] as * FROM'
+      " (SELECT false as potato, 3 as potatoes, true as carrot, 'oui' as carrots)")
+js_res = res.json()
+find_column(js_res, 'potato', 3)
+find_column(js_res, 'carrot', 2)
+
 mldb.script.set_return("success")
