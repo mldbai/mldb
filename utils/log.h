@@ -18,9 +18,9 @@ namespace Datacratic {
 
 namespace MLDB {
 
-static std::shared_ptr<spdlog::logger> getQueryLog();
-static std::shared_ptr<spdlog::logger> getMldbLog();
-static std::shared_ptr<spdlog::logger> getServerLog();
+std::shared_ptr<spdlog::logger> getQueryLog();
+std::shared_ptr<spdlog::logger> getMldbLog();
+std::shared_ptr<spdlog::logger> getServerLog();
 
 } // MLDB
 

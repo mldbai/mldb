@@ -64,8 +64,9 @@ createTypeClassCollection(MldbServer * server, RestRouteManager & routeManager);
 MldbServer::
 MldbServer(const std::string & serviceName,
            const std::string & etcdUri,
-           const std::string & etcdPath)
-    : ServicePeer(serviceName, "MLDB", "global"),
+           const std::string & etcdPath,
+           bool enableAccessLog)
+    : ServicePeer(serviceName, "MLDB", "global", enableAccessLog),
       EventRecorder(serviceName, std::make_shared<NullEventService>()),
       versionNode(nullptr)
 {
