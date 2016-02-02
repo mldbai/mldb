@@ -448,6 +448,8 @@ struct ExpressionValue {
 
     std::basic_string<char32_t> toWideString() const;
 
+    Utf8String getTypeAsUtf8String() const;
+
     const CellValue & getAtom() const;
 
     /// Destructive getAtom() call, that moves it into the result

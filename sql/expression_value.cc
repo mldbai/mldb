@@ -783,7 +783,9 @@ double
 ExpressionValue::
 toDouble() const
 {
-    ExcAssertEqual(type_, ATOM);
+    //ExcAssertEqual(type_, ATOM);
+   if (type_ != ATOM)
+        throw HttpReturnException(400, "Can't convert from " + getTypeAsUtf8String() + " to double");
     return cell_.toDouble();
 }
 
@@ -791,7 +793,8 @@ int64_t
 ExpressionValue::
 toInt() const
 {
-    ExcAssertEqual(type_, ATOM);
+    if (type_ != ATOM)
+        throw HttpReturnException(400, "Can't convert from " + getTypeAsUtf8String() + " to integer");
     return cell_.toInt();
 }
     
@@ -801,7 +804,10 @@ asBool() const
 {
     if (type_ == NONE)
         return false;
-    ExcAssertEqual(type_, ATOM);
+    
+    if (type_ != ATOM)
+        throw HttpReturnException(400, "Can't convert from " + getTypeAsUtf8String() + " to boolean");
+
     return cell_.asBool();
 }
 
@@ -941,7 +947,8 @@ std::string
 ExpressionValue::
 toString() const
 {
-    ExcAssertEqual(type_, ATOM);
+    if (type_ != ATOM)
+        throw HttpReturnException(400, "Can't convert from " + getTypeAsUtf8String() + " to string");
     return cell_.toString();
 }
 
@@ -949,15 +956,37 @@ Utf8String
 ExpressionValue::
 toUtf8String() const
 {
-    ExcAssertEqual(type_, ATOM);
+    if (type_ != ATOM)
+        throw HttpReturnException(400, "Can't convert from " + getTypeAsUtf8String() + " to UTF8 string");
     return cell_.toUtf8String();
+}
+
+Utf8String
+ExpressionValue::
+getTypeAsUtf8String() const
+{
+    switch (type_)
+    {
+        case NONE:
+            return "empty";
+        case ATOM:
+            return "atomic value";
+        case ROW:
+            return "row";
+        case STRUCT:
+            return "embedding";
+        default:
+            ExcAssert(false);
+            return "unknown";
+    }
 }
 
 std::basic_string<char32_t>
 ExpressionValue::
 toWideString() const
 {
-    ExcAssertEqual(type_, ATOM);
+    if (type_ != ATOM)
+        throw HttpReturnException(400, "Can't convert from " + getTypeAsUtf8String() + " to wide string");
     return cell_.toWideString();
 }
 
@@ -1148,8 +1177,8 @@ getEmbeddingDouble(ssize_t knownLength) const
             break;
     }
     
-    if (knownLength != -1)
-        ExcAssertEqual(result.size(), knownLength);
+    if (knownLength != -1 && result.size() != knownLength)
+        throw HttpReturnException(400, Utf8String("Expected ") + to_string(knownLength) + " elements in embedding, got " + to_string(result.size()));;
 
     //cerr << "embedding result is " << result << endl;
 
