@@ -315,51 +315,127 @@ train(const std::vector<ML::distribution<double>> & points,
 
 int
 EstimationMaximisation::
+assign(const ML::distribution<double> & point) const
+{
+	boost::multi_array<double, 2> dummySoftAssignMatrix;
+	return assign(point, dummySoftAssignMatrix, -1);
+}
+
+int
+EstimationMaximisation::
 assign(const ML::distribution<double> & point, boost::multi_array<double, 2>& distanceMatrix, int pIndex) const
 {
-  cerr << "start assign" << endl;
-  using namespace std;
-  if (clusters.size() == 0)
-      throw ML::Exception("Did you train your em?");
+	cerr << "start assign" << endl;
+	using namespace std;
+	if (clusters.size() == 0)
+	    throw ML::Exception("Did you train your em?");
 
-  ML::distribution<double> distances(clusters.size());
-  for (int i=0; i < clusters.size(); ++i) {
-      distances[i] = gaussianDistance(point, clusters[i].centroid, clusters[i].covarianceMatrix, clusters[i].invertCovarianceMatrix, clusters[i].pseudoDeterminant);
-  }
+	ML::distribution<double> distances(clusters.size());
+	for (int i=0; i < clusters.size(); ++i) {
+	    distances[i] = gaussianDistance(point, clusters[i].centroid, clusters[i].covarianceMatrix, clusters[i].invertCovarianceMatrix, clusters[i].pseudoDeterminant);
+	}
 
-  cerr << "end distances" << endl;
+	cerr << "end distances" << endl;
 
-  double distMin = 0;
-  int best_cluster = -1;
-  double totalWeight = 0.0f;
+	double distMin = 0;
+	int best_cluster = -1;
+	double totalWeight = 0.0f;
 
-  for (int i=0; i < clusters.size(); ++i) {
+	for (int i=0; i < clusters.size(); ++i) {
 
-      double distance = distances[i];
+	    double distance = distances[i];
 
-      totalWeight += distance;
-      distanceMatrix[pIndex][i] = distance;
+	    if (pIndex >= 0)
+	    {
+	    	totalWeight += distance;
+	   		distanceMatrix[pIndex][i] = distance;
+	    }	    
 
-      if (distances[i] > distMin) {
-          distMin = distances[i];
-          best_cluster = i;
-      }
-  }
+	    if (distances[i] > distMin) {
+	        distMin = distances[i];
+	        best_cluster = i;
+	      }
+	}
 
-   if (totalWeight > 0) {
+	if (pIndex >= 0 && totalWeight > 0) {
 
-        for (int i=0; i < clusters.size(); ++i) {
-            distanceMatrix[pIndex][i] /= totalWeight;
-        }
-   }
+	    for (int i=0; i < clusters.size(); ++i) {
+	        distanceMatrix[pIndex][i] /= totalWeight;
+	    }
+	}
 
-  //Most likely these are points with all distance at 0, often during the first iteration
-  if (best_cluster == -1)
-      best_cluster = 0;
+	//Most likely these are points with all distance at 0, often during the first iteration
+	if (best_cluster == -1)
+	    best_cluster = 0;
 
-  cerr << "end assign" << endl;
+	cerr << "end assign" << endl;
 
-  return best_cluster;
+	return best_cluster;
 }
+
+void
+EstimationMaximisation::
+serialize(ML::DB::Store_Writer & store) const
+{
+    std::string name = "em";
+    int version = 0;
+    store << name << version;
+    store << (int) clusters.size();
+    for (auto & c : clusters) {
+
+        store << c.totalWeight;
+        store << c.centroid;
+        store << c.covarianceMatrix;
+        store << c.invertCovarianceMatrix;
+        store << c.pseudoDeterminant;
+    }
+}
+
+
+void
+EstimationMaximisation::
+reconstitute(ML::DB::Store_Reader & store)
+{
+    std::string name;
+    store >> name;
+    if (name != "em")
+        throw ML::Exception("invalid name when loading a EM object");  
+    int version;
+    store >> version;
+    if (version != 0)
+        throw ML::Exception("invalid EM version");
+    int nbClusters;
+    store >> nbClusters;
+    clusters.clear();
+    clusters.resize(nbClusters);
+    for (int i=0; i < nbClusters; ++i) {
+
+        store >> clusters[i].totalWeight;
+        store >> clusters[i].centroid;
+        store >> clusters[i].covarianceMatrix;
+        store >> clusters[i].invertCovarianceMatrix;
+        store >> clusters[i].pseudoDeterminant;
+    }
+}
+
+
+void
+EstimationMaximisation::
+save(const std::string & filename) const
+{
+    ML::filter_ostream stream(filename);
+    DB::Store_Writer store(stream);
+    serialize(store);
+}
+
+void
+EstimationMaximisation::
+load(const std::string & filename)
+{
+    ML::filter_istream stream(filename);
+    DB::Store_Reader store(stream);
+    reconstitute(store);
+}
+
 
 } //ML

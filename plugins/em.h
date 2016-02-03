@@ -28,6 +28,7 @@ struct EMConfig : public ProcedureConfig  {
     int numInputDimensions;
     int numClusters;
     int maxIterations;
+    Url modelFileUrl;
 
     Utf8String functionName;
 };
@@ -60,15 +61,11 @@ struct EMProcedure: public Procedure {
 /*****************************************************************************/
 
 struct EMFunctionConfig {
-    EMFunctionConfig()
-        : select(SelectExpression::parse("*")),
-          where(SqlExpression::parse("true"))
+    EMFunctionConfig()      
     {
     }
     
-    PolyConfigT<Dataset> centroids;        ///< Dataset containing the centroids
-    SelectExpression select;               ///< What to select from dataset
-    std::shared_ptr<SqlExpression> where;  ///< Which centroids to take
+    Url modelFileUrl;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(EMFunctionConfig);
@@ -87,7 +84,7 @@ struct EMFunction: public Function {
     virtual FunctionInfo getFunctionInfo() const;
     
     EMFunctionConfig functionConfig;
-    std::vector<ColumnName> columnNames;
+   /* std::vector<ColumnName> columnNames;
     int numDim;
 
      struct Cluster {
@@ -96,7 +93,12 @@ struct EMFunction: public Function {
         boost::multi_array<double, 2> covarianceMatrix;
     };
 
-    std::vector<Cluster> clusters;
+    std::vector<Cluster> clusters;*/
+     // holds the dimension of the embedding space
+    size_t dimension;
+
+    struct Impl;
+    std::unique_ptr<Impl> impl;
 };
 
 } // namespace MLDB

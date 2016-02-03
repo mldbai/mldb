@@ -104,7 +104,8 @@ var emConfig = {
         numClusters: 2,
         trainingData: "select * from gaussian",
         outputDataset: { "id": "em_output", type: "embedding" },
-        centroidsDataset: { "id": "em_centroids", type: "embedding" }
+        centroidsDataset: { "id": "em_centroids", type: "embedding" },
+        modelFileUrl: "file://tmp/emtest.em"
     }
 };
 
@@ -146,7 +147,7 @@ plugin.log(mldb.perform("GET", "/v1/datasets/em_centroids/query"));
 var functionConfig = {
     type: "EM",
     params: {
-        centroids: { id: "em_centroids" },
+        modelFileUrl: "file://tmp/emtest.em"
     }
 };
 

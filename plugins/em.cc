@@ -12,15 +12,13 @@
 #include "jml/utils/pair_utils.h"
 #include "mldb/arch/timers.h"
 #include "mldb/types/optional_description.h"
-
 #include "jml/utils/vector_utils.h"
 #include "mldb/types/basic_value_descriptions.h"
-
 #include "mldb/sql/sql_expression.h"
 #include "mldb/server/analytics.h"
 #include "mldb/types/any_impl.h"
-
 #include "jml/utils/smart_ptr_utils.h"
+#include "mldb/vfs/fs_utils.h"
 
 
 using namespace std;
@@ -67,6 +65,13 @@ EMConfigDescription()
              "dataset, but will have one row per cluster, providing the centroid of "
              "the cluster.",
              PolyConfigT<Dataset>().withType("embedding"));
+    addField("modelFileUrl", &EMConfig::modelFileUrl,
+             "URL where the model file (with extension '.em') should be saved. "
+             "This file can be loaded by a function of type 'em' to apply "
+             "the trained model to new data. "
+             "If someone is only interested in how the training input is clustered "
+             "then the parameter can be omitted and the outputDataset param can "
+             "be provided instead.");
     addField("numInputDimensions", &EMConfig::numInputDimensions,
              "Number of dimensions from the input to use (-1 = all).  This limits "
              "the number of columns used.  Columns will be ordered alphabetically "
@@ -161,6 +166,20 @@ run(const ProcedureRunConfig & run,
 
     // output
 
+    bool saved = false;
+    if (!runProcConf.modelFileUrl.empty()) {
+        try {
+            Datacratic::makeUriDirectory(runProcConf.modelFileUrl.toString());
+            em.save(runProcConf.modelFileUrl.toString());
+            saved = true;
+        }
+        catch (const std::exception & exc) {
+            throw HttpReturnException(400, "Error saving kmeans centroids at location'" +
+                                      runProcConf.modelFileUrl.toString() + "': " +
+                                      exc.what());
+        }
+    }
+
     if (runProcConf.output.get()) {
 
         PolyConfigT<Dataset> outputDataset = *runProcConf.output;
@@ -208,15 +227,22 @@ run(const ProcedureRunConfig & run,
     }
 
     if(!runProcConf.functionName.empty()) {
-        EMFunctionConfig funcConf;
-        funcConf.centroids = runProcConf.centroids;
+        if (saved) {
+            EMFunctionConfig funcConf;
+            funcConf.modelFileUrl = runProcConf.modelFileUrl;
 
-        PolyConfig emFuncPC;
-        emFuncPC.type = "em";
-        emFuncPC.id = runProcConf.functionName;
-        emFuncPC.params = funcConf;
+            PolyConfig emPC;
+            emPC.type = "em";
+            emPC.id = runProcConf.functionName;
+            emPC.params = funcConf;
 
-        obtainFunction(server, emFuncPC, onProgress);
+            obtainFunction(server, emPC, onProgress);
+        } else {
+            throw HttpReturnException(400, "Can't create em function '" +
+                                      runProcConf.functionName.rawString() + 
+                                      "'. Have you provided a valid modelFileUrl?",
+                                      "modelFileUrl", runProcConf.modelFileUrl.toString());
+        }
     }
 
     return Any();  
@@ -227,18 +253,18 @@ DEFINE_STRUCTURE_DESCRIPTION(EMFunctionConfig);
 EMFunctionConfigDescription::
 EMFunctionConfigDescription()
 {
-    addField("centroids", &EMFunctionConfig::centroids,
-             "Dataset containing centroids of each cluster: one row per cluster.");
-    addField("select", &EMFunctionConfig::select,
-             "Fields to select to calculate k-means over.  Only those fields "
-             "that are selected here need to be matched.  Default is to use "
-             "all fields.",
-             SelectExpression("*"));
-    addField("where", &EMFunctionConfig::where,
-             "Rows to select for k-means training.  This will effectively "
-             "limit which clusters are active.  Default is to use all "
-             "clusters.",
-             SqlExpression::parse("true"));
+    addField("modelFileUrl", &EMFunctionConfig::modelFileUrl,
+             "URL of the model file (with extension '.em') to load. "
+             "This file is created by a procedure of type 'em.train'.");
+
+    onPostValidate = [] (EMFunctionConfig * cfg, 
+                         JsonParsingContext & context) {
+        // this includes empty url
+        if(!cfg->modelFileUrl.valid()) {
+            throw ML::Exception("modelFileUrl \"" + cfg->modelFileUrl.toString() 
+                                + "\" is not valid");
+        }
+    };
 }
 
 
@@ -246,13 +272,21 @@ EMFunctionConfigDescription()
 /* EM FUNCTION                                                              */
 /*****************************************************************************/
 
+struct EMFunction::Impl {
+    ML::EstimationMaximisation em;
+    
+    Impl(const Url & modelFileUrl) {
+        em.load(modelFileUrl.toString());
+    }
+};
+
 EMFunction::
 EMFunction(MldbServer * owner,
             PolyConfig config,
             const std::function<bool (const Json::Value &)> & onProgress)
     : Function(owner)
 {
-    functionConfig = config.params.convert<EMFunctionConfig>();
+   /* functionConfig = config.params.convert<EMFunctionConfig>();
 
     auto dataset = obtainDataset(server, functionConfig.centroids, onProgress);
 
@@ -297,11 +331,19 @@ EMFunction(MldbServer * owner,
         }
 
         clusters.emplace_back(std::move(cluster));
-    }
+    }*/
 
-    //cerr << "got " << clusters.size()
-    //     << " clusters with " << columnNames.size()
-    //     << "values" << endl;
+    functionConfig = config.params.convert<EMFunctionConfig>();
+
+    impl.reset(new Impl(functionConfig.modelFileUrl));
+    
+    dimension = impl->em.clusters[0].centroid.size();
+
+    cerr << "got " << impl->em.clusters.size()
+         << " clusters with " << dimension
+         << "values" << endl;
+
+
 }
 
 Any
@@ -316,7 +358,7 @@ EMFunction::
 apply(const FunctionApplier & applier,
       const FunctionContext & context) const
 {
-    FunctionOutput result;
+  /*  FunctionOutput result;
 
     ExpressionValue storage;
     const ExpressionValue & inputVal = context.get("embedding", storage);
@@ -338,6 +380,21 @@ apply(const FunctionApplier & applier,
 
     result.set("cluster", ExpressionValue(bestCluster, ts)); 
  
+    return result;*/
+
+    FunctionOutput result;
+
+    // Extract an embedding with the given column names
+    ExpressionValue storage;
+    const ExpressionValue & inputVal = context.get("embedding", storage);
+
+    ML::distribution<double> input = inputVal.getEmbeddingDouble(dimension);
+    Date ts = inputVal.getEffectiveTimestamp();
+
+    int bestCluster = impl->em.assign(input);
+
+    result.set("cluster", ExpressionValue(bestCluster, ts));
+    
     return result;
 }
 
@@ -347,7 +404,7 @@ getFunctionInfo() const
 {
     FunctionInfo result;
 
-    result.input.addEmbeddingValue("embedding", columnNames.size());
+    result.input.addEmbeddingValue("embedding", dimension);
     result.output.addAtomValue("cluster");
 
     return result;
