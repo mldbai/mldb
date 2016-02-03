@@ -3,7 +3,6 @@
 # datacratic, 2015
 # this file is part of mldb. copyright 2015 datacratic. all rights reserved.
 #
-import unittest
 
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
@@ -42,14 +41,21 @@ class RownameInJoinTest(MldbUnitTest):
         ]
         self.assertQueryResult(res, expected)
 
-    @unittest.expectedFailure
     def test_inner_join_rowname_on_row_name(self):
-        res1 = mldb.query(
-            'SELECT dataset1.* AS * FROM dataset1 '
-            'INNER JOIN dataset1.rowName() = dataset2.rowName()'
+        res = mldb.query(
+            'SELECT dataset2.* FROM dataset2 '
+            'INNER JOIN dataset1 ON dataset1.rowName() = dataset2.rowName()'
+            'ORDER BY dataset2.rowName()'
         )
-        res2 = mldb.query("SELECT * FROM dataset1")
-        self.assertQueryResult(res1, res2)
+        expected = [
+            ["_rowName", "dataset2.ds1_row", "dataset2.y"],
+            ["row_0-row_0", "row_0", 0],
+            ["row_1-row_1", "row_1", 1],
+            ["row_2-row_2", "row_2", 2],
+            ["row_3-row_3", "row_3", 3],
+            ["row_4-row_4", "row_4", 4]
+        ]
+        self.assertQueryResult(res, expected)
 
 
 if __name__ == '__main__':
