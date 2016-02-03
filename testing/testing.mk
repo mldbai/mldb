@@ -14,6 +14,10 @@ MANUAL_IF_NO_S3:=$(if $(HAS_S3_CREDENTIALS),,manual)
 
 $(eval $(call library,mldb_test_function,test_function.cc,mldb))
 
+
+$(eval $(call mldb_unit_test,MLDBFB-336-sample_test.py,,manual))
+
+
 $(eval $(call test,mldb_plugin_test,mldb,boost))
 $(eval $(call test,mldb_python_plugin_test,mldb,boost))
 $(eval $(call test,MLDB-642_script_procedure_test,mldb,boost))
@@ -252,6 +256,7 @@ $(eval $(call mldb_unit_test,MLDB-1272-regression-training-failure.py,,manual)) 
 $(eval $(call mldb_unit_test,MLDB-1277-pooling-performance.py,,manual)) #manual -- awaiting fix
 $(eval $(call mldb_unit_test,MLDB-1260-json-errors.py))
 $(eval $(call mldb_unit_test,MLDB-1239-utf8-literal.py))
+$(eval $(call mldb_unit_test,MLDB-1336-builtin-checks.py))
 
 
 $(eval $(call mldb_unit_test,pytanic_plugin_test.py))
@@ -310,3 +315,4 @@ $(eval $(call mldb_unit_test,mldb_unit_test_test.py))
 $(eval $(call mldb_unit_test,MLDB-1216-fetcher-function.js))
 $(eval $(call mldb_unit_test,MLDBFB-335_when_timestamp_variable_test.py))
 $(eval $(call mldb_unit_test,MLDBFB-192_row_name_as_string_test.py))
+$(eval $(call mldb_unit_test,MLDBFB-199_invalid_script_test.py))

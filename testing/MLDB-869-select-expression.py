@@ -26,15 +26,9 @@ else:
     assert False, 'should not be here'
 
 #MLDB-835
-try:
-    mldb.get('/v1/query', q='SELECT x.* FROM dataset1')
-except mldb_wrapper.ResponseException as exc:
-    mldb.log(exc.response)
-else:
-    assert False, 'should not be here'
 
 result = mldb.get('/v1/query', q='SELECT x.* FROM dataset1 as x')
-mldb.log(result)
+assert result.json()[0]['columns'][0][1] == 9
 
 #MLDB-958 rowhash printing when rowhash bigger than 7FFFFFFFFFFFFFFF
 result = mldb.get('/v1/query',
