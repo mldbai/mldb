@@ -84,16 +84,7 @@ struct EMFunction: public Function {
     virtual FunctionInfo getFunctionInfo() const;
     
     EMFunctionConfig functionConfig;
-   /* std::vector<ColumnName> columnNames;
-    int numDim;
-
-     struct Cluster {
-        CellValue clusterName;
-        ML::distribution<double> centroid;
-        boost::multi_array<double, 2> covarianceMatrix;
-    };
-
-    std::vector<Cluster> clusters;*/
+  
      // holds the dimension of the embedding space
     size_t dimension;
 

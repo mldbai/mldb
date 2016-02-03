@@ -485,8 +485,6 @@ operator - (const boost::multi_array<Float1, 2> & A,
 /* MATRIX SCALAR                                                             */
 /*****************************************************************************/
 
-//template<typename Float1, typename Float2>
-/*boost::multi_array<typename float_traits<Float1, Float2>::return_type, 2>*/
 inline 
 boost::multi_array<double, 2>
 operator * (const boost::multi_array<double, 2> & A,
@@ -501,21 +499,6 @@ operator * (const boost::multi_array<double, 2> & A,
     }
     return X;
 }
-
-/*template<typename Float1, typename Float2>
-boost::multi_array<typename float_traits<Float1, Float2>::return_type, 2>
-operator * (const boost::multi_array<Float1, 2> & A,
-            Float2 B)
-{
-    int As0 = A.shape()[0];
-    int As1 = A.shape()[1];
-    boost::multi_array<typename float_traits<Float1, Float2>::return_type, 2> X(boost::extents[As0][As1]);
-    for (unsigned i = 0;  i < As0;  ++i) {
-        for (unsigned j = 0;  j < As1;  ++j)
-            X[i][j] = A[i][j] * B;
-    }
-    return X;
-}*/
 
 template<typename Float1, typename Float2>
 boost::multi_array<typename float_traits<Float1, Float2>::return_type, 2>
