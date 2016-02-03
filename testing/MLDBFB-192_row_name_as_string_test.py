@@ -45,9 +45,9 @@ class RowNameAsStringTest(MldbUnitTest):
 
 class NullNameTest(MldbUnitTest):
 
-    def test_create_dataset(self):
+    def test_record_nonw_row_name(self):
         ds = mldb.create_dataset({
-            'id' : 'ds',
+            'id' : 'ds1',
             'type': 'sparse.mutable'
         })
         with self.assertRaises(Exception) as exc:
@@ -57,25 +57,45 @@ class NullNameTest(MldbUnitTest):
 
     @unittest.expectedFailure
     def test_post_row_name_none(self):
-        mldb.put('/v1/datasets/ds', {
+        mldb.put('/v1/datasets/ds2', {
             'type' : 'sparse.mutable'
         })
 
         with self.assertRaises(mldb_wrapper.ResponseException): # noqa
-            mldb.post('/v1/datasets/ds/rows', {
+            mldb.post('/v1/datasets/ds2/rows', {
                 'rowName' : None, # should not work
                 'columns' : [['colA', 1, 1]]
             })
 
     @unittest.expectedFailure
     def test_post_no_row_name(self):
-        mldb.put('/v1/datasets/ds', {
+        mldb.put('/v1/datasets/ds3', {
             'type' : 'sparse.mutable'
         })
 
         with self.assertRaises(mldb_wrapper.ResponseException): # noqa
-            mldb.post('/v1/datasets/ds/rows', {
+            mldb.post('/v1/datasets/ds3/rows', {
                 # rowName missing -> should not work
+                'columns' : [['colA', 1, 1]]
+            })
+
+    def test_record_empty_row_name(self):
+        ds = mldb.create_dataset({
+            'id' : 'ds4',
+            'type': 'sparse.mutable'
+        })
+        import exceptions
+        with self.assertRaises(exceptions.RuntimeError):
+            ds.record_row("", [['colA', 1, 1]])
+
+    def test_post_empty_row_name(self):
+        mldb.put('/v1/datasets/ds5', {
+            'type' : 'sparse.mutable'
+        })
+
+        with self.assertRaises(mldb_wrapper.ResponseException): # noqa
+            mldb.post('/v1/datasets/ds5/rows', {
+                'rowName' : '',
                 'columns' : [['colA', 1, 1]]
             })
 
