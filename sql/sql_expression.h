@@ -539,6 +539,12 @@ struct SqlBindingScope {
     virtual TableOperations
     doGetTable(const Utf8String & tableName);
 
+    /* Used to resolve the table name from a full identifier */
+    /* Will return value is the identifier without the table name */
+    /* Output value is the table name resolved */
+    virtual Utf8String 
+    doResolveTableName(const Utf8String & fullVariableName, Utf8String &tableName) const;
+
     /** Return the MLDB server behind this context.  Default returns a null
         pointer which means we're running outside of MLDB.
     */
