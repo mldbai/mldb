@@ -353,6 +353,14 @@ struct ContinuousDataset::Itl {
         return myCurrent->dataset->getColumnIndex();
     }
 
+    std::shared_ptr<RowStream> 
+    getRowStream() const
+    {
+        auto myCurrent = current();
+        return myCurrent->dataset->getRowStream();
+    }
+
+
     std::pair<Date, Date>
     getTimestampRange() const
     {
@@ -445,6 +453,13 @@ getColumnIndex() const
     return itl->getColumnIndex();
 }
 
+std::shared_ptr<RowStream> 
+ContinuousDataset::
+getRowStream() const
+{
+    return itl->getRowStream();
+}
+
 RestRequestMatchResult
 ContinuousDataset::
 handleRequest(RestConnection & connection,
@@ -467,7 +482,7 @@ regContinuous(builtinPackage(),
 
 ContinuousWindowDatasetConfig::
 ContinuousWindowDatasetConfig()
-    : datasetFilter(SqlExpression::TRUE)
+    : datasetFilter(SqlExpression::parse("true"))
 {
 }
 
@@ -485,7 +500,7 @@ ContinuousWindowDatasetConfigDescription()
              "Latest date to include within the dataset");
     addField("datasetFilter", &ContinuousWindowDatasetConfig::datasetFilter,
              "Filter to apply to dataset metadata when choosing datasets",
-             SqlExpression::TRUE);
+             SqlExpression::parse("true"));
 }
 
 
@@ -539,11 +554,11 @@ getDatasetConfig(std::shared_ptr<SqlExpression> datasetsWhere,
         = metadataDataset
         ->queryStructured(SelectExpression::STAR,
                           WhenExpression::TRUE /* when */,
-                          SqlExpression::parse(where) /* where */,
+                          *SqlExpression::parse(where) /* where */,
                           OrderByExpression::parse("rowName() ASC"),
                           TupleExpression(),
-                          SqlExpression::TRUE /* having */,
-                          SqlExpression::parse("rowName()") /* rowName */,
+                          *SqlExpression::TRUE /* having */,
+                          *SqlExpression::parse("rowName()") /* rowName */,
                           0 /* offset */,
                           -1 /* limit */,
                           "" /* alias */);

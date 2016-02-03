@@ -300,11 +300,10 @@ DECLARE_STRUCTURE_DESCRIPTION(FunctionValueInfo);
 */
 
 struct FunctionValues {
+
     std::map<ValueMapKey, FunctionValueInfo> values;
 
-    FunctionValues()
-    {
-    }
+    FunctionValues(){}
 
     /** Construct from the value info of something that returns a row. */
     FunctionValues(const ExpressionValueInfo & rowInfo);
@@ -331,6 +330,15 @@ struct FunctionValues {
     
     /** Add a named value that is an atom (null, number, string). */
     void addAtomValue(const std::string & name);
+
+    /** Add a named value that is a string (ASCII or UTF-8). */
+    void addStringValue(const std::string & name);
+
+    /** Add a named value that is a timestamp. */
+    void addTimestampValue(const std::string & name);
+
+    /** Add a named value that is a blob. */
+    void addBlobValue(const std::string & name);
 
     /** Add a named value that is a floating point number. */
     void addNumericValue(const std::string & name);
@@ -482,8 +490,8 @@ protected:
         access to the information put in the applier by the bind()
         method.
     */
-    virtual FunctionOutput apply(const FunctionApplier & applier,
-                              const FunctionContext & context) const = 0;
+
+    virtual FunctionOutput apply(const FunctionApplier & applier, const FunctionContext & context) const = 0;
 
     friend class FunctionApplier;
 };

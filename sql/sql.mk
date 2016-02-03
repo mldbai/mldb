@@ -8,7 +8,7 @@ SQL_EXPRESSION_SOURCES := \
 	table_expression_operations.cc \
 	binding_contexts.cc \
 	builtin_functions.cc \
-	builtin_datasetfunctions.cc \
+	builtin_dataset_functions.cc \
 	builtin_aggregators.cc \
 	interval.cc \
 	join_utils.cc \
@@ -18,5 +18,5 @@ SQL_EXPRESSION_SOURCES := \
 	sql_utils.cc \
 
 # NOTE: the SQL library should NOT depend on MLDB.  See the comment in testing/testing.mk
-$(eval $(call library,sql_expression,$(SQL_EXPRESSION_SOURCES),types utils value_description any ml services_base json_diff siphash))
+$(eval $(call library,sql_expression,$(SQL_EXPRESSION_SOURCES),types utils value_description any ml services_base json_diff siphash hash))
 

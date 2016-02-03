@@ -1,7 +1,11 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+#
+# MLDB-461_horizontal_ops_test.py
+# datacratic, 2015
+# this file is part of mldb. copyright 2015 datacratic. all rights reserved.
+#
+import datetime
 
-
-import json, datetime
+mldb = mldb_wrapper.wrap(mldb) # noqa
 
 dataset = mldb.create_dataset({
     "type": "sparse.mutable",
@@ -25,8 +29,8 @@ dataset.record_row("z",[
 dataset.commit()
 
 
-def checkRes(rez, answers):
-    resp = json.loads(rez["response"])
+def check_res(rez, answers):
+    resp = rez.json()
     mldb.log(resp)
 
     assert len(resp) == 3
@@ -35,61 +39,57 @@ def checkRes(rez, answers):
         assert abs(r["columns"][0][1] - answers[key]) < 0.001
 
 
-rez = mldb.perform("GET", "/v1/query", [["q", "select horizontal_count({*}) from x"]])
+rez = mldb.get("/v1/query", q="select horizontal_count({*}) from x")
 answers = {
         "x": 3,
         "y": 3,
         "z": 2
 }
-checkRes(rez, answers)
+check_res(rez, answers)
 
 
 
-rez = mldb.perform("GET", "/v1/query", [["q", "select horizontal_count({p*}) from x"]])
+rez = mldb.get("/v1/query", q="select horizontal_count({p*}) from x")
 answers = {
         "x": 1,
         "y": 1,
         "z": 0
 }
-checkRes(rez, answers)
+check_res(rez, answers)
 
 
 
-rez = mldb.perform("GET", "/v1/query", [["q", "select horizontal_sum({*}) from x"]])
+rez = mldb.get("/v1/query", q="select horizontal_sum({*}) from x")
 answers = {
         "x": 3,
         "y": 2,
         "z": 6
 }
-checkRes(rez, answers)
+check_res(rez, answers)
 
 
-rez = mldb.perform("GET", "/v1/query", [["q", "select horizontal_avg({*}) from x"]])
+rez = mldb.get("/v1/query", q="select horizontal_avg({*}) from x")
 answers = {
         "x": 1,
         "y": 0.667,
         "z": 3
 }
-checkRes(rez, answers)
+check_res(rez, answers)
 
-rez = mldb.perform("GET", "/v1/query", [["q", "select horizontal_min({*}) from x"]])
+rez = mldb.get("/v1/query", q="select horizontal_min({*}) from x")
 answers = {
         "x": 1,
         "y": 0,
         "z": 1
 }
-checkRes(rez, answers)
+check_res(rez, answers)
 
-rez = mldb.perform("GET", "/v1/query", [["q", "select horizontal_max({*}) from x"]])
+rez = mldb.get("/v1/query", q="select horizontal_max({*}) from x")
 answers = {
         "x": 1,
         "y": 1,
         "z": 5
 }
-checkRes(rez, answers)
-
-
-
+check_res(rez, answers)
 
 mldb.script.set_return("success")
-

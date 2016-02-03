@@ -1,8 +1,9 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 /**
  * bucketize_procedure.cc
  * Mich, 2015-10-27
  * Copyright (c) 2015 Datacratic Inc. All rights reserved.
+ *
+ * This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
  **/
 
 #include "bucketize_procedure.h"
@@ -21,6 +22,7 @@
 #include "mldb/server/per_thread_accumulator.h"
 #include "mldb/types/date.h"
 #include "mldb/sql/sql_expression.h"
+#include "mldb/plugins/sql_config_validator.h"
 #include <memory>
 
 using namespace std;
@@ -31,7 +33,6 @@ namespace MLDB {
 
 BucketizeProcedureConfig::
 BucketizeProcedureConfig()
-    : when(WhenExpression::TRUE), where(SqlExpression::TRUE)
 {
     outputDataset.withType("sparse.mutable");
 }
@@ -41,25 +42,15 @@ DEFINE_STRUCTURE_DESCRIPTION(BucketizeProcedureConfig);
 BucketizeProcedureConfigDescription::
 BucketizeProcedureConfigDescription()
 {
-    addFieldDesc("inputDataset", &BucketizeProcedureConfig::inputDataset,
-                 "Input dataset. This must be an existing dataset.",
-                 makeInputDatasetDescription());
+    addField("inputData", &BucketizeProcedureConfig::inputData,
+             "An SQL statement to select the input data. The select expression is required "
+             "but has no effect.  The order by expression is used to rank the rows prior to "
+             "bucketization.");
     addField("outputDataset", &BucketizeProcedureConfig::outputDataset,
              "Output dataset configuration. This may refer either to an "
              "existing dataset, or a fully specified but non-existing dataset "
              "which will be created by the procedure.",
              PolyConfigT<Dataset>().withType("sparse.mutable"));
-    addField("orderBy", &BucketizeProcedureConfig::orderBy,
-             "The order to use to rank the rows prior to bucketization.");
-    addField("when", &BucketizeProcedureConfig::when,
-             "Boolean expression determining which tuples from the dataset "
-             "to keep based on their timestamps",
-             WhenExpression::TRUE);
-    addField("where", &BucketizeProcedureConfig::where,
-             "Boolean expression to choose which row to select. In almost all "
-             "cases this should be set to restrict the query to the part of "
-             "the dataset that is interesting in the context of the query.",
-             SqlExpression::TRUE);
     addField("percentileBuckets", &BucketizeProcedureConfig::percentileBuckets,
              "Key/ranges of the buckets to create. Buckets ranges can share "
              "start and end values but cannot overlap such that a row can "
@@ -108,6 +99,7 @@ BucketizeProcedureConfigDescription()
             }
             last = range;
         }
+        MustContainFrom<InputQuery>()(cfg->inputData, "bucketize");
     };
 }
 
@@ -127,17 +119,32 @@ run(const ProcedureRunConfig & run,
 {
     SqlExpressionMldbContext context(server);
 
-    auto boundDataset = procedureConfig.inputDataset->bind(context);
+    auto boundDataset = procedureConfig.inputData.stm->from->bind(context);
 
     SelectExpression select(SelectExpression::parse("1"));
     vector<shared_ptr<SqlExpression> > calc;
-    ssize_t offset = 0;
-    ssize_t limit = -1;
+
+    // We calculate an expression with the timestamp of the order by
+    // clause.  First, we need to calculate each of the order by clauses
+    for (auto & c: procedureConfig.inputData.stm->orderBy.clauses) {
+        auto whenClause = std::make_shared<FunctionCallWrapper>
+            ("", "when", vector<shared_ptr<SqlExpression> >(1, c.first),
+             nullptr /* extract */);
+        calc.emplace_back(whenClause);
+    }
 
     vector<Id> orderedRowNames;
-    auto getSize = [&] (const MatrixNamedRow & row,
+    Date globalMaxOrderByTimestamp = Date::negativeInfinity();
+    auto getSize = [&] (NamedRowValue & row,
                         const vector<ExpressionValue> & calc)
     {
+        for (auto & c: calc) {
+            auto ts = c.getAtom().toTimestamp();
+            if (ts.isADate()) {
+                globalMaxOrderByTimestamp.setMax(c.getAtom().toTimestamp());
+            }
+        }
+
         orderedRowNames.emplace_back(row.rowName);
         return true;
     };
@@ -145,34 +152,36 @@ run(const ProcedureRunConfig & run,
     BoundSelectQuery(select,
                      *boundDataset.dataset,
                      boundDataset.asName,
-                     procedureConfig.when,
-                     procedureConfig.where,
-                     procedureConfig.orderBy,
+                     procedureConfig.inputData.stm->when,
+                     *procedureConfig.inputData.stm->where,
+                     procedureConfig.inputData.stm->orderBy,
                      calc)
-        .execute(getSize, offset, limit, onProgress);
+        .execute(getSize, 
+                 procedureConfig.inputData.stm->offset, 
+                 procedureConfig.inputData.stm->limit, 
+                 onProgress);
+
     int64_t rowCount = orderedRowNames.size();
-    cerr << "Row count: " << rowCount  << endl;
+    //cerr << "Row count: " << rowCount  << endl;
 
-    std::shared_ptr<Dataset> output;
-    if (!procedureConfig.outputDataset.type.empty() || !procedureConfig.outputDataset.id.empty()) {
-        output = createDataset(server, procedureConfig.outputDataset, nullptr, true /*overwrite*/);
-    }
+    auto output = createDataset(server, procedureConfig.outputDataset,
+                                nullptr, true /*overwrite*/);
 
-    typedef tuple<ColumnName, CellValue, Date> cell;
-    PerThreadAccumulator<vector<pair<RowName, vector<cell>>>> accum;
+    typedef tuple<ColumnName, CellValue, Date> Cell;
+    PerThreadAccumulator<vector<pair<RowName, vector<Cell> > > > accum;
 
     for (const auto & mappedRange: procedureConfig.percentileBuckets) {
-        string bucketName(mappedRange.first);
+        std::vector<Cell> rowValue;
+        rowValue.emplace_back(ColumnName("bucket"),
+                              mappedRange.first,
+                              globalMaxOrderByTimestamp);
+        
+
         auto applyFct = [&] (int64_t index)
         {
-            std::vector<cell> cols;
-            cols.emplace_back(ColumnName("bucket"),
-                              bucketName,
-                              Date::negativeInfinity());
-
             auto & rows = accum.get();
             rows.reserve(1024);
-            rows.emplace_back(orderedRowNames[index], cols);
+            rows.emplace_back(orderedRowNames[index], rowValue);
 
             if (rows.size() >= 1024) {
                 output->recordRows(rows);
@@ -187,14 +196,14 @@ run(const ProcedureRunConfig & run,
         
         ExcAssert(higherBound <= rowCount);
 
-        cerr << "Bucket " << bucketName << " from " << lowerBound
-             << " to " << higherBound << endl;
+        //cerr << "Bucket " << mappedRange.first << " from " << lowerBound
+        //     << " to " << higherBound << endl;
 
         ML::run_in_parallel_blocked(lowerBound, higherBound, applyFct);
     }
 
     // record remainder
-    accum.forEach([&] (vector<pair<RowName, vector<cell>>> * rows)
+    accum.forEach([&] (vector<pair<RowName, vector<Cell> > > * rows)
     {
         output->recordRows(*rows);
     });

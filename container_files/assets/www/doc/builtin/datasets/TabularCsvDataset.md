@@ -30,5 +30,11 @@ The following functions are available in the `select`, `named`, `where` and `tim
 - Columns should be renamed using the select statement.  For example, to add
   the prefix `xyz.` to each field, use a `select` of `* AS xyz.*`.
 
-# See also
+## Examples
 
+* The ![](%%nblink _tutorials/Loading Data Tutorial)
+* The ![](%%nblink _demos/Predicting Titanic Survival) demo
+
+## See also
+
+* The ![](%%doclink import.json procedure) can be used to import a text file with one JSON per line.

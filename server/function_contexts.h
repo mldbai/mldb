@@ -59,14 +59,15 @@ struct ExtractContext: public SqlBindingScope {
 };
 
 /*****************************************************************************/
-/* FUNCTION EXPRESSION CONTEXT                                                  */
+/* FUNCTION EXPRESSION CONTEXT                                               */
 /*****************************************************************************/
 
 /** Used to run an expression in a purely function context. */
+/** Only input values and server functions will be available in this context */
 
-struct FunctionExpressionContext: public ReadThroughBindingContext {
+struct FunctionExpressionContext : public SqlBindingScope{
 
-    struct RowContext: public SqlRowScope {
+    struct RowContext : public SqlRowScope{
         RowContext(const FunctionContext & input)
             : input(input)
         {
@@ -76,11 +77,12 @@ struct FunctionExpressionContext: public ReadThroughBindingContext {
     };
 
     /// Initialize.  The info will be inferred from the function itself.
-    FunctionExpressionContext(SqlBindingScope & context);
+    FunctionExpressionContext(const MldbServer * mldb);
     
     /// Initialize with known input input.
-    FunctionExpressionContext(SqlBindingScope & context,
-                              FunctionValues input);
+    FunctionExpressionContext(const MldbServer * mldb,
+                              FunctionValues input,
+                              size_t functionStackDepth);
     
     /** Information for input values goes here. */
     FunctionValues input;
@@ -102,9 +104,19 @@ struct FunctionExpressionContext: public ReadThroughBindingContext {
         return RowContext(input);
     }
 
+    virtual std::shared_ptr<Function> doGetFunctionEntity(const Utf8String & functionName);
+
+    MldbServer *
+    getMldbServer() const
+    {
+        return mldb;
+    }
+
 private:
 
     bool findVariableRecursive(const Utf8String& variableName, std::shared_ptr<ExpressionValueInfo>& valueInfo, SchemaCompleteness& schemaCompleteness) const;
+
+    MldbServer * mldb;
 };
 
 } // namespace MLDB

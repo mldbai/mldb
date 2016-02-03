@@ -62,6 +62,28 @@ struct TextLineDataset::Itl: public ColumnIndex, public MatrixView {
     ML::Lightweight_Hash<RowHash, int64_t> rowIndex;
     Date ts;
 
+     struct TextLineRowStream : public RowStream {
+
+        TextLineRowStream()
+        {}
+
+        virtual std::shared_ptr<RowStream> clone() const{
+            auto ptr = std::make_shared<TextLineRowStream>();
+            return ptr;
+        }
+
+        virtual void initAt(size_t start){
+            lineNum = start;
+        }
+
+        virtual RowName next() {
+            return RowName(to_string((lineNum++) + 1));            
+        }
+
+       int64_t lineNum;
+
+    };
+
     virtual const ColumnStats &
     getColumnStats(const ColumnName & ch, ColumnStats & stats) const
     {
@@ -251,6 +273,13 @@ TextLineDataset::
 getColumnIndex() const
 {
     return itl;
+}
+
+std::shared_ptr<RowStream> 
+TextLineDataset::
+getRowStream() const
+{
+    return make_shared<TextLineDataset::Itl::TextLineRowStream>();
 }
 
 namespace {

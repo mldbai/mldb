@@ -14,6 +14,7 @@
 #include "mldb/core/dataset.h"
 #include "mldb/jml/utils/string_functions.h"
 #include "mldb/jml/utils/profile.h"
+#include "mldb/jml/stats/distribution.h"
 
 using namespace std;
 
@@ -31,10 +32,10 @@ DEFINE_STRUCTURE_DESCRIPTION(PoolingFunctionConfig);
 PoolingFunctionConfigDescription::
 PoolingFunctionConfigDescription()
 {
-    std::vector<std::string> defaultAgg = { "avg" };
+    std::vector<Utf8String> defaultAgg = { "avg" };
     addField("aggregators", &PoolingFunctionConfig::aggregators,
-            "Aggregator functions. Valid values are: avg, min, max, sum",
-            defaultAgg);
+             "Aggregator functions. Valid values are: avg, min, max, sum",
+             defaultAgg);
     addField("embeddingDataset", &PoolingFunctionConfig::embeddingDataset,
              "Dataset containing the word embedding");
 }
@@ -51,7 +52,10 @@ PoolingFunction(MldbServer * owner,
 {
     functionConfig = config.params.convert<PoolingFunctionConfig>();
 
-    set<string> validAggs = {"avg", "min", "max", "sum"};
+    SqlQueryFunctionConfig fnConfig;
+    fnConfig.query.stm.reset(new SelectStatement());
+
+    set<Utf8String> validAggs = {"avg", "min", "max", "sum"};
     if(functionConfig.aggregators.size() == 0) {
         functionConfig.aggregators.push_back("avg");
     }
@@ -60,21 +64,32 @@ PoolingFunction(MldbServer * owner,
     string select_expr;
     for(auto agg : functionConfig.aggregators) {
         if(validAggs.find(agg) == validAggs.end())
-            throw ML::Exception("Unknown aggregator: " + agg);
+            throw ML::Exception("Unknown aggregator: " + agg.rawString());
 
         if(select_expr.size() > 0)
             select_expr += ",";
 
-        select_expr += ML::format("%s({*}) as %s", agg, agg);
+        select_expr += ML::format("%s({*}) as %s", agg.rawData(), agg.rawData());
     }
-    select = SelectExpression::parseList(select_expr);
+    fnConfig.query.stm->select = SelectExpression::parseList(select_expr);
+    fnConfig.query.stm->from = functionConfig.embeddingDataset;
+    fnConfig.query.stm->where = SqlExpression::parse("rowName() IN (KEYS OF $words)");
+    // Force group by, since that query executor doesn't know how to determine
+    // aggregators
+    fnConfig.query.stm->groupBy.clauses.emplace_back(SqlExpression::parse("1"));
 
+    PolyConfig fnPConfig;
+    fnPConfig.params = fnConfig;
+
+    queryFunction = std::make_shared<SqlQueryFunction>(owner, fnPConfig,
+                                                       onProgress);
 
     SqlExpressionMldbContext context(owner);
     boundEmbeddingDataset = functionConfig.embeddingDataset->bind(context);
     
-    num_embed_cols = boundEmbeddingDataset.dataset->getRowInfo()->columns.size() * 
-                            functionConfig.aggregators.size();
+    num_embed_cols
+        = boundEmbeddingDataset.dataset->getRowInfo()->columns.size()
+        * functionConfig.aggregators.size();
 }
 
 Any
@@ -84,93 +99,79 @@ getStatus() const
     return Any();
 }
 
+struct PoolingFunctionApplier: public FunctionApplier {
+    PoolingFunctionApplier(const PoolingFunction * owner,
+                           SqlBindingScope & outerContext,
+                           const FunctionValues & input)
+        : FunctionApplier(owner)
+    {
+        queryApplier = owner->queryFunction->bind(outerContext, input);
+    }
+
+    std::unique_ptr<FunctionApplier> queryApplier;
+};
+
+std::unique_ptr<FunctionApplier>
+PoolingFunction::
+bind(SqlBindingScope & outerContext,
+     const FunctionValues & input) const
+{
+    std::unique_ptr<PoolingFunctionApplier> result(new PoolingFunctionApplier(this, outerContext, input));
+    result->info = getFunctionInfo();
+
+    // Check that all values on the passed input are compatible with the required
+    // inputs.
+    for (auto & p: result->info.input.values) {
+        input.checkValueCompatibleAsInputTo(p.first.toUtf8String(), p.second);
+    }
+
+    return std::move(result);
+}
 
 FunctionOutput
 PoolingFunction::
-apply(const FunctionApplier & applier,
+apply(const FunctionApplier & applier_,
       const FunctionContext & context) const
 {
  //   STACK_PROFILE(PoolingFunction_apply)
 
-    /**
-     * For each word in the bag of words
-     * **/
-    Utf8String whereAccum(" rowName() IN (");
-    Date tss;
-    std::atomic<int> num_added(0);
-    auto onAtom = [&] (const Id & columnName,
-                       const Id & prefix,
-                       const CellValue & val,
-                       Date ts)
-        {
-            tss = ts;
-            
-            // escape '
-            auto col = columnName.toUtf8String();
-            //ML::replace_all(col, "'", "''");
+    auto & applier = static_cast<const PoolingFunctionApplier &>(applier_);
 
-            if(col.find("'") != col.end())
-                return true;
+    FunctionOutput queryOutput
+        = queryFunction->apply(*applier.queryApplier, context);
 
-            whereAccum += " '" + col + "',";
-            // TODO. consider weighting by frequency
-            // float weighting = val.floatValue();
-            
-            num_added ++ ;
-            return true;
-        };
+    std::vector<double> outputEmbedding;
+    outputEmbedding.reserve(num_embed_cols);
 
-    ExpressionValue args = context.get<ExpressionValue>("words");
-    args.forEachAtom(onAtom);
+    Date outputTs = context.get<ExpressionValue>("words").getEffectiveTimestamp();
 
-
-    vector<double> rtn;
-    std::vector<MatrixNamedRow> rows;
-
-    if(num_added > 0) { 
-        // remove last ,
-        // all this monkey-patching is because we don't have a substr for utf8 strings
-        auto it = whereAccum.rfind("'");
-        whereAccum.erase(it, whereAccum.end());
-        whereAccum += "')";
-
-        OrderByExpression orderby(ORDER_BY_NOTHING);
-        std::shared_ptr<SqlExpression> having;
-        TupleExpression groupBy;
-        auto rowNameExpr = SqlExpression::parse(string("rowName()"));
-        auto where = SqlExpression::parse(whereAccum);
-
-        rows = boundEmbeddingDataset.dataset->queryStructured(select,
-                    WhenExpression::TRUE,
-                    where,
-                    orderby,
-                    groupBy,
-                    having,
-                    rowNameExpr,
-                    0,
-                    -1,
-                    "",
-                    false);
-
+    if (queryOutput.values.empty()) {
+        outputEmbedding.resize(num_embed_cols, 0.0);  // TODO: should be NaN?
     }
+    else {
+        for (auto & agg: functionConfig.aggregators) {
+            auto it = queryOutput.values.find(agg);
+            if (it == queryOutput.values.end()) {
+                throw HttpReturnException(500, "Didn't find output of aggregator",
+                                          "queryOutput", queryOutput,
+                                          "aggregator", agg);
+            }
 
+            const ExpressionValue & val = it->second;
 
-    if(rows.size() == 0) {
-        //cerr << "no result" << endl;
-        for(int i=0; i<num_embed_cols; i++)
-            rtn.emplace_back(0);
-    }
-    else
-    {
-        ExcAssert(rows.size() == 1);
-        auto columns = rows[0].columns;
-        ExcAssert(columns.size() == num_embed_cols);
-        for(auto& val : columns)
-           rtn.emplace_back(std::get<1>(val).toDouble());
+            ML::distribution<double> dist
+                = val.getEmbeddingDouble(num_embed_cols / functionConfig.aggregators.size());
+            outputEmbedding.insert(outputEmbedding.end(),
+                                   dist.begin(), dist.end());
+
+            outputTs.setMax(val.getEffectiveTimestamp());
+        }
+
+        ExcAssertEqual(outputEmbedding.size(), num_embed_cols);
     }
 
     FunctionOutput foResult;
-    foResult.set("embedding", ExpressionValue(rtn, tss));
+    foResult.set("embedding", ExpressionValue(std::move(outputEmbedding), outputTs));
     return foResult;
 }
 

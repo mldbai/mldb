@@ -31,7 +31,6 @@ bindApplyFunctionExpression(const Utf8String & functionName,
                             SqlBindingScope & context)
 {
     // Ask what our function needs
-
     std::shared_ptr<Function> function = context.doGetFunctionEntity(functionName);
 
     auto boundWith = with.bind(context);

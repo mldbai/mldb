@@ -1,12 +1,11 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** builtin_functions.cc
     Jeremy Barnes, 14 June 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Builtin functions for SQL.
 */
 
+#include "mldb/sql/builtin_functions.h"
 #include "sql_expression.h"
 #include "tokenize.h"
 #include "mldb/http/http_exception.h"
@@ -16,7 +15,9 @@
 #include "mldb/types/vector_description.h"
 #include "mldb/ml/confidence_intervals.h"
 #include "mldb/jml/math/xdiv.h"
+#include "mldb/utils/hash.h"
 #include "mldb/base/parse_context.h"
+#include <boost/lexical_cast.hpp>
 
 #include <boost/regex/icu.hpp>
 
@@ -922,6 +923,58 @@ BoundFunction parse_sparse_csv(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerParseSparseCsv(parse_sparse_csv, "parse_sparse_csv");
 
+
+BoundFunction parse_json(const std::vector<BoundSqlExpression> & args)
+{
+    if (args.size() != 1)
+        throw HttpReturnException(400, "parse_json function takes 1 argument");
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & context) -> ExpressionValue
+            {
+                ExcAssertEqual(args.size(), 1);
+                Utf8String str = args[0].toUtf8String();
+                StreamingJsonParsingContext parser(str.rawString(),
+                                                   str.rawData(),
+                                                   str.rawLength());
+                return ExpressionValue::
+                    parseJson(parser, args[0].getEffectiveTimestamp(),
+                              PARSE_ARRAYS);
+            },
+            std::make_shared<AnyValueInfo>()
+            };
+}
+
+static RegisterBuiltin registerJsonDecode(parse_json, "parse_json");
+
+
+BoundFunction get_bound_unpack_json(const std::vector<BoundSqlExpression> & args)
+{
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & context) -> ExpressionValue
+            {
+                ExcAssertEqual(args.size(), 1);
+                Date ts = args.at(0).getEffectiveTimestamp();
+
+                Utf8String str = args[0].toUtf8String();
+                StreamingJsonParsingContext parser(str.rawString(),
+                                                   str.rawData(),
+                                                   str.rawLength());
+
+                if (!parser.isObject())
+                    throw HttpReturnException(400, "JSON passed to unpack_json must be an object",
+                                              "json", str);
+                
+                return ExpressionValue::
+                    parseJson(parser, args[0].getEffectiveTimestamp(),
+                              ENCODE_ARRAYS);
+            },
+            std::make_shared<UnknownRowValueInfo>()};
+}
+
+static RegisterBuiltin registerUnpackJson(get_bound_unpack_json, "unpack_json");
+
+
 void
 ParseTokenizeArguments(Utf8String& splitchar, Utf8String& quotechar,
                        int& offset, int& limit, int& min_token_length,
@@ -932,7 +985,7 @@ ParseTokenizeArguments(Utf8String& splitchar, Utf8String& quotechar,
     auto assertArg = [&] (size_t field, const string & name)
         {
             if (check[field])
-                throw HttpReturnException(400, "Argument " + name + "is specified more than once");
+                throw HttpReturnException(400, "Argument " + name + " is specified more than once");
             check[field] = true;
         };
 
@@ -1306,6 +1359,202 @@ RegisterVectorOp<DiffOp> registerVectorDiff("vector_diff");
 RegisterVectorOp<SumOp> registerVectorSum("vector_sum");
 RegisterVectorOp<ProductOp> registerVectorProduct("vector_product");
 RegisterVectorOp<QuotientOp> registerVectorQuotient("vector_quotient");
+
+void
+ParseConcatArguments(Utf8String& separator, bool& columnValue,
+                     const ExpressionValue::Row & argRow)
+{
+    bool check[3] = {false, false, false};
+    auto assertArg = [&] (size_t field, const string & name) {
+        if (check[field]) {
+            throw HttpReturnException(
+                400, "Argument " + name + " is specified more than once");
+        }
+        check[field] = true;
+    };
+
+    for (const auto &arg : argRow) {
+        const ColumnName& columnName = std::get<0>(arg);
+        if (columnName == ColumnName("separator")) {
+            assertArg(1, "separator");
+            separator = std::get<1>(arg).toUtf8String();
+        }
+        else if (columnName == ColumnName("columnValue")) {
+            assertArg(2, "columnValue");
+            columnValue = std::get<1>(arg).asBool();
+        }
+        else {
+            throw HttpReturnException(400, "Unknown argument in concat",
+                                      "argument", columnName);
+        }
+    }
+}
+
+BoundFunction concat(const std::vector<BoundSqlExpression> & args)
+{
+    if (args.size() == 0) {
+        throw HttpReturnException(
+            400, "concat requires at least one argument");
+    }
+
+    if (args.size() > 2) {
+        throw HttpReturnException(
+            400, "concat requires at most two arguments");
+    }
+
+    Utf8String separator(",");
+    bool columnValue = true;
+
+    if (args.size() == 2) {
+        SqlRowScope emptyScope;
+        ParseConcatArguments(separator, columnValue,
+                             args[1](emptyScope).getRow());
+    }
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & context) -> ExpressionValue
+        {
+            Utf8String result = "";
+            Date ts = Date::negativeInfinity();
+            bool first = true;
+            auto onAtom = [&] (const Id & columnName,
+                               const Id & prefix,
+                               const CellValue & val,
+                               Date atomTs)
+            {
+                if (!val.empty()) {
+                    if (first) {
+                        first = false;
+                    }
+                    else {
+                        result += separator;
+                    }
+                    result += columnValue ?
+                        val.toUtf8String() : columnName.toUtf8String();
+                }
+                return true;
+            };
+
+            args.at(0).forEachAtom(onAtom);
+            return ExpressionValue(result, ts);
+        },
+        std::make_shared<UnknownRowValueInfo>()
+    };
+}
+static RegisterBuiltin registerConcat(concat, "concat");
+
+BoundFunction base64_encode(const std::vector<BoundSqlExpression> & args)
+{
+    // Convert a blob into base64
+    if (args.size() != 1)
+        throw HttpReturnException(400, "base64_encode function takes 1 argument");
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & context) -> ExpressionValue
+            {
+                ExcAssertEqual(args.size(), 1);
+
+                Utf8String str = args[0].toUtf8String();
+                return ExpressionValue(base64Encode(str.rawData(),
+                                                    str.rawLength()),
+                                       args[0].getEffectiveTimestamp());
+            },
+            std::make_shared<StringValueInfo>()
+            };
+}
+
+static RegisterBuiltin registerBase64Encode(base64_encode, "base64_encode");
+
+BoundFunction base64_decode(const std::vector<BoundSqlExpression> & args)
+{
+    // Return an expression but with the timestamp modified to something else
+
+    if (args.size() != 1)
+        throw HttpReturnException(400, "base64_decode function takes 1 argument");
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & context) -> ExpressionValue
+            {
+                ExcAssertEqual(args.size(), 1);
+                CellValue blob = args[0].coerceToBlob();
+                return ExpressionValue(base64Decode((const char *)blob.blobData(),
+                                                    blob.blobLength()),
+                                       args[0].getEffectiveTimestamp());
+            },
+            std::make_shared<BlobValueInfo>()
+            };
+}
+
+static RegisterBuiltin registerBase64Decode(base64_decode, "base64_decode");
+
+BoundFunction extract_column(const std::vector<BoundSqlExpression> & args)
+{
+    if (args.size() != 2)
+        throw HttpReturnException(400, "extract_column function takes 2 arguments");
+
+    // TODO: there is a better implementation if the field name is
+    // a constant expression
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & context) -> ExpressionValue
+            {
+                ExcAssertEqual(args.size(), 2);
+                Utf8String fieldName = args[0].toUtf8String();
+                cerr << "extracting " << jsonEncodeStr(args[0])
+                     << " from " << jsonEncodeStr(args[1]) << endl;
+
+                return args[1].getField(fieldName);
+            },
+            std::make_shared<AnyValueInfo>()
+            };
+}
+
+static RegisterBuiltin registerExtractColumn(extract_column, "extract_column");
+
+BoundFunction lower(const std::vector<BoundSqlExpression> & args)
+{
+    // Return an expression but with the timestamp modified to something else
+
+    if (args.size() != 1)
+        throw HttpReturnException(400, "lower function takes 1 argument");
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & context) -> ExpressionValue
+            {
+                ExcAssertEqual(args.size(), 1);
+
+                ExpressionValue result(args[0].getAtom().toUtf8String().toLower(),
+                                       args[0].getEffectiveTimestamp());
+                return result;
+            },
+            std::make_shared<Utf8StringValueInfo>()
+            };
+}
+
+static RegisterBuiltin registerLower(lower, "lower");
+
+BoundFunction upper(const std::vector<BoundSqlExpression> & args)
+{
+    // Return an expression but with the timestamp modified to something else
+
+    if (args.size() != 1)
+        throw HttpReturnException(400, "upper function takes 1 argument");
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & context) -> ExpressionValue
+            {
+                ExcAssertEqual(args.size(), 1);
+
+                ExpressionValue result(args[0].getAtom().toUtf8String().toUpper(),
+                                       args[0].getEffectiveTimestamp());
+                return result;
+            },
+            std::make_shared<Utf8StringValueInfo>()
+    };
+}
+
+static RegisterBuiltin registerUpper(upper, "upper");
+
 
 } // namespace Builtins
 } // namespace MLDB

@@ -1754,18 +1754,17 @@ matchTimezone(int& tzminutes)
 {
     ML::Parse_Context::Revert_Token token(*parser);
     if (parser->match_literal('+')) {
-        if (matchTimeZoneMinutes(tzminutes))
-        {
+        if (matchTimeZoneMinutes(tzminutes)) {
             token.ignore();
+            tzminutes = -tzminutes;
             return true;
         }
     }
     else if (parser->match_literal('-')) {
         if (matchTimeZoneMinutes(tzminutes)) {
             token.ignore();
-            tzminutes = -tzminutes;   
-            return true; 
-        } 
+            return true;
+        }
     }
 
     return false;

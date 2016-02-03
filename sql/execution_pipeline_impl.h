@@ -1,9 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** execution_pipeline_impl.h                                      -*- C++ -*-
     Jeremy Barnes, 27 August 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
 
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #pragma once
@@ -72,7 +71,7 @@ struct GenerateRowsExecutor: public ElementExecutor {
     size_t currentDone;
     bool finished;
 
-    bool generateMore();
+    bool generateMore(SqlRowScope & scope);
 
     virtual std::shared_ptr<PipelineResults> take();
 
@@ -194,6 +193,7 @@ struct JoinElement: public PipelineElement {
                 std::shared_ptr<TableExpression> left,
                 std::shared_ptr<TableExpression> right,
                 std::shared_ptr<SqlExpression> on,
+                JoinQualification joinQualification,
                 SelectExpression select,
                 std::shared_ptr<SqlExpression> where,
                 OrderByExpression orderBy);
@@ -206,6 +206,7 @@ struct JoinElement: public PipelineElement {
     std::shared_ptr<SqlExpression> where;
     OrderByExpression orderBy;
     AnnotatedJoinCondition condition;
+    JoinQualification joinQualification;
 
     std::shared_ptr<PipelineElement> leftImpl;
     std::shared_ptr<PipelineElement> rightImpl;
@@ -255,7 +256,8 @@ struct JoinElement: public PipelineElement {
         Bound(std::shared_ptr<BoundPipelineElement> root,
               std::shared_ptr<BoundPipelineElement> left,
               std::shared_ptr<BoundPipelineElement> right,
-              AnnotatedJoinCondition condition);
+              AnnotatedJoinCondition condition,
+              JoinQualification joinQualification);
 
         std::shared_ptr<BoundPipelineElement> root_;
         std::shared_ptr<BoundPipelineElement> left_;
@@ -263,6 +265,7 @@ struct JoinElement: public PipelineElement {
         std::shared_ptr<PipelineExpressionScope> outputScope_;
         BoundSqlExpression crossWhere_;
         AnnotatedJoinCondition condition_;
+        JoinQualification joinQualification_;
 
         /** Our output scope has:
             - The left and right tables

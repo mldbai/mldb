@@ -47,7 +47,6 @@ SubDatasetConfigDescription()
 struct SubDataset::Itl
     : public MatrixView, public ColumnIndex {
 
-    BoundTableExpression table;
     std::vector<MatrixNamedRow> subOutput;
     std::vector<ColumnName> columnNames;
     ML::Lightweight_Hash<RowHash, int64_t> rowIndex;
@@ -56,21 +55,38 @@ struct SubDataset::Itl
     Itl(SelectStatement statement, MldbServer* owner)
     {
         SqlExpressionMldbContext mldbContext(owner);
-        table = statement.from->bind(mldbContext);  
+        BoundTableExpression table = statement.from->bind(mldbContext);  
+
+        std::vector<MatrixNamedRow> rows;
 
         if (table.dataset)
         {  
-            subOutput = table.dataset->queryStructured(statement.select, statement.when, 
-                                                  statement.where,
-                                                  statement.orderBy, statement.groupBy,
-                                                  statement.having,
-                                                  statement.rowName,
-                                                  statement.offset, statement.limit);
+            rows = table.dataset->queryStructured(statement.select, statement.when, 
+                                                  *statement.where,
+                                                  statement.orderBy,
+                                                  statement.groupBy,
+                                                  *statement.having,
+                                                  *statement.rowName,
+                                                  statement.offset,
+                                                  statement.limit,
+                                                  table.asName);
         }
         else
         {
-            subOutput = queryWithoutDataset(statement, mldbContext);
+            rows = queryWithoutDataset(statement, mldbContext);
         }
+
+        init(std::move(rows));
+    }
+
+    Itl(std::vector<MatrixNamedRow> rows)
+    {
+        init(std::move(rows));
+    }
+
+    void init(std::vector<MatrixNamedRow> rows)
+    {
+        this->subOutput = std::move(rows);
 
         earliest = latest = Date::notADate();
 
@@ -111,6 +127,31 @@ struct SubDataset::Itl
     }
 
     ~Itl() { }
+
+     struct SubRowStream : public RowStream {
+
+        SubRowStream(SubDataset::Itl* source) : source(source)
+        {
+            
+        }
+
+        virtual std::shared_ptr<RowStream> clone() const{
+            auto ptr = std::make_shared<SubRowStream>(source);
+            return ptr;
+        }
+
+        virtual void initAt(size_t start){
+            iter = source->subOutput.begin() + start;
+        }
+
+        virtual RowName next() {
+            return (iter++)->rowName;
+        }
+
+        std::vector<MatrixNamedRow>::const_iterator iter;
+        SubDataset::Itl* source;
+    };
+
 
     virtual std::vector<RowName>
     getRowNames(ssize_t start = 0, ssize_t limit = -1) const
@@ -281,6 +322,13 @@ SubDataset(MldbServer * owner, SubDatasetConfig config)
 }
 
 SubDataset::
+SubDataset(MldbServer * owner, std::vector<MatrixNamedRow> rows)
+    : Dataset(owner)
+{
+    itl.reset(new Itl(std::move(rows)));
+}
+
+SubDataset::
 ~SubDataset()
 {
 
@@ -314,6 +362,13 @@ getColumnIndex() const
     return itl;
 }
 
+std::shared_ptr<RowStream> 
+SubDataset::
+getRowStream() const
+{
+    return make_shared<SubDataset::Itl::SubRowStream>(itl.get());
+}
+
 static RegisterDatasetType<SubDataset, SubDatasetConfig> 
 regSub(builtinPackage(),
           "sub",
@@ -327,11 +382,72 @@ std::shared_ptr<Dataset> createSubDataset(MldbServer * server, const SubDatasetC
     return std::make_shared<SubDataset>(server, config);
 }
 
+std::vector<NamedRowValue>
+querySubDataset(MldbServer * server,
+                std::vector<MatrixNamedRow> rows,
+                const SelectExpression & select,
+                const WhenExpression & when,
+                const SqlExpression & where,
+                const OrderByExpression & orderBy,
+                const TupleExpression & groupBy,
+                const SqlExpression & having,
+                const SqlExpression & named,
+                uint64_t offset,
+                int64_t limit,
+                const Utf8String & tableAlias,
+                bool allowMultiThreading)
+{
+    auto dataset = std::make_shared<SubDataset>
+        (server, std::move(rows));
+                
+    std::vector<MatrixNamedRow> output
+        = dataset
+        ->queryStructured(select, when, where, orderBy, groupBy,
+                          having, named, offset, limit, "" /* alias */,
+                          false /* allow MT */);
+    
+    std::vector<NamedRowValue> result;
+    result.reserve(output.size());
+                
+    for (auto & row: output) {
+        NamedRowValue rowOut;
+        rowOut.rowName = std::move(row.rowName);
+        rowOut.rowHash = std::move(row.rowHash);
+        for (auto & c: row.columns) {
+            rowOut.columns.emplace_back(std::move(std::get<0>(c)),
+                                        ExpressionValue(std::move(std::get<1>(c)),
+                                                        std::get<2>(c)));
+        }
+        result.emplace_back(std::move(rowOut));
+    }
+
+    return result;
+}
+
+// Overridden by libmldb.so when it loads up to break circular link dependency
+// and allow expression parsing to be in a separate library
+extern std::vector<NamedRowValue>
+(*querySubDatasetFn) (MldbServer * server,
+                      std::vector<MatrixNamedRow> rows,
+                      const SelectExpression & select,
+                      const WhenExpression & when,
+                      const SqlExpression & where,
+                      const OrderByExpression & orderBy,
+                      const TupleExpression & groupBy,
+                      const SqlExpression & having,
+                      const SqlExpression & named,
+                      uint64_t offset,
+                      int64_t limit,
+                      const Utf8String & tableAlias,
+                      bool allowMultiThreading);
+
+
 namespace {
 struct AtInit {
     AtInit()
     {
         createSubDatasetFn = createSubDataset;
+        querySubDatasetFn = querySubDataset;
     }
 } atInit;
 

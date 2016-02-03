@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* tabular_dataset.h                                               -*- C++ -*-
    Jeremy Barnes, 6 November 2015
    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Tabular dataset: one timestamp per row, dense values, known columns.
 
@@ -16,6 +16,7 @@
 #include "mldb/jml/utils/lightweight_hash.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/types/hash_wrapper_description.h"
+#include "mldb/sql/cell_value_impl.h"
 
 namespace Datacratic {
 namespace MLDB {
@@ -23,6 +24,102 @@ namespace MLDB {
 /*****************************************************************************/
 /* TABULAR DATA STORE UTILITIES                                              */
 /*****************************************************************************/
+
+/// Tells us which types it could be
+struct ColumnTypes {
+    ColumnTypes()
+        : hasNulls(false), hasIntegers(false),
+          minNegativeInteger(0), maxPositiveInteger(0),
+          hasReals(false), hasStrings(false), hasOther(false)
+    {
+    }
+
+    void update(const CellValue & val)
+    {
+        // Record the type
+        switch (val.cellType()) {
+        case CellValue::EMPTY:
+            hasNulls = true;  break;
+        case CellValue::FLOAT:
+            hasReals = true;  break;
+
+        case CellValue::INTEGER:
+            hasIntegers = true;
+            if (val.isUInt64()) {
+                maxPositiveInteger = std::max(maxPositiveInteger, val.toUInt());
+            }
+            else {
+                minNegativeInteger = std::min(minNegativeInteger, val.toInt());
+            }
+            break;
+        case CellValue::ASCII_STRING:
+        case CellValue::UTF8_STRING:
+            hasStrings = true;  break;
+        default:
+            hasOther = true;  break;
+        }
+    }
+
+    void update(const ColumnTypes & other)
+    {
+        hasNulls = hasNulls || other.hasNulls;
+        hasIntegers = hasIntegers || other.hasIntegers;
+        minNegativeInteger
+            = std::min(minNegativeInteger, other.minNegativeInteger);
+        maxPositiveInteger
+            = std::max(maxPositiveInteger, other.maxPositiveInteger);
+        hasReals = hasReals || other.hasReals;
+        hasStrings = hasStrings || other.hasStrings;
+        hasOther = hasOther || other.hasOther;
+    }
+
+    std::shared_ptr<ExpressionValueInfo>
+    getExpressionValueInfo() const
+    {
+        if (!hasNulls && !hasReals && !hasStrings && !hasOther) {
+            // Integers only
+            if (minNegativeInteger == 0) {
+                // All positive
+                return std::make_shared<Uint64ValueInfo>();
+            }
+            else if (maxPositiveInteger <= (1ULL << 63)) {
+                // Fits in a 64 bit integer
+                return std::make_shared<IntegerValueInfo>();
+            }
+            else {
+                // Out of range of either positive or negative integers
+                // only.  We say it's an atom.
+                return std::make_shared<AtomValueInfo>();
+            }
+        }
+        else if (!hasNulls && !hasStrings && !hasOther) {
+            // Reals and integers.  If all integers are representable as
+            // doubles, in other words a maximum of 53 bits, then we're all
+            // doubles.
+            if (maxPositiveInteger < (1ULL << 53)
+                && minNegativeInteger > -(1LL << 53)) {
+                return std::make_shared<Float64ValueInfo>();
+            }
+            // Doubles would lose precision.  It's an atom.
+            return std::make_shared<AtomValueInfo>();
+        }
+        else if (!hasNulls && !hasIntegers && !hasReals && !hasOther) {
+            return std::make_shared<Utf8StringValueInfo>();
+        }
+        else {
+            return std::make_shared<AtomValueInfo>();
+        }
+    }
+    bool hasNulls;
+
+    bool hasIntegers;
+    int64_t minNegativeInteger;
+    uint64_t maxPositiveInteger;
+
+    bool hasReals;
+    bool hasStrings;
+    bool hasOther;  // timestamps, intervals, blobs, etc
+};
 
 /// Base class for a frozen column
 struct FrozenColumn {
@@ -174,6 +271,7 @@ struct TabularDatasetColumn {
         auto it = valueIndex.find(hash);
         int index = -1;
         if (it == valueIndex.end()) {
+            columnTypes.update(val);
             index = indexedVals.size();
             lastValue = val;
             valueIndex[hash] = index;
@@ -196,6 +294,7 @@ struct TabularDatasetColumn {
     std::vector<CellValue> indexedVals;
     ML::Lightweight_Hash<uint64_t, int> valueIndex;
     CellValue lastValue;
+    ColumnTypes columnTypes;
     std::shared_ptr<FrozenColumn> frozen;
 
     void freeze()
@@ -254,8 +353,7 @@ struct TabularDatasetChunk {
 
     TabularDatasetChunk(size_t numColumns, size_t reservedSize)
         : chunkNumber(-1), chunkLineNumber(-1), lineNumber(-1),
-          numColumns(numColumns), numRows(0), numLines(0),
-          columns(numColumns)
+          numColumns(numColumns), numRows(0), numLines(0), columns(numColumns) 
     {
         rowNames.reserve(reservedSize);
         timestamps.reserve(reservedSize);
@@ -369,6 +467,50 @@ struct TabularDatasetChunk {
 
 struct TabularDataStore: public ColumnIndex, public MatrixView {
 
+    struct TabularDataStoreRowStream : public RowStream {
+
+        TabularDataStoreRowStream(TabularDataStore * store) : store(store)
+        {}
+
+        virtual std::shared_ptr<RowStream> clone() const{
+            auto ptr = std::make_shared<TabularDataStoreRowStream>(store);
+            return ptr;
+        }
+
+        virtual void initAt(size_t start){
+            size_t sum = 0;
+            chunkiter = store->chunks.begin();
+            while (chunkiter != store->chunks.end() && start > sum + chunkiter->rowNames.size())  {
+                sum += chunkiter->rowNames.size();
+                ++chunkiter;
+            }
+
+            if (chunkiter != store->chunks.end()) {
+                rowiter = chunkiter->rowNames.begin() + (start - sum);
+            }
+        }
+
+        virtual RowName next() {
+            RowName row = *rowiter;
+            rowiter++;
+            if (rowiter == chunkiter->rowNames.end())
+            {
+                ++chunkiter;
+                if (chunkiter != store->chunks.end())
+                {
+                    rowiter = chunkiter->rowNames.begin();
+                    ExcAssert(rowiter != chunkiter->rowNames.end());
+                }
+            }
+            return row;
+        }
+
+        TabularDataStore* store;
+        std::vector<TabularDatasetChunk>::const_iterator chunkiter;
+        std::vector<RowName>::const_iterator rowiter;
+
+    };
+
     int64_t rowCount;
 
     std::vector<ColumnName> columnNames;
@@ -387,10 +529,9 @@ struct TabularDataStore: public ColumnIndex, public MatrixView {
     {
         auto it = columnIndex.find(column);
         if (it == columnIndex.end()) {
-            throw HttpReturnException(400, "CSV dataset contains no column with given hash",
+            throw HttpReturnException(400, "Tabular dataset contains no column with given hash",
                                       "columnHash", column,
-                                      "knownColumns", columnNames,
-                                      "knownColumnHashes", columnHashes);
+                                      "knownColumns", columnNames);
         }
 
         MatrixColumn result;
@@ -421,7 +562,32 @@ struct TabularDataStore: public ColumnIndex, public MatrixView {
     // TODO: we know more than this...
     virtual KnownColumn getKnownColumnInfo(const ColumnName & columnName) const
     {
-        return KnownColumn(columnName, std::make_shared<AtomValueInfo>(),
+        auto it = columnIndex.find(columnName);
+        if (it == columnIndex.end()) {
+            throw HttpReturnException(400, "Tabular dataset contains no column with given hash",
+                                      "columnName", columnName,
+                                      "knownColumns", columnNames);
+        }
+
+        ColumnTypes types;
+        for (auto & c: chunks) {
+            types.update(c.columns[it->second].columnTypes);
+        }
+
+#if 0
+        using namespace std;
+        cerr << "knownColumnInfo for " << columnName << " is "
+             << jsonEncodeStr(types.getExpressionValueInfo()) << endl;
+        cerr << "hasNulls = " << types.hasNulls << endl;
+        cerr << "hasIntegers = " << types.hasIntegers << endl;
+        cerr << "minNegativeInteger = " << types.minNegativeInteger;
+        cerr << "maxPositiveInteger = " << types.maxPositiveInteger;
+        cerr << "hasReals = " << types.hasReals << endl;
+        cerr << "hasStrings = " << types.hasStrings << endl;
+        cerr << "hasOther = " << types.hasOther << endl;
+#endif
+
+        return KnownColumn(columnName, types.getExpressionValueInfo(),
                            COLUMN_IS_DENSE);
     }
 

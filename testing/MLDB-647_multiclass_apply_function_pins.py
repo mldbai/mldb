@@ -1,13 +1,17 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+#
+# MLDB-647_multiclass_apply_function_pins.py
+# datacratic, 2015
+# this file is part of mldb. copyright 2015 datacratic. all rights reserved.
+#
+mldb = mldb_wrapper.wrap(mldb) # noqa
 
-
-from urllib import urlopen
-
-dataset = mldb.create_dataset({ "type": "sparse.mutable", "id": "iris_dataset" })
+dataset = mldb.create_dataset({
+    "type": "sparse.mutable",
+    "id": "iris_dataset"
+})
 
 with open("./mldb/testing/dataset/iris.data") as f:
     for i, line in enumerate(f):
-
         cols = []
         line_split = line.split(',')
         if len(line_split) != 5:
@@ -22,7 +26,7 @@ with open("./mldb/testing/dataset/iris.data") as f:
 dataset.commit()
 
 
-result = mldb.perform("PUT", "/v1/procedures/iris_cls", [], {
+mldb.put("/v1/procedures/iris_cls", {
     'type' : 'classifier.train',
     'params' : {
         'trainingData' : {
@@ -40,45 +44,35 @@ result = mldb.perform("PUT", "/v1/procedures/iris_cls", [], {
         "mode": "categorical"
     }
 })
-assert result["statusCode"] < 400, result["response"]
 
-result = mldb.perform("POST", "/v1/procedures/iris_cls/runs", [], {})
-assert result["statusCode"] < 400, result["response"]
+mldb.post("/v1/procedures/iris_cls/runs")
 
-result = mldb.perform("PUT", "/v1/functions/iris_cls_blk", [], {
+mldb.put("/v1/functions/iris_cls_blk", {
     'type' : 'classifier',
     'params' : { "modelFileUrl": "file://tmp/MLDB-647.cls" }
 })
-assert result["statusCode"] < 400, result["response"]
 
-result = mldb.perform("GET", "/v1/query", [["q", '''select 
-iris_cls_blk({{ * EXCLUDING(class)} as features}) 
-from iris_dataset''' ]], {})
-assert result["statusCode"] < 400, result["response"]
+mldb.get("/v1/query", q='''select
+iris_cls_blk({{ * EXCLUDING(class)} as features})
+from iris_dataset''')
 
-result = mldb.perform("GET", "/v1/datasets/iris_dataset/query", [["select", 
-'''iris_cls_blk({{* EXCLUDING(class)} as features})''']], {})
-assert result["statusCode"] < 400, result["response"]
+mldb.get("/v1/datasets/iris_dataset/query", select=
+'''iris_cls_blk({{* EXCLUDING(class)} as features})''')
 
-result = mldb.perform("GET", "/v1/query", [["q", '''select 
-iris_cls_blk({{* EXCLUDING(class)} as features})["scores.""Iris-setosa"""] 
-from iris_dataset''' ]], {})
-assert result["statusCode"] < 400, result["response"]
+mldb.get("/v1/query", q='''select
+iris_cls_blk({{* EXCLUDING(class)} as features})["scores.""Iris-setosa"""]
+from iris_dataset''')
 
+mldb.get("/v1/datasets/iris_dataset/query", select=
+'''iris_cls_blk({{* EXCLUDING(class)} as features})["scores.""Iris-setosa"""]
+   AS setosa''')
 
-result = mldb.perform("GET", "/v1/datasets/iris_dataset/query", [["select", 
-'''iris_cls_blk({{* EXCLUDING(class)} as features})["scores.""Iris-setosa"""] AS setosa''']], {})
-assert result["statusCode"] < 400, result["response"]
-mldb.script.set_return("success")
-
-
-result = mldb.perform("PUT", "/v1/functions/iris_cls_exp", [], {
+mldb.put("/v1/functions/iris_cls_exp", {
     'type' : 'classifier.explain',
-    'params' : { "modelFileUrl": "file://tmp/MLDB-647.cls" }
+    'params' : {"modelFileUrl": "file://tmp/MLDB-647.cls"}
 })
-assert result["statusCode"] < 400, result["response"]
 
-result = mldb.perform("GET", "/v1/query", [["q", '''select 
-iris_cls_exp({{* EXCLUDING(class)} as features, class as label}) 
-from iris_dataset''' ]], {})
-assert result["statusCode"] < 400, result["response"]
+mldb.get("/v1/query", q='''select
+iris_cls_exp({{* EXCLUDING(class)} as features, class as label})
+from iris_dataset''')
+mldb.script.set_return("success")

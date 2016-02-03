@@ -56,7 +56,7 @@ classifyColumns(const Dataset & dataset, SelectExpression select)
 
     // Default is all columns
     if (select.clauses.empty())
-        select = SelectExpression::STAR;
+        select = SelectExpression::parse("*");
 
     SqlExpressionDatasetContext context(dataset, "");
 
@@ -194,8 +194,10 @@ extractFeaturesFromRows(const Dataset & dataset,
     std::fill(modelTs, modelTs + numBuckets, Date::negativeInfinity());
 
     // Extract entire rows
-    auto onRow = [&] (const MatrixNamedRow & output)
+    auto onRow = [&] (NamedRowValue & output_)
         {
+            MatrixNamedRow output = output_.flattenDestructive();
+
             ExtractedRow row;
             row.continuous.resize(columns.continuousColumns.size(), 0.0);
             
@@ -224,7 +226,7 @@ extractFeaturesFromRows(const Dataset & dataset,
             return true;
         };
     
-    iterateDataset(select, dataset, "", when, where, onRow, orderBy, offset, limit, nullptr);
+    iterateDataset(select, dataset, "", when, *where, onRow, orderBy, offset, limit, nullptr);
 
     cerr << "done extracting values in " << timer.elapsed() << endl;
 

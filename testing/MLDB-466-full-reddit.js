@@ -70,14 +70,15 @@ function createDataset()
     var transformConfig = {
         type: "transform",
         params: {
-            inputDataset: { id: 'reddit_text_file' },
-            outputDataset: { type: 'sparse.mutable', id: 'reddit_dataset' },
-            //outputDataset: { type: 'beh.binary.mutable', id: 'reddit_dataset' },
-            select: "parse_sparse_csv(lineText) as reddit",
-            //rowName: "regex_replace(lineText, '([^,]\+).*', '\\1')",
-            //rowName: "lineNumber"
-            rowName: "jseval('return x.substr(0, x.indexOf('',''));', 'x', lineText)"
-        }
+            inputData: { 
+                select: "parse_sparse_csv(lineText) as reddit",
+                //rowName: "regex_replace(lineText, '([^,]\+).*', '\\1')",
+                //rowName: "lineNumber"
+                rowName: "jseval('return x.substr(0, x.indexOf('',''));', 'x', lineText)"
+                from: 'reddit_text_file' 
+            },
+            outputDataset: { type: 'sparse.mutable', id: 'reddit_dataset' }
+            //outputDataset: { type: 'beh.binary.mutable', id: 'reddit_dataset' }
     };
 
     createAndTrainProcedure(transformConfig, "dataset import");
@@ -179,14 +180,17 @@ try {
 var userCountsConfig = {
     type: "transform",
     params: {
-        inputDataset: { type: 'transposed',
-                        params: { dataset: { id: 'reddit_dataset' } } },
-        outputDataset: { type: 'embedding', id: 'reddit_user_counts' },
-        select: 'columnCount() AS numUsers',
-        orderBy: 'columnCount() DESC, rowName()',
-        limit: 1000,
-        rowName: "rowName() + '|1'"
-    }
+        inputData: { 
+            select: 'columnCount() AS numUsers',
+            orderBy: 'columnCount() DESC, rowName()',
+            limit: 1000,
+            rowName: "rowName() + '|1'"
+            from: {
+                type: 'transposed',
+                params: { dataset: { id: 'reddit_dataset' } } 
+            },
+        },
+        outputDataset: { type: 'embedding', id: 'reddit_user_counts' }
 };
 
 createAndTrainProcedure(userCountsConfig, "reddit_user_counts");

@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* MLDB-1025-output-dataset-serialization-test.cc
    Guy Dumais, 4 November 2015
-   Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+
 */
 
 #define BOOST_TEST_MAIN
@@ -34,14 +33,14 @@ using namespace MLDB;
 BOOST_AUTO_TEST_CASE( test_output_dataset_parsing )
 {
     // create config
-    string jsConf = "{\"inputDataset\": {\"id\": \"patate\"}, \
-           \"outputDataset\": \"plum\"}";
-    
+    string jsConf = "{\"inputData\": { \"from\" : {\"id\": \"patate\"}}, \
+                      \"outputDataset\": \"plum\"}";
+
     Json::Value conf;
     Json::Reader reader;
     if (!reader.parse(jsConf, conf))
         throw ML::Exception("can't parse js conf");
-    
+
     // convert it to an Any, the way it would be received in
     // the params field of a procedure config struct
     Any params(conf);
@@ -51,9 +50,10 @@ BOOST_AUTO_TEST_CASE( test_output_dataset_parsing )
 }
 
 template <typename ConfigType> 
-ConfigType createConfig(const std::string & datasetName)
+ConfigType createConfig(const std::string & datasetName, const std::string inputDatasetKey)
 {
-    string jsConf = "{\"" + datasetName + "\" : {\"id\": \"patate\"}}";
+    string jsConf = "{\""+inputDatasetKey+"\": { \"from\" : {\"id\": \"pwel\"}}, \
+                        \"" + datasetName + "\" : {\"id\": \"patate\"}}";
     Json::Value conf;
     Json::Reader reader;
     if (!reader.parse(jsConf, conf))
@@ -66,11 +66,10 @@ ConfigType createConfig(const std::string & datasetName)
 BOOST_AUTO_TEST_CASE( test_output_dataset_defaults )
 {
     std::vector<std::pair<PolyConfigT<Dataset>, std::string> > expectedDatasetType = {
-        { createConfig<BucketizeProcedureConfig>("outputDataset").outputDataset, "sparse.mutable" },
-        { createConfig<KmeansConfig>("centroidsDataset").centroids, "embedding" },
-        { createConfig<StatsTableProcedureConfig>("outputDataset").output, "sparse.mutable" },
-        { createConfig<TransformDatasetConfig>("outputDataset").outputDataset, "sparse.mutable" },
-        { createConfig<TsneConfig>("rowOutputDataset").output, "embedding" }
+        { createConfig<BucketizeProcedureConfig>("outputDataset", "inputData").outputDataset, "sparse.mutable" },
+        { createConfig<StatsTableProcedureConfig>("outputDataset", "trainingData").output, "sparse.mutable" },
+        { createConfig<TransformDatasetConfig>("outputDataset", "inputData").outputDataset, "sparse.mutable" },
+        { createConfig<TsneConfig>("rowOutputDataset", "trainingData").output, "embedding" }
     };
     
     for(auto it : expectedDatasetType) {

@@ -72,7 +72,7 @@ ul {
 
 * [Intro to Procedures](procedures/Procedures.md)
 * [Procedure Configuration](procedures/ProcedureConfig.md)
-* [Input Dataset Specification](procedures/InputDatasetSpec.md)
+* [Input Queries](procedures/InputQuery.md)
 * [Output Dataset Specification](procedures/OutputDatasetSpec.md)
 * Available Procedure types: ![](%%availabletypes procedure list)
 

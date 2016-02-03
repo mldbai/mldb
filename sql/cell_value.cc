@@ -1,9 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** cell_value.cc
     Jeremy Barnes, 24 December 2014
     Copyright (c) 2014 Datacratic Inc.  All rights reserved.
 
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #include "cell_value.h"
@@ -66,6 +65,24 @@ fromMonthDaySecond( int64_t months, int64_t days, double seconds)
     }
 
     return value;
+}
+
+CellValue
+CellValue::
+blob(std::string blobContents)
+{
+    CellValue result;
+    result.initBlob(blobContents.data(), blobContents.length());
+    return result;
+}
+
+CellValue
+CellValue::
+blob(const char * mem, size_t sz)
+{
+    CellValue result;
+    result.initBlob(mem, sz);
+    return result;
 }
 
 void
@@ -131,11 +148,30 @@ initString(const char * stringValue, size_t len, bool isUtf8, bool check)
     }
 }
 
+void
+CellValue::
+initBlob(const char * data, size_t len)
+{
+    strLength = len;
+    if (len <= INTERNAL_LENGTH) {
+        std::copy(data, data + len, shortString);
+        type = ST_SHORT_BLOB;
+    }
+    else {
+        void * mem = malloc(sizeof(StringRepr) + len);
+        longString = new (mem) StringRepr;
+        std::copy(data, data + len, longString->repr);
+        type = ST_LONG_BLOB;
+    }
+}
+
 CellValue::
 CellValue(const CellValue & other)
     : bits1(other.bits1), bits2(other.bits2), flags(other.flags)
 {
-    if (other.type == ST_ASCII_LONG_STRING || other.type == ST_UTF8_LONG_STRING) {
+    if (other.type == ST_ASCII_LONG_STRING
+        || other.type == ST_UTF8_LONG_STRING
+        || other.type == ST_LONG_BLOB) {
         void * mem = malloc(sizeof(StringRepr) + other.strLength + 1);
         longString = new (mem) StringRepr;
         std::copy(other.longString->repr, other.longString->repr + strLength,
@@ -213,6 +249,9 @@ cellType() const
         return TIMESTAMP;    
     case ST_TIMEINTERVAL:
         return TIMEINTERVAL;
+    case ST_SHORT_BLOB:
+    case ST_LONG_BLOB:
+        return BLOB;
     default:
         throw HttpReturnException(400, "unknown CellValue type");
     }
@@ -225,9 +264,11 @@ toUtf8String() const
     switch (type) {
     case ST_UTF8_SHORT_STRING:
     case ST_ASCII_SHORT_STRING:
+    case ST_SHORT_BLOB:
         return Utf8String(shortString, strLength);
     case ST_UTF8_LONG_STRING:
     case ST_ASCII_LONG_STRING:
+    case ST_LONG_BLOB:
         try {
             return Utf8String(longString->repr, strLength);
         } catch (...) {
@@ -285,13 +326,14 @@ toString() const
     case ST_UTF8_SHORT_STRING:
     case ST_UTF8_LONG_STRING:
         throw HttpReturnException(400, "cannot call toString on utf8 string");
-    case ST_TIMESTAMP: {
+    case ST_TIMESTAMP:
         return Date::fromSecondsSinceEpoch(timestamp)
             .printIso8601(-1 /* as many digits as necessary */);
-    }
-    case ST_TIMEINTERVAL: {
+    case ST_TIMEINTERVAL:
         return printInterval();
-    }
+    case ST_SHORT_BLOB:
+    case ST_LONG_BLOB:
+        throw HttpReturnException(400, "Cannot call toString() on a blob");
     default:
         throw HttpReturnException(400, "unknown CellValue type");
     }
@@ -481,6 +523,20 @@ coerceToTimestamp() const
     return CellValue();
 }
 
+CellValue
+CellValue::
+coerceToBlob() const
+{
+    if (type == ST_EMPTY)
+        return CellValue();
+    else if (isBlob())
+        return *this;
+    else if (isString()) {
+        return CellValue::blob(toUtf8String().stealRawString());
+    }
+    return toUtf8String();
+}
+
 bool
 CellValue::
 asBool() const
@@ -551,6 +607,8 @@ isFalse() const
     case ST_ASCII_LONG_STRING:
     case ST_UTF8_SHORT_STRING:
     case ST_UTF8_LONG_STRING:
+    case ST_SHORT_BLOB:
+    case ST_LONG_BLOB:
         return !strLength;
     case ST_TIMESTAMP:
     case ST_TIMEINTERVAL:
@@ -575,9 +633,11 @@ hash() const
     switch (type) {
     case ST_ASCII_SHORT_STRING:
     case ST_UTF8_SHORT_STRING:
+    case ST_SHORT_BLOB:
         return CellValueHash(mldb_siphash24(shortString, strLength, defaultSeedStable.b));
     case ST_ASCII_LONG_STRING:
     case ST_UTF8_LONG_STRING:
+    case ST_LONG_BLOB:
         if (!longString->hash) {
             longString->hash = mldb_siphash24(longString->repr, strLength, defaultSeedStable.b);
         }
@@ -626,10 +686,12 @@ operator == (const CellValue & other) const
         return toDouble() == other.toDouble();
     case ST_ASCII_SHORT_STRING:
     case ST_UTF8_SHORT_STRING:
+    case ST_SHORT_BLOB:
         return strLength == other.strLength
             && strncmp(shortString, other.shortString, strLength) == 0;
     case ST_ASCII_LONG_STRING:
     case ST_UTF8_LONG_STRING:
+    case ST_LONG_BLOB:
         return strLength == other.strLength
             && strncmp(longString->repr, other.longString->repr, strLength) == 0;
     case ST_TIMESTAMP:
@@ -657,7 +719,7 @@ operator <  (const CellValue & other) const
     // Sort order:
     // 1.  EMPTY
     // 2.  INTEGER or FLOAT, compared numerically
-    // 3.  STRING, compared lexicographically
+    // 3.  STRING or BLOB, compared lexicographically
 
     try {
         if (JML_UNLIKELY(flags == other.flags && bits1 == other.bits1 && bits2 == other.bits2))
@@ -748,6 +810,14 @@ operator <  (const CellValue & other) const
 
                 return sign1 ? !smaller : smaller;
             }
+        case ST_SHORT_BLOB:
+        case ST_LONG_BLOB:
+            if (!isBlobType((StorageType)other.type))
+                return false;
+
+            return std::lexicographical_compare
+                (blobData(), blobData() + blobLength(),
+                 other.blobData(), other.blobData() + other.blobLength());
         default:
             throw HttpReturnException(400, "unknown CellValue type");
         }
@@ -769,6 +839,8 @@ stringChars() const
     case ST_FLOAT:
     case ST_TIMESTAMP:
     case ST_TIMEINTERVAL:
+    case ST_SHORT_BLOB:
+    case ST_LONG_BLOB:
         return nullptr;
     case ST_ASCII_SHORT_STRING:
     case ST_UTF8_SHORT_STRING:
@@ -805,6 +877,35 @@ toStringLength() const
     }
 }
 
+const unsigned char *
+CellValue::
+blobData() const
+{
+    switch (type) {
+    case ST_SHORT_BLOB:
+        return (const unsigned char *)shortString;
+    case ST_LONG_BLOB:
+        return (const unsigned char *)longString->repr;
+    default:
+        throw HttpReturnException(400, "CellValue is not a blob",
+                                  "value", *this);
+    }
+}
+
+uint32_t
+CellValue::
+blobLength() const
+{
+    switch (type) {
+    case ST_SHORT_BLOB:
+    case ST_LONG_BLOB:
+        return strLength;
+    default:
+        throw HttpReturnException(400, "CellValue is not a blob",
+                                  "value", *this);
+    }
+}
+
 bool
 CellValue::
 isExactDouble() const
@@ -817,6 +918,8 @@ isExactDouble() const
     case ST_ASCII_LONG_STRING:
     case ST_UTF8_SHORT_STRING:
     case ST_UTF8_LONG_STRING:
+    case ST_SHORT_BLOB:
+    case ST_LONG_BLOB:
         return false;
     case ST_INTEGER:
         return int64_t(toDouble()) == toInt();
@@ -962,12 +1065,48 @@ struct CellValueDescription: public ValueDescriptionT<CellValue> {
                 expect_interval(context, months, days, seconds);
                 *val = CellValue::fromMonthDaySecond(months, days, seconds);
             }            
+            else if (v.isMember("blob")) {
+                std::string contents;
+
+                if (!v["blob"].isNull()) {
+                    if (!v["blob"].type() == Json::arrayValue) {
+                        throw HttpReturnException(400, "JSON blob is not an array: '" + v.toStringNoNewLine() + "'");
+                    }
+                    for (auto & v2: v["blob"]) {
+                        if (v2.isUInt() || v2.isInt()) {
+                            uint64_t val = v2.asUInt();
+                            if (val > 255)
+                                context.exception("Invalid byte value " + to_string(val) + " reading blob data (must be 0-255)");
+                            contents += val;
+                        }
+                        else if (v2.isString()) {
+                            std::string part = v2.asString();
+                            contents += part;
+                        }
+                        else context.exception
+                                 ("Can't deal with unknown array entry '"
+                                  + v2.toStringNoNewLine()
+                                  + "' reading blob data");
+
+                    }
+                }
+
+                *val = CellValue::blob(std::move(contents));
+            }
             else {
                 throw HttpReturnException(400, "Unknown JSON CellValue '" + v.toStringNoNewLine() + "'");
             }
         }
-        else throw HttpReturnException(400, "Unknown cell value",
-                                       "json", context.expectJson().toStringNoNewLine());
+        else if (context.isBool()) {
+            *val = CellValue(context.expectBool());
+        }
+        else {
+            Json::Value val = context.expectJson();
+            cerr << "val = " << val << endl;
+            throw HttpReturnException(400, "Unknown cell value",
+                                      "json",
+                                      val.toStringNoNewLine());
+        }
     }
 
     virtual void printJsonTyped(const CellValue * val,
@@ -1023,6 +1162,40 @@ struct CellValueDescription: public ValueDescriptionT<CellValue> {
             v2["interval"] = val->toString();
             context.writeJson(v2);
             return;         
+        }
+        case CellValue::BLOB: {
+            context.startObject();
+            context.startMember("blob");
+            context.startArray();
+            
+            // Chunks of ASCII are written as a string; non-ASCII is
+            // as integers.
+            const unsigned char * p = val->blobData();
+            const unsigned char * e = p + val->blobLength();
+
+            while (p < e) {
+                const unsigned char * s = p;
+                while (p < e && *p >= ' ' && *p < 127 && isascii(*p))
+                    ++p;
+                size_t len = p - s;
+                //cerr << "len = " << len << endl;
+                if (len == 1) {
+                    context.newArrayElement();
+                    context.writeInt(*s);
+                }
+                else if (len >= 2) {
+                    context.newArrayElement();
+                    context.writeString(string(s, p));
+                }
+                
+                while (p < e && (*p <= ' ' || *p >= 127 || !isascii(*p))) {
+                    context.newArrayElement();
+                    context.writeInt(*p++);
+                }
+            }
+            context.endArray();
+            context.endObject();
+            return;
         }
         default:
             throw HttpReturnException(400, "unknown cell type");

@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** sub_dataset.h                                               -*- C++ -*-
     Mathieu Marquis Bolduc, August 28th 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Dataset that is the result of applying a SELECT statement
 */
@@ -34,10 +34,13 @@ DECLARE_STRUCTURE_DESCRIPTION(SubDatasetConfig);
 struct SubDataset : public Dataset {
 
     SubDataset(MldbServer * owner,
-                  PolyConfig config,
-                  const std::function<bool (const Json::Value &)> & onProgress);
+               PolyConfig config,
+               const std::function<bool (const Json::Value &)> & onProgress);
 
     SubDataset(MldbServer * owner, SubDatasetConfig config);
+
+    SubDataset(MldbServer * owner,
+               std::vector<MatrixNamedRow> rows);
 
     virtual ~SubDataset();
 
@@ -45,6 +48,7 @@ struct SubDataset : public Dataset {
 
     virtual std::shared_ptr<MatrixView> getMatrixView() const;
     virtual std::shared_ptr<ColumnIndex> getColumnIndex() const;
+    virtual std::shared_ptr<RowStream> getRowStream() const;
 
     virtual std::pair<Date, Date> getTimestampRange() const;
 

@@ -11,7 +11,8 @@
 #include "mldb/server/function_contexts.h"
 #include "mldb/core/dataset.h"
 #include "mldb/types/basic_value_descriptions.h"
-
+#include "mldb/server/mldb_server.h"
+#include "mldb/server/function_collection.h"
 
 using namespace std;
 
@@ -152,15 +153,18 @@ getMldbServer() const
 /*****************************************************************************/
 
 FunctionExpressionContext::
-FunctionExpressionContext(SqlBindingScope & context)
-    : ReadThroughBindingContext(context), knownInput(false)
-{
+FunctionExpressionContext(const MldbServer * mldb)
+    : knownInput(false), mldb(const_cast<MldbServer *>(mldb))
+{    
+    ExcAssert(mldb != nullptr);
 }
 
 FunctionExpressionContext::
-FunctionExpressionContext(SqlBindingScope & context, FunctionValues input)
-    : ReadThroughBindingContext(context), input(std::move(input)), knownInput(true)
+FunctionExpressionContext(const MldbServer * mldb, FunctionValues input, size_t outerFunctionStackDepth)
+    : input(std::move(input)), knownInput(true), mldb(const_cast<MldbServer *>(mldb))
 {
+    functionStackDepth = outerFunctionStackDepth;
+    ExcAssert(mldb != nullptr);
 }
 
 VariableGetter
@@ -270,6 +274,21 @@ doGetAllColumns(const Utf8String & tableName,
 
     return getAllColumnsFromFunctionImpl(tableName, keep, input, getValue);
 }
+
+std::shared_ptr<Function>
+FunctionExpressionContext::
+doGetFunctionEntity(const Utf8String & functionName)
+{
+    return mldb->functions->getExistingEntity(functionName.rawString());
+}
+
+Utf8String 
+SqlBindingScope::
+doResolveTableName(const Utf8String & fullVariableName, Utf8String &tableName) const
+{
+    return fullVariableName;
+}
+
 
 } // namespace MLDB
 } // namespace Datacratic

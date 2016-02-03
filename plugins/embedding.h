@@ -1,7 +1,7 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** embedding.h                                                    -*- C++ -*-
     Embedding dataset for MLDB.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Each row holds a coordinate vector.
 */
@@ -57,9 +57,11 @@ struct EmbeddingDataset: public Dataset {
 
     virtual std::shared_ptr<MatrixView> getMatrixView() const;
     virtual std::shared_ptr<ColumnIndex> getColumnIndex() const;
+    virtual std::shared_ptr<RowStream> getRowStream() const;
 
     virtual BoundFunction
-    overrideFunction(const Utf8String & functionName,
+    overrideFunction(const Utf8String & tableName,
+                     const Utf8String & functionName,
                      SqlBindingScope & context) const;
 
     virtual RestRequestMatchResult
@@ -69,6 +71,11 @@ struct EmbeddingDataset: public Dataset {
 
     virtual std::pair<Date, Date> getTimestampRange() const;
     virtual Date quantizeTimestamp(Date timestamp) const;
+
+    virtual KnownColumn getKnownColumnInfo(const ColumnName & columnName) const;
+
+    virtual std::vector<KnownColumn>
+    getKnownColumnInfos(const std::vector<ColumnName> & columnNames) const;
 
 private:
     EmbeddingDatasetConfig datasetConfig;

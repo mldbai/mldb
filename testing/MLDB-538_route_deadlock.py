@@ -1,17 +1,19 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+#
+# MLDB-538_route_deadlock.py
+# datacratic, 2015
+# this file is part of mldb. copyright 2015 datacratic. all rights reserved.
+#
+mldb = mldb_wrapper.wrap(mldb) # noqa
 
 
 # surprisingly enough, this works: a python script calling a python script !
-result =mldb.perform("POST", "/v1/types/plugins/python/routes/run", [], {"source":'''
+result = mldb.post("/v1/types/plugins/python/routes/run", {"source":'''
 print mldb.perform("POST", "/v1/types/plugins/python/routes/run", [], {"source":"print 1"})
 '''})
-assert result["statusCode"] < 400, result["response"]
-
 
 # we create a plugin which declares 2 routes: /deadlock calls /deadlock2
-
-result = mldb.perform("PUT", "/v1/plugins/deadlocker", [], {
-    "type": "python", 
+result = mldb.put("/v1/plugins/deadlocker", {
+    "type": "python",
     "params":{
         "source":{
             "routes":
@@ -23,12 +25,10 @@ if str(rp.verb) == "GET" and str(rp.remaining) == "/deadlock":
     mldb.plugin.set_return(rval)
 else:
     mldb.plugin.set_return("phew")
- 
+
 """}}})
-assert result["statusCode"] < 400, result["response"]
 
 # we call /deadlock, and we deadlock :)
-result = mldb.perform("GET", "/v1/plugins/deadlocker/routes/deadlock", [], {})
-assert result["statusCode"] < 400, result["response"]
+result = mldb.get("/v1/plugins/deadlocker/routes/deadlock")
 
 mldb.script.set_return("success")

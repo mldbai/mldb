@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** forwarded_dataset.h                                            -*- C++ -*-
     Jeremy Barnes, 6 October 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Dataset that forwards to another, after setup is done.  Used to provide an
     adaptor on top of an existing dataset implementation.
@@ -60,11 +60,11 @@ struct ForwardedDataset: public Dataset {
     virtual std::vector<MatrixNamedRow>
     queryStructured(const SelectExpression & select,
                     const WhenExpression & when,
-                    const std::shared_ptr<SqlExpression> & where,
+                    const SqlExpression & where,
                     const OrderByExpression & orderBy,
                     const TupleExpression & groupBy,
-                    const std::shared_ptr<SqlExpression> & having,
-                    const std::shared_ptr<SqlExpression> & rowName,
+                    const SqlExpression & having,
+                    const SqlExpression & rowName,
                     ssize_t offset,
                     ssize_t limit,
                     Utf8String alias = "",
@@ -81,7 +81,8 @@ struct ForwardedDataset: public Dataset {
     getColumnNames(ssize_t offset = 0, ssize_t limit = -1) const;
 
     virtual BoundFunction
-    overrideFunction(const Utf8String & functionName,
+    overrideFunction(const Utf8String & tableName, 
+                     const Utf8String & functionName,
                      SqlBindingScope & context) const;
 
     virtual GenerateRowsWhereFunction
@@ -113,6 +114,7 @@ struct ForwardedDataset: public Dataset {
 
     virtual std::shared_ptr<MatrixView> getMatrixView() const;
     virtual std::shared_ptr<ColumnIndex> getColumnIndex() const;
+    virtual std::shared_ptr<RowStream> getRowStream() const;
 
 private:
     std::shared_ptr<Dataset> underlying;

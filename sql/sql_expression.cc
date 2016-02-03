@@ -36,7 +36,6 @@ using namespace std;
 namespace Datacratic {
 namespace MLDB {
 
-
 /*****************************************************************************/
 /* CONSTANTS                                                                 */
 /*****************************************************************************/
@@ -147,7 +146,7 @@ BoundSqlExpressionDescription()
 /*****************************************************************************/
 
 SqlBindingScope::
-SqlBindingScope()
+SqlBindingScope() : functionStackDepth(0)
 {
 }
 
@@ -253,11 +252,12 @@ BoundTableExpression
 SqlBindingScope::
 doGetDatasetFunction(const Utf8String & functionName,
                      const std::vector<BoundTableExpression> & args,
+                     const ExpressionValue & options,
                      const Utf8String & alias)
 {
     auto factory = tryLookupDatasetFunction(functionName);
     if (factory) {
-        return factory(functionName, args, *this, alias);
+        return factory(functionName, args, options, *this, alias);
     }
     
     return BoundTableExpression();
@@ -394,7 +394,15 @@ SqlBindingScope::
 doGetTable(const Utf8String & tableName)
 {
     throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
-                              + " does not support getting tabless");
+                              + " does not support getting tables");
+}
+
+Utf8String 
+SqlBindingScope::
+doResolveTableName(const Utf8String & fullVariableName, Utf8String &tableName) const
+{
+    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
+                              + " does not support resolving table names");
 }
 
 MldbServer *
@@ -673,29 +681,17 @@ static Utf8String matchIdentifier(ML::Parse_Context & context,
     }    
 
     
-    {
-        //only match the . if there is actually an identifier after
-        //for example in 'table.*' the identifier is 'table' not 'table.'
+    if (context.match_literal('.')) {
 
-        ML::Parse_Context::Revert_Token token(context);
-
-        if (context.match_literal('.')) {
-
-            Utf8String nextIdentifier = matchIdentifier(context, allowUtf8, stripQuotes);
-
-            if (!nextIdentifier.empty()) {
-                stripOuterQuotes = false;
-                result += "." + nextIdentifier;
-                token.ignore();
-            }
-        
-        }  
+          Utf8String nextIdentifier = matchIdentifier(context, allowUtf8, stripQuotes);
+          stripOuterQuotes = false;
+          result += "." + nextIdentifier;
     }  
 
-     if (stripOuterQuotes) {
+    if (stripOuterQuotes) {
         auto last = boost::prior(result.end());
         result = Utf8String(++(result.begin()), last);
-     } 
+    } 
 
     return result;
 }
@@ -830,6 +826,14 @@ static bool matchKeyword(ML::Parse_Context & context, const char * keyword)
     return false;
 }
 
+// Expect a keyword in any case
+static void expectKeyword(ML::Parse_Context & context, const char * keyword)
+{
+    if (!matchKeyword(context, keyword)) {
+        context.exception("expected keyword " + string(keyword));
+    }
+}
+
 // Read ahead to see if a keyword matches
 static bool peekKeyword(ML::Parse_Context & context, const char * keyword)
 {
@@ -894,7 +898,7 @@ bool matchConstant(ML::Parse_Context & context, ExpressionValue & result,
         uint32_t months = 0, days = 0;
         double seconds = 0.0f;
 
-        context.skip_whitespace();
+        skip_whitespace(context);
         char closingLiteral = '\"';
 
         if (context.match_literal('\''))
@@ -995,12 +999,52 @@ static bool matchOperator(ML::Parse_Context & context, const char * keyword)
     return false;
 }
 
-// Expect a keyword in any case
-static void expectKeyword(ML::Parse_Context & context, const char * keyword)
+bool
+matchJoinQualification(ML::Parse_Context & context, JoinQualification& joinQualify)
 {
-    if (!matchKeyword(context, keyword)) {
-        context.exception("expected keyword " + string(keyword));
+    joinQualify = JOIN_INNER;
+    bool inner = matchKeyword(context, "INNER ");
+    if (!inner)
+    {
+        bool right = false;
+        bool full = false;
+        bool outer = false;
+        bool left = matchKeyword(context, "LEFT ");
+        if (!left)
+        {
+            right = matchKeyword(context, "RIGHT ");
+            if (!right)
+            {
+               full = matchKeyword(context, "FULL ");
+               outer = matchKeyword(context, "OUTER ");
+            }
+        }
+
+        if (right || left || full || outer)
+        {
+           //outer is optional, eat it
+           context.skip_whitespace();
+           if (!outer)
+              matchKeyword(context, "OUTER ");
+
+           joinQualify = right ? JOIN_RIGHT : (left ? JOIN_LEFT : JOIN_FULL);
+
+           //MUST match the 'JOIN'
+           expectKeyword(context, "JOIN ");
+           return true;
+        }
+        else
+        {
+           return matchKeyword(context, "JOIN ");
+        }
     }
+    else
+    {
+        expectKeyword(context,"JOIN ");
+        return true;
+    }
+
+    return false;
 }
 
 const SqlExpression::Operator operators[] = {
@@ -1100,9 +1144,9 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
 
         vector<std::shared_ptr<SqlRowExpression> > clauses;
         do {
-            context.skip_whitespace();
+            skip_whitespace(context);
             auto expr = SqlRowExpression::parse(context, allowUtf8);
-            context.skip_whitespace();
+            skip_whitespace(context);
             clauses.emplace_back(std::move(expr));
         } while (context.match_literal(','));
 
@@ -1119,7 +1163,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
             lhs = arg;  
         }
 
-        context.skip_whitespace();
+        skip_whitespace(context);
         context.expect_literal('}');
         
         lhs->surface = ML::trim(token.captured());
@@ -1139,7 +1183,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
 
         lhs = std::make_shared<EmbeddingLiteralExpression>(clauses);
 
-        context.skip_whitespace();
+        skip_whitespace(context);
         context.expect_literal(']');
         
         lhs->surface = ML::trim(token.captured());
@@ -1341,11 +1385,10 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         if ((negative = matchKeyword(context, "NOT IN")) || matchKeyword(context, "IN"))
         {
             expect_whitespace(context);
+
             context.expect_literal('(');
-            
-            context.skip_whitespace();
-            if (peekKeyword(context, "SELECT"))
-            { 
+            skip_whitespace(context);
+            if (peekKeyword(context, "SELECT")) {
                 //sub-table
                 auto statement = SelectStatement::parse(context, allowUtf8);
                            
@@ -1358,8 +1401,21 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
                 lhs = std::make_shared<InExpression>(lhs, rhs, negative);
                 lhs->surface = ML::trim(token.captured());                
             }
-            else
-            {
+            else if (matchKeyword(context, "KEYS OF")) {
+                auto rhs = SqlExpression::parse(context, allowUtf8, 10);
+                skip_whitespace(context);
+                context.expect_literal(')');
+                lhs = std::make_shared<InExpression>(lhs, rhs, negative, InExpression::KEYS);
+                lhs->surface = ML::trim(token.captured());                
+            }
+            else if (matchKeyword(context, "VALUES OF")) {
+                auto rhs = SqlExpression::parse(context, allowUtf8, 10);
+                skip_whitespace(context);
+                context.expect_literal(')');
+                lhs = std::make_shared<InExpression>(lhs, rhs, negative, InExpression::VALUES);
+                lhs->surface = ML::trim(token.captured());                
+            }
+            else {
                 auto rhs = std::make_shared<TupleExpression>(TupleExpression::parse(context, allowUtf8));
 
                 context.expect_literal(')');
@@ -1367,7 +1423,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
                 lhs = std::make_shared<InExpression>(lhs, rhs, negative);
                 lhs->surface = ML::trim(token.captured());
                 continue;
-            }     
+            }
         }
 
         // Now look for an operator
@@ -1400,8 +1456,6 @@ SqlExpression::
 parse(const std::string & expression, const std::string & filename,
       int row, int col)
 {
-    //cerr << "parsing " << expression << endl;
-
     ML::Parse_Context context(filename.empty() ? expression : filename,
                               expression.c_str(),
                               expression.length(), row, col);
@@ -1479,16 +1533,21 @@ bool
 SqlExpression::
 isConstant() const
 {
-    return false;
+    for (auto & c: getChildren()) {
+        if (!c->isConstant())
+            return false;
+    }
+    return true;
 }
 
 ExpressionValue
 SqlExpression::
 constantValue() const
 {
-    throw HttpReturnException(400, "Expression is not provably constant",
-                              "surface", surface,
-                              "ast", print());
+    SqlExpressionConstantScope scope;
+    auto bound = this->bind(scope);
+    SqlRowScope rowScope = scope.getRowScope();
+    return bound(rowScope);
 }
 
 std::map<ScopedName, UnboundVariable>
@@ -1591,6 +1650,19 @@ getUnbound() const
     }
     
     return result;
+}
+
+std::shared_ptr<SqlExpression>
+SqlExpression::
+shallowCopy() const
+{
+    auto onArgs = [] (std::vector<std::shared_ptr<SqlExpression> > args)
+        -> std::vector<std::shared_ptr<SqlExpression> >
+        {
+            return std::move(args);
+        };
+
+    return transform(onArgs);
 }
 
 void
@@ -1795,13 +1867,13 @@ parse(ML::Parse_Context & context, bool allowUtf8)
         if (matchKeyword(context, "WHEN ")) {
             throw HttpReturnException(400, "WHEN clause not supported in row expression");
         }
-        else when = SqlExpression::TRUE;
+        else when = SqlExpression::parse("true");
 
         if (matchKeyword(context, "WHERE ")) {
             where = SqlExpression::parse(context, 10, allowUtf8);
             // Where expression consumes whitespace
         }
-        else where = SqlExpression::TRUE;
+        else where = SqlExpression::parse("true");
 
         if (matchKeyword(context, "ORDER BY ")) {
             orderBy = OrderByExpression::parse(context, allowUtf8);
@@ -1936,65 +2008,6 @@ parse(ML::Parse_Context & context, bool allowUtf8)
                     auto result = std::make_shared<WildcardExpression>(tableName, prefix, prefixAs, exclusions);
                     result->surface = ML::trim(capture.captured());
                     return result;
-                }
-            }
-        }
-    }
-
-    //cerr << "offset = " << context.get_offset() << endl;
-    /* Three possibilities:
-       1.  (tablename).(prefix)*
-       2.  expression (AS label)
-       3.  label : expression
-    */
-    if (!matched) {
-
-        ML::Parse_Context::Revert_Token token(context);
-        
-        for (;;) {
-            tableName = matchIdentifier(context, allowUtf8);
-            if (tableName.empty())
-                break;
-
-            skip_whitespace(context);
-
-            if (!context.match_literal('.'))
-                break;
-
-            skip_whitespace(context);
-
-            if (matchPrefixedWildcard(prefix)) {
-
-                // Sort out ambiguity between * operator and wildcard by looking at
-                // trailing context.
-                //
-                // See MLDB-195
-                //
-                // It can only be a table name if followed by:
-                // - eof
-                // - a comma
-                // - closing paranthesis, if used as an expression
-                // - AS
-                // - EXCLUDING
-                // - a keyword
-
-                ML::Parse_Context::Revert_Token token2(context);
-
-                skip_whitespace(context);
-
-                if (context.eof()
-                    || context.match_literal(',')
-                    || context.match_literal(')')
-                    || matchKeyword(context, "AS")
-                    || matchKeyword(context, "EXCLUDING")
-                    || matchKeyword(context, "NAMED")
-                    || matchKeyword(context, "FROM") || matchKeyword(context, "WHERE")
-                    || matchKeyword(context, "GROUP BY") || matchKeyword(context, "HAVING")
-                    || matchKeyword(context, "LIMIT") || matchKeyword(context, "OFFSET")) {
-                    isWildcard = true;
-                    matched = true;
-                    token.ignore();
-                    break;
                 }
             }
         }
@@ -2612,6 +2625,20 @@ transform(const TransformArgs & transformArgs) const
     return transformedExpression;
 }
 
+bool
+TupleExpression::
+isConstant() const
+{
+    bool constant = true;
+    for (auto& c : clauses) {
+        if (!c->isConstant()) {
+            constant = false;
+            break;
+        }
+    }
+    return constant;
+}
+
 struct TupleExpressionDescription
     : public ValueDescriptionT<TupleExpression> {
 
@@ -2960,6 +2987,20 @@ printJsonTyped(const SelectExpression * val,
     else context.writeStringUtf8(val->surface);
 }
 
+/*****************************************************************************/
+/* JOIN QUALIFICATION                                                        */
+/*****************************************************************************/
+
+DEFINE_ENUM_DESCRIPTION(JoinQualification);
+
+JoinQualificationDescription::
+JoinQualificationDescription()
+{
+    addValue("JOIN_INNER", JOIN_INNER, "Inner join");
+    addValue("JOIN_LEFT", JOIN_LEFT, "Left join");
+    addValue("JOIN_RIGHT", JOIN_RIGHT, "Right join");
+    addValue("JOIN_FULL", JOIN_FULL, "Full join");
+}
 
 /*****************************************************************************/
 /* TABLE EXPRESSION                                                          */
@@ -2982,7 +3023,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
 
     if (context.match_literal('(')) {
 
-        context.skip_whitespace();
+        skip_whitespace(context);
         if (peekKeyword(context, "SELECT"))
         {
             //sub-table
@@ -3012,6 +3053,30 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
             result->surface = ML::trim(token.captured());
         }
     }
+    
+    // MLDB-1315.  Note that although this looks like a dataset function,
+    // in actual fact it's argument is a normal row-valued expression.
+    if (matchKeyword(context, "row_dataset")) {
+        skip_whitespace(context);
+        context.expect_literal('(');
+        skip_whitespace(context);
+        // Row expression, presented as a table
+        auto statement = SqlExpression::parse(context, allowUtf8, 10 /* precedence */);
+        skip_whitespace(context);
+        context.expect_literal(')');
+        skip_whitespace(context);
+
+        Utf8String asName;
+        if (matchKeyword(context, "AS")) {
+            expect_whitespace(context);
+            asName = matchIdentifier(context, allowUtf8);
+            if (asName.empty())
+                context.exception("Expected identifier after the row_dataset(...) AS clause");
+        }
+        
+        result = std::make_shared<RowTableExpression>(statement, asName);
+        result->surface = ML::trim(token.captured());
+    }
 
     if (!result) {
         std::shared_ptr<NamedDatasetExpression> expr;
@@ -3023,21 +3088,42 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
             {
                 skip_whitespace(context);
                 std::vector<std::shared_ptr<TableExpression>> args;
+                std::shared_ptr<SqlExpression> options;
                 if (!context.match_literal(')'))
                 {
-                  do
-                  {
-                      skip_whitespace(context);
-                      std::shared_ptr<TableExpression> subTable = TableExpression::parse(context, currentPrecedence, allowUtf8);
-                      if (subTable)
-                        args.push_back(subTable);
+                    do
+                    {
+                        if(options) {
+                            context.exception("options to table expression should "
+                                    "be last argument");
+                        }
 
-                      skip_whitespace(context);
-                  } while (context.match_literal(','));
+                        skip_whitespace(context);
+
+                        bool found = false;
+                        {
+                            ML::Parse_Context::Revert_Token token(context);
+                            found = context.match_literal('{');
+                        }
+
+                        if(found) {
+                            options = SqlExpression::parse(context, 10, true);
+                        }
+                        else {
+
+                            auto subTable = TableExpression::parse(
+                                    context, currentPrecedence, allowUtf8);
+
+                            if (subTable)
+                                args.push_back(subTable);
+
+                            skip_whitespace(context);
+                        }
+                    } while (context.match_literal(','));
                 }
 
                 context.expect_literal(')');
-                expr.reset(new DatasetFunctionExpression(identifier, args));
+                expr.reset(new DatasetFunctionExpression(identifier, args, options));
             }
             else
             {
@@ -3062,8 +3148,9 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
     if (!result)
         throw HttpReturnException(400, "Expected table expression");
 
+    JoinQualification joinQualify = JOIN_INNER;
     
-    while (matchKeyword(context, "JOIN ")) {
+    while (matchJoinQualification(context, joinQualify)) {
         auto joinTable = TableExpression::parse(context, currentPrecedence, allowUtf8);
             
         std::shared_ptr<SqlExpression> condition;
@@ -3071,10 +3158,10 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         if (matchKeyword(context, "ON ")) {
             condition = SqlExpression::parse(context, 10 /* precedence */, allowUtf8);
         }
-            
-        result.reset(new JoinExpression(result, joinTable, condition));
+          
+        result.reset(new JoinExpression(result, joinTable, condition, joinQualify));
         result->surface = ML::trim(token.captured());
-
+            
         skip_whitespace(context);
     }
 
@@ -3515,7 +3602,7 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
         skip_whitespace(context);
     }
     else {
-        statement.when = WhenExpression::TRUE;
+        statement.when = WhenExpression::parse("true");
     }
 
     if (matchKeyword(context, "WHERE ")) {
@@ -3523,7 +3610,7 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
         skip_whitespace(context);
     }
     else {
-        statement.where = SqlExpression::TRUE;
+        statement.where = SqlExpression::parse("true");
     }
 
     if (matchKeyword(context, "GROUP BY ")) {
@@ -3536,7 +3623,7 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
         skip_whitespace(context);
     }
     else {
-        statement.having = SqlExpression::TRUE;
+        statement.having = SqlExpression::parse("true");
     }
 
     if (matchKeyword(context, "ORDER BY ")) {
@@ -3567,6 +3654,20 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
     //cerr << jsonEncode(statement) << endl;
     
     return std::move(statement);
+}
+
+Utf8String
+SelectStatement::
+print() const
+{
+    return select.print() + 
+        rowName->print() +
+        from->print() +
+        when.print() +
+        where->print() +
+        orderBy.print() +
+        groupBy.print() +
+        having->print();
 }
 
 DEFINE_STRUCTURE_DESCRIPTION(SelectStatement);

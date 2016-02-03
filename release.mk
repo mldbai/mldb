@@ -46,6 +46,10 @@ $(eval $(call mldb_install_templated_file,mldb/container_files/validator_api_con
 $(eval $(call mldb_install_templated_file,mldb/container_files/publickey.pem,$(ETC)/publickey.pem))
 $(eval $(call mldb_install_templated_file,mldb/container_files/classifiers.json,$(BIN)/classifiers.json))
 
+$(eval $(call mldb_install_templated_file,mldb/container_files/init/mldb_logger_utils.py,$(ETC)/service/mldb_runner/log/mldb_logger_utils.py,555))
+$(eval $(call install_file,mldb/container_files/init/mldb_logger.py,$(ETC)/service/mldb_runner/log/run,555,mldb))
+$(eval $(call install_file,mldb/container_files/init/mldb_finish.py,$(ETC)/service/mldb_runner/finish,555,mldb))
+
 mldb: \
 	$(BIN)/mldb_runner \
 	$(BIN)/credentialsd \

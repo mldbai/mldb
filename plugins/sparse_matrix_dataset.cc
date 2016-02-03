@@ -130,6 +130,42 @@ struct SparseMatrixDataset::Itl
         std::shared_ptr<MatrixWriteTransaction> values;
     };
 
+    struct SparseRowStream : public RowStream {
+
+        SparseRowStream(SparseMatrixDataset::Itl* source) : source(source)
+        {
+            trans = source->getReadTransaction();
+        }
+
+        virtual std::shared_ptr<RowStream> clone() const{
+            auto ptr = std::make_shared<SparseRowStream>(source);
+            return ptr;
+        }
+
+        virtual void initAt(size_t start){
+            internalStream = trans->matrix->getStream();
+            internalStream->initAt(start);
+        }
+
+        virtual RowName next() {
+            uint64_t i = internalStream->next();
+            return source->getRowNameTrans(RowHash(i), *trans);
+        }
+
+        std::shared_ptr<MatrixReadTransaction::Stream> internalStream;
+        std::shared_ptr<ReadTransaction> trans;
+        SparseMatrixDataset::Itl* source;
+    };
+
+    std::shared_ptr<SparseRowStream> getRowStream()
+    {
+        auto trans = getReadTransaction();
+        if (trans->matrix->isSingleReadEntry())
+            return make_shared<SparseRowStream>(this);
+        else
+            return std::shared_ptr<SparseRowStream>();
+    }
+
     GcLock gc;
 
     /// Default transaction when none was passed
@@ -455,11 +491,11 @@ struct SparseMatrixDataset::Itl
                               return true;
                           });
 
-        std::sort(result.begin(), result.end(),
-                  [&] (const RowName & r1, const RowName & r2)
-                  {
-                      return r1.hash() < r2.hash();
-                  });
+         std::sort(result.begin(), result.end(),
+              [&] (const RowName & r1, const RowName & r2)
+              {
+                  return r1.hash() < r2.hash();
+              });
 
         if (start < 0)
             throw HttpReturnException(400, "Invalid start for row names",
@@ -473,10 +509,10 @@ struct SparseMatrixDataset::Itl
             return result;
         }
 
+        result.erase(result.begin(), result.begin() + start);
+
         if (limit != -1 && limit < result.size())
             result.erase(result.begin() + limit, result.end());
-
-        result.erase(result.begin(), result.begin() + start);
 
         return result;
     }
@@ -817,6 +853,13 @@ getColumnIndex() const
     return itl;
 }
 
+std::shared_ptr<RowStream> 
+SparseMatrixDataset::
+getRowStream() const
+{
+    return itl->getRowStream();
+}
+
 RestRequestMatchResult
 SparseMatrixDataset::
 handleRequest(RestConnection & connection,
@@ -988,6 +1031,57 @@ struct MutableBaseData {
 
             result.entries.emplace_back(new RowsEntry(std::move(newEntries)));
             return std::move(result);
+        }
+
+        struct Stream {       
+
+            Stream(const MutableBaseData::Rows* source) : source(source)
+            {
+            }
+
+            void initAt(size_t start)
+            {
+                entriesIter = source->entries.begin();
+               
+                subIter = (*entriesIter)->begin();
+                size_t count = 0;
+                while (start - count > (*entriesIter)->size())
+                {
+                    count += (*entriesIter)->size();
+                    ++entriesIter;
+                    subIter = (*entriesIter)->begin();
+                };
+
+                //should we switch to an ordered map?
+                while (count < start)
+                {
+                    ++count;
+                    ++subIter;
+                };
+            }
+
+            virtual uint64_t next()
+            {
+                uint64_t value = subIter->first;
+                subIter++;
+                if (subIter == (*entriesIter)->end())  {
+                    ++entriesIter;
+                    if (entriesIter != source->entries.end())  {
+                        subIter = (*entriesIter)->begin();
+                    }
+                }
+
+                return value;
+            }
+
+            std::vector<std::shared_ptr<const RowsEntry> >::const_iterator entriesIter;
+            RowsEntry::const_iterator subIter;
+            const MutableBaseData::Rows* source;
+        };
+
+        bool isSingleReadEntry() const
+        {
+            return entries.size() == 1;
         }
 
     };
@@ -1248,6 +1342,12 @@ struct MutableWriteTransaction: public MatrixWriteTransaction {
     {
         return std::make_shared<MutableWriteTransaction>(*this);
     }
+
+     virtual std::shared_ptr<MatrixReadTransaction::Stream> getStream() const
+     {
+        ExcAssert(false);
+        return std::shared_ptr<MatrixReadTransaction::Stream>();
+     }
 };
 
 struct MutableReadTransaction: public MatrixReadTransaction {
@@ -1256,9 +1356,38 @@ struct MutableReadTransaction: public MatrixReadTransaction {
     {
     }
 
+    struct Stream : public MatrixReadTransaction::Stream {
+
+        Stream(const MutableReadTransaction* source) : innerStream(&(source->rows)), source(source)
+        {
+        }
+
+        virtual std::shared_ptr<MatrixReadTransaction::Stream> clone() const
+        {
+            return make_shared<MutableReadTransaction::Stream>(source);
+        }
+
+        virtual void initAt(size_t start)
+        {
+            innerStream.initAt(start);      
+        }
+
+        virtual uint64_t next()
+        {
+            return innerStream.next();
+        }
+
+        MutableBaseData::Rows::Stream innerStream;
+        const MutableReadTransaction* source;
+    };
+
     std::shared_ptr<MutableBaseData> data;
     std::shared_ptr<MutableBaseData::Repr> repr;
     const MutableBaseData::Rows & rows;
+
+    virtual std::shared_ptr<MatrixReadTransaction::Stream> getStream() const {
+        return make_shared<MutableReadTransaction::Stream>(this);
+    }
 
     virtual bool iterateRow(uint64_t rowNum,
                             const std::function<bool (const BaseEntry & entry)> & onEntry)
@@ -1284,6 +1413,11 @@ struct MutableReadTransaction: public MatrixReadTransaction {
     virtual std::shared_ptr<MatrixWriteTransaction> startWriteTransaction() const
     {
         return std::make_shared<MutableWriteTransaction>(data);
+    }
+
+    virtual bool isSingleReadEntry() const
+    {
+        return rows.isSingleReadEntry();
     }
 };
 
@@ -1324,11 +1458,11 @@ DEFINE_ENUM_DESCRIPTION(WriteTransactionLevel);
 WriteTransactionLevelDescription::
 WriteTransactionLevelDescription()
 {
-    addValue("readAfterWrite", WT_READ_AFTER_WRITE,
+    addValue("consistentAfterWrite", WT_READ_AFTER_WRITE,
              "A value written will be available immediately after writing.  "
              "This provides the most consistency as operations are "
              "serializable, at the expense of slower writes and reads.");
-    addValue("readAfterCommit", WT_READ_AFTER_COMMIT,
+    addValue("consistentAfterCommit", WT_READ_AFTER_COMMIT,
              "A value written will only be guaranteed to be available after "
              "a `commit()` call has returned successfully, and may not be "
              "readable until that point.  This provides much faster write "
@@ -1354,7 +1488,7 @@ TransactionFavorDescription()
 MutableSparseMatrixDatasetConfig::
 MutableSparseMatrixDatasetConfig()
     : timeQuantumSeconds(1.0),
-      writeLevel(WT_READ_AFTER_WRITE),
+      consistencyLevel(WT_READ_AFTER_COMMIT),
       favor(TF_FAVOR_READS)
 {
 }
@@ -1370,16 +1504,17 @@ MutableSparseMatrixDatasetConfigDescription()
              "in seconds. 1 means one second, 0.001 means one millisecond, 60 means one minute. "
              "Higher resolution requires more memory to store timestamps.", 1.0);
 
-    addField("writeLevel", &MutableSparseMatrixDatasetConfig::writeLevel,
+    addField("consistencyLevel", &MutableSparseMatrixDatasetConfig::consistencyLevel,
              "Transaction level for reading of written values.  In the "
-             "default level (`readAfterWrite`), a written value can "
-             "immediately be read back.  The `readAfterCommit` level only "
-             "guarantees that a written value will be readable once a commit "
-             "has finished, which is faster for insertions but less "
-             "consistent.", WT_READ_AFTER_WRITE);
+             "default level, which is `consistentAfterCommit`, a value is "
+             "only guaranteed to be readable after a commit (so it may seem "
+             "like data is being lost if read before a commit) but writes are fast. "
+             "With the `consistentAfterWrite` level, a written value can "
+             "immediately be read back but writes are slower.", 
+             WT_READ_AFTER_COMMIT);
     addField("favor", &MutableSparseMatrixDatasetConfig::favor,
              "Whether to favor reads or writes.  Only has effect for when "
-             "`writeLevel` is set to `readAfterWrite`.",
+             "`consistencyLevel` is set to `consistentAfterWrite`.",
              TF_FAVOR_READS);
 }
 
@@ -1393,11 +1528,11 @@ struct MutableSparseMatrixDataset::Itl
     GcLock gc;
 
     Itl(double timeQuantumSeconds,
-        WriteTransactionLevel writeLevel,
+        WriteTransactionLevel consistencyLevel,
         TransactionFavor favor) 
     {
         CommitMode mode;
-        if (writeLevel == WT_READ_AFTER_COMMIT)
+        if (consistencyLevel == WT_READ_AFTER_COMMIT)
             mode = READ_ON_COMMIT;
         else if (favor == TF_FAVOR_READS)
             mode = READ_FAST;
@@ -1420,7 +1555,7 @@ MutableSparseMatrixDataset(MldbServer * owner,
     : SparseMatrixDataset(owner)
 {
     auto params = config.params.convert<MutableSparseMatrixDatasetConfig>();
-    itl.reset(new Itl(params.timeQuantumSeconds, params.writeLevel, params.favor));
+    itl.reset(new Itl(params.timeQuantumSeconds, params.consistencyLevel, params.favor));
 }
 
 static RegisterDatasetType<MutableSparseMatrixDataset,

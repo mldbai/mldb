@@ -1,9 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** sql_functions.cc
     Jeremy Barnes, 6 January 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
 
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #include "sql_functions.h"
@@ -21,6 +20,7 @@
 #include "mldb/types/any_impl.h"
 #include "mldb/server/per_thread_accumulator.h"
 #include "mldb/rest/in_process_rest_connection.h"
+#include "mldb/plugins/sql_config_validator.h"
 #include <memory>
 
 using namespace std;
@@ -39,13 +39,18 @@ getMldbRoot(MldbServer * server)
 /* SQL QUERY FUNCTION                                                        */
 /*****************************************************************************/
 
-SqlQueryFunctionConfig::
-SqlQueryFunctionConfig()
-    : select("*"),
-      when(WhenExpression::TRUE),
-      where(SqlExpression::TRUE),
-      having(SqlExpression::TRUE)
+DEFINE_ENUM_DESCRIPTION(SqlQueryOutput);
+
+SqlQueryOutputDescription::
+SqlQueryOutputDescription()
 {
+    addValue("FIRST_ROW", FIRST_ROW, "Return only the first row of the query");
+    addValue("NAMED_COLUMNS", NAMED_COLUMNS,
+             "Output is a table with a 'value' and optional 'column' "
+             "column.  Output row will be constructed from all of the "
+             "returned columns, assembled into a single row, with column "
+             "names provided by the 'column' column, or if null, the "
+             "row name.");
 }
 
 DEFINE_STRUCTURE_DESCRIPTION(SqlQueryFunctionConfig);
@@ -53,39 +58,18 @@ DEFINE_STRUCTURE_DESCRIPTION(SqlQueryFunctionConfig);
 SqlQueryFunctionConfigDescription::
 SqlQueryFunctionConfigDescription()
 {
-    addField("select", &SqlQueryFunctionConfig::select,
-             "SQL select expression to run.  The values in the dataset, as "
+    addField("query", &SqlQueryFunctionConfig::query,
+             "SQL query to run.  The values in the dataset, as "
              "well as the input values, will be available for the expression "
-             "calculation",
-             SelectExpression::STAR);
-    addField("from", &SqlQueryFunctionConfig::from,
-             "Dataset to select from.  The dataset is fixed at initialization "
-             "time and cannot be changed in the query.");
-    addField("when", &SqlQueryFunctionConfig::when,
-             "Boolean expression determining which tuples from the dataset "
-             "to keep based on their timestamps",
-             WhenExpression::TRUE);
-    addField("where", &SqlQueryFunctionConfig::where,
-             "Boolean expression to choose which row to select.  In almost all "
-             "cases this should be set to restrict the query to the part of "
-             "the dataset that is interesting in the context of the query.",
-             SqlExpression::TRUE);
-    addField("orderBy", &SqlQueryFunctionConfig::orderBy,
-             "Expression to choose how to order multiple rows.  The function will "
-             "only return the first row, so this effectively chooses which of "
-             "multiple rows will be chosen.  If not defined, the selected row "
-             "will be an abitrary one of those that match.");
-    addField("groupBy", &SqlQueryFunctionConfig::groupBy,
-             "Expression to choose how to group rows for an aggregate query. "
-             "If this is specified, the having and order by clauses will "
-             "choose which row is actually selected.  Leaving this unset "
-             "will disable grouping.  Grouping can cause queries to run slowly "
-             "and so should be avoided for real-time queries if possible.");
-    addField("having", &SqlQueryFunctionConfig::having,
-             "Boolean expression to choose which group to select.  Only the "
-             "groups where this expression evaluates to true will be "
-             "selected.",
-             SqlExpression::TRUE);
+             "calculation");
+    addField("output", &SqlQueryFunctionConfig::output,
+             "Controls how the query output is converted into a row. "
+             "'FIRST_ROW' (default) will return only the first row produced "
+             "by the query.  'NAMED_COLUMNS' will construct a row from the "
+             "whole returned table, which must have a 'value' column "
+             "containing the value.  If there is a 'column' column, it will "
+             "be used as a column name, otherwise the row name will be used.",
+             FIRST_ROW);
 }
                       
 SqlQueryFunction::
@@ -102,16 +86,8 @@ SqlQueryFunction::
 getStatus() const
 {
     Json::Value result;
-    result["expression"]["select"]["surface"] = functionConfig.select.surface;
-    result["expression"]["select"]["ast"] = functionConfig.select.print();
-    result["expression"]["where"]["surface"] = functionConfig.where->surface;
-    result["expression"]["where"]["ast"] = functionConfig.where->print();
-    result["expression"]["orderBy"]["surface"] = functionConfig.orderBy.surface;
-    result["expression"]["orderBy"]["ast"] = functionConfig.orderBy.print();
-    result["expression"]["groupBy"]["surface"] = functionConfig.groupBy.surface;
-    result["expression"]["groupBy"]["ast"] = functionConfig.groupBy.print();
-    result["expression"]["having"]["surface"] = functionConfig.having->surface;
-    result["expression"]["having"]["ast"] = functionConfig.having->print();
+    result["expression"]["query"]["surface"] = functionConfig.query.stm->surface;
+    result["expression"]["query"]["ast"] = functionConfig.query.stm->print();
     return result;
 }
 
@@ -119,8 +95,7 @@ getStatus() const
 struct SqlQueryFunctionApplier: public FunctionApplier {
     SqlQueryFunctionApplier(const SqlQueryFunction * function,
                             const SqlQueryFunctionConfig & config)
-        : FunctionApplier(function),
-          from(std::move(from))
+        : FunctionApplier(function), function(function)
     {
         // Called when we bind a parameter, to get its information
         auto getParamInfo = [&] (const Utf8String & paramName)
@@ -132,21 +107,22 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
                 return info;
             };
 
-        if (!config.groupBy.empty()) {
+        if (!config.query.stm->groupBy.empty()) {
             // Create our pipeline
 
             pipeline
                 = getMldbRoot(function->server)
                 ->params(getParamInfo)
-                ->from(config.from, config.when)
-                ->where(config.where)
-                ->select(config.groupBy)
-                ->sort(config.groupBy)
-                ->partition(config.groupBy.clauses.size())
-                ->where(config.having)
-                ->select(config.orderBy)
-                ->sort(config.orderBy)
-                ->select(config.select);
+                ->from(config.query.stm->from, config.query.stm->when,
+                       SelectExpression::STAR, config.query.stm->where)
+                ->where(config.query.stm->where)
+                ->select(config.query.stm->groupBy)
+                ->sort(config.query.stm->groupBy)
+                ->partition(config.query.stm->groupBy.clauses.size())
+                ->where(config.query.stm->having)
+                ->select(config.query.stm->orderBy)
+                ->sort(config.query.stm->orderBy)
+                ->select(config.query.stm->select);
         }
         else {
                 
@@ -154,18 +130,26 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
             pipeline
                 = getMldbRoot(function->server)
                 ->params(getParamInfo)
-                ->from(config.from, config.when)
-                ->where(config.where)
-                ->select(config.orderBy)
-                ->sort(config.orderBy)
-                ->select(config.select);
+                ->from(config.query.stm->from, config.query.stm->when,
+                       SelectExpression::STAR, config.query.stm->where)
+                ->where(config.query.stm->where)
+                ->select(config.query.stm->orderBy)
+                ->sort(config.query.stm->orderBy)
+                ->select(config.query.stm->select);
         }
 
         // Bind the pipeline
         boundPipeline = pipeline->bind();
 
-        // What type does the pipeline return?
-        this->info.output = *boundPipeline->outputScope()->outputInfo().back();
+        switch (function->functionConfig.output) {
+        case FIRST_ROW:
+            // What type does the pipeline return?
+            this->info.output = *boundPipeline->outputScope()->outputInfo().back();
+            break;
+        case NAMED_COLUMNS:
+            this->info.output.addRowValue("output");
+            break;
+        }
     }
 
     virtual ~SqlQueryFunctionApplier()
@@ -183,17 +167,106 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
         
         auto executor = boundPipeline->start(params,
                                              !QueryThreadTracker::inChildThread() /* allowParallel */);
-        auto output = executor->take();
 
-        //if (output)
-        //    cerr << "got output " << jsonEncode(output) << endl;
+        switch (function->functionConfig.output) {
+        case FIRST_ROW: {
+            FunctionOutput result;
 
-        FunctionOutput result;
-        if (output)
-            result = std::move(output->values.back());
-        return result;
+            auto output = executor->take();
+
+            if (output) {
+                // MLDB-1329 band-aid fix.  This appears to break a circlar
+                // reference chain that stops the elements from being
+                // released.
+                output->group.clear();
+
+                result = std::move(output->values.back());
+            }
+
+            return result;
+        }
+        case NAMED_COLUMNS:
+            std::vector<std::tuple<ColumnName, ExpressionValue> > row;
+
+            ssize_t limit = function->functionConfig.query.stm->limit;
+            ssize_t offset = function->functionConfig.query.stm->offset;
+
+            auto output = executor->take();
+            for (size_t n = 0;
+                 output && (limit == -1 || n < limit + offset);
+                 output = executor->take(), ++n) {
+
+                if (output) {
+                    // MLDB-1329 band-aid fix.  This appears to break a circlar
+                    // reference chain that stops the elements from being
+                    // released.
+                    output->group.clear();
+                }
+
+                if (n < offset) {
+                    continue;
+                }
+
+                ColumnName foundCol;
+                ExpressionValue foundVal;
+                int numFoundCol = 0;
+                int numFoundVal = 0;
+
+                auto onVal = [&] (ColumnName & col,
+                                  ExpressionValue & val)
+                    {
+                        if (col == ColumnName("column")) {
+                            foundCol = ColumnName(val.getAtom().toUtf8String());
+                            ++numFoundCol;
+                        }
+                        else if (col == ColumnName("value")) {
+                            foundVal = std::move(val);
+                            ++numFoundVal;
+                        }
+                        else {
+                            throw HttpReturnException
+                                (400, "Rows returned from NAMED_COLUMNS SQL "
+                                 "query can only contain 'column' and 'value' "
+                                 "columns",
+                                 "unknownColumn", col,
+                                 "unknownColumnValue", val);
+                        }
+
+                        return true;
+                    };
+
+                output->values.back().forEachColumnDestructive(onVal);
+
+                if (numFoundCol != 1 || numFoundVal != 1) {
+                    throw HttpReturnException
+                        (400, "Rows returned from NAMED_COLUMNS SQL query "
+                         "must contain exactly one 'column' and one "
+                         "'value' column",
+                         "numTimesFoundColumn", numFoundCol,
+                         "numTimesFoundValue", numFoundVal);
+                }
+                
+                if (foundCol == ColumnName()) {
+                    throw HttpReturnException
+                        (400, "Empty or null column names cannot be "
+                         "returned from NAMED_COLUMNS sql query");
+                }
+
+                row.emplace_back(std::move(foundCol), std::move(foundVal));
+            }
+
+            FunctionOutput result;
+
+            ExpressionValue val(std::move(row));
+            result.set("output", std::move(val));
+
+            return result;
+        }
+
+        ExcAssert(false);
     }
 
+    const SqlQueryFunction * function;
     std::shared_ptr<Dataset> from;
     std::shared_ptr<PipelineElement> pipeline;
     std::shared_ptr<BoundPipelineElement> boundPipeline;
@@ -250,15 +323,41 @@ SqlExpressionFunctionConfigDescription()
              "SQL expression function to run.  Takes the same syntax as a SELECT "
              "clause (but without the SELECT keyword); for example "
              "'x, y + 1 AS z'");
+    addField("prepared", &SqlExpressionFunctionConfig::prepared,
+             "Do we pre-prepare the expression to be run many times quickly?  "
+             "If this is true, it will only be bound once, for generic "
+             "inputs, and so will allow for quick individual queries, "
+             "possibly at the expense of batch queries being slower.  In "
+             "this case, the expression also cannot refer to variables "
+             "outside of the arguments to the expression.  "
+             "If this is false, the default, then for every query the "
+             "expression will be specialized (rebound) for that query's "
+             "data type.  "
+             "This can lead to faster batch queries, at the expense of a "
+             "possibly high per-query overhead for individual queries.",
+             false);
 }
 
 SqlExpressionFunction::
 SqlExpressionFunction(MldbServer * owner,
                       PolyConfig config,
                       const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner)
+    : Function(owner), outerScope(owner), innerScope(owner)
 {
     functionConfig = config.params.convert<SqlExpressionFunctionConfig>();
+
+    if (functionConfig.prepared) {
+        // 1.  Bind the expression in.  That will tell us what it is expecting
+        //     as an input.
+        this->bound = functionConfig.expression.bind(innerScope);
+
+        // 2.  Our output is known by the bound expression
+        this->info.output = *this->bound.info;
+    
+        // 3.  Our required input is known by the binding context, as it records
+        //     what was read.
+        info.input = innerScope.input;
+    }
 }
 
 Any
@@ -273,27 +372,42 @@ getStatus() const
 
 /** Structure that does all the work of the SQL expression function. */
 struct SqlExpressionFunctionApplier: public FunctionApplier {
-    SqlExpressionFunctionApplier(SqlBindingScope & outerContext,
+    SqlExpressionFunctionApplier(SqlBindingScope & outerScope,
                                  const SqlExpressionFunction * function,
-                                 const SelectExpression & expression,
                                  const FunctionValues & input)
         : FunctionApplier(function),
-          context(outerContext, input),
-          bound(expression.bind(context))
+          function(function),
+          innerScope(outerScope.getMldbServer(), input, outerScope.functionStackDepth)
     {
-        this->info.output = *bound.info;
+        if (!function->functionConfig.prepared) {
+            // Specialize to this input
+            this->bound = function->functionConfig.expression.bind(innerScope);
+            // That leads to a specialized output
+            this->info.output = *bound.info;
+        }
+        else {
+            this->info = function->info;
+        }
     }
-
+    
     virtual ~SqlExpressionFunctionApplier()
     {
     }
 
     FunctionOutput apply(const FunctionContext & context) const
     {
-        return bound(this->context.getRowContext(context));
+        if (function->functionConfig.prepared) {
+            // Use the pre-bound version.   
+            return function->bound(function->innerScope.getRowContext(context));
+        }
+        else {
+            // Use the specialized version. 
+            return bound(this->innerScope.getRowContext(context));
+        }
     }
 
-    FunctionExpressionContext context;
+    const SqlExpressionFunction * function;
+    FunctionExpressionContext innerScope;
     BoundSqlExpression bound;
 };
 
@@ -303,9 +417,7 @@ bind(SqlBindingScope & outerContext,
      const FunctionValues & input) const
 {
     std::unique_ptr<SqlExpressionFunctionApplier> result
-        (new SqlExpressionFunctionApplier(outerContext, this,
-                                          functionConfig.expression,
-                                          input));
+        (new SqlExpressionFunctionApplier(outerContext, this, input));
 
     // Check that these input values can provide everything needed for the result
     input.checkCompatibleAsInputTo(result->info.input);
@@ -319,21 +431,23 @@ apply(const FunctionApplier & applier,
       const FunctionContext & context) const
 {
     return static_cast<const SqlExpressionFunctionApplier &>(applier)
-        .apply(context);
+           .apply(context);
 }
 
 FunctionInfo
 SqlExpressionFunction::
 getFunctionInfo() const
 {
+    if (functionConfig.prepared) {
+        return this->info;
+    }
+
     FunctionInfo result;
 
-    // 0.  We want the pure function information, so we assume there is
-    //     no context for it apart from MLDB itself.
-    SqlExpressionMldbContext outerContext(MldbEntity::getOwner(this->server));
-
     // 1.  Create a binding context to see what this function takes
-    FunctionExpressionContext context(outerContext);
+    //     We want the pure function information, so we assume there is
+    //     no context for it apart from MLDB itself.
+    FunctionExpressionContext context(MldbEntity::getOwner(this->server));
 
     // 2.  Bind the expression in.  That will tell us what it is expecting
     //     as an input.
@@ -362,14 +476,7 @@ regSqlExpressionFunction(builtinPackage(),
 
 TransformDatasetConfig::
 TransformDatasetConfig()
-    : select(SelectExpression::STAR),
-      when(WhenExpression::TRUE),
-      where(SqlExpression::TRUE),
-      having(SqlExpression::TRUE),
-      offset(0),
-      limit(-1),
-      rowName(SqlExpression::parse("rowName()")),
-      skipEmptyRows(false)
+    : skipEmptyRows(false)
 {
     outputDataset.withType("sparse.mutable");
 }
@@ -380,60 +487,22 @@ DEFINE_STRUCTURE_DESCRIPTION(TransformDatasetConfig);
 TransformDatasetConfigDescription::
 TransformDatasetConfigDescription()
 {
-    addFieldDesc("inputDataset", &TransformDatasetConfig::inputDataset,
-                 "Dataset to be transformed.  This must be an existing dataset.",
-                 makeInputDatasetDescription());
+    addField("inputData", &TransformDatasetConfig::inputData,
+             "A SQL statement to select the rows from a dataset to be transformed.  This supports "
+             "all MLDB's SQL expressions including but not limited to where, when, order by and "
+             "group by clauses.  These expressions can be used to refine the rows to transform.");
     addField("outputDataset", &TransformDatasetConfig::outputDataset,
              "Output dataset configuration.  This may refer either to an "
              "existing dataset, or a fully specified but non-existing dataset "
              "which will be created by the procedure.", PolyConfigT<Dataset>().withType("sparse.mutable"));
-    addField("select", &TransformDatasetConfig::select,
-             "Values to select.  These columns will be written as the output "
-             "of the dataset.",
-             SelectExpression::STAR);
-    addField("when", &TransformDatasetConfig::when,
-             "Boolean expression determining which tuples from the dataset "
-             "to keep based on their timestamps",
-             WhenExpression::TRUE);
-    addField("where", &TransformDatasetConfig::where,
-             "Boolean expression determining which rows from the input "
-             "dataset will be processed.",
-             SqlExpression::TRUE);
-    addField("groupBy", &TransformDatasetConfig::groupBy,
-             "Expression used to group values for aggregation queries.  "
-             "Default is to run a row-by-row query, not an aggregation.");
-    addField("having", &TransformDatasetConfig::having,
-             "Boolean expression used to select which groups will write a "
-             "value to the output for a grouped query.  Default is to "
-             "write all groups",
-             SqlExpression::TRUE);
-    addField("orderBy", &TransformDatasetConfig::orderBy,
-             "Expression dictating how output rows will be ordered.  This is "
-             "only meaningful when offset and/or limit is used, as it "
-             "affects in which order those rows will be seen by the "
-             "windowing code.");
-    addField("offset", &TransformDatasetConfig::offset,
-             "Number of rows of output to skip.  Default is to skip none. "
-             "Note that selecting a subset of data is usally better done "
-             "using the where clause (eg, `where rowHash() % 10 = 0`) as "
-             "it is more efficient and repeatable.");
-    addField("limit", &TransformDatasetConfig::limit,
-             "Number of rows of output to produce.  Default is to produce all. "
-             "This can be used to produce a cut-down dataset, but again it's "
-             "normally better to use where as that doesn't require that "
-             "results be sorted for repeatability.");
-    addField("rowName", &TransformDatasetConfig::rowName,
-             "Expression to set the row name for the output dataset.  Default "
-             "depends on whether it's a grouping query or not: for a grouped "
-             "query, it's the groupBy expression.  For a non-grouped query, "
-             "it's the rowName() of the input dataset.  Beware of a rowName "
-             "expression that gives non-unique row names; this will lead to "
-             "errors in some dataset implementations.",
-             SqlExpression::parse("rowName()"));
     addField("skipEmptyRows", &TransformDatasetConfig::skipEmptyRows,
              "Skip rows from the input dataset where no values are selected",
              false);
     addParent<ProcedureConfig>();
+
+    onPostValidate = validate<TransformDatasetConfig, 
+                              InputQuery, 
+                              MustContainFrom>(&TransformDatasetConfig::inputData, "transform");
 }
 
 TransformDataset::
@@ -453,8 +522,9 @@ run(const ProcedureRunConfig & run,
     // Get the input dataset
     SqlExpressionMldbContext context(server);
 
-    auto boundDataset = procedureConfig.inputDataset->bind(context);
-    std::vector< std::shared_ptr<SqlExpression> > aggregators = procedureConfig.select.findAggregators();
+    auto boundDataset = procedureConfig.inputData.stm->from->bind(context);
+    std::vector< std::shared_ptr<SqlExpression> > aggregators = 
+        procedureConfig.inputData.stm->select.findAggregators();
 
     // Create the output 
     std::shared_ptr<Dataset> output;
@@ -465,7 +535,7 @@ run(const ProcedureRunConfig & run,
     bool skipEmptyRows = procedureConfig.skipEmptyRows;
 
     // Run it
-    if (procedureConfig.groupBy.clauses.empty()) {
+    if (procedureConfig.inputData.stm->groupBy.clauses.empty()) {
 
         // We accumulate multiple rows per thread and insert with recordRows
         // to be more efficient.
@@ -473,9 +543,13 @@ run(const ProcedureRunConfig & run,
 
 
         auto recordRowInOutputDataset
-            = [&] (const MatrixNamedRow & row,
+            = [&] (NamedRowValue & row_,
                    const std::vector<ExpressionValue> & calc)
             {
+                MatrixNamedRow row = row_.flattenDestructive();
+
+                //cerr << "got row " << jsonEncodeStr(row) << endl;
+
                 // Nulls with non-finite timestamp are not recorded; they
                 // come from an expression that matched nothing and can't
                 // be represented (they will be read automatically as nulls).
@@ -485,7 +559,7 @@ run(const ProcedureRunConfig & run,
                     if (std::get<1>(c).empty()
                         && !std::get<2>(c).isADate())
                         continue;
-                    cols.push_back(c);
+                    cols.emplace_back(std::move(c));
                 }
 
                 if (!skipEmptyRows || cols.size() > 0)
@@ -506,19 +580,20 @@ run(const ProcedureRunConfig & run,
         // We only add an implicit order by (which defeats parallelization)
         // if we have a limit or offset parameter.
         bool implicitOrderByRowHash
-            = (procedureConfig.offset != 0 || procedureConfig.limit != -1);
+            = (procedureConfig.inputData.stm->offset != 0 || 
+               procedureConfig.inputData.stm->limit != -1);
 
-        BoundSelectQuery(procedureConfig.select,
+        BoundSelectQuery(procedureConfig.inputData.stm->select,
                          *boundDataset.dataset,
                          boundDataset.asName,
-                         procedureConfig.when,
-                         procedureConfig.where,
-                         procedureConfig.orderBy,
-                         { procedureConfig.rowName },
+                         procedureConfig.inputData.stm->when,
+                         *procedureConfig.inputData.stm->where,
+                         procedureConfig.inputData.stm->orderBy,
+                         { procedureConfig.inputData.stm->rowName },
                          implicitOrderByRowHash)
             .execute(recordRowInOutputDataset,
-                     procedureConfig.offset,
-                     procedureConfig.limit,
+                     procedureConfig.inputData.stm->offset,
+                     procedureConfig.inputData.stm->limit,
                      onProgress);
 
         // Finish off the last bits of each thread
@@ -529,25 +604,26 @@ run(const ProcedureRunConfig & run,
     }
     else {
         auto recordRowInOutputDataset
-            = [&] (const MatrixNamedRow & row)
+            = [&] (NamedRowValue & row_)
             {
+                MatrixNamedRow row = row_.flattenDestructive();
                 output->recordRow(row.rowName, row.columns);
                 return true;
             };
 
-        BoundGroupByQuery(procedureConfig.select,
+        BoundGroupByQuery(procedureConfig.inputData.stm->select,
                           *boundDataset.dataset,
                           boundDataset.asName,
-                          procedureConfig.when,
-                          procedureConfig.where,
-                          procedureConfig.groupBy,
+                          procedureConfig.inputData.stm->when,
+                          *procedureConfig.inputData.stm->where,
+                          procedureConfig.inputData.stm->groupBy,
                           aggregators,
-                          *procedureConfig.having,
-                          *procedureConfig.rowName,
-                          procedureConfig.orderBy)
+                          *procedureConfig.inputData.stm->having,
+                          *procedureConfig.inputData.stm->rowName,
+                          procedureConfig.inputData.stm->orderBy)
             .execute(recordRowInOutputDataset,
-                     procedureConfig.offset,
-                     procedureConfig.limit,
+                     procedureConfig.inputData.stm->offset,
+                     procedureConfig.inputData.stm->limit,
                      onProgress);
     }
     // Save the dataset we created

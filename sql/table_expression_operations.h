@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** table_expression_operations.h                                  -*- C++ -*-
     Jeremy Barnes, 27 July 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Operations on tables (implementations of a table expression).
 */
@@ -13,6 +13,15 @@
 
 namespace Datacratic {
 namespace MLDB {
+
+enum JoinQualification {
+    JOIN_INNER,
+    JOIN_LEFT,
+    JOIN_RIGHT,
+    JOIN_FULL
+};
+
+DECLARE_ENUM_DESCRIPTION(JoinQualification);
 
 /*****************************************************************************/
 /* NAMED DATASET EXPRESSION                                                  */
@@ -70,7 +79,8 @@ struct DatasetExpression: public NamedDatasetExpression {
 struct JoinExpression: public TableExpression {
     JoinExpression(std::shared_ptr<TableExpression> left,
                    std::shared_ptr<TableExpression> right,
-                   std::shared_ptr<SqlExpression> on);
+                   std::shared_ptr<SqlExpression> on,
+                   JoinQualification qualification);
 
     virtual ~JoinExpression();
 
@@ -90,6 +100,7 @@ struct JoinExpression: public TableExpression {
     std::shared_ptr<TableExpression> left;
     std::shared_ptr<TableExpression> right;
     std::shared_ptr<SqlExpression> on;
+    JoinQualification qualification;
 };
 
 /*****************************************************************************/
@@ -155,7 +166,9 @@ struct SelectSubtableExpression: public NamedDatasetExpression {
 
 struct DatasetFunctionExpression: public NamedDatasetExpression {
 
-    DatasetFunctionExpression(Utf8String functionName, std::vector<std::shared_ptr<TableExpression>>& args);
+    DatasetFunctionExpression(Utf8String functionName,
+                              std::vector<std::shared_ptr<TableExpression>>& args,
+                              std::shared_ptr<SqlExpression> options);
 
     virtual ~DatasetFunctionExpression();
 
@@ -173,9 +186,50 @@ struct DatasetFunctionExpression: public NamedDatasetExpression {
     virtual UnboundEntities getUnbound() const;
 
     Utf8String functionName;
-    std::vector<std::shared_ptr<TableExpression>> args;
+    std::vector<std::shared_ptr<TableExpression> > args;
+    std::shared_ptr<SqlExpression> options;
 };
 
+/*****************************************************************************/
+/* ROW TABLE                                                                 */
+/*****************************************************************************/
+
+/** Used when we want to treat a row expression as a table:
+
+    select * from row table ({x: 1})
+
+    will return a table
+
+    rowName value
+          x     1
+*/
+
+struct RowTableExpression: public TableExpression {
+    RowTableExpression(std::shared_ptr<SqlExpression> expr,
+                       Utf8String asName);
+
+    virtual ~RowTableExpression();
+
+    virtual BoundTableExpression
+    bind(SqlBindingScope & context) const;
+    
+    virtual Utf8String print() const;
+
+    virtual void printJson(JsonPrintingContext & context);
+
+    virtual std::string getType() const;
+
+    virtual Utf8String getOperation() const;
+
+    virtual std::set<Utf8String> getTableNames() const;
+
+    virtual UnboundEntities getUnbound() const;
+
+    virtual Utf8String getAs() const { return asName; }
+
+    std::shared_ptr<SqlExpression> expr;
+    Utf8String asName;
+};
 
 } // namespace MLDB
 } // namespace Datacratic

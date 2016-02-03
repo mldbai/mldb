@@ -31,7 +31,7 @@ MetricSpaceDescription()
              "This is a good choice for geometric embeddings like the t-SNE "
              "algorithm.");
     addValue("cosine", METRIC_COSINE, "Use cosine distance for metric.  This is "
-             "a good choice for normalized and high-dimensional embeddings like the SVD)");
+             "a good choice for normalized and high-dimensional embeddings like the SVD.");
 }
 
 

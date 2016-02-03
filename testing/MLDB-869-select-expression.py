@@ -1,6 +1,12 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+#
+# MLDB-869-select-expression.py
+# datacratic, 2015
+# this file is part of mldb. copyright 2015 datacratic. all rights reserved.
+#
 
-import json
+if False:
+    mldb_wrapper = None
+mldb = mldb_wrapper.wrap(mldb) # noqa
 
 ds1 = mldb.create_dataset({
     'type': 'sparse.mutable',
@@ -11,25 +17,23 @@ for i in xrange(10):
                    [['x', i, 0]])
 ds1.commit()
 
-result = mldb.perform('GET', '/v1/query', [['q', 'SELECT 5 golden rings, 3 french hens FROM dataset1']])
-
-mldb.log(result)
-assert result['statusCode'] >= 400
+try:
+    mldb.get('/v1/query',
+             q='SELECT 5 golden rings, 3 french hens FROM dataset1')
+except mldb_wrapper.ResponseException as exc:
+    mldb.log(exc.response)
+else:
+    assert False, 'should not be here'
 
 #MLDB-835
-result = mldb.perform('GET', '/v1/query', [['q', 'SELECT x.* FROM dataset1']])
 
-mldb.log(result)
-assert result['statusCode'] >= 400
-
-result = mldb.perform('GET', '/v1/query', [['q', 'SELECT x.* FROM dataset1 as x']])
-
-mldb.log(result)
-assert result['statusCode'] == 200
+result = mldb.get('/v1/query', q='SELECT x.* FROM dataset1 as x')
+assert result.json()[0]['columns'][0][1] == 9
 
 #MLDB-958 rowhash printing when rowhash bigger than 7FFFFFFFFFFFFFFF
-result = mldb.perform('GET', '/v1/query', [['q', 'SELECT rowHash() FROM dataset1 as x where x = 1']])
+result = mldb.get('/v1/query',
+                  q='SELECT rowHash() FROM dataset1 as x where x = 1')
 mldb.log(result)
-assert json.loads(result['response'])[0]['columns'][0][1] == 17390182720330652622
+assert result.json()[0]['columns'][0][1] == 17390182720330652622
 
 mldb.script.set_return('success')

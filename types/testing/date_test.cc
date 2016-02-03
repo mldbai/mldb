@@ -47,7 +47,27 @@ BOOST_AUTO_TEST_CASE(test_date_parse_iso8601_date_time)
         BOOST_CHECK_EQUAL(date.print(3), expected);
 
         date = Date::parseIso8601DateTime("2013-04-01T09:08:07-04:00");
+        expected = "2013-Apr-01 13:08:07.000";
+        BOOST_CHECK_EQUAL(date.print(3), expected);
+
+        date = Date::parseIso8601DateTime("2013-04-01T09:08:07-04:30");
+        expected = "2013-Apr-01 13:38:07.000";
+        BOOST_CHECK_EQUAL(date.print(3), expected);
+
+        date = Date::parseIso8601DateTime("2013-04-01T09:08:07+04:00");
         expected = "2013-Apr-01 05:08:07.000";
+        BOOST_CHECK_EQUAL(date.print(3), expected);
+
+        date = Date::parseIso8601DateTime("2013-04-01T12:08:07-12:00");
+        expected = "2013-Apr-02 00:08:07.000";
+        BOOST_CHECK_EQUAL(date.print(3), expected);
+
+        date = Date::parseIso8601DateTime("2013-04-01T12:08:07+13:00");
+        expected = "2013-Mar-31 23:08:07.000";
+        BOOST_CHECK_EQUAL(date.print(3), expected);
+
+        date = Date::parseIso8601DateTime("2013-04-01T09:08:07+04:30");
+        expected = "2013-Apr-01 04:38:07.000";
         BOOST_CHECK_EQUAL(date.print(3), expected);
 
         date = Date::parseIso8601DateTime("20130401T090807");
@@ -59,7 +79,19 @@ BOOST_AUTO_TEST_CASE(test_date_parse_iso8601_date_time)
         BOOST_CHECK_EQUAL(date.print(3), expected);
 
         date = Date::parseIso8601DateTime("20130401T090807-0400");
+        expected = "2013-Apr-01 13:08:07.000";
+        BOOST_CHECK_EQUAL(date.print(3), expected);
+
+        date = Date::parseIso8601DateTime("20130401T090807-0430");
+        expected = "2013-Apr-01 13:38:07.000";
+        BOOST_CHECK_EQUAL(date.print(3), expected);
+
+        date = Date::parseIso8601DateTime("20130401T090807+0400");
         expected = "2013-Apr-01 05:08:07.000";
+        BOOST_CHECK_EQUAL(date.print(3), expected);
+
+        date = Date::parseIso8601DateTime("20130401T090807+0430");
+        expected = "2013-Apr-01 04:38:07.000";
         BOOST_CHECK_EQUAL(date.print(3), expected);
     }
 
@@ -598,4 +630,3 @@ BOOST_AUTO_TEST_CASE( test_cast_to_int_same_as_quantize_to_second )
 
     }
 }
-

@@ -48,9 +48,8 @@ function runTest(testNumber, buckets, goldStandard) {
     res = mldb.put(url, {
         type: 'bucketize',
         params: {
-            inputDataset: "rNamedScores",
+            inputData: "select 1 from rNamedScores order by score DESC",
             outputDataset: {id : datasetName, type: "sparse.mutable"},
-            orderBy: "score DESC",
             percentileBuckets: buckets
         }
     });
@@ -63,6 +62,8 @@ function runTest(testNumber, buckets, goldStandard) {
     assertEqual(res['responseCode'], 200);
     checkResults(res, goldStandard);
 
+    res = mldb.get("/v1/query", {q: "SELECT *, when({*}) FROM " + datasetName,
+                                 format: "full"});
 }
 
 // Create base dataset --------------------------------------------------------
@@ -100,9 +101,8 @@ runTest(1, {b1: [0, 50], b2: [50, 100]}, goldStandard);
 res = mldb.put("/v1/procedures/bucketizeMyScoreInvalid", {
     type: 'bucketize',
     params: {
-        inputDataset: "rNamedScores",
+        inputData: "select * from rNamedScores order by score DESC",
         outputDataset: {id : "bucketedScoresInvalid", type: "sparse.mutable"},
-        orderBy: "score DESC",
         percentileBuckets: {b1: [0, 80], b2: [50, 100]}
     }
 });
@@ -148,9 +148,8 @@ runTest(5, {b1: [0, 25], b3: [75, 100]}, goldStandard);
 res = mldb.put("/v1/procedures/bucketizeMyScoreInvalid", {
     type: 'bucketize',
     params: {
-        inputDataset: "rNamedScores",
+        inputData: "select * from rNamedScores order by score DESC",
         outputDataset: {id : "bucketedScoresInvalid", type: "sparse.mutable"},
-        orderBy: "score DESC",
         percentileBuckets: {b1: [-0.2, 50], b2: [50, 1]}
     }
 });
@@ -161,9 +160,8 @@ assertEqual(res['responseCode'], 400);
 res = mldb.put("/v1/procedures/bucketizeMyScoreInvalid", {
     type: 'bucketize',
     params: {
-        inputDataset: "rNamedScores",
+        inputData: "select * from rNamedScores order by score DESC",
         outputDataset: {id : "bucketedScoresInvalid", type: "sparse.mutable"},
-        orderBy: "score DESC",
         percentileBuckets: {b1: [0, 50], b2: [50, 100.1]}
     }
 });
@@ -174,9 +172,8 @@ assertEqual(res['responseCode'], 400);
 res = mldb.put("/v1/procedures/bucketizeMyScoreInvalid", {
     type: 'bucketize',
     params: {
-        inputDataset: "rNamedScores",
+        inputData: "select * from rNamedScores order by score DESC",
         outputDataset: {id : "bucketedScoresInvalid", type: "sparse.mutable"},
-        orderBy: "score DESC",
         percentileBuckets: {b1: [50, 0], b2: [50, 100]}
     }
 });
@@ -195,9 +192,8 @@ assertEqual(res['responseCode'], 200);
 res = mldb.put("/v1/procedures/bucketizeEmptyDataset", {
     type: 'bucketize',
     params: {
-        inputDataset: "emptyDataset",
+        inputData: "select * from emptyDataset order by score DESC",
         outputDataset: {id : "bucketedEmptyDataset", type: "sparse.mutable"},
-        orderBy: "score DESC",
         percentileBuckets: {b1: [0, 50], b2: [50, 100]}
     }
 });

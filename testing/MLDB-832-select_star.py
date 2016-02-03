@@ -1,16 +1,18 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+#
+# MLDB-832-select_star.py
+# datacratic, 2015
+# this file is part of mldb. copyright 2015 datacratic. all rights reserved.
+#
+
+mldb = mldb_wrapper.wrap(mldb) # noqa
 
 """
 This test checks that different select statements return the right columns
 """
-import json, random
 
 def check_res(res, value):
-    output = json.loads(res['response'])
-    if res['statusCode'] != value:
-        mldb.log(output)
-        assert False
-    return output
+    assert res.status_code == value, res.text
+    return res.json()
 
 ds1 = mldb.create_dataset({
     'type': 'sparse.mutable',
@@ -32,11 +34,7 @@ def run_query(select, expected):
             expected = 'a b c'
     """
     expected = expected.split()
-    res = mldb.perform(
-        'GET', '/v1/query',
-        [['q', 'SELECT {} FROM {}'.format(select, 'd1')],
-        ['format','table']], {})
-    out = check_res(res, 200)
+    out = mldb.query('SELECT {} FROM {}'.format(select, 'd1'))
     cols = sorted(out[0][1:])
     if cols != expected:
         mldb.log('{} != {}'.format(cols, expected))
@@ -47,6 +45,15 @@ def run_query(select, expected):
 
 # simple queries like in the doc
 run_query('*',
+          'a b c x1 x2 x3')
+run_query('{*} as *',
+          'a b c x1 x2 x3')
+run_query('{*\n} as *',
+          'a b c x1 x2 x3')
+run_query('{{*} as *} as *',
+          'a b c x1 x2 x3')
+# following test case shows the bug from MLDB-1205
+run_query('{{*} as *\n} as *',
           'a b c x1 x2 x3')
 run_query('a,b,c,x1',
           'a b c x1')
@@ -81,7 +88,7 @@ conf = {'type': 'sql.expression',
     'params': {
         'expression': '{x*} as z'
     }}
-res = mldb.perform('PUT', '/v1/functions/xs_as_z', [], conf)
+res = mldb.put('/v1/functions/xs_as_z', conf)
 check_res(res, 201)
 
 run_query('a,b,c, xs_as_z({x*}) as *',
@@ -100,7 +107,7 @@ run_query('xs_as_z({*})[{z.x1, z.x2}] as *',
 run_query('xs_as_z({*}) as *', 'z.x1 z.x2 z.x3')
 
 # here I'm "calling" the function twice in another function
-res = mldb.perform('PUT', '/v1/functions/twice', [], {
+res = mldb.put('/v1/functions/twice', {
     'type' : 'sql.expression',
     'params': {
         'expression': 'xs_as_z({x*})[z] as w,'
@@ -112,7 +119,7 @@ run_query('twice({*}) as *',
           'w.x1 w.x2 w.x3 z.x1 z.x2 z.x3')
 
 # same thing but once
-res = mldb.perform('PUT', '/v1/functions/once', [], {
+res = mldb.put('/v1/functions/once', {
     'type' : 'sql.expression',
     'params': {
         'expression': 'xs_as_z({x*})[z] as w,'
@@ -120,8 +127,5 @@ res = mldb.perform('PUT', '/v1/functions/once', [], {
 check_res(res, 201)
 
 run_query('once({*}) as *', 'w.x1 w.x2 w.x3')
-
-
-
 
 mldb.script.set_return('success')

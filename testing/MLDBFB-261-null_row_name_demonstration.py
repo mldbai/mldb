@@ -12,7 +12,7 @@ if False:
     mldb = None
 
 res = mldb.perform('PUT', '/v1/datasets/testDs', [], {
-    'type' : 'beh.mutable'
+    'type' : 'sparse.mutable'
 })
 assert res['statusCode'] == 201, res
 

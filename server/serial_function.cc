@@ -30,8 +30,8 @@ namespace MLDB {
 
 SerialFunctionStepConfig::
 SerialFunctionStepConfig()
-    : with(SelectExpression::STAR),
-      extract(SelectExpression::STAR)
+    : with(SelectExpression::parse("*")),
+      extract(SelectExpression::parse("*"))
 {
 }
 
@@ -50,14 +50,14 @@ SerialFunctionStepConfigDescription()
              "place.  The default will extract all values from all previous "
              "functions and input values and make them available to values with the "
              "same name.",
-             SelectExpression::STAR);
+             SelectExpression::parse("*"));
     addField("extract", &SerialFunctionStepConfig::extract,
              "SQL select expression that extracts values from the output values "
              "of the function and adds them to the final output of the function.  "
              "This allows for the output of values to be renamed, modified or "
              "ignored.  The default will extract all output values of the function "
              "and add them with the same name to the Serial function's result.",
-             SelectExpression::STAR);
+             SelectExpression::parse("*"));
 }
 
 
@@ -86,10 +86,10 @@ struct FunctionStepApplier::Itl {
         const Function & function,
         const SelectExpression & with,
         const SelectExpression & extract)
-        : withBindingContext(outerContext, input),
+        : withBindingContext(outerContext.getMldbServer(), input, outerContext.functionStackDepth),
           boundWith(with.bind(withBindingContext)),
           applier(function.bind(withBindingContext, *boundWith.info)),
-          extractBindingContext(outerContext, applier->info.output),
+          extractBindingContext(outerContext.getMldbServer(), applier->info.output, outerContext.functionStackDepth),
           boundExtract(extract.bind(extractBindingContext)),
           outputValues(*boundExtract.info)
     {

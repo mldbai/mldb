@@ -10,6 +10,7 @@
 #pragma once
 
 #include "mldb/sql/sql_expression.h"
+#include "mldb/sql/table_expression_operations.h"
 #include "mldb/core/dataset.h"
 #include "mldb/types/value_description.h"
 
@@ -25,6 +26,7 @@ struct JoinedDatasetConfig {
     std::shared_ptr<TableExpression> left;
     std::shared_ptr<TableExpression> right;
     std::shared_ptr<SqlExpression> on;
+    JoinQualification qualification;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(JoinedDatasetConfig);
@@ -50,8 +52,13 @@ struct JoinedDataset: public Dataset {
     
     virtual std::shared_ptr<MatrixView> getMatrixView() const;
     virtual std::shared_ptr<ColumnIndex> getColumnIndex() const;
+    virtual std::shared_ptr<RowStream> getRowStream() const;
 
     virtual void getChildAliases(std::vector<Utf8String>&) const;
+
+    virtual BoundFunction overrideFunction(const Utf8String & tableName, const Utf8String & functionName, SqlBindingScope & context) const;
+
+    virtual RowName getOriginalRowName(const Utf8String& tableName, const RowName & name) const;
 
 private:
     JoinedDatasetConfig datasetConfig;

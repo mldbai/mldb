@@ -1,15 +1,17 @@
+#
+# MLDB-991_permuter_procedure.py
+# Datacratic, 2015
 # This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+#
+import random, datetime
 
-
-import json, random, datetime
-
+mldb = mldb_wrapper.wrap(mldb) # noqa
 
 ## Create toy dataset
 dataset_config = {
     'type'    : 'sparse.mutable',
     'id'      : 'toy'
 }
-
 
 dataset = mldb.create_dataset(dataset_config)
 now = datetime.datetime.now()
@@ -21,8 +23,6 @@ for i in xrange(5000):
                                    ["label", label, now]])
 
 dataset.commit()
-
-
 
 procedure_conf = {
     "type": "classifier.experiment",
@@ -81,23 +81,19 @@ permutor_conf = {
 }
 
 
-rez = mldb.perform("PUT", "/v1/procedures/rocket_science", [], permutor_conf)
+rez = mldb.put("/v1/procedures/rocket_science", permutor_conf)
 mldb.log(rez)
 
-rez = mldb.perform("POST", "/v1/procedures/rocket_science/runs")
-#mldb.log(rez)
-assert rez["statusCode"] == 201
+rez = mldb.post("/v1/procedures/rocket_science/runs")
 
-jsRez = json.loads(rez["response"])
-#mldb.log(jsRez)
+js_rez = rez.json()
 
 
 # did we run all the permutations and get a good auc ?
-assert len(jsRez["status"]) == 2 * 4
+assert len(js_rez["status"]) == 2 * 4
 
-for permutation in jsRez["status"]:
+for permutation in js_rez["status"]:
     assert len(permutation["results"]["folds"]) == 2
     assert permutation["results"]["aggregated"]["auc"]["mean"] > 0.9
 
 mldb.script.set_return("success")
-

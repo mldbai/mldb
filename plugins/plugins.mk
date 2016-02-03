@@ -39,6 +39,10 @@ LIBMLDB_BUILTIN_PLUGIN_SOURCES:= \
 	em.cc \
 	pooling_function.cc \
 	xlsx_importer.cc \
+	json_importer.cc \
+	melt_procedure.cc \
+	ranking_procedure.cc \
+	fetcher.cc \
 
 
 # Needed so that Python plugin can find its header

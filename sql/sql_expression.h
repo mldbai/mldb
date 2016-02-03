@@ -1,8 +1,10 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 /** sql_expression.h                                               -*- C++ -*-
     Jeremy Barnes, 24 January 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
 
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+
+    Base SQL expression support.
 */
 
 #pragma once
@@ -16,7 +18,8 @@
 #include <set>
 
 // NOTE TO MLDB DEVELOPERS: This is an API header file.  No includes
-// should be added, especially value_description.h.
+// should be added, especially value_description.h.  Only
+// value_expression_fwd.h is OK.
 
 
 namespace ML {
@@ -79,7 +82,7 @@ struct BasicRowGenerator;
 struct WhenExpression;
 struct SqlExpressionDatasetContext;
 struct TableOperations;
-
+struct RowStream;
 
 extern const OrderByExpression ORDER_BY_NOTHING;
 
@@ -90,7 +93,6 @@ enum OrderByDirection {
 };
 
 DECLARE_ENUM_DESCRIPTION(OrderByDirection);
-
 
 /*****************************************************************************/
 /* BOUND PARAMETERS                                                          */
@@ -173,8 +175,8 @@ struct BoundSqlExpression {
     /// Metadata for the expression
     BoundExpressionMetadata metadata;
 
-    /** Attempt to extract the value of this expression as a constant.  Only really
-        makes sense when metadata.isConstant is true.
+    /** Attempt to extract the value of this expression as a constant.  Only
+        really makes sense when metadata.isConstant is true.
     */
     ExpressionValue constantValue() const;
 
@@ -214,7 +216,8 @@ struct TableOperations {
 
     /// Get a function bound to the given dataset
     std::function<BoundFunction (SqlBindingScope & context,
-                                 const Utf8String &,
+                                 const Utf8String & tableName,
+                                 const Utf8String & functionName,
                                  const std::vector<std::shared_ptr<ExpressionValueInfo> > & args)>
     getFunction;
 
@@ -424,38 +427,6 @@ struct RegisterAggregator {
     std::shared_ptr<void> handle;
 };
 
-
-/*****************************************************************************/
-/* BOUND DATASET FUNCTION                                                    */
-/*****************************************************************************/
-
-/** Result of binding a function to be used in a FROM expression.
-  This provides an executor as well as information on the range of the function.
-*/
-
-/*struct BoundDatasetFunction {
-    typedef std::function<BoundTableExpression (const std::vector<BoundTableExpression> &,
-                          const SqlRowScope & context) > Exec;
-
-    BoundDatasetFunction()
-    {
-    }
-
-    BoundDatasetFunction(Exec exec)
-        : exec(std::move(exec))
-    {
-    }
-
-    operator bool () const { return !!exec; }
-
-    Exec exec;
-
-    TableOperations operator () () const
-    {
-        return exec();
-    }
-};*/
-
 /*****************************************************************************/
 /* EXTERNAL FUNCTION                                                         */
 /*****************************************************************************/
@@ -463,7 +434,9 @@ struct RegisterAggregator {
 /** Type of an external dataset function factory.  This should return the bound
     version of the function.
 */
-typedef std::function<BoundTableExpression(const Utf8String & str, const std::vector<BoundTableExpression> & args,
+typedef std::function<BoundTableExpression(const Utf8String & str,
+                                    const std::vector<BoundTableExpression> & args,
+                                    const ExpressionValue & options,
                                     const SqlBindingScope & context,
                                     const Utf8String& alias)>
     ExternalDatasetFunction;
@@ -517,6 +490,7 @@ struct SqlBindingScope {
 
     virtual BoundTableExpression doGetDatasetFunction(const Utf8String & functionName,
                                                       const std::vector<BoundTableExpression> & args,
+                                                      const ExpressionValue & options,
                                                       const Utf8String & alias);
 
     virtual BoundAggregator doGetAggregator(const Utf8String & functionName,
@@ -565,10 +539,18 @@ struct SqlBindingScope {
     virtual TableOperations
     doGetTable(const Utf8String & tableName);
 
+    /* Used to resolve the table name from a full identifier */
+    /* Will return value is the identifier without the table name */
+    /* Output value is the table name resolved */
+    virtual Utf8String 
+    doResolveTableName(const Utf8String & fullVariableName, Utf8String &tableName) const;
+
     /** Return the MLDB server behind this context.  Default returns a null
         pointer which means we're running outside of MLDB.
     */
     virtual MldbServer * getMldbServer() const;
+
+    size_t functionStackDepth;
 };
 
 
@@ -849,7 +831,18 @@ struct SqlExpression: public std::enable_shared_from_this<SqlExpression> {
     virtual bool isConstant() const;
 
     /** For expressions that are constant, return the result of the expression.
-        Default will throw.
+        This will be done by evaluation within a context that only has
+        builtin functions available.  If there is something that depends
+        upon something outside the context, it will be false.
+
+        Note that the isConstant() function returning true guarantees that
+        this call will succeed, but if isConstant() returns false it is
+        possible that the call succeeds anyway, due to SQL mandating lazy
+        evaluation.  Similarly for getUnbound().
+
+        Expression types that know how to rapidly evaluate a constant
+        can override to make this more efficient, eg to do so without
+        binding.
     */
     virtual ExpressionValue constantValue() const;
 
@@ -1187,6 +1180,9 @@ struct TupleExpression {  // TODO: should be a row expression
         expression so that the order by expression stands on its own.
     */
     TupleExpression substitute(const SelectExpression & select) const;
+
+    /** Are all clauses constant? */
+    bool isConstant() const;
 };
 
 PREDECLARE_VALUE_DESCRIPTION(TupleExpression);
@@ -1227,6 +1223,9 @@ struct GenerateRowsWhereFunction {
 
     Exec exec;
 
+    std::shared_ptr<RowStream> rowStream;
+    int      upperBound;
+
     operator bool () const { return !!exec; };
 
     /// Explain the type of algorithm used
@@ -1249,6 +1248,7 @@ struct BasicRowGenerator {
 
     typedef std::function<std::vector<NamedRowValue>
                           (ssize_t numToGenerate,
+                           SqlRowScope & rowScope,
                            const BoundParameters & params)> Exec;
 
     BasicRowGenerator(Exec exec = nullptr, const std::string & explain = "")
@@ -1259,9 +1259,10 @@ struct BasicRowGenerator {
 
     std::vector<NamedRowValue>
     operator () (ssize_t numToGenerate,
+                 SqlRowScope & rowScope,
                  const BoundParameters & params = BoundParameters()) const
     {
-        return exec(numToGenerate, params);
+        return exec(numToGenerate, rowScope, params);
     }
 
     Exec exec;
@@ -1448,6 +1449,8 @@ struct SelectStatement
     static SelectStatement parse(const char * body);
     static SelectStatement parse(const Utf8String& body);
     static SelectStatement parse(ML::Parse_Context& context, bool allowUtf8);
+
+    Utf8String print() const;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(SelectStatement);

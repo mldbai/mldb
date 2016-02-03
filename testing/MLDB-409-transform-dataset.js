@@ -57,11 +57,13 @@ function createAndRunProcedure(config, name)
 var transform_config = {
     type: 'transform',
     params: {
-        inputDataset: { id: 'test' },
-        outputDataset: { id: 'transformed', type: 'sparse.mutable' },
-        select: 'x, y, x * 10 AS z, y + 6 AS q',
-        rowName: "rowName() + '_transformed'",
-        limit: 3
+        inputData: {
+            select: "x, y, x * 10 AS z, y + 6 AS q",
+            from: 'test',
+            named: "rowName() + '_transformed'",
+            limit: 3
+        },
+        outputDataset: { id: 'transformed', type: 'sparse.mutable' }
     }
 };
 
@@ -85,11 +87,13 @@ assertEqual(mldb.diff(expected, resp.json, false /* strict */), {},
 var transform_config2 = {
     type: 'transform',
     params: {
-        inputDataset: { id: 'test' },
-        outputDataset: { id: 'transformed2', type: 'sparse.mutable' },
-        select: 'x, y, x * 10 AS z, y + 6 AS q',
-        rowName: "rowName() + '_transformed'",
-        orderBy: "rowName()"
+        inputData: { 
+            select: 'x, y, x * 10 AS z, y + 6 AS q',
+            from : 'test',
+            orderBy: "rowName()",
+            named: "rowName() + '_transformed'"
+        },
+        outputDataset: { id: 'transformed2', type: 'sparse.mutable' }
     }
 };
 
@@ -128,12 +132,14 @@ dataset2.commit()
 var transform_config3 = {
     type: 'transform',
     params: {
-        inputDataset: { id: 'test2' },
+        inputData: { 
+            select: 'x',
+            from: 'test2',
+            orderBy: "rowName()",
+            named: "rowName() + '_transformed'"
+        },
         outputDataset: { id: 'transformed3', type: 'sparse.mutable' },
-        select: 'x',
-        rowName: "rowName() + '_transformed'",
-        orderBy: "rowName()",
-        skipEmptyRows: true,
+        skipEmptyRows: true
     }
 };
 

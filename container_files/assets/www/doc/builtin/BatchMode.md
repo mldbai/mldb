@@ -7,7 +7,7 @@ docker run \
   --rm=true \
   -v </absolute/path/to/mldb_data>:/mldb_data \
   -e MLDB_IDS="`id`" \
-  quay.io/datacratic/mldb:latest /usr/bin/mldb_runner \
+  quay.io/datacratic/mldb:latest /opt/bin/mldb_runner \
   --plugin-directory /opt/mldb/plugins \
   --run-script /mldb_data/<script>
 ```
@@ -24,10 +24,10 @@ docker run \
   -v </absolute/path/to/mldb_data>:/mldb_data \
   -e MLDB_IDS="`id`" \
   -p 127.0.0.1:<mldbport>:80 \
-  quay.io/datacratic/mldb:latest /usr/bin/mldb_runner \
+  quay.io/datacratic/mldb:latest /opt/bin/mldb_runner \
   --http-listen-port 80 \
   --plugin-directory /opt/mldb/plugins \
-  --dont-exit-after-script \
+  --dont-exit-after-script yes \
   --run-script /mldb_data/<script>
 ```
 
@@ -85,3 +85,7 @@ recursively and found plugins loaded.
 Note that at a minimum, you will likely want to load up plugins from
 `/opt/mldb/plugins` as in the above examples.
 
+# Muting last log on error
+
+When MLDB ends with an error condition, by default it logs data about the run.
+It can be disabled by using the `--mute-final-output` flag.

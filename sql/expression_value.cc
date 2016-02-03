@@ -584,6 +584,83 @@ ExpressionValue(const Json::Value & val, Date timestamp)
     initRow(std::move(row));
 }
 
+static const auto cellValueDesc = getDefaultDescriptionShared((CellValue *)0);
+
+CellValue expectAtom(JsonParsingContext & context)
+{
+    CellValue val;
+    cellValueDesc->parseJson(&val, context);
+    return val;
+}
+
+ExpressionValue
+ExpressionValue::
+parseJson(JsonParsingContext & context,
+          Date timestamp,
+          JsonArrayHandling arrays)
+{
+    if (context.isObject()) {
+
+        std::vector<std::tuple<ColumnName, ExpressionValue> > out;
+
+        auto onObjectField = [&] ()
+            {
+                out.emplace_back
+                (ColumnName(context.fieldNamePtr()),
+                 parseJson(context, timestamp, arrays));
+            };
+        context.forEachMember(onObjectField);
+
+        return std::move(out);
+    }
+    else if (context.isArray()) {
+        std::vector<std::tuple<ColumnName, ExpressionValue> > out;
+
+        bool hasNonAtom = false;
+        bool hasNonObject = false;
+
+        auto onArrayElement = [&] ()
+            {
+                if (!context.isObject())
+                    hasNonObject = true;
+                out.emplace_back(ColumnName(context.fieldNumber()),
+                                 parseJson(context, timestamp, arrays));
+                
+                if (!std::get<1>(out.back()).isAtom())
+                    hasNonAtom = true;
+            };
+        
+        context.forEachElement(onArrayElement);
+
+        if (arrays == ENCODE_ARRAYS && !hasNonAtom) {
+            // One-hot encode them
+            for (auto & v: out) {
+                ColumnName & columnName = std::get<0>(v);
+                ExpressionValue & columnValue = std::get<1>(v);
+                
+                columnName = ColumnName(columnValue.toUtf8String());
+                columnValue = ExpressionValue(1, timestamp);
+            }
+        }
+        else if (arrays == ENCODE_ARRAYS && !hasNonObject) {
+            // JSON encode them
+            for (auto & v: out) {
+                ExpressionValue & columnValue = std::get<1>(v);
+                std::string str;
+                StringJsonPrintingContext context(str);
+                columnValue.extractJson(context);
+                columnValue = ExpressionValue(str, timestamp);
+            }
+        }
+
+        return std::move(out);
+    }
+    else {
+        // It's an atomic cell value; parse the atom
+        return ExpressionValue(expectAtom(context), timestamp);
+    }
+}
+
 ExpressionValue::
 ExpressionValue(RowValue row) noexcept
 : type_(NONE)
@@ -1005,6 +1082,22 @@ getMaxTimestamp() const
     return result;
 }
 
+bool 
+ExpressionValue::
+isEarlier(const Date& compareTimeStamp, const ExpressionValue& compareValue) const
+{
+    Date ts = getEffectiveTimestamp();
+    return (ts < compareTimeStamp) || (ts == compareTimeStamp && *this < compareValue);
+}
+
+bool 
+ExpressionValue::
+isLater(const Date& compareTimeStamp, const ExpressionValue& compareValue) const
+{
+    Date ts = getEffectiveTimestamp();
+    return (ts > compareTimeStamp) || (ts == compareTimeStamp && *this < compareValue);
+}
+
 ExpressionValue
 ExpressionValue::
 getField(const Utf8String & fieldName, const VariableFilter & filter) const
@@ -1040,8 +1133,20 @@ getField(const Utf8String & fieldName, const VariableFilter & filter) const
     return ExpressionValue();
 }
 
-const ExpressionValue* ExpressionValue::findNestedField(const Utf8String & fieldName,
-                                       const VariableFilter & filter /*= GET_LATEST*/) const
+ExpressionValue
+ExpressionValue::
+getField(int fieldIndex) const
+{
+    if (type_ == STRUCT) {
+        return ExpressionValue(struct_->value(fieldIndex), ts_);
+    }
+
+    return ExpressionValue();
+}
+
+const ExpressionValue*
+ExpressionValue::
+findNestedField(const Utf8String & fieldName, const VariableFilter & filter /*= GET_LATEST*/) const
 {
     if (type_ == ROW) {
 
@@ -1255,8 +1360,60 @@ appendToRow(const Id & columnName, StructValue & row) const
 
 void
 ExpressionValue::
+appendToRowDestructive(ColumnName & columnName, RowValue & row)
+{
+    if (type_ == NONE) {
+        row.emplace_back(std::move(columnName), CellValue(), ts_);
+    }
+    else if (type_ == ATOM) {
+        row.emplace_back(std::move(columnName), stealAtom(), ts_);
+    }
+    else {
+        if (row.capacity() == 0)
+            row.reserve(rowLength());
+        else if (row.capacity() < row.size() + rowLength())
+            row.reserve(row.capacity() * 2);
+
+        auto onSubexpr = [&] (ColumnName & innerColumnName,
+                              ExpressionValue & val)
+            {
+                ColumnName newColumnName;
+                if (columnName.empty())
+                    newColumnName = std::move(innerColumnName);
+                else if (innerColumnName.empty())
+                    newColumnName = columnName;
+                else newColumnName = ColumnName(columnName.toUtf8String()
+                                                + "."
+                                                + innerColumnName.toUtf8String());
+                val.appendToRowDestructive(newColumnName, row);
+                return true;
+            };
+
+        forEachColumnDestructiveT(onSubexpr);
+    }
+}
+
+
+size_t
+ExpressionValue::
+rowLength() const
+{
+    if (type_ == ROW) {
+        return row_->size();
+    }
+    else if (type_ == STRUCT) {
+        return struct_->length();
+    }
+    else throw HttpReturnException(500, "Attempt to access non-row as row",
+                                   "value", *this);
+}
+
+void
+ExpressionValue::
 mergeToRowDestructive(StructValue & row)
 {
+    row.reserve(row.size() + rowLength());
+
     auto onSubexpr = [&] (ColumnName & columnName,
                           ExpressionValue & val)
         {
@@ -1264,13 +1421,15 @@ mergeToRowDestructive(StructValue & row)
             return true;
         };
 
-    forEachColumnDestructive(onSubexpr);
+    forEachColumnDestructiveT(onSubexpr);
 }
 
 void 
 ExpressionValue::
 mergeToRowDestructive(RowValue & row)
 {
+    row.reserve(row.size() + rowLength());
+
     auto onSubexpr = [&] (ColumnName & columnName,
                           ExpressionValue & val)
         {
@@ -1278,7 +1437,7 @@ mergeToRowDestructive(RowValue & row)
             return true;
         };
 
-    forEachColumnDestructive(onSubexpr);
+    forEachColumnDestructiveT(onSubexpr);
 }
 
 bool
@@ -1305,7 +1464,7 @@ forEachAtom(const std::function<bool (const Id & columnName,
             }
             else {
                 std::string newPrefix
-                    = !prefix.notNull() ? std::get<0>(col).toString() + "."
+                    = !prefix.notNull() ? std::get<0>(col).toString()
                     : prefix.toString() + "." + std::get<0>(col).toString();
             
                 if (!val.forEachAtom(onAtom, Id(newPrefix)))
@@ -1377,6 +1536,14 @@ ExpressionValue::
 forEachColumnDestructive(const std::function<bool (Id & columnName, ExpressionValue & val)>
                                 & onSubexpression) const
 {
+    return forEachColumnDestructiveT(onSubexpression);
+}
+
+template<typename Fn>
+bool
+ExpressionValue::
+forEachColumnDestructiveT(Fn && onSubexpression) const
+{
     switch (type_) {
     case ROW: {
         if (row_.unique()) {
@@ -1436,6 +1603,129 @@ forEachColumnDestructive(const std::function<bool (Id & columnName, ExpressionVa
                                   "expression", *this,
                                   "type", (int)type_);
     }
+}
+
+ExpressionValue::Row
+ExpressionValue::
+getFiltered(const VariableFilter & filter /*= GET_LATEST*/) const
+{
+    ExcAssertEqual(type_, ROW);
+
+    std::function<bool(const ExpressionValue&, const ExpressionValue&)> filterFn = [](const ExpressionValue& left, const ExpressionValue& right){return false;};
+
+     switch (filter) {
+        case GET_ANY_ONE:
+            //default is fine
+            break;
+        case GET_EARLIEST:
+            filterFn = [](const ExpressionValue& left, const ExpressionValue& right){
+                return right.isEarlier(left.getEffectiveTimestamp(), left);
+            };
+            break;
+        case GET_LATEST:
+            filterFn = [](const ExpressionValue& left, const ExpressionValue& right){
+               return right.isLater(right.getEffectiveTimestamp(), left);
+            };
+            break;
+        case GET_ALL:
+            throw HttpReturnException(500, "GET_ALL not implemented for datasets");
+        default:
+            throw HttpReturnException(500, "Unknown variable filter");
+     }
+
+    //Remove any duplicated columns according to the filter
+    std::unordered_map<ColumnName, ExpressionValue> values;
+    for (auto & col: *row_) {
+        Id columnName = std::get<0>(col);
+        auto iter = values.find(columnName);
+        if (iter != values.end()) {
+            const ExpressionValue& val = std::get<1>(col);
+            if (filterFn(iter->second, val)) {
+                iter->second = val;
+            }
+        }
+        else {
+            values.insert({columnName, std::get<1>(col)});
+        }
+
+        ExpressionValue val = std::get<1>(col);
+    }
+
+    //re-flatten to row
+    Row output;
+    for (auto & c : values)
+        output.emplace_back(std::move(c.first), std::move(c.second));
+
+    return output;
+
+}
+
+std::pair<bool, Date>
+ExpressionValue::
+hasKey(const Utf8String & key) const
+{
+    switch (type_) {
+    case NONE:
+    case ATOM:
+        return { false, Date::negativeInfinity() };
+    case ROW: 
+    case STRUCT: {
+        Date outputDate = Date::negativeInfinity();
+        auto onExpr = [&] (const Id & columnName,
+                           const Id & prefix,
+                           const ExpressionValue & val)
+            {
+                if (columnName.toUtf8String() == key) {
+                    outputDate = val.getEffectiveTimestamp();
+                    return false;
+                }
+
+                return true;
+            };
+     
+        // Can't be with next line due to sequence points
+        bool result = !forEachSubexpression(onExpr);
+        return { result, outputDate };
+    }
+    }
+
+    throw HttpReturnException(500, "Unknown expression type",
+                              "expression", *this,
+                              "type", (int)type_);
+}
+
+std::pair<bool, Date>
+ExpressionValue::
+hasValue(const ExpressionValue & val) const
+{
+    switch (type_) {
+    case NONE:
+    case ATOM:
+        return { false, Date::negativeInfinity() };
+    case ROW: 
+    case STRUCT: {
+        Date outputDate = Date::negativeInfinity();
+        auto onExpr = [&] (const Id & columnName,
+                           const Id & prefix,
+                           const ExpressionValue & value)
+            {
+                if (val == value) {
+                    outputDate = value.getEffectiveTimestamp();
+                    return false;
+                }
+
+                return true;
+            };
+        
+        // Can't be with next line due to sequence points
+        bool result = !forEachSubexpression(onExpr);
+        return { result, outputDate };
+    }
+    }
+
+    throw HttpReturnException(500, "Unknown expression type",
+                              "expression", *this,
+                              "type", (int)type_);
 }
 
 size_t
@@ -1603,6 +1893,15 @@ coerceToTimestamp() const
     if (type_ != ATOM)
         return CellValue();
     return cell_.coerceToTimestamp();
+}
+
+CellValue
+ExpressionValue::
+coerceToBlob() const
+{
+    if (type_ != ATOM)
+        return CellValue();
+    return cell_.coerceToBlob();
 }
 
 void
@@ -2005,6 +2304,7 @@ template class ExpressionValueInfoT<double>;
 template class ExpressionValueInfoT<CellValue>;
 template class ExpressionValueInfoT<std::string>;
 template class ExpressionValueInfoT<Utf8String>;
+template class ExpressionValueInfoT<std::vector<unsigned char> >;
 template class ExpressionValueInfoT<int64_t>;
 template class ExpressionValueInfoT<uint64_t>;
 template class ExpressionValueInfoT<char>;
@@ -2014,6 +2314,7 @@ template class ScalarExpressionValueInfoT<double>;
 template class ScalarExpressionValueInfoT<CellValue>;
 template class ScalarExpressionValueInfoT<std::string>;
 template class ScalarExpressionValueInfoT<Utf8String>;
+template class ScalarExpressionValueInfoT<std::vector<unsigned char> >;
 template class ScalarExpressionValueInfoT<int64_t>;
 template class ScalarExpressionValueInfoT<uint64_t>;
 template class ScalarExpressionValueInfoT<char>;
@@ -2160,9 +2461,7 @@ doSearchRow(const std::vector<std::tuple<Key, ExpressionValue> > & columns,
             if (std::get<0>(c) == key) {
                 const ExpressionValue & v = std::get<1>(c);
                 Date ts = v.getEffectiveTimestamp();
-                if (index == -1
-                    || ts < foundDate
-                    || (ts == foundDate && v < std::get<1>(columns[index]))) {
+                if (index == -1 || v.isEarlier(ts, std::get<1>(columns[index]))){
                     index = i;
                     foundDate = ts;
                 }
@@ -2180,9 +2479,7 @@ doSearchRow(const std::vector<std::tuple<Key, ExpressionValue> > & columns,
             if (std::get<0>(c) == key) {
                 const ExpressionValue & v = std::get<1>(c);
                 Date ts = v.getEffectiveTimestamp();
-                if (index == -1
-                    || ts > foundDate
-                    || (ts == foundDate && v < std::get<1>(columns[index]))) {
+                if (index == -1 || v.isLater(ts, std::get<1>(columns[index]))){
                     index = i;
                     foundDate = ts;
                 }
@@ -2230,6 +2527,7 @@ NamedRowValueDescription()
     addField("columns", &NamedRowValue::columns, "Columns active for this row");
 }
 
+#if 0
 NamedRowValue::operator MatrixNamedRow() const
 {
     MatrixNamedRow result;
@@ -2244,7 +2542,24 @@ NamedRowValue::operator MatrixNamedRow() const
     
     return result;
 }
+#endif
 
+MatrixNamedRow
+NamedRowValue::flattenDestructive()
+{
+    MatrixNamedRow result;
+
+    result.rowName = std::move(rowName);
+    result.rowHash = std::move(rowHash);
+
+    for (auto & c: columns) {
+        ColumnName & columnName = std::get<0>(c);
+        ExpressionValue & val = std::get<1>(c);
+        val.appendToRowDestructive(columnName, result.columns);
+    }
+    
+    return result;
+}
 
 } // namespace MLDB
 } // namespace Datacratic

@@ -44,7 +44,8 @@ struct FilteredDataset : public Dataset {
 
     // these methods have been overriden by the dataset specialized classes - implement redirect
     virtual KnownColumn getKnownColumnInfo(const ColumnName & columnName) const;
-    virtual BoundFunction overrideFunction(const Utf8String & functionName,
+    virtual BoundFunction overrideFunction(const Utf8String & tableName,
+                                           const Utf8String & functionName,
                                            SqlBindingScope & context) const;
 
     virtual std::shared_ptr<MatrixView> getMatrixView() const;

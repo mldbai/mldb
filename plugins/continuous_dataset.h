@@ -1,9 +1,10 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+/** continuous_dataset.h                                           -*- C++ -*-
+    Jeremy Barnes, 2015
+    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
 
-/** continuous_dataset.h                                               -*- C++ -*-
-    Embedding dataset for MLDB.
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
-    Each row holds a coordinate vector.
+    Dataset that continuously records and expires on a time window.
 */
 
 #pragma once
@@ -65,6 +66,7 @@ struct ContinuousDataset: public Dataset {
 
     virtual std::shared_ptr<MatrixView> getMatrixView() const;
     virtual std::shared_ptr<ColumnIndex> getColumnIndex() const;
+    virtual std::shared_ptr<RowStream> getRowStream() const;
 
     virtual RestRequestMatchResult
     handleRequest(RestConnection & connection,

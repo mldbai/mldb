@@ -207,8 +207,6 @@ runHttpQuery(const Utf8String& query,
              bool rowNames,
              bool rowHashes) const
 {
-    cerr << "running query " << query << endl;
-
     auto stm = SelectStatement::parse(query.rawString());
     SqlExpressionMldbContext mldbContext(this);
 
@@ -217,10 +215,11 @@ runHttpQuery(const Utf8String& query,
     if (table.dataset) {
         auto runQuery = [&] ()
             {
-                return table.dataset->queryStructured(stm.select, stm.when, stm.where,
+                return table.dataset->queryStructured(stm.select, stm.when,
+                                                      *stm.where,
                                                       stm.orderBy, stm.groupBy,
-                                                      stm.having,
-                                                      stm.rowName,
+                                                      *stm.having,
+                                                      *stm.rowName,
                                                       stm.offset, stm.limit, 
                                                       table.asName);
             };
@@ -248,10 +247,11 @@ query(const Utf8String& query) const
     BoundTableExpression table = stm.from->bind(mldbContext);
     
     if (table.dataset) {
-        return table.dataset->queryStructured(stm.select, stm.when, stm.where,
+        return table.dataset->queryStructured(stm.select, stm.when,
+                                              *stm.where,
                                               stm.orderBy, stm.groupBy,
-                                              stm.having,
-                                              stm.rowName,
+                                              *stm.having,
+                                              *stm.rowName,
                                               stm.offset, stm.limit, 
                                               table.asName);
     }
@@ -321,23 +321,25 @@ initCollections(std::string configurationPath,
     procedures->loadConfig();
     functions->loadConfig();
 
-    logRequest = [&] (const HttpRestConnection & conn, const RestRequest & req)
-        {
-            this->recordHit("rest.request.count");
-            this->recordHit("rest.request.verbs.%s", req.verb.c_str());
-        };
+    if (false) {
+        logRequest = [&] (const HttpRestConnection & conn, const RestRequest & req)
+            {
+                this->recordHit("rest.request.count");
+                this->recordHit("rest.request.verbs.%s", req.verb.c_str());
+            };
 
-    logResponse = [&] (const HttpRestConnection & conn,
-                       int code,
-                       const std::string & resp,
-                       const std::string & contentType)
-        {
-            double processingTimeMs
+        logResponse = [&] (const HttpRestConnection & conn,
+                           int code,
+                           const std::string & resp,
+                           const std::string & contentType)
+            {
+                double processingTimeMs
                 = Date::now().secondsSince(conn.startDate) * 1000.0;
-            this->recordOutcome(processingTimeMs,
-                                "rest.response.processingTimeMs");
-            this->recordHit("rest.response.codes.%d", code);
-        };
+                this->recordOutcome(processingTimeMs,
+                                    "rest.response.processingTimeMs");
+                this->recordHit("rest.response.codes.%d", code);
+            };
+    }
 
     // Serve up static documentation for the plugins
     serveDocumentationDirectory(router, "/doc/builtin",

@@ -1,11 +1,9 @@
-# This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
-import json, random
-
-def assert_res_status_equal(res, value):
-    if res['statusCode'] != value:
-        mldb.log(json.loads(res['response']))
-        assert False
+#
+# MLDB-813-rowname_in_join.py
+# datacratic, 2015
+# this file is part of mldb. copyright 2015 datacratic. all rights reserved.
+#
+mldb = mldb_wrapper.wrap(mldb) # noqa
 
 ds1 = mldb.create_dataset({
     'type': 'sparse.mutable',
@@ -23,12 +21,8 @@ for i in xrange(5):
 ds1.commit()
 ds2.commit()
 
-res = mldb.perform('GET', '/v1/query', [
-    ['q', 'SELECT d1.x, d2.y FROM dataset1 AS d1 JOIN dataset2 AS d2 ON d1.rowName() = d2.ds1_row order by rowName()'], ['format', 'table']],
-    {})
-assert_res_status_equal(res, 200)
-
-mldb.log(json.loads(res['response']))
+res = mldb.query(
+    'SELECT d1.x, d2.y FROM dataset1 AS d1 JOIN dataset2 AS d2 ON d1.rowName() = d2.ds1_row order by rowName()')
 
 expected = [
    [ "_rowName", "d1.x", "d2.y" ],
@@ -39,7 +33,7 @@ expected = [
    [ "row_4-row_4", 4, 4 ]
 ];
 
-assert json.loads(res['response']) == expected
+assert res == expected
 
 # TODO check that the it returns the right thing
 

@@ -26,6 +26,7 @@
 #include "mldb/jml/db/persistent.h"
 #include "mldb/types/jml_serialization.h"
 #include "mldb/vfs/filter_streams.h"
+#include "mldb/plugins/sql_config_validator.h"
 
 
 using namespace std;
@@ -122,27 +123,12 @@ DEFINE_STRUCTURE_DESCRIPTION(StatsTableProcedureConfig);
 StatsTableProcedureConfigDescription::
 StatsTableProcedureConfigDescription()
 {
-    addFieldDesc("trainingDataset", &StatsTableProcedureConfig::dataset,
-                 "Dataset on which the rolling operations will be performed.",
-                 makeInputDatasetDescription());
+    addField("trainingData", &StatsTableProcedureConfig::trainingData,
+             "SQL query to select the data on which the rolling operations will "
+             "be performed.");
     addField("outputDataset", &StatsTableProcedureConfig::output,
              "Output dataset",
              PolyConfigT<Dataset>().withType("sparse.mutable"));
-    addField("select", &StatsTableProcedureConfig::select,
-             "Select these columns (default all columns).  Only plain "
-             "column names may be "
-             "used; it is not possible to select on an expression (like x + 1)",
-             SelectExpression::STAR);
-    addField("where", &StatsTableProcedureConfig::where,
-             "Only use rows matching this clause (default all rows)",
-             SqlExpression::TRUE);
-    addField("when", &StatsTableProcedureConfig::when,
-             "Only use values matching this timestamp expression (default all values)",
-             WhenExpression::TRUE);
-    addField("orderBy", &StatsTableProcedureConfig::orderBy,
-             "Process rows in this order. This is extermely important because "
-             "each row's counts will be influenced by rows that came before it.",
-             OrderByExpression::ROWHASH);
     addField("outcomes", &StatsTableProcedureConfig::outcomes,
              "List of expressions to generate the outcomes. Each can be any expression "
              "involving the columns in the dataset. The type of the outcomes "
@@ -153,6 +139,11 @@ StatsTableProcedureConfigDescription()
     addField("functionName", &StatsTableProcedureConfig::functionName,
              "If specified, a 'statsTable.getCounts' function of this name will be "
              "created using the trained stats tables.");
+    addParent<ProcedureConfig>();
+
+    onPostValidate = validate<StatsTableProcedureConfig,
+                              InputQuery,
+                              MustContainFrom>(&StatsTableProcedureConfig::trainingData, "statsTable.train");
 }
 
 
@@ -187,7 +178,7 @@ run(const ProcedureRunConfig & run,
         applyRunConfOverProcConf(procConfig, run);
 
     SqlExpressionMldbContext context(server);
-    auto boundDataset = runProcConf.dataset->bind(context);
+    auto boundDataset = runProcConf.trainingData.stm->from->bind(context);
     
     vector<string> outcome_names;
     for(const pair<string, std::shared_ptr<SqlExpression>> & lbl : runProcConf.outcomes)
@@ -199,7 +190,7 @@ run(const ProcedureRunConfig & run,
         // Find only those variables used
         SqlExpressionDatasetContext context(boundDataset);
 
-        auto selectBound = runProcConf.select.bind(context);
+        auto selectBound = runProcConf.trainingData.stm->select.bind(context);
 
         for (auto & c: selectBound.info->getKnownColumns()) {
             statsTables.insert(make_pair(c.columnName, StatsTable(c.columnName, outcome_names)));
@@ -222,9 +213,10 @@ run(const ProcedureRunConfig & run,
     // columns cache
     map<ColumnName, vector<ColumnName>> colCache;
 
-    auto aggregator = [&] (const MatrixNamedRow & row,
+    auto aggregator = [&] (NamedRowValue & row_,
                            const std::vector<ExpressionValue> & extraVals)
         {
+            MatrixNamedRow row = row_.flattenDestructive();
             if(num_req++ % 5000 == 0) {
                 double secs = Date::now().secondsSinceEpoch() - start.secondsSinceEpoch();
                 string progress = ML::format("done %d. %0.4f/sec", num_req, num_req / secs);
@@ -302,11 +294,14 @@ run(const ProcedureRunConfig & run,
     for(const pair<string, std::shared_ptr<SqlExpression>> & lbl : runProcConf.outcomes)
         extra.push_back(lbl.second);
 
-    iterateDataset(runProcConf.select,
+    iterateDataset(runProcConf.trainingData.stm->select,
                    *boundDataset.dataset, boundDataset.asName, 
-                   runProcConf.when, runProcConf.where,
+                   runProcConf.trainingData.stm->when,
+                   *runProcConf.trainingData.stm->where,
                    extra,
-                   aggregator, runProcConf.orderBy);
+                   aggregator, runProcConf.trainingData.stm->orderBy,
+                   runProcConf.trainingData.stm->offset,
+                   runProcConf.trainingData.stm->limit);
 
     output->commit();
 
@@ -556,24 +551,8 @@ DEFINE_STRUCTURE_DESCRIPTION(BagOfWordsStatsTableProcedureConfig);
 BagOfWordsStatsTableProcedureConfigDescription::
 BagOfWordsStatsTableProcedureConfigDescription()
 {
-    addFieldDesc("trainingDataset", &BagOfWordsStatsTableProcedureConfig::dataset,
-                 "Dataset on which the rolling operations will be performed.",
-                 makeInputDatasetDescription());
-    addField("select", &BagOfWordsStatsTableProcedureConfig::select,
-             "Select these columns (default all columns).  Only plain "
-             "column names may be "
-             "used; it is not possible to select on an expression (like x + 1)",
-             SelectExpression::STAR);
-    addField("where", &BagOfWordsStatsTableProcedureConfig::where,
-             "Only use rows matching this clause (default all rows)",
-             SqlExpression::TRUE);
-    addField("when", &BagOfWordsStatsTableProcedureConfig::when,
-             "Only use values matching this timestamp expression (default all values)",
-             WhenExpression::TRUE);
-    addField("orderBy", &BagOfWordsStatsTableProcedureConfig::orderBy,
-             "Process rows in this order. This is extermely important because "
-             "each row's counts will be influenced by rows that came before it.",
-             OrderByExpression::ROWHASH);
+    addField("trainingData", &BagOfWordsStatsTableProcedureConfig::trainingData,
+             "SQL query to select the data on which the rolling operations will be performed.");
     addField("outcomes", &BagOfWordsStatsTableProcedureConfig::outcomes,
              "List of expressions to generate the outcomes. Each can be any expression "
              "involving the columns in the dataset. The type of the outcomes "
@@ -582,6 +561,11 @@ BagOfWordsStatsTableProcedureConfigDescription()
              "URL where the stats table file (with extension '.st') should be saved. "
              "This file can be loaded by a function of type 'statsTable.bagOfWords.posneg'.");
     addParent<ProcedureConfig>();
+
+    onPostValidate = validate<BagOfWordsStatsTableProcedureConfig,
+                              InputQuery,
+                              MustContainFrom>(&BagOfWordsStatsTableProcedureConfig::trainingData,
+                                               "statsTable.bagOfWords.train");
 }
 
 /*****************************************************************************/
@@ -594,7 +578,7 @@ BagOfWordsStatsTableProcedure(MldbServer * owner,
             const std::function<bool (const Json::Value &)> & onProgress)
     : Procedure(owner)
 {
-    procConfig = config.params.convert<StatsTableProcedureConfig>();
+    procConfig = config.params.convert<BagOfWordsStatsTableProcedureConfig>();
 }
 
 Any
@@ -610,11 +594,11 @@ run(const ProcedureRunConfig & run,
       const std::function<bool (const Json::Value &)> & onProgress) const
 {
 
-    StatsTableProcedureConfig runProcConf =
+    BagOfWordsStatsTableProcedureConfig runProcConf =
         applyRunConfOverProcConf(procConfig, run);
 
     SqlExpressionMldbContext context(server);
-    auto boundDataset = runProcConf.dataset->bind(context);
+    auto boundDataset = runProcConf.trainingData.stm->from->bind(context);
     
     vector<string> outcome_names;
     for(const pair<string, std::shared_ptr<SqlExpression>> & lbl : runProcConf.outcomes)
@@ -633,13 +617,14 @@ run(const ProcedureRunConfig & run,
     int num_req = 0;
     Date start = Date::now();
 
-    auto aggregator = [&] (const MatrixNamedRow & row,
+    auto aggregator = [&] (NamedRowValue & row_,
                            const std::vector<ExpressionValue> & extraVals)
         {
+            MatrixNamedRow row = row_.flattenDestructive();
             if(num_req++ % 10000 == 0) {
                 double secs = Date::now().secondsSinceEpoch() - start.secondsSinceEpoch();
                 string progress = ML::format("done %d. %0.4f/sec", num_req, num_req / secs);
-                onProgress(progress);
+                onProgress2(progress);
                 cerr << progress << endl;
             }
 
@@ -663,11 +648,14 @@ run(const ProcedureRunConfig & run,
     for(const pair<string, std::shared_ptr<SqlExpression>> & lbl : runProcConf.outcomes)
         extra.push_back(lbl.second);
 
-    iterateDataset(runProcConf.select,
+    iterateDataset(runProcConf.trainingData.stm->select,
                    *boundDataset.dataset, boundDataset.asName, 
-                   runProcConf.when, runProcConf.where,
+                   runProcConf.trainingData.stm->when, 
+                   *runProcConf.trainingData.stm->where,
                    extra,
-                   aggregator, runProcConf.orderBy);
+                   aggregator, runProcConf.trainingData.stm->orderBy,
+                   runProcConf.trainingData.stm->offset,
+                   runProcConf.trainingData.stm->limit);
 
 
     // save if required

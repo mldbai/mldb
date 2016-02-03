@@ -10,132 +10,128 @@
 
 import tempfile
 import codecs
+import unittest
 
 if False:
-    mldb = None
-
-mldb.log("MLDB can log utf 8 text")
-mldb.log("Ǆώύψ")
-mldb.log("ăØÆÅ")
-
-res = mldb.perform('PUT', '/v1/datasets/myDataset', [], {
-    'type' : 'sparse.mutable'
-})
-assert res['statusCode'] == 201, str(res)
-
-res = mldb.perform('POST', '/v1/datasets/myDataset/rows', [], {
-    'rowName' : 'ascii row',
-    'columns' : [
-        ['colA', 1, 0],
-        ["colB", 2, 0]
-    ]
-})
-assert res['statusCode'] == 200, str(res)
-
-res = mldb.perform('POST', '/v1/datasets/myDataset/rows', [], {
-    'rowName' : 'utf8 row',
-    'columns' : [
-        ['colA', 'Ǆώύψ', 0],
-        ["colB", 'ăØÆÅ', 0]
-    ]
-})
-assert res['statusCode'] == 200, str(res)
-
-res = mldb.perform('POST', '/v1/datasets/myDataset/commit', [], {})
-assert res['statusCode'] == 200, str(res)
-
-res = mldb.perform('GET', '/v1/query', [['q', 'SELECT * FROM myDataset']])
-assert res['statusCode'] == 200, str(res)
-mldb.log(res)
-
-tmp_file = tempfile.NamedTemporaryFile(dir='build/x86_64/tmp')
-
-res = mldb.perform('PUT', '/v1/procedures/export', [], {
-    'type' : 'export.csv',
-    'params' : {
-        'inputDataset' : 'myDataset',
-        'dataFileUrl' : 'file://' + tmp_file.name,
-        'select' : 'rowName() as rowName, colA, colB'
-    }
-})
-assert res['statusCode'] == 201, str(res)
-
-res = mldb.perform('POST', '/v1/procedures/export/runs', [], {})
-assert res['statusCode'] == 201, str(res)
+    mldb_wrapper = None
+mldb = mldb_wrapper.wrap(mldb) # noqa
 
 
-def assert_file_content(filename, lines_expect):
-    f = codecs.open(filename, 'rt', 'utf8')
-    for index, expect in enumerate(lines_expect):
-        line = f.readline()[:-1]
-        assert line == expect, u"Assert failed at line {}: {} != {}" \
-                            .format(index, line, expect)
+class CsvExportTest(unittest.TestCase):
 
-lines_expect = ['rowName,colA,colB',
-                'ascii row,1,2',
-                u'utf8 row,Ǆώύψ,ăØÆÅ']
-assert_file_content(tmp_file.name, lines_expect)
+    def assert_file_content(self, filename, lines_expect):
+        f = codecs.open(filename, 'rt', 'utf8')
+        for index, expect in enumerate(lines_expect):
+            line = f.readline()[:-1]
+            self.assertEqual(line, expect)
 
-# import it
-res = mldb.perform('PUT', '/v1/datasets/myDataset2', [], {
-    'type' : 'text.csv.tabular',
-    'params' : {
-        'dataFileUrl' : 'file://' + tmp_file.name,
-        'named' : 'rowName'
-    }
-})
-assert res['statusCode'] == 201, str(res)
+    def test_can_log_utf8(self):
+        mldb.log("MLDB can log utf 8 text")
+        mldb.log("Ǆώύψ")
+        mldb.log("ăØÆÅ")
 
-# export it (end of roundtrip)
-tmp_file2 = tempfile.NamedTemporaryFile(dir='build/x86_64/tmp')
-res = mldb.perform('PUT', '/v1/procedures/export2', [], {
-    'type' : 'export.csv',
-    'params' : {
-        'inputDataset' : 'myDataset2',
-        'dataFileUrl' : 'file://' + tmp_file2.name,
-        'select' : 'rowName() as rowName, colA, colB'
-    }
-})
-assert res['statusCode'] == 201, str(res)
+    def test_export_csv_with_utf8_roundtrip(self):
+        mldb.put('/v1/datasets/myDataset', {
+            'type' : 'sparse.mutable'
+        })
 
-res = mldb.perform('POST', '/v1/procedures/export2/runs', [], {})
-assert res['statusCode'] == 201, str(res)
+        mldb.post('/v1/datasets/myDataset/rows', {
+            'rowName' : 'ascii row',
+            'columns' : [
+                ['colA', 1, 0],
+                ["colB", 2, 0]
+            ]
+        })
 
-assert_file_content(tmp_file2.name, lines_expect)
+        mldb.post('/v1/datasets/myDataset/rows', {
+            'rowName' : 'utf8 row',
+            'columns' : [
+                ['colA', 'Ǆώύψ', 0],
+                ["colB", 'ăØÆÅ', 0]
+            ]
+        })
 
-# test quotechar, delimiter, noheader
-res = mldb.perform('PUT', '/v1/procedures/export3', [], {
-    'type' : 'export.csv',
-    'params' : {
-        'inputDataset' : 'myDataset2',
-        'dataFileUrl' : 'file://' + tmp_file2.name,
-        'select' : 'rowName() as rowName, colA, colB',
-        'headers' : False,
-        'quoteChar' : 'o',
-        'delimiter' : ';'
-    }
-})
-assert res['statusCode'] == 201, str(res)
+        mldb.post('/v1/datasets/myDataset/commit')
 
-res = mldb.perform('POST', '/v1/procedures/export3/runs', [], {})
-assert res['statusCode'] == 201, str(res)
+        res = mldb.get('/v1/query', q='SELECT * FROM myDataset')
+        mldb.log(res)
 
-lines_expect = ['oascii roowo;1;2',
-                u'outf8 roowo;Ǆώύψ;ăØÆÅ']
-assert_file_content(tmp_file2.name, lines_expect)
+        tmp_file = tempfile.NamedTemporaryFile(dir='build/x86_64/tmp')
 
-# test bad target
-res = mldb.perform('PUT', '/v1/procedures/export4', [], {
-    'type' : 'export.csv',
-    'params' : {
-        'inputDataset' : 'myDataset2',
-        'dataFileUrl' : 'space',
-        'select' : 'rowName() as rowName, colA, colB',
-        'headers' : False,
-        'quoteChar' : 'o',
-        'delimiter' : ';'
-    }
-})
-assert res['statusCode'] == 400, str(res)
+        res = mldb.put('/v1/procedures/export', {
+            'type' : 'export.csv',
+            'params' : {
+                'exportData' :
+                    'select rowName() as rowName, colA, colB from myDataset',
+                'dataFileUrl' : 'file://' + tmp_file.name
+            }
+        })
 
-mldb.script.set_return("success")
+        mldb.post('/v1/procedures/export/runs', {})
+
+        lines_expect = ['rowName,colA,colB',
+                        'ascii row,1,2',
+                        u'utf8 row,Ǆώύψ,ăØÆÅ']
+        self.assert_file_content(tmp_file.name, lines_expect)
+
+        # import it
+        mldb.put('/v1/datasets/myDataset2', {
+            'type' : 'text.csv.tabular',
+            'params' : {
+                'dataFileUrl' : 'file://' + tmp_file.name,
+                'named' : 'rowName'
+            }
+        })
+
+        # export it (end of roundtrip)
+        tmp_file2 = tempfile.NamedTemporaryFile(dir='build/x86_64/tmp')
+        mldb.put('/v1/procedures/export2', {
+            'type' : 'export.csv',
+            'params' : {
+                'exportData' :
+                    'select rowName() as rowName, colA, colB from myDataset2',
+                'dataFileUrl' : 'file://' + tmp_file2.name
+            }
+        })
+
+        mldb.post('/v1/procedures/export2/runs', {})
+
+        self.assert_file_content(tmp_file2.name, lines_expect)
+
+    def test_quotechar_delimiter_noheader(self):
+        tmp_file = tempfile.NamedTemporaryFile(dir='build/x86_64/tmp')
+        mldb.put('/v1/procedures/export3', {
+            'type' : 'export.csv',
+            'params' : {
+                'exportData' :
+                    'select rowName() as rowName, colA, colB from myDataset2',
+                'dataFileUrl' : 'file://' + tmp_file.name,
+                'headers' : False,
+                'quoteChar' : 'o',
+                'delimiter' : ';'
+            }
+        })
+
+        mldb.post('/v1/procedures/export3/runs')
+
+        lines_expect = ['oascii roowo;1;2',
+                        u'outf8 roowo;Ǆώύψ;ăØÆÅ']
+        self.assert_file_content(tmp_file.name, lines_expect)
+
+    def test_bad_target(self):
+        with self.assertRaises(mldb_wrapper.ResponseException):
+            mldb.put('/v1/procedures/export4', {
+                'type' : 'export.csv',
+                'params' : {
+                    'exportData' :
+                        'select rowName() as rowName, colA, colB '
+                        'from myDataset2',
+                    'dataFileUrl' : 'space',
+                    'headers' : False,
+                    'quoteChar' : 'o',
+                    'delimiter' : ';'
+                }
+            })
+
+if __name__ == '__main__':
+    mldb.run_tests()

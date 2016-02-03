@@ -49,6 +49,7 @@ struct SparseMatrixDataset: public Dataset {
 
     virtual std::shared_ptr<MatrixView> getMatrixView() const;
     virtual std::shared_ptr<ColumnIndex> getColumnIndex() const;
+    virtual std::shared_ptr<RowStream> getRowStream() const;
 
     virtual RestRequestMatchResult
     handleRequest(RestConnection & connection,
@@ -88,7 +89,7 @@ struct MutableSparseMatrixDatasetConfig
     double timeQuantumSeconds;
 
     /// Write transaction level.  Can data be read straight away or after commit
-    WriteTransactionLevel writeLevel;
+    WriteTransactionLevel consistencyLevel;
 
     /// Transaction favor.  When reads and writes are mixed, which do we favor?
     TransactionFavor favor;

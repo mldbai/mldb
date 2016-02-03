@@ -72,16 +72,18 @@ AccuracyConfigDescription()
              "to avoid numeric errors in the calculations."
              "The select statement does not support groupby and having clauses.");
     addField("outputDataset", &AccuracyConfig::outputDataset,
-             "Output dataset for scored examples. The score for each "
-             "example will be written to this dataset. Specifying a "
-             "dataset is optional", optionalOutputDataset);
+             "Output dataset for scored examples. The score for the test "
+             "example will be written to this dataset. Examples get grouped when "
+              "they have the same score. Specifying a "
+             "dataset is optional.", optionalOutputDataset);
     addParent<ProcedureConfig>();
-
+            
     onPostValidate = validate<AccuracyConfig, 
                               InputQuery,
                               NoGroupByHaving,
                               PlainColumnSelect,
-                              ScoreLabelSelect>(&AccuracyConfig::testingData, "accuracy");
+                              ScoreLabelSelect,
+                              MustContainFrom>(&AccuracyConfig::testingData, "accuracy");
 
 }
 
@@ -126,7 +128,7 @@ run(const ProcedureRunConfig & run,
     
     PerThreadAccumulator<ScoredStats> accum;
 
-    auto aggregator = [&] (const MatrixNamedRow & row,
+    auto aggregator = [&] (NamedRowValue & row,
                            const std::vector<ExpressionValue> & scoreLabelWeight)
         {
             //cerr << "got vals " << labelWeight << " " << score << endl;
@@ -153,11 +155,13 @@ run(const ProcedureRunConfig & run,
     };
 
     BoundSelectQuery({} /* select */, *dataset, "" /* table alias */,
-                     runAccuracyConf.testingData.stm->when, runAccuracyConf.testingData.stm->where,
+                     runAccuracyConf.testingData.stm->when,
+                     *runAccuracyConf.testingData.stm->where,
                      runAccuracyConf.testingData.stm->orderBy,
                      calc,
                      false /* implicit order by row hash */)
-        .execute(aggregator, runAccuracyConf.testingData.stm->offset, runAccuracyConf.testingData.stm->limit,
+        .execute(aggregator, runAccuracyConf.testingData.stm->offset,
+                 runAccuracyConf.testingData.stm->limit,
                  nullptr /* progress */);
 
     // Now merge out stats together

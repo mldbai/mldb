@@ -22,6 +22,7 @@
 #include "types/optional_description.h"
 #include "mldb/plugins/sql_config_validator.h"
 #include "mldb/plugins/sql_expression_extractors.h"
+#include "mldb/plugins/sparse_matrix_dataset.h"
 
 using namespace std;
 
@@ -41,11 +42,11 @@ DatasetFoldConfigDescription()
     addField("training_where", &DatasetFoldConfig::training_where,
              "The WHERE clause for which rows to include from the training dataset. "
              "This can be any expression involving the columns in the dataset. ",
-             SqlExpression::TRUE);
+             SqlExpression::parse("true"));
     addField("testing_where", &DatasetFoldConfig::testing_where,
              "The WHERE clause for which rows to include from the testing dataset. "
              "This can be any expression involving the columns in the dataset. ",
-             SqlExpression::TRUE);
+             SqlExpression::parse("true"));
     addField("training_offset", &DatasetFoldConfig::training_offset,
              "How many rows to skip before using data.",
              ssize_t(0));
@@ -165,6 +166,7 @@ ExperimentProcedureConfigDescription()
     onPostValidate = validate<ExperimentProcedureConfig, 
                               InputQuery,
                               NoGroupByHaving, 
+                              MustContainFrom,
                               PlainColumnSelect>(&ExperimentProcedureConfig::trainingData, "classfier.experiment");
 
 }

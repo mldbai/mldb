@@ -98,6 +98,8 @@ struct PythonPlugin: public Plugin {
                     const RestRequest & request,
                     RestRequestParsingContext & context);
 
+    static void injectMldbWrapper(PythonSubinterpreter & pyControl);
+
     std::shared_ptr<PythonPluginContext> itl;
     std::shared_ptr<MldbPythonContext> mldbPy;
 
@@ -122,7 +124,7 @@ PythonPlugin(MldbServer * server,
                                       (PYTHON,
                                        LoadedPluginResource::PLUGIN,
                                        config.id, res), routeHandlingMutex));
-}
+    }
     catch(const std::exception & exc) {
         throw HttpReturnException(400, ML::format("Exception opening plugin: %s", exc.what()));
     }
@@ -155,7 +157,8 @@ PythonPlugin(MldbServer * server,
 
     try {
         JML_TRACE_EXCEPTIONS(false);
-        pyControl.main_namespace["mldb"] = boost::python::object(boost::python::ptr(mldbPy.get()));
+        pyControl.main_namespace["mldb"] =
+            boost::python::object(boost::python::ptr(mldbPy.get()));
     } catch (const boost::python::error_already_set & exc) {
         ScriptException pyexc = convertException(pyControl, exc, "PyPlugin init");
 
@@ -419,6 +422,7 @@ runPythonScript(std::shared_ptr<PythonContext> titl,
     try {
         JML_TRACE_EXCEPTIONS(false);
         pyControl.main_namespace["mldb"] = boost::python::object(boost::python::ptr(mldbPy.get()));
+        injectMldbWrapper(pyControl);
 
     } catch (const boost::python::error_already_set & exc) {
         ScriptException pyexc = convertException(pyControl, exc, "PyRunner init");
@@ -440,12 +444,20 @@ runPythonScript(std::shared_ptr<PythonContext> titl,
     ScriptOutput result;
     auto scriptSourceStr = boost::python::str(scriptSource.rawString());
 
+    auto pySetArgv = [] {
+        char argv1[] = "mldb-boost-python";
+        char *argv[] = {argv1};
+        int argc = sizeof(argv[0]) / sizeof(char *);
+        PySys_SetArgv(argc, argv);
+    };
+
     // if we're simply executing the body of the script
     try {
         if(elementToRun == PackageElement::MAIN) {
-                JML_TRACE_EXCEPTIONS(false);
-                boost::python::object obj
-                    = boost::python::exec(scriptSourceStr, pyControl.main_namespace);
+            JML_TRACE_EXCEPTIONS(false);
+            pySetArgv();
+            boost::python::object obj =
+                boost::python::exec(scriptSourceStr, pyControl.main_namespace);
 
             getOutputFromPy(pyControl, result);
 
@@ -463,6 +475,7 @@ runPythonScript(std::shared_ptr<PythonContext> titl,
         // if we need to call the routes function
         else if(elementToRun == PackageElement::ROUTES) {
 
+            pySetArgv();
             boost::python::object obj
                 = boost::python::exec(scriptSourceStr, pyControl.main_namespace);
 
@@ -487,6 +500,181 @@ runPythonScript(std::shared_ptr<PythonContext> titl,
         return result;
     };
 }
+
+void
+PythonPlugin::
+injectMldbWrapper(PythonSubinterpreter & pyControl)
+{
+    std::string code = R"code(
+
+import unittest
+
+class mldb_wrapper(object):
+
+    import json as jsonlib
+
+    @staticmethod
+    def wrap(mldb):
+        return Wrapped(mldb)
+
+    class ResponseException(Exception):
+        def __init__(self, response):
+            self.response = response
+
+        def __str__(self):
+            return ('Response status code: {r.status_code}. '
+                    'Response text: {r.text}'.format(r=self.response))
+
+    class Response(object):
+
+        def __init__(self, url, raw_response):
+            self.url         = url
+            self.headers     = {k: v for k, v in
+                                raw_response.get('headers', {})}
+            self.status_code = raw_response['statusCode']
+            self.text        = raw_response.get('response', '')
+            self.raw         = raw_response
+
+            self.apparent_encoding = 'unimplemented'
+            self.close             = 'unimplemented'
+            self.conection         = 'unimplemented'
+            self.elapsed           = 'unimplemented'
+            self.encoding          = 'unimplemented'
+            self.history           = 'unimplemented'
+            self.iter_content      = 'unimplemented'
+            self.iter_lines        = 'unimplemented'
+            self.links             = 'unimplemented'
+            self.ok                = 'unimplemented'
+            self.raise_for_status  = 'unimplemented'
+            self.reason            = 'unimplemented'
+            self.request           = 'unimplemented'
+
+        def json(self):
+            return mldb_wrapper.jsonlib.loads(self.text)
+
+        def __str__(self):
+            return self.text
+
+    class wrap(object):
+        def __init__(self, mldb):
+            self._mldb = mldb
+            import functools
+            self.post = functools.partial(self._post_put, 'POST')
+            self.put = functools.partial(self._post_put, 'PUT')
+            self.post_async = functools.partial(self._post_put, 'POST',
+                                                async=True)
+            self.put_async = functools.partial(self._post_put, 'PUT',
+                                               async=True)
+            self.create_dataset = self._mldb.create_dataset
+
+        def _perform(self, method, url, *args, **kwargs):
+            raw_res = self._mldb.perform(method, url, *args, **kwargs)
+            response = mldb_wrapper.Response(url, raw_res)
+            if response.status_code < 200 or response.status_code >= 400:
+                raise mldb_wrapper.ResponseException(response)
+            return response
+
+        def log(self, thing):
+            if type(thing) in [dict, list]:
+                thing = mldb_wrapper.jsonlib.dumps(thing, indent=4)
+            self._mldb.log(str(thing))
+
+        @property
+        def script(self):
+            return self._mldb.script
+
+        @property
+        def plugin(self):
+            return self._mldb.plugin
+
+        def get(self, url, **kwargs):
+            query_string = []
+            for k, v in kwargs.iteritems():
+                if type(v) in [list, dict]:
+                    v = mldb_wrapper.jsonlib.dumps(v)
+                query_string.append([unicode(k), unicode(v)])
+            return self._perform('GET', url, query_string)
+
+        def _post_put(self, verb, url, data=None, async=False):
+            if async:
+                return self._perform(verb, url, [], data, [['async', 'true']])
+            return self._perform(verb, url, [], data)
+
+        def delete(self, url):
+            return self._perform('DELETE', url)
+
+        def delete_async(self, url):
+            return self._perform('DELETE', url, [], {}, [['async', 'true']])
+
+        def query(self, query):
+            return self._perform('GET', '/v1/query', [
+                ['q', query],
+                ['format', 'table']
+            ]).json()
+
+        def run_tests(self):
+            import StringIO
+            io_stream = StringIO.StringIO()
+            runner = unittest.TextTestRunner(stream=io_stream, verbosity=2,
+                                             buffer=True)
+            if self.script.args:
+                assert type(self.script.args) is list
+                if self.script.args[0]:
+                    argv = ['python'] + self.script.args
+                else:
+                    # avoid the only one empty arg issue
+                    argv = None
+            else:
+                argv = None
+
+            res = unittest.main(exit=False, argv=argv,
+                                testRunner=runner).result
+            self.log(io_stream.getvalue())
+
+            if res.wasSuccessful():
+                self.script.set_return("success")
+
+class MldbUnitTest(unittest.TestCase):
+    def _assert_flat_result(self, res, expected):
+        if res[0][0] != '_rowName':
+            raise Exception("Cannot order rows if header is missing from "
+                            "response")
+        if expected[0][0] != '_rowName':
+            raise Exception("The first row of expected needs to be the header")
+        res_keys = sorted(res[0])
+        expected_keys = sorted(expected[0])
+        self.assertEqual(res_keys, expected_keys)
+
+        expected_order = {
+            key: index for index, key in enumerate(expected[0])}
+
+        reorder_directives = [expected_order[key] for key in res[0]]
+        ordered_res = [[v[pos] for pos in reorder_directives] for v in res[1:]]
+        for res_row, expected_row in zip(ordered_res, expected[1:]):
+            self.assertEqual(res_row, expected_row)
+
+    def _assert_json_result(self, res, expected):
+        for res_row, expected_row in zip(res, expected):
+            self.assertEqual(res_row["rowName"], expected_row["rowName"])
+            res_columns = sorted(res_row["columns"])
+            expected_columns = sorted(expected_row["columns"])
+            self.assertEqual(res_columns, expected_columns)
+
+
+    def assertQueryResult(self, res, expected):
+        self.assertEqual(len(res), len(expected))
+        self.assertFalse(len(res) == 0)
+        if type(expected[0]) is dict:
+            self._assert_json_result(res, expected)
+        else:
+            self._assert_flat_result(res, expected)
+
+    )code"; //this is python code
+
+    auto pyCode = boost::python::str(code);
+    boost::python::exec(pyCode, pyControl.main_namespace);
+}
+
 
 namespace {
 

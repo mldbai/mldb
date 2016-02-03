@@ -1,8 +1,6 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** sql_expression_operations.h                                    -*- C++ -*-
     Jeremy Barnes, 24 February 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
 */
 
@@ -129,6 +127,7 @@ struct ReadVariableExpression: public SqlExpression {
     virtual std::string getType() const;
     virtual Utf8String getOperation() const;
     virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
+    virtual bool isConstant() const { return false; }
 
     Utf8String tableName;
     Utf8String variableName;
@@ -277,13 +276,28 @@ struct BetweenExpression: public SqlExpression {
 
 struct InExpression: public SqlExpression {
 
-    InExpression(std::shared_ptr<SqlExpression> expr,
-                      std::shared_ptr<TupleExpression> tuple,
-                      bool negative);
+    enum Kind {
+        SUBTABLE,  ///< IN (select ...)
+        TUPLE,     ///< IN (val1, val2, ...)
+        KEYS,      ///< IN (KEYS OF expr)
+        VALUES     ///< IN (VALUES OF expr)
+    };
 
+    // Constructor for IN (tuple)
     InExpression(std::shared_ptr<SqlExpression> expr,
-                      std::shared_ptr<SelectSubtableExpression> subtable,
-                      bool negative);
+                 std::shared_ptr<TupleExpression> tuple,
+                 bool negative);
+
+    // Constructor for IN (SELECT ...)
+    InExpression(std::shared_ptr<SqlExpression> expr,
+                 std::shared_ptr<SelectSubtableExpression> subtable,
+                 bool negative);
+
+    // Constructor for IN (KEYS OF ...) or IN (VALUES OF ...)
+    InExpression(std::shared_ptr<SqlExpression> expr,
+                 std::shared_ptr<SqlExpression> setExpr,
+                 bool negative,
+                 Kind kind);
 
     virtual BoundSqlExpression
     bind(SqlBindingScope & context) const;
@@ -296,12 +310,15 @@ struct InExpression: public SqlExpression {
     virtual std::string getType() const;
     virtual Utf8String getOperation() const;
     virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
+    virtual bool isConstant() const { return false; } // TODO: not always
 
     std::shared_ptr<SqlExpression> expr;
     std::shared_ptr<TupleExpression> tuple;
     std::shared_ptr<SelectSubtableExpression> subtable;
+    std::shared_ptr<SqlExpression> setExpr;
 
     bool isnegative;
+    Kind kind;
 };
 
 /** Represents CAST (expression AS type) */
@@ -343,9 +360,11 @@ struct BoundParameterExpression: public SqlExpression {
     virtual std::string getType() const;
     virtual Utf8String getOperation() const;
     virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
+    virtual bool isConstant() const { return false; }
 
     Utf8String paramName;
 };
+
 
 /*****************************************************************************/
 /* SQL ROW EXPRESSIONS                                                       */
@@ -385,6 +404,8 @@ struct WildcardExpression: public SqlRowExpression {
 
     virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
 
+    virtual bool isConstant() const { return false; }
+
     std::map<ScopedName, UnboundWildcard>
     wildcards() const;
 
@@ -420,7 +441,9 @@ struct ComputedVariable: public SqlRowExpression {
     virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
 };
 
-/** Wrapper when we dont know at parsing time if it is a user function or a builtin function */
+/** Wrapper when we dont know at parsing time if it is a user function
+    or a built-in function.
+*/
 struct FunctionCallWrapper: public SqlRowExpression {
     FunctionCallWrapper(Utf8String tableName,
                         Utf8String function,
@@ -444,12 +467,15 @@ struct FunctionCallWrapper: public SqlRowExpression {
     virtual std::string getType() const;
     virtual Utf8String getOperation() const;
     virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
+    virtual bool isConstant() const { return false; } // TODO: not always
 
     std::map<ScopedName, UnboundFunction> functionNames() const;
 
 private:
 
-    BoundSqlExpression bindBuiltinFunction(SqlBindingScope & context, std::vector<BoundSqlExpression>& boundArgs, BoundFunction& fn) const;
+    BoundSqlExpression bindBuiltinFunction(SqlBindingScope & context,
+                                           std::vector<BoundSqlExpression> & boundArgs,
+                                           BoundFunction& fn) const;
     BoundSqlExpression bindUserFunction(SqlBindingScope & context) const;
 };
 
@@ -476,6 +502,8 @@ struct SelectColumnExpression: public SqlRowExpression {
 
     virtual std::shared_ptr<SqlExpression>
     transform(const TransformArgs & transformArgs) const;
+
+    virtual bool isConstant() const { return false; }
 
     virtual std::string getType() const
     {

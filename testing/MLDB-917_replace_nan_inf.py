@@ -1,41 +1,43 @@
+#
+# MLDB-917_replace_nan_inf.py
+# Datacratic, 2015
 # This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+#
+import datetime
 
+mldb = mldb_wrapper.wrap(mldb) # noqa
 
-import json, random, datetime
+rez = mldb.get("/v1/query", q="select 0/0")
+js_rez = rez.json()
+mldb.log(js_rez)
+assert [x[1]["num"] for x in js_rez[0]["columns"]] == ["-NaN"]
 
-rez = mldb.perform("GET", "/v1/query", [["q", "select 0/0"]])
-jsRez = json.loads(rez["response"])
-mldb.log(jsRez)
-assert [x[1]["num"] for x in jsRez[0]["columns"]] == ["-NaN"]
+rez = mldb.get("/v1/query", q="select replace_nan(0/0, 5)")
+js_rez = rez.json()
+mldb.log(js_rez)
+assert [x[1] for x in js_rez[0]["columns"]] == [5]
 
-rez = mldb.perform("GET", "/v1/query", [["q", "select replace_nan(0/0, 5)"]])
-jsRez = json.loads(rez["response"])
-mldb.log(jsRez)
-assert [x[1] for x in jsRez[0]["columns"]] == [5]
+rez = mldb.get("/v1/query", q="select replace_nan({0/0, 2, 6}, 5)")
+js_rez = rez.json()
+mldb.log(js_rez)
+assert [x[1] for x in js_rez[0]["columns"]] == [5, 2, 6]
 
-rez = mldb.perform("GET", "/v1/query", [["q", "select replace_nan({0/0, 2, 6}, 5)"]])
-jsRez = json.loads(rez["response"])
-mldb.log(jsRez)
-assert [x[1] for x in jsRez[0]["columns"]] == [5, 2, 6]
+rez = mldb.get("/v1/query", q="select 1/0")
+js_rez = rez.json()
+mldb.log(js_rez)
+assert [x[1]["num"] for x in js_rez[0]["columns"]] == ["Inf"]
 
-rez = mldb.perform("GET", "/v1/query", [["q", "select 1/0"]])
-jsRez = json.loads(rez["response"])
-mldb.log(jsRez)
-assert [x[1]["num"] for x in jsRez[0]["columns"]] == ["Inf"]
+rez = mldb.get("/v1/query", q="select replace_inf(1/0, 98)")
+js_rez = rez.json()
+mldb.log(js_rez)
+assert [x[1] for x in js_rez[0]["columns"]] == [98]
 
-rez = mldb.perform("GET", "/v1/query", [["q", "select replace_inf(1/0, 98)"]])
-jsRez = json.loads(rez["response"])
-mldb.log(jsRez)
-assert [x[1] for x in jsRez[0]["columns"]] == [98]
+rez = mldb.get("/v1/query", q="select replace_inf({1/0, 5/0, 23}, 98)")
+js_rez = rez.json()
+mldb.log(js_rez)
+assert [x[1] for x in js_rez[0]["columns"]] == [98, 98, 23]
 
-rez = mldb.perform("GET", "/v1/query", [["q", "select replace_inf({1/0, 5/0, 23}, 98)"]])
-jsRez = json.loads(rez["response"])
-mldb.log(jsRez)
-assert [x[1] for x in jsRez[0]["columns"]] == [98, 98, 23]
-
-
-
-## Create toy dataset
+# Create toy dataset
 dataset_config = {
     'type'    : 'sparse.mutable',
     'id'      : 'toy'
@@ -48,16 +50,14 @@ dataset.record_row("row1", [["feat1", 54, now],
                             ["label", float("inf"), now]])
 dataset.commit()
 
-rez = mldb.perform("GET", "/v1/query", [["q", "select * from toy"], ["format", "sparse"]])
-jsRez = json.loads(rez["response"])
-mldb.log(jsRez)
+rez = mldb.get("/v1/query", q="select * from toy", format="sparse")
+js_rez = rez.json()
+mldb.log(js_rez)
 
-rez = mldb.perform("GET", "/v1/query", [["q", "select replace_inf(replace_nan({*}, 0), 1) from toy"]])
-jsRez = json.loads(rez["response"])
-mldb.log(jsRez)
-assert [x[1] for x in jsRez[0]["columns"]] == [54, 0, 1]
-
-
+rez = mldb.get("/v1/query",
+               q="select replace_inf(replace_nan({*}, 0), 1) from toy")
+js_rez = rez.json()
+mldb.log(js_rez)
+assert [x[1] for x in js_rez[0]["columns"]] == [54, 0, 1]
 
 mldb.script.set_return("success")
-

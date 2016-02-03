@@ -35,6 +35,7 @@ struct SelectExpression;
 struct TupleExpression;
 struct WhenExpression;
 struct RowValueInfo;
+struct ExpressionValue;
 
 typedef EntityType<Dataset> DatasetType;
 
@@ -175,6 +176,28 @@ struct ColumnIndex {
 
 
 /*****************************************************************************/
+/* ROW STREAM                                                                */
+/*****************************************************************************/
+
+struct RowStream {
+
+    /* Clone the stream with just enough information to use the initAt 
+       clones streams should be un-initialized                        */
+    virtual std::shared_ptr<RowStream> clone() const = 0;
+
+    /* set where the stream should start*/
+    virtual void initAt(size_t start) = 0;
+
+    /* Return the current RowName and move the stream forward 
+       for performance, this method shall NOT do bound checking 
+       so be sure to obtain the maximum number of rows beforehand 
+       using MatrixView::getRowCount for example */
+    virtual RowName next() = 0;
+
+};
+
+
+/*****************************************************************************/
 /* DATASET                                                                   */
 /*****************************************************************************/
 
@@ -199,7 +222,7 @@ struct Dataset: public MldbEntity {
         recording operation.  Datasets must implement recordRowItl.
     */
     void recordRow(const RowName & rowName,
-                           const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals);
+                   const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals);
 
     /** Internal handler for recording rows.  Default implementation throws that
         this dataset type does not support recording.
@@ -229,10 +252,32 @@ struct Dataset: public MldbEntity {
     */
     virtual void recordColumns(const std::vector<std::pair<ColumnName, std::vector<std::tuple<RowName, CellValue, Date> > > > & cols);
 
+    /** Record an expression value as a row.  This will be flattened by
+        datasets that require flattening.
+        
+        Default will flatten and call recordRow().
+    */
+    virtual void recordRowExpr(const RowName & rowName,
+                               const ExpressionValue & expr);
+
+    /** Record an expression value as a row.  This will be flattened by
+        datasets that require flattening.
+        
+        Default will flatten and call recordRows().
+    */
+    virtual void recordRowsExpr(const std::vector<std::pair<RowName, ExpressionValue> > & rows);
+
     /** Return what is known about the given column.  Default returns
         an "any value" result, ie nothing is known about the column.
     */
     virtual KnownColumn getKnownColumnInfo(const ColumnName & columnName) const;
+
+    /** Return what is known about the given columns.  Default forwards
+        to getKnownColumnInfo.  Some datasets can do a batch much more
+        efficiently, so this function should be preferred if possible.
+    */
+    virtual std::vector<KnownColumn>
+    getKnownColumnInfos(const std::vector<ColumnName> & columnNames) const;
 
     /** Record multiple embedding rows.  This forwards to recordRows in the
         default implementation, but is much more efficient in datasets that
@@ -253,11 +298,11 @@ struct Dataset: public MldbEntity {
     virtual std::vector<MatrixNamedRow>
     queryStructured(const SelectExpression & select,
                     const WhenExpression & when,
-                    const std::shared_ptr<SqlExpression> & where,
+                    const SqlExpression & where,
                     const OrderByExpression & orderBy,
                     const TupleExpression & groupBy,
-                    const std::shared_ptr<SqlExpression> & having,
-                    const std::shared_ptr<SqlExpression> & rowName,
+                    const SqlExpression & having,
+                    const SqlExpression & rowName,
                     ssize_t offset,
                     ssize_t limit,
                     Utf8String alias = "",
@@ -285,7 +330,8 @@ struct Dataset: public MldbEntity {
         Default implementation returns a null function.
     */
     virtual BoundFunction
-    overrideFunction(const Utf8String & functionName,
+    overrideFunction(const Utf8String & tableName,
+                     const Utf8String & functionName,
                      SqlBindingScope & context) const;
 
     /** Allow the dataset to override the generation of row IDs for a
@@ -351,6 +397,7 @@ struct Dataset: public MldbEntity {
 
     virtual std::shared_ptr<MatrixView> getMatrixView() const = 0;
     virtual std::shared_ptr<ColumnIndex> getColumnIndex() const = 0;
+    virtual std::shared_ptr<RowStream> getRowStream() const { return std::shared_ptr<RowStream>(); } //optional but recommanded for performance
 
     /** Return the range of timestamps in the file.  The default implementation
         will scan the whole dataset, but other implementions may override for
@@ -379,6 +426,10 @@ struct Dataset: public MldbEntity {
         the query is inappropriate.
     */
     virtual Date quantizeTimestamp(Date timestamp) const;
+
+    /* In the case of a dataset with rows composed from other datasets (i.e., joins)
+       This will return the name that the row has in the table with this alias*/
+    virtual RowName getOriginalRowName(const Utf8String& tableName, const RowName & name) const;
 };
 
 

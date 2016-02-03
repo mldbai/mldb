@@ -14,6 +14,11 @@
 #include "mldb/core/dataset.h"
 #include "mldb/sql/sql_expression.h"
 
+// TODO: hide these from the .h file
+#include "mldb/server/dataset_context.h"
+#include "mldb/server/function_contexts.h"
+
+
 namespace Datacratic {
 namespace MLDB {
 
@@ -24,18 +29,26 @@ struct SqlExpression;
 /* SQL QUERY FUNCTION                                                        */
 /*****************************************************************************/
 
+/** Enum that tells us how we encode the output of an SQL query object.
+ */
+enum SqlQueryOutput {
+    FIRST_ROW = 0,       ///< Take the first row and return it directly
+    NAMED_COLUMNS = 1    ///< Each row produces an explicitly named column
+};
+
+DECLARE_ENUM_DESCRIPTION(SqlQueryOutput);
+
+
 /** Function that runs a single-row SQL query against a dataset. */
 
 struct SqlQueryFunctionConfig {
-    SqlQueryFunctionConfig();
-    
-    SelectExpression select;
-    std::shared_ptr<TableExpression> from;
-    WhenExpression when;
-    std::shared_ptr<SqlExpression> where;
-    OrderByExpression orderBy;
-    TupleExpression groupBy;
-    std::shared_ptr<SqlExpression> having;
+    SqlQueryFunctionConfig()
+        : output(FIRST_ROW)
+    {
+    }
+
+    InputQuery query;
+    SqlQueryOutput output;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(SqlQueryFunctionConfig);
@@ -68,7 +81,13 @@ struct SqlQueryFunction: public Function {
 /** Function that runs an SQL expression. */
 
 struct SqlExpressionFunctionConfig {
+    SqlExpressionFunctionConfig()
+        : prepared(false)
+    {
+    }
+
     SelectExpression expression;
+    bool prepared;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(SqlExpressionFunctionConfig);
@@ -91,6 +110,11 @@ struct SqlExpressionFunction: public Function {
     virtual FunctionInfo getFunctionInfo() const;
 
     SqlExpressionFunctionConfig functionConfig;
+
+    SqlExpressionMldbContext outerScope;
+    FunctionExpressionContext innerScope;
+    FunctionInfo info;
+    BoundSqlExpression bound;
 };
 
 
@@ -106,38 +130,11 @@ struct TransformDatasetConfig : ProcedureConfig {
 
     TransformDatasetConfig();
 
-    /// The dataset to which we apply this function, once per row
-    std::shared_ptr<TableExpression> inputDataset;
+    /// The data to which we apply this function, once per row
+    InputQuery inputData;
 
     /// The output dataset.  Rows will be dumped into here via insertRows.
     PolyConfigT<Dataset> outputDataset;
-
-    /// The SELECT clause telling us what to actually put in the dataset
-    SelectExpression select;
-
-    /// The WHEN clause for which timespan tuples must belong to
-    WhenExpression when;
-
-    /// The WHERE clause for which rows to include from the dataset
-    std::shared_ptr<SqlExpression> where;
-
-    /// The GROUP BY clause for which rows to include from the dataset
-    TupleExpression groupBy;
-
-    /// The HAVING clause for which groups to include from the output
-    std::shared_ptr<SqlExpression> having;
-
-    /// The ORDER BY clause for which groups to include from the output
-    OrderByExpression orderBy;
-
-    /// Offset (how many output rows to skip).
-    ssize_t offset;
-
-    /// Limit (the maximum number of rows to output).
-    ssize_t limit;
-
-    /// Allow setting of the row name for the output dataset
-    std::shared_ptr<SqlExpression> rowName;
 
     /// Skip rows with no columns
     bool skipEmptyRows;

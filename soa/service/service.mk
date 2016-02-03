@@ -12,7 +12,7 @@ LIBOPSTATS_SOURCES := \
 	connectfd.cc
 
 LIBOPSTATS_LINK := \
-	arch utils boost_thread types
+	arch utils types
 
 $(eval $(call library,opstats,$(LIBOPSTATS_SOURCES),$(LIBOPSTATS_LINK)))
 
@@ -40,7 +40,7 @@ LIBSERVICES_SOURCES := \
 	runner.cc \
 
 
-LIBSERVICES_LINK := http opstats curl boost_regex arch utils jsoncpp boost_thread types tinyxml2 boost_system value_description credentials runner_common boost_filesystem cityhash any services_base watch
+LIBSERVICES_LINK := http opstats curl boost_regex arch utils jsoncpp types tinyxml2 boost_system value_description credentials runner_common boost_filesystem cityhash any services_base watch
 
 $(eval $(call library,services,$(LIBSERVICES_SOURCES),$(LIBSERVICES_LINK)))
 $(eval $(call set_compile_option,runner.cc,-DBIN=\"$(BIN)\"))
@@ -63,7 +63,7 @@ LIBCLOUD_SOURCES := \
 
 #	hdfs.cc
 
-LIBCLOUD_LINK := utils arch types value_description tinyxml2 services crypto++ ssh2 boost_filesystem archive #hdfs3
+LIBCLOUD_LINK := utils arch types value_description tinyxml2 services crypto++ ssh2 boost_filesystem archive hash #hdfs3
 
 
 $(eval $(call library,cloud,$(LIBCLOUD_SOURCES),$(LIBCLOUD_LINK)))

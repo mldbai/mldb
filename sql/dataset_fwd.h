@@ -1,9 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** dataset_fwd.h                                                  -*- C++ -*-
     Jeremy Barnes, 16 February 2014
     Copyright (c) 2014 Datacratic Inc.  All rigths reserved.
 
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #pragma once

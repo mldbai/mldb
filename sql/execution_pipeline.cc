@@ -1,9 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** execution_pipeline.cc                                          -*- C++ -*-
     Jeremy Barnes, 27 August 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
 
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #include "execution_pipeline.h"
@@ -137,7 +136,8 @@ doGetVariable(const Utf8String & tableName, const Utf8String & variableName)
             for (auto & t: tables)
                 cerr << t.first;
             cerr << endl;
-            throw HttpReturnException(500, "Get variable without table name with no default table in scope");
+            throw HttpReturnException(500, "Get variable without table name with no default table in scope",
+                                      "variableName", variableName);
         }
         return defaultTables.back().doGetVariable(variableName);
     }
@@ -185,6 +185,15 @@ doGetFunction(const Utf8String & tableName,
             BoundFunction r = t.doGetFunction(functionName, args);
             if (r)
                 return r;
+        }
+
+        for (auto & t: tables) {
+            auto toFind = t.first + ".";
+            if (functionName.startsWith(toFind)) {
+                Utf8String suffix = functionName;
+                suffix.removePrefix(toFind);
+                return t.second.doGetFunction(suffix, args);
+            }
         }
     }
     else {
@@ -322,6 +331,7 @@ PipelineElement::
 join(std::shared_ptr<TableExpression> left,
      std::shared_ptr<TableExpression> right,
      std::shared_ptr<SqlExpression> on,
+     JoinQualification joinQualification,
      SelectExpression select,
      std::shared_ptr<SqlExpression> where,
      OrderByExpression orderBy)
@@ -330,6 +340,7 @@ join(std::shared_ptr<TableExpression> left,
                                          std::move(left),
                                          std::move(right),
                                          std::move(on),
+                                         joinQualification,
                                          std::move(select),
                                          std::move(where),
                                          std::move(orderBy));

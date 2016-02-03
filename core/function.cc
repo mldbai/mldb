@@ -482,8 +482,7 @@ getTyped(const Utf8String & name, RowValue *) const
 
     if (it->first == name) {
         // The value was represented directly
-        
-        it->second.appendToRow(ColumnName(""), result);
+        it->second.appendToRow(ColumnName(), result);
         return result;
     }
 
@@ -597,6 +596,27 @@ addAtomValue(const std::string & name)
 
 void
 FunctionValues::
+addStringValue(const std::string & name)
+{
+    addValue(Utf8String(name), std::make_shared<Utf8StringValueInfo>());
+}
+
+void
+FunctionValues::
+addTimestampValue(const std::string & name)
+{
+    addValue(Utf8String(name), std::make_shared<TimestampValueInfo>());
+}
+
+void
+FunctionValues::
+addBlobValue(const std::string & name)
+{
+    addValue(Utf8String(name), std::make_shared<BlobValueInfo>());
+}
+
+void
+FunctionValues::
 addNumericValue(const std::string & name)
 {
     addValue(Utf8String(name), std::make_shared<NumericValueInfo>());
@@ -678,14 +698,10 @@ toRowInfo() const
 /* FUNCTION INFO                                                             */
 /*****************************************************************************/
 
-/*****************************************************************************/
-/* FUNCTION APPLIER                                                          */
-/*****************************************************************************/
-
 FunctionOutput
 FunctionApplier::
 apply(const FunctionContext & input) const
-{
+{ 
     ExcAssert(function);
     return function->apply(*this, input);
 }
