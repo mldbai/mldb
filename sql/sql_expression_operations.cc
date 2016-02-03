@@ -2337,17 +2337,17 @@ BoundSqlExpression
 WildcardExpression::
 bind(SqlBindingScope & context) const
 {
-    Utf8String simplifiedprefix = prefix;
+    Utf8String simplifiedPrefix = prefix;
     Utf8String resolvedTableName = tableName;
     if (tableName.empty() && !prefix.empty())
-        simplifiedprefix = context.doResolveTableName(prefix, resolvedTableName);
+        simplifiedPrefix = context.doResolveTableName(prefix, resolvedTableName);
 
     // This function figures out the new name of the column.  If it's excluded,
     // then it returns the empty string
-    auto newColumnName = [&, simplifiedprefix] (const Utf8String & inputColumnName) -> Utf8String
+    auto newColumnName = [&, simplifiedPrefix] (const Utf8String & inputColumnName) -> Utf8String
         {
             // First, check it matches the prefix
-            if (!inputColumnName.startsWith(simplifiedprefix))
+            if (!inputColumnName.startsWith(simplifiedPrefix))
                 return Utf8String();
 
             // Second, check it doesn't match an exclusion
@@ -2366,7 +2366,7 @@ bind(SqlBindingScope & context) const
 
             // Finally, replace the prefix with the new prefix
             Utf8String result = inputColumnName;
-            result.replace(0, simplifiedprefix.length(), asPrefix);
+            result.replace(0, simplifiedPrefix.length(), asPrefix);
             return result;
         };
 
