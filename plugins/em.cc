@@ -285,53 +285,7 @@ EMFunction(MldbServer * owner,
             PolyConfig config,
             const std::function<bool (const Json::Value &)> & onProgress)
     : Function(owner)
-{
-   /* functionConfig = config.params.convert<EMFunctionConfig>();
-
-    auto dataset = obtainDataset(server, functionConfig.centroids, onProgress);
-
-    //cerr << "loading embedding" << endl;
-
-    // Load up the embeddings
-    auto embeddingOutput = getEmbedding(functionConfig.select, *dataset, "",                                        
-                                        WhenExpression::parse("true"),
-                                        functionConfig.where, {},
-                                        -1, 
-                                        ORDER_BY_NOTHING,
-                                        0, -1,
-                                        onProgress);
-    
-    // Each row is a cluster
-    auto rows = embeddingOutput.first;
-    std::vector<KnownColumn> & vars = embeddingOutput.second;
-
-    for (auto & v: vars) {
-        columnNames.push_back(v.columnName);
-    }
-
-    int numCol = columnNames.size();
-    numDim = ((sqrt(1+4*numCol)) - 1) / 2;
-    
-    for (auto & r: rows) {
-        Cluster cluster;
-        cluster.clusterName = jsonDecodeStr<CellValue>(std::get<1>(r).toString());
-       
-        std::vector<double>& values = std::get<2>(r);
-        for (int i = 0; i < numDim; ++i)
-        {
-            cluster.centroid.push_back(values[i]);
-        }
-        cluster.covarianceMatrix = boost::multi_array<float, 2>(boost::extents[numDim][numDim]);
-        for (int i = 0; i < numDim; ++i)
-        {
-            for (int j = 0; j < numDim; ++j)
-            {
-              cluster.covarianceMatrix[i][j] = values[numDim + i*numDim + j];
-            }
-        }
-
-        clusters.emplace_back(std::move(cluster));
-    }*/
+{  
 
     functionConfig = config.params.convert<EMFunctionConfig>();
 
@@ -339,11 +293,9 @@ EMFunction(MldbServer * owner,
     
     dimension = impl->em.clusters[0].centroid.size();
 
-    cerr << "got " << impl->em.clusters.size()
-         << " clusters with " << dimension
-         << "values" << endl;
-
-
+    //cerr << "got " << impl->em.clusters.size()
+    //     << " clusters with " << dimension
+    //     << "values" << endl;
 }
 
 Any
@@ -358,30 +310,6 @@ EMFunction::
 apply(const FunctionApplier & applier,
       const FunctionContext & context) const
 {
-  /*  FunctionOutput result;
-
-    ExpressionValue storage;
-    const ExpressionValue & inputVal = context.get("embedding", storage);
-    //cerr << "getting embedding" << endl;
-    ML::distribution<double> input = inputVal.getEmbeddingDouble(numDim);
-    Date ts = inputVal.getEffectiveTimestamp();
-
-    double bestDist = INFINITY;
-    CellValue bestCluster;
-
-    for (unsigned i = 0;  i < clusters.size();  ++i) {
-        double dist = 0.0f;
-        if (dist < bestDist
-            || (dist == bestDist && clusters[i].clusterName < bestCluster)) {
-            bestDist = dist;
-            bestCluster = clusters[i].clusterName;
-        }
-    }
-
-    result.set("cluster", ExpressionValue(bestCluster, ts)); 
- 
-    return result;*/
-
     FunctionOutput result;
 
     // Extract an embedding with the given column names
