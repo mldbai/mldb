@@ -43,5 +43,41 @@ class RowNameAsStringTest(MldbUnitTest):
         self.assertEqual(res[0]["rowName"], "2")
         self.assertEqual(res[1]["rowName"], "3")
 
+class NullNameTest(MldbUnitTest):
+
+    def test_create_dataset(self):
+        ds = mldb.create_dataset({
+            'id' : 'ds',
+            'type': 'sparse.mutable'
+        })
+        with self.assertRaises(Exception) as exc:
+            ds.record_row(None, [['colA', 1, 1]])
+        self.assertEqual(str(type(exc.exception)),
+                         "<class 'Boost.Python.ArgumentError'>")
+
+    @unittest.expectedFailure
+    def test_post_row_name_none(self):
+        mldb.put('/v1/datasets/ds', {
+            'type' : 'sparse.mutable'
+        })
+
+        with self.assertRaises(mldb_wrapper.ResponseException): # noqa
+            mldb.post('/v1/datasets/ds/rows', {
+                'rowName' : None, # should not work
+                'columns' : [['colA', 1, 1]]
+            })
+
+    @unittest.expectedFailure
+    def test_post_no_row_name(self):
+        mldb.put('/v1/datasets/ds', {
+            'type' : 'sparse.mutable'
+        })
+
+        with self.assertRaises(mldb_wrapper.ResponseException): # noqa
+            mldb.post('/v1/datasets/ds/rows', {
+                # rowName missing -> should not work
+                'columns' : [['colA', 1, 1]]
+            })
+
 if __name__ == '__main__':
     mldb.run_tests()

@@ -223,7 +223,6 @@ $(eval $(call mldb_unit_test,MLDB-1101-tf-idf.py))
 $(eval $(call mldb_unit_test,MLDB-1117-git-import.js))
 $(eval $(call mldb_unit_test,MLDB-1120-sparse-mutable-values.js))
 $(eval $(call mldb_unit_test,MLDB-1142-sparse-mutable-failing-with-underflow.py))
-$(eval $(call mldb_unit_test,MLDBFB-261-null_row_name_demonstration.py,,manual)) #manual -- awaiting fix
 
 $(eval $(call mldb_unit_test,MLDB-1033-sparse-timestamp-interval.js))
 $(eval $(call mldb_unit_test,MLDB-1026-slow-not-in.js))
