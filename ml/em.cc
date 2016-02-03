@@ -352,6 +352,9 @@ reconstitute(ML::DB::Store_Reader & store)
     store >> nbClusters;
     clusters.clear();
     clusters.resize(nbClusters);
+
+    cerr << "reconstitute nb Clusters" << nbClusters << endl;
+
     for (int i=0; i < nbClusters; ++i) {
 
         store >> clusters[i].totalWeight;
@@ -359,7 +362,9 @@ reconstitute(ML::DB::Store_Reader & store)
         store >> clusters[i].covarianceMatrix;
         store >> clusters[i].invertCovarianceMatrix;
         store >> clusters[i].pseudoDeterminant;
-    }
+
+        cerr << "reconstitute centroid " << clusters[i].centroid << endl;
+    }    
 }
 
 

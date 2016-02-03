@@ -175,7 +175,6 @@ template<typename Float>
 boost::multi_array<Float, 2>
 setIdentity(int numDim, boost::multi_array<Float, 2>& D)
 {
-    std::cerr << "getIdentity " << numDim << std::endl;
     D.resize(boost::extents[numDim][numDim]);
     for (unsigned i = 0;  i < numDim;  ++i)
     {
@@ -187,7 +186,6 @@ setIdentity(int numDim, boost::multi_array<Float, 2>& D)
                 D[i][j] = 0.0f;
         }
     }
-    std::cerr << "getIdentity return " << D.shape()[0] << std::endl;
     return D;
 }
 
