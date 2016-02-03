@@ -118,7 +118,7 @@ assertSucceeded("creating SVD function", r);
 var r = mldb.get("/v1/functions/svd/application", { input: { row: {'0': 1}}});
 plugin.log(r);
 assertEqual(r.responseCode, 200);
-assertEqual(r.json.output.embedding.length, 20);
+assertEqual(r.json.output.embedding.shape, [20]);
 
 r = mldb.get("/v1/functions/svd/application", { input: { row: {'0': '1'}}});
 plugin.log(r);

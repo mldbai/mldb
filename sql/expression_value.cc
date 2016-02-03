@@ -498,36 +498,25 @@ findNestedColumn(const Utf8String& variableName, SchemaCompleteness& schemaCompl
 /*****************************************************************************/
 
 /// This is how we store a structure with a single value for each
-/// element and an external set of column names
+/// element and an external set of column names.  There is only
+/// one timestamp for the whole thing.
 struct ExpressionValue::Struct {
     std::shared_ptr<const std::vector<ColumnName> > columnNames;
     std::vector<CellValue> values;
-    std::vector<float> embedding;
-    std::vector<double> dembedding;
 
     size_t length() const
     {
-        return columnNames ? columnNames->size()
-            : std::max(std::max(values.size(), embedding.size()),
-                       dembedding.size());
+        return values.size();
     }
 
     CellValue value(int i) const
     {
-        if (!embedding.empty())
-            return embedding.at(i);
-        else if (!dembedding.empty())
-            return dembedding.at(i);
-        else return values.at(i);
+        return values.at(i);
     }
 
     CellValue moveValue(int i)
     {
-        if (!embedding.empty())
-            return embedding.at(i);
-        else if (!dembedding.empty())
-            return dembedding.at(i);
-        else return std::move(values.at(i));
+        return std::move(values.at(i));
     }
 
     ColumnName columnName(int i) const
@@ -556,12 +545,12 @@ struct ExpressionValue::Tensor {
     }
 
     template<typename T>
-    const T & getValueT(size_t n)
+    const T & getValueT(size_t n) const
     {
         return n[(T *)(data_.get())];
     }
 
-    CellValue getValue(size_t n)
+    CellValue getValue(size_t n) const
     {
         switch (storageType_) {
         case ST_FLOAT32:
@@ -630,16 +619,12 @@ struct ExpressionValue::Tensor {
     {
         auto onValue = [&] (const vector<int> & indexes, CellValue & val)
             {
-                std::string n = "[";
+                Coord c;
                 for (auto & i: indexes) {
-                    if (n.length() != 1)
-                        n += ',';
-                    n += to_string(i);
+                    c = c + i;
                 }
-                n += ']';
 
-                ColumnName columnName(n);
-                return onColumn(columnName, val);
+                return onColumn(c, val);
             };
 
         return forEachValue(onValue);
@@ -650,6 +635,8 @@ struct ExpressionValue::Tensor {
         context.startObject();
         context.startMember("shape");
         context.writeJson(jsonEncode(dims_));
+        context.startMember("type");
+        context.writeString(jsonEncode(storageType_).asString());
         context.startMember("val");
 
         vector<int> indexes(dims_.size());
@@ -810,8 +797,9 @@ parseJson(JsonParsingContext & context,
 
         auto onObjectField = [&] ()
             {
+                const char * fieldName = context.fieldNamePtr();
                 out.emplace_back
-                (ColumnName(context.fieldNamePtr()),
+                (ColumnName(fieldName, strlen(fieldName)),
                  parseJson(context, timestamp, arrays));
             };
         context.forEachMember(onObjectField);
@@ -905,14 +893,13 @@ ExpressionValue::
     typedef std::shared_ptr<const Tensor> TensorRepr;
 
     switch (type_) {
-    case NONE: break;
-    case ATOM: cell_.~CellValue();  break;
-    case ROW:  row_.~RowRepr();  break;
-    case STRUCT: struct_.~StructRepr();  break;
-    case TENSOR: tensor_.~TensorRepr();  break;
-    default:
-        throw HttpReturnException(400, "Unknown expression value type");
+    case NONE: return;
+    case ATOM: cell_.~CellValue();  return;
+    case ROW:  row_.~RowRepr();  return;
+    case STRUCT: struct_.~StructRepr();  return;
+    case TENSOR: tensor_.~TensorRepr();  return;
     }
+    throw HttpReturnException(400, "Unknown expression value type");
 }
 
 ExpressionValue::
@@ -920,24 +907,23 @@ ExpressionValue(const ExpressionValue & other)
     : type_(NONE)
 {
     switch (other.type_) {
-    case NONE: ts_ = other.ts_;  break;
-    case ATOM: initAtom(other.cell_, other.ts_);  break;
-    case ROW:  initRow(other.row_);  break;
+    case NONE: ts_ = other.ts_;  return;
+    case ATOM: initAtom(other.cell_, other.ts_);  return;
+    case ROW:  initRow(other.row_);  return;
     case STRUCT: {
         ts_ = other.ts_;
         new (storage_) std::shared_ptr<const Struct>(other.struct_);
         type_ = STRUCT;
-        break;
+        return;
     }
     case TENSOR: {
         ts_ = other.ts_;
         new (storage_) std::shared_ptr<const Tensor>(other.tensor_);
         type_ = TENSOR;
-        break;
+        return;
     }
-    default:
-        throw HttpReturnException(400, "Unknown expression value type");
     }
+    throw HttpReturnException(400, "Unknown expression value type");
 }
 
 ExpressionValue::
@@ -945,17 +931,16 @@ ExpressionValue(ExpressionValue && other) noexcept
     : type_(NONE)
 {
     ts_ = other.ts_;
+    type_ = other.type_;
 
     switch (other.type_) {
-    case NONE: break;
-    case ATOM: new (storage_) CellValue(std::move(other.cell_));  break;
-    case ROW:  new (storage_) std::shared_ptr<const Row>(std::move(other.row_));  break;
-    case STRUCT: new (storage_) std::shared_ptr<const Struct>(std::move(other.struct_));  break;
-    case TENSOR: new (storage_) std::shared_ptr<const Tensor>(std::move(other.tensor_));  break;
-    default:
-        throw HttpReturnException(400, "Unknown expression value type");
+    case NONE: return;
+    case ATOM: new (storage_) CellValue(std::move(other.cell_));  return;
+    case ROW:  new (storage_) std::shared_ptr<const Row>(std::move(other.row_));  return;
+    case STRUCT: new (storage_) std::shared_ptr<const Struct>(std::move(other.struct_));  return;
+    case TENSOR: new (storage_) std::shared_ptr<const Tensor>(std::move(other.tensor_));  return;
     }
-    type_ = other.type_;
+    throw HttpReturnException(400, "Unknown expression value type");
 }
 
 ExpressionValue::
@@ -1016,16 +1001,22 @@ ExpressionValue(std::vector<CellValue> values,
                 Date ts)
     : type_(NONE), ts_(ts)
 {
-    std::shared_ptr<Struct> content(new Struct());
-    content->values = std::move(values);
+    std::shared_ptr<CellValue> vals(new CellValue[values.size()],
+                                    [] (CellValue * p) { delete[] p; });
+    std::copy(std::make_move_iterator(values.begin()),
+              std::make_move_iterator(values.end()),
+              vals.get());
+    std::shared_ptr<Tensor> content(new Tensor());
+    content->data_ = std::move(vals);
+    content->storageType_ = ST_CELLVALUE;
+    content->dims_ = { values.size() };
 
-    new (storage_) std::shared_ptr<const Struct>(std::move(content));
-    type_ = STRUCT;
+    new (storage_) std::shared_ptr<const Tensor>(std::move(content));
+    type_ = TENSOR;
 }
 
-
 ExpressionValue::
-ExpressionValue(std::vector<float> values,
+ExpressionValue(const std::vector<float> & values,
                 std::shared_ptr<const std::vector<ColumnName> > cols,
                 Date ts)
     : type_(NONE), ts_(ts)
@@ -1033,7 +1024,8 @@ ExpressionValue(std::vector<float> values,
     ExcAssertEqual(values.size(), (*cols).size());
 
     std::shared_ptr<Struct> content(new Struct());
-    content->embedding = std::move(values);
+    vector<CellValue> cellValues(values.begin(), values.end());
+    content->values = std::move(cellValues);
     content->columnNames = std::move(cols);
 
     new (storage_) std::shared_ptr<const Struct>(std::move(content));
@@ -1044,20 +1036,36 @@ ExpressionValue::
 ExpressionValue(std::vector<float> values, Date ts)
     : type_(NONE), ts_(ts)
 {
-    std::shared_ptr<Struct> content(new Struct());
-    content->embedding = std::move(values);
-    new (storage_) std::shared_ptr<const Struct>(std::move(content));
-    type_ = STRUCT;
+    std::shared_ptr<float> vals(new float[values.size()],
+                                    [] (float * p) { delete[] p; });
+    std::copy(std::make_move_iterator(values.begin()),
+              std::make_move_iterator(values.end()),
+              vals.get());
+    std::shared_ptr<Tensor> content(new Tensor());
+    content->data_ = std::move(vals);
+    content->storageType_ = ST_FLOAT32;
+    content->dims_ = { values.size() };
+    
+    new (storage_) std::shared_ptr<const Tensor>(std::move(content));
+    type_ = TENSOR;
 }
 
 ExpressionValue::
 ExpressionValue(std::vector<double> values, Date ts)
     : type_(NONE), ts_(ts)
 {
-    std::shared_ptr<Struct> content(new Struct());
-    content->dembedding = std::move(values);
-    new (storage_) std::shared_ptr<const Struct>(std::move(content));
-    type_ = STRUCT;
+    std::shared_ptr<double> vals(new double[values.size()],
+                                    [] (double * p) { delete[] p; });
+    std::copy(std::make_move_iterator(values.begin()),
+              std::make_move_iterator(values.end()),
+              vals.get());
+    std::shared_ptr<Tensor> content(new Tensor());
+    content->data_ = std::move(vals);
+    content->storageType_ = ST_FLOAT64;
+    content->dims_ = { values.size() };
+    
+    new (storage_) std::shared_ptr<const Tensor>(std::move(content));
+    type_ = TENSOR;
 }
 
 ExpressionValue
@@ -1126,30 +1134,40 @@ bool
 ExpressionValue::
 isTrue() const
 {
-    if (type_ == NONE)
+    switch (type_) {
+    case NONE:
         return false;
-    if (type_ == ATOM)
+    case ATOM:
         return cell_.isTrue();
-    if (type_ == ROW)
+    case ROW:
         return !row_->empty();
-    if (type_ == STRUCT)
+    case STRUCT:
         return struct_->length();
-    return false;
+    case TENSOR:
+        return tensor_->length();
+    }
+
+    throw HttpReturnException(500, "Unknown expression value type");
 }
 
 bool
 ExpressionValue::
 isFalse() const
 {
-    if (type_ == NONE)
+    switch (type_) {
+    case NONE:
         return false;
-    if (type_ == ATOM)
+    case ATOM:
         return cell_.isFalse();
-    if (type_ == ROW)
+    case ROW:
         return row_->empty();
-    if (type_ == STRUCT)
+    case STRUCT:
         return !struct_->length();
-    return false;
+    case TENSOR:
+        return tensor_->length();
+    }
+
+    throw HttpReturnException(500, "Unknown expression value type");
 }
 
 bool
@@ -1406,6 +1424,9 @@ getField(int fieldIndex) const
     if (type_ == STRUCT) {
         return ExpressionValue(struct_->value(fieldIndex), ts_);
     }
+    else if (type_ == TENSOR) {
+        return ExpressionValue(tensor_->getValue(fieldIndex), ts_);
+    }
 
     return ExpressionValue();
 }
@@ -1444,6 +1465,13 @@ findNestedField(const Utf8String & fieldName, const VariableFilter & filter /*= 
                 }   
             }
         }
+    }
+    else if (type_ == STRUCT) {
+        throw HttpReturnException(400, "findNestedField for struct");
+        
+    }
+    else if (type_ == TENSOR) {
+        throw HttpReturnException(400, "findNestedField for tensor");
     }
 
     return nullptr;
@@ -1524,14 +1552,16 @@ getEmbedding(const std::vector<ColumnName> & knownNames,
         } else {
             if (maxLength == -1)
                 maxLength = struct_->length();
-            features.insert(features.end(),
-                            struct_->embedding.begin(),
-                            struct_->embedding.end());
-            // TODO: assert on name
+            features.reserve(struct_->values.size());
+            for (auto & v: struct_->values)
+                features.emplace_back(v.toDouble());
         }
         return features;
     }
-
+    else if (type_ == TENSOR) {
+        throw HttpReturnException(400, "getEmbedding for tensor");
+    }
+    
     auto onSubexpression = [&] (const ColumnName & columnName,
                                 const ColumnName & prefix,
                                 const ExpressionValue & val)
@@ -1876,11 +1906,10 @@ forEachColumnDestructiveT(Fn && onSubexpression) const
         throw HttpReturnException(500, "Expected row expression",
                                   "expression", *this,
                                   "type", (int)type_);
-    default:
-        throw HttpReturnException(500, "Unknown expression type",
-                                  "expression", *this,
-                                  "type", (int)type_);
     }
+    throw HttpReturnException(500, "Unknown expression type",
+                              "expression", *this,
+                              "type", (int)type_);
 }
 
 ExpressionValue::Row
@@ -2042,12 +2071,10 @@ hash() const
     case TENSOR:
         // TODO: a more reasonable speed in hashing
         return jsonHash(jsonEncode(*this));
-    default:
-        throw HttpReturnException(500, "Unknown expression type",
-                                  "expression", *this,
-                                  "type", (int)type_);
-        
     }
+    throw HttpReturnException(500, "Unknown expression type",
+                              "expression", *this,
+                              "type", (int)type_);
 }
 
 void
@@ -2118,18 +2145,23 @@ CellValue
 ExpressionValue::
 coerceToAtom() const
 {
-    if (type_ == ATOM)
+    switch (type_) {
+    case NONE:
+        return EMPTY_CELL;
+    case ATOM:
         return cell_;
-    else if (type_ == ROW)
-    {
+    case ROW:
         ExcAssertEqual(row_->size(), 1);
         return std::get<1>((*row_)[0]).getAtom();
-    }
-    else if (type_ == STRUCT)
-    {
+    case STRUCT:
         ExcAssertEqual(struct_->length(), 1);
         return CellValue(struct_->value(0));
+    case TENSOR:
+        ExcAssertEqual(tensor_->length(), 1);
+        return tensor_->getValue(0);
     }
+
+    throw HttpReturnException(500, "coerceToAtom: unknown expression type");
 
     return EMPTY_CELL;
 }
@@ -2239,9 +2271,6 @@ int
 ExpressionValue::
 compare(const ExpressionValue & other) const
 {
-    //cerr << "comparing " << jsonEncodeStr(*this) << " to " << jsonEncodeStr(other)
-    //     << endl;
-
     if (type_ < other.type_)
         return -1;
     else if (type_ > other.type_)
@@ -2263,10 +2292,12 @@ compare(const ExpressionValue & other) const
     case STRUCT: {
         return compare_t<vector<pair<ColumnName, CellValue> >, ML::compare>(*this, other);
     }
-    default:
-        throw HttpReturnException(400, "unknown ExpressionValue type");
+    case TENSOR: {
+        return compare_t<vector<pair<ColumnName, CellValue> >, ML::compare>(*this, other);
+    }
     }
     
+    throw HttpReturnException(400, "unknown ExpressionValue type");
 }
 
 bool
@@ -2283,12 +2314,12 @@ operator == (const ExpressionValue & other) const
         auto rightRow = other.getRow();
         return ML::compare_sorted(leftRow, rightRow, std::equal_to<Row>());
     }
-    case STRUCT: {
+    case STRUCT:
+    case TENSOR: {
         return compare_t<vector<pair<ColumnName, CellValue> >, equal_to>(*this, other);
     }
-    default:
-        throw HttpReturnException(400, "unknown ExpressionValue type " + to_string(type_));
     }
+    throw HttpReturnException(400, "unknown ExpressionValue type " + to_string(type_));
 }
 
 bool
@@ -2311,9 +2342,11 @@ operator <  (const ExpressionValue & other) const
     case STRUCT: {
         return compare_t<vector<pair<ColumnName, CellValue> >, less>(*this, other);
     }
-    default:
-        throw HttpReturnException(400, "unknown ExpressionValue type");
+    case TENSOR: {
+        return compare_t<vector<pair<ColumnName, CellValue> >, less>(*this, other);
     }
+    }
+    throw HttpReturnException(400, "unknown ExpressionValue type");
 }
 
 std::shared_ptr<ExpressionValueInfo>
@@ -2332,9 +2365,10 @@ getSpecializedValueInfo() const
         return std::make_shared<RowValueInfo>(vector<KnownColumn>(), SCHEMA_OPEN);
     case STRUCT:
         throw ML::Exception("struct getSpecializedValueInfo not done");
-    default:
-        throw HttpReturnException(400, "unknown ExpressionValue type");
+    case TENSOR:
+        throw ML::Exception("tensor getSpecializedValueInfo not done");
     }
+    throw HttpReturnException(400, "unknown ExpressionValue type");
 }
 
 using Datacratic::getDefaultDescriptionShared;
@@ -2353,11 +2387,11 @@ extractJson(JsonPrintingContext & context) const
     switch (type_) {
     case ExpressionValue::NONE:
         context.writeNull();
-        break;
+        return;
 
     case ExpressionValue::ATOM:
         cellDesc->printJsonTyped(&cell_, context);
-        break;
+        return;
 
     case ExpressionValue::ROW: {
         Json::Value output(Json::objectValue);
@@ -2366,7 +2400,7 @@ extractJson(JsonPrintingContext & context) const
             output[std::get<0>(r).toUtf8String()] = std::get<1>(r).extractJson();
 
         context.writeJson(output);
-        break;
+        return;
     }
     case ExpressionValue::STRUCT: {
         Json::Value output(Json::arrayValue);
@@ -2376,7 +2410,7 @@ extractJson(JsonPrintingContext & context) const
                 output[i] = jsonEncode(struct_->value(i));
         }
         else if (struct_->length() > 0
-                 && struct_->columnNames->at(0) == ColumnName("000000")) {
+                 && struct_->columnNames->at(0) == ColumnName(0)) {
             // Assume it's an array
             
             for (unsigned i = 0;  i < struct_->length();  ++i) {
@@ -2391,7 +2425,7 @@ extractJson(JsonPrintingContext & context) const
 
         if (!output.isNull()) {
             context.writeJson(output);
-            break;
+            return;
         }
 
         output = Json::Value(Json::objectValue);
@@ -2402,14 +2436,13 @@ extractJson(JsonPrintingContext & context) const
         }
 
         context.writeJson(output);
-        break;
+        return;
     }
     case ExpressionValue::TENSOR: {
+        throw HttpReturnException(500, "extractJson TENSOR: not impl");
     }
-    default:
-        throw HttpReturnException(400, "unknown ExpressionValue type");
     }
-    
+    throw HttpReturnException(400, "unknown ExpressionValue type");
 }
 
 Json::Value
@@ -2536,11 +2569,11 @@ printJsonTyped(const ExpressionValue * val,
                JsonPrintingContext & context) const
 {
     switch (val->type_) {
-    case ExpressionValue::NONE: context.writeNull();  break;
-    case ExpressionValue::ATOM: cellDesc->printJsonTyped(&val->cell_, context);  break;
+    case ExpressionValue::NONE: context.writeNull();  return;
+    case ExpressionValue::ATOM: cellDesc->printJsonTyped(&val->cell_, context);  return;
     case ExpressionValue::ROW:
         rowDesc->printJsonTyped(val->row_.get(),   context);
-        break;
+        return;
     case ExpressionValue::STRUCT: {
         Json::Value output(Json::arrayValue);
 
@@ -2557,14 +2590,14 @@ printJsonTyped(const ExpressionValue * val,
                 if (val->struct_->columnName(i) != i) {
                     // Not really an array or embedding...
                     output = Json::Value();
-                    break;
+                    return;
                 }
             }
         }
 
         if (!output.isNull()) {
             context.writeJson(output);
-            break;
+            return;
         }
 
         output = Json::Value(Json::objectValue);
@@ -2575,15 +2608,14 @@ printJsonTyped(const ExpressionValue * val,
         }
 
         context.writeJson(output);
-        break;
+        return;
     }
     case ExpressionValue::TENSOR: {
         val->tensor_->writeJson(context);
-        break;
+        return;
     }
-    default:
-        throw HttpReturnException(400, "unknown ExpressionValue type");
     }
+    throw HttpReturnException(400, "unknown ExpressionValue type");
 }
 
 bool

@@ -364,7 +364,7 @@ struct ExpressionValue {
 
     // Construct from an embedding of simple values with common names
     // This is more efficient than a row as only the values are kept
-    ExpressionValue(std::vector<float> values,
+    ExpressionValue(const std::vector<float> & values,
                     std::shared_ptr<const std::vector<ColumnName> > cols,
                     Date ts);
 
@@ -606,8 +606,8 @@ struct ExpressionValue {
         dataset row or event, moving values and destroying this object in
         the process.
     */
-    void appendToRowDestructive(Id & columnName, RowValue & row);
-    void appendToRowDestructive(Id & columnName, StructValue & row);
+    void appendToRowDestructive(ColumnName & columnName, RowValue & row);
+    void appendToRowDestructive(ColumnName & columnName, StructValue & row);
 
     /// Destructively merge into the given row
     void mergeToRowDestructive(RowValue & row);

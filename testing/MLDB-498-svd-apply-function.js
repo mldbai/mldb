@@ -141,7 +141,7 @@ var output1 = mldb.get("/v1/functions/svd/application", getQueryString(vals, 1))
 
 plugin.log(output1);
 
-assertEqual(output0.json.output.embedding.length, 10, "output0");
-assertEqual(output1.json.output.embedding.length, 10, "output1");
+assertEqual(output0.json.output.embedding.shape, [10], "output0");
+assertEqual(output1.json.output.embedding.shape, [10], "output1");
 
 "success"

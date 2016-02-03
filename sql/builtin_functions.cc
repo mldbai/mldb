@@ -818,8 +818,8 @@ BoundFunction normalize(const std::vector<BoundSqlExpression> & args)
                 normalize(val, p);
 
                 ExpressionValue result(std::move(val),
-                                           columnNames,
-                                           ts);
+                                       columnNames,
+                                       ts);
 
                  return std::move(result);
             },
