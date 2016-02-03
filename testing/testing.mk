@@ -14,6 +14,10 @@ MANUAL_IF_NO_S3:=$(if $(HAS_S3_CREDENTIALS),,manual)
 
 $(eval $(call library,mldb_test_function,test_function.cc,mldb))
 
+
+$(eval $(call mldb_unit_test,MLDBFB-336-sample_test.py,,manual))
+
+
 $(eval $(call test,mldb_plugin_test,mldb,boost))
 $(eval $(call test,mldb_python_plugin_test,mldb,boost))
 $(eval $(call test,MLDB-642_script_procedure_test,mldb,boost))
