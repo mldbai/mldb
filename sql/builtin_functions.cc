@@ -33,10 +33,10 @@ namespace {
     {
         if (number != expected)
         {
-            if (expected > 1)
-                throw HttpReturnException(400, "takes " + to_string(expected) + " arguments, got " + to_string(number));
+            if (expected != 1)
+                throw HttpReturnException(400, "expected " + to_string(expected) + " arguments, got " + to_string(number));
             else
-                throw HttpReturnException(400, "takes " + to_string(expected) + " argument, got " + to_string(number));
+                throw HttpReturnException(400, "expected " + to_string(expected) + " argument, got " + to_string(number));
         }
     }    
 }
@@ -1178,7 +1178,7 @@ BoundFunction token_extract(const std::vector<BoundSqlExpression> & args)
     // Comma separated list, first is row name, rest are row columns
 
     if (args.size() < 2)
-        throw HttpReturnException(400, "requires at least two argument");
+        throw HttpReturnException(400, "requires at least two arguments");
 
     if (args.size() > 3)
         throw HttpReturnException(400, "requires at most three arguments");
