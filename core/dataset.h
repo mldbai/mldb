@@ -35,6 +35,7 @@ struct SelectExpression;
 struct TupleExpression;
 struct WhenExpression;
 struct RowValueInfo;
+struct ExpressionValue;
 
 typedef EntityType<Dataset> DatasetType;
 
@@ -173,6 +174,7 @@ struct ColumnIndex {
     virtual uint64_t getColumnRowCount(const ColumnName & column) const;
 };
 
+
 /*****************************************************************************/
 /* ROW STREAM                                                                */
 /*****************************************************************************/
@@ -193,6 +195,7 @@ struct RowStream {
     virtual RowName next() = 0;
 
 };
+
 
 /*****************************************************************************/
 /* DATASET                                                                   */
@@ -219,7 +222,7 @@ struct Dataset: public MldbEntity {
         recording operation.  Datasets must implement recordRowItl.
     */
     void recordRow(const RowName & rowName,
-                           const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals);
+                   const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals);
 
     /** Internal handler for recording rows.  Default implementation throws that
         this dataset type does not support recording.
@@ -248,6 +251,21 @@ struct Dataset: public MldbEntity {
         forwards to recordRow.
     */
     virtual void recordColumns(const std::vector<std::pair<ColumnName, std::vector<std::tuple<RowName, CellValue, Date> > > > & cols);
+
+    /** Record an expression value as a row.  This will be flattened by
+        datasets that require flattening.
+        
+        Default will flatten and call recordRow().
+    */
+    virtual void recordRowExpr(const RowName & rowName,
+                               const ExpressionValue & expr);
+
+    /** Record an expression value as a row.  This will be flattened by
+        datasets that require flattening.
+        
+        Default will flatten and call recordRows().
+    */
+    virtual void recordRowsExpr(const std::vector<std::pair<RowName, ExpressionValue> > & rows);
 
     /** Return what is known about the given column.  Default returns
         an "any value" result, ie nothing is known about the column.

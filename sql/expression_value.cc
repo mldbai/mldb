@@ -584,6 +584,83 @@ ExpressionValue(const Json::Value & val, Date timestamp)
     initRow(std::move(row));
 }
 
+static const auto cellValueDesc = getDefaultDescriptionShared((CellValue *)0);
+
+CellValue expectAtom(JsonParsingContext & context)
+{
+    CellValue val;
+    cellValueDesc->parseJson(&val, context);
+    return val;
+}
+
+ExpressionValue
+ExpressionValue::
+parseJson(JsonParsingContext & context,
+          Date timestamp,
+          JsonArrayHandling arrays)
+{
+    if (context.isObject()) {
+
+        std::vector<std::tuple<ColumnName, ExpressionValue> > out;
+
+        auto onObjectField = [&] ()
+            {
+                out.emplace_back
+                (ColumnName(context.fieldNamePtr()),
+                 parseJson(context, timestamp, arrays));
+            };
+        context.forEachMember(onObjectField);
+
+        return std::move(out);
+    }
+    else if (context.isArray()) {
+        std::vector<std::tuple<ColumnName, ExpressionValue> > out;
+
+        bool hasNonAtom = false;
+        bool hasNonObject = false;
+
+        auto onArrayElement = [&] ()
+            {
+                if (!context.isObject())
+                    hasNonObject = true;
+                out.emplace_back(ColumnName(context.fieldNumber()),
+                                 parseJson(context, timestamp, arrays));
+                
+                if (!std::get<1>(out.back()).isAtom())
+                    hasNonAtom = true;
+            };
+        
+        context.forEachElement(onArrayElement);
+
+        if (arrays == ENCODE_ARRAYS && !hasNonAtom) {
+            // One-hot encode them
+            for (auto & v: out) {
+                ColumnName & columnName = std::get<0>(v);
+                ExpressionValue & columnValue = std::get<1>(v);
+                
+                columnName = ColumnName(columnValue.toUtf8String());
+                columnValue = ExpressionValue(1, timestamp);
+            }
+        }
+        else if (arrays == ENCODE_ARRAYS && !hasNonObject) {
+            // JSON encode them
+            for (auto & v: out) {
+                ExpressionValue & columnValue = std::get<1>(v);
+                std::string str;
+                StringJsonPrintingContext context(str);
+                columnValue.extractJson(context);
+                columnValue = ExpressionValue(str, timestamp);
+            }
+        }
+
+        return std::move(out);
+    }
+    else {
+        // It's an atomic cell value; parse the atom
+        return ExpressionValue(expectAtom(context), timestamp);
+    }
+}
+
 ExpressionValue::
 ExpressionValue(RowValue row) noexcept
 : type_(NONE)

@@ -90,6 +90,7 @@ class SumDoesNotExistTest(unittest.TestCase):
             }
         })
 
+    @unittest.expectedFailure
     def test_plain_sql(self):
         mldb.post('/v1/procedures', {
             'type' : 'transform',
@@ -99,6 +100,7 @@ class SumDoesNotExistTest(unittest.TestCase):
                     'id' : 'res',
                     'type' : 'sparse.mutable'
                 },
+                'runOnCreation' : True
             }
         })
 
@@ -111,6 +113,35 @@ class SumDoesNotExistTest(unittest.TestCase):
                     'id' : 'res',
                     'type' : 'sparse.mutable'
                 },
+                'runOnCreation' : True
+            }
+        })
+
+    @unittest.expectedFailure
+    def test_plain_sql_w_group_by_and_named(self):
+        mldb.post('/v1/procedures', {
+            'type' : 'transform',
+            'params' : {
+                'inputData' : 'SELECT sum({*}) NAMED res FROM ds GROUP BY 1',
+                'outputDataset' : {
+                    'id' : 'res',
+                    'type' : 'sparse.mutable'
+                },
+                'runOnCreation' : True
+            }
+        })
+
+    @unittest.expectedFailure
+    def test_plain_sql_w_named(self):
+        mldb.post('/v1/procedures', {
+            'type' : 'transform',
+            'params' : {
+                'inputData' : 'SELECT sum({*}) NAMED res FROM ds',
+                'outputDataset' : {
+                    'id' : 'res',
+                    'type' : 'sparse.mutable'
+                },
+                'runOnCreation' : True
             }
         })
 

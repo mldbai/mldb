@@ -199,7 +199,7 @@ removeQuotes(const Utf8String & variableName) const
 //by finding the dataset name that resolves first.
 Utf8String 
 SqlExpressionDatasetContext::
-resolveTableName(const Utf8String& variable) const
+resolveTableName(const Utf8String& variable, Utf8String& resolvedTableName) const
 {
     if (variable.empty())
         return Utf8String();
@@ -228,6 +228,7 @@ resolveTableName(const Utf8String& variable) const
                 if (next != variable.end()) {
                     Utf8String shortVariableName(next, variable.end());
                     shortVariableName = tableName + "." + removeQuotes(shortVariableName);
+                    resolvedTableName = std::move(tableName);
                     return shortVariableName;
                 }            
             }
@@ -248,6 +249,7 @@ resolveTableName(const Utf8String& variable) const
                 for (auto& datasetName: childaliases) {
 
                     if (tableName == datasetName) {
+                        resolvedTableName = std::move(tableName);
                         if (datasetName.find('.') != datasetName.end()) {
                             //we need to enclose it in quotes to resolve any potential ambiguity
                             Utf8String quotedVariableName(++it, variable.end());
@@ -267,6 +269,14 @@ resolveTableName(const Utf8String& variable) const
     }
 
     return variable;
+}
+
+Utf8String 
+SqlExpressionDatasetContext::
+resolveTableName(const Utf8String& variable) const
+{
+    Utf8String resolvedTableName;
+    return resolveTableName(variable, resolvedTableName);
 }
 
 VariableGetter
@@ -386,7 +396,7 @@ doGetAllColumns(const Utf8String & tableName,
         && std::find(childaliases.begin(), childaliases.end(), tableName)
             == childaliases.end()
         && tableName != alias)
-        throw HttpReturnException(400, "Unknown dataset " + tableName);    
+        throw HttpReturnException(400, "Unknown dataset " + tableName);
 
     auto columns = dataset.getMatrixView()->getColumnNames();
 
@@ -529,6 +539,21 @@ doGetColumnFunction(const Utf8String & functionName)
 
     return nullptr;
 }
+
+Utf8String 
+SqlExpressionDatasetContext::
+doResolveTableName(const Utf8String & fullVariableName, Utf8String &tableName) const
+{
+    if (!childaliases.empty()) {
+        return removeQuotes(resolveTableName(fullVariableName, tableName));
+    }
+    else {
+        Utf8String simplifiedVariableName = removeQuotes(removeTableName(fullVariableName));
+        if (simplifiedVariableName != fullVariableName)
+            tableName = alias;
+        return std::move(simplifiedVariableName);
+    }
+}   
 
 /*****************************************************************************/
 /* ROW EXPRESSION ORDER BY CONTEXT                                           */

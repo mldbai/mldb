@@ -49,9 +49,9 @@ check(result, 2)
 result = mldb.get('/v1/query', q='SELECT "a."* FROM x.y')
 check(result, 2)
 
-# uncomment for MLDB-1313 test case
-#result = mldb.perform('GET', '/v1/query', [['q', 'SELECT a.* FROM x.y']])
-#Check(result, 2)
+# MLDB-1313 test case
+result2 = mldb.get('/v1/query', q='SELECT a.* FROM x.y')
+assert result.json() == result2.json()
 
 result = mldb.get('/v1/query', q='SELECT q.r.a.b FROM x.y as q.r')
 

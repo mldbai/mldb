@@ -507,6 +507,7 @@ injectMldbWrapper(PythonSubinterpreter & pyControl)
 {
     std::string code = R"code(
 
+import unittest
 
 class mldb_wrapper(object):
 
@@ -612,7 +613,6 @@ class mldb_wrapper(object):
             ]).json()
 
         def run_tests(self):
-            import unittest
             import StringIO
             io_stream = StringIO.StringIO()
             runner = unittest.TextTestRunner(stream=io_stream, verbosity=2,
@@ -633,6 +633,41 @@ class mldb_wrapper(object):
 
             if res.wasSuccessful():
                 self.script.set_return("success")
+
+class MldbUnitTest(unittest.TestCase):
+    def _assert_flat_result(self, res, expected):
+        if res[0][0] != '_rowName':
+            raise Exception("Cannot order rows if header is missing from "
+                            "response")
+        if expected[0][0] != '_rowName':
+            raise Exception("The first row of expected needs to be the header")
+        res_keys = sorted(res[0])
+        expected_keys = sorted(expected[0])
+        self.assertEqual(res_keys, expected_keys)
+
+        expected_order = {
+            key: index for index, key in enumerate(expected[0])}
+
+        reorder_directives = [expected_order[key] for key in res[0]]
+        ordered_res = [[v[pos] for pos in reorder_directives] for v in res[1:]]
+        for res_row, expected_row in zip(ordered_res, expected[1:]):
+            self.assertEqual(res_row, expected_row)
+
+    def _assert_json_result(self, res, expected):
+        for res_row, expected_row in zip(res, expected):
+            self.assertEqual(res_row["rowName"], expected_row["rowName"])
+            res_columns = sorted(res_row["columns"])
+            expected_columns = sorted(expected_row["columns"])
+            self.assertEqual(res_columns, expected_columns)
+
+
+    def assertQueryResult(self, res, expected):
+        self.assertEqual(len(res), len(expected))
+        self.assertFalse(len(res) == 0)
+        if type(expected[0]) is dict:
+            self._assert_json_result(res, expected)
+        else:
+            self._assert_flat_result(res, expected)
 
     )code"; //this is python code
 
