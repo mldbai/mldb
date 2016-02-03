@@ -308,3 +308,4 @@ $(eval $(call mldb_unit_test,MLDB-1315-row-table-expressions.js))
 $(eval $(call mldb_unit_test,MLDB-1345-having.py,,manual)) # manual -- awaiting fix
 $(eval $(call mldb_unit_test,mldb_unit_test_test.py))
 $(eval $(call mldb_unit_test,MLDB-1216-fetcher-function.js))
+$(eval $(call mldb_unit_test,MLDBFB-199_invalid_script_test.py))
