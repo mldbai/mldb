@@ -574,8 +574,13 @@ struct JoinedDataset::Itl
         result.rowName = rowName;
         result.rowHash = rowName;
 
-        auto leftRow = matrices[0]->getRow(row.leftName);
-        auto rightRow = matrices[1]->getRow(row.rightName);
+        MatrixNamedRow leftRow, rightRow;
+
+        if (row.leftName)
+            leftRow = matrices[0]->getRow(row.leftName);
+
+        if (row.rightName)
+            rightRow = matrices[1]->getRow(row.rightName);
         
         /// This function copies columns from a sub-row to the result of
         /// the function.
