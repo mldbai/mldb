@@ -32,7 +32,7 @@ class SampleTest(MldbUnitTest):
         rez = mldb.get("/v1/query", q="""
 
             SELECT
-                text.txt, tbl1.warp, tbl2.warp
+                text.txt, sub1.warp, sub2.warp
             FROM text
             LEFT JOIN sub1 ON text.rowName() = regex_replace(sub1.rowName(), 'row_', '')
             LEFT JOIN sub2 ON text.rowName() = regex_replace(sub2.rowName(), 'row_', '')
