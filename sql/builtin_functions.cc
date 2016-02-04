@@ -805,8 +805,9 @@ BoundFunction normalize(const std::vector<BoundSqlExpression> & args)
         if (vectorInfo->isEmbedding())
         {
             const EmbeddingValueInfo* embeddingInfo = dynamic_cast<EmbeddingValueInfo*>(vectorInfo.get());
+            vector<ssize_t> shape = { -1 };
             if (embeddingInfo)
-                numDims = embeddingInfo->shape.at(0);
+                shape = embeddingInfo->shape;
 
             return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & context) -> ExpressionValue
@@ -824,7 +825,7 @@ BoundFunction normalize(const std::vector<BoundSqlExpression> & args)
                     return std::move(result);
          
             },
-                    std::make_shared<EmbeddingValueInfo>(numDims)};
+                    std::make_shared<EmbeddingValueInfo>(shape)};
         }    
         else
         {

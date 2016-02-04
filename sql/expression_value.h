@@ -1008,6 +1008,10 @@ struct EmbeddingValueInfo: public ExpressionValueInfoT<ML::distribution<CellValu
 
     virtual bool isRow() const;
 
+    virtual bool couldBeRow() const;
+
+    virtual bool couldBeScalar() const;
+
     virtual bool isEmbedding() const;
 
     virtual std::vector<ssize_t> getEmbeddingShape() const;
@@ -1015,6 +1019,12 @@ struct EmbeddingValueInfo: public ExpressionValueInfoT<ML::distribution<CellValu
     virtual StorageType getEmbeddingType() const;
 
     virtual std::shared_ptr<RowValueInfo> getFlattenedInfo() const;
+
+    virtual SchemaCompleteness getSchemaCompleteness() const;
+
+    virtual std::vector<KnownColumn> getKnownColumns() const;
+
+    virtual std::vector<ColumnName> allColumnNames() const;
 
     virtual void flatten(const ExpressionValue & value,
                          const std::function<void (const ColumnName & columnName,

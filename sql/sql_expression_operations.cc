@@ -2527,7 +2527,7 @@ bind(SqlBindingScope & context) const
             {
                 const ExpressionValue & val = exprBound(context, storage);
 
-                if (!val.isRow())
+                if (val.isAtom())
                     throw HttpReturnException(400, "Expression with AS * must return a row",
                                               "valueReturned", val,
                                               "ast", print(),

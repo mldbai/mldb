@@ -423,6 +423,20 @@ isEmbedding() const
     return true;
 }
 
+bool
+EmbeddingValueInfo::
+couldBeScalar() const
+{
+    return shape.empty();
+}
+
+bool
+EmbeddingValueInfo::
+couldBeRow() const
+{
+    return true;
+}
+
 std::vector<ssize_t>
 EmbeddingValueInfo::
 getEmbeddingShape() const
@@ -442,6 +456,126 @@ EmbeddingValueInfo::
 numDimensions() const
 {
     return shape.size();
+}
+
+SchemaCompleteness
+EmbeddingValueInfo::
+getSchemaCompleteness() const
+{
+    // If we have a -1 index in the shape matrix, we don't know the size of
+    // that dimension and thus which columns will be in it.
+    for (auto & s: shape)
+        if (s < 0)
+            return SCHEMA_OPEN;
+    return SCHEMA_CLOSED;
+}
+
+
+// TODO: generalize
+std::shared_ptr<ExpressionValueInfo>
+getValueInfoForStorage(StorageType type)
+{
+    switch (type) {
+    case ST_FLOAT32:
+        return std::make_shared<Float32ValueInfo>();
+    case ST_FLOAT64:
+        return std::make_shared<Float64ValueInfo>();
+    case ST_INT8:
+        return std::make_shared<IntegerValueInfo>();
+    case ST_UINT8:
+        return std::make_shared<IntegerValueInfo>();
+        case ST_INT16:
+            return std::make_shared<IntegerValueInfo>();
+        case ST_UINT16:
+            return std::make_shared<IntegerValueInfo>();
+        case ST_INT32:
+            return std::make_shared<IntegerValueInfo>();
+        case ST_UINT32:
+            return std::make_shared<IntegerValueInfo>();
+        case ST_INT64:
+            return std::make_shared<IntegerValueInfo>();
+        case ST_UINT64:
+            return std::make_shared<Uint64ValueInfo>();
+        case ST_BLOB:
+            return std::make_shared<BlobValueInfo>();
+        case ST_STRING:
+            return std::make_shared<StringValueInfo>();
+        case ST_UTF8STRING:
+            return std::make_shared<Utf8StringValueInfo>();
+        case ST_ATOM:
+            return std::make_shared<AtomValueInfo>();
+        case ST_BOOL:
+            return std::make_shared<BooleanValueInfo>();
+        case ST_TIMESTAMP:
+            return std::make_shared<TimestampValueInfo>();
+        case ST_TIMEINTERVAL:
+            return std::make_shared<AtomValueInfo>();
+        }
+                                            
+        throw HttpReturnException(500, "Unknown embedding storage type",
+                                  "type", type);
+}
+
+std::vector<KnownColumn>
+EmbeddingValueInfo::
+getKnownColumns() const
+{
+    std::vector<KnownColumn> result;
+    
+    // If we have a -1 index in the shape matrix, we don't know the size of
+    // that dimension and thus how many values will be in it.
+    for (auto & s: shape)
+        if (s < 0)
+            return result;
+
+    auto valueInfo = getValueInfoForStorage(ST_ATOM);
+
+    std::function<void (ColumnName prefix, int dim)> doDim
+        = [&] (ColumnName prefix, int dim)
+        {
+            if (dim == shape.size()) {
+                result.emplace_back(std::move(prefix), valueInfo, COLUMN_IS_DENSE);
+                return;
+            }
+                                    
+            for (size_t i = 0;  i < shape[dim];  ++i) {
+                doDim(prefix + i, dim + 1);
+            }
+        };
+
+    doDim(ColumnName(), 0);
+
+    return result;
+}
+
+std::vector<ColumnName>
+EmbeddingValueInfo::
+allColumnNames() const
+{
+    std::vector<ColumnName> result;
+    
+    // If we have a -1 index in the shape matrix, we don't know the size of
+    // that dimension and thus how many values will be in it.
+    for (auto & s: shape)
+        if (s < 0)
+            return result;
+
+    std::function<void (ColumnName prefix, int dim)> doDim
+        = [&] (ColumnName prefix, int dim)
+        {
+            if (dim == shape.size()) {
+                result.emplace_back(std::move(prefix));
+                return;
+            }
+                                    
+            for (size_t i = 0;  i < shape[dim];  ++i) {
+                doDim(prefix + i, dim + 1);
+            }
+        };
+
+    doDim(ColumnName(), 0);
+
+    return result;
 }
 
 std::shared_ptr<RowValueInfo>
