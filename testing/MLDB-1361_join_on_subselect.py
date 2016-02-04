@@ -5,6 +5,7 @@
 #
 
 import unittest
+import json
 
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
@@ -28,22 +29,24 @@ class SampleTest(MldbUnitTest):
 
     def test_select_x_works(self):
         # mldb.get asserts the result status_code is >= 200 and < 400
-        mldb.get("/v1/query", q="""
+        rez = mldb.get("/v1/query", q="""
 
             SELECT
-                text.txt, sub1.warp, sub2.warp
+                text.txt, tbl1.warp, tbl2.warp
             FROM text
             LEFT JOIN sub1 ON text.rowName() = regex_replace(sub1.rowName(), 'row_', '')
             LEFT JOIN sub2 ON text.rowName() = regex_replace(sub2.rowName(), 'row_', '')
 
         """)
+        
+        mldb.log(rez.json())
     
-    def test_select_x_works(self):
+    def test_subselect_works(self):
         # mldb.get asserts the result status_code is >= 200 and < 400
-        mldb.get("/v1/query", q="""
+        self.assertQueryResult(mldb.query("""
 
             SELECT
-                text.txt, sub1.warp, sub2.warp
+                text.txt, tbl1.warp, tbl2.warp
             FROM text
             LEFT JOIN (
                 SELECT warp, regex_replace(rowName(), 'row_', '') as rowName
@@ -52,8 +55,52 @@ class SampleTest(MldbUnitTest):
             LEFT JOIN (
                 SELECT warp, regex_replace(rowName(), 'row_', '') as rowName
                 FROM sub2
-            ) as tbl2 ON text.rowName() = tbl1.rowName
-        """)
+            ) as tbl2 ON text.rowName() = tbl2.rowName
+        """),
+            [
+                {
+                    "rowName": "a-row_a-null",
+                    "rowHash": "8711ec4b866a7c29",
+                    "columns": [
+                        [
+                            "text.txt",
+                            "raise shields",
+                            "1970-01-01T00:00:00Z"
+                        ],
+                        [
+                            "tbl1.warp",
+                            8,
+                            "1970-01-01T00:00:00Z"
+                        ],
+                        [
+                            "tbl2.warp",
+                            null,
+                            "-Inf"
+                        ]
+                    ]
+                },
+                {
+                    "rowName": "b-null-row_b",
+                    "rowHash": "a4c2b6a8ca3bb829",
+                    "columns": [
+                        [
+                            "text.txt",
+                            "set a course",
+                            "1970-01-01T00:00:00Z"
+                        ],
+                        [
+                            "tbl1.warp",
+                            null,
+                            "-Inf"
+                        ],
+                        [
+                            "tbl2.warp",
+                            9,
+                            "1970-01-01T00:00:00Z"
+                        ]
+                    ]
+                }
+            ])
 
 mldb.run_tests()
 
