@@ -145,6 +145,23 @@ class SumDoesNotExistTest(unittest.TestCase):
             }
         })
 
+    @unittest.expectedFailure
+    def test_unamed_then_named(self):
+        mldb.post('/v1/procedures', {
+            'type' : 'transform',
+            'params' : {
+                'inputData' : 'SELECT sum({*}) FROM ds GROUP BY 1',
+                'outputDataset' : {
+                    'id' : 'res',
+                    'type' : 'sparse.mutable'
+                },
+                'runOnCreation' : True
+            }
+        })
+
+        # Fails with: Can't convert from empty to UTF8 string
+        mldb.query("SELECT * NAMED res FROM res")
+
 
 if __name__ == '__main__':
     mldb.run_tests()
