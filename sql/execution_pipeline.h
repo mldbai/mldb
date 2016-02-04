@@ -10,6 +10,7 @@
 #include "sql_expression.h"
 #include "binding_contexts.h"
 #include "table_expression_operations.h"
+#include "mldb/server/dataset_context.h"
 
 namespace Datacratic {
 namespace MLDB {
@@ -96,7 +97,8 @@ typedef std::function<std::shared_ptr<ExpressionValueInfo> (const Utf8String & n
 /*****************************************************************************/
 
 struct PipelineExpressionScope:
-        public ReadThroughBindingContext,
+        //public ReadThroughBindingContext,
+        public SqlBindingScope,
         public std::enable_shared_from_this<PipelineExpressionScope> {
     
     PipelineExpressionScope(std::shared_ptr<SqlBindingScope> context);
@@ -155,6 +157,11 @@ struct PipelineExpressionScope:
     {
         return outputInfo_;
     }
+
+    virtual MldbServer * getMldbServer() const;
+
+    virtual std::shared_ptr<Dataset> doGetDataset(const Utf8String & datasetName);
+    virtual std::shared_ptr<Dataset> doGetDatasetFromConfig(const Any & datasetConfig);
 
 private:
     /// Entries for a table.
