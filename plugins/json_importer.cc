@@ -138,7 +138,7 @@ struct JSONImporter: public Procedure {
                            int64_t lineNumber)
         {
             int64_t actualLineNum = lineNumber + lineOffset;
-                          
+
             // MLDB-1111 empty lines are treated as error
             if(lineLength == 0)
                 return handleError("empty line", actualLineNum, "");
@@ -158,6 +158,7 @@ struct JSONImporter: public Procedure {
 
             recordedLines++;
 
+            std::lock_guard<std::mutex> lock(recordMutex);
             outputDataset->recordRowExpr(RowName(actualLineNum), expr);
             return true;
         };
