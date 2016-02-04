@@ -298,8 +298,6 @@ doGetVariable(const Utf8String & tableName,
                  const VariableFilter & filter) -> const ExpressionValue &
             {
                 auto & row = static_cast<const RowContext &>(context);
-                cerr << "getVariable context type is "
-                     << ML::type_name(context) << endl;
 
                 const ExpressionValue * fromOutput
                     = searchRow(row.row.columns, columnName, filter, storage);
