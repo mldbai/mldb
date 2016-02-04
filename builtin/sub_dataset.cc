@@ -190,7 +190,7 @@ struct SubDataset::Itl
     {
         auto it = rowIndex.find(rowName);
         if (it == rowIndex.end()) {
-            throw HttpReturnException(400, "Row not found in sub-table dataset");
+            throw HttpReturnException(400, "Row '" + rowName.toUtf8String() + "' not found in sub-table dataset");
         }
 
         return subOutput[it->second];
