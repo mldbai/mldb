@@ -13,12 +13,12 @@ mldb.put('/v1/datasets/iris', {
 })
 
 mldb.put('/v1/procedures/em_train_iris', {
-    'type' : 'EM.train',
+    'type' : 'gaussianclustering.train',
     'params' : {
         'trainingData' : 'select * EXCLUDING(class) from iris',
         'outputDataset' : 'iris_clusters',
         'numClusters' : 3,
-        'modelFileUrl' : "file://tmp/MLDB-1353.em",
+        'modelFileUrl' : "file://tmp/MLDB-1353.gs",
         "runOnCreation": True
     }
 })
@@ -67,9 +67,9 @@ assert res == expected
 # test the function
 
 mldb.put('/v1/functions/em_function', {
-    'type' : 'EM',
+    'type' : 'gaussianclustering',
     'params' : {       
-        'modelFileUrl' : "file://tmp/MLDB-1353.em",
+        'modelFileUrl' : "file://tmp/MLDB-1353.gs",
     }
 })
 

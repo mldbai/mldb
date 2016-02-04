@@ -4,7 +4,7 @@ This procedure trains an gaussian clustering algorithm and stores the result mix
 
 ## Configuration
 
-![](%%config procedure em.train)
+![](%%config procedure gaussianclustering.train)
 
 ## Training
 
@@ -38,13 +38,16 @@ of the result, as with most clustering algorithms.
 
 ### The Covariance Matrix
 
-<a name="virtualbox"></a>
-![VirtualBox](img/gaussian.png)
+<a name="covariance"></a>
+![VirtualBox](../img/gaussian.png)
 
-This image represents same points from a multivariate Gaussian distribution in 2 dimensions. The direction of the arrows correspond to the eigenvectors
-of the covariance matrix of the distribution, and their length to the square roots of the eigenvalues. (source: wikipedia.org)
+This image represents points from a multivariate Gaussian distribution in 2 dimensions. The direction of the arrows correspond to the eigenvectors
+of the covariance matrix of the distribution, while their length correspond to the square roots of the eigenvalues. (image source: wikipedia.org)
+
+Using a centroid and a covariance matrix we can thus represent a cluster in N dimensions with a distribution that varies differently through N orthogonal directions
+that are not necessarily axis-aligned.
 
 # See also
 
-* the ![](%%doclink em function) applies the centroids to new data points to deternine
+* the ![](%%doclink gaussianclustering function) applies the centroids to new data points to deternine
    which cluster they fit in to.

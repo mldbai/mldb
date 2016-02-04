@@ -1,40 +1,32 @@
 # Gaussian Clustering Function
 
-The gaussian clustering function type takes the output dataset of the gaussian clustering procedure and applies
+The gaussian clustering function type takes the output model of the gaussian clustering procedure and applies
 it to new data in order to assign it to clusters.
 
 ## Configuration
 
-![](%%config function em)
+![](%%config function gaussianclustering)
 
-Functions of this type load their internal state from a dataset, which is identified
-with the `centroids` parameter, which lists one cluster per row, with the columns 
-providing the coordinates of the centroid of the cluster as well as dense covariance matrix,
-and the row name being the name of the cluster (this is the output format of the ![](%%doclink em.train procedure)).  
+Functions of this type load their internal state from a file, which is identified
+with the `modelFileUrl` parameter. The model file must be previously saved using the 
+gaussian clustering procedure.
 
-The `select` parameter
-tells the system how to extract an embedding from the row, and the `where`
-parameter allows only a subset of the clusters to be loaded by the gaussian clustering 
-function.
-
-In the application of the function, the same features as in the `centroids`
-dataset are extracted from the inputs of the function to create a coordinate
-vector for the input.  The distance from that input to each of the centroids
-is then calculated using the multivariate normal distribution density function, and the 
-function outputs the value `cluster` containing the name of cluster that is
-the closest to the given centroid.
+In the application of the function, the `embedding` input parameter provide a coordinate
+vector to evaluate. The distance from that input to each of the centroids
+is then calculated using the multivariate normal distribution density function, and in the 
+function outputs the value `cluster` containing the numerical identifier of the cluster that is
+the closest to the given input.
 
 ## Input and Output Values
 
 Functions of this type have a single input called `embedding` which is a row. The columns that
-are expected in this row are the same as the columns in the `centroids` dataset with
-which this function is configured.
+are expected in this row are the same as the columns that were provided in the training procedure.
 
-These functions have a single output value called `cluster`, which is the name of the row
-in the `centroids` dataset whose columns describe the point which is closest to the 
-input according to the multivariate normal distribution density function.
+These functions have a single output value called `cluster`, which is the numerical identifier of the cluster
+which is closest to the input according to the multivariate normal distribution density function. Clusters
+are numbered `0` to `N-1` where `N` is the number of clusters.
 
 # See also
 
-* ![](%%doclink em.train procedure) trains a gaussian clustering function.
+* ![](%%doclink gaussianclustering.train procedure) trains a gaussian clustering function.
 

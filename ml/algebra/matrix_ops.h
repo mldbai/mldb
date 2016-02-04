@@ -164,9 +164,9 @@ setIdentity(int numDim, boost::multi_array<Float, 2>& D)
         for (unsigned j = 0;  j < numDim;  ++j)
         {
             if (i == j)
-                D[i][j] = 1.0f;    
+                D[i][j] = Float(1.0f);    
             else
-                D[i][j] = 0.0f;
+                D[i][j] = Float(0.0f);
         }
     }
     return D;

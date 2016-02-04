@@ -66,8 +66,8 @@ EMConfigDescription()
              "the cluster.",
              PolyConfigT<Dataset>().withType("embedding"));
     addField("modelFileUrl", &EMConfig::modelFileUrl,
-             "URL where the model file (with extension '.em') should be saved. "
-             "This file can be loaded by a function of type 'em' to apply "
+             "URL where the model file (with extension '.gs') should be saved. "
+             "This file can be loaded by a function of type 'gaussianclustering' to apply "
              "the trained model to new data. "
              "If someone is only interested in how the training input is clustered "
              "then the parameter can be omitted and the outputDataset param can "
@@ -82,7 +82,7 @@ EMConfigDescription()
              "centroids created.  There must be at least as many rows selected as "
              "clusters.", 10);
     addField("maxIterations", &EMConfig::maxIterations,
-             "Maximum number of iterations to perform.  If no convergeance is "
+             "Maximum number of iterations to perform.  If no convergance is "
              "reached within this number of iterations, the current clustering "
              "will be returned.", 100);
     addField("functionName", &EMConfig::functionName,
@@ -150,7 +150,7 @@ run(const ProcedureRunConfig & run,
   }
 
   if (vecs.size() == 0)
-        throw HttpReturnException(400, "EM training requires at least 1 datapoint. "
+        throw HttpReturnException(400, "Gaussian clustering training requires at least 1 datapoint. "
                                   "Make sure your dataset is not empty and that your WHERE expression "
                                   "does not filter all the rows");
 
@@ -174,7 +174,7 @@ run(const ProcedureRunConfig & run,
             saved = true;
         }
         catch (const std::exception & exc) {
-            throw HttpReturnException(400, "Error saving kmeans centroids at location'" +
+            throw HttpReturnException(400, "Error saving gaussian clustering model at location'" +
                                       runProcConf.modelFileUrl.toString() + "': " +
                                       exc.what());
         }
@@ -232,13 +232,13 @@ run(const ProcedureRunConfig & run,
             funcConf.modelFileUrl = runProcConf.modelFileUrl;
 
             PolyConfig emPC;
-            emPC.type = "em";
+            emPC.type = "gaussian clustering";
             emPC.id = runProcConf.functionName;
             emPC.params = funcConf;
 
             obtainFunction(server, emPC, onProgress);
         } else {
-            throw HttpReturnException(400, "Can't create em function '" +
+            throw HttpReturnException(400, "Can't create gaussian clustering function '" +
                                       runProcConf.functionName.rawString() + 
                                       "'. Have you provided a valid modelFileUrl?",
                                       "modelFileUrl", runProcConf.modelFileUrl.toString());
@@ -254,8 +254,8 @@ EMFunctionConfigDescription::
 EMFunctionConfigDescription()
 {
     addField("modelFileUrl", &EMFunctionConfig::modelFileUrl,
-             "URL of the model file (with extension '.em') to load. "
-             "This file is created by a procedure of type 'em.train'.");
+             "URL of the model file (with extension '.gs') to load. "
+             "This file is created by a procedure of type 'gaussianclustering.train'.");
 
     onPostValidate = [] (EMFunctionConfig * cfg, 
                          JsonParsingContext & context) {
@@ -342,13 +342,13 @@ getFunctionInfo() const
 namespace {
 
 RegisterProcedureType<EMProcedure, EMConfig>
-regEM(builtinPackage(), "EM.train",
-          "Estimation-Maximisation; Generic clustering algorithm based on making statistical models converge",
+regEM(builtinPackage(), "gaussianclustering.train",
+          "Gaussian clustering algorithm using Estimation Maximization on Gaussian Mixture Models",
           "procedures/EMProcedure.md.html");
 
 RegisterFunctionType<EMFunction, EMFunctionConfig>
-regEMFunction(builtinPackage(), "EM",
-               "Apply an Estimation-Maximization clustering to new data",
+regEMFunction(builtinPackage(), "gaussianclustering",
+               "Apply an gaussian clustering to new data",
                "functions/EM.md.html");
 
 } // file scope

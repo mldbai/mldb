@@ -29,27 +29,9 @@ typedef boost::multi_array<double, 2> MatrixType;
 
 namespace ML {
 
-void contributeToAverage(ML::distribution<double> & average,
-                         const ML::distribution<double> & point, double weight)
-{
-    // if [0,0,...,0], do not contribue to average
-    if (point.any())
-        average += point * weight; 
-}
-
 double distance(const ML::distribution<double> & x,
                 const ML::distribution<double> & y)
 { return (x - y).two_norm(); }
-
-ML::distribution<double>
-average(const std::vector<ML::distribution<double>> & points)
-{
-    ML::distribution<double> avg(points[0].size(), 0.0);
-    double weight = 1. / points.size();
-    for (auto & x : points)
-        contributeToAverage(avg, x, weight);
-    return avg;
-}    
 
 double gaussianDistance(const ML::distribution<double> & pt, const ML::distribution<double> & origin, const MatrixType& covarianceMatrix, 
                         const  MatrixType & invertCovarianceMatrix, float determinant)
