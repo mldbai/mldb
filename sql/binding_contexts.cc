@@ -21,45 +21,12 @@ namespace MLDB {
 /* READ THROUGH BINDING CONTEXT                                              */
 /*****************************************************************************/
 
-BoundSqlExpression
-ReadThroughBindingContext::
-rebind(BoundSqlExpression expr)
-{
-    auto outerExec = expr.exec;
-
-    // Call the exec function with the context pivoted to the output context
-    expr.exec = [=] (const SqlRowScope & context,
-                     ExpressionValue & storage,
-                     const VariableFilter & filter)
-        -> const ExpressionValue &
-        {
-            auto & row = static_cast<const RowContext &>(context);
-            return outerExec(row.outer, storage, filter);
-        };
-
-    return expr;
-}
-
 BoundFunction
 ReadThroughBindingContext::
 doGetFunction(const Utf8String & tableName,
               const Utf8String & functionName,
               const std::vector<std::shared_ptr<SqlExpression> > & args)
 {
-#if 0
-   // Rebind the function parameters to the outer
-    std::vector<BoundSqlExpression> outerArgs;
-    for (auto & arg: args) {
-        if (arg.metadata.isConstant)  //don't rebind constant expression since they don't need to access the row
-            outerArgs.emplace_back(std::move(arg));
-        else
-            outerArgs.emplace_back(std::move(rebind(arg)));
-    }
-#endif
-    // Get the outer function
-    //   return outer.doGetFunction(tableName, functionName, args);
-
-#if 1
     auto outerFunction = outer.doGetFunction(tableName, functionName, args);
 
     BoundFunction result = outerFunction;
@@ -89,7 +56,6 @@ doGetFunction(const Utf8String & tableName,
         };
 
     return result;
-#endif
 }
 
 VariableGetter
@@ -104,10 +70,6 @@ doGetVariable(const Utf8String & tableName,
                  const VariableFilter & filter) -> const ExpressionValue &
             {
                 auto & row = static_cast<const RowContext &>(context);
-                cerr << "getting variable " << variableName
-                     << " from outer: context type is "
-                     << ML::type_name(context) << " outer type is "
-                     << ML::type_name(row.outer) << endl;
                 return outerImpl(row.outer, storage, filter);
             },
             outerImpl.info};
@@ -198,7 +160,7 @@ doGetFunction(const Utf8String & tableName,
                 auto & col = static_cast<const ColumnContext &>(context);
 
                 // consider changing the signature of the column function 
-                // to let them evaluate their args as a potential speed improvement
+                // to let them evaluate their args as it is done with builtin
                 std::vector<ExpressionValue> evaluatedArgs;
                 evaluatedArgs.reserve(args.size());
                 for (auto & arg: args)

@@ -97,7 +97,6 @@ typedef std::function<std::shared_ptr<ExpressionValueInfo> (const Utf8String & n
 /*****************************************************************************/
 
 struct PipelineExpressionScope:
-        //public ReadThroughBindingContext,
         public SqlBindingScope,
         public std::enable_shared_from_this<PipelineExpressionScope> {
     

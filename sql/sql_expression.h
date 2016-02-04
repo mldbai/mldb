@@ -156,22 +156,6 @@ struct BoundSqlExpression {
                                                    ExpressionValue & storage,
                                                    const VariableFilter & filter)> ExecFunction;
 
-#if 0
-    typedef std::function<const ExpressionValue & (const SqlRowScope & context,
-                                                   ExpressionValue & storage)> ExecFunction;
-    struct DefaultExecutor {
-        ExecFunction exec;
-        DefaultExecutor() {}
-        DefaultExecutor(ExecFunction & exec) : exec(exec) {}
-        const ExpressionValue & operator()(const SqlRowScope & context,
-                                           ExpressionValue & storage,
-                                           const VariableFilter & filter)
-        {
-            // default executor uses the default filter
-            return exec(context, storage);
-        }
-    };
-#endif
     BoundSqlExpression()
     {
     }

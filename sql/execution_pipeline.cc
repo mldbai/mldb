@@ -59,9 +59,8 @@ tableNames() const
 /*****************************************************************************/
 
 PipelineExpressionScope::
-PipelineExpressionScope(std::shared_ptr<SqlBindingScope> context) :
-//    : ReadThroughBindingContext(*context),
-    context_(context)
+PipelineExpressionScope(std::shared_ptr<SqlBindingScope> context)
+    : context_(context)
 {
 }
 
@@ -150,7 +149,7 @@ doGetVariable(const Utf8String & tableName, const Utf8String & variableName)
     }        
 
     // Otherwise, look for it in the enclosing scope
-    return context_->doGetVariable(tableName, variableName);//ReadThroughBindingContext::doGetVariable(tableName, variableName);
+    return context_->doGetVariable(tableName, variableName);
 }
 
 GetAllColumnsOutput 
@@ -171,7 +170,7 @@ doGetAllColumns(const Utf8String & tableName,
         }
     }        
 
-    return context_->doGetAllColumns(tableName, keep);//ReadThroughBindingContext::doGetAllColumns(tableName, keep);
+    return context_->doGetAllColumns(tableName, keep);
 }
 
 BoundFunction
@@ -204,14 +203,14 @@ doGetFunction(const Utf8String & tableName,
         }
     }        
 
-    return SqlBindingScope::doGetFunction(tableName, functionName, args);//ReadThroughBindingContext::doGetFunction(tableName, functionName, args);
+    return SqlBindingScope::doGetFunction(tableName, functionName, args);
 }
 
 ColumnFunction
 PipelineExpressionScope::
 doGetColumnFunction(const Utf8String & functionName)
 {
-    return context_->doGetColumnFunction(functionName);//ReadThroughBindingContext::doGetColumnFunction(functionName);
+    return context_->doGetColumnFunction(functionName);
 }
 
 VariableGetter

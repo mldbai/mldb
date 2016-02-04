@@ -48,10 +48,6 @@ struct ReadThroughBindingContext: public SqlBindingScope {
         const SqlRowScope & outer;
     };
 
-    /// Rebind a BoundSqlExpression from the outer context to run on our
-    /// context.
-    static BoundSqlExpression rebind(BoundSqlExpression expr);
-
     virtual BoundFunction
     doGetFunction(const Utf8String & tableName,
                   const Utf8String & functionName,
