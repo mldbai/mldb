@@ -212,6 +212,29 @@ rightSingularVectorForColumn(ColumnHash col, const CellValue & value,
                 result *= d;
                 return result;
             }
+
+            if (columnEntry.values.size() == 1) {
+                // MLDB-687
+                // We saw only a single value in training, which makes it
+                // essentially a "has value" or "doesn't have value"
+                // feature.  Take the output for the one and only value
+                // seen in training.
+
+                auto & col = columns[columnEntry.values.begin()->second];
+                
+                ML::distribution<float> result = col.singularVector;
+                result.resize(maxValues);
+
+                //double oldd = d;
+
+                d += col.offset;
+                d *= col.scale;
+
+                //cerr << "value " << oldd << " transformed to " << d << endl;
+                
+                result *= d;
+                return result;
+            }
             
 #if 0
             // It's a value we haven't seen.  We can't really do anything but return

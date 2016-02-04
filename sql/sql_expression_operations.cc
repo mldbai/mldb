@@ -1458,14 +1458,11 @@ std::shared_ptr<SqlExpression>
 FunctionCallWrapper::
 transform(const TransformArgs & transformArgs) const
 {
+    auto newArgs = transformArgs(args);
     auto result = std::make_shared<FunctionCallWrapper>(*this);
-    for (auto & a : result->args)
-    {
-        a = a->transform(transformArgs);
-    }
-
+    result->args = newArgs;
     if (extract)
-        result->extract = result->extract->transform(transformArgs);
+        result->extract = transformArgs({result->extract}).at(0);
 
     return result;
 }

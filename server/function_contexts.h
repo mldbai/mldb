@@ -106,6 +106,8 @@ struct FunctionExpressionContext : public SqlBindingScope{
 
     virtual std::shared_ptr<Function> doGetFunctionEntity(const Utf8String & functionName);
 
+    virtual Utf8String doResolveTableName(const Utf8String & fullVariableName, Utf8String &tableName) const;
+
     MldbServer *
     getMldbServer() const
     {
