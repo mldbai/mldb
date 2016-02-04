@@ -41,9 +41,29 @@ addition to the types mentioned above, the following are permitted:
 - Rows, which model the row of a dataset.  They are a set of
 (column, value, timestamp) tuples where each value is either an atomic type or a complex type.
     - Rows can appear as literals in queries as [Select Expressions](SelectExpression.md) surrounded by curly braces (i.e. `{ }`). For example `{1 as x, 'a' as y}` or the equivalent `{x: 1, y: 'a'}`.
-- Embeddings, which model coordinates in a multi dimensional space.  They
-are a fixed length list of floating point numbers.
-    - Embeddings can appear as literals in queries as comma-delimited [Value Expressions](ValueExpression.md) surrounded by square brackets (i.e. `[ ]`). For example `[1, 2, 3]`.
+- Embeddings, which model coordinates in a multi dimensional space.  Each
+  is addressed by one or more coordinates, starting at zero and counting
+  up by one.
+  
+  An embedding can be:
+  - a scalar is convertible to a zero-dimensional embedding with length
+    one;
+  - a single dimensional array with an arbitrary length and all values of
+    a common type (string, integer, floating point number, etc).
+    A one-dimensional array is known as a vector.
+  - a two-dimensional array, with dimensions $$(x,y)$$.  This is known as
+    a matrix.
+  - a three or more dimensional array.  This is known as a 3-tensor, 4-tensor,
+    etc.
+  
+  Embeddings can only contain atomic types as elements, not complex types.
+
+  Embeddings can appear as literals in queries as comma-delimited
+  [Value Expressions](ValueExpression.md) surrounded by square brackets
+  (i.e. `[ ]`). For example `[1, 2, 3]` for  a vector or
+  `[ [x,0], [0,x] ]` for a diagonal matrix that depends upon the value
+  of the variable `x` (which must be an atomic type).
+
 
 When comparing rows, MLDB first sorts the columns by name and performs a lexicographical comparison of the column's names and values.
 To illustrate this, consider these rows:
@@ -79,13 +99,18 @@ For example, `select {x: 1, y: 2} as output, {x: 3, y: 4} as *` yields
 ```
 
 **Embeddings** are flattened by creating one column per value, with
-the name being an incrementing 6-digit integer from 000000 upwards, prefixed with `<prefix>.` if using the query syntax `as <prefix>`, otherwise a prefix will be automatically generated. 
+the name being an incrementing integer from 0 upwards, prefixed with `<prefix>.` if using the query syntax `as <prefix>`, otherwise a prefix will be automatically generated. 
 
 For example, `select [1,2] as x` yields
 
 ```
- x.000000    x.000001 
-----------  ----------
-     4           6
+ x.0    x.1 
+-----  -----
+  4      6
 ```
+
+As a result, sorting by column names where there are more than 9 columns
+may give strange results, with 10 sorting before 2.  This can be
+addressed at the application level.
+<!-- NTD: will be addressed at the MLDB level with structured column names -->
 

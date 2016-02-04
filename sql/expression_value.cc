@@ -53,8 +53,10 @@ StorageTypeDescription()
     addValue("BLOB",       ST_BLOB,       "Binary blob");
     addValue("STRING",     ST_STRING,     "Ascii string");
     addValue("UTF8STRING", ST_UTF8STRING, "UTF-8 encoded string");
-    addValue("CELLVALUE",  ST_CELLVALUE,  "Any atomic value");
+    addValue("ATOM",       ST_ATOM,       "Any atomic value");
     addValue("BOOL",       ST_BOOL,       "32 bit boolean value");
+    addValue("TIMESTAMP",  ST_TIMESTAMP,  "Timestamp");
+    addValue("INTERVAL",   ST_TIMEINTERVAL, "Time interval");
 }
 
 /*****************************************************************************/
@@ -75,9 +77,6 @@ getCovering(const std::shared_ptr<ExpressionValueInfo> & info1,
 
     if (&typeid(*info1) == &typeid(*info2))
         return info1;
-
-    cerr << "returning any to cover " << jsonEncodeStr(info1) << " and "
-         << jsonEncodeStr(info2) << endl;
 
     return std::make_shared<AnyValueInfo>();
 }
@@ -122,6 +121,13 @@ flatten(const ExpressionValue & value,
 bool
 ExpressionValueInfo::
 isRow() const
+{
+    return false;
+}
+
+bool
+ExpressionValueInfo::
+isEmbedding() const
 {
     return false;
 }
@@ -178,6 +184,11 @@ struct ExpressionValueInfoPtrDescription
             out["kind"] = "scalar";
             out["scalar"] = (*val)->getScalarDescription();
         }
+        else if ((*val)->isEmbedding()) {
+            out["kind"] = "embedding";
+            out["shape"] = jsonEncode((*val)->getEmbeddingShape());
+            out["type"] = jsonEncode((*val)->getEmbeddingType());
+        }
         else if ((*val)->isRow()) {
             out["kind"] = "row";
             out["knownColumns"] = jsonEncode((*val)->getKnownColumns());
@@ -191,6 +202,20 @@ struct ExpressionValueInfoPtrDescription
         return !*val;
     }
 };
+
+std::vector<ssize_t>
+ExpressionValueInfo::
+getEmbeddingShape() const
+{
+    return {};
+}
+
+StorageType
+ExpressionValueInfo::
+getEmbeddingType() const
+{
+    return ST_ATOM;
+}
 
 DEFINE_VALUE_DESCRIPTION_NS(std::shared_ptr<ExpressionValueInfo>,
                             ExpressionValueInfoPtrDescription);
@@ -333,8 +358,47 @@ isScalar() const
 /*****************************************************************************/
 
 EmbeddingValueInfo::
-EmbeddingValueInfo(ssize_t numDims)
-    : numDims(numDims)
+EmbeddingValueInfo(const std::vector<std::shared_ptr<ExpressionValueInfo> > & input)
+{
+    if (input.empty()) {
+        return;
+    }
+
+    // First, check to see if our input info is a scalar or a vector
+    if (input[0]->isScalar()) {
+        
+        std::shared_ptr<ExpressionValueInfo> info = input[0];
+        for (auto & e: input) {
+            if (!e->isScalar()) {
+                throw HttpReturnException
+                    (400, "Attempt to create scalar embedding element "
+                     "from non-scalar",
+                     "info", e);
+            }
+            info = ExpressionValueInfo::getCovering(info, e);
+        }
+
+        shape.push_back(input.size());
+        return;
+    }
+
+    const EmbeddingValueInfo * emb
+        = dynamic_cast<const EmbeddingValueInfo *>(input[0].get());
+
+    if (emb) {
+        // Recursive embedding
+        shape.push_back(input.size());
+        for (auto & d: emb->shape)
+            shape.push_back(d);
+        return;
+    }
+
+    throw HttpReturnException(400, "Cannot determine embedding type from input types");
+}
+
+EmbeddingValueInfo::
+EmbeddingValueInfo(std::vector<ssize_t> shape)
+    : shape(std::move(shape))
 {
 }
 
@@ -343,6 +407,41 @@ EmbeddingValueInfo::
 isScalar() const
 {
     return false;
+}
+
+bool
+EmbeddingValueInfo::
+isRow() const
+{
+    return true;
+}
+
+bool
+EmbeddingValueInfo::
+isEmbedding() const
+{
+    return true;
+}
+
+std::vector<ssize_t>
+EmbeddingValueInfo::
+getEmbeddingShape() const
+{
+    return shape;
+}
+
+StorageType
+EmbeddingValueInfo::
+getEmbeddingType() const
+{
+    return ST_ATOM;
+}
+
+size_t
+EmbeddingValueInfo::
+numDimensions() const
+{
+    return shape.size();
 }
 
 std::shared_ptr<RowValueInfo>
@@ -528,13 +627,13 @@ struct ExpressionValue::Struct {
     }
 };
 
-/// This is how we store a tensor, which is a dense array of a
+/// This is how we store a embedding, which is a dense array of a
 /// uniform data type.
-struct ExpressionValue::Tensor {
+struct ExpressionValue::Embedding {
     std::shared_ptr<const void> data_;
     StorageType storageType_;
     std::vector<size_t> dims_;
-    std::shared_ptr<const TensorMetadata> metadata_;
+    std::shared_ptr<const EmbeddingMetadata> metadata_;
 
     size_t length() const
     {
@@ -579,13 +678,17 @@ struct ExpressionValue::Tensor {
             return getValueT<std::string>(n);
         case ST_UTF8STRING:
             return getValueT<Utf8String>(n);
-        case ST_CELLVALUE:
+        case ST_ATOM:
             return getValueT<CellValue>(n);
         case ST_BOOL:
             return getValueT<bool>(n);
+        case ST_TIMESTAMP:
+            return getValueT<Date>(n);
+        case ST_TIMEINTERVAL:
+            throw HttpReturnException(500, "Can't store time intervals");
         }
         
-        throw HttpReturnException(500, "Unknown tensor storage type",
+        throw HttpReturnException(500, "Unknown embedding storage type",
                                   "storageType", storageType_);
     }
 
@@ -890,14 +993,14 @@ ExpressionValue::
 {
     typedef std::shared_ptr<const Row> RowRepr;
     typedef std::shared_ptr<const Struct> StructRepr;
-    typedef std::shared_ptr<const Tensor> TensorRepr;
+    typedef std::shared_ptr<const Embedding> EmbeddingRepr;
 
     switch (type_) {
     case NONE: return;
     case ATOM: cell_.~CellValue();  return;
     case ROW:  row_.~RowRepr();  return;
     case STRUCT: struct_.~StructRepr();  return;
-    case TENSOR: tensor_.~TensorRepr();  return;
+    case EMBEDDING: embedding_.~EmbeddingRepr();  return;
     }
     throw HttpReturnException(400, "Unknown expression value type");
 }
@@ -916,10 +1019,10 @@ ExpressionValue(const ExpressionValue & other)
         type_ = STRUCT;
         return;
     }
-    case TENSOR: {
+    case EMBEDDING: {
         ts_ = other.ts_;
-        new (storage_) std::shared_ptr<const Tensor>(other.tensor_);
-        type_ = TENSOR;
+        new (storage_) std::shared_ptr<const Embedding>(other.embedding_);
+        type_ = EMBEDDING;
         return;
     }
     }
@@ -938,7 +1041,7 @@ ExpressionValue(ExpressionValue && other) noexcept
     case ATOM: new (storage_) CellValue(std::move(other.cell_));  return;
     case ROW:  new (storage_) std::shared_ptr<const Row>(std::move(other.row_));  return;
     case STRUCT: new (storage_) std::shared_ptr<const Struct>(std::move(other.struct_));  return;
-    case TENSOR: new (storage_) std::shared_ptr<const Tensor>(std::move(other.tensor_));  return;
+    case EMBEDDING: new (storage_) std::shared_ptr<const Embedding>(std::move(other.embedding_));  return;
     }
     throw HttpReturnException(400, "Unknown expression value type");
 }
@@ -1006,13 +1109,13 @@ ExpressionValue(std::vector<CellValue> values,
     std::copy(std::make_move_iterator(values.begin()),
               std::make_move_iterator(values.end()),
               vals.get());
-    std::shared_ptr<Tensor> content(new Tensor());
+    std::shared_ptr<Embedding> content(new Embedding());
     content->data_ = std::move(vals);
-    content->storageType_ = ST_CELLVALUE;
+    content->storageType_ = ST_ATOM;
     content->dims_ = { values.size() };
 
-    new (storage_) std::shared_ptr<const Tensor>(std::move(content));
-    type_ = TENSOR;
+    new (storage_) std::shared_ptr<const Embedding>(std::move(content));
+    type_ = EMBEDDING;
 }
 
 ExpressionValue::
@@ -1041,13 +1144,13 @@ ExpressionValue(std::vector<float> values, Date ts)
     std::copy(std::make_move_iterator(values.begin()),
               std::make_move_iterator(values.end()),
               vals.get());
-    std::shared_ptr<Tensor> content(new Tensor());
+    std::shared_ptr<Embedding> content(new Embedding());
     content->data_ = std::move(vals);
     content->storageType_ = ST_FLOAT32;
     content->dims_ = { values.size() };
     
-    new (storage_) std::shared_ptr<const Tensor>(std::move(content));
-    type_ = TENSOR;
+    new (storage_) std::shared_ptr<const Embedding>(std::move(content));
+    type_ = EMBEDDING;
 }
 
 ExpressionValue::
@@ -1059,33 +1162,33 @@ ExpressionValue(std::vector<double> values, Date ts)
     std::copy(std::make_move_iterator(values.begin()),
               std::make_move_iterator(values.end()),
               vals.get());
-    std::shared_ptr<Tensor> content(new Tensor());
+    std::shared_ptr<Embedding> content(new Embedding());
     content->data_ = std::move(vals);
     content->storageType_ = ST_FLOAT64;
     content->dims_ = { values.size() };
     
-    new (storage_) std::shared_ptr<const Tensor>(std::move(content));
-    type_ = TENSOR;
+    new (storage_) std::shared_ptr<const Embedding>(std::move(content));
+    type_ = EMBEDDING;
 }
 
 ExpressionValue
 ExpressionValue::
-tensor(Date ts,
+embedding(Date ts,
        std::shared_ptr<const void> data,
        StorageType storageType,
        std::vector<size_t> dims,
-       std::shared_ptr<const TensorMetadata> md)
+       std::shared_ptr<const EmbeddingMetadata> md)
 {
-    auto tensorData = std::make_shared<Tensor>();
-    tensorData->data_ = std::move(data);
-    tensorData->storageType_ = storageType;
-    tensorData->dims_ = std::move(dims);
-    tensorData->metadata_ = std::move(md);
+    auto embeddingData = std::make_shared<Embedding>();
+    embeddingData->data_ = std::move(data);
+    embeddingData->storageType_ = storageType;
+    embeddingData->dims_ = std::move(dims);
+    embeddingData->metadata_ = std::move(md);
 
     ExpressionValue result;
     result.ts_ = ts;
-    result.type_ = TENSOR;
-    new (result.storage_) std::shared_ptr<const Tensor>(std::move(tensorData));
+    result.type_ = EMBEDDING;
+    new (result.storage_) std::shared_ptr<const Embedding>(std::move(embeddingData));
 
     return result;
 }
@@ -1143,8 +1246,8 @@ isTrue() const
         return !row_->empty();
     case STRUCT:
         return struct_->length();
-    case TENSOR:
-        return tensor_->length();
+    case EMBEDDING:
+        return embedding_->length();
     }
 
     throw HttpReturnException(500, "Unknown expression value type");
@@ -1163,8 +1266,8 @@ isFalse() const
         return row_->empty();
     case STRUCT:
         return !struct_->length();
-    case TENSOR:
-        return tensor_->length();
+    case EMBEDDING:
+        return embedding_->length();
     }
 
     throw HttpReturnException(500, "Unknown expression value type");
@@ -1407,8 +1510,8 @@ getField(const Utf8String & fieldName, const VariableFilter & filter) const
         }
         return ExpressionValue();
     }
-    case TENSOR: {
-        throw ML::Exception("TODO: field access for tensor type");
+    case EMBEDDING: {
+        throw ML::Exception("TODO: field access for embedding type");
     }
     case NONE:
     case ATOM:
@@ -1424,8 +1527,8 @@ getField(int fieldIndex) const
     if (type_ == STRUCT) {
         return ExpressionValue(struct_->value(fieldIndex), ts_);
     }
-    else if (type_ == TENSOR) {
-        return ExpressionValue(tensor_->getValue(fieldIndex), ts_);
+    else if (type_ == EMBEDDING) {
+        return ExpressionValue(embedding_->getValue(fieldIndex), ts_);
     }
 
     return ExpressionValue();
@@ -1470,11 +1573,30 @@ findNestedField(const Utf8String & fieldName, const VariableFilter & filter /*= 
         throw HttpReturnException(400, "findNestedField for struct");
         
     }
-    else if (type_ == TENSOR) {
-        throw HttpReturnException(400, "findNestedField for tensor");
+    else if (type_ == EMBEDDING) {
+        throw HttpReturnException(400, "findNestedField for embedding");
     }
 
     return nullptr;
+}
+
+std::vector<size_t>
+ExpressionValue::
+getEmbeddingShape() const
+{
+    switch (type_) {
+    case NONE:
+    case ATOM:
+        return {};
+    case STRUCT:
+        return { struct_->length() };
+    case ROW:
+        return { row_->size() };
+    case EMBEDDING:
+        return embedding_->dims_;
+    }
+
+    throw HttpReturnException(500, "Unknown storage type for getEmbeddingShape()");
 }
 
 ML::distribution<float, std::vector<float> >
@@ -1558,8 +1680,8 @@ getEmbedding(const std::vector<ColumnName> & knownNames,
         }
         return features;
     }
-    else if (type_ == TENSOR) {
-        throw HttpReturnException(400, "getEmbedding for tensor");
+    else if (type_ == EMBEDDING) {
+        throw HttpReturnException(400, "getEmbedding for embedding");
     }
     
     auto onSubexpression = [&] (const ColumnName & columnName,
@@ -1599,6 +1721,25 @@ getEmbedding(const std::vector<ColumnName> & knownNames,
     forEachSubexpression(onSubexpression);
 
     return features;
+}
+
+std::vector<CellValue>
+ExpressionValue::
+getEmbeddingCell(ssize_t knownLength) const
+{
+    std::vector<CellValue> result;
+    if (knownLength > 0)
+        result.reserve(knownLength);
+
+    if (type_ == EMBEDDING) {
+        ExcAssert(embedding_);
+        size_t len = embedding_->length();
+        for (size_t i = 0;  i < len;  ++i)
+            result.emplace_back(embedding_->getValue(i));
+        return result;
+    }
+
+    throw HttpReturnException(500, "getEmbeddingCell called for non-embedding");
 }
 
 void
@@ -1693,8 +1834,8 @@ rowLength() const
     else if (type_ == STRUCT) {
         return struct_->length();
     }
-    else if (type_ == TENSOR) {
-        return tensor_->length();
+    else if (type_ == EMBEDDING) {
+        return embedding_->length();
     }
     else throw HttpReturnException(500, "Attempt to access non-row as row",
                                    "value", *this);
@@ -1768,13 +1909,13 @@ forEachAtom(const std::function<bool (const Coord & columnName,
         }
         return true;
     }
-    case TENSOR: {
+    case EMBEDDING: {
         auto onCol = [&] (ColumnName & columnName, CellValue & val)
             {
                 return onAtom(columnName, prefix, val, ts_);
             };
         
-        return tensor_->forEachColumn(onCol);
+        return embedding_->forEachColumn(onCol);
     }
     case NONE: {
         return onAtom(Coord(), prefix, CellValue(), ts_);
@@ -1814,8 +1955,8 @@ forEachSubexpression(const std::function<bool (const Coord & columnName,
         }
         return true;
     }
-    case TENSOR: {
-        throw ML::Exception("Not implemented: forEachSubexpression for Tensor value");
+    case EMBEDDING: {
+        throw ML::Exception("Not implemented: forEachSubexpression for Embedding value");
     }
     case NONE: {
         return onSubexpression(Coord(), prefix, ExpressionValue::null(ts_));
@@ -1892,14 +2033,14 @@ forEachColumnDestructiveT(Fn && onSubexpression) const
         }
         return true;
     }
-    case TENSOR: {
+    case EMBEDDING: {
         auto onCol = [&] (ColumnName & columnName, CellValue & val)
             {
                 ExpressionValue eval(std::move(val), ts_);
                 return onSubexpression(columnName, eval);
             };
         
-        return tensor_->forEachColumn(onCol);
+        return embedding_->forEachColumn(onCol);
     }
     case NONE:
     case ATOM:
@@ -1977,8 +2118,8 @@ hasKey(const Utf8String & key) const
         return { false, Date::negativeInfinity() };
     case ROW: 
     case STRUCT:
-    case TENSOR: {
-        // TODO: for Tensor, we can do much, much better
+    case EMBEDDING: {
+        // TODO: for Embedding, we can do much, much better
         Date outputDate = Date::negativeInfinity();
         auto onExpr = [&] (const Coord & columnName,
                            const Coord & prefix,
@@ -1997,7 +2138,7 @@ hasKey(const Utf8String & key) const
         return { result, outputDate };
     }
 #if 0
-    case TENSOR: {
+    case EMBEDDING: {
         // Look for a key of the form [x,y,z]
         int indexes[10];
         int n = -1;
@@ -2031,8 +2172,8 @@ hasValue(const ExpressionValue & val) const
         return { false, Date::negativeInfinity() };
     case ROW: 
     case STRUCT:
-    case TENSOR: {
-        // TODO: for tensor, we can do much, much better
+    case EMBEDDING: {
+        // TODO: for embedding, we can do much, much better
         Date outputDate = Date::negativeInfinity();
         auto onExpr = [&] (const Coord & columnName,
                            const Coord & prefix,
@@ -2068,7 +2209,7 @@ hash() const
         return cell_.hash();
     case ROW:
     case STRUCT:
-    case TENSOR:
+    case EMBEDDING:
         // TODO: a more reasonable speed in hashing
         return jsonHash(jsonEncode(*this));
     }
@@ -2156,9 +2297,9 @@ coerceToAtom() const
     case STRUCT:
         ExcAssertEqual(struct_->length(), 1);
         return CellValue(struct_->value(0));
-    case TENSOR:
-        ExcAssertEqual(tensor_->length(), 1);
-        return tensor_->getValue(0);
+    case EMBEDDING:
+        ExcAssertEqual(embedding_->length(), 1);
+        return embedding_->getValue(0);
     }
 
     throw HttpReturnException(500, "coerceToAtom: unknown expression type");
@@ -2292,7 +2433,7 @@ compare(const ExpressionValue & other) const
     case STRUCT: {
         return compare_t<vector<pair<ColumnName, CellValue> >, ML::compare>(*this, other);
     }
-    case TENSOR: {
+    case EMBEDDING: {
         return compare_t<vector<pair<ColumnName, CellValue> >, ML::compare>(*this, other);
     }
     }
@@ -2315,7 +2456,7 @@ operator == (const ExpressionValue & other) const
         return ML::compare_sorted(leftRow, rightRow, std::equal_to<Row>());
     }
     case STRUCT:
-    case TENSOR: {
+    case EMBEDDING: {
         return compare_t<vector<pair<ColumnName, CellValue> >, equal_to>(*this, other);
     }
     }
@@ -2342,7 +2483,7 @@ operator <  (const ExpressionValue & other) const
     case STRUCT: {
         return compare_t<vector<pair<ColumnName, CellValue> >, less>(*this, other);
     }
-    case TENSOR: {
+    case EMBEDDING: {
         return compare_t<vector<pair<ColumnName, CellValue> >, less>(*this, other);
     }
     }
@@ -2365,8 +2506,8 @@ getSpecializedValueInfo() const
         return std::make_shared<RowValueInfo>(vector<KnownColumn>(), SCHEMA_OPEN);
     case STRUCT:
         throw ML::Exception("struct getSpecializedValueInfo not done");
-    case TENSOR:
-        throw ML::Exception("tensor getSpecializedValueInfo not done");
+    case EMBEDDING:
+        throw ML::Exception("embedding getSpecializedValueInfo not done");
     }
     throw HttpReturnException(400, "unknown ExpressionValue type");
 }
@@ -2438,8 +2579,8 @@ extractJson(JsonPrintingContext & context) const
         context.writeJson(output);
         return;
     }
-    case ExpressionValue::TENSOR: {
-        throw HttpReturnException(500, "extractJson TENSOR: not impl");
+    case ExpressionValue::EMBEDDING: {
+        throw HttpReturnException(500, "extractJson EMBEDDING: not impl");
     }
     }
     throw HttpReturnException(400, "unknown ExpressionValue type");
@@ -2610,8 +2751,8 @@ printJsonTyped(const ExpressionValue * val,
         context.writeJson(output);
         return;
     }
-    case ExpressionValue::TENSOR: {
-        val->tensor_->writeJson(context);
+    case ExpressionValue::EMBEDDING: {
+        val->embedding_->writeJson(context);
         return;
     }
     }

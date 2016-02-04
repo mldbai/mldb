@@ -71,6 +71,62 @@ enum JsonArrayHandling {
     ENCODE_ARRAYS ///< Arrays are encoded as one-hot or JSON literals
 };
 
+/*****************************************************************************/
+/* STORAGE TYPE                                                              */
+/*****************************************************************************/
+
+/** Declares the underlying binary type of a embedding's stored data element. */
+
+enum StorageType {
+    ST_FLOAT32,
+    ST_FLOAT64,
+    ST_INT8,
+    ST_UINT8,
+    ST_INT16,
+    ST_UINT16,
+    ST_INT32,
+    ST_UINT32,
+    ST_INT64,
+    ST_UINT64,
+    ST_BLOB,
+    ST_STRING,
+    ST_UTF8STRING,
+    ST_ATOM,
+    ST_BOOL,
+    ST_TIMESTAMP,
+    ST_TIMEINTERVAL
+};
+
+DECLARE_ENUM_DESCRIPTION(StorageType);
+
+// Usage: GetStorageType<T>::val is the storage type to store
+// that kind of value.
+template<typename T>
+struct GetStorageType;
+
+#define SPECIALIZE_STORAGE_TYPE(type, st) \
+template<> struct GetStorageType<type> { static constexpr StorageType val = st; };
+
+SPECIALIZE_STORAGE_TYPE(float,                ST_FLOAT32);
+SPECIALIZE_STORAGE_TYPE(double,               ST_FLOAT64);
+SPECIALIZE_STORAGE_TYPE(unsigned char,        ST_UINT8);
+SPECIALIZE_STORAGE_TYPE(signed char,          ST_INT8);
+SPECIALIZE_STORAGE_TYPE(char,                 ST_UINT8);
+SPECIALIZE_STORAGE_TYPE(signed short,         ST_INT16);
+SPECIALIZE_STORAGE_TYPE(unsigned short,       ST_UINT16);
+SPECIALIZE_STORAGE_TYPE(signed int,           ST_INT32);
+SPECIALIZE_STORAGE_TYPE(unsigned int,         ST_UINT32);
+SPECIALIZE_STORAGE_TYPE(signed long,          ST_INT64);
+SPECIALIZE_STORAGE_TYPE(unsigned long,        ST_UINT64);
+SPECIALIZE_STORAGE_TYPE(signed long long,     ST_INT64);
+SPECIALIZE_STORAGE_TYPE(unsigned long long,   ST_UINT64);
+SPECIALIZE_STORAGE_TYPE(std::vector<uint8_t>, ST_BLOB);
+SPECIALIZE_STORAGE_TYPE(std::string,          ST_STRING);
+SPECIALIZE_STORAGE_TYPE(Utf8String,           ST_UTF8STRING);
+SPECIALIZE_STORAGE_TYPE(CellValue,            ST_ATOM);
+SPECIALIZE_STORAGE_TYPE(bool,                 ST_BOOL);
+SPECIALIZE_STORAGE_TYPE(Date,                 ST_TIMESTAMP);
+
 
 /*****************************************************************************/
 /* EXPRESSION VALUE INFO                                                     */
@@ -122,6 +178,9 @@ struct ExpressionValueInfo {
 
     /// Is this a value description for a row?
     virtual bool isRow() const;
+
+    /// Is this a value description for an embedding?
+    virtual bool isEmbedding() const;
 
     /// Could the thing described by this value description return a row?
     virtual bool couldBeRow() const
@@ -207,6 +266,18 @@ struct ExpressionValueInfo {
         schemaCompleteness = SCHEMA_CLOSED;
         return std::shared_ptr<ExpressionValueInfo>();
     }
+
+    /** Return the shape of an embedding.  For scalars, it's the empty
+        vector.  For vectors, matrices, tensors it's the real shape.
+
+        If it can't be converted to an embedding, it will throw.
+    */
+    virtual std::vector<ssize_t> getEmbeddingShape() const;
+
+    /** Return the data type of an embedding.  If it's not an embedding,
+        it will throw.
+    */
+    virtual StorageType getEmbeddingType() const;
 };
 
 PREDECLARE_VALUE_DESCRIPTION(std::shared_ptr<ExpressionValueInfo>);
@@ -254,45 +325,18 @@ DECLARE_STRUCTURE_DESCRIPTION(KnownColumn);
 
 
 /*****************************************************************************/
-/* STORAGE TYPE                                                              */
+/* EMBEDDING METADATA                                                           */
 /*****************************************************************************/
 
-/** Declares the underlying binary type of a tensor's stored data element. */
+/** Used to add metadata and structure to a embedding valued expression. */
 
-enum StorageType {
-    ST_FLOAT32,
-    ST_FLOAT64,
-    ST_INT8,
-    ST_UINT8,
-    ST_INT16,
-    ST_UINT16,
-    ST_INT32,
-    ST_UINT32,
-    ST_INT64,
-    ST_UINT64,
-    ST_BLOB,
-    ST_STRING,
-    ST_UTF8STRING,
-    ST_CELLVALUE,
-    ST_BOOL
-};
-
-DECLARE_ENUM_DESCRIPTION(StorageType);
-
-
-/*****************************************************************************/
-/* TENSOR METADATA                                                           */
-/*****************************************************************************/
-
-/** Used to add metadata and structure to a tensor valued expression. */
-
-struct TensorMetadata {
+struct EmbeddingMetadata {
 
     /// Name of each dimension
     std::vector<Utf8String> dimNames;
 };
 
-DECLARE_STRUCTURE_DESCRIPTION(TensorMetadata);
+DECLARE_STRUCTURE_DESCRIPTION(EmbeddingMetadata);
 
 
 /*****************************************************************************/
@@ -376,28 +420,28 @@ struct ExpressionValue {
     ExpressionValue(std::vector<double> values,
                     Date ts);
     
-    /** Construct from a generalized uniform tensor, which is stored as
+    /** Construct from a generalized uniform embedding, which is stored as
         a contiguous (flat), column-major array (ie, standard c storage).
         
         Parameters:
-        - ts: the timestamp at which the tensor occurs;
-        - data: a shared pointer to the data of the tensor;
+        - ts: the timestamp at which the embedding occurs;
+        - data: a shared pointer to the data of the embedding;
         - storage: the data type that's stored in the data
         - dims: a list of dimensions.  Length zero is a single scalar.
           Length 1 is a one-dimensional array with length dims[0].
           And so on.
-        - md: metadata about the tensor, to allow us to better understand
+        - md: metadata about the embedding, to allow us to better understand
           and present what the information is (eg, if it's an image, what
           the channels are).  Optional.
 
         When accessed as a row, the column names will be like [1,2].
     */
     static ExpressionValue
-    tensor(Date ts,
+    embedding(Date ts,
            std::shared_ptr<const void> data,
            StorageType storage,
            std::vector<size_t> dims,
-           std::shared_ptr<const TensorMetadata> md = nullptr);
+           std::shared_ptr<const EmbeddingMetadata> md = nullptr);
     
     //Construct from a m/d/s time interval
     static ExpressionValue
@@ -459,7 +503,7 @@ struct ExpressionValue {
 
     bool isRow() const;
 
-    bool isTensor() const;
+    bool isEmbedding() const;
 
     std::string toString() const;
 
@@ -552,6 +596,14 @@ struct ExpressionValue {
         length is -1, it is unknown and any length will be accepted. */
     ML::distribution<double, std::vector<double> >
     getEmbeddingDouble(ssize_t knownLength = -1) const;
+
+    /** Return a flattened embedding as CellValues. */
+    std::vector<CellValue>
+    getEmbeddingCell(ssize_t knownLength = -1) const;
+
+    /** Return the shape of the embedding. */
+    std::vector<size_t>
+    getEmbeddingShape() const;
 
     /** Return an embedding from the value, asserting on the names of the
         columns.  Note that this method will not extract the given names;
@@ -697,7 +749,7 @@ private:
         ATOM,     ///< Expression is an atom (CellValue), including null
         ROW,      ///< Expression is a row, ie a destructured complex type with independent timestamps
         STRUCT,   ///< Expression is a structure of keys and elements.
-        TENSOR    ///< Uniform typed n-dimensional array of atoms
+        EMBEDDING    ///< Uniform typed n-dimensional array of atoms
     };
 
     Type type_;
@@ -706,9 +758,9 @@ private:
     /// element and an external set of column names
     struct Struct;
 
-    /// This is how we store a tensor, which is a dense array of a
+    /// This is how we store a embedding, which is a dense array of a
     /// uniform data type.
-    struct Tensor;
+    struct Embedding;
 
     /// This is where the underlying values are actually stored
     union {
@@ -716,7 +768,7 @@ private:
         CellValue cell_;
         std::shared_ptr<const Row> row_;
         std::shared_ptr<const Struct> struct_;
-        std::shared_ptr<const Tensor> tensor_;
+        std::shared_ptr<const Embedding> embedding_;
     };
     Date ts_;   ///< Nominal timestamp that the information was known
 
@@ -785,6 +837,17 @@ struct ScalarExpressionValueInfoT: public ExpressionValueInfoT<Storage> {
     {
         return ML::type_name<Storage>();
     }
+
+    virtual std::vector<ssize_t> getEmbeddingShape() const
+    {
+        return {};
+    }
+
+    virtual StorageType getEmbeddingType() const
+    {
+        // TODO: fix this to depend on the type
+        return GetStorageType<Storage>::val;
+    }
 };
 
 extern template class ExpressionValueInfoT<float>;
@@ -792,7 +855,7 @@ extern template class ExpressionValueInfoT<double>;
 extern template class ExpressionValueInfoT<CellValue>;
 extern template class ExpressionValueInfoT<std::string>;
 extern template class ExpressionValueInfoT<Utf8String>;
-extern template class ExpressionValueInfoT<std::vector<unsigned char> >;
+extern template class ExpressionValueInfoT<std::vector<uint8_t> >;
 extern template class ExpressionValueInfoT<int64_t>;
 extern template class ExpressionValueInfoT<uint64_t>;
 extern template class ExpressionValueInfoT<char>;
@@ -802,7 +865,7 @@ extern template class ScalarExpressionValueInfoT<double>;
 extern template class ScalarExpressionValueInfoT<CellValue>;
 extern template class ScalarExpressionValueInfoT<std::string>;
 extern template class ScalarExpressionValueInfoT<Utf8String>;
-extern template class ScalarExpressionValueInfoT<std::vector<unsigned char> >;
+extern template class ScalarExpressionValueInfoT<std::vector<uint8_t> >;
 extern template class ScalarExpressionValueInfoT<int64_t>;
 extern template class ScalarExpressionValueInfoT<uint64_t>;
 extern template class ScalarExpressionValueInfoT<char>;
@@ -850,7 +913,7 @@ struct StringValueInfo: public ScalarExpressionValueInfoT<std::string> {
 struct Utf8StringValueInfo: public ScalarExpressionValueInfoT<Utf8String> {
 };
 
-struct BlobValueInfo: public ScalarExpressionValueInfoT<std::vector<unsigned char> > {
+struct BlobValueInfo: public ScalarExpressionValueInfoT<std::vector<uint8_t> > {
     /// Is the other value compatible with this info?
     virtual bool isCompatible(const ExpressionValue & value) const
     {
@@ -917,12 +980,39 @@ struct AnyValueInfo: public ExpressionValueInfoT<ExpressionValue> {
 };
 
 /// For an embedding
-struct EmbeddingValueInfo: public ExpressionValueInfoT<ML::distribution<double, std::vector<double> > > {
-    EmbeddingValueInfo(ssize_t numDims);
+struct EmbeddingValueInfo: public ExpressionValueInfoT<ML::distribution<CellValue, std::vector<CellValue> > > {
+    EmbeddingValueInfo()
+        : EmbeddingValueInfo({-1})
+    {
+    }
 
-    ssize_t numDims;
+    EmbeddingValueInfo(ssize_t numDimsForOneDimensionalArray)
+        : shape(1, numDimsForOneDimensionalArray)
+    {
+    }
+
+    EmbeddingValueInfo(std::vector<ssize_t> shape);
+
+    /** Infer the output type for an array of elements of types given in the
+        input. */
+    EmbeddingValueInfo(const std::vector<std::shared_ptr<ExpressionValueInfo> > & input);
+
+    std::vector<ssize_t> shape;
+
+    /** Return the number of dimensions in the embedding.  This is
+        always equal to shape.size().
+    */
+    virtual size_t numDimensions() const;
 
     virtual bool isScalar() const;
+
+    virtual bool isRow() const;
+
+    virtual bool isEmbedding() const;
+
+    virtual std::vector<ssize_t> getEmbeddingShape() const;
+
+    virtual StorageType getEmbeddingType() const;
 
     virtual std::shared_ptr<RowValueInfo> getFlattenedInfo() const;
 

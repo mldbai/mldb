@@ -907,6 +907,7 @@ getChildren() const
     return result;
 }
 
+
 /*****************************************************************************/
 /* EMBEDDING EXPRESSION                                                      */
 /*****************************************************************************/
@@ -926,31 +927,83 @@ BoundSqlExpression
 EmbeddingLiteralExpression::
 bind(SqlBindingScope & context) const
 {
+    if (clauses.empty()) {
+        return BoundSqlExpression([] (const SqlRowScope &, ExpressionValue & storage) { return storage = std::move(ExpressionValue::null(Date::notADate())); },
+                                  this,
+                                  std::make_shared<EmptyValueInfo>(),
+                                  true /* is constant */);
+    }
+
     vector<BoundSqlExpression> boundClauses;
+    vector<size_t> knownDims = {clauses.size()};
+
+    std::vector<std::shared_ptr<ExpressionValueInfo> > clauseInfo;
+
     for (auto & c: clauses) {
         boundClauses.emplace_back(std::move(c->bind(context)));
+        clauseInfo.push_back(boundClauses.back().info);
     }   
 
-    auto outputInfo = std::make_shared<EmbeddingValueInfo>(clauses.size());
+    auto outputInfo
+        = std::make_shared<EmbeddingValueInfo>(clauseInfo);
+
+    ExcAssertEqual(outputInfo->shape.at(0), clauses.size());
+
+    bool lastLevel = outputInfo->numDimensions() == 1;
 
     auto exec = [=] (const SqlRowScope & context,
                      ExpressionValue & storage) -> const ExpressionValue &
         {  
-            std::vector<CellValue> outputValues;             
-            Date ts;
+            Date ts = Date::negativeInfinity();
+            std::vector<CellValue> cells;
 
-            for (auto & c: boundClauses) {
-                ExpressionValue v = c(context);
-                if (!v.isAtom()) {
-		   throw HttpReturnException(400, "Trying to add non-atomic value to embedding expression");
+            if (lastLevel) {
+                cells.reserve(boundClauses.size());
+
+                for (auto & c: boundClauses) {
+                    ExpressionValue v = c(context);
+                    ts.setMax(v.getEffectiveTimestamp());
+                    cells.emplace_back(v.stealAtom());
                 }
-               
-               ts = std::max(v.getEffectiveTimestamp(), ts);
-               outputValues.push_back(v.getAtom());
 
+                ExpressionValue result(std::move(cells), ts);
+                return storage = std::move(result);
             }
-            
-            return storage = ExpressionValue(outputValues ,ts);
+            else {
+
+                std::vector<size_t> dims = { boundClauses.size() };
+
+                for (unsigned i = 0;  i < boundClauses.size();  ++i) {
+                    auto & c = boundClauses[i];
+                    ExpressionValue v = c(context);
+                    
+                    // Get the number of dimensions in the embedding
+                    if (i == 0) {
+                        for (size_t d: v.getEmbeddingShape())
+                            dims.emplace_back(d);
+                    }
+                    // TODO: check for the correct size of cells
+
+                    ts.setMin(v.getEffectiveTimestamp());
+
+                    std::vector<CellValue> valueCells
+                        = v.getEmbeddingCell(v.rowLength());
+
+                    if (valueCells.size() != v.rowLength())
+                        throw HttpReturnException(400, "Embeddings don't contain the same number of elements");
+
+                    cells.insert(cells.end(),
+                                 std::make_move_iterator(valueCells.begin()),
+                                 std::make_move_iterator(valueCells.end()));
+                }
+
+                // This one weird trick will convert a vector<X> to a
+                // shared_ptr<X> without copying.
+                auto dataOwner = std::make_shared<std::vector<CellValue> >(std::move(cells));
+                std::shared_ptr<const CellValue> data(dataOwner, &(*dataOwner)[0]);
+                
+                return storage = ExpressionValue::embedding(ts, std::move(data), ST_ATOM, dims);
+            }
         };
 
     return BoundSqlExpression(exec, this, outputInfo, false);

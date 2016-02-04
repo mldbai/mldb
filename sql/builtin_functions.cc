@@ -762,11 +762,17 @@ void normalize(ML::distribution<float>& val, double p)
        throw HttpReturnException(500, "Invalid power for normalize() function",
                                   "p", p);
 
-    if (p == 2) {
+    if (p == 0) {
+        val /= (val != 0).total();
+    }
+    else if (p == 2) {
         val /= val.two_norm();
     }
     else if (p == 1) {
         val /= val.total();
+    }
+    else if (p == INFINITY) {
+        val /= val.max();
     }
     else {
         double total = 0.0;
@@ -794,15 +800,39 @@ BoundFunction normalize(const std::vector<BoundSqlExpression> & args)
 
     if (!vectorInfo->isScalar())
     {
-        if (vectorInfo->isRow() && (args[0].info->getSchemaCompleteness() == SCHEMA_OPEN))
-            throw HttpReturnException(500, "Can't normalize a row with unknown columns"); 
-        
-        auto columnNames = std::make_shared<std::vector<ColumnName> >();
+        ssize_t numDims = -1; //if its a row we dont know the number of dimensions the embedding is going to have
 
-        ssize_t numDim = -1; //if its a row we dont know the number of dimensions the embedding is going to have
-
-        if (vectorInfo->isRow())
+        if (vectorInfo->isEmbedding())
         {
+            const EmbeddingValueInfo* embeddingInfo = dynamic_cast<EmbeddingValueInfo*>(vectorInfo.get());
+            if (embeddingInfo)
+                numDims = embeddingInfo->shape.at(0);
+
+            return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & context) -> ExpressionValue
+            {
+                    // Get it as an embedding
+                    ML::distribution<float> val = args.at(0).getEmbedding();
+                    Date ts = args.at(0).getEffectiveTimestamp();
+                    double p = args.at(1).toDouble();
+
+                    normalize(val, p);
+
+                    ExpressionValue result(std::move(val),
+                                               ts);
+
+                    return std::move(result);
+         
+            },
+                    std::make_shared<EmbeddingValueInfo>(numDims)};
+        }    
+        else
+        {
+            if (vectorInfo->isRow() && (args[0].info->getSchemaCompleteness() == SCHEMA_OPEN))
+                throw HttpReturnException(500, "Can't normalize a row with unknown columns"); 
+        
+            auto columnNames = std::make_shared<std::vector<ColumnName> >();
+
             std::vector<KnownColumn> columns = args[0].info->getKnownColumns();
             for (auto & c: columns)
                columnNames->emplace_back(c.columnName);
@@ -823,33 +853,9 @@ BoundFunction normalize(const std::vector<BoundSqlExpression> & args)
 
                  return std::move(result);
             },
-            std::make_shared<EmbeddingValueInfo>(numDim)};
+                     std::make_shared<EmbeddingValueInfo>(numDims)};
     
         }
-        else
-        {
-            const EmbeddingValueInfo* embeddingInfo = dynamic_cast<EmbeddingValueInfo*>(vectorInfo.get());
-            if (embeddingInfo)
-                numDim = embeddingInfo->numDims;
-
-            return {[=] (const std::vector<ExpressionValue> & args,
-                 const SqlRowScope & context) -> ExpressionValue
-            {
-                    // Get it as an embedding
-                    ML::distribution<float> val = args.at(0).getEmbedding();
-                    Date ts = args.at(0).getEffectiveTimestamp();
-                    double p = args.at(1).toDouble();
-
-                    normalize(val, p);
-
-                    ExpressionValue result(std::move(val),
-                                               ts);
-
-                    return std::move(result);
-         
-            },
-            std::make_shared<EmbeddingValueInfo>(numDim)};
-        }    
     }
     else
     {
