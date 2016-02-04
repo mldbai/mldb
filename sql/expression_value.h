@@ -125,6 +125,11 @@ enum VariableFilter {
 */
 constexpr bool canIgnoreIfExactlyOneValue(VariableFilter) { return true; }
 
+/** How we deal with arrays when parsing JSON into an expression value. */
+enum JsonArrayHandling {
+    PARSE_ARRAYS, ///< Arrays are parsed into nested expression values
+    ENCODE_ARRAYS ///< Arrays are encoded as one-hot or JSON literals
+};
 
 
 /*****************************************************************************/
@@ -399,7 +404,13 @@ struct ExpressionValue {
     ExpressionValue(std::vector<std::tuple<Id, ExpressionValue> > vals) noexcept;
     // Construct from JSON.  Will convert to an atom or a row.
     ExpressionValue(const Json::Value & json, Date ts);
-                                            
+    
+    /** Construct from a JSON literal string, parsing as we go. */
+    static ExpressionValue
+    parseJson(JsonParsingContext & context,
+              Date timestamp,
+              JsonArrayHandling arrays = PARSE_ARRAYS);
+
     ~ExpressionValue();
     ExpressionValue(const ExpressionValue & other);
     ExpressionValue(ExpressionValue && other) noexcept;
@@ -447,6 +458,8 @@ struct ExpressionValue {
     Utf8String toUtf8String() const;
 
     std::basic_string<char32_t> toWideString() const;
+
+    Utf8String getTypeAsUtf8String() const;
 
     const CellValue & getAtom() const;
 

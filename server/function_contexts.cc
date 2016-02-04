@@ -282,5 +282,13 @@ doGetFunctionEntity(const Utf8String & functionName)
     return mldb->functions->getExistingEntity(functionName.rawString());
 }
 
+Utf8String 
+SqlBindingScope::
+doResolveTableName(const Utf8String & fullVariableName, Utf8String &tableName) const
+{
+    return fullVariableName;
+}
+
+
 } // namespace MLDB
 } // namespace Datacratic

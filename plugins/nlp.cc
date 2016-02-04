@@ -178,13 +178,20 @@ apply(const FunctionApplier & applier,
                 throw ML::Exception("Out of memory when stemming");
             }
 
+            // Cast the cell value as a double before we accumulate them
+            double val_as_double;
+            if (val.isString())
+                val_as_double = 1;
+            else
+                val_as_double = val.toDouble();
+
             Id col(string((const char*)stemmed));
             auto it = accum.find(col);
             if(it == accum.end()) {
-                accum.emplace(col, std::move(make_pair(val.toDouble(), ts)));
+                accum.emplace(col, std::move(make_pair(val_as_double, ts)));
             }
             else {
-                it->second.first += val.toDouble();
+                it->second.first += val_as_double;
                 if(it->second.second > ts)
                     it->second.second = ts;
             }

@@ -391,7 +391,15 @@ SqlBindingScope::
 doGetTable(const Utf8String & tableName)
 {
     throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
-                              + " does not support getting tabless");
+                              + " does not support getting tables");
+}
+
+Utf8String 
+SqlBindingScope::
+doResolveTableName(const Utf8String & fullVariableName, Utf8String &tableName) const
+{
+    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
+                              + " does not support resolving table names");
 }
 
 MldbServer *
@@ -670,29 +678,17 @@ static Utf8String matchIdentifier(ML::Parse_Context & context,
     }    
 
     
-    {
-        //only match the . if there is actually an identifier after
-        //for example in 'table.*' the identifier is 'table' not 'table.'
+    if (context.match_literal('.')) {
 
-        ML::Parse_Context::Revert_Token token(context);
-
-        if (context.match_literal('.')) {
-
-            Utf8String nextIdentifier = matchIdentifier(context, allowUtf8, stripQuotes);
-
-            if (!nextIdentifier.empty()) {
-                stripOuterQuotes = false;
-                result += "." + nextIdentifier;
-                token.ignore();
-            }
-        
-        }  
+          Utf8String nextIdentifier = matchIdentifier(context, allowUtf8, stripQuotes);
+          stripOuterQuotes = false;
+          result += "." + nextIdentifier;
     }  
 
-     if (stripOuterQuotes) {
+    if (stripOuterQuotes) {
         auto last = boost::prior(result.end());
         result = Utf8String(++(result.begin()), last);
-     } 
+    } 
 
     return result;
 }
@@ -1457,8 +1453,6 @@ SqlExpression::
 parse(const std::string & expression, const std::string & filename,
       int row, int col)
 {
-    //cerr << "parsing " << expression << endl;
-
     ML::Parse_Context context(filename.empty() ? expression : filename,
                               expression.c_str(),
                               expression.length(), row, col);
@@ -2011,65 +2005,6 @@ parse(ML::Parse_Context & context, bool allowUtf8)
                     auto result = std::make_shared<WildcardExpression>(tableName, prefix, prefixAs, exclusions);
                     result->surface = ML::trim(capture.captured());
                     return result;
-                }
-            }
-        }
-    }
-
-    //cerr << "offset = " << context.get_offset() << endl;
-    /* Three possibilities:
-       1.  (tablename).(prefix)*
-       2.  expression (AS label)
-       3.  label : expression
-    */
-    if (!matched) {
-
-        ML::Parse_Context::Revert_Token token(context);
-        
-        for (;;) {
-            tableName = matchIdentifier(context, allowUtf8);
-            if (tableName.empty())
-                break;
-
-            skip_whitespace(context);
-
-            if (!context.match_literal('.'))
-                break;
-
-            skip_whitespace(context);
-
-            if (matchPrefixedWildcard(prefix)) {
-
-                // Sort out ambiguity between * operator and wildcard by looking at
-                // trailing context.
-                //
-                // See MLDB-195
-                //
-                // It can only be a table name if followed by:
-                // - eof
-                // - a comma
-                // - closing paranthesis, if used as an expression
-                // - AS
-                // - EXCLUDING
-                // - a keyword
-
-                ML::Parse_Context::Revert_Token token2(context);
-
-                skip_whitespace(context);
-
-                if (context.eof()
-                    || context.match_literal(',')
-                    || context.match_literal(')')
-                    || matchKeyword(context, "AS")
-                    || matchKeyword(context, "EXCLUDING")
-                    || matchKeyword(context, "NAMED")
-                    || matchKeyword(context, "FROM") || matchKeyword(context, "WHERE")
-                    || matchKeyword(context, "GROUP BY") || matchKeyword(context, "HAVING")
-                    || matchKeyword(context, "LIMIT") || matchKeyword(context, "OFFSET")) {
-                    isWildcard = true;
-                    matched = true;
-                    token.ignore();
-                    break;
                 }
             }
         }

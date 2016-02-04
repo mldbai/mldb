@@ -584,6 +584,83 @@ ExpressionValue(const Json::Value & val, Date timestamp)
     initRow(std::move(row));
 }
 
+static const auto cellValueDesc = getDefaultDescriptionShared((CellValue *)0);
+
+CellValue expectAtom(JsonParsingContext & context)
+{
+    CellValue val;
+    cellValueDesc->parseJson(&val, context);
+    return val;
+}
+
+ExpressionValue
+ExpressionValue::
+parseJson(JsonParsingContext & context,
+          Date timestamp,
+          JsonArrayHandling arrays)
+{
+    if (context.isObject()) {
+
+        std::vector<std::tuple<ColumnName, ExpressionValue> > out;
+
+        auto onObjectField = [&] ()
+            {
+                out.emplace_back
+                (ColumnName(context.fieldNamePtr()),
+                 parseJson(context, timestamp, arrays));
+            };
+        context.forEachMember(onObjectField);
+
+        return std::move(out);
+    }
+    else if (context.isArray()) {
+        std::vector<std::tuple<ColumnName, ExpressionValue> > out;
+
+        bool hasNonAtom = false;
+        bool hasNonObject = false;
+
+        auto onArrayElement = [&] ()
+            {
+                if (!context.isObject())
+                    hasNonObject = true;
+                out.emplace_back(ColumnName(context.fieldNumber()),
+                                 parseJson(context, timestamp, arrays));
+                
+                if (!std::get<1>(out.back()).isAtom())
+                    hasNonAtom = true;
+            };
+        
+        context.forEachElement(onArrayElement);
+
+        if (arrays == ENCODE_ARRAYS && !hasNonAtom) {
+            // One-hot encode them
+            for (auto & v: out) {
+                ColumnName & columnName = std::get<0>(v);
+                ExpressionValue & columnValue = std::get<1>(v);
+                
+                columnName = ColumnName(columnValue.toUtf8String());
+                columnValue = ExpressionValue(1, timestamp);
+            }
+        }
+        else if (arrays == ENCODE_ARRAYS && !hasNonObject) {
+            // JSON encode them
+            for (auto & v: out) {
+                ExpressionValue & columnValue = std::get<1>(v);
+                std::string str;
+                StringJsonPrintingContext context(str);
+                columnValue.extractJson(context);
+                columnValue = ExpressionValue(str, timestamp);
+            }
+        }
+
+        return std::move(out);
+    }
+    else {
+        // It's an atomic cell value; parse the atom
+        return ExpressionValue(expectAtom(context), timestamp);
+    }
+}
+
 ExpressionValue::
 ExpressionValue(RowValue row) noexcept
 : type_(NONE)
@@ -783,7 +860,9 @@ double
 ExpressionValue::
 toDouble() const
 {
-    ExcAssertEqual(type_, ATOM);
+    //ExcAssertEqual(type_, ATOM);
+   if (type_ != ATOM)
+        throw HttpReturnException(400, "Can't convert from " + getTypeAsUtf8String() + " to double");
     return cell_.toDouble();
 }
 
@@ -791,7 +870,8 @@ int64_t
 ExpressionValue::
 toInt() const
 {
-    ExcAssertEqual(type_, ATOM);
+    if (type_ != ATOM)
+        throw HttpReturnException(400, "Can't convert from " + getTypeAsUtf8String() + " to integer");
     return cell_.toInt();
 }
     
@@ -801,7 +881,10 @@ asBool() const
 {
     if (type_ == NONE)
         return false;
-    ExcAssertEqual(type_, ATOM);
+    
+    if (type_ != ATOM)
+        throw HttpReturnException(400, "Can't convert from " + getTypeAsUtf8String() + " to boolean");
+
     return cell_.asBool();
 }
 
@@ -941,7 +1024,8 @@ std::string
 ExpressionValue::
 toString() const
 {
-    ExcAssertEqual(type_, ATOM);
+    if (type_ != ATOM)
+        throw HttpReturnException(400, "Can't convert from " + getTypeAsUtf8String() + " to string");
     return cell_.toString();
 }
 
@@ -949,15 +1033,37 @@ Utf8String
 ExpressionValue::
 toUtf8String() const
 {
-    ExcAssertEqual(type_, ATOM);
+    if (type_ != ATOM)
+        throw HttpReturnException(400, "Can't convert from " + getTypeAsUtf8String() + " to UTF8 string");
     return cell_.toUtf8String();
+}
+
+Utf8String
+ExpressionValue::
+getTypeAsUtf8String() const
+{
+    switch (type_)
+    {
+        case NONE:
+            return "empty";
+        case ATOM:
+            return "atomic value";
+        case ROW:
+            return "row";
+        case STRUCT:
+            return "embedding";
+        default:
+            ExcAssert(false);
+            return "unknown";
+    }
 }
 
 std::basic_string<char32_t>
 ExpressionValue::
 toWideString() const
 {
-    ExcAssertEqual(type_, ATOM);
+    if (type_ != ATOM)
+        throw HttpReturnException(400, "Can't convert from " + getTypeAsUtf8String() + " to wide string");
     return cell_.toWideString();
 }
 
@@ -1148,8 +1254,8 @@ getEmbeddingDouble(ssize_t knownLength) const
             break;
     }
     
-    if (knownLength != -1)
-        ExcAssertEqual(result.size(), knownLength);
+    if (knownLength != -1 && result.size() != knownLength)
+        throw HttpReturnException(400, Utf8String("Expected ") + to_string(knownLength) + " elements in embedding, got " + to_string(result.size()));;
 
     //cerr << "embedding result is " << result << endl;
 
