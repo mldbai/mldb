@@ -32,19 +32,62 @@ class SampleTest(MldbUnitTest):
         rez = mldb.get("/v1/query", q="""
 
             SELECT
-                text.txt, tbl1.warp, tbl2.warp
+                text.txt, sub1.warp, sub2.warp
             FROM text
             LEFT JOIN sub1 ON text.rowName() = regex_replace(sub1.rowName(), 'row_', '')
             LEFT JOIN sub2 ON text.rowName() = regex_replace(sub2.rowName(), 'row_', '')
 
         """)
         
-        mldb.log(rez.json())
+        expected = [
+                {
+                    "rowName": "a-row_a-null",
+                    "rowHash": "8711ec4b866a7c29",
+                    "columns": [
+                        [
+                            "text.txt",
+                            "raise shields",
+                            "1970-01-01T00:00:00Z"
+                        ],
+                        [
+                            "sub1.warp",
+                            8,
+                            "1970-01-01T00:00:00Z"
+                        ],
+                        [
+                            "sub2.warp",
+                            None,
+                            "-Inf"
+                        ]
+                    ]
+                },
+                {
+                    "rowName": "b-null-row_b",
+                    "rowHash": "a4c2b6a8ca3bb829",
+                    "columns": [
+                        [
+                            "text.txt",
+                            "set a course",
+                            "1970-01-01T00:00:00Z"
+                        ],
+                        [
+                            "sub1.warp",
+                            None,
+                            "-Inf"
+                        ],
+                        [
+                            "sub2.warp",
+                            9,
+                            "1970-01-01T00:00:00Z"
+                        ]
+                    ]
+                }
+            ]
+        assert rez.json() == expected
     
     def test_subselect_works(self):
-        # mldb.get asserts the result status_code is >= 200 and < 400
-        self.assertQueryResult(mldb.query("""
 
+        rez = mldb.get("/v1/query", q="""
             SELECT
                 text.txt, tbl1.warp, tbl2.warp
             FROM text
@@ -56,8 +99,11 @@ class SampleTest(MldbUnitTest):
                 SELECT warp, regex_replace(rowName(), 'row_', '') as rowName
                 FROM sub2
             ) as tbl2 ON text.rowName() = tbl2.rowName
-        """),
-            [
+        """)
+
+        # mldb.log(rez.json())
+
+        expected = [
                 {
                     "rowName": "a-row_a-null",
                     "rowHash": "8711ec4b866a7c29",
@@ -74,7 +120,7 @@ class SampleTest(MldbUnitTest):
                         ],
                         [
                             "tbl2.warp",
-                            null,
+                            None,
                             "-Inf"
                         ]
                     ]
@@ -90,7 +136,7 @@ class SampleTest(MldbUnitTest):
                         ],
                         [
                             "tbl1.warp",
-                            null,
+                            None,
                             "-Inf"
                         ],
                         [
@@ -100,7 +146,10 @@ class SampleTest(MldbUnitTest):
                         ]
                     ]
                 }
-            ])
+            ]
+
+        assert rez.json() == expected
+       
 
 mldb.run_tests()
 

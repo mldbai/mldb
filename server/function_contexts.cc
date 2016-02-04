@@ -283,7 +283,7 @@ doGetFunctionEntity(const Utf8String & functionName)
 }
 
 Utf8String 
-SqlBindingScope::
+FunctionExpressionContext::
 doResolveTableName(const Utf8String & fullVariableName, Utf8String &tableName) const
 {
     return fullVariableName;
