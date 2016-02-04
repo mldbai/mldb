@@ -255,6 +255,7 @@ $(eval $(call mldb_unit_test,MLDB-1272-regression-training-failure.py,,manual)) 
 $(eval $(call mldb_unit_test,MLDB-1277-pooling-performance.py,,manual)) #manual -- awaiting fix
 $(eval $(call mldb_unit_test,MLDB-1260-json-errors.py))
 $(eval $(call mldb_unit_test,MLDB-1239-utf8-literal.py))
+$(eval $(call mldb_unit_test,MLDB-1361_join_on_subselect.py))
 $(eval $(call mldb_unit_test,MLDB-1336-builtin-checks.py))
 
 
