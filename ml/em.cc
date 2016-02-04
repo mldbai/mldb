@@ -70,7 +70,7 @@ double gaussianDistance(const ML::distribution<double> & pt, const ML::distribut
 }
 
 
- boost::multi_array<double, 2> EstimateCovariant(int i, const std::vector<ML::distribution<double>> & points, 
+ boost::multi_array<double, 2> EstimateCovariance(int i, const std::vector<ML::distribution<double>> & points, 
                                  const  MatrixType& distanceMatrix, double totalWeight, ML::distribution<double> average)
 {
     boost::multi_array<double, 2> variant;
@@ -83,14 +83,22 @@ double gaussianDistance(const ML::distribution<double> & pt, const ML::distribut
     {
         ML::distribution<double> pt = points[n] - average;
         double distance = distanceMatrix[n][i];
-        MatrixType variantPt(boost::extents[average.size()][average.size()]);
-        variantPt = outerProd(pt) * distance;
+        int dim = average.size();
+        MatrixType variantPt(boost::extents[dim][dim]);
+
+	    for (unsigned i = 0;  i < dim;  ++i)
+	    {
+	        for (unsigned j = 0;  j < dim;  ++j)
+	        {
+	            variantPt[i][j] = pt[i]*pt[j] * distance;    
+	        }
+	    }
 
         if (n == 0) {                                    
-            variant = variantPt;
+            variant = std::move(variantPt);
         }
         else {
-            variant = variant + variantPt;
+            variant = std::move(variant + variantPt);
         }
     }
 
@@ -228,7 +236,7 @@ train(const std::vector<ML::distribution<double>> & points,
 	    //calculate covariant matrix
 	    for (int i = 0; i < clusters.size(); ++i)
 	    {
-	      clusters[i].covarianceMatrix = EstimateCovariant(i, points, distanceMatrix, clusters[i].totalWeight, clusters[i].centroid);
+	      clusters[i].covarianceMatrix = EstimateCovariance(i, points, distanceMatrix, clusters[i].totalWeight, clusters[i].centroid);
 	      ExcAssert(clusters[i].covarianceMatrix.shape()[0] == clusters[i].covarianceMatrix.shape()[1]);
 
 	      auto svdMatrix = clusters[i].covarianceMatrix;

@@ -156,23 +156,6 @@ diag(const distribution<Float> & d)
 
 template<typename Float>
 boost::multi_array<Float, 2>
-outerProd(const distribution<Float> & d)
-{
-    int dim = d.size();
-    boost::multi_array<Float, 2> D(boost::extents[dim][dim]);
-    for (unsigned i = 0;  i < dim;  ++i)
-    {
-        for (unsigned j = 0;  j < dim;  ++j)
-        {
-            D[i][j] = d[i]*d[j];    
-        }
-    }
-        
-    return D;
-}
-
-template<typename Float>
-boost::multi_array<Float, 2>
 setIdentity(int numDim, boost::multi_array<Float, 2>& D)
 {
     D.resize(boost::extents[numDim][numDim]);

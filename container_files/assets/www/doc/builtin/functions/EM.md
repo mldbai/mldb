@@ -1,6 +1,6 @@
-# EM Function
+# Gaussian Clustering Function
 
-The Estimation-Maximisation (EM) function type takes the output dataset of the EM procedure and applies
+The gaussian clustering function type takes the output dataset of the gaussian clustering procedure and applies
 it to new data in order to assign it to clusters.
 
 ## Configuration
@@ -14,8 +14,8 @@ and the row name being the name of the cluster (this is the output format of the
 
 The `select` parameter
 tells the system how to extract an embedding from the row, and the `where`
-parameter allows only a subset of the clusters to be loaded by the EM
-function. See the example below for more details.
+parameter allows only a subset of the clusters to be loaded by the gaussian clustering 
+function.
 
 In the application of the function, the same features as in the `centroids`
 dataset are extracted from the inputs of the function to create a coordinate
@@ -36,5 +36,5 @@ input according to the multivariate normal distribution density function.
 
 # See also
 
-* ![](%%doclink em.train procedure) trains a EM function.
+* ![](%%doclink em.train procedure) trains a gaussian clustering function.
 
