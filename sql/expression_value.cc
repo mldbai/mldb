@@ -778,8 +778,6 @@ swap(ExpressionValue & other) noexcept
     std::swap(type_,    other.type_);
     std::swap(storage_[0], other.storage_[0]);
     std::swap(storage_[1], other.storage_[1]);
-    std::swap(storage_[2], other.storage_[2]);
-    std::swap(storage_[3], other.storage_[3]);
     std::swap(ts_, other.ts_);
 }
 

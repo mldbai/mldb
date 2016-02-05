@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** sql_expression_test.cc
     Jeremy Barnes, 25 January 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Test of row expressions.
 */
@@ -1245,4 +1245,12 @@ BOOST_AUTO_TEST_CASE(test_colon_as)
     cerr << "alignof(CellValue) = " << alignof(CellValue) << endl;
     cerr << "sizeof(ExpressionValue) = " << sizeof(ExpressionValue) << endl;
     cerr << "alignof(ExpressionValue) = " << alignof(ExpressionValue) << endl;
+    cerr << "sizeof(Id) = " << sizeof(Id) << endl;
+    cerr << "alignof(Id) = " << alignof(Id) << endl;
+    cerr << "sizeof(Utf8String) = " << sizeof(Utf8String) << endl;
+    cerr << "alignof(Utf8String) = " << alignof(Utf8String) << endl;
+    cerr << "sizeof(std::string) = " << sizeof(std::string) << endl;
+    cerr << "alignof(std::string) = " << alignof(std::string) << endl;
+
+    BOOST_CHECK_EQUAL(sizeof(ExpressionValue), 32);
 }
