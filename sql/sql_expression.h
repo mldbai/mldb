@@ -327,6 +327,34 @@ struct BoundFunction {
     }
 };
 
+struct ValuedBoundFunction {
+    typedef std::function<ExpressionValue (const std::vector<ExpressionValue> &,
+                          const SqlRowScope & context) > Exec;
+
+    ValuedBoundFunction()
+    {
+    }
+
+    ValuedBoundFunction(Exec exec,
+                        std::shared_ptr<ExpressionValueInfo> resultInfo)
+        : exec(std::move(exec)),
+          resultInfo(std::move(resultInfo))
+    {
+    }
+
+    operator bool () const { return !!exec; }
+
+    Exec exec;
+    std::shared_ptr<ExpressionValueInfo> resultInfo;
+
+    ExpressionValue operator () (const std::vector<ExpressionValue> & args,
+                                 const SqlRowScope & context) const
+    {
+        return exec(args, context);
+    }
+};
+
+
 /*****************************************************************************/
 /* EXTERNAL FUNCTION                                                         */
 /*****************************************************************************/
