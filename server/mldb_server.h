@@ -129,6 +129,8 @@ struct MldbServer: public ServicePeer, public EventRecorder {
     */
     std::string getCacheDirectory() const;
 
+    std::string httpBoundAddress;
+
 private:
     void initRoutes();
     void initCollections(std::string configurationPath,
