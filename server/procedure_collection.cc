@@ -73,23 +73,22 @@ ProcedureCollection::
 initRoutes(RouteManager & manager)
 {
     PolyCollection<Procedure>::initRoutes(manager);
-    
+
     auto getRunCollection = [=] (const RestRequestParsingContext & context)
         -> ProcedureRunCollection *
         {
 #if 1
             // Get the parent collection
             auto collection = manager.getCollection(context);
-            
+
             // Get the key
             auto key = manager.getKey(context);
-            
+
             // Look up the value
             auto procedure = static_cast<Procedure *>(collection->getExistingEntry(key).get());
 #else
             auto procedure = static_cast<Procedure *>(&context.getObjectAs<PolyEntity>());
 #endif
-    
             return procedure->runs.get();
         };
 
@@ -134,7 +133,7 @@ handlePutWithFirstRun(Utf8String key, PolyConfig config, bool mustBeNew, bool as
 
     // check if we need to make a first run
     auto procConfig = config.params.convert<ProcedureConfig>();
-    
+
     if (procConfig.runOnCreation) {
         InProcessRestConnection connection;
         HttpHeader header;
@@ -143,7 +142,7 @@ handlePutWithFirstRun(Utf8String key, PolyConfig config, bool mustBeNew, bool as
         header.headers["async"] = async ? "true" : "false";
         RestRequest request(header, "{}");
         mldb->handleRequest(connection, request);
-        
+
         Json::Value runResponse;
         Json::Reader reader;
         if (!reader.parse(connection.response, runResponse, false)) {
@@ -153,7 +152,7 @@ handlePutWithFirstRun(Utf8String key, PolyConfig config, bool mustBeNew, bool as
         }
 
         if (connection.responseCode == 201) {
-	    Json::Value status = polyStatus.status.asJson();  
+            Json::Value status = polyStatus.status.asJson();
             status["firstRun"] = runResponse;
             polyStatus.status = status;
         }
