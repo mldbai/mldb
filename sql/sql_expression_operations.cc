@@ -169,6 +169,581 @@ ArithmeticExpression::
 {
 }
 
+template<typename Op>
+struct BinaryOpHelper {
+
+    // Context object for scalar operations on the LHS or RHS
+    struct ScalarContext {
+        template<typename RhsContext>
+        static std::shared_ptr<ExpressionValueInfo>
+        getInfoLhs(std::shared_ptr<ExpressionValueInfo> lhs,
+                   std::shared_ptr<ExpressionValueInfo> rhs)
+        {
+            return RhsContext::getInfoScalar(lhs, rhs);
+        }
+
+        static std::shared_ptr<ExpressionValueInfo>
+        getInfoScalar(std::shared_ptr<ExpressionValueInfo> lhs,
+                      std::shared_ptr<ExpressionValueInfo> rhs)
+        {
+            // Scalar * scalar
+            return Op::getInfo(lhs, rhs);
+        }
+
+        static std::shared_ptr<ExpressionValueInfo>
+        getInfoEmbedding(std::shared_ptr<ExpressionValueInfo> lhs,
+                         std::shared_ptr<ExpressionValueInfo> rhs)
+        {
+            // Embedding * scalar
+            auto inner = getValueInfoForStorage(lhs->getEmbeddingType());
+            auto res = Op::getInfo(inner, rhs);
+            return std::make_shared<EmbeddingValueInfo>(lhs->getEmbeddingShape(),
+                                                        res->getEmbeddingType());
+        }
+
+        static std::shared_ptr<ExpressionValueInfo>
+        getInfoRow(std::shared_ptr<ExpressionValueInfo> lhs,
+                   std::shared_ptr<ExpressionValueInfo> rhs)
+        {
+            // Row * scalar
+            auto cols = lhs->getKnownColumns();
+            for (auto & c: cols)
+                c.valueInfo = Op::getInfo(c.valueInfo, rhs);
+            return std::make_shared<RowValueInfo>(std::move(cols),
+                                                  lhs->getSchemaCompleteness());
+        }
+
+        template<typename RhsContext>
+        static const ExpressionValue &
+        applyLhs(const ExpressionValue & lhs,
+                 const ExpressionValue & rhs,
+                 ExpressionValue & storage)
+        {
+            return RhsContext::applyRhsScalar(lhs, rhs, storage);
+        }
+
+        static const ExpressionValue &
+        applyRhsScalar(const ExpressionValue & lhs,
+                       const ExpressionValue & rhs,
+                       ExpressionValue & storage)
+        {
+            // scalar * scalar; return it directly
+            return storage
+                = ExpressionValue(Op::apply(lhs.getAtom(),
+                                            rhs.getAtom()),
+                                  std::max(lhs.getEffectiveTimestamp(),
+                                           rhs.getEffectiveTimestamp()));
+        }
+
+        static const ExpressionValue &
+        applyRhsEmbedding(const ExpressionValue & lhs,
+                          const ExpressionValue & rhs,
+                          ExpressionValue & storage)
+        {
+            // embedding * scalar
+            std::vector<CellValue> lcells = lhs.getEmbeddingCell();
+            const CellValue & r = rhs.getAtom();
+            for (auto & c: lcells)
+                c = Op::apply(c, r);
+            Date ts = std::max(lhs.getEffectiveTimestamp(),
+                               rhs.getEffectiveTimestamp());
+            return storage = ExpressionValue(std::move(lcells), ts);
+        }
+
+        static const ExpressionValue &
+        applyRhsRow(const ExpressionValue & lhs,
+                    const ExpressionValue & rhs,
+                    ExpressionValue & storage)
+        {
+            // row * scalar
+            RowValue output;
+            const CellValue & r = rhs.getAtom();
+            Date rts = rhs.getEffectiveTimestamp();
+            auto onVal = [&] (ColumnName columnName,
+                              const ColumnName & prefix,
+                              const CellValue & val,
+                              Date ts)
+                {
+                    output.emplace_back(std::move(columnName),
+                                        Op::apply(val, r),
+                                        std::max(rts, ts));
+                    return true;
+                };
+            lhs.forEachAtom(onVal);
+            
+            return storage = std::move(output);
+        }
+    };
+
+    // Context object for embedding objects on the LHS or RHS
+    struct EmbeddingContext {
+        template<typename RhsContext>
+        static std::shared_ptr<ExpressionValueInfo>
+        getInfoLhs(std::shared_ptr<ExpressionValueInfo> lhs,
+                   std::shared_ptr<ExpressionValueInfo> rhs)
+        {
+            return RhsContext::getInfoEmbedding(lhs, rhs);
+        }
+
+        static std::shared_ptr<ExpressionValueInfo>
+        getInfoScalar(std::shared_ptr<ExpressionValueInfo> lhs,
+                      std::shared_ptr<ExpressionValueInfo> rhs)
+        {
+            // Scalar * embedding
+            auto inner = getValueInfoForStorage(rhs->getEmbeddingType());
+            auto res = Op::getInfo(lhs, inner);
+            return std::make_shared<EmbeddingValueInfo>(rhs->getEmbeddingShape(),
+                                                        res->getEmbeddingType());
+        }
+
+        static std::shared_ptr<ExpressionValueInfo>
+        getInfoEmbedding(std::shared_ptr<ExpressionValueInfo> lhs,
+                         std::shared_ptr<ExpressionValueInfo> rhs)
+        {
+            // Embedding * embedding
+            auto innerl = getValueInfoForStorage(lhs->getEmbeddingType());
+            auto innerr = getValueInfoForStorage(rhs->getEmbeddingType());
+            auto res = Op::getInfo(innerl, innerr);
+            return std::make_shared<EmbeddingValueInfo>(lhs->getEmbeddingShape(),
+                                                        res->getEmbeddingType());
+        }
+
+        static std::shared_ptr<ExpressionValueInfo>
+        getInfoRow(std::shared_ptr<ExpressionValueInfo> lhs,
+                   std::shared_ptr<ExpressionValueInfo> rhs)
+        {
+            // Row * embedding
+            throw HttpReturnException(400, "Attempt to bind operation to "
+                                      "embedding and row");
+        }
+
+        template<typename RhsContext>
+        static const ExpressionValue &
+        applyLhs(const ExpressionValue & lhs,
+                 const ExpressionValue & rhs,
+                 ExpressionValue & storage)
+        {
+            // Extract the embedding.  Both must be embeddings.
+            return RhsContext::applyRhsEmbedding(lhs, rhs, storage);
+        }
+
+        static const ExpressionValue &
+        applyRhsScalar(const ExpressionValue & lhs,
+                       const ExpressionValue & rhs,
+                       ExpressionValue & storage)
+        {
+            // Scalar * embedding
+            std::vector<CellValue> rcells = rhs.getEmbeddingCell();
+            const CellValue & l = lhs.getAtom();
+            for (auto & c: rcells)
+                c = Op::apply(l, c);
+            Date ts = std::max(lhs.getEffectiveTimestamp(),
+                               rhs.getEffectiveTimestamp());
+            return storage = ExpressionValue(std::move(rcells), ts);
+        }
+
+        static const ExpressionValue &
+        applyRhsEmbedding(const ExpressionValue & lhs,
+                          const ExpressionValue & rhs,
+                          ExpressionValue & storage)
+        {
+            // embedding * embedding
+            std::vector<CellValue> lcells = lhs.getEmbeddingCell();
+            std::vector<CellValue> rcells = rhs.getEmbeddingCell();
+
+            if (lcells.size() != rcells.size())
+                throw HttpReturnException
+                    (400, "Attempt to perform operation on incompatible shaped "
+                     "embeddings",
+                     "lhsShape", lhs.getEmbeddingShape(),
+                     "rhsShape", rhs.getEmbeddingShape());
+                     
+            for (size_t i = 0;  i < lcells.size();  ++i)
+                lcells[i] = Op::apply(lcells[i], rcells[i]);
+                     
+            Date ts = std::max(lhs.getEffectiveTimestamp(),
+                               rhs.getEffectiveTimestamp());
+
+            return storage = ExpressionValue(std::move(lcells), ts,
+                                             lhs.getEmbeddingShape());
+        }
+
+        static const ExpressionValue &
+        applyRhsRow(const ExpressionValue & lhs,
+                    const ExpressionValue & rhs,
+                    ExpressionValue & storage)
+        {
+            throw HttpReturnException(400, "Attempt to apply operation to "
+                                      "embedding and row");
+        }
+    };
+
+    // Context object for rows on the LHS or RHS
+    struct RowContext {
+        template<typename RhsContext>
+        static std::shared_ptr<ExpressionValueInfo>
+        getInfoLhs(std::shared_ptr<ExpressionValueInfo> lhs,
+                   std::shared_ptr<ExpressionValueInfo> rhs)
+        {
+            return RhsContext::getInfoRow(lhs, rhs);
+        }
+
+        static std::shared_ptr<ExpressionValueInfo>
+        getInfoScalar(std::shared_ptr<ExpressionValueInfo> lhs,
+                      std::shared_ptr<ExpressionValueInfo> rhs)
+        {
+            // Scalar * row
+            auto cols = rhs->getKnownColumns();
+            for (auto & c: cols)
+                c.valueInfo = Op::getInfo(rhs, c.valueInfo);
+            return std::make_shared<RowValueInfo>(std::move(cols),
+                                                  rhs->getSchemaCompleteness());
+        }
+
+        static std::shared_ptr<ExpressionValueInfo>
+        getInfoEmbedding(std::shared_ptr<ExpressionValueInfo> lhs,
+                         std::shared_ptr<ExpressionValueInfo> rhs)
+        {
+            // Embedding * row
+            throw HttpReturnException(400, "Attempt to bind operation to "
+                                      "row and embedding");
+        }
+
+        static std::shared_ptr<ExpressionValueInfo>
+        getInfoRow(std::shared_ptr<ExpressionValueInfo> lhs,
+                   std::shared_ptr<ExpressionValueInfo> rhs)
+        {
+            // Row * row
+            auto onInfo = [] (const ColumnName &,
+                              std::shared_ptr<ExpressionValueInfo> lhsInfo,
+                              std::shared_ptr<ExpressionValueInfo> rhsInfo)
+                {
+                    static std::shared_ptr<ExpressionValueInfo> nullInfo
+                        = std::make_shared<EmptyValueInfo>();
+
+                    if (!lhsInfo)
+                        lhsInfo = nullInfo;
+                    if (!rhsInfo)
+                        lhsInfo = nullInfo;
+                    return Op::getInfo(lhsInfo, rhsInfo);
+                };
+
+            return ExpressionValueInfo::getMerged(lhs, rhs, onInfo);
+        }
+
+        template<typename RhsContext>
+        static const ExpressionValue &
+        applyLhs(const ExpressionValue & lhs,
+                 const ExpressionValue & rhs,
+                 ExpressionValue & storage)
+        {
+            return RhsContext::applyRhsRow(lhs, rhs, storage);
+        }
+
+        static const ExpressionValue &
+        applyRhsScalar(const ExpressionValue & lhs,
+                       const ExpressionValue & rhs,
+                       ExpressionValue & storage)
+        {
+            // Scalar * row
+            RowValue output;
+            const CellValue & l = lhs.getAtom();
+            Date lts = lhs.getEffectiveTimestamp();
+            auto onVal = [&] (ColumnName columnName,
+                              const ColumnName & prefix,
+                              const CellValue & val,
+                              Date ts)
+                {
+                    output.emplace_back(std::move(columnName),
+                                        Op::apply(l, val),
+                                        std::max(lts, ts));
+                    return true;
+                };
+            rhs.forEachAtom(onVal);
+
+            return storage = std::move(output);
+        }
+
+        static const ExpressionValue &
+        applyRhsEmbedding(const ExpressionValue & lhs,
+                          const ExpressionValue & rhs,
+                          ExpressionValue & storage)
+        {
+            return applyRhsRow(lhs, rhs, storage);
+        }
+
+        static const ExpressionValue &
+        applyRhsRow(const ExpressionValue & lhs,
+                    const ExpressionValue & rhs,
+                    ExpressionValue & storage)
+        {
+            // row * row
+            RowValue output;
+
+            auto onColumn = [&] (ColumnName columnName,
+                                 std::pair<CellValue, Date> * vals1,
+                                 std::pair<CellValue, Date> * vals2,
+                                 size_t n1, size_t n2)
+                {
+                    if (n1 == 1 && n2 == 1) {
+                        // Common case; one of each value
+                        output.emplace_back(std::move(columnName),
+                                            Op::apply(vals1[0].first,
+                                                      vals2[0].first),
+                                            std::max(vals1[0].second,
+                                                     vals2[0].second));
+                    }
+                    else if (n1 == 0) {
+                        // Left value is null
+                        for (size_t j = 0;  j < n2;  ++j) {
+                            output.emplace_back(columnName,
+                                                Op::apply(CellValue(),
+                                                          vals2[j].first),
+                                                vals2[j].second);
+                        }
+                    }
+                    else if (n2 == 0) {
+                        // Right value is null
+                        for (size_t i = 0;  i < n1;  ++i) {
+                            output.emplace_back(columnName,
+                                                Op::apply(vals1[i].first,
+                                                          CellValue()),
+                                                vals1[i].second);
+                        }
+                    }
+                    else {
+                        // Multiple values for each. Calculate each
+                        // combination.  Note that we could potentially
+                        // do this at each time step rather than for
+                        // every possible combination as we do here
+                        for (size_t i = 0;  i < n1;  ++i) {
+                            for (size_t j = 0;  j < n2;  ++j) {
+                                output.emplace_back(columnName,
+                                                    Op::apply(vals1[i].first,
+                                                              vals2[j].first),
+                                                    std::max(vals1[i].second,
+                                                             vals2[j].second));
+                            }
+                        }
+                    }
+                        
+                    return true;
+                };
+
+            ExpressionValue::joinColumns(lhs, rhs, onColumn,
+                                         ExpressionValue::OUTER);
+            
+            return storage = std::move(output);
+        }
+
+    };
+
+    // Context object for unknown types on the LHS or RHS.  They
+    // switch at runtime.
+    struct UnknownContext {
+        template<typename RhsContext>
+        static std::shared_ptr<ExpressionValueInfo>
+        getInfoLhs(std::shared_ptr<ExpressionValueInfo> lhs,
+                   std::shared_ptr<ExpressionValueInfo> rhs)
+        {
+            return std::make_shared<AnyValueInfo>();
+        }
+
+        static std::shared_ptr<ExpressionValueInfo>
+        getInfoScalar(std::shared_ptr<ExpressionValueInfo> lhs,
+                      std::shared_ptr<ExpressionValueInfo> rhs)
+        {
+            // Scalar * unknown.  No idea if it's scalar or vector
+            // until runtime.
+            return std::make_shared<AnyValueInfo>();
+        }
+
+        static std::shared_ptr<ExpressionValueInfo>
+        getInfoUnknown(std::shared_ptr<ExpressionValueInfo> lhs,
+                       std::shared_ptr<ExpressionValueInfo> rhs)
+        {
+            // unknown * unknown.  No idea if it's scalar or vector
+            // until runtime.
+            return std::make_shared<AnyValueInfo>();
+        }
+
+        static std::shared_ptr<ExpressionValueInfo>
+        getInfoEmbedding(std::shared_ptr<ExpressionValueInfo> lhs,
+                         std::shared_ptr<ExpressionValueInfo> rhs)
+        {
+            // Embedding * unknown.  It must be an embedding.
+            auto inner = getValueInfoForStorage(lhs->getEmbeddingType());
+            auto res = Op::getInfo(inner, rhs);
+            return std::make_shared<EmbeddingValueInfo>(lhs->getEmbeddingShape(),
+                                                        res->getEmbeddingType());
+        }
+
+        static std::shared_ptr<ExpressionValueInfo>
+        getInfoRow(std::shared_ptr<ExpressionValueInfo> lhs,
+                   std::shared_ptr<ExpressionValueInfo> rhs)
+        {
+            // Row * unknown.  It must be a row
+            auto cols = lhs->getKnownColumns();
+            for (auto & c: cols)
+                c.valueInfo = Op::getInfo(c.valueInfo, rhs);
+            return std::make_shared<RowValueInfo>(std::move(cols),
+                                                  lhs->getSchemaCompleteness());
+        }
+
+        template<typename RhsContext>
+        static const ExpressionValue &
+        applyLhs(const ExpressionValue & lhs,
+                 const ExpressionValue & rhs,
+                 ExpressionValue & storage)
+        {
+            if (lhs.isAtom()) {
+                return ScalarContext::applyLhs<RhsContext>(lhs, rhs, storage);
+            }
+            else if (lhs.isEmbedding()) {
+                return EmbeddingContext::applyLhs<RhsContext>(lhs, rhs, storage);
+            }
+            else if (lhs.isRow()) {
+                return RowContext::applyLhs<RhsContext>(lhs, rhs, storage);
+            }
+            else {
+                throw HttpReturnException(500, "Can't figure out type of expression",
+                                          "expression", lhs);
+            }
+        }
+
+        static const ExpressionValue &
+        applyRhsScalar(const ExpressionValue & lhs,
+                       const ExpressionValue & rhs,
+                       ExpressionValue & storage)
+        {
+            if (rhs.isAtom()) {
+                return ScalarContext::applyRhsScalar(lhs, rhs, storage);
+            }
+            else if (rhs.isEmbedding()) {
+                return EmbeddingContext::applyRhsScalar(lhs, rhs, storage);
+            }
+            else if (rhs.isRow()) {
+                return RowContext::applyRhsScalar(lhs, rhs, storage);
+            }
+            else {
+                throw HttpReturnException(500, "Can't figure out type of expression",
+                                          "expression", lhs);
+            }
+        }
+
+        static const ExpressionValue &
+        applyRhsEmbedding(const ExpressionValue & lhs,
+                          const ExpressionValue & rhs,
+                          ExpressionValue & storage)
+        {
+            if (rhs.isAtom()) {
+                return ScalarContext::applyRhsEmbedding(lhs, rhs, storage);
+            }
+            else if (rhs.isEmbedding()) {
+                return EmbeddingContext::applyRhsEmbedding(lhs, rhs, storage);
+            }
+            else if (rhs.isRow()) {
+                return RowContext::applyRhsEmbedding(lhs, rhs, storage);
+            }
+            else {
+                throw HttpReturnException(500, "Can't figure out type of expression",
+                                          "expression", lhs);
+            }
+        }
+
+        static const ExpressionValue &
+        applyRhsRow(const ExpressionValue & lhs,
+                    const ExpressionValue & rhs,
+                    ExpressionValue & storage)
+        {
+            if (rhs.isAtom()) {
+                return ScalarContext::applyRhsRow(lhs, rhs, storage);
+            }
+            else if (rhs.isEmbedding()) {
+                return EmbeddingContext::applyRhsRow(lhs, rhs, storage);
+            }
+            else if (rhs.isRow()) {
+                return RowContext::applyRhsRow(lhs, rhs, storage);
+            }
+            else {
+                throw HttpReturnException(500, "Can't figure out type of expression",
+                                          "expression", lhs);
+            }
+        }
+
+    };
+
+    template<class LhsContext, class RhsContext>
+    static const ExpressionValue &
+    apply(const BoundSqlExpression & boundLhs,
+          const BoundSqlExpression & boundRhs,
+          const SqlRowScope & row, ExpressionValue & storage)
+    {
+        ExpressionValue lstorage, rstorage;
+        const ExpressionValue & lhs = boundLhs(row, lstorage);
+        const ExpressionValue & rhs = boundRhs(row, rstorage);
+        
+        return LhsContext::template applyLhs<RhsContext>(lhs, rhs, storage);
+    }
+    
+    template<class LhsContext, class RhsContext>
+    static BoundSqlExpression
+    bindAll(const SqlExpression * expr,
+            const BoundSqlExpression & boundLhs,
+            const BoundSqlExpression & boundRhs)
+    {
+        BoundSqlExpression result;
+        result.exec = std::bind(apply<LhsContext, RhsContext>,
+                                boundLhs,
+                                boundRhs,
+                                std::placeholders::_1,
+                                std::placeholders::_2);
+        result.info = LhsContext::template getInfoLhs<RhsContext>(boundLhs.info,
+                                                                  boundRhs.info);
+        return result;
+    }
+
+    template<class LhsContext>
+    static BoundSqlExpression
+    bindRhs(const SqlExpression * expr,
+            const BoundSqlExpression & boundLhs,
+            const BoundSqlExpression & boundRhs)
+    {
+        if (boundRhs.info->isScalar()) {
+            return bindAll<LhsContext, ScalarContext>(expr, boundLhs, boundRhs);
+        }
+        else if (boundLhs.info->isEmbedding()) {
+            return bindAll<LhsContext, EmbeddingContext>(expr, boundLhs, boundRhs);
+        }
+        else if (boundLhs.info->isRow()) {
+            return bindAll<LhsContext, RowContext>(expr, boundLhs, boundRhs);
+        }
+        else {
+            return bindAll<LhsContext, UnknownContext>(expr, boundLhs, boundRhs);
+        }
+        
+    }
+
+    static BoundSqlExpression
+    bind(const SqlExpression * expr,
+         const BoundSqlExpression & boundLhs,
+         const BoundSqlExpression & boundRhs)
+    {
+        if (boundLhs.info->isScalar()) {
+            return bindRhs<ScalarContext>(expr, boundLhs, boundRhs);
+        }
+        else if (boundLhs.info->isEmbedding()) {
+            return bindRhs<EmbeddingContext>(expr, boundLhs, boundRhs);
+        }
+        else if (boundLhs.info->isRow()) {
+            return bindRhs<RowContext>(expr, boundLhs, boundRhs);
+        }
+        else {
+            return bindRhs<UnknownContext>(expr, boundLhs, boundRhs);
+        }
+    }
+};
+
 template<typename ReturnInfo, typename Op>
 BoundSqlExpression
 doBinaryArithmetic(const SqlExpression * expr,
@@ -176,6 +751,9 @@ doBinaryArithmetic(const SqlExpression * expr,
                    const BoundSqlExpression & boundRhs,
                    const Op & op)
 {
+    
+
+
     return {[=] (const SqlRowScope & row, ExpressionValue & storage)
             -> const ExpressionValue &
             {
@@ -185,7 +763,8 @@ doBinaryArithmetic(const SqlExpression * expr,
                 Date ts = calcTs(l, r);
                 if (l.empty() || r.empty())
                     return storage = std::move(ExpressionValue::null(ts));
-                return storage = std::move(ExpressionValue(op(l, r), ts));
+                return storage = std::move(ExpressionValue(op(l.getAtom(),
+                                                              r.getAtom()), ts));
             },
             expr,
             std::make_shared<ReturnInfo>()};
@@ -204,21 +783,23 @@ doUnaryArithmetic(const SqlExpression * expr,
                 const ExpressionValue & r = boundRhs(row, rstorage);
                 if (r.empty())
                     return storage = std::move(ExpressionValue::null(r.getEffectiveTimestamp()));
-                return storage = std::move(ExpressionValue(std::move(op(r)), r.getEffectiveTimestamp()));
+                return storage
+                    = ExpressionValue(std::move(op(r.getAtom())),
+                                      r.getEffectiveTimestamp());
             },
             expr,
             std::make_shared<ReturnInfo>()};
 }
 
 static CellValue
-binaryPlusOnTimestamp(const ExpressionValue & l, const ExpressionValue & r)
+binaryPlusOnTimestamp(const CellValue & l, const CellValue & r)
 {
     ExcAssert(l.isTimestamp());
 
     if (r.isInteger())
     {
         //when no interval is specified (integer), operation is done in days
-        return std::move(CellValue(l.getAtom().toTimestamp().addDays(r.toInt())));
+        return std::move(CellValue(l.toTimestamp().addDays(r.toInt())));
     }
     else if (r.isTimeinterval())
     {
@@ -226,21 +807,21 @@ binaryPlusOnTimestamp(const ExpressionValue & l, const ExpressionValue & r)
         uint16_t months = 0, days = 0;
         float seconds = 0;
 
-        std::tie(months, days, seconds) = r.getAtom().toMonthDaySecond();
+        std::tie(months, days, seconds) = r.toMonthDaySecond();
 
         if (seconds < 0)
-            return std::move(CellValue(l.getAtom().toTimestamp().minusMonthDaySecond(months, days, fabs(seconds))));
+            return std::move(CellValue(l.toTimestamp().minusMonthDaySecond(months, days, fabs(seconds))));
         else
-            return std::move(CellValue(l.getAtom().toTimestamp().plusMonthDaySecond(months, days, seconds)));
+            return std::move(CellValue(l.toTimestamp().plusMonthDaySecond(months, days, seconds)));
     }
 
     throw HttpReturnException(400, "Adding unsupported type to timetamp");
 
-    return std::move(CellValue(l.getAtom().toTimestamp()));
+    return std::move(CellValue(l.toTimestamp()));
 
 }
 
-static CellValue binaryPlus(const ExpressionValue & l, const ExpressionValue & r)
+static CellValue binaryPlus(const CellValue & l, const CellValue & r)
 {
     if (l.isString() || r.isString())
     {
@@ -260,8 +841,8 @@ static CellValue binaryPlus(const ExpressionValue & l, const ExpressionValue & r
         int64_t lmonths = 0, ldays = 0, rmonths = 0, rdays = 0;
         float lseconds = 0, rseconds = 0;
 
-        std::tie(lmonths, ldays, lseconds) = l.getAtom().toMonthDaySecond();
-        std::tie(rmonths, rdays, rseconds) = r.getAtom().toMonthDaySecond();
+        std::tie(lmonths, ldays, lseconds) = l.toMonthDaySecond();
+        std::tie(rmonths, rdays, rseconds) = r.toMonthDaySecond();
 
         lmonths += rmonths;
         ldays += rdays;
@@ -277,14 +858,14 @@ static CellValue binaryPlus(const ExpressionValue & l, const ExpressionValue & r
     }
 }
 
-static CellValue binaryMinusOnTimestamp(const ExpressionValue & l, const ExpressionValue & r)
+static CellValue binaryMinusOnTimestamp(const CellValue & l, const CellValue & r)
 {
     ExcAssert(l.isTimestamp());
 
     if (r.isInteger())
     {
         //when no interval is specified (integer), operation is done in days
-        return std::move(CellValue(l.getAtom().toTimestamp().addDays(-r.toInt())));
+        return std::move(CellValue(l.toTimestamp().addDays(-r.toInt())));
     }
     else if (r.isTimeinterval())
     {
@@ -293,28 +874,28 @@ static CellValue binaryMinusOnTimestamp(const ExpressionValue & l, const Express
         int64_t months = 0, days = 0;
         float seconds = 0;
 
-        std::tie(months, days, seconds) = r.getAtom().toMonthDaySecond();
+        std::tie(months, days, seconds) = r.toMonthDaySecond();
 
         if (seconds >= 0)
-            return std::move(CellValue(l.getAtom().toTimestamp().minusMonthDaySecond(months, days, fabs(seconds))));
+            return std::move(CellValue(l.toTimestamp().minusMonthDaySecond(months, days, fabs(seconds))));
         else
-            return std::move(CellValue(l.getAtom().toTimestamp().plusMonthDaySecond(months, days, seconds)));
+            return std::move(CellValue(l.toTimestamp().plusMonthDaySecond(months, days, seconds)));
     }
     else if (r.isTimestamp())
     {
         //date - date gives us an interval
         int64_t days = 0;
         float seconds = 0;
-        std::tie(days, seconds) = l.getAtom().toTimestamp().getDaySecondInterval(r.getAtom().toTimestamp());
+        std::tie(days, seconds) = l.toTimestamp().getDaySecondInterval(r.toTimestamp());
         return std::move(CellValue::fromMonthDaySecond(0, days, seconds));
     }
 
     throw HttpReturnException(400, "Substracting unsupported type to timetamp");
-    return std::move(CellValue(l.getAtom().toTimestamp()));
+    return std::move(CellValue(l.toTimestamp()));
 
 }
 
-static CellValue binaryMinus(const ExpressionValue & l, const ExpressionValue & r)
+static CellValue binaryMinus(const CellValue & l, const CellValue & r)
 {
     if (l.isTimestamp())
     {
@@ -325,8 +906,8 @@ static CellValue binaryMinus(const ExpressionValue & l, const ExpressionValue & 
         int64_t lmonths = 0, ldays = 0, rmonths = 0, rdays = 0;
         float lseconds = 0, rseconds = 0;
 
-        std::tie(lmonths, ldays, lseconds) = l.getAtom().toMonthDaySecond();
-        std::tie(rmonths, rdays, rseconds) = r.getAtom().toMonthDaySecond();
+        std::tie(lmonths, ldays, lseconds) = l.toMonthDaySecond();
+        std::tie(rmonths, rdays, rseconds) = r.toMonthDaySecond();
 
         lmonths -= rmonths;
         ldays -= rdays;
@@ -340,7 +921,7 @@ static CellValue binaryMinus(const ExpressionValue & l, const ExpressionValue & 
     return std::move(CellValue(l.toDouble() - r.toDouble()));
 }
 
-static CellValue unaryMinus(const ExpressionValue & r)
+static CellValue unaryMinus(const CellValue & r)
 {
     if (r.isInteger())
         return -r.toInt();
@@ -349,7 +930,7 @@ static CellValue unaryMinus(const ExpressionValue & r)
         int64_t months = 0, days = 0;
         float seconds = 0.0f;
 
-        std::tie(months, days, seconds) = r.getAtom().toMonthDaySecond();
+        std::tie(months, days, seconds) = r.toMonthDaySecond();
 
         if (seconds == 0.0f)
             seconds = -0.0f;
@@ -363,12 +944,12 @@ static CellValue unaryMinus(const ExpressionValue & r)
     else return -r.toDouble();
 }
 
-static CellValue multiplyInterval(const ExpressionValue & l, double rvalue)
+static CellValue multiplyInterval(const CellValue & l, double rvalue)
 {
     int64_t months, days;
     float seconds;
 
-    std::tie(months, days, seconds) = l.getAtom().toMonthDaySecond();
+    std::tie(months, days, seconds) = l.toMonthDaySecond();
     months *= rvalue;
 
     double ddays = days * rvalue;    
@@ -381,7 +962,7 @@ static CellValue multiplyInterval(const ExpressionValue & l, double rvalue)
     return std::move(CellValue::fromMonthDaySecond(months, days, seconds));
 }
 
-static CellValue binaryMultiplication(const ExpressionValue & l, const ExpressionValue & r)
+static CellValue binaryMultiplication(const CellValue & l, const CellValue & r)
 {
     if (l.isTimeinterval() && r.isNumber())
     {
@@ -394,7 +975,7 @@ static CellValue binaryMultiplication(const ExpressionValue & l, const Expressio
     else return l.toDouble() * r.toDouble();
 }
 
-static CellValue binaryDivision(const ExpressionValue & l, const ExpressionValue & r)
+static CellValue binaryDivision(const CellValue & l, const CellValue & r)
 {
     if (l.isTimeinterval() && r.isNumber())
     {
@@ -403,7 +984,7 @@ static CellValue binaryDivision(const ExpressionValue & l, const ExpressionValue
 
         double rvalue = r.toDouble();
 
-        std::tie(months, days, seconds) = l.getAtom().toMonthDaySecond();
+        std::tie(months, days, seconds) = l.toMonthDaySecond();
         months /= rvalue;
 
         double ddays = days / rvalue;    
@@ -431,10 +1012,8 @@ CellValue safeIntegerMod(const T1 a, const T2 b)
     }
 }
 
-static CellValue binaryModulus(const ExpressionValue & l, const ExpressionValue & r)
+static CellValue binaryModulus(const CellValue & la, const CellValue & ra)
 {
-    CellValue la = l.getAtom(), ra = r.getAtom();
-
     if (la.isInteger() && ra.isInteger()) {
         if (la.isUInt64() && ra.isUInt64()) {
             return safeIntegerMod<uint64_t, uint64_t>(la.toUInt(), ra.toUInt());
@@ -452,6 +1031,86 @@ static CellValue binaryModulus(const ExpressionValue & l, const ExpressionValue 
     else return fmod(la.toDouble(), ra.toDouble());
 }
 
+struct BinaryPlusOp {
+    static CellValue apply(const CellValue & l, const CellValue & r)
+    {
+        if (l.empty() || r.empty())
+            return l;
+        return binaryPlus(l, r);
+    }
+
+    static std::shared_ptr<ExpressionValueInfo>
+    getInfo(const std::shared_ptr<ExpressionValueInfo> & lhs,
+            const std::shared_ptr<ExpressionValueInfo> & rhs)
+    {
+        return std::make_shared<AtomValueInfo>();
+    }
+};
+
+struct BinaryMinusOp {
+    static CellValue apply(const CellValue & l, const CellValue & r)
+    {
+        if (l.empty() || r.empty())
+            return l;
+        return binaryMinus(l, r);
+    }
+
+    static std::shared_ptr<ExpressionValueInfo>
+    getInfo(const std::shared_ptr<ExpressionValueInfo> & lhs,
+            const std::shared_ptr<ExpressionValueInfo> & rhs)
+    {
+        return std::make_shared<AtomValueInfo>();
+    }
+};
+
+struct BinaryMultiplicationOp {
+    static CellValue apply(const CellValue & l, const CellValue & r)
+    {
+        if (l.empty() || r.empty())
+            return l;
+        return binaryMultiplication(l, r);
+    }
+
+    static std::shared_ptr<ExpressionValueInfo>
+    getInfo(const std::shared_ptr<ExpressionValueInfo> & lhs,
+            const std::shared_ptr<ExpressionValueInfo> & rhs)
+    {
+        return std::make_shared<AtomValueInfo>();
+    }
+};
+
+struct BinaryDivisionOp {
+    static CellValue apply(const CellValue & l, const CellValue & r)
+    {
+        if (l.empty() || r.empty())
+            return l;
+        return binaryDivision(l, r);
+    }
+
+    static std::shared_ptr<ExpressionValueInfo>
+    getInfo(const std::shared_ptr<ExpressionValueInfo> & lhs,
+            const std::shared_ptr<ExpressionValueInfo> & rhs)
+    {
+        return std::make_shared<AtomValueInfo>();
+    }
+};
+
+struct BinaryModulusOp {
+    static CellValue apply(const CellValue & l, const CellValue & r)
+    {
+        if (l.empty() || r.empty())
+            return l;
+        return binaryModulus(l, r);
+    }
+
+    static std::shared_ptr<ExpressionValueInfo>
+    getInfo(const std::shared_ptr<ExpressionValueInfo> & lhs,
+            const std::shared_ptr<ExpressionValueInfo> & rhs)
+    {
+        return std::make_shared<AtomValueInfo>();
+    }
+};
+
 BoundSqlExpression
 ArithmeticExpression::
 bind(SqlBindingScope & context) const
@@ -460,22 +1119,25 @@ bind(SqlBindingScope & context) const
     auto boundRhs = rhs->bind(context);
 
     if (op == "+" && lhs) {
-        return doBinaryArithmetic<AtomValueInfo>(this, boundLhs, boundRhs, &binaryPlus);
+        return BinaryOpHelper<BinaryPlusOp>::bind(this, boundLhs, boundRhs);
     }
     else if (op == "-" && lhs) {
-        return doBinaryArithmetic<AtomValueInfo>(this, boundLhs, boundRhs, &binaryMinus);
+        return BinaryOpHelper<BinaryMinusOp>::bind(this, boundLhs, boundRhs);
     }
     else if (op == "-" && !lhs) {
         return doUnaryArithmetic<AtomValueInfo>(this, boundRhs, &unaryMinus);
     }
     else if (op == "*" && lhs) {
-        return doBinaryArithmetic<AtomValueInfo>(this, boundLhs, boundRhs, &binaryMultiplication);
+        return BinaryOpHelper<BinaryMultiplicationOp>
+            ::bind(this, boundLhs, boundRhs);
     }
     else if (op == "/" && lhs) {
-        return doBinaryArithmetic<AtomValueInfo>(this, boundLhs, boundRhs, &binaryDivision);
+        return BinaryOpHelper<BinaryDivisionOp>
+            ::bind(this, boundLhs, boundRhs);
     }
     else if (op == "%" && lhs) {
-        return doBinaryArithmetic<Float64ValueInfo>(this, boundLhs, boundRhs, &binaryModulus);
+        return BinaryOpHelper<BinaryModulusOp>
+            ::bind(this, boundLhs, boundRhs);
     }
     else throw HttpReturnException(400, "Unknown arithmetic op " + op
                                    + (lhs ? " binary" : " unary"));
@@ -947,7 +1609,8 @@ bind(SqlBindingScope & context) const
     auto outputInfo
         = std::make_shared<EmbeddingValueInfo>(clauseInfo);
 
-    ExcAssertEqual(outputInfo->shape.at(0), clauses.size());
+    if (outputInfo->shape.at(0) != -1)
+        ExcAssertEqual(outputInfo->shape.at(0), clauses.size());
 
     bool lastLevel = outputInfo->numDimensions() == 1;
 
@@ -2716,10 +3379,10 @@ bind(SqlBindingScope & context) const
 
     std::sort(columns.begin(), columns.end(), compareColumns);
 
-    for (unsigned i = 0;  i < 10 && i < columns.size();  ++i) {
-        cerr << "column " << i << " name " << columns[i].columnName
-             << " sort " << jsonEncodeStr(columns[i].sortFields) << endl;
-    }
+    //for (unsigned i = 0;  i < 10 && i < columns.size();  ++i) {
+    //    cerr << "column " << i << " name " << columns[i].columnName
+    //         << " sort " << jsonEncodeStr(columns[i].sortFields) << endl;
+    //}
 
     // Now apply the windowing functions
     ssize_t offset = this->offset;
@@ -2737,7 +3400,7 @@ bind(SqlBindingScope & context) const
 
     columns.erase(columns.begin() + limit, columns.end());
 
-    cerr << "restricted set of columns has " << columns.size() << " entries" << endl;
+    //cerr << "restricted set of columns has " << columns.size() << " entries" << endl;
 
     std::unordered_map<Utf8String, Utf8String> keepColumns;
     for (auto & c: columns)

@@ -36,6 +36,7 @@ struct MatrixRow;
 struct MatrixNamedEvent;
 struct MatrixEvent;
 struct ExpressionValue;
+struct ExpressionValueInfo;
 struct RowValueInfo;
 
 /** A row in an expression value is a set of (key, atom, timestamp) pairs. */
@@ -126,6 +127,10 @@ SPECIALIZE_STORAGE_TYPE(Utf8String,           ST_UTF8STRING);
 SPECIALIZE_STORAGE_TYPE(CellValue,            ST_ATOM);
 SPECIALIZE_STORAGE_TYPE(bool,                 ST_BOOL);
 SPECIALIZE_STORAGE_TYPE(Date,                 ST_TIMESTAMP);
+
+/** Return the ExpressionValueInfo type for the given storage type. */
+std::shared_ptr<ExpressionValueInfo>
+getValueInfoForStorage(StorageType type);
 
 
 /*****************************************************************************/
@@ -222,14 +227,28 @@ struct ExpressionValueInfo {
     static std::shared_ptr<ExpressionValueInfo>
     getCovering(const std::shared_ptr<ExpressionValueInfo> & info1,
                 const std::shared_ptr<ExpressionValueInfo> & info2);
+
+    /// Function type used to merge together two value information
+    /// objects.
+    typedef std::function<std::shared_ptr<ExpressionValueInfo>
+                          (const ColumnName & columnName,
+                           const std::shared_ptr<ExpressionValueInfo> & lhs,
+                           const std::shared_ptr<ExpressionValueInfo> & rhs)>
+    MergeColumnInfo;
     
     /** Return the ExpressionValueInfo that is equivalent to the two
         others, merged together.  The two inputs must be row
-        information
+        information.
+
+        The mergeInfo function will be used to determine the value
+        information for two columns that are merged together.  If one
+        of the rows is not present, a null pointer will be passed.
+        The default will take lhs if present, otherwise rhs.
     */
     static std::shared_ptr<RowValueInfo>
     getMerged(const std::shared_ptr<ExpressionValueInfo> & info1,
-              const std::shared_ptr<ExpressionValueInfo> & info2);
+              const std::shared_ptr<ExpressionValueInfo> & info2,
+              MergeColumnInfo mergeColumnInfo = nullptr);
 
     /** Return the expression value info for a version of this value
         flattened into a row.  This only needs to be provided if
@@ -325,7 +344,7 @@ DECLARE_STRUCTURE_DESCRIPTION(KnownColumn);
 
 
 /*****************************************************************************/
-/* EMBEDDING METADATA                                                           */
+/* EMBEDDING METADATA                                                        */
 /*****************************************************************************/
 
 /** Used to add metadata and structure to a embedding valued expression. */
@@ -403,22 +422,29 @@ struct ExpressionValue {
                     std::shared_ptr<const std::vector<ColumnName> > cols,
                     Date ts);
 
-    ExpressionValue(std::vector<CellValue> values,
-                    Date ts);
-
     // Construct from an embedding of simple values with common names
     // This is more efficient than a row as only the values are kept
     ExpressionValue(const std::vector<float> & values,
                     std::shared_ptr<const std::vector<ColumnName> > cols,
                     Date ts);
 
+    /** Construct from an embedding, with the given values.  If
+        dims is not passed or empty, it will be set to a vector
+        of the length of values.
+    */
+    ExpressionValue(std::vector<CellValue> values,
+                    Date ts,
+                    std::vector<size_t> shape = std::vector<size_t>());
+
     // Construct from a pure embedding
     ExpressionValue(std::vector<float> values,
-                    Date ts);
+                    Date ts,
+                    std::vector<size_t> shape = std::vector<size_t>());
 
     // Construct from a pure embedding
     ExpressionValue(std::vector<double> values,
-                    Date ts);
+                    Date ts,
+                    std::vector<size_t> shape = std::vector<size_t>());
     
     /** Construct from a generalized uniform embedding, which is stored as
         a contiguous (flat), column-major array (ie, standard c storage).
@@ -634,6 +660,7 @@ struct ExpressionValue {
         (const std::function<bool (Coord & columnName, ExpressionValue & val)>
          & onSubexpression) const;
 
+
     /** Iterate over the flattened representation. */
     bool forEachAtom(const std::function<bool (const Coord & columnName,
                                                const Coord & prefix,
@@ -669,6 +696,27 @@ struct ExpressionValue {
 
     /** Apply filter to select values in the row according to their timestamp */
     Row getFiltered(const VariableFilter & filter = GET_LATEST) const;
+
+    typedef std::function<bool (const ColumnName & columnName,
+                                std::pair<CellValue, Date> * vals1,
+                                std::pair<CellValue, Date> * vals2,
+                                size_t n1,
+                                size_t n2)> OnMatchingColumn;
+
+    enum Outer {
+        INNER,
+        OUTER_LEFT,
+        OUTER_RIGHT,
+        OUTER
+    };
+
+    /** Join of two rows on column names.  Calls back the function with
+        each column and the values from each side.
+    */
+    static bool joinColumns(const ExpressionValue & val1,
+                            const ExpressionValue & val2,
+                            const OnMatchingColumn & onMatchingColumn,
+                            Outer outer);
 
     /// Return if it is a row, and contains the given key
     std::pair<bool, Date> hasKey(const Utf8String & key) const;
@@ -981,23 +1029,26 @@ struct AnyValueInfo: public ExpressionValueInfoT<ExpressionValue> {
 
 /// For an embedding
 struct EmbeddingValueInfo: public ExpressionValueInfoT<ML::distribution<CellValue, std::vector<CellValue> > > {
-    EmbeddingValueInfo()
-        : EmbeddingValueInfo({-1})
+    EmbeddingValueInfo(StorageType storageType = ST_ATOM)
+        : EmbeddingValueInfo({-1}, storageType)
     {
     }
 
-    EmbeddingValueInfo(ssize_t numDimsForOneDimensionalArray)
-        : shape(1, numDimsForOneDimensionalArray)
+    EmbeddingValueInfo(ssize_t numDimsForOneDimensionalArray,
+                       StorageType storageType = ST_ATOM)
+        : shape(1, numDimsForOneDimensionalArray), storageType(storageType)
     {
     }
 
-    EmbeddingValueInfo(std::vector<ssize_t> shape);
+    EmbeddingValueInfo(std::vector<ssize_t> shape,
+                       StorageType storageType = ST_ATOM);
 
     /** Infer the output type for an array of elements of types given in the
         input. */
     EmbeddingValueInfo(const std::vector<std::shared_ptr<ExpressionValueInfo> > & input);
 
     std::vector<ssize_t> shape;
+    StorageType storageType;
 
     /** Return the number of dimensions in the embedding.  This is
         always equal to shape.size().

@@ -11,8 +11,8 @@ class myTest(unittest.TestCase):
         with self.assertRaisesRegexp(mldb_wrapper.ResponseException, "Executing builtin function exp: Can't convert value 'a' to double") as re:
             query = "SELECT exp('a')"
             mldb.query(query)
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, "Executing builtin function ln: Can't convert from row to double") as re:
-            query = "SELECT ln({1})"
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, "Executing builtin function ln: ln function supports positive numbers only") as re:
+            query = "SELECT ln(-1)"
             mldb.query(query)
         with self.assertRaisesRegexp(mldb_wrapper.ResponseException, "Binding builtin function sqrt: expected 1 argument, got 3") as re:
             query = "SELECT sqrt(1,2,3)"

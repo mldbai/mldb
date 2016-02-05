@@ -19,6 +19,7 @@
 #include "mldb/utils/json_utils.h"
 #include "mldb/types/hash_wrapper_description.h"
 #include "mldb/jml/utils/less.h"
+#include "mldb/jml/utils/lightweight_hash.h"
 
 using namespace std;
 
@@ -84,19 +85,62 @@ getCovering(const std::shared_ptr<ExpressionValueInfo> & info1,
 std::shared_ptr<RowValueInfo>
 ExpressionValueInfo::
 getMerged(const std::shared_ptr<ExpressionValueInfo> & info1,
-          const std::shared_ptr<ExpressionValueInfo> & info2)
+          const std::shared_ptr<ExpressionValueInfo> & info2,
+          MergeColumnInfo mergeColumnInfo)
 {
     auto cols1 = info1->getKnownColumns();
     auto cols2 = info2->getKnownColumns();
 
-    cols1.insert(cols1.end(),
-                 std::make_move_iterator(cols2.begin()),
-                 std::make_move_iterator(cols2.end()));
+    std::unordered_map<ColumnName, std::pair<KnownColumn, KnownColumn> >
+        allInfo;
+    for (auto & c: cols1)
+        allInfo[c.columnName].first = c;
+    for (auto & c: cols2)
+        allInfo[c.columnName].second = c;
     
+    for (auto & c: allInfo) {
+        if (c.second.first.valueInfo && c.second.second.valueInfo) {
+            c.second.first.sparsity
+                = c.second.first.sparsity == COLUMN_IS_SPARSE
+                && c.second.second.sparsity == COLUMN_IS_SPARSE
+                ? COLUMN_IS_SPARSE : COLUMN_IS_DENSE;
+        }
+        else if (c.second.first.valueInfo) {
+            // Info is already there
+        }
+        else if (c.second.second.valueInfo) {
+            c.second.first = std::move(c.second.second);
+        }
+        else {
+            throw HttpReturnException(500, "Column with no value info");
+        }
+
+        if (mergeColumnInfo)
+            c.second.first.valueInfo
+                = mergeColumnInfo(c.first,
+                                  c.second.first.valueInfo,
+                                  c.second.second.valueInfo);
+    }
+
+    // Now, extract them in order of column name produced by the input
+    std::vector<KnownColumn> colsOut;
+    for (auto & c: cols1) {
+        colsOut.emplace_back(std::move(allInfo[c.columnName].first));
+        allInfo.erase(c.columnName);
+    }
+
+    // The second ones, which are assumed to be added once the first lot
+    // have been dealt with
+    for (auto & c: cols2) {
+        if (!allInfo.count(c.columnName))
+            continue;
+        colsOut.emplace_back(std::move(allInfo[c.columnName].first));
+    }
+
     SchemaCompleteness unk1 = info1->getSchemaCompleteness();
     SchemaCompleteness unk2 = info2->getSchemaCompleteness();
 
-    return std::make_shared<RowValueInfo>(cols1,
+    return std::make_shared<RowValueInfo>(std::move(colsOut),
                                           (unk1 == SCHEMA_OPEN || unk2 == SCHEMA_OPEN
                                            ? SCHEMA_OPEN : SCHEMA_CLOSED));
 }
@@ -393,12 +437,21 @@ EmbeddingValueInfo(const std::vector<std::shared_ptr<ExpressionValueInfo> > & in
         return;
     }
 
-    throw HttpReturnException(400, "Cannot determine embedding type from input types");
+    // NOTE: this is required to make the usage of EmbeddingValueInfo in
+    // JoinElement in the ExecutionPipeline work.  It's not really the
+    // right tool for the job there and should be replaced with something
+    // else.  At that point, we can make this back into an exception.
+    shape = {-1};
+    storageType = ST_ATOM;
+    return;
+
+    throw HttpReturnException(400, "Cannot determine embedding type from input types",
+                              "inputTypes", input);
 }
 
 EmbeddingValueInfo::
-EmbeddingValueInfo(std::vector<ssize_t> shape)
-    : shape(std::move(shape))
+EmbeddingValueInfo(std::vector<ssize_t> shape, StorageType storageType)
+    : shape(std::move(shape)), storageType(storageType)
 {
 }
 
@@ -1235,7 +1288,8 @@ ExpressionValue(std::vector<CellValue> values,
 
 ExpressionValue::
 ExpressionValue(std::vector<CellValue> values,
-                Date ts)
+                Date ts,
+                std::vector<size_t> shape)
     : type_(NONE), ts_(ts)
 {
     std::shared_ptr<CellValue> vals(new CellValue[values.size()],
@@ -1246,8 +1300,10 @@ ExpressionValue(std::vector<CellValue> values,
     std::shared_ptr<Embedding> content(new Embedding());
     content->data_ = std::move(vals);
     content->storageType_ = ST_ATOM;
-    content->dims_ = { values.size() };
-
+    content->dims_ = std::move(shape);
+    if (content->dims_.empty())
+        content->dims_ = { values.size() };
+    
     new (storage_) std::shared_ptr<const Embedding>(std::move(content));
     type_ = EMBEDDING;
 }
@@ -1270,7 +1326,8 @@ ExpressionValue(const std::vector<float> & values,
 }
 
 ExpressionValue::
-ExpressionValue(std::vector<float> values, Date ts)
+ExpressionValue(std::vector<float> values, Date ts,
+                std::vector<size_t> shape)
     : type_(NONE), ts_(ts)
 {
     std::shared_ptr<float> vals(new float[values.size()],
@@ -1281,14 +1338,17 @@ ExpressionValue(std::vector<float> values, Date ts)
     std::shared_ptr<Embedding> content(new Embedding());
     content->data_ = std::move(vals);
     content->storageType_ = ST_FLOAT32;
-    content->dims_ = { values.size() };
+    content->dims_ = std::move(shape);
+    if (content->dims_.empty())
+        content->dims_ = { values.size() };
     
     new (storage_) std::shared_ptr<const Embedding>(std::move(content));
     type_ = EMBEDDING;
 }
 
 ExpressionValue::
-ExpressionValue(std::vector<double> values, Date ts)
+ExpressionValue(std::vector<double> values, Date ts,
+                std::vector<size_t> shape)
     : type_(NONE), ts_(ts)
 {
     std::shared_ptr<double> vals(new double[values.size()],
@@ -1299,7 +1359,9 @@ ExpressionValue(std::vector<double> values, Date ts)
     std::shared_ptr<Embedding> content(new Embedding());
     content->data_ = std::move(vals);
     content->storageType_ = ST_FLOAT64;
-    content->dims_ = { values.size() };
+    content->dims_ = std::move(shape);
+    if (content->dims_.empty())
+        content->dims_ = { values.size() };
     
     new (storage_) std::shared_ptr<const Embedding>(std::move(content));
     type_ = EMBEDDING;
@@ -1506,7 +1568,14 @@ bool
 ExpressionValue::
 isRow() const
 {
-    return type_ == ROW;
+    return type_ == ROW || type_ == STRUCT;
+}
+
+bool
+ExpressionValue::
+isEmbedding() const
+{
+    return type_ == EMBEDDING;
 }
 
 std::string
@@ -2240,6 +2309,143 @@ getFiltered(const VariableFilter & filter /*= GET_LATEST*/) const
 
     return output;
 
+}
+
+bool
+ExpressionValue::
+joinColumns(const ExpressionValue & val1,
+            const ExpressionValue & val2,
+            const OnMatchingColumn & onMatchingColumn,
+            Outer outer)
+{
+    // TODO: we don't *at all* handle multiple versions of the current
+    // column here.
+    bool outerLeft = (outer == OUTER || outer == OUTER_LEFT);
+    bool outerRight = (outer == OUTER || outer == OUTER_RIGHT);
+
+    RowValue row1, row2;
+    val1.appendToRow(ColumnName(), row1);
+    val2.appendToRow(ColumnName(), row2);
+
+    if (row1.size() == row2.size()) {
+        bool matchingNames = true;
+
+        // Assume they have the same keys and exactly one of each; if not we
+        // have to restart
+        ML::Lightweight_Hash_Set<uint64_t> colsFound;
+
+        for (size_t i = 0;  i < row1.size(); ++i) {
+            const ColumnName & col1 = std::get<0>(row1[i]);
+            const ColumnName & col2 = std::get<0>(row2[i]);
+            if (col1 != col2) {
+                // non-matching column name
+                matchingNames = false;
+                break;
+            }
+            if (colsFound.insert(col1.hash()).second == false) {
+                // duplicate column name
+                matchingNames = false;
+                break;
+            }
+        }
+
+        if (matchingNames) {
+            // Easy case: one single value of each one
+            for (size_t i = 0;  i < row1.size(); ++i) {
+                const ColumnName & col = std::get<0>(row1[i]);
+
+                std::pair<CellValue, Date>
+                    val1(std::get<1>(row1[i]), std::get<2>(row1[i]));
+                std::pair<CellValue, Date>
+                    val2(std::get<1>(row2[i]), std::get<2>(row2[i]));
+
+                if (!onMatchingColumn(col, &val1, &val2, 1, 1))
+                    return false;
+            }
+            return true;
+        }
+    }
+
+    // Names don't match or there are duplicates.  We need to sort them and
+    // iterate across batches of matching entries.
+
+    std::sort(row1.begin(), row1.end());
+    std::sort(row2.begin(), row2.end());
+
+    auto it1 = row1.begin(), end1 = row1.end();
+    auto it2 = row2.begin(), end2 = row2.end();
+
+    while (it1 != end1 && it2 != end2) {
+        const ColumnName & col1 = std::get<0>(*it1);
+        const ColumnName & col2 = std::get<0>(*it2);
+        
+        const ColumnName & minCol = col1 < col2 ? col1 : col2;
+
+        cerr << "doing columns " << col1 << " and " << col2 << endl;
+
+        // If we don't have a match on each side, check for the
+        // outer condition and if it doesn't match, continue on later.
+        if (minCol != col1 && !outerLeft) {
+            while (it2 != end2 && std::get<0>(*it2) < col1)
+                ++it2;
+            continue;
+        }
+        if (minCol != col2 && !outerRight) {
+            while (it1 != end1 && std::get<0>(*it1) < col2)
+                ++it2;
+            continue;
+        }
+
+        std::vector<std::pair<CellValue, Date> > lvals, rvals;
+
+        while (it1 != end1 && std::get<0>(*it1) == minCol) {
+            lvals.emplace_back(std::get<1>(*it1), std::get<2>(*it1));
+            ++it1;
+        }
+        while (it2 != end2 && std::get<0>(*it2) == minCol) {
+            rvals.emplace_back(std::get<1>(*it2), std::get<2>(*it2));
+            ++it2;
+        }
+        
+        // Present the examples
+        if (!onMatchingColumn(minCol, &lvals[0], &rvals[0],
+                              lvals.size(), rvals.size()))
+            return false;
+    }
+    
+    while (outerLeft && it1 != end1) {
+        const ColumnName & col1 = std::get<0>(*it1);
+
+        std::vector<std::pair<CellValue, Date> > lvals, rvals;
+
+        while (it1 != end1 && std::get<0>(*it1) == col1) {
+            lvals.emplace_back(std::get<1>(*it1), std::get<2>(*it1));
+            ++it1;
+        }
+        
+        // Present the examples
+        if (!onMatchingColumn(col1, &lvals[0], &rvals[0],
+                              lvals.size(), rvals.size()))
+            return false;
+    }
+
+    while (outerRight && it2 != end2) {
+        const ColumnName & col2 = std::get<0>(*it2);
+
+        std::vector<std::pair<CellValue, Date> > lvals, rvals;
+
+        while (it2 != end2 && std::get<0>(*it2) == col2) {
+            rvals.emplace_back(std::get<1>(*it2), std::get<2>(*it2));
+            ++it2;
+        }
+
+        // Present the examples
+        if (!onMatchingColumn(col2, &lvals[0], &rvals[0],
+                              lvals.size(), rvals.size()))
+            return false;
+    }
+
+    return true;
 }
 
 std::pair<bool, Date>
