@@ -98,7 +98,7 @@ run(const ProcedureRunConfig & run,
         calc.emplace_back(whenClause);
     }
 
-    vector<Id> orderedRowNames;
+    vector<Coord> orderedRowNames;
     Date globalMaxOrderByTimestamp = Date::negativeInfinity();
     auto getSize = [&] (NamedRowValue & row,
                         const vector<ExpressionValue> & calc)

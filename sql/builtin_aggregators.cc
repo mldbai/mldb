@@ -130,7 +130,7 @@ struct AggregatorT {
             const ExpressionValue & val = args[0];
 
             // This must be a row...
-            auto onSubExpression = [&] (const Id & columnName,
+            auto onSubExpression = [&] (const Coord & columnName,
                                         const ExpressionValue & val)
                 {
                     columns[columnName].process(&val, 1);
@@ -626,8 +626,8 @@ BoundAggregator lr(const std::vector<BoundSqlExpression> & args)
             bool conv = args[1].isTrue();
             LikelihoodRatioAccum & accum = *(LikelihoodRatioAccum *)data;
             // This must be a row...
-            auto onAtom = [&] (const Id & columnName,
-                               const Id & prefix,
+            auto onAtom = [&] (const Coord & columnName,
+                               const Coord & prefix,
                                const CellValue & val,
                                Date ts)
             {
