@@ -180,7 +180,6 @@ static Date calcTs(const ExpressionValue & v1,
 typedef double (*DoubleBinaryFunction)(double, double);
 
 ExpressionValue binaryFunction(const std::vector<ExpressionValue> & args,
-                               const SqlRowScope & context,
                                DoubleBinaryFunction func)
 {
     ExcAssertEqual(args.size(), 2);
@@ -192,7 +191,6 @@ ExpressionValue binaryFunction(const std::vector<ExpressionValue> & args,
 typedef double (*DoubleUnaryFunction)(double);
 
 ExpressionValue unaryFunction(const std::vector<ExpressionValue> & args,
-                               const SqlRowScope & context,
                                DoubleUnaryFunction func)
 {
     ExcAssertEqual(args.size(), 1);
@@ -201,7 +199,6 @@ ExpressionValue unaryFunction(const std::vector<ExpressionValue> & args,
 }
 
 ExpressionValue replaceIf(const std::vector<ExpressionValue> & args,
-                          const SqlRowScope & context,
                           std::function<bool(double)> ifFunc)
 {
     ExcAssertEqual(args.size(), 2);
@@ -242,7 +239,7 @@ ValuedBoundFunction replaceIfNaN(const std::vector<BoundSqlExpression> & args)
     return {[] (const std::vector<ExpressionValue> & args,
                 const SqlRowScope & context) -> ExpressionValue
             {
-                return replaceIf(args, context, [](double d) { return std::isnan(d); });
+                return replaceIf(args, [](double d) { return std::isnan(d); });
             },
             std::make_shared<Float64ValueInfo>()};
 }
@@ -255,7 +252,7 @@ ValuedBoundFunction replaceIfInf(const std::vector<BoundSqlExpression> & args)
     return {[] (const std::vector<ExpressionValue> & args,
                 const SqlRowScope & context) -> ExpressionValue
             {
-                return replaceIf(args, context, [](double d) { return std::isinf(d); });
+                return replaceIf(args, [](double d) { return std::isinf(d); });
             },
             std::make_shared<Float64ValueInfo>()};
 }
@@ -269,7 +266,7 @@ ValuedBoundFunction power(const std::vector<BoundSqlExpression> & args)
     return {[] (const std::vector<ExpressionValue> & args,
                 const SqlRowScope & context) -> ExpressionValue
             {
-                return binaryFunction(args, context, std::pow);
+                return binaryFunction(args, std::pow);
             },
             std::make_shared<Float64ValueInfo>()};
 }
@@ -283,7 +280,7 @@ ValuedBoundFunction abs(const std::vector<BoundSqlExpression> & args)
     return {[] (const std::vector<ExpressionValue> & args,
                 const SqlRowScope & context) -> ExpressionValue
             {
-                return unaryFunction(args, context, std::abs);
+                return unaryFunction(args, std::abs);
             },
             std::make_shared<Float64ValueInfo>()};
 }
@@ -333,7 +330,7 @@ ValuedBoundFunction ceil(const std::vector<BoundSqlExpression> & args)
     return {[] (const std::vector<ExpressionValue> & args,
                 const SqlRowScope & context) -> ExpressionValue
             {
-                return unaryFunction(args, context, std::ceil);
+                return unaryFunction(args, std::ceil);
             },
             std::make_shared<Float64ValueInfo>()};
 }
@@ -346,7 +343,7 @@ ValuedBoundFunction floor(const std::vector<BoundSqlExpression> & args)
     return {[] (const std::vector<ExpressionValue> & args,
                 const SqlRowScope & context) -> ExpressionValue
             {
-                return unaryFunction(args, context, std::floor);
+                return unaryFunction(args, std::floor);
             },
             std::make_shared<Float64ValueInfo>()};
 }
@@ -380,7 +377,7 @@ ValuedBoundFunction exp(const std::vector<BoundSqlExpression> & args)
     return {[] (const std::vector<ExpressionValue> & args,
                 const SqlRowScope & context) -> ExpressionValue
             {
-                return unaryFunction(args, context, std::exp);
+                return unaryFunction(args, std::exp);
             },
             std::make_shared<Float64ValueInfo>()};
 }
