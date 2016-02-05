@@ -52,10 +52,8 @@ class SumDoesNotExistTest(MldbUnitTest): # noqa
                 'runOnCreation' : True
             }
         })
-        # FIXME: The row name is [1] instead of [], as if the group by claused
-        # acted as named
         self.assertQueryResult(mldb.query("SELECT * FROM res"), [
-            ['_rowName', "sum({*}).colA"], ["[]", 1]
+            ['_rowName', "sum({*}).colA"], ["[1]", 1]
         ])
 
     def test_object_w_named(self):
@@ -124,10 +122,8 @@ class SumDoesNotExistTest(MldbUnitTest): # noqa
                 'runOnCreation' : True
             }
         })
-        # FIXME: Group By is merely noise and should have no impact on the row
-        # name
         self.assertQueryResult(mldb.query("SELECT * FROM res"), [
-            ['_rowName', "sum({*}).colA"], ["[]", 1]
+            ['_rowName', "sum({*}).colA"], ["[1]", 1]
         ])
 
     def test_plain_sql_w_group_by_and_named(self):
