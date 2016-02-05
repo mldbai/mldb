@@ -3,12 +3,10 @@
 # Mich, 2016-02-01
 # This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
 #
-import unittest
-
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
 
-class SumDoesNotExistTest(unittest.TestCase):
+class SumDoesNotExistTest(MldbUnitTest): # noqa
 
     @classmethod
     def setUpClass(self):
@@ -34,6 +32,9 @@ class SumDoesNotExistTest(unittest.TestCase):
                 'runOnCreation' : True
             }
         })
+        self.assertQueryResult(mldb.query("SELECT * FROM res"), [
+            ['_rowName', "sum({*}).colA"], ["[]", 1]
+        ])
 
     def test_object_w_group_by(self):
         mldb.post('/v1/procedures', {
@@ -51,6 +52,11 @@ class SumDoesNotExistTest(unittest.TestCase):
                 'runOnCreation' : True
             }
         })
+        # FIXME: The row name is [1] instead of [], as if the group by claused
+        # acted as named
+        self.assertQueryResult(mldb.query("SELECT * FROM res"), [
+            ['_rowName', "sum({*}).colA"], ["[]", 1]
+        ])
 
     def test_object_w_named(self):
         mldb.post('/v1/procedures', {
@@ -86,6 +92,9 @@ class SumDoesNotExistTest(unittest.TestCase):
                 'runOnCreation' : True
             }
         })
+        self.assertQueryResult(mldb.query("SELECT * FROM res"), [
+            ['_rowName', "sum({*}).colA"], ["coco", 1]
+        ])
 
     def test_plain_sql(self):
         mldb.post('/v1/procedures', {
@@ -99,6 +108,9 @@ class SumDoesNotExistTest(unittest.TestCase):
                 'runOnCreation' : True
             }
         })
+        self.assertQueryResult(mldb.query("SELECT * FROM res"), [
+            ['_rowName', "sum({*}).colA"], ["[]", 1]
+        ])
 
     def test_plain_sql_w_group_by(self):
         mldb.post('/v1/procedures', {
@@ -112,6 +124,11 @@ class SumDoesNotExistTest(unittest.TestCase):
                 'runOnCreation' : True
             }
         })
+        # FIXME: Group By is merely noise and should have no impact on the row
+        # name
+        self.assertQueryResult(mldb.query("SELECT * FROM res"), [
+            ['_rowName', "sum({*}).colA"], ["[]", 1]
+        ])
 
     def test_plain_sql_w_group_by_and_named(self):
         mldb.post('/v1/procedures', {
@@ -125,6 +142,9 @@ class SumDoesNotExistTest(unittest.TestCase):
                 'runOnCreation' : True
             }
         })
+        self.assertQueryResult(mldb.query("SELECT * FROM res"), [
+            ['_rowName', "sum({*}).colA"], ["res", 1]
+        ])
 
     def test_plain_sql_w_named(self):
         mldb.post('/v1/procedures', {
@@ -138,6 +158,9 @@ class SumDoesNotExistTest(unittest.TestCase):
                 'runOnCreation' : True
             }
         })
+        self.assertQueryResult(mldb.query("SELECT * FROM res"), [
+            ['_rowName', "sum({*}).colA"], ["res", 1]
+        ])
 
     def test_unamed_then_named(self):
         mldb.post('/v1/procedures', {
@@ -151,8 +174,9 @@ class SumDoesNotExistTest(unittest.TestCase):
                 'runOnCreation' : True
             }
         })
-
-        mldb.query("SELECT * NAMED 'res' FROM res")
+        self.assertQueryResult(mldb.query("SELECT * NAMED 'res' FROM res"), [
+            ['_rowName', "sum({*}).colA"], ["res", 1]
+        ])
 
 
 if __name__ == '__main__':
