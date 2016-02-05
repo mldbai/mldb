@@ -19,7 +19,6 @@ class SumDoesNotExistTest(unittest.TestCase):
         ds.record_row('row1', [['colA', 1, 1]])
         ds.commit()
 
-    @unittest.expectedFailure
     def test_object(self):
         mldb.post('/v1/procedures', {
             'type' : 'transform',
@@ -53,7 +52,6 @@ class SumDoesNotExistTest(unittest.TestCase):
             }
         })
 
-    @unittest.expectedFailure
     def test_object_w_named(self):
         mldb.post('/v1/procedures', {
             'type' : 'transform',
@@ -61,7 +59,7 @@ class SumDoesNotExistTest(unittest.TestCase):
                 'inputData' : {
                     'select' : 'sum({*})',
                     'from' : 'ds',
-                    'named' : 'coco'
+                    'named' : "'coco'"
                 },
                 'outputDataset' : {
                     'id' : 'res',
@@ -71,7 +69,6 @@ class SumDoesNotExistTest(unittest.TestCase):
             }
         })
 
-    @unittest.expectedFailure
     def test_object_w_group_by_and_named(self):
         mldb.post('/v1/procedures', {
             'type' : 'transform',
@@ -80,7 +77,7 @@ class SumDoesNotExistTest(unittest.TestCase):
                     'select' : 'sum({*})',
                     'from' : 'ds',
                     'groupBy' : '1',
-                    'named' : 'coco'
+                    'named' : "'coco'"
                 },
                 'outputDataset' : {
                     'id' : 'res',
@@ -90,7 +87,6 @@ class SumDoesNotExistTest(unittest.TestCase):
             }
         })
 
-    @unittest.expectedFailure
     def test_plain_sql(self):
         mldb.post('/v1/procedures', {
             'type' : 'transform',
@@ -117,12 +113,11 @@ class SumDoesNotExistTest(unittest.TestCase):
             }
         })
 
-    @unittest.expectedFailure
     def test_plain_sql_w_group_by_and_named(self):
         mldb.post('/v1/procedures', {
             'type' : 'transform',
             'params' : {
-                'inputData' : 'SELECT sum({*}) NAMED res FROM ds GROUP BY 1',
+                'inputData' : "SELECT sum({*}) NAMED 'res' FROM ds GROUP BY 1",
                 'outputDataset' : {
                     'id' : 'res',
                     'type' : 'sparse.mutable'
@@ -131,12 +126,11 @@ class SumDoesNotExistTest(unittest.TestCase):
             }
         })
 
-    @unittest.expectedFailure
     def test_plain_sql_w_named(self):
         mldb.post('/v1/procedures', {
             'type' : 'transform',
             'params' : {
-                'inputData' : 'SELECT sum({*}) NAMED res FROM ds',
+                'inputData' : "SELECT sum({*}) NAMED 'res' FROM ds",
                 'outputDataset' : {
                     'id' : 'res',
                     'type' : 'sparse.mutable'
@@ -145,7 +139,6 @@ class SumDoesNotExistTest(unittest.TestCase):
             }
         })
 
-    @unittest.expectedFailure
     def test_unamed_then_named(self):
         mldb.post('/v1/procedures', {
             'type' : 'transform',
@@ -159,8 +152,7 @@ class SumDoesNotExistTest(unittest.TestCase):
             }
         })
 
-        # Fails with: Can't convert from empty to UTF8 string
-        mldb.query("SELECT * NAMED res FROM res")
+        mldb.query("SELECT * NAMED 'res' FROM res")
 
 
 if __name__ == '__main__':
