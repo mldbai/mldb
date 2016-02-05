@@ -458,6 +458,11 @@ ls(MldbPythonContext * mldbCon,
     return result;
 }
 
+string
+getHttpBoundAddress(MldbPythonContext * mldbCon)
+{
+    return mldbCon->getPyContext()->server->httpBoundAddress;
+}
 
 
 /****************************************************************************/

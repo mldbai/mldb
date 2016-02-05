@@ -319,13 +319,13 @@ int main(int argc, char ** argv)
         server.scanPlugins(d);
     }
     
-    string httpBoundAddress = server.bindTcp(httpListenPort, httpListenHost);
+    server.httpBoundAddress = server.bindTcp(httpListenPort, httpListenHost);
     server.router.addAutodocRoute("/autodoc", "/v1/help", "autodoc");
     server.threadPool->ensureThreads(numThreads);
     server.httpEndpoint->allowAllOrigins();
 
-    cout << httpBoundAddress << endl;
-    cerr << "http listening on " << httpBoundAddress << endl;
+    cout << server.httpBoundAddress << endl;
+    cerr << "http listening on " << server.httpBoundAddress << endl;
 
     server.start();
 
@@ -341,7 +341,7 @@ int main(int argc, char ** argv)
         else if(extension == ".py")   runner = "python";
         else throw ML::Exception("Unsupported extension '" +extension+ "'");
 
-        HttpRestProxy proxy(httpBoundAddress);
+        HttpRestProxy proxy(server.httpBoundAddress);
         
         PluginResource config;
         if (runScript.find("://") == string::npos)
