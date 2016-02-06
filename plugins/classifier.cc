@@ -845,7 +845,7 @@ apply(const FunctionApplier & applier_,
             auto scores = itl->classifier.impl->predict(dense, applier.optInfo);
             ExcAssertEqual(scores.size(), labelCount);
 
-            vector<tuple<Id, ExpressionValue> > row;
+            vector<tuple<Coord, ExpressionValue> > row;
 
             for (unsigned i = 0;  i < labelCount;  ++i) {
                 row.emplace_back(RowName(cat->print(i)),
@@ -870,7 +870,7 @@ apply(const FunctionApplier & applier_,
             auto scores = itl->classifier.predict(*fset);
             ExcAssertEqual(scores.size(), labelCount);
 
-            vector<tuple<Id, ExpressionValue> > row;
+            vector<tuple<Coord, ExpressionValue> > row;
 
             for (unsigned i = 0;  i < labelCount;  ++i) {
                 row.emplace_back(RowName(cat->print(i)),

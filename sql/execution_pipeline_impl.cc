@@ -106,8 +106,8 @@ doGetAllColumns(std::function<Utf8String (const Utf8String &)> keep, int fieldOf
 
             StructValue result;
 
-            auto onSubexpression = [&] (const Id & columnName,
-                                        const Id & prefix,  // always null
+            auto onSubexpression = [&] (const Coord & columnName,
+                                        const Coord & prefix,  // always null
                                         const ExpressionValue & value)
             {
                 auto it = index.find(columnName);
@@ -157,7 +157,7 @@ doGetFunction(const Utf8String & functionName,
                      const SqlRowScope & rowScope)
                 {
                     auto & row = static_cast<const PipelineResults &>(rowScope);
-                    RowHash result(Id(row.values.at(fieldOffset + ROW_NAME).toUtf8String()));
+                    RowHash result(Coord(row.values.at(fieldOffset + ROW_NAME).toUtf8String()));
                     return ExpressionValue(result.hash(),
                                            Date::notADate());
                 },
@@ -570,38 +570,44 @@ JoinElement(std::shared_ptr<PipelineElement> root,
     auto constantWhere = condition.constantWhere;
 
     //These are the values that we need to compute to see if the rows "match"
-    std::vector<std::shared_ptr<SqlExpression> > leftclauses = { condition.left.selectExpression };    
-    std::vector<std::shared_ptr<SqlExpression> > rightclauses= { condition.right.selectExpression };    
+    TupleExpression leftclauses, rightclauses;
+    leftclauses.clauses.push_back(condition.left.selectExpression);
+    rightclauses.clauses.push_back(condition.right.selectExpression);
 
     auto leftCondition = condition.left.where;
     auto rightCondition = condition.right.where;
 
     // if outer join, we need to grab all rows on one or both sides  
-    auto fixOuterSide = [&] (std::shared_ptr<SqlExpression>& condition, AnnotatedJoinCondition::Side& side, std::vector<std::shared_ptr<SqlExpression> >& clauses)
+    auto fixOuterSide = [&] (std::shared_ptr<SqlExpression>& condition,
+                             AnnotatedJoinCondition::Side& side,
+                             TupleExpression & clauses)
         {
             //remove the condition, we want all rows from this side
             condition = SqlExpression::TRUE;
 
             auto notnullExpr = std::make_shared<IsTypeExpression>(side.where, true, "null");
-            auto conditionExpr = std::make_shared<BooleanOperatorExpression>(BooleanOperatorExpression(side.where, constantWhere, "AND"));
-            auto complementExpr = std::make_shared<BooleanOperatorExpression>(BooleanOperatorExpression(conditionExpr, notnullExpr, "AND"));
+            auto conditionExpr = std::make_shared<BooleanOperatorExpression>
+                (BooleanOperatorExpression(side.where, constantWhere, "AND"));
+            auto complementExpr = std::make_shared<BooleanOperatorExpression>
+                (BooleanOperatorExpression(conditionExpr, notnullExpr, "AND"));
 
             //add the condition to the select expression instead
-
-            clauses.push_back(complementExpr);
+            clauses.clauses.push_back(complementExpr);
         };
 
     if (outerLeft)
         fixOuterSide(leftCondition, condition.left, leftclauses);      
 
     if (outerRight)
-        fixOuterSide(leftCondition, condition.left, leftclauses);      
+        fixOuterSide(rightCondition, condition.right, rightclauses);      
 
     if (outerLeft || outerRight)
         constantWhere = SqlExpression::TRUE;
 
-    auto leftEmbedding = std::make_shared<EmbeddingLiteralExpression>(leftclauses);
-    auto rightEmbedding = std::make_shared<EmbeddingLiteralExpression>(rightclauses);
+    // TODO: this shouldn't be an embedding... the type system for those
+    // is too restrictive to be used as a select clause here
+    auto leftEmbedding = std::make_shared<EmbeddingLiteralExpression>(leftclauses.clauses);
+    auto rightEmbedding = std::make_shared<EmbeddingLiteralExpression>(rightclauses.clauses);
 
     leftImpl= root
         ->where(constantWhere)

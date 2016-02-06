@@ -155,6 +155,24 @@ diag(const distribution<Float> & d)
 }
 
 template<typename Float>
+boost::multi_array<Float, 2>
+setIdentity(int numDim, boost::multi_array<Float, 2>& D)
+{
+    D.resize(boost::extents[numDim][numDim]);
+    for (unsigned i = 0;  i < numDim;  ++i)
+    {
+        for (unsigned j = 0;  j < numDim;  ++j)
+        {
+            if (i == j)
+                D[i][j] = Float(1.0f);    
+            else
+                D[i][j] = Float(0.0f);
+        }
+    }
+    return D;
+}
+
+template<typename Float>
 std::string print_size(const boost::multi_array<Float, 2> & array)
 {
     return format("%dx%d", (int)array.shape()[0], (int)array.shape()[1]);
@@ -444,6 +462,40 @@ operator - (const boost::multi_array<Float1, 2> & A,
     return subtract_r
         <typename float_traits<Float1, Float2>::return_type, Float1, Float2>
         (A, B);
+}
+
+/*****************************************************************************/
+/* MATRIX SCALAR                                                             */
+/*****************************************************************************/
+
+inline 
+boost::multi_array<double, 2>
+operator * (const boost::multi_array<double, 2> & A,
+            double B)
+{
+    int As0 = A.shape()[0];
+    int As1 = A.shape()[1];
+    boost::multi_array<double, 2> X(boost::extents[As0][As1]);
+    for (unsigned i = 0;  i < As0;  ++i) {
+        for (unsigned j = 0;  j < As1;  ++j)
+            X[i][j] = A[i][j] * B;
+    }
+    return X;
+}
+
+template<typename Float1, typename Float2>
+boost::multi_array<typename float_traits<Float1, Float2>::return_type, 2>
+operator / (const boost::multi_array<Float1, 2> & A,
+            Float2 B)
+{
+    int As0 = A.shape()[0];
+    int As1 = A.shape()[1];
+    boost::multi_array<Float1, 2> X(boost::extents[As0][As1]);
+    for (unsigned i = 0;  i < As0;  ++i) {
+        for (unsigned j = 0;  j < As1;  ++j)
+            X[i][j] = A[i][j] / B;
+    }
+    return X;
 }
 
 

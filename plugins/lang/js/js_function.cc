@@ -143,7 +143,7 @@ run(const std::vector<ExpressionValue> & args,
     for (unsigned i = 2;  i < args.size();  ++i) {
         if (args[i].isRow()) {
             RowValue row;
-            args[i].appendToRow(Id(), row);
+            args[i].appendToRow(Coord(), row);
             argv.push_back(JS::toJS(row));
         }
         else {

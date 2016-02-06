@@ -3,12 +3,10 @@
 # Mich, 2016-02-01
 # This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
 #
-import unittest
-
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
 
-class SumDoesNotExistTest(unittest.TestCase):
+class SumDoesNotExistTest(MldbUnitTest): # noqa
 
     @classmethod
     def setUpClass(self):
@@ -19,7 +17,6 @@ class SumDoesNotExistTest(unittest.TestCase):
         ds.record_row('row1', [['colA', 1, 1]])
         ds.commit()
 
-    @unittest.expectedFailure
     def test_object(self):
         mldb.post('/v1/procedures', {
             'type' : 'transform',
@@ -35,6 +32,9 @@ class SumDoesNotExistTest(unittest.TestCase):
                 'runOnCreation' : True
             }
         })
+        self.assertQueryResult(mldb.query("SELECT * FROM res"), [
+            ['_rowName', "sum({*}).colA"], ["[]", 1]
+        ])
 
     def test_object_w_group_by(self):
         mldb.post('/v1/procedures', {
@@ -52,8 +52,10 @@ class SumDoesNotExistTest(unittest.TestCase):
                 'runOnCreation' : True
             }
         })
+        self.assertQueryResult(mldb.query("SELECT * FROM res"), [
+            ['_rowName', "sum({*}).colA"], ["[1]", 1]
+        ])
 
-    @unittest.expectedFailure
     def test_object_w_named(self):
         mldb.post('/v1/procedures', {
             'type' : 'transform',
@@ -61,7 +63,7 @@ class SumDoesNotExistTest(unittest.TestCase):
                 'inputData' : {
                     'select' : 'sum({*})',
                     'from' : 'ds',
-                    'named' : 'coco'
+                    'named' : "'coco'"
                 },
                 'outputDataset' : {
                     'id' : 'res',
@@ -71,7 +73,6 @@ class SumDoesNotExistTest(unittest.TestCase):
             }
         })
 
-    @unittest.expectedFailure
     def test_object_w_group_by_and_named(self):
         mldb.post('/v1/procedures', {
             'type' : 'transform',
@@ -80,7 +81,7 @@ class SumDoesNotExistTest(unittest.TestCase):
                     'select' : 'sum({*})',
                     'from' : 'ds',
                     'groupBy' : '1',
-                    'named' : 'coco'
+                    'named' : "'coco'"
                 },
                 'outputDataset' : {
                     'id' : 'res',
@@ -89,8 +90,10 @@ class SumDoesNotExistTest(unittest.TestCase):
                 'runOnCreation' : True
             }
         })
+        self.assertQueryResult(mldb.query("SELECT * FROM res"), [
+            ['_rowName', "sum({*}).colA"], ["coco", 1]
+        ])
 
-    @unittest.expectedFailure
     def test_plain_sql(self):
         mldb.post('/v1/procedures', {
             'type' : 'transform',
@@ -103,6 +106,9 @@ class SumDoesNotExistTest(unittest.TestCase):
                 'runOnCreation' : True
             }
         })
+        self.assertQueryResult(mldb.query("SELECT * FROM res"), [
+            ['_rowName', "sum({*}).colA"], ["[]", 1]
+        ])
 
     def test_plain_sql_w_group_by(self):
         mldb.post('/v1/procedures', {
@@ -116,13 +122,15 @@ class SumDoesNotExistTest(unittest.TestCase):
                 'runOnCreation' : True
             }
         })
+        self.assertQueryResult(mldb.query("SELECT * FROM res"), [
+            ['_rowName', "sum({*}).colA"], ["[1]", 1]
+        ])
 
-    @unittest.expectedFailure
     def test_plain_sql_w_group_by_and_named(self):
         mldb.post('/v1/procedures', {
             'type' : 'transform',
             'params' : {
-                'inputData' : 'SELECT sum({*}) NAMED res FROM ds GROUP BY 1',
+                'inputData' : "SELECT sum({*}) NAMED 'res' FROM ds GROUP BY 1",
                 'outputDataset' : {
                     'id' : 'res',
                     'type' : 'sparse.mutable'
@@ -130,13 +138,15 @@ class SumDoesNotExistTest(unittest.TestCase):
                 'runOnCreation' : True
             }
         })
+        self.assertQueryResult(mldb.query("SELECT * FROM res"), [
+            ['_rowName', "sum({*}).colA"], ["res", 1]
+        ])
 
-    @unittest.expectedFailure
     def test_plain_sql_w_named(self):
         mldb.post('/v1/procedures', {
             'type' : 'transform',
             'params' : {
-                'inputData' : 'SELECT sum({*}) NAMED res FROM ds',
+                'inputData' : "SELECT sum({*}) NAMED 'res' FROM ds",
                 'outputDataset' : {
                     'id' : 'res',
                     'type' : 'sparse.mutable'
@@ -144,6 +154,25 @@ class SumDoesNotExistTest(unittest.TestCase):
                 'runOnCreation' : True
             }
         })
+        self.assertQueryResult(mldb.query("SELECT * FROM res"), [
+            ['_rowName', "sum({*}).colA"], ["res", 1]
+        ])
+
+    def test_unamed_then_named(self):
+        mldb.post('/v1/procedures', {
+            'type' : 'transform',
+            'params' : {
+                'inputData' : 'SELECT sum({*}) FROM ds GROUP BY 1',
+                'outputDataset' : {
+                    'id' : 'res',
+                    'type' : 'sparse.mutable'
+                },
+                'runOnCreation' : True
+            }
+        })
+        self.assertQueryResult(mldb.query("SELECT * NAMED 'res' FROM res"), [
+            ['_rowName', "sum({*}).colA"], ["res", 1]
+        ])
 
 
 if __name__ == '__main__':
