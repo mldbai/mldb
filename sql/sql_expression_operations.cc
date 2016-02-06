@@ -2392,7 +2392,9 @@ bind(SqlBindingScope & context) const
                      const VariableFilter & filter)
         -> const ExpressionValue &
         {
-            return storage = std::move(allColumns.exec(scope));
+            ExpressionValue filteredExpr =  std::move(allColumns.exec(scope));
+            filteredExpr.filterRow(filter);
+            return storage = std::move(filteredExpr);
         };
 
     BoundSqlExpression result(exec, this, allColumns.info);

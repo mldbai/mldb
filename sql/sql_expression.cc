@@ -2821,7 +2821,7 @@ bind(SqlBindingScope & context) const
             StructValue result;
 
             for (auto & c: boundClauses) {
-                ExpressionValue v = c(context, filter);
+                ExpressionValue v = c(context, filter); 
                 v.mergeToRowDestructive(result);
             }
             

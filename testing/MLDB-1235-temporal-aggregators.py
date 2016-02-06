@@ -13,49 +13,115 @@ import datetime
 
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
-class SampleTest(MldbUnitTest):
+class TemporalTest(MldbUnitTest):
+
+    sometime = '2016-01-02T12:23:34Z'
+    before = '2016-01-01T12:23:34Z'
+    after = '2016-01-03T12:23:34Z'
 
     @classmethod
-    def setUpClass(self):
-        now = datetime.datetime.now()
-        yesterday = now + datetime.timedelta(days=-1)
-        tomorrow = now + datetime.timedelta(days=1)
-
-     # column values at three different times
+    def setUpClass(self):     
+        # column values at three different times
         ds = mldb.create_dataset({
             'type': 'sparse.mutable',
             'id': 'dataset'})
 
-        for i in xrange(5):
+        for i in xrange(1, 3):
             ds.record_row('row_' + str(i),
-                           [['x', -i, yesterday], ['x', 0, now], ['x', i+1, tomorrow]])
+                           [['x', -i, TemporalTest.before], ['y', -i, TemporalTest.before],
+                            ['x', 0, TemporalTest.sometime], ['y', 0, TemporalTest.sometime],
+                            ['x', i+1, TemporalTest.after], ['y', i+1, TemporalTest.after]])
         ds.commit()
 
     def test_min_returns_last_event(self):
         #all expressions are evaluated at latest time
-        self.assertQueryResult(
-            mldb.query('select min(x) as min_x from dataset order by rowName()'),
+        resp = mldb.query('select min(x) as min_x from dataset order by rowName()')
+        mldb.log(resp)
+
+        self.assertQueryResult(resp,
             [
                 ["_rowName", "min_x"],
-                ["[]",  1 ]
+                ["[]",  2 ]
             ]
         )
         
     def test_temporal_min_returns_first_event(self):
         #temporal min on one column
-        self.assertQueryResult(
-            mldb.query('select temporal_min(x) as t_min_x from dataset order by rowName()'),
+        resp = mldb.get('/v1/query', 
+                        q = 'select temporal_min(x) as t_min_x from dataset order by rowName()',
+                        format = 'full').json()
+
+        self.assertQueryResult(resp,
             [
-                ["_rowName", "t_min_x"],
-                ["row_0",  0 ],
-                ["row_1",  -1 ],
-                ["row_2",  -2 ],
-                ["row_3",  -3 ],
-                ["row_4",  -4 ]
+                {
+                    "rowName": "row_1",
+                    "rowHash": "f156570c0871dbce",
+                    "columns": [
+                        [
+                            "t_min_x",
+                            -1,
+                             TemporalTest.before
+                        ]
+                    ]
+                },
+                {
+                    "rowName": "row_2",
+                    "rowHash": "0ea93be3f94d4404",
+                    "columns": [
+                        [
+                            "t_min_x",
+                            -2,
+                             TemporalTest.before
+                        ]
+                    ]
+                }
             ]
         )
 
+    def test_temporal_min_on_rows(self):
+        #temporal min on one column
+        resp = mldb.get('/v1/query', 
+                        q = 'select temporal_min({*}) as * from dataset order by rowName()',
+                        format = 'full').json()
 
+        self.assertQueryResult(resp,
+            [
+                {
+                    "rowName": "row_1",
+                    "rowHash": "f156570c0871dbce",
+                    "columns": [
+                        [
+                            "x",
+                            -1,
+                            "2016-01-01T12:23:34Z"
+                        ],
+                        [
+                            "y",
+                            -1,
+                            "2016-01-01T12:23:34Z"
+                        ]
+                    ]
+                },
+                {
+                    "rowName": "row_2",
+                    "rowHash": "0ea93be3f94d4404",
+                    "columns": [
+                        [
+                            "x",
+                            -2,
+                            "2016-01-01T12:23:34Z"
+                        ],
+                        [
+                            "y",
+                            -2,
+                            "2016-01-01T12:23:34Z"
+                        ]
+                    ]
+                }
+            ]
+        )
+
+   
 mldb.run_tests()
 
 

@@ -609,6 +609,8 @@ struct ExpressionValue {
 
     /** Apply filter to select values in the row according to their timestamp */
     Row getFiltered(const VariableFilter & filter = GET_LATEST) const;
+    /** As above but modify the internal state of the expression value */
+    void filterRow(const VariableFilter & filter);
 
     /// Return if it is a row, and contains the given key
     std::pair<bool, Date> hasKey(const Utf8String & key) const;
@@ -1055,6 +1057,7 @@ DECLARE_STRUCTURE_DESCRIPTION(NamedRowValue);
 
 /** These functions search the given row for the named value. */
 
+#if 0
 const ExpressionValue *
 searchRow(const std::vector<std::tuple<ColumnHash, CellValue, Date> > & columns,
           const ColumnName & key,
@@ -1066,7 +1069,7 @@ searchRow(const std::vector<std::tuple<ColumnName, CellValue, Date> > & columns,
           const ColumnHash & key,
           const VariableFilter & filter,
           ExpressionValue & storage);
-
+#endif
 const ExpressionValue *
 searchRow(const std::vector<std::tuple<ColumnName, CellValue, Date> > & columns,
           const ColumnName & key,
