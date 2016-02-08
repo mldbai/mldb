@@ -147,6 +147,32 @@ class PythonMldbInterfaceTest(MldbUnitTest): # noqa
             }
         ])
 
+    def test_assert_mldb_raises(self):
+        with self.assertRaises(AssertionError):
+            with self.assertMldbRaises():
+                mldb.get("/v1/datasets")
+
+        with self.assertMldbRaises():
+            mldb.get("/warp")
+
+        with self.assertMldbRaises(status_code=404) as exc:
+            mldb.get("/warp")
+        self.assertEqual(exc.exception.response.status_code, 404)
+
+        with self.assertRaises(AssertionError):
+            with self.assertMldbRaises(status_code=403):
+                mldb.get("/warp")
+
+        with self.assertRaises(AssertionError):
+            with self.assertMldbRaises(expected_regexp="rantanplan"):
+                mldb.get("/warp")
+
+        with self.assertMldbRaises(
+                expected_regexp="unknown resource GET /warp"):
+            mldb.get("/warp")
+
+        with self.assertMldbRaises(expected_regexp="resource GET"):
+            mldb.get("/warp")
 
 if __name__ == '__main__':
     mldb.run_tests()
