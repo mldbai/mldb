@@ -1676,6 +1676,9 @@ BoundFunction tokenize(const std::vector<BoundSqlExpression> & args)
                 while (it != bagOfWords.end()) {
                     if (check[4]) //values
                     {
+                        if (!values.isAtom())
+                          throw HttpReturnException(400, "requires 'value' argument be an atomic value, got type " + values.getTypeAsUtf8String());
+
                         row.emplace_back(ColumnName(it->first),
                                      values.getAtom(),
                                      ts);
