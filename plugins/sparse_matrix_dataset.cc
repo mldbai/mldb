@@ -805,6 +805,7 @@ SparseMatrixDataset::
 recordRowItl(const RowName & rowName,
              const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
 {
+    validateNames(rowName, vals);
     return itl->recordRow(rowName, vals);
 }
 
@@ -812,6 +813,7 @@ void
 SparseMatrixDataset::
 recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows)
 {
+    validateNames(rows);
     return itl->recordRows(rows);
 }
 
