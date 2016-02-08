@@ -11,7 +11,7 @@ if False:
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
 
-class PythonMldbInterfaceTest(unittest.TestCase):
+class PythonMldbInterfaceTest(MldbUnitTest): # noqa
 
     def test_log(self):
         mldb.log("Testing log")
@@ -93,6 +93,60 @@ class PythonMldbInterfaceTest(unittest.TestCase):
         res = response_exception.response
         self.assertEqual(res.status_code, 404)
         self.assertEqual(res.url, url)
+
+    def test_assert_table_result_equals(self):
+        url = '/v1/datasets/ds'
+        mldb.put(url, {
+            'type' : 'sparse.mutable'
+        })
+        mldb.post(url + '/rows', {
+            'rowName' : 'row1',
+            'columns' : [['colA', 1, 0]]
+        })
+        mldb.post(url + '/rows', {
+            'rowName' : 'row2',
+            'columns' : [['colB', 2, 1]]
+        })
+        mldb.post(url + '/commit')
+
+        res = mldb.query("SELECT colA, colB FROM ds ORDER BY rowName()")
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'colA', 'colB'],
+            ['row1', 1, None],
+            ['row2', None, 2]
+         ])
+
+    def test_assert_full_result_equals(self):
+        url = '/v1/datasets/ds'
+        mldb.put(url, {
+            'type' : 'sparse.mutable'
+        })
+        mldb.post(url + '/rows', {
+            'rowName' : 'row1',
+            'columns' : [['colA', 1, 0]]
+        })
+        mldb.post(url + '/rows', {
+            'rowName' : 'row2',
+            'columns' : [['colB', 2, 1]]
+        })
+        mldb.post(url + '/commit')
+
+        res = mldb.get('/v1/query',
+                       q="SELECT colA, colB FROM ds ORDER BY rowName()").json()
+        self.assertFullResultEquals(res, [
+            {
+                'rowName' : 'row1',
+                'columns' : [['colA', 1, '1970-01-01T00:00:00Z'],
+                             ['colB', None, '-Inf']]
+            },
+            {
+                'rowName' : 'row2',
+                'columns' : [
+                    ['colA', None, '-Inf'],
+                    ['colB', 2, '1970-01-01T00:00:01Z']]
+            }
+        ])
+
 
 if __name__ == '__main__':
     mldb.run_tests()

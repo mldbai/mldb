@@ -635,15 +635,23 @@ class mldb_wrapper(object):
                 self.script.set_return("success")
 
 class MldbUnitTest(unittest.TestCase):
-    def _assert_flat_result(self, res, expected):
-        if res[0][0] != '_rowName':
-            raise Exception("Cannot order rows if header is missing from "
-                            "response")
-        if expected[0][0] != '_rowName':
-            raise Exception("The first row of expected needs to be the header")
+    import json
+
+    longMessage = True # Appends the user message to the normal message
+
+    def _get_base_msg(self, res, expected):
+        return '{line}Result: {res}{line}Expected: {expected}'.format(
+            line='\n' + '*' * 10 + '\n',
+            res=MldbUnitTest.json.dumps(res, indent=4),
+            expected=MldbUnitTest.json.dumps(expected, indent=4))
+
+    def assertTableResultEquals(self, res, expected):
+        msg = self._get_base_msg(res, expected)
+        self.assertEqual(len(res), len(expected), msg)
+        self.assertNotEqual(len(res), 0, msg)
         res_keys = sorted(res[0])
         expected_keys = sorted(expected[0])
-        self.assertEqual(res_keys, expected_keys)
+        self.assertEqual(res_keys, expected_keys, msg)
 
         expected_order = {
             key: index for index, key in enumerate(expected[0])}
@@ -653,21 +661,15 @@ class MldbUnitTest(unittest.TestCase):
         for res_row, expected_row in zip(ordered_res, expected[1:]):
             self.assertEqual(res_row, expected_row)
 
-    def _assert_json_result(self, res, expected):
+    def assertFullResultEquals(self, res, expected):
+        msg = self._get_base_msg(res, expected)
+        self.assertEqual(len(res), len(expected), msg)
+        self.assertFalse(len(res) == 0, msg)
         for res_row, expected_row in zip(res, expected):
-            self.assertEqual(res_row["rowName"], expected_row["rowName"])
+            self.assertEqual(res_row["rowName"], expected_row["rowName"], msg)
             res_columns = sorted(res_row["columns"])
             expected_columns = sorted(expected_row["columns"])
-            self.assertEqual(res_columns, expected_columns)
-
-
-    def assertQueryResult(self, res, expected):
-        self.assertEqual(len(res), len(expected))
-        self.assertFalse(len(res) == 0)
-        if type(expected[0]) is dict:
-            self._assert_json_result(res, expected)
-        else:
-            self._assert_flat_result(res, expected)
+            self.assertEqual(res_columns, expected_columns, msg)
 
     )code"; //this is python code
 
