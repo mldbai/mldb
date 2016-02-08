@@ -1585,7 +1585,7 @@ void
 ParseTokenizeArguments(Utf8String& splitchar, Utf8String& quotechar,
                        int& offset, int& limit, int& min_token_length,
                        ML::distribution<float, std::vector<float> > & ngram_range,
-                       Utf8String& values, 
+                       ExpressionValue& values, 
                        bool check[7], const ExpressionValue::Row & argRow)
 {
     auto assertArg = [&] (size_t field, const string & name)
@@ -1615,7 +1615,7 @@ ParseTokenizeArguments(Utf8String& splitchar, Utf8String& quotechar,
         }
         else if (columnName == ColumnName("value")) {
             assertArg(4, "value");
-            values = std::get<1>(arg).toUtf8String();
+            values = std::get<1>(arg);
         }
         else if (columnName == ColumnName("min_token_length")) {
             assertArg(5, "min_token_length");
@@ -1654,7 +1654,7 @@ BoundFunction tokenize(const std::vector<BoundSqlExpression> & args)
                 int limit = -1;
                 int min_token_length = 1;
                 ML::distribution<float, std::vector<float> > ngram_range = {1, 1};
-                Utf8String values = "";
+                ExpressionValue values;
                 bool check[] = {false, false, false, false, false, false, false};
                 
                 if (args.size() == 2)
@@ -1677,7 +1677,7 @@ BoundFunction tokenize(const std::vector<BoundSqlExpression> & args)
                     if (check[4]) //values
                     {
                         row.emplace_back(ColumnName(it->first),
-                                     values,
+                                     values.getAtom(),
                                      ts);
                         ++it;
                     }
@@ -1721,7 +1721,7 @@ BoundFunction token_extract(const std::vector<BoundSqlExpression> & args)
                 int limit = 1;
                 int min_token_length = 1;
                 ML::distribution<float, std::vector<float> > ngram_range;
-                Utf8String values = "";
+                ExpressionValue values;
                 bool check[] = {false, false, false, false, false, false, false};                
 
                 int nth = args.at(1).toInt();
