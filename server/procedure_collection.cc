@@ -7,6 +7,7 @@
     Collection of procedures.
 */
 
+#include "mldb/rest/rest_request_binding.h"
 #include "mldb/rest/poly_collection_impl.h"
 #include "mldb/server/mldb_server.h"
 #include "mldb/server/procedure_collection.h"
@@ -99,6 +100,45 @@ initRoutes(RouteManager & manager)
     ProcedureRunCollection::initRoutes(*runManager);
 
     manager.childRoutes["runs"] = runManager;
+
+  RestRequestRouter::OnProcessRequest getLatestRun =
+      [=] (RestConnection & connection, const RestRequest & req,
+           const RestRequestParsingContext & context)
+    {
+        // load current procedure
+        Utf8String redirect("/v1/procedures/");
+        auto collection = manager.getCollection(context);
+        auto key = manager.getKey(context);
+        auto procedure = static_cast<Procedure *>(
+            collection->getExistingEntry(key).get());
+        redirect += key;
+
+        // load all runs
+        auto runs = procedure->runs.get();
+        auto keys = runs->getKeys();
+        if (keys.empty()) {
+            throw HttpReturnException(404, "not found");
+        }
+
+        // Find the latest run
+        Date latestRunDate = Date::negativeInfinity();
+        Utf8String winningKey("");
+        for (const auto & key: keys) {
+            auto * currentProc = runs->getExistingEntry(key).get();
+            if (latestRunDate < currentProc->runStarted) {
+                latestRunDate = currentProc->runStarted;
+                winningKey = key;
+            }
+        }
+        redirect += "/runs/" + winningKey;
+        connection.sendRedirect(302, redirect.rawString());
+        return RestRequestRouter::MR_YES;
+    };
+
+    Json::Value help;
+    auto & latestrun =
+        manager.valueNode->addSubRouter("/latestrun", "");
+    latestrun.addRoute("", { "GET" }, "Return latest run", getLatestRun, help);
 }
 
 Any

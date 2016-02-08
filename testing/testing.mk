@@ -259,6 +259,7 @@ $(eval $(call mldb_unit_test,MLDB-1353-EM.py))
 $(eval $(call mldb_unit_test,MLDB-1361_join_on_subselect.py))
 $(eval $(call mldb_unit_test,MLDB-1336-builtin-checks.py))
 
+
 $(eval $(call mldb_unit_test,pytanic_plugin_test.py))
 $(eval $(call python_test,mldb_merged_dataset_test,mldb_py_runner))
 
@@ -318,3 +319,4 @@ $(eval $(call mldb_unit_test,MLDBFB-192_row_name_as_string_test.py))
 $(eval $(call mldb_unit_test,MLDBFB-199_invalid_script_test.py))
 $(eval $(call mldb_unit_test,MLDBFB-208_procedure_params_overwrite_test.py))
 $(eval $(call mldb_unit_test,MLDB-687-svd-embed-row-single-column.js))
+$(eval $(call mldb_unit_test,MLDB-1359_procedure_latest_run.py))
