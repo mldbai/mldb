@@ -20,7 +20,7 @@ class TemporalTest(MldbUnitTest):
     after = '2016-01-03T12:23:34Z'
 
     @classmethod
-    def setUpClass(self):     
+    def setUpClass(self):
         # column values at three different times
         ds = mldb.create_dataset({
             'type': 'sparse.mutable',
@@ -38,20 +38,20 @@ class TemporalTest(MldbUnitTest):
         resp = mldb.query('select min(x) as min_x from dataset order by rowName()')
         mldb.log(resp)
 
-        self.assertQueryResult(resp,
+        self.assertTableResultEquals(resp,
             [
                 ["_rowName", "min_x"],
                 ["[]",  2 ]
             ]
         )
-        
+
     def test_temporal_min_returns_first_event(self):
         #temporal min on one column
-        resp = mldb.get('/v1/query', 
+        resp = mldb.get('/v1/query',
                         q = 'select temporal_min(x) as t_min_x from dataset order by rowName()',
                         format = 'full').json()
 
-        self.assertQueryResult(resp,
+        self.assertFullResultEquals(resp,
             [
                 {
                     "rowName": "row_1",
@@ -80,11 +80,11 @@ class TemporalTest(MldbUnitTest):
 
     def test_temporal_min_on_rows(self):
         #temporal min on one column
-        resp = mldb.get('/v1/query', 
+        resp = mldb.get('/v1/query',
                         q = 'select temporal_min({*}) as * from dataset order by rowName()',
                         format = 'full').json()
 
-        self.assertQueryResult(resp,
+        self.assertFullResultEquals(resp,
             [
                 {
                     "rowName": "row_1",
@@ -121,10 +121,5 @@ class TemporalTest(MldbUnitTest):
             ]
         )
 
-   
+
 mldb.run_tests()
-
-
-
-
-
