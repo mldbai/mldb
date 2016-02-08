@@ -1119,14 +1119,19 @@ overrideFunction(const Utf8String & tableName,
         // 1.  We need the rowName() function
         //auto rowName = context.getfunction("rowName");
 
-        return {[=] (const std::vector<ExpressionValue> & args,
+        return {[=] (const std::vector<BoundSqlExpression> & args,
                      const SqlRowScope & context) -> ExpressionValue
                 {
                     //cerr << "calling overridden distance with args " << jsonEncode(args)
                     //     << endl;
 
-                    auto row1 = args.at(1).getRow();
-                    Utf8String row2Name = args.at(2).toUtf8String();
+                    std::vector<ExpressionValue> evaluatedArgs;
+                    evaluatedArgs.reserve(args.size());
+                    for (auto & arg: args)
+                        evaluatedArgs.emplace_back(std::move(arg(context)));
+
+                    auto row1 = evaluatedArgs.at(1).getRow();
+                    Utf8String row2Name = evaluatedArgs.at(2).toUtf8String();
                     auto row2 = itl->getRow(RowName(row2Name)).columns;
 
                     // Work out the timestamp at which this was known
@@ -1138,7 +1143,7 @@ overrideFunction(const Utf8String & tableName,
 
                     //cerr << "row = " << jsonEncode(row) << endl;
 
-                    if (args.at(0).toUtf8String() == "pythag") {
+                    if (evaluatedArgs.at(0).toUtf8String() == "pythag") {
                         ExcAssertEqual(row1.size(), row2.size());
                         double total = 0.0;
                         for (unsigned i = 0;  i < row1.size();  ++i) {
@@ -1156,7 +1161,7 @@ overrideFunction(const Utf8String & tableName,
 
                         return ExpressionValue(sqrt(total), ts);
                     }
-                    else if (args.at(0).toUtf8String() == "cosine") {
+                    else if (evaluatedArgs.at(0).toUtf8String() == "cosine") {
                         ExcAssertEqual(row1.size(), row2.size());
                         size_t nd = row1.size();
                         
@@ -1173,7 +1178,7 @@ overrideFunction(const Utf8String & tableName,
 
                         return ExpressionValue(1 - vec1.dotprod(vec2) / (vec1.two_norm() * vec2.two_norm()), ts);
                     }
-                    else if (args.at(0).toUtf8String() == "angular") {
+                    else if (evaluatedArgs.at(0).toUtf8String() == "angular") {
                         ExcAssertEqual(row1.size(), row2.size());
                         size_t nd = row1.size();
                         
@@ -1192,7 +1197,7 @@ overrideFunction(const Utf8String & tableName,
                     }
                     
                     throw HttpReturnException(400,
-                                              "unknown distance metric " + args.at(0).toUtf8String());
+                                              "unknown distance metric " + evaluatedArgs.at(0).toUtf8String());
                 },
                 std::make_shared<Float64ValueInfo>() };
     }

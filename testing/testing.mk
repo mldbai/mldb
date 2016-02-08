@@ -253,6 +253,7 @@ $(eval $(call mldb_unit_test,MLDB-1273-classifier-row_input.py))
 $(eval $(call mldb_unit_test,MLDB-1305_rowNames_join.py))
 $(eval $(call mldb_unit_test,MLDB-1272-regression-training-failure.py,,manual)) #manual -- awaiting fix
 $(eval $(call mldb_unit_test,MLDB-1277-pooling-performance.py,,manual)) #manual -- awaiting fix
+$(eval $(call mldb_unit_test,MLDB-1235-temporal-aggregators.py))
 $(eval $(call mldb_unit_test,MLDB-1260-json-errors.py))
 $(eval $(call mldb_unit_test,MLDB-1239-utf8-literal.py))
 $(eval $(call mldb_unit_test,MLDB-1353-EM.py))
