@@ -27,9 +27,10 @@ class SampleTest(MldbUnitTest):
         mldb.get("/v1/query", q="select x from sample")
 
         # assert the result, all unittest asserts are available and
-        # assertQueryResult was added to facilitate validating query results
-        self.assertQueryResult(
-            mldb.query("select x from sample"), 
+        # assertTableResultEquals was added to facilitate validating query
+        # results
+        self.assertTableResultEquals(
+            mldb.query("select x from sample"),
             [
                 ["_rowName", "x"],
                 [       "a",  1 ]

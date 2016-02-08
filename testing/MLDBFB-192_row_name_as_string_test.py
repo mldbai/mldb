@@ -29,7 +29,7 @@ class RowNameAsStringTest(MldbUnitTest):
 
     def test_flat_result(self):
         res = mldb.query(self.__class__.query)
-        self.assertQueryResult(res, [
+        self.assertTableResultEquals(res, [
             ['_rowName', 'header'],
             ['2', 'val1'],
             ['3', 'val2']
