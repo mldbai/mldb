@@ -33,7 +33,6 @@ class ProcedureLatetRunTest(MldbUnitTest): # noqa
 
         res = mldb.get(url + '/latestrun').json()
         run_date = date_parser.parse(res['runStarted'])
-        mldb.log(run_date)
 
         time.sleep(0.01)
         mldb.put(url + '/runs/999')
