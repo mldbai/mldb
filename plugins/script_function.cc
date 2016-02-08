@@ -110,7 +110,7 @@ apply(const FunctionApplier & applier,
 
     Json::Value result = Json::parse(connection.response)["result"];
     
-    vector<tuple<Id, ExpressionValue>> vals;
+    vector<tuple<Coord, ExpressionValue>> vals;
     if(!result.isArray()) {
         throw ML::Exception("Function should return array of arrays.");
     }
@@ -119,7 +119,7 @@ apply(const FunctionApplier & applier,
         if(!elem.isArray() || elem.size() != 3)
             throw ML::Exception("elem should be array of size 3");
 
-        vals.push_back(make_tuple(Id(elem[0].asString()),
+        vals.push_back(make_tuple(Coord(elem[0].asString()),
                                   ExpressionValue(elem[1],
                                                   Date::parseIso8601DateTime(elem[2].asString()))));
     }

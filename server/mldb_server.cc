@@ -113,9 +113,19 @@ init(std::string configurationPath,
 {
     auto server = std::make_shared<StandalonePeerServer>();
 
+    preInit();
     initServer(server);
     initRoutes();
     initCollections(configurationPath, staticFilesPath, staticDocPath, hideInternalEntities);
+}
+
+void
+MldbServer::
+preInit()
+{
+    //Because of a multithread issue in boost, we need to call this to force boost::date_time to initialize in single thread
+    //better do it as early as possible
+    Date::now().weekday();
 }
 
 void

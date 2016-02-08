@@ -576,10 +576,10 @@ struct JoinedDataset::Itl
 
         MatrixNamedRow leftRow, rightRow;
 
-        if (row.leftName)
+        if (!row.leftName.empty())
             leftRow = matrices[0]->getRow(row.leftName);
 
-        if (row.rightName)
+        if (!row.rightName.empty())
             rightRow = matrices[1]->getRow(row.rightName);
         
         /// This function copies columns from a sub-row to the result of

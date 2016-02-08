@@ -603,7 +603,7 @@ bind(SqlBindingScope & context) const
                 rows.reserve(row.rowLength());
                 int n = 0;
 
-                auto onColumn = [&] (Id & columnName, ExpressionValue & val)
+                auto onColumn = [&] (Coord & columnName, ExpressionValue & val)
                 {
                     MatrixNamedRow row;
                     row.rowHash = row.rowName = ColumnName(to_string(n));

@@ -81,6 +81,13 @@ operator<< (const std::string & val)
     return *this;
 }
 
+CsvWriter&
+CsvWriter::
+operator<< (const Utf8String & val)
+{
+    return operator << (val.rawString());
+}
+
 void
 CsvWriter::
 endl()

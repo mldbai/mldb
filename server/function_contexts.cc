@@ -93,7 +93,7 @@ getAllColumnsFromFunctionImpl(const Utf8String & tableName,
             continue;
 
         ColumnName outputColumnName(outputName);
-        ColumnName inputColumnName(p.first.toId());
+        ColumnName inputColumnName(p.first.toCoord());
         toKeep.emplace_back(inputColumnName, outputColumnName);
 
         const FunctionValueInfo & functionValueInfo = p.second;

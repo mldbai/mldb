@@ -132,6 +132,7 @@ struct MldbServer: public ServicePeer, public EventRecorder {
     std::string httpBoundAddress;
 
 private:
+    void preInit();
     void initRoutes();
     void initCollections(std::string configurationPath,
                          std::string staticFilesPath,
