@@ -130,6 +130,7 @@ struct MldbServer: public ServicePeer, public EventRecorder {
     std::string getCacheDirectory() const;
 
 private:
+    void preInit();
     void initRoutes();
     void initCollections(std::string configurationPath,
                          std::string staticFilesPath,
