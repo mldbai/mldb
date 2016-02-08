@@ -94,5 +94,8 @@ class PythonMldbInterfaceTest(unittest.TestCase):
         self.assertEqual(res.status_code, 404)
         self.assertEqual(res.url, url)
 
+    def test_get_bound_http_address(self):
+        mldb.log(mldb.get_http_bound_address())
+
 if __name__ == '__main__':
     mldb.run_tests()

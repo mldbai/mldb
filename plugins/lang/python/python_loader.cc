@@ -585,6 +585,9 @@ class mldb_wrapper(object):
         def plugin(self):
             return self._mldb.plugin
 
+        def get_http_bound_address(self):
+            return self._mldb.get_http_bound_address()
+
         def get(self, url, **kwargs):
             query_string = []
             for k, v in kwargs.iteritems():
