@@ -525,6 +525,9 @@ class mldb_wrapper(object):
             return ('Response status code: {r.status_code}. '
                     'Response text: {r.text}'.format(r=self.response))
 
+    class TooManyRedirectsException(Exception):
+        pass
+
     class Response(object):
 
         def __init__(self, url, raw_response):
@@ -567,11 +570,28 @@ class mldb_wrapper(object):
                                                async=True)
             self.create_dataset = self._mldb.create_dataset
 
+        def _follow_redirect(self, url, counter):
+            # somewhat copy pasted from _perform, but gives a nicer stacktrace
+            # on failure
+            if counter == 0:
+                raise mldb_wrapper.TooManyRedirectsException()
+
+            raw_res = self._mldb.perform('GET', url)
+            response = mldb_wrapper.Response(url, raw_res)
+            if response.status_code < 200 or response.status_code >= 400:
+                raise mldb_wrapper.ResponseException(response)
+            if response.status_code >= 300:
+                return self._follow_redirect(response.headers['location'],
+                                             counter - 1)
+            return response
+
         def _perform(self, method, url, *args, **kwargs):
             raw_res = self._mldb.perform(method, url, *args, **kwargs)
             response = mldb_wrapper.Response(url, raw_res)
             if response.status_code < 200 or response.status_code >= 400:
                 raise mldb_wrapper.ResponseException(response)
+            if response.status_code >= 300:
+                return self._follow_redirect(response.headers['location'], 10)
             return response
 
         def log(self, thing):
