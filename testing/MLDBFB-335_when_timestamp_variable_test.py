@@ -27,7 +27,6 @@ class WhenValueTest(MldbUnitTest):
         ds.record_row('row1', [['time', cls.t, 0]])
         ds.commit()
 
-    @unittest.expectedFailure
     def test_it(self):
         # t is indeed equal to the stored timestamp
         t = self.__class__.t
@@ -37,11 +36,11 @@ class WhenValueTest(MldbUnitTest):
         # but fetching via a value vs a variable containing the same value
         # doesn't work
         res_value = mldb.query(
-            "SELECT * FROM merge(ds, timeDs) WHEN timestamp() <= '{}'"
+            "SELECT * FROM merge(ds, timeDs) WHEN timestamp() <= to_timestamp('{}')"
             .format(t))
         res_variable = mldb.query(
-            "SELECT * FROM merge(ds, timeDs) WHEN timestamp() <= time")
-        self.assertFullResultEquals(res_value, res_variable)
+            "SELECT * FROM merge(ds, timeDs) WHEN timestamp() <= to_timestamp(time)")
+        self.assertTableResultEquals(res_value, res_variable)
 
 if __name__ == '__main__':
     mldb.run_tests()
