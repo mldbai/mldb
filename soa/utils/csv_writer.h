@@ -33,6 +33,7 @@ struct CsvWriter {
     CsvWriter& operator<< (const Id & value);
     CsvWriter& operator<< (const char* str);
     CsvWriter& operator<< (const std::string & value);
+    CsvWriter& operator<< (const Utf8String & value);
 
     void endl();
 };

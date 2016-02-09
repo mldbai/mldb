@@ -60,8 +60,7 @@ tableNames() const
 
 PipelineExpressionScope::
 PipelineExpressionScope(std::shared_ptr<SqlBindingScope> context)
-    : ReadThroughBindingContext(*context),
-      context_(std::move(context))
+    : context_(context)
 {
 }
 
@@ -150,7 +149,7 @@ doGetVariable(const Utf8String & tableName, const Utf8String & variableName)
     }        
 
     // Otherwise, look for it in the enclosing scope
-    return ReadThroughBindingContext::doGetVariable(tableName, variableName);
+    return context_->doGetVariable(tableName, variableName);
 }
 
 GetAllColumnsOutput 
@@ -171,14 +170,14 @@ doGetAllColumns(const Utf8String & tableName,
         }
     }        
 
-    return ReadThroughBindingContext::doGetAllColumns(tableName, keep);
+    return context_->doGetAllColumns(tableName, keep);
 }
 
 BoundFunction
 PipelineExpressionScope::
 doGetFunction(const Utf8String & tableName,
               const Utf8String & functionName,
-              const std::vector<BoundSqlExpression> & args)
+              const std::vector<std::shared_ptr<SqlExpression> > & args)
 {
     if (tableName.empty()) {
         for (const TableEntry & t: defaultTables) {
@@ -204,14 +203,14 @@ doGetFunction(const Utf8String & tableName,
         }
     }        
 
-    return ReadThroughBindingContext::doGetFunction(tableName, functionName, args);
+    return SqlBindingScope::doGetFunction(tableName, functionName, args);
 }
 
 ColumnFunction
 PipelineExpressionScope::
 doGetColumnFunction(const Utf8String & functionName)
 {
-    return ReadThroughBindingContext::doGetColumnFunction(functionName);
+    return context_->doGetColumnFunction(functionName);
 }
 
 VariableGetter
@@ -235,6 +234,27 @@ doGetBoundParameter(const Utf8String & paramName)
         };
         
     return { exec, info };
+}
+
+MldbServer * 
+PipelineExpressionScope::
+getMldbServer() const
+{
+    return context_->getMldbServer();
+}
+
+std::shared_ptr<Dataset>
+PipelineExpressionScope::
+doGetDataset(const Utf8String & datasetName)
+{
+    return context_->doGetDataset(datasetName);
+}
+
+std::shared_ptr<Dataset>
+PipelineExpressionScope::
+doGetDatasetFromConfig(const Any & datasetConfig)
+{
+     return context_->doGetDatasetFromConfig(datasetConfig);
 }
 
 PipelineExpressionScope::TableEntry::
@@ -261,11 +281,10 @@ doGetAllColumns(std::function<Utf8String (const Utf8String &)> keep) const
 BoundFunction
 PipelineExpressionScope::TableEntry::
 doGetFunction(const Utf8String & functionName,
-              const std::vector<BoundSqlExpression> & args) const
+              const std::vector<std::shared_ptr<SqlExpression> > & args) const
 {
     return scope->doGetFunction(functionName, args, fieldOffset);
 }
-
 
 /*****************************************************************************/
 /* ELEMENT EXECUTOR                                                          */

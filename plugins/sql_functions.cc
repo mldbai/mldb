@@ -535,7 +535,7 @@ run(const ProcedureRunConfig & run,
     bool skipEmptyRows = procedureConfig.skipEmptyRows;
 
     // Run it
-    if (procedureConfig.inputData.stm->groupBy.clauses.empty()) {
+    if (procedureConfig.inputData.stm->groupBy.clauses.empty() && aggregators.empty()) {
 
         // We accumulate multiple rows per thread and insert with recordRows
         // to be more efficient.

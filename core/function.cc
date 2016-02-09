@@ -21,6 +21,9 @@ using namespace std;
 namespace Datacratic {
 
 
+using MLDB::Coord;
+
+
 /*****************************************************************************/
 /* VALUE MAP KEY                                                             */
 /*****************************************************************************/
@@ -39,7 +42,7 @@ ValueMapKey(Utf8String strIn)
 }
 
 ValueMapKey::
-ValueMapKey(const Id & id)
+ValueMapKey(const Coord & id)
     : str(id.toUtf8String()), utf8Start(str.rawData()),
       utf8Len(str.rawLength())
 {
@@ -48,6 +51,20 @@ ValueMapKey(const Id & id)
 ValueMapKey::
 ValueMapKey(const char * utf8Start, size_t utf8Len)
     : utf8Start(utf8Start), utf8Len(utf8Len)
+{
+}
+
+ValueMapKey::
+ValueMapKey(const char * utf8Start)
+    : utf8Start(utf8Start), utf8Len(strlen(utf8Start))
+{
+}
+
+ValueMapKey::
+ValueMapKey(std::string strIn)
+    : str(std::move(strIn)),
+      utf8Start(str.rawData()),
+      utf8Len(str.rawLength())
 {
 }
 
@@ -67,18 +84,17 @@ ref(const std::string & name)
 
 ValueMapKey
 ValueMapKey::
-ref(const Id & name)
+ref(const Coord & name)
 {
-    if (name.type == Id::SHORTSTR || name.type == Id::STR)
-        return ValueMapKey(name.stringData(), name.toStringLength());
-    else return ValueMapKey(name.toUtf8String());
+    // TODO: really a reference...
+    return ValueMapKey(name);
 }
 
-Id
+Coord
 ValueMapKey::
-toId() const
+toCoord() const
 {
-    return Id(utf8Start, utf8Len);
+    return Coord(utf8Start, utf8Len);
 }
 
 Utf8String
@@ -248,7 +264,7 @@ FunctionOutputDescription()
 FunctionOutput::
 FunctionOutput(ExpressionValue val)
 {
-    auto onColumn = [&] (Id & columnName,
+    auto onColumn = [&] (Coord & columnName,
                          ExpressionValue & val)
         {
             this->set(std::move(columnName), std::move(val));
@@ -596,6 +612,20 @@ addAtomValue(const std::string & name)
 
 void
 FunctionValues::
+addStringValue(const std::string & name)
+{
+    addValue(Utf8String(name), std::make_shared<Utf8StringValueInfo>());
+}
+
+void
+FunctionValues::
+addTimestampValue(const std::string & name)
+{
+    addValue(Utf8String(name), std::make_shared<TimestampValueInfo>());
+}
+
+void
+FunctionValues::
 addBlobValue(const std::string & name)
 {
     addValue(Utf8String(name), std::make_shared<BlobValueInfo>());
@@ -672,7 +702,7 @@ toRowInfo() const
     vector<KnownColumn> knownColumns;
 
     for (auto & p: values) {
-        knownColumns.emplace_back(p.first.toId(), p.second.valueInfo,
+        knownColumns.emplace_back(p.first.toCoord(), p.second.valueInfo,
                                   COLUMN_IS_DENSE);
     }
 

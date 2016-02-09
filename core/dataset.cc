@@ -442,6 +442,32 @@ recordColumns(const std::vector<std::pair<ColumnName, std::vector<std::tuple<Row
 
 void
 Dataset::
+recordRowExpr(const RowName & rowName,
+              const ExpressionValue & expr)
+{
+    RowValue row;
+    expr.appendToRow(ColumnName(), row);
+    recordRow(rowName, std::move(row));
+}
+
+void
+Dataset::
+recordRowsExpr(const std::vector<std::pair<RowName, ExpressionValue> > & rows)
+{
+    std::vector<std::pair<RowName, RowValue> > rowsOut;
+    rowsOut.reserve(rows.size());
+    for (auto & r: rows) {
+        const RowName & rowName = r.first;
+        const ExpressionValue & expr = r.second;
+        RowValue row;
+        expr.appendToRow(ColumnName(), row);
+        rowsOut.emplace_back(rowName, std::move(row));
+    }
+    recordRows(std::move(rowsOut));
+}
+
+void
+Dataset::
 recordEmbedding(const std::vector<ColumnName> & columnNames,
                 const std::vector<std::tuple<RowName, std::vector<float>, Date> > & rows)
 {

@@ -153,8 +153,6 @@ PythonPlugin(MldbServer * server,
     PythonSubinterpreter pyControl(isChild);
     addPluginPathToEnv(pyControl);
 
-
-
     try {
         JML_TRACE_EXCEPTIONS(false);
         pyControl.main_namespace["mldb"] =
@@ -507,6 +505,7 @@ injectMldbWrapper(PythonSubinterpreter & pyControl)
 {
     std::string code = R"code(
 
+import unittest
 
 class mldb_wrapper(object):
 
@@ -516,7 +515,10 @@ class mldb_wrapper(object):
     def wrap(mldb):
         return Wrapped(mldb)
 
-    class ResponseException(Exception):
+    class MldbBaseException(Exception):
+        pass
+
+    class ResponseException(MldbBaseException):
         def __init__(self, response):
             self.response = response
 
@@ -586,6 +588,9 @@ class mldb_wrapper(object):
         def plugin(self):
             return self._mldb.plugin
 
+        def get_http_bound_address(self):
+            return self._mldb.get_http_bound_address()
+
         def get(self, url, **kwargs):
             query_string = []
             for k, v in kwargs.iteritems():
@@ -612,7 +617,6 @@ class mldb_wrapper(object):
             ]).json()
 
         def run_tests(self):
-            import unittest
             import StringIO
             io_stream = StringIO.StringIO()
             runner = unittest.TextTestRunner(stream=io_stream, verbosity=2,
@@ -633,6 +637,85 @@ class mldb_wrapper(object):
 
             if res.wasSuccessful():
                 self.script.set_return("success")
+
+
+class MldbUnitTest(unittest.TestCase):
+    import json
+
+    longMessage = True # Appends the user message to the normal message
+
+    class _AssertMldbRaisesContext(object):
+        """A context manager used to implement TestCase.assertRaises* methods.
+        Inspired from python unittests.
+        """
+
+        def __init__(self, test_case, expected_regexp=None, status_code=None):
+            self.failureException = test_case.failureException
+            self.expected_regexp = expected_regexp
+            self.status_code = status_code
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_value, tb):
+            if exc_type is None:
+                raise self.failureException(
+                    "{0} not raised".format(mldb_wrapper.MldbBaseException))
+            if not issubclass(exc_type, mldb_wrapper.MldbBaseException):
+                # let unexpected exceptions pass through
+                return False
+            self.exception = exc_value # store for later retrieval
+            if self.expected_regexp:
+                import re
+                expected_regexp = self.expected_regexp
+                if isinstance(expected_regexp, basestring):
+                    expected_regexp = re.compile(expected_regexp)
+                if not expected_regexp.search(str(exc_value.response.text)):
+                    raise self.failureException('"%s" does not match "%s"' %
+                        (expected_regexp.pattern,
+                         str(exc_value.response.text)))
+            if self.status_code:
+                if exc_value.response.status_code != self.status_code:
+                    raise self.failureException(
+                        "Status codes are not equal: {} != {}".format(
+                            exc_value.response.status_code, self.status_code))
+            return True
+
+    def _get_base_msg(self, res, expected):
+        return '{line}Result: {res}{line}Expected: {expected}'.format(
+            line='\n' + '*' * 10 + '\n',
+            res=MldbUnitTest.json.dumps(res, indent=4),
+            expected=MldbUnitTest.json.dumps(expected, indent=4))
+
+    def assertTableResultEquals(self, res, expected, msg=""):
+        msg += self._get_base_msg(res, expected)
+        self.assertEqual(len(res), len(expected), msg)
+        self.assertNotEqual(len(res), 0, msg)
+        res_keys = sorted(res[0])
+        expected_keys = sorted(expected[0])
+        self.assertEqual(res_keys, expected_keys, msg)
+
+        expected_order = {
+            key: index for index, key in enumerate(expected[0])}
+
+        reorder_directives = [expected_order[key] for key in res[0]]
+        ordered_res = [[v[pos] for pos in reorder_directives] for v in res[1:]]
+        for res_row, expected_row in zip(ordered_res, expected[1:]):
+            self.assertEqual(res_row, expected_row)
+
+    def assertFullResultEquals(self, res, expected, msg=""):
+        msg += self._get_base_msg(res, expected)
+        self.assertEqual(len(res), len(expected), msg)
+        self.assertFalse(len(res) == 0, msg)
+        for res_row, expected_row in zip(res, expected):
+            self.assertEqual(res_row["rowName"], expected_row["rowName"], msg)
+            res_columns = sorted(res_row["columns"])
+            expected_columns = sorted(expected_row["columns"])
+            self.assertEqual(res_columns, expected_columns, msg)
+
+    def assertMldbRaises(self, expected_regexp=None, status_code=None):
+        return MldbUnitTest._AssertMldbRaisesContext(self, expected_regexp,
+                                                     status_code)
 
     )code"; //this is python code
 
@@ -840,6 +923,7 @@ struct AtInit {
         mldb.def("read_lines", readLines);
         mldb.def("read_lines", readLines1);
         mldb.def("ls", ls);
+        mldb.def("get_http_bound_address", getHttpBoundAddress);
         mldb.def("create_dataset",
                    &DatasetPy::createDataset,
                    bp::return_value_policy<bp::manage_new_object>());

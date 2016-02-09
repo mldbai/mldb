@@ -264,11 +264,13 @@ toUtf8String() const
     switch (type) {
     case ST_UTF8_SHORT_STRING:
     case ST_ASCII_SHORT_STRING:
-        return Utf8String(shortString, strLength);
+    case ST_SHORT_BLOB:
+        return Utf8String((const char *)shortString, (size_t)strLength);
     case ST_UTF8_LONG_STRING:
     case ST_ASCII_LONG_STRING:
+    case ST_LONG_BLOB:
         try {
-            return Utf8String(longString->repr, strLength);
+            return Utf8String(longString->repr, (size_t)strLength);
         } catch (...) {
             for (unsigned i = 0;  i < strLength;  ++i) {
                 cerr << "char at index " << i << " of " << strLength << " is "
@@ -292,7 +294,7 @@ toWideString() const
         
     case ST_UTF8_SHORT_STRING:
     case ST_UTF8_LONG_STRING: {
-        Utf8String str(stringChars(), strLength);
+        Utf8String str(stringChars(), (size_t)strLength);
         return std::basic_string<char32_t>(str.begin(), str.end());
     }
     default: {
@@ -1095,8 +1097,16 @@ struct CellValueDescription: public ValueDescriptionT<CellValue> {
                 throw HttpReturnException(400, "Unknown JSON CellValue '" + v.toStringNoNewLine() + "'");
             }
         }
-        else throw HttpReturnException(400, "Unknown cell value",
-                                       "json", context.expectJson().toStringNoNewLine());
+        else if (context.isBool()) {
+            *val = CellValue(context.expectBool());
+        }
+        else {
+            Json::Value val = context.expectJson();
+            cerr << "val = " << val << endl;
+            throw HttpReturnException(400, "Unknown cell value",
+                                      "json",
+                                      val.toStringNoNewLine());
+        }
     }
 
     virtual void printJsonTyped(const CellValue * val,

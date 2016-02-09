@@ -574,8 +574,13 @@ struct JoinedDataset::Itl
         result.rowName = rowName;
         result.rowHash = rowName;
 
-        auto leftRow = matrices[0]->getRow(row.leftName);
-        auto rightRow = matrices[1]->getRow(row.rightName);
+        MatrixNamedRow leftRow, rightRow;
+
+        if (!row.leftName.empty())
+            leftRow = matrices[0]->getRow(row.leftName);
+
+        if (!row.rightName.empty())
+            rightRow = matrices[1]->getRow(row.rightName);
         
         /// This function copies columns from a sub-row to the result of
         /// the function.
@@ -875,7 +880,7 @@ overrideFunction(const Utf8String & tableName,
 
         if (tableSide != JoinedDataset::Itl::JOIN_SIDE_MAX)
         {
-            return {[&, tableSide] (const std::vector<ExpressionValue> & args,
+            return {[&, tableSide] (const std::vector<BoundSqlExpression> & args,
                      const SqlRowScope & context)
                 { 
                     auto & row = static_cast<const SqlExpressionDatasetContext::RowContext &>(context);
@@ -892,7 +897,7 @@ overrideFunction(const Utf8String & tableName,
 
         if (tableSide != JoinedDataset::Itl::JOIN_SIDE_MAX)
         {
-            return {[&, tableName, tableSide] (const std::vector<ExpressionValue> & args,
+            return {[&, tableName, tableSide] (const std::vector<BoundSqlExpression> & args,
                      const SqlRowScope & context)
                 {
                     auto & row = static_cast<const SqlExpressionDatasetContext::RowContext &>(context);

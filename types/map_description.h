@@ -34,7 +34,7 @@ long long int stringToKey(const std::string & str, long long int *);
 unsigned long long int stringToKey(const std::string & str, unsigned long long int *);
 
 template<typename T>
-inline std::string keyToString(const T & key)
+inline Utf8String keyToString(const T & key)
 {
     using std::to_string;
     return to_string(key);

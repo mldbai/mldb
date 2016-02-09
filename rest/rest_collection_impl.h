@@ -157,14 +157,14 @@ clear()
     // Not doing for the moment, since focus is on stability not the last
     // 5% of performance.
     // auto exclusiveLock = impl->childWatches.getExclusiveAccess();
-    
+
     for (auto & e: *cleanup) {
         // First, wait until it has actually be cleaned up
         if (e.second.underConstruction) {
             // Stop it, and wait for it to finish
             e.second.underConstruction->cancel();
             ExcAssert(e.second.underConstruction->cancelled);
-            
+
             // Note that even if there is a race condition where the
             // construction finished after we swapped the collections,
             // it will be blocked on the mutateMutex in addEntryItl,
@@ -182,7 +182,7 @@ clear()
                 event.object = e.second.value.get();
                 event.entity = getChildEntity(e.second.value.get());
                 event.value = e.second.value;
-            
+
                 //cerr << "triggering child watch for delete on " << event.name << endl;
 
                 impl->childWatches.trigger(event);
@@ -227,12 +227,12 @@ initNodes(RouteManager & result)
         {
             context.addObject(result.getCollection(context));
         };
-    
+
     RestRequestRouter & collectionNode
         = parentNode.addSubRouter("/" + nounPlural,
                                   "Operations on collection of " + nounPlural,
                                   getCollection);
-    
+
     result.collectionNode = &collectionNode;
 
     /* This is called after the entity name has been parsed.  It looks it up in the
@@ -247,7 +247,7 @@ initNodes(RouteManager & result)
 
             Utf8String resource = context.resources.back();
             Key key = restDecode(resource, (Key *)0);
-            
+
             std::shared_ptr<Value> ptr;
             std::shared_ptr<BackgroundTask> task;
 
@@ -306,7 +306,7 @@ initNodes(RouteManager & result)
         = collectionNode.addSubRouter(Rx("/([^/]*)", "/<" + nounSingular + ">"),
                                       "operations on an individual " + nounSingular,
                                       getElement);
-    
+
     result.valueNode = &valueNode;
 }
 
@@ -327,7 +327,7 @@ initRoutes(RouteManager & result)
     help["result"] = nounPlural + " in the collection";
 
     auto validater = createRequestValidater(help, {});
-    
+
     auto getCollectionRoute = [=] (RestConnection & connection,
                                    const RestRequest & req,
                                    const RestRequestParsingContext & cxt)
@@ -352,7 +352,7 @@ initRoutes(RouteManager & result)
                                     "Get a list of " + nounPlural
                                     + " in the collection",
                                     getCollectionRoute, help);
-    
+
     help["result"] = nounPlural + " in the collection";
 
     validater = createRequestValidater(help, {});
@@ -376,12 +376,12 @@ initRoutes(RouteManager & result)
                 return sendExceptionResponse(connection, exc);
             }
         };
-    
+
     result.valueNode->addRoute("", { "GET" },
                                "Get the status of a " + nounSingular,
                                getValueRoute, help);
 }
-    
+
 template<typename Key, class Value>
 RestRequestMatchResult
 RestCollection<Key, Value>::
@@ -536,7 +536,7 @@ addBackgroundJobInThread(Key key,
                 auto task = entry.underConstruction;
 
                 ExcAssert(task);
-                
+
                 std::unique_lock<std::mutex> guard(task->mutex);
 
                 // MLDB-748 - bail out if the task is not completed
@@ -555,7 +555,7 @@ addBackgroundJobInThread(Key key,
         // Set up the task, without starting it yet
         auto task = std::make_shared<BackgroundTask>();
         task->config = std::move(config);
-        
+
         auto onProgressFn = [=] (const Json::Value & progress)
             {
                 std::unique_lock<std::mutex> guard(task->mutex);
@@ -590,13 +590,13 @@ addBackgroundJobInThread(Key key,
                 Key keyCopy = key;
                 this->finishedBackgroundJob(std::move(keyCopy), std::move(taskCopy), mustBeNewEntry);
             };
-        
+
         auto & entry = (*newEntries)[key];
         entry.underConstruction = task;
 
         if (onDone)
             task->onDoneFunctions.push_back(onDone);
-        
+
         std::atomic_thread_fence(std::memory_order_release);
 
         if (impl->entries.cmp_xchg(oldEntries, newEntries, true)) {
@@ -606,14 +606,14 @@ addBackgroundJobInThread(Key key,
             std::thread thread(toRun);
 
             auto handle = thread.native_handle();
-            
+
             task->setHandle(handle);
-            
+
             // The thread runs independently and cleans itself up
             thread.detach();
             return;
         }
-        
+
         // RCU failed because something raced us to update.  Try again.
     }
 }
@@ -775,7 +775,7 @@ replaceEntryItl(Key key,
                 event.object = val.get();
                 event.entity = getChildEntity(val.get());
                 event.value = val;
-                
+
                 impl->childWatches.trigger(event);
             }
             //onNewEntry(key, *val);
@@ -963,7 +963,7 @@ forEachEntry(const std::function<bool (Key key, Value & value)> & fn)
     GcLock::SharedGuard guard(impl->entriesLock);
 
     auto es = impl->entries.getImmutable();
-    
+
     size_t sz = es->size();
 
     for (auto & e: *es) {
@@ -971,7 +971,7 @@ forEachEntry(const std::function<bool (Key key, Value & value)> & fn)
         if (e.second.value && !fn(e.first, *e.second.value))
             return false;
     }
-    
+
     ExcAssertEqual(es->size(), sz);
 
     return true;
@@ -990,7 +990,7 @@ forEachEntry(const std::function<bool (Key key, const Value & value)> & fn) cons
         if (e.second.value && !fn(e.first, *e.second.value))
             return false;
     }
-    
+
     return true;
 }
 
@@ -1048,11 +1048,11 @@ watchElements(const Utf8String & spec, bool catchUp, Any info)
 
     if (!catchUp)
         return impl->childWatches.add(std::move(info), filter);
-    
+
     // Take an exclusive lock on mutation so that nothing can interleave
     // events with our catchup events.
     std::unique_lock<typename Impl::MutateMutex> mutateGuard(impl->mutateMutex);
-    
+
     // We create this after we take the lock so that nothing can squeeze
     // in an event between when it was created and when it was caught up
     auto res = impl->childWatches.add(std::move(info), filter);
@@ -1063,7 +1063,7 @@ watchElements(const Utf8String & spec, bool catchUp, Any info)
 
         GcLock::SharedGuard guard(impl->entriesLock);
         auto es = impl->entries.getImmutable();
-    
+
         for (auto & e: *es) {
             if (e.second.value) {
                 ChildEvent event;
@@ -1099,7 +1099,7 @@ watchElements(const Utf8String & spec, bool catchUp, Any info)
         else {
             event.event = CE_DELETED;
         }
-        
+
         res.trigger(event);
     }
     return res;
@@ -1189,7 +1189,7 @@ getWatchBoundType(const ResourceSpec & spec)
         return make_pair(&typeid(std::tuple<ChildEvent>), nullptr);
     else if (spec[0].channel == "names")
         return make_pair(&typeid(std::tuple<Utf8String>), nullptr);
-    else throw HttpReturnException(400, 
+    else throw HttpReturnException(400,
                                    ML::format("type %s doesn't have channel named '%s'",
                                               ML::type_name(*this).c_str(),
                                               spec[0].channel.rawData()));
@@ -1219,7 +1219,7 @@ acceptLink(const std::vector<Utf8String> & sourcePath,
     auto el = getChildEntity(val.get());
     if (!el)
         throw HttpReturnException(400, "Collection elements are not RestEntities");
-    
+
     return el->acceptLink(sourcePath, path, linkType, linkParams);
 }
 
@@ -1228,7 +1228,7 @@ acceptLink(const std::vector<Utf8String> & sourcePath,
 /* REST CONFIGURABLE COLLECTION                                              */
 /*****************************************************************************/
 
-template<typename Key, typename Value, 
+template<typename Key, typename Value,
          typename Config, typename Status>
 RestConfigurableCollection<Key, Value, Config, Status>::
 RestConfigurableCollection(const Utf8String & nounSingular,
@@ -1244,7 +1244,7 @@ RestConfigurableCollection(const Utf8String & nounSingular,
                               std::placeholders::_1));
 }
 
-template<typename Key, typename Value, 
+template<typename Key, typename Value,
          typename Config, typename Status>
 RestConfigurableCollection<Key, Value, Config, Status>::
 ~RestConfigurableCollection()
@@ -1252,7 +1252,7 @@ RestConfigurableCollection<Key, Value, Config, Status>::
     this->shutdown();
 }
 
-template<typename Key, typename Value, 
+template<typename Key, typename Value,
          typename Config, typename Status>
 Key
 RestConfigurableCollection<Key, Value, Config, Status>::
@@ -1289,7 +1289,7 @@ obtainAsync(Config config,
     return key;
 }
 
-template<typename Key, typename Value, 
+template<typename Key, typename Value,
          typename Config, typename Status>
 std::shared_ptr<Value>
 RestConfigurableCollection<Key, Value, Config, Status>::
@@ -1315,14 +1315,14 @@ obtainSync(Config config,
     auto key = obtainAsync(config, onProgress, onDone);
 
     done.lock();
-    
+
     //using namespace std;
     //cerr << "obtainAsync for " << restEncode(key) << " returned" << endl;
 
     return result;
 }
 
-template<typename Key, typename Value, 
+template<typename Key, typename Value,
          typename Config, typename Status>
 std::shared_ptr<Value>
 RestConfigurableCollection<Key, Value, Config, Status>::
@@ -1344,7 +1344,7 @@ mustObtainSync(Config config,
     return result;
 }
 
-template<typename Key, typename Value, 
+template<typename Key, typename Value,
          typename Config, typename Status>
 std::shared_ptr<Value>
 RestConfigurableCollection<Key, Value, Config, Status>::
@@ -1369,9 +1369,9 @@ mustCreateSync(Config config,
         // NOTE: Should not be necessary... investigation needed.  See
         // the comment above.
         GcLock::SharedGuard guard(this->impl->entriesLock);
-        
+
         auto es = this->impl->entries.getImmutable();
-        
+
         if (es->count(key)) {
             if (!overwrite)
                 this->throwEntryAlreadyExists(key);
@@ -1392,11 +1392,11 @@ mustCreateSync(Config config,
 
         this->throwEntryNotObtained(key);
     }
-    
+
     return result;
 }
 
-template<typename Key, typename Value, 
+template<typename Key, typename Value,
          typename Config, typename Status>
 std::shared_ptr<Value>
 RestConfigurableCollection<Key, Value, Config, Status>::
@@ -1410,7 +1410,7 @@ constructCancellable(Config config,
     return construct(config, onProgress);
 }
 
-template<typename Key, typename Value, 
+template<typename Key, typename Value,
          typename Config, typename Status>
 std::shared_ptr<Value>
 RestConfigurableCollection<Key, Value, Config, Status>::
@@ -1422,7 +1422,7 @@ construct(Config config,
     return nullptr;
 }
 
-template<typename Key, typename Value, 
+template<typename Key, typename Value,
          typename Config, typename Status>
 RestRequestMatchResult
 RestConfigurableCollection<Key, Value, Config, Status>::
@@ -1436,7 +1436,7 @@ handleGetValue(Key key,
     return RestRequestRouter::MR_YES;
 }
 
-template<typename Key, typename Value, 
+template<typename Key, typename Value,
          typename Config, typename Status>
 Status
 RestConfigurableCollection<Key, Value, Config, Status>::
@@ -1449,7 +1449,7 @@ getStatus(Key key) const
     else return getStatusFinished(key, *entries.first);
 }
 
-template<typename Key, typename Value, 
+template<typename Key, typename Value,
          typename Config, typename Status>
 Status
 RestConfigurableCollection<Key, Value, Config, Status>::
@@ -1463,7 +1463,7 @@ getStatusLoading(Key key, const BackgroundTask & task) const
 void validatePayloadForPut(const RestRequest & req,
                            const Utf8String & nounPlural);
 
-template<typename Key, typename Value, 
+template<typename Key, typename Value,
          typename Config, typename Status>
 void
 RestConfigurableCollection<Key, Value, Config, Status>::RouteManager::
@@ -1482,7 +1482,7 @@ addPutRoute()
     v2["location"] = "Request Body";
 
     auto validater = createRequestValidater(help, {});
-    
+
 
     RestRequestRouter::OnProcessRequest putAsyncRoute
         = [=] (RestConnection & connection,
@@ -1513,7 +1513,7 @@ addPutRoute()
 
                 connection.sendHttpResponse(201, jsonEncodeStr(status),
                                             "application/json", headers);
-                
+
                 return RestRequestRouter::MR_YES;
             } catch (const std::exception & exc) {
                 return sendExceptionResponse(connection, exc);
@@ -1553,7 +1553,7 @@ addPutRoute()
 
                 connection.sendHttpResponse(201, jsonEncodeStr(status),
                                             "application/json", headers);
-                
+
                 return RestRequestRouter::MR_YES;
             } catch (const std::exception & exc) {
                 return sendExceptionResponse(connection, exc);
@@ -1563,7 +1563,7 @@ addPutRoute()
     this->valueNode->addRoute("", { "PUT" },
                               "Create a new " + this->nounSingular
                               + " and wait for it to appear",
-                              putSyncRoute, help);    
+                              putSyncRoute, help);
 }
 
 // in rest_collection.cc.  Checks that the payload isn't empty and throws
@@ -1571,7 +1571,7 @@ addPutRoute()
 void validatePayloadForPost(const RestRequest & req,
                             const Utf8String & nounPlural);
 
-template<typename Key, typename Value, 
+template<typename Key, typename Value,
          typename Config, typename Status>
 void
 RestConfigurableCollection<Key, Value, Config, Status>::RouteManager::
@@ -1618,7 +1618,7 @@ addPostRoute()
 
                 connection.sendHttpResponse(201, jsonEncodeStr(status),
                                             "application/json", headers);
-                
+
                 return RestRequestRouter::MR_YES;
             } catch (const std::exception & exc) {
                 return sendExceptionResponse(connection, exc);
@@ -1654,7 +1654,7 @@ addPostRoute()
 
                 connection.sendHttpResponse(201, jsonEncodeStr(status),
                                             "application/json", headers);
-                
+
                 return RestRequestRouter::MR_YES;
             } catch (const std::exception & exc) {
                 return sendExceptionResponse(connection, exc);
@@ -1671,7 +1671,7 @@ addPostRoute()
                                    postWaitRoute, help);
 }
 
-template<typename Key, typename Value, 
+template<typename Key, typename Value,
          typename Config, typename Status>
 void
 RestConfigurableCollection<Key, Value, Config, Status>::RouteManager::
@@ -1681,7 +1681,7 @@ addDeleteRoute()
     help["description"] = "Delete the given " + this->nounSingular;
 
     auto validater = createRequestValidater(help, {});
-    
+
     RestRequestRouter::OnProcessRequest deleteRoute
         = [=] (RestConnection & connection,
                const RestRequest & req,
@@ -1698,20 +1698,20 @@ addDeleteRoute()
                 collection->handleDelete(key);
 
                 connection.sendHttpResponse(204, "", "", {});
-                
+
                 return RestRequestRouter::MR_YES;
             } catch (const std::exception & exc) {
                 return sendExceptionResponse(connection, exc);
             }
         };
 
-    
+
     this->valueNode->addRoute("", { "DELETE" },
                               "Delete the " + this->nounSingular,
                               deleteRoute, help);
 }
 
-template<typename Key, typename Value, 
+template<typename Key, typename Value,
          typename Config, typename Status>
 void
 RestConfigurableCollection<Key, Value, Config, Status>::
@@ -1735,7 +1735,7 @@ loadConfig()
     }
 }
 
-template<typename Key, typename Value, 
+template<typename Key, typename Value,
          typename Config, typename Status>
 bool
 RestConfigurableCollection<Key, Value, Config, Status>::
@@ -1745,7 +1745,7 @@ objectIsPersistent(const Key & key, const Config & config) const
 }
 
 
-template<typename Key, typename Value, 
+template<typename Key, typename Value,
          typename Config, typename Status>
 bool
 RestConfigurableCollection<Key, Value, Config, Status>::
@@ -1784,7 +1784,7 @@ handlePutItl(Key key, Config config,  const OnDone & onDone, bool mustBeNew)
     return backgroundCreate;
 }
 
-template<typename Key, typename Value, 
+template<typename Key, typename Value,
          typename Config, typename Status>
 Status
 RestConfigurableCollection<Key, Value, Config, Status>::
@@ -1795,7 +1795,7 @@ handlePut(Key key, Config config, bool mustBeNew /* = false */)
 }
 
 
-template<typename Key, typename Value, 
+template<typename Key, typename Value,
          typename Config, typename Status>
 Status
 RestConfigurableCollection<Key, Value, Config, Status>::
@@ -1829,7 +1829,7 @@ handlePutSync(Key key, Config config, bool mustBeNew /* = false */)
     }
 }
 
-template<typename Key, typename Value, 
+template<typename Key, typename Value,
          typename Config, typename Status>
 void
 RestConfigurableCollection<Key, Value, Config, Status>::
@@ -1841,7 +1841,7 @@ handleDelete(Key key)
     }
 }
 
-template<typename Key, typename Value, 
+template<typename Key, typename Value,
          typename Config, typename Status>
 Status
 RestConfigurableCollection<Key, Value, Config, Status>::
@@ -1850,7 +1850,7 @@ handlePost(Key key, Config config, bool mustBeNew)
     return handlePut(key, std::move(config), mustBeNew);
 }
 
-template<typename Key, typename Value, 
+template<typename Key, typename Value,
          typename Config, typename Status>
 Status
 RestConfigurableCollection<Key, Value, Config, Status>::
@@ -1859,7 +1859,7 @@ handlePostSync(Key key, Config config, bool mustBeNew)
     return handlePutSync(key, std::move(config), mustBeNew);
 }
 
-template<typename Key, typename Value, 
+template<typename Key, typename Value,
          typename Config, typename Status>
 void
 RestConfigurableCollection<Key, Value, Config, Status>::
@@ -1868,7 +1868,7 @@ ensureChildWatchPresent()
     childWatchActive = true;
 }
 
-template<typename Key, typename Value, 
+template<typename Key, typename Value,
          typename Config, typename Status>
 void
 RestConfigurableCollection<Key, Value, Config, Status>::
@@ -1896,7 +1896,7 @@ onChildChange(const ChildEvent & event)
     else throw HttpReturnException(400, "unknown child watch");
 }
 
-template<typename Key, typename Value, 
+template<typename Key, typename Value,
          typename Config, typename Status>
 WatchT<Key, std::shared_ptr<Config> >
 RestConfigurableCollection<Key, Value, Config, Status>::
@@ -1921,15 +1921,15 @@ watchConfig(const Utf8String & spec, bool catchUp, Any info)
 
     if (!catchUp)
         return configWatches.add(std::move(info), filter);
-    
+
     // Take an exclusive lock on mutation so that nothing can interleave
     // events with our catchup events.
     std::unique_lock<typename Base::Impl::MutateMutex> mutateGuard(this->impl->mutateMutex);
-    
+
     // We create this after we take the lock so that nothing can squeeze
     // in an event between when it was created and when it was caught up
     auto res = configWatches.add(std::move(info), filter);
-    
+
     GcLock::SharedGuard guard(this->impl->entriesLock);
 
     auto es = this->impl->entries.getImmutable();
@@ -1938,11 +1938,11 @@ watchConfig(const Utf8String & spec, bool catchUp, Any info)
             res.trigger(e.first, getConfig(e.first, *e.second.value));
         }
     }
-    
+
     return res;
 }
 
-template<typename Key, typename Value, 
+template<typename Key, typename Value,
          typename Config, typename Status>
 WatchT<Key, std::shared_ptr<Status> >
 RestConfigurableCollection<Key, Value, Config, Status>::
@@ -1968,15 +1968,15 @@ watchStatus(const Utf8String & spec, bool catchUp, Any info)
 
     if (!catchUp)
         return statusWatches.add(std::move(info), filter);
-    
+
     // Take an exclusive lock on mutation so that nothing can interleave
     // events with our catchup events.
     std::unique_lock<typename Base::Impl::MutateMutex> mutateGuard(this->impl->mutateMutex);
-    
+
     // We create this after we take the lock so that nothing can squeeze
     // in an event between when it was created and when it was caught up
     auto res = statusWatches.add(std::move(info), filter);
-    
+
     GcLock::SharedGuard guard(this->impl->entriesLock);
 
     auto es = this->impl->entries.getImmutable();
@@ -1985,11 +1985,11 @@ watchStatus(const Utf8String & spec, bool catchUp, Any info)
             res.trigger(e.first, std::make_shared<Status>(std::move(getStatus(e.first))));
         }
     }
-    
+
     return res;
 }
 
-template<typename Key, typename Value, 
+template<typename Key, typename Value,
          typename Config, typename Status>
 Watch
 RestConfigurableCollection<Key, Value, Config, Status>::
@@ -2004,7 +2004,7 @@ watchChannel(const Utf8String & channel,
     return Base::watchChannel(channel, filter, catchUp, std::move(info));
 }
 
-template<typename Key, typename Value, 
+template<typename Key, typename Value,
          typename Config, typename Status>
 WatchT<std::vector<Utf8String>, Any>
 RestConfigurableCollection<Key, Value, Config, Status>::
@@ -2034,7 +2034,7 @@ watchWithPath(const ResourceSpec & spec, bool catchUp, Any info,
     return Base::watchWithPath(spec, catchUp, std::move(info), currentPath);
 }
 
-template<typename Key, typename Value, 
+template<typename Key, typename Value,
          typename Config, typename Status>
 std::pair<const std::type_info *,
           std::shared_ptr<const ValueDescription> >
@@ -2057,7 +2057,7 @@ getWatchBoundType(const ResourceSpec & spec)
     return Base::getWatchBoundType(spec);
 }
 
-template<typename Key, typename Value, 
+template<typename Key, typename Value,
          typename Config, typename Status>
 std::shared_ptr<Config>
 RestConfigurableCollection<Key, Value, Config, Status>::

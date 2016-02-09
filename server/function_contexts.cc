@@ -93,7 +93,7 @@ getAllColumnsFromFunctionImpl(const Utf8String & tableName,
             continue;
 
         ColumnName outputColumnName(outputName);
-        ColumnName inputColumnName(p.first.toId());
+        ColumnName inputColumnName(p.first.toCoord());
         toKeep.emplace_back(inputColumnName, outputColumnName);
 
         const FunctionValueInfo & functionValueInfo = p.second;
@@ -281,6 +281,14 @@ doGetFunctionEntity(const Utf8String & functionName)
 {
     return mldb->functions->getExistingEntity(functionName.rawString());
 }
+
+Utf8String 
+FunctionExpressionContext::
+doResolveTableName(const Utf8String & fullVariableName, Utf8String &tableName) const
+{
+    return fullVariableName;
+}
+
 
 } // namespace MLDB
 } // namespace Datacratic

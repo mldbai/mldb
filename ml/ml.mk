@@ -15,12 +15,13 @@ LIBML_SOURCES := \
 	bucketing_probabilizer.cc \
 	distribution_pooler.cc \
 	kmeans.cc \
+	em.cc \
 	value_descriptions.cc \
 	confidence_intervals.cc \
 	svd_utils.cc
 
 
-LIBML_LINK := boosting neural boost_filesystem jsoncpp types value_description
+LIBML_LINK := boosting neural boost_filesystem jsoncpp types value_description algebra
 
 $(eval $(call library,ml,$(LIBML_SOURCES),$(LIBML_LINK)))
 

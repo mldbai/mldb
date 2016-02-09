@@ -25,7 +25,7 @@ namespace Datacratic {
 namespace MLDB {
 namespace Builtins {
 
-typedef BoundAggregator (&BuiltinAggregator) (const std::vector<BoundSqlExpression> &);
+typedef BoundAggregator (&BuiltinAggregator) ();
 
 struct TestRegisterAggregator {
     template<typename... Names>
@@ -43,11 +43,11 @@ struct TestRegisterAggregator {
                     Names&&... names)
     {
         auto fn = [&] (const Utf8String & str,
-                       const std::vector<BoundSqlExpression> & args,
-                       const SqlBindingScope & context)
+                       const std::vector<std::shared_ptr<SqlExpression> > & args,
+                       SqlBindingScope & context)
             -> BoundAggregator
             {
-                return std::move(aggregator(args));
+                return std::move(aggregator());
             };
         handles.push_back(registerAggregator(Utf8String(name), fn));
         doRegister(aggregator, std::forward<Names>(names)...);
@@ -67,7 +67,7 @@ struct PassAccum {
     ExpressionValue val;
 };
 
-BoundAggregator pass(const std::vector<BoundSqlExpression> & args)
+BoundAggregator pass()
 {
     auto init = [] () -> std::shared_ptr<void>
         {

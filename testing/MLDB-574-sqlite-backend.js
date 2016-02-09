@@ -26,7 +26,7 @@ function createDataset()
 
     var stream = mldb.openStream(dataset_address);
 
-    var numLines = 20000;
+    var numLines = 5000;
 
     var lineNum = 0;
 

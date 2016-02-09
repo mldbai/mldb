@@ -10,6 +10,7 @@
 #include "cell_value.h"
 #include "dataset_fwd.h"
 #include "mldb/types/date.h"
+#include "coord.h"
 
 
 namespace Datacratic {
