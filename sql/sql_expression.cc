@@ -931,24 +931,13 @@ bool matchConstant(ML::Parse_Context & context, ExpressionValue & result,
         if (!allowUtf8) {
             std::string resultStr;
             matchSingleQuoteStringAscii(context, resultStr);
-            Date asDate = Date::parseIso8601DateTime(resultStr);
-            if (asDate.isADate())
-                result = ExpressionValue(CellValue(asDate), Date::negativeInfinity());
-            else
-                result = ExpressionValue(resultStr, Date::negativeInfinity());
+            result = ExpressionValue(resultStr, Date::negativeInfinity());
             return true;
         }
         else {
             std::basic_string<char32_t> resultStr;
             matchSingleQuoteStringUTF8(context, resultStr);
             Utf8String utf8String(resultStr);
-            if (utf8String.isAscii()) {
-                Date asDate = Date::parseIso8601DateTime(utf8String.extractAscii());
-                if (asDate.isADate()) {
-                    result = ExpressionValue(CellValue(asDate), Date::negativeInfinity());
-                    return true;
-                }
-            }
             result = ExpressionValue(resultStr, Date::negativeInfinity());
             return true;
         }

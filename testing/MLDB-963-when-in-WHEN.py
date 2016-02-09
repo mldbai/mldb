@@ -147,9 +147,9 @@ class WhenInWhen(unittest.TestCase):
 
         validate7(mldb.get(
             '/v1/query',
-            q="SELECT * FROM dataset1 WHEN when(y) > '%s' + INTERVAL '2s'" % now))
+            q="SELECT * FROM dataset1 WHEN when(y) > to_timestamp('%s') + INTERVAL '2s'" % now))
         validate7(mldb.get('/v1/datasets/dataset1/query',
-                           when="when(y) > '%s' + INTERVAL '2s'" % now))
+                           when="when(y) > to_timestamp('%s') + INTERVAL '2s'" % now))
 
 if __name__ == '__main__':
     mldb.run_tests()
