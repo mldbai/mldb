@@ -442,15 +442,29 @@ matchPath(RestRequestParsingContext & context) const
         if (!found)
             return false;
         for (unsigned i = 0;  i < results.size();  ++i) {
+            // decode URI prior to pushing it to context.resources
             string str(results[i].first, results[i].second);
-            CURL *curl = curl_easy_init();
-            int outlength;
-            std::unique_ptr<char, void (*)(char *)> cres(
-                curl_easy_unescape(curl, str.c_str(), str.length(),
-                &outlength), [](char *p) { curl_free(p); });
-            context.resources.push_back(Utf8String(cres.get(),
-                                                   cres.get() + outlength));
-            curl_easy_cleanup(curl);
+            unique_ptr<char[]> strPtr(new char [str.length() + 1]);
+            auto cstr = strPtr.get();
+            auto out = cstr;
+            std::strcpy(cstr, str.c_str());
+            int pos;
+            for (pos = 0; *cstr; ++pos) {
+                if (*cstr == '%' && cstr[1] && cstr[2]
+                    && isxdigit(cstr[1]) && isxdigit(cstr[2]))
+                {
+                    cstr[1] -= cstr[1] <= '9' ? '0'
+                        : (cstr[1] <= 'F' ? 'A' : 'a') - 10;
+                    cstr[2] -= cstr[2] <= '9' ? '0'
+                        : (cstr[2] <= 'F' ? 'A' : 'a') - 10;
+                    out[pos] = 16 * cstr[1] + cstr[2];
+                    cstr += 3;
+                    continue;
+                }
+                out[pos] = *cstr++;
+            }
+            out[pos] = '\0';
+            context.resources.push_back(Utf8String(out));
         }
         context.remaining.replace(0, results[0].length(), "");
         break;
