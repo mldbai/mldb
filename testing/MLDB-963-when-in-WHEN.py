@@ -10,7 +10,6 @@ import datetime
 mldb = mldb_wrapper.wrap(mldb) # noqa
 now = datetime.datetime.now()
 
-
 class WhenInWhen(unittest.TestCase):
 
     @classmethod

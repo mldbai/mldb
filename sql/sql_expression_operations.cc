@@ -57,7 +57,7 @@ doComparison(const SqlExpression * expr,
              const BoundSqlExpression & boundLhs, const BoundSqlExpression & boundRhs,
              bool (ExpressionValue::* op)(const ExpressionValue &) const)
 {
-    return {[=] (const SqlRowScope & row, ExpressionValue & storage)
+    return {[=] (const SqlRowScope & row, ExpressionValue & storage, const VariableFilter & filter)
             -> const ExpressionValue &
             {
                 ExpressionValue lstorage, rstorage;
@@ -751,15 +751,14 @@ doBinaryArithmetic(const SqlExpression * expr,
                    const BoundSqlExpression & boundRhs,
                    const Op & op)
 {
-    
-
-
-    return {[=] (const SqlRowScope & row, ExpressionValue & storage)
+    return {[=] (const SqlRowScope & row,
+                 ExpressionValue & storage,
+                 const VariableFilter & filter)
             -> const ExpressionValue &
             {
                 ExpressionValue lstorage, rstorage;
-                const ExpressionValue & l = boundLhs(row, lstorage);
-                const ExpressionValue & r = boundRhs(row, rstorage);
+                const ExpressionValue & l = boundLhs(row, lstorage, filter);
+                const ExpressionValue & r = boundRhs(row, rstorage, filter);
                 Date ts = calcTs(l, r);
                 if (l.empty() || r.empty())
                     return storage = std::move(ExpressionValue::null(ts));
@@ -776,11 +775,13 @@ doUnaryArithmetic(const SqlExpression * expr,
                   const BoundSqlExpression & boundRhs,
                   const Op & op)
 {
-    return {[=] (const SqlRowScope & row, ExpressionValue & storage)
+    return {[=] (const SqlRowScope & row,
+                 ExpressionValue & storage,
+                 const VariableFilter & filter)
             -> const ExpressionValue &
             {
                 ExpressionValue rstorage;
-                const ExpressionValue & r = boundRhs(row, rstorage);
+                const ExpressionValue & r = boundRhs(row, rstorage, filter);
                 if (r.empty())
                     return storage = std::move(ExpressionValue::null(r.getEffectiveTimestamp()));
                 return storage
@@ -1219,12 +1220,14 @@ doBinaryBitwise(const SqlExpression * expr,
                 const BoundSqlExpression & boundLhs, const BoundSqlExpression & boundRhs,
                 const Op & op)
 {
-    return {[=] (const SqlRowScope & row, ExpressionValue & storage)
+    return {[=] (const SqlRowScope & row,
+                 ExpressionValue & storage,
+                 const VariableFilter & filter)
             -> const ExpressionValue &
             {
                 ExpressionValue lstorage, rstorage;
-                const ExpressionValue & l = boundLhs(row, lstorage);
-                const ExpressionValue & r = boundRhs(row, rstorage);
+                const ExpressionValue & l = boundLhs(row, lstorage, filter);
+                const ExpressionValue & r = boundRhs(row, rstorage, filter);
                 Date ts = calcTs(l, r);
                 if (l.empty() || r.empty())
                     return storage = std::move(ExpressionValue::null(ts));
@@ -1240,11 +1243,13 @@ doUnaryBitwise(const SqlExpression * expr,
                const BoundSqlExpression & boundRhs,
                const Op & op)
 {
-    return {[=] (const SqlRowScope & row, ExpressionValue & storage)
+    return {[=] (const SqlRowScope & row,
+                 ExpressionValue & storage,
+                 const VariableFilter & filter)
             -> const ExpressionValue &
             {
                 ExpressionValue rstorage;
-                const ExpressionValue & r = boundRhs(row, rstorage);
+                const ExpressionValue & r = boundRhs(row, rstorage, filter);
                 if (r.empty())
                     return storage = std::move(ExpressionValue::null(r.getEffectiveTimestamp()));
                 return storage = std::move(ExpressionValue(std::move(op(r.toInt())), r.getEffectiveTimestamp()));
@@ -1374,10 +1379,11 @@ bind(SqlBindingScope & context) const
     }
 
     return {[=] (const SqlRowScope & row,
-                 ExpressionValue & storage) -> const ExpressionValue &
+                 ExpressionValue & storage,
+                 const VariableFilter & filter) -> const ExpressionValue &
             {
                 // TODO: allow it access to storage
-                return getVariable(row, storage);
+                return getVariable(row, storage, filter);
             },
             this,
             getVariable.info};
@@ -1448,7 +1454,9 @@ bind(SqlBindingScope & context) const
 {
     ExpressionValue val = constant;
 
-    return {[=] (const SqlRowScope &, ExpressionValue & storage) -> const ExpressionValue &
+    return {[=] (const SqlRowScope &,
+                 ExpressionValue & storage,
+                 const VariableFilter & filter) -> const ExpressionValue &
             {
                 return storage=val;
             },
@@ -1590,7 +1598,10 @@ EmbeddingLiteralExpression::
 bind(SqlBindingScope & context) const
 {
     if (clauses.empty()) {
-        return BoundSqlExpression([] (const SqlRowScope &, ExpressionValue & storage) { return storage = std::move(ExpressionValue::null(Date::notADate())); },
+        return BoundSqlExpression([] (const SqlRowScope &, 
+                                      ExpressionValue & storage, 
+                                      const VariableFilter & filter) 
+                                  { return storage = std::move(ExpressionValue::null(Date::notADate())); },
                                   this,
                                   std::make_shared<EmptyValueInfo>(),
                                   true /* is constant */);
@@ -1615,7 +1626,8 @@ bind(SqlBindingScope & context) const
     bool lastLevel = outputInfo->numDimensions() == 1;
 
     auto exec = [=] (const SqlRowScope & context,
-                     ExpressionValue & storage) -> const ExpressionValue &
+                     ExpressionValue & storage,
+                     const VariableFilter & filter) -> const ExpressionValue &
         {  
             Date ts = Date::negativeInfinity();
             std::vector<CellValue> cells;
@@ -1763,11 +1775,12 @@ bind(SqlBindingScope & context) const
 
     if (op == "AND" && lhs) {
         return {[=] (const SqlRowScope & row,
-                     ExpressionValue & storage) -> const ExpressionValue &
+                     ExpressionValue & storage,
+                     const VariableFilter & filter) -> const ExpressionValue &
                 {
                     ExpressionValue lstorage, rstorage;
-                    const ExpressionValue & l = boundLhs(row, lstorage);
-                    const ExpressionValue & r = boundRhs(row, rstorage);
+                    const ExpressionValue & l = boundLhs(row, lstorage, filter);
+                    const ExpressionValue & r = boundRhs(row, rstorage, filter);
                     if (l.isFalse() && r.isFalse()) {
                         Date ts = std::min(l.getEffectiveTimestamp(),
                                            r.getEffectiveTimestamp());
@@ -1796,12 +1809,15 @@ bind(SqlBindingScope & context) const
                 std::make_shared<BooleanValueInfo>()};
     }
     else if (op == "OR" && lhs) {
-        return {[=] (const SqlRowScope & row, ExpressionValue & storage)
+        return {[=] (const SqlRowScope & row,
+                     ExpressionValue & storage,
+                     const VariableFilter & filter)
                 -> const ExpressionValue &
                 {
                     ExpressionValue lstorage, rstorage;
-                    const ExpressionValue & l = boundLhs(row, lstorage);
-                    const ExpressionValue & r = boundRhs(row, rstorage);
+
+                    const ExpressionValue & l = boundLhs(row, lstorage, filter);
+                    const ExpressionValue & r = boundRhs(row, rstorage, filter);
 
                     if (l.isTrue() && r.isTrue()) {
                         Date ts = std::max(l.getEffectiveTimestamp(),
@@ -1831,11 +1847,13 @@ bind(SqlBindingScope & context) const
                 std::make_shared<BooleanValueInfo>()};
     }
     else if (op == "NOT" && !lhs) {
-        return {[=] (const SqlRowScope & row, ExpressionValue & storage)
+        return {[=] (const SqlRowScope & row,
+                     ExpressionValue & storage,
+                     const VariableFilter & filter)
                 -> const ExpressionValue &
                 {
                     ExpressionValue rstorage;
-                    const ExpressionValue & r = boundRhs(row, rstorage);
+                    const ExpressionValue & r = boundRhs(row, rstorage, filter);
                     if (r.empty())
                         return storage = std::move(r);
                     return storage = std::move(ExpressionValue(!r.isTrue(), r.getEffectiveTimestamp()));
@@ -1948,7 +1966,9 @@ bind(SqlBindingScope & context) const
     }
     else throw HttpReturnException(400, "Unknown type `" + type + "' for IsTypeExpression");
 
-    return {[=] (const SqlRowScope & row, ExpressionValue & storage) -> const ExpressionValue &
+    return {[=] (const SqlRowScope & row,
+                 ExpressionValue & storage,
+                 const VariableFilter & filter) -> const ExpressionValue &
             {
                 auto v = boundExpr(row);
                 bool val = (v .* fn) ();
@@ -2039,7 +2059,7 @@ bind(SqlBindingScope & context) const
         boundArgs.emplace_back(std::move(arg->bind(context)));
     }
 
-    BoundFunction fn = context.doGetFunction(tableName, functionName, boundArgs);
+    BoundFunction fn = context.doGetFunction(tableName, functionName, args);
     BoundSqlExpression boundOutput;
 
     if (fn)
@@ -2117,38 +2137,16 @@ bindBuiltinFunction(SqlBindingScope & context, std::vector<BoundSqlExpression>& 
             throw HttpReturnException(400, "Builtin function " + functionName
                                    + " should not have an extract [] expression, got " + extract->print() );
 
-    bool isAggregate = tryLookupAggregator(functionName) != nullptr;
-
-    if (isAggregate)
-    {
-             return {[=] (const SqlRowScope & row,
-                            ExpressionValue & storage) -> const ExpressionValue &
+  
+    return {[=] (const SqlRowScope & row,
+                 ExpressionValue & storage,
+                 const VariableFilter & filter) -> const ExpressionValue &
             {
-                std::vector<ExpressionValue> evaluatedArgs;
-                //Don't evaluate the args for aggregator
-                evaluatedArgs.resize(boundArgs.size());
-                return storage = std::move(fn(evaluatedArgs, row));
+                //lazy evaluation of args - the function will evaluate them as required
+                return storage = std::move(fn(boundArgs, row));
             },
             this,
             fn.resultInfo};
-    }
-    else
-    {
-         return {[=] (const SqlRowScope & row,
-                 ExpressionValue & storage) -> const ExpressionValue &
-            {
-                std::vector<ExpressionValue> evaluatedArgs;
-                evaluatedArgs.reserve(boundArgs.size());
-                for (auto & a: boundArgs)
-                    evaluatedArgs.emplace_back(std::move(a(row)));
-                
-                // TODO: function call that allows function to own its args & have
-                // storage
-                return storage = std::move(fn(evaluatedArgs, row));
-            },
-            this,
-            fn.resultInfo};
-    }
 }
 
 Utf8String
@@ -2263,7 +2261,9 @@ bind(SqlBindingScope & context) const
 
         auto boundExpr = expr->bind(context);
 
-        return {[=] (const SqlRowScope & row, ExpressionValue & storage)
+        return {[=] (const SqlRowScope & row,
+                     ExpressionValue & storage,
+                     const VariableFilter & filter)
                     -> const ExpressionValue &
                 {
                     ExpressionValue vstorage;
@@ -2290,7 +2290,9 @@ bind(SqlBindingScope & context) const
     }
     else {
         // Searched CASE expression
-        return {[=] (const SqlRowScope & row, ExpressionValue & storage)
+        return {[=] (const SqlRowScope & row,
+                     ExpressionValue & storage,
+                     const VariableFilter & filter)
                     -> const ExpressionValue &
                 {
                     for (auto & w: boundWhen) {
@@ -2407,7 +2409,8 @@ bind(SqlBindingScope & context) const
     BoundSqlExpression boundUpper = upper->bind(context);
 
     return {[=] (const SqlRowScope & row,
-                 ExpressionValue & storage) -> const ExpressionValue &
+                 ExpressionValue & storage,
+                 const VariableFilter & filter) -> const ExpressionValue &
             {
                 ExpressionValue vstorage, lstorage, ustorage;
 
@@ -2601,7 +2604,8 @@ bind(SqlBindingScope & context) const
             }
 
             auto exec = [=] (const SqlRowScope & rowScope,
-                             ExpressionValue & storage) -> const ExpressionValue &
+                             ExpressionValue & storage,
+                             const VariableFilter & filter) -> const ExpressionValue &
                 { 
                     // 1.  What are we looking to see if it's in
                     ExpressionValue vstorage;
@@ -2633,7 +2637,8 @@ bind(SqlBindingScope & context) const
         }
 
         return {[=] (const SqlRowScope & rowScope,
-                     ExpressionValue & storage) -> const ExpressionValue &
+                     ExpressionValue & storage,
+                     const VariableFilter & filter) -> const ExpressionValue &
         {
             ExpressionValue vstorage, istorage;
 
@@ -2668,7 +2673,8 @@ bind(SqlBindingScope & context) const
         BoundSqlExpression boundSet = setExpr->bind(context);
 
         return {[=] (const SqlRowScope & rowScope,
-                     ExpressionValue & storage) -> const ExpressionValue &
+                     ExpressionValue & storage,
+                     const VariableFilter & filter) -> const ExpressionValue &
         {
             ExpressionValue vstorage, istorage;
 
@@ -2697,7 +2703,8 @@ bind(SqlBindingScope & context) const
         BoundSqlExpression boundSet = setExpr->bind(context);
 
         return {[=] (const SqlRowScope & rowScope,
-                     ExpressionValue & storage) -> const ExpressionValue &
+                     ExpressionValue & storage,
+                     const VariableFilter & filter) -> const ExpressionValue &
         {
             ExpressionValue vstorage, istorage;
 
@@ -2839,7 +2846,8 @@ bind(SqlBindingScope & context) const
 
     if (type == "string") {
         return {[=] (const SqlRowScope & row,
-                     ExpressionValue & storage) -> const ExpressionValue &
+                     ExpressionValue & storage,
+                     const VariableFilter & filter) -> const ExpressionValue &
                 {
                     ExpressionValue valStorage;
                     const ExpressionValue & val = boundExpr(row, valStorage);
@@ -2851,7 +2859,8 @@ bind(SqlBindingScope & context) const
     }
     else if (type == "integer") {
         return {[=] (const SqlRowScope & row,
-                     ExpressionValue & storage) -> const ExpressionValue &
+                     ExpressionValue & storage,
+                     const VariableFilter & filter) -> const ExpressionValue &
                 {
                     ExpressionValue valStorage;
                     const ExpressionValue & val = boundExpr(row, valStorage);
@@ -2863,7 +2872,8 @@ bind(SqlBindingScope & context) const
     }
     else if (type == "number") {
         return {[=] (const SqlRowScope & row,
-                     ExpressionValue & storage) -> const ExpressionValue &
+                     ExpressionValue & storage,
+                     const VariableFilter & filter) -> const ExpressionValue &
                 {
                     ExpressionValue valStorage;
                     const ExpressionValue & val = boundExpr(row, valStorage);
@@ -2875,7 +2885,8 @@ bind(SqlBindingScope & context) const
     }
     else if (type == "timestamp") {
         return {[=] (const SqlRowScope & row,
-                     ExpressionValue & storage) -> const ExpressionValue &
+                     ExpressionValue & storage,
+                     const VariableFilter & filter) -> const ExpressionValue &
                 {
                     ExpressionValue valStorage;
                     const ExpressionValue & val = boundExpr(row, valStorage);
@@ -2887,7 +2898,8 @@ bind(SqlBindingScope & context) const
     }
     else if (type == "boolean") {
         return {[=] (const SqlRowScope & row,
-                     ExpressionValue & storage) -> const ExpressionValue &
+                     ExpressionValue & storage,
+                     const VariableFilter & filter) -> const ExpressionValue &
                 {
                     ExpressionValue valStorage;
                     const ExpressionValue & val = boundExpr(row, valStorage);
@@ -2899,7 +2911,8 @@ bind(SqlBindingScope & context) const
     }
     else if (type == "blob") {
         return {[=] (const SqlRowScope & row,
-                     ExpressionValue & storage) -> const ExpressionValue &
+                     ExpressionValue & storage,
+                     const VariableFilter & filter) -> const ExpressionValue &
                 {
                     ExpressionValue valStorage;
                     const ExpressionValue & val = boundExpr(row, valStorage);
@@ -2980,7 +2993,9 @@ bind(SqlBindingScope & context) const
                             + "' didn't return info");
     }
 
-    return {[=] (const SqlRowScope & row, ExpressionValue & storage) -> const ExpressionValue &
+    return {[=] (const SqlRowScope & row,
+                 ExpressionValue & storage,
+                 const VariableFilter & filter) -> const ExpressionValue &
             {
                 return getParam(row, storage);
             },
@@ -3086,10 +3101,13 @@ bind(SqlBindingScope & context) const
     auto allColumns = context.doGetAllColumns(resolvedTableName, newColumnName);
 
     auto exec = [=] (const SqlRowScope & scope,
-                     ExpressionValue & storage)
+                     ExpressionValue & storage,
+                     const VariableFilter & filter)
         -> const ExpressionValue &
         {
-            return storage = std::move(allColumns.exec(scope));
+            ExpressionValue filteredExpr =  std::move(allColumns.exec(scope));
+            filteredExpr.filterRow(filter);
+            return storage = std::move(filteredExpr);
         };
 
     BoundSqlExpression result(exec, this, allColumns.info);
@@ -3185,10 +3203,11 @@ bind(SqlBindingScope & context) const
         auto info = exprBound.info;
      
         auto exec = [=] (const SqlRowScope & context,
-                         ExpressionValue & storage)
+                         ExpressionValue & storage,
+                         const VariableFilter & filter)
             -> const ExpressionValue &
             {
-                const ExpressionValue & val = exprBound(context, storage);
+                const ExpressionValue & val = exprBound(context, storage, filter);
 
                 if (val.isAtom())
                     throw HttpReturnException(400, "Expression with AS * must return a row",
@@ -3205,10 +3224,11 @@ bind(SqlBindingScope & context) const
         ColumnName aliasCol(alias);
 
         auto exec = [=] (const SqlRowScope & context,
-                         ExpressionValue & storage)
+                         ExpressionValue & storage,
+                         const VariableFilter & filter)
             -> const ExpressionValue &
             {
-                const ExpressionValue & val = exprBound(context, storage);
+                const ExpressionValue & val = exprBound(context, storage, filter);
 
                 if (&val == &storage) {
                     // We own the only copy; we can move it
@@ -3418,7 +3438,9 @@ bind(SqlBindingScope & context) const
     auto outputColumns
         = context.doGetAllColumns(Utf8String(""), filterColumns);
 
-    auto exec = [=] (const SqlRowScope & context, ExpressionValue & storage)
+    auto exec = [=] (const SqlRowScope & context,
+                     ExpressionValue & storage,
+                     const VariableFilter & filter)
         -> const ExpressionValue &
         {
             return storage = std::move(outputColumns.exec(context));

@@ -2262,6 +2262,9 @@ getFiltered(const VariableFilter & filter /*= GET_LATEST*/) const
 {
     ExcAssertEqual(type_, ROW);
 
+    if (filter == GET_ALL)
+        return *row_;
+
     std::function<bool(const ExpressionValue&, const ExpressionValue&)> filterFn = [](const ExpressionValue& left, const ExpressionValue& right){return false;};
 
      switch (filter) {
@@ -2278,10 +2281,9 @@ getFiltered(const VariableFilter & filter /*= GET_LATEST*/) const
                return right.isLater(right.getEffectiveTimestamp(), left);
             };
             break;
-        case GET_ALL:
-            throw HttpReturnException(500, "GET_ALL not implemented for datasets");
+        case GET_ALL: //optimized above
         default:
-            throw HttpReturnException(500, "Unknown variable filter");
+            throw HttpReturnException(500, "Unexpected filter");
      }
 
     //Remove any duplicated columns according to the filter
@@ -2308,6 +2310,15 @@ getFiltered(const VariableFilter & filter /*= GET_LATEST*/) const
         output.emplace_back(std::move(c.first), std::move(c.second));
 
     return output;
+
+}
+
+void
+ExpressionValue::
+filterRow(const VariableFilter & filter)
+{
+    Row row = getFiltered(filter);
+    row_.reset(new Row(std::move(row)));
 
 }
 
@@ -3190,6 +3201,7 @@ doSearchRow(const std::vector<std::tuple<Key, CellValue, Date> > & columns,
         break;
     }
 
+    case GET_ALL:
     case GET_LATEST: {
         Date foundDate;
 
@@ -3208,12 +3220,22 @@ doSearchRow(const std::vector<std::tuple<Key, CellValue, Date> > & columns,
         }
         break;
     }
-
+#if 0       
     case GET_ALL: {
         RowValue row;
 
+        for (unsigned i = 0;  i < columns.size();  ++i) {
+            const auto & c = columns[i];
+            
+            if (std::get<0>(c) == key) {
+                row.push_back(c);
+            }
+        }
+        
+        return &(storage = std::move(ExpressionValue(std::move(row))));
         throw HttpReturnException(500, "GET_ALL not implemented for datasets");
     }
+#endif
     default:
         throw HttpReturnException(500, "Unknown GET_ALL not implemented for datasets");
     }
@@ -3225,6 +3247,7 @@ doSearchRow(const std::vector<std::tuple<Key, CellValue, Date> > & columns,
                                                  std::get<2>(columns[index]))));
 }
 
+#if 0
 const ExpressionValue *
 searchRow(const std::vector<std::tuple<ColumnHash, CellValue, Date> > & columns,
           const ColumnHash & key,
@@ -3242,7 +3265,7 @@ searchRow(const std::vector<std::tuple<ColumnHash, CellValue, Date> > & columns,
 {
     return doSearchRow(columns, ColumnHash(key), filter, storage);
 }
-
+#endif
 const ExpressionValue *
 searchRow(const std::vector<std::tuple<ColumnName, CellValue, Date> > & columns,
           const ColumnName & key,
@@ -3289,7 +3312,7 @@ doSearchRow(const std::vector<std::tuple<Key, ExpressionValue> > & columns,
         }
         break;
     }
-
+    case GET_ALL:
     case GET_LATEST: {
         Date foundDate;
 
@@ -3305,14 +3328,16 @@ doSearchRow(const std::vector<std::tuple<Key, ExpressionValue> > & columns,
                 }
             }
         }
+
         break;
     }
-
-    case GET_ALL: {
+#if 0
+   case GET_ALL: {
         RowValue row;
 
         throw HttpReturnException(500, "GET_ALL not implemented for datasets");
     }
+#endif
     default:
         throw HttpReturnException(500, "Unknown GET_ALL not implemented for datasets");
     }

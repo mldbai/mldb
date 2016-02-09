@@ -132,7 +132,7 @@ doGetAllColumns(std::function<Utf8String (const Utf8String &)> keep, int fieldOf
 BoundFunction
 TableLexicalScope::
 doGetFunction(const Utf8String & functionName,
-              const std::vector<BoundSqlExpression> & args,
+              const std::vector<std::shared_ptr<SqlExpression> > & args,
               int fieldOffset)
 {
     // First, let the dataset either override or implement the function
@@ -142,7 +142,7 @@ doGetFunction(const Utf8String & functionName,
     //    return override;
         
     if (functionName == "rowName") {
-        return {[=] (const std::vector<ExpressionValue> & args,
+        return {[=] (const std::vector<BoundSqlExpression> & args,
                      const SqlRowScope & rowScope)
                 {
                     auto & row = static_cast<const PipelineResults &>(rowScope);
@@ -153,7 +153,7 @@ doGetFunction(const Utf8String & functionName,
     }
 
     else if (functionName == "rowHash") {
-        return {[=] (const std::vector<ExpressionValue> & args,
+        return {[=] (const std::vector<BoundSqlExpression> & args,
                      const SqlRowScope & rowScope)
                 {
                     auto & row = static_cast<const PipelineResults &>(rowScope);
@@ -469,7 +469,7 @@ doGetAllColumns(std::function<Utf8String (const Utf8String &)> keep, int fieldOf
 BoundFunction
 JoinLexicalScope::
 doGetFunction(const Utf8String & functionName,
-              const std::vector<BoundSqlExpression> & args,
+              const std::vector<std::shared_ptr<SqlExpression> > & args,
               int fieldOffset)
 {
     //cerr << "Asking join for function " << functionName
@@ -481,7 +481,7 @@ doGetFunction(const Utf8String & functionName,
         auto rightRowName
             = right->doGetFunction(functionName, args, rightFieldOffset(fieldOffset));
             
-        auto exec = [=] (const std::vector<ExpressionValue> & args,
+        auto exec = [=] (const std::vector<BoundSqlExpression> & args,
                          const SqlRowScope & context)
             -> ExpressionValue
             {
@@ -1488,13 +1488,13 @@ doGetAllColumns(std::function<Utf8String (const Utf8String &)> keep,
 BoundFunction
 AggregateLexicalScope::
 doGetFunction(const Utf8String & functionName,
-              const std::vector<BoundSqlExpression> & args,
+              const std::vector<std::shared_ptr<SqlExpression> > & args,
               int fieldOffset)
 {
     auto aggregate = inner->doGetAggregator(functionName, args);
 
     if (aggregate) {
-        auto exec = [=] (const std::vector<ExpressionValue> & argValues,
+        auto exec = [=] (const std::vector<BoundSqlExpression> & argValues,
                          const SqlRowScope & rowScope) -> ExpressionValue
             {
                 auto & row = static_cast<const PipelineResults &>(rowScope);
@@ -1506,10 +1506,10 @@ doGetFunction(const Utf8String & functionName,
                 for (auto & r: row.group) {
                     // Apply the arguments to the row
 
-                    for (unsigned i = 0;  i != args.size();  ++i)
-                        rowArgs[i] = args[i](*r);
+                    for (unsigned i = 0;  i != argValues.size();  ++i)
+                        rowArgs[i] = argValues[i](*r);
 
-                    aggregate.process(&rowArgs[0], args.size(), storage.get());
+                    aggregate.process(&rowArgs[0], argValues.size(), storage.get());
                 }
 
                 return aggregate.extract(storage.get());
@@ -1520,8 +1520,6 @@ doGetFunction(const Utf8String & functionName,
     else {
         return inner->doGetFunction(Utf8String(), functionName, args);
     }
-
-    return BoundFunction();
 }
 
 Utf8String
