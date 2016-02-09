@@ -19,7 +19,8 @@ class MLDB1364Test(MldbUnitTest):
         ds.record_row("b",[["x", 2, 0], ["y", 25, 0]])
         ds.record_row("c",[["y", 3, 0]])
         ds.commit()
-
+        
+    @unittest.expectedFailure
     def test_svd(self):
         
         with self.assertRaises(mldb_wrapper.ResponseException) as re:
