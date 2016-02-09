@@ -405,6 +405,16 @@ validateNames(const RowName & rowName,
     }
 }
 
+void 
+Dataset::
+validateNames(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows)
+{
+    for (auto& r : rows)
+    {
+        validateNames(r.first, r.second);
+    }
+}
+
 void
 Dataset::
 recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows)
