@@ -9,7 +9,7 @@ import unittest
 
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
-class SampleTest(MldbUnitTest):
+class MLDB1364Test(MldbUnitTest):
 
     @classmethod
     def setUpClass(self):
@@ -20,7 +20,7 @@ class SampleTest(MldbUnitTest):
         ds.record_row("c",[["y", 3, 0]])
         ds.commit()
 
-    def test_select_x_works(self):
+    def test_svd(self):
         
         with self.assertRaises(mldb_wrapper.ResponseException) as re:
             mldb.put("/v1/datasets/training_data",{
@@ -28,17 +28,19 @@ class SampleTest(MldbUnitTest):
                 "params": {
                     "datasets": [
                         {"id": "sample"},
-                        {"id": "not_yet_created"}
+                        {"id": "not_yet_created"} # attention
                     ]
                 }
             })
 
-        # the fact we tried to access it before makes the first
-        # attempt to create it fail
+        # we want to store output in 'not_yet_created'
+        # the fact we tried to access 'not_yet_created' above
+        # makes the first ttempt to create it fail
+        
         mldb.put("/v1/procedures/train_svd", {
             "type": "svd.train",
             "params": {
-                "rowOutputDataset": "not_yet_created",
+                "rowOutputDataset": "not_yet_created", # attention
                 "outputColumn": "svd.embedding.00",
                 "modelFileUrl": "file:///tmp/svd.bin.test.gz",
                 "trainingData": "select * from sample",
