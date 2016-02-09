@@ -519,23 +519,25 @@ TransformDataset::
 run(const ProcedureRunConfig & run,
     const std::function<bool (const Json::Value &)> & onProgress) const
 {
+    auto runProcConf = applyRunConfOverProcConf(procedureConfig, run);
+
     // Get the input dataset
     SqlExpressionMldbContext context(server);
 
-    auto boundDataset = procedureConfig.inputData.stm->from->bind(context);
+    auto boundDataset = runProcConf.inputData.stm->from->bind(context);
     std::vector< std::shared_ptr<SqlExpression> > aggregators = 
-        procedureConfig.inputData.stm->select.findAggregators();
+        runProcConf.inputData.stm->select.findAggregators();
 
     // Create the output 
     std::shared_ptr<Dataset> output;
-    if (!procedureConfig.outputDataset.type.empty() || !procedureConfig.outputDataset.id.empty()) {
-        output = createDataset(server, procedureConfig.outputDataset, nullptr, true /*overwrite*/);
+    if (!runProcConf.outputDataset.type.empty() || !runProcConf.outputDataset.id.empty()) {
+        output = createDataset(server, runProcConf.outputDataset, nullptr, true /*overwrite*/);
     }
 
-    bool skipEmptyRows = procedureConfig.skipEmptyRows;
+    bool skipEmptyRows = runProcConf.skipEmptyRows;
 
     // Run it
-    if (procedureConfig.inputData.stm->groupBy.clauses.empty() && aggregators.empty()) {
+    if (runProcConf.inputData.stm->groupBy.clauses.empty() && aggregators.empty()) {
 
         // We accumulate multiple rows per thread and insert with recordRows
         // to be more efficient.
@@ -580,20 +582,20 @@ run(const ProcedureRunConfig & run,
         // We only add an implicit order by (which defeats parallelization)
         // if we have a limit or offset parameter.
         bool implicitOrderByRowHash
-            = (procedureConfig.inputData.stm->offset != 0 || 
-               procedureConfig.inputData.stm->limit != -1);
+            = (runProcConf.inputData.stm->offset != 0 || 
+               runProcConf.inputData.stm->limit != -1);
 
-        BoundSelectQuery(procedureConfig.inputData.stm->select,
+        BoundSelectQuery(runProcConf.inputData.stm->select,
                          *boundDataset.dataset,
                          boundDataset.asName,
-                         procedureConfig.inputData.stm->when,
-                         *procedureConfig.inputData.stm->where,
-                         procedureConfig.inputData.stm->orderBy,
-                         { procedureConfig.inputData.stm->rowName },
+                         runProcConf.inputData.stm->when,
+                         *runProcConf.inputData.stm->where,
+                         runProcConf.inputData.stm->orderBy,
+                         { runProcConf.inputData.stm->rowName },
                          implicitOrderByRowHash)
             .execute(recordRowInOutputDataset,
-                     procedureConfig.inputData.stm->offset,
-                     procedureConfig.inputData.stm->limit,
+                     runProcConf.inputData.stm->offset,
+                     runProcConf.inputData.stm->limit,
                      onProgress);
 
         // Finish off the last bits of each thread
@@ -611,19 +613,19 @@ run(const ProcedureRunConfig & run,
                 return true;
             };
 
-        BoundGroupByQuery(procedureConfig.inputData.stm->select,
+        BoundGroupByQuery(runProcConf.inputData.stm->select,
                           *boundDataset.dataset,
                           boundDataset.asName,
-                          procedureConfig.inputData.stm->when,
-                          *procedureConfig.inputData.stm->where,
-                          procedureConfig.inputData.stm->groupBy,
+                          runProcConf.inputData.stm->when,
+                          *runProcConf.inputData.stm->where,
+                          runProcConf.inputData.stm->groupBy,
                           aggregators,
-                          *procedureConfig.inputData.stm->having,
-                          *procedureConfig.inputData.stm->rowName,
-                          procedureConfig.inputData.stm->orderBy)
+                          *runProcConf.inputData.stm->having,
+                          *runProcConf.inputData.stm->rowName,
+                          runProcConf.inputData.stm->orderBy)
             .execute(recordRowInOutputDataset,
-                     procedureConfig.inputData.stm->offset,
-                     procedureConfig.inputData.stm->limit,
+                     runProcConf.inputData.stm->offset,
+                     runProcConf.inputData.stm->limit,
                      onProgress);
     }
     // Save the dataset we created
