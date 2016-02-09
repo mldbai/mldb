@@ -6,6 +6,7 @@
 */
 
 
+#include <curl/curl.h>
 #include "mldb/rest/rest_request_params.h"
 
 
@@ -34,7 +35,14 @@ std::string restDecode(std::string str, std::string *)
 
 Utf8String restDecode(Utf8String str, Utf8String *)
 {
-    return std::move(str);
+    CURL *curl = curl_easy_init();
+    int outlength;
+    std::unique_ptr<char, void (*)(char *)> cres(
+        curl_easy_unescape(curl, str.rawData(), str.length(), &outlength),
+        [](char *p) { curl_free(p); });
+    Utf8String utf8(cres.get(), cres.get() + outlength);
+    curl_easy_cleanup(curl);
+    return std::move(utf8);
 }
 
 std::string restDecode(Utf8String str, std::string *)
