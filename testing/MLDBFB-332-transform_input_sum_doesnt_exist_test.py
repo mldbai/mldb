@@ -32,7 +32,7 @@ class SumDoesNotExistTest(MldbUnitTest): # noqa
                 'runOnCreation' : True
             }
         })
-        self.assertQueryResult(mldb.query("SELECT * FROM res"), [
+        self.assertTableResultEquals(mldb.query("SELECT * FROM res"), [
             ['_rowName', "sum({*}).colA"], ["[]", 1]
         ])
 
@@ -52,7 +52,7 @@ class SumDoesNotExistTest(MldbUnitTest): # noqa
                 'runOnCreation' : True
             }
         })
-        self.assertQueryResult(mldb.query("SELECT * FROM res"), [
+        self.assertTableResultEquals(mldb.query("SELECT * FROM res"), [
             ['_rowName', "sum({*}).colA"], ["[1]", 1]
         ])
 
@@ -90,7 +90,7 @@ class SumDoesNotExistTest(MldbUnitTest): # noqa
                 'runOnCreation' : True
             }
         })
-        self.assertQueryResult(mldb.query("SELECT * FROM res"), [
+        self.assertTableResultEquals(mldb.query("SELECT * FROM res"), [
             ['_rowName', "sum({*}).colA"], ["coco", 1]
         ])
 
@@ -106,7 +106,7 @@ class SumDoesNotExistTest(MldbUnitTest): # noqa
                 'runOnCreation' : True
             }
         })
-        self.assertQueryResult(mldb.query("SELECT * FROM res"), [
+        self.assertTableResultEquals(mldb.query("SELECT * FROM res"), [
             ['_rowName', "sum({*}).colA"], ["[]", 1]
         ])
 
@@ -122,7 +122,7 @@ class SumDoesNotExistTest(MldbUnitTest): # noqa
                 'runOnCreation' : True
             }
         })
-        self.assertQueryResult(mldb.query("SELECT * FROM res"), [
+        self.assertTableResultEquals(mldb.query("SELECT * FROM res"), [
             ['_rowName', "sum({*}).colA"], ["[1]", 1]
         ])
 
@@ -138,7 +138,7 @@ class SumDoesNotExistTest(MldbUnitTest): # noqa
                 'runOnCreation' : True
             }
         })
-        self.assertQueryResult(mldb.query("SELECT * FROM res"), [
+        self.assertTableResultEquals(mldb.query("SELECT * FROM res"), [
             ['_rowName', "sum({*}).colA"], ["res", 1]
         ])
 
@@ -154,7 +154,7 @@ class SumDoesNotExistTest(MldbUnitTest): # noqa
                 'runOnCreation' : True
             }
         })
-        self.assertQueryResult(mldb.query("SELECT * FROM res"), [
+        self.assertTableResultEquals(mldb.query("SELECT * FROM res"), [
             ['_rowName', "sum({*}).colA"], ["res", 1]
         ])
 
@@ -170,7 +170,7 @@ class SumDoesNotExistTest(MldbUnitTest): # noqa
                 'runOnCreation' : True
             }
         })
-        self.assertQueryResult(mldb.query("SELECT * NAMED 'res' FROM res"), [
+        self.assertTableResultEquals(mldb.query("SELECT * NAMED 'res' FROM res"), [
             ['_rowName', "sum({*}).colA"], ["res", 1]
         ])
 

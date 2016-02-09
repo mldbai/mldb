@@ -42,7 +42,7 @@ class GenericProcedureTest(MldbUnitTest): # noqa
         })
 
         res = mldb.query("SELECT * FROM bar")
-        self.assertQueryResult(res, [['_rowName', 'colA'], ['row1', 1]])
+        self.assertTableResultEquals(res, [['_rowName', 'colA'], ['row1', 1]])
 
 if __name__ == '__main__':
     mldb.run_tests()

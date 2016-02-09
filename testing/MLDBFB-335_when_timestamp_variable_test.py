@@ -40,7 +40,7 @@ class WhenValueTest(MldbUnitTest):
             .format(t))
         res_variable = mldb.query(
             "SELECT * FROM merge(ds, timeDs) WHEN timestamp() <= to_timestamp(time)")
-        self.assertQueryResult(res_value, res_variable)
+        self.assertTableResultEquals(res_value, res_variable)
 
 if __name__ == '__main__':
     mldb.run_tests()

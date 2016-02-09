@@ -7,12 +7,16 @@
 
 #pragma once
 
+#include "mldb/http/http_socket_handler.h"
+#include "mldb/http/port_range_service.h"
 #include <atomic>
 #include <memory>
 #include <string>
-#include "mldb/http/http_socket_handler.h"
-#include "mldb/http/port_range_service.h"
+#include <time.h>
 
+namespace spdlog {
+    class logger;
+}
 
 namespace Datacratic {
 
@@ -29,7 +33,7 @@ struct TcpAcceptor;
 /** An HTTP endpoint for REST calls over HTTP connections. */
 
 struct HttpRestEndpoint {
-    HttpRestEndpoint(EventLoop & ioService);
+    HttpRestEndpoint(EventLoop & ioService, bool enableLogging);
     virtual ~HttpRestEndpoint();
 
     /** Set the Access-Control-Allow-Origin: * HTTP header */
@@ -67,7 +71,7 @@ struct HttpRestEndpoint {
     
     /** Connection handler structure for the endpoint. */
     struct RestConnectionHandler: public HttpLegacySocketHandler {
-        RestConnectionHandler(HttpRestEndpoint * endpoint, TcpSocket && socket);
+        RestConnectionHandler(HttpRestEndpoint * endpoint, TcpSocket && socket, bool enableLogging);
 
         HttpRestEndpoint * endpoint;
 
@@ -100,6 +104,12 @@ struct HttpRestEndpoint {
         void sendHttpChunk(std::string chunk,
                            NextAction next = NEXT_CONTINUE,
                            OnWriteFinished onWriteFinished = OnWriteFinished());
+
+    private:
+        void logRequest(int code) const;
+        HttpHeader httpHeader;
+        std::shared_ptr<spdlog::logger> logger;
+        timespec timer;
     };
 
     typedef std::function<void (std::shared_ptr<RestConnectionHandler> connection,

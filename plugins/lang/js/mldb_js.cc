@@ -1025,6 +1025,16 @@ struct MldbJS::Methods {
             return scope.Close(JS::toJS(jsonEncode(result)));
         } HANDLE_JS_EXCEPTIONS;
     }
+
+    static v8::Handle<v8::Value>
+    getHttpBoundAddress(const v8::Arguments & args)
+    {
+        v8::HandleScope scope;
+        try {
+            MldbServer * server = MldbJS::getShared(args.This());
+            return scope.Close(JS::toJS(server->httpBoundAddress));
+        } HANDLE_JS_EXCEPTIONS;
+    }
 };
 
 MldbServer *
@@ -1087,6 +1097,8 @@ registerMe()
                 FunctionTemplate::New(Methods::sqlEscape));
 
     result->Set(String::New("ls"), FunctionTemplate::New(Methods::ls));
+    result->Set(String::New("getHttpBoundAddress"),
+                FunctionTemplate::New(Methods::getHttpBoundAddress));
 
     return scope.Close(result);
 }

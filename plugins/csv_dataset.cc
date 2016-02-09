@@ -222,11 +222,11 @@ struct SqlCsvScope: public SqlExpressionMldbContext {
     virtual BoundFunction
     doGetFunction(const Utf8String & tableName,
                   const Utf8String & functionName,
-                  const std::vector<BoundSqlExpression> & args)
+                  const std::vector<std::shared_ptr<SqlExpression> > & args)
     {
         if (functionName == "lineNumber") {
             lineNumberUsed = true;
-            return {[=] (const std::vector<ExpressionValue> & args,
+            return {[=] (const std::vector<BoundSqlExpression> & args,
                          const SqlRowScope & scope)
                     {
                         auto & row = static_cast<const RowScope &>(scope);
@@ -236,7 +236,7 @@ struct SqlCsvScope: public SqlExpressionMldbContext {
                     };
         }
         else if (functionName == "fileTimestamp") {
-            return {[=] (const std::vector<ExpressionValue> & args,
+            return {[=] (const std::vector<BoundSqlExpression> & args,
                          const SqlRowScope & scope)
                     {
                         return ExpressionValue(fileTimestamp, fileTimestamp);
@@ -245,7 +245,7 @@ struct SqlCsvScope: public SqlExpressionMldbContext {
                     };
         }
         else if (functionName == "dataFileUrl") {
-            return {[=] (const std::vector<ExpressionValue> & args,
+            return {[=] (const std::vector<BoundSqlExpression> & args,
                          const SqlRowScope & scope)
                     {
                         return ExpressionValue(dataFileUrl, fileTimestamp);
@@ -254,7 +254,7 @@ struct SqlCsvScope: public SqlExpressionMldbContext {
                     };
         }
         else if (functionName == "lineOffset") {
-            return {[=] (const std::vector<ExpressionValue> & args,
+            return {[=] (const std::vector<BoundSqlExpression> & args,
                          const SqlRowScope & scope)
                     {
                         auto & row = static_cast<const RowScope &>(scope);
@@ -813,17 +813,17 @@ struct CsvDataset::Itl: public TabularDataStore {
                 // If it doesn't match the where, don't add it 
                 if (!isWhereTrue) {
                     ExpressionValue storage;
-                    if (!whereBound.exec(row, storage).isTrue())
+                    if (!whereBound(row, storage).isTrue())
                         return true;
                 }
                 
                 // Get the timestamp for the row
                 Date rowTs = ts;
                 ExpressionValue tsStorage;
-                rowTs = timestampBound.exec(row, tsStorage).coerceToTimestamp().toTimestamp();
+                rowTs = timestampBound(row, tsStorage).coerceToTimestamp().toTimestamp();
                 
                 ExpressionValue nameStorage;
-                RowName rowName(namedBound.exec(row, nameStorage).toUtf8String());
+                RowName rowName(namedBound(row, nameStorage).toUtf8String());
 
                 //cerr << "adding row with rowName " << rowName << endl;
                 
@@ -847,7 +847,7 @@ struct CsvDataset::Itl: public TabularDataStore {
 
                     ExpressionValue selectStorage;
                     const ExpressionValue & selectOutput
-                        = selectBound.exec(row, selectStorage);
+                        = selectBound(row, selectStorage);
 
                     if (&selectOutput == &selectStorage) {
                         // We can destructively work with it

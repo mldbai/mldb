@@ -12,9 +12,10 @@
 #include <boost/lexical_cast.hpp>
 #include "mldb/http/tcp_acceptor.h"
 #include "http_rest_endpoint.h"
+#include "mldb/utils/log.h"
+#include <iomanip>
 
 using namespace std;
-
 
 namespace Datacratic {
 
@@ -23,10 +24,10 @@ namespace Datacratic {
 /****************************************************************************/
 
 HttpRestEndpoint::
-HttpRestEndpoint(EventLoop & eventLoop)
+HttpRestEndpoint(EventLoop & eventLoop, bool enableLogging)
 {
-    auto makeHandler = [&] (TcpSocket && socket) {
-        return make_shared<RestConnectionHandler>(this, std::move(socket));
+    auto makeHandler = [&, enableLogging] (TcpSocket && socket) {
+        return make_shared<RestConnectionHandler>(this, std::move(socket), enableLogging);
     };
     acceptor_.reset(new TcpAcceptor(eventLoop, makeHandler));
 }
@@ -128,9 +129,11 @@ bindTcp(PortRange const & portRange, std::string host)
 /*****************************************************************************/
 
 HttpRestEndpoint::RestConnectionHandler::
-RestConnectionHandler(HttpRestEndpoint * endpoint, TcpSocket && socket)
+RestConnectionHandler(HttpRestEndpoint * endpoint, TcpSocket && socket, bool enableLogging)
     : HttpLegacySocketHandler(std::move(socket)), endpoint(endpoint)
 {
+    if (enableLogging)
+        logger = MLDB::getServerLog();
 }
 
 void
@@ -139,6 +142,9 @@ handleHttpPayload(const HttpHeader & header, const std::string & payload)
 {
     // We don't lock here, since sending the response will take the lock,
     // and whatever called us must know it's a valid connection
+
+    this->httpHeader = header;
+    clock_gettime(CLOCK_REALTIME, &timer);
 
     try {
         auto ptr = acceptor().findHandlerPtr(this);
@@ -179,7 +185,8 @@ HttpRestEndpoint::RestConnectionHandler::
 sendErrorResponse(int code, const Json::Value & error)
 {
     std::string encodedError = error.toString();
-
+    
+    logRequest(code);
     putResponseOnWire(HttpResponse(code, "application/json",
                                    std::move(encodedError),
                                    endpoint->extraHeaders),
@@ -207,6 +214,7 @@ sendResponse(int code,
     for (auto & h: endpoint->extraHeaders)
         headers.push_back(h);
 
+    logRequest(code);
     putResponseOnWire(HttpResponse(code,
                                    std::move(contentType), std::move(body),
                                    std::move(headers)));
@@ -224,6 +232,8 @@ sendResponseHeader(int code, std::string contentType, RestParams headers)
     for (auto & h: endpoint->extraHeaders)
         headers.push_back(h);
 
+
+    logRequest(code);
     putResponseOnWire(HttpResponse(code,
                                    std::move(contentType),
                                    std::move(headers)),
@@ -239,6 +249,19 @@ sendHttpChunk(std::string chunk,
     HttpLegacySocketHandler::send(std::move(chunk), next, onWriteFinished);
 }
 
+inline void
+HttpRestEndpoint::RestConnectionHandler::
+logRequest(int code) const
+{
+    if (logger) {
+        timespec now;
+        clock_gettime(CLOCK_REALTIME, &now);
+        double elapsed = (now.tv_sec - timer.tv_sec) * 1000 + (now.tv_nsec - timer.tv_nsec) * 0.000001;
+        logger->info() << "\"" << httpHeader.verb << " " 
+                       << httpHeader.resource << "\" " << code
+                       << " "  << std::setprecision(3)  << elapsed <<  "ms";
+    }
+}
 
 } // namespace Datacratic
 

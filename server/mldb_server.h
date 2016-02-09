@@ -49,7 +49,8 @@ struct MldbServer: public ServicePeer, public EventRecorder {
     
     MldbServer(const std::string & serviceName = "mldb",
                const std::string & etcdUri = "",
-               const std::string & etcdPath = "");
+               const std::string & etcdPath = "",
+               bool enableAccessLog = false);
     ~MldbServer();
 
     /** Scan the given directory for plugins.  These are not loaded;
@@ -128,6 +129,8 @@ struct MldbServer: public ServicePeer, public EventRecorder {
         and as backing for memory-mappable datasets.
     */
     std::string getCacheDirectory() const;
+
+    std::string httpBoundAddress;
 
 private:
     void preInit();
