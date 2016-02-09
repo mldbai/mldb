@@ -30,8 +30,8 @@ namespace Datacratic {
     It allows both synchronous and asynchronous responses.
 */
 struct RestServiceEndpoint {
-    RestServiceEndpoint()
-        : threadPool(eventLoop), httpEndpoint(eventLoop)
+    RestServiceEndpoint(bool enableLogging = false)
+    : threadPool(eventLoop), httpEndpoint(eventLoop, enableLogging)
     {
     }
 

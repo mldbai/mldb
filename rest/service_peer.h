@@ -50,7 +50,8 @@ struct ServicePeer
 
     ServicePeer(const std::string & peerName,
                 const std::string & serviceType, 
-                const std::string & serviceLocation);
+                const std::string & serviceLocation,
+                bool enableLogging = false);
 
     ~ServicePeer()
     {

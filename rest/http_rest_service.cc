@@ -236,10 +236,10 @@ captureInConnection(std::shared_ptr<void> toCapture)
 /*****************************************************************************/
 
 HttpRestService::
-HttpRestService()
+HttpRestService(bool enableLogging)
     : eventLoop(new EventLoop()),
       threadPool(new AsioThreadPool(*eventLoop)),
-      httpEndpoint(new HttpRestEndpoint(*eventLoop))
+      httpEndpoint(new HttpRestEndpoint(*eventLoop, enableLogging))
 {
 }
 

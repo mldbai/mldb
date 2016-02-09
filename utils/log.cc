@@ -12,21 +12,34 @@ namespace Datacratic {
 
 namespace MLDB {
 
-static std::shared_ptr<spdlog::logger> getQueryLog() {
-    static std::shared_ptr<spdlog::logger> queryLog = spdlog::stderr_logger_mt("query-log");
+static constexpr char const * timestampFormat = "%Y-%m-%dT%T.%e%z";
+
+std::shared_ptr<spdlog::logger> getConfiguredLogger(const std::string & name, const std::string & format) {
+    std::shared_ptr<spdlog::logger> logger = spdlog::stdout_logger_mt(name);
+    logger->set_pattern(format);
+    return logger;
+}
+
+std::shared_ptr<spdlog::logger> getQueryLog() {
+    static std::shared_ptr<spdlog::logger> queryLog = 
+        getConfiguredLogger("query-log", std::string("Q [") + timestampFormat + "] %l %v");
     return queryLog;
 }
 
-static std::shared_ptr<spdlog::logger> getMldbLog() {
-    static std::shared_ptr<spdlog::logger> mldbLog = spdlog::stderr_logger_mt("mldb");
+std::shared_ptr<spdlog::logger> getMldbLog() {
+    static std::shared_ptr<spdlog::logger> mldbLog = 
+        getConfiguredLogger("mldb", std::string("L [") + timestampFormat + "] %l %v");
     return mldbLog;
 }
 
-static std::shared_ptr<spdlog::logger> getServerLog() {
-    static std::shared_ptr<spdlog::logger> serverLog = spdlog::stderr_logger_mt("server-log");
+
+std::shared_ptr<spdlog::logger> getServerLog() {
+    static std::shared_ptr<spdlog::logger> serverLog = 
+        getConfiguredLogger("server-log", std::string("A [") + timestampFormat + "] %v");
     return serverLog;
 }
- 
+
+// force gcc to export these types
 void dummy() {
     (void)getQueryLog();
     (void)getMldbLog();
