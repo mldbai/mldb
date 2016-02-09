@@ -6,6 +6,7 @@
 
 */
 
+#include <curl/curl.h>
 #include "mldb/rest/rest_request_router.h"
 #include "mldb/jml/utils/vector_utils.h"
 #include "mldb/arch/exception_handler.h"
@@ -437,11 +438,20 @@ matchPath(RestRequestParsingContext & context) const
             = regex_search(context.remaining, results, path.rex,
                            std::regex_constants::match_continuous)
             && !results.prefix().matched;  // matches from the start
-        
+
         if (!found)
             return false;
-        for (unsigned i = 0;  i < results.size();  ++i)
-            context.resources.push_back(Utf8String(results[i].first, results[i].second));
+        for (unsigned i = 0;  i < results.size();  ++i) {
+            string str(results[i].first, results[i].second);
+            CURL *curl = curl_easy_init();
+            int outlength;
+            std::unique_ptr<char, void (*)(char *)> cres(
+                curl_easy_unescape(curl, str.c_str(), str.length(),
+                &outlength), [](char *p) { curl_free(p); });
+            context.resources.push_back(Utf8String(cres.get(),
+                                                   cres.get() + outlength));
+            curl_easy_cleanup(curl);
+        }
         context.remaining.replace(0, results[0].length(), "");
         break;
     }
