@@ -103,6 +103,7 @@ BOOST_AUTO_TEST_CASE(test_utf8_repetitions)
 #if TEST_ALL
 BOOST_AUTO_TEST_CASE(test_invalid_utf8)
 {
+    JML_TRACE_EXCEPTIONS(false);
     Utf8String in = "%C3";
     BOOST_CHECK_THROW(Url::decodeUri(in), ML::Exception);
 }

@@ -261,6 +261,7 @@ Utf8String
 Url::
 decodeUri(Utf8String in)
 {
+    Utf8String inCopy(in);
     Utf8String out;
     char high;
     char low;
@@ -279,14 +280,16 @@ decodeUri(Utf8String in)
 
             ++it; // over high
             if (it == in.end() || !isxdigit(*it)) {
-                throw ML::Exception("Invalid uri"); // Todo better msg?
+                throw ML::Exception("Invalid encoding on uri fragment: "
+                                    + inCopy.rawString());
             }
             high = *it;
             high -= high <= '9' ? '0' : (high <= 'F' ? 'A' : 'a') - 10;
 
             ++it; // over low
             if (it == in.end() || !isxdigit(*it)) {
-                throw ML::Exception("Invalid uri"); // Todo better msg?
+                throw ML::Exception("Invalid encoding on uri fragment: "
+                                    + inCopy.rawString());
             }
             low = *it;
             low -= low <= '9' ? '0' : (low <= 'F' ? 'A' : 'a') - 10;
@@ -305,6 +308,11 @@ decodeUri(Utf8String in)
             ++bufferIndex;
 
             ++it; // past low
+        }
+
+        if (remaining != 0) {
+            throw ML::Exception("Invalid encoding on uri fragment: "
+                                + inCopy.rawString());
         }
 
         // erase what was just processed
