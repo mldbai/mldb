@@ -6,6 +6,7 @@
 #include "mldb/ext/googleurl/src/gurl.h"
 #include "mldb/ext/googleurl/src/url_util.h"
 #include "mldb/arch/exception.h"
+#include "mldb/types/string.h"
 #include "value_description.h"
 
 #include <iostream>
@@ -255,6 +256,68 @@ reconstitute(ML::DB::Store_Reader & store)
     *this = Url(original);
 }
 #endif
+
+Utf8String
+Url::
+decodeUri(Utf8String in)
+{
+    Utf8String out;
+    char high;
+    char low;
+    char buffer[5]; // utf-8 has at most 4 bytes + \0
+    for (Utf8String::iterator it = in.find('%'); it != in.end();
+            it = in.find('%'))
+    {
+        if (it != in.begin()) {
+            // copy prior part to out
+            out += Utf8String(in.begin(), it);
+        }
+
+        int bufferIndex = 0;
+        int remaining = 1;
+        while (it != in.end() && *it == '%' && remaining) {
+
+            ++it; // over high
+            if (it == in.end() || !isxdigit(*it)) {
+                throw ML::Exception("Invalid uri"); // Todo better msg?
+            }
+            high = *it;
+            high -= high <= '9' ? '0' : (high <= 'F' ? 'A' : 'a') - 10;
+
+            ++it; // over low
+            if (it == in.end() || !isxdigit(*it)) {
+                throw ML::Exception("Invalid uri"); // Todo better msg?
+            }
+            low = *it;
+            low -= low <= '9' ? '0' : (low <= 'F' ? 'A' : 'a') - 10;
+
+            buffer[bufferIndex] = 16 * high + low;
+            if (bufferIndex == 0) {
+                char c = buffer[0] << 1;
+                while (c < 0) {
+                    c = c << 1;
+                    ++remaining;
+                }
+            }
+            --remaining;
+            ++bufferIndex;
+
+            if (it != in.end()) {
+                ++it; // past low
+            }
+        }
+
+        in.erase(in.begin(), it);
+        it = in.begin();
+        buffer[bufferIndex] = '\0';
+        out += Utf8String(buffer);
+    }
+    if (in.begin() != in.end()) {
+        out += Utf8String(in.begin(), in.end());
+    }
+    return out;
+}
+
 
 /*****************************************************************************/
 /* VALUE DESCRIPTION                                                         */
