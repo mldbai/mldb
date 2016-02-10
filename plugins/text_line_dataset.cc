@@ -35,7 +35,7 @@ const ColumnHash lineTextHash(lineText);
 } // file scope
 
 /*****************************************************************************/
-/* TEXT LINE DATASET                                                         */
+/* TEXT LINE INTERNAL REPRESENTATION                                         */
 /*****************************************************************************/
 
 struct TextLineDataset::Itl: public ColumnIndex, public MatrixView {
@@ -219,7 +219,7 @@ struct TextLineDataset::Itl: public ColumnIndex, public MatrixView {
 
 
 /*****************************************************************************/
-/* BEHAVIOUR DATASET                                                         */
+/* TEXT LINE DATASET                                                         */
 /*****************************************************************************/
 
 TextLineDataset::
@@ -285,7 +285,7 @@ getRowStream() const
 namespace {
 
 RegisterDatasetType<TextLineDataset, PersistentDatasetConfig>
-regBeh(builtinPackage(),
+regTextLine(builtinPackage(),
        "text.line",
        "Exposes a text file as a dataset, with one line per row",
        "datasets/TextLineDataset.md.html");

@@ -32,9 +32,10 @@ namespace Datacratic {
 ServicePeer::
 ServicePeer(const std::string & localPeerName,
             const std::string & serviceType,
-            const std::string & serviceLocation)
+            const std::string & serviceLocation,
+            bool enableLogging)
     : RestDirectory(this, "ROOT"),
-      HttpRestService(),
+      HttpRestService(enableLogging),
       peers(this)
 {
     peerInfo.peerName = localPeerName;

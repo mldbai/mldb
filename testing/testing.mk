@@ -258,6 +258,7 @@ $(eval $(call mldb_unit_test,MLDB-1260-json-errors.py))
 $(eval $(call mldb_unit_test,MLDB-1239-utf8-literal.py))
 $(eval $(call mldb_unit_test,MLDB-1353-EM.py))
 $(eval $(call mldb_unit_test,MLDB-1361_join_on_subselect.py))
+$(eval $(call mldb_unit_test,MLDB-1364_dataset_cant_be_overwritten.py))
 $(eval $(call mldb_unit_test,MLDB-1336-builtin-checks.py))
 
 $(eval $(call mldb_unit_test,pytanic_plugin_test.py))
@@ -311,7 +312,7 @@ $(eval $(call mldb_unit_test,MLDB-1213-blob-support.js))
 $(eval $(call mldb_unit_test,MLDBFB-332-transform_input_sum_doesnt_exist_test.py,,manual)) # manual -- awaiting fix
 $(eval $(call mldb_unit_test,MLDB-1320-sql-query-whole-table.js))
 $(eval $(call mldb_unit_test,MLDB-1315-row-table-expressions.js))
-$(eval $(call mldb_unit_test,MLDB-1345-having.py,,manual)) # manual -- awaiting fix
+$(eval $(call mldb_unit_test,MLDB-1345-having.py)) # manual -- awaiting fix
 $(eval $(call mldb_unit_test,mldb_unit_test_test.py))
 $(eval $(call mldb_unit_test,MLDB-1216-fetcher-function.js))
 $(eval $(call mldb_unit_test,MLDBFB-335_when_timestamp_variable_test.py))
@@ -321,3 +322,6 @@ $(eval $(call mldb_unit_test,MLDBFB-208_procedure_params_overwrite_test.py))
 $(eval $(call mldb_unit_test,MLDB-687-svd-embed-row-single-column.js))
 $(eval $(call mldb_unit_test,MLDB-1317-tensor-datatype.js))
 $(eval $(call mldb_unit_test,MLDB-1367_utf8_ids.py))
+$(eval $(call mldb_unit_test,get_http_bound_address.py))
+$(eval $(call mldb_unit_test,get_http_bound_address.js))
+$(eval $(call mldb_unit_test,MLDB-815-sparse-mutable-record-strings.js))

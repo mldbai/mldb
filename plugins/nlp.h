@@ -85,10 +85,6 @@ struct StemmerFunction: public Function {
 
     virtual FunctionInfo getFunctionInfo() const;
 
-    std::unique_ptr<sb_stemmer> stemmer;
-
-    mutable std::mutex apply_mutex; 
-
     StemmerFunctionConfig functionConfig;
 };
 
@@ -103,10 +99,6 @@ struct StemmerOnDocumentFunction: public Function {
                               const FunctionContext & context) const;
 
     virtual FunctionInfo getFunctionInfo() const;
-
-    std::unique_ptr<sb_stemmer> stemmer;
-
-    mutable std::mutex apply_mutex; 
 
     StemmerFunctionConfig functionConfig;
 };

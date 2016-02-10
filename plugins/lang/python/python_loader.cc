@@ -153,8 +153,6 @@ PythonPlugin(MldbServer * server,
     PythonSubinterpreter pyControl(isChild);
     addPluginPathToEnv(pyControl);
 
-
-
     try {
         JML_TRACE_EXCEPTIONS(false);
         pyControl.main_namespace["mldb"] =
@@ -594,6 +592,9 @@ class mldb_wrapper(object):
         def plugin(self):
             return self._mldb.plugin
 
+        def get_http_bound_address(self):
+            return self._mldb.get_http_bound_address()
+
         def get(self, url, **kwargs):
             query_string = []
             for k, v in kwargs.iteritems():
@@ -926,6 +927,7 @@ struct AtInit {
         mldb.def("read_lines", readLines);
         mldb.def("read_lines", readLines1);
         mldb.def("ls", ls);
+        mldb.def("get_http_bound_address", getHttpBoundAddress);
         mldb.def("create_dataset",
                    &DatasetPy::createDataset,
                    bp::return_value_policy<bp::manage_new_object>());

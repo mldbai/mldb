@@ -191,6 +191,9 @@ Json::Value
 ls(MldbPythonContext * mldbCon,
     const std::string & path);
 
+std::string
+getHttpBoundAddress(MldbPythonContext * mldbCon);
+
 
 
 /****************************************************************************/

@@ -145,7 +145,7 @@ struct HttpRestService {
         then the service will bind to those specific ports for the given
         endpoints, and so no service discovery will need to be done.
     */
-    HttpRestService();
+    HttpRestService(bool enableLogging);
 
     virtual ~HttpRestService();
 

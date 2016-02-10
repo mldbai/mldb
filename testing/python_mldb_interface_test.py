@@ -94,6 +94,9 @@ class PythonMldbInterfaceTest(MldbUnitTest): # noqa
         self.assertEqual(res.status_code, 404)
         self.assertEqual(res.url, url)
 
+    def test_get_bound_http_address(self):
+        mldb.log(mldb.get_http_bound_address())
+
     def test_assert_table_result_equals(self):
         url = '/v1/datasets/ds'
         mldb.put(url, {
