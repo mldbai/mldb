@@ -257,6 +257,10 @@ reconstitute(ML::DB::Store_Reader & store)
 }
 #endif
 
+/**
+ * Decodes uri encoded with Percent-encoding. It is meant to act like
+ * JavaScript decodeURI.
+ **/
 Utf8String
 Url::
 decodeUri(Utf8String in)

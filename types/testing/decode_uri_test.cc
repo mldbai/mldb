@@ -108,3 +108,16 @@ BOOST_AUTO_TEST_CASE(test_invalid_utf8)
     BOOST_CHECK_THROW(Url::decodeUri(in), ML::Exception);
 }
 #endif
+
+
+#if TEST_ALL
+BOOST_AUTO_TEST_CASE(test_plus_sign)
+{
+    Utf8String in("+");
+    Utf8String expected("+");
+    BOOST_CHECK_EQUAL(Url::decodeUri(in), expected);
+
+    in = "%2B";
+    BOOST_CHECK_EQUAL(Url::decodeUri(in), expected);
+}
+#endif

@@ -579,8 +579,12 @@ class mldb_wrapper(object):
 
         def log(self, thing):
             if type(thing) in [dict, list]:
-                thing = mldb_wrapper.jsonlib.dumps(thing, indent=4)
-            self._mldb.log(str(thing))
+                thing = mldb_wrapper.jsonlib.dumps(thing, indent=4,
+                                                   ensure_ascii=False)
+            if isinstance(thing, (str, unicode)):
+                self._mldb.log(thing)
+            else:
+                self._mldb.log(str(thing))
 
         @property
         def script(self):
