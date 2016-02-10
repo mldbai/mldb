@@ -15,7 +15,7 @@ function assertSucceeded(response)
     plugin.log(response);
 
     if (!succeeded(response)) {
-        throw process + " failed: " + JSON.stringify(response);
+        throw "failed: " + JSON.stringify(response);
     }
 }
 
@@ -49,7 +49,8 @@ function executeSequence(_id) {
         throw res.json["id"] + " != " + _id;
     }
 
-    mldb.del(url);
+    res = mldb.del(url);
+    assertSucceeded(res);
     res = mldb.get(url);
     if (res.responseCode != 404) {
         throw res.responseCode + " != 404";
@@ -65,7 +66,8 @@ function executeSequence(_id) {
         throw res.json["id"] + " != " + _id;
     }
 
-    mldb.del(url);
+    res = mldb.del(url);
+    assertSucceeded(res);
     res = mldb.get(url);
     if (res.responseCode != 404) {
         throw res.responseCode + " != 404";
@@ -77,12 +79,14 @@ executeSequence("françois/michel");
 executeSequence("françois michel");
 executeSequence('"françois says hello/goodbye, eh?"');
 
-mldb.put('/v1/datasets/ds', {
+res = mldb.put('/v1/datasets/ds', {
     'type' : 'sparse.mutable'
 });
-mldb.post('/v1/datasets/ds/commit');
+assertSucceeded(res);
+res = mldb.post('/v1/datasets/ds/commit');
+assertSucceeded(res);
 
-mldb.put('/v1/procedures/' + encodeURIComponent('françois'), {
+res = mldb.put('/v1/procedures/' + encodeURIComponent('françois'), {
     'type' : 'transform',
     'params' : {
         'inputData' : 'SELECT * FROM ds',
@@ -92,10 +96,13 @@ mldb.put('/v1/procedures/' + encodeURIComponent('françois'), {
         }
     }
 });
+assertSucceeded(res);
 
 url = '/v1/procedures/' + encodeURIComponent('françois') + '/runs/'
       + encodeURIComponent('michêl');
-mldb.put(url)
-mldb.get(url)
+res = mldb.put(url, {})
+assertSucceeded(res);
+res = mldb.get(url)
+assertSucceeded(res);
 
 "success"
