@@ -292,7 +292,9 @@ decodeUri(Utf8String in)
             low -= low <= '9' ? '0' : (low <= 'F' ? 'A' : 'a') - 10;
 
             buffer[bufferIndex] = 16 * high + low;
+
             if (bufferIndex == 0) {
+                // the first byte tells us how many bytes to look for
                 char c = buffer[0] << 1;
                 while (c < 0) {
                     c = c << 1;
@@ -305,12 +307,17 @@ decodeUri(Utf8String in)
             ++it; // past low
         }
 
+        // erase what was just processed
         in.erase(in.begin(), it);
         it = in.begin();
+
+        // append the current buffer to the output
         buffer[bufferIndex] = '\0';
         out += Utf8String(buffer);
     }
+
     if (in.begin() != in.end()) {
+        // appends whatever left to the output
         out += Utf8String(in.begin(), in.end());
     }
     return out;
