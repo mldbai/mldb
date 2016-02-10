@@ -88,10 +88,6 @@ BOOST_AUTO_TEST_CASE(test_utf8)
     in = "%C3%A9pluche";
     expected = "épluche";
     BOOST_CHECK_EQUAL(Url::decodeUri(in), expected);
-
-    in = "%C3%A9%C3%A9";
-    expected = "éé";
-    BOOST_CHECK_EQUAL(Url::decodeUri(in), expected);
 }
 #endif
 
@@ -101,5 +97,13 @@ BOOST_AUTO_TEST_CASE(test_utf8_repetitions)
     Utf8String in = "%C3%A9%C3%A9";
     Utf8String expected = "éé";
     BOOST_CHECK_EQUAL(Url::decodeUri(in), expected);
+}
+#endif
+
+#if TEST_ALL
+BOOST_AUTO_TEST_CASE(test_invalid_utf8)
+{
+    Utf8String in = "%C3";
+    BOOST_CHECK_THROW(Url::decodeUri(in), ML::Exception);
 }
 #endif
