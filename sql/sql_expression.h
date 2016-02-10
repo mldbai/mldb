@@ -846,10 +846,11 @@ struct SqlExpression: public std::enable_shared_from_this<SqlExpression> {
     */
     virtual ExpressionValue constantValue() const;
 
-    /** Is this a constant expression that always returns true in a
+    /** Is this a constant expression that always returns true/false in a
         boolean context?
     */
     virtual bool isConstantTrue() const;
+    virtual bool isConstantFalse() const;
 
     /** Evaluates to true if this expresion selects the entire row passed in,
         ie if it's a SELECT * or a {*}
@@ -858,6 +859,9 @@ struct SqlExpression: public std::enable_shared_from_this<SqlExpression> {
         a SELECT * should override.
     */
     virtual bool isIdentitySelect(SqlExpressionDatasetContext & context) const;
+
+    /* Find any children that is an aggregator call */
+    std::vector<std::shared_ptr<SqlExpression> > findAggregators() const;
 
     //should be private:
     typedef std::shared_ptr<SqlExpression> (*OperatorHandler)
@@ -1024,8 +1028,6 @@ struct SelectExpression: public SqlRowExpression {
     virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
 
     virtual bool isIdentitySelect(SqlExpressionDatasetContext & context) const;
-
-    std::vector<std::shared_ptr<SqlExpression> > findAggregators() const;
 
     std::vector<std::shared_ptr<SqlRowExpression> > clauses;
 

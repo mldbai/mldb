@@ -551,8 +551,12 @@ queryStructured(const SelectExpression & select,
     std::mutex lock;
     std::vector<MatrixNamedRow> output;
 
+    if (!having.isConstantTrue() && groupBy.clauses.empty())
+        throw HttpReturnException(400, "HAVING expression requires a GROUP BY expression");
+
     std::vector< std::shared_ptr<SqlExpression> > aggregators = select.findAggregators();
-    
+    std::vector< std::shared_ptr<SqlExpression> > havingaggregators = having.findAggregators();
+
     // Do it ungrouped if possible
     if (groupBy.clauses.empty() && aggregators.empty()) {
         auto aggregator = [&] (NamedRowValue & row_,
@@ -579,6 +583,8 @@ queryStructured(const SelectExpression & select,
                        nullptr);
     }
     else {
+
+        aggregators.insert(aggregators.end(), havingaggregators.begin(), havingaggregators.end());
 
         // Otherwise do it grouped...
         auto aggregator = [&] (NamedRowValue & row_)
