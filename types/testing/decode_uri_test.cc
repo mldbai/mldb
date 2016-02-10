@@ -38,6 +38,16 @@ BOOST_AUTO_TEST_CASE(test_percent_sign)
 #endif
 
 #if TEST_ALL
+BOOST_AUTO_TEST_CASE(test_percent_sign_repetition)
+{
+    Utf8String in("%25%25");
+    Utf8String expected("%%");
+    Utf8String result = Url::decodeUri(in);
+    BOOST_CHECK_EQUAL(result, expected);
+}
+#endif
+
+#if TEST_ALL
 BOOST_AUTO_TEST_CASE(test_percent_sign_with_spaces)
 {
     Utf8String in(" %25");
@@ -81,6 +91,15 @@ BOOST_AUTO_TEST_CASE(test_utf8)
 
     in = "%C3%A9%C3%A9";
     expected = "éé";
+    BOOST_CHECK_EQUAL(Url::decodeUri(in), expected);
+}
+#endif
+
+#if TEST_ALL
+BOOST_AUTO_TEST_CASE(test_utf8_repetitions)
+{
+    Utf8String in = "%C3%A9%C3%A9";
+    Utf8String expected = "éé";
     BOOST_CHECK_EQUAL(Url::decodeUri(in), expected);
 }
 #endif
