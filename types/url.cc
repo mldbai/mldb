@@ -302,9 +302,7 @@ decodeUri(Utf8String in)
             --remaining;
             ++bufferIndex;
 
-            if (it != in.end()) {
-                ++it; // past low
-            }
+            ++it; // past low
         }
 
         in.erase(in.begin(), it);
