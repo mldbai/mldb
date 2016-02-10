@@ -677,6 +677,7 @@ struct XlsxImporter: public Procedure {
         Styles styles;
         std::string savedRelationships;
         bool sheetsLoaded = false;
+        auto runProcConf = applyRunConfOverProcConf(config, run);
 
         workbook.timestamp = Date::positiveInfinity();
 
@@ -733,21 +734,21 @@ struct XlsxImporter: public Procedure {
                 return true;
             };
 
-        forEachUriObject("archive+" + config.dataFileUrl.toString(),
+        forEachUriObject("archive+" + runProcConf.dataFileUrl.toString(),
                          onFile);
         
         // Create the output dataset
 
         std::shared_ptr<Dataset> output;
  
-        if (!config.output.type.empty()
-            || !config.output.id.empty()) {
-            output = obtainDataset(server, config.output);
+        if (!runProcConf.output.type.empty()
+            || !runProcConf.output.id.empty()) {
+            output = obtainDataset(server, runProcConf.output);
         }
        
         // 4.  Load the worksheets, one by one
         for (auto & sheetEntry: workbook.sheets) {
-            Utf8String filename = "archive+" + config.dataFileUrl.toString() + "#xl/" + sheetEntry.filename;
+            Utf8String filename = "archive+" + runProcConf.dataFileUrl.toString() + "#xl/" + sheetEntry.filename;
             ML::filter_istream sheetStream(filename.rawString());
             
             Sheet sheet(sheetStream.rdbuf(), workbook, strings, styles);
