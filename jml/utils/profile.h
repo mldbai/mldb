@@ -62,6 +62,79 @@ struct StackProfiler {
     }
 };
 
+struct StackProfilerAverage {
+
+    ML::Timer wall;
+    std::atomic<int>& count;
+    std::atomic<double>& sum;
+    const char* label;
+    StackProfilerAverage(const char * label, std::atomic<int>& count, std::atomic<double>& sum) : count(count), sum(sum), label(label)
+    {
+
+    }
+
+    ~StackProfilerAverage()
+    {
+        auto currentCount = count.load();
+        while (!count.compare_exchange_weak(currentCount, currentCount + 1));
+
+        auto current = sum.load();
+        while (!sum.compare_exchange_weak(current, current + wall.elapsed_wall()));
+
+        if (currentCount % 1000 == 0)
+        {
+            std::cerr << label << " (" << (current / currentCount) << " average sec cpu walll " << std::endl;
+        }
+    }
+};
+
+
+struct ConcurrencyCounter {
+    ConcurrencyCounter(const char * label, std::atomic<int>& count, std::atomic<int>& maxcount) : count(count)
+    {
+        count++;
+        int currentMaxCount = maxcount;
+        if (count > currentMaxCount)
+        {
+            while (true)
+            {
+               if (!std::atomic_compare_exchange_strong(&maxcount, &currentMaxCount, currentMaxCount+1))
+               {
+                    currentMaxCount = maxcount.load();
+                    if (count <= currentMaxCount)
+                    {
+                        break;
+                    }
+               }
+               else
+               {
+                  std::cerr << "MAX CONCURRENCY CONNECTION COUNT FOR " << label << ": " << currentMaxCount+1 << std::endl;
+               } 
+            };
+           
+        }
+    }
+
+    ~ConcurrencyCounter()
+    {
+        count--;
+    }
+
+    std::atomic<int>& count;
+};
+
+#define STACK_PROFILE_AVERAGE(label) \
+const char* label##__stack_profile_average_string = #label; \
+static std::atomic<int> label##__stack_average_count(0); \
+static std::atomic<double> label##__stack_average_sum(0); \
+ML::StackProfilerAverage label##__average_profile(label##__stack_profile_average_string, label##__stack_average_count, label##__stack_average_sum);
+
+#define STACK_CONCURRENCY_COUNTER(label) \
+const char* label##__stack_profile_string = #label; \
+static std::atomic<int> label##__stack_concurrency_count(0); \
+static std::atomic<int> label##__stack_concurrency_maxcount(0); \
+ML::ConcurrencyCounter label##__concurrency_profile(label##__stack_profile_string, label##__stack_concurrency_count, label##__stack_concurrency_maxcount);
+
 #define PROFILE_FUNCTION(var) \
 Function_Profiler __profiler(var, profile);
 

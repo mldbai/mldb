@@ -137,8 +137,8 @@ StemmerFunction(MldbServer * owner,
 {
     functionConfig = config.params.convert<StemmerFunctionConfig>();
 
-    stemmer = std::unique_ptr<sb_stemmer>(
-            sb_stemmer_new(functionConfig.language.c_str(), "UTF_8"));
+    //this is just to verify the language at creation time
+    std::unique_ptr<sb_stemmer> stemmer(sb_stemmer_new(functionConfig.language.c_str(), "UTF_8"));
 
     if (!stemmer) {
         throw ML::Exception(ML::format("language `%s' not available for stemming in "
@@ -159,8 +159,10 @@ StemmerFunction::
 apply(const FunctionApplier & applier,
       const FunctionContext & context) const
 {
-    // the stemmer is not thread safe
-    unique_lock<mutex> guard(apply_mutex);
+    // the sb_stemmer object is not thread safe
+    // but this allocation is not very expensive as profiled
+    // compared to actually doing the stemming
+    std::unique_ptr<sb_stemmer> stemmer(sb_stemmer_new(functionConfig.language.c_str(), "UTF_8"));
 
     map<Coord, pair<double, Date>> accum;
 
@@ -243,8 +245,8 @@ StemmerOnDocumentFunction(MldbServer * owner,
 {
     functionConfig = config.params.convert<StemmerFunctionConfig>();
 
-    stemmer = std::unique_ptr<sb_stemmer>(
-            sb_stemmer_new(functionConfig.language.c_str(), "UTF_8"));
+    //this is just to verify the language at creation time
+    std::unique_ptr<sb_stemmer> stemmer(sb_stemmer_new(functionConfig.language.c_str(), "UTF_8"));
 
     if (!stemmer) {
         throw ML::Exception(ML::format("language `%s' not available for stemming in "
@@ -265,8 +267,10 @@ StemmerOnDocumentFunction::
 apply(const FunctionApplier & applier,
       const FunctionContext & context) const
 {
-    // the stemmer is not thread safe
-    unique_lock<mutex> guard(apply_mutex);
+    // the sb_stemmer object is not thread safe
+    // but this allocation is not very expensive as profiled
+    // compared to actually doing the stemming
+    std::unique_ptr<sb_stemmer> stemmer(sb_stemmer_new(functionConfig.language.c_str(), "UTF_8"));
 
     Utf8String accum;
 
