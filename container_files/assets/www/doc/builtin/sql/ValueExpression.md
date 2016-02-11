@@ -58,31 +58,16 @@ higher predecence, so for example `x + y * z` is the same as
 always are left associative, that is the expression
 `x / y % z` is evaluated as `(x / y) % z`.
 
-  Operator  |  Type              | Precedence | Description
-:----------:|--------------------|:------------:|-----------------------
-     `~`      |  unary arithmetic  |          1 | Bitwise NOT
-     `*`      |  binary arithmetic |          2 | Multiplication
-     `/`      |  binary arithmetic |          2 | Division 
-     `%`      |  binary arithmetic |          2 | Modulo 
-     `+`      |  unary arithmetic  |          3 | Unary positive 
-     `-`      |  unary arithmetic  |          3 | Unary negative 
-     `+`      |  binary arithmetic |          3 | Addition / Concatenation 
-     `-`      |  binary arithmetic |          3 | Subtraction 
-     `&`      |  binary bitwise    |          3 | Bitwise and 
-     `\|`     |  binary bitwise    |          3 | Bitwise or 
-     `^`      |  binary bitwise    |          3 | Bitwise exclusive or 
-     `=`      |  binary comparison |          4 | Equality 
-     `>=`     |  binary comparison |          4 | Greater or equal to 
-     `<=`     |  binary comparison |          4 | Less or equal to 
-     `<>`     |  binary comparison |          4 | Not equal to 
-     `!=`     |  binary comparison |          4 | Not equal to 
-     `!>`     |  binary comparison |          4 | Not greater than 
-     `!<`     |  binary comparison |          4 | Not less than 
-     `>`      |  binary comparison |          4 | Greater than 
-     `<`      |  binary comparison |          4 | Less than 
-     `NOT`    |  unary boolean     |          5 | Boolean not 
-     `AND`    |  binary boolean    |          6 | Boolean and 
-     `OR`     |  binary boolean    |          7 | Boolean or 
+  Operator  |  Type              | Precedence 
+:----------:|--------------------|:------------
+     `~`      |  unary arithmetic  |          1 
+     `*` , `/` , `%`      |  binary arithmetic |          2 
+     `+` , `-`      |  unary arithmetic  |          3 
+     `+` , `-`      |  binary arithmetic |          3 
+     `&` , <code>&#124;</code> , `^`      |  binary bitwise    |          3 
+     `=` , `!=`, `>` , `<` , `>=` , `<=` , `<>` , `!>` , `!<`       |  binary comparison |          4 
+     `NOT`    |  unary boolean     |          5 
+     `AND` , `OR`     |  binary boolean    |          7 
 
 <!--
      ALL      unary unimp                 7  All true 
@@ -103,22 +88,17 @@ the types that will result from each operation:
 
   Operator  |  Left hand Value    |    Right Hand Value  | Resulting type   
   :--------:|---------------------|----------------------|-----------------
-     `+`      |  Timestamp          |    Number*           | Timestamp       
-     `+`      |  Timestamp          |    Time Interval     | Timestamp
-     `+`      |  Time Interval      |    Number*           | Time Interval 
-     `+`      |  Time Interval      |    Time Interval     | Time Interval 
-     `-`      |  Timestamp          |    Number*           | Timestamp 
-     `-`      |  Timestamp          |    Time Interval     | Timestamp 
-     `-`      |  Time Interval      |    Number*           | Time Interval 
-     `-`      |  Time Interval      |    Time Interval     | Time Interval 
-     `*`      |  Time Interval      |    Number*           | Time Interval
-     `/`      |  Time Interval      |    Number*           | Time Interval    
+     `+` , `-`      |  Timestamp          |    Number*           | Timestamp       
+     `+` , `-`      |  Timestamp          |    Time Interval     | Timestamp
+     `+` , `-`      |  Time Interval      |    Number*           | Time Interval 
+     `+` , `-`      |  Time Interval      |    Time Interval     | Time Interval 
+     `*` , `/`      |  Time Interval      |    Number           | Time Interval    
 
 
 *When used in conjunction with Timestamps or Time Intervals, Numbers implicitly represent days.
 
 
-Note that the operators + and * are commutative in all cases.
+Note that the operators `+` and `*` are commutative in all cases.
 
 
 ### `BETWEEN` expressions
