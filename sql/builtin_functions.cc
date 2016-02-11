@@ -1403,14 +1403,17 @@ void normalize(ML::distribution<float>& val, double p)
             if (v != 0)
                 v = n;
     }
+    else if (p == INFINITY) {
+        val /= val.max();
+    }
+    else if (p <= 0.0 || !isfinite(p))
+        throw HttpReturnException(500, "Invalid power for normalize() function",
+                                  "p", p);
     else if (p == 2) {
         val /= val.two_norm();
     }
     else if (p == 1) {
         val /= val.total();
-    }
-    else if (p == INFINITY) {
-        val /= val.max();
     }
     else {
         double total = 0.0;
