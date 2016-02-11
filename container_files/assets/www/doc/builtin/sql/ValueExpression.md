@@ -324,16 +324,13 @@ Note that this syntax is not part of SQL, it is an MLDB extension.
 - `rowName()`: returns the name the current row 
 - `columnCount()`: returns the number of columns with explicit values set in the current row 
 
-### Type conversion functions
+### Encoding and decoding functions
 
-- `implicit_cast(x)` or `implicitCast(x)`: attempts to convert `x` to a
+- `implicit_cast(x)`: attempts to convert `x` to a
   number according to the following recipe:
   - if `x` is the empty string, return `null`
   - if `x` is a string that can be converted to a number, return the number
   - otherwise, return `x` unchanged
-
-### Encoding and decoding functions
-
 - `base64_encode(blob)` returns the base-64 encoded version of the blob
   (or string) argument as a string.
 - `base64_decode(string)` returns a blob containing the decoding of the
@@ -371,27 +368,20 @@ expression|result
 `quantize(217, 100)`    | 200
 `quantize(-217, 100)`   | -200
 
-### Replace functions
 
 - `replace_nan(x, y)`: replace all NaNs in x by y.
 - `replace_inf(x, y)`: replace all Inf in x by y.
-
-### Binomial confidence interval functions
-
 - `binomial_lb_80(trials, successes)` returns the 80% lower bound using the Wilson score.
 - `binomial_ub_80(trials, successes)` returns the 80% upper bound using the Wilson score.
 
 More details on the [Binomial proportion confidence interval Wikipedia page](https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval).
 
-### Basic string functions
+### String functions
 
 - `lower(string)` returns the lowercase version of the string, according to the
   system locale.
 - `upper(string)` returns the uppercase version of the string, according to the
   system locale.
-
-### Regular expression functions
-
 - `regex_replace(string, regex, replacement)` will return the given string with
   matches of the `regex` replaced by the `replacement`.  Perl-style regular
   expressions are supported.
@@ -401,8 +391,6 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
   the regex, and false otherwise.  If `string` is null, then null will be returned.
 
 ### Timestamp functions
-
-These functions deal with timestamps.
 
 - `when(x)` returns the timestamp at which the expression `x` was known to be
   true.  Each expression in MLDB has an associated timestamp attached to it,
@@ -419,7 +407,7 @@ These functions deal with timestamps.
 - `at(x, d)` returns the value of the expression `x`, but with the timestamp
   modified to be at timestamp `d`.
 - `now()` returns the timestamp at the current moment, according to system
-  time.  
+  time.
 - `min_timestamp(x)` returns the minimum timestamp represented in the scalar
   or object `x`.
 - `max_timestamp(x)` returns the maximum timestamp represented in the scalar

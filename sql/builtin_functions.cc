@@ -1058,7 +1058,7 @@ ValuedBoundFunction implicit_cast(const std::vector<BoundSqlExpression> & args)
             std::make_shared<AtomValueInfo>()};
 }
 
-static RegisterBuiltin registerImplicitCast(implicit_cast, "implicit_cast", "implicitCast");
+static RegisterBuiltin registerImplicitCast(implicit_cast, "implicit_cast");
 
 ValuedBoundFunction regex_replace(const std::vector<BoundSqlExpression> & args)
 { 
