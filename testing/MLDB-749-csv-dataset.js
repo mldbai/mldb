@@ -449,4 +449,28 @@ assertEqual(getCountWithOffsetLimit2("test_12", 0, 12), 12, "expecting 12 rows o
 assertEqual(getCountWithOffsetLimit2("test_total+2000", 0, totalSize + 2000), totalSize, "we can't get more than what there is!");
 assertEqual(getCountWithOffsetLimit2("test_total-10", 10, -1), totalSize - 10, "expecting all set except 10 rows");
 
+//MLDB-1312 specify delimiter
+var mldb1312Config = {
+    type: 'text.csv.tabular',
+    id: 'mldb1312',
+    params: {
+        dataFileUrl: 'file://mldb/testing/MLDB-1312-quotechar.csv',
+        encoding: 'latin1',
+        quotechar: '#'
+    }
+};
+
+mldb.createDataset(mldb1312Config);
+
+expected = 
+[
+      [ "_rowName", "a", "b" ],
+      [ "2", "a", "b" ],
+      [ "3", "a#b", "c" ],
+      [ "4", "a,b", "c" ]
+];
+
+var res = mldb.get("/v1/query", { q: 'select * from mldb1312 order by rowName()', format: 'table' });
+assertEqual(res.json, expected, "quotechar test");
+
 "success"
