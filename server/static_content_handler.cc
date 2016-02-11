@@ -271,7 +271,10 @@ getStaticRouteHandler(string dir, MldbServer * server, bool hideInternalEntities
                 result += "</head>\n";
                 result += "<body style='margin-left: 50px; max-width: 1000px'>\n";
                 result += std::string((const char *)ob->data, (const char *)(ob->data + ob->size));
-                result += "<script>hljs.initHighlightingOnLoad();</script>";
+                result += "<script>";
+                result += "hljs.configure({languages:['http', 'javascript', 'python', 'sql', 'json']});";
+                result += "hljs.initHighlightingOnLoad();";
+                result += "</script>";
                 result += "</body>\n";
                 result += "</html>\n";
 
