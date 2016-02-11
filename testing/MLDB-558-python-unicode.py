@@ -127,17 +127,26 @@ class Utf8IdsTest(MldbUnitTest): # noqa
         with self.assertMldbRaises(status_code=404):
             mldb.get(url)
 
-    def test_extra_1(self):
+    def test_cedille(self):
         self.execute_sequence('françois')
 
-    def test_extra_2(self):
+    def test_cedille_and_slash(self):
         self.execute_sequence('françois/michel')
 
-    def test_extra_3(self):
+    def test_cedille_and_whitespace(self):
         self.execute_sequence('françois michel')
 
-    def test_extra_4(self):
+    def test_cedille_whitespace_slash_question_mark(self):
         self.execute_sequence('"françois says hello/goodbye, eh?"')
+
+    def test_plus_sign(self):
+        self.execute_sequence('"a+b"')
+
+        mldb.post('/v1/datasets', {
+            'id' : 'a+b',
+            'type' : 'sparse.mutable'
+        })
+        mldb.get('/v1/datasets/a+b').json()
 
     def test_extra_5(self):
         mldb.put('/v1/datasets/ds', {

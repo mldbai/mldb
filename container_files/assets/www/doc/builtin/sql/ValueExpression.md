@@ -58,31 +58,16 @@ higher predecence, so for example `x + y * z` is the same as
 always are left associative, that is the expression
 `x / y % z` is evaluated as `(x / y) % z`.
 
-  Operator  |  Type              | Precedence | Description
-:----------:|--------------------|:------------:|-----------------------
-     `~`      |  unary arithmetic  |          1 | Bitwise NOT
-     `*`      |  binary arithmetic |          2 | Multiplication
-     `/`      |  binary arithmetic |          2 | Division 
-     `%`      |  binary arithmetic |          2 | Modulo 
-     `+`      |  unary arithmetic  |          3 | Unary positive 
-     `-`      |  unary arithmetic  |          3 | Unary negative 
-     `+`      |  binary arithmetic |          3 | Addition / Concatenation 
-     `-`      |  binary arithmetic |          3 | Subtraction 
-     `&`      |  binary bitwise    |          3 | Bitwise and 
-     `\|`     |  binary bitwise    |          3 | Bitwise or 
-     `^`      |  binary bitwise    |          3 | Bitwise exclusive or 
-     `=`      |  binary comparison |          4 | Equality 
-     `>=`     |  binary comparison |          4 | Greater or equal to 
-     `<=`     |  binary comparison |          4 | Less or equal to 
-     `<>`     |  binary comparison |          4 | Not equal to 
-     `!=`     |  binary comparison |          4 | Not equal to 
-     `!>`     |  binary comparison |          4 | Not greater than 
-     `!<`     |  binary comparison |          4 | Not less than 
-     `>`      |  binary comparison |          4 | Greater than 
-     `<`      |  binary comparison |          4 | Less than 
-     `NOT`    |  unary boolean     |          5 | Boolean not 
-     `AND`    |  binary boolean    |          6 | Boolean and 
-     `OR`     |  binary boolean    |          7 | Boolean or 
+  Operator  |  Type              | Precedence 
+:----------:|--------------------|:------------
+     `~`      |  unary arithmetic  |          1 
+     `*` , `/` , `%`      |  binary arithmetic |          2 
+     `+` , `-`      |  unary arithmetic  |          3 
+     `+` , `-`      |  binary arithmetic |          3 
+     `&` , <code>&#124;</code> , `^`      |  binary bitwise    |          3 
+     `=` , `!=`, `>` , `<` , `>=` , `<=` , `<>` , `!>` , `!<`       |  binary comparison |          4 
+     `NOT`    |  unary boolean     |          5 
+     `AND` , `OR`     |  binary boolean    |          7 
 
 <!--
      ALL      unary unimp                 7  All true 
@@ -103,22 +88,17 @@ the types that will result from each operation:
 
   Operator  |  Left hand Value    |    Right Hand Value  | Resulting type   
   :--------:|---------------------|----------------------|-----------------
-     `+`      |  Timestamp          |    Number*           | Timestamp       
-     `+`      |  Timestamp          |    Time Interval     | Timestamp
-     `+`      |  Time Interval      |    Number*           | Time Interval 
-     `+`      |  Time Interval      |    Time Interval     | Time Interval 
-     `-`      |  Timestamp          |    Number*           | Timestamp 
-     `-`      |  Timestamp          |    Time Interval     | Timestamp 
-     `-`      |  Time Interval      |    Number*           | Time Interval 
-     `-`      |  Time Interval      |    Time Interval     | Time Interval 
-     `*`      |  Time Interval      |    Number*           | Time Interval
-     `/`      |  Time Interval      |    Number*           | Time Interval    
+     `+` , `-`      |  Timestamp          |    Number*           | Timestamp       
+     `+` , `-`      |  Timestamp          |    Time Interval     | Timestamp
+     `+` , `-`      |  Time Interval      |    Number*           | Time Interval 
+     `+` , `-`      |  Time Interval      |    Time Interval     | Time Interval 
+     `*` , `/`      |  Time Interval      |    Number           | Time Interval    
 
 
 *When used in conjunction with Timestamps or Time Intervals, Numbers implicitly represent days.
 
 
-Note that the operators + and * are commutative in all cases.
+Note that the operators `+` and `*` are commutative in all cases.
 
 
 ### `BETWEEN` expressions
@@ -324,16 +304,13 @@ Note that this syntax is not part of SQL, it is an MLDB extension.
 - `rowName()`: returns the name the current row 
 - `columnCount()`: returns the number of columns with explicit values set in the current row 
 
-### Type conversion functions
+### Encoding and decoding functions
 
-- `implicit_cast(x)` or `implicitCast(x)`: attempts to convert `x` to a
+- `implicit_cast(x)`: attempts to convert `x` to a
   number according to the following recipe:
   - if `x` is the empty string, return `null`
   - if `x` is a string that can be converted to a number, return the number
   - otherwise, return `x` unchanged
-
-### Encoding and decoding functions
-
 - `base64_encode(blob)` returns the base-64 encoded version of the blob
   (or string) argument as a string.
 - `base64_decode(string)` returns a blob containing the decoding of the
@@ -371,27 +348,20 @@ expression|result
 `quantize(217, 100)`    | 200
 `quantize(-217, 100)`   | -200
 
-### Replace functions
 
 - `replace_nan(x, y)`: replace all NaNs in x by y.
 - `replace_inf(x, y)`: replace all Inf in x by y.
-
-### Binomial confidence interval functions
-
 - `binomial_lb_80(trials, successes)` returns the 80% lower bound using the Wilson score.
 - `binomial_ub_80(trials, successes)` returns the 80% upper bound using the Wilson score.
 
 More details on the [Binomial proportion confidence interval Wikipedia page](https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval).
 
-### Basic string functions
+### String functions
 
 - `lower(string)` returns the lowercase version of the string, according to the
   system locale.
 - `upper(string)` returns the uppercase version of the string, according to the
   system locale.
-
-### Regular expression functions
-
 - `regex_replace(string, regex, replacement)` will return the given string with
   matches of the `regex` replaced by the `replacement`.  Perl-style regular
   expressions are supported.
@@ -401,8 +371,6 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
   the regex, and false otherwise.  If `string` is null, then null will be returned.
 
 ### Timestamp functions
-
-These functions deal with timestamps.
 
 - `when(x)` returns the timestamp at which the expression `x` was known to be
   true.  Each expression in MLDB has an associated timestamp attached to it,
@@ -419,7 +387,7 @@ These functions deal with timestamps.
 - `at(x, d)` returns the value of the expression `x`, but with the timestamp
   modified to be at timestamp `d`.
 - `now()` returns the timestamp at the current moment, according to system
-  time.  
+  time.
 - `min_timestamp(x)` returns the minimum timestamp represented in the scalar
   or object `x`.
 - `max_timestamp(x)` returns the maximum timestamp represented in the scalar
@@ -449,15 +417,17 @@ These functions deal with timestamps.
 
 ### Vector space functions
 
-- `norm(vec, p)` will return the L-`p` norm of `vec`.
-- `normalize(vec, p)` will return a version of the `vec` normalized in the L-`p` norm.  This means that `norm(normalize(vec, p), p) = 1` for any non-zero `vec`.
-- `vector_diff(vec1, vec2)` will return an elementwise difference `vec1 - vec2`,
+- `norm(vec, p)` will return the L-`p` norm of `vec`. The L-0 norm is the count of non-zero
+   elements.
+- `normalize(vec, p)` will return a version of the `vec` normalized in the
+   L-`p` norm such that `normalize(vec, p) = vec / norm(vec, p)`.
+- `vector_diff(vec1, vec2)` will efficiently return an elementwise difference `vec1 - vec2`,
    where both are assumed to be embeddings.  The lengths of the two must be the same.
-- `vector_sum(vec1, vec2)` will return an elementwise sum `vec1 + vec2`, where
+- `vector_sum(vec1, vec2)` will efficiently return an elementwise sum `vec1 + vec2`, where
   both are assumed to be embeddings.  The lengths of the two must be the same.
-- `vector_product(vec1, vec2)` will return an elementwise product `vec1 * vec2`, where
+- `vector_product(vec1, vec2)` will efficiently return an elementwise product `vec1 * vec2`, where
   both are assumed to be embeddings.  The lengths of the two must be the same.
-- `vector_quotient(vec1, vec2)` will return an elementwise quotient `vec1 / vec2`, where
+- `vector_quotient(vec1, vec2)` will efficiently return an elementwise quotient `vec1 / vec2`, where
   both are assumed to be embeddings.  The lengths of the two must be the same.
   Divisions by zero will result in NaN values.
 

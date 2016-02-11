@@ -116,5 +116,6 @@ For example, `select [1,2] as x` yields
 As a result, sorting by column names where there are more than 9 columns
 may give strange results, with 10 sorting before 2.  This can be
 addressed at the application level.
+
 <!-- NTD: will be addressed at the MLDB level with structured column names -->
 
