@@ -80,6 +80,7 @@ given.
   so that it is not necessary to scan the whole table.  Otherwise
   the queries may be very slow.
   
+<!--
 
 ## Example
 
@@ -102,6 +103,8 @@ SELECT row_transform({input: {x: 1, y: 2, z: "three"}})[output] AS *
 
 { Z: "three" }
 ```
+
+-->
 
 ## See also
 

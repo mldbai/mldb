@@ -79,6 +79,8 @@ SELECT x.* FROM merge(dataset1, dataset2, dataset3) AS x
 
 See ![](%%doclink merged dataset) for more details.
 
+<!--
+
 ## Using rows as a dataset
 
 In some circumstances, it may be useful to use a row as a dataset,
@@ -107,4 +109,4 @@ x       |  1
 y       |  2
 z       |  "three"
 
-
+-->
