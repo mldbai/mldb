@@ -6,7 +6,7 @@ When a procedure accepts data as input, the data query can be specified in one o
 
 Input queries can be specified as a string containing a full [SQL query](../sql/Sql.md). For example the string:
 
-```
+```sql
 SELECT column1, column2 FROM dataset1 WHERE column1 > column2 ORDER BY column1
 ```
 
@@ -17,7 +17,7 @@ where `column1` and `column2` refer to columns in a pre-existing dataset with id
 
 Input queries can also be specified as a JSON object representing a [Dataset Configuration](../datasets/DatasetConfig.md) and a decomposed [SQL query](../sql/Sql.md).  For example the object:
 
-```
+```javascript
 {
   "select" : "column1, column2",
   "from" : {
@@ -31,7 +31,7 @@ Input queries can also be specified as a JSON object representing a [Dataset Con
 is equivalent to the query above on the pre-existing dataset with id `dataset1`.  In addition, this representation
 offers the ability to first create a dataset.  In this example,
 
-```
+```javascript
 {
   "select" : "column1, column2",
   "from" : {

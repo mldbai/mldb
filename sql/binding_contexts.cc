@@ -21,58 +21,38 @@ namespace MLDB {
 /* READ THROUGH BINDING CONTEXT                                              */
 /*****************************************************************************/
 
-BoundSqlExpression
-ReadThroughBindingContext::
-rebind(BoundSqlExpression expr)
-{
-    auto outerExec = expr.exec;
-
-    // Call the exec function with the context pivoted to the output context
-    expr.exec = [=] (const SqlRowScope & context,
-                     ExpressionValue & storage)
-        -> const ExpressionValue &
-        {
-            auto & row = static_cast<const RowContext &>(context);
-            return outerExec(row.outer, storage);
-        };
-
-    return expr;
-}
-
 BoundFunction
 ReadThroughBindingContext::
 doGetFunction(const Utf8String & tableName,
               const Utf8String & functionName,
-              const std::vector<BoundSqlExpression> & args)
+              const std::vector<std::shared_ptr<SqlExpression> > & args)
 {
-    // Rebind the function parameters to the outer
-    std::vector<BoundSqlExpression> outerArgs;
-    for (auto & arg: args) {
-        if (arg.metadata.isConstant)  //don't rebind constant expression since they don't need to access the row
-            outerArgs.emplace_back(std::move(arg));
-        else
-            outerArgs.emplace_back(std::move(rebind(arg)));
-    }
-
-    // Get the outer function
-    auto outerFunction = outer.doGetFunction(tableName, functionName, outerArgs);
+    auto outerFunction = outer.doGetFunction(tableName, functionName, args);
 
     BoundFunction result = outerFunction;
 
     if (!outerFunction)
         return result;
 
+    std::vector<BoundSqlExpression> boundArgs;
+    for (auto& arg : args)
+    {
+        boundArgs.emplace_back(std::move(arg->bind(outer)));
+    }
+
     // Call it with the outer context
-    result.exec = [=] (const std::vector<ExpressionValue> & args,
+    result.exec = [=] (const std::vector<BoundSqlExpression> & args,
                        const SqlRowScope & context)
         {
             //ExcAssert(dynamic_cast<const RowContext *>(&context) != nullptr);
             auto & row = static_cast<const RowContext &>(context);
+
             //cerr << "rebinding to apply function " << functionName
             //<< ": context type is "
             //<< ML::type_name(context) << " outer type is "
             //<< ML::type_name(row.outer) << endl;
-            return outerFunction(args, row.outer);
+
+            return outerFunction(boundArgs, row.outer);
         };
 
     return result;
@@ -156,11 +136,11 @@ BoundFunction
 ColumnExpressionBindingContext::
 doGetFunction(const Utf8String & tableName,
               const Utf8String & functionName,
-              const std::vector<BoundSqlExpression> & args)
+              const std::vector<std::shared_ptr<SqlExpression> > & args)
 {
 
     if (functionName == "columnName") {
-        return {[=] (const std::vector<ExpressionValue> & args,
+        return {[=] (const std::vector<BoundSqlExpression> & args,
                      const SqlRowScope & context)
                 {
                     auto & col = static_cast<const ColumnContext &>(context);
@@ -174,11 +154,19 @@ doGetFunction(const Utf8String & tableName,
 
     if (fn)
     {
-         return {[=] (const std::vector<ExpressionValue> & args,
+         return {[=] (const std::vector<BoundSqlExpression> & args,
                  const SqlRowScope & context)
             {
                 auto & col = static_cast<const ColumnContext &>(context);
-                return fn(col.columnName, args);
+
+                // consider changing the signature of the column function 
+                // to let them evaluate their args as it is done with builtin
+                std::vector<ExpressionValue> evaluatedArgs;
+                evaluatedArgs.reserve(args.size());
+                for (auto & arg: args)
+                    evaluatedArgs.emplace_back(std::move(arg(context)));
+
+                return fn(col.columnName, evaluatedArgs); 
             },
             std::make_shared<Utf8StringValueInfo>()};
     }
@@ -200,11 +188,11 @@ BoundFunction
 SqlExpressionWhenScope::
 doGetFunction(const Utf8String & tableName,
               const Utf8String & functionName,
-              const std::vector<BoundSqlExpression> & args)
+              const std::vector<std::shared_ptr<SqlExpression> > & args)
 {
     if (functionName == "timestamp") {
         isTupleDependent = true;
-        return  {[=] (const std::vector<ExpressionValue> & args,
+        return  {[=] (const std::vector<BoundSqlExpression> & args,
                       const SqlRowScope & scope)
                 {
                     auto & row = static_cast<const RowScope &>(scope);

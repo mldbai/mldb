@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 /** analytics.cc
     Jeremy Barnes, 30 January 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
 
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #include "mldb/server/analytics.h"
@@ -15,6 +15,7 @@
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/server/dataset_context.h"
 #include "mldb/server/function_contexts.h"
+#include "mldb/sql/execution_pipeline.h"
 #include <boost/algorithm/string.hpp>
 #include "mldb/server/bound_queries.h"
 #include "mldb/jml/stats/distribution.h"
@@ -221,7 +222,7 @@ getEmbedding(const SelectExpression & select,
 
                 std::vector<std::pair<ColumnName, double> > features;
              
-                auto onColumnValue = [&] (const std::tuple<Id, ExpressionValue> & column)
+                auto onColumnValue = [&] (const std::tuple<Coord, ExpressionValue> & column)
                 {
                     features.emplace_back(get<0>(column), get<1>(column).toDouble());
                     return true;
@@ -316,9 +317,9 @@ getEmbedding(const SelectStatement & stm,
 }
 
 std::vector<MatrixNamedRow>
-queryWithoutDataset(SelectStatement& stm, SqlExpressionMldbContext& mldbContext)
+queryWithoutDataset(SelectStatement& stm, SqlBindingScope& scope)
 {
-    auto boundSelect = stm.select.bind(mldbContext);
+    auto boundSelect = stm.select.bind(scope);
     SqlRowScope context;
     ExpressionValue val = boundSelect(context);
     MatrixNamedRow row;
@@ -327,6 +328,111 @@ queryWithoutDataset(SelectStatement& stm, SqlExpressionMldbContext& mldbContext)
     val.mergeToRowDestructive(row.columns);
 
     return { std::move(row) };
+}
+
+std::vector<MatrixNamedRow>
+queryFromStatement(SelectStatement & stm,
+                   SqlBindingScope & scope,
+                   BoundParameters params)
+{
+    BoundTableExpression table = stm.from->bind(scope);
+    
+    bool allowParallel = !QueryThreadTracker::inChildThread();
+
+    if (table.dataset) {
+        return table.dataset->queryStructured(stm.select, stm.when,
+                                              *stm.where,
+                                              stm.orderBy, stm.groupBy,
+                                              *stm.having,
+                                              *stm.rowName,
+                                              stm.offset, stm.limit, 
+                                              table.asName);
+    }
+    else if (table.table.runQuery && stm.from) {
+
+        auto getParamInfo = [&] (const Utf8String & paramName)
+            -> std::shared_ptr<ExpressionValueInfo>
+            {
+                throw HttpReturnException(500, "No query parameter " + paramName);
+            };
+        
+        if (!params)
+            params = [] (const Utf8String & param) -> ExpressionValue { throw HttpReturnException(500, "No query parameter " + param); };
+
+
+            
+
+        std::shared_ptr<PipelineElement> pipeline;
+
+        if (!stm.groupBy.empty()) {
+            // Create our pipeline
+
+            pipeline
+                = PipelineElement::root(scope)
+                ->params(getParamInfo)
+                ->from(stm.from, stm.when,
+                       SelectExpression::STAR, stm.where)
+                ->where(stm.where)
+                ->select(stm.groupBy)
+                ->sort(stm.groupBy)
+                ->partition(stm.groupBy.clauses.size())
+                ->where(stm.having)
+                ->select(stm.orderBy)
+                ->sort(stm.orderBy)
+                ->select(stm.rowName)  // second last element is rowName
+                ->select(stm.select);  // last element is select
+        }
+        else {
+            pipeline
+                = PipelineElement::root(scope)
+                ->params(getParamInfo)
+                ->from(stm.from, stm.when,
+                       SelectExpression::STAR, stm.where)
+                ->where(stm.where)
+                ->select(stm.orderBy)
+                ->sort(stm.orderBy)
+                ->select(stm.rowName)  // second last element is rowname
+                ->select(stm.select);  // last element is select
+        }
+        
+        auto boundPipeline = pipeline->bind();
+
+        auto executor = boundPipeline->start(params, allowParallel);
+        
+        std::vector<MatrixNamedRow> rows;
+
+        ssize_t limit = stm.limit;
+        ssize_t offset = stm.offset;
+
+        auto output = executor->take();
+
+        for (size_t n = 0;
+             output && (limit == -1 || n < limit + offset);
+             output = executor->take(), ++n) {
+
+            // MLDB-1329 band-aid fix.  This appears to break a circlar
+            // reference chain that stops the elements from being
+            // released.
+            output->group.clear();
+
+            if (n < offset) {
+                continue;
+            }
+
+            MatrixNamedRow row;
+            // Second last element is the row name
+            row.rowName = RowName(output->values.at(output->values.size() - 2).toUtf8String());
+
+            output->values.back().mergeToRowDestructive(row.columns);
+            rows.emplace_back(std::move(row));
+        }
+            
+        return rows;
+    }
+    else {
+        // No from at all
+        return queryWithoutDataset(stm, scope);
+    }
 }
 
 } // namespace MLDB

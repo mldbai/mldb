@@ -159,6 +159,9 @@ struct BoundGroupByQuery {
     // Select Expression to resolve
     const SelectExpression& select;
 
+    // Having Expression to resolve
+    const SqlExpression& having;
+
     SelectExpression subSelectExpr;
 
     OrderByExpression subOrderBy;

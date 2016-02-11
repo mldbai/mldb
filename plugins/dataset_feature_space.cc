@@ -169,7 +169,8 @@ encodeValue(const CellValue & value,
         return val;
     }
     if (!value.isNumeric()) {
-        throw ML::Exception("Value for column '" + columnName.toString() + 
+        throw ML::Exception("Value for column '"
+                            + columnName.toUtf8String().rawString() + 
                             "' was numeric in training, but is now " +
                             jsonEncodeStr(value));
         
@@ -286,7 +287,7 @@ print(const ML::Feature & feature) const
     auto it = columnInfo.find(getHash(feature));
     if (it == columnInfo.end())
         throw ML::Exception("Couldn't find feature in dataset");
-    return it->second.columnName.toString();
+    return it->second.columnName.toUtf8String().rawString();
 }
 
 std::string
@@ -417,7 +418,7 @@ serialize(ML::DB::Store_Writer & store) const
     //cerr << "serializing " << columnInfo.size() << " features" << endl;
     for (auto & i: columnInfo) {
         store << jsonEncodeStr(i.first);
-        store << i.second.columnName.toString();
+        store << i.second.columnName.toUtf8String().rawString();
         i.second.info.serialize(store);
     }
 

@@ -162,10 +162,12 @@ run(const ProcedureRunConfig & run,
                 // TODO. should I call recordRow twice instead of doing a vector copy here?
                 RowValue currOutputRow(fixedOutputRows);
 
-                currOutputRow.emplace_back(keyColumnName, get<0>(col).toString(), rowTs);
+                currOutputRow.emplace_back(keyColumnName, get<0>(col).toUtf8String(), rowTs);
                 currOutputRow.emplace_back(valueColumnName, get<1>(col), rowTs);
 
-                RowName rowName(ML::format("%s_%s", row.rowName.toString(), get<0>(col).toString()));
+                RowName rowName(ML::format("%s_%s",
+                                           row.rowName.toUtf8String().rawData(),
+                                           get<0>(col).toUtf8String().rawData()));
 
                 std::unique_lock<std::mutex> guard(recordMutex);
                 outputDataset->recordRow(rowName, currOutputRow);

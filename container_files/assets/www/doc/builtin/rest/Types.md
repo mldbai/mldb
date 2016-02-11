@@ -8,20 +8,20 @@ building UIs that can be used for multiple algorithms.
 In order to obtain the type used to configure an entity of a given type, you can
 call the
 
-```
-/v1/types/<entityClass>/<entityType>/info
+```javascript
+GET /v1/types/<entityClass>/<entityType>/info
 ```
 
 route, and look at the `configType` parameter.  For example, for the svd.train procedure,
 you would call
 
-```
+```javascript
 GET /v1/types/procedures/svd/info
 ```
 
 which returns
 
-```
+```javascript
 {
    "configType" : {
       "fields" : [

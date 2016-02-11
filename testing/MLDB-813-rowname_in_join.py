@@ -33,13 +33,13 @@ class RownameInJoinTest(MldbUnitTest):
 
         expected = [
             [ "_rowName", "d1.x", "d2.y" ],
-            [ "row_0-row_0", 0, 0 ],
-            [ "row_1-row_1", 1, 1 ],
-            [ "row_2-row_2", 2, 2 ],
-            [ "row_3-row_3", 3, 3 ],
-            [ "row_4-row_4", 4, 4 ]
+            [ "[row_0]-[row_0]", 0, 0 ],
+            [ "[row_1]-[row_1]", 1, 1 ],
+            [ "[row_2]-[row_2]", 2, 2 ],
+            [ "[row_3]-[row_3]", 3, 3 ],
+            [ "[row_4]-[row_4]", 4, 4 ]
         ]
-        self.assertQueryResult(res, expected)
+        self.assertTableResultEquals(res, expected)
 
     def test_inner_join_rowname_on_row_name(self):
         res = mldb.query(
@@ -49,13 +49,13 @@ class RownameInJoinTest(MldbUnitTest):
         )
         expected = [
             ["_rowName", "dataset2.ds1_row", "dataset2.y"],
-            ["row_0-row_0", "row_0", 0],
-            ["row_1-row_1", "row_1", 1],
-            ["row_2-row_2", "row_2", 2],
-            ["row_3-row_3", "row_3", 3],
-            ["row_4-row_4", "row_4", 4]
+            ["[row_0]-[row_0]", "row_0", 0],
+            ["[row_1]-[row_1]", "row_1", 1],
+            ["[row_2]-[row_2]", "row_2", 2],
+            ["[row_3]-[row_3]", "row_3", 3],
+            ["[row_4]-[row_4]", "row_4", 4]
         ]
-        self.assertQueryResult(res, expected)
+        self.assertTableResultEquals(res, expected)
 
 
 if __name__ == '__main__':

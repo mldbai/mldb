@@ -40,7 +40,7 @@ LIBSERVICE_PEER_SOURCES := \
 	peer_info.cc \
 
 
-$(eval $(call library,rest,$(LIBREST_SOURCES),services))
+$(eval $(call library,rest,$(LIBREST_SOURCES),services log))
 $(eval $(call library,link,$(LIBLINK_SOURCES),watch))
 $(eval $(call library,rest_entity,$(LIBREST_ENTITY_SOURCES),services gc link any json_diff))
 $(eval $(call library,service_peer,$(LIBSERVICE_PEER_SOURCES),rest services gc link rest_entity))

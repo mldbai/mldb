@@ -46,7 +46,9 @@ bindApplyFunctionExpression(const Utf8String & functionName,
     // Extract gets bound on the output values, since it happens after the function
     auto boundExtract = extract.bind(extractContext);
 
-    return {[=] (const SqlRowScope & row, ExpressionValue & storage) -> const ExpressionValue &
+    return {[=] (const SqlRowScope & row, 
+                 ExpressionValue & storage, 
+                 const VariableFilter & filter) -> const ExpressionValue &
             {
                 // Run the with expressions
                 ExpressionValue withVal = boundWith(row);
@@ -120,7 +122,7 @@ bindSelectApplyFunctionExpression(const Utf8String & functionName,
 
     std::vector<KnownColumn> knownColumns = allColumns.info->getKnownColumns();
 
-    auto exec = [=] (const SqlRowScope & row, ExpressionValue & storage)
+    auto exec = [=] (const SqlRowScope & row, ExpressionValue & storage, const VariableFilter & filter)
         -> const ExpressionValue &
             {
                 // Run the with expressions

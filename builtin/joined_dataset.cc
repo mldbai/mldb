@@ -126,6 +126,9 @@ struct JoinedDataset::Itl
     /// Matrix view.  Length is the same as that of datasets.
     std::vector<std::shared_ptr<MatrixView> > matrices;
 
+    // is the dataset on the left a join too?
+    bool isChainedJoin;
+
     /// Names of tables, so that we can correctly identify where each
     /// column came from.
     std::vector<Utf8String> sideChildNames[JOIN_SIDE_MAX]; //Sub (non -direct) tables left and right
@@ -147,6 +150,8 @@ struct JoinedDataset::Itl
 
         std::set<Utf8String> leftTables = joinConfig.left->getTableNames();
         std::set<Utf8String> rightTables = joinConfig.right->getTableNames();
+
+        isChainedJoin = dynamic_cast<JoinedDataset*>(left.dataset.get()) != nullptr;
         
         datasets.emplace_back(left.dataset);
         datasets.emplace_back(right.dataset);
@@ -285,20 +290,10 @@ struct JoinedDataset::Itl
         bool debug = false;
         RowName rowName;
 
-        if (leftName == RowName())
-        {
-            ExcAssert(rightName != RowName());
-            rowName = std::move(RowName(Utf8String("null") + "-" + rightName.toUtf8String()));
-        }
-        else if (rightName == RowName())
-        {
-            ExcAssert(leftName != RowName());
-            rowName = std::move(RowName(leftName.toUtf8String() + "-" + "null"));
-        }
+        if (isChainedJoin && leftName != RowName())
+            rowName = std::move(RowName(leftName.toUtf8String() + "-" + "[" + rightName.toUtf8String() + "]"));
         else
-        {
-            rowName = std::move(RowName(leftName.toUtf8String() + "-" + rightName.toUtf8String()));
-        }
+            rowName = std::move(RowName("[" + leftName.toUtf8String() + "]" + "-" + "[" + rightName.toUtf8String() + "]"));
 
         RowHash rowHash(rowName);
 
@@ -576,10 +571,10 @@ struct JoinedDataset::Itl
 
         MatrixNamedRow leftRow, rightRow;
 
-        if (row.leftName)
+        if (!row.leftName.empty())
             leftRow = matrices[0]->getRow(row.leftName);
 
-        if (row.rightName)
+        if (!row.rightName.empty())
             rightRow = matrices[1]->getRow(row.rightName);
         
         /// This function copies columns from a sub-row to the result of
@@ -880,7 +875,7 @@ overrideFunction(const Utf8String & tableName,
 
         if (tableSide != JoinedDataset::Itl::JOIN_SIDE_MAX)
         {
-            return {[&, tableSide] (const std::vector<ExpressionValue> & args,
+            return {[&, tableSide] (const std::vector<BoundSqlExpression> & args,
                      const SqlRowScope & context)
                 { 
                     auto & row = static_cast<const SqlExpressionDatasetContext::RowContext &>(context);
@@ -897,7 +892,7 @@ overrideFunction(const Utf8String & tableName,
 
         if (tableSide != JoinedDataset::Itl::JOIN_SIDE_MAX)
         {
-            return {[&, tableName, tableSide] (const std::vector<ExpressionValue> & args,
+            return {[&, tableName, tableSide] (const std::vector<BoundSqlExpression> & args,
                      const SqlRowScope & context)
                 {
                     auto & row = static_cast<const SqlExpressionDatasetContext::RowContext &>(context);

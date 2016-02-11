@@ -7,7 +7,7 @@ An SQL From expression specifies the dataset(s) on which a query will run.
 The simplest type of From expression is simply a dataset name.  In that
 case, the query will run on the given dataset. The dataset name can be followed by `as <alias>`, in which case the query will be run on the given dataset, as if it was named `<alias>`. For example:
 
-```
+```sql
 SELECT x.* FROM dataset AS x
 ```
 
@@ -15,7 +15,7 @@ SELECT x.* FROM dataset AS x
 
 A full query in parentheses (i.e. `( )`) can be substituted for a dataset name. For example:
 
-```
+```sql
 SELECT * FROM (SELECT * FROM dataset WHERE column1 = 2) as subselect WHERE column2 = 4'
 ```
 
@@ -23,7 +23,7 @@ SELECT * FROM (SELECT * FROM dataset WHERE column1 = 2) as subselect WHERE colum
 
 From Expressions can be combined together to perform joins with the pattern `<FromExpression1> <JoinType> <FromExpression2> ON <ValueExpression>`. For example:
 
-```
+```sql
 SELECT * 
 FROM (SELECT * FROM dataset WHERE column1 = 2) as subselect 
     JOIN  dataset2 as x ON subselect.column2 = x.column3 + 1
@@ -54,7 +54,7 @@ First, an inner join is performed. Then, for each row in `left` that does not sa
 
 Queries can be made to a sample of a dataset by using the sample() function in the FROM expression. For example:
 
-```
+```sql
 SELECT x.* FROM sample(dataset, {rows: 25, withReplacement: FALSE}) AS x
 ```
 
@@ -63,7 +63,7 @@ See ![](%%doclink sampled dataset) for more details.
 ## Transpose 
 Queries can be made to the transpose of a dataset by using the transpose() function in the FROM expression. For example:
 
-```
+```sql
 SELECT x.* FROM transpose(dataset) AS x
 ```
 
@@ -73,7 +73,7 @@ See ![](%%doclink transposed dataset) for more details.
 
 Queries can be made to the union of several datasets by using the merge() function in the FROM expression. For example:
 
-```
+```sql
 SELECT x.* FROM merge(dataset1, dataset2, dataset3) AS x
 ```
 
@@ -85,46 +85,25 @@ In some circumstances, it may be useful to use a row as a dataset,
 particularly when using the ![](%%doclink sql.query function) or a
 sub-select.  This can be done using the syntax
 
-```
+```sql
 SELECT ... FROM row_dataset(expression) ...
 ```
 
 When this construct is used, a dataset is constructed with one row
 for each column in the expression, with one column called `value`
 containing the value of the column, and one column called `column`
-with the column name.  For example, the following expression
+with the column name.  For example, the query
 
-```
-row_dataset({x: 1, y:2, z: 'three'})
-```
-
-would yield the following dataset:
-
-```
-column    value
-x         1
-y         2
-z         "three"
+```sql
+select * from row_dataset({x: 1, y:2, z: 'three'})
 ```
 
-As an example, the following `sql.query` object would strip
-out any numeric-valued columns and uppercase all names from a
-passed in row:
+would yield the following result:
 
-```
-POST /v1/functions/row_transform {
-    type: 'sql.query',
-    params: {
-        query: 'SELECT upper(column) AS column, value FROM row_dataset($input) WHERE CAST (value AS NUMBER) IS NULL',
-        output: 'NAMED_COLUMNS'
-    }
-}
 
-SELECT row_transform({input: {x: 1, y: 2, z: "three"}})[output] AS *
+column  |  value
+:------:|:-------:
+x       |  1
+y       |  2
+z       |  "three"
 
-{ Z: "three" }
-```
-
-It can also be used to join a row against another dataset, in order to
-look up rows from another dataset based upon the keys or values in a row,
-in other words perform a "gather" operation.

@@ -23,10 +23,13 @@ struct SqlRowExpression;
 struct BoundFunction;
 
 typedef HashWrapper<1> RowHash;
-typedef Id RowName;
+
+struct Coord;
+
+typedef Coord RowName;
 
 typedef HashWrapper<3> ColumnHash;
-typedef Id ColumnName;
+typedef Coord ColumnName;
 
 struct Dataset;
 

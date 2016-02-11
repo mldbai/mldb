@@ -53,6 +53,12 @@ check(result, 2)
 result2 = mldb.get('/v1/query', q='SELECT a.* FROM x.y')
 assert result.json() == result2.json()
 
+result3 = mldb.query('select z, id from x.y')
+result4 = mldb.query('select * excluding("a."*) from x.y')
+assert result3 == result4
+result5 = mldb.query('select * excluding(a.*) from x.y')
+assert result3 == result5
+
 result = mldb.get('/v1/query', q='SELECT q.r.a.b FROM x.y as q.r')
 
 check(result, 2)

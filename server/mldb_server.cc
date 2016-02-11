@@ -64,8 +64,9 @@ createTypeClassCollection(MldbServer * server, RestRouteManager & routeManager);
 MldbServer::
 MldbServer(const std::string & serviceName,
            const std::string & etcdUri,
-           const std::string & etcdPath)
-    : ServicePeer(serviceName, "MLDB", "global"),
+           const std::string & etcdPath,
+           bool enableAccessLog)
+    : ServicePeer(serviceName, "MLDB", "global", enableAccessLog),
       EventRecorder(serviceName, std::make_shared<NullEventService>()),
       versionNode(nullptr)
 {
@@ -113,9 +114,19 @@ init(std::string configurationPath,
 {
     auto server = std::make_shared<StandalonePeerServer>();
 
+    preInit();
     initServer(server);
     initRoutes();
     initCollections(configurationPath, staticFilesPath, staticDocPath, hideInternalEntities);
+}
+
+void
+MldbServer::
+preInit()
+{
+    //Because of a multithread issue in boost, we need to call this to force boost::date_time to initialize in single thread
+    //better do it as early as possible
+    Date::now().weekday();
 }
 
 void
@@ -210,30 +221,13 @@ runHttpQuery(const Utf8String& query,
     auto stm = SelectStatement::parse(query.rawString());
     SqlExpressionMldbContext mldbContext(this);
 
-    BoundTableExpression table = stm.from->bind(mldbContext);
+    auto runQuery = [&] ()
+        {
+            return queryFromStatement(stm, mldbContext);
+        };
     
-    if (table.dataset) {
-        auto runQuery = [&] ()
-            {
-                return table.dataset->queryStructured(stm.select, stm.when,
-                                                      *stm.where,
-                                                      stm.orderBy, stm.groupBy,
-                                                      *stm.having,
-                                                      *stm.rowName,
-                                                      stm.offset, stm.limit, 
-                                                      table.asName);
-            };
-    
-        MLDB::runHttpQuery(runQuery, connection, format, createHeaders,rowNames, rowHashes);
-    }
-    else {
-        auto runQuery = [&] () -> std::vector<MatrixNamedRow>
-            {
-                return queryWithoutDataset(stm, mldbContext);
-            };
-
-        MLDB::runHttpQuery(runQuery, connection, format, createHeaders,rowNames, rowHashes);
-    }
+    MLDB::runHttpQuery(runQuery, connection, format, createHeaders,
+                       rowNames, rowHashes);
 }
 
 std::vector<MatrixNamedRow>
@@ -241,23 +235,10 @@ MldbServer::
 query(const Utf8String& query) const
 {
     auto stm = SelectStatement::parse(query.rawString());
-
     SqlExpressionMldbContext mldbContext(this);
-
     BoundTableExpression table = stm.from->bind(mldbContext);
-    
-    if (table.dataset) {
-        return table.dataset->queryStructured(stm.select, stm.when,
-                                              *stm.where,
-                                              stm.orderBy, stm.groupBy,
-                                              *stm.having,
-                                              *stm.rowName,
-                                              stm.offset, stm.limit, 
-                                              table.asName);
-    }
-    else {
-        return queryWithoutDataset(stm, mldbContext);
-    }
+
+    return queryFromStatement(stm, mldbContext);
 }
 
 Json::Value

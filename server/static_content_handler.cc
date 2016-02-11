@@ -254,9 +254,9 @@ getStaticRouteHandler(string dir, MldbServer * server, bool hideInternalEntities
                 result += "<meta charset='utf-8' />\n";
                 result += "<title>MLDB Documentation</title>\n";
                 result += "<script src='https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML'></script>\n";
-                result += "<link rel='stylesheet' href='//cdnjs.cloudflare.com/ajax/libs/highlight.js/8.5/styles/default.min.css'>\n";
+                result += "<link rel='stylesheet' href='/resources/css/prism.css'>\n";
                 result += "<link rel='stylesheet' href='/resources/css/doc.css'>\n";
-                result += "<script src='//cdnjs.cloudflare.com/ajax/libs/highlight.js/8.5/highlight.min.js'></script>\n";
+                result += "<script src='/resources/js/prism.js'></script>\n";
                 result += "<script>\n";
                 result += "  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){\n";
                 result += "  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),\n";
@@ -271,7 +271,6 @@ getStaticRouteHandler(string dir, MldbServer * server, bool hideInternalEntities
                 result += "</head>\n";
                 result += "<body style='margin-left: 50px; max-width: 1000px'>\n";
                 result += std::string((const char *)ob->data, (const char *)(ob->data + ob->size));
-                result += "<script>hljs.initHighlightingOnLoad();</script>";
                 result += "</body>\n";
                 result += "</html>\n";
 

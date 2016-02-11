@@ -52,6 +52,8 @@ struct Url {
 
     std::shared_ptr<GURL> url;
     std::string original;
+
+    static Utf8String decodeUri(Utf8String str);
 };
 
 inline std::ostream & operator << (std::ostream & stream, const Url & url)

@@ -172,13 +172,16 @@ int main(int argc, char ** argv)
 #endif
         ("configuration-path,C",
          value(&configurationPath),
-         "path that persistent configuration is stored to allow the service "
+         "Path that persistent configuration is stored to allow the service "
          "to stop and restart (file:// for filesystem or s3:// for S3 uri)")
         ("hide-internal-entities",
-         "hide in the documentation entities that are not meant to be exposed")
+         "Hide in the documentation entities that are not meant to be exposed")
         ("mute-final-output", bool_switch(&muteFinalOutput),
          "Mutes the output printed right before mldb_runner ends with an error"
-         "condition");
+         "condition")
+        ("enable-access-log",
+         "Enable the logging of each http request.  By default, the logging is disabled."
+         "Specify this option to enable it.");
 
     script_options.add_options()
         ("run-script", value(&runScript),
@@ -304,9 +307,10 @@ int main(int argc, char ** argv)
     }
 
 
-    MldbServer server("mldb", etcdUri, etcdPath);
+    bool enableAccessLog = vm.count("enable-access-log");
     bool hideInternalEntities = vm.count("hide-internal-entities");
 
+    MldbServer server("mldb", etcdUri, etcdPath, enableAccessLog);
     server.init(configurationPath, staticAssetsPath, staticDocPath, hideInternalEntities);
 
     // Set up the SSD cache, if configured
@@ -319,13 +323,13 @@ int main(int argc, char ** argv)
         server.scanPlugins(d);
     }
     
-    string httpBoundAddress = server.bindTcp(httpListenPort, httpListenHost);
+    server.httpBoundAddress = server.bindTcp(httpListenPort, httpListenHost);
     server.router.addAutodocRoute("/autodoc", "/v1/help", "autodoc");
     server.threadPool->ensureThreads(numThreads);
     server.httpEndpoint->allowAllOrigins();
 
-    cout << httpBoundAddress << endl;
-    cerr << "http listening on " << httpBoundAddress << endl;
+    cout << server.httpBoundAddress << endl;
+    cerr << "http listening on " << server.httpBoundAddress << endl;
 
     server.start();
 
@@ -341,7 +345,7 @@ int main(int argc, char ** argv)
         else if(extension == ".py")   runner = "python";
         else throw ML::Exception("Unsupported extension '" +extension+ "'");
 
-        HttpRestProxy proxy(httpBoundAddress);
+        HttpRestProxy proxy(server.httpBoundAddress);
         
         PluginResource config;
         if (runScript.find("://") == string::npos)

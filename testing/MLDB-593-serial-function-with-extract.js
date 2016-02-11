@@ -51,7 +51,7 @@ var infoParent = mldb.get("/v1/functions/test0/info");
 plugin.log("parent", infoParent);
 plugin.log("subfunction", infoSubfunction);
 
-assertEqual(infoParent.json.output.values.z.valueInfo.type, "Datacratic::MLDB::AtomValueInfo");
+assertEqual(infoParent.json.output.values.z.valueInfo.type, "Datacratic::MLDB::AnyValueInfo");
 
 
 assertEqual(infoParent, infoSubfunction);

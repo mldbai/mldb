@@ -86,20 +86,22 @@ CsvExportProcedure::
 run(const ProcedureRunConfig & run,
     const std::function<bool (const Json::Value &)> & onProgress) const
 {
+    auto runProcConf = applyRunConfOverProcConf(procedureConfig, run);
+            
     SqlExpressionMldbContext context(server);
-    ML::filter_ostream out(procedureConfig.dataFileUrl.toString());
-    CsvWriter csv(out, procedureConfig.delimiter.at(0),
-                  procedureConfig.quoteChar.at(0));
+    ML::filter_ostream out(runProcConf.dataFileUrl.toString());
+    CsvWriter csv(out, runProcConf.delimiter.at(0),
+                  runProcConf.quoteChar.at(0));
 
-    auto boundDataset = procedureConfig.exportData.stm->from->bind(context);
+    auto boundDataset = runProcConf.exportData.stm->from->bind(context);
 
     vector<shared_ptr<SqlExpression> > calc;
-    BoundSelectQuery bsq(procedureConfig.exportData.stm->select,
+    BoundSelectQuery bsq(runProcConf.exportData.stm->select,
                          *boundDataset.dataset,
                          boundDataset.asName,
-                         procedureConfig.exportData.stm->when,
-                         *procedureConfig.exportData.stm->where,
-                         procedureConfig.exportData.stm->orderBy,
+                         runProcConf.exportData.stm->when,
+                         *runProcConf.exportData.stm->where,
+                         runProcConf.exportData.stm->orderBy,
                          calc);
 
     const auto columnNames = bsq.getSelectOutputInfo()->allColumnNames();
@@ -193,15 +195,15 @@ run(const ProcedureRunConfig & run,
         return true;
     };
 
-    if (procedureConfig.headers) {
+    if (runProcConf.headers) {
         for (const auto & name: bsq.getSelectOutputInfo()->allColumnNames()) {
-            csv << name;
+            csv << name.toUtf8String();
         }
         csv.endl();
     }
     bsq.execute(outputCsvLine, 
-                procedureConfig.exportData.stm->offset, 
-                procedureConfig.exportData.stm->limit,
+                runProcConf.exportData.stm->offset, 
+                runProcConf.exportData.stm->limit,
                 onProgress);
     RunOutput output;
     return output;

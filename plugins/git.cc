@@ -441,12 +441,13 @@ struct GitImporter: public Procedure {
     virtual RunOutput run(const ProcedureRunConfig & run,
                           const std::function<bool (const Json::Value &)> & onProgress) const
     {
+        auto runProcConf = applyRunConfOverProcConf(config, run);
         auto checkError = [&] (int error, const char * msg)
             {
                 if (error < 0)
                     throw HttpReturnException(500, string(msg) + ": "
                                               + giterr_last()->message,
-                                              "repository", config.repository);
+                                              "repository", runProcConf.repository);
             };
         
         git_libgit2_init();
@@ -454,7 +455,7 @@ struct GitImporter: public Procedure {
 
         git_repository * repo;
 
-        Utf8String repoName(config.repository.toString());
+        Utf8String repoName(runProcConf.repository.toString());
         repoName.removePrefix("file://"); 
 
         int error = git_repository_open(&repo, repoName.rawData());
@@ -463,9 +464,9 @@ struct GitImporter: public Procedure {
                 
         // Create the output dataset
         std::shared_ptr<Dataset> output;
-        if (!config.outputDataset.type.empty()
-            || !config.outputDataset.id.empty()) {
-            output = createDataset(server, config.outputDataset,
+        if (!runProcConf.outputDataset.type.empty()
+            || !runProcConf.outputDataset.id.empty()) {
+            output = createDataset(server, runProcConf.outputDataset,
                                    nullptr, true /*overwrite*/);
         }
         
@@ -474,7 +475,7 @@ struct GitImporter: public Procedure {
         checkError(error, "Error creating commit walker");
         Scope_Exit(git_revwalk_free(walker));
         
-        for (auto & r: config.revisions) {
+        for (auto & r: runProcConf.revisions) {
             if (r.find("*") != string::npos)
                 error = git_revwalk_push_glob(walker, r.c_str());
             else if (r.find("..") != string::npos)
@@ -484,7 +485,7 @@ struct GitImporter: public Procedure {
             if (error < 0)
                 throw HttpReturnException(500, "Error adding revision: "
                                           + string(giterr_last()->message),
-                                          "repository", config.repository,
+                                          "repository", runProcConf.repository,
                                           "revision", r);
         }
         vector<git_oid> oids;

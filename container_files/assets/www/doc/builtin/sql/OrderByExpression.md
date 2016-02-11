@@ -16,13 +16,13 @@ Consider this fictive dataset `docs` containing the list of programming language
 
 The rows returned by this query
 
-```
+```sql
 SELECT tokenize(terms) as term FROM docs ORDER BY tokenize(terms) 
 ```
 
 are lexicographically ordered using the ordered column's names (i.e. the programming language name) and the column's values.
 
-```
+```javascript
 [
   {
     "columns":[

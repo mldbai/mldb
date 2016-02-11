@@ -6,29 +6,29 @@ hr {margin: 40px;}
 
 # Running MLDB
 
-          &nbsp;            | Community Edition | Enterprise Edition
-:---------------------------:|:-:|:-:
-**MLDB**    | ✓ | ✓
-**MLDB Pro Plugin[<sup>?</sup>](ProPlugin.md)**            |  &nbsp; | ✓
-**Licensing**     | [Apache License v2.0](https://github.com/mldbai/mldb/blob/master/LICENSE) | [Commercial with free trial](licenses.md)
-**Support**     | [Github Issues](https://github.com/mldbai/mldb/issues/new) | <a href="mailto:mldb@datacratic.com" target="_blank">Datacratic Support</a>
-**Packaging**   | [build from source](https://github.com/mldbai/mldb/blob/master/Building.md) |  [see below](#packages)
-**Pricing**     | free! | <a href="mailto:mldb@datacratic.com" target="_blank">contact sales</a>
-
+          &nbsp;            | Community Edition | Enterprise Edition <br/> Free Trial | Enterprise Edition
+:---------------------------:|:-:|:-:|:-:
+**MLDB**    | ✓ | ✓ | ✓
+**MLDB Pro Plugin[<sup>?</sup>](ProPlugin.md)**            |  &nbsp; | ✓ | ✓
+**Licensing**     | [Apache License v2.0](https://github.com/mldbai/mldb/blob/master/LICENSE) | [Non-Commercial](licenses.md) | [Commercial](licenses.md)
+**Pricing**     | free! |  free! | <a href="mailto:mldb@datacratic.com" target="_blank">contact sales</a>
+**Support**     | [Github Issues](https://github.com/mldbai/mldb/issues/new) | <a href="mailto:mldb@datacratic.com" target="_blank">Datacratic Support</a> | <a href="mailto:mldb@datacratic.com" target="_blank">Datacratic Support</a>
+**Packaging**   | [build from source](https://github.com/mldbai/mldb/blob/master/Building.md) |  see below |  see below
 
 ------------------------
 
 
 <a name="packages"></a>
 ## MLDB Enterprise Edition Packages
-You can try the MLDB Enterprise Edition [under a non-commercial license](/resources/MLDB_License.pdf) as:
 
-* a Docker image, runnable wherever [Docker][docker] will run (recommended for **Linux, Private Cloud**)
-    * [Getting Started with the Docker image](#docker)
-* a Virtual Appliance (OVA), runnable wherever [VirtualBox][vb] will run (recommended for **OSX, Windows**)
-    * [Getting Started with the Virtual Appliance (OVA)](#virtualbox)
-* an Amazon Machine Image (AMI), runnable on the [Amazon Elastic Compute Cloud][ec2] (recommended for **AWS EC2**)
-    * [Getting Started with the Amazon Machine Image (AMI)](#aws)
+The MLDB Enterprise Edition is available in pre-built binary form packaged up as:
+
+1. a Docker image, runnable wherever [Docker][docker] will run (recommended for **Linux, Private Cloud**)
+    * see [Getting Started with the Docker image](#docker)
+1. a Virtual Appliance (OVA), runnable wherever [VirtualBox][vb] will run (recommended for **OSX, Windows**)
+    * see [Getting Started with the Virtual Appliance (OVA)](#virtualbox)
+1. an Amazon Machine Image (AMI), runnable on the [Amazon Elastic Compute Cloud][ec2] (recommended for **AWS EC2**)
+    * see [Getting Started with the Amazon Machine Image (AMI)](#aws)
 
 [docker]: https://www.docker.com/
 [ec2]: http://aws.amazon.com/ec2
