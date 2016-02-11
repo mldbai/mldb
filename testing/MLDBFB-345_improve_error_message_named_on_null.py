@@ -3,6 +3,8 @@
 # Mich, 2016-02-01
 # This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
 #
+import unittest
+
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
 class ImproveErrorMessageNamedOnNullTest(MldbUnitTest): # noqa
@@ -19,34 +21,16 @@ class ImproveErrorMessageNamedOnNullTest(MldbUnitTest): # noqa
         ds.commit()
 
     def test_working_case(self):
-        mldb.post('/v1/procedures', {
-            'type' : 'transform',
-            'params' : {
-                'inputData' :
-                    # works because we only work on the row where behA != null
-                    'SELECT * NAMED behA FROM ds WHERE behA IS NOT NULL',
-                'outputDataset' : {
-                    'id': 'out1'
-                },
-                'runOnCreation' : True
-            }
-        })
+        # works because we only work on the row where behA != null
+        mldb.query('SELECT * NAMED behA FROM ds WHERE behA IS NOT NULL')
 
+    @unittest.expectedFailure
     def test_non_working_case(self):
-        with self.assertRaises(mldb_wrapper.ResponseException) as exc: # noqa
-            mldb.post('/v1/procedures', {
-                'type' : 'transform',
-                'params' : {
-                    'inputData' : 'SELECT * NAMED behA FROM ds',
-                    'outputDataset' : {
-                        'id': 'out2'
-                    },
-                    'runOnCreation' : True
-                }
-            })
         # FIXME: It's ok to fail, but the error message should be helpful
         # currently returns "Can't convert from empty to string"
-        mldb.log(exc.exception.response.json())
+        expect = "Can't create a row with a null or empty name."
+        with self.assertMldbRaises(expected_regexp=expect):
+            mldb.query('SELECT * NAMED behA FROM ds')
 
 if __name__ == '__main__':
     mldb.run_tests()
