@@ -1234,6 +1234,8 @@ struct GroupContext: public SqlExpressionDatasetContext {
                      ExpressionValue & storage,
                      const VariableFilter & filter) -> const ExpressionValue &
                 {
+                    cerr << "group context do get variable2 " << variableName << endl;
+
                     auto & row = static_cast<const RowContext &>(context);
              
                     const ExpressionValue * result
@@ -1462,7 +1464,7 @@ execute(std::function<bool (NamedRowValue & output)> aggregator,
         //Evaluate the HAVING expression
         ExpressionValue havingResult = boundHaving(rowContext);
 
-        if (havingResult.isFalse())
+        if (!havingResult.isTrue())
             continue;
 
         outputRow.rowName = RowName(boundRowName(rowContext).toUtf8String());
