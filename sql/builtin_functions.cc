@@ -1397,10 +1397,6 @@ static RegisterBuiltin registerdate_trunc(date_trunc, "date_trunc");
 
 void normalize(ML::distribution<float>& val, double p)
 {
-    if (p <= 0.0 || !isfinite(p))
-       throw HttpReturnException(500, "Invalid power for normalize() function",
-                                  "p", p);
-
     if (p == 0) {
         double n = 1.0 / (val != 0).total();
         for (auto & v: val)
