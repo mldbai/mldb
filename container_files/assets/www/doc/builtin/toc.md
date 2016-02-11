@@ -55,9 +55,9 @@ ul {
     * [Operators](sql/ValueExpression.md.html#operators)
     * [Built-in functions](sql/ValueExpression.md.html#builtinfunctions)
 * [Select Expressions](sql/SelectExpression.md)
-* [Where Expressions](sql/WhereExpression.md)
-* [When Expressions](sql/WhenExpression.md)
 * [From Expressions](sql/FromExpression.md)
+* [When Expressions](sql/WhenExpression.md)
+* [Where Expressions](sql/WhereExpression.md)
 * [Group-By Expressions](sql/GroupByExpression.md)
 * [Order-By Expressions](sql/OrderByExpression.md)
 
