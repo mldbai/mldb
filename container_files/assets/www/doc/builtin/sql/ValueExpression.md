@@ -450,7 +450,11 @@ These functions deal with timestamps.
 ### Vector space functions
 
 - `norm(vec, p)` will return the L-`p` norm of `vec`.
-- `normalize(vec, p)` will return a version of the `vec` normalized in the L-`p` norm.  This means that `norm(normalize(vec, p), p) = 1` for any non-zero `vec`.
+- `normalize(vec, p)` will return a version of the `vec` normalized in the
+   L-`p` norm.  This means that `norm(normalize(vec, p), p) = 1` for any
+   non-zero `vec` and non-zero `p`.  The L0 norm is the count of non-zero
+   elements; note that this means that `normalize(vec, 0)` cannot have a
+   L0 norm of 1, as any non-zero elements will remain non-zero.
 - `vector_diff(vec1, vec2)` will return an elementwise difference `vec1 - vec2`,
    where both are assumed to be embeddings.  The lengths of the two must be the same.
 - `vector_sum(vec1, vec2)` will return an elementwise sum `vec1 + vec2`, where
