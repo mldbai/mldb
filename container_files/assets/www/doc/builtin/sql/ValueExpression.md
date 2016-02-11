@@ -417,19 +417,17 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
 
 ### Vector space functions
 
-- `norm(vec, p)` will return the L-`p` norm of `vec`.
+- `norm(vec, p)` will return the L-`p` norm of `vec`. The L-0 norm is the count of non-zero
+   elements.
 - `normalize(vec, p)` will return a version of the `vec` normalized in the
-   L-`p` norm.  This means that `norm(normalize(vec, p), p) = 1` for any
-   non-zero `vec` and non-zero `p`.  The L0 norm is the count of non-zero
-   elements; note that this means that `normalize(vec, 0)` cannot have a
-   L0 norm of 1, as any non-zero elements will remain non-zero.
-- `vector_diff(vec1, vec2)` will return an elementwise difference `vec1 - vec2`,
+   L-`p` norm such that `normalize(vec, p) = vec / norm(vec, p)`.
+- `vector_diff(vec1, vec2)` will efficiently return an elementwise difference `vec1 - vec2`,
    where both are assumed to be embeddings.  The lengths of the two must be the same.
-- `vector_sum(vec1, vec2)` will return an elementwise sum `vec1 + vec2`, where
+- `vector_sum(vec1, vec2)` will efficiently return an elementwise sum `vec1 + vec2`, where
   both are assumed to be embeddings.  The lengths of the two must be the same.
-- `vector_product(vec1, vec2)` will return an elementwise product `vec1 * vec2`, where
+- `vector_product(vec1, vec2)` will efficiently return an elementwise product `vec1 * vec2`, where
   both are assumed to be embeddings.  The lengths of the two must be the same.
-- `vector_quotient(vec1, vec2)` will return an elementwise quotient `vec1 / vec2`, where
+- `vector_quotient(vec1, vec2)` will efficiently return an elementwise quotient `vec1 / vec2`, where
   both are assumed to be embeddings.  The lengths of the two must be the same.
   Divisions by zero will result in NaN values.
 
