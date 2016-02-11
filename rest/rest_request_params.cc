@@ -1,16 +1,14 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** rest_request_params.cc
     Jeremy Barnes, 18 April 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 
+#include "mldb/ext/googleurl/src/url_util.h"
 #include "mldb/rest/rest_request_params.h"
 
 
 namespace Datacratic {
-
 
 Utf8String restEncode(const Utf8String & str)
 {
@@ -20,6 +18,9 @@ Utf8String restEncode(const Utf8String & str)
 Utf8String restEncode(const std::string & str)
 {
     return str;
+    url_canon::RawCanonOutputT<char> buffer;
+    url_util::EncodeURIComponent(str.c_str(), str.length(), &buffer);
+    return std::string(buffer.data(), buffer.length());
 }
 
 Utf8String restDecode(std::string str, Utf8String *)
@@ -65,6 +66,18 @@ Utf8String restEncode(bool b)
     return std::to_string(b);
 }
 
+Utf8String encodeUriComponent(const Utf8String & in)
+{
+    return encodeUriComponent(in.rawString());
+}
+
+std::string encodeUriComponent(const std::string & in)
+{
+    using namespace std;
+    url_canon::RawCanonOutputT<char> buffer;
+    url_util::EncodeURIComponent(in.c_str(), in.length(), &buffer);
+    return std::string(buffer.data(), buffer.length());
+}
 
 
 } // namespace Datacratic
