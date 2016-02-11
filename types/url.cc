@@ -270,7 +270,7 @@ decodeUri(Utf8String in)
     url_canon::RawCanonOutputT<char16> output;
     url_util::DecodeURLEscapeSequences(raw.c_str(), raw.length(), &output);
     auto data = output.data();
-    char buffer[output.length() + 1]; // prepare for the worse, 4 char + \0
+    char buffer[output.length() * 4 + 1]; // prepare for the worse, 4 char + \0
     ssize_t index = 0;
     for (ssize_t i = 0; i < output.length(); ++i) {
         char16 c = data[i];
