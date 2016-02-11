@@ -449,7 +449,7 @@ assertEqual(getCountWithOffsetLimit2("test_12", 0, 12), 12, "expecting 12 rows o
 assertEqual(getCountWithOffsetLimit2("test_total+2000", 0, totalSize + 2000), totalSize, "we can't get more than what there is!");
 assertEqual(getCountWithOffsetLimit2("test_total-10", 10, -1), totalSize - 10, "expecting all set except 10 rows");
 
-//MLDB-1312 specify delimiter
+//MLDB-1312 specify quotechar
 var mldb1312Config = {
     type: 'text.csv.tabular',
     id: 'mldb1312',
