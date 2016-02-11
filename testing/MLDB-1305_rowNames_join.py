@@ -26,7 +26,7 @@ dataset.record_row("row1", [["col1", "a", now], ["otherRow", "row1", now]])
 dataset.record_row("row2", [["col2", "b", now], ["otherRow", "row2", now]])
 dataset.commit()
 
-expected = [["_rowName","dataset1.rowName()","dataset2.rowName()"],["row2-row2","row2","row2"],["row1-row1","row1","row1"]]
+expected = [["_rowName","dataset1.rowName()","dataset2.rowName()"],["[row1]-[row1]","row1","row1"],["[row2]-[row2]","row2","row2"]]
 
 res = mldb.perform("GET", "/v1/query", [["q", """
     SELECT dataset1.rowName(), dataset2.rowName()
@@ -38,8 +38,8 @@ assert res["statusCode"] != 404
 assert json.loads(res['response']) == expected
 
 expected = [["_rowName","dataset1.rowName()","dataset2.rowName()","dataset3.rowName()"],
-            [ "row1-row1-row1", "row1", "row1", "row1" ],
-            [ "row2-row2-row2", "row2", "row2", "row2" ]]
+            [ "[row2]-[row2]-[row2]", "row2", "row2", "row2" ],
+            [ "[row1]-[row1]-[row1]", "row1", "row1", "row1" ]]
 
 res = mldb.perform("GET", "/v1/query", [["q", """
     SELECT dataset1.rowName(), dataset2.rowName(), dataset3.rowName()
@@ -76,7 +76,6 @@ conf = {
     }
 }
 res = mldb.perform("PUT", "/v1/procedures/doit", [], conf)
-mldb.log(res)
 assert res["statusCode"] == 201
 
 mldb.script.set_return("success")
