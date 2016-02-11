@@ -117,16 +117,18 @@ BucketizeProcedure::
 run(const ProcedureRunConfig & run,
     const std::function<bool (const Json::Value &)> & onProgress) const
 {
+    auto runProcConf = applyRunConfOverProcConf(procedureConfig, run);
+
     SqlExpressionMldbContext context(server);
 
-    auto boundDataset = procedureConfig.inputData.stm->from->bind(context);
+    auto boundDataset = runProcConf.inputData.stm->from->bind(context);
 
     SelectExpression select(SelectExpression::parse("1"));
     vector<shared_ptr<SqlExpression> > calc;
 
     // We calculate an expression with the timestamp of the order by
     // clause.  First, we need to calculate each of the order by clauses
-    for (auto & c: procedureConfig.inputData.stm->orderBy.clauses) {
+    for (auto & c: runProcConf.inputData.stm->orderBy.clauses) {
         auto whenClause = std::make_shared<FunctionCallWrapper>
             ("", "when", vector<shared_ptr<SqlExpression> >(1, c.first),
              nullptr /* extract */);
@@ -152,25 +154,25 @@ run(const ProcedureRunConfig & run,
     BoundSelectQuery(select,
                      *boundDataset.dataset,
                      boundDataset.asName,
-                     procedureConfig.inputData.stm->when,
-                     *procedureConfig.inputData.stm->where,
-                     procedureConfig.inputData.stm->orderBy,
+                     runProcConf.inputData.stm->when,
+                     *runProcConf.inputData.stm->where,
+                     runProcConf.inputData.stm->orderBy,
                      calc)
         .execute(getSize, 
-                 procedureConfig.inputData.stm->offset, 
-                 procedureConfig.inputData.stm->limit, 
+                 runProcConf.inputData.stm->offset, 
+                 runProcConf.inputData.stm->limit, 
                  onProgress);
 
     int64_t rowCount = orderedRowNames.size();
     //cerr << "Row count: " << rowCount  << endl;
 
-    auto output = createDataset(server, procedureConfig.outputDataset,
+    auto output = createDataset(server, runProcConf.outputDataset,
                                 nullptr, true /*overwrite*/);
 
     typedef tuple<ColumnName, CellValue, Date> Cell;
     PerThreadAccumulator<vector<pair<RowName, vector<Cell> > > > accum;
 
-    for (const auto & mappedRange: procedureConfig.percentileBuckets) {
+    for (const auto & mappedRange: runProcConf.percentileBuckets) {
         std::vector<Cell> rowValue;
         rowValue.emplace_back(ColumnName("bucket"),
                               mappedRange.first,

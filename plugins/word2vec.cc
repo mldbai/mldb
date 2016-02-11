@@ -73,9 +73,10 @@ struct Word2VecImporter: public Procedure {
     virtual RunOutput run(const ProcedureRunConfig & run,
                           const std::function<bool (const Json::Value &)> & onProgress) const
     {
-        auto info = getUriObjectInfo(config.dataFileUrl.toString());
+        auto runProcConf = applyRunConfOverProcConf(config, run);
+        auto info = getUriObjectInfo(runProcConf.dataFileUrl.toString());
 
-        ML::filter_istream stream(config.dataFileUrl.toString());
+        ML::filter_istream stream(runProcConf.dataFileUrl.toString());
 
         std::string header;
         getline(stream, header);
@@ -89,8 +90,8 @@ struct Word2VecImporter: public Procedure {
         int numDims  = std::stoi(fields[1]);
 
         std::shared_ptr<Dataset> output;
-        if (!config.output.type.empty() || !config.output.id.empty()) {
-            output = createDataset(server, config.output, nullptr, true /*overwrite*/);
+        if (!runProcConf.output.type.empty() || !runProcConf.output.id.empty()) {
+            output = createDataset(server, runProcConf.output, nullptr, true /*overwrite*/);
         }
 
         vector<ColumnName> columnNames;
@@ -108,9 +109,9 @@ struct Word2VecImporter: public Procedure {
             std::vector<float> vec(numDims);
             stream.read((char *)&vec[0], numDims * sizeof(float));
 
-            if (i < config.offset)
+            if (i < runProcConf.offset)
                 continue;
-            if (config.limit != -1 && numRecorded >= config.limit)
+            if (runProcConf.limit != -1 && numRecorded >= runProcConf.limit)
                 break;
 
             rows.emplace_back(RowName(word), std::move(vec), info.lastModified);
@@ -140,8 +141,6 @@ struct Word2VecImporter: public Procedure {
     {
         return Any();
     }
-    
-    Word2VecImporterConfig procConfig;
 };
 
 RegisterProcedureType<Word2VecImporter, Word2VecImporterConfig>

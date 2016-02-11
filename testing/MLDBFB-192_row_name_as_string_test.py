@@ -55,7 +55,6 @@ class NullNameTest(MldbUnitTest):
         self.assertEqual(str(type(exc.exception)),
                          "<class 'Boost.Python.ArgumentError'>")
 
-    @unittest.expectedFailure
     def test_post_row_name_none(self):
         mldb.put('/v1/datasets/ds2', {
             'type' : 'sparse.mutable'
@@ -67,7 +66,6 @@ class NullNameTest(MldbUnitTest):
                 'columns' : [['colA', 1, 1]]
             })
 
-    @unittest.expectedFailure
     def test_post_no_row_name(self):
         mldb.put('/v1/datasets/ds3', {
             'type' : 'sparse.mutable'

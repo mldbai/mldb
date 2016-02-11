@@ -233,6 +233,8 @@ struct Dataset: public MldbEntity {
     static void validateNames(const RowName & rowName,
                       const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals);
 
+    static void validateNames(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows);
+
     /** Record multiple rows in a single transaction.  Default implementation
         forwards to recordRow.
 
