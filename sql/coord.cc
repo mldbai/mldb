@@ -252,7 +252,6 @@ void
 Coord::
 initChars(const char * str, size_t len)
 {
-    ExcAssertEqual(strlen(str), len);
     words[0] = words[1] = words[2] = words[3] = 0;
     if (len <= 31) {
         complex_ = 0;
