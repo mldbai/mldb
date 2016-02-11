@@ -307,12 +307,12 @@ $(eval $(call mldb_unit_test,MLDB-1267-bucketize-ts-test.py))
 $(eval $(call mldb_unit_test,MLDB-1322-sum_stem_token.py))
 $(eval $(call mldb_unit_test,python_mldb_interface_test.py))
 $(eval $(call mldb_unit_test,MLDB-1319-new-executor-function-binding.js))
-$(eval $(call mldb_unit_test,MLDB-1328-join_empty_dataset_test.py,,manual)) # manual -- awaiting fix
+$(eval $(call mldb_unit_test,MLDB-1328-join_empty_dataset_test.py))
 $(eval $(call mldb_unit_test,MLDB-1213-blob-support.js))
 $(eval $(call mldb_unit_test,MLDBFB-332-transform_input_sum_doesnt_exist_test.py,,manual)) # manual -- awaiting fix
 $(eval $(call mldb_unit_test,MLDB-1320-sql-query-whole-table.js))
 $(eval $(call mldb_unit_test,MLDB-1315-row-table-expressions.js))
-$(eval $(call mldb_unit_test,MLDB-1345-having.py)) # manual -- awaiting fix
+$(eval $(call mldb_unit_test,MLDB-1345-having.py))
 $(eval $(call mldb_unit_test,mldb_unit_test_test.py))
 $(eval $(call mldb_unit_test,MLDB-1216-fetcher-function.js))
 $(eval $(call mldb_unit_test,MLDBFB-335_when_timestamp_variable_test.py))
