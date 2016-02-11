@@ -16,8 +16,9 @@ browse _events_ dataset containing these values
 
 One can select the events in the first five minutes of 2015 with this query
 
-```
-SELECT * FROM events WHEN timestamp() BETWEEN '2015-01-01T00:00:00' AND '2015-01-01T00:05:00'
+```sql
+SELECT * FROM events 
+WHEN timestamp() BETWEEN '2015-01-01T00:00:00' AND '2015-01-01T00:05:00'
 ```
 
 The output is
@@ -29,8 +30,9 @@ The output is
 
 Similarly, one can select users who viewed _mldb.ai_ with this query
 
-```
-SELECT * FROM events WHERE view = 'mldb.ai'
+```sql
+SELECT * FROM events 
+WHERE view = 'mldb.ai'
 ```
 
 | users / event |  click   | view  |
@@ -39,8 +41,9 @@ SELECT * FROM events WHERE view = 'mldb.ai'
 
 Lastly, if we combined the `WHEN` and the `WHERE` clauses together 
 
-```
-SELECT * FROM events WHEN timestamp() BETWEEN '2015-01-01T00:00:00' AND '2015-01-01T00:05:00' /
+```sql
+SELECT * FROM events 
+WHEN timestamp() BETWEEN '2015-01-01T00:00:00' AND '2015-01-01T00:05:00' 
 WHERE view = 'mldb.ai'
 ```
 

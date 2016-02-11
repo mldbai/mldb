@@ -22,8 +22,12 @@ at GMT.
     - See [Builtin Functions](ValueExpression.md) for full details on input format.
 - A time interval, which is a difference between two timestamps.  It is
 internally represented as three fields expressing months, days, and seconds.
-    - Time intervals can appear in queries using the `INTERVAL` keyword, for example `INTERVAL '1 month 2 days 5 minutes'`
-    - See [Expressing Time Intervals](ValueExpression.md) for full details on input format.
+    - Time intervals can appear in queries using the  using the `INTERVAL` keyword and a string containing a sequence of values 
+followed by one of the supported time units: second, minute, hour, day, week, month, and year, e.g. `INTERVAL '2 day 37 minute'`
+The time units can be wholly capilalized (e.g. `YEAR`), and are always singular. 
+The following abreviations also work in upper and lower case: 's' for second, 'm' for minute, 'h' for hour, 'd' for day,
+'w' for week, and 'y' for years
+A single leading `-` in the string will reverse the direction of the interval, e.g. `INTERVAL '-3 month 2 week'`.
 - A binary blob.  This
   can be used to store or process arbitrary binary data, including that which
   contains characters that can't be represented as a string.
@@ -92,22 +96,22 @@ When a complex type is returned as part of an SQL query result or stored in a da
 
 For example, `select {x: 1, y: 2} as output, {x: 3, y: 4} as *` yields 
 
-```
- output.x    output.y    x   y
-----------  ----------  --- ---
-     1           2       3   4
-```
+
+ output.x | output.y | x | y
+:----------:|:----------:|:---:|:---:
+     1    |     2    | 3 | 4
+
 
 **Embeddings** are flattened by creating one column per value, with
 the name being an incrementing integer from 0 upwards, prefixed with `<prefix>.` if using the query syntax `as <prefix>`, otherwise a prefix will be automatically generated. 
 
 For example, `select [1,2] as x` yields
 
-```
- x.0    x.1 
------  -----
-  4      6
-```
+
+ x.0  | x.1 
+:----:|:----:
+  4   |  6
+
 
 As a result, sorting by column names where there are more than 9 columns
 may give strange results, with 10 sorting before 2.  This can be

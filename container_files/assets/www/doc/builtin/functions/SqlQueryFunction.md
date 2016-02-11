@@ -50,27 +50,25 @@ There are two possibilities for the output:
 
 As an example, if the table returned from the query is the following
 
-```
-column value
-x      1
-y      2
-```
+
+column | value
+:-----:|:-----:
+x      | 1
+y      | 2
 
 then for a `FIRST_ROW` output, we will produce the row corresponding
 to the first row of the table, viz
 
-```
-column value
-x      1
-```
+column  | value
+:-----:|:-----:
+x      | 1
 
 whereas for a `NAMED_COLUMNS` output, we will produce the row with one
 column per output row:
 
-```
-x y
-1 2
-```
+x | y
+:-----:|:-----:
+1  | 2
 
 Note that the `FIRST_ROW` could accept any output format from the query,
 whereas the output for `NAMED_COLUMNS` must have exactly the two columns
@@ -85,32 +83,24 @@ given.
 
 ## Example
 
-The following function configuration add information about a user
-looked up from a `users` table.  The user to be queried is read from
-the `userId` input value.  A second `details` input value controls
-whether or not and extra field is calculated.
+As an example, the following `sql.query` object would strip
+out any numeric-valued columns and uppercase all names from a
+passed in row:
 
-The function outputs three values:
-
-- the `age` of the user that is read directly from the `age` column of the `users`
-  dataset;
-- the `gender` which is also read directly from the `gender` column of the
-  `users` dataset;
-- the `activationYears` which is equal to 1/365 of the
-  `activationDays` column of the `users` dataset if the `details`
-  value is true, or `null` otherwise.
-
-```
-{
-    id: "query",
-    type: "sql.query",
-    params: {
-        select: "age, gender, CASE WHEN $details THEN activationDays / 365.0 ELSE NULL AS activationYears",
-        from: { id: 'users' },
-        where: 'rowName() = $userId',
-        output: 'FIRST_ROW'
+```sql
+POST /v1/functions/row_transform {
+    "type": "sql.query",
+    "params": {
+        "query": "SELECT upper(column) AS column, value FROM row_dataset($input) WHERE CAST (value AS NUMBER) IS NULL",
+        "output": "NAMED_COLUMNS"
     }
 }
+```
+
+```sql
+SELECT row_transform({input: {x: 1, y: 2, z: "three"}})[output] AS *
+
+{ Z: "three" }
 ```
 
 ## See also
