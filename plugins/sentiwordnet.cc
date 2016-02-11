@@ -158,7 +158,7 @@ struct SentiWordNetImporter: public Procedure {
             ++numRecorded;
         }
 
-        vector<ColumnName> columnNames = {Id("PosSenti"), Id("NegSenti"), Id("ObjSenti")};
+        vector<ColumnName> columnNames = {Coord("PosSenti"), Coord("NegSenti"), Coord("ObjSenti")};
         if (outputDataset) {
             outputDataset->recordEmbedding(columnNames, rows);
             outputDataset->commit();

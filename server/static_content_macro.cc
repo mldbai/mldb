@@ -412,7 +412,7 @@ void configMacro(MacroContext & context,
 
         context.writeHtml("<p>A new " + kind + " of this type is created as follows:</p>");
 
-        context.writeHtml("<pre><code class=\"http\">");
+        context.writeHtml("<pre><code class=\"language-javascript\">");
         context.writeText("PUT /v1/" + kind + "s/<id> \n{\n"+
                   "    \"type\": \"" + type + "\"");
 

@@ -14,7 +14,7 @@
 #include "mldb/server/script_output.h"
 #include <mutex>
 #include "mldb/rest/rest_request_router.h"
-
+#include "mldb/sql/coord.h"
 
 #pragma once
 
@@ -77,6 +77,12 @@ CellValue from_js(const JS::JSValue & value, CellValue * = 0);
 
 CellValue from_js_ref(const JS::JSValue & value, CellValue * = 0);
 
+void to_js(JS::JSValue & value, const Coord & val);
+
+Coord from_js(const JS::JSValue & value, Coord * = 0);
+
+Coord from_js_ref(const JS::JSValue & value, Coord * = 0);
+
 void to_js(JS::JSValue & value, const ExpressionValue & val);
 
 ExpressionValue from_js(const JS::JSValue & value, ExpressionValue * = 0);
@@ -133,6 +139,7 @@ struct JsPluginContext {
     v8::Persistent<v8::FunctionTemplate> Mldb;
     v8::Persistent<v8::FunctionTemplate> Stream;
     v8::Persistent<v8::FunctionTemplate> CellValue;
+    v8::Persistent<v8::FunctionTemplate> Coord;
     v8::Persistent<v8::FunctionTemplate> Dataset;
     v8::Persistent<v8::FunctionTemplate> Function;
     v8::Persistent<v8::FunctionTemplate> Procedure;

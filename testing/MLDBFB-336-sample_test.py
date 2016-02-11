@@ -12,7 +12,8 @@ import unittest
 
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
-class SampleTest(MldbUnitTest):
+# TODO: put your own name here e.g. Mldb999Test
+class SampleTest(MldbUnitTest):  
 
     @classmethod
     def setUpClass(self):
@@ -20,16 +21,18 @@ class SampleTest(MldbUnitTest):
         ds = mldb.create_dataset({ "id": "sample", "type": "sparse.mutable" })
         ds.record_row("a",[["x", 1, 0]])
         ds.commit()
-
+        
+    # TODO: put your own name here e.g. test_something
     def test_select_x_works(self):
         # try something that should work
         # mldb.get asserts the result status_code is >= 200 and < 400
         mldb.get("/v1/query", q="select x from sample")
 
         # assert the result, all unittest asserts are available and
-        # assertQueryResult was added to facilitate validating query results
-        self.assertQueryResult(
-            mldb.query("select x from sample"), 
+        # assertTableResultEquals was added to facilitate validating query
+        # results
+        self.assertTableResultEquals(
+            mldb.query("select x from sample"),
             [
                 ["_rowName", "x"],
                 [       "a",  1 ]
@@ -37,6 +40,7 @@ class SampleTest(MldbUnitTest):
         )
 
 
+    # TODO: put your own name here e.g. test_something
     def test_errors(self):
         # test a bad query
         with self.assertRaises(mldb_wrapper.ResponseException) as re:
@@ -51,6 +55,7 @@ class SampleTest(MldbUnitTest):
             mldb.query("SELECT *")
 
     @unittest.expectedFailure
+    # TODO: put your own name here e.g. test_something
     def failing_test(self):
         # test a bad query without catching the exception
         mldb.query("SELECT this will not work")

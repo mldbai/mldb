@@ -1,32 +1,193 @@
+# -*- coding: utf-8 -*-
 #
 # MLDB-558-python-unicode.py
 # datacratic, 2015
+# Mich, 2016-02-08
 # this file is part of mldb. copyright 2015 datacratic. all rights reserved.
 #
+from urllib import quote
+
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
-mldb.create_dataset({"id": "hellô", "type":"embedding"})
+class Utf8IdsTest(MldbUnitTest): # noqa
 
-result = mldb.get("/v1/query", q=unicode("select * from \"hellô\"",
-                                         encoding='utf-8'))
-mldb.log(result.text)
+    def test_mldb_create_dataset(self):
+        _id = u'épluche'
+        mldb.create_dataset({
+            'id' : _id,
+            'type' : 'sparse.mutable'
+        }).commit()
 
-result = mldb.get("/v1/datasets")
-mldb.log(result.text)
+        # fetch escaped ascii
+        url = quote(('/v1/datasets/' + _id).encode('utf8'))
+        mldb.log(url)
+        res = mldb.get(url)
+        obj = res.json()
+        self.assertEqual(obj['id'], _id)
 
-result = mldb.put("/v1/datasets/hôwdy", {"type": 'embedding'})
-mldb.log(result.text)
+        # fetch unescaped utf-8 str
+        url = '/v1/datasets/épluche'
+        mldb.log(url)
+        res = mldb.get(url)
+        obj = res.json()
+        self.assertEqual(obj['id'], _id)
 
-result = mldb.get("/v1/datasets")
-mldb.log(result.text)
+        # fetch unescaped unicode utf-8
+        url = u'/v1/datasets/épluche'
+        mldb.log(url)
+        res = mldb.get(url)
+        obj = res.json()
+        self.assertEqual(obj['id'], _id)
 
-result = mldb.post("/v1/datasets", {
-    "type": 'embedding',
-    "id": "hî"
-})
-mldb.log(result.text)
+    def test_mixed_utf8_escape(self):
+        # the parser assumes utf-8 is already escaped
+        _id = u'éé'
+        mldb.create_dataset({
+            'id' : _id,
+            'type' : 'sparse.mutable'
+        }).commit()
 
-result = mldb.get("/v1/datasets")
-mldb.log(result.text)
+        # fetch escaped ascii
+        url = u'/v1/datasets/é' + quote('é')
+        mldb.log(url)
+        res = mldb.get(url)
+        mldb.log(res)
 
-mldb.script.set_return("success")
+    def test_mldb_post_dataset(self):
+        _id = u'époque'
+        mldb.post('/v1/datasets', {
+            'id' : _id,
+            'type' : 'sparse.mutable'
+        })
+        mldb.log(mldb.get('/v1/datasets'))
+        url = quote(('/v1/datasets/' + _id).encode('utf8'))
+        mldb.log(url)
+        res = mldb.get(url).json()
+        self.assertEqual(res['id'], _id)
+
+    def test_mldb_put_dataset(self):
+        _id = 'épopée'
+        url = quote('/v1/datasets/' + _id)
+        mldb.log(url)
+        mldb.put(url, {
+            'type' : 'sparse.mutable'
+        })
+        res = mldb.get(url).json()
+        self.assertEqual(res['id'].encode('utf8'), _id)
+
+    def test_name_with_slash(self):
+        _id = "name/with/slash"
+        url = '/v1/datasets/' + quote(_id, safe='')
+        mldb.log(url)
+        mldb.put(url, {
+            'type' : 'sparse.mutable'
+        })
+        res = mldb.get(url).json()
+        self.assertEqual(res['id'], _id)
+
+    def test_name_with_space(self):
+        _id = "name with space"
+        url = '/v1/datasets/' + quote(_id)
+        mldb.log(url)
+        mldb.put(url, {
+            'type' : 'sparse.mutable'
+        })
+        res = mldb.get(url).json()
+        self.assertEqual(res['id'], _id)
+
+    def execute_sequence(self, _id):
+        url = '/v1/datasets/' + quote(_id, safe='')
+        mldb.log(url)
+        mldb.put(url, {
+            'type' : 'sparse.mutable'
+        })
+        res = mldb.get(url).json()
+        self.assertEqual(res['id'].encode('utf8'), _id)
+
+        mldb.delete(url)
+        with self.assertMldbRaises(status_code=404):
+            mldb.get(url)
+
+        mldb.post('/v1/datasets', {
+            'id' : _id,
+            'type' : 'sparse.mutable'
+        })
+        res = mldb.get(url).json()
+        self.assertEqual(res['id'].encode('utf8'), _id)
+
+        mldb.delete(url)
+        with self.assertMldbRaises(status_code=404):
+            mldb.get(url)
+
+    def test_extra_1(self):
+        self.execute_sequence('françois')
+
+    def test_extra_2(self):
+        self.execute_sequence('françois/michel')
+
+    def test_extra_3(self):
+        self.execute_sequence('françois michel')
+
+    def test_extra_4(self):
+        self.execute_sequence('"françois says hello/goodbye, eh?"')
+
+    def test_extra_5(self):
+        mldb.put('/v1/datasets/ds', {
+            'type' : 'sparse.mutable'
+        })
+        mldb.post('/v1/datasets/ds/commit')
+
+        mldb.put('/v1/procedures/' + quote('françois'), {
+            'type' : 'transform',
+            'params' : {
+                'inputData' : 'SELECT * FROM ds',
+                'outputDataset' : {
+                    'id' : 'outDs',
+                    'type' : 'sparse.mutable'
+                }
+            }
+        })
+
+        url = '/v1/procedures/' + quote('françois') + '/runs/' \
+              + quote('michêl')
+        mldb.put(url)
+        mldb.get(url)
+
+    def test_select_over_utf8_dataset_name(self):
+        _id = "hellô"
+        mldb.create_dataset({
+            "id": _id,
+            "type": "embedding"
+        })
+        result = mldb.get("/v1/query", q=u"select * from \"hellô\"")
+        mldb.log(result.text)
+
+        result = mldb.get("/v1/datasets/" + quote("hellô") + "/query",
+                          select='*')
+        mldb.log(result.text)
+
+        result = mldb.get(u"/v1/datasets/hellô/query",
+                          select='*')
+        mldb.log(result.text)
+
+        result = mldb.get("/v1/datasets")
+        mldb.log(result.text)
+
+        result = mldb.put("/v1/datasets/hôwdy", {"type": 'embedding'})
+        mldb.log(result.text)
+
+        result = mldb.get("/v1/datasets")
+        mldb.log(result.text)
+
+        result = mldb.post("/v1/datasets", {
+            "id": "hî",
+            "type": 'embedding'
+        })
+        mldb.log(result.text)
+
+        result = mldb.get("/v1/datasets")
+        mldb.log(result.text)
+
+
+if __name__ == '__main__':
+    mldb.run_tests()

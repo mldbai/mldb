@@ -206,7 +206,7 @@ BoundFunction
 SqlBindingScope::
 doGetFunction(const Utf8String & tableName,
               const Utf8String & functionName,
-              const std::vector<BoundSqlExpression> & args)
+              const std::vector<std::shared_ptr<SqlExpression> > & args)
 {
     auto factory = tryLookupFunction(functionName);
     if (factory) {
@@ -214,9 +214,6 @@ doGetFunction(const Utf8String & tableName,
     }
     
     return {nullptr, nullptr};
-    //throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
-    //                    + " must override getFunction: wanted "
-    //                    + functionName);
 }
 
 //These are functions in table expression, i.e. in FROM clauses
@@ -307,7 +304,7 @@ ExternalAggregator tryLookupAggregator(const Utf8String & name)
 BoundAggregator
 SqlBindingScope::
 doGetAggregator(const Utf8String & aggregatorName,
-                const std::vector<BoundSqlExpression> & args)
+                const std::vector<std::shared_ptr<SqlExpression> > & args)
 {
     auto factory = tryLookupAggregator(aggregatorName);
     if (factory) {
@@ -931,24 +928,13 @@ bool matchConstant(ML::Parse_Context & context, ExpressionValue & result,
         if (!allowUtf8) {
             std::string resultStr;
             matchSingleQuoteStringAscii(context, resultStr);
-            Date asDate = Date::parseIso8601DateTime(resultStr);
-            if (asDate.isADate())
-                result = ExpressionValue(CellValue(asDate), Date::negativeInfinity());
-            else
-                result = ExpressionValue(resultStr, Date::negativeInfinity());
+            result = ExpressionValue(resultStr, Date::negativeInfinity());
             return true;
         }
         else {
             std::basic_string<char32_t> resultStr;
             matchSingleQuoteStringUTF8(context, resultStr);
             Utf8String utf8String(resultStr);
-            if (utf8String.isAscii()) {
-                Date asDate = Date::parseIso8601DateTime(utf8String.extractAscii());
-                if (asDate.isADate()) {
-                    result = ExpressionValue(CellValue(asDate), Date::negativeInfinity());
-                    return true;
-                }
-            }
             result = ExpressionValue(resultStr, Date::negativeInfinity());
             return true;
         }
@@ -1695,6 +1681,13 @@ isConstantTrue() const
     return isConstant() && constantValue().isTrue();
 }
 
+bool
+SqlExpression::
+isConstantFalse() const
+{
+    return isConstant() && constantValue().isFalse();
+}
+
 std::shared_ptr<SqlExpression>
 SqlExpression::
 bwise(std::shared_ptr<SqlExpression> lhs,
@@ -1738,6 +1731,46 @@ unimp(std::shared_ptr<SqlExpression> lhs,
       const std::string & op)
 {
     throw HttpReturnException(400, "unimplemented operator " + op);
+}
+
+std::vector<std::shared_ptr<SqlExpression> >
+SqlExpression::
+findAggregators() const
+{
+    std::vector<std::shared_ptr<SqlExpression> > output;
+    std::vector<std::shared_ptr<SqlExpression> > children = getChildren();
+
+    int index = 0;
+    while(index < children.size()) {
+        auto child = children[index];
+
+        bool foundAggregator = false;
+        if (child->getType() == "function") {
+            const FunctionCallWrapper * function = dynamic_cast<const FunctionCallWrapper *>(child.get());
+            if (function) {
+
+                Utf8String functionName = function->functionName;
+
+                if (tryLookupAggregator(functionName)) {
+                    foundAggregator = true;
+                    output.push_back(child);
+                }
+            }
+            else {
+                HttpReturnException(400, "Unexpected: could not cast FunctionCallWrapper");
+            }
+        }
+
+        //we dont look for aggregators in aggregator - its not legal
+        if (!foundAggregator) {
+            std::vector<std::shared_ptr<SqlExpression> > subchildren = child->getChildren();
+            children.insert(children.end(), subchildren.begin(), subchildren.end());
+        }
+
+        ++index;
+    }
+
+    return std::move(output);
 }
 
 
@@ -2818,12 +2851,13 @@ bind(SqlBindingScope & context) const
          hasUnknownColumns ? SCHEMA_OPEN : SCHEMA_CLOSED);
 
     auto exec = [=] (const SqlRowScope & context,
-                     ExpressionValue & storage) -> const ExpressionValue &
+                     ExpressionValue & storage,
+                     const VariableFilter & filter) -> const ExpressionValue &
         {
             StructValue result;
 
             for (auto & c: boundClauses) {
-                ExpressionValue v = c(context);
+                ExpressionValue v = c(context, filter); 
                 v.mergeToRowDestructive(result);
             }
             
@@ -2900,51 +2934,6 @@ isIdentitySelect(SqlExpressionDatasetContext & context) const
     // execution of some expressions.
     return clauses.size() == 1
         && clauses[0]->isIdentitySelect(context);
-}
-
-std::vector<std::shared_ptr<SqlExpression> > 
-SelectExpression::
-findAggregators() const
-{
-    std::vector<std::shared_ptr<SqlExpression> > output;
-    std::vector<std::shared_ptr<SqlExpression> > children = getChildren();
-
-    int index = 0;
-    while(index < children.size())
-    {
-        auto child = children[index];
-
-        bool foundAggregator = false;
-        if (child->getType() == "function")
-        {
-            const FunctionCallWrapper * function = dynamic_cast<const FunctionCallWrapper *>(child.get());
-            if (function)
-            {
-                Utf8String functionName = function->functionName;
-
-                if (tryLookupAggregator(functionName))
-                {
-                    foundAggregator = true;
-                    output.push_back(child);
-                }
-            }
-            else
-            {
-                HttpReturnException(400, "Unexpected: could not cast FunctionCallWrapper");
-            }
-        }
-
-        if (!foundAggregator) //we dont look for aggregators in aggregator - its not legal
-        {
-            std::vector<std::shared_ptr<SqlExpression> > subchildren = child->getChildren();
-            children.insert(children.end(), subchildren.begin(), subchildren.end());
-        }
-
-        ++index;
-        
-    }
-
-    return std::move(output);
 }
 
 struct SelectExpressionDescription

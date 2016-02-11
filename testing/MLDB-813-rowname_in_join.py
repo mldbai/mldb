@@ -39,7 +39,7 @@ class RownameInJoinTest(MldbUnitTest):
             [ "row_3-row_3", 3, 3 ],
             [ "row_4-row_4", 4, 4 ]
         ]
-        self.assertQueryResult(res, expected)
+        self.assertTableResultEquals(res, expected)
 
     def test_inner_join_rowname_on_row_name(self):
         res = mldb.query(
@@ -55,7 +55,7 @@ class RownameInJoinTest(MldbUnitTest):
             ["row_3-row_3", "row_3", 3],
             ["row_4-row_4", "row_4", 4]
         ]
-        self.assertQueryResult(res, expected)
+        self.assertTableResultEquals(res, expected)
 
 
 if __name__ == '__main__':

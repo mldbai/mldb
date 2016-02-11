@@ -34,21 +34,19 @@ If the dataset has been aliased (e.g. `FROM dataset AS x`), you **must** use the
 In cases where the name or alias of the column or the name or alias of the dataset contains a `.`, you can use double-quotes to resolve any ambiguity.
 For example, if you have a join between a dataset named `x` with a column `y.z` and a dataset named `x.y` with column `z` :
 
-<pre>
-x.y.z       will refer to dataset x column y.z
-"x.y".z     will refer to dataset x.y column z
-"z".x.y     will return an error because there is no dataset named z
-</pre>
+
+* `x.y.z`       will refer to dataset x column y.z
+* `"x.y".z`     will refer to dataset x.y column z
+* `"z".x.y`     will return an error because there is no dataset named z
+
 
 Alternatively, you can alias the conflicting dataset's name to something unambiguous. In the previous example, if we alias the datasets with
 `FROM x AS blue JOIN y as red` then:
 
-<pre>
-x.y.z       will return an error because neither x, x.y nor x.y.z refer to a dataset's alias
-"x.y".z     will return an error because the dataset x.y as been aliased to 'red'
-blue.y.z    will refer to dataset blue (x) column y.z
-red.z       will refer to dataset red (y.z) column z
-</pre>
+* `x.y.z`       will return an error because neither x, x.y nor x.y.z refer to a dataset's alias
+* `"x.y".z`     will return an error because the dataset x.y as been aliased to 'red'
+* `blue.y.z`    will refer to dataset blue (x) column y.z
+* `red.z`       will refer to dataset red (y.z) column z
 
 
 ## <a name="operators"></a>Operators
@@ -60,32 +58,31 @@ higher predecence, so for example `x + y * z` is the same as
 always are left associative, that is the expression
 `x / y % z` is evaluated as `(x / y) % z`.
 
-<pre>
-  Operator    Type               Precedence  Description
-     ~        unary arithmetic            1  Bitwise NOT
-     *        binary arithmetic           2  Multiplication
-     /        binary arithmetic           2  Division 
-     %        binary arithmetic           2  Modulo 
-     +        unary arithmetic            3  Unary positive 
-     -        unary arithmetic            3  Unary negative 
-     +        binary arithmetic           3  Addition / Concatenation 
-     -        binary arithmetic           3  Subtraction 
-     &        binary bitwise              3  Bitwise and 
-     |        binary bitwise              3  Bitwise or 
-     ^        binary bitwise              3  Bitwise exclusive or 
-     =        binary comparison           4  Equality 
-     >=       binary comparison           4  Greater or equal to 
-     <=       binary comparison           4  Less or equal to 
-     <>       binary comparison           4  Not equal to 
-     !=       binary comparison           4  Not equal to 
-     !>       binary comparison           4  Not greater than 
-     !<       binary comparison           4  Not less than 
-     >        binary comparison           4  Greater than 
-     <        binary comparison           4  Less than 
-     NOT      unary boolean               5  Boolean not 
-     AND      binary boolean              6  Boolean and 
-     OR       binary boolean              7  Boolean or 
-</pre>
+  Operator  |  Type              | Precedence | Description
+:----------:|--------------------|:------------:|-----------------------
+     `~`      |  unary arithmetic  |          1 | Bitwise NOT
+     `*`      |  binary arithmetic |          2 | Multiplication
+     `/`      |  binary arithmetic |          2 | Division 
+     `%`      |  binary arithmetic |          2 | Modulo 
+     `+`      |  unary arithmetic  |          3 | Unary positive 
+     `-`      |  unary arithmetic  |          3 | Unary negative 
+     `+`      |  binary arithmetic |          3 | Addition / Concatenation 
+     `-`      |  binary arithmetic |          3 | Subtraction 
+     `&`      |  binary bitwise    |          3 | Bitwise and 
+     `\|`     |  binary bitwise    |          3 | Bitwise or 
+     `^`      |  binary bitwise    |          3 | Bitwise exclusive or 
+     `=`      |  binary comparison |          4 | Equality 
+     `>=`     |  binary comparison |          4 | Greater or equal to 
+     `<=`     |  binary comparison |          4 | Less or equal to 
+     `<>`     |  binary comparison |          4 | Not equal to 
+     `!=`     |  binary comparison |          4 | Not equal to 
+     `!>`     |  binary comparison |          4 | Not greater than 
+     `!<`     |  binary comparison |          4 | Not less than 
+     `>`      |  binary comparison |          4 | Greater than 
+     `<`      |  binary comparison |          4 | Less than 
+     `NOT`    |  unary boolean     |          5 | Boolean not 
+     `AND`    |  binary boolean    |          6 | Boolean and 
+     `OR`     |  binary boolean    |          7 | Boolean or 
 
 <!--
      ALL      unary unimp                 7  All true 
@@ -103,19 +100,20 @@ always are left associative, that is the expression
 Timestamps and time intervals have specific rules when using binary operators. Here are the supported operators and 
 the types that will result from each operation:
 
-<pre>
-  Operator    Left hand Value        Right Hand Value   Resulting type   
-     +        Timestamp              Number*            Timestamp       
-     +        Timestamp              Time Interval      Timestamp
-     +        Time Interval          Number*            Time Interval 
-     +        Time Interval          Time Interval      Time Interval 
-     -        Timestamp              Number*            Timestamp 
-     -        Timestamp              Time Interval      Timestamp 
-     -        Time Interval          Number*            Time Interval 
-     -        Time Interval          Time Interval      Time Interval 
-     *        Time Interval          Number*            Time Interval
-     /        Time Interval          Number*            Time Interval    
-</pre>
+
+  Operator  |  Left hand Value    |    Right Hand Value  | Resulting type   
+  :--------:|---------------------|----------------------|-----------------
+     `+`      |  Timestamp          |    Number*           | Timestamp       
+     `+`      |  Timestamp          |    Time Interval     | Timestamp
+     `+`      |  Time Interval      |    Number*           | Time Interval 
+     `+`      |  Time Interval      |    Time Interval     | Time Interval 
+     `-`      |  Timestamp          |    Number*           | Timestamp 
+     `-`      |  Timestamp          |    Time Interval     | Timestamp 
+     `-`      |  Time Interval      |    Number*           | Time Interval 
+     `-`      |  Time Interval      |    Time Interval     | Time Interval 
+     `*`      |  Time Interval      |    Number*           | Time Interval
+     `/`      |  Time Interval      |    Number*           | Time Interval    
+
 
 *When used in conjunction with Timestamps or Time Intervals, Numbers implicitly represent days.
 
@@ -136,38 +134,46 @@ depending upon the value or truth of an expression.  There are two flavors:
 
 Simple case statements, which look like
 
-    CASE expr
-      WHEN val1 THEN result1
-      WHEN val2 THEN result2
-      ELSE result3
-    END
+```sql
+CASE expr
+  WHEN val1 THEN result1
+  WHEN val2 THEN result2
+  ELSE result3
+END
+```
 
 for example,
 
-    CASE x % 2
-      WHEN 0 THEN 'even'
-      ELSE 'odd'
-    END
+```sql
+CASE x % 2
+  WHEN 0 THEN 'even'
+  ELSE 'odd'
+END
+```
 
 Matched case statements, which look like
 
-    CASE
-      WHEN boolean1 THEN result1
-      WHEN boolean2 THEN result2
-      ELSE result3
-    END
+```sql
+CASE
+  WHEN boolean1 THEN result1
+  WHEN boolean2 THEN result2
+  ELSE result3
+END
+```
 
 for example,
 
-    CASE
-      WHEN x % 15 = 0 THEN 'multiple of 5 and 3'
-      WHEN x % 5 = 0 THEN 'multiple of 5'
-      WHEN x % 3 = 0 THEN 'multiple of 3'
-      ELSE 'very approximately prime'
-    END
+```sql
+CASE
+  WHEN x % 15 = 0 THEN 'multiple of 5 and 3'
+  WHEN x % 5 = 0 THEN 'multiple of 5'
+  WHEN x % 3 = 0 THEN 'multiple of 3'
+  ELSE 'very approximately prime'
+END
+```
 
-In both cases, there are an arbitrary number of `WHEN`s and the `ELSE` clauses are
-optional.
+In both cases, there are an arbitrary number of `WHEN` clauses and the `ELSE` clauses are
+optional. If no `ELSE` clause is present and no `WHEN` clause matches, the result is `null`.
 
 ### `CAST` expressions
 
@@ -177,7 +183,9 @@ numbers. See also [the MLDB Type System](TypeSystem.md).
 
 The syntax is
 
-    CAST (expression AS type)
+```sql
+CAST (expression AS type)
+```
 
 where `expression` is any SQL value expression, and `type` is one of the
 following:
@@ -254,38 +262,29 @@ is equivalent to expr IN (3, 5, 7, 11), but allows a full row expression
 to be used to construct the set, rather than enumerating tuple elements.
 
 
-<h2 id="ExpressingTimeIntervals">Expressing Time Intervals</h2>
-
-Time intervals can be expressed using the `INTERVAL` keyword and a sequence of values 
-followed by one of the supported time units: second, minute, hour, day, week, month, and year,
-encapsulated within single quotes. For example, `INTERVAL '2 day 37 minute'`
-The time units can be wholy capilalized (for example, `YEAR`), and are always singular. 
-You can also use the following abreviations: 's' for second, 'm' for minute, 'h' for hour, 'd' for day,
-'w' for week, and 'y' for years. The time units abbreviations can also be capitalized.
-The time interval can be made negative by using a single minus '-' sign in front of the chain of values.
-For example, `INTERVAL '-3 month 2 week'`.
-
 ## <a name="CallingFunctions"></a>Calling Functions</h2>
 
 Built-in functions (see below for a list) can accept multiple arguments of any type and return a single value of any type and can be applied by name with parameters in parentheses, for example:
 
-```
+```sql
 built_in_function(1, 'a')
 ```
 
 [User-defined functions](../functions/Functions.md) are applied in the same way except that they always accept a single row-valued input value as an argument and return a single row-valued output, for example:
 
-```
+```sql
 user_defined_function( {some_number: 1, some_string: 'a'} )
 ```
 
 It can also accept the row returned from another user-defined function, for example:
 
+```sql
 user_defined_function_a(user_defined_function_b( {some_number: 1, some_string: 'a'} ))
+```
 
 Furthermore, since it is frequently necessary to access a subset of the columns from the output of a user-defined function, their application can be followed by an accessor in square brackets, for example:
 
-```
+```sql
 user_defined_function( {some_number: 1, some_string: 'a'} )[ <accessor> ]
 ```
 
@@ -304,13 +303,13 @@ Let's look at a hypothetical user-defined function with name `example` whose typ
 
 Accessing the `sum_scaled_y` output value would look like: 
 
-```
+```sql
 example( {x: 10, y: [1, 2, 3]} )[sum_scaled_y]
 ```
 
 Accessing a row containing only the `sum_scaled_y` and `input_length` output values would look like: 
 
-```
+```sql
 example( {x: 10, y: [1, 2, 3]} )[ {sum_scaled_y, input_length} ]
 ```
 
@@ -357,20 +356,20 @@ Note that this syntax is not part of SQL, it is an MLDB extension.
 - `sqrt(x)`: returns the square root of x.  The value of x must be greater or equal to 0.
 - `quantize(x, y)`: returns x rounded to the precision of y.  Here are some examples:
 
-```
-quantize(2.17, 0.001) = 2.17
-quantize(2.17, 0.01) = 2.17
-quantize(2.17, 0.1) = 2.2
-quantize(2.17, 1) = 2
-quantize(2.17, 10) = 0
-quantize(-0.1, 1) = 0
-quantize(0, 10000) = 0
-quantize(217, 0.1) = 217
-quantize(217, 1) = 217
-quantize(217, 10) = 220
-quantize(217, 100) = 200
-quantize(-217, 100) = -200
-```
+expression|result
+----------------------|-----
+`quantize(2.17, 0.001)` | 2.17
+`quantize(2.17, 0.01)`  | 2.17
+`quantize(2.17, 0.1)`   | 2.2
+`quantize(2.17, 1)`     | 2
+`quantize(2.17, 10)`    | 0
+`quantize(-0.1, 1)`     | 0
+`quantize(0, 10000)`    | 0
+`quantize(217, 0.1)`    | 217
+`quantize(217, 1)`      | 217
+`quantize(217, 10)`     | 220
+`quantize(217, 100)`    | 200
+`quantize(-217, 100)`   | -200
 
 ### Replace functions
 
@@ -556,7 +555,7 @@ has the effect of calculating a separate aggregate for each column in the row, a
 returns a row-valued result.  For example, to calculate the total count of each
 sparse column in a dataset, the following would suffice:
 
-```
+```sql
 SELECT count({*})
 ```
 
@@ -609,7 +608,7 @@ timestamps on the arguments passed in to the function.
 As an example, to calculate the Fibonnaci numbers from SQL (somewhat
 inefficiently), one could write
 
-```
+```sql
 SELECT jseval('
 function fib(x) {
     if (x == 1) return 1;
@@ -622,7 +621,7 @@ return fib(i);
 
 or to parse a comma separated list of 'key=value' attributes into a row, one could write
 
-```
+```sql
 SELECT jseval('
 var fields = csv.split(",");
 var result = {};

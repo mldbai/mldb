@@ -132,6 +132,32 @@ void to_js(JS::JSValue & value, const CellValue & val)
     }
 }
 
+Coord from_js(const JS::JSValue & value, Coord *)
+{
+    if (value->IsNull() || value->IsUndefined())
+        return Coord();
+    return jsonDecode<Coord>(JS::from_js(value, (Json::Value *)0));
+}
+
+Coord from_js_ref(const JS::JSValue & value, Coord *)
+{
+    if (value->IsNull() || value->IsUndefined())
+        return Coord();
+    return jsonDecode<Coord>(JS::from_js(value, (Json::Value *)0));
+}
+
+void to_js(JS::JSValue & value, const Coord & val)
+{
+    if (val.empty())
+        value = v8::Null();
+    return to_js(value, jsonEncode(val));
+}
+
+void to_js(JS::JSValue & value, const ExpressionValue & val)
+{
+    to_js(value, val.getAtom());
+}
+
 ExpressionValue from_js(const JS::JSValue & value, ExpressionValue *)
 {
     // NOTE: we currently pretend that CellValue and ExpressionValue
@@ -141,11 +167,6 @@ ExpressionValue from_js(const JS::JSValue & value, ExpressionValue *)
 
     CellValue val = from_js(value, (CellValue *)0);
     return ExpressionValue(val, Date::notADate());
-}
-
-void to_js(JS::JSValue & value, const ExpressionValue & val)
-{
-    to_js(value, val.getAtom());
 }
 
 ScriptStackFrame

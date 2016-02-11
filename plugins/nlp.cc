@@ -68,8 +68,8 @@ apply(const FunctionApplier & applier,
       const FunctionContext & context) const
 {
     RowValue rtnRow;
-    auto onAtom = [&] (const Id & columnName,
-                       const Id & prefix,
+    auto onAtom = [&] (const Coord & columnName,
+                       const Coord & prefix,
                        const CellValue & val,
                        Date ts)
         {
@@ -137,8 +137,8 @@ StemmerFunction(MldbServer * owner,
 {
     functionConfig = config.params.convert<StemmerFunctionConfig>();
 
-    stemmer = std::unique_ptr<sb_stemmer>(
-            sb_stemmer_new(functionConfig.language.c_str(), "UTF_8"));
+    //this is just to verify the language at creation time
+    std::unique_ptr<sb_stemmer> stemmer(sb_stemmer_new(functionConfig.language.c_str(), "UTF_8"));
 
     if (!stemmer) {
         throw ML::Exception(ML::format("language `%s' not available for stemming in "
@@ -159,13 +159,15 @@ StemmerFunction::
 apply(const FunctionApplier & applier,
       const FunctionContext & context) const
 {
-    // the stemmer is not thread safe
-    unique_lock<mutex> guard(apply_mutex);
+    // the sb_stemmer object is not thread safe
+    // but this allocation is not very expensive as profiled
+    // compared to actually doing the stemming
+    std::unique_ptr<sb_stemmer> stemmer(sb_stemmer_new(functionConfig.language.c_str(), "UTF_8"));
 
-    map<Id, pair<double, Date>> accum;
+    map<Coord, pair<double, Date>> accum;
 
-    auto onAtom = [&] (const Id & columnName,
-                       const Id & prefix,
+    auto onAtom = [&] (const Coord & columnName,
+                       const Coord & prefix,
                        const CellValue & val,
                        Date ts)
         {
@@ -185,7 +187,8 @@ apply(const FunctionApplier & applier,
             else
                 val_as_double = val.toDouble();
 
-            Id col(string((const char*)stemmed));
+            Coord col(string((const char*)stemmed));
+
             auto it = accum.find(col);
             if(it == accum.end()) {
                 accum.emplace(col, std::move(make_pair(val_as_double, ts)));
@@ -242,8 +245,8 @@ StemmerOnDocumentFunction(MldbServer * owner,
 {
     functionConfig = config.params.convert<StemmerFunctionConfig>();
 
-    stemmer = std::unique_ptr<sb_stemmer>(
-            sb_stemmer_new(functionConfig.language.c_str(), "UTF_8"));
+    //this is just to verify the language at creation time
+    std::unique_ptr<sb_stemmer> stemmer(sb_stemmer_new(functionConfig.language.c_str(), "UTF_8"));
 
     if (!stemmer) {
         throw ML::Exception(ML::format("language `%s' not available for stemming in "
@@ -264,8 +267,10 @@ StemmerOnDocumentFunction::
 apply(const FunctionApplier & applier,
       const FunctionContext & context) const
 {
-    // the stemmer is not thread safe
-    unique_lock<mutex> guard(apply_mutex);
+    // the sb_stemmer object is not thread safe
+    // but this allocation is not very expensive as profiled
+    // compared to actually doing the stemming
+    std::unique_ptr<sb_stemmer> stemmer(sb_stemmer_new(functionConfig.language.c_str(), "UTF_8"));
 
     Utf8String accum;
 

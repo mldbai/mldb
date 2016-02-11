@@ -64,8 +64,9 @@ createTypeClassCollection(MldbServer * server, RestRouteManager & routeManager);
 MldbServer::
 MldbServer(const std::string & serviceName,
            const std::string & etcdUri,
-           const std::string & etcdPath)
-    : ServicePeer(serviceName, "MLDB", "global"),
+           const std::string & etcdPath,
+           bool enableAccessLog)
+    : ServicePeer(serviceName, "MLDB", "global", enableAccessLog),
       EventRecorder(serviceName, std::make_shared<NullEventService>()),
       versionNode(nullptr)
 {
@@ -113,9 +114,19 @@ init(std::string configurationPath,
 {
     auto server = std::make_shared<StandalonePeerServer>();
 
+    preInit();
     initServer(server);
     initRoutes();
     initCollections(configurationPath, staticFilesPath, staticDocPath, hideInternalEntities);
+}
+
+void
+MldbServer::
+preInit()
+{
+    //Because of a multithread issue in boost, we need to call this to force boost::date_time to initialize in single thread
+    //better do it as early as possible
+    Date::now().weekday();
 }
 
 void

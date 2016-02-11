@@ -58,7 +58,7 @@ JSON defines numerical, string, boolean and null representations, but not timest
 In order to deal with this, the output of the Query API (except when in `format=table` mode) will represent
 these types of values as a JSON object as follows:
 
-```
+```javascript
 {"ts" : "1969-07-20T01:02:03.000Z"}
 {"interval": "3 MONTH 14D 1S"}
 {"num": "NaN"}
@@ -79,14 +79,15 @@ For the following dataset, where all values have the timestamp `2015-01-01T00:00
 
 Then the query
 
-    SELECT * ORDER BY rowName()
-
+```sql
+SELECT * ORDER BY rowName()
+```
 would return, depending on the parameters:
 
 
 #### Default format with no `format` parameter or `format=full`
 
-```
+```javascript
 [
    {
       "columns" : [
@@ -127,7 +128,7 @@ would return, depending on the parameters:
 
 #### Table with `format=table`
 
-```
+```javascript
  [
    [ "_rowName", "x", "y", "z" ],
    [ "ex1", 0, 3, null ],
@@ -139,7 +140,7 @@ would return, depending on the parameters:
 
 #### Structure of Arrays with `format=soa`
 
-```
+```javascript
  {
    "_rowName" : [ "ex1", "ex2", "ex3", "ex4" ],
    "x" : [ 0, 1, 2, 3 ],
@@ -150,7 +151,7 @@ would return, depending on the parameters:
 
 ### Array of Structures with `format=aos`
 
-```
+```javascript
 [
  { "_rowName" : "ex1", "x" : 0, "y" : 3 },
  { "_rowName" : "ex2", "x" : 1, "y" : 2, "z" : "yes" },
@@ -161,7 +162,7 @@ would return, depending on the parameters:
 
 #### Sparse format with `format=sparse`
 
-```
+```javascript
 [
    [
       [ "_rowName", "ex1" ],

@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** matrix.h                                                       -*- C++ -*-
     Jeremy Barnes, 5 January 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Dataset view as a dense+sparse matrix of values.  Rows are numbered by
     integers; columns numbered by integers and sparse values.
@@ -51,10 +51,10 @@ struct ColumnSpec {
 
     std::string getName() const
     {
-        std::string result = columnName.toString();
+        Utf8String result = columnName.toUtf8String();
         if (!cellValue.empty())
-            result += " " + cellValue.toString();
-        return result;
+            result += " " + cellValue.toUtf8String();
+        return result.stealRawString();
     }
 };
 

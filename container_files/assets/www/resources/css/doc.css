@@ -34,7 +34,7 @@ li {padding-bottom: 10px;}
 li ul li {padding-bottom: 0;}
 a, a:visited, a:hover {color:#3A62AD;}
 
-code,pre { background: #F0F0EE;}
+code,pre { background: #F0F0EE;font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;}
 
 pre {padding: 15px;    font-size: 16px;}
 
