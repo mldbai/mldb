@@ -1058,7 +1058,7 @@ ValuedBoundFunction implicit_cast(const std::vector<BoundSqlExpression> & args)
             std::make_shared<AtomValueInfo>()};
 }
 
-static RegisterBuiltin registerImplicitCast(implicit_cast, "implicit_cast", "implicitCast");
+static RegisterBuiltin registerImplicitCast(implicit_cast, "implicit_cast");
 
 ValuedBoundFunction regex_replace(const std::vector<BoundSqlExpression> & args)
 { 
@@ -1398,10 +1398,8 @@ static RegisterBuiltin registerdate_trunc(date_trunc, "date_trunc");
 void normalize(ML::distribution<float>& val, double p)
 {
     if (p == 0) {
-        double n = 1.0 / (val != 0).total();
-        for (auto & v: val)
-            if (v != 0)
-                v = n;
+        double n = (val != 0).count();
+        val /= n;
     }
     else if (p == INFINITY) {
         val /= val.max();
@@ -1521,7 +1519,7 @@ ValuedBoundFunction norm(const std::vector<BoundSqlExpression> & args)
                 double p = args[1].toDouble();
 
                 if (p == 0.0) {
-                    return ExpressionValue((val != 0.0).total(), ts);
+                    return ExpressionValue((val != 0.0).count(), ts);
                 }
                 else if (p == INFINITY) {
                     return ExpressionValue(val.max(), ts);

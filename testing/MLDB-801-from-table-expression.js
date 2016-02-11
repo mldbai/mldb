@@ -77,7 +77,7 @@ assertEqual(resp.responseCode, 200);
 
 var expected = [
     [ "_rowName", "test1.x", "test1.y", "test2.x", "test2.z" ],
-    [ "ex1-ex4", 1, 2, 1, 2 ]
+    [ "[ex1]-[ex4]", 1, 2, 1, 2 ]
 ];
 
 assertEqual(resp.json, expected);
