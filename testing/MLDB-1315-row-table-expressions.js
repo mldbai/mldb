@@ -75,4 +75,12 @@ expected = [
 
 testQuery("SELECT x({1}) AS *", expected);
 
+expected = [
+   [ "_rowName", "column", "value" ],
+   [ "0", "output.a", 1 ],
+   [ "1", "output.b", 2 ]
+];
+
+testQuery("SELECT * FROM row_dataset(x({1}))", expected);
+
 "success"
