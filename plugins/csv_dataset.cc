@@ -611,7 +611,7 @@ struct CsvDataset::Itl: public TabularDataStore {
             throw HttpReturnException(400, "Quoter string must have one character");
         }
 
-        const bool isTextLine = config.quoter.length() == 0 && config.delimiter.length() == 0;
+        const bool isTextLine = config.quoter.empty() && config.delimiter.empty();
 
         // Column names in the CSV file.  This is distinct from the
         // output column names that will be created once parsing has
@@ -654,21 +654,21 @@ struct CsvDataset::Itl: public TabularDataStore {
 
                 switch (encoding) {
                 case ASCII:
-                    for (auto & f: fields)
+                    for (const auto & f: fields)
                         inputColumnNames.emplace_back(ColumnName(f));
                     break;
                 case UTF8:
-                    for (auto & f: fields)
+                    for (const auto & f: fields)
                         inputColumnNames.emplace_back(ColumnName(Utf8String(f)));
                     break;
                 case LATIN1:
-                    for (auto & f: fields)
+                    for (const auto & f: fields)
                         inputColumnNames.emplace_back(ColumnName(Utf8String::fromLatin1(f)));
                     break;
                 };
             }
             else {
-                for (auto & f: config.headers)
+                for (const auto & f: config.headers)
                     inputColumnNames.emplace_back(ColumnName(f));
             }             
         }
