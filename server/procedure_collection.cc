@@ -111,7 +111,7 @@ initRoutes(RouteManager & manager)
         auto key = manager.getKey(context);
         auto procedure = static_cast<Procedure *>(
             collection->getExistingEntry(key).get());
-        redirect += key;
+        redirect += encodeUriComponent(restEncode(key));
 
         // load all runs
         auto runs = procedure->runs.get();
@@ -130,7 +130,7 @@ initRoutes(RouteManager & manager)
                 winningKey = key;
             }
         }
-        redirect += "/runs/" + winningKey;
+        redirect += "/runs/" + encodeUriComponent(restEncode(winningKey));
         connection.sendRedirect(302, redirect.rawString());
         return RestRequestRouter::MR_YES;
     };
