@@ -233,7 +233,7 @@ run(const ProcedureRunConfig & run,
         (boundDataset.dataset, labelInfo, knownInputColumns);
     
     cerr << "initialized feature space in " << timer.elapsed() << endl;
-
+    
     // We want to calculate the label and weight of each row as well
     // as the select expression
     std::vector<std::shared_ptr<SqlExpression> > extra
@@ -352,7 +352,13 @@ run(const ProcedureRunConfig & run,
             case CM_CATEGORICAL: {
                 // Get a list of categorical labels, for this thread.  Later
                 // we map them to the overall list of labels.
+
+
+                // HERE!!!
+                //std::string labelStr = label.toString();
                 std::string labelStr = jsonEncodeStr(label);
+
+
                 auto it = thr.categoricalLabels.find(labelStr);
                 if (it == thr.categoricalLabels.end()) {
                     encodedLabel = thr.categoricalLabelList.size();
@@ -482,7 +488,9 @@ run(const ProcedureRunConfig & run,
 
     if (nx == 0) {
         throw HttpReturnException(400, "Error training classifier: "
-                                  "No feature vectors were produced as all rows were filtered by WHEN, WHERE, OFFSET or LIMIT, or all labels were NULL (or label column doesn't exist)",
+                                  "No feature vectors were produced as all rows were filtered by "
+                                    "WHEN, WHERE, OFFSET or LIMIT, or all labels were NULL (or "
+                                    "label column doesn't exist)",
                                   "datasetConfig", boundDataset.dataset->config_,
                                   "datasetName", boundDataset.dataset->config_->id,
                                   "datasetStatus", boundDataset.dataset->getStatus(),
@@ -837,7 +845,14 @@ apply(const FunctionApplier & applier_,
     Date ts;
 
     std::tie(dense, fset, ts) = getFeatureSet(context, true /* try to optimize */);
-    
+
+    // TODO because of jsonEncode around line 364
+    auto unJsonifyLabels = [] (const string & lbl)
+        {
+            if(lbl.at(0) == '"' && lbl.at(lbl.size() - 1) == '"')
+                    return lbl.substr(1, lbl.size() - 2);
+            return lbl;
+        };
 
     auto cat = itl->labelInfo.categorical();
     if (!dense.empty()) {
@@ -846,12 +861,11 @@ apply(const FunctionApplier & applier_,
             ExcAssertEqual(scores.size(), labelCount);
 
             vector<tuple<Coord, ExpressionValue> > row;
-
             for (unsigned i = 0;  i < labelCount;  ++i) {
-                row.emplace_back(RowName(cat->print(i)),
+                row.emplace_back(RowName(unJsonifyLabels(cat->print(i))),
                                  ExpressionValue(scores[i], ts));
             }
-        
+
             result.set("scores", row);
         }
         else if (itl->labelInfo.type() == ML::REAL) {
@@ -873,7 +887,7 @@ apply(const FunctionApplier & applier_,
             vector<tuple<Coord, ExpressionValue> > row;
 
             for (unsigned i = 0;  i < labelCount;  ++i) {
-                row.emplace_back(RowName(cat->print(i)),
+                row.emplace_back(RowName(unJsonifyLabels(cat->print(i))),
                                  ExpressionValue(scores[i], ts));
             }
         

@@ -71,6 +71,10 @@ AccuracyConfigDescription()
              "said, it is a good idea to keep the weights centered around 1 "
              "to avoid numeric errors in the calculations."
              "The select statement does not support groupby and having clauses.");
+    addField("mode", &AccuracyConfig::mode,
+             "Mode of evaluated classifier.  Controls how the label is interpreted and "
+             "what is the expected output of the classifier is. This must match "
+             "what was used during training.");
     addField("outputDataset", &AccuracyConfig::outputDataset,
              "Output dataset for scored examples. The score for the test "
              "example will be written to this dataset. Examples get grouped when "
@@ -112,17 +116,10 @@ getStatus() const
 }
 
 RunOutput
-AccuracyProcedure::
-run(const ProcedureRunConfig & run,
-    const std::function<bool (const Json::Value &)> & onProgress) const
+run_boolean(AccuracyConfig & runAccuracyConf,
+            BoundSelectQuery & selectQuery,
+            std::shared_ptr<Dataset> output)
 {
-    auto runAccuracyConf = applyRunConfOverProcConf(accuracyConfig, run);
-
-    // 1.  Get the input dataset
-    SqlExpressionMldbContext context(server);
-
-    auto dataset = runAccuracyConf.testingData.stm->from->bind(context).dataset;
-
     // 3.  Create our aggregator function, which records the output of
     //     this row.
     
@@ -142,30 +139,11 @@ run(const ProcedureRunConfig & run,
             return true;
         };
 
-    // 5.  Run it
-    auto score = extractNamedSubSelect("score", runAccuracyConf.testingData.stm->select)->expression; 
-    auto label = extractNamedSubSelect("label", runAccuracyConf.testingData.stm->select)->expression;
-    auto weightSubSelect = extractNamedSubSelect("weight", runAccuracyConf.testingData.stm->select);
-    shared_ptr<SqlExpression> weight = weightSubSelect ? weightSubSelect->expression : SqlExpression::ONE;
-
-    std::vector<std::shared_ptr<SqlExpression> > calc = {
-        score,
-        label,
-        weight
-    };
-
-    BoundSelectQuery({} /* select */, *dataset, "" /* table alias */,
-                     runAccuracyConf.testingData.stm->when,
-                     *runAccuracyConf.testingData.stm->where,
-                     runAccuracyConf.testingData.stm->orderBy,
-                     calc,
-                     false /* implicit order by row hash */)
-        .execute(aggregator, runAccuracyConf.testingData.stm->offset,
-                 runAccuracyConf.testingData.stm->limit,
-                 nullptr /* progress */);
-
+    selectQuery.execute(aggregator, runAccuracyConf.testingData.stm->offset,
+             runAccuracyConf.testingData.stm->limit,
+             nullptr /* progress */);
+    
     // Now merge out stats together
-
     ScoredStats stats;
 
     accum.forEach([&] (ScoredStats * thrStats)
@@ -177,16 +155,7 @@ run(const ProcedureRunConfig & run,
 
     //stats.sort();
     stats.calculate();
-
-    if(runAccuracyConf.outputDataset) {
-        std::shared_ptr<Dataset> output;
-
-        PolyConfigT<Dataset> outputDataset = *runAccuracyConf.outputDataset;
-        if (outputDataset.type.empty())
-            outputDataset.type = AccuracyConfig::defaultOutputDatasetType;
-
-        output = createDataset(server, outputDataset, nullptr, true /*overwrite*/);
-
+    if(output) {
         Date recordDate = Date::now();
 
         int prevIncludedPop = 0;
@@ -219,7 +188,7 @@ run(const ProcedureRunConfig & run,
             row.emplace_back(ColumnName("recall"), bstats.recall(), recordDate);
             row.emplace_back(ColumnName("truePositiveRate"), bstats.truePositiveRate(), recordDate);
             row.emplace_back(ColumnName("falsePositiveRate"), bstats.falsePositiveRate(), recordDate);
-        
+
             rows.emplace_back(boost::any_cast<RowName>(entry.key), std::move(row));
             if (rows.size() > 1000) {
                 output->recordRows(rows);
@@ -237,16 +206,236 @@ run(const ProcedureRunConfig & run,
     cerr << stats.toJson();
 
     cerr << stats.atPercentile(0.50).toJson();
-
     cerr << stats.atPercentile(0.20).toJson();
-
     cerr << stats.atPercentile(0.10).toJson();
-
     cerr << stats.atPercentile(0.05).toJson();
-
     cerr << stats.atPercentile(0.01).toJson();
 
     return Any(stats.toJson());
+
+}
+
+RunOutput
+run_categorical(AccuracyConfig & runAccuracyConf,
+                BoundSelectQuery & selectQuery,
+                std::shared_ptr<Dataset> output)
+{
+    typedef vector<std::tuple<Coord, Coord, double, double, RowName>> AccumBucket;
+    PerThreadAccumulator<AccumBucket> accum;
+
+    typedef std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > Rows;
+    PerThreadAccumulator<Rows> rowsAccum;
+    Date recordDate = Date::now();
+
+
+    auto aggregator = [&] (NamedRowValue & row,
+                           const std::vector<ExpressionValue> & scoreLabelWeight)
+        {
+            Coord maxLabel("--ND--");
+            double maxLabelScore = -std::numeric_limits<double>::infinity();
+
+            std::vector<std::tuple<RowName, CellValue, Date> > outputRow;
+
+            auto onAtom = [&] (const Coord & columnName,
+                               const Coord & prefix,
+                               const CellValue & val,
+                               Date ts) 
+                {
+                    auto v = val.toDouble();
+                    if(v > maxLabelScore) {
+                        maxLabelScore = v;
+                        maxLabel = columnName;
+                    }
+
+                    if(output) {
+                        outputRow.emplace_back(ColumnName("score." + columnName.toString()), v, recordDate);
+                    }
+
+                    return true;
+                };
+            scoreLabelWeight[0].forEachAtom(onAtom);
+
+            // label should be string probably
+            auto label = scoreLabelWeight[1].toUtf8String();
+            double weight = scoreLabelWeight[2].toDouble();
+
+            accum.get().emplace_back(Coord(label), maxLabel, maxLabelScore, weight, row.rowName);
+
+            if(output) {
+                outputRow.emplace_back(ColumnName("maxLabel"), maxLabel.toString(), recordDate);
+                outputRow.emplace_back(ColumnName("label"), label, recordDate);
+                outputRow.emplace_back(ColumnName("weight"), weight, recordDate);
+
+                rowsAccum.get().emplace_back(row.rowName, outputRow);
+                if(rowsAccum.get().size() > 1000) {
+                    output->recordRows(rowsAccum.get());
+                    rowsAccum.get().clear();
+                }
+            }
+
+            return true;
+        };
+
+    selectQuery.execute(aggregator,
+            runAccuracyConf.testingData.stm->offset,
+            runAccuracyConf.testingData.stm->limit,
+            nullptr /* progress */);
+
+
+    if(output) {
+        rowsAccum.forEach([&] (Rows * thrRow)
+            {
+                output->recordRows(*thrRow);
+            });
+        output->commit();
+    }
+
+
+    // Create confusion matrix
+    map<Coord, map<Coord, unsigned>> confusion_matrix;
+    map<Coord, unsigned> predicted_sums;
+    map<Coord, unsigned> real_sums;
+    accum.forEach([&] (AccumBucket * thrBucket) 
+            {
+                for(auto & elem : *thrBucket) {
+                    auto label_it = confusion_matrix.find(get<0>(elem));
+                    // label is a new true label
+                    if(label_it == confusion_matrix.end()) {
+                        confusion_matrix.emplace(get<0>(elem), map<Coord, uint>{{get<1>(elem), 1}});
+                    }
+                    // we already know about this true label
+                    else {
+                        label_it->second[get<1>(elem)] += 1;
+                    }
+
+                    real_sums[get<0>(elem)] += 1;
+                    predicted_sums[get<1>(elem)] += 1;
+                }
+            });
+
+
+    // Create per-class statistics
+    Json::Value results;
+    results["label_statistics"] = Json::Value();
+
+    double total_precision = 0;
+    double total_recall = 0; // i'll be back!
+    double total_f1 = 0;
+    unsigned total_support = 0;
+
+    for(auto it = confusion_matrix.begin(); it != confusion_matrix.end(); it++) {
+        unsigned fn = 0;
+        unsigned tp = 0;
+
+        for(auto predicted_it = it->second.begin(); 
+                predicted_it != it->second.end(); predicted_it++) {
+
+            if(predicted_it->first == it->first)  {
+                tp += predicted_it->second;
+            } else{
+                fn += predicted_it->second;
+            }
+        }
+
+        Json::Value class_stats;
+
+        double precision = ML::xdiv(tp, float(predicted_sums[it->first]));
+        double recall = ML::xdiv(tp, float(tp + fn));
+        unsigned support = real_sums[it->first];
+        class_stats["precision"] = precision;
+        class_stats["recall"] = recall;
+        class_stats["f1_score"] = 2 * ML::xdiv((precision * recall), (precision + recall));
+        class_stats["support"] = support;
+        results["label_statistics"][it->first.toString()] = class_stats;
+
+        total_precision += precision * support;
+        total_recall += recall * support;
+        total_f1 += class_stats["f1_score"].asDouble() * support;
+        total_support += support;
+    }
+
+    // Create weighted statistics
+    Json::Value weighted_stats;
+    weighted_stats["precision"] = total_precision / total_support;
+    weighted_stats["recall"] = total_recall / total_support;
+    weighted_stats["f1_score"] = total_f1 / total_support;
+    weighted_stats["support"] = total_support;
+    results["weighted_statistics"] = weighted_stats;
+
+    results["confusion_matrix"] = jsonEncode(confusion_matrix);
+
+
+    // TODO maybe this should always return an error? The problem is it is not impossible that because
+    // of the way the dataset is split, it is a normal situation. But it can also point to
+    // misalignment in the way columns are named
+
+    // for all predicted labels
+    for(auto predicted_it = predicted_sums.begin(); predicted_it != predicted_sums.end(); predicted_it++) {
+        // if it is not a true label
+        if(real_sums.find(predicted_it->first) == real_sums.end()) {
+            if(weighted_stats["precision"].asDouble() == 0) {
+                throw ML::Exception(ML::format("Weighted precision is 0 and label '%s' " 
+                        "was predicted but not in true labels! Are the columns of the predicted "
+                        "labels named properly?", predicted_it->first.toString()));
+            }
+            cerr << "WARNING!! Label '" << predicted_it->first << "' was predicted but not in known labels!" << endl;
+        }
+    }
+
+
+    cout << results.toStyledString() << endl;
+
+    return Any(results);
+}
+
+RunOutput
+AccuracyProcedure::
+run(const ProcedureRunConfig & run,
+    const std::function<bool (const Json::Value &)> & onProgress) const
+{
+    auto runAccuracyConf = applyRunConfOverProcConf(accuracyConfig, run);
+
+    // 1.  Get the input dataset
+    SqlExpressionMldbContext context(server);
+
+    auto dataset = runAccuracyConf.testingData.stm->from->bind(context).dataset;
+   
+    // prepare output dataset
+    std::shared_ptr<Dataset> output;
+    if(runAccuracyConf.outputDataset) {
+        PolyConfigT<Dataset> outputDataset = *runAccuracyConf.outputDataset;
+        if (outputDataset.type.empty())
+            outputDataset.type = AccuracyConfig::defaultOutputDatasetType;
+
+        output = createDataset(server, outputDataset, nullptr, true /*overwrite*/);
+    }
+
+    // 5.  Run it
+    auto score = extractNamedSubSelect("score", runAccuracyConf.testingData.stm->select)->expression; 
+    auto label = extractNamedSubSelect("label", runAccuracyConf.testingData.stm->select)->expression;
+    auto weightSubSelect = extractNamedSubSelect("weight", runAccuracyConf.testingData.stm->select);
+    shared_ptr<SqlExpression> weight = weightSubSelect ? weightSubSelect->expression : SqlExpression::ONE;
+
+    std::vector<std::shared_ptr<SqlExpression> > calc = {
+        score,
+        label,
+        weight
+    };
+
+    auto boundQuery = 
+        BoundSelectQuery({} /* select */, *dataset, "" /* table alias */,
+                     runAccuracyConf.testingData.stm->when,
+                     *runAccuracyConf.testingData.stm->where,
+                     runAccuracyConf.testingData.stm->orderBy,
+                     calc,
+                     false /* implicit order by row hash */);
+
+    if(runAccuracyConf.mode == CM_BOOLEAN)
+        return run_boolean(runAccuracyConf, boundQuery, output);
+    if(runAccuracyConf.mode == CM_CATEGORICAL)
+        return run_categorical(runAccuracyConf, boundQuery, output);
+
+    throw ML::Exception("Classification mode '%d' not implemented", runAccuracyConf.mode);
 }
 
 namespace {
