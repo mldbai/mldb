@@ -207,16 +207,22 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
         // Do we have where TRUE?  In that case we can avoid evaluating 
         bool whereTrue = whereBound.expr->isConstantTrue();
 
-        size_t numPerBucket = std::max((size_t)std::ceil((float)whereGenerator.upperBound / numBuckets), (size_t)1);
-        size_t effectiveNumBucket = std::min((size_t)numBuckets, (size_t)whereGenerator.upperBound);
-
         int numRows = whereGenerator.upperBound;
+
+        size_t numPerBucket = std::max((size_t)std::floor((float)numRows / numBuckets), (size_t)1);
+        size_t effectiveNumBucket = std::min((size_t)numBuckets, (size_t)numRows);
+
+        //cerr << "Number of buckets :" << effectiveNumBucket << endl;
+        //cerr << "Number of row per bucket: " << numPerBucket << endl;
+        //cerr << "Number of rows: " << numRows << endl;
+
         auto doBucket = [&] (int bucketNumber) -> bool
             {                
                 size_t it = bucketNumber * numPerBucket;
+                int stopIt = bucketNumber == numBuckets - 1 ? numRows : it + numPerBucket;
                 auto stream = whereGenerator.rowStream->clone();
                 stream->initAt(it);
-                for (size_t i=0;  i<numPerBucket && it<numRows;  ++i, ++it)
+                for (;  it < stopIt; ++it)
                 {
                     RowName rowName = stream->next();
                     auto row = matrix->getRow(rowName);
@@ -1456,7 +1462,7 @@ execute(std::function<bool (NamedRowValue & output)> aggregator,
         //Evaluate the HAVING expression
         ExpressionValue havingResult = boundHaving(rowContext);
 
-        if (havingResult.isFalse())
+        if (!havingResult.isTrue())
             continue;
 
         outputRow.rowName = RowName(boundRowName(rowContext).toUtf8String());

@@ -145,7 +145,7 @@ plugin.log(resp)
 assertEqual(resp.json, expected);
 
 var expectedjoin = [
-      [ "_rowName", "ex00-x" ],
+      [ "_rowName", "[ex00]-[x]" ],
       [ "transposed_table.ex00", 0 ],
       [ "transposed_table.ex10", 1 ],
       [ "table.label", 0 ],
@@ -158,7 +158,7 @@ var expectedjoin = [
       [ "transposed_table.ex01", 0 ]
    ]
 
-var resp = mldb.get("/v1/query", {q:'SELECT "ex00-x" FROM transpose(test as table JOIN transpose(test) as transposed_table) as watcha', format:'table'});
+var resp = mldb.get("/v1/query", {q:'SELECT "[ex00]-[x]" FROM transpose(test as table JOIN transpose(test) as transposed_table) as watcha', format:'table'});
 plugin.log(resp)
 assertEqual(resp.json, expectedjoin);
 

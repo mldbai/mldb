@@ -103,6 +103,7 @@ SELECT row_transform({input: {x: 1, y: 2, z: "three"}})[output] AS *
 { Z: "three" }
 ```
 
+
 ## See also
 
 * [MLDB's SQL Implementation](../sql/Sql.md)
