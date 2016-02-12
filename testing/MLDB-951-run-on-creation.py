@@ -50,8 +50,8 @@ mldb.log(response)
 location = response.headers['Location']
 mldb.log(mldb.get(location))
 id = location.split('/')[-1]
-assert mldb.get("/v1/procedures/transform_procedure/runs").json()[0] \
-    == id, 'expected ids to match'
+res = mldb.get("/v1/procedures/transform_procedure/runs").json()[0]
+res == id, 'expected ids to match'
 
 
 # with a first run
