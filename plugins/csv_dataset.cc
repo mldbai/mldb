@@ -34,7 +34,6 @@
 
 using namespace std;
 
-
 namespace Datacratic {
 namespace MLDB {
 
@@ -46,6 +45,8 @@ CsvDatasetConfigDescription::CsvDatasetConfigDescription()
     addField("headers", &CsvDatasetConfig::headers,
              "List of headers for when first row doesn't contain headers",
              vector<Utf8String>());
+    addField("quotechar", &CsvDatasetConfig::quoter,
+             "Character to enclose strings", string("\""));
     addField("delimiter", &CsvDatasetConfig::delimiter,
              "Delimiter for column separation", string(","));
     addField("limit", &CsvDatasetConfig::limit,
@@ -327,6 +328,8 @@ Encoding parseEncoding(const std::string & encodingStr)
     - encoding: encoding of lines
     - replaceInvalidCharactersWith: if -1, badly encoded lines will cause an error
       Otherwise, it's the ASCII code point to put in place of them.
+    - isTextLine: optimization to ignore separator and quote chars and get a single column per line
+    - hasQuoteChar: should we use the quote char
 */
 
 const char *
@@ -337,8 +340,12 @@ parseFixedWidthCsvRow(const char * & line,
                       char separator,
                       char quote,
                       Encoding encoding,
-                      int replaceInvalidCharactersWith)
+                      int replaceInvalidCharactersWith,
+                      bool isTextLine,
+                      bool hasQuoteChar)
 {
+    ExcAssert(!(hasQuoteChar && isTextLine));
+
     const char * lineEnd = line + length;
 
     const char * errorMsg = nullptr;
@@ -406,12 +413,12 @@ parseFixedWidthCsvRow(const char * & line,
 
         char c = *line++;
 
-        if (c == separator) {
+        if (c == separator && !isTextLine) {
             // null field
             ++colNum;
             continue;
         }
-        else if (c == quote) {
+        else if (c == quote && hasQuoteChar) {
             // quoted string
             static constexpr size_t FIXED_BUF_LEN = 4096;
             char sbuf[FIXED_BUF_LEN];  // holds the extracted string
@@ -480,7 +487,7 @@ parseFixedWidthCsvRow(const char * & line,
 
             //cerr << "after quoted, *line = " << *line << endl;
         }
-        else if (isdigit(c) || c == '-') {
+        else if ((isdigit(c) || c == '-') && !isTextLine) {
             // Special case for something that looks like a number, in order to
             // save on parsing it.  We short circuit out when we get to a length
             // where we could start to lose digits, and fall back on parsing the
@@ -529,7 +536,7 @@ parseFixedWidthCsvRow(const char * & line,
 
             for (; line < lineEnd;  ++line, ++len) {
                 c = *line;
-                if (c == separator) {
+                if (c == separator && !isTextLine) {
                     ++line;
                     break;
                 }
@@ -580,78 +587,100 @@ struct CsvDataset::Itl: public TabularDataStore {
         // Get the file timestamp out
         Date ts = stream.info().lastModified;
 
-
         string header;
 
-        char separator;
+        char separator = 0;
         if (config.delimiter.length() == 1) {
             separator = config.delimiter[0];
         }
-        else {
+        else if (config.delimiter.length() > 1) {
             throw HttpReturnException(400, "Separator string must have one character");
         }
+        else if (config.quoter.length() > 0)
+        {
+            throw HttpReturnException(400, "Separator string must not be empty if we have a quoter string");
+        }
 
-        char quote;
+        char quote = 0;
+        bool hasQuoteChar = false;
         if (config.quoter.length() == 1) {
             quote = config.quoter[0];
+            hasQuoteChar = true;
         }
-        else {
+        else if (config.quoter.length() > 1) {
             throw HttpReturnException(400, "Quoter string must have one character");
         }
 
-        int replaceInvalidCharactersWith = -1;
-        if (!config.replaceInvalidCharactersWith.empty()) {
-            if (config.replaceInvalidCharactersWith.length() != 1)
-                throw HttpReturnException(400, "replaceInvalidCharactersWith string must have one character");
-            replaceInvalidCharactersWith = *config.replaceInvalidCharactersWith.begin();
-        }
-        
-        int64_t lineOffset = 1;  // we start at line 1
-
-        Encoding encoding = parseEncoding(config.encoding);
+        const bool isTextLine = config.quoter.empty() && config.delimiter.empty();
 
         // Column names in the CSV file.  This is distinct from the
         // output column names that will be created once parsing has
         // happened.
         vector<ColumnName> inputColumnNames;
 
-        if (config.headers.empty()) {
-            // Read header line
-            std::getline(stream, header);
-            lineOffset += 1;
-            ML::Parse_Context pcontext(filename, 
-                                       header.c_str(), header.length(), 1, 0);
-            
-            vector<string> fields = ML::expect_csv_row(pcontext, -1, separator);
+        int64_t lineOffset = 1;  // we start at line 1
 
-            switch (encoding) {
-            case ASCII:
-                for (auto & f: fields)
-                    inputColumnNames.emplace_back(ColumnName(f));
-                break;
-            case UTF8:
-                for (auto & f: fields)
-                    inputColumnNames.emplace_back(ColumnName(Utf8String(f)));
-                break;
-            case LATIN1:
-                for (auto & f: fields)
-                    inputColumnNames.emplace_back(ColumnName(Utf8String::fromLatin1(f)));
-                break;
-            };
+        int replaceInvalidCharactersWith = -1;
+        if (!config.replaceInvalidCharactersWith.empty()) {
+            if (config.replaceInvalidCharactersWith.length() != 1)
+                throw HttpReturnException(400, "replaceInvalidCharactersWith string must have one character");
+            replaceInvalidCharactersWith = *config.replaceInvalidCharactersWith.begin();
+        }  
+
+        Encoding encoding = parseEncoding(config.encoding);
+
+        if (isTextLine)
+        {
+            //MLDB-1312 optimize if there is no delimiter: only 1 column
+            if (config.headers.empty()) {
+                inputColumnNames = { ColumnName("lineText") };
+            }
+            else
+            {
+                if (inputColumnNames.size() != 1)
+                    throw HttpReturnException(400, "Custom CSV header must have only one element if there is no delimiter");
+            }
         }
-        else {
-            for (auto & f: config.headers)
-                inputColumnNames.emplace_back(ColumnName(f));
+        else
+        {   
+            if (config.headers.empty()) {
+                // Read header line
+                std::getline(stream, header);
+                lineOffset += 1;
+                ML::Parse_Context pcontext(filename, 
+                                           header.c_str(), header.length(), 1, 0);
+                
+                vector<string> fields = ML::expect_csv_row(pcontext, -1, separator);
+
+                switch (encoding) {
+                case ASCII:
+                    for (const auto & f: fields)
+                        inputColumnNames.emplace_back(ColumnName(f));
+                    break;
+                case UTF8:
+                    for (const auto & f: fields)
+                        inputColumnNames.emplace_back(ColumnName(Utf8String(f)));
+                    break;
+                case LATIN1:
+                    for (const auto & f: fields)
+                        inputColumnNames.emplace_back(ColumnName(Utf8String::fromLatin1(f)));
+                    break;
+                };
+            }
+            else {
+                for (const auto & f: config.headers)
+                    inputColumnNames.emplace_back(ColumnName(f));
+            }             
         }
 
         for (unsigned i = 0;  i < inputColumnNames.size();  ++i) {
-            const ColumnName & c = inputColumnNames[i];
-            ColumnHash ch(c);
-            if (!columnIndex.insert(make_pair(ch, i)).second)
-                throw HttpReturnException(400, "Duplicate column name in CSV file",
-                                          "columnName", c.toString());
-            columnHashes.push_back(ch);
-        }
+                const ColumnName & c = inputColumnNames[i];
+                ColumnHash ch(c);
+                if (!columnIndex.insert(make_pair(ch, i)).second)
+                    throw HttpReturnException(400, "Duplicate column name in CSV file",
+                                              "columnName", c.toString());
+                columnHashes.push_back(ch);
+            }
 
         // Now we know the columns, we can bind our SQL expressions for the
         // select, where, named and timestamp parts of the expression.
@@ -798,11 +827,13 @@ struct CsvDataset::Itl: public TabularDataStore {
 
                 const char * lineStart = line;
 
-                const char * errorMsg
-                    = parseFixedWidthCsvRow(line, length, &values[0],
+                const char * errorMsg = parseFixedWidthCsvRow(line, length, &values[0],
                                             inputColumnNames.size(),
                                             separator, quote, encoding,
-                                            replaceInvalidCharactersWith);
+                                            replaceInvalidCharactersWith,
+                                            isTextLine,
+                                            hasQuoteChar);
+
                 if (errorMsg)
                     return handleError(errorMsg, actualLineNum, line - lineStart + 1, string(line, length));
 
