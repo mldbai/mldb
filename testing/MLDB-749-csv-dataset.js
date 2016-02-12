@@ -473,4 +473,49 @@ expected =
 var res = mldb.get("/v1/query", { q: 'select * from mldb1312 order by rowName()', format: 'table' });
 assertEqual(res.json, expected, "quotechar test");
 
+var mldb1312Config_b = {
+    type: 'text.csv.tabular',
+    id: 'mldb1312_b',
+    params: {
+        dataFileUrl: 'file://mldb/testing/MLDB-1312-quotechar.csv',
+        encoding: 'latin1',
+        quotechar: '#',
+        delimiter: ''
+    }
+};
+
+try {
+    mldb.createDataset(mldb1312Config_b);
+} catch (e) {
+    gotErr = true;
+}
+
+if (!gotErr) {
+    throw "Should have caught bad mldb1312Config_b";
+}
+
+var mldb1312Config_c = {
+    type: 'text.csv.tabular',
+    id: 'mldb1312_c',
+    params: {
+        dataFileUrl: 'file://mldb/testing/MLDB-1312-quotechar.csv',
+        encoding: 'latin1',
+        quotechar: '',
+        delimiter: ',',
+        ignoreBadLines: true
+    }
+};
+
+mldb.createDataset(mldb1312Config_c);
+
+expected = 
+[
+   [ "_rowName", "a", "b" ],
+   [ "2", "#a#", "b" ],
+   [ "3", "#a##b#", "c" ]
+];
+
+var res = mldb.get("/v1/query", { q: 'select * from mldb1312_c order by rowName()', format: 'table' });
+assertEqual(res.json, expected, "quotechar test");
+
 "success"

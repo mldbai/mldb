@@ -329,6 +329,7 @@ Encoding parseEncoding(const std::string & encodingStr)
     - replaceInvalidCharactersWith: if -1, badly encoded lines will cause an error
       Otherwise, it's the ASCII code point to put in place of them.
     - isTextLine: optimization to ignore separator and quote chars and get a single column per line
+    - hasQuoteChar: should we use the quote char
 */
 
 const char *
@@ -340,8 +341,11 @@ parseFixedWidthCsvRow(const char * & line,
                       char quote,
                       Encoding encoding,
                       int replaceInvalidCharactersWith,
-                      bool isTextLine)
+                      bool isTextLine,
+                      bool hasQuoteChar)
 {
+    ExcAssert(!(hasQuoteChar && isTextLine));
+
     const char * lineEnd = line + length;
 
     const char * errorMsg = nullptr;
@@ -414,7 +418,7 @@ parseFixedWidthCsvRow(const char * & line,
             ++colNum;
             continue;
         }
-        else if (c == quote && !isTextLine) {
+        else if (c == quote && hasQuoteChar) {
             // quoted string
             static constexpr size_t FIXED_BUF_LEN = 4096;
             char sbuf[FIXED_BUF_LEN];  // holds the extracted string
@@ -585,24 +589,26 @@ struct CsvDataset::Itl: public TabularDataStore {
 
         string header;
 
-        char separator;
+        char separator = 0;
         if (config.delimiter.length() == 1) {
             separator = config.delimiter[0];
         }
         else if (config.delimiter.length() > 1) {
             throw HttpReturnException(400, "Separator string must have one character");
         }
+        else if (config.quoter.length() > 0)
+        {
+            throw HttpReturnException(400, "Separator string must not be empty if we have a quoter string");
+        }
 
-        char quote;
+        char quote = 0;
+        bool hasQuoteChar = false;
         if (config.quoter.length() == 1) {
             quote = config.quoter[0];
+            hasQuoteChar = true;
         }
         else if (config.quoter.length() > 1) {
             throw HttpReturnException(400, "Quoter string must have one character");
-        }
-        else if (config.delimiter.length() != 0)
-        {
-            throw HttpReturnException(400, "Quoter string must not be empty if separator string is not empty");
         }
 
         const bool isTextLine = config.quoter.length() == 0 && config.delimiter.length() == 0;
@@ -825,7 +831,8 @@ struct CsvDataset::Itl: public TabularDataStore {
                                             inputColumnNames.size(),
                                             separator, quote, encoding,
                                             replaceInvalidCharactersWith,
-                                            isTextLine);
+                                            isTextLine,
+                                            hasQuoteChar);
 
                 if (errorMsg)
                     return handleError(errorMsg, actualLineNum, line - lineStart + 1, string(line, length));
