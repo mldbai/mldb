@@ -420,7 +420,8 @@ run(const ProcedureRunConfig & run,
             weight = SqlRowExpression::parse("1.0 as weight");
 
         string scoreExpr;
-        if     (runProcConf.mode == CM_BOOLEAN)     scoreExpr = "\"%s\"({%s})[score] as score";
+        if     (runProcConf.mode == CM_BOOLEAN || 
+                runProcConf.mode == CM_REGRESSION)  scoreExpr = "\"%s\"({%s})[score] as score";
         else if(runProcConf.mode == CM_CATEGORICAL) scoreExpr = "\"%s\"({%s})[scores] as score";
         else throw ML::Exception("Classifier mode %d not implemented", runProcConf.mode);
 

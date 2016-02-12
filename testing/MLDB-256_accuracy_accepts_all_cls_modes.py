@@ -25,7 +25,7 @@ class Mldb256Test(MldbUnitTest):
         ds.record_row("i",[["label", 0, 0], ["x", 1, 0]])
         ds.record_row("j",[["label", 0, 0], ["x", 1, 0]])
         ds.commit()
-        
+
         #  toy multi class reprenseting the output of a classifier
         # this is used to test the multi-class metrics
         ds = mldb.create_dataset({ "id": "toy_categorical", "type": "sparse.mutable" })
@@ -35,7 +35,7 @@ class Mldb256Test(MldbUnitTest):
         ds.record_row("d",[["label", 2, 0], ["0", 0, 0], ["1", 0, 0], ["2", 1, 0]])
         ds.record_row("e",[["label", 0, 0], ["0", 1, 0], ["1", 0, 0], ["2", 0, 0]])
         ds.commit()
-       
+
         # create a multi-class classification dataset on which we will train
         # this is used to test if we can train using the classifier.expr procesude
         ds = mldb.create_dataset({ "id": "categorical", "type": "sparse.mutable" })
@@ -51,6 +51,16 @@ class Mldb256Test(MldbUnitTest):
         ds.record_row("h",[["label", "z", 0], ["col", 1.25, 0], ["col2", 55, 0]])
         ds.record_row("i",[["label", "z", 0], ["col", 0.80, 0], ["col2", 56, 0]])
         ds.record_row("i2",[["label", "z", 0], ["col", 0.90, 0], ["col2", 58, 0]])
+        ds.commit()
+
+
+        #  toy multi class reprenseting the output of a classifier
+        # this is used to test the multi-class metrics
+        ds = mldb.create_dataset({ "id": "toy_regression", "type": "sparse.mutable" })
+        ds.record_row("a",[["label", 3, 0], ["score", 2.5, 0]])
+        ds.record_row("b",[["label", -0.5, 0], ["score", 0, 0]])
+        ds.record_row("c",[["label", 2, 0], ["score", 2, 0]])
+        ds.record_row("d",[["label", 7, 0], ["score", 8, 0]])
         ds.commit()
 
     def test_toy_categorical_eval_works(self):
@@ -155,9 +165,31 @@ class Mldb256Test(MldbUnitTest):
                     "z": { "z": 1 }
                 })
 
-
         # Check the accuracy dataset
         self.assertEqual(len(mldb.query("select * from categorical_exp_results_0")), 6)
+
+
+    def test_toy_regression_works(self):
+        rez = mldb.put("/v1/procedures/toy_reg", {
+            "type": "classifier.test",
+            "params": {
+                "mode": "regression",
+                "testingData": """
+                    SELECT score as score, label as label from toy_regression
+                """,
+                "outputDataset": "toy_reg_output",
+                "runOnCreation": True
+            }
+        })
+
+        jsRez = rez.json()
+        mldb.log(jsRez)
+
+        #self.assertEqual(jsRez["status"]["firstRun"]["status"]["r2_score"], 0.948)
+        self.assertEqual(jsRez["status"]["firstRun"]["status"]["mse"], 0.375)
+
+        # Check the accuracy dataset
+        self.assertEqual(len(mldb.query("select * from toy_reg_output")), 5)
 
 
 mldb.run_tests()

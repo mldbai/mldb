@@ -38,6 +38,8 @@ using namespace std;
 namespace Datacratic {
 namespace MLDB {
 
+typedef std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > Rows;
+
 DEFINE_STRUCTURE_DESCRIPTION(AccuracyConfig);
 
 AccuracyConfigDescription::
@@ -120,9 +122,7 @@ run_boolean(AccuracyConfig & runAccuracyConf,
             BoundSelectQuery & selectQuery,
             std::shared_ptr<Dataset> output)
 {
-    // 3.  Create our aggregator function, which records the output of
-    //     this row.
-    
+
     PerThreadAccumulator<ScoredStats> accum;
 
     auto aggregator = [&] (NamedRowValue & row,
@@ -223,7 +223,6 @@ run_categorical(AccuracyConfig & runAccuracyConf,
     typedef vector<std::tuple<Coord, Coord, double, double, RowName>> AccumBucket;
     PerThreadAccumulator<AccumBucket> accum;
 
-    typedef std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > Rows;
     PerThreadAccumulator<Rows> rowsAccum;
     Date recordDate = Date::now();
 
@@ -389,6 +388,109 @@ run_categorical(AccuracyConfig & runAccuracyConf,
 }
 
 RunOutput
+run_regression(AccuracyConfig & runAccuracyConf,
+               BoundSelectQuery & selectQuery,
+               std::shared_ptr<Dataset> output)
+{
+
+    /* Calculate the r-squared. */
+    struct ThreadStats {
+        ThreadStats() :
+            sum_vsq(0), sum_v(0), sum_lsq(0), sum_l(0),
+            sum_vl(0), mse_sum(0), n(0)
+        {}
+
+        void increment(double v, double l) {
+            sum_vsq += v*v;  sum_v += v;
+            sum_lsq += l*l;  sum_l += l;
+            sum_vl  += v*l;
+            mse_sum += pow(v-l, 2);
+            n++;
+        }
+
+        double sum_vsq, sum_v, sum_lsq, sum_l, sum_vl, mse_sum;
+        int n;
+    };
+
+    PerThreadAccumulator<ThreadStats> accum;
+
+    PerThreadAccumulator<Rows> rowsAccum;
+    Date recordDate = Date::now();
+
+    auto aggregator = [&] (NamedRowValue & row,
+                           const std::vector<ExpressionValue> & scoreLabelWeight)
+        {
+            double score = scoreLabelWeight[0].toDouble();
+            double label = scoreLabelWeight[1].toDouble();
+            double weight = scoreLabelWeight[2].toDouble();
+            //float residual = label - score;
+
+            accum.get().increment(score, label);
+
+            if(output) {
+                std::vector<std::tuple<RowName, CellValue, Date> > outputRow;
+
+                outputRow.emplace_back(ColumnName("score"), score, recordDate);
+                outputRow.emplace_back(ColumnName("label"), label, recordDate);
+                outputRow.emplace_back(ColumnName("weight"), weight, recordDate);
+
+                rowsAccum.get().emplace_back(row.rowName, outputRow);
+                if(rowsAccum.get().size() > 1000) {
+                    output->recordRows(rowsAccum.get());
+                    rowsAccum.get().clear();
+                }
+            }
+
+            return true;
+        };
+
+    selectQuery.execute(aggregator, runAccuracyConf.testingData.stm->offset,
+             runAccuracyConf.testingData.stm->limit,
+             nullptr /* progress */);
+
+
+    if(output) {
+        rowsAccum.forEach([&] (Rows * thrRow)
+            {
+                output->recordRows(*thrRow);
+            });
+        output->commit();
+    }
+
+
+    double sum_vsq = 0.0, sum_v = 0.0, sum_lsq = 0.0, sum_l = 0.0;
+    double sum_vl = 0.0, n = 0, mse_sum = 0;
+
+    accum.forEach([&] (ThreadStats * thrStats)
+                  {
+                        sum_vsq += thrStats->sum_vsq;
+                        sum_v += thrStats-> sum_v;
+                        sum_lsq += thrStats->sum_lsq;
+                        sum_l += thrStats->sum_l;
+                        sum_vl += thrStats->sum_vl;
+                        n += thrStats->n;
+                        mse_sum += thrStats->mse_sum;
+                  });
+
+
+    double svl = n * sum_vl - sum_v * sum_l;
+    double svv = n * sum_vsq - sum_v * sum_v;
+    double sll = n * sum_lsq - sum_l * sum_l;
+
+    double r_squared = svl*svl / (svv * sll);
+    double b = svl / svv;
+    double bd = svl / sll;
+
+    Json::Value results;
+    results["r2_score"] = r_squared;
+    results["b"] = b;
+    results["bd"] = bd;
+    results["mse"] = mse_sum / n;
+
+    return Any(results);
+}
+
+RunOutput
 AccuracyProcedure::
 run(const ProcedureRunConfig & run,
     const std::function<bool (const Json::Value &)> & onProgress) const
@@ -434,6 +536,8 @@ run(const ProcedureRunConfig & run,
         return run_boolean(runAccuracyConf, boundQuery, output);
     if(runAccuracyConf.mode == CM_CATEGORICAL)
         return run_categorical(runAccuracyConf, boundQuery, output);
+    if(runAccuracyConf.mode == CM_REGRESSION)
+        return run_regression(runAccuracyConf, boundQuery, output);
 
     throw ML::Exception("Classification mode '%d' not implemented", runAccuracyConf.mode);
 }
