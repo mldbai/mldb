@@ -846,14 +846,6 @@ apply(const FunctionApplier & applier_,
 
     std::tie(dense, fset, ts) = getFeatureSet(context, true /* try to optimize */);
 
-    // TODO because of jsonEncode around line 364
-    auto unJsonifyLabels = [] (const string & lbl)
-        {
-            if(lbl.at(0) == '"' && lbl.at(lbl.size() - 1) == '"')
-                    return lbl.substr(1, lbl.size() - 2);
-            return lbl;
-        };
-
     auto cat = itl->labelInfo.categorical();
     if (!dense.empty()) {
         if (cat) {
@@ -862,7 +854,7 @@ apply(const FunctionApplier & applier_,
 
             vector<tuple<Coord, ExpressionValue> > row;
             for (unsigned i = 0;  i < labelCount;  ++i) {
-                row.emplace_back(RowName(unJsonifyLabels(cat->print(i))),
+                row.emplace_back(RowName(cat->print(i)),
                                  ExpressionValue(scores[i], ts));
             }
 
@@ -887,7 +879,7 @@ apply(const FunctionApplier & applier_,
             vector<tuple<Coord, ExpressionValue> > row;
 
             for (unsigned i = 0;  i < labelCount;  ++i) {
-                row.emplace_back(RowName(unJsonifyLabels(cat->print(i))),
+                row.emplace_back(RowName(cat->print(i)),
                                  ExpressionValue(scores[i], ts));
             }
         

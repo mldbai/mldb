@@ -220,7 +220,7 @@ run_categorical(AccuracyConfig & runAccuracyConf,
                 BoundSelectQuery & selectQuery,
                 std::shared_ptr<Dataset> output)
 {
-    typedef vector<std::tuple<Coord, Coord, double, double, RowName>> AccumBucket;
+    typedef vector<std::tuple<CellValue, CellValue, double, double, RowName>> AccumBucket;
     PerThreadAccumulator<AccumBucket> accum;
 
     PerThreadAccumulator<Rows> rowsAccum;
@@ -230,7 +230,7 @@ run_categorical(AccuracyConfig & runAccuracyConf,
     auto aggregator = [&] (NamedRowValue & row,
                            const std::vector<ExpressionValue> & scoreLabelWeight)
         {
-            Coord maxLabel("--ND--");
+            CellValue maxLabel;
             double maxLabelScore = -std::numeric_limits<double>::infinity();
 
             std::vector<std::tuple<RowName, CellValue, Date> > outputRow;
@@ -243,7 +243,7 @@ run_categorical(AccuracyConfig & runAccuracyConf,
                     auto v = val.toDouble();
                     if(v > maxLabelScore) {
                         maxLabelScore = v;
-                        maxLabel = columnName;
+                        maxLabel = jsonDecodeStr<CellValue>(columnName.toUtf8String());
                     }
 
                     if(output) {
@@ -254,14 +254,13 @@ run_categorical(AccuracyConfig & runAccuracyConf,
                 };
             scoreLabelWeight[0].forEachAtom(onAtom);
 
-            // label should be string probably
-            auto label = scoreLabelWeight[1].toUtf8String();
+            auto label = scoreLabelWeight[1].getAtom();
             double weight = scoreLabelWeight[2].toDouble();
 
-            accum.get().emplace_back(Coord(label), maxLabel, maxLabelScore, weight, row.rowName);
+            accum.get().emplace_back(label, maxLabel, maxLabelScore, weight, row.rowName);
 
             if(output) {
-                outputRow.emplace_back(ColumnName("maxLabel"), maxLabel.toString(), recordDate);
+                outputRow.emplace_back(ColumnName("maxLabel"), maxLabel, recordDate);
                 outputRow.emplace_back(ColumnName("label"), label, recordDate);
                 outputRow.emplace_back(ColumnName("weight"), weight, recordDate);
 
@@ -291,16 +290,16 @@ run_categorical(AccuracyConfig & runAccuracyConf,
 
 
     // Create confusion matrix
-    map<Coord, map<Coord, unsigned>> confusion_matrix;
-    map<Coord, unsigned> predicted_sums;
-    map<Coord, unsigned> real_sums;
+    map<CellValue, map<CellValue, unsigned>> confusion_matrix;
+    map<CellValue, unsigned> predicted_sums;
+    map<CellValue, unsigned> real_sums;
     accum.forEach([&] (AccumBucket * thrBucket) 
             {
                 for(auto & elem : *thrBucket) {
                     auto label_it = confusion_matrix.find(get<0>(elem));
                     // label is a new true label
                     if(label_it == confusion_matrix.end()) {
-                        confusion_matrix.emplace(get<0>(elem), map<Coord, uint>{{get<1>(elem), 1}});
+                        confusion_matrix.emplace(get<0>(elem), map<CellValue, uint>{{get<1>(elem), 1}});
                     }
                     // we already know about this true label
                     else {
