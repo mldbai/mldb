@@ -618,6 +618,7 @@ bind(SqlBindingScope & context) const
                                              cell,
                                              ts);
                     rows.emplace_back(std::move(row));
+
                     return true;
                 };
 

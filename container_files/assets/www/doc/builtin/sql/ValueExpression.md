@@ -430,6 +430,10 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
 - `vector_quotient(vec1, vec2)` will efficiently return an elementwise quotient `vec1 / vec2`, where
   both are assumed to be embeddings.  The lengths of the two must be the same.
   Divisions by zero will result in NaN values.
+- `flatten(val)` will take a n-dimensional embedding and flatten it down
+  into a one-dimensional embedding containing all of the elements.  The
+  elements will be taken from end end dimensions first, ie
+  `flatten([ [ 1, 2], [3, 4] ]) will be `[1, 2, 3, 4]`.
 
 ### <a name="importfunctions"></a>Data import functions
 
