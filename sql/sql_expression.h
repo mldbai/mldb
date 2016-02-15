@@ -184,14 +184,14 @@ struct BoundSqlExpression {
     const ExpressionValue &
     operator () (const SqlRowScope & context,
                  ExpressionValue & storage,
-                 const VariableFilter & filter = GET_ALL) const
+                 const VariableFilter & filter /*= GET_ALL*/) const
     {
         return exec(context, storage, filter);
     }
 
     ExpressionValue
     operator () (const SqlRowScope & context,
-                 const VariableFilter & filter = GET_ALL) const
+                 const VariableFilter & filter /*= GET_ALL*/) const
     {
         ExpressionValue storage;
         const ExpressionValue & res = exec(context, storage, filter);

@@ -300,7 +300,7 @@ doGetVariable(const Utf8String & tableName,
                 auto & row = static_cast<const RowContext &>(context);
 
                 const ExpressionValue * fromOutput
-                    = searchRow(row.row.columns, columnName, filter, storage);
+                    = searchRow(row.row.columns, columnName, filter == GET_ALL ? GET_LATEST : filter, storage);
                 if (fromOutput)
                     return *fromOutput;
 
@@ -580,7 +580,7 @@ doGetVariable(const Utf8String & tableName, const Utf8String & variableName)
                 auto & row = static_cast<const RowContext &>(context);
                 
                 const ExpressionValue * fromOutput
-                    = searchRow(row.output.columns, columnName, filter, storage);
+                    = searchRow(row.output.columns, columnName, filter == GET_ALL ? GET_LATEST : filter, storage);
                 if (fromOutput)
                     return *fromOutput;
                 

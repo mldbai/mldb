@@ -235,7 +235,7 @@ BoundFunction bindJsEval(const Utf8String & name,
             std::vector<ExpressionValue> evaluatedArgs;
             evaluatedArgs.reserve(args.size());
             for (auto & arg: args)
-                evaluatedArgs.emplace_back(std::move(arg(context)));
+                evaluatedArgs.emplace_back(std::move(arg(context, GET_LATEST)));
 
             return runJsFunction(evaluatedArgs, context, runner);
         };

@@ -245,7 +245,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
     {
         auto rowContext = context.getRowContext(row);
 
-        if (!whereTrue && !whereBound(rowContext).isTrue())
+        if (!whereTrue && !whereBound(rowContext, GET_LATEST).isTrue())
             return true;
 
         whenBound.filterInPlace(row, rowContext);
@@ -258,7 +258,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
         vector<ExpressionValue> calcd(boundCalc.size());
         // Run the extra calculations
         for (unsigned i = 0;  i < boundCalc.size();  ++i) {
-            calcd[i] = std::move(boundCalc[i](selectRowContext));
+            calcd[i] = std::move(boundCalc[i](selectRowContext, GET_LATEST));
         }
         
         if (selectStar) {
@@ -273,7 +273,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
         }
         else {
             // Run the select expression
-            ExpressionValue selectOutput = boundSelect(selectRowContext);
+            ExpressionValue selectOutput = boundSelect(selectRowContext, GET_ALL);
             selectOutput.mergeToRowDestructive(outputRow.columns);
         }
 
@@ -369,7 +369,7 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
                 // it.
                 auto rowContext = context.getRowContext(row);
 
-                if (!whereTrue && !whereBound(rowContext).isTrue())
+                if (!whereTrue && !whereBound(rowContext, GET_LATEST).isTrue())
                     return true;
 
                 whenBound.filterInPlace(row, rowContext);
@@ -382,12 +382,12 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
              
                 // Run the bound select expressions
                 ExpressionValue selectOutput
-                    = boundSelect(selectRowContext);
+                = boundSelect(selectRowContext, GET_ALL);
                 selectOutput.mergeToRowDestructive(outputRow.columns);
 
                 vector<ExpressionValue> calcd(boundCalc.size());
                 for (unsigned i = 0;  i < boundCalc.size();  ++i) {
-                    calcd[i] = std::move(boundCalc[i](selectRowContext));
+                    calcd[i] = std::move(boundCalc[i](selectRowContext, GET_LATEST));
                 }
 
                 // Get the order by context, which can read from both the result
@@ -610,7 +610,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
                     // it.
                     auto rowContext = context.getRowContext(row);
 
-                    if (whereTrue && !whereBound(rowContext).isTrue())
+                    if (whereTrue && !whereBound(rowContext, GET_LATEST).isTrue())
                         return true;
 
 
@@ -621,7 +621,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
 
                     vector<ExpressionValue> calcd(boundCalc.size());
                     for (unsigned i = 0;  i < boundCalc.size();  ++i) {
-                        calcd[i] = std::move(boundCalc[i](rowContext));
+                        calcd[i] = std::move(boundCalc[i](rowContext, GET_LATEST));
                     }
 
                     if (selectStar) {
@@ -636,7 +636,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
                     }
                     else {
                         // Run the select expression
-                        ExpressionValue selectOutput = boundSelect(rowContext);
+                        ExpressionValue selectOutput = boundSelect(rowContext, GET_ALL);
                         selectOutput.mergeToRowDestructive(outputRow.columns);
                     }
 
@@ -895,7 +895,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
 
             vector<ExpressionValue> calcd(boundCalc.size());
             for (unsigned i = 0;  i < boundCalc.size();  ++i) {
-                calcd[i] = std::move(boundCalc[i](rowContext));
+                calcd[i] = std::move(boundCalc[i](rowContext, GET_LATEST));
             }
 
             if (selectStar) {
@@ -910,7 +910,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
             }
             else {
                 // Run the select expression
-                ExpressionValue selectOutput = boundSelect(rowContext);
+                ExpressionValue selectOutput = boundSelect(rowContext, GET_ALL);
                 selectOutput.mergeToRowDestructive(outputRow.columns);
             }
             if (!aggregator(outputRow, calcd, count))
@@ -1156,7 +1156,7 @@ struct GroupContext: public SqlExpressionDatasetContext {
                     {
                         auto & row = static_cast<const RowContext &>(context);
 
-                        int position = args[0](context).toInt();
+                        int position = args[0](context, GET_LATEST).toInt();
 
                         return row.currentGroupKey.at(position);
                     },
@@ -1231,7 +1231,7 @@ struct GroupContext: public SqlExpressionDatasetContext {
                     auto & row = static_cast<const RowContext &>(context);
              
                     const ExpressionValue * result
-                        = searchRow(row.output.columns, columnName, filter, storage);
+                        = searchRow(row.output.columns, columnName, filter == GET_ALL ? GET_LATEST : filter, storage);
 
                     if (result)
                         return *result;     
@@ -1454,16 +1454,16 @@ execute(std::function<bool (NamedRowValue & output)> aggregator,
         auto rowContext = groupContext->getRowContext(outputRow, rowKey);
 
         //Evaluate the HAVING expression
-        ExpressionValue havingResult = boundHaving(rowContext);
+        ExpressionValue havingResult = boundHaving(rowContext, GET_LATEST);
 
         if (havingResult.isFalse())
             continue;
 
-        outputRow.rowName = RowName(boundRowName(rowContext).toUtf8String());
+        outputRow.rowName = RowName(boundRowName(rowContext, GET_LATEST).toUtf8String());
         outputRow.rowHash = outputRow.rowName;        
 
         //Evaluating the whole bound select expression
-        ExpressionValue result = boundSelect(rowContext);
+        ExpressionValue result = boundSelect(rowContext, GET_ALL);
         result.mergeToRowDestructive(outputRow.columns);
 
         //In case of no output ordering, we can early exit

@@ -153,19 +153,19 @@ void iterateDense(const SelectExpression & select,
             // it.
             auto rowContext = context.getRowContext(row);
 
-            if (!whereBound(rowContext).isTrue())
+            if (!whereBound(rowContext, GET_LATEST).isTrue())
                 return true;
 
             // Filter the tuples using the WHEN expression
             whenBound.filterInPlace(row, rowContext);
 
             // Run the with expressions
-            ExpressionValue out = boundSelect(rowContext);
+            ExpressionValue out = boundSelect(rowContext, GET_ALL);
             auto embedding = out.getEmbeddingDouble(-1);
 
             vector<ExpressionValue> calcd(boundCalc.size());
             for (unsigned i = 0;  i < boundCalc.size();  ++i) {
-                calcd[i] = std::move(boundCalc[i](rowContext));
+                calcd[i] = std::move(boundCalc[i](rowContext, GET_LATEST));
             }
             
             /* Finally, pass to the aggregator to continue. */
@@ -320,7 +320,7 @@ queryWithoutDataset(SelectStatement& stm, SqlExpressionMldbContext& mldbContext)
 {
     auto boundSelect = stm.select.bind(mldbContext);
     SqlRowScope context;
-    ExpressionValue val = boundSelect(context);
+    ExpressionValue val = boundSelect(context, GET_ALL);
     MatrixNamedRow row;
     //row.rowName = RowName(stm.select.surface); //TO BE REVIEWED AS PART OF MLDBFB-264
     row.rowHash = row.rowName;

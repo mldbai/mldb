@@ -164,7 +164,7 @@ doGetFunction(const Utf8String & tableName,
                 std::vector<ExpressionValue> evaluatedArgs;
                 evaluatedArgs.reserve(args.size());
                 for (auto & arg: args)
-                    evaluatedArgs.emplace_back(std::move(arg(context)));
+                    evaluatedArgs.emplace_back(std::move(arg(context, GET_LATEST)));
 
                 return fn(col.columnName, evaluatedArgs); 
             },

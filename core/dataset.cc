@@ -890,7 +890,7 @@ generateRowsWhere(const SqlBindingScope & scope,
                                 {
                                     SqlExpressionParamScope::RowScope rowScope(params);
                                     ExpressionValue evaluatedSet
-                                        = boundSet(rowScope);
+                                        = boundSet(rowScope, GET_LATEST);
 
                                     std::vector<RowName> filtered;
 
@@ -1139,7 +1139,7 @@ generateRowsWhere(const SqlBindingScope & scope,
 
                         auto rowScope = dsScope.getRowContext(row, &params);
                         
-                        bool keep = whereBound(rowScope).isTrue();
+                        bool keep = whereBound(rowScope, GET_LATEST).isTrue();
                         
                         if (keep)
                             accum.get().push_back(r);
@@ -1288,7 +1288,7 @@ queryBasic(const SqlBindingScope & scope,
                         }
                         else {
                             ExpressionValue selectOutput
-                                = boundSelect(rowScope);
+                            = boundSelect(rowScope, GET_LATEST);
                             
                             selectOutput.mergeToRowDestructive(outputRow.columns);
 
