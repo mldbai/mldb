@@ -261,6 +261,7 @@ $(eval $(call mldb_unit_test,MLDB-1361_join_on_subselect.py))
 $(eval $(call mldb_unit_test,MLDB-1364_dataset_cant_be_overwritten.py))
 $(eval $(call mldb_unit_test,MLDB-1336-builtin-checks.py))
 
+
 $(eval $(call mldb_unit_test,pytanic_plugin_test.py))
 $(eval $(call python_test,mldb_merged_dataset_test,mldb_py_runner))
 
@@ -321,6 +322,7 @@ $(eval $(call mldb_unit_test,MLDBFB-192_row_name_as_string_test.py))
 $(eval $(call mldb_unit_test,MLDBFB-199_invalid_script_test.py))
 $(eval $(call mldb_unit_test,MLDBFB-208_procedure_params_overwrite_test.py))
 $(eval $(call mldb_unit_test,MLDB-687-svd-embed-row-single-column.js))
+$(eval $(call mldb_unit_test,MLDB-1359_procedure_latest_run.py))
 $(eval $(call mldb_unit_test,MLDBFB-345_improve_error_message_named_on_null.py))
 $(eval $(call mldb_unit_test,MLDB-1317-tensor-datatype.js))
 $(eval $(call mldb_unit_test,get_http_bound_address.py))
