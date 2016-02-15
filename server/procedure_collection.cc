@@ -131,7 +131,7 @@ initRoutes(RouteManager & manager)
             }
         }
         redirect += "/runs/" + encodeUriComponent(restEncode(winningKey));
-        connection.sendRedirect(302, redirect.rawString());
+        connection.sendRedirect(307, redirect.rawString());
         return RestRequestRouter::MR_YES;
     };
 

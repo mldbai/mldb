@@ -592,6 +592,7 @@ class mldb_wrapper(object):
             if response.status_code < 200 or response.status_code >= 400:
                 raise mldb_wrapper.ResponseException(response)
             if response.status_code >= 300:
+                # 10 is the maximum count of redirects to follow
                 return self._follow_redirect(response.headers['location'], 10)
             return response
 
