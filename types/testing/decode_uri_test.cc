@@ -67,13 +67,26 @@ BOOST_AUTO_TEST_CASE(test_invalid_input)
 {
     JML_TRACE_EXCEPTIONS(false);
     Utf8String in("%");
+#if TOLERATE_URL_BAD_ENCODING
+    BOOST_CHECK_EQUAL(Url::decodeUri(in), in);
+#else
     BOOST_CHECK_THROW(Url::decodeUri(in), ML::Exception);
+#endif
+
 
     in = "%2";
+#if TOLERATE_URL_BAD_ENCODING
+    BOOST_CHECK_EQUAL(Url::decodeUri(in), in);
+#else
     BOOST_CHECK_THROW(Url::decodeUri(in), ML::Exception);
+#endif
 
     in = "%a";
+#if TOLERATE_URL_BAD_ENCODING
+    BOOST_CHECK_EQUAL(Url::decodeUri(in), in);
+#else
     BOOST_CHECK_THROW(Url::decodeUri(in), ML::Exception);
+#endif
 }
 #endif
 
@@ -105,7 +118,12 @@ BOOST_AUTO_TEST_CASE(test_invalid_utf8)
 {
     JML_TRACE_EXCEPTIONS(false);
     Utf8String in = "%C3";
+#if TOLERATE_URL_BAD_ENCODING
+    Utf8String expected = "Ã";
+    BOOST_CHECK_EQUAL(Url::decodeUri(in), expected);
+#else
     BOOST_CHECK_THROW(Url::decodeUri(in), ML::Exception);
+#endif
 }
 #endif
 

@@ -1,3 +1,4 @@
+
 // This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
 /* url.h                                                           -*- C++ -*-
@@ -9,6 +10,7 @@
 
 #pragma once
 
+#define TOLERATE_URL_BAD_ENCODING 1
 #include <string>
 #include <memory>
 #include "value_description_fwd.h"
