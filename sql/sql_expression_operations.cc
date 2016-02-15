@@ -3108,7 +3108,7 @@ bind(SqlBindingScope & context) const
         -> const ExpressionValue &
         {
             ExpressionValue filteredExpr =  std::move(allColumns.exec(scope));
-            filteredExpr.filterRow(filter == GET_ALL ? GET_LATEST : filter);
+            filteredExpr.filterRow(filter);
             return storage = std::move(filteredExpr);
         };
 

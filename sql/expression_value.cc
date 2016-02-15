@@ -2262,8 +2262,8 @@ getFiltered(const VariableFilter & filter /*= GET_LATEST*/) const
 {
     ExcAssertEqual(type_, ROW);
 
-    //if (filter == GET_ALL)
-    //    return *row_;
+    if (filter == GET_ALL)
+        return *row_;
 
     std::function<bool(const ExpressionValue&, const ExpressionValue&)> filterFn = [](const ExpressionValue& left, const ExpressionValue& right){return false;};
 
