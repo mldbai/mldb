@@ -1,6 +1,5 @@
 // This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
-
 #include "url.h"
 
 #include "mldb/ext/googleurl/src/gurl.h"
@@ -265,7 +264,7 @@ Utf8String
 Url::
 decodeUri(Utf8String in)
 {
-#if 1
+#if TOLERATE_URL_BAD_ENCODING
     string raw = in.rawString();
     url_canon::RawCanonOutputT<char16> output;
     url_util::DecodeURLEscapeSequences(raw.c_str(), raw.length(), &output);
