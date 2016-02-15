@@ -2261,7 +2261,7 @@ ValuedBoundFunction upper(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerUpper(upper, "upper");
 
-BoundFunction flatten(const std::vector<BoundSqlExpression> & args)
+ValuedBoundFunction flatten(const std::vector<BoundSqlExpression> & args)
 {
     // Return the result indexed on a single dimension
 
