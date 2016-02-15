@@ -1549,68 +1549,6 @@ ValuedBoundFunction norm(const std::vector<BoundSqlExpression> & args)
 static RegisterBuiltin registerNorm(norm, "norm");
 
 
-ValuedBoundFunction parse_sparse_csv(const std::vector<BoundSqlExpression> & args)
-{
-    // Comma separated list, first is row name, rest are row columns
-
-    if (args.size() == 0)
-        throw HttpReturnException(400, "takes at least 1 argument, got " + to_string(args.size()));
-
-    return {[=] (const std::vector<ExpressionValue> & args,
-                 const SqlRowScope & scope) -> ExpressionValue
-            {
-                std::string str = args[0].toString();
-                Date ts = args[0].getEffectiveTimestamp();
-
-                int skip = 1;
-                if (args.size() >= 2)
-                    skip = args[1].toInt();
-                char separator = ',';
-                if (args.size() >= 3) {
-                    string s = args[2].toString();
-                    if (s.length() != 1)
-                        throw HttpReturnException(400,
-                                                  "Separator for parse_sparse_csv should be a single character",
-                                                  "separator", s,
-                                                  "args", args);
-                }
-                CellValue val(1);
-                if (args.size() >= 4)
-                    val = args[3].getAtom();
-
-                std::string filename = str;
-                if (args.size() >= 5)
-                    filename = args[4].toString();
-                int line = 1;
-                if (args.size() >= 6)
-                    line = args[5].toInt();
-
-                int col = 1;
-                if (args.size() >= 7)
-                    col = args[6].toInt();
-
-                // TODO: support UTF-8
-                ML::Parse_Context pcontext(filename, 
-                                           str.c_str(), str.length(), line, col);
-                    
-                vector<string> fields = ML::expect_csv_row(pcontext, -1, separator);
-                    
-                RowValue row;
-                row.reserve(fields.size() - 1);
-                for (unsigned i = 1;  i < fields.size();  ++i) {
-                    row.emplace_back(ColumnName(fields[i]),
-                                     val,
-                                     ts);
-                                         
-                }
-
-                return ExpressionValue(std::move(row));
-            },
-            std::make_shared<UnknownRowValueInfo>()};
-}
-
-static RegisterBuiltin registerParseSparseCsv(parse_sparse_csv, "parse_sparse_csv");
-
 
 ValuedBoundFunction parse_json(const std::vector<BoundSqlExpression> & args)
 {
