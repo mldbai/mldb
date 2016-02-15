@@ -6,10 +6,10 @@
 	url = https://github.com/mldbai/tensorflow
 [submodule "ext/re2"]
 	path = ext/re2
-	url = https://github.com/google/re2.git
+	url = https://github.com/mldbai/re2.git
 [submodule "ext/jpeg"]
 	path = ext/jpeg
-	url = https://github.com/BRAINSia/JPeg9A.git
+	url = https://github.com/mldbai/JPeg9A.git
 [submodule "ext/eigen"]
 	path = ext/eigen
 	url = https://github.com/mldbai/eigen.git
