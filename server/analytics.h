@@ -114,9 +114,27 @@ getEmbedding(const SelectStatement & stm,
              int maxDimensions = -1,
              const std::function<bool (const Json::Value &)> & onProgress = nullptr);
 
-/* SELECT without FROM */
+/** SELECT without FROM.
+   
+   WARNING: the SqlBindingScope must not require a row scope for ANY
+   of the elements of the query, as it will be set up with an empty
+   row scope.  If you get strange behaviour and segfaults running a
+   query under this function, it's probably the case.  Most likely
+   you should be running this function under an SqlExpressionMldbContext.
+ */
 std::vector<MatrixNamedRow>
-queryWithoutDataset(SelectStatement& stm, SqlExpressionMldbContext& mldbContext);
+queryWithoutDataset(SelectStatement& stm, SqlBindingScope& scope);
+
+/** Select from the given statement.  This will choose the most
+    appropriate execution method based upon what is in the query.
+
+    The scope should be a clean scope, not requiring any row scope.
+    See the comment above if you have errors inside this function.
+*/
+std::vector<MatrixNamedRow>
+queryFromStatement(SelectStatement & stm,
+                   SqlBindingScope & scope,
+                   BoundParameters params = nullptr);
 
 } // namespace MLDB
 } // namespace Datacratic

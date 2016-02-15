@@ -55,7 +55,7 @@ class Utf8IdsTest(MldbUnitTest): # noqa
 
     def test_mldb_post_dataset(self):
         _id = u'époque'
-        mldb.post('/v1/datasets', {
+        res = mldb.post('/v1/datasets', {
             'id' : _id,
             'type' : 'sparse.mutable'
         })
@@ -98,9 +98,13 @@ class Utf8IdsTest(MldbUnitTest): # noqa
     def execute_sequence(self, _id):
         url = '/v1/datasets/' + quote(_id, safe='')
         mldb.log(url)
-        mldb.put(url, {
+        res = mldb.put(url, {
             'type' : 'sparse.mutable'
         })
+
+        res = mldb.get(res.headers['Location']).json()
+        self.assertEqual(res['id'].encode('utf8'), _id)
+
         res = mldb.get(url).json()
         self.assertEqual(res['id'].encode('utf8'), _id)
 
@@ -108,10 +112,14 @@ class Utf8IdsTest(MldbUnitTest): # noqa
         with self.assertMldbRaises(status_code=404):
             mldb.get(url)
 
-        mldb.post('/v1/datasets', {
+        res = mldb.post('/v1/datasets', {
             'id' : _id,
             'type' : 'sparse.mutable'
         })
+
+        res = mldb.get(res.headers['Location']).json()
+        self.assertEqual(res['id'].encode('utf8'), _id)
+
         res = mldb.get(url).json()
         self.assertEqual(res['id'].encode('utf8'), _id)
 
@@ -119,17 +127,26 @@ class Utf8IdsTest(MldbUnitTest): # noqa
         with self.assertMldbRaises(status_code=404):
             mldb.get(url)
 
-    def test_extra_1(self):
+    def test_cedille(self):
         self.execute_sequence('françois')
 
-    def test_extra_2(self):
+    def test_cedille_and_slash(self):
         self.execute_sequence('françois/michel')
 
-    def test_extra_3(self):
+    def test_cedille_and_whitespace(self):
         self.execute_sequence('françois michel')
 
-    def test_extra_4(self):
+    def test_cedille_whitespace_slash_question_mark(self):
         self.execute_sequence('"françois says hello/goodbye, eh?"')
+
+    def test_plus_sign(self):
+        self.execute_sequence('"a+b"')
+
+        mldb.post('/v1/datasets', {
+            'id' : 'a+b',
+            'type' : 'sparse.mutable'
+        })
+        mldb.get('/v1/datasets/a+b').json()
 
     def test_extra_5(self):
         mldb.put('/v1/datasets/ds', {
@@ -188,6 +205,13 @@ class Utf8IdsTest(MldbUnitTest): # noqa
         result = mldb.get("/v1/datasets")
         mldb.log(result.text)
 
+    def test_slash_dataset(self):
+        ds = mldb.create_dataset({
+            'id' : 's/lash',
+            'type' : 'sparse.mutable'
+        })
+        ds.commit()
+        mldb.log(mldb.get('/v1/query', q='SELECT * FROM "s/lash"'))
 
 if __name__ == '__main__':
     mldb.run_tests()

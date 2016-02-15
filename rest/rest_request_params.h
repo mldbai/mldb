@@ -52,6 +52,8 @@ std::string restDecode(Utf8String str, std::string *);
 bool restDecode(const std::string & str, bool *);
 bool restDecode(const Utf8String & str, bool *);
 Utf8String restEncode(bool b);
+Utf8String encodeUriComponent(const Utf8String & in);
+std::string encodeUriComponent(const std::string & in);
 
 template<typename T, typename Enable = void>
 struct RestCodec {

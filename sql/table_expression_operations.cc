@@ -603,21 +603,25 @@ bind(SqlBindingScope & context) const
                 rows.reserve(row.rowLength());
                 int n = 0;
 
-                auto onColumn = [&] (Coord & columnName, ExpressionValue & val)
+                auto onColumn = [&] (const Coord & columnName,
+                                     const Coord & prefix,
+                                     const CellValue & cell,
+                                     Date ts)
                 {
                     MatrixNamedRow row;
-                    row.rowHash = row.rowName = ColumnName(to_string(n));
+                    row.rowHash = row.rowName = ColumnName(to_string(n++));
                     row.columns.emplace_back(columnNameName,
-                                             columnName.toUtf8String(),
-                                             val.getEffectiveTimestamp());
+                                             (prefix + columnName)
+                                                 .toUtf8String(),
+                                             ts);
                     row.columns.emplace_back(valueName,
-                                             val.stealAtom(),
-                                             val.getEffectiveTimestamp());
+                                             cell,
+                                             ts);
                     rows.emplace_back(std::move(row));
                     return true;
                 };
 
-                row.forEachColumnDestructive(onColumn);
+                row.forEachAtom(onColumn);
 
                 return querySubDatasetFn(server, std::move(rows),
                                          select, when, *where, orderBy,

@@ -206,6 +206,13 @@ doGetFunction(const Utf8String & tableName,
     return SqlBindingScope::doGetFunction(tableName, functionName, args);
 }
 
+std::shared_ptr<Function>
+PipelineExpressionScope::
+doGetFunctionEntity(const Utf8String & functionName)
+{
+    return context_->doGetFunctionEntity(functionName);
+}
+
 ColumnFunction
 PipelineExpressionScope::
 doGetColumnFunction(const Utf8String & functionName)
@@ -234,6 +241,22 @@ doGetBoundParameter(const Utf8String & paramName)
         };
         
     return { exec, info };
+}
+
+Utf8String 
+PipelineExpressionScope::
+doResolveTableName(const Utf8String & fullVariableName, Utf8String &tableName) const
+{
+    for (auto & t: tables) {
+        if (fullVariableName.startsWith(t.first + ".")) {
+            tableName = t.first;
+            Utf8String v = fullVariableName;
+            v.removePrefix(t.first + ".");
+            return v;
+        }
+    }
+
+    return fullVariableName;
 }
 
 MldbServer * 

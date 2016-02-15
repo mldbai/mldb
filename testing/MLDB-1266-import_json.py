@@ -116,9 +116,11 @@ class ImportJsonTest(unittest.TestCase):
     def test_unpack_json_builtin_function(self):
         conf = {
             "id": "imported_json",
-            "type": "text.line",
+            "type": "text.csv.tabular",
             "params": {
                 "dataFileUrl": "file://mldb/testing/dataset/json_dataset.json",
+                "quotechar": "",
+                "delimiter": "",
             }
         }
         mldb.put("/v1/datasets/imported_json", conf)

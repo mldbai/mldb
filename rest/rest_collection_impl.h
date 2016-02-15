@@ -1503,7 +1503,7 @@ addPutRoute()
                 Status status = collection->handlePut(key, config);
 
                 ResourcePath path = collection->getPath();
-                path.push_back(restEncode(key));
+                path.push_back(encodeUriComponent(restEncode(key)));
                 Utf8String uri = collection->getUriForPath(path);
 
                 RestParams headers = {
@@ -1543,7 +1543,7 @@ addPutRoute()
                 Status status = collection->handlePutSync(key, config);
 
                 ResourcePath path = collection->getPath();
-                path.push_back(restEncode(key));
+                path.push_back(encodeUriComponent(restEncode(key)));
                 Utf8String uri = collection->getUriForPath(path);
 
                 RestParams headers = {
@@ -1589,7 +1589,7 @@ addPostRoute()
 
     auto validater = createRequestValidater(help, {});
 
-    RestRequestRouter::OnProcessRequest postWaitRoute
+    RestRequestRouter::OnProcessRequest postSyncRoute
         = [=] (RestConnection & connection,
                const RestRequest & req,
                const RestRequestParsingContext & cxt)
@@ -1608,7 +1608,7 @@ addPostRoute()
                 Status status = collection->handlePostSync(key, config);
 
                 ResourcePath path = collection->getPath();
-                path.push_back(restEncode(key));
+                path.push_back(encodeUriComponent(restEncode(key)));
                 Utf8String uri = collection->getUriForPath(path);
 
                 RestParams headers = {
@@ -1644,7 +1644,7 @@ addPostRoute()
                 Status status = collection->handlePost(key, config);
 
                 ResourcePath path = collection->getPath();
-                path.push_back(restEncode(key));
+                path.push_back(encodeUriComponent(restEncode(key)));
                 Utf8String uri = collection->getUriForPath(path);
 
                 RestParams headers = {
@@ -1668,7 +1668,7 @@ addPostRoute()
     this->collectionNode->addRoute("", { "POST" },
                                    "Create a new " + this->nounSingular
                                    + " and wait for it to appear",
-                                   postWaitRoute, help);
+                                   postSyncRoute, help);
 }
 
 template<typename Key, typename Value,
