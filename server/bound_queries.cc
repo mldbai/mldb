@@ -1462,7 +1462,7 @@ execute(std::function<bool (NamedRowValue & output)> aggregator,
         //Evaluate the HAVING expression
         ExpressionValue havingResult = boundHaving(rowContext);
 
-        if (havingResult.isFalse())
+        if (!havingResult.isTrue())
             continue;
 
         outputRow.rowName = RowName(boundRowName(rowContext).toUtf8String());
