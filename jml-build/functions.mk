@@ -45,6 +45,7 @@ ifneq ($(__BASH_MAKE_COMPLETION__),1)
 # Command to hash the name of a command.
 NOTHING :=
 SPACE := $(NOTHING) $(NOTHING)
+TAB := $(NOTHING)	$(NOTHING)
 
 hash_command2 = $(wordlist 1,1,$(shell echo $(strip $(1)) | md5sum))
 
@@ -105,10 +106,9 @@ BUILD_$(CWD)/$(2).lo_COMMAND2 := $$(subst $(OBJ)/$(CWD)/$(2).lo,$$(BUILD_$(CWD)/
 
 $(OBJ)/$(CWD)/$(2).d:
 $$(BUILD_$(CWD)/$(2).lo_OBJ):	$$(tmpDIR)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists $$(dir $$(OBJ)/$(CWD)/$(2))/.dir_exists
-	$$(if $(verbose_build),@echo $$(BUILD_$(CWD)/$(2).lo_COMMAND2),@echo "           $(COLOR_CYAN)[C++]$(COLOR_RESET)                $(CWD)/$(1)")
+	$$(if $(verbose_build),@echo $$(BUILD_$(CWD)/$(2).lo_COMMAND2),@echo "           $(COLOR_CYAN)[C++]$(COLOR_RESET)                      	$(CWD)/$(1)")
 	@/usr/bin/time -v -o $$@.timing $$(BUILD_$(CWD)/$(2).lo_COMMAND2)
-	$$(if $(verbose_build),,@echo "           $(COLOR_GREEN)[C++]$(COLOR_RESET) $(COLOR_DARK_GRAY)[" `cat $$@.timing | awk '/User time/ { user=$$$$4*1; } /System time/ { sys=$$$$4*1; } /Maximum resident/ { rss=$$$$6;  } END { printf("%04.1fs %4.1fG", user+sys, rss*0.000001); }'` "]$(COLOR_RESET) $(CWD)/$(1)")
-
+	$$(if $(verbose_build),,@echo "           $(COLOR_GREEN)     $(COLOR_RESET) $(COLOR_DARK_GRAY)`awk -f mldb/jml-build/print-timing.awk $$@.timing`$(COLOR_RESET)	$(CWD)/$(1)")
 	@if [ -f $(2).d ] ; then mv $(2).d $(OBJ)/$(CWD)/$(2).d; fi
 
 compile_$(basename $(1)): $$(BUILD_$(CWD)/$(2).lo_OBJ)
@@ -140,9 +140,10 @@ BUILD_$(CWD)/$(2).lo_OBJ  := $$(OBJ)/$(CWD)/$(2).$$(BUILD_$(CWD)/$(2).lo_HASH).l
 BUILD_$(CWD)/$(2).lo_COMMAND2 := $$(subst $(OBJ)/$(CWD)/$(2).lo,$$(BUILD_$(CWD)/$(2).lo_OBJ),$$(BUILD_$(CWD)/$(2).lo_COMMAND))
 
 $(OBJ)/$(CWD)/$(2).d:
-$$(BUILD_$(CWD)/$(2).lo_OBJ):	$$(tmpDIR)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists $$(dir $$(OBJ)/$(CWD)/$(2))/.dir_exists
-	$$(if $(verbose_build),@echo $$(BUILD_$(CWD)/$(2).lo_COMMAND2),@echo "             $(COLOR_CYAN)[C]$(COLOR_RESET) $(CWD)/$(1)")
-	@$$(BUILD_$(CWD)/$(2).lo_COMMAND2)
+$$(BUILD_$(CWD)/$(2).lo_OBJ):	$$(tmpDIR)/$(CWD)/$(1) $(OBJ)/$(CWD)/.dir_exists  $$(dir $$(OBJ)/$(CWD)/$(2))/.dir_exists
+	$$(if $(verbose_build),@echo $$(BUILD_$(CWD)/$(2).lo_COMMAND2),@echo "             $(COLOR_CYAN)[C]$(COLOR_RESET)                      	$(CWD)/$(1)")
+	@/usr/bin/time -v -o $$@.timing $$(BUILD_$(CWD)/$(2).lo_COMMAND2)
+	$$(if $(verbose_build),,@echo "             $(COLOR_GREEN)   $(COLOR_RESET) $(COLOR_DARK_GRAY)`awk -f mldb/jml-build/print-timing.awk $$@.timing`$(COLOR_RESET)	$(CWD)/$(1)")
 	@if [ -f $(2).d ] ; then mv $(2).d $(OBJ)/$(CWD)/$(2).d; fi
 
 ifneq ($(__BASH_MAKE_COMPLETION__),1)
@@ -336,8 +337,9 @@ LINK_$(1)_COMMAND2 := $$(subst $$(sodir)/$$(tmpLIBNAME)$$(so),$$(LIB_$(1)_SO),$$
 LIB_$(1)_FILENAME := $$(tmpLIBNAME)$$(so)
 
 $$(LIB_$(1)_SO):	$$(dir $$(LIB_$(1)_SO))/.dir_exists $$(OBJFILES_$(1)) $$(foreach lib,$(3),$$(LIB_$$(lib)_DEPS))
-	$$(if $(verbose_build),@echo $$(LINK_$(1)_COMMAND2),@echo $$(LIB_$(1)_BUILD_NAME) $$(LIB_$(1)_FILENAME))
-	@$$(LINK_$(1)_COMMAND2)
+	$$(if $(verbose_build),@echo $$(BUILD_$(CWD)/$(2).lo_COMMAND2),@echo "            $(COLOR_YELLOW)[SO]$(COLOR_RESET)                      	$$(LIB_$(1)_FILENAME)")
+	@/usr/bin/time -v -o $$@.timing $$(LINK_$(1)_COMMAND2)
+	$$(if $(verbose_build),,@echo "            $(COLOR_YELLOW)    $(COLOR_RESET) $(COLOR_DARK_GRAY)`awk -f mldb/jml-build/print-timing.awk $$@.timing`$(COLOR_RESET)	$$(LIB_$(1)_FILENAME)")
 
 $$(tmpLIBNAME): $$(sodir)/$$(tmpLIBNAME)$$(so)
 .PHONY:	$$(tmpLIBNAME)
@@ -384,8 +386,9 @@ LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXEXEFLAGS) $$(CXXNODEBUGFLAGS) -o $
 
 
 $(BIN)/$(1):	$(BIN)/.dir_exists $$($(1)_OBJFILES) $$(foreach lib,$(2),$$(LIB_$$(lib)_DEPS)) $$(if $$(HAS_EXCEPTION_HOOK),$$(LIB)/libexception_hook.so)
-	$$(if $(verbose_build),@echo $$(LINK_$(1)_COMMAND),@echo "           $(COLOR_BLUE)[BIN]$(COLOR_RESET) $(1)")
-	@$$(LINK_$(1)_COMMAND)
+	$$(if $(verbose_build),@echo $$(LINK_$(1)_COMMAND),@echo "           $(COLOR_BLUE)[BIN]$(COLOR_RESET)                   	$(1)")
+	@/usr/bin/time -v -o $$@.timing $$(LINK_$(1)_COMMAND)
+	$$(if $(verbose_build),,@echo "            $(COLOR_YELLOW)    $(COLOR_RESET) $(COLOR_DARK_GRAY)`awk -f mldb/jml-build/print-timing.awk $$@.timing`$(COLOR_RESET)	$(1)")
 
 $$(foreach target,$(4) programs,$$(eval $$(target): $(BIN)/$(1)))
 
@@ -430,20 +433,18 @@ $(1)_OBJFILES:=$$(BUILD_$(CWD)/$(1).cc.lo_OBJ)
 LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXEXEFLAGS) $$(CXXNODEBUGFLAGS) -o $(TESTS)/$(1) -lexception_hook -ldl  $$($(1)_OBJFILES) $$(foreach lib,$(2), $$(LIB_$$(lib)_LINKER_OPTIONS) -l$$(lib)) $(if $(findstring boost,$(3)), -lboost_unit_test_framework) $$(CXXEXEPOSTFLAGS)
 
 $(TESTS)/$(1):	$(TESTS)/.dir_exists $(TEST_TMP)/.dir_exists  $$($(1)_OBJFILES) $$(foreach lib,$(2),$$(LIB_$$(lib)_DEPS)) $$(if $$(HAS_EXCEPTION_HOOK),$$(LIB)/libexception_hook.so)
-	$$(if $(verbose_build),@echo $$(LINK_$(1)_COMMAND),@echo "           $(COLOR_BLUE)[BIN]$(COLOR_RESET) $(1)")
+	$$(if $(verbose_build),@echo $$(LINK_$(1)_COMMAND),@echo "       $(COLOR_BLUE)[TESTBIN]$(COLOR_RESET)                     	$(1)")
 	@$$(LINK_$(1)_COMMAND)
 
 tests:	$(TESTS)/$(1)
 $$(CURRENT)_tests: $(TESTS)/$(1)
 
-TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && ((set -o pipefail && $(call TEST_PRE_OPTIONS,$(3))$(TESTS)/$(1) $(TESTS)/$(1) > $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "                 $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && cat $(TESTS)/$(1).failed && echo "                       $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && false))
+TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && ((set -o pipefail && /usr/bin/time -v -o $(TESTS)/$(1).timing $(call TEST_PRE_OPTIONS,$(3))$(TESTS)/$(1) $(TESTS)/$(1) > $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "                 $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && cat $(TESTS)/$(1).failed && echo "                       $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && false))
 
 $(TESTS)/$(1).passed:	$(TESTS)/$(1)
-	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "      $(COLOR_VIOLET)[TESTCASE]$(COLOR_RESET) $(1)")
-	@date -u +%s.%N > $(TESTS)/$(1).timing
+	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "      $(COLOR_VIOLET)[TESTCASE]$(COLOR_RESET)                     	$(1)")
 	@$$(TEST_$(1)_COMMAND)
-	@date -u +%s.%N >> $(TESTS)/$(1).timing
-	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "                 $(COLOR_GREEN)$(1) passed $(COLOR_RESET)$(COLOR_DARK_GRAY)[" `cat $(TESTS)/$(1).timing | awk 'FNR == 1 { start = $$$$1; } FNR == 2 { end = $$$$1; } END { printf("%.1fs", 1.0 * end - 1.0 * start) }'` "]$(COLOR_RESET)")
+	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "                 $(COLOR_DARK_GRAY)`awk -f mldb/jml-build/print-timing.awk $(TESTS)/$(1).timing`$(COLOR_RESET)	$(COLOR_GREEN)$(1) passed $(COLOR_RESET)")
 
 $(1):	$(TESTS)/$(1)
 	$(call TEST_PRE_OPTIONS,$(3))$(TESTS)/$(1)
