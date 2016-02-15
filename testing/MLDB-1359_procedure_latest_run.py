@@ -8,10 +8,10 @@ from dateutil import parser as date_parser
 
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
+class ProcedureLatestRunTest(MldbUnitTest): # noqa
 
-class ProcedureLatetRunTest(MldbUnitTest): # noqa
-
-    def test_it(self):
+    @classmethod
+    def setUpClass(cls):
         ds = mldb.create_dataset({
             'id' : 'ds',
             'type' : 'sparse.mutable',
@@ -19,6 +19,7 @@ class ProcedureLatetRunTest(MldbUnitTest): # noqa
         ds.record_row('row1', [['colA', 1, 1]])
         ds.commit()
 
+    def test_base(self):
         url = '/v1/procedures/testProc'
         mldb.put(url, {
             'type' : 'transform',
@@ -54,6 +55,25 @@ class ProcedureLatetRunTest(MldbUnitTest): # noqa
         latest_run_date = date_parser.parse(new_res['runStarted'])
         self.assertGreater(latest_run_date, run_date)
         self.assertEqual(new_res['id'], '000')
+
+    def test_no_latest(self):
+        url = '/v1/procedures/testProcNoLatest'
+        mldb.put(url, {
+            'type' : 'transform',
+            'params' : {
+                'inputData' : 'SELECT *, coco AS sanchez FROM ds',
+                'outputDataset' : {
+                    'id' : 'dsOut'
+                }
+            }
+        })
+        with self.assertMldbRaises(status_code=404):
+            mldb.get(url + '/latestrun')
+
+    def test_latest_on_unexisting_proc(self):
+        with self.assertMldbRaises(status_code=404):
+            mldb.get('/v1/procedures/unexisting/latestrun')
+
 
 if __name__ == '__main__':
     mldb.run_tests()
