@@ -157,12 +157,13 @@ class Mldb256Test(MldbUnitTest):
         })
 
         jsRez = rez.json()
+        mldb.log(jsRez)
         mldb.log(jsRez["status"]["firstRun"]["status"]["folds"][0]["results"]["confusion_matrix"])
         self.assertEqual(jsRez["status"]["firstRun"]["status"]["folds"][0]["results"]["confusion_matrix"],
                 {
-                    "y": { "y": 1 },
-                    "x": { "x": 3 },
-                    "z": { "z": 1 }
+                    '"y"': { '"y"': 1 },
+                    '"x"': { '"x"': 3 },
+                    '"z"': { '"z"': 1 }
                 })
 
         # Check the accuracy dataset
@@ -185,8 +186,13 @@ class Mldb256Test(MldbUnitTest):
         jsRez = rez.json()
         mldb.log(jsRez)
 
-        #self.assertEqual(jsRez["status"]["firstRun"]["status"]["r2_score"], 0.948)
         self.assertEqual(jsRez["status"]["firstRun"]["status"]["mse"], 0.375)
+
+        quart_rez = mldb.query("""select abs((label-score)/label) as prnct_error, label, score 
+                                  from toy_regression order by prnct_error ASC""")
+        mldb.log(quart_rez)
+        self.assertAlmostEqual(jsRez["status"]["firstRun"]["status"]["quantile_errors"]["0.5"], quart_rez[2][1])
+        self.assertAlmostEqual(jsRez["status"]["firstRun"]["status"]["quantile_errors"]["0.9"], quart_rez[3][1])
 
         # Check the accuracy dataset
         self.assertEqual(len(mldb.query("select * from toy_reg_output")), 5)

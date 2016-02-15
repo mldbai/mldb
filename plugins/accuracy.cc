@@ -31,6 +31,7 @@
 #include "mldb/http/http_exception.h"
 #include "mldb/plugins/sql_config_validator.h"
 #include "mldb/plugins/sql_expression_extractors.h"
+#include "mldb/server/parallel_merge_sort.h"
 
 using namespace std;
 
@@ -80,7 +81,7 @@ AccuracyConfigDescription()
     addField("outputDataset", &AccuracyConfig::outputDataset,
              "Output dataset for scored examples. The score for the test "
              "example will be written to this dataset. Examples get grouped when "
-              "they have the same score. Specifying a "
+              "they have the same score when mode=boolean. Specifying a "
              "dataset is optional.", optionalOutputDataset);
     addParent<ProcedureConfig>();
             
@@ -404,11 +405,27 @@ run_regression(AccuracyConfig & runAccuracyConf,
             sum_lsq += l*l;  sum_l += l;
             sum_vl  += v*l;
             mse_sum += pow(v-l, 2);
+            absolute_percentage.push_back(abs( (v-l)/l ));
             n++;
+        }
+
+        static void merge(ThreadStats & t1, ThreadStats & t2)
+        {
+            size_t split = t1.absolute_percentage.size();
+
+            t1.absolute_percentage.insert(t1.absolute_percentage.end(),
+                          std::make_move_iterator(t2.absolute_percentage.begin()),
+                          std::make_move_iterator(t2.absolute_percentage.end()));
+            t2.absolute_percentage.clear();
+
+            std::inplace_merge(t1.absolute_percentage.begin(),
+                               t1.absolute_percentage.begin() + split,
+                               t1.absolute_percentage.end());
         }
 
         double sum_vsq, sum_v, sum_lsq, sum_l, sum_vl, mse_sum;
         int n;
+        ML::distribution<double> absolute_percentage;
     };
 
     PerThreadAccumulator<ThreadStats> accum;
@@ -457,6 +474,7 @@ run_regression(AccuracyConfig & runAccuracyConf,
     }
 
 
+
     double sum_vsq = 0.0, sum_v = 0.0, sum_lsq = 0.0, sum_l = 0.0;
     double sum_vl = 0.0, n = 0, mse_sum = 0;
 
@@ -477,14 +495,52 @@ run_regression(AccuracyConfig & runAccuracyConf,
     double sll = n * sum_lsq - sum_l * sum_l;
 
     double r_squared = svl*svl / (svv * sll);
-    double b = svl / svv;
-    double bd = svl / sll;
+//     double b = svl / svv;
+//     double bd = svl / sll;
 
+
+    // prepare absolute_percentage distribution 
+    ML::distribution<double> absolute_percentage;
+
+    parallelMergeSortRecursive(accum.threads, 0, accum.threads.size(),
+                               [] (const std::shared_ptr<ThreadStats> & t)
+                               {
+                                   std::sort(t->absolute_percentage.begin(),
+                                             t->absolute_percentage.end());
+                               },
+                               [] (const std::shared_ptr<ThreadStats> & t1,
+                                   const std::shared_ptr<ThreadStats> & t2)
+                               {
+                                   ThreadStats::merge(*t1, *t2);
+                               },
+                               [] (const std::shared_ptr<ThreadStats> & t)
+                               {
+                                   return t->absolute_percentage.size();
+                               },
+                               10000 /* thread threshold */);
+    if (!accum.threads.empty()) {
+        absolute_percentage = std::move(accum.threads[0]->absolute_percentage);
+    }
+
+    ExcAssertEqual(absolute_percentage.size(), n);
+
+
+    // create return object
     Json::Value results;
     results["r2_score"] = r_squared;
-    results["b"] = b;
-    results["bd"] = bd;
+//     results["b"] = b;
+//     results["bd"] = bd;
     results["mse"] = mse_sum / n;
+
+    Json::Value quantile_errors;
+    if(absolute_percentage.size() > 0) {
+        size_t size = absolute_percentage.size() - 1;
+        quantile_errors["0.25"] = absolute_percentage[(int)(size*0.25)];
+        quantile_errors["0.5"] = absolute_percentage[(int)(size*0.5)];
+        quantile_errors["0.75"] = absolute_percentage[(int)(size*0.75)];
+        quantile_errors["0.9"] = absolute_percentage[(int)(size*0.9)];
+    }
+    results["quantile_errors"] = quantile_errors;
 
     return Any(results);
 }
