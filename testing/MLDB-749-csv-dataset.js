@@ -20,22 +20,31 @@ function assertEqual(expr, val, msg)
         + " not equal to " + JSON.stringify(val);
 }
 
-var irisConfig = {
-    type: 'text.csv.tabular',
-    id: 'iris',
+csv_conf = {
+    type: "import.text",
     params: {
-        dataFileUrl: 'file://mldb/testing/dataset/iris.data',
+        dataFileUrl : "file://mldb/testing/dataset/iris.data",
+        ouputDataset: {
+            id: "iris",
+        },
+        runOnCreation: false,
         headers: [ 'sepal length', 'sepal width', 'petal length', 'petal width', 'class' ],
         ignoreBadLines: true
     }
-};
+}
 
-res = mldb.post('/v1/datasets', irisConfig);
+var res = mldb.put("/v1/procedures/csv_proc", csv_conf)
+mldb.log(res);
 assertEqual(res["responseCode"], 201);
+
+var res = mldb.put("/v1/procedures/csv_proc/runs/myrun", {});
+
+mldb.log(res);
+
+assertEqual(res['json']['status']['numLineErrors'], 0);
 
 res = mldb.get('/v1/datasets/iris');
 assertEqual(res['json']['status']['rowCount'], 150);
-assertEqual(res['json']['status']['numLineErrors'], 0);
 mldb.log(res);
 
 
@@ -43,16 +52,18 @@ res = mldb.get('/v1/datasets/iris/query', { limit: 10, format: 'table', orderBy:
 
 mldb.log(res.json);
 
-var titanicConfig = {
-    type: 'text.csv.tabular',
-    id: 'titanic',
+csv_conf = {
+    type: "import.text",
     params: {
-        dataFileUrl: 'https://raw.githubusercontent.com/datacratic/mldb-pytanic-plugin/master/titanic_train.csv'
+        dataFileUrl : "https://raw.githubusercontent.com/datacratic/mldb-pytanic-plugin/master/titanic_train.csv",
+        ouputDataset: {
+            id: "titanic",
+        },
+        runOnCreation: true,
     }
+}
 
-};
-
-mldb.createDataset(titanicConfig);
+var res = mldb.put("/v1/procedures/csv_proc", csv_conf)
 
 var res = mldb.get('/v1/datasets/titanic/query', { limit: 10, format: 'table', orderBy: 'rowName()'});
 
@@ -60,16 +71,19 @@ mldb.log(res.json);
 
 try {
 
-    var dataset_config = {
-        type: 'text.csv.tabular',
-        id: 'test',
+    csv_conf = {
+        type: "import.text",
         params: {
-            dataFileUrl: 'file://modes20130525-0705.csv',
+            dataFileUrl : "file://modes20130525-0705.csv",
+            ouputDataset: {
+                id: "test",
+            },
+            runOnCreation: true,
             delimiter: '|'
         }
-    };
+    }
 
-    var dataset = mldb.createDataset(dataset_config);
+    var res = mldb.put("/v1/procedures/csv_proc", csv_conf)
 
     var res = mldb.get('/v1/datasets/test/query', { limit: 10, format: 'table'});
 
@@ -77,24 +91,22 @@ try {
 } catch (e) {
 }
 
-titanicConfig = {
-    type: 'text.csv.tabular',
-    id: 'titanic2',
+csv_conf = {
+    type: "import.text",
     params: {
-        dataFileUrl: 'https://raw.githubusercontent.com/datacratic/mldb-pytanic-plugin/master/titanic_train.csv',
+        dataFileUrl : "https://raw.githubusercontent.com/datacratic/mldb-pytanic-plugin/master/titanic_train.csv",
+        ouputDataset: {
+            id: "titanic2",
+        },
         named: 'lineNumber() % 10'
     }
-
-};
-
-try {
-    mldb.createDataset(titanicConfig);
-    throw "Shouldn't have succeeded";
-} catch (e) {
-    mldb.log("got exception", e);
-    assertEqual(e.error, "Duplicate row name in CSV dataset");
 }
 
+mldb.put("/v1/procedures/csv_proc", csv_conf)
+res = mldb.put("/v1/procedures/csv_proc/runs/0", {})
+mldb.log(res);
+assertEqual(res['responseCode'], 400);
+assertEqual(res['json']['error'], "Duplicate row name in CSV dataset");
 
 // Test correctness of parser
 var correctnessConfig = {
@@ -105,6 +117,19 @@ var correctnessConfig = {
     }
 };
 
+csv_conf = {
+    type: "import.text",
+    params: {
+        dataFileUrl : "https://raw.githubusercontent.com/uniVocity/csv-parsers-comparison/master/src/main/resources/correctness.csv",
+        ouputDataset: {
+            id: "correctness",
+        },
+        runOnCreation: true,
+    }
+}
+
+var res = mldb.put("/v1/procedures/csv_proc", csv_conf)
+
 // TODO: this requires support for multi-line CSV files
 //mldb.createDataset(correctnessConfig);
 
@@ -113,16 +138,19 @@ var correctnessConfig = {
 mldb.log(res);
 
 // Test loading of large file (MLDB-806, MLDB-807)
-var citiesConfig = {
-    type: 'text.csv.tabular',
-    id: 'cities',
+csv_conf = {
+    type: "import.text",
     params: {
-        dataFileUrl: 'http://www.maxmind.com/download/worldcities/worldcitiespop.txt.gz',
+        dataFileUrl : "http://www.maxmind.com/download/worldcities/worldcitiespop.txt.gz",
+        ouputDataset: {
+            id: "cities",
+        },
+        runOnCreation: true,
         encoding: 'latin1'
     }
-};
+}
 
-mldb.createDataset(citiesConfig);
+var res = mldb.put("/v1/procedures/csv_proc", csv_conf)
 
 var res = mldb.get("/v1/query", { q: 'select * from cities limit 10', format: 'table' });
 
@@ -237,63 +265,59 @@ assertEqual(res, expected, "City populations CSV");
 // Test loading of broken file (MLDB-994)
 // broken that fails
 
-var brokenConfigFail = {
-    type: 'text.csv.tabular',
-    id: 'broken_fail',
+brokenConfigFail = {
+    type: "import.text",
     params: {
-        dataFileUrl: 'file://mldb/testing/MLDB-749_broken_csv.csv',
+        dataFileUrl : "file://mldb/testing/MLDB-749_broken_csv.csv",
+        ouputDataset: {
+            id: "broken_fail",
+        },
+        runOnCreation: true,
         encoding: 'latin1'
     }
-};
-
-var failed = false;
-try {
-    var res = mldb.createDataset(brokenConfigFail);
-} catch (e) {
-    mldb.log(e);
-    assertEqual(e.details.lineNumber, 5, "expected bad line number at 5");
-    failed = true;
-}
-if(!failed) {
-    throw "did not throw !!"
 }
 
-var brokenConfigNoHeader = {
-    type: 'text.csv.tabular',
-    id: 'broken_fail',
+var res = mldb.put("/v1/procedures/csv_proc", brokenConfigFail)
+
+
+var res = mldb.put("/v1/procedures/csv_proc", brokenConfigFail);
+assertEqual(res['responseCode'], 400);
+assertEqual(res['json']['details']['runError']['details']['lineNumber'], 5);
+
+brokenConfigNoHeader = {
+    type: "import.text",
     params: {
-        dataFileUrl: 'file://mldb/testing/MLDB-749_broken_csv_no_header.csv',
+        dataFileUrl : "file://mldb/testing/MLDB-749_broken_csv_no_header.csv",
+        ouputDataset: {
+            id: "broken_fail",
+        },
+        runOnCreation: true,
         encoding: 'latin1',
         headers: ['a', 'b', 'c']
     }
-};
-
-var failed = false;
-try {
-    var res = mldb.createDataset(brokenConfigNoHeader);
-} catch (e) {
-    mldb.log(e);
-    assertEqual(e.details.lineNumber, 4, "expected bad line number at 4");
-    failed = true;
-}
-if(!failed) {
-    throw "did not throw !!"
 }
 
 
-//broken that doesn't fail
-var brokenConfig = {
-    type: 'text.csv.tabular',
-    id: 'broken',
+var res = mldb.put("/v1/procedures/csv_proc", brokenConfigNoHeader)
+assertEqual(res['responseCode'], 400);
+assertEqual(res['json']['details']['runError']['details']['lineNumber'], 4);
+
+brokenConfig = {
+    type: "import.text",
     params: {
-        dataFileUrl: 'file://mldb/testing/MLDB-749_broken_csv.csv',
+        dataFileUrl : "file://mldb/testing/MLDB-749_broken_csv.csv",
+        ouputDataset: {
+            id: "broken",
+        },
+        runOnCreation: true,
         encoding: 'latin1',
         ignoreBadLines: true
     }
-};
+}
 
-mldb.createDataset(brokenConfig);
-
+res = mldb.put("/v1/procedures/csv_proc", brokenConfig)
+mldb.log(res);
+assertEqual(res['json']['status']['firstRun']['status']['numLineErrors'], 4);
 
 var res = mldb.get("/v1/query", { q: 'select * from broken order by CAST (rowName() AS NUMBER) ASC limit 10', format: 'table' });
 mldb.log(res);
@@ -307,26 +331,22 @@ if(rowName.substr(rowName.length-1) != "9") {
     throw "Wrong rowName!";
 }
 
-var res = mldb.get("/v1/datasets/broken")
-mldb.log(res);
-if(res["json"]["status"]["numLineErrors"] != 4) {
-    throw "Wrong number skipped!";
-}
-
-
 // Test skip first n lines 
-var brokenConfig = {
-    type: 'text.csv.tabular',
-    id: 'skippinnn',
+brokenConfig = {
+    type: "import.text",
     params: {
-        dataFileUrl: 'file://mldb/testing/MLDB-749_broken_csv.csv',
+        dataFileUrl : "file://mldb/testing/MLDB-749_broken_csv.csv",
+        ouputDataset: {
+            id: "skippinnn",
+        },
+        runOnCreation: true,
         encoding: 'latin1',
         ignoreBadLines: true,
         offset: 2
     }
-};
+}
 
-mldb.createDataset(brokenConfig);
+mldb.put("/v1/procedures/csv_proc", brokenConfig);
 
 var res = mldb.get("/v1/query", { q: 'select * from skippinnn order by a ASC limit 10', format: 'table' });
 mldb.log(res);
@@ -334,35 +354,37 @@ if(res["json"].length != 3) {
     throw "Wrong number !!";
 }
 
-var gotErr = false;
-try {
-    mldb.createDataset({
-        type: 'text.csv.tabular',
-        id: 'badHeaderRowName',
-        params: {
-            dataFileUrl: 'file://mldb/testing/MLDB-749_bad_header_row_name.csv',
-            encoding: 'latin1',
-            named: 'c'
-        }
-    });
-} catch (e) {
-    gotErr = true;
-}
-
-if (!gotErr) {
-    throw "Should have caught bad rowNameColumn";
-}
-
-mldb.createDataset({
-    type: 'text.csv.tabular',
-    id: 'headerRowName',
+var config = {
+    type: "import.text",
     params: {
-        dataFileUrl: 'file://mldb/testing/MLDB-749_bad_header_row_name.csv',
+        dataFileUrl : "file://mldb/testing/MLDB-749_bad_header_row_name.csv",
+        ouputDataset: {
+            id: "badHeaderRowName",
+        },
+        runOnCreation: true,
         encoding: 'latin1',
-        select: '* EXCLUDING (a)',
-        named: 'a'
+        named: 'c'
     }
-});
+}
+
+res = mldb.put("/v1/procedures/csv_proc", config);
+assertEqual(res['responseCode'], 400); //bad rowNameColumn
+
+var config = {
+        type: "import.text",
+        params: {
+            dataFileUrl : "file://mldb/testing/MLDB-749_bad_header_row_name.csv",
+            ouputDataset: {
+                id: "headerRowName",
+            },
+            runOnCreation: true,
+            encoding: 'latin1',
+            select: '* EXCLUDING (a)',
+            named: 'a'
+        }
+    }
+
+mldb.put("/v1/procedures/csv_proc", config);
 
 res = mldb.get("/v1/datasets/headerRowName");
 assertEqual(res['json']['status']['rowCount'], 2);
@@ -395,17 +417,20 @@ try {
 
 function getCountWithOffsetLimit(dataset, offset, limit) {
     // Test offset and limit
-    var offsetLimitConfig = {
-        type: 'text.csv.tabular',
-        id: dataset,
+    var config = {
+        type: "import.text",
         params: {
-            dataFileUrl: 'https://raw.githubusercontent.com/datacratic/mldb-pytanic-plugin/master/titanic_train.csv',
+            dataFileUrl : "https://raw.githubusercontent.com/datacratic/mldb-pytanic-plugin/master/titanic_train.csv",
+            ouputDataset: {
+                id: dataset,
+            },
+            runOnCreation: true,
             offset: offset,
             limit: limit
         }
-    };
+    }
 
-    mldb.createDataset(offsetLimitConfig);
+    mldb.put("/v1/procedures/csv_proc", config);
 
     var res = mldb.get("/v1/query", { q: 'select count(*) as count from ' + dataset });
     mldb.log(res["json"]);
@@ -418,11 +443,14 @@ assertEqual(getCountWithOffsetLimit("test3", 0, totalSize + 2000), totalSize, "w
 assertEqual(getCountWithOffsetLimit("test4", 10, -1), totalSize - 10, "expecting all set except 10 rows");
 
 function getCountWithOffsetLimit2(dataset, offset, limit) {
-    var offsetLimitConfig = {
-        type: "text.csv.tabular",
-        id: dataset,
+    var config = {
+        type: "import.text",
         params: {
-            dataFileUrl: "http://s3.amazonaws.com/public.mldb.ai/tweets.gz",
+            dataFileUrl : "http://s3.amazonaws.com/public.mldb.ai/tweets.gz",
+            ouputDataset: {
+                id: dataset,
+            },
+            runOnCreation: true,
             offset: offset,
             limit: limit,
             delimiter: "\t",
@@ -430,12 +458,14 @@ function getCountWithOffsetLimit2(dataset, offset, limit) {
             select: "tweet",
             ignoreBadLines: true
         }
-    };
+    }
 
-    mldb.createDataset(offsetLimitConfig);
+    res = mldb.put("/v1/procedures/csv_proc", config);
+    mldb.log(res["json"]);
+    var numLineErrors = res["json"]['status']['firstRun']['status']['numLineErrors'];
     res = mldb.get("/v1/datasets/"+dataset);
     mldb.log(res["json"]);
-    return res["json"]["status"]["numLineErrors"] + res["json"]["status"]["rowCount"];
+    return numLineErrors + res["json"]["status"]["rowCount"];
 }
 
 var totalSize = getCountWithOffsetLimit2("test_total", 0, -1);
@@ -451,16 +481,19 @@ assertEqual(getCountWithOffsetLimit2("test_total-10", 10, -1), totalSize - 10, "
 
 //MLDB-1312 specify quotechar
 var mldb1312Config = {
-    type: 'text.csv.tabular',
-    id: 'mldb1312',
-    params: {
-        dataFileUrl: 'file://mldb/testing/MLDB-1312-quotechar.csv',
-        encoding: 'latin1',
-        quotechar: '#'
+        type: "import.text",
+        params: {
+            dataFileUrl : "file://mldb/testing/MLDB-1312-quotechar.csv",
+            ouputDataset: {
+                id: 'mldb1312',
+            },
+            runOnCreation: true,
+            encoding: 'latin1',
+            quotechar: '#'
+        }
     }
-};
 
-mldb.createDataset(mldb1312Config);
+mldb.put("/v1/procedures/csv_proc", mldb1312Config);
 
 expected = 
 [
@@ -474,39 +507,39 @@ var res = mldb.get("/v1/query", { q: 'select * from mldb1312 order by rowName()'
 assertEqual(res.json, expected, "quotechar test");
 
 var mldb1312Config_b = {
-    type: 'text.csv.tabular',
-    id: 'mldb1312_b',
-    params: {
-        dataFileUrl: 'file://mldb/testing/MLDB-1312-quotechar.csv',
-        encoding: 'latin1',
-        quotechar: '#',
-        delimiter: ''
+        type: "import.text",
+        params: {
+            dataFileUrl : "file://mldb/testing/MLDB-1312-quotechar.csv",
+            ouputDataset: {
+                id: 'mldb1312_b',
+            },
+            runOnCreation: true,
+            encoding: 'latin1',
+            quotechar: '#',
+            delimiter: ''
+        }
     }
-};
 
-try {
-    mldb.createDataset(mldb1312Config_b);
-} catch (e) {
-    gotErr = true;
-}
 
-if (!gotErr) {
-    throw "Should have caught bad mldb1312Config_b";
-}
+res = mldb.put("/v1/procedures/csv_proc", mldb1312Config_b);
+assertEqual(res['responseCode'], 400);
 
 var mldb1312Config_c = {
-    type: 'text.csv.tabular',
-    id: 'mldb1312_c',
-    params: {
-        dataFileUrl: 'file://mldb/testing/MLDB-1312-quotechar.csv',
-        encoding: 'latin1',
-        quotechar: '',
-        delimiter: ',',
-        ignoreBadLines: true
+        type: "import.text",
+        params: {
+            dataFileUrl : "file://mldb/testing/MLDB-1312-quotechar.csv",
+            ouputDataset: {
+                id: 'mldb1312_c',
+            },
+            runOnCreation: true,
+            encoding: 'latin1',
+            quotechar: '',
+            delimiter: ',',
+            ignoreBadLines: true
+        }
     }
-};
 
-mldb.createDataset(mldb1312Config_c);
+mldb.put("/v1/procedures/csv_proc", mldb1312Config_c);
 
 expected = 
 [

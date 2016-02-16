@@ -51,28 +51,28 @@ function createDataset()
     var start = new Date();
 
     var dataset_config = {
-        type: 'text.csv.tabular',
-        id: 'reddit_text_file',
+        type: "import.text",
         params: {
-            //dataFileUrl: 'file://reddit_user_posting_behavior.csv'
-            dataFileUrl: 'http://files.figshare.com/1310438/reddit_user_posting_behavior.csv.gz',
+            dataFileUrl : "http://files.figshare.com/1310438/reddit_user_posting_behavior.csv.gz",
+            ouputDataset: {
+                id: 'reddit_text_file',
+            },
+            runOnCreation: true,
             "quotechar": "",
             "delimiter": "",
         }
-    };
+    }
 
     var now = new Date();
 
-    var dataset = mldb.createDataset(dataset_config);
+    mldb.put("/v1/procedures/csv_proc", dataset_config);
 
     var end = new Date();
     
     plugin.log("creating dataset took " + (end - start) / 1000 + " seconds");
-
-    return dataset;
 }
 
-var dataset = createDataset();
+createDataset();
 
 var resp = mldb.get('/v1/datasets/reddit_text_file/query', {format:'table', orderBy:'rowName()', limit:20});
 

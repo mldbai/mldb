@@ -114,16 +114,20 @@ class ImportJsonTest(unittest.TestCase):
         self.assert_val(js_res, "3", "colB", "pwet pwet 2")
 
     def test_unpack_json_builtin_function(self):
-        conf = {
-            "id": "imported_json",
-            "type": "text.csv.tabular",
+
+        csv_conf = {
+            "type": "import.text",
             "params": {
-                "dataFileUrl": "file://mldb/testing/dataset/json_dataset.json",
+                'dataFileUrl' : 'file://mldb/testing/dataset/json_dataset.json',
+                "ouputDataset": {
+                    "id": "imported_json",
+                },
                 "quotechar": "",
                 "delimiter": "",
+                "runOnCreation" : True,
             }
         }
-        mldb.put("/v1/datasets/imported_json", conf)
+        mldb.put("/v1/procedures/csv_proc", csv_conf) 
 
         res = mldb.get(
             "/v1/query",

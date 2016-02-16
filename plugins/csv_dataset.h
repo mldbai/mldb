@@ -56,39 +56,6 @@ DECLARE_STRUCTURE_DESCRIPTION(CsvDatasetConfig);
 /** Dataset type that reads a CSV file.
  */
 
-struct CsvDataset: public Dataset {
-
-    CsvDataset(MldbServer * owner,
-               PolyConfig config,
-               const std::function<bool (const Json::Value &)> & onProgress);
-    
-    virtual ~CsvDataset();
-    
-    virtual Any getStatus() const;
-
-    virtual std::shared_ptr<MatrixView> getMatrixView() const;
-
-    virtual std::shared_ptr<ColumnIndex> getColumnIndex() const;
-
-    virtual std::shared_ptr<RowStream> getRowStream() const;
-    
-    virtual std::pair<Date, Date> getTimestampRange() const;
-
-    virtual GenerateRowsWhereFunction
-    generateRowsWhere(const SqlBindingScope & context,
-                      const SqlExpression & where,
-                      ssize_t offset,
-                      ssize_t limit) const;
-
-    virtual KnownColumn getKnownColumnInfo(const ColumnName & columnName) const;
-
-protected:
-    // To initialize from a subclass
-    CsvDataset(MldbServer * owner);
-
-    struct Itl;
-    std::shared_ptr<Itl> itl;
-};
 
 
 } // MLDB
