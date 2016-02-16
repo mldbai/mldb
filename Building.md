@@ -1,6 +1,8 @@
 # Building and running a development Docker image
 
-These instructions are designed for a clean installation of **Ubuntu 14.04** and its default compiler, **GCC 4.8**.
+These instructions are designed for a vanilla installation of **Ubuntu 14.04** and its default compiler, **GCC 4.8**.
+
+It will take around 45 minutes to run through these steps on an Amazon EC2 r3.8xlarge machine (32 cores, 244GB of RAM) and longer on smaller machines. However, you can get up and running in 5 minutes by [using a pre-built Docker images of the MLDB Enterprise Edition](http://mldb.ai/doc/#builtin/Running.md.html) for free with a trial license.
 
 ## System dependencies
 
@@ -23,7 +25,7 @@ To build and run the Docker image, you will need to install Docker: https://docs
 ```bash
 git clone git@github.com:mldbai/mldb.git
 cd mldb
-git submodule update --init
+git submodule update --init --recursive
 make dependencies
 make compile
 make test
