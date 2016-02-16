@@ -781,7 +781,7 @@ struct ImportTextProcedureWorkInstance
 	    }
 	    else
 	    {
-	    	loadToGeneric(dataset, stream);
+	    	loadToGeneric(dataset, stream, config, scope);
 	    }    
 
 	    Date end = Date::now();
@@ -794,9 +794,49 @@ struct ImportTextProcedureWorkInstance
 	}
 
 	void 
-	loadToGeneric(std::shared_ptr<Dataset> dataset, ML::filter_istream& stream)
+	loadToGeneric(std::shared_ptr<Dataset> dataset,
+		          ML::filter_istream& stream,
+		          const ImportTextConfig& config,
+		          SqlCsvScope& scope)
 	{
 		cerr << "LOAD TO GENERIC" << endl;
+
+		const size_t numberOutputColumns = columnNames.size();
+
+		mutex lineMutex;
+
+		//   virtual void recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows);
+        PerThreadAccumulator< std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > > accum;
+
+        std::atomic<size_t> totalRows;
+
+		auto onLine = [&] (int chunkNum, int64_t actualLineNum, RowName rowName, Date rowTs, CellValue * vals)
+	    {
+	    	std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows = accum.get();
+
+	    	std::vector<std::tuple<ColumnName, CellValue, Date> > rowvalues;
+	    	for (int i = 0; i < numberOutputColumns; ++i)
+	    	{
+	    		rowvalues.push_back( make_tuple(columnNames[i], std::move(vals[i]), rowTs) );
+	    	}
+
+	    	rows.push_back( { rowName, std::move(rowvalues) } );
+
+	    	if (rows.size() == 1000)
+	    	{
+	    		{
+	    			std::unique_lock<std::mutex> guard(lineMutex);
+	    			dataset->recordRows(rows);
+	    		}
+	    		
+	    		rows.clear();
+	    	}
+	    	++totalRows;	    	
+	    };
+
+	    loadTextData(dataset, stream, config, scope, numberOutputColumns, onLine);
+
+	    this->rowCount = totalRows;
 	}
 
 	void 
@@ -807,13 +847,7 @@ struct ImportTextProcedureWorkInstance
 	{
 		cerr << "LOAD TO TABULAR" << endl;
 
-		std::mutex lineMutex;
-
-		// Do we have a "where true'?  In that case, we don't need to
-	    // call the SQL parser
-	    bool isWhereTrue = config.where->isConstantTrue();
-
-	    const size_t numberOutputColumns = columnNames.size();
+		const size_t numberOutputColumns = columnNames.size();
 
 	    //This will steal columnNames
 		dataset->initialize(columnNames, columnIndex);
@@ -826,11 +860,98 @@ struct ImportTextProcedureWorkInstance
 	        };
 	    
 	    PerThreadAccumulator<TabularDatasetChunk> accum(createPayload);
-	    
-	    std::mutex addLinesMutex;
 
 	    /// Finished chunks, ordered by chunk number
 	    std::vector<TabularDatasetChunk> doneChunks;
+
+	    mutex lineMutex;
+
+		auto onLine = [&] (int chunkNum, int64_t actualLineNum, RowName rowName, Date rowTs, CellValue * vals)
+	        {
+	        	TabularDatasetChunk & threadAccum = accum.get();
+
+	            if (threadAccum.chunkNumber == -1) {
+	                threadAccum.chunkNumber = chunkNum;
+	                //threadAccum.chunkLineNumber = chunkLineNum;
+	            }
+
+	            threadAccum.add(actualLineNum, std::move(rowName), rowTs, vals);
+
+	            if (threadAccum.rowCount() == ROWS_PER_CHUNK) {
+	                //size_t before JML_UNUSED = threadAccum.memusage();
+	                threadAccum.freeze();
+	                //size_t after JML_UNUSED = threadAccum.memusage();
+	                TabularDatasetChunk newChunk(numberOutputColumns, ROWS_PER_CHUNK);
+	                std::unique_lock<std::mutex> guard(lineMutex);
+	                doneChunks.emplace_back(std::move(newChunk));
+	                doneChunks.back().swap(threadAccum);
+	                ExcAssertEqual(threadAccum.rowCount(), 0);
+
+	#if 0
+	                cerr << "compressed from " << before << " to " << after << " bytes ("
+	                     << 100.0 * after / before << "%)" << endl;
+
+	                int rowBits = 0;
+	                for (auto & c: doneChunks.back().columns) {
+	                    rowBits += c.frozen->getIndexBits();
+	                    //cerr << "column had " << c.indexedVals.size()
+	                    //     << " distinct values on " << c.indexes.size()
+	                    //     << " total entries" << endl;
+	                }
+	                cerr << "rowBits = " << rowBits << endl;
+	#endif                    
+	            }
+	        };
+
+		loadTextData(dataset, stream, config, scope, numberOutputColumns, onLine);
+
+		 // Accumulate the partial chunks, too, at the end
+	    std::mutex doneChunksLock;
+
+	    auto doLeftoverChunk = [&] (int threadNum)
+	        {
+	            TabularDatasetChunk * ent = accum.threads.at(threadNum).get();
+	            ent->freeze();
+	            std::unique_lock<std::mutex> guard(doneChunksLock);
+	            doneChunks.emplace_back(std::move(*ent));
+	        };
+
+	    ML::run_in_parallel_blocked(0, accum.threads.size(), doLeftoverChunk);
+
+	    cerr << "got a total of " << doneChunks.size() << " chunks" << endl;
+
+	    size_t totalMemUsage = 0;
+	    size_t totalRows = 0;
+	    for (auto & c: doneChunks) {
+	        totalMemUsage += c.memusage();
+	        totalRows += c.rowCount();
+	    }
+	    cerr << "total memory usage of " << totalMemUsage / 1000000.0 << "MB "
+	         << " over " << totalRows << " rows at "
+	         << 1.0 * totalMemUsage / totalRows << " bytes/row and "
+	         << 1.0 * totalMemUsage / totalRows / numberOutputColumns
+	         << " bytes/value" << endl;
+
+	    this->rowCount = totalRows;
+
+	    dataset->finalize(doneChunks, totalRows);	  
+		
+	}
+
+	void 
+	loadTextData(std::shared_ptr<Dataset> dataset, 
+						 ML::filter_istream& stream, 
+						 const ImportTextConfig& config,
+						 SqlCsvScope& scope,
+						 const size_t numberOutputColumns,
+						 const std::function<void (int, int64_t , RowName , Date , CellValue * )> & processLine)
+	{	
+		std::mutex lineMutex;
+
+		// Do we have a "where true'?  In that case, we don't need to
+	    // call the SQL parser
+	    bool isWhereTrue = config.where->isConstantTrue();
+	  
 	    
 	    std::atomic<uint64_t> numSkipped(0);
 	    std::atomic<uint64_t> totalLinesProcessed(0);
@@ -872,14 +993,8 @@ struct ImportTextProcedureWorkInstance
 	            }
 
 	            if (length == 0) 
-	                return handleError("empty line", actualLineNum, 0, ""); // MLDB-1111 empty lines are treated as error
-	            
-	            TabularDatasetChunk & threadAccum = accum.get();
-
-	            if (threadAccum.chunkNumber == -1) {
-	                threadAccum.chunkNumber = chunkNum;
-	                //threadAccum.chunkLineNumber = chunkLineNum;
-	            }
+	                return handleError("empty line", actualLineNum, 0, ""); // MLDB-1111 empty lines are treated as error            
+	           
 
 	            // Values that come in from the CSV file
 	            // TODO: clang doesn't like a variable length array
@@ -927,7 +1042,8 @@ struct ImportTextProcedureWorkInstance
 	            if (isIdentitySelect) {
 	                // If it's a select *, we don't really need to run the
 	                // select clause.  We simply go for it.
-	                threadAccum.add(actualLineNum, std::move(rowName), rowTs, &values[0]);
+	                //threadAccum.add(actualLineNum, std::move(rowName), rowTs, &values[0]);
+	                processLine(chunkNum, actualLineNum, std::move(rowName), rowTs, &values[0]);
 	            }
 	            else {
 	                // TODO: optimization for
@@ -961,7 +1077,8 @@ struct ImportTextProcedureWorkInstance
 	                        valuesOut[i] = std::get<1>(selectRow[i]).getAtom();
 	                }
 	                
-	                threadAccum.add(actualLineNum, std::move(rowName), rowTs, &valuesOut[0]);
+	                //threadAccum.add(actualLineNum, std::move(rowName), rowTs, &valuesOut[0]);
+	                processLine(chunkNum, actualLineNum, std::move(rowName), rowTs, &valuesOut[0]);
 	            }
 	            //cerr << "row = " << jsonEncodeStr(selectRow) << endl;
 
@@ -969,31 +1086,7 @@ struct ImportTextProcedureWorkInstance
 
 	            //selectOutput.forEachColumnDestructive();
 
-	            // Finished with this chunk.  Clear to keep blocks reasonably small
-	            if (threadAccum.rowCount() == ROWS_PER_CHUNK) {
-	                //size_t before JML_UNUSED = threadAccum.memusage();
-	                threadAccum.freeze();
-	                //size_t after JML_UNUSED = threadAccum.memusage();
-	                TabularDatasetChunk newChunk(numberOutputColumns, ROWS_PER_CHUNK);
-	                std::unique_lock<std::mutex> guard(lineMutex);
-	                doneChunks.emplace_back(std::move(newChunk));
-	                doneChunks.back().swap(threadAccum);
-	                ExcAssertEqual(threadAccum.rowCount(), 0);
-
-	#if 0
-	                cerr << "compressed from " << before << " to " << after << " bytes ("
-	                     << 100.0 * after / before << "%)" << endl;
-
-	                int rowBits = 0;
-	                for (auto & c: doneChunks.back().columns) {
-	                    rowBits += c.frozen->getIndexBits();
-	                    //cerr << "column had " << c.indexedVals.size()
-	                    //     << " distinct values on " << c.indexes.size()
-	                    //     << " total entries" << endl;
-	                }
-	                cerr << "rowBits = " << rowBits << endl;
-	#endif                    
-	            }
+	            // Finished with this chunk.  Clear to keep blocks reasonably small	            
 
 	            return true;
 
@@ -1003,39 +1096,7 @@ struct ImportTextProcedureWorkInstance
 	    forEachLineBlock(stream, onLine, config.limit);
 
 	    cerr << timer.elapsed() << endl;
-	    timer.restart();
-
-	    // Accumulate the partial chunks, too, at the end
-
-	    std::mutex doneChunksLock;
-
-	    auto doLeftoverChunk = [&] (int threadNum)
-	        {
-	            TabularDatasetChunk * ent = accum.threads.at(threadNum).get();
-	            ent->freeze();
-	            std::unique_lock<std::mutex> guard(doneChunksLock);
-	            doneChunks.emplace_back(std::move(*ent));
-	        };
-
-	    ML::run_in_parallel_blocked(0, accum.threads.size(), doLeftoverChunk);
-
-	    cerr << "got a total of " << doneChunks.size() << " chunks" << endl;
-
-	    size_t totalMemUsage = 0;
-	    size_t totalRows = 0;
-	    for (auto & c: doneChunks) {
-	        totalMemUsage += c.memusage();
-	        totalRows += c.rowCount();
-	    }
-	    cerr << "total memory usage of " << totalMemUsage / 1000000.0 << "MB "
-	         << " over " << totalRows << " rows at "
-	         << 1.0 * totalMemUsage / totalRows << " bytes/row and "
-	         << 1.0 * totalMemUsage / totalRows / numberOutputColumns
-	         << " bytes/value" << endl;
-
-	    this->rowCount = totalRows;
-
-	    dataset->finalize(doneChunks, totalRows);	   
+	    timer.restart();	   
 
 	    numLineErrors = numSkipped;
 	}
@@ -1085,6 +1146,8 @@ run(const ProcedureRunConfig & run,
 
     Json::Value status;
     status["numLineErrors"] = instance.numLineErrors;
+
+    dataset->commit();
 
     return Any(status);    
     
