@@ -1,4 +1,4 @@
-/** csv_dataset.cc
+/** importextprocedure.cc
     Mathieu Marquis Bolduc, February 12, 2016
     Copyright (c) 2016 Datacratic Inc.  All rights reserved.
 
@@ -566,6 +566,7 @@ parseFixedWidthCsvRow(const char * & line,
 
 /*****************************************************************************/
 /* IMPORT TEXT PROCEDURE WORK INSTANCE                                       */
+/* Manages all the temporary data and work to load a text file               */
 /*****************************************************************************/
 
 struct ImportTextProcedureWorkInstance
@@ -607,9 +608,9 @@ struct ImportTextProcedureWorkInstance
     size_t rowCount;
     uint64_t numLineErrors;
 
+    /*    Load a text file and filter according to the configuration  */
 	void loadText(const ImportTextConfig& config, std::shared_ptr<Dataset> dataset, MldbServer * server)
 	{
-		cerr << "LOAD TEXT" << endl;
 
 		string filename = config.dataFileUrl.toString();
         
@@ -694,15 +695,13 @@ struct ImportTextProcedureWorkInstance
 	        }             
 	    }
 	    
-	  //  std::vector<ColumnHash> columnHashes;
-
+	    // Early check for duplicate column names
 	    for (unsigned i = 0;  i < inputColumnNames.size();  ++i) {
 	            const ColumnName & c = inputColumnNames[i];
 	            ColumnHash ch(c);
 	            if (!columnIndex.insert(make_pair(ch, i)).second)
 	                throw HttpReturnException(400, "Duplicate column name in CSV file",
 	                                          "columnName", c.toString());
-	           // columnHashes.push_back(ch);
 	        }
 
 	    // Now we know the columns, we can bind our SQL expressions for the
@@ -753,16 +752,11 @@ struct ImportTextProcedureWorkInstance
 	    if (isIdentitySelect)
 	        ExcAssertEqual(inputColumnNames, columnNames);
 
-	    //cerr << "selectBound.info = " << jsonEncode(selectBound.info)
-	    //     << endl;
+	    //cerr << "reading " << inputColumnNames.size() << " columns "
+	    //     << jsonEncodeStr(inputColumnNames) << endl;
 
-	    //int rowNameColumnIndex = getRowNameHeaderIndex();
-
-	    cerr << "reading " << inputColumnNames.size() << " columns "
-	         << jsonEncodeStr(inputColumnNames) << endl;
-
-	    cerr << "writing " << columnNames.size() << " columns "
-	         << jsonEncodeStr(columnNames) << endl;
+	    //cerr << "writing " << columnNames.size() << " columns "
+	    //     << jsonEncodeStr(columnNames) << endl;
 
 	    std::string line;
 
@@ -786,26 +780,25 @@ struct ImportTextProcedureWorkInstance
 
 	    Date end = Date::now();
 
-	    double elapsed = start.secondsUntil(end);
-	    cerr << "read " << rowCount << " lines in "
-	         << elapsed << " at " << rowCount / elapsed
-	         << " lines/second" << endl;
+	    //double elapsed = start.secondsUntil(end);
+	    //cerr << "read " << rowCount << " lines in "
+	    //     << elapsed << " at " << rowCount / elapsed
+	    //     << " lines/second" << endl;
 	    
 	}
 
+	/*    Load to any non-tabular dataset  */
 	void 
 	loadToGeneric(std::shared_ptr<Dataset> dataset,
 		          ML::filter_istream& stream,
 		          const ImportTextConfig& config,
 		          SqlCsvScope& scope)
 	{
-		cerr << "LOAD TO GENERIC" << endl;
 
 		const size_t numberOutputColumns = columnNames.size();
 
 		mutex lineMutex;
 
-		//   virtual void recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows);
         PerThreadAccumulator< std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > > accum;
 
         std::atomic<size_t> totalRows;
@@ -839,14 +832,13 @@ struct ImportTextProcedureWorkInstance
 	    this->rowCount = totalRows;
 	}
 
+	/*    Load to a tabular dataset  */
 	void 
 	loadToTabularDataset(std::shared_ptr<TabularDataset> dataset, 
 						 ML::filter_istream& stream, 
 						 const ImportTextConfig& config,
 						 SqlCsvScope& scope)
 	{
-		cerr << "LOAD TO TABULAR" << endl;
-
 		const size_t numberOutputColumns = columnNames.size();
 
 	    //This will steal columnNames
@@ -855,7 +847,6 @@ struct ImportTextProcedureWorkInstance
 		// When we create a new payload, we do so with the right number of cols
 	    auto createPayload = [=] ()
 	        {
-	            //return new TabularDatasetChunk(columnNames.size(), ROWS_PER_CHUNK);
 	            return dataset->createNewChunk(ROWS_PER_CHUNK);
 	        };
 	    
@@ -872,7 +863,6 @@ struct ImportTextProcedureWorkInstance
 
 	            if (threadAccum.chunkNumber == -1) {
 	                threadAccum.chunkNumber = chunkNum;
-	                //threadAccum.chunkLineNumber = chunkLineNum;
 	            }
 
 	            threadAccum.add(actualLineNum, std::move(rowName), rowTs, vals);
@@ -918,7 +908,7 @@ struct ImportTextProcedureWorkInstance
 
 	    ML::run_in_parallel_blocked(0, accum.threads.size(), doLeftoverChunk);
 
-	    cerr << "got a total of " << doneChunks.size() << " chunks" << endl;
+	    //cerr << "got a total of " << doneChunks.size() << " chunks" << endl;
 
 	    size_t totalMemUsage = 0;
 	    size_t totalRows = 0;
@@ -926,11 +916,11 @@ struct ImportTextProcedureWorkInstance
 	        totalMemUsage += c.memusage();
 	        totalRows += c.rowCount();
 	    }
-	    cerr << "total memory usage of " << totalMemUsage / 1000000.0 << "MB "
-	         << " over " << totalRows << " rows at "
-	         << 1.0 * totalMemUsage / totalRows << " bytes/row and "
-	         << 1.0 * totalMemUsage / totalRows / numberOutputColumns
-	         << " bytes/value" << endl;
+	    //cerr << "total memory usage of " << totalMemUsage / 1000000.0 << "MB "
+	    //     << " over " << totalRows << " rows at "
+	    //     << 1.0 * totalMemUsage / totalRows << " bytes/row and "
+	    //     << 1.0 * totalMemUsage / totalRows / numberOutputColumns
+	    //     << " bytes/value" << endl;
 
 	    this->rowCount = totalRows;
 
@@ -938,6 +928,7 @@ struct ImportTextProcedureWorkInstance
 		
 	}
 
+	/*    Load, filter and format all lines and process them  */
 	void 
 	loadTextData(std::shared_ptr<Dataset> dataset, 
 						 ML::filter_istream& stream, 
@@ -983,14 +974,14 @@ struct ImportTextProcedureWorkInstance
 	            //cerr << "online " << string(line, length) << endl;
 	            
 	            int64_t actualLineNum = lineNum + lineOffset;
-	            uint64_t linesDone = totalLinesProcessed.fetch_add(1);
+	            //uint64_t linesDone = totalLinesProcessed.fetch_add(1);
 
-	            if (linesDone && linesDone % 1000000 == 0) {
-	                double wall = timer.elapsed_wall();
-	                cerr << "done " << linesDone << " in " << wall
-	                     << "s at " << linesDone / wall * 0.000001 << "M lines/second on "
-	                     << timer.elapsed_cpu() / timer.elapsed_wall() << " CPUs" << endl;
-	            }
+	            //if (linesDone && linesDone % 1000000 == 0) {
+	            //    double wall = timer.elapsed_wall();
+	            //    cerr << "done " << linesDone << " in " << wall
+	            //         << "s at " << linesDone / wall * 0.000001 << "M lines/second on "
+	            //         << timer.elapsed_cpu() / timer.elapsed_wall() << " CPUs" << endl;
+	            //}
 
 	            if (length == 0) 
 	                return handleError("empty line", actualLineNum, 0, ""); // MLDB-1111 empty lines are treated as error            
@@ -1001,7 +992,6 @@ struct ImportTextProcedureWorkInstance
 	            // here.  Find another way to allocate it on the
 	            // stack.
 	            vector<CellValue> values(inputColumnNames.size());
-	            //CellValue values[inputColumnNames.size()];
 
 	            const char * lineStart = line;
 
@@ -1042,7 +1032,6 @@ struct ImportTextProcedureWorkInstance
 	            if (isIdentitySelect) {
 	                // If it's a select *, we don't really need to run the
 	                // select clause.  We simply go for it.
-	                //threadAccum.add(actualLineNum, std::move(rowName), rowTs, &values[0]);
 	                processLine(chunkNum, actualLineNum, std::move(rowName), rowTs, &values[0]);
 	            }
 	            else {
@@ -1077,7 +1066,6 @@ struct ImportTextProcedureWorkInstance
 	                        valuesOut[i] = std::get<1>(selectRow[i]).getAtom();
 	                }
 	                
-	                //threadAccum.add(actualLineNum, std::move(rowName), rowTs, &valuesOut[0]);
 	                processLine(chunkNum, actualLineNum, std::move(rowName), rowTs, &valuesOut[0]);
 	            }
 	            //cerr << "row = " << jsonEncodeStr(selectRow) << endl;
@@ -1095,7 +1083,7 @@ struct ImportTextProcedureWorkInstance
 
 	    forEachLineBlock(stream, onLine, config.limit);
 
-	    cerr << timer.elapsed() << endl;
+	    //cerr << timer.elapsed() << endl;
 	    timer.restart();	   
 
 	    numLineErrors = numSkipped;

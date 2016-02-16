@@ -67,7 +67,7 @@ DECLARE_STRUCTURE_DESCRIPTION(ImportTextConfig);
 
 
 /*****************************************************************************/
-/* EM PROCEDURE                                                           */
+/* IMPORT TEXT PROCEDURE                                                     */
 /*****************************************************************************/
 
 struct ImportTextProcedure: public Procedure {
