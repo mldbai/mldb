@@ -18,7 +18,7 @@ V8_LIB:=v8
 VIRTUALENV ?= virtualenv
 PYTHON ?= $(VIRTUALENV)/bin/python
 PIP ?= $(VIRTUALENV)/bin/pip
-PYTHON_DEPENDENCIES_PRE_CMD ?= $(PIP) install -U pip==7.1.0
+PYTHON_DEPENDENCIES_PRE_CMD ?= $(PIP) install -U pip==8.0.2
 PYFLAKES ?= $(VIRTUALENV)/bin/flake8 --select=F,E9,E101
 J2 ?= $(VIRTUALENV)/bin/j2
 J2ENV ?= $(J2) -f env

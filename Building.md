@@ -141,13 +141,15 @@ A change to any of these would require a rebuild of this image:
 To rebuild this layer, run:
 
 ```
-make mldb_base
-docker push quay.io/datacratic/mldb_base:14.04
+make mldb_base IMG_NAME=quay.io/datacratic/mldb_base:YOUR_NEW_TAG
+
+make docker_mldb DOCKER_BASE_IMAGE=quay.io/datacratic/mldb_base:YOUR_NEW_TAG
+# When convinced things are ok:
+docker tag quay.io/datacratic/mldb_base:YOUR_NEW_TAG quay.io/datacratic/mldb_base:14.04
+docker push -f quay.io/datacratic/mldb_base:14.04
 ```
 
 The script used to build this layer is `mldb_base/docker_create_mldb_base.sh`
-
-A few things to keep in mind when editing/running the script:
 
 Some switches are available if you need to do a custom build of that layer for some reason:
 
