@@ -457,6 +457,10 @@ struct TabularDatasetChunk {
     }
 };
 
+/*****************************************************************************/
+/* TABULAR DATASET                                                           */
+/*****************************************************************************/
+
 struct TabularDataset : public Dataset {
 
     TabularDataset(MldbServer * owner,

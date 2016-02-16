@@ -316,6 +316,39 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         GenerateRowsWhereFunction result;
         return result;
     }
+
+    void finalize( std::vector<TabularDatasetChunk>& inputChunks, uint64_t totalRows)
+    {
+        rowCount = totalRows;
+
+        chunks = std::move(inputChunks);
+
+        ML::Timer rowIndexTimer;
+        //cerr << "creating row index" << endl;
+        rowIndex.reserve(4 * totalRows / 3);
+        //cerr << "rowIndex capacity is " << rowIndex.capacity() << endl;
+        for (unsigned i = 0;  i < chunks.size();  ++i) {
+            for (unsigned j = 0;  j < chunks[i].rowNames.size();  ++j) {
+                if (!rowIndex.insert({ chunks[i].rowNames[j], { i, j } }).second)
+                    throw HttpReturnException(400, "Duplicate row name in CSV dataset",
+                                              "rowName", chunks[i].rowNames[j]);
+            }
+        }
+        //cerr << "done creating row index" << endl;
+        //cerr << "row index took " << rowIndexTimer.elapsed() << endl;
+
+    }
+
+    void initialize(vector<ColumnName>& columnNames, ML::Lightweight_Hash<ColumnHash, int>& columnIndex)
+    {
+        this->columnNames = std::move(columnNames);
+        this->columnIndex = std::move(columnIndex);
+
+        for (const auto& c : this->columnNames) {
+                ColumnHash ch(c);
+                columnHashes.push_back(ch);
+            }
+    }
 };
 
 TabularDataset::
@@ -324,12 +357,6 @@ TabularDataset(MldbServer * owner,
                const std::function<bool (const Json::Value &)> & onProgress)
 : Dataset(owner)
 {
-	//ExcAssert(!config.id.empty());
-    
-    //auto params = config.params.convert<CsvDatasetConfig>();
-    
-    //itl.reset(new Itl(server, params, this));
-
     itl = make_shared<TabularDataStore>();
 }
 
@@ -337,15 +364,7 @@ void
 TabularDataset::
 initialize(vector<ColumnName>& columnNames, ML::Lightweight_Hash<ColumnHash, int>& columnIndex)
 {
-	cerr << "INITIALIZE" << endl;
-
-	itl->columnNames = std::move(columnNames);
-	itl->columnIndex = std::move(columnIndex);
-
-    for (const auto& c : itl->columnNames) {
-            ColumnHash ch(c);
-            itl->columnHashes.push_back(ch);
-        }
+	itl->initialize(columnNames, columnIndex);
 }
 
 TabularDatasetChunk* 
@@ -359,27 +378,7 @@ void
 TabularDataset::
 finalize( std::vector<TabularDatasetChunk>& inputChunks, uint64_t totalRows)
 {
-	cerr << "FINALIZE" << endl;
-
-	itl->rowCount = totalRows;
-
-	//Todo: move this to Itl?
-    itl->chunks = std::move(inputChunks);
-
-    ML::Timer rowIndexTimer;
-    cerr << "creating row index" << endl;
-    itl->rowIndex.reserve(4 * totalRows / 3);
-    cerr << "rowIndex capacity is " << itl->rowIndex.capacity() << endl;
-    for (unsigned i = 0;  i < itl->chunks.size();  ++i) {
-        for (unsigned j = 0;  j < itl->chunks[i].rowNames.size();  ++j) {
-            if (!itl->rowIndex.insert({ itl->chunks[i].rowNames[j], { i, j } }).second)
-                throw HttpReturnException(400, "Duplicate row name in CSV dataset",
-                                          "rowName", itl->chunks[i].rowNames[j]);
-        }
-    }
-    cerr << "done creating row index" << endl;
-    cerr << "row index took " << rowIndexTimer.elapsed() << endl;
-
+    itl->finalize(inputChunks, totalRows);
 }
 
 TabularDataset::
