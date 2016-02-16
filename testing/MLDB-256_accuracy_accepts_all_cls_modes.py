@@ -160,11 +160,21 @@ class Mldb256Test(MldbUnitTest):
         mldb.log(jsRez)
         mldb.log(jsRez["status"]["firstRun"]["status"]["folds"][0]["results"]["confusion_matrix"])
         self.assertEqual(jsRez["status"]["firstRun"]["status"]["folds"][0]["results"]["confusion_matrix"],
+                [{
+                    "count": 3,
+                    "actual": "x",
+                    "predicted": "x"
+                },
                 {
-                    '"y"': { '"y"': 1 },
-                    '"x"': { '"x"': 3 },
-                    '"z"': { '"z"': 1 }
-                })
+                    "count": 1,
+                    "actual": "y",
+                    "predicted": "y"
+                },
+                {
+                    "count": 1,
+                    "actual": "z",
+                    "predicted": "z"
+                }])
 
         # Check the accuracy dataset
         self.assertEqual(len(mldb.query("select * from categorical_exp_results_0")), 6)

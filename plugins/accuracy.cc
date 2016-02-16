@@ -322,6 +322,7 @@ run_categorical(AccuracyConfig & runAccuracyConf,
     double total_f1 = 0;
     unsigned total_support = 0;
 
+    results["confusion_matrix"] = Json::Value(Json::arrayValue);
     for(auto it = confusion_matrix.begin(); it != confusion_matrix.end(); it++) {
         unsigned fn = 0;
         unsigned tp = 0;
@@ -334,6 +335,12 @@ run_categorical(AccuracyConfig & runAccuracyConf,
             } else{
                 fn += predicted_it->second;
             }
+            
+            Json::Value conf_mat_elem;
+            conf_mat_elem["predicted"] = jsonEncode(predicted_it->first);
+            conf_mat_elem["actual"] = jsonEncode(it->first);
+            conf_mat_elem["count"] = predicted_it->second;
+            results["confusion_matrix"].append(conf_mat_elem);
         }
 
         Json::Value class_stats;
@@ -360,8 +367,6 @@ run_categorical(AccuracyConfig & runAccuracyConf,
     weighted_stats["f1_score"] = total_f1 / total_support;
     weighted_stats["support"] = total_support;
     results["weighted_statistics"] = weighted_stats;
-
-    results["confusion_matrix"] = jsonEncode(confusion_matrix);
 
 
     // TODO maybe this should always return an error? The problem is it is not impossible that because
@@ -439,7 +444,6 @@ run_regression(AccuracyConfig & runAccuracyConf,
             double score = scoreLabelWeight[0].toDouble();
             double label = scoreLabelWeight[1].toDouble();
             double weight = scoreLabelWeight[2].toDouble();
-            //float residual = label - score;
 
             accum.get().increment(score, label);
 

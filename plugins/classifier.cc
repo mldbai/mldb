@@ -352,13 +352,7 @@ run(const ProcedureRunConfig & run,
             case CM_CATEGORICAL: {
                 // Get a list of categorical labels, for this thread.  Later
                 // we map them to the overall list of labels.
-
-
-                // HERE!!!
-                //std::string labelStr = label.toString();
                 std::string labelStr = jsonEncodeStr(label);
-
-
                 auto it = thr.categoricalLabels.find(labelStr);
                 if (it == thr.categoricalLabels.end()) {
                     encodedLabel = thr.categoricalLabelList.size();
