@@ -13,7 +13,6 @@ conf = {
             "source": """
 import sys
 import select
-import numpy
 import json
 
 std_in = ""
