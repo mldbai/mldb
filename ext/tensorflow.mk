@@ -71,7 +71,7 @@ $(INC)/external/re2:
 # Finally, we need eigen3.  It includes it with the specific Mercurial
 # hash needed, which we list here.  This is also included in ext.
 TENSORFLOW_EIGEN_MERCURIAL_HASH:=$(shell grep 'archive_dir' mldb/ext/tensorflow/eigen.BUILD | head -n1 | sed 's/.*"eigen-eigen-\(.*\)".*/\1/')
-$(if $(TENSORFLOW_EIGEN_MERCURIAL_HASH),,$(error Couldnt find Eigen hash))
+$(if $(TENSORFLOW_EIGEN_MERCURIAL_HASH),,$(error Couldnt find Eigen hash.  You may need to run `git submodule update --init --recursive` to get all the required submodules.))
 $(INC)/external/eigen_archive/eigen-eigen-$(TENSORFLOW_EIGEN_MERCURIAL_HASH):
 	mkdir -p $(dir $(@)) && ln -sf $(PWD)/mldb/ext/eigen $(@)
 
