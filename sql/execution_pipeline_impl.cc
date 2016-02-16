@@ -224,6 +224,7 @@ take()
     // Return the row itself as the value, and the row's name as
     // metadata.
     auto result = source->take();
+
     if (!result)
         return result;
 

@@ -218,7 +218,7 @@ struct TableOperations {
     std::function<std::shared_ptr<RowValueInfo> ()> getRowInfo;
 
     /// Get a function bound to the given dataset
-    std::function<BoundFunction (SqlBindingScope & context,
+    std::function<BoundFunction (SqlBindingScope & scope,
                                  const Utf8String & tableName,
                                  const Utf8String & functionName,
                                  const std::vector<std::shared_ptr<ExpressionValueInfo> > & args)>
@@ -571,9 +571,14 @@ struct SqlBindingScope {
     virtual TableOperations
     doGetTable(const Utf8String & tableName);
 
-    /* Used to resolve the table name from a full identifier */
-    /* Will return value is the identifier without the table name */
-    /* Output value is the table name resolved */
+    /** Used to resolve the table name from a full identifier.
+        This will split a variable identifier, with multiple dots,
+        into a table name and a variable name, in the context of
+        the current scope.
+
+        Returns the table name in tableName and the variable part in
+        the return value.  The middle dot should be removed.
+    */
     virtual Utf8String 
     doResolveTableName(const Utf8String & fullVariableName, Utf8String &tableName) const;
 

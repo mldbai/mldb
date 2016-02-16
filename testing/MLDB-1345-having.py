@@ -37,11 +37,8 @@ class HavingTest(unittest.TestCase):
             having max(Age) < 64 and (count(*) > 5 or Embarked ='C')
             ''')
         mldb.log(res)
-        # uncomment for MLDB-1345
-        #for row in res[1:]:
-            #assert row[1] < 64 and (row[2] > 5 or row[3] == 'C')
-            # assertion above will fail for first row
-            # count(*) = 2 and Embarked = null so HAVING should have excluded it
-            
+
+        for row in res[1:]:
+            assert row[1] < 64 and (row[2] > 5 or row[3] == 'C')
 
 mldb.run_tests()

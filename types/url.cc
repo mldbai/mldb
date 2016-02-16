@@ -1,11 +1,11 @@
 // This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
-
 #include "url.h"
 
 #include "mldb/ext/googleurl/src/gurl.h"
 #include "mldb/ext/googleurl/src/url_util.h"
 #include "mldb/arch/exception.h"
+#include "mldb/types/string.h"
 #include "value_description.h"
 
 #include <iostream>
@@ -255,6 +255,123 @@ reconstitute(ML::DB::Store_Reader & store)
     *this = Url(original);
 }
 #endif
+
+/**
+ * Decodes uri encoded with Percent-encoding. It is meant to act like
+ * JavaScript decodeURI.
+ **/
+Utf8String
+Url::
+decodeUri(Utf8String in)
+{
+#if TOLERATE_URL_BAD_ENCODING
+    string raw = in.rawString();
+    url_canon::RawCanonOutputT<char16> output;
+    url_util::DecodeURLEscapeSequences(raw.c_str(), raw.length(), &output);
+    auto data = output.data();
+    char buffer[output.length() * 4 + 1]; // prepare for the worse, 4 char + \0
+    ssize_t index = 0;
+    for (ssize_t i = 0; i < output.length(); ++i) {
+        char16 c = data[i];
+        if (c < 128) {
+            buffer[index++] = c;
+            continue;
+        }
+        int size = 2;
+        if (c < 2048) { }
+        else if (c < 65536) {
+            size = 3;
+        }
+        else if (c < 2097152) {
+            size = 4;
+        }
+        else {
+            throw ML::Exception("This is not utf-8");
+        }
+        char frontPad = 128;
+        frontPad = frontPad >> (size - 1);
+        for (int pos = index + size - 1; pos > index; --pos){
+            buffer[pos] = c % 64 + 128;
+            c = c >> 6;
+        }
+        buffer[index] = c + frontPad;
+        index += size;
+    }
+    buffer[index] = '\0';
+    return Utf8String(buffer);
+
+#else
+    Utf8String inCopy(in);
+    Utf8String out;
+    char high;
+    char low;
+    char buffer[5]; // utf-8 has at most 4 bytes + \0
+    for (Utf8String::iterator it = in.find('%'); it != in.end();
+            it = in.find('%'))
+    {
+        if (it != in.begin()) {
+            // copy prior part to out
+            out += Utf8String(in.begin(), it);
+        }
+
+        int bufferIndex = 0;
+        int remaining = 1;
+        while (it != in.end() && *it == '%' && remaining) {
+
+            ++it; // over high
+            if (it == in.end() || !isxdigit(*it)) {
+                throw ML::Exception("Invalid encoding on uri fragment: "
+                                    + inCopy.rawString());
+            }
+            high = *it;
+            high -= high <= '9' ? '0' : (high <= 'F' ? 'A' : 'a') - 10;
+
+            ++it; // over low
+            if (it == in.end() || !isxdigit(*it)) {
+                throw ML::Exception("Invalid encoding on uri fragment: "
+                                    + inCopy.rawString());
+            }
+            low = *it;
+            low -= low <= '9' ? '0' : (low <= 'F' ? 'A' : 'a') - 10;
+
+            buffer[bufferIndex] = 16 * high + low;
+
+            if (bufferIndex == 0) {
+                // the first byte tells us how many bytes to look for
+                char c = buffer[0] << 1;
+                while (c < 0) {
+                    c = c << 1;
+                    ++remaining;
+                }
+            }
+            --remaining;
+            ++bufferIndex;
+
+            ++it; // past low
+        }
+
+        if (remaining != 0) {
+            throw ML::Exception("Invalid encoding on uri fragment: "
+                                + inCopy.rawString());
+        }
+
+        // erase what was just processed
+        in.erase(in.begin(), it);
+        it = in.begin();
+
+        // append the current buffer to the output
+        buffer[bufferIndex] = '\0';
+        out += Utf8String(buffer);
+    }
+
+    if (in.begin() != in.end()) {
+        // appends whatever left to the output
+        out += Utf8String(in.begin(), in.end());
+    }
+    return out;
+#endif
+}
+
 
 /*****************************************************************************/
 /* VALUE DESCRIPTION                                                         */

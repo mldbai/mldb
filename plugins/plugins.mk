@@ -16,7 +16,6 @@ LIBMLDB_BUILTIN_PLUGIN_SOURCES:= \
 	embedding.cc \
 	sqlite_dataset.cc \
 	sparse_matrix_dataset.cc \
-	text_line_dataset.cc \
 	script_procedure.cc \
 	script_function.cc \
 	permuter_procedure.cc \

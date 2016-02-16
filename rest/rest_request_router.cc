@@ -6,6 +6,7 @@
 
 */
 
+#include "mldb/types/url.h"
 #include "mldb/rest/rest_request_router.h"
 #include "mldb/jml/utils/vector_utils.h"
 #include "mldb/arch/exception_handler.h"
@@ -437,11 +438,14 @@ matchPath(RestRequestParsingContext & context) const
             = regex_search(context.remaining, results, path.rex,
                            std::regex_constants::match_continuous)
             && !results.prefix().matched;  // matches from the start
-        
+
         if (!found)
             return false;
-        for (unsigned i = 0;  i < results.size();  ++i)
-            context.resources.push_back(Utf8String(results[i].first, results[i].second));
+        for (unsigned i = 0;  i < results.size();  ++i) {
+            // decode URI prior to pushing it to context.resources
+            Utf8String in(results[i].first, results[i].second);
+            context.resources.push_back(Url::decodeUri(in));
+        }
         context.remaining.replace(0, results[0].length(), "");
         break;
     }

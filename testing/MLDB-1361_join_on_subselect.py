@@ -38,51 +38,51 @@ class SampleTest(MldbUnitTest):
             LEFT JOIN sub2 ON text.rowName() = regex_replace(sub2.rowName(), 'row_', '')
 
         """)
-        
+
         expected = [
-                {
-                    "rowName": "a-row_a-null",
-                    "rowHash": "8711ec4b866a7c29",
-                    "columns": [
-                        [
-                            "text.txt",
-                            "raise shields",
-                            "1970-01-01T00:00:00Z"
-                        ],
-                        [
-                            "sub1.warp",
-                            8,
-                            "1970-01-01T00:00:00Z"
-                        ],
-                        [
-                            "sub2.warp",
-                            None,
-                            "-Inf"
-                        ]
+            {
+                "rowName": "[a]-[row_a]-[]",
+                "rowHash": "2da3149200523a02",
+                "columns": [
+                    [
+                        "text.txt",
+                        "raise shields",
+                        "1970-01-01T00:00:00Z"
+                    ],
+                    [
+                        "sub1.warp",
+                        8,
+                        "1970-01-01T00:00:00Z"
+                    ],
+                    [
+                        "sub2.warp",
+                        None,
+                        "-Inf"
                     ]
-                },
-                {
-                    "rowName": "b-null-row_b",
-                    "rowHash": "a4c2b6a8ca3bb829",
-                    "columns": [
-                        [
-                            "text.txt",
-                            "set a course",
-                            "1970-01-01T00:00:00Z"
-                        ],
-                        [
-                            "sub1.warp",
-                            None,
-                            "-Inf"
-                        ],
-                        [
-                            "sub2.warp",
-                            9,
-                            "1970-01-01T00:00:00Z"
-                        ]
+                ]
+            },
+            {
+                "rowName": "[b]-[]-[row_b]",
+                "rowHash": "ed3e1bbb01a92ba6",
+                "columns": [
+                    [
+                        "text.txt",
+                        "set a course",
+                        "1970-01-01T00:00:00Z"
+                    ],
+                    [
+                        "sub1.warp",
+                        None,
+                        "-Inf"
+                    ],
+                    [
+                        "sub2.warp",
+                        9,
+                        "1970-01-01T00:00:00Z"
                     ]
-                }
-            ]
+                ]
+            }
+        ]
         assert rez.json() == expected
     
     def test_subselect_works(self):
@@ -101,52 +101,50 @@ class SampleTest(MldbUnitTest):
             ) as tbl2 ON text.rowName() = tbl2.rowName
         """)
 
-        # mldb.log(rez.json())
-
         expected = [
-                {
-                    "rowName": "a-row_a-null",
-                    "rowHash": "8711ec4b866a7c29",
-                    "columns": [
-                        [
-                            "text.txt",
-                            "raise shields",
-                            "1970-01-01T00:00:00Z"
-                        ],
-                        [
-                            "tbl1.warp",
-                            8,
-                            "1970-01-01T00:00:00Z"
-                        ],
-                        [
-                            "tbl2.warp",
-                            None,
-                            "-Inf"
-                        ]
+            {
+                "rowName": "[a]-[row_a]-[]",
+                "rowHash": "2da3149200523a02",
+                "columns": [
+                    [
+                        "text.txt",
+                        "raise shields",
+                        "1970-01-01T00:00:00Z"
+                    ],
+                    [
+                        "tbl1.warp",
+                        8,
+                        "1970-01-01T00:00:00Z"
+                    ],
+                    [
+                        "tbl2.warp",
+                        None,
+                        "-Inf"
                     ]
-                },
-                {
-                    "rowName": "b-null-row_b",
-                    "rowHash": "a4c2b6a8ca3bb829",
-                    "columns": [
-                        [
-                            "text.txt",
-                            "set a course",
-                            "1970-01-01T00:00:00Z"
-                        ],
-                        [
-                            "tbl1.warp",
-                            None,
-                            "-Inf"
-                        ],
-                        [
-                            "tbl2.warp",
-                            9,
-                            "1970-01-01T00:00:00Z"
-                        ]
+                ]
+            },
+            {
+                "rowName": "[b]-[]-[row_b]",
+                "rowHash": "ed3e1bbb01a92ba6",
+                "columns": [
+                    [
+                        "text.txt",
+                        "set a course",
+                        "1970-01-01T00:00:00Z"
+                    ],
+                    [
+                        "tbl1.warp",
+                        None,
+                        "-Inf"
+                    ],
+                    [
+                        "tbl2.warp",
+                        9,
+                        "1970-01-01T00:00:00Z"
                     ]
-                }
-            ]
+                ]
+            }
+        ]
 
         assert rez.json() == expected
        

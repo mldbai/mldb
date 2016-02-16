@@ -1058,7 +1058,7 @@ ValuedBoundFunction implicit_cast(const std::vector<BoundSqlExpression> & args)
             std::make_shared<AtomValueInfo>()};
 }
 
-static RegisterBuiltin registerImplicitCast(implicit_cast, "implicit_cast", "implicitCast");
+static RegisterBuiltin registerImplicitCast(implicit_cast, "implicit_cast");
 
 ValuedBoundFunction regex_replace(const std::vector<BoundSqlExpression> & args)
 { 
@@ -1398,19 +1398,20 @@ static RegisterBuiltin registerdate_trunc(date_trunc, "date_trunc");
 void normalize(ML::distribution<float>& val, double p)
 {
     if (p == 0) {
-        double n = 1.0 / (val != 0).total();
-        for (auto & v: val)
-            if (v != 0)
-                v = n;
+        double n = (val != 0).count();
+        val /= n;
     }
+    else if (p == INFINITY) {
+        val /= val.max();
+    }
+    else if (p <= 0.0 || !isfinite(p))
+        throw HttpReturnException(500, "Invalid power for normalize() function",
+                                  "p", p);
     else if (p == 2) {
         val /= val.two_norm();
     }
     else if (p == 1) {
         val /= val.total();
-    }
-    else if (p == INFINITY) {
-        val /= val.max();
     }
     else {
         double total = 0.0;
@@ -1518,7 +1519,7 @@ ValuedBoundFunction norm(const std::vector<BoundSqlExpression> & args)
                 double p = args[1].toDouble();
 
                 if (p == 0.0) {
-                    return ExpressionValue((val != 0.0).total(), ts);
+                    return ExpressionValue((val != 0.0).count(), ts);
                 }
                 else if (p == INFINITY) {
                     return ExpressionValue(val.max(), ts);
@@ -1547,68 +1548,6 @@ ValuedBoundFunction norm(const std::vector<BoundSqlExpression> & args)
 }
 static RegisterBuiltin registerNorm(norm, "norm");
 
-
-ValuedBoundFunction parse_sparse_csv(const std::vector<BoundSqlExpression> & args)
-{
-    // Comma separated list, first is row name, rest are row columns
-
-    if (args.size() == 0)
-        throw HttpReturnException(400, "takes at least 1 argument, got " + to_string(args.size()));
-
-    return {[=] (const std::vector<ExpressionValue> & args,
-                 const SqlRowScope & scope) -> ExpressionValue
-            {
-                std::string str = args[0].toString();
-                Date ts = args[0].getEffectiveTimestamp();
-
-                int skip = 1;
-                if (args.size() >= 2)
-                    skip = args[1].toInt();
-                char separator = ',';
-                if (args.size() >= 3) {
-                    string s = args[2].toString();
-                    if (s.length() != 1)
-                        throw HttpReturnException(400,
-                                                  "Separator for parse_sparse_csv should be a single character",
-                                                  "separator", s,
-                                                  "args", args);
-                }
-                CellValue val(1);
-                if (args.size() >= 4)
-                    val = args[3].getAtom();
-
-                std::string filename = str;
-                if (args.size() >= 5)
-                    filename = args[4].toString();
-                int line = 1;
-                if (args.size() >= 6)
-                    line = args[5].toInt();
-
-                int col = 1;
-                if (args.size() >= 7)
-                    col = args[6].toInt();
-
-                // TODO: support UTF-8
-                ML::Parse_Context pcontext(filename, 
-                                           str.c_str(), str.length(), line, col);
-                    
-                vector<string> fields = ML::expect_csv_row(pcontext, -1, separator);
-                    
-                RowValue row;
-                row.reserve(fields.size() - 1);
-                for (unsigned i = 1;  i < fields.size();  ++i) {
-                    row.emplace_back(ColumnName(fields[i]),
-                                     val,
-                                     ts);
-                                         
-                }
-
-                return ExpressionValue(std::move(row));
-            },
-            std::make_shared<UnknownRowValueInfo>()};
-}
-
-static RegisterBuiltin registerParseSparseCsv(parse_sparse_csv, "parse_sparse_csv");
 
 
 ValuedBoundFunction parse_json(const std::vector<BoundSqlExpression> & args)
@@ -2259,6 +2198,40 @@ ValuedBoundFunction upper(const std::vector<BoundSqlExpression> & args)
 }
 
 static RegisterBuiltin registerUpper(upper, "upper");
+
+ValuedBoundFunction flatten(const std::vector<BoundSqlExpression> & args)
+{
+    // Return the result indexed on a single dimension
+
+    checkArgsSize(args.size(), 1);
+
+    std::vector<ssize_t> shape = args[0].info->getEmbeddingShape();
+
+    ssize_t outputShape = 1;
+    for (auto s: shape) {
+        if (s < 0) {
+            outputShape = -1;
+            break;
+        }
+        outputShape *= s;
+    }
+    auto st = args[0].info->getEmbeddingType();
+
+    auto outputInfo
+        = std::make_shared<EmbeddingValueInfo>(outputShape, st);
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                ExcAssertEqual(args.size(), 1);
+                size_t len = args[0].rowLength();
+                return args[0].reshape({len});
+            },
+            outputInfo
+        };
+}
+
+static RegisterBuiltin registerFlatten(flatten, "flatten");
 
 
 } // namespace Builtins
