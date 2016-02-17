@@ -265,20 +265,13 @@ $(eval $(call mldb_unit_test,MLDB-1336-builtin-checks.py))
 $(eval $(call mldb_unit_test,pytanic_plugin_test.py))
 $(eval $(call python_test,mldb_merged_dataset_test,mldb_py_runner))
 
-pytanic_plugin_test mldb_recordrow_test_py pytanic_test mldb_dataset_test_py null_column_test dcframe_test batframe_*_test reddit_example_test pytanic_test mldb_merged_test $(BIN)/mldb_py_runner/__init__.py: \
+pytanic_plugin_test mldb_recordrow_test_py pytanic_test mldb_dataset_test_py null_column_test dcframe_test reddit_example_test pytanic_test mldb_merged_test $(BIN)/mldb_py_runner/__init__.py: \
 	$(BIN)/mldb_runner
 
 
 $(eval $(call python_test,mldb_dataset_test_py, mldb_py_runner))
 $(eval $(call python_test,mldb_recordrow_test_py,mldb_py_runner))
 $(eval $(call python_test,null_column_test,mldb_py_runner))
-$(eval $(call python_test,batframe_column_casting_test,mldb_py_runner))
-$(eval $(call python_test,batframe_test,mldb_py_runner,manual))  # pymldb no longer in virtualenv
-$(eval $(call python_test,batframe_column_binary_test,mldb_py_runner,manual))  # pymldb no longer in virtualenv
-$(eval $(call python_test,batframe_column_comparison_test,mldb_py_runner,manual))  # pymldb no longer in virtualenv
-$(eval $(call python_test,batframe_column_function_test,mldb_py_runner,manual))  # pymldb no longer in virtualenv
-$(eval $(call python_test,batframe_column_unary_test,mldb_py_runner,manual))  # pymldb no longer in virtualenv
-$(eval $(call python_test,batframe_property_test,mldb_py_runner,manual))  # pymldb no longer in virtualenv
 
 $(eval $(call python_test,mldb-417_svd,mldb_py_runner))
 
