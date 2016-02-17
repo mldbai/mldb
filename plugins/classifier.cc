@@ -497,7 +497,7 @@ run(const ProcedureRunConfig & run,
     timer.restart();
 
     ML::Training_Data trainingSet(featureSpace);
-    
+
     ML::distribution<float> labelWeights[2];
     labelWeights[0].resize(nx);
     labelWeights[1].resize(nx);
@@ -595,19 +595,24 @@ run(const ProcedureRunConfig & run,
 
     ML::Thread_Context threadContext;
     threadContext.seed(randomSeed);
-    
-    double factorTrue  = pow(labelWeights[1].total(), -equalizationFactor);
-    double factorFalse = pow(labelWeights[0].total(), -equalizationFactor);
 
-    cerr << "factorTrue = " << factorTrue << endl;
-    cerr << "factorFalse = " << factorFalse << endl;
-    
-    ML::distribution<float> weights
-        = exampleWeights
-        * (factorTrue  * labelWeights[true]
-           + factorFalse * labelWeights[false]);
+    ML::distribution<float> weights;
+    if(runProcConf.mode == CM_REGRESSION) {
+        weights = exampleWeights;
+    }
+    else {
+        double factorTrue  = pow(labelWeights[1].total(), -equalizationFactor);
+        double factorFalse = pow(labelWeights[0].total(), -equalizationFactor);
 
-    weights.normalize();
+        cerr << "factorTrue = " << factorTrue << endl;
+        cerr << "factorFalse = " << factorFalse << endl;
+
+        weights = exampleWeights
+            * (factorTrue  * labelWeights[true]
+            + factorFalse * labelWeights[false]);
+
+        weights.normalize();
+    }
 
     //cerr << "training classifier" << endl;
     ML::Classifier classifier(trainer->generate(threadContext, trainingSet, weights,

@@ -63,6 +63,12 @@ class Mldb256Test(MldbUnitTest):
         ds.record_row("d",[["label", 7, 0], ["score", 8, 0]])
         ds.commit()
 
+        ds = mldb.create_dataset({ "id": "regression", "type": "sparse.mutable" })
+        for x in [2, 5, 10, 25, 55, 3, 26, 75, 80]:
+            ds.record_row("row%d" % x,[["label", x, 0], ["col", x/8, 0], ["col BBB", pow(x, 2), 0]])
+        ds.commit()
+
+
     def test_toy_categorical_eval_works(self):
 
         # TODO test case selecting columns using number
@@ -141,7 +147,7 @@ class Mldb256Test(MldbUnitTest):
                         "type": "glz",
                         "verbosity": 3,
                         "normalize": False,
-                        "link": "linear",
+                        "link_function": "linear",
                         "ridge_regression": True
                     }
                 },
@@ -206,6 +212,42 @@ class Mldb256Test(MldbUnitTest):
 
         # Check the accuracy dataset
         self.assertEqual(len(mldb.query("select * from toy_reg_output")), 5)
+
+
+    def test_regression_works(self):
+        rez = mldb.put("/v1/procedures/regression_cls", {
+            "type": "classifier.experiment",
+            "params": {
+                "trainingData": "select {col*} as features, label as label from regression",
+                "experimentName": "reg_exp",
+                "keepArtifacts": True,
+                "modelFileUrlPattern": "file://temp/mldb-256_reg.cls",
+                "algorithm": "glz_linear",
+                "configuration": {
+                    "glz_linear": {
+                        "type": "glz",
+                        "verbosity": 3,
+                        "normalize": False,
+                        "link_function": "linear",
+                        "ridge_regression": False
+                    },
+                    "dt": {
+                        "type": "decision_tree",
+                        "max_depth": 8,
+                        "verbosity": 3,
+                        "update_alg": "prob"
+                    }
+                },
+                "kfold": 2,
+                "mode": "regression",
+                "outputAccuracyDataset": True,
+                "runOnCreation": True
+            }
+        })
+
+        jsRez = rez.json()
+        mldb.log(jsRez)
+        self.assertGreater(jsRez["status"]["firstRun"]["status"]["aggregated"]["r2_score"]["mean"], 0.98)
 
 
 mldb.run_tests()
