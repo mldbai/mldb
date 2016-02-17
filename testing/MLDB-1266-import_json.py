@@ -127,7 +127,7 @@ class ImportJsonTest(unittest.TestCase):
 
         res = mldb.get(
             "/v1/query",
-            q="select unpack_json(lineText) as * from imported_json")
+            q="select parse_json(lineText, {arrays: 'encode'}) as * from imported_json")
         self.do_asserts("", res.json())
 
 if __name__ == '__main__':

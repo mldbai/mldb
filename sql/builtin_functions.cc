@@ -1552,41 +1552,26 @@ static RegisterBuiltin registerNorm(norm, "norm");
 
 ValuedBoundFunction parse_json(const std::vector<BoundSqlExpression> & args)
 {
-    if (args.size() != 1)
-        throw HttpReturnException(400, "parse_json function takes 1 argument");
+    if (args.size() > 2 || args.size() < 1)
+        throw HttpReturnException(400, " takes 1 or 2 argument, got " + to_string(args.size()));
 
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 1);
+                ExcAssert(args.size() > 0 && args.size() < 3);
                 auto val = args[0];
                 Utf8String str = val.toUtf8String();
-                StreamingJsonParsingContext parser(str.rawString(),
-                                                   str.rawData(),
-                                                   str.rawLength());
-                return ExpressionValue::
-                    parseJson(parser, val.getEffectiveTimestamp(),
-                              PARSE_ARRAYS);
-            },
-            std::make_shared<AnyValueInfo>()
-            };
-}
 
-static RegisterBuiltin registerJsonDecode(parse_json, "parse_json");
+                JsonArrayHandling encode = PARSE_ARRAYS;
 
-
-ValuedBoundFunction get_bound_unpack_json(const std::vector<BoundSqlExpression> & args) 
-{
-    // Comma separated list, first is row name, rest are row columns
-    checkArgsSize(args.size(), 1);
-
-    return {[=] (const std::vector<ExpressionValue> & args,
-                 const SqlRowScope & scope) -> ExpressionValue
-            {
-                ExcAssertEqual(args.size(), 1);
-                auto val = args.at(0);
-                Utf8String str = val.toUtf8String();
-                Date ts = val.getEffectiveTimestamp();
+                if (args.size() > 1)
+                {
+                    Utf8String arrays = args[1].getField("arrays").toUtf8String();
+                    if (arrays == "encode")
+                      encode = ENCODE_ARRAYS;
+                    else if (arrays != "parse")
+                      throw HttpReturnException(400, " value of 'arrays' must be 'parse' or 'encode', got: " + arrays);
+                }
 
                 StreamingJsonParsingContext parser(str.rawString(),
                                                    str.rawData(),
@@ -1595,16 +1580,16 @@ ValuedBoundFunction get_bound_unpack_json(const std::vector<BoundSqlExpression> 
                 if (!parser.isObject())
                     throw HttpReturnException(400, "JSON passed to unpack_json must be an object",
                                               "json", str);
-                
+
                 return ExpressionValue::
                     parseJson(parser, val.getEffectiveTimestamp(),
-                              ENCODE_ARRAYS);
+                              encode);
             },
-            std::make_shared<UnknownRowValueInfo>()};
+            std::make_shared<UnknownRowValueInfo>()
+            };
 }
 
-static RegisterBuiltin registerUnpackJson(get_bound_unpack_json, "unpack_json");
-
+static RegisterBuiltin registerJsonDecode(parse_json, "parse_json");
 
 void
 ParseTokenizeArguments(Utf8String& splitchar, Utf8String& quotechar,
