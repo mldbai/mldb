@@ -12,7 +12,7 @@ resulting from the application of a classifier to some input data.
 ## Output
 
 After this procedure has been run, a summary of the accuracy can be obtained via 
-`GET /v1/procedures/<id>/runs/<runid>`. The the `status` field will contain statistics relevant
+`GET /v1/procedures/<id>/runs/<runid>`. The `status` field will contain statistics relevant
 to the model's mode.
 
 - <a href="#boolean">Boolean mode</a>
@@ -84,8 +84,8 @@ GET http://localhost/v1/procedures/ttnc_test_scorer/runs/1
 ```
 
 The `output` dataset created by this procedure in `boolean` mode 
-will contain one row per input row, 
-with the same row name as in the input, and the following columns:
+will contain one row per score by grouping together test set rows
+with the same score. The dataset will have the following columns:
 
 * `score`: the score the classifier assigned to this row
 * `label`: the row's actual label

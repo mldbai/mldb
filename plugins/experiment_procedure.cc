@@ -505,7 +505,7 @@ run(const ProcedureRunConfig & run,
 namespace {
 
 RegisterProcedureType<ExperimentProcedure, ExperimentProcedureConfig>
-regScript(builtinPackage(),
+regExpProc(builtinPackage(),
           "classifier.experiment",
           "Train and test a classifier",
           "procedures/ExperimentProcedure.md.html");
