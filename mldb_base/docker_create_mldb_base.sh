@@ -103,7 +103,7 @@ apt-get install -y \
 #######################
 apt-get install -y python-pip
 pip install -U pip setuptools || true  # https://github.com/pypa/pip/issues/3045
-pip2 install -U $PIP_WHEELHOUSE -r $BUILD_DOCKER_DIR/python_requirements.txt -c $BUILD_DOCKER_DIR/python_constraints.txt
+pip2 install -U $PIP_WHEELHOUSE -r $BUILD_DOCKER_DIR/python_requirements_mldb_base.txt -c $BUILD_DOCKER_DIR/python_constraints.txt
 
 # Drop the statically linked Python images
 rm -f /usr/lib/python2.7/config-x86_64-linux-gnu/*.a

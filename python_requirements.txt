@@ -1,31 +1,11 @@
 # python_requirements.txt
 #
-# - Add only direct dependencies, unless required for a weird pip problem...
+# - Add only direct dependencies that are required to *build and run the tests*.
+#   pydata packages should be added to python_requirement_mldb_base.txt instead
 # - Put version of direct dependencies here, however keep in mind that versions
 #   from the constraints files have precedence over the requirements file.
 # - Keeping a comment for weird deps would be nice.
 #
-
-# math / science / graph stuff
-bokeh==0.11.1
-numpy==1.10.4
-pandas==0.17.1
-scipy==0.17.0
-openpyxl==2.3.3
-patsy==0.4.1
-matplotlib==1.5.1
-ggplot==0.6.8
-Theano==0.7.0
-seaborn==0.7.0
-scikit-learn==0.17
-
-pymldb==0.6.1
-pivottablejs==0.1.0
-
-
-# notebook and friends
-ipython==4.1.1
-jupyter==1.0.0
 
 # jinja cli for rendering of templated config files
 Jinja2==2.8
@@ -52,10 +32,6 @@ lz4==0.7.0
 
 # MLDB-684-test-server.py
 bottle==0.12.9
-
-# validator
-uWSGI==2.0.12
-pycrypto==2.6.1
 
 # benchmarks
 elasticsearch==2.2.0

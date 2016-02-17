@@ -10,7 +10,6 @@
 
 
 from collections import Counter
-import numpy as np
 import datetime
 import sys
 import random
@@ -86,9 +85,9 @@ input = {"row": words}
 
 r = mldb.get("/v1/functions/svd_function/application", input=input)
 mldb.log(r.json())
-features = np.array(r.json()["output"]["embedding"])
+features = r.json()["output"]["embedding"]
 
-if not features[features > 0].any():
+if not len([i for i in features if i > 0]):
     mldb.script.set_return("FAILURE")
     mldb.log("Features were {}".format(features))
     mldb.log(str(r["statusCode"]))
