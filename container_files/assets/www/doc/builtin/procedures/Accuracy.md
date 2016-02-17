@@ -107,8 +107,6 @@ The value of `support` is the number of true positives
 for that label. The `weighted_statistics` represents the average of the 
 per-label statistics, weighted by each label's support value.
 
-The `confusion_matrix` is indexed by true label and then by predicted label.
-
 Here is a sample output:
 
 ```
@@ -142,17 +140,11 @@ GET http://localhost/v1/procedures/ttnc_test_scorer/runs/1
             "support": 5,
             "precision": 0.6666666746139527
         },
-        "confusion_matrix": {
-            "1": {
-                "0": 1
-            },
-            "0": {
-                "0": 2
-            },
-            "2": {
-                "2": 2
-            }
-        }
+        "confusion_matrix": [
+            {"predicted": "0", "actual": "1", "count": 1},
+            {"predicted": "0", "actual": "0", "count": 2},
+            {"predicted": "2", "actual": "2", "count": 2}
+        ]
     },
     "state": "finished"
     "runStarted": "2016-02-15T19:14:38.3371956Z",
