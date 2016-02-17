@@ -97,7 +97,7 @@ altroot_prep_%: % $(DOCKER_GLOBAL_DEPS) $(DOCKER_TARGET_DEPS)
 	@BUILD=$(BUILD) bash $(DOCKER_GET_REVISION_SCRIPT) $(*) > $(TMPBIN)/$(*).rid $(if $(DOCKER_ALLOW_DIRTY), || true, || (echo "$(COLOR_YELLOW)$(COLOR_BOLD)(to continue anyway, set DOCKER_ALLOW_DIRTY=1 and retry)$(COLOR_RESET)" && false))
 	echo "revision" `cat $(TMPBIN)/$(*).rid`
 	@echo "Building $(*) for use within docker"
-	make TMPBIN=$(TMPBIN) LIB=$(TMPBIN)/docker-$(*)/opt/lib BIN=$(TMPBIN)/docker-$(*)/opt/bin INC=$(TMPBIN)/docker-$(*)/opt/include ALTROOT=$(TMPBIN)/docker-$(*) PLUGINS=$(TMPBIN)/docker-$(*)/opt/mldb/plugins $(*)
+	+make TMPBIN=$(TMPBIN) LIB=$(TMPBIN)/docker-$(*)/opt/lib BIN=$(TMPBIN)/docker-$(*)/opt/bin INC=$(TMPBIN)/docker-$(*)/opt/include ALTROOT=$(TMPBIN)/docker-$(*) PLUGINS=$(TMPBIN)/docker-$(*)/opt/mldb/plugins $(*)
 
 docker_%: altroot_prep_%  $(DOCKER_GLOBAL_DEPS) $(DOCKER_TARGET_DEPS)
 	@echo "Creating container"

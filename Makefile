@@ -45,6 +45,7 @@ TMP     ?= $(BUILD)/$(ARCH)/tmp
 HOSTARCH ?= $(ARCH)
 HOSTBIN ?= $(BUILD)/$(HOSTARCH)/bin
 HOSTLIB ?= $(BUILD)/$(HOSTARCH)/lib
+HOSTINC ?= $(BUILD)/$(HOSTARCH)/include
 
 TEST_TMP := $(TESTS)
 # Vars for configuration files or files that live outside bin and lib
