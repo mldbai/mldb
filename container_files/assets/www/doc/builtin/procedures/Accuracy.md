@@ -12,7 +12,7 @@ resulting from the application of a classifier to some input data.
 ## Output
 
 After this procedure has been run, a summary of the accuracy can be obtained via 
-`GET /v1/procedures/<id>/runs/<runid>`. The the `status` field will contain statistics relevant
+`GET /v1/procedures/<id>/runs/<runid>`. The `status` field will contain statistics relevant
 to the model's mode.
 
 - <a href="#boolean">Boolean mode</a>
@@ -84,8 +84,8 @@ GET http://localhost/v1/procedures/ttnc_test_scorer/runs/1
 ```
 
 The `output` dataset created by this procedure in `boolean` mode 
-will contain one row per input row, 
-with the same row name as in the input, and the following columns:
+will contain one row per score by grouping together test set rows
+with the same score. The dataset will have the following columns:
 
 * `score`: the score the classifier assigned to this row
 * `label`: the row's actual label
@@ -106,8 +106,6 @@ prediction for each example.
 The value of `support` is the number of true positives
 for that label. The `weighted_statistics` represents the average of the 
 per-label statistics, weighted by each label's support value.
-
-The `confusion_matrix` is indexed by true label and then by predicted label.
 
 Here is a sample output:
 
@@ -142,17 +140,11 @@ GET http://localhost/v1/procedures/ttnc_test_scorer/runs/1
             "support": 5,
             "precision": 0.6666666746139527
         },
-        "confusion_matrix": {
-            "1": {
-                "0": 1
-            },
-            "0": {
-                "0": 2
-            },
-            "2": {
-                "2": 2
-            }
-        }
+        "confusion_matrix": [
+            {"predicted": "0", "actual": "1", "count": 1},
+            {"predicted": "0", "actual": "0", "count": 2},
+            {"predicted": "2", "actual": "2", "count": 2}
+        ]
     },
     "state": "finished"
     "runStarted": "2016-02-15T19:14:38.3371956Z",
