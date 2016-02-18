@@ -823,13 +823,18 @@ struct RegisterFileHandler {
                 return UriHandler(buf.get(), buf, info);
             } 
             else {
-                mapped_file_source source(resource);
-                shared_ptr<std::streambuf> buf(new stream_buffer<mapped_file_source>(source));
+                try {
+                    mapped_file_source source(resource);
+                    shared_ptr<std::streambuf> buf(new stream_buffer<mapped_file_source>(source));
                 
-                UriHandlerOptions options;
-                options.mapped = source.data();
-                options.mappedSize = source.size();
-                return UriHandler(buf.get(), buf, info, options);
+                    UriHandlerOptions options;
+                    options.mapped = source.data();
+                    options.mappedSize = source.size();
+                    return UriHandler(buf.get(), buf, info, options);
+                } catch (const std::exception & exc) {
+                    throw ML::Exception("Opening file " + resource + ": "
+                                        + exc.what());
+                }
             }
         }
         else if (mode & ios::out) {
