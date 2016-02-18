@@ -6,7 +6,7 @@
 
 #include "mldb/ext/googleurl/src/url_util.h"
 #include "mldb/rest/rest_request_params.h"
-
+#include "mldb/http/http_exception.h"
 
 namespace Datacratic {
 
@@ -45,20 +45,34 @@ std::string restDecode(Utf8String str, std::string *)
 
 bool restDecode(const std::string & str, bool *)
 {
-    if (str == "true")
+    if (str == "1"
+        || (str.length() == 4
+            && tolower(str[0]) == 't'
+            && tolower(str[1]) == 'r'
+            && tolower(str[2]) == 'u'
+            && tolower(str[3]) == 'e')) {
         return true;
-    else if (str == "false")
+    }
+
+    if (str == "0"
+        || (str.length() == 5
+            && tolower(str[0]) == 'f'
+            && tolower(str[1]) == 'a'
+            && tolower(str[2]) == 'l'
+            && tolower(str[3]) == 's'
+            && tolower(str[4]) == 'e')) {
         return false;
-    else return boost::lexical_cast<bool>(str);
+    }
+
+    throw HttpReturnException(400, "Attempting to interpret REST parameter value '"
+                              + Utf8String(str) + "' as a boolean.  Acceptable "
+                              "values are 'true', '1' and 'false', '0' in any "
+                              "case.");
 }
 
 bool restDecode(const Utf8String & str, bool *)
 {
-    if (str == "true")
-        return true;
-    else if (str == "false")
-        return false;
-    else return boost::lexical_cast<bool>(str.rawData());
+    return restDecode(str.rawString(), (bool *)nullptr);
 }
 
 Utf8String restEncode(bool b)
