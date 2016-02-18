@@ -115,7 +115,7 @@ static void renderType(MacroContext & context,
     const ValueDescription * vd = ValueDescription::get(cppType.rawString()).get();
         
     if (!vd) {
-        context.writeHtml("Type with name " + cppType + " not found");
+        context.writeHtml("Type with name '" + cppType + "' not found");
         return;
     }
 
