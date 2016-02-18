@@ -75,7 +75,7 @@ AccuracyConfigDescription()
              "to avoid numeric errors in the calculations."
              "The select statement does not support groupby and having clauses.");
     addField("mode", &AccuracyConfig::mode,
-             "Mode of evaluated classifier.  Controls how the label is interpreted and "
+             "Controls how the label is interpreted and "
              "what is the expected output of the classifier is. This must match "
              "what was used during training.");
     addField("outputDataset", &AccuracyConfig::outputDataset,
