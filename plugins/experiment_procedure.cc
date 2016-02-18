@@ -78,9 +78,13 @@ ExperimentProcedureConfigDescription()
 {
     addField("trainingData", &ExperimentProcedureConfig::trainingData,
              "Specification of the data for input to the classifier procedure. "
-             "The select expression must contain these two sub-expressions: one row expression "
-             "to identify the features on which to train and one scalar expression "
-             "to identify the label.  The type of the label expression must match "
+             "The select expression must contain these two sub-expressions: \n"
+             "\n"
+             "1.  one row expression to identify the features on which to \n"
+             "    train, and \n"
+             "2.  one scalar expression to identify the label.\n"
+             "\n"
+             "The type of the label expression must match "
              "that of the classifier mode: a boolean (0 or 1) for `boolean` mode; "
              "a real for regression mode, and any combination of numbers and strings "
              "for `categorical` mode.  Labels with a null value will have their row skipped. "
