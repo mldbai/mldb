@@ -113,7 +113,7 @@ class ImportJsonTest(unittest.TestCase):
         self.assert_val(js_res, "1", "colA", 1)
         self.assert_val(js_res, "3", "colB", "pwet pwet 2")
 
-    def test_unpack_json_builtin_function(self):
+    def test_json_builtin_function(self):
         conf = {
             "id": "imported_json",
             "type": "text.csv.tabular",
@@ -127,7 +127,7 @@ class ImportJsonTest(unittest.TestCase):
 
         res = mldb.get(
             "/v1/query",
-            q="select unpack_json(lineText) as * from imported_json")
+            q="select parse_json(lineText, {arrays: 'encode'}) as * from imported_json")
         self.do_asserts("", res.json())
 
 if __name__ == '__main__':

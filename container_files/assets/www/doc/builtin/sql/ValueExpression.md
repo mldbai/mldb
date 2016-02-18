@@ -315,11 +315,35 @@ Note that this syntax is not part of SQL, it is an MLDB extension.
   (or string) argument as a string.
 - `base64_decode(string)` returns a blob containing the decoding of the
   base-64 data provided in its argument.
-- `parse_json(string)` returns a row with the JSON decoding of the
-  string in the argument.  Nested arrays and objects will be parsed
-  recursively; no flattening is performed.
 - `extract_column(row)` extracts the given column from the row, keeping
   only its latest value by timestamp.
+- <a name="parse_json"></a>`parse_json(string, {arrays: string})` returns a row with the JSON decoding of the
+  string in the argument. If the `arrays` option is set to `'parse'` (this is the default) then nested arrays and objects will be parsed recursively; no flattening is performed. If the `arrays` option is set to `'encode'`, then arrays containing only scalar values will be one-hot encoded and arrays containing only objects will contain the string representation of the objects. 
+
+  Here are examples with the following JSON string:
+
+```javascript
+{
+  "a": "b", 
+  "c": {"d": "e"}, 
+  "f": ["g","h"], 
+  "i": [ {"j":"k"}, {"l":"m"} ] 
+}
+```
+
+With `{arrays: 'parse'}` the output will be:
+
+| a | c.d |f.0 |f.1 | i.0.j | i.0.j |
+|---|----|----|----|------|------|
+| 'b' | 'e'   | 'g'    | 'h'  |  'k'   |  'm'   |
+
+
+With `{arrays: 'encode'}` the output will be:
+
+| a | c.d | f.g | f.h | i.0 | i.1
+|---|---|---|-----|------|------
+| 'b' | 'e' | 1 | 1   | '{"j":"k"}' | '{"l":"m"}'
+
 
 ### Numeric functions
 
@@ -448,63 +472,6 @@ number of occurrences of those tokens within `str`. For example `tokenize('a b b
   - `ngram_range` is used to specify the n-grams to return. `[1, 1]` will return only unigrams, while `[2, 3]` will return bigrams and trigrams, where tokens are joined by underscores. For example, `tokenize('Good day world', {splitchars:' ', ngram_range:[2,3]})` will return the row `{'Good_day': 1, 'Good_day_world': 1, 'day_world': 1}`
 - `token_extract(str, n, {splitchars: ',', quotechar: '"', offset: 0, limit: null, min_token_length: 1})` will return the `n`th token from `str` using the same tokenizing rules as `tokenize()` above. Only the tokens respecting the `min_token_length` will be considered
 
-### JSON unpacking <a name="unpack_json"></a>
-
-The `unpack_json(str)` function will parse the string `str` as a JSON
-object and unpack it into multiple columns following the  algorithm
-outlined below. Note that JSON objects shown in the tables below are
-string representations of the JSON.
-
-Each `(key, value)` pair will be recorded as the column name and cell value respectively. The line `{"a": 5, "b": true}` is recorded as:
-
-| *rowName* | *a* | *b* |
-|-----------|-----|-----|
-| row1 | 5 | 1 |
-
-(note that `true` and `false` in JSON come out as `1` and `0`, since
-SQL doesn't have a boolean type).
-
-If the value is an object, we apply the same logic recursively, adding a
-period (`.`) between the keys at each level. The line
- `{"a": 5, "c": {"x": "hola"}, "d": {"e": {"f": "amigo"}}}`
-is recorded as:
-
-| *rowName* | *a* | *c.x* | *d.e.f* |
-|-----------|-----|-------|---------|
-| row1 | 5 | hola | amigo |
-
-
-If the value is an array that contains only atomic types (strings, bool or
-numeric), we encode them as a one-hot vector. As shown in the example below,
-the `value` in the JSON will be appended to the column name and the cell
-value will be set to `true`. The line `{"a": 5, "b": [1, 2, "abc"]}`
-is recorded as:
-
-| *rowName* | *a* | *b.1* | *b.2* | *b.abc* |
-|-----------|-----|-----|-------|-----------|
-| row1 | 5 | 1 | 1 | 1 |
-
-If the value is an array that contains only objects, we unpack the array
-putting one JSON object per column encoded as a string. The line
-`{"a": 5, "b": [{"z": 1}, {"y": 2}]}` is recorded as:
-
-| *rowName* | *a* | *b.0* | *b.1* |
-|-----------|-----|-----|-------|
-| row1 | 5 | {"z": 1} | {"y": 2} |
-
-If the value is an array that contains at least one non-atomic type (array,
-object), we encode them as the string representation of the JSON. The line
-`{"a": 5, "b": [1, 2, {"xyz":"abc"}]}` is recorded as:
-
-| *rowName* | *a* | *b* |
-|-----------|-----|-----|
-| row1 | 5 | [1, 2, {"xyz":"abc"}] |
-
-
-The ![](%%doclink import.json procedure) can be used to import a text file
-where each line is a JSON object. The ![](%%doclink melt procedure) can be
-used on columns representing arrays of objects to create a row per array
-element.
 
 
 ## <a name="aggregatefunctions"></a>Aggregate Functions

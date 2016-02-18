@@ -1552,28 +1552,44 @@ static RegisterBuiltin registerNorm(norm, "norm");
 
 ValuedBoundFunction parse_json(const std::vector<BoundSqlExpression> & args)
 {
-    if (args.size() != 1)
-        throw HttpReturnException(400, "parse_json function takes 1 argument");
+    if (args.size() > 2 || args.size() < 1)
+        throw HttpReturnException(400, " takes 1 or 2 argument, got " + to_string(args.size()));
 
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 1);
+                ExcAssert(args.size() > 0 && args.size() < 3);
                 auto val = args[0];
                 Utf8String str = val.toUtf8String();
+
+                JsonArrayHandling encode = PARSE_ARRAYS;
+
+                if (args.size() > 1)
+                {
+                    Utf8String arrays = args[1].getField("arrays").toUtf8String();
+                    if (arrays == "encode")
+                      encode = ENCODE_ARRAYS;
+                    else if (arrays != "parse")
+                      throw HttpReturnException(400, " value of 'arrays' must be 'parse' or 'encode', got: " + arrays);
+                }
+
                 StreamingJsonParsingContext parser(str.rawString(),
                                                    str.rawData(),
                                                    str.rawLength());
+
+                if (!parser.isObject())
+                    throw HttpReturnException(400, "JSON passed to parse_json must be an object",
+                                              "json", str);
+
                 return ExpressionValue::
                     parseJson(parser, val.getEffectiveTimestamp(),
-                              PARSE_ARRAYS);
+                              encode);
             },
-            std::make_shared<AnyValueInfo>()
+            std::make_shared<UnknownRowValueInfo>()
             };
 }
 
 static RegisterBuiltin registerJsonDecode(parse_json, "parse_json");
-
 
 ValuedBoundFunction get_bound_unpack_json(const std::vector<BoundSqlExpression> & args) 
 {
@@ -1604,7 +1620,6 @@ ValuedBoundFunction get_bound_unpack_json(const std::vector<BoundSqlExpression> 
 }
 
 static RegisterBuiltin registerUnpackJson(get_bound_unpack_json, "unpack_json");
-
 
 void
 ParseTokenizeArguments(Utf8String& splitchar, Utf8String& quotechar,
