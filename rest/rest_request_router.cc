@@ -282,6 +282,10 @@ RestRequestRouter::
 RestRequestRouter()
     : terminal(false)
 {
+    notFoundHandler = [] (RestConnection & connection,
+                          const RestRequest & request) {
+        connection.sendErrorResponse(404, "unknown resource " + request.verb + " " +  request.resource);
+    };
 }
 
 RestRequestRouter::
@@ -294,6 +298,10 @@ RestRequestRouter(const OnProcessRequest & processRequest,
       terminal(terminal),
       argHelp(argHelp)
 {
+    notFoundHandler = [] (RestConnection & connection,
+                          const RestRequest & request) {
+        connection.sendErrorResponse(404, "unknown resource " + request.verb + " " +  request.resource);
+    };
 }
 
 RestRequestRouter::
@@ -321,7 +329,7 @@ handleRequest(RestConnection & connection,
     RestRequestParsingContext context(request);
     RestRequestMatchResult res = processRequest(connection, request, context);
     if (res == MR_NO) {
-        connection.sendErrorResponse(404, "unknown resource " + request.verb + " " + request.resource);
+        notFoundHandler(connection, request);
     }
 }
 

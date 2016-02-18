@@ -29,6 +29,7 @@
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/server/analytics.h"
 #include "mldb/types/meta_value_description.h"
+#include "mldb/arch/simd.h"
 
 
 using namespace std;
@@ -116,8 +117,8 @@ init(std::string configurationPath,
 
     preInit();
     initServer(server);
-    initRoutes();
-    initCollections(configurationPath, staticFilesPath, staticDocPath, hideInternalEntities);
+    if (initRoutes()) // if initRoutes fails no need to add collections to routes
+        initCollections(configurationPath, staticFilesPath, staticDocPath, hideInternalEntities);
 }
 
 void
@@ -129,7 +130,7 @@ preInit()
     Date::now().weekday();
 }
 
-void
+bool
 MldbServer::
 initRoutes()
 {
@@ -162,7 +163,7 @@ initRoutes()
 
     auto & versionNode = router.addSubRouter("/v1", "version 1 of API",
                                              addObject);
-
+ 
     RestRequestRouter::OnProcessRequest handleShutdown
         = [=] (RestConnection & connection,
                const RestRequest & request,
@@ -187,26 +188,49 @@ initRoutes()
                          handleShutdown,
                          Json::Value());
 
-    addRouteAsync(versionNode, "/query", { "GET" },
-                  "Select from dataset",
-                  &MldbServer::runHttpQuery,
-                  this,
-                  RestParam<Utf8String>("q", "The SQL query string"),
-                  PassConnectionId(),
-                  RestParamDefault<std::string>("format",
-                                                "Format of output",
-                                                "full"),
-                  RestParamDefault<bool>("headers",
-                                         "Do we include headers on table format",
-                                         true),
-                  RestParamDefault<bool>("rowNames",
-                                         "Do we include row names in output",
-                                         true),
-                  RestParamDefault<bool>("rowHashes",
-                                         "Do we include row hashes in output",
-                                         false));
+
+   // MLDB-1380 - make sure that the CPU support the minimal instruction sets
+    if (ML::has_sse42()) {
+        addRouteAsync(versionNode, "/query", { "GET" },
+                      "Select from dataset",
+                      &MldbServer::runHttpQuery,
+                      this,
+                      RestParam<Utf8String>("q", "The SQL query string"),
+                      PassConnectionId(),
+                      RestParamDefault<std::string>("format",
+                                                    "Format of output",
+                                                    "full"),
+                      RestParamDefault<bool>("headers",
+                                             "Do we include headers on table format",
+                                             true),
+                      RestParamDefault<bool>("rowNames",
+                                             "Do we include row names in output",
+                                             true),
+                      RestParamDefault<bool>("rowHashes",
+                                             "Do we include row hashes in output",
+                                             false));
     
-    this->versionNode = &versionNode;
+ 
+        this->versionNode = &versionNode;
+        return true;
+    } else {
+        static constexpr auto errorMessage = 
+            "*** ERROR ***\n"
+            "* MLDB requires a cpu with minimally SSE 4.2 instruction set. *\n"
+            "* This system does not support SSE 4.2, therefore most of the *\n"
+            "* functionality in MLDB has been disabled.                    *\n"
+            "* Please try MLDB on a system with a more recent cpu.         *\n"
+            "*** ERROR ***";
+
+        versionNode.notFoundHandler = [&] (RestConnection & connection,
+                                           const RestRequest & request) {
+            connection.sendErrorResponse(500, errorMessage);
+        };
+         
+        std::cerr << errorMessage << std::endl;
+        this->versionNode = &versionNode;
+        return false;
+    }
 }
 
 void
