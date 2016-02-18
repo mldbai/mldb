@@ -1591,6 +1591,36 @@ ValuedBoundFunction parse_json(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerJsonDecode(parse_json, "parse_json");
 
+ValuedBoundFunction get_bound_unpack_json(const std::vector<BoundSqlExpression> & args) 
+{
+    // Comma separated list, first is row name, rest are row columns
+    checkArgsSize(args.size(), 1);
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                ExcAssertEqual(args.size(), 1);
+                auto val = args.at(0);
+                Utf8String str = val.toUtf8String();
+                Date ts = val.getEffectiveTimestamp();
+
+                StreamingJsonParsingContext parser(str.rawString(),
+                                                   str.rawData(),
+                                                   str.rawLength());
+
+                if (!parser.isObject())
+                    throw HttpReturnException(400, "JSON passed to unpack_json must be an object",
+                                              "json", str);
+                
+                return ExpressionValue::
+                    parseJson(parser, val.getEffectiveTimestamp(),
+                              ENCODE_ARRAYS);
+            },
+            std::make_shared<UnknownRowValueInfo>()};
+}
+
+static RegisterBuiltin registerUnpackJson(get_bound_unpack_json, "unpack_json");
+
 void
 ParseTokenizeArguments(Utf8String& splitchar, Utf8String& quotechar,
                        int& offset, int& limit, int& min_token_length,
