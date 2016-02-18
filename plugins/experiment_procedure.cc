@@ -395,6 +395,7 @@ run(const ProcedureRunConfig & run,
          * accuracy
          * **/
         AccuracyConfig accuracyConf;
+        accuracyConf.mode = runProcConf.mode;
 
         if(runProcConf.outputAccuracyDataset) {
             PolyConfigT<Dataset> outputPC;
@@ -417,7 +418,14 @@ run(const ProcedureRunConfig & run,
         shared_ptr<SqlRowExpression> weight = extractNamedSubSelect("weight", accuracyConf.testingData.stm->select);
         if (!weight)
             weight = SqlRowExpression::parse("1.0 as weight");
-        auto score = SqlRowExpression::parse(ML::format("\"%s\"({%s})[score] as score",
+
+        string scoreExpr;
+        if     (runProcConf.mode == CM_BOOLEAN || 
+                runProcConf.mode == CM_REGRESSION)  scoreExpr = "\"%s\"({%s})[score] as score";
+        else if(runProcConf.mode == CM_CATEGORICAL) scoreExpr = "\"%s\"({%s})[scores] as score";
+        else throw ML::Exception("Classifier mode %d not implemented", runProcConf.mode);
+
+        auto score = SqlRowExpression::parse(ML::format(scoreExpr.c_str(),
                                                         clsProcConf.functionName.utf8String(),
                                                         features->surface.utf8String()));
         accuracyConf.testingData.stm->select = SelectExpression({features, label, weight, score});
@@ -432,9 +440,10 @@ run(const ProcedureRunConfig & run,
 
             cerr << " >>>>> Creating testing procedure" << endl;
             accuracyProc = obtainProcedure(server, accuracyProcPC, onProgress2);
+
             resourcesToDelete.push_back("/v1/procedures/"+accuracyProcPC.id.utf8String());
         }
-        
+
         if(!accuracyProc) {
             throw ML::Exception("Was unable to obtain accuracy procedure");
         }
