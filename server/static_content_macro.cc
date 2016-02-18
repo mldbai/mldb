@@ -15,6 +15,7 @@
 #include "mldb/rest/in_process_rest_connection.h"
 #include "mldb/server/mldb_server.h"
 #include "mldb/core/mldb_entity.h"
+#include "mldb/base/scope.h"
 #include "mldb/jml/utils/file_functions.h"
 #include "mldb/jml/utils/string_functions.h"
 
@@ -28,6 +29,9 @@ namespace MLDB {
 /*****************************************************************************/
 /* UTILITY FUNCTIONS                                                         */
 /*****************************************************************************/
+
+// Defined in static_content_handler.cc
+std::string renderMarkdown(const std::string & str, MacroData & macroData);
 
 using namespace Json;
 
@@ -146,7 +150,7 @@ static void renderType(MacroContext & context,
                                          fd.fieldName.c_str(),
                                          getTypeName(*fd.description).c_str(),
                                          getDefaultValue(*fd.description).c_str(),
-                                         fd.comment.c_str()));
+                                                 renderMarkdown(fd.comment.c_str(), context)));
                 };
             vd->forEachField(nullptr, onField);
             context.writeHtml("</table>");
