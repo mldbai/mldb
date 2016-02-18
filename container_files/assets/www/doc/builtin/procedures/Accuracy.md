@@ -1,9 +1,6 @@
 # Classifier Testing Procedure
 
-The classifier testing procedure allows the accuracy of a binary classifier, multi-class classifier or
-regressor  to be tested against
-held-out data. The output of this procedure is a dataset which contains the scores and statistics
-resulting from the application of a classifier to some input data.
+The classifier testing procedure allows the accuracy of a binary classifier, multi-class classifier or regressor  to be tested against held-out data. The output of this procedure is a dataset which contains the scores and statistics resulting from the application of a classifier to some input data.
 
 ## Configuration
 
@@ -75,10 +72,7 @@ GET http://localhost/v1/procedures/ttnc_test_scorer/runs/1
       }
     }
   }, 
-  "state": "finished", 
-  "runFinished": "2015-06-05T18:06:19.165Z", 
-  "runStarted": "2015-06-05T18:06:19.119Z", 
-  "id": "2015-06-05T18:06:19.118784Z-5bc7042b732cb41f"
+  "state": "finished"
 }
 
 ```
@@ -115,17 +109,17 @@ GET http://localhost/v1/procedures/ttnc_test_scorer/runs/1
 {
     "status": {
         "label_statistics": {
-            "1": {
-                "f1_score": 0.0,
-                "recall": 0.0,
-                "support": 1,
-                "precision": 0.0
-            },
             "0": {
                 "f1_score": 0.8000000143051146,
                 "recall": 1.0,
                 "support": 2,
                 "precision": 0.6666666865348816
+            },
+            "1": {
+                "f1_score": 0.0,
+                "recall": 0.0,
+                "support": 1,
+                "precision": 0.0
             },
             "2": {
                 "f1_score": 1.0,
@@ -147,9 +141,6 @@ GET http://localhost/v1/procedures/ttnc_test_scorer/runs/1
         ]
     },
     "state": "finished"
-    "runStarted": "2016-02-15T19:14:38.3371956Z",
-    "runFinished": "2016-02-15T19:14:38.3453991Z",
-    "id": "2016-02-15T19:14:38.337123Z-5bc7042b732cb41f",
 }
 ```
 
@@ -182,18 +173,15 @@ GET http://localhost/v1/procedures/ttnc_test_scorer/runs/1
 {
     "status": {
         "quantile_errors": {
-            "0.9": 0.1666666666666667,
             "0.25": 0.0,
             "0.5": 0.1428571428571428,
-            "0.75": 0.1666666666666667
+            "0.75": 0.1666666666666667,
+            "0.9": 0.1666666666666667
         },
         "mse": 0.375,
         "r2_score": 0.9699681653424412
     },
     "state": "finished"
-    "runFinished": "2016-02-15T19:14:38.3490527Z",
-    "runStarted": "2016-02-15T19:14:38.3476734Z",
-    "id": "2016-02-15T19:14:38.347613Z-5bc7042b732cb41f",
 }
 ```
 
