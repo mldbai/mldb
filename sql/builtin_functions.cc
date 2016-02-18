@@ -1578,7 +1578,7 @@ ValuedBoundFunction parse_json(const std::vector<BoundSqlExpression> & args)
                                                    str.rawLength());
 
                 if (!parser.isObject())
-                    throw HttpReturnException(400, "JSON passed to unpack_json must be an object",
+                    throw HttpReturnException(400, "JSON passed to parse_json must be an object",
                                               "json", str);
 
                 return ExpressionValue::
