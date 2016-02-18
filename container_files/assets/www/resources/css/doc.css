@@ -30,6 +30,7 @@ p, li {
     font-size: 18px;
 }
 li {padding-bottom: 10px;}
+td p { margin: 10px;}
 
 li ul li {padding-bottom: 0;}
 a, a:visited, a:hover {color:#3A62AD;}

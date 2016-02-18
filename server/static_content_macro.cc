@@ -142,11 +142,11 @@ static void renderType(MacroContext & context,
         }
         else
         {
-            context.writeHtml("<table class=\"table\"><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr>\n");
+            context.writeHtml("<table class=\"table\" width='100%'><tr><th align='right'><p><i>Field, Type, Default</th><th><p><i>Description</th></tr>\n");
 
             auto onField = [&] (const ValueDescription::FieldDescription & fd)
                 {
-                    context.writeHtml(ML::format("<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>\n",
+                    context.writeHtml(ML::format("<tr><td align='right'><p><strong>%s</strong> <br/> %s <br/> <code>%s</code></p></td><td>%s</td></tr>\n",
                                          fd.fieldName.c_str(),
                                          getTypeName(*fd.description).c_str(),
                                          getDefaultValue(*fd.description).c_str(),
@@ -158,9 +158,9 @@ static void renderType(MacroContext & context,
     }
     else if (vd->kind == ValueKind::ENUM) {
         context.writeHtml("<h4>Enumeration <code>" + printTypeName(cppType.rawString()) +"</code></h4>");
-        context.writeHtml("<table class=\"table\"><tr><th>Value</th><th>Description</th></tr>\n");
+        context.writeHtml("<table class=\"table\"><tr><th><p><i>Value</th><th><p><i>Description</th></tr>\n");
         for (auto & v: vd->getEnumValues()) {
-            context.writeHtml(ML::format("<tr><td>%s</td><td>%s</td></tr>\n",
+            context.writeHtml(ML::format("<tr><td><code>%s</code></td><td><p>%s</td></tr>\n",
                                  std::get<1>(v).c_str(),
                                  std::get<2>(v).c_str()));
         }
