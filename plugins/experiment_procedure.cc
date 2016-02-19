@@ -273,7 +273,7 @@ run(const ProcedureRunConfig & run,
     auto onProgress2 = [&] (const Json::Value & details)
         {
             Json::Value value;
-            value["fold_number"] = (int)progress;
+            value["foldNumber"] = (int)progress;
             value["details"] = details;
             return onProgress(value);
         };
@@ -470,7 +470,7 @@ run(const ProcedureRunConfig & run,
         foldRez["fold"] = jsonEncode(datasetFold);
         foldRez["modelFileUrl"] = clsProcConf.modelFileUrl.toUtf8String();
         foldRez["results"] = jsonEncode(accuracyOutput.results);
-        foldRez["duration_secs"] = duration;
+        foldRez["durationSecs"] = duration;
         statsGen.accumStats(foldRez["results"], "");
         rtn_results.append(foldRez);
 
@@ -496,7 +496,7 @@ run(const ProcedureRunConfig & run,
     Json::Value final_res;
     final_res["folds"] = rtn_results;
     final_res["aggregated"] = statsGen.generateStatistics();
-    final_res["avg_duration"] = durationStatsGen.generateStatistics();
+    final_res["avgDuration"] = durationStatsGen.generateStatistics();
 
     return RunOutput(final_res);
 }
