@@ -92,19 +92,19 @@ class Mldb256Test(MldbUnitTest):
 
         goodLabelStatistics = {
                     "1": {
-                        "f1Score": 0.0,
+                        "f": 0.0,
                         "recall": 0.0,
                         "support": 1,
                         "precision": 0.0
                     },
                     "0": {
-                        "f1Score": 0.8000000143051146,
+                        "f": 0.8000000143051146,
                         "recall": 1.0,
                         "support": 2,
                         "precision": 0.6666666865348816
                     },
                     "2": {
-                        "f1Score": 1.0,
+                        "f": 1.0,
                         "recall": 1.0,
                         "support": 2,
                         "precision": 1.0
@@ -119,14 +119,14 @@ class Mldb256Test(MldbUnitTest):
         total_support = 0
         total_precision = 0
         for val in goodLabelStatistics.itervalues():
-            total_f1 += val["f1Score"] * val["support"]
+            total_f1 += val["f"] * val["support"]
             total_recall += val["recall"] * val["support"]
             total_precision += val["precision"] * val["support"]
             total_support += val["support"]
 
         self.assertEqual(jsRez["status"]["firstRun"]["status"]["weightedStatistics"],
                 {
-                    "f1Score": total_f1 / total_support,
+                    "f": total_f1 / total_support,
                     "recall": total_recall / total_support,
                     "support": total_support,
                     "precision": total_precision / total_support
@@ -247,7 +247,7 @@ class Mldb256Test(MldbUnitTest):
 
         jsRez = rez.json()
         mldb.log(jsRez)
-        self.assertGreater(jsRez["status"]["firstRun"]["status"]["aggregated"]["r2Score"]["mean"], 0.98)
+        self.assertGreater(jsRez["status"]["firstRun"]["status"]["aggregated"]["r2"]["mean"], 0.98)
 
 
 mldb.run_tests()

@@ -350,13 +350,13 @@ run_categorical(AccuracyConfig & runAccuracyConf,
         unsigned support = real_sums[it->first];
         class_stats["precision"] = precision;
         class_stats["recall"] = recall;
-        class_stats["f1Score"] = 2 * ML::xdiv((precision * recall), (precision + recall));
+        class_stats["f"] = 2 * ML::xdiv((precision * recall), (precision + recall));
         class_stats["support"] = support;
         results["labelStatistics"][it->first.toString()] = class_stats;
 
         total_precision += precision * support;
         total_recall += recall * support;
-        total_f1 += class_stats["f1Score"].asDouble() * support;
+        total_f1 += class_stats["f"].asDouble() * support;
         total_support += support;
     }
 
@@ -364,7 +364,7 @@ run_categorical(AccuracyConfig & runAccuracyConf,
     Json::Value weighted_stats;
     weighted_stats["precision"] = total_precision / total_support;
     weighted_stats["recall"] = total_recall / total_support;
-    weighted_stats["f1Score"] = total_f1 / total_support;
+    weighted_stats["f"] = total_f1 / total_support;
     weighted_stats["support"] = total_support;
     results["weightedStatistics"] = weighted_stats;
 
@@ -531,7 +531,7 @@ run_regression(AccuracyConfig & runAccuracyConf,
 
     // create return object
     Json::Value results;
-    results["r2Score"] = r_squared;
+    results["r2"] = r_squared;
 //     results["b"] = b;
 //     results["bd"] = bd;
     results["mse"] = mse_sum / n;

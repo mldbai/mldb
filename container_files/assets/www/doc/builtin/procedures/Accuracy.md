@@ -108,33 +108,33 @@ GET http://localhost/v1/procedures/ttnc_test_scorer/runs/1
 
 {
     "status": {
-        "label_statistics": {
+        "labelStatistics": {
             "0": {
-                "f1_score": 0.8000000143051146,
+                "f": 0.8000000143051146,
                 "recall": 1.0,
                 "support": 2,
                 "precision": 0.6666666865348816
             },
             "1": {
-                "f1_score": 0.0,
+                "f": 0.0,
                 "recall": 0.0,
                 "support": 1,
                 "precision": 0.0
             },
             "2": {
-                "f1_score": 1.0,
+                "f": 1.0,
                 "recall": 1.0,
                 "support": 2,
                 "precision": 1.0
             }
         },
-        "weighted_statistics": {
-            "f1_score": 0.7200000057220459,
+        "weightedStatistics": {
+            "f": 0.7200000057220459,
             "recall": 0.8,
             "support": 5,
             "precision": 0.6666666746139527
         },
-        "confusion_matrix": [
+        "confusionMatrix": [
             {"predicted": "0", "actual": "1", "count": 1},
             {"predicted": "0", "actual": "0", "count": 2},
             {"predicted": "2", "actual": "2", "count": 2}
@@ -172,14 +172,14 @@ GET http://localhost/v1/procedures/ttnc_test_scorer/runs/1
 
 {
     "status": {
-        "quantile_errors": {
+        "quantileErrors": {
             "0.25": 0.0,
             "0.5": 0.1428571428571428,
             "0.75": 0.1666666666666667,
             "0.9": 0.1666666666666667
         },
         "mse": 0.375,
-        "r2_score": 0.9699681653424412
+        "r2": 0.9699681653424412
     },
     "state": "finished"
 }
