@@ -83,7 +83,7 @@ var expected =  {
         ],
         "link" : "LINEAR",
         "weights" : [
-            [ 1, 1.831867990631508e-15 ]
+            [ 1, 0 ]
         ]
     },
     "type" : "GLZ"

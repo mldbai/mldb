@@ -404,6 +404,7 @@ reconstitute(ML::DB::Store_Reader & store)
     }
 
     columnInfo.swap(newColumnInfo);
+
 }
 
 void

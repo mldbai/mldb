@@ -819,7 +819,6 @@ parse_or_add(const std::string & name) const
     if (frozen)
         throw Exception("Mutable_Categorical_Info::parse_or_add(): "
                         "frozen");
-
     Guard guard(lock);
 
     /* Get the value of the category */
