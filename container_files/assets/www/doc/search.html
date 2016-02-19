@@ -4,36 +4,6 @@
 <link rel='stylesheet' href='/resources/css/doc.css'>
 <script src="/resources/js/jquery-1.11.2.min.js" type="text/javascript"></script>
 <script>
-    var tipuesearch_pages = [
-        "/doc/builtin/Overview.md.html",
-        "/doc/builtin/Running.md.html",
-        "/doc/builtin/WorkingWithRest.md.html",
-        "/doc/builtin/Notebooks.md.html",
-        "/doc/builtin/Demos.md.html",
-        "/doc/builtin/Url.md.html",
-        "/doc/builtin/help.md.html",
-        "/doc/builtin/licenses.md.html",
-        "/doc/builtin/sql/Sql.md.html",
-        "/doc/builtin/sql/TypeSystem.md.html",
-        "/doc/builtin/sql/QueryAPI.md.html",
-        "/doc/builtin/sql/SelectExpression.md.html",
-        "/doc/builtin/sql/ValueExpression.md.html",
-        "/doc/builtin/sql/OrderByExpression.md.html",
-        "/doc/builtin/sql/GroupByExpression.md.html",
-        "/doc/builtin/datasets/Datasets.md.html",
-        "/doc/builtin/datasets/DatasetConfig.md.html",
-        "/doc/builtin/datasets/Persistence.md.html",
-        "/doc/builtin/procedures/Procedures.md.html",
-        "/doc/builtin/procedures/ProcedureConfig.md.html",
-        "/doc/builtin/functions/Functions.md.html",
-        "/doc/builtin/functions/Application.md.html",
-        "/doc/builtin/functions/FunctionConfig.md.html",
-        "/doc/builtin/plugins/Plugins.md.html",
-        "/doc/builtin/plugins/PluginConfig.md.html",
-        "/doc/builtin/plugins/ExamplePlugins.md.html",
-        "/doc/builtin/rest/Types.md.html",
-        "/doc/builtin/DocumentationServing.md.html"
-    ];
 </script>
 <script src="/resources/js/tipuesearch/tipuesearch_set.js"></script>
 <script src="/resources/js/tipuesearch/tipuesearch.js"></script>
@@ -45,11 +15,52 @@
 <form action="search.html">
 <input type="text" name="q" id="tipue_search_input" autocomplete="off" required>
 </form>
-<div id="tipue_search_content"><div class="tipue_search_spinner"><div class="tipue_search_rect1"></div><div class="tipue_search_rect2"></div><div class="rect3"></div></div></div>
+    
+<div id="tipue_search_content">
+    <div class="">
+        <p>Searching, please stand by...</p>
+        <div class="tipue_search_rect1"></div>
+        <div class="tipue_search_rect2"></div>
+        <div class="rect3"></div>
+    </div>
+</div>
 
+    <div id="hidden" style="display: none;"></div>
 <script>
 $(document).ready(function() {
-     $('#tipue_search_input').tipuesearch({ 'mode': 'live' });
+    $("#hidden").load("/doc/builtin/toc.md.html a", function(){
+        var blacklist = [
+            "/",
+            "/doc/rest.html",
+            "/doc/builtin/datasets/DatasetConfig.md.html",
+            "/doc/builtin/procedures/ProcedureConfig.md.html",
+            "/doc/builtin/functions/FunctionConfig.md.html",
+            "/doc/builtin/plugins/PluginConfig.md.html",
+        ];
+        window.tipuesearch_pages = [];
+
+        $("#hidden > a").each(function(){
+            var url = $(this).attr("href").split("#")[0];
+            if(url[0] != "/"){ url = "/doc/builtin/"+url; }
+            if(blacklist.indexOf(url) == -1 && 
+               window.tipuesearch_pages.indexOf(url) == -1) { 
+                window.tipuesearch_pages.push(url); 
+            }
+        });
+        
+        setTimeout(function() {
+        $('#tipue_search_input').tipuesearch({ 
+            'mode': 'live',
+            'show'                   : 10,
+            'newWindow'              : false,
+            'showURL'                : true,
+            'minimumLength'          : 1,
+            'descriptiveWords'       : 20,
+            'highlightTerms'         : false,
+            'highlightEveryTerm'     : false
+        });
+        }, 100);
+    });
 });
 </script>
 </body>
