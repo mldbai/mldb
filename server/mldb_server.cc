@@ -34,6 +34,12 @@
 
 using namespace std;
 
+namespace {
+bool supportsSystemRequirements() {
+    return ML::has_sse42();
+}
+} // anonymous
+
 namespace Datacratic {
 namespace MLDB {
 
@@ -190,7 +196,7 @@ initRoutes()
 
 
    // MLDB-1380 - make sure that the CPU support the minimal instruction sets
-    if (ML::has_sse42()) {
+    if (supportsSystemRequirements()) {
         addRouteAsync(versionNode, "/query", { "GET" },
                       "Select from dataset",
                       &MldbServer::runHttpQuery,
