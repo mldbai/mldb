@@ -108,7 +108,7 @@ ClassifierConfigDescription()
              0.5);
     addField("mode", &ClassifierConfig::mode,
              "Mode of classifier.  Controls how the label is interpreted and "
-             "what is the output of the classifier.");
+             "what is the output of the classifier.", CM_BOOLEAN);
     addField("functionName", &ClassifierConfig::functionName,
              "If specified, a classifier function of this name will be created using "
              "the trained classifier.");

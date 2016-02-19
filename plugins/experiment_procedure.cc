@@ -157,7 +157,7 @@ ExperimentProcedureConfigDescription()
               "is a good number to use for unbalanced probabilities", 0.5);
      addField("mode", &ExperimentProcedureConfig::mode,
               "Mode of classifier.  Controls how the label is interpreted and "
-              "what is the output of the classifier.");
+              "what is the output of the classifier.", CM_BOOLEAN);
      addField("outputAccuracyDataset", &ExperimentProcedureConfig::outputAccuracyDataset,
               "If true, an output dataset for scored examples will created for each fold.",
               true);

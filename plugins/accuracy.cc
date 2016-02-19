@@ -119,7 +119,7 @@ getStatus() const
 }
 
 RunOutput
-run_boolean(AccuracyConfig & runAccuracyConf,
+runBoolean(AccuracyConfig & runAccuracyConf,
             BoundSelectQuery & selectQuery,
             std::shared_ptr<Dataset> output)
 {
@@ -217,7 +217,7 @@ run_boolean(AccuracyConfig & runAccuracyConf,
 }
 
 RunOutput
-run_categorical(AccuracyConfig & runAccuracyConf,
+runCategorical(AccuracyConfig & runAccuracyConf,
                 BoundSelectQuery & selectQuery,
                 std::shared_ptr<Dataset> output)
 {
@@ -232,7 +232,7 @@ run_categorical(AccuracyConfig & runAccuracyConf,
                            const std::vector<ExpressionValue> & scoreLabelWeight)
         {
             CellValue maxLabel;
-            double maxLabelScore = -std::numeric_limits<double>::infinity();
+            double maxLabelScore = -INFINITY;
 
             std::vector<std::tuple<RowName, CellValue, Date> > outputRow;
 
@@ -323,36 +323,34 @@ run_categorical(AccuracyConfig & runAccuracyConf,
     unsigned total_support = 0;
 
     results["confusionMatrix"] = Json::Value(Json::arrayValue);
-    for(auto it = confusion_matrix.begin(); it != confusion_matrix.end(); it++) {
+    for(const auto & actual_it : confusion_matrix) {
         unsigned fn = 0;
         unsigned tp = 0;
 
-        for(auto predicted_it = it->second.begin(); 
-                predicted_it != it->second.end(); predicted_it++) {
-
-            if(predicted_it->first == it->first)  {
-                tp += predicted_it->second;
+        for(const auto & predicted_it : actual_it.second) {
+            if(predicted_it.first == actual_it.first)  {
+                tp += predicted_it.second;
             } else{
-                fn += predicted_it->second;
+                fn += predicted_it.second;
             }
             
             Json::Value conf_mat_elem;
-            conf_mat_elem["predicted"] = jsonEncode(predicted_it->first);
-            conf_mat_elem["actual"] = jsonEncode(it->first);
-            conf_mat_elem["count"] = predicted_it->second;
+            conf_mat_elem["predicted"] = jsonEncode(predicted_it.first);
+            conf_mat_elem["actual"] = jsonEncode(actual_it.first);
+            conf_mat_elem["count"] = predicted_it.second;
             results["confusionMatrix"].append(conf_mat_elem);
         }
 
         Json::Value class_stats;
 
-        double precision = ML::xdiv(tp, float(predicted_sums[it->first]));
+        double precision = ML::xdiv(tp, float(predicted_sums[actual_it.first]));
         double recall = ML::xdiv(tp, float(tp + fn));
-        unsigned support = real_sums[it->first];
+        unsigned support = real_sums[actual_it.first];
         class_stats["precision"] = precision;
         class_stats["recall"] = recall;
         class_stats["f"] = 2 * ML::xdiv((precision * recall), (precision + recall));
         class_stats["support"] = support;
-        results["labelStatistics"][it->first.toString()] = class_stats;
+        results["labelStatistics"][actual_it.first.toString()] = class_stats;
 
         total_precision += precision * support;
         total_recall += recall * support;
@@ -374,15 +372,15 @@ run_categorical(AccuracyConfig & runAccuracyConf,
     // misalignment in the way columns are named
 
     // for all predicted labels
-    for(auto predicted_it = predicted_sums.begin(); predicted_it != predicted_sums.end(); predicted_it++) {
+    for(const auto & predicted_it : predicted_sums) {
         // if it is not a true label
-        if(real_sums.find(predicted_it->first) == real_sums.end()) {
+        if(real_sums.find(predicted_it.first) == real_sums.end()) {
             if(weighted_stats["precision"].asDouble() == 0) {
                 throw ML::Exception(ML::format("Weighted precision is 0 and label '%s' " 
                         "was predicted but not in true labels! Are the columns of the predicted "
-                        "labels named properly?", predicted_it->first.toString()));
+                        "labels named properly?", predicted_it.first.toString()));
             }
-            cerr << "WARNING!! Label '" << predicted_it->first << "' was predicted but not in known labels!" << endl;
+            cerr << "WARNING!! Label '" << predicted_it.first << "' was predicted but not in known labels!" << endl;
         }
     }
 
@@ -393,7 +391,7 @@ run_categorical(AccuracyConfig & runAccuracyConf,
 }
 
 RunOutput
-run_regression(AccuracyConfig & runAccuracyConf,
+runRegression(AccuracyConfig & runAccuracyConf,
                BoundSelectQuery & selectQuery,
                std::shared_ptr<Dataset> output)
 {
@@ -592,11 +590,11 @@ run(const ProcedureRunConfig & run,
                      false /* implicit order by row hash */);
 
     if(runAccuracyConf.mode == CM_BOOLEAN)
-        return run_boolean(runAccuracyConf, boundQuery, output);
+        return runBoolean(runAccuracyConf, boundQuery, output);
     if(runAccuracyConf.mode == CM_CATEGORICAL)
-        return run_categorical(runAccuracyConf, boundQuery, output);
+        return runCategorical(runAccuracyConf, boundQuery, output);
     if(runAccuracyConf.mode == CM_REGRESSION)
-        return run_regression(runAccuracyConf, boundQuery, output);
+        return runRegression(runAccuracyConf, boundQuery, output);
 
     throw ML::Exception("Classification mode '%d' not implemented", runAccuracyConf.mode);
 }
