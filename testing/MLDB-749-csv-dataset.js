@@ -20,6 +20,7 @@ function assertEqual(expr, val, msg)
         + " not equal to " + JSON.stringify(val);
 }
 
+/**/
 var irisConfig = {
     type: 'text.csv.tabular',
     id: 'iris',
@@ -257,6 +258,7 @@ try {
 if(!failed) {
     throw "did not throw !!"
 }
+/**/
 
 var brokenConfigNoHeader = {
     type: 'text.csv.tabular',

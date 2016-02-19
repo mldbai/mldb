@@ -11,7 +11,7 @@
 #include "mldb/arch/rcu_protected.h"
 #include "mldb/rest/rest_request_binding.h"
 #include "mldb/arch/simd_vector.h"
-#include "mldb/jml/utils/worker_task.h"
+#include "mldb/base/parallel.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/ext/sqlite/sqlite3.h"
 #include "mldb/ext/sqlite/sqlite3pp.h"

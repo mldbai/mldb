@@ -19,7 +19,7 @@
 #include <cmath>
 #include "mldb/jml/utils/string_functions.h"
 #include "mldb/arch/simd_vector.h"
-#include "mldb/jml/utils/worker_task.h"
+#include "mldb/base/parallel.h"
 
 
 using namespace std;
@@ -240,7 +240,7 @@ diag_mult_impl(const boost::multi_array<Float, 2> & U,
                               std::placeholders::_1);
 
     if (parallel)
-        run_in_parallel_blocked(0, n, doColumn);
+        Datacratic::parallelMap(0, n, doColumn);
     else {
         for (unsigned j = 0;  j < n;  ++j)
             doColumn(j);
@@ -543,7 +543,7 @@ ridge_regression_impl(const boost::multi_array<Float, 2> & A,
         iterations.push_back(iter);
     };
 
-    run_in_parallel(0, iterations.size(),
+    Datacratic::parallelMap(0, iterations.size(),
                     std::bind(std::mem_fn(&RidgeRegressionIterations<Float>::run),
                               std::ref(iterations),
                               std::cref(singular_values),
@@ -648,7 +648,7 @@ weighted_square_impl(const boost::multi_array<Float, 2> & XT,
             x += nxc;
         }
     } else {
-        run_in_parallel_blocked(0, nv, std::bind(doWeightedSquareRow<Float>,
+        Datacratic::parallelMap(0, nv, std::bind(doWeightedSquareRow<Float>,
                                                  std::cref(XT),
                                                  std::cref(d),
                                                  std::ref(result),

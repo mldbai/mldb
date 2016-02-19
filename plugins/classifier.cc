@@ -16,7 +16,7 @@
 #include "mldb/sql/sql_expression.h"
 #include "mldb/jml/stats/distribution.h"
 #include "mldb/jml/utils/guard.h"
-#include "mldb/jml/utils/worker_task.h"
+#include "mldb/base/parallel.h"
 #include "mldb/jml/utils/pair_utils.h"
 #include "mldb/arch/timers.h"
 #include "mldb/arch/simd_vector.h"
@@ -689,8 +689,8 @@ ClassifyFunction(MldbServer * owner,
 
 ClassifyFunction::
 ClassifyFunction(MldbServer * owner,
-              std::shared_ptr<ML::Classifier_Impl> classifier,
-              const std::string & labelFeatureName)
+                 std::shared_ptr<ML::Classifier_Impl> classifier,
+                 const std::string & labelFeatureName)
     : Function(owner)
 {
     itl.reset(new Itl());

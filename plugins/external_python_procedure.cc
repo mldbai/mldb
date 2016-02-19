@@ -10,7 +10,7 @@
 #include "external_python_procedure.h"
 #include "mldb/server/mldb_server.h"
 #include "mldb/jml/utils/guard.h"
-#include "mldb/jml/utils/worker_task.h"
+#include "mldb/base/parallel.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/jml/utils/string_functions.h"
 #include "mldb/soa/service/runner.h"

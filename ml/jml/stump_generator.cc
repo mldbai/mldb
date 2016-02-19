@@ -3,7 +3,6 @@
 /* stump_generator.cc
    Jeremy Barnes, 15 March 2006
    Copyright (c) 2006 Jeremy Barnes  All rights reserved.
-   $Source$
 
    Generator for boosted stumps.
 */
@@ -390,8 +389,6 @@ train_all(Thread_Context & context,
     //cerr << "nl = " << nl << " bin_sym = " << bin_sym << " trace = " << trace
     //     << endl;
     
-    static Worker_Task & worker = Worker_Task::instance(num_threads() - 1);
-
     if (nl == 1) {
         /* Regression problem. */
 
@@ -403,16 +400,11 @@ train_all(Thread_Context & context,
         typedef Stump_Trainer_Parallel<W, Z, Stream_Tracer> Trainer;
         
         Accum accum(feature_space, fair, committee_size, C(), trace);
-        Trainer trainer(trace, worker);
+        Trainer trainer(trace);
         
         Trainer::Test_All_Job<Accum, LW_Array<const float>, distribution<float> >
             job(features, data, model.predicted(), weights,
-                example_weights, accum, trainer,
-                NO_JOB, context.group());
-        
-        // Wait until we have finished
-        worker.run_until_finished(job.group);
-        
+                example_weights, accum, trainer);
         all_best = accum.results(data, model.predicted());
     }
     else if (nl > 11) {
@@ -438,16 +430,11 @@ train_all(Thread_Context & context,
         typedef Stump_Accum<W, Z, C, Stream_Tracer, Locked> Accum;
         typedef Stump_Trainer_Parallel<W, Z, Stream_Tracer> Trainer;
         Accum accum(feature_space, fair, committee_size, update_alg, trace);
-        Trainer trainer(trace, worker);
+        Trainer trainer(trace);
 
         Trainer::Test_All_Job<Accum, LW_Array<const float>, distribution<float> >
             job(features, data, model.predicted(), weights,
-                example_weights, accum, trainer,
-                NO_JOB, context.group());
-        
-        // Wait until we have finished
-        worker.run_until_finished(job.group);
-            
+                example_weights, accum, trainer);
         all_best = accum.results(data, model.predicted());
     }
     else if (!bin_sym) {
@@ -471,7 +458,7 @@ train_all(Thread_Context & context,
         //cerr << "trace = " << trace << endl;
 
         Accum accum(feature_space, fair, committee_size, update_alg, trace);
-        Trainer trainer(trace, worker);
+        Trainer trainer(trace);
         
         //cerr << "trainer = " << &trainer << endl;
         //cerr << "accum.tracer() = " << accum.tracer.operator bool() << endl;
@@ -479,14 +466,7 @@ train_all(Thread_Context & context,
 
         Trainer::Test_All_Job<Accum, LW_Array<const float>, distribution<float> >
             job(features, data, model.predicted(), weights,
-                example_weights, accum, trainer,
-                NO_JOB, context.group());
-            
-        // Wait until we have finished
-        worker.run_until_finished(job.group);
-        
-        //cerr << "done training" << endl;
-
+                example_weights, accum, trainer);
         all_best = accum.results(data, model.predicted());
 
 #if 0
@@ -508,17 +488,12 @@ train_all(Thread_Context & context,
             typedef Stump_Trainer_Parallel<W, Z, Stream_Tracer> Trainer;
             
             Accum accum(feature_space, fair, committee_size, update_alg, trace);
-            Trainer trainer(trace, worker);
+            Trainer trainer(trace);
             
             Trainer::Test_All_Job<Accum, LW_Array<const float>,
                                   distribution<float> >
                 job(features, data, model.predicted(), weights,
-                    example_weights, accum, trainer,
-                    NO_JOB, context.group());
-            
-            // Wait until we have finished
-            worker.run_until_finished(job.group);
-            
+                    example_weights, accum, trainer);
             all_best = accum.results(data, model.predicted());
         }
         else {
@@ -526,16 +501,11 @@ train_all(Thread_Context & context,
             typedef Stump_Trainer_Parallel<W, Z, No_Trace> Trainer;
             
             Accum accum(feature_space, fair, committee_size, update_alg);
-            Trainer trainer(worker);
+            Trainer trainer;
 
             Trainer::Test_All_Job<Accum, LW_Array<const float>, distribution<float> >
                 job(features, data, model.predicted(), weights,
-                    example_weights, accum, trainer,
-                    NO_JOB, context.group());
-            
-            // Wait until we have finished
-            worker.run_until_finished(job.group);
-            
+                    example_weights, accum, trainer);
             all_best = accum.results(data, model.predicted());
         }
     }

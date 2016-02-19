@@ -1,14 +1,13 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* rcu_protected.h                                                 -*- C++ -*-
    Jeremy Barnes, 12 April 2012
    Copyright (c) 2012 Datacratic.  All rights reserved.
 
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+
    Building blocks for RCU protected data structures.
 */
 
-#ifndef __mmap__rcu_protected_h__
-#define __mmap__rcu_protected_h__
+#pragma once
 
 #include "gc_lock.h"
 #include "mldb/jml/utils/unnamed_bool.h"
@@ -281,7 +280,4 @@ struct RcuProtectedCopyable : public RcuProtected<T> {
 };
 
 } // namespace Datacratic
-
-#endif /* __mmap__rcu_protected_h__ */
-
    

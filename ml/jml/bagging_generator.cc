@@ -19,7 +19,7 @@
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/uniform_int.hpp>
 #include <boost/random/variate_generator.hpp>
-#include "mldb/jml/utils/worker_task.h"
+#include "mldb/base/parallel.h"
 #include "mldb/jml/utils/guard.h"
 #include "mldb/jml/utils/smart_ptr_utils.h"
 
@@ -240,31 +240,18 @@ generate(Thread_Context & context,
     vector<std::shared_ptr<Classifier_Impl> > results(num_bags);
     vector<Thread_Context> contexts(num_bags);
     for (unsigned i = 0;  i < num_bags;  ++i)
-        contexts[i] = context.child(-1, local_thread_only);
+        contexts[i] = context.child(local_thread_only);
 
     Bag_Job_Info info(training_data, ex_weights,
                       features, results,
                       train_prop, weak_learner, num_bags);
-    static Worker_Task & worker = Worker_Task::instance(num_threads() - 1);
-    
-    int group;
-    {
-        group = worker.get_group(NO_JOB,
-                                 format("Bagging_Generator::generate(): under %d",
-                                        context.group()),
-                                 context.group());
-        //cerr << "bagging: group = " << group << endl;
-        Call_Guard guard(std::bind(&Worker_Task::unlock_group,
-                                     std::ref(worker),
-                                     group));
-        for (unsigned i = 0;  i < num_bags;  ++i)
-            worker.add(Bag_Job(info, contexts[i], i, verbosity),
-                       format("Bagging_Generator::generate() bag %d under %d",
-                              i, group),
-                       group);
-    }
-    
-    worker.run_until_finished(group);
+
+    auto onBag = [&] (size_t i)
+        {
+            Bag_Job(info, contexts[i], i, verbosity)();
+        };
+
+    Datacratic::parallelMap(0, num_bags, onBag);
     
     Committee result(feature_space, predicted);
     

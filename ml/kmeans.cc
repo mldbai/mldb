@@ -116,7 +116,7 @@ train(const std::vector<distribution<float>> & points,
             ++clusterNumMembers[best_cluster];
         };
 
-        ML::run_in_parallel_blocked(0, points.size(), findNewCluster);
+        Datacratic::parallelMap(0, points.size(), findNewCluster);
 
         for (unsigned i = 0;  i < nbClusters;  ++i)
             clusters[i].nbMembers = clusterNumMembers[i];
@@ -162,7 +162,7 @@ train(const std::vector<distribution<float>> & points,
             }
         };
 
-        run_in_parallel_blocked(0, points.size(), addToMeanForPoint);
+        Datacratic::parallelMap(0, points.size(), addToMeanForPoint);
 
         // for (int i=0; i < clusters.size(); ++i) {
             // cerr << "cluster " << i << " had " << clusters[i].nbMembers
