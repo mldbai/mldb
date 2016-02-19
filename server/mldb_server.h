@@ -134,7 +134,7 @@ struct MldbServer: public ServicePeer, public EventRecorder {
 
 private:
     void preInit();
-    void initRoutes();
+    bool initRoutes();
     void initCollections(std::string configurationPath,
                          std::string staticFilesPath,
                          std::string staticDocPath,
