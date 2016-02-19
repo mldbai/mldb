@@ -14,12 +14,21 @@ table{
     margin: auto;
 }
 
-td,th{
+
+th, td {
     border: solid 1px lightgrey;
+    font-size: 18px;
     padding: 5px;
     vertical-align: top;
 }
+
+
+th {
+    font-family: Roboto Slab;
+}
+
 table.frametable td { border: 0;}
+
 
 td.hd, th.hd{
     font-size: 10pt;

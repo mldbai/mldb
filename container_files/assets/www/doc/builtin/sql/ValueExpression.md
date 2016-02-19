@@ -59,7 +59,7 @@ always are left associative, that is the expression
 `x / y % z` is evaluated as `(x / y) % z`.
 
   Operator  |  Type              | Precedence 
-:----------:|--------------------|:------------
+:----------:|--------------------|:------------:
      `~`      |  unary arithmetic  |          1 
      `*` , `/` , `%`      |  binary arithmetic |          2 
      `+` , `-`      |  unary arithmetic  |          3 
@@ -334,14 +334,14 @@ Note that this syntax is not part of SQL, it is an MLDB extension.
 With `{arrays: 'parse'}` the output will be:
 
 | a | c.d |f.0 |f.1 | i.0.j | i.0.j |
-|---|----|----|----|------|------|
+|:---:|:----:|:----:|:----:|:------:|:------:|
 | 'b' | 'e'   | 'g'    | 'h'  |  'k'   |  'm'   |
 
 
 With `{arrays: 'encode'}` the output will be:
 
 | a | c.d | f.g | f.h | i.0 | i.1
-|---|---|---|-----|------|------
+|:---:|:---:|:---:|:-----:|:------:|:------:
 | 'b' | 'e' | 1 | 1   | '{"j":"k"}' | '{"l":"m"}'
 
 
