@@ -578,7 +578,7 @@ struct MldbJS::Methods {
     {
         try {
             JsPluginContext * context = MldbJS::getContext(args.This());
-            auto stream = std::make_shared<ML::filter_istream>(JS::cstr(args[0]));
+            auto stream = std::make_shared<filter_istream>(JS::cstr(args[0]));
             
             return StreamJS::create(stream, context);
         } HANDLE_JS_EXCEPTIONS;

@@ -151,13 +151,13 @@ struct SftpConnection : public SshConnection {
     
     std::unique_ptr<std::streambuf>
     streamingUploadStreambuf(const std::string & path,
-                             const ML::OnUriHandlerException & onException);
+                             const OnUriHandlerException & onException);
 
     std::unique_ptr<std::streambuf>
     streamingDownloadStreambuf(const std::string & path);
 
-    ML::filter_ostream streamingUpload(const std::string & path);
-    ML::filter_istream streamingDownload(const std::string & path);
+    filter_ostream streamingUpload(const std::string & path);
+    filter_istream streamingDownload(const std::string & path);
 
     int unlink(const std::string & path);
 

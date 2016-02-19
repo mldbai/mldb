@@ -101,11 +101,11 @@ int main(int argc, char ** argv)
     StringTemplate tmpl(expression);
     CommandExpressionContext context;
 
-    ML::filter_ostream out(outputFile);
+    filter_ostream out(outputFile);
 
     for (auto & f: inputFiles) {
         //cerr << "doing file " << f << endl;
-        ML::filter_istream stream(f);
+        filter_istream stream(f);
         //cerr << "stream = " << (bool)stream << endl;
         ML::Parse_Context pcontext(f, stream);
         //cerr << "stream = " << (bool)stream << endl;

@@ -319,7 +319,7 @@ void
 ScoredStats::
 saveRocCurveJs(const std::string & filename) const
 {
-    ML::filter_ostream stream(filename);
+    filter_ostream stream(filename);
     dumpRocCurveJs(stream);
 }
 
@@ -349,7 +349,7 @@ void
 ScoredStats::
 saveRocCurveJson(const std::string & filename) const
 {
-    ML::filter_ostream stream(filename);
+    filter_ostream stream(filename);
     stream << getRocCurveJson().toStyledString() << endl;
 }
 

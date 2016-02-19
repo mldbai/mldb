@@ -139,7 +139,7 @@ inline std::string getEtcdUri()
 
 inline std::string getEtcdPath()
 {
-    ML::filter_istream stream("/proc/self/cmdline");
+    filter_istream stream("/proc/self/cmdline");
     std::string val = stream.readAll();
     std::string exe = ML::split(val, 0).at(0);
     std::string basename = ML::split(exe, '/').back();

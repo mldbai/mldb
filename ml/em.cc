@@ -24,6 +24,7 @@
 #include "mldb/ml/algebra/least_squares.h"
 
 using namespace std;
+using namespace Datacratic;
 
 typedef boost::multi_array<double, 2> MatrixType;
 
@@ -362,7 +363,7 @@ void
 EstimationMaximisation::
 save(const std::string & filename) const
 {
-    ML::filter_ostream stream(filename);
+    filter_ostream stream(filename);
     DB::Store_Writer store(stream);
     serialize(store);
 }
@@ -371,7 +372,7 @@ void
 EstimationMaximisation::
 load(const std::string & filename)
 {
-    ML::filter_istream stream(filename);
+    filter_istream stream(filename);
     DB::Store_Reader store(stream);
     reconstitute(store);
 }

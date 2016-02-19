@@ -327,8 +327,8 @@ run(const ProcedureRunConfig & run,
             throw ML::Exception("");
 
         Datacratic::makeUriDirectory(runProcConf.modelFileUrl.toString());
-        ML::filter_istream in(model_tmp_name);
-        ML::filter_ostream out(runProcConf.modelFileUrl.toString());
+        filter_istream in(model_tmp_name);
+        filter_ostream out(runProcConf.modelFileUrl.toString());
         out << in.rdbuf();
     }
     catch (const std::exception & exc) {
@@ -375,8 +375,8 @@ SVMFunction(MldbServer * owner,
     auto plugin_working_dir = fs::temp_directory_path() / fs::unique_path();
     auto model_tmp_name = plugin_working_dir.string() + std::string("svmmodeltemp_b.svm");
     try {
-        ML::filter_istream in(functionConfig.modelFileUrl.toString());
-        ML::filter_ostream out(model_tmp_name);
+        filter_istream in(functionConfig.modelFileUrl.toString());
+        filter_ostream out(model_tmp_name);
         out << in.rdbuf();
         in.close();
         out.close();

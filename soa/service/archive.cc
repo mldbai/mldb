@@ -127,7 +127,7 @@ bool iterateArchive(std::streambuf * archive,
 
                         std::shared_ptr<std::istream> result
                         (new std::istringstream(stream.str()));
-                        return ML::UriHandler(result->rdbuf(), result, info);
+                        return UriHandler(result->rdbuf(), result, info);
                     };
 
                 return onObject(filename, *info, open, 1 /* depth */);
@@ -228,7 +228,7 @@ struct ArchiveUrlFsHandler: UrlFsHandler {
         if (!archiveSource.removePrefix("archive+"))
             throw ML::Exception("archive URI '" + archiveSource.rawString() + "' doesn't start with 'archive+' when listing archive contents");
 
-        ML::filter_istream archiveStream(archiveSource.rawString());
+        filter_istream archiveStream(archiveSource.rawString());
 
         auto onObject2 = [&] (const std::string & object,
                               const FsObjectInfo & info,
@@ -248,12 +248,12 @@ struct ArchiveUrlFsHandler: UrlFsHandler {
 */
 struct RegisterArchiveHandler {
 
-    static ML::UriHandler
+    static UriHandler
     getArchiveHandler(const std::string & scheme,
                       const std::string & resource,
                       std::ios_base::open_mode mode,
                       const std::map<std::string, std::string> & options,
-                      const ML::OnUriHandlerException & onException)
+                      const OnUriHandlerException & onException)
     {
         if (mode != ios::in) {
             throw ML::Exception("Only input is accepted for archives");
@@ -290,7 +290,7 @@ struct RegisterArchiveHandler {
         //     << " archiveUri = " << archiveUri << " toExtractPath = "
         //     << toExtractPath << endl;
 
-        ML::UriHandler result;
+        UriHandler result;
 
         OnUriObject onObject = [&] (const std::string & archiveMemberUri,
                                     const FsObjectInfo & info,
@@ -317,7 +317,7 @@ struct RegisterArchiveHandler {
 
     RegisterArchiveHandler()
     {
-        ML::registerUriHandler("archive", getArchiveHandler);
+        registerUriHandler("archive", getArchiveHandler);
         registerUrlFsHandler("archive", new ArchiveUrlFsHandler());
     }
 

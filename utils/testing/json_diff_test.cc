@@ -28,7 +28,7 @@ T jsonDecodeFile(const std::string & filename, T * = 0)
 {
     T result;
     
-    ML::filter_istream stream(filename);
+    filter_istream stream(filename);
     
     static auto desc = getDefaultDescriptionSharedT<T>();
     StreamingJsonParsingContext context(filename, stream);

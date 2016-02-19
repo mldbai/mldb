@@ -49,7 +49,7 @@ struct _Init {
 
 void dumpSigStatus()
 {
-    ML::filter_istream stream("/proc/self/status");
+    filter_istream stream("/proc/self/status");
     string line;
     while (stream) {
         getline(stream, line);

@@ -582,7 +582,7 @@ struct CsvDataset::Itl: public TabularDataStore {
         filename = config.dataFileUrl.toString();
         
         // Ask for a memory mappable stream if possible
-        ML::filter_istream stream(filename, { { "mapped", "true" } });
+        filter_istream stream(filename, { { "mapped", "true" } });
 
         // Get the file timestamp out
         Date ts = stream.info().lastModified;

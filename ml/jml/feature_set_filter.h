@@ -1,14 +1,13 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* feature_set_filter.h                                            -*- C++ -*-
    Jeremy Barnes, 27 August 2006
    Copyright (c) 2006 Jeremy Barnes.  All rights reserved.
 
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+
    A filter for feature sets.
 */
 
-#ifndef __element_tools__feature_set_filter_h__
-#define __element_tools__feature_set_filter_h__
+#pragma once
 
 #include "mldb/ml/jml/dense_features.h"
 #include "feature_set.h"
@@ -99,7 +98,3 @@ struct Feature_Set_Filter {
 };
 
 } // namespace ML
-
-
-#endif /* __element_tools__feature_set_filter_h__ */
-

@@ -298,7 +298,7 @@ bool
 Datasets::
 detect_sparseness(const std::string & filename)
 {
-    filter_istream stream(filename);
+    Datacratic::filter_istream stream(filename);
 
     string s;
     stream >> s;

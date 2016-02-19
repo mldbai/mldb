@@ -236,8 +236,8 @@ struct DockerLayersUrlFsHandler: UrlFsHandler {
                     std::map<std::string, std::string> options2 = options;
                     options2["http-set-cookie"] = setCookie;
                     
-                    auto stream = std::make_shared<ML::filter_istream>(directUri, options2);
-                    return ML::UriHandler(stream->rdbuf(), stream, info);
+                    auto stream = std::make_shared<filter_istream>(directUri, options2);
+                    return UriHandler(stream->rdbuf(), stream, info);
                 };
 
 
@@ -335,7 +335,7 @@ struct DockerUrlFsHandler: UrlFsHandler {
                             int depth) -> bool
             {
                 // Open the archive
-                ML::UriHandler handler = open({});
+                UriHandler handler = open({});
 
                 auto onObject2 = [&] (const std::string & uri,
                                       const FsObjectInfo & info,
@@ -413,12 +413,12 @@ struct DockerUrlFsHandler: UrlFsHandler {
 */
 struct RegisterDockerHandler {
 
-    static ML::UriHandler
+    static UriHandler
     getDockerHandler(const std::string & scheme,
                      const std::string & resource,
                      std::ios_base::open_mode mode,
                      const std::map<std::string, std::string> & options,
-                     const ML::OnUriHandlerException & onException)
+                     const OnUriHandlerException & onException)
     {
         if (mode != ios::in) {
             throw ML::Exception("Cannot write to docker containers, only read");
@@ -433,7 +433,7 @@ struct RegisterDockerHandler {
 
         std::string repoUri = c.repoUri();
 
-        ML::UriHandler result;
+        UriHandler result;
         
         OnUriObject onObject = [&] (const std::string & uri,
                                     const FsObjectInfo & info,
@@ -458,7 +458,7 @@ struct RegisterDockerHandler {
 
     RegisterDockerHandler()
     {
-        ML::registerUriHandler("docker", getDockerHandler);
+        registerUriHandler("docker", getDockerHandler);
         registerUrlFsHandler("docker", new DockerUrlFsHandler());
         registerUrlFsHandler("docker-layers", new DockerLayersUrlFsHandler());
     }

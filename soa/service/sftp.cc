@@ -686,7 +686,7 @@ struct SftpStreamingUploadSource {
 
     SftpStreamingUploadSource(SftpConnection * owner,
                               const std::string & path,
-                              const ML::OnUriHandlerException & excCallback)
+                              const OnUriHandlerException & excCallback)
     {
         impl.reset(new Impl());
         impl->owner = owner;
@@ -717,7 +717,7 @@ struct SftpStreamingUploadSource {
         SftpConnection * owner;
         LIBSSH2_SFTP_HANDLE * handle;
         std::string path;
-        ML::OnUriHandlerException onException;
+        OnUriHandlerException onException;
         
         size_t offset;
         size_t lastPrint;
@@ -825,11 +825,11 @@ struct SftpStreamingUploadSource {
     }
 };
 
-ML::filter_ostream
+filter_ostream
 SftpConnection::
 streamingUpload(const std::string & path)
 {
-    ML::filter_ostream result;
+    filter_ostream result;
     auto onException = [&] { result.notifyException(); };
     std::shared_ptr<std::streambuf> buf(streamingUploadStreambuf(path, onException).release());
     result.openFromStreambuf(buf.get(), buf, path);
@@ -840,7 +840,7 @@ streamingUpload(const std::string & path)
 std::unique_ptr<std::streambuf>
 SftpConnection::
 streamingUploadStreambuf(const std::string & path,
-                         const ML::OnUriHandlerException & onException)
+                         const OnUriHandlerException & onException)
 {
     std::unique_ptr<std::streambuf> result;
     result.reset(new boost::iostreams::stream_buffer<SftpStreamingUploadSource>
@@ -849,11 +849,11 @@ streamingUploadStreambuf(const std::string & path,
     return result;
 }
 
-ML::filter_istream
+filter_istream
 SftpConnection::
 streamingDownload(const std::string & path)
 {
-    ML::filter_istream result;
+    filter_istream result;
     std::shared_ptr<std::streambuf> buf(streamingDownloadStreambuf(path).release());
     result.openFromStreambuf(buf.get(), buf, path);
 
@@ -938,7 +938,7 @@ struct RegisterSftpHandler {
                    const std::string & resource,
                    std::ios_base::open_mode mode,
                    const std::map<std::string, std::string> & options,
-                   const ML::OnUriHandlerException & onException)
+                   const OnUriHandlerException & onException)
     {
         string::size_type pos = resource.find('/');
         if (pos == string::npos)
@@ -973,20 +973,20 @@ struct RegisterSftpHandler {
             info->ownerId = std::to_string(attr.uid);
             info->lastModified = Date::fromSecondsSinceEpoch(attr.mtime);
 
-            return ML::UriHandler(buf.get(), buf, info);
+            return UriHandler(buf.get(), buf, info);
         }
         else if (mode == ios::out) {
             std::shared_ptr<std::streambuf> buf
                 (connection->streamingUploadStreambuf("sftp://" + resource, onException)
                  .release());
-            return ML::UriHandler(buf.get(), buf);
+            return UriHandler(buf.get(), buf);
         }
         else throw ML::Exception("no way to create sftp handler for non in/out");
     }
 
     RegisterSftpHandler()
     {
-        ML::registerUriHandler("sftp", getSftpHandler);
+        registerUriHandler("sftp", getSftpHandler);
     }
 
 } registerSftpHandler;

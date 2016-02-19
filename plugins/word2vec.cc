@@ -76,7 +76,7 @@ struct Word2VecImporter: public Procedure {
         auto runProcConf = applyRunConfOverProcConf(config, run);
         auto info = getUriObjectInfo(runProcConf.dataFileUrl.toString());
 
-        ML::filter_istream stream(runProcConf.dataFileUrl.toString());
+        filter_istream stream(runProcConf.dataFileUrl.toString());
 
         std::string header;
         getline(stream, header);

@@ -145,7 +145,7 @@ cleanup()
 /* HDFS DL SOURCE                                                           */
 /****************************************************************************/
 
-/* Source for ML::filter_istream */
+/* Source for filter_istream */
 struct HDFSDlSource {
     typedef char char_type;
     struct category
@@ -184,7 +184,7 @@ private:
 /* HDFS UL SOURCE                                                           */
 /****************************************************************************/
 
-/* Source for ML::filter_ostream */
+/* Source for filter_ostream */
 
 struct HDFSUlSource {
     typedef char char_type;

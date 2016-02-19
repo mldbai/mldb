@@ -423,12 +423,12 @@ struct HttpUrlFsHandler: UrlFsHandler {
     used to treat an Http object as a simple stream.
 */
 struct RegisterHttpHandler {
-    static ML::UriHandler
+    static UriHandler
     getHttpHandler(const std::string & scheme,
                    const std::string & resource,
                    std::ios_base::open_mode mode,
                    const std::map<std::string, std::string> & options,
-                   const ML::OnUriHandlerException & onException)
+                   const OnUriHandlerException & onException)
     {
         string::size_type pos = resource.find('/');
         if (pos == string::npos)
@@ -440,7 +440,7 @@ struct RegisterHttpHandler {
             std::pair<std::unique_ptr<std::streambuf>, FsObjectInfo> sb_info
                 = makeHttpStreamingDownload(scheme+"://"+resource, options);
             std::shared_ptr<std::streambuf> buf(sb_info.first.release());
-            return ML::UriHandler(buf.get(), buf, sb_info.second);
+            return UriHandler(buf.get(), buf, sb_info.second);
         }
         else if (mode == ios::out) {
             throw ML::Exception("Can't currently upload files via HTTP/HTTPs");
@@ -450,8 +450,8 @@ struct RegisterHttpHandler {
     
     RegisterHttpHandler()
     {
-        ML::registerUriHandler("http", getHttpHandler);
-        ML::registerUriHandler("https", getHttpHandler);
+        registerUriHandler("http", getHttpHandler);
+        registerUriHandler("https", getHttpHandler);
 
         registerUrlFsHandler("http", new HttpUrlFsHandler());
         registerUrlFsHandler("https", new HttpUrlFsHandler());

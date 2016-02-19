@@ -177,7 +177,7 @@ LoadedPluginResource(ScriptLanguage lang, ScriptType type,
     if(!resource.source.empty() && resource.source.writeSourceToFile) {
         createPluginDir();
         
-        ML::filter_ostream ostream(getElementLocation(MAIN));
+        filter_ostream ostream(getElementLocation(MAIN));
         ostream << resource.source.main << endl;
         ostream.close();
     }
@@ -225,8 +225,8 @@ LoadedPluginResource(ScriptLanguage lang, ScriptType type,
 
         createPluginDir();
 
-        ML::filter_istream istream(url.toString());
-        ML::filter_ostream ostream(getElementLocation(MAIN));
+        filter_istream istream(url.toString());
+        filter_ostream ostream(getElementLocation(MAIN));
         string line;
         while(getline(istream, line)) {
             ostream << line << endl;
@@ -386,7 +386,7 @@ getScript(PackageElement elem) const
 
     string filePath = getElementLocation(elem);
     cerr << "loading from: " << filePath << endl;
-    ML::filter_istream stream(filePath);
+    filter_istream stream(filePath);
     std::ostringstream out;
     out << stream.rdbuf();
     stream.close();

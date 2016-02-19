@@ -78,7 +78,7 @@ struct SentiWordNetImporter: public Procedure {
 
         auto info = getUriObjectInfo(runProcConf.dataFileUrl.toString());
 
-        ML::filter_istream stream(runProcConf.dataFileUrl.toString());
+        filter_istream stream(runProcConf.dataFileUrl.toString());
 
         std::shared_ptr<Dataset> outputDataset;
         if (!runProcConf.outputDataset.type.empty() || !runProcConf.outputDataset.id.empty()) {

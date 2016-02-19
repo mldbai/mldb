@@ -259,7 +259,7 @@ int main(int argc, char ** argv)
     // Now load the credentials file
     if (!addCredentialsFromUrl.empty()) {
         try {
-            ML::filter_istream stream(addCredentialsFromUrl);
+            filter_istream stream(addCredentialsFromUrl);
             vector<string> fileCredentials;
             while (stream) {
                 Json::Value val = Json::parse(stream);
@@ -355,7 +355,7 @@ int main(int argc, char ** argv)
         // Get arguments
         if (!scriptArgsUrl.empty()) {
             try {
-                ML::filter_istream stream(scriptArgsUrl);
+                filter_istream stream(scriptArgsUrl);
                 Json::Value args = Json::parse(stream);
                 config.args = args;
             } catch (const HttpReturnException & exc) {

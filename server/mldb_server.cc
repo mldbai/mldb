@@ -441,7 +441,7 @@ scanPlugins(const std::string & dir_)
 
     auto info = tryGetUriObjectInfo(dir + "mldb_plugin.json");
     if (info) {
-        ML::filter_istream stream(dir + "mldb_plugin.json");
+        filter_istream stream(dir + "mldb_plugin.json");
         foundPlugin(dir, stream);
     }
     else {
@@ -457,9 +457,9 @@ scanPlugins(const std::string & dir_)
                            int depth)
             {
                 if (endsWith(uri, "/mldb_plugin.json")) {
-                    //ML::filter_istream stream(open({}),
+                    //filter_istream stream(open({}),
                     //                          uri, {});
-                    ML::filter_istream stream(uri);
+                    filter_istream stream(uri);
                     foundPlugin(string(uri, 0, uri.length() - 16), stream);
                     return true;
                 }
