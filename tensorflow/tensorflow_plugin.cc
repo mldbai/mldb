@@ -1177,7 +1177,7 @@ static RegisterFunctionType<TensorflowGraph, TensorflowGraphConfig>
 regTensorflowGraph(tensorflowPackage(),
                    "tensorflow.graph",
                    "Graph parameters for a trained TensorFlow model",
-                   "TensorflowGraph.md");
+                   "TensorflowGraph.md.html");
 
 
 } // namespace MLDB
