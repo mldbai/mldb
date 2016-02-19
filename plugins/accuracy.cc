@@ -315,14 +315,14 @@ run_categorical(AccuracyConfig & runAccuracyConf,
 
     // Create per-class statistics
     Json::Value results;
-    results["label_statistics"] = Json::Value();
+    results["labelStatistics"] = Json::Value();
 
     double total_precision = 0;
     double total_recall = 0; // i'll be back!
     double total_f1 = 0;
     unsigned total_support = 0;
 
-    results["confusion_matrix"] = Json::Value(Json::arrayValue);
+    results["confusionMatrix"] = Json::Value(Json::arrayValue);
     for(auto it = confusion_matrix.begin(); it != confusion_matrix.end(); it++) {
         unsigned fn = 0;
         unsigned tp = 0;
@@ -340,7 +340,7 @@ run_categorical(AccuracyConfig & runAccuracyConf,
             conf_mat_elem["predicted"] = jsonEncode(predicted_it->first);
             conf_mat_elem["actual"] = jsonEncode(it->first);
             conf_mat_elem["count"] = predicted_it->second;
-            results["confusion_matrix"].append(conf_mat_elem);
+            results["confusionMatrix"].append(conf_mat_elem);
         }
 
         Json::Value class_stats;
@@ -350,13 +350,13 @@ run_categorical(AccuracyConfig & runAccuracyConf,
         unsigned support = real_sums[it->first];
         class_stats["precision"] = precision;
         class_stats["recall"] = recall;
-        class_stats["f1_score"] = 2 * ML::xdiv((precision * recall), (precision + recall));
+        class_stats["f1Score"] = 2 * ML::xdiv((precision * recall), (precision + recall));
         class_stats["support"] = support;
-        results["label_statistics"][it->first.toString()] = class_stats;
+        results["labelStatistics"][it->first.toString()] = class_stats;
 
         total_precision += precision * support;
         total_recall += recall * support;
-        total_f1 += class_stats["f1_score"].asDouble() * support;
+        total_f1 += class_stats["f1Score"].asDouble() * support;
         total_support += support;
     }
 
@@ -364,9 +364,9 @@ run_categorical(AccuracyConfig & runAccuracyConf,
     Json::Value weighted_stats;
     weighted_stats["precision"] = total_precision / total_support;
     weighted_stats["recall"] = total_recall / total_support;
-    weighted_stats["f1_score"] = total_f1 / total_support;
+    weighted_stats["f1Score"] = total_f1 / total_support;
     weighted_stats["support"] = total_support;
-    results["weighted_statistics"] = weighted_stats;
+    results["weightedStatistics"] = weighted_stats;
 
 
     // TODO maybe this should always return an error? The problem is it is not impossible that because
@@ -531,7 +531,7 @@ run_regression(AccuracyConfig & runAccuracyConf,
 
     // create return object
     Json::Value results;
-    results["r2_score"] = r_squared;
+    results["r2Score"] = r_squared;
 //     results["b"] = b;
 //     results["bd"] = bd;
     results["mse"] = mse_sum / n;
@@ -544,7 +544,7 @@ run_regression(AccuracyConfig & runAccuracyConf,
         quantile_errors["0.75"] = absolute_percentage[(int)(size*0.75)];
         quantile_errors["0.9"] = absolute_percentage[(int)(size*0.9)];
     }
-    results["quantile_errors"] = quantile_errors;
+    results["quantileErrors"] = quantile_errors;
 
     return Any(results);
 }

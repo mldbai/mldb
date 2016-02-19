@@ -92,26 +92,26 @@ class Mldb256Test(MldbUnitTest):
 
         goodLabelStatistics = {
                     "1": {
-                        "f1_score": 0.0,
+                        "f1Score": 0.0,
                         "recall": 0.0,
                         "support": 1,
                         "precision": 0.0
                     },
                     "0": {
-                        "f1_score": 0.8000000143051146,
+                        "f1Score": 0.8000000143051146,
                         "recall": 1.0,
                         "support": 2,
                         "precision": 0.6666666865348816
                     },
                     "2": {
-                        "f1_score": 1.0,
+                        "f1Score": 1.0,
                         "recall": 1.0,
                         "support": 2,
                         "precision": 1.0
                     }
                 }
 
-        self.assertEqual(jsRez["status"]["firstRun"]["status"]["label_statistics"],
+        self.assertEqual(jsRez["status"]["firstRun"]["status"]["labelStatistics"],
                          goodLabelStatistics)
 
         total_f1 = 0
@@ -119,14 +119,14 @@ class Mldb256Test(MldbUnitTest):
         total_support = 0
         total_precision = 0
         for val in goodLabelStatistics.itervalues():
-            total_f1 += val["f1_score"] * val["support"]
+            total_f1 += val["f1Score"] * val["support"]
             total_recall += val["recall"] * val["support"]
             total_precision += val["precision"] * val["support"]
             total_support += val["support"]
 
-        self.assertEqual(jsRez["status"]["firstRun"]["status"]["weighted_statistics"],
+        self.assertEqual(jsRez["status"]["firstRun"]["status"]["weightedStatistics"],
                 {
-                    "f1_score": total_f1 / total_support,
+                    "f1Score": total_f1 / total_support,
                     "recall": total_recall / total_support,
                     "support": total_support,
                     "precision": total_precision / total_support
@@ -164,8 +164,8 @@ class Mldb256Test(MldbUnitTest):
 
         jsRez = rez.json()
         mldb.log(jsRez)
-        mldb.log(jsRez["status"]["firstRun"]["status"]["folds"][0]["results"]["confusion_matrix"])
-        self.assertEqual(jsRez["status"]["firstRun"]["status"]["folds"][0]["results"]["confusion_matrix"],
+        mldb.log(jsRez["status"]["firstRun"]["status"]["folds"][0]["results"]["confusionMatrix"])
+        self.assertEqual(jsRez["status"]["firstRun"]["status"]["folds"][0]["results"]["confusionMatrix"],
                 [{
                     "count": 3,
                     "actual": "x",
@@ -207,8 +207,8 @@ class Mldb256Test(MldbUnitTest):
         quart_rez = mldb.query("""select abs((label-score)/label) as prnct_error, label, score 
                                   from toy_regression order by prnct_error ASC""")
         mldb.log(quart_rez)
-        self.assertAlmostEqual(jsRez["status"]["firstRun"]["status"]["quantile_errors"]["0.5"], quart_rez[2][1])
-        self.assertAlmostEqual(jsRez["status"]["firstRun"]["status"]["quantile_errors"]["0.9"], quart_rez[3][1])
+        self.assertAlmostEqual(jsRez["status"]["firstRun"]["status"]["quantileErrors"]["0.5"], quart_rez[2][1])
+        self.assertAlmostEqual(jsRez["status"]["firstRun"]["status"]["quantileErrors"]["0.9"], quart_rez[3][1])
 
         # Check the accuracy dataset
         self.assertEqual(len(mldb.query("select * from toy_reg_output")), 5)
@@ -247,7 +247,7 @@ class Mldb256Test(MldbUnitTest):
 
         jsRez = rez.json()
         mldb.log(jsRez)
-        self.assertGreater(jsRez["status"]["firstRun"]["status"]["aggregated"]["r2_score"]["mean"], 0.98)
+        self.assertGreater(jsRez["status"]["firstRun"]["status"]["aggregated"]["r2Score"]["mean"], 0.98)
 
 
 mldb.run_tests()
