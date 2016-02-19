@@ -1,5 +1,4 @@
 
-<script src="js.md.html" type="text/javascript"> </script>
 <script>
 document.getElementsByTagName("body")[0].style.margin="20px"
 </script>
