@@ -695,9 +695,7 @@ struct ExpressionValue {
     void mergeToRowDestructive(StructValue & row);
 
     /** Apply filter to select values in the row according to their timestamp */
-    Row getFiltered(const VariableFilter & filter = GET_LATEST) const;
-    /** As above but modify the internal state of the expression value */
-    void filterRow(const VariableFilter & filter);
+    Row getFiltered(const VariableFilter & filter) const;
 
     typedef std::function<bool (const ColumnName & columnName,
                                 std::pair<CellValue, Date> * vals1,
