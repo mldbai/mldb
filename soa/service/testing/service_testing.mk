@@ -16,7 +16,7 @@ $(eval $(call test,message_loop_test,services,boost))
 
 $(eval $(call program,runner_test_helper,utils))
 $(eval $(call test,runner_test,services,boost))
-$(eval $(call test,runner_stress_test,services,boost))
+$(eval $(call test,runner_stress_test,services,boost manual))
 $(TESTS)/runner_test $(TESTS)/runner_stress_test: $(BIN)/runner_test_helper
 $(eval $(call test,sink_test,services,boost))
 $(eval $(call program,async_writer_bench,services))

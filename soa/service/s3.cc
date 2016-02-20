@@ -30,6 +30,7 @@
 #include "mldb/soa/credentials/credentials.h"
 #include "mldb/soa/credentials/credential_provider.h"
 #include "mldb/http/curl_wrapper.h"
+#include "mldb/http/http_rest_proxy_impl.h"
 
 #include <boost/iostreams/stream_buffer.hpp>
 #include <exception>

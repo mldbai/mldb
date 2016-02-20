@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* http_rest_proxy.cc
    Jeremy Barnes, 10 April 2013
    Copyright (c) 2013 Datacratic Inc.  All rights reserved.
+
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    REST proxy class for http.
 */
@@ -13,9 +13,11 @@
 #include <thread>
 #include "mldb/types/structure_description.h"
 #include "curl_wrapper.h"
+#include "mldb/base/exc_assert.h"
+#include "mldb/jml/utils/string_functions.h"
 
 #include "http_rest_proxy.h"
-
+#include "http_rest_proxy_impl.h"
 
 using namespace std;
 using namespace ML;
@@ -25,18 +27,208 @@ namespace Datacratic {
 
 
 /*****************************************************************************/
+/* HTTP REST RESPONSE                                                        */
+/*****************************************************************************/
+
+HttpRestResponse::
+HttpRestResponse()
+    : code_(0), errorCode_(0)
+{
+}
+
+Json::Value
+HttpRestResponse::
+jsonBody() const
+{
+    return Json::parse(body_);
+}
+
+const std::pair<const std::string, std::string> *
+HttpRestResponse::
+hasHeader(const std::string & name) const
+{
+    auto it = header_.headers.find(name);
+    if (it == header_.headers.end())
+        it = header_.headers.find(ML::lowercase(name));
+    if (it == header_.headers.end())
+        return nullptr;
+    return &(*it);
+}
+
+const std::string &
+HttpRestResponse::
+getHeader(const std::string & name) const
+{
+    auto p = hasHeader(name);
+    if (!p)
+        throw ML::Exception("required header " + name + " not found");
+    return p->second;
+}
+
+
+/*****************************************************************************/
+/* HTTP REST CONTENT                                                         */
+/*****************************************************************************/
+
+HttpRestContent::
+HttpRestContent()
+    : data(0), size(0), hasContent(false)
+{
+}
+
+HttpRestContent::
+HttpRestContent(const std::string & str,
+                const std::string & contentType)
+    : str(str), data(str.c_str()), size(str.size()),
+      hasContent(true), contentType(contentType)
+{
+}
+
+HttpRestContent::
+HttpRestContent(const char * data, uint64_t size,
+                const std::string & contentType,
+                const std::string & contentMd5)
+    : data(data), size(size), hasContent(true),
+      contentType(contentType), contentMd5(contentMd5)
+{
+}
+
+HttpRestContent::
+HttpRestContent(const Json::Value & content,
+                const std::string & contentType)
+    : str(content.toString()), data(str.c_str()),
+      size(str.size()), hasContent(true),
+      contentType(contentType)
+{
+}
+
+HttpRestContent::
+HttpRestContent(const RestParams & form)
+{
+    for (auto p: form) {
+        if (!str.empty())
+            str += "&";
+        str += urlEncode(p.first) + "=" + urlEncode(p.second);
+    }
+
+    data = str.c_str();
+    size = str.size();
+    hasContent = true;
+    contentType = "application/x-www-form-urlencoded";
+}
+
+std::string
+HttpRestContent::
+urlEncode(const std::string & str)
+{
+    std::string result;
+    for (auto c: str) {
+                
+        if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~')
+            result += c;
+        else result += ML::format("%%%02X", c);
+    }
+    return result;
+}
+        
+std::string
+HttpRestContent::
+urlEncode(const Utf8String & str)
+{
+    // Encode each character separately
+    std::string result;
+    for (auto c: str.rawString()) {
+                
+        if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~')
+            result += c;
+        else result += ML::format("%%%02X", c);
+    }
+    return result;
+}
+
+
+/*****************************************************************************/
 /* HTTP REST PROXY                                                           */
 /*****************************************************************************/
 
-struct HttpRestProxy::ConnectionHandler: public CurlWrapper::Easy {
-};
+HttpRestProxy::
+HttpRestProxy(const std::string & serviceUri)
+    : serviceUri(serviceUri), noSSLChecks(false), debug(false)
+{
+}
 
 HttpRestProxy::
 ~HttpRestProxy()
 {
 }
 
-HttpRestProxy::Response
+void
+HttpRestProxy::
+init(const std::string & serviceUri)
+{
+    this->serviceUri = serviceUri;
+}
+
+void
+HttpRestProxy::
+setCookieFromResponse(const Response& r)
+{
+    cookies.push_back("Set-Cookie: " + r.getHeader("set-cookie"));
+}
+
+void
+HttpRestProxy::
+setCookie(const std::string & value)
+{
+    cookies.push_back("Set-Cookie: " + value);
+}
+
+HttpRestResponse
+HttpRestProxy::
+post(const std::string & resource,
+     const Content & content,
+     const RestParams & queryParams,
+     const RestParams & headers,
+     double timeout,
+     bool exceptions,
+     OnData onData,
+     OnHeader onHeader) const
+{
+    return perform("POST", resource, content, queryParams, headers,
+                   timeout, exceptions, onData, onHeader);
+}
+
+HttpRestResponse
+HttpRestProxy::
+put(const std::string & resource,
+    const Content & content,
+    const RestParams & queryParams,
+    const RestParams & headers,
+    double timeout,
+    bool exceptions,
+    OnData onData,
+    OnHeader onHeader) const
+{
+    return perform("PUT", resource, content, queryParams, headers,
+                   timeout, exceptions, onData, onHeader);
+}
+
+HttpRestResponse
+HttpRestProxy::
+get(const std::string & resource,
+    const RestParams & queryParams,
+    const RestParams & headers,
+    double timeout,
+    bool exceptions,
+    OnData onData,
+    OnHeader onHeader,
+    bool followRedirect) const
+{
+    return perform("GET", resource, Content(), queryParams, headers,
+                   timeout, exceptions, onData, onHeader, followRedirect);
+}
+
+HttpRestResponse
 HttpRestProxy::
 perform(const std::string & verb,
         const std::string & resource,
@@ -197,17 +389,6 @@ perform(const std::string & verb,
     }
 }
 
-HttpRestProxy::Connection::
-~Connection() noexcept
-{
-    if (!conn)
-        return;
-
-    if (proxy)
-        proxy->doneConnection(conn);
-    else delete conn;
-}
-
 HttpRestProxy::Connection
 HttpRestProxy::
 getConnection() const
@@ -241,146 +422,10 @@ doneConnection(ConnectionHandler * conn)
     inactive.emplace_back(conn, nullptr);
 }
 
-
-/****************************************************************************/
-/* JSON REST PROXY                                                          */
-/****************************************************************************/
-
-JsonRestProxy::
-JsonRestProxy(const string & url)
-    : HttpRestProxy(url), protocolDate(0),
-      maxRetries(10), maxBackoffTime(900)
+std::ostream &
+operator << (std::ostream & stream, const HttpRestProxy::Response & response)
 {
-    if (url.find("https://") == 0) {
-        cerr << "warning: no validation will be performed on the SSL cert.\n";
-        noSSLChecks = true;
-    }
-}
-
-HttpRestProxy::Response
-JsonRestProxy::
-performWithBackoff(const string & method, const string & resource,
-                   const string & body)
-    const
-{
-    HttpRestProxy::Response response;
-
-    JML_TRACE_EXCEPTIONS(false);
-
-    Content content(body, "application/json");
-    RestParams headers;
-
-    // cerr << "posting data to " + resource + "\n";
-    if (authToken.size() > 0) {
-        headers.emplace_back(make_pair("Cookie", "token=\"" + authToken + "\""));
-    }
-    if (protocolDate > 0) {
-        headers.emplace_back(make_pair("X-Protocol-Date", to_string(protocolDate)));
-    }
-
-    pid_t tid = gettid();
-    for (int retries = 0;
-         (maxRetries == -1) || (retries < maxRetries);
-         retries++) {
-        response = this->perform(method, resource, content, RestParams(),
-                                 headers);
-        int code = response.code();
-        if (code < 400) {
-            break;
-        }
-
-        /* error handling */
-        if (retries == 0) {
-            string respBody = response.body();
-            ::fprintf(stderr,
-                      "[%d] %s %s returned response code %d"
-                      " (attempt %d):\n"
-                      "request body (%lu) = '%s'\n"
-                      "response body (%lu): '%s'\n",
-                      tid, method.c_str(), resource.c_str(), code, retries,
-                      body.size(), body.c_str(),
-                      respBody.size(), respBody.c_str());
-        }
-        if (code < 500) {
-            break;
-        }
-
-        /* recoverable errors */
-        if (maxRetries == -1 || retries < maxRetries) {
-            sleepAfterRetry(retries, maxBackoffTime);
-            ::fprintf(stderr, "[%d] retrying %s %s after error (%d/%d)\n",
-                      tid, method.c_str(), resource.c_str(), retries + 1, maxRetries);
-        }
-        else {
-            throw ML::Exception("[%d] too many retries\n", tid);
-        }
-    }
-
-    return response;
-}
-
-bool
-JsonRestProxy::
-authenticate(const JsonAuthenticationRequest & creds)
-{
-    bool result;
-
-    try {
-        auto authResponse = postTyped<JsonAuthenticationResponse>("/authenticate", creds, 200);
-        authToken = authResponse.token;
-        result = true;
-    }
-    catch (const ML::Exception & exc) {
-        result = false;
-    }
-
-    return result;
-}
-
-void
-JsonRestProxy::
-sleepAfterRetry(int retryNbr, int maxBaseTime)
-{
-    static const double sleepUnit(0.2);
-
-    int maxSlot = (1 << retryNbr) - 1;
-    double baseTime = maxSlot * sleepUnit;
-    if (baseTime > maxBaseTime) {
-        baseTime = maxBaseTime;
-    }
-    int rnd = random();
-    double timeToSleep = ((double) rnd / RAND_MAX) * baseTime;
-    // cerr << "sleeping " << timeToSleep << endl;
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(
-        int(timeToSleep * 1000)));
-}
-
-
-/****************************************************************************/
-/* JSON AUTHENTICATION REQUEST                                              */
-/****************************************************************************/
-
-DEFINE_STRUCTURE_DESCRIPTION(JsonAuthenticationRequest);
-
-JsonAuthenticationRequestDescription::
-JsonAuthenticationRequestDescription()
-{
-    addField("email", &JsonAuthenticationRequest::email, "");
-    addField("password", &JsonAuthenticationRequest::password, "");
-}
-
-
-/****************************************************************************/
-/* JSON AUTHENTICATION RESPONSE                                             */
-/****************************************************************************/
-
-DEFINE_STRUCTURE_DESCRIPTION(JsonAuthenticationResponse);
-
-JsonAuthenticationResponseDescription::
-JsonAuthenticationResponseDescription()
-{
-    addField("token", &JsonAuthenticationResponse::token, "");
+    return stream << response.header_ << "\n" << response.body_ << "\n";
 }
 
 } // namespace Datacratic

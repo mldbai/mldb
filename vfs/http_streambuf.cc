@@ -13,6 +13,7 @@
 #include "mldb/vfs/filter_streams_registry.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/http/http_exception.h"
+#include "mldb/types/basic_value_descriptions.h"
 #include <chrono>
 #include <future>
 

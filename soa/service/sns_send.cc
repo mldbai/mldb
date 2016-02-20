@@ -9,6 +9,7 @@
 
 #include "mldb/soa/service/sns.h"
 #include "mldb/vfs/filter_streams.h"
+#include "mldb/arch/exception.h"
 #include <boost/program_options/cmdline.hpp>
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/positional_options.hpp> 

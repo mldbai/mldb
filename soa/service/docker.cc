@@ -15,6 +15,7 @@
 #include "mldb/types/map_description.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/vfs/filter_streams_registry.h"
+#include "mldb/jml/utils/string_functions.h"
 #include <unordered_set>
 #include "archive.h"
 
@@ -41,7 +42,7 @@ struct DockerUriComponents {
 
         vector<string> components = ML::split(string(uri, pos + 3), '/');
 
-        cerr << "components = " << components << endl;
+        cerr << "components = " << jsonEncodeStr(components) << endl;
 
         registry = components.at(0);
         owner = components.at(1);

@@ -9,6 +9,7 @@
 #include "boost/asio/error.hpp"
 #include "http_socket_handler.h"
 #include "tcp_socket.h"
+#include "mldb/arch/exception.h"
 
 using namespace std;
 using namespace Datacratic;

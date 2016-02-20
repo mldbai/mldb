@@ -388,6 +388,27 @@ const string & getResponseReasonPhrase(int code)
     }
 }
 
+const std::string &
+HttpHeader::
+getHeader(const std::string & key) const
+{
+    auto it = headers.find(key);
+    if (it == headers.end())
+        throw ML::Exception("couldn't find header " + key);
+    return it->second;
+}
+
+const std::string &
+HttpHeader::
+tryGetHeader(const std::string & key) const noexcept
+{
+    static const std::string NONE;
+    auto it = headers.find(key);
+    if (it == headers.end())
+        return NONE;
+    return it->second;
+}
+
 DEFINE_STRUCTURE_DESCRIPTION(HttpHeader);
 
 HttpHeaderDescription::
