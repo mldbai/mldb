@@ -173,7 +173,6 @@ struct TwitterImporter: public Procedure {
                     cols.emplace_back(Coord("place.coordinates.long"), latLong[1].asDouble(), d);
                 }
                 
-                // [{"id":2572965054,"id_str":"2572965054","indices":[0,11],"name":"Smooch","screen_name":"smoochlabs"}]
                 for(const auto & user_mention : tweet["entities"]["user_mentions"]) {
                     // if the tweet was sent to a user
                     if(user_mention["indices"][0].asInt() == 0) {
