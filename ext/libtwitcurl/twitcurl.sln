@@ -1,0 +1,20 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual C++ Express 2010
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "twitcurl", "twitcurl.vcxproj", "{00175D8C-EA44-48AE-AC59-B3B7BE04E65C}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{00175D8C-EA44-48AE-AC59-B3B7BE04E65C}.Debug|Win32.ActiveCfg = Release|Win32
+		{00175D8C-EA44-48AE-AC59-B3B7BE04E65C}.Debug|Win32.Build.0 = Release|Win32
+		{00175D8C-EA44-48AE-AC59-B3B7BE04E65C}.Release|Win32.ActiveCfg = Release|Win32
+		{00175D8C-EA44-48AE-AC59-B3B7BE04E65C}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

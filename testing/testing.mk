@@ -258,6 +258,7 @@ $(eval $(call mldb_unit_test,MLDB-1235-temporal-aggregators.py))
 $(eval $(call mldb_unit_test,MLDB-1260-json-errors.py))
 $(eval $(call mldb_unit_test,MLDB-1239-utf8-literal.py))
 $(eval $(call mldb_unit_test,MLDB-1353-EM.py))
+$(eval $(call mldb_unit_test,MLDB-1402_twitter_importer.py,,manual)) #manual -- waiting for credential deamon twitter support
 $(eval $(call mldb_unit_test,MLDB-1361_join_on_subselect.py))
 $(eval $(call mldb_unit_test,MLDB-1364_dataset_cant_be_overwritten.py))
 $(eval $(call mldb_unit_test,MLDB-1336-builtin-checks.py))
