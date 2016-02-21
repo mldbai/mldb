@@ -27,7 +27,7 @@ class Mldb1402Test(MldbUnitTest):
                 "username": creds["username"],
                 "password": creds["password"],
                 "searchQuery": "#mchacks",
-                "resultCount": "recent",
+                "resultCount": 750,
                 "runOnCreation": True,
                 "outputDataset": "myTweet"
             }

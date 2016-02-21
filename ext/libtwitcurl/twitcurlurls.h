@@ -14,33 +14,40 @@ namespace twitCurlDefaults
     const unsigned int MAX_TIMELINE_TWEET_COUNT = 200;
 
     /* Miscellaneous data used to build twitter URLs*/
-    const std::string TWITCURL_STATUSSTRING = "status=";
-    const std::string TWITCURL_TEXTSTRING = "text=";
-    const std::string TWITCURL_QUERYSTRING = "query=";
-    const std::string TWITCURL_SEARCHQUERYSTRING = "q=";
-    const std::string TWITCURL_SCREENNAME = "screen_name=";
-    const std::string TWITCURL_USERID = "user_id=";
+    const std::string TWITCURL_STATUSSTRING = "status";
+    const std::string TWITCURL_TEXTSTRING = "text";
+    const std::string TWITCURL_QUERYSTRING = "query";
+    const std::string TWITCURL_SEARCHQUERYSTRING = "q";
+    const std::string TWITCURL_SCREENNAME = "screen_name";
+    const std::string TWITCURL_USERID = "user_id";
     const std::string TWITCURL_EXTENSIONFORMATS[2] = { ".json",
                                                        ".xml"
                                                      };
     const std::string TWITCURL_PROTOCOLS[2] =        { "https://",
                                                        "http://"
                                                      };
-    const std::string TWITCURL_TARGETSCREENNAME = "target_screen_name=";
-    const std::string TWITCURL_TARGETUSERID = "target_id=";
-    const std::string TWITCURL_SINCEID = "since_id=";
-    const std::string TWITCURL_TRIMUSER = "trim_user=true";
-    const std::string TWITCURL_INCRETWEETS = "include_rts=true";
-    const std::string TWITCURL_COUNT = "count=";
-    const std::string TWITCURL_NEXT_CURSOR = "cursor=";
-    const std::string TWITCURL_SKIP_STATUS = "skip_status=";
-    const std::string TWITCURL_INCLUDE_ENTITIES = "include_entities=";
-    const std::string TWITCURL_STRINGIFY_IDS = "stringify_ids=";
-    const std::string TWITCURL_INREPLYTOSTATUSID = "in_reply_to_status_id=";
+    const std::string TWITCURL_TARGETSCREENNAME = "target_screen_name";
+    const std::string TWITCURL_TARGETUSERID = "target_id";
+    const std::string TWITCURL_SINCEID = "since_id";
+    const std::string TWITCURL_TRIMUSER = "trim_user";
+    const std::string TWITCURL_INCRETWEETS = "include_rts";
+    const std::string TWITCURL_COUNT = "count";
+    const std::string TWITCURL_NEXT_CURSOR = "cursor";
+    const std::string TWITCURL_SKIP_STATUS = "skip_status";
+    const std::string TWITCURL_INCLUDE_ENTITIES = "include_entities";
+    const std::string TWITCURL_STRINGIFY_IDS = "stringify_ids";
+    const std::string TWITCURL_INREPLYTOSTATUSID = "in_reply_to_status_id";
+    const std::string TWITCURL_LANG = "lang";
+    const std::string TWITCURL_LOCALE = "locale";
+    const std::string TWITCURL_MAXID = "max_id";
+    const std::string TWITCURL_SINCE = "since";
+    const std::string TWITCURL_UNTIL = "until";
+    const std::string TWITCURL_RESULTTYPE = "result_type";
 
     /* URL separators */
     const std::string TWITCURL_URL_SEP_AMP = "&";
     const std::string TWITCURL_URL_SEP_QUES = "?";
+    const std::string TWITCURL_URL_EQUAL = "=";
 };
 
 /* Default twitter URLs */

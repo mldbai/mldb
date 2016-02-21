@@ -265,6 +265,42 @@ void oAuth::generateNonceTimeStamp()
 }
 
 /*++
+* @method: oAuth::buildOAuthHttpParameterKeyValPairs
+*
+* @description: this method prepares key-value pairs from the data part of the URL
+*               parameters, as required by OAuth header and signature generation.
+*
+* @input: params - HTTP url parameters.
+*         urlencodeData - If true, string will be urlencoded before converting
+*                         to key value pairs.
+*
+* @output: rawDataKeyValuePairs - Map in which key-value pairs are populated
+*
+* @remarks: internal method
+*
+*--*/
+void oAuth::buildOAuthHttpParameterKeyValPairs(const httpParams& params,
+                                          bool urlencodeData,
+                                          oAuthKeyValuePairs& rawDataKeyValuePairs )
+{
+    if (params.empty())
+    {
+        return;
+    }
+
+    std::string dataKey;
+    std::string dataVal;
+
+    for ( unsigned int i = 0; i < params.size(); i++ ) {
+        dataKey = params.at(i).key;
+        dataVal = params.at(i).value;
+
+        /* Put this key=value pair in map */
+        rawDataKeyValuePairs[dataKey] = urlencodeData ? urlencode(dataVal) : dataVal;
+    }    
+}
+
+/*++
 * @method: oAuth::buildOAuthRawDataKeyValPairs
 *
 * @description: this method prepares key-value pairs from the data part of the URL
@@ -494,6 +530,7 @@ bool oAuth::getSignature( const eOAuthHttpRequestType eType,
 *
 * @input: eType - HTTP request type
 *         rawUrl - raw url of the HTTP request
+*         params - HTTP url parameters
 *         rawData - HTTP data (post fields)
 *         includeOAuthVerifierPin - flag to indicate whether or not oauth_verifier needs to included
 *                                   in OAuth header
@@ -503,6 +540,7 @@ bool oAuth::getSignature( const eOAuthHttpRequestType eType,
 *--*/
 bool oAuth::getOAuthHeader( const eOAuthHttpRequestType eType,
                             const std::string& rawUrl,
+                            const httpParams& params,
                             const std::string& rawData,
                             std::string& oAuthHttpHeader,
                             const bool includeOAuthVerifierPin )
@@ -530,6 +568,8 @@ bool oAuth::getOAuthHeader( const eOAuthHttpRequestType eType,
         /* Split the data in URL as key=value pairs */
         buildOAuthRawDataKeyValPairs( dataPart, true, rawKeyValuePairs );
     }
+    buildOAuthHttpParameterKeyValPairs(params, true, rawKeyValuePairs);
+
 
     /* Split the raw data if it's present, as key=value pairs. Data should already be urlencoded once */
     buildOAuthRawDataKeyValPairs( rawData, false, rawKeyValuePairs );

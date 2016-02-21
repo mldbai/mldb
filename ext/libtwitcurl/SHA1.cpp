@@ -185,15 +185,15 @@ bool CSHA1::HashFile(char *szFileName)
 
 	for(i = 0; i < ulBlocks; i++)
 	{
-		auto pwt = fread(uData, 1, SHA1_MAX_FILE_BUFFER, fIn);
-		if(pwt) {}
-        Update((UINT_8 *)uData, SHA1_MAX_FILE_BUFFER);
+		auto blackhole = fread(uData, 1, SHA1_MAX_FILE_BUFFER, fIn);
+        if(blackhole) {}
+		Update((UINT_8 *)uData, SHA1_MAX_FILE_BUFFER);
 	}
 
 	if(ulRest != 0)
 	{
-		auto pwt = fread(uData, 1, ulRest, fIn);
-        if(pwt) {}
+		auto blackhole = fread(uData, 1, ulRest, fIn);
+        if(blackhole) {}
 		Update((UINT_8 *)uData, ulRest);
 	}
 

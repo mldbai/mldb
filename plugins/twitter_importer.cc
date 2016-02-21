@@ -22,7 +22,7 @@ namespace MLDB {
 /*****************************************************************************/
 
 struct TwitterImporterConfig : ProcedureConfig {
-    TwitterImporterConfig()
+    TwitterImporterConfig() : resultCount(100)
     {
         outputDataset.withType("sparse.mutable");
     }
@@ -34,7 +34,8 @@ struct TwitterImporterConfig : ProcedureConfig {
     std::string password;
 
     std::string searchQuery;
-    std::string resultCount;
+    unsigned resultCount;
+    std::string lang;
 
     PolyConfigT<Dataset> outputDataset;
 };
@@ -59,7 +60,9 @@ TwitterImporterConfigDescription()
     addField("searchQuery", &TwitterImporterConfig::searchQuery,
             "Search query");
     addField("resultCount", &TwitterImporterConfig::resultCount,
-            "Result count");
+            "Result count", (unsigned)100);
+    addField("lang", &TwitterImporterConfig::lang,
+            "Restricts tweets to the given language");
     
     addField("outputDataset", &TwitterImporterConfig::outputDataset,
              "Output dataset for result",
@@ -121,55 +124,108 @@ struct TwitterImporter: public Procedure {
             ML::Exception("twitter.import::accountVerifyCredGet error:\n%s\n", replyMsg.c_str() );
         }
 
-        if( !twitterObj.search( "mchacks", "recent" )) { // runProcConf.searchQuery, runProcConf.resultCount ) ) {
-            twitterObj.getLastCurlError( replyMsg );
-            ML::Exception("twitter.import::search error:\n%s\n", replyMsg.c_str() );
-        }
-
-        twitterObj.getLastWebResponse( replyMsg );
-        Json::Value jsTweets = Json::parse(replyMsg);
-        vector<pair<RowName, vector<tuple<ColumnName, CellValue, Date> > > > rows;
-
-        Json::Value status = jsTweets["search_metadata"];
-        for(const auto & tweet : jsTweets["statuses"]) {
-            if(!tweet.isMember("text"))
-                status = tweet;
-            
-            vector<tuple<ColumnName, CellValue, Date> > cols;
-
-            // Sun Feb 21 02:00:48 +0000 2016
-            Date d = Date::parse(tweet["created_at"].asString(), "%a %b %d %H:%M:%S %z %Y");
-
-            if(tweet.isMember("entities") && tweet["entities"].isMember("hashtags")) {
-                for(const auto & ht : tweet["entities"]["hashtags"]) {
-                    cols.emplace_back(Coord("hashtag."+ht["text"].asStringUtf8()), 1, d);
-                }
+        int64_t minIdFound = 0;
+        auto doSearch = [&] (const std::string & searchQuery, const std::string & resultCount,
+                             const std::string & lang, const std::string & maxId)
+        {
+            if( !twitterObj.search( searchQuery, resultCount, lang, "" /* locale */, maxId ) ) {
+                twitterObj.getLastCurlError( replyMsg );
+                ML::Exception("twitter.import::search error:\n%s\n", replyMsg.c_str() );
             }
 
-            cols.emplace_back(Coord("favorite_count"), tweet["favorite_count"].asInt(), d);
-            cols.emplace_back(Coord("retweet_count"), tweet["retweet_count"].asInt(), d);
-            cols.emplace_back(Coord("lang"), tweet["lang"].asStringUtf8(), d);
-            cols.emplace_back(Coord("text"), tweet["text"].asStringUtf8(), d);
-            cols.emplace_back(Coord("source"), tweet["source"].asStringUtf8(), d);
+            twitterObj.getLastWebResponse( replyMsg );
+            Json::Value jsTweets = Json::parse(replyMsg);
 
-            cols.emplace_back(Coord("place.country"), tweet["place"]["country"].asStringUtf8(), d);
+            if(jsTweets.isMember("errors")) {
+                throw ML::Exception(replyMsg);
+            }
 
-            cols.emplace_back(Coord("user.id"), tweet["user"]["id_str"].asString(), d);
-            cols.emplace_back(Coord("user.location"), tweet["user"]["location"].asStringUtf8(), d);
-            cols.emplace_back(Coord("user.utc_offset"), tweet["user"]["utc_offset"].asInt(), d);
-            cols.emplace_back(Coord("user.screen_name"), tweet["user"]["screen_name"].asStringUtf8(), d);
 
-            rows.emplace_back(RowName(tweet["id_str"].asString()), std::move(cols));
+            vector<pair<RowName, vector<tuple<ColumnName, CellValue, Date> > > > rows;
+
+            Json::Value status = jsTweets["search_metadata"];
+            for(const auto & tweet : jsTweets["statuses"]) {
+                vector<tuple<ColumnName, CellValue, Date> > cols;
+
+                // Sun Feb 21 02:00:48 +0000 2016
+                Date d = Date::parse(tweet["created_at"].asString(), "%a %b %d %H:%M:%S %z %Y");
+
+                if(tweet.isMember("entities") && tweet["entities"].isMember("hashtags")) {
+                    for(const auto & ht : tweet["entities"]["hashtags"]) {
+                        cols.emplace_back(Coord("hashtag."+ht["text"].asStringUtf8()), 1, d);
+                    }
+                }
+
+                cols.emplace_back(Coord("favorite_count"), tweet["favorite_count"].asInt(), d);
+                cols.emplace_back(Coord("retweet_count"), tweet["retweet_count"].asInt(), d);
+                cols.emplace_back(Coord("lang"), tweet["lang"].asStringUtf8(), d);
+                cols.emplace_back(Coord("text"), tweet["text"].asStringUtf8(), d);
+                cols.emplace_back(Coord("source"), tweet["source"].asStringUtf8(), d);
+
+                if(tweet["place"].isMember("country"))
+                    cols.emplace_back(Coord("place.country"), tweet["place"]["country"].asStringUtf8(), d);
+
+                Json::Value empty;
+                Json::Value coord = tweet.get("place", empty).get("bounding_box", empty).get("coordinates", empty);
+                if(coord.isArray() && coord.size() == 1 && coord[0].isArray() && coord[0].size() >= 1) {
+                    const Json::Value & latLong = coord[0][1];
+                    cols.emplace_back(Coord("place.coordinates.lat"), latLong[0].asDouble(), d);
+                    cols.emplace_back(Coord("place.coordinates.long"), latLong[1].asDouble(), d);
+                }
+                
+                // [{"id":2572965054,"id_str":"2572965054","indices":[0,11],"name":"Smooch","screen_name":"smoochlabs"}]
+                for(const auto & user_mention : tweet["entities"]["user_mentions"]) {
+                    // if the tweet was sent to a user
+                    if(user_mention["indices"][0].asInt() == 0) {
+                        cols.emplace_back(Coord("to_user_screen_name"), user_mention["screen_name"].asStringUtf8(), d);
+                    }
+
+                    cols.emplace_back(Coord("user_mentions."+user_mention["screen_name"].asStringUtf8()), 1, d);
+                }
+
+                cols.emplace_back(Coord("user.id"), tweet["user"]["id_str"].asString(), d);
+                cols.emplace_back(Coord("user.location"), tweet["user"]["location"].asStringUtf8(), d);
+                cols.emplace_back(Coord("user.utc_offset"), tweet["user"]["utc_offset"].asInt(), d);
+                cols.emplace_back(Coord("user.screen_name"), tweet["user"]["screen_name"].asStringUtf8(), d);
+
+                int64_t currId = stol(tweet["id_str"].asString());
+                if(minIdFound==0 || currId < minIdFound)
+                    minIdFound = currId;
+
+                rows.emplace_back(RowName(tweet["id_str"].asString()), std::move(cols));
+            }
+
+            if (outputDataset) {
+                outputDataset->recordRows(rows);
+            }
+
+            return rows.size();
+        };
+
+
+        int iterations = 0;
+        int totalRows = 0;
+        while(totalRows < runProcConf.resultCount && iterations++ < 100) {
+            string currMaxId;
+            if(minIdFound != 0) {
+                currMaxId = to_string(minIdFound - 1);
+            }
+
+            int newRows = doSearch(runProcConf.searchQuery, to_string(runProcConf.resultCount),
+                                    runProcConf.lang, currMaxId);
+            if(newRows == 0)
+                break;
+
+            totalRows += newRows;
         }
-
 
         if (outputDataset) {
-            outputDataset->recordRows(rows);
             outputDataset->commit();
         }
-
-        RunOutput result(status);
-        return result;
+        
+        Json::Value results;
+        results["tweets_imported"] = totalRows;
+        return RunOutput(results);
     }
 
     virtual Any getStatus() const
@@ -182,7 +238,7 @@ struct TwitterImporter: public Procedure {
 RegisterProcedureType<TwitterImporter, TwitterImporterConfig>
 regTwitter(builtinPackage(),
                 "import.twitter",
-                "Import a data using the Twitter APIs",
+                "Import tweet data using the Twitter Search API",
                 "procedures/TwitterImporter.md.html");
 
 
