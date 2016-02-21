@@ -18,6 +18,7 @@
 #include <thread>
 #include "mldb/soa/service/message_loop.h"
 #include <boost/algorithm/string.hpp>
+#include "mldb/jml/utils/string_functions.h"
 
 #include <sys/wait.h>
 

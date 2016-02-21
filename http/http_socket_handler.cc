@@ -14,6 +14,52 @@
 using namespace std;
 using namespace Datacratic;
 
+namespace Datacratic {
+
+
+/*****************************************************************************/
+/* HTTP RESPONSE                                                             */
+/*****************************************************************************/
+
+HttpResponse::
+HttpResponse(int responseCode,
+             std::string contentType,
+             std::string body,
+             std::vector<std::pair<std::string, std::string> > extraHeaders)
+    : responseCode(responseCode),
+      responseStatus(getResponseReasonPhrase(responseCode)),
+      contentType(std::move(contentType)),
+      body(std::move(body)),
+      extraHeaders(std::move(extraHeaders)),
+      sendBody(true)
+{
+}
+
+HttpResponse::
+HttpResponse(int responseCode,
+             std::string contentType,
+             std::vector<std::pair<std::string, std::string> > extraHeaders)
+    : responseCode(responseCode),
+      responseStatus(getResponseReasonPhrase(responseCode)),
+      contentType(std::move(contentType)),
+      extraHeaders(std::move(extraHeaders)),
+      sendBody(false)
+{
+}
+
+HttpResponse::
+HttpResponse(int responseCode,
+             Json::Value body,
+             std::vector<std::pair<std::string, std::string> > extraHeaders)
+    : responseCode(responseCode),
+      responseStatus(getResponseReasonPhrase(responseCode)),
+      contentType("application/json"),
+      body(body.toStringNoNewLine()),
+      extraHeaders(std::move(extraHeaders)),
+      sendBody(true)
+{
+}
+
 
 /****************************************************************************/
 /* HTTP HANDLER                                                             */
@@ -189,3 +235,6 @@ onDone(bool requireClose)
     bodyPayload.clear();
     bodyStarted_ = false;
 }
+
+} // namespace Datacratic
+

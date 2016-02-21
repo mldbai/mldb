@@ -14,7 +14,7 @@
 #include "mldb/types/structure_description.h"
 #include "curl_wrapper.h"
 #include "mldb/base/exc_assert.h"
-#include "mldb/jml/utils/string_functions.h"
+#include "mldb/ext/jsoncpp/json.h"
 
 #include "http_rest_proxy.h"
 #include "http_rest_proxy_impl.h"
@@ -24,6 +24,15 @@ using namespace ML;
 
 
 namespace Datacratic {
+
+static inline std::string lowercase(const std::string & str)
+{
+    string result = str;
+    for (unsigned i = 0;  i < str.size();  ++i)
+        result[i] = tolower(result[i]);
+    return result;
+}
+
 
 
 /*****************************************************************************/
@@ -49,7 +58,7 @@ hasHeader(const std::string & name) const
 {
     auto it = header_.headers.find(name);
     if (it == header_.headers.end())
-        it = header_.headers.find(ML::lowercase(name));
+        it = header_.headers.find(lowercase(name));
     if (it == header_.headers.end())
         return nullptr;
     return &(*it);
@@ -86,10 +95,9 @@ HttpRestContent(const std::string & str,
 
 HttpRestContent::
 HttpRestContent(const char * data, uint64_t size,
-                const std::string & contentType,
-                const std::string & contentMd5)
+                const std::string & contentType)
     : data(data), size(size), hasContent(true),
-      contentType(contentType), contentMd5(contentMd5)
+      contentType(contentType)
 {
 }
 
@@ -151,9 +159,69 @@ urlEncode(const Utf8String & str)
 /* HTTP REST PROXY                                                           */
 /*****************************************************************************/
 
+struct HttpRestProxy::Itl {
+    Itl(std::string serviceUri, HttpRestProxy * owner)
+        : serviceUri(std::move(serviceUri)), noSSLChecks(false), debug(false),
+          owner(owner)
+    {
+    }
+
+    /** URI that will be automatically prepended to resources passed in to
+        the perform() methods
+    */
+    std::string serviceUri;
+
+    /** SSL checks */
+    bool noSSLChecks;
+
+    /** Are we debugging? */
+    bool debug;
+
+    HttpRestProxy * owner;
+
+    /** Lock for connection pool. */
+    mutable std::mutex lock;
+
+    /** List of inactive handles.  These can be selected from when a new
+        connection needs to be made.
+    */
+    mutable std::vector<Connection> inactive;
+
+    std::vector<std::string> cookies;
+
+    HttpRestProxy::Connection
+    getConnection() const
+    {
+        std::unique_lock<std::mutex> guard(lock);
+
+        if (inactive.empty()) {
+            return Connection(new ConnectionHandler, owner);
+        }
+        else {
+            Connection res(std::move(inactive.back()));
+            inactive.pop_back();
+
+            // Set proxy to this, so when it's destroyed it's put on our list
+            ExcAssert(res.proxy == nullptr);
+            res.proxy = owner;
+            return std::move(res);
+        }
+    }
+    
+    void doneConnection(ConnectionHandler * conn)
+    {
+        std::unique_lock<std::mutex> guard(lock);
+        conn->reset();
+
+        // Put a Connection with a null handler on the list so it's
+        // destroyed when done
+        inactive.emplace_back(conn, nullptr);
+    }
+};
+
 HttpRestProxy::
 HttpRestProxy(const std::string & serviceUri)
-    : serviceUri(serviceUri), noSSLChecks(false), debug(false)
+    : itl(new Itl(serviceUri, this))
 {
 }
 
@@ -166,21 +234,21 @@ void
 HttpRestProxy::
 init(const std::string & serviceUri)
 {
-    this->serviceUri = serviceUri;
+    itl->serviceUri = serviceUri;
 }
 
 void
 HttpRestProxy::
 setCookieFromResponse(const Response& r)
 {
-    cookies.push_back("Set-Cookie: " + r.getHeader("set-cookie"));
+    itl->cookies.push_back("Set-Cookie: " + r.getHeader("set-cookie"));
 }
 
 void
 HttpRestProxy::
 setCookie(const std::string & value)
 {
-    cookies.push_back("Set-Cookie: " + value);
+    itl->cookies.push_back("Set-Cookie: " + value);
 }
 
 HttpRestResponse
@@ -254,13 +322,13 @@ perform(const std::string & verb,
 
         CurlWrapper::Easy & myRequest = *connection;
 
-        uri = serviceUri + resource + queryParams.uriEscaped();
+        uri = itl->serviceUri + resource + queryParams.uriEscaped();
 
         myRequest.add_option(CURLOPT_CUSTOMREQUEST, verb);
 
         myRequest.add_option(CURLOPT_URL, uri);
 
-        if (debug)
+        if (itl->debug)
             myRequest.add_option(CURLOPT_VERBOSE, 1L);
 
         if (timeout != -1)
@@ -268,7 +336,7 @@ perform(const std::string & verb,
         else myRequest.add_option(CURLOPT_TIMEOUT, 0L);
         myRequest.add_option(CURLOPT_NOSIGNAL, 1L);
 
-        if (noSSLChecks) {
+        if (itl->noSSLChecks) {
             myRequest.add_option(CURLOPT_SSL_VERIFYHOST, 0L);
             myRequest.add_option(CURLOPT_SSL_VERIFYPEER, 0L);
         }
@@ -279,7 +347,7 @@ perform(const std::string & verb,
 
         CurlWrapper::Easy::CurlCallback onWriteData = [&] (char * data, size_t ofs1, size_t ofs2) -> size_t
             {
-                if (debug)
+                if (itl->debug)
                     cerr << "got data " << string(data, data + ofs1 * ofs2) << endl;
 
                 if (onData) {
@@ -307,7 +375,7 @@ perform(const std::string & verb,
 
                 string headerLine(data, ofs1 * ofs2);
 
-                if (debug)
+                if (itl->debug)
                     cerr << "got header " << headerLine << endl;
 
                 if (headerLine.find("HTTP/1.1 100 Continue") == 0) {
@@ -334,7 +402,7 @@ perform(const std::string & verb,
         myRequest.add_callback_option(CURLOPT_HEADERFUNCTION, CURLOPT_HEADERDATA, onHeaderLine);
         myRequest.add_callback_option(CURLOPT_WRITEFUNCTION, CURLOPT_WRITEDATA, onWriteData);
 
-        for (auto & cookie: cookies)
+        for (auto & cookie: itl->cookies)
             myRequest.add_option(CURLOPT_COOKIELIST, cookie);
 
         if (content.data) {
@@ -393,39 +461,20 @@ HttpRestProxy::Connection
 HttpRestProxy::
 getConnection() const
 {
-    std::unique_lock<std::mutex> guard(lock);
-
-    if (inactive.empty()) {
-        return Connection(new ConnectionHandler,
-                          const_cast<HttpRestProxy *>(this));
-    }
-    else {
-        Connection res(std::move(inactive.back()));
-        inactive.pop_back();
-
-        // Set proxy to this, so when it's destroyed it's put on our list
-        ExcAssert(res.proxy == nullptr);
-        res.proxy = const_cast<HttpRestProxy *>(this);
-        return std::move(res);
-    }
+    return itl->getConnection();
 }
 
 void
 HttpRestProxy::
 doneConnection(ConnectionHandler * conn)
 {
-    std::unique_lock<std::mutex> guard(lock);
-    conn->reset();
-
-    // Put a Connection with a null handler on the list so it's
-    // destroyed when done
-    inactive.emplace_back(conn, nullptr);
+    itl->doneConnection(conn);
 }
 
 std::ostream &
 operator << (std::ostream & stream, const HttpRestProxy::Response & response)
 {
-    return stream << response.header_ << "\n" << response.body_ << "\n";
+    return stream << response.header() << "\n" << response.body() << "\n";
 }
 
 } // namespace Datacratic

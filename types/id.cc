@@ -16,6 +16,9 @@
 #include "mldb/types/value_description.h"
 #include "mldb/ext/jsoncpp/value.h"
 #include "mldb/ext/cityhash/src/city.h" // Google city hash function
+#include "mldb/ext/jsoncpp/json.h"
+#include <iostream>
+#include "mldb/ext/jsoncpp/value.h"
 
 using namespace ML;
 using namespace std;

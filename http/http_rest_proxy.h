@@ -31,13 +31,45 @@ struct HttpRestResponse {
         return code_;
     }
 
-    /** Body of the REST call. */
+    /** Body of the REST call.  This is a binary string with no implied
+        encoding.
+    */
     const std::string & body() const
     {
         return body_;
     }
 
+    /** Return the body of the request, parsed as a JSON value.  The encoding
+        of body must be UTF-8; currently the content-encoding is not
+        parsed and not respected.
+    */
     Json::Value jsonBody() const;
+
+    /** Return the whole set of headers returned with the HTTP rest request. */
+    const HttpHeader & header() const
+    {
+        return header_;
+    }
+
+    /** Return the error message from the underlying layer.  This is only
+        valid if errorCode() is non-zero.
+    */
+    const std::string & errorMessage() const
+    {
+        return errorMessage_;
+    }
+
+    /** Return the underlying error code from the underlying layer.  This
+        is transport-dependent, and depends upon the implementation: it may
+        be a CURL code, or a system error code, or something else.  It is
+        mostly useful for debugging the lower level layer.  The only thing
+        that you can rely on is that if it's zero, there was no lower-level
+        error.
+    */
+    int errorCode() const
+    {
+        return errorCode_;
+    }
 
     /** Get the given response header of the REST call. */
     const std::pair<const std::string, std::string> *
@@ -45,7 +77,9 @@ struct HttpRestResponse {
 
     /** Get the given response header of the REST call. */
     const std::string & getHeader(const std::string & name) const;
-        
+
+private:        
+    friend class HttpRestProxy;
     long code_;
     std::string body_;
     HttpHeader header_;
@@ -64,24 +98,37 @@ struct HttpRestResponse {
 
 /** Structure used to hold content for a POST request. */
 struct HttpRestContent {
+    /** Construct an object that says "we have no content". */
     HttpRestContent();
 
+    /** Construct content from a binary string and a content type. */
     HttpRestContent(const std::string & str,
                     const std::string & contentType = "");
 
+    /** Construct content from a binary blob and a content type.  Note
+        that the data is *not* copied, it must outlive the lifetime of
+        this object.
+    */
     HttpRestContent(const char * data, uint64_t size,
-                    const std::string & contentType = "",
-                    const std::string & contentMd5 = "");
+                    const std::string & contentType = "");
 
+    /** Construct content from a binary blob and JSON object with the
+        content.  */
     HttpRestContent(const Json::Value & content,
                     const std::string & contentType = "application/json");
-
+    
+    /** Construct content from an HTTP form, contained in the REST
+        parameters. */
     HttpRestContent(const RestParams & form);
 
+    /** Url encode the given ASCII string. */
     static std::string urlEncode(const std::string & str);
         
+    /** Url encode the given UTF-8 string. */
     static std::string urlEncode(const Utf8String & str);
-        
+
+private:
+    friend class HttpRestProxy;
     std::string str;
 
     const char * data;
@@ -89,7 +136,6 @@ struct HttpRestContent {
     bool hasContent;
 
     std::string contentType;
-    std::string contentMd5;
 };
 
 
@@ -168,17 +214,6 @@ struct HttpRestProxy {
                      OnHeader onHeader = nullptr,
                      bool followRedirect = false) const;
     
-    /** URI that will be automatically prepended to resources passed in to
-        the perform() methods
-    */
-    std::string serviceUri;
-
-    /** SSL checks */
-    bool noSSLChecks;
-
-    /** Are we debugging? */
-    bool debug;
-
 public:
     /** Get a connection. */
     struct Connection;
@@ -187,18 +222,10 @@ public:
 private:
     /** Private type that implements a connection handler. */
     struct ConnectionHandler;
+    struct Itl;
+    std::unique_ptr<Itl> itl;
 
     void doneConnection(ConnectionHandler * conn);
-
-    /** Lock for connection pool. */
-    mutable std::mutex lock;
-
-    /** List of inactive handles.  These can be selected from when a new
-        connection needs to be made.
-    */
-    mutable std::vector<Connection> inactive;
-
-    std::vector<std::string> cookies;
 };
 
 std::ostream &

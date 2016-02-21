@@ -275,15 +275,16 @@ Json::Value
 MldbServer::
 getTypeInfo(const std::string & typeName)
 {
+    Json::Value result;
     auto vd = ValueDescription::get(typeName);
     if (!vd)
-        return Json::Value();
+        return result;
 
     static std::shared_ptr<ValueDescriptionT<std::shared_ptr<const ValueDescription> > >
         desc = getValueDescriptionDescription(true /* detailed */);
-    StructuredJsonPrintingContext context;
+    StructuredJsonPrintingContext context(result);
     desc->printJsonTyped(&vd, context);
-    return std::move(context.output);
+    return result;
 }
 
 void

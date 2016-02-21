@@ -8,8 +8,6 @@
 
 #include "http_header.h"
 #include "mldb/base/parse_context.h"
-#include "mldb/jml/db/persistent.h"
-#include "mldb/jml/utils/vector_utils.h"
 #include "http_exception.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/map_description.h"

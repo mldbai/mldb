@@ -346,9 +346,9 @@ struct HttpUrlFsHandler: UrlFsHandler {
                                  {}, {}, 1.0, false, nullptr, onHeader,
                                  true /* follow redirects */);
             
-            if (!didGetHeader && resp.errorCode_ != 0) {
+            if (!didGetHeader && resp.errorCode() != 0) {
                 cerr << "error retrieving HEAD (retry) " << url.toString() << ": "
-                     << resp.errorMessage_ << endl;
+                     << resp.errorMessage() << endl;
                 continue;  // didn't get header; retry
             }
         
@@ -356,8 +356,8 @@ struct HttpUrlFsHandler: UrlFsHandler {
             cerr << "header = " << header << endl;
             cerr << "resp = " << resp << endl;
             cerr << "resp.responseCode = " << resp.code_ << endl;
-            cerr << "resp.errorCode = " << resp.errorCode_ << endl;
-            cerr << "resp.errorMessage = " << resp.errorMessage_ << endl;
+            cerr << "resp.errorCode = " << resp.errorCode() << endl;
+            cerr << "resp.errorMessage = " << resp.errorMessage() << endl;
             cerr << "header.responseCode() = " << header.responseCode() << endl;
 #endif
 
@@ -377,7 +377,7 @@ struct HttpUrlFsHandler: UrlFsHandler {
         throw ML::Exception("Couldn't reach server to determine HEAD of '"
                             + url.toString() + "': HTTP code "
                             + (didGetHeader ? to_string(header.responseCode()) : string("(unknown)"))
-                            + " " + resp.errorMessage_);
+                            + " " + resp.errorMessage());
 
         //if (resp.hasHeader("content-type"))
         //    result.contentType = resp.getHeader("content-type");

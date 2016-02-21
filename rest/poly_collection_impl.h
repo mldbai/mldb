@@ -243,9 +243,10 @@ struct PolyCollection<Entity>::Registry {
             if (it->second.configValueDescription) {
 
                 static ValueDescriptionConstPtrDescription desc(true /* detailed */);
-                StructuredJsonPrintingContext context;
+                Json::Value configType;
+                StructuredJsonPrintingContext context(configType);
                 desc.printJson(&it->second.configValueDescription, context);
-                result["configType"] = std::move(context.output);
+                result["configType"] = configType;
             }
 
             result["docRoute"] = "/v1/types/" + nounPlural + "/" + type + "/doc";

@@ -302,10 +302,3 @@ private:
 };
 
 } // namespace Datacratic
-
-#if 0
-namespace ML {
-using Datacratic::filter_istream;
-using Datacratic::filter_ostream;
-} // namespace ML
-#endif
