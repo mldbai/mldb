@@ -195,7 +195,8 @@ with the same row name as in the input, and the following columns:
 
 ## Examples
 
-* The ![](%%nblink _demos/Predicting Titanic Survival) demo notebook
+* Boolean mode: the ![](%%nblink _demos/Predicting Titanic Survival) demo notebook
+* Categorical mode: the ![](%%nblink _tutorials/Procedures and Functions Tutorial) notebook
 
 ## See also
 
