@@ -149,7 +149,7 @@ struct SharedLibraryPlugin::Itl {
         if (!handle) {
             char * error = dlerror();
             ExcAssert(error);
-            throw ML::Exception("couldn't find plugin library %s: %s",
+            throw ML::Exception("couldn't find plugin library '%s': %s",
                                 path.c_str(), error);
         }
 
