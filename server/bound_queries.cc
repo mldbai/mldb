@@ -1242,7 +1242,7 @@ struct GroupContext: public SqlExpressionDatasetContext {
                     auto & row = static_cast<const RowContext &>(context);
              
                     const ExpressionValue * result
-                        = searchRow(row.output.columns, columnName, filter == GET_ALL ? GET_LATEST : filter, storage);
+                        = searchRow(row.output.columns, columnName, filter, storage);
 
                     if (result)
                         return *result;     
