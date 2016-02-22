@@ -1,11 +1,11 @@
-+/* importextprocedure.h
-+    Mathieu Marquis Bolduc, February 12, 2016
-+    Copyright (c) 2016 Datacratic Inc.  All rights reserved.
-+
-+    This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
-+    
-+    Procedure that reads text files into an indexed dataset.
-+*/
+/* importextprocedure.h
+    Mathieu Marquis Bolduc, February 12, 2016
+    Copyright (c) 2016 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
+    
+    Procedure that reads text files into an indexed dataset.
+*/
 
 
 #pragma once
