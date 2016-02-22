@@ -1,4 +1,4 @@
-# SentiWordNet importer procedure
+# SentiWordNet Importer Procedure
 
 This procedure allows word and phrase embeddings from the
 [SentiWordNet lexical resource](http://sentiwordnet.isti.cnr.it) to be loaded
