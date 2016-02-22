@@ -19,3 +19,10 @@ The function outputs a single value `output` which depend on the type of SVM tra
 * `classification` and `nu-classification` will return the predicted label of the feature vector
 * `one class` will return a value corresponding to how alike the feature vector is to the training data
 * `regression` and `nu-regression` will return the regression value
+
+## See also
+
+* The ![](%%doclink classifier.test procedure) allows the accuracy of a predictor to be tested against
+held-out data.
+* The ![](%%doclink svm.train procedure) trains an SVM.
+

@@ -53,5 +53,8 @@ The following type of kernels are supported, when applying feature vectors x and
 - `rbf` for an radial basis function (RBF) kernel: e^(-gamma*(x^2 +y^2 - 2*(x dot y))). This is the default kernel.
 - `sigmoid` for a sigmoidal kernel : tanh(gamma * (x dot y) + coef0)
 
+## See also
 
-
+* The ![](%%doclink classifier.test procedure) allows the accuracy of a predictor to be tested against
+held-out data.
+* The ![](%%doclink svm function) applies a trained SVM to a feature vector, producing a classification score.
