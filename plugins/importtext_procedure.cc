@@ -37,11 +37,10 @@ DEFINE_STRUCTURE_DESCRIPTION(ImportTextConfig);
 
 ImportTextConfigDescription::ImportTextConfigDescription()
 {
-    addParent<ProcedureConfig>();    
     addField("dataFileUrl", &ImportTextConfig::dataFileUrl,
              "URL of the text data to import");
     addField("ouputDataset", &ImportTextConfig::ouputDataset,
-             "Dataset to record the data into",
+             "Dataset to record the data into.",
              PolyConfigT<Dataset>().withType("tabular"));
     addField("headers", &ImportTextConfig::headers,
              "List of headers for when first row doesn't contain headers",
@@ -60,19 +59,19 @@ ImportTextConfigDescription::ImportTextConfigDescription()
              "Character encoding of file: 'us-ascii', 'ascii', 'latin1', 'iso8859-1', 'utf8' or 'utf-8'",
              string("utf-8"));
     addField("ignoreBadLines", &ImportTextConfig::ignoreBadLines,
-             "If true, any line causing an error will be skipped. "
+             "If true, any line causing a parsing error will be skipped. "
              "Empty lines are considered bad lines.", false);
     addField("replaceInvalidCharactersWith",
              &ImportTextConfig::replaceInvalidCharactersWith,
-             "If this is set, it should be a single Unicode character that badly "
-             "encoded characters within the CSV file will be replaced with. "
-             "The default is nothing, which will cause lines with badly "
+             "If this is set, it should be a single Unicode character will be used "
+             "to replace badly-encoded characters in the input. "
+             "The default is nothing, which will cause lines with badly-"
              "encoded characters to throw an error.");
     addField("select", &ImportTextConfig::select,
-             "What to select from the dataset",
+             "Which columns to use.",
              SelectExpression::STAR);
     addField("where", &ImportTextConfig::where,
-             "Row filter for CSV dataset",
+             "Which lines to use to create rows.",
              SqlExpression::TRUE);
     addField("named", &ImportTextConfig::named,
              "Row name expression for output dataset. Note that each row "
@@ -82,6 +81,7 @@ ImportTextConfigDescription::ImportTextConfigDescription()
              "Expression for row timestamp.",
              SqlExpression::parse("fileTimestamp()"));
 
+    addParent<ProcedureConfig>();    
     onUnknownField = [] (ImportTextConfig * config,
                          JsonParsingContext & context)
         {
@@ -1145,7 +1145,7 @@ namespace {
 
 RegisterProcedureType<ImportTextProcedure, ImportTextConfig>
 regEM(builtinPackage(), "import.text",
-          "NJK FILL ME",
+          "Import from a text file, line by line.",
           "procedures/importtextprocedure.md.html");
 
 } // file scope
