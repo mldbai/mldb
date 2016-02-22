@@ -24,5 +24,5 @@ The function outputs a single value `output` which depend on the type of SVM tra
 
 * The ![](%%doclink classifier.test procedure) allows the accuracy of a predictor to be tested against
 held-out data.
-* The ![](%%doclink svm.train procedure) traines an SVM.
+* The ![](%%doclink svm.train procedure) trains an SVM.
 
