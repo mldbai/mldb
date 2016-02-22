@@ -7,6 +7,7 @@
 #include "mldb/arch/exception.h"
 #include "mldb/types/string.h"
 #include "value_description.h"
+#include "mldb/ext/jsoncpp/value.h"
 
 #include <iostream>
 

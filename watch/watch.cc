@@ -11,6 +11,7 @@
 #include "mldb/types/structure_description.h"
 #include "mldb/types/enum_description.h"
 #include "mldb/types/map_description.h"
+#include "mldb/ext/jsoncpp/json.h"
 #include "watch.h"
 
 namespace Datacratic {

@@ -36,6 +36,7 @@
 using namespace std;
 namespace fs = boost::filesystem;
 using namespace ML;
+using namespace Datacratic;
 
 using boost::unit_test::test_suite;
 
@@ -233,12 +234,12 @@ BOOST_AUTO_TEST_CASE( test_empty_gzip )
             FileCleanup cleanup(filename);
 
             {
-                ML::filter_ostream filestream(filename);
+                filter_ostream filestream(filename);
             }
 
             BOOST_CHECK(get_file_size(filename) > 2);
             {
-                ML::filter_istream filestream(filename);
+                filter_istream filestream(filename);
                 string line;
                 filestream >> line;
                 BOOST_CHECK_EQUAL(line.size(), 0);
@@ -251,14 +252,14 @@ BOOST_AUTO_TEST_CASE( test_empty_gzip )
 
             int fd = open(filename.c_str(), O_RDWR| O_CREAT, S_IRWXU);
             {
-                ML::filter_ostream filestream;
+                filter_ostream filestream;
                 filestream.open(fd, ios::out, ext);
             }
             close(fd);
 
             BOOST_CHECK(get_file_size(filename) > 2);
             {
-                ML::filter_istream filestream(filename);
+                filter_istream filestream(filename);
                 string line;
                 filestream >> line;
                 BOOST_CHECK_EQUAL(line.size(), 0);
@@ -280,12 +281,12 @@ BOOST_AUTO_TEST_CASE( test_large_blocks )
     FileCleanup cleanup(filename);
         
     {
-        ML::filter_ostream stream(filename);
+        filter_ostream stream(filename);
         stream.write(block, blockSize);
     }
 
     {
-        ML::filter_istream stream(filename);
+        filter_istream stream(filename);
         char * block2 = new char[blockSize];
         stream.read(block2, blockSize);
         BOOST_CHECK_EQUAL(stream.gcount(), blockSize);
@@ -314,7 +315,7 @@ BOOST_AUTO_TEST_CASE( test_mem_scheme_out )
     }
 
     {
-        ML::filter_ostream outS("mem://out_file.txt");
+        filter_ostream outS("mem://out_file.txt");
         outS << text;
     }
 
@@ -340,7 +341,7 @@ BOOST_AUTO_TEST_CASE( test_mem_scheme_out_gz )
     }
 
     {
-        ML::filter_ostream outS("mem://out_file.gz");
+        filter_ostream outS("mem://out_file.gz");
         outS << text;
     }
 
@@ -370,7 +371,7 @@ BOOST_AUTO_TEST_CASE( test_mem_scheme_in )
     }
 
     string result;
-    ML::filter_istream inS("mem://in_file.txt");
+    filter_istream inS("mem://in_file.txt");
     while (inS) {
         char buf[16384];
         inS.read(buf, 16384);
@@ -489,15 +490,15 @@ struct RegisterExcHandlers {
 
     RegisterExcHandlers()
     {
-        ML::registerUriHandler("throw-on-read", getExcOnReadHandler);
-        ML::registerUriHandler("throw-on-write", getExcOnWriteHandler);
-        ML::registerUriHandler("throw-on-close", getExcOnCloseHandler);
+        registerUriHandler("throw-on-read", getExcOnReadHandler);
+        registerUriHandler("throw-on-write", getExcOnWriteHandler);
+        registerUriHandler("throw-on-close", getExcOnCloseHandler);
     }
 } registerExcHandlers;
 
 BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_read)
 {
-    ML::filter_istream stream("throw-on-read://exception-zone");
+    filter_istream stream("throw-on-read://exception-zone");
 
     string data;
     auto action = [&]() {
@@ -511,7 +512,7 @@ BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_read)
 BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_write)
 {
     JML_TRACE_EXCEPTIONS(false);
-    ML::filter_ostream stream("throw-on-write://exception-zone");
+    filter_ostream stream("throw-on-write://exception-zone");
 
     auto action = [&]() {
         string sample("abcdef0123456789");
@@ -527,7 +528,7 @@ BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_write)
 
 BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_close)
 {
-    ML::filter_ostream stream("throw-on-close://exception-zone");
+    filter_ostream stream("throw-on-close://exception-zone");
 
     auto action = [&]() {
         JML_TRACE_EXCEPTIONS(false);
@@ -539,8 +540,8 @@ BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_close)
 
 BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_destruction_ostream)
 {
-    unique_ptr<ML::filter_ostream> stream;
-    stream.reset(new ML::filter_ostream("throw-on-close://exception-zone"));
+    unique_ptr<filter_ostream> stream;
+    stream.reset(new filter_ostream("throw-on-close://exception-zone"));
 
     auto action = [&]() {
         JML_TRACE_EXCEPTIONS(false);
@@ -552,8 +553,8 @@ BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_destruction_ostream)
 
 BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_destruction_istream)
 {
-    unique_ptr<ML::filter_istream> stream;
-    stream.reset(new ML::filter_istream("throw-on-close://exception-zone"));
+    unique_ptr<filter_istream> stream;
+    stream.reset(new filter_istream("throw-on-close://exception-zone"));
 
     auto action = [&]() {
         JML_TRACE_EXCEPTIONS(false);

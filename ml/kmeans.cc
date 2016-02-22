@@ -282,7 +282,7 @@ void
 KMeans::
 save(const std::string & filename) const
 {
-    ML::filter_ostream stream(filename);
+    Datacratic::filter_ostream stream(filename);
     DB::Store_Writer store(stream);
     serialize(store);
 }
@@ -291,7 +291,7 @@ void
 KMeans::
 load(const std::string & filename)
 {
-    ML::filter_istream stream(filename);
+    Datacratic::filter_istream stream(filename);
     DB::Store_Reader store(stream);
     reconstitute(store);
 }

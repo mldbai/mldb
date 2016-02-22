@@ -575,7 +575,7 @@ run(const ProcedureRunConfig & run,
         classifierConfig = jsonDecode<ML::Configuration>(runProcConf.configuration);
     }
     else {
-        ML::filter_istream stream(runProcConf.configurationFile.size() > 0 ?
+        filter_istream stream(runProcConf.configurationFile.size() > 0 ?
                                   runProcConf.configurationFile :
                                   "/opt/bin/classifiers.json");
         classifierConfig = jsonDecodeStream<ML::Configuration>(stream);

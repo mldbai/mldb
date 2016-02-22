@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* json_printing.h                                                 -*- C++ -*-
    Jeremy Barnes, 26 February 2013
    Copyright (c) 2013 Datacratic Inc.  All rights reserved.
+
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Context to print out JSON.
 */
@@ -11,14 +11,14 @@
 
 #include <string>
 #include <ostream>
-
-#include "mldb/base/exc_assert.h"
-#include "mldb/ext/jsoncpp/value.h"
+#include <vector>
 #include "mldb/types/string.h"
 
+namespace Json {
+struct Value;
+} // namespace Json
 
 namespace Datacratic {
-
 
 std::string jsonEscape(const std::string & str);
 
@@ -216,10 +216,10 @@ protected:
 struct StructuredJsonPrintingContext
     : public JsonPrintingContext {
 
-    Json::Value output;
+    Json::Value & output;
     Json::Value * current;
 
-    StructuredJsonPrintingContext();
+    StructuredJsonPrintingContext(Json::Value & output);
 
     std::vector<Json::Value *> path;
 

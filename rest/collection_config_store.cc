@@ -95,7 +95,7 @@ void
 S3CollectionConfigStore::
 set(Utf8String key, const Json::Value & config)
 {
-    ML::filter_ostream stream((baseUri + "/" + key).rawString());
+    filter_ostream stream((baseUri + "/" + key).rawString());
     stream << config;
 }
 
@@ -103,7 +103,7 @@ Json::Value
 S3CollectionConfigStore::
 get(Utf8String key) const
 {
-    ML::filter_istream stream((baseUri + "/" + key).rawString());
+    filter_istream stream((baseUri + "/" + key).rawString());
     Json::Value val;
     stream >> val;
     return val;

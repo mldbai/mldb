@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* sns.h                                                           -*- C++ -*-
    Jeremy Barnes, 12 May 2013
    Copyright (c) 2013 Datacratic Inc.  All rights reserved.
+
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Client for Amazon's Simple Notification Service.
 */
@@ -82,41 +82,4 @@ struct SnsApiWrapper {
         }
 };
 
-struct MockSnsApiWrapper : SnsApiWrapper {
-
-    private:
-        int cacheSize;
-
-    public:
-        std::queue<std::string> queue;
-
-        MockSnsApiWrapper(int cacheSize = 0) : cacheSize(cacheSize){
-            if (cacheSize < 0) {
-                throw ML::Exception("Cache size cannot be below 0");
-            }
-        }
-
-        void init(const std::string & accessKeyId,
-                  const std::string & accessKey,
-                  const std::string & fdefaultTopicArn) {}
-
-        std::string
-        publish(const std::string & message,
-                int timeout = 10,
-                const std::string & subject = "") {
-            if (cacheSize == 0) {
-                return "";
-            }
-            while (queue.size() >= cacheSize) {
-                queue.pop();
-            }
-            queue.push(message);
-            return "";
-        }
-
-        MockSnsApiWrapper(const std::string & accessKeyId,
-                          const std::string & accessKey,
-                          const std::string & defaultTopicArn) = delete;
-
-};
 } // namespace Datacratic

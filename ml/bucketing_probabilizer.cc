@@ -124,7 +124,7 @@ Bucketing_Probabilizer::
 Bucketing_Probabilizer(const std::string & load_from)
 {
     throw ML::Exception("deprecated");
-    //ML::filter_istream stream(load_from);
+    //filter_istream stream(load_from);
     //ML::DB::Store_Reader store(stream);
     //reconstitute(store);
     // doInit();
@@ -140,7 +140,7 @@ getBucketingProbabFromExpConfig(const std::string & trainedPath,
             Json::Value root;
             Json::Reader reader;
 
-            ML::filter_istream stream(path);
+            filter_istream stream(path);
             string nextLine;
             string the_json = "";
 
@@ -350,7 +350,7 @@ reconstitute(ML::DB::Store_Reader & store)
 void Bucketing_Probabilizer::
 save(const string & filename) const
 {
-    ML::filter_ostream stream(filename);
+    filter_ostream stream(filename);
     ML::DB::Store_Writer store(stream);
     serialize(store);
 }

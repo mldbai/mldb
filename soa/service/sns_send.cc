@@ -9,6 +9,7 @@
 
 #include "mldb/soa/service/sns.h"
 #include "mldb/vfs/filter_streams.h"
+#include "mldb/arch/exception.h"
 #include <boost/program_options/cmdline.hpp>
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/positional_options.hpp> 
@@ -73,7 +74,7 @@ int main(int argc, char* argv[])
     if (message.empty())
         throw ML::Exception("must specify a message");
     if (message[0] == '@') {
-        ML::filter_istream stream(string(message, 1));
+        filter_istream stream(string(message, 1));
         string msg;
         while (stream) {
             char buf[4096];

@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* http_header.h                                                 -*- C++ -*-
    Jeremy Barnes, 18 February 2011
    Copyright (c) 2011 Datacratic.  All rights reserved.
+
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    http header parsing class.
 */
@@ -13,7 +13,6 @@
 #include <map>
 #include <iostream>
 #include <vector>
-#include "mldb/arch/exception.h"
 #include "mldb/types/string.h"
 #include "mldb/types/value_description_fwd.h"
 
@@ -68,11 +67,6 @@ struct RestParams
 
     /** Convert to pure ASCII representation for HTTP headers, etc. */
     operator std::vector<std::pair<std::string, std::string> > () const;
-
-#if 0
-    static RestParams fromBinary(const std::string & binary);
-    std::string toBinary() const;
-#endif
 };
 
 PREDECLARE_VALUE_DESCRIPTION(RestParams);
@@ -110,21 +104,9 @@ struct HttpHeader {
     // The rest of the headers are here
     std::map<std::string, std::string> headers;
 
-    std::string getHeader(const std::string & key) const
-    {
-        auto it = headers.find(key);
-        if (it == headers.end())
-            throw ML::Exception("couldn't find header " + key);
-        return it->second;
-    }
+    const std::string & getHeader(const std::string & key) const;
 
-    std::string tryGetHeader(const std::string & key) const
-    {
-        auto it = headers.find(key);
-        if (it == headers.end())
-            return "";
-        return it->second;
-    }
+    const std::string & tryGetHeader(const std::string & key) const noexcept;
 
     // If some portion of the data is known, it's put in here
     std::string knownData;

@@ -39,7 +39,7 @@
 using namespace std;
 
 
-namespace ML {
+namespace Datacratic {
 
 const UriHandlerFactory &
 getUriHandler(const std::string & scheme);
@@ -1030,4 +1030,4 @@ struct RegisterMemHandler {
 
 } registerMemHandler;
 
-} // namespace ML
+} // namespace Datacratic

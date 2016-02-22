@@ -204,7 +204,7 @@ struct EmbeddingDatasetRepr {
 
     void save(const std::string & filename)
     {
-        ML::filter_ostream stream(filename);
+        filter_ostream stream(filename);
         ML::DB::Store_Writer store(stream);
         
         serialize(store);

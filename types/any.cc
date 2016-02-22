@@ -52,11 +52,10 @@ Any::
 asJson() const
 {
     Json::Value result;
-    StructuredJsonPrintingContext context;
     if (!desc_) return result;
-    //throw ML::Exception("cannot get value without value description as JSON");
+    StructuredJsonPrintingContext context(result);
     desc_->printJson(obj_.get(), context);
-    return context.output;
+    return result;
 }
 
 /** Get it as stringified JSON */
@@ -163,9 +162,10 @@ Json::Value
 Any::
 jsonEncodeTyped(const Any & val)
 {
-    StructuredJsonPrintingContext context;
+    Json::Value result;
+    StructuredJsonPrintingContext context(result);
     payloadDesc.printJson(&val, context);
-    return std::move(context.output);
+    return result;
 }
 
 void

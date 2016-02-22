@@ -25,6 +25,7 @@
 #include "mldb/types/date.h"
 #include "mldb/types/id.h"
 #include "mldb/base/parse_context.h"
+#include "mldb/ext/jsoncpp/json.h"
 
 
 using namespace std;

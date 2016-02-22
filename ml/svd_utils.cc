@@ -585,7 +585,7 @@ calcOverlap(const Bucket & other, SvdSpace space) const
                     cerr << "difference in result: " << realResult << " vs "
                          << result << endl;
 
-                    ML::filter_ostream test("test.txt");
+                    filter_ostream test("test.txt");
 
                     test << jsonEncode(vector<uint32_t>(it1, end1)) << endl;
                     test << jsonEncode(vector<uint32_t>(it2, end2)) << endl;

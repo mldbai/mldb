@@ -236,7 +236,7 @@ void Binary_Input::open(const std::string & filename)
     if (endsWith(filename, ".gz")
         || endsWith(filename, ".bz2")
         || endsWith(filename, ".xz")) {
-        source.reset(new Stream_Source(new filter_istream(filename)));
+        source.reset(new Stream_Source(new Datacratic::filter_istream(filename)));
         offset_ = 0;
         pos_ = end_ = 0;
         source->more(*this, 0);

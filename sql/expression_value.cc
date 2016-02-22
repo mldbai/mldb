@@ -2968,9 +2968,10 @@ Json::Value
 ExpressionValue::
 extractJson() const
 {
-    StructuredJsonPrintingContext context;
+    Json::Value result;
+    StructuredJsonPrintingContext context(result);
     extractJson(context);
-    return context.output;
+    return result;
 }
 
 /** Value description that includes the timestamp.  It serializes as an array with 

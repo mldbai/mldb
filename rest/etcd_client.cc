@@ -307,11 +307,11 @@ watch(const std::string & key,
                               queryParams,
                               {}, timeout, false /* exceptions */);
         
-        if (resp.errorCode_ == CURLE_OPERATION_TIMEDOUT)
+        if (resp.errorCode() == CURLE_OPERATION_TIMEDOUT)
             return EtcdResponse();
-        if (resp.errorCode_) {
+        if (resp.errorCode()) {
             if (i == retries - 1)
-                throw ML::Exception(resp.errorMessage_);
+                throw ML::Exception(resp.errorMessage());
             cerr << "retrying etcd operation" << endl;
             std::this_thread::sleep_for(std::chrono::milliseconds(
                 int(retryDelay * 1000)));

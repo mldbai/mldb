@@ -7,10 +7,14 @@
 
 #pragma once
 
-#include "mldb/ext/jsoncpp/json.h"
-#include "mldb/compiler/compiler.h"
 #include "mldb/types/string.h"
 #include <memory>
+#include <vector>
+#include <functional>
+
+namespace Json {
+struct Value;
+} // namespace Json
 
 namespace ML {
 struct Parse_Context;

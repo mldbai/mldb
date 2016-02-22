@@ -89,7 +89,7 @@ run(const ProcedureRunConfig & run,
     auto runProcConf = applyRunConfOverProcConf(procedureConfig, run);
             
     SqlExpressionMldbContext context(server);
-    ML::filter_ostream out(runProcConf.dataFileUrl.toString());
+    filter_ostream out(runProcConf.dataFileUrl.toString());
     CsvWriter csv(out, runProcConf.delimiter.at(0),
                   runProcConf.quoteChar.at(0));
 

@@ -97,11 +97,12 @@ static Json::Value getDefaultValue(const ValueDescription & description)
     void * val = description.constructDefault();
     if (!val)
         return Json::Value();
-    StructuredJsonPrintingContext context;
+    Json::Value jval;
+    StructuredJsonPrintingContext context(jval);
     description.printJson(val, context);
     description.destroy(val);
 
-    return std::move(context.output);
+    return std::move(jval);
 }
 
 static ValueDescriptionRepr

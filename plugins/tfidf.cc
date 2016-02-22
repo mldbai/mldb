@@ -75,7 +75,7 @@ save(const std::string & filename,
      uint64_t corpusSize, 
      const std::unordered_map<Datacratic::Utf8String, uint64_t> & dfs)
 {
-    ML::filter_ostream stream(filename);
+    Datacratic::filter_ostream stream(filename);
     ML::DB::Store_Writer store(stream);
     serialize(store, corpusSize, dfs);
 }
@@ -85,7 +85,7 @@ load(const std::string & filename,
      uint64_t & corpusSize, 
      std::unordered_map<Datacratic::Utf8String, uint64_t> & dfs)
 {
-    ML::filter_istream stream(filename);
+    Datacratic::filter_istream stream(filename);
     ML::DB::Store_Reader store(stream);
     reconstitute(store, corpusSize, dfs);
 }

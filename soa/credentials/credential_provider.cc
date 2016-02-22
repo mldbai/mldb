@@ -9,6 +9,7 @@
 
 #include "credential_provider.h"
 #include <mutex>
+#include <iostream>
 
 using namespace std;
 

@@ -5,9 +5,48 @@
 
 #include <boost/test/unit_test.hpp>
 #include "mldb/soa/service/sns.h"
+#include "mldb/arch/exception.h"
 
 using namespace std;
 using namespace Datacratic;
+
+struct MockSnsApiWrapper : SnsApiWrapper {
+
+    private:
+        int cacheSize;
+
+    public:
+        std::queue<std::string> queue;
+
+        MockSnsApiWrapper(int cacheSize = 0) : cacheSize(cacheSize){
+            if (cacheSize < 0) {
+                throw ML::Exception("Cache size cannot be below 0");
+            }
+        }
+
+        void init(const std::string & accessKeyId,
+                  const std::string & accessKey,
+                  const std::string & fdefaultTopicArn) {}
+
+        std::string
+        publish(const std::string & message,
+                int timeout = 10,
+                const std::string & subject = "") {
+            if (cacheSize == 0) {
+                return "";
+            }
+            while (queue.size() >= cacheSize) {
+                queue.pop();
+            }
+            queue.push(message);
+            return "";
+        }
+
+        MockSnsApiWrapper(const std::string & accessKeyId,
+                          const std::string & accessKey,
+                          const std::string & defaultTopicArn) = delete;
+
+};
 
 BOOST_AUTO_TEST_CASE( test_mock_sns_api )
 {

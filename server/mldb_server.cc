@@ -279,15 +279,16 @@ Json::Value
 MldbServer::
 getTypeInfo(const std::string & typeName)
 {
+    Json::Value result;
     auto vd = ValueDescription::get(typeName);
     if (!vd)
-        return Json::Value();
+        return result;
 
     static std::shared_ptr<ValueDescriptionT<std::shared_ptr<const ValueDescription> > >
         desc = getValueDescriptionDescription(true /* detailed */);
-    StructuredJsonPrintingContext context;
+    StructuredJsonPrintingContext context(result);
     desc->printJsonTyped(&vd, context);
-    return std::move(context.output);
+    return result;
 }
 
 void
@@ -445,7 +446,7 @@ scanPlugins(const std::string & dir_)
 
     auto info = tryGetUriObjectInfo(dir + "mldb_plugin.json");
     if (info) {
-        ML::filter_istream stream(dir + "mldb_plugin.json");
+        filter_istream stream(dir + "mldb_plugin.json");
         foundPlugin(dir, stream);
     }
     else {
@@ -461,9 +462,9 @@ scanPlugins(const std::string & dir_)
                            int depth)
             {
                 if (endsWith(uri, "/mldb_plugin.json")) {
-                    //ML::filter_istream stream(open({}),
+                    //filter_istream stream(open({}),
                     //                          uri, {});
-                    ML::filter_istream stream(uri);
+                    filter_istream stream(uri);
                     foundPlugin(string(uri, 0, uri.length() - 16), stream);
                     return true;
                 }
