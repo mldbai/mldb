@@ -237,7 +237,6 @@ assertEqual(res, expected, "City populations CSV");
 
 // Test loading of broken file (MLDB-994)
 // broken that fails
-
 var brokenConfigFail = {
     type: 'text.csv.tabular',
     id: 'broken_fail',
@@ -247,17 +246,22 @@ var brokenConfigFail = {
     }
 };
 
-var failed = false;
-try {
-    var res = mldb.createDataset(brokenConfigFail);
-} catch (e) {
-    mldb.log(e);
-    assertEqual(e.details.lineNumber, 5, "expected bad line number at 5");
-    failed = true;
+// MLDB-1404: do it 100 times to ensure we don't terminate
+
+for (var i = 0;  i < 100;  ++i) {
+    var failed = false;
+    try {
+        var res = mldb.createDataset(brokenConfigFail);
+    } catch (e) {
+        mldb.log(e);
+        assertEqual(e.details.lineNumber, 5, "expected bad line number at 5");
+        failed = true;
+    }
+    if(!failed) {
+        throw "did not throw !!"
+    }
 }
-if(!failed) {
-    throw "did not throw !!"
-}
+
 /**/
 
 var brokenConfigNoHeader = {
