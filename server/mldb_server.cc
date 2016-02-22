@@ -112,7 +112,7 @@ init(PortRange bindPort, const std::string & bindHost,
 }
 #endif
 
-void
+bool
 MldbServer::
 init(std::string configurationPath,
      std::string staticFilesPath,
@@ -123,8 +123,11 @@ init(std::string configurationPath,
 
     preInit();
     initServer(server);
-    if (initRoutes()) // if initRoutes fails no need to add collections to routes
+    if (initRoutes()) { // if initRoutes fails no need to add collections to routes
         initCollections(configurationPath, staticFilesPath, staticDocPath, hideInternalEntities);
+        return true;
+    }
+    return false;
 }
 
 void
@@ -233,6 +236,7 @@ initRoutes()
             connection.sendErrorResponse(500, errorMessage);
         };
          
+        router.notFoundHandler = versionNode.notFoundHandler;
         std::cerr << errorMessage << std::endl;
         this->versionNode = &versionNode;
         return false;

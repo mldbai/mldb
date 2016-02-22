@@ -390,6 +390,7 @@ struct RestRequestRouter {
     RestRequestRouter();
 
     RestRequestRouter(const OnProcessRequest & processRequest,
+                      const OnNotFoundRequest & notFoundHandler,
                       const Utf8String & description,
                       bool terminal,
                       const Json::Value & argHelp = Json::Value());
@@ -567,11 +568,14 @@ struct RestRequestRouter {
         subRoutes.push_back(route);
         return *res;
     }
+
+    static void defaultNotFoundHandler (RestConnection & connection,
+                                        const RestRequest & request);
     
     OnProcessRequest rootHandler;
+    OnNotFoundRequest notFoundHandler;
     std::vector<Route> subRoutes;
     Utf8String description;
-    OnNotFoundRequest notFoundHandler;
     bool terminal;
     Json::Value argHelp;
 };
