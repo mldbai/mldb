@@ -756,7 +756,7 @@ struct TensorflowGraph: public Function {
             auto rowScope = functionScope.getRowContext(inputData);
 
             ExpressionValue inStorage;
-            const ExpressionValue & in = boundInputs(rowScope, inStorage);
+            const ExpressionValue & in = boundInputs(rowScope, inStorage, GET_LATEST);
 
             Date outputTs = owner->modelTs;
 
@@ -800,7 +800,7 @@ struct TensorflowGraph: public Function {
 
             GraphExtractScope::RowScope outputRowScope(rowScope, outputs, outputTs);
             
-            result = boundOutputs(outputRowScope);
+            result = boundOutputs(outputRowScope, GET_LATEST);
 
             return result;
         }
