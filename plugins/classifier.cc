@@ -379,9 +379,16 @@ run(const ProcedureRunConfig & run,
 
             std::vector<std::pair<ML::Feature, float> > features
             = { { labelFeature, encodedLabel }, { weightFeature, weight } };
-                
+
+            unordered_set<Coord> unique_known_features;
             for (auto & c: row.columns) {
                 featureSpace->encodeFeature(std::get<0>(c), std::get<1>(c), features);
+
+                if(unique_known_features.count(std::get<0>(c)) != 0) {
+                    throw ML::Exception("Training dataset cannot have duplicated column '" + 
+                        std::get<0>(c).toString() + "' for row '"+row.rowName.toString()+"'");
+                }
+                unique_known_features.insert(std::get<0>(c));
             }
 
             thr.fvs.emplace_back(row.rowName, std::move(features));
