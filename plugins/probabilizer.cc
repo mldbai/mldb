@@ -17,7 +17,7 @@
 #include "mldb/plugins/sql_expression_extractors.h"
 #include "mldb/jml/stats/distribution.h"
 #include "mldb/jml/utils/guard.h"
-#include "mldb/jml/utils/worker_task.h"
+#include "mldb/base/parallel.h"
 #include "mldb/ml/jml/thread_context.h"
 #include "mldb/arch/simd_vector.h"
 #include "mldb/jml/utils/vector_utils.h"

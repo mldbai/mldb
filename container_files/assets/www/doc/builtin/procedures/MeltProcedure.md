@@ -22,9 +22,9 @@ Suppose the following dataset `data` with the `friends` column containing string
 
 We may want to perform operations on the contents of the JSON object in the 
 `friends` column. To do so, we can perform a `melt` operation on the output
-of the `unpack_json()` function.
+of the `parse_json()` function.
 
-Doing the query `select unpack_json(friends) from data` will return:
+Doing the query `select parse_json(friends, {arrays: 'encode'}) from data` will return:
 
 | *rowName* | *friends.0* | *friends.1* |
 |-----------|--------|-------|-----------|
@@ -40,7 +40,7 @@ We can do the melt like this:
                         SELECT {name, age} as to_fix,
                                {friends*} as to_melt
                         FROM (
-                            SELECT unpack_json(friends) AS * from data
+                            SELECT parse_json(friends, {arrays: 'encode'}) AS * from data
                         )""",
             "outputDataset": "melted_data"
             "runOnCreation": True
@@ -57,5 +57,5 @@ The `melted_data` dataset will look like this:
 
 ## See also
 
-* The [unpack_json](../sql/ValueExpression.md.html#unpack_json) builtin function can perform 
+* The [parse_json](../sql/ValueExpression.md.html#parse_json) builtin function can perform 
 JSON unpacking to a text cell in an SQL query

@@ -12,7 +12,7 @@
 #include "mldb/jml/stats/distribution.h"
 #include "mldb/jml/db/persistent.h"
 #include "mldb/vfs/filter_streams.h"
-#include "mldb/jml/utils/worker_task.h"
+#include "mldb/base/parallel.h"
 #include <boost/math/special_functions/fpclassify.hpp>
 
 

@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "mldb/jml/utils/worker_task.h"
+#include "mldb/base/parallel.h"
 
 namespace Datacratic {
 
@@ -189,7 +189,7 @@ struct MergeHashEntries {
                     buckets[i].merge(left.buckets[i], right.buckets[i]);
                 };
                 
-            ML::run_in_parallel(0, NBUCKETS, onBucket);
+            parallelMap(0, NBUCKETS, onBucket);
         }
         else {
             for (unsigned i = 0;  i < NBUCKETS;  ++i) {
@@ -242,7 +242,7 @@ extractAndMerge(size_t numElementsToMerge,
             allEntries[i] = std::move(getEntries(i));
         };
 
-    ML::run_in_parallel(0, numElementsToMerge, onEntry);
+    parallelMap(0, numElementsToMerge, onEntry);
 
     // Phase 2: merge each of the buckets
 
@@ -279,7 +279,7 @@ extractAndMerge(size_t numElementsToMerge,
             finishBucket(i, result.buckets[i]);
         };
 
-    ML::run_in_parallel(0, MergeHashEntries::NBUCKETS, mergeBucket);
+    parallelMap(0, MergeHashEntries::NBUCKETS, mergeBucket);
 
     return std::move(result);
 }

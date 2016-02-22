@@ -11,7 +11,7 @@
 #include "mldb/arch/timers.h" 
 #include "mldb/jml/utils/csv.h"    
 #include "mldb/jml/utils/lightweight_hash.h"
-#include "mldb/jml/utils/worker_task.h"
+#include "mldb/base/parallel.h"
 #include "mldb/plugins/for_each_line.h"
 #include "mldb/plugins/tabular_dataset.h"
 #include "mldb/server/mldb_server.h"
@@ -906,7 +906,7 @@ struct ImportTextProcedureWorkInstance
 	            doneChunks.emplace_back(std::move(*ent));
 	        };
 
-	    ML::run_in_parallel_blocked(0, accum.threads.size(), doLeftoverChunk);
+	    parallelMap(0, accum.threads.size(), doLeftoverChunk);
 
 	    //cerr << "got a total of " << doneChunks.size() << " chunks" << endl;
 

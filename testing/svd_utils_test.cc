@@ -16,7 +16,7 @@
 #include "mldb/jml/utils/string_functions.h"
 #include "mldb/jml/utils/vector_utils.h"
 #include "mldb/jml/utils/pair_utils.h"
-#include "mldb/jml/utils/worker_task.h"
+#include "mldb/base/parallel.h"
 
 #include "mldb/jml/stats/distribution.h"
 #include <cmath>

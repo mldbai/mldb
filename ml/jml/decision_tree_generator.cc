@@ -789,7 +789,6 @@ struct TreeTrainer {
     typedef Stump_Trainer<W, Z, TrainerTracer> SplitTrainer;
         
     void do_branch(Tree::Ptr & ptr,
-                   int & group_to_wait_on,
                    Thread_Context & context,
                    const Training_Data & data,
                    const vector<const float *> & weights,
@@ -799,7 +798,8 @@ struct TreeTrainer {
                    const distribution<float> & new_in_class,
                    double total_in_class,
                    int new_depth, int max_depth,
-                   Tree & tree) const
+                   Tree & tree,
+                   Datacratic::ThreadPool & tp) const
     {
 #if 0
         if (total_in_class > 1024) {
@@ -1056,27 +1056,24 @@ struct TreeTrainer {
         node->examples = total_weight;
         node->pred = leaf.pred;
 
-        int group_to_wait_for = -1;
-
-        do_branch(node->child_true, group_to_wait_for,
+        Datacratic::ThreadPool tp;
+        
+        do_branch(node->child_true,
                   context, data, weights, binary_weights, advance, features,
                   class_true, total_true, depth + 1, max_depth,
-                  tree);
+                  tree, tp);
 
-        do_branch(node->child_false, group_to_wait_for,
+        do_branch(node->child_false,
                   context, data, weights, binary_weights, advance, features,
                   class_false, total_false, depth + 1, max_depth,
-                  tree);
+                  tree, tp);
     
-        do_branch(node->child_missing, group_to_wait_for,
+        do_branch(node->child_missing,
                   context, data, weights, binary_weights, advance, features,
                   class_missing, total_missing, depth + 1, max_depth,
-                  tree);
+                  tree, tp);
 
-        if (group_to_wait_for != -1) {
-            context.worker().unlock_group(group_to_wait_for);
-            context.worker().run_until_finished(group_to_wait_for);
-        }
+        tp.waitForAll();
         
         return node;
     }

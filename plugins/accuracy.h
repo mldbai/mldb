@@ -15,6 +15,7 @@
 #include "matrix.h"
 #include "mldb/types/value_description.h"
 #include "mldb/types/optional.h"
+#include "mldb/plugins/classifier.h"
 
 namespace Datacratic {
 namespace MLDB {
@@ -25,11 +26,15 @@ class SqlExpression;
 
 struct AccuracyConfig : public ProcedureConfig {
     AccuracyConfig()
+          : mode(CM_BOOLEAN)
     {
     }
 
     /// Sql query to select the testing data
     InputQuery testingData;
+
+    /// What mode to run in
+    ClassifierMode mode;
 
     /// Dataset we output to
     Optional<PolyConfigT<Dataset> > outputDataset;

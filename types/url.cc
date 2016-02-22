@@ -1,6 +1,5 @@
 // This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
-
 #include "url.h"
 
 #include "mldb/ext/googleurl/src/gurl.h"
@@ -265,6 +264,43 @@ Utf8String
 Url::
 decodeUri(Utf8String in)
 {
+#if TOLERATE_URL_BAD_ENCODING
+    string raw = in.rawString();
+    url_canon::RawCanonOutputT<char16> output;
+    url_util::DecodeURLEscapeSequences(raw.c_str(), raw.length(), &output);
+    auto data = output.data();
+    char buffer[output.length() * 4 + 1]; // prepare for the worse, 4 char + \0
+    ssize_t index = 0;
+    for (ssize_t i = 0; i < output.length(); ++i) {
+        char16 c = data[i];
+        if (c < 128) {
+            buffer[index++] = c;
+            continue;
+        }
+        int size = 2;
+        if (c < 2048) { }
+        else if (c < 65536) {
+            size = 3;
+        }
+        else if (c < 2097152) {
+            size = 4;
+        }
+        else {
+            throw ML::Exception("This is not utf-8");
+        }
+        char frontPad = 128;
+        frontPad = frontPad >> (size - 1);
+        for (int pos = index + size - 1; pos > index; --pos){
+            buffer[pos] = c % 64 + 128;
+            c = c >> 6;
+        }
+        buffer[index] = c + frontPad;
+        index += size;
+    }
+    buffer[index] = '\0';
+    return Utf8String(buffer);
+
+#else
     Utf8String inCopy(in);
     Utf8String out;
     char high;
@@ -333,6 +369,7 @@ decodeUri(Utf8String in)
         out += Utf8String(in.begin(), in.end());
     }
     return out;
+#endif
 }
 
 

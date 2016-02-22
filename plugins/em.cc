@@ -8,7 +8,7 @@
 #include "jml/stats/distribution.h"
 #include <boost/multi_array.hpp>
 #include "jml/utils/guard.h"
-#include "jml/utils/worker_task.h"
+#include "base/parallel.h"
 #include "jml/utils/pair_utils.h"
 #include "mldb/arch/timers.h"
 #include "mldb/types/optional_description.h"

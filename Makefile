@@ -18,7 +18,7 @@ V8_LIB:=v8
 VIRTUALENV ?= virtualenv
 PYTHON ?= $(VIRTUALENV)/bin/python
 PIP ?= $(VIRTUALENV)/bin/pip
-PYTHON_DEPENDENCIES_PRE_CMD ?= $(PIP) install -U pip==7.1.0
+PYTHON_DEPENDENCIES_PRE_CMD ?= $(PIP) install -U pip==8.0.2
 PYFLAKES ?= $(VIRTUALENV)/bin/flake8 --select=F,E9,E101
 J2 ?= $(VIRTUALENV)/bin/j2
 J2ENV ?= $(J2) -f env
@@ -28,6 +28,7 @@ export VIRTUALENV
 default: all
 .PHONY: default
 
+PWD     := $(shell pwd)
 BUILD   ?= build
 ARCH    ?= $(shell uname -m)
 OBJ     := $(BUILD)/$(ARCH)/obj
@@ -38,6 +39,14 @@ TMPBIN	:= $(BUILD)/$(ARCH)/tmp
 INC     := $(BUILD)/$(ARCH)/include
 SRC     := .
 TMP     ?= $(BUILD)/$(ARCH)/tmp
+
+# These are for cross-compilation, where binaries used in the build need
+# be be built for the host.
+HOSTARCH ?= $(ARCH)
+HOSTBIN ?= $(BUILD)/$(HOSTARCH)/bin
+HOSTLIB ?= $(BUILD)/$(HOSTARCH)/lib
+HOSTINC ?= $(BUILD)/$(HOSTARCH)/include
+
 TEST_TMP := $(TESTS)
 # Vars for configuration files or files that live outside bin and lib
 ALTROOT := $(BUILD)/$(ARCH)/altroot

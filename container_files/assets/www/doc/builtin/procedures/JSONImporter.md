@@ -3,9 +3,7 @@
 The JSON Import Procedure type is used to import a text file containing
 one JSON per line in a dataset.
 
-This procedure will use the same algorithm as the 
-[unpack_json](../sql/ValueExpression.md.html#unpack_json) builtin function
-to store the data.
+This procedure will process lines using the [parse_json](../sql/ValueExpression.md.html) builtin function with `arrays` set to `'encode'`.
 
 
 ## Configuration
@@ -15,7 +13,7 @@ to store the data.
 
 ## See also
 
-* The [unpack_json](../sql/ValueExpression.md.html#unpack_json) builtin function can apply the above
+* The [parse_json](../sql/ValueExpression.md.html#parse_json) builtin function can apply the above
 JSON unpacking algorithm to a text cell in an SQL query
 * The ![](%%doclink text.csv.tabular dataset) is used to import a CSV file
 * The ![](%%doclink melt procedure) is used to melt columns into many rows. This is useful

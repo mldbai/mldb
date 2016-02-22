@@ -17,7 +17,8 @@
 #include "mldb/jml/utils/lightweight_hash.h"
 #include "mldb/server/dataset_context.h"
 #include "mldb/server/per_thread_accumulator.h"
-#include "mldb/jml/utils/worker_task.h"
+#include "mldb/jml/utils/environment.h"
+#include "mldb/base/parallel.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/rest/rest_request_router.h"
@@ -27,6 +28,24 @@
 
 using namespace std;
 
+extern "C" {
+    // For TCMalloc.  TODO: similar functionality exists in other memory
+    // allocators.
+    void MallocExtension_ReleaseFreeMemory(void) __attribute__((weak));
+    void MallocExtension_GetStats(char * buffer, int buffer_length) __attribute__((weak));
+
+    // Create weak versions of these symbols for when we're not using
+    // tcmalloc.
+    void MallocExtension_ReleaseFreeMemory(void)
+    {
+    }
+
+    void MallocExtension_GetStats(char * buffer, int buffer_length)
+    {
+        if (buffer_length)
+            *buffer = 0;
+    }
+} // extern "C"
 
 namespace Datacratic {
 namespace MLDB {
@@ -328,9 +347,30 @@ Dataset(MldbServer * server)
 {
 }
 
+ML::Env_Option<int> RETURN_OS_MEMORY("RETURN_OS_MEMORY", 1);
+ML::Env_Option<int> PRINT_OS_MEMORY("PRINT_OS_MEMORY", 0);
+
+
 Dataset::
 ~Dataset()
 {
+    // MLDBFB-329
+    // Once a dataset is deleted, try to free its memory from the system
+    if (PRINT_OS_MEMORY) {
+        char buf[8192];
+        MallocExtension_GetStats(buf, 8192);
+        cerr << buf << endl;
+    }
+
+    if (RETURN_OS_MEMORY) {
+        MallocExtension_ReleaseFreeMemory();    
+    
+        if (PRINT_OS_MEMORY) {
+            char buf[8192];
+            MallocExtension_GetStats(buf, 8192);
+            cerr << buf << endl;
+        }
+    }
 }
 
 void
@@ -1147,7 +1187,7 @@ generateRowsWhere(const SqlBindingScope & scope,
 
                 if (rows.size() >= 1000) {
                     // Scan the whole lot with the when in parallel
-                    ML::run_in_parallel_blocked(0, rows.size(), onRow);
+                    parallelMap(0, rows.size(), onRow);
                 } else {
                     // Serial, since probably it's not worth the overhead
                     // to run them in parallel.
@@ -1315,7 +1355,7 @@ queryBasic(const SqlBindingScope & scope,
                     };
                 
                 if (allowParallel)
-                    ML::run_in_parallel_blocked(0, rows.size(), doRow);
+                    parallelMap(0, rows.size(), doRow);
                 else {
                     for (unsigned i = 0;  i < rows.size();  ++i)
                         doRow(i);
@@ -1346,7 +1386,7 @@ queryBasic(const SqlBindingScope & scope,
                     };
         
                 if (allowParallel)
-                    ML::run_in_parallel(0, accum.numThreads(), copyRow);
+                    parallelMap(0, accum.numThreads(), copyRow);
                 else {
                     for (unsigned i = 0;  i < accum.numThreads();  ++i)
                         copyRow(i);

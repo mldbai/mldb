@@ -1,60 +1,39 @@
 # python_requirements.txt
 #
-# - Add only direct dependencies, unless required for a weird pip problem...
+# - Add only direct dependencies that are required to *build and run the tests*.
+#   pydata packages should be added to python_requirement_mldb_base.txt instead
 # - Put version of direct dependencies here, however keep in mind that versions
 #   from the constraints files have precedence over the requirements file.
 # - Keeping a comment for weird deps would be nice.
 #
-
-# math / science / graph stuff
-bokeh==0.9.3
-numpy==1.9.2
-pandas==0.16.2
-scipy==0.16.0
-openpyxl==2.2.6
-patsy==0.4.0
-matplotlib==1.4.3
-ggplot==0.6.8
-Theano==0.7.0
-seaborn==0.6.0
-scikit-learn==0.16.1
-
-pymldb==0.6.0
-
-
-# notebook and friends
-ipython[notebook]==4.0.0
-jupyter==1.0.0
 
 # jinja cli for rendering of templated config files
 Jinja2==2.8
 j2cli==0.3.1.post0
 
 # build
-flake8==2.4.1
-mccabe==0.3.1
-pep8==1.6.2
-pyflakes==0.9.2
-twine==1.5.0
-wheel==0.24.0
+flake8==2.5.4
+mccabe==0.4.0
+pep8==1.7.0
+pyflakes==1.0.0
+twine==1.6.5
+wheel==0.29.0
 
 # Misc
-Markdown==2.6.2
+Markdown==2.6.5
 dateutils==0.6.6
 python-dateutil==2.4.2
-pytz==2015.4
-requests[security]==2.7.0
+pytz==2015.7
+requests==2.9.1
 python-prctl==1.6.1
-Pygments==2.0.2
-setuptools==18.3.1  # This guy is not output by pip freeze...
+Pygments==2.1.1
+setuptools==20.1.1
+lz4==0.7.0
 
 # MLDB-684-test-server.py
-bottle==0.12.8
-
-# validator
-uWSGI==2.0.11.1
-pycrypto==2.6.1
+bottle==0.12.9
 
 # benchmarks
-elasticsearch==2.1.0
-psutil==3.3.0
+elasticsearch==2.2.0
+psutil==3.4.2
+

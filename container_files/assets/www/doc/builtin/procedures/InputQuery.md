@@ -15,7 +15,13 @@ where `column1` and `column2` refer to columns in a pre-existing dataset with id
 
 ## As a JSON Object
 
-Input queries can also be specified as a JSON object representing a [Dataset Configuration](../datasets/DatasetConfig.md) and a decomposed [SQL query](../sql/Sql.md).  For example the object:
+Input queries can also be specified as a JSON object representing a [Dataset Configuration](../datasets/DatasetConfig.md) and a decomposed [SQL query](../sql/Sql.md).
+
+The fields in the JSON structure are as follows:
+
+![](%%type Datacratic::MLDB::SelectStatement)
+
+For example the object:
 
 ```javascript
 {

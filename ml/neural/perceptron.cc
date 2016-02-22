@@ -25,7 +25,7 @@
 #include "mldb/ml/jml/evaluation.h"
 #include "mldb/arch/simd_vector.h"
 #include "mldb/ml/algebra/lapack.h"
-#include "mldb/jml/utils/worker_task.h"
+#include "mldb/base/parallel.h"
 #include "mldb/jml/utils/guard.h"
 #include "mldb/arch/backtrace.h"
 #include "dense_layer.h"

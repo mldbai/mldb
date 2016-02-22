@@ -20,7 +20,7 @@ function assertEqual(expr, val, msg)
         + " not equal to " + JSON.stringify(val);
 }
 
-csv_conf = {
+var csv_conf = {
     type: "import.text",
     params: {
         dataFileUrl : "file://mldb/testing/dataset/iris.data",
@@ -264,8 +264,7 @@ assertEqual(res, expected, "City populations CSV");
 
 // Test loading of broken file (MLDB-994)
 // broken that fails
-
-brokenConfigFail = {
+var brokenConfigFail = {
     type: "import.text",
     params: {
         dataFileUrl : "file://mldb/testing/MLDB-749_broken_csv.csv",
@@ -277,14 +276,21 @@ brokenConfigFail = {
     }
 }
 
-var res = mldb.put("/v1/procedures/csv_proc", brokenConfigFail)
-
-
 var res = mldb.put("/v1/procedures/csv_proc", brokenConfigFail);
 assertEqual(res['responseCode'], 400);
 assertEqual(res['json']['details']['runError']['details']['lineNumber'], 5);
 
-brokenConfigNoHeader = {
+// MLDB-1404: do it 100 times to ensure we don't terminate
+
+for (var i = 0;  i < 100;  ++i) {
+    res = mldb.put("/v1/procedures/csv_proc", brokenConfigFail);
+    assertEqual(res['responseCode'], 400);
+    assertEqual(res['json']['details']['runError']['details']['lineNumber'], 5);
+}
+
+/**/
+
+var brokenConfigNoHeader = {
     type: "import.text",
     params: {
         dataFileUrl : "file://mldb/testing/MLDB-749_broken_csv_no_header.csv",

@@ -18,10 +18,17 @@ using namespace Datacratic::MLDB;
 
 int main(int argc, char ** argv)
 {
+    vector<string> pluginDirectory = { "file://build/x86_64/mldb_plugins" };
+
     MldbServer server;
     
     server.init();
 
+    // Scan each of our plugin directories
+    for (auto & d: pluginDirectory) {
+        server.scanPlugins(d);
+    }
+    
     string httpBoundAddress = server.bindTcp(PortRange(17782,18000), "0.0.0.0");
     
     cerr << endl << endl << "Serving docs from " 

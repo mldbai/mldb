@@ -218,7 +218,7 @@ struct TableOperations {
     std::function<std::shared_ptr<RowValueInfo> ()> getRowInfo;
 
     /// Get a function bound to the given dataset
-    std::function<BoundFunction (SqlBindingScope & context,
+    std::function<BoundFunction (SqlBindingScope & scope,
                                  const Utf8String & tableName,
                                  const Utf8String & functionName,
                                  const std::vector<std::shared_ptr<ExpressionValueInfo> > & args)>

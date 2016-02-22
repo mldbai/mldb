@@ -14,7 +14,6 @@ conf = {
             "source": """
 import sys
 import select
-import numpy
 import json
 
 std_in = ""
@@ -35,7 +34,6 @@ def fib(n):
         a,b = b,a+b
     return a
 
-print numpy.zeros(fib(5))
 print json.dumps({"bouya": 5, "stdin_data": std_in})
 """
         }
@@ -51,7 +49,6 @@ mldb.log(rez.text)
 js_resp = rez.json()
 mldb.log(js_resp)
 
-assert js_resp["status"]["stdout"] == "[ 0.  0.  0.  0.  0.]"
 assert js_resp["status"]["return"] == {"bouya": 5, "stdin_data" : "pwet"}
 
 mldb.script.set_return("success")

@@ -19,7 +19,7 @@
 
 #include "mldb/jml/stats/distribution.h"
 #include <iostream>
-#include "mldb/jml/utils/worker_task.h"
+#include "mldb/base/parallel.h"
 
 using namespace std;
 
@@ -565,7 +565,7 @@ long ritvec(long n, SVDRec R, double kappa, double *ritz, double *bnd,
           R->S[x] = tmp0;
       };
 
-  ML::run_in_parallel(0, R->d, doOutput);
+  Datacratic::parallelMap(0, R->d, doOutput);
 
   return nsig;
 }

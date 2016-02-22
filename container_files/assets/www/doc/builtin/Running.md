@@ -242,3 +242,18 @@ Inside the virtual machine, MLDB runs as a Docker container (see above) controll
 To upgrade MLDB to the latest version, you will need to launch a new AMI.
 
 
+## Environment Variables (advanced usage)
+
+The following environment variables control MLDB:
+- `RETURN_OS_MEMORY` (0 or 1, default 1): if this is set (which it is by
+  default), the whole set of deallocated memory will be returned to the
+  OS whenever a dataset is destroyed.  If you observe long pauses after
+  a dataset is destroyed and have a dedicated machine or a container
+  with dedicated memory, you can set this to 0 to disable that behavior.
+- `PRINT_OS_MEMORY` (0 or 1, default 0): if this is set (it is *not* set
+  by default), then each time a dataset is destroyed, the memory usage
+  will be written to the console.  In addition, if `RETURN_OS_MEMORY=1`
+  then the memory usage will be re-printed after the memory is returned
+  to the operating system.
+
+

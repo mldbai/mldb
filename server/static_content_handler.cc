@@ -20,6 +20,7 @@
 #include "mldb/server/mldb_server.h"
 #include "mldb/core/mldb_entity.h"
 #include "static_content_macro.h"
+#include "mldb/base/scope.h"
 
 using namespace std;
 
@@ -135,6 +136,43 @@ int handleLink(hoedown_buffer *ob,
     return 1;
 }
 
+std::string renderMarkdown(const char * buf, size_t len,
+                           MacroData & macroData)
+{
+    auto renderer = hoedown_html_renderer_new(HOEDOWN_HTML_USE_XHTML,
+                                              0 /* data.toc_level */,
+                                              &macroData);                
+    Scope_Exit(hoedown_html_renderer_free(renderer));
+
+    renderer->normal_text = handleNormalText;
+    renderer->image = handleImage;
+    renderer->link = handleLink;
+
+    /* Perform Markdown rendering */
+    auto ob = hoedown_buffer_new(16384);
+    Scope_Exit(hoedown_buffer_free(ob));
+
+    int extensions
+        = HOEDOWN_EXT_MATH
+        | HOEDOWN_EXT_TABLES
+        | HOEDOWN_EXT_FENCED_CODE;
+                
+    auto document = hoedown_document_new(renderer,
+                                         (hoedown_extensions)extensions,
+                                         10 /*data.max_nesting*/);
+    Scope_Exit(hoedown_document_free(document));
+    
+    hoedown_document_render(document, ob, (const uint8_t *)buf, len);
+
+    std::string result((const char *)ob->data, (const char *)(ob->data + ob->size));
+    return result;
+}
+
+std::string renderMarkdown(const std::string & str, MacroData & macroData)
+{
+    return renderMarkdown(str.c_str(), str.length(), macroData);
+}
+
 RestRequestRouter::OnProcessRequest
 getStaticRouteHandler(string dir, MldbServer * server, bool hideInternalEntities)
 {
@@ -217,36 +255,7 @@ getStaticRouteHandler(string dir, MldbServer * server, bool hideInternalEntities
 
                 ML::File_Read_Buffer buf(filenameToLoad);
 
-                auto renderer = hoedown_html_renderer_new(HOEDOWN_HTML_USE_XHTML,
-                                                          0 /* data.toc_level */,
-                                                          &macroData);                
-                auto renderer_free = hoedown_html_renderer_free;
-
-                renderer->normal_text = handleNormalText;
-                renderer->image = handleImage;
-                renderer->link = handleLink;
-
-#if 0
-                //case RENDERER_HTML_TOC:
-                renderer = hoedown_html_toc_renderer_new(data.toc_level);
-                renderer_free = hoedown_html_renderer_free;
-#endif
-            
-                /* Perform Markdown rendering */
-                auto ob = hoedown_buffer_new(16384);
-                int extensions
-                    = HOEDOWN_EXT_MATH
-                    | HOEDOWN_EXT_TABLES
-                    | HOEDOWN_EXT_FENCED_CODE;
-                
-                auto document = hoedown_document_new(renderer, (hoedown_extensions)extensions, 10 /*data.max_nesting*/);
-                
-
-
-
-                hoedown_document_render(document, ob, (const uint8_t *)buf.start(), buf.size());
-
-                // Add MathJax
+                // Render the document
                 std::string result;
                 result += "<!DOCTYPE html>\n";
                 result += "<html>\n";
@@ -270,17 +279,9 @@ getStaticRouteHandler(string dir, MldbServer * server, bool hideInternalEntities
                 result += "</script>\n";
                 result += "</head>\n";
                 result += "<body style='margin-left: 50px; max-width: 1000px'>\n";
-                result += std::string((const char *)ob->data, (const char *)(ob->data + ob->size));
+                result += renderMarkdown(buf.start(), buf.size(), macroData);
                 result += "</body>\n";
                 result += "</html>\n";
-
-                //cerr << "result = " << result << endl;
-
-                /* Cleanup */
-                hoedown_buffer_free(ob);
-                hoedown_document_free(document);
-                renderer_free(renderer);
-            
 
                 connection.sendResponse(200, result, mimeType);
                 return RestRequestRouter::MR_YES;

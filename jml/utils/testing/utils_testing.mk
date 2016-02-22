@@ -9,5 +9,3 @@ $(eval $(call test,lightweight_hash_test,arch utils,boost))
 $(eval $(call test,string_functions_test,arch utils,boost))
 
 $(eval $(call test,csv_parsing_test,arch utils,boost))
-
-$(eval $(call test,worker_task_test,worker_task arch boost_thread pthread,boost))

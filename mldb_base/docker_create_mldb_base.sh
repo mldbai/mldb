@@ -7,7 +7,7 @@ progname=$(basename $0)
 
 CIDFILE=$(mktemp -u -t $progname.cid.XXXXXX)  # Race me!
 BASE_IMG="quay.io/datacratic/baseimage:0.9.17"
-IMG_NAME="quay.io/datacratic/mldb_base:14.04"
+IMG_NAME=${IMG_NAME:="quay.io/datacratic/mldb_base:14.04"}
 
 BUILD_DOCKER_DIR="/mnt/build"
 
@@ -103,7 +103,7 @@ apt-get install -y \
 #######################
 apt-get install -y python-pip
 pip install -U pip setuptools || true  # https://github.com/pypa/pip/issues/3045
-pip2 install -U $PIP_WHEELHOUSE -r $BUILD_DOCKER_DIR/python_requirements.txt -c $BUILD_DOCKER_DIR/python_constraints.txt
+pip2 install -U $PIP_WHEELHOUSE -r $BUILD_DOCKER_DIR/python_requirements_mldb_base.txt -c $BUILD_DOCKER_DIR/python_constraints.txt
 
 # Drop the statically linked Python images
 rm -f /usr/lib/python2.7/config-x86_64-linux-gnu/*.a
