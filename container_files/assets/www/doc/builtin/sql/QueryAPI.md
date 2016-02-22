@@ -28,24 +28,24 @@ the following query string parameters:
 
 - `format`: string (default `full`), gives the output format.  Possible values are:
   - `full` (default): full sparse output as array of deep objects. 
-    - All values for each cell are returned, with timestamps.
+      - All values for each cell are returned, with timestamps.
   - `table`: a table represented as an array of rows represented as
     a position arrays of values,with an optional header row (like a CSV file in JSON).   
-    - Missing values are represented as null. 
-    - Timestamp, interval and Nan/Inf values are converted to strings.
-    - Latest value returned per cell, without timestamp
+      - Missing values are represented as null. 
+      - Timestamp, interval and Nan/Inf values are converted to strings.
+      - Latest value returned per cell, without timestamp
   - `aos` (for "array of structures"): an array of objects, one per row.
-    - Each row is represented by an object, with column names as keys and
+      - Each row is represented by an object, with column names as keys and
  cell values as the value.
-    - Latest value returned per cell, without timestamp
+      - Latest value returned per cell, without timestamp
   - `soa` (for "structure of arrays"): an object, with one entry per column.
-    - Each column has an array with one value per row.
-    - Missing values are represented as nulls.
-    - Latest value returned per cell, without timestamp
+      - Each column has an array with one value per row.
+      - Missing values are represented as nulls.
+      - Latest value returned per cell, without timestamp
   - `sparse`: an array of arrays of arrays. Same as `aos` format except that
     rows are represented as arrays of 2-element [column, value] arrays instead
     of objects. 
-    - All values for each cell are returned, without timestamps
+      - All values for each cell are returned, without timestamps
 - `headers`: boolean (default `true`), if `true` the table format will include a header.
 - `rowNames`: boolean (default `true`), if `true` an implicit column called `_rowName` will
    be added, containing the row name.

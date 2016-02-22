@@ -314,11 +314,9 @@ generate_stumps(Thread_Context & context,
                                        opt_infos);
 
             update_scores(training_output, training_set, all_stumps,
-                          opt_infos,
-                          context.group());
+                          opt_infos);
             update_scores(validation_output, validation_set, all_stumps,
-                          opt_infos,
-                          context.group());
+                          opt_infos);
             
             float train_acc
                 = accuracy(training_output, training_set,
@@ -530,7 +528,7 @@ train_iteration_fair(Thread_Context & context,
     result.insert(all_trained, cl_weights);
 
     update_weights(weights, all_trained, opt_infos, cl_weights, data,
-                   cost_function, bin_sym, context.group());
+                   cost_function, bin_sym);
     
     return all_trained;
 }
@@ -563,29 +561,22 @@ train_iteration(Thread_Context & context,
 
     size_t nl = weights.shape()[1];
 
-    static Worker_Task & task
-        = Worker_Task::instance(num_threads() - 1);
-    
     if (cost_function == CF_EXPONENTIAL) {
         typedef Boosting_Loss Loss;
         if (bin_sym) {
             typedef Binsym_Updater<Loss> Updater;
             typedef Update_Weights_Parallel<Updater> Update;
-            Update update(task);
+            Update update;
             
-            update(stump,opt_info, 1.0, weights, data, total,
-                   NO_JOB, context.group());
-            task.run_until_finished(update.group);
+            update(stump,opt_info, 1.0, weights, data, total);
         }
         else {
             typedef Normal_Updater<Loss> Updater;
             typedef Update_Weights_Parallel<Updater> Update;
             Updater updater(nl);
-            Update update(task, updater);
+            Update update(updater);
 
-            update(stump, opt_info, 1.0, weights, data, total,
-                   NO_JOB, context.group());
-            task.run_until_finished(update.group);
+            update(stump, opt_info, 1.0, weights, data, total);
         }
     }
     else if (cost_function == CF_LOGISTIC) {
@@ -596,22 +587,18 @@ train_iteration(Thread_Context & context,
             typedef Binsym_Updater<Loss> Updater;
             typedef Update_Weights_Parallel<Updater> Update;
             Updater updater(loss);
-            Update update(task, updater);
+            Update update(updater);
 
-            update(stump, opt_info, 1.0, weights, data, total,
-                   NO_JOB, context.group());
-            task.run_until_finished(update.group);
+            update(stump, opt_info, 1.0, weights, data, total);
         }
         else {
             //PROFILE_FUNCTION(t_update);
             typedef Normal_Updater<Loss> Updater;
             typedef Update_Weights_Parallel<Updater> Update;
             Updater updater(nl, loss);
-            Update update(task, updater);
+            Update update(updater);
 
-            update(stump, opt_info, 1.0, weights, data, total,
-                   NO_JOB, context.group());
-            task.run_until_finished(update.group);
+            update(stump, opt_info, 1.0, weights, data, total);
         }
     }
     else throw Exception("Boosted_Stumps_Generator::train_iteration: "
@@ -680,9 +667,6 @@ train_iteration(Thread_Context & context,
     typedef Normal_Updater<Boosting_Predict> Output_Updater;
     Output_Updater output_updater(nl);
 
-    static Worker_Task & task
-        = Worker_Task::instance(num_threads() - 1);
-
     if (cost_function == CF_EXPONENTIAL) {
         typedef Boosting_Loss Loss;
         if (bin_sym) {
@@ -691,11 +675,10 @@ train_iteration(Thread_Context & context,
                 <Weights_Updater, Output_Updater, Binsym_Scorer>
                 Update;
             Weights_Updater weights_updater;
-            Update update(task, weights_updater, output_updater);
+            Update update(weights_updater, output_updater);
             
             update(stump, opt_info, 1.0, weights, output, data, ex_weights,
-                   correct, total, NO_JOB, context.group());
-            task.run_until_finished(update.group);
+                   correct, total);
         }
         else {
             typedef Normal_Updater<Loss> Weights_Updater;
@@ -703,11 +686,10 @@ train_iteration(Thread_Context & context,
                 <Weights_Updater, Output_Updater, Normal_Scorer>
                 Update;
             Weights_Updater weights_updater(nl);
-            Update update(task, weights_updater, output_updater);
+            Update update(weights_updater, output_updater);
 
             update(stump, opt_info, 1.0, weights, output, data, ex_weights,
-                   correct, total, NO_JOB, context.group());
-            task.run_until_finished(update.group);
+                   correct, total);
         }
     }
     else if (cost_function == CF_LOGISTIC) {
@@ -720,11 +702,10 @@ train_iteration(Thread_Context & context,
                 <Weights_Updater, Output_Updater, Binsym_Scorer>
                 Update;
             Weights_Updater weights_updater(loss);
-            Update update(task, weights_updater, output_updater);
+            Update update(weights_updater, output_updater);
 
             update(stump, opt_info, 1.0, weights, output, data, ex_weights,
-                   correct, total, NO_JOB, context.group());
-            task.run_until_finished(update.group);
+                   correct, total);
         }
         else {
             typedef Normal_Updater<Loss> Weights_Updater;
@@ -732,11 +713,10 @@ train_iteration(Thread_Context & context,
                 <Weights_Updater, Output_Updater, Normal_Scorer>
                 Update;
             Weights_Updater weights_updater(nl, loss);
-            Update update(task, weights_updater, output_updater);
+            Update update(weights_updater, output_updater);
 
             update(stump, opt_info, 1.0, weights, output, data, ex_weights,
-                   correct, total, NO_JOB, context.group());
-            task.run_until_finished(update.group);
+                   correct, total);
         }
     }
     else throw Exception("Boosted_Stumps_Generator::train_iteration: "
@@ -785,30 +765,23 @@ update_accuracy(Thread_Context & context,
 
     double correct = 0.0;
 
-    static Worker_Task & task
-        = Worker_Task::instance(num_threads() - 1);
-
     if (bin_sym) {
         typedef Binsym_Updater<Boosting_Predict> Output_Updater;
         Output_Updater output_updater;
         
         typedef Update_Scores_Parallel<Output_Updater, Binsym_Scorer> Update;
-        Update update(task, output_updater);
+        Update update(output_updater);
         
-        update(stump, opt_info, 1.0, output, data, ex_weights, correct,
-               NO_JOB, context.group());
-        task.run_until_finished(update.group);
+        update(stump, opt_info, 1.0, output, data, ex_weights, correct);
     }
     else {
         typedef Normal_Updater<Boosting_Predict> Output_Updater;
         Output_Updater output_updater(nl);
         
         typedef Update_Scores_Parallel<Output_Updater, Normal_Scorer> Update;
-        Update update(task, output_updater);
+        Update update(output_updater);
         
-        update(stump, opt_info, 1.0, output, data, ex_weights, correct,
-               NO_JOB, context.group());
-        task.run_until_finished(update.group);
+        update(stump, opt_info, 1.0, output, data, ex_weights, correct);
     }
     
     update_ticks += (ticks() - ticks_before);

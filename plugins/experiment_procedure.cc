@@ -78,9 +78,13 @@ ExperimentProcedureConfigDescription()
 {
     addField("trainingData", &ExperimentProcedureConfig::trainingData,
              "Specification of the data for input to the classifier procedure. "
-             "The select expression must contain these two sub-expressions: one row expression "
-             "to identify the features on which to train and one scalar expression "
-             "to identify the label.  The type of the label expression must match "
+             "The select expression must contain these two sub-expressions: \n"
+             "\n"
+             "1.  one row expression to identify the features on which to \n"
+             "    train, and \n"
+             "2.  one scalar expression to identify the label.\n"
+             "\n"
+             "The type of the label expression must match "
              "that of the classifier mode: a boolean (0 or 1) for `boolean` mode; "
              "a real for regression mode, and any combination of numbers and strings "
              "for `categorical` mode.  Labels with a null value will have their row skipped. "
@@ -157,7 +161,7 @@ ExperimentProcedureConfigDescription()
               "is a good number to use for unbalanced probabilities", 0.5);
      addField("mode", &ExperimentProcedureConfig::mode,
               "Mode of classifier.  Controls how the label is interpreted and "
-              "what is the output of the classifier.");
+              "what is the output of the classifier.", CM_BOOLEAN);
      addField("outputAccuracyDataset", &ExperimentProcedureConfig::outputAccuracyDataset,
               "If true, an output dataset for scored examples will created for each fold.",
               true);
@@ -273,7 +277,7 @@ run(const ProcedureRunConfig & run,
     auto onProgress2 = [&] (const Json::Value & details)
         {
             Json::Value value;
-            value["fold_number"] = (int)progress;
+            value["foldNumber"] = (int)progress;
             value["details"] = details;
             return onProgress(value);
         };
@@ -395,6 +399,7 @@ run(const ProcedureRunConfig & run,
          * accuracy
          * **/
         AccuracyConfig accuracyConf;
+        accuracyConf.mode = runProcConf.mode;
 
         if(runProcConf.outputAccuracyDataset) {
             PolyConfigT<Dataset> outputPC;
@@ -417,7 +422,14 @@ run(const ProcedureRunConfig & run,
         shared_ptr<SqlRowExpression> weight = extractNamedSubSelect("weight", accuracyConf.testingData.stm->select);
         if (!weight)
             weight = SqlRowExpression::parse("1.0 as weight");
-        auto score = SqlRowExpression::parse(ML::format("\"%s\"({%s})[score] as score",
+
+        string scoreExpr;
+        if     (runProcConf.mode == CM_BOOLEAN || 
+                runProcConf.mode == CM_REGRESSION)  scoreExpr = "\"%s\"({%s})[score] as score";
+        else if(runProcConf.mode == CM_CATEGORICAL) scoreExpr = "\"%s\"({%s})[scores] as score";
+        else throw ML::Exception("Classifier mode %d not implemented", runProcConf.mode);
+
+        auto score = SqlRowExpression::parse(ML::format(scoreExpr.c_str(),
                                                         clsProcConf.functionName.utf8String(),
                                                         features->surface.utf8String()));
         accuracyConf.testingData.stm->select = SelectExpression({features, label, weight, score});
@@ -432,9 +444,10 @@ run(const ProcedureRunConfig & run,
 
             cerr << " >>>>> Creating testing procedure" << endl;
             accuracyProc = obtainProcedure(server, accuracyProcPC, onProgress2);
+
             resourcesToDelete.push_back("/v1/procedures/"+accuracyProcPC.id.utf8String());
         }
-        
+
         if(!accuracyProc) {
             throw ML::Exception("Was unable to obtain accuracy procedure");
         }
@@ -461,7 +474,7 @@ run(const ProcedureRunConfig & run,
         foldRez["fold"] = jsonEncode(datasetFold);
         foldRez["modelFileUrl"] = clsProcConf.modelFileUrl.toUtf8String();
         foldRez["results"] = jsonEncode(accuracyOutput.results);
-        foldRez["duration_secs"] = duration;
+        foldRez["durationSecs"] = duration;
         statsGen.accumStats(foldRez["results"], "");
         rtn_results.append(foldRez);
 
@@ -487,7 +500,7 @@ run(const ProcedureRunConfig & run,
     Json::Value final_res;
     final_res["folds"] = rtn_results;
     final_res["aggregated"] = statsGen.generateStatistics();
-    final_res["avg_duration"] = durationStatsGen.generateStatistics();
+    final_res["avgDuration"] = durationStatsGen.generateStatistics();
 
     return RunOutput(final_res);
 }
@@ -496,7 +509,7 @@ run(const ProcedureRunConfig & run,
 namespace {
 
 RegisterProcedureType<ExperimentProcedure, ExperimentProcedureConfig>
-regScript(builtinPackage(),
+regExpProc(builtinPackage(),
           "classifier.experiment",
           "Train and test a classifier",
           "procedures/ExperimentProcedure.md.html");

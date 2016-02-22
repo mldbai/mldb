@@ -39,6 +39,8 @@ JML_ALWAYS_INLINE bool has_sse2() { return cpu_info().sse2; }
 
 JML_ALWAYS_INLINE bool has_sse3() { return cpu_info().sse3; }
 
+JML_ALWAYS_INLINE bool has_sse42() { return cpu_info().sse42; }
+
 JML_ALWAYS_INLINE bool has_pni() { return cpu_info().pni; }
 
 JML_ALWAYS_INLINE bool has_avx()

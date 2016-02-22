@@ -381,7 +381,11 @@ struct RestRequestRouter {
     typedef std::function<RestRequestMatchResult (RestConnection & connection,
                                        const RestRequest & request,
                                        RestRequestParsingContext & context)>
-         OnProcessRequest;
+                OnProcessRequest;
+
+    typedef std::function<void (RestConnection & connection,
+                                const RestRequest & request)>
+                OnNotFoundRequest;
 
     RestRequestRouter();
 
@@ -567,6 +571,7 @@ struct RestRequestRouter {
     OnProcessRequest rootHandler;
     std::vector<Route> subRoutes;
     Utf8String description;
+    OnNotFoundRequest notFoundHandler;
     bool terminal;
     Json::Value argHelp;
 };

@@ -17,7 +17,7 @@
 #include "mldb/types/any_impl.h"
 #include "mldb/arch/rcu_protected.h"
 #include "mldb/arch/timers.h"
-#include "mldb/jml/utils/worker_task.h"
+#include "mldb/base/parallel.h"
 
 
 using namespace std;
@@ -202,25 +202,20 @@ struct SparseMatrixDataset::Itl
         std::unique_lock<RootLock> guard(rootLock);
         ++epoch;
 
-        ML::Worker_Task & worker = ML::Worker_Task::instance();
-
-        int group = worker.get_group(nullptr, "sparse");
+        ThreadPool tp;
 
         auto doCommit = [&] (MatrixWriteTransaction & trans)
             {
                 if (trans.commitNeedsThread())
-                    worker.add(std::bind(&MatrixWriteTransaction::commit,
-                                         &trans),
-                               "commit", group);
-                else trans.commit();
+                    tp.add(std::bind(&MatrixWriteTransaction::commit,
+                                     &trans));
             };
-
+        
         doCommit(*trans.matrix);
         doCommit(*trans.inverse);
         doCommit(*trans.values);
         
-        worker.run_until_finished(group, true /* unlock */);
-
+        tp.waitForAll();
 
         auto result = std::make_shared<ReadTransaction>();
         result->matrix = matrix->startReadTransaction();
@@ -238,23 +233,16 @@ struct SparseMatrixDataset::Itl
         std::unique_lock<RootLock> guard(rootLock);
         // We don't increment the epoch since logically it's exactly the same
 
-        ML::Worker_Task & worker = ML::Worker_Task::instance();
+        ThreadPool tp;
 
-        int group = worker.get_group(nullptr, "sparse");
-
-        worker.add(std::bind(&BaseMatrix::optimize,
-                             matrix.get()),
-                   "matrix", group);
-        worker.add(std::bind(&BaseMatrix::optimize,
-                             inverse.get()),
-                   "inverse", group);
-        worker.add(std::bind(&BaseMatrix::optimize,
-                             values.get()),
-                   "values", group);
+        tp.add(std::bind(&BaseMatrix::optimize,
+                         matrix.get()));
+        tp.add(std::bind(&BaseMatrix::optimize,
+                         inverse.get()));
+        tp.add(std::bind(&BaseMatrix::optimize,
+                         values.get()));
         
-        worker.run_until_finished(group, true /* unlock */);
-
-        //cerr << "Optimize took " << timer.elapsed() << endl;
+        tp.waitForAll();
 
         auto result = std::make_shared<ReadTransaction>();
         result->matrix = matrix->startReadTransaction();

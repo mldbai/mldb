@@ -16,7 +16,7 @@
 #include "mldb/arch/thread_specific.h"
 #include "mldb/arch/bit_range_ops.h"
 #include "mldb/arch/timers.h"
-#include "mldb/jml/utils/worker_task.h"
+#include "mldb/base/parallel.h"
 #include "mldb/jml/utils/vector_utils.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/types/any_impl.h"
@@ -956,7 +956,7 @@ struct CsvDataset::Itl: public TabularDataStore {
                 doneChunks.emplace_back(std::move(*ent));
             };
 
-        ML::run_in_parallel_blocked(0, accum.threads.size(), doLeftoverChunk);
+        parallelMap(0, accum.threads.size(), doLeftoverChunk);
 
         cerr << "got a total of " << doneChunks.size() << " chunks" << endl;
 

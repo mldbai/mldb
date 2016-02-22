@@ -9,7 +9,7 @@
 #include "mldb/server/bound_queries.h"
 #include "mldb/core/dataset.h"
 #include "mldb/server/dataset_context.h"
-#include "mldb/jml/utils/worker_task.h"
+#include "mldb/base/parallel.h"
 #include "mldb/server/per_thread_accumulator.h"
 #include "mldb/server/parallel_merge_sort.h"
 #include "mldb/arch/timers.h"
@@ -25,6 +25,11 @@ using namespace std;
 
 
 namespace Datacratic {
+
+// Defined in thread_pool.h, and different from hardware_concurrency() as
+// it can be overridden.
+int numCpus();
+
 namespace MLDB {
 
 const int MIN_ROW_PER_TASK = 32;
@@ -163,7 +168,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                 };
 
             if (allowMT) {
-                ML::run_in_parallel(0, effectiveNumBucket, doBucket);
+                parallelMap(0, effectiveNumBucket, doBucket);
             }
             else {
                 for (int i = 0; i < effectiveNumBucket; ++i)
@@ -172,7 +177,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
         }
         else {
             if (allowMT) {
-                ML::run_in_parallel_blocked(0, rows.size(), doRow);
+                parallelMap(0, rows.size(), doRow);
             }
             else {
                 for (int i = 0; i < rows.size(); ++i)
@@ -233,7 +238,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
             };
 
         if (allowMT) {
-            ML::run_in_parallel(0, effectiveNumBucket, doBucket);
+            parallelMap(0, effectiveNumBucket, doBucket);
         }
         else {
             for (int i = 0; i < effectiveNumBucket; ++i)
@@ -415,7 +420,7 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
 
         ML::Timer timer;
 
-        ML::run_in_parallel_blocked(0, rows.size(), doWhere);
+        parallelMap(0, rows.size(), doWhere);
 
         cerr << "map took " << timer.elapsed() << endl;
         timer.restart();
@@ -704,7 +709,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
                 }
             }
             else {
-                ML::run_in_parallel_blocked(numProcessed, numRequired, doRow);
+                parallelMap(numProcessed, numRequired, doRow);
             }
             
             numProcessed = numRequired;
@@ -770,7 +775,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
                     }
                 };
 
-            ML::run_in_parallel_blocked(begin, end, onOutput);
+            parallelMap(begin, end, onOutput);
         }
 
         cerr << "Output " << sorted.size() << " in " << scanTimer.elapsed()
@@ -808,7 +813,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
         int numNeeded = offset + limit;
 
         int upperBound = whereGenerator.upperBound;
-        int maxNumTask = ML::num_threads() * TASK_PER_THREAD;
+        int maxNumTask = numCpus() * TASK_PER_THREAD;
         //try to have at least MIN_ROW_PER_TASK element per task
         int numChunk = upperBound < maxNumTask*MIN_ROW_PER_TASK ? (upperBound / maxNumTask) : maxNumTask;
         numChunk = std::max(numChunk, (int)1U);
@@ -859,7 +864,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
         };      
 
        if (allowMT) {
-          ML::run_in_parallel(0, numChunk, doChunk);
+          parallelMap(0, numChunk, doChunk);
        }
        else {
          for (int i = 0; i < numChunk; ++i)
@@ -1351,7 +1356,7 @@ BoundGroupByQuery(const SelectExpression & select,
     boundRowName = rowName.bind(*groupContext);
 
     size_t maxNumRow = from.getMatrixView()->getRowCount();
-    int maxNumTask = ML::num_threads() * TASK_PER_THREAD;
+    int maxNumTask = numCpus() * TASK_PER_THREAD;
     //try to have at least MIN_ROW_PER_TASK rows per task
     numBuckets = maxNumRow <= maxNumTask*MIN_ROW_PER_TASK? maxNumRow / maxNumTask : maxNumTask;
     numBuckets = std::max(numBuckets, (size_t)1U);

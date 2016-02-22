@@ -4,7 +4,7 @@
 #include "mldb/server/plugin_collection.h"
 #include "mldb/http/http_rest_proxy.h"
 #include "mldb/server/plugin_resource.h"
-#include "mldb/jml/utils/worker_task.h"
+#include "mldb/base/parallel.h"
 
 #include <chrono>
 #include <thread>
@@ -63,5 +63,5 @@ BOOST_AUTO_TEST_CASE( test_python_loading )
             if(rtn==0)
                 cout << "wahou";
         };
-   ML::run_in_parallel_blocked(0, calls.size(), doCall);
+   parallelMap(0, calls.size(), doCall);
 }

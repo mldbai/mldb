@@ -1,19 +1,18 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** map_reduce.h                                                   -*- C++ -*-
     Jeremy Barnes, 30 October 2012
     Copyright (c) 2012 Datacratic Inc.  All rights reserved.
 
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+
     Functionality to perform map/reduce type operations in parallel.
 */
 
+#pragma once
 
-#ifndef __utils__map_reduce_h__
-#define __utils__map_reduce_h__
 
 #include <utility>
 #include <mutex>
-#include "worker_task.h"
+#include "mldb/base/parallel.h"
 
 namespace ML {
 
@@ -48,7 +47,7 @@ parallelMapInOrderReduce(It first, It2 last, MapFn map, ReduceFn reduce)
             drainWriteQueue();
         };
 
-    ML::run_in_parallel_blocked(first, last, doMap);
+    Datacratic::parallelMap(first, last, doMap);
 
     drainWriteQueue();
 }
@@ -191,5 +190,3 @@ parallelMapInOrderReduceInEqualWorkChunks
 
 
 } // namespace ML
-
-#endif

@@ -85,6 +85,7 @@ $(eval $(call mldb_unit_test,MLDB-415-rawquery.js))
 $(eval $(call mldb_unit_test,MLDB-312_cant_overwrite_dataset.py))
 $(eval $(call mldb_unit_test,MLDB-302_record_rowname_int.py))
 $(eval $(call mldb_unit_test,MLDB-297-can-use-datetime.py))
+$(eval $(call mldb_unit_test,MLDB-256_accuracy_accepts_all_cls_modes.py))
 $(eval $(call mldb_unit_test,python_mldb_log.py))
 $(eval $(call mldb_unit_test,procedure_409_test.py))
 $(eval $(call mldb_unit_test,MLDB-426_tsne_crash.py))
@@ -251,7 +252,7 @@ $(eval $(call mldb_unit_test,MLDB-1212_csv_import_long_quoted_lines.py))
 $(eval $(call mldb_unit_test,MLDB-1275_melt_procedure.py))
 $(eval $(call mldb_unit_test,MLDB-1273-classifier-row_input.py))
 $(eval $(call mldb_unit_test,MLDB-1305_rowNames_join.py))
-$(eval $(call mldb_unit_test,MLDB-1272-regression-training-failure.py,,manual)) #manual -- awaiting fix
+$(eval $(call mldb_unit_test,MLDB-1272-regression-training-failure.py))
 $(eval $(call mldb_unit_test,MLDB-1277-pooling-performance.py,,manual)) #manual -- awaiting fix
 $(eval $(call mldb_unit_test,MLDB-1235-temporal-aggregators.py))
 $(eval $(call mldb_unit_test,MLDB-1260-json-errors.py))
@@ -261,23 +262,17 @@ $(eval $(call mldb_unit_test,MLDB-1361_join_on_subselect.py))
 $(eval $(call mldb_unit_test,MLDB-1364_dataset_cant_be_overwritten.py))
 $(eval $(call mldb_unit_test,MLDB-1336-builtin-checks.py))
 
+
 $(eval $(call mldb_unit_test,pytanic_plugin_test.py))
 $(eval $(call python_test,mldb_merged_dataset_test,mldb_py_runner))
 
-pytanic_plugin_test mldb_recordrow_test_py pytanic_test mldb_dataset_test_py null_column_test dcframe_test batframe_*_test reddit_example_test pytanic_test mldb_merged_test $(BIN)/mldb_py_runner/__init__.py: \
+pytanic_plugin_test mldb_recordrow_test_py pytanic_test mldb_dataset_test_py null_column_test dcframe_test reddit_example_test pytanic_test mldb_merged_test $(BIN)/mldb_py_runner/__init__.py: \
 	$(BIN)/mldb_runner
 
 
 $(eval $(call python_test,mldb_dataset_test_py, mldb_py_runner))
 $(eval $(call python_test,mldb_recordrow_test_py,mldb_py_runner))
 $(eval $(call python_test,null_column_test,mldb_py_runner))
-$(eval $(call python_test,batframe_test,mldb_py_runner))
-$(eval $(call python_test,batframe_column_binary_test,mldb_py_runner))
-$(eval $(call python_test,batframe_column_casting_test,mldb_py_runner))
-$(eval $(call python_test,batframe_column_comparison_test,mldb_py_runner))
-$(eval $(call python_test,batframe_column_function_test,mldb_py_runner))
-$(eval $(call python_test,batframe_column_unary_test,mldb_py_runner))
-$(eval $(call python_test,batframe_property_test,mldb_py_runner))
 
 $(eval $(call python_test,mldb-417_svd,mldb_py_runner))
 
@@ -321,8 +316,10 @@ $(eval $(call mldb_unit_test,MLDBFB-192_row_name_as_string_test.py))
 $(eval $(call mldb_unit_test,MLDBFB-199_invalid_script_test.py))
 $(eval $(call mldb_unit_test,MLDBFB-208_procedure_params_overwrite_test.py))
 $(eval $(call mldb_unit_test,MLDB-687-svd-embed-row-single-column.js))
+$(eval $(call mldb_unit_test,MLDB-1359_procedure_latest_run.py))
 $(eval $(call mldb_unit_test,MLDBFB-345_improve_error_message_named_on_null.py))
 $(eval $(call mldb_unit_test,MLDB-1317-tensor-datatype.js))
 $(eval $(call mldb_unit_test,get_http_bound_address.py))
 $(eval $(call mldb_unit_test,get_http_bound_address.js))
 $(eval $(call mldb_unit_test,MLDB-815-sparse-mutable-record-strings.js))
+$(eval $(call mldb_unit_test,MLDB-1395-error-message-file-doesnt-exist.js))

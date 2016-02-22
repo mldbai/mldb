@@ -15,6 +15,7 @@
 #include "mldb/rest/in_process_rest_connection.h"
 #include "mldb/server/mldb_server.h"
 #include "mldb/core/mldb_entity.h"
+#include "mldb/base/scope.h"
 #include "mldb/jml/utils/file_functions.h"
 #include "mldb/jml/utils/string_functions.h"
 
@@ -28,6 +29,9 @@ namespace MLDB {
 /*****************************************************************************/
 /* UTILITY FUNCTIONS                                                         */
 /*****************************************************************************/
+
+// Defined in static_content_handler.cc
+std::string renderMarkdown(const std::string & str, MacroData & macroData);
 
 using namespace Json;
 
@@ -115,7 +119,7 @@ static void renderType(MacroContext & context,
     const ValueDescription * vd = ValueDescription::get(cppType.rawString()).get();
         
     if (!vd) {
-        context.writeHtml("Type with name " + cppType + " not found");
+        context.writeHtml("Type with name '" + cppType + "' not found");
         return;
     }
 
@@ -138,15 +142,15 @@ static void renderType(MacroContext & context,
         }
         else
         {
-            context.writeHtml("<table class=\"table\"><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr>\n");
+            context.writeHtml("<table class=\"params table\" width='100%'><tr><th align='right'>Field, Type, Default</th><th>Description</th></tr>\n");
 
             auto onField = [&] (const ValueDescription::FieldDescription & fd)
                 {
-                    context.writeHtml(ML::format("<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>\n",
+                    context.writeHtml(ML::format("<tr><td align='right'><p><strong>%s</strong> <br/> %s <br/> <code>%s</code></p></td><td>%s</td></tr>\n",
                                          fd.fieldName.c_str(),
                                          getTypeName(*fd.description).c_str(),
                                          getDefaultValue(*fd.description).c_str(),
-                                         fd.comment.c_str()));
+                                                 renderMarkdown(fd.comment.c_str(), context)));
                 };
             vd->forEachField(nullptr, onField);
             context.writeHtml("</table>");
@@ -154,9 +158,9 @@ static void renderType(MacroContext & context,
     }
     else if (vd->kind == ValueKind::ENUM) {
         context.writeHtml("<h4>Enumeration <code>" + printTypeName(cppType.rawString()) +"</code></h4>");
-        context.writeHtml("<table class=\"table\"><tr><th>Value</th><th>Description</th></tr>\n");
+        context.writeHtml("<table class=\"params table\"><tr><th>Value</th><th>Description</th></tr>\n");
         for (auto & v: vd->getEnumValues()) {
-            context.writeHtml(ML::format("<tr><td>%s</td><td>%s</td></tr>\n",
+            context.writeHtml(ML::format("<tr><td><code>%s</code></td><td><p>%s</td></tr>\n",
                                  std::get<1>(v).c_str(),
                                  std::get<2>(v).c_str()));
         }

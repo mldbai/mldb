@@ -54,8 +54,8 @@ MeltProcedureConfigDescription()
     addField("inputData", &MeltProcedureConfig::inputData,
              "Specification of the data for input to the melt procedure. "
              "The select expression must contain these two sub-expressions: one row expression "
-             "to identify the columns to keep fixed and another row expression "
-             " to identify the columns to melt.");
+             "called `to_fixed` to identify the columns to keep fixed and another row expression "
+             "called `to_melt` to identify the columns to melt.");
     addField("outputDataset", &MeltProcedureConfig::outputDataset,
              "Configuration for output dataset",
              PolyConfigT<Dataset>().withType("sparse.mutable"));

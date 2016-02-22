@@ -1550,93 +1550,47 @@ ValuedBoundFunction norm(const std::vector<BoundSqlExpression> & args)
 static RegisterBuiltin registerNorm(norm, "norm");
 
 
-ValuedBoundFunction parse_sparse_csv(const std::vector<BoundSqlExpression> & args)
-{
-    // Comma separated list, first is row name, rest are row columns
-
-    if (args.size() == 0)
-        throw HttpReturnException(400, "takes at least 1 argument, got " + to_string(args.size()));
-
-    return {[=] (const std::vector<ExpressionValue> & args,
-                 const SqlRowScope & scope) -> ExpressionValue
-            {
-                std::string str = args[0].toString();
-                Date ts = args[0].getEffectiveTimestamp();
-
-                int skip = 1;
-                if (args.size() >= 2)
-                    skip = args[1].toInt();
-                char separator = ',';
-                if (args.size() >= 3) {
-                    string s = args[2].toString();
-                    if (s.length() != 1)
-                        throw HttpReturnException(400,
-                                                  "Separator for parse_sparse_csv should be a single character",
-                                                  "separator", s,
-                                                  "args", args);
-                }
-                CellValue val(1);
-                if (args.size() >= 4)
-                    val = args[3].getAtom();
-
-                std::string filename = str;
-                if (args.size() >= 5)
-                    filename = args[4].toString();
-                int line = 1;
-                if (args.size() >= 6)
-                    line = args[5].toInt();
-
-                int col = 1;
-                if (args.size() >= 7)
-                    col = args[6].toInt();
-
-                // TODO: support UTF-8
-                ML::Parse_Context pcontext(filename, 
-                                           str.c_str(), str.length(), line, col);
-                    
-                vector<string> fields = ML::expect_csv_row(pcontext, -1, separator);
-                    
-                RowValue row;
-                row.reserve(fields.size() - 1);
-                for (unsigned i = 1;  i < fields.size();  ++i) {
-                    row.emplace_back(ColumnName(fields[i]),
-                                     val,
-                                     ts);
-                                         
-                }
-
-                return ExpressionValue(std::move(row));
-            },
-            std::make_shared<UnknownRowValueInfo>()};
-}
-
-static RegisterBuiltin registerParseSparseCsv(parse_sparse_csv, "parse_sparse_csv");
-
 
 ValuedBoundFunction parse_json(const std::vector<BoundSqlExpression> & args)
 {
-    if (args.size() != 1)
-        throw HttpReturnException(400, "parse_json function takes 1 argument");
+    if (args.size() > 2 || args.size() < 1)
+        throw HttpReturnException(400, " takes 1 or 2 argument, got " + to_string(args.size()));
 
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 1);
+                ExcAssert(args.size() > 0 && args.size() < 3);
                 auto val = args[0];
                 Utf8String str = val.toUtf8String();
+
+                JsonArrayHandling encode = PARSE_ARRAYS;
+
+                if (args.size() > 1)
+                {
+                    Utf8String arrays = args[1].getField("arrays").toUtf8String();
+                    if (arrays == "encode")
+                      encode = ENCODE_ARRAYS;
+                    else if (arrays != "parse")
+                      throw HttpReturnException(400, " value of 'arrays' must be 'parse' or 'encode', got: " + arrays);
+                }
+
                 StreamingJsonParsingContext parser(str.rawString(),
                                                    str.rawData(),
                                                    str.rawLength());
+
+                if (!parser.isObject())
+                    throw HttpReturnException(400, "JSON passed to parse_json must be an object",
+                                              "json", str);
+
                 return ExpressionValue::
                     parseJson(parser, val.getEffectiveTimestamp(),
-                              PARSE_ARRAYS);
+                              encode);
             },
-            std::make_shared<AnyValueInfo>()
+            std::make_shared<UnknownRowValueInfo>()
             };
 }
 
 static RegisterBuiltin registerJsonDecode(parse_json, "parse_json");
-
 
 ValuedBoundFunction get_bound_unpack_json(const std::vector<BoundSqlExpression> & args) 
 {
@@ -1667,7 +1621,6 @@ ValuedBoundFunction get_bound_unpack_json(const std::vector<BoundSqlExpression> 
 }
 
 static RegisterBuiltin registerUnpackJson(get_bound_unpack_json, "unpack_json");
-
 
 void
 ParseTokenizeArguments(Utf8String& splitchar, Utf8String& quotechar,
@@ -2261,6 +2214,40 @@ ValuedBoundFunction upper(const std::vector<BoundSqlExpression> & args)
 }
 
 static RegisterBuiltin registerUpper(upper, "upper");
+
+ValuedBoundFunction flatten(const std::vector<BoundSqlExpression> & args)
+{
+    // Return the result indexed on a single dimension
+
+    checkArgsSize(args.size(), 1);
+
+    std::vector<ssize_t> shape = args[0].info->getEmbeddingShape();
+
+    ssize_t outputShape = 1;
+    for (auto s: shape) {
+        if (s < 0) {
+            outputShape = -1;
+            break;
+        }
+        outputShape *= s;
+    }
+    auto st = args[0].info->getEmbeddingType();
+
+    auto outputInfo
+        = std::make_shared<EmbeddingValueInfo>(outputShape, st);
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                ExcAssertEqual(args.size(), 1);
+                size_t len = args[0].rowLength();
+                return args[0].reshape({len});
+            },
+            outputInfo
+        };
+}
+
+static RegisterBuiltin registerFlatten(flatten, "flatten");
 
 
 } // namespace Builtins

@@ -1802,6 +1802,33 @@ getEmbeddingShape() const
     throw HttpReturnException(500, "Unknown storage type for getEmbeddingShape()");
 }
 
+ExpressionValue
+ExpressionValue::
+reshape(std::vector<size_t> newShape) const
+{
+    switch (type_) {
+    case NONE:
+    case ATOM:
+    case STRUCT:
+    case ROW:
+        throw HttpReturnException(500, "Cannot reshape non-embedding");
+    case EMBEDDING: {
+        size_t totalLength = 1;
+        for (auto & s: newShape)
+            totalLength *= s;
+
+        if (rowLength() > totalLength) {
+            throw HttpReturnException(400, "Attempt to enlarge embedding by resizing");
+        }
+        return ExpressionValue::embedding(ts_, embedding_->data_,
+                                          embedding_->storageType_,
+                                          std::move(newShape));
+    }
+    }
+
+    throw HttpReturnException(500, "Unknown storage type for reshape()");
+}
+
 ML::distribution<float, std::vector<float> >
 ExpressionValue::
 getEmbedding(ssize_t knownLength) const

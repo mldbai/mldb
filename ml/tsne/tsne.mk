@@ -8,7 +8,7 @@ LIBTSNE_SOURCES := \
         tsne.cc \
 	quadtree.cc
 
-LIBTSNE_LINK :=	utils algebra arch stats worker_task
+LIBTSNE_LINK :=	utils algebra arch stats
 
 $(eval $(call library,tsne,$(LIBTSNE_SOURCES),$(LIBTSNE_LINK)))
 

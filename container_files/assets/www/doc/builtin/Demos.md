@@ -7,6 +7,7 @@ MLDB ships with some demo and tutorial [Notebooks](Notebooks.md).
 * ![](%%nblink _tutorials/Using pymldb Tutorial)
 * ![](%%nblink _tutorials/Loading Data Tutorial) 
 * ![](%%nblink _tutorials/Querying Data Tutorial) 
+* ![](%%nblink _tutorials/SELECT Tutorial) 
 * ![](%%nblink _tutorials/Procedures and Functions Tutorial) 
 
 ## Demos

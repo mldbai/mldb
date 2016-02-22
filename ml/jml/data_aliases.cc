@@ -13,7 +13,8 @@
 #include <algorithm>
 #include "mldb/jml/utils/sgi_numeric.h"
 #include "mldb/jml/utils/floating_point.h"
-#include "mldb/jml/utils/worker_task.h"
+#include "mldb/arch/spinlock.h"
+#include "mldb/base/parallel.h"
 #include "mldb/arch/timers.h"
 #include <mutex>
 
@@ -75,7 +76,7 @@ aliases(const ML::Training_Data & dataset, const Feature & predicted)
         };
 
     // Hash the examples in parallel
-    run_in_parallel_blocked(0, dataset.example_count(), doHash);
+    Datacratic::parallelMap(0, dataset.example_count(), doHash);
 
     cerr << "hashed examples in " << timer.elapsed() << endl;
 
@@ -155,7 +156,7 @@ aliases(const ML::Training_Data & dataset, const Feature & predicted)
 
         };
 
-    run_in_parallel(0, 32, processBucket);
+    Datacratic::parallelMap(0, 32, processBucket);
 
     // Assemble a final result
     vector<Alias> result;

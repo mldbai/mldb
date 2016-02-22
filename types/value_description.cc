@@ -311,6 +311,7 @@ registerValueDescription(const std::type_info & type,
     ExcAssert(desc);
     registry()[desc->typeName] = desc;
     registry()[type.name()] = desc;
+    registry()[ML::demangle(type.name())] = desc;
     initFn(*desc);
 #if 0
     cerr << "type " << ML::demangle(type.name())

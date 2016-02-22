@@ -27,15 +27,13 @@ update_weights(boost::multi_array<float, 2> & weights,
                const Optimization_Info & opt_info,
                const Training_Data & data,
                Cost_Function cost,
-               bool bin_sym,
-               int parent)
+               bool bin_sym)
 {
     vector<Stump> stumps(1, stump);
     vector<Optimization_Info> opt_infos(1, opt_info);
     distribution<float> cl_weights(1, 1.0 / stump.Z);
     update_weights(weights, stumps, opt_infos,
-                   cl_weights, data, cost, bin_sym,
-                   parent);
+                   cl_weights, data, cost, bin_sym);
 }
 
 void 
@@ -45,8 +43,7 @@ update_weights(boost::multi_array<float, 2> & weights,
                const distribution<float> & cl_weights,
                const Training_Data & data,
                Cost_Function cost,
-               bool bin_sym,
-               int parent)
+               bool bin_sym)
 {
     /* Work out the weights.  This depends upon the 1/Z score. */
     float total_z = 0.0;
@@ -117,8 +114,7 @@ void
 update_scores(boost::multi_array<float, 2> & example_scores,
               const Training_Data & data,
               const Stump & stump,
-              const Optimization_Info & opt_info,
-              int parent)
+              const Optimization_Info & opt_info)
 {
     //PROFILE_FUNCTION(t_update);
     size_t nl = stump.label_count();
@@ -141,8 +137,7 @@ void
 update_scores(boost::multi_array<float, 2> & example_scores,
               const Training_Data & data,
               const Classifier_Impl & classifier,
-              const Optimization_Info & opt_info,
-              int parent)
+              const Optimization_Info & opt_info)
 {
     //PROFILE_FUNCTION(t_update);
     size_t nl = classifier.label_count();
@@ -165,8 +160,7 @@ void
 update_scores(boost::multi_array<float, 2> & example_scores,
               const Training_Data & data,
               const std::vector<Stump> & trained_stumps,
-              const std::vector<Optimization_Info> & opt_infos,
-              int parent)
+              const std::vector<Optimization_Info> & opt_infos)
 {
     if (trained_stumps.empty()) return;
 

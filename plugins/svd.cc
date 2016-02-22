@@ -14,7 +14,7 @@
 #include "mldb/jml/stats/distribution.h"
 #include <boost/multi_array.hpp>
 #include "mldb/jml/utils/guard.h"
-#include "mldb/jml/utils/worker_task.h"
+#include "mldb/base/parallel.h"
 #include "mldb/jml/utils/pair_utils.h"
 #include "mldb/arch/timers.h"
 #include "mldb/arch/simd_vector.h"
@@ -612,7 +612,7 @@ calcRightSingular(const ClassifiedColumns & columns,
             }
         };
 
-    ML::run_in_parallel_blocked(0, totalColumns, calcRightSingular);
+    parallelMap(0, totalColumns, calcRightSingular);
 
     for (unsigned i = 0;  i < totalColumns;  ++i) {
         ColumnName columnName = result.columns[i].columnName;
@@ -794,7 +794,7 @@ run(const ProcedureRunConfig & run,
                 }
             };
 
-        ML::run_in_parallel_blocked(0, allSvd.columns.size(), doColumn);
+        parallelMap(0, allSvd.columns.size(), doColumn);
 
         output->commit();
     }
@@ -860,7 +860,7 @@ run(const ProcedureRunConfig & run,
                 output->recordRow(row.rowName, cols);
             };
         
-        ML::run_in_parallel_blocked(0, rows.size(), doRow);
+        parallelMap(0, rows.size(), doRow);
 
         output->commit();
     }

@@ -631,6 +631,11 @@ struct ExpressionValue {
     std::vector<size_t>
     getEmbeddingShape() const;
 
+    /** Reshape the embedding into a new shape.  The total number of
+        elements must be equal to the new total number of elements.
+    */
+    ExpressionValue reshape(std::vector<size_t> newShape) const;
+
     /** Return an embedding from the value, asserting on the names of the
         columns.  Note that this method will not extract the given names;
         it will only assert that the names in the value are the same as

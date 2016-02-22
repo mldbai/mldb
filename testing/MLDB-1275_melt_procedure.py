@@ -52,7 +52,7 @@ dataset.commit()
 
 
 
-res = mldb.perform("GET", "/v1/query", [["q", "select unpack_json(data) as * from my_json_dataset"]])
+res = mldb.perform("GET", "/v1/query", [["q", "select parse_json(data, {arrays: 'encode'}) as * from my_json_dataset"]])
 jsRes = json.loads(res["response"])
 mldb.log(jsRes)
 
@@ -68,7 +68,7 @@ conf = {
         "inputData": """
                         SELECT {name, age} as to_fix,
                                {friends*} as to_melt
-                        FROM (select unpack_json(data) as * from my_json_dataset)
+                        FROM (select parse_json(data, {arrays: 'encode'}) as * from my_json_dataset)
                         """,
         "outputDataset": {"id": "melted_dataset", "type": "sparse.mutable" },
         "runOnCreation": True
@@ -78,7 +78,7 @@ res = mldb.perform("PUT", "/v1/procedures/melter", [], conf)
 mldb.log(res)
 
 res = mldb.perform("GET", "/v1/query", [["q", """SELECT 
-                                                name, age, key, unpack_json(value) as friends 
+                                                name, age, key, parse_json(value, {arrays: 'encode'}) as friends 
                                                 FROM melted_dataset"""]])
 jsRes = json.loads(res["response"])
 mldb.log(jsRes)

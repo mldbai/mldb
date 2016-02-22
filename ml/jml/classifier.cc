@@ -13,7 +13,7 @@
 #include "mldb/jml/utils/file_functions.h"
 #include "evaluation.h"
 
-#include "mldb/jml/utils/worker_task.h"
+#include "mldb/base/parallel.h"
 #include "mldb/jml/utils/guard.h"
 #include "mldb/ml/jml/dense_features.h"
 #include "mldb/jml/utils/smart_ptr_utils.h"
@@ -661,22 +661,6 @@ struct Accuracy_Job_Info {
     }
 };
 
-struct Accuracy_Job {
-    Accuracy_Job(Accuracy_Job_Info & info,
-                 int x_start, int x_end)
-        : info(info), x_start(x_start), x_end(x_end)
-    {
-    }
-
-    Accuracy_Job_Info & info;
-    int x_start, x_end;
-    
-    void operator () () const
-    {
-        info.calc(x_start, x_end);
-    }
-};
-
 } // file scope
 
 std::pair<float, float>
@@ -702,27 +686,13 @@ accuracy(const Training_Data & data,
 
     Accuracy_Job_Info info(data, example_weights, *this, opt_info,
                            correct, total, rmse_accum);
-    static Worker_Task & worker = Worker_Task::instance(num_threads() - 1);
     
-    int group;
-    {
-        int parent = -1;  // no parent group
-        group = worker.get_group(NO_JOB,
-                                 format("accuracy group under %d", parent),
-                                 parent);
-        Call_Guard guard(std::bind(&Worker_Task::unlock_group,
-                                   std::ref(worker),
-                                   group));
-        
-        /* Do 1024 examples per job. */
-        for (unsigned x = 0;  x < data.example_count();  x += 1024)
-            worker.add(Accuracy_Job(info, x, std::min(x + 1024, nx)),
-                       format("accuracy example %d to %d under %d",
-                              x, x + 1024, group),
-                       group);
-    }
-
-    worker.run_until_finished(group);
+    auto onGroup = [&] (size_t xstart, size_t xend)
+        {
+            info.calc(xstart, xend);
+        };
+    
+    Datacratic::parallelMapChunked(0, nx, 1024, onGroup);
     
     return make_pair(correct / total, sqrt(rmse_accum / total));
 }
@@ -781,33 +751,13 @@ predict(const Training_Data & data,
         Predict_All_Output_Func output,
         const Optimization_Info * opt_info) const
 {
-    unsigned nx = data.example_count();
-
-    static Worker_Task & worker = Worker_Task::instance(num_threads() - 1);
+    auto predictJob = [&] (size_t x0, size_t x1)
+        {
+            Predict_Job(x0, x1, *this, opt_info, data)(output);
+        };
     
-    int group;
-    {
-        int parent = -1;  // no parent group
-        group = worker.get_group(NO_JOB,
-                                 format("predict group under %d", parent),
-                                 parent);
-        Call_Guard guard(std::bind(&Worker_Task::unlock_group,
-                                     std::ref(worker),
-                                     group));
-        
-        /* Do 1024 examples per job. */
-        for (unsigned x = 0;  x < data.example_count();  x += 1024)
-            worker.add(std::bind(Predict_Job(x,
-                                               std::min(x + 1024, nx),
-                                               *this,
-                                               opt_info,
-                                               data),
-                                   output),
-                       "predict job",
-                       group);
-    }
-
-    worker.run_until_finished(group);
+    Datacratic::parallelMapChunked(0, data.example_count(), 1024,
+                                      predictJob);
 }
 
 void
@@ -817,34 +767,13 @@ predict(const Training_Data & data,
         Predict_One_Output_Func output,
         const Optimization_Info * opt_info) const
 {
-    unsigned nx = data.example_count();
-
-    static Worker_Task & worker = Worker_Task::instance(num_threads() - 1);
+    auto predictJob = [&] (size_t x0, size_t x1)
+        {
+            Predict_Job(x0, x1, *this, opt_info, data)(label, output);
+        };
     
-    int group;
-    {
-        int parent = -1;  // no parent group
-        group = worker.get_group(NO_JOB,
-                                 format("predict group under %d", parent),
-                                 parent);
-        Call_Guard guard(std::bind(&Worker_Task::unlock_group,
-                                     std::ref(worker),
-                                     group));
-        
-        /* Do 1024 examples per job. */
-        for (unsigned x = 0;  x < data.example_count();  x += 1024)
-            worker.add(std::bind(Predict_Job(x,
-                                               std::min(x + 1024, nx),
-                                               *this,
-                                               opt_info,
-                                               data),
-                                   label,
-                                   output),
-                       "predict job",
-                       group);
-    }
-
-    worker.run_until_finished(group);
+    Datacratic::parallelMapChunked(0, data.example_count(), 1024,
+                                      predictJob);
 }
 
 Explanation

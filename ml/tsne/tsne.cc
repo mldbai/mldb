@@ -16,13 +16,14 @@
 #include "mldb/jml/utils/lightweight_hash.h"
 #include "mldb/ml/algebra/matrix_ops.h"
 #include "mldb/arch/simd_vector.h"
+#include "mldb/arch/spinlock.h"
 
 #include "mldb/ml/algebra/lapack.h"
 #include <cmath>
 #include <boost/random/normal_distribution.hpp>
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/variate_generator.hpp>
-#include "mldb/jml/utils/worker_task.h"
+#include "mldb/base/parallel.h"
 #include <boost/timer.hpp>
 #include "mldb/arch/timers.h"
 #include "mldb/arch/sse2.h"
@@ -157,28 +158,14 @@ vectors_to_distances(const boost::multi_array<Float, 2> & X,
             sum_X[i] = SIMD::vec_dotprod_dp(&X[i][0], &X[i][0], d);
     }
     
-    Worker_Task & worker = Worker_Task::instance(num_threads() - 1);
-
-    int group;
-    {
-        int parent = -1;  // no parent group
-        group = worker.get_group(NO_JOB, "", parent);
-        Call_Guard guard(std::bind(&Worker_Task::unlock_group,
-                                     std::ref(worker),
-                                     group));
-        
-        int chunk_size = 256;
-        
-        for (int i = n;  i > 0;  i -= chunk_size) {
-            int i0 = max(0, i - chunk_size);
-            int i1 = i;
-            
-            worker.add(V2D_Job<Float>(X, D, &sum_X[0], i0, i1),
-                       "", group);
-        }
-    }
+    int chunk_size = 256;
+    auto onJob = [&] (size_t i0, size_t i1)
+        {
+            V2D_Job<Float>(X, D, &sum_X[0], i0, i1)();
+        };
     
-    worker.run_until_finished(group);
+    // TODO: in original version, we did chunks in reverse order.
+    Datacratic::parallelMapChunked(0, n, chunk_size, onJob);
 
     if (fill_upper)
         copy_lower_to_upper(D);
@@ -411,29 +398,15 @@ distances_to_probabilities(boost::multi_array<float, 2> & D,
     boost::multi_array<float, 2> P(boost::extents[n][n]);
     distribution<float> beta(n, 1.0);
 
-    Worker_Task & worker = Worker_Task::instance(num_threads() - 1);
+    int chunk_size = 256;
 
-    int group;
-    {
-        int parent = -1;  // no parent group
-        group = worker.get_group(NO_JOB, "", parent);
-        Call_Guard guard(std::bind(&Worker_Task::unlock_group,
-                                     std::ref(worker),
-                                     group));
-        
-        int chunk_size = 256;
-        
-        for (int i = 0;  i < n;  i += chunk_size) {
-            int i0 = i;
-            int i1 = min(n, i + chunk_size);
-            
-            worker.add(Distance_To_Probabilities_Job
-                       (D, tolerance, perplexity, P, beta, i0, i1),
-                       "", group);
-        }
-    }
+    auto onChunk = [&] (size_t i0, size_t i1)
+        {
+            Distance_To_Probabilities_Job
+            (D, tolerance, perplexity, P, beta, i0, i1)();
+        };
 
-    worker.run_until_finished(group);
+    Datacratic::parallelMapChunked(0, n, chunk_size, onChunk);
 
     cerr << "mean sigma is " << sqrt(1.0 / beta).mean() << endl;
 
@@ -710,28 +683,15 @@ double tsne_calc_stiffness(boost::multi_array<float, 2> & D,
 
     double d_totals[n];
 
-    Worker_Task & worker = Worker_Task::instance(num_threads() - 1);
+    int chunk_size = 256;
+        
+    auto onChunk = [&] (size_t i0, size_t i1)
+        {
+            Calc_D_Job(D, i0, i1, d_totals)();
+        };
 
-    int group;
-    {
-        int parent = -1;  // no parent group
-        group = worker.get_group(NO_JOB, "", parent);
-        Call_Guard guard(std::bind(&Worker_Task::unlock_group,
-                                     std::ref(worker),
-                                     group));
-        
-        int chunk_size = 256;
-        
-        for (int i = n;  i > 0;  i -= chunk_size) {
-            int i0 = max(0, i - chunk_size);
-            int i1 = i;
-            
-            worker.add(Calc_D_Job(D, i0, i1, d_totals),
-                       "", group);
-        }
-    }
-    
-    worker.run_until_finished(group);
+    // TODO: chunks in reverse?
+    Datacratic::parallelMapChunked(0, n, chunk_size, onChunk);
 
     double d_total_offdiag = SIMD::vec_sum(d_totals, n);
 
@@ -743,27 +703,17 @@ double tsne_calc_stiffness(boost::multi_array<float, 2> & D,
     // Q matrix: q_{i,j} = d_{ij} / sum_{k != l} d_{kl}
     float qfactor = 1.0 / d_total_offdiag;
 
-    {
-        int parent = -1;  // no parent group
-        group = worker.get_group(NO_JOB, "", parent);
-        Call_Guard guard(std::bind(&Worker_Task::unlock_group,
-                                     std::ref(worker),
-                                     group));
-        
-        int chunk_size = 64;
-        
-        for (int i = n;  i > 0;  i -= chunk_size) {
-            int i0 = max(0, i - chunk_size);
-            int i1 = i;
-            
-            worker.add(Calc_Stiffness_Job
-                       (D, P, min_prob, qfactor,
-                        (calc_cost ? row_costs : (double *)0), i0, i1),
-                       "", group);
-        }
-    }
+    int chunk_size2 = 64;
 
-    worker.run_until_finished(group);
+    auto onChunk2 = [&] (size_t i0, size_t i1)
+        {
+            Calc_Stiffness_Job
+            (D, P, min_prob, qfactor,
+             (calc_cost ? row_costs : (double *)0), i0, i1)();
+        };
+
+    // TODO: chunks in reverse?
+    Datacratic::parallelMapChunked(0, n, chunk_size2, onChunk2);
 
     double cost = 0.0;
     if (calc_cost) cost = SIMD::vec_sum(row_costs, n);
@@ -930,28 +880,14 @@ void tsne_calc_gradient(boost::multi_array<float, 2> & dY,
     if (PmQxD.shape()[0] != n || PmQxD.shape()[1] != n)
         throw Exception("PmQxD matrix has wrong shape");
 
-    Worker_Task & worker = Worker_Task::instance(num_threads() - 1);
+    int chunk_size = 64;
+        
+    auto doJob = [&] (size_t i0, size_t i1)
+        {
+            Calc_Gradient_Job(dY, Y, PmQxD, i0, i1)();
+        };
 
-    int group;
-    {
-        int parent = -1;  // no parent group
-        group = worker.get_group(NO_JOB, "", parent);
-        Call_Guard guard(std::bind(&Worker_Task::unlock_group,
-                                     std::ref(worker),
-                                     group));
-        
-        int chunk_size = 64;
-        
-        for (unsigned i = 0;  i < n;  i += chunk_size) {
-            int i0 = i;
-            int i1 = min(i0 + chunk_size, n);
-            
-            worker.add(Calc_Gradient_Job(dY, Y, PmQxD, i0, i1),
-                       "", group);
-        }
-    }
-    
-    worker.run_until_finished(group);
+    Datacratic::parallelMapChunked(0, n, chunk_size, doJob);
 }
 
 void tsne_update(boost::multi_array<float, 2> & Y,
@@ -1323,7 +1259,7 @@ sparseProbsFromCoords(const std::function<float (int, int)> & dist,
                 cerr << "done " << x << " in " << timer.elapsed() << "s" << endl;
         };
 
-    run_in_parallel_blocked(0, nx, calcExample);
+    Datacratic::parallelMap(0, nx, calcExample);
 
     if (treeOut)
         treeOut->reset(tree.release());
@@ -2060,7 +1996,7 @@ tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
             };
 
 #if 1
-        int totalThreads = std::max(1, std::min(16, num_threads() / 2));
+        int totalThreads = std::max(1, std::min(16, Datacratic::numCpus() / 2));
 
         auto doThread = [&] (int n)
             {
@@ -2078,8 +2014,8 @@ tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
                 //}
             };
 
-        ML::run_in_parallel(0, totalThreads, doThread);
-        //ML::run_in_parallel_blocked(0, nx, calcExample);
+        Datacratic::parallelMap(0, totalThreads, doThread);
+        //parallelMap(0, nx, calcExample);
 #else
         // Each example proceeds more or less independently
         for (unsigned x = 0;  x < nx;  ++x) {

@@ -14,12 +14,21 @@ table{
     margin: auto;
 }
 
-td,th{
+
+th, td {
     border: solid 1px lightgrey;
+    font-size: 18px;
     padding: 5px;
     vertical-align: top;
 }
+
+
+th {
+    font-family: Roboto Slab;
+}
+
 table.frametable td { border: 0;}
+
 
 td.hd, th.hd{
     font-size: 10pt;
@@ -30,6 +39,7 @@ p, li {
     font-size: 18px;
 }
 li {padding-bottom: 10px;}
+td p { margin: 10px;}
 
 li ul li {padding-bottom: 0;}
 a, a:visited, a:hover {color:#3A62AD;}
