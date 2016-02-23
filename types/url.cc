@@ -285,8 +285,8 @@ decodeUri(Utf8String in)
         }
         else  {
             size = 4;
-            c = (c - 0xd7c0) << 10;
-            c += (data[++i] - 0xdc00);
+            c = (c - 0xD7C0) << 10;
+            c += (data[++i] - 0xDC00);
         }
         char frontPad = 128;
         frontPad = frontPad >> (size - 1);

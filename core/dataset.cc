@@ -592,12 +592,6 @@ queryStructured(const SelectExpression & select,
                 Utf8String alias,
                 bool allowMT) const
 {
-    ExcAssert(&where);
-    ExcAssert(&having);
-    ExcAssert(&rowName);
-    //cerr << "limit = " << limit << endl;
-    //cerr << "offset = " << offset << endl;
-
     std::mutex lock;
     std::vector<MatrixNamedRow> output;
 

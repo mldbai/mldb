@@ -76,7 +76,11 @@ getCovering(const std::shared_ptr<ExpressionValueInfo> & info1,
 {
     // TODO: this is a hack to get going...
 
-    if (&typeid(*info1) == &typeid(*info2))
+    // clang++ 3.6 warning suppression
+    auto & dinfo1 = *info1;
+    auto & dinfo2 = *info2;
+
+    if (&typeid(dinfo1) == &typeid(dinfo2))
         return info1;
 
     return std::make_shared<AnyValueInfo>();
@@ -269,11 +273,13 @@ DEFINE_VALUE_DESCRIPTION_NS(std::shared_ptr<ExpressionValueInfo>,
 /* EXPRESSION VALUE INFO TEMPLATE                                            */
 /*****************************************************************************/
 
+#if 0  // GCC 5.3 has trouble with defining this
 template<typename Storage>
 ExpressionValueInfoT<Storage>::
 ~ExpressionValueInfoT()
 {
 }
+#endif
 
 template<typename Storage>
 size_t

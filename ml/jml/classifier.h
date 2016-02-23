@@ -228,11 +228,14 @@ public:
     {
         std::shared_ptr<const Target_FS> result
             = std::dynamic_pointer_cast<const Target_FS>(feature_space());
-        if (!result)
+        if (!result) {
+            auto fs = feature_space();
+            auto & fsr = *fs;
             throw Exception("Couldn't cast feature space of type "
-                            + demangle(typeid(*feature_space()).name())
+                            + demangle(typeid(fsr).name())
                             + " to "
                             + demangle(typeid(Target_FS).name()));
+        }
         return result;
     }
     
@@ -685,11 +688,14 @@ public:
     {
         std::shared_ptr<const Target_FS> result
             = std::dynamic_pointer_cast<const Target_FS>(feature_space());
-        if (!result)
+        if (!result) {
+            auto fs = feature_space();
+            auto & fsr = *fs;
             throw Exception("Couldn't cast feature space of type "
-                            + demangle(typeid(*feature_space()).name())
+                            + demangle(typeid(fsr).name())
                             + " to "
                             + demangle(typeid(Target_FS).name()));
+        }
         return result;
     }
     

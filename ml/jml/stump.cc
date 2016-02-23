@@ -94,9 +94,9 @@ print() const
     string result;
 
     if (pred_true.size() == 2
-        && abs(pred_true[0] + pred_true[1]) < 0.00001
+        && fabs(pred_true[0] + pred_true[1]) < 0.00001
         && pred_false.size() == 2
-        && abs(pred_false[0] + pred_false[1]) < 0.0001)
+        && fabs(pred_false[0] + pred_false[1]) < 0.0001)
         result += format("%6.3f %6.3f",
                          pred_false[1], pred_true[1]);
     else result += ostream_format(pred_false)
@@ -253,9 +253,9 @@ std::string Stump::summary() const
     result = format("%5.3f ", Z);
 
     if (action.pred_true.size() == 2
-        && abs(action.pred_true[0] + action.pred_true[1]) < 0.00001
+        && fabs(action.pred_true[0] + action.pred_true[1]) < 0.00001
         && action.pred_false.size() == 2
-        && abs(action.pred_false[0] + action.pred_false[1]) < 0.0001)
+        && fabs(action.pred_false[0] + action.pred_false[1]) < 0.0001)
         result += format("%6.3f %6.3f",
                          action.pred_false[1], action.pred_true[1]);
     else result += ostream_format(action.pred_false)

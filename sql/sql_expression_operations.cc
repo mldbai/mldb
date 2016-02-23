@@ -597,13 +597,13 @@ struct BinaryOpHelper {
                  ExpressionValue & storage)
         {
             if (lhs.isAtom()) {
-                return ScalarContext::applyLhs<RhsContext>(lhs, rhs, storage);
+                return ScalarContext::template applyLhs<RhsContext>(lhs, rhs, storage);
             }
             else if (lhs.isEmbedding()) {
-                return EmbeddingContext::applyLhs<RhsContext>(lhs, rhs, storage);
+                return EmbeddingContext::template applyLhs<RhsContext>(lhs, rhs, storage);
             }
             else if (lhs.isRow()) {
-                return RowContext::applyLhs<RhsContext>(lhs, rhs, storage);
+                return RowContext::template applyLhs<RhsContext>(lhs, rhs, storage);
             }
             else {
                 throw HttpReturnException(500, "Can't figure out type of expression",
