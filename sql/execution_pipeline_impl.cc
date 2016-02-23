@@ -50,7 +50,6 @@ TableLexicalScope::
 doGetVariable(const Utf8String & variableName, int fieldOffset)
 {
     ColumnName columnName(variableName);
-    ColumnHash columnHash(columnName);
 
     //cerr << "dataset lexical scope: fieldOffset = " << fieldOffset << endl;
     ExcAssertGreaterEqual(fieldOffset, 0);

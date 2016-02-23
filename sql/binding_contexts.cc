@@ -220,7 +220,7 @@ doGetBoundParameter(const Utf8String & paramName)
             {
                 
                 auto & row = static_cast<const RowScope &>(scope);
-                return row.params(paramName);
+                return storage = row.params(paramName);
             },
             std::make_shared<AnyValueInfo>() };
 }

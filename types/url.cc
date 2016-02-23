@@ -280,15 +280,15 @@ decodeUri(Utf8String in)
         }
         int size = 2;
         if (c < 2048) { }
-        else if (c < 65536) {
+        else /*if (c < 65536)*/ {
             size = 3;
         }
-        else if (c < 2097152) {
+        /*else if (c < 2097152) {
             size = 4;
-        }
         else {
             throw ML::Exception("This is not utf-8");
         }
+        }*/
         char frontPad = 128;
         frontPad = frontPad >> (size - 1);
         for (int pos = index + size - 1; pos > index; --pos){

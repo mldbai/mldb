@@ -1,6 +1,9 @@
-CLANG_VERSION:=$(shell clang++ --version | head -n1 | awk '{ print $4; }' | sed 's/-*//g')
+CLANGXX:=clang++-3.6
+CLANG:=clang-3.6
+
+CLANG_VERSION:=$(shell $(CLANGXX) --version | head -n1 | awk '{ print $4; }' | sed 's/-*//g')
 CXX_VERSION?=$(CLANG_VERSION)
-CXX := $(COMPILER_CACHE) clang++
+CXX := $(COMPILER_CACHE) $(CLANGXX)
 
 $(warning building with clang++ version $(CLANG_VERSION))
 
@@ -17,7 +20,7 @@ CXXEXEPOSTFLAGS = $(if $(MEMORY_ALLOC_LIBRARY),-l$(MEMORY_ALLOC_LIBRARY))
 
 
 
-CC ?= $(COMPILER_CACHE) clang
+CC ?= $(COMPILER_CACHE) $(CLANG)
 GCCWARNINGFLAGS?=-Wall -Werror -Wno-sign-compare -fno-strict-overflow -Wno-unused-but-set-variable
 CFLAGS ?= $(ARCHFLAGS) $(INCLUDE) $(GCCWARNINGFLAGS) -pipe -O3 -g -DNDEBUG -fno-omit-frame-pointer
 CDEBUGFLAGS := -O0 -g

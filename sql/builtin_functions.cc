@@ -1613,8 +1613,7 @@ ValuedBoundFunction get_bound_unpack_json(const std::vector<BoundSqlExpression> 
                                               "json", str);
                 
                 return ExpressionValue::
-                    parseJson(parser, val.getEffectiveTimestamp(),
-                              ENCODE_ARRAYS);
+                    parseJson(parser, ts, ENCODE_ARRAYS);
             },
             std::make_shared<UnknownRowValueInfo>()};
 }

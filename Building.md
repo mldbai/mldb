@@ -195,3 +195,40 @@ s3  1   AKRESTOFACCESSKEYID SeCrEtOfKeyGoeShEre
 The MLDB tests will pick up this file when executing.  The Makefile will check
 for the presence of the file containing an S3 line when deciding whether or
 not to enable those tests.
+
+## Advanced Topics
+
+These topics should only be used by experienced developers, as they are
+not officially supported
+
+
+### Choosing the toolchain
+
+MLDB is compiled by default using the GCC compiler, version 4.8.
+
+
+#### Compiling with GCC 5.x
+
+In order to use GCC version 5.x, the following commands should be used to
+install the compiler (currently GCC 5.3):
+
+```
+sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+sudo apt-get update
+sudo apt-get install gcc-5 g++-5
+```
+
+You can then add `toolchain=gcc5` to the make command line to use the
+newly installed compiler.
+
+#### Compiling with clang
+
+In order to compile with the clang compiler, you will firstly need to
+install it:
+
+```
+sudo apt-get install clang-3.5
+```
+
+You can then add `toolchain=clang` to compile with the clang compiler.
+
