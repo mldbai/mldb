@@ -132,9 +132,13 @@ encodeFeature(ColumnHash column, const CellValue & value,
         throw ML::Exception("Encoding unknown column");
     }
 
-    fset.emplace_back(getFeature(column),
-                      encodeValue(value, it->second.columnName,
-                                  it->second.info));
+    ML::Feature f = getFeature(column);
+
+    fset[f.arg1()] = {f, encodeValue(value, it->second.columnName, it->second.info)};
+
+    //fset.emplace_back(getFeature(column),
+    //                  encodeValue(value, it->second.columnName,
+    //                              it->second.info));
 }
 
 float
@@ -211,13 +215,16 @@ getHash(ML::Feature feature)
 
 ML::Feature
 DatasetFeatureSpace::
-getFeature(ColumnHash hash)
+getFeature(ColumnHash hash) const
 {
-    uint32_t high = hash >> 32;
-    uint32_t low  = hash;
+  //  uint32_t high = hash >> 32;
+  //  uint32_t low  = hash;
+
+    uint32_t high = columnInfo.find(hash)->second.index;
+    uint32_t low  = 0;
 
     ML::Feature result(1, high, low);
-    ExcAssertEqual(getHash(result), hash);
+  //  ExcAssertEqual(getHash(result), hash);
 
     return result;
 }
