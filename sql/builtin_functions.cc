@@ -1291,6 +1291,8 @@ static RegisterBuiltin registerTempLatest(temporal_latest, "temporal_latest");
 
 template <typename AggregatorFunc>
 BoundFunction temporalAggregatorT(const std::vector<BoundSqlExpression> & args) {
+    
+    typedef typename AggregatorFunc::value_type value_type;
 
     checkArgsSize(args.size(), 1);
 
@@ -1298,11 +1300,11 @@ BoundFunction temporalAggregatorT(const std::vector<BoundSqlExpression> & args) 
                  const SqlRowScope & scope) -> ExpressionValue
             {
                 ExcAssertEqual(args.size(), 1);
-                
+
                 auto val = args[0](scope, GET_ALL);
 
                 // TODO - figure out what should be the ordering of the columns in the result
-                std::unordered_map<Coord, std::pair<CellValue, Date> > results;
+                std::unordered_map<Coord, std::pair<value_type, Date> > results;
                 
 
                 auto onAtom = [&] (const Coord & columnName,
@@ -1325,13 +1327,13 @@ BoundFunction temporalAggregatorT(const std::vector<BoundSqlExpression> & args) 
                 val.forEachAtom(onAtom);
                 if (results.size() == 1) {  // atom case
                     auto result = results.begin();
-                    return ExpressionValue(get<0>(result->second), get<1>(result->second));
+                    return ExpressionValue(AggregatorFunc::extract(get<0>(result->second)), get<1>(result->second));
                 }
                 else { // row case
                     std::vector<std::tuple<Coord, ExpressionValue> > row;
                     for (auto & result : results) {
                         row.emplace_back(std::make_tuple(result.first,
-                                                         ExpressionValue(get<0>(result.second), 
+                                                         ExpressionValue(AggregatorFunc::extract(get<0>(result.second)), 
                                                                          get<1>(result.second))));
                     }
                     return row;
@@ -1341,45 +1343,71 @@ BoundFunction temporalAggregatorT(const std::vector<BoundSqlExpression> & args) 
 }
 
 struct Min {
-    typedef std::pair<CellValue, Date> CellDate;
+    typedef CellValue value_type;
+    typedef std::pair<value_type, Date> CellDate;
     static CellDate init(const CellDate & val) { return val; }
     static CellDate apply(const CellDate & left, const CellDate & right) {
         return right < left ? right : left;
     }
+    static CellValue extract(const value_type & val) { return val; }
 };
 
 static RegisterBuiltin registerTempMin(temporalAggregatorT<Min>, "temporal_min");
 
 struct Max {
-    typedef std::pair<CellValue, Date> CellDate;
+    typedef CellValue value_type;
+    typedef std::pair<value_type, Date> CellDate;
     static CellDate init(const CellDate & val) { return val; }
     static CellDate apply(const CellDate & left, const CellDate & right) {
         return right > left ? right : left;
     }
+    static CellValue extract(const value_type & val) { return val; }
 };
 
 static RegisterBuiltin registerTempMax(temporalAggregatorT<Max>, "temporal_max");
 
 struct Sum {
-    typedef std::pair<CellValue, Date> CellDate;
+    typedef CellValue value_type;
+    typedef std::pair<value_type, Date> CellDate;
     static CellDate init(const CellDate & val) { return val; }
     static CellDate apply(const CellDate & left, const CellDate & right) {
         auto value = get<0>(left).toDouble() + get<0>(right).toDouble();
         auto date = get<1>(left);
         return {value, date.setMax(get<1>(right))};
     }
+    static CellValue extract(const value_type & val) { return val; }
 };
 
 static RegisterBuiltin registerTempSum(temporalAggregatorT<Sum>, "temporal_sum");
 
-struct Count {
+struct Avg {
+    typedef std::pair<CellValue, uint64_t> value_type;
     typedef std::pair<CellValue, Date> CellDate;
+    typedef std::pair<value_type, Date> AccumValueDate;
+    static AccumValueDate init(const CellDate & val) { 
+        return {{get<0>(val), 1}, get<1>(val)};
+    }
+    static AccumValueDate apply(const AccumValueDate & left, const CellDate & right) {
+        auto sum = get<0>(get<0>(left)).toDouble() + get<0>(right).toDouble();
+        auto count = get<1>(get<0>(left));
+        auto date = get<1>(left);
+        return {{sum, ++count}, date.setMax(get<1>(right))};
+    }
+    static CellValue extract(const value_type & val) { return get<0>(val).toDouble() / get<1>(val); }
+};
+
+static RegisterBuiltin registerTempAvg(temporalAggregatorT<Avg>, "temporal_avg");
+
+struct Count {
+    typedef CellValue value_type;
+    typedef std::pair<value_type, Date> CellDate;
     static CellDate init(const CellDate & val) { return {1, get<1>(val)}; }
     static CellDate apply(const CellDate & left, const CellDate & right) {
         auto value = get<0>(left).toInt();
         auto date = get<1>(left);
         return {++value, date.setMax(get<1>(right))};
     }
+    static CellValue extract(const CellValue & val) { return val; }
 };
 
 static RegisterBuiltin registerTempCount(temporalAggregatorT<Count>, "temporal_count");

@@ -349,4 +349,54 @@ class TemporalTest(MldbUnitTest):
             ]
         )
 
+    def test_temporal_avg_on_column(self):
+        resp = mldb.get('/v1/query',
+                        q = 'select temporal_avg(x) as avg from dataset order by rowName()',
+                        format = 'full').json()
+
+        self.assertFullResultEquals(resp,
+            [
+                {
+                    "rowName": "row_1",
+                    "rowHash": "f156570c0871dbce",
+                    "columns": [
+                        [ "avg", 0.3333333333333333, TemporalTest.after ]
+                    ]
+                },
+                {
+                    "rowName": "row_2",
+                    "rowHash": "0ea93be3f94d4404",
+                    "columns": [
+                        [ "avg", 0.3333333333333333, TemporalTest.after ]
+                    ]
+                }
+            ]
+        )
+
+    def test_temporal_sum_on_row(self):
+        resp = mldb.get('/v1/query',
+                        q = 'select temporal_avg({*}) as * from dataset order by rowName()',
+                        format = 'full').json()
+
+        self.assertFullResultEquals(resp,
+            [
+                {
+                    "rowName": "row_1",
+                    "rowHash": "f156570c0871dbce",
+                    "columns": [
+                        [ "x", 0.3333333333333333, TemporalTest.after ],
+                        [ "y", -0.3333333333333333, TemporalTest.after ]
+                    ]
+                },
+                {
+                    "rowName": "row_2",
+                    "rowHash": "0ea93be3f94d4404",
+                    "columns": [
+                        [ "x", 0.3333333333333333, TemporalTest.after ],
+                        [ "y", -0.3333333333333333, TemporalTest.after ]
+                    ]
+                }
+            ]
+        )
+
 mldb.run_tests()

@@ -461,7 +461,7 @@ struct AverageAccum {
     Date ts;
 };
         
-    static RegisterAggregatorT<AverageAccum> registerAvg("avg", "vertical_avg");
+static RegisterAggregatorT<AverageAccum> registerAvg("avg", "vertical_avg");
 
 template<typename Op, int Init>
 struct ValueAccum {
