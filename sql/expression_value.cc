@@ -2306,7 +2306,7 @@ getFiltered(const VariableFilter & filter) const
         break;
     case GET_LATEST:
         filterFn = [](const ExpressionValue& left, const ExpressionValue& right){
-            return right.isLater(right.getEffectiveTimestamp(), left);
+            return right.isLater(left.getEffectiveTimestamp(), left);
         };
         break;
     case GET_ALL: //optimized above

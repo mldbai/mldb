@@ -403,7 +403,7 @@ struct AggregatorT {
         }        
     }
 
-    /** Entry point where we don't know wheter the arguqment is a row or a scalar
+    /** Entry point where we don't know whether the argument is a row or a scalar
         will be determined on the first row aggregated
     */
     static BoundAggregator enterAmbiguous(const std::vector<BoundSqlExpression> & args)
