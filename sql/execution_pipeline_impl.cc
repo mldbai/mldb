@@ -688,7 +688,7 @@ take()
         l = this->left->take();
 
         ExpressionValue storage;
-        if (!parent->crossWhere_(*result, storage).isTrue())
+        if (!parent->crossWhere_(*result, storage, GET_LATEST).isTrue())
             continue;
 
 
@@ -843,7 +843,7 @@ take()
             //     << " to " << jsonEncode(result->values) << endl;
 
             ExpressionValue storage;
-            if (!parent->crossWhere_(*result, storage).isTrue())
+            if (!parent->crossWhere_(*result, storage, GET_LATEST).isTrue())
             {
                 continue;
             }
@@ -1170,7 +1170,7 @@ take()
                 
         // Evaluate the where expression...
         ExpressionValue storage;
-        const ExpressionValue & pass = parent_->where_(*input, storage);
+        const ExpressionValue & pass = parent_->where_(*input, storage, GET_LATEST);
                 
         // If it doesn't evaluate to true, then on to the next row
         if (!pass.isTrue())
@@ -1271,7 +1271,7 @@ take()
             return input;
                 
         // Run the select expression in this input's context
-        ExpressionValue selected = parent->select_(*input);
+        ExpressionValue selected = parent->select_(*input, GET_LATEST);
 
         input->values.emplace_back(std::move(selected));
 
@@ -1507,7 +1507,7 @@ doGetFunction(const Utf8String & functionName,
                     // Apply the arguments to the row
 
                     for (unsigned i = 0;  i != argValues.size();  ++i)
-                        rowArgs[i] = argValues[i](*r);
+                        rowArgs[i] = argValues[i](*r, GET_LATEST);
 
                     aggregate.process(&rowArgs[0], argValues.size(), storage.get());
                 }

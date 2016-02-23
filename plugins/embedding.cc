@@ -1128,7 +1128,7 @@ overrideFunction(const Utf8String & tableName,
                     std::vector<ExpressionValue> evaluatedArgs;
                     evaluatedArgs.reserve(args.size());
                     for (auto & arg: args)
-                        evaluatedArgs.emplace_back(std::move(arg(context)));
+                        evaluatedArgs.emplace_back(std::move(arg(context, GET_LATEST)));
 
                     auto row1 = evaluatedArgs.at(1).getRow();
                     Utf8String row2Name = evaluatedArgs.at(2).toUtf8String();

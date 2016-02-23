@@ -195,7 +195,7 @@ struct JoinedDataset::Itl
         auto boundConstant = condition.constantWhere->bind(context);
         SqlRowScope scope;
         ExpressionValue storage;
-        if (!boundConstant(scope, storage).isTrue())
+        if (!boundConstant(scope, storage, GET_LATEST).isTrue())
             return;
 
         if (!condition.crossWhere || condition.crossWhere->isConstant()) {
