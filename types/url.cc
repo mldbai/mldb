@@ -273,22 +273,21 @@ decodeUri(Utf8String in)
     char buffer[output.length() * 4 + 1]; // prepare for the worse, 4 char + \0
     ssize_t index = 0;
     for (ssize_t i = 0; i < output.length(); ++i) {
-        char16 c = data[i];
+        char32_t c = data[i];
         if (c < 128) {
             buffer[index++] = c;
             continue;
         }
         int size = 2;
         if (c < 2048) { }
-        else /*if (c < 65536)*/ {
+        else if (c < 0xD800) { // 55296
             size = 3;
         }
-        /*else if (c < 2097152) {
+        else  {
             size = 4;
-        else {
-            throw ML::Exception("This is not utf-8");
+            c = (c - 0xD7C0) << 10;
+            c += (data[++i] - 0xDC00);
         }
-        }*/
         char frontPad = 128;
         frontPad = frontPad >> (size - 1);
         for (int pos = index + size - 1; pos > index; --pos){

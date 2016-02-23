@@ -139,3 +139,21 @@ BOOST_AUTO_TEST_CASE(test_plus_sign)
     BOOST_CHECK_EQUAL(Url::decodeUri(in), expected);
 }
 #endif
+
+#if TEST_ALL
+BOOST_AUTO_TEST_CASE(test_3_bytes)
+{
+    Utf8String in("%E2%82%AC");
+    Utf8String expected("€");
+    BOOST_CHECK_EQUAL(Url::decodeUri(in), expected);
+}
+#endif
+
+#if TEST_ALL
+BOOST_AUTO_TEST_CASE(test_4_bytes)
+{
+    Utf8String in("%F0%90%8D%88");
+    Utf8String expected("𐍈");
+    BOOST_CHECK_EQUAL(Url::decodeUri(in), expected);
+}
+#endif
