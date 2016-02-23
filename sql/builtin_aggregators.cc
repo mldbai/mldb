@@ -461,7 +461,7 @@ struct AverageAccum {
     Date ts;
 };
         
-static RegisterAggregatorT<AverageAccum> registerAvg("avg");
+    static RegisterAggregatorT<AverageAccum> registerAvg("avg", "vertical_avg");
 
 template<typename Op, int Init>
 struct ValueAccum {
@@ -501,7 +501,7 @@ struct ValueAccum {
     Date ts;
 };
 
-static RegisterAggregatorT<ValueAccum<std::plus<double>, 0> > registerSum("sum");
+static RegisterAggregatorT<ValueAccum<std::plus<double>, 0> > registerSum("sum", "vertical_sum");
 
 template<typename Cmp>
 struct MinMaxAccum {
@@ -602,7 +602,7 @@ struct CountAccum {
     Date ts;
 };
 
-static RegisterAggregatorT<CountAccum> registerCount("count");
+static RegisterAggregatorT<CountAccum> registerCount("count", "vertical_count");
 
 struct LikelihoodRatioAccum {
     LikelihoodRatioAccum()
