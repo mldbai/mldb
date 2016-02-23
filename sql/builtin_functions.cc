@@ -15,7 +15,7 @@
 #include "mldb/types/vector_description.h"
 #include "mldb/ml/confidence_intervals.h"
 #include "mldb/jml/math/xdiv.h"
-#include "mldb/utils/hash.h"
+#include "mldb/base/hash.h"
 #include "mldb/base/parse_context.h"
 #include <boost/lexical_cast.hpp>
 
