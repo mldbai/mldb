@@ -262,7 +262,8 @@ printJsonTyped(const Any * val,
 
     AnyRep rep;
     rep.typeName = val->type().name();
-    rep.valueDescriptionType = typeid(val->desc()).name();
+    auto & vdesc = val->desc();
+    rep.valueDescriptionType = typeid(vdesc).name();
 
     std::ostringstream stream;
     StreamJsonPrintingContext pcontext(stream);

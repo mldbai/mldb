@@ -850,7 +850,11 @@ getExpressionValueDescriptionNoTimestamp();
 /** Expression value for a cell of a given type. */
 template<typename Storage>
 struct ExpressionValueInfoT: public ExpressionValueInfo {
-    virtual ~ExpressionValueInfoT();
+
+    // GCC 5.3 has trouble when this is not inlined
+    virtual ~ExpressionValueInfoT()
+    {
+    }
 
     virtual size_t getCellSize() const;
 

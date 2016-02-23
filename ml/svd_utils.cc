@@ -278,7 +278,6 @@ intersectionCountOptimized(const uint16_t * it1, const uint16_t * end1,
 
 #if 1
     typedef char v16qi __attribute__((__vector_size__(16)));
-    typedef int v4si __attribute__((__vector_size__(16)));
                                               
     constexpr int8_t mode
         = 0x01 /* SIDD_UWORD_OPS */

@@ -405,12 +405,12 @@ void TestPushPopSteal(std::uint_fast32_t init_top_and_bottom = 0) {
         auto MarkItemAsDone = [&](int64_t item) {
             if (item) {
                 item -= 1;  // remove offset added on push
-                if (!item_is_done.at(item) == 0) {
+                if (item_is_done.at(item) != 0) {
                     cerr << "item " << item << " was "
                          << item_is_done.at(item) << endl;
                 }
                 item_is_done.at(item) += 1;
-                if (!item_is_done.at(item) == 1) {
+                if (item_is_done.at(item) != 1) {
                     cerr << "item " << item << " is "
                          << item_is_done.at(item) << endl;
                 }

@@ -26,17 +26,17 @@ typedef BoundAggregator (&BuiltinAggregator) (const std::vector<BoundSqlExpressi
 
 struct RegisterAggregator {
     template<typename... Names>
-    RegisterAggregator(const BuiltinAggregator & aggregator, Names&&... names)
+    RegisterAggregator(BuiltinAggregator aggregator, Names&&... names)
     {
         doRegister(aggregator, std::forward<Names>(names)...);
     }
 
-    void doRegister(const BuiltinAggregator & aggregator)
+    void doRegister(BuiltinAggregator aggregator)
     {
     }
 
     template<typename... Names>
-    void doRegister(const BuiltinAggregator & aggregator, std::string name,
+    void doRegister(BuiltinAggregator aggregator, std::string name,
                     Names&&... names)
     {
         auto fn = [&] (const Utf8String & str,

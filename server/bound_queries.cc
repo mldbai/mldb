@@ -805,7 +805,6 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
 
         ML::Timer rowsTimer;
 
-        typedef std::tuple<std::vector<ExpressionValue>, NamedRowValue, std::vector<ExpressionValue> > SortedRow;
         typedef std::vector<RowName> AccumRows;
         
         PerThreadAccumulator<AccumRows> accum;
@@ -951,9 +950,6 @@ BoundSelectQuery(const SelectExpression & select,
       orderBy(orderBy), context(new SqlExpressionDatasetContext(from, std::move(alias)))
 {
     try {
-
-        ExcAssert(&where);
- 
         SqlExpressionWhenScope whenScope(*context);
         auto whenBound = when.bind(whenScope);
 
