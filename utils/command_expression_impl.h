@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* command_expression_impl.h                                       -*- C++ -*-
    Jeremy Barnes, 27 August 2013
    Copyright (c) 2013 Datacratic Inc.  All rights reserved.
+
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Implementation of templates for command expression.
 */
@@ -21,9 +21,10 @@ CommandExpressionVariables::
 setValue(const std::string & key, const T & val)
 {
     static auto desc = getDefaultDescriptionSharedT<T>();
-    StructuredJsonPrintingContext context;
+    Json::Value jval;
+    StructuredJsonPrintingContext context(jval);
     desc->printJsonTyped(&val, context);
-    setValue(key, context.output);
+    setValue(key, std::move(jval));
 }
 
 template<typename R>

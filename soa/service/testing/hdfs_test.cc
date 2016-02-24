@@ -24,7 +24,7 @@ using namespace std;
 BOOST_AUTO_TEST_CASE( test_hdfs_istream )
 {
     string expected = "12345\ncoucou\n";
-    ML::filter_istream stream("hdfs://localhost:9000/test-directory/test1");
+    filter_istream stream("hdfs://localhost:9000/test-directory/test1");
     string content = stream.readAll();
     stream.close();
 
@@ -37,13 +37,13 @@ BOOST_AUTO_TEST_CASE( test_hdfs_ostream )
 {
     string expected = "Hello\n HDFS\n\t\n";
     {
-        ML::filter_ostream stream("hdfs://hadoopuser@localhost:9000/test-directory/write-test");
+        filter_ostream stream("hdfs://hadoopuser@localhost:9000/test-directory/write-test");
         stream << expected;
         stream.close();
     }
 
     {
-        ML::filter_istream stream("hdfs://localhost:9000/test-directory/write-test");
+        filter_istream stream("hdfs://localhost:9000/test-directory/write-test");
         string content = stream.readAll();
         stream.close();
         BOOST_CHECK_EQUAL(content, expected);

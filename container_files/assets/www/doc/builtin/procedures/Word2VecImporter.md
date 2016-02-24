@@ -78,6 +78,7 @@ This gives the output
 
 # See also
 
+* The ![](%%doclink pooling function) is used to embed a bag of words in a vector space like Word2Vec
 * The ![](%%doclink embedding dataset) is the perfect dataset to hold
   the output of the word2vec tool.
 * The [Word2Vec tool](https://code.google.com/p/word2vec/) project page

@@ -78,7 +78,7 @@ int main(int argc, char* argv[])
     if (s3KeyId != "")
         registerS3Buckets(s3KeyId, s3Key);
 
-    ML::filter_istream in(inputUri, ios::in, compression);
+    filter_istream in(inputUri, ios::in, compression);
 
     std::vector<filter_ostream> streams;
     streams.reserve(outputFiles.size() + 1);

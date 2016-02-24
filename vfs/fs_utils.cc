@@ -341,13 +341,13 @@ struct LocalUrlFsHandler : public UrlFsHandler {
                     std::string filename = "file://" + dir + basename;
 
                     OpenUriObject open = [=] (const std::map<std::string, std::string> & options)
-                    -> ML::UriHandler
+                    -> UriHandler
                     {
                         if (!options.empty())
                             throw ML::Exception("Options not accepted by S3");
 
-                        std::shared_ptr<std::istream> result(new ML::filter_istream(filename, options));
-                        return ML::UriHandler(result->rdbuf(), std::move(result),
+                        std::shared_ptr<std::istream> result(new filter_istream(filename, options));
+                        return UriHandler(result->rdbuf(), std::move(result),
                                               getInfo(Url(filename)));
                     };
                     

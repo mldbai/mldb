@@ -615,7 +615,7 @@ struct ImportTextProcedureWorkInstance
 		string filename = config.dataFileUrl.toString();
         
     	// Ask for a memory mappable stream if possible
-    	ML::filter_istream stream(filename, { { "mapped", "true" } });
+    	Datacratic::filter_istream stream(filename, { { "mapped", "true" } });
 
 		// Get the file timestamp out
 	    ts = stream.info().lastModified;
@@ -790,7 +790,7 @@ struct ImportTextProcedureWorkInstance
 	/*    Load to any non-tabular dataset  */
 	void 
 	loadToGeneric(std::shared_ptr<Dataset> dataset,
-		          ML::filter_istream& stream,
+		          Datacratic::filter_istream& stream,
 		          const ImportTextConfig& config,
 		          SqlCsvScope& scope)
 	{
@@ -835,7 +835,7 @@ struct ImportTextProcedureWorkInstance
 	/*    Load to a tabular dataset  */
 	void 
 	loadToTabularDataset(std::shared_ptr<TabularDataset> dataset, 
-						 ML::filter_istream& stream, 
+						 Datacratic::filter_istream& stream, 
 						 const ImportTextConfig& config,
 						 SqlCsvScope& scope)
 	{
@@ -931,7 +931,7 @@ struct ImportTextProcedureWorkInstance
 	/*    Load, filter and format all lines and process them  */
 	void 
 	loadTextData(std::shared_ptr<Dataset> dataset, 
-						 ML::filter_istream& stream, 
+						 Datacratic::filter_istream& stream, 
 						 const ImportTextConfig& config,
 						 SqlCsvScope& scope,
 						 const size_t numberOutputColumns,
@@ -1012,17 +1012,17 @@ struct ImportTextProcedureWorkInstance
 	            // If it doesn't match the where, don't add it 
 	            if (!isWhereTrue) {
 	                ExpressionValue storage;
-	                if (!whereBound(row, storage).isTrue())
+	                if (!whereBound(row, storage, GET_LATEST).isTrue())
 	                    return true;
 	            }
 	            
 	            // Get the timestamp for the row
 	            Date rowTs = ts;
 	            ExpressionValue tsStorage;
-	            rowTs = timestampBound(row, tsStorage).coerceToTimestamp().toTimestamp();
+	            rowTs = timestampBound(row, tsStorage, GET_LATEST).coerceToTimestamp().toTimestamp();
 	            
 	            ExpressionValue nameStorage;
-	            RowName rowName(namedBound(row, nameStorage).toUtf8String());
+	            RowName rowName(namedBound(row, nameStorage, GET_LATEST).toUtf8String());
 
 	            //cerr << "adding row with rowName " << rowName << endl;
 	            
@@ -1046,7 +1046,7 @@ struct ImportTextProcedureWorkInstance
 
 	                ExpressionValue selectStorage;
 	                const ExpressionValue & selectOutput
-	                    = selectBound(row, selectStorage);
+	                    = selectBound(row, selectStorage, GET_LATEST);
 
 	                if (&selectOutput == &selectStorage) {
 	                    // We can destructively work with it

@@ -19,10 +19,9 @@
 #include <map>
 
 namespace Datacratic {
-struct FsObjectInfo;  // Structure for file system or URL metadata; in fs_utils.h
-} // namespace Datacratic
 
-namespace ML {
+struct FsObjectInfo;  // Structure for file system or URL metadata; in fs_utils.h
+
 
 /*****************************************************************************/
 /* BASE STRUCTURES                                                           */
@@ -64,7 +63,7 @@ struct UriHandler {
 
     UriHandler(std::streambuf * buf,
                std::shared_ptr<void> bufOwnership,
-               std::shared_ptr<Datacratic::FsObjectInfo> info = nullptr,
+               std::shared_ptr<FsObjectInfo> info = nullptr,
                UriHandlerOptions options = UriHandlerOptions())
         : buf(buf),
           bufOwnership(std::move(bufOwnership)),
@@ -75,12 +74,12 @@ struct UriHandler {
                      
     UriHandler(std::streambuf * buf,
                std::shared_ptr<void> bufOwnership,
-               const Datacratic::FsObjectInfo & info,
+               const FsObjectInfo & info,
                UriHandlerOptions options = UriHandlerOptions());
     
     std::streambuf * buf;                ///< Streambuf to operate on
     std::shared_ptr<void> bufOwnership;  ///< Ownership of the stream buffer
-    std::shared_ptr<Datacratic::FsObjectInfo> info;  ///< Known information/metadata
+    std::shared_ptr<FsObjectInfo> info;  ///< Known information/metadata
     UriHandlerOptions options;
 };    
 
@@ -290,7 +289,7 @@ public:
     /** Return the information and metadata about the underlying object,
         for example last modified date, etc.
     */
-    Datacratic::FsObjectInfo info() const;
+    FsObjectInfo info() const;
     
 private:
     std::unique_ptr<std::istream> stream;
@@ -299,8 +298,7 @@ private:
     std::shared_ptr<void> sink;            ///< Ownership of streambuf
     std::atomic<bool> deferredFailure;
     std::string resource;
-    std::shared_ptr<Datacratic::FsObjectInfo> info_;
+    std::shared_ptr<FsObjectInfo> info_;
 };
 
-
-} // namespace ML
+} // namespace Datacratic

@@ -56,7 +56,7 @@ forEachLineStr(std::istream & stream,
     The processLine function takes a string with the contents of the line,
     without the newline, as a beginning and a length.
 
-    Uses an ML::filter_istream under the hood.
+    Uses an filter_istream under the hood.
     
     Returns the number of lines produced.
 */
@@ -75,7 +75,7 @@ forEachLine(const std::string & filename,
     The processLine function takes a string with the contents of the line,
     without the newline.
 
-    Uses an ML::filter_istream under the hood.
+    Uses an filter_istream under the hood.
     
     Returns the number of lines produced.
 */

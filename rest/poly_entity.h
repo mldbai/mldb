@@ -1,10 +1,11 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** poly_entity.h                                                  -*- C++ -*-
     Jeremy Barnes, 22 December 2014
     Copyright (c) 2014 Datacratic Inc.  All rights reserved.
 
-    Polymorphic entity.
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+
+    Polymorphic entity.  All entities in MLDB derive from this class, which
+    provides a root for the type hierarchy.
 */
 
 #pragma once
@@ -65,7 +66,10 @@ struct RestDirectory;
 /* POLY CONFIG                                                               */
 /*****************************************************************************/
 
-/** Common class for the configuration of an entity. */
+/** Common class for the configuration of an entity.  This is a fully
+    generic object from which any type can be constructed.  The params
+    are interpreted depending upon the type.
+*/
 
 struct PolyConfig {
     PolyConfig()
@@ -76,7 +80,7 @@ struct PolyConfig {
     Utf8String id;        ///< Id (name) of the entity.  Must be unique
     Utf8String type;      ///< Type of the entity.
     bool persistent;      ///< Save this object's configuration for loading
-    Any params;            
+    Any params;           ///< Creation parameters, per type
 };
 
 bool operator==(const PolyConfig & lhs, const PolyConfig & rhs);

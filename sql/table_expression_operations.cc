@@ -596,7 +596,7 @@ bind(SqlBindingScope & context) const
                 -> std::vector<NamedRowValue>
             {
                 // 1.  Get the row
-                ExpressionValue row = boundExpr(rowScope);
+                ExpressionValue row = boundExpr(rowScope, GET_LATEST);
                 
                 // 2.  Put it in a sub dataset
                 std::vector<MatrixNamedRow> rows;

@@ -217,7 +217,7 @@ forEachLine(const std::string & filename,
             bool ignoreStreamExceptions,
             int64_t maxLines)
 {
-    ML::filter_istream stream(filename);
+    filter_istream stream(filename);
     return forEachLine(stream, processLine, numThreads,
                        ignoreStreamExceptions, maxLines);
 }
@@ -229,7 +229,7 @@ forEachLineStr(const std::string & filename,
                bool ignoreStreamExceptions,
                int64_t maxLines)
 {
-    ML::filter_istream stream(filename);
+    filter_istream stream(filename);
     return forEachLineStr(stream, processLine, numThreads,
                           ignoreStreamExceptions, maxLines);
 }
@@ -267,7 +267,7 @@ void forEachLineBlock(std::istream & stream,
     const char * mapped = nullptr;
     size_t mappedSize = 0;
 
-    ML::filter_istream * fistream = dynamic_cast<ML::filter_istream *>(&stream);
+    filter_istream * fistream = dynamic_cast<filter_istream *>(&stream);
 
     if (fistream) {
         // Can we get a memory mapped version of our stream?  It

@@ -330,10 +330,11 @@ convertAndCopy(const void * from,
                const ValueDescription & fromDesc,
                void * to) const
 {
-    StructuredJsonPrintingContext context;
+    Json::Value val;
+    StructuredJsonPrintingContext context(val);
     fromDesc.printJson(from, context);
 
-    StructuredJsonParsingContext context2(context.output);
+    StructuredJsonParsingContext context2(val);
     parseJson(to, context2);
 }
 

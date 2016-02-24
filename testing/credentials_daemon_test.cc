@@ -268,7 +268,7 @@ BOOST_AUTO_TEST_CASE( test_credentials_daemon )
 
     try {
         JML_TRACE_EXCEPTIONS(false);
-        ML::filter_istream stream("s3://test.bucket/file.txt");
+        filter_istream stream("s3://test.bucket/file.txt");
         BOOST_CHECK(false);
     } catch (const std::exception & exc) {
         cerr << "opening stream got error: " << exc.what() << endl;
@@ -288,13 +288,13 @@ BOOST_AUTO_TEST_CASE( test_credentials_daemon )
 
     try {
         JML_TRACE_EXCEPTIONS(false);
-        ML::filter_istream stream("s3://test.bucket/file.txt");
+        filter_istream stream("s3://test.bucket/file.txt");
         BOOST_CHECK(false);
     } catch (const std::exception & exc) {
         cerr << "opening stream got error: " << exc.what() << endl;
     }
 
-    ML::filter_istream persistStream("file://tmp/credentials_daemon_test/mycreds");
+    filter_istream persistStream("file://tmp/credentials_daemon_test/mycreds");
 
     auto loadedCreds = jsonDecodeStream<CredentialRuleConfig>(persistStream);
 
@@ -318,7 +318,7 @@ BOOST_AUTO_TEST_CASE( test_credentials_daemon )
 
     try {
         JML_TRACE_EXCEPTIONS(false);
-        ML::filter_istream persistStream("file://tmp/credentials_daemon_test/mycreds");
+        filter_istream persistStream("file://tmp/credentials_daemon_test/mycreds");
         auto loadedCreds = jsonDecodeStream<CredentialRuleConfig>(persistStream);
         BOOST_CHECK(false);
     } catch (const std::exception & exc) {

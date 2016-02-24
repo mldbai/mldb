@@ -62,7 +62,7 @@ struct FetcherFunction: public Function {
         FunctionOutput result;
         Utf8String url = context.get<CellValue>("url").toUtf8String();
         try {
-            ML::filter_istream stream(url.rawString(), { { "mapped", "true" } });
+            filter_istream stream(url.rawString(), { { "mapped", "true" } });
 
             FsObjectInfo info = stream.info();
             

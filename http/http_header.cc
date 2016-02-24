@@ -8,8 +8,6 @@
 
 #include "http_header.h"
 #include "mldb/base/parse_context.h"
-#include "mldb/jml/db/persistent.h"
-#include "mldb/jml/utils/vector_utils.h"
 #include "http_exception.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/map_description.h"
@@ -386,6 +384,27 @@ const string & getResponseReasonPhrase(int code)
     default:
       return UnknownResponseCode;
     }
+}
+
+const std::string &
+HttpHeader::
+getHeader(const std::string & key) const
+{
+    auto it = headers.find(key);
+    if (it == headers.end())
+        throw ML::Exception("couldn't find header " + key);
+    return it->second;
+}
+
+const std::string &
+HttpHeader::
+tryGetHeader(const std::string & key) const noexcept
+{
+    static const std::string NONE;
+    auto it = headers.find(key);
+    if (it == headers.end())
+        return NONE;
+    return it->second;
 }
 
 DEFINE_STRUCTURE_DESCRIPTION(HttpHeader);
