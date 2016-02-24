@@ -10,10 +10,7 @@ conf = {
     "type": "import.sentiwordnet",
     "params": {
         "dataFileUrl": 's3://dev.mldb.datacratic.com/tests/MLDB-1084/SentiWordNet_3.0.0_20130122.txt.gz',
-        "outputDataset": {
-            "type": 'embedding',
-            "id": 'sentiWordNet'
-        },
+        "outputDataset": 'sentiWordNet'
     }
 }
 rez = mldb.put("/v1/procedures/lets_get_sentimental", conf)
@@ -30,17 +27,14 @@ mldb.log(rez.json())
 # print the 5 most positive words
 rez = mldb.get(
     "/v1/query",
-    q="select * from sentiWordNet order by PosSenti DESC limit 5")
+    q="select * from sentiWordNet order by SentiPos DESC limit 5")
 mldb.log(rez.json())
 
 # print the 5 most negative words
 rez = mldb.get("/v1/query",
-               q="select * from sentiWordNet order by NegSenti DESC limit 5")
+               q="select * from sentiWordNet order by SentiNeg DESC limit 5")
 mldb.log(rez.json())
 
-
-rez = mldb.get("/v1/datasets/sentiWordNet/routes/rowNeighbours", row='blue#a')
-mldb.log(rez.json())
 
 
 def check_word(word, good):
@@ -53,11 +47,16 @@ def check_word(word, good):
     cols = js_rez[0]["columns"]
     pos = cols[0][1]
     neg = cols[1][1]
-    mldb.log("Word: %s    Good:%0.8f     Us: %0.8f - %0.8f = %0.8f"
-             % (word, good, pos, neg, pos-neg))
+    POS = cols[3][1]
+    baseWord = cols[4][1]
+    mldb.log("Word: %s    Good:%0.8f     Us: %0.8f - %0.8f = %0.8f   Base: %s    POS: %s"
+             % (word, good, pos, neg, pos-neg, baseWord, POS))
 
     # check that the difference is small
     assert abs(good - (pos - neg)) < 0.001
+
+    # check that we are splitting the pos and baseword correctly
+    assert [baseWord, POS] == word.split("#")
 
 
 check_word("good#a", 0.6337632198238539)

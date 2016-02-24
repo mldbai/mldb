@@ -15,7 +15,7 @@
 #include "mldb/types/vector_description.h"
 #include "mldb/ml/confidence_intervals.h"
 #include "mldb/jml/math/xdiv.h"
-#include "mldb/utils/hash.h"
+#include "mldb/base/hash.h"
 #include "mldb/base/parse_context.h"
 #include <boost/lexical_cast.hpp>
 
@@ -141,7 +141,7 @@ struct RegisterBuiltin {
                         try {
                             std::vector<ExpressionValue> evaluatedArgs;
                             for (auto& arg : boundArgs)
-                                evaluatedArgs.emplace_back(arg(scope));
+                                evaluatedArgs.emplace_back(arg(scope, GET_LATEST));
                             
                             return valuedBoundFunction(evaluatedArgs, scope);
                         } JML_CATCH_ALL {
@@ -207,7 +207,7 @@ struct RegisterBuiltinUnaryScalar {
                 try {
                      std::vector<ExpressionValue> evaluatedArgs;
                      for (auto& arg : args)
-                         evaluatedArgs.emplace_back(arg(scope));
+                         evaluatedArgs.emplace_back(arg(scope, GET_LATEST));
                     return wrapper(fn, evaluatedArgs, scope);
                 } JML_CATCH_ALL {
                     rethrowHttpException(-1, "Executing builtin function "
@@ -456,7 +456,7 @@ struct RegisterBuiltinBinaryScalar {
                 try {
                      std::vector<ExpressionValue> evaluatedArgs;
                      for (auto& arg : args)
-                         evaluatedArgs.emplace_back(arg(scope));
+                         evaluatedArgs.emplace_back(arg(scope, GET_LATEST));
                     return wrapper(fn, evaluatedArgs, scope);
                 } JML_CATCH_ALL {
                     rethrowHttpException(-1, "Executing builtin function "
@@ -1174,19 +1174,20 @@ ValuedBoundFunction when(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerWhen(when, "when");
 
-ValuedBoundFunction min_timestamp(const std::vector<BoundSqlExpression> & args)
+BoundFunction min_timestamp(const std::vector<BoundSqlExpression> & args)
 {
     // Tell us when an expression happened, ie extract its timestamp and return
     // as its value
 
 
     checkArgsSize(args.size(), 1);
-    return {[=] (const std::vector<ExpressionValue> & args,
+    return {[=] (const std::vector<BoundSqlExpression> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
                 ExcAssertEqual(args.size(), 1);
-                return ExpressionValue(args[0].getMinTimestamp(),
-                                       args[0].getEffectiveTimestamp());
+                auto val = args[0](scope, GET_ALL);
+                return ExpressionValue(val.getMinTimestamp(),
+                                       val.getEffectiveTimestamp());
             },
             std::make_shared<TimestampValueInfo>()};
 }
@@ -1613,8 +1614,7 @@ ValuedBoundFunction get_bound_unpack_json(const std::vector<BoundSqlExpression> 
                                               "json", str);
                 
                 return ExpressionValue::
-                    parseJson(parser, val.getEffectiveTimestamp(),
-                              ENCODE_ARRAYS);
+                    parseJson(parser, ts, ENCODE_ARRAYS);
             },
             std::make_shared<UnknownRowValueInfo>()};
 }
@@ -2004,8 +2004,8 @@ struct RegisterVectorOp {
                     //cerr << "val2 = " << jsonEncode(args.at(1)) << endl;
 
                     // Get it as an embedding
-                    const auto expr1 = args[0](scope);
-                    const auto expr2 = args[1](scope);
+                    const auto expr1 = args[0](scope, GET_LATEST);
+                    const auto expr2 = args[1](scope, GET_LATEST);
                     ML::distribution<double> val1 = expr1.getEmbeddingDouble();
                     ML::distribution<double> val2 = expr2.getEmbeddingDouble();
                     Date ts = calcTs(expr1, expr2);
@@ -2069,7 +2069,7 @@ ValuedBoundFunction concat(const std::vector<BoundSqlExpression> & args)
     if (args.size() == 2) {
         SqlRowScope emptyScope;
         ParseConcatArguments(separator, columnValue,
-                             args[1](emptyScope).getRow());
+                             args[1](emptyScope, GET_LATEST).getRow());
     }
 
     return {[=] (const std::vector<ExpressionValue> & args,

@@ -259,7 +259,6 @@ irls(const distribution<Float> & y, const boost::multi_array<Float, 2> & x,
     bool debug = false;
 
     typedef distribution<Float> Vector;
-    typedef boost::multi_array<Float, 2> Matrix;
 
     static const int max_iter = 20;           // from GLMlab
     static const float tolerence = 5e-5;      // from GLMlab

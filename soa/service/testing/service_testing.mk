@@ -1,7 +1,7 @@
 # This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
 
-$(eval $(call test,asio_timer_test,services link,boost timed))
+$(eval $(call test,asio_timer_test,services,boost timed))
 
 $(eval $(call test,epoll_test,services,boost))
 

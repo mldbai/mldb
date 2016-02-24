@@ -122,7 +122,7 @@ constantValue() const
     // This is only OK to do here because by setting isConstant in its metadata,
     // the expression is guaranteeing it will never access its context.
     SqlRowScope context;
-    return operator () (context);
+    return operator () (context, GET_LATEST);
 }
 
 DEFINE_STRUCTURE_DESCRIPTION(BoundSqlExpression);
@@ -1533,7 +1533,7 @@ constantValue() const
     SqlExpressionConstantScope scope;
     auto bound = this->bind(scope);
     SqlRowScope rowScope = scope.getRowScope();
-    return bound(rowScope);
+    return bound(rowScope, GET_LATEST);
 }
 
 std::map<ScopedName, UnboundVariable>
@@ -2313,7 +2313,7 @@ apply(const SqlRowScope & context) const
 {
     std::vector<ExpressionValue> sortFields(clauses.size());
     for (unsigned i = 0;  i < clauses.size();  ++i) {
-        sortFields[i] = std::move(clauses[i].expr(context));
+        sortFields[i] = std::move(clauses[i].expr(context, GET_LATEST));
     }
     return sortFields;
 }
@@ -3383,7 +3383,7 @@ bind(SqlBindingScope & scope) const
                               const SqlRowScope & rowScope)
             {
                 auto tupleScope = SqlExpressionWhenScope::getRowScope(rowScope, Date());
-                if (!boundWhen(tupleScope).isTrue()) {
+                if (!boundWhen(tupleScope, GET_LATEST).isTrue()) {
                     row.columns.clear();
                 }
             };
@@ -3411,7 +3411,7 @@ bind(SqlBindingScope & scope) const
                     = SqlExpressionWhenScope
                     ::getRowScope(rowScope, std::get<2>(col));
 
-                auto whenExpressionValue = boundWhen(tupleScope);
+                auto whenExpressionValue = boundWhen(tupleScope, GET_LATEST);
                 bool keepThisCol = whenExpressionValue.isTrue();
                 keep.emplace_back(keepThisCol);
                 numOutput += keepThisCol;

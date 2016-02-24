@@ -30,6 +30,7 @@ DEFINE_STRUCTURE_DESCRIPTION(ExternalPythonProcedureConfig);
 ExternalPythonProcedureConfigDescription::
 ExternalPythonProcedureConfigDescription()
 {
+    addParent<ProcedureConfig>();
     addField("scriptConfig", &ExternalPythonProcedureConfig::scriptConfig, 
             "Script resource configuration");
     addField("stdInData", &ExternalPythonProcedureConfig::stdInData,
