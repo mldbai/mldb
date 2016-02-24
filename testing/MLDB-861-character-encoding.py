@@ -13,25 +13,31 @@ Age,Nâme
 12,Niçolâß
 """
 
-result = mldb.post("/v1/datasets", {
-    "type": 'text.csv.tabular',
-    "id": 'utf8',
+csv_conf = {
+    "type": "import.text",
     "params": {
-        "dataFileUrl": 'file://mldb/testing/utf8.csv',
-        "encoding": 'utf8'
+        'dataFileUrl' : "file://mldb/testing/utf8.csv",
+        "ouputDataset": {
+            "id": "utf8",
+        },
+        "runOnCreation" : True,
+        "encoding": 'utf8',
     }
-})
-mldb.log(result)
+}
+mldb.put("/v1/procedures/csv_proc", csv_conf) 
 
-result = mldb.post("/v1/datasets", {
-    "type": 'text.csv.tabular',
-    "id": 'latin1',
+csv_conf = {
+    "type": "import.text",
     "params": {
-        "dataFileUrl": 'file://mldb/testing/latin1.csv',
-        "encoding": 'latin1'
+        'dataFileUrl' : "file://mldb/testing/latin1.csv",
+        "ouputDataset": {
+            "id": "latin1",
+        },
+        "runOnCreation" : True,
+        "encoding": 'latin1',
     }
-})
-mldb.log(result)
+}
+mldb.put("/v1/procedures/csv_proc", csv_conf) 
 
 result = mldb.get("/v1/query", q="select * from utf8")
 mldb.log(result)

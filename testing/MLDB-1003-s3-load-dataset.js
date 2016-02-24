@@ -14,15 +14,18 @@ function assertEqual(expr, val, msg)
                     + " not equal to " + JSON.stringify(val));
 }
 
-var datasetConfig = {
-    id: 'test',
-    type: "text.csv.tabular",
+csv_conf = {
+    type: "import.text",
     params: {
-        "dataFileUrl": "s3://benchm-ml--main/test.csv"
+        dataFileUrl : "s3://benchm-ml--main/test.csv",
+        ouputDataset: {
+            id: "test",
+        },
+        runOnCreation: true,
     }
-};
+}
 
-mldb.createDataset(datasetConfig);
+mldb.put("/v1/procedures/csv_proc", csv_conf)
 
 var counts = mldb.get("/v1/query",
                       { q: 'select count(*) named dep_delayed_15min from test group by dep_delayed_15min',

@@ -19,7 +19,6 @@ LIBMLDB_BUILTIN_PLUGIN_SOURCES:= \
 	script_procedure.cc \
 	script_function.cc \
 	permuter_procedure.cc \
-	csv_dataset.cc \
 	svm.cc \
 	feature_generators.cc \
 	external_python_procedure.cc \
@@ -42,6 +41,8 @@ LIBMLDB_BUILTIN_PLUGIN_SOURCES:= \
 	melt_procedure.cc \
 	ranking_procedure.cc \
 	fetcher.cc \
+	importtext_procedure.cc \
+	tabular_dataset.cc \
 
 
 # Needed so that Python plugin can find its header
