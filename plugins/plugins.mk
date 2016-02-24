@@ -42,6 +42,7 @@ LIBMLDB_BUILTIN_PLUGIN_SOURCES:= \
 	melt_procedure.cc \
 	ranking_procedure.cc \
 	fetcher.cc \
+	prototype.cc \
 
 
 # Needed so that Python plugin can find its header

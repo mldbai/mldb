@@ -18,6 +18,8 @@
 #include <boost/random/uniform_int.hpp>
 #include <boost/random/uniform_01.hpp>
 
+#include <boost/dynamic_bitset.hpp>
+
 using namespace std;
 using namespace ML;
 
@@ -333,6 +335,9 @@ run(const ProcedureRunConfig & run,
           std::map< std::pair<ML::Feature, float>, float > leftscore; //merge with above?
 
           std::pair<ML::Feature, float> bestSplit; //put this in a another array?
+
+          boost::dynamic_bitset<> relevantFeatures;
+
           float totalLeft;
           float totalRight;
           bool isPureLeft;
@@ -340,17 +345,27 @@ run(const ProcedureRunConfig & run,
 
       	};
 
-      	std::vector< PerPartition > perPartitionW;
+      	std::vector< PerPartition > perPartitionW[2];
 
         void clear(int iter)
         {          
-            int numLeaf = (1 << iter); //+1 is for root
+            int numLeaf = (1 << (iter+1));
+
+            currentFrame = iter%2;
+            int nextFrame = (iter+1) %2;
+
+            if (iter == 0)
+            {
+               // ExcAssert(nextFrame == 1);
+                perPartitionW[0].resize(1);                
+            }
 
             //TODO: not super efficient because we lose the memory buffers in the score map in PerPartition
-            perPartitionW.clear();
-            perPartitionW.resize(numLeaf);
+            perPartitionW[nextFrame].clear();
+            perPartitionW[nextFrame].resize(numLeaf);
         }
 
+        int currentFrame; //we use double buffering on the PerPartition arrays
         int lastNewPartition;
     };
 
@@ -409,11 +424,21 @@ run(const ProcedureRunConfig & run,
         //Todo: init this and dont realloc it all the time
       	BagW& w = wPerBag[bag];
         Tree& tree = treesPerBag[bag];
+        int currentFrame = iteration%2;
+        int nextFrame = (iteration+1) %2;
+        auto& currentPartitions = w.perPartitionW[currentFrame];
+        auto& nextPartitions = w.perPartitionW[nextFrame];
 
         if (iteration > 0 && w.lastNewPartition == 0)
           return true;
 
         w.clear(iteration);
+
+        if (iteration == 0)
+        {
+            //ExcAssert(w.perPartitionW[0].size() == 1);
+            w.perPartitionW[0][0].relevantFeatures.resize(numFeatures);
+        }
         
         {
             STACK_PROFILE(BagIter_scanlines);
@@ -436,8 +461,9 @@ run(const ProcedureRunConfig & run,
                 
                 
                 //weight = label ? weight : -weight;
-
-                BagW::PerPartition& partitionScore = w.perPartitionW[partition];
+               // ExcAssert(partition < currentPartitions.size());
+               // ExcAssert(partition < currentPartitions.size());
+                BagW::PerPartition& partitionScore = currentPartitions[partition];
 
                 //TODO: check if partition is dead-end
               //  if (iteration == 0)
@@ -451,6 +477,9 @@ run(const ProcedureRunConfig & run,
                     {
                   //      if (iteration == 0)
                     //      cerr << " (" << f.first.arg1() << "," << f.second << ")";
+
+                        if (partitionScore.relevantFeatures.test(f.first.arg1()))
+                          continue;
 
                         partitionScore.score[f] += weight;
                         partitionScore.leftscore[f] += label ? weight : 0;
@@ -467,11 +496,11 @@ run(const ProcedureRunConfig & run,
         int numNewPartition = 0;
 
         //ok, now for every partition, find the best split point
-        int maxpartition = w.perPartitionW.size();
+        int maxpartition = currentPartitions.size();
         cerr << "max partition: " << maxpartition << endl;
         for (int partition = 0; partition < maxpartition; partition++)
         {
-            BagW::PerPartition& partitionScore = w.perPartitionW[partition];
+            BagW::PerPartition& partitionScore = currentPartitions[partition];
 
             //partition is uniform
             if (partitionScore.totalLeft == 0 || partitionScore.totalRight == 0)
@@ -493,10 +522,10 @@ run(const ProcedureRunConfig & run,
             auto iterEnd = partitionScore.score.end();
 
             ML::Feature currentType;
-            //float currentTypeSum = 0.0f;
-
+            
             float totalTrue = 0.0f;
-            float total = 0.0f;
+            float total = -1.0f;
+            int currentCount = 0;
             float bigTotalScore = partitionScore.totalLeft + partitionScore.totalRight;
 
             while (iter != iterEnd)
@@ -504,10 +533,29 @@ run(const ProcedureRunConfig & run,
                 const std::pair<ML::Feature, float>& f = iter->first;
                 if (f.first != currentType )
                 {
+                    //was there a unique value for this feature in this partition?
+                    if (currentCount == 1)
+                    {
+                        //partitionScore.removetype(currentType);
+                       // if (currentType.arg1() >= partitionScore.relevantFeatures.size())
+                      //  {
+                       //     cerr << currentFrame << "," << nextFrame << endl;
+                        //    cerr << currentType.arg1() << ", " << partitionScore.relevantFeatures.size() << endl;
+                         //   ExcAssert(false);
+                       // }
+                     //   cerr << "excluding feature type " << currentType.arg1() << " from partition " << partition << endl;
+                        partitionScore.relevantFeatures.set(currentType.arg1());
+                    }
+
                     totalTrue = 0.0f;
                     total = 0.0f;
                     currentType = f.first;
+                    currentCount = 1;
                  //   cerr << "next feature" << endl;
+                }
+                else
+                {
+                  ++currentCount;
                 }
 
                /* currentTypeSum += iter->second;
@@ -546,15 +594,28 @@ run(const ProcedureRunConfig & run,
                         bestLeft = purityLeft;
                         bestRight = purityRight;
                     }
+                    
                 }                
 
                 ++iter;    
                 ++trueiter;           
             }
 
+            if (currentCount == 1)
+            {
+                //partitionScore.removetype(currentType);
+                partitionScore.relevantFeatures.set(currentType.arg1());
+            }
+
+         //   cerr << "test partition: " << partition << endl;
+
             partitionScore.bestSplit = bestSplit;
             partitionScore.isPureLeft =  bestLeft > 0.999f;
             partitionScore.isPureRight =  bestRight > 0.999f;
+
+            int rightNextPartition = partition | (1 << iteration);
+            nextPartitions[partition].relevantFeatures = partitionScore.relevantFeatures;
+            nextPartitions[rightNextPartition].relevantFeatures = std::move(partitionScore.relevantFeatures);
 
             //float uniformity = bestScoreSide > 0 ? (bestScoreSide / partitionScore.totalLeft) : (bestScoreSide / partitionScore.totalRight);
 
@@ -612,7 +673,7 @@ run(const ProcedureRunConfig & run,
             if (partition < 0)
               continue; //part of a uniform partition
 
-            BagW::PerPartition& partitionScore = w.perPartitionW[partition];
+            BagW::PerPartition& partitionScore = currentPartitions[partition];
 
          //   if (partitionScore.)
         ///    {
@@ -664,16 +725,19 @@ run(const ProcedureRunConfig & run,
   	} 	
 
     //print the bags
-   /* for (int bag = 0; bag < numBags; ++bag)
+    if (false)
     {
-        cerr << "Printing tree for bag " << bag << endl;
-        Tree& tree = treesPerBag[bag];
-        if (tree.nodes.size() > 0)
+        for (int bag = 0; bag < numBags; ++bag)
         {
-            printNode(tree, tree.nodes[0], 0);
+            cerr << "Printing tree for bag " << bag << endl;
+            Tree& tree = treesPerBag[bag];
+            if (tree.nodes.size() > 0)
+            {
+                printNode(tree, tree.nodes[0], 0);
+            }
         }
-    }*/
-
+    }
+   
     return RunOutput();
 
 }
