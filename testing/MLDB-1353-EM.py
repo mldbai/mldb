@@ -4,13 +4,18 @@ import unittest, json
 
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
-mldb.put('/v1/datasets/iris', {
-    "type": "text.csv.tabular",
+csv_conf = {
+    "type": "import.text",
     "params": {
-        "dataFileUrl": "file://mldb/testing/dataset/iris.data",
+        'dataFileUrl' : 'file://mldb/testing/dataset/iris.data',
+        "ouputDataset": {
+            "id": "iris",
+        },
+        "runOnCreation": True,
         "headers": [ "sepal length", "sepal width", "petal length", "petal width", "class" ]
     }
-})
+}
+mldb.put("/v1/procedures/csv_proc", csv_conf) 
 
 mldb.put('/v1/procedures/em_train_iris', {
     'type' : 'gaussianclustering.train',

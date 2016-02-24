@@ -12,11 +12,22 @@ function assertEqual(expr, val)
     throw "Assertion failure";
 }
 
-var resp = mldb.post("/v1/datasets", { type: "text.csv.tabular", params: { dataFileUrl: "file://thisfiledoesnotexist" } });
+var config = {
+    type: "import.text",
+    params: {
+        dataFileUrl : "file://thisfiledoesnotexist",
+        ouputDataset: {
+            id: "broken_fail",
+        },
+        runOnCreation: true,        
+    }
+}
+
+var resp = mldb.put("/v1/procedures/csv_proc", config)
 
 mldb.log(resp);
 
-assertEqual(resp.json.error, "Opening file ./thisfiledoesnotexist: failed opening file: No such file or directory");
+assertEqual(resp.json.details.runError.error, "Opening file ./thisfiledoesnotexist: failed opening file: No such file or directory");
 
 "success"
 

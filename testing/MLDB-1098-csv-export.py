@@ -75,13 +75,18 @@ class CsvExportTest(unittest.TestCase):
         self.assert_file_content(tmp_file.name, lines_expect)
 
         # import it
-        mldb.put('/v1/datasets/myDataset2', {
-            'type' : 'text.csv.tabular',
-            'params' : {
+        csv_conf = {
+            "type": "import.text",
+            "params": {
                 'dataFileUrl' : 'file://' + tmp_file.name,
-                'named' : 'rowName'
+                "ouputDataset": {
+                    "id": "myDataset2",
+                },
+                "runOnCreation": True,
+                "named" : "rowName"
             }
-        })
+        }
+        mldb.put("/v1/procedures/csv_proc", csv_conf) 
 
         # export it (end of roundtrip)
         tmp_file2 = tempfile.NamedTemporaryFile(dir='build/x86_64/tmp')

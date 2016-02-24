@@ -11,14 +11,19 @@ import unittest
 class ClassifierRowInputTest(unittest.TestCase):
 
     def test_it(self):
-        mldb.create_dataset({
-            "id": "iris",
-            "type": "text.csv.tabular",
+
+        csv_conf = {
+            "type": "import.text",
             "params": {
-                "dataFileUrl": "file://mldb/testing/dataset/iris.data",
+                'dataFileUrl' : 'file://mldb/testing/dataset/iris.data',
+                "ouputDataset": {
+                    "id": "iris",
+                },
+                "runOnCreation": True,
                 "headers": ["a", "b", "c", "d", "class"]
             }
-        })
+        }
+        mldb.put("/v1/procedures/csv_proc", csv_conf) 
 
         mldb.put("/v1/functions/feats", {
             'type' : 'sql.expression',
