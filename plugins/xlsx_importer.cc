@@ -30,7 +30,7 @@ namespace MLDB {
 /* XLSX IMPORTER                                                             */
 /*****************************************************************************/
 
-struct XlsxImporterConfig {
+struct XlsxImporterConfig: public ProcedureConfig {
     Url dataFileUrl;
     PolyConfigT<Dataset> output;
 };
@@ -42,6 +42,7 @@ DEFINE_STRUCTURE_DESCRIPTION(XlsxImporterConfig);
 XlsxImporterConfigDescription::
 XlsxImporterConfigDescription()
 {
+    addParent<ProcedureConfig>();
     addField("dataFileUrl", &XlsxImporterConfig::dataFileUrl,
              "URL to load Excel workbook from");
     addField("output", &XlsxImporterConfig::output,

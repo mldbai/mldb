@@ -329,6 +329,9 @@ registerProcedureType(const Package & package,
                       TypeCustomRouteHandler customRoute = nullptr,
                       std::set<std::string> registryFlags = {})
 {
+    static_assert(std::is_convertible<Config, ProcedureConfig>::value,
+                  "Procedure configuration type must derive from ProcedureConfig");
+
     return registerProcedureType
         (package, name, description,
          [] (RestDirectory * server,
