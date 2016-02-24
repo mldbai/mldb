@@ -24,7 +24,7 @@ var csv_conf = {
     type: "import.text",
     params: {
         dataFileUrl : "file://mldb/testing/dataset/iris.data",
-        ouputDataset: {
+        outputDataset: {
             id: "iris",
         },
         runOnCreation: false,
@@ -56,7 +56,7 @@ csv_conf = {
     type: "import.text",
     params: {
         dataFileUrl : "https://raw.githubusercontent.com/datacratic/mldb-pytanic-plugin/master/titanic_train.csv",
-        ouputDataset: {
+        outputDataset: {
             id: "titanic",
         },
         runOnCreation: true,
@@ -75,7 +75,7 @@ try {
         type: "import.text",
         params: {
             dataFileUrl : "file://modes20130525-0705.csv",
-            ouputDataset: {
+            outputDataset: {
                 id: "test",
             },
             runOnCreation: true,
@@ -95,7 +95,7 @@ csv_conf = {
     type: "import.text",
     params: {
         dataFileUrl : "https://raw.githubusercontent.com/datacratic/mldb-pytanic-plugin/master/titanic_train.csv",
-        ouputDataset: {
+        outputDataset: {
             id: "titanic2",
         },
         named: 'lineNumber() % 10'
@@ -121,7 +121,7 @@ csv_conf = {
     type: "import.text",
     params: {
         dataFileUrl : "https://raw.githubusercontent.com/uniVocity/csv-parsers-comparison/master/src/main/resources/correctness.csv",
-        ouputDataset: {
+        outputDataset: {
             id: "correctness",
         },
         runOnCreation: true,
@@ -142,7 +142,7 @@ csv_conf = {
     type: "import.text",
     params: {
         dataFileUrl : "http://www.maxmind.com/download/worldcities/worldcitiespop.txt.gz",
-        ouputDataset: {
+        outputDataset: {
             id: "cities",
         },
         runOnCreation: true,
@@ -268,7 +268,7 @@ var brokenConfigFail = {
     type: "import.text",
     params: {
         dataFileUrl : "file://mldb/testing/MLDB-749_broken_csv.csv",
-        ouputDataset: {
+        outputDataset: {
             id: "broken_fail",
         },
         runOnCreation: true,
@@ -294,7 +294,7 @@ var brokenConfigNoHeader = {
     type: "import.text",
     params: {
         dataFileUrl : "file://mldb/testing/MLDB-749_broken_csv_no_header.csv",
-        ouputDataset: {
+        outputDataset: {
             id: "broken_fail",
         },
         runOnCreation: true,
@@ -312,7 +312,7 @@ brokenConfig = {
     type: "import.text",
     params: {
         dataFileUrl : "file://mldb/testing/MLDB-749_broken_csv.csv",
-        ouputDataset: {
+        outputDataset: {
             id: "broken",
         },
         runOnCreation: true,
@@ -342,7 +342,7 @@ brokenConfig = {
     type: "import.text",
     params: {
         dataFileUrl : "file://mldb/testing/MLDB-749_broken_csv.csv",
-        ouputDataset: {
+        outputDataset: {
             id: "skippinnn",
         },
         runOnCreation: true,
@@ -364,7 +364,7 @@ var config = {
     type: "import.text",
     params: {
         dataFileUrl : "file://mldb/testing/MLDB-749_bad_header_row_name.csv",
-        ouputDataset: {
+        outputDataset: {
             id: "badHeaderRowName",
         },
         runOnCreation: true,
@@ -380,7 +380,7 @@ var config = {
         type: "import.text",
         params: {
             dataFileUrl : "file://mldb/testing/MLDB-749_bad_header_row_name.csv",
-            ouputDataset: {
+            outputDataset: {
                 id: "headerRowName",
             },
             runOnCreation: true,
@@ -427,7 +427,7 @@ function getCountWithOffsetLimit(dataset, offset, limit) {
         type: "import.text",
         params: {
             dataFileUrl : "https://raw.githubusercontent.com/datacratic/mldb-pytanic-plugin/master/titanic_train.csv",
-            ouputDataset: {
+            outputDataset: {
                 id: dataset,
             },
             runOnCreation: true,
@@ -453,7 +453,7 @@ function getCountWithOffsetLimit2(dataset, offset, limit) {
         type: "import.text",
         params: {
             dataFileUrl : "http://s3.amazonaws.com/public.mldb.ai/tweets.gz",
-            ouputDataset: {
+            outputDataset: {
                 id: dataset,
             },
             runOnCreation: true,
@@ -490,7 +490,7 @@ var mldb1312Config = {
         type: "import.text",
         params: {
             dataFileUrl : "file://mldb/testing/MLDB-1312-quotechar.csv",
-            ouputDataset: {
+            outputDataset: {
                 id: 'mldb1312',
             },
             runOnCreation: true,
@@ -516,7 +516,7 @@ var mldb1312Config_b = {
         type: "import.text",
         params: {
             dataFileUrl : "file://mldb/testing/MLDB-1312-quotechar.csv",
-            ouputDataset: {
+            outputDataset: {
                 id: 'mldb1312_b',
             },
             runOnCreation: true,
@@ -534,7 +534,7 @@ var mldb1312Config_c = {
         type: "import.text",
         params: {
             dataFileUrl : "file://mldb/testing/MLDB-1312-quotechar.csv",
-            ouputDataset: {
+            outputDataset: {
                 id: 'mldb1312_c',
             },
             runOnCreation: true,

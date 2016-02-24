@@ -24,7 +24,7 @@ class CsvLineEndingsGeneric(object):
             "type": "import.text",
             "params": {
                 'dataFileUrl' : "file://" + filename,
-                "ouputDataset": {
+                "outputDataset": {
                     "id": "x",
                 },
                 "runOnCreation" : True,
@@ -193,7 +193,7 @@ class CsvLineEndingsGeneric(object):
             "type": "import.text",
             "params": {
                 'dataFileUrl' : "file://" + path,
-                "ouputDataset": {
+                "outputDataset": {
                     "id": "empty_csv",
                 },
                 "runOnCreation" : True,
@@ -211,7 +211,7 @@ class CsvLineEndingsGeneric(object):
                 "type": "import.text",
                 "params": {
                     'dataFileUrl' : "file://this/path/does/not/exist.csv",
-                    "ouputDataset": {
+                    "outputDataset": {
                         "id": "does_not_exist_csv",
                     },
                     "runOnCreation" : True,

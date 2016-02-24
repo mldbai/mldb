@@ -40,11 +40,11 @@ struct ImportTextConfig : public ProcedureConfig  {
           named(SqlExpression::parse("lineNumber()")),
           timestamp(SqlExpression::parse("fileTimestamp()"))
     {
-    	ouputDataset.withType("tabular");
+    	outputDataset.withType("tabular");
     }
 
     Url dataFileUrl;
-    PolyConfigT<Dataset> ouputDataset;
+    PolyConfigT<Dataset> outputDataset;
     std::vector<Utf8String> headers;
     std::string delimiter;
     std::string quoter;

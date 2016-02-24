@@ -17,7 +17,7 @@ csv_conf = {
     "type": "import.text",
     "params": {
         'dataFileUrl' : "file://mldb/testing/utf8.csv",
-        "ouputDataset": {
+        "outputDataset": {
             "id": "utf8",
         },
         "runOnCreation" : True,
@@ -30,7 +30,7 @@ csv_conf = {
     "type": "import.text",
     "params": {
         'dataFileUrl' : "file://mldb/testing/latin1.csv",
-        "ouputDataset": {
+        "outputDataset": {
             "id": "latin1",
         },
         "runOnCreation" : True,

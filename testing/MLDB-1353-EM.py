@@ -8,7 +8,7 @@ csv_conf = {
     "type": "import.text",
     "params": {
         'dataFileUrl' : 'file://mldb/testing/dataset/iris.data',
-        "ouputDataset": {
+        "outputDataset": {
             "id": "iris",
         },
         "runOnCreation": True,

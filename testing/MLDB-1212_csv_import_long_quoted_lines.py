@@ -16,7 +16,7 @@ csv_conf = {
     "type": "import.text",
     "params": {
         'dataFileUrl' : 'file://tmp/broken_csv.csv',
-        "ouputDataset": {
+        "outputDataset": {
             "id": "x",
         },
         "runOnCreation": True,

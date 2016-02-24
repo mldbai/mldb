@@ -11,7 +11,7 @@ for ext in ['lz4', 'zip']:
             "type": "import.text",
             "params": {
                 'dataFileUrl' : 'file://mldb/testing/MLDB-1140-small_score.csv.' + ext,
-                "ouputDataset": {
+                "outputDataset": {
                     "id": "score_small",
                 },
                 "runOnCreation": True,

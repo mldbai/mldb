@@ -16,7 +16,7 @@ var config = {
     type: "import.text",
     params: {
         dataFileUrl : "file://thisfiledoesnotexist",
-        ouputDataset: {
+        outputDataset: {
             id: "broken_fail",
         },
         runOnCreation: true,        

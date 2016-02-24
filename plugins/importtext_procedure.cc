@@ -39,7 +39,7 @@ ImportTextConfigDescription::ImportTextConfigDescription()
 {
     addField("dataFileUrl", &ImportTextConfig::dataFileUrl,
              "URL of the text data to import");
-    addField("ouputDataset", &ImportTextConfig::ouputDataset,
+    addField("outputDataset", &ImportTextConfig::outputDataset,
              "Dataset to record the data into.",
              PolyConfigT<Dataset>().withType("tabular"));
     addField("headers", &ImportTextConfig::headers,
@@ -1126,7 +1126,7 @@ run(const ProcedureRunConfig & run,
 	    return onProgress(value);
 	};
 
-	std::shared_ptr<Dataset> dataset = createDataset(server, runProcConf.ouputDataset, onProgress2, true /*overwrite*/);
+	std::shared_ptr<Dataset> dataset = createDataset(server, runProcConf.outputDataset, onProgress2, true /*overwrite*/);
 
 	ImportTextProcedureWorkInstance instance;
 

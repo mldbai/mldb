@@ -24,7 +24,7 @@ class RowNameAsStringTest(MldbUnitTest):
             "type": "import.text",
             "params": {
                 'dataFileUrl' : 'file:///' + tmp_file.name,
-                "ouputDataset": {
+                "outputDataset": {
                     "id": "csv",
                 },
                 "runOnCreation": True

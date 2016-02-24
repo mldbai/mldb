@@ -79,7 +79,7 @@ class CsvExportTest(unittest.TestCase):
             "type": "import.text",
             "params": {
                 'dataFileUrl' : 'file://' + tmp_file.name,
-                "ouputDataset": {
+                "outputDataset": {
                     "id": "myDataset2",
                 },
                 "runOnCreation": True,

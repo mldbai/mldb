@@ -43,7 +43,7 @@ csv_conf = {
     type: "import.text",
     params: {
         dataFileUrl : "archive+http://files.grouplens.org/datasets/movielens/ml-20m.zip#ml-20m/links.csv",
-        ouputDataset: {
+        outputDataset: {
             id: "csv",
         },
         runOnCreation: true,

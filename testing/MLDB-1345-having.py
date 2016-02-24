@@ -17,7 +17,7 @@ class HavingTest(unittest.TestCase):
             "type": "import.text",
             "params": {
                 'dataFileUrl' : 'https://raw.githubusercontent.com/datacratic/mldb-pytanic-plugin/master/titanic_train.csv',
-                "ouputDataset": {
+                "outputDataset": {
                     "id": "titanic",
                 },
                 "runOnCreation": True

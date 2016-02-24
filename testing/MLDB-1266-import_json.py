@@ -118,7 +118,7 @@ class ImportJsonTest(unittest.TestCase):
             "type": "import.text",
             "params": {
                 'dataFileUrl' : 'file://mldb/testing/dataset/json_dataset.json',
-                "ouputDataset": {
+                "outputDataset": {
                     "id": "imported_json",
                 },
                 "quotechar": "",

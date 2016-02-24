@@ -10,7 +10,7 @@ csv_conf = {
             "type": "import.text",
             "params": {
                 'dataFileUrl' : 'file://mldb/testing/MLDB-1121_test_set.csv',
-                "ouputDataset": {
+                "outputDataset": {
                     "id": "mldb_1121",
                 },
                 "runOnCreation": True,

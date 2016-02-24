@@ -71,7 +71,7 @@ csv_conf = {
     type: "import.text",
     params: {
         dataFileUrl : "file://mldb/testing/MLDB-1043-bucketize-data.csv",
-        ouputDataset: {
+        outputDataset: {
             id: "rNamedScores",
         },
         runOnCreation: true,

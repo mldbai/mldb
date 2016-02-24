@@ -54,7 +54,7 @@ function createDataset(datasetType)
         type: "import.text",
         params: {
             dataFileUrl : "http://files.figshare.com/1310438/reddit_user_posting_behavior.csv.gz",
-            ouputDataset: {
+            outputDataset: {
                 id: datasetType,
                 type: datasetType
             },

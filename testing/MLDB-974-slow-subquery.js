@@ -4,7 +4,7 @@ csv_conf = {
     type: "import.text",
     params: {
         dataFileUrl : "https://s3.amazonaws.com/benchm-ml--main/test.csv",
-        ouputDataset: {
+        outputDataset: {
             id: "test",
         },
         runOnCreation: true,     
