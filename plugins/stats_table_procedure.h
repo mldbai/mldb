@@ -146,7 +146,7 @@ struct StatsTableFunction: public Function {
 /* STATS TABLE DERIVED COLS FUNCTION                                         */
 /*****************************************************************************/
 
-struct StatsTableDerivedColumnsGeneratorProcedureConfig {
+struct StatsTableDerivedColumnsGeneratorProcedureConfig: public ProcedureConfig {
     StatsTableDerivedColumnsGeneratorProcedureConfig(
             const Url & statsTableFileUrl = Url())
         : statsTableFileUrl(statsTableFileUrl)
