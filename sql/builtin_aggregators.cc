@@ -531,9 +531,10 @@ struct MinMaxAccum {
         }
         else {
             auto atom = val.getAtom();
-            if (Cmp()(atom, value))
+            if (Cmp()(atom, value)) {
                 value = atom;
-            ts.setMax(val.getEffectiveTimestamp());
+                ts = val.getEffectiveTimestamp();
+            }
         }
         //cerr << "ts now " << ts << endl;
     }
@@ -548,11 +549,12 @@ struct MinMaxAccum {
         if (first) {
             value = src->value;
             first = src->first;
+            ts = src->ts;
         } 
         else if (!src->first && Cmp()(src->value, value)) {
             value = src->value;
+            ts = src->ts;
         }
-        ts.setMax(src->ts);
     }
 
     bool first;
