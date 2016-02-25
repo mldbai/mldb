@@ -68,7 +68,7 @@ doGetVariable(const Utf8String & tableName,
             {
                 ExcAssert(canIgnoreIfExactlyOneValue(filter));
 
-                auto & row = static_cast<const RowContext &>(context);
+                auto & row = context.as<RowContext>();
                 return storage = std::move(row.input.get(variableName));
             },
             valueInfo};
@@ -133,7 +133,7 @@ doGetAllColumns(const Utf8String & tableName,
                          const ColumnName & col)
 
         {
-            auto & row = static_cast<const RowContext &>(context);
+            auto & row = context.as<RowContext>();
             return std::move(row.input.getValueOrNull(col.toUtf8String()));
         };
 
@@ -180,7 +180,10 @@ doGetVariable(const Utf8String & tableName,
     if (!findVariableRecursive(variableName, valueInfo, schemaCompleteness))
     {
         if (knownInput && schemaCompleteness == SCHEMA_CLOSED) {
-            throw HttpReturnException(400, "Required input '" + variableName + "' was not provided");
+            throw HttpReturnException(400, "Required input '" + variableName + "' was not provided",
+                                      "variableName", variableName,
+                                      "input", input,
+                                      "knownInput", knownInput);
         }
 
         
@@ -195,7 +198,7 @@ doGetVariable(const Utf8String & tableName,
             {
                 ExcAssert(canIgnoreIfExactlyOneValue(filter));
 
-                auto & row = static_cast<const RowContext &>(context);
+                auto & row = context.as<RowContext>();
 
                 return row.input.mustGet(variableName, storage);
             },
@@ -268,7 +271,7 @@ doGetAllColumns(const Utf8String & tableName,
                          const ColumnName & col)
 
         {
-            auto & row = static_cast<const RowContext &>(context);
+            auto & row = context.as<RowContext>();
             return std::move(row.input.getValueOrNull(col));
         };
 

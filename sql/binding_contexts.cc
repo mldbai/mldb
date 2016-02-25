@@ -25,9 +25,11 @@ BoundFunction
 ReadThroughBindingContext::
 doGetFunction(const Utf8String & tableName,
               const Utf8String & functionName,
-              const std::vector<std::shared_ptr<SqlExpression> > & args)
+              const std::vector<std::shared_ptr<SqlExpression> > & args,
+              SqlBindingScope & argScope)
 {
-    auto outerFunction = outer.doGetFunction(tableName, functionName, args);
+    auto outerFunction = outer.doGetFunction(tableName, functionName, args,
+                                             argScope);
 
     BoundFunction result = outerFunction;
 
@@ -37,7 +39,7 @@ doGetFunction(const Utf8String & tableName,
     std::vector<BoundSqlExpression> boundArgs;
     for (auto& arg : args)
     {
-        boundArgs.emplace_back(std::move(arg->bind(outer)));
+        boundArgs.emplace_back(std::move(arg->bind(argScope)));
     }
 
     // Call it with the outer context
@@ -45,7 +47,7 @@ doGetFunction(const Utf8String & tableName,
                        const SqlRowScope & context)
         {
             //ExcAssert(dynamic_cast<const RowContext *>(&context) != nullptr);
-            auto & row = static_cast<const RowContext &>(context);
+            auto & row = context.as<RowContext>();
 
             //cerr << "rebinding to apply function " << functionName
             //<< ": context type is "
@@ -69,7 +71,7 @@ doGetVariable(const Utf8String & tableName,
                  ExpressionValue & storage,
                  const VariableFilter & filter) -> const ExpressionValue &
             {
-                auto & row = static_cast<const RowContext &>(context);
+                auto & row = context.as<RowContext>();
                 return outerImpl(row.outer, storage, filter);
             },
             outerImpl.info};
@@ -84,7 +86,7 @@ doGetAllColumns(const Utf8String & tableName,
     auto outerFn = result.exec;
     result.exec = [=] (const SqlRowScope & scope)
         {
-            auto & row = static_cast<const RowContext &>(scope);
+            auto & row = scope.as<RowContext>();
             return outerFn(row.outer);
         };
     return result;
@@ -100,7 +102,7 @@ doGetBoundParameter(const Utf8String & paramName)
                  ExpressionValue & storage,
                  const VariableFilter & filter) -> const ExpressionValue &
             {
-                auto & row = static_cast<const RowContext &>(context);
+                auto & row = context.as<RowContext>();
                 return outerImpl(row.outer, storage, filter);
             },
             outerImpl.info};
@@ -136,14 +138,15 @@ BoundFunction
 ColumnExpressionBindingContext::
 doGetFunction(const Utf8String & tableName,
               const Utf8String & functionName,
-              const std::vector<std::shared_ptr<SqlExpression> > & args)
+              const std::vector<std::shared_ptr<SqlExpression> > & args,
+              SqlBindingScope & argScope)
 {
 
     if (functionName == "columnName") {
         return {[=] (const std::vector<BoundSqlExpression> & args,
                      const SqlRowScope & context)
                 {
-                    auto & col = static_cast<const ColumnContext &>(context);
+                    auto & col = context.as<ColumnContext>();
                     return ExpressionValue(col.columnName.toUtf8String(),
                                            Date::negativeInfinity());
                 },
@@ -157,7 +160,7 @@ doGetFunction(const Utf8String & tableName,
          return {[=] (const std::vector<BoundSqlExpression> & args,
                  const SqlRowScope & context)
             {
-                auto & col = static_cast<const ColumnContext &>(context);
+                auto & col = context.as<ColumnContext>();
 
                 // consider changing the signature of the column function 
                 // to let them evaluate their args as it is done with builtin
@@ -171,7 +174,8 @@ doGetFunction(const Utf8String & tableName,
             std::make_shared<Utf8StringValueInfo>()};
     }
 
-    auto sqlfn = SqlBindingScope::doGetFunction(tableName, functionName, args);
+    auto sqlfn = SqlBindingScope::doGetFunction(tableName, functionName, args,
+                                                argScope);
 
     if (sqlfn)
         return sqlfn;
@@ -188,21 +192,22 @@ BoundFunction
 SqlExpressionWhenScope::
 doGetFunction(const Utf8String & tableName,
               const Utf8String & functionName,
-              const std::vector<std::shared_ptr<SqlExpression> > & args)
+              const std::vector<std::shared_ptr<SqlExpression> > & args,
+              SqlBindingScope & argScope)
 {
     if (functionName == "timestamp") {
         isTupleDependent = true;
         return  {[=] (const std::vector<BoundSqlExpression> & args,
                       const SqlRowScope & scope)
                 {
-                    auto & row = static_cast<const RowScope &>(scope);
+                    auto & row = scope.as<RowScope>();
                     return ExpressionValue(row.ts, row.ts);
                 },
                 std::make_shared<TimestampValueInfo>()};
     }
 
     return ReadThroughBindingContext::doGetFunction(tableName, functionName,
-                                                    args);
+                                                    args, argScope);
 }
 
 
@@ -219,7 +224,7 @@ doGetBoundParameter(const Utf8String & paramName)
                  const VariableFilter & filter) -> const ExpressionValue &
             {
                 
-                auto & row = static_cast<const RowScope &>(scope);
+                auto & row = scope.as<RowScope>();
                 return storage = row.params(paramName);
             },
             std::make_shared<AnyValueInfo>() };

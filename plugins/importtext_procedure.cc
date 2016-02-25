@@ -173,7 +173,7 @@ struct SqlCsvScope: public SqlExpressionMldbContext {
                      ExpressionValue & storage,
                      const VariableFilter & filter) -> const ExpressionValue &
                 {
-                    auto & row = static_cast<const RowScope &>(scope);
+                    auto & row = scope.as<RowScope>();
                     return storage = std::move(ExpressionValue(row.row[index], row.ts));
                 },
                 std::make_shared<AtomValueInfo>()};
@@ -202,7 +202,7 @@ struct SqlCsvScope: public SqlExpressionMldbContext {
         
         auto exec = [=] (const SqlRowScope & scope)
             {
-                auto & row = static_cast<const RowScope &>(scope);
+                auto & row = scope.as<RowScope>();
 
                 RowValue result;
 
@@ -224,14 +224,15 @@ struct SqlCsvScope: public SqlExpressionMldbContext {
     virtual BoundFunction
     doGetFunction(const Utf8String & tableName,
                   const Utf8String & functionName,
-                  const std::vector<std::shared_ptr<SqlExpression> > & args)
+                  const std::vector<std::shared_ptr<SqlExpression> > & args,
+                  SqlBindingScope & argScope)
     {
         if (functionName == "lineNumber") {
             lineNumberUsed = true;
             return {[=] (const std::vector<BoundSqlExpression> & args,
                          const SqlRowScope & scope)
                     {
-                        auto & row = static_cast<const RowScope &>(scope);
+                        auto & row = scope.as<RowScope>();
                         return ExpressionValue(row.lineNumber, fileTimestamp);
                     },
                     std::make_shared<IntegerValueInfo>()
@@ -259,13 +260,14 @@ struct SqlCsvScope: public SqlExpressionMldbContext {
             return {[=] (const std::vector<BoundSqlExpression> & args,
                          const SqlRowScope & scope)
                     {
-                        auto & row = static_cast<const RowScope &>(scope);
+                        auto & row = scope.as<RowScope>();
                         return ExpressionValue(row.lineOffset, fileTimestamp);
                     },
                     std::make_shared<IntegerValueInfo>()
                     };
         }
-        return SqlBindingScope::doGetFunction(tableName, functionName, args);
+        return SqlBindingScope::doGetFunction(tableName, functionName, args,
+                                              argScope);
     }
 
     static RowScope bindRow(const CellValue * row, Date ts,
