@@ -20,16 +20,19 @@ var fetcher = mldb.createFunction(fetcherConfig);
 // The labels for the Inception classifier live within the zip file
 // downloaded above.  We read them into a dataset so that we can
 // join against them later on.
-var labelsConfig = {
-    id: 'imagenetLabels',
-    type: 'text.csv.tabular',
+var loadLabelsConfig = {
+    type: 'import.text',
     params: {
         dataFileUrl: 'archive+' + inceptionUrl + '#imagenet_comp_graph_label_strings.txt',
-        headers: ['label']
+        headers: ['label'],
+        outputDataset: {
+            id: "imagenetLabels",
+        },
+        runOnCreation: true
     }
 };
 
-var lbls = mldb.createDataset(labelsConfig);
+var lbls = mldb.post('/v1/procedures', loadLabelsConfig);
 
 // This function takes the output of an inception graph, which is a
 // 1x1008 matrix, and joins the top 5 scores against the image labels,
