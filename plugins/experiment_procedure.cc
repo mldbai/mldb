@@ -69,8 +69,6 @@ DatasetFoldConfigDescription()
     documentationUri = "/doc/builtin/procedures/ExperimentProcedure.md#DatasetFoldConfig";
 }
 
-
-
 DEFINE_STRUCTURE_DESCRIPTION(ExperimentProcedureConfig);
 
 ExperimentProcedureConfigDescription::
@@ -167,14 +165,19 @@ ExperimentProcedureConfigDescription()
               true);
     addParent<ProcedureConfig>();
 
-    onPostValidate = validate<ExperimentProcedureConfig, 
-                              InputQuery,
-                              NoGroupByHaving, 
-                              MustContainFrom,
-                              PlainColumnSelect>(&ExperimentProcedureConfig::trainingData, "classfier.experiment");
-
+    onPostValidate = chain(validate<ExperimentProcedureConfig, 
+                           InputQuery,
+                           NoGroupByHaving, 
+                           MustContainFrom,
+                           PlainColumnSelect>(&ExperimentProcedureConfig::trainingData, "classifier.experiment"),
+                           validate<ExperimentProcedureConfig, 
+                           Optional<InputQuery>,
+                           NoGroupByHaving, 
+                           MustContainFrom,
+                           PlainColumnSelect,
+                           FeaturesLabelSelect>(&ExperimentProcedureConfig::testingData, "classifier.experiment"));
+    
 }
-
 
 /*****************************************************************************/
 /* JSON STATS STATISTICS GENERATOR
