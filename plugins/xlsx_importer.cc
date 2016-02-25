@@ -749,7 +749,7 @@ struct XlsxImporter: public Procedure {
         // 4.  Load the worksheets, one by one
         for (auto & sheetEntry: workbook.sheets) {
             Utf8String filename = "archive+" + runProcConf.dataFileUrl.toString() + "#xl/" + sheetEntry.filename;
-            ML::filter_istream sheetStream(filename.rawString());
+            filter_istream sheetStream(filename.rawString());
             
             Sheet sheet(sheetStream.rdbuf(), workbook, strings, styles);
 

@@ -1,6 +1,8 @@
-GCC_VERSION:=$(shell g++ --version | head -n1 | sed 's/.* //g')
+GCC?=gcc
+GXX?=g++
+GCC_VERSION:=$(shell $(GXX) --version | head -n1 | sed 's/.* //g')
 CXX_VERSION?=$(GCC_VERSION)
-CXX:=$(COMPILER_CACHE) g++
+CXX:=$(COMPILER_CACHE) $(GXX)
 
 GXXWARNINGFLAGS?=-Wall -Werror -Wno-sign-compare -Woverloaded-virtual -Wno-deprecated-declarations -Wno-deprecated -Winit-self -Wno-unused-but-set-variable -Wno-psabi -Wno-unknown-pragmas
 
@@ -15,7 +17,7 @@ CXXEXEPOSTFLAGS = $(if $(MEMORY_ALLOC_LIBRARY),-l$(MEMORY_ALLOC_LIBRARY))
 
 
 
-CC ?= gcc
+CC ?= $(COMPILER_CACHE) $(GCC)
 GCCWARNINGFLAGS?=-Wall -Werror -Wno-sign-compare -fno-strict-overflow -Wno-unused-but-set-variable
 CFLAGS ?= $(ARCHFLAGS) $(INCLUDE) $(GCCWARNINGFLAGS) -pipe -O3 -g -DNDEBUG -fno-omit-frame-pointer
 CDEBUGFLAGS := -O0 -g

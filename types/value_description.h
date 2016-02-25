@@ -20,6 +20,7 @@
 #include "mldb/base/exc_assert.h"
 #include "json_parsing.h"
 #include "json_printing.h"
+#include "mldb/ext/jsoncpp/value.h"
 
 namespace Datacratic {
 
@@ -547,7 +548,8 @@ template<typename T>
 Json::Value jsonEncode(const T & obj)
 {
     static auto desc = getDefaultDescriptionSharedT<T>();
-    StructuredJsonPrintingContext context;
+    Json::Value output;
+    StructuredJsonPrintingContext context(output);
     desc->printJson(&obj, context);
     return std::move(context.output);
 }

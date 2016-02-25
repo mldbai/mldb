@@ -1,0 +1,11 @@
+{
+    "config": {
+        "type": "sharedLibrary",
+        "id": "MLDB-1398-plugin",
+        "params": {
+            "library": "lib/libMLDB-1398-main-library.so",
+            "version": "0.9",
+            "apiVersion": "1.0.0"
+        }
+    }
+}

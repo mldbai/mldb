@@ -51,7 +51,7 @@ bindApplyFunctionExpression(const Utf8String & functionName,
                  const VariableFilter & filter) -> const ExpressionValue &
             {
                 // Run the with expressions
-                ExpressionValue withVal = boundWith(row);
+                ExpressionValue withVal = boundWith(row, filter);
                 FunctionOutput withOutput(std::move(withVal));
 
                 //cerr << "withOutput " << jsonEncode(withOutput);
@@ -71,7 +71,7 @@ bindApplyFunctionExpression(const Utf8String & functionName,
                 auto rowFunctionContext
                     = extractContext.getRowContext(context);
                 
-                auto val = boundExtract(rowFunctionContext, storage);               
+                auto val = boundExtract(rowFunctionContext, storage, filter);               
 
                 return storage = val;
             },
@@ -126,7 +126,7 @@ bindSelectApplyFunctionExpression(const Utf8String & functionName,
         -> const ExpressionValue &
             {
                 // Run the with expressions
-                ExpressionValue withVal = boundWith(row);
+                ExpressionValue withVal = boundWith(row, filter);
 
                 FunctionOutput withOutput(std::move(withVal));
 

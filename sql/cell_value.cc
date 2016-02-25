@@ -1069,7 +1069,7 @@ struct CellValueDescription: public ValueDescriptionT<CellValue> {
                 std::string contents;
 
                 if (!v["blob"].isNull()) {
-                    if (!v["blob"].type() == Json::arrayValue) {
+                    if (v["blob"].type() != Json::arrayValue) {
                         throw HttpReturnException(400, "JSON blob is not an array: '" + v.toStringNoNewLine() + "'");
                     }
                     for (auto & v2: v["blob"]) {

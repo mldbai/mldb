@@ -13,6 +13,8 @@
 #include "dtoa.h"
 #include <cmath>
 #include <iostream>
+#include "mldb/ext/jsoncpp/value.h"
+
 
 using namespace std;
 
@@ -622,8 +624,8 @@ writeBool(bool b)
 /*****************************************************************************/
 
 StructuredJsonPrintingContext::
-StructuredJsonPrintingContext()
-    : current(&output)
+StructuredJsonPrintingContext(Json::Value & output)
+    : output(output), current(&output)
 {
 }
 

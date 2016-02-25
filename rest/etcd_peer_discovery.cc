@@ -11,6 +11,7 @@
 #include "mldb/jml/utils/info.h"
 #include "mldb/http/logs.h"
 #include "mldb/watch/watch_impl.h"
+#include "mldb/jml/utils/string_functions.h"
 #include <chrono>
 #include <thread>
 

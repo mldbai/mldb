@@ -32,6 +32,7 @@
 
 using namespace ML;
 using namespace std;
+using namespace Datacratic;
 
 using boost::unit_test::test_suite;
 

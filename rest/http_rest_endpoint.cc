@@ -115,7 +115,7 @@ bindTcp(PortRange const & portRange, std::string host)
     if (literate_doc_bind_file) {
         Json::Value v;
         v["port"] = port;
-        ML::filter_ostream out(literate_doc_bind_file);
+        filter_ostream out(literate_doc_bind_file);
         out << v.toString() << endl;
         out.close();
     }

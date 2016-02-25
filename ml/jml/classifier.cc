@@ -995,7 +995,7 @@ operator >> (DB::Store_Reader & store, Classifier & classifier)
 
 void Classifier::load(const std::string & filename)
 {
-    filter_istream stream(filename);
+    Datacratic::filter_istream stream(filename);
     Store_Reader store(stream);
     reconstitute(store);
 }
@@ -1003,7 +1003,7 @@ void Classifier::load(const std::string & filename)
 void Classifier::
 load(const std::string & filename, std::shared_ptr<const Feature_Space> fs)
 {
-    filter_istream stream(filename);
+    Datacratic::filter_istream stream(filename);
     Store_Reader store(filename);
     reconstitute(store, fs);
 }

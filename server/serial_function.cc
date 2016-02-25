@@ -128,7 +128,7 @@ apply(const FunctionContext & input) const
     // Run the WITH expression to get our values from the input
     auto withRow = itl->withBindingContext.getRowContext(input);
     FunctionOutput withOutput;
-    withOutput = itl->boundWith(withRow);
+    withOutput = itl->boundWith(withRow, GET_LATEST);
 
     FunctionContext selectContext;
     selectContext.update(std::move(withOutput));
@@ -142,7 +142,7 @@ apply(const FunctionContext & input) const
 
     // Now the extract
     auto extractRow = itl->extractBindingContext.getRowContext(extractContext);
-    return itl->boundExtract(extractRow);
+    return itl->boundExtract(extractRow, GET_LATEST);
 }
 
 const FunctionValues &

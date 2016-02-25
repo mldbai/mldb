@@ -27,17 +27,35 @@ git clone git@github.com:mldbai/mldb.git
 cd mldb
 git submodule update --init --recursive
 make dependencies
-make compile
-make test
+make -k compile
+make -k test
 ```
 
-To speed things up, consider using the `-j` option in `make` to leverage multiple cores.
+To speed things up, consider using the `-j` option in `make` to leverage
+multiple cores: `make -j8 compile`.
 
-Build output lands in the `build` directory and there is no `make clean` target: you can just `rm -rf build`. You can speed up recompilation after deleting your `build` directory by using `ccache`, which can be installed with `apt-get install ccache`. You can then create a file at the top of the repo directory called `local.mk` with the following contents:
+*NOTE* Occasionally, build ordering issues may creep into the build which don't
+affect the viability of the build, but may cause `make` to fail.  In that
+case, it is acceptable to repeat the `make -k compile` step, which may
+successfully complete on a second pass.  (The build order is regression
+tested, but the regression tests for the build ordering are run less
+frequently than other tests).
+
+*NOTE* Occasionally, tests may fail spuriously, especially due to high load on
+the machine when running time-sensitive tests or network issues when
+accessing external resources.  Repeating the `make -k test`
+step may allow them to pass.  It is OK to use MLDB if the tests don't
+all pass; all code merged into the `master` branch has passed regression
+tests in the stable testing environment.
+
+Build output lands in the `build` directory and there is no `make clean`
+target: you can just `rm -rf build`. You can speed up recompilation after
+deleting your `build` directory by using `ccache`, which can be installed
+with `apt-get install ccache`. You can then create a file at the top of the
+repo directory called `local.mk` with the following contents:
 
 ```
-CXX := ccache g++
-CC := ccache gcc
+COMPILER_CACHE:=ccache
 ```
 
 *N.B.* To use `ccache` to maximum effect, you should set the cache size to something like 10GB if you have the disk space with `ccache -M 10G`.
@@ -195,3 +213,40 @@ s3  1   AKRESTOFACCESSKEYID SeCrEtOfKeyGoeShEre
 The MLDB tests will pick up this file when executing.  The Makefile will check
 for the presence of the file containing an S3 line when deciding whether or
 not to enable those tests.
+
+## Advanced Topics
+
+These topics should only be used by experienced developers, as they are
+not officially supported
+
+
+### Choosing the toolchain
+
+MLDB is compiled by default using the GCC compiler, version 4.8.
+
+
+#### Compiling with GCC 5.x
+
+In order to use GCC version 5.x, the following commands should be used to
+install the compiler (currently GCC 5.3):
+
+```
+sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+sudo apt-get update
+sudo apt-get install gcc-5 g++-5
+```
+
+You can then add `toolchain=gcc5` to the make command line to use the
+newly installed compiler.
+
+#### Compiling with clang
+
+In order to compile with the clang compiler, you will firstly need to
+install it:
+
+```
+sudo apt-get install clang-3.5
+```
+
+You can then add `toolchain=clang` to compile with the clang compiler.
+

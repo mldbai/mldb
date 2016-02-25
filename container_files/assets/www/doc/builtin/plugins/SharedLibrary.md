@@ -44,4 +44,26 @@ The return value of that function is:
 This allows the plugin to provide additional functionality that is
 linked to the MLDB server it's running under.
 
+## Linking a plugin implemented in multiple libraries
 
+If the plugin is implemented in multiple libraries, it will need to add
+an `rpath` entry that points to the current directory, or otherwise it
+may fail with a message like the following:
+
+```
+error loading plugin file:///mldb_data/plugins/myplugin/: couldn't load plugin library `libmyplugin.so`: libmyplugin-dependency.so: cannot open shared object file: No such file or directory
+plugin will be ignored
+```
+
+To do this, typically the following should be added to the compiler
+command line in the linking phase:
+
+```
+-Wl,-rpath,'$ORIGIN'
+```
+
+to enable to library loader to look in the current directory for other
+libraries associated with the plugin.  By default, it will only look in
+the MLDB and system library directories.
+
+See the discussion in the manual page here: http://man7.org/linux/man-pages/man8/ld.so.8.html

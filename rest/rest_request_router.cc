@@ -282,14 +282,17 @@ RestRequestRouter::
 RestRequestRouter()
     : terminal(false)
 {
+    notFoundHandler = defaultNotFoundHandler;
 }
 
 RestRequestRouter::
 RestRequestRouter(const OnProcessRequest & processRequest,
+                  const OnNotFoundRequest & notFoundHandler,
                   const Utf8String & description,
                   bool terminal,
                   const Json::Value & argHelp)
     : rootHandler(processRequest),
+      notFoundHandler(notFoundHandler),
       description(description),
       terminal(terminal),
       argHelp(argHelp)
@@ -321,7 +324,7 @@ handleRequest(RestConnection & connection,
     RestRequestParsingContext context(request);
     RestRequestMatchResult res = processRequest(connection, request, context);
     if (res == MR_NO) {
-        connection.sendErrorResponse(404, "unknown resource " + request.verb + " " + request.resource);
+        notFoundHandler(connection, request);
     }
 }
 
@@ -632,7 +635,7 @@ addRoute(PathSpec path, RequestFilter filter,
          ExtractObject extractObject)
 {
     addRoute(path, filter,
-             std::make_shared<RestRequestRouter>(cb, description, true, argHelp),
+             std::make_shared<RestRequestRouter>(cb, notFoundHandler, description, true, argHelp),
              extractObject);
 }
 
@@ -725,7 +728,7 @@ addAutodocRoute(PathSpec autodocPath, PathSpec helpPath,
     };
 
     addRoute(Rx(autodocPathStr + "/.*", "<resource>"), "GET",
-            "Static content", autodocRoute, Json::Value());
+             "Static content", autodocRoute, Json::Value());
 }
 
 void
@@ -970,11 +973,19 @@ addSubRouter(PathSpec path,
     else route.router.reset(new RestRequestRouter());
 
     route.router->description = description;
+    route.router->notFoundHandler = notFoundHandler;
     route.extractObject = extractObject;
 
     subRoutes.push_back(route);
     return *route.router;
 }
+
+void
+RestRequestRouter::
+defaultNotFoundHandler(RestConnection & connection,
+                       const RestRequest & request) {
+    connection.sendErrorResponse(404, "unknown resource " + request.verb + " " +  request.resource);
+};
 
 RestRequestMatchResult
 sendExceptionResponse(RestConnection & connection,

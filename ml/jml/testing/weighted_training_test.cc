@@ -108,6 +108,9 @@ BOOST_AUTO_TEST_CASE( weighted_training_test )
 
         float prediction3 = class3.impl->predict(0, *class3.impl->feature_space<Dense_Feature_Space>()->encode(point2));
 
+        cerr << "prediction2 = " << prediction2 << endl;
+        cerr << "prediction3 = " << prediction3 << endl;
+
         BOOST_CHECK_PREDICATE( std::not_equal_to<float>(), (prediction2)(prediction3) ); 
     }
    

@@ -1,4 +1,4 @@
-# SentiWordNet importer procedure
+# SentiWordNet Importer Procedure
 
 This procedure allows word and phrase embeddings from the
 [SentiWordNet lexical resource](http://sentiwordnet.isti.cnr.it) to be loaded
@@ -48,18 +48,22 @@ SELECT * FROM sentiWordNet WHERE rowName() IN ('love#v', 'dog#n')
 [
    {
       "columns" : [
-         [ "PosSenti", 0, "1970-01-01T00:00:00.000Z" ],
-         [ "NegSenti", 0.1928374618291855, "1970-01-01T00:00:00.000Z" ],
-         [ "ObjSenti", 0.8071626424789429, "1970-01-01T00:00:00.000Z" ]
+         [ "SentiPos", 0, "1970-01-01T00:00:00.000Z" ],
+         [ "SentiNeg", 0.1928374618291855, "1970-01-01T00:00:00.000Z" ],
+         [ "SentiObj", 0.8071626424789429, "1970-01-01T00:00:00.000Z" ],
+         [ "POS", "n", "1970-01-01T00:00:00.000Z" ],
+         [ "baseWord", "dog", "1970-01-01T00:00:00.000Z" ]
       ],
       "rowHash" : "7dad6626da208a04",
       "rowName" : "dog#n"
    },
    {
       "columns" : [
-         [ "PosSenti", 0.6249999403953552, "1970-01-01T00:00:00.000Z" ],
-         [ "NegSenti", 0.01499999966472387, "1970-01-01T00:00:00.000Z" ],
-         [ "ObjSenti", 0.3600000143051147, "1970-01-01T00:00:00.000Z" ]
+         [ "SentiPos", 0.6249999403953552, "1970-01-01T00:00:00.000Z" ],
+         [ "SentiNeg", 0.01499999966472387, "1970-01-01T00:00:00.000Z" ],
+         [ "SentiObj", 0.3600000143051147, "1970-01-01T00:00:00.000Z" ],
+         [ "POS", "v", "1970-01-01T00:00:00.000Z" ],
+         [ "baseWord", "love", "1970-01-01T00:00:00.000Z" ]
       ],
       "rowHash" : "80bc820285c4e9a2",
       "rowName" : "love#v"
@@ -69,6 +73,7 @@ SELECT * FROM sentiWordNet WHERE rowName() IN ('love#v', 'dog#n')
 
 # See also
 
+* The ![](%%doclink pooling function) is used to embed a bag of words in a vector space like SentiWordNet
 * The [Word2Vec tool](https://code.google.com/p/word2vec/) project page
   contains source code to train your own embeddings.
 * [SentiWordNet lexical resource](http://sentiwordnet.isti.cnr.it) home page where

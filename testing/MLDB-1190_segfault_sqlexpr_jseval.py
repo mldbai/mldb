@@ -49,6 +49,9 @@ expected_response = [{
         ["words.I", 1, "-Inf"]
     ]
 }]
+
+mldb.log(res.json())
+
 assert res.json() == expected_response, 'expected responses to match'
 
 for i in range(25):

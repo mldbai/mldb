@@ -8,7 +8,6 @@
 #pragma once
 
 #include "mldb/ext/jsoncpp/value.h"
-#include "mldb/jml/utils/string_functions.h"
 #include "mldb/http/http_header.h"
 #include "mldb/http/http_parsers.h"
 #include "mldb/http/tcp_socket_handler.h"
@@ -66,15 +65,7 @@ struct HttpResponse {
                  std::string contentType,
                  std::string body,
                  std::vector<std::pair<std::string, std::string> > extraHeaders
-                     = std::vector<std::pair<std::string, std::string> >())
-        : responseCode(responseCode),
-          responseStatus(getResponseReasonPhrase(responseCode)),
-          contentType(std::move(contentType)),
-          body(std::move(body)),
-          extraHeaders(std::move(extraHeaders)),
-          sendBody(true)
-    {
-    }
+                     = std::vector<std::pair<std::string, std::string> >());
 
     /** Construct an HTTP response header only, with no body.  No content-
         length will be inferred. */
@@ -82,27 +73,12 @@ struct HttpResponse {
     HttpResponse(int responseCode,
                  std::string contentType,
                  std::vector<std::pair<std::string, std::string> > extraHeaders
-                     = std::vector<std::pair<std::string, std::string> >())
-        : responseCode(responseCode),
-          responseStatus(getResponseReasonPhrase(responseCode)),
-          contentType(std::move(contentType)),
-          extraHeaders(std::move(extraHeaders)),
-          sendBody(false)
-    {
-    }
+                     = std::vector<std::pair<std::string, std::string> >());
 
     HttpResponse(int responseCode,
                  Json::Value body,
                  std::vector<std::pair<std::string, std::string> > extraHeaders
-                     = std::vector<std::pair<std::string, std::string> >())
-        : responseCode(responseCode),
-          responseStatus(getResponseReasonPhrase(responseCode)),
-          contentType("application/json"),
-          body(ML::trim(body.toString())),
-          extraHeaders(std::move(extraHeaders)),
-          sendBody(true)
-    {
-    }
+                     = std::vector<std::pair<std::string, std::string> >());
 
     int responseCode;
     std::string responseStatus;

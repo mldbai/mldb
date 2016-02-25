@@ -313,7 +313,7 @@ trainProbabilizer(const DataPartition & partition,
                              featureGenerator->isCallableFromMultipleThreads());
 
 #if 0
-    ML::filter_ostream out("prob-in.txt");
+    filter_ostream out("prob-in.txt");
 
     for (unsigned i = 0;  i < nd;  ++i) {
         out << ML::format("%.15f %.16f %d\n",

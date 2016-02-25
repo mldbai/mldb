@@ -61,7 +61,7 @@ connect(const std::string & uri)
 
         if (tries == 0)
         {
-            throw ML::Exception("Failed to connect to the credentials daemon after 10 tries, %s", resp.errorMessage_.c_str());
+            throw ML::Exception("Failed to connect to the credentials daemon after 10 tries, %s", resp.errorMessage().c_str());
         }
     }
     catch (const std::exception & exc) {

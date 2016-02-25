@@ -96,8 +96,8 @@ handleRequest(RestConnection & connection,
 
     connection.sendHttpResponse(resp.code(),
                                 resp.body(),
-                                resp.header_.contentType,
-                                resp.header_.headers);
+                                resp.header().contentType,
+                                resp.header().headers);
 
     return RestRequestRouter::MR_YES;
 }
@@ -127,7 +127,7 @@ handleDocumentationRoute(RestConnection & connection,
     connection.sendHttpResponse(resp.code(),
                                 resp.body(),
                                 resp.getHeader("content-type"),
-                                resp.header_.headers);
+                                resp.header().headers);
     
     return RestRequestRouter::MR_YES;
 }
