@@ -67,11 +67,11 @@ class Mldb878Test(MldbUnitTest):
             }
         }
         rez = mldb.put("/v1/procedures/rocket_science", conf)
-        mldb.log(rez.json())
+        #mldb.log(rez.json())
 
         rez = mldb.post("/v1/procedures/rocket_science/runs")
         js_rez = rez.json()
-        mldb.log(js_rez)
+        #mldb.log(js_rez)
         trained_files = [x["modelFileUrl"].replace("file://", "")
                          for x in js_rez["status"]["folds"]]
 
@@ -93,19 +93,19 @@ class Mldb878Test(MldbUnitTest):
 
         score_run1 = apply_predictor()
         assert len(score_run1) == 2
-        mldb.log(score_run1)
+        #mldb.log(score_run1)
 
         # did we create two output datasets?
         rez = mldb.get("/v1/datasets")
         js_rez = rez.json()
-        mldb.log(js_rez)
+        #mldb.log(js_rez)
         assert not any(("results_" in x for x in js_rez))
 
         ########
         # make sure if we post a slightly modified version of the config and rerun it
         # overrides everything
         trained_files_mod_ts = max([os.path.getmtime(path) for path in trained_files])
-        mldb.log(trained_files_mod_ts)
+        #mldb.log(trained_files_mod_ts)
 
         # repost and inverse label
         conf["params"]["trainingData"] = "select {* EXCLUDING(label)} as features, NOT label as label from toy"
@@ -113,14 +113,14 @@ class Mldb878Test(MldbUnitTest):
         mldb.post("/v1/procedures/rocket_science/runs")
 
         new_trained_files_mod_ts = min([os.path.getmtime(path) for path in trained_files])
-        mldb.log(new_trained_files_mod_ts)
+        #mldb.log(new_trained_files_mod_ts)
 
         # make sure the files are newer
         assert trained_files_mod_ts < new_trained_files_mod_ts
 
         # compare scoring with 1st run (MLDB-1070)
         score_run2 = apply_predictor()
-        mldb.log(score_run2)
+        #mldb.log(score_run2)
         assert set(score_run1) != set(score_run2)
         conf["params"]["trainingData"] = "select {* EXCLUDING(label)} as features, label from toy"
 
@@ -134,13 +134,13 @@ class Mldb878Test(MldbUnitTest):
         conf["params"]["outputAccuracyDataset"] = True
 
         rez = mldb.put("/v1/procedures/rocket_science2", conf)
-        mldb.log(rez)
+        #mldb.log(rez)
 
         rez = mldb.post("/v1/procedures/rocket_science2/runs")
-        mldb.log(rez)
+        #mldb.log(rez)
 
         js_rez = rez.json()
-        mldb.log(js_rez)
+        #mldb.log(js_rez)
 
         # did we run two training jobs that both got a good auc ?
         assert len(js_rez["status"]["folds"]) == 1
@@ -148,7 +148,7 @@ class Mldb878Test(MldbUnitTest):
         # did we create two output datasets?
         rez = mldb.get("/v1/datasets")
         js_rez = rez.json()
-        mldb.log(js_rez)
+        #mldb.log(js_rez)
         assert any(("results_" in x for x in js_rez))
 
 
@@ -160,13 +160,13 @@ class Mldb878Test(MldbUnitTest):
         conf["params"]["experimentName"] = "no_fold_&_no_testing"
 
         rez = mldb.put("/v1/procedures/rocket_science8", conf)
-        mldb.log(rez)
+        #mldb.log(rez)
 
         rez = mldb.post("/v1/procedures/rocket_science8/runs")
-        mldb.log(rez)
+        #mldb.log(rez)
 
         js_rez = rez.json()
-        mldb.log(js_rez)
+        #mldb.log(js_rez)
 
         # did we run two training jobs that both got a good auc ?
         assert len(js_rez["status"]["folds"]) == 1
@@ -182,11 +182,11 @@ class Mldb878Test(MldbUnitTest):
 
 
         rez = mldb.put("/v1/procedures/rocket_science3", conf)
-        mldb.log(conf)
-        mldb.log(rez)
+        #mldb.log(conf)
+        #mldb.log(rez)
 
         js_rez = rez.json()
-        mldb.log(js_rez)
+        #mldb.log(js_rez)
 
         # did we run two training jobs that both got a good auc ?
         assert len(js_rez["status"]["firstRun"]["status"]["folds"]) == 5
@@ -224,10 +224,10 @@ class Mldb878Test(MldbUnitTest):
         del conf["params"]["kfold"]
 
         rez = mldb.put("/v1/procedures/rocket_science5", conf)
-        mldb.log(rez)
+        #mldb.log(rez)
 
         rez = mldb.post("/v1/procedures/rocket_science5/runs")
-        mldb.log(rez)
+        #mldb.log(rez)
 
         js_rez = rez.json()
         assert len(js_rez["status"]["folds"]) == 1
