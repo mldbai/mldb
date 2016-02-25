@@ -36,7 +36,7 @@ BoundFunction
 SqlExpressionMldbContext::
 doGetFunction(const Utf8String & tableName,
               const Utf8String & functionName,
-              const std::vector<std::shared_ptr<SqlExpression> > & args,
+              const std::vector<BoundSqlExpression> & args,
               SqlBindingScope & argScope)
 {
     return SqlBindingScope::doGetFunction(tableName, functionName, args,
@@ -315,7 +315,7 @@ BoundFunction
 SqlExpressionDatasetContext::
 doGetFunction(const Utf8String & tableName,
               const Utf8String & functionName,
-              const std::vector<std::shared_ptr<SqlExpression> > & args,
+              const std::vector<BoundSqlExpression> & args,
               SqlBindingScope & argScope)
 {
     // First, let the dataset either override or implement the function
@@ -325,7 +325,7 @@ doGetFunction(const Utf8String & tableName,
         return fnoverride;
 
     if (functionName == "rowName") {
-        return {[=] (const std::vector<BoundSqlExpression> & args,
+        return {[=] (const std::vector<ExpressionValue> & args,
                      const SqlRowScope & context)
                 {
                     auto & row = context.as<RowContext>();
@@ -337,7 +337,7 @@ doGetFunction(const Utf8String & tableName,
     }
 
     if (functionName == "rowHash") {
-        return {[=] (const std::vector<BoundSqlExpression> & args,
+        return {[=] (const std::vector<ExpressionValue> & args,
                      const SqlRowScope & context)
                 {
                     auto & row = context.as<RowContext>();
@@ -352,7 +352,7 @@ doGetFunction(const Utf8String & tableName,
        in the current row.
     */
     if (functionName == "columnCount") {
-        return {[=] (const std::vector<BoundSqlExpression> & args,
+        return {[=] (const std::vector<ExpressionValue> & args,
                      const SqlRowScope & context)
                 {
                     auto & row = context.as<RowContext>();

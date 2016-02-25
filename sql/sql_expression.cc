@@ -206,7 +206,7 @@ BoundFunction
 SqlBindingScope::
 doGetFunction(const Utf8String & tableName,
               const Utf8String & functionName,
-              const std::vector<std::shared_ptr<SqlExpression> > & args,
+              const std::vector<BoundSqlExpression> & args,
               SqlBindingScope & argScope)
 {
     auto factory = tryLookupFunction(functionName);
@@ -305,7 +305,7 @@ ExternalAggregator tryLookupAggregator(const Utf8String & name)
 BoundAggregator
 SqlBindingScope::
 doGetAggregator(const Utf8String & aggregatorName,
-                const std::vector<std::shared_ptr<SqlExpression> > & args)
+                const std::vector<BoundSqlExpression> & args)
 {
     auto factory = tryLookupAggregator(aggregatorName);
     if (factory) {

@@ -223,12 +223,12 @@ struct SqlCsvScope: public SqlExpressionMldbContext {
     virtual BoundFunction
     doGetFunction(const Utf8String & tableName,
                   const Utf8String & functionName,
-                  const std::vector<std::shared_ptr<SqlExpression> > & args,
+                  const std::vector<BoundSqlExpression> & args,
                   SqlBindingScope & argScope)
     {
         if (functionName == "lineNumber") {
             lineNumberUsed = true;
-            return {[=] (const std::vector<BoundSqlExpression> & args,
+            return {[=] (const std::vector<ExpressionValue> & args,
                          const SqlRowScope & scope)
                     {
                         auto & row = scope.as<RowScope>();
@@ -238,7 +238,7 @@ struct SqlCsvScope: public SqlExpressionMldbContext {
                     };
         }
         else if (functionName == "fileTimestamp") {
-            return {[=] (const std::vector<BoundSqlExpression> & args,
+            return {[=] (const std::vector<ExpressionValue> & args,
                          const SqlRowScope & scope)
                     {
                         return ExpressionValue(fileTimestamp, fileTimestamp);
@@ -247,7 +247,7 @@ struct SqlCsvScope: public SqlExpressionMldbContext {
                     };
         }
         else if (functionName == "dataFileUrl") {
-            return {[=] (const std::vector<BoundSqlExpression> & args,
+            return {[=] (const std::vector<ExpressionValue> & args,
                          const SqlRowScope & scope)
                     {
                         return ExpressionValue(dataFileUrl, fileTimestamp);
@@ -256,7 +256,7 @@ struct SqlCsvScope: public SqlExpressionMldbContext {
                     };
         }
         else if (functionName == "lineOffset") {
-            return {[=] (const std::vector<BoundSqlExpression> & args,
+            return {[=] (const std::vector<ExpressionValue> & args,
                          const SqlRowScope & scope)
                     {
                         auto & row = scope.as<RowScope>();
