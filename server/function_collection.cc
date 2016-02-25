@@ -214,6 +214,33 @@ initRoutes(RouteManager & manager)
                            "Function-specific JSON output",
                            &Function::getDetails,
                            getFunction);
+
+    // Make the plugin handle a route
+    RestRequestRouter::OnProcessRequest handlePluginRoute
+        = [=] (RestConnection & connection,
+               const RestRequest & req,
+               RestRequestParsingContext & cxt)
+        {
+            Function * function = getFunction(cxt);
+            auto key = manager.getKey(cxt);
+
+            try {
+                return function->handleRequest(connection, req, cxt);
+            }
+            catch (const HttpReturnException & exc) {
+                return sendExceptionResponse(connection, exc);
+            } catch (const std::exception & exc) {
+                return sendExceptionResponse(connection, exc);
+            } JML_CATCH_ALL {
+                connection.sendErrorResponse(400, "Unknown exception was thrown");
+                return RestRequestRouter::MR_ERROR;
+            }
+        };
+
+    RestRequestRouter & subRouter
+        = manager.valueNode->addSubRouter("/routes", "Function type-specific routes");
+    
+    subRouter.rootHandler = handlePluginRoute;
 }
 
 Any

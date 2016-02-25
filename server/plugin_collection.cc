@@ -101,8 +101,6 @@ initRoutes(RouteManager & manager)
             Plugin * plugin = getPlugin(cxt);
             auto key = manager.getKey(cxt);
 
-            cerr << "***** plugin handling route *****" << req.resource << endl;
-
             try {
                 return plugin->handleRequest(connection, req, cxt);
             }
@@ -127,8 +125,6 @@ initRoutes(RouteManager & manager)
             Plugin * plugin = getPlugin(cxt);
             auto key = manager.getKey(cxt);
 
-            //cerr << "***** plugin handling version route *****" << req.resource << endl;
-
             try {
                 connection.sendResponse(200, jsonEncode(plugin->getVersion()));
                 return RestRequestRouter::MR_YES;
@@ -151,8 +147,6 @@ initRoutes(RouteManager & manager)
             Plugin * plugin = getPlugin(cxt);
             auto key = manager.getKey(cxt);
 
-            cerr << "***** plugin handling documentation route *****" << req.resource << endl;
-
             try {
                 return plugin->handleDocumentationRoute(connection, req, cxt);
             }
@@ -164,6 +158,26 @@ initRoutes(RouteManager & manager)
     manager.valueNode->addRoute(Rx("/doc/(.*)", "<resource>"), {"GET"},
                 "Get documentation of instantiated plugin",
                 handleGetDocumentationRoute, Json::Value());
+
+    RestRequestRouter::OnProcessRequest handleStaticRoute
+        = [=] (RestConnection & connection,
+               const RestRequest & req,
+               RestRequestParsingContext & cxt)
+        {
+            Plugin * plugin = getPlugin(cxt);
+            auto key = manager.getKey(cxt);
+
+            try {
+                return plugin->handleStaticRoute(connection, req, cxt);
+            }
+            catch (const HttpReturnException & exc) {
+                return sendExceptionResponse(connection, exc);
+            }
+        };
+
+    manager.valueNode->addRoute(Rx("/static/(.*)", "<resource>"), {"GET"},
+                                "Get static files of of instantiated plugin",
+                                handleStaticRoute, Json::Value());
 }
 
 Any

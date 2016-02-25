@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* plugin.cc
    Jeremy Barnes, 21 January 2014
    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Plugin support.
 */
@@ -19,6 +19,7 @@
 
 namespace Datacratic {
 namespace MLDB {
+
 
 /*****************************************************************************/
 /* PLUGIN                                                                    */
@@ -73,6 +74,16 @@ handleDocumentationRoute(RestConnection & connection,
     return RestRequestRouter::MR_NO;
 }
 
+RestRequestMatchResult
+Plugin::
+handleStaticRoute(RestConnection & connection,
+                  const RestRequest & request,
+                  RestRequestParsingContext & context) const
+{
+    return RestRequestRouter::MR_NO;
+}
+
+
 /*****************************************************************************/
 /* SHARED LIBRARY PLUGIN                                                     */
 /*****************************************************************************/
@@ -88,6 +99,8 @@ SharedLibraryConfigDescription()
              "Library to load to start plugin");
     addField("doc", &SharedLibraryConfig::doc,
              "Path to serve documentation from");
+    addField("static", &SharedLibraryConfig::staticAssets,
+             "Path to serve static assets from");
     addField("apiVersion", &SharedLibraryConfig::apiVersion,
              "Version of the interface required by the shared library");
     addField("version", &SharedLibraryConfig::version,
@@ -165,9 +178,14 @@ struct SharedLibraryPlugin::Itl {
         if (!params.doc.empty())
             docHandler = getStaticRouteHandler(params.address + "/" + params.doc,
                                                owner->server);
+        if (!params.staticAssets.empty())
+            staticAssetHandler = getStaticRouteHandler(params.address + "/" + params.staticAssets,
+                                                        owner->server);
+
     }
 
     RestRequestRouter::OnProcessRequest docHandler;
+    RestRequestRouter::OnProcessRequest staticAssetHandler;
 };
 
 SharedLibraryPlugin::
@@ -225,6 +243,20 @@ handleDocumentationRoute(RestConnection & connection,
     }
     if (itl->pluginImpl)
         return itl->pluginImpl->handleDocumentationRoute(connection, request, context);
+    return MR_NO;
+}
+
+RestRequestMatchResult
+SharedLibraryPlugin::
+handleStaticRoute(RestConnection & connection,
+                  const RestRequest & request,
+                  RestRequestParsingContext & context) const
+{
+    if (itl->staticAssetHandler) {
+        return itl->staticAssetHandler(connection, request, context);
+    }
+    if (itl->pluginImpl)
+        return itl->pluginImpl->handleStaticRoute(connection, request, context);
     return MR_NO;
 }
 

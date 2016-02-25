@@ -99,9 +99,15 @@ MLDB_PLUGIN_$(1)_STATIC_FILES_$(2) := $$(filter-out $$(STATIC_CONTENT_FILTER_PAT
 
 # Tell make that in order to create a file in a plugin static content
 # directory, it just has to copy it from the source
+ifeq ($(MLDB_LINK_PLUGIN_RESOURCES),1)
+$(PLUGINS)/$(1)/$(2)/%:	$(CWD)/$(2)/%
+	@echo "   $(COLOR_VIOLET)[MLDB PLUGIN LN]$(COLOR_RESET)" $(1)/$(2)/$$*
+	ln -sf $(PWD)/$$< $$@
+else
 $(PLUGINS)/$(1)/$(2)/%:	$(CWD)/$(2)/%
 	@echo "   $(COLOR_VIOLET)[MLDB PLUGIN CP]$(COLOR_RESET)" $(1)/$(2)/$$*
 	@install -D $$< $$@
+endif
 
 endef
 
