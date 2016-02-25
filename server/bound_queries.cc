@@ -1135,13 +1135,14 @@ struct GroupContext: public SqlExpressionDatasetContext {
 
     virtual BoundFunction doGetFunction(const Utf8String & tableName,
                                         const Utf8String & functionName,
-                                        const std::vector<std::shared_ptr<SqlExpression> > & args)
+                                        const std::vector<BoundSqlExpression> & args,
+                                        SqlBindingScope & argScope)
     {
         if (functionName == "rowName") {
-            return {[] (const std::vector<BoundSqlExpression> & args,
+            return {[] (const std::vector<ExpressionValue> & args,
                         const SqlRowScope & context)
                     {
-                        auto & row = static_cast<const RowContext &>(context);
+                        auto & row = context.as<RowContext>();
 
                         static VectorDescription<ExpressionValue>
                             desc(getExpressionValueDescriptionNoTimestamp());
@@ -1158,12 +1159,12 @@ struct GroupContext: public SqlExpressionDatasetContext {
                     std::make_shared<StringValueInfo>()};
         }
         else if (functionName == "groupKeyElement" || functionName == "group_key_element") {
-            return {[] (const std::vector<BoundSqlExpression> & args,
+            return {[] (const std::vector<ExpressionValue> & args,
                         const SqlRowScope & context)
                     {
-                        auto & row = static_cast<const RowContext &>(context);
+                        auto & row = context.as<RowContext>();
 
-                        int position = args[0](context, GET_LATEST).toInt();
+                        int position = args[0].toInt(); //(context, GET_LATEST).toInt();
 
                         return row.currentGroupKey.at(position);
                     },
@@ -1189,7 +1190,7 @@ struct GroupContext: public SqlExpressionDatasetContext {
 
                argCounter += args.size();
 
-              return {[&,aggIndex] (const std::vector<BoundSqlExpression> & args,
+              return {[&,aggIndex] (const std::vector<ExpressionValue> & args,
                         const SqlRowScope & context)
                     {
                         return outputAgg[aggIndex].aggregate.extract(aggData[aggIndex].get());
@@ -1198,7 +1199,7 @@ struct GroupContext: public SqlExpressionDatasetContext {
                     std::make_shared<AnyValueInfo>()};
         }
 
-        return SqlBindingScope::doGetFunction(tableName, functionName, args);
+        return SqlBindingScope::doGetFunction(tableName, functionName, args, argScope);
     }
 
     // Within a group by context, we can get either:
@@ -1221,7 +1222,7 @@ struct GroupContext: public SqlExpressionDatasetContext {
                              const VariableFilter & filter)
                         -> const ExpressionValue &
                         {
-                            auto & row = static_cast<const RowContext &>(context);
+                            auto & row = context.as<RowContext>();
                             return storage = row.currentGroupKey.at(i);
                         },
                         // TODO: return real type
@@ -1235,7 +1236,7 @@ struct GroupContext: public SqlExpressionDatasetContext {
                      ExpressionValue & storage,
                      const VariableFilter & filter) -> const ExpressionValue &
                 {
-                    auto & row = static_cast<const RowContext &>(context);
+                    auto & row = context.as<RowContext>();
              
                     const ExpressionValue * result
                         = searchRow(row.output.columns, columnName, filter, storage);

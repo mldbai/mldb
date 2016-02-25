@@ -2061,7 +2061,7 @@ bind(SqlBindingScope & context) const
         boundArgs.emplace_back(std::move(arg->bind(context)));
     }
 
-    BoundFunction fn = context.doGetFunction(tableName, functionName, args);
+    BoundFunction fn = context.doGetFunction(tableName, functionName, boundArgs, context);
     BoundSqlExpression boundOutput;
 
     if (fn)
@@ -2136,10 +2136,42 @@ FunctionCallWrapper::
 bindBuiltinFunction(SqlBindingScope & context, std::vector<BoundSqlExpression>& boundArgs, BoundFunction& fn) const
 {
     if (extract)
-            throw HttpReturnException(400, "Builtin function " + functionName
-                                   + " should not have an extract [] expression, got " + extract->print() );
+        throw HttpReturnException(400, "Builtin function " + functionName
+                                  + " should not have an extract [] expression, got " + extract->print() );
+   
+    bool isAggregate = tryLookupAggregator(functionName) != nullptr;	
+    if (isAggregate) {
+        return {[=] (const SqlRowScope & row,		
+                     ExpressionValue & storage,
+                     const VariableFilter & filter) -> const ExpressionValue &		
+                {		
+                    std::vector<ExpressionValue> evaluatedArgs;		
+                    //Don't evaluate the args for aggregator		
+                    evaluatedArgs.resize(boundArgs.size());		
+                    return storage = std::move(fn(evaluatedArgs, row));		
+                },		
+                this,		
+                fn.resultInfo};		
+    }		
+    else {		
+        return {[=] (const SqlRowScope & row,		
+                     ExpressionValue & storage,
+                     const VariableFilter & filter) -> const ExpressionValue &		
+                {
+                    std::vector<ExpressionValue> evaluatedArgs;
+                    evaluatedArgs.reserve(boundArgs.size());
+                    for (auto & a: boundArgs)		
+                        evaluatedArgs.emplace_back(std::move(a(row, filter)));		
+                    
+                    // TODO: function call that allows function to own its args & have		
+                    // storage		
+                    return storage = std::move(fn(evaluatedArgs, row));		
+                },		         
+                this,
+                fn.resultInfo};
+    }
 
-  
+#if 0
     return {[=] (const SqlRowScope & row,
                  ExpressionValue & storage,
                  const VariableFilter & filter) -> const ExpressionValue &
@@ -2149,6 +2181,7 @@ bindBuiltinFunction(SqlBindingScope & context, std::vector<BoundSqlExpression>& 
             },
             this,
             fn.resultInfo};
+#endif
 }
 
 Utf8String

@@ -43,7 +43,7 @@ struct TestRegisterAggregator {
                     Names&&... names)
     {
         auto fn = [&] (const Utf8String & str,
-                       const std::vector<std::shared_ptr<SqlExpression> > & args,
+                       const std::vector<BoundSqlExpression> & args,
                        SqlBindingScope & context)
             -> BoundAggregator
             {

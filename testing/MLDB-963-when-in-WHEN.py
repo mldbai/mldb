@@ -45,7 +45,7 @@ class WhenInWhen(unittest.TestCase):
             q="SELECT * FROM dataset1 WHEN timestamp() < when(x)"))
         validate1(mldb.get('/v1/datasets/dataset1/query',
                            when="timestamp() < when(x)"))
-
+    
     def test_2(self):
         def validate2(result):
             mldb.log(result)
@@ -62,8 +62,8 @@ class WhenInWhen(unittest.TestCase):
             q="SELECT * FROM dataset1 WHEN timestamp() = when(x) WHERE x = 9"))
         validate2(mldb.get('/v1/datasets/dataset1/query',
                            when='timestamp() = when(x)', where='x = 9'))
-
-    def tesst_3(self):
+    
+    def test_3(self):
         def validate3(result):
             mldb.log(result)
             rows = result.json()

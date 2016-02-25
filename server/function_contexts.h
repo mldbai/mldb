@@ -104,9 +104,12 @@ struct FunctionExpressionContext : public SqlBindingScope{
         return RowContext(input);
     }
 
-    virtual std::shared_ptr<Function> doGetFunctionEntity(const Utf8String & functionName);
+    virtual std::shared_ptr<Function>
+    doGetFunctionEntity(const Utf8String & functionName);
 
-    virtual Utf8String doResolveTableName(const Utf8String & fullVariableName, Utf8String &tableName) const;
+    virtual Utf8String
+    doResolveTableName(const Utf8String & fullVariableName,
+                       Utf8String &tableName) const;
 
     MldbServer *
     getMldbServer() const

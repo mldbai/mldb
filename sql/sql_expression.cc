@@ -206,11 +206,12 @@ BoundFunction
 SqlBindingScope::
 doGetFunction(const Utf8String & tableName,
               const Utf8String & functionName,
-              const std::vector<std::shared_ptr<SqlExpression> > & args)
+              const std::vector<BoundSqlExpression> & args,
+              SqlBindingScope & argScope)
 {
     auto factory = tryLookupFunction(functionName);
     if (factory) {
-        return factory(functionName, args, *this);
+        return factory(functionName, args, argScope);
     }
     
     return {nullptr, nullptr};
@@ -304,7 +305,7 @@ ExternalAggregator tryLookupAggregator(const Utf8String & name)
 BoundAggregator
 SqlBindingScope::
 doGetAggregator(const Utf8String & aggregatorName,
-                const std::vector<std::shared_ptr<SqlExpression> > & args)
+                const std::vector<BoundSqlExpression> & args)
 {
     auto factory = tryLookupAggregator(aggregatorName);
     if (factory) {
@@ -619,6 +620,24 @@ UnboundEntitiesDescription()
              "Functions (unscoped) that are called from the expression");
     addField("params", &UnboundEntities::params,
              "Query parameters that are unbound from the expression");
+}
+
+
+/*****************************************************************************/
+/* SQL ROW SCOPE                                                             */
+/*****************************************************************************/
+
+void
+SqlRowScope::
+throwBadNestingError(const std::type_info & typeRequested,
+                     const std::type_info & typeFound)
+{
+    std::string t_req = ML::demangle(typeRequested.name());
+    std::string t_found = ML::demangle(typeFound.name());
+    throw HttpReturnException(500, "Invalid scope nesting: requested "
+                              + t_req + " got " + t_found,
+                              "typeRequested", t_req,
+                              "typeFound", t_found);
 }
 
 
@@ -3371,7 +3390,8 @@ bind(SqlBindingScope & scope) const
 
     // We need to bind the when in a special scope, that also knows about
     // the tuple we are filtering.
-    SqlExpressionWhenScope & whenScope = static_cast<SqlExpressionWhenScope &>(scope);
+    SqlExpressionWhenScope & whenScope
+        = static_cast<SqlExpressionWhenScope &>(scope);
 
     // Bind it in
     auto boundWhen = when->bind(whenScope);
