@@ -25,45 +25,44 @@ of classifiers as well as different values for the `equalizationFactor`.
 Notice how the key structure of the `permutations` object matches the
 `procedure_configuration.params` object.
 
-    procedure_configuration = {
-        "type": "classifier.experiment",
-        "params": {
-            "experimentName": "my_test-exp_$permutation",
-            "training_dataset": "my_dataset",
-            "testing_dataset": "my_dataset",
-            "select": "* EXCLUDING(label)",
-            "label": "label",
-            "modelFileUrlPattern": "file://bouya-$runid.cls",
-            "algorithm": "glz",
-            "equalizationFactor": 0.5,
-            "mode": "boolean"
+```javascript
+PUT /v1/procedures/<id>
+{
+    "type": "permuter.run"
+    "params": {
+        "procedure": {
+            "type": "classifier.experiment",
+            "params": {
+                "experimentName": "my_test-exp_$permutation",
+                "training_dataset": "my_dataset",
+                "testing_dataset": "my_dataset",
+                "select": "* EXCLUDING(label)",
+                "label": "label",
+                "modelFileUrlPattern": "file://bouya-$runid.cls",
+                "algorithm": "glz",
+                "equalizationFactor": 0.5,
+                "mode": "boolean"
+            }
+        },
+        "permutations": {
+            "equalizationFactor": [0.5, 0.9],
+            "algorithm": ["glz", "bglz"]
         }
     }
-
-    permutations = {
-        "equalizationFactor": [0.5, 0.9],
-        "algorithm": ["glz", "bglz"]
-    }
-
-
-    PUT /v1/procedures/<id>
-    {
-        "type": "permuter.run"
-        "params": {
-            "procedure": procedure_configuration,
-            "permutations": permutations
-        }
-    }
+}
+```
 
 ## Output
 
 The procedure will return a list of objects, one per permutation.
 Each one will have the following structure:
 
-    {
-        "configuration": { <permutation> },
-        "results": { <child procedure output> }
-    }
+```javascript
+{
+    "configuration": { <permutation> },
+    "results": { <child procedure output> }
+}
+```
 
 ## See also
 

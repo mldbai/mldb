@@ -16,28 +16,28 @@ the input string with the split characters inserted.
 
 As a example, consider a function of type `tokensplit` defined this way:
 
-```
+```javascript
 PUT /v1/functions/split_smiley
 {
     "type": "tokensplit",
     "params": {
         "tokens": "select ':P', '(>_<)', ':-)'",
-        "splitchars": " " # space as splitchar
-        "splitcharToInsert": " " # insert space if required
+        "splitchars": " "
+        "splitcharToInsert": " "
         }
 }
 ```
 
 Given this call
 
-```
+```javascript
 GET /v1/query?q="select split_smiley({ ':PGreat day!!! (>_<)(>_<) :P :P :P:-)' as text }) as query"
 ```
 
 the function `split_smiley` will add spaces before and after emojis matching the list above but leave unchanged the ones that are already separated by a space.
 
-```
-":P Great day!!! (>_<) (>_<) :P :P :P :-)
+```javascript
+":P Great day!!! (>_<) (>_<) :P :P :P :-)"
 ```
 
 ## See also

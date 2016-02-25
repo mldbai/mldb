@@ -10,8 +10,8 @@ large datasets together.
 
 Creating a merged dataset is equivalent to the following SQL:
 
-```
-SELECT ds1.*, ds2.* FROM ds1 OUTER JOIN ds2 ON ds1.rowName() = ds2.rowName()
+```sql
+SELECT * FROM ds1 OUTER JOIN ds2 ON ds1.rowName() = ds2.rowName()
 ```
 
 ## Configuration

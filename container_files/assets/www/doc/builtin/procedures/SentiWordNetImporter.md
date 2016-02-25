@@ -30,7 +30,7 @@ The row names will be a word followed by a `#` and a one character code indicati
 
 The following table shows the synset codes ([source](http://wordnet.princeton.edu/wordnet/man/wndb.5WN.html#sect3)):
 
-| *Code* | *Name* |
+| Code | Name |
 |--------|--------|
 | n |  NOUN |
 | v | VERB |
@@ -42,34 +42,15 @@ Assuming the SentiWordNet data is imported in the *sentiWordNet* table, the foll
 gets the embedding for the word *love* in the context of a *verb* and *dog* in the context of 
 a *noun*.
 
-```
+```sql
 SELECT * FROM sentiWordNet WHERE rowName() IN ('love#v', 'dog#n')
-
-[
-   {
-      "columns" : [
-         [ "SentiPos", 0, "1970-01-01T00:00:00.000Z" ],
-         [ "SentiNeg", 0.1928374618291855, "1970-01-01T00:00:00.000Z" ],
-         [ "SentiObj", 0.8071626424789429, "1970-01-01T00:00:00.000Z" ],
-         [ "POS", "n", "1970-01-01T00:00:00.000Z" ],
-         [ "baseWord", "dog", "1970-01-01T00:00:00.000Z" ]
-      ],
-      "rowHash" : "7dad6626da208a04",
-      "rowName" : "dog#n"
-   },
-   {
-      "columns" : [
-         [ "SentiPos", 0.6249999403953552, "1970-01-01T00:00:00.000Z" ],
-         [ "SentiNeg", 0.01499999966472387, "1970-01-01T00:00:00.000Z" ],
-         [ "SentiObj", 0.3600000143051147, "1970-01-01T00:00:00.000Z" ],
-         [ "POS", "v", "1970-01-01T00:00:00.000Z" ],
-         [ "baseWord", "love", "1970-01-01T00:00:00.000Z" ]
-      ],
-      "rowHash" : "80bc820285c4e9a2",
-      "rowName" : "love#v"
-   }
-]
 ```
+
+SentiPos | SentiNeg | SentiObj | POS | baseWord
+--------|------------|---------|------|--------
+0 | 0.1928374618291855 | 0.8071626424789429 | "n" | "dog"
+0.6249999403953552 | 0.01499999966472387 | 0.3600000143051147 | "v" | "love"
+
 
 # See also
 

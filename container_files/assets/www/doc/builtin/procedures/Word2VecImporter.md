@@ -35,33 +35,23 @@ useful when loading multiple datasets in parallel.
 Sample query to load the word2vec dataset into an "embedding" dataset
 type and determine the closest words to "France".
 
-```
+```javascript
 PUT /v1/procedures/w2vimport
 {
-    type: 'import.word2vec',
-    params: {
-        dataFileUrl: 'file:///path/to/GoogleNews-vectors-negative300.bin',
-        output: {
-            type: 'embedding',
-            id: 'w2v'
-        },
-        limit: 100000
+    "type": "import.word2vec",
+    "params": {
+        "dataFileUrl": "file:///path/to/GoogleNews-vectors-negative300.bin",
+        "output": "w2v",
+        "limit": 100000
     }
-};
+}
 
-...
-
-PUT /v1/procedures/w2vimport/runs/1 {}
-
-GET /v1/datasets/w2v/routes/rowNeighbours" {row: "France"}
-
-...
-
+GET /v1/datasets/w2v/routes/rowNeighbours {row: "France"}
 ```
 
 This gives the output
 
-```
+```javascript
 [
    [ "France", "831e552f87fd6717", 0 ],
    [ "Belgium", "c62d860abed63cdd", 2.110022783279419 ],

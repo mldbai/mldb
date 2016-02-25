@@ -70,7 +70,7 @@ these types of values as a JSON object as follows:
 
 For the following dataset, where all values have the timestamp `2015-01-01T00:00:00.000Z`:
 
-| *rowName* | *x* | *y* | *z* |
+| rowName | x | y | z |
 |-----------|-----|-----|-----|
 | row1      | 0   |   3 |
 | row2      | 1   |   2 |"yes"|

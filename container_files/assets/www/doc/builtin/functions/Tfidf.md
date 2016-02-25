@@ -12,7 +12,7 @@ appears in a reference corpus.
 Given a term \\( t \\), \\( D \\) the corpus, a document \\( d \in D \\) and the term frequency denoted by \\(f_{t,d}\\), 
 the type of TF weighting schemes are:
 
-| *weighting scheme* | *description* | *TF weight* |
+| weighting scheme | description | TF weight |
 |--------------------|---------------|-------------|
 | `raw` | the term frequency in the document | \\(f_{t,d}\\) |
 | `log` | the logarithm of the term frequency in the document | \\( \log(1 + f_{t,d}) \\) |
@@ -27,7 +27,7 @@ Given:
 
 The types of IDF weighting schemes are:
 
-| *weighting scheme* | *description* | *IDF weight*  |
+| weighting scheme | description | IDF weight  |
 |--------------------|---------------|--------------|
 | `unary` | unary IDF score, i.e. don't use IDF | \\( 1 \\) |
 | `inverse` | the logarithm of the number of documents in the corpus divided by the number of documents the term appears in (this will lead to negative scores for terms appearing in all documents in the corpus) | \\( \log \left( \frac {N}{1 + n_t } \right) \\) |

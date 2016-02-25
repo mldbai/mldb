@@ -12,18 +12,20 @@ Note that since the code will be running in an external python process, MLDB's s
 
 The procedure will return the stdout, stderr and statistics about the process. If the last line of the stdout if valid JSON, it will be parsed for convenience and added to the returned JSON blob in the `return` key.
 
-    {
-        "status" : {
-            "runResult" : {
-                "returnCode" : 1,
-                "state" : "RETURNED",
-                "usage" : { ... }
-            },
-            "stderr" : "...",
-            "stdout" : "...",
-            "return": { ... }    
-        }
-    }  
+```javascript
+{
+    "status" : {
+        "runResult" : {
+            "returnCode" : 1,
+            "state" : "RETURNED",
+            "usage" : { ... }
+        },
+        "stderr" : "...",
+        "stdout" : "...",
+        "return": { ... }    
+    }
+}  
+```
 
 ## See also
 * The ![](%%doclink script.run procedure).

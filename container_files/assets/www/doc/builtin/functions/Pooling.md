@@ -21,7 +21,7 @@ a single output value named `embedding`.
 
 Suppose we have a word embedding represented by the following dataset called `word_embedding`:
 
-| *rowName* | *x* | *y* | *z* |
+| rowName | x | y | z |
 |-----------|-----|-----|-----|
 | hello | 0.2 | 0.95 | 0.4 |
 | friend | 0.8 | 0.01 | 0.5 |
@@ -30,14 +30,14 @@ Suppose we have a word embedding represented by the following dataset called `wo
 Also suppose we have the following bag of words in the `bag_of_words` dataset. 
 This can be obtained by applying the `tokenize` function to any text field:
 
-| *rowName* | *hello* | *friend* | *best* | *my* |
+| rowName | hello | friend | best | my |
 |-----------|---------|----------|--------|------|
 | doc1 | 1 | 1 |
 | doc2 | 1 | 1 | 1| 1 |
 
 Let's configure a pooling function:
 
-```
+```javascript
 PUT /v1/functions/pooler
 {
     "type": "pooling",
@@ -51,30 +51,15 @@ PUT /v1/functions/pooler
 We can now do the following call:
 
 
-```
+```sql
 SELECT pooler({words: {*}})[embedding] as embed from bag_of_words
-
-[
-   {
-      "columns" : [
-         [ "embed.000000", 0.5, "2015-12-03T12:08:58Z" ],
-         [ "embed.000001", 0.48, "2015-12-03T12:08:58Z" ],
-         [ "embed.000002", 0.45, "2015-12-03t12:08:58Z" ],
-      ],
-      "rowHash" : "7dad6626da208a04",
-      "rowName" : "doc1"
-   },
-   {
-      "columns" : [
-         [ "embed.000000", 0.466, "2015-12-03T12:08:58Z" ],
-         [ "embed.000001", 0.516, "2015-12-03T12:08:58Z" ],
-         [ "embed.000002", 0.5, "2015-12-03T12:08:58Z" ],
-      ],
-      "rowHash" : "80bc820285c4e9a2",
-      "rowName" : "doc2"
-   }
-]
 ```
+
+| rowName | embed.000000 | embed.000001 | embed.000002 |
+|-----------|---------|----------|--------|
+| doc1 | 0.5 | 0.48 | 0.45 |
+| doc2 | 0.466 | 0.516 | 0.5 | 
+
 
 ## See also
 

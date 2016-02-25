@@ -23,7 +23,7 @@ In the following, `TBL` represents the current stat table's name.
 We will reuse the same example as in the ![](%%doclink statsTable.train procedure), which 
 is using an online ad campaign. Below are the stats table counts:
 
-|  *rowName*   |  *trial-host*  |  *click-host* | *purchase-host* | *trial-region*  | *click-region* | *purchase-region* |
+|  rowName   |  trial-host  |  click-host | purchase-host | trial-region  | click-region | purchase-region |
 |----------|---|---|---|---|---|---|
 | br_1     | 0  | 0 | 0 | 0 | 0 | 0 |
 | br_2     | 0  | 0 | 0 | 0 | 0 | 0 |
@@ -53,7 +53,7 @@ As a best practice, it is recommended to always put quotes around columns when s
 
 Applying the expanded expression to the `br_4` row will produce the following output:
 
-| *rowName* | *ctr_host* | *logPurchase_host* | *ctr_region* | *logPurchase_region* |
+| rowName | ctr_host | logPurchase_host | ctr_region | logPurchase_region |
 |-----------|------------|--------------------|--------------|--------------------|
 | br_4 | 0 | 0.3 | 0.5 | 0.3 |
 

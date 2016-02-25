@@ -65,24 +65,22 @@ To load the Docker git repository into a dataset that has been checked
 out from `https://github.com/docker/docker.git` in `/mldb_data/docker`,
 the following procedure can be posted and run:
 
-```
+```javascript
 PUT /v1/procedures/gitimport
 {
-    type: 'import.git',
-    params: {
-        repository: 'file:///mldb_data/docker',
-        outputDataset: {
-            id: 'git'
-        }
+    "type": "import.git",
+    "params": {
+        "repository": "file:///mldb_data/docker",
+        "outputDataset": "git",
+        "runOnCreation": true
     }
 }
 
-PUT /v1/procedures/gitimport/runs/1 {}
 ```
 
 This can then be queried for the top 5 contributors in terms of commits:
 
-```
+```sql
 SELECT count(*) AS cnt,
        author,
        min(when({*})) AS earliest,
@@ -98,64 +96,13 @@ LIMIT 5
 
 which yields
 
-```
-[
-   [
-      "cnt",
-      "author",
-      "earliest",
-      "latest",
-      "changes",
-      "insertions",
-      "deletions"
-   ],
-   [
-      1844,
-      "Michael Crosby",
-      "2013-06-03T21:39:00Z",
-      "2015-11-18T11:08:13Z",
-      3239,
-      71376,
-      103630
-   ],
-   [
-      1483,
-      "Victor Vieux",
-      "2013-04-10T19:30:57Z",
-      "2015-10-14T17:46:59Z",
-      2024,
-      62727,
-      72644
-   ],
-   [
-      1248,
-      "Solomon Hykes",
-      "2013-01-19T16:07:19Z",
-      "2015-11-05T15:22:37Z",
-      2144,
-      48645,
-      127953
-   ],
-   [
-      744,
-      "Tianon Gravi",
-      "2013-04-21T19:19:38Z",
-      "2015-11-17T09:44:36Z",
-      1925,
-      144679,
-      33214
-   ],
-   [
-      632,
-      "Jessie Frazelle",
-      "2014-09-02T15:18:32Z",
-      "2015-09-04T13:38:41Z",
-      11,
-      197,
-      186
-   ]
-]
-```
 
-# See also
+cnt | author | earliest | latest | changes | insertions | deletion 
+----|--------|----------|--------|---------|------------|---------------
+1844 | "Michael Crosby" | "2013-06-03T21:39:00Z" | "2015-11-18T11:08:13Z" | 3239 | 71376 | 103630 
+1483 | "Victor Vieux" | "2013-04-10T19:30:57Z" | "2015-10-14T17:46:59Z" | 2024 | 62727 | 72644 
+1248 | "Solomon Hykes" | "2013-01-19T16:07:19Z" | "2015-11-05T15:22:37Z" | 2144 | 48645 | 127953
+744 | "Tianon Gravi" | "2013-04-21T19:19:38Z" | "2015-11-17T09:44:36Z" | 1925 | 144679 | 33214
+632 | "Jessie Frazelle" | "2014-09-02T15:18:32Z" | "2015-09-04T13:38:41Z" | 11 | 197 | 186 
+
 

@@ -185,7 +185,7 @@ The metadata dataset contains three main sets of data:
 Here is a sample configuration of the `createStorageDataset` procedure.
 The JS source of the procedure is:
 
-```
+```javascript
 // Create a binary behaviour dataset to save into
 var config = { type: "beh.binary.mutable" };
 var dataset = mldb.createDataset(config);
@@ -199,78 +199,75 @@ output;
 
 And the `saveStorageDataset` procedure is:
 
-```
+```javascript
 // This is the URI we save our dataset to
 var uri = "file://mydata/" + new Date().toISOString() + ".beh";
 
 // The REST address for the dataset
-var addr = "/v1/datasets/" + args.datasetId; \
+var addr = "/v1/datasets/" + args.datasetId; 
 
 // Call its save route
-var res = mldb.post(addr + "/routes/saves", { dataFileUrl: uri });  \
+var res = mldb.post(addr + "/routes/saves", { dataFileUrl: uri });
 
 // Log the result of the REST call
-mldb.log(res);  \
+mldb.log(res);
 
 // Construct our response to return to MLDB, with our
-var output = { metadata: mldb.get(addr).json.status, config: res.json, metadata: { country: 'france' } }; \
+var output = { metadata: mldb.get(addr).json.status, config: res.json, metadata: { country: 'france' } };
 
 // Return the result as the output of the procedure
-output;'
+output;
 ```
 
 Putting it together, we construct our continuous dataset as follows
 
-```
-var datasetConfig = {
-    id: 'recorder',
-    type: 'continuous',
-    params: {
-        commitInterval: "1s",
-        metadataDataset: {
-            type: 'sqliteSparse',
-            id: 'metadata-db',
-            params: {
-                dataFileUrl: 'file://mydata/metadata.sqlite'
+```javascript
+PUT /v1/datatasets/example {
+    "id": "recorder",
+    "type": "continuous",
+    "params": {
+        "commitInterval": "1s",
+        "metadataDataset": {
+            "type": "sqliteSparse",
+            "id": "metadata-db",
+            "params": {
+                "dataFileUrl": "file://mydata/metadata.sqlite"
             }
         },
-        createStorageDataset: {
-            type: 'script.run',
-            params: {
-                language: 'javascript',
-                scriptConfig: {
-                    source: /* as above... */
+        "createStorageDataset": {
+            "type": "script.run",
+            "params": {
+                "language": "javascript",
+                "scriptConfig": {
+                    "source": "<as above>"
                 }
             }
         },
-        saveStorageDataset: {
-            type: 'script.run',
-            params: {
-                language: 'javascript',
-                scriptConfig: {
-                    source: /* as above... */
+        "saveStorageDataset": {
+            "type": "script.run",
+            "params": {
+                "language": "javascript",
+                "scriptConfig": {
+                    "source": "<as above>"
                 }
             }
         }
     }
-};
+}
 ```
 
 And a configuration to read data recorded in the last 3 days is
 
-```
-// Now create a window view on the dataset.  This is an immutable view that
-// only gives us things that are available within a certain time-frame.
-
-var windowConfig = {
-    id: 'window',
-    type: 'continuous.window',
-    params: {
-        metadataDataset: {
-            id: 'metadata-db',
+```javascript
+PUT /v1/datatasets/example2 {
+    "id": "window",
+    "type": "continuous.window",
+    "params": {
+        "metadataDataset": {
+            "id": "metadata-db",
         },
-        from: new Date(new Date() - 1000*3600*24*3).toISOString(),  // 3 days ago
-        to: new Date(new Date() - 1000*3600*24*0).toISOString()     // up to present
+        "from": "<3 days ago in ISO8601 format>",
+        "to": "<now in ISO8601 format>",
     }
 };
 ```

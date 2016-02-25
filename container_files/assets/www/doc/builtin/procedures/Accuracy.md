@@ -25,7 +25,7 @@ the thresholds which give the best [MCC](http://en.wikipedia.org/wiki/Matthews_c
 
 Here is a sample output:
 
-```
+```javascript
 GET http://localhost/v1/procedures/ttnc_test_scorer/runs/1
 
 {
@@ -103,7 +103,7 @@ per-label statistics, weighted by each label's support value.
 
 Here is a sample output:
 
-```
+```javascript
 GET http://localhost/v1/procedures/ttnc_test_scorer/runs/1
 
 {
@@ -167,7 +167,7 @@ the median and represents the *median absolute percentage* (MAPE).
 
 Here is a sample output:
 
-```
+```javascript
 GET http://localhost/v1/procedures/ttnc_test_scorer/runs/1
 
 {
