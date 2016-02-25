@@ -61,25 +61,6 @@ validate(FieldType ConfigType::* field, const char * name)
         };
 }
 
-// specialization for optional type
-template<typename ConfigType,
-    typename FieldType,
-    template<typename> class Validator1,
-    template<typename> class Validator2,
-    template<typename> class Validator3>
-std::function<void (ConfigType *, JsonParsingContext & context)>
-validate(Optional<FieldType> ConfigType::* field, const char * name)
-{
-     return [=](ConfigType * cfg, JsonParsingContext & context)
-        {
-            if (cfg->*field) {
-                Validator1<FieldType>()(*(cfg->*field), name);
-                Validator2<FieldType>()(*(cfg->*field), name);
-                Validator3<FieldType>()(*(cfg->*field), name);
-            }
-        };
-}
-
 // really consider using a variadic parameter
 template<typename ConfigType,
     typename FieldType,
