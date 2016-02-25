@@ -107,7 +107,7 @@ struct RegisterBuiltin {
         doRegister(function, std::forward<Names>(names)...);
     }
 
- template<typename... Names>
+    template<typename... Names>
     RegisterBuiltin(const ValuedBuiltinFunction & function, Names&&... names)
     {
         doRegister(function, std::forward<Names>(names)...);
@@ -1263,7 +1263,7 @@ ValuedBoundFunction now(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerNow(now, "now");
 
-BoundFunction temporal_min(const std::vector<BoundSqlExpression> & args)
+BoundFunction temporal_earliest(const std::vector<BoundSqlExpression> & args)
 {
     return {[] (const std::vector<BoundSqlExpression> & args,
                 const SqlRowScope & scope) -> ExpressionValue
@@ -1274,7 +1274,144 @@ BoundFunction temporal_min(const std::vector<BoundSqlExpression> & args)
             args[0].info};
 }
 
-static RegisterBuiltin registerTempMin(temporal_min, "temporal_min");
+static RegisterBuiltin registerTempEarliest(temporal_earliest, "temporal_earliest");
+
+BoundFunction temporal_latest(const std::vector<BoundSqlExpression> & args)
+{
+    return {[] (const std::vector<BoundSqlExpression> & args,
+                const SqlRowScope & scope) -> ExpressionValue
+            {
+                ExcAssertEqual(args.size(), 1);
+                return args[0](scope, GET_LATEST);
+            },
+            args[0].info};
+}
+
+static RegisterBuiltin registerTempLatest(temporal_latest, "temporal_latest");
+
+template <typename AggregatorFunc>
+BoundFunction temporalAggregatorT(const std::vector<BoundSqlExpression> & args) {
+    
+    typedef typename AggregatorFunc::value_type value_type;
+
+    checkArgsSize(args.size(), 1);
+
+    return {[=] (const std::vector<BoundSqlExpression> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                ExcAssertEqual(args.size(), 1);
+
+                auto val = args[0](scope, GET_ALL);
+
+                // TODO - figure out what should be the ordering of the columns in the result
+                std::unordered_map<Coord, std::pair<value_type, Date> > results;
+                
+
+                auto onAtom = [&] (const Coord & columnName,
+                                   const Coord & prefix,
+                                   const CellValue & val,
+                                   Date atomTs)
+                    {
+                        if (!val.empty()) {
+                            auto iter = results.find(columnName);
+                            if (iter != results.end()) {
+                                iter->second = AggregatorFunc::apply(iter->second, {val, atomTs});
+                            }
+                            else { // first time seen
+                                results.insert({columnName, AggregatorFunc::init({val, atomTs})});
+                            }
+                        }
+                        return true;
+                    };
+                
+                val.forEachAtom(onAtom);
+                if (results.size() == 1) {  // atom case
+                    auto result = results.begin();
+                    return ExpressionValue(AggregatorFunc::extract(get<0>(result->second)), get<1>(result->second));
+                }
+                else { // row case
+                    std::vector<std::tuple<Coord, ExpressionValue> > row;
+                    for (auto & result : results) {
+                        row.emplace_back(std::make_tuple(result.first,
+                                                         ExpressionValue(AggregatorFunc::extract(get<0>(result.second)), 
+                                                                         get<1>(result.second))));
+                    }
+                    return row;
+                }
+            },
+            std::make_shared<UnknownRowValueInfo>() };
+}
+
+struct Min {
+    typedef CellValue value_type;
+    typedef std::pair<value_type, Date> CellDate;
+    static CellDate init(const CellDate & val) { return val; }
+    static CellDate apply(const CellDate & left, const CellDate & right) {
+        return right < left ? right : left;
+    }
+    static CellValue extract(const value_type & val) { return val; }
+};
+
+static RegisterBuiltin registerTempMin(temporalAggregatorT<Min>, "temporal_min");
+
+struct Max {
+    typedef CellValue value_type;
+    typedef std::pair<value_type, Date> CellDate;
+    static CellDate init(const CellDate & val) { return val; }
+    static CellDate apply(const CellDate & left, const CellDate & right) {
+        return right > left ? right : left;
+    }
+    static CellValue extract(const value_type & val) { return val; }
+};
+
+static RegisterBuiltin registerTempMax(temporalAggregatorT<Max>, "temporal_max");
+
+struct Sum {
+    typedef CellValue value_type;
+    typedef std::pair<value_type, Date> CellDate;
+    static CellDate init(const CellDate & val) { return val; }
+    static CellDate apply(const CellDate & left, const CellDate & right) {
+        auto value = get<0>(left).toDouble() + get<0>(right).toDouble();
+        auto date = get<1>(left);
+        return {value, date.setMax(get<1>(right))};
+    }
+    static CellValue extract(const value_type & val) { return val; }
+};
+
+static RegisterBuiltin registerTempSum(temporalAggregatorT<Sum>, "temporal_sum");
+
+struct Avg {
+    typedef std::pair<CellValue, uint64_t> value_type;
+    typedef std::pair<CellValue, Date> CellDate;
+    typedef std::pair<value_type, Date> AccumValueDate;
+    static AccumValueDate init(const CellDate & val) { 
+        return {{get<0>(val), 1}, get<1>(val)};
+    }
+    static AccumValueDate apply(const AccumValueDate & left, const CellDate & right) {
+        auto sum = get<0>(get<0>(left)).toDouble() + get<0>(right).toDouble();
+        auto count = get<1>(get<0>(left));
+        auto date = get<1>(left);
+        return {{sum, ++count}, date.setMax(get<1>(right))};
+    }
+    static CellValue extract(const value_type & val) { return get<0>(val).toDouble() / get<1>(val); }
+};
+
+static RegisterBuiltin registerTempAvg(temporalAggregatorT<Avg>, "temporal_avg");
+
+struct Count {
+    typedef CellValue value_type;
+    typedef std::pair<value_type, Date> CellDate;
+    static CellDate init(const CellDate & val) { return {1, get<1>(val)}; }
+    static CellDate apply(const CellDate & left, const CellDate & right) {
+        auto value = get<0>(left).toInt();
+        auto date = get<1>(left);
+        return {++value, date.setMax(get<1>(right))};
+    }
+    static CellValue extract(const CellValue & val) { return val; }
+};
+
+static RegisterBuiltin registerTempCount(temporalAggregatorT<Count>, "temporal_count");
+
 
 ValuedBoundFunction date_part(const std::vector<BoundSqlExpression> & args)
 {
@@ -1817,7 +1954,7 @@ ValuedBoundFunction horizontal_count(const std::vector<BoundSqlExpression> & arg
                 
                 return ExpressionValue(result, ts);
             },
-            std::make_shared<Float64ValueInfo>()};
+            std::make_shared<Uint64ValueInfo>()};
 }
 static RegisterBuiltin registerHorizontal_Count(horizontal_count, "horizontal_count");
 
@@ -1947,6 +2084,62 @@ ValuedBoundFunction horizontal_max(const std::vector<BoundSqlExpression> & args)
             std::make_shared<Float64ValueInfo>()};
 }
 static RegisterBuiltin registerHorizontal_Max(horizontal_max, "horizontal_max");
+
+ValuedBoundFunction horizontal_earliest(const std::vector<BoundSqlExpression> & args)
+{
+    checkArgsSize(args.size(), 1);
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                auto earliest = ExpressionValue::null(Date::positiveInfinity());
+
+                auto onAtom = [&] (const Coord & columnName,
+                                   const Coord & prefix,
+                                   const CellValue & val,
+                                   Date atomTs)
+                    {
+                        auto expr = ExpressionValue(val, atomTs);
+                        if (!earliest.isEarlier(atomTs, expr))
+                            earliest = std::move(expr);
+                        return true;
+                    };
+
+                args.at(0).forEachAtom(onAtom);
+
+                return earliest;
+            },
+            args[0].info};
+}
+static RegisterBuiltin registerHorizontal_Earliest(horizontal_earliest, "horizontal_earliest");
+
+ValuedBoundFunction horizontal_latest(const std::vector<BoundSqlExpression> & args)
+{
+    checkArgsSize(args.size(), 1);
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                auto latest = ExpressionValue::null(Date::negativeInfinity());
+
+                auto onAtom = [&] (const Coord & columnName,
+                                   const Coord & prefix,
+                                   const CellValue & val,
+                                   Date atomTs)
+                    {
+                        auto expr = ExpressionValue(val, atomTs);
+                        if (!latest.isLater(atomTs, expr))
+                            latest = std::move(expr);
+                        return true;
+                    };
+
+                args.at(0).forEachAtom(onAtom);
+
+                return latest;
+            },
+            args[0].info};
+}
+static RegisterBuiltin registerHorizontal_Latest(horizontal_latest, "horizontal_latest");
 
 struct DiffOp {
     static ML::distribution<double> apply(ML::distribution<double> & d1,
