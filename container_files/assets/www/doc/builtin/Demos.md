@@ -16,7 +16,7 @@ MLDB ships with some demo and tutorial [Notebooks](Notebooks.md).
 
 The ![](%%nblink _demos/Predicting Titanic Survival) demo shows a classification workflow:
 
-* loading data with the ![](%%doclink text.csv.tabular dataset)
+* importing data with the ![](%%doclink import.text procedure)
 * to training and evaluating a classifier with the ![](%%doclink classifier.experiment procedure) 
 * calling a classifier with the ![](%%doclink classifier function)
 * understanding it with the ![](%%doclink classifier.explain function)

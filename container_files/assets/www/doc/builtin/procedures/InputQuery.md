@@ -42,9 +42,9 @@ offers the ability to first create a dataset.  In this example,
   "select" : "column1, column2",
   "from" : {
     "id" : "dataset1",
-    "type" : "text.csv.tabular",
+    "type" : "beh",
     "params" : {
-        "dataFileUrl" : "http://example.com/myfile.csv"
+        "dataFileUrl" : "file:///mldb_data/file.beh"
       }
   },
   "where" : "column1 > column2",
@@ -52,7 +52,7 @@ offers the ability to first create a dataset.  In this example,
 }
 ```
 
-the dataset `dataset1` is first created by loading a csv file.
+the dataset `dataset1` is first created by loading a beh file.
 
 <div id=contrained-data-spec>
 ## Limitations
