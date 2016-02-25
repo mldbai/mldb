@@ -33,9 +33,11 @@ for l in fileinput.input():
         .strip()
         
     if passed_pat.match(clean_line):
-        s_time, g_time, c_time, test = passed_pat.search(clean_line).groups()
+        groups = passed_pat.search(clean_line).groups()
+        cpu_time, memory_gigs, num_cores, test = groups
+        approx_wall_time = float(cpu_time)/max(0.05, float(num_cores))
         passed.add(test)
-        passed_times[test] = s_time
+        passed_times[test] = str(approx_wall_time)
     if failed_pat.match(clean_line):
         test = failed_pat.search(clean_line).groups()[0]
         failed.add(test)
