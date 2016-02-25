@@ -59,10 +59,23 @@ struct Plugin: MldbEntity {
                   const RestRequest & request,
                   RestRequestParsingContext & context) const;
 
+    /** Method to respond to a route under /v1/plugins/xxx/doc, which
+        should serve up the documentation.  Default implementation
+        says no documentation is available.
+    */
     virtual RestRequestMatchResult
     handleDocumentationRoute(RestConnection & connection,
                   const RestRequest & request,
                   RestRequestParsingContext & context) const;
+
+    /** Method to respond to a route under /v1/plugins/xxx/static, which
+        should serve up static resources for the plugin.  Default implementation
+        says no static resources are available.
+    */
+    virtual RestRequestMatchResult
+    handleStaticRoute(RestConnection & connection,
+                      const RestRequest & request,
+                      RestRequestParsingContext & context) const;
 };
 
 
@@ -76,6 +89,7 @@ struct SharedLibraryConfig {
     std::string address;        ///< Directory for the plugin
     std::string library;        ///< Library to load
     std::string doc;            ///< Documentation path to be served static
+    std::string staticAssets;   ///< Path to static assets to be served
     std::string version;        ///< Version of plugin
     std::string apiVersion;     ///< Version of the API we require
     bool allowInsecureLoading;  ///< Must be set to true
@@ -104,10 +118,16 @@ struct SharedLibraryPlugin: public Plugin {
                              const RestRequest & request,
                              RestRequestParsingContext & context) const;
 
+    virtual RestRequestMatchResult
+    handleStaticRoute(RestConnection & connection,
+                      const RestRequest & request,
+                      RestRequestParsingContext & context) const;
+
     // Entry point.  It will attempt to call this when initializing
     // the plugin.  It is OK for the function to return a null pointer;
     // if not the given object will be used for the status, version
-    // and request calls.
+    // and request calls and for the documentation and static route calls
+    // if no directory is configured in the configuration.
     typedef Plugin * (*MldbPluginEnterV100) (MldbServer * server);
 private:
     struct Itl;
