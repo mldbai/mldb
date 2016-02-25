@@ -67,7 +67,7 @@ struct LexicalScope {
     */
     virtual BoundFunction
     doGetFunction(const Utf8String & functionName,
-                  const std::vector<std::shared_ptr<SqlExpression> > & args,
+                  const std::vector<BoundSqlExpression> & args,
                   int fieldOffset,
                   SqlBindingScope & argsScope) = 0;
     
@@ -133,7 +133,7 @@ struct PipelineExpressionScope:
     virtual BoundFunction
     doGetFunction(const Utf8String & tableName,
                   const Utf8String & functionName,
-                  const std::vector<std::shared_ptr<SqlExpression> > & args,
+                  const std::vector<BoundSqlExpression> & args,
                   SqlBindingScope & argScope);
 
     virtual ColumnFunction
@@ -189,7 +189,7 @@ private:
 
         virtual BoundFunction
         doGetFunction(const Utf8String & functionName,
-                      const std::vector<std::shared_ptr<SqlExpression> > & args,
+                      const std::vector<BoundSqlExpression> & args,
                       SqlBindingScope & argsScope) const;
     };
 

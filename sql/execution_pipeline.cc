@@ -177,7 +177,7 @@ BoundFunction
 PipelineExpressionScope::
 doGetFunction(const Utf8String & tableName,
               const Utf8String & functionName,
-              const std::vector<std::shared_ptr<SqlExpression> > & args,
+              const std::vector<BoundSqlExpression> & args,
               SqlBindingScope & argScope)
 {
     if (tableName.empty()) {
@@ -305,7 +305,7 @@ doGetAllColumns(std::function<Utf8String (const Utf8String &)> keep) const
 BoundFunction
 PipelineExpressionScope::TableEntry::
 doGetFunction(const Utf8String & functionName,
-              const std::vector<std::shared_ptr<SqlExpression> > & args,
+              const std::vector<BoundSqlExpression> & args,
               SqlBindingScope & argScope) const
 {
     return scope->doGetFunction(functionName, args, fieldOffset, argScope);

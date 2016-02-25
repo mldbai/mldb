@@ -301,7 +301,7 @@ struct VariableGetter {
 */
 
 struct BoundFunction {
-    typedef std::function<ExpressionValue (const std::vector<BoundSqlExpression> &,
+    typedef std::function<ExpressionValue (const std::vector<ExpressionValue> &,
                           const SqlRowScope & context) > Exec;
 
     BoundFunction()
@@ -320,7 +320,7 @@ struct BoundFunction {
     Exec exec;
     std::shared_ptr<ExpressionValueInfo> resultInfo;
 
-    ExpressionValue operator () (const std::vector<BoundSqlExpression> & args,
+    ExpressionValue operator () (const std::vector<ExpressionValue> & args,
                                  const SqlRowScope & context) const
     {
         return exec(args, context);
@@ -363,7 +363,7 @@ struct ValuedBoundFunction {
     version of the function.
 */
 typedef std::function<BoundFunction(const Utf8String &,
-                                    const std::vector<std::shared_ptr<SqlExpression> > & args,
+                                    const std::vector<BoundSqlExpression> & args,
                                     SqlBindingScope & context)>
     ExternalFunction;
 
@@ -431,7 +431,7 @@ struct BoundAggregator {
     version of the aggregator.
 */
 typedef std::function<BoundAggregator(const Utf8String &,
-                                      const std::vector<std::shared_ptr<SqlExpression> > & args,
+                                      const std::vector<BoundSqlExpression> & args,
                                       SqlBindingScope & context)>
 ExternalAggregator;
 
@@ -540,7 +540,7 @@ struct SqlBindingScope {
     */
     virtual BoundFunction doGetFunction(const Utf8String & tableName,
                                         const Utf8String & functionName,
-                                        const std::vector<std::shared_ptr<SqlExpression> > & args,
+                                        const std::vector<BoundSqlExpression> & args,
                                         SqlBindingScope & argScope);
 
 
@@ -550,7 +550,7 @@ struct SqlBindingScope {
                                                       const Utf8String & alias);
 
     virtual BoundAggregator doGetAggregator(const Utf8String & functionName,
-                                            const std::vector<std::shared_ptr<SqlExpression> > & args);
+                                            const std::vector<BoundSqlExpression> & args);
     
     // Used to get a variable
     virtual VariableGetter doGetVariable(const Utf8String & tableName,

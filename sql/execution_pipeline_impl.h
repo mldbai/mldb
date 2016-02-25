@@ -44,7 +44,7 @@ struct TableLexicalScope: public LexicalScope {
 
     virtual BoundFunction
     doGetFunction(const Utf8String & functionName,
-                  const std::vector<std::shared_ptr<SqlExpression> > & args,
+                  const std::vector<BoundSqlExpression> & args,
                   int fieldOffset,
                   SqlBindingScope & argsScope);
 
@@ -166,7 +166,7 @@ struct JoinLexicalScope: public LexicalScope {
 
     virtual BoundFunction
     doGetFunction(const Utf8String & functionName,
-                  const std::vector<std::shared_ptr<SqlExpression> > & args,
+                  const std::vector<BoundSqlExpression> & args,
                   int fieldOffset,
                   SqlBindingScope & argsScope);
 
@@ -550,7 +550,7 @@ struct AggregateLexicalScope: public LexicalScope {
 
     virtual BoundFunction
     doGetFunction(const Utf8String & functionName,
-                  const std::vector<std::shared_ptr<SqlExpression> > & args,
+                  const std::vector<BoundSqlExpression> & args,
                   int fieldOffset,
                   SqlBindingScope & argsScope);
 
