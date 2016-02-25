@@ -2061,7 +2061,7 @@ bind(SqlBindingScope & context) const
         boundArgs.emplace_back(std::move(arg->bind(context)));
     }
 
-    BoundFunction fn = context.doGetFunction(tableName, functionName, args);
+    BoundFunction fn = context.doGetFunction(tableName, functionName, args, context);
     BoundSqlExpression boundOutput;
 
     if (fn)

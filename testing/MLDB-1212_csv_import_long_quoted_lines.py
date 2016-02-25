@@ -12,13 +12,18 @@ with open("tmp/broken_csv.csv", 'wb') as f:
     f.write("1,\"" + " ".join(["word " for x in xrange(1000)])+"\"\n")
     f.write("1,\"" + " ".join(["word " for x in xrange(10000)])+"\"\n")
 
-result = mldb.put("/v1/datasets/x", {
-    "type": "text.csv.tabular",
+csv_conf = {
+    "type": "import.text",
     "params": {
-        "dataFileUrl": "file://tmp/broken_csv.csv",
+        'dataFileUrl' : 'file://tmp/broken_csv.csv',
+        "outputDataset": {
+            "id": "x",
+        },
+        "runOnCreation": True,
         "ignoreBadLines": False
     }
-})
+}
+mldb.put("/v1/procedures/csv_proc", csv_conf) 
 
 result = mldb.get(
     "/v1/query",

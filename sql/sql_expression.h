@@ -515,9 +515,33 @@ struct SqlBindingScope {
 
     virtual ~SqlBindingScope();
 
+    /** Return a bound function.  This returns a BoundFunction object, which
+        will apply the given function (optionally in the scope of the given
+        table) to the passed arguments when called.
+
+        The tableName parameter is optional (empty if unused), and gives the
+        name of the table that the function was found in; for example
+        t1.rowName() will have "t1" in tableName.
+
+        The functionName parameter gives the name of the function to be
+        found and bound.
+
+        The args array gives a list of argument expressions which will be
+        evaluated when passed to the bound function.  These can be used for
+        static analysis of the input and output of the function.  They
+        must be bound in the argScope, not the current scope, as otherwise
+        references from inner scopes may not be resolveable.
+
+        The argScope parameter is the scope in which the arguments are
+        bound.  This is not necessarily the same as the scope in which
+        the function is discovered: whenever the function is found in an
+        outer scope but the arguments evaluated in an inner scope, then
+        argScope will not be the same as *this.
+    */
     virtual BoundFunction doGetFunction(const Utf8String & tableName,
                                         const Utf8String & functionName,
-                                        const std::vector<std::shared_ptr<SqlExpression> > & args);
+                                        const std::vector<std::shared_ptr<SqlExpression> > & args,
+                                        SqlBindingScope & argScope);
 
 
     virtual BoundTableExpression doGetDatasetFunction(const Utf8String & functionName,
@@ -718,6 +742,34 @@ DECLARE_STRUCTURE_DESCRIPTION(UnboundEntities);
 struct SqlRowScope {
     virtual ~SqlRowScope()
     {
+    }
+
+    static void throwBadNestingError(const std::type_info & typeRequested,
+                                     const std::type_info & typeFound)
+        __attribute__((noreturn));
+
+    template<typename T>
+    T & as()
+    {
+        if (typeid(*this) == typeid(T))
+            return static_cast<T &>(*this);
+
+        auto * cast = dynamic_cast<T *>(this);
+        if (cast)
+            return *cast;
+        throwBadNestingError(typeid(T), typeid(*this));
+    }
+
+    template<typename T>
+    const T & as() const
+    {
+        if (typeid(*this) == typeid(T))
+            return static_cast<const T &>(*this);
+
+        auto * cast = dynamic_cast<const T *>(this);
+        if (cast)
+            return *cast;
+        throwBadNestingError(typeid(T), typeid(*this));
     }
 };
 

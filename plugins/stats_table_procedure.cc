@@ -458,6 +458,7 @@ DEFINE_STRUCTURE_DESCRIPTION(StatsTableDerivedColumnsGeneratorProcedureConfig);
 StatsTableDerivedColumnsGeneratorProcedureConfigDescription::
 StatsTableDerivedColumnsGeneratorProcedureConfigDescription()
 {
+    addParent<ProcedureConfig>();
     addField("functionId", &StatsTableDerivedColumnsGeneratorProcedureConfig::functionId,
             "ID to use for the sql.expression function that will be created");
     addField("statsTableFileUrl", &StatsTableDerivedColumnsGeneratorProcedureConfig::statsTableFileUrl,
