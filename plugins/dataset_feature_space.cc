@@ -156,12 +156,10 @@ encodeFeature(ColumnHash column, const CellValue & value,
     }
 
     ML::Feature f = getFeature(column);
-
-    fset[f.arg1()] = {f, encodeValue(value, it->second.columnName, it->second.info)};
-
-    //fset.emplace_back(getFeature(column),
-    //                  encodeValue(value, it->second.columnName,
-    //                              it->second.info));
+    
+    fset.emplace_back(getFeature(column),
+                      encodeValue(value, it->second.columnName,
+                                  it->second.info));
 }
 
 std::pair<int, int>

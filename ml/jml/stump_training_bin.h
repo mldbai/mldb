@@ -1,7 +1,7 @@
 /* stump_training_bin.h                                           -*- C++ -*-
    Jeremy Barnes, 20 February 2004
    Copyright (c) 2004 Jeremy Barnes.  All rights reserved.
-   $Source$
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
    
    We can use this one when:
    1.  There are 2 labels;
@@ -11,7 +11,6 @@
    
    It is quite a lot faster, as these assumptions knock off a lot of work.
 
-   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #pragma once

@@ -225,8 +225,8 @@ struct PartitionData {
         }
     };
 
-    typedef WT<double> W;
-    //typedef WT<ML::FixedPointAccum64> W;
+    //typedef WT<double> W;
+    typedef WT<ML::FixedPointAccum64> W;
 
     /** Test all features for a split.  Returns the feature number,
         the bucket number and the goodness of the split.
@@ -648,22 +648,29 @@ run(const ProcedureRunConfig & run,
             distribution<float> example_weights(numRow);
 
             // Generate our example weights. 
-            for (unsigned i = 0;  i < numRow;  ++i)
-                example_weights[myrng(numRow)] += 1.0;   // MBOLDUC random numbers between 0 and N - lots of 0. Several samples in neither training nor validation?
+            //for (unsigned i = 0;  i < numRow;  ++i)
+            //    example_weights[myrng(numRow)] += 1.0;   // MBOLDUC random numbers between 0 and N - lots of 0. Several samples in neither training nor validation?
 
             distribution<float> training_weights
-            = in_training * example_weights;
+                = in_training * example_weights;
+
+            for (auto & w: training_weights)
+                w = 1;
+
             training_weights.normalize();          // MBOLDUC can't we know the norm? Is this using SIMD?
+
+            
+
 
             PartitionData data(*featureSpace);
 
-            for (unsigned i = 0;  i < data.features.size();  ++i)
-                if (data.features[i].active
-                    && rng() % 2 != 0)
-                    data.features[i].active = false;
+            //for (unsigned i = 0;  i < data.features.size();  ++i)
+                //if (data.features[i].active
+                //    && rng() % 2 != 0)
+                //    data.features[i].active = false;
 
             for (size_t i = 0;  i < lines.size();  ++i) {
-                if (example_weights[i] == 0)
+                if (training_weights[i] == 0)
                     continue;
 
                 DataLine & line = lines[i];
