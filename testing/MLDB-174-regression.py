@@ -56,7 +56,6 @@ class Mldb174Test(MldbUnitTest):
                 "configuration": self.glz_conf,
                 "algorithm": "glz",
                 "modelFileUrl": modelFileUrl,
-                "equalizationFactor": 0.0,
                 "mode": "regression",
                 "runOnCreation": True
             }
@@ -76,13 +75,14 @@ class Mldb174Test(MldbUnitTest):
         createFunctionOutput = mldb.put("/v1/functions/regressor", functionConfig)
         mldb.log(createFunctionOutput.json())
 
-        selected = mldb.get("/v1/functions/regressor/application", input = { "features": { "x":10 }})
+        value = 10
+        selected = mldb.get("/v1/functions/regressor/application", input = { "features": { "x":value }})
 
         jsSelected = selected.json()
         mldb.log(jsSelected)
         result = jsSelected["output"]["score"]
 
-        self.assertAlmostEqual(result, 10)
+        self.assertAlmostEqual(result, value)
 
     def test_wine_quality_merged_regression(self):
         ## now create a merged dataset and train on that
