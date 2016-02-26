@@ -368,6 +368,20 @@ run(const ProcedureRunConfig & run,
               }
           }
 
+          void clear()
+          {
+              totalLeft = 0;
+              totalRight = 0;
+              isPureLeft = false;
+              isPureRight = false;
+
+              for (auto& f : scorePerFeature)
+              {
+                  memset(f.data(), 0, f.size() * sizeof(std::pair<float, float>));
+                  //for ()
+              }
+          }
+
           void add(const std::pair<int, int>& point, float weight, float leftWeight)
           {
               //FeatureValues::values& v = scorePerFeature[point.first.arg1()].scores[point.second];
@@ -396,16 +410,45 @@ run(const ProcedureRunConfig & run,
 
       	};
 
-      	std::vector< PerPartition > perPartitionW[2];
+      	std::vector< PerPartition > perPartitionW;
+
+        void init(int maxIter)
+        { 
+            STACK_PROFILE(BagIter_InitW);   
+            int maxNumLeaves = std::pow(2,maxIter);
+            perPartitionW.resize(maxNumLeaves);
+        }
 
         void clear(int iter, std::vector<size_t>& ranges)
-        {          
-            int numLeaf = (1 << (iter+1));
+        {       
+            STACK_PROFILE(BagIter_ClearW);   
 
-            currentFrame = iter%2;
-            int nextFrame = (iter+1) %2;
+            int numLeavesPrevious = 0;
+            if (iter > 0)
+            {
+                //clear previous
+                numLeavesPrevious = (1 << (iter-1));
+                for (int i = 0; i < numLeavesPrevious; ++i)
+                {
+                     perPartitionW[i].clear();
+                }
+            }
 
-            if (iter == 0)
+
+            //init new leaves
+            //TODO: Dont init "fake leaves" where their parents where already uniform.
+
+            int numLeaf = (1 << (iter));
+
+            for (int i = numLeavesPrevious; i < numLeaf; ++i)
+            {
+                 perPartitionW[i].init(ranges);
+            }
+
+       //     currentFrame = iter%2;
+         //   int nextFrame = (iter+1) %2;
+
+       /*     if (iter == 0)
             {
                // ExcAssert(nextFrame == 1);
                 auto& pArray = perPartitionW[0];
@@ -421,10 +464,10 @@ run(const ProcedureRunConfig & run,
             for (auto& p : pArray)
             {              
                p.init(ranges);
-            }
+            }*/
         }
 
-        int currentFrame; //we use double buffering on the PerPartition arrays
+      //  int currentFrame; //we use double buffering on the PerPartition arrays
         int lastNewPartition;
     };
 
@@ -484,21 +527,21 @@ run(const ProcedureRunConfig & run,
         //Todo: init this and dont realloc it all the time
       	BagW& w = wPerBag[bag];
         Tree& tree = treesPerBag[bag];
-        int currentFrame = iteration%2;
-        int nextFrame = (iteration+1) %2;
-        auto& currentPartitions = w.perPartitionW[currentFrame];
-        auto& nextPartitions = w.perPartitionW[nextFrame];
+      //  int currentFrame = iteration%2;
+      //  int nextFrame = (iteration+1) %2;
+        auto& currentPartitions = w.perPartitionW;
+   ///     auto& nextPartitions = w.perPartitionW[nextFrame];
 
         if (iteration > 0 && w.lastNewPartition == 0)
           return true;
 
         w.clear(iteration, ranges);
 
-        if (iteration == 0)
-        {
+       // if (iteration == 0)
+       // {
             //ExcAssert(w.perPartitionW[0].size() == 1);
-            w.perPartitionW[0][0].relevantFeatures.resize(numFeatures);
-        }
+         //   w.perPartitionW[0][0].relevantFeatures.resize(numFeatures);
+       // }
         
         {
             STACK_PROFILE(BagIter_scanlines);
@@ -538,8 +581,8 @@ run(const ProcedureRunConfig & run,
                   //      if (iteration == 0)
                     //      cerr << " (" << f.first.arg1() << "," << f.second << ")";
 
-                        if (partitionScore.relevantFeatures.test(f.first))
-                          continue;
+                //////        if (partitionScore.relevantFeatures.test(f.first))
+               //////           continue;
 
                         //partitionScore.score[f] += weight;
                         //partitionScore.leftscore[f] += label ? weight : 0;
@@ -573,6 +616,8 @@ run(const ProcedureRunConfig & run,
         //ok, now for every partition, find the best split point
         int maxpartition = currentPartitions.size();
         cerr << "max partition: " << maxpartition << endl;
+        {
+        STACK_PROFILE(BagIter_findSplitPoint);
         for (int partition = 0; partition < maxpartition; partition++)
         {
             BagW::PerPartition& partitionScore = currentPartitions[partition];
@@ -660,10 +705,10 @@ run(const ProcedureRunConfig & run,
                         }  
                     }
 
-                    if (count <= 1)
-                    {
-                        partitionScore.relevantFeatures.set(fIndex);
-                    }
+               /////     if (count <= 1)
+               /////     {
+              //////          partitionScore.relevantFeatures.set(fIndex);
+              /////      }
                 }
             }
 
@@ -676,9 +721,9 @@ run(const ProcedureRunConfig & run,
         //    cerr << "PURES " << bestLeft << " " << bestRight << endl;
         //    cerr << "PURES " << partitionScore.isPureLeft << " " << partitionScore.isPureRight << endl;
 
-            int rightNextPartition = partition | (1 << iteration);
-            nextPartitions[partition].relevantFeatures = partitionScore.relevantFeatures;
-            nextPartitions[rightNextPartition].relevantFeatures = std::move(partitionScore.relevantFeatures);
+     /////       int rightNextPartition = partition | (1 << iteration);
+     /////       nextPartitions[partition].relevantFeatures = partitionScore.relevantFeatures;
+     /////       nextPartitions[rightNextPartition].relevantFeatures = std::move(partitionScore.relevantFeatures);
 
             //float uniformity = bestScoreSide > 0 ? (bestScoreSide / partitionScore.totalLeft) : (bestScoreSide / partitionScore.totalRight);
 
@@ -714,6 +759,7 @@ run(const ProcedureRunConfig & run,
 
            // printNode(tree, tree.nodes[0], 0);
         }
+        }
 
         cerr << "bag " << bag << " has " << 2*numNewPartition << "new partition leafs" << endl; 
 
@@ -724,6 +770,7 @@ run(const ProcedureRunConfig & run,
         int iterMaskRight = (1 << iteration);
 
         //Re-partition lines
+        STACK_PROFILE(BagIter_repartition);
         for (auto& line : lines)
         {
             float weight = line.weightsperbag[bag];
@@ -761,7 +808,10 @@ run(const ProcedureRunConfig & run,
         return true;
     };
 	
-    int test = 10;
+    int test = 15;
+
+    wPerBag[0].init(test);
+
   	while (test > 0)
   	{
   		/*for (auto& line : lines)
@@ -788,7 +838,7 @@ run(const ProcedureRunConfig & run,
   	} 	
 
     //print the bags
-    if (false)
+    if (true)
     {
         for (int bag = 0; bag < numBags; ++bag)
         {
