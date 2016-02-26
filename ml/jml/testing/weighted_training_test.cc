@@ -64,66 +64,77 @@ BOOST_AUTO_TEST_CASE( weighted_training_test )
 
     filestream.close(); 
 
-    string cmd1 = "make classifier_training_tool; build/x86_64/bin/classifier_training_tool " + filename1 + " -c " + configname + " -n glz glz.link_function=linear glz.ridge_regression=false -E 1 -p 1 -o " + modelname1 + " glz.verbosity=10  -W LABEL/F,ExampleId/F -z ExampleId";
+    vector<string> probabilizer = {"-p 3", "-p 1 -Q 1"};
+    for(int probIdx=0; probIdx<probabilizer.size(); probIdx++) {
+        cout << ML::format(" ----------------------- TESTING WITH PROBABILIZER IN MODE %s (%s) "
+                "-----------------------", probabilizer[probIdx], (probIdx == 0 ? "off" : "on")) << endl;
 
-    string cmd2 = "build/x86_64/bin/classifier_training_tool " + filename2 + " -c " + configname + " -n glz glz.link_function=linear glz.ridge_regression=false -E 1 -p 1 -o " + modelname2 + " glz.verbosity=10  -W LABEL/F,ExampleId/F,WEIGHT/V -z ExampleId -z WEIGHT";
+        // weights: LABEL, ExampleId
+        // ignore: ExampleId
+        string cmd1 = "build/x86_64/bin/classifier_training_tool " + filename1 + " -c " + configname + " -n glz glz.link_function=linear glz.ridge_regression=false -E 1 "+probabilizer[probIdx]+" -o " + modelname1 + " glz.verbosity=10  -W LABEL/F,ExampleId/F -z ExampleId";
 
-    string cmd3 = "build/x86_64/bin/classifier_training_tool " + filename2 + " -c " + configname + " -n glz glz.link_function=linear glz.ridge_regression=false -E 1 -p 1 -o " + modelname3 + " glz.verbosity=10  -W LABEL/F,WEIGHT/V -z ExampleId -z WEIGHT";
+        // weights: LABEL, WEIGHT, ExampleId
+        // ignore: ExampleId, WEIGHT
+        string cmd2 = "build/x86_64/bin/classifier_training_tool " + filename2 + " -c " + configname + " -n glz glz.link_function=linear glz.ridge_regression=false -E 1 "+probabilizer[probIdx]+" -o " + modelname2 + " glz.verbosity=10  -W LABEL/F,ExampleId/F,WEIGHT/V -z ExampleId -z WEIGHT";
+
+        // weights: LABEL, WEIGHT
+        // ignore: ExampleId, WEIGHT
+        string cmd3 = "build/x86_64/bin/classifier_training_tool " + filename2 + " -c " + configname + " -n glz glz.link_function=linear glz.ridge_regression=false -E 1 "+probabilizer[probIdx]+" -o " + modelname3 + " glz.verbosity=10  -W LABEL/F,WEIGHT/V -z ExampleId -z WEIGHT";
 
 
-    cout << cmd1 << endl;
-    cout << cmd2 << endl;
-    cout << cmd3 << endl;
-    
-    if ( system(cmd1.c_str()) == -1 )
-        throw Exception("Call 1 to classifier_training_tool failed");
-    
-    if ( system(cmd2.c_str()) == -1 )
-        throw Exception("Call 2 to classifier_training_tool failed");
+        cout << cmd1 << endl;
+        cout << cmd2 << endl;
+        cout << cmd3 << endl;
 
-    if ( system(cmd3.c_str()) == -1 )
-        throw Exception("Call 2 to classifier_training_tool failed");
-    
-    Classifier class1;
-    Classifier class2;
-    Classifier class3;
+        if ( system(cmd1.c_str()) == -1 )
+            throw Exception("Call 1 to classifier_training_tool failed");
 
-    class1.load(modelname1);
-    class2.load(modelname2);//"build/x86_64/tmp/pclick_predictor_test_model_ew.cls");
-    class3.load(modelname3);
+        if ( system(cmd2.c_str()) == -1 )
+            throw Exception("Call 2 to classifier_training_tool failed");
 
-    for (int i=0; i<5; ++i){
-        vector<float> point = {1.0, 0.0, rand_prob(), rand_prob()};
-        distribution<float> point1(point);
-        distribution<float> point2(point);
-        point2.insert(point2.begin(), 1.0);
+        if ( system(cmd3.c_str()) == -1 )
+            throw Exception("Call 2 to classifier_training_tool failed");
 
-        // cerr << "point1: " << point1 << endl;
-        float prediction1 = class1.impl->predict(0, *class1.impl->feature_space<Dense_Feature_Space>()->encode(point1));
+        Classifier class1;
+        Classifier class2;
+        Classifier class3;
 
-        // cerr << "point2: " << point2 << endl;
-        float prediction2 = class2.impl->predict(0, *class2.impl->feature_space<Dense_Feature_Space>()->encode(point2));
+        class1.load(modelname1);
+        class2.load(modelname2);//"build/x86_64/tmp/pclick_predictor_test_model_ew.cls");
+        class3.load(modelname3);
 
-        BOOST_CHECK_EQUAL(prediction1, prediction2);
+        for (int i=0; i<5; ++i){
+            vector<float> point = {1.0, 0.0, rand_prob(), rand_prob()};
+            distribution<float> point1(point);
+            distribution<float> point2(point);
+            point2.insert(point2.begin(), 1.0);
 
-        float prediction3 = class3.impl->predict(0, *class3.impl->feature_space<Dense_Feature_Space>()->encode(point2));
+             cerr << "point1: " << point1 << endl;
+            float prediction1 = class1.impl->predict(0, *class1.impl->feature_space<Dense_Feature_Space>()->encode(point1));
 
-        cerr << "prediction2 = " << prediction2 << endl;
-        cerr << "prediction3 = " << prediction3 << endl;
+             cerr << "point2: " << point2 << endl;
+            float prediction2 = class2.impl->predict(0, *class2.impl->feature_space<Dense_Feature_Space>()->encode(point2));
 
-        BOOST_CHECK_PREDICATE( std::not_equal_to<float>(), (prediction2)(prediction3) ); 
+            BOOST_CHECK_EQUAL(prediction1, prediction2);
+
+            float prediction3 = class3.impl->predict(0, *class3.impl->feature_space<Dense_Feature_Space>()->encode(point2));
+            cout << "pred2: " << prediction2 << endl;
+            cout << "pred3: " << prediction3 << endl;
+            BOOST_CHECK_PREDICATE( std::not_equal_to<float>(), (prediction2)(prediction3) );
+        }
+
+        cout << "removing " << modelname1 << endl;
+        remove(modelname1.c_str());
+        cout << "removing " << modelname2 << endl;
+        remove(modelname2.c_str());
+        cout << "removing " << modelname3 << endl;
+        remove(modelname3.c_str());
     }
-   
+
     cout << "removing " << filename1 << endl;
     remove(filename1.c_str());
     cout << "removing " << filename2 << endl;
     remove(filename2.c_str());
-    cout << "removing " << modelname1 << endl;
-    remove(modelname1.c_str());
-    cout << "removing " << modelname2 << endl;
-    remove(modelname2.c_str());
-    cout << "removing " << modelname3 << endl;
-    remove(modelname3.c_str());
     cout << "removing " << configname << endl;
     remove(configname.c_str());
 }
