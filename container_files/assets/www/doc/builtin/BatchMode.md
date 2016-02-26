@@ -31,7 +31,7 @@ docker run \
   --run-script /mldb_data/<script>
 ```
 
-# Passing arguments to the MLDB script
+## Passing arguments to the MLDB script
 
 The `--script-args <json blob>` option can be used to pass in arguments to the run
 script.  The argument should be in the form of a JSON object, array or value.
@@ -41,7 +41,7 @@ the language documentation for more details.
 The `--script-args-url <url>` option can be used to read the script arguments
 from a URL.  The contents of the URL must be a JSON object, array or value.
 
-# Making credentials available to MLDB in batch mode
+## Making credentials available to MLDB in batch mode
 
 In batch mode, MLDB has no credentials daemon available and so credentials
 will need to be passed directly.
@@ -73,7 +73,7 @@ following means:
     - A text file containing one JSON array, with each element of the array
       being a JSON credentials object.
 
-# Loading plugins in batch mode
+## Loading plugins in batch mode
 
 MLDB will not automatically load any plugins in batch mode.  To make it do
 so, add the `--plugin-directory <dir>` option to the command line.  If the
@@ -85,7 +85,24 @@ recursively and found plugins loaded.
 Note that at a minimum, you will likely want to load up plugins from
 `/opt/mldb/plugins` as in the above examples.
 
-# Muting last log on error
+## Muting last log on error
 
 When MLDB ends with an error condition, by default it logs data about the run.
 It can be disabled by using the `--mute-final-output` flag.
+
+
+
+## Environment Variables (advanced usage)
+
+The following environment variables control MLDB:
+
+- `RETURN_OS_MEMORY` (0 or 1, default 1): if this is set (which it is by
+  default), the whole set of deallocated memory will be returned to the
+  OS whenever a dataset is destroyed.  If you observe long pauses after
+  a dataset is destroyed and have a dedicated machine or a container
+  with dedicated memory, you can set this to 0 to disable that behavior.
+- `PRINT_OS_MEMORY` (0 or 1, default 0): if this is set (it is *not* set
+  by default), then each time a dataset is destroyed, the memory usage
+  will be written to the console.  In addition, if `RETURN_OS_MEMORY=1`
+  then the memory usage will be re-printed after the memory is returned
+  to the operating system.
