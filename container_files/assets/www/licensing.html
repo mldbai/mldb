@@ -17,6 +17,12 @@
     textarea { resize: none; }
     .form-group { margin-bottom: 10px;}
     .form-inline, .form-horizontal { display:block; }
+    fieldset {   
+      padding-bottom:20px;   
+      width:60%;    
+      line-height:1.6;    
+      margin: auto;    
+    }
   </style>
 <body>
 <div class ="row">
@@ -26,11 +32,11 @@
 <br>
 <br>
 
+    <div id="requestsuccess" class="alert alert-success col-lg-12" role="alert" style="display: none;">Thanks! Please check your email for the license code and enter it below.</div>
 <form>
 <div class="form-horizontal  col-lg-10 col-lg-offset-1">
 <fieldset>
   <legend>Already have an MLDB Enterprise Edition license code?</legend>
-    <div id="requestsuccess" class="alert alert-success col-lg-12" role="alert" style="display: none;">Thanks! Please check your email for the license code and enter it below.</div>
     <div id="validationfailure" class="alert alert-danger" role="alert" style="display: none;">Sorry, but there was a problem with the email address/license code combination, please check your input and try again.</div>
 
   <div class="form-group">
@@ -103,7 +109,7 @@
           <p>The MLDB Enterprise Edition, which includes the closed-source MLDB Pro Plugin, is being licensed to you by Datacratic Inc. and is not being sold. This software is provided under the <a href="/resources/MLDB_License.pdf" target="_blank"><em>MLDB End User License Agreement, Non-Commercial Software License version 1.0</em></a>, which specifies what you may do with the software and contains important limitations on representations, warranties, conditions, remedies, and liabilities.</p>
           
         <label>
-          <input type="checkbox" id="licenseCheckBox"> I accept the terms of the <em>MLDB End User License Agreement, Non-Commercial Software License version 1.0</em>
+          <input type="checkbox" id="licenseCheckBox"> I accept the terms of the <em>MLDB End User License Agreement, Non-Commercial Software License version 1.0</em> (required)
         </label>
       </div>
     </div>
