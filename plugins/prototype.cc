@@ -359,9 +359,8 @@ struct PartitionData {
 
             }
         }
-
         
-        if (debug || true) {
+        if (debug) {
             cerr << "buckets: empty " << bucketsEmpty << " one " << bucketsOne
                  << " both " << bucketsBoth << endl;
             cerr << "bestScore " << bestScore << endl;
@@ -422,8 +421,8 @@ struct PartitionData {
 
         //cerr << "done split in " << timer.elapsed() << endl;
 
-        cerr << "left had " << splits.first.rows.size() << " rows" << endl;
-        cerr << "right had " << splits.second.rows.size() << " rows" << endl;
+        //cerr << "left had " << splits.first.rows.size() << " rows" << endl;
+        //cerr << "right had " << splits.second.rows.size() << " rows" << endl;
 
         ML::Tree::Ptr left = splits.first.train(depth + 1, maxDepth, tree);
         ML::Tree::Ptr right = splits.second.train(depth + 1, maxDepth, tree);
@@ -469,11 +468,11 @@ PrototypeProcedure::
 run(const ProcedureRunConfig & run,
       const std::function<bool (const Json::Value &)> & onProgress) const
 {
-    //const int numBags = 100;
-    //int maxDepth = 20;
+    const int numBags = 100;
+    int maxDepth = 20;
 
-    const int numBags = 1;
-    int maxDepth = 4;
+    //numBags = 1;
+    //maxDepth = 4;
 
     PrototypeConfig runProcConf =
         applyRunConfOverProcConf(procedureConfig, run);
@@ -642,20 +641,15 @@ run(const ProcedureRunConfig & run,
             std::random_shuffle(tr_ex_nums.begin(), tr_ex_nums.end(), myrng);  //5, 1, 14, N...
             for (unsigned i = 0;  i < numRow * trainprop;  ++i)
                 in_training[tr_ex_nums[i]] = 1.0;                      //0, 0, 0, 1, 0, 1, 0, 1, 1, ....
-            //distribution<float> not_training(nx, 1.0);                 //1, 1, 1, 0, 1, 0, 1, 0, 0, ...
-            //not_training -= in_training;
 
             distribution<float> example_weights(numRow);
 
             // Generate our example weights. 
-            //for (unsigned i = 0;  i < numRow;  ++i)
-            //    example_weights[myrng(numRow)] += 1.0;   // MBOLDUC random numbers between 0 and N - lots of 0. Several samples in neither training nor validation?
+            for (unsigned i = 0;  i < numRow;  ++i)
+                example_weights[myrng(numRow)] += 1.0;   // MBOLDUC random numbers between 0 and N - lots of 0. Several samples in neither training nor validation?
 
             distribution<float> training_weights
                 = in_training * example_weights;
-
-            for (auto & w: training_weights)
-                w = 1;
 
             training_weights.normalize();          // MBOLDUC can't we know the norm? Is this using SIMD?
 
@@ -664,10 +658,12 @@ run(const ProcedureRunConfig & run,
 
             PartitionData data(*featureSpace);
 
-            //for (unsigned i = 0;  i < data.features.size();  ++i)
-                //if (data.features[i].active
-                //    && rng() % 2 != 0)
-                //    data.features[i].active = false;
+            for (unsigned i = 0;  i < data.features.size();  ++i)
+                if (data.features[i].active
+                    && rng() % 2 != 0)
+                    data.features[i].active = false;
+            
+            vector<vector<int> > bucketColumns;
 
             for (size_t i = 0;  i < lines.size();  ++i) {
                 if (training_weights[i] == 0)
@@ -678,6 +674,8 @@ run(const ProcedureRunConfig & run,
                 data.addRow(line.label, training_weights[i], &line.features[0]);
             }
 
+
+
             ML::Timer timer;
             ML::Tree tree;
             tree.root = data.train(0 /* depth */, maxDepth, tree);
@@ -686,7 +684,7 @@ run(const ProcedureRunConfig & run,
             ML::Decision_Tree dtree(featureSpace, labelFeature);
             dtree.tree = std::move(tree);
             
-            cerr << dtree.print() << endl;
+            //cerr << dtree.print() << endl;
 
         };
 
