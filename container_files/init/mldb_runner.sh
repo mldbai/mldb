@@ -5,7 +5,7 @@ exec 2>&1  # stderr to stdout for logging purposes
 cd {{MLDB_DATA_DIR}}
 cat <<EOF
 
-MLDB is starting up
+MLDB (version {{VERSION_NAME2}}) is starting up
 
 EOF
 

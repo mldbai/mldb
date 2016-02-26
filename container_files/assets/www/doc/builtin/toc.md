@@ -1,6 +1,7 @@
 
 <script>
-document.getElementsByTagName("body")[0].style.margin="20px"
+$("body").css({margin: "20px"});
+$.getJSON("/version.json", function(v){ $("#version").text("version "+v.version) });
 </script>
 <style>
 p, li {
@@ -10,9 +11,12 @@ ul {
     padding-left: 25px;
 }
 </style>
-<base target="rh">
 
+<base target="rh">
+<div align="center">
 <a href="/" target="_top"><img src="/resources/images/mldb_ipython_logo.png" alt="MLDB Logo" /></a>
+<span id="version" style="font-size: 12px;"></span>
+</div>
 
 <form action="/doc/search.html">
 <input style="
