@@ -26,14 +26,13 @@ a single output value also named `words`.
 
 After having created the following stemmer:
 
-```javascript
-PUT /v1/functions/my_stemmer
-{
+```python
+mldb.put("/v1/functions/my_stemmer", {
     "type": "stemmer",
     "params": {
         "language": "english"
     }
-}
+})
 ```
 
 and this dataset:
@@ -90,14 +89,13 @@ a single output value named `stemmed document`.
 
 After having created the following stemmer:
 
-```javascript
-PUT /v1/functions/my_stemmer
-{
+```python
+mldb.put("/v1/functions/my_stemmer", {
     "type": "stemmerdoc",
     "params": {
         "language": "english"
     }
-}
+})
 ```
 
 we can apply the stemming algorithm on the provided string:

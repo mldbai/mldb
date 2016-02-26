@@ -13,13 +13,13 @@ Let's look at a hypothetical Function with id `example` whose type defined the f
   
 We could apply this Function via REST like so:
 
-```javascript
-GET /v1/functions/example/application?input={"x":2,"y":{"a":3,"b":4}}
+```python
+mldb.get("/v1/functions/example/application", input={"x":2,"y":{"a":3,"b":4}})
 ```
 
 And we would receive the following output:
 
-```javascript
+```python
 {
     "output": {
         "sum_scaled_y": 14,

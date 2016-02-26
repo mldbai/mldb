@@ -45,7 +45,7 @@ select myFunction({*} as args)[return] from meData
 
 The `return` value will contain:
 
-```javascript
+```python
 [
    {
       "columns" : [

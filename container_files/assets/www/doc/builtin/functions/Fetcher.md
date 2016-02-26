@@ -23,8 +23,8 @@ It will return two output columns:
 The following Javascript creates and calls a function that will return the
 country code from an IP address from an external web service.
 
-```javascript
-PUT /v1/functions/fetch { "type": "fetcher" }
+```python
+mldb.put("/v1/functions/fetch", { "type": "fetcher" })
 ```
 
 ```sql

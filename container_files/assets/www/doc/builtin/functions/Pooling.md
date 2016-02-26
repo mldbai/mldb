@@ -37,15 +37,14 @@ This can be obtained by applying the `tokenize` function to any text field:
 
 Let's configure a pooling function:
 
-```javascript
-PUT /v1/functions/pooler
-{
+```python
+mldb.put("/v1/functions/pooler", {
     "type": "pooling",
     "params": {
         "aggregators": ["avg"],
         "embeddingDataset": "word_embedding"
     }
-}
+})
 ```
 
 We can now do the following call:

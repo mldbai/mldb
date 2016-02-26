@@ -65,17 +65,15 @@ To load the Docker git repository into a dataset that has been checked
 out from `https://github.com/docker/docker.git` in `/mldb_data/docker`,
 the following procedure can be posted and run:
 
-```javascript
-PUT /v1/procedures/gitimport
-{
+```python
+mldb.put("/v1/procedures/gitimport", {
     "type": "import.git",
     "params": {
         "repository": "file:///mldb_data/docker",
         "outputDataset": "git",
         "runOnCreation": true
     }
-}
-
+})
 ```
 
 This can then be queried for the top 5 contributors in terms of commits:

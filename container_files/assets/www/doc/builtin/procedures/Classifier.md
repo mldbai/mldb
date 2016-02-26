@@ -76,7 +76,7 @@ used to set the relative weight per example within its label class, and the
 A `configuration` JSON object or the contents of a `configurationFile` looks like this
 (see below for the contents of the default, overrideable `configurationFile`:
 
-```javascript
+```python
 {
     "algorithm_name": {
         "type": "classifier_type",
@@ -124,7 +124,7 @@ when a generic classification step is required.
 
 The default, overrideable `configurationFile` contains the following:
 
-```javascript
+```python
 {
 
     "nn": { 

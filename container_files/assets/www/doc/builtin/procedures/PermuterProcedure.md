@@ -25,9 +25,8 @@ of classifiers as well as different values for the `equalizationFactor`.
 Notice how the key structure of the `permutations` object matches the
 `procedure_configuration.params` object.
 
-```javascript
-PUT /v1/procedures/<id>
-{
+```python
+mldb.put("/v1/procedures/<id>", "{
     "type": "permuter.run"
     "params": {
         "procedure": {
@@ -49,7 +48,7 @@ PUT /v1/procedures/<id>
             "algorithm": ["glz", "bglz"]
         }
     }
-}
+})
 ```
 
 ## Output
@@ -57,7 +56,7 @@ PUT /v1/procedures/<id>
 The procedure will return a list of objects, one per permutation.
 Each one will have the following structure:
 
-```javascript
+```python
 {
     "configuration": { <permutation> },
     "results": { <child procedure output> }

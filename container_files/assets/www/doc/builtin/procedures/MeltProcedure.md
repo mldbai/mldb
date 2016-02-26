@@ -32,20 +32,21 @@ Doing the query `select parse_json(friends, {arrays: 'encode'}) from data` will 
 
 We can do the melt like this:
 
-    PUT /v1/procedures/melt
-    {
-        "type": "melt",
-        "params": {
-            "trainingData": """
-                        SELECT {name, age} as to_fix,
-                               {friends*} as to_melt
-                        FROM (
-                            SELECT parse_json(friends, {arrays: 'encode'}) AS * from data
-                        )""",
-            "outputDataset": "melted_data"
-            "runOnCreation": True
-        }
+```python
+mldb.put("/v1/procedures/melt", {
+    "type": "melt",
+    "params": {
+        "trainingData": """
+                    SELECT {name, age} as to_fix,
+                           {friends*} as to_melt
+                    FROM (
+                        SELECT parse_json(friends, {arrays: 'encode'}) AS * from data
+                    )""",
+        "outputDataset": "melted_data"
+        "runOnCreation": True
     }
+})
+```
 
 The `melted_data` dataset will look like this:
 

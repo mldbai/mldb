@@ -31,16 +31,15 @@ Suppose we have the following dataset called `text_dataset`:
 
 If we run the following procedure:
 
-```javascript
-PUT /v1/procedures/my_st
-{
+```python
+mldb.put("/v1/procedures/my_st", {
     "type": "statsTable.bagOfWords.train",
     "params": {
         "trainingData": "SELECT tokenize(text, {splitchars: ' '}) as * FROM text_dataset",
         "outcomes": [["label", "label IS NOT NULL"]],
         "statsTableFileUrl": "file://my_st.st"
     }
-}
+})
 ```
 
 Below are some examples of the values in the resulting stats table:

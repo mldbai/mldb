@@ -8,20 +8,20 @@ building UIs that can be used for multiple algorithms.
 In order to obtain the type used to configure an entity of a given type, you can
 call the
 
-```javascript
-GET /v1/types/<entityClass>/<entityType>/info
+```python
+mldb.get("/v1/types/<entityClass>/<entityType>/info")
 ```
 
 route, and look at the `configType` parameter.  For example, for the svd.train procedure,
 you would call
 
-```javascript
-GET /v1/types/procedures/svd/info
+```python
+mldb.get("/v1/types/procedures/svd/info")
 ```
 
 which returns
 
-```javascript
+```python
 {
    "configType" : {
       "fields" : [
@@ -155,8 +155,8 @@ In addition, if you need more information about another type listed in one of th
 fields (for example, a nested structure or the values of an enumeration), you can
 ask for it directly under the route
 
-```
-GET /v1/typeInfo?type=<typeName>
+```python
+mldb.get("/v1/typeInfo", type=<typeName>)
 ```
 
 which will return similar output to that given above.

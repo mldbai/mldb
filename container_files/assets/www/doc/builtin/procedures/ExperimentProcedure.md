@@ -41,7 +41,7 @@ the dataset in half for training and testing will be generated.
 To perform a 3-fold cross-validation, set the parameter `kfolds = 3` and the following
 configuration will be generated for the `dataset_folds` parameter:
 
-```javascript
+```python
 [
     {
         "training_where": "rowHash() % 3 != 0",
@@ -72,7 +72,7 @@ In the example below, the `auc` metric is used to illustrate the aggregation.
 
 The following example would be for a 2-fold run:
 
-```javascript
+```python
 {
     "id" : "<id>",
     "runFinished" : "...",

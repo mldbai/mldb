@@ -1,31 +1,9 @@
 
-# Query API
+# Query API: `GET /v1/query`
 
-The MLDB [REST API](../WorkingWithRest.md) provides two routes for querying data: `GET /v1/query` and `GET /v1/datasets/<id>/query`. 
+This endpoint accepts the following query-string parameters:
 
-## `GET /v1/query`
-
-This route accepts one query string parameter in addition to the formatting parameters detailed below:
-
-* `q`: a full [SQL query](Sql.md)
-
-## `GET /v1/datasets/<id>/query`
-
-This route operates on a single dataset (i.e. has an implicit `from` clause) and accepts the following query string parameters in addition to the formatting parameters detailed below:
-
-- `select`: a [Select Expression](SelectExpression.md) which chooses what columns to put in the output dataset
-- `where`: a boolean-coerced [Value Expression](ValueExpression.md) which chooses which rows to scan in the input dataset
-- `groupBy`: a [Group-By Expression](GroupByExpression.md) which chooses how to group entries for aggregates
-- `having`: a boolean-coerced [Value Expression](ValueExpression.md) which chooses which groups to select
-- `orderBy`: an [Order-By Expression](OrderByExpression.md) which chooses in what order to output the results
-- `offset`: an integer which indicates how many output rows to skip
-- `limit`: an integer which limits the number of output rows
-
-## Controlling output format
-
-The output format of a query API call is always JSON, and the specifics are controlled by
-the following query string parameters:
-
+- `q`: a full [SQL query](Sql.md)
 - `format`: string (default `full`), gives the output format.  Possible values are:
   - `full` (default): full sparse output as array of deep objects. 
       - All values for each cell are returned, with timestamps.
@@ -58,7 +36,7 @@ JSON defines numerical, string, boolean and null representations, but not timest
 In order to deal with this, the output of the Query API (except when in `format=table` mode) will represent
 these types of values as a JSON object as follows:
 
-```javascript
+```python
 {"ts" : "1969-07-20T01:02:03.000Z"}
 {"interval": "3 MONTH 14D 1S"}
 {"num": "NaN"}

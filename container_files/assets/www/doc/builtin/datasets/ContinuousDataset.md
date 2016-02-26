@@ -221,8 +221,8 @@ output;
 
 Putting it together, we construct our continuous dataset as follows
 
-```javascript
-PUT /v1/datatasets/example {
+```python
+mldb.put("/v1/datatasets/example", {
     "id": "recorder",
     "type": "continuous",
     "params": {
@@ -253,13 +253,13 @@ PUT /v1/datatasets/example {
             }
         }
     }
-}
+})
 ```
 
 And a configuration to read data recorded in the last 3 days is
 
-```javascript
-PUT /v1/datatasets/example2 {
+```python
+mldb.put("/v1/datatasets/example2", {
     "id": "window",
     "type": "continuous.window",
     "params": {
@@ -269,7 +269,7 @@ PUT /v1/datatasets/example2 {
         "from": "<3 days ago in ISO8601 format>",
         "to": "<now in ISO8601 format>",
     }
-};
+})
 ```
 
 # See also
