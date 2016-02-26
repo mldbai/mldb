@@ -61,8 +61,27 @@ DatasetFeatureSpace(std::shared_ptr<Dataset> dataset,
             auto & stats = dataset->getColumnIndex()
                 ->getColumnStats(columnName, statsStorage);
 
-            if (stats.isNumeric()) {
-                columnInfo[ch].info = ML::REAL;
+            if (stats.isNumeric()) { 
+
+                if (stats.isInteger_ && (stats.maxValue_.toInt() - stats.minValue_.toInt()) <= 1000)
+                {
+                    cerr << "NUMERIC RANGED " << stats.minValue_.toInt() << "," << stats.maxValue_.toInt() << endl;
+                 //   columnInfo[ch].info = ML::Feature_Info(stats.minValue_.toInt(), stats.maxValue_.toInt());
+                }
+                else
+                {
+                    cerr << "NUMERIC NON_RANGED " << stats.minValue_.toInt() << "," << stats.maxValue_.toInt() << endl;
+                  //  columnInfo[ch].info = ML::REAL;
+                }   
+
+                //stats.values is sorted
+                std::vector<int> values;
+                for (auto & v: stats.values)
+                {
+                    values.push_back(v.first.toInt());
+                }
+
+                columnInfo[ch].info = ML::Feature_Info(values);
             }
             else {
                 std::map<CellValue::CellType, std::pair<size_t, size_t> > types;
@@ -141,6 +160,63 @@ encodeFeature(ColumnHash column, const CellValue & value,
     //                              it->second.info));
 }
 
+
+void
+DatasetFeatureSpace::
+encodeFeatureInt(ColumnHash column, const CellValue & value,
+              std::vector<std::pair<int, int>>& fset) const
+{
+    if (value.empty())
+        return;
+        
+    auto it = columnInfo.find(column);
+    if (it == columnInfo.end()) {
+        throw ML::Exception("Encoding unknown column");
+    }
+
+    ML::Feature f = getFeature(column);
+
+    int encodedValue = encodeValueToInt(value, it->second.columnName, it->second.info);
+
+ //   cerr << "encode to int " << f.arg1() << "," << encodedValue << endl;
+
+    //cerr << f.arg1() << endl;
+
+    fset[f.arg1()] = {f.arg1(), encodedValue};
+
+    //fset.emplace_back(getFeature(column),
+    //                  encodeValue(value, it->second.columnName,
+    //                              it->second.info));
+}
+
+std::vector<size_t>
+DatasetFeatureSpace::
+getRanges()
+{
+    cerr << "NUM COLUMN INFO" << columnInfo.size() << endl;
+    std::vector<size_t> ranges(columnInfo.size());
+   
+    for (auto& v : columnInfo)
+    {
+        ML::Feature_Info & info = v.second.info;
+         uint32_t index = v.second.index;
+         size_t   range = 0;
+
+           if (info.type() == ML::CATEGORICAL
+            || info.type() == ML::STRING) {
+                range = info.categorical()->count();          
+            }
+            else
+            {
+                range = info.parse_.size();
+            }
+            
+            ranges[index] = range;
+    }
+
+    return std::move(ranges);
+}
+
 float
 DatasetFeatureSpace::
 encodeLabel(const CellValue & value) const
@@ -180,6 +256,38 @@ encodeValue(const CellValue & value,
         
     }
     return value.toDouble();
+}
+
+int
+DatasetFeatureSpace::
+encodeValueToInt(const CellValue & value,
+            const ColumnName & columnName,
+            const ML::Feature_Info & info) const
+{
+    if (value.empty())
+        return std::numeric_limits<float>::quiet_NaN();
+
+    if (info.type() == ML::CATEGORICAL
+        || info.type() == ML::STRING) {
+        // Look up the value in the categorical info
+
+        std::string key;
+        if (value.isUtf8String())
+            key = value.toUtf8String().rawString();
+        else 
+            key  = value.toString();
+
+        int val = info.categorical()->lookup(key);
+        return val;
+    }
+    if (!value.isNumeric()) {
+        throw ML::Exception("Value for column '"
+                            + columnName.toUtf8String().rawString() + 
+                            "' was numeric in training, but is now " +
+                            jsonEncodeStr(value));
+        
+    }
+    return info.parse_.find(value.toInt())->second;
 }
 
 ML::Feature_Info

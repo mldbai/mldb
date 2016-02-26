@@ -714,21 +714,48 @@ struct TabularDataStore: public ColumnIndex, public MatrixView {
         stats = ColumnStats();
 
         bool isNumeric = true;
+        bool isInteger = true;
+        CellValue min;
+        CellValue max;
+        bool first = true;
 
         for (auto & c: chunks) {
 
-            auto onValue = [&] (const CellValue & value,
+            auto onValue = [&] (const CellValue & v,
                                 size_t rowCount)
                 {
-                    if (!value.isNumber())
+                    if (!v.isNumber())
                         isNumeric = false;
-                    stats.values[value].rowCount_ += 1;
+                    if (!v.isInteger())
+                        isInteger = false;
+
+                    if (v.isNumeric())
+                    {
+                         if (first)
+                        {
+                            min = v;
+                            max = v;
+                            first = false;
+                        }
+                        else
+                        {
+                            if (v.toDouble() < min.toDouble())
+                                min = v;
+                            else if (v.toDouble() > max.toDouble())
+                                max = v;
+                        }
+                    }   
+
+                    stats.values[v].rowCount_ += 1;
                     return true;
                 };
                                 
             c.columns[it->second].forEachDistinctValue(onValue);
         }
 
+        stats.minValue_ = min;
+        stats.maxValue_ = max;
+        stats.isInteger_ = isInteger && rowCount > 0;
         stats.isNumeric_ = isNumeric && !chunks.empty();
         stats.rowCount_ = rowCount;
         return stats;

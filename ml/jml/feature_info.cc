@@ -109,6 +109,17 @@ Feature_Info(std::shared_ptr<const Categorical_Info> categorical,
 {
 }
 
+Feature_Info::
+Feature_Info(std::vector<int>& values)
+{
+    type_ = RANGE;
+    //make a reverse lookup
+    for (int i = 0; i < values.size(); ++i)
+    {
+        parse_[values[i]] = i;
+    }
+}
+
 namespace {
 
 static const unsigned char FI_VERSION = 4;

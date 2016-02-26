@@ -267,6 +267,8 @@ const ColumnStats &
 ColumnIndex::
 getColumnStats(const ColumnName & column, ColumnStats & stats) const
 {
+    cerr << "getColumnStats" << endl;
+
     auto col = getColumnValues(column);
 
     stats = ColumnStats();
@@ -274,23 +276,50 @@ getColumnStats(const ColumnName & column, ColumnStats & stats) const
     ML::Lightweight_Hash_Set<RowHash> rows;
     bool oneOnly = true;
     bool isNumeric = true;
+    bool isInteger = true;
 
+    CellValue min;
+    CellValue max;
+    bool first = true;    
     for (auto & r: col) {
         RowHash rh = std::get<0>(r);
         const CellValue & v = std::get<1>(r);
+
+        if (v.isNumeric())
+        {
+             if (first)
+            {
+                min = v;
+                max = v;
+                first = false;
+            }
+            else
+            {
+                if (v.toDouble() < min.toDouble())
+                    min = v;
+                else if (v.toDouble() > max.toDouble())
+                    max = v;
+            }
+        }       
 
         if (!rows.insert(rh).second)
             oneOnly = false;
         
         if (!v.isNumber())
             isNumeric = false;
+
+        if (!v.isInteger())
+            isInteger = false;
         
         // TODO: not really true...
         stats.values[v].rowCount_ += 1;
     }
 
     stats.isNumeric_ = isNumeric && !col.empty();
+    stats.isInteger_ = isInteger && !col.empty();
     stats.rowCount_ = rows.size();
+    stats.minValue_ = min;
+    stats.maxValue_ = max;
     return stats;
 }
 

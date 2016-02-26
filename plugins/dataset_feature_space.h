@@ -56,6 +56,10 @@ struct DatasetFeatureSpace: public ML::Feature_Space {
     void encodeFeature(ColumnHash column, const CellValue & value,
                        std::vector<std::pair<ML::Feature, float> > & fset) const;
 
+    void 
+encodeFeatureInt(ColumnHash column, const CellValue & value,
+              std::vector<std::pair<int, int>>& fset) const;
+
     /** Encode the column value as a feature, ready to add to a dense
         vector.
     */
@@ -68,7 +72,14 @@ struct DatasetFeatureSpace: public ML::Feature_Space {
                       const ColumnName & columnName,
                       const ML::Feature_Info & info) const;
 
+    int
+    encodeValueToInt(const CellValue & value,
+            const ColumnName & columnName,
+            const ML::Feature_Info & info) const;
+
     virtual ML::Feature_Info info(const ML::Feature & feature) const;
+
+    std::vector<size_t> getRanges();
 
 
     /*************************************************************************/

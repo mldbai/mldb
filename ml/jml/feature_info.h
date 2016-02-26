@@ -87,7 +87,7 @@ enum Feature_Type {
     BOOLEAN,      ///< feature is true (1.0) or false (0.0)
     CATEGORICAL,  ///< feature is categorical; ordering makes no sense
     REAL,         ///< feature is real valued
-    UNUSED1,      ///< Was PROB
+    RANGE,        ///< feature is integer from MIN to MAX
     INUTILE,      ///< feature is inutile and should be ignored
     STRING        ///< feature is an open categorical feature
 };
@@ -113,6 +113,10 @@ public:
     Feature_Info(std::shared_ptr<const Categorical_Info> categorical,
                  bool optional = false, bool biased = false,
                  Type type = CATEGORICAL, bool grouping = false);
+
+    //Initialize for range value info
+//    Feature_Info(size_t min, size_t max) : type_(RANGE), min(min), max(max) {}
+    Feature_Info(std::vector<int>& values);
     
     void serialize(DB::Store_Writer & store) const;
     void reconstitute(DB::Store_Reader & store);
@@ -150,6 +154,10 @@ public:
         dataset. */
     bool grouping() const { return grouping_; }
 
+        std::map<int, int> parse_; //important to be ordered
+    size_t min;
+    size_t max;
+
 protected:
     /** What type of feature is it? */
     uint8_t type_;
@@ -176,6 +184,7 @@ protected:
 
     /** Mutable version of the same.  Not required to be non-null. */
     std::shared_ptr<Mutable_Categorical_Info> mutable_categorical_;
+
 };
 
 

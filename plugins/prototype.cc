@@ -175,7 +175,8 @@ run(const ProcedureRunConfig & run,
 
     struct DataLine
     {
-    	std::vector<std::pair<ML::Feature, float>> features;
+    //	std::vector<std::pair<ML::Feature, float>> features;
+      std::vector<std::pair<int, int>> features; //<Feature index, value index>
     	std::vector<float> weightsperbag;
     	std::vector<int> partitionperbag;
     	bool label;
@@ -201,6 +202,8 @@ run(const ProcedureRunConfig & run,
 
     std::vector<size_t> groupCount(numBuckets, 0);
 
+    std::vector<size_t> ranges = featureSpace->getRanges();
+
     auto aggregator = [&] (NamedRowValue & row_,
                            const std::vector<ExpressionValue> & extraVals,
                            int bucket)
@@ -218,11 +221,13 @@ run(const ProcedureRunConfig & run,
 
             //++numRows;
 
-            std::vector<std::pair<ML::Feature, float> > features(numFeatures)   ;
+          //  std::vector<std::pair<ML::Feature, float> > features(numFeatures)   ;
           //  = { { labelFeature, encodedLabel }, { weightFeature, weight } };
+            std::vector<std::pair<int, int>> features(numFeatures);
                 
             for (auto & c: row.columns) {
-                featureSpace->encodeFeature(std::get<0>(c), std::get<1>(c), features);
+                //featureSpace->encodeFeature(std::get<0>(c), std::get<1>(c), features);
+                featureSpace->encodeFeatureInt(std::get<0>(c), std::get<1>(c), features);
             }
 
             size_t rowIndex = groupCount[bucket] + bucket*numPerBucket;
@@ -340,9 +345,9 @@ run(const ProcedureRunConfig & run,
       		//std::map< std::pair<ML::Feature, float>, float > score;
           //std::map< std::pair<ML::Feature, float>, float > leftscore; //merge with above?
          // std::vector<FeatureValues> scorePerFeature;
-          std::vector<std::vector< std::tuple<float, float, float> > > scorePerFeature; //value, score, left score
+          std::vector<std::vector< std::pair<float, float> > > scorePerFeature; //value, score, left score
 
-          std::pair<ML::Feature, float> bestSplit; //put this in a another array?
+          std::pair<ML::Feature, int> bestSplit; //put this in a another array?
 
           boost::dynamic_bitset<> relevantFeatures;
 
@@ -351,44 +356,49 @@ run(const ProcedureRunConfig & run,
           bool isPureLeft;
           bool isPureRight;
 
-          void init (int numFeatures)
+          void init (std::vector<size_t>& ranges)
           {
               scorePerFeature.clear();
-              scorePerFeature.resize(numFeatures);
+              scorePerFeature.resize(ranges.size());
+              size_t count = 0;
               for (auto& f : scorePerFeature)
               {
-                 f.reserve(1000);
+                 f.resize(ranges[count]);
+                 count++;
               }
           }
 
-          void add(const std::pair<ML::Feature, float>& point, float weight, float leftWeight)
+          void add(const std::pair<int, int>& point, float weight, float leftWeight)
           {
               //FeatureValues::values& v = scorePerFeature[point.first.arg1()].scores[point.second];
               //v.first += weight;
               //v.second += leftWeight; 
 
-              auto& featureArray = scorePerFeature[point.first.arg1()];
+              auto& featureArray = scorePerFeature[point.first];
           //    cerr << "feat " << point.first.arg1() << endl;
-              std::tuple<float, float, float> testTuple = std::make_tuple(point.second, 0.0f, 0.0f);
-              auto insertIter = std::lower_bound(featureArray.begin(), featureArray.end(), testTuple);
-              if (insertIter == featureArray.end() || std::get<0>(*insertIter) != point.second)
-              {
+         //     std::tuple<float, float, float> testTuple = std::make_tuple(point.second, 0.0f, 0.0f);
+          //    auto insertIter = std::lower_bound(featureArray.begin(), featureArray.end(), testTuple);
+           //   if (insertIter == featureArray.end() || std::get<0>(*insertIter) != point.second)
+           //   {
               //    cerr << "adding new tuple " << point.second << "," << weight << "," << leftWeight << endl;
-                  testTuple = std::make_tuple(point.second, weight, leftWeight);
-                  featureArray.insert(insertIter, testTuple);
-              }
-              else
-              {
+            //      testTuple = std::make_tuple(point.second, weight, leftWeight);
+             //     featureArray.insert(insertIter, testTuple);
+             // }
+             // else
+             // {
                 //  cerr << "adding to existing tuple " << point.second << "," << weight << "," << leftWeight << endl;
-                  *insertIter = std::make_tuple(point.second, std::get<1>(*insertIter) + weight, std::get<2>(*insertIter) + leftWeight);
-              }
+              //    *insertIter = std::make_tuple(point.second, std::get<1>(*insertIter) + weight, std::get<2>(*insertIter) + leftWeight);
+             // }
+              auto& tuple = featureArray[point.second];
+              std::get<0>(tuple) += weight;
+              std::get<1>(tuple) += leftWeight;
           }
 
       	};
 
       	std::vector< PerPartition > perPartitionW[2];
 
-        void clear(int iter, int numFeatures)
+        void clear(int iter, std::vector<size_t>& ranges)
         {          
             int numLeaf = (1 << (iter+1));
 
@@ -400,7 +410,7 @@ run(const ProcedureRunConfig & run,
                // ExcAssert(nextFrame == 1);
                 auto& pArray = perPartitionW[0];
                 pArray.resize(1);  
-                pArray[0].init(numFeatures);         
+                pArray[0].init(ranges);         
             }
 
             //TODO: not super efficient because we lose the memory buffers in the score map in PerPartition
@@ -410,7 +420,7 @@ run(const ProcedureRunConfig & run,
 
             for (auto& p : pArray)
             {              
-               p.init(numFeatures);
+               p.init(ranges);
             }
         }
 
@@ -482,7 +492,7 @@ run(const ProcedureRunConfig & run,
         if (iteration > 0 && w.lastNewPartition == 0)
           return true;
 
-        w.clear(iteration, numFeatures);
+        w.clear(iteration, ranges);
 
         if (iteration == 0)
         {
@@ -528,7 +538,7 @@ run(const ProcedureRunConfig & run,
                   //      if (iteration == 0)
                     //      cerr << " (" << f.first.arg1() << "," << f.second << ")";
 
-                        if (partitionScore.relevantFeatures.test(f.first.arg1()))
+                        if (partitionScore.relevantFeatures.test(f.first))
                           continue;
 
                         //partitionScore.score[f] += weight;
@@ -539,27 +549,15 @@ run(const ProcedureRunConfig & run,
 
                         ///////////
 
-                        auto& featureArray = partitionScore.scorePerFeature[f.first.arg1()];
-                    //    cerr << "feat " << point.first.arg1() << endl;
-                        std::tuple<float, float, float> testTuple = std::make_tuple(f.second, 0.0f, 0.0f);
-                        auto insertIter = std::lower_bound(featureArray.begin(), featureArray.end(), testTuple);
-                        if (insertIter == featureArray.end() || std::get<0>(*insertIter) != f.second)
-                        {
-                        //    cerr << "adding new tuple " << point.second << "," << weight << "," << leftWeight << endl;
-                            testTuple = std::make_tuple(f.second, weight, leftWeight);
-                            featureArray.insert(insertIter, testTuple);
-                        }
-                        else
-                        {
-                          //  cerr << "adding to existing tuple " << point.second << "," << weight << "," << leftWeight << endl;
-                            *insertIter = std::make_tuple(f.second, std::get<1>(*insertIter) + weight, std::get<2>(*insertIter) + leftWeight);
-                        }
+                        auto& featureArray = partitionScore.scorePerFeature[f.first];
+                      //  cerr << "feat " << f.first << endl;
+
+                        auto& tuple = featureArray[f.second];
+                        std::get<0>(tuple) += weight;
+                        std::get<1>(tuple) += leftWeight;
 
                         ////////////
 
-                          // auto& v = partitionScore.scorePerFeature[f.first.arg1()].scores[f.second];
-                          //v.first += weight;
-                          // v.second += label ? weight : 0; 
                     }
 
                     //if (iteration == 0)
@@ -603,21 +601,32 @@ run(const ProcedureRunConfig & run,
              //   cerr << "feature index " << fIndex << endl;
                 auto& fmap = partitionScore.scorePerFeature[fIndex];
 
-                if (fmap.size() == 1)
+
+
+              /*  if (fmap.size() == 1)
                 {
                //     cerr << "feature has only 1 value " << endl;
                     partitionScore.relevantFeatures.set(fIndex);
                 }
-                else if (!fmap.empty())
+                else if (!fmap.empty())*/
                 {
                 //    cerr << "feature not empty " << endl;
                     float totalTrue = 0.0f;
                     float total = 0.0f;
+                    int count = 0;
 
+                    int currentValue = -1;
                     for (auto& value : fmap)
                     {
-                        totalTrue += std::get<2>(value);
-                        total += std::get<1>(value);
+                        currentValue++;
+                        float weight = std::get<0>(value);
+                        if (weight < 0.001f)
+                          continue;
+
+                        totalTrue += std::get<1>(value);
+                        total += weight;
+
+                        count++;
 
                         float totalRight = bigTotalScore - total;
                         if (totalRight > 0.01f)
@@ -643,107 +652,20 @@ run(const ProcedureRunConfig & run,
                                 //bestScoreSide = totalPurity;
                               //  cerr << "NEW BEST TOTAL TRUE: " << totalTrue << endl;
                                 bestScore = totalPurity;
-                                bestSplit = std::pair<int, float>(fIndex, std::get<0>(value));
+                                bestSplit = std::pair<int, float>(fIndex, currentValue);
                                 bestLeft = purityLeft;
                                 bestRight = purityRight;
                             }
                             
                         }  
                     }
+
+                    if (count <= 1)
+                    {
+                        partitionScore.relevantFeatures.set(fIndex);
+                    }
                 }
             }
-
-
-/////////
-          //  auto iter = partitionScore.score.begin();
-          //  auto trueiter = partitionScore.leftscore.begin();
-          //  auto iterEnd = partitionScore.score.end();
-
-         /*   ML::Feature currentType;
-            
-            float totalTrue = 0.0f;
-            float total = -1.0f;
-            int currentCount = 0;
-            float bigTotalScore = partitionScore.totalLeft + partitionScore.totalRight;
-
-            while (iter != iterEnd)
-            {
-                const std::pair<ML::Feature, float>& f = iter->first;
-                if (f.first != currentType )
-                {
-                    //was there a unique value for this feature in this partition?
-                    if (currentCount == 1)
-                    {
-                        //partitionScore.removetype(currentType);
-                       // if (currentType.arg1() >= partitionScore.relevantFeatures.size())
-                      //  {
-                       //     cerr << currentFrame << "," << nextFrame << endl;
-                        //    cerr << currentType.arg1() << ", " << partitionScore.relevantFeatures.size() << endl;
-                         //   ExcAssert(false);
-                       // }
-                     //   cerr << "excluding feature type " << currentType.arg1() << " from partition " << partition << endl;
-                        partitionScore.relevantFeatures.set(currentType.arg1());
-                    }
-
-                    totalTrue = 0.0f;
-                    total = 0.0f;
-                    currentType = f.first;
-                    currentCount = 1;
-                 //   cerr << "next feature" << endl;
-                }
-                else
-                {
-                  ++currentCount;
-                }*/
-
-               /* currentTypeSum += iter->second;
-                //TODO: This is not like really correct
-                //Need to take into account the total weight on each side
-                float absoluteScore = fabs(currentTypeSum);
-                if ( absoluteScore > bestScore)
-                {
-                    bestScoreSide = currentTypeSum;
-                    bestScore = absoluteScore;
-                    bestSplit = f;
-                } */
-
-             /*   totalTrue += trueiter->second;
-                total += iter->second;
-
-                float totalRight = bigTotalScore - total;
-                if (totalRight > 0.01f)
-                {
-                    float probTrueOnLeft = totalTrue / total;
-                    float probTrueOnRight = (partitionScore.totalLeft - totalTrue) / (totalRight);
-
-                    //cerr << "probTrueOnLeft: " << probTrueOnLeft << " ,probTrueOnRight: " << probTrueOnRight << endl;
-
-                    float purityLeft = probTrueOnLeft > 0.5f ? probTrueOnLeft : 1.0f - probTrueOnLeft;
-                    float purityRight = probTrueOnRight > 0.5f ? probTrueOnRight : 1.0f - probTrueOnRight;
-
-                    //float totalPurity = purityLeft * purityRight;
-                    float totalPurity = total*purityLeft + totalRight*purityRight;
-
-                    if ( totalPurity > bestScore)
-                    {
-                        //bestScoreSide = totalPurity;
-                        bestScore = totalPurity;
-                        bestSplit = f;
-                        bestLeft = purityLeft;
-                        bestRight = purityRight;
-                    }
-                    
-                }                
-
-                ++iter;    
-                ++trueiter;           
-            }*/
-///////////////
-           /* if (currentCount == 1)
-            {
-                //partitionScore.removetype(currentType);
-                partitionScore.relevantFeatures.set(currentType.arg1());
-            }*/
 
          //   cerr << "test partition: " << partition << endl;
 
@@ -866,7 +788,7 @@ run(const ProcedureRunConfig & run,
   	} 	
 
     //print the bags
-    if (true)
+    if (false)
     {
         for (int bag = 0; bag < numBags; ++bag)
         {

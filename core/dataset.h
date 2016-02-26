@@ -124,8 +124,11 @@ struct ColumnStats {
 
     std::map<CellValue, CellValueStats> values;
 
+    CellValue minValue_;
+    CellValue maxValue_;
     bool isNumeric_;
     bool atMostOne_;
+    bool isInteger_;
     uint64_t rowCount_;
 };
 
