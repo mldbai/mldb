@@ -214,6 +214,7 @@ $(eval $(call mldb_unit_test,MLDB-1165-where-rowname-in-optim.py,,manual)) # bas
 $(eval $(call mldb_unit_test,MLDB-1304-titanic-demo.py))
 
 $(eval $(call mldb_unit_test,airlines.py))
+$(eval $(call mldb_unit_test,airlines2.py))
 
 $(eval $(call mldb_unit_test,MLDB-1000-type-documentation-valid.js))
 $(eval $(call mldb_unit_test,MLDB-1003-s3-load-dataset.js,,$(MANUAL_IF_NO_S3)))

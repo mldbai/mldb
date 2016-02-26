@@ -8,6 +8,8 @@
 #include "mldb/core/dataset.h"
 #include "mldb/ml/jml/registry.h"
 #include "mldb/base/parallel.h"
+#include "mldb/ml/jml/training_index_entry.h"
+#include "mldb/jml/utils/smart_ptr_utils.h"
 #include "mldb/types/value_description.h"
 #include "mldb/types/hash_wrapper_description.h"
 
@@ -33,7 +35,8 @@ DatasetFeatureSpace()
 DatasetFeatureSpace::
 DatasetFeatureSpace(std::shared_ptr<Dataset> dataset,
                     ML::Feature_Info labelInfo,
-                    const std::set<ColumnName> & knownInputColumns)
+                    const std::set<ColumnName> & knownInputColumns,
+                    bool bucketizeNumerics)
     : labelInfo(labelInfo)
 {
     auto columns = dataset->getColumnNames();
@@ -61,8 +64,28 @@ DatasetFeatureSpace(std::shared_ptr<Dataset> dataset,
             auto & stats = dataset->getColumnIndex()
                 ->getColumnStats(columnName, statsStorage);
 
+            columnInfo[ch].distinctValues = stats.values.size();
+
             if (stats.isNumeric()) {
                 columnInfo[ch].info = ML::REAL;
+
+                if (bucketizeNumerics) {
+                    ML::Dataset_Index::Index_Entry entry;
+                    entry.used = true;
+                    int n = 0;
+                    for (auto & v: stats.values) {
+                        entry.insert(v.first.toDouble(), n++, stats.values.size(),
+                                     false /* sparse */);
+                    }
+                    entry.finalize(stats.values.size(), getFeature(ch),
+                                   ML::make_unowned_sp(*this));
+                    columnInfo[ch].buckets = entry.create_buckets(256 /* num buckets */);
+                    columnInfo[ch].buckets.buckets.clear();
+                    cerr << "column " << columnName << " has "
+                         << stats.values.size() << " values in "
+                         << columnInfo[ch].buckets.splits.size()
+                         << " buckets" << endl;
+                }
             }
             else {
                 std::map<CellValue::CellType, std::pair<size_t, size_t> > types;
@@ -141,6 +164,36 @@ encodeFeature(ColumnHash column, const CellValue & value,
     //                              it->second.info));
 }
 
+std::pair<int, int>
+DatasetFeatureSpace::
+getFeatureBucket(ColumnHash column, const CellValue & value) const
+{
+    if (value.empty())
+        throw ML::Exception("Encoding empty value");
+        
+    auto it = columnInfo.find(column);
+    if (it == columnInfo.end()) {
+        throw ML::Exception("Encoding unknown column");
+    }
+
+    if (it->second.info.type() == ML::CATEGORICAL
+        || it->second.info.type() == ML::STRING) {
+        std::string key;
+        if (value.isUtf8String())
+            key = value.toUtf8String().rawString();
+        else 
+            key  = value.toString();
+
+        int val = it->second.info.categorical()->lookup(key);
+        return { it->second.index, val };
+    }
+
+    double d = value.toDouble();
+
+    auto it2 = std::lower_bound(it->second.buckets.splits.begin(), it->second.buckets.splits.end(), d);
+    return { it->second.index, it2 - it->second.buckets.splits.begin() };
+}
+
 float
 DatasetFeatureSpace::
 encodeLabel(const CellValue & value) const
@@ -217,14 +270,14 @@ ML::Feature
 DatasetFeatureSpace::
 getFeature(ColumnHash hash) const
 {
-  //  uint32_t high = hash >> 32;
-  //  uint32_t low  = hash;
+    uint32_t high = hash >> 32;
+    uint32_t low  = hash;
 
-    uint32_t high = columnInfo.find(hash)->second.index;
-    uint32_t low  = 0;
+    //uint32_t high = columnInfo.find(hash)->second.index;
+    //uint32_t low  = 0;
 
     ML::Feature result(1, high, low);
-  //  ExcAssertEqual(getHash(result), hash);
+    ExcAssertEqual(getHash(result), hash);
 
     return result;
 }
@@ -292,8 +345,11 @@ print(const ML::Feature & feature) const
 
         
     auto it = columnInfo.find(getHash(feature));
-    if (it == columnInfo.end())
+    if (it == columnInfo.end()) {
+        cerr << "feature = " << feature << endl;
+        cerr << "hash = " << getHash(feature) << endl;
         throw ML::Exception("Couldn't find feature in dataset");
+    }
     return it->second.columnName.toUtf8String().rawString();
 }
 

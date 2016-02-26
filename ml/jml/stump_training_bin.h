@@ -1,5 +1,3 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* stump_training_bin.h                                           -*- C++ -*-
    Jeremy Barnes, 20 February 2004
    Copyright (c) 2004 Jeremy Barnes.  All rights reserved.
@@ -12,11 +10,11 @@
    4.  Each feature occurs exactly 0 or 1 times for each example.
    
    It is quite a lot faster, as these assumptions knock off a lot of work.
+
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
-#ifndef __boosting__stump_training_bin_h__
-#define __boosting__stump_training_bin_h__
-
+#pragma once
 
 #include "mldb/compiler/compiler.h"
 #include "mldb/arch/exception.h"
@@ -262,7 +260,3 @@ struct Z_binsym {
 
 
 } // namespace ML
-
-
-#endif /* __boosting__stump_training_bin_h__ */
-

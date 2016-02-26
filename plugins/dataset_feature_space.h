@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** dataset_feature_space.h                                        -*- C++ -*-
     Jeremy Barnes, 13 March 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Feature space for datasets to allow training of classifiers.
 */
@@ -10,6 +10,7 @@
 #pragma once
 
 #include "mldb/ml/jml/feature_space.h"
+#include "mldb/ml/jml/buckets.h"
 #include "mldb/sql/dataset_types.h"
 
 namespace Datacratic {
@@ -38,12 +39,24 @@ struct DatasetFeatureSpace: public ML::Feature_Space {
 
     DatasetFeatureSpace(std::shared_ptr<Dataset> dataset,
                         ML::Feature_Info labelInfo,
-                        const std::set<ColumnName> & includeColumns);
+                        const std::set<ColumnName> & includeColumns,
+                        bool bucketizeNumerics = false);
 
     struct ColumnInfo {
         ColumnName columnName;
         ML::Feature_Info info;
         int index;
+        int distinctValues;
+        ML::Bucket_Info buckets;
+
+        /** Return the CellValue describing the given bucket. */
+        CellValue getBucketValue(int bucket) const
+        {
+            if (!buckets.splits.empty()) {
+                return bucket == buckets.splits.size() ? INFINITY : buckets.splits.at(bucket);
+            }
+            return jsonDecode<CellValue>(info.categorical()->print(bucket));
+        }
     };
 
     std::unordered_map<ColumnHash, ColumnInfo> columnInfo;
@@ -55,6 +68,12 @@ struct DatasetFeatureSpace: public ML::Feature_Space {
     */
     void encodeFeature(ColumnHash column, const CellValue & value,
                        std::vector<std::pair<ML::Feature, float> > & fset) const;
+
+    /** Bucketize a feature and return its feature number and bucket
+        number.  For when bucketizeNumerics is set to true.
+    */
+    std::pair<int, int>
+    getFeatureBucket(ColumnHash column, const CellValue & value) const;
 
     /** Encode the column value as a feature, ready to add to a dense
         vector.

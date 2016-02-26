@@ -13,6 +13,9 @@
 #include "mldb/jml/utils/worker_task.h"
 #include "mldb/arch/timers.h"
 #include "mldb/jml/utils/profile.h"
+#include "mldb/ml/jml/tree.h"
+#include "mldb/ml/jml/stump_training_bin.h"
+#include "mldb/ml/jml/decision_tree.h"
 
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/uniform_int.hpp>
@@ -94,6 +97,371 @@ getStatus() const
     return Any();
 }
 
+/** Holds the set of data for a partition of a decision tree. */
+struct PartitionData {
+
+    PartitionData()
+        : fs(nullptr)
+    {
+    }
+
+    PartitionData(const DatasetFeatureSpace & fs)
+        : fs(&fs), features(fs.columnInfo.size())
+    {
+        for (auto & c: fs.columnInfo) {
+            Feature & f = features.at(c.second.index);
+            f.active = c.second.distinctValues > 1;
+            f.ordinal = !c.second.buckets.splits.empty();
+            f.numBuckets = c.second.distinctValues;
+            if (c.second.buckets.splits.size())
+                f.numBuckets = c.second.buckets.splits.size() + 1;
+            f.info = &c.second;
+        }
+    }
+
+    const DatasetFeatureSpace * fs;
+
+    /// Entry for an individual row
+    struct Row {
+        bool label;                 ///< Label associated with
+        float weight;               ///< Weight of the example 
+        const int * features;       ///< Value of each feature (dense)
+    };
+    
+    // Entry for an individual feature
+    struct Feature {
+        Feature()
+            : active(false), ordinal(false), numBuckets(0),
+              info(nullptr)
+        {
+        }
+
+        bool active;  ///< If true, the feature can be split on
+        bool ordinal; ///< If true, it's continuous valued; otherwise categ.
+        int numBuckets;
+        const DatasetFeatureSpace::ColumnInfo * info;
+    };
+
+    // All rows of data in this partition
+    std::vector<Row> rows;
+
+    // All features that are active
+    std::vector<Feature> features;
+
+    /** Add the given row. */
+    void addRow(const Row & row)
+    {
+        rows.push_back(row);
+    }
+
+    void addRow(bool label, float weight, const int * features)
+    {
+        rows.emplace_back(Row{label, weight, features});
+    }
+
+    /** Split the partition here. */
+    std::pair<PartitionData, PartitionData>
+    split(int featureToSplitOn, int splitValue)
+    {
+        PartitionData left, right;
+
+        left.fs = fs;
+        right.fs = fs;
+        left.features = features;
+        right.features = features;
+
+        // For each example, it goes either in left or right, depending
+        // upon the value of the chosen feature.
+
+        if (features[featureToSplitOn].ordinal) {
+            // Ordinal feature
+            for (auto & r: rows) {
+                int bucket = r.features[featureToSplitOn];
+                (bucket <= splitValue ? left : right).addRow(r);
+            }
+        }
+        else {
+            // Categorical feature
+            for (auto & r: rows) {
+                int bucket = r.features[featureToSplitOn];
+                (bucket == splitValue ? left : right).addRow(r);
+            }
+        }
+
+        return { std::move(left), std::move(right) };
+    }
+
+    template<typename Float>
+    struct WT {
+        WT()
+            : v { 0, 0 }
+        {
+        }
+
+        Float v[2];
+
+        Float & operator [] (bool i)
+        {
+            return v[i];
+        }
+
+        const Float & operator [] (bool i) const
+        {
+            return v[i];
+        }
+
+        WT & operator += (const WT & other)
+        {
+            v[0] += other.v[0];
+            v[1] += other.v[1];
+            return *this;
+        }
+
+        WT & operator -= (const WT & other)
+        {
+            v[0] -= other.v[0];
+            v[1] -= other.v[1];
+            return *this;
+        }
+    };
+
+    typedef WT<double> W;
+    //typedef WT<ML::FixedPointAccum64> W;
+
+    /** Test all features for a split.  Returns the feature number,
+        the bucket number and the goodness of the split.
+    */
+    std::tuple<double, int, int, W>
+    testAll(int depth)
+    {
+        bool debug = false;
+
+        int nf = features.size();
+
+        // For each feature, for each bucket, for each label
+        std::vector<std::vector<W> > w(nf);
+
+        size_t totalNumBuckets = 0;
+        size_t activeFeatures = 0;
+
+        for (unsigned i = 0;  i < nf;  ++i) {
+            if (!features[i].active)
+                continue;
+            ++activeFeatures;
+            w[i].resize(features[i].numBuckets);
+            totalNumBuckets += features[i].numBuckets;
+        }
+
+        if (debug || depth == 0) {
+            cerr << "total of " << totalNumBuckets << " buckets" << endl;
+            cerr << activeFeatures << " of " << nf << " features active"
+                 << endl;
+        }
+
+        W wAll;
+        for (auto & r: rows) {
+            wAll[r.label] += r.weight;
+            for (unsigned i = 0;  i < nf;  ++i) {
+                if (!features[i].active)
+                    continue;
+                int bucket = r.features[i];
+                w[i][bucket][r.label] += r.weight;
+            }
+        }
+
+        if (wAll[0] == 0 || wAll[1] == 0)
+            return std::make_tuple(1.0, -1, -1, wAll);
+
+        double bestScore = INFINITY;
+        int bestFeature = -1;
+        int bestSplit = -1;
+
+        int bucketsEmpty = 0;
+        int bucketsOne = 0;
+        int bucketsBoth = 0;
+
+        // Score each feature
+        for (unsigned i = 0;  i < nf;  ++i) {
+            if (!features[i].active)
+                continue;
+
+            W wAll; // TODO: do we need this?
+            for (auto & wt: w[i]) {
+                wAll += wt;
+                bucketsEmpty += wt[0] == 0 && wt[1] == 0;
+                bucketsBoth += wt[0] != 0 && wt[1] != 0;
+                bucketsOne += (wt[0] == 0) ^ (wt[1] == 0);
+            }
+
+            auto score = [] (const W & wFalse, const W & wTrue) -> double
+                {
+                    double score
+                    = 2.0 * (  sqrt(wFalse[0] * wFalse[1])
+                             + sqrt(wTrue[0] * wTrue[1]));
+                    return score;
+                };
+            
+            if (debug) {
+                cerr << "feature " << i << " " << features[i].info->columnName
+                     << endl;
+                cerr << "    all: " << wAll[0] << " " << wAll[1] << endl;
+            }
+
+            if (features[i].ordinal) {
+                // Calculate best split point for ordered values
+                W wFalse = wAll, wTrue;
+                
+                // Now test split points one by one
+                for (unsigned j = 0;  j < w[i].size() - 1;  ++j) {
+                    double s = score(wFalse, wTrue);
+
+                    if (debug) {
+                        cerr << "  ord split " << j << " "
+                             << features[i].info->getBucketValue(j)
+                             << " had score " << s << endl;
+                        cerr << "    false: " << wFalse[0] << " " << wFalse[1] << endl;
+                        cerr << "    true:  " << wTrue[0] << " " << wTrue[1] << endl;
+                    }
+
+                    wFalse -= w[i][j];
+                    wTrue += w[i][j];
+
+                    if (s < bestScore) {
+                        bestScore = s;
+                        bestFeature = i;
+                        bestSplit = j;
+                    }
+                }
+            }
+            else {
+                // Calculate best split point for non-ordered values
+                // Now test split points one by one
+                for (unsigned j = 0;  j < w[i].size();  ++j) {
+                    W wFalse = wAll;
+                    wFalse -= w[i][j];
+
+                    double s = score(wFalse, w[i][j]);
+
+                    if (debug) {
+                        cerr << "  non ord split " << j << " "
+                             << features[i].info->getBucketValue(j)
+                             << " had score " << s << endl;
+                        cerr << "    false: " << wFalse[0] << " " << wFalse[1] << endl;
+                        cerr << "    true:  " << w[i][j][0] << " " << w[i][j][1] << endl;
+                    }
+             
+                    if (s < bestScore) {
+                        bestScore = s;
+                        bestFeature = i;
+                        bestSplit = j;
+                    }
+                }
+
+            }
+        }
+
+        
+        if (debug || true) {
+            cerr << "buckets: empty " << bucketsEmpty << " one " << bucketsOne
+                 << " both " << bucketsBoth << endl;
+            cerr << "bestScore " << bestScore << endl;
+            cerr << "bestFeature " << bestFeature << " "
+                 << features[bestFeature].info->columnName << endl;
+            cerr << "bestSplit " << bestSplit << " "
+                 << features[bestFeature].info->getBucketValue(bestSplit)
+                 << endl;
+        }
+
+        return std::make_tuple(bestScore, bestFeature, bestSplit, wAll);
+    }
+
+    static void fillinBase(ML::Tree::Base * node, const W & wAll)
+    {
+        node->examples = wAll[0] + wAll[1];
+        node->pred = {
+            float(wAll[0]) / node->examples,
+            float(wAll[1]) / node->examples };
+    }
+
+    ML::Tree::Ptr getLeaf(ML::Tree & tree)
+    {
+        W wAll;
+        for (auto & r: rows) {
+            wAll[r.label] += r.weight;
+        }
+        
+        ML::Tree::Node * node = tree.new_node();
+        fillinBase(node, wAll);
+        return node;
+    }
+
+    ML::Tree::Ptr train(int depth, int maxDepth,
+                        ML::Tree & tree)
+    {
+        if (rows.empty())
+            return ML::Tree::Ptr();
+        if (rows.size() < 2)
+            return getLeaf(tree);
+
+        if (depth >= maxDepth)
+            return getLeaf(tree);
+
+        //cerr << "training with " << rows.size() << " rows" << endl;
+
+        ML::Timer timer;
+
+        double bestScore;
+        int bestFeature;
+        int bestSplit;
+        W wAll;
+        
+        std::tie(bestScore, bestFeature, bestSplit, wAll) = testAll(depth);
+
+        std::pair<PartitionData, PartitionData> splits
+            = split(bestFeature, bestSplit);
+
+        //cerr << "done split in " << timer.elapsed() << endl;
+
+        cerr << "left had " << splits.first.rows.size() << " rows" << endl;
+        cerr << "right had " << splits.second.rows.size() << " rows" << endl;
+
+        ML::Tree::Ptr left = splits.first.train(depth + 1, maxDepth, tree);
+        ML::Tree::Ptr right = splits.second.train(depth + 1, maxDepth, tree);
+
+        if (bestFeature != -1 && left && right) {
+            Tree::Node * node = tree.new_node();
+            ML::Feature feature = fs->getFeature(features[bestFeature].info->columnName);
+            float splitVal;
+            if (features[bestFeature].ordinal) {
+                splitVal = (bestSplit == features[bestFeature].info->buckets.splits.size()
+                            ? INFINITY : features[bestFeature].info->buckets.splits.at(bestSplit));
+            }
+            else {
+                splitVal = bestSplit;
+            }
+
+            ML::Split split(feature, splitVal,
+                            features[bestFeature].ordinal
+                            ? ML::Split::LESS : ML::Split::EQUAL);
+            
+            node->split = split;
+            node->child_true = left;
+            node->child_false = right;
+            node->z = bestScore;
+            fillinBase(node, wAll);
+
+            return node;
+        }
+        else {
+            Tree::Leaf * leaf = tree.new_leaf();
+            fillinBase(leaf, wAll);
+
+            return leaf;
+        }
+    }
+};
+
+
 /* WE WILL ONLY DO BOOLEAN CLASSIFICATION FOR NOW */
 
 RunOutput
@@ -101,15 +469,19 @@ PrototypeProcedure::
 run(const ProcedureRunConfig & run,
       const std::function<bool (const Json::Value &)> & onProgress) const
 {
-	const int numBags = 1;
+    //const int numBags = 100;
+    //int maxDepth = 20;
 
-	PrototypeConfig runProcConf =
+    const int numBags = 1;
+    int maxDepth = 4;
+
+    PrototypeConfig runProcConf =
         applyRunConfOverProcConf(procedureConfig, run);
 
     // this includes being empty
-   // if(!runProcConf.modelFileUrl.valid()) {
-   //     throw ML::Exception("modelFileUrl is not valid");
-   // }
+    // if(!runProcConf.modelFileUrl.valid()) {
+    //     throw ML::Exception("modelFileUrl is not valid");
+    // }
 
     // 1.  Get the input dataset
     SqlExpressionMldbContext context(server);
@@ -119,7 +491,7 @@ run(const ProcedureRunConfig & run,
     ML::Mutable_Feature_Info labelInfo = ML::Mutable_Feature_Info(ML::BOOLEAN);
     labelInfo.set_biased(true);
 
-        auto extractWithinExpression = [](std::shared_ptr<SqlExpression> expr) 
+    auto extractWithinExpression = [](std::shared_ptr<SqlExpression> expr) 
         -> std::shared_ptr<SqlRowExpression>
         {
             auto withinExpression = std::dynamic_pointer_cast<const SelectWithinExpression>(expr);
@@ -155,12 +527,15 @@ run(const ProcedureRunConfig & run,
     // THIS ACTUALL MIGHT DO A LOTTTTTTT OF WORK
     // "GET COLUMN STATS" -> list of all possible values per column ?!? 
     // Profile this!
-        auto featureSpace = std::make_shared<DatasetFeatureSpace>
-        (boundDataset.dataset, labelInfo, knownInputColumns);
+    auto featureSpace = std::make_shared<DatasetFeatureSpace>
+        (boundDataset.dataset, labelInfo, knownInputColumns, true /* bucketize */);
 
     for (auto& c : knownInputColumns) {
-      cerr << c.toString() << " feature " << featureSpace->getFeature(c) << endl;
+        cerr << c.toString() << " feature " << featureSpace->getFeature(c) << endl;
     }
+
+    // Get the feature buckets per row
+
 
     //NEED A TABLE WITH N ROW CONTAINING FOR EACH DATA POINT:
     // FEATURES LIST  (k * sizeof)
@@ -175,21 +550,14 @@ run(const ProcedureRunConfig & run,
 
     struct DataLine
     {
-    	std::vector<std::pair<ML::Feature, float>> features;
+        std::vector<int> features;
     	std::vector<float> weightsperbag;
-    	std::vector<int> partitionperbag;
     	bool label;
     };
 
-  //  struct ThreadAccum {
-    	std::vector<DataLine> lines;
-  //  };
+    std::vector<DataLine> lines;
 
     lines.resize(numRow);
-
-    //std::atomic<int> numRows(0);
-
-    distribution<float> weightPerRow(numRow);
 
     int numFeatures = knownInputColumns.size();
     cerr << "NUM FEATURES : " << numFeatures << endl;
@@ -205,12 +573,12 @@ run(const ProcedureRunConfig & run,
                            const std::vector<ExpressionValue> & extraVals,
                            int bucket)
         {
-        	 MatrixNamedRow row = row_.flattenDestructive();
-           CellValue label = extraVals.at(0).getAtom();
-           if (label.empty())
+            MatrixNamedRow row = row_.flattenDestructive();
+            CellValue label = extraVals.at(0).getAtom();
+            if (label.empty())
                 return true; //should we support that?
 
-          //  ThreadAccum & thr = accum.get();
+            //  ThreadAccum & thr = accum.get();
 
             bool encodedLabel = label.isTrue();
 
@@ -218,11 +586,15 @@ run(const ProcedureRunConfig & run,
 
             //++numRows;
 
-            std::vector<std::pair<ML::Feature, float> > features(numFeatures)   ;
-          //  = { { labelFeature, encodedLabel }, { weightFeature, weight } };
+            std::vector<int> features(numFeatures);
+            //  = { { labelFeature, encodedLabel }, { weightFeature, weight } };
                 
             for (auto & c: row.columns) {
-                featureSpace->encodeFeature(std::get<0>(c), std::get<1>(c), features);
+                int featureNum;
+                int featureBucketNum;
+                std::tie(featureNum, featureBucketNum)
+                    = featureSpace->getFeatureBucket(std::get<0>(c), std::get<1>(c));
+                features[featureNum] = featureBucketNum;
             }
 
             size_t rowIndex = groupCount[bucket] + bucket*numPerBucket;
@@ -232,10 +604,7 @@ run(const ProcedureRunConfig & run,
 
             line.features = std::move(features);
             line.weightsperbag.resize(numBags, weight);
-            line.partitionperbag.resize(numBags, 0);
             line.label = encodedLabel;
-
-            weightPerRow[rowIndex] = weight;
 
             //thr.fvs.emplace_back(row.rowName, std::move(features));
             return true;
@@ -266,64 +635,58 @@ run(const ProcedureRunConfig & run,
     
     auto bagPrepare = [&] (int bag)
         {
-        	boost::mt19937 rng;
-        	distribution<float> in_training(numRow);
-  		    vector<int> tr_ex_nums(numRow);
-  		    std::iota(tr_ex_nums.begin(), tr_ex_nums.end(), 0);  // 0, 1, 2, 3, 4, 5, 6, 7... N
-  		    std::random_shuffle(tr_ex_nums.begin(), tr_ex_nums.end(), myrng);  //5, 1, 14, N...
-  		    for (unsigned i = 0;  i < numRow * trainprop;  ++i)
-  		        in_training[tr_ex_nums[i]] = 1.0;                      //0, 0, 0, 1, 0, 1, 0, 1, 1, ....
-  		    //distribution<float> not_training(nx, 1.0);                 //1, 1, 1, 0, 1, 0, 1, 0, 0, ...
-  		    //not_training -= in_training;
+            boost::mt19937 rng(bag + 245);
+            distribution<float> in_training(numRow);
+            vector<int> tr_ex_nums(numRow);
+            std::iota(tr_ex_nums.begin(), tr_ex_nums.end(), 0);  // 0, 1, 2, 3, 4, 5, 6, 7... N
+            std::random_shuffle(tr_ex_nums.begin(), tr_ex_nums.end(), myrng);  //5, 1, 14, N...
+            for (unsigned i = 0;  i < numRow * trainprop;  ++i)
+                in_training[tr_ex_nums[i]] = 1.0;                      //0, 0, 0, 1, 0, 1, 0, 1, 1, ....
+            //distribution<float> not_training(nx, 1.0);                 //1, 1, 1, 0, 1, 0, 1, 0, 0, ...
+            //not_training -= in_training;
 
-  		    distribution<float> example_weights(numRow);
+            distribution<float> example_weights(numRow);
 
-          	// Generate our example weights. 
-  		    for (unsigned i = 0;  i < numRow;  ++i)
-  		        example_weights[myrng(numRow)] += 1.0;   // MBOLDUC random numbers between 0 and N - lots of 0. Several samples in neither training nor validation?
+            // Generate our example weights. 
+            for (unsigned i = 0;  i < numRow;  ++i)
+                example_weights[myrng(numRow)] += 1.0;   // MBOLDUC random numbers between 0 and N - lots of 0. Several samples in neither training nor validation?
 
-  		    distribution<float> training_weights
-  		        = in_training * example_weights * weightPerRow;
-  		    training_weights.normalize();          // MBOLDUC can't we know the norm? Is this using SIMD?
+            distribution<float> training_weights
+            = in_training * example_weights;
+            training_weights.normalize();          // MBOLDUC can't we know the norm? Is this using SIMD?
 
-  		    for (unsigned i = 0;  i < numRow;  ++i)
-  		    {
-  		    	DataLine & line = lines[i];
-  		    	line.weightsperbag[bag];
-  		    }
+            PartitionData data(*featureSpace);
 
-  		    //distribution<float> validate_weights
-  		    //    = not_training * example_weights * info.training_ex_weights;
-  		    //validate_weights.normalize();          // MBOLDUC can't we know the norm? Is this using SIMD?
+            for (unsigned i = 0;  i < data.features.size();  ++i)
+                if (data.features[i].active
+                    && rng() % 2 != 0)
+                    data.features[i].active = false;
+
+            for (size_t i = 0;  i < lines.size();  ++i) {
+                if (example_weights[i] == 0)
+                    continue;
+
+                DataLine & line = lines[i];
+
+                data.addRow(line.label, training_weights[i], &line.features[0]);
+            }
+
+            ML::Timer timer;
+            ML::Tree tree;
+            tree.root = data.train(0 /* depth */, maxDepth, tree);
+            cerr << "bag " << bag << " took " << timer.elapsed() << endl;
+
+            ML::Decision_Tree dtree(featureSpace, labelFeature);
+            dtree.tree = std::move(tree);
+            
+            cerr << dtree.print() << endl;
 
         };
 
     run_in_parallel(0, numBags, bagPrepare);
 
-  	weightPerRow.resize(0);    // dont need it anymore
-  	weightPerRow.shrink_to_fit();
 
-  	//NEED TO FIND THE SPLIT POINTS
-
-
-	//ACTUAL LEARNING
-	//START WITH SOMETHING NAIVE
-
-/*	Worker_Task & worker =  Worker_Task::instance();
-
-	auto groupId = worker.get_group(NO_JOB, "");
-
-	auto bagExec = [&] (int bag)
-        {
-        //	cerr << bag << endl;
-        };
-
-    ML::Timer timer;
-    for (int i = 0; i < numBags; ++i)
-    {
-    	worker.add(std::bind<void>(bagExec, i), "", groupId);
-    }
-     cerr << "adding tasks in " << timer.elapsed() << endl;*/
+#if 0
 
     struct BagW
     {
@@ -577,6 +940,7 @@ run(const ProcedureRunConfig & run,
         cerr << "max partition: " << maxpartition << endl;
         for (int partition = 0; partition < maxpartition; partition++)
         {
+            cerr << "partition " << partition << endl;
             BagW::PerPartition& partitionScore = currentPartitions[partition];
 
             //partition is uniform
@@ -610,6 +974,7 @@ run(const ProcedureRunConfig & run,
                 }
                 else if (!fmap.empty())
                 {
+                    //cerr << "feature " << fIndex << " has " << fmap.size() << " values" << endl;
                 //    cerr << "feature not empty " << endl;
                     float totalTrue = 0.0f;
                     float total = 0.0f;
@@ -878,6 +1243,8 @@ run(const ProcedureRunConfig & run,
             }
         }
     }
+
+#endif
    
     return RunOutput();
 

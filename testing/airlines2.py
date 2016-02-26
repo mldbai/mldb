@@ -8,17 +8,13 @@ start = datetime.datetime.now();
 mldb.put("/v1/datasets/airline", {
     "type":"text.csv.tabular",
     "params": {
-        "dataFileUrl": "file://allyears.1987.2013.csv",
+        "dataFileUrl": "file://train-1m.csv",
         "limit" : 1000000,
         "offset" : 0,
        "ignoreBadLines" : True
     }
 })
 mldb.log(datetime.datetime.now() - start)
-
-res = mldb.query("select IsDepDelayed, min(DepDelay), max(DepDelay) from airline group by IsDepDelayed")
-
-mldb.log(res)
 
 start = datetime.datetime.now();
 #mldb.put('/v1/procedures/benchmark', {
@@ -51,8 +47,8 @@ mldb.put('/v1/procedures/benchmark', {
     "params": {
         "trainingData": """
             select
-                {* EXCLUDING(IsArrDelayed, IsDepDelayed, DepDelay, ArrDelay)} as features,
-                IsDepDelayed = 'YES' as label
+                {* EXCLUDING(dep_delayed_15min)} as features,
+                dep_delayed_15min = 'Y' as label
             from airline
             """,
         #"configuration": {
