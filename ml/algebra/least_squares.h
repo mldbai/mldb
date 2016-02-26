@@ -406,12 +406,6 @@ irls(const distribution<Float> & y, const boost::multi_array<Float, 2> & x,
         //}
     }
 
-    if(iter >= max_iter) {
-        cerr << "irls: MAXIMUM ITERATIONS REACHED WITHOUT CONVERGENCE" << endl;
-    }
-    else {
-        cerr << "irls: convergence after " << iter << " iterations" << endl;
-    }
     return b;
 }
 

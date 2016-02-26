@@ -71,7 +71,7 @@ BOOST_AUTO_TEST_CASE( weighted_training_test )
 
         // weights: LABEL, ExampleId
         // ignore: ExampleId
-        string cmd1 = "make classifier_training_tool; build/x86_64/bin/classifier_training_tool " + filename1 + " -c " + configname + " -n glz glz.link_function=linear glz.ridge_regression=false -E 1 "+probabilizer[probIdx]+" -o " + modelname1 + " glz.verbosity=10  -W LABEL/F,ExampleId/F -z ExampleId";
+        string cmd1 = "build/x86_64/bin/classifier_training_tool " + filename1 + " -c " + configname + " -n glz glz.link_function=linear glz.ridge_regression=false -E 1 "+probabilizer[probIdx]+" -o " + modelname1 + " glz.verbosity=10  -W LABEL/F,ExampleId/F -z ExampleId";
 
         // weights: LABEL, WEIGHT, ExampleId
         // ignore: ExampleId, WEIGHT
