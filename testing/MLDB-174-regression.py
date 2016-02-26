@@ -1,5 +1,5 @@
 #
-# MLDB-184-regression.py
+# MLDB-174-regression.py
 # This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 #
 
@@ -84,56 +84,6 @@ class Mldb174Test(MldbUnitTest):
 
         self.assertAlmostEqual(result, 10)
 
-    def test_wine_quality_regression(self):
-        config = {
-            "type": "classifier.experiment",
-            "params": {
-                "trainingData": """
-                    select
-                    {pH, "fixed acidity"} as features,
-                    quality as label
-                    from wine_red
-                """,
-                "datasetFolds": [
-                        {
-                            "training_where": "rowHash() % 2 = 0", 
-                            "testing_where": "rowHash() % 2 = 1"
-                        }
-                    ],
-                "experimentName": "winer",
-                "modelFileUrlPattern": "file://tmp/MLDB-174-wine.cls",
-                "algorithm": "glz",
-                "configuration": self.glz_conf,
-                "mode": "regression",
-                "runOnCreation": True
-            }
-        }
-      
-        # start by training only with the pH and 'fixed acidity' features, specified
-        # excplicitely 
-        rez = mldb.put('/v1/procedures/wine_trainer', config)
-
-        scorerDetails = mldb.get("/v1/functions/winer_scorer_0/details").json()
-        mldb.log(scorerDetails)
-        usedFeatures = [x["feature"] for x in scorerDetails["model"]["params"]["features"]]
-        mldb.log(usedFeatures)
-        self.assertEqual(usedFeatures, ["pH", "fixed acidity"])
-
-        ## now try by using all features
-        config["params"]["trainingData"] = """
-                    select
-                    {* EXCLUDING(quality)} as features,
-                    quality as label
-                    from wine_red
-            """
-        rez = mldb.put('/v1/procedures/wine_trainer', config)
-
-        scorerDetails = mldb.get("/v1/functions/winer_scorer_0/details").json()
-        mldb.log(scorerDetails)
-        usedFeatures = [x["feature"] for x in scorerDetails["model"]["params"]["features"]]
-        mldb.log(usedFeatures)
-        self.assertGreater(len(usedFeatures), 2)
-
     def test_wine_quality_merged_regression(self):
         ## now create a merged dataset and train on that
         # the problem here is that there are duplicated rowNames
@@ -187,7 +137,7 @@ class Mldb174Test(MldbUnitTest):
             rez = mldb.put('/v1/procedures/wine_trainer', config)
 
         
-        # let's recreate by avoiding collissions in rowNames
+        # let's recreate by avoiding collissions in and therefore duplicated columns
         mldb.put('/v1/procedures/column_adder', {
             "type": "transform",
             "params": {
@@ -214,11 +164,17 @@ class Mldb174Test(MldbUnitTest):
         # the training should now work
         rez = mldb.put('/v1/procedures/wine_trainer', config)
 
+        # check the performance is in the expected range
+        self.assertAlmostEqual(rez.json()["status"]["firstRun"]["status"]["folds"][0]["results"]["r2"], 0.26, places=2)
+
+        # make sure the trained model used all features
         scorerDetails = mldb.get("/v1/functions/winer_scorer_0/details").json()
         mldb.log(scorerDetails)
         usedFeatures = [x["feature"] for x in scorerDetails["model"]["params"]["features"]]
         mldb.log(usedFeatures)
         self.assertGreater(len(usedFeatures), 2)
+
+
 
 mldb.run_tests()
 
