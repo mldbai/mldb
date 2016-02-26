@@ -125,14 +125,14 @@ struct PartitionData {
     struct Row {
         bool label;                 ///< Label associated with
         float weight;               ///< Weight of the example 
-        const int * features;       ///< Value of each feature (dense)
+        int exampleNum;             ///< index into feature array
     };
     
     // Entry for an individual feature
     struct Feature {
         Feature()
             : active(false), ordinal(false), numBuckets(0),
-              info(nullptr)
+              info(nullptr), buckets(nullptr)
         {
         }
 
@@ -140,6 +140,7 @@ struct PartitionData {
         bool ordinal; ///< If true, it's continuous valued; otherwise categ.
         int numBuckets;
         const DatasetFeatureSpace::ColumnInfo * info;
+        const int * buckets;  ///< Bucket number, per example
     };
 
     // All rows of data in this partition
@@ -154,15 +155,17 @@ struct PartitionData {
         rows.push_back(row);
     }
 
-    void addRow(bool label, float weight, const int * features)
+    void addRow(bool label, float weight, int exampleNum)
     {
-        rows.emplace_back(Row{label, weight, features});
+        rows.emplace_back(Row{label, weight, exampleNum});
     }
 
     /** Split the partition here. */
     std::pair<PartitionData, PartitionData>
     split(int featureToSplitOn, int splitValue)
     {
+        ExcAssertGreaterEqual(featureToSplitOn, 0);
+        ExcAssertLess(featureToSplitOn, features.size());
         PartitionData left, right;
 
         left.fs = fs;
@@ -176,14 +179,14 @@ struct PartitionData {
         if (features[featureToSplitOn].ordinal) {
             // Ordinal feature
             for (auto & r: rows) {
-                int bucket = r.features[featureToSplitOn];
+                int bucket = features[featureToSplitOn].buckets[r.exampleNum];
                 (bucket <= splitValue ? left : right).addRow(r);
             }
         }
         else {
             // Categorical feature
             for (auto & r: rows) {
-                int bucket = r.features[featureToSplitOn];
+                int bucket = features[featureToSplitOn].buckets[r.exampleNum];
                 (bucket == splitValue ? left : right).addRow(r);
             }
         }
@@ -209,6 +212,8 @@ struct PartitionData {
         {
             return v[i];
         }
+
+        bool empty() const { return v[0] == 0 && v[1] == 0; };
 
         WT & operator += (const WT & other)
         {
@@ -258,16 +263,48 @@ struct PartitionData {
                  << endl;
         }
 
+
         W wAll;
+#if 0
         for (auto & r: rows) {
             wAll[r.label] += r.weight;
             for (unsigned i = 0;  i < nf;  ++i) {
                 if (!features[i].active)
                     continue;
-                int bucket = r.features[i];
+                int bucket = features[i].buckets[r.exampleNum];
+                ExcAssertLess(bucket, w[i].size());
                 w[i][bucket][r.label] += r.weight;
             }
         }
+#else
+        for (auto & r: rows) {
+            wAll[r.label] += r.weight;
+        }
+
+        for (unsigned i = 0;  i < nf;  ++i) {
+            if (!features[i].active)
+                continue;
+            bool twoBuckets = false;
+            int lastBucket = -1;
+            for (auto & r: rows) {
+                int bucket = features[i].buckets[r.exampleNum];
+
+                if (!twoBuckets) {
+                    if (lastBucket != -1 && bucket != lastBucket)
+                        twoBuckets = true;
+                    lastBucket = bucket;
+                }
+
+                ExcAssertLess(bucket, w[i].size());
+                w[i][bucket][r.label] += r.weight;
+            }
+
+            // If all examples were in a single bucket, then the
+            // feature is no longer active.
+            if (!twoBuckets)
+                features[i].active = false;
+        }
+#endif
 
         if (wAll[0] == 0 || wAll[1] == 0)
             return std::make_tuple(1.0, -1, -1, wAll);
@@ -313,6 +350,9 @@ struct PartitionData {
                 
                 // Now test split points one by one
                 for (unsigned j = 0;  j < w[i].size() - 1;  ++j) {
+                    if (w[i][j].empty())
+                        continue;
+
                     double s = score(wFalse, wTrue);
 
                     if (debug) {
@@ -416,6 +456,13 @@ struct PartitionData {
         
         std::tie(bestScore, bestFeature, bestSplit, wAll) = testAll(depth);
 
+        if (bestFeature == -1) {
+            Tree::Leaf * leaf = tree.new_leaf();
+            fillinBase(leaf, wAll);
+
+            return leaf;
+        }
+
         std::pair<PartitionData, PartitionData> splits
             = split(bestFeature, bestSplit);
 
@@ -424,10 +471,27 @@ struct PartitionData {
         //cerr << "left had " << splits.first.rows.size() << " rows" << endl;
         //cerr << "right had " << splits.second.rows.size() << " rows" << endl;
 
-        ML::Tree::Ptr left = splits.first.train(depth + 1, maxDepth, tree);
-        ML::Tree::Ptr right = splits.second.train(depth + 1, maxDepth, tree);
+        ML::Tree::Ptr left, right;
+        auto runLeft = [&] () { left = splits.first.train(depth + 1, maxDepth, tree); };
+        auto runRight = [&] () { right = splits.second.train(depth + 1, maxDepth, tree); };
 
-        if (bestFeature != -1 && left && right) {
+        ThreadPool tp;
+        if (splits.first.rows.size() > 10000) {
+            tp.add(runLeft);
+        }
+        if (splits.second.rows.size() > 10000) {
+            tp.add(runRight);
+        }
+        if (splits.first.rows.size() <= 10000) {
+            runLeft();
+        }
+        if (splits.second.rows.size() <= 10000) {
+            runRight();
+        }
+
+        tp.waitForAll();
+
+        if (left && right) {
             Tree::Node * node = tree.new_node();
             ML::Feature feature = fs->getFeature(features[bestFeature].info->columnName);
             float splitVal;
@@ -468,8 +532,9 @@ PrototypeProcedure::
 run(const ProcedureRunConfig & run,
       const std::function<bool (const Json::Value &)> & onProgress) const
 {
-    const int numBags = 100;
-    int maxDepth = 20;
+    const int numBags = 10;
+    const int featurePartitionsPerBag = 10;
+    const int maxDepth = 20;
 
     //numBags = 1;
     //maxDepth = 4;
@@ -658,37 +723,59 @@ run(const ProcedureRunConfig & run,
 
             PartitionData data(*featureSpace);
 
-            for (unsigned i = 0;  i < data.features.size();  ++i)
-                if (data.features[i].active
-                    && rng() % 2 != 0)
-                    data.features[i].active = false;
-            
-            vector<vector<int> > bucketColumns;
+            vector<vector<int> > featureBuckets(data.features.size());
 
+            int n = 0;
             for (size_t i = 0;  i < lines.size();  ++i) {
                 if (training_weights[i] == 0)
                     continue;
 
                 DataLine & line = lines[i];
 
-                data.addRow(line.label, training_weights[i], &line.features[0]);
+                for (unsigned i = 0;  i < data.features.size();  ++i) {
+                    if (data.features[i].active)
+                        featureBuckets[i].push_back(line.features[i]);
+                }
+                data.addRow(line.label, training_weights[i], n++);
+            }
+
+            for (unsigned i = 0;  i < data.features.size();  ++i) {
+                if (data.features[i].active) {
+                    data.features[i].buckets = &featureBuckets[i][0];
+                }
             }
 
 
+            auto trainFeaturePartition = [&] (int partitionNum)
+            {
+                boost::mt19937 rng(bag + 245 + partitionNum);
 
-            ML::Timer timer;
-            ML::Tree tree;
-            tree.root = data.train(0 /* depth */, maxDepth, tree);
-            cerr << "bag " << bag << " took " << timer.elapsed() << endl;
+                PartitionData mydata(data);
+                for (unsigned i = 0;  i < data.features.size();  ++i) {
+                    if (mydata.features[i].active
+                        && rng() % 3 != 0)
+                        mydata.features[i].active = false;
+                }
 
-            ML::Decision_Tree dtree(featureSpace, labelFeature);
-            dtree.tree = std::move(tree);
-            
+                ML::Timer timer;
+                ML::Tree tree;
+                tree.root = mydata.train(0 /* depth */, maxDepth, tree);
+                cerr << "bag " << bag << " partition " << partitionNum << " took "
+                     << timer.elapsed() << endl;
+
+                ML::Decision_Tree dtree(featureSpace, labelFeature);
+                dtree.tree = std::move(tree);
+            };
+
+            run_in_parallel(0, featurePartitionsPerBag, trainFeaturePartition);
+
             //cerr << dtree.print() << endl;
 
         };
 
-    run_in_parallel(0, numBags, bagPrepare);
+    for (unsigned i = 0;  i < numBags;  ++i)
+        bagPrepare(i);
+    //run_in_parallel(0, numBags, bagPrepare);
 
 
 #if 0
