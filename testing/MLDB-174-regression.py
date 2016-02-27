@@ -26,19 +26,27 @@ class Mldb174Test(MldbUnitTest):
             }
         }
         
-        rez = mldb.put('/v1/datasets/wine_red', {
-            "type": "text.csv.tabular",
+        rez = mldb.put('/v1/procedures/wine_red', {
+            "type": "import.text",
             "params": {
                 "dataFileUrl": "https://s3.amazonaws.com/public.mldb.ai/datasets/wine_quality/winequality-red.csv",
-                "delimiter": ";"
+                "delimiter": ";",
+                "runOnCreation": True,
+                "outputDataset": {
+                    "id": "wine_red"
+                }
             }
         })
         
-        rez = mldb.put('/v1/datasets/wine_white', {
-            "type": "text.csv.tabular",
+        rez = mldb.put('/v1/procedures/wine_white', {
+            "type": "import.text",
             "params": {
                 "dataFileUrl": "https://s3.amazonaws.com/public.mldb.ai/datasets/wine_quality/winequality-white.csv",
-                "delimiter": ";"
+                "delimiter": ";",
+                "runOnCreation": True,
+                "outputDataset": {
+                    "id": "wine_white"
+                }
             }
         })
 
