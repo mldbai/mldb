@@ -42,7 +42,7 @@ Prediction_Accumulator(const string& loadFrom) :
         num_per_class[i] = 0;
 
     cout << "PredAccum:: Loading from: " << loadFrom << endl;
-    ML::filter_istream file(loadFrom);
+    filter_istream file(loadFrom);
     string line;
     int i=0;
     while(getline(file, line))
@@ -85,7 +85,7 @@ getPredictions()
 void Prediction_Accumulator::
 dumpToFile(const string& filename)
 {
-	ML::filter_ostream f;
+	filter_ostream f;
 	f.open(filename, ios::out);
 
 	// Print header
@@ -366,7 +366,7 @@ dumpClassHistogram(const string& out_path,
     cout << "  Writing histogram to: " << out_path << endl;
 
     // Write output to file
-    ML::filter_ostream f;
+    filter_ostream f;
     f.open(out_path, ios::out);
 
     f << "this.data={";

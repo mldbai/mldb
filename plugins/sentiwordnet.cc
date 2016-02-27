@@ -32,7 +32,7 @@ namespace MLDB {
 struct SentiWordNetImporterConfig : ProcedureConfig {
     SentiWordNetImporterConfig()
     {
-        outputDataset.withType("embedding");
+        outputDataset.withType("sparse.mutable");
     }
 
     Url dataFileUrl;
@@ -50,7 +50,7 @@ SentiWordNetImporterConfigDescription()
              "Path to SentiWordNet 3.0 data file");
     addField("outputDataset", &SentiWordNetImporterConfig::outputDataset,
              "Output dataset for result",
-             PolyConfigT<Dataset>().withType("embedding"));
+             PolyConfigT<Dataset>().withType("sparse.mutable"));
     addParent<ProcedureConfig>();
 }
 
@@ -78,7 +78,7 @@ struct SentiWordNetImporter: public Procedure {
 
         auto info = getUriObjectInfo(runProcConf.dataFileUrl.toString());
 
-        ML::filter_istream stream(runProcConf.dataFileUrl.toString());
+        filter_istream stream(runProcConf.dataFileUrl.toString());
 
         std::shared_ptr<Dataset> outputDataset;
         if (!runProcConf.outputDataset.type.empty() || !runProcConf.outputDataset.id.empty()) {
@@ -137,30 +137,35 @@ struct SentiWordNetImporter: public Procedure {
             }
         }
 
+        Date d = Date::now();
+        vector<ColumnName> columnNames = {Coord("SentiPos"), Coord("SentiNeg"), Coord("SentiObj")};
+
         // We now go through our accumulator to compute the final scores
-        vector<tuple<RowName, vector<float>, Date> > rows;
+        vector<pair<RowName, vector<tuple<ColumnName, CellValue, Date> > > > rows;
         int64_t numRecorded = 0;
-        for(auto it=accumulator.begin(); it!=accumulator.end(); it++) {
+        for(const auto & it : accumulator) {
             double sum = 0;
             std::vector<float> scoreAccum(3);
-            for(const pair<int, SynsetScores> & scores : it->second) {
+            for(const pair<int, SynsetScores> & scores : it.second) {
                 for(int i=0; i<3; i++) {
                     scoreAccum[i] += scores.second[i] / scores.first;
                 }
                 sum += 1.0 / scores.first;
             }
 
+            vector<tuple<ColumnName, CellValue, Date> > cols;
             for(int i=0; i<3; i++) {
-                scoreAccum[i] /= sum;
+                cols.emplace_back(columnNames[i], (scoreAccum[i] / sum), d);
             }
-            
-            rows.emplace_back(RowName(it->first), std::move(scoreAccum), info.lastModified);
+            cols.emplace_back(Coord("POS"), it.first.substr(it.first.size() - 1), d);
+            cols.emplace_back(Coord("baseWord"), it.first.substr(0, it.first.size() - 2), d);
+
+            rows.emplace_back(RowName(it.first), std::move(cols));
             ++numRecorded;
         }
 
-        vector<ColumnName> columnNames = {Coord("PosSenti"), Coord("NegSenti"), Coord("ObjSenti")};
         if (outputDataset) {
-            outputDataset->recordEmbedding(columnNames, rows);
+            outputDataset->recordRows(rows);
             outputDataset->commit();
         }
 

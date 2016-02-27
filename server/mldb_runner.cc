@@ -259,7 +259,7 @@ int main(int argc, char ** argv)
     // Now load the credentials file
     if (!addCredentialsFromUrl.empty()) {
         try {
-            ML::filter_istream stream(addCredentialsFromUrl);
+            filter_istream stream(addCredentialsFromUrl);
             vector<string> fileCredentials;
             while (stream) {
                 Json::Value val = Json::parse(stream);
@@ -311,16 +311,20 @@ int main(int argc, char ** argv)
     bool hideInternalEntities = vm.count("hide-internal-entities");
 
     MldbServer server("mldb", etcdUri, etcdPath, enableAccessLog);
-    server.init(configurationPath, staticAssetsPath, staticDocPath, hideInternalEntities);
+    bool initSuccess = server.init(configurationPath, staticAssetsPath, staticDocPath, hideInternalEntities);
 
-    // Set up the SSD cache, if configured
-    if (!cacheDir.empty()) {
-        server.setCacheDirectory(cacheDir);
-    }
+    // if the server initialization fails don't register plugins
+    // but let MLDB starts with disabled features
+    if (initSuccess) {
+        // Set up the SSD cache, if configured
+        if (!cacheDir.empty()) {
+            server.setCacheDirectory(cacheDir);
+        }
 
-    // Scan each of our plugin directories
-    for (auto & d: pluginDirectory) {
-        server.scanPlugins(d);
+        // Scan each of our plugin directories
+        for (auto & d: pluginDirectory) {
+            server.scanPlugins(d);
+        }
     }
     
     server.httpBoundAddress = server.bindTcp(httpListenPort, httpListenHost);
@@ -355,7 +359,7 @@ int main(int argc, char ** argv)
         // Get arguments
         if (!scriptArgsUrl.empty()) {
             try {
-                ML::filter_istream stream(scriptArgsUrl);
+                filter_istream stream(scriptArgsUrl);
                 Json::Value args = Json::parse(stream);
                 config.args = args;
             } catch (const HttpReturnException & exc) {

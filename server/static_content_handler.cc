@@ -265,6 +265,7 @@ getStaticRouteHandler(string dir, MldbServer * server, bool hideInternalEntities
                 result += "<script src='https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML'></script>\n";
                 result += "<link rel='stylesheet' href='/resources/css/prism.css'>\n";
                 result += "<link rel='stylesheet' href='/resources/css/doc.css'>\n";
+                result += "<script src='/resources/js/jquery-1.11.2.min.js'></script>\n";
                 result += "<script src='/resources/js/prism.js'></script>\n";
                 result += "<script>\n";
                 result += "  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){\n";

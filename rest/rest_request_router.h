@@ -1,9 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** rest_request_router.h                                          -*- C++ -*-
     Jeremy Barnes, 13 November 2012
     Copyright (c) 2012 Datacratic Inc.  All rights reserved.
 
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #pragma once
@@ -381,11 +380,16 @@ struct RestRequestRouter {
     typedef std::function<RestRequestMatchResult (RestConnection & connection,
                                        const RestRequest & request,
                                        RestRequestParsingContext & context)>
-         OnProcessRequest;
+                OnProcessRequest;
+
+    typedef std::function<void (RestConnection & connection,
+                                const RestRequest & request)>
+                OnNotFoundRequest;
 
     RestRequestRouter();
 
     RestRequestRouter(const OnProcessRequest & processRequest,
+                      const OnNotFoundRequest & notFoundHandler,
                       const Utf8String & description,
                       bool terminal,
                       const Json::Value & argHelp = Json::Value());
@@ -563,8 +567,12 @@ struct RestRequestRouter {
         subRoutes.push_back(route);
         return *res;
     }
+
+    static void defaultNotFoundHandler (RestConnection & connection,
+                                        const RestRequest & request);
     
     OnProcessRequest rootHandler;
+    OnNotFoundRequest notFoundHandler;
     std::vector<Route> subRoutes;
     Utf8String description;
     bool terminal;

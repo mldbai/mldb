@@ -24,7 +24,7 @@
 #include <cstring>
 #include "mldb/jml/utils/guard.h"
 
-namespace ML {
+namespace Datacratic {
 
 
 /******************************************************************************/
@@ -369,4 +369,4 @@ private:
     void* streamChecksumState;
 };
 
-} // namespace ML
+} // namespace Datacratic

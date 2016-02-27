@@ -410,7 +410,7 @@ Json::Value
 readLines(MldbPythonContext * mldbCon,
           const std::string & path, int maxLines)
 {
-    ML::filter_istream stream(path);
+    filter_istream stream(path);
 
     Json::Value lines(Json::arrayValue);
     auto onLine = [&] (const char * line,

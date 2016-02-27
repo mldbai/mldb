@@ -21,14 +21,14 @@ These functions output a single value called `return`. It must be an array of ar
 
 Assume a dataset called `myData` with the following contents:
 
-|  *rowName*   |  *x*  |  *y*  |
+|  rowName   |  x  |  y  |
 |----------|---|---|
 | row1     | 1 | 4 |
 | row2     | 2 | 2 |
 
 To create a Python function called `myFunction` that will take each column an multiply it by two, we can use the following script:
 
-```
+```python
 results = []
 for colName, cell in mldb.script.args[0]:
     cellValue, cellTs = cell
@@ -39,13 +39,13 @@ mldb.script.set_return(results)
 
 You can now apply `myFunction` on the `myData` dataset with the following query:
 
-```
-select @myFunction({*} as args)[return] from meData
+```sql
+select myFunction({*} as args)[return] from meData
 ```
 
 The `return` value will contain:
 
-```
+```python
 [
    {
       "columns" : [

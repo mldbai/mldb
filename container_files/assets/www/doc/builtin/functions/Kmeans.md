@@ -40,7 +40,12 @@ As a concrete example, a K-Means function with three clusters, `good`, `evil` an
 and two input dimensions, `happiness` and `malice`, could be represented
 as follows:
 
-<table cellpadding="0" cellspacing="0" class="c12"><tbody><tr class="c9"><td class="c14" colspan="1" rowspan="1"><p class="c2"><span class="c13">Cluster</span></p></td><td class="c14" colspan="1" rowspan="1"><p class="c2"><span class="c13">Happiness</span></p></td><td class="c14" colspan="1" rowspan="1"><p class="c2"><span class="c13">Malice</span></p></td></tr><tr class="c9"><td class="c14" colspan="1" rowspan="1"><p class="c2"><span class="c0">Good</span></p></td><td class="c14" colspan="1" rowspan="1"><p class="c2"><span class="c0">1</span></p></td><td class="c14" colspan="1" rowspan="1"><p class="c2"><span class="c0">0</span></p></td></tr><tr class="c9"><td class="c14" colspan="1" rowspan="1"><p class="c2"><span class="c0">Evil</span></p></td><td class="c14" colspan="1" rowspan="1"><p class="c2"><span class="c0">0</span></p></td><td class="c14" colspan="1" rowspan="1"><p class="c2"><span class="c0">1</span></p></td></tr><tr class="c9"><td class="c14" colspan="1" rowspan="1"><p class="c2"><span class="c0">Undecided</span></p></td><td class="c14" colspan="1" rowspan="1"><p class="c2"><span class="c0">0.5</span></p></td><td class="c14" colspan="1" rowspan="1"><p class="c2"><span class="c0">0.5</span></p></td></tr></tbody></table>
+Cluster | Happiness | Malice 
+--------|-----------|-------
+Good | 1 | 0 
+Evil | 0 | 1
+Undecided | 0.5 | 0.5
+
 
 Which represents the following situation:
 

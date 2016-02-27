@@ -16,28 +16,29 @@ the input string with the split characters inserted.
 
 As a example, consider a function of type `tokensplit` defined this way:
 
-```
-PUT /v1/functions/split_smiley
-{
+```python
+mldb.put("/v1/functions/split_smiley", {
     "type": "tokensplit",
     "params": {
         "tokens": "select ':P', '(>_<)', ':-)'",
-        "splitchars": " " # space as splitchar
-        "splitcharToInsert": " " # insert space if required
+        "splitchars": " "
+        "splitcharToInsert": " "
         }
-}
+})
 ```
 
 Given this call
 
-```
-GET /v1/query?q="select split_smiley({ ':PGreat day!!! (>_<)(>_<) :P :P :P:-)' as text }) as query"
+```python
+mldb.get("/v1/query", 
+    q="select split_smiley({text: ':PGreat day!!! (>_<)(>_<) :P :P :P:-)'}) as x"
+)
 ```
 
 the function `split_smiley` will add spaces before and after emojis matching the list above but leave unchanged the ones that are already separated by a space.
 
-```
-":P Great day!!! (>_<) (>_<) :P :P :P :-)
+```python
+":P Great day!!! (>_<) (>_<) :P :P :P :-)"
 ```
 
 ## See also

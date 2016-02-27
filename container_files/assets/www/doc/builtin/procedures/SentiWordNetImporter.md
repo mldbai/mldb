@@ -1,4 +1,4 @@
-# SentiWordNet importer procedure
+# SentiWordNet Importer Procedure
 
 This procedure allows word and phrase embeddings from the
 [SentiWordNet lexical resource](http://sentiwordnet.isti.cnr.it) to be loaded
@@ -30,7 +30,7 @@ The row names will be a word followed by a `#` and a one character code indicati
 
 The following table shows the synset codes ([source](http://wordnet.princeton.edu/wordnet/man/wndb.5WN.html#sect3)):
 
-| *Code* | *Name* |
+| Code | Name |
 |--------|--------|
 | n |  NOUN |
 | v | VERB |
@@ -42,33 +42,19 @@ Assuming the SentiWordNet data is imported in the *sentiWordNet* table, the foll
 gets the embedding for the word *love* in the context of a *verb* and *dog* in the context of 
 a *noun*.
 
-```
+```sql
 SELECT * FROM sentiWordNet WHERE rowName() IN ('love#v', 'dog#n')
-
-[
-   {
-      "columns" : [
-         [ "PosSenti", 0, "1970-01-01T00:00:00.000Z" ],
-         [ "NegSenti", 0.1928374618291855, "1970-01-01T00:00:00.000Z" ],
-         [ "ObjSenti", 0.8071626424789429, "1970-01-01T00:00:00.000Z" ]
-      ],
-      "rowHash" : "7dad6626da208a04",
-      "rowName" : "dog#n"
-   },
-   {
-      "columns" : [
-         [ "PosSenti", 0.6249999403953552, "1970-01-01T00:00:00.000Z" ],
-         [ "NegSenti", 0.01499999966472387, "1970-01-01T00:00:00.000Z" ],
-         [ "ObjSenti", 0.3600000143051147, "1970-01-01T00:00:00.000Z" ]
-      ],
-      "rowHash" : "80bc820285c4e9a2",
-      "rowName" : "love#v"
-   }
-]
 ```
+
+SentiPos | SentiNeg | SentiObj | POS | baseWord
+--------|------------|---------|------|--------
+0 | 0.1928374618291855 | 0.8071626424789429 | "n" | "dog"
+0.6249999403953552 | 0.01499999966472387 | 0.3600000143051147 | "v" | "love"
+
 
 # See also
 
+* The ![](%%doclink pooling function) is used to embed a bag of words in a vector space like SentiWordNet
 * The [Word2Vec tool](https://code.google.com/p/word2vec/) project page
   contains source code to train your own embeddings.
 * [SentiWordNet lexical resource](http://sentiwordnet.isti.cnr.it) home page where

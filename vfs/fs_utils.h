@@ -19,11 +19,9 @@
 #include "mldb/types/url.h"
 #include "mldb/types/value_description_fwd.h"
 
-namespace ML {
-struct UriHandler;
-} // namespace ML
-
 namespace Datacratic {
+
+struct UriHandler;
 
 
 /*****************************************************************************/
@@ -70,7 +68,7 @@ OnUriSubdir;
 /// Type of a callback to call when we want to open an element of an
 /// archive or directory we're iterating through.
 
-typedef std::function<ML::UriHandler (const std::map<std::string, std::string> & options)>
+typedef std::function<UriHandler (const std::map<std::string, std::string> & options)>
 OpenUriObject;
 
 /// Type of a callback when we find an object in a directory traversal

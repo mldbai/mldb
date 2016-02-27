@@ -68,7 +68,7 @@ $(eval $(call mldb_unit_test,MLDB-59-probabilizer.js))
 $(eval $(call mldb_unit_test,MLDB-238-sorting-missing-values.js))
 $(eval $(call mldb_unit_test,MLDB-198-classifier-weights.js))
 $(eval $(call mldb_unit_test,MLDB-173-multiclass.js))
-$(eval $(call mldb_unit_test,MLDB-174-regression.js))
+$(eval $(call mldb_unit_test,MLDB-174-regression.py))
 $(eval $(call mldb_unit_test,MLDB-255-type-routes.js))
 $(eval $(call mldb_unit_test,MLDB-40-sparse-continuous-svd.js))
 $(eval $(call mldb_unit_test,MLDB-299-post-sync.js))
@@ -254,7 +254,7 @@ $(eval $(call mldb_unit_test,MLDB-1273-classifier-row_input.py))
 $(eval $(call mldb_unit_test,MLDB-1305_rowNames_join.py))
 $(eval $(call mldb_unit_test,MLDB-1272-regression-training-failure.py))
 $(eval $(call mldb_unit_test,MLDB-1277-pooling-performance.py,,manual)) #manual -- awaiting fix
-$(eval $(call mldb_unit_test,MLDB-1235-temporal-aggregators.py))
+$(eval $(call mldb_unit_test,MLDB-1235-temporal-aggregators.py,,manual)) #awaiting a refactoring of the scopes
 $(eval $(call mldb_unit_test,MLDB-1260-json-errors.py))
 $(eval $(call mldb_unit_test,MLDB-1239-utf8-literal.py))
 $(eval $(call mldb_unit_test,MLDB-1353-EM.py))
@@ -324,3 +324,8 @@ $(eval $(call mldb_unit_test,get_http_bound_address.py))
 $(eval $(call mldb_unit_test,get_http_bound_address.js))
 $(eval $(call mldb_unit_test,MLDB-815-sparse-mutable-record-strings.js))
 $(eval $(call mldb_unit_test,MLDB-1395-error-message-file-doesnt-exist.js))
+
+# The MLDB-1398 test case requires a library and a plugin
+# Tensorflow plugins
+$(eval $(call include_sub_make,MLDB-1398-plugin))
+$(eval $(call mldb_unit_test,MLDB-1398-plugin-library-dependency.js,MLDB-1398-plugin))

@@ -30,7 +30,7 @@ namespace MLDB {
 /* XLSX IMPORTER                                                             */
 /*****************************************************************************/
 
-struct XlsxImporterConfig {
+struct XlsxImporterConfig: public ProcedureConfig {
     Url dataFileUrl;
     PolyConfigT<Dataset> output;
 };
@@ -42,6 +42,7 @@ DEFINE_STRUCTURE_DESCRIPTION(XlsxImporterConfig);
 XlsxImporterConfigDescription::
 XlsxImporterConfigDescription()
 {
+    addParent<ProcedureConfig>();
     addField("dataFileUrl", &XlsxImporterConfig::dataFileUrl,
              "URL to load Excel workbook from");
     addField("output", &XlsxImporterConfig::output,
@@ -749,7 +750,7 @@ struct XlsxImporter: public Procedure {
         // 4.  Load the worksheets, one by one
         for (auto & sheetEntry: workbook.sheets) {
             Utf8String filename = "archive+" + runProcConf.dataFileUrl.toString() + "#xl/" + sheetEntry.filename;
-            ML::filter_istream sheetStream(filename.rawString());
+            filter_istream sheetStream(filename.rawString());
             
             Sheet sheet(sheetStream.rdbuf(), workbook, strings, styles);
 

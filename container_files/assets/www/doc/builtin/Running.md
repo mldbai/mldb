@@ -6,22 +6,30 @@ hr {margin: 40px;}
 
 # Running MLDB
 
+
           &nbsp;            | Community Edition | Enterprise Edition <br/> Free Trial | Enterprise Edition
 :---------------------------:|:-:|:-:|:-:
 **MLDB**    | ✓ | ✓ | ✓
 **MLDB Pro Plugin[<sup>?</sup>](ProPlugin.md)**            |  &nbsp; | ✓ | ✓
 **Licensing**     | [Apache License v2.0](https://github.com/mldbai/mldb/blob/master/LICENSE) | [Non-Commercial](licenses.md) | [Commercial](licenses.md)
-**Pricing**     | free! |  free! | <a href="mailto:mldb@datacratic.com" target="_blank">contact sales</a>
-**Support**     | [Github Issues](https://github.com/mldbai/mldb/issues/new) | <a href="mailto:mldb@datacratic.com" target="_blank">Datacratic Support</a> | <a href="mailto:mldb@datacratic.com" target="_blank">Datacratic Support</a>
-**Packaging**   | [build from source](https://github.com/mldbai/mldb/blob/master/Building.md) |  see below |  see below
+**Pricing**     | free! |  free! | <a href="http://datacratic.com/site/contact-us" target="_blank">contact sales</a>
+**Support**     | [Github Issues](https://github.com/mldbai/mldb/issues/new) | <a href="http://datacratic.com/site/contact-us" target="_blank">Datacratic Support</a> | <a href="http://datacratic.com/site/contact-us" target="_blank">Datacratic Support</a>
+**Getting Started**   | [build from source](https://github.com/mldbai/mldb/blob/master/Building.md) |  download & activate |  download & activate
 
 ------------------------
 
+## Getting a Free Trial license code instantly by email
+
+When you run the MLDB Enterprise Edition for the first time, you will be prompted for a license code to activate the software. 
+
+You can get a Free Trial license code emailed to you instantly by [filling out this form](http://mldb.ai/licensing.html).
+
+------------------------
 
 <a name="packages"></a>
-## MLDB Enterprise Edition Packages
+## Getting and Running the MLDB Enterprise Edition
 
-The MLDB Enterprise Edition is available in pre-built binary form packaged up as:
+The MLDB Enterprise Edition is available as a pre-built binary in the following formats:
 
 1. a Docker image, runnable wherever [Docker][docker] will run (recommended for **Linux, Private Cloud**)
     * see [Getting Started with the Docker image](#docker)
@@ -242,18 +250,5 @@ Inside the virtual machine, MLDB runs as a Docker container (see above) controll
 To upgrade MLDB to the latest version, you will need to launch a new AMI.
 
 
-## Environment Variables (advanced usage)
-
-The following environment variables control MLDB:
-- `RETURN_OS_MEMORY` (0 or 1, default 1): if this is set (which it is by
-  default), the whole set of deallocated memory will be returned to the
-  OS whenever a dataset is destroyed.  If you observe long pauses after
-  a dataset is destroyed and have a dedicated machine or a container
-  with dedicated memory, you can set this to 0 to disable that behavior.
-- `PRINT_OS_MEMORY` (0 or 1, default 0): if this is set (it is *not* set
-  by default), then each time a dataset is destroyed, the memory usage
-  will be written to the console.  In addition, if `RETURN_OS_MEMORY=1`
-  then the memory usage will be re-printed after the memory is returned
-  to the operating system.
 
 

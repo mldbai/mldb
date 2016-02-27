@@ -23,25 +23,12 @@ It will return two output columns:
 The following Javascript creates and calls a function that will return the
 country code from an IP address from an external web service.
 
+```python
+mldb.put("/v1/functions/fetch", { "type": "fetcher" })
 ```
-var res = mldb.put('/v1/functions/fetch', { type: 'fetcher' });
-if (res.responseCode != 201) {
-    mldb.log(res);
-    throw "error creating fetcher function";
-}
-var getCountryConfig = {
-    type: 'sql.expression',
-    params: {
-        expression: "extract_column('geoplugin_countryCode', json_decode(CAST (fetch({url: 'http://www.geoplugin.net/json.gp?ip=' + ip})[content] AS STRING))) as country"
-    }
-};
-mldb.put('/v1/functions/getCountry', getCountryConfig);
-if (res.responseCode != 201) {
-    mldb.log(res);
-    throw "error creating getCountry function";
-}
-var res = mldb.get('/v1/query', { q: "SELECT getCountry({ip: '158.245.13.123'}) AS *", format: 'table'});
-mldb.log(res.json);
+
+```sql
+SELECT CAST (fetch({url: 'http://www.google.com'})[content] AS STRING)
 ```
 
 ## Limitations

@@ -12,6 +12,14 @@ mldb = mldb_wrapper.wrap(mldb) # noqa
 
 class NoFromSegfaultTest(unittest.TestCase):
 
+
+    @classmethod
+    def setUpClass(self):
+        # create a dummy dataset
+        ds = mldb.create_dataset({ "id": "dataset", "type": "sparse.mutable" })
+        ds.record_row("a",[["label", 1, 0]])
+        ds.commit()
+
     def test_1(self):
         conf = {
             "type": "classifier.train",
@@ -215,6 +223,31 @@ class NoFromSegfaultTest(unittest.TestCase):
             mldb.put("/v1/procedures/trainer3", conf)
         self.assertEqual(re.exception.response.status_code, 400)
 
+    def test_MLDB_1386(self):
+        conf = {
+            "type": "classifier.train",
+            "params": {
+                "trainingData": """
+                    select {donotexist} as features, label from dataset
+                """,
+                "modelFileUrl": "file://tmp/my_model.cls",
+                "algorithm": "glz",
+                "configuration": {
+                    "glz": {
+                        "type": "glz",
+                        "verbosity": 3,
+                        "normalize": False,
+                        "link_function": 'linear',
+                        "ridge_regression": False
+                    }
+                },
+                "mode": "regression",
+                "functionName": "myScorer1386",
+                "runOnCreation": True
+            }
+        }
+
+        mldb.log(mldb.put("/v1/procedures/trainer1386", conf).json())
 
 if __name__ == '__main__':
     mldb.run_tests()

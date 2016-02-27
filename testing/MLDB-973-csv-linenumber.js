@@ -1,16 +1,17 @@
 // This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
-
-var dsconfig = {
-    id: 'test',
-    type: "text.csv.tabular",
+csv_conf = {
+    type: "import.text",
     params: {
-        //dataFileUrl: "file://test.csv"
-        dataFileUrl: "https://s3.amazonaws.com/benchm-ml--main/test.csv"
+        dataFileUrl : "https://s3.amazonaws.com/benchm-ml--main/test.csv",
+        outputDataset: {
+            id: "test",
+        },
+        runOnCreation: true,     
     }
-};
+}
 
-var dataset = mldb.createDataset(dsconfig);
+var res = mldb.put("/v1/procedures/csv_proc", csv_conf)
 
 var resp = mldb.get('/v1/query', { q: "select cast (rowName() as number) from test",
                                    format: 'table',

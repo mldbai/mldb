@@ -67,8 +67,9 @@ struct LexicalScope {
     */
     virtual BoundFunction
     doGetFunction(const Utf8String & functionName,
-                  const std::vector<std::shared_ptr<SqlExpression> > & args,
-                  int fieldOffset) = 0;
+                  const std::vector<BoundSqlExpression> & args,
+                  int fieldOffset,
+                  SqlBindingScope & argsScope) = 0;
     
     /** Return the name of the table.  If it isn't addressable by name,
         then the empty string should be returned.
@@ -132,7 +133,8 @@ struct PipelineExpressionScope:
     virtual BoundFunction
     doGetFunction(const Utf8String & tableName,
                   const Utf8String & functionName,
-                  const std::vector<std::shared_ptr<SqlExpression> > & args);
+                  const std::vector<BoundSqlExpression> & args,
+                  SqlBindingScope & argScope);
 
     virtual ColumnFunction
     doGetColumnFunction(const Utf8String & functionName);
@@ -187,7 +189,8 @@ private:
 
         virtual BoundFunction
         doGetFunction(const Utf8String & functionName,
-                      const std::vector<std::shared_ptr<SqlExpression> > & args) const;
+                      const std::vector<BoundSqlExpression> & args,
+                      SqlBindingScope & argsScope) const;
     };
 
     /** The inner context, with the scope for the current element. */

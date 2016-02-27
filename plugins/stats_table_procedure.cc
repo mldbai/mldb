@@ -59,7 +59,7 @@ operator >> (ML::DB::Store_Reader & store, Coord & coord)
 StatsTable::
 StatsTable(const std::string & filename)
 {
-    ML::filter_istream stream(filename);
+    filter_istream stream(filename);
     ML::DB::Store_Reader store(stream);
     reconstitute(store);
 }
@@ -101,7 +101,7 @@ getCounts(const CellValue & val) const
 void StatsTable::
 save(const std::string & filename) const
 {
-    ML::filter_ostream stream(filename);
+    filter_ostream stream(filename);
     ML::DB::Store_Writer store(stream);
     serialize(store);
 }
@@ -322,7 +322,7 @@ run(const ProcedureRunConfig & run,
 
     // save if required
     if(!runProcConf.statsTableFileUrl.empty()) {
-        ML::filter_ostream stream(runProcConf.statsTableFileUrl.toString());
+        filter_ostream stream(runProcConf.statsTableFileUrl.toString());
         ML::DB::Store_Writer store(stream);
         store << statsTables;
     }
@@ -367,7 +367,7 @@ StatsTableFunction(MldbServer * owner,
     functionConfig = config.params.convert<StatsTableFunctionConfig>();
 
     // Load saved stats tables
-    ML::filter_istream stream(functionConfig.statsTableFileUrl.toString());
+    filter_istream stream(functionConfig.statsTableFileUrl.toString());
     ML::DB::Store_Reader store(stream);
     store >> statsTables;
 }
@@ -458,6 +458,7 @@ DEFINE_STRUCTURE_DESCRIPTION(StatsTableDerivedColumnsGeneratorProcedureConfig);
 StatsTableDerivedColumnsGeneratorProcedureConfigDescription::
 StatsTableDerivedColumnsGeneratorProcedureConfigDescription()
 {
+    addParent<ProcedureConfig>();
     addField("functionId", &StatsTableDerivedColumnsGeneratorProcedureConfig::functionId,
             "ID to use for the sql.expression function that will be created");
     addField("statsTableFileUrl", &StatsTableDerivedColumnsGeneratorProcedureConfig::statsTableFileUrl,
@@ -493,7 +494,7 @@ run(const ProcedureRunConfig & run,
         applyRunConfOverProcConf(procConfig, run);
 
     // Load saved stats tables
-    ML::filter_istream stream(runProcConf.statsTableFileUrl.toString());
+    filter_istream stream(runProcConf.statsTableFileUrl.toString());
     ML::DB::Store_Reader store(stream);
     
     StatsTablesMap statsTables;
@@ -675,7 +676,7 @@ run(const ProcedureRunConfig & run,
 
     // save if required
     if(!runProcConf.statsTableFileUrl.empty()) {
-        ML::filter_ostream stream(runProcConf.statsTableFileUrl.toString());
+        filter_ostream stream(runProcConf.statsTableFileUrl.toString());
         ML::DB::Store_Writer store(stream);
         store << statsTable;
     }
@@ -719,7 +720,7 @@ StatsTablePosNegFunction(MldbServer * owner,
     StatsTable statsTable;
 
     // Load saved stats tables
-    ML::filter_istream stream(functionConfig.statsTableFileUrl.toString());
+    filter_istream stream(functionConfig.statsTableFileUrl.toString());
     ML::DB::Store_Reader store(stream);
     store >> statsTable;
 

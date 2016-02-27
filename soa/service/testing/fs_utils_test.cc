@@ -56,7 +56,7 @@ BOOST_AUTO_TEST_CASE( test_local_tryGetUriObjectInfo )
         filecount++;
         
         {
-            ML::filter_ostream stream(filename);
+            filter_ostream stream(filename);
             stream << "this file exists";
         }
 
@@ -99,7 +99,7 @@ BOOST_AUTO_TEST_CASE( test_local_tryGetUriObjectInfo )
         filecount++;
 
         {
-            ML::filter_ostream stream(filename);
+            filter_ostream stream(filename);
             stream << "this file exists";
         }
         {
@@ -158,7 +158,7 @@ BOOST_AUTO_TEST_CASE( test_local_tryEraseUriObject )
     BOOST_CHECK_EQUAL(res, false); // still does not exist
 
     /* file now exists */
-    ML::filter_ostream stream(testFile);
+    filter_ostream stream(testFile);
     stream << "file exists";
     stream.close();
 
@@ -190,7 +190,7 @@ BOOST_AUTO_TEST_CASE( test_s3_tryGetUriObjectInfo )
     {
         string fileUrl("s3://tests.datacratic.com/s3_test/fs_utils_test.txt");
 
-        ML::filter_ostream stream(fileUrl);
+        filter_ostream stream(fileUrl);
         stream << "this file exists on s3";
         stream.close();
 
@@ -233,7 +233,7 @@ BOOST_AUTO_TEST_CASE( test_s3_tryEraseUriObject )
     string filename = "s3://tests.datacratic.com/this/file/will/be/erased";
 
     /* we create the file */
-    ML::filter_ostream ostream(filename);
+    filter_ostream ostream(filename);
     ostream << "exists";
     ostream.close();
 

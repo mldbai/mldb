@@ -9,8 +9,12 @@ The classifier testing procedure allows the accuracy of a binary classifier, mul
 ## Output
 
 After this procedure has been run, a summary of the accuracy can be obtained via 
-`GET /v1/procedures/<id>/runs/<runid>`. The `status` field will contain statistics relevant
-to the model's mode.
+
+```python
+mldb.get("/v1/procedures/<id>/runs/<runid>")
+```
+
+The `status` field will contain statistics relevant to the model's mode.
 
 - <a href="#boolean">Boolean mode</a>
 - <a href="#categorical">Categorical mode</a>
@@ -25,9 +29,7 @@ the thresholds which give the best [MCC](http://en.wikipedia.org/wiki/Matthews_c
 
 Here is a sample output:
 
-```
-GET http://localhost/v1/procedures/ttnc_test_scorer/runs/1
-
+```python
 {
   "status": {
     "bestMcc": {
@@ -103,9 +105,7 @@ per-label statistics, weighted by each label's support value.
 
 Here is a sample output:
 
-```
-GET http://localhost/v1/procedures/ttnc_test_scorer/runs/1
-
+```python
 {
     "status": {
         "labelStatistics": {
@@ -167,9 +167,7 @@ the median and represents the *median absolute percentage* (MAPE).
 
 Here is a sample output:
 
-```
-GET http://localhost/v1/procedures/ttnc_test_scorer/runs/1
-
+```python
 {
     "status": {
         "quantileErrors": {
@@ -195,7 +193,8 @@ with the same row name as in the input, and the following columns:
 
 ## Examples
 
-* The ![](%%nblink _demos/Predicting Titanic Survival) demo notebook
+* Boolean mode: the ![](%%nblink _demos/Predicting Titanic Survival) demo notebook
+* Categorical mode: the ![](%%nblink _tutorials/Procedures and Functions Tutorial) notebook
 
 ## See also
 

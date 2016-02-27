@@ -20,7 +20,7 @@ and used later on to lookup counts using the ![](%%doclink statsTable.bagOfWords
 
 Suppose we have the following dataset called `text_dataset`:
 
-|  *rowName*   |  *text*  |  *label*  |
+|  rowName   |  text  |  label  |
 |-------------|---|---|
 | a     | i like apples  | 1 |
 | b     | i like juice |
@@ -31,19 +31,20 @@ Suppose we have the following dataset called `text_dataset`:
 
 If we run the following procedure:
 
-    PUT /v1/procedures/my_st
-    {
-        "type": "statsTable.bagOfWords.train",
-        "params": {
-            "trainingData": "SELECT tokenize(text, {splitchars: ' '}) as * FROM text_dataset",
-            "outcomes": [["label", "label IS NOT NULL"]],
-            "statsTableFileUrl": "file://my_st.st",
-        }
+```python
+mldb.put("/v1/procedures/my_st", {
+    "type": "statsTable.bagOfWords.train",
+    "params": {
+        "trainingData": "SELECT tokenize(text, {splitchars: ' '}) as * FROM text_dataset",
+        "outcomes": [["label", "label IS NOT NULL"]],
+        "statsTableFileUrl": "file://my_st.st"
     }
+})
+```
 
 Below are some examples of the values in the resulting stats table:
 
-| *word* | *P(label)* |
+| word | P(label) |
 |--------|-------------------|
 | apples | 1 |
 | are | 0.333 |

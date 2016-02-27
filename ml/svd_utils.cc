@@ -278,7 +278,6 @@ intersectionCountOptimized(const uint16_t * it1, const uint16_t * end1,
 
 #if 1
     typedef char v16qi __attribute__((__vector_size__(16)));
-    typedef int v4si __attribute__((__vector_size__(16)));
                                               
     constexpr int8_t mode
         = 0x01 /* SIDD_UWORD_OPS */
@@ -585,7 +584,7 @@ calcOverlap(const Bucket & other, SvdSpace space) const
                     cerr << "difference in result: " << realResult << " vs "
                          << result << endl;
 
-                    ML::filter_ostream test("test.txt");
+                    filter_ostream test("test.txt");
 
                     test << jsonEncode(vector<uint32_t>(it1, end1)) << endl;
                     test << jsonEncode(vector<uint32_t>(it2, end2)) << endl;

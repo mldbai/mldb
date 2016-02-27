@@ -6,13 +6,18 @@
 
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
-res = mldb.put("/v1/datasets/mldb_1121", {
-    "type": "text.csv.tabular",
-    "params": {
-        "dataFileUrl": "file://mldb/testing/MLDB-1121_test_set.csv",
-        "headers": ["error_msg", "count"]
-    }
-})
+csv_conf = {
+            "type": "import.text",
+            "params": {
+                'dataFileUrl' : 'file://mldb/testing/MLDB-1121_test_set.csv',
+                "outputDataset": {
+                    "id": "mldb_1121",
+                },
+                "runOnCreation": True,
+                "headers": ["error_msg", "count"]
+            }
+        }
+mldb.put("/v1/procedures/csv_proc", csv_conf) 
 
 res = mldb.get("/v1/query", q="select * from mldb_1121")
 

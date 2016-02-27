@@ -22,7 +22,7 @@
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/vfs/filter_streams_registry.h"
 #include "mldb/jml/utils/ring_buffer.h"
-#include "mldb/utils/hash.h"
+#include "mldb/base/hash.h"
 #include "mldb/jml/utils/file_functions.h"
 #include "mldb/jml/utils/info.h"
 #include "mldb/jml/utils/environment.h"
@@ -30,6 +30,7 @@
 #include "mldb/soa/credentials/credentials.h"
 #include "mldb/soa/credentials/credential_provider.h"
 #include "mldb/http/curl_wrapper.h"
+#include "mldb/http/http_rest_proxy_impl.h"
 
 #include <boost/iostreams/stream_buffer.hpp>
 #include <exception>
@@ -101,15 +102,15 @@ struct S3UrlFsHandler : public UrlFsHandler {
                               int depth)
             {
                 std::string filename = "s3://" + bucket + "/" + prefix + objectName;
-                OpenUriObject open = [=] (const std::map<std::string, std::string> & options) -> ML::UriHandler
+                OpenUriObject open = [=] (const std::map<std::string, std::string> & options) -> UriHandler
                 {
                     if (!options.empty())
                         throw ML::Exception("Options not accepted by S3");
 
-                    std::shared_ptr<std::istream> result(new ML::filter_istream(filename));
+                    std::shared_ptr<std::istream> result(new filter_istream(filename));
                     auto into = getInfo(Url(filename));
 
-                    return ML::UriHandler(result->rdbuf(), result, info);
+                    return UriHandler(result->rdbuf(), result, info);
                 };
 
                 return onObject(filename, info, open, depth);
@@ -1938,7 +1939,7 @@ makeStreamingDownload(const std::string & bucket,
 struct StreamingUploadSource {
 
     StreamingUploadSource(const std::string & urlStr,
-                          const ML::OnUriHandlerException & excCallback,
+                          const OnUriHandlerException & excCallback,
                           const S3Api::ObjectMetadata & metadata)
     {
         impl.reset(new Impl());
@@ -2058,7 +2059,7 @@ struct StreamingUploadSource {
         std::mutex etagsLock;
         std::vector<std::string> etags;
         std::exception_ptr exc;
-        ML::OnUriHandlerException onException;
+        OnUriHandlerException onException;
 
         void start()
         {
@@ -2239,7 +2240,7 @@ struct StreamingUploadSource {
 
 std::unique_ptr<std::streambuf>
 makeStreamingUpload(const std::string & uri,
-                    const ML::OnUriHandlerException & onException,
+                    const OnUriHandlerException & onException,
                     const S3Api::ObjectMetadata & metadata)
 {
     std::unique_ptr<std::streambuf> result;
@@ -2252,7 +2253,7 @@ makeStreamingUpload(const std::string & uri,
 std::unique_ptr<std::streambuf>
 makeStreamingUpload(const std::string & bucket,
                     const std::string & object,
-                    const ML::OnUriHandlerException & onException,
+                    const OnUriHandlerException & onException,
                     const S3Api::ObjectMetadata & metadata)
 {
     return makeStreamingUpload("s3://" + bucket + "/" + object,
@@ -2438,7 +2439,7 @@ struct RegisterS3Handler {
                  const std::string & resource,
                  std::ios_base::open_mode mode,
                  const std::map<std::string, std::string> & options,
-                 const ML::OnUriHandlerException & onException)
+                 const OnUriHandlerException & onException)
     {
         string::size_type pos = resource.find('/');
         if (pos == string::npos)
@@ -2453,7 +2454,7 @@ struct RegisterS3Handler {
             source = std::move(dl.first);
             info = std::move(dl.second);
             std::shared_ptr<std::streambuf> buf(source.release());
-            return ML::UriHandler(buf.get(), buf, info);
+            return UriHandler(buf.get(), buf, info);
         }
         else if (mode == ios::out) {
 
@@ -2498,7 +2499,7 @@ struct RegisterS3Handler {
 
             std::shared_ptr<std::streambuf> buf
                 (makeStreamingUpload("s3://" + resource, onException, md).release());
-            return ML::UriHandler(buf.get(), buf);
+            return UriHandler(buf.get(), buf);
         }
         else throw ML::Exception("no way to create s3 handler for non in/out");
     }
@@ -2626,7 +2627,7 @@ struct RegisterS3Handler {
 
     RegisterS3Handler()
     {
-        ML::registerUriHandler("s3", getS3Handler);
+        registerUriHandler("s3", getS3Handler);
         CredentialProvider::registerProvider
             ("s3CloudCredentials",
              std::make_shared<CloudCredentialProvider>());

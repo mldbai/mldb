@@ -379,9 +379,16 @@ run(const ProcedureRunConfig & run,
 
             std::vector<std::pair<ML::Feature, float> > features
             = { { labelFeature, encodedLabel }, { weightFeature, weight } };
-                
+
+            unordered_set<Coord> unique_known_features;
             for (auto & c: row.columns) {
                 featureSpace->encodeFeature(std::get<0>(c), std::get<1>(c), features);
+
+                if(unique_known_features.count(std::get<0>(c)) != 0) {
+                    throw ML::Exception("Training dataset cannot have duplicated column '" + 
+                        std::get<0>(c).toString() + "' for row '"+row.rowName.toString()+"'");
+                }
+                unique_known_features.insert(std::get<0>(c));
             }
 
             thr.fvs.emplace_back(row.rowName, std::move(features));
@@ -575,7 +582,7 @@ run(const ProcedureRunConfig & run,
         classifierConfig = jsonDecode<ML::Configuration>(runProcConf.configuration);
     }
     else {
-        ML::filter_istream stream(runProcConf.configurationFile.size() > 0 ?
+        filter_istream stream(runProcConf.configurationFile.size() > 0 ?
                                   runProcConf.configurationFile :
                                   "/opt/bin/classifiers.json");
         classifierConfig = jsonDecodeStream<ML::Configuration>(stream);

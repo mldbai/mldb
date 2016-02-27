@@ -20,12 +20,20 @@ class CsvLineEndingsGeneric(object):
             for line in lines:
                 f.write(line)
 
-        ds_result = mldb.put("/v1/datasets/x", {
-            "type": "text.csv.tabular",
+        csv_conf = {
+            "type": "import.text",
             "params": {
-                "dataFileUrl": "file://" + filename
+                'dataFileUrl' : "file://" + filename,
+                "outputDataset": {
+                    "id": "x",
+                },
+                "runOnCreation" : True,
             }
-        })
+        }
+        mldb.put("/v1/procedures/csv_proc", csv_conf) 
+
+        ds_result = mldb.get("/v1/datasets/x")
+
         q_result = mldb.query("select * from x")
         return ds_result, q_result
 
@@ -181,11 +189,17 @@ class CsvLineEndingsGeneric(object):
         with open(path, 'wb'):
             os.utime(path, None)
 
-        result = mldb.put("/v1/datasets/empty_csv", {
-            "type": "text.csv.tabular",
-            "params": {"dataFileUrl": "file://" + path}
-        })
-        mldb.log(result)
+        csv_conf = {
+            "type": "import.text",
+            "params": {
+                'dataFileUrl' : "file://" + path,
+                "outputDataset": {
+                    "id": "empty_csv",
+                },
+                "runOnCreation" : True,
+            }
+        }
+        mldb.put("/v1/procedures/csv_proc", csv_conf) 
 
         result = mldb.get("/v1/query", q="SELECT count(*) FROM empty_csv")
         mldb.log(result.text)
@@ -193,16 +207,22 @@ class CsvLineEndingsGeneric(object):
                          "expected row count of empty dataset to be 0")
 
         with self.assertRaises(mldb_wrapper.ResponseException) as exc:
-            mldb.put("/v1/datasets/does_not_exist_csv", {
-                "type": "text.csv.tabular",
+            error_conf = {
+                "type": "import.text",
                 "params": {
-                    "dataFileUrl": "file://this/path/does/not/exist.csv"
+                    'dataFileUrl' : "file://this/path/does/not/exist.csv",
+                    "outputDataset": {
+                        "id": "does_not_exist_csv",
+                    },
+                    "runOnCreation" : True,
                 }
-            })
+            }
+            mldb.put("/v1/procedures/error_proc", error_conf) 
+
         result = exc.exception.response
         mldb.log(result.text)
 
-        self.assertTrue("No such file or directory" in result.json()["error"],
+        self.assertTrue("No such file or directory" in result.json()["details"]["runError"]["error"],
                         "did not get the expected message MLDB-1299")
 
 

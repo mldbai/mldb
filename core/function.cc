@@ -14,6 +14,8 @@
 #include "mldb/sql/sql_expression_operations.h"
 #include "mldb/types/map_description.h"
 #include "mldb/types/any_impl.h"
+#include "mldb/rest/rest_request_router.h"
+
 
 using namespace std;
 
@@ -779,6 +781,20 @@ getFunctionInfo() const
                         + " needs to override getFunctionInfo()");
 }
 
+RestRequestMatchResult
+Function::
+handleRequest(RestConnection & connection,
+              const RestRequest & request,
+              RestRequestParsingContext & context) const
+{
+    Json::Value error;
+    error["error"] = "Function of type '" + ML::type_name(*this)
+        + "' does not respond to custom route '" + context.remaining + "'";
+    error["details"]["verb"] = request.verb;
+    error["details"]["resource"] = request.resource;
+    connection.sendErrorResponse(400, error);
+    return RestRequestRouter::MR_ERROR;
+}
 
 } // namespace MLDB
 } // namespace Datacratic

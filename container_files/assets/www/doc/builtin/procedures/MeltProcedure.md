@@ -16,7 +16,7 @@ objects and the way we want to process it is one object per row.
 
 Suppose the following dataset `data` with the `friends` column containing strings.
 
-| *rowName* | *name* | *age* | *friends* |
+| rowName | name | age | friends |
 |-----------|--------|-------|-----------|
 | row1 | bill | 25 | [{"name": "mich", "age": 20}, {"name": "jean", "age": 18}] |
 
@@ -26,30 +26,31 @@ of the `parse_json()` function.
 
 Doing the query `select parse_json(friends, {arrays: 'encode'}) from data` will return:
 
-| *rowName* | *friends.0* | *friends.1* |
+| rowName | friends.0 | friends.1 |
 |-----------|--------|-------|-----------|
 | row1 | {"name": "mich", "age": 20} | {"name": "jean", "age": 18} |
 
 We can do the melt like this:
 
-    PUT /v1/procedures/melt
-    {
-        "type": "melt",
-        "params": {
-            "trainingData": """
-                        SELECT {name, age} as to_fix,
-                               {friends*} as to_melt
-                        FROM (
-                            SELECT parse_json(friends, {arrays: 'encode'}) AS * from data
-                        )""",
-            "outputDataset": "melted_data"
-            "runOnCreation": True
-        }
+```python
+mldb.put("/v1/procedures/melt", {
+    "type": "melt",
+    "params": {
+        "trainingData": """
+                    SELECT {name, age} as to_fix,
+                           {friends*} as to_melt
+                    FROM (
+                        SELECT parse_json(friends, {arrays: 'encode'}) AS * from data
+                    )""",
+        "outputDataset": "melted_data"
+        "runOnCreation": True
     }
+})
+```
 
 The `melted_data` dataset will look like this:
 
-| *rowName* | *name* | *age* | *key* | *value* |
+| rowName | name | age | key | value |
 |-----------|--------|-------|-----------|-----|
 | row1_friends.0 | bill | 25 | friends.0 | {"name": "mich", "age": 20} |
 | row1_friends.1 | bill | 25 | friends.1 | {"name": "jean", "age": 18} |

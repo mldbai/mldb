@@ -14,12 +14,13 @@ With `ScriptResource` defined as:
 
 Each run of the procedure can be parameterized by passing a Json blob `args` in the run configuration. The procedure's script can then access it in the same way Python or JS scripts can access arguments.
 
-    PUT /v1/procedures/<id>/runs/<runid>
-    {
-        "params": {
-            "args": <args>
-        }
+```python
+mldb.put("/v1/procedures/<id>/runs/<runid>", {
+    "params": {
+        "args": <args>
     }
+})
+```
 
 ## Return values
 

@@ -259,7 +259,6 @@ irls(const distribution<Float> & y, const boost::multi_array<Float, 2> & x,
     bool debug = false;
 
     typedef distribution<Float> Vector;
-    typedef boost::multi_array<Float, 2> Matrix;
 
     static const int max_iter = 20;           // from GLMlab
     static const float tolerence = 5e-5;      // from GLMlab
@@ -297,7 +296,7 @@ irls(const distribution<Float> & y, const boost::multi_array<Float, 2> & x,
     /* Note: look in the irls.m function of GLMlab to see what we are trying
        to do here.  This is essentially a C++ reimplementation of that
        function.  I don't really know what it is doing. */
-    while (abs(rdev - rdev2) > tolerence && iter < max_iter) {
+    while (fabs(rdev - rdev2) > tolerence && iter < max_iter) {
         Timer t(debug);
 
         /* Find the new weights for this iteration. */

@@ -85,8 +85,8 @@ BOOST_AUTO_TEST_CASE( test_named_endpoint )
 
                 auto response = proxy.post("/echo", to_string(i));
                 std::unique_lock<std::mutex> checkGuard(checkLock);
-                BOOST_CHECK_EQUAL(response.code_, 200);
-                BOOST_CHECK_EQUAL(response.body_, to_string(i));
+                BOOST_CHECK_EQUAL(response.code(), 200);
+                BOOST_CHECK_EQUAL(response.body(), to_string(i));
             }
         };
 

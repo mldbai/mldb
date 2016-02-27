@@ -177,11 +177,12 @@ BoundFunction
 PipelineExpressionScope::
 doGetFunction(const Utf8String & tableName,
               const Utf8String & functionName,
-              const std::vector<std::shared_ptr<SqlExpression> > & args)
+              const std::vector<BoundSqlExpression> & args,
+              SqlBindingScope & argScope)
 {
     if (tableName.empty()) {
         for (const TableEntry & t: defaultTables) {
-            BoundFunction r = t.doGetFunction(functionName, args);
+            BoundFunction r = t.doGetFunction(functionName, args, argScope);
             if (r)
                 return r;
         }
@@ -191,7 +192,7 @@ doGetFunction(const Utf8String & tableName,
             if (functionName.startsWith(toFind)) {
                 Utf8String suffix = functionName;
                 suffix.removePrefix(toFind);
-                return t.second.doGetFunction(suffix, args);
+                return t.second.doGetFunction(suffix, args, argScope);
             }
         }
     }
@@ -199,11 +200,11 @@ doGetFunction(const Utf8String & tableName,
         // Otherwise, look in the table scope
         auto it = tables.find(tableName);
         if (it != tables.end()) {
-            return it->second.doGetFunction(functionName, args);
+            return it->second.doGetFunction(functionName, args, argScope);
         }
     }        
 
-    return SqlBindingScope::doGetFunction(tableName, functionName, args);
+    return SqlBindingScope::doGetFunction(tableName, functionName, args, argScope);
 }
 
 std::shared_ptr<Function>
@@ -236,7 +237,7 @@ doGetBoundParameter(const Utf8String & paramName)
                      ExpressionValue & storage,
                      const VariableFilter & filter) -> const ExpressionValue &
         {
-            auto & row = static_cast<const PipelineResults &>(rowScope);
+            auto & row = rowScope.as<PipelineResults>();
             return storage = std::move(row.getParam(paramName));
         };
         
@@ -304,9 +305,10 @@ doGetAllColumns(std::function<Utf8String (const Utf8String &)> keep) const
 BoundFunction
 PipelineExpressionScope::TableEntry::
 doGetFunction(const Utf8String & functionName,
-              const std::vector<std::shared_ptr<SqlExpression> > & args) const
+              const std::vector<BoundSqlExpression> & args,
+              SqlBindingScope & argScope) const
 {
-    return scope->doGetFunction(functionName, args, fieldOffset);
+    return scope->doGetFunction(functionName, args, fieldOffset, argScope);
 }
 
 /*****************************************************************************/

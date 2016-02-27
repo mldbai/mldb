@@ -13,12 +13,17 @@ class HavingTest(unittest.TestCase):
 
     def test_having(self):
 
-        ds = mldb.create_dataset({
-            'type': 'text.csv.tabular',
-            'id': 'titanic',
-            'params':{
-            'dataFileUrl':'https://raw.githubusercontent.com/datacratic/mldb-pytanic-plugin/master/titanic_train.csv'
-        }})
+        csv_conf = {
+            "type": "import.text",
+            "params": {
+                'dataFileUrl' : 'https://raw.githubusercontent.com/datacratic/mldb-pytanic-plugin/master/titanic_train.csv',
+                "outputDataset": {
+                    "id": "titanic",
+                },
+                "runOnCreation": True
+            }
+        }
+        mldb.put("/v1/procedures/csv_proc", csv_conf)
 
         res = mldb.query('''
             select count(*) as x

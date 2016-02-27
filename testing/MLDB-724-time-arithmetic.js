@@ -359,4 +359,25 @@ assertEqual(query.json[0].columns[0][1]['ts'], "2015-01-03T00:00:00Z");
 assertEqual(query.json[0].columns[1][1]['ts'], "2015-01-01T00:00:00Z");
 assertEqual(query.json[0].columns[2][1]['ts'], "2015-01-03T00:00:00Z");
 
+dataset_config = {
+    'type'    : 'sparse.mutable',
+    'id'      : 'test4',
+};
+
+var dataset4 = mldb.createDataset(dataset_config)
+dataset4.recordRow('myrow', [ [ "a", 0, ts1 ], ["a", 0, ts2] ]);
+
+dataset4.commit();
+
+query1 = mldb.get('/v1/datasets/test4/query',
+                      { select: 'min_timestamp(a)'});
+
+plugin.log(query1);
+
+query2 = mldb.get('/v1/datasets/test4/query',
+                      { select: 'min_timestamp({*})'});
+plugin.log(query2);
+
+assertEqual(query1.json[0].columns[0][1]['ts'], query2.json[0].columns[0][1]['ts']);
+
 "success"

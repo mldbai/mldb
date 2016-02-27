@@ -120,7 +120,7 @@ start()
     // Open the plugin
     Utf8String uri = "docker://" + config.repo + "/" + config.sharedLibrary;
 
-    ML::filter_istream stream(uri.rawString());
+    filter_istream stream(uri.rawString());
 
     std::string path
         = "tmp/plugin-"

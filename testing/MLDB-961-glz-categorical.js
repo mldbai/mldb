@@ -46,11 +46,13 @@ while (!stream.eof() && lineNum < numLines) {
     var tuples = [];
     for (var i = 0;  i < fields.length;  ++i) {
         tuples.push([colNames[i], (i == 4 ? fields[i] : +fields[i]), now]);
-        if (i == 3 && fields[i] > 1.00) {
-            tuples.push(["petalCat", "long", now]);
-        }
-        else {
-            tuples.push(["petalCat", "short", now]);
+        if (i == 3) {
+            if(fields[i] > 1.00) {
+                tuples.push(["petalCat", "long", now]);
+            }
+            else {
+                tuples.push(["petalCat", "short", now]);
+            }
         }
     }
 

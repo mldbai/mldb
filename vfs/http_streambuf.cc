@@ -13,6 +13,7 @@
 #include "mldb/vfs/filter_streams_registry.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/http/http_exception.h"
+#include "mldb/types/basic_value_descriptions.h"
 #include <chrono>
 #include <future>
 
@@ -345,9 +346,9 @@ struct HttpUrlFsHandler: UrlFsHandler {
                                  {}, {}, 1.0, false, nullptr, onHeader,
                                  true /* follow redirects */);
             
-            if (!didGetHeader && resp.errorCode_ != 0) {
+            if (!didGetHeader && resp.errorCode() != 0) {
                 cerr << "error retrieving HEAD (retry) " << url.toString() << ": "
-                     << resp.errorMessage_ << endl;
+                     << resp.errorMessage() << endl;
                 continue;  // didn't get header; retry
             }
         
@@ -355,8 +356,8 @@ struct HttpUrlFsHandler: UrlFsHandler {
             cerr << "header = " << header << endl;
             cerr << "resp = " << resp << endl;
             cerr << "resp.responseCode = " << resp.code_ << endl;
-            cerr << "resp.errorCode = " << resp.errorCode_ << endl;
-            cerr << "resp.errorMessage = " << resp.errorMessage_ << endl;
+            cerr << "resp.errorCode = " << resp.errorCode() << endl;
+            cerr << "resp.errorMessage = " << resp.errorMessage() << endl;
             cerr << "header.responseCode() = " << header.responseCode() << endl;
 #endif
 
@@ -376,7 +377,7 @@ struct HttpUrlFsHandler: UrlFsHandler {
         throw ML::Exception("Couldn't reach server to determine HEAD of '"
                             + url.toString() + "': HTTP code "
                             + (didGetHeader ? to_string(header.responseCode()) : string("(unknown)"))
-                            + " " + resp.errorMessage_);
+                            + " " + resp.errorMessage());
 
         //if (resp.hasHeader("content-type"))
         //    result.contentType = resp.getHeader("content-type");
@@ -423,12 +424,12 @@ struct HttpUrlFsHandler: UrlFsHandler {
     used to treat an Http object as a simple stream.
 */
 struct RegisterHttpHandler {
-    static ML::UriHandler
+    static UriHandler
     getHttpHandler(const std::string & scheme,
                    const std::string & resource,
                    std::ios_base::open_mode mode,
                    const std::map<std::string, std::string> & options,
-                   const ML::OnUriHandlerException & onException)
+                   const OnUriHandlerException & onException)
     {
         string::size_type pos = resource.find('/');
         if (pos == string::npos)
@@ -440,7 +441,7 @@ struct RegisterHttpHandler {
             std::pair<std::unique_ptr<std::streambuf>, FsObjectInfo> sb_info
                 = makeHttpStreamingDownload(scheme+"://"+resource, options);
             std::shared_ptr<std::streambuf> buf(sb_info.first.release());
-            return ML::UriHandler(buf.get(), buf, sb_info.second);
+            return UriHandler(buf.get(), buf, sb_info.second);
         }
         else if (mode == ios::out) {
             throw ML::Exception("Can't currently upload files via HTTP/HTTPs");
@@ -450,8 +451,8 @@ struct RegisterHttpHandler {
     
     RegisterHttpHandler()
     {
-        ML::registerUriHandler("http", getHttpHandler);
-        ML::registerUriHandler("https", getHttpHandler);
+        registerUriHandler("http", getHttpHandler);
+        registerUriHandler("https", getHttpHandler);
 
         registerUrlFsHandler("http", new HttpUrlFsHandler());
         registerUrlFsHandler("https", new HttpUrlFsHandler());

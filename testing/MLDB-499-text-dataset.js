@@ -46,37 +46,49 @@ function createAndTrainProcedure(config, name)
     plugin.log("procedure " + name + " took " + (end - start) / 1000 + " seconds");
 }
 
-function createDataset()
+function createDataset(datasetType)
 {
     var start = new Date();
 
     var dataset_config = {
-        type: 'text.csv.tabular',
-        id: 'reddit_text_file',
+        type: "import.text",
         params: {
-            //dataFileUrl: 'file://reddit_user_posting_behavior.csv'
-            dataFileUrl: 'http://files.figshare.com/1310438/reddit_user_posting_behavior.csv.gz',
+            dataFileUrl : "http://files.figshare.com/1310438/reddit_user_posting_behavior.csv.gz",
+            outputDataset: {
+                id: datasetType,
+                type: datasetType
+            },
+            runOnCreation: true,
             "quotechar": "",
             "delimiter": "",
         }
-    };
+    }
 
     var now = new Date();
 
-    var dataset = mldb.createDataset(dataset_config);
+    mldb.put("/v1/procedures/csv_proc", dataset_config);
 
     var end = new Date();
     
     plugin.log("creating dataset took " + (end - start) / 1000 + " seconds");
-
-    return dataset;
 }
 
-var dataset = createDataset();
+createDataset("tabular");
 
-var resp = mldb.get('/v1/datasets/reddit_text_file/query', {format:'table', orderBy:'rowName()', limit:20});
+var resp = mldb.get('/v1/datasets/tabular/query', {format:'table', orderBy:'rowName()', limit:20});
 
-plugin.log(resp.json);
+//plugin.log(resp.json);
+
+assertEqual(resp.json[1][1], "603,politics,trees,pics");
+
+//MLDB-1163
+//Load csv into a non-tabular dataset. Should be slower...
+
+createDataset("sparse.mutable");
+
+var resp = mldb.get('/v1/datasets/sparse.mutable/query', {format:'table', orderBy:'rowName()', limit:20});
+
+//plugin.log(resp.json);
 
 assertEqual(resp.json[1][1], "603,politics,trees,pics");
 

@@ -39,17 +39,21 @@ assertEqual(numLines, 823);
 var dir = mldb.ls("archive+http://files.grouplens.org/datasets/movielens/ml-20m.zip");
 mldb.log(dir);
 
-var dsConfig = {
-    type:"text.csv.tabular", 
+csv_conf = {
+    type: "import.text",
     params: {
-        dataFileUrl:"archive+http://files.grouplens.org/datasets/movielens/ml-20m.zip#ml-20m/links.csv",
+        dataFileUrl : "archive+http://files.grouplens.org/datasets/movielens/ml-20m.zip#ml-20m/links.csv",
+        outputDataset: {
+            id: "csv",
+        },
+        runOnCreation: true,
         limit: 1000
     }
-};
+}
 
-var dataset = mldb.createDataset(dsConfig);
+var res = mldb.put("/v1/procedures/csv_proc", csv_conf)
 
-mldb.log(dataset.status);
+mldb.log(res);
 
 
 "success"

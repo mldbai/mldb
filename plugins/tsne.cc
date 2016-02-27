@@ -96,7 +96,7 @@ struct TsneItl {
 
     TsneItl(const Url & filename)
     {
-        ML::filter_istream stream(filename.toString());
+        filter_istream stream(filename.toString());
         ML::DB::Store_Reader store(stream);
 
         reconstitute(store);
@@ -127,7 +127,7 @@ struct TsneItl {
 
     void save(const std::string & filename) const
     {
-        ML::filter_ostream stream(filename);
+        filter_ostream stream(filename);
         ML::DB::Store_Writer store(stream);
         serialize(store);
     }

@@ -100,9 +100,8 @@ do anything on Amazon.
 
 The way to do this is to `PUT` to `/v1/creds/rules/<id>`:
 
-```
-PUT /v1/creds/rules/mys3creds
-{
+```python
+mldb.put("/v1/creds/rules/mys3creds", {
     "store":
     {
         "resource":"s3://",
@@ -116,7 +115,7 @@ PUT /v1/creds/rules/mys3creds
             "validUntil":"2030-01-01T00:00:00Z"
         }
     }
-}
+})
 ```
 
 That will be stored in the `mldb_data/.mldb_credentials/mys3creds` file, and

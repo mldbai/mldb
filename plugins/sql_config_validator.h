@@ -7,6 +7,7 @@
 */
 
 #include "mldb/sql/sql_expression.h"
+#include "types/optional.h"
 
 #pragma once
 
@@ -79,6 +80,18 @@ validate(FieldType ConfigType::* field, const char * name)
         };
 }
 
+// one can chain validation of several fields it this way
+// chain(validator1, chain(validator2, validator3))
+template <typename ConfigType> 
+std::function<void (ConfigType *, JsonParsingContext &)>
+chain(const std::function<void (ConfigType *, JsonParsingContext &)> & validator1,
+      const std::function<void (ConfigType *, JsonParsingContext &)> & validator2) {
+    return [=](ConfigType * config, JsonParsingContext & context) {
+            validator1(config, context);
+            validator2(config, context);
+        };
+}
+
 /** 
  *  Accept any select statement with empty GROUP BY/HAVING clause.
  *  FieldType must contain a SelectStatement named stm.
@@ -98,6 +111,14 @@ template<typename FieldType> struct NoGroupByHaving
     }
 };
 
+template<typename FieldType> struct NoGroupByHaving<Optional<FieldType> >
+{
+    void operator()(const Optional<FieldType> & query, const char * name)
+    {
+        if (query) NoGroupByHaving<FieldType>()(*query, name);
+    }
+};
+
 /** 
   *  Must contain a FROM clause
  */
@@ -107,6 +128,14 @@ template<typename FieldType> struct MustContainFrom
     {
         if (!query.stm || !query.stm->from || query.stm->from->surface.empty())
             throw ML::Exception("%s must contain a FROM clause", name);
+    }
+};
+
+template<typename FieldType> struct MustContainFrom<Optional<FieldType> >
+{
+    void operator()(const Optional<FieldType> & query, const char * name)
+    {
+        if (query) MustContainFrom<FieldType>()(*query, name);
     }
 };
 
@@ -230,6 +259,13 @@ template<typename FieldType> struct PlainColumnSelect
     }
 };
 
+template<typename FieldType> struct PlainColumnSelect<Optional<FieldType> >
+{
+    void operator()(const Optional<FieldType> & query, const char * name)
+    {
+        if (query) PlainColumnSelect<FieldType>()(*query, name);
+    }
+};
 
 inline bool containsNamedSubSelect(const InputQuery& query, const std::string& name) 
 {
@@ -263,6 +299,14 @@ template<typename FieldType> struct FeaturesLabelSelect
         if (!containsNamedSubSelect(query, "features") ||
             !containsNamedSubSelect(query, "label") )
             throw ML::Exception("%s training expect a row named 'features' and a scalar named 'label'", name);
+    }
+};
+
+template<typename FieldType> struct FeaturesLabelSelect<Optional<FieldType> >
+{
+    void operator()(const Optional<FieldType> & query, const char * name)
+    {
+        if (query) FeaturesLabelSelect<FieldType>()(*query, name);
     }
 };
 

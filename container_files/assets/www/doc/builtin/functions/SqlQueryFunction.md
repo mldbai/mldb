@@ -87,21 +87,30 @@ As an example, the following `sql.query` object would strip
 out any numeric-valued columns and uppercase all names from a
 passed in row:
 
-```sql
-POST /v1/functions/row_transform {
+```python
+mldb.put("/v1/functions/row_transform", {
     "type": "sql.query",
     "params": {
-        "query": "SELECT upper(column) AS column, value FROM row_dataset($input) WHERE CAST (value AS NUMBER) IS NULL",
+        "query": """
+        SELECT upper(column) AS column, value 
+        FROM row_dataset($input) 
+        WHERE CAST (value AS NUMBER) IS NULL
+        """,
         "output": "NAMED_COLUMNS"
     }
-}
+})
 ```
+
+The following SQL yields the following result:
 
 ```sql
 SELECT row_transform({input: {x: 1, y: 2, z: "three"}})[output] AS *
-
-{ Z: "three" }
 ```
+
+| Z |
+|---|
+| "three" |
+
 
 
 ## See also

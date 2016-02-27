@@ -46,7 +46,7 @@ T jsonDecodeFile(const std::string & filename, T * = 0)
 {
     T result;
     
-    ML::filter_istream stream(filename);
+    filter_istream stream(filename);
     
     static auto desc = getDefaultDescriptionSharedT<T>();
     StreamingJsonParsingContext context(filename, stream);
@@ -415,7 +415,7 @@ calcSvdBasis(const ColumnCorrelations & correlations,
     static int n = 0;
     {
         cerr << "saving correlations " << n << endl;
-        ML::filter_ostream stream(ML::format("correlations-%d.json", n++));
+        filter_ostream stream(ML::format("correlations-%d.json", n++));
         stream << jsonEncode(correlations.columns);
         for (unsigned i = 0;  i < correlations.correlations.shape()[0];  ++i) {
             for (unsigned j = 0;  j < correlations.correlations.shape()[1];  ++j) {
@@ -740,7 +740,7 @@ run(const ProcedureRunConfig & run,
 
     if (!runProcConf.modelFileUrl.empty()) {
         Datacratic::makeUriDirectory(runProcConf.modelFileUrl.toString());
-        ML::filter_ostream stream(runProcConf.modelFileUrl.toString());
+        filter_ostream stream(runProcConf.modelFileUrl.toString());
         jsonEncodeToStream(allSvd, stream);
     }
 

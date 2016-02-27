@@ -41,20 +41,22 @@ the dataset in half for training and testing will be generated.
 To perform a 3-fold cross-validation, set the parameter `kfolds = 3` and the following
 configuration will be generated for the `dataset_folds` parameter:
 
-    [
-        {
-            "training_where": "rowHash() % 3 != 0",
-            "testing_where": "rowHash() % 3 = 0",
-        },
-        {
-            "training_where": "rowHash() % 3 != 1",
-            "testing_where": "rowHash() % 3 = 1",
-        },
-        {
-            "training_where": "rowHash() % 3 != 2",
-            "testing_where": "rowHash() % 3 = 2",
-        }
-    ]
+```python
+[
+    {
+        "training_where": "rowHash() % 3 != 0",
+        "testing_where": "rowHash() % 3 = 0",
+    },
+    {
+        "training_where": "rowHash() % 3 != 1",
+        "testing_where": "rowHash() % 3 = 1",
+    },
+    {
+        "training_where": "rowHash() % 3 != 2",
+        "testing_where": "rowHash() % 3 = 2",
+    }
+]
+```
 
 
 
@@ -70,34 +72,35 @@ In the example below, the `auc` metric is used to illustrate the aggregation.
 
 The following example would be for a 2-fold run:
 
-    {
-        "id" : "<id>",
-        "runFinished" : "...",
-        "runStarted" : "...",
-        "state" : "finished",
-        "status" : {
-            "aggregated": {
-                "auc": {
-                    "max": x,
-                    "mean": y,
-                    "min": z,
-                    "std": k
-                },
-                ...
+```python
+{
+    "id" : "<id>",
+    "runFinished" : "...",
+    "runStarted" : "...",
+    "state" : "finished",
+    "status" : {
+        "aggregated": {
+            "auc": {
+                "max": x,
+                "mean": y,
+                "min": z,
+                "std": k
             },
-            "folds": [
-                {
-                    "results" : { <classifier.test output for fold 1> },
-                    "fold": { <dataset_fold used for fold 1> }
-                },
-                {
-                    "results" : { <classifier.test output for fold 2> },
-                    "fold": { <dataset_fold used for fold 2> }
-                }
-            ]
-        }
+            ...
+        },
+        "folds": [
+            {
+                "results" : { <classifier.test output for fold 1> },
+                "fold": { <dataset_fold used for fold 1> }
+            },
+            {
+                "results" : { <classifier.test output for fold 2> },
+                "fold": { <dataset_fold used for fold 2> }
+            }
+        ]
     }
-
+}
+```
 
 ## Examples
 

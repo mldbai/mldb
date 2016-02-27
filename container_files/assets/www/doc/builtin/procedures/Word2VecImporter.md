@@ -35,33 +35,22 @@ useful when loading multiple datasets in parallel.
 Sample query to load the word2vec dataset into an "embedding" dataset
 type and determine the closest words to "France".
 
-```
-PUT /v1/procedures/w2vimport
-{
-    type: 'import.word2vec',
-    params: {
-        dataFileUrl: 'file:///path/to/GoogleNews-vectors-negative300.bin',
-        output: {
-            type: 'embedding',
-            id: 'w2v'
-        },
-        limit: 100000
+```python
+mldb.put("/v1/procedures/w2vimport", {
+    "type": "import.word2vec",
+    "params": {
+        "dataFileUrl": "file:///path/to/GoogleNews-vectors-negative300.bin",
+        "output": "w2v",
+        "limit": 100000
     }
-};
+})
 
-...
-
-PUT /v1/procedures/w2vimport/runs/1 {}
-
-GET /v1/datasets/w2v/routes/rowNeighbours" {row: "France"}
-
-...
-
+mldb.get("/v1/datasets/w2v/routes/rowNeighbours", row = "France")
 ```
 
 This gives the output
 
-```
+```python
 [
    [ "France", "831e552f87fd6717", 0 ],
    [ "Belgium", "c62d860abed63cdd", 2.110022783279419 ],
@@ -78,6 +67,7 @@ This gives the output
 
 # See also
 
+* The ![](%%doclink pooling function) is used to embed a bag of words in a vector space like Word2Vec
 * The ![](%%doclink embedding dataset) is the perfect dataset to hold
   the output of the word2vec tool.
 * The [Word2Vec tool](https://code.google.com/p/word2vec/) project page

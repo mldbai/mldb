@@ -211,7 +211,7 @@ run(const ProcedureRunConfig & run,
     }
 
 #if 0
-    ML::filter_ostream out("prob-in.txt");
+    filter_ostream out("prob-in.txt");
 
     for (unsigned i = 0;  i < nx;  ++i) {
         out << ML::format("%.15f %.16f %d\n",
@@ -263,7 +263,7 @@ run(const ProcedureRunConfig & run,
     repr.params = probParams;
 
     if (!runProcConf.modelFileUrl.toString().empty()) {
-        ML::filter_ostream stream(runProcConf.modelFileUrl.toString());
+        filter_ostream stream(runProcConf.modelFileUrl.toString());
         stream << jsonEncode(repr);
         stream.close();
 
@@ -313,7 +313,7 @@ ProbabilizeFunction(MldbServer * owner,
 {
     functionConfig = config.params.convert<ProbabilizeFunctionConfig>();
     itl.reset(new Itl());
-    ML::filter_istream stream(functionConfig.modelFileUrl.toString());
+    filter_istream stream(functionConfig.modelFileUrl.toString());
     auto repr = jsonDecodeStream<ProbabilizerRepr>(stream);
     itl->probabilizer.link = repr.link;
     itl->probabilizer.params.resize(1);

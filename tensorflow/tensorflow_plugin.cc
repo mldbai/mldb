@@ -418,7 +418,7 @@ struct TensorflowGraph: public Function {
 
         std::string graphContents;
 
-        ML::filter_istream stream(functionConfig.modelFileUrl.toString());
+        filter_istream stream(functionConfig.modelFileUrl.toString());
         modelTs = stream.info().lastModified;
         
         google::protobuf::io::IstreamInputStream pstream(&stream);
@@ -642,10 +642,10 @@ struct TensorflowGraph: public Function {
         
         // Derives from inner row scope, so we can pass directly through
         struct RowScope: public ReadThroughBindingContext::RowContext {
-            RowScope(const SqlRowScope & innerScope,
+            RowScope(const SqlRowScope & outerScope,
                      const std::vector<tensorflow::Tensor> & graphOutput,
                      Date ts)
-                : ReadThroughBindingContext::RowContext(innerScope),
+                : ReadThroughBindingContext::RowContext(outerScope),
                   graphOutput(graphOutput),
                   ts(ts)
             {
@@ -699,7 +699,7 @@ struct TensorflowGraph: public Function {
                                const VariableFilter & filter)
                 -> const ExpressionValue &
                 {
-                    const RowScope & scope = static_cast<const RowScope &>(scope_);
+                    auto & scope = scope_.as<RowScope>();
                     return storage = tensorToValue(scope.graphOutput.at(index),
                                                    scope.ts);
                 };
@@ -718,7 +718,7 @@ struct TensorflowGraph: public Function {
               owner(owner),
               functionScope(owner->server, input,
                             outerScope.functionStackDepth),
-              graphScope(functionScope, *owner->graph)
+              graphScope(outerScope, *owner->graph)
         {
             // 1.  Collect what is known for each of the input clauses.
             boundInputs = owner->functionConfig.inputs.bind(functionScope);
@@ -756,7 +756,7 @@ struct TensorflowGraph: public Function {
             auto rowScope = functionScope.getRowContext(inputData);
 
             ExpressionValue inStorage;
-            const ExpressionValue & in = boundInputs(rowScope, inStorage);
+            const ExpressionValue & in = boundInputs(rowScope, inStorage, GET_LATEST);
 
             Date outputTs = owner->modelTs;
 
@@ -770,12 +770,16 @@ struct TensorflowGraph: public Function {
                 inputLayers.emplace_back(std::move(nodeName));
             }
 
+            vector<std::string> outputLayers;
+            for (auto & l: graphScope.outputLayers)
+                outputLayers.emplace_back(l.rawString());
+
             vector<Tensor> outputs;
 
             auto doRun = [&] (int i)
                 {
                     auto output = owner->call(inputTensors, inputLayers,
-                                              { output_layer }, i);
+                                              outputLayers, i);
 
                     if (i == 0)
                         outputs = std::move(output);
@@ -800,7 +804,7 @@ struct TensorflowGraph: public Function {
 
             GraphExtractScope::RowScope outputRowScope(rowScope, outputs, outputTs);
             
-            result = boundOutputs(outputRowScope);
+            result = boundOutputs(outputRowScope, GET_LATEST);
 
             return result;
         }
@@ -1177,7 +1181,7 @@ static RegisterFunctionType<TensorflowGraph, TensorflowGraphConfig>
 regTensorflowGraph(tensorflowPackage(),
                    "tensorflow.graph",
                    "Graph parameters for a trained TensorFlow model",
-                   "TensorflowGraph.md");
+                   "TensorflowGraph.md.html");
 
 
 } // namespace MLDB

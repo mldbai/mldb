@@ -32,7 +32,8 @@ struct SqlExpressionMldbContext: public SqlBindingScope {
     virtual BoundFunction
     doGetFunction(const Utf8String & tableName,
                   const Utf8String & functionName,
-                  const std::vector<std::shared_ptr<SqlExpression> > & args);
+                  const std::vector<BoundSqlExpression> & args,
+                  SqlBindingScope & argScope);
     
     virtual std::shared_ptr<Function>
     doGetFunctionEntity(const Utf8String & functionName);
@@ -91,7 +92,8 @@ struct SqlExpressionDatasetContext: public SqlExpressionMldbContext {
     virtual BoundFunction
     doGetFunction(const Utf8String & tableName,
                   const Utf8String & functionName,
-                  const std::vector<std::shared_ptr<SqlExpression> > & args);
+                  const std::vector<BoundSqlExpression> & args,
+                  SqlBindingScope & argScope);
 
     virtual GenerateRowsWhereFunction
     doCreateRowsWhereGenerator(const SqlExpression & where,

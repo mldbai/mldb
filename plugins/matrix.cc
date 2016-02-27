@@ -270,7 +270,7 @@ extractFeaturesFromRows(const Dataset & dataset,
     {
         static int n = 0;
         cerr << "saving buckets " << n << endl;
-        ML::filter_ostream stream(ML::format("buckets-%d.json", n++));
+        filter_ostream stream(ML::format("buckets-%d.json", n++));
         stream << "numExamples = " << featureBuckets.numExamples << endl;
         for (unsigned i = 0;  i < featureBuckets.size();  ++i) {
             stream << "bucket " << i << endl;

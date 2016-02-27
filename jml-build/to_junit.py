@@ -21,19 +21,23 @@ passed = set()
 passed_times = dict()
 failed = set()
 
-passed_pat = re.compile("(.*?) passed \[ (.*)s \]")
+passed_pat = re.compile("\[\s*(.*)s\s*(.*)G\s*(.*)c\s*\]\s*(.*?) passed")
 failed_pat = re.compile("(.*?) FAILED")
 for l in fileinput.input():
-    clean_line = l.strip() \
+    clean_line = l \
         .replace("\x1b[0m", "") \
         .replace("\x1b[32m", "") \
+        .replace("\x1b[35m", "") \
         .replace("\x1b[31m", "") \
-        .replace("\x1b[1;30m", "")
-
+        .replace("\x1b[1;30m", "")\
+        .strip()
+        
     if passed_pat.match(clean_line):
-        test, time = passed_pat.search(clean_line).groups()
+        groups = passed_pat.search(clean_line).groups()
+        cpu_time, memory_gigs, num_cores, test = groups
+        approx_wall_time = float(cpu_time)/max(0.05, float(num_cores))
         passed.add(test)
-        passed_times[test] = time
+        passed_times[test] = str(approx_wall_time)
     if failed_pat.match(clean_line):
         test = failed_pat.search(clean_line).groups()[0]
         failed.add(test)

@@ -5,6 +5,13 @@ function mldb_defer() {
                 $("<a>", {href:"/doc", style:"font-weight: bold; padding: 10px;"}).text("MLDB Documentation")
             )
         );
+
+        $.getJSON("/version.json", function(version){
+            $("#ipython_notebook").append(
+                $("<span>", {style: "font-size: 12px;"}).text("version "+version.version)
+            );
+        })
+
         if(window.location.pathname.endsWith("tree")){
             $("#tab_content").before(
                 $("<div>", {style:"font-size: 18px; margin: 0 auto; width: 700px;"}).append(

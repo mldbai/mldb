@@ -1,14 +1,13 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* http_named_endpoint.h                                           -*- C++ -*-
    Jeremy Barnes, 9 November 2012
    Copyright (c) 2012 Datacratic.  All rights reserved.
+
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #pragma once
 
 #include "mldb/http/http_endpoint.h"
-#include "mldb/jml/utils/vector_utils.h"
 #include "named_endpoint.h"
 #include "http_rest_proxy.h"
 #include "http_rest_endpoint.h"

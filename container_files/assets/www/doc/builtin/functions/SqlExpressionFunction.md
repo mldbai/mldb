@@ -13,12 +13,12 @@ over creating custom function types when possible.
 The following function configuration will output a value `z` on a
 that is the sum of the `x` and `y` input values:
 
-```
+```python
 {
-    id: "expr",
-    type: "sql.expression",
-    params: {
-        expression: "x + y AS z"
+    "id": "expr",
+    "type": "sql.expression",
+    "params": {
+        "expression": "x + y AS z"
     }
 }
 ```

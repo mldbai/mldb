@@ -14,3 +14,5 @@ $(eval $(call program,dataset_nan_test,boosting utils arch boosting_tools))
 ifeq ($(CUDA_ENABLED),1)
 $(eval $(call test,split_cuda_test,boosting_cuda,boost))
 endif # CUDA_ENABLED
+
+$(TESTS)/weighted_training_test: $(BIN)/classifier_training_tool

@@ -31,7 +31,7 @@ strongly correlated with the outcomes. The outcomes we want to track are whether
 on the ad and/or a purchase was then made on the advertiser's website.
 
 
-|  *rowName*   |  *host*  |  *region*  | *click_on_ad* | *purchase_value* |
+|  rowName   |  host  |  region  | click_on_ad | purchase_value |
 |----------|---|---|---|---|---|
 | br_1     | patate.com  | qc | 1 | 0 |
 | br_2     | carotte.net | on | 1 | 25 |
@@ -40,17 +40,19 @@ on the ad and/or a purchase was then made on the advertiser's website.
 
 Assume this partial configuration:
 
-    {
-        "select": "* EXCLUDING(click_on_ad, purchase_value)",
-        "outcomes": [
-            ["click", "click_on_ad = 1"],
-            ["purchase", "click_on_ad = 1 AND purchase_value > 0"]
-        ]
-    }
+```javascript
+{
+    "select": "* EXCLUDING(click_on_ad, purchase_value)",
+    "outcomes": [
+        ["click", "click_on_ad = 1"],
+        ["purchase", "click_on_ad = 1 AND purchase_value > 0"]
+    ]
+}
+```
 
 The output dataset will contain:
 
-|  *rowName*   |  *trial-host*  |  *click-host* | *purchase-host* | *trial-region*  | *click-region* | *purchase-region* |
+|  rowName   |  trial-host  |  click-host | purchase-host | trial-region  | click-region | purchase-region |
 |----------|---|---|---|---|---|---|
 | br_1     | 0  | 0 | 0 | 0 | 0 | 0 |
 | br_2     | 0  | 0 | 0 | 0 | 0 | 0 |

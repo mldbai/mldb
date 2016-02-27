@@ -193,6 +193,11 @@ handlePutWithFirstRun(Utf8String key, PolyConfig config, bool mustBeNew, bool as
 
         if (connection.responseCode == 201) {
             Json::Value status = polyStatus.status.asJson();
+            if (!status.isObject()) {
+                throw HttpReturnException(500,
+                                          "Initial run did not return a valid object as status",
+                                          "status", status);
+            }
             status["firstRun"] = runResponse;
             polyStatus.status = status;
         }

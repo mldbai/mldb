@@ -22,7 +22,7 @@ columns.  There must be the same set of numeric coordinates per row.
 As an example, the following input would be suitable for the k-means algorithm:
 
 
-|  *rowName*   |  *x*  |  *y*  |
+|  rowName   |  x  |  y  |
 |----------|---|---|
 | row1     | 1 | 4 |
 | row2     | 1 | 3 |
@@ -33,7 +33,7 @@ As an example, the following input would be suitable for the k-means algorithm:
 Using the k-means procedure with the Euclidean metric to create two clusters (i.e. with `metric` set to `Euclidean` and `numClusters` set to 2),
 the output would be the centroids:
 
-|*_rowName* |*x*|*y*|
+|_rowName |x|y|
 |----------|---|---|
 | "0" | 1   | 3.5 |
 | "1" | 3.5 | 1   |
