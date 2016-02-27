@@ -5,13 +5,17 @@ import datetime
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
 start = datetime.datetime.now();
-mldb.put("/v1/datasets/airline", {
-    "type":"text.csv.tabular",
+mldb.put("/v1/procedures/airline", {
+    "type":"import.text",
     "params": {
         "dataFileUrl": "file://allyears.1987.2013.csv",
-        "limit" : 1000000,
+#        "limit" : 50000000,
         "offset" : 0,
-       "ignoreBadLines" : True
+        "ignoreBadLines" : True,
+        "outputDataset": {
+            "id": "airline"
+        },
+        "runOnCreation": True
     }
 })
 mldb.log(datetime.datetime.now() - start)

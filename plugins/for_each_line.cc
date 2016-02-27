@@ -291,7 +291,7 @@ void forEachLineBlock(std::istream & stream,
             bool lastBlock = false;
 
             try {
-                if (mapped) {
+                if (mapped && false) {
                     const char * start = mapped + stream.tellg();
                     const char * current = start;
                     const char * end = mapped + mappedSize;

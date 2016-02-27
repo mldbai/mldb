@@ -1004,8 +1004,13 @@ struct ImportTextProcedureWorkInstance
 	                                        isTextLine,
 	                                        hasQuoteChar);
 
-	            if (errorMsg)
+	            if (errorMsg) {
+                        cerr << "errorMsg = " << errorMsg << endl;
+                        cerr << "actualLineNum = " << actualLineNum << endl;
+                        cerr << "chunkNum = " << chunkNum << endl;
+                        cerr << "lineNum = " << lineNum << endl;
 	                return handleError(errorMsg, actualLineNum, line - lineStart + 1, string(line, length));
+                    }
 
 	            //cerr << "got values " << jsonEncode(vector<CellValue>(values, values + inputColumnNames.size())) << endl;
 	                
