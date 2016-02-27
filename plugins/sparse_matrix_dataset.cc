@@ -18,6 +18,7 @@
 #include "mldb/arch/rcu_protected.h"
 #include "mldb/arch/timers.h"
 #include "mldb/base/parallel.h"
+#include "mldb/base/thread_pool.h"
 
 
 using namespace std;

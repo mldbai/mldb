@@ -10,12 +10,13 @@
 #include "mldb/plugins/dataset_feature_space.h"
 #include "mldb/server/bound_queries.h"
 #include "mldb/types/any_impl.h"
-#include "mldb/jml/utils/worker_task.h"
+#include "mldb/base/parallel.h"
 #include "mldb/arch/timers.h"
 #include "mldb/jml/utils/profile.h"
 #include "mldb/ml/jml/tree.h"
 #include "mldb/ml/jml/stump_training_bin.h"
 #include "mldb/ml/jml/decision_tree.h"
+#include "mldb/base/thread_pool.h"
 
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/uniform_int.hpp>

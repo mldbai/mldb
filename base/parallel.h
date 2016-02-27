@@ -7,80 +7,44 @@
 
 #pragma once
 
-#include "mldb/compiler/compiler.h"
-#include "thread_pool.h"
-#include <atomic>
-#include <mutex>
+#include <functional>
 
 namespace Datacratic {
 
-/** Run a set of jobs in multiple threads.  The iterator will be iterated
-    through the range and the doWork function will be called with each
-    value of the iterator in a different thread.
+/** Run a set of jobs in multiple threads.
+
+    This will count from first to last, submitting a job to doWork for
+    each of the values, across multiple threads.
+
+    A maximum of occupancyLimit jobs will be run in parallel at once.  This
+    is useful for limiting lock contention in a downstream reduction job.
+
+    The doWork() function is permitted to throw an exception.  In the case
+    that an exception is thrown, the following behaviour will happen:
+
+    1.  The exception will be captured.
+    2.  The function will wait for all currently executing doWork() calls
+        to finish.  If any of these throw a second exception, that exception
+        will be will be ignored.
+    3.  Any doWork() calls that haven't yet started will be cancelled and
+        will not take place.
+    4.  This function will rethrow the captured exception, in the context
+        of the thread that called this function.
+
+    Different behaviour can be obtained by using a try block inside the
+    doWork function, or by using another mechanism apart from exceptions
+    to signal errors.
 */
-template<typename It, typename It2, typename Fn>
-void parallelMap(It first, It2 last, Fn doWork)
-{
-    std::atomic<int> has_exc(0);
-    std::mutex exc_mutex;
-    std::exception_ptr exc;
+void parallelMap(size_t first, size_t last,
+                 const std::function<void (size_t)> & doWork,
+                 int occupancyLimit = -1);
 
-    // This creates a thread pool that runs jobs on the default thread pool
-    ThreadPool tp;
-    
-    for (auto it = first;  it != last;  ++it) {
-        tp.add([&,it] ()
-               {
-                   if (has_exc.load(std::memory_order_relaxed))
-                       return;
-                   try {
-                       doWork(it);
-                   } JML_CATCH_ALL {
-                       has_exc = 1;
-                       std::unique_lock<std::mutex> guard(exc_mutex);
-                       if (!exc)
-                           exc = std::current_exception();
-                   }
-               });
-    }
-    
-    tp.waitForAll();
-
-    if (exc)
-        std::rethrow_exception(exc);
-}
-
-template<typename It, typename It2, typename Fn>
-void parallelMapChunked(It first, It2 last, size_t chunkSize, Fn doWork)
-{
-    std::atomic<int> has_exc(0);
-    std::mutex exc_mutex;
-    std::exception_ptr exc;
-
-    // This creates a thread pool that runs jobs on the default thread pool
-    ThreadPool tp;
-
-    for (auto it = first;  it < last;  it += chunkSize) {
-        auto end = std::min<It>(it + chunkSize, last);
-        tp.add([&,it,end] ()
-               {
-                   if (has_exc.load(std::memory_order_relaxed))
-                       return;
-                   try {
-                       doWork(it, end);
-                   } JML_CATCH_ALL {
-                       has_exc = 1;
-                       std::unique_lock<std::mutex> guard(exc_mutex);
-                       if (!exc)
-                           exc = std::current_exception();
-                   }
-               });
-    }
-    
-    tp.waitForAll();
-
-    if (exc)
-        std::rethrow_exception(exc);
-}
+/** Same as parallelMap, except that each doWork() call will be passed
+    a chunk of work of chunkSize.  This is useful to reduce the amount
+    of calling overhead on a very fine-grained job.
+*/
+void parallelMapChunked(size_t first, size_t last, size_t chunkSize,
+                        const std::function<void (size_t, size_t)> & doWork,
+                        int occupancyLimit = -1);
 
 } // namespace Datacratic
