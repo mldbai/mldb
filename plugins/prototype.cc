@@ -141,7 +141,7 @@ struct PartitionData {
         bool ordinal; ///< If true, it's continuous valued; otherwise categ.
         int numBuckets;
         const DatasetFeatureSpace::ColumnInfo * info;
-        const int * buckets;  ///< Bucket number, per example
+        std::shared_ptr<const int> buckets;  ///< Bucket number, per example
     };
 
     // All rows of data in this partition
@@ -180,14 +180,14 @@ struct PartitionData {
         if (features[featureToSplitOn].ordinal) {
             // Ordinal feature
             for (auto & r: rows) {
-                int bucket = features[featureToSplitOn].buckets[r.exampleNum];
+                int bucket = features[featureToSplitOn].buckets.get()[r.exampleNum];
                 (bucket <= splitValue ? left : right).addRow(r);
             }
         }
         else {
             // Categorical feature
             for (auto & r: rows) {
-                int bucket = features[featureToSplitOn].buckets[r.exampleNum];
+                int bucket = features[featureToSplitOn].buckets.get()[r.exampleNum];
                 (bucket == splitValue ? left : right).addRow(r);
             }
         }
@@ -288,7 +288,7 @@ struct PartitionData {
             bool twoBuckets = false;
             int lastBucket = -1;
             for (auto & r: rows) {
-                int bucket = features[i].buckets[r.exampleNum];
+                int bucket = features[i].buckets.get()[r.exampleNum];
 
                 if (!twoBuckets) {
                     if (lastBucket != -1 && bucket != lastBucket)
@@ -725,29 +725,42 @@ run(const ProcedureRunConfig & run,
             training_weights.normalize();          // MBOLDUC can't we know the norm? Is this using SIMD?
 
             
-
+            size_t numNonZero = (training_weights != 0).count();
+            cerr << "numNonZero = " << numNonZero << endl;
 
             PartitionData data(*featureSpace);
 
-            vector<vector<int> > featureBuckets(data.features.size());
+            vector<std::shared_ptr<int> >
+            featureBuckets(data.features.size());
+
+            for (unsigned i = 0;  i < data.features.size();  ++i) {
+                if (data.features[i].active) {
+                    featureBuckets[i]
+                        = std::shared_ptr<int>(new int[numNonZero],
+                                               [] (int * p) { delete[] p; });
+                    data.features[i].buckets = featureBuckets[i];
+                }
+            }
 
             int n = 0;
             for (size_t i = 0;  i < lines.size();  ++i) {
                 if (training_weights[i] == 0)
                     continue;
 
+                ExcAssert(n < numNonZero);
+
                 DataLine & line = lines[i];
 
                 for (unsigned i = 0;  i < data.features.size();  ++i) {
                     if (data.features[i].active)
-                        featureBuckets[i].push_back(line.features[i]);
+                        featureBuckets[i].get()[n] = line.features[i];
                 }
                 data.addRow(line.label, training_weights[i], n++);
             }
 
             for (unsigned i = 0;  i < data.features.size();  ++i) {
                 if (data.features[i].active) {
-                    data.features[i].buckets = &featureBuckets[i][0];
+                    data.features[i].buckets = featureBuckets[i];
                 }
             }
 
