@@ -98,6 +98,14 @@ getStatus() const
     return Any();
 }
 
+template<typename T>
+static std::shared_ptr<T>
+makeSharedArray(size_t len)
+{
+    return std::shared_ptr<T>(new T[len],
+                              [] (T * p) { delete[] p; });
+}
+
 /** Holds the set of data for a partition of a decision tree. */
 struct PartitionData {
 
@@ -161,40 +169,6 @@ struct PartitionData {
         rows.emplace_back(Row{label, weight, exampleNum});
     }
 
-    /** Split the partition here. */
-    std::pair<PartitionData, PartitionData>
-    split(int featureToSplitOn, int splitValue)
-    {
-        ExcAssertGreaterEqual(featureToSplitOn, 0);
-        ExcAssertLess(featureToSplitOn, features.size());
-        PartitionData left, right;
-
-        left.fs = fs;
-        right.fs = fs;
-        left.features = features;
-        right.features = features;
-
-        // For each example, it goes either in left or right, depending
-        // upon the value of the chosen feature.
-
-        if (features[featureToSplitOn].ordinal) {
-            // Ordinal feature
-            for (auto & r: rows) {
-                int bucket = features[featureToSplitOn].buckets.get()[r.exampleNum];
-                (bucket <= splitValue ? left : right).addRow(r);
-            }
-        }
-        else {
-            // Categorical feature
-            for (auto & r: rows) {
-                int bucket = features[featureToSplitOn].buckets.get()[r.exampleNum];
-                (bucket == splitValue ? left : right).addRow(r);
-            }
-        }
-
-        return { std::move(left), std::move(right) };
-    }
-
     template<typename Float>
     struct WT {
         WT()
@@ -214,13 +188,22 @@ struct PartitionData {
             return v[i];
         }
 
-        bool empty() const { return v[0] == 0 && v[1] == 0; };
+        bool empty() const { return total() == 0; }
+
+        Float total() const { return v[0] + v[1]; }
 
         WT & operator += (const WT & other)
         {
             v[0] += other.v[0];
             v[1] += other.v[1];
             return *this;
+        }
+
+        WT operator + (const WT & other) const
+        {
+            WT result = *this;
+            result += other;
+            return result;
         }
 
         WT & operator -= (const WT & other)
@@ -234,10 +217,99 @@ struct PartitionData {
     //typedef WT<double> W;
     typedef WT<ML::FixedPointAccum64> W;
 
+    /** Split the partition here. */
+    std::pair<PartitionData, PartitionData>
+    split(int featureToSplitOn, int splitValue, const W & wLeft, const W & wRight)
+    {
+        ExcAssertGreaterEqual(featureToSplitOn, 0);
+        ExcAssertLess(featureToSplitOn, features.size());
+
+        PartitionData sides[2];
+        PartitionData & left = sides[0];
+        PartitionData & right = sides[1];
+
+        left.fs = fs;
+        right.fs = fs;
+        left.features = features;
+        right.features = features;
+
+        bool ordinal = features[featureToSplitOn].ordinal;
+
+        double useRatio = 1.0 * rows.size() / rows.back().exampleNum;
+
+        bool reIndex = useRatio < 0.1;
+        //reIndex = false;
+        //cerr << "useRatio = " << useRatio << endl;
+
+        if (!reIndex) {
+
+            for (size_t i = 0;  i < rows.size();  ++i) {
+                int bucket = features[featureToSplitOn].buckets.get()[rows[i].exampleNum];
+                int side = ordinal ? bucket > splitValue : bucket != splitValue;
+                sides[side].addRow(rows[i]);
+            }
+        }
+        else {
+            int nf = features.size();
+
+            // For each example, it goes either in left or right, depending
+            // upon the value of the chosen feature.
+
+            std::vector<uint8_t> lr(rows.size());
+            bool ordinal = features[featureToSplitOn].ordinal;
+            size_t numOnSide[2] = { 0, 0 };
+
+            for (size_t i = 0;  i < rows.size();  ++i) {
+                int bucket = features[featureToSplitOn].buckets.get()[rows[i].exampleNum];
+                int side = ordinal ? bucket > splitValue : bucket != splitValue;
+                lr[i] = side;
+                sides[side].addRow(rows[i].label, rows[i].weight, numOnSide[side]++);
+            }
+
+#if 0
+            cerr << "left " << numOnSide[0] << " " << wLeft.total()
+                 << " " << (100.0 * numOnSide[0] / (rows.back().exampleNum + 1))
+                 << "%" << endl;
+            cerr << "right " << numOnSide[1] << " " << wRight.total()
+                 << " " << (100.0 * numOnSide[1] / (rows.back().exampleNum + 1))
+                 << "%" << endl;
+#endif
+
+            for (unsigned i = 0;  i < nf;  ++i) {
+                if (!features[i].active)
+                    continue;
+
+                std::shared_ptr<int> newFeatures[2]
+                    = { makeSharedArray<int>(numOnSide[0]),
+                        makeSharedArray<int>(numOnSide[1]) };
+                size_t index[2] = { 0, 0 };
+
+                for (size_t j = 0;  j < rows.size();  ++j) {
+                    int side = lr[j];
+                    newFeatures[side].get()[index[side]++]
+                        = features[i].buckets.get()[j];
+                }
+
+                sides[0].features[i].buckets = newFeatures[0];
+                sides[1].features[i].buckets = newFeatures[1];
+
+            }
+        }
+
+        return { std::move(left), std::move(right) };
+    }
+
     /** Test all features for a split.  Returns the feature number,
         the bucket number and the goodness of the split.
+
+        Outputs
+        - Z score of split
+        - Feature number
+        - Split point
+        - W for the left side of the split
+        - W from the right side of the split
     */
-    std::tuple<double, int, int, W>
+    std::tuple<double, int, int, W, W>
     testAll(int depth)
     {
         bool debug = false;
@@ -307,12 +379,16 @@ struct PartitionData {
         }
 #endif
 
+        // We have no impurity in our bucket.  Time to stop
         if (wAll[0] == 0 || wAll[1] == 0)
-            return std::make_tuple(1.0, -1, -1, wAll);
+            return std::make_tuple(1.0, -1, -1, wAll, W());
 
         double bestScore = INFINITY;
         int bestFeature = -1;
         int bestSplit = -1;
+        
+        W bestLeft;
+        W bestRight;
 
         int bucketsEmpty = 0;
         int bucketsOne = 0;
@@ -364,14 +440,17 @@ struct PartitionData {
                         cerr << "    true:  " << wTrue[0] << " " << wTrue[1] << endl;
                     }
 
-                    wFalse -= w[i][j];
-                    wTrue += w[i][j];
-
                     if (s < bestScore) {
                         bestScore = s;
                         bestFeature = i;
                         bestSplit = j;
+                        bestRight = wFalse;
+                        bestLeft = wTrue;
                     }
+
+                    wFalse -= w[i][j];
+                    wTrue += w[i][j];
+
                 }
             }
             else {
@@ -395,6 +474,8 @@ struct PartitionData {
                         bestScore = s;
                         bestFeature = i;
                         bestSplit = j;
+                        bestRight = wFalse;
+                        bestLeft = w[i][j];
                     }
                 }
 
@@ -412,7 +493,7 @@ struct PartitionData {
                  << endl;
         }
 
-        return std::make_tuple(bestScore, bestFeature, bestSplit, wAll);
+        return std::make_tuple(bestScore, bestFeature, bestSplit, bestLeft, bestRight);
     }
 
     static void fillinBase(ML::Tree::Base * node, const W & wAll)
@@ -453,19 +534,21 @@ struct PartitionData {
         double bestScore;
         int bestFeature;
         int bestSplit;
-        W wAll;
+        W wLeft;
+        W wRight;
         
-        std::tie(bestScore, bestFeature, bestSplit, wAll) = testAll(depth);
+        std::tie(bestScore, bestFeature, bestSplit, wLeft, wRight)
+            = testAll(depth);
 
         if (bestFeature == -1) {
             Tree::Leaf * leaf = tree.new_leaf();
-            fillinBase(leaf, wAll);
-
+            fillinBase(leaf, wLeft + wRight);
+            
             return leaf;
         }
 
         std::pair<PartitionData, PartitionData> splits
-            = split(bestFeature, bestSplit);
+            = split(bestFeature, bestSplit, wLeft, wRight);
 
         //cerr << "done split in " << timer.elapsed() << endl;
 
@@ -478,19 +561,20 @@ struct PartitionData {
 
 #if 1
         ThreadPool tp;
-        if (splits.first.rows.size() > 10000) {
+        size_t leftRows = splits.first.rows.size();
+        size_t rightRows = splits.second.rows.size();
+
+        // Put the smallest one on the thread pool, so that we have the highest
+        // probability of running both on our thread in case of lots of work.
+        if (leftRows < rightRows) {
             tp.add(runLeft);
-        }
-        if (splits.second.rows.size() > 10000) {
-            tp.add(runRight);
-        }
-        if (splits.first.rows.size() <= 10000) {
-            runLeft();
-        }
-        if (splits.second.rows.size() <= 10000) {
             runRight();
         }
-
+        else {
+            tp.add(runRight);
+            runLeft();
+        }
+        
         tp.waitForAll();
 #else
         runLeft();
@@ -517,13 +601,13 @@ struct PartitionData {
             node->child_true = left;
             node->child_false = right;
             node->z = bestScore;
-            fillinBase(node, wAll);
+            fillinBase(node, wLeft + wRight);
 
             return node;
         }
         else {
             Tree::Leaf * leaf = tree.new_leaf();
-            fillinBase(leaf, wAll);
+            fillinBase(leaf, wLeft + wRight);
 
             return leaf;
         }
@@ -538,15 +622,20 @@ PrototypeProcedure::
 run(const ProcedureRunConfig & run,
       const std::function<bool (const Json::Value &)> & onProgress) const
 {
-    const int numBags = 10;
-    const int featurePartitionsPerBag = 10;
-    const int maxDepth = 20;
+    int numBags = 5;
+    int featurePartitionsPerBag = 20;
+    int maxDepth = 20;
+    int maxBagsAtOnce = 1;
+    int maxTreesAtOnce = 6;
 
     //numBags = 1;
     //maxDepth = 4;
+    //featurePartitionsPerBag = 1;
 
     PrototypeConfig runProcConf =
         applyRunConfOverProcConf(procedureConfig, run);
+
+    ML::Timer timer;
 
     // this includes being empty
     // if(!runProcConf.modelFileUrl.valid()) {
@@ -599,6 +688,9 @@ run(const ProcedureRunConfig & run,
     // Profile this!
     auto featureSpace = std::make_shared<DatasetFeatureSpace>
         (boundDataset.dataset, labelInfo, knownInputColumns, true /* bucketize */);
+
+    cerr << "feature space construction took " << timer.elapsed() << endl;
+    timer.restart();
 
     for (auto& c : knownInputColumns) {
         cerr << c.toString() << " feature " << featureSpace->getFeature(c) << endl;
@@ -697,6 +789,8 @@ run(const ProcedureRunConfig & run,
                  nullptr /* progress */);
 
 
+    cerr << "select took " << timer.elapsed() << endl;
+
     /// WE GOT THE INPUT DATA NOW BUILD THE BAGS
 
     const float trainprop = 1.0f;
@@ -705,6 +799,8 @@ run(const ProcedureRunConfig & run,
     
     auto bagPrepare = [&] (int bag)
         {
+            ML::Timer bagTimer;
+
             boost::mt19937 rng(bag + 245);
             distribution<float> in_training(numRow);
             vector<int> tr_ex_nums(numRow);
@@ -736,8 +832,7 @@ run(const ProcedureRunConfig & run,
             for (unsigned i = 0;  i < data.features.size();  ++i) {
                 if (data.features[i].active) {
                     featureBuckets[i]
-                        = std::shared_ptr<int>(new int[numNonZero],
-                                               [] (int * p) { delete[] p; });
+                        = makeSharedArray<int>(numNonZero);
                     data.features[i].buckets = featureBuckets[i];
                 }
             }
@@ -784,17 +879,18 @@ run(const ProcedureRunConfig & run,
 
                 ML::Decision_Tree dtree(featureSpace, labelFeature);
                 dtree.tree = std::move(tree);
+                //cerr << dtree.print() << endl;
             };
 
-            parallelMap(0, featurePartitionsPerBag, trainFeaturePartition);
+            parallelMap(0, featurePartitionsPerBag, trainFeaturePartition,
+                        maxTreesAtOnce);
 
-            //cerr << dtree.print() << endl;
-
+            cerr << "bag " << bag << " took " << bagTimer.elapsed() << endl;
         };
 
-    for (unsigned i = 0;  i < numBags;  ++i)
-        bagPrepare(i);
-    //parallelMap(0, numBags, bagPrepare);
+    //for (unsigned i = 0;  i < numBags;  ++i)
+    //    bagPrepare(i);
+    parallelMap(0, numBags, bagPrepare, maxBagsAtOnce);
 
     return RunOutput();
 
