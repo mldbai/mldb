@@ -1088,7 +1088,8 @@ struct ImportTextProcedureWorkInstance
 	            //threadAccum.emplace_back(std::move(lineEntry));
 	        };
 
-	    forEachLineBlock(stream, onLine, config.limit);
+	    forEachLineBlock(stream, onLine, config.limit,
+                             32 /* parallelism */);
 
 	    //cerr << timer.elapsed() << endl;
 	    timer.restart();	   

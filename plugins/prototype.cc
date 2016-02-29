@@ -17,6 +17,8 @@
 #include "mldb/ml/jml/stump_training_bin.h"
 #include "mldb/ml/jml/decision_tree.h"
 #include "mldb/base/thread_pool.h"
+#include "mldb/arch/bit_range_ops.h"
+#include "mldb/arch/bitops.h"
 
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/uniform_int.hpp>
@@ -106,6 +108,140 @@ makeSharedArray(size_t len)
                               [] (T * p) { delete[] p; });
 }
 
+#if 1
+/** Holds an array of bucket indexes, efficiently. */
+struct BucketList {
+
+    BucketList()
+        : entryBits(0), numEntries(0)
+    {
+    }
+
+    int operator [] (uint32_t i) const
+    {
+        //ExcAssertLess(i, numEntries);
+        size_t wordNum = (i * entryBits) / 64;
+        size_t bitNum = (i * entryBits) % 64;
+        return (storage.get()[wordNum] >> bitNum) & ((1ULL << entryBits) - 1);
+    }
+
+    std::shared_ptr<const uint64_t> storage;
+    int entryBits;
+    size_t numEntries;
+};
+
+/** Writable version of the above.  OK to slice. */
+struct WritableBucketList: public BucketList {
+    WritableBucketList()
+        : current(0), bitsWritten(0)
+    {
+    }
+
+    void init(size_t numElements, uint32_t numBuckets)
+    {
+        entryBits = ML::highest_bit(numBuckets) + 1;
+
+        // Take a number of bits per entry that evenly divides into
+        // 64 bits.
+        if (entryBits == 0) ;
+        else if (entryBits == 1) ;
+        else if (entryBits == 2) ;
+        else if (entryBits <= 4)
+            entryBits = 4;
+        else if (entryBits <= 8)
+            entryBits = 8;
+        else if (entryBits <= 16)
+            entryBits = 16;
+        else entryBits = 32;
+
+        //cerr << "using " << entryBits << " bits for " << numBuckets
+        //     << " buckets" << endl;
+
+        size_t numWords = (entryBits * numElements + 63) / 64;
+        auto writableStorage = makeSharedArray<uint64_t>(numWords);
+        this->current = writableStorage.get();
+        this->storage = writableStorage;
+        this->bitsWritten = 0;
+        this->numEntries = numElements;
+        this->numWritten = 0;
+    }
+
+    void write(uint64_t value)
+    {
+        uint64_t already = bitsWritten ? *current : 0;
+        *current = already | (value << bitsWritten);
+        bitsWritten += entryBits;
+        current += (bitsWritten >= 64);
+        bitsWritten *= (bitsWritten < 64);
+
+        //ExcAssertEqual(this->operator [] (numWritten), value);
+        //ExcAssertLess(numWritten, numEntries);
+        numWritten += 1;
+    }
+
+    uint64_t * current;
+    int bitsWritten;
+    size_t numWritten;
+};
+#else
+/** Holds an array of bucket indexes, efficiently. */
+struct BucketList {
+
+    BucketList()
+        : entryBits(0)
+    {
+    }
+
+    int operator [] (uint32_t i) const
+    {
+        ML::Bit_Extractor<uint64_t> bits(storage.get());
+        bits.advance(i * entryBits);
+        return bits.extract<uint64_t>(entryBits);
+    }
+
+    template<typename Fn>
+    void forEach(Fn fn) const
+    {
+        ML::Bit_Extractor<uint64_t> bits(storage.get());
+
+        for (size_t i = 0;  i < numBuckets;  ++i) {
+            fn(bits.extract<uint64_t>(entryBits));
+            bits.advance(entryBits);
+        }
+    }
+
+    std::shared_ptr<const uint64_t> storage;
+    int entryBits;
+    size_t numBuckets;
+};
+
+/** Writable version of the above.  OK to slice. */
+struct WritableBucketList: public BucketList {
+    WritableBucketList()
+        : writer(nullptr)
+    {
+    }
+
+    void init(size_t numElements, uint32_t numBuckets)
+    {
+        entryBits = ML::highest_bit(numBuckets) + 1;
+        size_t numWords = (entryBits * numElements + 63) / 64;
+        auto writableStorage = makeSharedArray<uint64_t>(numWords);
+        writer = ML::Bit_Writer<uint64_t>(writableStorage.get());
+        storage = writableStorage;
+        this->numBuckets = numBuckets;
+    }
+
+    void write(uint32_t value)
+    {
+        writer.write(value, entryBits);
+    }
+
+    ML::Bit_Writer<uint64_t> writer;
+};
+
+#endif
+
 /** Holds the set of data for a partition of a decision tree. */
 struct PartitionData {
 
@@ -141,7 +277,7 @@ struct PartitionData {
     struct Feature {
         Feature()
             : active(false), ordinal(false), numBuckets(0),
-              info(nullptr), buckets(nullptr)
+              info(nullptr)
         {
         }
 
@@ -149,7 +285,7 @@ struct PartitionData {
         bool ordinal; ///< If true, it's continuous valued; otherwise categ.
         int numBuckets;
         const DatasetFeatureSpace::ColumnInfo * info;
-        std::shared_ptr<const int> buckets;  ///< Bucket number, per example
+        BucketList buckets;  ///< List of bucket numbers, per example
     };
 
     // All rows of data in this partition
@@ -243,11 +379,18 @@ struct PartitionData {
 
         if (!reIndex) {
 
+            sides[0].rows.reserve(rows.size());
+            sides[1].rows.reserve(rows.size());
+
             for (size_t i = 0;  i < rows.size();  ++i) {
-                int bucket = features[featureToSplitOn].buckets.get()[rows[i].exampleNum];
+                int bucket = features[featureToSplitOn].buckets[rows[i].exampleNum];
                 int side = ordinal ? bucket > splitValue : bucket != splitValue;
                 sides[side].addRow(rows[i]);
             }
+
+            rows.clear();
+            rows.shrink_to_fit();
+            features.clear();
         }
         else {
             int nf = features.size();
@@ -259,8 +402,12 @@ struct PartitionData {
             bool ordinal = features[featureToSplitOn].ordinal;
             size_t numOnSide[2] = { 0, 0 };
 
+            // TODO: could reserve less than this...
+            sides[0].rows.reserve(rows.size());
+            sides[1].rows.reserve(rows.size());
+
             for (size_t i = 0;  i < rows.size();  ++i) {
-                int bucket = features[featureToSplitOn].buckets.get()[rows[i].exampleNum];
+                int bucket = features[featureToSplitOn].buckets[rows[i].exampleNum];
                 int side = ordinal ? bucket > splitValue : bucket != splitValue;
                 lr[i] = side;
                 sides[side].addRow(rows[i].label, rows[i].weight, numOnSide[side]++);
@@ -279,21 +426,24 @@ struct PartitionData {
                 if (!features[i].active)
                     continue;
 
-                std::shared_ptr<int> newFeatures[2]
-                    = { makeSharedArray<int>(numOnSide[0]),
-                        makeSharedArray<int>(numOnSide[1]) };
+                WritableBucketList newFeatures[2];
+                newFeatures[0].init(numOnSide[0], features[i].info->distinctValues);
+                newFeatures[1].init(numOnSide[1], features[i].info->distinctValues);
                 size_t index[2] = { 0, 0 };
 
                 for (size_t j = 0;  j < rows.size();  ++j) {
                     int side = lr[j];
-                    newFeatures[side].get()[index[side]++]
-                        = features[i].buckets.get()[j];
+                    newFeatures[side].write(features[i].buckets[rows[j].exampleNum]);
+                    ++index[side];
                 }
 
                 sides[0].features[i].buckets = newFeatures[0];
                 sides[1].features[i].buckets = newFeatures[1];
-
             }
+
+            rows.clear();
+            rows.shrink_to_fit();
+            features.clear();
         }
 
         return { std::move(left), std::move(right) };
@@ -330,7 +480,7 @@ struct PartitionData {
             totalNumBuckets += features[i].numBuckets;
         }
 
-        if (debug || depth == 0) {
+        if (debug) {
             cerr << "total of " << totalNumBuckets << " buckets" << endl;
             cerr << activeFeatures << " of " << nf << " features active"
                  << endl;
@@ -360,7 +510,7 @@ struct PartitionData {
             bool twoBuckets = false;
             int lastBucket = -1;
             for (auto & r: rows) {
-                int bucket = features[i].buckets.get()[r.exampleNum];
+                int bucket = features[i].buckets[r.exampleNum];
 
                 if (!twoBuckets) {
                     if (lastBucket != -1 && bucket != lastBucket)
@@ -527,10 +677,6 @@ struct PartitionData {
         if (depth >= maxDepth)
             return getLeaf(tree);
 
-        //cerr << "training with " << rows.size() << " rows" << endl;
-
-        ML::Timer timer;
-
         double bestScore;
         int bestFeature;
         int bestSplit;
@@ -625,8 +771,8 @@ run(const ProcedureRunConfig & run,
     int numBags = 5;
     int featurePartitionsPerBag = 20;
     int maxDepth = 20;
-    int maxBagsAtOnce = 1;
-    int maxTreesAtOnce = 6;
+    int maxBagsAtOnce = 5;
+    int maxTreesAtOnce = 8;
 
     //numBags = 1;
     //maxDepth = 4;
@@ -713,7 +859,7 @@ run(const ProcedureRunConfig & run,
     struct DataLine
     {
         std::vector<int> features;
-    	std::vector<float> weightsperbag;
+        float weight;
     	bool label;
     };
 
@@ -749,7 +895,6 @@ run(const ProcedureRunConfig & run,
             //++numRows;
 
             std::vector<int> features(numFeatures);
-            //  = { { labelFeature, encodedLabel }, { weightFeature, weight } };
                 
             for (auto & c: row.columns) {
                 int featureNum;
@@ -765,7 +910,7 @@ run(const ProcedureRunConfig & run,
             DataLine & line = lines[rowIndex];
 
             line.features = std::move(features);
-            line.weightsperbag.resize(numBags, weight);
+            line.weight = weight;
             line.label = encodedLabel;
 
             //thr.fvs.emplace_back(row.rowName, std::move(features));
@@ -777,8 +922,10 @@ run(const ProcedureRunConfig & run,
     std::vector<std::shared_ptr<SqlExpression> > extra
         = { label, weight };
 
-    BoundSelectQuery(select, *boundDataset.dataset,
-                     boundDataset.asName, runProcConf.trainingData.stm->when,
+    BoundSelectQuery(select,
+                     *boundDataset.dataset,
+                     boundDataset.asName,
+                     runProcConf.trainingData.stm->when,
                      *runProcConf.trainingData.stm->where,
                      runProcConf.trainingData.stm->orderBy, extra,
                      false /* implicit order by row hash */,
@@ -826,16 +973,18 @@ run(const ProcedureRunConfig & run,
 
             PartitionData data(*featureSpace);
 
-            vector<std::shared_ptr<int> >
+            vector<WritableBucketList>
             featureBuckets(data.features.size());
 
             for (unsigned i = 0;  i < data.features.size();  ++i) {
                 if (data.features[i].active) {
-                    featureBuckets[i]
-                        = makeSharedArray<int>(numNonZero);
+                    featureBuckets[i].init(numNonZero,
+                                           data.features[i].info->distinctValues);
                     data.features[i].buckets = featureBuckets[i];
                 }
             }
+
+            data.rows.reserve(numNonZero);
 
             int n = 0;
             for (size_t i = 0;  i < lines.size();  ++i) {
@@ -848,15 +997,9 @@ run(const ProcedureRunConfig & run,
 
                 for (unsigned i = 0;  i < data.features.size();  ++i) {
                     if (data.features[i].active)
-                        featureBuckets[i].get()[n] = line.features[i];
+                        featureBuckets[i].write(line.features[i]);
                 }
                 data.addRow(line.label, training_weights[i], n++);
-            }
-
-            for (unsigned i = 0;  i < data.features.size();  ++i) {
-                if (data.features[i].active) {
-                    data.features[i].buckets = featureBuckets[i];
-                }
             }
 
 

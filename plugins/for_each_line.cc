@@ -244,7 +244,8 @@ void forEachLineBlock(std::istream & stream,
                                           size_t lineLength,
                                           int64_t blockNumber,
                                           int64_t lineNumber)> onLine,
-                      int64_t maxLines)   // -1
+                      int64_t maxLines,
+                      int maxParallelism)   // -1
 {
     //static constexpr int64_t BLOCK_SIZE = 100000000;  // 100MB blocks
     static constexpr int64_t BLOCK_SIZE = 10000000;  // 10MB blocks
@@ -255,13 +256,7 @@ void forEachLineBlock(std::istream & stream,
     std::atomic<int64_t> byteOffset(0);
     std::atomic<int> chunkNumber(0);
 
-    // TODO: use the global thread pool, but with limited parallelism.
-    // The limit of 8 threads here is to avoid lock contention in the
-    // downstream task; instead the downstream task should pass through
-    // the amount of parallelism (eg, 8) to this routine which will
-    // arrange for only that number of threads to scheduled at a time
-    // on the parent thread pool.
-    ThreadPool tp(8);
+    ThreadPool tp(maxParallelism);
 
     // Memory map if possible
     const char * mapped = nullptr;
