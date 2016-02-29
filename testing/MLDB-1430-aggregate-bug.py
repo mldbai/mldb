@@ -31,6 +31,6 @@ class HavingTest(unittest.TestCase):
 
         expected = [["_rowName","x","y","z"],["[]",891,29.69911764705882,891]]
 
-        assert res == expected
+        self.assertEqual(res, expected)
 
 mldb.run_tests()
