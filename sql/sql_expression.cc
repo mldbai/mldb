@@ -1759,9 +1759,10 @@ findAggregators() const
     std::vector<std::shared_ptr<SqlExpression> > output;
     std::vector<std::shared_ptr<SqlExpression> > children = getChildren();
 
-    int index = 0;
-    while(index < children.size()) {
-        auto child = children[index];
+    auto iter = children.begin();
+    for (auto iter = children.begin(); iter != children.end(); ++iter)
+    {
+        auto child = *iter;
 
         bool foundAggregator = false;
         if (child->getType() == "function") {
@@ -1782,11 +1783,12 @@ findAggregators() const
 
         //we dont look for aggregators in aggregator - its not legal
         if (!foundAggregator) {
+            //order MUST be preserved
             std::vector<std::shared_ptr<SqlExpression> > subchildren = child->getChildren();
-            children.insert(children.end(), subchildren.begin(), subchildren.end());
+            int pos = iter - children.begin();
+            children.insert(iter+1, subchildren.begin(), subchildren.end());
+            iter = children.begin() + pos;
         }
-
-        ++index;
     }
 
     return std::move(output);
