@@ -1759,7 +1759,6 @@ findAggregators() const
     std::vector<std::shared_ptr<SqlExpression> > output;
     std::vector<std::shared_ptr<SqlExpression> > children = getChildren();
 
-    auto iter = children.begin();
     for (auto iter = children.begin(); iter != children.end(); ++iter)
     {
         auto child = *iter;
