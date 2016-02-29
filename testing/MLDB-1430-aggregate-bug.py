@@ -1,8 +1,7 @@
-# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
-
 #
 # MLDB-1430-aggregate-bug.py
-# Copyright (c) 2016 Datacratic Inc. All rights reserved.
+# Mathieu Bolduc, 2016-02-29
+# This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
 #
 
 mldb = mldb_wrapper.wrap(mldb) # noqa
