@@ -468,7 +468,7 @@ struct TabularDataset : public Dataset {
                const std::function<bool (const Json::Value &)> & onProgress);
 
     //Initialize from a procedure
-    void initialize(std::vector<ColumnName>& columnNames, ML::Lightweight_Hash<ColumnHash, int>& columnIndex);
+    void initialize(const std::vector<ColumnName>& columnNames, const ML::Lightweight_Hash<ColumnHash, int>& columnIndex);
     void finalize( std::vector<TabularDatasetChunk>& inputChunks, uint64_t totalRows);
 
     TabularDatasetChunk* createNewChunk(size_t rowsPerChunk); 
