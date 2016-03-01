@@ -498,9 +498,11 @@ getPackageDocumentationPath(const Package & package) const
     // always be provided by the plugin "pro", but this is not
     // by any means guaranteed.
 
+    auto * rawBaseUrl = secure_getenv("HTTP_BASE_URL");
+    string baseUrl = rawBaseUrl == nullptr ? "" : rawBaseUrl;
     if (package.packageName() == "builtin")
-        return "/doc/builtin/";
-    return "/v1/plugins/" + package.packageName() + "/doc/";
+        return baseUrl + "/doc/builtin/";
+    return baseUrl + "/v1/plugins/" + package.packageName() + "/doc/";
 }
 
 void
