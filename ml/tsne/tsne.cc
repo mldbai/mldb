@@ -24,6 +24,7 @@
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/variate_generator.hpp>
 #include "mldb/base/parallel.h"
+#include "mldb/base/thread_pool.h"
 #include <boost/timer.hpp>
 #include "mldb/arch/timers.h"
 #include "mldb/arch/sse2.h"
