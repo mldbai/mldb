@@ -51,7 +51,6 @@ static Date calcTs(const ExpressionValue & v1,
 }
 
 typedef BoundFunction (*BuiltinFunction) (const std::vector<BoundSqlExpression> &);
-typedef ValuedBoundFunction (*ValuedBuiltinFunction) (const std::vector<BoundSqlExpression> &);
 
 struct RegisterBuiltin {
     template<typename... Names>
@@ -73,13 +72,7 @@ struct RegisterBuiltin {
                        SqlBindingScope & scope)
             -> BoundFunction
             {
-                try {
-#if 0
-                    std::vector<BoundSqlExpression> boundArgs;
-                    for (auto& arg : args) {
-                        boundArgs.emplace_back(std::move(arg->bind(scope)));
-                    }
-#endif                    
+                try {       
                     BoundFunction result = std::move(function(args));
                     auto fn = result.exec;
                     result.exec = [=] (const std::vector<ExpressionValue> & args,
@@ -97,63 +90,6 @@ struct RegisterBuiltin {
                     };
                     
                     return result;
-                } JML_CATCH_ALL {
-                    rethrowHttpException(-1, "Binding builtin function "
-                                         + str + ": " + ML::getExceptionString(),
-                                         "functionName", str,
-                                         "functionArgs", args);
-                }
-            };
-        handles.push_back(registerFunction(Utf8String(name), fn));
-        doRegister(function, std::forward<Names>(names)...);
-    }
-
-    template<typename... Names>
-    RegisterBuiltin(const ValuedBuiltinFunction & function, Names&&... names)
-    {
-        doRegister(function, std::forward<Names>(names)...);
-    }
-
-    void doRegister(const ValuedBuiltinFunction & function)
-    {
-    }
-
-    template<typename... Names>
-    void doRegister(const ValuedBuiltinFunction & function, std::string name,
-                    Names&&... names)
-    {
-        auto fn = [=] (const Utf8String & str,
-                       const std::vector<std::shared_ptr<SqlExpression> > & args,
-                       SqlBindingScope & scope)
-            -> BoundFunction
-            {
-                try {
-                    std::vector<BoundSqlExpression> boundArgs;
-                    for (auto& arg : args) {
-                        boundArgs.emplace_back(std::move(arg->bind(scope)));
-                    }
-
-                    ValuedBoundFunction valuedBoundFunction = std::move(function(boundArgs));
-                    
-                    auto fn = [=] (const std::vector<BoundSqlExpression> & args,
-                                   const SqlRowScope & scope)
-                    -> ExpressionValue
-                    {
-                        try {
-                            std::vector<ExpressionValue> evaluatedArgs;
-                            for (auto& arg : boundArgs)
-                                evaluatedArgs.emplace_back(arg(scope, GET_LATEST));
-                            
-                            return valuedBoundFunction(evaluatedArgs, scope);
-                        } JML_CATCH_ALL {
-                            rethrowHttpException(-1, "Executing builtin function "
-                                                 + str + ": " + ML::getExceptionString(),
-                                                 "functionName", str,
-                                                 "functionArgs", args);
-                        }
-                    };
-                    
-                    return BoundFunction({fn, valuedBoundFunction.resultInfo});
                 } JML_CATCH_ALL {
                     rethrowHttpException(-1, "Binding builtin function "
                                          + str + ": " + ML::getExceptionString(),
@@ -206,11 +142,6 @@ struct RegisterBuiltinUnaryScalar {
             -> ExpressionValue
             {
                 try {
-#if 0
-                     std::vector<ExpressionValue> evaluatedArgs;
-                     for (auto& arg : args)
-                         evaluatedArgs.emplace_back(arg(scope, GET_LATEST));
-#endif
                     return wrapper(fn, args, scope);
                 } JML_CATCH_ALL {
                     rethrowHttpException(-1, "Executing builtin function "
@@ -348,12 +279,6 @@ struct RegisterBuiltinUnaryScalar {
             {
                 try {
                     checkArgsSize(args.size(), 1);
-#if 0
-                    std::vector<BoundSqlExpression> boundArgs;
-                    for (auto& arg : args) {
-                        boundArgs.emplace_back(std::move(arg->bind(scope)));
-                    }
-#endif
                     if (args[0].info->isScalar())
                         return bindScalar(functionName, function,
                                           std::move(info), args,
@@ -457,11 +382,6 @@ struct RegisterBuiltinBinaryScalar {
             -> ExpressionValue
             {
                 try {
-#if 0
-                     std::vector<ExpressionValue> evaluatedArgs;
-                     for (auto& arg : args)
-                         evaluatedArgs.emplace_back(arg(scope, GET_LATEST));
-#endif
                     return wrapper(fn, args, scope);
                 } JML_CATCH_ALL {
                     rethrowHttpException(-1, "Executing builtin function "
@@ -773,12 +693,6 @@ struct RegisterBuiltinBinaryScalar {
             {
                 try {
                     checkArgsSize(args.size(), 2);
-#if 0
-                    std::vector<BoundSqlExpression> boundArgs;
-                    for (auto& arg : args) {
-                        boundArgs.emplace_back(std::move(arg->bind(scope)));
-                    }
-#endif
                     // Simple case... scalar to scalar
                     if (args[0].info->isScalar()
                         && args[1].info->isScalar()) {
@@ -1178,25 +1092,6 @@ BoundFunction when(const std::vector<BoundSqlExpression> & args)
 }
 
 static RegisterBuiltin registerWhen(when, "when");
-#if 0
-BoundFunction min_timestamp(const std::vector<BoundSqlExpression> & args)
-{
-    // Tell us when an expression happened, ie extract its timestamp and return
-    // as its value
-
-
-    checkArgsSize(args.size(), 1);
-    return {[=] (const std::vector<BoundSqlExpression> & args,
-                 const SqlRowScope & scope) -> ExpressionValue
-            {
-                ExcAssertEqual(args.size(), 1);
-                auto val = args[0](scope, GET_ALL);
-                return ExpressionValue(val.getMinTimestamp(),
-                                       val.getEffectiveTimestamp());
-            },
-            std::make_shared<TimestampValueInfo>()};
-}
-#endif
 
 BoundFunction min_timestamp(const std::vector<BoundSqlExpression> & args)
 {
