@@ -339,10 +339,10 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
     }
 
-    void initialize(vector<ColumnName>& columnNames, ML::Lightweight_Hash<ColumnHash, int>& columnIndex)
+    void initialize(const vector<ColumnName>& columnNames, const ML::Lightweight_Hash<ColumnHash, int>& columnIndex)
     {
-        this->columnNames = std::move(columnNames);
-        this->columnIndex = std::move(columnIndex);
+        this->columnNames = columnNames;
+        this->columnIndex = columnIndex;
 
         for (const auto& c : this->columnNames) {
                 ColumnHash ch(c);
@@ -362,7 +362,7 @@ TabularDataset(MldbServer * owner,
 
 void 
 TabularDataset::
-initialize(vector<ColumnName>& columnNames, ML::Lightweight_Hash<ColumnHash, int>& columnIndex)
+initialize(const vector<ColumnName>& columnNames, const ML::Lightweight_Hash<ColumnHash, int>& columnIndex)
 {
 	itl->initialize(columnNames, columnIndex);
 }
