@@ -45,10 +45,10 @@ class TemporalTest(MldbUnitTest):
             ]
         )
 
-    def test_temporal_min_returns_first_event(self):
-        #temporal min on one column
+    def test_temporal_earliest_returns_first_event(self):
+        #temporal earliest on one column
         resp = mldb.get('/v1/query',
-                        q = 'select temporal_min(x) as t_min_x from dataset order by rowName()',
+                        q = 'select temporal_earliest(x) as t_earliest_x from dataset order by rowName()',
                         format = 'full').json()
 
         self.assertFullResultEquals(resp,
@@ -58,7 +58,7 @@ class TemporalTest(MldbUnitTest):
                     "rowHash": "f156570c0871dbce",
                     "columns": [
                         [
-                            "t_min_x",
+                            "t_earliest_x",
                             -1,
                              TemporalTest.before
                         ]
@@ -69,7 +69,7 @@ class TemporalTest(MldbUnitTest):
                     "rowHash": "0ea93be3f94d4404",
                     "columns": [
                         [
-                            "t_min_x",
+                            "t_earliest_x",
                             -2,
                              TemporalTest.before
                         ]
@@ -78,10 +78,10 @@ class TemporalTest(MldbUnitTest):
             ]
         )
 
-    def test_temporal_min_on_rows(self):
-        #temporal min on one column
+    def test_temporal_earliest_on_rows(self):
+        #temporal earliest on one column
         resp = mldb.get('/v1/query',
-                        q = 'select temporal_min({*}) as * from dataset order by rowName()',
+                        q = 'select temporal_earliest({*}) as * from dataset order by rowName()',
                         format = 'full').json()
 
         self.assertFullResultEquals(resp,
