@@ -300,7 +300,7 @@ Encoding parseEncoding(const std::string & encodingStr)
     }
     else if (encodingStr == "latin1" || encodingStr == "iso8859-1")
         encoding = LATIN1;
-    else throw HttpReturnException(400, "Unknown encoding for import text parser",
+    else throw HttpReturnException(400, "Unknown encoding for import.text parser",
                                    "encoding", encodingStr);
     return encoding;
 }
