@@ -305,13 +305,24 @@ struct BoundFunction {
                           const SqlRowScope & context) > Exec;
 
     BoundFunction()
+        : filter(GET_LATEST)
     {
     }
 
     BoundFunction(Exec exec,
                   std::shared_ptr<ExpressionValueInfo> resultInfo)
         : exec(std::move(exec)),
-          resultInfo(std::move(resultInfo))
+          resultInfo(std::move(resultInfo)),
+          filter(GET_LATEST)
+    {
+    }
+
+    BoundFunction(Exec exec,
+                  std::shared_ptr<ExpressionValueInfo> resultInfo,
+                  VariableFilter filter)
+        : exec(std::move(exec)),
+          resultInfo(std::move(resultInfo)),
+          filter(filter)
     {
     }
 
@@ -319,6 +330,7 @@ struct BoundFunction {
 
     Exec exec;
     std::shared_ptr<ExpressionValueInfo> resultInfo;
+    VariableFilter filter; // allows function to filter variable as they need
 
     ExpressionValue operator () (const std::vector<ExpressionValue> & args,
                                  const SqlRowScope & context) const

@@ -1213,7 +1213,8 @@ BoundFunction min_timestamp(const std::vector<BoundSqlExpression> & args)
                 return ExpressionValue(val.getMinTimestamp(),
                                        val.getEffectiveTimestamp());
             },
-            std::make_shared<TimestampValueInfo>()};
+            std::make_shared<TimestampValueInfo>(),
+            GET_ALL};
 }
 
 static RegisterBuiltin register_min_timestamp(min_timestamp, "min_timestamp");
@@ -1286,20 +1287,21 @@ BoundFunction now(const std::vector<BoundSqlExpression> & args)
 }
 
 static RegisterBuiltin registerNow(now, "now");
-#if 0
-BoundFunction temporal_min(const std::vector<BoundSqlExpression> & args)
+
+BoundFunction temporal_earliest(const std::vector<BoundSqlExpression> & args)
 {
-    return {[] (const std::vector<BoundSqlExpression> & args,
+    return {[] (const std::vector<ExpressionValue> & args,
                 const SqlRowScope & scope) -> ExpressionValue
             {
                 ExcAssertEqual(args.size(), 1);
-                return args[0](scope, GET_EARLIEST);
+                return args[0];
             },
-            args[0].info};
+            args[0].info,
+            GET_EARLIEST};
 }
 
-static RegisterBuiltin registerTempMin(temporal_min, "temporal_min");
-#endif
+static RegisterBuiltin registerTempMin(temporal_earliest, "temporal_earliest");
+
 BoundFunction date_part(const std::vector<BoundSqlExpression> & args)
 {
     // extract the requested part of a timestamp
@@ -1324,7 +1326,7 @@ BoundFunction date_part(const std::vector<BoundSqlExpression> & args)
         constantMinute = timeZoneParser.expectTimezone();
         constantTimezone = true;
     }
-
+    
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
@@ -2276,4 +2278,3 @@ static RegisterBuiltin registerFlatten(flatten, "flatten");
 } // namespace Builtins
 } // namespace MLDB
 } // namespace Datacratic
-

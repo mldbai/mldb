@@ -2161,7 +2161,7 @@ bindBuiltinFunction(SqlBindingScope & context, std::vector<BoundSqlExpression>& 
                     std::vector<ExpressionValue> evaluatedArgs;
                     evaluatedArgs.reserve(boundArgs.size());
                     for (auto & a: boundArgs)		
-                        evaluatedArgs.emplace_back(std::move(a(row, filter)));		
+                        evaluatedArgs.emplace_back(std::move(a(row, fn.filter)));
                     
                     // TODO: function call that allows function to own its args & have		
                     // storage		
