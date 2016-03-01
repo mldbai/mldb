@@ -16,19 +16,21 @@ mldb = mldb_wrapper.wrap(mldb) # noqa
 
 class RowAggregatorTest(MldbUnitTest):  
 
-    ts = "2015-01-01T00:00:00Z";
+    before_ts = "2015-01-01T00:00:00Z";
+    ts = "2015-01-01T00:00:01Z";
+    after_ts = "2015-01-01T00:00:02Z";
 
     @classmethod
     def setUpClass(self):
         # create a dummy dataset
         ds = mldb.create_dataset({ "id": "test", "type": "sparse.mutable" })
 
-        def recordExample(row, x, y, label):
-            ds.record_row(row, [ [ "x", x, self.ts ], ["y", y, self.ts], ["label", label, self.ts] ]);
+        def recordExample(row, x, y, label, ts):
+            ds.record_row(row, [ [ "x", x, ts], ["y", y, ts], ["label", label, ts] ]);
 
-        recordExample("ex1", 0, 0, "cat");
-        recordExample("ex2", 1, 1, "dog");
-        recordExample("ex3", 1, 2, "cat");
+        recordExample("ex1", 0, 0, "cat", self.ts);
+        recordExample("ex2", 1, 1, "dog", self.before_ts);
+        recordExample("ex3", 1, 2, "cat", self.after_ts);
 
         ds.commit()
 
@@ -39,24 +41,24 @@ class RowAggregatorTest(MldbUnitTest):
                                     [
                                         {
                                             "columns" : [
-                                            [ "min.label", "cat", self.ts ],
+                                                [ "min.label", "cat", self.ts ],
                                                 [ "min.x", 0, self.ts ],
                                                 [ "min.y", 0, self.ts ],
                                                 [ "max.label", "cat", self.ts ],
-                                                [ "max.x", 1, self.ts ],
-                                                [ "max.y", 2, self.ts ]
+                                                [ "max.x", 1, self.after_ts ],
+                                                [ "max.y", 2, self.after_ts ]
                                             ],
                                             "rowHash" : "554f96c80ea05ddb",
                                             "rowName" : "[\"cat\"]"
                                         },
                                         {
                                             "columns" : [
-                                                [ "min.label", "dog", self.ts ],
-                                                [ "min.x", 1, self.ts ],
-                                                [ "min.y", 1, self.ts ],
-                                                [ "max.label", "dog", self.ts ],
-                                                [ "max.x", 1, self.ts ],
-                                                [ "max.y", 1, self.ts ]
+                                                [ "min.label", "dog", self.before_ts ],
+                                                [ "min.x", 1, self.before_ts ],
+                                                [ "min.y", 1, self.before_ts ],
+                                                [ "max.label", "dog", self.before_ts ],
+                                                [ "max.x", 1, self.before_ts ],
+                                                [ "max.y", 1, self.before_ts ]
                                             ],
                                             "rowHash" : "d55e0e284796f79e",
                                             "rowName" : "[\"dog\"]"
@@ -71,12 +73,12 @@ class RowAggregatorTest(MldbUnitTest):
                                         {
                                             "rowName": "[0]",
                                             "rowHash": "1d9a5ddf40663f6b",
-                                            "columns": [ [ "sum", 0, "2015-01-01T00:00:00Z" ] ]
+                                            "columns": [ [ "sum", 0, self.ts ] ]
                                         },
                                         {
                                             "rowName": "[1]",
                                             "rowHash": "2d7ea86e36813b82",
-                                            "columns": [ [ "sum", 2, "2015-01-01T00:00:00Z" ] ]
+                                            "columns": [ [ "sum", 2, self.after_ts ] ]
                                         }
                                     ]);
 
@@ -100,4 +102,31 @@ class RowAggregatorTest(MldbUnitTest):
         resp2 = mldb.get("/v1/query", q = "SELECT vertical_avg(x) AS avg FROM test GROUP BY x");
         self.assertFullResultEquals(resp.json(), resp2.json())
 
+    def test_vertical_earliest_is_earliest(self):
+        resp = mldb.get("/v1/query", q = "SELECT earliest({*}) AS count FROM test GROUP BY x");
+        resp2 = mldb.get("/v1/query", q = "SELECT vertical_earliest({*}) AS count FROM test GROUP BY x");
+        self.assertFullResultEquals(resp.json(), resp2.json())
+
+    def test_vertical_latest_is_latest(self):
+        resp = mldb.get("/v1/query", q = "SELECT latest(x) AS avg FROM test GROUP BY x");
+        resp2 = mldb.get("/v1/query", q = "SELECT vertical_latest(x) AS avg FROM test GROUP BY x");
+        self.assertFullResultEquals(resp.json(), resp2.json())
+
+    def test_earliest_and_latest(self):
+        resp = mldb.get("/v1/query", q = "SELECT earliest({*}) AS earliest, latest({*}) AS latest FROM test");
+        self.assertFullResultEquals(resp.json(),
+                                    [
+                                        {
+                                            "columns" : [
+                                            [ "earliest.label", "dog", self.before_ts ],
+                                                [ "earliest.x", 1, self.before_ts ],
+                                                [ "earliest.y", 1, self.before_ts ],
+                                                [ "latest.label", "cat", self.after_ts ],
+                                                [ "latest.x", 1, self.after_ts ],
+                                                [ "latest.y", 2, self.after_ts ]
+                                            ],
+                                            "rowHash" : "9de462d40469d853",
+                                            "rowName" : "[]"
+                                        }
+                                    ]);
 mldb.run_tests()
