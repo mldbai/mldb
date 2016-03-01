@@ -2007,6 +2007,62 @@ BoundFunction horizontal_max(const std::vector<BoundSqlExpression> & args)
 }
 static RegisterBuiltin registerHorizontal_Max(horizontal_max, "horizontal_max");
 
+BoundFunction horizontal_earliest(const std::vector<BoundSqlExpression> & args)
+{
+    checkArgsSize(args.size(), 1);
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                auto earliest = ExpressionValue::null(Date::positiveInfinity());
+
+                auto onAtom = [&] (const Coord & columnName,
+                                   const Coord & prefix,
+                                   const CellValue & val,
+                                   Date atomTs)
+                    {
+                        auto expr = ExpressionValue(val, atomTs);
+                        if (!earliest.isEarlier(atomTs, expr))
+                            earliest = std::move(expr);
+                        return true;
+                    };
+
+                args.at(0).forEachAtom(onAtom);
+
+                return earliest;
+            },
+            args[0].info};
+}
+static RegisterBuiltin registerHorizontal_Earliest(horizontal_earliest, "horizontal_earliest");
+
+BoundFunction horizontal_latest(const std::vector<BoundSqlExpression> & args)
+{
+    checkArgsSize(args.size(), 1);
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                auto latest = ExpressionValue::null(Date::negativeInfinity());
+
+                auto onAtom = [&] (const Coord & columnName,
+                                   const Coord & prefix,
+                                   const CellValue & val,
+                                   Date atomTs)
+                    {
+                        auto expr = ExpressionValue(val, atomTs);
+                        if (!latest.isLater(atomTs, expr))
+                            latest = std::move(expr);
+                        return true;
+                    };
+
+                args.at(0).forEachAtom(onAtom);
+
+                return latest;
+            },
+            args[0].info};
+}
+static RegisterBuiltin registerHorizontal_Latest(horizontal_latest, "horizontal_latest");
+
 struct DiffOp {
     static ML::distribution<double> apply(ML::distribution<double> & d1,
                                           ML::distribution<double> & d2)
