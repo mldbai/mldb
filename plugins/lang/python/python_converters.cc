@@ -230,7 +230,15 @@ construct_recur(PyObject * pyObj)
     //else if(PyDateTime_Check(pyObj)) {
     //    throw ML::Exception("do datetime!!");
     //}
-    else if(PyTuple_Check(pyObj) || PyList_Check(pyObj)) {
+    else if(PyTuple_Check(pyObj)) {
+        val = Json::Value(Json::ValueType::arrayValue);
+        bp::tuple tpl = bp::extract<bp::tuple>(pyObj);
+        for(int i = 0; i < len(tpl); i++) {
+            bp::object obj = bp::object(tpl[i]);
+            val.append(construct_recur(obj.ptr()));
+        }
+    }
+    else if(PyList_Check(pyObj)) {
         val = Json::Value(Json::ValueType::arrayValue);
         bp::list lst = bp::extract<bp::list>(pyObj);
         for(int i = 0; i < len(lst); i++) {
