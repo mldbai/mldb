@@ -655,20 +655,19 @@ struct ImportTextProcedureWorkInstance
 
 	    encoding = parseEncoding(config.encoding);
 
-	    if (isTextLine)
-	    {
+	    if (isTextLine) {
+
 	        //MLDB-1312 optimize if there is no delimiter: only 1 column
 	        if (config.headers.empty()) {
 	            inputColumnNames = { ColumnName("lineText") };
 	        }
-	        else
-	        {
+	        else {
 	            if (inputColumnNames.size() != 1)
 	                throw HttpReturnException(400, "Custom CSV header must have only one element if there is no delimiter");
 	        }
 	    }
-	    else
-	    {   
+	    else {  
+
 	        if (config.headers.empty()) {
 	            // Read header line
 	            std::getline(stream, header);
@@ -777,13 +776,9 @@ struct ImportTextProcedureWorkInstance
 	    std::shared_ptr<TabularDataset> tabular = dynamic_pointer_cast<TabularDataset>(dataset);
 
 	    if (tabular)
-	    {
 	    	loadToTabularDataset(tabular, stream, config, scope);
-	    }
 	    else
-	    {
 	    	loadToGeneric(dataset, stream, config, scope);
-	    }    
 
 	    Date end = Date::now();
 
@@ -802,24 +797,18 @@ struct ImportTextProcedureWorkInstance
 		          SqlCsvScope& scope)
 	{
 
-    //we might not know the number of output columns
-		//const size_t numberOutputColumns = columnNames.size();
-
     const bool outputColumnNames = !areOutputColumnNamesKnown;
-
 		mutex lineMutex;
 
     PerThreadAccumulator< std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > > accum;
-
     std::atomic<size_t> totalRows;
 
-		auto onLine = [&] (int chunkNum, int64_t actualLineNum, RowName rowName, Date rowTs, CellValue * vals, ColumnName * names, int numberOutputColumns)
-	    {
+		auto onLine = [&] (int chunkNum, int64_t actualLineNum, RowName rowName, Date rowTs, CellValue * vals, ColumnName * names, int numberOutputColumns) {
           std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows = accum.get();
 
           std::vector<std::tuple<ColumnName, CellValue, Date> > rowvalues;
-          for (int i = 0; i < numberOutputColumns; ++i)
-          {
+          for (int i = 0; i < numberOutputColumns; ++i) {
+
               if (names)
                 rowvalues.push_back( make_tuple(names[i], std::move(vals[i]), rowTs) );
               else
@@ -828,8 +817,8 @@ struct ImportTextProcedureWorkInstance
 
           rows.push_back( { rowName, std::move(rowvalues) } );
 
-          if (rows.size() == ROWS_PER_CHUNK)
-          {
+          if (rows.size() == ROWS_PER_CHUNK) {
+
           		{
           			std::unique_lock<std::mutex> guard(lineMutex);
           			dataset->recordRows(rows);
@@ -876,19 +865,19 @@ struct ImportTextProcedureWorkInstance
 
 	    mutex lineMutex;
 
-		  auto onLine = [&] (int chunkNum, int64_t actualLineNum, RowName rowName, Date rowTs, CellValue * vals, ColumnName * names, int numVals)
-	        {
+		  auto onLine = [&] (int chunkNum, int64_t actualLineNum, RowName rowName, Date rowTs, CellValue * vals, ColumnName * names, int numVals) {
+
               TabularDatasetChunk & threadAccum = accum.get();
 
 	            if (threadAccum.chunkNumber == -1) {
 	                threadAccum.chunkNumber = chunkNum;
 	            }
 
-              if (!areOutputColumnNamesKnown)
-              {
+              if (!areOutputColumnNamesKnown) {
+
                   std::unique_lock<std::mutex> guard(lineMutex);
-                  if (!areOutputColumnNamesKnown)
-                  {
+                  if (!areOutputColumnNamesKnown) {
+
                     //we need the first line to initialize
                     ExcAssert(names != nullptr);
                     for (unsigned i = 0;  i < numVals;  ++i) {
@@ -913,8 +902,8 @@ struct ImportTextProcedureWorkInstance
                       throw HttpReturnException(400, "Variable number of columns while importing text to tabular dataset");
 
                     std::vector<CellValue> orderedValues(knownColumnNames.size());
-                    for (int i = 0; i < numVals; ++i)
-                    {
+                    for (int i = 0; i < numVals; ++i) {
+
                        auto iter = columnIndex.find(names[i]);
                        if (iter == columnIndex.end())
                           throw HttpReturnException(400, "Inconsistent column names while importing text to tabular dataset");
@@ -956,8 +945,7 @@ struct ImportTextProcedureWorkInstance
 		  // Accumulate the partial chunks, too, at the end
 	    std::mutex doneChunksLock;
 
-	    auto doLeftoverChunk = [&] (int threadNum)
-	        {
+	    auto doLeftoverChunk = [&] (int threadNum) {
 	            TabularDatasetChunk * ent = accum.threads.at(threadNum).get();
               ExcAssert(ent != nullptr);
 	            ent->freeze();
@@ -1135,8 +1123,7 @@ struct ImportTextProcedureWorkInstance
 	                else {
 	                    // Need to copy things
 	                    //ExcAssertEqual(selectRow.size(), numberOutputColumns);
-	                    for (unsigned i = 0;  i < selectRow.size();  ++i)
-                      {
+	                    for (unsigned i = 0;  i < selectRow.size();  ++i) {
                           auto& rItem = selectRow[i];
                           if (!std::get<1>(rItem).isAtom())
                               throw HttpReturnException(400, "select expression must return atomic values in text import procedure");
@@ -1200,16 +1187,15 @@ run(const ProcedureRunConfig & run,
 {
   	auto runProcConf = applyRunConfOverProcConf(config, run);
 
-	auto onProgress2 = [&] (const Json::Value & progress)
-	{
-	    Json::Value value;
-	    value["dataset"] = progress;
-	    return onProgress(value);
-	};
+  	auto onProgress2 = [&] (const Json::Value & progress)	{
+  	    Json::Value value;
+  	    value["dataset"] = progress;
+  	    return onProgress(value);
+  	};
 
-	std::shared_ptr<Dataset> dataset = createDataset(server, runProcConf.outputDataset, onProgress2, true /*overwrite*/);
+  	std::shared_ptr<Dataset> dataset = createDataset(server, runProcConf.outputDataset, onProgress2, true /*overwrite*/);
 
-	ImportTextProcedureWorkInstance instance;
+  	ImportTextProcedureWorkInstance instance;
 
     instance.loadText(config, dataset, server);
 
