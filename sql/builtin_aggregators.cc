@@ -526,9 +526,10 @@ struct MinMaxAccum {
         }
         else {
             auto atom = val.getAtom();
-            if (Cmp()(atom, value))
+            if (Cmp()(atom, value)) {
                 value = atom;
-            ts.setMax(val.getEffectiveTimestamp());
+                ts = val.getEffectiveTimestamp();
+            }
         }
         //cerr << "ts now " << ts << endl;
     }
@@ -543,11 +544,12 @@ struct MinMaxAccum {
         if (first) {
             value = src->value;
             first = src->first;
+            ts = src->ts;
         } 
         else if (!src->first && Cmp()(src->value, value)) {
             value = src->value;
+            ts = src->ts;
         }
-        ts.setMax(src->ts);
     }
 
     bool first;
@@ -742,6 +744,64 @@ BoundAggregator pivot(const std::vector<BoundSqlExpression> & args)
 }
 
 static RegisterAggregator registerPivot(pivot, "pivot");
+
+template<typename AccumCmp>
+struct EarliestLatestAccum {
+    EarliestLatestAccum()
+        : value(ExpressionValue::null(AccumCmp::getInitialDate()))
+    {
+    }
+
+    static std::shared_ptr<ExpressionValueInfo>
+    info(const std::vector<BoundSqlExpression> & args)
+    {
+        return args[0].info;
+    }
+
+    void process(const ExpressionValue * args,
+                 size_t nargs)
+    {
+        ExcAssertEqual(nargs, 1);
+        const ExpressionValue & val = args[0];
+        //cerr << "processing " << jsonEncode(val) << endl;
+        if (val.empty())
+            return;
+        if (AccumCmp::cmp(val, value))
+            value = val;
+    }
+    
+    ExpressionValue extract()
+    {
+        return value;
+    }
+
+    void merge(EarliestLatestAccum* src)
+    {
+        if(AccumCmp::cmp(src->value, value)) {
+            value = src->value;
+        }
+    }
+
+    ExpressionValue value;
+};
+
+struct EarlierAccum {
+    static bool cmp(const ExpressionValue & left, const ExpressionValue & right) {
+        return left.isEarlier(right.getEffectiveTimestamp(), right);
+    }
+    static Date getInitialDate() { return Date::positiveInfinity(); }
+};
+
+struct LaterAccum {
+    static bool cmp(const ExpressionValue & left, const ExpressionValue & right) {
+        return left.isLater(right.getEffectiveTimestamp(), right);
+    }
+    static Date getInitialDate() { return Date::negativeInfinity(); }
+};
+
+static RegisterAggregatorT<EarliestLatestAccum<EarlierAccum> > registerEarliest("earliest", "vertical_earliest");
+static RegisterAggregatorT<EarliestLatestAccum<LaterAccum> > registerLatest("latest", "vertical_latest");
+
 
 } // namespace Builtins
 } // namespace MLDB
