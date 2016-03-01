@@ -1275,7 +1275,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
                 // Function call.  Get the arguments
                 skip_whitespace(context);
 
-                bool checkGlobe = identifier == "count";
+                bool checkGlobe = (identifier == "count" || identifier == "vertical_count");
                 
                 std::vector<std::shared_ptr<SqlExpression> > args;                    
 
