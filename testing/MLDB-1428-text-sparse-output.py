@@ -10,11 +10,73 @@ mldb = mldb_wrapper.wrap(mldb) # noqa
 import unittest
 class HavingTest(unittest.TestCase):
 
-    def test_having(self):
-
+    def test_sparse(self):
         res = mldb.put('/v1/procedures/import_reddit', { 
             "type": "import.text",  
             "params": { 
+                "dataFileUrl": "file://mldb/testing/dataset/iris.data",
+                'encoding' : 'latin1',
+                "select": "*",
+                'outputDataset': {'id': 'iris', 'type': 'sparse.mutable'},
+                 'headers': ["a", "b", "c", "d", "label"],
+                'runOnCreation': True
+            } 
+        })
+
+        res = mldb.query('SELECT * FROM iris limit 1')
+
+        expected = [["_rowName",
+                    "a",
+                    "b",
+                    "c",
+                    "d",
+                    "label"],
+                    [
+                        "97",
+                        5.7,
+                        2.9,
+                        4.2,
+                        1.3,
+                        "Iris-versicolor"
+                    ]]
+
+        self.assertEqual(res, expected)
+
+    def test_sparse_excluding(self):
+        res = mldb.put('/v1/procedures/import_reddit', {
+            "type": "import.text",
+            "params": {
+                "dataFileUrl": "file://mldb/testing/dataset/iris.data",
+                'encoding' : 'latin1',
+                "select": "* excluding(c)",
+                'outputDataset': {'id': 'iris_ex', 'type': 'sparse.mutable'},
+                 'headers': ["a", "b", "c", "d", "label"],
+                'runOnCreation': True
+            } 
+        })
+
+        res = mldb.query('SELECT * FROM iris_ex limit 1')
+
+        expected = [["_rowName",
+                    "a",
+                    "b",
+                    "d",
+                    "label"],
+                    [
+                        "97",
+                        5.7,
+                        2.9,
+                        1.3,
+                        "Iris-versicolor"
+                    ]]
+
+        self.assertEqual(res, expected)
+
+    def test_sparse_unknown_cols(self):
+
+        res = mldb.put('/v1/procedures/import_reddit', {
+            "type": "import.text",
+            "params": {
                 "dataFileUrl": "http://files.figshare.com/1310438/reddit_user_posting_behavior.csv.gz",
                 "delimiter": "",
                 "quotechar": "",
@@ -24,10 +86,18 @@ class HavingTest(unittest.TestCase):
             } 
         })
 
-        mldb.log(res)
+      #  mldb.log(res)
 
-        res = mldb.get('/v1/query', q='SELECT * FROM reddit LIMIT 10')
+        res = mldb.query('SELECT gonewild FROM reddit LIMIT 1')
 
-        mldb.log(res)        
+        expected = [[
+                        "_rowName",
+                        "gonewild"
+                    ],
+                    [
+                        "471242",
+                        1
+                    ]]
+        self.assertEqual(res, expected)
 
 mldb.run_tests()

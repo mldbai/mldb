@@ -805,6 +805,8 @@ struct ImportTextProcedureWorkInstance
     //we might not know the number of output columns
 		//const size_t numberOutputColumns = columnNames.size();
 
+    const bool outputColumnNames = !areOutputColumnNamesKnown;
+
 		mutex lineMutex;
 
     PerThreadAccumulator< std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > > accum;
@@ -822,13 +824,13 @@ struct ImportTextProcedureWorkInstance
           {
               if (names)
                 rowvalues.push_back( make_tuple(names[i], std::move(vals[i]), rowTs) );
-              else //identity select
-          	    rowvalues.push_back( make_tuple(inputColumnNames[i], std::move(vals[i]), rowTs) );
+              else
+                rowvalues.push_back( make_tuple(knownColumnNames[i], std::move(vals[i]), rowTs) );
           }
 
           rows.push_back( { rowName, std::move(rowvalues) } );
 
-          if (rows.size() == 1000)
+          if (rows.size() == ROWS_PER_CHUNK)
           {
           		{
           			std::unique_lock<std::mutex> guard(lineMutex);
@@ -840,7 +842,14 @@ struct ImportTextProcedureWorkInstance
           ++totalRows;
 	    };
 
-	    loadTextData(dataset, stream, config, scope, /*numberOutputColumns,*/ onLine);
+	    loadTextData(dataset, stream, config, scope, outputColumnNames, onLine);
+
+      for (int i = 0; i < accum.threads.size(); ++i)
+      {
+          auto & rows = *(accum.threads.at(i).get());
+          if (!rows.empty() > 0)
+            dataset->recordRows(rows);
+      };
 
 	    this->rowCount = totalRows;
 	}
@@ -852,8 +861,10 @@ struct ImportTextProcedureWorkInstance
 						 const ImportTextConfig& config,
 						 SqlCsvScope& scope)
 	{
-    if (areOutputColumnNamesKnown)
-		  dataset->initialize(knownColumnNames, columnIndex);
+      const bool outputColumnNames = !areOutputColumnNamesKnown;
+
+      if (areOutputColumnNamesKnown)
+		     dataset->initialize(knownColumnNames, columnIndex);
 
 	    auto createPayload = [=] ()
 	        {
@@ -944,9 +955,9 @@ struct ImportTextProcedureWorkInstance
 	            }
 	        };
 
-		loadTextData(dataset, stream, config, scope, /*numberOutputColumns,*/ onLine);
+		  loadTextData(dataset, stream, config, scope, outputColumnNames, onLine);
 
-		 // Accumulate the partial chunks, too, at the end
+		  // Accumulate the partial chunks, too, at the end
 	    std::mutex doneChunksLock;
 
 	    auto doLeftoverChunk = [&] (int threadNum)
@@ -986,6 +997,7 @@ struct ImportTextProcedureWorkInstance
 						 Datacratic::filter_istream& stream, 
 						 const ImportTextConfig& config,
 						 SqlCsvScope& scope,
+             bool outputColumnNames,
 						 const std::function<void (int, int64_t , RowName , Date , CellValue *, ColumnName * , int)> & processLine)
 	{	
 		  std::mutex lineMutex;
@@ -1081,6 +1093,7 @@ struct ImportTextProcedureWorkInstance
 	            
 	            //cerr << jsonEncodeStr(vector<CellValue>(values, values + numberOutputColumns)) << endl;
 	            
+              ExcAssert(!(isIdentitySelect && outputColumnNames));
 
 	            if (isIdentitySelect) {
 	                // If it's a select *, we don't really need to run the
@@ -1101,8 +1114,12 @@ struct ImportTextProcedureWorkInstance
                   // here.  Find another way to allocate it on the
                   // stack.
                   // CellValue valuesOut[numberOutputColumns];
+
                   vector<CellValue> valuesOut(selectRow.size());
-                  vector<ColumnName> namesOut(selectRow.size());
+                  vector<ColumnName> namesOut;
+
+                  if (outputColumnNames)
+                    namesOut.resize(selectRow.size());
 
 	                if (&selectOutput == &selectStorage) {
 	                    // We can destructively work with it
@@ -1114,7 +1131,8 @@ struct ImportTextProcedureWorkInstance
                           if (!std::get<1>(rItem).isAtom())
                               throw HttpReturnException(400, "select expression must return atomic values in text import procedure");
 	                        valuesOut[i] = std::move(std::get<1>(rItem).stealAtom());
-                          namesOut[i] =  std::move(std::get<0>(rItem));
+                          if (outputColumnNames)
+                            namesOut[i] =  std::move(std::get<0>(rItem));
 	                    }
 	                    
 	                }
@@ -1122,10 +1140,18 @@ struct ImportTextProcedureWorkInstance
 	                    // Need to copy things
 	                    //ExcAssertEqual(selectRow.size(), numberOutputColumns);
 	                    for (unsigned i = 0;  i < selectRow.size();  ++i)
-	                        valuesOut[i] = std::get<1>(selectRow[i]).getAtom();
+                      {
+                          auto& rItem = selectRow[i];
+                          if (!std::get<1>(rItem).isAtom())
+                              throw HttpReturnException(400, "select expression must return atomic values in text import procedure");
+
+	                        valuesOut[i] = std::get<1>(rItem).getAtom();
+                          if (outputColumnNames)
+                            namesOut[i] =  std::move(std::get<0>(rItem));
+                      }
 	                }
 	                
-	                processLine(chunkNum, actualLineNum, std::move(rowName), rowTs, &valuesOut[0], &namesOut[0], selectRow.size());
+	                processLine(chunkNum, actualLineNum, std::move(rowName), rowTs, &valuesOut[0], namesOut.data(), selectRow.size());
 	            }
 	            //cerr << "row = " << jsonEncodeStr(selectRow) << endl;
 
