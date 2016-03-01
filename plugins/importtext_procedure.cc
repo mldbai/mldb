@@ -617,8 +617,8 @@ struct ImportTextProcedureWorkInstance
 
 	    string filename = config.dataFileUrl.toString();
         
-    	    // Ask for a memory mappable stream if possible
-    	    Datacratic::filter_istream stream(filename, { { "mapped", "true" } });
+    	// Ask for a memory mappable stream if possible
+    	Datacratic::filter_istream stream(filename, { { "mapped", "true" } });
 
 	    // Get the file timestamp out
 	    ts = stream.info().lastModified;
@@ -735,8 +735,8 @@ struct ImportTextProcedureWorkInstance
 
 	    auto cols = selectBound.info->getKnownColumns();
 	    
-            for (unsigned i = 0;  i < cols.size();  ++i) {
-                const auto& col = cols[i];
+        for (unsigned i = 0;  i < cols.size();  ++i) {
+            const auto& col = cols[i];
 	        if (!col.valueInfo->isScalar())
 	            throw HttpReturnException
 	                (400,
@@ -745,10 +745,10 @@ struct ImportTextProcedureWorkInstance
 	                 "selectOutputInfo", selectBound.info,
 	                 "columnName", col.columnName);
 
-                ColumnHash ch(col.columnName);
-                if (!columnIndex.insert(make_pair(ch, i)).second)
-                    throw HttpReturnException(400, "Duplicate column name in select expression",
-                                            "columnName", col.columnName.toString());
+            ColumnHash ch(col.columnName);
+            if (!columnIndex.insert(make_pair(ch, i)).second)
+                throw HttpReturnException(400, "Duplicate column name in select expression",
+                                               "columnName", col.columnName.toString());
 	        
 	        knownColumnNames.emplace_back(col.columnName);
 	    }
@@ -795,45 +795,45 @@ struct ImportTextProcedureWorkInstance
 		          SqlCsvScope& scope)
 	{
 
-            const bool outputColumnNames = !areOutputColumnNamesKnown;
+        const bool outputColumnNames = !areOutputColumnNamesKnown;
 	    mutex lineMutex;
 
-            PerThreadAccumulator< std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > > accum;
-            std::atomic<size_t> totalRows;
+        PerThreadAccumulator< std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > > accum;
+        std::atomic<size_t> totalRows;
 
 	    auto onLine = [&] (int chunkNum, int64_t actualLineNum, RowName rowName, Date rowTs, CellValue * vals, ColumnName * names, int numberOutputColumns) {
 	    	
-                std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows = accum.get();
+            std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows = accum.get();
 
-                std::vector<std::tuple<ColumnName, CellValue, Date> > rowvalues;
-                for (int i = 0; i < numberOutputColumns; ++i) {
+            std::vector<std::tuple<ColumnName, CellValue, Date> > rowvalues;
+            for (int i = 0; i < numberOutputColumns; ++i) {
 
-                    if (names)
-                        rowvalues.push_back( make_tuple(names[i], std::move(vals[i]), rowTs) );
-                    else
-                        rowvalues.push_back( make_tuple(knownColumnNames[i], std::move(vals[i]), rowTs) );
-                }
+                if (names)
+                    rowvalues.push_back( make_tuple(names[i], std::move(vals[i]), rowTs) );
+                else
+                    rowvalues.push_back( make_tuple(knownColumnNames[i], std::move(vals[i]), rowTs) );
+            }
 
-                rows.push_back( { rowName, std::move(rowvalues) } );
+            rows.push_back( { rowName, std::move(rowvalues) } );
 
-                if (rows.size() == ROWS_PER_CHUNK) {
+            if (rows.size() == ROWS_PER_CHUNK) {
      		    {
-                        std::unique_lock<std::mutex> guard(lineMutex);
+                    std::unique_lock<std::mutex> guard(lineMutex);
           	        dataset->recordRows(rows);
           	    }
-                    rows.clear();
-                }
+                rows.clear();
+            }
             
-                ++totalRows;
-	    };
+            ++totalRows;
+        };
 
-	    loadTextData(dataset, stream, config, scope, outputColumnNames, onLine);
+        loadTextData(dataset, stream, config, scope, outputColumnNames, onLine);
 
-            for (int i = 0; i < accum.threads.size(); ++i) {
-                auto & rows = *(accum.threads.at(i).get());
-                if (!rows.empty() > 0)
-                    dataset->recordRows(rows);
-            };
+        for (int i = 0; i < accum.threads.size(); ++i) {
+            auto & rows = *(accum.threads.at(i).get());
+            if (!rows.empty() > 0)
+                dataset->recordRows(rows);
+        };
 
 	    this->rowCount = totalRows;
 	}
@@ -845,9 +845,9 @@ struct ImportTextProcedureWorkInstance
 						 const ImportTextConfig& config,
 						 SqlCsvScope& scope)
 	{
-            const bool outputColumnNames = !areOutputColumnNamesKnown;
+        const bool outputColumnNames = !areOutputColumnNamesKnown;
 
-            if (areOutputColumnNamesKnown)
+        if (areOutputColumnNamesKnown)
 	        dataset->initialize(knownColumnNames, columnIndex);
 
 	    auto createPayload = [=] ()
@@ -864,7 +864,7 @@ struct ImportTextProcedureWorkInstance
 
 	    auto onLine = [&] (int chunkNum, int64_t actualLineNum, RowName rowName, Date rowTs, CellValue * vals, ColumnName * names, int numVals) {
 
-                TabularDatasetChunk & threadAccum = accum.get();
+            TabularDatasetChunk & threadAccum = accum.get();
 
 	        if (threadAccum.chunkNumber == -1) {
 	             threadAccum.chunkNumber = chunkNum;
@@ -944,7 +944,7 @@ struct ImportTextProcedureWorkInstance
 
 	    auto doLeftoverChunk = [&] (int threadNum) {
 	        TabularDatasetChunk * ent = accum.threads.at(threadNum).get();
-                ExcAssert(ent != nullptr);
+            ExcAssert(ent != nullptr);
 	        ent->freeze();
 	        std::unique_lock<std::mutex> guard(doneChunksLock);
 	        doneChunks.emplace_back(std::move(*ent));
@@ -976,10 +976,10 @@ struct ImportTextProcedureWorkInstance
 	void 
 	loadTextData(std::shared_ptr<Dataset> dataset, 
 	             Datacratic::filter_istream& stream, 
-		     const ImportTextConfig& config,
-		     SqlCsvScope& scope,
-                     bool outputColumnNames,
-		     const std::function<void (int, int64_t , RowName , Date , CellValue *, ColumnName * , int)> & processLine)
+		         const ImportTextConfig& config,
+		         SqlCsvScope& scope,
+                 bool outputColumnNames,
+		         const std::function<void (int, int64_t , RowName , Date , CellValue *, ColumnName * , int)> & processLine)
 	{	
 	    std::mutex lineMutex;
 
@@ -1038,7 +1038,7 @@ struct ImportTextProcedureWorkInstance
 
 	        const char * lineStart = line;
 
-                const size_t numInputColumn = inputColumnNames.size();
+            const size_t numInputColumn = inputColumnNames.size();
 
 	        const char * errorMsg = parseFixedWidthCsvRow(line, length, &values[0],
 	                                        numInputColumn,
@@ -1073,7 +1073,7 @@ struct ImportTextProcedureWorkInstance
 	            
 	        //cerr << jsonEncodeStr(vector<CellValue>(values, values + numberOutputColumns)) << endl;
 	            
-                ExcAssert(!(isIdentitySelect && outputColumnNames));
+            ExcAssert(!(isIdentitySelect && outputColumnNames));
 
 	        if (isIdentitySelect) {
 	            // If it's a select *, we don't really need to run the
@@ -1085,49 +1085,46 @@ struct ImportTextProcedureWorkInstance
 	            // SELECT * excluding (...)
 
 	            ExpressionValue selectStorage;
-	            const ExpressionValue & selectOutput
-	                = selectBound(row, selectStorage, GET_LATEST);
+	            const ExpressionValue & selectOutput = selectBound(row, selectStorage, GET_LATEST);
 
-                    const auto & selectRow = selectOutput.getRow();
+                const auto & selectRow = selectOutput.getRow();
 
-                    // TODO: clang doesn't like a variable length array
-                    // here.  Find another way to allocate it on the
-                    // stack.
-                    // CellValue valuesOut[numberOutputColumns];
+                // TODO: clang doesn't like a variable length array
+                // here.  Find another way to allocate it on the
+                // stack.
+                // CellValue valuesOut[numberOutputColumns];
 
-                    vector<CellValue> valuesOut(selectRow.size());
-                    vector<ColumnName> namesOut;
+                vector<CellValue> valuesOut(selectRow.size());
+                vector<ColumnName> namesOut;
 
-                    if (outputColumnNames)
-                        namesOut.resize(selectRow.size());
+                if (outputColumnNames)
+                    namesOut.resize(selectRow.size());
 
 	            if (&selectOutput == &selectStorage) {
 	                // We can destructively work with it
 
 	                auto selectRow = selectStorage.stealRow();
-	                //ExcAssertEqual(selectRow.size(), numberOutputColumns);
 	                for (unsigned i = 0;  i < selectRow.size();  ++i) {
-                            auto& rItem = selectRow[i];
-                            if (!std::get<1>(rItem).isAtom())
-                                throw HttpReturnException(400, "select expression must return atomic values in text import procedure");
+                        auto& rItem = selectRow[i];
+                        if (!std::get<1>(rItem).isAtom())
+                            throw HttpReturnException(400, "select expression must return atomic values in import.text procedure");
 	                    valuesOut[i] = std::move(std::get<1>(rItem).stealAtom());
-                            if (outputColumnNames)
-                                namesOut[i] =  std::move(std::get<0>(rItem));
+                        if (outputColumnNames)
+                            namesOut[i] =  std::move(std::get<0>(rItem));
 	                }
 	                    
 	            }
 	            else {
 	                // Need to copy things
-	                //ExcAssertEqual(selectRow.size(), numberOutputColumns);
 	                for (unsigned i = 0;  i < selectRow.size();  ++i) {
-                            auto& rItem = selectRow[i];
-                            if (!std::get<1>(rItem).isAtom())
-                                throw HttpReturnException(400, "select expression must return atomic values in text import procedure");
+                        auto& rItem = selectRow[i];
+                        if (!std::get<1>(rItem).isAtom())
+                            throw HttpReturnException(400, "select expression must return atomic values in import.text procedure");
 
 	                    valuesOut[i] = std::get<1>(rItem).getAtom();
-                            if (outputColumnNames)
-                                namesOut[i] =  std::move(std::get<0>(rItem));
-                        }
+                        if (outputColumnNames)
+                            namesOut[i] =  std::move(std::get<0>(rItem));
+                    }
 	            }
 	                
 	            processLine(chunkNum, actualLineNum, std::move(rowName), rowTs, &valuesOut[0], namesOut.data(), selectRow.size());
@@ -1185,8 +1182,8 @@ run(const ProcedureRunConfig & run,
 
     auto onProgress2 = [&] (const Json::Value & progress) {
         Json::Value value;
-  	value["dataset"] = progress;
-  	return onProgress(value);
+  	    value["dataset"] = progress;
+  	    return onProgress(value);
     };
 
     std::shared_ptr<Dataset> dataset = createDataset(server, runProcConf.outputDataset, onProgress2, true /*overwrite*/);

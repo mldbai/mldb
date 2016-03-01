@@ -8,7 +8,7 @@ mldb = mldb_wrapper.wrap(mldb) # noqa
 
 
 import unittest
-class HavingTest(unittest.TestCase):
+class ImportTextToSparseTest(unittest.TestCase):
 
     def test_sparse(self):
         res = mldb.put('/v1/procedures/import_reddit', { 
@@ -57,18 +57,8 @@ class HavingTest(unittest.TestCase):
 
         res = mldb.query('SELECT * FROM iris_ex limit 1')
 
-        expected = [["_rowName",
-                    "a",
-                    "b",
-                    "d",
-                    "label"],
-                    [
-                        "97",
-                        5.7,
-                        2.9,
-                        1.3,
-                        "Iris-versicolor"
-                    ]]
+        expected = [["_rowName", "a", "b", "d","label"],
+                    ["97", 5.7, 2.9, 1.3, "Iris-versicolor"]]
 
         self.assertEqual(res, expected)
 
@@ -90,14 +80,8 @@ class HavingTest(unittest.TestCase):
 
         res = mldb.query('SELECT gonewild FROM reddit LIMIT 1')
 
-        expected = [[
-                        "_rowName",
-                        "gonewild"
-                    ],
-                    [
-                        "471242",
-                        1
-                    ]]
+        expected = [["_rowName","gonewild"],
+                    ["471242",1]]
         self.assertEqual(res, expected)
 
 mldb.run_tests()
