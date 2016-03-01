@@ -96,7 +96,7 @@ ImportTextConfigDescription::ImportTextConfigDescription()
             }
             else {
                 context.exception("Unknown field '" + context.fieldName()
-                                  + " parsing import text configuration");
+                                  + " parsing import.text configuration");
             }
         };
 }
@@ -113,8 +113,7 @@ ImportTextConfigDescription::ImportTextConfigDescription()
 struct SqlCsvScope: public SqlExpressionMldbContext {
 
     struct RowScope: public SqlRowScope {
-        RowScope(const CellValue * row, Date ts, int64_t lineNumber,
-                 int64_t lineOffset)
+        RowScope(const CellValue * row, Date ts, int64_t lineNumber, int64_t lineOffset)
             : row(row), ts(ts), lineNumber(lineNumber), lineOffset(lineOffset)
         {
         }
@@ -156,14 +155,14 @@ struct SqlCsvScope: public SqlExpressionMldbContext {
                                          const Utf8String & variableName)
     {
         if (!tableName.empty()) {
-            throw HttpReturnException(400, "Unknown table name in import text procedure",
+            throw HttpReturnException(400, "Unknown table name in import.text procedure",
                                       "tableName", tableName);
         }
 
         int index = std::find(columnNames.begin(), columnNames.end(), variableName)
             - columnNames.begin();
         if (index == columnNames.size())
-            throw HttpReturnException(400, "Unknown column name in import text procedure",
+            throw HttpReturnException(400, "Unknown column name in import.text procedure",
                                       "columnName", variableName,
                                       "knownColumnNames", columnNames);
 
