@@ -1213,7 +1213,8 @@ BoundFunction min_timestamp(const std::vector<BoundSqlExpression> & args)
                 return ExpressionValue(val.getMinTimestamp(),
                                        val.getEffectiveTimestamp());
             },
-            std::make_shared<TimestampValueInfo>()};
+            std::make_shared<TimestampValueInfo>(),
+            GET_ALL};
 }
 
 static RegisterBuiltin register_min_timestamp(min_timestamp, "min_timestamp");
