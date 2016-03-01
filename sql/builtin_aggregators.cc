@@ -44,13 +44,6 @@ struct RegisterAggregator {
                        SqlBindingScope & context)
             -> BoundAggregator
             {
-#if 0
-                std::vector<BoundSqlExpression> boundArgs;
-                for (auto& arg : args)
-                {
-                    boundArgs.emplace_back(std::move(arg->bind(context)));
-                }
-#endif
                 return std::move(aggregator(args));
             };
         handles.push_back(registerAggregator(Utf8String(name), fn));
