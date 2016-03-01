@@ -882,7 +882,7 @@ struct ImportTextProcedureWorkInstance
                         ColumnHash ch(c);
                         knownColumnNames.push_back(c);
                         if (!columnIndex.insert(make_pair(ch, i)).second)
-                            throw HttpReturnException(400, "Duplicate column name in CSV file",
+                            throw HttpReturnException(400, "Duplicate column name in import.text",
                                                       "columnName", c.toString());
                     }
                     dataset->initialize(knownColumnNames, columnIndex);
