@@ -813,8 +813,6 @@ struct ImportTextProcedureWorkInstance
 
     std::atomic<size_t> totalRows;
 
-    //Todo: optimize when output columns are known
-
 		auto onLine = [&] (int chunkNum, int64_t actualLineNum, RowName rowName, Date rowTs, CellValue * vals, ColumnName * names, int numberOutputColumns)
 	    {
           std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows = accum.get();
@@ -910,8 +908,6 @@ struct ImportTextProcedureWorkInstance
                   threadAccum.add(actualLineNum, std::move(rowName), rowTs, vals);
               }
               else {
-
-                    //TODO: Skip the re-ordering if all output column names are known
 
                     if (numVals != knownColumnNames.size())
                       throw HttpReturnException(400, "Variable number of columns while importing text to tabular dataset");
