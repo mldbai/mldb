@@ -16,7 +16,7 @@ dataset records events as they come in into an internal dataset, and
 every so often (or when `commit` is called) the internal dataset is
 written to files on disk.
 
-![ContinuousDatasetModel](/doc/builtin/img/ContinuousDatasetModel.svg)
+![ContinuousDatasetModel](img/ContinuousDatasetModel.svg)
 
 The recorded files can then be queried by timestamp, and combined
 into a dataset that can be processed with MLDB as normal.

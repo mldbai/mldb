@@ -9,7 +9,7 @@ Datasets can be loaded from or saved to files, and can serve as the input to Pro
 The following diagram shows this as a 3-dimensional matrix, and shows what
 happens when we "slice" the matrix at a particular point in time.
 
-![Sliced Dataset](/doc/builtin/img/SlicedDataset.svg)
+![Sliced Dataset](img/SlicedDataset.svg)
 
 Ignoring the time dimension, you can imagine that the data looks something like this:
 

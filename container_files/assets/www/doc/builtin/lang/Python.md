@@ -29,8 +29,8 @@ Plugins and scripts running within the MLDB instance will have access to an `mld
 ### `mldb` object (available to plugins and scripts)
 
 * `mldb.log(message)` basic logging facility.
-* `mldb.create_dataset(dataset_config)` creates and returns a dataset object (see below). Equivalent of an HTTP [`POST /v1/datasets`](/doc/rest.html#POST:/v1/datasets).
-* `mldb.perform(verb, uri, [[query_string_key, query_string_value],...], payload, [[header_name, header_value],...])` efficiently emulates HTTP requests. See the [REST API documentation](/doc/rest.html) for available routes and payloads. 
+* `mldb.create_dataset(dataset_config)` creates and returns a dataset object (see below). Equivalent of an HTTP [`POST /v1/datasets`](../../rest.html#POST:/v1/datasets).
+* `mldb.perform(verb, uri, [[query_string_key, query_string_value],...], payload, [[header_name, header_value],...])` efficiently emulates HTTP requests. See the [REST API documentation](../../rest.html) for available routes and payloads. 
     * The header `async:true` is supported to perform asynchronous call when creating expensive resources. When this header is used, the call will return immediately and the object will be created in the background.  One can track the progress of the operation by performing a "GET" on the resource.  The `state` field part of the `response` field will be set to `initializing` while the object is being created.  Once the creation is completed the `state` field will be set to `ok`.
 
 ### Filesystem access

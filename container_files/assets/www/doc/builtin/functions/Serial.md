@@ -30,7 +30,7 @@ output values are defined via a `extract` expression.
 
 The following diagram shows this in detail:
 
-![Serial Function Diagram](/doc/builtin//img/SerialFunction.svg)
+![Serial Function Diagram](../img/SerialFunction.svg)
 
 The following points are important:
 

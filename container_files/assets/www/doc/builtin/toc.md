@@ -1,7 +1,7 @@
 
 <script>
 $("body").css({margin: "20px"});
-$.getJSON("/version.json", function(v){ $("#version").text("version "+v.version) });
+$.getJSON("{{HTTP_BASE_URL}}/version.json", function(v){ $("#version").text("version "+v.version) });
 </script>
 <style>
 p, li {
@@ -14,11 +14,11 @@ ul {
 
 <base target="rh">
 <div align="center">
-<a href="/" target="_top"><img src="/resources/images/mldb_ipython_logo.png" alt="MLDB Logo" /></a>
+<a href="/" target="_top"><img src="{{HTTP_BASE_URL}}/resources/images/mldb_ipython_logo.png" alt="MLDB Logo" /></a>
 <span id="version" style="font-size: 12px;"></span>
 </div>
 
-<form action="/doc/search.html">
+<form action="{{HTTP_BASE_URL}}/doc/search.html">
 <input style="
      font: 13px/1.6 'open sans', sans-serif;
     color: #333;
@@ -40,7 +40,7 @@ ul {
 * [MLDB Overview](Overview.md)
 * [Running MLDB](Running.md)
 * [Working with the REST API](WorkingWithRest.md)
-* [REST API Interactive Docs](/doc/rest.html)
+* [REST API Interactive Docs](../rest.html)
 * [Notebooks and pymldb](Notebooks.md)
 * [Demos & Tutorials](Demos.md)
 * [Files and URLs](Url.md)
