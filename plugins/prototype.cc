@@ -101,7 +101,7 @@ PrototypeProcedure::
 run(const ProcedureRunConfig & run,
       const std::function<bool (const Json::Value &)> & onProgress) const
 {
-	const int numBags = 1;
+	const int numBags = 32;
 
 	PrototypeConfig runProcConf =
         applyRunConfOverProcConf(procedureConfig, run);
@@ -349,7 +349,7 @@ run(const ProcedureRunConfig & run,
 
           std::pair<ML::Feature, int> bestSplit; //put this in a another array?
 
-          boost::dynamic_bitset<> relevantFeatures;
+     //     boost::dynamic_bitset<> relevantFeatures;
 
           float totalLeft;
           float totalRight;
@@ -417,19 +417,40 @@ run(const ProcedureRunConfig & run,
       	std::vector< PerPartition > perPartitionW;
         size_t numInitialized;
         size_t newPartitionCount;
+        std::vector<char> useFeatures;
 
-        void init(int maxIter)
+        void init(int maxIter, int numFeature)
         { 
-            STACK_PROFILE(BagIter_InitW);   
+        //    STACK_PROFILE(BagIter_InitW);   
+            PrototypeRNG myrng;
             int maxNumLeaves = std::pow(2,maxIter);
             perPartitionW.resize(maxNumLeaves); //todo: be more reasonable, maybe use pages
             numInitialized = 0;
             newPartitionCount = 1;
+
+            useFeatures.resize(numFeature, 0);
+
+            //chose a third of features
+            int numFeaturesToChoose = 0.3 * numFeature;
+            vector<int> shuffleVec(numFeature);
+            std::iota(shuffleVec.begin(), shuffleVec.end(), 0);
+            std::random_shuffle(shuffleVec.begin(), shuffleVec.end(), myrng);
+            for (int i = 0; i < numFeaturesToChoose; ++i)
+            {
+                useFeatures[shuffleVec[i]] = 1;
+            }
+
+          /*  distribution<float> in_training(numRow);
+            vector<int> tr_ex_nums(numRow);
+            std::iota(tr_ex_nums.begin(), tr_ex_nums.end(), 0);  // 0, 1, 2, 3, 4, 5, 6, 7... N
+            std::random_shuffle(tr_ex_nums.begin(), tr_ex_nums.end(), myrng);  //5, 1, 14, N...
+            for (unsigned i = 0;  i < numRow * trainprop;  ++i)
+                in_training[tr_ex_nums[i]] = 1.0;                      //0, 0, 0, 1, 0, 1, 0, 1, 1, ....*/
         }
 
         void clear(int iter, std::vector<size_t>& ranges, size_t numPartitions)
         {       
-            STACK_PROFILE(BagIter_ClearW);   
+           // STACK_PROFILE(BagIter_ClearW);   
 
             if (iter > 0)
             {
@@ -528,9 +549,9 @@ run(const ProcedureRunConfig & run,
 
     auto bagIter = [&] (int bag)
     {
-        STACK_PROFILE(BagIter);
-        cerr << "starting bag " << bag << endl;
-        cerr << "num features " << numFeatures << endl;
+     //   STACK_PROFILE(BagIter);
+     //   cerr << "starting bag " << bag << endl;
+     //   cerr << "num features " << numFeatures << endl;
 
         //Todo: init this and dont realloc it all the time
       	BagW& w = wPerBag[bag];
@@ -552,7 +573,7 @@ run(const ProcedureRunConfig & run,
        // }
         
         {
-            STACK_PROFILE(BagIter_scanlines);
+        //    STACK_PROFILE(BagIter_scanlines);
        //     STACK_PROFILE_SEED(BagIter_scanlines_a);
             for (auto& line : lines)
             {
@@ -584,8 +605,11 @@ run(const ProcedureRunConfig & run,
                   //  STACK_PROFILE_ADD(BagIter_scanlines_a);
                     partitionScore.totalLeft += label ? weight : 0;
                     partitionScore.totalRight += label ? 0 : weight;
-                    for (auto& f : line.features)
+                    auto iter = line.features.begin();
+                    for (int i = 0; i < numFeatures; ++i)
+                    //for (auto& f : line.features)
                     {
+
                   //      if (iteration == 0)
                     //      cerr << " (" << f.first.arg1() << "," << f.second << ")";
 
@@ -595,6 +619,15 @@ run(const ProcedureRunConfig & run,
                         //partitionScore.score[f] += weight;
                         //partitionScore.leftscore[f] += label ? weight : 0;
                       //  partitionScore.add(f, weight, label ? weight : 0);
+
+                        if (w.useFeatures[i] == 0)
+                        {
+                            ++iter;
+                            continue;
+                        }
+
+                        auto& f = *iter;
+                        ++iter;
 
                         float leftWeight = label ? weight : 0;
 
@@ -628,9 +661,9 @@ run(const ProcedureRunConfig & run,
 
         //ok, now for every partition, find the best split point
         //currentPartitions.size();
-        cerr << "max partition: " << maxpartition << endl;
+       // cerr << "max partition: " << maxpartition << endl;
         {
-        STACK_PROFILE(BagIter_findSplitPoint);
+       // STACK_PROFILE(BagIter_findSplitPoint);
         for (int partition = 0; partition < maxpartition; partition++)
         {
             BagW::PerPartition& partitionScore = currentPartitions[partition];
@@ -662,6 +695,9 @@ run(const ProcedureRunConfig & run,
 
             for (int fIndex = 0; fIndex < numFeatures; ++fIndex)
             {
+                if (w.useFeatures[fIndex] == 0)
+                    continue;
+
              //   cerr << "feature index " << fIndex << endl;
                 auto& fmap = partitionScore.scorePerFeature[fIndex];
 
@@ -800,7 +836,7 @@ run(const ProcedureRunConfig & run,
         }
         }
 
-        cerr << "bag " << bag << " has " << newPartitionCounter << "new partition leafs" << endl; 
+       // cerr << "bag " << bag << " has " << newPartitionCounter << "new partition leafs" << endl; 
 
         w.lastNewPartition = numNewPartition;
         w.newPartitionCount = newPartitionCounter;
@@ -818,7 +854,7 @@ run(const ProcedureRunConfig & run,
         //int iterMaskRight = (1 << iteration);
 
         //Re-partition lines
-        STACK_PROFILE(BagIter_repartition);
+     //   STACK_PROFILE(BagIter_repartition);
         for (auto& line : lines)
         {
             float weight = line.weightsperbag[bag];
@@ -873,8 +909,13 @@ run(const ProcedureRunConfig & run,
 	
     int test = 20;
 
-    wPerBag[0].init(test);
+    for (int bag = 0; bag < numBags; ++bag)
+    {
+        wPerBag[bag].init(test, numFeatures);
+    }
 
+    {
+    STACK_PROFILE(TRAIN);  
   	while (test > 0)
   	{
   		/*for (auto& line : lines)
@@ -896,9 +937,10 @@ run(const ProcedureRunConfig & run,
 
       right = right << 1; 
 
-  		cerr << "FINISHED ITER" << endl;
+  //		cerr << "FINISHED ITER" << endl;
       iteration++;
-  	} 	
+  	} 
+    }	
 
     //print the bags
     if (false)
