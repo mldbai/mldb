@@ -7,6 +7,11 @@
     Server for MLDB documentation.
 */
 
+#include <boost/program_options/cmdline.hpp>
+#include <boost/program_options/options_description.hpp>
+#include <boost/program_options/positional_options.hpp>
+#include <boost/program_options/parsers.hpp>
+#include <boost/program_options/variables_map.hpp>
 #include "mldb/server/mldb_server.h"
 #include "mldb/server/plugin_collection.h"
 #include "mldb/http/http_rest_proxy.h"
@@ -18,9 +23,31 @@ using namespace Datacratic::MLDB;
 
 int main(int argc, char ** argv)
 {
+    using namespace boost::program_options;
+
+    string httpBaseUrl = "";
+    options_description all_opt;
+    all_opt.add_options()
+        ("help,h", "prints this help")
+        ("http-base-url", value(&httpBaseUrl),
+         "Prefix to prepend to all /doc urls.");
+
+    variables_map vm;
+    store(command_line_parser(argc, argv)
+          .options(all_opt)
+          .run(),
+          vm);
+    if (vm.count("help") || vm.count("h")) {
+        cerr << all_opt << endl;
+        return 0;
+    }
+
+    notify(vm);
+
     vector<string> pluginDirectory = { "file://build/x86_64/mldb_plugins" };
 
     MldbServer server;
+    server.httpBaseUrl = httpBaseUrl;
     
     server.init();
 
