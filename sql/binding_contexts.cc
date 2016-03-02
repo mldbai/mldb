@@ -209,7 +209,7 @@ doGetFunction(const Utf8String & tableName,
               const std::vector<BoundSqlExpression> & args,
               SqlBindingScope & argScope)
 {
-    if (functionName == "timestamp") {
+    if (functionName == "value_timestamp") {
         isTupleDependent = true;
         return  {[=] (const std::vector<ExpressionValue> & args,
                       const SqlRowScope & scope)

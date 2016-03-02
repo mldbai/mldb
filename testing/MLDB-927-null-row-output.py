@@ -63,15 +63,15 @@ formats = ['full', 'sparse', 'soa', 'aos', 'table']
 
 for format in formats:
     result = mldb.get('/v1/query',
-        q="SELECT * FROM dataset1 WHEN timestamp() > '%s'" % later,
+        q="SELECT * FROM dataset1 WHEN value_timestamp() > '%s'" % later,
         format=format)
     rows1 = json.dumps(result.json(), indent=4, sort_keys=True)
 
     result = mldb.get('/v1/datasets/dataset1/query',
-        when="timestamp() > '%s'" % later, format=format)
+        when="value_timestamp() > '%s'" % later, format=format)
     rows2 = json.dumps(result.json(), indent=4, sort_keys=True)
 
-    response = run_transform("timestamp() > '%s'" % later, format)
+    response = run_transform("value_timestamp() > '%s'" % later, format)
     rows3 = json.dumps(response, indent=4, sort_keys=True, default=str)
 
     compare_json(rows1, rows2, format)
