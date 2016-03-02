@@ -355,6 +355,10 @@ run(const ProcedureRunConfig & run,
           float totalRight;
           bool isPureLeft;
           bool isPureRight;
+          bool isRightChild;
+          int leftIndex; //index of the left child-partition
+          int rightIndex;
+          int parentNode;
 
           void init (std::vector<size_t>& ranges)
           {
@@ -411,24 +415,26 @@ run(const ProcedureRunConfig & run,
       	};
 
       	std::vector< PerPartition > perPartitionW;
+        size_t numInitialized;
+        size_t newPartitionCount;
 
         void init(int maxIter)
         { 
             STACK_PROFILE(BagIter_InitW);   
             int maxNumLeaves = std::pow(2,maxIter);
-            perPartitionW.resize(maxNumLeaves);
+            perPartitionW.resize(maxNumLeaves); //todo: be more reasonable, maybe use pages
+            numInitialized = 0;
+            newPartitionCount = 1;
         }
 
-        void clear(int iter, std::vector<size_t>& ranges)
+        void clear(int iter, std::vector<size_t>& ranges, size_t numPartitions)
         {       
             STACK_PROFILE(BagIter_ClearW);   
 
-            int numLeavesPrevious = 0;
             if (iter > 0)
             {
-                //clear previous
-                numLeavesPrevious = (1 << (iter-1));
-                for (int i = 0; i < numLeavesPrevious; ++i)
+                size_t numToClear = std::min(numInitialized, numPartitions);
+                for (int i = 0; i < numToClear; ++i)
                 {
                      perPartitionW[i].clear();
                 }
@@ -438,12 +444,14 @@ run(const ProcedureRunConfig & run,
             //init new leaves
             //TODO: Dont init "fake leaves" where their parents where already uniform.
 
-            int numLeaf = (1 << (iter));
+            //int numLeaf = (1 << (iter));
 
-            for (int i = numLeavesPrevious; i < numLeaf; ++i)
+            for (int i = numInitialized; i < numPartitions; ++i)
             {
                  perPartitionW[i].init(ranges);
             }
+
+            numInitialized = std::max(numInitialized, numPartitions);
 
        //     currentFrame = iter%2;
          //   int nextFrame = (iter+1) %2;
@@ -472,7 +480,7 @@ run(const ProcedureRunConfig & run,
     };
 
     int right = 1;
-    int doneMask = 1 << 31;
+    //int doneMask = 1 << 31;
     int iteration = 0;
 
     std::vector<BagW> wPerBag(numBags);
@@ -535,7 +543,7 @@ run(const ProcedureRunConfig & run,
         if (iteration > 0 && w.lastNewPartition == 0)
           return true;
 
-        w.clear(iteration, ranges);
+        w.clear(iteration, ranges, w.newPartitionCount);
 
        // if (iteration == 0)
        // {
@@ -610,11 +618,16 @@ run(const ProcedureRunConfig & run,
             }
         }      	
 
+        int maxpartition = w.newPartitionCount;
         w.lastNewPartition = 0;
         int numNewPartition = 0;
+        int newPartitionCounter = 0;
+
+       // std::unordered_map<int, std::tuple<int, bool>> parentnodeIndices;//partition index, parent node index;
+        std::vector<std::tuple<int, bool>> parentnodeIndices;
 
         //ok, now for every partition, find the best split point
-        int maxpartition = currentPartitions.size();
+        //currentPartitions.size();
         cerr << "max partition: " << maxpartition << endl;
         {
         STACK_PROFILE(BagIter_findSplitPoint);
@@ -622,12 +635,18 @@ run(const ProcedureRunConfig & run,
         {
             BagW::PerPartition& partitionScore = currentPartitions[partition];
 
+          //  if (partition == 125)
+            //    cerr << "ORANGE" << endl;
+
             //partition is uniform
-            if (partitionScore.totalLeft == 0 || partitionScore.totalRight == 0)
-            {
+          //  if (partitionScore.totalLeft == 0 || partitionScore.totalRight == 0)
+          //  {
              //  cerr << "partition " << partition << " is uniform" << endl;
-               continue;
-            }
+          //     continue;
+          //  }
+
+            //if (partition == 125)
+              //  cerr << "banana" << endl;
 
             numNewPartition++;
 
@@ -717,6 +736,12 @@ run(const ProcedureRunConfig & run,
             partitionScore.bestSplit = { Feature(1, bestSplit.first, 0), bestSplit.second };
             partitionScore.isPureLeft =  bestLeft > 0.999f;
             partitionScore.isPureRight =  bestRight > 0.999f;
+            partitionScore.leftIndex = -1;
+            partitionScore.rightIndex = -1;            
+            if (!partitionScore.isPureLeft)
+                partitionScore.leftIndex = newPartitionCounter++;
+            if (!partitionScore.isPureRight)
+                partitionScore.rightIndex = newPartitionCounter++;
 
         //    cerr << "PURES " << bestLeft << " " << bestRight << endl;
         //    cerr << "PURES " << partitionScore.isPureLeft << " " << partitionScore.isPureRight << endl;
@@ -731,6 +756,7 @@ run(const ProcedureRunConfig & run,
          //        << " with feature " << bestSplit.first << " value " << bestSplit.second 
             //     << " and purity " << bestScore /*<< ", uniformity: " << uniformity */<< endl;
 
+            int partitionNodeIndex = 0;
             if (iteration == 0)
             {
                 tree.nodes.emplace_back(TreeNode{ partitionScore.bestSplit.first, bestSplit.second, -1, -1 });                
@@ -738,36 +764,58 @@ run(const ProcedureRunConfig & run,
             else
             {
                 //find the parent node.
-                //todo: keep this somewhere? In a hash map of partition? an array? still would be log(n)...  
-                TreeNode* parent = &(tree.nodes[0]);
-                for (int i = 0; i < iteration - 1; ++i)
+                //todo: keep this somewhere? In a hash map of partition? an array? still would be log(n)... 
+
+                TreeNode* parent = &(tree.nodes[partitionScore.parentNode]);
+               /* for (int i = 0; i < iteration - 1; ++i)
                 {
                    bool right = (partition & (1 << i));                   
                    int index = (right ? parent->childIndexRight : parent->childIndexLeft);
                    parent = &(tree.nodes[index]);
                 }
 
-                bool right = (partition & (1 << (iteration - 1)));
+                bool right = (partition & (1 << (iteration - 1)));*/
 
-                if (right)
-                  parent->childIndexRight = tree.nodes.size();
+                partitionNodeIndex = tree.nodes.size();
+
+                if (partitionScore.isRightChild)
+                  parent->childIndexRight = partitionNodeIndex;
                 else
-                  parent->childIndexLeft = tree.nodes.size();
+                  parent->childIndexLeft = partitionNodeIndex;
 
                 tree.nodes.emplace_back(TreeNode{ partitionScore.bestSplit.first, bestSplit.second, -1, -1 });
             }
 
+            if (!partitionScore.isPureLeft)
+            {
+               // parentnodeIndices[partitionScore.leftIndex] = std::make_tuple<int, bool>(partitionNodeIndex, false);
+                parentnodeIndices.push_back(std::move(std::make_tuple(partitionNodeIndex, false)));
+            }
+            if (!partitionScore.isPureRight)
+            {
+               // parentnodeIndices[partitionScore.rightIndex] = std::make_tuple<int, bool>(partitionNodeIndex, true);
+                parentnodeIndices.push_back(std::move(std::make_tuple(partitionNodeIndex, true)));
+            }
            // printNode(tree, tree.nodes[0], 0);
         }
         }
 
-        cerr << "bag " << bag << " has " << 2*numNewPartition << "new partition leafs" << endl; 
+        cerr << "bag " << bag << " has " << newPartitionCounter << "new partition leafs" << endl; 
 
         w.lastNewPartition = numNewPartition;
+        w.newPartitionCount = newPartitionCounter;
         if (numNewPartition == 0)
           return true;
 
-        int iterMaskRight = (1 << iteration);
+        //set the parent node
+        for (int partition = 0; partition < newPartitionCounter; partition++)
+        {
+            auto& tuple = parentnodeIndices[partition];
+            w.perPartitionW[partition].parentNode = std::get<0>(tuple);
+            w.perPartitionW[partition].isRightChild = std::get<1>(tuple);
+        }
+
+        //int iterMaskRight = (1 << iteration);
 
         //Re-partition lines
         STACK_PROFILE(BagIter_repartition);
@@ -783,6 +831,8 @@ run(const ProcedureRunConfig & run,
             if (partition < 0)
               continue; //part of a uniform partition
 
+        //  int originalPartition = partition;
+
             BagW::PerPartition& partitionScore = currentPartitions[partition];
 
          //   if (partitionScore.)
@@ -794,21 +844,34 @@ run(const ProcedureRunConfig & run,
             std::pair<ML::Feature, float> bestSplit = partitionScore.bestSplit;
 
             bool isLeft = line.features[bestSplit.first.arg1()].second <= bestSplit.second;
-            int mask = isLeft? 0 : iterMaskRight;            
+        //    int mask = isLeft? 0 : iterMaskRight;            
 
             if ((partitionScore.isPureLeft && isLeft) || (!isLeft && partitionScore.isPureRight))
             {
            //     cerr << "uniform" << endl;
-                mask |= doneMask;
-            } 
+                partition = -1; // |= doneMask;
+            }
+            else if (isLeft) 
+            {
+                partition = partitionScore.leftIndex;
+            }
+            else
+            {
+                partition = partitionScore.rightIndex;
+            }
 
-            partition |= mask; 
+       /*     if (partition > 10000)
+            {
+                cerr << "ERROR ASSIGNING LINE, ORIGINAL PARTITION " << originalPartition << "," << partitionScore.leftIndex << "," <<  partitionScore.rightIndex << endl;
+                cerr << partitionScore.isPureLeft << "," << partitionScore.isPureRight << endl;
+            }*/
+           // partition |= mask; 
         }
 
         return true;
     };
 	
-    int test = 15;
+    int test = 20;
 
     wPerBag[0].init(test);
 
@@ -838,7 +901,7 @@ run(const ProcedureRunConfig & run,
   	} 	
 
     //print the bags
-    if (true)
+    if (false)
     {
         for (int bag = 0; bag < numBags; ++bag)
         {
