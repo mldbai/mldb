@@ -697,9 +697,9 @@ struct ImportTextProcedureWorkInstance
 	        }             
 	    }
 	    
-	    // Early check for duplicate column names in input
-            ML::Lightweight_Hash<ColumnHash, int> inputColumnIndex;
-	    for (unsigned i = 0;  i < inputColumnNames.size();  ++i) {
+        // Early check for duplicate column names in input
+        ML::Lightweight_Hash<ColumnHash, int> inputColumnIndex;
+        for (unsigned i = 0;  i < inputColumnNames.size();  ++i) {
 	            const ColumnName & c = inputColumnNames[i];
 	            ColumnHash ch(c);
 	            if (!inputColumnIndex.insert(make_pair(ch, i)).second)
@@ -891,7 +891,7 @@ struct ImportTextProcedureWorkInstance
             }
 
             if (!names) {
-                threadAccum.add(actualLineNum, std::move(rowName), rowTs, vals);
+                threadAccum.add(std::move(rowName), rowTs, vals);
             }
             else {
 
@@ -908,7 +908,7 @@ struct ImportTextProcedureWorkInstance
                        orderedValues[iter->second] = vals[i];
                     }
 
-                    threadAccum.add(actualLineNum, std::move(rowName), rowTs, &orderedValues[0]);
+                    threadAccum.add(std::move(rowName), rowTs, &orderedValues[0]);
                 }
 
 	        if (threadAccum.rowCount() == ROWS_PER_CHUNK) {
