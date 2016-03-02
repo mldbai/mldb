@@ -62,7 +62,7 @@ class SimpleWhenExpressionTest(unittest.TestCase):
                 'expected tuple matching row name %s' % row["rowName"])
 
         rows = query("SELECT * FROM dataset1 WHEN value_timestamp() BETWEEN "
-                          "to_timestamp('{}') AND to_timestamp('{}')"
+                          "TIMESTAMP '{}' AND TIMESTAMP '{}'"
                           .format(year_ago_str, year_from_now_str))
 
         for row in rows:
@@ -73,7 +73,7 @@ class SimpleWhenExpressionTest(unittest.TestCase):
     def test_get_no_tuples(self):
         rows = query(
             "SELECT * FROM dataset1 WHEN value_timestamp() BETWEEN "
-            "to_timestamp('{}') AND to_timestamp('{}')".format(year_ago_str, week_ago_str))
+            "TIMESTAMP '{}' AND TIMESTAMP '{}'".format(year_ago_str, week_ago_str))
         log(rows)
         for row in rows:
             self.assertTrue(
@@ -91,7 +91,7 @@ class SimpleWhenExpressionTest(unittest.TestCase):
     def test_last_tuple_filtered_out(self):
         rows = query(
             "SELECT x FROM dataset1 WHEN value_timestamp() BETWEEN "
-            "to_timestamp('%s') and to_timestamp('%s')" % (a_second_before_now, in_two_hours))
+            "TIMESTAMP '%s' and TIMESTAMP '%s'" % (a_second_before_now, in_two_hours))
         log(rows)
         for row in rows:
             if row['rowName'] is 9:
@@ -102,7 +102,7 @@ class SimpleWhenExpressionTest(unittest.TestCase):
     def test_when_exec_after_where(self):
         # check that the when clause is executed after the where one
         rows = query("SELECT x FROM dataset1 WHEN value_timestamp() BETWEEN "
-                          "to_timestamp('%s') and to_timestamp('%s') WHERE x = 9"
+                          "TIMESTAMP '%s' and TIMESTAMP '%s' WHERE x = 9"
                           % (a_second_before_now, in_two_hours))
         self.assertTrue(
             rows[0]["columns"][0][1] is None and len(rows) == 1,
@@ -119,28 +119,28 @@ class SimpleWhenExpressionTest(unittest.TestCase):
             self.assertEqual(res[0]['columns'][0][2], '1970-01-04T00:00:00Z')
 
         res = query('SELECT * FROM dataset2 WHEN value_timestamp() BETWEEN '
-                         "to_timestamp('1970-01-03T00:00:00Z') AND to_timestamp('1970-01-05T00:00:00Z')")
+                         "TIMESTAMP '1970-01-03T00:00:00Z' AND to_timestamp('1970-01-05T00:00:00Z')")
         expect()
 
         res = query("SELECT * FROM dataset2 WHEN "
-                         "value_timestamp() >= to_timestamp('1970-01-03T00:00:00Z') AND "
-                         "value_timestamp() <= to_timestamp('1970-01-05T00:00:00Z')")
+                         "value_timestamp() >= TIMESTAMP '1970-01-03T00:00:00Z' AND "
+                         "value_timestamp() <= TIMESTAMP '1970-01-05T00:00:00Z'")
         expect()
 
         res = query('SELECT * FROM dataset2 WHEN value_timestamp() BETWEEN '
-                        "to_timestamp('1970-01-04T00:00:00Z') AND to_timestamp('1970-01-04T00:00:00Z')")
+                        "TIMESTAMP '1970-01-04T00:00:00Z' AND to_timestamp('1970-01-04T00:00:00Z')")
         expect()
 
         res = query('SELECT * FROM dataset2 WHEN value_timestamp() BETWEEN '
-                         "to_timestamp('1970-01-03T23:59:59Z') AND to_timestamp('1970-01-04T23:59:59Z')")
+                         "TIMESTAMP '1970-01-03T23:59:59Z' AND to_timestamp('1970-01-04T23:59:59Z')")
         expect()
 
         res = query('SELECT * FROM dataset2 WHEN '
-                         "value_timestamp() = to_timestamp('1970-01-04T00:00:00Z')")
+                         "value_timestamp() = TIMESTAMP '1970-01-04T00:00:00Z'")
         expect()
 
         res = query('SELECT * FROM dataset2 WHEN value_timestamp() BETWEEN '
-                         "to_timestamp('1970-01-04T23:59:59Z') AND to_timestamp('1970-01-03T23:59:59Z')")
+                         "TIMESTAMP '1970-01-04T23:59:59Z' AND to_timestamp('1970-01-03T23:59:59Z')")
         self.assertTrue('columns' not in res[0])
 
     def test_multiple_ts(self):
@@ -156,7 +156,7 @@ class SimpleWhenExpressionTest(unittest.TestCase):
         ds.commit()
 
         res = query('SELECT * FROM dataset3 WHEN value_timestamp() < '
-                        "to_timestamp('1970-01-03T00:00:00Z')")
+                        "TIMESTAMP '1970-01-03T00:00:00Z'")
         self.assertEqual(len(res), 1)
         self.assertEqual(len(res[0]['columns']), 1)
         self.assertEqual(res[0]['columns'][0][2], '1970-01-02T00:00:00Z')
@@ -168,25 +168,25 @@ class SimpleWhenExpressionTest(unittest.TestCase):
             self.assertEqual(res[0]['columns'][0][2], '1970-01-04T00:00:00Z')
 
         res = query('SELECT * FROM dataset2 WHEN value_timestamp() BETWEEN '
-                    "to_timestamp('1970-01-04T01:00:00+01:00') AND "
-                    "to_timestamp('1970-01-04T01:00:00+01:00')")
+                    "TIMESTAMP '1970-01-04T01:00:00+01:00' AND "
+                    "TIMESTAMP '1970-01-04T01:00:00+01:00'")
         expect()
 
         res = query('SELECT * FROM dataset2 WHEN value_timestamp() '
-                    "= to_timestamp('1970-01-04T01:00:00+01:00')")
+                    "= TIMESTAMP '1970-01-04T01:00:00+01:00'")
         expect()
 
         res = query('SELECT * FROM dataset2 WHEN value_timestamp() < '
-                         "to_timestamp('1970-01-02T00:00:00+01:00')")
+                         "TIMESTAMP '1970-01-02T00:00:00+01:00'")
         self.assertTrue('columns' not in res[0])
 
         res = query('SELECT * FROM dataset2 WHEN value_timestamp() BETWEEN '
-                         "to_timestamp('1970-01-03T23:00:00-01:00') AND "
-                         "to_timestamp('1970-01-03T23:00:00-01:00')")
+                         "TIMESTAMP '1970-01-03T23:00:00-01:00' AND "
+                         "TIMESTAMP '1970-01-03T23:00:00-01:00'")
         expect()
 
         res = query('SELECT * FROM dataset2 WHEN value_timestamp() '
-                    "= to_timestamp('1970-01-03T23:00:00-01:00')")
+                    "= TIMESTAMP '1970-01-03T23:00:00-01:00'")
         expect()
 
 

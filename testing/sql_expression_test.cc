@@ -826,7 +826,7 @@ BOOST_AUTO_TEST_CASE(test_timestamps)
             return expr(createRow({}), GET_LATEST).getAtom();
         };
     
-    BOOST_CHECK_EQUAL(run("latest_timestamp(at(1, to_timestamp('2015-01-01T00:00:00Z')))"),
+    BOOST_CHECK_EQUAL(run("latest_timestamp(1 @ '2015-01-01T00:00:00Z')"),
                       Date(2015,1,1,0,0,0));
 }
 
