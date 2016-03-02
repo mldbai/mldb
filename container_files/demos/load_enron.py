@@ -19,7 +19,8 @@ def add_enron_file_to_dataset(mldb, dataset, no, max_msg=None):
     ham = sorted([f for f in files if f.endswith('.ham.txt')])
     spam = sorted([f for f in files if f.endswith('.spam.txt')])
     # We insert the spam randomly in the ham, but keeping the ordering. It
-    # follows the logic from the article
+    # follows the logic from the article pointed out here:
+    # http://www.aueb.gr/users/ion/data/enron-spam/readme.txt
     where_to_insert = \
         sorted([randrange(len(ham) + 1) for i in xrange(len(spam))])
     # Simply taking into account the fact that the list with get bigger every
@@ -35,8 +36,12 @@ def add_enron_file_to_dataset(mldb, dataset, no, max_msg=None):
         # mldb doesn't like non-utf-8 characters, which are present in some
         # mails
         msg = msg.decode('utf-8', 'ignore')
+        # remove weird chars that mldb doesn't like at the moment
+        msg = msg.replace(b'\x01', '')
+        msg = msg.replace(b'\x1b', '')
+        msg = msg.replace('\r\n', '\n')
         mldb.post(dataset + '/rows', {
-            'rowName': 'mail_' + str(i),
+            'rowName': 'enron_{}_mail_{}'.format(no,i),
             'columns': [
                 ['label', 'spam' if 'spam' in name else 'ham', 0],
                 ['index', i, 0],
@@ -44,16 +49,5 @@ def add_enron_file_to_dataset(mldb, dataset, no, max_msg=None):
                 ['dataset', no, 0],
                 ['file', name, 0]]})
 
-        if max_msg is not None and i > max_msg:
+        if max_msg is not None and i >= max_msg - 1:
             break
-
-
-if __name__ == '__main__':
-    # TODO argparse
-    mldb = Connection('http://localhost:' + str(sys.argv[1]))
-    mldb.put('/v1/datasets/enron_data', {'type': 'sparse.mutable'})
-
-    for i in xrange(1, 7):
-        print('Importing Enron ' + str(i))
-        add_enron_file_to_dataset(mldb, '/v1/datasets/enron_data', i)
-    mldb.post('/v1/datasets/enron_data/commit')
