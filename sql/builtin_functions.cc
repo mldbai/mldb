@@ -1075,25 +1075,7 @@ BoundFunction regex_search(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerRegexSearch(regex_search, "regex_search");
 
-BoundFunction when(const std::vector<BoundSqlExpression> & args)
-{
-    // Tell us when an expression happened, ie extract its timestamp and return
-    // as its value
-
-    checkArgsSize(args.size(), 1);
-    return {[=] (const std::vector<ExpressionValue> & args,
-                 const SqlRowScope & scope) -> ExpressionValue
-            {
-                ExcAssertEqual(args.size(), 1);
-                auto ts = args[0].getEffectiveTimestamp();
-                return ExpressionValue(ts, ts);
-            },
-            std::make_shared<TimestampValueInfo>()};
-}
-
-static RegisterBuiltin registerWhen(when, "when");
-
-BoundFunction min_timestamp(const std::vector<BoundSqlExpression> & args)
+BoundFunction earliest_timestamp(const std::vector<BoundSqlExpression> & args)
 {
     // Tell us when an expression happened, ie extract its timestamp and return
     // as its value
@@ -1112,9 +1094,9 @@ BoundFunction min_timestamp(const std::vector<BoundSqlExpression> & args)
             GET_ALL};
 }
 
-static RegisterBuiltin register_min_timestamp(min_timestamp, "min_timestamp");
+static RegisterBuiltin register_earliest_timestamp(earliest_timestamp, "earliest_timestamp");
 
-BoundFunction max_timestamp(const std::vector<BoundSqlExpression> & args)
+BoundFunction latest_timestamp(const std::vector<BoundSqlExpression> & args)
 {
     // Tell us when an expression happened, ie extract its timestamp and return
     // as its value
@@ -1130,7 +1112,7 @@ BoundFunction max_timestamp(const std::vector<BoundSqlExpression> & args)
             std::make_shared<TimestampValueInfo>()};
 }
 
-static RegisterBuiltin register_max_timestamp(max_timestamp, "max_timestamp");
+static RegisterBuiltin register_latest_timestamp(latest_timestamp, "latest_timestamp");
 
 BoundFunction toTimestamp(const std::vector<BoundSqlExpression> & args)
 {
