@@ -691,21 +691,21 @@ struct ImportTextProcedureWorkInstance
 	                break;
 	            };
 	        }
-	        else {
-	            for (const auto & f: config.headers)
+            else {
+                for (const auto & f: config.headers)
 	                inputColumnNames.emplace_back(ColumnName(f));
-	        }             
-	    }
-	    
+            }             
+        }
+
         // Early check for duplicate column names in input
         ML::Lightweight_Hash<ColumnHash, int> inputColumnIndex;
         for (unsigned i = 0;  i < inputColumnNames.size();  ++i) {
-	            const ColumnName & c = inputColumnNames[i];
-	            ColumnHash ch(c);
-	            if (!inputColumnIndex.insert(make_pair(ch, i)).second)
-	                throw HttpReturnException(400, "Duplicate column name in CSV file",
-	                                          "columnName", c.toString());
-	    }
+            const ColumnName & c = inputColumnNames[i];
+            ColumnHash ch(c);
+            if (!inputColumnIndex.insert(make_pair(ch, i)).second)
+                throw HttpReturnException(400, "Duplicate column name in CSV file",
+                                          "columnName", c.toString());
+        }
 
 	    // Now we know the columns, we can bind our SQL expressions for the
 	    // select, where, named and timestamp parts of the expression.

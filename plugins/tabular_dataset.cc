@@ -390,16 +390,16 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         }
 
         std::vector<CellValue> orderedVals(columnNames.size());
-        Date ts;
+        Date ts = Date::negativeInfinity();
         for (unsigned i = 0;  i < vals.size();  ++i) {
             const ColumnName & c = std::get<0>(vals[i]);
             auto iter = columnIndex.find(c);
             if (iter == columnIndex.end())
-                throw HttpReturnException(400, "New column name while recording tow in tabular dataset", "columnName", c.toString());
+                throw HttpReturnException(400, "New column name while recording row in tabular dataset", "columnName", c.toString());
 
             orderedVals[iter->second] = std::get<1>(vals[i]);
 
-            ts = (i == 0) ? std::get<2>(vals[i]) : std::max(ts, std::get<2>(vals[i]));
+            ts = std::max(ts, std::get<2>(vals[i]));
         }
 
         mutable_chunks[0].add(rowName, ts, orderedVals.data());
