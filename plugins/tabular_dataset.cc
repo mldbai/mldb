@@ -1,14 +1,15 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** tabular_dataset.cc                                             -*- C++ -*-
     Jeremy Barnes, 26 November 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
 
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #include "tabular_dataset.h"
 #include "mldb/arch/timers.h"
 #include "mldb/types/basic_value_descriptions.h"
+#include "mldb/ml/jml/training_index_entry.h"
+#include "mldb/jml/utils/smart_ptr_utils.h"
 
 using namespace std;
 
@@ -38,7 +39,8 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         virtual void initAt(size_t start){
             size_t sum = 0;
             chunkiter = store->chunks.begin();
-            while (chunkiter != store->chunks.end() && start > sum + chunkiter->rowNames.size())  {
+            while (chunkiter != store->chunks.end()
+                   && start > sum + chunkiter->rowNames.size())  {
                 sum += chunkiter->rowNames.size();
                 ++chunkiter;
             }
@@ -100,6 +102,83 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         }
         
         return result;
+    }
+
+    virtual std::vector<CellValue>
+    getColumnDense(const ColumnName & column) const
+    {
+        auto it = columnIndex.find(column);
+        if (it == columnIndex.end()) {
+            throw HttpReturnException(400, "Tabular dataset contains no column with given hash",
+                                      "columnHash", column,
+                                      "knownColumns", columnNames);
+        }
+
+        std::vector<CellValue> result;
+        result.reserve(rowCount);
+
+        for (unsigned i = 0;  i < chunks.size();  ++i) {
+            auto onValue = [&] (size_t n, CellValue val)
+                {
+                    result.emplace_back(std::move(val));
+                    return true;
+                };
+            
+            chunks[i].columns[it->second].forEach(onValue);
+        }
+        
+        return result;
+    }
+
+    virtual std::tuple<BucketList, BucketDescriptions>
+    getColumnBuckets(const ColumnName & column, int maxNumBuckets) const override
+    {
+        auto it = columnIndex.find(column);
+        if (it == columnIndex.end()) {
+            throw HttpReturnException(400, "Tabular dataset contains no column with given hash",
+                                      "columnHash", column,
+                                      "knownColumns", columnNames);
+        }
+
+        std::unordered_map<CellValue, size_t> values;
+        std::vector<CellValue> valueList;
+
+        size_t totalRows = 0;
+
+        for (unsigned i = 0;  i < chunks.size();  ++i) {
+            auto onValue = [&] (CellValue val, size_t /* count */)
+                {
+                    if (values.insert({val,0}).second)
+                        valueList.push_back(std::move(val));
+                    return true;
+                };
+
+            chunks[i].columns[it->second].forEachDistinctValue(onValue);
+            totalRows += chunks[i].rowCount();
+        }
+
+        BucketDescriptions descriptions;
+        descriptions.initialize(valueList, maxNumBuckets);
+
+        for (auto & v: values) {
+            v.second = descriptions.getBucket(v.first);
+        }
+        
+        // Finally, perform the bucketed lookup
+        WritableBucketList buckets(totalRows, descriptions.numBuckets());
+
+        for (unsigned i = 0;  i < chunks.size();  ++i) {
+            auto onValue = [&] (size_t, const CellValue & val)
+                {
+                    uint32_t bucket = values[val];
+                    buckets.write(bucket);
+                    return true;
+                };
+            
+            chunks[i].columns[it->second].forEach(onValue);
+        }
+
+        return std::make_tuple(std::move(buckets), std::move(descriptions));
     }
 
     virtual uint64_t getColumnRowCount(const ColumnName & column) const

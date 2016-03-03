@@ -129,6 +129,150 @@ struct ColumnStats {
     uint64_t rowCount_;
 };
 
+template<typename T>
+static std::shared_ptr<T>
+makeSharedArray(size_t len)
+{
+    return std::shared_ptr<T>(new T[len],
+                              [] (T * p) { delete[] p; });
+}
+
+/** Holds an array of bucket indexes, efficiently. */
+struct BucketList {
+
+    BucketList()
+        : entryBits(0), numBuckets(0), numEntries(0)
+    {
+    }
+
+    inline uint32_t operator [] (uint32_t i) const
+    {
+        //ExcAssertLess(i, numEntries);
+        size_t wordNum = (i * entryBits) / 64;
+        size_t bitNum = (i * entryBits) % 64;
+        uint32_t result = (storage.get()[wordNum] >> bitNum) & ((1ULL << entryBits) - 1);
+        //ExcAssertLess(result, numBuckets);
+        return result;
+    }
+
+    std::shared_ptr<const uint64_t> storage;
+    int entryBits;
+    int numBuckets;
+    size_t numEntries;
+};
+
+/** Writable version of the above.  OK to slice. */
+struct WritableBucketList: public BucketList {
+    WritableBucketList()
+        : current(0), bitsWritten(0)
+    {
+    }
+
+    WritableBucketList(size_t numElements, uint32_t numBuckets)
+        : WritableBucketList()
+    {
+        init(numElements, numBuckets);
+    }
+
+    void init(size_t numElements, uint32_t numBuckets);
+
+    inline void write(uint64_t value)
+    {
+        //ExcAssertLess(value, numBuckets);
+        uint64_t already = bitsWritten ? *current : 0;
+        *current = already | (value << bitsWritten);
+        bitsWritten += entryBits;
+        current += (bitsWritten >= 64);
+        bitsWritten *= (bitsWritten < 64);
+
+        //ExcAssertEqual(this->operator [] (numWritten), value);
+        //ExcAssertLess(numWritten, numEntries);
+        numWritten += 1;
+    }
+
+    uint64_t * current;
+    int bitsWritten;
+    size_t numWritten;
+};
+
+struct NumericValues {
+    NumericValues()
+        : active(false), offset(0)
+    {
+    }
+
+    bool active;
+    uint32_t offset;
+    std::vector<double> splits;
+
+    size_t numBuckets() const
+    {
+        return splits.size() + active;
+    }
+
+    uint32_t getBucket(double val) const;
+    //double getValue(uint32_t bucket) const;
+};
+
+struct OrdinalValues {
+    OrdinalValues()
+        : active(false), offset(0)
+    {
+    }
+
+    bool active;
+    uint32_t offset;
+    std::vector<CellValue> splits;
+    size_t numBuckets() const
+    {
+        return splits.size() + active;
+    }
+
+    uint32_t getBucket(const CellValue & val) const;
+    //CellValue getValue(uint32_t bucket) const;
+};
+
+struct CategoricalValues {
+    CategoricalValues()
+        : offset(0)
+    {
+    }
+
+    uint32_t offset;
+    std::vector<CellValue> buckets;
+
+    size_t numBuckets() const
+    {
+        return buckets.size();
+    }
+
+    uint32_t getBucket(const CellValue & val) const;
+    //CellValue getValue(uint32_t bucket) const;
+};
+
+struct BucketDescriptions {
+    BucketDescriptions();
+    bool hasNulls;
+    NumericValues numeric;
+    CategoricalValues strings, blobs;
+    OrdinalValues timestamps, intervals;
+
+    void initialize(std::vector<CellValue> values,
+                    int numBuckets = -1);
+
+    /// Initialize from a set of pre-discretized
+    std::pair<BucketDescriptions, BucketList>
+    discretize(BucketList input, int numBuckets = -1);
+    
+    /// Look up the bucket number for the given value
+    uint32_t getBucket(const CellValue & val) const;
+    CellValue getValue(uint32_t bucket) const;
+    CellValue getSplit(uint32_t bucket) const;
+    size_t numBuckets() const;
+
+    bool isOnlyNumeric() const;
+};
+
 
 /*****************************************************************************/
 /* COLUMN INDEX                                                              */
@@ -157,6 +301,28 @@ struct ColumnIndex {
     /** Return the value of the column for all rows and timestamps. */
     virtual MatrixColumn getColumn(const ColumnName & column) const = 0;
 
+    /** Return a dense column, with one value for every row in the same order as
+        rowNames().  Only a single timestamp is returned, being the latest
+        timestamp for the entire row.
+
+        Default builts on top of getColumn() and getRowNames(), but is
+        quite inefficient.
+    */
+    virtual std::vector<CellValue>
+    getColumnDense(const ColumnName & column) const;
+
+    /** Return a bucketed dense column, with one value for every row in the same
+        order as rowNames().  Numerical values will be split into a maximum of
+        maxNumBuckets buckets, with split points as described in the
+        return value.  Only a single timestamp is returned, being the latest timestamp
+        for the entire column.
+
+        Default builds on top of getColumnDense().
+    */
+    virtual std::tuple<BucketList, BucketDescriptions>
+    getColumnBuckets(const ColumnName & column,
+                     int maxNumBuckets = -1) const;
+
     /** Return the value of the column for all rows, ignoring timestamps. */
     virtual std::vector<std::tuple<RowName, CellValue> >
     getColumnValues(const ColumnName & column,
@@ -172,6 +338,9 @@ struct ColumnIndex {
         implementation uses getColumnStats.
     */
     virtual uint64_t getColumnRowCount(const ColumnName & column) const;
+
+    virtual std::vector<RowName>
+    getRowNames(ssize_t start = 0, ssize_t limit = -1) const = 0;
 };
 
 

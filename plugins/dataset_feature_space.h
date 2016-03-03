@@ -12,6 +12,7 @@
 #include "mldb/ml/jml/feature_space.h"
 #include "mldb/ml/jml/buckets.h"
 #include "mldb/sql/dataset_types.h"
+#include "mldb/core/dataset.h"
 
 namespace Datacratic {
 namespace MLDB {
@@ -20,7 +21,6 @@ namespace MLDB {
 // For internal use
 extern ML::Feature labelFeature, weightFeature;
 
-    
 
 /*****************************************************************************/
 /* DATASET FEATURE SPACE                                                     */
@@ -40,24 +40,27 @@ struct DatasetFeatureSpace: public ML::Feature_Space {
     DatasetFeatureSpace(std::shared_ptr<Dataset> dataset,
                         ML::Feature_Info labelInfo,
                         const std::set<ColumnName> & includeColumns,
-                        bool bucketizeNumerics = false);
+                        bool bucketize = false);
 
     struct ColumnInfo {
+        ColumnInfo()
+            : index(-1)
+        {
+        }
+
         ColumnName columnName;
         ML::Feature_Info info;
         int index;
-        int distinctValues;
-        ML::Bucket_Info buckets;
 
-        /** Return the CellValue describing the given bucket. */
-        CellValue getBucketValue(int bucket) const
-        {
-            if (!buckets.splits.empty()) {
-                return bucket == buckets.splits.size() ? INFINITY : buckets.splits.at(bucket);
-            }
-            return jsonDecode<CellValue>(info.categorical()->print(bucket));
-        }
+        // These are only filled in if bucketize is true on construction
+        int distinctValues;
+        BucketList buckets;
+        BucketDescriptions bucketDescriptions;
     };
+
+    static ColumnInfo getColumnInfo(std::shared_ptr<Dataset> dataset,
+                                    const Utf8String & columnName,
+                                    bool bucketize);
 
     std::unordered_map<ColumnHash, ColumnInfo> columnInfo;
 

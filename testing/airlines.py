@@ -20,9 +20,9 @@ mldb.put("/v1/procedures/airline", {
 })
 mldb.log(datetime.datetime.now() - start)
 
-res = mldb.query("select IsDepDelayed, min(DepDelay), max(DepDelay) from airline group by IsDepDelayed")
+#res = mldb.query("select IsDepDelayed, min(DepDelay), max(DepDelay) from airline group by IsDepDelayed")
 
-mldb.log(res)
+#mldb.log(res)
 
 start = datetime.datetime.now();
 #mldb.put('/v1/procedures/benchmark', {
