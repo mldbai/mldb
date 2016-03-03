@@ -36,10 +36,10 @@ class WhenValueTest(MldbUnitTest):
         # but fetching via a value vs a variable containing the same value
         # doesn't work
         res_value = mldb.query(
-            "SELECT * FROM merge(ds, timeDs) WHEN value_timestamp() <= to_timestamp('{}')"
+            "SELECT * FROM merge(ds, timeDs) WHEN value_timestamp() <= TIMESTAMP '{}'"
             .format(t))
         res_variable = mldb.query(
-            "SELECT * FROM merge(ds, timeDs) WHEN value_timestamp() <= to_timestamp(time)")
+            "SELECT * FROM merge(ds, timeDs) WHEN value_timestamp() <= TIMESTAMP time")
         self.assertTableResultEquals(res_value, res_variable)
 
 if __name__ == '__main__':
