@@ -26,3 +26,4 @@ jupyter==1.0.0
 uWSGI==2.0.12
 pycrypto==2.6.1
 
+tornado==4.3
