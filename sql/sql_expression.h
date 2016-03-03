@@ -305,40 +305,24 @@ struct BoundFunction {
                           const SqlRowScope & context) > Exec;
 
     BoundFunction()
+        : filter(GET_LATEST)
     {
     }
 
     BoundFunction(Exec exec,
                   std::shared_ptr<ExpressionValueInfo> resultInfo)
         : exec(std::move(exec)),
-          resultInfo(std::move(resultInfo))
+          resultInfo(std::move(resultInfo)),
+          filter(GET_LATEST)
     {
     }
 
-    operator bool () const { return !!exec; }
-
-    Exec exec;
-    std::shared_ptr<ExpressionValueInfo> resultInfo;
-
-    ExpressionValue operator () (const std::vector<ExpressionValue> & args,
-                                 const SqlRowScope & context) const
-    {
-        return exec(args, context);
-    }
-};
-
-struct ValuedBoundFunction {
-    typedef std::function<ExpressionValue (const std::vector<ExpressionValue> &,
-                          const SqlRowScope & context) > Exec;
-
-    ValuedBoundFunction()
-    {
-    }
-
-    ValuedBoundFunction(Exec exec,
-                        std::shared_ptr<ExpressionValueInfo> resultInfo)
+    BoundFunction(Exec exec,
+                  std::shared_ptr<ExpressionValueInfo> resultInfo,
+                  VariableFilter filter)
         : exec(std::move(exec)),
-          resultInfo(std::move(resultInfo))
+          resultInfo(std::move(resultInfo)),
+          filter(filter)
     {
     }
 
@@ -346,6 +330,7 @@ struct ValuedBoundFunction {
 
     Exec exec;
     std::shared_ptr<ExpressionValueInfo> resultInfo;
+    VariableFilter filter; // allows function to filter variable as they need
 
     ExpressionValue operator () (const std::vector<ExpressionValue> & args,
                                  const SqlRowScope & context) const

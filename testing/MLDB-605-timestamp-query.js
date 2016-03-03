@@ -35,7 +35,7 @@ dataset.recordRow('row3_click_and_imp', [ [ "click", 0, ts1 ], ["imp", 0, ts1] ]
 dataset.commit()
 
 var query1 = mldb.get('/v1/datasets/test/query',
-                      { where: 'when(imp) < when(click)',
+                      { where: 'latest_timestamp(imp) < latest_timestamp(click)',
                         format: 'table', headers: false });
 
 plugin.log(query1);
@@ -44,7 +44,7 @@ assertEqual(query1.json.length, 1);
 assertEqual(query1.json[0][0], "row1_imp_then_click");
 
 var query2 = mldb.get('/v1/datasets/test/query',
-                      { where: 'when(click) < when(imp)',
+                      { where: 'latest_timestamp(click) < latest_timestamp(imp)',
                         format: 'table', headers: false });
 
 plugin.log(query2);
@@ -53,7 +53,7 @@ assertEqual(query2.json.length, 1);
 assertEqual(query2.json[0][0], "row2_click_then_imp");
 
 var query3 = mldb.get('/v1/datasets/test/query',
-                      { where: 'when(click) = when(imp)',
+                      { where: 'latest_timestamp(click) = latest_timestamp(imp)',
                         format: 'table', headers: false });
 
 plugin.log(query3);

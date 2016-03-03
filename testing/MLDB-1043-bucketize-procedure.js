@@ -62,7 +62,7 @@ function runTest(testNumber, buckets, goldStandard) {
     assertEqual(res['responseCode'], 200);
     checkResults(res, goldStandard);
 
-    res = mldb.get("/v1/query", {q: "SELECT *, when({*}) FROM " + datasetName,
+    res = mldb.get("/v1/query", {q: "SELECT *, latest_timestamp({*}) FROM " + datasetName,
                                  format: "full"});
 }
 

@@ -59,34 +59,34 @@ class DateFunctionTest(unittest.TestCase):
         dataset3.commit()
 
     def test_date_part_year(self):
-        res = query("SELECT date_part('year', when(x)) AS year "
+        res = query("SELECT date_part('year', latest_timestamp(x)) AS year "
                     "FROM example")
         self.assertEqual(res[0]['columns'][0][1], d.year)
 
     def test_date_part_month(self):
-        res = query("SELECT date_part('month', when(x)) AS month FROM example")
+        res = query("SELECT date_part('month', latest_timestamp(x)) AS month FROM example")
         self.assertEqual(res[0]['columns'][0][1], d.month)
 
     def test_date_part_quarter(self):
-        res = query("SELECT date_part('quarter', when(x)) AS quarter "
+        res = query("SELECT date_part('quarter', latest_timestamp(x)) AS quarter "
                     "FROM example")
         self.assertEqual(res[0]['columns'][0][1], (d.month / 4) + 1)
 
     def test_date_part_day(self):
-        res = query("SELECT date_part('day', when(x)) AS day FROM example")
+        res = query("SELECT date_part('day', latest_timestamp(x)) AS day FROM example")
         self.assertEqual(res[0]['columns'][0][1], d.day)
 
     def test_date_part_hour(self):
-        res = query("SELECT date_part('hour', when(x)) AS hour FROM example")
+        res = query("SELECT date_part('hour', latest_timestamp(x)) AS hour FROM example")
         self.assertEqual(res[0]['columns'][0][1], d.hour)
 
     def test_date_part_minute(self):
-        res = query("SELECT date_part('minute', when(x)) AS minute "
+        res = query("SELECT date_part('minute', latest_timestamp(x)) AS minute "
                     "FROM example")
         self.assertEqual(res[0]['columns'][0][1], d.minute)
 
     ##
-    # these ones use X instead of when(x) because its not directly in date_time
+    # these ones use X instead of latest_timestamp(x) because its not directly in date_time
     def test_date_part_second(self):
         res = query("SELECT date_part('second', x) AS second FROM example")
         self.assertEqual(res[0]['columns'][0][1], 39)

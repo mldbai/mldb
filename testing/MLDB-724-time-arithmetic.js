@@ -186,7 +186,7 @@ assertEqual(query.json[0][0], "uniquerow");
 plugin.log("\nTimestamp Integer addition\n");
 
 query = mldb.get('/v1/datasets/test/query',
-                      { where: '(when(imp) + 1) < when(click)',
+                      { where: '(latest_timestamp(imp) + 1) < latest_timestamp(click)',
                         format: 'table', headers: false });
 
 assertEqual(query.json.length, 1);
@@ -195,7 +195,7 @@ assertEqual(query.json[0][0], "row2_imp_then_click_later");
 plugin.log("\nTimestamp Integer addition commutative\n");
 
 query = mldb.get('/v1/datasets/test/query',
-                      { where: '1 + when(imp) < when(click)',
+                      { where: '1 + latest_timestamp(imp) < latest_timestamp(click)',
                         format: 'table', headers: false });
 
 assertEqual(query.json.length, 1);
@@ -204,7 +204,7 @@ assertEqual(query.json[0][0], "row2_imp_then_click_later");
 plugin.log("\n Timestamp Interval Addition\n");
 
 query = mldb.get('/v1/datasets/test/query',
-                      { where: 'when(imp) + INTERVAL \'1d\' = when(click)',
+                      { where: 'latest_timestamp(imp) + INTERVAL \'1d\' = latest_timestamp(click)',
                         format: 'table', headers: false });
 
 assertEqual(query.json.length, 1);
@@ -213,7 +213,7 @@ assertEqual(query.json[0][0], "row1_imp_then_click");
 plugin.log("\n Timestamp Interval Addition Complex\n");
 
 query = mldb.get('/v1/datasets/testlong/query',
-                      { where: 'when(imp) + INTERVAL \'1month 29 day 33 minute \' > when(click)',
+                      { where: 'latest_timestamp(imp) + INTERVAL \'1month 29 day 33 minute \' > latest_timestamp(click)',
                         format: 'table', headers: false });
 
 assertEqual(query.json.length, 1);
@@ -222,7 +222,7 @@ assertEqual(query.json[0][0], "uniquerow");
 plugin.log("\n Timestamp Interval Addition commutative\n");
 
 query = mldb.get('/v1/datasets/test/query',
-                      { where: 'INTERVAL \'1d\' + when(imp) = when(click)',
+                      { where: 'INTERVAL \'1d\' + latest_timestamp(imp) = latest_timestamp(click)',
                         format: 'table', headers: false });
 
 assertEqual(query.json.length, 1);
@@ -241,7 +241,7 @@ assertEqual(query.json[0][0], "uniquerow");
 plugin.log("\nTimestamp substraction\n");
 
 query = mldb.get('/v1/datasets/test/query',
-                      { where: 'when(click) - when(imp) < INTERVAL \'2d\'',
+                      { where: 'latest_timestamp(click) - latest_timestamp(imp) < INTERVAL \'2d\'',
                         format: 'table', headers: false });
 
 assertEqual(query.json.length, 2);
@@ -249,7 +249,7 @@ assertEqual(query.json.length, 2);
 plugin.log("\nTimestamp Integer substraction\n");
 
 query = mldb.get('/v1/datasets/test/query',
-                      { where: 'when(click) - 1 > when(imp)',
+                      { where: 'latest_timestamp(click) - 1 > latest_timestamp(imp)',
                         format: 'table', headers: false });
 
 assertEqual(query.json.length, 1);
@@ -258,7 +258,7 @@ assertEqual(query.json[0][0], "row2_imp_then_click_later");
 plugin.log("\nTimestamp Interval substraction\n");
 
 query = mldb.get('/v1/datasets/test/query',
-                      { where: 'when(click) - INTERVAL \'1d\' > when(imp)',
+                      { where: 'latest_timestamp(click) - INTERVAL \'1d\' > latest_timestamp(imp)',
                         format: 'table', headers: false });
 
 assertEqual(query.json.length, 1);
@@ -336,23 +336,21 @@ dataset3.recordRow('myrow', [ [ "a", 0, ts1 ], ["b", 0, ts2], ["c", 0, ts3] ]);
 dataset3.commit();
 
 query = mldb.get('/v1/datasets/test3/query',
-                      { select: 'when({a,b}), min_timestamp({a,b}), max_timestamp({a,b})'});
+                      { select: 'latest_timestamp({a,b}), earliest_timestamp({a,b})'});
 
 plugin.log(query);
 assertEqual(query.json[0].columns[0][1]['ts'], "2015-01-02T00:00:00Z");
 assertEqual(query.json[0].columns[1][1]['ts'], "2015-01-01T00:00:00Z");
-assertEqual(query.json[0].columns[2][1]['ts'], "2015-01-02T00:00:00Z");
 
 query = mldb.get('/v1/datasets/test3/query',
-                      { select: 'when({*}), min_timestamp({*}), max_timestamp({*})'});
+                      { select: 'latest_timestamp({*}), earliest_timestamp({*})'});
 
 plugin.log(query);
 assertEqual(query.json[0].columns[0][1]['ts'], "2015-01-03T00:00:00Z");
 assertEqual(query.json[0].columns[1][1]['ts'], "2015-01-01T00:00:00Z");
-assertEqual(query.json[0].columns[2][1]['ts'], "2015-01-03T00:00:00Z");
 
 query = mldb.get('/v1/datasets/test3/query',
-                      { select: 'when({a, {b, c}}), min_timestamp({a, {b, c}}), max_timestamp({z, {b, c}})'});
+                      { select: 'latest_timestamp({a, {b, c}}), earliest_timestamp({a, {b, c}}), latest_timestamp({z, {b, c}})'});
 
 plugin.log(query);
 assertEqual(query.json[0].columns[0][1]['ts'], "2015-01-03T00:00:00Z");
@@ -370,12 +368,12 @@ dataset4.recordRow('myrow', [ [ "a", 0, ts1 ], ["a", 0, ts2] ]);
 dataset4.commit();
 
 query1 = mldb.get('/v1/datasets/test4/query',
-                      { select: 'min_timestamp(a)'});
+                      { select: 'earliest_timestamp(a)'});
 
 plugin.log(query1);
 
 query2 = mldb.get('/v1/datasets/test4/query',
-                      { select: 'min_timestamp({*})'});
+                      { select: 'earliest_timestamp({*})'});
 plugin.log(query2);
 
 assertEqual(query1.json[0].columns[0][1]['ts'], query2.json[0].columns[0][1]['ts']);

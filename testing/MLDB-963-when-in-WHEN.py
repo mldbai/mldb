@@ -42,9 +42,9 @@ class WhenInWhen(unittest.TestCase):
 
         validate1(mldb.get(
             '/v1/query',
-            q="SELECT * FROM dataset1 WHEN timestamp() < when(x)"))
+            q="SELECT * FROM dataset1 WHEN value_timestamp() < latest_timestamp(x)"))
         validate1(mldb.get('/v1/datasets/dataset1/query',
-                           when="timestamp() < when(x)"))
+                           when="value_timestamp() < latest_timestamp(x)"))
     
     def test_2(self):
         def validate2(result):
@@ -59,9 +59,9 @@ class WhenInWhen(unittest.TestCase):
 
         validate2(mldb.get(
             '/v1/query',
-            q="SELECT * FROM dataset1 WHEN timestamp() = when(x) WHERE x = 9"))
+            q="SELECT * FROM dataset1 WHEN value_timestamp() = latest_timestamp(x) WHERE x = 9"))
         validate2(mldb.get('/v1/datasets/dataset1/query',
-                           when='timestamp() = when(x)', where='x = 9'))
+                           when='value_timestamp() = latest_timestamp(x)', where='x = 9'))
     
     def test_3(self):
         def validate3(result):
@@ -76,9 +76,9 @@ class WhenInWhen(unittest.TestCase):
                                      'expected x and y to be preserved')
 
         validate3(mldb.get(
-            '/v1/query', q="SELECT * FROM dataset1 WHEN timestamp() > now()"))
+            '/v1/query', q="SELECT * FROM dataset1 WHEN value_timestamp() > now()"))
         validate3(mldb.get('/v1/datasets/dataset1/query',
-                           when='timestamp() > now()'))
+                           when='value_timestamp() > now()'))
 
     def test_4(self):
         def validate4(result):
@@ -94,11 +94,11 @@ class WhenInWhen(unittest.TestCase):
 
         validate4(mldb.get(
             '/v1/query',
-            q="SELECT * FROM dataset1 WHEN timestamp() BETWEEN now() AND "
+            q="SELECT * FROM dataset1 WHEN value_timestamp() BETWEEN now() AND "
               "now() + INTERVAL '1W'"))
         validate4(mldb.get(
             '/v1/datasets/dataset1/query',
-            when="timestamp() BETWEEN now() AND now() + INTERVAL '1W'"))
+            when="value_timestamp() BETWEEN now() AND now() + INTERVAL '1W'"))
 
     def test_5(self):
         def validate5(result):
@@ -110,11 +110,11 @@ class WhenInWhen(unittest.TestCase):
 
         validate5(mldb.get(
             '/v1/query',
-            q="SELECT * FROM dataset1 WHEN timestamp() "
-              "BETWEEN now() - INTERVAL '1d' AND when({*})"))
+            q="SELECT * FROM dataset1 WHEN value_timestamp() "
+              "BETWEEN now() - INTERVAL '1d' AND latest_timestamp({*})"))
         validate5(mldb.get(
             '/v1/datasets/dataset1/query',
-            when="timestamp() BETWEEN now() - INTERVAL '1d' AND when({*})"))
+            when="value_timestamp() BETWEEN now() - INTERVAL '1d' AND latest_timestamp({*})"))
 
     def test_6(self):
         def validate6(result):
@@ -126,11 +126,11 @@ class WhenInWhen(unittest.TestCase):
 
         validate6(mldb.get(
             '/v1/query',
-            q="SELECT * FROM dataset1 WHEN timestamp() "
-              "BETWEEN when({*}) + INTERVAL '1s' AND '2026-01-01'"))
+            q="SELECT * FROM dataset1 WHEN value_timestamp() "
+              "BETWEEN latest_timestamp({*}) + INTERVAL '1s' AND '2026-01-01'"))
         validate6(mldb.get(
             '/v1/datasets/dataset1/query',
-            when="timestamp() BETWEEN when({*}) + INTERVAL '1s' AND '2026-01-01'"))
+            when="value_timestamp() BETWEEN latest_timestamp({*}) + INTERVAL '1s' AND '2026-01-01'"))
 
     def test_7(self):
         def validate7(result):
@@ -146,9 +146,9 @@ class WhenInWhen(unittest.TestCase):
 
         validate7(mldb.get(
             '/v1/query',
-            q="SELECT * FROM dataset1 WHEN when(y) > to_timestamp('%s') + INTERVAL '2s'" % now))
+            q="SELECT * FROM dataset1 WHEN latest_timestamp(y) > to_timestamp('%s') + INTERVAL '2s'" % now))
         validate7(mldb.get('/v1/datasets/dataset1/query',
-                           when="when(y) > to_timestamp('%s') + INTERVAL '2s'" % now))
+                           when="latest_timestamp(y) > to_timestamp('%s') + INTERVAL '2s'" % now))
 
 if __name__ == '__main__':
     mldb.run_tests()

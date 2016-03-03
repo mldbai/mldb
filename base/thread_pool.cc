@@ -69,7 +69,8 @@ struct ThreadPool::Itl: public std::enable_shared_from_this<ThreadPool::Itl> {
         ThreadEntry(Itl * owner = nullptr, int workerNum = -1)
             : owner(owner), workerNum(workerNum),
               queue(new ThreadQueue<ThreadJob>()),
-              queues(new Queues(0))
+              queues(new Queues(0)),
+              lastFound(-1)
         {
         }
 
@@ -105,6 +106,9 @@ struct ThreadPool::Itl: public std::enable_shared_from_this<ThreadPool::Itl> {
         /// This is a cached copy that we occasionally check to see
         /// if it needs to be updated.
         std::shared_ptr<const Queues> queues;
+
+        /// The last queue number we found work in
+        int lastFound;
     };
 
     /// This allows us to have one threadEntry per thread
@@ -257,7 +261,7 @@ struct ThreadPool::Itl: public std::enable_shared_from_this<ThreadPool::Itl> {
 
     void runParentWorker()
     {
-        while (!shutdown && (this->work() || jobsRunning())) ;
+        while (!shutdown && (this->work())) ;
         --this->parentJobs;
     }
 
@@ -370,24 +374,37 @@ struct ThreadPool::Itl: public std::enable_shared_from_this<ThreadPool::Itl> {
             }
         }
 
-        for (unsigned i = 0;  i < entry.queues->size() && !shutdown;  ++i) {
+        auto stealFrom = [&] (int n)
+            {
+                const std::shared_ptr<ThreadQueue<ThreadJob> > & q
+                    = entry.queues->at(n);
+                
+                ThreadJob * job;
+                while ((job = q->steal())) {
+                    entry.lastFound = n;
+                    ++jobsStolen;
+                    runJob(*job);
+                    foundWork = true;
+                    delete job;
+                    runMine(entry);
+                }
+            };
+
+        size_t nq = entry.queues->size();
+
+        if (entry.lastFound > 0 && entry.lastFound < nq) {
+            stealFrom(entry.lastFound);
+        }
+
+        for (unsigned i = 0;  i < nq && !shutdown;  ++i) {
             // Try to avoid all threads starting looking for work at the
             // same place.
-            int n = (entry.workerNum + i) % entry.queues->size();
-
-            const std::shared_ptr<ThreadQueue<ThreadJob> > & q
-                = entry.queues->at(n);
-
-            if (q == entry.queue)
-                continue;  // our own thread
-
-            ThreadJob * job;
-            while ((job = q->steal())) {
-                ++jobsStolen;
-                runJob(*job);
-                delete job;
-                runMine(entry);
-            }
+            int n = entry.lastFound + i;
+            while (n < 0)
+                n += nq;
+            while (n >= nq)
+                n -= nq;
+            stealFrom(n);
         }
         
         return foundWork;

@@ -226,60 +226,60 @@ in_two_hours = now + datetime.timedelta(hours=2)
 load_test_dataset()
 # TRANSFORM PROCEDURE
 # check that the transformed dataset is as expected
-for row in run_transform("timestamp() BETWEEN to_timestamp('2015-01-01)') AND to_timestamp('2030-01-06')"):
+for row in run_transform("value_timestamp() BETWEEN to_timestamp('2015-01-01)') AND to_timestamp('2030-01-06')"):
     assert row["rowName"] == row["columns"][0][1], \
         'expected tuple matching row name %s' % row["rowName"]
 
 # getting no tuples
-for row in run_transform("timestamp() BETWEEN to_timestamp('2015-01-01') AND to_timestamp('2015-06-06')"):
+for row in run_transform("value_timestamp() BETWEEN to_timestamp('2015-01-01') AND to_timestamp('2015-06-06')"):
     assert "columns" not in row, \
         'no tuple should be returned on row name %s' % row["rowName"]
 
 # check that the last tuple is filtered out
-for row in run_transform("timestamp() between to_timestamp('%s') and to_timestamp('%s')" % (now, in_two_hours)):
+for row in run_transform("value_timestamp() between to_timestamp('%s') and to_timestamp('%s')" % (now, in_two_hours)):
     if row['rowName'] is 9:
         assert 'columns' not in row, \
             "expecting columns from row 9 to be filtered out by the when clause"
 
-for row in run_transform("timestamp() <= to_timestamp('%s')" % in_two_hours):
+for row in run_transform("value_timestamp() <= to_timestamp('%s')" % in_two_hours):
     if row['rowName'] is 9:
         assert 'columns' not in row, \
             "expecting columns from row 9 to be filtered out by the when clause"
 
 # SQL.QUERY FUNCTION
 output = run_query_function(
-    "timestamp() BETWEEN to_timestamp('2015-01-01') AND to_timestamp('2030-01-06')")
+    "value_timestamp() BETWEEN to_timestamp('2015-01-01') AND to_timestamp('2030-01-06')")
 assert output['x'] == 9, 'expected row 9 value'
 
 output = run_query_function(
-    "timestamp() between to_timestamp('%s') and to_timestamp('%s')" % (now, in_two_hours))
+    "value_timestamp() between to_timestamp('%s') and to_timestamp('%s')" % (now, in_two_hours))
 assert not output, 'expected no output'
 
 # SVD TRAIN FUNCTION
 load_svd_dataset()
-assert train_svd("timestamp() > to_timestamp('%s')" % in_two_hours, 1) == 2, \
+assert train_svd("value_timestamp() > to_timestamp('%s')" % in_two_hours, 1) == 2, \
     'expected 2 independent eigenvectors - when clause might have been applied incorrectly'
-assert train_svd("timestamp() < to_timestamp('%s')" % in_two_hours, 2) == 3, \
+assert train_svd("value_timestamp() < to_timestamp('%s')" % in_two_hours, 2) == 3, \
     'expected 3 independent eigenvectors - when clause might have been applied incorrectly'
 
 # T-SNE TRAIN FUNCTION
 # if t-sne is typically trained on embedding created by SVD then it is
 # unlikely that the when clause will be useful. In any case, this is minimal
 # test that check that the calls do not fail
-train_tsne("timestamp() > to_timestamp('%s')" % in_two_hours)
-train_tsne("timestamp() < to_timestamp('%s')" % in_two_hours)
+train_tsne("value_timestamp() > to_timestamp('%s')" % in_two_hours)
+train_tsne("value_timestamp() < to_timestamp('%s')" % in_two_hours)
 
 # CLASSIFIER TRAIN FUNCTION
-train_classifier("timestamp() > to_timestamp('%s')" % in_two_hours)
-train_classifier("timestamp() <= to_timestamp('%s')" % in_two_hours)
+train_classifier("value_timestamp() > to_timestamp('%s')" % in_two_hours)
+train_classifier("value_timestamp() <= to_timestamp('%s')" % in_two_hours)
 
 # KMEANS TRAIN PROCEDURE
 load_kmeans_dataset()
-centroids = train_kmeans("timestamp() > to_timestamp('%s')" % in_two_hours)
+centroids = train_kmeans("value_timestamp() > to_timestamp('%s')" % in_two_hours)
 assert -1 < centroids[0][1] < 1, \
     "was expecting the cluster to be along the x axis"
 
-centroids = train_kmeans("timestamp() < to_timestamp('%s')" % in_two_hours)
+centroids = train_kmeans("value_timestamp() < to_timestamp('%s')" % in_two_hours)
 assert -1 < centroids[0][2] < 1, \
     "was expecting the cluster to be along the y axis"
 
