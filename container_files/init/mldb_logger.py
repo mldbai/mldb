@@ -59,7 +59,7 @@ def stdin_ready(f, logbuf, fd, events):
   if events & IOLoop.READ:
     try:
       for line in f:
-        logline = LogLine(dt=datetime.now(pytz.utc), data=line.decode('utf8'))
+        logline = LogLine(dt=datetime.now(pytz.utc), data=line.decode('utf8', 'replace'))
         logbuf.append(logline)
         sys.stdout.write(line)
         # line buffering is needed to make sure message are emitted in realtime
