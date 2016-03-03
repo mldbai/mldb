@@ -54,6 +54,7 @@ struct MacroContext: public MacroData {
     void writeInternalLink(Utf8String url,
                            const Utf8String & anchorText,
                            bool followInternalRedirect);
+    Utf8String& patchUrl(Utf8String & url) const;
 };
 
 typedef std::function<void (MacroContext & context,

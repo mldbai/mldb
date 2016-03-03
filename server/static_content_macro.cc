@@ -200,6 +200,16 @@ writeText(const Utf8String & text)
     hoedown_escape_html(output, (uint8_t *)text.rawData(), text.rawLength(), 0);
 }
 
+Utf8String&
+MacroContext::
+patchUrl(Utf8String & url) const
+{
+    if (url.startsWith("/")) {
+        url = macroData->server->httpBaseUrl + url;
+    }
+    return url;
+}
+
 void
 MacroContext::
 writeInternalLink(Utf8String url,
@@ -216,7 +226,7 @@ writeInternalLink(Utf8String url,
     }
 
     writeHtml("<a href=\"");
-    writeText(url);
+    writeText(patchUrl(url));
     writeHtml("\">");
     writeHtml(anchorText);
     writeHtml("</a>");

@@ -75,7 +75,7 @@ MldbServer(const std::string & serviceName,
            bool enableAccessLog)
     : ServicePeer(serviceName, "MLDB", "global", enableAccessLog),
       EventRecorder(serviceName, std::make_shared<NullEventService>()),
-      versionNode(nullptr)
+      httpBaseUrl(""), versionNode(nullptr)
 {
     // Don't allow URIs without a scheme
     setGlobalAcceptUrisWithoutScheme(false);
@@ -498,8 +498,9 @@ getPackageDocumentationPath(const Package & package) const
     // always be provided by the plugin "pro", but this is not
     // by any means guaranteed.
 
-    if (package.packageName() == "builtin")
+    if (package.packageName() == "builtin") {
         return "/doc/builtin/";
+    }
     return "/v1/plugins/" + package.packageName() + "/doc/";
 }
 
