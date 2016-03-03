@@ -21,7 +21,14 @@ from tornado.ioloop import IOLoop
 from datetime import datetime
 from collections import namedtuple, deque
 
-from mldb_logger_utils import LOGBUFSIZE, RUNAS, HTTP_LISTEN_PORT 
+try:
+  from mldb_logger_utils import LOGBUFSIZE, RUNAS, HTTP_LISTEN_PORT
+except NameError:
+  # provide defaults if templating didn't run
+  LOGBUFSIZE = 1024
+  RUNAS = "nobody"
+  HTTP_LISTEN_PORT = 1234
+
 
 LogLine = namedtuple('LogLine', ['dt', 'data', ])
 LOGS_MLDB_TEMPLATE = \
