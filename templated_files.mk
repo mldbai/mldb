@@ -11,7 +11,6 @@ $(eval $(call mldb_install_templated_directory,mldb/container_files/assets,$(ALT
 $(eval $(call mldb_install_templated_file,mldb/container_files/version.json,$(ALTROOT)/opt/local/version.json))
 
 $(eval $(call mldb_install_templated_file,mldb/container_files/init/05-mldb-id-mapping.sh,$(ETC)/my_init.d/05-mldb-id-mapping.sh,555))
-$(eval $(call mldb_install_templated_file,mldb/container_files/init/15-update-http-base-url.sh,$(ETC)/my_init.d/15-update-http-base-url.sh,555))
 $(eval $(call mldb_install_templated_file,mldb/container_files/init/mldb_runner.sh,$(ETC)/service/mldb_runner/run,555))
 $(eval $(call mldb_install_templated_file,mldb/container_files/init/nginx_runner.sh,$(ETC)/service/nginx/run,555))
 $(eval $(call mldb_install_templated_file,mldb/container_files/mldb_nginx_site.conf,$(ETC)/nginx/sites-enabled/mldb))
