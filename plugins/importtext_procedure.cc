@@ -691,21 +691,21 @@ struct ImportTextProcedureWorkInstance
 	                break;
 	            };
 	        }
-	        else {
-	            for (const auto & f: config.headers)
+            else {
+                for (const auto & f: config.headers)
 	                inputColumnNames.emplace_back(ColumnName(f));
-	        }             
-	    }
-	    
-	    // Early check for duplicate column names in input
-            ML::Lightweight_Hash<ColumnHash, int> inputColumnIndex;
-	    for (unsigned i = 0;  i < inputColumnNames.size();  ++i) {
-	            const ColumnName & c = inputColumnNames[i];
-	            ColumnHash ch(c);
-	            if (!inputColumnIndex.insert(make_pair(ch, i)).second)
-	                throw HttpReturnException(400, "Duplicate column name in CSV file",
-	                                          "columnName", c.toString());
-	    }
+            }             
+        }
+
+        // Early check for duplicate column names in input
+        ML::Lightweight_Hash<ColumnHash, int> inputColumnIndex;
+        for (unsigned i = 0;  i < inputColumnNames.size();  ++i) {
+            const ColumnName & c = inputColumnNames[i];
+            ColumnHash ch(c);
+            if (!inputColumnIndex.insert(make_pair(ch, i)).second)
+                throw HttpReturnException(400, "Duplicate column name in CSV file",
+                                          "columnName", c.toString());
+        }
 
 	    // Now we know the columns, we can bind our SQL expressions for the
 	    // select, where, named and timestamp parts of the expression.
@@ -891,7 +891,7 @@ struct ImportTextProcedureWorkInstance
             }
 
             if (!names) {
-                threadAccum.add(actualLineNum, std::move(rowName), rowTs, vals);
+                threadAccum.add(std::move(rowName), rowTs, vals);
             }
             else {
 
@@ -908,7 +908,7 @@ struct ImportTextProcedureWorkInstance
                        orderedValues[iter->second] = vals[i];
                     }
 
-                    threadAccum.add(actualLineNum, std::move(rowName), rowTs, &orderedValues[0]);
+                    threadAccum.add(std::move(rowName), rowTs, &orderedValues[0]);
                 }
 
 	        if (threadAccum.rowCount() == ROWS_PER_CHUNK) {
