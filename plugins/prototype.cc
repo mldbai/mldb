@@ -101,6 +101,30 @@ getStatus() const
     return Any();
 }
 
+struct Split {
+
+    /// List of different types of strings we can deal with
+    enum SplitType {
+        IS_NULL,
+        IS_TRUE,
+        IS_FALSE,
+        NUMERIC_LESS_THAN,
+        NUMERIC_GREATER_EQUAL,
+        STRING_LESS_THAN,
+        STRING_GREATER_EQUAL,
+        EQUAL,
+        IN_SET
+    };
+
+    SplitType type;
+    int featureNum;
+    int bucketNum;
+
+    ColumnName featureName;
+    CellValue value;
+    std::vector<CellValue> values;
+};
+
 /** Holds the set of data for a partition of a decision tree. */
 struct PartitionData {
 
@@ -200,13 +224,12 @@ struct PartitionData {
     // Entry for an individual feature
     struct Feature {
         Feature()
-            : active(false), ordinal(true),
+            : active(false),
               info(nullptr)
         {
         }
 
         bool active;  ///< If true, the feature can be split on
-        bool ordinal; ///< If true, it's continuous valued; otherwise categ.
         const DatasetFeatureSpace::ColumnInfo * info;
         BucketList buckets;  ///< List of bucket numbers, per example
     };
@@ -298,13 +321,18 @@ struct PartitionData {
         left.features = features;
         right.features = features;
 
-        bool ordinal = features[featureToSplitOn].ordinal;
-
         double useRatio = 1.0 * rows.size() / rows.back().exampleNum;
 
         bool reIndex = useRatio < 0.1;
         //reIndex = false;
         //cerr << "useRatio = " << useRatio << endl;
+
+        vector<uint8_t> bucketSides(features[featureToSplitOn].buckets.numBuckets);
+        // For each bucket, which side is it on?
+        for (uint32_t bucket = 0;  bucket < bucketSides.size();  ++bucket) {
+            bool ordinal = true; /* todo: not correct */
+            bucketSides[bucket] = ordinal ? bucket > splitValue : bucket != splitValue;
+        }
 
         if (!reIndex) {
 
@@ -313,7 +341,7 @@ struct PartitionData {
 
             for (size_t i = 0;  i < rows.size();  ++i) {
                 int bucket = features[featureToSplitOn].buckets[rows[i].exampleNum];
-                int side = ordinal ? bucket > splitValue : bucket != splitValue;
+                int side = bucketSides[bucket];
                 sides[side].addRow(rows[i]);
             }
 
@@ -328,7 +356,6 @@ struct PartitionData {
             // upon the value of the chosen feature.
 
             std::vector<uint8_t> lr(rows.size());
-            bool ordinal = features[featureToSplitOn].ordinal;
             size_t numOnSide[2] = { 0, 0 };
 
             // TODO: could reserve less than this...
@@ -337,7 +364,7 @@ struct PartitionData {
 
             for (size_t i = 0;  i < rows.size();  ++i) {
                 int bucket = features[featureToSplitOn].buckets[rows[i].exampleNum];
-                int side = ordinal ? bucket > splitValue : bucket != splitValue;
+                int side = bucketSides[bucket];
                 lr[i] = side;
                 sides[side].addRow(rows[i].label, rows[i].weight, numOnSide[side]++);
             }
@@ -529,7 +556,9 @@ struct PartitionData {
                 cerr << "    all: " << wAll[0] << " " << wAll[1] << endl;
             }
 
-            if (features[i].ordinal) {
+            // TODO: split points calculated differently depending upon bucket
+            // characteristics
+            if (true) {
                 // Calculate best split point for ordered values
                 W wFalse = wAll, wTrue;
                 
@@ -704,20 +733,11 @@ struct PartitionData {
             Tree::Node * node = tree.new_node();
             ML::Feature feature = fs->getFeature(features[bestFeature].info->columnName);
             float splitVal;
-            if (features[bestFeature].ordinal) {
-                auto splitCell = features[bestFeature].info->bucketDescriptions
-                    .getSplit(bestFeature);
-                if (splitCell.isNumeric())
-                    splitVal = splitCell.toDouble();
-                else splitVal = bestSplit;
-            }
-            else {
-                splitVal = bestSplit;
-            }
+            auto splitCell = features[bestFeature].info->bucketDescriptions
+                .getSplit(bestFeature);
+            splitVal = bestSplit;
 
-            ML::Split split(feature, splitVal,
-                            features[bestFeature].ordinal
-                            ? ML::Split::LESS : ML::Split::EQUAL);
+            ML::Split split(feature, splitVal, ML::Split::EQUAL);
             
             node->split = split;
             node->child_true = left;

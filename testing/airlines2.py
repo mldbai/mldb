@@ -8,7 +8,7 @@ start = datetime.datetime.now();
 mldb.put("/v1/procedures/airline", {
     "type":"import.text",
     "params": {
-        "dataFileUrl": "file://train-1m.csv",
+        "dataFileUrl": "file://train-10m.csv",
         "offset" : 0,
         "ignoreBadLines" : True,
         "outputDataset": {
