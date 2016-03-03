@@ -49,7 +49,7 @@ Undecided | 0.5 | 0.5
 
 Which represents the following situation:
 
-![Sliced Dataset](/doc/builtin/img/KMeansFunction.svg)
+![Sliced Dataset](../img/KMeansFunction.svg)
 
 In that case, `select` would be set to `*` (the default) and `where` to `true`
 (the default) in order to enable all clusters.  Alternatively, if we wanted to

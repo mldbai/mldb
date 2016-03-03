@@ -2,13 +2,13 @@
 <html lang="en-US">
     <head>
         <meta charset="UTF-8">
-        <meta http-equiv="refresh" content="1;url=/ipy">
+        <meta http-equiv="refresh" content="1;url={{HTTP_BASE_URL}}/{{IPYTHON_NB_PREFIX}}">
         <script type="text/javascript">
-            window.location.href = "/ipy"
+            window.location.href = "{{HTTP_BASE_URL}}/{{IPYTHON_NB_PREFIX}}"
         </script>
         <title>Page Redirection</title>
     </head>
     <body>
-        If you are not redirected automatically, follow this <a href='/ipy'>link</a>
+        If you are not redirected automatically, follow this <a href='{{HTTP_BASE_URL}}/{{IPYTHON_NB_PREFIX}}'>link</a>
     </body>
 </html>
