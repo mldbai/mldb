@@ -760,7 +760,7 @@ struct SparseMatrixDataset::Itl
         auto trans = getReadTransaction();
         Json::Value result;
         result["rowCount"] = trans->matrix->rowCount();
-        result["columnCount"] = trans->matrix->rowCount();
+        result["columnCount"] = trans->inverse->rowCount();
         result["valueCount"] = trans->values->rowCount();
         return result;
     }
