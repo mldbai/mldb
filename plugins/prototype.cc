@@ -101,7 +101,7 @@ PrototypeProcedure::
 run(const ProcedureRunConfig & run,
       const std::function<bool (const Json::Value &)> & onProgress) const
 {
-	const int numBags = 32;
+	const int numBags = 100;
 
 	PrototypeConfig runProcConf =
         applyRunConfOverProcConf(procedureConfig, run);
@@ -386,7 +386,7 @@ run(const ProcedureRunConfig & run,
               }
           }
 
-          void add(const std::pair<int, int>& point, float weight, float leftWeight)
+     /*     void add(const std::pair<int, int>& point, float weight, float leftWeight)
           {
               //FeatureValues::values& v = scorePerFeature[point.first.arg1()].scores[point.second];
               //v.first += weight;
@@ -410,7 +410,7 @@ run(const ProcedureRunConfig & run,
               auto& tuple = featureArray[point.second];
               std::get<0>(tuple) += weight;
               std::get<1>(tuple) += leftWeight;
-          }
+          }*/
 
       	};
 
@@ -421,7 +421,7 @@ run(const ProcedureRunConfig & run,
 
         void init(int maxIter, int numFeature)
         { 
-        //    STACK_PROFILE(BagIter_InitW);   
+          //  STACK_PROFILE(BagIter_InitW);   
             PrototypeRNG myrng;
             int maxNumLeaves = std::pow(2,maxIter);
             perPartitionW.resize(maxNumLeaves); //todo: be more reasonable, maybe use pages
@@ -450,7 +450,7 @@ run(const ProcedureRunConfig & run,
 
         void clear(int iter, std::vector<size_t>& ranges, size_t numPartitions)
         {       
-           // STACK_PROFILE(BagIter_ClearW);   
+   //         STACK_PROFILE(BagIter_ClearW);   
 
             if (iter > 0)
             {
@@ -500,7 +500,7 @@ run(const ProcedureRunConfig & run,
         int lastNewPartition;
     };
 
-    int right = 1;
+    //int right = 1;
     //int doneMask = 1 << 31;
     int iteration = 0;
 
@@ -573,10 +573,21 @@ run(const ProcedureRunConfig & run,
        // }
         
         {
-        //    STACK_PROFILE(BagIter_scanlines);
+         //   STACK_PROFILE(BagIter_scanlines);
        //     STACK_PROFILE_SEED(BagIter_scanlines_a);
-            for (auto& line : lines)
+            
+            int blockSize = 20000;
+            int numBlocks = lines.size() / blockSize;
+            auto doLineBlock = [&] (int block)
             {
+                int start = block*blockSize;
+                int end = start + blockSize;
+
+                auto lineIter = lines.begin() + start;
+                for (int lineIndex = start; lineIndex < end; ++lineIndex, ++lineIter)
+            //for (auto& line : lines)
+            {
+                auto& line = *lineIter;
                 float weight = line.weightsperbag[bag];
                 if (weight == 0)
                   continue;
@@ -649,6 +660,9 @@ run(const ProcedureRunConfig & run,
                 }
                 
             }
+            }; //end of lambda
+
+            ML::run_in_parallel(0, numBlocks, doLineBlock);
         }      	
 
         int maxpartition = w.newPartitionCount;
@@ -663,7 +677,7 @@ run(const ProcedureRunConfig & run,
         //currentPartitions.size();
        // cerr << "max partition: " << maxpartition << endl;
         {
-       // STACK_PROFILE(BagIter_findSplitPoint);
+     //   STACK_PROFILE(BagIter_findSplitPoint);
         for (int partition = 0; partition < maxpartition; partition++)
         {
             BagW::PerPartition& partitionScore = currentPartitions[partition];
@@ -906,41 +920,64 @@ run(const ProcedureRunConfig & run,
 
         return true;
     };
-	
-    int test = 20;
 
-    for (int bag = 0; bag < numBags; ++bag)
+    const int maxDepth = 20;
+	
     {
-        wPerBag[bag].init(test, numFeatures);
+    STACK_PROFILE(INITBAGS);  
+
+    auto initOneBag = [&] (int bag)
+    {
+        wPerBag[bag].init(maxDepth, numFeatures);
+    };
+
+    ML::run_in_parallel(0, numBags, initOneBag);
+
+  //  for (int bag = 0; bag < numBags; ++bag)
+  //  {
+        
+  //  }
     }
+
 
     {
     STACK_PROFILE(TRAIN);  
-  	while (test > 0)
-  	{
-  		/*for (auto& line : lines)
-  		{
-  			worker.run_until_finished(groupId, false);
-  			line.label += 0;
-  			//worker.unlock_group(groupId);
 
-  			//TODO: dont delete the jobs, make them resetable
-  			groupId = worker.get_group(NO_JOB, "");
-  			for (int i = 0; i < numBags; ++i)
-  		    {
-  		    	worker.add(std::bind<void>(bagExec, i), "", groupId);
-  		    }
-  		} */
-  		--test;
+    auto doOneBag = [&] (int bag)
+    {
+        int test = maxDepth;
+      	while (test > 0)
+      	{
+      		/*for (auto& line : lines)
+      		{
+      			worker.run_until_finished(groupId, false);
+      			line.label += 0;
+      			//worker.unlock_group(groupId);
 
-  		run_in_parallel(0, numBags, bagIter);
+      			//TODO: dont delete the jobs, make them resetable
+      			groupId = worker.get_group(NO_JOB, "");
+      			for (int i = 0; i < numBags; ++i)
+      		    {
+      		    	worker.add(std::bind<void>(bagExec, i), "", groupId);
+      		    }
+      		} */
+      		--test;
 
-      right = right << 1; 
+            bagIter(bag);
 
-  //		cerr << "FINISHED ITER" << endl;
-      iteration++;
-  	} 
-    }	
+      	//	run_in_parallel(0, numBags, bagIter);
+
+       //   right = right << 1; 
+
+      //		cerr << "FINISHED ITER" << endl;
+          iteration++;
+      	}   // while
+    };   // doOneBag
+
+        for (int i = 0; i < numBags; ++i)
+            doOneBag(i);
+
+    }	// scope
 
     //print the bags
     if (false)
