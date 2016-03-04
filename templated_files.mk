@@ -6,9 +6,7 @@ define mldb_install_templated_directory
 $(eval $(call install_templated_directory,$(1),$(2),mldb,mldb/container_files/template_vars.mk,$(J2ENV)))
 endef
 
-$(eval $(call mldb_install_templated_directory,mldb/container_files/assets,$(ALTROOT)/opt/local/))
-
-$(eval $(call mldb_install_templated_file,mldb/container_files/version.json,$(ALTROOT)/opt/local/version.json))
+$(eval $(call mldb_install_templated_directory,mldb/container_files/public_html,$(ALTROOT)/opt/local/))
 
 $(eval $(call mldb_install_templated_file,mldb/container_files/init/05-mldb-id-mapping.sh,$(ETC)/my_init.d/05-mldb-id-mapping.sh,555))
 $(eval $(call mldb_install_templated_file,mldb/container_files/init/mldb_runner.sh,$(ETC)/service/mldb_runner/run,555))

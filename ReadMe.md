@@ -11,7 +11,7 @@ Please [create a Github Issue](https://github.com/mldbai/mldb/issues/new) if you
 
 ## Documentation
 
-Raw Markdown documentation files are located under `container_files/assets/www/doc` and you can browse them on Github or you can browse the full-rendered version at [http://mldb.ai/doc](http://mldb.ai/doc).
+Raw Markdown documentation files are located under `container_files/public_html/doc` and you can browse them on Github or you can browse the full-rendered version at [http://mldb.ai/doc](http://mldb.ai/doc).
 
 ## Copyright & License (Apache License v2.0)
 
