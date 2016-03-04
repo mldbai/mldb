@@ -347,8 +347,9 @@ void nblinkMacro(MacroContext & context,
             address.replace(pos, 1, "%20");
         }
         
-    context.writeHtml("<a href=\"/doc/nblink.html#" + address + "\" " +
-                      "target=\"_blank\">"+nb+"</a>");
+    Utf8String url = "/doc/nblink.html#";
+    context.writeHtml("<a href=\"" + context.prefixUrl(url)
+                      + address + "\" " + "target=\"_blank\">"+nb+"</a>");
 }
 
 void doclinkMacro(MacroContext & context,
