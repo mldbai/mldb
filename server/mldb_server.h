@@ -50,7 +50,8 @@ struct MldbServer: public ServicePeer, public EventRecorder {
     MldbServer(const std::string & serviceName = "mldb",
                const std::string & etcdUri = "",
                const std::string & etcdPath = "",
-               bool enableAccessLog = false);
+               bool enableAccessLog = false,
+               const std::string & httpBaseUrl = "");
     ~MldbServer();
 
     /** Scan the given directory for plugins.  These are not loaded;

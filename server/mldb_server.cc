@@ -72,10 +72,11 @@ MldbServer::
 MldbServer(const std::string & serviceName,
            const std::string & etcdUri,
            const std::string & etcdPath,
-           bool enableAccessLog)
+           bool enableAccessLog,
+           const std::string & httpBaseUrl)
     : ServicePeer(serviceName, "MLDB", "global", enableAccessLog),
       EventRecorder(serviceName, std::make_shared<NullEventService>()),
-      httpBaseUrl(""), versionNode(nullptr)
+      httpBaseUrl(httpBaseUrl), versionNode(nullptr)
 {
     // Don't allow URIs without a scheme
     setGlobalAcceptUrisWithoutScheme(false);

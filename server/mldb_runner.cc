@@ -106,6 +106,7 @@ int main(int argc, char ** argv)
     bool dontExitAfterScript = false;
 
     string cacheDir;
+    string httpBaseUrl = "";
 
 #if 0
     string peerListenPort = "18000-19000";
@@ -181,7 +182,9 @@ int main(int argc, char ** argv)
          "condition")
         ("enable-access-log",
          "Enable the logging of each http request.  By default, the logging is disabled."
-         "Specify this option to enable it.");
+         "Specify this option to enable it.")
+        ("http-base-url", value(&httpBaseUrl),
+         "Prefix to prepend to all /doc urls.");
 
     script_options.add_options()
         ("run-script", value(&runScript),
@@ -310,8 +313,9 @@ int main(int argc, char ** argv)
     bool enableAccessLog = vm.count("enable-access-log");
     bool hideInternalEntities = vm.count("hide-internal-entities");
 
-    MldbServer server("mldb", etcdUri, etcdPath, enableAccessLog);
-    bool initSuccess = server.init(configurationPath, staticAssetsPath, staticDocPath, hideInternalEntities);
+    MldbServer server("mldb", etcdUri, etcdPath, enableAccessLog, httpBaseUrl);
+    bool initSuccess = server.init(configurationPath, staticAssetsPath,
+                                   staticDocPath, hideInternalEntities);
 
     // if the server initialization fails don't register plugins
     // but let MLDB starts with disabled features
