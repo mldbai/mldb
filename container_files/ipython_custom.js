@@ -6,7 +6,7 @@ function mldb_defer() {
             )
         );
 
-        $.getJSON("/version.json", function(version){
+        $.getJSON("{{HTTP_BASE_URL}}/resources/version.json", function(version){
             $("#ipython_notebook").append(
                 $("<span>", {style: "font-size: 12px;"}).text("version "+version.version)
             );
