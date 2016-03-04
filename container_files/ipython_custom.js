@@ -25,7 +25,7 @@ function mldb_defer() {
             setExpiration(data.expiration);
         });
 
-        function setExpiration() {
+        function setExpiration(expiration) {
             $("#header-container").css("text-align", "center").append(
                 $("<span>").html("Container Expiration<br/>" + (new Date(expiration).toLocaleString()))
             );
