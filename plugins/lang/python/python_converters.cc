@@ -12,6 +12,7 @@
 
 using namespace std;
 
+namespace bp = boost::python;
 
 namespace Datacratic {
 namespace Python {
@@ -69,7 +70,7 @@ construct(PyObject* obj_ptr, void* storage)
         Date x = Date::fromSecondsSinceEpoch(PyInt_AS_LONG(obj_ptr));
         new (storage) Date(x);
     } else if (PyString_Check(obj_ptr)) {
-        std::string str = boost::python::extract<std::string>(obj_ptr)();
+        std::string str = bp::extract<std::string>(obj_ptr)();
         Date x = Date::parseIso8601DateTime(str);
         new (storage) Date(x);
     } else {
@@ -94,8 +95,8 @@ PyObject*
 IdToPython::
 convert(const Id& id)
 {
-    boost::python::str* s = new boost::python::str(id.toString());
-    return boost::python::incref(s->ptr());
+    bp::str* s = new bp::str(id.toString());
+    return bp::incref(s->ptr());
 }
 
 
@@ -139,7 +140,7 @@ construct(PyObject* obj_ptr, void* storage)
     ExcCheck(from_unicode!=nullptr, "Error converting unicode to ASCII");
 
     new (storage) std::string(
-                              boost::python::extract<std::string>(from_unicode)());
+                              bp::extract<std::string>(from_unicode)());
     Py_XDECREF(from_unicode);
 }
 
@@ -167,7 +168,7 @@ construct(PyObject* obj_ptr, void* storage)
     ExcCheck(from_unicode!=nullptr, "Error converting unicode to ASCII");
 
     new (storage) Utf8String(
-                             boost::python::extract<std::string>(from_unicode)());
+                             bp::extract<std::string>(from_unicode)());
     Py_XDECREF(from_unicode);
 }
 
@@ -190,12 +191,23 @@ convertible(PyObject* obj)
     return obj;
 }
 
+template<typename LstType>
+Json::Value
+construct_lst(PyObject * pyObj)
+{
+    Json::Value val(Json::ValueType::arrayValue);
+    LstType tpl = bp::extract<LstType>(pyObj);
+    for(int i = 0; i < len(tpl); i++) {
+        bp::object obj = bp::object(tpl[i]);
+        val.append(JsonValueConverter::construct_recur(obj.ptr()));
+    }
+    return val;
+}
+
 Json::Value
 JsonValueConverter::
 construct_recur(PyObject * pyObj)
 {
-    namespace bp = boost::python;
-
     Json::Value val;
     if PyBool_Check(pyObj) {
         bool b = bp::extract<bool>(pyObj);
@@ -231,20 +243,10 @@ construct_recur(PyObject * pyObj)
     //    throw ML::Exception("do datetime!!");
     //}
     else if(PyTuple_Check(pyObj)) {
-        val = Json::Value(Json::ValueType::arrayValue);
-        bp::tuple tpl = bp::extract<bp::tuple>(pyObj);
-        for(int i = 0; i < len(tpl); i++) {
-            bp::object obj = bp::object(tpl[i]);
-            val.append(construct_recur(obj.ptr()));
-        }
+        val = construct_lst<bp::tuple>(pyObj);
     }
     else if(PyList_Check(pyObj)) {
-        val = Json::Value(Json::ValueType::arrayValue);
-        bp::list lst = bp::extract<bp::list>(pyObj);
-        for(int i = 0; i < len(lst); i++) {
-            bp::object obj = bp::object(lst[i]);
-            val.append(construct_recur(obj.ptr()));
-        }
+        val = construct_lst<bp::list>(pyObj);
     }
     else if(PyDict_Check(pyObj)) {
         PyDict pyDict = bp::extract<PyDict>(pyObj)();
@@ -286,22 +288,20 @@ construct(PyObject* obj, void* storage)
     (*js) = construct_recur(obj);
 }
 
-boost::python::object*
+bp::object*
 JsonValueConverter::
 convert_recur(const Json::Value & js)
 {
-    namespace bp = boost::python;
-
     if(js.isIntegral()) {
         //TODO this is pretty ugly. find the right way to do this
         int i = js.asInt();
         auto int_as_str = boost::lexical_cast<std::string>(i);
         PyObject* pyobj = PyInt_FromString(const_cast<char*>(int_as_str.c_str()), NULL, 10);
 
-        // When you want a boost::python::object to manage a pointer to PyObject* pyobj one does: 
-        // boost::python::object o(boost::python::handle<>(pyobj));
+        // When you want a bp::object to manage a pointer to PyObject* pyobj one does: 
+        // bp::object o(bp::handle<>(pyobj));
         //  In this case, the o object, manages the pyobj, it won’t increase the reference count on construction. 
-        return new bp::object(boost::python::handle<>(pyobj));
+        return new bp::object(bp::handle<>(pyobj));
 
         // using the code below will always return a long 
         //             return new bp::int(js.asInt());
@@ -335,7 +335,7 @@ PyObject*
 JsonValueConverter::
 convert(const Json::Value & js)
 {
-    return boost::python::incref(convert_recur(js)->ptr());
+    return bp::incref(convert_recur(js)->ptr());
 }
 
 static struct AtInit {
