@@ -34,4 +34,3 @@ groupadd -g 1234567 _mldb
 useradd -u 1234567 -g 1234567 -c 'MLDB user' -M --home /mldb_data _mldb 
 install -d -o _mldb -g _mldb /mldb_data
 chown -R _mldb:_mldb /opt
-mv /opt/local/version.json /opt/local/assets/www/version.json

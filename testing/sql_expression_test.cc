@@ -826,7 +826,7 @@ BOOST_AUTO_TEST_CASE(test_timestamps)
             return expr(createRow({}), GET_LATEST).getAtom();
         };
     
-    BOOST_CHECK_EQUAL(run("when(at(1, to_timestamp('2015-01-01T00:00:00Z')))"),
+    BOOST_CHECK_EQUAL(run("latest_timestamp(1 @ '2015-01-01T00:00:00Z')"),
                       Date(2015,1,1,0,0,0));
 }
 
@@ -1161,33 +1161,33 @@ BOOST_AUTO_TEST_CASE(test_select_statement_parse)
 
     {
         // MLDB-909
-        auto statement = SelectStatement::parse("select * from table when timestamp() between '2014-01-02T00:00:01' and '2015-01-02'");
+        auto statement = SelectStatement::parse("select * from table when value_timestamp() between '2014-01-02T00:00:01' and '2015-01-02'");
         BOOST_CHECK_EQUAL(statement.when.getType(), "when");
         BOOST_CHECK_EQUAL(statement.when.when->getType(), "between");
-        BOOST_CHECK_EQUAL(statement.when.surface, "timestamp() between '2014-01-02T00:00:01' and '2015-01-02'");
+        BOOST_CHECK_EQUAL(statement.when.surface, "value_timestamp() between '2014-01-02T00:00:01' and '2015-01-02'");
         BOOST_CHECK_EQUAL(statement.when.getChildren().size(), 1); // inner self
         BOOST_CHECK_EQUAL(statement.when.when->getChildren().size(), 3); // lhs, rhs, value
 
         // can't be in two non-overlapping ranges
         statement = SelectStatement::parse("select * from table when "
-                                           "timestamp() between '2014-01-02' and '2014-02-02' AND "
-                                           "timestamp() between '2015-01-02' and '2015-02-02'");
+                                           "value_timestamp() between '2014-01-02' and '2014-02-02' AND "
+                                           "value_timestamp() between '2015-01-02' and '2015-02-02'");
 
         // overlapping ranges
         statement = SelectStatement::parse("select * from table when "
-                                           "timestamp() between '2014-01-02' and '2014-03-02' AND "
-                                           "timestamp() between '2014-02-02' and '2014-04-02'");
+                                           "value_timestamp() between '2014-01-02' and '2014-03-02' AND "
+                                           "value_timestamp() between '2014-02-02' and '2014-04-02'");
 
-        statement = SelectStatement::parse("select * from table when timestamp() > '2014-01-02'");
+        statement = SelectStatement::parse("select * from table when value_timestamp() > '2014-01-02'");
         BOOST_CHECK_EQUAL(statement.when.getType(), "when");
         BOOST_CHECK_EQUAL(statement.when.when->getType(), "compare");
-        BOOST_CHECK_EQUAL(statement.when.surface, "timestamp() > '2014-01-02'");
+        BOOST_CHECK_EQUAL(statement.when.surface, "value_timestamp() > '2014-01-02'");
         BOOST_CHECK_EQUAL(statement.when.when->getChildren().size(), 2); // lhs and rhs
 
-        statement = SelectStatement::parse("select * from table when timestamp() > '2014-01-02' AND timestamp() < '2015-01-02'");
+        statement = SelectStatement::parse("select * from table when value_timestamp() > '2014-01-02' AND value_timestamp() < '2015-01-02'");
         BOOST_CHECK_EQUAL(statement.when.getType(), "when");
         BOOST_CHECK_EQUAL(statement.when.when->getType(), "boolean");
-        BOOST_CHECK_EQUAL(statement.when.surface, "timestamp() > '2014-01-02' AND timestamp() < '2015-01-02'");
+        BOOST_CHECK_EQUAL(statement.when.surface, "value_timestamp() > '2014-01-02' AND value_timestamp() < '2015-01-02'");
         BOOST_CHECK_EQUAL(statement.when.when->getChildren().size(), 2); // lhs and rhs
     }   
 
@@ -1209,10 +1209,10 @@ BOOST_AUTO_TEST_CASE(test_select_statement_parse)
         };
         
         BOOST_CHECK(!isTupleDependent("true"));
-        BOOST_CHECK(isTupleDependent("timestamp() < '2014-01-01'"));
-        BOOST_CHECK(!isTupleDependent("when(a) BETWEEN '2015-01-10' AND '2016-10-01'"));
-        BOOST_CHECK(isTupleDependent("timestamp() < '2014-01-09' AND when(a) BETWEEN '2015-01-10' AND '2016-10-01'"));
-        BOOST_CHECK(!isTupleDependent("when(a) < to_timestamp('2015-01-09')"));
+        BOOST_CHECK(isTupleDependent("value_timestamp() < '2014-01-01'"));
+        BOOST_CHECK(!isTupleDependent("latest_timestamp(a) BETWEEN '2015-01-10' AND '2016-10-01'"));
+        BOOST_CHECK(isTupleDependent("value_timestamp() < '2014-01-09' AND latest_timestamp(a) BETWEEN '2015-01-10' AND '2016-10-01'"));
+        BOOST_CHECK(!isTupleDependent("latest_timestamp(a) < to_timestamp('2015-01-09')"));
     }
 }
 

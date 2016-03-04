@@ -365,7 +365,7 @@ initCollections(std::string configurationPath,
                                 staticFilesPath, this, hideInternalEntities);
 
     serveDocumentationDirectory(router, "/resources",
-                                "mldb/container_files/assets/www/resources",
+                                "mldb/container_files/public_html/resources",
                                 this, hideInternalEntities);
 }
 

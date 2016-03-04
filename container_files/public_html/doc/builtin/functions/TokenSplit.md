@@ -43,4 +43,4 @@ the function `split_smiley` will add spaces before and after emojis matching the
 
 ## See also
 
-* The [tokenize built-in function](/doc/builtin/sql/ValueExpression.md.html#importfunctions) can be applied on text to create a _bag of words_.
+* The [tokenize built-in function](../sql/ValueExpression.md.html#importfunctions) can be applied on text to create a _bag of words_.

@@ -20,6 +20,7 @@
 #include "stump_regress.h"
 #include "binary_symmetric.h"
 #include "mldb/jml/utils/smart_ptr_utils.h"
+#include "mldb/base/thread_pool.h"
 
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/uniform_int.hpp>

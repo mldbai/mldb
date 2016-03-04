@@ -3,7 +3,8 @@
 
 LIBBASE_SOURCES := \
         parse_context.cc \
-	thread_pool.cc
+	thread_pool.cc \
+	parallel.cc
 
 LIBBASE_LINK :=	arch boost_thread gc
 

@@ -5,5 +5,5 @@ c.NotebookApp.port = {{IPYTHON_NB_LISTEN_PORT}}
 c.NotebookApp.open_browser = False
 
 c.NotebookApp.notebook_dir = u'{{IPYTHON_NB_DIR}}'
-c.NotebookApp.base_url = '{{IPYTHON_NB_BASE_URL}}'
-c.NotebookApp.tornado_settings = {'static_url_prefix':'{{IPYTHON_NB_BASE_URL}}/static/'}
+c.NotebookApp.base_url = '{{HTTP_BASE_URL}}/{{IPYTHON_NB_PREFIX}}'
+c.NotebookApp.tornado_settings = {'static_url_prefix':'{{HTTP_BASE_URL}}/{{IPYTHON_NB_PREFIX}}/static/'}

@@ -98,26 +98,24 @@ int handleLink(hoedown_buffer *ob,
     string linkSource;
     if (link && link->size)
         linkSource = string(link->data, link->data + link->size);
-    
-    //cerr << "Rendering link " << linkSource << endl;
-    
+
     if (linkSource.rfind(".md") == linkSource.size() - 3
         && linkSource.find("://") == string::npos) {
         linkSource += ".html";
-        //cerr << "  rendering as " << linkSource << endl;
-    } 
+    }
 
     auto state = (hoedown_html_renderer_state *)data->opaque;
 
     HOEDOWN_BUFPUTSL(ob, "<a href=\"");
 
     if (!linkSource.empty())
-        hoedown_escape_href(ob, (const uint8_t *)linkSource.c_str(), linkSource.size());
+        hoedown_escape_href(ob, (const uint8_t *)linkSource.c_str(),
+                            linkSource.size());
 
     if(linkSource.find("http") == 0) {
         HOEDOWN_BUFPUTSL(ob, "\" target=\"_blank");
     }
-    
+
     if (title && title->size) {
         HOEDOWN_BUFPUTSL(ob, "\" title=\"");
         hoedown_escape_html(ob, title->data, title->size, 0);
@@ -131,7 +129,8 @@ int handleLink(hoedown_buffer *ob,
         HOEDOWN_BUFPUTSL(ob, "\">");
     }
 
-    if (content && content->size) hoedown_buffer_put(ob, content->data, content->size);
+    if (content && content->size) hoedown_buffer_put(ob, content->data,
+                                                     content->size);
     HOEDOWN_BUFPUTSL(ob, "</a>");
     return 1;
 }

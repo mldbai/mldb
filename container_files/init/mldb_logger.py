@@ -21,7 +21,14 @@ from tornado.ioloop import IOLoop
 from datetime import datetime
 from collections import namedtuple, deque
 
-from mldb_logger_utils import LOGBUFSIZE, RUNAS, HTTP_LISTEN_PORT 
+try:
+  from mldb_logger_utils import LOGBUFSIZE, RUNAS, HTTP_LISTEN_PORT
+except NameError:
+  # provide defaults if templating didn't run
+  LOGBUFSIZE = 1024
+  RUNAS = "nobody"
+  HTTP_LISTEN_PORT = 1234
+
 
 LogLine = namedtuple('LogLine', ['dt', 'data', ])
 LOGS_MLDB_TEMPLATE = \
@@ -52,7 +59,7 @@ def stdin_ready(f, logbuf, fd, events):
   if events & IOLoop.READ:
     try:
       for line in f:
-        logline = LogLine(dt=datetime.now(pytz.utc), data=line)
+        logline = LogLine(dt=datetime.now(pytz.utc), data=line.decode('utf8', 'replace'))
         logbuf.append(logline)
         sys.stdout.write(line)
         # line buffering is needed to make sure message are emitted in realtime

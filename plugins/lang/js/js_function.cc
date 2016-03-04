@@ -232,12 +232,6 @@ BoundFunction bindJsEval(const Utf8String & name,
     auto fn =  [=] (const std::vector<ExpressionValue> & args,
                     const SqlRowScope & context) -> ExpressionValue
         {
-#if 0
-            std::vector<ExpressionValue> evaluatedArgs;
-            evaluatedArgs.reserve(args.size());
-            for (auto & arg: args)
-                evaluatedArgs.emplace_back(std::move(arg(context, GET_LATEST)));
-#endif
             return runJsFunction(args, context, runner);
         };
 

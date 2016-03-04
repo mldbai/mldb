@@ -39,7 +39,7 @@ class BucketizeTest(unittest.TestCase):
             }
         })
 
-        res = mldb.query('SELECT when({*}) FROM output')
+        res = mldb.query('SELECT latest_timestamp({*}) FROM output')
         self.assertEqual(res[1][1], '1970-01-01T00:00:06Z')
 
 if __name__ == '__main__':
