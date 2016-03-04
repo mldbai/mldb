@@ -20,6 +20,17 @@ function mldb_defer() {
                 )
             );
         }
+
+        $.getJSON("../../resources/expiration.json", function(data) {
+            setExpiration(data.expiration);
+        });
+
+        function setExpiration() {
+            $("#header-container").css("text-align", "center").append(
+                $("<span>").html("Container Expiration<br/>" + (new Date(expiration).toLocaleString()))
+            );
+        }
+
         console.log("MLDB custom.js end");
     }
     else {
