@@ -202,7 +202,7 @@ writeText(const Utf8String & text)
 
 Utf8String&
 MacroContext::
-patchUrl(Utf8String & url) const
+prefixUrl(Utf8String & url) const
 {
     if (url.startsWith("/")) {
         url = macroData->server->httpBaseUrl + url;
@@ -226,7 +226,7 @@ writeInternalLink(Utf8String url,
     }
 
     writeHtml("<a href=\"");
-    writeText(patchUrl(url));
+    writeText(prefixUrl(url));
     writeHtml("\">");
     writeHtml(anchorText);
     writeHtml("</a>");
