@@ -21,7 +21,7 @@ function mldb_defer() {
             );
         }
 
-        $.getJSON("../../resources/expiration.json", function(data) {
+        $.getJSON("{{HTTP_BASE_URL}}/resources/expiration.json", function(data) {
             setExpiration(data.expiration);
         });
 
