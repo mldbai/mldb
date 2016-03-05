@@ -9,7 +9,10 @@ It will take around 45 minutes to run through these steps on an Amazon EC2 r3.8x
 For C++ code to compile, the following system packages need to be installed:
 
 ```bash
-apt-get install -y git valgrind build-essential libboost-all-dev libgoogle-perftools-dev liblzma-dev libcrypto++-dev libblas-dev liblapack-dev python-virtualenv libcurl4-openssl-dev libssh2-1-dev libpython-dev libgit2-dev libv8-dev libarchive-dev
+apt-get install -y git valgrind build-essential libboost-all-dev \
+libgoogle-perftools-dev liblzma-dev libcrypto++-dev libblas-dev \
+liblapack-dev python-virtualenv libcurl4-openssl-dev libssh2-1-dev \
+libpython-dev libgit2-dev libv8-dev libarchive-dev
 ```
 
 For Python modules to install correctly:
