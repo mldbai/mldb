@@ -1055,8 +1055,8 @@ matchJoinQualification(ML::Parse_Context & context, JoinQualification& joinQuali
 const SqlExpression::Operator operators[] = {
     //symbol, unary, handler, precedence, description
     { "~", true,         SqlExpression::bwise,  1, "Bitwise NOT" },
-    { "@", false,        SqlExpression::func,   1, "Set timestamp" },
     { "timestamp", true, SqlExpression::func,   1, "Coercion to timestamp" },
+    { "@", false,        SqlExpression::func,   2, "Set timestamp" },
     { "*", false,        SqlExpression::arith,  2, "Multiplication" },
     { "/", false,        SqlExpression::arith,  2, "Division" },
     { "%", false,        SqlExpression::arith,  2, "Modulo" },

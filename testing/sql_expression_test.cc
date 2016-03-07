@@ -1209,10 +1209,10 @@ BOOST_AUTO_TEST_CASE(test_select_statement_parse)
         };
         
         BOOST_CHECK(!isTupleDependent("true"));
-        BOOST_CHECK(isTupleDependent("value_timestamp() < '2014-01-01'"));
-        BOOST_CHECK(!isTupleDependent("latest_timestamp(a) BETWEEN '2015-01-10' AND '2016-10-01'"));
-        BOOST_CHECK(isTupleDependent("value_timestamp() < '2014-01-09' AND latest_timestamp(a) BETWEEN '2015-01-10' AND '2016-10-01'"));
-        BOOST_CHECK(!isTupleDependent("latest_timestamp(a) < to_timestamp('2015-01-09')"));
+        BOOST_CHECK(isTupleDependent("value_timestamp() < TIMESTAMP '2014-01-01'"));
+        BOOST_CHECK(!isTupleDependent("latest_timestamp(a) BETWEEN TIMESTAMP '2015-01-10' AND TIMESTAMP '2016-10-01'"));
+        BOOST_CHECK(isTupleDependent("value_timestamp() < TIMESTAMP '2014-01-09' AND latest_timestamp(a) BETWEEN TIMESTAMP '2015-01-10' AND TIMESTAMP '2016-10-01'"));
+        BOOST_CHECK(!isTupleDependent("latest_timestamp(a) < TIMESTAMP '2015-01-09'"));
     }
 }
 
