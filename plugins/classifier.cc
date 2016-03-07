@@ -223,7 +223,7 @@ run(const ProcedureRunConfig & run,
         }
     }
 
-    // cerr << "knownInputColumns are " << jsonEncode(knownInputColumns);
+    // logger->info() << "knownInputColumns are " << jsonEncode(knownInputColumns);
 
     ML::Timer timer;
 
@@ -232,7 +232,7 @@ run(const ProcedureRunConfig & run,
     auto featureSpace = std::make_shared<DatasetFeatureSpace>
         (boundDataset.dataset, labelInfo, knownInputColumns);
     
-    cerr << "initialized feature space in " << timer.elapsed() << endl;
+    logger->info() << "initialized feature space in " << timer.elapsed();
     
     // We want to calculate the label and weight of each row as well
     // as the select expression
@@ -371,10 +371,10 @@ run(const ProcedureRunConfig & run,
 
             float weight = extraVals.at(1).toDouble();
 
-            //cerr << "label = " << label << " weight = " << weight << endl;
-            //cerr << "row.columns.size() = " << row.columns.size() << endl;
+            //logger->info() << "label = " << label << " weight = " << weight << endl;
+            //logger->info() << "row.columns.size() = " << row.columns.size();
 
-            //cerr << "got row " << jsonEncode(row) << endl;
+            //logger->info() << "got row " << jsonEncode(row);
             ++numRows;
 
             std::vector<std::pair<ML::Feature, float> > features
@@ -411,7 +411,7 @@ run(const ProcedureRunConfig & run,
                  runProcConf.trainingData.stm->limit, 
                  nullptr /* progress */);
 
-    cerr << "extracted feature vectors in " << timer.elapsed() << endl;
+    logger->info() << "extracted feature vectors in " << timer.elapsed();
     
     // If we're categorical, we need to sort out the labels over all
     // of the threads.
@@ -469,7 +469,7 @@ run(const ProcedureRunConfig & run,
                                },
                                10000 /* thread threshold */);
     
-    cerr << "merged feature vectors in " << timer.elapsed() << endl;
+    logger->info() << "merged feature vectors in " << timer.elapsed();
 
     if (!accum.threads.empty()) {
         fvs = std::move(accum.threads[0]->fvs);
@@ -529,20 +529,20 @@ run(const ProcedureRunConfig & run,
 
     ExcAssertEqual(nx, trainingSet.example_count());
 
-    cerr << "added feature vectors in " << timer.elapsed() << endl;
+    logger->info() << "added feature vectors in " << timer.elapsed();
 
 
     {
         timer.restart();
         trainingSet.preindex(labelFeature);
 
-        //cerr << "indexed " << nx
+        //logger->info() << "indexed " << nx
         //     << " feature vectors in " << after.secondsSince(before)
         //     << " at " << nx / after.secondsSince(before)
-        //     << " per second" << endl;
+        //     << " per second";
     }
 
-    cerr << "indexed training data in " << timer.elapsed() << endl;
+    logger->info() << "indexed training data in " << timer.elapsed();
 
     // ...
     //trainingSet.dump("training_set.txt.gz");
@@ -550,15 +550,15 @@ run(const ProcedureRunConfig & run,
     // Find all features
     std::vector<ML::Feature> allFeatures = trainingSet.index().all_features();
 
-    cerr << "Training with " << allFeatures.size() << " features" << endl;
+    logger->info() << "Training with " << allFeatures.size() << " features";
 
     std::vector<ML::Feature> trainingFeatures;
 
     for (unsigned i = 0;  i < allFeatures.size();  ++i) {
-        //cerr << "allFeatures[i] = " << allFeatures[i] << endl;
+        //logger->info() << "allFeatures[i] = " << allFeatures[i];
 
         string featureName = featureSpace->print(allFeatures[i]);
-        //cerr << "featureName = " << featureName << endl;
+        //logger->info() << "featureName = " << featureName;
 
         if (allFeatures[i] == labelFeature)
             continue;
@@ -568,8 +568,7 @@ run(const ProcedureRunConfig & run,
 #if 0
         if (boost::regex_match(featureName, excludeFeatures)
             || featureName == "LABEL") {
-            cerr << "excluding feature " << featureName << " from training"
-                 << endl;
+            logger->info() << "excluding feature " << featureName << " from training";
             continue;
         }
 #endif
@@ -611,8 +610,8 @@ run(const ProcedureRunConfig & run,
         double factorTrue  = pow(labelWeights[1].total(), -equalizationFactor);
         double factorFalse = pow(labelWeights[0].total(), -equalizationFactor);
 
-        cerr << "factorTrue = " << factorTrue << endl;
-        cerr << "factorFalse = " << factorFalse << endl;
+        logger->info() << "factorTrue = " << factorTrue;
+        logger->info() << "factorFalse = " << factorFalse;
 
         weights = exampleWeights
             * (factorTrue  * labelWeights[true]
@@ -621,12 +620,12 @@ run(const ProcedureRunConfig & run,
         weights.normalize();
     }
 
-    //cerr << "training classifier" << endl;
+    //logger->info() << "training classifier";
     ML::Classifier classifier(trainer->generate(threadContext, trainingSet, weights,
                                                 trainingFeatures));
-    //cerr << "done training classifier" << endl;
+    //logger->info() << "done training classifier";
 
-    cerr << "trained classifier in " << timer.elapsed() << endl;
+    logger->info() << "trained classifier in " << timer.elapsed();
 
     bool saved = true;
     try {
@@ -635,7 +634,7 @@ run(const ProcedureRunConfig & run,
     }
     catch (const std::exception & exc) {
         saved = false;
-        cerr << "Error saving classifier: " << exc.what() << endl;
+        logger->info() << "Error saving classifier: " << exc.what();
     }
 
 
@@ -651,7 +650,7 @@ run(const ProcedureRunConfig & run,
         server->handleRequest(connection, request);
     }
 
-    //cerr << "done saving classifier" << endl;
+    //logger->info() << "done saving classifier";
 
     //trainingSet.dump("training_set.txt.gz");
  
@@ -698,7 +697,7 @@ ClassifyFunction(MldbServer * owner,
 
     itl->labelInfo = labelInfo;
 
-    //cerr << "labelInfo = " << labelInfo << endl;
+    //logger->info() << "labelInfo = " << labelInfo;
 }
 
 ClassifyFunction::
@@ -783,7 +782,7 @@ getFeatureSet(const FunctionContext & context, bool attemptDense) const
 
     std::vector<std::pair<ML::Feature, float> > features;
 
-    //cerr << "row = " << jsonEncode(row) << endl;
+    //logger->info() << "row = " << jsonEncode(row);
 
     for (auto & r: row) {
         ColumnName columnName(std::get<0>(r));
@@ -920,8 +919,7 @@ getFunctionInfo() const
         ColumnSparsity sparsity = col.second.info.optional()
             ? COLUMN_IS_SPARSE : COLUMN_IS_DENSE;
 
-        //cerr << "column " << col.second.columnName << " info " << col.second.info
-        //     << endl;
+        //logger->info() << "column " << col.second.columnName << " info " << col.second.info;
 
         // Be specific about what type we're looking for.  This will allow
         // us to be more leniant when encoding for input.

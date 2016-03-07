@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include "mldb/ext/spdlog/include/spdlog/spdlog.h"
+#include <memory>
 
 namespace spdlog {
     class logger;
@@ -19,7 +19,7 @@ namespace Datacratic {
 namespace MLDB {
 
 std::shared_ptr<spdlog::logger> getQueryLog();
-std::shared_ptr<spdlog::logger> getMldbLog();
+std::shared_ptr<spdlog::logger> getMldbLog(const std::string & loggerName = "L");
 std::shared_ptr<spdlog::logger> getServerLog();
 
 } // MLDB

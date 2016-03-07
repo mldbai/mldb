@@ -12,6 +12,8 @@
 #include "mldb/rest/rest_entity.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/sql/sql_expression_operations.h"
+#include "mldb/utils/log.h"
+#include "mldb/arch/demangle.h"
 #include <set>
 #include <iostream>
 #include <typeinfo>
@@ -338,7 +340,9 @@ registerProcedureType(const Package & package,
              PolyConfig config,
              const std::function<bool (const Json::Value)> & onProgress)
          {
-             return new ProcedureT(ProcedureT::getOwner(server), config, onProgress);
+             auto procedure = new ProcedureT(ProcedureT::getOwner(server), config, onProgress);
+             procedure->logger = MLDB::getMldbLog(ML::demangle(typeid(ProcedureT)));
+             return procedure;
          },
          makeInternalDocRedirect(package, docRoute),
          customRoute,
