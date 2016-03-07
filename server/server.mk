@@ -26,6 +26,7 @@ LIBMLDB_SOURCES:= \
 	script_output.cc \
 	forwarded_dataset.cc \
 	serial_function.cc \
+    column_scope.cc
 
 LIBMLDB_LINK:= \
 	service_peer mldb_builtin_plugins sql_expression git2 hoedown credentials_daemon mldb_builtin command_expression cloud mldb_core

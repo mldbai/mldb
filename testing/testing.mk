@@ -264,6 +264,7 @@ $(eval $(call mldb_unit_test,MLDB-1353-EM.py))
 $(eval $(call mldb_unit_test,MLDB-1361_join_on_subselect.py))
 $(eval $(call mldb_unit_test,MLDB-1364_dataset_cant_be_overwritten.py))
 $(eval $(call mldb_unit_test,MLDB-1336-builtin-checks.py))
+$(eval $(call mldb_unit_test,MLDB-1433-random-forest.py,,manual)) #manual, experimental
 
 
 $(eval $(call mldb_unit_test,pytanic_plugin_test.py))

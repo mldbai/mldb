@@ -19,7 +19,7 @@ namespace MLDB {
 
 
 // For internal use
-extern ML::Feature labelFeature, weightFeature;
+extern const ML::Feature labelFeature, weightFeature;
 
 
 /*****************************************************************************/

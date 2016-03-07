@@ -17,7 +17,7 @@ namespace Datacratic {
 namespace MLDB {
 
 
-ML::Feature labelFeature(0, 0, 0), weightFeature(0, 1, 0);
+const ML::Feature labelFeature(0, 0, 0), weightFeature(0, 1, 0);
 
 
 /*****************************************************************************/
@@ -63,6 +63,7 @@ DatasetFeatureSpace(std::shared_ptr<Dataset> dataset,
     parallelMap(0, filteredColumns.size(), onColumn);
 }
 
+//static
 DatasetFeatureSpace::ColumnInfo
 DatasetFeatureSpace::
 getColumnInfo(std::shared_ptr<Dataset> dataset,
@@ -124,6 +125,7 @@ getColumnInfo(std::shared_ptr<Dataset> dataset,
 
         BucketList & buckets = std::get<0>(bucketsAndDescriptions);
         BucketDescriptions & descriptions = std::get<1>(bucketsAndDescriptions);
+
 
 #if 0
         if (descriptions.isOnlyNumeric()) {

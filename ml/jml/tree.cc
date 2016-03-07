@@ -35,7 +35,8 @@ serialize(DB::Store_Writer & store, const Feature_Space & fs) const
     store << z << examples << pred;
     child_true.serialize(store, fs);
     child_false.serialize(store, fs);
-    child_missing.serialize(store, fs);
+//    if (child_missing) // missing optional
+        child_missing.serialize(store, fs);
 }
 
 void Tree::Node::

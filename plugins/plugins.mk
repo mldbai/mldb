@@ -43,7 +43,7 @@ LIBMLDB_BUILTIN_PLUGIN_SOURCES:= \
 	fetcher.cc \
 	importtext_procedure.cc \
 	tabular_dataset.cc \
-	prototype.cc \
+	randomforest_procedure.cc \
 
 
 # Needed so that Python plugin can find its header
