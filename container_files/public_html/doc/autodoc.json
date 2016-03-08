@@ -5,9 +5,9 @@
        
        
 "<h3>Querying</h3>",
-"<p>See <a href=\"/doc/builtin/sql/QueryAPI.md.html\">Query API documentation</a> for details.</p>",
+"<p>See <a href=\"{{HTTP_BASE_URL}}/doc/builtin/sql/QueryAPI.md.html\">Query API documentation</a> for details.</p>",
       [
-         "GET /v1/query",
+         "GET {{HTTP_BASE_URL}}/v1/query",
          {
             "docstring" : "Run an SQL query",
             "in" : {
@@ -39,9 +39,9 @@
        
        
 "<h3>Datasets</h3>",
-"<p>See <a href=\"/doc/builtin/datasets/Datasets.md.html\">Datasets documentation</a> for details.</p>",
+"<p>See <a href=\"{{HTTP_BASE_URL}}/doc/builtin/datasets/Datasets.md.html\">Datasets documentation</a> for details.</p>",
       [
-         "GET /v1/datasets",
+         "GET {{HTTP_BASE_URL}}/v1/datasets",
          {
             "docstring" : "Get a list of datasets",
             "in" : {
@@ -63,17 +63,17 @@
          }
       ],
       [
-         "POST /v1/datasets",
+         "POST {{HTTP_BASE_URL}}/v1/datasets",
          {
             "docstring" : "Create a new dataset",
             "in" : {
                "properties" : {
                   "id" : {
-                     "description" : "Dataset ID, see <a href=\"/doc/builtin/datasets/DatasetConfig.md.html\">DatasetConfig</a> for details.",
+                     "description" : "Dataset ID, see <a href=\"{{HTTP_BASE_URL}}/doc/builtin/datasets/DatasetConfig.md.html\">DatasetConfig</a> for details.",
                      "type" : "string"
                   },
                   "type" : {
-                     "description" : "Dataset type, see <a href=\"/doc/builtin/datasets/DatasetConfig.md.html\">DatasetConfig</a> for available types.",
+                     "description" : "Dataset type, see <a href=\"{{HTTP_BASE_URL}}/doc/builtin/datasets/DatasetConfig.md.html\">DatasetConfig</a> for available types.",
                      "type" : "string"
                   },
                   "params" : {
@@ -98,7 +98,7 @@
          }
       ],
       [
-         "DELETE /v1/datasets/<id>",
+         "DELETE {{HTTP_BASE_URL}}/v1/datasets/<id>",
          {
             "docstring" : "Delete the dataset",
             "in" : {
@@ -120,7 +120,7 @@
          }
       ],
       [
-         "GET /v1/datasets/<id>",
+         "GET {{HTTP_BASE_URL}}/v1/datasets/<id>",
          {
             "docstring" : "Get the status of a dataset",
             "in" : {
@@ -142,17 +142,17 @@
          }
       ],
       [
-         "PUT /v1/datasets/<id>",
+         "PUT {{HTTP_BASE_URL}}/v1/datasets/<id>",
          {
             "docstring" : "Create a new dataset",
             "in" : {
                "properties" : {
                   "id" : {
-                     "description" : "Dataset ID, see <a href=\"/doc/builtin/datasets/DatasetConfig.md.html\">DatasetConfig</a> for details.",
+                     "description" : "Dataset ID, see <a href=\"{{HTTP_BASE_URL}}/doc/builtin/datasets/DatasetConfig.md.html\">DatasetConfig</a> for details.",
                      "type" : "string"
                   },
                   "type" : {
-                     "description" : "Dataset type, see <a href=\"/doc/builtin/datasets/DatasetConfig.md.html\">DatasetConfig</a> for available types.",
+                     "description" : "Dataset type, see <a href=\"{{HTTP_BASE_URL}}/doc/builtin/datasets/DatasetConfig.md.html\">DatasetConfig</a> for available types.",
                      "type" : "string"
                   },
                   "params" : {
@@ -177,7 +177,7 @@
          }
       ],
       [
-         "GET /v1/datasets/<id>/query",
+         "GET {{HTTP_BASE_URL}}/v1/datasets/<id>/query",
          {
             "docstring" : "Select from dataset",
             "in" : {
@@ -193,23 +193,23 @@
             "querystring" : {
                "properties" : {
                   "select" : {
-                     "description" : "SQL <a href=\"/doc/builtin/sql/SelectExpression.md.html\">Select Expression</a>",
+                     "description" : "SQL <a href=\"{{HTTP_BASE_URL}}/doc/builtin/sql/SelectExpression.md.html\">Select Expression</a>",
                      "type" : "string"
                   },
                   "where" : {
-                     "description" : "SQL <a href=\"/doc/builtin/sql/ValueExpression.md.html\">Value Expression</a>",
+                     "description" : "SQL <a href=\"{{HTTP_BASE_URL}}/doc/builtin/sql/ValueExpression.md.html\">Value Expression</a>",
                      "type" : "string"
                   },
                   "groupBy" : {
-                     "description" : "SQL <a href=\"/doc/builtin/sql/GroupByExpression.md.html\">Group-By Expression</a>",
+                     "description" : "SQL <a href=\"{{HTTP_BASE_URL}}/doc/builtin/sql/GroupByExpression.md.html\">Group-By Expression</a>",
                      "type" : "string"
                   },
                   "having" : {
-                     "description" : "SQL <a href=\"/doc/builtin/sql/ValueExpression.md.html\">Value Expression</a>",
+                     "description" : "SQL <a href=\"{{HTTP_BASE_URL}}/doc/builtin/sql/ValueExpression.md.html\">Value Expression</a>",
                      "type" : "string"
                   },
                   "orderBy" : {
-                     "description" : "SQL <a href=\"/doc/builtin/sql/OrderByExpression.md.html\">Order-By Expression</a>",
+                     "description" : "SQL <a href=\"{{HTTP_BASE_URL}}/doc/builtin/sql/OrderByExpression.md.html\">Order-By Expression</a>",
                      "type" : "string"
                   },
                   "limit" : {
@@ -228,7 +228,7 @@
          }
       ],
       [
-         "GET /v1/datasets/<id>/columns",
+         "GET {{HTTP_BASE_URL}}/v1/datasets/<id>/columns",
          {
             "docstring" : "Get a list of column names in the dataset",
             "in" : {
@@ -250,7 +250,7 @@
          }
       ],
       [
-         "POST /v1/datasets/<id>/columns",
+         "POST {{HTTP_BASE_URL}}/v1/datasets/<id>/columns",
          {
             "docstring" : "Record the given rows to the column",
             "in" : {
@@ -284,7 +284,7 @@
          }
       ],
       [
-         "GET /v1/datasets/<id>/rows",
+         "GET {{HTTP_BASE_URL}}/v1/datasets/<id>/rows",
          {
             "docstring" : "Get a list of row names in a dataset",
             "in" : {
@@ -306,7 +306,7 @@
          }
       ],
       [
-         "POST /v1/datasets/<id>/rows",
+         "POST {{HTTP_BASE_URL}}/v1/datasets/<id>/rows",
          {
             "docstring" : "Record the given columns to the row",
             "in" : {
@@ -340,7 +340,7 @@
          }
       ],
       [
-         "POST /v1/datasets/<id>/commit",
+         "POST {{HTTP_BASE_URL}}/v1/datasets/<id>/commit",
          {
             "docstring" : "Commit dataset",
             "in" : {
@@ -371,9 +371,9 @@
        
  
 "<h3>Procedures</h3>",
-"<p>See <a href=\"/doc/builtin/procedures/Procedures.md.html\">Procedures documentation</a> for details.</p>",
+"<p>See <a href=\"{{HTTP_BASE_URL}}/doc/builtin/procedures/Procedures.md.html\">Procedures documentation</a> for details.</p>",
       [
-         "GET /v1/procedures",
+         "GET {{HTTP_BASE_URL}}/v1/procedures",
          {
             "docstring" : "Get a list of procedures",
             "in" : {
@@ -395,17 +395,17 @@
          }
       ],
       [
-         "POST /v1/procedures",
+         "POST {{HTTP_BASE_URL}}/v1/procedures",
          {
             "docstring" : "Create a new procedure",
             "in" : {
                "properties" : {
                   "id" : {
-                     "description" : "Procedure ID, see <a href=\"/doc/builtin/procedures/ProcedureConfig.md.html\">ProcedureConfig</a> for details.",
+                     "description" : "Procedure ID, see <a href=\"{{HTTP_BASE_URL}}/doc/builtin/procedures/ProcedureConfig.md.html\">ProcedureConfig</a> for details.",
                      "type" : "string"
                   },
                   "type" : {
-                     "description" : "Procedure type, see <a href=\"/doc/builtin/procedures/ProcedureConfig.md.html\">ProcedureConfig</a> for available types.",
+                     "description" : "Procedure type, see <a href=\"{{HTTP_BASE_URL}}/doc/builtin/procedures/ProcedureConfig.md.html\">ProcedureConfig</a> for available types.",
                      "type" : "string"
                   },
                   "params" : {
@@ -430,7 +430,7 @@
          }
       ],
       [
-         "DELETE /v1/procedures/<id>",
+         "DELETE {{HTTP_BASE_URL}}/v1/procedures/<id>",
          {
             "docstring" : "Delete the procedure",
             "in" : {
@@ -452,7 +452,7 @@
          }
       ],
       [
-         "GET /v1/procedures/<id>",
+         "GET {{HTTP_BASE_URL}}/v1/procedures/<id>",
          {
             "docstring" : "Get the status of a procedure",
             "in" : {
@@ -474,17 +474,17 @@
          }
       ],
       [
-         "PUT /v1/procedures/<id>",
+         "PUT {{HTTP_BASE_URL}}/v1/procedures/<id>",
          {
             "docstring" : "Create a new procedure",
             "in" : {
                "properties" : {
                   "id" : {
-                     "description" : "Procedure ID, see <a href=\"/doc/builtin/procedures/ProcedureConfig.md.html\">ProcedureConfig</a> for details.",
+                     "description" : "Procedure ID, see <a href=\"{{HTTP_BASE_URL}}/doc/builtin/procedures/ProcedureConfig.md.html\">ProcedureConfig</a> for details.",
                      "type" : "string"
                   },
                   "type" : {
-                     "description" : "Procedure type, see <a href=\"/doc/builtin/procedures/ProcedureConfig.md.html\">ProcedureConfig</a> for available types.",
+                     "description" : "Procedure type, see <a href=\"{{HTTP_BASE_URL}}/doc/builtin/procedures/ProcedureConfig.md.html\">ProcedureConfig</a> for available types.",
                      "type" : "string"
                   },
                   "params" : {
@@ -509,7 +509,7 @@
          }
       ],
       [
-         "GET /v1/procedures/<id>/runs",
+         "GET {{HTTP_BASE_URL}}/v1/procedures/<id>/runs",
          {
             "docstring" : "Get a list of runs",
             "in" : {
@@ -531,7 +531,7 @@
          }
       ],
       [
-         "POST /v1/procedures/<id>/runs",
+         "POST {{HTTP_BASE_URL}}/v1/procedures/<id>/runs",
          {
             "docstring" : "Create a new run",
             "in" : {
@@ -562,7 +562,7 @@
          }
       ],
       [
-         "DELETE /v1/procedures/<id>/runs/<runid>",
+         "DELETE {{HTTP_BASE_URL}}/v1/procedures/<id>/runs/<runid>",
          {
             "docstring" : "Delete the run",
             "in" : {
@@ -584,7 +584,7 @@
          }
       ],
       [
-         "GET /v1/procedures/<id>/runs/<runid>",
+         "GET {{HTTP_BASE_URL}}/v1/procedures/<id>/runs/<runid>",
          {
             "docstring" : "Get the status of a run",
             "in" : {
@@ -606,7 +606,7 @@
          }
       ],
       [
-         "PUT /v1/procedures/<id>/runs/<runid>",
+         "PUT {{HTTP_BASE_URL}}/v1/procedures/<id>/runs/<runid>",
          {
             "docstring" : "Create a new run",
             "in" : {
@@ -651,9 +651,9 @@
        
        
 "<h3>Functions</h3>",
-"<p>See <a href=\"/doc/builtin/functions/Functions.md.html\">Functions documentation</a> for details.</p>",
+"<p>See <a href=\"{{HTTP_BASE_URL}}/doc/builtin/functions/Functions.md.html\">Functions documentation</a> for details.</p>",
       [
-         "GET /v1/functions",
+         "GET {{HTTP_BASE_URL}}/v1/functions",
          {
             "docstring" : "Get a list of functions",
             "in" : {
@@ -675,17 +675,17 @@
          }
       ],
       [
-         "POST /v1/functions",
+         "POST {{HTTP_BASE_URL}}/v1/functions",
          {
             "docstring" : "Create a new function",
             "in" : {
                "properties" : {
                   "id" : {
-                     "description" : "Function ID, see <a href=\"/doc/builtin/functions/FunctionConfig.md.html\">FunctionConfig</a> for details.",
+                     "description" : "Function ID, see <a href=\"{{HTTP_BASE_URL}}/doc/builtin/functions/FunctionConfig.md.html\">FunctionConfig</a> for details.",
                      "type" : "string"
                   },
                   "type" : {
-                     "description" : "Function type, see <a href=\"/doc/builtin/functions/FunctionConfig.md.html\">FunctionConfig</a> for available types.",
+                     "description" : "Function type, see <a href=\"{{HTTP_BASE_URL}}/doc/builtin/functions/FunctionConfig.md.html\">FunctionConfig</a> for available types.",
                      "type" : "string"
                   },
                   "params" : {
@@ -710,7 +710,7 @@
          }
       ],
       [
-         "DELETE /v1/functions/<id>",
+         "DELETE {{HTTP_BASE_URL}}/v1/functions/<id>",
          {
             "docstring" : "Delete the function",
             "in" : {
@@ -732,7 +732,7 @@
          }
       ],
       [
-         "GET /v1/functions/<id>",
+         "GET {{HTTP_BASE_URL}}/v1/functions/<id>",
          {
             "docstring" : "Get the status of a function",
             "in" : {
@@ -754,17 +754,17 @@
          }
       ],
       [
-         "PUT /v1/functions/<id>",
+         "PUT {{HTTP_BASE_URL}}/v1/functions/<id>",
          {
             "docstring" : "Create a new function",
             "in" : {
                "properties" : {
                   "id" : {
-                     "description" : "Function ID, see <a href=\"/doc/builtin/functions/FunctionConfig.md.html\">FunctionConfig</a> for details.",
+                     "description" : "Function ID, see <a href=\"{{HTTP_BASE_URL}}/doc/builtin/functions/FunctionConfig.md.html\">FunctionConfig</a> for details.",
                      "type" : "string"
                   },
                   "type" : {
-                     "description" : "Function type, see <a href=\"/doc/builtin/functions/FunctionConfig.md.html\">FunctionConfig</a> for available types.",
+                     "description" : "Function type, see <a href=\"{{HTTP_BASE_URL}}/doc/builtin/functions/FunctionConfig.md.html\">FunctionConfig</a> for available types.",
                      "type" : "string"
                   },
                   "params" : {
@@ -789,7 +789,7 @@
          }
       ],
       [
-         "GET /v1/functions/<id>/application",
+         "GET {{HTTP_BASE_URL}}/v1/functions/<id>/application",
          {
             "docstring" : "Apply the function and return the result",
             "in" : {
@@ -824,9 +824,9 @@
        
  
 "<h3>Plugins</h3>",
-"<p>See <a href=\"/doc/builtin/plugins/Plugins.md.html\">Plugins documentation</a> for details.</p>",
+"<p>See <a href=\"{{HTTP_BASE_URL}}/doc/builtin/plugins/Plugins.md.html\">Plugins documentation</a> for details.</p>",
       [
-         "GET /v1/plugins",
+         "GET {{HTTP_BASE_URL}}/v1/plugins",
          {
             "docstring" : "Get a list of plugins",
             "in" : {
@@ -848,17 +848,17 @@
          }
       ],
       [
-         "POST /v1/plugins",
+         "POST {{HTTP_BASE_URL}}/v1/plugins",
          {
             "docstring" : "Create a new plugin",
             "in" : {
                "properties" : {
                   "id" : {
-                     "description" : "Plugin ID, see <a href=\"/doc/builtin/plugins/PluginConfig.md.html\">PluginConfig</a> for details.",
+                     "description" : "Plugin ID, see <a href=\"{{HTTP_BASE_URL}}/doc/builtin/plugins/PluginConfig.md.html\">PluginConfig</a> for details.",
                      "type" : "string"
                   },
                   "type" : {
-                     "description" : "Plugin type, see <a href=\"/doc/builtin/plugins/PluginConfig.md.html\">PluginConfig</a> for available types.",
+                     "description" : "Plugin type, see <a href=\"{{HTTP_BASE_URL}}/doc/builtin/plugins/PluginConfig.md.html\">PluginConfig</a> for available types.",
                      "type" : "string"
                   },
                   "params" : {
@@ -883,7 +883,7 @@
          }
       ],
       [
-         "DELETE /v1/plugins/<id>",
+         "DELETE {{HTTP_BASE_URL}}/v1/plugins/<id>",
          {
             "docstring" : "Delete the plugin",
             "in" : {
@@ -905,7 +905,7 @@
          }
       ],
       [
-         "GET /v1/plugins/<id>",
+         "GET {{HTTP_BASE_URL}}/v1/plugins/<id>",
          {
             "docstring" : "Get the status of a plugin",
             "in" : {
@@ -927,17 +927,17 @@
          }
       ],
       [
-         "PUT /v1/plugins/<id>",
+         "PUT {{HTTP_BASE_URL}}/v1/plugins/<id>",
          {
             "docstring" : "Create a new plugin",
             "in" : {
                "properties" : {
                   "id" : {
-                     "description" : "Plugin ID, see <a href=\"/doc/builtin/plugins/PluginConfig.md.html\">PluginConfig</a> for details.",
+                     "description" : "Plugin ID, see <a href=\"{{HTTP_BASE_URL}}/doc/builtin/plugins/PluginConfig.md.html\">PluginConfig</a> for details.",
                      "type" : "string"
                   },
                   "type" : {
-                     "description" : "Plugin type, see <a href=\"/doc/builtin/plugins/PluginConfig.md.html\">PluginConfig</a> for available types.",
+                     "description" : "Plugin type, see <a href=\"{{HTTP_BASE_URL}}/doc/builtin/plugins/PluginConfig.md.html\">PluginConfig</a> for available types.",
                      "type" : "string"
                   },
                   "params" : {
@@ -975,9 +975,9 @@
        
        
 "<h3>Credentials</h3>",
-"<p>See <a href=\"/doc/builtin/Url.md.html\">Credentials documentation</a> for details.</p>",
+"<p>See <a href=\"{{HTTP_BASE_URL}}/doc/builtin/Url.md.html\">Credentials documentation</a> for details.</p>",
       [
-         "GET /v1/creds/rules",
+         "GET {{HTTP_BASE_URL}}/v1/creds/rules",
          {
             "docstring" : "Get a list of rules",
             "in" : {
@@ -999,7 +999,7 @@
          }
       ],
       [
-         "POST /v1/creds/rules",
+         "POST {{HTTP_BASE_URL}}/v1/creds/rules",
          {
             "docstring" : "Create a new rule",
             "in" : {
@@ -1022,7 +1022,7 @@
          }
       ],
       [
-         "DELETE /v1/creds/rules/<id>",
+         "DELETE {{HTTP_BASE_URL}}/v1/creds/rules/<id>",
          {
             "docstring" : "Delete the rule",
             "in" : {
@@ -1044,7 +1044,7 @@
          }
       ],
       [
-         "GET /v1/creds/rules/<id>",
+         "GET {{HTTP_BASE_URL}}/v1/creds/rules/<id>",
          {
             "docstring" : "Get the status of a rule",
             "in" : {
@@ -1066,7 +1066,7 @@
          }
       ],
       [
-         "PUT /v1/creds/rules/<id>",
+         "PUT {{HTTP_BASE_URL}}/v1/creds/rules/<id>",
          {
             "docstring" : "Create a new rule",
             "in" : {

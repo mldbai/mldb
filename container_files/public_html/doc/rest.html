@@ -7,10 +7,10 @@ Copyright (c) 2015 Datacratic Inc.  All rights reserved.
 <head>
     <title>REST API Interactive Documentation</title>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" / >
-    <link rel="stylesheet" href="/resources/css/bootstrap.min.css">
-    <script src="/resources/js/jquery-1.11.2.min.js" type="text/javascript"></script>
-    <script src="/resources/js/bootstrap.min.js" type="text/javascript"></script>
-    <script src="/resources/js/ace.js"  type="text/javascript" charset="utf-8"></script>
+    <link rel="stylesheet" href="{{HTTP_BASE_URL}}/resources/css/bootstrap.min.css">
+    <script src="{{HTTP_BASE_URL}}/resources/js/jquery-1.11.2.min.js" type="text/javascript"></script>
+    <script src="{{HTTP_BASE_URL}}/resources/js/bootstrap.min.js" type="text/javascript"></script>
+    <script src="{{HTTP_BASE_URL}}/resources/js/ace.js"  type="text/javascript" charset="utf-8"></script>
 
     <style>
         @import url(http://fonts.googleapis.com/css?family=Roboto:400,700|Roboto+Slab:400,700);
@@ -65,7 +65,7 @@ $(document).ready(function () {
         "DELETE" : "danger"
     };
 
-    $.getJSON("/doc/autodoc.json", function(data, status) {
+    $.getJSON("{{HTTP_BASE_URL}}/doc/autodoc.json", function(data, status) {
         //showAlert(data["config"]);
         //showReferenceDocs(data["literate"]);
         showInteractiveDocs(data["routes"]);

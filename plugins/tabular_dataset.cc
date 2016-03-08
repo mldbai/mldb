@@ -15,6 +15,8 @@ using namespace std;
 namespace Datacratic {
 namespace MLDB {
 
+static constexpr size_t TABULAR_DATASET_DEFAULT_ROWS_PER_CHUNK=65536;
+
 /*****************************************************************************/
 /* TABULAR DATA STORE                                                        */
 /*****************************************************************************/
@@ -76,6 +78,8 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     ML::Lightweight_Hash<ColumnHash, int> columnIndex;
     
     std::vector<TabularDatasetChunk> chunks;
+
+    std::vector<TabularDatasetChunk> mutable_chunks;
 
     /// Index from rowHash to (chunk, indexInChunk) when line number not used for rowName
     ML::Lightweight_Hash<RowHash, std::pair<int, int> > rowIndex;
@@ -349,6 +353,57 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
                 columnHashes.push_back(ch);
             }
     }
+
+    void commit()
+    {
+        if (!mutable_chunks.empty())
+        {
+            mutable_chunks[0].freeze();
+            finalize(mutable_chunks, mutable_chunks[0].rowCount());
+            mutable_chunks.resize(0);
+        }
+    }
+
+    void recordRow(const RowName & rowName, const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
+    {
+        if (rowCount > 0)
+            HttpReturnException(400, "Tabular dataset has already been committed, cannot add more rows");
+
+        if (mutable_chunks.empty())
+        {
+            //need to create the mutable chunk
+            vector<ColumnName> columnNames;
+            //The first recorded row will determine the columns
+            ML::Lightweight_Hash<ColumnHash, int> inputColumnIndex;
+            for (unsigned i = 0;  i < vals.size();  ++i) {
+                const ColumnName & c = std::get<0>(vals[i]);
+                ColumnHash ch(c);
+                if (!inputColumnIndex.insert(make_pair(ch, i)).second)
+                    throw HttpReturnException(400, "Duplicate column name in tabular dataset entry",
+                                              "columnName", c.toString());
+                columnNames.push_back(c);
+            }
+
+            initialize(columnNames, inputColumnIndex);
+
+            mutable_chunks.emplace_back(columnNames.size(), TABULAR_DATASET_DEFAULT_ROWS_PER_CHUNK);
+        }
+
+        std::vector<CellValue> orderedVals(columnNames.size());
+        Date ts = Date::negativeInfinity();
+        for (unsigned i = 0;  i < vals.size();  ++i) {
+            const ColumnName & c = std::get<0>(vals[i]);
+            auto iter = columnIndex.find(c);
+            if (iter == columnIndex.end())
+                throw HttpReturnException(400, "New column name while recording row in tabular dataset", "columnName", c.toString());
+
+            orderedVals[iter->second] = std::get<1>(vals[i]);
+
+            ts = std::max(ts, std::get<2>(vals[i]));
+        }
+
+        mutable_chunks[0].add(rowName, ts, orderedVals.data());
+    }
 };
 
 TabularDataset::
@@ -360,7 +415,7 @@ TabularDataset(MldbServer * owner,
     itl = make_shared<TabularDataStore>();
 }
 
-void 
+void
 TabularDataset::
 initialize(const vector<ColumnName>& columnNames, const ML::Lightweight_Hash<ColumnHash, int>& columnIndex)
 {
@@ -442,6 +497,22 @@ TabularDataset::
 getKnownColumnInfo(const ColumnName & columnName) const
 {
     return itl->getKnownColumnInfo(columnName);
+}
+
+void
+TabularDataset::
+commit()
+{
+    return itl->commit();
+}
+
+void
+TabularDataset::
+recordRowItl(const RowName & rowName,
+             const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
+{
+    validateNames(rowName, vals);
+    return itl->recordRow(rowName, vals);
 }
 
 namespace {

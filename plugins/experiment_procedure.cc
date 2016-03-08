@@ -407,7 +407,7 @@ run(const ProcedureRunConfig & run,
         if(runProcConf.outputAccuracyDataset) {
             PolyConfigT<Dataset> outputPC;
             outputPC.id = ML::format("%s_results_%d", runProcConf.experimentName, (int)progress);
-            outputPC.type = "sparse.mutable";
+            outputPC.type = "tabular";
 
             {
                 InProcessRestConnection connection;

@@ -4,7 +4,8 @@ export IPYTHON_NB_LISTEN_ADDR = 127.0.0.1
 export IPYTHON_NB_LISTEN_PORT = 13020
 export IPYTHON_NB_DIR = $(MLDB_DATA_DIR)
 export IPYTHON_DIR = /opt/local/ipython
-export IPYTHON_NB_BASE_URL = /ipy
+export HTTP_BASE_URL :=  # empty. '/' is added in nginx conf
+export IPYTHON_NB_PREFIX = ipy
 export IPYTHON_IMAGES_DIR = /usr/local/lib/python2.7/dist-packages/notebook/static/base/images
 export UWSGI_VALIDATOR_PORT = 9100 
 export CREDENTIALSD_LISTEN_PORT = 13011
@@ -12,7 +13,7 @@ export CREDENTIALSD_LISTEN_ADDR = 127.0.0.1
 export CREDENTIALSD_BASE_URL = /v1/creds
 export MLDB_RUNNER_LISTEN_ADDR = 127.0.0.1
 export MLDB_RUNNER_LISTEN_PORT = 11700
-export MLDB_STATIC_ASSETS_PATH = /opt/local/assets
+export MLDB_PUBLIC_HTML_PATH = /opt/local/public_html
 export MLDB_CONFIGURATION_PATH = file://$(MLDB_DATA_DIR)/.mldb_config
 export MLDB_CREDENTIALS_PATH = file://$(MLDB_DATA_DIR)/.mldb_credentials
 export MLDB_VALIDATOR_DIR = $(MLDB_DATA_DIR)/.mldb_validator
@@ -25,5 +26,4 @@ export MLDB_LOCAL_PLUGINS_PATH = file:///mldb_data/plugins/autoload
 export MLDB_LOGFILE = /var/log/mldb_runner.log
 export MLDB_LOGGER_HTTP_PORT = 13500
 export MLDB_USER = _mldb
-
 

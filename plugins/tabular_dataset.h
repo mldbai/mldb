@@ -433,7 +433,7 @@ struct TabularDatasetChunk {
     std::vector<RowName> rowNames;
     TabularDatasetColumn timestamps;
 
-    void add(int64_t lineNumber, RowName rowName, Date ts, CellValue * vals)
+    void add(RowName rowName, Date ts, CellValue * vals)
     {
         ++numRows;
 
@@ -492,6 +492,11 @@ struct TabularDataset : public Dataset {
                       ssize_t limit) const;
 
     virtual KnownColumn getKnownColumnInfo(const ColumnName & columnName) const;
+
+    /** Commit changes to the database. */
+    virtual void commit();
+
+    void recordRowItl(const RowName & rowName, const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals);
 
 protected:
     // To initialize from a subclass

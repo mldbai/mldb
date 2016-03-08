@@ -85,7 +85,7 @@ struct MldbServer: public ServicePeer, public EventRecorder {
     */
     bool init(std::string configurationPath = "",
               std::string staticFilesPath = "file://mldb/doc",
-              std::string staticDocPath = "file://mldb/container_files/assets/www/doc/builtin",
+              std::string staticDocPath = "file://mldb/container_files/public_html/doc/builtin",
               bool hideInternalEntities = false);
     
     void start();

@@ -1,10 +1,10 @@
 <html>
 <head>
-<link href="/resources/js/tipuesearch/tipuesearch.css" rel="stylesheet">
-<link rel='stylesheet' href='/resources/css/doc.css'>
-<script src="/resources/js/jquery-1.11.2.min.js" type="text/javascript"></script>
-<script src="/resources/js/tipuesearch/tipuesearch_set.js"></script>
-<script src="/resources/js/tipuesearch/tipuesearch.js"></script>
+<link href="{{HTTP_BASE_URL}}/resources/js/tipuesearch/tipuesearch.css" rel="stylesheet">
+<link rel='stylesheet' href='{{HTTP_BASE_URL}}/resources/css/doc.css'>
+<script src="{{HTTP_BASE_URL}}/resources/js/jquery-1.11.2.min.js" type="text/javascript"></script>
+<script src="{{HTTP_BASE_URL}}/resources/js/tipuesearch/tipuesearch_set.js"></script>
+<script src="{{HTTP_BASE_URL}}/resources/js/tipuesearch/tipuesearch.js"></script>
 </head>
 <body style='margin-left: 50px; max-width: 1000px'>
 
@@ -26,20 +26,20 @@
     <div id="hidden" style="display: none;"></div>
 <script>
 $(document).ready(function() {
-    $("#hidden").load("/doc/builtin/toc.md.html a", function(){
+    $("#hidden").load("{{HTTP_BASE_URL}}/doc/builtin/toc.md.html a", function(){
         var blacklist = [
-            "/",
-            "/doc/rest.html",
-            "/doc/builtin/datasets/DatasetConfig.md.html",
-            "/doc/builtin/procedures/ProcedureConfig.md.html",
-            "/doc/builtin/functions/FunctionConfig.md.html",
-            "/doc/builtin/plugins/PluginConfig.md.html",
+            "{{HTTP_BASE_URL}}/",
+            "{{HTTP_BASE_URL}}/doc/rest.html",
+            "{{HTTP_BASE_URL}}/doc/builtin/datasets/DatasetConfig.md.html",
+            "{{HTTP_BASE_URL}}/doc/builtin/procedures/ProcedureConfig.md.html",
+            "{{HTTP_BASE_URL}}/doc/builtin/functions/FunctionConfig.md.html",
+            "{{HTTP_BASE_URL}}/doc/builtin/plugins/PluginConfig.md.html",
         ];
         window.tipuesearch_pages = [];
 
         $("#hidden > a").each(function(){
             var url = $(this).attr("href").split("#")[0];
-            if(url[0] != "/"){ url = "/doc/builtin/"+url; }
+            if(url[0] != "/"){ url = "{{HTTP_BASE_URL}}/doc/builtin/"+url; }
             if(blacklist.indexOf(url) == -1 && 
                window.tipuesearch_pages.indexOf(url) == -1) { 
                 window.tipuesearch_pages.push(url); 

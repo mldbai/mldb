@@ -966,6 +966,11 @@ struct SqlExpression: public std::enable_shared_from_this<SqlExpression> {
     (std::shared_ptr<SqlExpression> lhs,
      std::shared_ptr<SqlExpression> rhs, const std::string & op);
 
+    // Handle infix operator as function invocation
+    static std::shared_ptr<SqlExpression> func
+    (std::shared_ptr<SqlExpression> lhs,
+     std::shared_ptr<SqlExpression> rhs, const std::string & op);
+
     // Handle an unimplemented operator
     static std::shared_ptr<SqlExpression> unimp
     (std::shared_ptr<SqlExpression> lhs,
