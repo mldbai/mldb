@@ -40,10 +40,10 @@ assertEqual(query1.json[0].columns.length, 3);
 
 var query2 = mldb.get('/v1/datasets/test/query', { select: 'x' });
 
-assertEqual(query2.json[0].columns.length, 1);
+assertEqual(query2.json[0].columns.length, 3);
 
-// Note that this is the EARLIEST column only
-assertEqual(query2.json[0].columns[0][2], "2015-01-03T00:00:00Z");
+// Note that we return all tuples of a column for consistency (see MLDB-1370)
+// assertEqual(query2.json, query1.json);
 
 plugin.log(query2);
 

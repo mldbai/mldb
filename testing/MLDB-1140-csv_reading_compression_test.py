@@ -7,16 +7,20 @@
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
 for ext in ['lz4', 'zip']:
-    res = mldb.put('/v1/datasets/score_small_' + ext, {
-        "type": "text.csv.tabular",
-        "params": {
-            "dataFileUrl":
-                "file://mldb/testing/MLDB-1140-small_score.csv." + ext,
-            "headers" : ["uid", "timestamp", "score"],
-            "delimiter" : "\t",
-            "offset" : 1,
-            "named" : "uid"
+    csv_conf = {
+            "type": "import.text",
+            "params": {
+                'dataFileUrl' : 'file://mldb/testing/MLDB-1140-small_score.csv.' + ext,
+                "outputDataset": {
+                    "id": "score_small",
+                },
+                "runOnCreation": True,
+                "headers" : ["uid", "timestamp", "score"],
+                "delimiter" : "\t",
+                "offset" : 1,
+                "named" : "uid"
+            }
         }
-    })
+    mldb.put("/v1/procedures/csv_proc", csv_conf)   
 
 mldb.script.set_return("success")

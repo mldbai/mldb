@@ -33,6 +33,7 @@ class ConcatTest(unittest.TestCase):
         mldb.post(url + '/commit')
 
     def test_default(self):
+        mldb.log("HERE")
         res = mldb.query('SELECT concat({*}) FROM sample')
         self.assertEqual(res[1][1], 'val1A,val1B')
         self.assertEqual(res[2][1], 'val2A,val2C')

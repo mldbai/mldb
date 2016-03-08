@@ -416,8 +416,8 @@ void configMacro(MacroContext & context,
 
         context.writeHtml("<p>A new " + kind + " of this type is created as follows:</p>");
 
-        context.writeHtml("<pre><code class=\"language-javascript\">");
-        context.writeText("PUT /v1/" + kind + "s/<id> \n{\n"+
+        context.writeHtml("<pre><code class=\"language-python\">");
+        context.writeText("mldb.put(\"/v1/" + kind + "s/<id>\", {\n"+
                   "    \"type\": \"" + type + "\"");
 
         if (!typeName.empty()) {
@@ -425,7 +425,7 @@ void configMacro(MacroContext & context,
             renderType(context, typeName, true);
             context.writeText("\n    }");
         }
-        context.writeHtml("\n}</code></pre>");
+        context.writeHtml("\n})</code></pre>");
 
         if (!typeName.empty()) {
             context.writeHtml("<p>with the following key-value definitions for <code>params</code>:</p>");

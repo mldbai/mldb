@@ -20,15 +20,13 @@ TEST_$(1)_RAW_COMMAND := $$(BIN)/mldb_runner -h localhost -p '11700-12700' $$(fo
 
 # Command that is run in the shell.  This takes care of printing the right message
 # out and capturing the output in the right place.
-TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && ((set -o pipefail && $$(TEST_$(1)_SETUP) $$(TEST_$(1)_RAW_COMMAND) >> $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "                 $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && cat $(TESTS)/$(1).failed && echo "                       $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && false))
+TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && ((set -o pipefail && $$(TEST_$(1)_SETUP) /usr/bin/time -v -o $(TESTS)/$(1).timing $$(TEST_$(1)_RAW_COMMAND) >> $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "                 $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && cat $(TESTS)/$(1).failed && echo "                       $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && false))
 
 $(TESTS)/$(1).passed:	$$(BIN)/mldb_runner  $(CWD)/$(1) $(foreach plugin,$(2),mldb_plugin_$(plugin))
-	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "      $(COLOR_VIOLET)[MLDB TEST]$(COLOR_RESET) $(1)")
-	@date -u +%s.%N > $(TESTS)/$(1).timing
+	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "      $(COLOR_VIOLET)[MLDBTEST]$(COLOR_RESET)                     	$(1)")
 	@echo "$$(TEST_$(1)_SETUP) $$(TEST_$(1)_RAW_COMMAND)" > $(TESTS)/$(1).running
 	@$$(TEST_$(1)_COMMAND)
-	@date -u +%s.%N >> $(TESTS)/$(1).timing
-	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "                 $(COLOR_GREEN)$(1) passed $(COLOR_RESET)$(COLOR_DARK_GRAY)[" `cat $(TESTS)/$(1).timing | awk 'FNR == 1 { start = $$$$1; } FNR == 2 { end = $$$$1; } END { printf("%.1fs", 1.0 * end - 1.0 * start) }'` "]$(COLOR_RESET)")
+	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "                 $(COLOR_DARK_GRAY)`awk -f mldb/jml-build/print-timing.awk $(TESTS)/$(1).timing`$(COLOR_RESET)	$(COLOR_GREEN)$(1) passed $(COLOR_RESET)")
 
 # If ARGS
 TEST_$(1)_ARGS := $$(if $$(findstring $(ARGS), $(ARGS)), $(ARGS), )
@@ -101,9 +99,15 @@ MLDB_PLUGIN_$(1)_STATIC_FILES_$(2) := $$(filter-out $$(STATIC_CONTENT_FILTER_PAT
 
 # Tell make that in order to create a file in a plugin static content
 # directory, it just has to copy it from the source
+ifeq ($(MLDB_LINK_PLUGIN_RESOURCES),1)
+$(PLUGINS)/$(1)/$(2)/%:	$(CWD)/$(2)/%
+	@echo "   $(COLOR_VIOLET)[MLDB PLUGIN LN]$(COLOR_RESET)" $(1)/$(2)/$$*
+	ln -sf $(PWD)/$$< $$@
+else
 $(PLUGINS)/$(1)/$(2)/%:	$(CWD)/$(2)/%
 	@echo "   $(COLOR_VIOLET)[MLDB PLUGIN CP]$(COLOR_RESET)" $(1)/$(2)/$$*
 	@install -D $$< $$@
+endif
 
 endef
 

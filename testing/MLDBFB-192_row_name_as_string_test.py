@@ -20,12 +20,18 @@ class RowNameAsStringTest(MldbUnitTest):
             f.write("val1\n")
             f.write("val2\n")
 
-        mldb.put('/v1/datasets/csv', {
-            'type' : 'text.csv.tabular',
-            'params' : {
-                'dataFileUrl' : 'file:///' + tmp_file.name
+        csv_conf = {
+            "type": "import.text",
+            "params": {
+                'dataFileUrl' : 'file:///' + tmp_file.name,
+                "outputDataset": {
+                    "id": "csv",
+                },
+                "runOnCreation": True
             }
-        })
+        }
+        mldb.put("/v1/procedures/csv_proc", csv_conf)
+
 
     def test_flat_result(self):
         res = mldb.query(self.__class__.query)

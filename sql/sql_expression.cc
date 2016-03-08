@@ -122,7 +122,7 @@ constantValue() const
     // This is only OK to do here because by setting isConstant in its metadata,
     // the expression is guaranteeing it will never access its context.
     SqlRowScope context;
-    return operator () (context);
+    return operator () (context, GET_LATEST);
 }
 
 DEFINE_STRUCTURE_DESCRIPTION(BoundSqlExpression);
@@ -206,11 +206,12 @@ BoundFunction
 SqlBindingScope::
 doGetFunction(const Utf8String & tableName,
               const Utf8String & functionName,
-              const std::vector<std::shared_ptr<SqlExpression> > & args)
+              const std::vector<BoundSqlExpression> & args,
+              SqlBindingScope & argScope)
 {
     auto factory = tryLookupFunction(functionName);
     if (factory) {
-        return factory(functionName, args, *this);
+        return factory(functionName, args, argScope);
     }
     
     return {nullptr, nullptr};
@@ -304,7 +305,7 @@ ExternalAggregator tryLookupAggregator(const Utf8String & name)
 BoundAggregator
 SqlBindingScope::
 doGetAggregator(const Utf8String & aggregatorName,
-                const std::vector<std::shared_ptr<SqlExpression> > & args)
+                const std::vector<BoundSqlExpression> & args)
 {
     auto factory = tryLookupAggregator(aggregatorName);
     if (factory) {
@@ -619,6 +620,24 @@ UnboundEntitiesDescription()
              "Functions (unscoped) that are called from the expression");
     addField("params", &UnboundEntities::params,
              "Query parameters that are unbound from the expression");
+}
+
+
+/*****************************************************************************/
+/* SQL ROW SCOPE                                                             */
+/*****************************************************************************/
+
+void
+SqlRowScope::
+throwBadNestingError(const std::type_info & typeRequested,
+                     const std::type_info & typeFound)
+{
+    std::string t_req = ML::demangle(typeRequested.name());
+    std::string t_found = ML::demangle(typeFound.name());
+    throw HttpReturnException(500, "Invalid scope nesting: requested "
+                              + t_req + " got " + t_found,
+                              "typeRequested", t_req,
+                              "typeFound", t_found);
 }
 
 
@@ -1034,35 +1053,38 @@ matchJoinQualification(ML::Parse_Context & context, JoinQualification& joinQuali
 }
 
 const SqlExpression::Operator operators[] = {
-    { "~", true,        SqlExpression::bwise,  1, "Bitwise NOT" },
-    { "*", false,       SqlExpression::arith,  2, "Multiplication" },
-    { "/", false,       SqlExpression::arith,  2, "Division" },
-    { "%", false,       SqlExpression::arith,  2, "Modulo" },
-    { "+", true,        SqlExpression::arith,  3, "Unary positive" },
-    { "-", true,        SqlExpression::arith,  3, "Unary negative" },
-    { "+", false,       SqlExpression::arith,  3, "Addition / Concatenation" },
-    { "-", false,       SqlExpression::arith,  3, "Subtraction" },
-    { "&", false,       SqlExpression::bwise,  3, "Bitwise and" },
-    { "|", false,       SqlExpression::bwise,  3, "Bitwise or" },
-    { "^", false,       SqlExpression::bwise,  3, "Bitwise exclusive or" },
-    { "=", false,       SqlExpression::compar, 4, "Equality" },
-    { ">=", false,      SqlExpression::compar, 4, "Greater or equal to" },
-    { "<=", false,      SqlExpression::compar, 4, "Less or equal to" },
-    { "<>", false,      SqlExpression::compar, 4, "" },
-    { "!=", false,      SqlExpression::compar, 4, "Not equal to" },
-    { "!>", false,      SqlExpression::compar, 4, "Not greater than" },
-    { "!<", false,      SqlExpression::compar, 4, "Not less than" },
-    { ">", false,       SqlExpression::compar, 4, "Greater than" },
-    { "<", false,       SqlExpression::compar, 4, "Less than" },
-    { "NOT", true,      SqlExpression::booln,  5, "Boolean not" },
-    { "AND", false,     SqlExpression::booln,  6, "Boolean and" },
-    { "OR", false,      SqlExpression::booln,  7, "Boolean or" },
-    { "ALL", true,      SqlExpression::unimp,  7, "All true" },
-    { "ANY", true,      SqlExpression::unimp,  7, "Any true" },
-    { "BETWEEN", false, SqlExpression::unimp,  7, "Between operator" },
-    { "IN", true,       SqlExpression::unimp,  7, "In operator" },
-    { "LIKE", true,     SqlExpression::unimp,  7, "Like operator" },
-    { "SOME", true,     SqlExpression::unimp,  7, "Some true" }
+    //symbol, unary, handler, precedence, description
+    { "~", true,         SqlExpression::bwise,  1, "Bitwise NOT" },
+    { "timestamp", true, SqlExpression::func,   1, "Coercion to timestamp" },
+    { "@", false,        SqlExpression::func,   2, "Set timestamp" },
+    { "*", false,        SqlExpression::arith,  2, "Multiplication" },
+    { "/", false,        SqlExpression::arith,  2, "Division" },
+    { "%", false,        SqlExpression::arith,  2, "Modulo" },
+    { "+", true,         SqlExpression::arith,  3, "Unary positive" },
+    { "-", true,         SqlExpression::arith,  3, "Unary negative" },
+    { "+", false,        SqlExpression::arith,  3, "Addition / Concatenation" },
+    { "-", false,        SqlExpression::arith,  3, "Subtraction" },
+    { "&", false,        SqlExpression::bwise,  3, "Bitwise and" },
+    { "|", false,        SqlExpression::bwise,  3, "Bitwise or" },
+    { "^", false,        SqlExpression::bwise,  3, "Bitwise exclusive or" },
+    { "=", false,        SqlExpression::compar, 4, "Equality" },
+    { ">=", false,       SqlExpression::compar, 4, "Greater or equal to" },
+    { "<=", false,       SqlExpression::compar, 4, "Less or equal to" },
+    { "<>", false,       SqlExpression::compar, 4, "" },
+    { "!=", false,       SqlExpression::compar, 4, "Not equal to" },
+    { "!>", false,       SqlExpression::compar, 4, "Not greater than" },
+    { "!<", false,       SqlExpression::compar, 4, "Not less than" },
+    { ">", false,        SqlExpression::compar, 4, "Greater than" },
+    { "<", false,        SqlExpression::compar, 4, "Less than" },
+    { "NOT", true,       SqlExpression::booln,  5, "Boolean not" },
+    { "AND", false,      SqlExpression::booln,  6, "Boolean and" },
+    { "OR", false,       SqlExpression::booln,  7, "Boolean or" },
+    { "ALL", true,       SqlExpression::unimp,  7, "All true" },
+    { "ANY", true,       SqlExpression::unimp,  7, "Any true" },
+    { "BETWEEN", false,  SqlExpression::unimp,  7, "Between operator" },
+    { "IN", true,        SqlExpression::unimp,  7, "In operator" },
+    { "LIKE", true,      SqlExpression::unimp,  7, "Like operator" },
+    { "SOME", true,      SqlExpression::unimp,  7, "Some true" }
 };
 
 } // file scope
@@ -1112,7 +1134,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
             if (!op.unary)
                 continue;
             if (op.precedence > currentPrecedence) {
-                /* Will need to be bound outside our expression, since the precence is wrong. */
+                /* Will need to be bound outside our expression, since the precedence is wrong. */
                 break;
             }
             if (matchOperator(context, op.token)) {
@@ -1256,7 +1278,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
                 // Function call.  Get the arguments
                 skip_whitespace(context);
 
-                bool checkGlobe = identifier == "count";
+                bool checkGlobe = (identifier == "count" || identifier == "vertical_count");
                 
                 std::vector<std::shared_ptr<SqlExpression> > args;                    
 
@@ -1533,7 +1555,7 @@ constantValue() const
     SqlExpressionConstantScope scope;
     auto bound = this->bind(scope);
     SqlRowScope rowScope = scope.getRowScope();
-    return bound(rowScope);
+    return bound(rowScope, GET_LATEST);
 }
 
 std::map<ScopedName, UnboundVariable>
@@ -1726,6 +1748,20 @@ booln(std::shared_ptr<SqlExpression> lhs,
 
 std::shared_ptr<SqlExpression>
 SqlExpression::
+func(std::shared_ptr<SqlExpression> lhs,
+      std::shared_ptr<SqlExpression> rhs,
+      const std::string & op)
+{
+    static std::map<std::string, Utf8String> funcMap = {{"@", "at"}, {"timestamp", "to_timestamp"}};
+    std::vector<std::shared_ptr<SqlExpression> > args;
+    if (lhs)
+        args.push_back(lhs); // binary operator
+    args.push_back(rhs);
+    return std::make_shared<FunctionCallWrapper>("", funcMap[op], args, nullptr);
+}
+
+std::shared_ptr<SqlExpression>
+SqlExpression::
 unimp(std::shared_ptr<SqlExpression> lhs,
       std::shared_ptr<SqlExpression> rhs,
       const std::string & op)
@@ -1740,9 +1776,9 @@ findAggregators() const
     std::vector<std::shared_ptr<SqlExpression> > output;
     std::vector<std::shared_ptr<SqlExpression> > children = getChildren();
 
-    int index = 0;
-    while(index < children.size()) {
-        auto child = children[index];
+    for (auto iter = children.begin(); iter != children.end(); ++iter)
+    {
+        auto child = *iter;
 
         bool foundAggregator = false;
         if (child->getType() == "function") {
@@ -1763,11 +1799,12 @@ findAggregators() const
 
         //we dont look for aggregators in aggregator - its not legal
         if (!foundAggregator) {
+            //order MUST be preserved
             std::vector<std::shared_ptr<SqlExpression> > subchildren = child->getChildren();
-            children.insert(children.end(), subchildren.begin(), subchildren.end());
+            int pos = iter - children.begin();
+            children.insert(iter+1, subchildren.begin(), subchildren.end());
+            iter = children.begin() + pos;
         }
-
-        ++index;
     }
 
     return std::move(output);
@@ -2313,7 +2350,7 @@ apply(const SqlRowScope & context) const
 {
     std::vector<ExpressionValue> sortFields(clauses.size());
     for (unsigned i = 0;  i < clauses.size();  ++i) {
-        sortFields[i] = std::move(clauses[i].expr(context));
+        sortFields[i] = std::move(clauses[i].expr(context, GET_LATEST));
     }
     return sortFields;
 }
@@ -3371,7 +3408,8 @@ bind(SqlBindingScope & scope) const
 
     // We need to bind the when in a special scope, that also knows about
     // the tuple we are filtering.
-    SqlExpressionWhenScope & whenScope = static_cast<SqlExpressionWhenScope &>(scope);
+    SqlExpressionWhenScope & whenScope
+        = static_cast<SqlExpressionWhenScope &>(scope);
 
     // Bind it in
     auto boundWhen = when->bind(whenScope);
@@ -3383,7 +3421,7 @@ bind(SqlBindingScope & scope) const
                               const SqlRowScope & rowScope)
             {
                 auto tupleScope = SqlExpressionWhenScope::getRowScope(rowScope, Date());
-                if (!boundWhen(tupleScope).isTrue()) {
+                if (!boundWhen(tupleScope, GET_LATEST).isTrue()) {
                     row.columns.clear();
                 }
             };
@@ -3411,7 +3449,7 @@ bind(SqlBindingScope & scope) const
                     = SqlExpressionWhenScope
                     ::getRowScope(rowScope, std::get<2>(col));
 
-                auto whenExpressionValue = boundWhen(tupleScope);
+                auto whenExpressionValue = boundWhen(tupleScope, GET_LATEST);
                 bool keepThisCol = whenExpressionValue.isTrue();
                 keep.emplace_back(keepThisCol);
                 numOutput += keepThisCol;

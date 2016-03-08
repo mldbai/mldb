@@ -97,11 +97,9 @@ $$(if $(trace),$$(warning called python_test "$(1)" "$(2)" "$(3)" "$(4)"))
 TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && $(PYFLAKES) $(CWD)/$(1).py && ((set -o pipefail && PYTHONPATH=$(RUN_PYTHONPATH) $(PYTHON) $(CWD)/$(1).py > $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "                 $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && cat $(TESTS)/$(1).failed && false))
 
 $(TESTS)/$(1).passed:	$(TESTS)/.dir_exists $(CWD)/$(1).py $$(foreach lib,$(2),$$(PYTHON_$$(lib)_DEPS)) $$(foreach pymod,$(2),$(TMPBIN)/$$(pymod)_pymod)
-	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "      $(COLOR_VIOLET)[TESTCASE]$(COLOR_RESET) $(1)")
-	@date -u +%s.%N > $(TESTS)/$(1).timing
-	@$$(TEST_$(1)_COMMAND)
-	@date -u +%s.%N >> $(TESTS)/$(1).timing
-	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "                 $(COLOR_GREEN)$(1) passed $(COLOR_RESET)$(COLOR_DARK_GRAY)[" `cat $(TESTS)/$(1).timing | awk 'FNR == 1 { start = $$$$1; } FNR == 2 { end = $$$$1; } END { printf("%.1fs", 1.0 * end - 1.0 * start) }'` "]$(COLOR_RESET)")
+	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "      $(COLOR_VIOLET)[TESTCASE]$(COLOR_RESET)			$(1)")
+	@/usr/bin/time -v -o $$@.timing $$(TEST_$(1)_COMMAND)
+	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "                 $(COLOR_DARK_GRAY)`awk -f mldb/jml-build/print-timing.awk $$@.timing`$(COLOR_RESET)	$(COLOR_GREEN)$(1) passed $(COLOR_RESET)")
 
 $(1):	$(CWD)/$(1).py $$(foreach lib,$(2),$$(PYTHON_$$(lib)_DEPS)) $$(foreach pymod,$(2),$(TMPBIN)/$$(pymod)_pymod)
 	@$(PYFLAKES) $(CWD)/$(1).py
@@ -122,7 +120,7 @@ ifneq ($(PREMAKE),1)
 $$(if $(trace),$$(warning called install_python_file "$(1)" "$(2)"))
 
 $(PYTHON_PURE_LIB_PATH)/$(2)/$(1):	$(CWD)/$(1) $(PYTHON_PURE_LIB_PATH)/$(2)/.dir_exists
-	$$(if $(verbose_build),@echo "cp $$< $$@",@echo " $(COLOR_YELLOW)[PYTHON_MODULE]$(COLOR_RESET) $(2)/$(1)")
+	$$(if $(verbose_build),@echo "cp $$< $$@",@echo " $(COLOR_YELLOW)[PYTHON_MODULE]$(COLOR_RESET)			$(2)/$(1)")
 	@$(PYFLAKES) $$<
 	@cp $$< $$@~
 	@mv $$@~ $$@

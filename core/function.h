@@ -284,8 +284,8 @@ struct FunctionValueInfo {
         return valueInfo;
     }
 
-    /** These two named values are the same.  Merge them together and make sure that
-        they are compatible.
+    /** These two named values are the same.  Merge them together and make
+        sure that they are compatible.
     */
     void merge(const FunctionValueInfo & other);
 
@@ -321,8 +321,8 @@ struct FunctionValues {
     void addEmbeddingValue(const std::string & name,
                          ssize_t numDimensions);
 
-    /** Add a named value that has a row value (key/value/timestamp tuples).  This
-        one is temporary and simply says that there is an open schema and
+    /** Add a named value that has a row value (key/value/timestamp tuples).
+        This one is temporary and simply says that there is an open schema and
         so all columns are known.
     */
     void addRowValue(const std::string & name);
@@ -353,8 +353,9 @@ struct FunctionValues {
     /** Check that this value is compatible as input to the other value.  Will
         throw an exception if not.
     */
-    void checkValueCompatibleAsInputTo(const Utf8String & otherName,
-                                     const FunctionValueInfo & otherValueInfo) const;
+    void checkValueCompatibleAsInputTo
+        (const Utf8String & otherName,
+         const FunctionValueInfo & otherValueInfo) const;
 
     /** Check that the entire set of values is compatible as an input to the
         function with the given input values requirements.
@@ -425,7 +426,9 @@ struct FunctionApplier {
 /* FUNCTION                                                                  */
 /*****************************************************************************/
 
-/** This represents a function.
+/** This represents a function: something that is called in real-time as part
+    of a query.  It models an SQL function or a sequence of prediction steps
+    that make up a deployed model.
 
     To use a function, you need to:
 
@@ -468,9 +471,9 @@ struct Function: public MldbEntity {
     bind(SqlBindingScope & outerContext,
          const FunctionValues & input) const;
 
-    /** Return the input and the output expected by the function.  Every function
-        needs to be able to say what it expects; there is no such thing as
-        a function that will take "whatever comes in".
+    /** Return the input and the output expected by the function.  Every
+        function needs to be able to say what it expects; there is no
+        such thing as a function that will take "whatever comes in".
     */
     virtual FunctionInfo getFunctionInfo() const = 0;
 
@@ -489,13 +492,23 @@ struct Function: public MldbEntity {
     FunctionOutput
     call(const std::map<Utf8String, ExpressionValue> & input) const;
 
+    /** Method to overwrite to handle a request.  By default, the function
+        will return that it can't handle any requests.  Used to expose
+        function-specific functionality.
+    */
+    virtual RestRequestMatchResult
+    handleRequest(RestConnection & connection,
+                  const RestRequest & request,
+                  RestRequestParsingContext & context) const;
+
 protected:
     /** Used by the FunctionApplier to actually apply the function.  It allows
         access to the information put in the applier by the bind()
         method.
     */
 
-    virtual FunctionOutput apply(const FunctionApplier & applier, const FunctionContext & context) const = 0;
+    virtual FunctionOutput apply(const FunctionApplier & applier,
+                                 const FunctionContext & context) const = 0;
 
     friend class FunctionApplier;
 };

@@ -395,7 +395,7 @@ Dataset::
 getTimestampRange() const
 {
     static const SelectExpression select
-        = SelectExpression::parseList("min(min_timestamp({*})) as earliest, max(max_timestamp({*})) as latest");
+        = SelectExpression::parseList("min(earliest_timestamp({*})) as earliest, max(latest_timestamp({*})) as latest");
 
     std::vector<MatrixNamedRow> res
         = queryStructured(select,
@@ -924,7 +924,7 @@ generateRowsWhere(const SqlBindingScope & scope,
                                 {
                                     SqlExpressionParamScope::RowScope rowScope(params);
                                     ExpressionValue evaluatedSet
-                                        = boundSet(rowScope);
+                                        = boundSet(rowScope, GET_LATEST);
 
                                     std::vector<RowName> filtered;
 
@@ -1173,7 +1173,7 @@ generateRowsWhere(const SqlBindingScope & scope,
 
                         auto rowScope = dsScope.getRowContext(row, &params);
                         
-                        bool keep = whereBound(rowScope).isTrue();
+                        bool keep = whereBound(rowScope, GET_LATEST).isTrue();
                         
                         if (keep)
                             accum.get().push_back(r);
@@ -1322,7 +1322,7 @@ queryBasic(const SqlBindingScope & scope,
                         }
                         else {
                             ExpressionValue selectOutput
-                                = boundSelect(rowScope);
+                            = boundSelect(rowScope, GET_LATEST);
                             
                             selectOutput.mergeToRowDestructive(outputRow.columns);
 

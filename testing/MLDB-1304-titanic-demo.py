@@ -2,14 +2,17 @@
 
 import json
 
-
-dataset = mldb.create_dataset({ 
-    "id": "titanic_raw",
-    "type": "text.csv.tabular",
-    "params": { 
-        "dataFileUrl": "https://raw.githubusercontent.com/datacratic/mldb-pytanic-plugin/master/titanic_train.csv" 
-    } 
-})
+csv_conf = {
+    "type": "import.text",
+    "params": {
+        'dataFileUrl' : "https://raw.githubusercontent.com/datacratic/mldb-pytanic-plugin/master/titanic_train.csv",
+        "outputDataset": {
+            "id": "titanic_raw",
+        },
+        "runOnCreation" : True,
+    }
+}
+mldb.perform("PUT", "/v1/procedures/csv_proc", [], csv_conf) 
 
 result = mldb.perform("PUT", "/v1/procedures/titanic_train_scorer", [], {
     "type": "classifier.experiment",

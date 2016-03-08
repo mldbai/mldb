@@ -62,21 +62,26 @@ function runTest(testNumber, buckets, goldStandard) {
     assertEqual(res['responseCode'], 200);
     checkResults(res, goldStandard);
 
-    res = mldb.get("/v1/query", {q: "SELECT *, when({*}) FROM " + datasetName,
+    res = mldb.get("/v1/query", {q: "SELECT *, latest_timestamp({*}) FROM " + datasetName,
                                  format: "full"});
 }
 
 // Create base dataset --------------------------------------------------------
-mldb.createDataset({
-    type: 'text.csv.tabular',
-    id: 'rNamedScores',
+csv_conf = {
+    type: "import.text",
     params: {
-        dataFileUrl: 'file://mldb/testing/MLDB-1043-bucketize-data.csv',
+        dataFileUrl : "file://mldb/testing/MLDB-1043-bucketize-data.csv",
+        outputDataset: {
+            id: "rNamedScores",
+        },
+        runOnCreation: true,
         encoding: 'latin1',
         named: 'uid',
         select: '* excluding (uid)'
     }
-});
+}
+
+var res = mldb.put("/v1/procedures/csv_proc", csv_conf)
 
 res = mldb.get("/v1/datasets/rNamedScores");
 assertEqual(res['json']['status']['rowCount'], 7);

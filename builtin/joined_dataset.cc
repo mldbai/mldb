@@ -195,7 +195,7 @@ struct JoinedDataset::Itl
         auto boundConstant = condition.constantWhere->bind(context);
         SqlRowScope scope;
         ExpressionValue storage;
-        if (!boundConstant(scope, storage).isTrue())
+        if (!boundConstant(scope, storage, GET_LATEST).isTrue())
             return;
 
         if (!condition.crossWhere || condition.crossWhere->isConstant()) {
@@ -875,10 +875,10 @@ overrideFunction(const Utf8String & tableName,
 
         if (tableSide != JoinedDataset::Itl::JOIN_SIDE_MAX)
         {
-            return {[&, tableSide] (const std::vector<BoundSqlExpression> & args,
+            return {[&, tableSide] (const std::vector<ExpressionValue> & args,
                      const SqlRowScope & context)
                 { 
-                    auto & row = static_cast<const SqlExpressionDatasetContext::RowContext &>(context);
+                    auto & row = context.as<SqlExpressionDatasetContext::RowContext>();
                     return ExpressionValue(itl->getSubRowName(row.row.rowName, tableSide).toUtf8String(), Date::negativeInfinity());
                 },
                 std::make_shared<Utf8StringValueInfo>()
@@ -892,10 +892,10 @@ overrideFunction(const Utf8String & tableName,
 
         if (tableSide != JoinedDataset::Itl::JOIN_SIDE_MAX)
         {
-            return {[&, tableName, tableSide] (const std::vector<BoundSqlExpression> & args,
+            return {[&, tableName, tableSide] (const std::vector<ExpressionValue> & args,
                      const SqlRowScope & context)
                 {
-                    auto & row = static_cast<const SqlExpressionDatasetContext::RowContext &>(context);
+                    auto & row = context.as<SqlExpressionDatasetContext::RowContext>();
                     return ExpressionValue(itl->getSubRowNameFromChildTable(tableName, row.row.rowName, tableSide).toUtf8String(), Date::negativeInfinity());
                 },
                 std::make_shared<Utf8StringValueInfo>()

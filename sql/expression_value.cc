@@ -2289,70 +2289,70 @@ forEachColumnDestructiveT(Fn && onSubexpression) const
                               "type", (int)type_);
 }
 
+// Remove any duplicated columns according to the filter
 ExpressionValue::Row
 ExpressionValue::
-getFiltered(const VariableFilter & filter /*= GET_LATEST*/) const
+getFiltered(const VariableFilter & filter) const
 {
     ExcAssertEqual(type_, ROW);
 
     if (filter == GET_ALL)
         return *row_;
-
+    
     std::function<bool(const ExpressionValue&, const ExpressionValue&)> filterFn = [](const ExpressionValue& left, const ExpressionValue& right){return false;};
-
-     switch (filter) {
-        case GET_ANY_ONE:
-            //default is fine
-            break;
-        case GET_EARLIEST:
-            filterFn = [](const ExpressionValue& left, const ExpressionValue& right){
-                return right.isEarlier(left.getEffectiveTimestamp(), left);
-            };
-            break;
-        case GET_LATEST:
-            filterFn = [](const ExpressionValue& left, const ExpressionValue& right){
-               return right.isLater(right.getEffectiveTimestamp(), left);
-            };
-            break;
-        case GET_ALL: //optimized above
-        default:
-            throw HttpReturnException(500, "Unexpected filter");
-     }
-
-    //Remove any duplicated columns according to the filter
-    std::unordered_map<ColumnName, ExpressionValue> values;
+    
+    switch (filter) {
+    case GET_ANY_ONE:
+        //default is fine
+        break;
+    case GET_EARLIEST:
+        filterFn = [](const ExpressionValue& left, const ExpressionValue& right){
+            return right.isEarlier(left.getEffectiveTimestamp(), left);
+        };
+        break;
+    case GET_LATEST:
+        filterFn = [](const ExpressionValue& left, const ExpressionValue& right){
+            return right.isLater(left.getEffectiveTimestamp(), left);
+        };
+        break;
+    case GET_ALL: //optimized above
+     default:
+         throw HttpReturnException(500, "Unexpected filter");
+    }
+    
+    // keep a list of indices so that we can construct the 
+    // filtered row in the same 'natural' order
+    std::unordered_map<ColumnName, size_t> indices;
+    size_t index = 0;
     for (auto & col: *row_) {
         Coord columnName = std::get<0>(col);
-        auto iter = values.find(columnName);
-        if (iter != values.end()) {
+        auto iter = indices.find(columnName);
+        if (iter != indices.end()) {
             const ExpressionValue& val = std::get<1>(col);
-            if (filterFn(iter->second, val)) {
-                iter->second = val;
+            if (filterFn(std::get<1>(row_->at(iter->second)), val)) {
+                iter->second = index;
             }
         }
         else {
-            values.insert({columnName, std::get<1>(col)});
-        }
+            indices.insert({columnName, index});
+         }
+        index++;
+    }
+    
+    //re-flatten to row
+    std::vector<char> keeps(row_->size(), false);  // not bool to avoid bitmap
+    for (auto & index : indices)
+        keeps[index.second] = true;
 
-        ExpressionValue val = std::get<1>(col);
+    Row output;  
+    index = 0; 
+    for (auto & keep : keeps) {
+        if (keep)
+            output.emplace_back(row_->at(index));
+        index++;
     }
 
-    //re-flatten to row
-    Row output;
-    for (auto & c : values)
-        output.emplace_back(std::move(c.first), std::move(c.second));
-
-    return output;
-
-}
-
-void
-ExpressionValue::
-filterRow(const VariableFilter & filter)
-{
-    Row row = getFiltered(filter);
-    row_.reset(new Row(std::move(row)));
-
+    return output; 
 }
 
 bool
@@ -3235,7 +3235,6 @@ doSearchRow(const std::vector<std::tuple<Key, CellValue, Date> > & columns,
         break;
     }
 
-    case GET_ALL:
     case GET_LATEST: {
         Date foundDate;
 
@@ -3254,22 +3253,25 @@ doSearchRow(const std::vector<std::tuple<Key, CellValue, Date> > & columns,
         }
         break;
     }
-#if 0       
+
     case GET_ALL: {
         RowValue row;
-
         for (unsigned i = 0;  i < columns.size();  ++i) {
             const auto & c = columns[i];
             
             if (std::get<0>(c) == key) {
+                index = i;
                 row.push_back(c);
             }
         }
         
-        return &(storage = std::move(ExpressionValue(std::move(row))));
-        throw HttpReturnException(500, "GET_ALL not implemented for datasets");
+        // TODO - we may want to revisit this
+        // when only one value is found, return a scalar not a row
+        if (row.size() > 1)
+            return &(storage = std::move(ExpressionValue(std::move(row))));
+        break;
     }
-#endif
+
     default:
         throw HttpReturnException(500, "Unknown GET_ALL not implemented for datasets");
     }
@@ -3346,7 +3348,7 @@ doSearchRow(const std::vector<std::tuple<Key, ExpressionValue> > & columns,
         }
         break;
     }
-    case GET_ALL:
+
     case GET_LATEST: {
         Date foundDate;
 
@@ -3365,13 +3367,13 @@ doSearchRow(const std::vector<std::tuple<Key, ExpressionValue> > & columns,
 
         break;
     }
-#if 0
+
    case GET_ALL: {
         RowValue row;
 
         throw HttpReturnException(500, "GET_ALL not implemented for datasets");
     }
-#endif
+
     default:
         throw HttpReturnException(500, "Unknown GET_ALL not implemented for datasets");
     }

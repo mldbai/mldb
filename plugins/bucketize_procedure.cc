@@ -130,7 +130,7 @@ run(const ProcedureRunConfig & run,
     // clause.  First, we need to calculate each of the order by clauses
     for (auto & c: runProcConf.inputData.stm->orderBy.clauses) {
         auto whenClause = std::make_shared<FunctionCallWrapper>
-            ("", "when", vector<shared_ptr<SqlExpression> >(1, c.first),
+            ("", "latest_timestamp", vector<shared_ptr<SqlExpression> >(1, c.first),
              nullptr /* extract */);
         calc.emplace_back(whenClause);
     }

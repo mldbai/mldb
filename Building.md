@@ -1,15 +1,18 @@
-# Building and running a development Docker image
+# Building and running the MLDB Community Edition Docker image
 
 These instructions are designed for a vanilla installation of **Ubuntu 14.04** and its default compiler, **GCC 4.8**.
 
-It will take around 45 minutes to run through these steps on an Amazon EC2 r3.8xlarge machine (32 cores, 244GB of RAM) and longer on smaller machines. However, you can get up and running in 5 minutes by [using a pre-built Docker images of the MLDB Enterprise Edition](http://mldb.ai/doc/#builtin/Running.md.html) for free with a trial license.
+It will take around 45 minutes to run through these steps on an Amazon EC2 r3.8xlarge machine (32 cores, 244GB of RAM) and longer on smaller machines. However, you can get up and running in 5 minutes by [using a pre-built Docker images of the MLDB Enterprise Edition](http://mldb.ai/doc/#builtin/Running.md.html) for free with a trial license, which can be obtained instantly by filling out [this form](http://mldb.ai/licensing.html).
 
 ## System dependencies
 
 For C++ code to compile, the following system packages need to be installed:
 
 ```bash
-apt-get install -y git valgrind build-essential libboost-all-dev libgoogle-perftools-dev liblzma-dev libcrypto++-dev libblas-dev liblapack-dev python-virtualenv libcurl4-openssl-dev libssh2-1-dev libpython-dev libgit2-dev libv8-dev libarchive-dev
+apt-get install -y git valgrind build-essential libboost-all-dev \
+libgoogle-perftools-dev liblzma-dev libcrypto++-dev libblas-dev \
+liblapack-dev python-virtualenv libcurl4-openssl-dev libssh2-1-dev \
+libpython-dev libgit2-dev libv8-dev libarchive-dev
 ```
 
 For Python modules to install correctly:
@@ -22,9 +25,12 @@ To build and run the Docker image, you will need to install Docker: https://docs
 
 ## Cloning, compiling and test
 
+**Note** the `master` branch is bleeding edge and the demos or documentation may be slightly out of sync with the code at any given point in time. To avoid this, it is recommended to build the Community Edition from [the latest tagged release](https://github.com/mldbai/mldb/releases/latest).
+
 ```bash
 git clone git@github.com:mldbai/mldb.git
 cd mldb
+# git checkout < tag from https://github.com/mldbai/mldb/releases/latest >
 git submodule update --init --recursive
 make dependencies
 make -k compile

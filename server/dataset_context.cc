@@ -36,9 +36,11 @@ BoundFunction
 SqlExpressionMldbContext::
 doGetFunction(const Utf8String & tableName,
               const Utf8String & functionName,
-              const std::vector<std::shared_ptr<SqlExpression> > & args)
+              const std::vector<BoundSqlExpression> & args,
+              SqlBindingScope & argScope)
 {
-    return SqlBindingScope::doGetFunction(tableName, functionName, args);
+    return SqlBindingScope::doGetFunction(tableName, functionName, args,
+                                          argScope);
 }
 
 std::shared_ptr<Function>
@@ -297,7 +299,7 @@ doGetVariable(const Utf8String & tableName,
                  ExpressionValue & storage,
                  const VariableFilter & filter) -> const ExpressionValue &
             {
-                auto & row = static_cast<const RowContext &>(context);
+                auto & row = context.as<RowContext>();
 
                 const ExpressionValue * fromOutput
                     = searchRow(row.row.columns, columnName, filter, storage);
@@ -313,19 +315,20 @@ BoundFunction
 SqlExpressionDatasetContext::
 doGetFunction(const Utf8String & tableName,
               const Utf8String & functionName,
-              const std::vector<std::shared_ptr<SqlExpression> > & args)
+              const std::vector<BoundSqlExpression> & args,
+              SqlBindingScope & argScope)
 {
     // First, let the dataset either override or implement the function
     // itself.
-    auto fnoverride = dataset.overrideFunction(tableName, functionName, *this);
+    auto fnoverride = dataset.overrideFunction(tableName, functionName, argScope);
     if (fnoverride)
         return fnoverride;
 
     if (functionName == "rowName") {
-        return {[=] (const std::vector<BoundSqlExpression> & args,
+        return {[=] (const std::vector<ExpressionValue> & args,
                      const SqlRowScope & context)
                 {
-                    auto & row = static_cast<const RowContext &>(context);
+                    auto & row = context.as<RowContext>();
                     return ExpressionValue(row.row.rowName.toUtf8String(),
                                            Date::negativeInfinity());
                 },
@@ -334,10 +337,10 @@ doGetFunction(const Utf8String & tableName,
     }
 
     if (functionName == "rowHash") {
-        return {[=] (const std::vector<BoundSqlExpression> & args,
+        return {[=] (const std::vector<ExpressionValue> & args,
                      const SqlRowScope & context)
                 {
-                    auto & row = static_cast<const RowContext &>(context);
+                    auto & row = context.as<RowContext>();
                     return ExpressionValue(row.row.rowHash,
                                            Date::negativeInfinity());
                 },
@@ -349,10 +352,10 @@ doGetFunction(const Utf8String & tableName,
        in the current row.
     */
     if (functionName == "columnCount") {
-        return {[=] (const std::vector<BoundSqlExpression> & args,
+        return {[=] (const std::vector<ExpressionValue> & args,
                      const SqlRowScope & context)
                 {
-                    auto & row = static_cast<const RowContext &>(context);
+                    auto & row = context.as<RowContext>();
                     ML::Lightweight_Hash_Set<ColumnHash> columns;
                     Date ts = Date::negativeInfinity();
                     
@@ -366,7 +369,7 @@ doGetFunction(const Utf8String & tableName,
                 std::make_shared<Uint64ValueInfo>()};
     }
 
-    return SqlBindingScope::doGetFunction(tableName, functionName, args);
+    return SqlBindingScope::doGetFunction(tableName, functionName, args, argScope);
 }
 
 VariableGetter
@@ -379,7 +382,7 @@ doGetBoundParameter(const Utf8String & paramName)
             {
                 ExcAssert(canIgnoreIfExactlyOneValue(filter));
 
-                auto & row = static_cast<const RowContext &>(context);
+                auto & row = context.as<RowContext>();
                 if (!row.params || !*row.params)
                     throw HttpReturnException(400, "Bound parameters requested but none passed");
                 return storage = std::move((*row.params)(paramName));
@@ -455,7 +458,7 @@ doGetAllColumns(const Utf8String & tableName,
 
         exec = [=] (const SqlRowScope & context) -> ExpressionValue
             {
-                auto & row = static_cast<const RowContext &>(context);
+                auto & row = context.as<RowContext>();
 
                 // TODO: if one day we are able to prove that this is
                 // the only expression that touches the row, we could
@@ -467,7 +470,7 @@ doGetAllColumns(const Utf8String & tableName,
         // Some are excluded or renamed; we need to go one by one
         exec = [=] (const SqlRowScope & context)
             {
-                auto & row = static_cast<const RowContext &>(context);
+                auto & row = context.as<RowContext>();
 
                 RowValue result;
 
@@ -577,7 +580,7 @@ doGetVariable(const Utf8String & tableName, const Utf8String & variableName)
                  ExpressionValue & storage,
                  const VariableFilter & filter) -> const ExpressionValue &
             {
-                auto & row = static_cast<const RowContext &>(context);
+                auto & row = context.as<RowContext>();
                 
                 const ExpressionValue * fromOutput
                     = searchRow(row.output.columns, columnName, filter, storage);

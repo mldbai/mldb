@@ -405,7 +405,7 @@ irls(const distribution<Float> & y, const boost::multi_array<Float, 2> & x,
         //                << " tolerance " << tolerence << endl;
         //}
     }
-    
+
     return b;
 }
 

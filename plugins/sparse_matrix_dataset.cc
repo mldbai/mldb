@@ -18,6 +18,7 @@
 #include "mldb/arch/rcu_protected.h"
 #include "mldb/arch/timers.h"
 #include "mldb/base/parallel.h"
+#include "mldb/base/thread_pool.h"
 
 
 using namespace std;
@@ -759,7 +760,7 @@ struct SparseMatrixDataset::Itl
         auto trans = getReadTransaction();
         Json::Value result;
         result["rowCount"] = trans->matrix->rowCount();
-        result["columnCount"] = trans->matrix->rowCount();
+        result["columnCount"] = trans->inverse->rowCount();
         result["valueCount"] = trans->values->rowCount();
         return result;
     }

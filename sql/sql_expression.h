@@ -184,14 +184,14 @@ struct BoundSqlExpression {
     const ExpressionValue &
     operator () (const SqlRowScope & context,
                  ExpressionValue & storage,
-                 const VariableFilter & filter = GET_ALL) const
+                 const VariableFilter & filter /*= GET_ALL*/) const
     {
         return exec(context, storage, filter);
     }
 
     ExpressionValue
     operator () (const SqlRowScope & context,
-                 const VariableFilter & filter = GET_ALL) const
+                 const VariableFilter & filter /*= GET_ALL*/) const
     {
         ExpressionValue storage;
         const ExpressionValue & res = exec(context, storage, filter);
@@ -301,44 +301,28 @@ struct VariableGetter {
 */
 
 struct BoundFunction {
-    typedef std::function<ExpressionValue (const std::vector<BoundSqlExpression> &,
+    typedef std::function<ExpressionValue (const std::vector<ExpressionValue> &,
                           const SqlRowScope & context) > Exec;
 
     BoundFunction()
+        : filter(GET_LATEST)
     {
     }
 
     BoundFunction(Exec exec,
                   std::shared_ptr<ExpressionValueInfo> resultInfo)
         : exec(std::move(exec)),
-          resultInfo(std::move(resultInfo))
+          resultInfo(std::move(resultInfo)),
+          filter(GET_LATEST)
     {
     }
 
-    operator bool () const { return !!exec; }
-
-    Exec exec;
-    std::shared_ptr<ExpressionValueInfo> resultInfo;
-
-    ExpressionValue operator () (const std::vector<BoundSqlExpression> & args,
-                                 const SqlRowScope & context) const
-    {
-        return exec(args, context);
-    }
-};
-
-struct ValuedBoundFunction {
-    typedef std::function<ExpressionValue (const std::vector<ExpressionValue> &,
-                          const SqlRowScope & context) > Exec;
-
-    ValuedBoundFunction()
-    {
-    }
-
-    ValuedBoundFunction(Exec exec,
-                        std::shared_ptr<ExpressionValueInfo> resultInfo)
+    BoundFunction(Exec exec,
+                  std::shared_ptr<ExpressionValueInfo> resultInfo,
+                  VariableFilter filter)
         : exec(std::move(exec)),
-          resultInfo(std::move(resultInfo))
+          resultInfo(std::move(resultInfo)),
+          filter(filter)
     {
     }
 
@@ -346,6 +330,7 @@ struct ValuedBoundFunction {
 
     Exec exec;
     std::shared_ptr<ExpressionValueInfo> resultInfo;
+    VariableFilter filter; // allows function to filter variable as they need
 
     ExpressionValue operator () (const std::vector<ExpressionValue> & args,
                                  const SqlRowScope & context) const
@@ -363,7 +348,7 @@ struct ValuedBoundFunction {
     version of the function.
 */
 typedef std::function<BoundFunction(const Utf8String &,
-                                    const std::vector<std::shared_ptr<SqlExpression> > & args,
+                                    const std::vector<BoundSqlExpression> & args,
                                     SqlBindingScope & context)>
     ExternalFunction;
 
@@ -431,7 +416,7 @@ struct BoundAggregator {
     version of the aggregator.
 */
 typedef std::function<BoundAggregator(const Utf8String &,
-                                      const std::vector<std::shared_ptr<SqlExpression> > & args,
+                                      const std::vector<BoundSqlExpression> & args,
                                       SqlBindingScope & context)>
 ExternalAggregator;
 
@@ -515,9 +500,33 @@ struct SqlBindingScope {
 
     virtual ~SqlBindingScope();
 
+    /** Return a bound function.  This returns a BoundFunction object, which
+        will apply the given function (optionally in the scope of the given
+        table) to the passed arguments when called.
+
+        The tableName parameter is optional (empty if unused), and gives the
+        name of the table that the function was found in; for example
+        t1.rowName() will have "t1" in tableName.
+
+        The functionName parameter gives the name of the function to be
+        found and bound.
+
+        The args array gives a list of argument expressions which will be
+        evaluated when passed to the bound function.  These can be used for
+        static analysis of the input and output of the function.  They
+        must be bound in the argScope, not the current scope, as otherwise
+        references from inner scopes may not be resolveable.
+
+        The argScope parameter is the scope in which the arguments are
+        bound.  This is not necessarily the same as the scope in which
+        the function is discovered: whenever the function is found in an
+        outer scope but the arguments evaluated in an inner scope, then
+        argScope will not be the same as *this.
+    */
     virtual BoundFunction doGetFunction(const Utf8String & tableName,
                                         const Utf8String & functionName,
-                                        const std::vector<std::shared_ptr<SqlExpression> > & args);
+                                        const std::vector<BoundSqlExpression> & args,
+                                        SqlBindingScope & argScope);
 
 
     virtual BoundTableExpression doGetDatasetFunction(const Utf8String & functionName,
@@ -526,7 +535,7 @@ struct SqlBindingScope {
                                                       const Utf8String & alias);
 
     virtual BoundAggregator doGetAggregator(const Utf8String & functionName,
-                                            const std::vector<std::shared_ptr<SqlExpression> > & args);
+                                            const std::vector<BoundSqlExpression> & args);
     
     // Used to get a variable
     virtual VariableGetter doGetVariable(const Utf8String & tableName,
@@ -718,6 +727,34 @@ DECLARE_STRUCTURE_DESCRIPTION(UnboundEntities);
 struct SqlRowScope {
     virtual ~SqlRowScope()
     {
+    }
+
+    static void throwBadNestingError(const std::type_info & typeRequested,
+                                     const std::type_info & typeFound)
+        __attribute__((noreturn));
+
+    template<typename T>
+    T & as()
+    {
+        if (typeid(*this) == typeid(T))
+            return static_cast<T &>(*this);
+
+        auto * cast = dynamic_cast<T *>(this);
+        if (cast)
+            return *cast;
+        throwBadNestingError(typeid(T), typeid(*this));
+    }
+
+    template<typename T>
+    const T & as() const
+    {
+        if (typeid(*this) == typeid(T))
+            return static_cast<const T &>(*this);
+
+        auto * cast = dynamic_cast<const T *>(this);
+        if (cast)
+            return *cast;
+        throwBadNestingError(typeid(T), typeid(*this));
     }
 };
 
@@ -926,6 +963,11 @@ struct SqlExpression: public std::enable_shared_from_this<SqlExpression> {
 
     // Handle a boolean operator
     static std::shared_ptr<SqlExpression> booln
+    (std::shared_ptr<SqlExpression> lhs,
+     std::shared_ptr<SqlExpression> rhs, const std::string & op);
+
+    // Handle infix operator as function invocation
+    static std::shared_ptr<SqlExpression> func
     (std::shared_ptr<SqlExpression> lhs,
      std::shared_ptr<SqlExpression> rhs, const std::string & op);
 

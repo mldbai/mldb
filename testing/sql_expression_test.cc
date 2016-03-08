@@ -132,69 +132,69 @@ BOOST_AUTO_TEST_CASE(test_simple_comparison)
 
     {
         auto expr = SqlExpression::parse("1 = 1", "example1")->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({})), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), 1);
     }
 
     {
         auto parsed = SqlExpression::parse("x = 1", "example2");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}})), 1);
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 0}})), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}}), GET_LATEST), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 0}}), GET_LATEST), 0);
     }
 
     {
         auto parsed = SqlExpression::parse("x = y", "example3");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}, {"y", 1}})), 1);
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 0}, {"y", 1}})), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}, {"y", 1}}), GET_LATEST), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 0}, {"y", 1}}), GET_LATEST), 0);
     }
 
     {
         auto parsed = SqlExpression::parse("x = y - 1", "example4");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}, {"y", 1}})), 0);
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 0}, {"y", 1}})), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}, {"y", 1}}), GET_LATEST), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 0}, {"y", 1}}), GET_LATEST), 1);
     }
 
     {
         auto parsed = SqlExpression::parse("x = y + z + 1", "example5");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}, {"y", 1}, {"z", 2}})), 0);
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 4}, {"y", 1}, {"z", 2}})), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}, {"y", 1}, {"z", 2}}), GET_LATEST), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 4}, {"y", 1}, {"z", 2}}), GET_LATEST), 1);
     }
 
     {
         auto parsed = SqlExpression::parse("3 + 10 * 2", "example6");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({})), 23);
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), 23);
     }
 
     {
         auto parsed = SqlExpression::parse("10 * 2 + 3", "example6b");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({})), 23);
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), 23);
     }
 
     {
         auto parsed = SqlExpression::parse("10 * (2 + 3)", "example6c");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({})), 50);
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), 50);
     }
 
     {
         auto parsed = SqlExpression::parse("x = 10 AND y = 3 AND NOT z = 4", "example7");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 10}, {"y", 3}, {"z", 2}})), 1);
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 10}, {"y", 4}, {"z", 2}})), 0);
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 10}, {"y", 3}, {"z", 4}})), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 10}, {"y", 3}, {"z", 2}}), GET_LATEST), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 10}, {"y", 4}, {"z", 2}}), GET_LATEST), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 10}, {"y", 3}, {"z", 4}}), GET_LATEST), 0);
     }
 
     {
         auto parsed = SqlExpression::parse("x & y AND z", "example8");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}, {"y", 3}, {"z", 2}})), 1);
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}, {"y", 4}, {"z", 2}})), 0);
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}, {"y", 3}, {"z", 0}})), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}, {"y", 3}, {"z", 2}}), GET_LATEST), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}, {"y", 4}, {"z", 2}}), GET_LATEST), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}, {"y", 3}, {"z", 0}}), GET_LATEST), 0);
     }
 
     {
@@ -205,27 +205,27 @@ BOOST_AUTO_TEST_CASE(test_simple_comparison)
     {
         auto parsed = SqlExpression::parse("'hello' + ' ' + 'world'", "example10");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({})), "hello world");
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), "hello world");
     }
 
     {
         auto parsed = SqlExpression::parse("true");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({})), true);
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), true);
     }
 
     {
         auto parsed = SqlExpression::parse("x >= y", "example11");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}, {"y", 3}})), 0);
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}, {"y", 1}})), 1);
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}, {"y", 0}})), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}, {"y", 3}}), GET_LATEST), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}, {"y", 1}}), GET_LATEST), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}, {"y", 0}}), GET_LATEST), 1);
     }
 
     {
         auto parsed = SqlExpression::parse("\"variable with space and !\" + 'my name is Bob'", "example12");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({{"variable with space and !", "Hello world, "}})), "Hello world, my name is Bob");
+        CHECK_EQUAL_EXPR(expr(createRow({{"variable with space and !", "Hello world, "}}), GET_LATEST), "Hello world, my name is Bob");
     }
 
     {
@@ -235,7 +235,7 @@ BOOST_AUTO_TEST_CASE(test_simple_comparison)
         cerr << jsonEncode(expr) << endl;
         vector<tuple<Coord, ExpressionValue> > expected;
         expected.emplace_back(Coord("x + 1"), ExpressionValue(11, Date()));
-        BOOST_CHECK_EQUAL(expr(createRow({{"x", 10}, {"y", 3}, {"z", 2}})),
+        BOOST_CHECK_EQUAL(expr(createRow({{"x", 10}, {"y", 3}, {"z", 2}}), GET_LATEST),
                           ExpressionValue(expected));
     }
 
@@ -243,225 +243,225 @@ BOOST_AUTO_TEST_CASE(test_simple_comparison)
         // MLDB-157
         auto parsed = SqlExpression::parse("x % y", "example13");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 3}, {"y", 2}})), 1);
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1.75}, {"y", 0.5}})), 0.25);
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 3}, {"y", 2}}), GET_LATEST), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1.75}, {"y", 0.5}}), GET_LATEST), 0.25);
     }
 
     {
         auto parsed = SqlExpression::parse("x % y", "example14");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 9233899587298179420ULL}, {"y", 2}})), 0);
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 9233899587298179421ULL}, {"y", 2}})), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 9233899587298179420ULL}, {"y", 2}}), GET_LATEST), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 9233899587298179421ULL}, {"y", 2}}), GET_LATEST), 1);
     }
 
     {
         // MLDB-313
         auto parsed = SqlExpression::parse("pow(x,y)", "example15");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 3}, {"y", 2}})), 9);
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 3}, {"y", 2}}), GET_LATEST), 9);
     }
 
     {
         // MLDB-195
         auto parsed = SqlExpression::parse("2.2*\"Weight\"");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({{"Weight", 1.0}})), 2.2);
+        CHECK_EQUAL_EXPR(expr(createRow({{"Weight", 1.0}}), GET_LATEST), 2.2);
     }
 
     {
         // MLDB-195
         auto parsed = SqlExpression::parse("col1 IS NOT NULL OR true");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({{"col1", 1.0}})), true);
-        CHECK_EQUAL_EXPR(expr(createRow({})), true);
+        CHECK_EQUAL_EXPR(expr(createRow({{"col1", 1.0}}), GET_LATEST), true);
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), true);
     }
 
     {
         // MLDB-195
         auto parsed = SqlExpression::parse("(col1 IS NOT NULL) OR true");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({{"col1", 1.0}})), true);
-        CHECK_EQUAL_EXPR(expr(createRow({})), true);
+        CHECK_EQUAL_EXPR(expr(createRow({{"col1", 1.0}}), GET_LATEST), true);
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), true);
     }
 
     {
         // MLDB-195
         auto parsed = SqlExpression::parse("- - -(-x)");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1.0}})), 1.0);
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1.0}}), GET_LATEST), 1.0);
     }
 
     {
         // MLDB-195
         auto parsed = SqlExpression::parse("x IS NOT NULL IS NOT NULL IS NOT NULL");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1.0}})), true);
-        CHECK_EQUAL_EXPR(expr(createRow({})), true);
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1.0}}), GET_LATEST), true);
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), true);
     }
 
     {
         auto parsed = SqlExpression::parse("x-1");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}})), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}}), GET_LATEST), 0);
     }
 
     {
         auto parsed = SqlExpression::parse("x-(-1)");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}})), 2);
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}}), GET_LATEST), 2);
     }
 
     {
         auto parsed = SqlExpression::parse("-(-1)");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({})), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), 1);
     }
 
     {
         auto parsed = SqlExpression::parse(Utf8String("'yé'"));
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({})), Utf8String("yé"));
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), Utf8String("yé"));
     }
 
     {
         auto parsed = SqlExpression::parse(Utf8String("'y' + 'é'"));
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({})), Utf8String("yé"));
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), Utf8String("yé"));
     }
 
     {
         auto parsed = SqlExpression::parse(Utf8String("'yée'"));
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({})), Utf8String("yée"));
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), Utf8String("yée"));
     }
 
     {
         auto parsed = SqlExpression::parse(Utf8String("'yééééééée'"));
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({})), Utf8String("yééééééée"));
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), Utf8String("yééééééée"));
     }
 
     {
         auto parsed = SqlExpression::parse("\"é\"-1");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({{"é", 1}})), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({{"é", 1}}), GET_LATEST), 0);
     }
 
     {
         // MLDB-495
         auto parsed = SqlExpression::parse("(col1 is not null) or (true and true)");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({{"col1", 1.0}})), true);
-        CHECK_EQUAL_EXPR(expr(createRow({})), true);
+        CHECK_EQUAL_EXPR(expr(createRow({{"col1", 1.0}}), GET_LATEST), true);
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), true);
     }
 
     {
         // MLDB-503
         auto parsed = SqlExpression::parse("CASE x WHEN 1 THEN 'hello' ELSE 'world' END");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}})), "hello");
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 0}})), "world");
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}}), GET_LATEST), "hello");
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 0}}), GET_LATEST), "world");
     }
 
     {
         // MLDB-503
         auto parsed = SqlExpression::parse("CASE x WHEN 1 THEN 'hello' END");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}})), "hello");
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 0}})), nullptr);
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}}), GET_LATEST), "hello");
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 0}}), GET_LATEST), nullptr);
     }
 
     {
         // MLDB-503
         auto parsed = SqlExpression::parse("CASE x WHEN NULL THEN 'yes' ELSE 'no' END");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}})), "no");
-        CHECK_EQUAL_EXPR(expr(createRow({})), "no");
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}}), GET_LATEST), "no");
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), "no");
     }
 
     {
         // MLDB-503
         auto parsed = SqlExpression::parse("CASE WHEN x = 1 THEN 'hello' ELSE 'world' END");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}})), "hello");
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 0}})), "world");
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}}), GET_LATEST), "hello");
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 0}}), GET_LATEST), "world");
     }
 
     {
         // MLDB-503
         auto parsed = SqlExpression::parse("CASE WHEN x % 2 = 0 THEN 'even' ELSE 'odd' END");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}})), "odd");
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 0}})), "even");
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 3}})), "odd");
-        CHECK_EQUAL_EXPR(expr(createRow({})), "odd");
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}}), GET_LATEST), "odd");
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 0}}), GET_LATEST), "even");
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 3}}), GET_LATEST), "odd");
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), "odd");
     }
 
     {
         // MLDB-503, with a nested case
         auto parsed = SqlExpression::parse("CASE CASE WHEN x % 2 = 0 THEN 'even' ELSE 'odd' END WHEN 'even' THEN 'good' ELSE CASE WHEN x = 3 THEN 'three' ELSE 'bad' END END");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}})), "bad");
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 0}})), "good");
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 3}})), "three");
-        CHECK_EQUAL_EXPR(expr(createRow({})), "bad");
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}}), GET_LATEST), "bad");
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 0}}), GET_LATEST), "good");
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 3}}), GET_LATEST), "three");
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), "bad");
     }
 
     {
         // MLDB-504
         auto parsed = SqlExpression::parse("x BETWEEN 1 AND 2");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}})), true);
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 0}})), false);
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 3}})), false);
-        CHECK_EQUAL_EXPR(expr(createRow({})), nullptr);
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}}), GET_LATEST), true);
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 0}}), GET_LATEST), false);
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 3}}), GET_LATEST), false);
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), nullptr);
     }
 
     {
         // MLDB-504
         auto parsed = SqlExpression::parse("x NOT BETWEEN 1 AND 2");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}})), false);
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 0}})), true);
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 3}})), true);
-        CHECK_EQUAL_EXPR(expr(createRow({})), nullptr);
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}}), GET_LATEST), false);
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 0}}), GET_LATEST), true);
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 3}}), GET_LATEST), true);
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), nullptr);
     }
 
     {
         // MLDB-514
         auto parsed = SqlExpression::parse("NULL = NULL");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({})), nullptr);
-        BOOST_CHECK_EQUAL(expr(createRow({})).isTrue(), false);
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), nullptr);
+        BOOST_CHECK_EQUAL(expr(createRow({}), GET_LATEST).isTrue(), false);
     }
 
     {
         // MLDB-514
         auto parsed = SqlExpression::parse("NULL != NULL");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({})), nullptr);
-        BOOST_CHECK_EQUAL(expr(createRow({})).isTrue(), false);
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), nullptr);
+        BOOST_CHECK_EQUAL(expr(createRow({}), GET_LATEST).isTrue(), false);
     }
 
     {
         // MLDB-514
         auto parsed = SqlExpression::parse("NULL < NULL");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({})), nullptr);
-        BOOST_CHECK_EQUAL(expr(createRow({})).isTrue(), false);
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), nullptr);
+        BOOST_CHECK_EQUAL(expr(createRow({}), GET_LATEST).isTrue(), false);
     }
 
     // Not sure if it should be an error or not... currently not accepted
     //{
     //    auto parsed = SqlExpression::parse("x---1");
     //    auto expr = parsed->bind(context);
-    //    CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}})), 0);
+    //    CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}}), GET_LATEST), 0);
     //}
     //
     //{
     //    auto parsed = SqlExpression::parse("x----1");
     //    auto expr = parsed->bind(context);
-    //    CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}})), 2);
+    //    CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}}), GET_LATEST), 2);
     //}
 }
 
@@ -472,27 +472,27 @@ BOOST_AUTO_TEST_CASE(test_is_null)
     {
         auto parsed = SqlExpression::parse("1 IS NOT NULL", "example13");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({})), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), 1);
     }
 
     {
         auto parsed = SqlExpression::parse("1 IS NULL", "example14");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({})), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), 0);
     }
 
     {
         auto parsed = SqlExpression::parse("x IS NOT NULL", "example15");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}})), 1);
-        CHECK_EQUAL_EXPR(expr(createRow({})), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}}), GET_LATEST), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), 0);
     }
 
     {
         auto parsed = SqlExpression::parse("x IS NULL", "example16");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}})), 0);
-        CHECK_EQUAL_EXPR(expr(createRow({})), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({{"x", 1}}), GET_LATEST), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), 1);
     }
 }
 
@@ -503,183 +503,183 @@ BOOST_AUTO_TEST_CASE(test_is_true_false)
     {
         auto parsed = SqlExpression::parse("1 IS NOT TRUE", "example13");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({})), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), 0);
     }
 
     {
         auto parsed = SqlExpression::parse("0 IS NOT TRUE", "example13");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({})), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), 1);
     }
 
     {
         auto parsed = SqlExpression::parse("NULL IS NOT TRUE", "example13");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({})), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), 1);
     }
 
     {
         auto parsed = SqlExpression::parse("1 IS NOT FALSE", "example13");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({})), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), 1);
     }
 
     {
         auto parsed = SqlExpression::parse("0 IS NOT FALSE", "example13");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({})), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), 0);
     }
 
     {
         auto parsed = SqlExpression::parse("NULL IS NOT FALSE", "example13");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({})), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), 1);
     }
 
     {
         auto parsed = SqlExpression::parse("x IS NOT TRUE", "example14");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({})), 1);
-        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1 } })), 0);
-        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 0 } })), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1 } }), GET_LATEST), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 0 } }), GET_LATEST), 1);
     }
 
     {
         auto parsed = SqlExpression::parse("x IS NOT FALSE", "example14");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({})), 1);
-        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1 } })), 1);
-        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 0 } })), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1 } }), GET_LATEST), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 0 } }), GET_LATEST), 0);
     }
 
     {
         auto parsed = SqlExpression::parse("1 IS TRUE", "example13");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({})), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), 1);
     }
 
     {
         auto parsed = SqlExpression::parse("0 IS TRUE", "example13");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({})), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), 0);
     }
 
     {
         auto parsed = SqlExpression::parse("NULL IS TRUE", "example13");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({})), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), 0);
     }
 
     {
         auto parsed = SqlExpression::parse("1 IS FALSE", "example13");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({})), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), 0);
     }
 
     {
         auto parsed = SqlExpression::parse("0 IS FALSE", "example13");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({})), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), 1);
     }
 
     {
         auto parsed = SqlExpression::parse("NULL IS FALSE", "example13");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({})), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), 0);
     }
 
     {
         auto parsed = SqlExpression::parse("x IS TRUE", "example14");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({})), 0);
-        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1 } })), 1);
-        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 0 } })), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1 } }), GET_LATEST), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 0 } }), GET_LATEST), 0);
     }
 
     {
         auto parsed = SqlExpression::parse("x IS FALSE", "example15");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({})), 0);
-        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1 } })), 0);
-        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 0 } })), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1 } }), GET_LATEST), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 0 } }), GET_LATEST), 1);
     }
 
     {
         auto parsed = SqlExpression::parse("x IS NUMBER", "example16");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({})), 0);
-        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1 } })), 1);
-        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1.0 } })), 1);
-        CHECK_EQUAL_EXPR(expr(createRow({ { "x", "1.0" } })), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1 } }), GET_LATEST), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1.0 } }), GET_LATEST), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({ { "x", "1.0" } }), GET_LATEST), 0);
     }
 
     {
         auto parsed = SqlExpression::parse("x IS NOT NUMBER", "example17");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({})), 1);
-        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1 } })), 0);
-        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1.0 } })), 0);
-        CHECK_EQUAL_EXPR(expr(createRow({ { "x", "1.0" } })), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1 } }), GET_LATEST), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1.0 } }), GET_LATEST), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({ { "x", "1.0" } }), GET_LATEST), 1);
     }
 
     {
         auto parsed = SqlExpression::parse("x IS INTEGER", "example18");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({})), 0);
-        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1 } })), 1);
-        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1.0 } })), 1);
-        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1.1 } })), 0);
-        CHECK_EQUAL_EXPR(expr(createRow({ { "x", "1.0" } })), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1 } }), GET_LATEST), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1.0 } }), GET_LATEST), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1.1 } }), GET_LATEST), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({ { "x", "1.0" } }), GET_LATEST), 0);
     }
 
     {
         auto parsed = SqlExpression::parse("x IS NOT INTEGER", "example19");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({})), 1);
-        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1 } })), 0);
-        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1.0 } })), 0);
-        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1.1 } })), 1);
-        CHECK_EQUAL_EXPR(expr(createRow({ { "x", "1.0" } })), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1 } }), GET_LATEST), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1.0 } }), GET_LATEST), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1.1 } }), GET_LATEST), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({ { "x", "1.0" } }), GET_LATEST), 1);
     }
 
     {
         auto parsed = SqlExpression::parse("x IS STRING", "example20");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({})), 0);
-        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1 } })), 0);
-        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1.0 } })), 0);
-        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1.1 } })), 0);
-        CHECK_EQUAL_EXPR(expr(createRow({ { "x", "1.0" } })), 1);
-        CHECK_EQUAL_EXPR(expr(createRow({ { "x", "" } })), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1 } }), GET_LATEST), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1.0 } }), GET_LATEST), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1.1 } }), GET_LATEST), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({ { "x", "1.0" } }), GET_LATEST), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({ { "x", "" } }), GET_LATEST), 1);
     }
 
     {
         auto parsed = SqlExpression::parse("x IS NOT STRING", "example21");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({})), 1);
-        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1 } })), 1);
-        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1.0 } })), 1);
-        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1.1 } })), 1);
-        CHECK_EQUAL_EXPR(expr(createRow({ { "x", "1.0" } })), 0);
-        CHECK_EQUAL_EXPR(expr(createRow({ { "x", "" } })), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1 } }), GET_LATEST), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1.0 } }), GET_LATEST), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1.1 } }), GET_LATEST), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({ { "x", "1.0" } }), GET_LATEST), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({ { "x", "" } }), GET_LATEST), 0);
     }
 
     {
         auto parsed = SqlExpression::parse("x iS NoT StRiNg", "example22");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({})), 1);
-        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1 } })), 1);
-        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1.0 } })), 1);
-        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1.1 } })), 1);
-        CHECK_EQUAL_EXPR(expr(createRow({ { "x", "1.0" } })), 0);
-        CHECK_EQUAL_EXPR(expr(createRow({ { "x", "" } })), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({}), GET_LATEST), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1 } }), GET_LATEST), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1.0 } }), GET_LATEST), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({ { "x", 1.1 } }), GET_LATEST), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({ { "x", "1.0" } }), GET_LATEST), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({ { "x", "" } }), GET_LATEST), 0);
     }
 
     {
         // MLDB-759
         auto parsed = SqlExpression::parse("count % 5");
         auto expr = parsed->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({ { "count", 3 }})), 3);
+        CHECK_EQUAL_EXPR(expr(createRow({ { "count", 3 }}), GET_LATEST), 3);
     }
 }
 
@@ -692,7 +692,7 @@ BOOST_AUTO_TEST_CASE(test_implicit_cast)
             TestBindingContext context;
             auto parsed = SqlExpression::parse(str);
             auto expr = parsed->bind(context);
-            return expr(createRow({})).getAtom();
+            return expr(createRow({}), GET_LATEST).getAtom();
         };
     
     BOOST_CHECK_EQUAL(run("implicit_cast('1')"), 1);
@@ -715,7 +715,7 @@ BOOST_AUTO_TEST_CASE(test_explicit_cast)
             TestBindingContext context;
             auto parsed = SqlExpression::parse(str);
             auto expr = parsed->bind(context);
-            return expr(createRow({})).getAtom();
+            return expr(createRow({}), GET_LATEST).getAtom();
         };
     
     BOOST_CHECK_EQUAL(run("CAST (1 AS string)"), "1");
@@ -756,7 +756,7 @@ BOOST_AUTO_TEST_CASE(test_truth_tables)
             TestBindingContext context;
             auto parsed = SqlExpression::parse(str);
             auto expr = parsed->bind(context);
-            return expr(createRow({})).getAtom();
+            return expr(createRow({}), GET_LATEST).getAtom();
         };
     
     BOOST_CHECK_EQUAL(run("(TRUE AND TRUE) IS TRUE"), true);
@@ -793,7 +793,7 @@ BOOST_AUTO_TEST_CASE(test_regex)
             TestBindingContext context;
             auto parsed = SqlExpression::parse(str);
             auto expr = parsed->bind(context);
-            return expr(createRow({})).getAtom();
+            return expr(createRow({}), GET_LATEST).getAtom();
         };
     
     BOOST_CHECK_EQUAL(run(Utf8String("regex_replace('hello world', 'world', 'bob')")),
@@ -823,10 +823,10 @@ BOOST_AUTO_TEST_CASE(test_timestamps)
             TestBindingContext context;
             auto parsed = SqlExpression::parse(str);
             auto expr = parsed->bind(context);
-            return expr(createRow({})).getAtom();
+            return expr(createRow({}), GET_LATEST).getAtom();
         };
     
-    BOOST_CHECK_EQUAL(run("when(at(1, to_timestamp('2015-01-01T00:00:00Z')))"),
+    BOOST_CHECK_EQUAL(run("latest_timestamp(1 @ '2015-01-01T00:00:00Z')"),
                       Date(2015,1,1,0,0,0));
 }
 
@@ -1032,8 +1032,8 @@ BOOST_AUTO_TEST_CASE(test_select_statement_parse)
         BOOST_CHECK_EQUAL(statement.select.clauses.size(), 1);
 
         auto expr = statement.where->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({{"i", 0}})), 1);
-        CHECK_EQUAL_EXPR(expr(createRow({{"i", 1}})), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({{"i", 0}}), GET_LATEST), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({{"i", 1}}), GET_LATEST), 0);
     }
 
     {
@@ -1052,8 +1052,8 @@ BOOST_AUTO_TEST_CASE(test_select_statement_parse)
         BOOST_CHECK_EQUAL(statement.limit, size_t(10));
 
         auto expr = statement.where->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({{"a", "select"}})), 1);
-        CHECK_EQUAL_EXPR(expr(createRow({{"a", "where"}})), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({{"a", "select"}}), GET_LATEST), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({{"a", "where"}}), GET_LATEST), 0);
 
     }
 
@@ -1064,8 +1064,8 @@ BOOST_AUTO_TEST_CASE(test_select_statement_parse)
         BOOST_CHECK_EQUAL(statement.limit, size_t(10));
 
         auto expr = statement.where->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({{"a", "SELECT ' \"WHERE\""}})), 1);
-        CHECK_EQUAL_EXPR(expr(createRow({{"a", "WHERE"}})), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({{"a", "SELECT ' \"WHERE\""}}), GET_LATEST), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({{"a", "WHERE"}}), GET_LATEST), 0);
     }
 
     {
@@ -1075,8 +1075,8 @@ BOOST_AUTO_TEST_CASE(test_select_statement_parse)
         BOOST_CHECK_EQUAL(statement.limit, size_t(10));
 
         auto expr = statement.where->bind(context);
-        CHECK_EQUAL_EXPR(expr(createRow({{"a", "boo"}})), 1);
-        CHECK_EQUAL_EXPR(expr(createRow({{"a", "goo"}})), 0);
+        CHECK_EQUAL_EXPR(expr(createRow({{"a", "boo"}}), GET_LATEST), 1);
+        CHECK_EQUAL_EXPR(expr(createRow({{"a", "goo"}}), GET_LATEST), 0);
     }
 
     // MLDB-314 - from clause
@@ -1161,33 +1161,33 @@ BOOST_AUTO_TEST_CASE(test_select_statement_parse)
 
     {
         // MLDB-909
-        auto statement = SelectStatement::parse("select * from table when timestamp() between '2014-01-02T00:00:01' and '2015-01-02'");
+        auto statement = SelectStatement::parse("select * from table when value_timestamp() between '2014-01-02T00:00:01' and '2015-01-02'");
         BOOST_CHECK_EQUAL(statement.when.getType(), "when");
         BOOST_CHECK_EQUAL(statement.when.when->getType(), "between");
-        BOOST_CHECK_EQUAL(statement.when.surface, "timestamp() between '2014-01-02T00:00:01' and '2015-01-02'");
+        BOOST_CHECK_EQUAL(statement.when.surface, "value_timestamp() between '2014-01-02T00:00:01' and '2015-01-02'");
         BOOST_CHECK_EQUAL(statement.when.getChildren().size(), 1); // inner self
         BOOST_CHECK_EQUAL(statement.when.when->getChildren().size(), 3); // lhs, rhs, value
 
         // can't be in two non-overlapping ranges
         statement = SelectStatement::parse("select * from table when "
-                                           "timestamp() between '2014-01-02' and '2014-02-02' AND "
-                                           "timestamp() between '2015-01-02' and '2015-02-02'");
+                                           "value_timestamp() between '2014-01-02' and '2014-02-02' AND "
+                                           "value_timestamp() between '2015-01-02' and '2015-02-02'");
 
         // overlapping ranges
         statement = SelectStatement::parse("select * from table when "
-                                           "timestamp() between '2014-01-02' and '2014-03-02' AND "
-                                           "timestamp() between '2014-02-02' and '2014-04-02'");
+                                           "value_timestamp() between '2014-01-02' and '2014-03-02' AND "
+                                           "value_timestamp() between '2014-02-02' and '2014-04-02'");
 
-        statement = SelectStatement::parse("select * from table when timestamp() > '2014-01-02'");
+        statement = SelectStatement::parse("select * from table when value_timestamp() > '2014-01-02'");
         BOOST_CHECK_EQUAL(statement.when.getType(), "when");
         BOOST_CHECK_EQUAL(statement.when.when->getType(), "compare");
-        BOOST_CHECK_EQUAL(statement.when.surface, "timestamp() > '2014-01-02'");
+        BOOST_CHECK_EQUAL(statement.when.surface, "value_timestamp() > '2014-01-02'");
         BOOST_CHECK_EQUAL(statement.when.when->getChildren().size(), 2); // lhs and rhs
 
-        statement = SelectStatement::parse("select * from table when timestamp() > '2014-01-02' AND timestamp() < '2015-01-02'");
+        statement = SelectStatement::parse("select * from table when value_timestamp() > '2014-01-02' AND value_timestamp() < '2015-01-02'");
         BOOST_CHECK_EQUAL(statement.when.getType(), "when");
         BOOST_CHECK_EQUAL(statement.when.when->getType(), "boolean");
-        BOOST_CHECK_EQUAL(statement.when.surface, "timestamp() > '2014-01-02' AND timestamp() < '2015-01-02'");
+        BOOST_CHECK_EQUAL(statement.when.surface, "value_timestamp() > '2014-01-02' AND value_timestamp() < '2015-01-02'");
         BOOST_CHECK_EQUAL(statement.when.when->getChildren().size(), 2); // lhs and rhs
     }   
 
@@ -1209,10 +1209,10 @@ BOOST_AUTO_TEST_CASE(test_select_statement_parse)
         };
         
         BOOST_CHECK(!isTupleDependent("true"));
-        BOOST_CHECK(isTupleDependent("timestamp() < '2014-01-01'"));
-        BOOST_CHECK(!isTupleDependent("when(a) BETWEEN '2015-01-10' AND '2016-10-01'"));
-        BOOST_CHECK(isTupleDependent("timestamp() < '2014-01-09' AND when(a) BETWEEN '2015-01-10' AND '2016-10-01'"));
-        BOOST_CHECK(!isTupleDependent("when(a) < to_timestamp('2015-01-09')"));
+        BOOST_CHECK(isTupleDependent("value_timestamp() < TIMESTAMP '2014-01-01'"));
+        BOOST_CHECK(!isTupleDependent("latest_timestamp(a) BETWEEN TIMESTAMP '2015-01-10' AND TIMESTAMP '2016-10-01'"));
+        BOOST_CHECK(isTupleDependent("value_timestamp() < TIMESTAMP '2014-01-09' AND latest_timestamp(a) BETWEEN TIMESTAMP '2015-01-10' AND TIMESTAMP '2016-10-01'"));
+        BOOST_CHECK(!isTupleDependent("latest_timestamp(a) < TIMESTAMP '2015-01-09'"));
     }
 }
 

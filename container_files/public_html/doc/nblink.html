@@ -1,0 +1,13 @@
+<html>
+    <script type="text/javascript">
+        var destination = "{{HTTP_BASE_URL}}/{{IPYTHON_NB_PREFIX}}/notebooks/"+ window.location.hash.slice(1);
+        if(window.location.origin == "http://mldb.ai")
+        {
+            window.location = destination + ".html";
+        }
+        else
+        {
+            window.location = destination + ".ipynb";
+        }
+    </script>
+</html>

@@ -34,24 +34,24 @@ TF_CWD:=$(CWD)
 # We use a recursive make, since we don't care about anything apart from the
 # final executable.
 $(HOSTBIN)/protoc:
-	cd mldb/ext/tensorflow/google/protobuf && ./autogen.sh && ./configure --prefix $(PWD)/$(BUILD)/$(HOSTARCH) && $(MAKE) -j && $(MAKE) -j install
+	@(cd mldb/ext/tensorflow/google/protobuf && ./autogen.sh && ./configure --prefix $(PWD)/$(BUILD)/$(HOSTARCH) && $(MAKE) -j && $(MAKE) -j install) > $(TMP)/protoc-build.log || (echo "protobuf build failed" && cat $(TMP)/protoc-build.log && false)
 
 # We use the protobuf library at runtime, so it needs to be installed in
 # the right place.  Here we also rename it to avoid clashes with the system
 # version.
 ifneq ($(LIB),$(HOSTLIB))
 $(LIB)/libprotobuf3.so:	$(HOSTBIN)/protoc
-	cp $(HOSTLIB)/libprotobuf.so $@
-	cp $(HOSTLIB)/libprotobuf.so.* $(LIB)
+	@cp $(HOSTLIB)/libprotobuf.so $@
+	@cp $(HOSTLIB)/libprotobuf.so.* $(LIB)
 else
 $(LIB)/libprotobuf3.so:	$(HOSTBIN)/protoc
-	cp $(HOSTLIB)/libprotobuf.so $@
+	@cp $(HOSTLIB)/libprotobuf.so $@
 endif
 
 # We also need to make sure that the header files go in the right place
 ifneq ($(INC),$(HOSTINC))
 $(INC)/google/protobuf:	$(HOSTBIN)/protoc
-	mkdir -p $(INC)/google && ln -sf $(PWD)/$(HOSTINC)/google/protobuf $@
+	@mkdir -p $(INC)/google && ln -sf $(PWD)/$(HOSTINC)/google/protobuf $@
 else
 $(INC)/google/protobuf: $(HOSTBIN)/protoc
 endif
@@ -76,29 +76,30 @@ TENSORFLOW_INCLUDES:= \
 
 # How to actually make an include directory pointing to /usr/include
 $(TENSORFLOW_INCLUDES):
-	mkdir -p $(dir $(@)) && ln -s /usr/include $(@)
+	@mkdir -p $(dir $(@)) && ln -s /usr/include $(@)
 
 # We need the 9a release of libjpeg, which is incldued in ext.  Here we set
 # up the include path so it can be found.
 $(INC)/external/jpeg_archive/jpeg-9a: $(JPEG_INCLUDE_FILES)
-	mkdir -p $(dir $(@)) && ln -s $(PWD)/mldb/ext/jpeg $(@)
+	@mkdir -p $(dir $(@)) && ln -s $(PWD)/mldb/ext/jpeg $(@)
 
 # It also needs re2, which we have locally in ext.  We create the necessary
 # include directories.
 $(INC)/external/re2:
-	mkdir -p $(dir $(@)) && ln -s $(PWD)/mldb/ext/re2 $(@)
+	@mkdir -p $(dir $(@)) && ln -s $(PWD)/mldb/ext/re2 $(@)
 
 # Finally, we need eigen3.  It includes it with the specific Mercurial
 # hash needed, which we list here.  This is also included in ext.
 TENSORFLOW_EIGEN_MERCURIAL_HASH:=$(shell grep 'archive_dir' mldb/ext/tensorflow/eigen.BUILD | head -n1 | sed 's/.*"eigen-eigen-\(.*\)".*/\1/')
 $(if $(TENSORFLOW_EIGEN_MERCURIAL_HASH),,$(error Couldnt find Eigen hash.  You may need to run `git submodule update --init --recursive` to get all the required submodules.))
 $(INC)/external/eigen_archive/eigen-eigen-$(TENSORFLOW_EIGEN_MERCURIAL_HASH):
-	mkdir -p $(dir $(@)) && ln -sf $(PWD)/mldb/ext/eigen $(@)
+	@mkdir -p $(dir $(@)) && ln -sf $(PWD)/mldb/ext/eigen $(@)
 
 # To create a protobuf file, we compile the input file.  Same for the .h
 # file.
 $(CWD)/%.pb.cc $(CWD)/%.pb.h:		$(CWD)/%.proto $(HOSTBIN)/protoc
-	$(HOSTBIN)/protoc $< -Imldb/ext/tensorflow --cpp_out=$(TF_CWD)
+	@echo "         $(COLOR_CYAN)[PROTO]$(COLOR_RESET)			$(basename $<)"
+	@$(HOSTBIN)/protoc $< -Imldb/ext/tensorflow --cpp_out=$(TF_CWD)
 
 # Flags required to include the eigen linear algebra framework.  This
 # has moved around a fair bit over the Tensorflow releases.
@@ -133,8 +134,8 @@ CUDA_HEADERS := cuda.h cublas.h cufft.h cuComplex.h vector_types.h builtin_types
 # third_party/gpus/cuda/include
 
 $(INC)/third_party/gpus/cuda/include/%: $(CUDA_SYSTEM_HEADER_DIR)/%
-	mkdir -p $(dir $@)
-	ln -s $< $@
+	@mkdir -p $(dir $@)
+	@ln -s $< $@
 
 # Anything that's to do with Cuda depends on these header files, so set
 # up the dependency.
@@ -309,8 +310,8 @@ tensorflow_lib: $(LIB)/libtensorflow.so
 # don't want to modify the source tree, we put a dummy, empty header in there
 # to signify that there are no user operations available.
 $(CWD)/tensorflow/cc/ops/%_ops.cc $(CWD)/tensorflow/cc/ops/%_ops.h:	$(BIN)/cc_op_gen $(LIB)/libtensorflow_%_ops.so
-	LD_PRELOAD=$(LIB)/libtensorflow_$(*)_ops.so $(BIN)/cc_op_gen $(TF_CWD)/tensorflow/cc/ops/$(*)_ops.h $(TF_CWD)/tensorflow/cc/ops/$(*)_ops.cc 0
-	touch $(TF_CWD)/tensorflow/cc/ops/user_ops.h
+	@LD_PRELOAD=$(LIB)/libtensorflow_$(*)_ops.so $(BIN)/cc_op_gen $(TF_CWD)/tensorflow/cc/ops/$(*)_ops.h $(TF_CWD)/tensorflow/cc/ops/$(*)_ops.cc 0
+	@touch $(TF_CWD)/tensorflow/cc/ops/user_ops.h
 
 # Find the source files needed for the C++ interface.  Some are pre-packaged and
 # others were generated above.
