@@ -1,8 +1,10 @@
 import sys, tarfile, gzip
 import requests
-from random import randrange
+from random import randrange, seed
 from StringIO import StringIO
 from pymldb import Connection
+
+seed(1234)
 
 enron_base_url = 'http://www.aueb.gr/users/ion/data/enron-spam/preprocessed/'
 enron_data_url = enron_base_url + 'enron{}.tar.gz'
