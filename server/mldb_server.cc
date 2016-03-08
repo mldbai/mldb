@@ -519,6 +519,35 @@ getCacheDirectory() const
     return cacheDirectory_;
 }
 
+Utf8String
+MldbServer::
+prefixUrl(Utf8String url) const
+{
+    if (url.startsWith("/")) {
+        return httpBaseUrl + url;
+    }
+    return url;
+}
+
+string
+MldbServer::
+prefixUrl(string url) const
+{
+    if (url[0] == '/') {
+        return httpBaseUrl + url;
+    }
+    return url;
+}
+
+string
+MldbServer::
+prefixUrl(const char* url) const
+{
+    if (url[0] == '/') {
+        return httpBaseUrl + string(url);
+    }
+    return url;
+}
 
 namespace {
 struct OnInit {

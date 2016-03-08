@@ -50,7 +50,8 @@ std::string insertAfterFragment(const std::string & uri, const std::string & toI
     return uri.substr(0, pos) + toInsert + (pos == string::npos ? "" : uri.substr(pos)); 
 }
 
-static std::string getTypeName(const ValueDescription & description)
+static std::string getTypeName(const ValueDescription & description,
+                               MldbServer * server)
 {
     std::string resultSoFar;
     std::string closing;
@@ -69,7 +70,7 @@ static std::string getTypeName(const ValueDescription & description)
     case ValueKind::FLOAT:     return wrap("float");
     case ValueKind::BOOLEAN:   return wrap("bool");
     case ValueKind::STRING:    return wrap("string");
-    case ValueKind::ARRAY:     return wrap("[ " + getTypeName(description.contained()) + " ]");
+    case ValueKind::ARRAY:     return wrap("[ " + getTypeName(description.contained(), server) + " ]");
     case ValueKind::STRUCTURE: return wrap(printTypeName(printTypeName(description.typeName)));
     case ValueKind::ENUM:      return wrap(printTypeName(description.typeName));
     case ValueKind::ATOM:      return wrap(printTypeName(description.typeName));
@@ -81,16 +82,16 @@ static std::string getTypeName(const ValueDescription & description)
             if (!first)
                 result += ",";
             first = false;
-            result = result + " " + getTypeName(*tp);
+            result = result + " " + getTypeName(*tp, server);
         }
         result += " ]";
         return result;
     }
-    case ValueKind::OPTIONAL:  return wrap(getTypeName(description.contained())) + " (Optional)";
+    case ValueKind::OPTIONAL:  return wrap(getTypeName(description.contained(), server)) + " (Optional)";
     case ValueKind::VARIANT:   return wrap("VARIANT "  + printTypeName(description.typeName));
     case ValueKind::MAP: {
-        return wrap("MAP {" + getTypeName(description.getKeyValueDescription())
-                    + " : " + getTypeName(description.contained()) + "}");
+        return wrap("MAP {" + getTypeName(description.getKeyValueDescription(), server)
+                    + " : " + getTypeName(description.contained(), server) + "}");
     }
     case ValueKind::ANY:       return description.typeName == "Json::Value" ? "JSON" : printTypeName(description.typeName);
     default:
@@ -134,9 +135,11 @@ static void renderType(MacroContext & context,
                     else {
                         context.writeHtml(",");
                     }
-                    context.writeHtml(ML::format("\n        \"%s\": &lt;%s&gt;",
-                                 fd.fieldName.c_str(),
-                                 getTypeName(*fd.description).c_str()));
+                    context.writeHtml(
+                        ML::format("\n        \"%s\": &lt;%s&gt;",
+                                   fd.fieldName.c_str(),
+                                   getTypeName(*fd.description,
+                                               context.server).c_str()));
                 };
             vd->forEachField(nullptr, onField);
         }
@@ -148,7 +151,7 @@ static void renderType(MacroContext & context,
                 {
                     context.writeHtml(ML::format("<tr><td align='right'><p><strong>%s</strong> <br/> %s <br/> <code>%s</code></p></td><td>%s</td></tr>\n",
                                          fd.fieldName.c_str(),
-                                         getTypeName(*fd.description).c_str(),
+                                         getTypeName(*fd.description, context.server).c_str(),
                                          getDefaultValue(*fd.description).c_str(),
                                                  renderMarkdown(fd.comment.c_str(), context)));
                 };
@@ -200,14 +203,11 @@ writeText(const Utf8String & text)
     hoedown_escape_html(output, (uint8_t *)text.rawData(), text.rawLength(), 0);
 }
 
-Utf8String&
+Utf8String
 MacroContext::
-prefixUrl(Utf8String & url) const
+prefixUrl(Utf8String url) const
 {
-    if (url.startsWith("/")) {
-        url = macroData->server->httpBaseUrl + url;
-    }
-    return url;
+    return macroData->server->prefixUrl(url);
 }
 
 void
