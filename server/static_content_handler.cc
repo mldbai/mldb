@@ -261,8 +261,8 @@ getStaticRouteHandler(string dir, MldbServer * server, bool hideInternalEntities
                 result += "<meta charset='utf-8' />\n";
                 result += "<title>MLDB Documentation</title>\n";
                 result += "<script src='https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML'></script>\n";
-                result += "<link rel='stylesheet' href='/resources/css/prism.css'>\n";
-                result += "<link rel='stylesheet' href='/resources/css/doc.css'>\n";
+                result += "<link rel='stylesheet' href='" + server->prefixUrl("/resources/css/prism.css") + "'>\n";
+                result += "<link rel='stylesheet' href='" + server->prefixUrl("/resources/css/doc.css") + "'>\n";
                 result += "<script src='" + server->prefixUrl("/resources/js/jquery-1.11.2.min.js") + "'></script>\n";
                 result += "<script src='" + server->prefixUrl("/resources/js/prism.js") + "'></script>\n";
                 result += "<script>\n";

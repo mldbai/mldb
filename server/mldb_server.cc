@@ -533,20 +533,16 @@ string
 MldbServer::
 prefixUrl(string url) const
 {
-    if (url[0] == '/') {
-        return httpBaseUrl + url;
-    }
-    return url;
+    Utf8String str(url);
+    return prefixUrl(str).rawString();
 }
 
 string
 MldbServer::
 prefixUrl(const char* url) const
 {
-    if (url[0] == '/') {
-        return httpBaseUrl + string(url);
-    }
-    return url;
+    Utf8String str(url);
+    return prefixUrl(str).rawString();
 }
 
 namespace {
