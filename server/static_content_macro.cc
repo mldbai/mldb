@@ -56,7 +56,7 @@ static std::string getTypeName(const ValueDescription & description,
     std::string resultSoFar;
     std::string closing;
     if (!description.documentationUri.empty()) {
-        resultSoFar += "<a href=\"" + insertAfterFragment(description.documentationUri, ".html") + "\">";
+        resultSoFar += "<a href=\"" + server->prefixUrl(insertAfterFragment(description.documentationUri, ".html")) + "\">";
         closing = "</a>";
     }
 
