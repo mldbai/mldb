@@ -115,12 +115,12 @@ locale-gen en_US.UTF-8
 # rm .pycs and rebuild them on boot
 find /usr/local/lib/python2.7/dist-packages -name '*.pyc' -delete
 install -m 555 $BUILD_DOCKER_DIR/mldb/mldb_base/rebuild_pycs.py  /usr/local/bin/
-cat >/etc/my_init.d/10-rebuild_pycs.sh <<BIF
+cat >/etc/my_init.d/99-rebuild_pycs.sh <<BIF
 #!/bin/bash
 
-/usr/local/bin/rebuild_pycs.py &
+nice /usr/local/bin/rebuild_pycs.py &
 BIF
-chmod +x /etc/my_init.d/10-rebuild_pycs.sh
+chmod +x /etc/my_init.d/99-rebuild_pycs.sh
 
 # Disable syslog-ng output to console
 rm -rf /etc/service/syslog-forwarder
