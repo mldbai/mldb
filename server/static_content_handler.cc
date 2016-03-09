@@ -182,7 +182,6 @@ getStaticRouteHandler(string dir, MldbServer * server, bool hideInternalEntities
                   const RestRequest & request,
                   const RestRequestParsingContext & context)
         {
-        
             string path = context.resources.back().rawData();
 
             if (path.find("..") != string::npos) {
@@ -262,10 +261,10 @@ getStaticRouteHandler(string dir, MldbServer * server, bool hideInternalEntities
                 result += "<meta charset='utf-8' />\n";
                 result += "<title>MLDB Documentation</title>\n";
                 result += "<script src='https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML'></script>\n";
-                result += "<link rel='stylesheet' href='/resources/css/prism.css'>\n";
-                result += "<link rel='stylesheet' href='/resources/css/doc.css'>\n";
-                result += "<script src='/resources/js/jquery-1.11.2.min.js'></script>\n";
-                result += "<script src='/resources/js/prism.js'></script>\n";
+                result += "<link rel='stylesheet' href='" + server->prefixUrl("/resources/css/prism.css") + "'>\n";
+                result += "<link rel='stylesheet' href='" + server->prefixUrl("/resources/css/doc.css") + "'>\n";
+                result += "<script src='" + server->prefixUrl("/resources/js/jquery-1.11.2.min.js") + "'></script>\n";
+                result += "<script src='" + server->prefixUrl("/resources/js/prism.js") + "'></script>\n";
                 result += "<script>\n";
                 result += "  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){\n";
                 result += "  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),\n";
