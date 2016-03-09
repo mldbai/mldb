@@ -34,6 +34,7 @@ void renderMacro(hoedown_buffer *ob,
                  const MacroData & macroData)
 {
     MacroContext context(&macroData, ob, text);
+    context.server = macroData.server;
 
     string s((const char *)text->data, 2, text->size - 2);
     auto pos = s.find(' ');
