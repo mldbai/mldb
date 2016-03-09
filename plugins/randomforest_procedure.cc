@@ -258,11 +258,11 @@ run(const ProcedureRunConfig & run,
                 boost::mt19937 rng(bag + 245 + partitionNum);
 
                 PartitionData mydata(data);
-               /* for (unsigned i = 0;  i < data.features.size();  ++i) {
+                for (unsigned i = 0;  i < data.features.size();  ++i) {
                     if (mydata.features[i].active
                         && rng() % 3 != 0)
                         mydata.features[i].active = false;
-                }*/
+                }
 
                 ML::Timer timer;
                 ML::Tree tree;
