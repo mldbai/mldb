@@ -14,7 +14,7 @@
                 .load(function(){
                     if(history.replaceState) {
                         history.replaceState(null, null, 
-                            '#'+this.contentWindow.location.pathname.replace(/^\/doc\//,""));
+                            '#'+this.contentWindow.location.pathname.replace("{{HTTP_BASE_URL}}/doc/",""));
                     }
                 });
         });
