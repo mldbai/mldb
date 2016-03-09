@@ -14,7 +14,7 @@ using the column index for the given column:
 - `WHERE rowName() = constant`
 - `WHERE constant = rowName()`
 - `WHERE rowName() IN (constant, constant, ...)`
-- `WHERE rowName() % constant op constant` (op is =,!=<,>,<=,>=)
+- `WHERE rowName() % constant <op> constant` (op can be one of `=`, `!=`, `<`, `>`, `<=`, `>=`)
 - `WHERE column = constant`
 - `WHERE column`
 - `WHERE column IS TRUE`
