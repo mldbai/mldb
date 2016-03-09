@@ -116,7 +116,7 @@ int main(int argc, char ** argv)
 #endif
     string configurationPath;
     std::string staticAssetsPath = "mldb/static";
-    std::string staticDocPath = "mldb/container_files/assets/doc";
+    std::string staticDocPath = "mldb/container_files/public_html/doc/builtin";
 
     string etcdUri;
     string etcdPath;
