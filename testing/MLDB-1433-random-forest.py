@@ -12,7 +12,8 @@ mldb.put("/v1/procedures/airline", {
         "outputDataset": {
             "id": "airline"
         },
-        "runOnCreation": True
+        "limit" : 10,
+        "runOnCreation": True        
     }
 })
 mldb.log(datetime.datetime.now() - start)
@@ -30,11 +31,14 @@ mldb.put('/v1/procedures/benchmark', {
             """,
         "runOnCreation": True,
         "modelFileUrl": "file://tmp/MLDB-1433.cls",
-        "functionName": "classifyme"
+        "functionName": "classifyme",
+        "featureVectorSamplings" : 1,
+        "featureSamplings" : 1
     }
 })
 mldb.log(datetime.datetime.now() - start)
 
+#res = mldb.query("select dep_delayed_15min = 'Y', avg(classifyme({{* EXCLUDING(dep_delayed_15min)} as features})) from airline group by dep_delayed_15min = 'Y'")
 res = mldb.query("select dep_delayed_15min = 'Y', classifyme({{* EXCLUDING(dep_delayed_15min)} as features}) from airline limit 20")
 
 mldb.log(res)

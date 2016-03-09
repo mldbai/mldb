@@ -212,6 +212,7 @@ struct NumericValues {
 
     uint32_t getBucket(double val) const;
     //double getValue(uint32_t bucket) const;
+
 };
 
 struct OrdinalValues {
@@ -248,6 +249,7 @@ struct CategoricalValues {
 
     uint32_t getBucket(const CellValue & val) const;
     //CellValue getValue(uint32_t bucket) const;
+
 };
 
 struct BucketDescriptions {
@@ -271,6 +273,7 @@ struct BucketDescriptions {
     size_t numBuckets() const;
 
     bool isOnlyNumeric() const;
+
 };
 
 

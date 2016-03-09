@@ -161,7 +161,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         descriptions.initialize(valueList, maxNumBuckets);
 
         for (auto & v: values) {
-            v.second = descriptions.getBucket(v.first);
+            v.second = descriptions.getBucket(v.first);            
         }
         
         // Finally, perform the bucketed lookup

@@ -253,9 +253,6 @@ init(size_t numElements, uint32_t numBuckets)
 /* BUCKET DESCRIPTIONS                                                       */
 /*****************************************************************************/
 
-//auto it2 = std::lower_bound(values.begin(), values.end(), val);
-//return it2 - values.begin();
-
 uint32_t
 BucketDescriptions::
 getBucket(const CellValue & val) const
@@ -488,7 +485,15 @@ CellValue
 BucketDescriptions::
 getSplit(uint32_t bucket) const
 {
-    return "split";
+    //return "split";
+    if (bucket < numeric.offset)
+        return CellValue(); //empty
+    else if (bucket < strings.offset)
+        return numeric.splits[bucket - numeric.offset];
+    else if (bucket < blobs.offset)
+        return strings.buckets[bucket - strings.offset];
+
+    throw HttpReturnException(500, "Invalid bucket");
 }
 
 #if 0
@@ -510,7 +515,6 @@ numBuckets() const
 {
     return intervals.offset + intervals.numBuckets();
 }
-
 
 /*****************************************************************************/
 /* MATRIX VIEW                                                               */

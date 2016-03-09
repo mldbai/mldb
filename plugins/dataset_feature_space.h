@@ -44,7 +44,7 @@ struct DatasetFeatureSpace: public ML::Feature_Space {
 
     struct ColumnInfo {
         ColumnInfo()
-            : index(-1)
+            : index(-1), distinctValues(-1)
         {
         }
 
@@ -89,6 +89,10 @@ struct DatasetFeatureSpace: public ML::Feature_Space {
     float encodeValue(const CellValue & value,
                       const ColumnName & columnName,
                       const ML::Feature_Info & info) const;
+
+/*    float encodeValue(const CellValue & value,
+                      const ColumnName & columnName,
+                      const ColumnInfo & columnInfo) const;*/
 
     virtual ML::Feature_Info info(const ML::Feature & feature) const;
 
@@ -158,7 +162,6 @@ struct DatasetFeatureSpace: public ML::Feature_Space {
     using ML::Feature_Space::reconstitute;
 
     void reconstitute(ML::DB::Store_Reader & store);
-
     void serialize(ML::DB::Store_Writer & store) const;
 };
 

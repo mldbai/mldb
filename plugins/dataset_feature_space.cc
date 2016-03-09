@@ -242,6 +242,26 @@ encodeLabel(const CellValue & value) const
                        LABEL, labelInfo);
 }
 
+/*float
+DatasetFeatureSpace::
+encodeValue(const CellValue & value,
+            const ColumnName & columnName,
+            const ColumnInfo& columnInfo) const
+{
+    if (value.empty())
+        return std::numeric_limits<float>::quiet_NaN();
+
+    if (columnInfo.distinctValues >= 0)
+    {
+        //return bucket
+        return columnInfo.bucketDescriptions.getBucket(value);
+    }
+    else
+    {
+       return encodeValue(value, columnName, columnInfo.info);
+    }  
+}*/
+
 float
 DatasetFeatureSpace::
 encodeValue(const CellValue & value,
@@ -272,6 +292,7 @@ encodeValue(const CellValue & value,
         
     }
     return value.toDouble();
+
 }
 
 ML::Feature_Info
@@ -521,8 +542,9 @@ serialize(ML::DB::Store_Writer & store) const
     //cerr << "serializing " << columnInfo.size() << " features" << endl;
     for (auto & i: columnInfo) {
         store << jsonEncodeStr(i.first);
-        store << i.second.columnName.toUtf8String().rawString();
-        i.second.info.serialize(store);
+        const ColumnInfo& columnInfo = i.second;
+        store << columnInfo.columnName.toUtf8String().rawString();
+        columnInfo.info.serialize(store);
     }
 
     //cerr << "done serializing feature space" << endl;

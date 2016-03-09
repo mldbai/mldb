@@ -258,11 +258,11 @@ run(const ProcedureRunConfig & run,
                 boost::mt19937 rng(bag + 245 + partitionNum);
 
                 PartitionData mydata(data);
-                for (unsigned i = 0;  i < data.features.size();  ++i) {
+               /* for (unsigned i = 0;  i < data.features.size();  ++i) {
                     if (mydata.features[i].active
                         && rng() % 3 != 0)
                         mydata.features[i].active = false;
-                }
+                }*/
 
                 ML::Timer timer;
                 ML::Tree tree;
@@ -272,7 +272,7 @@ run(const ProcedureRunConfig & run,
 
                 int resultIndex = bag*runProcConf.featureSamplings + partitionNum;
 
-                results[resultIndex] = make_shared<Decision_Tree>(contFeatureSpace, labelFeature);
+                results[resultIndex] = make_shared<Decision_Tree>(/*featureSpace*/contFeatureSpace, labelFeature);
                 results[resultIndex]->tree = std::move(tree);
                 //cerr << dtree.print() << endl;
             };
@@ -285,7 +285,7 @@ run(const ProcedureRunConfig & run,
 
     parallelMap(0, runProcConf.featureVectorSamplings, doFeatureVectorSampling, maxBagsAtOnce);
 
-    shared_ptr<Committee> result = make_shared<Committee>(contFeatureSpace, labelFeature);
+    shared_ptr<Committee> result = make_shared<Committee>(/*featureSpace*/contFeatureSpace, labelFeature);
     
     for (unsigned i = 0;  i < totalResultCount;  ++i)
         result->add(results[i], 1.0 / totalResultCount);

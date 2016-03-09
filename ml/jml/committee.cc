@@ -173,7 +173,7 @@ optimized_predict_impl(int label,
         if (weights[i] == 0.0) continue;
         float vote = classifiers[i]->optimized_predict_impl(label, features, info, context);
         cerr << "Vote: " << vote << endl;
-        //if (!isnanf(vote))
+    //    if (!isnanf(vote))
         {
             result = result
             + weights[i]

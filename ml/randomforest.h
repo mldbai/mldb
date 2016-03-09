@@ -218,7 +218,7 @@ struct PartitionData {
         double useRatio = 1.0 * rows.size() / rows.back().exampleNum;
 
         bool reIndex = useRatio < 0.1;
-        reIndex = false;
+        //reIndex = false;
         //cerr << "useRatio = " << useRatio << endl;
 
         if (!reIndex) {
@@ -253,6 +253,7 @@ struct PartitionData {
             ExcAssert(right.rows.size() > 0);
         }
         else {
+
             int nf = features.size();
 
             // For each example, it goes either in left or right, depending
@@ -357,6 +358,8 @@ struct PartitionData {
 
         auto doFeature = [&] (int i)
             {
+                int maxBucket = 0;
+
                 if (i == nf) {
                     for (auto & r: rows) {
                         wAll[r.label] += r.weight;
@@ -377,26 +380,29 @@ struct PartitionData {
                         || (lastBucket != -1 && bucket != lastBucket);
                     lastBucket = bucket;
 
-                    if (bucket >= w[i].first.size()) {
-                        std::cerr << "depth " << depth << " row " << j << " of "
-                             << rows.size() << " bucket " << bucket
-                             << " weight " << rows[j].weight
-                             << " exampleNum " << r.exampleNum
-                             << " num buckets " << w[i].first.size()
-                             << " featureName " << features[i].info->columnName
-                             << std::endl;
-                    }
+                  //  if (bucket >= w[i].first.size()) {
+                  //      std::cerr << "depth " << depth << " row " << j << " of "
+                  //           << rows.size() << " bucket " << bucket
+                  //           << " weight " << rows[j].weight
+                  //           << " exampleNum " << r.exampleNum
+                  //           << " num buckets " << w[i].first.size()
+                  //           << " featureName " << features[i].info->columnName
+                  //           << std::endl;
+                  //  }
 
-                    ExcAssertLess(bucket, w[i].first.size());
+                  //  ExcAssertLess(bucket, w[i].first.size());
 
                     w[i].first[bucket][r.label] += r.weight;
-                    w[i].second = std::max(w[i].second, bucket);
+                    //w[i].second = std::max(w[i].second, bucket);
+                    maxBucket = std::max(maxBucket, bucket);
                 }
 
                 // If all examples were in a single bucket, then the
                 // feature is no longer active.
                 if (!twoBuckets)
                     features[i].active = false;
+
+                w[i].second = maxBucket;
             };
 
         if (depth < 4 || true) {
@@ -544,22 +550,35 @@ struct PartitionData {
     static void fillinBase(ML::Tree::Base * node, const W & wAll)
     {
 
-        ExcAssert(!isnanf(float(wAll[0])));
-        ExcAssert(!isnanf(float(wAll[1])));
+    //    ExcAssert(!isnanf(float(wAll[0])));
+      //  ExcAssert(!isnanf(float(wAll[1])));
         //ExcAssert(!isnanf(node->examples));
         //ExcAssert(node->examples > 0);
-        ExcAssert(!isnanf(wAll.total()));
-        //ExcAssert(wAll.total() > 0);
-        if (wAll.total() == 0)
-            throw ML::Exception("empty leaf");
 
-        node->examples = wAll[0] + wAll[1];
+        //double total = wAll.total();
+        float total = float(wAll[0]) + float(wAll[1]);
+
+      //  ExcAssert(!isnanf(wAll.total()));
+        //ExcAssert(wAll.total() > 0);
+    //    if (total == 0)
+     ///       throw ML::Exception("empty leaf");        
+
+      //  if (wAll[0] < 0 || wAll[1] < 0)
+        //    throw ML::Exception("negative weight");
+
+     //   if (total < 0)
+     //   {
+     //       std::cerr << wAll[0] << ", " << wAll[1] << ":" << total << std::endl;
+     //       throw ML::Exception("negative total");
+     //   }
+
+        node->examples = total;//wAll[0] + wAll[1];
        // if (wAll.total() > 0)
             node->pred = {
            // float(wAll[0]) / node->examples,
            // float(wAll[1]) / node->examples };
-             float(wAll[0]) / wAll.total(),
-             float(wAll[1]) / wAll.total() };
+             float(wAll[0]) / total,
+             float(wAll[1]) / total };
       //  else
         //    node->pred = {
            // float(wAll[0]) / node->examples,
@@ -635,7 +654,7 @@ struct PartitionData {
         if (leftRows == 0 || rightRows == 0)
             throw ML::Exception("no split found");
 
-        if (leftRows == 0 || rightRows == 0) {
+        /*if (leftRows == 0 || rightRows == 0) {
             //cerr << "no split found" << endl;
             // NOTE: this is a bug, and we should assert on it
             // only keeping without an assert forbenchmarking
@@ -643,7 +662,7 @@ struct PartitionData {
             fillinBase(leaf, wLeft + wRight);
 
             return leaf;
-        }
+        }*/
 
         ThreadPool tp;
         // Put the smallest one on the thread pool, so that we have the highest
@@ -666,7 +685,7 @@ struct PartitionData {
         if (left && right) {
             ML::Tree::Node * node = tree.new_node();
             ML::Feature feature = fs->getFeature(features[bestFeature].info->columnName);
-            float splitVal;
+            float splitVal;// = (float)bestFeature;
             if (features[bestFeature].ordinal) {
                 auto splitCell = features[bestFeature].info->bucketDescriptions
                     .getSplit(bestFeature);
@@ -688,8 +707,8 @@ struct PartitionData {
             node->child_true = left;
             node->child_false = right;
             W wMissing;
-            wMissing[0] = 0.5f;
-            wMissing[1] = 0.5f;
+            wMissing[0] = 0.1f;
+            wMissing[1] = 0.1f;
             node->child_missing = getLeaf(tree, wMissing);
             node->z = bestScore;            
             fillinBase(node, wLeft + wRight);
