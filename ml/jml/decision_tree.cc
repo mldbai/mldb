@@ -444,6 +444,10 @@ explain_recursive(Explanation & explanation,
     StandardGetFeatures get_features(feature_set);
     int nl = label_count();
 
+    if(nl < 2)
+        throw ML::Exception("Decision_Tree does not support explain "
+            "for regressions");
+
     if (label < 0 || label >= nl)
         throw Exception("Decision_Tree::explain(): no label");
 
