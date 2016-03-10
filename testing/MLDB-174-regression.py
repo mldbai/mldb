@@ -150,7 +150,6 @@ class Mldb174Test(MldbUnitTest):
             "type": "transform",
             "params": {
                 "inputData": """
-
                     SELECT * FROM merge(
                         (
                             SELECT *, 'red' as color
@@ -182,6 +181,26 @@ class Mldb174Test(MldbUnitTest):
         mldb.log(usedFeatures)
         self.assertGreater(len(usedFeatures), 2)
 
+
+        # run an explain over the 
+        mldb.put("/v1/functions/explainer", {
+            "type": "classifier.explain",
+            "params": {
+                "modelFileUrl": config["params"]["modelFileUrlPattern"]
+            }
+        })
+
+        explain_rez = mldb.query("""
+                select explainer({{* EXCLUDING(quality)} as features,
+                                  quality as label})
+                from wine_full
+                where rowHash() % 2 = 1
+                limit 2
+        """)
+        
+        self.assertEqual(len(explain_rez), 3)
+
+        # TODO an actual test
 
 
 mldb.run_tests()

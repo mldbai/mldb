@@ -779,7 +779,7 @@ predict(const Training_Data & data,
 Explanation
 Classifier_Impl::
 explain(const Feature_Set & feature_set,
-        int label,
+        float label,
         double weight,
         PredictionContext * context) const
 {

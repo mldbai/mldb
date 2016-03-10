@@ -353,7 +353,7 @@ output_encoding() const
 Explanation
 GLZ_Classifier::
 explain(const Feature_Set & feature_set,
-        int label,
+        float label,
         double weight,
         PredictionContext * context) const
 {
@@ -363,12 +363,25 @@ explain(const Feature_Set & feature_set,
 
     ExcAssertEqual(decoded.size(), features.size());
 
+    // if we're in regression mode
+    int label_idx = -1;
+    if(weights.size() == 1) {
+        label_idx = 0;
+    }
+    else {
+        label_idx = label;
+    }
+    if(label_idx >= weights.size()) {
+        throw ML::Exception("label bigger than weight vector");
+    }
+
     for (unsigned j = 0;  j < features.size();  ++j) {
         result.feature_weights[features[j].feature]
-            += weight * weights[label][j] * decoded[j];
+            += weight * weights[label_idx][j] * decoded[j];
     }
-    
-    if (add_bias) result.bias += weight * weights[label][features.size()];
+
+    if (add_bias)
+        result.bias += weight * weights[label_idx][features.size()];
 
     return result;
 }

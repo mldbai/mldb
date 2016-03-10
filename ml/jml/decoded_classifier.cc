@@ -128,7 +128,7 @@ std::string Decoded_Classifier::print() const
 Explanation
 Decoded_Classifier::
 explain(const Feature_Set & feature_set,
-        int label,
+        float label,
         double weight,
         PredictionContext * context) const
 {

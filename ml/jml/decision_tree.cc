@@ -421,7 +421,7 @@ print_recursive(int level, const Tree::Ptr & ptr,
 Explanation
 Decision_Tree::
 explain(const Feature_Set & feature_set,
-        int label,
+        float label,
         double weight,
         PredictionContext * context) const
 {
@@ -436,7 +436,7 @@ void
 Decision_Tree::
 explain_recursive(Explanation & explanation,
                   const Feature_Set & feature_set,
-                  int label,
+                  float label,
                   double weight,
                   const Tree::Ptr & ptr,
                   const Tree::Node * parent) const

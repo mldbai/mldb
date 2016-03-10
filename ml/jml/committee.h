@@ -104,7 +104,7 @@ public:
                            PredictionContext * context = 0) const;
 
     virtual Explanation explain(const Feature_Set & feature_set,
-                                int label,
+                                float label,
                                 double weight = 1.0,
                                 PredictionContext * context = 0) const;
 
