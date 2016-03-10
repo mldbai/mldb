@@ -509,6 +509,13 @@ isNumeric() const
 }
 #endif
 
+bool 
+BucketDescriptions::
+isOnlyNumeric() const
+{
+    return this->strings.buckets.empty(); //todo: complete this
+}
+
 size_t
 BucketDescriptions::
 numBuckets() const

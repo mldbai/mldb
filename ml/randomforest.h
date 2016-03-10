@@ -32,6 +32,7 @@ struct PartitionData {
             f.active = c.second.distinctValues > 1;
             f.buckets = c.second.buckets;
             f.info = &c.second;
+            f.ordinal = c.second.bucketDescriptions.isOnlyNumeric();
         }
     }
 
@@ -201,6 +202,8 @@ struct PartitionData {
     std::pair<PartitionData, PartitionData>
     split(int featureToSplitOn, int splitValue, const W & wLeft, const W & wRight, const W & wAll)
     {
+     //   std::cerr << "spliting on feature " << featureToSplitOn << " bucket " << splitValue << std::endl;
+
         ExcAssertGreaterEqual(featureToSplitOn, 0);
         ExcAssertLess(featureToSplitOn, features.size());
 
@@ -226,13 +229,16 @@ struct PartitionData {
             sides[0].rows.reserve(rows.size());
             sides[1].rows.reserve(rows.size());
 
-            int maxBucket = 0;
+            //this is for debug only
+            //int maxBucket = 0;
+            //int minBucket = INFINITY;
 
             for (size_t i = 0;  i < rows.size();  ++i) {
                 int bucket = features[featureToSplitOn].buckets[rows[i].exampleNum];
-                maxBucket = std::max(maxBucket, bucket);
+                //maxBucket = std::max(maxBucket, bucket);
+                //minBucket = std::min(minBucket, bucket);
                 int side = ordinal ? bucket > splitValue : bucket != splitValue;
-                ExcAssert(side < 2);
+                //ExcAssert(side < 2);
                 sides[side].addRow(rows[i]);
             }
 
@@ -240,17 +246,18 @@ struct PartitionData {
             rows.shrink_to_fit();
             features.clear();
 
-            if (right.rows.size() == 0)
+            /*if (right.rows.size() == 0 || left.rows.size() == 0)
             {
                 std::cerr << wLeft[0] << "," << wLeft[1] << "," << wRight[0] << "," << wRight[1] << std::endl;
                 std::cerr << wAll[0] << "," << wAll[1] << std::endl;
                 std::cerr << "splitValue: " << splitValue << std::endl;
                 std::cerr << "isordinal: " << ordinal << std::endl;
                 std::cerr << "max bucket" << maxBucket << std::endl;
+                std::cerr << "min bucket" << minBucket << std::endl;
             }
 
             ExcAssert(left.rows.size() > 0);
-            ExcAssert(right.rows.size() > 0);
+            ExcAssert(right.rows.size() > 0);*/
         }
         else {
 
@@ -333,7 +340,9 @@ struct PartitionData {
 
         // For each feature, for each bucket, for each label
         // weight for each bucket and last valid bucket
-        std::vector< std::pair<std::vector<W>, int> > w(nf);
+        std::vector< std::vector<W> > w(nf);
+        std::vector< int > maxSplits(nf);
+        //std::vector< int > minSplits(nf);
 
         size_t totalNumBuckets = 0;
         size_t activeFeatures = 0;
@@ -342,8 +351,9 @@ struct PartitionData {
             if (!features[i].active)
                 continue;
             ++activeFeatures;
-            w[i].first.resize(features[i].buckets.numBuckets);
-            w[i].second = 0;
+            w[i].resize(features[i].buckets.numBuckets);
+            //maxSplits[i] = 0;
+            //minSplits[i] = 0;
             totalNumBuckets += features[i].buckets.numBuckets;
         }
 
@@ -358,7 +368,8 @@ struct PartitionData {
 
         auto doFeature = [&] (int i)
             {
-                int maxBucket = 0;
+                int maxBucket = -1;
+                //int minBucket = INFINITY;
 
                 if (i == nf) {
                     for (auto & r: rows) {
@@ -392,9 +403,10 @@ struct PartitionData {
 
                   //  ExcAssertLess(bucket, w[i].first.size());
 
-                    w[i].first[bucket][r.label] += r.weight;
+                    w[i][bucket][r.label] += r.weight;
                     //w[i].second = std::max(w[i].second, bucket);
                     maxBucket = std::max(maxBucket, bucket);
+                   // minBucket = std::min(minBucket, bucket);
                 }
 
                 // If all examples were in a single bucket, then the
@@ -402,7 +414,8 @@ struct PartitionData {
                 if (!twoBuckets)
                     features[i].active = false;
 
-                w[i].second = maxBucket;
+                maxSplits[i] = maxBucket;
+              //  minSplits[i] = minBucket;
             };
 
         if (depth < 4 || true) {
@@ -434,7 +447,7 @@ struct PartitionData {
                 continue;
 
             W wAll; // TODO: do we need this?
-            for (auto & wt: w[i].first) {
+            for (auto & wt: w[i]) {
                 wAll += wt;
                 bucketsEmpty += wt[0] == 0 && wt[1] == 0;
                 bucketsBoth += wt[0] != 0 && wt[1] != 0;
@@ -464,14 +477,20 @@ struct PartitionData {
                 std::cerr << "    all: " << wAll[0] << " " << wAll[1] << std::endl;
             }
 
+            int maxBucket = maxSplits[i];
+            //int minBucket = minSplits[i];
+
             if (features[i].ordinal) {
                 // Calculate best split point for ordered values
-                W wFalse = wAll, wTrue;
+                W wFalse = wAll, wTrue;              
+
+                //if (minBucket == maxBucket)
+                    //continue;
                 
                 // Now test split points one by one
-                for (unsigned j = 0;  j < w[i].second/*w[i].first.size() - 1*/;  ++j) {
-                    if (w[i].first[j].empty())
-                        continue;
+                for (unsigned j = 0;  j < maxBucket;  ++j) {
+                    if (w[i][j].empty())
+                        continue;                   
 
                   //  wFalse -= w[i].first[j];
                   //  wTrue += w[i].first[j];
@@ -494,26 +513,34 @@ struct PartitionData {
                         bestLeft = wTrue;
                     }
 
-                   wFalse -= w[i].first[j];
-                   wTrue += w[i].first[j];
+                   wFalse -= w[i][j];
+                   wTrue += w[i][j];
 
                 }
             }
             else {
                 // Calculate best split point for non-ordered values
                 // Now test split points one by one
-                for (unsigned j = 0;  j < w[i].first.size();  ++j) {
-                    W wFalse = wAll;
-                    wFalse -= w[i].first[j];
 
-                    double s = score(wFalse, w[i].first[j]);
+                //if (minBucket == maxBucket)
+                  //  continue;
+
+                for (unsigned j = 0;  j <= maxBucket;  ++j) {
+
+                    if (w[i][j].empty())
+                        continue;
+
+                    W wFalse = wAll;
+                    wFalse -= w[i][j];                    
+
+                    double s = score(wFalse, w[i][j]);
 
                     if (debug) {
                         std::cerr << "  non ord split " << j << " "
                              << features[i].info->bucketDescriptions.getValue(j)
                              << " had score " << s << std::endl;
                         std::cerr << "    false: " << wFalse[0] << " " << wFalse[1] << std::endl;
-                        std::cerr << "    true:  " << w[i].first[j][0] << " " << w[i].first[j][1] << std::endl;
+                        std::cerr << "    true:  " << w[i][j][0] << " " << w[i][j][1] << std::endl;
                     }
              
                     if (s < bestScore) {
@@ -521,7 +548,7 @@ struct PartitionData {
                         bestFeature = i;
                         bestSplit = j;
                         bestRight = wFalse;
-                        bestLeft = w[i].first[j];
+                        bestLeft = w[i][j];
                     }
                 }
 
@@ -654,7 +681,7 @@ struct PartitionData {
         if (leftRows == 0 || rightRows == 0)
             throw ML::Exception("no split found");
 
-        /*if (leftRows == 0 || rightRows == 0) {
+       /* if (leftRows == 0 || rightRows == 0) {
             //cerr << "no split found" << endl;
             // NOTE: this is a bug, and we should assert on it
             // only keeping without an assert forbenchmarking
@@ -688,7 +715,7 @@ struct PartitionData {
             float splitVal;// = (float)bestFeature;
             if (features[bestFeature].ordinal) {
                 auto splitCell = features[bestFeature].info->bucketDescriptions
-                    .getSplit(bestFeature);
+                    .getSplit(bestSplit);
                 if (splitCell.isNumeric())
                     splitVal = splitCell.toDouble();
                 else splitVal = bestSplit;

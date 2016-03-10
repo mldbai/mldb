@@ -21,7 +21,8 @@ struct RandomForestProcedureConfig : public ProcedureConfig {
                                     featureSamplings(20), 
                                     featureVectorSamplingProp(0.3f), 
                                     featureSamplingProp(0.3f), 
-                                    maxDepth(20)
+                                    maxDepth(20),
+                                    verbosity(0)
     {
     }
 
@@ -46,6 +47,9 @@ struct RandomForestProcedureConfig : public ProcedureConfig {
 
     // Maximum depth of each tree
     int maxDepth;
+
+    // Debug Verbosity
+    int verbosity;
 
     // Function name
     Utf8String functionName;

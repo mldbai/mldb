@@ -66,6 +66,9 @@ RandomForestProcedureConfigDescription()
     addField("functionName", &RandomForestProcedureConfig::functionName,
              "If specified, a classifier function of this name will be created using "
              "the trained classifier.");
+    addField("verbosity", &RandomForestProcedureConfig::verbosity,
+             ""
+             "", 3);
     addParent<ProcedureConfig>();    
 }
 
@@ -192,7 +195,8 @@ run(const ProcedureRunConfig & run,
     for (auto& c : knownInputColumns) {
         cerr << c.toString() << " feature " << featureSpace->getFeature(c)
              << " had " << featureSpace->columnInfo[c].buckets.numBuckets
-             << " buckets" << endl;
+             << " buckets" 
+             << " type is " << featureSpace->columnInfo[c].info << endl;
     }
 
     // Get the feature buckets per row
@@ -273,7 +277,11 @@ run(const ProcedureRunConfig & run,
                 int resultIndex = bag*runProcConf.featureSamplings + partitionNum;
 
                 results[resultIndex] = make_shared<Decision_Tree>(/*featureSpace*/contFeatureSpace, labelFeature);
+
                 results[resultIndex]->tree = std::move(tree);
+
+                if (runProcConf.verbosity > 2) 
+                    cerr << results[resultIndex]->print() << endl;
                 //cerr << dtree.print() << endl;
             };
 
