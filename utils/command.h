@@ -78,6 +78,9 @@ struct Command {
     /// human eyes
     std::string jobName;
 
+    /// Category of the job to aggregate stats
+    std::string jobCategory;
+
     /// The group to which the command belongs, if any
     std::string groupName;
 
