@@ -46,7 +46,7 @@ frequently than other tests).
 the machine when running time-sensitive tests or network issues when
 accessing external resources.  Repeating the `make -k test`
 step may allow them to pass.  It is OK to use MLDB if the tests don't
-all pass; all code merged into the `master` branch has passed regression
+all pass; all code merged tagged for release has passed regression
 tests in the stable testing environment.
 
 Build output lands in the `build` directory and there is no `make clean`
