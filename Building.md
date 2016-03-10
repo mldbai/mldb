@@ -2,7 +2,7 @@
 
 These instructions are designed for a vanilla installation of **Ubuntu 14.04** and its default compiler, **GCC 4.8**.
 
-It will take around 45 minutes to run through these steps on an Amazon EC2 r3.8xlarge machine (32 cores, 244GB of RAM) and longer on smaller machines. However, you can get up and running in 5 minutes by [using a pre-built Docker images of the MLDB Enterprise Edition](http://mldb.ai/doc/#builtin/Running.md.html) for free with a trial license, which can be obtained instantly by filling out [this form](http://mldb.ai/licensing.html).
+It will take around **45 minutes on a 32-core machine with 244GB of RAM** to run through these steps (i.e. on an Amazon EC2 r3.8xlarge instance) and longer on smaller machines. However, you can get up and running in 5 minutes by [using a pre-built Docker images of the MLDB Enterprise Edition](http://mldb.ai/doc/#builtin/Running.md.html) for free with a trial license, which can be obtained instantly by filling out [this form](http://mldb.ai/licensing.html).
 
 ## System dependencies
 
