@@ -36,5 +36,5 @@ $(eval $(call library_forward_dependency,mldb,mldb_builtin))
 $(eval $(call library_forward_dependency,mldb,mldb_builtin_plugins))
 
 $(eval $(call program,mldb_doc_server,mldb))
-$(eval $(call program,mldb_runner,mldb boost_program_options))
+$(eval $(call program,mldb_runner,mldb boost_program_options config))
 

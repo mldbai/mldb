@@ -1753,7 +1753,6 @@ handlePutItl(Key key, Config config,  const OnDone & onDone, bool mustBeNew)
 {
    setKey(config, key);
 
-    bool isPersistent = objectIsPersistent(key, config);
     auto savedConfig = jsonEncode(config);
 
     if (backgroundCreate) {
@@ -1770,6 +1769,8 @@ handlePutItl(Key key, Config config,  const OnDone & onDone, bool mustBeNew)
                           true /* must add */,
                           wasCancelled);
     }
+
+    bool isPersistent = objectIsPersistent(key, config);
 
     if (isPersistent) {
         if (this->configStore) {
