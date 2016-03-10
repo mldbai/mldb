@@ -22,6 +22,7 @@
 #include "mldb/arch/simd_vector.h"
 #include "mldb/jml/utils/vector_utils.h"
 #include "mldb/types/basic_value_descriptions.h"
+#include "mldb/types/set_description.h"
 #include "mldb/ml/value_descriptions.h"
 #include "mldb/plugins/sql_config_validator.h"
 #include "mldb/plugins/sql_expression_extractors.h"
@@ -223,7 +224,7 @@ run(const ProcedureRunConfig & run,
         }
     }
 
-    // logger->info() << "knownInputColumns are " << jsonEncode(knownInputColumns);
+    logger->debug() << "knownInputColumns are " << jsonEncode(knownInputColumns);
 
     ML::Timer timer;
 
@@ -371,10 +372,10 @@ run(const ProcedureRunConfig & run,
 
             float weight = extraVals.at(1).toDouble();
 
-            //logger->info() << "label = " << label << " weight = " << weight << endl;
-            //logger->info() << "row.columns.size() = " << row.columns.size();
+            logger->debug() << "label = " << label << " weight = " << weight;
+            logger->debug() << "row.columns.size() = " << row.columns.size();
 
-            //logger->info() << "got row " << jsonEncode(row);
+            logger->debug() << "got row " << jsonEncode(row);
             ++numRows;
 
             std::vector<std::pair<ML::Feature, float> > features
@@ -531,16 +532,8 @@ run(const ProcedureRunConfig & run,
 
     logger->info() << "added feature vectors in " << timer.elapsed();
 
-
-    {
-        timer.restart();
-        trainingSet.preindex(labelFeature);
-
-        //logger->info() << "indexed " << nx
-        //     << " feature vectors in " << after.secondsSince(before)
-        //     << " at " << nx / after.secondsSince(before)
-        //     << " per second";
-    }
+    timer.restart();
+    trainingSet.preindex(labelFeature);
 
     logger->info() << "indexed training data in " << timer.elapsed();
 
@@ -555,10 +548,10 @@ run(const ProcedureRunConfig & run,
     std::vector<ML::Feature> trainingFeatures;
 
     for (unsigned i = 0;  i < allFeatures.size();  ++i) {
-        //logger->info() << "allFeatures[i] = " << allFeatures[i];
+        logger->debug() << "allFeatures[i] = " << allFeatures[i];
 
         string featureName = featureSpace->print(allFeatures[i]);
-        //logger->info() << "featureName = " << featureName;
+        logger->debug() << "featureName = " << featureName;
 
         if (allFeatures[i] == labelFeature)
             continue;
@@ -620,10 +613,10 @@ run(const ProcedureRunConfig & run,
         weights.normalize();
     }
 
-    //logger->info() << "training classifier";
+    logger->debug() << "training classifier";
     ML::Classifier classifier(trainer->generate(threadContext, trainingSet, weights,
                                                 trainingFeatures));
-    //logger->info() << "done training classifier";
+    logger->debug() << "done training classifier";
 
     logger->info() << "trained classifier in " << timer.elapsed();
 
@@ -650,7 +643,7 @@ run(const ProcedureRunConfig & run,
         server->handleRequest(connection, request);
     }
 
-    //logger->info() << "done saving classifier";
+    logger->debug() << "done saving classifier";
 
     //trainingSet.dump("training_set.txt.gz");
  
@@ -696,8 +689,6 @@ ClassifyFunction(MldbServer * owner,
     ML::Feature_Info labelInfo = itl->featureSpace->info(labelFeature);
 
     itl->labelInfo = labelInfo;
-
-    //logger->info() << "labelInfo = " << labelInfo;
 }
 
 ClassifyFunction::
@@ -781,8 +772,6 @@ getFeatureSet(const FunctionContext & context, bool attemptDense) const
 
 
     std::vector<std::pair<ML::Feature, float> > features;
-
-    //logger->info() << "row = " << jsonEncode(row);
 
     for (auto & r: row) {
         ColumnName columnName(std::get<0>(r));
@@ -919,7 +908,7 @@ getFunctionInfo() const
         ColumnSparsity sparsity = col.second.info.optional()
             ? COLUMN_IS_SPARSE : COLUMN_IS_DENSE;
 
-        //logger->info() << "column " << col.second.columnName << " info " << col.second.info;
+        logger->debug() << "column " << col.second.columnName << " info " << col.second.info;
 
         // Be specific about what type we're looking for.  This will allow
         // us to be more leniant when encoding for input.

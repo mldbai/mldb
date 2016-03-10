@@ -44,7 +44,7 @@ std::shared_ptr<spdlog::logger> getServerLog() {
 // force gcc to export these types
 void dummy() {
     (void)getQueryLog();
-    (void)getMldbLog();
+    (void)getMldbLog("dummy");
     (void)getServerLog();
 }
 

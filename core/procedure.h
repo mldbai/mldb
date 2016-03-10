@@ -13,7 +13,6 @@
 #include "mldb/sql/sql_expression.h"
 #include "mldb/sql/sql_expression_operations.h"
 #include "mldb/utils/log.h"
-#include "mldb/arch/demangle.h"
 #include <set>
 #include <iostream>
 #include <typeinfo>
@@ -341,7 +340,7 @@ registerProcedureType(const Package & package,
              const std::function<bool (const Json::Value)> & onProgress)
          {
              auto procedure = new ProcedureT(ProcedureT::getOwner(server), config, onProgress);
-             procedure->logger = MLDB::getMldbLog(ML::demangle(typeid(ProcedureT)));
+             procedure->logger = MLDB::getMldbLog<ProcedureT>();
              return procedure;
          },
          makeInternalDocRedirect(package, docRoute),

@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include "mldb/arch/demangle.h"
 #include <memory>
 
 namespace spdlog {
@@ -19,8 +20,21 @@ namespace Datacratic {
 namespace MLDB {
 
 std::shared_ptr<spdlog::logger> getQueryLog();
-std::shared_ptr<spdlog::logger> getMldbLog(const std::string & loggerName = "L");
+std::shared_ptr<spdlog::logger> getMldbLog(const std::string & loggerName);
 std::shared_ptr<spdlog::logger> getServerLog();
+
+template <typename Class> 
+std::string 
+getLoggerNameFromClass() {
+    std::string demangledName = ML::demangle(typeid(Class));
+    return demangledName.substr(demangledName.find_last_of(':') + 1);
+}
+    
+template <typename Class> 
+std::shared_ptr<spdlog::logger> 
+getMldbLog() {
+    return getMldbLog(getLoggerNameFromClass<Class>());
+}
 
 } // MLDB
 
