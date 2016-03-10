@@ -401,6 +401,7 @@ struct PartitionData {
 
         // For each feature, for each bucket, for each label
         std::vector<std::vector<W> > w(nf);
+        std::vector<int> maxSplits(nf);
 
         size_t totalNumBuckets = 0;
         size_t activeFeatures = 0;
@@ -447,6 +448,7 @@ struct PartitionData {
                     return;
                 bool twoBuckets = false;
                 int lastBucket = -1;
+                int maxBucket = 0;
 
                 for (size_t j = 0;  j < rows.size();  ++j) {
                     auto & r = rows[j];
@@ -470,12 +472,15 @@ struct PartitionData {
                     //if (bucket >= w[i].size())
                     //    continue; // HACK HACK HACK
                     w[i][bucket][r.label] += r.weight;
+                    maxBucket = std::max(maxBucket, bucket);
                 }
 
                 // If all examples were in a single bucket, then the
                 // feature is no longer active.
                 if (!twoBuckets)
                     features[i].active = false;
+
+                maxSplits[i] = maxBucket;
             };
 
         if (depth < 4 || true) {
@@ -529,12 +534,14 @@ struct PartitionData {
                 cerr << "    all: " << wAll[0] << " " << wAll[1] << endl;
             }
 
+            int maxBucket = maxSplits[i];
+
             if (features[i].ordinal) {
                 // Calculate best split point for ordered values
                 W wFalse = wAll, wTrue;
                 
                 // Now test split points one by one
-                for (unsigned j = 0;  j < w[i].size() - 1;  ++j) {
+                for (unsigned j = 0;  j < maxBucket/*w[i].size() - 1*/;  ++j) {
                     if (w[i][j].empty())
                         continue;
 
@@ -564,7 +571,7 @@ struct PartitionData {
             else {
                 // Calculate best split point for non-ordered values
                 // Now test split points one by one
-                for (unsigned j = 0;  j < w[i].size();  ++j) {
+                for (unsigned j = 0;  j <= maxBucket/*w[i].size()*/;  ++j) {
                     W wFalse = wAll;
                     wFalse -= w[i][j];
 
@@ -672,7 +679,7 @@ struct PartitionData {
         size_t leftRows = splits.first.rows.size();
         size_t rightRows = splits.second.rows.size();
 
-        if (leftRows == 0 || rightRows == 0) {
+       /* if (leftRows == 0 || rightRows == 0) {
             //cerr << "no split found" << endl;
             // NOTE: this is a bug, and we should assert on it
             // only keeping without an assert forbenchmarking
@@ -680,7 +687,8 @@ struct PartitionData {
             fillinBase(leaf, wLeft + wRight);
 
             return leaf;
-        }
+        }*/
+        //ExcAssert(leftRows > 0 && rightRows > 0);
 
         ThreadPool tp;
         // Put the smallest one on the thread pool, so that we have the highest
