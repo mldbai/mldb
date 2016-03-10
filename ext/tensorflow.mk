@@ -34,7 +34,8 @@ TF_CWD:=$(CWD)
 # We use a recursive make, since we don't care about anything apart from the
 # final executable.
 $(HOSTBIN)/protoc:
-	@(cd mldb/ext/tensorflow/google/protobuf && ./autogen.sh && ./configure --prefix $(PWD)/$(BUILD)/$(HOSTARCH) && $(MAKE) -j && $(MAKE) -j install) > $(TMP)/protoc-build.log || (echo "protobuf build failed" && cat $(TMP)/protoc-build.log && false)
+	@mkdir -p $(BUILD)/$(HOSTARCH)/lib $(BUILD)/$(HOSTARCH)/include $(BUILD)/$(HOSTARCH)/bin $(TMP)
+	@(cd mldb/ext/tensorflow/google/protobuf && ./autogen.sh && ./configure --prefix $(PWD)/$(BUILD)/$(HOSTARCH) && $(MAKE) -j && $(MAKE) -j install) > $(TMP)/protoc-build.log 2>&1 || (echo "protobuf build failed" && cat $(TMP)/protoc-build.log && false)
 
 # We use the protobuf library at runtime, so it needs to be installed in
 # the right place.  Here we also rename it to avoid clashes with the system
