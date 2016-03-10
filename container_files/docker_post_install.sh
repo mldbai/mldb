@@ -15,7 +15,6 @@ while getopts "s" opt; do
   esac
 done
 
-
 # Make sure we don't have the default nginx site lying around
 rm -f /etc/nginx/sites-enabled/default || true
 
