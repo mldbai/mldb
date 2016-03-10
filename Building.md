@@ -6,19 +6,14 @@ It will take around 45 minutes to run through these steps on an Amazon EC2 r3.8x
 
 ## System dependencies
 
-For C++ code to compile, the following system packages need to be installed:
+For C++ code to compile and the Python modules to install correctly, the following system packages need to be installed:
 
 ```bash
 apt-get install -y git valgrind build-essential libboost-all-dev \
 libgoogle-perftools-dev liblzma-dev libcrypto++-dev libblas-dev \
 liblapack-dev python-virtualenv libcurl4-openssl-dev libssh2-1-dev \
-libpython-dev libgit2-dev libv8-dev libarchive-dev
-```
-
-For Python modules to install correctly:
-
-```bash
-apt-get install -y libffi-dev libfreetype6-dev libpng12-dev libcap-dev
+libpython-dev libgit2-dev libv8-dev libarchive-dev libffi-dev \
+libfreetype6-dev libpng12-dev libcap-dev autoconf libtool
 ```
 
 To build and run the Docker image, you will need to install Docker: https://docs.docker.com/engine/installation/ubuntulinux/
