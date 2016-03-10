@@ -325,6 +325,7 @@ $(eval $(call mldb_unit_test,get_http_bound_address.py))
 $(eval $(call mldb_unit_test,get_http_bound_address.js))
 $(eval $(call mldb_unit_test,MLDB-815-sparse-mutable-record-strings.js))
 $(eval $(call mldb_unit_test,MLDB-1395-error-message-file-doesnt-exist.js))
+$(eval $(call mldb_unit_test,ranking_test.py))
 
 # The MLDB-1398 test case requires a library and a plugin
 # Tensorflow plugins
