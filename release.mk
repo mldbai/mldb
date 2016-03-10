@@ -5,15 +5,6 @@
 
 ifneq ($(PREMAKE),1)
 
-#mldb_release: DOCKER_TAGS+=latest alpha_$(shell git rev-parse HEAD)
-mldb_release: RUN_STRIP="-s"
-mldb_release: docker_mldb
-
-mldb_push_release: PUSH_TAGS+=latest
-mldb_push_release:
-	$(if $(PUSH_TAGS),$(foreach tag,$(PUSH_TAGS),docker push $(DOCKER_REGISTRY)$(DOCKER_USER)mldb:$(tag);),@echo PUSH_TAGS empty, nothing to do)
-
-
 ### Container related targets and rules
 include mldb/container_files/template_vars.mk
 include mldb/templated_files.mk
@@ -36,15 +27,15 @@ mldb: \
 docker_mldb: \
 	DOCKER_COMMIT_ARGS=--change='CMD [ "/sbin/my_init" ]' --change='EXPOSE 80' --change='VOLUME $(MLDB_DATA_DIR)'
 
-ifneq ($(strip $(RUN_STRIP)),) # overload of the RUN_STRIP meaning here
+ifdef VERSION_NAME
+  # Release related flags and options
 	MLDB_EXTRA_FLAGS+= --hide-internal-entities
+  DOCKER_POST_INSTALL_ARGS="-s"
 endif
-# $(info MLDB_EXTRA_FLAGS are [${MLDB_EXTRA_FLAGS}])
-RUN_STRIP := $(if $(or $(STRIP_LIB),$(DOCKER_PUSH)),"-s","")
 
 docker_mldb: \
 	DOCKER_BASE_IMAGE=quay.io/datacratic/mldb_base:14.04
-	DOCKER_POST_INSTALL_SCRIPT=mldb/container_files/docker_post_install.sh $(RUN_STRIP)
+	DOCKER_POST_INSTALL_SCRIPT=mldb/container_files/docker_post_install.sh $(DOCKER_POST_INSTALL_ARGS)
 
 mldb_base:
 	./mldb/mldb_base/docker_create_mldb_base.sh -w https://wheelhouse.datacratic.com/public/ubuntu/trusty/x86_64 $(IMG_NAME)
