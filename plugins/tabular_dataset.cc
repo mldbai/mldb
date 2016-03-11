@@ -10,6 +10,7 @@
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/ml/jml/training_index_entry.h"
 #include "mldb/jml/utils/smart_ptr_utils.h"
+#include "mldb/server/bucket.h"
 
 using namespace std;
 

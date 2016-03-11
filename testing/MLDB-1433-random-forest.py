@@ -55,6 +55,7 @@ mldb.put('/v1/procedures/benchmark', {
     }
 })
 mldb.log(datetime.datetime.now() - start)
+start = datetime.datetime.now();
 
 accuracyConf = {
             "type": "classifier.test",
@@ -65,6 +66,7 @@ accuracyConf = {
                 "runOnCreation": True
             }
         }
+mldb.log(datetime.datetime.now() - start)
 
 res = mldb.put("/v1/procedures/trainer3", accuracyConf);
 

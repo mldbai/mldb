@@ -19,6 +19,7 @@
 #include "mldb/base/parallel.h"
 #include "mldb/base/thread_pool.h"
 #include "mldb/server/column_scope.h"
+#include "mldb/server/bucket.h"
 
 namespace Datacratic {
 namespace MLDB {

@@ -13,6 +13,7 @@
 #include "mldb/ml/jml/buckets.h"
 #include "mldb/sql/dataset_types.h"
 #include "mldb/core/dataset.h"
+#include "mldb/server/bucket.h"
 
 namespace Datacratic {
 namespace MLDB {
