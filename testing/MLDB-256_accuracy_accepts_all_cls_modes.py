@@ -14,16 +14,16 @@ class Mldb256Test(MldbUnitTest):
     def setUpClass(self):
         # create a boolean classification dataset
         ds = mldb.create_dataset({ "id": "boolean", "type": "sparse.mutable" })
-        ds.record_row("a",[["label", 1, 0], ["x", 0, 0]])
-        ds.record_row("b",[["label", 1, 0], ["x", 0, 0]])
-        ds.record_row("c",[["label", 1, 0], ["x", 0, 0]])
-        ds.record_row("d",[["label", 1, 0], ["x", 0, 0]])
-        ds.record_row("e",[["label", 1, 0], ["x", 0.6, 0]])
-        ds.record_row("f",[["label", 0, 0], ["x", 0.4, 0]])
-        ds.record_row("g",[["label", 0, 0], ["x", 1, 0]])
-        ds.record_row("h",[["label", 0, 0], ["x", 1, 0]])
-        ds.record_row("i",[["label", 0, 0], ["x", 1, 0]])
-        ds.record_row("j",[["label", 0, 0], ["x", 1, 0]])
+        ds.record_row("a",[["label", 1, 0], ["x", 0, 0], ["y", 10, 0], ["weight", 0.5, 0]])
+        ds.record_row("b",[["label", 1, 0], ["x", 0, 0], ["y", 5, 0], ["weight", 0.8, 0]])
+        ds.record_row("c",[["label", 1, 0], ["x", 0, 0], ["y", 87, 0], ["weight", 0.22, 0]])
+        ds.record_row("d",[["label", 1, 0], ["x", 0, 0], ["y", -12, 0], ["weight", 1.5, 0]])
+        ds.record_row("e",[["label", 1, 0], ["x", 0.6, 0], ["y", 2, 0], ["weight", 1, 0]])
+        ds.record_row("f",[["label", 0, 0], ["x", 0.4, 0], ["y", 1, 0], ["weight", 0.5, 0]])
+        ds.record_row("g",[["label", 0, 0], ["x", 1, 0], ["y", 30, 0], ["weight", 0.26, 0]])
+        ds.record_row("h",[["label", 0, 0], ["x", 1, 0], ["y", -5, 0], ["weight", 0.92, 0]])
+        ds.record_row("i",[["label", 0, 0], ["x", 1, 0], ["y", -10, 0], ["weight", 1.45, 0]])
+        ds.record_row("j",[["label", 0, 0], ["x", 1, 0], ["y", -25, 0], ["weight", 0.75, 0]])
         ds.commit()
 
         #  toy multi class reprenseting the output of a classifier
@@ -68,6 +68,38 @@ class Mldb256Test(MldbUnitTest):
             ds.record_row("row%d" % x,[["label", x, 0], ["col", x/8, 0], ["col BBB", pow(x, 2), 0]])
         ds.commit()
 
+
+    # this test only validates that there is no segfault when testing a glz with only null features
+    def test_bool_cls_no_segfault_no_feature_cols(self):
+        with self.assertRaises(mldb_wrapper.ResponseException) as re:
+            rez = mldb.put("/v1/procedures/bool_cls", {
+                "type": "classifier.experiment",
+                "params": {
+                    "trainingData": "select {x, y} as features, label as label from categorical",
+                    "experimentName": "bool_exp",
+                    "keepArtifacts": True,
+                    "modelFileUrlPattern": "file://temp/mldb-256_bool.cls",
+                    "algorithm": "glz",
+                    "configuration": {
+                        "glz": {
+                            "type": "glz",
+                            "verbosity": 3,
+                            "normalize": True,
+                            "link_function": "logit",
+                            "ridge_regression": True
+                        }
+                    },
+                    "kfold": 2,
+                    "mode": "boolean",
+                    "outputAccuracyDataset": True,
+                    "runOnCreation": True
+                }
+            })
+    
+        mldb.log(str(re.exception))
+        self.assertTrue("Feature_Set is null! Are you giving only null features to  the classifier function?" in str(re.exception))
+
+    
 
     def test_toy_categorical_eval_works(self):
 

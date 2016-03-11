@@ -20,9 +20,9 @@ class Mldb174Test(MldbUnitTest):
             "glz": {
                 "type": "glz",
                 "verbosity": 3,
-                "normalize": False,
+                "normalize": True,
                 "link_function": 'linear',
-                "ridge_regression": False
+                "ridge_regression": True
             },
             "dt": {
                 "type": "decision_tree",
@@ -141,7 +141,7 @@ class Mldb174Test(MldbUnitTest):
         mldb.log(jsSelected)
         result = jsSelected["output"]["score"]
 
-        self.assertAlmostEqual(result, value)
+        self.assertAlmostEqual(result, value, delta=0.0001)
 
     def test_wine_quality_merged_regression_glz(self):
         def getConfig(dataset):
@@ -179,7 +179,7 @@ class Mldb174Test(MldbUnitTest):
         rez = mldb.put('/v1/procedures/wine_trainer', config)
 
         # check the performance is in the expected range
-        self.assertAlmostEqual(rez.json()["status"]["firstRun"]["status"]["folds"][0]["results"]["r2"], 0.26, places=2)
+        self.assertAlmostEqual(rez.json()["status"]["firstRun"]["status"]["folds"][0]["results"]["r2"], 0.28, places=2)
 
         # make sure the trained model used all features
         scorerDetails = mldb.get("/v1/functions/winer_scorer_0/details").json()

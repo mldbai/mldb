@@ -852,6 +852,11 @@ apply(const FunctionApplier & applier_,
 
     std::tie(dense, fset, ts) = getFeatureSet(context, true /* try to optimize */);
 
+    if(!fset) {
+        throw ML::Exception("Feature_Set is null! Are you giving only null features to "
+            " the classifier function?");
+    }
+
     auto cat = itl->labelInfo.categorical();
     if (!dense.empty()) {
         if (cat) {
