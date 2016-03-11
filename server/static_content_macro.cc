@@ -417,31 +417,33 @@ void configMacro(MacroContext & context,
             context.writeHtml("</code></pre>");
             return;
         }
-        Json::Value params = Json::parse(connection.response);
-        string typeName;
-        if (!params.isNull()) {
-            typeName = params["configType"]["typeName"].asString();
-        }
-            
-        //context.writeHtml("<h2>Configuration</h2>");
 
         context.writeHtml("<p>A new " + kind + " of this type is created as follows:</p>");
-
         context.writeHtml("<pre><code class=\"language-python\">");
         context.writeText("mldb.put(\"/v1/" + kind + "s/<id>\", {\n"+
-                  "    \"type\": \"" + type + "\"");
+                              "    \"type\": \"" + type + "\"");
+        
+        Json::Value params = Json::parse(connection.response);
+        string typeName;
+        bool withParams = false;
+        if (!params.isNull()) {
+            typeName = params["configType"]["typeName"].asString();
+            withParams = !typeName.empty() && !params["configType"]["fields"].isNull();
+        }
 
-        if (!typeName.empty()) {
+        if (withParams) {
             context.writeText(",\n    \"params\": {");
             renderType(context, typeName, true);
             context.writeText("\n    }");
         }
+
         context.writeHtml("\n})</code></pre>");
 
-        if (!typeName.empty()) {
+        if (withParams) {
             context.writeHtml("<p>with the following key-value definitions for <code>params</code>:</p>");
             renderType(context, typeName);
         }
+
     } catch (const std::exception & exc) {
         context.writeHtml("Error running config macro: " + string(exc.what()));
     }
