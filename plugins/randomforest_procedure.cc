@@ -67,8 +67,7 @@ RandomForestProcedureConfigDescription()
              "If specified, a classifier function of this name will be created using "
              "the trained classifier.");
     addField("verbosity", &RandomForestProcedureConfig::verbosity,
-             ""
-             "", 3);
+             "Verbosity of the procedure for debugging and tuning purposes", 0);
     addParent<ProcedureConfig>();    
 }
 
@@ -113,7 +112,7 @@ run(const ProcedureRunConfig & run,
       const std::function<bool (const Json::Value &)> & onProgress) const
 {
     //Todo: we will need heuristics for those.
-    int maxBagsAtOnce = 5;
+    int maxBagsAtOnce = 1;
     int maxTreesAtOnce = 20;
 
     RandomForestProcedureConfig runProcConf =

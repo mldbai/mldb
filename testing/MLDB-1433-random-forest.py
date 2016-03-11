@@ -12,7 +12,7 @@ mldb.put("/v1/procedures/airline", {
         "outputDataset": {
             "id": "airline"
         },
-        "limit" : 10,
+       # "limit" : 10,
         "runOnCreation": True        
     }
 })
@@ -32,14 +32,25 @@ mldb.put('/v1/procedures/benchmark', {
         "runOnCreation": True,
         "modelFileUrl": "file://tmp/MLDB-1433.cls",
         "functionName": "classifyme",
-        "featureVectorSamplings" : 1,
-        "featureSamplings" : 1
+        "featureVectorSamplings" : 5,
+        "featureSamplings" : 20,
+        "maxDepth" : 20,
+        "verbosity" : 0
     }
 })
 mldb.log(datetime.datetime.now() - start)
 
-#res = mldb.query("select dep_delayed_15min = 'Y', avg(classifyme({{* EXCLUDING(dep_delayed_15min)} as features})) from airline group by dep_delayed_15min = 'Y'")
-res = mldb.query("select dep_delayed_15min = 'Y', classifyme({{* EXCLUDING(dep_delayed_15min)} as features}) from airline limit 20")
+accuracyConf = {
+            "type": "classifier.test",
+            "params": {
+                "testingData": """
+                    select classifyme({{* EXCLUDING(dep_delayed_15min)} as features})[score] as score, dep_delayed_15min = 'Y' as label from airline
+                """,
+                "runOnCreation": True
+            }
+        }
+
+res = mldb.put("/v1/procedures/trainer3", accuracyConf);
 
 mldb.log(res)
 
