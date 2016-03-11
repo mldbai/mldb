@@ -126,43 +126,6 @@ getColumnInfo(std::shared_ptr<Dataset> dataset,
         BucketList & buckets = std::get<0>(bucketsAndDescriptions);
         BucketDescriptions & descriptions = std::get<1>(bucketsAndDescriptions);
 
-
-#if 0
-        if (descriptions.isOnlyNumeric()) {
-            result.info = ML::REAL;
-        }
-        else {
-            std::set<CellValue::CellType> types;
-
-            std::vector<std::string> stringValues;
-            std::vector<std::string> allValues;
-
-            for (auto & v: descriptions.values) {
-                types.insert(v.cellType());
-                if (v.cellType() == CellValue::ASCII_STRING)
-                    stringValues.push_back(v.toString());
-                else if (v.cellType() == CellValue::UTF8_STRING)
-                    stringValues.push_back(v.toUtf8String().rawString());
-
-                if(v.cellType() != CellValue::UTF8_STRING)
-                    allValues.push_back(v.toString());
-                else
-                    allValues.push_back(v.toUtf8String().rawString());
-            }
-
-            if (types.count(CellValue::ASCII_STRING) || 
-                types.count(CellValue::UTF8_STRING)) {
-                // Has string values; make it categorical
-                auto categorical = std::make_shared<ML::Fixed_Categorical_Info>
-                    (allValues);
-                result.info = ML::Feature_Info(categorical);
-            }
-            else {
-                result.info = ML::REAL;
-            }
-        }
-#endif
-
         result.distinctValues = descriptions.numBuckets();
         result.buckets = std::move(buckets);
         result.bucketDescriptions = std::move(descriptions);
@@ -242,26 +205,6 @@ encodeLabel(const CellValue & value) const
                        LABEL, labelInfo);
 }
 
-/*float
-DatasetFeatureSpace::
-encodeValue(const CellValue & value,
-            const ColumnName & columnName,
-            const ColumnInfo& columnInfo) const
-{
-    if (value.empty())
-        return std::numeric_limits<float>::quiet_NaN();
-
-    if (columnInfo.distinctValues >= 0)
-    {
-        //return bucket
-        return columnInfo.bucketDescriptions.getBucket(value);
-    }
-    else
-    {
-       return encodeValue(value, columnName, columnInfo.info);
-    }  
-}*/
-
 float
 DatasetFeatureSpace::
 encodeValue(const CellValue & value,
@@ -328,13 +271,10 @@ getHash(ML::Feature feature)
 
 ML::Feature
 DatasetFeatureSpace::
-getFeature(ColumnHash hash) const
+getFeature(ColumnHash hash)
 {
     uint32_t high = hash >> 32;
     uint32_t low  = hash;
-
-    //uint32_t high = columnInfo.find(hash)->second.index;
-    //uint32_t low  = 0;
 
     ML::Feature result(1, high, low);
     ExcAssertEqual(getHash(result), hash);
@@ -406,8 +346,6 @@ print(const ML::Feature & feature) const
         
     auto it = columnInfo.find(getHash(feature));
     if (it == columnInfo.end()) {
-        cerr << "feature = " << feature << endl;
-        cerr << "hash = " << getHash(feature) << endl;
         throw ML::Exception("Couldn't find feature in dataset");
     }
     return it->second.columnName.toUtf8String().rawString();

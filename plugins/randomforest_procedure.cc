@@ -1,6 +1,10 @@
-/*
+/** randomforest_procedure.cc                                             -*- C++ -*-
+    Mathieu Marquis Bolduc, 11 Mars 2016
+    Copyright (c) 2016 Datacratic Inc.  All rights reserved.
 
+    This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
 
+    Procedure to train a random forest binary classifier.
 */
 
 #include "randomforest_procedure.h"
@@ -220,9 +224,8 @@ run(const ProcedureRunConfig & run,
     int totalResultCount = runProcConf.featureVectorSamplings*runProcConf.featureSamplings;
     vector<shared_ptr<Decision_Tree>> results(totalResultCount);
 
-     ////////////
-    //test
-
+    //We will serialize the classifier with the unbucketized feature space
+    //todo: we should get it directly from the bucketized one and potentially PartitionData.
     auto contFeatureSpace = std::make_shared<DatasetFeatureSpace>
         (boundDataset.dataset, labelInfo, knownInputColumns, false /* bucketize */);
 
@@ -275,7 +278,7 @@ run(const ProcedureRunConfig & run,
 
                 int resultIndex = bag*runProcConf.featureSamplings + partitionNum;
 
-                results[resultIndex] = make_shared<Decision_Tree>(/*featureSpace*/contFeatureSpace, labelFeature);
+                results[resultIndex] = make_shared<Decision_Tree>(contFeatureSpace, labelFeature);
 
                 results[resultIndex]->tree = std::move(tree);
 
@@ -292,7 +295,7 @@ run(const ProcedureRunConfig & run,
 
     parallelMap(0, runProcConf.featureVectorSamplings, doFeatureVectorSampling, maxBagsAtOnce);
 
-    shared_ptr<Committee> result = make_shared<Committee>(/*featureSpace*/contFeatureSpace, labelFeature);
+    shared_ptr<Committee> result = make_shared<Committee>(contFeatureSpace, labelFeature);
     
     for (unsigned i = 0;  i < totalResultCount;  ++i)
         result->add(results[i], 1.0 / totalResultCount);
@@ -311,7 +314,6 @@ run(const ProcedureRunConfig & run,
         cerr << "Error saving classifier: " << exc.what() << endl;
     }
 
-
     if(saved && !runProcConf.functionName.empty()) {
         PolyConfig clsFuncPC;
         clsFuncPC.type = "classifier";
@@ -319,20 +321,6 @@ run(const ProcedureRunConfig & run,
         clsFuncPC.params = ClassifyFunctionConfig(runProcConf.modelFileUrl);
 
         obtainFunction(server, clsFuncPC, onProgress);
-
-       // InProcessRestConnection connection;
-       // RestRequest request("PUT", "/v1/functions/" + runProcConf.functionName.rawString(),
-         //       RestParams(), jsonEncode(clsFuncPC).toString());
-        //server->handleRequest(connection, request);
-       /* ClassifyFunctionConfig funcConf;
-        funcConf.modelFileUrl = runProcConf.modelFileUrl;
-
-        PolyConfig clsFuncPC;
-        kmeansFuncPC.type = "classifier";
-        kmeansFuncPC.id = runProcConf.functionName;
-        kmeansFuncPC.params = funcConf;
-
-        obtainFunction(server, kmeansFuncPC, onProgress);*/
     }
 
     return RunOutput();
@@ -346,8 +334,6 @@ namespace{
 	              "procedures/Classifier.md.html");
 
 }
-
-
 
 }
 }

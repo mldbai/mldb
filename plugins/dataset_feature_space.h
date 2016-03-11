@@ -124,7 +124,7 @@ struct DatasetFeatureSpace: public ML::Feature_Space {
         function.
     */
 
-    /*static*/ ML::Feature getFeature(ColumnHash hash) const;
+    static ML::Feature getFeature(ColumnHash hash);
 
     CellValue getValue(const ML::Feature & feature, float value) const;
 
