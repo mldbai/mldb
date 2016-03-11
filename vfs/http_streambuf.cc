@@ -225,12 +225,17 @@ struct HttpStreamingDownloadSource {
                         return !shutdown;
                     };
 
+                auto isRedirect = [](const HttpHeader & header) 
+                    {
+                        return header.responseCode() >= 300
+                        && header.responseCode() < 400;
+                    };
+
                 auto onHeader = [&] (const HttpHeader & header)
                     {
                         // Don't set the promise on a 3xx... it's a redirect
                         // and we will get the correct header later on
-                        if (header.responseCode() < 300
-                            || header.responseCode() >= 400) {
+                        if (!isRedirect(header)) {
                             if (headerSet)
                                 throw std::logic_error("set header twice");
                             
@@ -245,7 +250,7 @@ struct HttpStreamingDownloadSource {
                         //cerr << "got header " << header << endl;
                         errorCode = header.responseCode();
 
-                        if (header.responseCode() != 200 && header.responseCode() != 302)
+                        if (header.responseCode() != 200 && !isRedirect(header))
                             error = true;
 
                         return !shutdown;
