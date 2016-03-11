@@ -371,9 +371,11 @@ getRowStream() const
 
 static RegisterDatasetType<SubDataset, SubDatasetConfig> 
 regSub(builtinPackage(),
-          "sub",
-          "Dataset view on the result of a SELECT query",
-          "datasets/SubDataset.md.html");
+       "sub",
+       "Dataset view on the result of a SELECT query",
+       "datasets/SubDataset.md.html",
+       nullptr,
+       {MldbEntity::INTERNAL_ENTITY});
 
 extern std::shared_ptr<Dataset> (*createSubDatasetFn) (MldbServer *, const SubDatasetConfig &);
 

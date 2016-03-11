@@ -515,13 +515,25 @@ recordRowItl(const RowName & rowName,
     return itl->recordRow(rowName, vals);
 }
 
+struct TabularDatasetConfig {
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(TabularDatasetConfig);
+DEFINE_STRUCTURE_DESCRIPTION(TabularDatasetConfig);
+
+TabularDatasetConfigDescription::
+TabularDatasetConfigDescription()
+{
+    nullAccepted = true;
+}
+
 namespace {
 
-RegisterDatasetType<TabularDataset, PersistentDatasetConfig>
-regCsv(builtinPackage(),
-       "tabular",
-       "NJK FILL ME",
-       "datasets/TabularDataset.md.html");
+RegisterDatasetType<TabularDataset, TabularDatasetConfig>
+regTabular(builtinPackage(),
+           "tabular",
+           "Dense dataset which can be recorded to",
+           "datasets/TabularDataset.md.html");
 
 } // file scope*/
 
