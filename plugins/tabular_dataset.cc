@@ -515,12 +515,24 @@ recordRowItl(const RowName & rowName,
     return itl->recordRow(rowName, vals);
 }
 
+struct EmptyConfig {
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(EmptyConfig);
+DEFINE_STRUCTURE_DESCRIPTION(EmptyConfig);
+
+EmptyConfigDescription::
+EmptyConfigDescription()
+{
+    nullAccepted = true;
+}
+
 namespace {
 
-RegisterDatasetType<TabularDataset, PersistentDatasetConfig>
-regCsv(builtinPackage(),
+RegisterDatasetType<TabularDataset, EmptyConfig>
+regTabular(builtinPackage(),
        "tabular",
-       "NJK FILL ME",
+       "Tabular dataset that can be created with the import.text or the transform procedures",
        "datasets/TabularDataset.md.html");
 
 } // file scope*/

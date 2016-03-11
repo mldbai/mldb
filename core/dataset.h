@@ -13,6 +13,7 @@
 #include "mldb/core/mldb_entity.h"
 #include "mldb/sql/cell_value.h"
 #include "mldb/types/url.h"
+#include <set>
 
 // NOTE TO MLDB DEVELOPERS: This is an API header file.  No includes
 // should be added, especially value_description.h.
@@ -479,7 +480,8 @@ registerDatasetType(const Package & package,
                         createEntity,
                     TypeCustomRouteHandler docRoute,
                     TypeCustomRouteHandler customRoute,
-                    std::shared_ptr<const ValueDescription> config);
+                    std::shared_ptr<const ValueDescription> config,
+                    std::set<std::string> registryFlags);
 
 /** Register a new dataset kind.  This takes care of registering everything behind
     the scenes.
@@ -490,7 +492,8 @@ registerDatasetType(const Package & package,
                     const Utf8String & name,
                     const Utf8String & description,
                     const Utf8String & docRoute,
-                    TypeCustomRouteHandler customRoute = nullptr)
+                    TypeCustomRouteHandler customRoute = nullptr,
+                    std::set<std::string> registryFlags = {})
 {
     return registerDatasetType
         (package, name, description,
@@ -502,7 +505,8 @@ registerDatasetType(const Package & package,
          },
          makeInternalDocRedirect(package, docRoute),
          customRoute,
-         getDefaultDescriptionSharedT<Config>());
+         getDefaultDescriptionSharedT<Config>(),
+         registryFlags);
 }
 
 template<typename DatasetT, typename Config>
@@ -511,10 +515,11 @@ struct RegisterDatasetType {
                         const Utf8String & name,
                         const Utf8String & description,
                         const Utf8String & docRoute,
-                        TypeCustomRouteHandler customRoute = nullptr)
+                        TypeCustomRouteHandler customRoute = nullptr,
+                        std::set<std::string> registryFlags = {})
     {
         handle = registerDatasetType<DatasetT, Config>
-            (package, name, description, docRoute, customRoute);
+            (package, name, description, docRoute, customRoute, registryFlags);
     }
 
     std::shared_ptr<DatasetType> handle;
