@@ -157,8 +157,8 @@ struct BinaryStats {
         another point. */
     double rocAreaSince(const BinaryStats & other) const;
 
-    Array2D counts;//double counts[2][2];  // [label][output]
-    Array2D unweighted_counts;//double unweighted_counts[2][2];  // [label][output]
+    Array2D counts; // [label][output]
+    Array2D unweighted_counts; // [label][output]
     double threshold;  // threshold at which stats are taken
     boost::any key;    // Key for this reading
 
