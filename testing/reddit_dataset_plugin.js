@@ -15,8 +15,7 @@ function createDataset(numLines, datasetId)
     var dataset = mldb.createDataset(dataset_config)
     plugin.log("Reddit data loader created dataset")
 
-    var dataset_address = 'http://files.figshare.com/1310438/reddit_user_posting_behavior.csv.gz'
-    //var dataset_address = 'file://reddit_user_posting_behavior.csv';
+    var dataset_address = 'https://s3.amazonaws.com/public.mldb.ai/reddit.csv.gz';
     var now = new Date();
 
     var stream = mldb.openStream(dataset_address);

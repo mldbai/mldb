@@ -1,0 +1,18 @@
+<html>
+    <head><title>HTTP Error 502 - MLDB Unavailable</title>
+        <style> body {font-family: "Helvetica Neue",Helvetica,Arial,sans-serif;} </style>
+    </head>
+    <body bgcolor="white">
+        <div align="center" style="width: 800px; margin: 50px auto;">
+          <h2>HTTP Error 502 - MLDB Unavailable</h2>
+
+          <p>MLDB is unable to respond either because it has not finished booting or because it has crashed and has not finished rebooting. Recent log messages are available below to help you understand what is happening.</p>
+
+          <p>The MLDB Team at Datacratic can help you debug this problem! Please feel free to reach out by emailing <a href="mailto:mldb@datacratic.com" target="_blank">mldb@datacratic.com</a>.</p>
+
+          <h3>Recent Log Messages</h3>
+          <iframe src="{{HTTP_BASE_URL}}/logs/mldb#end" height="500" width="800" />
+
+        </center>
+    </body>
+</html>

@@ -1512,9 +1512,6 @@ doGetFunction(const Utf8String & functionName,
                     for (unsigned i = 0;  i != args.size();  ++i)
                         rowArgs[i] = args[i](*r, GET_LATEST);
 
-                    //for (unsigned i = 0;  i != argValues.size();  ++i)
-                    //    rowArgs[i] = argValues[i]; // (*r, GET_LATEST);
-
                     aggregate.process(&rowArgs[0], args.size(), storage.get());
                 }
 

@@ -96,10 +96,10 @@ call(const std::map<Utf8String, ExpressionValue> & input) const
         try {
             JML_TRACE_EXCEPTIONS(false);
 
-            if (it == info.input.values.end()) {
-                throw HttpReturnException(400, "Value named '" + name + "' is unknown to function");
-            }
-            
+            // skip unknown values
+            if (it == info.input.values.end())
+                continue;
+
             // Save the expected value type to put it in an error message later
             valueInfo = it->second.valueInfo.get();
         

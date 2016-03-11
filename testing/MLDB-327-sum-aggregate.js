@@ -23,7 +23,7 @@ recordExample("ex3", 1, 2, "cat");
 
 dataset.commit()
 
-var resp = mldb.get("/v1/datasets/test/query", {select: "label,sum(x),sum(y)", groupBy: "label", orderBy: "label"});
+var resp = mldb.get("/v1/datasets/test/query", {select: "label,sum(x),vertical_sum(y)", groupBy: "label", orderBy: "label"});
 
 plugin.log(resp);
 

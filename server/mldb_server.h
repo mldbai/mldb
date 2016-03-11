@@ -50,7 +50,8 @@ struct MldbServer: public ServicePeer, public EventRecorder {
     MldbServer(const std::string & serviceName = "mldb",
                const std::string & etcdUri = "",
                const std::string & etcdPath = "",
-               bool enableAccessLog = false);
+               bool enableAccessLog = false,
+               const std::string & httpBaseUrl = "");
     ~MldbServer();
 
     /** Scan the given directory for plugins.  These are not loaded;
@@ -84,7 +85,7 @@ struct MldbServer: public ServicePeer, public EventRecorder {
     */
     bool init(std::string configurationPath = "",
               std::string staticFilesPath = "file://mldb/doc",
-              std::string staticDocPath = "file://mldb/container_files/assets/www/doc/builtin",
+              std::string staticDocPath = "file://mldb/container_files/public_html/doc/builtin",
               bool hideInternalEntities = false);
     
     void start();
@@ -131,6 +132,11 @@ struct MldbServer: public ServicePeer, public EventRecorder {
     std::string getCacheDirectory() const;
 
     std::string httpBoundAddress;
+    std::string httpBaseUrl;
+
+    Utf8String prefixUrl(Utf8String url) const;
+    std::string prefixUrl(std::string url) const;
+    std::string prefixUrl(const char* url) const;
 
 private:
     void preInit();

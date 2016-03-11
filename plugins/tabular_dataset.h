@@ -433,7 +433,7 @@ struct TabularDatasetChunk {
     std::vector<RowName> rowNames;
     TabularDatasetColumn timestamps;
 
-    void add(int64_t lineNumber, RowName rowName, Date ts, CellValue * vals)
+    void add(RowName rowName, Date ts, CellValue * vals)
     {
         ++numRows;
 
@@ -468,7 +468,7 @@ struct TabularDataset : public Dataset {
                const std::function<bool (const Json::Value &)> & onProgress);
 
     //Initialize from a procedure
-    void initialize(std::vector<ColumnName>& columnNames, ML::Lightweight_Hash<ColumnHash, int>& columnIndex);
+    void initialize(const std::vector<ColumnName>& columnNames, const ML::Lightweight_Hash<ColumnHash, int>& columnIndex);
     void finalize( std::vector<TabularDatasetChunk>& inputChunks, uint64_t totalRows);
 
     TabularDatasetChunk* createNewChunk(size_t rowsPerChunk); 
@@ -492,6 +492,11 @@ struct TabularDataset : public Dataset {
                       ssize_t limit) const;
 
     virtual KnownColumn getKnownColumnInfo(const ColumnName & columnName) const;
+
+    /** Commit changes to the database. */
+    virtual void commit();
+
+    void recordRowItl(const RowName & rowName, const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals);
 
 protected:
     // To initialize from a subclass

@@ -153,8 +153,6 @@ struct LabelResults {
     JML_ALWAYS_INLINE
     void operator () (const Label_Dist & dist, float weight)
     {
-        ExcAssert(!isnanf(weight));
-        ExcAssert(!isnanf(dist[label]));
         result += weight * dist[label];
     }
 
@@ -283,7 +281,6 @@ predict_recursive_impl(const GetFeatures & get_features,
                        const Tree::Ptr & ptr,
                        double weight) const
 {
-    ExcAssert(!isnanf(weight));
     if (!ptr) return;
 
     if (!ptr.node()) {
@@ -304,7 +301,6 @@ predict_recursive_impl(const GetFeatures & get_features,
                                weights[false]);
     if (weights[MISSING] > 0.0)
     {
-        ExcAssert(false);
         predict_recursive_impl(get_features, results, node.child_missing,
                                weights[MISSING]);
     }

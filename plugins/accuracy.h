@@ -38,7 +38,7 @@ struct AccuracyConfig : public ProcedureConfig {
 
     /// Dataset we output to
     Optional<PolyConfigT<Dataset> > outputDataset;
-    static constexpr char const * defaultOutputDatasetType = "sparse.mutable";
+    static constexpr char const * defaultOutputDatasetType = "tabular";
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(AccuracyConfig);

@@ -174,3 +174,32 @@ $(target_add_prereq): $(new_target)
 .PHONY: $(new_target)
 endef
 
+# install_templated_directory
+#  $(1): source dir
+#  $(2): destination dir
+#  $(3): make target to add the rule as a prerequisite
+#  $(4): variable definition file
+#  $(5): template filter  # must take a file as sole parameter and output
+                          # the result on stdout
+# The last component of source dir is created into destination dir
+# destination dir is created before if it doesn't exist.
+define install_templated_directory
+$$(if $(trace),$$(warning called "$(0)" "$(1)" "$(2)" "$(3)" "$(4)" "$(5)"))
+$(eval target_add_prereq := $(3))
+$(eval new_target := $(0)-$(1)-$(2))
+$(eval var_file := $(if $(4),$(4)))
+$(eval tmpdir := $(TMP)/$(new_target))
+$(eval ext_bl := ".*\.(svg|eot|pdf|png|jpg|ttf|ico|swp|woff)$$$$$$$$")
+
+$(new_target): $(1) $(var_file)
+	mkdir -p $(tmpdir)
+	# create temp dir tree with templated files - ignore known bin files
+	find "$(1)" -type f -regextype posix-extended ! -iregex $(ext_bl) | xargs -P 16 -I {} -n1 bash -e -c 'export dest="$(tmpdir)/{}"; [ -d `dirname "$$$$dest"` ] || mkdir -p "`dirname $$$$dest`"; $(5) "{}" >"$$$${dest}" ||(echo failed: {}; exit 255)'
+	find "$(1)" -type f -regextype posix-extended -iregex $(ext_bl) | xargs -P 16 -I {} -n1 bash -e -c 'export dest="$(tmpdir)/{}"; [ -d `dirname "$$$$dest"` ] || mkdir -p "`dirname $$$$dest`"; cp "{}" "$$$${dest}" || exit 255'
+	install -d $(2)
+	cp -vR '$(tmpdir)/$(1)' '$(2)'
+	echo -rf '$(tmpdir)'
+
+$(target_add_prereq): $(new_target)
+.PHONY: $(new_target)
+endef

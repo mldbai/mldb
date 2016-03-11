@@ -1124,12 +1124,6 @@ overrideFunction(const Utf8String & tableName,
                 {
                     //cerr << "calling overridden distance with args " << jsonEncode(args)
                     //     << endl;
-#if 0
-                    std::vector<ExpressionValue> evaluatedArgs;
-                    evaluatedArgs.reserve(args.size());
-                    for (auto & arg: args)
-                        evaluatedArgs.emplace_back(std::move(arg(context, GET_LATEST)));
-#endif
                     auto row1 = evaluatedArgs.at(1).getRow();
                     Utf8String row2Name = evaluatedArgs.at(2).toUtf8String();
                     auto row2 = itl->getRow(RowName(row2Name)).columns;

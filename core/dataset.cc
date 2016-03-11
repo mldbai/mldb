@@ -736,7 +736,7 @@ Dataset::
 getTimestampRange() const
 {
     static const SelectExpression select
-        = SelectExpression::parseList("min(min_timestamp({*})) as earliest, max(max_timestamp({*})) as latest");
+        = SelectExpression::parseList("min(earliest_timestamp({*})) as earliest, max(latest_timestamp({*})) as latest");
 
     std::vector<MatrixNamedRow> res
         = queryStructured(select,

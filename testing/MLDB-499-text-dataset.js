@@ -53,7 +53,7 @@ function createDataset(datasetType)
     var dataset_config = {
         type: "import.text",
         params: {
-            dataFileUrl : "http://files.figshare.com/1310438/reddit_user_posting_behavior.csv.gz",
+            dataFileUrl : "https://s3.amazonaws.com/public.mldb.ai/reddit.csv.gz",
             outputDataset: {
                 id: datasetType,
                 type: datasetType
