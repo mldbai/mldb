@@ -25,7 +25,7 @@ mldb: \
 	mldb_plugins
 
 docker_mldb: \
-	DOCKER_COMMIT_ARGS=--change='CMD [ "/sbin/my_init" ]' --change='EXPOSE 80' --change='VOLUME $(MLDB_DATA_DIR)'
+	DOCKER_COMMIT_ARGS=--change='CMD [ "/sbin/my_init","--quiet" ]' --change='EXPOSE 80' --change='VOLUME $(MLDB_DATA_DIR)'
 
 ifdef VERSION_NAME
   # Release related flags and options
