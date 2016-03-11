@@ -42,10 +42,20 @@ void
 BinaryStats::
 add(const BinaryStats & other, double weight)
 {
-    counts[0][0] += weight * other.counts[0][0];
-    counts[0][1] += weight * other.counts[0][1];
-    counts[1][0] += weight * other.counts[1][0];
-    counts[1][1] += weight * other.counts[1][1];
+    auto addCounts = [&] (      Array2D & local,
+                          const Array2D & other,
+                                       float w)
+
+    {
+        local[0][0] += w * other[0][0];
+        local[0][1] += w * other[0][1];
+        local[1][0] += w * other[1][0];
+        local[1][1] += w * other[1][1];
+    };
+
+    addCounts(counts, other.counts, weight);
+    addCounts(unweighted_counts, other.unweighted_counts, 1);
+
     threshold += weight * other.threshold;
 }
 
@@ -255,6 +265,9 @@ calculate()
 
         current.counts[label][false] -= weight;
         current.counts[label][true] += weight;
+
+        current.unweighted_counts[label][false] -= 1;
+        current.unweighted_counts[label][true] += 1;
 
     }
     

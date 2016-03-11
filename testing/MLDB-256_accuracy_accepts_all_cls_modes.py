@@ -72,13 +72,13 @@ class Mldb256Test(MldbUnitTest):
     # this test only validates that there is no segfault when testing a glz with only null features
     def test_bool_cls_no_segfault_no_feature_cols(self):
         with self.assertRaises(mldb_wrapper.ResponseException) as re:
-            rez = mldb.put("/v1/procedures/bool_cls", {
+            rez = mldb.put("/v1/procedures/bool_cls_seg", {
                 "type": "classifier.experiment",
                 "params": {
-                    "trainingData": "select {x, y} as features, label as label from categorical",
-                    "experimentName": "bool_exp",
+                    "trainingData": "select {x, y} as features, label as label from categorical", # on purpouse the wrong dataset
+                    "experimentName": "bool_exp_seg",
                     "keepArtifacts": True,
-                    "modelFileUrlPattern": "file://temp/mldb-256_bool.cls",
+                    "modelFileUrlPattern": "file://temp/mldb-256_bool_seg.cls",
                     "algorithm": "glz",
                     "configuration": {
                         "glz": {
@@ -99,6 +99,92 @@ class Mldb256Test(MldbUnitTest):
         mldb.log(str(re.exception))
         self.assertTrue("Feature_Set is null! Are you giving only null features to  the classifier function?" in str(re.exception))
 
+    
+    def test_bool_cls_works(self):
+        rez = mldb.put("/v1/procedures/bool_cls", {
+            "type": "classifier.experiment",
+            "params": {
+                "trainingData": "select {x, y} as features, label as label from boolean",
+                "experimentName": "bool_exp",
+                "keepArtifacts": True,
+                "modelFileUrlPattern": "file://temp/mldb-256_bool.cls",
+                "algorithm": "glz",
+                "configuration": {
+                    "glz": {
+                        "type": "glz",
+                        "verbosity": 3,
+                        "normalize": True,
+                        "link_function": "logit",
+                        "ridge_regression": True
+                    },
+                    "dt": {
+                        "type": "decision_tree",
+                        "max_depth": 8,
+                        "verbosity": 3,
+                        "update_alg": "prob"
+                    }
+                },
+                "datasetFolds": [
+                    {
+                        "training_where": "rowHash() % 2 = 1",
+                        "testing_where": "rowHash() % 2 = 0",
+                    }],
+                "mode": "boolean",
+                "outputAccuracyDataset": True,
+                "runOnCreation": True
+            }
+        })
+
+        jsRez = rez.json()
+        self.assertEqual(jsRez["status"]["firstRun"]["status"]["folds"][0]["results"]["auc"], 1)
+
+
+    def test_bool_weighted_cls_works(self):
+        rez = mldb.put("/v1/procedures/bool_cls_weighted", {
+            "type": "classifier.experiment",
+            "params": {
+                "trainingData": "select {x, y} as features, label as label, weight as weight from boolean",
+                "experimentName": "bool_exp",
+                "keepArtifacts": True,
+                "modelFileUrlPattern": "file://temp/mldb-256_bool.cls",
+                "algorithm": "glz",
+                "configuration": {
+                    "glz": {
+                        "type": "glz",
+                        "verbosity": 3,
+                        "normalize": True,
+                        "link_function": "logit",
+                        "ridge_regression": True
+                    },
+                    "dt": {
+                        "type": "decision_tree",
+                        "max_depth": 8,
+                        "verbosity": 3,
+                        "update_alg": "prob"
+                    }
+                },
+                "datasetFolds": [
+                    {
+                        "training_where": "rowHash() % 2 = 1",
+                        "testing_where": "rowHash() % 2 = 0",
+                    }],
+                "mode": "boolean",
+                "outputAccuracyDataset": True,
+                "runOnCreation": True
+            }
+        })
+
+        jsRez = rez.json()
+        self.assertEqual(jsRez["status"]["firstRun"]["status"]["folds"][0]["results"]["auc"], 1)
+
+        # train again with a dt
+        rez = mldb.post("/v1/procedures/bool_cls_weighted/runs", {
+            "params": {
+                "algorithm": "dt"
+            }
+        })
+        jsRez = rez.json()
+        self.assertGreater(jsRez["status"]["folds"][0]["results"]["auc"], 0.65)
     
 
     def test_toy_categorical_eval_works(self):

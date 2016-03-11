@@ -777,9 +777,6 @@ explain(const Feature_Set & feature_set,
         double weight,
         PredictionContext * context) const
 {
-    if(label >= bias.size())
-        throw ML::Exception("Boosted Stumps do not support explain for regression tasks");
-
     Explanation result(feature_space(), weight); 
 
     // Get the bias for the label
