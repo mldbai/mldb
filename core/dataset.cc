@@ -341,17 +341,6 @@ ColumnIndex::
 getColumnDense(const ColumnName & column) const
 {
     throw HttpReturnException(500, "Dataset type doesn't implement getColumnDense()");
-#if 0
-    auto column = getColumn(column);
-    std::vector<RowName> rowNames = getRowNames();
-    
-    for (auto & c: column.rows.size()) {
-    }
-
-    std::vector<CellValue> result(rowNames.size());
-    Date ts = Date::negativeInfinity();
-    return { std::move(result), ts };
-#endif
 }
 
 std::tuple<BucketList, BucketDescriptions>
@@ -360,11 +349,6 @@ getColumnBuckets(const ColumnName & column,
                  int maxNumBuckets) const
 {
     throw HttpReturnException(500, "Dataset type doesn't implement getColumnBuckets()");
-#if 0
-    std::set<CellValue> vals;
-
-    auto valsTs = getColumnDense(column);
-#endif
 }
 
 

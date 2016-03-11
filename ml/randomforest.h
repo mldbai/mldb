@@ -636,8 +636,8 @@ struct PartitionData {
             node->child_true = left;
             node->child_false = right;
             W wMissing;
-            wMissing[0] = 0.1f;
-            wMissing[1] = 0.1f;
+            wMissing[0] = 0.0f;
+            wMissing[1] = 0.0f;
             node->child_missing = getLeaf(tree, wMissing);
             node->z = bestScore;            
             fillinBase(node, wLeft + wRight);

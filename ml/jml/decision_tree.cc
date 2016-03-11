@@ -300,10 +300,8 @@ predict_recursive_impl(const GetFeatures & get_features,
         predict_recursive_impl(get_features, results, node.child_false,
                                weights[false]);
     if (weights[MISSING] > 0.0)
-    {
         predict_recursive_impl(get_features, results, node.child_missing,
                                weights[MISSING]);
-    }
 }
 
 std::string

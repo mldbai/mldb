@@ -162,8 +162,7 @@ struct ColumnIndex {
         rowNames().  Only a single timestamp is returned, being the latest
         timestamp for the entire row.
 
-        Default builts on top of getColumn() and getRowNames(), but is
-        quite inefficient.
+        Default throws.
     */
     virtual std::vector<CellValue>
     getColumnDense(const ColumnName & column) const;
@@ -174,7 +173,7 @@ struct ColumnIndex {
         return value.  Only a single timestamp is returned, being the latest timestamp
         for the entire column.
 
-        Default builds on top of getColumnDense().
+        Default throws.
     */
     virtual std::tuple<BucketList, BucketDescriptions>
     getColumnBuckets(const ColumnName & column,
