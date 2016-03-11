@@ -53,8 +53,8 @@ int main(int argc, char ** argv)
     MldbServer server;
     server.httpBaseUrl = httpBaseUrl; 
     server.init("", 
-                "file://mldb/doc",
-                "file://mldb/container_files/public_html/doc/builtin",
+                "file://mldb/container_files/public_html/resources",
+                "file://mldb/container_files/public_html/doc",
                 hideInternalEntities);
 
     // Scan each of our plugin directories
@@ -65,7 +65,7 @@ int main(int argc, char ** argv)
     string httpBoundAddress = server.bindTcp(PortRange(17782,18000), "0.0.0.0");
     
     cerr << endl << endl << "Serving docs from " 
-        << httpBoundAddress << "/static/assets/index.html" 
+        << httpBoundAddress << "/doc/index.html" 
         << endl << endl << endl;
 
     server.start();

@@ -16,7 +16,8 @@ exec /sbin/setuser _mldb \
     /opt/bin/mldb_runner \
         --http-listen-port {{MLDB_RUNNER_LISTEN_PORT}} \
         --configuration-path {{MLDB_CONFIGURATION_PATH}} \
-        --static-doc-path {{MLDB_PUBLIC_HTML_PATH}}/doc/builtin \
+        --static-assets-path {{MLDB_PUBLIC_HTML_PATH}}/resources \
+        --static-doc-path {{MLDB_PUBLIC_HTML_PATH}}/doc \
         --cache-dir {{MLDB_SSD_CACHE_PATH}} \
         --plugin-directory {{MLDB_GLOBAL_PLUGINS_PATH}} \
         --plugin-directory {{MLDB_LOCAL_PLUGINS_PATH}} \

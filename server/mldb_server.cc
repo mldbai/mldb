@@ -359,15 +359,11 @@ initCollections(std::string configurationPath,
     }
 
     // Serve up static documentation for the plugins
-    serveDocumentationDirectory(router, "/doc/builtin",
+    serveDocumentationDirectory(router, "/doc",
                                 staticDocPath, this, hideInternalEntities);
 
-    serveDocumentationDirectory(router, "/static/assets",
-                                staticFilesPath, this, hideInternalEntities);
-
     serveDocumentationDirectory(router, "/resources",
-                                "mldb/container_files/public_html/resources",
-                                this, hideInternalEntities);
+                                staticFilesPath, this, hideInternalEntities);
 }
 
 void
