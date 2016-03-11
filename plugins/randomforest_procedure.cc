@@ -331,7 +331,7 @@ namespace{
 	regPrototypeClassifier(builtinPackage(),
 	              "randomforest.binary.train",
 	              "Train a supervised binary random forest",
-	              "procedures/Classifier.md.html");
+	              "procedures/RandomForest.md.html");
 
 }
 
