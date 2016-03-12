@@ -101,4 +101,20 @@ if (JSON.stringify(expected3) != JSON.stringify(res3)) {
                 "Output was not the same as expected output");
 }
 
+var sql_func_res = mldb.put("/v1/functions/nn", {
+    type: 'nearest.neighbors',
+    params: {
+        'dataset': {id: 'test', type: "embedding"}
+    }
+})
+mldb.log(sql_func_res);
+
+var res3_sql = mldb.query("select nn({row: 'ex1'})[neighbors] as *");
+mldb.log(res3_sql);
+for(var i=0; i<res3_sql[0]["columns"].length; i++) {
+    var elem = res3_sql[0]["columns"][i];
+    assertEqual(elem[0], expected3[i][0]);
+    assertEqual(elem[1], expected3[i][2]);
+}
+
 "success"
