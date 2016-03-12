@@ -895,6 +895,34 @@ struct EmbeddingDataset::Itl
     }
 
     vector<tuple<RowName, RowHash, float> >
+    getNeighbours(const ML::distribution<float> & coord, int numNeighbours, double maxDistance)
+    {
+        auto repr = committed();
+        if (!repr->initialized())
+            return {};
+
+        auto dist = [&] (int item) -> float
+        {
+            float result = repr->dist(item, coord);
+            ExcAssert(isfinite(result));
+            return result;
+        };
+
+        auto neighbours = repr->vpTree->search(dist, numNeighbours, maxDistance);
+
+        //cerr << "neighbours = " << jsonEncode(neighbours) << endl;
+        
+        vector<tuple<RowName, RowHash, float> > result;
+        for (auto & n: neighbours) {
+            result.emplace_back(repr->rows[n.second].rowName,
+                                repr->rows[n.second].rowName,
+                                n.first);
+        }
+
+        return result;
+    }
+
+    vector<tuple<RowName, RowHash, float> >
     getRowNeighbours(const RowName & row, int numNeighbours, double maxDistance)
     {
         auto repr = committed();
@@ -908,7 +936,7 @@ struct EmbeddingDataset::Itl
             throw HttpReturnException(400, "Couldn't find row '" + row.toUtf8String()
                                       + "' in embedding");
         }
-        
+       
         //const EmbeddingDatasetRepr::Row & row = repr->rows[it->second];
         
         auto dist = [&] (int item) -> float
@@ -1196,6 +1224,13 @@ overrideFunction(const Utf8String & tableName,
 
     return BoundFunction();
 }
+
+vector<tuple<RowName, RowHash, float> >
+EmbeddingDataset::
+getNeighbours(const ML::distribution<float> & coord, int numNeighbours, double maxDistance) const
+{
+    return itl->getNeighbours(coord, numNeighbours, maxDistance);
+}
     
 vector<tuple<RowName, RowHash, float> >
 EmbeddingDataset::
@@ -1317,7 +1352,7 @@ apply(const FunctionApplier & applier_,
 
     FunctionOutput output;
 
-    auto rowName = context.get<CellValue>("row");
+    auto inputRow = context.get(Utf8String("coords"));
 
     unsigned num_neighbors = functionConfig.default_num_neighbors;
     double max_distance = functionConfig.default_max_distance;
@@ -1332,10 +1367,19 @@ apply(const FunctionApplier & applier_,
     }
 
     Date d;
-    //vector<tuple<RowName, RowHash, float> >
-    auto neighbors = applier.embeddingDataset->getRowNeighbours(
-                                        RowName(rowName.toUtf8String()),
+    vector<tuple<RowName, RowHash, float> > neighbors;
+    if(inputRow.isAtom()) {
+        neighbors = applier.embeddingDataset->getRowNeighbours(
+                                        RowName(inputRow.toUtf8String()),
                                         num_neighbors, max_distance);
+    } else if(inputRow.isEmbedding()) {
+        neighbors = applier.embeddingDataset->getNeighbours(
+            inputRow.getEmbedding(), 
+            num_neighbors, max_distance);
+    } else {
+        throw ML::Exception("Input row must be either a row name or an embedding");
+    }
+
 
     RowValue rtnRow;
     for(auto & neighbor : neighbors) {
@@ -1353,7 +1397,7 @@ getFunctionInfo() const
 {
     FunctionInfo result;
 
-    result.input.addAtomValue("row");
+    result.input.addAtomValue("coords");
     result.input.addNumericValue("num_neighbours");
     result.input.addNumericValue("max_distance");
 
