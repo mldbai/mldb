@@ -84,8 +84,8 @@ struct MldbServer: public ServicePeer, public EventRecorder {
         discovery or message passing is supported in this configuration.
     */
     bool init(std::string configurationPath = "",
-              std::string staticFilesPath = "file://mldb/doc",
-              std::string staticDocPath = "file://mldb/container_files/public_html/doc/builtin",
+              std::string staticFilesPath = "file://mldb/container_files/public_html/resources",
+              std::string staticDocPath = "file://mldb/container_files/public_html/doc",
               bool hideInternalEntities = false);
     
     void start();
