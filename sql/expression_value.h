@@ -616,12 +616,14 @@ struct ExpressionValue {
     /** Return an embedding from the value, asserting on the length.  If the
         length is -1, it is unknown and any length will be accepted. */
     ML::distribution<float, std::vector<float> >
-    getEmbedding(ssize_t knownLength = -1) const;
+    getEmbedding(ssize_t knownLength = -1,
+                 bool sortColumns = true) const;
 
     /** Return an embedding from the value, asserting on the length.  If the
         length is -1, it is unknown and any length will be accepted. */
     ML::distribution<double, std::vector<double> >
-    getEmbeddingDouble(ssize_t knownLength = -1) const;
+    getEmbeddingDouble(ssize_t knownLength = -1,
+                       bool sortColumns = true) const;
 
     /** Return a flattened embedding as CellValues. */
     std::vector<CellValue>
