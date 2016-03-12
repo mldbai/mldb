@@ -12,6 +12,8 @@
 #include "mldb/core/dataset.h"
 #include "mldb/types/value_description.h"
 #include "metric_space.h"
+#include "sql/sql_expression.h"
+#include "mldb/core/function.h"
 
 namespace Datacratic {
 namespace MLDB {
@@ -76,11 +78,57 @@ struct EmbeddingDataset: public Dataset {
 
     virtual std::vector<KnownColumn>
     getKnownColumnInfos(const std::vector<ColumnName> & columnNames) const;
+    
+    std::vector<std::tuple<RowName, RowHash, float> >
+    getRowNeighbours(const RowName & row, int numNeighbours, double maxDistance) const;
 
 private:
     EmbeddingDatasetConfig datasetConfig;
     struct Itl;
     std::shared_ptr<Itl> itl;
+};
+
+
+
+/*****************************************************************************/
+/* nearest.neighbors FUNCTION                                                */
+/*****************************************************************************/
+
+struct NearestNeighborsFunctionConfig {
+    NearestNeighborsFunctionConfig()
+        : default_num_neighbors(10), default_max_distance(INFINITY)
+    {
+    }
+
+    unsigned default_num_neighbors;
+    double default_max_distance;
+    std::shared_ptr<TableExpression> dataset;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(NearestNeighborsFunctionConfig);
+
+struct NearestNeighborsFunction: public Function {
+    NearestNeighborsFunction(MldbServer * owner,
+                  PolyConfig config,
+                  const std::function<bool (const Json::Value &)> & onProgress);
+
+    ~NearestNeighborsFunction();
+
+    virtual Any getStatus() const;
+
+    virtual Any getDetails() const;
+
+    virtual FunctionOutput apply(const FunctionApplier & applier,
+                              const FunctionContext & context) const;
+
+    /** Describe what the input and output is for this function. */
+    virtual FunctionInfo getFunctionInfo() const;
+    
+    virtual std::unique_ptr<FunctionApplier>
+    bind(SqlBindingScope & outerContext,
+         const FunctionValues & input) const;
+
+    NearestNeighborsFunctionConfig functionConfig;
 };
 
 

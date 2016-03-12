@@ -652,7 +652,7 @@ run(const ProcedureRunConfig & run,
 
 
 /*****************************************************************************/
-/* CLASSIFIER FUNCTION                                                          */
+/* CLASSIFIER FUNCTION                                                       */
 /*****************************************************************************/
 
 DEFINE_STRUCTURE_DESCRIPTION(ClassifyFunctionConfig);

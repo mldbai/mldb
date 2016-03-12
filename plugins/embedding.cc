@@ -1196,6 +1196,13 @@ overrideFunction(const Utf8String & tableName,
 
     return BoundFunction();
 }
+    
+vector<tuple<RowName, RowHash, float> >
+EmbeddingDataset::
+getRowNeighbours(const RowName & row, int numNeighbours, double maxDistance) const
+{
+    return itl->getRowNeighbours(row, numNeighbours, maxDistance);
+}
 
 KnownColumn
 EmbeddingDataset::
@@ -1220,11 +1227,142 @@ handleRequest(RestConnection & connection,
     return itl->handleRequest(connection, request, context);
 }
 
+
+
+/*****************************************************************************/
+/* NEAREST NEIGHBOUR FUNCTION                                                */
+/*****************************************************************************/
+
+DEFINE_STRUCTURE_DESCRIPTION(NearestNeighborsFunctionConfig);
+
+NearestNeighborsFunctionConfigDescription::
+NearestNeighborsFunctionConfigDescription()
+{
+    addField("default_num_neighbors", &NearestNeighborsFunctionConfig::default_num_neighbors,
+             "Default number of neighbors to return. This can be overritten when calling "
+             "the function.", unsigned(10));
+    addField("default_max_distance", &NearestNeighborsFunctionConfig::default_max_distance,
+             "Default maximum distance from the original row returned neighbors can be.",
+             double(INFINITY));
+    addField("dataset", &NearestNeighborsFunctionConfig::dataset,
+             "Embedding dataset in which to find neighbors.");
+}
+
+NearestNeighborsFunction::
+NearestNeighborsFunction(MldbServer * owner,
+               PolyConfig config,
+               const std::function<bool (const Json::Value &)> & onProgress)
+    : Function(owner)
+{
+    functionConfig = config.params.convert<NearestNeighborsFunctionConfig>();
+}
+
+NearestNeighborsFunction::
+~NearestNeighborsFunction()
+{
+}
+
+Any
+NearestNeighborsFunction::
+getStatus() const
+{
+    return Json::Value();
+}
+
+Any
+NearestNeighborsFunction::
+getDetails() const
+{
+    return Json::Value();
+}
+
+struct NearestNeighborsFunctionApplier: public FunctionApplier {
+    NearestNeighborsFunctionApplier(const Function * owner)
+        : FunctionApplier(owner)
+    {
+        info = owner->getFunctionInfo();
+    }
+
+    std::shared_ptr<EmbeddingDataset> embeddingDataset;
+};
+
+std::unique_ptr<FunctionApplier>
+NearestNeighborsFunction::
+bind(SqlBindingScope & outerContext,
+     const FunctionValues & input) const
+{
+    auto boundDataset = functionConfig.dataset->bind(outerContext);
+
+    std::unique_ptr<NearestNeighborsFunctionApplier> result
+        (new NearestNeighborsFunctionApplier(this));
+
+    try{
+        result->embeddingDataset = dynamic_pointer_cast<EmbeddingDataset>(boundDataset.dataset);
+    }
+    catch(const std::bad_cast& e) {
+        throw ML::Exception("A dataset of type embedding needs to be provided for the "
+                "nearest.neighbors function");
+    }
+ 
+    return std::move(result);
+}
+
+FunctionOutput
+NearestNeighborsFunction::
+apply(const FunctionApplier & applier_,
+      const FunctionContext & context) const
+{
+    auto & applier = (NearestNeighborsFunctionApplier &)applier_;
+
+
+    FunctionOutput output;
+
+    auto rowName = context.get<CellValue>("row");
+
+    Date d;
+    //vector<tuple<RowName, RowHash, float> >
+    auto neighbors = applier.embeddingDataset->getRowNeighbours(
+                                        RowName(rowName.toUtf8String()),
+                                        functionConfig.default_num_neighbors,
+                                        functionConfig.default_max_distance);
+
+    RowValue rtnRow;
+    for(auto & neighbor : neighbors) {
+        // std::tuple<Coord, CellValue, Date>
+        rtnRow.push_back(make_tuple(get<0>(neighbor), CellValue(get<2>(neighbor)), d));
+    }
+
+    output.set("neighbors", rtnRow);
+    return output;
+}
+
+FunctionInfo
+NearestNeighborsFunction::
+getFunctionInfo() const
+{
+    FunctionInfo result;
+
+    result.input.addAtomValue("row");
+    result.output.addRowValue("neighbors");
+
+    return result;
+}
+
+
+
+
 static RegisterDatasetType<EmbeddingDataset, EmbeddingDatasetConfig>
 regEmbedding(builtinPackage(),
              "embedding",
              "Dataset to record a set of coordinates per row",
              "datasets/EmbeddingDataset.md.html");
+
+static RegisterFunctionType<NearestNeighborsFunction, NearestNeighborsFunctionConfig>
+regNearestNeighborsFunction(builtinPackage(),
+                   "nearest.neighbors",
+                   "Return the nearest neighbours of a known row in an embedding dataset",
+                   "functions/NearestNeighborsFunction.md.html");
+
 
 } // namespace MLDB
 } // namespace Datacratic
