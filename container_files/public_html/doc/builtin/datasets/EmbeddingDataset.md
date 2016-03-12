@@ -34,18 +34,7 @@ for efficient queries of points that are close in the embedding space.  This
 can be used for nearest-neighbours searches, which when combined with a good
 embedding algorithm can be used to implement recommendations.
 
-This is done by calling `/v1/datasets/<dataset>/routes/neighbours`
-passing in the column values of the point under consideration as query
-parameters.
-
-If the row whose neighbours are required are in the embedding already,
-then the `/v1/datasets/<dataset>/routes/rowNeighbours` route can
-be used instead.  That route takes a `row` parameter which gives the
-name of the row to be queried.
-
-Both of the routes also accept a `numNeighbours` parameter giving the
-maximum number of neighbours to return, and a `maxDistance` parameter
-giving the highest distance that a point can be in order to be included.
+See the ![](%%doclink nearest.neighbors function) for more details.
 
 ## Examples
 
@@ -55,6 +44,7 @@ giving the highest distance that a point can be in order to be included.
 ## See Also
 
 * [Vantage Point Tree] is the data structure used to allow quick lookups
+* the ![](%%doclink nearest.neighbors function) is used to find nearest neighbours in an embedding dataset.
 * the ![](%%doclink kmeans.train procedure) is another way of identifying similar points.
 * the ![](%%doclink svd.train procedure) procedure is often used to train an embedding with a high number of dimensions
 * the ![](%%doclink tsne.train procedure) can be used to train a 2 or 3 dimensional embedding

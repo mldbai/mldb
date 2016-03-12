@@ -38,6 +38,16 @@ recordExample("ex4", 1, 1);
 
 dataset.commit()
 
+var sql_func_res = mldb.put("/v1/functions/nn", {
+    type: 'nearest.neighbors',
+    params: {
+        'dataset': {id: 'test', type: "embedding"}
+    }
+});
+
+mldb.log(sql_func_res);
+
+
 var res1 = mldb.get("/v1/datasets/test/routes/neighbours", {x:0.5,y:0.5}).json;
 
 var expected1 = [
@@ -49,6 +59,16 @@ var expected1 = [
 
 assertEqual(mldb.diff(expected1, res1, false /* strict */), {},
             "Output was not the same as expected output");
+
+
+var res1_sql = mldb.query("select nn({coords: [0.5, 0.5]})[neighbors] as *");
+mldb.log(res1_sql);
+for(var i=0; i<res1_sql[0]["columns"].length; i++) {
+    var elem = res1_sql[0]["columns"][i];
+    assertEqual(elem[0], expected1[i][0]);
+    assertEqual(elem[1], expected1[i][2]);
+}
+
 
 var res2 = mldb.get("/v1/datasets/test/routes/neighbours", {x:0.1,y:0.2}).json;
 
@@ -101,15 +121,8 @@ if (JSON.stringify(expected3) != JSON.stringify(res3)) {
                 "Output was not the same as expected output");
 }
 
-var sql_func_res = mldb.put("/v1/functions/nn", {
-    type: 'nearest.neighbors',
-    params: {
-        'dataset': {id: 'test', type: "embedding"}
-    }
-})
-mldb.log(sql_func_res);
 
-var res3_sql = mldb.query("select nn({row: 'ex1'})[neighbors] as *");
+var res3_sql = mldb.query("select nn({coords: 'ex1'})[neighbors] as *");
 mldb.log(res3_sql);
 for(var i=0; i<res3_sql[0]["columns"].length; i++) {
     var elem = res3_sql[0]["columns"][i];
@@ -117,11 +130,11 @@ for(var i=0; i<res3_sql[0]["columns"].length; i++) {
     assertEqual(elem[1], expected3[i][2]);
 }
 
-var res4_sql = mldb.query("select nn({row: 'ex1', num_neighbours:2})[neighbors] as *");
+var res4_sql = mldb.query("select nn({coords: 'ex1', num_neighbours:2})[neighbors] as *");
 mldb.log(res4_sql);
 assertEqual(res4_sql[0]["columns"].length, 2);
 
-var res5_sql = mldb.query("select nn({row: 'ex1', num_neighbours:2, max_distance:0.5})[neighbors] as *");
+var res5_sql = mldb.query("select nn({coords: 'ex1', num_neighbours:2, max_distance:0.5})[neighbors] as *");
 mldb.log(res5_sql);
 assertEqual(res5_sql[0]["columns"].length, 1);
 assertEqual(res5_sql[0]["columns"][0][0], 'ex1');

@@ -80,6 +80,9 @@ struct EmbeddingDataset: public Dataset {
     getKnownColumnInfos(const std::vector<ColumnName> & columnNames) const;
     
     std::vector<std::tuple<RowName, RowHash, float> >
+    getNeighbours(const ML::distribution<float> & coord, int numNeighbours, double maxDistance) const;
+    
+    std::vector<std::tuple<RowName, RowHash, float> >
     getRowNeighbours(const RowName & row, int numNeighbours, double maxDistance) const;
 
 private:
