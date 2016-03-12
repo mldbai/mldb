@@ -20,6 +20,8 @@
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/server/function_contexts.h"
 #include "mldb/server/dataset_context.h"
+#include "mldb/rest/rest_request_binding.h"
+
 #include "google/protobuf/util/json_util.h"
 #include "google/protobuf/util/type_resolver_util.h"
 #include "google/protobuf/io/zero_copy_stream_impl.h"
@@ -84,6 +86,30 @@ namespace tensorflow {
 DECLARE_ENUM_DESCRIPTION_NAMED(TensorflowDataTypeDescription, tensorflow::DataType);
 DEFINE_ENUM_DESCRIPTION_PROTO(TensorflowDataTypeDescription, DataType);
 } // namespace tensorflow
+
+namespace Datacratic {
+namespace MLDB {
+
+struct TensorflowPlugin: public Plugin {
+    TensorflowPlugin(MldbServer * server)
+        : Plugin(server)
+    {
+    }
+
+    RestRequestRouter router;
+
+    virtual RestRequestMatchResult
+    handleRequest(RestConnection & connection,
+                  const RestRequest & request,
+                  RestRequestParsingContext & context) const
+    {
+        return router.processRequest(connection, request, context);
+    }
+};
+
+} // namespace MLDB
+} // namespace Datacratic
+
 
 // Plugin entry point.  This is called by MLDB once the plugin is loaded.
 // We initialize the TensorFlow system.
@@ -248,60 +274,9 @@ mldbPluginEnterV100(Datacratic::MLDB::MldbServer * server)
         resizedImage = std::move(out_tensors.at(0));
     }
 
-    string input_layer = "Mul";
-    string output_layer = "softmax";
-
-    // Actually run the image through the model.
-    Tensor output;
-
-    ML::Timer timer;
-
-    auto onRun = [&] (int n)
-        {
-            std::vector<Tensor> outputs;
-            Status run_status = session->Run({{input_layer, resizedImage}},
-                {output_layer}, {}, &outputs);
-
-            if (!run_status.ok()) {
-                throw HttpReturnException(400, "Unable to run model: "
-                                          + run_status.error_message());
-            }
-
-            cerr << "outputs " << outputs.size() << " tensors" << endl;
-
-            if (n == 0)
-                output = std::move(outputs.at(0));
-        };
-
-    ML::run_in_parallel(0, 20, onRun);
-
-    cerr << "elapsed " << timer.elapsed() << endl;
-
-    auto scores = output.flat<float>();
-
-    vector<pair<float, int> > sorted;
-    for (unsigned i = 0;  i < scores.size();  ++i)
-        sorted.emplace_back(scores(i), i);
-
-    std::sort(sorted.begin(), sorted.end());
-    std::reverse(sorted.begin(), sorted.end());
-
-    for (unsigned i = 0;  i < 5 && i < sorted.size();  ++i) {
-        cerr << "category " << sorted[i].second << " score " << sorted[i].first
-             << endl;
-    }
-
 #endif
 
-#if 0
-    cerr << "output tensor has " << output.shape().dims() << " dims" << endl;
-    for (unsigned i = 0;  i < output.shape().dims();  ++i) {
-        cerr << "dim " << i << " has value " << output.shape().dim_size(i)
-             << endl;
-    }
-#endif
-    
-    return nullptr;
+    return new Datacratic::MLDB::TensorflowPlugin(server);
 }
 
 
@@ -314,65 +289,132 @@ const Package & tensorflowPackage()
     return result;
 }
 
-#if 0
+
 /*****************************************************************************/
-/* TENSORFLOW KERNEL                                                         */
+/* TENSOR CONVERSION OPERATIONS                                              */
 /*****************************************************************************/
 
-struct TensorflowKernelConfig {
-};
 
-DECLARE_STRUCTURE_DESCRIPTION(TensorflowKernelConfig);
-
-DEFINE_STRUCTURE_DESCRIPTION(TensorflowKernelConfig);
-
-TensorflowKernelConfigDescription::
-TensorflowKernelConfigDescription()
+template<typename T>
+ExpressionValue tensorToValueT(const tensorflow::Tensor & tensor,
+                                      Date ts,
+                                      T * = nullptr)
 {
+    auto flattened = tensor.flat<T>();
+    size_t n = flattened.size();
+    vector<size_t> shape;
+    for (unsigned i = 0;  i < tensor.dims();  ++i) {
+        shape.emplace_back(tensor.dim_size(i));
+    }
+    vector<CellValue> cells(n);
+    for (size_t i = 0;  i < n;  ++i) {
+        cells[i] = flattened(i);
+    }
+    return ExpressionValue(std::move(cells), ts, shape);
 }
 
-struct TensorflowKernel: public Function {
+StorageType dataTypeToStorage(tensorflow::DataType dt)
+{
+    using namespace tensorflow;
 
-    TensorflowKernelConfig functionConfig;
-
-    TensorflowKernel(MldbServer * owner,
-                     PolyConfig config,
-                     const std::function<bool (const Json::Value &)> & onProgress)
-        : Function(owner)
-    {
-        functionConfig = config.params.convert<TensorflowKernelConfig>();   
+    switch (dt) {
+    case DT_FLOAT:
+        return ST_FLOAT32;
+    case DT_DOUBLE:
+        return ST_FLOAT64;
+    case DT_INT32:
+    case DT_QINT32:
+        return ST_INT32;
+    case DT_UINT8:
+    case DT_QUINT8:
+        return ST_UINT8;
+    case DT_INT8:
+    case DT_QINT8:
+        return ST_INT8;
+    case DT_INT16:
+    case DT_QINT16:
+        return ST_INT16;
+    case DT_QUINT16:
+        return ST_UINT16;
+    case DT_STRING:
+        return ST_BLOB;
+    case DT_BOOL:
+        return ST_INT32;
+    default:
+        throw HttpReturnException(400, "Can't return tensor of this type from TensorFlow",
+                                  "type", dt);
     }
+}
 
-    Any getStatus() const
-    {
-        return Any();
+ExpressionValue tensorToValue(const tensorflow::Tensor & tensor,
+                                     Date ts)
+{
+    using namespace tensorflow;
+
+    switch (tensor.dtype()) {
+    case DT_FLOAT:
+        return tensorToValueT<float>(tensor, ts);
+    case DT_DOUBLE:
+        return tensorToValueT<double>(tensor, ts);
+    case DT_INT32:
+        return tensorToValueT<int32_t>(tensor, ts);
+    case DT_UINT8:
+        return tensorToValueT<uint8_t>(tensor, ts);
+    case DT_INT16:
+        return tensorToValueT<int16_t>(tensor, ts);
+    case DT_INT8:
+        return tensorToValueT<int8_t>(tensor, ts);
+    case DT_STRING:
+        return tensorToValueT<std::string>(tensor, ts);
+        //case DT_INT64:
+        //return tensorToValueT<int64_t>(tensor, ts);
+    case DT_BOOL:
+        return tensorToValueT<bool>(tensor, ts);
+        /*
+          DT_QINT8 = 11;     // Quantized int8
+          DT_QUINT8 = 12;    // Quantized uint8
+          DT_QINT32 = 13;    // Quantized int32
+          DT_BFLOAT16 = 14;  // Float32 truncated to 16 bits.  Only for cast ops.
+          DT_QINT16 = 15;    // Quantized int16
+          DT_QUINT16 = 16;   // Quantized uint16
+        */
+    default:
+        throw HttpReturnException(400, "Can't return tensor of this type from TensorFlow"/*,
+                                                                                           "type", tensor.dtype()*/);
     }
+}
 
-    FunctionOutput
-    apply(const FunctionApplier & applier,
-          const FunctionContext & context) const
-    {
-        FunctionOutput result;
+tensorflow::Tensor
+castToSizedAndTypedTensor(const ExpressionValue & val,
+                          const tensorflow::TensorShape & shape,
+                          tensorflow::DataType type)
+{
+    const CellValue & input = val.getAtom();
 
-        Utf8String output("output");
-        result.set("output", ExpressionValue("hello", Date::notADate()));
+    const unsigned char * data = input.blobData();
+    const size_t len = input.blobLength();
+
+    tensorflow::Tensor result(tensorflow::DT_STRING, {});
+        
+    auto str = result.flat<std::string>();
+    str(0) = string(data, data + len);
+
+    return result;
+}
+
+tensorflow::Tensor
+castToTypedTensor(const ExpressionValue & val,
+                  tensorflow::DataType type)
+{
+    throw HttpReturnException(500, "Unable to cast value to typed tensor");
+}
     
-        return result;
-    }
-
-    FunctionInfo
-    getFunctionInfo() const
-    {
-        FunctionInfo result;
-
-        result.input.addAtomValue("text");
-        result.output.addAtomValue("output");
+tensorflow::Tensor
+castToTensor(const ExpressionValue & val)
+{
+    throw HttpReturnException(500, "Unable to cast value to tensor");
+}
     
-        return result;
-    }
-
-};
-#endif
 
 
 /*****************************************************************************/
@@ -407,6 +449,32 @@ struct TensorflowGraph: public Function {
 
     TensorflowGraphConfig functionConfig;
 
+    /// The actual graph to run
+    std::unique_ptr<tensorflow::GraphDef> graph;
+
+    /// Information we extract about a node
+    struct NodeInfo {
+        NodeInfo()
+            : def(nullptr), parentDef(nullptr), done(false)
+        {
+        }
+
+        const tensorflow::NodeDef * def;
+        Utf8String parent;
+        const tensorflow::NodeDef * parentDef;
+        std::vector<Utf8String> children;
+        std::vector<Utf8String> output;
+        std::vector<const tensorflow::NodeDef *> childrenDef;
+        bool done;
+    };
+
+    /// Index of nodes in the graph
+    std::map<Utf8String, NodeInfo> graphNodes;
+
+    /// Timestamp at which the model was created
+    Date modelTs;
+
+
     TensorflowGraph(MldbServer * owner,
                     PolyConfig config,
                     const std::function<bool (const Json::Value &)> & onProgress)
@@ -432,6 +500,78 @@ struct TensorflowGraph: public Function {
         graph.reset(new tensorflow::GraphDef());
         if (!graph->ParseFromCodedStream(&cstream)) {
             throw HttpReturnException(500, "Couldn't load tensorflow graph model: parse error");
+        }
+
+        // Go through all of the layers of the graph and index
+        // them by node name
+        for (auto & node: graph->node()) {
+            auto & info = graphNodes[node.name()];
+            info.def = &node;
+            auto pos = node.name().rfind('/');
+            string parentName;
+            if (pos != string::npos) {
+                // This is a child node of something...
+                parentName = string(node.name(), 0, pos);
+            }
+            else {
+                parentName = "";
+            }
+
+            info.parent = parentName;
+            auto & parentInfo = graphNodes[parentName];
+            parentInfo.children.emplace_back(node.name());
+            parentInfo.childrenDef.emplace_back(&node);
+            info.parentDef = parentInfo.def;
+
+            // If we have children, tell them who we are
+            for (auto & c: info.children) {
+                graphNodes[c].parentDef = &node;
+                graphNodes[c].parent = node.name();
+            }
+
+            // Here are our outputs
+            for (auto & i: node.input()) {
+                string n = i;
+                if (!n.empty() && n[0] == '^')
+                    n = string(n, 1);
+                graphNodes[n].output.emplace_back(node.name());
+            }
+
+            info.done = true;
+        }
+
+        // Go through recursively to infer parents
+        for (;;) {
+            bool changed = false;
+            for (auto & n: graphNodes) {
+                if (n.second.done)
+                    continue;
+
+                if (!n.second.parent.empty() || n.second.def) {
+                    continue;
+                }
+                auto pos = n.first.rawString().rfind('/');
+
+                string parentName;
+                if (pos != string::npos) {
+                    // This is a child node of something...
+                    parentName = string(n.first.rawString(), 0, pos);
+                }
+                else {
+                    parentName = "";
+                }
+
+                if (parentName == n.first.rawString())
+                    continue;
+
+                // New parent
+                n.second.parent = parentName;
+                graphNodes[parentName].children.emplace_back(n.first);
+                n.second.done = true;
+                changed = true;
+            }
+            if (!changed)
+                break;
         }
 
         // Those without a device set can be bound to multiple
@@ -575,14 +715,8 @@ struct TensorflowGraph: public Function {
             }
         }
 
-        //std::this_thread::sleep_for(std::chrono::seconds(120));
+        initRoutes();
     }
-
-    /// The actual graph to run
-    std::unique_ptr<tensorflow::GraphDef> graph;
-
-    /// Timestamp at which the model was created
-    Date modelTs;
 
     struct DeviceSession {
         DeviceSession(std::string device,
@@ -630,14 +764,11 @@ struct TensorflowGraph: public Function {
     */
     struct GraphExtractScope: public ReadThroughBindingContext {
         GraphExtractScope(SqlBindingScope & outerScope,
-                          const tensorflow::GraphDef & graph)
-            : ReadThroughBindingContext(outerScope)
+                          const tensorflow::GraphDef & graph,
+                          const std::map<Utf8String, NodeInfo> & graphNodes)
+            : ReadThroughBindingContext(outerScope),
+              graphNodes(graphNodes)
         {
-            // Go through all of the layers of the graph and index
-            // them by node name
-            for (auto & node: graph.node()) {
-                graphNodes[node.name()] = &node;
-            }            
         }
         
         // Derives from inner row scope, so we can pass directly through
@@ -658,7 +789,7 @@ struct TensorflowGraph: public Function {
             Date ts;
         };
 
-        std::map<Utf8String, const tensorflow::NodeDef *> graphNodes;
+        const std::map<Utf8String, NodeInfo> & graphNodes;
         std::map<Utf8String, int> nodesRead;  // index into outputLayers
         std::vector<Utf8String> outputLayers;
 
@@ -718,7 +849,7 @@ struct TensorflowGraph: public Function {
               owner(owner),
               functionScope(owner->server, input,
                             outerScope.functionStackDepth),
-              graphScope(functionScope, *owner->graph)
+              graphScope(functionScope, *owner->graph, owner->graphNodes)
         {
             // 1.  Collect what is known for each of the input clauses.
             boundInputs = owner->functionConfig.inputs.bind(functionScope);
@@ -814,37 +945,6 @@ struct TensorflowGraph: public Function {
         return result;
     }
 
-    static tensorflow::Tensor
-    castToSizedAndTypedTensor(const ExpressionValue & val,
-                              const tensorflow::TensorShape & shape,
-                              tensorflow::DataType type)
-    {
-        const CellValue & input = val.getAtom();
-
-        const unsigned char * data = input.blobData();
-        const size_t len = input.blobLength();
-
-        tensorflow::Tensor result(tensorflow::DT_STRING, {});
-        
-        auto str = result.flat<std::string>();
-        str(0) = string(data, data + len);
-
-        return result;
-    }
-
-    static tensorflow::Tensor
-    castToTypedTensor(const ExpressionValue & val,
-                      tensorflow::DataType type)
-    {
-        throw HttpReturnException(500, "Unable to cast value to typed tensor");
-    }
-    
-    static tensorflow::Tensor
-    castToTensor(const ExpressionValue & val)
-    {
-        throw HttpReturnException(500, "Unable to cast value to tensor");
-    }
-    
     tensorflow::Tensor
     getTensorFor(const std::string & layer,
                  const ExpressionValue & val) const
@@ -896,95 +996,6 @@ struct TensorflowGraph: public Function {
         }
 
         throw HttpReturnException(400, "Unable to find layer to get tensor for");
-    }
-
-    template<typename T>
-    static ExpressionValue tensorToValueT(const tensorflow::Tensor & tensor,
-                                          Date ts,
-                                          T * = nullptr)
-    {
-        auto flattened = tensor.flat<T>();
-        size_t n = flattened.size();
-        vector<size_t> shape;
-        for (unsigned i = 0;  i < tensor.dims();  ++i) {
-            shape.emplace_back(tensor.dim_size(i));
-        }
-        vector<CellValue> cells(n);
-        for (size_t i = 0;  i < n;  ++i) {
-            cells[i] = flattened(i);
-        }
-        return ExpressionValue(std::move(cells), ts, shape);
-    }
-
-    static StorageType dataTypeToStorage(tensorflow::DataType dt)
-    {
-        using namespace tensorflow;
-
-        switch (dt) {
-        case DT_FLOAT:
-            return ST_FLOAT32;
-        case DT_DOUBLE:
-            return ST_FLOAT64;
-        case DT_INT32:
-        case DT_QINT32:
-            return ST_INT32;
-        case DT_UINT8:
-        case DT_QUINT8:
-            return ST_UINT8;
-        case DT_INT8:
-        case DT_QINT8:
-            return ST_INT8;
-        case DT_INT16:
-        case DT_QINT16:
-            return ST_INT16;
-        case DT_QUINT16:
-            return ST_UINT16;
-        case DT_STRING:
-            return ST_BLOB;
-        case DT_BOOL:
-            return ST_INT32;
-        default:
-            throw HttpReturnException(400, "Can't return tensor of this type from TensorFlow",
-                                      "type", dt);
-        }
-    }
-
-    static ExpressionValue tensorToValue(const tensorflow::Tensor & tensor,
-                                         Date ts)
-    {
-        using namespace tensorflow;
-
-        switch (tensor.dtype()) {
-        case DT_FLOAT:
-            return tensorToValueT<float>(tensor, ts);
-        case DT_DOUBLE:
-            return tensorToValueT<double>(tensor, ts);
-        case DT_INT32:
-            return tensorToValueT<int32_t>(tensor, ts);
-        case DT_UINT8:
-            return tensorToValueT<uint8_t>(tensor, ts);
-        case DT_INT16:
-            return tensorToValueT<int16_t>(tensor, ts);
-        case DT_INT8:
-            return tensorToValueT<int8_t>(tensor, ts);
-        case DT_STRING:
-            return tensorToValueT<std::string>(tensor, ts);
-            //case DT_INT64:
-            //return tensorToValueT<int64_t>(tensor, ts);
-        case DT_BOOL:
-            return tensorToValueT<bool>(tensor, ts);
-            /*
-              DT_QINT8 = 11;     // Quantized int8
-              DT_QUINT8 = 12;    // Quantized uint8
-              DT_QINT32 = 13;    // Quantized int32
-              DT_BFLOAT16 = 14;  // Float32 truncated to 16 bits.  Only for cast ops.
-              DT_QINT16 = 15;    // Quantized int16
-              DT_QUINT16 = 16;   // Quantized uint16
-            */
-        default:
-            throw HttpReturnException(400, "Can't return tensor of this type from TensorFlow"/*,
-                                                                                               "type", tensor.dtype()*/);
-        }
     }
 
     std::pair<std::shared_ptr<tensorflow::Session>, std::string>
@@ -1160,7 +1171,7 @@ struct TensorflowGraph: public Function {
         // 1.  Collect what is known for each of the input clauses.
         auto boundInputs = functionConfig.inputs.bind(functionScope);
 
-        GraphExtractScope graphScope(functionScope, *graph);
+        GraphExtractScope graphScope(functionScope, *graph, graphNodes);
 
         auto boundOutputs = functionConfig.outputs.bind(graphScope);
 
@@ -1171,6 +1182,197 @@ struct TensorflowGraph: public Function {
         return result;
     }
 
+    std::vector<Utf8String> getNodes(Utf8String parent,
+                                     bool topLevel) const
+    {
+        std::vector<Utf8String> result;
+
+        for (auto & node: graph->node()) {
+            if (topLevel && node.name().find('/') != string::npos)
+                continue;
+            result.emplace_back(node.name());
+        }
+
+        return std::move(result);
+    }
+
+    Json::Value getNode(Utf8String nodeName)
+    {
+        cerr << "getting node " << nodeName << endl;
+
+        auto it = graphNodes.find(nodeName);
+        if (it == graphNodes.end())
+            throw HttpReturnException(400, "Unknown node name");
+        
+        const NodeInfo & info = it->second;
+
+        Json::Value n;
+        n["name"] = it->first;
+        if (!info.parent.empty())
+            n["parent"] = info.parent;
+        if (!info.children.empty())
+            n["children"] = jsonEncode(info.children);
+        if (!info.output.empty())
+            n["output"] = jsonEncode(info.output);
+
+        if (info.def) {
+            n["op"] = info.def->op();
+            n["device"] = info.def->device();
+            if (!info.parent.empty())
+                n["parent"] = info.parent;
+            for (auto & input: info.def->input())
+                n["input"].append(input);
+            for (auto & attr: info.def->attr()) {
+                if (attr.first == "value") {
+                    if (attr.second.has_tensor()) {
+                        auto & shape = attr.second.tensor().tensor_shape();
+                        size_t totalSize = 1;
+                        for (unsigned i = 0;  i < shape.dim_size();  ++i)
+                            totalSize *= shape.dim(i).size();
+                        if (shape.dim_size() == 0 || totalSize < 20) {
+                            tensorflow::Tensor t;
+                            if (!t.FromProto(attr.second.tensor()))
+                                throw HttpReturnException(500, "t from proto");
+                            n["attr"]["value"] = t.DebugString();
+                            //auto val = tensorToValue(t, Date());
+                            // Scalar or small vector; print it out
+                            //n["attr"]["value"] = jsonEncode(val);
+                        }
+                        else {
+                            // Vector; don't print it
+                            n["attr"]["value"] = tensorflow::DataType_Name(attr.second.tensor().dtype()) + " " + attr.second.tensor().tensor_shape().ShortDebugString();
+                        }
+                    }
+                }
+                else {
+                    n["attr"][attr.first] = string(attr.second.ShortDebugString(), 0, 100);
+                }
+            }
+        }
+        else {
+            //cerr << "node " << nodeName << " has no definition"
+            //     << endl;
+            n["op"] = Json::Value();
+        }
+
+        return n;
+    }
+
+    std::vector<Json::Value> getNodeSummary(Utf8String parent,
+                                            bool topLevel) const
+    {
+        cerr << "parent = " << parent << endl;
+
+        std::vector<Json::Value> result;
+
+        for (auto & n_info: graphNodes) {
+            const Utf8String & name = n_info.first;
+
+            if (!name.startsWith(parent))
+                continue;
+            if (name == parent)
+                continue;
+
+            const NodeInfo & info = n_info.second;
+
+            if (topLevel && !info.parent.empty())
+                continue;
+
+            Json::Value n;
+            n["name"] = name;
+            if (!info.parent.empty())
+                n["parent"] = info.parent;
+            if (!info.children.empty())
+                n["children"] = jsonEncode(info.children);
+            if (!info.output.empty())
+                n["output"] = jsonEncode(info.output);
+
+            if (info.def) {
+                n["op"] = info.def->op();
+                n["device"] = info.def->device();
+                if (!info.parent.empty())
+                    n["parent"] = info.parent;
+                for (auto & input: info.def->input())
+                    n["input"].append(input);
+                for (auto & attr: info.def->attr()) {
+                    if (attr.first == "value") {
+                        if (attr.second.has_tensor()) {
+                            auto & shape = attr.second.tensor().tensor_shape();
+                            size_t totalSize = 1;
+                            for (unsigned i = 0;  i < shape.dim_size();  ++i)
+                                totalSize *= shape.dim(i).size();
+                            if (shape.dim_size() == 0 || totalSize < 20) {
+                                tensorflow::Tensor t;
+                                if (!t.FromProto(attr.second.tensor()))
+                                    throw HttpReturnException(500, "t from proto");
+                                n["attr"]["value"] = t.DebugString();
+                                //auto val = tensorToValue(t, Date());
+                                // Scalar or small vector; print it out
+                                //n["attr"]["value"] = jsonEncode(val);
+                            }
+                            else {
+                                // Vector; don't print it
+                                n["attr"]["value"] = tensorflow::DataType_Name(attr.second.tensor().dtype()) + " " + attr.second.tensor().tensor_shape().ShortDebugString();
+                            }
+                        }
+                    }
+                    else {
+                        n["attr"][attr.first] = string(attr.second.ShortDebugString(), 0, 100);
+                    }
+                }
+            }
+            else {
+                cerr << "node " << name << " has no definition"
+                     << endl;
+                n["op"] = Json::Value();
+            }
+            result.emplace_back(std::move(n));
+        }
+
+        return std::move(result);
+    }
+
+    void initRoutes()
+    {
+        auto & nodes
+            = router.addSubRouter("/graph/nodes", "Operations on nodes");
+        auto & node
+            = nodes.addSubRouter(Rx("/(.*)", "/<nodeName>"),
+                                 "Operations on an individual node");
+        
+        RequestParam<Utf8String> nodeParam(-2, "<nodeName>",
+                                           "Node to operate on");
+
+
+        addRouteSyncJsonReturn(node, "", {"GET"},
+                               "Return information about a node",
+                               "Node name",
+                               &TensorflowGraph::getNode,
+                               this,
+                               nodeParam);
+
+        addRouteSyncJsonReturn(router, "/graph/summaries", {"GET"},
+                               "Return a list of nodes of the graph",
+                               "List of node summaries",
+                               &TensorflowGraph::getNodeSummary,
+                               this,
+                               RestParamDefault<Utf8String>("parent",
+                                                            "Only include nodes under this parent",
+                                                            ""),
+                               RestParamDefault<bool>("toplevel",
+                                                      "Only include top level nodes",
+                                                      true));
+    }
+
+    RestRequestRouter router;
+
+    RestRequestMatchResult
+    handleRequest(RestConnection & connection,
+                  const RestRequest & request,
+                  RestRequestParsingContext & context) const
+    {
+        return router.processRequest(connection, request, context);
+    }
 };
 
 static RegisterFunctionType<TensorflowGraph, TensorflowGraphConfig>

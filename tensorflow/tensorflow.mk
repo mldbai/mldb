@@ -16,7 +16,7 @@ $(LIBMLDB_TENSORFLOW_PLUGIN_SOURCES:%=$(CWD)/%): $(HOSTBIN)/protoc $(DEPENDS_ON_
 
 $(eval $(call mldb_plugin_library,tensorflow,mldb_tensorflow_plugin,$(LIBMLDB_TENSORFLOW_PLUGIN_SOURCES),tensorflow-cpp-interface))
 
-$(eval $(call mldb_builtin_plugin,tensorflow,mldb_tensorflow_plugin,doc))
+$(eval $(call mldb_builtin_plugin,tensorflow,mldb_tensorflow_plugin,doc static))
 
 $(eval $(call mldb_unit_test,MLDB-1203-tensorflow-plugin.js,tensorflow,manual))
 

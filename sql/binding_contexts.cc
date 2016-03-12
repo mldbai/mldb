@@ -130,6 +130,8 @@ std::shared_ptr<Function>
 ReadThroughBindingContext::
 doGetFunctionEntity(const Utf8String & functionName)
 {
+    cerr << "getting function " << functionName << " from "
+         << ML::type_name(*this) << endl;
     return outer.doGetFunctionEntity(functionName);
 }
 
