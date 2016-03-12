@@ -917,8 +917,8 @@ struct EmbeddingDataset::Itl
                 ExcAssert(isfinite(result));
                 return result;
             };
-        
-        auto neighbours = repr->vpTree->search(dist, numNeighbours, INFINITY);
+
+        auto neighbours = repr->vpTree->search(dist, numNeighbours, maxDistance);
 
         vector<tuple<RowName, RowHash, float> > result;
         for (auto & n: neighbours) {
@@ -1319,12 +1319,23 @@ apply(const FunctionApplier & applier_,
 
     auto rowName = context.get<CellValue>("row");
 
+    unsigned num_neighbors = functionConfig.default_num_neighbors;
+    double max_distance = functionConfig.default_max_distance;
+
+    auto extracted_num_neighbors = context.getValueOrNull(Utf8String("num_neighbours"));
+    if(!extracted_num_neighbors.empty()) {
+        num_neighbors = extracted_num_neighbors.toInt();
+    }
+    auto extracted_max_distance = context.getValueOrNull(Utf8String("max_distance"));
+    if(!extracted_max_distance.empty()) {
+        max_distance = extracted_max_distance.toDouble();
+    }
+
     Date d;
     //vector<tuple<RowName, RowHash, float> >
     auto neighbors = applier.embeddingDataset->getRowNeighbours(
                                         RowName(rowName.toUtf8String()),
-                                        functionConfig.default_num_neighbors,
-                                        functionConfig.default_max_distance);
+                                        num_neighbors, max_distance);
 
     RowValue rtnRow;
     for(auto & neighbor : neighbors) {
@@ -1343,6 +1354,9 @@ getFunctionInfo() const
     FunctionInfo result;
 
     result.input.addAtomValue("row");
+    result.input.addNumericValue("num_neighbours");
+    result.input.addNumericValue("max_distance");
+
     result.output.addRowValue("neighbors");
 
     return result;
