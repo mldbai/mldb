@@ -117,4 +117,13 @@ for(var i=0; i<res3_sql[0]["columns"].length; i++) {
     assertEqual(elem[1], expected3[i][2]);
 }
 
+var res4_sql = mldb.query("select nn({row: 'ex1', num_neighbours:2})[neighbors] as *");
+mldb.log(res4_sql);
+assertEqual(res4_sql[0]["columns"].length, 2);
+
+var res5_sql = mldb.query("select nn({row: 'ex1', num_neighbours:2, max_distance:0.5})[neighbors] as *");
+mldb.log(res5_sql);
+assertEqual(res5_sql[0]["columns"].length, 1);
+assertEqual(res5_sql[0]["columns"][0][0], 'ex1');
+
 "success"
