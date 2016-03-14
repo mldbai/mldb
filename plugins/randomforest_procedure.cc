@@ -23,6 +23,7 @@
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/types/set_description.h"
 #include "mldb/vfs/fs_utils.h"
+#include "mldb/plugins/sql_config_validator.h"
 
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/uniform_int.hpp>
@@ -43,10 +44,8 @@ RandomForestProcedureConfigDescription()
              "Specification of the data for input to the classifier procedure. "
              "The select expression must contain these two sub-expressions: one row expression "
              "to identify the features on which to train and one scalar expression "
-             "to identify the label.  The type of the label expression must match "
-             "that of the classifier mode: a boolean (0 or 1) for `boolean` mode; "
-             "a real for regression mode, and any combination of numbers and strings "
-             "for `categorical` mode.  Labels with a null value will have their row skipped. "
+             "to identify the label.  The type of the label expression must be a boolean (0 or 1)"
+             "Labels with a null value will have their row skipped. "
              "The select statement does not support groupby and having clauses. "
              "Also, unlike most select expressions, this one can only select whole columns, "
              "not expressions involving columns. So X will work, but not X + 1. "
@@ -62,7 +61,7 @@ RandomForestProcedureConfigDescription()
              "Proportion of feature vectors to select in each sample. ", 0.3f);
     addField("featureSamplings", &RandomForestProcedureConfig::featureSamplings,
              "Number of samplings of features. "
-             "The total number of bags will be featureVectorSamplings*featureSamplings.", 20);
+             "The total number of bags will be ```featureVectorSamplings```*```featureSamplings```.", 20);
     addField("featureSamplingProp", &RandomForestProcedureConfig::featureSamplingProp,
              "Proportion of features to select in each sample. ", 0.3f);
     addField("maxDepth", &RandomForestProcedureConfig::maxDepth,
@@ -71,8 +70,15 @@ RandomForestProcedureConfigDescription()
              "If specified, a classifier function of this name will be created using "
              "the trained classifier.");
     addField("verbosity", &RandomForestProcedureConfig::verbosity,
-             "Verbosity of the procedure for debugging and tuning purposes", 0);
+             "Should the procedure be verbose for debugging and tuning purposes", false);
     addParent<ProcedureConfig>();    
+
+    onPostValidate = validate<RandomForestProcedureConfig, 
+                              InputQuery,
+                              NoGroupByHaving,
+                              PlainColumnSelect,
+                              MustContainFrom,
+                              FeaturesLabelSelect>(&RandomForestProcedureConfig::trainingData, "randomforest");
 }
 
 /*****************************************************************************/
@@ -115,7 +121,7 @@ RandomForestProcedure::
 run(const ProcedureRunConfig & run,
       const std::function<bool (const Json::Value &)> & onProgress) const
 {
-    //Todo: we will need heuristics for those.
+    //Todo: we will need heuristics for those. (MLDB-1449)
     int maxBagsAtOnce = 1;
     int maxTreesAtOnce = 20;
 
@@ -212,7 +218,7 @@ run(const ProcedureRunConfig & run,
     int numFeatures = knownInputColumns.size();
     cerr << "NUM FEATURES : " << numFeatures << endl;
 
-    PartitionData allData(*featureSpace);
+    PartitionData allData(featureSpace);
 
     allData.reserve(numRows);
     for (size_t i = 0;  i < numRows;  ++i) {
@@ -282,7 +288,7 @@ run(const ProcedureRunConfig & run,
 
                 results[resultIndex]->tree = std::move(tree);
 
-                if (runProcConf.verbosity > 2) 
+                if (runProcConf.verbosity) 
                     cerr << results[resultIndex]->print() << endl;
                 //cerr << dtree.print() << endl;
             };

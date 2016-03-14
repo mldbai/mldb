@@ -18,8 +18,8 @@ This optimized version only support dense values, with all training samples cont
 
 It only supports binary classification. The generic classifier.train procedure supports regression and multi-class classification.
 
-Feature values can be numeric or strings. Stricly numeric features will be considered as ordinal, while feature that contains only 
-strings or a mix of strings and numeric values will be considered as nominal. Other values types (blobs, timestamps, intervals, etc)
+Feature values can be numeric or strings. Strictly numeric features will be considered as ordinal, while feature that contains only 
+strings or a mix of strings and numeric values will be considered as nominal. Other value types (blobs, timestamps, intervals, etc)
 are not yet supported.
 
 ## Output model

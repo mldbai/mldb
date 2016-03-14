@@ -130,7 +130,7 @@ getBucket(const CellValue & val) const
     auto it = std::find(buckets.begin(), buckets.end(), val);
     if (it != buckets.end())
         return it - buckets.begin() + offset;
-    throw HttpReturnException(500, "categorical value " + val.toString() + " not found in col");
+    throw HttpReturnException(500, "categorical value '" + val.toString() + "' not found in col");
 }
 
 BucketDescriptions::
@@ -214,7 +214,7 @@ initialize(std::vector<CellValue> values, int numBuckets)
         ++n;
     }
 
-    // TODO: complete this
+    // TODO: complete this (MLDB-1457)
     
     for (auto type: { CellValue::BLOB, CellValue::TIMESTAMP, CellValue::TIMEINTERVAL } ) {
         if (!typeValues[(int)type].empty())

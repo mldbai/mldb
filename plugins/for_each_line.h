@@ -91,7 +91,7 @@ forEachLineStr(const std::string & filename,
 /** Run the given lambda over every line read from the file, with the
     work distributed over threads each of which receive one block.  The
     threads will be taken from the default thread pool, with a maximum of
-    maxParellism being active.
+    maxParalellism being active.
 
     If a filter_istream is passed, the code is optimized as it allows
     for the file to be memory mapped.  It should in that case be opened

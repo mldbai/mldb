@@ -159,7 +159,7 @@ struct ColumnIndex {
     virtual MatrixColumn getColumn(const ColumnName & column) const = 0;
 
     /** Return a dense column, with one value for every row in the same order as
-        rowNames().
+        getRowNames().
 
         Default builts on top of getColumn() and getRowNames(), but is
         quite inefficient.

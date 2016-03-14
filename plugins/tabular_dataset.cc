@@ -114,8 +114,8 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     {
         auto it = columnIndex.find(column);
         if (it == columnIndex.end()) {
-            throw HttpReturnException(400, "Tabular dataset contains no column with given hash",
-                                      "columnHash", column,
+            throw HttpReturnException(400, "Tabular dataset contains no column with given name",
+                                      "columnName", column,
                                       "knownColumns", columnNames);
         }
 
@@ -140,8 +140,8 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     {
         auto it = columnIndex.find(column);
         if (it == columnIndex.end()) {
-            throw HttpReturnException(400, "Tabular dataset contains no column with given hash",
-                                      "columnHash", column,
+            throw HttpReturnException(400, "Tabular dataset contains no column with given name",
+                                      "columnName", column,
                                       "knownColumns", columnNames);
         }
 

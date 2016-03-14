@@ -286,6 +286,7 @@ void forEachLineBlock(std::istream & stream,
             bool lastBlock = false;
 
             try {
+                //MLDB-1426
                 if (mapped && false) {
                     const char * start = mapped + stream.tellg();
                     const char * current = start;

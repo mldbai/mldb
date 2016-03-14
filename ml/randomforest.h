@@ -32,10 +32,10 @@ struct PartitionData {
     {
     }
 
-    PartitionData(const DatasetFeatureSpace & fs)
-        : fs(&fs), features(fs.columnInfo.size())
+    PartitionData(std::shared_ptr<const DatasetFeatureSpace> fs)
+        : fs(fs), features(fs->columnInfo.size())
     {
-        for (auto & c: fs.columnInfo) {
+        for (auto & c: fs->columnInfo) {
             Feature & f = features.at(c.second.index);
             f.active = c.second.distinctValues > 1;
             f.buckets = c.second.buckets;
@@ -108,7 +108,7 @@ struct PartitionData {
         return data;
     }
 
-    const DatasetFeatureSpace * fs;
+    std::shared_ptr<const DatasetFeatureSpace> fs;
 
     /// Entry for an individual row
     struct Row {
@@ -154,6 +154,7 @@ struct PartitionData {
         rows.emplace_back(Row{label, weight, exampleNum});
     }
 
+    //This structure hold the weights (false and true) for any particular split
     template<typename Float>
     struct WT {
         WT()
@@ -201,7 +202,6 @@ struct PartitionData {
         typedef Float FloatType;
     };
 
-    //typedef WT<double> W;
     typedef WT<ML::FixedPointAccum64> W;
 
     /** Split the partition here. */
@@ -226,6 +226,7 @@ struct PartitionData {
 
         double useRatio = 1.0 * rows.size() / rows.back().exampleNum;
 
+        //todo: Re-index when usable data fits inside cache
         bool reIndex = useRatio < 0.1;
         //reIndex = false;
         //cerr << "useRatio = " << useRatio << endl;
