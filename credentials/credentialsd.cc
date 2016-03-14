@@ -49,6 +49,7 @@ int main(int argc, char ** argv)
     std::string listenPortRange = "11301";
     std::string listenHost = "localhost";
     std::string credentialsPath;
+    bool verbose = false;
 
     configuration_options.add_options()
         ("listen-port,p", value(&listenPortRange)->default_value(listenPortRange),
@@ -56,11 +57,12 @@ int main(int argc, char ** argv)
         ("listen-host,H", value(&listenHost)->default_value(listenHost),
          "Host to bind on")
         ("credentials-path,c", value(&credentialsPath),
-         "Path in which to store saved credentials and rules");
+         "Path in which to store saved credentials and rules")
+        ("verbose,v", bool_switch(&verbose),
+         "Verbose output.  By default, no messages are outputted.");
 
     options_description all_opt;
-    all_opt
-        .add(configuration_options);
+    all_opt.add(configuration_options);
     all_opt.add_options()
         ("help,h", "print this message");
    
@@ -81,8 +83,9 @@ int main(int argc, char ** argv)
 
     std::shared_ptr<CollectionConfigStore> configStore;
     if (!credentialsPath.empty()) {
-        cerr << "Persisting credentials in " << credentialsPath << endl;
-        cerr << "Credential daemon ready" << endl;
+        if (verbose) {
+            cerr << "Persisting credentials in " << credentialsPath << endl;
+        }
         configStore.reset(new S3CollectionConfigStore(credentialsPath));
     }
 
@@ -90,6 +93,9 @@ int main(int argc, char ** argv)
 
     service.httpEndpoint.allowAllOrigins();
     string uri = service.bindTcp(listenPortRange, listenHost);
+    if (verbose) {
+        cerr << "Credentials available on " << uri << endl;
+    }
 
     while (!serviceShutdown) {
         ML::futex_wait(serviceShutdown, false, 10.0);
