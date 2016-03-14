@@ -150,8 +150,6 @@ getSync(const std::string & resourceType,
 
 void addRemoteCredentialProvider(const std::string & uri)
 {
-    cerr << "Registering remote credential provider at " << uri << endl;
-
     auto provider = std::make_shared<RemoteCredentialProvider>(uri);
 
     CredentialProvider::registerProvider("Remote provider at " + uri,

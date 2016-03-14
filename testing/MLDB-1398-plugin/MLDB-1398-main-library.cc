@@ -31,6 +31,6 @@ struct PluginHandler: public Plugin {
 Datacratic::MLDB::Plugin *
 mldbPluginEnterV100(Datacratic::MLDB::MldbServer * server)
 {
-    cerr << "entering plugin library" << endl;
+    cerr << "entering plugins library" << endl;
     return new PluginHandler(server);
 }

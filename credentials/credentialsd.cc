@@ -81,7 +81,8 @@ int main(int argc, char ** argv)
 
     std::shared_ptr<CollectionConfigStore> configStore;
     if (!credentialsPath.empty()) {
-        cerr << "persisting credentials in " << credentialsPath << endl;
+        cerr << "Persisting credentials in " << credentialsPath << endl;
+        cerr << "Credential daemon ready" << endl;
         configStore.reset(new S3CollectionConfigStore(credentialsPath));
     }
 
@@ -89,7 +90,6 @@ int main(int argc, char ** argv)
 
     service.httpEndpoint.allowAllOrigins();
     string uri = service.bindTcp(listenPortRange, listenHost);
-    cout << "Credentials available on " << uri << endl;
 
     while (!serviceShutdown) {
         ML::futex_wait(serviceShutdown, false, 10.0);
