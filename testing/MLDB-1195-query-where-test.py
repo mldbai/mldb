@@ -57,5 +57,11 @@ class QueryWhereTest(MldbUnitTest):  # noqa
         run_query('ds1')
         run_query('merged')
 
+    def test_where_on_unexisting_col(self):
+        mldb.create_dataset({'id' : 'ds3', 'type' : 'sparse.mutable'}).commit()
+        mldb.query("SELECT * FROM ds3 WHERE someCol IS NOT NULL")
+        mldb.query("SELECT * FROM ds3 WHERE \"someCol\" IS NOT NULL")
+
+
 if __name__ == '__main__':
     mldb.run_tests()
