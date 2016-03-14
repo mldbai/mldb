@@ -159,10 +159,10 @@ struct ColumnIndex {
     virtual MatrixColumn getColumn(const ColumnName & column) const = 0;
 
     /** Return a dense column, with one value for every row in the same order as
-        rowNames().  Only a single timestamp is returned, being the latest
-        timestamp for the entire row.
+        rowNames().
 
-        Default throws.
+        Default builts on top of getColumn() and getRowNames(), but is
+        quite inefficient.
     */
     virtual std::vector<CellValue>
     getColumnDense(const ColumnName & column) const;
@@ -170,10 +170,9 @@ struct ColumnIndex {
     /** Return a bucketed dense column, with one value for every row in the same
         order as rowNames().  Numerical values will be split into a maximum of
         maxNumBuckets buckets, with split points as described in the
-        return value.  Only a single timestamp is returned, being the latest timestamp
-        for the entire column.
+        return value.  
 
-        Default throws.
+        Default builds on top of getColumnDense().
     */
     virtual std::tuple<BucketList, BucketDescriptions>
     getColumnBuckets(const ColumnName & column,

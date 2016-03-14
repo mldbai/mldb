@@ -340,7 +340,31 @@ std::vector<CellValue>
 ColumnIndex::
 getColumnDense(const ColumnName & column) const
 {
-    throw HttpReturnException(500, "Dataset type doesn't implement getColumnDense()");
+    auto columnValues = getColumn(column);
+    std::vector<RowName> rowNames = getRowNames();
+    std::vector<CellValue> result;
+    result.reserve(rowNames.size());
+    const auto rowNamesBegin = rowNames.begin();
+    const auto rowNamesEnd = rowNames.end();
+
+    std::unordered_map<RowName, std::pair<CellValue, Date> > values;
+
+    for (auto & c: columnValues.rows) {
+        Date dateToInsert = std::get<2>(c);
+        std::pair<CellValue, Date> valToInsert = std::make_pair<CellValue, Date>(std::move(std::get<1>(c)), std::move(dateToInsert));
+        auto keyPair = std::make_pair<RowName, std::pair<CellValue, Date> >(std::move(std::get<0>(c)), std::move(valToInsert));
+        auto res = values.insert(keyPair);
+        if (!res.second) {
+            if ( dateToInsert > res.first->second.second)
+                res.first->second = valToInsert;
+        }
+    }
+
+    for (auto& name : rowNames) {
+        result.push_back(values.find(name)->second.first);
+    } 
+
+    return std::move(result);
 }
 
 std::tuple<BucketList, BucketDescriptions>
@@ -348,7 +372,34 @@ ColumnIndex::
 getColumnBuckets(const ColumnName & column,
                  int maxNumBuckets) const
 {
-    throw HttpReturnException(500, "Dataset type doesn't implement getColumnBuckets()");
+    auto vals = getColumnDense(column);
+
+    std::unordered_map<CellValue, size_t> values;
+    std::vector<CellValue> valueList;
+
+    size_t totalRows = vals.size();
+
+    for (auto& v : vals) {
+        if (values.insert({v,0}).second)
+            valueList.push_back(std::move(v));
+    }
+
+    BucketDescriptions descriptions;
+    descriptions.initialize(valueList, maxNumBuckets);
+
+    for (auto & v: values) {
+        v.second = descriptions.getBucket(v.first);            
+    }
+        
+    // Finally, perform the bucketed lookup
+    WritableBucketList buckets(totalRows, descriptions.numBuckets());
+
+    for (auto& v : vals) {
+        uint32_t bucket = values[v];
+        buckets.write(bucket);
+    }
+
+    return std::make_tuple(std::move(buckets), std::move(descriptions));
 }
 
 

@@ -11,8 +11,8 @@ optimized for binary classification on dense, tabular data and forest of trees.
 
 ## Input data
 
-Currently this classification procedure will only work on datasets that implements the `getColumnDense` and `getColumnBuckets` methods of the
-ColumnIndex interface, such as the Tabular dataset.
+This classification procedure will work most efficiently on datasets that have their data well-organized by column, such
+as the Tabular dataset.
 
 This optimized version only support dense values, with all training samples containing no null values.
 
