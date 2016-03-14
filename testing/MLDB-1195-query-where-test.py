@@ -7,7 +7,6 @@
 
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
-
 def create_ds(name, rowName):
     mldb.put('/v1/datasets/' + name, {
         'type' : 'sparse.mutable'
@@ -31,29 +30,32 @@ def create_ds(name, rowName):
         }
     })
 
-
 def run_query(ds_name):
     query = ('SELECT * FROM {} WHERE colA IS NULL AND colB IS NOT NULL'
              .format(ds_name))
     mldb.get('/v1/query', q=query)
 
-create_ds('ds1', 'row1')
-create_ds('ds2', 'row2')
+class QueryWhereTest(MldbUnitTest):  # noqa
 
-res = mldb.put('/v1/datasets/merged', {
-    'type' : 'merged',
-    'params' : {
-        'datasets' : [
-            {'id' : 'ds1'},
-            {'id' : 'ds1rows'},
-            {'id' : 'ds2'},
-            {'id' : 'ds2rows'}
-        ]
-    }
-})
+    def test_query_where(self):
+        create_ds('ds1', 'row1')
+        create_ds('ds2', 'row2')
 
-# The query should work whatever the dataset is
-run_query('ds1')
-run_query('merged')
+        mldb.put('/v1/datasets/merged', {
+            'type' : 'merged',
+            'params' : {
+                'datasets' : [
+                    {'id' : 'ds1'},
+                    {'id' : 'ds1rows'},
+                    {'id' : 'ds2'},
+                    {'id' : 'ds2rows'}
+                ]
+            }
+        })
 
-mldb.script.set_return("success")
+        # The query should work whatever the dataset is
+        run_query('ds1')
+        run_query('merged')
+
+if __name__ == '__main__':
+    mldb.run_tests()
