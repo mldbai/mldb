@@ -1775,10 +1775,6 @@ handlePutItl(Key key, Config config,  const OnDone & onDone, bool mustBeNew)
         if (this->configStore) {
             this->configStore->set(restEncode(key), savedConfig);
         }
-        else {
-            std::cerr << "Warning: attempting to create persistent object with no store"
-                      << std::endl;
-        }
     }
 
     return backgroundCreate;
