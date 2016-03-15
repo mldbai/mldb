@@ -1228,7 +1228,7 @@ queryBasic(const SqlBindingScope & scope,
            bool allowParallel) const
 {
     // 1.  Get the rows that match the where clause
-    auto rowGenerator = generateRowsWhere(scope, "", where, 0 /* offset */, -1 /* limit */);
+    auto rowGenerator = generateRowsWhere(scope, "" /*alias*/ , where, 0 /* offset */, -1 /* limit */);
 
     // 2.  Find all the variables needed by the orderBy
     // Remove any constants from the order by clauses
