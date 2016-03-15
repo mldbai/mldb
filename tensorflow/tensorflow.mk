@@ -20,5 +20,6 @@ $(eval $(call mldb_builtin_plugin,tensorflow,mldb_tensorflow_plugin,doc))
 
 $(eval $(call mldb_unit_test,MLDB-1203-tensorflow-plugin.js,tensorflow,manual))
 $(eval $(call mldb_unit_test,MLDB-1736-tensorflow-builtins.js,tensorflow))
+$(eval $(call mldb_unit_test,MLDB-1464-tensorflow-python.js,tensorflow,manual virtualenv))
 
 #$(eval $(call include_sub_make,pro_testing,testing,pro_testing.mk))
