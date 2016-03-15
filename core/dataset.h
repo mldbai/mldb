@@ -352,11 +352,14 @@ struct Dataset: public MldbEntity {
         The where expression must only refer to columns in the dataset,
         or variables that are available in the context.
 
+        The alias is the potential alias of the dataset in the context
+
         This is called by queryStructured and queryBasic, so cannot use those
         functions.
     */
     virtual GenerateRowsWhereFunction
     generateRowsWhere(const SqlBindingScope & context,
+                      const Utf8String& alias,
                       const SqlExpression & where,
                       ssize_t offset,
                       ssize_t limit) const;

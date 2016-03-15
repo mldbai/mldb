@@ -178,12 +178,13 @@ overrideFunction(const Utf8String & tableName,
 GenerateRowsWhereFunction
 ForwardedDataset::
 generateRowsWhere(const SqlBindingScope & context,
+                  const Utf8String& alias,
                   const SqlExpression & where,
                   ssize_t offset,
                   ssize_t limit) const
 {
     ExcAssert(underlying);
-    return underlying->generateRowsWhere(context, where, offset, limit);
+    return underlying->generateRowsWhere(context, alias, where, offset, limit);
 }
 
 BasicRowGenerator
