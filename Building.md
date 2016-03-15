@@ -14,7 +14,7 @@ libgoogle-perftools-dev liblzma-dev libcrypto++-dev libblas-dev \
 liblapack-dev python-virtualenv libcurl4-openssl-dev libssh2-1-dev \
 libpython-dev libgit2-dev libv8-dev libarchive-dev libffi-dev \
 libfreetype6-dev libpng12-dev libcap-dev autoconf libtool unzip \
-language-pack-en
+language-pack-en swig
 ```
 
 To build and run the Docker image, you will need to install Docker: https://docs.docker.com/engine/installation/ubuntulinux/

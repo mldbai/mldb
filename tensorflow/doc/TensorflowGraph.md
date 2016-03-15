@@ -115,4 +115,6 @@ and return these results:
 
 ## See also
 
+* [Tensorflow plugin](Tensorflow.md.html)
 * TensorFlow's [Image Recognition tutorial](https://www.tensorflow.org/versions/r0.7/tutorials/image_recognition/index.html)
+
