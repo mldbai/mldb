@@ -264,8 +264,11 @@ TENSORFLOW_INCLUDE_FLAGS := $(TENSORFLOW_BASE_INCLUDE_FLAGS) $(TENSORFLOW_CUDA_I
 # tensorflow files
 TENSORFLOW_COMPILE_FLAGS := $(TENSORFLOW_WARNING_FLAGS) $(TENSORFLOW_INCLUDE_FLAGS) $(TENSORFLOW_COMMON_CUDA_FLAGS) -DEIGEN_AVOID_STL_ARRAY=1
 
+# Dependency list for any CC file that knows about Tensorflow.
+TENSORFLOW_CC_DEPS:=$(TENSORFLOW_PROTOBUF_FILES:%.proto=%.pb.h) | https://github.com/mldbai/test_git_plugin.git
+
 # Here is the list of files we need to compile for tensorflow to be incorporated
-$(TENSORFLOW_CC_FILES):	| $(TENSORFLOW_INCLUDES) $(INC)/external/re2 $(INC)/external/jpeg-9a $(INC)/external/eigen_archive/eigen-eigen-$(TENSORFLOW_EIGEN_MERCURIAL_HASH) $(HOSTBIN)/protoc $(LIB)/libprotobuf3.so $(INC)/google/protobuf $(INC)/external/farmhash-$(TENSORFLOW_FARMHASH_HASH) $(INC)/external/highwayhash
+$(TENSORFLOW_CC_FILES):	$(TENSORFLOW_CC_DEPS)
 
 # Those which are not required to build the proto-text compiler also
 # depend on protobuf files
