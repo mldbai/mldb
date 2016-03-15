@@ -196,10 +196,11 @@ endef
 # $(1): name of the addon
 # $(2): source files to include in the addon
 # $(3): libraries to link with
+# $(4): extra linker options
 
 define python_addon
 $$(eval $$(call set_compile_option,$(2),-I$$(PYTHON_INCLUDE_PATH)))
-$$(eval $$(call library,$(1),$(2),$(3) boost_python,$(1),,"  $(COLOR_YELLOW)[PYTHON_ADDON]$(COLOR_RESET)"))
+$$(eval $$(call library,$(1),$(2),$(3) boost_python,$(1),,"  $(COLOR_YELLOW)[PYTHON_ADDON]$(COLOR_RESET)",$(4)))
 
 ifneq ($(PREMAKE),1)
 
