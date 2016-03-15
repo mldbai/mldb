@@ -819,7 +819,7 @@ private:
         }
     }
 
-    void assertType(Type requested, std::string details="") const {
+    void inline assertType(Type requested, const std::string & details="") const {
         if(requested != type_) {
             std::string msg = "Cannot convert ExpressionValue of type "
                         "'" + print(type_) + "' to "
