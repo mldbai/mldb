@@ -443,13 +443,13 @@ $(eval $(call program,python_op_gen,tensorflow-core,$(TENSORFLOW_PYTHON_OP_GEN_F
 # Note that the TENSORFLOW_PYTHON_OP_*_HIDDEN variables are extracted from
 # the Bazel BUILD file, above, and are included into the Makefile, not
 # defined here.
-$(CWD)/tensorflow/python/ops/gen_%_ops.py:	$(BIN)/python_op_gen $(LIB)/libtensorflow_%_ops.so rebuild
-	LD_PRELOAD=$(LIB)/libtensorflow_$(*)_ops.so $(BIN)/python_op_gen $(TENSORFLOW_PYTHON_OP_$(*)_ops_HIDDEN) 1 > $@~ && mv $@~ $@
+$(CWD)/tensorflow/python/ops/gen_%_ops.py:	$(BIN)/python_op_gen $(LIB)/libtensorflow_%_ops.so
+	@LD_PRELOAD=$(LIB)/libtensorflow_$(*)_ops.so $(BIN)/python_op_gen $(TENSORFLOW_PYTHON_OP_$(*)_ops_HIDDEN) 1 > $@~ && mv $@~ $@
 
 # This one just had to be special... it combines the control flow ops with
 # the no_op.  We write its rule out long-hand.
-$(CWD)/tensorflow/python/ops/gen_control_flow_ops.py:	$(BIN)/python_op_gen $(LIB)/libtensorflow_control_flow_ops.so $(LIB)/libtensorflow_no_op_ops.so rebuild
-	LD_PRELOAD=$(LIB)/libtensorflow_control_flow_ops.so:$(LIB)/libtensorflow_no_op_ops.so $(BIN)/python_op_gen $(TENSORFLOW_PYTHON_OP_control_flow_ops_HIDDEN) 1 > $@~ && mv $@~ $@
+$(CWD)/tensorflow/python/ops/gen_control_flow_ops.py:	$(BIN)/python_op_gen $(LIB)/libtensorflow_control_flow_ops.so $(LIB)/libtensorflow_no_op_ops.so
+	@LD_PRELOAD=$(LIB)/libtensorflow_control_flow_ops.so:$(LIB)/libtensorflow_no_op_ops.so $(BIN)/python_op_gen $(TENSORFLOW_PYTHON_OP_control_flow_ops_HIDDEN) 1 > $@~ && mv $@~ $@
 
 
 # List of all Python operation files (auto-generated).
