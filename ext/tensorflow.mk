@@ -338,4 +338,108 @@ $(eval $(call library,tensorflow-cpp-interface,$(TENSORFLOW_CC_INTERFACE_BUILD),
 # it depends on the tensorflow include files.
 DEPENDS_ON_TENSORFLOW_HEADERS:=$(TENSORFLOW_PROTOBUF_FILES:%.proto=%.pb.h) $(foreach op,$(TENSORFLOW_OPS),$(CWD)/tensorflow/cc/ops/$(op)_ops.h)
 
+
+###############################################################################
+# PYTHON                                                                      #
+###############################################################################
+
+# Parse the Bazel file in order to extract what we need from it.  Some of the
+# build instructions are better simply extracted from there than copied
+# in to here.
+$(TMP)/tensorflow-bazel-python.mk: mldb/ext/bazel_extract_rule.py | $(TMP)
+	python $< mldb/ext/tensorflow/tensorflow/python/BUILD > $@~ && mv $@~ $@
+
+-include $(TMP)/tensorflow-bazel-python.mk
+
+
+OS ?= linux
+
+# First, we need the protobuf Python library installed in place.  We don't use
+# the setup.py install command since this tries to create eggs and paths in
+# places that Python doesn't expect them, and so it can't load the library.
+protobuf_python: $(HOSTBIN)/protoc
+	cd mldb/ext/tensorflow/google/protobuf/python && ls && PROTOC=$(HOSTBIN)/protoc python ./setup.py build && cp -r build/lib.$(OS)-$(ARCH)-$(PYTHON_VERSION_DETECTED)/google $(PWD)/$(BIN)
+
+
+# We need to run SWIG to generate the basic interface files 
+$(CWD)/tensorflow/python/tensorflow_wrap.cxx $(CWD)/tensorflow/python/pywrap_tensorflow.py:	$(CWD)/tensorflow/python/tensorflow.i
+	swig -I$(TF_CWD) -c++ -python -module pywrap_tensorflow $(<)
+
+$(CWD)/%_pb2.py:		$(CWD)/%.proto $(HOSTBIN)/protoc
+	$(HOSTBIN)/protoc $< -Imldb/ext/tensorflow --python_out=$(TF_CWD)
+
+
+# Build the program that generates the Python dependency files.
+TENSORFLOW_PYTHON_OP_GEN_FILES := \
+	tensorflow/python/framework/python_op_gen.cc \
+	tensorflow/python/framework/python_op_gen_main.cc
+
+$(eval $(call set_compile_option,$(TENSORFLOW_PYTHON_OP_GEN_FILES),$(TENSORFLOW_COMPILE_FLAGS)))
+
+$(eval $(call program,python_op_gen,tensorflow-core,$(TENSORFLOW_PYTHON_OP_GEN_FILES)))
+
+# Note that the TENSORFLOW_PYTHON_OP_*_HIDDEN variables are extracted from
+# the Bazel BUILD file, above, and are included into the Makefile, not
+# defined here.
+$(CWD)/tensorflow/python/ops/gen_%_ops.py:	$(BIN)/python_op_gen $(LIB)/libtensorflow_%_ops.so rebuild
+	LD_PRELOAD=$(LIB)/libtensorflow_$(*)_ops.so $(BIN)/python_op_gen $(TENSORFLOW_PYTHON_OP_$(*)_ops_HIDDEN) 1 > $@~ && mv $@~ $@
+
+# This one just had to be special... it combines the control flow ops with
+# the no_op.  We write its rule out long-hand.
+$(CWD)/tensorflow/python/ops/gen_control_flow_ops.py:	$(BIN)/python_op_gen $(LIB)/libtensorflow_control_flow_ops.so $(LIB)/libtensorflow_no_op_ops.so rebuild
+	LD_PRELOAD=$(LIB)/libtensorflow_control_flow_ops.so:$(LIB)/libtensorflow_no_op_ops.so $(BIN)/python_op_gen $(TENSORFLOW_PYTHON_OP_control_flow_ops_HIDDEN) 1 > $@~ && mv $@~ $@
+
+
+# List of all Python operation files (auto-generated).
+# The training_ops go in a special directory, so they are listed separately
+# We need to make sure that there are user ops there, as they are explicitly
+# loaded by the library.
+TENSORFLOW_PY_OP_FILES:=$(foreach op,$(TENSORFLOW_OPS) user,tensorflow/python/ops/gen_$(op)_ops.py) tensorflow/python/training/gen_training_ops.py
+
+# Training ops are copied
+$(CWD)/tensorflow/python/training/gen_training_ops.py: $(CWD)/tensorflow/python/ops/gen_training_ops.py
+	@cp $< $@~ && mv $@~ $@
+
+# We need a bunch of empty __init__.py files to make Python able to navigate
+# the directory structure.  These are listed here, and automatically created
+# as empty.
+TENSORFLOW_EMPTY_INIT_PY:= \
+	tensorflow/core/__init__.py \
+	tensorflow/core/framework/__init__.py \
+	tensorflow/core/util/__init__.py \
+	tensorflow/core/lib/__init__.py \
+	tensorflow/core/lib/core/__init__.py \
+	tensorflow/python/ops/__init__.py \
+	tensorflow/core/example/__init__.py
+
+# To create them, we simply touch the file
+$(TENSORFLOW_EMPTY_INIT_PY:%=$(CWD)/%):
+	@mkdir -p $(dir $@) && touch $@
+
+# There are a few .cc files that need to be compiled in the Python wrappers
+# in order to create the bindings
+TENSORFLOW_CC_PYTHON_FILES:=$(shell find $(CWD)/tensorflow/python -name "*.cc") $(CWD)/tensorflow/python/tensorflow_wrap.cxx
+
+# Make sure these have correct dependencies.
+$(TENSORFLOW_CC_PYTHON_FILES):	$(TENSORFLOW_CC_DEPS)
+
+# Turn the list of files we just collected into relative pathnames that our
+# rule system can understand to turn it into a library.
+TENSORFLOW_CC_PYTHON_BUILD:=$(sort $(TENSORFLOW_CC_PYTHON_FILES:$(CWD)/%=%))
+
+# Set up compile options
+$(eval $(call set_compile_option,$(TENSORFLOW_CC_PYTHON_BUILD),$(TENSORFLOW_COMPILE_FLAGS) -I$(PYTHON_INCLUDE_PATH) -Wno-cpp -Wno-write-strings))
+
+# Duh
+TENSORFLOW_PYTHON_LINK := tensorflow
+
+# Finally, build a Python native addon with the tensorflow functionality inside
+$(eval $(call python_addon,_pywrap_tensorflow,$(TENSORFLOW_CC_PYTHON_BUILD),$(TENSORFLOW_PYTHON_LINK),$(TENSORFLOW_CUDA_LINKER_FLAGS)))
+
+# The rest of the files are .py files that need to be copied into place
+TENSORFLOW_PYTHON_FILES:=$(sort $(shell find $(CWD)/tensorflow/python -name "*.py" | grep -v '_test.py' | sed 's!$(CWD)/!!') $(shell find $(CWD)/tensorflow/examples -name "*.py" | sed 's!$(CWD)/!!') tensorflow/__init__.py tensorflow/python/pywrap_tensorflow.py $(TENSORFLOW_PROTOBUF_FILES:$(CWD)/%.proto=%_pb2.py) tensorflow/python/training/checkpoint_state_pb2.py tensorflow/python/training/saver_pb2.py tensorflow/core/example/example_pb2.py $(TENSORFLOW_EMPTY_INIT_PY) $(TENSORFLOW_PY_OP_FILES))
+
+# Install them all as part of the Python module
+$(eval $(call python_module,,$(TENSORFLOW_PYTHON_FILES),,_pywrap_tensorflow,nocheck))
+
 endif
