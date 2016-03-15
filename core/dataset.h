@@ -37,6 +37,8 @@ struct TupleExpression;
 struct WhenExpression;
 struct RowValueInfo;
 struct ExpressionValue;
+struct BucketList;
+struct BucketDescriptions;
 
 typedef EntityType<Dataset> DatasetType;
 
@@ -130,7 +132,6 @@ struct ColumnStats {
     uint64_t rowCount_;
 };
 
-
 /*****************************************************************************/
 /* COLUMN INDEX                                                              */
 /*****************************************************************************/
@@ -158,6 +159,26 @@ struct ColumnIndex {
     /** Return the value of the column for all rows and timestamps. */
     virtual MatrixColumn getColumn(const ColumnName & column) const = 0;
 
+    /** Return a dense column, with one value for every row in the same order as
+        getRowNames().
+
+        Default builts on top of getColumn() and getRowNames(), but is
+        quite inefficient.
+    */
+    virtual std::vector<CellValue>
+    getColumnDense(const ColumnName & column) const;
+
+    /** Return a bucketed dense column, with one value for every row in the same
+        order as rowNames().  Numerical values will be split into a maximum of
+        maxNumBuckets buckets, with split points as described in the
+        return value.  
+
+        Default builds on top of getColumnDense().
+    */
+    virtual std::tuple<BucketList, BucketDescriptions>
+    getColumnBuckets(const ColumnName & column,
+                     int maxNumBuckets = -1) const;
+
     /** Return the value of the column for all rows, ignoring timestamps. */
     virtual std::vector<std::tuple<RowName, CellValue> >
     getColumnValues(const ColumnName & column,
@@ -173,6 +194,9 @@ struct ColumnIndex {
         implementation uses getColumnStats.
     */
     virtual uint64_t getColumnRowCount(const ColumnName & column) const;
+
+    virtual std::vector<RowName>
+    getRowNames(ssize_t start = 0, ssize_t limit = -1) const = 0;
 };
 
 

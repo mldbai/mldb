@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** dataset_feature_space.h                                        -*- C++ -*-
     Jeremy Barnes, 13 March 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Feature space for datasets to allow training of classifiers.
 */
@@ -10,16 +10,18 @@
 #pragma once
 
 #include "mldb/ml/jml/feature_space.h"
+#include "mldb/ml/jml/buckets.h"
 #include "mldb/sql/dataset_types.h"
+#include "mldb/core/dataset.h"
+#include "mldb/server/bucket.h"
 
 namespace Datacratic {
 namespace MLDB {
 
 
 // For internal use
-extern ML::Feature labelFeature, weightFeature;
+extern const ML::Feature labelFeature, weightFeature;
 
-    
 
 /*****************************************************************************/
 /* DATASET FEATURE SPACE                                                     */
@@ -38,13 +40,28 @@ struct DatasetFeatureSpace: public ML::Feature_Space {
 
     DatasetFeatureSpace(std::shared_ptr<Dataset> dataset,
                         ML::Feature_Info labelInfo,
-                        const std::set<ColumnName> & includeColumns);
+                        const std::set<ColumnName> & includeColumns,
+                        bool bucketize = false);
 
     struct ColumnInfo {
+        ColumnInfo()
+            : index(-1), distinctValues(-1)
+        {
+        }
+
         ColumnName columnName;
         ML::Feature_Info info;
         int index;
+
+        // These are only filled in if bucketize is true on construction
+        int distinctValues;
+        BucketList buckets;
+        BucketDescriptions bucketDescriptions;
     };
+
+    static ColumnInfo getColumnInfo(std::shared_ptr<Dataset> dataset,
+                                    const Utf8String & columnName,
+                                    bool bucketize);
 
     std::unordered_map<ColumnHash, ColumnInfo> columnInfo;
 
@@ -55,6 +72,12 @@ struct DatasetFeatureSpace: public ML::Feature_Space {
     */
     void encodeFeature(ColumnHash column, const CellValue & value,
                        std::vector<std::pair<ML::Feature, float> > & fset) const;
+
+    /** Bucketize a feature and return its feature number and bucket
+        number.  For when bucketizeNumerics is set to true.
+    */
+    std::pair<int, int>
+    getFeatureBucket(ColumnHash column, const CellValue & value) const;
 
     /** Encode the column value as a feature, ready to add to a dense
         vector.
@@ -67,6 +90,10 @@ struct DatasetFeatureSpace: public ML::Feature_Space {
     float encodeValue(const CellValue & value,
                       const ColumnName & columnName,
                       const ML::Feature_Info & info) const;
+
+/*    float encodeValue(const CellValue & value,
+                      const ColumnName & columnName,
+                      const ColumnInfo & columnInfo) const;*/
 
     virtual ML::Feature_Info info(const ML::Feature & feature) const;
 
@@ -136,7 +163,6 @@ struct DatasetFeatureSpace: public ML::Feature_Space {
     using ML::Feature_Space::reconstitute;
 
     void reconstitute(ML::DB::Store_Reader & store);
-
     void serialize(ML::DB::Store_Writer & store) const;
 };
 
