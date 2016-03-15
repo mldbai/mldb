@@ -15,6 +15,7 @@
 #include "mldb/arch/timers.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/sql/sql_expression_operations.h"
+#include "mldb/sql/sql_utils.h"
 #include "mldb/http/http_exception.h"
 #include <boost/algorithm/string.hpp>
 
@@ -1138,7 +1139,16 @@ struct GroupContext: public SqlExpressionDatasetContext {
                                         const std::vector<BoundSqlExpression> & args,
                                         SqlBindingScope & argScope)
     {
-        if (functionName == "rowName") {
+        Utf8String resolvedTableName = tableName;
+        Utf8String resolvedFunctionName = functionName;
+
+        if (tableName.empty()) {
+            resolvedFunctionName = removeTableName(alias, functionName);
+            if (resolvedFunctionName != functionName)
+                resolvedTableName = alias;
+        }
+
+        if (resolvedFunctionName == "rowName") {
             return {[] (const std::vector<ExpressionValue> & args,
                         const SqlRowScope & context)
                     {
@@ -1158,7 +1168,7 @@ struct GroupContext: public SqlExpressionDatasetContext {
                     },
                     std::make_shared<StringValueInfo>()};
         }
-        else if (functionName == "groupKeyElement" || functionName == "group_key_element") {
+        else if (resolvedFunctionName == "groupKeyElement" || resolvedFunctionName == "group_key_element") {
             return {[] (const std::vector<ExpressionValue> & args,
                         const SqlRowScope & context)
                     {
@@ -1173,10 +1183,10 @@ struct GroupContext: public SqlExpressionDatasetContext {
         }
 
         //check aggregators
-        auto aggFn = SqlBindingScope::doGetAggregator(functionName, args);
+        auto aggFn = SqlBindingScope::doGetAggregator(resolvedFunctionName, args);
         if (aggFn)
         {
-            if (functionName == "count")
+            if (resolvedFunctionName == "count")
             {
                 //count is *special*
                 evaluateEmptyGroups = true;
@@ -1199,7 +1209,7 @@ struct GroupContext: public SqlExpressionDatasetContext {
                     std::make_shared<AnyValueInfo>()};
         }
 
-        return SqlBindingScope::doGetFunction(tableName, functionName, args, argScope);
+        return SqlBindingScope::doGetFunction(resolvedTableName, resolvedFunctionName, args, argScope);
     }
 
     // Within a group by context, we can get either:
@@ -1208,13 +1218,13 @@ struct GroupContext: public SqlExpressionDatasetContext {
     virtual VariableGetter doGetVariable(const Utf8String & tableName,
                                          const Utf8String & variableName)
     {
-         Utf8String simplifiedVariableName = removeQuotes(removeTableName(variableName));
+        Utf8String simplifiedVariableName = removeQuotes(removeTableName(alias, variableName));
 
         for (unsigned i = 0;  i < groupByExpression.clauses.size();  ++i) {
             const std::shared_ptr<SqlExpression> & g
                 = groupByExpression.clauses[i];
 
-            Utf8String simplifiedSurface = removeQuotes(removeTableName(g->surface));
+            Utf8String simplifiedSurface = removeQuotes(removeTableName(alias, g->surface));
 
             if (simplifiedSurface == simplifiedVariableName) {
                 return {[=] (const SqlRowScope & context,
