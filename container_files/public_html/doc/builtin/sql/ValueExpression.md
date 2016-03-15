@@ -201,6 +201,7 @@ intended. See also [the MLDB Type System](TypeSystem.md).
 - `expr IS [NOT] NUMBER` tests if the given expression is a number
 - `expr IS [NOT] INTEGER` tests if the given expression is an integer
 - `expr IS [NOT] TIMESTAMP` tests if the given expression is a timestamp
+- `expr IS [NOT] INTERVAL` tests if the given expression is a time interval
 
 ### [NOT] IN expression
 
