@@ -203,16 +203,8 @@ addPluginPathToEnv(PythonSubinterpreter & pyControl) const
 {
     pyControl.acquireGil();
     
-    // now time to insert the plugin working directory into the python path
-    char key[] = "path";
-    PyObject* sysPath = PySys_GetObject(key);
-    ExcAssert(sysPath);
-
-    string pluginDir = itl->pluginResource->getPluginDir().string();
-    PyObject * pluginDirPy = PyString_FromString(pluginDir.c_str());
-    ExcAssert(pluginDirPy);
-
-    PyList_Insert( sysPath, 0, pluginDirPy );
+    boost::python::import("sys").attr("path").attr("append")("build/x86_64/bin");
+    boost::python::import("sys").attr("path").attr("append")(itl->pluginResource->getPluginDir().string());
 
     // change working dir to script dir
 //     PyRun_SimpleString(ML::format("import os\nos.chdir(\"%s\")", pluginDir).c_str());
@@ -374,6 +366,10 @@ handleTypeRoute(RestDirectory * server,
 
         bool isChild = request.header.headers.find("__mldb_child_call") != request.header.headers.end();
         PythonSubinterpreter pyControl(isChild);
+        pyControl.acquireGil();
+        boost::python::import("sys").attr("path").attr("append")("./build/x86_64/bin");
+        // Why is there no releaseGil() here?!
+
         auto result = runPythonScript(titl, PackageElement::MAIN, pyControl);
         conn.sendResponse(result.exception ? 400 : 200,
                           jsonEncodeStr(result), "application/json");
