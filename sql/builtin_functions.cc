@@ -1759,7 +1759,9 @@ BoundFunction tokenize(const std::vector<BoundSqlExpression> & args)
                     if (check[4]) //values
                     {
                         if (!values.isAtom())
-                          throw HttpReturnException(400, "requires 'value' argument be a scalar, got type " + values.getTypeAsUtf8String());
+                          throw HttpReturnException(400, ML::format("requires 'value' "
+                                "argument be a scalar, got type '%s'", 
+                                values.getTypeAsString()));
 
                         row.emplace_back(ColumnName(it->first),
                                      values.getAtom(),
