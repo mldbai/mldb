@@ -333,7 +333,10 @@ $(foreach op,$(TENSORFLOW_OPS), \
 # generated for each of the ops and we have multiple definitions.
 $(CWD)/tensorflow/core/ops/no_op.cc: | $(TENSORFLOW_PROTOBUF_FILES:%.proto=%.pb.h)
 $(eval $(call set_compile_option,tensorflow/core/ops/no_op.cc,$(TENSORFLOW_COMPILE_FLAGS)))
-$(eval $(call library,tensorflow-ops,tensorflow/core/ops/no_op.cc,$(foreach op,$(TENSORFLOW_OPS),tensorflow_$(op)_ops) tensorflow-core,,,,,$(TENSORFLOW_CUDA_LINKER_FLAGS)))
+$(eval $(call library,tensorflow_no_op_ops,tensorflow/core/ops/no_op.cc))
+$(eval $(call library,tensorflow_user_ops))
+
+$(eval $(call library,tensorflow-ops,,$(foreach op,$(TENSORFLOW_OPS),tensorflow_$(op)_ops) tensorflow_no_op_ops tensorflow_user_ops tensorflow-core,,,,,$(TENSORFLOW_CUDA_LINKER_FLAGS)))
 
 
 # Now the kernels
