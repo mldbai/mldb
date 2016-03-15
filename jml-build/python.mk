@@ -115,6 +115,7 @@ endef
 
 # $(1): name of python file
 # $(2): name of directory to go in
+# $(3): options, currently supported: nocheck = don't run pyflakes
 
 define install_python_file
 ifneq ($(PREMAKE),1)
@@ -123,9 +124,8 @@ $$(if $(trace),$$(warning called install_python_file "$(1)" "$(2)"))
 
 $(PYTHON_PURE_LIB_PATH)/$(2)/$(1):	$(CWD)/$(1) $(PYTHON_PURE_LIB_PATH)/$(2)/.dir_exists
 	$$(if $(verbose_build),@echo "cp $$< $$@",@echo " $(COLOR_YELLOW)[PYTHON_MODULE]$(COLOR_RESET) $(2)/$(1)")
-	@$(PYFLAKES) $$<
-	@cp $$< $$@~
-	@mv $$@~ $$@
+	$(if $(findstring nocheck,$(3)),,@$(PYFLAKES) $$<)
+	@mkdir -p $$(dir $$@) && cp $$< $$@~ && mv $$@~ $$@
 
 #$$(w arning building $(BIN)/$(2)/$(1))
 
@@ -138,12 +138,13 @@ endef
 # $(2): list of python source files to copy
 # $(3): python modules it depends upon
 # $(4): libraries it depends upon
+# $(5): options (currently supported: nocheck = don't run pyflakes)
 
 define python_module
 ifneq ($(PREMAKE),1)
 $$(if $(trace),$$(warning called python_module "$(1)" "$(2)" "$(3)" "$(4)"))
 
-$$(foreach file,$(2),$$(eval $$(call install_python_file,$$(file),$(1))))
+$$(foreach file,$(2),$$(eval $$(call install_python_file,$$(file),$(1),$(5))))
 
 PYTHON_$(1)_DEPS := $$(foreach file,$(2),$(PYTHON_PURE_LIB_PATH)/$(1)/$$(file)) $$(foreach pymod,$(3),$(TMPBIN)/$$(pymod)_pymod) $$(foreach pymod,$(3),$$(PYTHON_$$(pymod)_DEPS)) $$(foreach lib,$(4),$$(LIB_$$(lib)_DEPS))
 
