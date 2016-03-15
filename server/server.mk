@@ -26,6 +26,8 @@ LIBMLDB_SOURCES:= \
 	script_output.cc \
 	forwarded_dataset.cc \
 	serial_function.cc \
+    column_scope.cc \
+    bucket.cc
 
 LIBMLDB_LINK:= \
 	service_peer mldb_builtin_plugins sql_expression git2 hoedown credentials_daemon mldb_builtin command_expression cloud mldb_core
@@ -35,6 +37,6 @@ $(eval $(call library,mldb,$(LIBMLDB_SOURCES),$(LIBMLDB_LINK)))
 $(eval $(call library_forward_dependency,mldb,mldb_builtin))
 $(eval $(call library_forward_dependency,mldb,mldb_builtin_plugins))
 
-$(eval $(call program,mldb_doc_server,mldb))
+$(eval $(call program,mldb_doc_server,mldb boost_program_options))
 $(eval $(call program,mldb_runner,mldb boost_program_options))
 

@@ -1047,7 +1047,7 @@ struct ImportTextProcedureWorkInstance
 	                                        isTextLine,
 	                                        hasQuoteChar);
 
-	        if (errorMsg)
+            if (errorMsg)
 	            return handleError(errorMsg, actualLineNum, line - lineStart + 1, string(line, length));
 
 	        //cerr << "got values " << jsonEncode(vector<CellValue>(values, values + inputColumnNames.size())) << endl;
@@ -1142,7 +1142,8 @@ struct ImportTextProcedureWorkInstance
 	        //threadAccum.emplace_back(std::move(lineEntry));
 	    };
 
-	    forEachLineBlock(stream, onLine, config.limit);
+	    forEachLineBlock(stream, onLine, config.limit,
+                             32 /* parallelism */);
 
 	    //cerr << timer.elapsed() << endl;
 	    timer.restart();	   

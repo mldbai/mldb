@@ -73,10 +73,11 @@ MldbServer::
 MldbServer(const std::string & serviceName,
            const std::string & etcdUri,
            const std::string & etcdPath,
-           bool enableAccessLog)
+           bool enableAccessLog,
+           const std::string & httpBaseUrl)
     : ServicePeer(serviceName, "MLDB", "global", enableAccessLog),
       EventRecorder(serviceName, std::make_shared<NullEventService>()),
-      versionNode(nullptr),
+      httpBaseUrl(httpBaseUrl), versionNode(nullptr),
       logger(getMldbLog<MldbServer>())
 {
     // Don't allow URIs without a scheme
@@ -360,15 +361,11 @@ initCollections(std::string configurationPath,
     }
 
     // Serve up static documentation for the plugins
-    serveDocumentationDirectory(router, "/doc/builtin",
+    serveDocumentationDirectory(router, "/doc",
                                 staticDocPath, this, hideInternalEntities);
 
-    serveDocumentationDirectory(router, "/static/assets",
-                                staticFilesPath, this, hideInternalEntities);
-
     serveDocumentationDirectory(router, "/resources",
-                                "mldb/container_files/public_html/resources",
-                                this, hideInternalEntities);
+                                staticFilesPath, this, hideInternalEntities);
 }
 
 void
@@ -500,8 +497,9 @@ getPackageDocumentationPath(const Package & package) const
     // always be provided by the plugin "pro", but this is not
     // by any means guaranteed.
 
-    if (package.packageName() == "builtin")
+    if (package.packageName() == "builtin") {
         return "/doc/builtin/";
+    }
     return "/v1/plugins/" + package.packageName() + "/doc/";
 }
 
@@ -519,6 +517,31 @@ getCacheDirectory() const
     return cacheDirectory_;
 }
 
+Utf8String
+MldbServer::
+prefixUrl(Utf8String url) const
+{
+    if (url.startsWith("/")) {
+        return httpBaseUrl + url;
+    }
+    return url;
+}
+
+string
+MldbServer::
+prefixUrl(string url) const
+{
+    Utf8String str(url);
+    return prefixUrl(str).rawString();
+}
+
+string
+MldbServer::
+prefixUrl(const char* url) const
+{
+    Utf8String str(url);
+    return prefixUrl(str).rawString();
+}
 
 namespace {
 struct OnInit {

@@ -23,6 +23,7 @@
 #include "mldb/types/any_impl.h"
 #include "mldb/types/optional_description.h"
 #include "mldb/vfs/filter_streams.h"
+#include "mldb/vfs/fs_utils.h"
 #include "mldb/plugins/sql_config_validator.h"
 
 using namespace std;
@@ -218,6 +219,7 @@ run(const ProcedureRunConfig & run,
     bool saved = false;
     if (!runProcConf.modelFileUrl.empty()) {
         try {
+            Datacratic::makeUriDirectory(runProcConf.modelFileUrl.toString());
             save(runProcConf.modelFileUrl.toString(), dfs.size(), dfs);
             saved = true;
         }

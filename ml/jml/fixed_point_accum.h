@@ -1,14 +1,12 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* fixed_point_accum.h                                             -*- C++ -*-
    Jeremy Barnes, 1 April 2009
    Copyright (c) 2009 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Fixed-point accurate accumulators.
 */
 
-#ifndef __boosting__fixed_point_accum_h__
-#define __boosting__fixed_point_accum_h__
+#pragma once
 
 #include "mldb/compiler/compiler.h"
 #include "mldb/jml/utils/float_traits.h"
@@ -109,10 +107,10 @@ struct FixedPointAccum64 {
 #ifndef JML_COMPILER_NVCC
     union {
         struct {
-            unsigned l;
-            int h;
+            uint32_t l;
+            int32_t h;
         };
-        long long hl;
+        int64_t hl;
     };
 #else // JML_COMPILER_NVCC
     // Note that using a union like this for NVCC forces the structure into
@@ -222,7 +220,4 @@ inline float operator / (const FixedPointAccum64 & f1,
     return f1.operator float() / f2.operator float();
 }
 
-
 } // namespace ML
-
-#endif /* __boosting__fixed_point_accum_h__ */
