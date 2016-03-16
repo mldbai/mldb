@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* tree.h                                                          -*- C++ -*-
    Jeremy Barnes, 24 April 2006
    Copyright (c) 2006 Jeremy Barnes.  All rights reserved.
+
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Class to hold and manage a tree.
 */

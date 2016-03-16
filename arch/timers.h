@@ -1,14 +1,12 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* timers.h                                                        -*- C++ -*-
    Jeremy Barnes, 1 April 2009
    Copyright (c) 2009 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Different types of timers.
 */
 
-#ifndef __arch__timers_h__
-#define __arch__timers_h__
+#pragma once
 
 #include <sys/time.h>
 #include "tick_counter.h"
@@ -66,10 +64,11 @@ struct Timer {
     {
         if (!enabled)
             return "disabled";
-        return format("elapsed: [%.2fs cpu, %.4f mticks, %.2fs wall]",
-                      cpu_time() - cpu_,
-                      (ticks() - ticks_) / 1000000.0,
-                      wall_time() - wall_);
+        return format("elapsed: [%.2fs cpu, %.4f mticks, %.2fs wall, %.2f cores]",
+                      elapsed_cpu(),
+                      elapsed_ticks() / 1000000.0,
+                      elapsed_wall(),
+                      elapsed_cpu() / elapsed_wall());
     }
 
     double elapsed_cpu() const { return cpu_time() - cpu_; }
@@ -171,5 +170,3 @@ struct Duty_Cycle_Timer {
 };
 
 } // namespace ML
-
-#endif

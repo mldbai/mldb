@@ -61,10 +61,11 @@ registerDatasetType(const Package & package,
                     createEntity,
                     TypeCustomRouteHandler docRoute,
                     TypeCustomRouteHandler customRoute,
-                    std::shared_ptr<const ValueDescription> config)
+                    std::shared_ptr<const ValueDescription> config,
+                    std::set<std::string> registryFlags)
 {
     return DatasetCollection::registerType(package, name, description, createEntity,
-                                           docRoute, customRoute, config);
+                                           docRoute, customRoute, config, registryFlags);
 }
 
 void runHttpQuery(std::function<std::vector<MatrixNamedRow> ()> runQuery,

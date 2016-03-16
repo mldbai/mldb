@@ -1,19 +1,23 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** tabular_dataset.cc                                             -*- C++ -*-
     Jeremy Barnes, 26 November 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
 
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #include "tabular_dataset.h"
 #include "mldb/arch/timers.h"
 #include "mldb/types/basic_value_descriptions.h"
+#include "mldb/ml/jml/training_index_entry.h"
+#include "mldb/jml/utils/smart_ptr_utils.h"
+#include "mldb/server/bucket.h"
 
 using namespace std;
 
 namespace Datacratic {
 namespace MLDB {
+
+static constexpr size_t TABULAR_DATASET_DEFAULT_ROWS_PER_CHUNK=65536;
 
 /*****************************************************************************/
 /* TABULAR DATA STORE                                                        */
@@ -38,7 +42,8 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         virtual void initAt(size_t start){
             size_t sum = 0;
             chunkiter = store->chunks.begin();
-            while (chunkiter != store->chunks.end() && start > sum + chunkiter->rowNames.size())  {
+            while (chunkiter != store->chunks.end()
+                   && start > sum + chunkiter->rowNames.size())  {
                 sum += chunkiter->rowNames.size();
                 ++chunkiter;
             }
@@ -77,6 +82,8 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     
     std::vector<TabularDatasetChunk> chunks;
 
+    std::vector<TabularDatasetChunk> mutable_chunks;
+
     /// Index from rowHash to (chunk, indexInChunk) when line number not used for rowName
     ML::Lightweight_Hash<RowHash, std::pair<int, int> > rowIndex;
     std::string filename;
@@ -100,6 +107,83 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         }
         
         return result;
+    }
+
+    virtual std::vector<CellValue>
+    getColumnDense(const ColumnName & column) const
+    {
+        auto it = columnIndex.find(column);
+        if (it == columnIndex.end()) {
+            throw HttpReturnException(400, "Tabular dataset contains no column with given name",
+                                      "columnName", column,
+                                      "knownColumns", columnNames);
+        }
+
+        std::vector<CellValue> result;
+        result.reserve(rowCount);
+
+        for (unsigned i = 0;  i < chunks.size();  ++i) {
+            auto onValue = [&] (size_t n, CellValue val)
+                {
+                    result.emplace_back(std::move(val));
+                    return true;
+                };
+            
+            chunks[i].columns[it->second].forEach(onValue);
+        }
+        
+        return result;
+    }
+
+    virtual std::tuple<BucketList, BucketDescriptions>
+    getColumnBuckets(const ColumnName & column, int maxNumBuckets) const override
+    {
+        auto it = columnIndex.find(column);
+        if (it == columnIndex.end()) {
+            throw HttpReturnException(400, "Tabular dataset contains no column with given name",
+                                      "columnName", column,
+                                      "knownColumns", columnNames);
+        }
+
+        std::unordered_map<CellValue, size_t> values;
+        std::vector<CellValue> valueList;
+
+        size_t totalRows = 0;
+
+        for (unsigned i = 0;  i < chunks.size();  ++i) {
+            auto onValue = [&] (CellValue val, size_t /* count */)
+                {
+                    if (values.insert({val,0}).second)
+                        valueList.push_back(std::move(val));
+                    return true;
+                };
+
+            chunks[i].columns[it->second].forEachDistinctValue(onValue);
+            totalRows += chunks[i].rowCount();
+        }
+
+        BucketDescriptions descriptions;
+        descriptions.initialize(valueList, maxNumBuckets);
+
+        for (auto & v: values) {
+            v.second = descriptions.getBucket(v.first);            
+        }
+        
+        // Finally, perform the bucketed lookup
+        WritableBucketList buckets(totalRows, descriptions.numBuckets());
+
+        for (unsigned i = 0;  i < chunks.size();  ++i) {
+            auto onValue = [&] (size_t, const CellValue & val)
+                {
+                    uint32_t bucket = values[val];
+                    buckets.write(bucket);
+                    return true;
+                };
+            
+            chunks[i].columns[it->second].forEach(onValue);
+        }
+
+        return std::make_tuple(std::move(buckets), std::move(descriptions));
     }
 
     virtual uint64_t getColumnRowCount(const ColumnName & column) const
@@ -339,15 +423,66 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
     }
 
-    void initialize(vector<ColumnName>& columnNames, ML::Lightweight_Hash<ColumnHash, int>& columnIndex)
+    void initialize(const vector<ColumnName>& columnNames, const ML::Lightweight_Hash<ColumnHash, int>& columnIndex)
     {
-        this->columnNames = std::move(columnNames);
-        this->columnIndex = std::move(columnIndex);
+        this->columnNames = columnNames;
+        this->columnIndex = columnIndex;
 
         for (const auto& c : this->columnNames) {
                 ColumnHash ch(c);
                 columnHashes.push_back(ch);
             }
+    }
+
+    void commit()
+    {
+        if (!mutable_chunks.empty())
+        {
+            mutable_chunks[0].freeze();
+            finalize(mutable_chunks, mutable_chunks[0].rowCount());
+            mutable_chunks.resize(0);
+        }
+    }
+
+    void recordRow(const RowName & rowName, const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
+    {
+        if (rowCount > 0)
+            HttpReturnException(400, "Tabular dataset has already been committed, cannot add more rows");
+
+        if (mutable_chunks.empty())
+        {
+            //need to create the mutable chunk
+            vector<ColumnName> columnNames;
+            //The first recorded row will determine the columns
+            ML::Lightweight_Hash<ColumnHash, int> inputColumnIndex;
+            for (unsigned i = 0;  i < vals.size();  ++i) {
+                const ColumnName & c = std::get<0>(vals[i]);
+                ColumnHash ch(c);
+                if (!inputColumnIndex.insert(make_pair(ch, i)).second)
+                    throw HttpReturnException(400, "Duplicate column name in tabular dataset entry",
+                                              "columnName", c.toString());
+                columnNames.push_back(c);
+            }
+
+            initialize(columnNames, inputColumnIndex);
+
+            mutable_chunks.emplace_back(columnNames.size(), TABULAR_DATASET_DEFAULT_ROWS_PER_CHUNK);
+        }
+
+        std::vector<CellValue> orderedVals(columnNames.size());
+        Date ts = Date::negativeInfinity();
+        for (unsigned i = 0;  i < vals.size();  ++i) {
+            const ColumnName & c = std::get<0>(vals[i]);
+            auto iter = columnIndex.find(c);
+            if (iter == columnIndex.end())
+                throw HttpReturnException(400, "New column name while recording row in tabular dataset", "columnName", c.toString());
+
+            orderedVals[iter->second] = std::get<1>(vals[i]);
+
+            ts = std::max(ts, std::get<2>(vals[i]));
+        }
+
+        mutable_chunks[0].add(rowName, ts, orderedVals.data());
     }
 };
 
@@ -360,9 +495,9 @@ TabularDataset(MldbServer * owner,
     itl = make_shared<TabularDataStore>();
 }
 
-void 
+void
 TabularDataset::
-initialize(vector<ColumnName>& columnNames, ML::Lightweight_Hash<ColumnHash, int>& columnIndex)
+initialize(const vector<ColumnName>& columnNames, const ML::Lightweight_Hash<ColumnHash, int>& columnIndex)
 {
 	itl->initialize(columnNames, columnIndex);
 }
@@ -426,6 +561,7 @@ getRowStream() const
 GenerateRowsWhereFunction
 TabularDataset::
 generateRowsWhere(const SqlBindingScope & context,
+                  const Utf8String& alias,
                   const SqlExpression & where,
                   ssize_t offset,
                   ssize_t limit) const
@@ -433,7 +569,7 @@ generateRowsWhere(const SqlBindingScope & context,
     GenerateRowsWhereFunction fn
         = itl->generateRowsWhere(context, where, offset, limit);
     if (!fn)
-        fn = Dataset::generateRowsWhere(context, where, offset, limit);
+        fn = Dataset::generateRowsWhere(context, alias, where, offset, limit);
     return fn;
 }
 
@@ -444,13 +580,41 @@ getKnownColumnInfo(const ColumnName & columnName) const
     return itl->getKnownColumnInfo(columnName);
 }
 
+void
+TabularDataset::
+commit()
+{
+    return itl->commit();
+}
+
+void
+TabularDataset::
+recordRowItl(const RowName & rowName,
+             const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
+{
+    validateNames(rowName, vals);
+    return itl->recordRow(rowName, vals);
+}
+
+struct TabularDatasetConfig {
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(TabularDatasetConfig);
+DEFINE_STRUCTURE_DESCRIPTION(TabularDatasetConfig);
+
+TabularDatasetConfigDescription::
+TabularDatasetConfigDescription()
+{
+    nullAccepted = true;
+}
+
 namespace {
 
-RegisterDatasetType<TabularDataset, PersistentDatasetConfig>
-regCsv(builtinPackage(),
-       "tabular",
-       "NJK FILL ME",
-       "datasets/TabularDataset.md.html");
+RegisterDatasetType<TabularDataset, TabularDatasetConfig>
+regTabular(builtinPackage(),
+           "tabular",
+           "Dense dataset which can be recorded to",
+           "datasets/TabularDataset.md.html");
 
 } // file scope*/
 

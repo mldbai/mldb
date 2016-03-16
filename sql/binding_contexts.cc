@@ -43,13 +43,6 @@ doGetFunction(const Utf8String & tableName,
 
     if (!outerFunction)
         return result;
-#if 0
-    std::vector<BoundSqlExpression> boundArgs;
-    for (auto& arg : args)
-    {
-        boundArgs.emplace_back(std::move(arg->bind(argScope)));
-    }
-#endif
   
     // Call it with the outer context
     result.exec = [=] (const std::vector<ExpressionValue> & args,
@@ -190,14 +183,6 @@ doGetFunction(const Utf8String & tableName,
                  const SqlRowScope & context)
             {
                 auto & col = context.as<ColumnContext>();
-#if 0
-                // consider changing the signature of the column function 
-                // to let them evaluate their args as it is done with builtin
-                std::vector<ExpressionValue> evaluatedArgs;
-                evaluatedArgs.reserve(args.size());
-                for (auto & arg: args)
-                    evaluatedArgs.emplace_back(std::move(arg(context, GET_LATEST)));
-#endif
                 return fn(col.columnName, evaluatedArgs); 
             },
             std::make_shared<Utf8StringValueInfo>()};
@@ -224,7 +209,7 @@ doGetFunction(const Utf8String & tableName,
               const std::vector<BoundSqlExpression> & args,
               SqlBindingScope & argScope)
 {
-    if (functionName == "timestamp") {
+    if (functionName == "value_timestamp") {
         isTupleDependent = true;
         return  {[=] (const std::vector<ExpressionValue> & args,
                       const SqlRowScope & scope)

@@ -21,6 +21,7 @@
 #include "mldb/core/mldb_entity.h"
 #include "static_content_macro.h"
 #include "mldb/base/scope.h"
+#include <boost/algorithm/string/replace.hpp>
 
 using namespace std;
 
@@ -34,6 +35,7 @@ void renderMacro(hoedown_buffer *ob,
                  const MacroData & macroData)
 {
     MacroContext context(&macroData, ob, text);
+    context.server = macroData.server;
 
     string s((const char *)text->data, 2, text->size - 2);
     auto pos = s.find(' ');
@@ -98,26 +100,24 @@ int handleLink(hoedown_buffer *ob,
     string linkSource;
     if (link && link->size)
         linkSource = string(link->data, link->data + link->size);
-    
-    //cerr << "Rendering link " << linkSource << endl;
-    
+
     if (linkSource.rfind(".md") == linkSource.size() - 3
         && linkSource.find("://") == string::npos) {
         linkSource += ".html";
-        //cerr << "  rendering as " << linkSource << endl;
-    } 
+    }
 
     auto state = (hoedown_html_renderer_state *)data->opaque;
 
     HOEDOWN_BUFPUTSL(ob, "<a href=\"");
 
     if (!linkSource.empty())
-        hoedown_escape_href(ob, (const uint8_t *)linkSource.c_str(), linkSource.size());
+        hoedown_escape_href(ob, (const uint8_t *)linkSource.c_str(),
+                            linkSource.size());
 
     if(linkSource.find("http") == 0) {
         HOEDOWN_BUFPUTSL(ob, "\" target=\"_blank");
     }
-    
+
     if (title && title->size) {
         HOEDOWN_BUFPUTSL(ob, "\" title=\"");
         hoedown_escape_html(ob, title->data, title->size, 0);
@@ -131,7 +131,8 @@ int handleLink(hoedown_buffer *ob,
         HOEDOWN_BUFPUTSL(ob, "\">");
     }
 
-    if (content && content->size) hoedown_buffer_put(ob, content->data, content->size);
+    if (content && content->size) hoedown_buffer_put(ob, content->data,
+                                                     content->size);
     HOEDOWN_BUFPUTSL(ob, "</a>");
     return 1;
 }
@@ -183,7 +184,6 @@ getStaticRouteHandler(string dir, MldbServer * server, bool hideInternalEntities
                   const RestRequest & request,
                   const RestRequestParsingContext & context)
         {
-        
             string path = context.resources.back().rawData();
 
             if (path.find("..") != string::npos) {
@@ -212,6 +212,7 @@ getStaticRouteHandler(string dir, MldbServer * server, bool hideInternalEntities
                     ML::File_Read_Buffer buf(filenameToLoad);
             
                     string result(buf.start(), buf.end());
+                    boost::algorithm::replace_all(result, "{{HTTP_BASE_URL}}", server->httpBaseUrl);
                     connection.sendResponse(200, result, mimeType);
                     return RestRequestRouter::MR_YES;
                 };
@@ -263,10 +264,10 @@ getStaticRouteHandler(string dir, MldbServer * server, bool hideInternalEntities
                 result += "<meta charset='utf-8' />\n";
                 result += "<title>MLDB Documentation</title>\n";
                 result += "<script src='https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML'></script>\n";
-                result += "<link rel='stylesheet' href='/resources/css/prism.css'>\n";
-                result += "<link rel='stylesheet' href='/resources/css/doc.css'>\n";
-                result += "<script src='/resources/js/jquery-1.11.2.min.js'></script>\n";
-                result += "<script src='/resources/js/prism.js'></script>\n";
+                result += "<link rel='stylesheet' href='" + server->prefixUrl("/resources/css/prism.css") + "'>\n";
+                result += "<link rel='stylesheet' href='" + server->prefixUrl("/resources/css/doc.css") + "'>\n";
+                result += "<script src='" + server->prefixUrl("/resources/js/jquery-1.11.2.min.js") + "'></script>\n";
+                result += "<script src='" + server->prefixUrl("/resources/js/prism.js") + "'></script>\n";
                 result += "<script>\n";
                 result += "  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){\n";
                 result += "  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),\n";
@@ -284,6 +285,7 @@ getStaticRouteHandler(string dir, MldbServer * server, bool hideInternalEntities
                 result += "</body>\n";
                 result += "</html>\n";
 
+                boost::algorithm::replace_all(result, "{{HTTP_BASE_URL}}", server->httpBaseUrl);
                 connection.sendResponse(200, result, mimeType);
                 return RestRequestRouter::MR_YES;
             }

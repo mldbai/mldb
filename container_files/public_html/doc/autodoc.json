@@ -1,0 +1,1092 @@
+{
+   "config" : {},
+   "literate" : [],
+   "routes" : [
+       
+       
+"<h3>Querying</h3>",
+"<p>See <a href=\"{{HTTP_BASE_URL}}/doc/builtin/sql/QueryAPI.md.html\">Query API documentation</a> for details.</p>",
+      [
+         "GET {{HTTP_BASE_URL}}/v1/query",
+         {
+            "docstring" : "Run an SQL query",
+            "in" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "out" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "querystring" : {
+               "properties" : {
+                  "q" : {
+                     "description" : "SQL query",
+                     "type" : "string"
+                  }
+               },
+               "required" : [],
+               "type" : "object"
+            },
+            "required_role" : null
+         }
+      ],   
+       
+       
+       
+       
+       
+"<h3>Datasets</h3>",
+"<p>See <a href=\"{{HTTP_BASE_URL}}/doc/builtin/datasets/Datasets.md.html\">Datasets documentation</a> for details.</p>",
+      [
+         "GET {{HTTP_BASE_URL}}/v1/datasets",
+         {
+            "docstring" : "Get a list of datasets",
+            "in" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "out" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "querystring" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "required_role" : null
+         }
+      ],
+      [
+         "POST {{HTTP_BASE_URL}}/v1/datasets",
+         {
+            "docstring" : "Create a new dataset",
+            "in" : {
+               "properties" : {
+                  "id" : {
+                     "description" : "Dataset ID, see <a href=\"{{HTTP_BASE_URL}}/doc/builtin/datasets/DatasetConfig.md.html\">DatasetConfig</a> for details.",
+                     "type" : "string"
+                  },
+                  "type" : {
+                     "description" : "Dataset type, see <a href=\"{{HTTP_BASE_URL}}/doc/builtin/datasets/DatasetConfig.md.html\">DatasetConfig</a> for available types.",
+                     "type" : "string"
+                  },
+                  "params" : {
+                     "description" : "Depends on type above.",
+                     "type" : "object"
+                  }
+               },
+               "required" : [],
+               "type" : "object"
+            },
+            "out" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "querystring" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "required_role" : null
+         }
+      ],
+      [
+         "DELETE {{HTTP_BASE_URL}}/v1/datasets/<id>",
+         {
+            "docstring" : "Delete the dataset",
+            "in" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "out" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "querystring" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "required_role" : null
+         }
+      ],
+      [
+         "GET {{HTTP_BASE_URL}}/v1/datasets/<id>",
+         {
+            "docstring" : "Get the status of a dataset",
+            "in" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "out" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "querystring" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "required_role" : null
+         }
+      ],
+      [
+         "PUT {{HTTP_BASE_URL}}/v1/datasets/<id>",
+         {
+            "docstring" : "Create a new dataset",
+            "in" : {
+               "properties" : {
+                  "id" : {
+                     "description" : "Dataset ID, see <a href=\"{{HTTP_BASE_URL}}/doc/builtin/datasets/DatasetConfig.md.html\">DatasetConfig</a> for details.",
+                     "type" : "string"
+                  },
+                  "type" : {
+                     "description" : "Dataset type, see <a href=\"{{HTTP_BASE_URL}}/doc/builtin/datasets/DatasetConfig.md.html\">DatasetConfig</a> for available types.",
+                     "type" : "string"
+                  },
+                  "params" : {
+                     "description" : "Depends on type above.",
+                     "type" : "object"
+                  }
+               },
+               "required" : [],
+               "type" : "object"
+            },
+            "out" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "querystring" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "required_role" : null
+         }
+      ],
+      [
+         "GET {{HTTP_BASE_URL}}/v1/datasets/<id>/query",
+         {
+            "docstring" : "Select from dataset",
+            "in" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "out" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "querystring" : {
+               "properties" : {
+                  "select" : {
+                     "description" : "SQL <a href=\"{{HTTP_BASE_URL}}/doc/builtin/sql/SelectExpression.md.html\">Select Expression</a>",
+                     "type" : "string"
+                  },
+                  "where" : {
+                     "description" : "SQL <a href=\"{{HTTP_BASE_URL}}/doc/builtin/sql/ValueExpression.md.html\">Value Expression</a>",
+                     "type" : "string"
+                  },
+                  "groupBy" : {
+                     "description" : "SQL <a href=\"{{HTTP_BASE_URL}}/doc/builtin/sql/GroupByExpression.md.html\">Group-By Expression</a>",
+                     "type" : "string"
+                  },
+                  "having" : {
+                     "description" : "SQL <a href=\"{{HTTP_BASE_URL}}/doc/builtin/sql/ValueExpression.md.html\">Value Expression</a>",
+                     "type" : "string"
+                  },
+                  "orderBy" : {
+                     "description" : "SQL <a href=\"{{HTTP_BASE_URL}}/doc/builtin/sql/OrderByExpression.md.html\">Order-By Expression</a>",
+                     "type" : "string"
+                  },
+                  "limit" : {
+                     "description" : "max number of rows to output",
+                     "type" : "integer"
+                  },
+                  "offset" : {
+                     "description" : "number of rows to skip (only makes sense with orderBy and limit)",
+                     "type" : "integer"
+                  }
+               },
+               "required" : [],
+               "type" : "object"
+            },
+            "required_role" : null
+         }
+      ],
+      [
+         "GET {{HTTP_BASE_URL}}/v1/datasets/<id>/columns",
+         {
+            "docstring" : "Get a list of column names in the dataset",
+            "in" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "out" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "querystring" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "required_role" : null
+         }
+      ],
+      [
+         "POST {{HTTP_BASE_URL}}/v1/datasets/<id>/columns",
+         {
+            "docstring" : "Record the given rows to the column",
+            "in" : {
+               "properties" : {
+                  "columnName" : {
+                     "description" : "Name of the column to record",
+                     "type" : "string"
+                  },
+                  "rows" : {
+                     "items" : {
+                         "description" : "[ &lt;row name&gt;, &lt;value&gt;, &lt;timstamp&gt; ] tuples to record to column",
+                        "type" : "array"
+                     },
+                     "type" : "array"
+                  }
+               },
+               "required" : ["columnName", "rows"],
+               "type" : "object"
+            },
+            "out" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "querystring" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "required_role" : null
+         }
+      ],
+      [
+         "GET {{HTTP_BASE_URL}}/v1/datasets/<id>/rows",
+         {
+            "docstring" : "Get a list of row names in a dataset",
+            "in" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "out" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "querystring" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "required_role" : null
+         }
+      ],
+      [
+         "POST {{HTTP_BASE_URL}}/v1/datasets/<id>/rows",
+         {
+            "docstring" : "Record the given columns to the row",
+            "in" : {
+               "properties" : {
+                  "rowName" : {
+                     "description" : "Name of the row to record",
+                     "type" : "string"
+                  },
+                  "columns" : {
+                     "items" : {
+                         "description" : "[ &lt;column name&gt;, &lt;value&gt;, &lt;timstamp&gt; ] tuples to record to row",
+                        "type" : "array"
+                     },
+                     "type" : "array"
+                  }
+               },
+               "required" : ["rowName", "columns"],
+               "type" : "object"
+            },
+            "out" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "querystring" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "required_role" : null
+         }
+      ],
+      [
+         "POST {{HTTP_BASE_URL}}/v1/datasets/<id>/commit",
+         {
+            "docstring" : "Commit dataset",
+            "in" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "out" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "querystring" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "required_role" : null
+         }
+      ],
+       
+       
+       
+       
+       
+       
+       
+       
+ 
+"<h3>Procedures</h3>",
+"<p>See <a href=\"{{HTTP_BASE_URL}}/doc/builtin/procedures/Procedures.md.html\">Procedures documentation</a> for details.</p>",
+      [
+         "GET {{HTTP_BASE_URL}}/v1/procedures",
+         {
+            "docstring" : "Get a list of procedures",
+            "in" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "out" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "querystring" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "required_role" : null
+         }
+      ],
+      [
+         "POST {{HTTP_BASE_URL}}/v1/procedures",
+         {
+            "docstring" : "Create a new procedure",
+            "in" : {
+               "properties" : {
+                  "id" : {
+                     "description" : "Procedure ID, see <a href=\"{{HTTP_BASE_URL}}/doc/builtin/procedures/ProcedureConfig.md.html\">ProcedureConfig</a> for details.",
+                     "type" : "string"
+                  },
+                  "type" : {
+                     "description" : "Procedure type, see <a href=\"{{HTTP_BASE_URL}}/doc/builtin/procedures/ProcedureConfig.md.html\">ProcedureConfig</a> for available types.",
+                     "type" : "string"
+                  },
+                  "params" : {
+                     "description" : "Depends on type above.",
+                     "type" : "object"
+                  }
+               },
+               "required" : [],
+               "type" : "object"
+            },
+            "out" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "querystring" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "required_role" : null
+         }
+      ],
+      [
+         "DELETE {{HTTP_BASE_URL}}/v1/procedures/<id>",
+         {
+            "docstring" : "Delete the procedure",
+            "in" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "out" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "querystring" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "required_role" : null
+         }
+      ],
+      [
+         "GET {{HTTP_BASE_URL}}/v1/procedures/<id>",
+         {
+            "docstring" : "Get the status of a procedure",
+            "in" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "out" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "querystring" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "required_role" : null
+         }
+      ],
+      [
+         "PUT {{HTTP_BASE_URL}}/v1/procedures/<id>",
+         {
+            "docstring" : "Create a new procedure",
+            "in" : {
+               "properties" : {
+                  "id" : {
+                     "description" : "Procedure ID, see <a href=\"{{HTTP_BASE_URL}}/doc/builtin/procedures/ProcedureConfig.md.html\">ProcedureConfig</a> for details.",
+                     "type" : "string"
+                  },
+                  "type" : {
+                     "description" : "Procedure type, see <a href=\"{{HTTP_BASE_URL}}/doc/builtin/procedures/ProcedureConfig.md.html\">ProcedureConfig</a> for available types.",
+                     "type" : "string"
+                  },
+                  "params" : {
+                     "description" : "Depends on type above.",
+                     "type" : "object"
+                  }
+               },
+               "required" : [],
+               "type" : "object"
+            },
+            "out" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "querystring" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "required_role" : null
+         }
+      ],
+      [
+         "GET {{HTTP_BASE_URL}}/v1/procedures/<id>/runs",
+         {
+            "docstring" : "Get a list of runs",
+            "in" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "out" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "querystring" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "required_role" : null
+         }
+      ],
+      [
+         "POST {{HTTP_BASE_URL}}/v1/procedures/<id>/runs",
+         {
+            "docstring" : "Create a new run",
+            "in" : {
+               "properties" : {
+                  "id" : {
+                     "description" : "Run ID",
+                     "type" : "string"
+                  },
+                  "params" : {
+                     "description" : "Run parameters",
+                     "type" : "object"
+                  }
+               },
+               "required" : [],
+               "type" : "object"
+            },
+            "out" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "querystring" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "required_role" : null
+         }
+      ],
+      [
+         "DELETE {{HTTP_BASE_URL}}/v1/procedures/<id>/runs/<runid>",
+         {
+            "docstring" : "Delete the run",
+            "in" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "out" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "querystring" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "required_role" : null
+         }
+      ],
+      [
+         "GET {{HTTP_BASE_URL}}/v1/procedures/<id>/runs/<runid>",
+         {
+            "docstring" : "Get the status of a run",
+            "in" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "out" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "querystring" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "required_role" : null
+         }
+      ],
+      [
+         "PUT {{HTTP_BASE_URL}}/v1/procedures/<id>/runs/<runid>",
+         {
+            "docstring" : "Create a new run",
+            "in" : {
+               "properties" : {
+                  "id" : {
+                     "description" : "Run ID",
+                     "type" : "string"
+                  },
+                  "params" : {
+                     "description" : "Run parameters",
+                     "type" : "object"
+                  }
+               },
+               "required" : [],
+               "type" : "object"
+            },
+            "out" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "querystring" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "required_role" : null
+         }
+      ],
+       
+       
+       
+       
+       
+       
+       
+       
+       
+       
+       
+       
+       
+       
+"<h3>Functions</h3>",
+"<p>See <a href=\"{{HTTP_BASE_URL}}/doc/builtin/functions/Functions.md.html\">Functions documentation</a> for details.</p>",
+      [
+         "GET {{HTTP_BASE_URL}}/v1/functions",
+         {
+            "docstring" : "Get a list of functions",
+            "in" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "out" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "querystring" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "required_role" : null
+         }
+      ],
+      [
+         "POST {{HTTP_BASE_URL}}/v1/functions",
+         {
+            "docstring" : "Create a new function",
+            "in" : {
+               "properties" : {
+                  "id" : {
+                     "description" : "Function ID, see <a href=\"{{HTTP_BASE_URL}}/doc/builtin/functions/FunctionConfig.md.html\">FunctionConfig</a> for details.",
+                     "type" : "string"
+                  },
+                  "type" : {
+                     "description" : "Function type, see <a href=\"{{HTTP_BASE_URL}}/doc/builtin/functions/FunctionConfig.md.html\">FunctionConfig</a> for available types.",
+                     "type" : "string"
+                  },
+                  "params" : {
+                     "description" : "Depends on type above.",
+                     "type" : "object"
+                  }
+               },
+               "required" : [],
+               "type" : "object"
+            },
+            "out" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "querystring" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "required_role" : null
+         }
+      ],
+      [
+         "DELETE {{HTTP_BASE_URL}}/v1/functions/<id>",
+         {
+            "docstring" : "Delete the function",
+            "in" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "out" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "querystring" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "required_role" : null
+         }
+      ],
+      [
+         "GET {{HTTP_BASE_URL}}/v1/functions/<id>",
+         {
+            "docstring" : "Get the status of a function",
+            "in" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "out" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "querystring" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "required_role" : null
+         }
+      ],
+      [
+         "PUT {{HTTP_BASE_URL}}/v1/functions/<id>",
+         {
+            "docstring" : "Create a new function",
+            "in" : {
+               "properties" : {
+                  "id" : {
+                     "description" : "Function ID, see <a href=\"{{HTTP_BASE_URL}}/doc/builtin/functions/FunctionConfig.md.html\">FunctionConfig</a> for details.",
+                     "type" : "string"
+                  },
+                  "type" : {
+                     "description" : "Function type, see <a href=\"{{HTTP_BASE_URL}}/doc/builtin/functions/FunctionConfig.md.html\">FunctionConfig</a> for available types.",
+                     "type" : "string"
+                  },
+                  "params" : {
+                     "description" : "Depends on type above.",
+                     "type" : "object"
+                  }
+               },
+               "required" : [],
+               "type" : "object"
+            },
+            "out" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "querystring" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "required_role" : null
+         }
+      ],
+      [
+         "GET {{HTTP_BASE_URL}}/v1/functions/<id>/application",
+         {
+            "docstring" : "Apply the function and return the result",
+            "in" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "out" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "querystring" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "required_role" : null
+         }
+      ],
+       
+       
+       
+       
+       
+       
+       
+       
+       
+       
+       
+       
+ 
+"<h3>Plugins</h3>",
+"<p>See <a href=\"{{HTTP_BASE_URL}}/doc/builtin/plugins/Plugins.md.html\">Plugins documentation</a> for details.</p>",
+      [
+         "GET {{HTTP_BASE_URL}}/v1/plugins",
+         {
+            "docstring" : "Get a list of plugins",
+            "in" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "out" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "querystring" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "required_role" : null
+         }
+      ],
+      [
+         "POST {{HTTP_BASE_URL}}/v1/plugins",
+         {
+            "docstring" : "Create a new plugin",
+            "in" : {
+               "properties" : {
+                  "id" : {
+                     "description" : "Plugin ID, see <a href=\"{{HTTP_BASE_URL}}/doc/builtin/plugins/PluginConfig.md.html\">PluginConfig</a> for details.",
+                     "type" : "string"
+                  },
+                  "type" : {
+                     "description" : "Plugin type, see <a href=\"{{HTTP_BASE_URL}}/doc/builtin/plugins/PluginConfig.md.html\">PluginConfig</a> for available types.",
+                     "type" : "string"
+                  },
+                  "params" : {
+                     "description" : "Depends on type above.",
+                     "type" : "object"
+                  }
+               },
+               "required" : [],
+               "type" : "object"
+            },
+            "out" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "querystring" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "required_role" : null
+         }
+      ],
+      [
+         "DELETE {{HTTP_BASE_URL}}/v1/plugins/<id>",
+         {
+            "docstring" : "Delete the plugin",
+            "in" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "out" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "querystring" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "required_role" : null
+         }
+      ],
+      [
+         "GET {{HTTP_BASE_URL}}/v1/plugins/<id>",
+         {
+            "docstring" : "Get the status of a plugin",
+            "in" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "out" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "querystring" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "required_role" : null
+         }
+      ],
+      [
+         "PUT {{HTTP_BASE_URL}}/v1/plugins/<id>",
+         {
+            "docstring" : "Create a new plugin",
+            "in" : {
+               "properties" : {
+                  "id" : {
+                     "description" : "Plugin ID, see <a href=\"{{HTTP_BASE_URL}}/doc/builtin/plugins/PluginConfig.md.html\">PluginConfig</a> for details.",
+                     "type" : "string"
+                  },
+                  "type" : {
+                     "description" : "Plugin type, see <a href=\"{{HTTP_BASE_URL}}/doc/builtin/plugins/PluginConfig.md.html\">PluginConfig</a> for available types.",
+                     "type" : "string"
+                  },
+                  "params" : {
+                     "description" : "Depends on type above.",
+                     "type" : "object"
+                  }
+               },
+               "required" : [],
+               "type" : "object"
+            },
+            "out" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "querystring" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "required_role" : null
+         }
+      ],
+       
+       
+       
+       
+       
+       
+       
+       
+       
+       
+       
+       
+       
+"<h3>Credentials</h3>",
+"<p>See <a href=\"{{HTTP_BASE_URL}}/doc/builtin/Url.md.html\">Credentials documentation</a> for details.</p>",
+      [
+         "GET {{HTTP_BASE_URL}}/v1/creds/rules",
+         {
+            "docstring" : "Get a list of rules",
+            "in" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "out" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "querystring" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "required_role" : null
+         }
+      ],
+      [
+         "POST {{HTTP_BASE_URL}}/v1/creds/rules",
+         {
+            "docstring" : "Create a new rule",
+            "in" : {
+               "properties" : {
+               },
+               "required" : [],
+               "type" : "object"
+            },
+            "out" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "querystring" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "required_role" : null
+         }
+      ],
+      [
+         "DELETE {{HTTP_BASE_URL}}/v1/creds/rules/<id>",
+         {
+            "docstring" : "Delete the rule",
+            "in" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "out" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "querystring" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "required_role" : null
+         }
+      ],
+      [
+         "GET {{HTTP_BASE_URL}}/v1/creds/rules/<id>",
+         {
+            "docstring" : "Get the status of a rule",
+            "in" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "out" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "querystring" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "required_role" : null
+         }
+      ],
+      [
+         "PUT {{HTTP_BASE_URL}}/v1/creds/rules/<id>",
+         {
+            "docstring" : "Create a new rule",
+            "in" : {
+               "properties" : {
+               },
+               "required" : [],
+               "type" : "object"
+            },
+            "out" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "querystring" : {
+               "properties" : {},
+               "required" : [],
+               "type" : "object"
+            },
+            "required_role" : null
+         }
+      ]
+   ]
+}

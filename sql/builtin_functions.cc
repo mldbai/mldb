@@ -51,7 +51,6 @@ static Date calcTs(const ExpressionValue & v1,
 }
 
 typedef BoundFunction (*BuiltinFunction) (const std::vector<BoundSqlExpression> &);
-typedef ValuedBoundFunction (*ValuedBuiltinFunction) (const std::vector<BoundSqlExpression> &);
 
 struct RegisterBuiltin {
     template<typename... Names>
@@ -73,13 +72,7 @@ struct RegisterBuiltin {
                        SqlBindingScope & scope)
             -> BoundFunction
             {
-                try {
-#if 0
-                    std::vector<BoundSqlExpression> boundArgs;
-                    for (auto& arg : args) {
-                        boundArgs.emplace_back(std::move(arg->bind(scope)));
-                    }
-#endif                    
+                try {       
                     BoundFunction result = std::move(function(args));
                     auto fn = result.exec;
                     result.exec = [=] (const std::vector<ExpressionValue> & args,
@@ -97,63 +90,6 @@ struct RegisterBuiltin {
                     };
                     
                     return result;
-                } JML_CATCH_ALL {
-                    rethrowHttpException(-1, "Binding builtin function "
-                                         + str + ": " + ML::getExceptionString(),
-                                         "functionName", str,
-                                         "functionArgs", args);
-                }
-            };
-        handles.push_back(registerFunction(Utf8String(name), fn));
-        doRegister(function, std::forward<Names>(names)...);
-    }
-
-    template<typename... Names>
-    RegisterBuiltin(const ValuedBuiltinFunction & function, Names&&... names)
-    {
-        doRegister(function, std::forward<Names>(names)...);
-    }
-
-    void doRegister(const ValuedBuiltinFunction & function)
-    {
-    }
-
-    template<typename... Names>
-    void doRegister(const ValuedBuiltinFunction & function, std::string name,
-                    Names&&... names)
-    {
-        auto fn = [=] (const Utf8String & str,
-                       const std::vector<std::shared_ptr<SqlExpression> > & args,
-                       SqlBindingScope & scope)
-            -> BoundFunction
-            {
-                try {
-                    std::vector<BoundSqlExpression> boundArgs;
-                    for (auto& arg : args) {
-                        boundArgs.emplace_back(std::move(arg->bind(scope)));
-                    }
-
-                    ValuedBoundFunction valuedBoundFunction = std::move(function(boundArgs));
-                    
-                    auto fn = [=] (const std::vector<BoundSqlExpression> & args,
-                                   const SqlRowScope & scope)
-                    -> ExpressionValue
-                    {
-                        try {
-                            std::vector<ExpressionValue> evaluatedArgs;
-                            for (auto& arg : boundArgs)
-                                evaluatedArgs.emplace_back(arg(scope, GET_LATEST));
-                            
-                            return valuedBoundFunction(evaluatedArgs, scope);
-                        } JML_CATCH_ALL {
-                            rethrowHttpException(-1, "Executing builtin function "
-                                                 + str + ": " + ML::getExceptionString(),
-                                                 "functionName", str,
-                                                 "functionArgs", args);
-                        }
-                    };
-                    
-                    return BoundFunction({fn, valuedBoundFunction.resultInfo});
                 } JML_CATCH_ALL {
                     rethrowHttpException(-1, "Binding builtin function "
                                          + str + ": " + ML::getExceptionString(),
@@ -206,11 +142,6 @@ struct RegisterBuiltinUnaryScalar {
             -> ExpressionValue
             {
                 try {
-#if 0
-                     std::vector<ExpressionValue> evaluatedArgs;
-                     for (auto& arg : args)
-                         evaluatedArgs.emplace_back(arg(scope, GET_LATEST));
-#endif
                     return wrapper(fn, args, scope);
                 } JML_CATCH_ALL {
                     rethrowHttpException(-1, "Executing builtin function "
@@ -348,12 +279,6 @@ struct RegisterBuiltinUnaryScalar {
             {
                 try {
                     checkArgsSize(args.size(), 1);
-#if 0
-                    std::vector<BoundSqlExpression> boundArgs;
-                    for (auto& arg : args) {
-                        boundArgs.emplace_back(std::move(arg->bind(scope)));
-                    }
-#endif
                     if (args[0].info->isScalar())
                         return bindScalar(functionName, function,
                                           std::move(info), args,
@@ -457,11 +382,6 @@ struct RegisterBuiltinBinaryScalar {
             -> ExpressionValue
             {
                 try {
-#if 0
-                     std::vector<ExpressionValue> evaluatedArgs;
-                     for (auto& arg : args)
-                         evaluatedArgs.emplace_back(arg(scope, GET_LATEST));
-#endif
                     return wrapper(fn, args, scope);
                 } JML_CATCH_ALL {
                     rethrowHttpException(-1, "Executing builtin function "
@@ -773,12 +693,6 @@ struct RegisterBuiltinBinaryScalar {
             {
                 try {
                     checkArgsSize(args.size(), 2);
-#if 0
-                    std::vector<BoundSqlExpression> boundArgs;
-                    for (auto& arg : args) {
-                        boundArgs.emplace_back(std::move(arg->bind(scope)));
-                    }
-#endif
                     // Simple case... scalar to scalar
                     if (args[0].info->isScalar()
                         && args[1].info->isScalar()) {
@@ -1161,44 +1075,7 @@ BoundFunction regex_search(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerRegexSearch(regex_search, "regex_search");
 
-BoundFunction when(const std::vector<BoundSqlExpression> & args)
-{
-    // Tell us when an expression happened, ie extract its timestamp and return
-    // as its value
-
-    checkArgsSize(args.size(), 1);
-    return {[=] (const std::vector<ExpressionValue> & args,
-                 const SqlRowScope & scope) -> ExpressionValue
-            {
-                ExcAssertEqual(args.size(), 1);
-                auto ts = args[0].getEffectiveTimestamp();
-                return ExpressionValue(ts, ts);
-            },
-            std::make_shared<TimestampValueInfo>()};
-}
-
-static RegisterBuiltin registerWhen(when, "when");
-#if 0
-BoundFunction min_timestamp(const std::vector<BoundSqlExpression> & args)
-{
-    // Tell us when an expression happened, ie extract its timestamp and return
-    // as its value
-
-
-    checkArgsSize(args.size(), 1);
-    return {[=] (const std::vector<BoundSqlExpression> & args,
-                 const SqlRowScope & scope) -> ExpressionValue
-            {
-                ExcAssertEqual(args.size(), 1);
-                auto val = args[0](scope, GET_ALL);
-                return ExpressionValue(val.getMinTimestamp(),
-                                       val.getEffectiveTimestamp());
-            },
-            std::make_shared<TimestampValueInfo>()};
-}
-#endif
-
-BoundFunction min_timestamp(const std::vector<BoundSqlExpression> & args)
+BoundFunction earliest_timestamp(const std::vector<BoundSqlExpression> & args)
 {
     // Tell us when an expression happened, ie extract its timestamp and return
     // as its value
@@ -1213,12 +1090,13 @@ BoundFunction min_timestamp(const std::vector<BoundSqlExpression> & args)
                 return ExpressionValue(val.getMinTimestamp(),
                                        val.getEffectiveTimestamp());
             },
-            std::make_shared<TimestampValueInfo>()};
+            std::make_shared<TimestampValueInfo>(),
+            GET_ALL};
 }
 
-static RegisterBuiltin register_min_timestamp(min_timestamp, "min_timestamp");
+static RegisterBuiltin register_earliest_timestamp(earliest_timestamp, "earliest_timestamp");
 
-BoundFunction max_timestamp(const std::vector<BoundSqlExpression> & args)
+BoundFunction latest_timestamp(const std::vector<BoundSqlExpression> & args)
 {
     // Tell us when an expression happened, ie extract its timestamp and return
     // as its value
@@ -1234,7 +1112,7 @@ BoundFunction max_timestamp(const std::vector<BoundSqlExpression> & args)
             std::make_shared<TimestampValueInfo>()};
 }
 
-static RegisterBuiltin register_max_timestamp(max_timestamp, "max_timestamp");
+static RegisterBuiltin register_latest_timestamp(latest_timestamp, "latest_timestamp");
 
 BoundFunction toTimestamp(const std::vector<BoundSqlExpression> & args)
 {
@@ -1286,20 +1164,165 @@ BoundFunction now(const std::vector<BoundSqlExpression> & args)
 }
 
 static RegisterBuiltin registerNow(now, "now");
-#if 0
-BoundFunction temporal_min(const std::vector<BoundSqlExpression> & args)
+
+BoundFunction temporal_earliest(const std::vector<BoundSqlExpression> & args)
 {
-    return {[] (const std::vector<BoundSqlExpression> & args,
+    return {[] (const std::vector<ExpressionValue> & args,
                 const SqlRowScope & scope) -> ExpressionValue
             {
                 ExcAssertEqual(args.size(), 1);
-                return args[0](scope, GET_EARLIEST);
+                return args[0];
             },
-            args[0].info};
+            args[0].info,
+            GET_EARLIEST};
 }
 
-static RegisterBuiltin registerTempMin(temporal_min, "temporal_min");
-#endif
+static RegisterBuiltin registerTempEarliest(temporal_earliest, "temporal_earliest");
+
+BoundFunction temporal_latest(const std::vector<BoundSqlExpression> & args)
+{
+    return {[] (const std::vector<ExpressionValue> & args,
+                const SqlRowScope & scope) -> ExpressionValue
+            {
+                ExcAssertEqual(args.size(), 1);
+                return args[0];
+            },
+            args[0].info,
+            GET_LATEST};
+}
+
+static RegisterBuiltin registerTempLatest(temporal_latest, "temporal_latest");
+
+template <typename AggregatorFunc>
+BoundFunction temporalAggregatorT(const std::vector<BoundSqlExpression> & args) {
+    
+    typedef typename AggregatorFunc::value_type value_type;
+
+    checkArgsSize(args.size(), 1);
+    auto info = args[0].info;
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                ExcAssertEqual(args.size(), 1);
+
+                auto val = args[0];
+
+                // TODO - figure out what should be the ordering of the columns in the result
+                std::unordered_map<Coord, std::pair<value_type, Date> > results;
+                
+
+                auto onAtom = [&] (const Coord & columnName,
+                                   const Coord & prefix,
+                                   const CellValue & val,
+                                   Date atomTs)
+                    {
+                        if (!val.empty()) {
+                            auto iter = results.find(columnName);
+                            if (iter != results.end()) {
+                                iter->second = AggregatorFunc::apply(iter->second, {val, atomTs});
+                            }
+                            else { // first time seen
+                                results.insert({columnName, AggregatorFunc::init({val, atomTs})});
+                            }
+                        }
+                        return true;
+                    };
+                
+                val.forEachAtom(onAtom);
+
+                if (info->isScalar()) {
+                    auto result = results.begin();
+                    return ExpressionValue(AggregatorFunc::extract(get<0>(result->second)), get<1>(result->second));
+                } else if (info->isRow()) {
+                    std::vector<std::tuple<Coord, ExpressionValue> > row;
+                    for (auto & result : results) {
+                        row.emplace_back(std::make_tuple(result.first,
+                                                         ExpressionValue(AggregatorFunc::extract(get<0>(result.second)), 
+                                                                         get<1>(result.second))));
+                    }
+                    return row;
+                }
+                else if (info->isEmbedding()) {
+                    throw HttpReturnException(500, "embeddings are not yet supported in temporal aggregators");
+                } else {
+                    throw HttpReturnException(500, "temporal aggregators invoked on unknown type");
+                }
+            },
+            std::make_shared<UnknownRowValueInfo>(),
+            GET_ALL};
+}
+
+struct Min {
+    typedef CellValue value_type;
+    typedef std::pair<value_type, Date> CellDate;
+    static CellDate init(const CellDate & val) { return val; }
+    static CellDate apply(const CellDate & left, const CellDate & right) {
+        return right < left ? right : left;
+    }
+    static CellValue extract(const value_type & val) { return val; }
+};
+
+static RegisterBuiltin registerTempMin(temporalAggregatorT<Min>, "temporal_min");
+
+struct Max {
+    typedef CellValue value_type;
+    typedef std::pair<value_type, Date> CellDate;
+    static CellDate init(const CellDate & val) { return val; }
+    static CellDate apply(const CellDate & left, const CellDate & right) {
+        return right > left ? right : left;
+    }
+    static CellValue extract(const value_type & val) { return val; }
+};
+
+static RegisterBuiltin registerTempMax(temporalAggregatorT<Max>, "temporal_max");
+
+struct Sum {
+    typedef CellValue value_type;
+    typedef std::pair<value_type, Date> CellDate;
+    static CellDate init(const CellDate & val) { return val; }
+    static CellDate apply(const CellDate & left, const CellDate & right) {
+        auto value = get<0>(left).toDouble() + get<0>(right).toDouble();
+        auto date = get<1>(left);
+        return {value, date.setMax(get<1>(right))};
+    }
+    static CellValue extract(const value_type & val) { return val; }
+};
+
+static RegisterBuiltin registerTempSum(temporalAggregatorT<Sum>, "temporal_sum");
+
+struct Avg {
+    typedef std::pair<CellValue, uint64_t> value_type;
+    typedef std::pair<CellValue, Date> CellDate;
+    typedef std::pair<value_type, Date> AccumValueDate;
+    static AccumValueDate init(const CellDate & val) { 
+        return {{get<0>(val), 1}, get<1>(val)};
+    }
+    static AccumValueDate apply(const AccumValueDate & left, const CellDate & right) {
+        auto sum = get<0>(get<0>(left)).toDouble() + get<0>(right).toDouble();
+        auto count = get<1>(get<0>(left));
+        auto date = get<1>(left);
+        return {{sum, ++count}, date.setMax(get<1>(right))};
+    }
+    static CellValue extract(const value_type & val) { return get<0>(val).toDouble() / get<1>(val); }
+};
+
+static RegisterBuiltin registerTempAvg(temporalAggregatorT<Avg>, "temporal_avg");
+
+struct Count {
+    typedef CellValue value_type;
+    typedef std::pair<value_type, Date> CellDate;
+    static CellDate init(const CellDate & val) { return {1, get<1>(val)}; }
+    static CellDate apply(const CellDate & left, const CellDate & right) {
+        auto value = get<0>(left).toInt();
+        auto date = get<1>(left);
+        return {++value, date.setMax(get<1>(right))};
+    }
+    static CellValue extract(const CellValue & val) { return val; }
+};
+
+static RegisterBuiltin registerTempCount(temporalAggregatorT<Count>, "temporal_count");
+
 BoundFunction date_part(const std::vector<BoundSqlExpression> & args)
 {
     // extract the requested part of a timestamp
@@ -1324,7 +1347,7 @@ BoundFunction date_part(const std::vector<BoundSqlExpression> & args)
         constantMinute = timeZoneParser.expectTimezone();
         constantTimezone = true;
     }
-
+    
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
@@ -1713,7 +1736,7 @@ BoundFunction tokenize(const std::vector<BoundSqlExpression> & args)
                 Utf8String text = args[0].toUtf8String();
 
                 Utf8String splitchar = ",";
-                Utf8String quotechar = "\"";
+                Utf8String quotechar = "";
                 int offset = 0;
                 int limit = -1;
                 int min_token_length = 1;
@@ -1784,7 +1807,7 @@ BoundFunction token_extract(const std::vector<BoundSqlExpression> & args)
                 Utf8String text = args[0].toUtf8String();
 
                 Utf8String splitchar = ",";
-                Utf8String quotechar = "\"";
+                Utf8String quotechar = "";
                 int offset = 0;
                 int limit = 1;
                 int min_token_length = 1;
@@ -1841,7 +1864,7 @@ BoundFunction horizontal_count(const std::vector<BoundSqlExpression> & args)
                 
                 return ExpressionValue(result, ts);
             },
-            std::make_shared<Float64ValueInfo>()};
+            std::make_shared<Uint64ValueInfo>()};
 }
 static RegisterBuiltin registerHorizontal_Count(horizontal_count, "horizontal_count");
 
@@ -1971,6 +1994,62 @@ BoundFunction horizontal_max(const std::vector<BoundSqlExpression> & args)
             std::make_shared<Float64ValueInfo>()};
 }
 static RegisterBuiltin registerHorizontal_Max(horizontal_max, "horizontal_max");
+
+BoundFunction horizontal_earliest(const std::vector<BoundSqlExpression> & args)
+{
+    checkArgsSize(args.size(), 1);
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                auto earliest = ExpressionValue::null(Date::positiveInfinity());
+
+                auto onAtom = [&] (const Coord & columnName,
+                                   const Coord & prefix,
+                                   const CellValue & val,
+                                   Date atomTs)
+                    {
+                        auto expr = ExpressionValue(val, atomTs);
+                        if (!earliest.isEarlier(atomTs, expr))
+                            earliest = std::move(expr);
+                        return true;
+                    };
+
+                args.at(0).forEachAtom(onAtom);
+
+                return earliest;
+            },
+            args[0].info};
+}
+static RegisterBuiltin registerHorizontal_Earliest(horizontal_earliest, "horizontal_earliest");
+
+BoundFunction horizontal_latest(const std::vector<BoundSqlExpression> & args)
+{
+    checkArgsSize(args.size(), 1);
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                auto latest = ExpressionValue::null(Date::negativeInfinity());
+
+                auto onAtom = [&] (const Coord & columnName,
+                                   const Coord & prefix,
+                                   const CellValue & val,
+                                   Date atomTs)
+                    {
+                        auto expr = ExpressionValue(val, atomTs);
+                        if (!latest.isLater(atomTs, expr))
+                            latest = std::move(expr);
+                        return true;
+                    };
+
+                args.at(0).forEachAtom(onAtom);
+
+                return latest;
+            },
+            args[0].info};
+}
+static RegisterBuiltin registerHorizontal_Latest(horizontal_latest, "horizontal_latest");
 
 struct DiffOp {
     static ML::distribution<double> apply(ML::distribution<double> & d1,
@@ -2276,4 +2355,3 @@ static RegisterBuiltin registerFlatten(flatten, "flatten");
 } // namespace Builtins
 } // namespace MLDB
 } // namespace Datacratic
-

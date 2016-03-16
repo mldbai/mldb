@@ -130,7 +130,7 @@ run(const ProcedureRunConfig & run,
     // clause.  First, we need to calculate each of the order by clauses
     for (auto & c: runProcConf.inputData.stm->orderBy.clauses) {
         auto whenClause = std::make_shared<FunctionCallWrapper>
-            ("", "when", vector<shared_ptr<SqlExpression> >(1, c.first),
+            ("", "latest_timestamp", vector<shared_ptr<SqlExpression> >(1, c.first),
              nullptr /* extract */);
         calc.emplace_back(whenClause);
     }
@@ -164,7 +164,7 @@ run(const ProcedureRunConfig & run,
                  onProgress);
 
     int64_t rowCount = orderedRowNames.size();
-    //cerr << "Row count: " << rowCount  << endl;
+    logger->debug() << "Row count: " << rowCount;
 
     auto output = createDataset(server, runProcConf.outputDataset,
                                 nullptr, true /*overwrite*/);
@@ -198,8 +198,8 @@ run(const ProcedureRunConfig & run,
         
         ExcAssert(higherBound <= rowCount);
 
-        //cerr << "Bucket " << mappedRange.first << " from " << lowerBound
-        //     << " to " << higherBound << endl;
+        logger->debug() << "Bucket " << mappedRange.first << " from " << lowerBound
+                        << " to " << higherBound;
 
         parallelMap(lowerBound, higherBound, applyFct);
     }

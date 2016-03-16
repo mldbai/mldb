@@ -13,6 +13,7 @@
 #include "mldb/ext/cityhash/src/city.h"
 #include "mldb/rest/rest_service_endpoint.h"
 #include "mldb/http/http_socket_handler.h"
+#include "mldb/utils/log.h"
 
 using namespace std;
 
@@ -240,6 +241,14 @@ captureInConnection(std::shared_ptr<void> piggyBack)
 /*****************************************************************************/
 
 RestServiceEndpoint::
+RestServiceEndpoint(bool enableLogging /*= false*/)
+    : threadPool(eventLoop), 
+      httpEndpoint(eventLoop, enableLogging),  
+      logger(MLDB::getMldbLog<RestServiceEndpoint>())
+{
+}
+
+RestServiceEndpoint::
 ~RestServiceEndpoint()
 {
     shutdown();
@@ -280,6 +289,7 @@ bindTcp(PortRange const & httpRange,
         std::string host)
 {
     std::string httpAddr = httpEndpoint.bindTcp(httpRange, host);
+    logger->debug() << "http listening on " << httpAddr;
     return httpAddr;
 }
 

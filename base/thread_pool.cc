@@ -382,7 +382,9 @@ struct ThreadPool::Itl: public std::enable_shared_from_this<ThreadPool::Itl> {
                 ThreadJob * job;
                 while ((job = q->steal())) {
                     entry.lastFound = n;
+
                     ++jobsStolen;
+
                     runJob(*job);
                     foundWork = true;
                     delete job;

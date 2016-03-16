@@ -50,12 +50,13 @@ std::string insertAfterFragment(const std::string & uri, const std::string & toI
     return uri.substr(0, pos) + toInsert + (pos == string::npos ? "" : uri.substr(pos)); 
 }
 
-static std::string getTypeName(const ValueDescription & description)
+static std::string getTypeName(const ValueDescription & description,
+                               MldbServer * server)
 {
     std::string resultSoFar;
     std::string closing;
     if (!description.documentationUri.empty()) {
-        resultSoFar += "<a href=\"" + insertAfterFragment(description.documentationUri, ".html") + "\">";
+        resultSoFar += "<a href=\"" + server->prefixUrl(insertAfterFragment(description.documentationUri, ".html")) + "\">";
         closing = "</a>";
     }
 
@@ -69,7 +70,7 @@ static std::string getTypeName(const ValueDescription & description)
     case ValueKind::FLOAT:     return wrap("float");
     case ValueKind::BOOLEAN:   return wrap("bool");
     case ValueKind::STRING:    return wrap("string");
-    case ValueKind::ARRAY:     return wrap("[ " + getTypeName(description.contained()) + " ]");
+    case ValueKind::ARRAY:     return wrap("[ " + getTypeName(description.contained(), server) + " ]");
     case ValueKind::STRUCTURE: return wrap(printTypeName(printTypeName(description.typeName)));
     case ValueKind::ENUM:      return wrap(printTypeName(description.typeName));
     case ValueKind::ATOM:      return wrap(printTypeName(description.typeName));
@@ -81,16 +82,16 @@ static std::string getTypeName(const ValueDescription & description)
             if (!first)
                 result += ",";
             first = false;
-            result = result + " " + getTypeName(*tp);
+            result = result + " " + getTypeName(*tp, server);
         }
         result += " ]";
         return result;
     }
-    case ValueKind::OPTIONAL:  return wrap(getTypeName(description.contained())) + " (Optional)";
+    case ValueKind::OPTIONAL:  return wrap(getTypeName(description.contained(), server)) + " (Optional)";
     case ValueKind::VARIANT:   return wrap("VARIANT "  + printTypeName(description.typeName));
     case ValueKind::MAP: {
-        return wrap("MAP {" + getTypeName(description.getKeyValueDescription())
-                    + " : " + getTypeName(description.contained()) + "}");
+        return wrap("MAP {" + getTypeName(description.getKeyValueDescription(), server)
+                    + " : " + getTypeName(description.contained(), server) + "}");
     }
     case ValueKind::ANY:       return description.typeName == "Json::Value" ? "JSON" : printTypeName(description.typeName);
     default:
@@ -134,9 +135,11 @@ static void renderType(MacroContext & context,
                     else {
                         context.writeHtml(",");
                     }
-                    context.writeHtml(ML::format("\n        \"%s\": &lt;%s&gt;",
-                                 fd.fieldName.c_str(),
-                                 getTypeName(*fd.description).c_str()));
+                    context.writeHtml(
+                        ML::format("\n        \"%s\": &lt;%s&gt;",
+                                   fd.fieldName.c_str(),
+                                   getTypeName(*fd.description,
+                                               context.server).c_str()));
                 };
             vd->forEachField(nullptr, onField);
         }
@@ -148,7 +151,7 @@ static void renderType(MacroContext & context,
                 {
                     context.writeHtml(ML::format("<tr><td align='right'><p><strong>%s</strong> <br/> %s <br/> <code>%s</code></p></td><td>%s</td></tr>\n",
                                          fd.fieldName.c_str(),
-                                         getTypeName(*fd.description).c_str(),
+                                         getTypeName(*fd.description, context.server).c_str(),
                                          getDefaultValue(*fd.description).c_str(),
                                                  renderMarkdown(fd.comment.c_str(), context)));
                 };
@@ -200,6 +203,13 @@ writeText(const Utf8String & text)
     hoedown_escape_html(output, (uint8_t *)text.rawData(), text.rawLength(), 0);
 }
 
+Utf8String
+MacroContext::
+prefixUrl(Utf8String url) const
+{
+    return macroData->server->prefixUrl(url);
+}
+
 void
 MacroContext::
 writeInternalLink(Utf8String url,
@@ -216,7 +226,7 @@ writeInternalLink(Utf8String url,
     }
 
     writeHtml("<a href=\"");
-    writeText(url);
+    writeText(prefixUrl(url));
     writeHtml("\">");
     writeHtml(anchorText);
     writeHtml("</a>");
@@ -337,8 +347,9 @@ void nblinkMacro(MacroContext & context,
             address.replace(pos, 1, "%20");
         }
         
-    context.writeHtml("<a href=\"/doc/nblink.html#" + address + "\" " +
-                      "target=\"_blank\">"+nb+"</a>");
+    Utf8String url = "/doc/nblink.html#";
+    context.writeHtml("<a href=\"" + context.prefixUrl(url)
+                      + address + "\" " + "target=\"_blank\">"+nb+"</a>");
 }
 
 void doclinkMacro(MacroContext & context,
@@ -406,31 +417,33 @@ void configMacro(MacroContext & context,
             context.writeHtml("</code></pre>");
             return;
         }
-        Json::Value params = Json::parse(connection.response);
-        string typeName;
-        if (!params.isNull()) {
-            typeName = params["configType"]["typeName"].asString();
-        }
-            
-        //context.writeHtml("<h2>Configuration</h2>");
 
         context.writeHtml("<p>A new " + kind + " of this type is created as follows:</p>");
-
         context.writeHtml("<pre><code class=\"language-python\">");
         context.writeText("mldb.put(\"/v1/" + kind + "s/<id>\", {\n"+
-                  "    \"type\": \"" + type + "\"");
+                              "    \"type\": \"" + type + "\"");
+        
+        Json::Value params = Json::parse(connection.response);
+        string typeName;
+        bool withParams = false;
+        if (!params.isNull()) {
+            typeName = params["configType"]["typeName"].asString();
+            withParams = !typeName.empty() && !params["configType"]["fields"].isNull();
+        }
 
-        if (!typeName.empty()) {
+        if (withParams) {
             context.writeText(",\n    \"params\": {");
             renderType(context, typeName, true);
             context.writeText("\n    }");
         }
+
         context.writeHtml("\n})</code></pre>");
 
-        if (!typeName.empty()) {
+        if (withParams) {
             context.writeHtml("<p>with the following key-value definitions for <code>params</code>:</p>");
             renderType(context, typeName);
         }
+
     } catch (const std::exception & exc) {
         context.writeHtml("Error running config macro: " + string(exc.what()));
     }
