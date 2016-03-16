@@ -119,7 +119,7 @@ class TemporalTest(MldbUnitTest):
                 }
             ]
         )
-      
+
 
     def test_temporal_latest_on_row(self):
         resp = mldb.get('/v1/query',
@@ -197,7 +197,7 @@ class TemporalTest(MldbUnitTest):
             ]
         )
 
- 
+
     def test_temporal_max_on_column(self):
         resp = mldb.get('/v1/query',
                         q = 'select temporal_max(x) as max from dataset order by rowName()',
@@ -398,5 +398,24 @@ class TemporalTest(MldbUnitTest):
                 }
             ]
         )
+
+    def test_as_issue(self):
+        """MLDBFB-415 temporal_min({*}) AS * issue"""
+        ds = mldb.create_dataset({'id' : 'ds', 'type' : 'sparse.mutable'})
+        ds.record_row("user1", [["behA",1,0]])
+        ds.commit()
+
+        mldb.post('/v1/procedures', {
+            'type' : 'transform',
+            'params' : {
+                'inputData' : 'SELECT temporal_min({*}) AS * FROM ds',
+                'outputDataset' : {
+                    'id' : 'outDs',
+                    'type' : 'sparse.mutable',
+                },
+                'runOnCreation' : True
+            }
+        })
+
 
 mldb.run_tests()
