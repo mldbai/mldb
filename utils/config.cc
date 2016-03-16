@@ -29,8 +29,6 @@ namespace boost {
 
 namespace Datacratic {
 
-namespace MLDB {
-
 struct BaseConfig : public Config {
     virtual bool getBool(const std::string & valueName) {
         return boost::lexical_cast<bool>(getString(valueName));
@@ -55,7 +53,8 @@ struct MapConfig : public BaseConfig {
 Config::ConfigPtr
 Config:: 
 createFromMap(const std::unordered_map<std::string,std::string> & map) {
-    return std::make_shared<MapConfig>(map);
+    config = std::make_shared<MapConfig>(map);
+    return config;
 }
 
 struct ParsedOptionsConfig : public BaseConfig {
@@ -79,7 +78,8 @@ struct ParsedOptionsConfig : public BaseConfig {
 Config::ConfigPtr
 Config::
 createFromProgramOptions(const boost::program_options::parsed_options & map) {
-    return std::make_shared<ParsedOptionsConfig>(map);
+    config = std::make_shared<ParsedOptionsConfig>(map);
+    return config;
 }
 
 struct VariablesMapConfig : public BaseConfig {
@@ -97,7 +97,8 @@ struct VariablesMapConfig : public BaseConfig {
 Config::ConfigPtr
 Config::
 createFromProgramOptions(const boost::program_options::variables_map & map) {
-    return std::make_shared<VariablesMapConfig>(map);
+    config = std::make_shared<VariablesMapConfig>(map);
+    return config;
 }
 
 struct ChainConfig : public BaseConfig {
@@ -118,6 +119,12 @@ struct ChainConfig : public BaseConfig {
 //     return std::make_shared<ChainConfig>({first, second});
 // }
 
-} // MLDB
+Config::ConfigPtr
+Config::
+get() {
+    return config;
+}
+
+Config::ConfigPtr Config::config;
 
 } // Datacratic

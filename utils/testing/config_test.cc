@@ -18,7 +18,6 @@
 
 using namespace std;
 using namespace Datacratic;
-using namespace MLDB;
 using namespace boost::program_options;
 
 BOOST_AUTO_TEST_CASE(test_map_config)

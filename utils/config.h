@@ -22,8 +22,6 @@ typedef basic_parsed_options<char> parsed_options;
 
 namespace Datacratic {
 
-namespace MLDB {
-
 struct Config {
     typedef std::shared_ptr<Config> ConfigPtr;
 
@@ -42,8 +40,10 @@ struct Config {
 
     // chain configs - lookup in first and if not found lookup in second
     //static ConfigPtr chainConfigs(ConfigPtr first, ConfigPtr second);
-};
 
-} // MLDB
+    static ConfigPtr get();
+private:
+    static ConfigPtr config;
+};
 
 } // Datacratic

@@ -114,7 +114,8 @@ int main(int argc, char ** argv)
     int peerPublishPort = -1;
     string peerPublishHost;
 #endif
-    string configurationPath;
+    string configurationPath; // path to the config store
+    string configPath;  // path to the configuration file
     std::string staticAssetsPath = "mldb/static";
     std::string staticDocPath = "mldb/container_files/assets/doc";
 
@@ -173,6 +174,10 @@ int main(int argc, char ** argv)
 #endif
         ("configuration-path,C",
          value(&configurationPath),
+         "Path that persistent configuration is stored to allow the service " 
+         "to stop and restart (file:// for filesystem or s3:// for S3 uri)")
+        ("config-path", 
+         value(&configPath),
          "Path to the mldb configuration.  This is optional. Configuration option "
          "in that file have acceptable default values.")
         ("hide-internal-entities",
@@ -222,8 +227,8 @@ int main(int argc, char ** argv)
 
     auto cmdConfig = Config::createFromProgramOptions(vm);
     
-    if (vm.count("configuration-path")) {
-        auto parsed_options = parse_config_file<char>(configurationPath.c_str(), all_opt, true);
+    if (vm.count("config-path")) {
+        auto parsed_options = parse_config_file<char>(configPath.c_str(), all_opt, true);
         store(parsed_options, vm);
         auto fileConfig = Config::createFromProgramOptions(parsed_options);
     }
@@ -322,7 +327,7 @@ int main(int argc, char ** argv)
     bool hideInternalEntities = vm.count("hide-internal-entities");
 
     MldbServer server("mldb", etcdUri, etcdPath, enableAccessLog);
-    bool initSuccess = server.init("", staticAssetsPath, staticDocPath, hideInternalEntities);
+    bool initSuccess = server.init(configurationPath, staticAssetsPath, staticDocPath, hideInternalEntities);
 
     // if the server initialization fails don't register plugins
     // but let MLDB starts with disabled features
