@@ -796,7 +796,6 @@ struct ImportTextProcedureWorkInstance
 	{
 
         const bool outputColumnNames = !areOutputColumnNamesKnown;
-	    mutex lineMutex;
 
         PerThreadAccumulator< std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > > accum;
         std::atomic<size_t> totalRows;
@@ -818,7 +817,6 @@ struct ImportTextProcedureWorkInstance
 
             if (rows.size() == ROWS_PER_CHUNK) {
      		    {
-                    std::unique_lock<std::mutex> guard(lineMutex);
           	        dataset->recordRows(rows);
           	    }
                 rows.clear();
