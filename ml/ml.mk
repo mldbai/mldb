@@ -18,7 +18,8 @@ LIBML_SOURCES := \
 	em.cc \
 	value_descriptions.cc \
 	confidence_intervals.cc \
-	svd_utils.cc
+	svd_utils.cc \
+    randomforest.cc
 
 
 LIBML_LINK := boosting neural boost_filesystem jsoncpp types value_description algebra

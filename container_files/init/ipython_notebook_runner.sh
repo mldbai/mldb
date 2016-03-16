@@ -32,5 +32,10 @@ if [ ! -e {{IPYTHON_DIR}}/profile_default ] ; then
     /sbin/setuser _mldb cp {{IPYTHON_DIR}}/custom.css {{IPYTHON_DIR}}/profile_default/static/custom/custom.css
 fi
 
-IPYTHONDIR={{IPYTHON_DIR}} exec /sbin/setuser _mldb /usr/local/bin/jupyter notebook --log-level=ERROR --config={{IPYTHON_DIR}}/ipython_extra_config.py
+export IPYTHONDIR={{IPYTHON_DIR}}
+export SHELL="/bin/bash"
+exec /sbin/setuser _mldb \
+        /usr/local/bin/jupyter notebook \
+        --log-level=ERROR \
+        --config={{IPYTHON_DIR}}/ipython_extra_config.py
  

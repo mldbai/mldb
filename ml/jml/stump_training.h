@@ -1,15 +1,13 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* stump_training.h                                                -*- C++ -*-
    Jeremy Barnes, 20 February 2004
    Copyright (c) 2004 Jeremy Barnes.  All rights reserved.
 
    Implementation of the code to train a decision stump classifier.
+
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
-#ifndef __boosting__stump_training_h__
-#define __boosting__stump_training_h__
-
+#pragma once
 
 #include <string>
 #include <vector>
@@ -542,8 +540,3 @@ struct C_any {
 };
 
 } // namespace ML
-
-
-
-#endif /* __boosting__stump_training_h__ */
-

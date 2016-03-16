@@ -201,6 +201,7 @@ intended. See also [the MLDB Type System](TypeSystem.md).
 - `expr IS [NOT] NUMBER` tests if the given expression is a number
 - `expr IS [NOT] INTEGER` tests if the given expression is an integer
 - `expr IS [NOT] TIMESTAMP` tests if the given expression is a timestamp
+- `expr IS [NOT] INTERVAL` tests if the given expression is a time interval
 
 ### [NOT] IN expression
 
@@ -445,7 +446,7 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
 - `flatten(val)` will take a n-dimensional embedding and flatten it down
   into a one-dimensional embedding containing all of the elements.  The
   elements will be taken from end end dimensions first, ie
-  `flatten([ [ 1, 2], [3, 4] ]) will be `[1, 2, 3, 4]`.
+  `flatten([ [ 1, 2], [3, 4] ])` will be `[1, 2, 3, 4]`.
 
 ### <a name="importfunctions"></a>Data import functions
 

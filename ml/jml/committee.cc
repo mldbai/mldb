@@ -171,10 +171,10 @@ optimized_predict_impl(int label,
 
     for (unsigned i = 0;  i < classifiers.size();  ++i) {
         if (weights[i] == 0.0) continue;
+        float vote = classifiers[i]->optimized_predict_impl(label, features, info, context);
         result = result
-            + weights[i]
-            * classifiers[i]->optimized_predict_impl(label, features, info,
-                                                     context);
+                 + weights[i]
+                 * vote;   
     }
 
     return result;

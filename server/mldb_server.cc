@@ -30,6 +30,7 @@
 #include "mldb/server/analytics.h"
 #include "mldb/types/meta_value_description.h"
 #include "mldb/arch/simd.h"
+#include "mldb/utils/log.h"
 
 
 using namespace std;
@@ -76,7 +77,8 @@ MldbServer(const std::string & serviceName,
            const std::string & httpBaseUrl)
     : ServicePeer(serviceName, "MLDB", "global", enableAccessLog),
       EventRecorder(serviceName, std::make_shared<NullEventService>()),
-      httpBaseUrl(httpBaseUrl), versionNode(nullptr)
+      httpBaseUrl(httpBaseUrl), versionNode(nullptr),
+      logger(getMldbLog<MldbServer>())
 {
     // Don't allow URIs without a scheme
     setGlobalAcceptUrisWithoutScheme(false);
@@ -238,7 +240,7 @@ initRoutes()
         };
          
         router.notFoundHandler = versionNode.notFoundHandler;
-        std::cerr << errorMessage << std::endl;
+        logger->error() << errorMessage;
         this->versionNode = &versionNode;
         return false;
     }
@@ -359,15 +361,11 @@ initCollections(std::string configurationPath,
     }
 
     // Serve up static documentation for the plugins
-    serveDocumentationDirectory(router, "/doc/builtin",
+    serveDocumentationDirectory(router, "/doc",
                                 staticDocPath, this, hideInternalEntities);
 
-    serveDocumentationDirectory(router, "/static/assets",
-                                staticFilesPath, this, hideInternalEntities);
-
     serveDocumentationDirectory(router, "/resources",
-                                "mldb/container_files/public_html/resources",
-                                this, hideInternalEntities);
+                                staticFilesPath, this, hideInternalEntities);
 }
 
 void
@@ -411,7 +409,7 @@ void
 MldbServer::
 scanPlugins(const std::string & dir_)
 {
-    cerr << "scanning plugins in directory " << dir_ << endl;
+    logger->debug() << "scanning plugins in directory " << dir_;
 
     std::string dir = dir_;
     if (!dir.empty() && dir[dir.length() - 1] != '/')
@@ -433,14 +431,14 @@ scanPlugins(const std::string & dir_)
                 auto plugin = plugins->obtainEntitySync(manifest.config,
                                                         nullptr /* on progress */);
             } catch (const HttpReturnException & exc) {
-                cerr << "error loading plugin " << dir << ": " << exc.what() << endl;
-                cerr << "details:" << endl;
-                cerr << jsonEncode(exc.details) << endl;
-                cerr << "plugin will be ignored" << endl;
+                logger->error() << "error loading plugin " << dir << ": " << exc.what();
+                logger->error() << "details:";
+                logger->error() << jsonEncode(exc.details);
+                logger->error() << "plugin will be ignored";
                 return;
             } catch (const std::exception & exc) {
-                cerr << "error loading plugin " << dir << ": " << exc.what() << endl;
-                cerr << "plugin will be ignored" << endl;
+                logger->error() << "error loading plugin " << dir << ": " << exc.what();
+                logger->error() << "plugin will be ignored";
                 return;
             }
         };
@@ -475,16 +473,16 @@ scanPlugins(const std::string & dir_)
         try {
             forEachUriObject(dir, onFile, onSubdir);
         } catch (const HttpReturnException & exc) {
-            cerr << "error scanning plugin directory "
-                 << dir << ": " << exc.what() << endl;
-            cerr << "details:" << endl;
-            cerr << jsonEncode(exc.details) << endl;
-            cerr << "plugins will be ignored" << endl;
+            logger->error() << "error scanning plugin directory "
+                            << dir << ": " << exc.what();
+            logger->error() << "details:";
+            logger->error() << jsonEncode(exc.details);
+            logger->error() << "plugins will be ignored";
             return;
         } catch (const std::exception & exc) {
-            cerr << "error scanning plugin directory  "
-                 << dir << ": " << exc.what() << endl;
-            cerr << "plugins will be ignored" << endl;
+            logger->error() << "error scanning plugin directory  "
+                            << dir << ": " << exc.what();
+            logger->error() << "plugins will be ignored";
             return;
         }
     }

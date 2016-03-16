@@ -21,6 +21,7 @@
 #include "mldb/core/mldb_entity.h"
 #include "static_content_macro.h"
 #include "mldb/base/scope.h"
+#include <boost/algorithm/string/replace.hpp>
 
 using namespace std;
 
@@ -211,6 +212,7 @@ getStaticRouteHandler(string dir, MldbServer * server, bool hideInternalEntities
                     ML::File_Read_Buffer buf(filenameToLoad);
             
                     string result(buf.start(), buf.end());
+                    boost::algorithm::replace_all(result, "{{HTTP_BASE_URL}}", server->httpBaseUrl);
                     connection.sendResponse(200, result, mimeType);
                     return RestRequestRouter::MR_YES;
                 };
@@ -283,6 +285,7 @@ getStaticRouteHandler(string dir, MldbServer * server, bool hideInternalEntities
                 result += "</body>\n";
                 result += "</html>\n";
 
+                boost::algorithm::replace_all(result, "{{HTTP_BASE_URL}}", server->httpBaseUrl);
                 connection.sendResponse(200, result, mimeType);
                 return RestRequestRouter::MR_YES;
             }

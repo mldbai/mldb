@@ -117,7 +117,6 @@ struct SqlExpressionDatasetContext: public SqlExpressionMldbContext {
     
 protected:
 
-    Utf8String removeTableName(const Utf8String & variableName) const;
     Utf8String removeQuotes(const Utf8String & variableName) const;
     Utf8String resolveTableName(const Utf8String& variableName) const;
     Utf8String resolveTableName(const Utf8String& variableName, Utf8String& resolvedTableName) const;

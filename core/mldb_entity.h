@@ -10,6 +10,7 @@
 #pragma once
 
 #include "mldb/rest/poly_entity.h"
+#include "mldb/utils/log_fwd.h"
 
 namespace Datacratic {
 
@@ -64,6 +65,7 @@ struct MldbEntity: public PolyEntity {
     }
 
     static constexpr const char * INTERNAL_ENTITY  = "INTERNAL_ENTITY";
+    std::shared_ptr<spdlog::logger> logger;
 };
 
 
