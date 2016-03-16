@@ -415,5 +415,11 @@ class TemporalTest(MldbUnitTest):
             }
         })
 
+        res = mldb.query("SELECT * FROM outDs")
+        self.assertTableResultEquals(res, [
+            ["_rowName", "behA"],
+            ["user1", 1]
+        ])
+
 
 mldb.run_tests()
