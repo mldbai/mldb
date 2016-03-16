@@ -1055,8 +1055,8 @@ matchJoinQualification(ML::Parse_Context & context, JoinQualification& joinQuali
 const SqlExpression::Operator operators[] = {
     //symbol, unary, handler, precedence, description
     { "~", true,         SqlExpression::bwise,  1, "Bitwise NOT" },
-    { "@", false,        SqlExpression::func,   1, "Set timestamp" },
     { "timestamp", true, SqlExpression::func,   1, "Coercion to timestamp" },
+    { "@", false,        SqlExpression::func,   2, "Set timestamp" },
     { "*", false,        SqlExpression::arith,  2, "Multiplication" },
     { "/", false,        SqlExpression::arith,  2, "Division" },
     { "%", false,        SqlExpression::arith,  2, "Modulo" },
@@ -1366,7 +1366,11 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
                 lhs = std::make_shared<IsTypeExpression>(lhs, notExpr, "number");
             else if (matchKeyword(context, "INTEGER"))
                 lhs = std::make_shared<IsTypeExpression>(lhs, notExpr, "integer");
-            else context.exception("Expected NULL, TRUE, FALSE, STRING, NUMBER or INTEGER after IS {NOT}");
+            else if (matchKeyword(context, "TIMESTAMP"))
+                lhs = std::make_shared<IsTypeExpression>(lhs, notExpr, "timestamp");
+            else if (matchKeyword(context, "INTERVAL"))
+                lhs = std::make_shared<IsTypeExpression>(lhs, notExpr, "interval");
+            else context.exception("Expected NULL, TRUE, FALSE, STRING, NUMBER, INTEGER, TIMESTAMP or INTERVAL after IS {NOT}");
 
             lhs->surface = ML::trim(token.captured());
 

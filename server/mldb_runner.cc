@@ -7,19 +7,20 @@
    Runner for MLDB.
 */
 
-#include <boost/program_options/cmdline.hpp>
-#include <boost/program_options/options_description.hpp>
-#include <boost/program_options/positional_options.hpp>
-#include <boost/program_options/parsers.hpp>
-#include <boost/program_options/variables_map.hpp>
-#include <boost/algorithm/string.hpp>
 #include "mldb/arch/futex.h"
 #include "mldb/server/mldb_server.h"
 #include "mldb/server/plugin_resource.h"
 #include "mldb/http/http_rest_proxy.h"
 #include "mldb/credentials/credentials_daemon.h"
 #include "mldb/vfs/filter_streams.h"
+#include "mldb/utils/config.h"
 #include <boost/filesystem.hpp>
+#include <boost/program_options/cmdline.hpp>
+#include <boost/program_options/options_description.hpp>
+#include <boost/program_options/positional_options.hpp>
+#include <boost/program_options/parsers.hpp>
+#include <boost/program_options/variables_map.hpp>
+#include <boost/algorithm/string.hpp>
 #include <signal.h>
 
 
@@ -106,6 +107,7 @@ int main(int argc, char ** argv)
     bool dontExitAfterScript = false;
 
     string cacheDir;
+    string httpBaseUrl = "";
 
 #if 0
     string peerListenPort = "18000-19000";
@@ -113,9 +115,10 @@ int main(int argc, char ** argv)
     int peerPublishPort = -1;
     string peerPublishHost;
 #endif
-    string configurationPath;
-    std::string staticAssetsPath = "mldb/static";
-    std::string staticDocPath = "mldb/container_files/assets/doc";
+    string configurationPath; // path to the config store
+    string configPath;  // path to the configuration file
+    std::string staticAssetsPath = "mldb/container_files/public_html/resources";
+    std::string staticDocPath = "mldb/container_files/public_html/doc";
 
     string etcdUri;
     string etcdPath;
@@ -172,8 +175,12 @@ int main(int argc, char ** argv)
 #endif
         ("configuration-path,C",
          value(&configurationPath),
-         "Path that persistent configuration is stored to allow the service "
+         "Path that persistent configuration is stored to allow the service " 
          "to stop and restart (file:// for filesystem or s3:// for S3 uri)")
+        ("config-path", 
+         value(&configPath),
+         "Path to the mldb configuration.  This is optional. Configuration option "
+         "in that file have acceptable default values.")
         ("hide-internal-entities",
          "Hide in the documentation entities that are not meant to be exposed")
         ("mute-final-output", bool_switch(&muteFinalOutput),
@@ -181,7 +188,9 @@ int main(int argc, char ** argv)
          "condition")
         ("enable-access-log",
          "Enable the logging of each http request.  By default, the logging is disabled."
-         "Specify this option to enable it.");
+         "Specify this option to enable it.")
+        ("http-base-url", value(&httpBaseUrl),
+         "Prefix to prepend to all /doc urls.");
 
     script_options.add_options()
         ("run-script", value(&runScript),
@@ -212,13 +221,23 @@ int main(int argc, char ** argv)
         ("help", "print this message");
    
     variables_map vm;
+    // command line has precendence over config
     store(command_line_parser(argc, argv)
           .options(all_opt)
           //.positional(p)
           .run(),
           vm);
-    notify(vm);
+
+    auto cmdConfig = Config::createFromProgramOptions(vm);
     
+    if (vm.count("config-path")) {
+        auto parsed_options = parse_config_file<char>(configPath.c_str(), all_opt, true);
+        store(parsed_options, vm);
+        auto fileConfig = Config::createFromProgramOptions(parsed_options);
+    }
+
+    notify(vm);
+
     if (vm.count("help")) {
         cerr << all_opt << endl;
         exit(1);
@@ -310,8 +329,9 @@ int main(int argc, char ** argv)
     bool enableAccessLog = vm.count("enable-access-log");
     bool hideInternalEntities = vm.count("hide-internal-entities");
 
-    MldbServer server("mldb", etcdUri, etcdPath, enableAccessLog);
-    bool initSuccess = server.init(configurationPath, staticAssetsPath, staticDocPath, hideInternalEntities);
+    MldbServer server("mldb", etcdUri, etcdPath, enableAccessLog, httpBaseUrl);
+    bool initSuccess = server.init(configurationPath, staticAssetsPath,
+                                   staticDocPath, hideInternalEntities);
 
     // if the server initialization fails don't register plugins
     // but let MLDB starts with disabled features
@@ -331,9 +351,6 @@ int main(int argc, char ** argv)
     server.router.addAutodocRoute("/autodoc", "/v1/help", "autodoc");
     server.threadPool->ensureThreads(numThreads);
     server.httpEndpoint->allowAllOrigins();
-
-    cout << server.httpBoundAddress << endl;
-    cerr << "http listening on " << server.httpBoundAddress << endl;
 
     server.start();
 

@@ -140,7 +140,7 @@ You can get VirtualBox from the [official download page](https://www.virtualbox.
 
 **Step 1 - Download the MLDB Appliance (it's an OVA file)**
 
-Click here: [https://s3.amazonaws.com/public.mldb.ai/mldb.ova](https://s3.amazonaws.com/public.mldb.ai/mldb.ova)
+Click here: [http://public.mldb.ai/mldb.ova](http://public.mldb.ai/mldb.ova)
 
 **Step 2 - Import the MLDB Appliance into VirtualBox**
 

@@ -18,6 +18,7 @@
 #include "mldb/rest/rest_connection.h"
 #include "mldb/rest/rest_request.h"
 #include "mldb/types/date.h"
+#include "mldb/utils/log_fwd.h"
 
 
 namespace Datacratic {
@@ -203,6 +204,7 @@ struct HttpRestService {
     std::unique_ptr<EventLoop> eventLoop;
     std::unique_ptr<AsioThreadPool> threadPool;
     std::unique_ptr<HttpRestEndpoint> httpEndpoint;
+    std::shared_ptr<spdlog::logger> logger;
 };
 
 } // namespace Datacratic

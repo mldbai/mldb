@@ -1,10 +1,7 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* sparse_distribution.h                                           -*- C++ -*-
    Jeremy Barnes, 5 February 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
-   $Source:$
-   $Id:
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
    
 
 
@@ -13,8 +10,7 @@
    Sparse version of a distribution.
 */
 
-#ifndef __stats__sparse_distribution_h__
-#define __stats__sparse_distribution_h__
+#pragma once
 
 #include <map>
 #include <limits>
@@ -154,5 +150,3 @@ std::ostream &
 operator << (std::ostream & stream, const sparse_distribution<I, F> & dist);
 
 } // namespace ML
-
-#endif /* __stats__sparse_distribution_h__ */

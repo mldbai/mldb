@@ -14,10 +14,13 @@
 #include "mldb/types/vector_description.h"
 #include "mldb/server/analytics.h"
 #include "mldb/sql/sql_expression.h"
+#include "mldb/sql/sql_utils.h"
 #include "mldb/jml/utils/lightweight_hash.h"
 #include "mldb/server/dataset_context.h"
 #include "mldb/server/per_thread_accumulator.h"
+#include "mldb/server/bucket.h"
 #include "mldb/jml/utils/environment.h"
+#include "mldb/ml/jml/buckets.h"
 #include "mldb/base/parallel.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/http/http_exception.h"
@@ -211,8 +214,6 @@ PersistentDatasetConfigDescription()
              "URL of the data file from which to load the dataset.");
 }
 
-
-
 /*****************************************************************************/
 /* MATRIX VIEW                                                               */
 /*****************************************************************************/
@@ -334,6 +335,72 @@ getColumnValues(const ColumnName & column,
     }
 
     return std::move(result);
+}
+
+std::vector<CellValue>
+ColumnIndex::
+getColumnDense(const ColumnName & column) const
+{
+    auto columnValues = getColumn(column);
+    std::vector<RowName> rowNames = getRowNames();
+    std::vector<CellValue> result;
+    result.reserve(rowNames.size());
+    const auto rowNamesBegin = rowNames.begin();
+    const auto rowNamesEnd = rowNames.end();
+
+    std::unordered_map<RowName, std::pair<CellValue, Date> > values;
+
+    for (auto & c: columnValues.rows) {
+        Date dateToInsert = std::get<2>(c);
+        std::pair<CellValue, Date> valToInsert = std::make_pair<CellValue, Date>(std::move(std::get<1>(c)), std::move(dateToInsert));
+        auto keyPair = std::make_pair<RowName, std::pair<CellValue, Date> >(std::move(std::get<0>(c)), std::move(valToInsert));
+        auto res = values.insert(keyPair);
+        if (!res.second) {
+            if ( dateToInsert > res.first->second.second)
+                res.first->second = valToInsert;
+        }
+    }
+
+    for (auto& name : rowNames) {
+        result.push_back(values.find(name)->second.first);
+    } 
+
+    return std::move(result);
+}
+
+std::tuple<BucketList, BucketDescriptions>
+ColumnIndex::
+getColumnBuckets(const ColumnName & column,
+                 int maxNumBuckets) const
+{
+    auto vals = getColumnDense(column);
+
+    std::unordered_map<CellValue, size_t> values;
+    std::vector<CellValue> valueList;
+
+    size_t totalRows = vals.size();
+
+    for (auto& v : vals) {
+        if (values.insert({v,0}).second)
+            valueList.push_back(std::move(v));
+    }
+
+    BucketDescriptions descriptions;
+    descriptions.initialize(valueList, maxNumBuckets);
+
+    for (auto & v: values) {
+        v.second = descriptions.getBucket(v.first);            
+    }
+        
+    // Finally, perform the bucketed lookup
+    WritableBucketList buckets(totalRows, descriptions.numBuckets());
+
+    for (auto& v : vals) {
+        uint32_t bucket = values[v];
+        buckets.write(bucket);
+    }
+
+    return std::make_tuple(std::move(buckets), std::move(descriptions));
 }
 
 
@@ -693,10 +760,11 @@ generateFilteredColumnExpression(const Dataset & dataset,
 
 static GenerateRowsWhereFunction
 generateVariableEqualsConstant(const Dataset & dataset,
+                               const Utf8String& alias,
                                const ReadVariableExpression & variable,
                                const ConstantExpression & constant)
 {
-    ColumnName columnName(variable.variableName.rawString());
+    ColumnName columnName(removeTableName(alias,variable.variableName).rawString());
     CellValue constantValue(constant.constant.getAtom());
 
     auto filter = [=] (const CellValue & val)
@@ -713,9 +781,10 @@ generateVariableEqualsConstant(const Dataset & dataset,
 
 static GenerateRowsWhereFunction
 generateVariableIsTrue(const Dataset & dataset,
+                       const Utf8String& alias,
                        const ReadVariableExpression & variable)
 {
-    ColumnName columnName(variable.variableName.rawString());
+    ColumnName columnName(removeTableName(alias,variable.variableName).rawString());
     
     auto filter = [&] (const CellValue & val)
         {
@@ -729,9 +798,10 @@ generateVariableIsTrue(const Dataset & dataset,
 
 static GenerateRowsWhereFunction
 generateVariableIsNotNull(const Dataset & dataset,
+                          const Utf8String& alias,
                           const ReadVariableExpression & variable)
 {
-    ColumnName columnName(variable.variableName.rawString());
+    ColumnName columnName(removeTableName(alias,variable.variableName).rawString());
     
     auto filter = [&] (const CellValue & val)
         {
@@ -764,6 +834,7 @@ generateRownameIsConstant(const Dataset & dataset,
 GenerateRowsWhereFunction
 Dataset::
 generateRowsWhere(const SqlBindingScope & scope,
+                  const Utf8String& alias,
                   const SqlExpression & where,
                   ssize_t offset,
                   ssize_t limit) const
@@ -804,8 +875,8 @@ generateRowsWhere(const SqlBindingScope & scope,
         // Optimize a boolean operator
 
         if (boolean->op == "AND") {
-            GenerateRowsWhereFunction lhsGen = generateRowsWhere(scope, *boolean->lhs, 0, -1);
-            GenerateRowsWhereFunction rhsGen = generateRowsWhere(scope, *boolean->rhs, 0, -1);
+            GenerateRowsWhereFunction lhsGen = generateRowsWhere(scope, alias, *boolean->lhs, 0, -1);
+            GenerateRowsWhereFunction rhsGen = generateRowsWhere(scope, alias, *boolean->rhs, 0, -1);
             cerr << "AND between " << lhsGen.explain << " and " << rhsGen.explain
                  << endl;
 
@@ -833,8 +904,8 @@ generateRowsWhere(const SqlBindingScope & scope,
             }
         }
         else if (boolean->op == "OR") {
-            GenerateRowsWhereFunction lhsGen = generateRowsWhere(scope, *boolean->lhs, 0, -1);
-            GenerateRowsWhereFunction rhsGen = generateRowsWhere(scope, *boolean->rhs, 0, -1);
+            GenerateRowsWhereFunction lhsGen = generateRowsWhere(scope, alias, *boolean->lhs, 0, -1);
+            GenerateRowsWhereFunction rhsGen = generateRowsWhere(scope, alias, *boolean->rhs, 0, -1);
             cerr << "OR between " << lhsGen.explain << " and " << rhsGen.explain
                  << endl;
 
@@ -869,7 +940,7 @@ generateRowsWhere(const SqlBindingScope & scope,
 
     if (variable) {
         // Optimize just a variable
-        return generateVariableIsTrue(*this, *variable);
+        return generateVariableIsTrue(*this, alias, *variable);
     }
 
     //cOptimize for rowName() IN (constant, constant, constant)
@@ -878,7 +949,7 @@ generateRowsWhere(const SqlBindingScope & scope,
     if (inExpression) 
     {
         auto fexpr = getFunction(*(inExpression->expr));
-        if (fexpr && fexpr->functionName == "rowName" ) {
+        if (fexpr && removeTableName(alias, fexpr->functionName) == "rowName" ) {
             if (inExpression->tuple && inExpression->tuple->isConstant()) {
                 return {[=] (ssize_t numToGenerate, Any token,
                              const BoundParameters & params)
@@ -987,14 +1058,14 @@ generateRowsWhere(const SqlBindingScope & scope,
         // Optimization for rowName() == constant.  In this case, we can generate a
         // single row.
         if (flhs && crhs && comparison->op == "=") {
-            if (flhs->functionName == "rowName") {
+            if (removeTableName(alias, flhs->functionName) == "rowName") {
                 return generateRownameIsConstant(*this, *crhs);
             }
         }
         // Optimization for constant == rowName().  In this case, we can generate a
         // single row.
         if (frhs && clhs && comparison->op == "=") {
-            if (frhs->functionName == "rowName") {
+            if (removeTableName(alias, frhs->functionName) == "rowName" ) {
                 return generateRownameIsConstant(*this, *clhs);
             }
         }
@@ -1005,10 +1076,9 @@ generateRowsWhere(const SqlBindingScope & scope,
 
             auto flhs2 = getFunction(*alhs->lhs);
             auto crhs2 = getConstant(*alhs->rhs);
-
             
 
-            if (flhs2 && flhs2->functionName == "rowHash" && crhs2 && crhs2->constant.isInteger()) {
+            if (flhs2 && removeTableName(alias, flhs2->functionName) == "rowHash" && crhs2 && crhs2->constant.isInteger()) {
 
                 std::function<bool (uint64_t, uint64_t)> op;
 
@@ -1058,10 +1128,10 @@ generateRowsWhere(const SqlBindingScope & scope,
 
         // Optimization for variable == constant
         if (vlhs && crhs && comparison->op == "=") {
-            return generateVariableEqualsConstant(*this, *vlhs, *crhs);
+            return generateVariableEqualsConstant(*this, alias, *vlhs, *crhs);
         }
         if (vrhs && clhs && comparison->op == "=") {
-            return generateVariableEqualsConstant(*this, *vrhs, *clhs);
+            return generateVariableEqualsConstant(*this, alias, *vrhs, *clhs);
         }
     }
 
@@ -1073,12 +1143,12 @@ generateRowsWhere(const SqlBindingScope & scope,
         
         // Optimize variable IS NOT NULL
         if (vlhs && isType->type == "null" && isType->notType) {
-            return generateVariableIsNotNull(*this, *vlhs);
+            return generateVariableIsNotNull(*this, alias, *vlhs);
         }
 
         // Optimize variable IS TRUE
         if (vlhs && isType->type == "true" && !isType->notType) {
-            return generateVariableIsTrue(*this, *vlhs);
+            return generateVariableIsTrue(*this, alias, *vlhs);
         }
     }
 
@@ -1127,7 +1197,7 @@ generateRowsWhere(const SqlBindingScope & scope,
     // Couldn't optimize.  Fall through to scanning, evaluating the where
     // expression at each point
 
-    SqlExpressionDatasetContext dsScope(*this, "");
+    SqlExpressionDatasetContext dsScope(*this, alias);
     auto whereBound = where.bind(dsScope);
 
     // Detect if where needs columns or not, by looking at what is unbound
@@ -1224,7 +1294,7 @@ queryBasic(const SqlBindingScope & scope,
            bool allowParallel) const
 {
     // 1.  Get the rows that match the where clause
-    auto rowGenerator = generateRowsWhere(scope, where, 0 /* offset */, -1 /* limit */);
+    auto rowGenerator = generateRowsWhere(scope, "" /*alias*/ , where, 0 /* offset */, -1 /* limit */);
 
     // 2.  Find all the variables needed by the orderBy
     // Remove any constants from the order by clauses

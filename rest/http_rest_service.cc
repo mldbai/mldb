@@ -14,6 +14,7 @@
 #include "mldb/http/event_loop.h"
 #include "http_rest_endpoint.h"
 #include "http_rest_service.h"
+#include "mldb/utils/log.h"
 
 using namespace std;
 
@@ -68,8 +69,7 @@ HttpRestConnection::
 sendErrorResponse(int responseCode, string error, string contentType)
 {
     using namespace std;
-    cerr << "sent error response " << responseCode << " " << error
-         << endl;
+    cerr << "sent error response " << responseCode << " " << error << endl;
 
     if (responseSent_)
         throw ML::Exception("response already sent");
@@ -89,8 +89,7 @@ HttpRestConnection::
 sendErrorResponse(int responseCode, const Json::Value & error)
 {
     using namespace std;
-    cerr << "sent error response " << responseCode << " " << error
-         << endl;
+    cerr << "sent error response " << responseCode << " " << error << endl;
     
     if (responseSent_)
         throw ML::Exception("response already sent");
@@ -239,7 +238,8 @@ HttpRestService::
 HttpRestService(bool enableLogging)
     : eventLoop(new EventLoop()),
       threadPool(new AsioThreadPool(*eventLoop)),
-      httpEndpoint(new HttpRestEndpoint(*eventLoop, enableLogging))
+      httpEndpoint(new HttpRestEndpoint(*eventLoop, enableLogging)),
+      logger(MLDB::getMldbLog<HttpRestService>())
 {
 }
 
@@ -283,6 +283,7 @@ HttpRestService::
 bindTcp(PortRange const & httpRange, std::string host)
 {
     std::string httpAddr = httpEndpoint->bindTcp(httpRange, host);
+    logger->debug() << "http listening on " << httpAddr;
     return httpAddr;
 }
 

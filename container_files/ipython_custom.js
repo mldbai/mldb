@@ -6,7 +6,7 @@ function mldb_defer() {
             )
         );
 
-        $.getJSON("{{HTTP_BASE_URL}}/resources/version.json", function(version){
+        $.getJSON("{{HTTP_BASE_URL}}/resources/version.json?t="+Date.now(), function(version){
             $("#ipython_notebook").append(
                 $("<span>", {style: "font-size: 12px;"}).text("version "+version.version)
             );
@@ -20,6 +20,37 @@ function mldb_defer() {
                 )
             );
         }
+
+        $.getJSON("{{HTTP_BASE_URL}}/resources/expiration.json", function(data) {
+            var exp = Date.parse(data.expiration);
+            var countDownSpan = $("<div>", {id:"countdown", 
+                class: "notification_widget btn btn-xs navbar-btn pull-right"});
+            if(window.location.pathname.endsWith("tree")) {
+                $("#header-container").append(countDownSpan);
+            }
+            else {
+                $("#notification_area").append(countDownSpan);
+            }
+            function updateCountdown(){
+                var minLeft = Math.floor((exp-Date.now())/(60*1000));
+                if(minLeft < 0) {
+                    countDownSpan
+                    .addClass("danger")
+                    .html("MLDB Container expired " + Math.abs(minLeft) + " minutes ago: save your data now!");
+                }
+                else if(minLeft < 10) {
+                    countDownSpan
+                    .addClass("warning")
+                    .html("MLDB Container expires in " + minLeft + " minutes: save your data now!");
+                }
+                else {
+                    countDownSpan.html("MLDB Container expires in " + minLeft + " minutes");
+                }
+            }
+            setInterval(updateCountdown, 10000); 
+            updateCountdown();  
+        })
+
         console.log("MLDB custom.js end");
     }
     else {

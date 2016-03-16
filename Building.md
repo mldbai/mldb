@@ -1,30 +1,38 @@
-# Building and running a development Docker image
+# Building and running the MLDB Community Edition Docker image
 
-These instructions are designed for a vanilla installation of **Ubuntu 14.04** and its default compiler, **GCC 4.8**.
+These instructions are designed for a vanilla installation of **Ubuntu 14.04** and its default compiler, **GCC 4.8** and assume that you have a Github account with [SSH keys](https://help.github.com/categories/ssh/).
 
-It will take around 45 minutes to run through these steps on an Amazon EC2 r3.8xlarge machine (32 cores, 244GB of RAM) and longer on smaller machines. However, you can get up and running in 5 minutes by [using a pre-built Docker images of the MLDB Enterprise Edition](http://mldb.ai/doc/#builtin/Running.md.html) for free with a trial license.
+It will take around **45 minutes on a 32-core machine with 244GB of RAM** to run through these steps (i.e. on an Amazon EC2 r3.8xlarge instance) and longer on smaller machines. However, you can get up and running in 5 minutes by [using a pre-built Docker images of the MLDB Enterprise Edition](http://mldb.ai/doc/#builtin/Running.md.html) for free with a trial license, which can be obtained instantly by filling out [this form](http://mldb.ai/licensing.html).
 
 ## System dependencies
 
-For C++ code to compile, the following system packages need to be installed:
+For C++ code to compile and the Python modules to install correctly, the following system packages need to be installed:
 
 ```bash
-apt-get install -y git valgrind build-essential libboost-all-dev libgoogle-perftools-dev liblzma-dev libcrypto++-dev libblas-dev liblapack-dev python-virtualenv libcurl4-openssl-dev libssh2-1-dev libpython-dev libgit2-dev libv8-dev libarchive-dev
-```
-
-For Python modules to install correctly:
-
-```bash
-apt-get install -y libffi-dev libfreetype6-dev libpng12-dev libcap-dev
+apt-get install -y git valgrind build-essential libboost-all-dev \
+libgoogle-perftools-dev liblzma-dev libcrypto++-dev libblas-dev \
+liblapack-dev python-virtualenv libcurl4-openssl-dev libssh2-1-dev \
+libpython-dev libgit2-dev libv8-dev libarchive-dev libffi-dev \
+libfreetype6-dev libpng12-dev libcap-dev autoconf libtool unzip \
+language-pack-en
 ```
 
 To build and run the Docker image, you will need to install Docker: https://docs.docker.com/engine/installation/ubuntulinux/
 
 ## Cloning, compiling and test
 
+You will first need to have a Github account with [SSH keys](https://help.github.com/categories/ssh/) set up because the repo uses SSH paths in its submodule configuration. You can test that keys are correctly set up by running the following command and seeing "successfully authenticated":
+
+```bash
+ssh -T git@github.com
+```
+
+**Note** the `master` branch is bleeding edge and the demos or documentation may be slightly out of sync with the code at any given point in time. To avoid this, it is recommended to build the Community Edition from [the latest tagged release](https://github.com/mldbai/mldb/releases/latest).
+
 ```bash
 git clone git@github.com:mldbai/mldb.git
 cd mldb
+# git checkout < tag from https://github.com/mldbai/mldb/releases/latest >
 git submodule update --init --recursive
 make dependencies
 make -k compile
@@ -45,7 +53,7 @@ frequently than other tests).
 the machine when running time-sensitive tests or network issues when
 accessing external resources.  Repeating the `make -k test`
 step may allow them to pass.  It is OK to use MLDB if the tests don't
-all pass; all code merged into the `master` branch has passed regression
+all pass; all code merged tagged for release has passed regression
 tests in the stable testing environment.
 
 Build output lands in the `build` directory and there is no `make clean`

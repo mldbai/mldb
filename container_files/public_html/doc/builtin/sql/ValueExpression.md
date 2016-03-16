@@ -201,6 +201,7 @@ intended. See also [the MLDB Type System](TypeSystem.md).
 - `expr IS [NOT] NUMBER` tests if the given expression is a number
 - `expr IS [NOT] INTEGER` tests if the given expression is an integer
 - `expr IS [NOT] TIMESTAMP` tests if the given expression is a timestamp
+- `expr IS [NOT] INTERVAL` tests if the given expression is a time interval
 
 ### [NOT] IN expression
 
@@ -396,26 +397,14 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
 
 ### Timestamp functions
 
-- `when(x)` returns the timestamp at which the expression `x` was known to be
-  true.  Each expression in MLDB has an associated timestamp attached to it,
-  which is used for unbiasing, and this returns that timestamp.
-    - For example, if `x` had a timestamp of last Monday, and `y` had a
-      timestamp of last Tuesday, then `when(x + y)` would have a timestamp of
-      last Tuesday, since on Monday the value of `y` wasn't known.
-- `to_timestamp(x)` coerces the value of x to a timestamp:
-  - if `x` is a string, it creates the timestamp by parsing the ISO8601
-    string passed in.
-  - if `x` is a number, it is interpreted as the number of seconds since
-    the UNIX epoch (1 January, 1970 at 00:00:00).
-  - otherwise, this will return null.
-- `at(x, d)` returns the value of the expression `x`, but with the timestamp
+- `earliest_timestamp(x)` returns the earliest timestamp associated with the scalar
+  or object `x`.
+- `latest_timestamp(x)` returns the maximum timestamp associated with the scalar
+  or object `x`.
+- `x @ d` or `at(x, d)` returns the value of the expression `x`, but with the timestamp
   modified to be at timestamp `d`.
 - `now()` returns the timestamp at the current moment, according to system
   time.
-- `min_timestamp(x)` returns the minimum timestamp represented in the scalar
-  or object `x`.
-- `max_timestamp(x)` returns the maximum timestamp represented in the scalar
-  or object `x`.
 - `date_part(unit, x)` returns the subfield `unit` of timestamp `x`. The following are the supported units:
   
   - `microsecond` as the total number of microseconds after the rounded down second.
@@ -457,24 +446,26 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
 - `flatten(val)` will take a n-dimensional embedding and flatten it down
   into a one-dimensional embedding containing all of the elements.  The
   elements will be taken from end end dimensions first, ie
-  `flatten([ [ 1, 2], [3, 4] ]) will be `[1, 2, 3, 4]`.
+  `flatten([ [ 1, 2], [3, 4] ])` will be `[1, 2, 3, 4]`.
 
 ### <a name="importfunctions"></a>Data import functions
 
-- `tokenize(str, {splitchars: ',', quotechar: '"', offset: 0, limit: null, value: null, min_token_length: 1, ngram_range:[1, 1]})`
+- `tokenize(str, {splitchars: ',', quotechar: '', offset: 0, limit: null, value: null, min_token_length: 1, ngram_range:[1, 1]})`
 can be used to create bag-of-tokens representations of strings, by returning a row whose
 columns are formed by tokenizing `str` by splitting along `splitchars` and whose values by default are the
 number of occurrences of those tokens within `str`. For example `tokenize('a b b c c c', {splitchars:' '})` will return the row `{'a': 1, 'b': 2, 'c': 3}`
   - `offset` and `limit` are used to skip the first `offset` tokens and only generate `limit` tokens
   - `value` (if not set to `null`) will be used instead of token-counts for the values of the columns in the output row
-  - `quotechar` is interpreted as a single character to delimit tokens which may contain the `splitchars`, so by default `tokenize('a,"b,c"')` will return the row `{'a':1,'b,c':1}`
+  - `quotechar` is interpreted as a single character to delimit tokens which may contain the `splitchars`, so by default `tokenize('a,"b,c"', {quotechar:'"'})` will return the row `{'a':1,'b,c':1}`
   - `min_token_length` is used to specify the minimum length of tokens that are returned
   - `ngram_range` is used to specify the n-grams to return. `[1, 1]` will return only unigrams, while `[2, 3]` will return bigrams and trigrams, where tokens are joined by underscores. For example, `tokenize('Good day world', {splitchars:' ', ngram_range:[2,3]})` will return the row `{'Good_day': 1, 'Good_day_world': 1, 'day_world': 1}`
-- `token_extract(str, n, {splitchars: ',', quotechar: '"', offset: 0, limit: null, min_token_length: 1})` will return the `n`th token from `str` using the same tokenizing rules as `tokenize()` above. Only the tokens respecting the `min_token_length` will be considered
+- `token_extract(str, n, {splitchars: ',', quotechar: '', offset: 0, limit: null, min_token_length: 1})` will return the `n`th token from `str` using the same tokenizing rules as `tokenize()` above. Only the tokens respecting the `min_token_length` will be considered
 
 
 
 ## <a name="aggregatefunctions"></a>Aggregate Functions
+
+The following standard SQL aggregation functions are supported. They may only be used in SELECT and HAVING clauses. If an aggregation function appears in the SELECT clause and no GROUP BY clause is used, an empty GROUP BY clause will be inferred.
 
 - `avg` calculates the average of all values in the group.  It works in
   double precision floating point only.
@@ -484,6 +475,10 @@ number of occurrences of those tokens within `str`. For example `tokenize('a b b
 - `max` calculates the maximum of all values in the group.
 - `count` calculates the number of non-null values in the group.
     - `count(*)` is a special function which will count the number of rows in the group with non-null values in any column
+
+The following useful non-standard aggregation functions is also supported:
+
+- `latest`, `earliest` will return the values with the latest or earliest timestamp in the group
 - `pivot(columnName, value)` will accumulate a single row per group, with the
   column name and value given.  This can be used with a group by clause to
   transform a dense dataset of (actor,action,value) records into a sparse
@@ -491,10 +486,10 @@ number of occurrences of those tokens within `str`. For example `tokenize('a b b
 
 ### Aggregates of rows
 
-Each of the standard aggregate functions may also be applied to row values.  This
-has the effect of calculating a separate aggregate for each column in the row, and
+Every aggregate function can operate on single columns, just like in standard SQL, but they can also operate on multiple columns via complex types like rows and scalars.  This
+has the effect of calculating a separate aggregate for each column in the input, and
 returns a row-valued result.  For example, to calculate the total count of each
-sparse column in a dataset, the following would suffice:
+ column in a dataset, the following would suffice:
 
 ```sql
 SELECT count({*})
@@ -505,18 +500,34 @@ functionality is useful to write generic queries that operate without prior
 knowledge of the column names, and to make queries on datasets with thousands
 or millions of column feasible.
 
-## Horizontal Operations
+## Vertical, Horizontal and Temporal Aggregation
 
-It is possible to perform operations across a subset of values in a row
-using these functions. All the following functions operate on the non-null 
-values in a row or a subset of the row. Note that the row is flattened to calculate
-the values.
+The standard SQL aggregation functions operate 'vertically' down columns. MLDB datasets are transposable matrices, so MLDB also supports 'horizontal' aggregation. In addition, MLDB supports a third, temporal dimension, so 'temporal' aggregation is also supported:
 
-- `horizontal_count(<row>)` returns the number of non-null values in the row.
-- `horizontal_sum(<row>)` returns the sum of the non-null values in the row.
-- `horizontal_avg(<row>)` returns the average of the non-null values in the row.
-- `horizontal_min(<row>)` returns the minimum of the non-null values in the row.
-- `horizontal_max(<row>)` returns the maximum of the non-null value in the row.
+- Vertical aggregation functions
+  - `vertical_count(<row>)` alias of `count()`, operates on columns.
+  - `vertical_sum(<row>)` alias of `sum()`, operates on columns.
+  - `vertical_avg(<row>)` alias of `avg()`, operates on columns.
+  - `vertical_min(<row>)` alias of `min()`, operates on columns.
+  - `vertical_max(<row>)` alias of `max()`, operates on columns.
+  - `vertical_latest(<row>)` alias of `latest()`, operates on columns.
+  - `vertical_earliest(<row>)` alias of `earliest()`, operates on columns.
+- Horizontal aggregation functions
+  - `horizontal_count(<row>)` returns the number of non-null values in the row.
+  - `horizontal_sum(<row>)` returns the sum of the non-null values in the row.
+  - `horizontal_avg(<row>)` returns the average of the non-null values in the row.
+  - `horizontal_min(<row>)` returns the minimum of the non-null values in the row.
+  - `horizontal_max(<row>)` returns the maximum of the non-null value in the row.
+  - `horizontal_latest(<row>)` returns the non-null value in the row with the latest timestamp.
+  - `horizontal_earliest(<row>)` returns the non-null value in the row with the earliest timestamp.
+- Temporal aggregation functions
+  - `temporal_count(<row>)` returns the number of non-null values per cell.
+  - `temporal_sum(<row>)` returns the sum of the non-null values per cell.
+  - `temporal_avg(<row>)` returns the average of the non-null values per cell.
+  - `temporal_min(<row>)` returns the minimum of the non-null values per cell.
+  - `temporal_max(<row>)` returns the maximum of the non-null value per cell.
+  - `temporal_latest(<row>)` returns the non-null value with the latest timestamp per cell.
+  - `temporal_earliest(<row>)` returns the non-null value with the earliest timestamp per cell.
 
 
 ## Evaluating a JS function from SQL (Experimental)

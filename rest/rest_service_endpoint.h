@@ -16,6 +16,7 @@
 #include "mldb/http/port_range_service.h"
 #include "mldb/rest/rest_connection.h"
 #include "mldb/rest/rest_request.h"
+#include "mldb/utils/log_fwd.h"
 
 namespace Datacratic {
 
@@ -30,10 +31,7 @@ namespace Datacratic {
     It allows both synchronous and asynchronous responses.
 */
 struct RestServiceEndpoint {
-    RestServiceEndpoint(bool enableLogging = false)
-    : threadPool(eventLoop), httpEndpoint(eventLoop, enableLogging)
-    {
-    }
+    RestServiceEndpoint(bool enableLogging = false);
 
     virtual ~RestServiceEndpoint();
 
@@ -233,6 +231,7 @@ struct RestServiceEndpoint {
     EventLoop eventLoop;
     AsioThreadPool threadPool;
     HttpRestEndpoint httpEndpoint;
+    std::shared_ptr<spdlog::logger> logger;
 };
 
 } // namespace Datacratic

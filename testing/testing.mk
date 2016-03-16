@@ -40,7 +40,7 @@ $(eval $(call test,mldb_internal_plugin_doc_test,mldb,boost))
 
 
 
-$(eval $(call test,mldb_config_persistence_test,mldb,boost))
+$(eval $(call test,mldb_config_persistence_test,mldb,boost manual)) #this code will be removed as part of MLDB-1441
 $(eval $(call test,mldb_startup_test,mldb,boost))
 $(eval $(call test,mldb_plugin_delete_test,mldb,boost))
 $(eval $(call test,pyplugin_static_folder_test,mldb,boost))
@@ -165,7 +165,7 @@ $(eval $(call mldb_unit_test,MLDB-804-null-accuracy.js))
 $(eval $(call mldb_unit_test,MLDB-805-apply_func_svd_embed.py))
 $(eval $(call mldb_unit_test,MLDB-809-group-by-rowname.js))
 $(eval $(call mldb_unit_test,MLDB-813-rowname_in_join.py))
-$(eval $(call mldb_unit_test,MLDB-724-time-arithmetic.js))
+$(eval $(call mldb_unit_test,MLDB-724-time-arithmetic.py))
 $(eval $(call mldb_unit_test,MLDB-816-scatter-aggregate.js))
 $(eval $(call mldb_unit_test,MLDB-798-sql-operation-precision.py))
 $(eval $(call mldb_unit_test,MLDB-832-select_star.py))
@@ -261,8 +261,10 @@ $(eval $(call mldb_unit_test,MLDB-1353-EM.py))
 $(eval $(call mldb_unit_test,MLDB-1361_join_on_subselect.py))
 $(eval $(call mldb_unit_test,MLDB-1364_dataset_cant_be_overwritten.py))
 $(eval $(call mldb_unit_test,MLDB-1336-builtin-checks.py))
+$(eval $(call mldb_unit_test,MLDB-1433-random-forest.py))
 $(eval $(call mldb_unit_test,MLDB-1430-aggregate-bug.py))
 $(eval $(call mldb_unit_test,MLDB-1428-text-sparse-output.py))
+$(eval $(call mldb_unit_test,MLDB-1440_sqlexpr_ignore_unknown_param.py))
 
 $(eval $(call mldb_unit_test,pytanic_plugin_test.py))
 $(eval $(call python_test,mldb_merged_dataset_test,mldb_py_runner))
@@ -324,6 +326,8 @@ $(eval $(call mldb_unit_test,get_http_bound_address.py))
 $(eval $(call mldb_unit_test,get_http_bound_address.js))
 $(eval $(call mldb_unit_test,MLDB-815-sparse-mutable-record-strings.js))
 $(eval $(call mldb_unit_test,MLDB-1395-error-message-file-doesnt-exist.js))
+$(eval $(call mldb_unit_test,MLDBFB-318_misleading_error_msg.py))
+$(eval $(call mldb_unit_test,ranking_test.py))
 
 # The MLDB-1398 test case requires a library and a plugin
 # Tensorflow plugins

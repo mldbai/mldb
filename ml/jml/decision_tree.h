@@ -1,15 +1,12 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* decision_tree.h                                                -*- C++ -*-
    Jeremy Barnes, 22 March 2004
    Copyright (c) 2004 Jeremy Barnes.  All rights reserved.
-   $Source$
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Decision tree classifier.
 */
 
-#ifndef __boosting__decision_tree_h__
-#define __boosting__decision_tree_h__
+#pragma once
 
 #include "mldb/ml/jml/classifier.h"
 #include "feature_set.h"
@@ -157,6 +154,3 @@ public:
 
 } // namespace ML
 
-
-
-#endif /* __boosting__decision_tree_h__ */

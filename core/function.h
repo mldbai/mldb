@@ -563,7 +563,9 @@ registerFunctionType(const Package & package,
                                     PolyConfig config,
                                     const std::function<bool (const Json::Value)> & onProgress)
                                 {
-                                    return new FunctionT(FunctionT::getOwner(server), config, onProgress);
+                                    auto function = new FunctionT(FunctionT::getOwner(server), config, onProgress);
+                                    function->logger = MLDB::getMldbLog<FunctionT>();
+                                    return function;
                                 },
                                 makeInternalDocRedirect(package, docRoute),
                                 customRoute,

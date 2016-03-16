@@ -1753,7 +1753,6 @@ handlePutItl(Key key, Config config,  const OnDone & onDone, bool mustBeNew)
 {
    setKey(config, key);
 
-    bool isPersistent = objectIsPersistent(key, config);
     auto savedConfig = jsonEncode(config);
 
     if (backgroundCreate) {
@@ -1771,13 +1770,11 @@ handlePutItl(Key key, Config config,  const OnDone & onDone, bool mustBeNew)
                           wasCancelled);
     }
 
+    bool isPersistent = objectIsPersistent(key, config);
+
     if (isPersistent) {
         if (this->configStore) {
             this->configStore->set(restEncode(key), savedConfig);
-        }
-        else {
-            std::cerr << "Warning: attempting to create persistent object with no store"
-                      << std::endl;
         }
     }
 

@@ -26,10 +26,12 @@ std::shared_ptr<spdlog::logger> getQueryLog() {
     return queryLog;
 }
 
-std::shared_ptr<spdlog::logger> getMldbLog() {
-    static std::shared_ptr<spdlog::logger> mldbLog = 
-        getConfiguredLogger("mldb", std::string("L [") + timestampFormat + "] %l %v");
-    return mldbLog;
+std::shared_ptr<spdlog::logger> getMldbLog(const std::string & loggerName) {
+    auto logger = spdlog::get(loggerName);
+    if (!logger) {
+       logger = getConfiguredLogger(loggerName, loggerName + std::string(" [") + timestampFormat + "] %l %v");
+    }
+    return logger;
 }
 
 
@@ -42,7 +44,7 @@ std::shared_ptr<spdlog::logger> getServerLog() {
 // force gcc to export these types
 void dummy() {
     (void)getQueryLog();
-    (void)getMldbLog();
+    (void)getMldbLog("dummy");
     (void)getServerLog();
 }
 
