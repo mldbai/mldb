@@ -446,7 +446,7 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
 - `flatten(val)` will take a n-dimensional embedding and flatten it down
   into a one-dimensional embedding containing all of the elements.  The
   elements will be taken from end end dimensions first, ie
-  `flatten([ [ 1, 2], [3, 4] ]) will be `[1, 2, 3, 4]`.
+  `flatten([ [ 1, 2], [3, 4] ])` will be `[1, 2, 3, 4]`.
 
 ### <a name="importfunctions"></a>Data import functions
 
