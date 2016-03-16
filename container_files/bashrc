@@ -1,0 +1,12 @@
+# If not running interactively, don't do anything
+[ -z "$PS1" ] && return
+
+# check the window size after each command and, if necessary,
+# update the values of LINES and COLUMNS.
+shopt -s checkwinsize
+
+GREEN="\[$(tput setaf 2)\]"
+RESET="\[$(tput sgr0)\]"
+export PS1="\u:${GREEN}\w${RESET}\$ "
+
+export EDITOR=/usr/bin/vim

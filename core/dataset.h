@@ -13,6 +13,7 @@
 #include "mldb/core/mldb_entity.h"
 #include "mldb/sql/cell_value.h"
 #include "mldb/types/url.h"
+#include <set>
 
 // NOTE TO MLDB DEVELOPERS: This is an API header file.  No includes
 // should be added, especially value_description.h.
@@ -36,6 +37,8 @@ struct TupleExpression;
 struct WhenExpression;
 struct RowValueInfo;
 struct ExpressionValue;
+struct BucketList;
+struct BucketDescriptions;
 
 typedef EntityType<Dataset> DatasetType;
 
@@ -129,7 +132,6 @@ struct ColumnStats {
     uint64_t rowCount_;
 };
 
-
 /*****************************************************************************/
 /* COLUMN INDEX                                                              */
 /*****************************************************************************/
@@ -157,6 +159,26 @@ struct ColumnIndex {
     /** Return the value of the column for all rows and timestamps. */
     virtual MatrixColumn getColumn(const ColumnName & column) const = 0;
 
+    /** Return a dense column, with one value for every row in the same order as
+        getRowNames().
+
+        Default builts on top of getColumn() and getRowNames(), but is
+        quite inefficient.
+    */
+    virtual std::vector<CellValue>
+    getColumnDense(const ColumnName & column) const;
+
+    /** Return a bucketed dense column, with one value for every row in the same
+        order as rowNames().  Numerical values will be split into a maximum of
+        maxNumBuckets buckets, with split points as described in the
+        return value.  
+
+        Default builds on top of getColumnDense().
+    */
+    virtual std::tuple<BucketList, BucketDescriptions>
+    getColumnBuckets(const ColumnName & column,
+                     int maxNumBuckets = -1) const;
+
     /** Return the value of the column for all rows, ignoring timestamps. */
     virtual std::vector<std::tuple<RowName, CellValue> >
     getColumnValues(const ColumnName & column,
@@ -172,6 +194,9 @@ struct ColumnIndex {
         implementation uses getColumnStats.
     */
     virtual uint64_t getColumnRowCount(const ColumnName & column) const;
+
+    virtual std::vector<RowName>
+    getRowNames(ssize_t start = 0, ssize_t limit = -1) const = 0;
 };
 
 
@@ -351,11 +376,14 @@ struct Dataset: public MldbEntity {
         The where expression must only refer to columns in the dataset,
         or variables that are available in the context.
 
+        The alias is the potential alias of the dataset in the context
+
         This is called by queryStructured and queryBasic, so cannot use those
         functions.
     */
     virtual GenerateRowsWhereFunction
     generateRowsWhere(const SqlBindingScope & context,
+                      const Utf8String& alias,
                       const SqlExpression & where,
                       ssize_t offset,
                       ssize_t limit) const;
@@ -479,7 +507,8 @@ registerDatasetType(const Package & package,
                         createEntity,
                     TypeCustomRouteHandler docRoute,
                     TypeCustomRouteHandler customRoute,
-                    std::shared_ptr<const ValueDescription> config);
+                    std::shared_ptr<const ValueDescription> config,
+                    std::set<std::string> registryFlags);
 
 /** Register a new dataset kind.  This takes care of registering everything behind
     the scenes.
@@ -490,7 +519,8 @@ registerDatasetType(const Package & package,
                     const Utf8String & name,
                     const Utf8String & description,
                     const Utf8String & docRoute,
-                    TypeCustomRouteHandler customRoute = nullptr)
+                    TypeCustomRouteHandler customRoute = nullptr,
+                    std::set<std::string> registryFlags = {})
 {
     return registerDatasetType
         (package, name, description,
@@ -502,7 +532,8 @@ registerDatasetType(const Package & package,
          },
          makeInternalDocRedirect(package, docRoute),
          customRoute,
-         getDefaultDescriptionSharedT<Config>());
+         getDefaultDescriptionSharedT<Config>(),
+         registryFlags);
 }
 
 template<typename DatasetT, typename Config>
@@ -511,10 +542,11 @@ struct RegisterDatasetType {
                         const Utf8String & name,
                         const Utf8String & description,
                         const Utf8String & docRoute,
-                        TypeCustomRouteHandler customRoute = nullptr)
+                        TypeCustomRouteHandler customRoute = nullptr,
+                        std::set<std::string> registryFlags = {})
     {
         handle = registerDatasetType<DatasetT, Config>
-            (package, name, description, docRoute, customRoute);
+            (package, name, description, docRoute, customRoute, registryFlags);
     }
 
     std::shared_ptr<DatasetType> handle;

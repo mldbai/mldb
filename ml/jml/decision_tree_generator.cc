@@ -1142,7 +1142,7 @@ train_recursive(Thread_Context & context,
         for (unsigned i = 0;  i < in_class.size();  ++i) {
             binary_weights[i] = weights[i][0];
         }
-        
+
         TreeTrainer<W, Z> trainer(tree, max_depth, features, advance,
                                   predicted, trace, update_alg, feature_space,
                                   validate);

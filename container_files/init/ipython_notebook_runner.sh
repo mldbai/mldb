@@ -10,7 +10,7 @@ if [ -L {{IPYTHON_NB_DIR}}/_demos/_latest ]; then
     rm {{IPYTHON_NB_DIR}}/_demos/_latest
 fi
 if [ ! -f {{IPYTHON_NB_DIR}}/_demos/_latest ]; then
-    ln -s {{IPYTHON_NB_DIR}}/_demos/v{{VERSION_NAME2}} {{IPYTHON_NB_DIR}}/_demos/_latest 
+    ln -rs {{IPYTHON_NB_DIR}}/_demos/v{{VERSION_NAME2}} {{IPYTHON_NB_DIR}}/_demos/_latest 
 fi
 
 /sbin/setuser _mldb mkdir -p {{IPYTHON_NB_DIR}}/_tutorials/v{{VERSION_NAME2}}
@@ -19,7 +19,7 @@ if [ -L {{IPYTHON_NB_DIR}}/_tutorials/_latest ]; then
     rm {{IPYTHON_NB_DIR}}/_tutorials/_latest
 fi 
 if [ ! -f {{IPYTHON_NB_DIR}}/_tutorials/_latest ]; then
-    ln -s {{IPYTHON_NB_DIR}}/_tutorials/v{{VERSION_NAME2}} {{IPYTHON_NB_DIR}}/_tutorials/_latest 
+    ln -rs {{IPYTHON_NB_DIR}}/_tutorials/v{{VERSION_NAME2}} {{IPYTHON_NB_DIR}}/_tutorials/_latest 
 fi
 
 cp {{MLDB_PUBLIC_HTML_PATH}}/favicon.ico {{IPYTHON_IMAGES_DIR}}/favicon.ico
@@ -32,5 +32,10 @@ if [ ! -e {{IPYTHON_DIR}}/profile_default ] ; then
     /sbin/setuser _mldb cp {{IPYTHON_DIR}}/custom.css {{IPYTHON_DIR}}/profile_default/static/custom/custom.css
 fi
 
-IPYTHONDIR={{IPYTHON_DIR}} exec /sbin/setuser _mldb /usr/local/bin/jupyter notebook --log-level=ERROR --config={{IPYTHON_DIR}}/ipython_extra_config.py
+export IPYTHONDIR={{IPYTHON_DIR}}
+export SHELL="/bin/bash"
+exec /sbin/setuser _mldb \
+        /usr/local/bin/jupyter notebook \
+        --log-level=ERROR \
+        --config={{IPYTHON_DIR}}/ipython_extra_config.py
  

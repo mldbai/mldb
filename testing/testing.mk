@@ -261,8 +261,10 @@ $(eval $(call mldb_unit_test,MLDB-1353-EM.py))
 $(eval $(call mldb_unit_test,MLDB-1361_join_on_subselect.py))
 $(eval $(call mldb_unit_test,MLDB-1364_dataset_cant_be_overwritten.py))
 $(eval $(call mldb_unit_test,MLDB-1336-builtin-checks.py))
+$(eval $(call mldb_unit_test,MLDB-1433-random-forest.py))
 $(eval $(call mldb_unit_test,MLDB-1430-aggregate-bug.py))
 $(eval $(call mldb_unit_test,MLDB-1428-text-sparse-output.py))
+$(eval $(call mldb_unit_test,MLDB-1440_sqlexpr_ignore_unknown_param.py))
 
 $(eval $(call mldb_unit_test,pytanic_plugin_test.py))
 $(eval $(call python_test,mldb_merged_dataset_test,mldb_py_runner))
@@ -324,6 +326,7 @@ $(eval $(call mldb_unit_test,get_http_bound_address.py))
 $(eval $(call mldb_unit_test,get_http_bound_address.js))
 $(eval $(call mldb_unit_test,MLDB-815-sparse-mutable-record-strings.js))
 $(eval $(call mldb_unit_test,MLDB-1395-error-message-file-doesnt-exist.js))
+$(eval $(call mldb_unit_test,ranking_test.py))
 
 # The MLDB-1398 test case requires a library and a plugin
 # Tensorflow plugins

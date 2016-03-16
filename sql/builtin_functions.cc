@@ -1730,7 +1730,7 @@ BoundFunction tokenize(const std::vector<BoundSqlExpression> & args)
                 Utf8String text = args[0].toUtf8String();
 
                 Utf8String splitchar = ",";
-                Utf8String quotechar = "\"";
+                Utf8String quotechar = "";
                 int offset = 0;
                 int limit = -1;
                 int min_token_length = 1;
@@ -1801,7 +1801,7 @@ BoundFunction token_extract(const std::vector<BoundSqlExpression> & args)
                 Utf8String text = args[0].toUtf8String();
 
                 Utf8String splitchar = ",";
-                Utf8String quotechar = "\"";
+                Utf8String quotechar = "";
                 int offset = 0;
                 int limit = 1;
                 int min_token_length = 1;

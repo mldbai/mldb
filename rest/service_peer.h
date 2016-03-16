@@ -13,6 +13,7 @@
 #include "peer_discovery.h"
 #include "mldb/watch/watch.h"
 #include "mldb/rest/http_rest_service.h"
+#include "mldb/utils/log_fwd.h"
 
 namespace Datacratic {
 
@@ -248,6 +249,8 @@ private:
     createHttpWatch(RestConnection & connection,
                     const RestRequest & req,
                     const RestRequestParsingContext & context);
+
+    std::shared_ptr<spdlog::logger> logger;
 };
 
 extern template class RestCollection<std::string, RemotePeer>;
