@@ -3,13 +3,11 @@
 # 2016-02-04
 # This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
 #
-
 # add this line to testing.mk:
 # $(eval $(call mldb_unit_test,MLDBFB-336-sample_test.py,,manual))
-
+#
 
 import unittest
-import datetime
 
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
@@ -399,6 +397,7 @@ class TemporalTest(MldbUnitTest):
             ]
         )
 
+    @unittest.expectedFailure
     def test_as_issue(self):
         """MLDBFB-415 temporal_min({*}) AS * issue"""
         ds = mldb.create_dataset({'id' : 'ds', 'type' : 'sparse.mutable'})
