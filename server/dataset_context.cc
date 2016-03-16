@@ -13,6 +13,7 @@
 #include "mldb/server/dataset_collection.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/jml/utils/lightweight_hash.h"
+#include "mldb/sql/sql_utils.h"
 
 using namespace std;
 
@@ -107,72 +108,6 @@ SqlExpressionDatasetContext(const BoundTableExpression& boundDataset)
 : SqlExpressionMldbContext(boundDataset.dataset->server), dataset(*boundDataset.dataset), alias(boundDataset.asName)
 {
     boundDataset.dataset->getChildAliases(childaliases);
-}
-
-//This is for the single-dataset context, when binding a variable
-//If we know the alias of the dataset we are working on, this will remove it from the variable's name
-//since it is not needed in this context.
-//It will also verify that the variable identifier does not explicitly specify an dataset that is not of this context.
-//Aka "unknown".identifier
-Utf8String
-SqlExpressionDatasetContext::
-removeTableName(const Utf8String & variableName) const
-{    
-    Utf8String shortVariableName = variableName;
-
-    if (!alias.empty() && !variableName.empty()) {
-
-        Utf8String aliasWithDot = alias + ".";
-
-        if (!shortVariableName.removePrefix(aliasWithDot)) {
-
-            //check if there is a quoted prefix
-            auto it1 = shortVariableName.begin();
-            if (*it1 == '\"')
-            {
-                ++it1;
-                auto end1 = shortVariableName.end();
-                auto it2 = alias.begin(), end2 = alias.end();
-
-                while (it1 != end1 && it2 != end2 && *it1 == *it2) {
-                    ++it1;
-                    ++it2;
-                }
-
-                if (it2 == end2 && it1 != end1 && *(it1) == '\"') {
-
-                    shortVariableName.erase(shortVariableName.begin(), it1);
-                    it1 = shortVariableName.begin();
-                    end1 = shortVariableName.end();
-
-                    //if the context's dataset name is specified we requite a .identifier to follow
-                    if (it1 == end1 || *(++it1) != '.') 
-                        throw HttpReturnException(400, "Expected a dot '.' after table name " + alias);
-                    else
-                        shortVariableName.erase(shortVariableName.begin(), ++it1);
-                }
-                else {
-
-                    //no match, but return an error on an unknown explicit table name.
-                    while (it1 != end1) {
-                        if (*it1 == '\"') {
-                            if (++it1 != end1)
-                            {
-                                Utf8String datasetName(shortVariableName.begin(), it1);
-                                throw HttpReturnException(400, "Unknown dataset '" + datasetName + "'");
-                            }  
-                        }
-                        else {
-                            ++it1;
-                        }
-                    }
-
-                }
-            }  
-        }
-    }   
-
-    return std::move(shortVariableName); 
 }
 
 //After putting the variable name in context, this will remove unneeded outer quotes
@@ -291,7 +226,7 @@ doGetVariable(const Utf8String & tableName,
     if (!childaliases.empty())
         simplifiedVariableName = resolveTableName(variableName);
     else
-        simplifiedVariableName = removeQuotes(removeTableName(variableName));
+        simplifiedVariableName = removeQuotes(removeTableName(alias, variableName));
 
     ColumnName columnName(simplifiedVariableName);
 
@@ -318,13 +253,24 @@ doGetFunction(const Utf8String & tableName,
               const std::vector<BoundSqlExpression> & args,
               SqlBindingScope & argScope)
 {
+
+    Utf8String resolvedTableName = tableName;
+    Utf8String resolvedFunctionName = functionName;
+
+    //Dont call "resolveTableName" for function because it puts quotes to resolve variables ambiguity
+    if (tableName.empty()) {
+        resolvedFunctionName = removeTableName(alias, functionName);
+        if (resolvedFunctionName != functionName)
+            resolvedTableName = alias;
+    }
+
     // First, let the dataset either override or implement the function
     // itself.
-    auto fnoverride = dataset.overrideFunction(tableName, functionName, argScope);
+    auto fnoverride = dataset.overrideFunction(resolvedTableName, resolvedFunctionName, argScope);
     if (fnoverride)
         return fnoverride;
 
-    if (functionName == "rowName") {
+    if (resolvedFunctionName == "rowName") {
         return {[=] (const std::vector<ExpressionValue> & args,
                      const SqlRowScope & context)
                 {
@@ -336,7 +282,7 @@ doGetFunction(const Utf8String & tableName,
                 };
     }
 
-    if (functionName == "rowHash") {
+    if (resolvedFunctionName == "rowHash") {
         return {[=] (const std::vector<ExpressionValue> & args,
                      const SqlRowScope & context)
                 {
@@ -351,7 +297,7 @@ doGetFunction(const Utf8String & tableName,
     /* columnCount function: return number of columns with explicit values set
        in the current row.
     */
-    if (functionName == "columnCount") {
+    if (resolvedFunctionName == "columnCount") {
         return {[=] (const std::vector<ExpressionValue> & args,
                      const SqlRowScope & context)
                 {
@@ -369,7 +315,7 @@ doGetFunction(const Utf8String & tableName,
                 std::make_shared<Uint64ValueInfo>()};
     }
 
-    return SqlBindingScope::doGetFunction(tableName, functionName, args, argScope);
+    return SqlBindingScope::doGetFunction(resolvedTableName, resolvedFunctionName, args, argScope);
 }
 
 VariableGetter
@@ -498,10 +444,10 @@ doGetAllColumns(const Utf8String & tableName,
 GenerateRowsWhereFunction
 SqlExpressionDatasetContext::
 doCreateRowsWhereGenerator(const SqlExpression & where,
-                  ssize_t offset,
-                  ssize_t limit)
+                           ssize_t offset,
+                           ssize_t limit)
 {
-    auto res = dataset.generateRowsWhere(*this, where, offset, limit);
+    auto res = dataset.generateRowsWhere(*this, alias, where, offset, limit);
     if (!res)
         throw HttpReturnException(500, "Dataset returned null generator",
                                   "datasetType", ML::type_name(dataset));
@@ -551,7 +497,7 @@ doResolveTableName(const Utf8String & fullVariableName, Utf8String &tableName) c
         return removeQuotes(resolveTableName(fullVariableName, tableName));
     }
     else {
-        Utf8String simplifiedVariableName = removeQuotes(removeTableName(fullVariableName));
+        Utf8String simplifiedVariableName = removeQuotes(removeTableName(alias, fullVariableName));
         if (simplifiedVariableName != fullVariableName)
             tableName = alias;
         return std::move(simplifiedVariableName);

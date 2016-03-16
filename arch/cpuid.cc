@@ -114,7 +114,7 @@ std::string model_id()
 {
     uint32_t cpuid_extlevel = cpuid(CPUID_EXT_LEVEL).eax;
 
-    cerr << "cpuid_extlevel = " << setw(16) << cpuid_extlevel << endl;
+    //cerr << "cpuid_extlevel = " << setw(16) << cpuid_extlevel << endl;
 
     if (cpuid_extlevel < 0x80000000 || cpuid_extlevel > 0x8000ffff)
         return "";  // no model if no extended CPUID

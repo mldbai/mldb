@@ -1363,7 +1363,11 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
                 lhs = std::make_shared<IsTypeExpression>(lhs, notExpr, "number");
             else if (matchKeyword(context, "INTEGER"))
                 lhs = std::make_shared<IsTypeExpression>(lhs, notExpr, "integer");
-            else context.exception("Expected NULL, TRUE, FALSE, STRING, NUMBER or INTEGER after IS {NOT}");
+            else if (matchKeyword(context, "TIMESTAMP"))
+                lhs = std::make_shared<IsTypeExpression>(lhs, notExpr, "timestamp");
+            else if (matchKeyword(context, "INTERVAL"))
+                lhs = std::make_shared<IsTypeExpression>(lhs, notExpr, "interval");
+            else context.exception("Expected NULL, TRUE, FALSE, STRING, NUMBER, INTEGER, TIMESTAMP or INTERVAL after IS {NOT}");
 
             lhs->surface = ML::trim(token.captured());
 

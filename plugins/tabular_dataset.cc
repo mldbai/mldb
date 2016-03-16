@@ -561,6 +561,7 @@ getRowStream() const
 GenerateRowsWhereFunction
 TabularDataset::
 generateRowsWhere(const SqlBindingScope & context,
+                  const Utf8String& alias,
                   const SqlExpression & where,
                   ssize_t offset,
                   ssize_t limit) const
@@ -568,7 +569,7 @@ generateRowsWhere(const SqlBindingScope & context,
     GenerateRowsWhereFunction fn
         = itl->generateRowsWhere(context, where, offset, limit);
     if (!fn)
-        fn = Dataset::generateRowsWhere(context, where, offset, limit);
+        fn = Dataset::generateRowsWhere(context, alias, where, offset, limit);
     return fn;
 }
 

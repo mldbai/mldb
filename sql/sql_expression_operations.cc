@@ -1966,6 +1966,9 @@ bind(SqlBindingScope & context) const
     else if (type == "false") {
         fn = &ExpressionValue::isFalse;
     }
+    else if (type == "interval") {
+        fn = &ExpressionValue::isTimeinterval;
+    }
     else throw HttpReturnException(400, "Unknown type `" + type + "' for IsTypeExpression");
 
     return {[=] (const SqlRowScope & row,
