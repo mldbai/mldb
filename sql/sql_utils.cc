@@ -82,7 +82,7 @@ bool matchSqlFilter(const Utf8String& valueString, const Utf8String& filterStrin
                 break;
             }
             case ('('): {
-                regExFilter += "[()]";
+                regExFilter += "[(]";
                 break;
             }  
             case (')'): {
