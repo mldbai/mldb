@@ -336,9 +336,6 @@ int main(int argc, char ** argv)
     server.threadPool->ensureThreads(numThreads);
     server.httpEndpoint->allowAllOrigins();
 
-    cout << server.httpBoundAddress << endl;
-    cerr << "http listening on " << server.httpBoundAddress << endl;
-
     server.start();
 
     cerr << "\n\nMLDB ready\n\n\n";

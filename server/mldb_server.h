@@ -12,6 +12,7 @@
 #include "mldb/rest/service_peer.h"
 #include "mldb/types/string.h"
 #include "mldb/soa/service/event_service.h"
+#include "mldb/utils/log_fwd.h"
 
 namespace Datacratic {
 
@@ -147,6 +148,7 @@ private:
                          bool hideInternalEntities);
     RestRequestRouter * versionNode;
     std::string cacheDirectory_;
+    std::shared_ptr<spdlog::logger> logger;
 };
 
 } // namespace MLDB
