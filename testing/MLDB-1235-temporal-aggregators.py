@@ -371,7 +371,7 @@ class TemporalTest(MldbUnitTest):
             ]
         )
 
-    def test_temporal_sum_on_row(self):
+    def test_temporal_avg_on_row(self):
         resp = mldb.get('/v1/query',
                         q = 'select temporal_avg({*}) as * from dataset order by rowName()',
                         format = 'full').json()
@@ -397,7 +397,6 @@ class TemporalTest(MldbUnitTest):
             ]
         )
 
-    @unittest.expectedFailure
     def test_as_issue(self):
         """MLDBFB-415 temporal_min({*}) AS * issue"""
         ds = mldb.create_dataset({'id' : 'ds', 'type' : 'sparse.mutable'})
