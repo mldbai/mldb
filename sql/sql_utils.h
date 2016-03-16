@@ -18,6 +18,7 @@ Utf8String escapeSql(const Utf8String & str);
 std::string escapeSql(const std::string & str);
 std::string escapeSql(const char * str);
 
+bool matchSqlFilter(const Utf8String& valueString, const Utf8String& filterString);
 
 } // namespace MLDB
 } // namespace Datacratic

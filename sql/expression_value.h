@@ -557,7 +557,7 @@ struct ExpressionValue {
     CellValue coerceToBlob() const;
 
     // Return the timestamp at which all of the information in this value
-    // was known.  This is used to determine the timestamp of the output
+    // was known.  This is used to determine the timestamp of the outputcellva
     // of an expression involving this value.
     Date getEffectiveTimestamp() const
     {

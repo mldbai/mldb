@@ -15,7 +15,7 @@
 #include <unordered_set>
 #include "mldb/server/dataset_context.h"
 #include "mldb/base/scope.h"
-
+#include "mldb/sql/sql_utils.h"
 
 using namespace std;
 
@@ -2848,6 +2848,105 @@ getChildren() const
     throw HttpReturnException(500, "Unknown IN expression type");
 }
 
+/*****************************************************************************/
+/* LIKE EXPRESSION                                                           */
+/*****************************************************************************/
+
+LikeExpression::
+LikeExpression(std::shared_ptr<SqlExpression> left,
+               std::shared_ptr<SqlExpression> right,
+               bool negative)
+    : left(std::move(left)),
+      right(std::move(right)),
+      isnegative(negative)
+{
+}
+
+BoundSqlExpression
+LikeExpression::
+bind(SqlBindingScope & context) const
+{
+    BoundSqlExpression boundLeft  = left->bind(context);
+    BoundSqlExpression boundRight  = right->bind(context);
+
+    return {[=] (const SqlRowScope & rowScope,
+                     ExpressionValue & storage,
+                     const VariableFilter & filter) -> const ExpressionValue &
+        {
+            ExpressionValue vstorage, fstorage;
+
+            const ExpressionValue & value = boundLeft(rowScope, vstorage, filter);
+
+            if (!value.isString())
+                throw HttpReturnException(400, "LIKE expression expected its left hand value to be a string, got " + value.getTypeAsUtf8String());
+
+            const ExpressionValue & filterEV = boundRight(rowScope, fstorage, filter);
+
+            if (!filterEV.isString())
+                throw HttpReturnException(400, "LIKE expression expected its right hand value to be a string, got " + filterEV.getTypeAsUtf8String());
+
+            Utf8String valueString = value.toUtf8String();
+            Utf8String filterString = filterEV.toUtf8String();
+
+            bool matched = matchSqlFilter(valueString, filterString);
+
+            return storage = std::move(ExpressionValue(matched != isnegative, std::max(value.getEffectiveTimestamp(), filterEV.getEffectiveTimestamp())));
+        },
+        this,
+        std::make_shared<BooleanValueInfo>()};
+}
+
+Utf8String
+LikeExpression::
+print() const
+{
+    Utf8String result
+        = (isnegative ? "not like(" : "like(")
+        + left->print()
+        + ","
+        + right->print()
+        + ")";
+
+    return std::move(result);
+}
+
+std::shared_ptr<SqlExpression>
+LikeExpression::
+transform(const TransformArgs & transformArgs) const
+{
+    auto result = std::make_shared<LikeExpression>(*this);
+    result->left  = result->left->transform(transformArgs);
+    result->right  = result->right->transform(transformArgs);
+
+    return result;
+}
+
+std::string
+LikeExpression::
+getType() const
+{
+    return "like";
+}
+
+Utf8String
+LikeExpression::
+getOperation() const
+{
+    return Utf8String();
+}
+
+std::vector<std::shared_ptr<SqlExpression> >
+LikeExpression::
+getChildren() const
+{
+    std::vector<std::shared_ptr<SqlExpression> > children;
+
+    children.emplace_back(std::move(left));
+    children.emplace_back(std::move(right));
+
+    return std::move(children);
+
+}
 
 /*****************************************************************************/
 /* CAST EXPRESSION                                                           */
