@@ -40,7 +40,7 @@ $(eval $(call test,mldb_internal_plugin_doc_test,mldb,boost))
 
 
 
-$(eval $(call test,mldb_config_persistence_test,mldb,boost))
+$(eval $(call test,mldb_config_persistence_test,mldb,boost manual)) #this code will be removed as part of MLDB-1441
 $(eval $(call test,mldb_startup_test,mldb,boost))
 $(eval $(call test,mldb_plugin_delete_test,mldb,boost))
 $(eval $(call test,pyplugin_static_folder_test,mldb,boost))
