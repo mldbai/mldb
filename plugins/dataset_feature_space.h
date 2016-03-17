@@ -14,6 +14,7 @@
 #include "mldb/sql/dataset_types.h"
 #include "mldb/core/dataset.h"
 #include "mldb/server/bucket.h"
+#include "mldb/ml/jml/label.h"
 
 namespace Datacratic {
 namespace MLDB {
@@ -53,10 +54,16 @@ struct DatasetFeatureSpace: public ML::Feature_Space {
         ML::Feature_Info info;
         int index;
 
-        // These are only filled in if bucketize is true on construction
         int distinctValues;
+
+        // These are only filled in if bucketize is true on construction
         BucketList buckets;
         BucketDescriptions bucketDescriptions;
+
+        std::string print() const {
+            return "[Column '"+columnName.toString()+"'; Info: "+info.print()+
+                "; distinctVals: "+std::to_string(distinctValues)+"]";
+        }
     };
 
     static ColumnInfo getColumnInfo(std::shared_ptr<Dataset> dataset,
@@ -85,7 +92,7 @@ struct DatasetFeatureSpace: public ML::Feature_Space {
     float encodeFeatureValue(ColumnHash column, const CellValue & value) const;
 
     /** Encode the label into a feature, returning it. */
-    float encodeLabel(const CellValue & value) const;
+    ML::Label encodeLabel(const CellValue & value, bool isRegression) const;
 
     float encodeValue(const CellValue & value,
                       const ColumnName & columnName,
@@ -165,6 +172,10 @@ struct DatasetFeatureSpace: public ML::Feature_Space {
     void reconstitute(ML::DB::Store_Reader & store);
     void serialize(ML::DB::Store_Writer & store) const;
 };
+
+
+std::ostream & operator << (std::ostream & stream,
+                            const DatasetFeatureSpace::ColumnInfo & columnInfo);
 
 
 } // namespace MLDB

@@ -689,6 +689,8 @@ ClassifyFunction(MldbServer * owner,
     ML::Feature_Info labelInfo = itl->featureSpace->info(labelFeature);
 
     itl->labelInfo = labelInfo;
+
+    isRegression = itl->classifier.label_count() == 1;
 }
 
 ClassifyFunction::
@@ -1012,7 +1014,8 @@ apply(const FunctionApplier & applier,
 
     ML::Explanation expl
         = itl->classifier.impl
-        ->explain(*fset, itl->featureSpace->encodeLabel(context.get<CellValue>("label")));
+        ->explain(*fset, itl->featureSpace->encodeLabel(context.get<CellValue>("label"),
+                                                        isRegression));
 
     result.set("bias", ExpressionValue(expl.bias, ts));
 

@@ -153,6 +153,8 @@ struct ClassifyFunction: public Function {
 
     struct Itl;
     std::shared_ptr<Itl> itl;
+
+    bool isRegression;
 };
 
 /*****************************************************************************/

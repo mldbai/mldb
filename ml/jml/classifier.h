@@ -22,6 +22,7 @@
 #include <boost/multi_array.hpp>
 #include <string>
 #include "mldb/jml/utils/unnamed_bool.h"
+#include "mldb/ml/jml/label.h"
 
 namespace ML {
 
@@ -426,12 +427,12 @@ public:
         given way.  If not implemented, an exception will be thrown.
     */
     virtual Explanation explain(const Feature_Set & feature_set,
-                                float label,
+                                const ML::Label & label,
                                 double weight = 1.0,
                                 PredictionContext * context = 0) const;
 
     virtual Explanation explainContext(const Feature_Set & feature_set,
-                                       float label,
+                                       const ML::Label & label,
                                        const PredictionContext & context,
                                        double weight = 1.0) const
     {
