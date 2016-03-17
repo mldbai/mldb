@@ -31,16 +31,16 @@ struct Label {
     Label() { label_ = 0; }
     Label(int lab) { label_ = lab; val_ = lab;}
     Label(unsigned lab) { label_ = lab; val_ = lab; }
-    Label(float val) : label_(0) { val_ = val; }
-    Label(double val) : label_(0) { val_ = val; }
+    Label(float val) { val_ = val; }
+    Label(double val) { val_ = val; }
     
     operator int () const { return label_; }
     operator int & () { return label_; }
     
-    //union {
+    union {
         int label_;
         float val_;
-    //};
+    };
     float value() const { return val_; }
     float & value() { return val_; }
     
