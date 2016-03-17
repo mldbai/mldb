@@ -27,10 +27,10 @@ cp {{MLDB_PUBLIC_HTML_PATH}}/resources/images/mldb_ipython_logo.png {{IPYTHON_IM
 
 if [ ! -e {{IPYTHON_DIR}}/profile_default ] ; then
     IPYTHONDIR={{IPYTHON_DIR}} /sbin/setuser _mldb /usr/local/bin/ipython profile create --log-level=ERROR
-    /sbin/setuser _mldb mkdir -p {{IPYTHON_DIR}}/profile_default/static/custom
-    /sbin/setuser _mldb cp {{IPYTHON_DIR}}/custom.js {{IPYTHON_DIR}}/profile_default/static/custom/custom.js
-    /sbin/setuser _mldb cp {{IPYTHON_DIR}}/custom.css {{IPYTHON_DIR}}/profile_default/static/custom/custom.css
 fi
+/sbin/setuser _mldb mkdir -p {{IPYTHON_DIR}}/profile_default/static/custom
+/sbin/setuser _mldb cp {{IPYTHON_DIR}}/custom.js {{IPYTHON_DIR}}/profile_default/static/custom/custom.js
+/sbin/setuser _mldb cp {{IPYTHON_DIR}}/custom.css {{IPYTHON_DIR}}/profile_default/static/custom/custom.css
 
 export IPYTHONDIR={{IPYTHON_DIR}}
 export SHELL="/bin/bash"
