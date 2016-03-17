@@ -43,7 +43,7 @@ KmeansConfigDescription()
     Optional<PolyConfigT<Dataset> > optional;
     optional.emplace(PolyConfigT<Dataset>().
                      withType(KmeansConfig::defaultOutputDatasetType));
-    
+
     addField("trainingData", &KmeansConfig::trainingData,
              "Specification of the data for input to the k-means procedure.  This should be "
              "organized as an embedding, with each selected row containing the same "
@@ -143,7 +143,7 @@ run(const ProcedureRunConfig & run,
 
     // an empty url is allowed but other invalid urls are not
     if(!runProcConf.modelFileUrl.empty() && !runProcConf.modelFileUrl.valid()) {
-        throw ML::Exception("modelFileUrl \"" + 
+        throw ML::Exception("modelFileUrl \"" +
                             runProcConf.modelFileUrl.toString() + "\" is not valid");
     }
 
@@ -339,14 +339,21 @@ apply(const FunctionApplier & applier,
     // Extract an embedding with the given column names
     ExpressionValue storage;
     const ExpressionValue & inputVal = context.get("embedding", storage);
+    
+    // if we're passing in a row, we're assuming the columns are
+    // in the right order so we prevent the alphabetical sorting
+    // TODO MLDB-1486
+    bool sortColumns = inputRow.isEmbedding();
+    ML::distribution<float> input = inputVal.getEmbedding(dimension, sortColumns);
 
-    ML::distribution<float> input = inputVal.getEmbedding(dimension);
+    //cout << input << endl;
+
     Date ts = inputVal.getEffectiveTimestamp();
 
     int bestCluster = impl->kmeans.assign(input);
 
     result.set("cluster", ExpressionValue(bestCluster, ts));
-    
+
     return result;
 }
 

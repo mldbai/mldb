@@ -10,10 +10,9 @@
 
 
 #include "mldb/core/dataset.h"
+#include "mldb/core/function.h"
 #include "mldb/types/value_description.h"
 #include "metric_space.h"
-#include "sql/sql_expression.h"
-#include "mldb/core/function.h"
 
 namespace Datacratic {
 namespace MLDB {
@@ -65,11 +64,6 @@ struct EmbeddingDataset: public Dataset {
     overrideFunction(const Utf8String & tableName,
                      const Utf8String & functionName,
                      SqlBindingScope & context) const;
-
-    virtual RestRequestMatchResult
-    handleRequest(RestConnection & connection,
-                  const RestRequest & request,
-                  RestRequestParsingContext & context) const;
 
     virtual std::pair<Date, Date> getTimestampRange() const;
     virtual Date quantizeTimestamp(Date timestamp) const;
