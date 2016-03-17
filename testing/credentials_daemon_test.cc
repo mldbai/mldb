@@ -102,13 +102,17 @@ struct SubprocessCredentialsdRunner {
 
         onStdOut = [&] (const std::string & data)
             {
-                cerr << "got std out/err data " << data << endl;
-            
                 vector<string> lines;
                 boost::split(lines, data, boost::is_any_of("\n"));
 
                 for (auto & l: lines) {
                     cerr << l << endl;
+                    if (l.find("key_id") != string::npos)
+                        BOOST_CHECK_MESSAGE(false, "key id leaked to log");
+
+                    if (l.find("key_secret") != string::npos)
+                        BOOST_CHECK_MESSAGE(false, "key secret leaked to log");
+
                     if (l.find("Credentials available on ") != 0)
                         continue;
 
@@ -122,9 +126,6 @@ struct SubprocessCredentialsdRunner {
                     string uri = fields[3];
                     gotAddress.set_value(uri);
                 
-                    // We don't need any more data back
-                    onStdOut = nullptr;
-
                     return;
                 }
             };
@@ -185,7 +186,7 @@ struct SubprocessCredentialsdRunner {
     std::atomic<bool> shutdown;
 
     std::function<void (const std::string &) > onStdOut;
-
+  
     std::string daemonUri;
 
     void commandHasTerminated(const RunResult & result)
@@ -309,6 +310,35 @@ BOOST_AUTO_TEST_CASE( test_credentials_daemon )
     } catch (const std::exception & exc) {
         cerr << "reading deleted creds got expected error " << exc.what() << endl;
     }
+    
+    auto s3CredsStored = make_shared<StoredCredentials>(StoredCredentials{
+        "aws:s3", //type
+        "s3://",  //resource
+        "",       //role
+        "",       //operation
+        Date(),   //expiration
+        Json::Value(), //extra
+        {
+            "",     //provider
+            "http",
+            "s3.amazonaws.com",
+            "key_id",
+            "key_secret",
+            Json::Value(), //extra
+            Date() //validUntil
+        }
+        });
+
+    CredentialRuleConfig s3Creds = {"mys3creds", s3CredsStored};
+
+    auto resp2 = proxy.post("/v1/rules", jsonEncode(s3Creds));
+    cerr << resp2 << endl;
+
+    auto resp3 = proxy.get("/v1/rules/mys3creds");
+    cerr << resp3 << endl;
+
+    auto resp4 = proxy.get("/v1/types/aws:s3/resources/s3:///credentials");
+    cerr << resp4 << endl;
 
     //daemon.shutdown();
 }
