@@ -1,5 +1,13 @@
 function mldb_defer() {
     if (window.jQuery) {
+        $('#tabs a[href="#notebooks"]')
+            .text("Notebooks & Files")
+            .css({"font-size": "18px"})                                       
+        $('#tabs a[href="#running"]')
+            .text("Active Jupyter Processes")
+            .css({"font-size": "18px"});                                 
+        $('#tabs a[href="#clusters"]').remove();    
+
         $("#header-container").append(
             $("<div>", {class:"pull-right", style:"padding: 10px;"}).append(
                 $("<a>", {href:"{{HTTP_BASE_URL}}/doc", style:"font-weight: bold; padding: 10px;"}).text("MLDB Documentation")
