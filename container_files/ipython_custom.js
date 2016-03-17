@@ -4,7 +4,7 @@ function mldb_defer() {
             .text("Notebooks & Files")
             .css({"font-size": "18px"})                                       
         $('#tabs a[href="#running"]')
-            .text("Active Jupyter Processes")
+            .text("Active Notebooks")
             .css({"font-size": "18px"});                                 
         $('#tabs a[href="#clusters"]').remove();    
 
@@ -23,8 +23,10 @@ function mldb_defer() {
         if(window.location.pathname.endsWith("tree")){
             $("#tab_content").before(
                 $("<div align=center>").append(
-                    $('<iframe width="530" height="300"  style="border: 1px solid grey; margin: 10px;" src="https://www.youtube.com
-/embed/YR9tfxA0kH8" frameborder="0" allowfullscreen>')
+                    $('<iframe width="530" height="300" '+
+                        'style="border: 1px solid grey; margin: 10px;" '+
+                        'src="https://www.youtube.com/embed/YR9tfxA0kH8" '+
+                        'frameborder="0" allowfullscreen>')
                 )
             );
         }
