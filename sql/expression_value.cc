@@ -1572,7 +1572,6 @@ bool
 ExpressionValue::
 isRow() const
 {
-    cout << "in is row" << endl;
     return type_ == ROW || type_ == STRUCT;
 }
 
