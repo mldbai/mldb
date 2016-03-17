@@ -346,7 +346,7 @@ apply(const FunctionApplier & applier,
     // if we're passing in a row, we're assuming the columns are
     // in the right order so we prevent the alphabetical sorting
     // TODO MLDB-1486
-    bool sortColumns = inputRow.isEmbedding();
+    bool sortColumns = inputVal.isEmbedding();
     ML::distribution<float> input = inputVal.getEmbedding(dimension, sortColumns);
 
     //cout << input << endl;
