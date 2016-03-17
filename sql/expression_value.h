@@ -537,7 +537,7 @@ struct ExpressionValue {
 
     std::basic_string<char32_t> toWideString() const;
 
-    Utf8String getTypeAsUtf8String() const;
+    std::string getTypeAsString() const;
 
     const CellValue & getAtom() const;
 
@@ -806,6 +806,31 @@ private:
     };
 
     Type type_;
+
+    static inline std::string print(Type t) {
+        switch (t)  {
+        case NONE:      return "empty";
+        case ATOM:      return "atomic value";
+        case ROW:       return "row";
+        case STRUCT:    return "struct";
+        case EMBEDDING: return "embedding";
+        default:
+            throw ML::Exception("Unknown ExpressionValue type: " + t);
+        }
+    }
+
+    void inline assertType(Type requested, const std::string & details="") const {
+        if(requested != type_) {
+            std::string msg = "Cannot convert value of type "
+                        "'" + print(type_) + "' to "
+                        "'" + print(requested) + "'";
+            if(!details.empty()) {
+                msg += " (" + details+ ")";
+            }
+
+            throw ML::Exception(msg);
+        }
+    }
 
     /// This is how we store a structure with a single value for each
     /// element and an external set of column names
