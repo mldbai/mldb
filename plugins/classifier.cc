@@ -870,7 +870,7 @@ apply(const FunctionApplier & applier_,
     else {
         if(!fset) {
             throw ML::Exception("Feature_Set is null! Are you giving only null features to "
-                " the classifier function?");
+                "the classifier function?");
         }
 
         if (cat) {
