@@ -67,11 +67,14 @@ var resp = mldb.get("/v1/query", { q: "select * from git limit 10",
                                    format: "sparse" }).json;
 
 mldb.log(resp);
+if(resp.length != 10) {
+    throw "Expected result of length 10";
+}
 
 var svdConfig = {
     type: "svd.train",
     params: {
-        trainingData: "select  *excluding (message, parent) from git",
+        trainingData: "select  * excluding (message, parent) from git",
         columnOutputDataset: { "id": "git_svd_embedding", type: "embedding" }
     }
 };
@@ -99,7 +102,8 @@ var tsneConfig = {
 //createAndRunProcedure(tsneConfig, 'tsne');
 
 
-var resp = mldb.get("/v1/query", { q: "select count(*) as cnt, author, min(when({*})) as earliest, max(when({*})) as latest, sum(filesChanged) as changes, sum(insertions) as insertions, sum(deletions) as deletions from git group by author order by cnt desc limit 5", format: 'table', rowNames: false }).json;
+var resp = mldb.get("/v1/query", { q: 
+    "select count(*) as cnt, author, temporal_earliest({*}) as earliest, temporal_latest({*}) as latest, sum(filesChanged) as changes, sum(insertions) as insertions, sum(deletions) as deletions from git group by author order by cnt desc limit 5", format: 'table', rowNames: false }).json;
 
 mldb.log(resp);
 

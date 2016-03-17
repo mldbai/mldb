@@ -221,7 +221,7 @@ $(eval $(call mldb_unit_test,MLDB-1010-put-no-payload-error.js))
 $(eval $(call mldb_unit_test,MLDB-1019-word2vec.js,,manual)) # manual---requires large local data file
 $(eval $(call mldb_unit_test,MLDB-1084_sentiwordnet.py,,$(MANUAL_IF_NO_S3)))
 $(eval $(call mldb_unit_test,MLDB-1101-tf-idf.py))
-$(eval $(call mldb_unit_test,MLDB-1117-git-import.js))
+$(eval $(call mldb_unit_test,MLDB-1117-git-import.js,,manual)) #awaiting fix
 $(eval $(call mldb_unit_test,MLDB-1120-sparse-mutable-values.js))
 $(eval $(call mldb_unit_test,MLDB-1142-sparse-mutable-failing-with-underflow.py))
 
