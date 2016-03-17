@@ -516,6 +516,8 @@ struct SelectColumnExpression: public SqlRowExpression {
     }
 
     virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
+
+    std::map<ScopedName, UnboundWildcard> wildcards() const;
 };
 
 } // namespace MLDB

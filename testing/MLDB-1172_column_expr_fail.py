@@ -35,7 +35,6 @@ class ColumnExprTest(MldbUnitTest):  # noqa
                     WHERE regex_match(columnName(), 'feat[[:digit:]]')
                  ORDER BY rowCount() DESC LIMIT 2) from toy""")
 
-    @unittest.expectedFailure
     def test_column_expr_in_where(self):
         ds = mldb.create_dataset({'id' : 'ds', 'type' : 'sparse.mutable'})
         ds.record_row('user1', [['0:behA', 1, 0]])

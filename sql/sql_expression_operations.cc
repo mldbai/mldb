@@ -3375,6 +3375,7 @@ bind(SqlBindingScope & context) const
         auto thisContext = colContext.getColumnContext(columnName);
 
         bool keep = boundWhere(thisContext, GET_LATEST).isTrue();
+
         if (!keep)
             continue;
 
@@ -3460,6 +3461,7 @@ bind(SqlBindingScope & context) const
             auto it = keepColumns.find(name);
             if (it == keepColumns.end())
                 return Utf8String();
+
             return it->second;
         };
     
@@ -3532,6 +3534,16 @@ getChildren() const
     for (auto & c: orderBy.clauses)
         add(c.first->getChildren());
 
+    return result;
+}
+
+std::map<ScopedName, UnboundWildcard>
+SelectColumnExpression::
+wildcards() const
+{
+    //COLMUN EXPR has an *implicit* wildcard because it reads all columns.
+    std::map<ScopedName, UnboundWildcard> result;
+    result[{"", "*"}].prefix = "";
     return result;
 }
 
