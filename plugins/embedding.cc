@@ -705,8 +705,6 @@ struct EmbeddingDataset::Itl
     recordRowItl(const RowName & rowName,
                  const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
     {
-        cerr << "recording row " << rowName << endl;
-
         auto repr = committed();
 
         uint64_t rowHash = EmbeddingDatasetRepr::getRowHashForIndex(rowName);
