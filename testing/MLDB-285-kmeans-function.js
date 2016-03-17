@@ -131,4 +131,13 @@ function applyFunction(regex) {
 applyFunction("row0_.*");
 applyFunction("row1_.*");
 
+
+/* pass centroids in kmeans function ane make sure they each get themselves gack */
+rez = mldb.query("select kmeans({embedding: {*}})[cluster] as cluster from kmeans_centroids");
+mldb.log(rez)
+for(var i=0; i<2; i++)
+    assert(rez[i]["rowName"] == rez[i]["columns"][0][1])
+
+
+
 "success"

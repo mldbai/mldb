@@ -239,14 +239,12 @@ struct EmbeddingDataset::Itl
     Itl(MetricSpace metric)
         : metric(metric), committed(lock, metric), uncommitted(nullptr)
     {
-        initRoutes();
     }
 
     // TODO: make it loadable...
     Itl(const std::string & address, MetricSpace metric)
         : metric(metric), committed(lock, metric), uncommitted(nullptr), address(address)
     {
-        initRoutes();
     }
 
     ~Itl()
@@ -266,22 +264,6 @@ struct EmbeddingDataset::Itl
     std::string address;
 
     RestRequestRouter router;
-
-    void initRoutes()
-    {
-        addRouteSyncJsonReturn(router, "/rowNeighbours", {"GET"},
-                               "Return the nearest neighbours of a known row",
-                               "Tuple of [rowName, rowId, distance]",
-                               &Itl::getRowNeighbours,
-                               this,
-                               RestParam<RowName>("row", "The row to query"),
-                               RestParamDefault<int>("numNeighbours",
-                                                     "Number of neighbours to find",
-                                                     10),
-                               RestParamDefault<double>("maxDistance",
-                                                        "Maximum distance to return",
-                                                        INFINITY));
-    }
 
     virtual std::vector<RowName>
     getRowNames(ssize_t start = 0, ssize_t limit = -1) const
@@ -910,7 +892,7 @@ struct EmbeddingDataset::Itl
 
         auto neighbours = repr->vpTree->search(dist, numNeighbours, maxDistance);
 
-        //cerr << "neighbours = " << jsonEncode(neighbours) << endl;
+        cerr << "neighbours = " << jsonEncode(neighbours) << endl;
         
         vector<tuple<RowName, RowHash, float> > result;
         for (auto & n: neighbours) {
@@ -956,78 +938,6 @@ struct EmbeddingDataset::Itl
         }
 
         return result;
-    }
-
-    virtual RestRequestMatchResult
-    handleRequest(RestConnection & connection,
-                  const RestRequest & request,
-                  RestRequestParsingContext & context) const
-    {
-        if (context.remaining == "/neighbours") {
-            // get all of the points
-
-            int numNeighbours = 10;
-
-            auto repr = committed();
-            if (!repr->initialized())
-                return RestRequestRouter::MR_NO;
-            
-            ML::distribution<float> vals(repr->columnIndex.size(), 0.0);
-            //std::numeric_limits<float>::quiet_NaN());
-
-            for (auto & p: request.params) {
-                CellValue v = jsonDecodeStr<CellValue>(p.second);
-
-                if (p.first == "numNeighbours") {
-                    numNeighbours = v.toInt();
-                    continue;
-                }
-                ColumnName n(p.first);
-                
-                auto it = repr->columnIndex.find(n);
-                if (it == repr->columnIndex.end()) {
-                    connection.sendErrorResponse(422, "unknown column name '" + p.first + "'");
-                    return RestRequestRouter::MR_ERROR;
-                }
-                vals.at(it->second) = v.toDouble();
-            }
-
-            auto dist = [&] (int item) -> float
-            {
-                float result = repr->dist(item, vals);
-                ExcAssert(isfinite(result));
-                return result;
-            };
-
-            auto neighbours = repr->vpTree->search(dist, numNeighbours, INFINITY);
-
-            //cerr << "neighbours = " << jsonEncode(neighbours) << endl;
-            
-            vector<tuple<RowName, RowHash, float> > result;
-            for (auto & n: neighbours) {
-                result.emplace_back(repr->rows[n.second].rowName,
-                                    repr->rows[n.second].rowName,
-                                    n.first);
-            }
-
-#if 0
-            vector<MatrixNamedRow> result;
-            for (auto & n: neighbours) {
-                MatrixNamedRow row;
-                row.rowName = repr->rows[n.second].rowName;
-                row.rowHash = row.rowName;
-                row.columns.emplace_back(RowName("distance"), n.first, Date());
-                result.emplace_back(std::move(row));
-            }
-#endif
-            
-            connection.sendResponse(200, jsonEncodeStr(result), "application/json");
-
-            return RestRequestRouter::MR_YES;
-            
-        }
-
-        return router.processRequest(connection, request, context);
     }
 
     std::pair<Date, Date> getTimestampRange() const
@@ -1253,16 +1163,6 @@ getKnownColumnInfos(const std::vector<ColumnName> & columnNames) const
     return itl->getKnownColumnInfos(columnNames);
 }
 
-RestRequestMatchResult
-EmbeddingDataset::
-handleRequest(RestConnection & connection,
-              const RestRequest & request,
-              RestRequestParsingContext & context) const
-{
-    return itl->handleRequest(connection, request, context);
-}
-
-
 
 /*****************************************************************************/
 /* NEAREST NEIGHBOUR FUNCTION                                                */
@@ -1372,14 +1272,19 @@ apply(const FunctionApplier & applier_,
         neighbors = applier.embeddingDataset->getRowNeighbours(
                                         RowName(inputRow.toUtf8String()),
                                         num_neighbors, max_distance);
-    } else if(inputRow.isEmbedding()) {
+    }
+    else if(inputRow.isEmbedding() || inputRow.isRow()) {
+        // if we're passing in a row, we're assuming the columns are
+        // in the right order so we prevent the alphabetical sorting
+        // TODO MLDB-1486
+        bool sortColumns = inputRow.isEmbedding();
         neighbors = applier.embeddingDataset->getNeighbours(
-            inputRow.getEmbedding(), 
-            num_neighbors, max_distance);
-    } else {
+                inputRow.getEmbedding(-1, sortColumns),
+                num_neighbors, max_distance);
+    }
+    else {
         throw ML::Exception("Input row must be either a row name or an embedding");
     }
-
 
     RowValue rtnRow;
     for(auto & neighbor : neighbors) {

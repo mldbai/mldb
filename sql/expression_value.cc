@@ -543,36 +543,36 @@ getValueInfoForStorage(StorageType type)
         return std::make_shared<IntegerValueInfo>();
     case ST_UINT8:
         return std::make_shared<IntegerValueInfo>();
-        case ST_INT16:
-            return std::make_shared<IntegerValueInfo>();
-        case ST_UINT16:
-            return std::make_shared<IntegerValueInfo>();
-        case ST_INT32:
-            return std::make_shared<IntegerValueInfo>();
-        case ST_UINT32:
-            return std::make_shared<IntegerValueInfo>();
-        case ST_INT64:
-            return std::make_shared<IntegerValueInfo>();
-        case ST_UINT64:
-            return std::make_shared<Uint64ValueInfo>();
-        case ST_BLOB:
-            return std::make_shared<BlobValueInfo>();
-        case ST_STRING:
-            return std::make_shared<StringValueInfo>();
-        case ST_UTF8STRING:
-            return std::make_shared<Utf8StringValueInfo>();
-        case ST_ATOM:
-            return std::make_shared<AtomValueInfo>();
-        case ST_BOOL:
-            return std::make_shared<BooleanValueInfo>();
-        case ST_TIMESTAMP:
-            return std::make_shared<TimestampValueInfo>();
-        case ST_TIMEINTERVAL:
-            return std::make_shared<AtomValueInfo>();
-        }
-                                            
-        throw HttpReturnException(500, "Unknown embedding storage type",
-                                  "type", type);
+    case ST_INT16:
+        return std::make_shared<IntegerValueInfo>();
+    case ST_UINT16:
+        return std::make_shared<IntegerValueInfo>();
+    case ST_INT32:
+        return std::make_shared<IntegerValueInfo>();
+    case ST_UINT32:
+        return std::make_shared<IntegerValueInfo>();
+    case ST_INT64:
+        return std::make_shared<IntegerValueInfo>();
+    case ST_UINT64:
+        return std::make_shared<Uint64ValueInfo>();
+    case ST_BLOB:
+        return std::make_shared<BlobValueInfo>();
+    case ST_STRING:
+        return std::make_shared<StringValueInfo>();
+    case ST_UTF8STRING:
+        return std::make_shared<Utf8StringValueInfo>();
+    case ST_ATOM:
+        return std::make_shared<AtomValueInfo>();
+    case ST_BOOL:
+        return std::make_shared<BooleanValueInfo>();
+    case ST_TIMESTAMP:
+        return std::make_shared<TimestampValueInfo>();
+    case ST_TIMEINTERVAL:
+        return std::make_shared<AtomValueInfo>();
+    }
+
+    throw HttpReturnException(500, "Unknown embedding storage type",
+                              "type", type);
 }
 
 std::vector<KnownColumn>
@@ -1572,6 +1572,7 @@ bool
 ExpressionValue::
 isRow() const
 {
+    cout << "in is row" << endl;
     return type_ == ROW || type_ == STRUCT;
 }
 
@@ -1819,14 +1820,14 @@ reshape(std::vector<size_t> newShape) const
 
 ML::distribution<float, std::vector<float> >
 ExpressionValue::
-getEmbedding(ssize_t knownLength) const
+getEmbedding(ssize_t knownLength, bool sortColumns) const
 {
-    return getEmbeddingDouble(knownLength).cast<float>();
+    return getEmbeddingDouble(knownLength, sortColumns).cast<float>();
 }
 
 ML::distribution<double, std::vector<double> >
 ExpressionValue::
-getEmbeddingDouble(ssize_t knownLength) const
+getEmbeddingDouble(ssize_t knownLength, bool sortColumns) const
 {
     //cerr << "getEmbedding for " << jsonEncode(*this) << endl;
 
@@ -1846,10 +1847,13 @@ getEmbeddingDouble(ssize_t knownLength) const
             features.emplace_back(columnName, val.toDouble());
             return true;
         };
-    
+
     forEachAtom(onAtom);
 
-    std::sort(features.begin(), features.end());
+    // TODO MLDB-1486
+    if(sortColumns) {
+       std::sort(features.begin(), features.end());
+    }
 
     ML::distribution<double> result;
     result.reserve(features.size());
@@ -1858,9 +1862,10 @@ getEmbeddingDouble(ssize_t knownLength) const
         if (result.size() == knownLength)
             break;
     }
-    
+
     if (knownLength != -1 && result.size() != knownLength)
-        throw HttpReturnException(400, Utf8String("Expected ") + to_string(knownLength) + " elements in embedding, got " + to_string(result.size()));;
+        throw HttpReturnException(400, Utf8String("Expected ") + to_string(knownLength) +
+            " elements in embedding, got " + to_string(result.size()));
 
     //cerr << "embedding result is " << result << endl;
 
@@ -1901,7 +1906,7 @@ getEmbedding(const std::vector<ColumnName> & knownNames,
     else if (type_ == EMBEDDING) {
         throw HttpReturnException(400, "getEmbedding for embedding");
     }
-    
+
     auto onSubexpression = [&] (const ColumnName & columnName,
                                 const ColumnName & prefix,
                                 const ExpressionValue & val)
@@ -1924,7 +1929,7 @@ getEmbedding(const std::vector<ColumnName> & knownNames,
             else {
                 if (subEmbedding.size() < numToAdd)
                     numToAdd = subEmbedding.size();
-                
+
                 features.insert(features.end(),
                                 subEmbedding.begin(),
                                 subEmbedding.begin() + numToAdd);
