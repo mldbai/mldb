@@ -6,7 +6,6 @@ cd {{MLDB_DATA_DIR}}
 cat <<EOF
 
 MLDB (version {{VERSION_NAME2}}) is starting up
-
 EOF
 
 export BIN=/opt/bin
