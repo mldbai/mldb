@@ -2881,12 +2881,12 @@ bind(SqlBindingScope & context) const
             const ExpressionValue & value = boundLeft(rowScope, vstorage, filter);
 
             if (!value.isString())
-                throw HttpReturnException(400, "LIKE expression expected its left hand value to be a string, got " + value.getTypeAsUtf8String());
+                throw HttpReturnException(400, "LIKE expression expected its left hand value to be a string, got " + value.getTypeAsString());
 
             const ExpressionValue & filterEV = boundRight(rowScope, fstorage, filter);
 
             if (!filterEV.isString())
-                throw HttpReturnException(400, "LIKE expression expected its right hand value to be a string, got " + filterEV.getTypeAsUtf8String());
+                throw HttpReturnException(400, "LIKE expression expected its right hand value to be a string, got " + filterEV.getTypeAsString());
 
             Utf8String valueString = value.toUtf8String();
             Utf8String filterString = filterEV.toUtf8String();
