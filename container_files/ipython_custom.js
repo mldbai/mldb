@@ -1,12 +1,32 @@
 function mldb_defer() {
     if (window.jQuery) {
+
+        //munge the existing tabs
         $('#tabs a[href="#notebooks"]')
             .text("Notebooks & Files")
             .css({"font-size": "18px"})                                       
         $('#tabs a[href="#running"]')
             .text("Active Notebooks")
-            .css({"font-size": "18px"});                                 
-        $('#tabs a[href="#clusters"]').remove();    
+            .css({"font-size": "18px"});        
+
+        //delete the clusters tab
+        $('#tabs a[href="#clusters"]').parent().remove();   
+        $('#clusters').remove();   
+
+        //add the queries tab
+        $('#tabs').append(
+            $("<li>").append(
+                $('<a href="#queries" data-toggle="tab" aria-expanded="false">')
+                    .text("Query Runner")
+                    .css({"font-size": "18px"})
+            )
+        );
+        $('#running').after(
+            $('<div id="queries" class="tab-pane">').append(
+                $('<iframe width="100%" height="900" frameborder="0" '+
+                        'src="{{HTTP_BASE_URL}}/resources/queries/index.html">')
+            )
+        );
 
         $("#header-container").append(
             $("<div>", {class:"pull-right", style:"padding: 10px;"}).append(

@@ -85,7 +85,7 @@
 	        return cm.getDoc().markText(e.from, e.to, { title: e.msg, className: "errorMark" });
 	    });
 	};
-	var defaultQuery = "select * from reddit_raw limit 1000";
+	var defaultQuery = "select 'you can try queries here!' as instructions";
 	var baseUrl = "{{HTTP_BASE_URL}}/v1/query?format=table&q=";
 	var QueryUI = (function (_super) {
 	    __extends(QueryUI, _super);
@@ -11033,7 +11033,7 @@
 	    process.env.NODE_ENV !== 'production' ? warning(props.innerHTML == null, 'Directly setting property `innerHTML` is not permitted. ' + 'For more information, lookup documentation on `dangerouslySetInnerHTML`.') : undefined;
 	    process.env.NODE_ENV !== 'production' ? warning(!props.contentEditable || props.children == null, 'A component is `contentEditable` and contains `children` managed by ' + 'React. It is now your responsibility to guarantee that none of ' + 'those nodes are unexpectedly modified or duplicated. This is ' + 'probably not intentional.') : undefined;
 	  }
-	  !(props.style == null || typeof props.style === 'object') ? process.env.NODE_ENV !== 'production' ? invariant(false, 'The `style` prop expects a mapping from style properties to values, ' + 'not a string. For example, style={{marginRight: spacing + \'em\'}} when ' + 'using JSX.%s', getDeclarationErrorAddendum(component)) : invariant(false) : undefined;
+	  !(props.style == null || typeof props.style === 'object') ? process.env.NODE_ENV !== 'production' ? invariant(false, 'The `style` prop expects a mapping from style properties to values, ' + 'not a string. For example, style={marginRight: spacing + \'em\'} when ' + 'using JSX.%s', getDeclarationErrorAddendum(component)) : invariant(false) : undefined;
 	}
 	
 	function enqueuePutListener(id, registrationName, listener, transaction) {
@@ -38487,7 +38487,7 @@
 	    function RTable() {
 	        _super.apply(this, arguments);
 	        this.renderTable = function (d) {
-	            return (React.createElement("table", {"id": "resultTable", "className": 'table table-bordered table-striped fixed'}, React.createElement("thead", null, React.createElement("tr", null, d[0].map(function (header, idx) {
+	            return (React.createElement("table", {"id": "resultTable", "className": 'table table-bordered table-striped fixed', 'style': {"width": "initial"}}, React.createElement("thead", null, React.createElement("tr", null, d[0].map(function (header, idx) {
 	                return React.createElement("th", {"key": idx}, header);
 	            }))), React.createElement("tbody", null, d.slice(1).map(function (row, idx) {
 	                return React.createElement("tr", {"key": idx}, row.map(function (cell, col) { return React.createElement("td", {"key": col}, cell); }));
@@ -38495,16 +38495,16 @@
 	        };
 	    }
 	    RTable.prototype.componentDidUpdate = function (prevProps, prevState) {
-	        if (this.props.data[0].length > 0) {
-	            $('#resultTable').DataTable({
-	                paging: false,
-	                scrollX: true,
-	                scrollY: "600px",
-	                search: {
-	                    regex: true,
-	                }
-	            });
-	        }
+	        //if (this.props.data[0].length > 0) {
+	            //$('#resultTable').DataTable({
+	            //    paging: false,
+	            //    //scrollX: true,
+	            //    //scrollY: "600px",
+	            //    search: {
+	            //        regex: true,
+	            //    }
+	            //});
+	        //}
 	    };
 	    RTable.prototype.componentWillReceiveProps = function (newProps) {
 	        ReactDOM.unmountComponentAtNode(this.container);
