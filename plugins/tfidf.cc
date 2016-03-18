@@ -25,6 +25,7 @@
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/plugins/sql_config_validator.h"
+#include <cmath>
 
 using namespace std;
 
@@ -140,8 +141,10 @@ TfidfConfigDescription()
              "terms in the training input appear in then the parameter can be "
              "omitted and the outputDataset param can be provided instead.");
     addField("outputDataset", &TfidfConfig::output,
-             "Output dataset.  This dataset will contain a single row "
-             "containing the number of documents each term appears in.",
+             "Output dataset.  This dataset will contain one row for each "
+             "term appearing in the documents.  The row name will be the term "
+             "and the column ```count``` will contain the number of documents "
+             "containing the term.",
              optional);
     addField("functionName", &TfidfConfig::functionName,
              "If specified, a function of this name will be created using "
@@ -238,15 +241,32 @@ run(const ProcedureRunConfig & run,
         auto output = createDataset(server, outputDataset, onProgress, true /*overwrite*/);
 
         Date applyDate = Date::now();
+        ColumnName columnName("count");
+        uint64_t loadFactor = std::ceil(dfs.load_factor());
 
-        std::vector<std::tuple<ColumnName, CellValue, Date> > row;
-        row.reserve(dfs.size());
+        auto recordRows = [&] (size_t i0, size_t i1)
+        {
+            std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > rows;
+            rows.reserve((i1 - i0)*loadFactor);
+            
+            // for each bucket
+            for (size_t i = i0; i < i1; ++i) {
+                // for each item in bucket
+                for (auto df = dfs.begin(i); df != dfs.end(i); ++df) {
+                    std::vector<std::tuple<ColumnName, CellValue, Date> > columns;
+                    columns.emplace_back(make_tuple(columnName, df->second, applyDate));
+                    rows.emplace_back(make_pair(RowName(df->first), columns));
+                }
+            }
+            
+            output->recordRows(rows);        
+        };
+        
+        // unordered_map does not have a random access iterator on element
+        // but buckets has so process buckets in parallel
+        size_t chunkSize = 256;
+        parallelMapChunked(0, dfs.bucket_count(), chunkSize, recordRows);
 
-        for (auto& df : dfs) {
-            row.emplace_back(ColumnName(df.first), df.second/*(float)count*/, applyDate);
-        }
-
-        output->recordRow(RowName("Number of Documents with Word"), row);        
         output->commit();
     }
 
