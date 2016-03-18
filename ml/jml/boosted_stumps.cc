@@ -753,7 +753,7 @@ merge(const Classifier_Impl & other, float weight) const
 }
 
 struct Results_Explain {
-    Results_Explain(Explanation & result, int label)
+    Results_Explain(Explanation & result, const ML::Label & label)
         : result(result), label(label)
     {
     }
@@ -766,14 +766,14 @@ struct Results_Explain {
     }
     
     Explanation & result;
-    int label;
+    ML::Label label;
     
 };
 
 Explanation
 Boosted_Stumps::
 explain(const Feature_Set & feature_set,
-        int label,
+        const ML::Label & label,
         double weight,
         PredictionContext * context) const
 {

@@ -31,8 +31,11 @@ These functions output a single value where the name depends on the classifier m
 
 ## Status
 
-The status of a Classifier Apply function will return a JSON representation of the
-model parameters of the trained classifier, to allow introspection.
+To allow introspection into a trained model, the following routes of a Classifier function will 
+return status information:
+
+* `/status`: overview of the trained model
+* `/details`: parameters of the trained model, such as weights
 
 ## Examples
 
