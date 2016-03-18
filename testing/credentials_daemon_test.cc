@@ -91,7 +91,8 @@ struct SubprocessCredentialsdRunner {
                                    "--credentials-path",
                                    "file://tmp/credentials_daemon_test/",
                                    "--listen-port",
-                                   "13200-14000" };
+                                   "13200-14000",
+                                   "--verbose"};
         
         auto onTerminate = std::bind(&SubprocessCredentialsdRunner::commandHasTerminated, this,
                                      std::placeholders::_1);
@@ -101,12 +102,13 @@ struct SubprocessCredentialsdRunner {
 
         onStdOut = [&] (const std::string & data)
             {
-                cerr << "got std out data " << data << endl;
+                cerr << "got std out/err data " << data << endl;
             
                 vector<string> lines;
                 boost::split(lines, data, boost::is_any_of("\n"));
 
                 for (auto & l: lines) {
+                    cerr << l << endl;
                     if (l.find("Credentials available on ") != 0)
                         continue;
 
@@ -131,7 +133,7 @@ struct SubprocessCredentialsdRunner {
         runner.run(command,
                    onTerminate,
                    getStdout(),
-                   getStderr());
+                   getStdout());
         
         /* Give it 5 seconds to launch */
         bool started = runner.waitStart(5);
@@ -193,15 +195,6 @@ struct SubprocessCredentialsdRunner {
         this->result = result;
     }
 
-    void onStderrData(std::string && data)
-    {
-        cerr << "stderr got: " << data << endl;
-    }
-
-    void onStderrClose()
-    {
-    }
-
     void onStdoutData(std::string && data)
     {
         //cerr << "stdout: " << data << endl;
@@ -221,14 +214,6 @@ struct SubprocessCredentialsdRunner {
         auto onData = std::bind(&SubprocessCredentialsdRunner::onStdoutData, this,
                                 std::placeholders::_1);
         auto onClose = std::bind(&SubprocessCredentialsdRunner::onStdoutClose, this);
-        return std::make_shared<CallbackInputSink>(onData, onClose);
-    }
-
-    std::shared_ptr<CallbackInputSink> getStderr()
-    {
-        auto onData = std::bind(&SubprocessCredentialsdRunner::onStderrData, this,
-                                std::placeholders::_1);
-        auto onClose = std::bind(&SubprocessCredentialsdRunner::onStderrClose, this);
         return std::make_shared<CallbackInputSink>(onData, onClose);
     }
 };

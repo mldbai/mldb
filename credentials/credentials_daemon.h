@@ -14,6 +14,7 @@
 #include "mldb/soa/credentials/credential_provider.h"
 #include "mldb/rest/rest_collection.h"
 #include "mldb/rest/poly_collection.h"
+#include "mldb/utils/log_fwd.h"
 
 namespace Datacratic {
 
@@ -142,6 +143,7 @@ private:
     RestRequestRouter router;    
     std::shared_ptr<CollectionConfigStore> config;
     std::shared_ptr<RestRouteManager> routeManager;
+    std::shared_ptr<spdlog::logger> logger;
 };
 
 } // namespace Datacratic

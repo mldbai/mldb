@@ -1,14 +1,13 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* decision_tree_generator.h                                       -*- C++ -*-
    Jeremy Barnes, 15 March 2006
    Copyright (c) 2006 Jeremy Barnes.  All rights reserved.
 
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+
    Generator for a decision_tree.
 */
 
-#ifndef __boosting__decision_tree_generator_h__
-#define __boosting__decision_tree_generator_h__
+#pragma once
 
 
 #include "classifier_generator.h"
@@ -118,6 +117,3 @@ public:
 
 
 } // namespace ML
-
-
-#endif /* __boosting__decision_tree_generator_h__ */

@@ -1,7 +1,6 @@
 /* stump_training_core.h                                           -*- C++ -*-
    Jeremy Barnes, 20 February 2004
    Copyright (c) 2004 Jeremy Barnes.  All rights reserved.
-
    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Core routines of the stump training.  Header file only, since it is

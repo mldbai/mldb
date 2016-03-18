@@ -925,7 +925,9 @@ static RegisterDatasetType<JoinedDataset, JoinedDatasetConfig>
 regJoined(builtinPackage(),
           "joined",
           "Joins together several datasets into one virtual dataset",
-          "datasets/JoinedDataset.md.html");
+          "datasets/JoinedDataset.md.html",
+          nullptr,
+          {MldbEntity::INTERNAL_ENTITY});
 
 extern std::shared_ptr<Dataset> (*createJoinedDatasetFn) (MldbServer *, const JoinedDatasetConfig &);
 

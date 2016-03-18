@@ -9,14 +9,11 @@
 
 #include "mldb/http/http_socket_handler.h"
 #include "mldb/http/port_range_service.h"
+#include "mldb/utils/log_fwd.h"
 #include <atomic>
 #include <memory>
 #include <string>
 #include <time.h>
-
-namespace spdlog {
-    class logger;
-}
 
 namespace Datacratic {
 

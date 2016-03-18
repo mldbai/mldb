@@ -22,7 +22,7 @@ TEST_$(1)_RAW_COMMAND := $$(BIN)/mldb_runner -h localhost -p '11700-12700' $$(fo
 # out and capturing the output in the right place.
 TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && ((set -o pipefail && $$(TEST_$(1)_SETUP) /usr/bin/time -v -o $(TESTS)/$(1).timing $$(TEST_$(1)_RAW_COMMAND) >> $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "                 $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && cat $(TESTS)/$(1).failed && echo "                       $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && false))
 
-$(TESTS)/$(1).passed:	$$(BIN)/mldb_runner  $(CWD)/$(1) $(foreach plugin,$(2),mldb_plugin_$(plugin))
+$(TESTS)/$(1).passed:	$$(BIN)/mldb_runner  $(CWD)/$(1) $$(foreach plugin,$(2),$$(MLDB_PLUGIN_FILES_$$(plugin)))
 	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "      $(COLOR_VIOLET)[MLDBTEST]$(COLOR_RESET)                     	$(1)")
 	@echo "$$(TEST_$(1)_SETUP) $$(TEST_$(1)_RAW_COMMAND)" > $(TESTS)/$(1).running
 	@$$(TEST_$(1)_COMMAND)
@@ -32,7 +32,7 @@ $(TESTS)/$(1).passed:	$$(BIN)/mldb_runner  $(CWD)/$(1) $(foreach plugin,$(2),mld
 TEST_$(1)_ARGS := $$(if $$(findstring $(ARGS), $(ARGS)), $(ARGS), )
 TEST_$(1)_DEPS := $(2)
 
-$(1):	$$(BIN)/mldb_runner  $(CWD)/$(1) $(foreach plugin,$(2),mldb_plugin_$(plugin))
+$(1):	$$(BIN)/mldb_runner  $(CWD)/$(1) $$(foreach plugin,$(2),$$(MLDB_PLUGIN_FILES_$$(plugin)))
 	$$(TEST_$(1)_SETUP) $$(TEST_$(1)_RAW_COMMAND) $$(TEST_$(1)_ARGS)
 
 .PHONY: $(1)

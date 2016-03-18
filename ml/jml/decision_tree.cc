@@ -421,7 +421,7 @@ print_recursive(int level, const Tree::Ptr & ptr,
 Explanation
 Decision_Tree::
 explain(const Feature_Set & feature_set,
-        float label,
+        const ML::Label & label,
         double weight,
         PredictionContext * context) const
 {
@@ -436,7 +436,7 @@ void
 Decision_Tree::
 explain_recursive(Explanation & explanation,
                   const Feature_Set & feature_set,
-                  float label,
+                  const ML::Label & label,
                   double weight,
                   const Tree::Ptr & ptr,
                   const Tree::Node * parent) const
@@ -445,7 +445,7 @@ explain_recursive(Explanation & explanation,
     int nl = label_count();
 
     if(nl < 2)
-        throw ML::Exception("Decision_Tree does not support explain "
+        throw ML::Exception("The decision tree model does not support explain "
             "for regressions");
 
     if (label < 0 || label >= nl)

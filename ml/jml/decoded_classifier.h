@@ -86,7 +86,7 @@ public:
 
 
     virtual Explanation explain(const Feature_Set & feature_set,
-                                float label,
+                                const ML::Label & label,
                                 double weight = 1.0,
                                 PredictionContext * context = 0) const;
 
