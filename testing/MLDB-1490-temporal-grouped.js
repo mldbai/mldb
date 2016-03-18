@@ -59,16 +59,11 @@ var config = {
 
 createAndRunProcedure(config, "git");
 
-var resp = mldb.get("/v1/datasets/git").json;
+var resp = mldb.get("/v1/query", { q: 
+    "select count(*) as cnt, author, temporal_earliest({*}) as earliest, temporal_latest({*}) as latest, sum(filesChanged) as changes, sum(insertions) as insertions, sum(deletions) as deletions from git group by author", format: 'table', rowNames: false });
 
-mldb.log(resp);
+mldb.log(resp.json);
+assertEqual(resp.responseCode, 200);
 
-var resp = mldb.get("/v1/query", { q: "select * from git limit 10",
-                                   format: "sparse" }).json;
-
-mldb.log(resp);
-if(resp.length != 10) {
-    throw "Expected result of length 10";
-}
 
 "success"
