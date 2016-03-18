@@ -256,17 +256,15 @@ class Mldb174Test(MldbUnitTest):
             }
         })
 
+        explain_rez = mldb.query("""
+                select explainer_dt({{* EXCLUDING(quality)} as features,
+                                  quality as label})
+                from wine_full
+                where rowHash() % 2 = 1
+                limit 2
+        """)
 
-        # TODO we should support this
-        with self.assertRaises(mldb_wrapper.ResponseException) as re:
-            explain_rez = mldb.query("""
-                    select explainer_dt({{* EXCLUDING(quality)} as features,
-                                      quality as label})
-                    from wine_full
-                    where rowHash() % 2 = 1
-                    limit 2
-            """)
-
+        mldb.log(explain_rez)
 
 
 mldb.run_tests()
