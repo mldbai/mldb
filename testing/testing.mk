@@ -264,6 +264,7 @@ $(eval $(call mldb_unit_test,MLDB-1336-builtin-checks.py))
 $(eval $(call mldb_unit_test,MLDB-1433-random-forest.py))
 $(eval $(call mldb_unit_test,MLDB-1430-aggregate-bug.py))
 $(eval $(call mldb_unit_test,MLDB-1428-text-sparse-output.py))
+$(eval $(call mldb_unit_test,MLDB-1452-like-operator.py))
 $(eval $(call mldb_unit_test,MLDB-1440_sqlexpr_ignore_unknown_param.py))
 
 $(eval $(call mldb_unit_test,pytanic_plugin_test.py))

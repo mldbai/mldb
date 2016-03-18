@@ -242,6 +242,15 @@ For example: `expr IN (VALUES OF [3, 5, 7, 11])`
 is equivalent to expr IN (3, 5, 7, 11), but allows a full row expression
 to be used to construct the set, rather than enumerating tuple elements.
 
+### [NOT] LIKE expression
+
+This expression tests if a string on the left-hand side matches an SQL wildcard pattern on the right hand side.
+
+The `%` character will substitute for 0 or more characters. For example: `x LIKE 'abc%'` will test if x is a string that starts with `abc`.
+
+The `_` character will substitute for a single character. For example: `x LIKE 'a_a'` will test if x is a string that has 3 characters that starts and ends with `a`.
+
+For more intricate patterns, you can use the `regex_match` function.
 
 ## <a name="CallingFunctions"></a>Calling Functions</h2>
 
