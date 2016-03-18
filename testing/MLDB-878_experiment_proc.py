@@ -78,7 +78,7 @@ class Mldb878Test(MldbUnitTest):
         # did we run two training jobs that both got a good auc ?
         assert len(js_rez["status"]["folds"]) == 2
         for i in xrange(2):
-            assert js_rez["status"]["folds"][i]["results"]["auc"] > 0.95, \
+            assert js_rez["status"]["folds"][i]["results_test"]["auc"] > 0.95, \
                 'expected AUC to be above 0.95'
 
         # score using the predictor (MLDB-1070)
@@ -193,7 +193,7 @@ class Mldb878Test(MldbUnitTest):
 
         # make sure all the AUCs are ok
         for fold in js_rez["status"]["firstRun"]["status"]["folds"]:
-            assert fold["results"]["auc"] > 0.5, \
+            assert fold["results_test"]["auc"] > 0.5, \
                 'expect an AUC above 0.5, got ' + str(fold)
 
 
@@ -252,7 +252,57 @@ class Mldb878Test(MldbUnitTest):
 
         with self.assertRaises(mldb_wrapper.ResponseException) as re:
             mldb.put("/v1/procedures/rocket_science5", conf)
+    
 
+    def test_eval_training(self):
+        conf = {
+            "type": "classifier.experiment",
+            "params": {
+                "experimentName": "my_test_exp",
+                "trainingData": "select {* EXCLUDING(label)} as features, label from toy",
+                "testingData": "select {* EXCLUDING(label)} as features, label from toy",
+                "datasetFolds" : [
+                    {
+                        "training_where": "rowHash() % 5 != 3",
+                        "testing_where": "rowHash() % 5 = 3",
+                        "orderBy": "rowHash() ASC",
+                    },
+                    {
+                        "training_where": "rowHash() % 5 != 2",
+                        "testing_where": "rowHash() % 5 = 2",
+                    }],
+                "modelFileUrlPattern": "file://build/x86_64/tmp/bouya-$runid.cls",
+                "algorithm": "glz",
+                "equalizationFactor": 0.5,
+                "mode": "boolean",
+                "configuration": {
+                    "glz": {
+                        "type": "glz",
+                        "verbosity": 3,
+                        "normalize": False,
+                        "link": "linear",
+                        "ridge_regression": True
+                    }
+                },
+                "outputAccuracyDataset": False,
+                "evalTrain": True
+            }
+        }
+        rez = mldb.put("/v1/procedures/rocket_science", conf)
+        #mldb.log(rez.json())
+
+        rez = mldb.post("/v1/procedures/rocket_science/runs")
+        js_rez = rez.json()
+
+        mldb.log(js_rez)
+
+        # are the training results keys present?
+        self.assertTrue("results_train" in js_rez["status"]["folds"][0])
+
+        # performance should be comparable
+        self.assertAlmostEqual(js_rez["status"]["folds"][0]["results_train"]["auc"],
+                               js_rez["status"]["folds"][0]["results_test"]["auc"], delta=0.05)
+        
 
 mldb.run_tests()
 

@@ -168,12 +168,12 @@ class Mldb174Test(MldbUnitTest):
                 "runOnCreation": True
             }
         })
-            
+
         # the training should now work
         rez = mldb.put('/v1/procedures/wine_trainer', config)
 
         # check the performance is in the expected range
-        self.assertAlmostEqual(rez.json()["status"]["firstRun"]["status"]["folds"][0]["results"]["r2"], 0.26, places=2)
+        self.assertAlmostEqual(rez.json()["status"]["firstRun"]["status"]["folds"][0]["results_test"]["r2"], 0.26, places=2)
 
         # make sure the trained model used all features
         scorerDetails = mldb.get("/v1/functions/winer_scorer_0/details").json()
