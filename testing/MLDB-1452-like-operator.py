@@ -94,6 +94,8 @@ class LikeTest(unittest.TestCase):
         ds.record_row("c",[["x", "cit.harize", 0]])
         ds.record_row("d",[["x", "dro|llic", 0]])
         ds.record_row("e",[["x", "eg(ro)te", 0]])
+        ds.record_row("f",[["x", "famelico$e", 0]])
+        ds.record_row("g",[["x", "gardev^iance", 0]])
         ds.commit()       
 
         res = mldb.query('''
@@ -142,6 +144,24 @@ class LikeTest(unittest.TestCase):
         expected = [["_rowName","x"],["e","eg(ro)te"]]
         self.assertEqual(res, expected)
 
+        res = mldb.query('''
+            select x
+            from sample3
+            where x LIKE '%$%'
+        ''')
+
+        expected = [["_rowName","x"],["f","famelico$e"]]
+        self.assertEqual(res, expected)
+
+        res = mldb.query('''
+            select x
+            from sample3
+            where x LIKE '%^%'
+        ''')
+
+        expected = [["_rowName","x"],["g","gardev^iance"]]
+        self.assertEqual(res, expected)
+
     def test_like_number(self):
 
         ds = mldb.create_dataset({ "id": "sample4", "type": "sparse.mutable" })
@@ -156,5 +176,21 @@ class LikeTest(unittest.TestCase):
                 from sample4
                 where x LIKE '12345%'
             ''')
+
+    def test_like_from_dataset(self):
+
+        ds = mldb.create_dataset({ "id": "sample5", "type": "sparse.mutable" })
+        ds.record_row("a",[["x", "hyometer", 0], ["y", "hyo%", 0]])
+        ds.record_row("b",[["x", "ichthyarchy", 0], ["y", "forgetit", 0]])
+        ds.commit()
+
+        res = mldb.query('''
+            select x
+            from sample5
+            where x LIKE y
+        ''')
+
+        expected = [["_rowName","x"],["a","hyometer"]]
+        self.assertEqual(res, expected)
 
 mldb.run_tests()

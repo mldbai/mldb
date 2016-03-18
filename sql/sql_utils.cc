@@ -84,11 +84,19 @@ bool matchSqlFilter(const Utf8String& valueString, const Utf8String& filterStrin
             case ('('): {
                 regExFilter += "[(]";
                 break;
-            }  
+            }
             case (')'): {
                 regExFilter += "[)]";
                 break;
-            }  
+            }
+            case ('^'): {
+                regExFilter += "\\^";
+                break;
+            }
+            case ('$'): {
+                regExFilter += "[$]";
+                break;
+            }
             default: {
                 regExFilter += filterChar;
             }
