@@ -183,7 +183,7 @@ optimized_predict_impl(int label,
 Explanation
 Committee::
 explain(const Feature_Set & feature_set,
-        int label,
+        const ML::Label & label,
         double weight,
         PredictionContext * context) const
 {

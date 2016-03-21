@@ -221,7 +221,7 @@ $(eval $(call mldb_unit_test,MLDB-1010-put-no-payload-error.js))
 $(eval $(call mldb_unit_test,MLDB-1019-word2vec.js,,manual)) # manual---requires large local data file
 $(eval $(call mldb_unit_test,MLDB-1084_sentiwordnet.py,,$(MANUAL_IF_NO_S3)))
 $(eval $(call mldb_unit_test,MLDB-1101-tf-idf.py))
-$(eval $(call mldb_unit_test,MLDB-1117-git-import.js,,manual)) #awaiting fix
+$(eval $(call mldb_unit_test,MLDB-1117-git-import.js))
 $(eval $(call mldb_unit_test,MLDB-1120-sparse-mutable-values.js))
 $(eval $(call mldb_unit_test,MLDB-1142-sparse-mutable-failing-with-underflow.py))
 
@@ -264,6 +264,7 @@ $(eval $(call mldb_unit_test,MLDB-1336-builtin-checks.py))
 $(eval $(call mldb_unit_test,MLDB-1433-random-forest.py))
 $(eval $(call mldb_unit_test,MLDB-1430-aggregate-bug.py))
 $(eval $(call mldb_unit_test,MLDB-1428-text-sparse-output.py))
+$(eval $(call mldb_unit_test,MLDB-1452-like-operator.py))
 $(eval $(call mldb_unit_test,MLDB-1440_sqlexpr_ignore_unknown_param.py))
 
 $(eval $(call mldb_unit_test,pytanic_plugin_test.py))
@@ -328,6 +329,9 @@ $(eval $(call mldb_unit_test,MLDB-815-sparse-mutable-record-strings.js))
 $(eval $(call mldb_unit_test,MLDB-1395-error-message-file-doesnt-exist.js))
 $(eval $(call mldb_unit_test,MLDBFB-318_misleading_error_msg.py))
 $(eval $(call mldb_unit_test,ranking_test.py))
+$(eval $(call mldb_unit_test,MLDB-1490-temporal-grouped.js,,manual)) # awaiting fix
+$(eval $(call mldb_unit_test,MLDB-1491-get-all-not-implemented-for-datasets.js,,manual)) # awaiting fix
+
 
 # The MLDB-1398 test case requires a library and a plugin
 # Tensorflow plugins
