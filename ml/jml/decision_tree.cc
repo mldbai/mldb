@@ -440,8 +440,7 @@ explain(const Feature_Set & feature_set,
 
     if (reggression){
         get_pred = [&] (const Tree::Base& node) {
-            float diff = node.pred.at(0) - label.value();
-            return 1.0f / (1.0f + std::fabs(diff));
+            return node.pred.at(0);
         };
     }
 

@@ -16,6 +16,14 @@ class Mldb174Test(MldbUnitTest):
             ds.record_row(row, [ [ "x", x, 0 ], ["y", y, 0] ])
         ds.commit()
 
+        # create a dataset for very simple linear regression, with x = y
+        ds = mldb.create_dataset({ "id": "test2", "type": "sparse.mutable" })
+        for row, x, y, label in ( ("ex1", 0, 10, 1), ("ex2", 1, 0, 2), ("ex3", 10, 10, 5), ("ex4", 0, 8, 3)):
+            ds.record_row(row, [ [ "x", x, 0 ], ["y", y, 0], ["label", label, 0] ])
+        ds.commit()
+
+
+        ## cls configurations
         self.cls_conf =  {
             "glz": {
                 "type": "glz",
@@ -32,6 +40,8 @@ class Mldb174Test(MldbUnitTest):
             }
         }
         
+
+        ## load wine datasets
         rez = mldb.put('/v1/procedures/wine_red', {
             "type": "import.text",
             "params": {
@@ -265,6 +275,59 @@ class Mldb174Test(MldbUnitTest):
         """)
 
         mldb.log(explain_rez)
+
+
+    def test_simple_regression_explain_sum(self):
+
+        modelFileUrl = "file://tmp/MLDB-174-sum-explain.cls"
+
+        for cls in ["dt", "glz"]:
+            clsProcConf = {
+                "type": "classifier.train",
+                "params": {
+                    "trainingData": { 
+                        "select": "{x, y} as features, label as label",
+                        "from": { "id": "test2" }
+                    },
+                    "configuration": self.cls_conf,
+                    "algorithm": cls,
+                    "modelFileUrl": modelFileUrl,
+                    "mode": "regression",
+                    "runOnCreation": True
+                }
+            }
+            mldb.put("/v1/procedures/cls_train", clsProcConf)
+
+            functionConfig = {
+                "type": "classifier.explain",
+                "params": {
+                    "modelFileUrl": modelFileUrl
+                }
+            }
+            mldb.put("/v1/functions/explain_dt_test2", functionConfig)
+
+            functionConfig = {
+                "type": "classifier",
+                "params": {
+                    "modelFileUrl": modelFileUrl
+                }
+            }
+            mldb.put("/v1/functions/cls_dt_test2", functionConfig)
+
+            explain_rez = mldb.query("""
+                    select explain_dt_test2({{y, x} as features,
+                                      label as label}) as explain,
+                            cls_dt_test2({{y, x} as features}) as score,
+                            label as label
+                    from test2
+            """)
+
+            mldb.log(explain_rez)
+
+            # make sure that summing up all explain values gives us the prediction
+            for line in explain_rez[1:]:
+                self.assertAlmostEqual(sum((x for x in line[1:4] if x != None)), line[4], places=5)
+
 
 
 mldb.run_tests()
