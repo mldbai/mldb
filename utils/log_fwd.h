@@ -26,8 +26,7 @@ std::shared_ptr<spdlog::logger> getServerLog();
 template <typename Class> 
 std::string 
 getLoggerNameFromClass() {
-    std::string demangledName = ML::demangle(typeid(Class));
-    return demangledName.substr(demangledName.find_last_of(':') + 1);
+    return ML::demangle(typeid(Class));
 }
     
 template <typename Class> 

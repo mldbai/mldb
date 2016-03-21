@@ -228,15 +228,16 @@ int main(int argc, char ** argv)
           .run(),
           vm);
 
+    notify(vm);
+
     auto cmdConfig = Config::createFromProgramOptions(vm);
     
     if (vm.count("config-path")) {
+        cerr << "reading configuration from file: '" << configPath << "'" << endl;
         auto parsed_options = parse_config_file<char>(configPath.c_str(), all_opt, true);
         store(parsed_options, vm);
         auto fileConfig = Config::createFromProgramOptions(parsed_options);
     }
-
-    notify(vm);
 
     if (vm.count("help")) {
         cerr << all_opt << endl;
