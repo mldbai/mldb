@@ -31,6 +31,12 @@ static constexpr size_t TABULAR_DATASET_DEFAULT_ROWS_PER_CHUNK=65536;
 
 struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
+    TabularDataStore()
+        : rowCount(0), mutableChunksIsEmpty(true)
+        {
+
+        }
+
     struct TabularDataStoreRowStream : public RowStream {
 
         TabularDataStoreRowStream(TabularDataStore * store) : store(store)
@@ -84,14 +90,15 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     
     std::vector<TabularDatasetChunk> chunks;
 
-    std::vector<TabularDatasetChunk> mutable_chunks;
+    std::atomic<bool> mutableChunksIsEmpty;
+    std::vector<TabularDatasetChunk> mutableChunks;
 
     /// Index from rowHash to (chunk, indexInChunk) when line number not used for rowName
     ML::Lightweight_Hash<RowHash, std::pair<int, int> > rowIndex;
     std::string filename;
     Date earliestTs, latestTs;
 
-    std::mutex dataset_mutex;
+    std::mutex datasetMutex;
 
     // Return the value of the column for all rows
     virtual MatrixColumn getColumn(const ColumnName & column) const
@@ -440,11 +447,13 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
     void commit()
     {
-        if (!mutable_chunks.empty())
+        std::unique_lock<std::mutex> guard(datasetMutex);
+        if (!mutableChunks.empty())
         {
-            mutable_chunks[0].freeze();
-            finalize(mutable_chunks, mutable_chunks[0].rowCount());
-            mutable_chunks.resize(0);
+            mutableChunks[0].freeze();
+            finalize(mutableChunks, mutableChunks[0].rowCount());
+            mutableChunks.resize(0);
+            mutableChunksIsEmpty = true;
         }
     }
 
@@ -453,9 +462,9 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         if (rowCount > 0)
             HttpReturnException(400, "Tabular dataset has already been committed, cannot add more rows");
 
-        {
-            std::unique_lock<std::mutex> guard(dataset_mutex);
-            if (mutable_chunks.empty())
+        if (mutableChunksIsEmpty) {
+            std::unique_lock<std::mutex> guard(datasetMutex);
+            if (mutableChunks.empty())
             {
                 //need to create the mutable chunk
                 vector<ColumnName> columnNames;
@@ -472,7 +481,8 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
                 initialize(columnNames, inputColumnIndex);
 
-                mutable_chunks.emplace_back(columnNames.size(), TABULAR_DATASET_DEFAULT_ROWS_PER_CHUNK);
+                mutableChunks.emplace_back(columnNames.size(), TABULAR_DATASET_DEFAULT_ROWS_PER_CHUNK);
+                mutableChunksIsEmpty = false;
             }
         }
 
@@ -490,8 +500,8 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         }
 
         {
-            std::unique_lock<std::mutex> guard(dataset_mutex);
-            mutable_chunks[0].add(rowName, ts, orderedVals.data());
+            std::unique_lock<std::mutex> guard(datasetMutex);
+            mutableChunks[0].add(rowName, ts, orderedVals.data());
         }
     }
 };
