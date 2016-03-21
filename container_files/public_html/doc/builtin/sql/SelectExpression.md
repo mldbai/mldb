@@ -55,14 +55,14 @@ ones required.
 The syntax looks like this:
 
 ```
-COLUMN EXPR (WHERE <value-expr> AS <name> ORDER BY <order-by-expr> OFFSET <int> LIMIT <int>)
+COLUMN EXPR ( AS <name> WHERE <value-expr> ORDER BY <order-by-expr> OFFSET <int> LIMIT <int>)
 ```
 
 The components of the expression are as follows:
-- the `WHERE` clause is a boolean-coerced [Value Expression](ValueExpression.md) that is used to decide if a column
-  will be selected or not.  If not specified, it defaults to true.
 - the `AS` clause is a string-valued expression that gives the name of the
   resulting column.  If not specified, it defaults to columnName().
+- the `WHERE` clause is a boolean-coerced [Value Expression](ValueExpression.md) that is used to decide if a column
+  will be selected or not.  If not specified, it defaults to true.
 - the `ORDER BY` clause is an [Order-By Expression](OrderByExpression.md) (which only makes sense if `OFFSET` or `LIMIT` are used)
   ranks the columns in the given order, presumably to only take a subset of them.
 - the `OFFSET` clause will skip the top `n` columns that came through the

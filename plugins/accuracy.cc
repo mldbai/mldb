@@ -437,7 +437,6 @@ runRegression(AccuracyConfig & runAccuracyConf,
 
     PerThreadAccumulator<Rows> rowsAccum;
     Date recordDate = Date::now();
-    mutex lineMutex;
 
     auto aggregator = [&] (NamedRowValue & row,
                            const std::vector<ExpressionValue> & scoreLabelWeight)
@@ -457,7 +456,6 @@ runRegression(AccuracyConfig & runAccuracyConf,
 
                 rowsAccum.get().emplace_back(row.rowName, outputRow);
                 if(rowsAccum.get().size() > 1000) {
-                    std::unique_lock<std::mutex> guard(lineMutex);
                     output->recordRows(rowsAccum.get());
                     rowsAccum.get().clear();
                 }
