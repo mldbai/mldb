@@ -33,15 +33,17 @@ BOOST_AUTO_TEST_CASE(test_map_config)
 
     auto config = Config::createFromMap(map);
 
-    BOOST_CHECK_EQUAL(config->getString("string"), "string");
-    BOOST_CHECK_EQUAL(config->getInt("int"), 123);
-    BOOST_CHECK_EQUAL(config->getBool("bool_int_true"), true);
-    BOOST_CHECK_EQUAL(config->getBool("bool_int_false"), false);
-    BOOST_CHECK_EQUAL(config->getBool("bool_str_true"), true);
-    BOOST_CHECK_EQUAL(config->getBool("bool_str_false"), false);
-    BOOST_CHECK_EQUAL(config->getBool("bool_str_true_case"), true);
-    BOOST_CHECK_EQUAL(config->getBool("string"), false);
-    BOOST_REQUIRE_THROW(config->getInt("string"), boost::bad_lexical_cast);
+    BOOST_CHECK_EQUAL(config->getString("string", "dummy"), "string");
+    BOOST_CHECK_EQUAL(config->getString("dummy", "string"), "string");
+    BOOST_CHECK_EQUAL(config->getInt("int", 0), 123);
+    BOOST_CHECK_EQUAL(config->getInt("dummy", 123), 123);
+    BOOST_CHECK_EQUAL(config->getBool("bool_int_true", false), true);
+    BOOST_CHECK_EQUAL(config->getBool("bool_int_false", true), false);
+    BOOST_CHECK_EQUAL(config->getBool("bool_str_true", false), true);
+    BOOST_CHECK_EQUAL(config->getBool("bool_str_false", true), false);
+    BOOST_CHECK_EQUAL(config->getBool("bool_str_true_case", false), true);
+    BOOST_CHECK_EQUAL(config->getBool("string", true), false); // any string other than "true" are interpreted as false
+    BOOST_CHECK_EQUAL(config->getInt("string", 123), 123);
 }
 
 BOOST_AUTO_TEST_CASE(test_options_config)
@@ -49,15 +51,17 @@ BOOST_AUTO_TEST_CASE(test_options_config)
 auto parsed_options = parse_config_file<char>("mldb/utils/testing/config_test.conf", options_description(), true);
     auto config = Config::createFromProgramOptions(parsed_options);   
 
-    BOOST_CHECK_EQUAL(config->getString("string"), "string");
-    BOOST_CHECK_EQUAL(config->getInt("int"), 123);
-    BOOST_CHECK_EQUAL(config->getBool("bool_int_true"), true);
-    BOOST_CHECK_EQUAL(config->getBool("bool_int_false"), false);
-    BOOST_CHECK_EQUAL(config->getBool("bool_str_true"), true);
-    BOOST_CHECK_EQUAL(config->getBool("bool_str_false"), false);
-    BOOST_CHECK_EQUAL(config->getBool("bool_str_true_case"), true);
-    BOOST_CHECK_EQUAL(config->getBool("string"), false);
-    BOOST_REQUIRE_THROW(config->getInt("string"), boost::bad_lexical_cast);
+    BOOST_CHECK_EQUAL(config->getString("string", "dummy"), "string");
+    BOOST_CHECK_EQUAL(config->getString("dummy", "string"), "string");
+    BOOST_CHECK_EQUAL(config->getInt("int", 0), 123);
+    BOOST_CHECK_EQUAL(config->getInt("dummy", 123), 123);
+    BOOST_CHECK_EQUAL(config->getBool("bool_int_true", false), true);
+    BOOST_CHECK_EQUAL(config->getBool("bool_int_false", true), false);
+    BOOST_CHECK_EQUAL(config->getBool("bool_str_true", false), true);
+    BOOST_CHECK_EQUAL(config->getBool("bool_str_false", true), false);
+    BOOST_CHECK_EQUAL(config->getBool("bool_str_true_case", false), true);
+    BOOST_CHECK_EQUAL(config->getBool("string", true), false); // any string other than "true" are interpreted as false
+    BOOST_CHECK_EQUAL(config->getInt("string", 123), 123);
 }
 
 

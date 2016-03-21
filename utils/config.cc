@@ -30,11 +30,21 @@ namespace boost {
 namespace Datacratic {
 
 struct BaseConfig : public Config {
-    virtual bool getBool(const std::string & valueName) {
-        return boost::lexical_cast<bool>(getString(valueName));
+    virtual bool getBool(const std::string & key, bool defaultValue) {
+        std::string defaultStrValue = (defaultValue ? "true" : "false");
+        try {
+            return boost::lexical_cast<bool>(getString(key, defaultStrValue));
+        } catch (std::exception &) {
+            return defaultValue;
+        }
     }
-    virtual int getInt(const std::string & valueName) {
-        return boost::lexical_cast<int>(getString(valueName));
+    virtual int getInt(const std::string & key, int defaultValue) {
+        try {
+            std::string defaultStrValue = boost::lexical_cast<std::string>(defaultValue);
+            return boost::lexical_cast<int>(getString(key, defaultStrValue));
+        } catch (std::exception &) {
+            return defaultValue;
+        }
     }
 };
 
@@ -43,8 +53,12 @@ struct MapConfig : public BaseConfig {
     MapConfig(std::unordered_map<std::string, std::string> map)
         : map(map)
     {}
-    virtual std::string getString(const std::string & valueName) {
-        return map[valueName];
+    virtual std::string getString(const std::string & key, const std::string & defaultValue) {
+        auto value = map.find(key);
+        if (value != map.end())
+            return value->second;
+        else
+            return defaultValue;
     }
     
     std::unordered_map<std::string, std::string> map;
@@ -62,14 +76,14 @@ struct ParsedOptionsConfig : public BaseConfig {
     ParsedOptionsConfig(const boost::program_options::parsed_options & options)
         : options(options)
     {}
-    virtual std::string getString(const std::string & valueName) {
+    virtual std::string getString(const std::string & key, const std::string & defaultValue) {
         // this is really sub-optimal 
         // if we feel the pain we can convert the vector into a unordered_map
         for (const auto & option : options.options) {
-            if (option.string_key == valueName)
+            if (option.string_key == key)
                 return option.value[0];
         }
-        throw ML::Exception("Unknown key '" + valueName + "' in config");
+        return defaultValue;
     }
 
     boost::program_options::parsed_options options;
@@ -87,8 +101,13 @@ struct VariablesMapConfig : public BaseConfig {
     VariablesMapConfig(const boost::program_options::variables_map & map)
         : map(map)
     {}
-    virtual std::string getString(const std::string & valueName) {
-        return map[valueName].as<std::string>();
+    virtual std::string getString(const std::string & key, const std::string & defaultValue) {
+        try {
+            return map[key].as<std::string>();
+        }
+        catch (std::exception &) {
+            return defaultValue;
+        }
     }
   
     boost::program_options::variables_map map;
@@ -106,7 +125,7 @@ struct ChainConfig : public BaseConfig {
     ChainConfig(const std::pair<ConfigPtr, ConfigPtr> configs)
         : configs(configs)
     {}
-    virtual std::string getString(const std::string & valueName) {
+    virtual std::string getString(const std::string & key, const std::string & defaultValue) {
         return "";
     }
   

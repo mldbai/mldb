@@ -25,9 +25,10 @@ namespace Datacratic {
 struct Config {
     typedef std::shared_ptr<Config> ConfigPtr;
 
-    virtual std::string getString(const std::string & valueName)  = 0;
-    virtual bool getBool(const std::string & valueName)  = 0;
-    virtual int getInt(const std::string & valueName)  = 0;
+    // return the requested value if the key is present or the provided default value otherwise
+    virtual std::string getString(const std::string & key, const std::string & defaultValue)  = 0;
+    virtual bool getBool(const std::string & key, bool defaultValue)  = 0;
+    virtual int getInt(const std::string & key, int defaultValue)  = 0;
 
     virtual ~Config(){}
 
