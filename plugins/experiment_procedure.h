@@ -65,7 +65,8 @@ struct ExperimentProcedureConfig : public ProcedureConfig {
           kfold(0),
           equalizationFactor(0.5),
           mode(CM_BOOLEAN),
-          outputAccuracyDataset(true)
+          outputAccuracyDataset(true),
+          evalTrain(false)
     {
     }
 
@@ -102,6 +103,7 @@ struct ExperimentProcedureConfig : public ProcedureConfig {
     ClassifierMode mode;
 
     bool outputAccuracyDataset;
+    bool evalTrain;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(ExperimentProcedureConfig);

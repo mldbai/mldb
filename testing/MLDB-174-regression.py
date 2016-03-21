@@ -173,15 +173,12 @@ class Mldb174Test(MldbUnitTest):
         with self.assertRaises(mldb_wrapper.ResponseException) as re:
             mldb.put('/v1/procedures/wine_trainer', getConfig("wine_full_collision"))
 
-
         # the training should now work
         config = getConfig("wine_full")
         rez = mldb.put('/v1/procedures/wine_trainer', config)
 
         # check the performance is in the expected range
-        self.assertAlmostEqual(rez.json()["status"]["firstRun"]["status"]["folds"][0]["results"]["r2"], 0.28, places=2)
-
-        mldb.log(rez)
+        self.assertAlmostEqual(rez.json()["status"]["firstRun"]["status"]["folds"][0]["resultsTest"]["r2"], 0.28, places=2)
 
         # make sure the trained model used all features
         scorerDetails = mldb.get("/v1/functions/winer_scorer_0/details").json()
@@ -243,7 +240,7 @@ class Mldb174Test(MldbUnitTest):
         rez = mldb.put('/v1/procedures/wine_trainer_dt', config)
 
         # check the performance is in the expected range
-        self.assertAlmostEqual(rez.json()["status"]["firstRun"]["status"]["folds"][0]["results"]["r2"], 0.28, delta=0.1)
+        self.assertAlmostEqual(rez.json()["status"]["firstRun"]["status"]["folds"][0]["resultsTest"]["r2"], 0.28, delta=0.1)
 
         mldb.log(rez)
 
