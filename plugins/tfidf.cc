@@ -37,7 +37,8 @@ serialize(ML::DB::Store_Writer & store,
     std::string name = "tfidf";
     int version = 0;
     store << name << version;
-    store << corpusSize;
+    store << corpusSize; // number of documents in corpus
+    store << dfs.size(); // number of terms in corpus
     for (auto & df : dfs) {
         store << df.first.rawString();
         store << df.second;
@@ -59,10 +60,13 @@ reconstitute(ML::DB::Store_Reader & store,
     if (version != 0)
         throw ML::Exception("invalid tf-idf version");
 
-    store >> corpusSize;
+    uint64_t termCount = 0;
+
+    store >> corpusSize; // number of documents in corpus
+    store >> termCount; // number of terms in corpus
     dfs.clear();
-    dfs.reserve(corpusSize);
-    for (int i=0; i < corpusSize; ++i) {
+    dfs.reserve(termCount);
+    for (int i=0; i < termCount; ++i) {
         std::string term;
         uint64_t df;
         store >> term;
@@ -197,6 +201,7 @@ run(const ProcedureRunConfig & run,
 
     //This will cummulate the number of documents each word is in 
     std::unordered_map<Utf8String, uint64_t> dfs;
+    std::atomic<uint64_t> corpusSize(0);
 
     auto aggregator = [&] (NamedRowValue & row_)
         {
@@ -205,6 +210,7 @@ run(const ProcedureRunConfig & run,
                 Utf8String word = get<0>(col).toUtf8String();
                 dfs[word] += 1;               
             }
+            ++corpusSize;
 
             return true;
         };
@@ -222,7 +228,7 @@ run(const ProcedureRunConfig & run,
     if (!runProcConf.modelFileUrl.empty()) {
         try {
             Datacratic::makeUriDirectory(runProcConf.modelFileUrl.toString());
-            save(runProcConf.modelFileUrl.toString(), dfs.size(), dfs);
+            save(runProcConf.modelFileUrl.toString(), corpusSize, dfs);
             saved = true;
         }
         catch (const std::exception & exc) {
@@ -405,20 +411,20 @@ apply(const FunctionApplier & applier,
     Date ts = inputVal.getEffectiveTimestamp();
 
     // Compute the score for every word in the input
+    logger->debug() << "corpus size: " << corpusSize;
+
     for (auto& col : inputVal.getRow() ) {
         Utf8String term = std::get<0>(col).toUtf8String(); // the term is the columnName
         double frequency = (double) std::get<1>(col).getAtom().toUInt();
 
         double tf = tf_fct(frequency);
         const auto docFrequency = dfs.find(term);
-        double idf = (docFrequency != dfs.end() 
-                      ? idf_fct(docFrequency->second) 
-                      : idf_fct(0)); 
+        uint64_t docFrequencyInt = docFrequency != dfs.end() ? docFrequency->second : 0;
+        double idf = idf_fct(docFrequencyInt);
 
-        //cerr << term << " tf " << tf << " idf " << idf << endl;
-        values.emplace_back(std::get<0>(col),
-                            tf*idf,
-                            ts);
+        logger->debug() << "term: '" << term << "', df: " << docFrequencyInt << ", tf: " << tf << ", idf: " << idf;
+
+        values.emplace_back(std::get<0>(col), tf*idf, ts);
     }
 
     ExpressionValue outputRow(values);

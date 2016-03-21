@@ -9,17 +9,18 @@ mldb = mldb_wrapper.wrap(mldb) # noqa
 
 class TfIdfTest(MldbUnitTest):
 
+    # this is our corpus
+    corpus = [
+        'peanut butter jelly peanut butter jelly',
+        'peanut butter jelly time peanut butter jelly time',
+        'this is the jelly song']
+        
     @classmethod
     def setUpClass(self):
         dataset = mldb.create_dataset({ "id": "example", "type": "sparse.mutable" })
-        #this is our corpus
-        dataset.record_row(
-            "row1", [["test", "peanut butter jelly peanut butter jelly", 0]])
-        dataset.record_row(
-            "row2", [["test", "peanut butter jelly time peanut butter jelly time", 0]])
-        dataset.record_row(
-            "row3", [["test", "this is the jelly song", 0]])
-        
+        for idx, doc in enumerate(self.corpus):
+            dataset.record_row(
+            "row" + str(idx), [["test", doc, 0]])
         dataset.commit()
 
         # baggify our words
@@ -54,7 +55,7 @@ class TfIdfTest(MldbUnitTest):
         }
         mldb.put("/v1/procedures/tf_idf_proc", tf_idf_conf)
 
-        func_conf = {
+        augmented_inverse_func_conf = {
             "type": "tfidf",
             "params": {
                 "modelFileUrl": "file://tmp/MLDB-1101.idf",
@@ -62,7 +63,17 @@ class TfIdfTest(MldbUnitTest):
                 "idfType" : "inverseMax",
                 }
         }
-        mldb.put("/v1/functions/tfidffunction2", func_conf)
+        mldb.put("/v1/functions/tfidffunction_augmented_inverse", augmented_inverse_func_conf)
+
+        raw_inverse_func_conf = {
+            "type": "tfidf",
+            "params": {
+                "modelFileUrl": "file://tmp/MLDB-1101.idf",
+                "tfType" : "raw",
+                "idfType" : "inverse",
+                }
+        }
+        mldb.put("/v1/functions/tfidffunction_raw_inverse", raw_inverse_func_conf)
 
     @classmethod
     def get_column(self, result, column, row_index = 0):
@@ -107,9 +118,9 @@ class TfIdfTest(MldbUnitTest):
 
     def test_tfidf_relative_values(self):
         self.check_relative_values('tfidffunction')
-        self.check_relative_values('tfidffunction2')
+        self.check_relative_values('tfidffunction_augmented_inverse')
         rez = mldb.get("/v1/query",
-                       q="select tfidffunction2({tokenize('jelly time', "
+                       q="select tfidffunction_augmented_inverse({tokenize('jelly time', "
                        "{' ' as splitchars}) as input}) as *  "
                        "order by rowName() ASC")
         
@@ -118,11 +129,25 @@ class TfIdfTest(MldbUnitTest):
 
     def test_without_tokenize(self):
         rez = mldb.get("/v1/query",
-                       q="select tfidffunction2({{jelly: 1, time : 1} as input}) as *  "
+                       q="select tfidffunction_augmented_inverse({{jelly: 1, time : 1} as input}) as *  "
                        "order by rowName() ASC")
 
         self.assertTrue(TfIdfTest.get_column(rez, 'output.time') > TfIdfTest.get_column(rez, 'output.jelly'),
                         "'time' should be more relevant than 'jelly' because its rarer in the corpus")
 
+    def test_compare_with_expected_values(self):
+        time_tfidf = 0.4054651 # 1 * ln(3/2)
+        jelly_tfidf = -0.5753641 # 2 * ln(3/4)
 
+        rez = mldb.get("/v1/query",
+                       q="select tfidffunction_raw_inverse({{jelly: 2, time : 1} as input}) as *  "
+                       "order by rowName() ASC")
+
+        mldb.log(rez)
+        self.assertAlmostEqual(TfIdfTest.get_column(rez, 'output.time'), time_tfidf,
+                        msg = "'time' tfidf is not equal to the one returned by scikit learn")
+        self.assertAlmostEqual(TfIdfTest.get_column(rez, 'output.jelly'), jelly_tfidf,
+                        msg = "'jelly' tfidg is not equal to the one returned by scikit learn")
+
+        
 mldb.run_tests()
