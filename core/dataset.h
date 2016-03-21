@@ -204,6 +204,10 @@ struct ColumnIndex {
 /* ROW STREAM                                                                */
 /*****************************************************************************/
 
+/** This structure is used for streaming queries to generate a set of
+    matching row names one at a time.
+*/
+
 struct RowStream {
 
     /* Clone the stream with just enough information to use the initAt 
@@ -263,19 +267,28 @@ struct Dataset: public MldbEntity {
     /** Record multiple rows in a single transaction.  Default implementation
         forwards to recordRow.
 
-        If you override this call make sure to do handle the validation of column names
-        and row names (see validateNames)
+        If you override this call make sure to do handle the validation of
+        column names and row names (see validateNames)
+
+        This function must be thread safe with respect to concurrent calls to
+        all other functions.
     */
     virtual void recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows);
 
     /** Record a column.  Default will forward to recordRows after transposing
         the input data.
+
+        This function must be thread safe with respect to concurrent calls to
+        all other functions.
     */
     virtual void recordColumn(const ColumnName & columnName,
                               const std::vector<std::tuple<RowName, CellValue, Date> > & vals);
     
     /** Record multiple columns in a single transaction.  Default implementation
         forwards to recordRow.
+
+        This function must be thread safe with respect to concurrent calls to
+        all other functions.
     */
     virtual void recordColumns(const std::vector<std::pair<ColumnName, std::vector<std::tuple<RowName, CellValue, Date> > > > & cols);
 
@@ -283,6 +296,9 @@ struct Dataset: public MldbEntity {
         datasets that require flattening.
         
         Default will flatten and call recordRow().
+
+        This function must be thread safe with respect to concurrent calls to
+        all other functions.
     */
     virtual void recordRowExpr(const RowName & rowName,
                                const ExpressionValue & expr);
@@ -291,6 +307,9 @@ struct Dataset: public MldbEntity {
         datasets that require flattening.
         
         Default will flatten and call recordRows().
+
+        This function must be thread safe with respect to concurrent calls to
+        all other functions.
     */
     virtual void recordRowsExpr(const std::vector<std::pair<RowName, ExpressionValue> > & rows);
 
@@ -315,10 +334,19 @@ struct Dataset: public MldbEntity {
 
     /** Return a RowValueInfo that describes all rows that could be returned
         from the dataset.
+
+        This function must be thread safe with respect to concurrent calls to
+        all other functions.
     */
     virtual std::shared_ptr<RowValueInfo> getRowInfo() const;
 
-    /** Commit changes to the database.  Default is a no-op. */
+    /** Commit changes to the database.  Default is a no-op.
+
+        This function must be thread safe with respect to concurrent calls to
+        all other functions.  In particular, it must be safe to call commit()
+        from multiple threads, and to call commit() in parallel with
+        recordXxx() operations.
+    */
     virtual void commit();
 
     /** Select from the database. */
