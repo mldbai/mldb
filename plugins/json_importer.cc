@@ -17,6 +17,9 @@
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/sql/builtin_functions.h"
+#include "mldb/server/per_thread_accumulator.h"
+#include "mldb/base/parallel.h"
+#include "mldb/arch/timers.h"
 
 using namespace std;
 
@@ -100,8 +103,6 @@ struct JSONImporter: public Procedure {
 
         Date zeroTs;
 
-        std::mutex recordMutex;
-
         std::atomic<int64_t> errors(0);
         std::atomic<int64_t> recordedLines(0);
         int64_t lineOffset = 1;
@@ -111,6 +112,8 @@ struct JSONImporter: public Procedure {
         filter_istream stream(filename);
 
         Date timestamp = stream.info().lastModified;
+
+        ML::Timer timer;
 
         // Skip those up to the offset
         for (size_t i = 0;  stream && i < config.offset;  ++i, ++lineOffset) {
@@ -132,11 +135,15 @@ struct JSONImporter: public Procedure {
                                       "line", line);
         };
 
+        PerThreadAccumulator<std::vector<std::pair<RowName, ExpressionValue> > > accum;
+
         auto onLine = [& ](const char * line,
                            size_t lineLength,
                            int64_t blockNumber,
                            int64_t lineNumber)
         {
+            auto & rows = accum.get();
+            
             int64_t actualLineNum = lineNumber + lineOffset;
 
             // MLDB-1111 empty lines are treated as error
@@ -158,13 +165,37 @@ struct JSONImporter: public Procedure {
 
             recordedLines++;
 
-            std::lock_guard<std::mutex> lock(recordMutex);
-            outputDataset->recordRowExpr(RowName(actualLineNum), expr);
+            rows.emplace_back(RowName(actualLineNum), std::move(expr));
+
+            if (rows.size() > 1000) {
+                outputDataset->recordRowsExpr(rows);
+                rows.clear();
+            }
             return true;
         };
 
-        forEachLineBlock(stream, onLine, runProcConf.limit);
+        forEachLineBlock(stream, onLine, runProcConf.limit, 32);
+
+        cerr << "cleaning up" << endl;
+        
+        auto doLeftoverChunk = [&] (int threadNum)
+            {
+                auto rows = *accum.threads.at(threadNum).get();
+                outputDataset->recordRowsExpr(rows);
+            };
+
+        parallelMap(0, accum.threads.size(), doLeftoverChunk);
+
+        cerr << timer.elapsed() << endl;
+        timer.restart();
+
+        cerr << "committing dataset" << endl;
+
         outputDataset->commit();
+
+        cerr << timer.elapsed() << endl;
+
+        cerr << "done" << endl;
 
         Json::Value result;
         result["rowCount"] = (int64_t)recordedLines;
