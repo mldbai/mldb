@@ -125,6 +125,9 @@ struct ColumnExpressionBindingContext: public SqlBindingScope {
     {
         return outer.getMldbServer();
     }
+
+    virtual VariableGetter doGetVariable(const Utf8String & tableName,
+                                         const Utf8String & variableName);
 };
 
 
