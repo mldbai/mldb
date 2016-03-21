@@ -242,8 +242,9 @@ run(const ProcedureRunConfig & run,
 
         Date applyDate = Date::now();
         ColumnName columnName("count");
-        uint64_t loadFactor = std::ceil(dfs.load_factor());
 
+#if 0
+        uint64_t loadFactor = std::ceil(dfs.load_factor());
         auto recordRows = [&] (size_t i0, size_t i1)
         {
             std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > rows;
@@ -266,7 +267,13 @@ run(const ProcedureRunConfig & run,
         // but buckets has so process buckets in parallel
         size_t chunkSize = 256;
         parallelMapChunked(0, dfs.bucket_count(), chunkSize, recordRows);
+#endif
 
+        for (auto & df : dfs) {
+            std::vector<std::tuple<ColumnName, CellValue, Date> > columns;
+            columns.emplace_back(make_tuple(columnName, df.second, applyDate));
+            output->recordRow(df.first, columns);
+        }
         output->commit();
     }
 
