@@ -24,15 +24,12 @@ namespace MLDB {
     main MLDB library.
 */
 BoundSqlExpression
-bindApplyFunctionExpression(const Utf8String & functionName,
+bindApplyFunctionExpression(std::shared_ptr<Function> function,
                             const SelectExpression & with,
                             const SqlExpression & extract,
                             const SqlExpression * expr,
                             SqlBindingScope & context)
 {
-    // Ask what our function needs
-    std::shared_ptr<Function> function = context.doGetFunctionEntity(functionName);
-
     auto boundWith = with.bind(context);
 
     // Initialize the function, now we know what it's input will look like
@@ -80,7 +77,7 @@ bindApplyFunctionExpression(const Utf8String & functionName,
 }
 
 extern BoundSqlExpression
-(*bindApplyFunctionExpressionFn) (const Utf8String & functionName,
+(*bindApplyFunctionExpressionFn) (std::shared_ptr<Function> function,
                                   const SelectExpression & with,
                                   const SqlExpression & extract,
                                   const SqlExpression * expr,
@@ -93,13 +90,11 @@ extern BoundSqlExpression
     main MLDB library.
 */
 BoundSqlExpression
-bindSelectApplyFunctionExpression(const Utf8String & functionName,
+bindSelectApplyFunctionExpression(std::shared_ptr<Function> function,
                                   const SelectExpression & with,
                                   const SqlRowExpression * expr,
                                   SqlBindingScope & context)
 {
-    std::shared_ptr<Function> function = context.doGetFunctionEntity(functionName);
-
     // Function input is...
     auto boundWith = with.bind(context);
 
@@ -153,7 +148,7 @@ bindSelectApplyFunctionExpression(const Utf8String & functionName,
 }
 
 extern BoundSqlExpression
-(*bindSelectApplyFunctionExpressionFn) (const Utf8String & functionName,
+(*bindSelectApplyFunctionExpressionFn) (std::shared_ptr<Function> function,
                                         const SelectExpression & with,
                                         const SqlRowExpression * expr,
                                         SqlBindingScope & context);

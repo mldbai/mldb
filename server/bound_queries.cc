@@ -1031,7 +1031,7 @@ BoundSelectQuery(const SelectExpression & select,
         }
 
     } JML_CATCH_ALL {
-        rethrowHttpException(-1, "Error binding non-grouped query: "
+        rethrowHttpException(-1, "Binding error: "
                              + ML::getExceptionString(),
                              "select", select.surface,
                              "from", from.getStatus(),

@@ -198,6 +198,13 @@ doGetFunction(const Utf8String & tableName,
 
 }
 
+VariableGetter 
+ColumnExpressionBindingContext::
+doGetVariable(const Utf8String & tableName, const Utf8String & variableName)
+{
+    throw HttpReturnException(400, "Cannot read column \"" + variableName + "\" inside COLUMN EXPR.");
+}
+
 /*****************************************************************************/
 /* SQL EXPRESSION WHEN SCOPE                                                 */
 /*****************************************************************************/
