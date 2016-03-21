@@ -2081,13 +2081,13 @@ bind(SqlBindingScope & context) const
 }
 
 BoundSqlExpression
-(*bindSelectApplyFunctionExpressionFn) (const Utf8String & functionName,
+(*bindSelectApplyFunctionExpressionFn) (std::shared_ptr<Function> function,
                                         const SelectExpression & with,
                                            const SqlRowExpression * expr,
                                         const SqlBindingScope & context);
 
 BoundSqlExpression
-(*bindApplyFunctionExpressionFn) (const Utf8String & functionName,
+(*bindApplyFunctionExpressionFn) (std::shared_ptr<Function> function,
                                   const SelectExpression & with,
                                   const SqlExpression & extract,
                                   const SqlExpression * expr,
@@ -2097,6 +2097,9 @@ BoundSqlExpression
 FunctionCallWrapper::
 bindUserFunction(SqlBindingScope & context) const
 {
+    //first check that the function exist, else it really confounds people if we throw errors about arguments for a non-existing function...
+    std::shared_ptr<Function> function = context.doGetFunctionEntity(functionName);
+
     std::vector<std::shared_ptr<SqlRowExpression> > clauses;
     if (args.size() > 0)
     {
@@ -2125,12 +2128,12 @@ bindUserFunction(SqlBindingScope & context) const
     if (extract)
     {
         //extract, return the single value
-        return bindApplyFunctionExpressionFn(functionName, with, *extract, this, context);
+        return bindApplyFunctionExpressionFn(function, with, *extract, this, context);
     }
     else
     {
         //no extract, return the whole row
-       return bindSelectApplyFunctionExpressionFn(functionName, with, this, context);
+       return bindSelectApplyFunctionExpressionFn(function, with, this, context);
     }
 }
 

@@ -57,4 +57,16 @@ class HavingTest(unittest.TestCase):
 
         self.assertEqual(re.exception.response.json()["error"], expected)
 
+    #MLDB-1484
+    def test_error_function(self):
+
+        with self.assertRaises(mldb_wrapper.ResponseException) as re:
+            res = mldb.get("/v1/query", q='select hash(2)')
+
+        mldb.log(re.exception.response.json()["error"])
+
+        expected = "function entry 'hash' doesn't exist"
+
+        self.assertEqual(re.exception.response.json()["error"], expected)
+
 mldb.run_tests()
