@@ -152,7 +152,7 @@ runBoolean(AccuracyConfig & runAccuracyConf,
                       thrStats->sort();
                       stats.add(*thrStats);
                   });
-    
+
 
     //stats.sort();
     stats.calculate();
@@ -169,9 +169,11 @@ runBoolean(AccuracyConfig & runAccuracyConf,
 
             // the difference between included population of the current versus
             // last stats.stats represents the number of exemples included in the stats.
-            // examples get grouped when they have the same score
-            j += (bstats.includedPopulation() - prevIncludedPop);
-            prevIncludedPop = bstats.includedPopulation();
+            // examples get grouped when they have the same score. use the unweighted
+            // scores because we care about the actual number of examples, whatever
+            // what their training weight was
+            j += (bstats.includedPopulation(false) - prevIncludedPop);
+            prevIncludedPop = bstats.includedPopulation(false);
 
             ExcAssertEqual(bstats.threshold, entry.score);
 

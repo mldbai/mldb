@@ -25,17 +25,10 @@ fi
 cp {{MLDB_PUBLIC_HTML_PATH}}/favicon.ico {{IPYTHON_IMAGES_DIR}}/favicon.ico
 cp {{MLDB_PUBLIC_HTML_PATH}}/resources/images/mldb_ipython_logo.png {{IPYTHON_IMAGES_DIR}}/logo.png
 
-if [ ! -e {{IPYTHON_DIR}}/profile_default ] ; then
-    IPYTHONDIR={{IPYTHON_DIR}} /sbin/setuser _mldb /usr/local/bin/ipython profile create --log-level=ERROR
-    /sbin/setuser _mldb mkdir -p {{IPYTHON_DIR}}/profile_default/static/custom
-    /sbin/setuser _mldb cp {{IPYTHON_DIR}}/custom.js {{IPYTHON_DIR}}/profile_default/static/custom/custom.js
-    /sbin/setuser _mldb cp {{IPYTHON_DIR}}/custom.css {{IPYTHON_DIR}}/profile_default/static/custom/custom.css
-fi
-
-export IPYTHONDIR={{IPYTHON_DIR}}
+export JUPYTER_CONFIG_DIR={{IPYTHON_DIR}}/config
 export SHELL="/bin/bash"
+
 exec /sbin/setuser _mldb \
         /usr/local/bin/jupyter notebook \
-        --log-level=ERROR \
-        --config={{IPYTHON_DIR}}/ipython_extra_config.py
+        --log-level=ERROR
  

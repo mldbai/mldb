@@ -74,6 +74,9 @@ DEFINE_STRUCTURE_DESCRIPTION(ExperimentProcedureConfig);
 ExperimentProcedureConfigDescription::
 ExperimentProcedureConfigDescription()
 {
+    addField("experimentName", &ExperimentProcedureConfig::experimentName,
+             "A string without spaces which will be used to name the various datasets, "
+             "procedures and functions created this procedure runs.");
     addField("trainingData", &ExperimentProcedureConfig::trainingData,
              "Specification of the data for input to the classifier procedure. "
              "The select expression must contain these two sub-expressions: \n"
@@ -119,8 +122,6 @@ ExperimentProcedureConfigDescription()
              "said, it is a good idea to keep the weights centered around 1 "
              "to avoid numeric errors in the calculations."
              "The select statement does not support groupby and having clauses.");
-    addField("experimentName", &ExperimentProcedureConfig::experimentName,
-             "Name of the experiment that will be used to name the artifacts.");
     addField("keepArtifacts", &ExperimentProcedureConfig::keepArtifacts,
              "If true, all procedures and intermediary datasets are kept.", false);
     addField("datasetFolds", &ExperimentProcedureConfig::datasetFolds,

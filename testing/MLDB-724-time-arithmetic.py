@@ -547,7 +547,33 @@ class TimeArithmeticTest(MldbUnitTest):
                 [       "",  False ]
             ]
         )
+    def test_MLDB_1453(self):
+        dataset_config = {
+            'type'    : 'sparse.mutable',
+            'id'      : 'test5',
+        }
 
+        dataset = mldb.create_dataset(dataset_config)
+        dataset.record_row('myrow', [ [ "a", 0, self.ts ] ])
+        dataset.commit()
+
+        query1 = mldb.get('/v1/datasets/test5/query', select = 'a IS NOT TIMESTAMP as x, a IS TIMESTAMP as y')
+
+        self.assertFullResultEquals(query1.json(),
+            [{"rowName":"myrow","rowHash":"fbdba4c9be68f633","columns":[["x",1,"2015-01-01T00:00:00Z"],["y",0,"2015-01-01T00:00:00Z"]]}]
+        )
+
+        query1 = mldb.get('/v1/datasets/test5/query', select = 'latest_timestamp(1) IS NOT TIMESTAMP as x, latest_timestamp(1) IS TIMESTAMP as y')
+
+        self.assertFullResultEquals(query1.json(),
+            [{"rowName":"myrow","rowHash":"fbdba4c9be68f633","columns":[["x",0,"-Inf"],["y",1,"-Inf"]]}]
+        )    
+
+        query1 = mldb.get('/v1/datasets/test5/query', select = "interval '3d' IS NOT INTERVAL as x, interval '3d' IS INTERVAL as x")
+
+        self.assertFullResultEquals(query1.json(),
+            [{"rowName": "myrow","rowHash": "fbdba4c9be68f633","columns":[["x",0,"-Inf"],["x",1,"-Inf"]]}]
+        )    
 
 mldb.run_tests()
 

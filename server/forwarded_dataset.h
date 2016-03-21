@@ -87,6 +87,7 @@ struct ForwardedDataset: public Dataset {
 
     virtual GenerateRowsWhereFunction
     generateRowsWhere(const SqlBindingScope & context,
+                      const Utf8String& alias,
                       const SqlExpression & where,
                       ssize_t offset,
                       ssize_t limit) const;

@@ -1199,6 +1199,7 @@ BoundFunction temporalAggregatorT(const std::vector<BoundSqlExpression> & args) 
     typedef typename AggregatorFunc::value_type value_type;
 
     checkArgsSize(args.size(), 1);
+    auto info = args[0].info;
 
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
@@ -1229,11 +1230,11 @@ BoundFunction temporalAggregatorT(const std::vector<BoundSqlExpression> & args) 
                     };
                 
                 val.forEachAtom(onAtom);
-                if (results.size() == 1) {  // atom case
+
+                if (info->isScalar()) {
                     auto result = results.begin();
                     return ExpressionValue(AggregatorFunc::extract(get<0>(result->second)), get<1>(result->second));
-                }
-                else { // row case
+                } else if (info->isRow()) {
                     std::vector<std::tuple<Coord, ExpressionValue> > row;
                     for (auto & result : results) {
                         row.emplace_back(std::make_tuple(result.first,
@@ -1241,6 +1242,11 @@ BoundFunction temporalAggregatorT(const std::vector<BoundSqlExpression> & args) 
                                                                          get<1>(result.second))));
                     }
                     return row;
+                }
+                else if (info->isEmbedding()) {
+                    throw HttpReturnException(500, "embeddings are not yet supported in temporal aggregators");
+                } else {
+                    throw HttpReturnException(500, "temporal aggregators invoked on unknown type");
                 }
             },
             std::make_shared<UnknownRowValueInfo>(),
@@ -1759,7 +1765,9 @@ BoundFunction tokenize(const std::vector<BoundSqlExpression> & args)
                     if (check[4]) //values
                     {
                         if (!values.isAtom())
-                          throw HttpReturnException(400, "requires 'value' argument be a scalar, got type " + values.getTypeAsUtf8String());
+                          throw HttpReturnException(400, ML::format("requires 'value' "
+                                "argument be a scalar, got type '%s'", 
+                                values.getTypeAsString()));
 
                         row.emplace_back(ColumnName(it->first),
                                      values.getAtom(),

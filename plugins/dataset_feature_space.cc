@@ -196,13 +196,20 @@ getFeatureBucket(ColumnHash column, const CellValue & value) const
     return { it->second.index, it->second.bucketDescriptions.getBucket(value) };
 }
 
-float
+ML::Label
 DatasetFeatureSpace::
-encodeLabel(const CellValue & value) const
+encodeLabel(const CellValue & value, bool isRegression) const
 {
     static ColumnName LABEL("<<LABEL>>");
-    return encodeValue(value.isString() ? jsonEncodeStr(value) : value,
-                       LABEL, labelInfo);
+    float label = encodeValue(value.isString() ? jsonEncodeStr(value) : value,
+                           LABEL, labelInfo);
+
+    if (isRegression) {
+        return ML::Label(label);
+    }
+    else {
+        return ML::Label((int)label);
+    }
 }
 
 float
@@ -486,6 +493,13 @@ serialize(ML::DB::Store_Writer & store) const
     }
 
     //cerr << "done serializing feature space" << endl;
+}
+
+std::ostream & operator << (std::ostream & stream,
+                            const DatasetFeatureSpace::ColumnInfo & columnInfo)
+{
+    stream << columnInfo.print();
+    return stream;
 }
 
 

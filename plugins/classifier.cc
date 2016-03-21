@@ -689,6 +689,8 @@ ClassifyFunction(MldbServer * owner,
     ML::Feature_Info labelInfo = itl->featureSpace->info(labelFeature);
 
     itl->labelInfo = labelInfo;
+
+    isRegression = itl->classifier.label_count() == 1;
 }
 
 ClassifyFunction::
@@ -866,6 +868,11 @@ apply(const FunctionApplier & applier_,
         }
     }
     else {
+        if(!fset) {
+            throw ML::Exception("Feature_Set is null! Are you giving only null features to "
+                "the classifier function?");
+        }
+
         if (cat) {
             auto scores = itl->classifier.predict(*fset);
             ExcAssertEqual(scores.size(), labelCount);
@@ -1007,7 +1014,8 @@ apply(const FunctionApplier & applier,
 
     ML::Explanation expl
         = itl->classifier.impl
-        ->explain(*fset, itl->featureSpace->encodeLabel(context.get<CellValue>("label")));
+        ->explain(*fset, itl->featureSpace->encodeLabel(context.get<CellValue>("label"),
+                                                        isRegression));
 
     result.set("bias", ExpressionValue(expl.bias, ts));
 

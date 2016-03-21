@@ -640,7 +640,9 @@ $(document).ready(function () {
             .text('Send ' + method + ' request')
             .appendTo($well);
 
-        if(window.location.origin == "http://mldb.ai")
+        if( window.location.origin ==  "http://mldb.ai"      || 
+            window.location.origin ==  "http://docs.mldb.ai" || 
+            window.location.origin == "https://docs.mldb.ai"   )
         {
             $tryButton.click(function(){
                 alert("Interactive REST calls only work with a running MLDB instance, not on mldb.ai.\n\n" +

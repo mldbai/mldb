@@ -6,11 +6,10 @@ cd {{MLDB_DATA_DIR}}
 cat <<EOF
 
 MLDB (version {{VERSION_NAME2}}) is starting up
-
 EOF
 
-BIN=/opt/bin
-REMOTE_CREDENTIAL_PROVIDER=http://127.0.0.1:{{CREDENTIALSD_LISTEN_PORT}}
+export BIN=/opt/bin
+export REMOTE_CREDENTIAL_PROVIDER=http://127.0.0.1:{{CREDENTIALSD_LISTEN_PORT}}
 
 exec /sbin/setuser _mldb \
     /opt/bin/mldb_runner \

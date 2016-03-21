@@ -12,6 +12,8 @@
 #include "mldb/jml/utils/smart_ptr_utils.h"
 #include "mldb/server/bucket.h"
 
+#include <mutex>
+
 using namespace std;
 
 namespace Datacratic {
@@ -88,6 +90,8 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     ML::Lightweight_Hash<RowHash, std::pair<int, int> > rowIndex;
     std::string filename;
     Date earliestTs, latestTs;
+
+    std::mutex dataset_mutex;
 
     // Return the value of the column for all rows
     virtual MatrixColumn getColumn(const ColumnName & column) const
@@ -449,24 +453,27 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         if (rowCount > 0)
             HttpReturnException(400, "Tabular dataset has already been committed, cannot add more rows");
 
-        if (mutable_chunks.empty())
         {
-            //need to create the mutable chunk
-            vector<ColumnName> columnNames;
-            //The first recorded row will determine the columns
-            ML::Lightweight_Hash<ColumnHash, int> inputColumnIndex;
-            for (unsigned i = 0;  i < vals.size();  ++i) {
-                const ColumnName & c = std::get<0>(vals[i]);
-                ColumnHash ch(c);
-                if (!inputColumnIndex.insert(make_pair(ch, i)).second)
-                    throw HttpReturnException(400, "Duplicate column name in tabular dataset entry",
-                                              "columnName", c.toString());
-                columnNames.push_back(c);
+            std::unique_lock<std::mutex> guard(dataset_mutex);
+            if (mutable_chunks.empty())
+            {
+                //need to create the mutable chunk
+                vector<ColumnName> columnNames;
+                //The first recorded row will determine the columns
+                ML::Lightweight_Hash<ColumnHash, int> inputColumnIndex;
+                for (unsigned i = 0;  i < vals.size();  ++i) {
+                    const ColumnName & c = std::get<0>(vals[i]);
+                    ColumnHash ch(c);
+                    if (!inputColumnIndex.insert(make_pair(ch, i)).second)
+                        throw HttpReturnException(400, "Duplicate column name in tabular dataset entry",
+                                                  "columnName", c.toString());
+                    columnNames.push_back(c);
+                }
+
+                initialize(columnNames, inputColumnIndex);
+
+                mutable_chunks.emplace_back(columnNames.size(), TABULAR_DATASET_DEFAULT_ROWS_PER_CHUNK);
             }
-
-            initialize(columnNames, inputColumnIndex);
-
-            mutable_chunks.emplace_back(columnNames.size(), TABULAR_DATASET_DEFAULT_ROWS_PER_CHUNK);
         }
 
         std::vector<CellValue> orderedVals(columnNames.size());
@@ -482,7 +489,10 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             ts = std::max(ts, std::get<2>(vals[i]));
         }
 
-        mutable_chunks[0].add(rowName, ts, orderedVals.data());
+        {
+            std::unique_lock<std::mutex> guard(dataset_mutex);
+            mutable_chunks[0].add(rowName, ts, orderedVals.data());
+        }
     }
 };
 
@@ -561,6 +571,7 @@ getRowStream() const
 GenerateRowsWhereFunction
 TabularDataset::
 generateRowsWhere(const SqlBindingScope & context,
+                  const Utf8String& alias,
                   const SqlExpression & where,
                   ssize_t offset,
                   ssize_t limit) const
@@ -568,7 +579,7 @@ generateRowsWhere(const SqlBindingScope & context,
     GenerateRowsWhereFunction fn
         = itl->generateRowsWhere(context, where, offset, limit);
     if (!fn)
-        fn = Dataset::generateRowsWhere(context, where, offset, limit);
+        fn = Dataset::generateRowsWhere(context, alias, where, offset, limit);
     return fn;
 }
 

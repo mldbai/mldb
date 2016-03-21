@@ -201,6 +201,7 @@ intended. See also [the MLDB Type System](TypeSystem.md).
 - `expr IS [NOT] NUMBER` tests if the given expression is a number
 - `expr IS [NOT] INTEGER` tests if the given expression is an integer
 - `expr IS [NOT] TIMESTAMP` tests if the given expression is a timestamp
+- `expr IS [NOT] INTERVAL` tests if the given expression is a time interval
 
 ### [NOT] IN expression
 
@@ -241,6 +242,15 @@ For example: `expr IN (VALUES OF [3, 5, 7, 11])`
 is equivalent to expr IN (3, 5, 7, 11), but allows a full row expression
 to be used to construct the set, rather than enumerating tuple elements.
 
+### [NOT] LIKE expression
+
+This expression tests if a string on the left-hand side matches an SQL wildcard pattern on the right hand side.
+
+The `%` character will substitute for 0 or more characters. For example: `x LIKE 'abc%'` will test if x is a string that starts with `abc`.
+
+The `_` character will substitute for a single character. For example: `x LIKE 'a_a'` will test if x is a string that has 3 characters that starts and ends with `a`.
+
+For more intricate patterns, you can use the `regex_match` function.
 
 ## <a name="CallingFunctions"></a>Calling Functions</h2>
 
@@ -445,7 +455,7 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
 - `flatten(val)` will take a n-dimensional embedding and flatten it down
   into a one-dimensional embedding containing all of the elements.  The
   elements will be taken from end end dimensions first, ie
-  `flatten([ [ 1, 2], [3, 4] ]) will be `[1, 2, 3, 4]`.
+  `flatten([ [ 1, 2], [3, 4] ])` will be `[1, 2, 3, 4]`.
 
 ### <a name="importfunctions"></a>Data import functions
 

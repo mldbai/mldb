@@ -1407,9 +1407,7 @@ double
 ExpressionValue::
 toDouble() const
 {
-    //ExcAssertEqual(type_, ATOM);
-   if (type_ != ATOM)
-        throw HttpReturnException(400, "Can't convert from " + getTypeAsUtf8String() + " to double");
+    assertType(ATOM, "double");
     return cell_.toDouble();
 }
 
@@ -1417,8 +1415,7 @@ int64_t
 ExpressionValue::
 toInt() const
 {
-    if (type_ != ATOM)
-        throw HttpReturnException(400, "Can't convert from " + getTypeAsUtf8String() + " to integer");
+    assertType(ATOM, "integer");
     return cell_.toInt();
 }
     
@@ -1429,8 +1426,7 @@ asBool() const
     if (type_ == NONE)
         return false;
     
-    if (type_ != ATOM)
-        throw HttpReturnException(400, "Can't convert from " + getTypeAsUtf8String() + " to boolean");
+    assertType(ATOM, "boolean");
 
     return cell_.asBool();
 }
@@ -1588,8 +1584,7 @@ std::string
 ExpressionValue::
 toString() const
 {
-    if (type_ != ATOM)
-        throw HttpReturnException(400, "Can't convert from " + getTypeAsUtf8String() + " to string");
+    assertType(ATOM, "string");
     return cell_.toString();
 }
 
@@ -1597,37 +1592,22 @@ Utf8String
 ExpressionValue::
 toUtf8String() const
 {
-    if (type_ != ATOM)
-        throw HttpReturnException(400, "Can't convert from " + getTypeAsUtf8String() + " to UTF8 string");
+    assertType(ATOM, "Utf8 string");
     return cell_.toUtf8String();
 }
 
-Utf8String
+string
 ExpressionValue::
-getTypeAsUtf8String() const
+getTypeAsString() const
 {
-    switch (type_)
-    {
-        case NONE:
-            return "empty";
-        case ATOM:
-            return "atomic value";
-        case ROW:
-            return "row";
-        case STRUCT:
-            return "embedding";
-        default:
-            ExcAssert(false);
-            return "unknown";
-    }
+    return print(type_);
 }
 
 std::basic_string<char32_t>
 ExpressionValue::
 toWideString() const
 {
-    if (type_ != ATOM)
-        throw HttpReturnException(400, "Can't convert from " + getTypeAsUtf8String() + " to wide string");
+    assertType(ATOM, "wide string");
     return cell_.toWideString();
 }
 
@@ -2294,7 +2274,7 @@ ExpressionValue::Row
 ExpressionValue::
 getFiltered(const VariableFilter & filter) const
 {
-    ExcAssertEqual(type_, ROW);
+    assertType(ROW);
 
     if (filter == GET_ALL)
         return *row_;
@@ -2629,7 +2609,7 @@ void
 ExpressionValue::
 initRow(std::shared_ptr<const Row> value) noexcept
 {
-    ExcAssertEqual(type_, NONE);
+    assertType(NONE);
     ts_ = Date();
     if (value->size() == 0) {
         ts_ = Date::notADate();
@@ -2652,7 +2632,7 @@ getAtom() const
 {
     if (type_ == NONE)
         return EMPTY_CELL;
-    ExcAssertEqual(type_, ATOM);
+    assertType(ATOM);
     return cell_;
 }
 
@@ -2662,7 +2642,7 @@ stealAtom()
 {
     if (type_ == NONE)
         return CellValue();
-    ExcAssertEqual(type_, ATOM);
+    assertType(ATOM);
     return std::move(cell_);
 }
 
@@ -2695,7 +2675,7 @@ const ExpressionValue::Row &
 ExpressionValue::
 getRow() const
 {
-    ExcAssertEqual(type_, ROW);
+    assertType(ROW);
     return *row_;
 }
 
@@ -2703,7 +2683,7 @@ ExpressionValue::Row
 ExpressionValue::
 stealRow()
 {
-    ExcAssertEqual(type_, ROW);
+    assertType(ROW);
     type_ = NONE;
     return std::move(*row_);
 }

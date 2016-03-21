@@ -1076,14 +1076,11 @@ const SqlExpression::Operator operators[] = {
     { "!<", false,       SqlExpression::compar, 4, "Not less than" },
     { ">", false,        SqlExpression::compar, 4, "Greater than" },
     { "<", false,        SqlExpression::compar, 4, "Less than" },
-    { "NOT", true,       SqlExpression::booln,  5, "Boolean not" },
+    { "NOT", true,       SqlExpression::booln,  5, "Unary not" },
     { "AND", false,      SqlExpression::booln,  6, "Boolean and" },
     { "OR", false,       SqlExpression::booln,  7, "Boolean or" },
     { "ALL", true,       SqlExpression::unimp,  7, "All true" },
     { "ANY", true,       SqlExpression::unimp,  7, "Any true" },
-    { "BETWEEN", false,  SqlExpression::unimp,  7, "Between operator" },
-    { "IN", true,        SqlExpression::unimp,  7, "In operator" },
-    { "LIKE", true,      SqlExpression::unimp,  7, "Like operator" },
     { "SOME", true,      SqlExpression::unimp,  7, "Some true" }
 };
 
@@ -1366,7 +1363,11 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
                 lhs = std::make_shared<IsTypeExpression>(lhs, notExpr, "number");
             else if (matchKeyword(context, "INTEGER"))
                 lhs = std::make_shared<IsTypeExpression>(lhs, notExpr, "integer");
-            else context.exception("Expected NULL, TRUE, FALSE, STRING, NUMBER or INTEGER after IS {NOT}");
+            else if (matchKeyword(context, "TIMESTAMP"))
+                lhs = std::make_shared<IsTypeExpression>(lhs, notExpr, "timestamp");
+            else if (matchKeyword(context, "INTERVAL"))
+                lhs = std::make_shared<IsTypeExpression>(lhs, notExpr, "interval");
+            else context.exception("Expected NULL, TRUE, FALSE, STRING, NUMBER, INTEGER, TIMESTAMP or INTERVAL after IS {NOT}");
 
             lhs->surface = ML::trim(token.captured());
 
@@ -1407,7 +1408,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
 
                 auto rhs = std::make_shared<SelectSubtableExpression>(statement, asName);
                 lhs = std::make_shared<InExpression>(lhs, rhs, negative);
-                lhs->surface = ML::trim(token.captured());                
+                lhs->surface = ML::trim(token.captured());
             }
             else if (matchKeyword(context, "KEYS OF")) {
                 auto rhs = SqlExpression::parse(context, allowUtf8, 10);
@@ -1432,6 +1433,16 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
                 lhs->surface = ML::trim(token.captured());
                 continue;
             }
+        }
+
+        // 'LIKE' expression
+        if ((negative = matchKeyword(context, "NOT LIKE")) || matchKeyword(context, "LIKE")) {
+            expect_whitespace(context);
+
+            auto rhs = SqlExpression::parse(context, allowUtf8, 10);
+
+            lhs = std::make_shared<LikeExpression>(lhs, rhs, negative);
+            lhs->surface = ML::trim(token.captured());
         }
 
         // Now look for an operator

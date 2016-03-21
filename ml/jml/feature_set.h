@@ -19,6 +19,7 @@
 #include <cmath>
 #include <algorithm>
 #include "mldb/base/parse_context.h"
+#include "mldb/base/exc_assert.h"
 #include "feature.h"
 
 namespace ML {
@@ -365,6 +366,8 @@ public:
     virtual std::tuple<const Feature *, const float *, int, int, size_t>
     get_data(bool need_sorted = false) const
     {
+        ExcAssertGreater(features.size(), 0);
+
         if (need_sorted && !is_sorted) sort();
 
         return std::make_tuple
