@@ -79,7 +79,7 @@ The following example would be for a 2-fold run:
     "runStarted" : "...",
     "state" : "finished",
     "status" : {
-        "aggregated_test": {
+        "aggregatedTest": {
             "auc": {
                 "max": x,
                 "mean": y,
@@ -90,11 +90,11 @@ The following example would be for a 2-fold run:
         },
         "folds": [
             {
-                "results_test" : { <classifier.test output for fold 1> },
+                "resultsTest" : { <classifier.test output for fold 1> },
                 "fold": { <dataset_fold used for fold 1> }
             },
             {
-                "results_test" : { <classifier.test output for fold 2> },
+                "resultsTest" : { <classifier.test output for fold 2> },
                 "fold": { <dataset_fold used for fold 2> }
             }
         ]

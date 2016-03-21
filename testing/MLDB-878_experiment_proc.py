@@ -78,7 +78,7 @@ class Mldb878Test(MldbUnitTest):
         # did we run two training jobs that both got a good auc ?
         assert len(js_rez["status"]["folds"]) == 2
         for i in xrange(2):
-            assert js_rez["status"]["folds"][i]["results_test"]["auc"] > 0.95, \
+            assert js_rez["status"]["folds"][i]["resultsTest"]["auc"] > 0.95, \
                 'expected AUC to be above 0.95'
 
         # score using the predictor (MLDB-1070)
@@ -193,7 +193,7 @@ class Mldb878Test(MldbUnitTest):
 
         # make sure all the AUCs are ok
         for fold in js_rez["status"]["firstRun"]["status"]["folds"]:
-            assert fold["results_test"]["auc"] > 0.5, \
+            assert fold["resultsTest"]["auc"] > 0.5, \
                 'expect an AUC above 0.5, got ' + str(fold)
 
 
@@ -297,11 +297,11 @@ class Mldb878Test(MldbUnitTest):
         mldb.log(js_rez)
 
         # are the training results keys present?
-        self.assertTrue("results_train" in js_rez["status"]["folds"][0])
+        self.assertTrue("resultsTrain" in js_rez["status"]["folds"][0])
 
         # performance should be comparable
-        self.assertAlmostEqual(js_rez["status"]["folds"][0]["results_train"]["auc"],
-                               js_rez["status"]["folds"][0]["results_test"]["auc"], delta=0.05)
+        self.assertAlmostEqual(js_rez["status"]["folds"][0]["resultsTrain"]["auc"],
+                               js_rez["status"]["folds"][0]["resultsTest"]["auc"], delta=0.05)
         
 
 mldb.run_tests()

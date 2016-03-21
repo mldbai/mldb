@@ -514,13 +514,13 @@ run(const ProcedureRunConfig & run,
         Json::Value foldRez;
         foldRez["fold"] = jsonEncode(datasetFold);
         foldRez["modelFileUrl"] = clsProcConf.modelFileUrl.toUtf8String();
-        foldRez["results_test"] = jsonEncode(get<0>(accuracyOutput).results);
+        foldRez["resultsTest"] = jsonEncode(get<0>(accuracyOutput).results);
         foldRez["durationSecs"] = duration;
-        statsGen.accumStats(foldRez["results_test"], "");
+        statsGen.accumStats(foldRez["resultsTest"], "");
 
         if(runProcConf.evalTrain) {
-            foldRez["results_train"] = jsonEncode(get<0>(accuracyOutputTrain).results);
-            statsGenTrain.accumStats(foldRez["results_train"], "");
+            foldRez["resultsTrain"] = jsonEncode(get<0>(accuracyOutputTrain).results);
+            statsGenTrain.accumStats(foldRez["resultsTrain"], "");
         }
 
         test_eval_results.append(foldRez);
@@ -545,10 +545,10 @@ run(const ProcedureRunConfig & run,
 
     Json::Value final_res;
     final_res["folds"] = test_eval_results;
-    final_res["aggregated_test"] = statsGen.generateStatistics();
+    final_res["aggregatedTest"] = statsGen.generateStatistics();
     final_res["avgDuration"] = durationStatsGen.generateStatistics();
     if(runProcConf.evalTrain) {
-        final_res["aggregated_train"] = statsGenTrain.generateStatistics();
+        final_res["aggregatedTrain"] = statsGenTrain.generateStatistics();
     }
 
     return RunOutput(final_res);

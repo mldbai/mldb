@@ -134,7 +134,7 @@ class Mldb256Test(MldbUnitTest):
         })
 
         jsRez = rez.json()
-        self.assertEqual(jsRez["status"]["firstRun"]["status"]["folds"][0]["results"]["auc"], 1)
+        self.assertEqual(jsRez["status"]["firstRun"]["status"]["folds"][0]["resultsTest"]["auc"], 1)
 
 
     def test_bool_weighted_cls_works(self):
@@ -173,7 +173,7 @@ class Mldb256Test(MldbUnitTest):
         })
 
         jsRez = rez.json()
-        self.assertEqual(jsRez["status"]["firstRun"]["status"]["folds"][0]["results"]["auc"], 1)
+        self.assertEqual(jsRez["status"]["firstRun"]["status"]["folds"][0]["resultsTest"]["auc"], 1)
 
         # train again with a dt
         rez = mldb.post("/v1/procedures/bool_cls_weighted/runs", {
@@ -182,7 +182,7 @@ class Mldb256Test(MldbUnitTest):
             }
         })
         jsRez = rez.json()
-        self.assertGreater(jsRez["status"]["folds"][0]["results"]["auc"], 0.65)
+        self.assertGreater(jsRez["status"]["folds"][0]["resultsTest"]["auc"], 0.65)
     
 
     def test_toy_categorical_eval_works(self):
@@ -280,8 +280,8 @@ class Mldb256Test(MldbUnitTest):
 
         jsRez = rez.json()
         mldb.log(jsRez)
-        mldb.log(jsRez["status"]["firstRun"]["status"]["folds"][0]["results_test"]["confusionMatrix"])
-        self.assertEqual(jsRez["status"]["firstRun"]["status"]["folds"][0]["results_test"]["confusionMatrix"],
+        mldb.log(jsRez["status"]["firstRun"]["status"]["folds"][0]["resultsTest"]["confusionMatrix"])
+        self.assertEqual(jsRez["status"]["firstRun"]["status"]["folds"][0]["resultsTest"]["confusionMatrix"],
                 [{
                     "count": 3,
                     "actual": "x",
@@ -363,7 +363,7 @@ class Mldb256Test(MldbUnitTest):
 
         jsRez = rez.json()
         mldb.log(jsRez)
-        self.assertGreater(jsRez["status"]["firstRun"]["status"]["aggregated_test"]["r2"]["mean"], 0.98)
+        self.assertGreater(jsRez["status"]["firstRun"]["status"]["aggregatedTest"]["r2"]["mean"], 0.98)
 
 
 mldb.run_tests()

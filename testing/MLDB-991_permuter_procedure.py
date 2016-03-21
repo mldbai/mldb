@@ -94,6 +94,6 @@ assert len(js_rez["status"]) == 2 * 4
 
 for permutation in js_rez["status"]:
     assert len(permutation["results"]["folds"]) == 2
-    assert permutation["results"]["aggregated_test"]["auc"]["mean"] > 0.9
+    assert permutation["results"]["aggregatedTest"]["auc"]["mean"] > 0.9
 
 mldb.script.set_return("success")
