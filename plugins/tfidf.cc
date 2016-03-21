@@ -146,7 +146,7 @@ TfidfConfigDescription()
     addField("outputDataset", &TfidfConfig::output,
              "Output dataset.  This dataset will contain one row for each "
              "term appearing in the documents.  The row name will be the term "
-             "and the column ```count``` will contain the number of documents "
+             "and the column `count` will contain the number of documents "
              "containing the term.",
              optional);
     addField("functionName", &TfidfConfig::functionName,
