@@ -25,7 +25,6 @@
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/plugins/sql_config_validator.h"
-#include <cmath>
 
 using namespace std;
 
@@ -242,32 +241,6 @@ run(const ProcedureRunConfig & run,
 
         Date applyDate = Date::now();
         ColumnName columnName("count");
-
-#if 0
-        uint64_t loadFactor = std::ceil(dfs.load_factor());
-        auto recordRows = [&] (size_t i0, size_t i1)
-        {
-            std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > rows;
-            rows.reserve((i1 - i0)*loadFactor);
-            
-            // for each bucket
-            for (size_t i = i0; i < i1; ++i) {
-                // for each item in bucket
-                for (auto df = dfs.begin(i); df != dfs.end(i); ++df) {
-                    std::vector<std::tuple<ColumnName, CellValue, Date> > columns;
-                    columns.emplace_back(make_tuple(columnName, df->second, applyDate));
-                    rows.emplace_back(make_pair(RowName(df->first), columns));
-                }
-            }
-            
-            output->recordRows(rows);        
-        };
-        
-        // unordered_map does not have a random access iterator on element
-        // but buckets has so process buckets in parallel
-        size_t chunkSize = 256;
-        parallelMapChunked(0, dfs.bucket_count(), chunkSize, recordRows);
-#endif
 
         for (auto & df : dfs) {
             std::vector<std::tuple<ColumnName, CellValue, Date> > columns;
