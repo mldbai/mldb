@@ -166,6 +166,20 @@ toString() const
     return toUtf8String().stealRawString();
 }
 
+bool
+Coord::
+hasStringView() const
+{
+    return true;  // currently we store as a string, so always true
+}
+
+std::pair<const char *, size_t>
+Coord::
+getStringView() const
+{
+    return { data(), dataLength() };
+}
+
 //constexpr HashSeed defaultSeedStable { .i64 = { 0x1958DF94340e7cbaULL, 0x8928Fc8B84a0ULL } };
 
 uint64_t
