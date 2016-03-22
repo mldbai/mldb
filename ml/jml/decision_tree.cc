@@ -427,7 +427,24 @@ explain(const Feature_Set & feature_set,
 {
     Explanation result(feature_space(), weight); 
 
-    explain_recursive(result, feature_set, label, weight, tree.root, 0);
+    int nl = label_count();
+
+    const bool reggression = nl < 2;
+
+    if (label < 0 || (label >= nl && !reggression))
+        throw Exception("Decision_Tree::explain(): no label");
+
+    std::function<float (const Tree::Base&)> get_pred = [&] (const Tree::Base& node) {
+        return node.pred.at(label);
+    };
+
+    if (reggression){
+        get_pred = [&] (const Tree::Base& node) {
+            return node.pred.at(0);
+        };
+    }
+
+    explain_recursive(result, feature_set, label, weight, tree.root, 0, get_pred);
 
     return result;
 }
@@ -439,17 +456,10 @@ explain_recursive(Explanation & explanation,
                   const ML::Label & label,
                   double weight,
                   const Tree::Ptr & ptr,
-                  const Tree::Node * parent) const
+                  const Tree::Node * parent,
+                  std::function<float (const Tree::Base&)>& get_pred) const
 {
     StandardGetFeatures get_features(feature_set);
-    int nl = label_count();
-
-    if(nl < 2)
-        throw ML::Exception("The decision tree model does not support explain "
-            "for regressions");
-
-    if (label < 0 || label >= nl)
-        throw Exception("Decision_Tree::explain(): no label");
 
     if (!ptr) return;
 
@@ -458,11 +468,11 @@ explain_recursive(Explanation & explanation,
         if (parent) {
             explanation.feature_weights[parent->split.feature()]
                 += weight
-                * (ptr.leaf()->pred.at(label) - parent->pred.at(label));
+                * (get_pred(*ptr.leaf()) - get_pred(*parent));
         }
         else {
             // No parent, therefore it's all bias
-            explanation.bias += weight * (ptr.leaf()->pred.at(label));
+            explanation.bias += weight * (get_pred(*ptr.leaf()));
         }
 
         return;
@@ -474,27 +484,27 @@ explain_recursive(Explanation & explanation,
 
     // Accumulate the weight for this split
     if (!parent)
-        explanation.bias += weight * node.pred.at(label);
+        explanation.bias += weight * get_pred(node);
     else
         explanation.feature_weights[parent->split.feature()]
             += weight
-            * (node.pred.at(label) - parent->pred.at(label));
+            * (get_pred(node) - get_pred(*parent));
     
     /* Go down all of the edges that we need to for this example. */
     if (weights[true] > 0.0)
         explain_recursive(explanation, feature_set, label,
                           weight * weights[true],
-                          node.child_true, &node);
+                          node.child_true, &node, get_pred);
 
     if (weights[false] > 0.0)
         explain_recursive(explanation, feature_set, label,
                           weight * weights[false],
-                          node.child_false, &node);
+                          node.child_false, &node, get_pred);
 
     if (weights[MISSING] > 0.0)
         explain_recursive(explanation, feature_set, label,
                           weight * weights[MISSING],
-                          node.child_missing, &node);
+                          node.child_missing, &node, get_pred);
 }
 
 Disjunction<Tree::Leaf>

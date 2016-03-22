@@ -120,7 +120,8 @@ public:
                            const ML::Label & label,
                            double weight,
                            const Tree::Ptr & ptr,
-                           const Tree::Node * parent) const;
+                           const Tree::Node * parent,
+                           std::function<float (const Tree::Base&)>& get_pred) const;
 
     /** Convert the decision tree to a disjuction of conjunctions form
         of boolean rules. */
