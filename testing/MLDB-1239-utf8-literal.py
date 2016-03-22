@@ -22,8 +22,9 @@ class Utf8Test(MldbUnitTest):
         rez = mldb.put('/v1/procedures/transform', {
             "type": "transform",
             "params": {
-                "inputData": "SELECT 'françois' FROM dummy",
-                "outputDataset": "output"
+                "inputData": "SELECT 'françois', x FROM example",
+                "outputDataset": "output",
+                "runOnCreation": True
             }
         })
         #mldb.log(rez.json())

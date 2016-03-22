@@ -3010,7 +3010,7 @@ SelectExpressionDescription::
 parseJsonTyped(SelectExpression * val,
                JsonParsingContext & context) const
 {
-    string s = context.expectStringAscii();
+    Utf8String s = context.expectStringUtf8();
     *val = std::move(SelectExpression::parse(s));
 }
 
