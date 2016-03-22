@@ -157,6 +157,7 @@ struct ColumnIndex {
     getColumnStats(const ColumnName & column, ColumnStats & toStoreResult) const;
 
     /** Return the value of the column for all rows and timestamps. */
+    /** Will throw if column is unknown                              */
     virtual MatrixColumn getColumn(const ColumnName & column) const = 0;
 
     /** Return a dense column, with one value for every row in the same order as
@@ -179,7 +180,10 @@ struct ColumnIndex {
     getColumnBuckets(const ColumnName & column,
                      int maxNumBuckets = -1) const;
 
-    /** Return the value of the column for all rows, ignoring timestamps. */
+    /** Return the value of the column for all rows, ignoring timestamps. 
+        Default implementation is based on getColumn
+        Will throw if column is unknown
+    */
     virtual std::vector<std::tuple<RowName, CellValue> >
     getColumnValues(const ColumnName & column,
                     const std::function<bool (const CellValue &)> & filter = nullptr) const;
