@@ -195,3 +195,19 @@ BOOST_AUTO_TEST_CASE(test_blob)
     BOOST_CHECK_EQUAL(jsonEncodeStr(jsonDecodeStr<CellValue>(jsonEncodeStr(blob))),
                       jsonEncodeStr(blob));
 }
+
+BOOST_AUTO_TEST_CASE (test_int_to_string)
+{
+    BOOST_CHECK_EQUAL(CellValue(0).toString(), "0");
+    BOOST_CHECK_EQUAL(CellValue(1).toString(), "1");
+    BOOST_CHECK_EQUAL(CellValue(10).toString(), "10");
+    BOOST_CHECK_EQUAL(CellValue(1000).toString(), "1000");
+    BOOST_CHECK_EQUAL(CellValue(-1).toString(), "-1");
+    BOOST_CHECK_EQUAL(CellValue(-10).toString(), "-10");
+    BOOST_CHECK_EQUAL(CellValue(std::numeric_limits<int64_t>::max()).toString(),
+                      std::to_string(std::numeric_limits<int64_t>::max()));
+    BOOST_CHECK_EQUAL(CellValue(std::numeric_limits<uint64_t>::max()).toString(),
+                      std::to_string(std::numeric_limits<uint64_t>::max()));
+    BOOST_CHECK_EQUAL(CellValue(std::numeric_limits<int64_t>::min()).toString(),
+                      std::to_string(std::numeric_limits<int64_t>::min()));
+}

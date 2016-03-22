@@ -304,6 +304,45 @@ toWideString() const
     }
 }
 
+static std::string
+u64toa(uint64_t i)
+{
+    // NOTE: std::to_string is SLOOOOW in GCC 4.8
+    char buf[64]; // longer than any 64 bit integer
+    char * p = buf + 63;
+    while (0ULL != i || p == buf + 63) {
+        *p-- = '0' + (i % 10);
+        i /= 10;
+    }
+
+    return string(p + 1, buf + 64);
+}
+
+static std::string
+i64toa(int64_t i)
+{
+    // NOTE: std::to_string is SLOOOOW in GCC 4.8
+    char buf[64]; // longer than any 64 bit integer
+    char * p = buf + 63;
+    bool neg = false;
+    if (i < 0) {
+        if (i == std::numeric_limits<int64_t>::min()) {
+            // Can't represent; special case this one
+            return std::to_string(i);
+        }
+        neg = true;
+        i = -i;
+    }
+    while (0 != i || p == buf + 63) {
+        *p-- = '0' + (i % 10);
+        i /= 10;
+    }
+    if (neg)
+        *p-- = '-';
+
+    return string(p + 1, buf + 64);
+}
+
 std::string
 CellValue::
 toString() const
@@ -312,12 +351,11 @@ toString() const
     case ST_EMPTY:
         return "";
     case ST_INTEGER:
-        return std::to_string(intVal);
+        return i64toa(intVal);
     case ST_UNSIGNED:
-        return std::to_string(uintVal);
+        return u64toa(uintVal);
     case ST_FLOAT: {
         return Datacratic::dtoa(floatVal);
-        //return std::to_string(floatVal);
     }
     case ST_ASCII_SHORT_STRING:
         return string(shortString, shortString + strLength);

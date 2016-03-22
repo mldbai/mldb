@@ -52,7 +52,15 @@ Coord(const char * str, size_t len)
 Coord::
 Coord(uint64_t i)
 {
-    initString(std::to_string(i));
+    // NOTE: std::to_string is SLOOOOW in GCC 4.8
+    char buf[64]; // longer than any 64 bit integer
+    char * p = buf + 63;
+    char * e = buf + 64;
+    while (0 != i || p == buf + 63) {
+        *p-- = '0' + (i % 10);
+        i /= 10;
+    }
+    initChars(p + 1, e - p - 1);
 }
 
 bool
