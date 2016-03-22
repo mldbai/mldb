@@ -246,6 +246,16 @@ The default, overrideable `configurationFile` contains the following:
         "update_alg": "prob"
     },
 
+    "glz_linear": {
+        "_note": "Generalized Linear Model, linear link function, to be used for 'regression' mode",
+
+        "type": "glz",
+        "link_function": "linear",
+        "verbosity": 3,
+        "normalize ": "true",
+        "ridge_regression ": "true"
+    },
+
     "glz": {
         "_note": "Generalized Linear Model.  Very smooth but needs very good features",
 
