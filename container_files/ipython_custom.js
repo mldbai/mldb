@@ -66,15 +66,15 @@ function mldb_defer() {
                 if(minLeft < 0) {
                     countDownSpan
                     .addClass("danger")
-                    .html("MLDB Container expired " + Math.abs(minLeft) + " minutes ago.");
+                    .html("MLDB session expired " + Math.abs(minLeft) + " minutes ago.");
                 }
                 else if(minLeft < 10) {
                     countDownSpan
                     .addClass("warning")
-                    .html("MLDB Container expires in " + minLeft + " minutes: export your data now!");
+                    .html("MLDB session expires in " + minLeft + " minutes: export your data now!");
                 }
                 else {
-                    countDownSpan.html("MLDB Container expires in " + minLeft + " minutes");
+                    countDownSpan.html("MLDB session expires in " + minLeft + " minutes");
                 }
             }
             setInterval(updateCountdown, 10000); 
