@@ -119,7 +119,7 @@
 	                matchBrackets: true,
 	            });
 	            _this.codeMirror.setOption("extraKeys", {
-	                "Ctrl-Enter": _this.queryMLDB
+	                "Shift-Enter": _this.queryMLDB
 	            });
 	        };
 	        this.state = {
