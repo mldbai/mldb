@@ -102,12 +102,9 @@ struct VariablesMapConfig : public BaseConfig {
         : map(map)
     {}
     virtual std::string getString(const std::string & key, const std::string & defaultValue) {
-        try {
+        if (map.count(key))
             return map[key].as<std::string>();
-        }
-        catch (std::exception &) {
-            return defaultValue;
-        }
+        return defaultValue;
     }
   
     boost::program_options::variables_map map;
