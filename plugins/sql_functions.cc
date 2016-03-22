@@ -568,7 +568,7 @@ run(const ProcedureRunConfig & run,
                 {
                     auto & rows = accum.get();
                     rows.reserve(10000);
-                    rows.emplace_back(RowName(calc.at(0).toString()), std::move(cols));
+                    rows.emplace_back(RowName(calc.at(0).toUtf8String()), std::move(cols));
 
                     if (rows.size() >= 10000) {
                         output->recordRows(rows);
