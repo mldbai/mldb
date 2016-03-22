@@ -725,8 +725,7 @@ executeFilteredColumnExpression(const Dataset & dataset,
 {
     auto columnIndex = dataset.getColumnIndex();
 
-    if (columnIndex->knownColumn(columnName))
-    {
+    if (columnIndex->knownColumn(columnName)) {
         auto col = (*dataset.getColumnIndex()).getColumnValues(columnName, filter);
     
         std::vector<RowName> rows;
@@ -744,8 +743,7 @@ executeFilteredColumnExpression(const Dataset & dataset,
 
         return std::pair<std::vector<RowName>, Any>(std::move(rows), std::move(Any()));
     }
-    else
-    {
+    else {
         return {};
     }
     
