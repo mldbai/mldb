@@ -20,6 +20,7 @@
 #include <boost/lexical_cast.hpp>
 
 #include <boost/regex/icu.hpp>
+#include <iterator>
 
 using namespace std;
 
@@ -1113,6 +1114,42 @@ BoundFunction latest_timestamp(const std::vector<BoundSqlExpression> & args)
 }
 
 static RegisterBuiltin register_latest_timestamp(latest_timestamp, "latest_timestamp");
+
+BoundFunction distinct_timestamps(const std::vector<BoundSqlExpression> & args)
+{
+    checkArgsSize(args.size(), 1);
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                ExcAssertEqual(args.size(), 1);
+
+                auto val = args[0];
+
+                std::set<Date> results;
+
+                auto onAtom = [&] (const Coord & columnName,
+                                   const Coord & prefix,
+                                   const CellValue & val,
+                                   Date atomTs)
+                    {
+                        if (!val.empty())
+                            results.insert(atomTs);
+                        return true;
+                    };
+
+                val.forEachAtom(onAtom);
+
+                std::vector<CellValue> embedding;
+                embedding.reserve(results.size());
+                std::copy(results.begin(), results.end(), std::back_inserter(embedding));
+
+                return ExpressionValue(embedding, args[0].getEffectiveTimestamp());
+            },
+            std::make_shared<EmbeddingValueInfo>(),
+            GET_ALL};
+}
+
+static RegisterBuiltin register_distinct_timestamps(distinct_timestamps, "distinct_timestamps");
 
 BoundFunction toTimestamp(const std::vector<BoundSqlExpression> & args)
 {

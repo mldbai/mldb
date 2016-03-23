@@ -410,6 +410,8 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
   or object `x`.
 - `latest_timestamp(x)` returns the maximum timestamp associated with the scalar
   or object `x`.
+- `distinct_timestamps(x)` returns an embedding of the distinct timestamps of a scalar
+  or object `x`.
 - `x @ d` or `at(x, d)` returns the value of the expression `x`, but with the timestamp
   modified to be at timestamp `d`.
 - `now()` returns the timestamp at the current moment, according to system
