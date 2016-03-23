@@ -22,11 +22,7 @@ mldb_dev_headers: $(MLDB_ALL_HEADERS:%=$(INC)/mldb/%)
 
 expand_wildcards=$(shell find $(1) -type f)
 
-#$(warning mldb_local_headers=$(MLDB_LOCAL_HEADER_FILES))
-
-mldb_sdk: \
-	$(MLDB_ALL_HEADERS:%=$(INC)/mldb/%) \
-	$(MLDB_LOCAL_HEADER_FILES:%=$(INC)/%)
+mldb_sdk: $(MLDB_ALL_HEADERS:%=$(INC)/mldb/%)
 
 
 docker_mldb_sdk: docker_mldb
