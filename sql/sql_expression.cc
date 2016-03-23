@@ -3626,7 +3626,7 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
     }
     else {
         //default name is "rowName()" if there is a dataset and "result" if there is none
-        //wo we need to check if there is a FROM first.
+        //we need to check if there is a FROM first.
         needDefaultRowName = true;
     }
 
