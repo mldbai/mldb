@@ -16,9 +16,6 @@ header_deps_onefile=$(shell $(CXX) $(CXXFLAGS) -MM -o - $(1) | tr ' ' '\n' | tr 
 $(INC)/mldb/%.h:			./mldb/%.h
 	mkdir -p $(dir $@) && cp ./mldb/$*.h $@
 
-
-
-
 MLDB_ALL_HEADERS=$(call header_deps_onefile,mldb/sdk/sdk_include_seed.cc)
 
 mldb_dev_headers: $(MLDB_ALL_HEADERS:%=$(INC)/mldb/%)
@@ -26,10 +23,6 @@ mldb_dev_headers: $(MLDB_ALL_HEADERS:%=$(INC)/mldb/%)
 expand_wildcards=$(shell find $(1) -type f)
 
 #$(warning mldb_local_headers=$(MLDB_LOCAL_HEADER_FILES))
-
-$(INC)/%: $(HOME)/local/include/%
-	mkdir -p $(dir $@) && cp $< $@
-
 
 mldb_sdk: \
 	$(MLDB_ALL_HEADERS:%=$(INC)/mldb/%) \
