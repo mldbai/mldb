@@ -455,4 +455,11 @@ expected = [
 testQuery('SELECT * FROM test3 OUTER JOIN test4 ON test3.rowName() = test4.rowName() OUTER JOIN test5 on test3.rowName() = test5.rowName() OUTER JOIN test6 on test3.rowName() = test6.rowName()',
           expected);
 
+//MLDB-1384
+//asking for unknow column in the WHERE should not throw.
+expected = [[ "_rowName" ]];
+
+testQuery('SELECT 1 FROM (SELECT 2) as a OUTER JOIN (SELECT 2) as b WHERE x',
+          expected);
+
 "success"

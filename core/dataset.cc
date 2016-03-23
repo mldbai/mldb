@@ -723,22 +723,30 @@ executeFilteredColumnExpression(const Dataset & dataset,
                                 const ColumnName & columnName,
                                 const Filter & filter)
 {
-    auto col = (*dataset.getColumnIndex()).getColumnValues(columnName, filter);
+    auto columnIndex = dataset.getColumnIndex();
+
+    if (columnIndex->knownColumn(columnName)) {
+        auto col = (*dataset.getColumnIndex()).getColumnValues(columnName, filter);
     
-    std::vector<RowName> rows;
+        std::vector<RowName> rows;
 
-    auto matrix = dataset.getMatrixView();
+        auto matrix = dataset.getMatrixView();
 
-    for (auto & r: col) {
-        RowName & rh = std::get<0>(r);
-        rows.emplace_back(std::move(rh));
+        for (auto & r: col) {
+            RowName & rh = std::get<0>(r);
+            rows.emplace_back(std::move(rh));
+        }
+
+        std::sort(rows.begin(), rows.end(), SortByRowHash());
+        rows.erase(std::unique(rows.begin(), rows.end()),
+                   rows.end());
+
+        return std::pair<std::vector<RowName>, Any>(std::move(rows), std::move(Any()));
+    }
+    else {
+        return {};
     }
     
-    std::sort(rows.begin(), rows.end(), SortByRowHash());
-    rows.erase(std::unique(rows.begin(), rows.end()),
-               rows.end());
- 
-    return std::pair<std::vector<RowName>, Any>(std::move(rows), std::move(Any()));
 }
 
 template<typename Filter>
