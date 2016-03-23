@@ -13,6 +13,9 @@
 
 
 namespace Datacratic {
+
+struct JsonPrintingContext;
+
 namespace MLDB {
 
 
@@ -320,6 +323,22 @@ struct CellValue {
     {
         return !operator < (other);
     }
+
+    /** Print the value to the given JSON context.  This allows for
+        JSON to be extracted without going through a Json::Value
+        object.  This version provides full fidelity in type conversion,
+        but the JSON returned is less natural.
+    */
+    void extractStructuredJson(JsonPrintingContext & context) const;
+
+    /** Print the value to the given JSON context.  This allows for
+        JSON to be extracted without going through a Json::Value
+        object.  This version provides a simplified JSON representation,
+        for example converting timestamps into strings, and as a result
+        will lose fidelity in the output for things that don't have a
+        natural JSON representation.
+    */
+    void extractSimplifiedJson(JsonPrintingContext & context) const;
 
 private:
     double toDoubleImpl() const;

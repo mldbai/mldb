@@ -801,7 +801,7 @@ struct ExpressionValue::Struct {
         return values.size();
     }
 
-    CellValue value(int i) const
+    const CellValue & value(int i) const
     {
         return values.at(i);
     }
@@ -1090,6 +1090,7 @@ parseJson(JsonParsingContext & context,
     if (context.isObject()) {
 
         std::vector<std::tuple<ColumnName, ExpressionValue> > out;
+        out.reserve(16);  // TODO: context may know object size
 
         auto onObjectField = [&] ()
             {
@@ -1104,6 +1105,7 @@ parseJson(JsonParsingContext & context,
     }
     else if (context.isArray()) {
         std::vector<std::tuple<ColumnName, ExpressionValue> > out;
+        out.reserve(16);  // TODO: context may know array length
 
         bool hasNonAtom = false;
         bool hasNonObject = false;
@@ -2899,49 +2901,71 @@ extractJson(JsonPrintingContext & context) const
         return;
 
     case ExpressionValue::ROW: {
-        Json::Value output(Json::objectValue);
+        context.startObject();
 
-        for (auto & r: *row_)
-            output[std::get<0>(r).toUtf8String()] = std::get<1>(r).extractJson();
+        for (auto & r: *row_) {
+            if (std::get<0>(r).hasStringView()) {
+                const char * start;
+                size_t len;
 
-        context.writeJson(output);
+                std::tie(start, len) = std::get<0>(r).getStringView();
+
+                context.startMember(start, len);
+            }
+            else {
+                context.startMember(std::get<0>(r).toUtf8String());
+            }
+
+            std::get<1>(r).extractJson(context);
+        }
+
+        context.endObject();
+
         return;
     }
     case ExpressionValue::STRUCT: {
         Json::Value output(Json::arrayValue);
 
-        if (!struct_->columnNames) {
-            for (unsigned i = 0;  i < struct_->length();  ++i)
-                output[i] = jsonEncode(struct_->value(i));
-        }
-        else if (struct_->length() > 0
-                 && struct_->columnNames->at(0) == ColumnName(0)) {
-            // Assume it's an array
-            
-            for (unsigned i = 0;  i < struct_->length();  ++i) {
-                output[i] = jsonEncode(struct_->value(i));
-                if (struct_->columnNames->at(i) != i) {
-                    // Not really an array or embedding...
-                    output = Json::Value();
-                    break;
-                }
+        bool isArray = true;
+
+        if (struct_->columnNames && struct_->length() > 0
+            && struct_->columnNames->at(0) == ColumnName(0)) {
+            // Assume it's an array; check if not
+            bool isArray = true;
+            for (unsigned i = 1;  i < struct_->length() && isArray;  ++i) {
+                if (struct_->columnNames->at(i) != i)
+                    isArray = false;
             }
         }
-
-        if (!output.isNull()) {
-            context.writeJson(output);
-            return;
+        if (isArray) {
+            context.startArray();
+            for (unsigned i = 0;  i < struct_->length();  ++i) {
+                context.newArrayElement();
+                struct_->value(i).extractStructuredJson(context);
+            }
+            context.endArray();
         }
+        else {
+            context.startObject();
 
-        output = Json::Value(Json::objectValue);
+            for (unsigned i = 0;  i < struct_->length();  ++i) {
+                if (struct_->columnName(i).hasStringView()) {
+                    const char * start;
+                    size_t len;
 
-        for (unsigned i = 0;  i < struct_->length();  ++i) {
-            output[struct_->columnName(i).toUtf8String()]
-                = jsonEncode(struct_->value(i));
+                    std::tie(start, len) = struct_->columnName(i).getStringView();
+
+                    context.startMember(start, len);
+                }
+                else {
+                    context.startMember(struct_->columnName(i).toUtf8String());
+                }
+
+                struct_->value(i).extractStructuredJson(context);
+            }
+
+            context.endObject();
         }
-
-        context.writeJson(output);
-        return;
     }
     case ExpressionValue::EMBEDDING: {
         throw HttpReturnException(500, "extractJson EMBEDDING: not impl");

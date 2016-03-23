@@ -116,6 +116,19 @@ struct Coord {
     Utf8String toUtf8String() const;
     std::string toString() const;  // TODO: will disappear
 
+    /** If true, we can return a const char * and length that will
+        live as long as this CellValue and can be used instead of
+        creating a new string when printing.
+    */
+    bool hasStringView() const;
+
+    /** Return a memory range that is a UTF-8 encoded version of
+        this object's string representation.  Should throw if
+        hasStringView() is false.
+    */
+    std::pair<const char *, size_t>
+    getStringView() const;
+
     uint64_t hash() const;
 
     bool empty() const;

@@ -11,6 +11,7 @@
 #include "mldb/types/value_description.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/ext/siphash/csiphash.h"
+#include "mldb/types/itoa.h"
 #include "mldb/utils/json_utils.h"
 
 
@@ -52,7 +53,11 @@ Coord(const char * str, size_t len)
 Coord::
 Coord(uint64_t i)
 {
-    initString(std::to_string(i));
+    ItoaBuf buf;
+    char * begin;
+    char * end;
+    std::tie(begin, end) = itoa(i, buf);
+    initChars(begin, end - begin);
 }
 
 bool
@@ -156,6 +161,20 @@ Coord::
 toString() const
 {
     return toUtf8String().stealRawString();
+}
+
+bool
+Coord::
+hasStringView() const
+{
+    return true;  // currently we store as a string, so always true
+}
+
+std::pair<const char *, size_t>
+Coord::
+getStringView() const
+{
+    return { data(), dataLength() };
 }
 
 //constexpr HashSeed defaultSeedStable { .i64 = { 0x1958DF94340e7cbaULL, 0x8928Fc8B84a0ULL } };
