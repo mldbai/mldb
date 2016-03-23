@@ -136,6 +136,11 @@ queryFromStatement(SelectStatement & stm,
                    SqlBindingScope & scope,
                    BoundParameters params = nullptr);
 
+/** Build a RowName from an expression value and throw if
+    it is not valid (row, empty, etc)
+*/
+RowName GetValidatedRowName(const ExpressionValue& rowNameEV);
+
 } // namespace MLDB
 } // namespace Datacratic
 

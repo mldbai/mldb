@@ -39,5 +39,10 @@ class ImproveErrorMessageNamedOnNullTest(MldbUnitTest): # noqa
         with self.assertMldbRaises(expected_regexp=expect) as re:
            mldb.query("SELECT * NAMED {1} FROM ds")
 
+    def test_named_without_dataset(self):
+        expect = [["_rowName","1"],["the one", 1 ]]
+        res = mldb.query("SELECT 1 NAMED 'the one'")
+        self.assertEqual(expect, res);
+
 if __name__ == '__main__':
     mldb.run_tests()
