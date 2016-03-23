@@ -24,13 +24,20 @@ class ImproveErrorMessageNamedOnNullTest(MldbUnitTest): # noqa
         # works because we only work on the row where behA != null
         mldb.query('SELECT * NAMED behA FROM ds WHERE behA IS NOT NULL')
 
-    @unittest.expectedFailure
     def test_non_working_case(self):
-        # FIXME: It's ok to fail, but the error message should be helpful
-        # currently returns "Can't convert from empty to string"
         expect = "Can't create a row with a null or empty name."
-        with self.assertMldbRaises(expected_regexp=expect):
-            mldb.query('SELECT * NAMED behA FROM ds')
+        with self.assertMldbRaises(expected_regexp=expect) as re:
+           mldb.query('SELECT * NAMED behA FROM ds')
+
+    def test_non_working_case_2(self):
+        expect = "Can't create a row with an empty name."
+        with self.assertMldbRaises(expected_regexp=expect) as re:
+           mldb.query("SELECT * NAMED '' FROM ds")
+
+    def test_non_working_case_3(self):
+        expect = "NAMED expression must evaluate to a single value"
+        with self.assertMldbRaises(expected_regexp=expect) as re:
+           mldb.query("SELECT * NAMED {1} FROM ds")
 
 if __name__ == '__main__':
     mldb.run_tests()

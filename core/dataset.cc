@@ -674,7 +674,21 @@ queryStructured(const SelectExpression & select,
                                const std::vector<ExpressionValue> & calc)
             {
                 MatrixNamedRow row = row_.flattenDestructive();
-                row.rowName = RowName(calc.at(0).toUtf8String());
+
+                const ExpressionValue& rowNameEV = calc.at(0);
+
+                if (rowNameEV.empty())
+                    throw HttpReturnException(400, "Can't create a row with a null or empty name.");
+
+                if (!rowNameEV.isAtom())
+                    throw HttpReturnException(400, "NAMED expression must evaluate to a single value");
+
+                Utf8String rowName = rowNameEV.toUtf8String();
+
+                if (rowName.empty())
+                    throw HttpReturnException(400, "Can't create a row with an empty name.");
+
+                row.rowName = RowName(rowName);
                 row.rowHash = row.rowName;
                 std::unique_lock<std::mutex> guard(lock);
                 output.emplace_back(std::move(row));

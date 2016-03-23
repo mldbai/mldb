@@ -39,7 +39,7 @@ assertEqual(resp.responseCode, 201);
 
 var expected = [
     [ "_rowName", "Z" ],
-    [ "", "three" ]
+    [ "result", "three" ]
 ];
 
 testQuery("SELECT poil({input: {x: 1, y: 2, z: 'three'}})[output] as *", expected);
@@ -70,7 +70,7 @@ assertEqual(resp.responseCode, 201);
 
 expected = [
    [ "_rowName", "output.a", "output.b" ],
-   [ "", 1, 2 ]
+   [ "result", 1, 2 ]
 ];
 
 testQuery("SELECT x({1}) AS *", expected);

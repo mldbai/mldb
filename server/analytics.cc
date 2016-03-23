@@ -324,7 +324,7 @@ queryWithoutDataset(SelectStatement& stm, SqlBindingScope& scope)
     SqlRowScope context;
     ExpressionValue val = boundSelect(context, GET_ALL);
     MatrixNamedRow row;
-    //row.rowName = RowName(stm.select.surface); //TO BE REVIEWED AS PART OF MLDBFB-264
+    row.rowName = RowName("result"); //todo: allow NAMED
     row.rowHash = row.rowName;
     val.mergeToRowDestructive(row.columns);
 
