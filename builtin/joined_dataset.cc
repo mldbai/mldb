@@ -648,7 +648,7 @@ struct JoinedDataset::Itl
         auto it = columnIndex.find(columnName);
 
         if (it == columnIndex.end())
-            throw HttpReturnException(400, "Joined dataset did not find column ",
+            throw HttpReturnException(500, "Joined dataset did not find column ",
                                       "columnName", columnName);
         
         auto doGetColumn = [&] (const Dataset & dataset,
