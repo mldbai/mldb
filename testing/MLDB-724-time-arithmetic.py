@@ -589,7 +589,9 @@ class TimeArithmeticTest(MldbUnitTest):
         
         dataset.commit()
 
-        query = mldb.get('/v1/query', q = 'select distinct_timestamps({*}) as distinct from mldb_1509 order by rowName()')
+        # distinct_timestamps on row on row
+        query = mldb.get('/v1/query', 
+                         q = 'select distinct_timestamps({*}) as distinct from mldb_1509 order by rowName()')
 
         self.assertFullResultEquals(query.json(),
            [
@@ -676,7 +678,9 @@ class TimeArithmeticTest(MldbUnitTest):
            ]
         )
 
-        query = mldb.get('/v1/query', q = 'select distinct_timestamps(a) as distinct from mldb_1509 order by rowName()')
+        # distinct_timestamps on column
+        query = mldb.get('/v1/query', 
+                         q = 'select distinct_timestamps(a) as distinct from mldb_1509 order by rowName()')
 
         self.assertFullResultEquals(query.json(),
              [
@@ -749,8 +753,47 @@ class TimeArithmeticTest(MldbUnitTest):
              ]
         )
 
-        query = mldb.get('/v1/query', q = 'select distinct_timestamps({c}) as * from mldb_1509 where rowName() = row3 order by rowName()')
+        # distinct_timestamps on column on a row not containing the column
+        query = mldb.get('/v1/query', 
+                         q = """select distinct_timestamps({c}) as * 
+                         from mldb_1509 where rowName() = row3 
+                         order by rowName()"""
+        )
 
         self.assertFullResultEquals(query.json(), [])
+
+        # identify rows with events occurring at a unique timestamp
+        query = mldb.query(
+            """select horizontal_count(distinct_timestamps({*})) = 1 as unique_event 
+            from mldb_1509 
+            order by rowName()"""
+        )
+
+        self.assertTableResultEquals(query, 
+            [
+                ["_rowName", "unique_event"],
+                ["row1", False],
+                ["row2", False],
+                ["row3", True],
+                ["row4",True]
+            ]
+        )
+
+        # returning the rows with events occurring at a unique timestamp
+        query = mldb.query(
+            """select * from mldb_1509 
+            where horizontal_count(distinct_timestamps({*})) = 1 
+            order by rowName()"""
+        )
+
+        self.assertTableResultEquals(query, 
+            [
+                ["_rowName", "a", "b", "c"],
+                ["row3", 0, None, None],
+                ["row4", 0, 0, 0]
+            ]
+        )
+
+
 mldb.run_tests()
 
