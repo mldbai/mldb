@@ -731,7 +731,6 @@ class MldbUnitTest(unittest.TestCase):
     def assertFullResultEquals(self, res, expected, msg=""):
         msg += self._get_base_msg(res, expected)
         self.assertEqual(len(res), len(expected), msg)
-        self.assertFalse(len(res) == 0, msg)
         for res_row, expected_row in zip(res, expected):
             self.assertEqual(res_row["rowName"], expected_row["rowName"], msg)
             res_columns = sorted(res_row["columns"])

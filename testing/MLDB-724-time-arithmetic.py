@@ -575,5 +575,182 @@ class TimeArithmeticTest(MldbUnitTest):
             [{"rowName": "myrow","rowHash": "fbdba4c9be68f633","columns":[["x",0,"-Inf"],["x",1,"-Inf"]]}]
         )    
 
+    def test_MLDB_1509(self):
+        dataset_config = {
+            'type'    : 'sparse.mutable',
+            'id'      : 'mldb_1509',
+        }
+
+        dataset = mldb.create_dataset(dataset_config)
+        dataset.record_row('row1', [ ["a", 0, self.ts], ["b", 0, self.ts_plus_1d], ["c", 0, self.ts_plus_2d] ])
+        dataset.record_row('row2', [ ["a", 0, self.ts], ["a", 0, self.ts_plus_1d], ["a", 0, self.ts_plus_2d] ])
+        dataset.record_row('row3', [ ["a", 0, self.ts], ["a", 0, self.ts], ["a", 0, self.ts] ])
+        dataset.record_row('row4', [ ["a", 0, self.ts], ["b", 0, self.ts], ["c", 0, self.ts] ])
+        
+        dataset.commit()
+
+        query = mldb.get('/v1/query', q = 'select distinct_timestamps({*}) as distinct from mldb_1509 order by rowName()')
+
+        self.assertFullResultEquals(query.json(),
+           [
+               {
+                   "rowName": "row1",
+                   "rowHash": "86065feec3521acc",
+                   "columns": [
+                       [
+                           "distinct.0",
+                           {
+                               "ts": "2015-01-01T00:00:00Z"
+                           },
+                           "2015-01-03T00:00:00Z"
+                       ],
+                       [
+                           "distinct.1",
+                           {
+                               "ts": "2015-01-02T00:00:00Z"
+                           },
+                           "2015-01-03T00:00:00Z"
+                       ],
+                       [
+                           "distinct.2",
+                           {
+                               "ts": "2015-01-03T00:00:00Z"
+                           },
+                           "2015-01-03T00:00:00Z"
+                       ]
+                   ]
+               },
+               {
+                   "rowName": "row2",
+                   "rowHash": "a5b0ac997090aa3e",
+                   "columns": [
+                       [
+                           "distinct.0",
+                           {
+                               "ts": "2015-01-01T00:00:00Z"
+                           },
+                           "2015-01-03T00:00:00Z"
+                       ],
+                       [
+                           "distinct.1",
+                           {
+                               "ts": "2015-01-02T00:00:00Z"
+                           },
+                           "2015-01-03T00:00:00Z"
+                       ],
+                       [
+                           "distinct.2",
+                           {
+                               "ts": "2015-01-03T00:00:00Z"
+                           },
+                           "2015-01-03T00:00:00Z"
+                       ]
+                   ]
+               },
+               {
+                   "rowName": "row3",
+                   "rowHash": "47adff9d728370ae",
+                   "columns": [
+                       [
+                           "distinct.0",
+                           {
+                               "ts": "2015-01-01T00:00:00Z"
+                           },
+                           "2015-01-01T00:00:00Z"
+                       ]
+                   ]
+               },
+               {
+                   "rowName": "row4",
+                   "rowHash": "58f4eb4428427dea",
+                   "columns": [
+                       [
+                           "distinct.0",
+                           {
+                               "ts": "2015-01-01T00:00:00Z"
+                           },
+                           "2015-01-01T00:00:00Z"
+                       ]
+                   ]
+               }
+           ]
+        )
+
+        query = mldb.get('/v1/query', q = 'select distinct_timestamps(a) as distinct from mldb_1509 order by rowName()')
+
+        self.assertFullResultEquals(query.json(),
+             [
+                 {
+                     "rowName": "row1",
+                     "rowHash": "86065feec3521acc",
+                     "columns": [
+                         [
+                             "distinct.0",
+                             {
+                                 "ts": "2015-01-01T00:00:00Z"
+                             },
+                             "2015-01-01T00:00:00Z"
+                         ]
+                     ]
+                 },
+                 {
+                     "rowName": "row2",
+                     "rowHash": "a5b0ac997090aa3e",
+                     "columns": [
+                         [
+                             "distinct.0",
+                             {
+                                 "ts": "2015-01-01T00:00:00Z"
+                             },
+                             "2015-01-03T00:00:00Z"
+                         ],
+                         [
+                             "distinct.1",
+                             {
+                                 "ts": "2015-01-02T00:00:00Z"
+                             },
+                             "2015-01-03T00:00:00Z"
+                         ],
+                         [
+                             "distinct.2",
+                             {
+                                 "ts": "2015-01-03T00:00:00Z"
+                             },
+                             "2015-01-03T00:00:00Z"
+                        ]
+                     ]
+                 },
+                 {
+                     "rowName": "row3",
+                     "rowHash": "47adff9d728370ae",
+                     "columns": [
+                         [
+                             "distinct.0",
+                             {
+                                 "ts": "2015-01-01T00:00:00Z"
+                             },
+                             "2015-01-01T00:00:00Z"
+                         ]
+                     ]
+                 },
+                 {
+                     "rowName": "row4",
+                     "rowHash": "58f4eb4428427dea",
+                     "columns": [
+                         [
+                             "distinct.0",
+                             {
+                                 "ts": "2015-01-01T00:00:00Z"
+                             },
+                             "2015-01-01T00:00:00Z"
+                         ]
+                     ]
+                 }
+             ]
+        )
+
+        query = mldb.get('/v1/query', q = 'select distinct_timestamps({c}) as * from mldb_1509 where rowName() = row3 order by rowName()')
+
+        self.assertFullResultEquals(query.json(), [])
 mldb.run_tests()
 
