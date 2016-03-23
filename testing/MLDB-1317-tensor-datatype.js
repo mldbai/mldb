@@ -24,6 +24,7 @@ var expected = [
          [ "1.0", 3, "-Inf" ],
          [ "1.1", 4, "-Inf" ]
       ]
+      ,"rowHash":"d54892b736cac3ab","rowName":"result"
    }
 ];
 
@@ -41,6 +42,7 @@ var expected = [
          [ "1.0", 0.30000000000000004, "-Inf" ],
          [ "1.1", 0.4, "-Inf" ]
       ]
+      ,"rowHash":"d54892b736cac3ab","rowName":"result"
    }
 ];
 
@@ -56,6 +58,7 @@ var expected = [
          [ "0.0", 4, "-Inf" ],
          [ "1.0", 6, "-Inf" ]
       ]
+      ,"rowHash":"d54892b736cac3ab","rowName":"result"
    }
 ];
 
@@ -71,6 +74,7 @@ var expected = [
          [ "0.0", "1three", "-Inf" ],
          [ "1.0", "2four", "-Inf" ]
       ]
+      ,"rowHash":"d54892b736cac3ab","rowName":"result"
    }
 ];
 
@@ -86,6 +90,7 @@ var expected = [
          [ "x", 2, "-Inf" ],
          [ "y", 3, "-Inf" ]
       ]
+      ,"rowHash":"d54892b736cac3ab","rowName":"result"
    }
 ];
 
@@ -107,6 +112,7 @@ var expected = [
          [ "x", 3, "-Inf" ],
          [ "y", 8, "-Inf" ]
       ]
+      ,"rowHash":"d54892b736cac3ab","rowName":"result"
    }
 ];
 
@@ -123,6 +129,7 @@ var expected = [
          [ "y", 8, "-Inf" ],
          [ "z", null, "-Inf" ]
       ]
+      ,"rowHash":"d54892b736cac3ab","rowName":"result"
    }
 ];
 

@@ -23,7 +23,7 @@ assertEqual(res.responseCode, 200);
 var expected = [
     {
         "'ç'" : "ç",
-        "_rowName" : ""
+        "_rowName" : "result"
     }
 ];
 

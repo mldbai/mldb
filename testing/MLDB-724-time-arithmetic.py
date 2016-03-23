@@ -32,7 +32,7 @@ class TimeArithmeticTest(MldbUnitTest):
             mldb.query("select INTERVAL '10 s' = INTERVAL '10second' as equal"),
             [
                 ["_rowName", "equal"],
-                [       "",  True ]
+                ["result",  True ]
             ]
         )
 
@@ -41,7 +41,7 @@ class TimeArithmeticTest(MldbUnitTest):
             mldb.query("select INTERVAL '22S' = INTERVAL '22 SECOND' as equal"),
             [
                 ["_rowName", "equal"],
-                [       "",  True ]
+                ["result",  True ]
             ]
         )
 
@@ -50,7 +50,7 @@ class TimeArithmeticTest(MldbUnitTest):
             mldb.query("select INTERVAL '60 MINUTE' = INTERVAL '1H' as equal"),
             [
                 ["_rowName", "equal"],
-                [       "",  True ]
+                ["result",  True ]
             ]
         )
 
@@ -59,7 +59,7 @@ class TimeArithmeticTest(MldbUnitTest):
             mldb.query("select INTERVAL '10 minute' = INTERVAL '600second' as equal"),
             [
                 ["_rowName", "equal"],
-                [       "",  True ]
+                ["result",  True ]
             ]
         )
 
@@ -68,7 +68,7 @@ class TimeArithmeticTest(MldbUnitTest):
             mldb.query("select INTERVAL '2H' = INTERVAL '120m' as equal"),
             [
                 ["_rowName", "equal"],
-                [       "",  True ]
+                ["result",  True ]
             ]
         )
 
@@ -77,7 +77,7 @@ class TimeArithmeticTest(MldbUnitTest):
             mldb.query("select INTERVAL '2 hour' = INTERVAL '2 HOUR' as equal"),
             [
                 ["_rowName", "equal"],
-                [       "",  True ]
+                ["result",  True ]
             ]
         )
 
@@ -85,7 +85,7 @@ class TimeArithmeticTest(MldbUnitTest):
             mldb.query("select INTERVAL '24 H' = INTERVAL '1440 m' as equal"),
             [
                 ["_rowName", "equal"],
-                [       "",  True ]
+                ["result",  True ]
             ]
         )
 
@@ -93,7 +93,7 @@ class TimeArithmeticTest(MldbUnitTest):
             mldb.query("select INTERVAL '24 H' = INTERVAL '86400 s' as equal"),
             [
                 ["_rowName", "equal"],
-                [       "",  True ]
+                ["result",  True ]
             ]
         )
 
@@ -102,7 +102,7 @@ class TimeArithmeticTest(MldbUnitTest):
             mldb.query("select INTERVAL '1 d' = INTERVAL '1day' as equal"),
             [
                 ["_rowName", "equal"],
-                [       "",  True ]
+                ["result",  True ]
             ]
         )
 
@@ -110,7 +110,7 @@ class TimeArithmeticTest(MldbUnitTest):
             mldb.query("select INTERVAL '1 D' = INTERVAL '1 DAY' as equal"),
             [
                 ["_rowName", "equal"],
-                [       "",  True ]
+                ["result",  True ]
             ]
         )
 
@@ -119,7 +119,7 @@ class TimeArithmeticTest(MldbUnitTest):
             mldb.query("select INTERVAL '1 w' = INTERVAL '7day' as equal"),
             [
                 ["_rowName", "equal"],
-                [       "",  True ]
+                ["result",  True ]
             ]
         )
 
@@ -127,7 +127,7 @@ class TimeArithmeticTest(MldbUnitTest):
             mldb.query("select INTERVAL '1week' = INTERVAL '1 WEEK' as equal"),
             [
                 ["_rowName", "equal"],
-                [       "",  True ]
+                ["result",  True ]
             ]
         )
 
@@ -136,7 +136,7 @@ class TimeArithmeticTest(MldbUnitTest):
             mldb.query("select INTERVAL '1MONTH' = INTERVAL '1 month' as equal"),
             [
                 ["_rowName", "equal"],
-                [       "",  True ]
+                ["result",  True ]
             ]
         )
 
@@ -145,7 +145,7 @@ class TimeArithmeticTest(MldbUnitTest):
             mldb.query("select INTERVAL '1 year' = INTERVAL '12month' as equal"),
             [
                 ["_rowName", "equal"],
-                [       "",  True ]
+                ["result",  True ]
             ]
         )
 
@@ -153,7 +153,7 @@ class TimeArithmeticTest(MldbUnitTest):
             mldb.query("select INTERVAL '1YEAR' = INTERVAL '1 Y' as equal"),
             [
                 ["_rowName", "equal"],
-                [       "",  True ]
+                ["result",  True ]
             ]
         )
 
@@ -162,7 +162,7 @@ class TimeArithmeticTest(MldbUnitTest):
             mldb.query("select INTERVAL '1Y2W' = INTERVAL '12MONTH14d' as equal"),
             [
                 ["_rowName", "equal"],
-                [       "",  True ]
+                ["result",  True ]
             ]
         )
 
@@ -170,7 +170,7 @@ class TimeArithmeticTest(MldbUnitTest):
             mldb.query("select INTERVAL '1 day 5H' = INTERVAL '1d 18000 second' as equal"),
             [
                 ["_rowName", "equal"],
-                [       "",  True ]
+                ["result",  True ]
             ]
         )
 
@@ -179,7 +179,7 @@ class TimeArithmeticTest(MldbUnitTest):
             mldb.query("select INTERVAL '1 day' = INTERVAL '24H' as equal"),
             [
                 ["_rowName", "equal"],
-                [       "",  False ] # because of daylight saving
+                ["result",  False ] # because of daylight saving
             ]
         )
 
@@ -187,7 +187,7 @@ class TimeArithmeticTest(MldbUnitTest):
             mldb.query("select INTERVAL '1 month' = INTERVAL '30day' as equal"),
             [
                 ["_rowName", "equal"],
-                [       "",  False ] # because months were not all created equal
+                ["result",  False ] # because months were not all created equal
             ]
         )
 
@@ -195,7 +195,7 @@ class TimeArithmeticTest(MldbUnitTest):
             mldb.query("select INTERVAL '1 month' = INTERVAL '4 week' as equal"),
             [
                 ["_rowName", "equal"],
-                [       "",  False ] # because months were not all created equal
+                ["result",  False ] # because months were not all created equal
             ]
         )
 
@@ -203,7 +203,7 @@ class TimeArithmeticTest(MldbUnitTest):
             mldb.query("select INTERVAL '1 year' = INTERVAL '365 day' as equal"),
             [
                 ["_rowName", "equal"],
-                [       "",  False ] # because of leap years
+                ["result",  False ] # because of leap years
             ]
         )
 
@@ -326,56 +326,56 @@ class TimeArithmeticTest(MldbUnitTest):
         self.assertTableResultEquals(mldb.query("select interval '1d' + interval '2d' < interval '20d' as result"),
              [
                 ["_rowName", "result"],
-                [       "",  True ]
+                ["result",  True ]
             ]
         )
 
         self.assertTableResultEquals(mldb.query("select interval '1d' > - interval '1d' as result"),
              [
                 ["_rowName", "result"],
-                [       "",  True ]
+                ["result",  True ]
             ]
         )
 
         self.assertTableResultEquals(mldb.query("select - interval '1d' > - - interval '1d' as result"),
              [
                 ["_rowName", "result"],
-                [       "",  False ]
+                ["result",  False ]
             ]
         )
 
         self.assertTableResultEquals(mldb.query("select interval '3d' - interval '1d' < interval '3d' as result"),
              [
                 ["_rowName", "result"],
-                [       "",  True ]
+                ["result",  True ]
             ]
         )
 
         self.assertTableResultEquals(mldb.query("select interval '1d' * 3 = interval '3d' as result"),
              [
                 ["_rowName", "result"],
-                [       "",  True ]
+                ["result",  True ]
             ]
         )
 
         self.assertTableResultEquals(mldb.query("select 3 * interval '1d' >=interval '2d' as result"),
              [
                 ["_rowName", "result"],
-                [       "",  True ]
+                ["result",  True ]
             ]
         )
 
         self.assertTableResultEquals(mldb.query("select 0.5 * interval '4d' = interval '2d' as result"),
              [
                 ["_rowName", "result"],
-                [       "",  True ]
+                ["result",  True ]
             ]
         )
 
         self.assertTableResultEquals(mldb.query("select interval '4d' / 2 = interval '2d' as result"),
              [
                 ["_rowName", "result"],
-                [       "",  True ]
+                ["result",  True ]
             ]
         )
 
@@ -494,14 +494,14 @@ class TimeArithmeticTest(MldbUnitTest):
         self.assertTableResultEquals(mldb.query("select timestamp 60 = timestamp '1970-01-01T00:01:00' as result"),
              [
                 ["_rowName", "result"],
-                [       "",  True ]
+                ["result",  True ]
             ]
         )
 
         self.assertTableResultEquals(mldb.query("select timestamp 61 = timestamp '1970-01-01T00:01:00' as result"),
              [
                 ["_rowName", "result"],
-                [       "",  False ]
+                ["result",  False ]
             ]
         )
 
@@ -509,42 +509,42 @@ class TimeArithmeticTest(MldbUnitTest):
         self.assertTableResultEquals(mldb.query("select timestamp timestamp 123 = timestamp 123 as result"),
              [
                 ["_rowName", "result"],
-                [       "",  True ]
+                ["result",  True ]
             ]
         )
 
         self.assertTableResultEquals(mldb.query("select 1 @ timestamp 123 = 1 @ '1970-01-01T00:02:03' as result"),
              [
                 ["_rowName", "result"],
-                [       "",  True ]
+                ["result",  True ]
             ]
         )
 
         self.assertTableResultEquals(mldb.query("select 2 @ timestamp 123 != 1 @ '1970-01-01T00:02:03' as result"),
              [
                 ["_rowName", "result"],
-                [       "",  True ]
+                ["result",  True ]
             ]
         )
 
         self.assertTableResultEquals(mldb.query("select latest_timestamp(2 @ timestamp 123) = latest_timestamp(1 @ '1970-01-01T00:02:03') as result"),
              [
                 ["_rowName", "result"],
-                [       "",  True ]
+                ["result",  True ]
             ]
         )
 
         self.assertTableResultEquals(mldb.query("select latest_timestamp(1) = TIMESTAMP -Inf as result"),
              [
                 ["_rowName", "result"],
-                [       "",  True ]
+                ["result",  True ]
             ]
         )
 
         self.assertTableResultEquals(mldb.query("select latest_timestamp(1) = TIMESTAMP Inf as result"),
              [
                 ["_rowName", "result"],
-                [       "",  False ]
+                ["result",  False ]
             ]
         )
     def test_MLDB_1453(self):

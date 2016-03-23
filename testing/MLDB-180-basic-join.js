@@ -155,14 +155,14 @@ testQuery(
     'SELECT poil() as *',
     [
         [ "_rowName", "test1.x", "test1.y", "test1.z", "test2.x", "test2.z" ],
-        [ "", 1, 2, null, 1, 2 ]
+        [ "result", 1, 2, null, 1, 2 ]
     ]);
 
 testQuery(
     'SELECT poil_as() as *',
     [
         [ "_rowName", "t1.x", "t1.y", "t1.z", "t2.x", "t2.z" ],
-        [ "", 1, 2, null, 1, 2 ]
+        [ "result", 1, 2, null, 1, 2 ]
     ]);
 
 // almost same again but with a groupBy
@@ -186,7 +186,7 @@ testQuery(
     'SELECT poil_group() as *',
     [
         [ "_rowName", "max(t1.y)", "min(t3.x)", "rn", "t1.x" ],
-        [ "", 2, 1, "ex1-ex4-ex4", 1 ]
+        [ "result", 2, 1, "ex1-ex4-ex4", 1 ]
     ]);
 
 // big example with where and groupby
@@ -251,7 +251,7 @@ for (var i in funcs) {
         "({1 AS a, 1 AS b}) AS *",
         [
             [ "_rowName", "max(t1.y)", "min(t3.x)", "t1.x" ],
-            [ "", 2, 1, 1 ]
+            [ "result", 2, 1, 1 ]
         ]);
 }
 

@@ -674,7 +674,7 @@ queryStructured(const SelectExpression & select,
                                const std::vector<ExpressionValue> & calc)
             {
                 MatrixNamedRow row = row_.flattenDestructive();
-                row.rowName = RowName(calc.at(0).toUtf8String());
+                row.rowName = GetValidatedRowName(calc.at(0));
                 row.rowHash = row.rowName;
                 std::unique_lock<std::mutex> guard(lock);
                 output.emplace_back(std::move(row));
