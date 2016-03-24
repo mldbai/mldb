@@ -120,6 +120,9 @@ void registerUrlFsHandler(const std::string & scheme,
 /* FREE FUNCTIONS                                                            */
 /*****************************************************************************/
 
+// Parse a string into an URL
+Url makeUrl(const std::string & urlStr);
+
 /// Set a GLOBAL flag that URIs without a scheme will not be accepted
 void setGlobalAcceptUrisWithoutScheme(bool accept);
 
