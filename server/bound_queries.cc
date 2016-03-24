@@ -70,7 +70,6 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
     UnorderedExecutor(std::shared_ptr<MatrixView> matrix,
                       GenerateRowsWhereFunction whereGenerator,
                       SqlExpressionDatasetContext & context,
-                      BoundSqlExpression whereBound,
                       BoundWhenExpression whenBound,
                       BoundSqlExpression boundSelect,
                       std::vector<BoundSqlExpression> boundCalc,
@@ -79,7 +78,6 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
         : matrix(std::move(matrix)),
           whereGenerator(std::move(whereGenerator)),
           context(context),
-          whereBound(std::move(whereBound)),
           whenBound(std::move(whenBound)),
           boundSelect(std::move(boundSelect)),
           boundCalc(std::move(boundCalc)),
@@ -131,9 +129,6 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
         // Do we select *?  In that case we can avoid a lot of copying
         bool selectStar = boundSelect.expr->isIdentitySelect(context);
 
-        // Do we have where TRUE?  In that case we can avoid evaluating 
-        bool whereTrue = whereBound.expr->isConstantTrue();
-
         size_t numRows = rows.size();
         size_t numPerBucket = std::max((size_t)std::floor((float)numRows / numBuckets), (size_t)1);
         size_t effectiveNumBucket = std::min((size_t)numBuckets, numRows);
@@ -151,8 +146,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
 
                 // Check it matches the where expression.  If not, we don't process
                 // it.
-                return processRow(row, rowNum, numPerBucket, whereTrue,
-                                  selectStar, aggregator);
+                return processRow(row, rowNum, numPerBucket, selectStar, aggregator);
             };
 
         if (numBuckets > 0) {
@@ -210,9 +204,6 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
         // Do we select *?  In that case we can avoid a lot of copying
         bool selectStar = boundSelect.expr->isIdentitySelect(context);
 
-        // Do we have where TRUE?  In that case we can avoid evaluating 
-        bool whereTrue = whereBound.expr->isConstantTrue();
-
         int numRows = whereGenerator.upperBound;
 
         size_t numPerBucket = std::max((size_t)std::floor((float)numRows / numBuckets), (size_t)1);
@@ -232,7 +223,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                 {
                     RowName rowName = stream->next();
                     auto row = matrix->getRow(rowName);
-                    if (!processRow(row, it, numPerBucket, whereTrue, selectStar, aggregator))
+                    if (!processRow(row, it, numPerBucket, selectStar, aggregator))
                        return false;
                 }
                 return true;
@@ -251,14 +242,10 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
     bool processRow(MatrixNamedRow& row,
                     int rowNum,
                     int numPerBucket,
-                    bool whereTrue,
                     bool selectStar,
                     ExecutorAggregator& aggregator)
     {
         auto rowContext = context.getRowContext(row);
-
-        if (!whereTrue && !whereBound(rowContext, GET_LATEST).isTrue())
-            return true;
 
         whenBound.filterInPlace(row, rowContext);
 
@@ -306,7 +293,6 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
     std::shared_ptr<MatrixView> matrix;
     GenerateRowsWhereFunction whereGenerator;
     SqlExpressionDatasetContext & context;
-    BoundSqlExpression whereBound;
     BoundWhenExpression whenBound;
     BoundSqlExpression boundSelect;
     std::vector<BoundSqlExpression> boundCalc;
@@ -315,7 +301,6 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
     OrderedExecutor(std::shared_ptr<MatrixView> matrix,
                     GenerateRowsWhereFunction whereGenerator,
                     SqlExpressionDatasetContext & context,
-                    BoundSqlExpression whereBound,
                     BoundWhenExpression whenBound,
                     BoundSqlExpression boundSelect,
                     std::vector<BoundSqlExpression> boundCalc,
@@ -323,7 +308,6 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
         : matrix(std::move(matrix)),
           whereGenerator(std::move(whereGenerator)),
           context(context),
-          whereBound(std::move(whereBound)),
           whenBound(std::move(whenBound)),
           boundSelect(std::move(boundSelect)),
           boundCalc(std::move(boundCalc)),
@@ -344,7 +328,7 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
         // Get a list of rows that we run over
         auto rows = whereGenerator(-1, Any()).first;
 
-        //cerr << "doing " << rows.size() << " rows with order by" << endl;
+        // cerr << "doing " << rows.size() << " rows with order by" << endl;
         // We have a defined order, so we need to sort here
 
         SqlExpressionOrderByContext orderByContext(context);
@@ -365,9 +349,6 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
 
         std::atomic<int64_t> rowsAdded(0);
 
-        // Do we have where TRUE?  In that case we can avoid evaluating 
-        bool whereTrue = whereBound.expr->isConstantTrue();
-
         auto doWhere = [&] (int rowNum) -> bool
             {
                 QueryThreadTracker childTracker = parentTracker.child();
@@ -381,8 +362,7 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
                 // it.
                 auto rowContext = context.getRowContext(row);
 
-                if (!whereTrue && !whereBound(rowContext, GET_LATEST).isTrue())
-                    return true;
+                //where already checked in whereGenerator
 
                 whenBound.filterInPlace(row, rowContext);
 
@@ -486,7 +466,6 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
     std::shared_ptr<MatrixView> matrix;
     GenerateRowsWhereFunction whereGenerator;
     SqlExpressionDatasetContext & context;
-    BoundSqlExpression whereBound;
     BoundWhenExpression whenBound;
     BoundSqlExpression boundSelect;
     std::vector<BoundSqlExpression> boundCalc;
@@ -496,7 +475,6 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
     RowHashOrderedExecutor(std::shared_ptr<MatrixView> matrix,
                            GenerateRowsWhereFunction whereGenerator,
                            SqlExpressionDatasetContext & context,
-                           BoundSqlExpression whereBound,
                            BoundWhenExpression whenBound,
                            BoundSqlExpression boundSelect,
                            std::vector<BoundSqlExpression> boundCalc,
@@ -505,7 +483,6 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
         : matrix(std::move(matrix)),
           whereGenerator(std::move(whereGenerator)),
           context(context),
-          whereBound(std::move(whereBound)),
           whenBound(std::move(whenBound)),
           boundSelect(std::move(boundSelect)),
           boundCalc(std::move(boundCalc)),
@@ -576,9 +553,6 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
         // Do we select *?  In that case we can avoid a lot of copying
         bool selectStar = boundSelect.expr->isIdentitySelect(context);
 
-        // Do we have where TRUE?  In that case we can avoid evaluating 
-        bool whereTrue = whereBound.expr->isConstantTrue();
-
         auto doRow = [&] (ssize_t rowNum) -> bool
             {
                 //if (rowNum % 1000 == 0)
@@ -622,9 +596,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
                     // it.
                     auto rowContext = context.getRowContext(row);
 
-                    if (whereTrue && !whereBound(rowContext, GET_LATEST).isTrue())
-                        return true;
-
+                    //where was already filtered by the where generator
 
                     whenBound.filterInPlace(row, rowContext);
                     NamedRowValue outputRow;
@@ -797,7 +769,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
                          std::function<bool (const Json::Value &)> onProgress,
                          bool allowMT)
     {
-        //STACK_PROFILE(RowHashOrderedExecutor_execute_iter);
+        STACK_PROFILE(RowHashOrderedExecutor_execute_iter);
 
         QueryThreadTracker parentTracker;
 
@@ -863,13 +835,13 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
           }
         };      
 
-       if (allowMT) {
-          parallelMap(0, numChunk, doChunk);
-       }
-       else {
-         for (int i = 0; i < numChunk; ++i)
-            doChunk(i);
-       }
+        if (allowMT) {
+            parallelMap(0, numChunk, doChunk);
+        }
+        else {
+          for (int i = 0; i < numChunk; ++i)
+             doChunk(i);
+        }
        
         // Compare two rows according to the sort criteria
         auto compareRows = [&] (const RowName & row1,
@@ -954,9 +926,6 @@ BoundSelectQuery(const SelectExpression & select,
         SqlExpressionWhenScope whenScope(*context);
         auto whenBound = when.bind(whenScope);
 
-        // Bind our where statement
-        auto whereBound = where.bind(*context);
-
         // Get a generator for the rows that match 
         auto whereGenerator = context->doCreateRowsWhereGenerator(where, 0, -1);
 
@@ -1000,7 +969,6 @@ BoundSelectQuery(const SelectExpression & select,
             executor.reset(new RowHashOrderedExecutor(std::move(matrix),
                                                       std::move(whereGenerator),
                                                       *context,
-                                                      std::move(whereBound),
                                                       std::move(whenBound),
                                                       std::move(boundSelect),
                                                       std::move(boundCalc),
@@ -1013,7 +981,6 @@ BoundSelectQuery(const SelectExpression & select,
             executor.reset(new OrderedExecutor(std::move(matrix),
                                                std::move(whereGenerator),
                                                *context,
-                                               std::move(whereBound),
                                                std::move(whenBound),
                                                std::move(boundSelect),
                                                std::move(boundCalc),
@@ -1022,7 +989,6 @@ BoundSelectQuery(const SelectExpression & select,
             executor.reset(new UnorderedExecutor(std::move(matrix),
                                                  std::move(whereGenerator),
                                                 *context,
-                                                 std::move(whereBound),
                                                  std::move(whenBound),
                                                  std::move(boundSelect),
                                                  std::move(boundCalc),

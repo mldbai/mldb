@@ -84,4 +84,39 @@ class ImportTextToSparseTest(unittest.TestCase):
                     ["471242",1]]
         self.assertEqual(res, expected)
 
+    # MLDB-1513
+    def test_missing_rows(self):
+        ds = mldb.create_dataset({
+            'type': 'tabular',
+            'id': 'onechunk'})
+
+        ds.record_row('1', [['x', 17, 0]])
+        ds.record_row('2', [['x', 18, 0]])
+        ds.record_row('3', [['x', 'banane', 0]])
+
+        ds.commit()
+
+        res = mldb.query("select * from onechunk where rowName() in ('1', '2', '3')")
+
+        expected = [["_rowName", "x"],["2",18],["1",17],["3","banane"]]
+
+        self.assertEqual(res, expected)
+
+    def test_missing_rows_order(self):
+
+        ds = mldb.create_dataset({
+            'type': 'sparse.mutable',
+            'id': 'onechunk2'})
+
+        ds.record_row('1', [['x', 17, 0]])
+        ds.record_row('2', [['x', 18, 0]])
+        ds.record_row('3', [['x', 'banane', 0]])
+
+        ds.commit()
+
+        res = mldb.query("select * from onechunk2 where rowName() in ('1', '2', '3') order by rowName()")
+        expected = [["_rowName", "x"],["1",17],["2",18],["3","banane"]]
+
+        self.assertEqual(res, expected)
+
 mldb.run_tests()
