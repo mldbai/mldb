@@ -10,6 +10,7 @@
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/ml/jml/training_index_entry.h"
 #include "mldb/jml/utils/smart_ptr_utils.h"
+#include "mldb/base/parallel.h"
 #include "mldb/server/bucket.h"
 #include "mldb/types/any_impl.h"
 
@@ -453,13 +454,35 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     void commit()
     {
         std::unique_lock<std::mutex> guard(datasetMutex);
+        commitImpl();
+    }
+
+    void commitImpl()
+    {
         if (!mutableChunks.empty())
         {
-            mutableChunks[0].freeze();
-            finalize(mutableChunks, mutableChunks[0].rowCount());
+            std::atomic<size_t> totalRows(0);
+
+            auto freezeChunk = [&] (size_t i)
+                {
+                    mutableChunks[i].freeze();
+                    totalRows += mutableChunks[i].rowCount();
+                };
+
+            parallelMap(0, mutableChunks.size(), freezeChunk);
+
+            finalize(mutableChunks, totalRows);
             mutableChunks.resize(0);
             mutableChunksIsEmpty = true;
         }
+
+        size_t mem = 0;
+        for (auto & c: chunks) {
+            mem += c.memusage();
+        }
+
+        cerr << "total mem usage is " << mem << " bytes" << " for "
+             << 1.0 * mem / rowCount << " bytes/row" << endl;
     }
 
     void recordRow(const RowName & rowName, const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
@@ -518,7 +541,11 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
         {
             std::unique_lock<std::mutex> guard(datasetMutex);
-            mutableChunks[0].add(rowName, ts, orderedVals.data());
+            mutableChunks.back().add(rowName, ts, orderedVals.data(), std::move(newColumns));
+            
+            if (mutableChunks.back().rowCount() >= TABULAR_DATASET_DEFAULT_ROWS_PER_CHUNK) {
+                mutableChunks.emplace_back(columnNames.size(), TABULAR_DATASET_DEFAULT_ROWS_PER_CHUNK);
+            }
         }
     }
 };
