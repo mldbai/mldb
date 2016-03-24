@@ -591,6 +591,7 @@ getStatus() const
 {
     Json::Value status;
     status["rowCount"] = itl->rowCount;
+    status["columnCount"] = itl->columnNames.size();
     return status;
 }
 
