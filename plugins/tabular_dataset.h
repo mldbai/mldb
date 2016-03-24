@@ -433,7 +433,17 @@ struct TabularDatasetChunk {
     std::vector<RowName> rowNames;
     TabularDatasetColumn timestamps;
 
-    void add(RowName rowName, Date ts, CellValue * vals)
+    /** Add the given values to this chunk.  Arguments are:
+        - rowName: the name of the new row.  It must be unique (and this
+          is not checked).
+        - ts: the timestamp to be given to all values of this row
+        - vals: the values of all cells at this row, for dense values
+        - extra: extra columns and their values, for when we accept an open
+          schema.  These will be stored less efficiently and will normally
+          be sparse.
+    */
+    void add(RowName rowName, Date ts, CellValue * vals,
+             std::vector<std::pair<ColumnName, CellValue> > extra)
     {
         ++numRows;
 
@@ -461,14 +471,32 @@ struct TabularDatasetChunk {
 /* TABULAR DATASET                                                           */
 /*****************************************************************************/
 
+enum UnknownColumnAction {
+    UC_IGNORE,   ///< Ignore unknown columns
+    UC_ERROR,    ///< Unknown columns are an error
+    UC_ADD       ///< Add unknown columns as a new column
+};
+
+DECLARE_ENUM_DESCRIPTION(UnknownColumnAction);
+
+struct TabularDatasetConfig {
+    TabularDatasetConfig();
+
+    UnknownColumnAction unknownColumns;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(TabularDatasetConfig);
+
 struct TabularDataset : public Dataset {
 
     TabularDataset(MldbServer * owner,
-               PolyConfig config,
-               const std::function<bool (const Json::Value &)> & onProgress);
+                   PolyConfig config,
+                   const std::function<bool (const Json::Value &)> & onProgress);
 
     //Initialize from a procedure
-    void initialize(const std::vector<ColumnName>& columnNames, const ML::Lightweight_Hash<ColumnHash, int>& columnIndex);
+    void initialize(const std::vector<ColumnName>& columnNames,
+                    const ML::Lightweight_Hash<ColumnHash, int>& columnIndex);
+
     void finalize( std::vector<TabularDatasetChunk>& inputChunks, uint64_t totalRows);
 
     TabularDatasetChunk* createNewChunk(size_t rowsPerChunk); 

@@ -11,6 +11,7 @@
 #include "mldb/ml/jml/training_index_entry.h"
 #include "mldb/jml/utils/smart_ptr_utils.h"
 #include "mldb/server/bucket.h"
+#include "mldb/types/any_impl.h"
 
 #include <mutex>
 
@@ -31,8 +32,8 @@ static constexpr size_t TABULAR_DATASET_DEFAULT_ROWS_PER_CHUNK=65536;
 
 struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
-    TabularDataStore()
-        : rowCount(0), mutableChunksIsEmpty(true)
+    TabularDataStore(TabularDatasetConfig config)
+        : rowCount(0), mutableChunksIsEmpty(true), config(std::move(config))
         {
 
         }
@@ -99,6 +100,8 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     Date earliestTs, latestTs;
 
     std::mutex datasetMutex;
+
+    TabularDatasetConfig config;
 
     // Return the value of the column for all rows
     virtual MatrixColumn getColumn(const ColumnName & column) const
@@ -414,6 +417,8 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
     void finalize( std::vector<TabularDatasetChunk>& inputChunks, uint64_t totalRows)
     {
+        // NOTE: must be called with the lock held
+
         rowCount = totalRows;
 
         chunks = std::move(inputChunks);
@@ -488,11 +493,23 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
         std::vector<CellValue> orderedVals(columnNames.size());
         Date ts = Date::negativeInfinity();
+
+        std::vector<std::pair<ColumnName, CellValue> > newColumns;
+
         for (unsigned i = 0;  i < vals.size();  ++i) {
             const ColumnName & c = std::get<0>(vals[i]);
             auto iter = columnIndex.find(c);
-            if (iter == columnIndex.end())
-                throw HttpReturnException(400, "New column name while recording row in tabular dataset", "columnName", c.toString());
+            if (iter == columnIndex.end()) {
+                switch (config.unknownColumns) {
+                case UC_ERROR:
+                    throw HttpReturnException(400, "New column name while recording row in tabular dataset", "columnName", c.toString());
+                case UC_IGNORE:
+                    continue;
+                case UC_ADD:
+                    newColumns.emplace_back(c, std::get<1>(vals[i]));
+                    continue;
+                }
+            }
 
             orderedVals[iter->second] = std::get<1>(vals[i]);
 
@@ -510,9 +527,9 @@ TabularDataset::
 TabularDataset(MldbServer * owner,
                PolyConfig config,
                const std::function<bool (const Json::Value &)> & onProgress)
-: Dataset(owner)
+    : Dataset(owner)
 {
-    itl = make_shared<TabularDataStore>();
+    itl = make_shared<TabularDataStore>(config.params.convert<TabularDatasetConfig>());
 }
 
 void
@@ -616,16 +633,38 @@ recordRowItl(const RowName & rowName,
     return itl->recordRow(rowName, vals);
 }
 
-struct TabularDatasetConfig {
+/*****************************************************************************/
+/* TABULAR DATASET                                                           */
+/*****************************************************************************/
+
+TabularDatasetConfig::
+TabularDatasetConfig()
+{
+    unknownColumns = UC_ERROR;
+}
+
+DEFINE_ENUM_DESCRIPTION(UnknownColumnAction);
+
+UnknownColumnActionDescription::
+UnknownColumnActionDescription()
+{
+    addValue("ignore", UC_IGNORE, "Unknown columns will be ignored");
+    addValue("error", UC_ERROR, "Unknown columns will result in an error");
+    addValue("add", UC_ADD, "Unknown columns will be added as a sparse column");
 };
 
-DECLARE_STRUCTURE_DESCRIPTION(TabularDatasetConfig);
 DEFINE_STRUCTURE_DESCRIPTION(TabularDatasetConfig);
 
 TabularDatasetConfigDescription::
 TabularDatasetConfigDescription()
 {
     nullAccepted = true;
+
+    addField("unknownColumns", &TabularDatasetConfig::unknownColumns,
+             "Action to take on unknown columns.  Values are 'ignore', "
+             "'error' (default), or 'add' which will allow an unlimited "
+             "number of sparse columns to be added.",
+             UC_ERROR);
 }
 
 namespace {

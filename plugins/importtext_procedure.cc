@@ -891,7 +891,7 @@ struct ImportTextProcedureWorkInstance
             }
 
             if (!names) {
-                threadAccum.add(std::move(rowName), rowTs, vals);
+                threadAccum.add(std::move(rowName), rowTs, vals, {});
             }
             else {
 
@@ -908,7 +908,7 @@ struct ImportTextProcedureWorkInstance
                     orderedValues[iter->second] = vals[i];
                 }
 
-                threadAccum.add(std::move(rowName), rowTs, &orderedValues[0]);
+                threadAccum.add(std::move(rowName), rowTs, &orderedValues[0], {});
             }
 
             if (threadAccum.rowCount() == ROWS_PER_CHUNK) {
