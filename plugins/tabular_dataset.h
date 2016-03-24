@@ -243,26 +243,66 @@ struct TableFrozenColumn: public FrozenColumn {
     
 
 struct TabularDatasetColumn {
-    //std::vector<CellValue> vals;
-
+    /** Add a value for a dense column, ie one where we know we will call
+        add() on every row, in order.
+    */
     void add(CellValue val)
     {
+        indexes.push_back(getIndex(val, false /* sparse */));
+    }
+
+    /** Add a value that doesn't occur on every row, for the given row number
+        (which must be greater than the previous one) and the given cell
+        value.
+
+        This does NOT support multiple values of the same column per row.
+    */
+    void addSparse(size_t rowNumber, CellValue val)
+    {
+        // TODO: more sparsity, eg don't put zero indexes for empty entries
+        // Otherwise each new column is an O(nrows) operation.
+        ExcAssertGreaterEqual(rowNumber, indexes.size());
+        int index = getIndex(val, true /* sparse */);
+        indexes.resize(rowNumber + 1, 0);
+        indexes.back() = index;
+    }
+
+    /** Return the value index for this value.  This is the integer we store
+        that indexes into the array of distinct values.
+
+        This will destroy val, so don't re-use it afterwards (we don't
+        take it as a by-value parameter to avoid having to call the move
+        constructor, which is non-trivial).
+    */
+    int getIndex(CellValue & val, bool sparse)
+    {
+        if (sparse) {
+            // Record the null at index 0 if it's not already there
+            if (valueIndex.empty()) {
+                CellValue null;
+                valueIndex[null.hash()] = 0;
+                indexedVals.emplace_back(null);
+            }
+            
+            if (val.empty())
+                return 0;
+        }
+
         // Optimization: if we're recording the same value as
         // the last column, then we don't need to do anything
         if (!indexes.empty() && val == lastValue) {
-            // same as last one
-            indexes.emplace_back(indexes.back());
-            return;
+            return indexes.back();
         }
 
         // Optimization: if there are only a few values, do a
         // linear search and don't bother with the hashing
+        // For sparse we don't search index 0 since it's null
+
         if (indexedVals.size() < 8) {
-            for (unsigned i = 0;  i < indexedVals.size();  ++i) {
+            for (unsigned i = sparse;  i < indexedVals.size();  ++i) {
                 if (val == indexedVals[i]) {
-                    indexes.emplace_back(i);
                     lastValue = std::move(val);
-                    return;
+                    return i;
                 }
             }
         }
@@ -283,9 +323,13 @@ struct TabularDatasetColumn {
             index = it->second;
         }
 
-        indexes.emplace_back(index);
+        return index;
     }
 
+    /** Reserve space for the given number of rows, for when we know that we
+        will have a given number.  This saves on vector resizes during
+        insertions.
+    */
     void reserve(size_t sz)
     {
         indexes.reserve(sz);
