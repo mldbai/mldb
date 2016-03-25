@@ -606,6 +606,8 @@ struct MutableTabularDatasetChunk {
         for (auto & c: sparseColumns)
             result.sparseColumns.emplace(c.first, c.second.freeze());
         result.timestamps = timestamps.freeze();
+        result.numRows = numRows;
+        result.rowNames = std::move(rowNames);
 
         return result;
     }
