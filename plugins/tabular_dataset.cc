@@ -233,7 +233,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
                     return true;
                 };
             
-            chunks[i].columns[it->second].forEach(onValue);
+            chunks[i].columns[it->second]->forEach(onValue);
         }
         
         return result;
@@ -262,7 +262,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
                     return true;
                 };
 
-            chunks[i].columns[it->second].forEachDistinctValue(onValue);
+            chunks[i].columns[it->second]->forEachDistinctValue(onValue);
             totalRows += chunks[i].rowCount();
         }
 
@@ -284,7 +284,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
                     return true;
                 };
             
-            chunks[i].columns[it->second].forEach(onValue);
+            chunks[i].columns[it->second]->forEach(onValue);
         }
 
         return std::make_tuple(std::move(buckets), std::move(descriptions));
@@ -317,7 +317,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
         ColumnTypes types;
         for (auto & c: chunks) {
-            types.update(c.columns[it->second].columnTypes);
+            types.update(c.columns[it->second]->getColumnTypes());
         }
 
 #if 0
@@ -416,10 +416,10 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         //cerr << "row is in chunk " << it->second.first << " offset "
         //     << it->second.second << endl;
 
-        Date ts = chunks.at(it->second.first).timestamps[it->second.second].toTimestamp();
+        Date ts = chunks.at(it->second.first).timestamps->get(it->second.second).toTimestamp();
 
         for (unsigned i = 0;  i < columnNames.size();  ++i) {
-            result.columns.emplace_back(columnNames[i], chunks.at(it->second.first).columns.at(i)[it->second.second], ts);
+            result.columns.emplace_back(columnNames[i], chunks.at(it->second.first).columns.at(i)->get(it->second.second), ts);
         }
 
         return result;
@@ -472,7 +472,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
                     return true;
                 };
                                 
-            c.columns[it->second].forEachDistinctValue(onValue);
+            c.columns[it->second]->forEachDistinctValue(onValue);
         }
 
         stats.isNumeric_ = isNumeric && !chunks.empty();
@@ -505,7 +505,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         return result;
     }
 
-    void finalize(std::vector<std::shared_ptr<MutableTabularDatasetChunk> >& inputChunks,
+    void finalize(std::vector<TabularDatasetChunk> & inputChunks,
                   uint64_t totalRows)
     {
         // NOTE: must be called with the lock held
@@ -515,7 +515,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         chunks.reserve(inputChunks.size());
 
         for (auto & c: inputChunks) {
-            chunks.emplace_back(std::move(*c));
+            chunks.emplace_back(std::move(c));
         }
 
         ML::Timer rowIndexTimer;
@@ -570,15 +570,18 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         // Freeze all of the uncommitted chunks
         std::atomic<size_t> totalRows(0);
 
+        std::vector<TabularDatasetChunk> finalChunks(uncommittedChunks.size());
+
         auto freezeChunk = [&] (size_t i)
             {
-                uncommittedChunks[i]->freeze();
-                totalRows += uncommittedChunks[i]->rowCount();
+                finalChunks[i] = uncommittedChunks[i]->freeze();
+                uncommittedChunks[i].reset();
+                totalRows += finalChunks[i].rowCount();
             };
         
         parallelMap(0, uncommittedChunks.size(), freezeChunk);
 
-        finalize(uncommittedChunks, totalRows);
+        finalize(finalChunks, totalRows);
         uncommittedChunks.clear();
 
         size_t mem = 0;
@@ -720,7 +723,7 @@ createNewChunk(size_t rowsPerChunk)
 
 void
 TabularDataset::
-finalize(std::vector<std::shared_ptr<MutableTabularDatasetChunk> >& inputChunks,
+finalize(std::vector<TabularDatasetChunk> & inputChunks,
          uint64_t totalRows)
 {
     itl->finalize(inputChunks, totalRows);

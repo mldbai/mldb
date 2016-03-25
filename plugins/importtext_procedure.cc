@@ -858,17 +858,13 @@ struct ImportTextProcedureWorkInstance
         PerThreadAccumulator<std::shared_ptr<MutableTabularDatasetChunk> > accum(createPayload);
 
         /// Finished chunks, ordered by chunk number
-        std::vector<std::shared_ptr<MutableTabularDatasetChunk> > doneChunks;
+        std::vector<TabularDatasetChunk> doneChunks;
 
         mutex lineMutex;
 
         auto onLine = [&] (int chunkNum, int64_t actualLineNum, RowName rowName, Date rowTs, CellValue * vals, ColumnName * names, int numVals) {
 
             std::shared_ptr<MutableTabularDatasetChunk> & threadAccum = accum.get();
-
-            if (threadAccum->chunkNumber == -1) {
-                threadAccum->chunkNumber = chunkNum;
-            }
 
             if (!areOutputColumnNamesKnown) {
 
@@ -896,13 +892,11 @@ struct ImportTextProcedureWorkInstance
             {
                 std::vector<std::pair<ColumnName, CellValue> > extra;
                 if (!threadAccum->add(rowName, rowTs, vals, extra)) {
-                    threadAccum->freeze();
-                    auto newChunk = std::make_shared<MutableTabularDatasetChunk>
+                    auto frozen = threadAccum->freeze();
+                    threadAccum = std::make_shared<MutableTabularDatasetChunk>
                         (numVals, ROWS_PER_CHUNK);
                     std::unique_lock<std::mutex> guard(lineMutex);
-                    doneChunks.emplace_back(std::move(newChunk));
-                    doneChunks.back().swap(threadAccum);
-                    ExcAssertEqual(threadAccum->rowCount(), 0);
+                    doneChunks.emplace_back(std::move(frozen));
                 }
 
                 bool added = threadAccum->add(rowName, rowTs, vals, extra);
@@ -934,16 +928,17 @@ struct ImportTextProcedureWorkInstance
         loadTextData(dataset, stream, config, scope, outputColumnNamesUnknown,
                      onLine);
 
-        // Accumulate the partial chunks, too, at the end
-        std::mutex doneChunksLock;
+        // Expand doneChunks to include enough for the leftover work from
+        // each thread.
+        size_t offset = doneChunks.size();
+        doneChunks.resize(offset + accum.threads.size());
 
         auto doLeftoverChunk = [&] (int threadNum) {
             std::shared_ptr<MutableTabularDatasetChunk> & ent
                 = *accum.threads.at(threadNum).get();
             ExcAssert(ent != nullptr);
-            ent->freeze();
-            std::unique_lock<std::mutex> guard(doneChunksLock);
-            doneChunks.emplace_back(std::move(ent));
+            auto doneChunk = ent->freeze();
+            doneChunks[offset + threadNum] = ent->freeze();
         };
 
         parallelMap(0, accum.threads.size(), doLeftoverChunk);
@@ -953,8 +948,8 @@ struct ImportTextProcedureWorkInstance
         size_t totalMemUsage = 0;
         size_t totalRows = 0;
         for (auto & c: doneChunks) {
-            totalMemUsage += c->memusage();
-            totalRows += c->rowCount();
+            totalMemUsage += c.memusage();
+            totalRows += c.rowCount();
         }
         //cerr << "total memory usage of " << totalMemUsage / 1000000.0 << "MB "
         //     << " over " << totalRows << " rows at "

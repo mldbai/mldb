@@ -31,10 +31,10 @@ namespace MLDB {
 /// Tells us which types it could be
 struct ColumnTypes {
     ColumnTypes()
-        : hasNulls(false), hasIntegers(false),
+        : numNulls(false), numIntegers(false),
           minNegativeInteger(0), maxPositiveInteger(0),
-          hasReals(false), hasStrings(false), hasBlobs(false),
-          hasOther(false)
+          numReals(false), numStrings(false), numBlobs(false),
+          numOther(false)
     {
     }
 
@@ -43,12 +43,12 @@ struct ColumnTypes {
         // Record the type
         switch (val.cellType()) {
         case CellValue::EMPTY:
-            hasNulls = true;  break;
+            numNulls += 1;  break;
         case CellValue::FLOAT:
-            hasReals = true;  break;
+            numReals += 1;  break;
 
         case CellValue::INTEGER:
-            hasIntegers = true;
+            numIntegers += 1;
             if (val.isUInt64()) {
                 maxPositiveInteger = std::max(maxPositiveInteger, val.toUInt());
             }
@@ -58,32 +58,32 @@ struct ColumnTypes {
             break;
         case CellValue::ASCII_STRING:
         case CellValue::UTF8_STRING:
-            hasStrings = true;  break;
+            numStrings += 1;  break;
         case CellValue::BLOB:
-            hasBlobs = true;  break;
+            numBlobs += 1;  break;
         default:
-            hasOther = true;  break;
+            numOther += 1;  break;
         }
     }
 
     void update(const ColumnTypes & other)
     {
-        hasNulls = hasNulls || other.hasNulls;
-        hasIntegers = hasIntegers || other.hasIntegers;
+        numNulls = numNulls + other.numNulls;
+        numIntegers = numIntegers + other.numIntegers;
         minNegativeInteger
             = std::min(minNegativeInteger, other.minNegativeInteger);
         maxPositiveInteger
             = std::max(maxPositiveInteger, other.maxPositiveInteger);
-        hasReals = hasReals || other.hasReals;
-        hasStrings = hasStrings || other.hasStrings;
-        hasBlobs = hasBlobs || other.hasBlobs;
-        hasOther = hasOther || other.hasOther;
+        numReals = numReals + other.numReals;
+        numStrings = numStrings + other.numStrings;
+        numBlobs = numBlobs + other.numBlobs;
+        numOther = numOther + other.numOther;
     }
 
     std::shared_ptr<ExpressionValueInfo>
     getExpressionValueInfo() const
     {
-        if (!hasNulls && !hasReals && !hasStrings && !hasOther) {
+        if (!numNulls && !numReals && !numStrings && !numOther) {
             // Integers only
             if (minNegativeInteger == 0) {
                 // All positive
@@ -99,7 +99,7 @@ struct ColumnTypes {
                 return std::make_shared<AtomValueInfo>();
             }
         }
-        else if (!hasNulls && !hasStrings && !hasOther) {
+        else if (!numNulls && !numStrings && !numOther) {
             // Reals and integers.  If all integers are representable as
             // doubles, in other words a maximum of 53 bits, then we're all
             // doubles.
@@ -110,23 +110,23 @@ struct ColumnTypes {
             // Doubles would lose precision.  It's an atom.
             return std::make_shared<AtomValueInfo>();
         }
-        else if (!hasNulls && !hasIntegers && !hasReals && !hasOther) {
+        else if (!numNulls && !numIntegers && !numReals && !numOther) {
             return std::make_shared<Utf8StringValueInfo>();
         }
         else {
             return std::make_shared<AtomValueInfo>();
         }
     }
-    bool hasNulls;
+    uint64_t numNulls;
 
-    bool hasIntegers;
+    uint64_t numIntegers;
     int64_t minNegativeInteger;
     uint64_t maxPositiveInteger;
 
-    bool hasReals;
-    bool hasStrings;
-    bool hasBlobs;
-    bool hasOther;  // timestamps, intervals
+    uint64_t numReals;
+    uint64_t numStrings;
+    uint64_t numBlobs;
+    uint64_t numOther;  // timestamps, intervals
 };
 
 /// Base class for a frozen column
@@ -142,6 +142,25 @@ struct FrozenColumn {
     virtual size_t memusage() const = 0;
 
     virtual bool forEachDistinctValue(std::function<bool (const CellValue &, size_t)> fn) const = 0;
+
+    CellValue operator [] (size_t index) const
+    {
+        return this->get(index);
+    }
+
+    template<typename Fn>
+    bool forEach(Fn && fn) const
+    {
+        // TODO: sparse columns have nulls...
+        size_t sz = this->size();
+        for (size_t i = 0;  i < sz;  ++i) {
+            if (!fn(i, std::move(this->get(i))))
+                return false;
+        } 
+        return true;
+    }
+
+    virtual ColumnTypes getColumnTypes() const = 0;
 };
 
 /// Naive frozen column that gets its values from a pure
@@ -158,6 +177,7 @@ struct NaiveFrozenColumn: public FrozenColumn {
     }
         
     std::vector<CellValue> vals;
+    ColumnTypes columnTypes;
 
     virtual size_t size() const
     {
@@ -179,13 +199,19 @@ struct NaiveFrozenColumn: public FrozenColumn {
 
         return true;
     }
+
+    virtual ColumnTypes getColumnTypes() const
+    {
+        return columnTypes;
+    }
 };
 
 /// Frozen column that finds each value in a lookup table
 struct TableFrozenColumn: public FrozenColumn {
     TableFrozenColumn(const std::vector<int> & indexes,
-                      std::vector<CellValue> table_)
-        : table(std::move(table_))
+                      std::vector<CellValue> table_,
+                      const ColumnTypes & columnTypes)
+        : table(std::move(table_)), columnTypes(columnTypes)
     {
         indexBits = ML::highest_bit(table.size()) + 1;
         numEntries = indexes.size();
@@ -239,6 +265,12 @@ struct TableFrozenColumn: public FrozenColumn {
     uint32_t numEntries;
 
     std::vector<CellValue> table;
+    ColumnTypes columnTypes;
+
+    virtual ColumnTypes getColumnTypes() const
+    {
+        return columnTypes;
+    }
 };
 
 /// Sparse frozen column that finds each value in a lookup table
@@ -246,8 +278,9 @@ struct SparseTableFrozenColumn: public FrozenColumn {
     SparseTableFrozenColumn(uint64_t minRow,
                             uint64_t maxRow,
                             const ML::Lightweight_Hash<uint32_t, int> & indexes,
-                            std::vector<CellValue> table_)
-        : table(table_.size())
+                            std::vector<CellValue> table_,
+                            const ColumnTypes & columnTypes)
+        : table(table_.size()), columnTypes(columnTypes)
     {
         std::move(std::make_move_iterator(table_.begin()),
                   std::make_move_iterator(table_.end()),
@@ -310,11 +343,17 @@ struct SparseTableFrozenColumn: public FrozenColumn {
         return true;
     }
 
+    virtual ColumnTypes getColumnTypes() const
+    {
+        return columnTypes;
+    }
+
     std::shared_ptr<const uint32_t> storage;
     ML::compact_vector<CellValue, 0> table;
     uint8_t rowNumBits;
     uint8_t indexBits;
     uint32_t numEntries;
+    ColumnTypes columnTypes;
 };
     
 
@@ -427,20 +466,12 @@ struct TabularDatasetColumn {
     size_t sparseRowOffset;
     size_t maxRowNumber;
     ColumnTypes columnTypes;
-    std::shared_ptr<FrozenColumn> frozen;
 
-    void freeze()
+    std::shared_ptr<FrozenColumn> freeze() const
     {
-        if (frozen)
-            return;
         if (!indexes.empty())
-            frozen.reset(new TableFrozenColumn(indexes, std::move(indexedVals)));
-        else frozen.reset(new SparseTableFrozenColumn(sparseRowOffset, maxRowNumber, sparseIndexes, std::move(indexedVals)));
-        indexes = std::vector<int>();
-        indexedVals = std::vector<CellValue>();
-        valueIndex = ML::Lightweight_Hash<uint64_t, int>();
-        sparseIndexes = ML::Lightweight_Hash<uint32_t, int>();
-        lastValue = CellValue();
+            return std::make_shared<TableFrozenColumn>(indexes, std::move(indexedVals), columnTypes);
+        else return std::make_shared<SparseTableFrozenColumn>(sparseRowOffset, maxRowNumber, sparseIndexes, std::move(indexedVals), columnTypes);
     }
 
     size_t memusage() const
@@ -448,59 +479,25 @@ struct TabularDatasetColumn {
         return sizeof(*this)
             + indexes.capacity() * sizeof(int)
             + indexedVals.capacity() * sizeof(CellValue)
-            + valueIndex.capacity() * 16
-            + (frozen ? frozen->memusage() : 0);
-    }
-
-    CellValue operator [] (size_t index) const
-    {
-        ExcAssert(frozen);
-        return frozen->get(index);
-    }
-
-    template<typename Fn>
-    bool forEach(Fn && fn) const
-    {
-        ExcAssert(frozen);
-        size_t sz = frozen->size();
-        for (size_t i = 0;  i < sz;  ++i) {
-            if (!fn(i, std::move(frozen->get(i))))
-                return false;
-        } 
-        return true;
-    }
-
-    template<typename Fn>
-    bool forEachDistinctValue(Fn && fn) const
-    {
-        ExcAssert(frozen);
-        return frozen->forEachDistinctValue(fn);
+            + valueIndex.capacity() * 16;
     }
 };
 
 struct TabularDatasetChunk {
 
-    /// Not really required
-    TabularDatasetChunk()
-        : chunkNumber(-1), chunkLineNumber(-1), lineNumber(-1),
-          numColumns(-1), numRows(0), numLines(0)
+    TabularDatasetChunk(size_t numColumns = 0, size_t maxSize = 0)
+        : numRows(0), columns(numColumns)
     {
-        throw ML::Exception("Default constructor shouldn't be called");
-    }
-
-    TabularDatasetChunk(size_t numColumns, size_t maxSize)
-        : chunkNumber(-1), chunkLineNumber(-1), lineNumber(-1),
-          numColumns(numColumns), numRows(0), numLines(0), columns(numColumns)
-    {
+#if 0
         rowNames.reserve(maxSize);
         timestamps.reserve(maxSize);
         for (unsigned i = 0;  i < numColumns;  ++i)
             columns[i].reserve(maxSize);
+#endif
     }
 
     TabularDatasetChunk(TabularDatasetChunk && other) noexcept
-    : chunkNumber(-1), chunkLineNumber(-1), lineNumber(-1),
-        numColumns(-1), numRows(0), numLines(0)
+        : numColumns(-1), numRows(0)
     {
         swap(other);
     }
@@ -517,12 +514,7 @@ struct TabularDatasetChunk {
         sparseColumns.swap(other.sparseColumns);
         std::swap(rowNames, other.rowNames);
         std::swap(timestamps, other.timestamps);
-        std::swap(chunkNumber, other.chunkNumber);
-        std::swap(chunkLineNumber, other.chunkLineNumber);
-        std::swap(lineNumber, other.lineNumber);
         std::swap(numRows, other.numRows);
-        std::swap(numLines, other.numLines);
-        std::swap(numColumns, other.numColumns);
     }
 
     size_t rowCount() const
@@ -536,13 +528,13 @@ struct TabularDatasetChunk {
         size_t result = sizeof(*this);
         size_t before = result;
         for (auto & c: columns)
-            result += c.memusage();
+            result += c->memusage();
         
         cerr << columns.size() << " columns took " << result - before << endl;
         before = result;
         
         for (auto & c: sparseColumns)
-            result += c.first.memusage() + c.second.memusage();
+            result += c.first.memusage() + c.second->memusage();
 
         cerr << sparseColumns.size() << " sparse columns took "
              << result - before << endl;
@@ -555,7 +547,7 @@ struct TabularDatasetChunk {
              << result - before << endl;
         before = result;
 
-        result += timestamps.memusage();
+        result += timestamps->memusage();
 
         cerr << "timestamps took "
              << result - before << endl;
@@ -564,29 +556,16 @@ struct TabularDatasetChunk {
         return result;
     }
 
-    /// Which chunk number is this associated with?
-    int64_t chunkNumber;
-
-    /// Which line number is this associated with?  Either in the 
-    /// chunk or overall
-    int64_t chunkLineNumber;
-
-    /// Which absolute line number is this associated with?
-    int64_t lineNumber;
-
     /// Number of columns in each line
     size_t numColumns;
             
     /// Number of rows we've added so far
     size_t numRows;
 
-    /// Total number of lines that have been added
-    size_t numLines;
-
-    std::vector<TabularDatasetColumn> columns;
-    std::unordered_map<ColumnName, TabularDatasetColumn> sparseColumns;
+    std::vector<std::shared_ptr<FrozenColumn> > columns;
+    std::unordered_map<ColumnName, std::shared_ptr<FrozenColumn> > sparseColumns;
     std::vector<RowName> rowNames;
-    TabularDatasetColumn timestamps;
+    std::shared_ptr<FrozenColumn> timestamps;
 
     /// Add the given column to the column with the given index
     void addToColumn(int columnIndex,
@@ -594,24 +573,16 @@ struct TabularDatasetChunk {
     {
         for (unsigned i = 0;  i < numRows;  ++i) {
             rows.emplace_back(rowNames[i],
-                              columns[columnIndex][i],
-                              timestamps[i].toTimestamp());
+                              columns[columnIndex]->get(i),
+                              timestamps->get(i).toTimestamp());
         }
     }
 };
 
-struct MutableTabularDatasetChunk: public TabularDatasetChunk {
-
-    mutable std::mutex mutex;
-
-    /// Maximum size
-    size_t maxSize;
-
-    std::atomic<int> frozen;
+struct MutableTabularDatasetChunk {
 
     MutableTabularDatasetChunk(size_t numColumns, size_t maxSize)
-        : TabularDatasetChunk(numColumns, maxSize),
-          maxSize(maxSize), frozen(0)
+        : maxSize(maxSize), columns(numColumns)
     {
         rowNames.reserve(maxSize);
         timestamps.reserve(maxSize);
@@ -622,22 +593,48 @@ struct MutableTabularDatasetChunk: public TabularDatasetChunk {
     MutableTabularDatasetChunk(MutableTabularDatasetChunk && other) noexcept = delete;
     MutableTabularDatasetChunk & operator = (MutableTabularDatasetChunk && other) noexcept = delete;
 
-    void freeze()
+    TabularDatasetChunk freeze()
     {
-        if (frozen)
-            return;
         std::unique_lock<std::mutex> guard(mutex);
-        if (frozen)
-            return;
         using namespace std;
         cerr << "freezing chunk with " << numRows << " rows" << endl;
-        for (auto & c: columns)
-            c.freeze();
+
+        TabularDatasetChunk result(columns.size(), numRows);
+
+        for (unsigned i = 0;  i < columns.size();  ++i)
+            result.columns[i] = columns[i].freeze();
         for (auto & c: sparseColumns)
-            c.second.freeze();
-        timestamps.freeze();
-        frozen = 1;
+            result.sparseColumns.emplace(c.first, c.second.freeze());
+        result.timestamps = timestamps.freeze();
+
+        return result;
     }
+
+    /// Protect access in a multithreaded context
+    mutable std::mutex mutex;
+
+    /// Maximum size
+    size_t maxSize;
+
+    /// Number of rows we've added so far
+    size_t numRows;
+
+    size_t rowCount() const
+    {
+        return numRows;
+    }
+
+    /// Set of known, dense valued columns
+    std::vector<TabularDatasetColumn> columns;
+
+    /// Set of sparse columns
+    std::unordered_map<ColumnName, TabularDatasetColumn> sparseColumns;
+
+    /// One per row
+    std::vector<RowName> rowNames;
+
+    /// One per row; however these are all date valued
+    TabularDatasetColumn timestamps;
 
     /** Add the given values to this chunk.  Arguments are:
         - rowName: the name of the new row.  It must be unique (and this
@@ -664,7 +661,7 @@ struct MutableTabularDatasetChunk: public TabularDatasetChunk {
         rowNames.emplace_back(std::move(rowName));
         timestamps.add(ts);
 
-        for (unsigned i = 0;  i < numColumns;  ++i) {
+        for (unsigned i = 0;  i < columns.size();  ++i) {
             columns[i].add(std::move(vals[i]));
         }
 
@@ -708,7 +705,7 @@ struct TabularDataset : public Dataset {
     void initialize(const std::vector<ColumnName>& columnNames,
                     const ML::Lightweight_Hash<ColumnHash, int>& columnIndex);
 
-    void finalize(std::vector<std::shared_ptr<MutableTabularDatasetChunk> >& inputChunks,
+    void finalize(std::vector<TabularDatasetChunk> & inputChunks,
                   uint64_t totalRows);
 
     std::shared_ptr<MutableTabularDatasetChunk>*
