@@ -33,7 +33,8 @@ struct ColumnTypes {
     ColumnTypes()
         : hasNulls(false), hasIntegers(false),
           minNegativeInteger(0), maxPositiveInteger(0),
-          hasReals(false), hasStrings(false), hasOther(false)
+          hasReals(false), hasStrings(false), hasBlobs(false),
+          hasOther(false)
     {
     }
 
@@ -58,6 +59,8 @@ struct ColumnTypes {
         case CellValue::ASCII_STRING:
         case CellValue::UTF8_STRING:
             hasStrings = true;  break;
+        case CellValue::BLOB:
+            hasBlobs = true;  break;
         default:
             hasOther = true;  break;
         }
@@ -73,6 +76,7 @@ struct ColumnTypes {
             = std::max(maxPositiveInteger, other.maxPositiveInteger);
         hasReals = hasReals || other.hasReals;
         hasStrings = hasStrings || other.hasStrings;
+        hasBlobs = hasBlobs || other.hasBlobs;
         hasOther = hasOther || other.hasOther;
     }
 
@@ -121,7 +125,8 @@ struct ColumnTypes {
 
     bool hasReals;
     bool hasStrings;
-    bool hasOther;  // timestamps, intervals, blobs, etc
+    bool hasBlobs;
+    bool hasOther;  // timestamps, intervals
 };
 
 /// Base class for a frozen column
