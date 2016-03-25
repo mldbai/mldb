@@ -214,9 +214,14 @@ struct TableFrozenColumn: public FrozenColumn {
 
     virtual size_t memusage() const
     {
-        return sizeof(*this)
-            + (indexBits * numEntries + 31) / 8
-            + table.capacity() * sizeof(CellValue);  // todo: usage of each
+        size_t result
+            = sizeof(*this)
+            + (indexBits * numEntries + 31) / 8;
+
+        for (auto & v: table)
+            result += v.memusage();
+
+        return result;
     }
 
     virtual bool forEachDistinctValue(std::function<bool (const CellValue &, size_t)> fn) const
@@ -234,6 +239,82 @@ struct TableFrozenColumn: public FrozenColumn {
     uint32_t numEntries;
 
     std::vector<CellValue> table;
+};
+
+/// Sparse frozen column that finds each value in a lookup table
+struct SparseTableFrozenColumn: public FrozenColumn {
+    SparseTableFrozenColumn(uint64_t minRow,
+                            uint64_t maxRow,
+                            const ML::Lightweight_Hash<uint32_t, int> & indexes,
+                            std::vector<CellValue> table_)
+        : table(table_.size())
+    {
+        std::move(std::make_move_iterator(table_.begin()),
+                  std::make_move_iterator(table_.end()),
+                  table.begin());
+        indexBits = ML::highest_bit(table.size()) + 1;
+        rowNumBits = ML::highest_bit(maxRow - minRow) + 1;
+        numEntries = indexes.size();
+        size_t numWords = ((indexBits + rowNumBits) * numEntries + 31) / 32;
+        uint32_t * data = new uint32_t[numWords];
+        storage = std::shared_ptr<uint32_t>(data, [] (uint32_t * p) { delete[] p; });
+            
+        ML::Bit_Writer<uint32_t> writer(data);
+        for (auto & i: indexes) {
+            writer.write(i.first, rowNumBits);
+            writer.write(i.second, indexBits);
+        }
+
+        size_t mem = memusage();
+        if (mem > 30000) {
+            using namespace std;
+            cerr << "table with " << indexes.size() << " entries from "
+                 << minRow << " to " << maxRow << " and " << table.size()
+                 << "uniques takes " << mem << " memory" << endl;
+        }
+    }
+
+    virtual CellValue get(uint32_t rowIndex) const
+    {
+        throw HttpReturnException(500, "TODO: SparseTableFrozenColumn get");
+        //cerr << "getting " << rowIndex << " of " << numEntries << endl;
+        ML::Bit_Extractor<uint32_t> bits(storage.get());
+        bits.advance(rowIndex * indexBits);
+        return table[bits.extract<uint32_t>(indexBits)];
+    }
+
+    virtual size_t size() const
+    {
+        return numEntries;
+    }
+
+    virtual size_t memusage() const
+    {
+        size_t result
+            = sizeof(*this)
+            + ((indexBits + rowNumBits) * numEntries + 31) / 8;
+
+        for (auto & v: table)
+            result += v.memusage();
+
+        return result;
+    }
+
+    virtual bool forEachDistinctValue(std::function<bool (const CellValue &, size_t)> fn) const
+    {
+        for (auto & v: table) {
+            if (!fn(v, 1 /* todo: real count */))
+                return false;
+        }
+
+        return true;
+    }
+
+    std::shared_ptr<const uint32_t> storage;
+    ML::compact_vector<CellValue, 0> table;
+    uint8_t rowNumBits;
+    uint8_t indexBits;
+    uint32_t numEntries;
 };
     
 
@@ -350,7 +431,11 @@ struct TabularDatasetColumn {
 
     void freeze()
     {
-        frozen.reset(new TableFrozenColumn(indexes, std::move(indexedVals)));
+        if (frozen)
+            return;
+        if (!indexes.empty())
+            frozen.reset(new TableFrozenColumn(indexes, std::move(indexedVals)));
+        else frozen.reset(new SparseTableFrozenColumn(sparseRowOffset, maxRowNumber, sparseIndexes, std::move(indexedVals)));
         indexes = std::vector<int>();
         indexedVals = std::vector<CellValue>();
         valueIndex = ML::Lightweight_Hash<uint64_t, int>();
@@ -429,6 +514,7 @@ struct TabularDatasetChunk {
     void swap(TabularDatasetChunk & other) noexcept
     {
         columns.swap(other.columns);
+        sparseColumns.swap(other.sparseColumns);
         std::swap(rowNames, other.rowNames);
         std::swap(timestamps, other.timestamps);
         std::swap(chunkNumber, other.chunkNumber);
@@ -444,20 +530,37 @@ struct TabularDatasetChunk {
         return numRows;
     }
 
-    void freeze()
-    {
-        for (auto & c: columns)
-            c.freeze();
-        timestamps.freeze();
-    }
-
     size_t memusage() const
     {
+        using namespace std;
         size_t result = sizeof(*this);
+        size_t before = result;
         for (auto & c: columns)
             result += c.memusage();
-        //result += rowNames.memusage();
+        
+        cerr << columns.size() << " columns took " << result - before << endl;
+        before = result;
+        
+        for (auto & c: sparseColumns)
+            result += c.first.memusage() + c.second.memusage();
+
+        cerr << sparseColumns.size() << " sparse columns took "
+             << result - before << endl;
+        before = result;
+
+        for (auto & r: rowNames)
+            result += r.memusage();
+
+        cerr << sparseColumns.size() << " row names took "
+             << result - before << endl;
+        before = result;
+
         result += timestamps.memusage();
+
+        cerr << "timestamps took "
+             << result - before << endl;
+
+        cerr << "total memory is " << result << endl;
         return result;
     }
 
@@ -481,6 +584,7 @@ struct TabularDatasetChunk {
     size_t numLines;
 
     std::vector<TabularDatasetColumn> columns;
+    std::unordered_map<ColumnName, TabularDatasetColumn> sparseColumns;
     std::vector<RowName> rowNames;
     TabularDatasetColumn timestamps;
 
