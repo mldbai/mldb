@@ -665,8 +665,8 @@ queryStructured(const SelectExpression & select,
     if (!having.isConstantTrue() && groupBy.clauses.empty())
         throw HttpReturnException(400, "HAVING expression requires a GROUP BY expression");
 
-    std::vector< std::shared_ptr<SqlExpression> > aggregators = select.findAggregators();
-    std::vector< std::shared_ptr<SqlExpression> > havingaggregators = having.findAggregators();
+    std::vector< std::shared_ptr<SqlExpression> > aggregators = select.findAggregators(!groupBy.clauses.empty());
+    std::vector< std::shared_ptr<SqlExpression> > havingaggregators = having.findAggregators(!groupBy.clauses.empty());
 
     // Do it ungrouped if possible
     if (groupBy.clauses.empty() && aggregators.empty()) {
