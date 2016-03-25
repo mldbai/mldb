@@ -139,8 +139,6 @@ struct FrozenColumn {
 
     virtual size_t size() const = 0;
 
-    virtual size_t getIndexBits() const = 0;
-
     virtual size_t memusage() const = 0;
 
     virtual bool forEachDistinctValue(std::function<bool (const CellValue &, size_t)> fn) const = 0;
@@ -160,11 +158,6 @@ struct NaiveFrozenColumn: public FrozenColumn {
     }
         
     std::vector<CellValue> vals;
-
-    virtual size_t getIndexBits() const
-    {
-        return 32;
-    }
 
     virtual size_t size() const
     {
@@ -206,11 +199,6 @@ struct TableFrozenColumn: public FrozenColumn {
         }
     }
 
-    virtual size_t getIndexBits() const
-    {
-        return indexBits;
-    }
-        
     virtual CellValue get(uint32_t rowIndex) const
     {
         //cerr << "getting " << rowIndex << " of " << numEntries << endl;
