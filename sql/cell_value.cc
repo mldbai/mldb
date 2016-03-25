@@ -1136,6 +1136,29 @@ extractStructuredJson(JsonPrintingContext & context) const
     }
 }
 
+size_t
+CellValue::
+memusage() const
+{
+    switch (type) {
+    case ST_EMPTY:
+    case ST_TIMESTAMP:
+    case ST_TIMEINTERVAL:
+    case ST_ASCII_SHORT_STRING:
+    case ST_SHORT_BLOB:
+    case ST_UTF8_SHORT_STRING:
+    case ST_INTEGER:
+    case ST_UNSIGNED:
+    case ST_FLOAT:
+        return sizeof(*this);
+    case ST_ASCII_LONG_STRING:
+    case ST_UTF8_LONG_STRING:
+    case ST_LONG_BLOB:
+        return sizeof(*this) + sizeof(StringRepr) + strLength;
+    }
+    throw HttpReturnException(400, "unknown CellValue type");
+}
+
 struct CellValueDescription: public ValueDescriptionT<CellValue> {
     virtual void parseJsonTyped(CellValue * val,
                                 JsonParsingContext & context) const
