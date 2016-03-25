@@ -855,19 +855,19 @@ struct ImportTextProcedureWorkInstance
 	        return dataset->createNewChunk(ROWS_PER_CHUNK);
 	    };
 	    
-        PerThreadAccumulator<TabularDatasetChunk> accum(createPayload);
+        PerThreadAccumulator<std::shared_ptr<MutableTabularDatasetChunk> > accum(createPayload);
 
         /// Finished chunks, ordered by chunk number
-        std::vector<TabularDatasetChunk> doneChunks;
+        std::vector<std::shared_ptr<MutableTabularDatasetChunk> > doneChunks;
 
         mutex lineMutex;
 
         auto onLine = [&] (int chunkNum, int64_t actualLineNum, RowName rowName, Date rowTs, CellValue * vals, ColumnName * names, int numVals) {
 
-            TabularDatasetChunk & threadAccum = accum.get();
+            std::shared_ptr<MutableTabularDatasetChunk> & threadAccum = accum.get();
 
-            if (threadAccum.chunkNumber == -1) {
-                threadAccum.chunkNumber = chunkNum;
+            if (threadAccum->chunkNumber == -1) {
+                threadAccum->chunkNumber = chunkNum;
             }
 
             if (!areOutputColumnNamesKnown) {
@@ -890,8 +890,27 @@ struct ImportTextProcedureWorkInstance
                 }
             }
 
+            // Add the given set of rows to the chunk, rotating to a new
+            // chunk if necessary before doing so.
+            auto addVals = [&] (CellValue * vals)
+            {
+                std::vector<std::pair<ColumnName, CellValue> > extra;
+                if (!threadAccum->add(rowName, rowTs, vals, extra)) {
+                    threadAccum->freeze();
+                    auto newChunk = std::make_shared<MutableTabularDatasetChunk>
+                        (numVals, ROWS_PER_CHUNK);
+                    std::unique_lock<std::mutex> guard(lineMutex);
+                    doneChunks.emplace_back(std::move(newChunk));
+                    doneChunks.back().swap(threadAccum);
+                    ExcAssertEqual(threadAccum->rowCount(), 0);
+                }
+
+                bool added = threadAccum->add(rowName, rowTs, vals, extra);
+                ExcAssert(added);
+            };
+
             if (!names) {
-                threadAccum.add(std::move(rowName), rowTs, vals, {});
+                addVals(vals);
             }
             else {
 
@@ -908,32 +927,7 @@ struct ImportTextProcedureWorkInstance
                     orderedValues[iter->second] = vals[i];
                 }
 
-                threadAccum.add(std::move(rowName), rowTs, &orderedValues[0], {});
-            }
-
-            if (threadAccum.rowCount() == ROWS_PER_CHUNK) {
-                //size_t before JML_UNUSED = threadAccum.memusage();
-                threadAccum.freeze();
-                //size_t after JML_UNUSED = threadAccum.memusage();
-                TabularDatasetChunk newChunk(numVals, ROWS_PER_CHUNK);
-                std::unique_lock<std::mutex> guard(lineMutex);
-                doneChunks.emplace_back(std::move(newChunk));
-                doneChunks.back().swap(threadAccum);
-                ExcAssertEqual(threadAccum.rowCount(), 0);
-
-#if 0
-                cerr << "compressed from " << before << " to " << after << " bytes ("
-                << 100.0 * after / before << "%)" << endl;
-
-                int rowBits = 0;
-                for (auto & c: doneChunks.back().columns) {
-                    rowBits += c.frozen->getIndexBits();
-                    //cerr << "column had " << c.indexedVals.size()
-                    //     << " distinct values on " << c.indexes.size()
-                    //     << " total entries" << endl;
-                }
-                cerr << "rowBits = " << rowBits << endl;
-#endif                    
+                addVals(orderedValues.data());
             }
         };
 
@@ -944,11 +938,12 @@ struct ImportTextProcedureWorkInstance
         std::mutex doneChunksLock;
 
         auto doLeftoverChunk = [&] (int threadNum) {
-            TabularDatasetChunk * ent = accum.threads.at(threadNum).get();
+            std::shared_ptr<MutableTabularDatasetChunk> & ent
+                = *accum.threads.at(threadNum).get();
             ExcAssert(ent != nullptr);
             ent->freeze();
             std::unique_lock<std::mutex> guard(doneChunksLock);
-            doneChunks.emplace_back(std::move(*ent));
+            doneChunks.emplace_back(std::move(ent));
         };
 
         parallelMap(0, accum.threads.size(), doLeftoverChunk);
@@ -958,8 +953,8 @@ struct ImportTextProcedureWorkInstance
         size_t totalMemUsage = 0;
         size_t totalRows = 0;
         for (auto & c: doneChunks) {
-            totalMemUsage += c.memusage();
-            totalRows += c.rowCount();
+            totalMemUsage += c->memusage();
+            totalRows += c->rowCount();
         }
         //cerr << "total memory usage of " << totalMemUsage / 1000000.0 << "MB "
         //     << " over " << totalRows << " rows at "

@@ -18,6 +18,8 @@
 #include "mldb/jml/utils/lightweight_hash.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/types/hash_wrapper_description.h"
+#include "mldb/jml/utils/compact_vector.h"
+#include <mutex>
 
 namespace Datacratic {
 namespace MLDB {
@@ -243,12 +245,17 @@ struct TableFrozenColumn: public FrozenColumn {
     
 
 struct TabularDatasetColumn {
+    TabularDatasetColumn()
+        : sparseRowOffset(0), maxRowNumber(0)
+    {
+    }
+
     /** Add a value for a dense column, ie one where we know we will call
         add() on every row, in order.
     */
     void add(CellValue val)
     {
-        indexes.push_back(getIndex(val, false /* sparse */));
+        indexes.push_back(getIndex(val));
     }
 
     /** Add a value that doesn't occur on every row, for the given row number
@@ -259,12 +266,28 @@ struct TabularDatasetColumn {
     */
     void addSparse(size_t rowNumber, CellValue val)
     {
-        // TODO: more sparsity, eg don't put zero indexes for empty entries
-        // Otherwise each new column is an O(nrows) operation.
-        ExcAssertGreaterEqual(rowNumber, indexes.size());
-        int index = getIndex(val, true /* sparse */);
-        indexes.resize(rowNumber + 1, 0);
-        indexes.back() = index;
+        if (val.empty())
+            return;
+
+        using namespace std;
+        int index = getIndex(val);
+        if (sparseIndexes.empty()) {
+            sparseRowOffset = rowNumber;
+            maxRowNumber = rowNumber;
+        }
+        else {
+            ExcAssertGreaterEqual(rowNumber, sparseRowOffset);
+            maxRowNumber = rowNumber;
+            if (rowNumber == sparseRowOffset) {
+                // We have two values for this column in this row.  If they're equal,
+                // we're OK.  Otherwise we take the lowest value.
+                if (index == sparseIndexes[rowNumber - sparseRowOffset]) ;
+                else {
+                    ExcAssert(false);
+                }
+            }
+        }
+        sparseIndexes[rowNumber - sparseRowOffset] = index;
     }
 
     /** Return the value index for this value.  This is the integer we store
@@ -274,20 +297,8 @@ struct TabularDatasetColumn {
         take it as a by-value parameter to avoid having to call the move
         constructor, which is non-trivial).
     */
-    int getIndex(CellValue & val, bool sparse)
+    int getIndex(CellValue & val)
     {
-        if (sparse) {
-            // Record the null at index 0 if it's not already there
-            if (valueIndex.empty()) {
-                CellValue null;
-                valueIndex[null.hash()] = 0;
-                indexedVals.emplace_back(null);
-            }
-            
-            if (val.empty())
-                return 0;
-        }
-
         // Optimization: if we're recording the same value as
         // the last column, then we don't need to do anything
         if (!indexes.empty() && val == lastValue) {
@@ -296,10 +307,9 @@ struct TabularDatasetColumn {
 
         // Optimization: if there are only a few values, do a
         // linear search and don't bother with the hashing
-        // For sparse we don't search index 0 since it's null
 
         if (indexedVals.size() < 8) {
-            for (unsigned i = sparse;  i < indexedVals.size();  ++i) {
+            for (unsigned i = 0;  i < indexedVals.size();  ++i) {
                 if (val == indexedVals[i]) {
                     lastValue = std::move(val);
                     return i;
@@ -339,6 +349,9 @@ struct TabularDatasetColumn {
     std::vector<CellValue> indexedVals;
     ML::Lightweight_Hash<uint64_t, int> valueIndex;
     CellValue lastValue;
+    ML::Lightweight_Hash<uint32_t, int> sparseIndexes;
+    size_t sparseRowOffset;
+    size_t maxRowNumber;
     ColumnTypes columnTypes;
     std::shared_ptr<FrozenColumn> frozen;
 
@@ -348,6 +361,7 @@ struct TabularDatasetColumn {
         indexes = std::vector<int>();
         indexedVals = std::vector<CellValue>();
         valueIndex = ML::Lightweight_Hash<uint64_t, int>();
+        sparseIndexes = ML::Lightweight_Hash<uint32_t, int>();
         lastValue = CellValue();
     }
 
@@ -396,14 +410,14 @@ struct TabularDatasetChunk {
         throw ML::Exception("Default constructor shouldn't be called");
     }
 
-    TabularDatasetChunk(size_t numColumns, size_t reservedSize)
+    TabularDatasetChunk(size_t numColumns, size_t maxSize)
         : chunkNumber(-1), chunkLineNumber(-1), lineNumber(-1),
-          numColumns(numColumns), numRows(0), numLines(0), columns(numColumns) 
+          numColumns(numColumns), numRows(0), numLines(0), columns(numColumns)
     {
-        rowNames.reserve(reservedSize);
-        timestamps.reserve(reservedSize);
+        rowNames.reserve(maxSize);
+        timestamps.reserve(maxSize);
         for (unsigned i = 0;  i < numColumns;  ++i)
-            columns[i].reserve(reservedSize);
+            columns[i].reserve(maxSize);
     }
 
     TabularDatasetChunk(TabularDatasetChunk && other) noexcept
@@ -477,28 +491,6 @@ struct TabularDatasetChunk {
     std::vector<RowName> rowNames;
     TabularDatasetColumn timestamps;
 
-    /** Add the given values to this chunk.  Arguments are:
-        - rowName: the name of the new row.  It must be unique (and this
-          is not checked).
-        - ts: the timestamp to be given to all values of this row
-        - vals: the values of all cells at this row, for dense values
-        - extra: extra columns and their values, for when we accept an open
-          schema.  These will be stored less efficiently and will normally
-          be sparse.
-    */
-    void add(RowName rowName, Date ts, CellValue * vals,
-             std::vector<std::pair<ColumnName, CellValue> > extra)
-    {
-        ++numRows;
-
-        rowNames.emplace_back(std::move(rowName));
-        timestamps.add(ts);
-
-        for (unsigned i = 0;  i < numColumns;  ++i) {
-            columns[i].add(std::move(vals[i]));
-        }
-    }
-
     /// Add the given column to the column with the given index
     void addToColumn(int columnIndex,
                      std::vector<std::tuple<RowName, CellValue, Date> > & rows) const
@@ -508,6 +500,84 @@ struct TabularDatasetChunk {
                               columns[columnIndex][i],
                               timestamps[i].toTimestamp());
         }
+    }
+};
+
+struct MutableTabularDatasetChunk: public TabularDatasetChunk {
+
+    mutable std::mutex mutex;
+
+    /// Maximum size
+    size_t maxSize;
+
+    std::atomic<int> frozen;
+
+    MutableTabularDatasetChunk(size_t numColumns, size_t maxSize)
+        : TabularDatasetChunk(numColumns, maxSize),
+          maxSize(maxSize), frozen(0)
+    {
+        rowNames.reserve(maxSize);
+        timestamps.reserve(maxSize);
+        for (unsigned i = 0;  i < numColumns;  ++i)
+            columns[i].reserve(maxSize);
+    }
+
+    MutableTabularDatasetChunk(MutableTabularDatasetChunk && other) noexcept = delete;
+    MutableTabularDatasetChunk & operator = (MutableTabularDatasetChunk && other) noexcept = delete;
+
+    void freeze()
+    {
+        if (frozen)
+            return;
+        std::unique_lock<std::mutex> guard(mutex);
+        if (frozen)
+            return;
+        using namespace std;
+        cerr << "freezing chunk with " << numRows << " rows" << endl;
+        for (auto & c: columns)
+            c.freeze();
+        for (auto & c: sparseColumns)
+            c.second.freeze();
+        timestamps.freeze();
+        frozen = 1;
+    }
+
+    /** Add the given values to this chunk.  Arguments are:
+        - rowName: the name of the new row.  It must be unique (and this
+          is not checked).
+        - ts: the timestamp to be given to all values of this row
+        - vals: the values of all cells at this row, for dense values
+        - extra: extra columns and their values, for when we accept an open
+          schema.  These will be stored less efficiently and will normally
+          be sparse.  It takes a reference as the operation can fail and we
+          may need to retry.  If it returns false, extra is untouched,
+          otherwise it is destroyed.
+
+        Returns true if it was added, or false if there was no more space
+        to add it.
+    */
+    bool add(RowName & rowName, Date ts, CellValue * vals,
+             std::vector<std::pair<ColumnName, CellValue> > & extra)
+        __attribute__((warn_unused_result))
+    {
+        std::unique_lock<std::mutex> guard(mutex);
+        if (numRows == maxSize)
+            return false;
+
+        rowNames.emplace_back(std::move(rowName));
+        timestamps.add(ts);
+
+        for (unsigned i = 0;  i < numColumns;  ++i) {
+            columns[i].add(std::move(vals[i]));
+        }
+
+        for (auto & e: extra) {
+            auto it = sparseColumns.emplace(std::move(e.first), TabularDatasetColumn()).first;
+            it->second.addSparse(numRows, std::move(e.second));
+        }
+
+        ++numRows;
+        return true;
     }
 };
 
@@ -541,9 +611,11 @@ struct TabularDataset : public Dataset {
     void initialize(const std::vector<ColumnName>& columnNames,
                     const ML::Lightweight_Hash<ColumnHash, int>& columnIndex);
 
-    void finalize( std::vector<TabularDatasetChunk>& inputChunks, uint64_t totalRows);
+    void finalize(std::vector<std::shared_ptr<MutableTabularDatasetChunk> >& inputChunks,
+                  uint64_t totalRows);
 
-    TabularDatasetChunk* createNewChunk(size_t rowsPerChunk); 
+    std::shared_ptr<MutableTabularDatasetChunk>*
+    createNewChunk(size_t rowsPerChunk); 
     
     virtual ~TabularDataset();
     
@@ -570,6 +642,8 @@ struct TabularDataset : public Dataset {
     virtual void commit();
 
     void recordRowItl(const RowName & rowName, const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals);
+
+    void recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows);
 
 protected:
     // To initialize from a subclass

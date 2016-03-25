@@ -11,8 +11,10 @@
 #include "mldb/ml/jml/training_index_entry.h"
 #include "mldb/jml/utils/smart_ptr_utils.h"
 #include "mldb/base/parallel.h"
+#include "mldb/base/thread_pool.h"
 #include "mldb/server/bucket.h"
 #include "mldb/types/any_impl.h"
+#include "mldb/arch/spinlock.h"
 
 #include <mutex>
 
@@ -22,6 +24,65 @@ namespace Datacratic {
 namespace MLDB {
 
 static constexpr size_t TABULAR_DATASET_DEFAULT_ROWS_PER_CHUNK=65536;
+static constexpr size_t NUM_PARALLEL_CHUNKS=16;
+
+namespace {
+
+// Note: in GCC 4.9+, we can use the std::atomic_xxx overloads for
+// std::shared_ptr.  Once the Concurrency TR is available, we can
+// replace with those classes.  For the moment we use a simple,
+// spinlock protected implementation that is a lowest common
+// denominator.
+template<typename T>
+struct atomic_shared_ptr {
+
+    atomic_shared_ptr(std::shared_ptr<T> ptr = nullptr)
+        : ptr(std::move(ptr))
+    {
+    }
+    
+    std::shared_ptr<T> load() const
+    {
+        std::unique_lock<ML::Spinlock> guard(lock);
+        return ptr;
+    }
+
+    void store(std::shared_ptr<T> newVal)
+    {
+        std::unique_lock<ML::Spinlock> guard(lock);
+        ptr = std::move(newVal);
+    }
+
+    std::shared_ptr<T> exchange(std::shared_ptr<T> newVal)
+    {
+        std::unique_lock<ML::Spinlock> guard(lock);
+        std::shared_ptr<T> result = std::move(ptr);
+        ptr = std::move(newVal);
+        return result;
+    }
+
+    bool compare_exchange_strong(std::shared_ptr<T> & expected,
+                                 std::shared_ptr<T> desired)
+    {
+        std::unique_lock<ML::Spinlock> guard(lock);
+        if (ptr == expected) {
+            expected = std::move(ptr);
+            ptr = std::move(desired);
+            return true;
+        }
+        else {
+            expected = ptr;
+            return false;
+        }
+    }
+
+private:
+    mutable ML::Spinlock lock;
+    std::shared_ptr<T> ptr;
+};
+
+} // file scope
+
 
 /*****************************************************************************/
 /* TABULAR DATA STORE                                                        */
@@ -34,7 +95,7 @@ static constexpr size_t TABULAR_DATASET_DEFAULT_ROWS_PER_CHUNK=65536;
 struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
     TabularDataStore(TabularDatasetConfig config)
-        : rowCount(0), mutableChunksIsEmpty(true), config(std::move(config))
+        : rowCount(0), config(std::move(config))
         {
 
         }
@@ -92,8 +153,36 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     
     std::vector<TabularDatasetChunk> chunks;
 
-    std::atomic<bool> mutableChunksIsEmpty;
-    std::vector<TabularDatasetChunk> mutableChunks;
+    /** This structure handles a list of chunks that allows for them to be recorded
+        in parallel.
+    */
+    struct ChunkList {
+        ChunkList(size_t n)
+            : chunks(new atomic_shared_ptr<MutableTabularDatasetChunk>[n]),
+              n(n)
+        {
+        }
+
+        ~ChunkList()
+        {
+            delete[] chunks;
+        }
+
+        const atomic_shared_ptr<MutableTabularDatasetChunk> * begin() const { return chunks; }
+        const atomic_shared_ptr<MutableTabularDatasetChunk> * end() const { return chunks + n; }
+        atomic_shared_ptr<MutableTabularDatasetChunk> * begin() { return chunks; }
+        atomic_shared_ptr<MutableTabularDatasetChunk> * end() { return chunks + n; }
+        
+        atomic_shared_ptr<MutableTabularDatasetChunk> * chunks;
+        size_t n;
+    };
+
+    // Reading of this data structure is not protected by any lock
+    // Writing is protected by the dataset mutex
+    atomic_shared_ptr<ChunkList> mutableChunks;
+
+    // Everything below here is protected by the dataset lock
+    std::vector<std::shared_ptr<MutableTabularDatasetChunk> > uncommittedChunks;
 
     /// Index from rowHash to (chunk, indexInChunk) when line number not used for rowName
     ML::Lightweight_Hash<RowHash, std::pair<int, int> > rowIndex;
@@ -416,13 +505,18 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         return result;
     }
 
-    void finalize( std::vector<TabularDatasetChunk>& inputChunks, uint64_t totalRows)
+    void finalize(std::vector<std::shared_ptr<MutableTabularDatasetChunk> >& inputChunks,
+                  uint64_t totalRows)
     {
         // NOTE: must be called with the lock held
 
         rowCount = totalRows;
+        
+        chunks.reserve(inputChunks.size());
 
-        chunks = std::move(inputChunks);
+        for (auto & c: inputChunks) {
+            chunks.emplace_back(std::move(*c));
+        }
 
         ML::Timer rowIndexTimer;
         //cerr << "creating row index" << endl;
@@ -453,28 +547,39 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
     void commit()
     {
-        std::unique_lock<std::mutex> guard(datasetMutex);
-        commitImpl();
-    }
+        // No mutable chunks anymore
+        auto oldMutableChunks = mutableChunks.exchange(nullptr);
 
-    void commitImpl()
-    {
-        if (!mutableChunks.empty())
-        {
-            std::atomic<size_t> totalRows(0);
+        if (!oldMutableChunks)
+            return;  // a parallel commit beat us to it
 
-            auto freezeChunk = [&] (size_t i)
-                {
-                    mutableChunks[i].freeze();
-                    totalRows += mutableChunks[i].rowCount();
-                };
-
-            parallelMap(0, mutableChunks.size(), freezeChunk);
-
-            finalize(mutableChunks, totalRows);
-            mutableChunks.resize(0);
-            mutableChunksIsEmpty = true;
+        for (auto & c: *oldMutableChunks) {
+            // Wait for us to have the only reference to the chunk
+            auto p = c.load();
+            // We have one reference here
+            // There is one reference inside oldMutableChunks
+            while (p.use_count() != 2) ;
         }
+
+        std::unique_lock<std::mutex> guard(datasetMutex);
+        // Transfer them to the uncommitted chunks
+        for (auto & c: *oldMutableChunks) {
+            uncommittedChunks.emplace_back(c.load());
+        }
+
+        // Freeze all of the uncommitted chunks
+        std::atomic<size_t> totalRows(0);
+
+        auto freezeChunk = [&] (size_t i)
+            {
+                uncommittedChunks[i]->freeze();
+                totalRows += uncommittedChunks[i]->rowCount();
+            };
+        
+        parallelMap(0, uncommittedChunks.size(), freezeChunk);
+
+        finalize(uncommittedChunks, totalRows);
+        uncommittedChunks.clear();
 
         size_t mem = 0;
         for (auto & c: chunks) {
@@ -485,34 +590,56 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
              << 1.0 * mem / rowCount << " bytes/row" << endl;
     }
 
-    void recordRow(const RowName & rowName, const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
+    
+    void createFirstChunks(const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
+    {
+        // Must be done with the dataset lock held
+        if (!mutableChunks.load()) {
+            //need to create the mutable chunk
+            vector<ColumnName> columnNames;
+
+            //The first recorded row will determine the columns
+            ML::Lightweight_Hash<ColumnHash, int> inputColumnIndex;
+            for (unsigned i = 0;  i < vals.size();  ++i) {
+                const ColumnName & c = std::get<0>(vals[i]);
+                ColumnHash ch(c);
+                if (!inputColumnIndex.insert(make_pair(ch, i)).second)
+                    throw HttpReturnException(400, "Duplicate column name in tabular dataset entry",
+                                              "columnName", c.toString());
+                columnNames.push_back(c);
+            }
+
+            initialize(columnNames, inputColumnIndex);
+
+            auto newChunks = std::make_shared<ChunkList>(NUM_PARALLEL_CHUNKS);
+            
+            for (auto & c: *newChunks) {
+                auto newChunk = std::make_shared<MutableTabularDatasetChunk>
+                    (columnNames.size(),
+                     TABULAR_DATASET_DEFAULT_ROWS_PER_CHUNK);
+                c.store(std::move(newChunk));
+            }
+            
+            auto old = mutableChunks.exchange(std::move(newChunks));
+            ExcAssert(!old);
+        }
+    }
+
+    void recordRow(const RowName & rowName,
+                   const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
     {
         if (rowCount > 0)
             HttpReturnException(400, "Tabular dataset has already been committed, cannot add more rows");
 
-        if (mutableChunksIsEmpty) {
+        auto mc = mutableChunks.load();
+
+        if (!mc) {
             std::unique_lock<std::mutex> guard(datasetMutex);
-            if (mutableChunks.empty())
-            {
-                //need to create the mutable chunk
-                vector<ColumnName> columnNames;
-                //The first recorded row will determine the columns
-                ML::Lightweight_Hash<ColumnHash, int> inputColumnIndex;
-                for (unsigned i = 0;  i < vals.size();  ++i) {
-                    const ColumnName & c = std::get<0>(vals[i]);
-                    ColumnHash ch(c);
-                    if (!inputColumnIndex.insert(make_pair(ch, i)).second)
-                        throw HttpReturnException(400, "Duplicate column name in tabular dataset entry",
-                                                  "columnName", c.toString());
-                    columnNames.push_back(c);
-                }
-
-                initialize(columnNames, inputColumnIndex);
-
-                mutableChunks.emplace_back(columnNames.size(), TABULAR_DATASET_DEFAULT_ROWS_PER_CHUNK);
-                mutableChunksIsEmpty = false;
-            }
+            createFirstChunks(vals);
+            mc = mutableChunks.load();
         }
+
+        ExcAssert(mc);
 
         std::vector<CellValue> orderedVals(columnNames.size());
         Date ts = Date::negativeInfinity();
@@ -539,12 +666,28 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             ts = std::max(ts, std::get<2>(vals[i]));
         }
 
-        {
-            std::unique_lock<std::mutex> guard(datasetMutex);
-            mutableChunks.back().add(rowName, ts, orderedVals.data(), std::move(newColumns));
-            
-            if (mutableChunks.back().rowCount() >= TABULAR_DATASET_DEFAULT_ROWS_PER_CHUNK) {
-                mutableChunks.emplace_back(columnNames.size(), TABULAR_DATASET_DEFAULT_ROWS_PER_CHUNK);
+        int chunkNum = (rowName.hash() >> 32) % mc->n;
+        RowName newRowName(rowName);
+        for (bool written = false;  !written;) {
+            auto chunkPtr = mc->chunks[chunkNum].load();
+            ExcAssert(chunkPtr);
+            written = chunkPtr->add(newRowName, ts,
+                                    orderedVals.data(), newColumns);
+            if (!written) {
+                // We need a rotation
+                auto newChunk = std::make_shared<MutableTabularDatasetChunk>
+                    (columnNames.size(), TABULAR_DATASET_DEFAULT_ROWS_PER_CHUNK);
+                if (mc->chunks[chunkNum]
+                    .compare_exchange_strong(chunkPtr, newChunk)) {
+                    // Successful rotation.  First we background freeze
+                    // the chunk.  Then the old one goes in the list of
+                    // uncommitted chunks.
+
+                    ThreadPool::instance().add([=] () { chunkPtr->freeze(); });
+
+                    std::unique_lock<std::mutex> guard(datasetMutex);
+                    uncommittedChunks.emplace_back(chunkPtr);
+                }
             }
         }
     }
@@ -561,21 +704,24 @@ TabularDataset(MldbServer * owner,
 
 void
 TabularDataset::
-initialize(const vector<ColumnName>& columnNames, const ML::Lightweight_Hash<ColumnHash, int>& columnIndex)
+initialize(const vector<ColumnName>& columnNames,
+           const ML::Lightweight_Hash<ColumnHash, int>& columnIndex)
 {
 	itl->initialize(columnNames, columnIndex);
 }
 
-TabularDatasetChunk* 
+std::shared_ptr<MutableTabularDatasetChunk> * 
 TabularDataset::
 createNewChunk(size_t rowsPerChunk)
 {
-    return new TabularDatasetChunk(itl->columnNames.size(), rowsPerChunk);
+    return new std::shared_ptr<MutableTabularDatasetChunk>
+        (new MutableTabularDatasetChunk(itl->columnNames.size(), rowsPerChunk));
 }
 
 void
 TabularDataset::
-finalize( std::vector<TabularDatasetChunk>& inputChunks, uint64_t totalRows)
+finalize(std::vector<std::shared_ptr<MutableTabularDatasetChunk> >& inputChunks,
+         uint64_t totalRows)
 {
     itl->finalize(inputChunks, totalRows);
 }
@@ -658,7 +804,15 @@ recordRowItl(const RowName & rowName,
              const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
 {
     validateNames(rowName, vals);
-    return itl->recordRow(rowName, vals);
+    itl->recordRow(rowName, vals);
+}
+
+void
+TabularDataset::
+recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows)
+{
+    for (auto & r: rows)
+        itl->recordRow(r.first, r.second);
 }
 
 /*****************************************************************************/
