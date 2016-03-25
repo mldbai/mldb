@@ -1254,7 +1254,9 @@ struct GroupContext: public SqlExpressionDatasetContext {
                     if (result)
                         return *result;     
                     
-                    throw HttpReturnException(400, "variable " + variableName + " must appear in the GROUP BY clause or be used in an aggregate function");
+                    throw HttpReturnException(400, "variable '" + variableName 
+                                              + "' must appear in the GROUP BY clause or "
+                                              "be used in an aggregate function");
                 },
                 std::make_shared<AtomValueInfo>()};
     }

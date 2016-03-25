@@ -329,7 +329,7 @@ $(eval $(call mldb_unit_test,MLDB-815-sparse-mutable-record-strings.js))
 $(eval $(call mldb_unit_test,MLDB-1395-error-message-file-doesnt-exist.js))
 $(eval $(call mldb_unit_test,MLDBFB-318_misleading_error_msg.py))
 $(eval $(call mldb_unit_test,ranking_test.py))
-$(eval $(call mldb_unit_test,MLDB-1490-temporal-grouped.js,,manual)) # awaiting fix
+$(eval $(call mldb_unit_test,MLDB-1490-grouped-validation.py))
 $(eval $(call mldb_unit_test,MLDB-1491-get-all-not-implemented-for-datasets.js,,manual)) # awaiting fix
 $(eval $(call mldb_unit_test,MLDB-1500-transpose-query.js,,manual)) # awaiting fix
 

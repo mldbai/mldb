@@ -1782,34 +1782,48 @@ unimp(std::shared_ptr<SqlExpression> lhs,
 
 std::vector<std::shared_ptr<SqlExpression> >
 SqlExpression::
-findAggregators() const
+findAggregators(bool withGroupBy) const
 {
+    typedef std::vector<std::shared_ptr<SqlExpression> >::iterator IterType;
+
     std::vector<std::shared_ptr<SqlExpression> > output;
     std::vector<std::shared_ptr<SqlExpression> > children = getChildren();
+    
+    auto isAggregator = [](std::shared_ptr<SqlExpression> expr) {
+        if (expr->getType() == "function") {
+            const FunctionCallWrapper * function = dynamic_cast<const FunctionCallWrapper *>(expr.get());
+            if (function) {
+                Utf8String functionName = function->functionName;
+                return !!tryLookupAggregator(functionName);
+            }
+            else {
+                throw HttpReturnException(500, "Unexpected: could not cast FunctionCallWrapper");
+            }
+        }
+        return false;
+    };
 
+    auto isWildcard = [](std::shared_ptr<SqlExpression> expr) {
+        if (expr->getType() == "selectWildcard") {
+            const WildcardExpression * wildcard = dynamic_cast<const WildcardExpression *>(expr.get());
+            if (wildcard) {
+                return true;
+            }
+            else {
+                throw HttpReturnException(500, "Unexpected: could not cast WildcardExpression");
+            }
+        }
+        return false;
+    };
+
+     // collect aggregators
     for (auto iter = children.begin(); iter != children.end(); ++iter)
     {
         auto child = *iter;
-
-        bool foundAggregator = false;
-        if (child->getType() == "function") {
-            const FunctionCallWrapper * function = dynamic_cast<const FunctionCallWrapper *>(child.get());
-            if (function) {
-
-                Utf8String functionName = function->functionName;
-
-                if (tryLookupAggregator(functionName)) {
-                    foundAggregator = true;
-                    output.push_back(child);
-                }
-            }
-            else {
-                HttpReturnException(400, "Unexpected: could not cast FunctionCallWrapper");
-            }
-        }
-
-        //we dont look for aggregators in aggregator - its not legal
-        if (!foundAggregator) {
+        if (isAggregator(child))
+            output.push_back(child);
+        else {
+            //we dont look for aggregators in aggregator - its not legal - this check above
             //order MUST be preserved
             std::vector<std::shared_ptr<SqlExpression> > subchildren = child->getChildren();
             int pos = iter - children.begin();
@@ -1818,6 +1832,45 @@ findAggregators() const
         }
     }
 
+    std::vector<Utf8String> culprit;
+
+    /**
+       For a SELECT expression to be valid in presence of a GROUP BY or an aggregator,
+       wildcard expressions must be included in an aggregator directly or indirectly
+       - "SELECT earliest(temporal_earliest({*})) GROUP BY something" is valid
+       - "SELECT temporal_earliest({*}) GROUP BY something" is not valid
+       Similarly for implied GROUP BY (here because of aggregator sum)
+       - "SELECT sum({*}), earliest(temporal_earliest({*}))"  is valid but
+       - "SELECT sum({*}), temporal_earliest({*})" is not valid
+       Other invalid SELECT expressions in presence of GROUP BY like referring to a variable
+       not in the GROUP BY expression are detected later when binding these expressions.
+    */
+    std::function<bool(IterType, IterType)> wildcardNestedInAggregator = [&](IterType begin, IterType end) {
+        for (IterType it = begin; it < end; ++it) {
+            if (!isAggregator(*it)) {
+                auto children = (*it)->getChildren();
+                if (children.size() == 0  && isWildcard(*it)) {
+                    return false;
+                }
+                culprit.push_back((*it)->surface);
+                bool result = wildcardNestedInAggregator(children.begin(), children.end());
+                culprit.pop_back();
+                if (!result) return result;
+            }
+        }
+        return true;
+    };
+    
+    bool wildcardInAggs = wildcardNestedInAggregator(children.begin(), children.end());
+    
+    if (!wildcardInAggs && (output.size() != 0 || withGroupBy)) {
+        throw HttpReturnException(400, (withGroupBy ?
+                                        "Non-aggregator '" + culprit.front() + 
+                                        "' with GROUP BY clause is not allowed" :
+                                        "Mixing non-aggregator '" + culprit.front() + 
+                                        "' with aggregators is not allowed"));
+    }
+    
     return std::move(output);
 }
 
