@@ -187,13 +187,6 @@ hash() const
     //return ::mldb_siphash24(str.rawData(), str.rawLength(), defaultSeedStable.b);
 }
 
-bool
-Coord::
-empty() const
-{
-    return complex_ == 0 && simpleLen_ == 0;
-}
-
 Coord
 Coord::
 operator + (const Coord & other) const

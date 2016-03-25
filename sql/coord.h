@@ -58,6 +58,15 @@ struct Coord {
         }
     }
 
+    template<size_t N>
+    inline Coord(const char (&str)[N])
+        : Coord(str, (N && str[N - 1])?N:N-1)  // remove null char from end
+    {
+    }
+
+    // Create as an array index
+    Coord(uint64_t i);
+
     ~Coord()
     {
         if (complex_)
@@ -87,15 +96,6 @@ struct Coord {
         swap(newMe);
         return *this;
     }
-
-    template<size_t N>
-    inline Coord(const char (&str)[N])
-        : Coord(str, (N && str[N - 1])?N:N-1)  // remove null char from end
-    {
-    }
-
-    // Create as an array index
-    Coord(uint64_t i);
 
     bool stringEqual(const std::string & other) const;
     bool stringEqual(const Utf8String & other) const;
@@ -131,7 +131,10 @@ struct Coord {
 
     uint64_t hash() const;
 
-    bool empty() const;
+    inline bool empty() const
+    {
+        return complex_ == 0 && simpleLen_ == 0;
+    }
 
     Coord operator + (const Coord & other) const;
     Coord operator + (Coord && other) const;

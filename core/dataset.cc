@@ -504,10 +504,10 @@ Dataset::
 validateNames(const RowName & rowName,
               const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
 {
-    if (rowName == RowName())
+    if (rowName.empty())
         throw HttpReturnException(400, "empty row names are not allowed");
     for (auto & val : vals) {
-        if (get<0>(val) == ColumnName())
+        if (get<0>(val).empty())
             throw HttpReturnException(400, "empty column names are not allowed");
     }
 }
