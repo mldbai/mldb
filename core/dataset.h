@@ -249,16 +249,16 @@ struct DatasetRecorder: public Recorder {
 
     virtual void
     recordRowExpr(const RowName & rowName,
-                  const ExpressionValue & expr);
+                  const ExpressionValue & expr) override;
     virtual void
     recordRow(const RowName & rowName,
-              const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals);
+              const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals) override;
 
     virtual void
-    recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows);
+    recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows) override;
 
     virtual void
-    recordRowsExpr(const std::vector<std::pair<RowName, ExpressionValue > > & rows);
+    recordRowsExpr(const std::vector<std::pair<RowName, ExpressionValue > > & rows) override;
 
 private:
     Dataset * dataset;
