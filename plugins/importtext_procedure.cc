@@ -936,7 +936,6 @@ struct ImportTextProcedureWorkInstance
             std::shared_ptr<MutableTabularDatasetChunk> & ent
                 = *accum.threads.at(threadNum).get();
             ExcAssert(ent != nullptr);
-            auto doneChunk = ent->freeze();
             doneChunks[offset + threadNum] = ent->freeze();
         };
 
