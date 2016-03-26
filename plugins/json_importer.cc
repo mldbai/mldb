@@ -136,15 +136,49 @@ struct JSONImporter: public Procedure {
                                       "line", line);
         };
 
-        PerThreadAccumulator<std::vector<std::pair<RowName, ExpressionValue> > > accum;
+        Dataset::MultiChunkRecorder recorder
+            = outputDataset->getChunkRecorder();
 
-        auto onLine = [&](const char * line,
-                          size_t lineLength,
-                          int64_t blockNumber,
-                          int64_t lineNumber)
+        struct ThreadAccum {
+            /// Rows we've accumulated up to here for the chunl
+            std::vector<std::pair<RowName, ExpressionValue> > rows;
+
+            /// Recorder object for this thread that the dataset gives us
+            /// to record into the dataset.
+            std::unique_ptr<Recorder> threadRecorder;
+        };
+
+        PerThreadAccumulator<ThreadAccum> accum;
+
+        auto startChunk = [&] (int64_t chunkNumber, size_t lineNumber)
+            {
+                auto & threadAccum = accum.get();
+                threadAccum.threadRecorder = recorder.newChunk(chunkNumber);
+                return true;
+            };
+
+        auto doneChunk = [&] (int64_t chunkNumber, size_t lineNumber)
+            {
+                auto & threadAccum = accum.get();
+                auto & rows = threadAccum.rows;
+                ExcAssert(threadAccum.threadRecorder.get());
+                if (!rows.empty())
+                    threadAccum.threadRecorder->recordRowsExprDestructive
+                        (std::move(rows));
+                rows.clear();
+                threadAccum.threadRecorder->finishedChunk();
+                threadAccum.threadRecorder.reset(nullptr);
+                return true;
+            };
+
+        auto onLine = [&] (const char * line,
+                           size_t lineLength,
+                           int64_t blockNumber,
+                           int64_t lineNumber)
         {
-            auto & rows = accum.get();
-            
+            auto & threadAccum = accum.get();
+            auto & rows = threadAccum.rows;
+
             int64_t actualLineNum = lineNumber + lineOffset;
 
             // MLDB-1111 empty lines are treated as error
@@ -179,20 +213,22 @@ struct JSONImporter: public Procedure {
             rows.emplace_back(RowName(actualLineNum), std::move(expr));
 
             if (rows.size() > 1000) {
-                outputDataset->recordRowsExpr(rows);
+                threadAccum.threadRecorder->recordRowsExprDestructive(std::move(rows));
                 rows.clear();
             }
             return true;
         };
 
-        forEachLineBlock(stream, onLine, runProcConf.limit, 32);
+        forEachLineBlock(stream, onLine, runProcConf.limit, 32,
+                         startChunk, doneChunk);
 
         cerr << "cleaning up" << endl;
         
         auto doLeftoverChunk = [&] (int threadNum)
             {
-                auto rows = *accum.threads.at(threadNum).get();
-                outputDataset->recordRowsExpr(rows);
+                ExcAssertEqual(accum.threads.at(threadNum)->rows.size(), 0);
+                //auto rows = *accum.threads.at(threadNum).get();
+                //outputDataset->recordRowsExpr(rows);
             };
 
         parallelMap(0, accum.threads.size(), doLeftoverChunk);
