@@ -752,6 +752,8 @@ struct TabularDataset : public Dataset {
     /** Commit changes to the database. */
     virtual void commit();
 
+    virtual MultiChunkRecorder getChunkRecorder();
+
     void recordRowItl(const RowName & rowName, const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals);
 
     void recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows);

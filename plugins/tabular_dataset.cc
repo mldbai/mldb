@@ -557,6 +557,86 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             }
     }
 
+    /** This is a recorder that is designed to have each thread record
+        chunks in a deterministic manner.
+    */
+    struct ChunkRecorder: public Recorder {
+        ChunkRecorder(TabularDataStore * store)
+            : store(store)
+        {
+        }
+
+        TabularDataStore * store;
+
+        virtual void
+        recordRowExpr(const RowName & rowName,
+                      const ExpressionValue & expr) override
+        {
+            RowValue row;
+            expr.appendToRow(ColumnName(), row);
+            recordRowDestructive(rowName, std::move(row));
+        }
+
+        virtual void
+        recordRowExprDestructive(RowName rowName,
+                                 ExpressionValue expr) override
+        {
+            RowValue row;
+            ColumnName columnName;
+            expr.appendToRowDestructive(columnName, row);
+            recordRowDestructive(std::move(rowName), std::move(row));
+        }
+
+        virtual void
+        recordRow(const RowName & rowName,
+                  const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals) override
+        {
+            store->recordRow(rowName, vals);
+        }
+
+        virtual void
+        recordRowDestructive(RowName rowName,
+                             std::vector<std::tuple<ColumnName, CellValue, Date> > vals) override
+        {
+            store->recordRow(std::move(rowName), std::move(vals));
+        }
+
+        virtual void
+        recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows) override
+        {
+            for (auto & r: rows)
+                store->recordRow(r.first, r.second);
+        }
+
+        virtual void
+        recordRowsDestructive(std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > rows) override
+        {
+            for (auto & r: rows)
+                store->recordRow(std::move(r.first), std::move(r.second));
+        }
+
+        virtual void
+        recordRowsExpr(const std::vector<std::pair<RowName, ExpressionValue > > & rows) override
+        {
+            for (auto & r: rows) {
+                recordRowExpr(r.first, r.second);
+            }
+        }
+
+        virtual void
+        recordRowsExprDestructive(std::vector<std::pair<RowName, ExpressionValue > > rows) override
+        {
+            for (auto & r: rows) {
+                recordRowExprDestructive(std::move(r.first), std::move(r.second));
+            }
+        }
+
+        virtual void finishedChunk() override
+        {
+        }
+        
+    };
+
     void commit()
     {
         // No mutable chunks anymore.  Atomically swap out the old pointer.
@@ -667,22 +747,15 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         }
     }
 
-    void recordRow(const RowName & rowName,
-                   const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
+    // Vals is std::vector<std::tuple<ColumnName, CellValue, Date> >
+    // either a const reference (in which case we copy), or a
+    // rvalue or non-const reference (in which case we move)
+    template<typename Vals>
+    std::tuple<std::vector<CellValue>,
+               std::vector<std::pair<ColumnName, CellValue> >,
+               Date>
+    prepareRow(Vals&& vals)
     {
-        if (rowCount > 0)
-            HttpReturnException(400, "Tabular dataset has already been committed, cannot add more rows");
-
-        auto mc = mutableChunks.load();
-
-        if (!mc) {
-            std::unique_lock<std::mutex> guard(datasetMutex);
-            createFirstChunks(vals);
-            mc = mutableChunks.load();
-        }
-
-        ExcAssert(mc);
-
         std::vector<CellValue> orderedVals(columnNames.size());
         Date ts = Date::negativeInfinity();
 
@@ -698,23 +771,56 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
                 case UC_IGNORE:
                     continue;
                 case UC_ADD:
-                    newColumns.emplace_back(c, std::get<1>(vals[i]));
+                    newColumns.emplace_back(std::move(std::get<0>(vals[i])),
+                                            std::move(std::get<1>(vals[i])));
                     continue;
                 }
             }
 
-            orderedVals[iter->second] = std::get<1>(vals[i]);
+            orderedVals[iter->second] = std::move(std::get<1>(vals[i]));
 
             ts = std::max(ts, std::get<2>(vals[i]));
         }
 
+        return std::make_tuple(std::move(orderedVals),
+                               std::move(newColumns),
+                               std::move(ts));
+    }
+
+    // Vals is std::vector<std::tuple<ColumnName, CellValue, Date> >
+    // Same const/non-const as is happening above
+    template<typename Vals>
+    void recordRow(RowName rowName,
+                   Vals&& vals)
+    {
+        if (rowCount > 0)
+            HttpReturnException(400, "Tabular dataset has already been committed, cannot add more rows");
+
+        auto mc = mutableChunks.load();
+
+        if (!mc) {
+            std::unique_lock<std::mutex> guard(datasetMutex);
+            createFirstChunks(vals);
+            mc = mutableChunks.load();
+        }
+
+        ExcAssert(mc);
+
+        // Prepare what we need to record
+        auto rowVals = prepareRow(vals);
+
+        std::vector<CellValue> & orderedVals = std::get<0>(rowVals);
+        std::vector<std::pair<ColumnName, CellValue> > & newColumns
+            = std::get<1>(rowVals);
+        Date ts = std::get<2>(rowVals);
+
         int chunkNum = (rowName.hash() >> 32) % mc->n;
-        RowName newRowName(rowName);
+
         for (int written = MutableTabularDatasetChunk::ADD_PERFORM_ROTATION;
              written != MutableTabularDatasetChunk::ADD_SUCCEEDED;) {
             auto chunkPtr = mc->chunks[chunkNum].load();
             ExcAssert(chunkPtr);
-            written = chunkPtr->add(newRowName, ts,
+            written = chunkPtr->add(rowName, ts,
                                     orderedVals.data(), newColumns);
             if (written == MutableTabularDatasetChunk::ADD_AWAIT_ROTATION)
                 continue;  // busy wait until the rotation is done by another thread
@@ -839,6 +945,21 @@ TabularDataset::
 commit()
 {
     return itl->commit();
+}
+
+Dataset::MultiChunkRecorder
+TabularDataset::
+getChunkRecorder()
+{
+    MultiChunkRecorder result;
+    result.newChunk = [=] (size_t)
+        {
+            return std::unique_ptr<Recorder>
+                (new TabularDataStore::ChunkRecorder(itl.get()));
+        };
+
+    result.commit = [=] () { this->commit(); };
+    return result;
 }
 
 void
