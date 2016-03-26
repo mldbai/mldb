@@ -20,6 +20,7 @@
 #include "mldb/server/per_thread_accumulator.h"
 #include "mldb/base/parallel.h"
 #include "mldb/arch/timers.h"
+#include "mldb/base/parse_context.h"
 
 using namespace std;
 
@@ -137,10 +138,10 @@ struct JSONImporter: public Procedure {
 
         PerThreadAccumulator<std::vector<std::pair<RowName, ExpressionValue> > > accum;
 
-        auto onLine = [& ](const char * line,
-                           size_t lineLength,
-                           int64_t blockNumber,
-                           int64_t lineNumber)
+        auto onLine = [&](const char * line,
+                          size_t lineLength,
+                          int64_t blockNumber,
+                          int64_t lineNumber)
         {
             auto & rows = accum.get();
             
@@ -153,6 +154,11 @@ struct JSONImporter: public Procedure {
             StreamingJsonParsingContext parser(filename, line, lineLength,
                                                actualLineNum);
 
+            skipJsonWhitespace(*parser.context);
+            if (parser.context->eof()) {
+                return handleError("empty line", actualLineNum, "");
+            }
+
             // TODO: in the configuration
             JsonArrayHandling arrays = ENCODE_ARRAYS;
             
@@ -161,6 +167,11 @@ struct JSONImporter: public Procedure {
                 expr = ExpressionValue::parseJson(parser, timestamp, arrays);
             } catch (const std::exception & exc) {
                 return handleError(exc.what(), actualLineNum, string(line, lineLength));
+            }
+
+            skipJsonWhitespace(*parser.context);
+            if (!parser.context->eof()) {
+                return handleError("extra characters at end of line", actualLineNum, "");
             }
 
             recordedLines++;
