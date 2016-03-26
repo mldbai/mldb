@@ -891,16 +891,15 @@ struct ImportTextProcedureWorkInstance
             auto addVals = [&] (CellValue * vals)
             {
                 std::vector<std::pair<ColumnName, CellValue> > extra;
-                if (!threadAccum->add(rowName, rowTs, vals, extra)) {
+                if (threadAccum->add(rowName, rowTs, vals, extra) != MutableTabularDatasetChunk::ADD_SUCCEEDED) {
                     auto frozen = threadAccum->freeze();
                     threadAccum = std::make_shared<MutableTabularDatasetChunk>
                         (numVals, ROWS_PER_CHUNK);
+                    int added = threadAccum->add(rowName, rowTs, vals, extra);
+                    ExcAssertEqual(added, MutableTabularDatasetChunk::ADD_SUCCEEDED);
                     std::unique_lock<std::mutex> guard(lineMutex);
                     doneChunks.emplace_back(std::move(frozen));
                 }
-
-                bool added = threadAccum->add(rowName, rowTs, vals, extra);
-                ExcAssert(added);
             };
 
             if (!names) {

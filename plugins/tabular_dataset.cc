@@ -12,6 +12,7 @@
 #include "mldb/jml/utils/smart_ptr_utils.h"
 #include "mldb/base/parallel.h"
 #include "mldb/base/thread_pool.h"
+#include "mldb/base/scope.h"
 #include "mldb/server/bucket.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/arch/spinlock.h"
@@ -95,10 +96,10 @@ private:
 struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
     TabularDataStore(TabularDatasetConfig config)
-        : rowCount(0), config(std::move(config))
-        {
-
-        }
+        : rowCount(0), config(std::move(config)),
+          backgroundJobsActive(0)
+    {
+    }
 
     struct TabularDataStoreRowStream : public RowStream {
 
@@ -168,6 +169,17 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             delete[] chunks;
         }
 
+        size_t size() const
+        {
+            return n;
+        }
+
+        std::shared_ptr<MutableTabularDatasetChunk> operator [] (size_t i) const
+        {
+            ExcAssertLess(i, n);
+            return chunks[i].load();
+        }
+
         const atomic_shared_ptr<MutableTabularDatasetChunk> * begin() const { return chunks; }
         const atomic_shared_ptr<MutableTabularDatasetChunk> * end() const { return chunks + n; }
         atomic_shared_ptr<MutableTabularDatasetChunk> * begin() { return chunks; }
@@ -182,7 +194,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     atomic_shared_ptr<ChunkList> mutableChunks;
 
     // Everything below here is protected by the dataset lock
-    std::vector<std::shared_ptr<MutableTabularDatasetChunk> > uncommittedChunks;
+    std::vector<TabularDatasetChunk> frozenChunks;
 
     /// Index from rowHash to (chunk, indexInChunk) when line number not used for rowName
     ML::Lightweight_Hash<RowHash, std::pair<int, int> > rowIndex;
@@ -525,12 +537,12 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         for (unsigned i = 0;  i < chunks.size();  ++i) {
             for (unsigned j = 0;  j < chunks[i].rowNames.size();  ++j) {
                 if (!rowIndex.insert({ chunks[i].rowNames[j], { i, j } }).second)
-                    throw HttpReturnException(400, "Duplicate row name in CSV dataset",
+                    throw HttpReturnException(400, "Duplicate row name in text dataset",
                                               "rowName", chunks[i].rowNames[j]);
             }
         }
         //cerr << "done creating row index" << endl;
-        //cerr << "row index took " << rowIndexTimer.elapsed() << endl;
+        cerr << "row index took " << rowIndexTimer.elapsed() << endl;
 
     }
 
@@ -547,7 +559,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
     void commit()
     {
-        // No mutable chunks anymore
+        // No mutable chunks anymore.  Atomically swap out the old pointer.
         auto oldMutableChunks = mutableChunks.exchange(nullptr);
 
         if (!oldMutableChunks)
@@ -559,30 +571,33 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             // We have one reference here
             // There is one reference inside oldMutableChunks
             while (p.use_count() != 2) ;
+
+            freezeChunkInBackground(p);
+            c.store(nullptr);
         }
 
+        // Wait for the background freeze events to finish.  We do it by
+        // busy waiting while working in between, to ensure that we don't
+        // deadlock if there are no other threads available to do the
+        // work.
+        while (backgroundJobsActive)
+            ThreadPool::instance().work();
+
+        // We can only take the mutex here, as the background threads need
+        // to access it.
         std::unique_lock<std::mutex> guard(datasetMutex);
-        // Transfer them to the uncommitted chunks
-        for (auto & c: *oldMutableChunks) {
-            uncommittedChunks.emplace_back(c.load());
-        }
+
+        // At this point, nobody can see oldMutableChunks or its contents
+        // apart from this thread.  So we can perform operations unlocked
+        // on it without any problem.
 
         // Freeze all of the uncommitted chunks
         std::atomic<size_t> totalRows(0);
 
-        std::vector<TabularDatasetChunk> finalChunks(uncommittedChunks.size());
+        for (auto & c: frozenChunks)
+            totalRows += c.rowCount();
 
-        auto freezeChunk = [&] (size_t i)
-            {
-                finalChunks[i] = uncommittedChunks[i]->freeze();
-                uncommittedChunks[i].reset();
-                totalRows += finalChunks[i].rowCount();
-            };
-        
-        parallelMap(0, uncommittedChunks.size(), freezeChunk);
-
-        finalize(finalChunks, totalRows);
-        uncommittedChunks.clear();
+        finalize(frozenChunks, totalRows);
 
         size_t mem = 0;
         for (auto & c: chunks) {
@@ -593,6 +608,30 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
              << 1.0 * mem / rowCount << " bytes/row" << endl;
     }
 
+    /// The number of background jobs that we're currently waiting for
+    std::atomic<size_t> backgroundJobsActive;
+
+    // freezes a new chunk in the background, and adds it to frozenChunks.
+    // Updates the number of background jobs atomically so that we can know
+    // when everything is finished.
+    void freezeChunkInBackground(std::shared_ptr<MutableTabularDatasetChunk> chunk)
+    {
+        auto job = [=] ()
+            {
+                Scope_Exit(--this->backgroundJobsActive);
+                auto frozen = chunk->freeze();
+                std::unique_lock<std::mutex> guard(datasetMutex);
+                frozenChunks.emplace_back(std::move(frozen));
+            };
+        
+        ++backgroundJobsActive;
+        try {
+            ThreadPool::instance().add(std::move(job));
+        } catch (...) {
+            --backgroundJobsActive;
+            throw;
+        }
+    }
     
     void createFirstChunks(const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
     {
@@ -671,13 +710,17 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
         int chunkNum = (rowName.hash() >> 32) % mc->n;
         RowName newRowName(rowName);
-        for (bool written = false;  !written;) {
+        for (int written = MutableTabularDatasetChunk::ADD_PERFORM_ROTATION;
+             written != MutableTabularDatasetChunk::ADD_SUCCEEDED;) {
             auto chunkPtr = mc->chunks[chunkNum].load();
             ExcAssert(chunkPtr);
             written = chunkPtr->add(newRowName, ts,
                                     orderedVals.data(), newColumns);
-            if (!written) {
-                // We need a rotation
+            if (written == MutableTabularDatasetChunk::ADD_AWAIT_ROTATION)
+                continue;  // busy wait until the rotation is done by another thread
+            else if (written
+                     == MutableTabularDatasetChunk::ADD_PERFORM_ROTATION) {
+                // We need a rotation, and we've been selected to do it
                 auto newChunk = std::make_shared<MutableTabularDatasetChunk>
                     (columnNames.size(), TABULAR_DATASET_DEFAULT_ROWS_PER_CHUNK);
                 if (mc->chunks[chunkNum]
@@ -686,10 +729,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
                     // the chunk.  Then the old one goes in the list of
                     // uncommitted chunks.
 
-                    ThreadPool::instance().add([=] () { chunkPtr->freeze(); });
-
-                    std::unique_lock<std::mutex> guard(datasetMutex);
-                    uncommittedChunks.emplace_back(chunkPtr);
+                    freezeChunkInBackground(std::move(chunkPtr));
                 }
             }
         }

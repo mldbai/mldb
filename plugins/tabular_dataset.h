@@ -359,7 +359,7 @@ struct SparseTableFrozenColumn: public FrozenColumn {
 
 struct TabularDatasetColumn {
     TabularDatasetColumn()
-        : sparseRowOffset(0), maxRowNumber(0)
+        : sparseRowOffset(0), maxRowNumber(0), isFrozen(false)
     {
     }
 
@@ -412,6 +412,7 @@ struct TabularDatasetColumn {
     */
     int getIndex(CellValue & val)
     {
+        ExcAssert(!isFrozen);
         // Optimization: if we're recording the same value as
         // the last column, then we don't need to do anything
         if (!indexes.empty() && val == lastValue) {
@@ -466,9 +467,12 @@ struct TabularDatasetColumn {
     size_t sparseRowOffset;
     size_t maxRowNumber;
     ColumnTypes columnTypes;
+    bool isFrozen;
 
-    std::shared_ptr<FrozenColumn> freeze() const
+    std::shared_ptr<FrozenColumn> freeze()
     {
+        ExcAssert(!isFrozen);
+        isFrozen = true;
         if (!indexes.empty())
             return std::make_shared<TableFrozenColumn>(indexes, std::move(indexedVals), columnTypes);
         else return std::make_shared<SparseTableFrozenColumn>(sparseRowOffset, maxRowNumber, sparseIndexes, std::move(indexedVals), columnTypes);
@@ -485,19 +489,12 @@ struct TabularDatasetColumn {
 
 struct TabularDatasetChunk {
 
-    TabularDatasetChunk(size_t numColumns = 0, size_t maxSize = 0)
-        : numRows(0), columns(numColumns)
+    TabularDatasetChunk(size_t numColumns = 0)
+        : columns(numColumns)
     {
-#if 0
-        rowNames.reserve(maxSize);
-        timestamps.reserve(maxSize);
-        for (unsigned i = 0;  i < numColumns;  ++i)
-            columns[i].reserve(maxSize);
-#endif
     }
 
     TabularDatasetChunk(TabularDatasetChunk && other) noexcept
-        : numColumns(-1), numRows(0)
     {
         swap(other);
     }
@@ -512,14 +509,13 @@ struct TabularDatasetChunk {
     {
         columns.swap(other.columns);
         sparseColumns.swap(other.sparseColumns);
-        std::swap(rowNames, other.rowNames);
+        rowNames.swap(other.rowNames);
         std::swap(timestamps, other.timestamps);
-        std::swap(numRows, other.numRows);
     }
 
     size_t rowCount() const
     {
-        return numRows;
+        return rowNames.size();
     }
 
     size_t memusage() const
@@ -543,7 +539,7 @@ struct TabularDatasetChunk {
         for (auto & r: rowNames)
             result += r.memusage();
 
-        cerr << sparseColumns.size() << " row names took "
+        cerr << rowNames.size() << " row names took "
              << result - before << endl;
         before = result;
 
@@ -556,12 +552,6 @@ struct TabularDatasetChunk {
         return result;
     }
 
-    /// Number of columns in each line
-    size_t numColumns;
-            
-    /// Number of rows we've added so far
-    size_t numRows;
-
     std::vector<std::shared_ptr<FrozenColumn> > columns;
     std::unordered_map<ColumnName, std::shared_ptr<FrozenColumn> > sparseColumns;
     std::vector<RowName> rowNames;
@@ -571,7 +561,7 @@ struct TabularDatasetChunk {
     void addToColumn(int columnIndex,
                      std::vector<std::tuple<RowName, CellValue, Date> > & rows) const
     {
-        for (unsigned i = 0;  i < numRows;  ++i) {
+        for (unsigned i = 0;  i < rowNames.size();  ++i) {
             rows.emplace_back(rowNames[i],
                               columns[columnIndex]->get(i),
                               timestamps->get(i).toTimestamp());
@@ -582,7 +572,8 @@ struct TabularDatasetChunk {
 struct MutableTabularDatasetChunk {
 
     MutableTabularDatasetChunk(size_t numColumns, size_t maxSize)
-        : maxSize(maxSize), columns(numColumns)
+        : maxSize(maxSize), columns(numColumns), isFrozen(false),
+          addFailureNotified(false)
     {
         rowNames.reserve(maxSize);
         timestamps.reserve(maxSize);
@@ -596,18 +587,22 @@ struct MutableTabularDatasetChunk {
     TabularDatasetChunk freeze()
     {
         std::unique_lock<std::mutex> guard(mutex);
-        using namespace std;
-        cerr << "freezing chunk with " << numRows << " rows" << endl;
 
-        TabularDatasetChunk result(columns.size(), numRows);
+        ExcAssert(!isFrozen);
+
+        TabularDatasetChunk result;
+        result.columns.resize(columns.size());
+        result.sparseColumns.reserve(sparseColumns.size());
 
         for (unsigned i = 0;  i < columns.size();  ++i)
             result.columns[i] = columns[i].freeze();
         for (auto & c: sparseColumns)
             result.sparseColumns.emplace(c.first, c.second.freeze());
+
         result.timestamps = timestamps.freeze();
-        result.numRows = numRows;
         result.rowNames = std::move(rowNames);
+
+        isFrozen = true;
 
         return result;
     }
@@ -618,16 +613,15 @@ struct MutableTabularDatasetChunk {
     /// Maximum size
     size_t maxSize;
 
-    /// Number of rows we've added so far
-    size_t numRows;
-
     size_t rowCount() const
     {
-        return numRows;
+        return rowNames.size();
     }
 
     /// Set of known, dense valued columns
     std::vector<TabularDatasetColumn> columns;
+
+    bool isFrozen;
 
     /// Set of sparse columns
     std::unordered_map<ColumnName, TabularDatasetColumn> sparseColumns;
@@ -637,6 +631,14 @@ struct MutableTabularDatasetChunk {
 
     /// One per row; however these are all date valued
     TabularDatasetColumn timestamps;
+
+    /// Has add() failure been notified?  This selects whether we
+    /// return 0 or -1 from add().
+    bool addFailureNotified;
+
+    static constexpr int ADD_SUCCEEDED = 1;
+    static constexpr int ADD_PERFORM_ROTATION = 0;
+    static constexpr int ADD_AWAIT_ROTATION = -1;
 
     /** Add the given values to this chunk.  Arguments are:
         - rowName: the name of the new row.  It must be unique (and this
@@ -649,16 +651,30 @@ struct MutableTabularDatasetChunk {
           may need to retry.  If it returns false, extra is untouched,
           otherwise it is destroyed.
 
-        Returns true if it was added, or false if there was no more space
-        to add it.
+        Returns:
+          - ADD_SUCCEEDED         if it was added
+          - ADD_PERFORM_ROTATION  if it wasn't added, and this is the first
+                                  failed attempt (this thread should rotate)
+          - ADD_AWAIT_ROTATION    if it wasn't added, and another thread has
+                                  already received ADD_PERFORM_ROTATION
     */
-    bool add(RowName & rowName, Date ts, CellValue * vals,
+    int add(RowName & rowName, Date ts, CellValue * vals,
              std::vector<std::pair<ColumnName, CellValue> > & extra)
         __attribute__((warn_unused_result))
     {
         std::unique_lock<std::mutex> guard(mutex);
-        if (numRows == maxSize)
-            return false;
+        if (isFrozen)
+            return ADD_AWAIT_ROTATION;
+        size_t numRows = rowNames.size();
+
+        if (numRows == maxSize) {
+            if (addFailureNotified)
+                return ADD_AWAIT_ROTATION;
+            else {
+                addFailureNotified = true;
+                return ADD_PERFORM_ROTATION;
+            }
+        }
 
         rowNames.emplace_back(std::move(rowName));
         timestamps.add(ts);
@@ -672,8 +688,7 @@ struct MutableTabularDatasetChunk {
             it->second.addSparse(numRows, std::move(e.second));
         }
 
-        ++numRows;
-        return true;
+        return ADD_SUCCEEDED;
     }
 };
 
