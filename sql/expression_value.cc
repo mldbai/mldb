@@ -2022,22 +2022,27 @@ appendToRowDestructive(ColumnName & columnName, RowValue & row)
         else if (row.capacity() < row.size() + rowLength())
             row.reserve(row.capacity() * 2);
 
-        auto onSubexpr = [&] (ColumnName & innerColumnName,
-                              ExpressionValue & val)
-            {
-                ColumnName newColumnName;
-                if (columnName.empty())
-                    newColumnName = std::move(innerColumnName);
-                else if (innerColumnName.empty())
-                    newColumnName = columnName;
-                else newColumnName = ColumnName(columnName.toUtf8String()
-                                                + "."
-                                                + innerColumnName.toUtf8String());
-                val.appendToRowDestructive(newColumnName, row);
-                return true;
-            };
-
-        forEachColumnDestructiveT(onSubexpr);
+        if (columnName.empty()) {
+            auto onSubexpr = [&] (ColumnName & innerColumnName,
+                                  ExpressionValue & val)
+                {
+                    val.appendToRowDestructive(innerColumnName, row);
+                    return true;
+                };
+            
+            forEachColumnDestructiveT(onSubexpr);
+        }
+        else {
+            auto onSubexpr = [&] (ColumnName & innerColumnName,
+                                  ExpressionValue & val)
+                {
+                    ColumnName newColumnName = columnName + innerColumnName;
+                    val.appendToRowDestructive(newColumnName, row);
+                    return true;
+                };
+            
+            forEachColumnDestructiveT(onSubexpr);
+        }
     }
 }
 
