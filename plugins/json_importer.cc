@@ -222,23 +222,12 @@ struct JSONImporter: public Procedure {
         forEachLineBlock(stream, onLine, runProcConf.limit, 32,
                          startChunk, doneChunk);
 
-        cerr << "cleaning up" << endl;
-        
-        auto doLeftoverChunk = [&] (int threadNum)
-            {
-                ExcAssertEqual(accum.threads.at(threadNum)->rows.size(), 0);
-                //auto rows = *accum.threads.at(threadNum).get();
-                //outputDataset->recordRowsExpr(rows);
-            };
-
-        parallelMap(0, accum.threads.size(), doLeftoverChunk);
-
         cerr << timer.elapsed() << endl;
         timer.restart();
 
         cerr << "committing dataset" << endl;
 
-        outputDataset->commit();
+        recorder.commit();
 
         cerr << timer.elapsed() << endl;
 
