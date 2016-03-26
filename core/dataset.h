@@ -13,6 +13,7 @@
 #include "mldb/core/mldb_entity.h"
 #include "mldb/sql/cell_value.h"
 #include "mldb/types/url.h"
+#include "mldb/core/recorder.h"
 #include <set>
 
 // NOTE TO MLDB DEVELOPERS: This is an API header file.  No includes
@@ -235,6 +236,39 @@ struct RowStream {
 
 
 /*****************************************************************************/
+/* DATASET RECORDER                                                          */
+/*****************************************************************************/
+
+/** This is a recorder that forwards directly its records to a dataset. */
+
+struct DatasetRecorder: public Recorder {
+    
+    DatasetRecorder(Dataset * dataset);
+
+    virtual ~DatasetRecorder();
+
+    virtual void
+    recordRowExpr(const RowName & rowName,
+                  const ExpressionValue & expr);
+    virtual void
+    recordRow(const RowName & rowName,
+              const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals);
+
+    virtual void
+    recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows);
+
+    virtual void
+    recordRowsExpr(const std::vector<std::pair<RowName, ExpressionValue > > & rows);
+
+private:
+    Dataset * dataset;
+    struct Itl;
+    std::unique_ptr<Itl> itl;
+};
+
+
+
+/*****************************************************************************/
 /* DATASET                                                                   */
 /*****************************************************************************/
 
@@ -321,17 +355,8 @@ struct Dataset: public MldbEntity {
     */
     virtual void recordRowsExpr(const std::vector<std::pair<RowName, ExpressionValue> > & rows);
 
-    struct ChunkRecorder {
-        std::function<void (const RowName & rowName,
-                            const ExpressionValue & expr)> recordRowExpr;
-        std::function<void (const RowName & rowName,
-                            const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)> recordRow;
-        std::function<void (const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows)> recordRows;
-        std::function<void ()> finishedChunk;
-    };
-
     struct MultiChunkRecorder {
-        std::function<ChunkRecorder (size_t chunkIndex)> newChunk;
+        std::function<std::unique_ptr<Recorder> (size_t chunkIndex)> newChunk;
         std::function<void ()> commit;
     };
 

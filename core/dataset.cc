@@ -68,7 +68,7 @@ struct SortByRowHash {
 
 
 /*****************************************************************************/
-/* DATASET                                                                    */
+/* DATASET                                                                   */
 /*****************************************************************************/
 
 DEFINE_STRUCTURE_DESCRIPTION(MatrixRow);
@@ -405,7 +405,57 @@ getColumnBuckets(const ColumnName & column,
 
 
 /*****************************************************************************/
-/* DATASET                                                                    */
+/* DATASET RECORDER                                                          */
+/*****************************************************************************/
+
+// This is here to allow future extension without breaking the ABI
+struct DatasetRecorder::Itl {
+};
+
+DatasetRecorder::
+DatasetRecorder(Dataset * dataset)
+    : dataset(dataset)
+{
+}
+
+DatasetRecorder::
+~DatasetRecorder()
+{
+}
+
+void
+DatasetRecorder::
+recordRowExpr(const RowName & rowName,
+              const ExpressionValue & expr)
+{
+    dataset->recordRowExpr(rowName, expr);
+}
+
+void
+DatasetRecorder::
+recordRow(const RowName & rowName,
+          const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
+{
+    dataset->recordRow(rowName, vals);
+}
+
+void
+DatasetRecorder::
+recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows)
+{
+    dataset->recordRows(rows);
+}
+
+void
+DatasetRecorder::
+recordRowsExpr(const std::vector<std::pair<RowName, ExpressionValue > > & rows)
+{
+    dataset->recordRowsExpr(rows);
+}
+
+
+/*****************************************************************************/
+/* DATASET                                                                   */
 /*****************************************************************************/
 
 Dataset::
@@ -614,20 +664,13 @@ Dataset::MultiChunkRecorder
 Dataset::
 getChunkRecorder()
 {
-    using namespace std::placeholders;
-    
-    ChunkRecorder chunkRecorder;
-    // These simply forward to the appropriate method
-    chunkRecorder.recordRowExpr
-        = std::bind(&Dataset::recordRowExpr, this, _1, _2);
-    chunkRecorder.recordRow
-        = std::bind(&Dataset::recordRow, this, _1, _2);
-    chunkRecorder.recordRows
-        = std::bind(&Dataset::recordRows, this, _1);
-    chunkRecorder.finishedChunk = [] () {};
-
     MultiChunkRecorder result;
-    result.newChunk = [=] (size_t) { return chunkRecorder; };
+    result.newChunk = [=] (size_t)
+        {
+            return std::unique_ptr<Recorder>
+                (new DatasetRecorder(this));
+        };
+
     result.commit = [=] () { this->commit(); };
     return result;
 }
