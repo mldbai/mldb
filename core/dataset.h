@@ -321,6 +321,34 @@ struct Dataset: public MldbEntity {
     */
     virtual void recordRowsExpr(const std::vector<std::pair<RowName, ExpressionValue> > & rows);
 
+    struct ChunkRecorder {
+        std::function<void (const RowName & rowName,
+                            const ExpressionValue & expr)> recordRowExpr;
+        std::function<void (const RowName & rowName,
+                            const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)> recordRow;
+        std::function<void (const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows)> recordRows;
+        std::function<void ()> finishedChunk;
+    };
+
+    struct MultiChunkRecorder {
+        std::function<ChunkRecorder (size_t chunkIndex)> newChunk;
+        std::function<void ()> commit;
+    };
+
+    /** Set up for a multithreaded record.  This returns an object that can
+        generate a recorder for each chunk of an input.  Those chunks can
+        be recorded into in a multithreaded manner, and finally all committed
+        to the dataset at once.
+
+        This allows for deterministic, multithreaded recording from bulk
+        insert scenarios.
+
+        The default will return an object that simply forwards to the
+        record* methods.  Dataset types that support chunked recording can
+        override.
+    */
+    virtual MultiChunkRecorder getChunkRecorder();
+
     /** Return what is known about the given column.  Default returns
         an "any value" result, ie nothing is known about the column.
     */

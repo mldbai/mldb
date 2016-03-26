@@ -610,6 +610,28 @@ recordEmbedding(const std::vector<ColumnName> & columnNames,
     recordRows(rowsOut);
 }
 
+Dataset::MultiChunkRecorder
+Dataset::
+getChunkRecorder()
+{
+    using namespace std::placeholders;
+    
+    ChunkRecorder chunkRecorder;
+    // These simply forward to the appropriate method
+    chunkRecorder.recordRowExpr
+        = std::bind(&Dataset::recordRowExpr, this, _1, _2);
+    chunkRecorder.recordRow
+        = std::bind(&Dataset::recordRow, this, _1, _2);
+    chunkRecorder.recordRows
+        = std::bind(&Dataset::recordRows, this, _1);
+    chunkRecorder.finishedChunk = [] () {};
+
+    MultiChunkRecorder result;
+    result.newChunk = [=] (size_t) { return chunkRecorder; };
+    result.commit = [=] () { this->commit(); };
+    return result;
+}
+
 KnownColumn
 Dataset::
 getKnownColumnInfo(const ColumnName & columnName) const
