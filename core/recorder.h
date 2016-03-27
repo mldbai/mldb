@@ -35,25 +35,55 @@ struct Recorder {
     {
     }
 
+    /** Record an expression value as a row.  This will be flattened by
+        datasets that require flattening.
+    */
     virtual void
     recordRowExpr(const RowName & rowName,
                   const ExpressionValue & expr) = 0;
+
+    /** See recordRowExpr().  This has the same effect, but takes an rvalue
+        which is destroyed by the call.  This may result in performance
+        improvements.
+    */
     virtual void
     recordRowExprDestructive(RowName rowName,
                              ExpressionValue expr);
+
+    /** Record a pre-flattened row. */
     virtual void
     recordRow(const RowName & rowName,
               const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals) = 0;
+
+    /** See recordRow().  This has the same effect, but takes an rvalue
+        which is destroyed by the call.  This may result in performance
+        improvements.
+    */
     virtual void
     recordRowDestructive(RowName rowName,
                          std::vector<std::tuple<ColumnName, CellValue, Date> > vals);
+
+    /** Record multiple flattened rows in a single transaction.  Default
+        implementation forwards to recordRow.
+    */
     virtual void
     recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows) = 0;
+
+    /** See recordRows().  This has the same effect, but takes an rvalue
+        which is destroyed by the call.  This may result in performance
+        improvements.
+    */
     virtual void
     recordRowsDestructive(std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > rows);
 
+    /** Record multiple rows from ExpressionValues.  */
     virtual void
     recordRowsExpr(const std::vector<std::pair<RowName, ExpressionValue > > & rows) = 0;
+
+    /** See recordRowsExpr().  This has the same effect, but takes an rvalue
+        which is destroyed by the call.  This may result in performance
+        improvements.
+    */
     virtual
     void recordRowsExprDestructive(std::vector<std::pair<RowName, ExpressionValue > > rows);
 
