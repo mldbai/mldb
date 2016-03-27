@@ -140,9 +140,6 @@ struct JSONImporter: public Procedure {
             = outputDataset->getChunkRecorder();
 
         struct ThreadAccum {
-            /// Rows we've accumulated up to here for the chunl
-            std::vector<std::pair<RowName, ExpressionValue> > rows;
-
             /// Recorder object for this thread that the dataset gives us
             /// to record into the dataset.
             std::unique_ptr<Recorder> threadRecorder;
@@ -160,12 +157,7 @@ struct JSONImporter: public Procedure {
         auto doneChunk = [&] (int64_t chunkNumber, size_t lineNumber)
             {
                 auto & threadAccum = accum.get();
-                auto & rows = threadAccum.rows;
                 ExcAssert(threadAccum.threadRecorder.get());
-                if (!rows.empty())
-                    threadAccum.threadRecorder->recordRowsExprDestructive
-                        (std::move(rows));
-                rows.clear();
                 threadAccum.threadRecorder->finishedChunk();
                 threadAccum.threadRecorder.reset(nullptr);
                 return true;
@@ -177,7 +169,6 @@ struct JSONImporter: public Procedure {
                            int64_t lineNumber)
         {
             auto & threadAccum = accum.get();
-            auto & rows = threadAccum.rows;
 
             int64_t actualLineNum = lineNumber + lineOffset;
 
@@ -210,15 +201,12 @@ struct JSONImporter: public Procedure {
 
             recordedLines++;
 
-            rows.emplace_back(RowName(actualLineNum), std::move(expr));
+            RowName rowName(actualLineNum);
+            threadAccum.threadRecorder->recordRowExprDestructive(RowName(actualLineNum), std::move(expr));
 
-            if (rows.size() > 1000) {
-                threadAccum.threadRecorder->recordRowsExprDestructive(std::move(rows));
-                rows.clear();
-            }
             return true;
         };
-
+        
         forEachLineBlock(stream, onLine, runProcConf.limit, 32,
                          startChunk, doneChunk);
 
