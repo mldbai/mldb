@@ -177,14 +177,20 @@ getStringView() const
     return { data(), dataLength() };
 }
 
-//constexpr HashSeed defaultSeedStable { .i64 = { 0x1958DF94340e7cbaULL, 0x8928Fc8B84a0ULL } };
+uint64_t
+Coord::
+oldHash() const
+{
+    return Id(data(), dataLength()).hash();
+}
+
+constexpr HashSeed defaultSeedStable { .i64 = { 0x1958DF94340e7cbaULL, 0x8928Fc8B84a0ULL } };
 
 uint64_t
 Coord::
-hash() const
+newHash() const
 {
-    return Id(data(), dataLength()).hash();
-    //return ::mldb_siphash24(str.rawData(), str.rawLength(), defaultSeedStable.b);
+    return ::mldb_siphash24(data(), dataLength(), defaultSeedStable.b);
 }
 
 Coord

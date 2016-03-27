@@ -129,7 +129,20 @@ struct Coord {
     std::pair<const char *, size_t>
     getStringView() const;
 
-    uint64_t hash() const;
+    /// Forwarding function for the hash().  This will, one day soon,
+    /// switch to the newHash() function.
+    uint64_t hash() const
+    {
+        return oldHash();
+    }
+
+    /// Return the Id-compatible (old) hash.  Slower but compatible with
+    /// legacy binaries.
+    uint64_t oldHash() const;
+
+    /// Return the non-Id compatible (new) hash.  Faster but not compatible
+    /// with legacy hashes.
+    uint64_t newHash() const;
 
     inline bool empty() const
     {
@@ -257,6 +270,17 @@ inline Coord stringToKey(const std::string & str, Coord *)
 }
 
 PREDECLARE_VALUE_DESCRIPTION(Coord);
+
+
+struct CoordNewHasher
+    : public std::unary_function<Datacratic::MLDB::Coord, size_t>
+{
+    size_t operator()(const Datacratic::MLDB::Coord & coord) const
+    {
+        return coord.newHash();
+    }
+};
+
 
 } // namespace MLDB
 

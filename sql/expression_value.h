@@ -702,6 +702,12 @@ struct ExpressionValue {
     /** Apply filter to select values in the row according to their timestamp */
     Row getFiltered(const VariableFilter & filter) const;
 
+    /** Apply filter to select values in the row according to their timestamp.
+        This will leave the current object in an indeterminate state
+        afterwards.
+    */
+    Row getFilteredDestructive(const VariableFilter & filter);
+
     typedef std::function<bool (const ColumnName & columnName,
                                 std::pair<CellValue, Date> * vals1,
                                 std::pair<CellValue, Date> * vals2,
