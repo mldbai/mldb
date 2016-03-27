@@ -1000,30 +1000,6 @@ TabularDataset(MldbServer * owner,
     itl = make_shared<TabularDataStore>(config.params.convert<TabularDatasetConfig>());
 }
 
-void
-TabularDataset::
-initialize(const vector<ColumnName>& columnNames,
-           const ML::Lightweight_Hash<ColumnHash, int>& columnIndex)
-{
-	itl->initialize(columnNames, columnIndex);
-}
-
-std::shared_ptr<MutableTabularDatasetChunk> * 
-TabularDataset::
-createNewChunk(size_t rowsPerChunk)
-{
-    return new std::shared_ptr<MutableTabularDatasetChunk>
-        (new MutableTabularDatasetChunk(itl->columnNames.size(), rowsPerChunk));
-}
-
-void
-TabularDataset::
-finalize(std::vector<TabularDatasetChunk> & inputChunks,
-         uint64_t totalRows)
-{
-    itl->finalize(inputChunks, totalRows);
-}
-
 TabularDataset::
 ~TabularDataset()
 {

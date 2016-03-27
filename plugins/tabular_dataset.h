@@ -718,16 +718,6 @@ struct TabularDataset : public Dataset {
                    PolyConfig config,
                    const std::function<bool (const Json::Value &)> & onProgress);
 
-    //Initialize from a procedure
-    void initialize(const std::vector<ColumnName>& columnNames,
-                    const ML::Lightweight_Hash<ColumnHash, int>& columnIndex);
-
-    void finalize(std::vector<TabularDatasetChunk> & inputChunks,
-                  uint64_t totalRows);
-
-    std::shared_ptr<MutableTabularDatasetChunk>*
-    createNewChunk(size_t rowsPerChunk); 
-    
     virtual ~TabularDataset();
     
     virtual Any getStatus() const;
