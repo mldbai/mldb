@@ -156,7 +156,7 @@ struct Coord {
     operator ColumnHash() const;
 
     size_t memusage() const;
-
+    
     //private:
     void complexDestroy();
     void complexCopyConstruct(const Coord & other);

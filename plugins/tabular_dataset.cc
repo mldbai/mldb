@@ -149,8 +149,13 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     int64_t rowCount;
 
     std::vector<ColumnName> columnNames;
-    std::vector<ColumnHash> columnHashes;
-    ML::Lightweight_Hash<ColumnHash, int> columnIndex;
+
+    /// This indexes column names to their index, using new (fast) hash
+    ML::Lightweight_Hash<uint64_t, int> columnIndex;
+
+    /// Same index, but using the old (slow) hash.  Useful only for when
+    /// we are forced to lookup on ColumnHash.
+    ML::Lightweight_Hash<ColumnHash, int> columnHashIndex;
     
     std::vector<TabularDatasetChunk> chunks;
 
@@ -208,7 +213,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     // Return the value of the column for all rows
     virtual MatrixColumn getColumn(const ColumnName & column) const
     {
-        auto it = columnIndex.find(column);
+        auto it = columnIndex.find(column.newHash());
         if (it == columnIndex.end()) {
             throw HttpReturnException(400, "Tabular dataset contains no column with given hash",
                                       "columnHash", column,
@@ -228,7 +233,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     virtual std::vector<CellValue>
     getColumnDense(const ColumnName & column) const
     {
-        auto it = columnIndex.find(column);
+        auto it = columnIndex.find(column.newHash());
         if (it == columnIndex.end()) {
             throw HttpReturnException(400, "Tabular dataset contains no column with given name",
                                       "columnName", column,
@@ -254,7 +259,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     virtual std::tuple<BucketList, BucketDescriptions>
     getColumnBuckets(const ColumnName & column, int maxNumBuckets) const override
     {
-        auto it = columnIndex.find(column);
+        auto it = columnIndex.find(column.newHash());
         if (it == columnIndex.end()) {
             throw HttpReturnException(400, "Tabular dataset contains no column with given name",
                                       "columnName", column,
@@ -309,7 +314,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
     virtual bool knownColumn(const ColumnName & column) const
     {
-        return columnIndex.count(column);
+        return columnIndex.count(column.newHash());
     }
 
     virtual std::vector<ColumnName> getColumnNames() const
@@ -320,7 +325,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     // TODO: we know more than this...
     virtual KnownColumn getKnownColumnInfo(const ColumnName & columnName) const
     {
-        auto it = columnIndex.find(columnName);
+        auto it = columnIndex.find(columnName.newHash());
         if (it == columnIndex.end()) {
             throw HttpReturnException(400, "Tabular dataset contains no column with given hash",
                                       "columnName", columnName,
@@ -399,7 +404,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     {
         auto result = tryLookupRow(rowName);
         if (result.first == -1)
-            throw HttpReturnException(400, "Row not found in CSV dataset");
+            throw HttpReturnException(400, "Row not found in tabular dataset");
         return result;
     }
 
@@ -422,7 +427,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
         auto it = rowIndex.find(rowName);
         if (it == rowIndex.end()) {
-            throw HttpReturnException(400, "Row not found in CSV dataset");
+            throw HttpReturnException(400, "Row not found in tabular dataset");
         }
 
         //cerr << "row is in chunk " << it->second.first << " offset "
@@ -441,7 +446,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     {
         auto it = rowIndex.find(rowHash);
         if (it == rowIndex.end()) {
-            throw HttpReturnException(400, "Row not found in CSV dataset");
+            throw HttpReturnException(400, "Row not found in tabular dataset");
         }
 
         return RowName(chunks.at(it->second.first).rowNames[it->second.second].toUtf8String());
@@ -449,24 +454,22 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
     virtual ColumnName getColumnName(ColumnHash column) const
     {
-        auto it = columnIndex.find(column);
-        if (it == columnIndex.end())
-            throw HttpReturnException(400, "CSV dataset contains no column with given hash",
+        auto it = columnHashIndex.find(column);
+        if (it == columnHashIndex.end())
+            throw HttpReturnException(400, "Tabular dataset contains no column with given hash",
                                       "columnHash", column,
-                                      "knownColumns", columnNames,
-                                      "knownColumnHashes", columnHashes);
+                                      "knownColumns", columnNames);
         return columnNames[it->second];
     }
 
     virtual const ColumnStats &
     getColumnStats(const ColumnName & column, ColumnStats & stats) const
     {
-        auto it = columnIndex.find(column);
+        auto it = columnIndex.find(column.newHash());
         if (it == columnIndex.end()) {
-            throw HttpReturnException(400, "CSV dataset contains no column with given hash",
+            throw HttpReturnException(400, "Tabular dataset contains no column with given hash",
                                       "columnHash", column,
-                                      "knownColumns", columnNames,
-                                      "knownColumnHashes", columnHashes);
+                                      "knownColumns", columnNames);
         }
 
         stats = ColumnStats();
@@ -546,15 +549,18 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
     }
 
-    void initialize(const vector<ColumnName>& columnNames, const ML::Lightweight_Hash<ColumnHash, int>& columnIndex)
+    void initialize(vector<ColumnName> columnNames_,
+                    ML::Lightweight_Hash<uint64_t, int> columnIndex_)
     {
-        this->columnNames = columnNames;
-        this->columnIndex = columnIndex;
+        ExcAssert(this->columnNames.empty());
 
-        for (const auto& c : this->columnNames) {
-                ColumnHash ch(c);
-                columnHashes.push_back(ch);
-            }
+        this->columnNames = std::move(columnNames_);
+        this->columnIndex = std::move(columnIndex_);
+
+        ExcAssert(columnHashIndex.empty());
+        for (unsigned i = 0;  i < columnNames.size();  ++i) {
+            columnHashIndex[columnNames[i]] = i;
+        }
     }
 
     /** This is a recorder that is designed to have each thread record
@@ -721,10 +727,10 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             vector<ColumnName> columnNames;
 
             //The first recorded row will determine the columns
-            ML::Lightweight_Hash<ColumnHash, int> inputColumnIndex;
+            ML::Lightweight_Hash<uint64_t, int> inputColumnIndex;
             for (unsigned i = 0;  i < vals.size();  ++i) {
                 const ColumnName & c = std::get<0>(vals[i]);
-                ColumnHash ch(c);
+                uint64_t ch(c.newHash());
                 if (!inputColumnIndex.insert(make_pair(ch, i)).second)
                     throw HttpReturnException(400, "Duplicate column name in tabular dataset entry",
                                               "columnName", c.toString());
@@ -763,7 +769,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
         for (unsigned i = 0;  i < vals.size();  ++i) {
             const ColumnName & c = std::get<0>(vals[i]);
-            auto iter = columnIndex.find(c);
+            auto iter = columnIndex.find(c.newHash());
             if (iter == columnIndex.end()) {
                 switch (config.unknownColumns) {
                 case UC_ERROR:
