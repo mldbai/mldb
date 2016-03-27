@@ -49,5 +49,45 @@ finishedChunk()
 {
 }
 
+std::function<void (RowName rowName, Date timestamp,
+                    CellValue * vals, size_t numVals,
+                    std::vector<std::pair<ColumnName, CellValue> > extra)>
+Recorder::
+specializeRecordTabular(const std::vector<ColumnName> & columnNames)
+{
+    return [=] (RowName rowName, Date timestamp,
+                CellValue * vals, size_t numVals,
+                std::vector<std::pair<ColumnName, CellValue> > extra)
+        {
+            recordTabularImpl(std::move(rowName), timestamp,
+                              vals, numVals, std::move(extra),
+                              columnNames);
+        };
+}
+
+void
+Recorder::
+recordTabularImpl(RowName rowName,
+                  Date timestamp,
+                  CellValue * vals,
+                  size_t numVals,
+                  std::vector<std::pair<ColumnName, CellValue> > extra,
+                  const std::vector<ColumnName> & columnNames)
+{
+    ExcAssertEqual(columnNames.size(), numVals);
+    std::vector<std::tuple<ColumnName, CellValue, Date> > result;
+    result.reserve(numVals + extra.size());
+
+    for (unsigned i = 0;  i < columnNames.size();  ++i) {
+        result.emplace_back(columnNames[i], std::move(vals[i]), timestamp);
+    }
+
+    for (auto & e: extra) {
+        result.emplace_back(std::move(e.first), std::move(e.second), timestamp);
+    }
+
+    recordRowDestructive(std::move(rowName), std::move(result));
+}
+
 } // namespace MLDB
 } // namespace Datacratic

@@ -57,6 +57,38 @@ struct Recorder {
     virtual
     void recordRowsExprDestructive(std::vector<std::pair<RowName, ExpressionValue > > rows);
 
+    /** Return a function specialized to record the same set of atomic values
+        over and over again into this chunk.
+
+        The returned function can be called row by row, without needing to
+        mention column names (inferred by the positions).  The values will
+        be destroyed on insertion.  numVals must always equal the number of
+        columns passed.
+
+        Extra allows for unexpected columns to be recorded, for when the
+        dataset contains some fixed columns but also may have dynamic
+        columns.
+    */
+    virtual
+    std::function<void (RowName rowName,
+                        Date timestamp,
+                        CellValue * vals,
+                        size_t numVals,
+                        std::vector<std::pair<ColumnName, CellValue> > extra)>
+    specializeRecordTabular(const std::vector<ColumnName> & columns);
+
+
+    /** Default implementation of specializeRecordTabular.  It will construct
+        a row and call recordRowDestructive.
+    */
+    void recordTabularImpl(RowName rowName,
+                           Date timestamp,
+                           CellValue * vals,
+                           size_t numVals,
+                           std::vector<std::pair<ColumnName, CellValue> > extra,
+                           const std::vector<ColumnName> & columnNames);
+    
+
     virtual void finishedChunk();
 };
 
