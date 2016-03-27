@@ -563,11 +563,10 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         }
     }
 
-    /** This is a recorder that is designed to have each thread record
-        chunks in a deterministic manner.
-    */
-    struct ChunkRecorder: public Recorder {
-        ChunkRecorder(TabularDataStore * store)
+    /** This is a recorder that allows parallel records from multiple
+        threads. */
+    struct BasicRecorder: public Recorder {
+        BasicRecorder(TabularDataStore * store)
             : store(store)
         {
         }
@@ -643,6 +642,132 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         
     };
 
+
+    /** This is a recorder that is designed to have each thread record
+        chunks in a deterministic manner.
+    */
+    struct ChunkRecorder: public Recorder {
+        ChunkRecorder(TabularDataStore * store)
+            : store(store), doneFirst(store->mutableChunks.load())
+        {
+            // Note that this may return a null pointer, if nothing has
+            // been loaded yet.
+            chunk = store->createNewChunk(TABULAR_DATASET_DEFAULT_ROWS_PER_CHUNK);
+        }
+
+        TabularDataStore * store;
+        bool doneFirst;
+
+        std::shared_ptr<MutableTabularDatasetChunk> chunk;
+
+        virtual void
+        recordRowExpr(const RowName & rowName,
+                      const ExpressionValue & expr) override
+        {
+            RowValue row;
+            expr.appendToRow(ColumnName(), row);
+            recordRowDestructive(rowName, std::move(row));
+        }
+
+        virtual void
+        recordRowExprDestructive(RowName rowName,
+                                 ExpressionValue expr) override
+        {
+            RowValue row;
+            ColumnName columnName;
+            expr.appendToRowDestructive(columnName, row);
+            recordRowDestructive(std::move(rowName), std::move(row));
+        }
+
+        virtual void
+        recordRow(const RowName & rowName,
+                  const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals) override
+        {
+            recordRowImpl(rowName, vals);
+        }
+
+        virtual void
+        recordRowDestructive(RowName rowName,
+                             std::vector<std::tuple<ColumnName, CellValue, Date> > vals) override
+        {
+            recordRowImpl(std::move(rowName), std::move(vals));
+        }
+
+        template<typename Vals>
+        void recordRowImpl(RowName rowName, Vals&& vals)
+        {
+            if (!chunk) {
+                {
+                    std::unique_lock<std::mutex> guard(store->datasetMutex);
+                    store->createFirstChunks(vals);
+                }
+
+                chunk = store->createNewChunk(TABULAR_DATASET_DEFAULT_ROWS_PER_CHUNK);
+            }
+            ExcAssert(chunk);
+
+            // Prepare what we need to record
+            auto rowVals = store->prepareRow(vals);
+
+            std::vector<CellValue> & orderedVals = std::get<0>(rowVals);
+            std::vector<std::pair<ColumnName, CellValue> > & newColumns
+                = std::get<1>(rowVals);
+            Date ts = std::get<2>(rowVals);
+
+            for (;;) {
+                int written = chunk->add(rowName, ts, orderedVals.data(),
+                                         newColumns);
+                if (written == MutableTabularDatasetChunk::ADD_SUCCEEDED)
+                    break;
+                
+                ExcAssertEqual(written,
+                               MutableTabularDatasetChunk::ADD_PERFORM_ROTATION);
+                finishedChunk();
+                // TODO: not hardcoded...
+                chunk.reset(new MutableTabularDatasetChunk(66, 65536));
+            }
+        }
+
+        virtual void
+        recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows) override
+        {
+            for (auto & r: rows)
+                recordRow(r.first, r.second);
+        }
+
+        virtual void
+        recordRowsDestructive(std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > rows) override
+        {
+            for (auto & r: rows)
+                recordRowDestructive(std::move(r.first), std::move(r.second));
+        }
+
+        virtual void
+        recordRowsExpr(const std::vector<std::pair<RowName, ExpressionValue > > & rows) override
+        {
+            for (auto & r: rows) {
+                recordRowExpr(r.first, r.second);
+            }
+        }
+
+        virtual void
+        recordRowsExprDestructive(std::vector<std::pair<RowName, ExpressionValue > > rows) override
+        {
+            for (auto & r: rows) {
+                recordRowExprDestructive(std::move(r.first), std::move(r.second));
+            }
+        }
+
+        virtual void finishedChunk() override
+        {
+            if (chunk->rowCount() == 0)
+                return;
+            auto frozen = chunk->freeze();
+            store->addFrozenChunk(std::move(frozen));
+        }
+        
+    };
+
     void commit()
     {
         // No mutable chunks anymore.  Atomically swap out the old pointer.
@@ -706,8 +831,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             {
                 Scope_Exit(--this->backgroundJobsActive);
                 auto frozen = chunk->freeze();
-                std::unique_lock<std::mutex> guard(datasetMutex);
-                frozenChunks.emplace_back(std::move(frozen));
+                addFrozenChunk(std::move(frozen));
             };
         
         ++backgroundJobsActive;
@@ -718,7 +842,26 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             throw;
         }
     }
-    
+
+    void addFrozenChunk(TabularDatasetChunk frozen)
+    {
+        std::unique_lock<std::mutex> guard(datasetMutex);
+        frozenChunks.emplace_back(std::move(frozen));
+    }
+
+    std::shared_ptr<MutableTabularDatasetChunk>
+    createNewChunk(size_t expectedSize)
+    {
+        // Have we initialized things yet?
+        bool mc = mutableChunks.load() != nullptr;
+        if (!mc)
+            return nullptr;
+
+        return std::make_shared<MutableTabularDatasetChunk>
+            (columnNames.size(), expectedSize);
+    }
+
+    /** Analyze the first row to know what the columns are. */
     void createFirstChunks(const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
     {
         // Must be done with the dataset lock held
