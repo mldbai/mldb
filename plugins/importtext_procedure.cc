@@ -827,8 +827,8 @@ struct ImportTextProcedureWorkInstance
 
         auto startChunk = [&] (int64_t chunkNumber, size_t lineNumber)
             {
-                cerr << "started chunk " << chunkNumber << " at line "
-                     << lineNumber << endl;
+                //cerr << "started chunk " << chunkNumber << " at line "
+                //     << lineNumber << endl;
                 auto & threadAccum = accum.get();
                 threadAccum.threadRecorder = recorder.newChunk(chunkNumber);
                 if (isIdentitySelect)
@@ -840,7 +840,7 @@ struct ImportTextProcedureWorkInstance
 
         auto doneChunk = [&] (int64_t chunkNumber, size_t lineNumber)
             {
-                cerr << "finished chunk " << chunkNumber << endl;
+                //cerr << "finished chunk " << chunkNumber << endl;
                 auto & threadAccum = accum.get();
                 ExcAssert(threadAccum.threadRecorder.get());
                 threadAccum.threadRecorder->finishedChunk();
@@ -855,7 +855,7 @@ struct ImportTextProcedureWorkInstance
                            int64_t lineNum)
 	    {
 	        int64_t actualLineNum = lineNum + lineOffset;
-#if 1
+#if 0
 	        uint64_t linesDone = totalLinesProcessed.fetch_add(1);
 
 	        if (linesDone && linesDone % 1000000 == 0) {
@@ -936,14 +936,14 @@ struct ImportTextProcedureWorkInstance
      	            if (&selectOutput == &selectStorage) {
 	                // We can destructively work with it
                         threadAccum.threadRecorder
-                            ->recordRowExprDestructive(RowName(actualLineNum),
+                            ->recordRowExprDestructive(std::move(rowName),
                                                        std::move(selectStorage));
                     }
                     else {
                         // We don't own the output; we will need to copy
                         // it.
                         threadAccum.threadRecorder
-                            ->recordRowExpr(RowName(actualLineNum),
+                            ->recordRowExpr(std::move(rowName),
                                             selectOutput);
 	            }
 	        }
@@ -951,12 +951,11 @@ struct ImportTextProcedureWorkInstance
 	        return true;
 	    };
 
-        cerr << "*** forEachLineBlock" << endl;
         forEachLineBlock(stream, onLine, config.limit,
                          32 /* parallelism */,
                          startChunk, doneChunk);
 
-        cerr << "processed " << totalLinesProcessed << " lines" << endl;
+        //cerr << "processed " << totalLinesProcessed << " lines" << endl;
 
         recorder.commit();
 
