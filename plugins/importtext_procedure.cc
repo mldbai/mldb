@@ -811,14 +811,30 @@ struct ImportTextProcedureWorkInstance
             /// Recorder object for this thread that the dataset gives us
             /// to record into the dataset.
             std::unique_ptr<Recorder> threadRecorder;
+
+            /// Special function to allow rapid insertion of fixed set of
+            /// atom valued columns.  Only for isIdentitySelect.
+            std::function<void (RowName rowName,
+                                Date timestamp,
+                                CellValue * vals,
+                                size_t numVals,
+                                std::vector<std::pair<ColumnName, CellValue> > extra)>
+            specializedRecorder;
+
         };
 
         PerThreadAccumulator<ThreadAccum> accum;
 
         auto startChunk = [&] (int64_t chunkNumber, size_t lineNumber)
             {
+                cerr << "started chunk " << chunkNumber << " at line "
+                     << lineNumber << endl;
                 auto & threadAccum = accum.get();
                 threadAccum.threadRecorder = recorder.newChunk(chunkNumber);
+                if (isIdentitySelect)
+                    threadAccum.specializedRecorder
+                        = threadAccum.threadRecorder
+                        ->specializeRecordTabular(inputColumnNames);
                 return true;
             };
 
@@ -829,6 +845,7 @@ struct ImportTextProcedureWorkInstance
                 ExcAssert(threadAccum.threadRecorder.get());
                 threadAccum.threadRecorder->finishedChunk();
                 threadAccum.threadRecorder.reset(nullptr);
+                threadAccum.specializedRecorder = nullptr;
                 return true;
             };
 
@@ -838,14 +855,16 @@ struct ImportTextProcedureWorkInstance
                            int64_t lineNum)
 	    {
 	        int64_t actualLineNum = lineNum + lineOffset;
+#if 1
 	        uint64_t linesDone = totalLinesProcessed.fetch_add(1);
 
-	        if (linesDone && linesDone % 1000 == 0) {
+	        if (linesDone && linesDone % 1000000 == 0) {
 	            double wall = timer.elapsed_wall();
 	            cerr << "done " << linesDone << " in " << wall
 	                 << "s at " << linesDone / wall * 0.000001 << "M lines/second on "
 	                 << timer.elapsed_cpu() / timer.elapsed_wall() << " CPUs" << endl;
 	        }
+#endif
                 
                 // MLDB-1111 empty lines are treated as error
 	        if (length == 0) 
@@ -881,33 +900,30 @@ struct ImportTextProcedureWorkInstance
 	        // If it doesn't match the where, don't add it 
 	        if (!isWhereTrue) {
 	            ExpressionValue storage;
-	            if (!whereBound(row, storage, GET_LATEST).isTrue())
+	            if (!whereBound(row, storage, GET_ALL).isTrue())
 	                return true;
 	        }
 	            
 	        // Get the timestamp for the row
 	        Date rowTs = ts;
 	        ExpressionValue tsStorage;
-	        rowTs = timestampBound(row, tsStorage, GET_LATEST)
+	        rowTs = timestampBound(row, tsStorage, GET_ALL)
                     .coerceToTimestamp().toTimestamp();
 	           
 	        ExpressionValue nameStorage;
-	        RowName rowName(namedBound(row, nameStorage, GET_LATEST)
+	        RowName rowName(namedBound(row, nameStorage, GET_ALL)
                                 .toUtf8String());
 
                 //ExcAssert(!(isIdentitySelect && outputColumnNamesUnknown));
 
                 auto & threadAccum = accum.get();
 
-	        if (isIdentitySelect && false) {
+	        if (isIdentitySelect) {
 	            // If it's a select *, we don't really need to run the
 	            // select clause.  We simply go for it.
-                    
-                    // NOTE: need a fast path for this, it's very common and
-                    // vital for speed
-
-	            //processLine(chunkNum, actualLineNum, std::move(rowName),
-                    //            rowTs, &values[0], nullptr, numInputColumn);
+                    threadAccum.specializedRecorder(std::move(rowName),
+                                                    rowTs, values.data(),
+                                                    values.size(), {});
 	        }
 	        else {
 	            // TODO: optimization for
@@ -915,10 +931,9 @@ struct ImportTextProcedureWorkInstance
 
 	            ExpressionValue selectStorage;
 	            const ExpressionValue & selectOutput
-                        = selectBound(row, selectStorage, GET_LATEST);
+                        = selectBound(row, selectStorage, GET_ALL);
 
-                    try {
-     	            if (&selectOutput == &selectStorage && false) {
+     	            if (&selectOutput == &selectStorage) {
 	                // We can destructively work with it
                         threadAccum.threadRecorder
                             ->recordRowExprDestructive(RowName(actualLineNum),
@@ -931,13 +946,6 @@ struct ImportTextProcedureWorkInstance
                             ->recordRowExpr(RowName(actualLineNum),
                                             selectOutput);
 	            }
-                    } catch (const std::exception & exc) {
-                        cerr << "exception " << exc.what() << endl;
-                        cerr << "got output " << jsonEncode(selectOutput)
-                             << endl;
-
-                        throw;
-                    }
 	        }
 
 	        return true;
