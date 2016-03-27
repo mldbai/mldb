@@ -6,6 +6,10 @@
 */
 
 #include "tabular_dataset.h"
+#include "column_types.h"
+#include "frozen_column.h"
+#include "tabular_dataset_column.h"
+#include "tabular_dataset_chunk.h"
 #include "mldb/arch/timers.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/ml/jml/training_index_entry.h"
@@ -16,6 +20,7 @@
 #include "mldb/server/bucket.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/arch/spinlock.h"
+#include "mldb/types/hash_wrapper_description.h"
 
 #include <mutex>
 
