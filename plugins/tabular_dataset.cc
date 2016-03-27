@@ -715,7 +715,9 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             Date ts = std::get<2>(rowVals);
 
             for (;;) {
-                int written = chunk->add(rowName, ts, orderedVals.data(),
+                int written = chunk->add(rowName, ts,
+                                         orderedVals.data(),
+                                         orderedVals.size(),
                                          newColumns);
                 if (written == MutableTabularDatasetChunk::ADD_SUCCEEDED)
                     break;
@@ -724,7 +726,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
                                MutableTabularDatasetChunk::ADD_PERFORM_ROTATION);
                 finishedChunk();
                 // TODO: not hardcoded...
-                chunk.reset(new MutableTabularDatasetChunk(66, 65536));
+                chunk.reset(new MutableTabularDatasetChunk(orderedVals.size(), 65536));
             }
         }
 
@@ -760,12 +762,57 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
         virtual void finishedChunk() override
         {
-            if (chunk->rowCount() == 0)
+            if (!chunk || chunk->rowCount() == 0)
                 return;
             auto frozen = chunk->freeze();
             store->addFrozenChunk(std::move(frozen));
         }
-        
+
+        virtual
+        std::function<void (RowName rowName,
+                            Date timestamp,
+                            CellValue * vals,
+                            size_t numVals,
+                            std::vector<std::pair<ColumnName, CellValue> > extra)>
+        specializeRecordTabular(const std::vector<ColumnName> & columnNames) override
+        {
+            return [=] (RowName rowName, Date timestamp,
+                        CellValue * vals, size_t numVals,
+                        std::vector<std::pair<ColumnName, CellValue> > extra)
+                {
+                    if (!chunk) {
+                        {
+                            std::unique_lock<std::mutex> guard(store->datasetMutex);
+
+                            // We create a sample set of values for the
+                            // column to analyze, so it can identify the
+                            // column names.
+                            std::vector<std::tuple<ColumnName, CellValue, Date> > sampleVals;
+                            for (unsigned i = 0;  i < columnNames.size();  ++i)
+                                sampleVals.emplace_back(columnNames[i], vals[i], timestamp);
+                   
+                            store->createFirstChunks(sampleVals);
+                        }
+
+                        chunk = store->createNewChunk(TABULAR_DATASET_DEFAULT_ROWS_PER_CHUNK);
+                    }
+                    ExcAssert(chunk);
+
+
+                    for (;;) {
+                        int written = chunk->add(rowName, timestamp,
+                                                 vals, numVals,
+                                                 extra);
+                        if (written == MutableTabularDatasetChunk::ADD_SUCCEEDED)
+                            break;
+                        
+                        ExcAssertEqual(written,
+                                       MutableTabularDatasetChunk::ADD_PERFORM_ROTATION);
+                        finishedChunk();
+                        chunk.reset(new MutableTabularDatasetChunk(columnNames.size(), 65536));
+                    }
+                };
+        }
     };
 
     void commit()
@@ -783,7 +830,9 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             // There is one reference inside oldMutableChunks
             while (p.use_count() != 2) ;
 
-            freezeChunkInBackground(p);
+            if (p->rowCount() != 0)
+                freezeChunkInBackground(p);
+
             c.store(nullptr);
         }
 
@@ -827,6 +876,9 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     // when everything is finished.
     void freezeChunkInBackground(std::shared_ptr<MutableTabularDatasetChunk> chunk)
     {
+        if (chunk->rowCount() == 0)
+            return;
+
         auto job = [=] ()
             {
                 Scope_Exit(--this->backgroundJobsActive);
@@ -845,6 +897,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
     void addFrozenChunk(TabularDatasetChunk frozen)
     {
+        ExcAssertNotEqual(frozen.rowCount(), 0);
         std::unique_lock<std::mutex> guard(datasetMutex);
         frozenChunks.emplace_back(std::move(frozen));
     }
@@ -970,7 +1023,9 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             auto chunkPtr = mc->chunks[chunkNum].load();
             ExcAssert(chunkPtr);
             written = chunkPtr->add(rowName, ts,
-                                    orderedVals.data(), newColumns);
+                                    orderedVals.data(),
+                                    orderedVals.size(),
+                                    newColumns);
             if (written == MutableTabularDatasetChunk::ADD_AWAIT_ROTATION)
                 continue;  // busy wait until the rotation is done by another thread
             else if (written

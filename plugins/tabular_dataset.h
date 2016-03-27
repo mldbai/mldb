@@ -526,29 +526,29 @@ struct TabularDatasetChunk {
         for (auto & c: columns)
             result += c->memusage();
         
-        cerr << columns.size() << " columns took " << result - before << endl;
+        //cerr << columns.size() << " columns took " << result - before << endl;
         before = result;
         
         for (auto & c: sparseColumns)
             result += c.first.memusage() + c.second->memusage();
 
-        cerr << sparseColumns.size() << " sparse columns took "
-             << result - before << endl;
+        //cerr << sparseColumns.size() << " sparse columns took "
+        //     << result - before << endl;
         before = result;
 
         for (auto & r: rowNames)
             result += r.memusage();
 
-        cerr << rowNames.size() << " row names took "
-             << result - before << endl;
+        //cerr << rowNames.size() << " row names took "
+        //     << result - before << endl;
         before = result;
 
         result += timestamps->memusage();
 
-        cerr << "timestamps took "
-             << result - before << endl;
+        //cerr << "timestamps took "
+        //     << result - before << endl;
 
-        cerr << "total memory is " << result << endl;
+        //cerr << "total memory is " << result << endl;
         return result;
     }
 
@@ -645,6 +645,8 @@ struct MutableTabularDatasetChunk {
           is not checked).
         - ts: the timestamp to be given to all values of this row
         - vals: the values of all cells at this row, for dense values
+        - numVals: the number of dense values.  Use to verify that the
+          right number were passed.
         - extra: extra columns and their values, for when we accept an open
           schema.  These will be stored less efficiently and will normally
           be sparse.  It takes a reference as the operation can fail and we
@@ -658,8 +660,10 @@ struct MutableTabularDatasetChunk {
           - ADD_AWAIT_ROTATION    if it wasn't added, and another thread has
                                   already received ADD_PERFORM_ROTATION
     */
-    int add(RowName & rowName, Date ts, CellValue * vals,
-             std::vector<std::pair<ColumnName, CellValue> > & extra)
+    int add(RowName & rowName, Date ts,
+            CellValue * vals,
+            size_t numVals,
+            std::vector<std::pair<ColumnName, CellValue> > & extra)
         __attribute__((warn_unused_result))
     {
         std::unique_lock<std::mutex> guard(mutex);
@@ -675,6 +679,8 @@ struct MutableTabularDatasetChunk {
                 return ADD_PERFORM_ROTATION;
             }
         }
+
+        ExcAssertEqual(columns.size(), numVals);
 
         rowNames.emplace_back(std::move(rowName));
         timestamps.add(ts);
