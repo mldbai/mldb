@@ -43,6 +43,9 @@ LIBMLDB_BUILTIN_PLUGIN_SOURCES:= \
 	fetcher.cc \
 	importtext_procedure.cc \
 	tabular_dataset.cc \
+	frozen_column.cc \
+	column_types.cc \
+	tabular_dataset_column.cc \
 	randomforest_procedure.cc \
 
 

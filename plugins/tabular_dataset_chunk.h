@@ -1,9 +1,8 @@
 /** tabular_dataset_chunk.h                                        -*- C++ -*-
     Jeremy Barnes, 27 March 2016
-    Copyright (c) 2016 Datacratic Inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
 
     Self-contained, recordable chunk of a tabular dataset.
-    
 */
 
 #pragma once
@@ -182,7 +181,7 @@ struct MutableTabularDatasetChunk {
           is not checked).
         - ts: the timestamp to be given to all values of this row
         - vals: the values of all cells at this row, for dense values
-        - numVals: the number of dense values.  Use to verify that the
+        - numVals: the number of dense values.  Used to verify that the
           right number were passed.
         - extra: extra columns and their values, for when we accept an open
           schema.  These will be stored less efficiently and will normally
@@ -220,15 +219,15 @@ struct MutableTabularDatasetChunk {
         ExcAssertEqual(columns.size(), numVals);
 
         rowNames.emplace_back(std::move(rowName));
-        timestamps.add(ts);
+        timestamps.add(numRows, ts);
 
         for (unsigned i = 0;  i < columns.size();  ++i) {
-            columns[i].add(std::move(vals[i]));
+            columns[i].add(numRows, std::move(vals[i]));
         }
 
         for (auto & e: extra) {
             auto it = sparseColumns.emplace(std::move(e.first), TabularDatasetColumn()).first;
-            it->second.addSparse(numRows, std::move(e.second));
+            it->second.add(numRows, std::move(e.second));
         }
 
         return ADD_SUCCEEDED;

@@ -21,6 +21,7 @@
 #include "mldb/types/any_impl.h"
 #include "mldb/arch/spinlock.h"
 #include "mldb/types/hash_wrapper_description.h"
+#include "mldb/http/http_exception.h"
 
 #include <mutex>
 
@@ -710,6 +711,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
                 chunk = store->createNewChunk(TABULAR_DATASET_DEFAULT_ROWS_PER_CHUNK);
             }
             ExcAssert(chunk);
+
 
             // Prepare what we need to record
             auto rowVals = store->prepareRow(vals);
