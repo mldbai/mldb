@@ -54,11 +54,11 @@ BucketizeProcedureConfigDescription()
     addField("percentileBuckets", &BucketizeProcedureConfig::percentileBuckets,
              "Key/ranges of the buckets to create. Buckets ranges can share "
              "start and end values but cannot overlap such that a row can "
-             "belong to multiple buckets. "
-             "E.g. {\"a\":[0, 50], \"b\": [50, 100]} will give two buckets: "
-             "\"a\" has rows where 0% < rank/count <= 50% and "
-             "\"b\" has rows where 50% < rank/count <= 100%, where the 'rank' "
-             "is based on the orderBy parameter.");
+             "belong to multiple buckets. \n\n"
+             "E.g. `{\"a\": [0, 50], \"b\": [50, 100]}` will give two buckets: "
+             "\"a\" with rows where 0% < rank/count <= 50% "
+             "and \"b\" with rows where 50% < rank/count <= 100% "
+             "where rank is based on the orderBy parameter.");
     addParent<ProcedureConfig>();
 
     onPostValidate = [&] (BucketizeProcedureConfig * cfg,
