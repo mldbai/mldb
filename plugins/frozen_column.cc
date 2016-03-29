@@ -13,6 +13,7 @@
 #include "mldb/jml/utils/lightweight_hash.h"
 #include "mldb/http/http_exception.h"
 
+using namespace std;
 
 namespace Datacratic {
 namespace MLDB {
@@ -144,6 +145,7 @@ struct SparseTableFrozenColumn: public FrozenColumn {
         ML::Bit_Writer<uint32_t> writer(data);
         for (auto & i: column.sparseIndexes) {
             writer.write(i.first, rowNumBits);
+            ExcAssertLess(i.second, table.size());
             writer.write(i.second, indexBits);
         }
 
@@ -156,7 +158,7 @@ struct SparseTableFrozenColumn: public FrozenColumn {
                  << " and " << table.size()
                  << " uniques takes " << mem << " memory" << endl;
 
-            for (unsigned i = 0;  i < 5;  ++i) {
+            for (unsigned i = 0;  i < 5 && i < table.size();  ++i) {
                 cerr << "  " << table[i] << endl;
             }
         }
@@ -164,11 +166,46 @@ struct SparseTableFrozenColumn: public FrozenColumn {
 
     virtual CellValue get(uint32_t rowIndex) const
     {
-        throw HttpReturnException(500, "TODO: SparseTableFrozenColumn get");
-        //cerr << "getting " << rowIndex << " of " << numEntries << endl;
-        ML::Bit_Extractor<uint32_t> bits(storage.get());
-        bits.advance(rowIndex * indexBits);
-        return table[bits.extract<uint32_t>(indexBits)];
+        auto getAtIndex = [&] (uint32_t n)
+            {
+                ML::Bit_Extractor<uint32_t> bits(storage.get());
+                bits.advance(n * (indexBits + rowNumBits));
+                uint32_t rowNum = bits.extract<uint32_t>(rowNumBits);
+                uint32_t index = bits.extract<uint32_t>(indexBits);
+                return std::make_pair(rowNum, index);
+            };
+
+        uint32_t first = 0;
+        uint32_t last  = numEntries;
+
+        while (first != last) {
+            uint32_t middle = (first + last) / 2;
+            uint32_t rowNum, index;
+            std::tie(rowNum, index) = getAtIndex(middle);
+
+            //cerr << "first = " << first << " middle = " << middle
+            //     << " last = " << last << " rowNum = " << rowNum
+            //     << " looking for " << rowIndex << endl;
+
+            if (rowNum == rowIndex) {
+                ExcAssertLess(index, table.size());
+                return table[index];
+            }
+
+            // Break out if the element isn't there
+            if (first + 1 == last)
+                break;
+
+            if (rowNum < rowIndex) {
+                first = middle;
+            }
+            else {
+                last = middle;
+            }
+
+        }
+        
+        return CellValue();
     }
 
     virtual size_t size() const
@@ -190,11 +227,13 @@ struct SparseTableFrozenColumn: public FrozenColumn {
 
     virtual bool forEachDistinctValue(std::function<bool (const CellValue &, size_t)> fn) const
     {
+        if (!fn(CellValue(), columnTypes.numNulls))
+            return false;
         for (auto & v: table) {
             if (!fn(v, 1 /* todo: real count */))
                 return false;
         }
-
+        
         return true;
     }
 
@@ -231,8 +270,6 @@ std::shared_ptr<FrozenColumn>
 FrozenColumn::
 freeze(TabularDatasetColumn & column)
 {
-    return std::make_shared<TableFrozenColumn>(column);
-
     size_t required1 = TableFrozenColumn::bytesRequired(column);
     size_t required2 = SparseTableFrozenColumn::bytesRequired(column);
 

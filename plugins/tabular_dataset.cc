@@ -439,10 +439,14 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         //cerr << "row is in chunk " << it->second.first << " offset "
         //     << it->second.second << endl;
 
-        Date ts = chunks.at(it->second.first).timestamps->get(it->second.second).toTimestamp();
+        Date ts = chunks.at(it->second.first).timestamps
+            ->get(it->second.second).toTimestamp();
 
         for (unsigned i = 0;  i < columnNames.size();  ++i) {
-            result.columns.emplace_back(columnNames[i], chunks.at(it->second.first).columns.at(i)->get(it->second.second), ts);
+            result.columns.emplace_back
+                (columnNames[i],
+                 chunks.at(it->second.first).columns.at(i)->get(it->second.second),
+                 ts);
         }
 
         return result;
@@ -1102,7 +1106,8 @@ std::shared_ptr<RowStream>
 TabularDataset::
 getRowStream() const 
 { 
-    return std::make_shared<TabularDataStore::TabularDataStoreRowStream>(itl.get()); 
+    return std::make_shared<TabularDataStore::TabularDataStoreRowStream>
+        (itl.get()); 
 } 
 
 GenerateRowsWhereFunction
