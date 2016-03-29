@@ -214,6 +214,10 @@ struct ColumnIndex {
 
 struct RowStream {
 
+    virtual ~RowStream()
+    {
+    }
+
     /* Clone the stream with just enough information to use the initAt 
        clones streams should be un-initialized                        */
     virtual std::shared_ptr<RowStream> clone() const = 0;
