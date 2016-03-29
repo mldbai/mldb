@@ -22,8 +22,11 @@
 #include "static_content_macro.h"
 #include "mldb/base/scope.h"
 #include <boost/algorithm/string.hpp>
+#include <boost/filesystem.hpp>
+
 
 using namespace std;
+namespace fs = boost::filesystem;
 
 namespace Datacratic {
 namespace MLDB {
@@ -184,13 +187,13 @@ getStaticRouteHandler(string dir, MldbServer * server, bool hideInternalEntities
                   const RestRequest & request,
                   const RestRequestParsingContext & context)
         {
-            string path = context.resources.back().rawData();
+            const string & path = context.resources.back().rawString();
 
             if (path.find("..") != string::npos) {
                 throw ML::Exception("not dealing with path with .. in it");
             }
 
-            string filename = dir + "/" + path;
+            string filename = (fs::path(dir) / fs::path(path)).string();
 
             //cerr << "looking for " << filename << " for resource " << path << endl;
 
@@ -298,7 +301,7 @@ getStaticRouteHandler(string dir, MldbServer * server, bool hideInternalEntities
                 && filename.back() != '/' // it does not have a trailing backslash
                 ) {
                 // force redirect to the proper path
-                connection.sendRedirect(301, path + "/");
+                connection.sendRedirect(301, context.resources.front().rawString() + "/");
                 return RestRequestRouter::MR_YES;
             }
 
@@ -343,8 +346,7 @@ void serveDocumentationDirectory(RestRequestRouter & parent,
                                  MldbServer * server,
                                  bool hideInternalEntities)
 {
-    // say route is "doc" - this will match "doc" or "doc/(.*)"
-    parent.addRoute(Rx(route + "/(.*)|" + route, "<resource>"),
+    parent.addRoute(Rx(route + "(/.*)", "<resource>"),
                     "GET", "Static content",
                     getStaticRouteHandler(dir, server, hideInternalEntities),
                     Json::Value());

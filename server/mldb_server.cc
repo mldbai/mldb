@@ -412,8 +412,6 @@ scanPlugins(const std::string & dir_)
     logger->debug() << "scanning plugins in directory " << dir_;
 
     std::string dir = dir_;
-    if (!dir.empty() && dir[dir.length() - 1] != '/')
-        dir += '/';
 
     auto foundPlugin = [&] (const std::string & dir,
                             std::istream & stream)
