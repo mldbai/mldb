@@ -97,6 +97,10 @@ forEachLineStr(const std::string & filename,
     for the file to be memory mapped.  It should in that case be opened
     with the "mapped" option.
 
+    The startBlock and endBlock functions are called, in the context of
+    the processing thread, at the beginning and end of the block
+    respectively.
+
     This is the fastest way to parse a text file.
 */
 
@@ -106,7 +110,11 @@ void forEachLineBlock(std::istream & stream,
                                           int64_t blockNumber,
                                           int64_t lineNumber)> onLine,
                       int64_t maxLines = -1,
-                      int maxParallelism = 8);
-    
+                      int maxParallelism = 8,
+                      std::function<bool (int64_t blockNumber, int64_t lineNumber)> startBlock
+                          = nullptr,
+                      std::function<bool (int64_t blockNumber, int64_t lineNumber)> endBlock
+                          = nullptr);
+
     
 } // namespace Datacratic

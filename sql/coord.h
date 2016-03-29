@@ -58,6 +58,15 @@ struct Coord {
         }
     }
 
+    template<size_t N>
+    inline Coord(const char (&str)[N])
+        : Coord(str, (N && str[N - 1])?N:N-1)  // remove null char from end
+    {
+    }
+
+    // Create as an array index
+    Coord(uint64_t i);
+
     ~Coord()
     {
         if (complex_)
@@ -87,15 +96,6 @@ struct Coord {
         swap(newMe);
         return *this;
     }
-
-    template<size_t N>
-    inline Coord(const char (&str)[N])
-        : Coord(str, (N && str[N - 1])?N:N-1)  // remove null char from end
-    {
-    }
-
-    // Create as an array index
-    Coord(uint64_t i);
 
     bool stringEqual(const std::string & other) const;
     bool stringEqual(const Utf8String & other) const;
@@ -129,9 +129,25 @@ struct Coord {
     std::pair<const char *, size_t>
     getStringView() const;
 
-    uint64_t hash() const;
+    /// Forwarding function for the hash().  This will, one day soon,
+    /// switch to the newHash() function.
+    uint64_t hash() const
+    {
+        return oldHash();
+    }
 
-    bool empty() const;
+    /// Return the Id-compatible (old) hash.  Slower but compatible with
+    /// legacy binaries.
+    uint64_t oldHash() const;
+
+    /// Return the non-Id compatible (new) hash.  Faster but not compatible
+    /// with legacy hashes.
+    uint64_t newHash() const;
+
+    inline bool empty() const
+    {
+        return complex_ == 0 && simpleLen_ == 0;
+    }
 
     Coord operator + (const Coord & other) const;
     Coord operator + (Coord && other) const;
@@ -254,6 +270,17 @@ inline Coord stringToKey(const std::string & str, Coord *)
 }
 
 PREDECLARE_VALUE_DESCRIPTION(Coord);
+
+
+struct CoordNewHasher
+    : public std::unary_function<Datacratic::MLDB::Coord, size_t>
+{
+    size_t operator()(const Datacratic::MLDB::Coord & coord) const
+    {
+        return coord.newHash();
+    }
+};
+
 
 } // namespace MLDB
 
