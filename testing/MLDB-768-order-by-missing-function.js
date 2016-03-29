@@ -41,7 +41,7 @@ function assertContains(str, val, msg)
 var resp = mldb.get("/v1/datasets/test/query", {select:"1", orderBy: 'hello()'});
 
 assertEqual(resp.responseCode, 404);
-assertContains(resp.json.error, "Error executing non-grouped query: function entry 'hello' doesn't exist",
+assertContains(resp.json.error, "Execution error: function entry 'hello' doesn't exist",
                "Error message for function not found");
 
 mldb.log(resp);

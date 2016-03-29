@@ -1080,7 +1080,7 @@ execute(std::function<bool (NamedRowValue & output,
     try {
         executor->execute(aggregator, offset, limit, onProgress, allowMT);
     } JML_CATCH_ALL {
-        rethrowHttpException(-1, "Error executing non-grouped query: "
+        rethrowHttpException(-1, "Execution error: "
                              + ML::getExceptionString(),
                              "select", select.surface,
                              "from", from.getStatus(),
