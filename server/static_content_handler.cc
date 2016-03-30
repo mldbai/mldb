@@ -336,6 +336,9 @@ getStaticRouteHandler(string dir, MldbServer * server, bool hideInternalEntities
             else if (filename.find(".svg") != string::npos) {
                 mimeType = "image/svg+xml";
             }
+            else if (filename.find(".pdf") != string::npos) {
+                mimeType = "application/pdf";
+            }
             return sendFile(filename, mimeType);
         };
 }
