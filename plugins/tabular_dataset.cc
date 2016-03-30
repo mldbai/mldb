@@ -304,7 +304,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         int rowIndex;
 
         std::tie(chunkIndex, rowIndex) = tryLookupRow(rowName);
-        return chunkIndex > 0;
+        return chunkIndex >= 0;
     }
 
     virtual MatrixNamedRow getRow(const RowName & rowName) const
