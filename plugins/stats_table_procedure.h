@@ -16,6 +16,7 @@
 #include "mldb/core/function.h"
 #include "sql/sql_expression.h"
 #include "mldb/jml/db/persistent_fwd.h"
+#include "mldb/types/optional.h"
 
 namespace Datacratic {
 namespace MLDB {
@@ -38,6 +39,8 @@ struct StatsTable {
 
     StatsTable(const std::string & filename);
 
+    // .first : nb trial
+    // .second : nb of occurence of each outcome
     typedef std::pair<int64_t, std::vector<int64_t>> BucketCounts;
     const BucketCounts & increment(const CellValue & val,
                                    const std::vector<uint> & outcomes);
@@ -51,9 +54,9 @@ struct StatsTable {
     ColumnName colName;
 
     std::vector<std::string> outcome_names;
-    std::map<Utf8String, BucketCounts> counts;
+    std::unordered_map<Utf8String, BucketCounts> counts;
 
-    std::pair<int64_t, std::vector<int64_t>> zeroCounts;
+    BucketCounts zeroCounts;
 };
 
 
@@ -190,6 +193,10 @@ struct BagOfWordsStatsTableProcedureConfig : ProcedureConfig {
     Url statsTableFileUrl;
 
     Utf8String functionName;
+
+    Optional<PolyConfigT<Dataset>> outputDataset;
+
+    static constexpr char const * defaultOutputDatasetType = "tabular";
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(BagOfWordsStatsTableProcedureConfig);
