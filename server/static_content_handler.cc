@@ -21,9 +21,12 @@
 #include "mldb/core/mldb_entity.h"
 #include "static_content_macro.h"
 #include "mldb/base/scope.h"
-#include <boost/algorithm/string/replace.hpp>
+#include <boost/algorithm/string.hpp>
+#include <boost/filesystem.hpp>
+
 
 using namespace std;
+namespace fs = boost::filesystem;
 
 namespace Datacratic {
 namespace MLDB {
@@ -184,17 +187,17 @@ getStaticRouteHandler(string dir, MldbServer * server, bool hideInternalEntities
                   const RestRequest & request,
                   const RestRequestParsingContext & context)
         {
-            string path = context.resources.back().rawData();
+            const string & path = context.resources.back().rawString();
 
             if (path.find("..") != string::npos) {
                 throw ML::Exception("not dealing with path with .. in it");
             }
 
-            string filename = dir + "/" + path;
+            string filename = (fs::path(dir) / fs::path(path)).string();
 
             //cerr << "looking for " << filename << " for resource " << path << endl;
 
-            auto sendFile = [&] (const std::string & filename,
+            auto sendFile = [&connection, &server] (const std::string & filename,
                                  const std::string & mimeType)
                 {
                     if (!tryGetUriObjectInfo(filename)) {
@@ -225,10 +228,6 @@ getStaticRouteHandler(string dir, MldbServer * server, bool hideInternalEntities
                 || (isMdHtml = (filename.rfind(".md.html") == filename.size() - 8))) {
                 string mimeType;
                 mimeType = "text/html";
-
-                //if (tryGetUriObjectInfo(filename)) {
-                //    return sendFile(filename, mimeType);
-                //}
 
                 string markdownFile = filename;
                 if (isMdHtml) {
@@ -290,10 +289,37 @@ getStaticRouteHandler(string dir, MldbServer * server, bool hideInternalEntities
                 return RestRequestRouter::MR_YES;
             }
 
-            if (!tryGetUriObjectInfo(filename)) {
-                connection.sendErrorResponse
-                    (404,
-                     "File '" + filename + "' doesn't exist", "text/plain");
+            Url url = makeUrl(filename);
+            struct stat stats;
+            int res = ::stat(url.path().c_str(), &stats);
+
+            // this is our Apache's rewrite rules
+
+            // (1) [301] directory resources redirected to directory with trailing slash
+            if (res != -1 // path exist
+                && (stats.st_mode & S_IFMT) == S_IFDIR  // it is a directory
+                && filename.back() != '/' // it does not have a trailing backslash
+                ) {
+                // force redirect to the proper path
+                connection.sendRedirect(301, context.resources.front().rawString() + "/");
+                return RestRequestRouter::MR_YES;
+            }
+
+            // (2) [200, 403] implicit access to index.html for directory resources
+            if (res != -1 // path exist
+                && (stats.st_mode & S_IFMT) == S_IFDIR  // it is a directory
+                ) {
+                filename += "index.html";
+                if (!tryGetUriObjectInfo(filename)) {
+                    connection.sendErrorResponse(403, "Directory listing not allowed", "text/plain");
+                    return RestRequestRouter::MR_YES;
+                }
+            }
+
+            // (3) [404] page not found on resouces that do not exist
+            if (res == -1 // path do not exist
+                ) {
+                connection.sendErrorResponse(404, "File '" + filename + "' doesn't exist", "text/plain");
                 return RestRequestRouter::MR_YES;
             }
 
@@ -310,6 +336,9 @@ getStaticRouteHandler(string dir, MldbServer * server, bool hideInternalEntities
             else if (filename.find(".svg") != string::npos) {
                 mimeType = "image/svg+xml";
             }
+            else if (filename.find(".pdf") != string::npos) {
+                mimeType = "application/pdf";
+            }
             return sendFile(filename, mimeType);
         };
 }
@@ -320,7 +349,7 @@ void serveDocumentationDirectory(RestRequestRouter & parent,
                                  MldbServer * server,
                                  bool hideInternalEntities)
 {
-    parent.addRoute(Rx(route + "/(.*)", "<resource>"),
+    parent.addRoute(Rx(route + "(/.*)", "<resource>"),
                     "GET", "Static content",
                     getStaticRouteHandler(dir, server, hideInternalEntities),
                     Json::Value());
