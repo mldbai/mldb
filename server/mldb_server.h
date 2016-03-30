@@ -116,7 +116,8 @@ struct MldbServer: public ServicePeer, public EventRecorder {
                       const std::string & format,
                       bool createHeaders,
                       bool rowNames,
-                      bool rowHashes) const;
+                      bool rowHashes,
+                      bool sortColumns) const;
 
     /** Get a type info structure for the given type. */
     Json::Value
