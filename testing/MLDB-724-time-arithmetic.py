@@ -5,7 +5,7 @@ import unittest
 
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
-class TimeArithmeticTest(MldbUnitTest):  
+class TimeArithmeticTest(MldbUnitTest):
 
     ts = "2015-01-01"
     ts_plus_1d = "2015-01-02"
@@ -20,13 +20,13 @@ class TimeArithmeticTest(MldbUnitTest):
         }
 
         dataset = mldb.create_dataset(dataset_config)
-        
+
         dataset.record_row('imp_then_click_1d', [ ["imp", 0, self.ts], ["click", 0, self.ts_plus_1d] ])
         dataset.record_row('imp_then_click_1month', [ ["imp", 0, self.ts], ["click", 0, self.ts_plus_1month] ])
         dataset.record_row('click_then_imp_2d', [ ["imp", 0, self.ts_plus_2d], ["click", 0, self.ts] ])
-    
+
         dataset.commit()
-        
+
     def test_second_equivalence(self):
         self.assertTableResultEquals(
             mldb.query("select INTERVAL '10 s' = INTERVAL '10second' as equal"),
@@ -207,7 +207,7 @@ class TimeArithmeticTest(MldbUnitTest):
             ]
         )
 
-    
+
     def test_integer_addition(self):
         query = mldb.query('select * from test where latest_timestamp(imp) < latest_timestamp(click) order by rowName()')
 
@@ -215,7 +215,7 @@ class TimeArithmeticTest(MldbUnitTest):
             [
                 ["_rowName", "click", "imp"],
                 ["imp_then_click_1d", 0, 0],
-                ["imp_then_click_1month", 0, 0] 
+                ["imp_then_click_1month", 0, 0]
             ]
         )
 
@@ -259,7 +259,7 @@ class TimeArithmeticTest(MldbUnitTest):
         self.assertTableResultEquals(query,
             [
                 ["_rowName", "click", "imp"],
-                ["imp_then_click_1d", 0, 0] 
+                ["imp_then_click_1d", 0, 0]
             ]
         )
 
@@ -268,7 +268,7 @@ class TimeArithmeticTest(MldbUnitTest):
         self.assertTableResultEquals(query,
             [
                 ["_rowName", "click", "imp"],
-                ["imp_then_click_1d", 0, 0] 
+                ["imp_then_click_1d", 0, 0]
             ]
         )
 
@@ -277,7 +277,7 @@ class TimeArithmeticTest(MldbUnitTest):
         self.assertTableResultEquals(query,
             [
                 ["_rowName", "click", "imp"],
-                ["imp_then_click_1month", 0, 0] 
+                ["imp_then_click_1month", 0, 0]
             ]
         )
 
@@ -388,7 +388,7 @@ class TimeArithmeticTest(MldbUnitTest):
 
         dataset3 = mldb.create_dataset(dataset_config)
         dataset3.record_row('myrow', [ ["a", 0, self.ts], ["b", 0, self.ts_plus_1d], ["c", 0, self.ts_plus_2d] ])
-        
+
         dataset3.commit()
 
         query = mldb.get('/v1/datasets/test3/query', select = 'latest_timestamp({a,b}) as latest, earliest_timestamp({a,b}) as earliest')
@@ -417,7 +417,7 @@ class TimeArithmeticTest(MldbUnitTest):
                  }
              ]
         )
-        
+
         query = mldb.get('/v1/datasets/test3/query',  select = 'latest_timestamp({*}) as latest, earliest_timestamp({*}) as earliest')
 
         self.assertFullResultEquals(query.json(),
@@ -485,7 +485,7 @@ class TimeArithmeticTest(MldbUnitTest):
 
         query1 = mldb.get('/v1/datasets/test4/query', select = 'earliest_timestamp(a) as earliest')
         query2 = mldb.get('/v1/datasets/test4/query', select = 'earliest_timestamp({*}) as earliest')
-        
+
         self.assertFullResultEquals(query1.json(), query2.json())
 
 
@@ -567,13 +567,13 @@ class TimeArithmeticTest(MldbUnitTest):
 
         self.assertFullResultEquals(query1.json(),
             [{"rowName":"myrow","rowHash":"fbdba4c9be68f633","columns":[["x",0,"-Inf"],["y",1,"-Inf"]]}]
-        )    
+        )
 
         query1 = mldb.get('/v1/datasets/test5/query', select = "interval '3d' IS NOT INTERVAL as x, interval '3d' IS INTERVAL as x")
 
         self.assertFullResultEquals(query1.json(),
             [{"rowName": "myrow","rowHash": "fbdba4c9be68f633","columns":[["x",0,"-Inf"],["x",1,"-Inf"]]}]
-        )    
+        )
 
     def test_MLDB_1509(self):
         dataset_config = {
@@ -586,11 +586,11 @@ class TimeArithmeticTest(MldbUnitTest):
         dataset.record_row('row2', [ ["a", 0, self.ts], ["a", 0, self.ts_plus_1d], ["a", 0, self.ts_plus_2d] ])
         dataset.record_row('row3', [ ["a", 0, self.ts], ["a", 0, self.ts], ["a", 0, self.ts] ])
         dataset.record_row('row4', [ ["a", 0, self.ts], ["b", 0, self.ts], ["c", 0, self.ts] ])
-        
+
         dataset.commit()
 
         # distinct_timestamps on row on row
-        query = mldb.get('/v1/query', 
+        query = mldb.get('/v1/query',
                          q = 'select distinct_timestamps({*}) as distinct from mldb_1509 order by rowName()')
 
         self.assertFullResultEquals(query.json(),
@@ -679,7 +679,7 @@ class TimeArithmeticTest(MldbUnitTest):
         )
 
         # distinct_timestamps on column
-        query = mldb.get('/v1/query', 
+        query = mldb.get('/v1/query',
                          q = 'select distinct_timestamps(a) as distinct from mldb_1509 order by rowName()')
 
         self.assertFullResultEquals(query.json(),
@@ -754,9 +754,9 @@ class TimeArithmeticTest(MldbUnitTest):
         )
 
         # distinct_timestamps on column on a row not containing the column
-        query = mldb.get('/v1/query', 
-                         q = """select distinct_timestamps({c}) as * 
-                         from mldb_1509 where rowName() = row3 
+        query = mldb.get('/v1/query',
+                         q = """select distinct_timestamps({c}) as *
+                         from mldb_1509 where rowName() = row3
                          order by rowName()"""
         )
 
@@ -764,12 +764,12 @@ class TimeArithmeticTest(MldbUnitTest):
 
         # identify rows with events occurring at a unique timestamp
         query = mldb.query(
-            """select horizontal_count(distinct_timestamps({*})) = 1 as unique_event 
-            from mldb_1509 
+            """select horizontal_count(distinct_timestamps({*})) = 1 as unique_event
+            from mldb_1509
             order by rowName()"""
         )
 
-        self.assertTableResultEquals(query, 
+        self.assertTableResultEquals(query,
             [
                 ["_rowName", "unique_event"],
                 ["row1", False],
@@ -781,12 +781,12 @@ class TimeArithmeticTest(MldbUnitTest):
 
         # returning the rows with events occurring at a unique timestamp
         query = mldb.query(
-            """select * from mldb_1509 
-            where horizontal_count(distinct_timestamps({*})) = 1 
+            """select * from mldb_1509
+            where horizontal_count(distinct_timestamps({*})) = 1
             order by rowName()"""
         )
 
-        self.assertTableResultEquals(query, 
+        self.assertTableResultEquals(query,
             [
                 ["_rowName", "a", "b", "c"],
                 ["row3", 0, None, None],
