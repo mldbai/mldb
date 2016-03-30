@@ -181,21 +181,63 @@ struct AggregatorT {
         std::vector<ColumnName> columnNames;
         std::vector<State> columnState;
 
+        /// If we guessed wrong about denseness, this is the sparse
+        /// state we can fall back on
+        std::unique_ptr<SparseRowState> fallback;
+
+        /** Fill in the sparse row state as a fallback, and process
+            based upon that for when we have non-uniform columns.
+        */
+        void pessimize()
+        {
+            ExcAssert(!fallback.get());
+            fallback.reset(new SparseRowState());
+            for (unsigned i = 0;  i < columnNames.size();  ++i) {
+                fallback->columns.emplace(std::move(columnNames[i]),
+                                          std::move(columnState[i]));
+            }
+            columnNames.clear();
+            columnState.clear();
+        }
+
         void process(const ExpressionValue * args, size_t nargs)
         {
             ExcAssertEqual(nargs, 1);
+
+            if (fallback.get()) {
+                fallback->process(args, nargs);
+                return;
+            }
             const ExpressionValue & val = args[0];
-            
+            const auto & row = val.getRow();
+
+            // Check if the column names or number don't match, and
+            // pessimize back to the sparse version if it's the case.
+            bool needToPessimize = row.size() != columnNames.size();
+            for (unsigned i = 0;  i < columnNames.size() && !needToPessimize;
+                 ++i) {
+                needToPessimize = columnNames[i] != std::get<0>(row[i]);
+            }
+
+            if (needToPessimize) {
+                pessimize();
+                fallback->process(args, nargs);
+            }
+
+            // Names and number of columns matches.  We can go ahead
+            // and process everything on the fast path.
             int64_t n = 0;
-            for (auto & col: val.getRow()) {
-                ExcAssertLess(n, columnNames.size());
-                ExcAssertEqual(columnNames[n], std::get<0>(col));
+            for (auto & col: row) {
                 columnState[n++].process(&std::get<1>(col), 1);
             }
         }
 
         ExpressionValue extract()
         {
+            if (fallback.get()) {
+                return fallback->extract();
+            }
+
             StructValue result;
 
             for (unsigned i = 0;  i < columnNames.size();  ++i) {
@@ -210,6 +252,13 @@ struct AggregatorT {
 
         void merge(DenseRowState* from)
         {
+            if (fallback.get()) {
+                if (!from->fallback.get())
+                    from->pessimize();
+                fallback->merge(from->fallback.get());
+                return;
+            }
+
             for (unsigned i = 0;  i < columnNames.size();  ++i) {
                 columnState[i].merge(&from->columnState[i]);
             }
@@ -274,7 +323,8 @@ struct AggregatorT {
     /** Entry point for when we are called with the first argument returning a
         row.  This does an aggregation per column in the row.
     */
-    static BoundAggregator enterRow(const std::vector<BoundSqlExpression> & args)
+    static BoundAggregator
+    enterRow(const std::vector<BoundSqlExpression> & args)
     {
         // Analyzes the input arguments for a row, and figures out:
         // a) what kind of output will be produced
@@ -325,7 +375,8 @@ struct AggregatorT {
         }
         else {
             // Use an optimized version, assuming everything comes in in the
-            // same order as the 
+            // same order as the first row.  We may need to pessimize
+            // afterwards
             return { std::bind(denseRowInit, denseColumnNames),
                      denseRowProcess,
                      denseRowExtract,
