@@ -504,10 +504,10 @@ Dataset::
 validateNames(const RowName & rowName,
               const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
 {
-    if (rowName == RowName())
+    if (rowName.empty())
         throw HttpReturnException(400, "empty row names are not allowed");
     for (auto & val : vals) {
-        if (get<0>(val) == ColumnName())
+        if (get<0>(val).empty())
             throw HttpReturnException(400, "empty column names are not allowed");
     }
 }
@@ -665,8 +665,8 @@ queryStructured(const SelectExpression & select,
     if (!having.isConstantTrue() && groupBy.clauses.empty())
         throw HttpReturnException(400, "HAVING expression requires a GROUP BY expression");
 
-    std::vector< std::shared_ptr<SqlExpression> > aggregators = select.findAggregators();
-    std::vector< std::shared_ptr<SqlExpression> > havingaggregators = having.findAggregators();
+    std::vector< std::shared_ptr<SqlExpression> > aggregators = select.findAggregators(!groupBy.clauses.empty());
+    std::vector< std::shared_ptr<SqlExpression> > havingaggregators = having.findAggregators(!groupBy.clauses.empty());
 
     // Do it ungrouped if possible
     if (groupBy.clauses.empty() && aggregators.empty()) {
@@ -838,7 +838,12 @@ generateRownameIsConstant(const Dataset & dataset,
             },
             "generate single row matching rowName()"};
 }
-    
+
+/*
+    Must return the *exact* set of rows or a stream that will do the same
+    because the where expression will not be evaluated outside of this method
+    if this method is called.
+*/    
 GenerateRowsWhereFunction
 Dataset::
 generateRowsWhere(const SqlBindingScope & scope,
@@ -951,7 +956,7 @@ generateRowsWhere(const SqlBindingScope & scope,
         return generateVariableIsTrue(*this, alias, *variable);
     }
 
-    //cOptimize for rowName() IN (constant, constant, constant)
+    // Optimize for rowName() IN (constant, constant, constant)
     // Optimize for rowName() IN ROWS / IN KEYS (...)
     auto inExpression = dynamic_cast<const InExpression *>(&where);
     if (inExpression) 
@@ -968,6 +973,11 @@ generateRowsWhere(const SqlBindingScope & scope,
 
                             for (auto& c : inExpression->tuple->clauses) {
                                 ExpressionValue v = c->constantValue();
+
+                                //casting other types to string will give a different result than non-optimized path.
+                                if (!v.isString())
+                                    continue;
+
                                 RowName rowName(v.toUtf8String());
 
                                 if (matrixView->knownRow(rowName))
@@ -1025,6 +1035,10 @@ generateRowsWhere(const SqlBindingScope & scope,
                                                         const ColumnName & prefix,
                                                         const ExpressionValue & val)
                                         {
+                                            //casting other types to string will give a different result than non-optimized path.
+                                            if (!val.isString())
+                                                return true;
+
                                             auto str = RowName(val.toUtf8String());
                                             if (matrixView->knownRow(str)) {
                                                 filtered.push_back(str);
@@ -1218,6 +1232,8 @@ generateRowsWhere(const SqlBindingScope & scope,
 
     //cerr << "needsColumns for " << where.print() << " returned "
     //     << jsonEncode(unbound) << " and result " << needsColumns << endl;
+
+    //no need to check for where == true, it was checked above...
 
     return {[=] (ssize_t numToGenerate, Any token,
                  const BoundParameters & params)

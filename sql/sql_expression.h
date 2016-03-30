@@ -934,8 +934,13 @@ struct SqlExpression: public std::enable_shared_from_this<SqlExpression> {
     */
     virtual bool isIdentitySelect(SqlExpressionDatasetContext & context) const;
 
-    /* Find any children that is an aggregator call */
-    std::vector<std::shared_ptr<SqlExpression> > findAggregators() const;
+    /** Find any children that is an aggregator call 
+        This function perform partial validation of the parse tree for 
+        GROUP BY validatity.  
+        Caller must pass true if there is a GROUP BY clause associated with
+        this expression.
+    */
+    std::vector<std::shared_ptr<SqlExpression> > findAggregators(bool withGroupBy) const;
 
     //should be private:
     typedef std::shared_ptr<SqlExpression> (*OperatorHandler)

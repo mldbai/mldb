@@ -9,6 +9,8 @@ HAS_S3_CREDENTIALS:=$(shell grep -l "^s3" ~/.cloud_credentials >/dev/null 2>/dev
 # Make a test manual if there are no S3 credentials available
 MANUAL_IF_NO_S3:=$(if $(HAS_S3_CREDENTIALS),,manual)
 
+$(eval $(call include_sub_make,cookbook))
+
 #$(warning HAS_S3_CREDENTIALS=$(HAS_S3_CREDENTIALS))
 #$(warning MANUAL_IF_NO_S3=$(MANUAL_IF_NO_S3))
 
@@ -327,9 +329,8 @@ $(eval $(call mldb_unit_test,get_http_bound_address.py))
 $(eval $(call mldb_unit_test,get_http_bound_address.js))
 $(eval $(call mldb_unit_test,MLDB-815-sparse-mutable-record-strings.js))
 $(eval $(call mldb_unit_test,MLDB-1395-error-message-file-doesnt-exist.js))
-$(eval $(call mldb_unit_test,MLDBFB-318_misleading_error_msg.py))
 $(eval $(call mldb_unit_test,ranking_test.py))
-$(eval $(call mldb_unit_test,MLDB-1490-temporal-grouped.js,,manual)) # awaiting fix
+$(eval $(call mldb_unit_test,MLDB-1490-grouped-validation.py))
 $(eval $(call mldb_unit_test,MLDB-1491-get-all-not-implemented-for-datasets.js,,manual)) # awaiting fix
 $(eval $(call mldb_unit_test,MLDB-1500-transpose-query.js,,manual)) # awaiting fix
 

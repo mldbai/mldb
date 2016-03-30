@@ -526,7 +526,7 @@ run(const ProcedureRunConfig & run,
 
     auto boundDataset = runProcConf.inputData.stm->from->bind(context);
     std::vector< std::shared_ptr<SqlExpression> > aggregators = 
-        runProcConf.inputData.stm->select.findAggregators();
+        runProcConf.inputData.stm->select.findAggregators(!runProcConf.inputData.stm->groupBy.clauses.empty());
 
     // Create the output 
     std::shared_ptr<Dataset> output;

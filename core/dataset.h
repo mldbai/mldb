@@ -214,6 +214,10 @@ struct ColumnIndex {
 
 struct RowStream {
 
+    virtual ~RowStream()
+    {
+    }
+
     /* Clone the stream with just enough information to use the initAt 
        clones streams should be un-initialized                        */
     virtual std::shared_ptr<RowStream> clone() const = 0;
@@ -412,7 +416,12 @@ struct Dataset: public MldbEntity {
 
         This is called by queryStructured and queryBasic, so cannot use those
         functions.
-    */
+
+        Must return the *exact* set of rows or a stream that will do the same
+        because the where expression will not be evaluated outside of this method
+        if this method is called.
+    */    
+
     virtual GenerateRowsWhereFunction
     generateRowsWhere(const SqlBindingScope & context,
                       const Utf8String& alias,

@@ -261,7 +261,7 @@ GitImporterConfigDescription()
              "See the documentation for the output format.",
              PolyConfigT<Dataset>().withType("sparse.mutable"));
 
-    std::vector<std::string> defaultRevisions = { "HEAD " };
+    std::vector<std::string> defaultRevisions = { "HEAD" };
     addField("revisions", &GitImporterConfig::revisions,
              "Revisions to load from Git (eg, HEAD, HEAD~20..HEAD, tags/*). "
              "See the gitrevisions (7) documentation.  Default is all revisions "
