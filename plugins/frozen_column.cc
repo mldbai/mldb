@@ -24,6 +24,7 @@ struct TableFrozenColumn: public FrozenColumn {
         : table(std::move(column.indexedVals)),
           columnTypes(column.columnTypes)
     {
+        firstEntry = column.minRowNumber;
         numEntries = column.maxRowNumber - column.minRowNumber + 1;
         hasNulls = column.sparseIndexes.size() < numEntries;
         indexBits = ML::highest_bit(table.size() + hasNulls) + 1;
@@ -52,18 +53,23 @@ struct TableFrozenColumn: public FrozenColumn {
 
     virtual CellValue get(uint32_t rowIndex) const
     {
-        //cerr << "getting " << rowIndex << " of " << numEntries << endl;
+        CellValue result;
+        if (rowIndex < firstEntry)
+            return result;
+        rowIndex -= firstEntry;
+        if (rowIndex >= numEntries)
+            return result;
         ExcAssertLess(rowIndex, numEntries);
         ML::Bit_Extractor<uint32_t> bits(storage.get());
         bits.advance(rowIndex * indexBits);
         int index = bits.extract<uint32_t>(indexBits);
         if (hasNulls) {
             if (index == 0)
-                return CellValue();
-            else return table[index - 1];
+                return result;
+            else return result = table[index - 1];
         }
         else {
-            return table[index];
+            return result = table[index];
         }
     }
 
@@ -101,7 +107,8 @@ struct TableFrozenColumn: public FrozenColumn {
     std::shared_ptr<const uint32_t> storage;
     uint32_t indexBits;
     uint32_t numEntries;
-
+    uint64_t firstEntry;
+    
     bool hasNulls;
     std::vector<CellValue> table;
     ColumnTypes columnTypes;
@@ -132,6 +139,7 @@ struct SparseTableFrozenColumn: public FrozenColumn {
     SparseTableFrozenColumn(TabularDatasetColumn & column)
         : table(column.indexedVals.size()), columnTypes(column.columnTypes)
     {
+        firstEntry = column.minRowNumber;
         std::move(std::make_move_iterator(column.indexedVals.begin()),
                   std::make_move_iterator(column.indexedVals.end()),
                   table.begin());
@@ -166,6 +174,11 @@ struct SparseTableFrozenColumn: public FrozenColumn {
 
     virtual CellValue get(uint32_t rowIndex) const
     {
+        CellValue result;
+        if (rowIndex < firstEntry)
+            return result;
+        rowIndex -= firstEntry;
+
         auto getAtIndex = [&] (uint32_t n)
             {
                 ML::Bit_Extractor<uint32_t> bits(storage.get());
@@ -189,7 +202,7 @@ struct SparseTableFrozenColumn: public FrozenColumn {
 
             if (rowNum == rowIndex) {
                 ExcAssertLess(index, table.size());
-                return table[index];
+                return result = table[index];
             }
 
             // Break out if the element isn't there
@@ -205,7 +218,7 @@ struct SparseTableFrozenColumn: public FrozenColumn {
 
         }
         
-        return CellValue();
+        return result;
     }
 
     virtual size_t size() const
@@ -263,6 +276,7 @@ struct SparseTableFrozenColumn: public FrozenColumn {
     uint8_t rowNumBits;
     uint8_t indexBits;
     uint32_t numEntries;
+    size_t firstEntry;
     ColumnTypes columnTypes;
 };
 

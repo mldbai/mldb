@@ -88,19 +88,81 @@ struct TabularDatasetChunk {
         return result;
     }
 
+    const FrozenColumn *
+    maybeGetColumn(size_t columnIndex, const Coord & columnName) const
+    {
+        if (columnIndex < columns.size()) {
+            return columns[columnIndex].get();
+        }
+        else {
+            auto it = sparseColumns.find(columnName);
+            if (it == sparseColumns.end())
+                return nullptr;
+            return it->second.get();
+        }
+    }
+
     std::vector<std::shared_ptr<FrozenColumn> > columns;
     std::unordered_map<ColumnName, std::shared_ptr<FrozenColumn>, CoordNewHasher> sparseColumns;
     std::vector<RowName> rowNames;
     std::shared_ptr<FrozenColumn> timestamps;
 
+    /// Get the row with the given index
+    std::vector<std::tuple<ColumnName, CellValue, Date> >
+    getRow(size_t index, const std::vector<ColumnName> & fixedColumnNames) const
+    {
+        ExcAssertLess(index, rowNames.size());
+        std::vector<std::tuple<ColumnName, CellValue, Date> > result;
+        result.reserve(columns.size());
+        Date ts = timestamps->get(index).toTimestamp();
+        for (size_t i = 0;  i < columns.size();  ++i) {
+            CellValue val = columns[i]->get(index);
+            if (val.empty())
+                continue;
+            result.emplace_back(fixedColumnNames[i], std::move(val), ts);
+        }
+
+        for (auto & c: sparseColumns) {
+            CellValue val = c.second->get(index);
+            if (val.empty())
+                continue;
+            result.emplace_back(c.first, std::move(val), ts);
+
+        }
+        return result;
+    }
+
     /// Add the given column to the column with the given index
     void addToColumn(int columnIndex,
-                     std::vector<std::tuple<RowName, CellValue, Date> > & rows) const
+                     const ColumnName & colName,
+                     std::vector<std::tuple<RowName, CellValue, Date> > & rows,
+                     bool dense) const
     {
+        const FrozenColumn * col = nullptr;
+        if (columnIndex < columns.size())
+            col = columns[columnIndex].get();
+        else {
+            auto it = sparseColumns.find(colName);
+            if (it == sparseColumns.end()) {
+                if (dense) {
+                    for (unsigned i = 0;  i < rowNames.size();  ++i) {
+                        rows.emplace_back(rowNames[i],
+                                          CellValue(),
+                                          timestamps->get(i).toTimestamp());
+                    }
+                }
+                return;
+            }
+            col = it->second.get();
+        }
+
         for (unsigned i = 0;  i < rowNames.size();  ++i) {
-            rows.emplace_back(rowNames[i],
-                              columns[columnIndex]->get(i),
-                              timestamps->get(i).toTimestamp());
+            CellValue val = col->get(i);
+            if (dense || !val.empty()) {
+                rows.emplace_back(rowNames[i],
+                                  std::move(val),
+                                  timestamps->get(i).toTimestamp());
+            }
         }
     }
 };
@@ -196,7 +258,8 @@ struct MutableTabularDatasetChunk {
           - ADD_AWAIT_ROTATION    if it wasn't added, and another thread has
                                   already received ADD_PERFORM_ROTATION
     */
-    int add(RowName & rowName, Date ts,
+    int add(RowName & rowName,
+            Date ts,
             CellValue * vals,
             size_t numVals,
             std::vector<std::pair<ColumnName, CellValue> > & extra)
