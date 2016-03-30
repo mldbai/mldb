@@ -37,7 +37,7 @@ class Mldb283Test(MldbUnitTest):
             mldb.query("select nn({coords: [0.5, 0.5]})[neighbors] as *"),
             [
                 ["_rowName", "ex1", "ex2", "ex3", "ex4"],
-                ["",  0.7071067690849304,
+                ["result",  0.7071067690849304,
                       0.7071067690849304,
                       0.7071067690849304,
                       0.7071067690849304 ]
@@ -48,7 +48,7 @@ class Mldb283Test(MldbUnitTest):
             mldb.query("select nn({coords: [0.1, 0.2]})[neighbors] as *"),
             [
                 ["_rowName", "ex1", "ex2", "ex3", "ex4"],
-                ["",  0.22360680997371674,
+                ["result",  0.22360680997371674,
                         0.8062257766723633,
                         0.9219543933868408,
                         1.2041594982147217]
@@ -61,7 +61,7 @@ class Mldb283Test(MldbUnitTest):
             mldb.query("select nn({coords: 'ex1'})[neighbors] as *"),
             [
                 ["_rowName", "ex1", "ex2", "ex3", "ex4"],
-                ["",  0, 1, 1, 1.4142135381698608]
+                ["result",  0, 1, 1, 1.4142135381698608]
             ]
         )
 
@@ -70,7 +70,7 @@ class Mldb283Test(MldbUnitTest):
             mldb.query("select nn({coords: 'ex1', num_neighbours:2})[neighbors] as *"),
             [
                 ["_rowName", "ex1", "ex2"],
-                ["",  0, 1]
+                ["result",  0, 1]
             ]
         )
         
@@ -78,7 +78,7 @@ class Mldb283Test(MldbUnitTest):
             mldb.query("select nn({coords: 'ex1', num_neighbours:2, max_distance:0.5})[neighbors] as *"),
             [
                 ["_rowName", "ex1"],
-                ["",  0]
+                ["result",  0]
             ]
         )
 

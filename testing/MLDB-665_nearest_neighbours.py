@@ -119,7 +119,6 @@ class Mldb1415Test(MldbUnitTest):
 
 
     # TODO MLDB-1486
-    @unittest.expectedFailure
     def test_nearest_neigbour_in_centroid_space_to_points_is_assigned_cluster(self):
         # make sure that if we take each point and get it's nearest neighbour in the
         # centroids embedding, we get it's assigned cluster back
