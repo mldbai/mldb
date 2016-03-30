@@ -794,6 +794,24 @@ class TimeArithmeticTest(MldbUnitTest):
             ]
         )
 
+    @unittest.expectedFailure
+    def test_mldbfb_441_distinct_timestamp_keep_proper_timestamp(self):
+        ds = mldb.create_dataset({'id' : 'ds', 'type' : 'sparse.mutable'})
+        ds.record_row('row1', [['colA', 1, 0], ['colA', 1, 5]])
+        ds.commit()
+        res = mldb.get('/v1/query',
+                       q="SELECT distinct_timestamps(colA) FROM ds")
+        mldb.log(res)
+        self.assertFullResultEquals(res.json(), [{
+            "rowName": "row1",
+            "columns": [
+                ["distinct_timestamps(colA).0",
+                 {"ts":"1970-01-01T00:00:00Z"},
+                 "1970-01-01T00:00:00Z"],  # <--- MLDB returns the 5th second
+                ["distinct_timestamps(colA).1",
+                 {"ts":"1970-01-01T00:00:05Z"},
+                 "1970-01-01T00:00:05Z"]
+            ]
+        }])
 
 mldb.run_tests()
-
