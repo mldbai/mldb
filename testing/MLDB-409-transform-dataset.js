@@ -158,4 +158,45 @@ var expected = [
 assertEqual(mldb.diff(expected, resp.json, false /* strict */), {},
             "Output was not the same as expected output");
 
+function runTransformWithNoFrom(query, expected) {
+    var transform_config_no_from = {
+        type: 'transform',
+        params: {
+            inputData: query,
+            outputDataset: { id: 'transformed_no_from', type: 'sparse.mutable' },
+            skipEmptyRows: true
+        }
+    };
+    
+    createAndRunProcedure(transform_config_no_from, "transform_no_from");
+
+    var resp = mldb.get("/v1/datasets/transformed_no_from/query", {select: '*', format: 'table'});
+
+    plugin.log(resp);
+
+    assertEqual(mldb.diff(expected, resp.json, false /* strict */), {},
+                "Output was not the same as expected output");
+}
+
+runTransformWithNoFrom("select 1 as col", [
+    [ "_rowName", "col"],  [ "result", 1]
+]);
+
+runTransformWithNoFrom("select 1 as col named 'row'", [
+    [ "_rowName", "col"],  [ "row", 1]
+]);
+
+runTransformWithNoFrom("select 1+1 as col named 'row'", [
+    [ "_rowName", "col"],  [ "row", 2]
+]);
+
+runTransformWithNoFrom("select to_timestamp('2015-11-25') + INTERVAL '1 month' as chrismas", [
+    [ "_rowName", "chrismas"],  [ "result", "2015-12-25T00:00:00Z"]
+]);
+
+runTransformWithNoFrom("select now() - to_timestamp('2015-01-01') > INTERVAL '454D' as col", [
+    [ "_rowName", "col"],  [ "result", true]
+]);
+
+
 "success"

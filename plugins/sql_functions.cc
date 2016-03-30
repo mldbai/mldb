@@ -21,6 +21,7 @@
 #include "mldb/server/per_thread_accumulator.h"
 #include "mldb/rest/in_process_rest_connection.h"
 #include "mldb/plugins/sql_config_validator.h"
+#include "mldb/server/analytics.h"
 #include <memory>
 
 using namespace std;
@@ -499,10 +500,6 @@ TransformDatasetConfigDescription()
              "Skip rows from the input dataset where no values are selected",
              false);
     addParent<ProcedureConfig>();
-
-    onPostValidate = validate<TransformDatasetConfig, 
-                              InputQuery, 
-                              MustContainFrom>(&TransformDatasetConfig::inputData, "transform");
 }
 
 TransformDataset::
@@ -524,112 +521,120 @@ run(const ProcedureRunConfig & run,
     // Get the input dataset
     SqlExpressionMldbContext context(server);
 
-    auto boundDataset = runProcConf.inputData.stm->from->bind(context);
     std::vector< std::shared_ptr<SqlExpression> > aggregators = 
         runProcConf.inputData.stm->select.findAggregators(!runProcConf.inputData.stm->groupBy.clauses.empty());
 
     // Create the output 
-    std::shared_ptr<Dataset> output;
-    if (!runProcConf.outputDataset.type.empty() || !runProcConf.outputDataset.id.empty()) {
-        output = createDataset(server, runProcConf.outputDataset, nullptr, true /*overwrite*/);
-    }
+    std::shared_ptr<Dataset> output = 
+        createDataset(server, runProcConf.outputDataset, nullptr, true /*overwrite*/);
 
     bool skipEmptyRows = runProcConf.skipEmptyRows;
 
-    // Run it
-    if (runProcConf.inputData.stm->groupBy.clauses.empty() && aggregators.empty()) {
-
-        // We accumulate multiple rows per thread and insert with recordRows
-        // to be more efficient.
-        PerThreadAccumulator<std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > > accum;
-
-
-        auto recordRowInOutputDataset
-            = [&] (NamedRowValue & row_,
-                   const std::vector<ExpressionValue> & calc)
-            {
-                MatrixNamedRow row = row_.flattenDestructive();
-
-                //cerr << "got row " << jsonEncodeStr(row) << endl;
-
-                // Nulls with non-finite timestamp are not recorded; they
-                // come from an expression that matched nothing and can't
-                // be represented (they will be read automatically as nulls).
-                std::vector<std::tuple<ColumnName, CellValue, Date> > cols;
-                cols.reserve(row.columns.size());
-                for (auto & c: row.columns) {
-                    if (std::get<1>(c).empty()
-                        && !std::get<2>(c).isADate())
-                        continue;
-                    cols.emplace_back(std::move(c));
-                }
-
-                if (!skipEmptyRows || cols.size() > 0)
-                {
-                    auto & rows = accum.get();
-                    rows.reserve(10000);
-                    rows.emplace_back(RowName(calc.at(0).toUtf8String()), std::move(cols));
-
-                    if (rows.size() >= 10000) {
-                        output->recordRows(rows);
-                        rows.clear();
-                    }
-                }
-
-                return true;
-            };
-
-        // We only add an implicit order by (which defeats parallelization)
-        // if we have a limit or offset parameter.
-        bool implicitOrderByRowHash
-            = (runProcConf.inputData.stm->offset != 0 || 
-               runProcConf.inputData.stm->limit != -1);
-
-        BoundSelectQuery(runProcConf.inputData.stm->select,
-                         *boundDataset.dataset,
-                         boundDataset.asName,
-                         runProcConf.inputData.stm->when,
-                         *runProcConf.inputData.stm->where,
-                         runProcConf.inputData.stm->orderBy,
-                         { runProcConf.inputData.stm->rowName },
-                         implicitOrderByRowHash)
-            .execute(recordRowInOutputDataset,
-                     runProcConf.inputData.stm->offset,
-                     runProcConf.inputData.stm->limit,
-                     onProgress);
-
-        // Finish off the last bits of each thread
-        accum.forEach([&] (std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > * rows)
-                      {
-                          output->recordRows(*rows);
-                      });
-    }
-    else {
-        auto recordRowInOutputDataset
-            = [&] (NamedRowValue & row_)
-            {
-                MatrixNamedRow row = row_.flattenDestructive();
+    auto recordRowInOutputDataset = [&output, &skipEmptyRows] (MatrixNamedRow & row) {
+            if (!skipEmptyRows || row.columns.size() > 0)
                 output->recordRow(row.rowName, row.columns);
-                return true;
+            return true;
+        };
+
+    // Run it
+    if (!runProcConf.inputData.stm->from) {
+        // query without dataset
+        std::vector<MatrixNamedRow> rows = queryWithoutDataset(*runProcConf.inputData.stm, context);
+        std::for_each(rows.begin(), rows.end(), recordRowInOutputDataset);
+    } else {
+        auto boundDataset = runProcConf.inputData.stm->from->bind(context);       
+        if (runProcConf.inputData.stm->groupBy.clauses.empty() && aggregators.empty()) {
+
+            // We accumulate multiple rows per thread and insert with recordRows
+            // to be more efficient.
+            PerThreadAccumulator<std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > > accum;
+
+
+            auto recordRowInOutputDataset
+                = [&] (NamedRowValue & row_,
+                       const std::vector<ExpressionValue> & calc)
+                {
+                    MatrixNamedRow row = row_.flattenDestructive();
+
+                    //cerr << "got row " << jsonEncodeStr(row) << endl;
+
+                    // Nulls with non-finite timestamp are not recorded; they
+                    // come from an expression that matched nothing and can't
+                    // be represented (they will be read automatically as nulls).
+                    std::vector<std::tuple<ColumnName, CellValue, Date> > cols;
+                    cols.reserve(row.columns.size());
+                    for (auto & c: row.columns) {
+                        if (std::get<1>(c).empty()
+                            && !std::get<2>(c).isADate())
+                            continue;
+                        cols.emplace_back(std::move(c));
+                    }
+
+                    if (!skipEmptyRows || cols.size() > 0)
+                        {
+                            auto & rows = accum.get();
+                            rows.reserve(10000);
+                            rows.emplace_back(RowName(calc.at(0).toUtf8String()), std::move(cols));
+
+                            if (rows.size() >= 10000) {
+                                output->recordRows(rows);
+                                rows.clear();
+                            }
+                        }
+
+                    return true;
+                };
+
+            // We only add an implicit order by (which defeats parallelization)
+            // if we have a limit or offset parameter.
+            bool implicitOrderByRowHash
+                = (runProcConf.inputData.stm->offset != 0 || 
+                   runProcConf.inputData.stm->limit != -1);
+
+            BoundSelectQuery(runProcConf.inputData.stm->select,
+                             *boundDataset.dataset,
+                             boundDataset.asName,
+                             runProcConf.inputData.stm->when,
+                             *runProcConf.inputData.stm->where,
+                             runProcConf.inputData.stm->orderBy,
+                             { runProcConf.inputData.stm->rowName },
+                             implicitOrderByRowHash)
+                .execute(recordRowInOutputDataset,
+                         runProcConf.inputData.stm->offset,
+                         runProcConf.inputData.stm->limit,
+                         onProgress);
+
+            // Finish off the last bits of each thread
+            accum.forEach([&] (std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > * rows)
+                          {
+                              output->recordRows(*rows);
+                          });
+        }
+        else {
+            auto recordRowValueInOutputDataset = [&] (NamedRowValue & row_)
+            {
+                MatrixNamedRow row = row_.flattenDestructive();
+                return recordRowInOutputDataset(row);
             };
 
-        BoundGroupByQuery(runProcConf.inputData.stm->select,
-                          *boundDataset.dataset,
-                          boundDataset.asName,
-                          runProcConf.inputData.stm->when,
-                          *runProcConf.inputData.stm->where,
-                          runProcConf.inputData.stm->groupBy,
-                          aggregators,
-                          *runProcConf.inputData.stm->having,
-                          *runProcConf.inputData.stm->rowName,
-                          runProcConf.inputData.stm->orderBy)
-            .execute(recordRowInOutputDataset,
-                     runProcConf.inputData.stm->offset,
-                     runProcConf.inputData.stm->limit,
-                     onProgress);
+            BoundGroupByQuery(runProcConf.inputData.stm->select,
+                              *boundDataset.dataset,
+                              boundDataset.asName,
+                              runProcConf.inputData.stm->when,
+                              *runProcConf.inputData.stm->where,
+                              runProcConf.inputData.stm->groupBy,
+                              aggregators,
+                              *runProcConf.inputData.stm->having,
+                              *runProcConf.inputData.stm->rowName,
+                              runProcConf.inputData.stm->orderBy)
+                .execute(recordRowValueInOutputDataset,
+                         runProcConf.inputData.stm->offset,
+                         runProcConf.inputData.stm->limit,
+                         onProgress);
+        }
     }
-    // Save the dataset we created
 
+    // Save the dataset we created
     output->commit();
 
     return output->getStatus();
