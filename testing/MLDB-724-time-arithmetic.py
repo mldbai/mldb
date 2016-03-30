@@ -575,6 +575,7 @@ class TimeArithmeticTest(MldbUnitTest):
             [{"rowName": "myrow","rowHash": "fbdba4c9be68f633","columns":[["x",0,"-Inf"],["x",1,"-Inf"]]}]
         )
 
+    @unittest.expectedFailure
     def test_MLDB_1509(self):
         dataset_config = {
             'type'    : 'sparse.mutable',
@@ -582,16 +583,24 @@ class TimeArithmeticTest(MldbUnitTest):
         }
 
         dataset = mldb.create_dataset(dataset_config)
-        dataset.record_row('row1', [ ["a", 0, self.ts], ["b", 0, self.ts_plus_1d], ["c", 0, self.ts_plus_2d] ])
-        dataset.record_row('row2', [ ["a", 0, self.ts], ["a", 0, self.ts_plus_1d], ["a", 0, self.ts_plus_2d] ])
-        dataset.record_row('row3', [ ["a", 0, self.ts], ["a", 0, self.ts], ["a", 0, self.ts] ])
-        dataset.record_row('row4', [ ["a", 0, self.ts], ["b", 0, self.ts], ["c", 0, self.ts] ])
-
+        dataset.record_row('row1', [["a", 0, self.ts],
+                                    ["b", 0, self.ts_plus_1d],
+                                    ["c", 0, self.ts_plus_2d]])
+        dataset.record_row('row2', [["a", 0, self.ts],
+                                    ["a", 0, self.ts_plus_1d],
+                                    ["a", 0, self.ts_plus_2d]])
+        dataset.record_row('row3', [["a", 0, self.ts],
+                                    ["a", 0, self.ts],
+                                    ["a", 0, self.ts]])
+        dataset.record_row('row4', [["a", 0, self.ts],
+                                    ["b", 0, self.ts],
+                                    ["c", 0, self.ts]])
         dataset.commit()
 
         # distinct_timestamps on row on row
         query = mldb.get('/v1/query',
-                         q = 'select distinct_timestamps({*}) as distinct from mldb_1509 order by rowName()')
+                         q='SELECT distinct_timestamps({*}) AS distinct ' \
+                           'FROM mldb_1509 ORDER BY rowName()')
 
         self.assertFullResultEquals(query.json(),
            [
@@ -604,21 +613,21 @@ class TimeArithmeticTest(MldbUnitTest):
                            {
                                "ts": "2015-01-01T00:00:00Z"
                            },
-                           "2015-01-03T00:00:00Z"
+                           "2015-01-01T00:00:00Z"
                        ],
                        [
                            "distinct.1",
                            {
                                "ts": "2015-01-02T00:00:00Z"
                            },
-                           "2015-01-03T00:00:00Z"
+                           "2015-01-02T00:00:00Z"
                        ],
                        [
                            "distinct.2",
                            {
                                "ts": "2015-01-03T00:00:00Z"
                            },
-                           "2015-01-03T00:00:00Z"
+                           "2015-01-02T00:00:00Z"
                        ]
                    ]
                },
@@ -631,14 +640,14 @@ class TimeArithmeticTest(MldbUnitTest):
                            {
                                "ts": "2015-01-01T00:00:00Z"
                            },
-                           "2015-01-03T00:00:00Z"
+                           "2015-01-01T00:00:00Z"
                        ],
                        [
                            "distinct.1",
                            {
                                "ts": "2015-01-02T00:00:00Z"
                            },
-                           "2015-01-03T00:00:00Z"
+                           "2015-01-02T00:00:00Z"
                        ],
                        [
                            "distinct.2",
@@ -680,7 +689,8 @@ class TimeArithmeticTest(MldbUnitTest):
 
         # distinct_timestamps on column
         query = mldb.get('/v1/query',
-                         q = 'select distinct_timestamps(a) as distinct from mldb_1509 order by rowName()')
+                         q='SELECT distinct_timestamps(a) AS distinct ' \
+                           'FROM mldb_1509 ORDER BY rowName()')
 
         self.assertFullResultEquals(query.json(),
              [
@@ -706,21 +716,21 @@ class TimeArithmeticTest(MldbUnitTest):
                              {
                                  "ts": "2015-01-01T00:00:00Z"
                              },
-                             "2015-01-03T00:00:00Z"
+                             "2015-01-01T00:00:00Z"
                          ],
                          [
                              "distinct.1",
                              {
                                  "ts": "2015-01-02T00:00:00Z"
                              },
-                             "2015-01-03T00:00:00Z"
+                             "2015-01-01T00:00:00Z"
                          ],
                          [
                              "distinct.2",
                              {
                                  "ts": "2015-01-03T00:00:00Z"
                              },
-                             "2015-01-03T00:00:00Z"
+                             "2015-01-01T00:00:00Z"
                         ]
                      ]
                  },
@@ -793,25 +803,5 @@ class TimeArithmeticTest(MldbUnitTest):
                 ["row4", 0, 0, 0]
             ]
         )
-
-    @unittest.expectedFailure
-    def test_mldbfb_441_distinct_timestamp_keep_proper_timestamp(self):
-        ds = mldb.create_dataset({'id' : 'ds', 'type' : 'sparse.mutable'})
-        ds.record_row('row1', [['colA', 1, 0], ['colA', 1, 5]])
-        ds.commit()
-        res = mldb.get('/v1/query',
-                       q="SELECT distinct_timestamps(colA) FROM ds")
-        mldb.log(res)
-        self.assertFullResultEquals(res.json(), [{
-            "rowName": "row1",
-            "columns": [
-                ["distinct_timestamps(colA).0",
-                 {"ts":"1970-01-01T00:00:00Z"},
-                 "1970-01-01T00:00:00Z"],  # <--- MLDB returns the 5th second
-                ["distinct_timestamps(colA).1",
-                 {"ts":"1970-01-01T00:00:05Z"},
-                 "1970-01-01T00:00:05Z"]
-            ]
-        }])
 
 mldb.run_tests()
