@@ -224,7 +224,7 @@ run(const ProcedureRunConfig & run,
         }
     }
 
-    logger->debug() << "knownInputColumns are " << jsonEncode(knownInputColumns);
+    // logger->debug() << "knownInputColumns are " << jsonEncode(knownInputColumns);
 
     ML::Timer timer;
 
@@ -372,10 +372,10 @@ run(const ProcedureRunConfig & run,
 
             float weight = extraVals.at(1).toDouble();
 
-            logger->debug() << "label = " << label << " weight = " << weight;
-            logger->debug() << "row.columns.size() = " << row.columns.size();
+            // logger->debug() << "label = " << label << " weight = " << weight;
+            // logger->debug() << "row.columns.size() = " << row.columns.size();
 
-            logger->debug() << "got row " << jsonEncode(row);
+            // logger->debug() << "got row " << jsonEncode(row);
             ++numRows;
 
             std::vector<std::pair<ML::Feature, float> > features
@@ -548,10 +548,10 @@ run(const ProcedureRunConfig & run,
     std::vector<ML::Feature> trainingFeatures;
 
     for (unsigned i = 0;  i < allFeatures.size();  ++i) {
-        logger->debug() << "allFeatures[i] = " << allFeatures[i];
+        // logger->debug() << "allFeatures[i] = " << allFeatures[i];
 
         string featureName = featureSpace->print(allFeatures[i]);
-        logger->debug() << "featureName = " << featureName;
+        // logger->debug() << "featureName = " << featureName;
 
         if (allFeatures[i] == labelFeature)
             continue;
@@ -613,10 +613,10 @@ run(const ProcedureRunConfig & run,
         weights.normalize();
     }
 
-    logger->debug() << "training classifier";
+    // logger->debug() << "training classifier";
     ML::Classifier classifier(trainer->generate(threadContext, trainingSet, weights,
                                                 trainingFeatures));
-    logger->debug() << "done training classifier";
+    // logger->debug() << "done training classifier";
 
     logger->info() << "trained classifier in " << timer.elapsed();
 
@@ -643,7 +643,7 @@ run(const ProcedureRunConfig & run,
         server->handleRequest(connection, request);
     }
 
-    logger->debug() << "done saving classifier";
+    // logger->debug() << "done saving classifier";
 
     //trainingSet.dump("training_set.txt.gz");
  
@@ -915,7 +915,7 @@ getFunctionInfo() const
         ColumnSparsity sparsity = col.second.info.optional()
             ? COLUMN_IS_SPARSE : COLUMN_IS_DENSE;
 
-        logger->debug() << "column " << col.second.columnName << " info " << col.second.info;
+        // logger->debug() << "column " << col.second.columnName << " info " << col.second.info;
 
         // Be specific about what type we're looking for.  This will allow
         // us to be more leniant when encoding for input.
