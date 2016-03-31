@@ -19,7 +19,9 @@
 #include "mldb/server/dataset_context.h"
 #include "mldb/server/per_thread_accumulator.h"
 #include "mldb/server/bucket.h"
+#include "mldb/server/parallel_merge_sort.h"
 #include "mldb/jml/utils/environment.h"
+#include "mldb/jml/utils/profile.h"
 #include "mldb/ml/jml/buckets.h"
 #include "mldb/base/parallel.h"
 #include "mldb/types/any_impl.h"
@@ -1489,7 +1491,12 @@ queryBasic(const SqlBindingScope & scope,
                         return boundOrderBy.less(std::get<0>(row1), std::get<0>(row2));
                     };
 
-                std::sort(rowsSorted.begin(), rowsSorted.end(), compareRows);
+                //std::sort(rowsSorted.begin(), rowsSorted.end(), compareRows);
+               {
+                    STACK_PROFILE(Querybasic_orderby);
+                    //std::sort(rowsSorted.begin(), rowsSorted.end(), compareRows);
+                    parallelQuickSortRecursive<SortedRow>(rowsSorted.begin(), rowsSorted.end(), compareRows);
+               } 
 
                 //std::erase(rowsSorted.begin(), rowsSorted.begin() + offset);
 
@@ -1510,7 +1517,7 @@ queryBasic(const SqlBindingScope & scope,
                 for (unsigned i = begin;  i < end;  ++i) {
                     result.emplace_back(std::move(std::get<1>(rowsSorted[i])));
                 }
-                return result;
+                return std::move(result);
             }
         };
 
