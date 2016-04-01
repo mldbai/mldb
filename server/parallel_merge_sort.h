@@ -152,11 +152,16 @@ parallelMergeSort(std::vector<std::shared_ptr<std::vector<T> > > & range,
 
 template<class T, class Compare >
 void
-parallelQuickSortRecursive(typename std::vector<T>::iterator begin, typename std::vector<T>::iterator end, Compare less)
+parallelQuickSortRecursive(typename std::vector<T>::iterator begin, typename std::vector<T>::iterator end, Compare less, int depth = 0)
 {
     size_t numElements = end - begin;
     if (numElements <= 1)
         return;
+
+    if (depth > 8) {
+        std::sort(begin, end, less);
+        return;
+    }
 
     auto pivot = begin + numElements / 2;
     auto const pivotValue = *pivot;
@@ -167,24 +172,24 @@ parallelQuickSortRecursive(typename std::vector<T>::iterator begin, typename std
 
     if (numElements > 1024) { //todo: better heuristic
 
-        auto runLeft = [&] () { parallelQuickSortRecursive<T, Compare>(begin, p, less); };
+        auto runLeft = [&] () { parallelQuickSortRecursive<T, Compare>(begin, p, less, depth+1); };
         ThreadPool tp;
         tp.add(runLeft);
-        parallelQuickSortRecursive<T, Compare>(p + 1, end, less);
+        parallelQuickSortRecursive<T, Compare>(p + 1, end, less, depth+1);
         tp.waitForAll();
 
     } else {
-      parallelQuickSortRecursive<T, Compare>(begin, p, less);
-      parallelQuickSortRecursive<T, Compare>(p + 1, end, less);
+      parallelQuickSortRecursive<T, Compare>(begin, p, less, depth+1);
+      parallelQuickSortRecursive<T, Compare>(p + 1, end, less, depth+1);
     }
 }
 
-/*template<class T, class Compare = std::less<T> >
+template<class T, class Compare = std::less<T> >
 void 
 parallelQuickSortRecursive(typename std::vector<T>::iterator begin, typename std::vector<T>::iterator end) 
 {
-    return parallelQuickSortRecursive(begin, end, Compare());
-}*/
+    return parallelQuickSortRecursive<T, Compare>(begin, end, Compare());
+}
 
 
 } // namespace MLDB
