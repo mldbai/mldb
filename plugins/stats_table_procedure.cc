@@ -700,10 +700,10 @@ StatsTablePosNegFunctionConfigDescription()
     addField("numNeg", &StatsTablePosNegFunctionConfig::numNeg,
             "Number of top negative words to use", ssize_t(50));
     addField("minTrials", &StatsTablePosNegFunctionConfig::minTrials,
-            "Minimum number of trials a words needs to have "
+            "Minimum number of trials a word needs to have in order "
             "to be considered", ssize_t(50));
     addField("outcomeToUse", &StatsTablePosNegFunctionConfig::outcomeToUse,
-            "Outcome to use. This must be one of the outcomes the stats "
+            "This must be one of the outcomes the stats "
             "table was trained with.");
     addField("statsTableFileUrl", &StatsTablePosNegFunctionConfig::statsTableFileUrl,
              "URL of the model file (with extension '.st') to load. "
