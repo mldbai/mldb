@@ -11,7 +11,6 @@
 #include "mldb/ml/jml/training_index_entry.h"
 #include "mldb/jml/utils/smart_ptr_utils.h"
 #include "mldb/server/bucket.h"
-#include "mldb/jml/utils/profile.h"
 
 #include <mutex>
 

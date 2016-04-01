@@ -1491,14 +1491,7 @@ queryBasic(const SqlBindingScope & scope,
                         return boundOrderBy.less(std::get<0>(row1), std::get<0>(row2));
                     };
 
-                //std::sort(rowsSorted.begin(), rowsSorted.end(), compareRows);
-               {
-                    STACK_PROFILE(Querybasic_orderby);
-                    //std::sort(rowsSorted.begin(), rowsSorted.end(), compareRows);
-                    parallelQuickSortRecursive<SortedRow>(rowsSorted.begin(), rowsSorted.end(), compareRows);
-               } 
-
-                //std::erase(rowsSorted.begin(), rowsSorted.begin() + offset);
+                parallelQuickSortRecursive<SortedRow>(rowsSorted.begin(), rowsSorted.end(), compareRows);
 
                 ssize_t realLimit = -1;
                 if (realLimit == -1)
@@ -1517,7 +1510,7 @@ queryBasic(const SqlBindingScope & scope,
                 for (unsigned i = begin;  i < end;  ++i) {
                     result.emplace_back(std::move(std::get<1>(rowsSorted[i])));
                 }
-                return std::move(result);
+                return result;
             }
         };
 

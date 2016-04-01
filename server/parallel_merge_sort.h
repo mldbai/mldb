@@ -170,7 +170,7 @@ parallelQuickSortRecursive(typename std::vector<T>::iterator begin, typename std
     auto p = std::partition(begin, end, [&](const T& a) { return less(a, pivotValue); } );
     std::swap(*p, *(end - 1));
 
-    if (numElements > 1024) { //todo: better heuristic
+    if (numElements > 1024) {
 
         auto runLeft = [&] () { parallelQuickSortRecursive<T, Compare>(begin, p, less, depth+1); };
         ThreadPool tp;
