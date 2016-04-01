@@ -226,7 +226,9 @@ regBucketizeProcedure(
     builtinPackage(),
     "bucketize",
     "Assign buckets based on percentile ranges over a sorted dataset",
-    "procedures/BucketizeProcedure.md.html");
+    "procedures/BucketizeProcedure.md.html",
+    nullptr /* static route */,
+    { MldbEntity::INTERNAL_ENTITY });
  
 
 } // namespace MLDB

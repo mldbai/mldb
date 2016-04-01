@@ -230,7 +230,9 @@ RegisterProcedureType<NullProcedure, NullProcedureConfig>
 regNullProcedure(builtinPackage(),
                  "null",
                  "Testing procedure type that does nothing",
-                 "procedures/NullProcedure.md.html");
+                 "procedures/NullProcedure.md.html",
+                 nullptr /* static route */,
+                 { MldbEntity::INTERNAL_ENTITY });
 
 
 /*****************************************************************************/
@@ -322,7 +324,9 @@ static RegisterProcedureType<SerialProcedure, SerialProcedureConfig>
 regSerialProcedure(builtinPackage(),
                    "serial",
                    "Train multiple procedures in sequence",
-                   "procedures/SerialProcedure.md.html");
+                   "procedures/SerialProcedure.md.html",
+                    nullptr /* static route */,
+                    { MldbEntity::INTERNAL_ENTITY });
 
 
 /*****************************************************************************/
