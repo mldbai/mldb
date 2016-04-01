@@ -60,14 +60,13 @@ ProbabilizerConfigDescription()
              "over the dataset that the probabilizer is trained on.  The "
              "default will weight each example the same."
              "The select statement does not support groupby and having clauses. ");
+    addField("link", &ProbabilizerConfig::link,
+             "Link function to use.",
+             ML::LOGIT);
     addField("modelFileUrl", &ProbabilizerConfig::modelFileUrl,
              "URL where the model file (with extension '.prb') should be saved. "
-             "This file can be loaded by the ![](%%doclink probabilizer function). ");
-    addField("link", &ProbabilizerConfig::link,
-             "Link function to use.  See documentation.  Generally the "
-             "default, PROBIT, is a good place to start for binary "
-             "classifification",
-             ML::LOGIT);
+             "This file can be loaded by the ![](%%doclink probabilizer function). "
+             "This parameter is optional unless the `functionName` parameter is used.");
     addField("functionName", &ProbabilizerConfig::functionName,
              "If specified, an instance of the ![](%%doclink probabilizer function) of this name will be created using "
              "the trained model. Note that to use this parameter, the `modelFileUrl` must "

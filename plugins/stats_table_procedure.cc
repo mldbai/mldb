@@ -150,7 +150,8 @@ StatsTableProcedureConfigDescription()
              "must be a boolean (0 or 1)");
     addField("statsTableFileUrl", &StatsTableProcedureConfig::statsTableFileUrl,
              "URL where the model file (with extension '.st') should be saved. "
-             "This file can be loaded by the ![](%%doclink statsTable.getCounts function). ");
+             "This file can be loaded by the ![](%%doclink statsTable.getCounts function). "
+             "This parameter is optional unless the `functionName` parameter is used.");
     addField("functionName", &StatsTableProcedureConfig::functionName,
              "If specified, an instance of the ![](%%doclink statsTable.getCounts function) of this name will be created using "
              "the trained model. Note that to use this parameter, the `statsTableFileUrl` must "

@@ -415,7 +415,9 @@ static RegisterProcedureType<CreateEntityProcedure,
 regCreateEntityProcedure(builtinPackage(),
                          "createEntity",
                          "Create an entity as part of a procedure application",
-                         "procedures/CreateEntityProcedure.md.html");
+                         "procedures/CreateEntityProcedure.md.html",
+                    nullptr /* static route */,
+                    { MldbEntity::INTERNAL_ENTITY });
 
 
 

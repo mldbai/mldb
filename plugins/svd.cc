@@ -78,9 +78,6 @@ SvdConfigDescription()
     addField("rowOutputDataset", &SvdConfig::rowOutput,
              "Output dataset for embedding (row singular vectors go here)",
              optionalOutputDataset);
-    addField("modelFileUrl", &SvdConfig::modelFileUrl,
-             "URL where the model file (with extension '.svd') should be saved. "
-             "This file can be loaded by the ![](%%doclink svd.embedRow function). ");
     addField("numSingularValues", &SvdConfig::numSingularValues,
              "Maximum number of singular values to work with.  "
              "If there are not enough "
@@ -96,6 +93,10 @@ SvdConfigDescription()
              "Base name of the column that will be written by the SVD.  "
              "A number will be appended from 0 to numSingularValues.",
              string("svd"));
+    addField("modelFileUrl", &SvdConfig::modelFileUrl,
+             "URL where the model file (with extension '.svd') should be saved. "
+             "This file can be loaded by the ![](%%doclink svd.embedRow function). "
+             "This parameter is optional unless the `functionName` parameter is used.");
     addField("functionName", &SvdConfig::functionName,
              "If specified, an instance of the ![](%%doclink svd.embedRow function) of this name will be created using "
              "the trained model. Note that to use this parameter, the `modelFileUrl` must "

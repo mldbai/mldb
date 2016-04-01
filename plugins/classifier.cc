@@ -83,9 +83,6 @@ ClassifierConfigDescription()
              "not expressions involving columns. So X will work, but not X + 1. "
              "If you need derived values in the select expression, create a dataset with "
              "the derived columns as a previous step and run the classifier over that dataset instead.");
-    addField("modelFileUrl", &ClassifierConfig::modelFileUrl,
-             "URL where the model file (with extension '.cls') should be saved. "
-             "This file can be loaded by the ![](%%doclink classifier function). ");
     addField("algorithm", &ClassifierConfig::algorithm,
              "Algorithm to use to train classifier with.  This must point to "
              "an entry in the configuration or configurationFile parameters");
@@ -109,7 +106,11 @@ ClassifierConfigDescription()
              0.5);
     addField("mode", &ClassifierConfig::mode,
              "Mode of classifier.  Controls how the label is interpreted and "
-             "what is the output of the classifier.", CM_BOOLEAN);
+             "what is the output of the classifier.", CM_BOOLEAN);    
+    addField("modelFileUrl", &ClassifierConfig::modelFileUrl,
+             "URL where the model file (with extension '.cls') should be saved. "
+             "This file can be loaded by the ![](%%doclink classifier function). "
+             "This parameter is optional unless the `functionName` parameter is used.");
     addField("functionName", &ClassifierConfig::functionName,
              "If specified, an instance of the ![](%%doclink classifier function) of this name will be created using "
              "the trained model. Note that to use this parameter, the `modelFileUrl` must "

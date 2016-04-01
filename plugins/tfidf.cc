@@ -138,18 +138,16 @@ TfidfConfigDescription()
              "terms with different capitalization 'Montreal', "
              "'montreal' or with accented characters 'Montréal' "
              "will all be considered to be different terms.");
-    addField("modelFileUrl", &TfidfConfig::modelFileUrl,
-             "URL where the model file (with extension '.idf') should be saved. "
-             "This file can be loaded by the ![](%%doclink tfidf function). "
-             "If someone is only interested in the number of documents the "
-             "terms in the training input appear in then the parameter can be "
-             "omitted and the `outputDataset` param can be provided instead.");
     addField("outputDataset", &TfidfConfig::output,
-             "Output dataset.  This dataset will contain one row for each "
+             "This dataset will contain one row for each "
              "term in the input.  The row name will be the term "
              "and the column `count` will contain the number of documents "
              "containing the term.",
              optional);
+    addField("modelFileUrl", &TfidfConfig::modelFileUrl,
+             "URL where the model file (with extension '.idf') should be saved. "
+             "This file can be loaded by the ![](%%doclink tfidf function). "
+             "This parameter is optional unless the `functionName` parameter is used.");
     addField("functionName", &TfidfConfig::functionName,
              "If specified, an instance of the ![](%%doclink tfidf function) of this name will be created using "
              "the trained model. Note that to use this parameter, the `modelFileUrl` must "

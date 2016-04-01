@@ -52,9 +52,6 @@ TsneConfigDescription()
              "One row will be added for each row in the input dataset, "
              "with a list of coordinates",
              PolyConfigT<Dataset>().withType("embedding"));
-    addField("modelFileUrl", &TsneConfig::modelFileUrl,
-             "URL where the model file (with extension '.tsn') should be saved. "
-             "This file can be loaded by the ![](%%doclink tsne.embedRow function). ");
     addField("numInputDimensions", &TsneConfig::numInputDimensions,
              "Number of dimensions from the input to use.  This will limit "
              "the columns to the n first columns in the alphabetical "
@@ -73,6 +70,10 @@ TsneConfigDescription()
              "the resulting output looks more like a ball or a sphere than "
              "individual clusters, you should reduce this number.  If it "
              "looks like a dot or star, you should increase it.");
+    addField("modelFileUrl", &TsneConfig::modelFileUrl,
+             "URL where the model file (with extension '.tsn') should be saved. "
+             "This file can be loaded by the ![](%%doclink tsne.embedRow function). "
+             "This parameter is optional unless the `functionName` parameter is used.");
     addField("functionName", &TsneConfig::functionName,
              "If specified, an instance of the ![](%%doclink tsne.embedRow function) of this name will be created using "
              "the trained model. Note that to use this parameter, the `modelFileUrl` must "
