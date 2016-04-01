@@ -178,9 +178,8 @@ ProcedureConfigDescription()
     : StructureDescription(true /*nullAccepted*/)
 {
     addField("runOnCreation", &ProcedureConfig::runOnCreation,
-             "If true, perform a first run of the procedure after creation. The response will contain an "
-             "extra field `firstRun` pointing to the location of the run.  All run's "
-             "artefacts will also be available after a successful call.",
+             "If true, the procedure will be run immediately. The response will contain an "
+             "extra field called `firstRun` pointing to the URL of the run.",
              false);
 
     // ignore unknown fields

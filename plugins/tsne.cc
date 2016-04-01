@@ -53,8 +53,8 @@ TsneConfigDescription()
              "with a list of coordinates",
              PolyConfigT<Dataset>().withType("embedding"));
     addField("modelFileUrl", &TsneConfig::modelFileUrl,
-             "URL where the t-SNE model file (with extension '.tsn') should be saved. "
-             "This file can be loaded by a function of type 'tsne.embedRow'.");
+             "URL where the model file (with extension '.tsn') should be saved. "
+             "This file can be loaded by the ![](%%doclink tsne.embedRow function). ");
     addField("numInputDimensions", &TsneConfig::numInputDimensions,
              "Number of dimensions from the input to use.  This will limit "
              "the columns to the n first columns in the alphabetical "
@@ -74,8 +74,9 @@ TsneConfigDescription()
              "individual clusters, you should reduce this number.  If it "
              "looks like a dot or star, you should increase it.");
     addField("functionName", &TsneConfig::functionName,
-             "If specified, an tsne.embedRow function of this name will be "
-             "created using the trained model.");
+             "If specified, an instance of the ![](%%doclink tsne.embedRow function) of this name will be created using "
+             "the trained model. Note that to use this parameter, the `modelFileUrl` must "
+             "also be provided.");
     addParent<ProcedureConfig>();
 
     onPostValidate = validate<TsneConfig,
@@ -368,8 +369,8 @@ TsneEmbedConfigDescription::
 TsneEmbedConfigDescription()
 {
     addField("modelFileUrl", &TsneEmbedConfig::modelFileUrl,
-             "URL of the model file (with extension '.tsn') to load. "
-             "This file is created by a procedure of type 'tsne.train'.");
+             "URL of the model file (with extension '.tns') to load. "
+             "This file is created by the ![](%%doclink tsne.train procedure).");
 }
 
 

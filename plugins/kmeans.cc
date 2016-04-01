@@ -51,8 +51,7 @@ KmeansConfigDescription()
              "does not support groupby and having clauses.");
     addField("modelFileUrl", &KmeansConfig::modelFileUrl,
              "URL where the model file (with extension '.kms') should be saved. "
-             "This file can be loaded by a function of type 'kmeans' to apply "
-             "the trained model to new data. "
+             "This file can be loaded by the ![](%%doclink kmeans function). "
              "If someone is only interested in how the training input is clustered "
              "then the parameter can be omitted and the outputDataset param can "
              "be provided instead.");
@@ -86,8 +85,8 @@ KmeansConfigDescription()
              "Euclidian for another basis",
              METRIC_COSINE);
     addField("functionName", &KmeansConfig::functionName,
-             "If specified, a kmeans function of this name will be created using "
-             "the training result.  Note that the 'modelFileUrl' must "
+             "If specified, an instance of the ![](%%doclink kmeans function) of this name will be created using "
+             "the trained model. Note that to use this parameter, the `modelFileUrl` must "
              "also be provided.");
     addParent<ProcedureConfig>();
 
@@ -283,7 +282,7 @@ KmeansFunctionConfigDescription()
 {
     addField("modelFileUrl", &KmeansFunctionConfig::modelFileUrl,
              "URL of the model file (with extension '.kms') to load. "
-             "This file is created by a procedure of type 'kmeans.train'.");
+             "This file is created by the ![](%%doclink kmeans.train procedure).");
 
     onPostValidate = [] (KmeansFunctionConfig * cfg, 
                          JsonParsingContext & context) {
