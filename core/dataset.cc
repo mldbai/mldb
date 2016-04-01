@@ -21,7 +21,6 @@
 #include "mldb/server/bucket.h"
 #include "mldb/server/parallel_merge_sort.h"
 #include "mldb/jml/utils/environment.h"
-#include "mldb/jml/utils/profile.h"
 #include "mldb/ml/jml/buckets.h"
 #include "mldb/base/parallel.h"
 #include "mldb/types/any_impl.h"

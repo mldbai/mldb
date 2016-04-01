@@ -138,8 +138,6 @@ struct JoinedDataset::Itl
 
     Itl(MldbServer * server, JoinedDatasetConfig joinConfig)
     {
-        STACK_PROFILE(JoinDataset_itl_constructor);
-
         SqlExpressionMldbContext context(server);
 
         // Create a context to get our datasets from
@@ -248,7 +246,6 @@ struct JoinedDataset::Itl
         }
 
         // Finally, the column indexes
-        STACK_PROFILE(JoinDataset_itl_make_column_indexes);
         for (auto & c: left.dataset->getColumnNames()) {
             ColumnName newColumnName(quotedLeftName.empty()
                                      ? c.toUtf8String()
@@ -326,7 +323,6 @@ struct JoinedDataset::Itl
                                BoundTableExpression& right,
                                JoinQualification qualification)
     {
-        STACK_PROFILE(makeJoinConstantWhere);
         bool debug = false;
         bool outerLeft = qualification == JOIN_LEFT || qualification == JOIN_FULL;
         bool outerRight = qualification == JOIN_RIGHT || qualification == JOIN_FULL;
@@ -338,7 +334,6 @@ struct JoinedDataset::Itl
                             const std::function<void (const RowName&, const RowHash& )> & recordOuterRow)
             -> std::vector<std::tuple<ExpressionValue, RowName, RowHash> >
             {
-                STACK_PROFILE(makeJoinConstantWhere_runSide);
                 auto sideCondition = side.where;
 
                 std::vector<std::shared_ptr<SqlExpression> > clauses = { side.selectExpression };
@@ -379,8 +374,6 @@ struct JoinedDataset::Itl
                 // Now we extract all values 
                 std::vector<std::tuple<ExpressionValue, RowName, RowHash> > sorted;
 
-                {
-                STACK_PROFILE(makeJoinConstantWhere_build);
                 for (auto & r: rows) {
                     ExcAssertEqual(r.columns.size(), 1);
 
@@ -398,12 +391,8 @@ struct JoinedDataset::Itl
                     const ExpressionValue & value = embedding.getField(0);
                     sorted.emplace_back(value, r.rowName, r.rowHash);
                 }
-                }
 
-                {
-                STACK_PROFILE(makeJoinConstantWhere_sort);
                 parallelQuickSortRecursive<std::tuple<ExpressionValue, RowName, RowHash> >(sorted.begin(), sorted.end());
-                }
 
                 return sorted;
             };
