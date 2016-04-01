@@ -11,6 +11,7 @@
 #include "mldb/ml/jml/training_index_entry.h"
 #include "mldb/jml/utils/smart_ptr_utils.h"
 #include "mldb/server/bucket.h"
+#include "mldb/jml/utils/profile.h"
 
 #include <mutex>
 
@@ -256,13 +257,6 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         for (auto & c: chunks) {
             result.insert(result.end(), c.rowNames.begin(), c.rowNames.end());
         }
-
-        std::sort(result.begin(), result.end(),
-                  [] (const RowName & n1,
-                      const RowName & n2)
-                  {
-                      return n1.hash() < n2.hash();
-                  });
 
         return result;
     }
