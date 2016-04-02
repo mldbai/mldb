@@ -72,9 +72,9 @@ class Mldb1415Test(MldbUnitTest):
             assert int(line[0]) == line[1]
 
 
-    def test_same_cluster_for_row_or_embed(self):
-        # make sure we get the same cluster back depending if we pass the coords using a row
-        # or an embedding
+    def test_same_cluster_for_any_order_of_values(self):
+        # make sure we get the same cluster back depending if we pass the
+        # coords in any order
         rez = mldb.query("""
             select kmeans({embedding: {
                                         "sepal length": 0.234932,
@@ -84,10 +84,16 @@ class Mldb1415Test(MldbUnitTest):
                         }})""")
         cluster_with_row = rez[1][1]
 
-        rez = mldb.query("select kmeans({embedding: [0.234932, 0.038858, 0.801802, 0.546086]})")
-        cluster_with_embed = rez[1][1]
+        rez = mldb.query("""
+            select kmeans({embedding: {
+                                        "petal length": 0.801802,
+                                        "sepal width": 0.038858,
+                                        "petal width": 0.546086,
+                                        "sepal length": 0.234932
+                        }})""")
+        cluster_with_row2 = rez[1][1]
 
-        assert cluster_with_row == cluster_with_embed
+        assert cluster_with_row == cluster_with_row2
 
 
     def test_self_centroid_distance_is_zero(self):
@@ -120,7 +126,8 @@ class Mldb1415Test(MldbUnitTest):
     # TODO MLDB-1486
     def test_nearest_neigbour_in_centroid_space_to_points_is_assigned_cluster(self):
         # make sure that if we take each point and get it's nearest neighbour in the
-        # centroids embedding, we get it's assigned cluster back
+        # centroids embedding, we get its assigned cluster back
+        mldb.log("------------ query");
         rez = mldb.query("""
             select *
             from iris_kmeans_dataset
@@ -129,6 +136,8 @@ class Mldb1415Test(MldbUnitTest):
                 from iris_dataset
             ) as tbl ON tbl.rowName() = iris_kmeans_dataset.rowName()
         """)
+        mldb.log("------------ results");
+        mldb.log(rez)
         for line in rez[1:]:
             not_null_idx = line.index(max(line[2:]))
 

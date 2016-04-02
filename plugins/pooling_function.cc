@@ -84,9 +84,7 @@ PoolingFunction(MldbServer * owner,
     SqlExpressionMldbContext context(owner);
     boundEmbeddingDataset = functionConfig.embeddingDataset->bind(context);
     
-    num_embed_cols
-        = boundEmbeddingDataset.dataset->getRowInfo()->columns.size()
-        * functionConfig.aggregators.size();
+    columnNames = boundEmbeddingDataset.dataset->getRowInfo()->allColumnNames();
 }
 
 Any
@@ -113,7 +111,8 @@ PoolingFunction::
 bind(SqlBindingScope & outerContext,
      const FunctionValues & input) const
 {
-    std::unique_ptr<PoolingFunctionApplier> result(new PoolingFunctionApplier(this, outerContext, input));
+    std::unique_ptr<PoolingFunctionApplier> result
+        (new PoolingFunctionApplier(this, outerContext, input));
     result->info = getFunctionInfo();
 
     // Check that all values on the passed input are compatible with the required
@@ -133,6 +132,9 @@ apply(const FunctionApplier & applier_,
  //   STACK_PROFILE(PoolingFunction_apply)
 
     auto & applier = static_cast<const PoolingFunctionApplier &>(applier_);
+
+
+    size_t num_embed_cols = columnNames.size() * functionConfig.aggregators.size();
 
     FunctionOutput queryOutput
         = queryFunction->apply(*applier.queryApplier, context);
@@ -157,16 +159,16 @@ apply(const FunctionApplier & applier_,
             const ExpressionValue & val = it->second;
 
             ML::distribution<double> dist
-                = val.getEmbeddingDouble(num_embed_cols / functionConfig.aggregators.size());
+                = val.getEmbedding(columnNames.data(), columnNames.size());
             outputEmbedding.insert(outputEmbedding.end(),
                                    dist.begin(), dist.end());
 
             outputTs.setMax(val.getEffectiveTimestamp());
         }
-
+        
         ExcAssertEqual(outputEmbedding.size(), num_embed_cols);
     }
-
+    
     FunctionOutput foResult;
     foResult.set("embedding", ExpressionValue(std::move(outputEmbedding), outputTs));
     return foResult;
@@ -179,7 +181,8 @@ getFunctionInfo() const
     FunctionInfo result;
     result.input.addRowValue("words");
 
-    result.output.addEmbeddingValue("embedding", num_embed_cols);
+    result.output.addEmbeddingValue("embedding",
+                                    columnNames.size() * functionConfig.aggregators.size());
 
     return result;
 }
