@@ -41,6 +41,13 @@ struct ValueMapKey {
     ValueMapKey(const char * utf8Start);
     ValueMapKey(const char * utf8Start, size_t utf8Len);
 
+    template<size_t N>
+    ValueMapKey(const char (&name)[N])
+        : utf8Start(name),
+          utf8Len((N && name[N - 1])?N:N-1)  // remove null char from end
+    {
+    }
+
     /// Obtain a ValueMapKey that allocates nothing and has a reference to
     /// the data in name, which must be immutable and outlive the result
     static ValueMapKey ref(const Utf8String & name);
@@ -52,6 +59,18 @@ struct ValueMapKey {
     /// Obtain a ValueMapKey that allocates nothing and has a reference to
     /// the data in coord, which must be immutable and outlive the result
     static ValueMapKey ref(const MLDB::Coord & coord);
+
+    /// Obtain a ValueMapKey that allocates nothing and has a reference to
+    /// the data in coord, which must be immutable and outlive the result
+    static ValueMapKey ref(const char * coord);
+
+    /// Obtain a ValueMapKey that allocates nothing and has a reference to
+    /// the data in coord, which must be immutable and outlive the result
+    template<size_t N>
+    static ValueMapKey ref(const char (&name)[N])
+    {
+        return ValueMapKey(name);
+    }
 
     bool empty() const { return utf8Len == 0; }
 
@@ -110,7 +129,15 @@ struct FunctionContext {
 
     ExpressionValue getValueOrNull(const Utf8String & name) const;
     ExpressionValue getValueOrNull(const ColumnName & name) const;
-    ExpressionValue getValueOrNull(const ValueMapKey & key) const;
+    ExpressionValue getValueOrNull(const ValueMapKey & name) const;
+    ExpressionValue getValueOrNull(const char * name) const;
+    template<size_t N>
+    ExpressionValue getValueOrNull(const char (&name)[N]) const
+    {
+        auto key = ValueMapKey::ref(name, N - 1);
+        return getValueOrNull(key);
+    }
+    
 
     /// Used to provide a reference to a missing value
     static const ExpressionValue NONE;
@@ -313,13 +340,13 @@ struct FunctionValues {
     FunctionValues(const ExpressionValueInfo & rowInfo);
 
     void addValue(const Utf8String & name,
-                std::shared_ptr<ExpressionValueInfo> info);
+                  std::shared_ptr<ExpressionValueInfo> info);
     
     /** Add a named value that has an embedding value (fixed length list of
         real valued coordinates).
     */
     void addEmbeddingValue(const std::string & name,
-                         ssize_t numDimensions);
+                           ssize_t numDimensions);
 
     /** Add a named value that has a row value (key/value/timestamp tuples).
         This one is temporary and simply says that there is an open schema and
@@ -329,8 +356,8 @@ struct FunctionValues {
 
     /** Add a named value that has a row value (key/value/timestamp tuples) */
     void addRowValue(const std::string & name,
-                   const std::vector<KnownColumn> & knownColumns,
-                   SchemaCompleteness completeness = SCHEMA_CLOSED);
+                     const std::vector<KnownColumn> & knownColumns,
+                     SchemaCompleteness completeness = SCHEMA_CLOSED);
     
     /** Add a named value that is an atom (null, number, string). */
     void addAtomValue(const std::string & name);

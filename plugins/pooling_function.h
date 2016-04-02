@@ -59,7 +59,7 @@ struct PoolingFunction: public Function {
     BoundTableExpression boundEmbeddingDataset;
 
     PoolingFunctionConfig functionConfig;
-    int num_embed_cols;
+    std::vector<ColumnName> columnNames;
 
     SelectExpression select;
 };

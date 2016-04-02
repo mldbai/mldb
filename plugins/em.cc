@@ -1,3 +1,11 @@
+/** em.cc                                                          -*- C++ -*-
+    Mathieu Marquis Bolduc, October 28th, 2015
+    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+
+    Guassian clustering procedure and functions.
+*/
 
 #include "em.h"
 #include "mldb/ml/em.h"
@@ -116,40 +124,35 @@ getStatus() const
 RunOutput
 EMProcedure::
 run(const ProcedureRunConfig & run,
-      const std::function<bool (const Json::Value &)> & onProgress) const
+    const std::function<bool (const Json::Value &)> & onProgress) const
 {
-  auto runProcConf = applyRunConfOverProcConf(emConfig, run);
+    auto runProcConf = applyRunConfOverProcConf(emConfig, run);
 
-  auto onProgress2 = [&] (const Json::Value & progress)
-  {
-      Json::Value value;
-      value["dataset"] = progress;
-      return onProgress(value);
-  };
+    auto onProgress2 = [&] (const Json::Value & progress)
+        {
+            Json::Value value;
+            value["dataset"] = progress;
+            return onProgress(value);
+        };
 
-  SqlExpressionMldbContext context(server);
+    SqlExpressionMldbContext context(server);
 
-  auto embeddingOutput = getEmbedding(*runProcConf.trainingData.stm,
-                                      context,
-                                      runProcConf.numInputDimensions,
-                                      onProgress2);
+    auto embeddingOutput = getEmbedding(*runProcConf.trainingData.stm,
+                                        context,
+                                        runProcConf.numInputDimensions,
+                                        onProgress2);
 
-  auto rows = embeddingOutput.first;
-  std::vector<KnownColumn> & vars = embeddingOutput.second;
+    auto rows = embeddingOutput.first;
+    std::vector<KnownColumn> & vars = embeddingOutput.second;
 
-  std::vector<ColumnName> columnNames;
-  for (auto & v: vars) {
-    columnNames.push_back(v.columnName);
-  }
+    std::vector<ML::distribution<double> > vecs;
 
-  std::vector<ML::distribution<double> > vecs;
+    for (unsigned i = 0;  i < rows.size();  ++i) {
+        vecs.emplace_back(ML::distribution<double>(std::get<2>(rows[i]).begin(),
+                                                   std::get<2>(rows[i]).end()));
+    }
 
-  for (unsigned i = 0;  i < rows.size();  ++i) {
-    vecs.emplace_back(ML::distribution<double>(std::get<2>(rows[i]).begin(),
-                                                  std::get<2>(rows[i]).end()));
-  }
-
-  if (vecs.size() == 0)
+    if (vecs.size() == 0)
         throw HttpReturnException(400, "Gaussian clustering training requires at least 1 datapoint. "
                                   "Make sure your dataset is not empty and that your WHERE expression "
                                   "does not filter all the rows");
@@ -163,6 +166,13 @@ run(const ProcedureRunConfig & run,
     //cerr << "EM training start" << endl;
     em.train(vecs, inCluster, numClusters, numIterations, 0);
     //cerr << "EM training end" << endl;
+
+    // Let the model know about its column names
+    std::vector<ColumnName> columnNames;
+    for (auto & v: vars) {
+        columnNames.push_back(v.columnName);
+        em.columnNames.push_back(v.columnName.toUtf8String());
+    }
 
     // output
 
@@ -210,7 +220,7 @@ run(const ProcedureRunConfig & run,
 
             std::vector<std::tuple<ColumnName, CellValue, Date> > cols;
 
-           for (unsigned j = 0;  j < cluster.centroid.size();  ++j) {
+            for (unsigned j = 0;  j < cluster.centroid.size();  ++j) {
                 cols.emplace_back(columnNames[j], cluster.centroid[j], applyDate);
             }
 
@@ -226,16 +236,16 @@ run(const ProcedureRunConfig & run,
         centroids->commit();
     }
 
-    if(!runProcConf.functionName.empty()) {
+    if (!runProcConf.functionName.empty()) {
         if (saved) {
             EMFunctionConfig funcConf;
             funcConf.modelFileUrl = runProcConf.modelFileUrl;
-
+            
             PolyConfig emPC;
-            emPC.type = "gaussian clustering";
+            emPC.type = "gaussianclustering";
             emPC.id = runProcConf.functionName;
             emPC.params = funcConf;
-
+            
             obtainFunction(server, emPC, onProgress);
         } else {
             throw HttpReturnException(400, "Can't create gaussian clustering function '" +
@@ -274,9 +284,12 @@ EMFunctionConfigDescription()
 
 struct EMFunction::Impl {
     ML::EstimationMaximisation em;
-    
+    std::vector<ColumnName> columnNames;
+
     Impl(const Url & modelFileUrl) {
         em.load(modelFileUrl.toString());
+        for (auto & c: em.columnNames)
+            this->columnNames.push_back(c);
     }
 };
 
@@ -305,18 +318,42 @@ getStatus() const
     return Any();
 }
 
+struct EMFunctionApplier: public FunctionApplier {
+    EMFunctionApplier(const EMFunction * owner,
+                      const FunctionValues & input)
+        : FunctionApplier(owner)
+    {
+        info = owner->getFunctionInfo();
+        auto info = input.getValueInfo("embedding");
+        extract = info.getExpressionValueInfo()
+            ->extractDoubleEmbedding(owner->impl->columnNames);
+    }
+
+    ExpressionValueInfo::ExtractDoubleEmbeddingFunction extract;
+};
+
+std::unique_ptr<FunctionApplier>
+EMFunction::
+bind(SqlBindingScope & outerContext,
+     const FunctionValues & input) const
+{
+    return std::unique_ptr<EMFunctionApplier>
+        (new EMFunctionApplier(this, input));
+}
+
 FunctionOutput
 EMFunction::
-apply(const FunctionApplier & applier,
+apply(const FunctionApplier & applier_,
       const FunctionContext & context) const
 {
+    auto & applier = static_cast<const EMFunctionApplier &>(applier_);
+
     FunctionOutput result;
 
     // Extract an embedding with the given column names
     ExpressionValue storage;
     const ExpressionValue & inputVal = context.get("embedding", storage);
-
-    ML::distribution<double> input = inputVal.getEmbeddingDouble(dimension);
+    ML::distribution<double> input = applier.extract(inputVal);
     Date ts = inputVal.getEffectiveTimestamp();
 
     int bestCluster = impl->em.assign(input);

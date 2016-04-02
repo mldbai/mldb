@@ -60,6 +60,180 @@ StorageTypeDescription()
     addValue("INTERVAL",   ST_TIMEINTERVAL, "Time interval");
 }
 
+template<typename T>
+const T & getValueT(const void * buf, size_t n)
+{
+    return n[reinterpret_cast<const T *>(buf)];
+}
+
+static CellValue
+getValue(const void * buf, StorageType storageType, size_t n)
+{
+    switch (storageType) {
+    case ST_FLOAT32:
+        return getValueT<float>(buf, n);
+    case ST_FLOAT64:
+        return getValueT<double>(buf, n);
+    case ST_INT8:
+        return getValueT<int8_t>(buf, n);
+    case ST_UINT8:
+        return getValueT<uint8_t>(buf, n);
+    case ST_INT16:
+        return getValueT<int16_t>(buf, n);
+    case ST_UINT16:
+        return getValueT<uint16_t>(buf, n);
+    case ST_INT32:
+        return getValueT<int32_t>(buf, n);
+    case ST_UINT32:
+        return getValueT<uint32_t>(buf, n);
+    case ST_INT64:
+        return getValueT<int64_t>(buf, n);
+    case ST_UINT64:
+        return getValueT<uint64_t>(buf, n);
+    case ST_BLOB:
+        return CellValue::blob(getValueT<std::string>(buf, n));
+    case ST_STRING:
+        return getValueT<std::string>(buf, n);
+    case ST_UTF8STRING:
+        return getValueT<Utf8String>(buf, n);
+    case ST_ATOM:
+        return getValueT<CellValue>(buf, n);
+    case ST_BOOL:
+        return getValueT<bool>(buf, n);
+    case ST_TIMESTAMP:
+        return getValueT<Date>(buf, n);
+    case ST_TIMEINTERVAL:
+        throw HttpReturnException(500, "Can't store time intervals");
+    }
+        
+    throw HttpReturnException(500, "Unknown embedding storage type",
+                              "storageType", storageType);
+}
+
+#if 0
+static double
+getDouble(const void * buf, StorageType storageType, size_t n)
+{
+    switch (storageType) {
+    case ST_FLOAT32:
+        return getValueT<float>(buf, n);
+    case ST_FLOAT64:
+        return getValueT<double>(buf, n);
+    case ST_INT8:
+        return getValueT<int8_t>(buf, n);
+    case ST_UINT8:
+        return getValueT<uint8_t>(buf, n);
+    case ST_INT16:
+        return getValueT<int16_t>(buf, n);
+    case ST_UINT16:
+        return getValueT<uint16_t>(buf, n);
+    case ST_INT32:
+        return getValueT<int32_t>(buf, n);
+    case ST_UINT32:
+        return getValueT<uint32_t>(buf, n);
+    case ST_INT64:
+        return getValueT<int64_t>(buf, n);
+    case ST_UINT64:
+        return getValueT<uint64_t>(buf, n);
+    case ST_ATOM:
+        return getValueT<CellValue>(buf, n).coerceToNumber().toDouble();
+    case ST_BOOL:
+        return getValueT<bool>(buf, n);
+    case ST_TIMESTAMP:
+        return getValueT<Date>(buf, n).secondsSinceEpoch();
+    case ST_BLOB:
+    case ST_STRING:
+    case ST_UTF8STRING:
+    case ST_TIMEINTERVAL:
+        throw HttpReturnException
+            (400, "Can't extract number from embedding of type "
+             + jsonEncodeStr(storageType));
+    }
+    
+    throw HttpReturnException(500, "Unknown embedding storage type",
+                              "storageType", storageType);
+}
+#endif
+
+double coerceTo(const CellValue & val, double *)
+{
+    return val.coerceToNumber().toDouble();
+}
+
+double coerceTo(Date d, double *)
+{
+    return d.secondsSinceEpoch();
+}
+
+template<typename T>
+double coerceTo(const T & t, double *,
+                typename std::enable_if<std::is_arithmetic<T>::value>::type * = 0)
+{
+    return t;
+}
+
+template<typename T>
+double coerceTo(const T & t, double *,
+                typename std::enable_if<!std::is_arithmetic<T>::value>::type * = 0)
+{
+    throw HttpReturnException("can't coerce to numeric type");
+}
+
+
+template<typename Tstorage, typename TOut>
+TOut * getValuesT(const void * buf, TOut * out, size_t n)
+{
+    auto * tbuf = reinterpret_cast<const Tstorage *>(buf);
+    for (; n > 0; --n) {
+        *out++ = coerceTo(*tbuf++, (TOut *)0);
+    }
+    return out;
+}
+
+template<typename TNumber>
+static TNumber *
+getNumbers(const void * buf, StorageType storageType, TNumber * out, size_t n)
+{
+    switch (storageType) {
+    case ST_FLOAT32:
+        return getValuesT<float>(buf, out, n);
+    case ST_FLOAT64:
+        return getValuesT<double>(buf, out, n);
+    case ST_INT8:
+        return getValuesT<int8_t>(buf, out, n);
+    case ST_UINT8:
+        return getValuesT<uint8_t>(buf, out, n);
+    case ST_INT16:
+        return getValuesT<int16_t>(buf, out, n);
+    case ST_UINT16:
+        return getValuesT<uint16_t>(buf, out, n);
+    case ST_INT32:
+        return getValuesT<int32_t>(buf, out, n);
+    case ST_UINT32:
+        return getValuesT<uint32_t>(buf, out, n);
+    case ST_INT64:
+        return getValuesT<int64_t>(buf, out, n);
+    case ST_UINT64:
+        return getValuesT<uint64_t>(buf, out, n);
+    case ST_ATOM:
+        return getValuesT<CellValue>(buf, out, n);
+    case ST_BOOL:
+        return getValuesT<bool>(buf, out, n);
+    case ST_TIMESTAMP:
+        return getValuesT<Date>(buf, out, n);
+    case ST_BLOB:
+    case ST_STRING:
+    case ST_UTF8STRING:
+    case ST_TIMEINTERVAL:
+        throw HttpReturnException
+            (400, "Can't extract number from embedding of type "
+             + jsonEncodeStr(storageType));
+    }
+    
+    throw HttpReturnException(500, "Unknown embedding storage type",
+                              "storageType", storageType);
+}
+
 /*****************************************************************************/
 /* EXPRESSION VALUE INFO                                                     */
 /*****************************************************************************/
@@ -263,6 +437,57 @@ ExpressionValueInfo::
 getEmbeddingType() const
 {
     return ST_ATOM;
+}
+
+ExpressionValueInfo::ExtractDoubleEmbeddingFunction
+ExpressionValueInfo::
+extractDoubleEmbedding(const std::vector<ColumnName> & cols) const
+{
+    // TODO: specialize this
+    return [=] (const ExpressionValue & val)
+        {
+            return val.getEmbedding(cols.data(), cols.size());
+        };
+}
+
+std::tuple<ExpressionValueInfo::GetCompatibleDoubleEmbeddingsFn,
+           std::shared_ptr<ExpressionValueInfo>,
+           ExpressionValueInfo::ReconstituteFromEmbeddingFn>
+ExpressionValueInfo::
+getCompatibleDoubleEmbeddings(const ExpressionValueInfo & other) const
+{
+    ExpressionValueInfo::GetCompatibleDoubleEmbeddingsFn get
+        = [=] (const ExpressionValue & val1,
+               const ExpressionValue & val2)
+        -> std::tuple<DoubleDist, DoubleDist, std::shared_ptr<const void>, Date>
+        {
+            DoubleDist d1 = val1.getEmbeddingDouble();
+            DoubleDist d2 = val2.getEmbeddingDouble();
+
+            if (d1.size() != d2.size())
+                throw HttpReturnException(500, "Incompatibly sized distributions");
+
+            std::shared_ptr<const void> token;
+            Date ts = std::min(val1.getEffectiveTimestamp(),
+                               val2.getEffectiveTimestamp());
+            return std::make_tuple(std::move(d1), std::move(d2),
+                                   std::move(token), ts);
+        };
+
+    ExpressionValueInfo::ReconstituteFromEmbeddingFn reconst
+        = [=] (std::vector<double> vals,
+               const void * token,
+               Date timestamp)
+        -> ExpressionValue
+        {
+            return ExpressionValue(std::move(vals), timestamp);
+        };
+    
+    // For the moment, we just return an embedding value info.  Later for
+    // better safety and performance we will update.
+    auto info = std::make_shared<EmbeddingValueInfo>(-1, ST_FLOAT64);
+    
+    return std::make_tuple(std::move(get), std::move(info), std::move(reconst));
 }
 
 DEFINE_VALUE_DESCRIPTION_NS(std::shared_ptr<ExpressionValueInfo>,
@@ -836,53 +1061,9 @@ struct ExpressionValue::Embedding {
         return result;
     }
 
-    template<typename T>
-    const T & getValueT(size_t n) const
-    {
-        return n[(T *)(data_.get())];
-    }
-
     CellValue getValue(size_t n) const
     {
-        switch (storageType_) {
-        case ST_FLOAT32:
-            return getValueT<float>(n);
-        case ST_FLOAT64:
-            return getValueT<double>(n);
-        case ST_INT8:
-            return getValueT<int8_t>(n);
-        case ST_UINT8:
-            return getValueT<uint8_t>(n);
-        case ST_INT16:
-            return getValueT<int16_t>(n);
-        case ST_UINT16:
-            return getValueT<uint16_t>(n);
-        case ST_INT32:
-            return getValueT<int32_t>(n);
-        case ST_UINT32:
-            return getValueT<uint32_t>(n);
-        case ST_INT64:
-            return getValueT<int64_t>(n);
-        case ST_UINT64:
-            return getValueT<uint64_t>(n);
-        case ST_BLOB:
-            return CellValue::blob(getValueT<std::string>(n));
-        case ST_STRING:
-            return getValueT<std::string>(n);
-        case ST_UTF8STRING:
-            return getValueT<Utf8String>(n);
-        case ST_ATOM:
-            return getValueT<CellValue>(n);
-        case ST_BOOL:
-            return getValueT<bool>(n);
-        case ST_TIMESTAMP:
-            return getValueT<Date>(n);
-        case ST_TIMEINTERVAL:
-            throw HttpReturnException(500, "Can't store time intervals");
-        }
-        
-        throw HttpReturnException(500, "Unknown embedding storage type",
-                                  "storageType", storageType_);
+        return MLDB::getValue(data_.get(), storageType_, n);
     }
 
     bool forEachValue(std::function<bool (const std::vector<int> & indexes,
@@ -1020,22 +1201,6 @@ ExpressionValue(const std::basic_string<char32_t> & utf32StringValue, Date ts)
     initAtom(Utf8String(utf32StringValue), ts);
 }
 
-#if 0
-ExpressionValue::
-ExpressionValue(const char16_t * unicodeStringValue, Date ts)
-    : type_(NONE)
-{
-    initAtom(unicodeStringValue, ts);
-}
-
-ExpressionValue::
-ExpressionValue(const char32_t * unicodeStringValue, Date ts)
-    : type_(NONE)
-{
-    initAtom(unicodeStringValue, ts);
-}
-#endif
-
 ExpressionValue::
 ExpressionValue(CellValue atom, Date ts) noexcept
     : type_(NONE)
@@ -1161,27 +1326,12 @@ ExpressionValue(RowValue row) noexcept
 
     for (auto & c: row) {
         row2.emplace_back(std::move(std::get<0>(c)),
-                          ExpressionValue(std::move(std::get<1>(c)), std::get<2>(c)));
+                          ExpressionValue(std::move(std::get<1>(c)),
+                                          std::get<2>(c)));
     }
     
     initRow(std::move(row2));
 }
-
-#if 0
-ExpressionValue::
-ExpressionValue(const ML::distribution<float> & embedding, Date ts)
-    : type_(NONE)
-{
-    initEmbedding(embedding, ts);
-}
-
-ExpressionValue::
-ExpressionValue(const ML::distribution<double> & embedding, Date ts)
-    : type_(NONE)
-{
-    initEmbedding(embedding, ts);
-}
-#endif
 
 ExpressionValue::
 ~ExpressionValue()
@@ -1817,19 +1967,18 @@ reshape(std::vector<size_t> newShape) const
     throw HttpReturnException(500, "Unknown storage type for reshape()");
 }
 
+#if 1
 ML::distribution<float, std::vector<float> >
 ExpressionValue::
-getEmbedding(ssize_t knownLength, bool sortColumns) const
+getEmbedding(ssize_t knownLength) const
 {
-    return getEmbeddingDouble(knownLength, sortColumns).cast<float>();
+    return getEmbeddingDouble(knownLength).cast<float>();
 }
 
 ML::distribution<double, std::vector<double> >
 ExpressionValue::
-getEmbeddingDouble(ssize_t knownLength, bool sortColumns) const
+getEmbeddingDouble(ssize_t knownLength) const
 {
-    //cerr << "getEmbedding for " << jsonEncode(*this) << endl;
-
     // TODO: this is inefficient.  We should be able to have the
     // info function return us one that does it much more
     // efficiently.
@@ -1849,11 +1998,6 @@ getEmbeddingDouble(ssize_t knownLength, bool sortColumns) const
 
     forEachAtom(onAtom);
 
-    // TODO MLDB-1486
-    if(sortColumns) {
-       std::sort(features.begin(), features.end());
-    }
-
     ML::distribution<double> result;
     result.reserve(features.size());
     for (unsigned i = 0;  i < features.size();  ++i) {
@@ -1871,76 +2015,177 @@ getEmbeddingDouble(ssize_t knownLength, bool sortColumns) const
     return result;
 }
 
-ML::distribution<float, std::vector<float> >
+ML::distribution<double, std::vector<double> >
 ExpressionValue::
-getEmbedding(const std::vector<ColumnName> & knownNames,
-             ssize_t maxLength,
-             size_t numDone) const
+getEmbedding(const ColumnName * knownNames, size_t len) const
 {
-    //cerr << "getEmbedding for " << jsonEncode(*this) << endl;
+    ML::distribution<double> features
+        (len, std::numeric_limits<float>::quiet_NaN());
 
-    //cerr << "in getEmbedding with type " << type_ << endl;
+    // Index of value we're writing.  If they aren't in order, this will
+    // be -1.
+    int currentIndex = 0;
 
-    ML::distribution<float> features;
-    if (maxLength != -1)
-        features.reserve(maxLength);
-
-    if (type_ == STRUCT) {
-        if (!struct_->values.empty()) {
-            for (unsigned i = 0;  i < struct_->values.size();  ++i) {
-                if (maxLength != -1 && features.size() >= maxLength)
-                    break;
-                features.push_back(struct_->values[i].toDouble());
-                // TODO: assert on name
-            }
-        } else {
-            if (maxLength == -1)
-                maxLength = struct_->length();
-            features.reserve(struct_->values.size());
-            for (auto & v: struct_->values)
-                features.emplace_back(v.toDouble());
-        }
-        return features;
-    }
-    else if (type_ == EMBEDDING) {
-        throw HttpReturnException(400, "getEmbedding for embedding");
-    }
-
-    auto onSubexpression = [&] (const ColumnName & columnName,
-                                const ColumnName & prefix,
-                                const ExpressionValue & val)
+    /// If they're not in order, we create this index
+    ML::Lightweight_Hash<uint64_t, int> columnIndex;
+    
+    /// Add a CellValue we extracted to the output.  This will also
+    /// deal with non-ordered column names.
+    auto addCell = [&] (const ColumnName & columnName, const CellValue & val)
         {
-            ssize_t numToAdd = -1;
-            if (maxLength != -1) {
-                numToAdd = maxLength - features.size();
-                if (numToAdd <= 0)
-                    return false;
+            double dbl = coerceTo(val, (double *)0);
+
+            if (currentIndex >= 0) {
+                // Up to now, they've been ordered
+                if (currentIndex >= len)
+                    throw HttpReturnException
+                        (400, "too many columns extracting embedding: "
+                         + columnName.toUtf8String(),
+                         "extraColumn", columnName);
+                
+                if (knownNames[currentIndex] != columnName) {
+                    // Set up the index of column names for non-ordered
+                    // values.
+                    for (size_t i = currentIndex;  i < len;  ++i) {
+                        if (!columnIndex.insert({knownNames[i].newHash(), i})
+                            .second) {
+                            throw HttpReturnException
+                                (400, "Column appears twice in embedding: '"
+                                 + knownNames[i].toUtf8String()
+                                 + "' appears at index "
+                                 + std::to_string(columnIndex[knownNames[i].newHash()])
+                                 + " and "
+                                 + std::to_string(i));
+                        }
+                    }
+
+                    currentIndex = -1;
+                }
+                else {
+                    if (!val.empty()) {
+                        features[currentIndex] = dbl;
+                    }
+                    currentIndex++;
+                    return;
+                }
             }
-
-            ML::distribution<float> subEmbedding
-                = val.getEmbedding(knownNames, numToAdd, features.size());
-
-            if (numToAdd == -1) {
-                features.insert(features.end(),
-                                subEmbedding.begin(),
-                                subEmbedding.end());
-            }
-            else {
-                if (subEmbedding.size() < numToAdd)
-                    numToAdd = subEmbedding.size();
-
-                features.insert(features.end(),
-                                subEmbedding.begin(),
-                                subEmbedding.begin() + numToAdd);
-            }
-
-            //cerr << "sub getEmbedding " << columnName << " " << prefix
-            //<< " " << val.type_ << " " << jsonEncodeStr(val) << endl;
-            return maxLength == -1 || features.size() < maxLength;
             
+            // If we got here, we're getting columns out of the order that
+            // they were passed in.  We look them up in the column index.
+            auto it = columnIndex.find(columnName.newHash());
+            if (it == columnIndex.end() || it->second == -1) {
+                bool addedTwice
+                    = (it != columnIndex.end() && it->second == -1)
+                    || (std::find(knownNames, knownNames + len,
+                                  columnName)
+                        != knownNames + len);
+                if (addedTwice) {
+                    throw HttpReturnException
+                        (400, "Column '" + columnName.toUtf8String()
+                         + " was added twice to embedding",
+                         "row", *this,
+                         "knownNames",
+                         vector<ColumnName>(knownNames, knownNames + len));
+                }
+                else {
+                    throw HttpReturnException
+                        (400, "Column '" + columnName.toUtf8String()
+                         + "' was unknown for embedding",
+                         "row", *this,
+                         "knownNames",
+                         vector<ColumnName>(knownNames, knownNames + len));
+                }
+            }
+
+            features[it->second] = dbl;
+
+            // Record as already done to detect double-adds of features
+            // for the embedding.  The lightweight hash doesn't support
+            // deleting elements, so we have to mark them as -1.
+            it->second = -1;
         };
 
-    forEachSubexpression(onSubexpression);
+    switch (type_) {
+
+    case STRUCT:
+        if (struct_->columnNames) {
+            for (unsigned i = 0;  i < struct_->values.size();  ++i) {
+                addCell(struct_->columnNames->at(i), struct_->values[i]);
+            }
+        } else {
+            for (unsigned i = 0;  i < struct_->values.size();  ++i) {
+                addCell(i, struct_->values[i]);
+            }
+        }
+        break;
+
+    case EMBEDDING: {
+        std::vector<size_t> shape = getEmbeddingShape();
+        size_t totalLength = 1;
+        for (auto & s: shape)
+            totalLength *= s;
+
+        if (len != totalLength)
+            throw HttpReturnException(400, "wrong number of columns for embedding");
+
+        bool allGood = shape.size() == 1;
+        if (shape.size() == 1) {
+            // For the single dimensional case we can optimize when the
+            // column names are in order.
+            for (size_t i = 0;  i < totalLength && allGood;  ++i) {
+                if (knownNames[i] != i)
+                    allGood = false;
+            }
+
+            if (allGood) {
+                getNumbers(embedding_->data_.get(),
+                           embedding_->storageType_,
+                           features.data(), totalLength);
+            }
+        }
+        
+        if (!allGood) {
+            // Not the simple case (either out of order, or more than
+            // one dimension).  Do it the slower way; at least we will
+            // get the right result!
+            auto onColumn = [&] (ColumnName & col, CellValue & val)
+                {
+                    addCell(col, val);
+                    return true;
+                };
+            
+            embedding_->forEachColumn(onColumn);
+        }
+        break;
+    }
+
+    case ROW:
+        for (auto & r: *row_) {
+            const ColumnName & columnName = std::get<0>(r);
+            const ExpressionValue & val = std::get<1>(r);
+
+            if (val.isAtom()) {
+                addCell(columnName, val.getAtom());
+            }
+            else {
+                auto onAtom = [&] (const Coord & columnName,
+                                   const Coord & prefix,
+                                   const CellValue & val,
+                                   Date ts)
+                    {
+                        addCell(prefix + columnName, val);
+                        return true;
+                    };
+
+                val.forEachAtom(onAtom, columnName);
+            }
+        }
+        break;
+
+    case NONE:
+    case ATOM:
+        throw HttpReturnException(400, "Cannot extract embedding from atom");
+    }
 
     return features;
 }
@@ -1963,6 +2208,7 @@ getEmbeddingCell(ssize_t knownLength) const
 
     throw HttpReturnException(500, "getEmbeddingCell called for non-embedding");
 }
+#endif
 
 void
 ExpressionValue::
@@ -2712,6 +2958,10 @@ initRow(std::shared_ptr<const Row> value) noexcept
         }
     }
 
+    for (auto & v: *value) {
+        ExcAssert(!std::get<0>(v).empty());
+    }
+
     new (storage_) std::shared_ptr<const Row>(std::move(value));
     type_ = ROW;
 }
@@ -3377,25 +3627,6 @@ doSearchRow(const std::vector<std::tuple<Key, CellValue, Date> > & columns,
                                                  std::get<2>(columns[index]))));
 }
 
-#if 0
-const ExpressionValue *
-searchRow(const std::vector<std::tuple<ColumnHash, CellValue, Date> > & columns,
-          const ColumnHash & key,
-          const VariableFilter & filter,
-          ExpressionValue & storage)
-{
-    return doSearchRow(columns, key, filter, storage);
-}
-
-const ExpressionValue *
-searchRow(const std::vector<std::tuple<ColumnHash, CellValue, Date> > & columns,
-          const ColumnName & key,
-          const VariableFilter & filter,
-          ExpressionValue & storage)
-{
-    return doSearchRow(columns, ColumnHash(key), filter, storage);
-}
-#endif
 const ExpressionValue *
 searchRow(const std::vector<std::tuple<ColumnName, CellValue, Date> > & columns,
           const ColumnName & key,
@@ -3501,23 +3732,6 @@ NamedRowValueDescription()
     addField("rowHash", &NamedRowValue::rowHash, "Hash of the row");
     addField("columns", &NamedRowValue::columns, "Columns active for this row");
 }
-
-#if 0
-NamedRowValue::operator MatrixNamedRow() const
-{
-    MatrixNamedRow result;
-    result.rowName = rowName;
-    result.rowHash = rowHash;
-
-    for (auto & c: columns) {
-        const ColumnName & columnName = std::get<0>(c);
-        const ExpressionValue & val = std::get<1>(c);
-        val.appendToRow(columnName, result);
-    }
-    
-    return result;
-}
-#endif
 
 MatrixNamedRow
 NamedRowValue::flattenDestructive()

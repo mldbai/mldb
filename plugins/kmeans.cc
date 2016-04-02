@@ -28,6 +28,7 @@
 #include "mldb/types/any_impl.h"
 #include "mldb/types/optional_description.h"
 #include "mldb/vfs/fs_utils.h"
+#include "mldb/vfs/filter_streams.h"
 
 using namespace std;
 
@@ -200,7 +201,15 @@ run(const ProcedureRunConfig & run,
     if (!runProcConf.modelFileUrl.empty()) {
         try {
             Datacratic::makeUriDirectory(runProcConf.modelFileUrl.toString());
-            kmeans.save(runProcConf.modelFileUrl.toString());
+            Json::Value md;
+            md["algorithm"] = "MLDB k-Means model";
+            md["version"] = 1;
+            md["columnNames"] = jsonEncode(columnNames);
+
+            filter_ostream stream(runProcConf.modelFileUrl.toString());
+            stream << md.toString();
+            ML::DB::Store_Writer writer(stream);
+            kmeans.serialize(writer);
             saved = true;
         }
         catch (const std::exception & exc) {
@@ -302,9 +311,24 @@ KmeansFunctionConfigDescription()
 
 struct KmeansFunction::Impl {
     ML::KMeans kmeans;
-    
-    Impl(const Url & modelFileUrl) {
-        kmeans.load(modelFileUrl.toString());
+    std::vector<ColumnName> columnNames;
+
+    Impl(const Url & modelFileUrl)
+    {
+        filter_istream stream(modelFileUrl.toString());
+        std::string firstLine;
+        std::getline(stream, firstLine);
+        Json::Value md = Json::parse(firstLine);
+        if (md["algorithm"] != "MLDB k-Means model") {
+            throw HttpReturnException(400, "Model file is not a k-means model");
+        }
+        if (md["version"].asInt() != 1) {
+            throw HttpReturnException(400, "k-Means model version is wrong");
+        }
+        columnNames = jsonDecode<std::vector<ColumnName> >(md["columnNames"]);
+        
+        ML::DB::Store_Reader store(stream);
+        kmeans.reconstitute(store);
     }
 };
 
@@ -319,10 +343,6 @@ KmeansFunction(MldbServer * owner,
     impl.reset(new Impl(functionConfig.modelFileUrl));
     
     dimension = impl->kmeans.clusters[0].centroid.size();
-
-    cerr << "got " << impl->kmeans.clusters.size()
-         << " clusters with " << dimension
-         << "values" << endl;
 }
 
 Any
@@ -332,28 +352,47 @@ getStatus() const
     return Any();
 }
 
+struct KmeansFunctionApplier: public FunctionApplier {
+    KmeansFunctionApplier(const KmeansFunction * owner,
+                          const FunctionValues & input)
+        : FunctionApplier(owner)
+    {
+        info = owner->getFunctionInfo();
+        auto info = input.getValueInfo("embedding");
+        extract = info.getExpressionValueInfo()
+            ->extractDoubleEmbedding(owner->impl->columnNames);
+    }
+
+    ExpressionValueInfo::ExtractDoubleEmbeddingFunction extract;
+};
+
+std::unique_ptr<FunctionApplier>
+KmeansFunction::
+bind(SqlBindingScope & outerContext,
+     const FunctionValues & input) const
+{
+    return std::unique_ptr<KmeansFunctionApplier>
+        (new KmeansFunctionApplier(this, input));
+}
+
 FunctionOutput
 KmeansFunction::
-apply(const FunctionApplier & applier,
+apply(const FunctionApplier & applier_,
       const FunctionContext & context) const
 {
-    FunctionOutput result;
+    auto & applier = static_cast<const KmeansFunctionApplier &>(applier_);
 
+    FunctionOutput result;
+    
     // Extract an embedding with the given column names
     ExpressionValue storage;
     const ExpressionValue & inputVal = context.get("embedding", storage);
-    
-    // if we're passing in a row, we're assuming the columns are
-    // in the right order so we prevent the alphabetical sorting
-    // TODO MLDB-1486
-    bool sortColumns = inputVal.isEmbedding();
-    ML::distribution<float> input = inputVal.getEmbedding(dimension, sortColumns);
-
-    //cout << input << endl;
+    ML::distribution<double> input = applier.extract(inputVal);
 
     Date ts = inputVal.getEffectiveTimestamp();
 
-    int bestCluster = impl->kmeans.assign(input);
+    int bestCluster
+        = impl->kmeans.assign(input.cast<float>());
 
     result.set("cluster", ExpressionValue(bestCluster, ts));
 

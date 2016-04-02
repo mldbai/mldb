@@ -877,7 +877,9 @@ struct EmbeddingDataset::Itl
     }
 
     vector<tuple<RowName, RowHash, float> >
-    getNeighbours(const ML::distribution<float> & coord, int numNeighbours, double maxDistance)
+    getNeighbours(const ML::distribution<float> & coord,
+                  int numNeighbours,
+                  double maxDistance)
     {
         auto repr = committed();
         if (!repr->initialized())
@@ -892,7 +894,7 @@ struct EmbeddingDataset::Itl
 
         auto neighbours = repr->vpTree->search(dist, numNeighbours, maxDistance);
 
-        cerr << "neighbours = " << jsonEncode(neighbours) << endl;
+        //cerr << "neighbours = " << jsonEncode(neighbours) << endl;
         
         vector<tuple<RowName, RowHash, float> > result;
         for (auto & n: neighbours) {
@@ -1185,8 +1187,8 @@ NearestNeighborsFunctionConfigDescription()
 
 NearestNeighborsFunction::
 NearestNeighborsFunction(MldbServer * owner,
-               PolyConfig config,
-               const std::function<bool (const Json::Value &)> & onProgress)
+                         PolyConfig config,
+                         const std::function<bool (const Json::Value &)> & onProgress)
     : Function(owner)
 {
     functionConfig = config.params.convert<NearestNeighborsFunctionConfig>();
@@ -1219,6 +1221,10 @@ struct NearestNeighborsFunctionApplier: public FunctionApplier {
     }
 
     std::shared_ptr<EmbeddingDataset> embeddingDataset;
+
+    /// This is used to extract an embedding in the right column order from
+    /// the ExpressionValue passed into the coords pin of the function.
+    ExpressionValueInfo::ExtractDoubleEmbeddingFunction getEmbeddingFromExpr;
 };
 
 std::unique_ptr<FunctionApplier>
@@ -1226,17 +1232,32 @@ NearestNeighborsFunction::
 bind(SqlBindingScope & outerContext,
      const FunctionValues & input) const
 {
-    auto boundDataset = functionConfig.dataset->bind(outerContext);
-
     std::unique_ptr<NearestNeighborsFunctionApplier> result
         (new NearestNeighborsFunctionApplier(this));
 
-    try{
-        result->embeddingDataset = dynamic_pointer_cast<EmbeddingDataset>(boundDataset.dataset);
+    auto boundDataset = functionConfig.dataset->bind(outerContext);
+    if (!boundDataset.dataset) {
+        throw HttpReturnException
+            (400, "Nearest neighbours function cannot operate on the output of "
+             "a table expression, only dataset of type embedding.");
     }
-    catch(const std::bad_cast& e) {
-        throw ML::Exception("A dataset of type embedding needs to be provided for the "
-                "nearest.neighbors function");
+    
+    std::shared_ptr<ExpressionValueInfo> datasetInput
+        = boundDataset.dataset->getRowInfo();
+    vector<ColumnName> columnNames
+        = datasetInput->allColumnNames();
+    auto coordInput = input.getValueInfo("coords").getExpressionValueInfo();
+    if (coordInput->couldBeRow()) {
+        result->getEmbeddingFromExpr
+            = coordInput->extractDoubleEmbedding(columnNames);
+    }
+
+    result->embeddingDataset
+        = dynamic_pointer_cast<EmbeddingDataset>(boundDataset.dataset);
+    if (!result->embeddingDataset) {
+        throw HttpReturnException
+            (400, "A dataset of type embedding needs to be provided for "
+             "the nearest.neighbors function");
     }
  
     return std::move(result);
@@ -1247,52 +1268,51 @@ NearestNeighborsFunction::
 apply(const FunctionApplier & applier_,
       const FunctionContext & context) const
 {
-    auto & applier = (NearestNeighborsFunctionApplier &)applier_;
-
-
+    auto & applier = static_cast<const NearestNeighborsFunctionApplier &>(applier_);
+    
     FunctionOutput output;
 
-    auto inputRow = context.get(Utf8String("coords"));
+    ExpressionValue storage;
+    const ExpressionValue & inputRow = context.get("coords", storage);
 
     unsigned num_neighbors = functionConfig.default_num_neighbors;
     double max_distance = functionConfig.default_max_distance;
 
-    auto extracted_num_neighbors = context.getValueOrNull(Utf8String("num_neighbours"));
+    auto extracted_num_neighbors
+        = context.getValueOrNull("num_neighbours");
     if(!extracted_num_neighbors.empty()) {
         num_neighbors = extracted_num_neighbors.toInt();
     }
-    auto extracted_max_distance = context.getValueOrNull(Utf8String("max_distance"));
+    auto extracted_max_distance
+        = context.getValueOrNull("max_distance");
     if(!extracted_max_distance.empty()) {
         max_distance = extracted_max_distance.toDouble();
     }
 
-    Date d;
+    Date ts;
     vector<tuple<RowName, RowHash, float> > neighbors;
-    if(inputRow.isAtom()) {
-        neighbors = applier.embeddingDataset->getRowNeighbours(
-                                        RowName(inputRow.toUtf8String()),
-                                        num_neighbors, max_distance);
+    if (inputRow.isAtom()) {
+        neighbors = applier.embeddingDataset
+            ->getRowNeighbours(RowName(inputRow.toUtf8String()),
+                               num_neighbors, max_distance);
     }
     else if(inputRow.isEmbedding() || inputRow.isRow()) {
-        // if we're passing in a row, we're assuming the columns are
-        // in the right order so we prevent the alphabetical sorting
-        // TODO MLDB-1486
-        bool sortColumns = inputRow.isEmbedding();
-        neighbors = applier.embeddingDataset->getNeighbours(
-                inputRow.getEmbedding(-1, sortColumns),
-                num_neighbors, max_distance);
+        auto embedding = applier.getEmbeddingFromExpr(inputRow);
+        neighbors = applier.embeddingDataset
+            ->getNeighbours(inputRow.getEmbedding(-1),
+                            num_neighbors, max_distance);
     }
     else {
         throw ML::Exception("Input row must be either a row name or an embedding");
     }
 
     RowValue rtnRow;
+    rtnRow.reserve(neighbors.size());
     for(auto & neighbor : neighbors) {
-        // std::tuple<Coord, CellValue, Date>
-        rtnRow.push_back(make_tuple(get<0>(neighbor), CellValue(get<2>(neighbor)), d));
+        rtnRow.emplace_back(get<0>(neighbor), get<2>(neighbor), ts);
     }
 
-    output.set("neighbors", rtnRow);
+    output.set("neighbors", std::move(rtnRow));
     return output;
 }
 
