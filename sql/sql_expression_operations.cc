@@ -172,60 +172,80 @@ ArithmeticExpression::
 template<typename Op>
 struct BinaryOpHelper {
 
+    struct ScalarContext;
+    struct EmbeddingContext;
+    struct RowContext;
+    struct UnknownContext;
+
     // Context object for scalar operations on the LHS or RHS
     struct ScalarContext {
-        template<typename RhsContext>
-        static std::shared_ptr<ExpressionValueInfo>
-        getInfoLhs(std::shared_ptr<ExpressionValueInfo> lhs,
-                   std::shared_ptr<ExpressionValueInfo> rhs)
+        ScalarContext(BoundSqlExpression bound)
+            : bound(std::move(bound))
         {
-            return RhsContext::getInfoScalar(lhs, rhs);
         }
 
-        static std::shared_ptr<ExpressionValueInfo>
-        getInfoScalar(std::shared_ptr<ExpressionValueInfo> lhs,
-                      std::shared_ptr<ExpressionValueInfo> rhs)
+        BoundSqlExpression bound;
+
+        const ExpressionValue &
+        operator () (const SqlRowScope & row,
+                     ExpressionValue & storage, 
+                     const VariableFilter & filter) const
+        {
+            return bound(row, storage, filter);
+        }
+
+        template<typename RhsContext>
+        std::shared_ptr<ExpressionValueInfo>
+        getInfoLhs(RhsContext & rhsContext)
+        {
+            return rhsContext.getInfoScalar(*this);
+        }
+
+        std::shared_ptr<ExpressionValueInfo>
+        getInfoScalar(const ScalarContext & lhsContext)
         {
             // Scalar * scalar
-            return Op::getInfo(lhs, rhs);
+            return Op::getInfo(lhsContext.bound.info, this->bound.info);
         }
 
-        static std::shared_ptr<ExpressionValueInfo>
-        getInfoEmbedding(std::shared_ptr<ExpressionValueInfo> lhs,
-                         std::shared_ptr<ExpressionValueInfo> rhs)
+        std::shared_ptr<ExpressionValueInfo>
+        getInfoEmbedding(const EmbeddingContext & lhsContext)
         {
             // Embedding * scalar
-            auto inner = getValueInfoForStorage(lhs->getEmbeddingType());
-            auto res = Op::getInfo(inner, rhs);
-            return std::make_shared<EmbeddingValueInfo>(lhs->getEmbeddingShape(),
-                                                        res->getEmbeddingType());
+            auto inner = getValueInfoForStorage
+                (lhsContext.bound.info->getEmbeddingType());
+            auto res = Op::getInfo(inner, this->bound.info);
+            return std::make_shared<EmbeddingValueInfo>
+                (lhsContext.bound.info->getEmbeddingShape(),
+                 res->getEmbeddingType());
         }
 
-        static std::shared_ptr<ExpressionValueInfo>
-        getInfoRow(std::shared_ptr<ExpressionValueInfo> lhs,
-                   std::shared_ptr<ExpressionValueInfo> rhs)
+        std::shared_ptr<ExpressionValueInfo>
+        getInfoRow(const RowContext & lhsContext)
         {
             // Row * scalar
-            auto cols = lhs->getKnownColumns();
+            auto cols = lhsContext.bound.info->getKnownColumns();
             for (auto & c: cols)
-                c.valueInfo = Op::getInfo(c.valueInfo, rhs);
-            return std::make_shared<RowValueInfo>(std::move(cols),
-                                                  lhs->getSchemaCompleteness());
+                c.valueInfo = Op::getInfo(c.valueInfo, this->bound.info);
+            return std::make_shared<RowValueInfo>
+                (std::move(cols),
+                 lhsContext.bound.info->getSchemaCompleteness());
         }
 
         template<typename RhsContext>
-        static const ExpressionValue &
-        applyLhs(const ExpressionValue & lhs,
+        const ExpressionValue &
+        applyLhs(const RhsContext & rhsContext,
+                 const ExpressionValue & lhs,
                  const ExpressionValue & rhs,
-                 ExpressionValue & storage)
+                 ExpressionValue & storage) const
         {
-            return RhsContext::applyRhsScalar(lhs, rhs, storage);
+            return rhsContext.applyRhsScalar(lhs, rhs, storage);
         }
 
-        static const ExpressionValue &
+        const ExpressionValue &
         applyRhsScalar(const ExpressionValue & lhs,
                        const ExpressionValue & rhs,
-                       ExpressionValue & storage)
+                       ExpressionValue & storage) const
         {
             // scalar * scalar; return it directly
             return storage
@@ -235,10 +255,10 @@ struct BinaryOpHelper {
                                            rhs.getEffectiveTimestamp()));
         }
 
-        static const ExpressionValue &
+        const ExpressionValue &
         applyRhsEmbedding(const ExpressionValue & lhs,
                           const ExpressionValue & rhs,
-                          ExpressionValue & storage)
+                          ExpressionValue & storage) const
         {
             // embedding * scalar
             std::vector<CellValue> lcells = lhs.getEmbeddingCell();
@@ -250,10 +270,10 @@ struct BinaryOpHelper {
             return storage = ExpressionValue(std::move(lcells), ts);
         }
 
-        static const ExpressionValue &
+        const ExpressionValue &
         applyRhsRow(const ExpressionValue & lhs,
                     const ExpressionValue & rhs,
-                    ExpressionValue & storage)
+                    ExpressionValue & storage) const
         {
             // row * scalar
             RowValue output;
@@ -277,40 +297,57 @@ struct BinaryOpHelper {
 
     // Context object for embedding objects on the LHS or RHS
     struct EmbeddingContext {
-        template<typename RhsContext>
-        static std::shared_ptr<ExpressionValueInfo>
-        getInfoLhs(std::shared_ptr<ExpressionValueInfo> lhs,
-                   std::shared_ptr<ExpressionValueInfo> rhs)
+
+        EmbeddingContext(BoundSqlExpression bound)
+            : bound(std::move(bound))
         {
-            return RhsContext::getInfoEmbedding(lhs, rhs);
         }
 
-        static std::shared_ptr<ExpressionValueInfo>
-        getInfoScalar(std::shared_ptr<ExpressionValueInfo> lhs,
-                      std::shared_ptr<ExpressionValueInfo> rhs)
+        BoundSqlExpression bound;
+
+        const ExpressionValue &
+        operator () (const SqlRowScope & row,
+                     ExpressionValue & storage, 
+                     const VariableFilter & filter) const
+        {
+            return bound(row, storage, filter);
+        }
+
+        template<typename RhsContext>
+        std::shared_ptr<ExpressionValueInfo>
+        getInfoLhs(RhsContext & rhsContext)
+        {
+            return rhsContext.getInfoEmbedding(*this);
+        }
+
+        std::shared_ptr<ExpressionValueInfo>
+        getInfoScalar(const ScalarContext & lhsContext)
         {
             // Scalar * embedding
-            auto inner = getValueInfoForStorage(rhs->getEmbeddingType());
-            auto res = Op::getInfo(lhs, inner);
-            return std::make_shared<EmbeddingValueInfo>(rhs->getEmbeddingShape(),
-                                                        res->getEmbeddingType());
+            auto inner = getValueInfoForStorage
+                (this->bound.info->getEmbeddingType());
+            auto res = Op::getInfo(lhsContext.bound.info, inner);
+            return std::make_shared<EmbeddingValueInfo>
+                (this->bound.info->getEmbeddingShape(),
+                 res->getEmbeddingType());
         }
 
-        static std::shared_ptr<ExpressionValueInfo>
-        getInfoEmbedding(std::shared_ptr<ExpressionValueInfo> lhs,
-                         std::shared_ptr<ExpressionValueInfo> rhs)
+        std::shared_ptr<ExpressionValueInfo>
+        getInfoEmbedding(const EmbeddingContext & lhsContext)
         {
             // Embedding * embedding
-            auto innerl = getValueInfoForStorage(lhs->getEmbeddingType());
-            auto innerr = getValueInfoForStorage(rhs->getEmbeddingType());
+            auto innerl = getValueInfoForStorage
+                (lhsContext.bound.info->getEmbeddingType());
+            auto innerr = getValueInfoForStorage
+                (this->bound.info->getEmbeddingType());
             auto res = Op::getInfo(innerl, innerr);
-            return std::make_shared<EmbeddingValueInfo>(lhs->getEmbeddingShape(),
-                                                        res->getEmbeddingType());
+            return std::make_shared<EmbeddingValueInfo>
+                (lhsContext.bound.info->getEmbeddingShape(),
+                 res->getEmbeddingType());
         }
 
-        static std::shared_ptr<ExpressionValueInfo>
-        getInfoRow(std::shared_ptr<ExpressionValueInfo> lhs,
-                   std::shared_ptr<ExpressionValueInfo> rhs)
+        std::shared_ptr<ExpressionValueInfo>
+        getInfoRow(const RowContext & lhsContext)
         {
             // Row * embedding
             throw HttpReturnException(400, "Attempt to bind operation to "
@@ -318,19 +355,20 @@ struct BinaryOpHelper {
         }
 
         template<typename RhsContext>
-        static const ExpressionValue &
-        applyLhs(const ExpressionValue & lhs,
+        const ExpressionValue &
+        applyLhs(const RhsContext & rhsContext,
+                 const ExpressionValue & lhs,
                  const ExpressionValue & rhs,
-                 ExpressionValue & storage)
+                 ExpressionValue & storage) const
         {
             // Extract the embedding.  Both must be embeddings.
-            return RhsContext::applyRhsEmbedding(lhs, rhs, storage);
+            return rhsContext.applyRhsEmbedding(lhs, rhs, storage);
         }
 
-        static const ExpressionValue &
+        const ExpressionValue &
         applyRhsScalar(const ExpressionValue & lhs,
                        const ExpressionValue & rhs,
-                       ExpressionValue & storage)
+                       ExpressionValue & storage) const
         {
             // Scalar * embedding
             std::vector<CellValue> rcells = rhs.getEmbeddingCell();
@@ -342,10 +380,10 @@ struct BinaryOpHelper {
             return storage = ExpressionValue(std::move(rcells), ts);
         }
 
-        static const ExpressionValue &
+        const ExpressionValue &
         applyRhsEmbedding(const ExpressionValue & lhs,
                           const ExpressionValue & rhs,
-                          ExpressionValue & storage)
+                          ExpressionValue & storage) const
         {
             // embedding * embedding
             std::vector<CellValue> lcells = lhs.getEmbeddingCell();
@@ -368,10 +406,10 @@ struct BinaryOpHelper {
                                              lhs.getEmbeddingShape());
         }
 
-        static const ExpressionValue &
+        const ExpressionValue &
         applyRhsRow(const ExpressionValue & lhs,
                     const ExpressionValue & rhs,
-                    ExpressionValue & storage)
+                    ExpressionValue & storage) const
         {
             throw HttpReturnException(400, "Attempt to apply operation to "
                                       "embedding and row");
@@ -380,38 +418,51 @@ struct BinaryOpHelper {
 
     // Context object for rows on the LHS or RHS
     struct RowContext {
-        template<typename RhsContext>
-        static std::shared_ptr<ExpressionValueInfo>
-        getInfoLhs(std::shared_ptr<ExpressionValueInfo> lhs,
-                   std::shared_ptr<ExpressionValueInfo> rhs)
+
+        RowContext(BoundSqlExpression bound)
+            : bound(std::move(bound))
         {
-            return RhsContext::getInfoRow(lhs, rhs);
         }
 
-        static std::shared_ptr<ExpressionValueInfo>
-        getInfoScalar(std::shared_ptr<ExpressionValueInfo> lhs,
-                      std::shared_ptr<ExpressionValueInfo> rhs)
+        BoundSqlExpression bound;
+
+        const ExpressionValue &
+        operator () (const SqlRowScope & row,
+                     ExpressionValue & storage, 
+                     const VariableFilter & filter) const
+        {
+            return bound(row, storage, filter);
+        }
+
+        template<typename RhsContext>
+        std::shared_ptr<ExpressionValueInfo>
+        getInfoLhs(RhsContext & rhsContext)
+        {
+            return rhsContext.getInfoRow(*this);
+        }
+
+        std::shared_ptr<ExpressionValueInfo>
+        getInfoScalar(const ScalarContext & lhsContext)
         {
             // Scalar * row
-            auto cols = rhs->getKnownColumns();
+            auto cols = this->bound.info->getKnownColumns();
             for (auto & c: cols)
-                c.valueInfo = Op::getInfo(rhs, c.valueInfo);
-            return std::make_shared<RowValueInfo>(std::move(cols),
-                                                  rhs->getSchemaCompleteness());
+                c.valueInfo = Op::getInfo(this->bound.info, c.valueInfo);
+            return std::make_shared<RowValueInfo>
+                (std::move(cols),
+                 this->bound.info->getSchemaCompleteness());
         }
 
-        static std::shared_ptr<ExpressionValueInfo>
-        getInfoEmbedding(std::shared_ptr<ExpressionValueInfo> lhs,
-                         std::shared_ptr<ExpressionValueInfo> rhs)
+        std::shared_ptr<ExpressionValueInfo>
+        getInfoEmbedding(const EmbeddingContext & lhsContext)
         {
             // Embedding * row
             throw HttpReturnException(400, "Attempt to bind operation to "
                                       "row and embedding");
         }
 
-        static std::shared_ptr<ExpressionValueInfo>
-        getInfoRow(std::shared_ptr<ExpressionValueInfo> lhs,
-                   std::shared_ptr<ExpressionValueInfo> rhs)
+        std::shared_ptr<ExpressionValueInfo>
+        getInfoRow(const RowContext & lhsContext)
         {
             // Row * row
             auto onInfo = [] (const ColumnName &,
@@ -428,22 +479,25 @@ struct BinaryOpHelper {
                     return Op::getInfo(lhsInfo, rhsInfo);
                 };
 
-            return ExpressionValueInfo::getMerged(lhs, rhs, onInfo);
+            return ExpressionValueInfo::getMerged(lhsContext.bound.info,
+                                                  this->bound.info,
+                                                  onInfo);
         }
 
         template<typename RhsContext>
-        static const ExpressionValue &
-        applyLhs(const ExpressionValue & lhs,
+        const ExpressionValue &
+        applyLhs(const RhsContext & rhsContext,
+                 const ExpressionValue & lhs,
                  const ExpressionValue & rhs,
-                 ExpressionValue & storage)
+                 ExpressionValue & storage) const
         {
-            return RhsContext::applyRhsRow(lhs, rhs, storage);
+            return rhsContext.applyRhsRow(lhs, rhs, storage);
         }
 
-        static const ExpressionValue &
+        const ExpressionValue &
         applyRhsScalar(const ExpressionValue & lhs,
                        const ExpressionValue & rhs,
-                       ExpressionValue & storage)
+                       ExpressionValue & storage) const
         {
             // Scalar * row
             RowValue output;
@@ -464,18 +518,18 @@ struct BinaryOpHelper {
             return storage = std::move(output);
         }
 
-        static const ExpressionValue &
+        const ExpressionValue &
         applyRhsEmbedding(const ExpressionValue & lhs,
                           const ExpressionValue & rhs,
-                          ExpressionValue & storage)
+                          ExpressionValue & storage) const
         {
             return applyRhsRow(lhs, rhs, storage);
         }
 
-        static const ExpressionValue &
+        const ExpressionValue &
         applyRhsRow(const ExpressionValue & lhs,
                     const ExpressionValue & rhs,
-                    ExpressionValue & storage)
+                    ExpressionValue & storage) const
         {
             // row * row
             RowValue output;
@@ -541,69 +595,87 @@ struct BinaryOpHelper {
     // Context object for unknown types on the LHS or RHS.  They
     // switch at runtime.
     struct UnknownContext {
+
+        UnknownContext(BoundSqlExpression bound)
+            : bound(std::move(bound))
+        {
+        }
+
+        BoundSqlExpression bound;
+
+        const ExpressionValue &
+        operator () (const SqlRowScope & row,
+                     ExpressionValue & storage, 
+                     const VariableFilter & filter) const
+        {
+            return bound(row, storage, filter);
+        }
+        
         template<typename RhsContext>
-        static std::shared_ptr<ExpressionValueInfo>
-        getInfoLhs(std::shared_ptr<ExpressionValueInfo> lhs,
-                   std::shared_ptr<ExpressionValueInfo> rhs)
+        std::shared_ptr<ExpressionValueInfo>
+        getInfoLhs(RhsContext & context)
         {
             return std::make_shared<AnyValueInfo>();
         }
 
-        static std::shared_ptr<ExpressionValueInfo>
-        getInfoScalar(std::shared_ptr<ExpressionValueInfo> lhs,
-                      std::shared_ptr<ExpressionValueInfo> rhs)
+        std::shared_ptr<ExpressionValueInfo>
+        getInfoScalar(const ScalarContext & lhsContext)
         {
             // Scalar * unknown.  No idea if it's scalar or vector
             // until runtime.
             return std::make_shared<AnyValueInfo>();
         }
 
-        static std::shared_ptr<ExpressionValueInfo>
-        getInfoUnknown(std::shared_ptr<ExpressionValueInfo> lhs,
-                       std::shared_ptr<ExpressionValueInfo> rhs)
+        std::shared_ptr<ExpressionValueInfo>
+        getInfoUnknown(const UnknownContext & lhsContext)
         {
             // unknown * unknown.  No idea if it's scalar or vector
             // until runtime.
             return std::make_shared<AnyValueInfo>();
         }
 
-        static std::shared_ptr<ExpressionValueInfo>
-        getInfoEmbedding(std::shared_ptr<ExpressionValueInfo> lhs,
-                         std::shared_ptr<ExpressionValueInfo> rhs)
+        std::shared_ptr<ExpressionValueInfo>
+        getInfoEmbedding(const EmbeddingContext & lhsContext)
         {
             // Embedding * unknown.  It must be an embedding.
-            auto inner = getValueInfoForStorage(lhs->getEmbeddingType());
-            auto res = Op::getInfo(inner, rhs);
-            return std::make_shared<EmbeddingValueInfo>(lhs->getEmbeddingShape(),
-                                                        res->getEmbeddingType());
+            auto inner = getValueInfoForStorage
+                (lhsContext.bound.info->getEmbeddingType());
+            auto res = Op::getInfo(inner, this->bound.info);
+            return std::make_shared<EmbeddingValueInfo>
+                (lhsContext.bound.info->getEmbeddingShape(),
+                 res->getEmbeddingType());
         }
 
-        static std::shared_ptr<ExpressionValueInfo>
-        getInfoRow(std::shared_ptr<ExpressionValueInfo> lhs,
-                   std::shared_ptr<ExpressionValueInfo> rhs)
+        std::shared_ptr<ExpressionValueInfo>
+        getInfoRow(const RowContext & lhsContext)
         {
             // Row * unknown.  It must be a row
-            auto cols = lhs->getKnownColumns();
+            auto cols = lhsContext.bound.info->getKnownColumns();
             for (auto & c: cols)
-                c.valueInfo = Op::getInfo(c.valueInfo, rhs);
-            return std::make_shared<RowValueInfo>(std::move(cols),
-                                                  lhs->getSchemaCompleteness());
+                c.valueInfo = Op::getInfo(c.valueInfo, this->bound.info);
+            return std::make_shared<RowValueInfo>
+                (std::move(cols),
+                 lhsContext.bound.info->getSchemaCompleteness());
         }
 
         template<typename RhsContext>
-        static const ExpressionValue &
-        applyLhs(const ExpressionValue & lhs,
+        const ExpressionValue &
+        applyLhs(const RhsContext & rhsContext,
+                 const ExpressionValue & lhs,
                  const ExpressionValue & rhs,
-                 ExpressionValue & storage)
+                 ExpressionValue & storage) const
         {
             if (lhs.isAtom()) {
-                return ScalarContext::template applyLhs<RhsContext>(lhs, rhs, storage);
+                ScalarContext lhsContext(bound);
+                return lhsContext.applyLhs(rhsContext, lhs, rhs, storage);
             }
             else if (lhs.isEmbedding()) {
-                return EmbeddingContext::template applyLhs<RhsContext>(lhs, rhs, storage);
+                EmbeddingContext lhsContext(bound);
+                return lhsContext.applyLhs(rhsContext, lhs, rhs, storage);
             }
             else if (lhs.isRow()) {
-                return RowContext::template applyLhs<RhsContext>(lhs, rhs, storage);
+                RowContext lhsContext(bound);
+                return lhsContext.applyLhs(rhsContext, lhs, rhs, storage);
             }
             else {
                 throw HttpReturnException(500, "Can't figure out type of expression",
@@ -611,19 +683,22 @@ struct BinaryOpHelper {
             }
         }
 
-        static const ExpressionValue &
+        const ExpressionValue &
         applyRhsScalar(const ExpressionValue & lhs,
                        const ExpressionValue & rhs,
-                       ExpressionValue & storage)
+                       ExpressionValue & storage) const
         {
             if (rhs.isAtom()) {
-                return ScalarContext::applyRhsScalar(lhs, rhs, storage);
+                ScalarContext rhsContext(bound);
+                return rhsContext.applyRhsScalar(lhs, rhs, storage);
             }
             else if (rhs.isEmbedding()) {
-                return EmbeddingContext::applyRhsScalar(lhs, rhs, storage);
+                EmbeddingContext rhsContext(bound);
+                return rhsContext.applyRhsScalar(lhs, rhs, storage);
             }
             else if (rhs.isRow()) {
-                return RowContext::applyRhsScalar(lhs, rhs, storage);
+                RowContext rhsContext(bound);
+                return rhsContext.applyRhsScalar(lhs, rhs, storage);
             }
             else {
                 throw HttpReturnException(500, "Can't figure out type of expression",
@@ -631,19 +706,22 @@ struct BinaryOpHelper {
             }
         }
 
-        static const ExpressionValue &
+        const ExpressionValue &
         applyRhsEmbedding(const ExpressionValue & lhs,
                           const ExpressionValue & rhs,
-                          ExpressionValue & storage)
+                          ExpressionValue & storage) const
         {
             if (rhs.isAtom()) {
-                return ScalarContext::applyRhsEmbedding(lhs, rhs, storage);
+                ScalarContext rhsContext(bound);
+                return rhsContext.applyRhsEmbedding(lhs, rhs, storage);
             }
             else if (rhs.isEmbedding()) {
-                return EmbeddingContext::applyRhsEmbedding(lhs, rhs, storage);
+                EmbeddingContext rhsContext(bound);
+                return rhsContext.applyRhsEmbedding(lhs, rhs, storage);
             }
             else if (rhs.isRow()) {
-                return RowContext::applyRhsEmbedding(lhs, rhs, storage);
+                RowContext rhsContext(bound);
+                return rhsContext.applyRhsEmbedding(lhs, rhs, storage);
             }
             else {
                 throw HttpReturnException(500, "Can't figure out type of expression",
@@ -651,19 +729,22 @@ struct BinaryOpHelper {
             }
         }
 
-        static const ExpressionValue &
+        const ExpressionValue &
         applyRhsRow(const ExpressionValue & lhs,
                     const ExpressionValue & rhs,
-                    ExpressionValue & storage)
+                    ExpressionValue & storage) const
         {
             if (rhs.isAtom()) {
-                return ScalarContext::applyRhsRow(lhs, rhs, storage);
+                ScalarContext rhsContext(bound);
+                return rhsContext.applyRhsRow(lhs, rhs, storage);
             }
             else if (rhs.isEmbedding()) {
-                return EmbeddingContext::applyRhsRow(lhs, rhs, storage);
+                EmbeddingContext rhsContext(bound);
+                return rhsContext.applyRhsRow(lhs, rhs, storage);
             }
             else if (rhs.isRow()) {
-                return RowContext::applyRhsRow(lhs, rhs, storage);
+                RowContext rhsContext(bound);
+                return rhsContext.applyRhsRow(lhs, rhs, storage);
             }
             else {
                 throw HttpReturnException(500, "Can't figure out type of expression",
@@ -675,55 +756,65 @@ struct BinaryOpHelper {
 
     template<class LhsContext, class RhsContext>
     static const ExpressionValue &
-    apply(const BoundSqlExpression & boundLhs,
-          const BoundSqlExpression & boundRhs,
-          const SqlRowScope & row, ExpressionValue & storage, 
+    apply(const LhsContext & lhsContext,
+          const RhsContext & rhsContext,
+          const SqlRowScope & row,
+          ExpressionValue & storage, 
           const VariableFilter & filter)
     {
         ExpressionValue lstorage, rstorage;
-        const ExpressionValue & lhs = boundLhs(row, lstorage, filter);
-        const ExpressionValue & rhs = boundRhs(row, rstorage, filter);
+        const ExpressionValue & lhs = lhsContext(row, lstorage, filter);
+        const ExpressionValue & rhs = rhsContext(row, rstorage, filter);
         
-        return LhsContext::template applyLhs<RhsContext>(lhs, rhs, storage);
+        return lhsContext.applyLhs(rhsContext, lhs, rhs, storage);
     }
     
     template<class LhsContext, class RhsContext>
     static BoundSqlExpression
-    bindAll(const SqlExpression * expr,
-            const BoundSqlExpression & boundLhs,
-            const BoundSqlExpression & boundRhs)
+    bindAll(LhsContext lhsContext,
+            RhsContext rhsContext,
+            const SqlExpression * expr)
     {
         BoundSqlExpression result;
+        result.info = lhsContext.getInfoLhs(rhsContext);
         result.exec = std::bind(apply<LhsContext, RhsContext>,
-                                boundLhs,
-                                boundRhs,
+                                lhsContext,
+                                rhsContext,
                                 std::placeholders::_1,
                                 std::placeholders::_2,
                                 GET_LATEST);
-        result.info = LhsContext::template getInfoLhs<RhsContext>(boundLhs.info,
-                                                                  boundRhs.info);
+
         return result;
     }
 
     template<class LhsContext>
     static BoundSqlExpression
-    bindRhs(const SqlExpression * expr,
-            const BoundSqlExpression & boundLhs,
+    bindRhs(LhsContext lhsContext,
+            const SqlExpression * expr,
             const BoundSqlExpression & boundRhs)
     {
-        if (boundRhs.info->isScalar()) {
-            return bindAll<LhsContext, ScalarContext>(expr, boundLhs, boundRhs);
+        int scalar = boundRhs.info->isScalar();
+        int embedding = boundRhs.info->isEmbedding();
+        int row = boundRhs.info->isRow();
+
+        int total = scalar + embedding + row;
+
+        if (total == 1 && scalar) {
+            ScalarContext rhsContext(boundRhs);
+            return bindAll(lhsContext, rhsContext, expr);
         }
-        else if (boundLhs.info->isEmbedding()) {
-            return bindAll<LhsContext, EmbeddingContext>(expr, boundLhs, boundRhs);
+        else if (embedding && !scalar) {
+            EmbeddingContext rhsContext(boundRhs);
+            return bindAll(lhsContext, rhsContext, expr);
         }
-        else if (boundLhs.info->isRow()) {
-            return bindAll<LhsContext, RowContext>(expr, boundLhs, boundRhs);
+        else if (row && !scalar) {
+            RowContext rhsContext(boundRhs);
+            return bindAll(lhsContext, rhsContext, expr);
         }
         else {
-            return bindAll<LhsContext, UnknownContext>(expr, boundLhs, boundRhs);
+            UnknownContext rhsContext(boundRhs);
+            return bindAll(lhsContext, rhsContext, expr);
         }
-        
     }
 
     static BoundSqlExpression
@@ -731,17 +822,27 @@ struct BinaryOpHelper {
          const BoundSqlExpression & boundLhs,
          const BoundSqlExpression & boundRhs)
     {
-        if (boundLhs.info->isScalar()) {
-            return bindRhs<ScalarContext>(expr, boundLhs, boundRhs);
+        int scalar = boundLhs.info->isScalar();
+        int embedding = boundLhs.info->isEmbedding();
+        int row = boundLhs.info->isRow();
+
+        int total = scalar + embedding + row;
+
+        if (total == 1 && scalar) {
+            ScalarContext lhsContext(boundLhs);
+            return bindRhs(lhsContext, expr, boundRhs);
         }
-        else if (boundLhs.info->isEmbedding()) {
-            return bindRhs<EmbeddingContext>(expr, boundLhs, boundRhs);
+        else if (embedding && !scalar) {
+            EmbeddingContext lhsContext(boundLhs);
+            return bindRhs(lhsContext, expr, boundRhs);
         }
-        else if (boundLhs.info->isRow()) {
-            return bindRhs<RowContext>(expr, boundLhs, boundRhs);
+        else if (row && !scalar) {
+            RowContext lhsContext(boundLhs);
+            return bindRhs(lhsContext, expr, boundRhs);
         }
         else {
-            return bindRhs<UnknownContext>(expr, boundLhs, boundRhs);
+            UnknownContext lhsContext(boundLhs);
+            return bindRhs(lhsContext, expr, boundRhs);
         }
     }
 };

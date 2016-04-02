@@ -2181,22 +2181,36 @@ struct RegisterVectorOp {
         //cerr << "vector_diff arg 0 = " << jsonEncode(args[0]) << endl;
         //cerr << "vector_diff arg 1 = " << jsonEncode(args[1]) << endl;
 
-        return {[] (const std::vector<ExpressionValue> & args,
+        /* Here we ask the ExpressionValueInfo object to return us the
+           following:
+
+           1.  A function we use to extract two compatible embeddings from
+               two different objects;
+           2.  A function we use to pack the result of our expression back
+               into the original structure;
+           3.  The ExpressionValueInfo object we use to put it back in.
+        */
+        ExpressionValueInfo::GetCompatibleDoubleEmbeddingsFn extract;
+        std::shared_ptr<ExpressionValueInfo> info;
+        ExpressionValueInfo::ReconstituteFromEmbeddingFn reconst;
+
+        std::tie(extract, info, reconst)
+            = args[0].info->getCompatibleDoubleEmbeddings(*args[1].info);
+
+        return {[=] (const std::vector<ExpressionValue> & args,
                      const SqlRowScope & scope) -> ExpressionValue
                 {
-                    //cerr << "val1 = " << jsonEncode(args.at(0)) << endl;
-                    //cerr << "val2 = " << jsonEncode(args.at(1)) << endl;
+                    ExcAssertEqual(args.size(), 2);
+                    ML::distribution<double> embedding1, embedding2;
+                    std::shared_ptr<const void> token;
+                    Date ts;
+                    std::tie(embedding1, embedding2, token, ts)
+                        = extract(args[0], args[1]);
 
-                    // Get it as an embedding
-                    const auto expr1 = args[0]; //(scope, GET_LATEST);
-                    const auto expr2 = args[1]; //(scope, GET_LATEST);
-                    ML::distribution<double> val1 = expr1.getEmbeddingDouble();
-                    ML::distribution<double> val2 = expr2.getEmbeddingDouble();
-                    Date ts = calcTs(expr1, expr2);
-
-                    return ExpressionValue(std::move(Op::apply(val1, val2)), ts);
+                    return reconst(Op::apply(embedding1, embedding2), token.get(),
+                                   ts);
                 },
-                std::make_shared<UnknownRowValueInfo>()};
+                info};
     }
 };
 

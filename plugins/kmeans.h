@@ -22,6 +22,11 @@
 namespace Datacratic {
 namespace MLDB {
 
+
+/*****************************************************************************/
+/* KMEANS CONFIG                                                             */
+/*****************************************************************************/
+
 struct KmeansConfig : public ProcedureConfig {
     KmeansConfig()
         : numInputDimensions(-1),
@@ -86,6 +91,10 @@ struct KmeansFunction: public Function {
     
     virtual Any getStatus() const;
     
+    virtual std::unique_ptr<FunctionApplier>
+    bind(SqlBindingScope & outerContext,
+         const FunctionValues & input) const;
+
     virtual FunctionOutput apply(const FunctionApplier & applier,
                               const FunctionContext & context) const;
     

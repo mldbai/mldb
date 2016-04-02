@@ -139,6 +139,11 @@ void iterateDense(const SelectExpression & select,
         boundCalc.emplace_back(c->bind(context));
     }
     
+    auto columns = boundSelect.info->allColumnNames();
+
+    // This function lets us efficiently extract the embedding from each row
+    auto extractEmbedding = boundSelect.info->extractDoubleEmbedding(columns);
+
     // Get a list of rows that we run over
     // getRowNames can return row names in an arbitrary order as long as it is deterministic.
     auto rows = matrix->getRowNames();
@@ -148,7 +153,7 @@ void iterateDense(const SelectExpression & select,
             //if (rowNum % 1000 == 0)
             //    cerr << "applying row " << rowNum << " of " << rows.size() << endl;
 
-            RowName rowName = rows[rowNum];
+            const RowName & rowName = rows[rowNum];
 
             auto row = matrix->getRow(rowName);
 
@@ -164,7 +169,8 @@ void iterateDense(const SelectExpression & select,
 
             // Run the with expressions
             ExpressionValue out = boundSelect(rowContext, GET_ALL);
-            auto embedding = out.getEmbeddingDouble(-1);
+
+            auto embedding = extractEmbedding(out);
 
             vector<ExpressionValue> calcd(boundCalc.size());
             for (unsigned i = 0;  i < boundCalc.size();  ++i) {
@@ -206,7 +212,6 @@ getEmbedding(const SelectExpression & select,
 
     ExcAssertGreaterEqual(maxDimensions, 0);
 
- 
     // Now we know what values came out of it
 
     std::mutex rowsLock;
@@ -239,7 +244,7 @@ getEmbedding(const SelectExpression & select,
                 for (unsigned i = 0;  i < features.size();  ++i) {
                     result.push_back(features[i].second);
                 }
-    
+
                 return result;
             };
 
@@ -278,7 +283,7 @@ getEmbedding(const SelectExpression & select,
                 
                 //cerr << "embedding got row " << rowName << " with index "
                 //     << rowIndex << endl;
-                
+
                 if (features.size() <= maxDimensions) {
                     rows.emplace_back(rowHash, rowName, features, extraVals);
                 }
@@ -297,7 +302,6 @@ getEmbedding(const SelectExpression & select,
         // we still need to order by rowHash to ensure determinism in the results
         std::sort(rows.begin(), rows.end());
     }
-  
 
     return { std::move(rows), std::move(vars) };
 }
@@ -310,6 +314,8 @@ getEmbedding(const SelectStatement & stm,
              const std::function<bool (const Json::Value &)> & onProgress)
 {
     auto boundDataset = stm.from->bind(context);
+    if (!boundDataset.dataset)
+        throw HttpReturnException(400, "You can't train this algorithm from a sub-select or table expression");
     return getEmbedding(stm.select, 
                         *boundDataset.dataset, 
                         boundDataset.asName, 

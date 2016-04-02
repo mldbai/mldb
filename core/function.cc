@@ -92,6 +92,13 @@ ref(const Coord & name)
     return ValueMapKey(name);
 }
 
+ValueMapKey
+ValueMapKey::
+ref(const char * name)
+{
+    return ValueMapKey(name);
+}
+
 Coord
 ValueMapKey::
 toCoord() const
@@ -442,6 +449,14 @@ getValueOrNull(const Utf8String & name) const
 ExpressionValue
 FunctionContext::
 getValueOrNull(const ColumnName & name) const
+{
+    auto key = ValueMapKey::ref(name);
+    return getValueOrNull(key);
+}
+
+ExpressionValue
+FunctionContext::
+getValueOrNull(const char * name) const
 {
     auto key = ValueMapKey::ref(name);
     return getValueOrNull(key);
