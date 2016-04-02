@@ -336,7 +336,7 @@ struct ExpressionValueInfo {
         This is returned from getCompatibleDoubleEmbeddings().
     */
     typedef std::function<ExpressionValue (std::vector<double> vals,
-                                           const void * info,
+                                           const std::shared_ptr<const void> & info,
                                            Date timestamp) >
     ReconstituteFromEmbeddingFn;
 
@@ -504,7 +504,7 @@ struct ExpressionValue {
 
     // Construct from an embedding of simple values with common names
     // This is more efficient than a row as only the values are kept
-    ExpressionValue(const std::vector<float> & values,
+    ExpressionValue(const std::vector<double> & values,
                     std::shared_ptr<const std::vector<ColumnName> > cols,
                     Date ts);
 

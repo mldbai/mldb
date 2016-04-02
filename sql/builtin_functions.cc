@@ -1482,7 +1482,7 @@ BoundFunction date_trunc(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerdate_trunc(date_trunc, "date_trunc");
 
-void normalize(ML::distribution<float>& val, double p)
+void normalize(ML::distribution<double>& val, double p)
 {
     if (p == 0) {
         double n = (val != 0).count();
@@ -1534,7 +1534,8 @@ BoundFunction normalize(const std::vector<BoundSqlExpression> & args)
                  const SqlRowScope & scope) -> ExpressionValue
             {
                     // Get it as an embedding
-                    ML::distribution<float> val = args.at(0).getEmbedding();
+                    ML::distribution<double> val
+                        = args.at(0).getEmbeddingDouble();
                     Date ts = args.at(0).getEffectiveTimestamp();
                     double p = args.at(1).toDouble();
 
@@ -1565,7 +1566,7 @@ BoundFunction normalize(const std::vector<BoundSqlExpression> & args)
                  const SqlRowScope & scope) -> ExpressionValue
             {
                 // Get it as an embedding
-                ML::distribution<float> val = args[0].getEmbedding();
+                ML::distribution<double> val = args[0].getEmbeddingDouble();
                 Date ts = args[0].getEffectiveTimestamp();
                 double p = args[1].toDouble();
 
@@ -1600,7 +1601,7 @@ BoundFunction norm(const std::vector<BoundSqlExpression> & args)
                  const SqlRowScope & scope) -> ExpressionValue
             {
                 // Get it as an embedding
-                ML::distribution<float> val = args[0].getEmbedding();
+                ML::distribution<double> val = args[0].getEmbeddingDouble();
                 Date ts = args[0].getEffectiveTimestamp();
 
                 double p = args[1].toDouble();
@@ -2207,7 +2208,7 @@ struct RegisterVectorOp {
                     std::tie(embedding1, embedding2, token, ts)
                         = extract(args[0], args[1]);
 
-                    return reconst(Op::apply(embedding1, embedding2), token.get(),
+                    return reconst(Op::apply(embedding1, embedding2), token,
                                    ts);
                 },
                 info};

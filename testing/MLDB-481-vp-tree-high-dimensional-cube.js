@@ -33,7 +33,7 @@ for (var i = 0;  i < numDims;  ++i) {
 
     var tuples = [];
     for (var j = 0;  j < numDims;  ++j) {
-        tuples.push(["dim" + j, i == j ? 1 : 0, now]);
+        tuples.push(["" + j, i == j ? 1 : 0, now]);
     }
     dataset.recordRow("row" + i, tuples);
     dataset.recordRow("row" + i + "_a", tuples);
