@@ -411,6 +411,7 @@ struct BinaryOpHelper {
                     const ExpressionValue & rhs,
                     ExpressionValue & storage) const
         {
+            // row * embedding
             throw HttpReturnException(400, "Attempt to apply operation to "
                                       "embedding and row");
         }

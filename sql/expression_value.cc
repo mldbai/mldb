@@ -461,13 +461,30 @@ getCompatibleDoubleEmbeddings(const ExpressionValueInfo & other) const
                const ExpressionValue & val2)
         -> std::tuple<DoubleDist, DoubleDist, std::shared_ptr<const void>, Date>
         {
-            DoubleDist d1 = val1.getEmbeddingDouble();
-            DoubleDist d2 = val2.getEmbeddingDouble();
+            // This is a naive and slow, but correct, implementation.  We
+            // extract the column names and the distribution from the first,
+            // then get the same values for the second, and return enough to
+            // reconstitute the same structure again.
+            std::vector<ColumnName> columnNames;
+            ML::distribution<double> d1;
 
-            if (d1.size() != d2.size())
-                throw HttpReturnException(500, "Incompatibly sized distributions");
+            auto onAtom = [&] (const ColumnName & name,
+                               const ColumnName & prefix,
+                               const CellValue & val,
+                               Date ts)
+            {
+                d1.emplace_back(coerceTo(val, (double *)0));
+                columnNames.emplace_back(prefix + name);
+                return true;
+            };
 
-            std::shared_ptr<const void> token;
+            val1.forEachAtom(onAtom);
+
+            DoubleDist d2
+                = val2.getEmbedding(columnNames.data(), columnNames.size());
+
+            auto token = std::make_shared<std::vector<ColumnName> >
+                (std::move(columnNames));
             Date ts = std::min(val1.getEffectiveTimestamp(),
                                val2.getEffectiveTimestamp());
             return std::make_tuple(std::move(d1), std::move(d2),
@@ -476,11 +493,18 @@ getCompatibleDoubleEmbeddings(const ExpressionValueInfo & other) const
 
     ExpressionValueInfo::ReconstituteFromEmbeddingFn reconst
         = [=] (std::vector<double> vals,
-               const void * token,
+               const std::shared_ptr<const void> & token,
                Date timestamp)
         -> ExpressionValue
         {
-            return ExpressionValue(std::move(vals), timestamp);
+            ExcAssert(token);
+            // Get our column names back out
+            auto columnNames
+                = std::static_pointer_cast<const std::vector<ColumnName> >
+                  (token);
+
+            return ExpressionValue(std::move(vals), std::move(columnNames),
+                                   timestamp);
         };
     
     // For the moment, we just return an embedding value info.  Later for
@@ -1467,7 +1491,7 @@ ExpressionValue(std::vector<CellValue> values,
 }
 
 ExpressionValue::
-ExpressionValue(const std::vector<float> & values,
+ExpressionValue(const std::vector<double> & values,
                 std::shared_ptr<const std::vector<ColumnName> > cols,
                 Date ts)
     : type_(NONE), ts_(ts)
@@ -2126,7 +2150,11 @@ getEmbedding(const ColumnName * knownNames, size_t len) const
             totalLength *= s;
 
         if (len != totalLength)
-            throw HttpReturnException(400, "wrong number of columns for embedding");
+            throw HttpReturnException(400,
+                                      "wrong number of columns for embedding",
+                                      "shape", shape,
+                                      "totalLength", totalLength,
+                                      "numExpectedCols", len);
 
         bool allGood = shape.size() == 1;
         if (shape.size() == 1) {
