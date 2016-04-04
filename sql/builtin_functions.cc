@@ -2447,6 +2447,61 @@ BoundFunction flatten(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerFlatten(flatten, "flatten");
 
+BoundFunction static_type(const std::vector<BoundSqlExpression> & args)
+{
+    // Return the result indexed on a single dimension
+
+    checkArgsSize(args.size(), 1);
+
+    auto outputInfo = std::make_shared<UnknownRowValueInfo>();
+    Date ts = Date::negativeInfinity();  // it has always had this type
+
+    auto argInfo = args[0].info;
+    ExcAssert(argInfo);
+
+    ExpressionValue result(jsonEncode(argInfo), ts);
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                ExcAssertEqual(args.size(), 1);
+                return result;
+            },
+            outputInfo
+        };
+}
+
+static RegisterBuiltin registerStaticType(static_type, "static_type");
+
+BoundFunction static_known_columns(const std::vector<BoundSqlExpression> & args)
+{
+    // Return the result indexed on a single dimension
+
+    checkArgsSize(args.size(), 1);
+
+    auto outputInfo = std::make_shared<UnknownRowValueInfo>();
+    Date ts = Date::negativeInfinity();  // it has always had these columns
+
+    auto argInfo = args[0].info;
+    ExcAssert(argInfo);
+
+    auto cols = argInfo->getKnownColumns();
+
+    ExpressionValue result(jsonEncode(cols), ts);
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                ExcAssertEqual(args.size(), 1);
+                return result;
+            },
+            outputInfo
+        };
+}
+
+static RegisterBuiltin
+registerStaticKnownColumns(static_known_columns, "static_known_columns");
+
 
 } // namespace Builtins
 } // namespace MLDB
