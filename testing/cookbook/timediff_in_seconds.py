@@ -13,13 +13,9 @@ ds.record_row('row1', [['colA', 1, 1], ['colB', 4, 12]])
 ds.commit()
 
 res = mldb.query("""
-    SELECT jseval('
-    mldb.log(cols);
-    mldb.log(cols[0][1]);
-    mldb.log(cols[0][1] - cols[1][1]);
-    var res = {};
-    return {"res" : (cols[0][1] - cols[1][1]) / 1000};',
-    'cols', {to_timestamp(colB), to_timestamp(colA)}) AS * FROM ds
+    SELECT
+    CAST(to_timestamp(colB) as integer) - CAST(to_timestamp(colA) as integer)
+    FROM ds
 """)
 mldb.log(res)
 
