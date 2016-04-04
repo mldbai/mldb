@@ -238,8 +238,10 @@ runCategorical(AccuracyConfig & runAccuracyConf,
 
             std::vector<std::tuple<RowName, CellValue, Date> > outputRow;
 
-            auto onAtom = [&] (const Coord & columnName,
-                               const Coord & prefix,
+            static const ColumnName score("score");
+            
+            auto onAtom = [&] (const Coords & columnName,
+                               const Coords & prefix,
                                const CellValue & val,
                                Date ts) 
                 {
@@ -250,7 +252,7 @@ runCategorical(AccuracyConfig & runAccuracyConf,
                     }
 
                     if(output) {
-                        outputRow.emplace_back(ColumnName("score." + columnName.toString()), v, recordDate);
+                        outputRow.emplace_back(score + columnName, v, recordDate);
                     }
 
                     return true;

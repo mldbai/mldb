@@ -171,19 +171,6 @@ struct JoinedDataset::Itl
         left.dataset->getChildAliases(sideChildNames[JOIN_SIDE_LEFT]);
         right.dataset->getChildAliases(sideChildNames[JOIN_SIDE_RIGHT]);
       
-        //if table aliases contains a dot '.', surround it with quotes to prevent ambiguity
-        Utf8String quotedLeftName = left.asName;
-        if (quotedLeftName.find('.') != quotedLeftName.end())
-        {
-            quotedLeftName = "\"" + left.asName + "\"";
-        }
-        Utf8String quotedRightName = right.asName;
-        if (quotedRightName.find('.') != quotedRightName.end())
-        {
-            quotedRightName = "\"" + right.asName + "\"";
-        }
-
-        // ...
         AnnotatedJoinCondition condition(joinConfig.left, joinConfig.right,
                                          joinConfig.on, 
                                          nullptr, //where
@@ -207,7 +194,8 @@ struct JoinedDataset::Itl
             
             // We can use a fast path, since we have simple non-filtered
             // equijoin
-            makeJoinConstantWhere(condition, context, left, right, joinConfig.qualification);            
+            makeJoinConstantWhere(condition, context, left, right,
+                                  joinConfig.qualification);            
 
         } else {
             // Complex join condition.  We need to generate the full set of
@@ -245,9 +233,11 @@ struct JoinedDataset::Itl
 
         // Finally, the column indexes
         for (auto & c: left.dataset->getColumnNames()) {
-            ColumnName newColumnName(quotedLeftName.empty()
-                                     ? c.toUtf8String()
-                                     : quotedLeftName + "." + c.toUtf8String());
+            ColumnName newColumnName;
+            if (!left.asName.empty())
+                newColumnName = ColumnName(left.asName) + c;
+            else newColumnName = c;
+
             ColumnHash newColumnHash(newColumnName);
 
             ColumnEntry entry;
@@ -261,9 +251,11 @@ struct JoinedDataset::Itl
 
         // Finally, the column indexes
         for (auto & c: right.dataset->getColumnNames()) {
-            ColumnName newColumnName(quotedRightName.empty()
-                                     ? c.toUtf8String()
-                                     : quotedRightName + "." + c.toUtf8String());
+            ColumnName newColumnName;
+
+            if (!right.asName.empty())
+                newColumnName = ColumnName(right.asName) + c;
+            else newColumnName = c;
             ColumnHash newColumnHash(newColumnName);
 
             ColumnEntry entry;
@@ -284,12 +276,13 @@ struct JoinedDataset::Itl
     }
 
      /* This is called to record a new entry from the join. */
-    void recordJoinRow(const RowName & leftName, RowHash leftHash, const RowName & rightName, RowHash rightHash)
+    void recordJoinRow(const RowName & leftName, RowHash leftHash,
+                       const RowName & rightName, RowHash rightHash)
     {
         bool debug = false;
         RowName rowName;
 
-        if (isChainedJoin && leftName != RowName())
+        if (isChainedJoin && !leftName.empty())
             rowName = std::move(RowName(leftName.toUtf8String() + "-" + "[" + rightName.toUtf8String() + "]"));
         else
             rowName = std::move(RowName("[" + leftName.toUtf8String() + "]" + "-" + "[" + rightName.toUtf8String() + "]"));
@@ -304,7 +297,7 @@ struct JoinedDataset::Itl
 
         if (debug)
             cerr << "added entry number " << rows.size()
-                 << "named " << "("<< rowName.toUtf8String() <<")"
+                 << "named " << "("<< rowName <<")"
                  << endl;
 
         rows.emplace_back(std::move(entry));
@@ -329,12 +322,15 @@ struct JoinedDataset::Itl
         auto runSide = [&] (const AnnotatedJoinCondition::Side & side,
                             const Dataset & dataset,
                             bool outer,
-                            const std::function<void (const RowName&, const RowHash& )> & recordOuterRow)
+                            const std::function<void (const RowName&,
+                                                      const RowHash& )>
+                                & recordOuterRow)
             -> std::vector<std::tuple<ExpressionValue, RowName, RowHash> >
             {
                 auto sideCondition = side.where;
 
-                std::vector<std::shared_ptr<SqlExpression> > clauses = { side.selectExpression };
+                std::vector<std::shared_ptr<SqlExpression> > clauses
+                    = { side.selectExpression };
 
                 if (outer)
                 {
@@ -342,14 +338,18 @@ struct JoinedDataset::Itl
                     sideCondition = SqlExpression::TRUE;
 
                     //but evaluate if the row is valid to join with the other side
-                    auto notnullExpr = std::make_shared<IsTypeExpression>(side.where, true, "null");
-                    auto complementExpr = std::make_shared<BooleanOperatorExpression>(BooleanOperatorExpression(side.where, notnullExpr, "AND"));
+                    auto notnullExpr = std::make_shared<IsTypeExpression>
+                        (side.where, true, "null");
+                    auto complementExpr = std::make_shared<BooleanOperatorExpression>
+                        (BooleanOperatorExpression(side.where, notnullExpr, "AND"));
 
                     clauses.push_back(complementExpr);
                 }
 
-                auto embedding = std::make_shared<EmbeddingLiteralExpression>(clauses);
-                auto rowExpression = std::make_shared<ComputedVariable>("var", embedding);
+                auto embedding = std::make_shared<EmbeddingLiteralExpression>
+                    (clauses);
+                auto rowExpression = std::make_shared<ComputedColumn>
+                    (Coord("var"), embedding);
 
                 SelectExpression queryExpression;
                 queryExpression.clauses.push_back(rowExpression);
@@ -377,19 +377,20 @@ struct JoinedDataset::Itl
                     ExcAssertEqual(r.columns.size(), 1);
 
                     const ExpressionValue & embedding = std::get<1>(r.columns[0]);
-                    if (outer)
-                    {
-                        const ExpressionValue & embeddingCondition = embedding.getField(1);
-                        if (!embeddingCondition.asBool())
-                        {
-                            //if side.orderBy is not valid, the result will not be deterministic
-                            //and we want a deterministic result, so output once sorted.
-                            outerRows.emplace_back(r.rowName, r.rowHash);
+
+                    if (outer) {
+                        const ExpressionValue & embeddingCondition
+                            = embedding.getColumn(1);
+                        if (!embeddingCondition.asBool()) {
+                            // if side.orderBy is not valid, the result will not
+                            // be deterministic and we want a deterministic
+                            // result, so output once sorted.
+                            recordOuterRow(r.rowName, r.rowHash);
                             continue;
                         }
                     }
 
-                    const ExpressionValue & value = embedding.getField(0);
+                    const ExpressionValue & value = embedding.getColumn(0);
                     sorted.emplace_back(value, r.rowName, r.rowHash);
                 }
 

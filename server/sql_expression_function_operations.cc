@@ -33,7 +33,8 @@ bindApplyFunctionExpression(std::shared_ptr<Function> function,
     auto boundWith = with.bind(context);
 
     // Initialize the function, now we know what it's input will look like
-    std::shared_ptr<FunctionApplier> applier(function->bind(context, *boundWith.info).release());
+    std::shared_ptr<FunctionApplier> applier
+        (function->bind(context, *boundWith.info).release());
 
     // And figure out what the output looks like afterwards
     FunctionValues extractInfo = applier->info.output;
@@ -99,7 +100,8 @@ bindSelectApplyFunctionExpression(std::shared_ptr<Function> function,
     auto boundWith = with.bind(context);
 
     // Initialize the function, now we know what it's input will look like
-    std::shared_ptr<FunctionApplier> applier(function->bind(context, *boundWith.info).release());
+    std::shared_ptr<FunctionApplier> applier
+        (function->bind(context, *boundWith.info).release());
 
     //cerr << "function info is " << jsonEncode(applier->info) << endl;
 
@@ -108,16 +110,20 @@ bindSelectApplyFunctionExpression(std::shared_ptr<Function> function,
 
     ExtractContext extractContext(context.getMldbServer(), extractInfo);  
 
-    auto captureColumnName = [&] (const Utf8String & inputColumnName) -> Utf8String
+    auto captureColumnName = [&] (const ColumnName & inputColumnName)
+        -> ColumnName
         {
            return inputColumnName;
         };
-
-    auto allColumns = extractContext.doGetAllColumns("", captureColumnName);
+    
+    auto allColumns = extractContext.doGetAllColumns("" /* table name */,
+                                                     captureColumnName);
 
     std::vector<KnownColumn> knownColumns = allColumns.info->getKnownColumns();
 
-    auto exec = [=] (const SqlRowScope & row, ExpressionValue & storage, const VariableFilter & filter)
+    auto exec = [=] (const SqlRowScope & row,
+                     ExpressionValue & storage,
+                     const VariableFilter & filter)
         -> const ExpressionValue &
             {
                 // Run the with expressions

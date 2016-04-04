@@ -317,10 +317,10 @@ run(const ProcedureRunConfig & run,
 
     // Record the column names for later
     for (auto & c: vars) {
-        itl->inputColumnNames.push_back(c.columnName.toUtf8String());
+        itl->inputColumnNames.emplace_back(c.columnName.toUtf8String());
     }
     for (auto & c: names) {
-        itl->outputColumnNames.push_back(c.toUtf8String());
+        itl->outputColumnNames.emplace_back(c.toUtf8String());
     }
 
     itl->outputColumnNamesShared

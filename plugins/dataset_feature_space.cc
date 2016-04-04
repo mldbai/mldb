@@ -55,7 +55,7 @@ DatasetFeatureSpace(std::shared_ptr<Dataset> dataset,
             const ColumnName & columnName = filteredColumns[i];
             ColumnHash ch = columnName;
             int oldIndex = columnInfo[ch].index;
-            columnInfo[ch] = getColumnInfo(dataset, columnName.toUtf8String(), bucketize);
+            columnInfo[ch] = getColumnInfo(dataset, columnName, bucketize);
             columnInfo[ch].index = oldIndex;
             return true;
         };
@@ -67,7 +67,7 @@ DatasetFeatureSpace(std::shared_ptr<Dataset> dataset,
 DatasetFeatureSpace::ColumnInfo
 DatasetFeatureSpace::
 getColumnInfo(std::shared_ptr<Dataset> dataset,
-              const Utf8String & columnName,
+              const ColumnName & columnName,
               bool bucketize)
 {
     ColumnInfo result;

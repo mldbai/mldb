@@ -659,32 +659,32 @@ struct TensorflowGraph: public Function {
         };
 
         std::map<Utf8String, const tensorflow::NodeDef *> graphNodes;
-        std::map<Utf8String, int> nodesRead;  // index into outputLayers
+        std::map<ColumnName, int> nodesRead;  // index into outputLayers
         std::vector<Utf8String> outputLayers;
 
-        VariableGetter doGetVariable(const Utf8String & tableName,
-                                     const Utf8String & variableName)
+        ColumnGetter doGetColumn(const Utf8String & tableName,
+                                 const ColumnName & columnName)
         {
             if (!tableName.empty())
                 return ReadThroughBindingContext
-                    ::doGetVariable(tableName, variableName);
+                    ::doGetColumn(tableName, columnName);
 
-            cerr << "looking for graph variable " << variableName << endl;
+            cerr << "looking for graph variable " << columnName << endl;
 
-            auto it = graphNodes.find(variableName);
+            auto it = graphNodes.find(columnName.toSimpleName());
             if (it == graphNodes.end()) {
                 // Not found in nodes; read through to the outside
                 return ReadThroughBindingContext
-                    ::doGetVariable(tableName, variableName);
+                    ::doGetColumn(tableName, columnName);
             }
             
             // Record that this is a required output layer and what its
             // index is.  We use the index to look up the correct tensor
             // in the list of output tensors for the graph.
             int index = outputLayers.size();
-            if (nodesRead.insert({variableName, index}).second)
-                outputLayers.push_back(variableName);
-            else index = nodesRead[variableName];
+            if (nodesRead.insert({columnName, index}).second)
+                outputLayers.push_back(columnName.toSimpleName());
+            else index = nodesRead[columnName];
 
             // Find the node, so we can figure out what kind of output
             // we have
@@ -693,7 +693,7 @@ struct TensorflowGraph: public Function {
             // TODO: tensor value info from the node
             auto info = std::make_shared<AnyValueInfo>();
 
-            VariableGetter result;
+            ColumnGetter result;
             result.exec = [=] (const SqlRowScope & scope_,
                                ExpressionValue & storage,
                                const VariableFilter & filter)
@@ -762,7 +762,7 @@ struct TensorflowGraph: public Function {
 
             for (auto & inputColumn: boundInputs.info->getKnownColumns()) {
                 std::string nodeName = inputColumn.columnName.toUtf8String().rawString();
-                ExpressionValue field = in.getField(nodeName);
+                ExpressionValue field = in.getColumn(nodeName);
                 outputTs.setMax(field.getEffectiveTimestamp());
                 Tensor inputTensor = owner->getTensorFor(nodeName, field);
                 

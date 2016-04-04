@@ -1,8 +1,6 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** function_contexts.cc                                              -*- C++ -*-
     Jeremy Barnes, 14 March 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Contexts in which to execute the WITH and EXTRACT clauses of applying
     functions.
@@ -32,34 +30,44 @@ ExtractContext(MldbServer * server,
 {
 }
 
-VariableGetter
+ColumnGetter
 ExtractContext::
-doGetVariable(const Utf8String & tableName,
-              const Utf8String & variableName)
+doGetColumn(const Utf8String & tableName,
+            const ColumnName & columnName)
 {
     std::shared_ptr<ExpressionValueInfo> valueInfo;
     
+    ExcAssert(!columnName.empty());
+
     // Ask our function info for how to convert the value to an
     // ExpressionValue
-    auto it = values.values.find(variableName);
+    auto it = values.values.find(columnName[0]);
     if (it == values.values.end()) {
-        auto jt = variableName.find('.');
-        if (jt == variableName.end())
-            throw HttpReturnException(400, "unknown value " + variableName);
-        
-        // It's x.y.  Look for the x;
-        Utf8String head(variableName.begin(), jt);
-        ++jt;
-        it = values.values.find(head);
-        if (it == values.values.end())
-            throw HttpReturnException(400, "unknown value " + head + " looking for "
-                                      + variableName);
-        
-        Utf8String tail(jt, variableName.end());
-
-        valueInfo = std::make_shared<AnyValueInfo>();
+        throw HttpReturnException(400, "unknown column "
+                                  + columnName[0].toUtf8String() + " looking for "
+                                  + columnName.toUtf8String());
     }
-    else valueInfo = it->second.valueInfo;
+
+    // If we're asking for a one-element path, return it directly
+    if (columnName.size() == 1) {
+        valueInfo = it->second.valueInfo;
+
+        return {[=] (const SqlRowScope & context,
+                     ExpressionValue & storage,
+                     const VariableFilter & filter)
+                -> const ExpressionValue &
+                {
+                    ExcAssert(canIgnoreIfExactlyOneValue(filter));
+
+                    auto & row = context.as<RowContext>();
+                    return storage = std::move(row.input.get(columnName.toSimpleName()));
+                },
+                valueInfo};
+    }
+    
+    // Recursively get the info and the value
+    ColumnName suffix = columnName.removePrefix();
+    valueInfo = it->second.valueInfo->findNestedColumn(suffix);
 
     return {[=] (const SqlRowScope & context,
                  ExpressionValue & storage,
@@ -69,18 +77,20 @@ doGetVariable(const Utf8String & tableName,
                 ExcAssert(canIgnoreIfExactlyOneValue(filter));
 
                 auto & row = context.as<RowContext>();
-                return storage = std::move(row.input.get(variableName));
+                storage = std::move(row.input.get(columnName[0]));
+                return storage = storage.getNestedColumn(suffix);
             },
-            valueInfo};
+            valueInfo
+           };
 }
 
 GetAllColumnsOutput
 getAllColumnsFromFunctionImpl(const Utf8String & tableName,
-                              std::function<Utf8String (const Utf8String &)> keep,
+                              std::function<ColumnName (const ColumnName &)> keep,
                               const FunctionValues & input,
                               const std::function<ExpressionValue (const SqlRowScope &,
                                                                    const ColumnName &)> &
-                                  getValue)
+                              getValue)
 {
     vector<KnownColumn> knownColumns;
 
@@ -88,16 +98,17 @@ getAllColumnsFromFunctionImpl(const Utf8String & tableName,
     std::vector<std::pair<ColumnName, ColumnName> > toKeep;
 
     for (auto & p: input.values) {
-        Utf8String outputName = keep(p.first.toUtf8String());
-        if (outputName.empty())
+        ColumnName outputColumnName = keep(p.first.toCoord());
+        if (outputColumnName.empty())
             continue;
 
-        ColumnName outputColumnName(outputName);
         ColumnName inputColumnName(p.first.toCoord());
         toKeep.emplace_back(inputColumnName, outputColumnName);
 
         const FunctionValueInfo & functionValueInfo = p.second;
-        const std::shared_ptr<ExpressionValueInfo> & valueInfo = functionValueInfo.valueInfo;
+        const std::shared_ptr<ExpressionValueInfo> & valueInfo
+            = functionValueInfo.valueInfo;
+
 
         KnownColumn column(outputColumnName, valueInfo, COLUMN_IS_DENSE);
         knownColumns.emplace_back(std::move(column));
@@ -113,7 +124,10 @@ getAllColumnsFromFunctionImpl(const Utf8String & tableName,
                 const ColumnName & inputColumnName = k.first;
                 const ColumnName & outputColumnName = k.second;
                 ExpressionValue val = getValue(scope, inputColumnName);
-                output.emplace_back(outputColumnName, std::move(val));
+                // toSimpleName() is OK here since we know that functions
+                // have only a single nesting level.
+                output.emplace_back(outputColumnName.toSimpleName(),
+                                    std::move(val));
             };
             
             return std::move(output);
@@ -127,14 +141,22 @@ getAllColumnsFromFunctionImpl(const Utf8String & tableName,
 GetAllColumnsOutput
 ExtractContext::
 doGetAllColumns(const Utf8String & tableName,
-                std::function<Utf8String (const Utf8String &)> keep)
+                std::function<ColumnName (const ColumnName &)> keep)
 {
     auto getValue = [&] (const SqlRowScope & context,
                          const ColumnName & col)
 
         {
+            ExcAssert(!col.empty());
             auto & row = context.as<RowContext>();
-            return std::move(row.input.getValueOrNull(col.toUtf8String()));
+            if (col.size() == 1) {
+                return row.input.getValueOrNull(col[0]);
+            }
+            else {
+                // Look recursively
+                return row.input.getValueOrNull(col.head())
+                    .getNestedColumn(col.tail());
+            }
         };
 
     return getAllColumnsFromFunctionImpl(tableName, keep, values, getValue);
@@ -167,21 +189,23 @@ FunctionExpressionContext(const MldbServer * mldb, FunctionValues input, size_t 
     ExcAssert(mldb != nullptr);
 }
 
-VariableGetter
+ColumnGetter
 FunctionExpressionContext::
-doGetVariable(const Utf8String & tableName,
-              const Utf8String & variableName)
+doGetColumn(const Utf8String & tableName,
+            const ColumnName & columnName)
 {
-    //cerr << "doGetVariable " << variableName << " on input " << jsonEncode(input) <<  " knownInput " << knownInput << endl;
-
-
     std::shared_ptr<ExpressionValueInfo> valueInfo;
-    SchemaCompleteness schemaCompleteness(SCHEMA_CLOSED); //check if the variable could be in a row with unknown columns
-    if (!findVariableRecursive(variableName, valueInfo, schemaCompleteness))
-    {
+
+    //check if the variable could be in a row with unknown columns
+    SchemaCompleteness schemaCompleteness(SCHEMA_CLOSED);
+
+    // If we can't find this column, then we know it's a required input
+    if (!findColumnRecursive(columnName, valueInfo, schemaCompleteness)) {
         if (knownInput && schemaCompleteness == SCHEMA_CLOSED) {
-            throw HttpReturnException(400, "Required input '" + variableName + "' was not provided",
-                                      "variableName", variableName,
+            throw HttpReturnException(400, "Required input '"
+                                      + columnName.toUtf8String()
+                                      + "' was not provided",
+                                      "columnName", columnName,
                                       "input", input,
                                       "knownInput", knownInput);
         }
@@ -189,7 +213,9 @@ doGetVariable(const Utf8String & tableName,
         
         valueInfo = std::make_shared<AnyValueInfo>();
 
-        input.values.insert(make_pair(variableName, FunctionValueInfo(valueInfo)));
+        // TO RESOLVE BEFORE MERGE: toSimpleName()
+        input.values.emplace(columnName.toSimpleName(),
+                             FunctionValueInfo(valueInfo));
     }
 
     return {[=] (const SqlRowScope & context,
@@ -200,48 +226,42 @@ doGetVariable(const Utf8String & tableName,
 
                 auto & row = context.as<RowContext>();
 
-                return row.input.mustGet(variableName, storage);
+                return row.input.mustGet(columnName, storage);
             },
             valueInfo};
 }
 
-bool FunctionExpressionContext::
-findVariableRecursive(const Utf8String& variableName,
-                      std::shared_ptr<ExpressionValueInfo>& valueInfo,
-                      SchemaCompleteness& schemaCompleteness) const
+bool
+FunctionExpressionContext::
+findColumnRecursive(const ColumnName& columnName,
+                    std::shared_ptr<ExpressionValueInfo>& valueInfo,
+                    SchemaCompleteness& schemaCompleteness) const
 {
+    ExcAssert(!columnName.empty());
+
     // case 1: found directly
-    auto it = input.values.find(variableName);    
-    if (it != input.values.end()) {
+    auto it = input.values.find(columnName[0]);    
+    if (it == input.values.end()) {
+        return false;
+    }
+
+    if (columnName.size() == 1) {
         // TODO: check that type is compatible with known type
         valueInfo = it->second.valueInfo;
         return true;
     }
-
-    // case 2: variableName is x.y, and we have x
-    auto jt = variableName.find('.');
-    if (jt != variableName.end()) {
-        // It's x.y.  Look for the x;
-        Utf8String head(variableName.begin(), jt);
-        ++jt;
-        auto kt = input.values.find(head);
-
-        if (kt != input.values.end()) {
-            Utf8String tail(jt, variableName.end());
-            auto info = kt->second.valueInfo; 
-
-            info = info->findNestedColumn(tail, schemaCompleteness);
-
-            if (info) {
-                valueInfo = info;
-                return true;
-            }
-        }
+    // case 2: columnName is x.y, and we have x
+    auto info = it->second.valueInfo; 
+    info = info->findNestedColumn(columnName.removePrefix(columnName[0]));
+    if (info) {
+        valueInfo = info;
+        return true;
     }
-    
-    // case 3: variableName is x, and we have x.y, x.z, etc.
+
+#if 0    
+    // case 3: columnName is x, and we have x.y, x.z, etc.
     // Match the prefix and return everything as a row
-    Utf8String toFind = variableName + ".";
+    Utf8String toFind = columnName + ".";
     it = input.values.lower_bound(toFind);
 
     vector<KnownColumn> knownColumns;
@@ -258,6 +278,7 @@ findVariableRecursive(const Utf8String& variableName,
         valueInfo = std::make_shared<RowValueInfo>(knownColumns);
         return true;
     }
+#endif
 
     return false;
 }
@@ -265,15 +286,16 @@ findVariableRecursive(const Utf8String& variableName,
 GetAllColumnsOutput
 FunctionExpressionContext::
 doGetAllColumns(const Utf8String & tableName,
-                std::function<Utf8String (const Utf8String &)> keep)
+                std::function<ColumnName (const ColumnName &)> keep)
 {
     auto getValue = [&] (const SqlRowScope & context,
                          const ColumnName & col)
 
         {
             auto & row = context.as<RowContext>();
-            return std::move(row.input.getValueOrNull(col));
-        };
+            // TO RESOLVE BEFORE MERGE: toSimpleName();
+            return std::move(row.input.getValueOrNull(col.toSimpleName()));
+};
 
     return getAllColumnsFromFunctionImpl(tableName, keep, input, getValue);
 }
@@ -285,9 +307,9 @@ doGetFunctionEntity(const Utf8String & functionName)
     return mldb->functions->getExistingEntity(functionName.rawString());
 }
 
-Utf8String 
+ColumnName
 FunctionExpressionContext::
-doResolveTableName(const Utf8String & fullVariableName, Utf8String &tableName) const
+doResolveTableName(const ColumnName & fullVariableName, Utf8String &tableName) const
 {
     return fullVariableName;
 }

@@ -785,7 +785,7 @@ ExpressionValue replaceIf(const std::vector<ExpressionValue> & args,
     ExcAssertEqual(args.size(), 2);
     ExcAssert(args[1].isNumber());
 
-    if(args[0].isArray() || args[0].isObject()) {
+    if(args[0].isRow()) {
         RowValue rtnRow;
 
         auto onAtom = [&] (const ColumnName & columnName,
@@ -1123,12 +1123,10 @@ BoundFunction distinct_timestamps(const std::vector<BoundSqlExpression> & args)
             {
                 ExcAssertEqual(args.size(), 1);
 
-                auto val = args[0];
+                std::set<CellValue> results;
 
-                std::set<Date> results;
-
-                auto onAtom = [&] (const Coord & columnName,
-                                   const Coord & prefix,
+                auto onAtom = [&] (const Coords & columnName,
+                                   const Coords & prefix,
                                    const CellValue & val,
                                    Date atomTs)
                     {
@@ -1137,13 +1135,11 @@ BoundFunction distinct_timestamps(const std::vector<BoundSqlExpression> & args)
                         return true;
                     };
 
-                val.forEachAtom(onAtom);
+                args[0].forEachAtom(onAtom);
 
-                std::vector<CellValue> embedding;
-                embedding.reserve(results.size());
-                std::copy(results.begin(), results.end(), std::back_inserter(embedding));
-
-                return ExpressionValue(embedding, args[0].getEffectiveTimestamp());
+                std::vector<CellValue> embedding(results.begin(), results.end());
+                return ExpressionValue(std::move(embedding),
+                                       args[0].getEffectiveTimestamp());
             },
             std::make_shared<EmbeddingValueInfo>(),
             GET_ALL};
@@ -1231,8 +1227,11 @@ BoundFunction temporal_latest(const std::vector<BoundSqlExpression> & args)
 static RegisterBuiltin registerTempLatest(temporal_latest, "temporal_latest");
 
 template <typename AggregatorFunc>
-BoundFunction temporalAggregatorT(const std::vector<BoundSqlExpression> & args) {
-
+BoundFunction temporalAggregatorT(const std::vector<BoundSqlExpression> & args)
+{
+    // MUST BE FIXED BEFORE MERGE
+    throw HttpReturnException(600, "Bound aggregators");
+#if 0
     typedef typename AggregatorFunc::value_type value_type;
 
     checkArgsSize(args.size(), 1);
@@ -1246,11 +1245,10 @@ BoundFunction temporalAggregatorT(const std::vector<BoundSqlExpression> & args) 
                 auto val = args[0];
 
                 // TODO - figure out what should be the ordering of the columns in the result
-                std::unordered_map<Coord, std::pair<value_type, Date> > results;
+                std::unordered_map<Coords, std::pair<value_type, Date> > results;
 
-
-                auto onAtom = [&] (const Coord & columnName,
-                                   const Coord & prefix,
+                auto onAtom = [&] (const Coords & columnName,
+                                   const Coords & prefix,
                                    const CellValue & val,
                                    Date atomTs)
                     {
@@ -1272,15 +1270,16 @@ BoundFunction temporalAggregatorT(const std::vector<BoundSqlExpression> & args) 
                     if (results.empty())
                         return ExpressionValue::null(args[0].getEffectiveTimestamp());
                     auto result = results.begin();
-                    return ExpressionValue(AggregatorFunc::extract(get<0>(result->second)), get<1>(result->second));
+                    return ExpressionValue
+                        (AggregatorFunc::extract(get<0>(result->second)),
+                         get<1>(result->second));
                 } else if (info->isRow()) {
                     std::vector<std::tuple<Coord, ExpressionValue> > row;
                     for (auto & result : results) {
-                        row.emplace_back(std::make_tuple(result.first,
-                                                         ExpressionValue(AggregatorFunc::extract(get<0>(result.second)),
-                                                                         get<1>(result.second))));
-                    }
-                    return row;
+                        row.emplace_back(result.first,
+                                         ExpressionValue(AggregatorFunc::extract(get<0>(result.second)), 
+                                                         get<1>(result.second)));
+                        return row;
                 }
                 else if (info->isEmbedding()) {
                     throw HttpReturnException(500, "embeddings are not yet supported in temporal aggregators");
@@ -1290,6 +1289,7 @@ BoundFunction temporalAggregatorT(const std::vector<BoundSqlExpression> & args) 
             },
             std::make_shared<UnknownRowValueInfo>(),
             GET_ALL};
+#endif
 }
 
 struct Min {
@@ -1652,9 +1652,9 @@ BoundFunction parse_json(const std::vector<BoundSqlExpression> & args)
 
                 JsonArrayHandling encode = PARSE_ARRAYS;
 
-                if (args.size() > 1)
-                {
-                    Utf8String arrays = args[1].getField("arrays").toUtf8String();
+                if (args.size() > 1) {
+                    Utf8String arrays
+                        = args[1].getColumn("arrays").toUtf8String();
                     if (arrays == "encode")
                       encode = ENCODE_ARRAYS;
                     else if (arrays != "parse")
@@ -1713,7 +1713,8 @@ ParseTokenizeArguments(Utf8String& splitchar, Utf8String& quotechar,
                        int& offset, int& limit, int& min_token_length,
                        ML::distribution<float, std::vector<float> > & ngram_range,
                        ExpressionValue& values,
-                       bool check[7], const ExpressionValue::Row & argRow)
+                       bool check[7],
+                       const ExpressionValue::Structured & argRow)
 {
     auto assertArg = [&] (size_t field, const string & name)
         {
@@ -1721,7 +1722,7 @@ ParseTokenizeArguments(Utf8String& splitchar, Utf8String& quotechar,
                 throw HttpReturnException(400, "Argument " + name + " is specified more than once");
             check[field] = true;
         };
-
+    
     for (auto& arg : argRow) {
         const ColumnName& columnName = std::get<0>(arg);
         if (columnName == ColumnName("splitchars")) {
@@ -1787,7 +1788,7 @@ BoundFunction tokenize(const std::vector<BoundSqlExpression> & args)
                 if (args.size() == 2)
                     ParseTokenizeArguments(splitchar, quotechar, offset, limit,
                                            min_token_length, ngram_range, values,
-                                           check, args.at(1).getRow());
+                                           check, args.at(1).getStructured());
 
                 ML::Parse_Context pcontext(text.rawData(), text.rawData(), text.rawLength());
 
@@ -1861,7 +1862,7 @@ BoundFunction token_extract(const std::vector<BoundSqlExpression> & args)
 
                 if (args.size() == 3)
                     ParseTokenizeArguments(splitchar, quotechar, offset, limit, min_token_length,
-                                           ngram_range, values, check, args.at(2).getRow());
+                                           ngram_range, values, check, args.at(2).getStructured());
 
                 ML::Parse_Context pcontext(text.rawData(), text.rawData(), text.rawLength());
 
@@ -1890,8 +1891,8 @@ BoundFunction horizontal_count(const std::vector<BoundSqlExpression> & args)
                 size_t result = 0;
                 Date ts = Date::negativeInfinity();
 
-                auto onAtom = [&] (const Coord & columnName,
-                                   const Coord & prefix,
+                auto onAtom = [&] (const Coords & columnName,
+                                   const Coords & prefix,
                                    const CellValue & val,
                                    Date atomTs)
                     {
@@ -1919,9 +1920,8 @@ BoundFunction horizontal_sum(const std::vector<BoundSqlExpression> & args)
             {
                 double result = 0;
                 Date ts = Date::negativeInfinity();
-
-                auto onAtom = [&] (const Coord & columnName,
-                                   const Coord & prefix,
+                auto onAtom = [&] (const Coords & columnName,
+                                   const Coords & prefix,
                                    const CellValue & val,
                                    Date atomTs)
                     {
@@ -1955,10 +1955,10 @@ BoundFunction horizontal_string_agg(const std::vector<BoundSqlExpression> & args
                 if (args.size() == 2) {
                     separator = args.at(1).getAtom()
                         .coerceToString().toUtf8String();
-                }
+                }                
 
-                auto onAtom = [&] (const Coord & columnName,
-                                   const Coord & prefix,
+                auto onAtom = [&] (const Coords & columnName,
+                                   const Coords & prefix,
                                    const CellValue & val,
                                    Date atomTs)
                     {
@@ -1971,13 +1971,14 @@ BoundFunction horizontal_string_agg(const std::vector<BoundSqlExpression> & args
                         }
                         return true;
                     };
-
+                
                 args.at(0).forEachAtom(onAtom);
-
+                
                 return ExpressionValue(result, ts);
                 },
             std::make_shared<Utf8StringValueInfo>()};
 }
+
 static RegisterBuiltin registerHorizontal_String_Agg(horizontal_string_agg, "horizontal_string_agg");
 
 BoundFunction horizontal_avg(const std::vector<BoundSqlExpression> & args)
@@ -1990,8 +1991,8 @@ BoundFunction horizontal_avg(const std::vector<BoundSqlExpression> & args)
                 double accum = 0;
                 Date ts = Date::negativeInfinity();
 
-                auto onAtom = [&] (const Coord & columnName,
-                                   const Coord & prefix,
+                auto onAtom = [&] (const Coords & columnName,
+                                   const Coords & prefix,
                                    const CellValue & val,
                                    Date atomTs)
                     {
@@ -2021,8 +2022,8 @@ BoundFunction horizontal_min(const std::vector<BoundSqlExpression> & args)
                 double min_val = nan("");
                 Date ts = Date::negativeInfinity();
 
-                auto onAtom = [&] (const Coord & columnName,
-                                   const Coord & prefix,
+                auto onAtom = [&] (const Coords & columnName,
+                                   const Coords & prefix,
                                    const CellValue & val,
                                    Date atomTs)
                     {
@@ -2054,8 +2055,8 @@ BoundFunction horizontal_max(const std::vector<BoundSqlExpression> & args)
                 double max_val = nan("");
                 Date ts = Date::negativeInfinity();
 
-                auto onAtom = [&] (const Coord & columnName,
-                                   const Coord & prefix,
+                auto onAtom = [&] (const Coords & columnName,
+                                   const Coords & prefix,
                                    const CellValue & val,
                                    Date atomTs)
                     {
@@ -2086,8 +2087,8 @@ BoundFunction horizontal_earliest(const std::vector<BoundSqlExpression> & args)
             {
                 auto earliest = ExpressionValue::null(Date::positiveInfinity());
 
-                auto onAtom = [&] (const Coord & columnName,
-                                   const Coord & prefix,
+                auto onAtom = [&] (const Coords & columnName,
+                                   const Coords & prefix,
                                    const CellValue & val,
                                    Date atomTs)
                     {
@@ -2114,8 +2115,8 @@ BoundFunction horizontal_latest(const std::vector<BoundSqlExpression> & args)
             {
                 auto latest = ExpressionValue::null(Date::negativeInfinity());
 
-                auto onAtom = [&] (const Coord & columnName,
-                                   const Coord & prefix,
+                auto onAtom = [&] (const Coords & columnName,
+                                   const Coords & prefix,
                                    const CellValue & val,
                                    Date atomTs)
                     {
@@ -2193,7 +2194,7 @@ struct RegisterVectorOp {
         */
         ExpressionValueInfo::GetCompatibleDoubleEmbeddingsFn extract;
         std::shared_ptr<ExpressionValueInfo> info;
-        ExpressionValueInfo::ReconstituteFromEmbeddingFn reconst;
+        ExpressionValueInfo::ReconstituteFromDoubleEmbeddingFn reconst;
 
         std::tie(extract, info, reconst)
             = args[0].info->getCompatibleDoubleEmbeddings(*args[1].info);
@@ -2222,7 +2223,7 @@ RegisterVectorOp<QuotientOp> registerVectorQuotient("vector_quotient");
 
 void
 ParseConcatArguments(Utf8String& separator, bool& columnValue,
-                     const ExpressionValue::Row & argRow)
+                     const ExpressionValue::Structured & argRow)
 {
     bool check[3] = {false, false, false};
     auto assertArg = [&] (size_t field, const string & name) {
@@ -2268,7 +2269,7 @@ BoundFunction concat(const std::vector<BoundSqlExpression> & args)
     if (args.size() == 2) {
         SqlRowScope emptyScope;
         ParseConcatArguments(separator, columnValue,
-                             args[1](emptyScope, GET_LATEST).getRow());
+                             args[1](emptyScope, GET_LATEST).getStructured());
     }
 
     return {[=] (const std::vector<ExpressionValue> & args,
@@ -2277,8 +2278,8 @@ BoundFunction concat(const std::vector<BoundSqlExpression> & args)
             Utf8String result = "";
             Date ts = Date::negativeInfinity();
             bool first = true;
-            auto onAtom = [&] (const Coord & columnName,
-                               const Coord & prefix,
+            auto onAtom = [&] (const Coords & columnName,
+                               const Coords & prefix,
                                const CellValue & val,
                                Date atomTs)
             {
@@ -2290,7 +2291,7 @@ BoundFunction concat(const std::vector<BoundSqlExpression> & args)
                         result += separator;
                     }
                     result += columnValue ?
-                        val.toUtf8String() : columnName.toUtf8String();
+                       val.toUtf8String() : columnName.toUtf8String();
                 }
                 return true;
             };
@@ -2362,8 +2363,8 @@ BoundFunction extract_column(const std::vector<BoundSqlExpression> & args)
                 Utf8String fieldName = val1.toUtf8String();
                 cerr << "extracting " << jsonEncodeStr(val1)
                      << " from " << jsonEncodeStr(val2) << endl;
-
-                return args[1].getField(fieldName);
+                
+                return args[1].getColumn(fieldName);
             },
             std::make_shared<AnyValueInfo>()
             };

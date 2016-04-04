@@ -58,14 +58,14 @@ struct ReadThroughBindingContext: public SqlBindingScope {
                   const std::vector<BoundSqlExpression> & args,
                   SqlBindingScope & argScope);
 
-    virtual VariableGetter doGetVariable(const Utf8String & tableName,
-                                         const Utf8String & variableName);
+    virtual ColumnGetter doGetColumn(const Utf8String & tableName,
+                                       const ColumnName & columnName);
 
     virtual GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    std::function<Utf8String (const Utf8String &)> keep);
+                    std::function<ColumnName (const ColumnName &)> keep);
 
-    virtual VariableGetter doGetBoundParameter(const Utf8String & paramName);
+    virtual ColumnGetter doGetBoundParameter(const Utf8String & paramName);
     
     virtual std::shared_ptr<Function>
     doGetFunctionEntity(const Utf8String & functionName);
@@ -126,8 +126,8 @@ struct ColumnExpressionBindingContext: public SqlBindingScope {
         return outer.getMldbServer();
     }
 
-    virtual VariableGetter doGetVariable(const Utf8String & tableName,
-                                         const Utf8String & variableName);
+    virtual ColumnGetter doGetColumn(const Utf8String & tableName,
+                                       const ColumnName & columnName);
 };
 
 
@@ -204,7 +204,7 @@ struct SqlExpressionParamScope: public ReadThroughBindingContext {
         const BoundParameters & params;
     };
     
-    virtual VariableGetter doGetBoundParameter(const Utf8String & paramName);
+    virtual ColumnGetter doGetBoundParameter(const Utf8String & paramName);
 
     static RowScope getRowScope(const BoundParameters & params)
     {

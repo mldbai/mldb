@@ -180,7 +180,7 @@ struct SqliteSparseDataset::Itl
 
     static void bindArg(sqlite3pp::statement & statement, int index, const RowName & arg)
     {
-        int res = statement.bind(index, arg.toString().c_str());
+        int res = statement.bind(index, arg.toUtf8String().rawData());
         ExcAssertEqual(res, SQLITE_OK);
     }
 
@@ -225,20 +225,20 @@ struct SqliteSparseDataset::Itl
         return ColumnHash(rows.get<long long>(0));
     }
 
-    static Coord decodeQuery(const sqlite3pp::query::rows & rows, Coord *)
+    static Coords decodeQuery(const sqlite3pp::query::rows & rows, Coords *)
     {
         size_t len = rows.column_bytes(0);
-        return Coord(rows.get<const char *>(0), len);
+        return Coords(Coord(rows.get<const char *>(0), len));
     }
 
-    static std::pair<int, Coord>
-    decodeQuery(const sqlite3pp::query::rows & rows, std::pair<int, Coord> *)
+    static std::pair<int, Coords>
+    decodeQuery(const sqlite3pp::query::rows & rows, std::pair<int, Coords> *)
     {
         size_t len = rows.column_bytes(1);
         return make_pair(rows.get<int>(0),
-                         Coord(rows.get<const char *>(1), len));
+                         Coords(Coord(rows.get<const char *>(1), len)));
     }
-
+    
     static std::pair<Date, Date>
     decodeQuery(const sqlite3pp::query::rows & rows, std::pair<Date, Date> *)
     {
@@ -250,21 +250,12 @@ struct SqliteSparseDataset::Itl
     decodeQuery(const sqlite3pp::query::rows & rows,
                 std::tuple<ColumnName, CellValue, Date> *)
     {
-        size_t len = rows.column_bytes(0);
-        return std::make_tuple(ColumnName(rows.get<const char *>(0), len),
-                               jsonDecodeStr<CellValue>(Utf8String(rows.get<const char *>(1))),
+        size_t len1 = rows.column_bytes(0);
+        size_t len2 = rows.column_bytes(1);
+        return std::make_tuple(jsonDecodeStr<ColumnName>(rows.get<const char *>(0), len1),
+                               jsonDecodeStr<CellValue>(rows.get<const char *>(1), len2),
                                decodeTs(rows.get<long long>(2)));
     }
-
-#if 0
-    static std::tuple<RowName, CellValue, Date>
-    decodeQuery(const sqlite3pp::query::rows & rows, std::tuple<RowName, CellValue, Date> *)
-    {
-        return std::make_tuple(RowHash(rows.get<long long>(0)),
-                               jsonDecodeStr<CellValue>(Utf8String(rows.get<const char *>(1))),
-                               Date::fromSecondsSinceEpoch(rows.get<long long>(2) * 0.001));
-    }
-#endif    
 
     template<typename Result, typename... Args>
     std::vector<Result>

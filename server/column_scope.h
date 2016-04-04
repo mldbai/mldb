@@ -1,4 +1,3 @@
-
 /** randomforest_procedure.h                                            -*- C++ -*-
     Mathieu Marquis Bolduc, 11 Mars 2016
     Copyright (c) 2016 Datacratic Inc.  All rights reserved.
@@ -42,11 +41,10 @@ struct ColumnScope: public SqlExpressionMldbContext {
         const std::vector<std::vector<CellValue> > & inputs;
     };
 
-    virtual VariableGetter
-    doGetVariable(const Utf8String & tableName,
-                  const Utf8String & variableName)
+    virtual ColumnGetter
+    doGetColumn(const Utf8String & tableName,
+                const ColumnName & columnName)
     {
-        ColumnName columnName(variableName);
         if (!requiredColumnIndexes.count(columnName)) {
             size_t index = requiredColumns.size();
             requiredColumnIndexes[columnName] = index;
@@ -69,9 +67,9 @@ struct ColumnScope: public SqlExpressionMldbContext {
 
     virtual GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    std::function<Utf8String (const Utf8String &)> keep)
+                    std::function<ColumnName (const ColumnName &)> keep)
     {
-        throw HttpReturnException(400, "Attempt to bind expression with wildcard");
+        throw HttpReturnException(400, "Attempt to bind expression with wildcard in column scope");
     }
 
     virtual BoundFunction

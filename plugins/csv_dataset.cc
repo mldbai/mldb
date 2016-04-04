@@ -151,7 +151,7 @@ struct SqlCsvScope: public SqlExpressionMldbContext {
     /// What is the URI for this file?
     Utf8String dataFileUrl;
 
-    virtual VariableGetter doGetVariable(const Utf8String & tableName,
+    virtual ColumnGetter doGetColumn(const Utf8String & tableName,
                                          const Utf8String & variableName)
     {
         if (!tableName.empty()) {

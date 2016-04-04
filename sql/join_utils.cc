@@ -44,26 +44,11 @@ generateWhereExpression(const std::vector<AnnotatedClause> & clause,
 
 //Check if the idenfifier refers to this dataset and if so, remove the prefix.
 bool
-extractTableName(Utf8String & variableName, const Utf8String& tableName)
+extractTableName(ColumnName & columnName, const Utf8String& tableName)
 {    
-    if (!tableName.empty() && !variableName.empty()) {
-
-        Utf8String aliasWithDot = tableName + ".";
-
-        if (!variableName.removePrefix(aliasWithDot)) {
-
-            //maybe there are quotes around the prefix.             
-
-            auto it1 = variableName.begin();
-            if (*it1 == '\"') {
-                
-                aliasWithDot = "\"" + tableName + "\"" + ".";
-
-                if (variableName.removePrefix(aliasWithDot))
-                    return true;             
-            }  
-        }
-        else  {
+    if (!tableName.empty() && !columnName.empty()) {
+        if (columnName.startsWith(tableName)) {
+            columnName = columnName.removePrefix(tableName);
             return true;
         }
     }   
@@ -72,11 +57,11 @@ extractTableName(Utf8String & variableName, const Utf8String& tableName)
 }
 
 bool
-extractTableName(Utf8String & variableName, const std::set<Utf8String> & tables)
+extractTableName(ColumnName & columnName, const std::set<Utf8String> & tables)
 {
     for (const Utf8String& tableName : tables)
     {
-        if (extractTableName(variableName, tableName))
+        if (extractTableName(columnName, tableName))
             return true;
     }
     return false;
@@ -86,8 +71,11 @@ extractTableName(Utf8String & variableName, const std::set<Utf8String> & tables)
 // Replace all variable names like "table.x" with "x" to be run
 // in the context of a table
 std::shared_ptr<SqlExpression>
-removeTableName(const SqlExpression & expr, const Utf8String & tableName, const std::set<Utf8String>& childAliases)
+removeTableName(const SqlExpression & expr,
+                const Utf8String & tableName,
+                const std::set<Utf8String>& childAliases)
 {
+#if 0
     //prefixes to look for in variable names
     //variable names use only the table name not the child aliases
     //because the child columns will have been flattened
@@ -97,9 +85,10 @@ removeTableName(const SqlExpression & expr, const Utf8String & tableName, const 
     Utf8String prefixToFind2 = "\"" + tableName + "\"" + ".";
     size_t prefixLength2 = prefixToFind2.length();
 
-    std::vector<std::tuple<Utf8String, Utf8String, size_t> >  variablePrefixes = 
-            {(std::make_tuple(tableName, std::move(prefixToFind), prefixLength)), 
-             (std::make_tuple(tableName, std::move(prefixToFind2), prefixLength2)) };
+    std::vector<std::tuple<Utf8String, Utf8String, size_t> >
+        variablePrefixes{
+            (std::make_tuple(tableName, std::move(prefixToFind), prefixLength)), 
+            (std::make_tuple(tableName, std::move(prefixToFind2), prefixLength2)) };
 
     //build list of prefixes to look for in function names
     //with a tuple of table-name, prefix, prefix length
@@ -114,6 +103,7 @@ removeTableName(const SqlExpression & expr, const Utf8String & tableName, const 
         length = prefixToFind.length();
         functionprefixes.push_back(std::make_tuple(alias, std::move(prefixToFind2), length));
     }
+#endif
 
     // If an expression refers to a variable, then remove the table name
     // from it.  Otherwise return the same expression.
@@ -134,35 +124,27 @@ removeTableName(const SqlExpression & expr, const Utf8String & tableName, const 
     doArg = [&] (std::shared_ptr<SqlExpression> a)
         -> std::shared_ptr<SqlExpression>
         {
-            auto var = std::dynamic_pointer_cast<ReadVariableExpression>(a);
+            auto var = std::dynamic_pointer_cast<ReadColumnExpression>(a);
             if (var) {
-
-                for (auto& prefixt : variablePrefixes)
-                {
-                     if (var->variableName.startsWith(std::get<1>(prefixt))) {
-                        Utf8String name(var->variableName);
-                        name.replace(0, std::get<2>(prefixt), Utf8String());
-                        ExcAssert(!name.empty());
-                        ExcAssert(!name.startsWith("."));
-                        return std::make_shared<ReadVariableExpression>(std::get<0>(prefixt), name);
-                    }
-                }               
+                if (!tableName.empty() && var->columnName.startsWith(tableName)) {
+                    Coords newName = var->columnName.removePrefix(Coord(tableName));
+                    return std::make_shared<ReadColumnExpression>(newName);
+                }
             }
-            auto func = std::dynamic_pointer_cast<FunctionCallWrapper>(a);
+            auto func = std::dynamic_pointer_cast<FunctionCallExpression>(a);
             if (func) {
-                for (auto& prefixt : functionprefixes)
-                {
-                    if (func->functionName.startsWith(std::get<1>(prefixt))) {
-                        Utf8String name(func->functionName);
-                        name.replace(0, std::get<2>(prefixt), Utf8String());
-                        ExcAssert(!name.empty());
-                        ExcAssert(!name.startsWith("."));
-
+                for (auto & prefixt: childAliases) {
+                    if (func->functionName.startsWith(prefixt)) {
+                        Utf8String newName
+                            = var->columnName.removePrefix(tableName)
+                            .toSimpleName();
                         vector<std::shared_ptr<SqlExpression> > newArgs;
                         for (auto & a: func->args) {
                             newArgs.emplace_back(std::move(doArg(a)));
                         }
-                        return std::make_shared<FunctionCallWrapper>(std::get<0>(prefixt), name, std::move(newArgs), func->extract);
+                        return std::make_shared<FunctionCallExpression>
+                            (newName, std::move(newArgs),
+                             func->extract);
                     }
                 }
             }
@@ -180,6 +162,7 @@ removeTableName(const SqlExpression & expr, const Utf8String & tableName, const 
     return result;
 }
 
+
 /*****************************************************************************/
 /* ANNOTATED CLAUSE                                                          */
 /*****************************************************************************/
@@ -196,16 +179,14 @@ AnnotatedClause(std::shared_ptr<SqlExpression> c,
     
     // Which table does it refer to?
     for (auto & var: vars) {
-        Utf8String v = var.first.name;
+        ColumnName v = var.first.name;
 
-        if (extractTableName(v,leftTables)) {
+        if (extractTableName(v, leftTables)) {
             ExcAssert(!v.empty());
-            ExcAssert(!v.startsWith("."));
             leftVars.emplace_back(std::move(v));
         }
         else if (extractTableName(v,rightTables)) {
             ExcAssert(!v.empty());
-            ExcAssert(!v.startsWith("."));
             rightVars.emplace_back(std::move(v));
         }
         else {
@@ -214,30 +195,21 @@ AnnotatedClause(std::shared_ptr<SqlExpression> c,
     }
     
     for (auto & func: funcs) {
-        Utf8String v = func.first.name;
-        auto dotIt = v.find('.');
-        if (dotIt == v.end()) {
-            externalFuncs.emplace_back(v);
+        ColumnName v = func.first.name;
+        if (v.size() > 1) {
+            externalFuncs.emplace_back(v.toSimpleName());
             continue;
         }
 
-        Utf8String tableName(v.begin(), dotIt);
+        Utf8String tableName(v[0].toUtf8String());
+
         if (leftTables.count(tableName)) {
-            v.replace(0, tableName.length() + 1,
-                      Utf8String(""));
-            ExcAssert(!v.empty());
-            ExcAssert(!v.startsWith("."));
-            leftFuncs.emplace_back(std::move(v));
+            leftFuncs.emplace_back(v.removePrefix(tableName).toSimpleName());
         }
         else if (rightTables.count(tableName)) {
-            v.replace(0, tableName.length() + 1,
-                      Utf8String(""));
-            ExcAssert(!v.empty());
-            ExcAssert(!v.startsWith("."));
-            rightFuncs.emplace_back(std::move(v));
+            rightFuncs.emplace_back(v.removePrefix(tableName).toSimpleName());
         }
-        else externalFuncs.emplace_back(v);
-        
+        else externalFuncs.emplace_back(v.toSimpleName());
     }
 
     if (leftVars.empty() && rightVars.empty()
@@ -459,8 +431,8 @@ AnnotatedJoinCondition(std::shared_ptr<TableExpression> leftTable,
             // Construct the select expression.  It's simply the value of
             // the join expression.
             side.select.clauses.push_back
-            (std::make_shared<ComputedVariable>(Utf8String("val"),
-                                                localExpr));
+            (std::make_shared<ComputedColumn>(Coord("val"),
+                                              localExpr));
             side.select.surface = side.select.print();
             
             // Construct the order by expression.  Again, it's simply the

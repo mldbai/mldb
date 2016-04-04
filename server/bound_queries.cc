@@ -227,7 +227,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
         bool selectStar = boundSelect.expr->isIdentitySelect(context);
 
         int numRows = whereGenerator.upperBound;
-
+        
         size_t numPerBucket = std::max((size_t)std::floor((float)numRows / numBuckets), (size_t)1);
         size_t effectiveNumBucket = std::min((size_t)numBuckets, (size_t)numRows);
 
@@ -290,8 +290,10 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
             // Move into place, since we know we're selecting *
             outputRow.columns.reserve(row.columns.size());
             for (auto & c: row.columns) {
+                // TODO: toSimpleName isn't right here... we need to output as
+                // a MatrixNamedRow or ExpressionValue
                 outputRow.columns.emplace_back
-                    (std::move(std::get<0>(c)),
+                    (std::move(std::get<0>(c).toSimpleName()),
                      ExpressionValue(std::move(std::get<1>(c)),
                                      std::get<2>(c)));
             }
@@ -635,12 +637,8 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
                     if (selectStar) {
                         // Move into place, since we know we're selecting *
                         outputRow.columns.reserve(row.columns.size());
-                        for (auto & c: row.columns) {
-                            outputRow.columns.emplace_back
-                                (std::move(std::get<0>(c)),
-                                 ExpressionValue(std::move(std::get<1>(c)),
-                                                 std::get<2>(c)));
-                        }
+                        ExpressionValue output(std::move(row.columns));
+                        output.mergeToRowDestructive(outputRow.columns);
                     }
                     else {
                         // Run the select expression
@@ -903,7 +901,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
                 outputRow.columns.reserve(row.columns.size());
                 for (auto & c: row.columns) {
                     outputRow.columns.emplace_back
-                        (std::move(std::get<0>(c)),
+                        (std::move(std::get<0>(c).toSimpleName()),
                          ExpressionValue(std::move(std::get<1>(c)),
                                          std::get<2>(c)));
                 }
@@ -1115,14 +1113,6 @@ struct GroupContext: public SqlExpressionDatasetContext {
                                         const std::vector<BoundSqlExpression> & args,
                                         SqlBindingScope & argScope)
     {
-        Utf8String resolvedTableName = tableName;
-        Utf8String resolvedFunctionName = functionName;
-
-        if (tableName.empty()) {
-            resolvedFunctionName = removeTableName(alias, functionName);
-            if (resolvedFunctionName != functionName)
-                resolvedTableName = alias;
-        }
 
         auto getGroupRowName = [] (const SqlRowScope & context){
             auto & row = context.as<RowContext>();
@@ -1160,7 +1150,8 @@ struct GroupContext: public SqlExpressionDatasetContext {
                     },
                     std::make_shared<Uint64ValueInfo>()};
         }
-        else if (resolvedFunctionName == "groupKeyElement" || resolvedFunctionName == "group_key_element") {
+        else if (functionName == "groupKeyElement"
+                 || functionName == "group_key_element") {
             return {[] (const std::vector<ExpressionValue> & args,
                         const SqlRowScope & context)
                     {
@@ -1175,9 +1166,9 @@ struct GroupContext: public SqlExpressionDatasetContext {
         }
 
         //check aggregators
-        auto aggFn = SqlBindingScope::doGetAggregator(resolvedFunctionName, args);
+        auto aggFn = SqlBindingScope::doGetAggregator(functionName, args);
         if (aggFn) {
-            if (resolvedFunctionName == "count")
+            if (functionName == "count")
                 {
                     //count is *special*
                     evaluateEmptyGroups = true;
@@ -1194,30 +1185,33 @@ struct GroupContext: public SqlExpressionDatasetContext {
             return {[&,aggIndex] (const std::vector<ExpressionValue> & args,
                                   const SqlRowScope & context)
                     {
-                        return outputAgg[aggIndex].aggregate.extract(aggData[aggIndex].get());
+                        return outputAgg[aggIndex]
+                            .aggregate.extract(aggData[aggIndex].get());
                     },
                     // TODO: get it from the value info for the group keys...
                     std::make_shared<AnyValueInfo>()};
         }
-        
-        return SqlBindingScope::doGetFunction(resolvedTableName, resolvedFunctionName, args, argScope);
+        return SqlBindingScope::doGetFunction(tableName,
+                                              functionName,
+                                              args, argScope);
     }
 
     // Within a group by context, we can get either:
     // 1.  The value of the variable in the row
     // 2.  The value of the variable within the group by expression
-    virtual VariableGetter doGetVariable(const Utf8String & tableName,
-                                         const Utf8String & variableName)
+    virtual ColumnGetter doGetColumn(const Utf8String & tableName,
+                                     const ColumnName & columnName)
     {
-        Utf8String simplifiedVariableName = removeQuotes(removeTableName(alias, variableName));
-
+        // First, search for something that matches the surface (ugh)
+        // of a group by clause.  We can use that directly.
         for (unsigned i = 0;  i < groupByExpression.clauses.size();  ++i) {
             const std::shared_ptr<SqlExpression> & g
                 = groupByExpression.clauses[i];
 
-            Utf8String simplifiedSurface = removeQuotes(removeTableName(alias, g->surface));
-
-            if (simplifiedSurface == simplifiedVariableName) {
+            ColumnName simplifiedSurface
+                = removeTableName(alias, Coord(g->surface));
+            
+            if (simplifiedSurface == columnName) {
                 return {[=] (const SqlRowScope & context,
                              ExpressionValue & storage,
                              const VariableFilter & filter)
@@ -1231,23 +1225,25 @@ struct GroupContext: public SqlExpressionDatasetContext {
             }
         }
 
-        ColumnName columnName(simplifiedVariableName);
-
+        // Otherwise, it must be a variable in the output row.
         return {[=] (const SqlRowScope & context,
                      ExpressionValue & storage,
                      const VariableFilter & filter) -> const ExpressionValue &
                 {
                     auto & row = context.as<RowContext>();
              
+                    // TODO BEFORE MERGE: shouldn't be toSimpleName()
                     const ExpressionValue * result
-                        = searchRow(row.output.columns, columnName, filter, storage);
+                        = searchRow(row.output.columns, columnName.toSimpleName(),
+                                    filter, storage);
 
                     if (result)
                         return *result;     
                     
-                    throw HttpReturnException(400, "variable '" + variableName 
-                                              + "' must appear in the GROUP BY clause or "
-                                              "be used in an aggregate function");
+                    throw HttpReturnException
+                        (400, "variable '" + columnName.toUtf8String() 
+                         + "' must appear in the GROUP BY clause or "
+                         "be used in an aggregate function");
                 },
                 std::make_shared<AtomValueInfo>()};
     }
@@ -1286,8 +1282,7 @@ struct GroupContext: public SqlExpressionDatasetContext {
     void aggregateRow(GroupMapValue& mapInstance,
                       const std::vector<ExpressionValue>& row)
     {
-
-        for (unsigned i = 0;  i < outputAgg.size();  ++i) {
+        for (size_t i = 0;  i < outputAgg.size();  ++i) {
             outputAgg[i].aggregate
                 .process(&row[argOffset + outputAgg[i].inputIndex],
                          outputAgg[i].numInputs,
@@ -1298,7 +1293,7 @@ struct GroupContext: public SqlExpressionDatasetContext {
     void mergeThreadMap(GroupMapValue& outMapInstance,
                         const GroupMapValue& inMapInstance)
     {
-        for (unsigned i = 0;  i < outputAgg.size();  ++i) {
+        for (size_t i = 0;  i < outputAgg.size();  ++i) {
            outputAgg[i].aggregate
                .mergeInto(outMapInstance[i].get(), inMapInstance[i].get());
         }
@@ -1347,7 +1342,7 @@ BoundGroupByQuery(const SelectExpression & select,
     // Convert the select clauses to a list
     for (auto & expr : aggregatorsExpr)
     {
-        auto fn = dynamic_cast<const FunctionCallWrapper *>(expr.get());
+        auto fn = dynamic_cast<const FunctionCallExpression *>(expr.get());
 
         //Important: This assumes they are in the same order as in the group context
         for (auto & a: fn->args) {

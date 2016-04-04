@@ -82,12 +82,12 @@ struct SqlExpressionDatasetContext: public SqlExpressionMldbContext {
     Utf8String alias;
     std::vector<Utf8String> childaliases;
 
-    virtual VariableGetter doGetVariable(const Utf8String & tableName,
-                                         const Utf8String & variableName);
+    virtual ColumnGetter doGetColumn(const Utf8String & tableName,
+                                       const ColumnName & columnName);
 
     GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    std::function<Utf8String (const Utf8String &)> keep);
+                    std::function<ColumnName (const ColumnName &)> keep);
 
     virtual BoundFunction
     doGetFunction(const Utf8String & tableName,
@@ -103,7 +103,7 @@ struct SqlExpressionDatasetContext: public SqlExpressionMldbContext {
     virtual ColumnFunction
     doGetColumnFunction(const Utf8String & functionName);
 
-    virtual VariableGetter
+    virtual ColumnGetter
     doGetBoundParameter(const Utf8String & paramName);
     
     static RowContext getRowContext(const MatrixNamedRow & row,
@@ -112,14 +112,20 @@ struct SqlExpressionDatasetContext: public SqlExpressionMldbContext {
         return RowContext(row, params);
     }
 
-    virtual Utf8String 
-    doResolveTableName(const Utf8String & fullVariableName, Utf8String &tableName) const;
+    virtual ColumnName
+    doResolveTableName(const ColumnName & fullColumnName,
+                       Utf8String & tableName) const;
     
+#if 0
 protected:
 
-    Utf8String removeQuotes(const Utf8String & variableName) const;
-    Utf8String resolveTableName(const Utf8String& variableName) const;
-    Utf8String resolveTableName(const Utf8String& variableName, Utf8String& resolvedTableName) const;
+    // This is for the context where we have several datasets
+    // resolve ambiguity of different table names
+    // by finding the dataset name that resolves first.
+    Utf8String resolveTableName(const Utf8String& columnName) const;
+    Utf8String resolveTableName(const Utf8String& columnName,
+                                Utf8String& resolvedTableName) const;
+#endif
 };
 
 
@@ -152,9 +158,9 @@ struct SqlExpressionOrderByContext: public ReadThroughBindingContext {
         was in the underlying row.  So we first look in what was selected,
         and then fall back to the underlying row.
     */
-    virtual VariableGetter doGetVariable(const Utf8String & tableName,
-                                         const Utf8String & variableName);
-
+    virtual ColumnGetter doGetColumn(const Utf8String & tableName,
+                                       const ColumnName & columnName);
+    
     RowContext getRowContext(const SqlRowScope & outer,
                              const NamedRowValue & output) const
     {

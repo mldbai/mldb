@@ -152,9 +152,18 @@ run(const ProcedureRunConfig & run,
             // Fixed columns
             RowValue fixedOutputRows;
             for(auto & expr : extraVals) {
-                for(auto & col : expr.getRow()) {
-                    fixedOutputRows.emplace_back(get<0>(col), get<1>(col).getAtom(), rowTs);
-                }
+
+                auto onAtom = [&] (const Coords & columnName,
+                                   const Coords & prefix,
+                                   const CellValue & val,
+                                   Date ts)
+                    {
+                        fixedOutputRows.emplace_back(prefix + columnName,
+                                                     val, ts);
+                        return true;
+                    };
+
+                expr.forEachAtom(onAtom, ColumnName());
             }
 
             // Melted
