@@ -295,6 +295,8 @@ struct EmbeddingDataset::Itl
         if (limit == -1)
             limit = repr->rows.size();
 
+        result.reserve(limit - start);
+
         for (unsigned i = start;  i < repr->rows.size() && i < start + limit;  ++i) {
             result.emplace_back(repr->rows[i].rowName);
         }
