@@ -376,9 +376,9 @@ struct AggregatorT {
         ExcAssert(state->isDetermined);
 
          if (state->isRow)
-                return state->rowState.extract();
+            return state->rowState.extract();
          else
-                return state->scalarState.extract();
+            return state->scalarState.extract();
     }
 
     static void ambiguousMerge(void* dest, void* src)

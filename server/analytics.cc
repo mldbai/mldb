@@ -68,11 +68,10 @@ void iterateDatasetGrouped(const SelectExpression & select,
                            const OrderByExpression & orderBy,
                            ssize_t offset,
                            ssize_t limit,
-                           std::function<bool (const Json::Value &)> onProgress,
-                           bool allowMT)
+                           std::function<bool (const Json::Value &)> onProgress)
 {
     BoundGroupByQuery(select, from, alias, when, where, groupBy, aggregators, having, rowName, orderBy)
-      .execute(aggregator, offset, limit, onProgress, allowMT);
+      .execute(aggregator, offset, limit, onProgress);
 }
 
 void iterateDataset(const SelectExpression & select,
@@ -293,7 +292,9 @@ getEmbedding(const SelectExpression & select,
 
         iterateDense(select, dataset, alias, when, where, calc, aggregator, nullptr);
 
+        // because the results come in parallel
         // we still need to order by rowHash to ensure determinism in the results
+        // todo: sort in parallel
         std::sort(rows.begin(), rows.end());
     }
   
@@ -340,8 +341,6 @@ queryFromStatement(SelectStatement & stm,
 {
     BoundTableExpression table = stm.from->bind(scope);
     
-    bool allowParallel = !QueryThreadTracker::inChildThread();
-
     if (table.dataset) {
         return table.dataset->queryStructured(stm.select, stm.when,
                                               *stm.where,
@@ -400,7 +399,7 @@ queryFromStatement(SelectStatement & stm,
         
         auto boundPipeline = pipeline->bind();
 
-        auto executor = boundPipeline->start(params, allowParallel);
+        auto executor = boundPipeline->start(params);
         
         std::vector<MatrixNamedRow> rows;
 

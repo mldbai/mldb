@@ -407,8 +407,7 @@ run(const ProcedureRunConfig & run,
     BoundSelectQuery(select, *boundDataset.dataset,
                      boundDataset.asName, runProcConf.trainingData.stm->when,
                      *runProcConf.trainingData.stm->where,
-                     runProcConf.trainingData.stm->orderBy, extra,
-                     false /* implicit order by row hash */)
+                     runProcConf.trainingData.stm->orderBy, extra)
         .execute(aggregator, 
                  runProcConf.trainingData.stm->offset, 
                  runProcConf.trainingData.stm->limit, 

@@ -165,8 +165,7 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
                 return context.get(name);
             };
         
-        auto executor = boundPipeline->start(params,
-                                             !QueryThreadTracker::inChildThread() /* allowParallel */);
+        auto executor = boundPipeline->start(params);
 
         switch (function->functionConfig.output) {
         case FIRST_ROW: {
@@ -579,20 +578,13 @@ run(const ProcedureRunConfig & run,
                 return true;
             };
 
-        // We only add an implicit order by (which defeats parallelization)
-        // if we have a limit or offset parameter.
-        bool implicitOrderByRowHash
-            = (runProcConf.inputData.stm->offset != 0 || 
-               runProcConf.inputData.stm->limit != -1);
-
         BoundSelectQuery(runProcConf.inputData.stm->select,
                          *boundDataset.dataset,
                          boundDataset.asName,
                          runProcConf.inputData.stm->when,
                          *runProcConf.inputData.stm->where,
                          runProcConf.inputData.stm->orderBy,
-                         { runProcConf.inputData.stm->rowName },
-                         implicitOrderByRowHash)
+                         { runProcConf.inputData.stm->rowName })
             .execute(recordRowInOutputDataset,
                      runProcConf.inputData.stm->offset,
                      runProcConf.inputData.stm->limit,

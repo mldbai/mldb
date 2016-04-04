@@ -656,8 +656,7 @@ queryStructured(const SelectExpression & select,
                 const SqlExpression & rowName,
                 ssize_t offset,
                 ssize_t limit,
-                Utf8String alias,
-                bool allowMT) const
+                Utf8String alias) const
 {
     std::mutex lock;
     std::vector<MatrixNamedRow> output;
@@ -709,7 +708,7 @@ queryStructured(const SelectExpression & select,
         iterateDatasetGrouped(select, *this, alias, when, where,
                               groupBy, aggregators, having, rowName,
                               aggregator, orderBy, offset, limit,
-                              nullptr, allowMT);
+                              nullptr);
     }
 
     return output;
@@ -1273,9 +1272,11 @@ generateRowsWhere(const SqlBindingScope & scope,
                             accum.get().push_back(r);
                     };
 
+                bool needSort = false;
                 if (rows.size() >= 1000) {
                     // Scan the whole lot with the when in parallel
                     parallelMap(0, rows.size(), onRow);
+                    needSort = true;
                 } else {
                     // Serial, since probably it's not worth the overhead
                     // to run them in parallel.
@@ -1293,7 +1294,10 @@ generateRowsWhere(const SqlBindingScope & scope,
                 
                 accum.forEach(onThreadOutput);
 
-                std::sort(rowsToKeep.begin(), rowsToKeep.end(), SortByRowHash());
+                //Todo: need sorting because the parallelisation breaks determinism, but it should be sorted in parallel
+                // or process in parallel in a deterministic manner.
+                if (needSort) 
+                    std::sort(rowsToKeep.begin(), rowsToKeep.end(), SortByRowHash());
 
                 start += rows.size();
                 Any newToken;
@@ -1314,8 +1318,7 @@ queryBasic(const SqlBindingScope & scope,
            const SqlExpression & where,
            const OrderByExpression & orderBy,
            ssize_t offset,
-           ssize_t limit,
-           bool allowParallel) const
+           ssize_t limit) const
 {
     // 1.  Get the rows that match the where clause
     auto rowGenerator = generateRowsWhere(scope, "" /*alias*/ , where, 0 /* offset */, -1 /* limit */);
@@ -1442,12 +1445,7 @@ queryBasic(const SqlBindingScope & scope,
                         return true;
                     };
                 
-                if (allowParallel)
-                    parallelMap(0, rows.size(), doRow);
-                else {
-                    for (unsigned i = 0;  i < rows.size();  ++i)
-                        doRow(i);
-                }
+                parallelMap(0, rows.size(), doRow);
 
                 size_t totalRows = 0;
                 vector<size_t> startAt;
@@ -1473,12 +1471,7 @@ queryBasic(const SqlBindingScope & scope,
                         }
                     };
         
-                if (allowParallel)
-                    parallelMap(0, accum.numThreads(), copyRow);
-                else {
-                    for (unsigned i = 0;  i < accum.numThreads();  ++i)
-                        copyRow(i);
-                }
+                parallelMap(0, accum.numThreads(), copyRow);
 
                 ExcAssertEqual(rowsDone, totalRows);
 

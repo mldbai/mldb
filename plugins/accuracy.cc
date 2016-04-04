@@ -588,8 +588,7 @@ run(const ProcedureRunConfig & run,
                      runAccuracyConf.testingData.stm->when,
                      *runAccuracyConf.testingData.stm->where,
                      runAccuracyConf.testingData.stm->orderBy,
-                     calc,
-                     false /* implicit order by row hash */);
+                     calc);
 
     if(runAccuracyConf.mode == CM_BOOLEAN)
         return runBoolean(runAccuracyConf, boundQuery, output);

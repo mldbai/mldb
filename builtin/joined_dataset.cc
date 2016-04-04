@@ -240,7 +240,7 @@ struct JoinedDataset::Itl
             PipelineElement::root(context)
                 ->join(joinConfig.left, joinConfig.right, joinConfig.on, joinConfig.qualification)
                 ->bind()
-                ->start(getParam, true)
+                ->start(getParam)
                 ->takeAll(gotElement);
         }
 
@@ -357,7 +357,7 @@ struct JoinedDataset::Itl
 
                 auto generator = dataset.queryBasic
                 (context, queryExpression, side.when, *sideCondition, side.orderBy,
-                 0, -1, true /* allowParallel */);
+                 0, -1);
 
                 // Because we know that our outer context is an
                 // SqlExpressionMldbContext, we know that it takes an

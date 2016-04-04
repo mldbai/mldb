@@ -181,8 +181,7 @@ run(const ProcedureRunConfig & run,
                      *boundDataset.dataset,
                      boundDataset.asName, runProcConf.inputData.stm->when,
                      *runProcConf.inputData.stm->where,
-                     runProcConf.inputData.stm->orderBy, extra,
-                     false /* implicit order by row hash */)
+                     runProcConf.inputData.stm->orderBy, extra)
         .execute(aggregator, 
                  runProcConf.inputData.stm->offset, 
                  runProcConf.inputData.stm->limit, 

@@ -537,11 +537,7 @@ struct SparseMatrixDataset::Itl
                               return true;
                           });
 
-         std::sort(result.begin(), result.end(),
-              [&] (const RowName & r1, const RowName & r2)
-              {
-                  return r1.hash() < r2.hash();
-              });
+        //Make sure that the result of the above is in a deterministic order
 
         if (start < 0)
             throw HttpReturnException(400, "Invalid start for row names",
@@ -575,7 +571,7 @@ struct SparseMatrixDataset::Itl
                               return true;
                           });
 
-        std::sort(result.begin(), result.end());
+        //Make sure that the result of the above is in a deterministic order
 
         if (start < 0)
             throw HttpReturnException(400, "Invalid start for row names",
@@ -1008,6 +1004,9 @@ struct MutableBaseData {
                 }
             }
 
+            //Todo: Why would we have duplicated rows?
+            //this sort doesnt scale well.
+            //if we can't remove it, do it in parallel.
             std::sort(allRows.begin(), allRows.end());
             auto end = std::unique(allRows.begin(), allRows.end());
             for (auto it = allRows.begin(); it != end;  ++it) {
@@ -1047,6 +1046,9 @@ struct MutableBaseData {
                 }
             }
 
+            //Todo: Why would we have duplicated rows?
+            //this sort doesnt scale well.
+            //if we can't remove it, do it in parallel.
             std::sort(allRows.begin(), allRows.end());
 
             int64_t rowCount = std::unique(allRows.begin(), allRows.end())

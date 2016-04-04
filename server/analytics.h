@@ -85,8 +85,7 @@ void iterateDatasetGrouped(const SelectExpression & select,
                            const OrderByExpression & orderBy = ORDER_BY_NOTHING,
                            ssize_t offset = 0 /* start at start */,
                            ssize_t limit = -1 /* all */,
-                           std::function<bool (const Json::Value &)> onProgress = nullptr,
-                           bool allowMT = true);
+                           std::function<bool (const Json::Value &)> onProgress = nullptr);
 
 
 /** Create an embedding matrix, one embedding per row.  Returns both the embedding
