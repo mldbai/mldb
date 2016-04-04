@@ -247,9 +247,7 @@ struct JoinedDataset::Itl
 
         // Finally, the column indexes
         for (auto & c: left.dataset->getColumnNames()) {
-            ColumnName newColumnName(quotedLeftName.empty()
-                                     ? c.toUtf8String()
-                                     : quotedLeftName + "." + c.toUtf8String());
+            ColumnName newColumnName(ColumnName(quotedLeftName) + c);
             ColumnHash newColumnHash(newColumnName);
 
             ColumnEntry entry;
@@ -263,9 +261,7 @@ struct JoinedDataset::Itl
 
         // Finally, the column indexes
         for (auto & c: right.dataset->getColumnNames()) {
-            ColumnName newColumnName(quotedRightName.empty()
-                                     ? c.toUtf8String()
-                                     : quotedRightName + "." + c.toUtf8String());
+            ColumnName newColumnName(ColumnName(quotedRightName) + c);
             ColumnHash newColumnHash(newColumnName);
 
             ColumnEntry entry;
@@ -291,7 +287,7 @@ struct JoinedDataset::Itl
         bool debug = false;
         RowName rowName;
 
-        if (isChainedJoin && leftName != RowName())
+        if (isChainedJoin && !leftName.empty())
             rowName = std::move(RowName(leftName.toUtf8String() + "-" + "[" + rightName.toUtf8String() + "]"));
         else
             rowName = std::move(RowName("[" + leftName.toUtf8String() + "]" + "-" + "[" + rightName.toUtf8String() + "]"));
@@ -306,7 +302,7 @@ struct JoinedDataset::Itl
 
         if (debug)
             cerr << "added entry number " << rows.size()
-                 << "named " << "("<< rowName.toUtf8String() <<")"
+                 << "named " << "("<< rowName <<")"
                  << endl;
 
         rows.emplace_back(std::move(entry));
