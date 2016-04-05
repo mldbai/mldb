@@ -210,8 +210,9 @@ parse(const char * s_, size_t len, StringCharacteristics characteristics)
         return CellValue();
 
     // this ensures that our buffer is null terminated as required below
-    char s[NUMERICAL_BUFFER + 1] = {0};
+    char s[NUMERICAL_BUFFER + 1];
     memcpy(s, s_, len);
+    s[len] = 0;
 
     // First try as an int
     char * e = s + len;
