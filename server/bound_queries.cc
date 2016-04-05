@@ -1150,31 +1150,30 @@ struct GroupContext: public SqlExpressionDatasetContext {
 
         //check aggregators
         auto aggFn = SqlBindingScope::doGetAggregator(resolvedFunctionName, args);
-        if (aggFn)
-        {
+        if (aggFn) {
             if (resolvedFunctionName == "count")
-            {
-                //count is *special*
-                evaluateEmptyGroups = true;
-            }
+                {
+                    //count is *special*
+                    evaluateEmptyGroups = true;
+                }
 
-            int aggIndex = argCounter;
-            OutputAggregator boundagg(aggIndex,
-                                    args.size(),
-                                    aggFn);
-              outputAgg.emplace_back(boundagg);              
+            int aggIndex = outputAgg.size();
+            OutputAggregator boundagg(argCounter,
+                                      args.size(),
+                                      aggFn);
+            outputAgg.emplace_back(boundagg);              
 
-               argCounter += args.size();
+            argCounter += args.size();
 
-              return {[&,aggIndex] (const std::vector<ExpressionValue> & args,
-                        const SqlRowScope & context)
+            return {[&,aggIndex] (const std::vector<ExpressionValue> & args,
+                                  const SqlRowScope & context)
                     {
                         return outputAgg[aggIndex].aggregate.extract(aggData[aggIndex].get());
                     },
                     // TODO: get it from the value info for the group keys...
                     std::make_shared<AnyValueInfo>()};
         }
-
+        
         return SqlBindingScope::doGetFunction(resolvedTableName, resolvedFunctionName, args, argScope);
     }
 
