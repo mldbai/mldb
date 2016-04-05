@@ -40,7 +40,7 @@ struct ExpressionValueInfo;
 struct RowValueInfo;
 
 /** A row in an expression value is a set of (key, atom, timestamp) pairs. */
-typedef std::vector<std::tuple<Coord, CellValue, Date> > RowValue;
+typedef std::vector<std::tuple<Coords, CellValue, Date> > RowValue;
 
 /** A struct in an expression value is a set of (key, value) pairs. */
 typedef std::vector<std::tuple<Coord, ExpressionValue> > StructValue;
@@ -278,12 +278,12 @@ struct ExpressionValueInfo {
     /** Get the expression value info of a value nested at any level
         with columns name separated by a '.'
     */
-    virtual std::shared_ptr<ExpressionValueInfo> findNestedColumn(
-            const Utf8String& variableName,
-            SchemaCompleteness& schemaCompleteness)
+    virtual std::shared_ptr<ExpressionValueInfo>
+    findNestedColumn(const ColumnName& columnName,
+                     SchemaCompleteness& schemaCompleteness)
     {
         schemaCompleteness = SCHEMA_CLOSED;
-        return std::shared_ptr<ExpressionValueInfo>();
+        return nullptr;
     }
 
     /** Return the shape of an embedding.  For scalars, it's the empty
@@ -338,7 +338,7 @@ struct ExpressionValueInfo {
     typedef std::function<ExpressionValue (std::vector<double> vals,
                                            const std::shared_ptr<const void> & info,
                                            Date timestamp) >
-    ReconstituteFromEmbeddingFn;
+    ReconstituteFromDoubleEmbeddingFn;
 
     /** Returns a function that can be called to extract a compatible
         embedding from two values, as well as a function to convert it
@@ -360,7 +360,7 @@ struct ExpressionValueInfo {
     */
     virtual std::tuple<GetCompatibleDoubleEmbeddingsFn,
                        std::shared_ptr<ExpressionValueInfo>,
-                       ReconstituteFromEmbeddingFn>
+                       ReconstituteFromDoubleEmbeddingFn>
     getCompatibleDoubleEmbeddings(const ExpressionValueInfo & other) const;
 };
 
@@ -448,7 +448,8 @@ DECLARE_STRUCTURE_DESCRIPTION(EmbeddingMetadata);
 */
 
 struct ExpressionValue {
-    typedef std::vector<std::tuple<ColumnName, ExpressionValue> > Row;
+    // BADSMELL confusion in naming between struct and row
+    typedef StructValue Row;
 
     /// Initialize as null.
     ExpressionValue();
@@ -660,23 +661,30 @@ struct ExpressionValue {
     */
     Date getMaxTimestamp() const;
 
-    /** return if this value should be sorted as earlier or later than the one provided
+    /** Return if this value should be sorted as earlier or later than the one
+        provided.
     */
-    bool isEarlier(const Date& compareTimeStamp, const ExpressionValue& compareValue) const;
-    bool isLater(const Date& compareTimeStamp, const ExpressionValue& compareValue) const;
+    bool isEarlier(const Date& compareTimeStamp,
+                   const ExpressionValue& compareValue) const;
+    bool isLater(const Date& compareTimeStamp,
+                 const ExpressionValue& compareValue) const;
 
     // Return the given field name.  Valid for anything that is a
     // structured type... rows, JSON values, objects, arrays, embeddings.
-    ExpressionValue getField(const Utf8String & fieldName,
+    ExpressionValue getField(const ColumnName & fieldName,
                              const VariableFilter & filter = GET_LATEST) const;
 
+#if 0    
     // Return the given field by index.  Valid for anything that is a
     // arrays or embedding.
     ExpressionValue getField(int fieldIndex) const;
+#endif
 
-    const ExpressionValue* findNestedField(const Utf8String & fieldName,
-                                       const VariableFilter & filter = GET_LATEST) const;
+    const ExpressionValue*
+    findNestedField(const ColumnName & fieldName,
+                    const VariableFilter & filter = GET_LATEST) const;
 
+#if 0
     // Return the given field name.  Valid for anything that is a
     // structured type... rows, JSON values, objects, arrays, embeddings.
     ExpressionValue getField(const char * fieldName,
@@ -692,6 +700,7 @@ struct ExpressionValue {
     {
         return getField(Utf8String(fieldName), filter);
     }
+#endif
 
 #if 1
     /** Return an embedding from the value, asserting on the length.  If the
@@ -732,11 +741,11 @@ struct ExpressionValue {
 #endif
 
     /** Iterate over the child expression. */
-    bool forEachSubexpression(const std::function<bool (const Coord & columnName,
-                                                        const Coord & prefix,
+    bool forEachSubexpression(const std::function<bool (const Coords & columnName,
+                                                        const Coords & prefix,
                                                         const ExpressionValue & val)>
                                                   & onSubexpression,
-                              const Coord & prefix = Coord()) const;
+                              const Coords & prefix = Coords()) const;
 
     /** Iterate over child columns, returning a reference that may be moved
         elsewhere.
@@ -744,16 +753,16 @@ struct ExpressionValue {
         Only works for row-typed values.
     */
     bool forEachColumnDestructive
-        (const std::function<bool (Coord & columnName, ExpressionValue & val)>
+        (const std::function<bool (Coords & columnName, ExpressionValue & val)>
          & onSubexpression) const;
 
 
     /** Iterate over the flattened representation. */
-    bool forEachAtom(const std::function<bool (const Coord & columnName,
-                                               const Coord & prefix,
+    bool forEachAtom(const std::function<bool (const Coords & columnName,
+                                               const Coords & prefix,
                                                const CellValue & val,
                                                Date ts) > & onAtom,
-                     const Coord & columnName = Coord()) const;
+                     const Coords & columnName = Coords()) const;
 
     /** For a row (structured) storage, returns the number of elements
         that are in it.  Note that this is the non-flattened version,
@@ -764,8 +773,8 @@ struct ExpressionValue {
     /** Write a flattened representation of the current value to the given
         dataset row or event.
     */
-    void appendToRow(const Coord & columnName, MatrixNamedRow & row) const;
-    void appendToRow(const Coord & columnName, RowValue & row) const;
+    void appendToRow(const Coords & columnName, MatrixNamedRow & row) const;
+    void appendToRow(const Coords & columnName, RowValue & row) const;
     void appendToRow(const Coord & columnName, StructValue & row) const;
 
     /** Write a flattened representation of the current value to the given
@@ -773,7 +782,7 @@ struct ExpressionValue {
         the process.
     */
     void appendToRowDestructive(ColumnName & columnName, RowValue & row);
-    void appendToRowDestructive(ColumnName & columnName, StructValue & row);
+    void appendToRowDestructive(Coord & columnName, StructValue & row);
 
     /// Destructively merge into the given row
     void mergeToRowDestructive(RowValue & row);
@@ -1226,9 +1235,9 @@ struct RowValueInfo: public ExpressionValueInfoT<RowValue> {
                                                    const CellValue & value,
                                                    Date timestamp)> & write) const;
 
-    virtual std::shared_ptr<ExpressionValueInfo> findNestedColumn(
-            const Utf8String& variableName,
-            SchemaCompleteness& schemaCompleteness);
+    virtual std::shared_ptr<ExpressionValueInfo>
+    findNestedColumn(const ColumnName & columnName,
+                     SchemaCompleteness& schemaCompleteness);
 
     virtual std::vector<KnownColumn> getKnownColumns() const;
     virtual SchemaCompleteness getSchemaCompleteness() const;
@@ -1324,8 +1333,8 @@ searchRow(const std::vector<std::tuple<ColumnName, CellValue, Date> > & columns,
           ExpressionValue & storage);
 
 const ExpressionValue *
-searchRow(const std::vector<std::tuple<ColumnName, ExpressionValue> > & columns,
-          const ColumnName & key,
+searchRow(const std::vector<std::tuple<Coord, ExpressionValue> > & columns,
+          const Coord & key,
           const VariableFilter & filter,
           ExpressionValue & storage);
 

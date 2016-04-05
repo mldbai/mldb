@@ -32,10 +32,10 @@ ExtractContext(MldbServer * server,
 {
 }
 
-VariableGetter
+ColumnGetter
 ExtractContext::
-doGetVariable(const Utf8String & tableName,
-              const Utf8String & variableName)
+doGetColumn(const Utf8String & tableName,
+            const ColumnName & columnName)
 {
     std::shared_ptr<ExpressionValueInfo> valueInfo;
     
@@ -76,11 +76,11 @@ doGetVariable(const Utf8String & tableName,
 
 GetAllColumnsOutput
 getAllColumnsFromFunctionImpl(const Utf8String & tableName,
-                              std::function<Utf8String (const Utf8String &)> keep,
+                              std::function<ColumnName (const ColumnName &)> keep,
                               const FunctionValues & input,
                               const std::function<ExpressionValue (const SqlRowScope &,
                                                                    const ColumnName &)> &
-                                  getValue)
+                              getValue)
 {
     vector<KnownColumn> knownColumns;
 
@@ -88,11 +88,10 @@ getAllColumnsFromFunctionImpl(const Utf8String & tableName,
     std::vector<std::pair<ColumnName, ColumnName> > toKeep;
 
     for (auto & p: input.values) {
-        Utf8String outputName = keep(p.first.toUtf8String());
-        if (outputName.empty())
+        ColumnName outputColumnName = keep(p.first.toCoord());
+        if (outputColumnName.empty())
             continue;
 
-        ColumnName outputColumnName(outputName);
         ColumnName inputColumnName(p.first.toCoord());
         toKeep.emplace_back(inputColumnName, outputColumnName);
 
@@ -113,7 +112,10 @@ getAllColumnsFromFunctionImpl(const Utf8String & tableName,
                 const ColumnName & inputColumnName = k.first;
                 const ColumnName & outputColumnName = k.second;
                 ExpressionValue val = getValue(scope, inputColumnName);
-                output.emplace_back(outputColumnName, std::move(val));
+                // toSimpleName() is OK here since we know that functions
+                // have only a single nesting level.
+                output.emplace_back(outputColumnName.toSimpleName(),
+                                    std::move(val));
             };
             
             return std::move(output);
@@ -127,7 +129,7 @@ getAllColumnsFromFunctionImpl(const Utf8String & tableName,
 GetAllColumnsOutput
 ExtractContext::
 doGetAllColumns(const Utf8String & tableName,
-                std::function<Utf8String (const Utf8String &)> keep)
+                std::function<ColumnName (const ColumnName &)> keep)
 {
     auto getValue = [&] (const SqlRowScope & context,
                          const ColumnName & col)
@@ -167,12 +169,12 @@ FunctionExpressionContext(const MldbServer * mldb, FunctionValues input, size_t 
     ExcAssert(mldb != nullptr);
 }
 
-VariableGetter
+ColumnGetter
 FunctionExpressionContext::
-doGetVariable(const Utf8String & tableName,
-              const Utf8String & variableName)
+doGetColumn(const Utf8String & tableName,
+            const ColumnName & columnName)
 {
-    //cerr << "doGetVariable " << variableName << " on input " << jsonEncode(input) <<  " knownInput " << knownInput << endl;
+    //cerr << "doGetColumn " << variableName << " on input " << jsonEncode(input) <<  " knownInput " << knownInput << endl;
 
 
     std::shared_ptr<ExpressionValueInfo> valueInfo;
@@ -205,7 +207,8 @@ doGetVariable(const Utf8String & tableName,
             valueInfo};
 }
 
-bool FunctionExpressionContext::
+bool
+FunctionExpressionContext::
 findVariableRecursive(const Utf8String& variableName,
                       std::shared_ptr<ExpressionValueInfo>& valueInfo,
                       SchemaCompleteness& schemaCompleteness) const
@@ -265,7 +268,7 @@ findVariableRecursive(const Utf8String& variableName,
 GetAllColumnsOutput
 FunctionExpressionContext::
 doGetAllColumns(const Utf8String & tableName,
-                std::function<Utf8String (const Utf8String &)> keep)
+                std::function<ColumnName (const ColumnName &)> keep)
 {
     auto getValue = [&] (const SqlRowScope & context,
                          const ColumnName & col)

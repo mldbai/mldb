@@ -129,8 +129,8 @@ run(const ProcedureRunConfig & run,
     // We calculate an expression with the timestamp of the order by
     // clause.  First, we need to calculate each of the order by clauses
     for (auto & c: runProcConf.inputData.stm->orderBy.clauses) {
-        auto whenClause = std::make_shared<FunctionCallWrapper>
-            ("", "latest_timestamp", vector<shared_ptr<SqlExpression> >(1, c.first),
+        auto whenClause = std::make_shared<FunctionCallExpression>
+            ("latest_timestamp", vector<shared_ptr<SqlExpression> >(1, c.first),
              nullptr /* extract */);
         calc.emplace_back(whenClause);
     }

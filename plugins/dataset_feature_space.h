@@ -60,8 +60,9 @@ struct DatasetFeatureSpace: public ML::Feature_Space {
         BucketList buckets;
         BucketDescriptions bucketDescriptions;
 
-        std::string print() const {
-            return "[Column '"+columnName.toString()+"'; Info: "+info.print()+
+        Utf8String print() const {
+            return "[Column '"+columnName.toUtf8String()
+                +"'; Info: "+info.print()+
                 "; distinctVals: "+std::to_string(distinctValues)+"]";
         }
     };

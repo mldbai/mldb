@@ -149,7 +149,7 @@ struct AggregatorT {
             StructValue result;
 
             for (auto & v: columns) {
-                result.emplace_back(v.first, v.second.extract());
+                result.emplace_back(v.first.toSimpleName(), v.second.extract());
             }
 
             std::sort(result.begin(), result.end());
@@ -216,7 +216,7 @@ struct AggregatorT {
             bool needToPessimize = row.size() != columnNames.size();
             for (unsigned i = 0;  i < columnNames.size() && !needToPessimize;
                  ++i) {
-                needToPessimize = columnNames[i] != std::get<0>(row[i]);
+                needToPessimize = columnNames[i].toSimpleName() != std::get<0>(row[i]);
             }
 
             if (needToPessimize) {
@@ -241,7 +241,7 @@ struct AggregatorT {
             StructValue result;
 
             for (unsigned i = 0;  i < columnNames.size();  ++i) {
-                result.emplace_back(columnNames[i],
+                result.emplace_back(columnNames[i].toSimpleName(),
                                     columnState[i].extract());
             }
 
@@ -747,8 +747,8 @@ BoundAggregator lr(const std::vector<BoundSqlExpression> & args)
             bool conv = args[1].isTrue();
             LikelihoodRatioAccum & accum = *(LikelihoodRatioAccum *)data;
             // This must be a row...
-            auto onAtom = [&] (const Coord & columnName,
-                               const Coord & prefix,
+            auto onAtom = [&] (const Coords & columnName,
+                               const Coords & prefix,
                                const CellValue & val,
                                Date ts)
             {
@@ -835,9 +835,7 @@ BoundAggregator pivot(const std::vector<BoundSqlExpression> & args)
             const ExpressionValue & col = args[0];
             const ExpressionValue & val = args[1];
 
-            ColumnName columnName(col.toUtf8String());
-
-            accum.vals.emplace_back(columnName, val);
+            accum.vals.emplace_back(col.toUtf8String(), val);
         };
 
     auto extract = [] (void * data) -> ExpressionValue

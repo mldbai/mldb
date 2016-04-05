@@ -180,7 +180,7 @@ struct SqliteSparseDataset::Itl
 
     static void bindArg(sqlite3pp::statement & statement, int index, const RowName & arg)
     {
-        int res = statement.bind(index, arg.toString().c_str());
+        int res = statement.bind(index, arg.toUtf8String().rawData());
         ExcAssertEqual(res, SQLITE_OK);
     }
 

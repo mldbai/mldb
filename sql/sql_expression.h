@@ -262,16 +262,16 @@ struct BoundTableExpression {
 
 /** Object returned when we bind a get variable expression. */
 
-struct VariableGetter {
+struct ColumnGetter {
     typedef std::function<const ExpressionValue & (const SqlRowScope & context,
                                                    ExpressionValue & storage,
                                                    const VariableFilter & filter) > Exec;
     
-    VariableGetter()
+    ColumnGetter()
     {
     }
     
-    VariableGetter(Exec exec, std::shared_ptr<ExpressionValueInfo> info)
+    ColumnGetter(Exec exec, std::shared_ptr<ExpressionValueInfo> info)
         : exec(exec), info(info)
     {
     }
@@ -523,36 +523,39 @@ struct SqlBindingScope {
         outer scope but the arguments evaluated in an inner scope, then
         argScope will not be the same as *this.
     */
-    virtual BoundFunction doGetFunction(const Utf8String & tableName,
-                                        const Utf8String & functionName,
-                                        const std::vector<BoundSqlExpression> & args,
-                                        SqlBindingScope & argScope);
-
-
-    virtual BoundTableExpression doGetDatasetFunction(const Utf8String & functionName,
-                                                      const std::vector<BoundTableExpression> & args,
-                                                      const ExpressionValue & options,
-                                                      const Utf8String & alias);
-
-    virtual BoundAggregator doGetAggregator(const Utf8String & functionName,
-                                            const std::vector<BoundSqlExpression> & args);
+    virtual BoundFunction
+    doGetFunction(const Utf8String & tableName,
+                  const Utf8String & functionName,
+                  const std::vector<BoundSqlExpression> & args,
+                  SqlBindingScope & argScope);
     
-    // Used to get a variable
-    virtual VariableGetter doGetVariable(const Utf8String & tableName,
-                                         const Utf8String & variableName);
+
+    virtual BoundTableExpression
+    doGetDatasetFunction(const Utf8String & functionName,
+                         const std::vector<BoundTableExpression> & args,
+                         const ExpressionValue & options,
+                         const Utf8String & alias);
+    
+    virtual BoundAggregator
+    doGetAggregator(const Utf8String & functionName,
+                    const std::vector<BoundSqlExpression> & args);
+    
+    // Used to get the value of a column
+    virtual ColumnGetter doGetColumn(const Utf8String & tableName,
+                                     const ColumnName & columnName);
 
     // Used to list all columns in a dataset.  It returns a function that can
     // be used to return a row containing just those columns.
     virtual GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    std::function<Utf8String (const Utf8String &)> keep);
+                    std::function<ColumnName (const ColumnName &)> keep);
 
     // Function used to create a generator for an expression
     virtual GenerateRowsWhereFunction
     doCreateRowsWhereGenerator(const SqlExpression & where,
-                      ssize_t offset,
-                      ssize_t limit);
-
+                               ssize_t offset,
+                               ssize_t limit);
+    
     // Function used to get a function.  Default throws an exception that the
     // function is not available.
     virtual std::shared_ptr<Function>
@@ -565,7 +568,7 @@ struct SqlBindingScope {
     doGetColumnFunction(const Utf8String & functionName);
 
     /** Used to obtain the value of a bound parameter. */
-    virtual VariableGetter
+    virtual ColumnGetter
     doGetBoundParameter(const Utf8String & paramName);
 
     /** Used to obtain a dataset from a dataset name. */
@@ -587,9 +590,14 @@ struct SqlBindingScope {
 
         Returns the table name in tableName and the variable part in
         the return value.  The middle dot should be removed.
+
+        This is primarily used for datasets that implement joins,
+        where they may need to be able to resolve their variables to
+        several underlying tables.
     */
-    virtual Utf8String 
-    doResolveTableName(const Utf8String & fullVariableName, Utf8String &tableName) const;
+    virtual ColumnName
+    doResolveTableName(const ColumnName & fullVariableName,
+                       Utf8String & tableName) const;
 
     /** Return the MLDB server behind this context.  Default returns a null
         pointer which means we're running outside of MLDB.
@@ -621,14 +629,14 @@ typedef std::function<std::vector<std::shared_ptr<SqlExpression> > (const std::v
 
 struct ScopedName {
     ScopedName(Utf8String scope = Utf8String(),
-               Utf8String name = Utf8String()) noexcept
+               ColumnName name = ColumnName()) noexcept
         : scope(std::move(scope)),
           name (std::move(name))
     {
     }
 
     Utf8String scope;
-    Utf8String name;
+    ColumnName name;
 
     bool operator == (const ScopedName & other) const;
     bool operator != (const ScopedName & other) const;
@@ -650,7 +658,7 @@ struct UnboundVariable {
 DECLARE_STRUCTURE_DESCRIPTION(UnboundVariable);
 
 struct UnboundWildcard {
-    Utf8String prefix;
+    ColumnName prefix;
     void merge(UnboundWildcard wildcard);
 };
 
@@ -665,9 +673,9 @@ struct UnboundFunction {
 DECLARE_STRUCTURE_DESCRIPTION(UnboundFunction);
 
 struct UnboundTable {
-    std::map<Utf8String, UnboundVariable> vars;
-    std::map<Utf8String, UnboundWildcard> wildcards;
-    std::map<Utf8String, UnboundFunction> funcs;
+    std::map<Coords, UnboundVariable> vars;
+    std::map<Coords, UnboundWildcard> wildcards;
+    std::map<Coords, UnboundFunction> funcs;
     void merge(UnboundTable table);
 };
 
@@ -684,11 +692,11 @@ struct UnboundEntities {
 
     /// List of variables that are unbound.  Only those with no table name are
     /// included here.
-    std::map<Utf8String, UnboundVariable> vars;
+    std::map<ColumnName, UnboundVariable> vars;
 
     /// List of wildcards which are unbound.  Only those with no table name are
     /// included here.
-    std::map<Utf8String, UnboundWildcard> wildcards;
+    std::map<ColumnName, UnboundWildcard> wildcards;
 
     /// List of functions that are unbound.  Only those with no table name are
     /// included here.
@@ -1292,10 +1300,11 @@ struct GenerateRowsWhereFunction {
                           (ssize_t numToGenerate, Any token,
                            const BoundParameters & params)> Exec;
 
-    GenerateRowsWhereFunction(Exec exec = nullptr, const std::string & explain = "",
-                     OrderByExpression orderedBy = ORDER_BY_NOTHING)
+    GenerateRowsWhereFunction(Exec exec = nullptr,
+                              Utf8String explain = "",
+                              OrderByExpression orderedBy = ORDER_BY_NOTHING)
         : exec(std::move(exec)),
-          explain(explain),
+          explain(std::move(explain)),
           orderedBy(std::move(orderedBy))
     {
     }
@@ -1309,13 +1318,15 @@ struct GenerateRowsWhereFunction {
 
     Exec exec;
 
+    // BADSMELL the rowStream and upperBound are implementation details and
+    // should be hidden inside the lambda
     std::shared_ptr<RowStream> rowStream;
     int      upperBound;
 
     operator bool () const { return !!exec; };
 
     /// Explain the type of algorithm used
-    std::string explain;
+    Utf8String explain;
 
     /// How the results are ordered.  Null means not ordered
     OrderByExpression orderedBy;

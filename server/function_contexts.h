@@ -43,12 +43,12 @@ struct ExtractContext: public SqlBindingScope {
     /** Return an extractor function that will retrieve the given variable
         from the function input or output.
     */
-    VariableGetter doGetVariable(const Utf8String & tableName,
-                                 const Utf8String & variableName);
+    ColumnGetter doGetColumn(const Utf8String & tableName,
+                             const ColumnName & columnName);
 
     GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    std::function<Utf8String (const Utf8String &)> keep);
+                    std::function<ColumnName (const ColumnName &)> keep);
 
     RowContext getRowContext(const FunctionContext & input) const
     {
@@ -93,11 +93,11 @@ struct FunctionExpressionContext : public SqlBindingScope{
     /** Return an extractor function that will retrieve the given variable
         from the function input.
     */
-    VariableGetter doGetVariable(const Utf8String & tableName,
-                                 const Utf8String & variableName);
+    ColumnGetter doGetColumn(const Utf8String & tableName,
+                               const ColumnName & columnName);
     GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    std::function<Utf8String (const Utf8String &)> keep);
+                    std::function<ColumnName (const ColumnName &)> keep);
 
     RowContext getRowContext(const FunctionContext & input) const
     {
@@ -107,8 +107,8 @@ struct FunctionExpressionContext : public SqlBindingScope{
     virtual std::shared_ptr<Function>
     doGetFunctionEntity(const Utf8String & functionName);
 
-    virtual Utf8String
-    doResolveTableName(const Utf8String & fullVariableName,
+    virtual ColumnName
+    doResolveTableName(const ColumnName & fullVariableName,
                        Utf8String &tableName) const;
 
     MldbServer *

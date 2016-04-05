@@ -108,16 +108,19 @@ bindSelectApplyFunctionExpression(std::shared_ptr<Function> function,
 
     ExtractContext extractContext(context.getMldbServer(), extractInfo);  
 
-    auto captureColumnName = [&] (const Utf8String & inputColumnName) -> Utf8String
+    auto captureColumnName = [&] (const ColumnName & inputColumnName)
+        -> ColumnName
         {
            return inputColumnName;
         };
-
+    
     auto allColumns = extractContext.doGetAllColumns("", captureColumnName);
 
     std::vector<KnownColumn> knownColumns = allColumns.info->getKnownColumns();
 
-    auto exec = [=] (const SqlRowScope & row, ExpressionValue & storage, const VariableFilter & filter)
+    auto exec = [=] (const SqlRowScope & row,
+                     ExpressionValue & storage,
+                     const VariableFilter & filter)
         -> const ExpressionValue &
             {
                 // Run the with expressions

@@ -38,19 +38,16 @@ TableLexicalScope(TableOperations table_,
               [] (const KnownColumn & first,
                   const KnownColumn & second)
               {
-                  return first.columnName.toUtf8String()
-                      < second.columnName.toUtf8String();
+                  return first.columnName < second.columnName;
               });
     
     hasUnknownColumns = rowInfo->getSchemaCompleteness() == SCHEMA_OPEN;
 }
 
-VariableGetter
+ColumnGetter
 TableLexicalScope::
-doGetVariable(const Utf8String & variableName, int fieldOffset)
+doGetColumn(const ColumnName & columnName, int fieldOffset)
 {
-    ColumnName columnName(variableName);
-
     //cerr << "dataset lexical scope: fieldOffset = " << fieldOffset << endl;
     ExcAssertGreaterEqual(fieldOffset, 0);
 
@@ -64,13 +61,13 @@ doGetVariable(const Utf8String & variableName, int fieldOffset)
                 const ExpressionValue & rowContents
                     = row.values.at(fieldOffset + ROW_CONTENTS);
 
-                //cerr << "dataset: getting variable " << variableName
+                //cerr << "dataset: getting variable " << columnName
                 //     << " from row " << jsonEncode(row.values)
                 //     << " offset " << fieldOffset + ROW_CONTENTS
-                //     << " returns " << rowContents.getField(variableName)
+                //     << " returns " << rowContents.getField(columnName)
                 //     << endl;
 
-                return storage = std::move(rowContents.getField(variableName, filter));
+                return storage = std::move(rowContents.getField(columnName, filter));
             },
             std::make_shared<AtomValueInfo>()};
 
@@ -78,7 +75,8 @@ doGetVariable(const Utf8String & variableName, int fieldOffset)
 
 GetAllColumnsOutput
 TableLexicalScope::
-doGetAllColumns(std::function<Utf8String (const Utf8String &)> keep, int fieldOffset)
+doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
+                int fieldOffset)
 {
     //cerr << "dataset lexical scope get columns: fieldOffset = " << fieldOffset << endl;
     ExcAssertGreaterEqual(fieldOffset, 0);
@@ -87,7 +85,7 @@ doGetAllColumns(std::function<Utf8String (const Utf8String &)> keep, int fieldOf
     std::map<ColumnHash, ColumnName> index;
 
     for (auto & column: knownColumns) {
-        Utf8String outputName = keep(column.columnName.toUtf8String());
+        ColumnName outputName = keep(column.columnName);
         if (outputName.empty())
             continue;
         KnownColumn out = column;
@@ -101,19 +99,19 @@ doGetAllColumns(std::function<Utf8String (const Utf8String &)> keep, int fieldOf
             auto & row = rowScope.as<PipelineResults>();
 
             const ExpressionValue & rowContents
-            = row.values.at(fieldOffset + ROW_CONTENTS);
+                = row.values.at(fieldOffset + ROW_CONTENTS);
 
             StructValue result;
 
-            auto onSubexpression = [&] (const Coord & columnName,
-                                        const Coord & prefix,  // always null
+            auto onSubexpression = [&] (const Coords & columnName,
+                                        const Coords & prefix,  // always null
                                         const ExpressionValue & value)
             {
                 auto it = index.find(columnName);
                 if (it == index.end()) {
                     return true;
                 }
-                result.emplace_back(it->second, std::move(value));
+                result.emplace_back(it->second.toSimpleName(), std::move(value));
                 return true;
             };
 
@@ -157,7 +155,7 @@ doGetFunction(const Utf8String & functionName,
                      const SqlRowScope & rowScope)
                 {
                     auto & row = rowScope.as<PipelineResults>();
-                    RowHash result(Coord(row.values.at(fieldOffset + ROW_NAME).toUtf8String()));
+                    RowHash result(Coords(Coord(row.values.at(fieldOffset + ROW_NAME).toUtf8String())));
                     return ExpressionValue(result.hash(),
                                            Date::notADate());
                 },
@@ -343,12 +341,12 @@ JoinLexicalScope(std::shared_ptr<PipelineExpressionScope> inner,
 {
 }
 
-VariableGetter
+ColumnGetter
 JoinLexicalScope::
-doGetVariable(const Utf8String & variableName, int fieldOffset)
+doGetColumn(const ColumnName & columnName, int fieldOffset)
 {
 #if 0
-    cerr << "join getting variable " << variableName << " with field offset "
+    cerr << "join getting variable " << columnName << " with field offset "
          << fieldOffset << endl;
     cerr << inner->numOutputFields() << " output fields" << endl;
 
@@ -358,14 +356,14 @@ doGetVariable(const Utf8String & variableName, int fieldOffset)
          << " right " << rightFieldOffset(fieldOffset) << endl;
 #endif
 
-    auto check = [&] (LexicalScope & scope, int fieldOffset) -> VariableGetter
+    auto check = [&] (LexicalScope & scope, int fieldOffset) -> ColumnGetter
         {
             for (auto & t: scope.tableNames()) {
-                Utf8String prefix = t + ".";
-                if (variableName.startsWith(prefix)) {
+                Coord prefix(t);
+                if (columnName.startsWith(prefix)) {
                     //cerr << "matches this side" << endl;
 
-                    Utf8String name = variableName;
+                    ColumnName name = columnName;
 
                     // If this scope has an as() field which is equal
                     // to the table name we asked for, then it's a
@@ -373,7 +371,7 @@ doGetVariable(const Utf8String & variableName, int fieldOffset)
                     // we need to remove the table name since it's no
                     // longer ambiguous.
                     if (scope.as() == t)
-                        name.replace(0, prefix.length(), Utf8String());
+                        name.removePrefix(prefix);
                         
 #if 0
                     cerr << "getting from lexical scope " << t
@@ -383,21 +381,21 @@ doGetVariable(const Utf8String & variableName, int fieldOffset)
                          << endl;
 #endif
                         
-                    return scope.doGetVariable(name, fieldOffset);
+                    return scope.doGetColumn(name, fieldOffset);
                 }
             }
 
-            return VariableGetter();
+            return ColumnGetter();
         };
         
-    VariableGetter result = check(*left, leftFieldOffset(fieldOffset));
+    ColumnGetter result = check(*left, leftFieldOffset(fieldOffset));
     if (result.exec) return result;
     result = check(*right, rightFieldOffset(fieldOffset));
     if (result.exec) return result;
 
     // We can pass through the same scope, since we will point to the
     // same object.
-    result = inner->doGetVariable(Utf8String(), variableName);
+    result = inner->doGetColumn(Utf8String(), columnName);
         
     return result;
 }
@@ -405,12 +403,13 @@ doGetVariable(const Utf8String & variableName, int fieldOffset)
 /** For a join, we can select over the columns for either one or the other. */
 GetAllColumnsOutput
 JoinLexicalScope::
-doGetAllColumns(std::function<Utf8String (const Utf8String &)> keep, int fieldOffset)
+doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
+                int fieldOffset)
 {
     //cerr << "doGetAllColums for join with field offset " << fieldOffset << endl;
 
-    Utf8String leftPrefix = left->as();
-    Utf8String rightPrefix = right->as();
+    Coord leftPrefix(left->as());
+    Coord rightPrefix(right->as());
 
     auto leftOutput = left->doGetAllColumns(keep, leftFieldOffset(fieldOffset));
     auto rightOutput = right->doGetAllColumns(keep, rightFieldOffset(fieldOffset));
@@ -427,8 +426,8 @@ doGetAllColumns(std::function<Utf8String (const Utf8String &)> keep, int fieldOf
 
                 
             StructValue output;
-            leftResult.appendToRow(ColumnName(leftPrefix), output);
-            rightResult.appendToRow(ColumnName(rightPrefix), output);
+            leftResult.appendToRow(leftPrefix, output);
+            rightResult.appendToRow(rightPrefix, output);
 
             return std::move(output);
         };
@@ -436,23 +435,13 @@ doGetAllColumns(std::function<Utf8String (const Utf8String &)> keep, int fieldOf
     auto cols1 = leftOutput.info->getKnownColumns();
     auto cols2 = rightOutput.info->getKnownColumns();
 
-    if (!leftPrefix.empty()) {
-        leftPrefix += ".";
-    }
-
-    if (!rightPrefix.empty()) {
-        rightPrefix += ".";
-    }
-
     std::vector<KnownColumn> knownColumns;
     for (auto & c: cols1) {
-        if (!leftPrefix.empty())
-            c.columnName = ColumnName(leftPrefix + c.columnName.toUtf8String());
+        c.columnName = leftPrefix + c.columnName;
         knownColumns.emplace_back(std::move(c));
     }
     for (auto & c: cols2) {
-        if (!rightPrefix.empty())
-            c.columnName = ColumnName(rightPrefix + c.columnName.toUtf8String());
+        c.columnName = rightPrefix + c.columnName;
         knownColumns.emplace_back(std::move(c));
     }
 
@@ -749,7 +738,7 @@ takeMoreInput()
             if (s)
             {
                 ExpressionValue & embedding = s->values.back();
-                ExpressionValue field = embedding.getField(0);
+                ExpressionValue field = embedding.getField(Coord(0), GET_ALL);
 
                 //if we want to do an outer join we need all rows
                 if (!field.empty() || doOuter)
@@ -784,8 +773,8 @@ take()
         ExpressionValue & lEmbedding = l->values.back();
         ExpressionValue & rEmbedding = r->values.back();
 
-        ExpressionValue lField = lEmbedding.getField(0);
-        ExpressionValue rField = rEmbedding.getField(0);
+        ExpressionValue lField = lEmbedding.getField(Coord(0), GET_ALL);
+        ExpressionValue rField = rEmbedding.getField(Coord(0), GET_ALL);
 
         //in case of outer join
         //check the where condition that we took out and put in the embedding instead
@@ -794,7 +783,7 @@ take()
                                     ExpressionValue& field,
                                     ExpressionValue & embedding) -> bool
         {
-            ExpressionValue where = embedding.getField(1);
+            ExpressionValue where = embedding.getField(Coord(1), GET_ALL);
             //if the condition would have failed, or the select value is null, return the row.
             if (field.empty() || !where.asBool())
             {
@@ -1464,24 +1453,23 @@ AggregateLexicalScope(std::shared_ptr<PipelineExpressionScope> inner)
 {
 }
 
-VariableGetter
+ColumnGetter
 AggregateLexicalScope::
-doGetVariable(const Utf8String & variableName,
-              int fieldOffset)
+doGetColumn(const ColumnName & columnName, int fieldOffset)
 {
-    //cerr << "aggregate scope getting variable " << variableName
+    //cerr << "aggregate scope getting variable " << columnName
     //     << " at field offset " << fieldOffset << endl;
 
     // We can pass through the same scope, since we will point to the
     // same object.
-    auto innerGetter = inner->doGetVariable(Utf8String(), variableName);
+    auto innerGetter = inner->doGetColumn(Utf8String(), columnName);
 
     return innerGetter;
 }
 
 GetAllColumnsOutput
 AggregateLexicalScope::
-doGetAllColumns(std::function<Utf8String (const Utf8String &)> keep,
+doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
                 int fieldOffset)
 {
     return inner->doGetAllColumns("" /* table name */, keep);

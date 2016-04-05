@@ -49,12 +49,12 @@ struct ColumnSpec {
     float offset;
     float scale;
 
-    std::string getName() const
+    Utf8String getName() const
     {
         Utf8String result = columnName.toUtf8String();
         if (!cellValue.empty())
             result += " " + cellValue.toUtf8String();
-        return result.stealRawString();
+        return result;
     }
 };
 

@@ -821,25 +821,27 @@ static GenerateRowsWhereFunction
 generateFilteredColumnExpression(const Dataset & dataset,
                                  const ColumnName & columnName,
                                  const Filter & filter,
-                                 const std::string & explanation)
+                                 const Utf8String & explanation)
 {
-    return { std::bind(&executeFilteredColumnExpression<Filter>,
-                       std::cref(dataset),
-                       std::placeholders::_1,
-                       std::placeholders::_2,
-                       std::placeholders::_3,
-                       columnName,
-                       filter),
-            explanation };
+    return GenerateRowsWhereFunction
+        { std::bind(&executeFilteredColumnExpression<Filter>,
+                    std::cref(dataset),
+                    std::placeholders::_1,
+                    std::placeholders::_2,
+                    std::placeholders::_3,
+                    columnName,
+                    filter),
+                explanation
+        };
 }
 
 static GenerateRowsWhereFunction
 generateVariableEqualsConstant(const Dataset & dataset,
                                const Utf8String& alias,
-                               const ReadVariableExpression & variable,
+                               const ReadColumnExpression & variable,
                                const ConstantExpression & constant)
 {
-    ColumnName columnName(removeTableName(alias,variable.variableName).rawString());
+    ColumnName columnName(removeTableName(alias,variable.variableName).toSimpleName());
     CellValue constantValue(constant.constant.getAtom());
 
     auto filter = [=] (const CellValue & val)
@@ -849,7 +851,7 @@ generateVariableEqualsConstant(const Dataset & dataset,
 
     return generateFilteredColumnExpression
         (dataset, columnName, filter,
-         "generate rows where var '" + variable.variableName.rawString()
+         "generate rows where var '" + variable.variableName.toUtf8String()
          + "' matches value '"
          + constantValue.toString() + "'");
 }
@@ -857,9 +859,9 @@ generateVariableEqualsConstant(const Dataset & dataset,
 static GenerateRowsWhereFunction
 generateVariableIsTrue(const Dataset & dataset,
                        const Utf8String& alias,
-                       const ReadVariableExpression & variable)
+                       const ReadColumnExpression & variable)
 {
-    ColumnName columnName(removeTableName(alias,variable.variableName).rawString());
+    ColumnName columnName(removeTableName(alias,variable.variableName));
     
     auto filter = [&] (const CellValue & val)
         {
@@ -868,15 +870,16 @@ generateVariableIsTrue(const Dataset & dataset,
 
     return generateFilteredColumnExpression
         (dataset, columnName, filter,
-         "generate rows where var '" + variable.variableName.rawString() + "' is true");
+         "generate rows where var '" + variable.variableName.toUtf8String()
+         + "' is true");
 }
 
 static GenerateRowsWhereFunction
 generateVariableIsNotNull(const Dataset & dataset,
                           const Utf8String& alias,
-                          const ReadVariableExpression & variable)
+                          const ReadColumnExpression & variable)
 {
-    ColumnName columnName(removeTableName(alias,variable.variableName).rawString());
+    ColumnName columnName(removeTableName(alias,variable.variableName));
     
     auto filter = [&] (const CellValue & val)
         {
@@ -885,7 +888,8 @@ generateVariableIsNotNull(const Dataset & dataset,
 
     return generateFilteredColumnExpression
         (dataset, columnName, filter,
-         "generate rows where var '" + variable.variableName.rawString() + "' is not null");
+         "generate rows where var '" + variable.variableName.toUtf8String()
+         + "' is not null");
 }
 
 static GenerateRowsWhereFunction
@@ -926,14 +930,14 @@ generateRowsWhere(const SqlBindingScope & scope,
             return dynamic_cast<const ConstantExpression *>(&expression);
         };
 
-    auto getVariable = [] (const SqlExpression & expression) -> const ReadVariableExpression *
+    auto getVariable = [] (const SqlExpression & expression) -> const ReadColumnExpression *
         {
-            return dynamic_cast<const ReadVariableExpression *>(&expression);
+            return dynamic_cast<const ReadColumnExpression *>(&expression);
         };
 
-    auto getFunction = [] (const SqlExpression & expression) -> const FunctionCallWrapper *
+    auto getFunction = [] (const SqlExpression & expression) -> const FunctionCallExpression *
         {
-            return dynamic_cast<const FunctionCallWrapper *>(&expression);
+            return dynamic_cast<const FunctionCallExpression *>(&expression);
         };
 
     auto getIsType = [] (const SqlExpression & expression) -> const IsTypeExpression *
@@ -1031,7 +1035,7 @@ generateRowsWhere(const SqlBindingScope & scope,
     if (inExpression) 
     {
         auto fexpr = getFunction(*(inExpression->expr));
-        if (fexpr && removeTableName(alias, fexpr->functionName) == "rowName" ) {
+        if (fexpr && removeTableName(alias, fexpr->functionName).stringEqual("rowName")) {
             if (inExpression->tuple && inExpression->tuple->isConstant()) {
                 return {[=] (ssize_t numToGenerate, Any token,
                              const BoundParameters & params)
@@ -1150,14 +1154,16 @@ generateRowsWhere(const SqlBindingScope & scope,
         // Optimization for rowName() == constant.  In this case, we can generate a
         // single row.
         if (flhs && crhs && comparison->op == "=") {
-            if (removeTableName(alias, flhs->functionName) == "rowName") {
+            if (removeTableName(alias, flhs->functionName).toSimpleName()
+                == "rowName") {
                 return generateRownameIsConstant(*this, *crhs);
             }
         }
         // Optimization for constant == rowName().  In this case, we can generate a
         // single row.
         if (frhs && clhs && comparison->op == "=") {
-            if (removeTableName(alias, frhs->functionName) == "rowName" ) {
+            if (removeTableName(alias, frhs->functionName).toSimpleName()
+                == "rowName" ) {
                 return generateRownameIsConstant(*this, *clhs);
             }
         }
@@ -1170,7 +1176,10 @@ generateRowsWhere(const SqlBindingScope & scope,
             auto crhs2 = getConstant(*alhs->rhs);
             
 
-            if (flhs2 && removeTableName(alias, flhs2->functionName) == "rowHash" && crhs2 && crhs2->constant.isInteger()) {
+            if (flhs2
+                && removeTableName(alias, flhs2->functionName).toSimpleName()
+                   == "rowHash"
+                && crhs2 && crhs2->constant.isInteger()) {
 
                 std::function<bool (uint64_t, uint64_t)> op;
 
@@ -1187,8 +1196,9 @@ generateRowsWhere(const SqlBindingScope & scope,
                     op = std::greater<uint64_t>();
                 else if (comparison->op == ">=")
                     op = std::greater_equal<uint64_t>();
-                else throw HttpReturnException(400, "unknown operator for comparison",
-                                               "op", comparison->op);
+                else throw HttpReturnException
+                         (400, "unknown operator for comparison",
+                          "op", comparison->op);
                 
                 uint64_t m = crhs2->constant.getAtom().toUInt();
                 uint64_t c = crhs->constant.getAtom().toUInt();
@@ -1215,7 +1225,8 @@ generateRowsWhere(const SqlBindingScope & scope,
 
                             return { std::move(filtered), Any() };
                         },
-                        "rowName modulus expression " + comparison->print().rawString() };
+                        "rowName modulus expression "
+                            + comparison->print().rawString() };
             }
         }
 
@@ -1248,8 +1259,9 @@ generateRowsWhere(const SqlBindingScope & scope,
     // Where constant
     if (where.isConstant()) {
         if (where.constantValue().isTrue()) {
-            GenerateRowsWhereFunction wheregen= {[=] (ssize_t numToGenerate, Any token,
-                         const BoundParameters & params)
+            GenerateRowsWhereFunction wheregen
+                = {[=] (ssize_t numToGenerate, Any token,
+                        const BoundParameters & params)
                     {
                         ssize_t start = 0;
                         ssize_t limit = numToGenerate;
@@ -1268,7 +1280,8 @@ generateRowsWhere(const SqlBindingScope & scope,
                         if (rows.size() == limit)
                             newToken = start;
                 
-                        return std::move(make_pair(std::move(rows), std::move(newToken)));
+                        return make_pair(std::move(rows),
+                                         std::move(newToken));
                     },
                     "Scan table keeping all rows"};
 
@@ -1280,11 +1293,13 @@ generateRowsWhere(const SqlBindingScope & scope,
         }
         else {
             return { [=] (ssize_t numToGenerate, Any token,
-                          const BoundParameters & params) -> std::pair<std::vector<RowName>, Any>
+                          const BoundParameters & params)
+                    -> std::pair<std::vector<RowName>, Any>
                     {
                         return { {}, Any() };
                     },
-                    "Return nothing as constant where expression doesn't evaluate true"};
+                    "Return nothing as constant where expression doesn't "
+                    "evaluate to true"};
         }
     }
 

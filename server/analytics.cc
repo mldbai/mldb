@@ -218,9 +218,12 @@ getEmbedding(const SelectExpression & select,
     std::vector<std::tuple<RowHash, RowName, std::vector<double>, std::vector<ExpressionValue> > > rows;
 
     if (limit != -1 || offset != 0) { //TODO - MLDB-1127 - orderBy condition here
-
         auto getEmbeddingDouble = [] (const StructValue & columns)
+            -> ML::distribution<double>
             {
+                // BEFORE MERGING FIX THIS
+                throw HttpReturnException(500, "TODO: use generic getEmbeddingDouble");
+#if 0
                 //cerr << "getEmbedding for " << jsonEncode(*this) << endl;
 
                 // TODO: this is inefficient.  We should be able to have the
@@ -229,7 +232,7 @@ getEmbedding(const SelectExpression & select,
 
                 std::vector<std::pair<ColumnName, double> > features;
              
-                auto onColumnValue = [&] (const std::tuple<Coord, ExpressionValue> & column)
+                auto onColumnValue = [&] (const std::tuple<Coords, ExpressionValue> & column)
                 {
                     features.emplace_back(get<0>(column), get<1>(column).toDouble());
                     return true;
@@ -246,6 +249,7 @@ getEmbedding(const SelectExpression & select,
                 }
 
                 return result;
+#endif
             };
 
         std::function<bool (NamedRowValue & output,

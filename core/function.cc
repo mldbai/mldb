@@ -386,7 +386,7 @@ const ExpressionValue *
 FunctionContext::
 findValue(const ColumnName & name) const
 {
-    return findValue(name.toUtf8String());
+    return findValue(name);
 }
 
 const ExpressionValue *
@@ -561,7 +561,7 @@ FunctionContextDescription()
 
 
 /*****************************************************************************/
-/* FUNCTION VALUE INFO                                                         */
+/* FUNCTION VALUE INFO                                                       */
 /*****************************************************************************/
 
 void
@@ -573,7 +573,7 @@ merge(const FunctionValueInfo & other)
 
 
 /*****************************************************************************/
-/* FUNCTION VALUES                                                             */
+/* FUNCTION VALUES                                                           */
 /*****************************************************************************/
 
 FunctionValues::
@@ -587,7 +587,7 @@ FunctionValues(const ExpressionValueInfo & rowInfo)
 void
 FunctionValues::
 addValue(const Utf8String & name,
-       std::shared_ptr<ExpressionValueInfo> valueInfo)
+         std::shared_ptr<ExpressionValueInfo> valueInfo)
 {
     if (!this->values.insert({name, valueInfo}).second)
         throw HttpReturnException(400, "Attempt to add value '" + name + "' twice");
@@ -596,7 +596,7 @@ addValue(const Utf8String & name,
 void
 FunctionValues::
 addEmbeddingValue(const std::string & name,
-                ssize_t numDimensions)
+                  ssize_t numDimensions)
 {
     addValue(Utf8String(name), std::make_shared<EmbeddingValueInfo>(numDimensions));
 }

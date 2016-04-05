@@ -487,7 +487,7 @@ struct SparseMatrixDataset::Itl
             entry.rowcol = 0;
             entry.timestamp = 0;
             entry.val = 0;
-            entry.metadata.push_back(col.toString());
+            entry.metadata.push_back(col.toUtf8String().rawData());
             trans.values->recordRow(ch.hash(), &entry, 1);
         }
         return ch.hash();
@@ -711,7 +711,7 @@ struct SparseMatrixDataset::Itl
             entry.rowcol = 0;
             entry.timestamp = 0;
             entry.val = 0;
-            entry.metadata.push_back(rowName.toString());
+            entry.metadata.push_back(rowName.toUtf8String().rawData());
             trans.values->recordRow(hash, &entry, 1);
         }
         

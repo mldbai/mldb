@@ -10,6 +10,7 @@
 #include "mldb/types/any_impl.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/server/dataset_context.h"
+#include "mldb/http/http_exception.h"
 #include <random>
 #include <unordered_set>
 
@@ -319,7 +320,7 @@ SampledDataset(MldbServer * owner,
         }
         else {
             auto expVal2 = std::get<1>(elem);
-            throw ML::Exception("unknown option: '"+columnName.toString()+"'");
+            throw HttpReturnException(400, "unknown option: '"+columnName.toUtf8String()+"'");
         }
     }
 

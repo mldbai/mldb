@@ -52,14 +52,14 @@ struct LexicalScope {
     /** Return a variable accessor for the table.  fieldOffset gives the
         offset within the row context for this table's fields.
     */
-    virtual VariableGetter
-    doGetVariable(const Utf8String & variableName, int fieldOffset) = 0;
+    virtual ColumnGetter
+    doGetColumn(const ColumnName & variableName, int fieldOffset) = 0;
 
     /** Return a wildcard accessor for the table.  fieldOffset gives the
         offset within the row context for this table's fields.
     */
     virtual GetAllColumnsOutput
-    doGetAllColumns(std::function<Utf8String (const Utf8String &)> keep,
+    doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
                     int fieldOffset) = 0;
 
     /** Return a function accessor for the table.  fieldOffset gives the
@@ -123,12 +123,12 @@ struct PipelineExpressionScope:
     /** Return an extractor function that will retrieve the given variable
         from the function input or output.
     */
-    virtual VariableGetter
-    doGetVariable(const Utf8String & tableName, const Utf8String & variableName);
+    virtual ColumnGetter
+    doGetColumn(const Utf8String & tableName, const ColumnName & columnName);
 
     virtual GetAllColumnsOutput 
     doGetAllColumns(const Utf8String & tableName,
-                    std::function<Utf8String (const Utf8String &)> keep);
+                    std::function<ColumnName (const ColumnName &)> keep);
 
     virtual BoundFunction
     doGetFunction(const Utf8String & tableName,
@@ -144,10 +144,11 @@ struct PipelineExpressionScope:
     virtual std::shared_ptr<Function>
     doGetFunctionEntity(const Utf8String & functionName);
 
-    virtual VariableGetter doGetBoundParameter(const Utf8String & paramName);
+    virtual ColumnGetter doGetBoundParameter(const Utf8String & paramName);
 
-    virtual Utf8String 
-    doResolveTableName(const Utf8String & fullVariableName, Utf8String &tableName) const;
+    virtual ColumnName
+    doResolveTableName(const ColumnName & fullColumnName,
+                       Utf8String &tableName) const;
 
     bool inLexicalScope() const
     {
@@ -181,11 +182,11 @@ private:
         std::shared_ptr<LexicalScope> scope;  ///< Scope for the table
         int fieldOffset;                    ///< Offset for fields of table
 
-        VariableGetter
-        doGetVariable(const Utf8String & variableName) const;
+        ColumnGetter
+        doGetColumn(const ColumnName & variableName) const;
 
         GetAllColumnsOutput
-        doGetAllColumns(std::function<Utf8String (const Utf8String &)> keep) const;
+        doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep) const;
 
         virtual BoundFunction
         doGetFunction(const Utf8String & functionName,

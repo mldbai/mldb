@@ -388,8 +388,8 @@ run(const ProcedureRunConfig & run,
                 featureSpace->encodeFeature(std::get<0>(c), std::get<1>(c), features);
 
                 if(unique_known_features.count(std::get<0>(c)) != 0) {
-                    throw ML::Exception("Training dataset cannot have duplicated column '" + 
-                        std::get<0>(c).toString() + "' for row '"+row.rowName.toString()+"'");
+                    throw HttpReturnException(500, "Training dataset cannot have duplicated column '" + 
+                        std::get<0>(c).toUtf8String() + "' for row '"+row.rowName.toUtf8String()+"'");
                 }
                 unique_known_features.insert(std::get<0>(c));
             }

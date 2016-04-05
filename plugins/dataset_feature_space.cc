@@ -71,7 +71,7 @@ getColumnInfo(std::shared_ptr<Dataset> dataset,
               bool bucketize)
 {
     ColumnInfo result;
-    result.columnName = columnName;
+    result.columnName = Coord(columnName);
 
     if (!bucketize) {
         //cerr << "doing column " << columnName << endl;

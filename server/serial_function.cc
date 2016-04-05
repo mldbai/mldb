@@ -217,13 +217,15 @@ inferInputFromOutput(const FunctionValues & requiredWithOutput,
             if (wildcard) {
                 // TODO: excluding...
 
+                Utf8String wildcardAsPrefix = wildcard->asPrefix.toUtf8String();
+
                 // See if this variable matches
-                if (name.startsWith(wildcard->asPrefix)) {
+                if (name.startsWith(wildcardAsPrefix)) {
                     //cerr << "Matches wildcard" << endl;
 
                     Utf8String inputName = name;
-                    inputName.replace(0, wildcard->asPrefix.length(),
-                                         wildcard->prefix);
+                    inputName.replace(0, wildcardAsPrefix.length(),
+                                      wildcard->prefix.toUtf8String());
                             
                     if (foundName)
                         throw HttpReturnException
@@ -241,8 +243,8 @@ inferInputFromOutput(const FunctionValues & requiredWithOutput,
                 }
             }
 
-            const ComputedVariable * computed
-                = dynamic_cast<const ComputedVariable *>(clause.get());
+            const ComputedColumn * computed
+                = dynamic_cast<const ComputedColumn *>(clause.get());
 
             if (computed) {
                 if (computed->alias == name) {

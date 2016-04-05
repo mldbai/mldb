@@ -110,33 +110,10 @@ SqlExpressionDatasetContext(const BoundTableExpression& boundDataset)
     boundDataset.dataset->getChildAliases(childaliases);
 }
 
-//After putting the variable name in context, this will remove unneeded outer quotes
-//from the variable part of the identifier.
-Utf8String
-SqlExpressionDatasetContext::
-removeQuotes(const Utf8String & variableName) const
-{    
-    if (!variableName.empty()) {
-
-        auto begin = variableName.begin();
-        auto last = boost::prior(variableName.end());
-
-        if ( *begin == '\"' && *last == '\"' && begin != last) {
-            ++begin;
-            Utf8String shortVariableName(begin, last);
-            return std::move(shortVariableName);
-        }
-    }
-
-    return variableName; 
-}
-
-//This is for the context where we have several datasets
-//resolve ambiguity of different table names
-//by finding the dataset name that resolves first.
+#if 0
 Utf8String 
 SqlExpressionDatasetContext::
-resolveTableName(const Utf8String& variable, Utf8String& resolvedTableName) const
+resolveTableName(const Utf8String& variable, Utf8String& resolvedTableName) const;
 {
     if (variable.empty())
         return Utf8String();
@@ -207,6 +184,7 @@ resolveTableName(const Utf8String& variable, Utf8String& resolvedTableName) cons
 
     return variable;
 }
+#endif
 
 Utf8String 
 SqlExpressionDatasetContext::
@@ -216,17 +194,18 @@ resolveTableName(const Utf8String& variable) const
     return resolveTableName(variable, resolvedTableName);
 }
 
-VariableGetter
+ColumnGetter
 SqlExpressionDatasetContext::
-doGetVariable(const Utf8String & tableName,
-              const Utf8String & variableName)
+doGetColumn(const Utf8String & tableName,
+            const ColumnName & columnName)
 {   
     Utf8String simplifiedVariableName;
     
     if (!childaliases.empty())
-        simplifiedVariableName = resolveTableName(variableName);
+        simplifiedVariableName = resolveTableName(columnName);
     else
-        simplifiedVariableName = removeQuotes(removeTableName(alias, variableName));
+        simplifiedVariableName
+            = removeTableName(alias, columnName).toSimpleName();
 
     ColumnName columnName(simplifiedVariableName);
 
@@ -257,12 +236,15 @@ doGetFunction(const Utf8String & tableName,
     Utf8String resolvedTableName = tableName;
     Utf8String resolvedFunctionName = functionName;
 
+    // TO RESOLVE BEFORE MERGE
+#if 0
     //Dont call "resolveTableName" for function because it puts quotes to resolve variables ambiguity
     if (tableName.empty()) {
-        resolvedFunctionName = removeTableName(alias, functionName);
+        resolvedFunctionName = removeTableName(alias, functionName).toSimpleName();
         if (resolvedFunctionName != functionName)
             resolvedTableName = alias;
     }
+#endif
 
     // First, let the dataset either override or implement the function
     // itself.
@@ -318,7 +300,7 @@ doGetFunction(const Utf8String & tableName,
     return SqlBindingScope::doGetFunction(resolvedTableName, resolvedFunctionName, args, argScope);
 }
 
-VariableGetter
+ColumnGetter
 SqlExpressionDatasetContext::
 doGetBoundParameter(const Utf8String & paramName)
 {
@@ -339,7 +321,7 @@ doGetBoundParameter(const Utf8String & paramName)
 GetAllColumnsOutput
 SqlExpressionDatasetContext::
 doGetAllColumns(const Utf8String & tableName,
-                std::function<Utf8String (const Utf8String &)> keep)
+                std::function<ColumnName (const ColumnName &)> keep)
 {
     if (!tableName.empty()
         && std::find(childaliases.begin(), childaliases.end(), tableName)
@@ -349,12 +331,12 @@ doGetAllColumns(const Utf8String & tableName,
 
     auto columns = dataset.getMatrixView()->getColumnNames();
 
-    auto filterColumnName = [&] (const Utf8String & inputColumnName)
-        -> Utf8String
+    auto filterColumnName = [&] (const ColumnName & inputColumnName)
+        -> ColumnName
     {
         if (!tableName.empty() && !childaliases.empty()
             && !inputColumnName.startsWith(tableName)) {
-            return "";
+            return ColumnName();
         }
 
         return keep(inputColumnName);
@@ -494,10 +476,11 @@ SqlExpressionDatasetContext::
 doResolveTableName(const Utf8String & fullVariableName, Utf8String &tableName) const
 {
     if (!childaliases.empty()) {
-        return removeQuotes(resolveTableName(fullVariableName, tableName));
+        return resolveTableName(fullVariableName, tableName);
     }
     else {
-        Utf8String simplifiedVariableName = removeQuotes(removeTableName(alias, fullVariableName));
+        Utf8String simplifiedVariableName
+            = removeTableName(alias, fullVariableName).toSimpleName();
         if (simplifiedVariableName != fullVariableName)
             tableName = alias;
         return std::move(simplifiedVariableName);
@@ -508,19 +491,19 @@ doResolveTableName(const Utf8String & fullVariableName, Utf8String &tableName) c
 /* ROW EXPRESSION ORDER BY CONTEXT                                           */
 /*****************************************************************************/
 
-VariableGetter
+ColumnGetter
 SqlExpressionOrderByContext::
-doGetVariable(const Utf8String & tableName, const Utf8String & variableName)
+doGetColumn(const Utf8String & tableName, const ColumnName & columnName)
 {
     /** An order by clause can read through both what was selected and what
         was in the underlying row.  So we first look in what was selected,
         and then fall back to the underlying row.
     */
 
-    ColumnName columnName(variableName);
+    ColumnName columnName(columnName);
 
     auto innerGetVariable
-        = ReadThroughBindingContext::doGetVariable(tableName, variableName);
+        = ReadThroughBindingContext::doGetColumn(tableName, columnName);
 
     return {[=] (const SqlRowScope & context,
                  ExpressionValue & storage,

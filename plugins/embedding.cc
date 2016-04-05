@@ -546,8 +546,9 @@ struct EmbeddingDataset::Itl
         
         auto repr = committed();
         if (repr->initialized()) {
-            for (auto & c: repr->columnNames) {
-                knownColumns.emplace_back(c, valueInfo, COLUMN_IS_DENSE);
+            for (size_t i = 0;  i < repr->columnNames.size();  ++i) {
+                knownColumns.emplace_back(repr->columnNames[i], valueInfo,
+                                          COLUMN_IS_DENSE, i /* fixed index */);
             }
         }
 

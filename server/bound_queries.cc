@@ -206,7 +206,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
         bool selectStar = boundSelect.expr->isIdentitySelect(context);
 
         int numRows = whereGenerator.upperBound;
-
+        
         size_t numPerBucket = std::max((size_t)std::floor((float)numRows / numBuckets), (size_t)1);
         size_t effectiveNumBucket = std::min((size_t)numBuckets, (size_t)numRows);
 
@@ -265,8 +265,10 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
             // Move into place, since we know we're selecting *
             outputRow.columns.reserve(row.columns.size());
             for (auto & c: row.columns) {
+                // TODO: toSimpleName isn't right here... we need to output as
+                // a MatrixNamedRow or ExpressionValue
                 outputRow.columns.emplace_back
-                    (std::move(std::get<0>(c)),
+                    (std::move(std::get<0>(c).toSimpleName()),
                      ExpressionValue(std::move(std::get<1>(c)),
                                      std::get<2>(c)));
             }
@@ -1111,11 +1113,16 @@ struct GroupContext: public SqlExpressionDatasetContext {
         Utf8String resolvedTableName = tableName;
         Utf8String resolvedFunctionName = functionName;
 
+        // TODO BEFORE MERGE
+        throw HttpReturnException(500, "Need to resolve table names in GroupContext");
+#if 0
         if (tableName.empty()) {
-            resolvedFunctionName = removeTableName(alias, functionName);
+            resolvedFunctionName
+                = removeTableName(alias, functionName).toSimpleName();
             if (resolvedFunctionName != functionName)
                 resolvedTableName = alias;
         }
+#endif
 
         if (resolvedFunctionName == "rowName") {
             return {[] (const std::vector<ExpressionValue> & args,
@@ -1137,7 +1144,8 @@ struct GroupContext: public SqlExpressionDatasetContext {
                     },
                     std::make_shared<StringValueInfo>()};
         }
-        else if (resolvedFunctionName == "groupKeyElement" || resolvedFunctionName == "group_key_element") {
+        else if (resolvedFunctionName == "groupKeyElement"
+                 || resolvedFunctionName == "group_key_element") {
             return {[] (const std::vector<ExpressionValue> & args,
                         const SqlRowScope & context)
                     {
@@ -1171,29 +1179,33 @@ struct GroupContext: public SqlExpressionDatasetContext {
             return {[&,aggIndex] (const std::vector<ExpressionValue> & args,
                                   const SqlRowScope & context)
                     {
-                        return outputAgg[aggIndex].aggregate.extract(aggData[aggIndex].get());
+                        return outputAgg[aggIndex]
+                            .aggregate.extract(aggData[aggIndex].get());
                     },
                     // TODO: get it from the value info for the group keys...
                     std::make_shared<AnyValueInfo>()};
         }
-        
-        return SqlBindingScope::doGetFunction(resolvedTableName, resolvedFunctionName, args, argScope);
+        return SqlBindingScope::doGetFunction(resolvedTableName,
+                                              resolvedFunctionName,
+                                              args, argScope);
     }
 
     // Within a group by context, we can get either:
     // 1.  The value of the variable in the row
     // 2.  The value of the variable within the group by expression
-    virtual VariableGetter doGetVariable(const Utf8String & tableName,
-                                         const Utf8String & variableName)
+    virtual ColumnGetter doGetColumn(const Utf8String & tableName,
+                                     const ColumnName & columnName)
     {
-        Utf8String simplifiedVariableName = removeQuotes(removeTableName(alias, variableName));
+        Utf8String simplifiedVariableName = variableName;
+        //= removeTableName(alias, variableName).toSimpleName();
 
         for (unsigned i = 0;  i < groupByExpression.clauses.size();  ++i) {
             const std::shared_ptr<SqlExpression> & g
                 = groupByExpression.clauses[i];
 
-            Utf8String simplifiedSurface = removeQuotes(removeTableName(alias, g->surface));
-
+            Utf8String simplifiedSurface
+                = removeTableName(alias, g->surface).toSimpleName();
+            
             if (simplifiedSurface == simplifiedVariableName) {
                 return {[=] (const SqlRowScope & context,
                              ExpressionValue & storage,
@@ -1263,8 +1275,7 @@ struct GroupContext: public SqlExpressionDatasetContext {
     void aggregateRow(GroupMapValue& mapInstance,
                       const std::vector<ExpressionValue>& row)
     {
-
-        for (unsigned i = 0;  i < outputAgg.size();  ++i) {
+        for (size_t i = 0;  i < outputAgg.size();  ++i) {
             outputAgg[i].aggregate
                 .process(&row[argOffset + outputAgg[i].inputIndex],
                          outputAgg[i].numInputs,
@@ -1275,7 +1286,7 @@ struct GroupContext: public SqlExpressionDatasetContext {
     void mergeThreadMap(GroupMapValue& outMapInstance,
                         const GroupMapValue& inMapInstance)
     {
-        for (unsigned i = 0;  i < outputAgg.size();  ++i) {
+        for (size_t i = 0;  i < outputAgg.size();  ++i) {
            outputAgg[i].aggregate
                .mergeInto(outMapInstance[i].get(), inMapInstance[i].get());
         }
@@ -1324,7 +1335,7 @@ BoundGroupByQuery(const SelectExpression & select,
     // Convert the select clauses to a list
     for (auto & expr : aggregatorsExpr)
     {
-        auto fn = dynamic_cast<const FunctionCallWrapper *>(expr.get());
+        auto fn = dynamic_cast<const FunctionCallExpression *>(expr.get());
 
         //Important: This assumes they are in the same order as in the group context
         for (auto & a: fn->args) {

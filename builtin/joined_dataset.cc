@@ -347,7 +347,7 @@ struct JoinedDataset::Itl
                 }
 
                 auto embedding = std::make_shared<EmbeddingLiteralExpression>(clauses);
-                auto rowExpression = std::make_shared<ComputedVariable>("var", embedding);
+                auto rowExpression = std::make_shared<ComputedColumn>("var", embedding);
 
                 SelectExpression queryExpression;
                 queryExpression.clauses.push_back(rowExpression);

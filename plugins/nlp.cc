@@ -73,7 +73,7 @@ apply(const FunctionApplier & applier,
                        const CellValue & val,
                        Date ts)
         {
-            const string colStr = columnName.toString();
+            const string colStr = columnName.toUtf8String().stealRawString();
             if(selected_stopwords->find(colStr) == selected_stopwords->end()) {
                 rtnRow.push_back(make_tuple(columnName, val, ts));
             }
@@ -171,7 +171,7 @@ apply(const FunctionApplier & applier,
                        const CellValue & val,
                        Date ts)
         {
-            string str = columnName.toString();
+            string str = columnName.toUtf8String().stealRawString();
             // cerr << "got: " << str << endl;
             const sb_symbol * stemmed = sb_stemmer_stem(stemmer.get(),
                     (const unsigned char*)str.c_str(), str.size());

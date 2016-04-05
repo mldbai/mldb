@@ -451,7 +451,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             throw HttpReturnException(400, "Row not found in tabular dataset");
         }
 
-        return RowName(chunks.at(it->second.first).rowNames[it->second.second].toUtf8String());
+        return chunks.at(it->second.first).rowNames[it->second.second];
     }
 
     virtual ColumnName getColumnName(ColumnHash column) const

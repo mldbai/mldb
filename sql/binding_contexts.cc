@@ -82,12 +82,12 @@ rebind(BoundSqlExpression expr)
 }
 
 
-VariableGetter
+ColumnGetter
 ReadThroughBindingContext::
-doGetVariable(const Utf8String & tableName,
-              const Utf8String & variableName)
+doGetColumn(const Utf8String & tableName,
+            const ColumnName & columnName)
 {
-    auto outerImpl = outer.doGetVariable(tableName, variableName);
+    auto outerImpl = outer.doGetColumn(tableName, columnName);
 
     return {[=] (const SqlRowScope & context,
                  ExpressionValue & storage,
@@ -102,7 +102,7 @@ doGetVariable(const Utf8String & tableName,
 GetAllColumnsOutput
 ReadThroughBindingContext::
 doGetAllColumns(const Utf8String & tableName,
-                std::function<Utf8String (const Utf8String &)> keep)
+                std::function<ColumnName (const ColumnName &)> keep)
 {
     GetAllColumnsOutput result = outer.doGetAllColumns(tableName, keep);
     auto outerFn = result.exec;
@@ -114,7 +114,7 @@ doGetAllColumns(const Utf8String & tableName,
     return result;
 }
 
-VariableGetter
+ColumnGetter
 ReadThroughBindingContext::
 doGetBoundParameter(const Utf8String & paramName)
 {
@@ -198,11 +198,11 @@ doGetFunction(const Utf8String & tableName,
 
 }
 
-VariableGetter 
+ColumnGetter 
 ColumnExpressionBindingContext::
-doGetVariable(const Utf8String & tableName, const Utf8String & variableName)
+doGetColumn(const Utf8String & tableName, const ColumnName & columnName)
 {
-    throw HttpReturnException(400, "Cannot read column \"" + variableName + "\" inside COLUMN EXPR.");
+    throw HttpReturnException(400, "Cannot read column \"" + columnName.toUtf8String() + "\" inside COLUMN EXPR.");
 }
 
 /*****************************************************************************/
@@ -236,7 +236,7 @@ doGetFunction(const Utf8String & tableName,
 /* SQL EXPRESSION PARAM SCOPE                                                */
 /*****************************************************************************/
 
-VariableGetter
+ColumnGetter
 SqlExpressionParamScope::
 doGetBoundParameter(const Utf8String & paramName)
 {

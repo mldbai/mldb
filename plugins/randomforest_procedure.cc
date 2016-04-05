@@ -203,7 +203,7 @@ run(const ProcedureRunConfig & run,
     timer.restart();
 
     for (auto& c : knownInputColumns) {
-        cerr << c.toString() << " feature " << featureSpace->getFeature(c)
+        cerr << c << " feature " << featureSpace->getFeature(c)
              << " had " << featureSpace->columnInfo[c].buckets.numBuckets
              << " buckets" 
              << " type is " << featureSpace->columnInfo[c].info << endl;

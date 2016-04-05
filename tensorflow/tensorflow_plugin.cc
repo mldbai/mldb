@@ -662,12 +662,12 @@ struct TensorflowGraph: public Function {
         std::map<Utf8String, int> nodesRead;  // index into outputLayers
         std::vector<Utf8String> outputLayers;
 
-        VariableGetter doGetVariable(const Utf8String & tableName,
+        ColumnGetter doGetColumn(const Utf8String & tableName,
                                      const Utf8String & variableName)
         {
             if (!tableName.empty())
                 return ReadThroughBindingContext
-                    ::doGetVariable(tableName, variableName);
+                    ::doGetColumn(tableName, variableName);
 
             cerr << "looking for graph variable " << variableName << endl;
 
@@ -675,7 +675,7 @@ struct TensorflowGraph: public Function {
             if (it == graphNodes.end()) {
                 // Not found in nodes; read through to the outside
                 return ReadThroughBindingContext
-                    ::doGetVariable(tableName, variableName);
+                    ::doGetColumn(tableName, variableName);
             }
             
             // Record that this is a required output layer and what its
@@ -693,7 +693,7 @@ struct TensorflowGraph: public Function {
             // TODO: tensor value info from the node
             auto info = std::make_shared<AnyValueInfo>();
 
-            VariableGetter result;
+            ColumnGetter result;
             result.exec = [=] (const SqlRowScope & scope_,
                                ExpressionValue & storage,
                                const VariableFilter & filter)
