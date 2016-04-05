@@ -494,6 +494,11 @@ The following useful non-standard aggregation functions is also supported:
   column name and value given.  This can be used with a group by clause to
   transform a dense dataset of (actor,action,value) records into a sparse
   dataset with one sparse row per actor, for example to create one-hot feature vectors or term-document or cooccurrence matrices.
+- `string_agg(expr, separator)` will coerce the value of `expr` and that of
+  `separator` to a string, and produce a single string with the concatenation
+  of `expr` separated by `separators` at internal boundaries.  For example,
+  if `expr` is `"one"`, `"two"` and `"three"` in the group, and separator is
+  `', '` the output will be `"one, two, three"`.
 
 ### Aggregates of rows
 
@@ -526,6 +531,7 @@ The standard SQL aggregation functions operate 'vertically' down columns. MLDB d
 - Horizontal aggregation functions
   - `horizontal_count(<row>)` returns the number of non-null values in the row.
   - `horizontal_sum(<row>)` returns the sum of the non-null values in the row.
+  - `horizontal_string_agg(<row>, <separator>)` returns the string aggregator of the value of row, coerced to strings, separated by separator.
   - `horizontal_avg(<row>)` returns the average of the non-null values in the row.
   - `horizontal_min(<row>)` returns the minimum of the non-null values in the row.
   - `horizontal_max(<row>)` returns the maximum of the non-null value in the row.
