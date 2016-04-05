@@ -1937,6 +1937,46 @@ BoundFunction horizontal_sum(const std::vector<BoundSqlExpression> & args)
 }
 static RegisterBuiltin registerHorizontal_Sum(horizontal_sum, "horizontal_sum");
 
+BoundFunction horizontal_string_agg(const std::vector<BoundSqlExpression> & args)
+{
+    if (args.size() != 1 && args.size() != 2)
+        throw HttpReturnException(500, "horizontal_string_agg function takes one or two arguments");
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                bool first = true;
+                Utf8String result;
+                Date ts = Date::negativeInfinity();
+                Utf8String separator;
+                if (args.size() == 2) {
+                    separator = args.at(1).getAtom()
+                        .coerceToString().toUtf8String();
+                }                
+
+                auto onAtom = [&] (const Coord & columnName,
+                                   const Coord & prefix,
+                                   const CellValue & val,
+                                   Date atomTs)
+                    {
+                        if (!val.empty()) {
+                            if (!first)
+                                result += separator;
+                            first = false;
+                            result += val.coerceToString().toUtf8String();
+                            ts.setMax(atomTs);
+                        }
+                        return true;
+                    };
+                
+                args.at(0).forEachAtom(onAtom);
+                
+                return ExpressionValue(result, ts);
+                },
+            std::make_shared<Utf8StringValueInfo>()};
+}
+static RegisterBuiltin registerHorizontal_String_Agg(horizontal_string_agg, "horizontal_string_agg");
+
 BoundFunction horizontal_avg(const std::vector<BoundSqlExpression> & args)
 {
     checkArgsSize(args.size(), 1);
