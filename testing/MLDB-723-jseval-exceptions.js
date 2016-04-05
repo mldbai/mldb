@@ -74,7 +74,8 @@ var res2 = mldb.get("/v1/query",
 plugin.log(res2);
 
 assertEqual(res2.responseCode, 400);
-assertContains(res2.json.error, "Exception running");
+assertContains(res2.json.error, "jseval script threw exception");
+assertContains(res2.json.error, "3");
 
 //MLDB-1714
 var res3 = mldb.get("/v1/query",
