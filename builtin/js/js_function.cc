@@ -173,11 +173,12 @@ run(const std::vector<ExpressionValue> & args,
     if (result.IsEmpty()) {  
         auto rep = convertException(trycatch, "Running jseval script");
         MLDB_TRACE_EXCEPTIONS(false);
-        throw AnnotatedException(400, "Exception running jseval script",
-                                  "exception", rep,
-                                  "scriptSource", data->scriptSource,
-                                  "provenance", data->filenameForErrorMessages,
-                                  "arguments", args);
+        throw AnnotatedException
+            (400, "Javascript jseval script threw exception: " + jsonEncodeStr(rep.extra),
+             "exception", rep,
+             "scriptSource", data->scriptSource,
+             "scriptLocation", data->filenameForErrorMessages,
+             "arguments", args);
     }
 
     if (result->IsUndefined()) {
