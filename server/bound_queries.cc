@@ -115,7 +115,8 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
         //cerr << "bound query unordered num buckets: " << numBuckets << endl;
         QueryThreadTracker parentTracker;
 
-        // Get a list of rows that we run over        
+        // Get a list of rows that we run over
+        // Ordering is arbitrary but deterministic
         auto rows = whereGenerator(-1, Any()).first;
 
         //cerr << "ROWS MEMORY SIZE " << rows.size() * sizeof(RowName) << endl;
@@ -326,6 +327,7 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
         QueryThreadTracker parentTracker;
 
         // Get a list of rows that we run over
+        // Ordering is arbitrary but deterministic
         auto rows = whereGenerator(-1, Any()).first;
 
         // cerr << "doing " << rows.size() << " rows with order by" << endl;
@@ -522,6 +524,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
         ML::Timer rowsTimer;
 
         // Get a list of rows that we run over
+        // Ordering is arbitrary but deterministic
         auto rows = whereGenerator(-1, Any()).first;
 
         if (!std::is_sorted(rows.begin(), rows.end(), SortByRowHash()))

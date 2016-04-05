@@ -60,6 +60,18 @@ typedef EntityType<Dataset> DatasetType;
 struct MatrixView {
     virtual ~MatrixView();
 
+    /*
+    Return a list of all rownames.
+    Rownames are always unique.
+
+    The sorting criteria is the same as with RowStream:
+
+    Row names can be returned in an arbitrary order as long as it is deterministic.
+    I.e. Calling getRowNames several times on the same (unchanged) dataset should return rownames
+    in the same (arbitrary) order.
+
+    The ordering needs to be preserved regardless of start and limit.
+    */
     virtual std::vector<RowName>
     getRowNames(ssize_t start = 0, ssize_t limit = -1) const = 0;
 
@@ -210,6 +222,10 @@ struct ColumnIndex {
 
 /** This structure is used for streaming queries to generate a set of
     matching row names one at a time.
+
+    Row names can be streamed in an arbitrary order as long as it is deterministic.
+    I.e. using different rowstreams on the same (unchanged) dataset should return rownames
+    in the same (arbitrary) order.
 */
 
 struct RowStream {
@@ -420,6 +436,8 @@ struct Dataset: public MldbEntity {
         Must return the *exact* set of rows or a stream that will do the same
         because the where expression will not be evaluated outside of this method
         if this method is called.
+
+        Ordering can be arbitrary but need to be deterministic
     */    
 
     virtual GenerateRowsWhereFunction
