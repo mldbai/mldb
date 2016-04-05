@@ -197,8 +197,11 @@ parse(const Utf8String & str)
 
 CellValue
 CellValue::
-parse(const char * s, size_t len, StringCharacteristics characteristics)
+parse(const char * s_, size_t len, StringCharacteristics characteristics)
 {
+    std::string cstring(s_, len); // ensure the buffer is null terminated
+    const char * s = cstring.c_str();
+
     if (len == 0)
         return CellValue();
 

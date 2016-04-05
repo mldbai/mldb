@@ -211,3 +211,65 @@ BOOST_AUTO_TEST_CASE (test_int_to_string)
     BOOST_CHECK_EQUAL(CellValue(std::numeric_limits<int64_t>::min()).toString(),
                       std::to_string(std::numeric_limits<int64_t>::min()));
 }
+
+BOOST_AUTO_TEST_CASE (test_realistic_float)
+{
+    constexpr char * realisticFloat1 = "-0.38860246539115906";
+
+    auto cell1 = CellValue::parse(realisticFloat1, 
+                                  strlen(realisticFloat1), 
+                                  STRING_IS_VALID_ASCII);
+
+    BOOST_CHECK_EQUAL(cell1.cellType(), CellValue::FLOAT);
+
+    constexpr char * realisticFloat2 = "-0.38860246539115906123454634";
+
+    auto cell2 = CellValue::parse(realisticFloat2, 
+                                  strlen(realisticFloat1), // intended - must not read passed the length
+                                  STRING_IS_VALID_ASCII);
+
+    BOOST_CHECK_EQUAL(cell2.cellType(), CellValue::FLOAT);
+    BOOST_CHECK_EQUAL(cell1, cell2);
+}
+
+BOOST_AUTO_TEST_CASE (test_realistic_int)
+{
+    constexpr char * realisticInt1 = "-38860246539115906";
+
+    auto cell1 = CellValue::parse(realisticInt1, 
+                                  strlen(realisticInt1), 
+                                  STRING_IS_VALID_ASCII);
+
+    BOOST_CHECK_EQUAL(cell1.cellType(), CellValue::INTEGER);
+
+    constexpr char * realisticInt2 = "-38860246539115906123454634";
+
+    auto cell2 = CellValue::parse(realisticInt2, 
+                                  strlen(realisticInt1), // intended - must not read passed the length
+                                  STRING_IS_VALID_ASCII);
+
+    BOOST_CHECK_EQUAL(cell2.cellType(), CellValue::INTEGER);
+    BOOST_CHECK_EQUAL(cell1, cell2);
+}
+
+BOOST_AUTO_TEST_CASE (test_realistic_uint)
+{
+    constexpr char * realisticUInt1 = "38860246539115906";
+
+    auto cell1 = CellValue::parse(realisticUInt1, 
+                                  strlen(realisticUInt1), 
+                                  STRING_IS_VALID_ASCII);
+
+    BOOST_CHECK_EQUAL(cell1.cellType(), CellValue::INTEGER);
+
+    constexpr char * realisticUInt2 = "38860246539115906123454634";
+
+    auto cell2 = CellValue::parse(realisticUInt2, 
+                                  strlen(realisticUInt1), // intended - must not read passed the length
+                                  STRING_IS_VALID_ASCII);
+
+    BOOST_CHECK_EQUAL(cell2.cellType(), CellValue::INTEGER);
+    BOOST_CHECK_EQUAL(cell1, cell2);
+}
+
+
