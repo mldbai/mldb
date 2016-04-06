@@ -30,7 +30,8 @@ function mldb_defer() {
 
         $("#header-container").append(
             $("<div>", {class:"pull-right", style:"padding: 10px;"}).append(
-                $("<a>", {href:"{{HTTP_BASE_URL}}/doc", style:"font-weight: bold; padding: 10px;"}).text("MLDB Documentation")
+                $("<a>", {href:"{{HTTP_BASE_URL}}/doc", target:"_blank", style:"font-weight: bold; padding: 10px;"})
+                    .text("MLDB Documentation")
             )
         );
 

@@ -145,7 +145,9 @@ static RegisterFunctionType<ScriptFunction, ScriptFunctionConfig>
 regScriptFunction(builtinPackage(),
                   "script.apply",
                   "Run a JS or Python script as a function",
-                  "functions/ScriptApplyFunction.md.html");
+                  "functions/ScriptApplyFunction.md.html",
+                            nullptr /* static route */,
+                            { MldbEntity::INTERNAL_ENTITY });
 
 
 } // namespace MLDB

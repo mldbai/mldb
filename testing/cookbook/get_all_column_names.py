@@ -14,3 +14,5 @@ ds.record_row('user2', [['eventB', 1, 0]])
 ds.commit()
 
 mldb.log(mldb.query("SELECT rowName() FROM transpose(ds)"))
+
+mldb.script.set_return("success")

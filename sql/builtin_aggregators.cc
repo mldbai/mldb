@@ -61,8 +61,8 @@ struct AggregatorT {
     */
     static BoundAggregator entry(const std::vector<BoundSqlExpression> & args)
     {
-        // These can only take a single argument
-        ExcAssertEqual(args.size(), 1);
+        // These take the number of arguments given in the State class
+        ExcAssertEqual(args.size(), State::nargs);
         ExcAssert(args[0].info);
 
         if (args[0].info->isRow()) {
@@ -417,6 +417,8 @@ struct RegisterAggregatorT: public RegisterAggregator {
 };
 
 struct AverageAccum {
+    static constexpr int nargs = 1;
+    
     AverageAccum()
         : total(0.0), n(0.0), ts(Date::negativeInfinity())
     {
@@ -460,6 +462,7 @@ static RegisterAggregatorT<AverageAccum> registerAvg("avg", "vertical_avg");
 
 template<typename Op, int Init>
 struct ValueAccum {
+    static constexpr int nargs = 1;
     ValueAccum()
         : value(Init), ts(Date::negativeInfinity())
     {
@@ -496,10 +499,79 @@ struct ValueAccum {
     Date ts;
 };
 
-static RegisterAggregatorT<ValueAccum<std::plus<double>, 0> > registerSum("sum", "vertical_sum");
+static RegisterAggregatorT<ValueAccum<std::plus<double>, 0> >
+registerSum("sum", "vertical_sum");
+
+struct StringAggAccum {
+    static constexpr int nargs = 2;
+    StringAggAccum()
+        : first(true), ts(Date::negativeInfinity())
+    {
+    }
+
+    static std::shared_ptr<ExpressionValueInfo>
+    info(const std::vector<BoundSqlExpression> & args)
+    {
+        return std::make_shared<Utf8StringValueInfo>();
+    }
+
+    void process(const ExpressionValue * args, size_t nargs)
+    {
+        ExcAssertEqual(nargs, 2);
+        const ExpressionValue & val = args[0];
+        const ExpressionValue & separator = args[1];
+
+        if (val.empty())
+            return;
+
+        if (first) {
+            this->firstSeparator = separator.empty()
+                ? Utf8String()
+                : separator.coerceToString().toUtf8String();
+        }
+        else if (!separator.empty()) {
+            value += separator.coerceToString().toUtf8String();
+        }
+        first = false;
+        
+        value += val.coerceToString().toUtf8String();
+
+        ts.setMax(val.getEffectiveTimestamp());
+    }
+     
+    ExpressionValue extract()
+    {
+        return ExpressionValue(value, ts);
+    }
+
+    void merge(StringAggAccum* src)
+    {
+        if (src->first)
+            return;  // nothing to do
+        else if (first) {
+            value = std::move(src->value);
+            firstSeparator = std::move(src->firstSeparator);
+            first = src->first;
+        }
+        else {
+            value += src->firstSeparator;
+            value += src->value;
+        }
+        ts.setMax(src->ts);
+    }
+
+    bool first;  ///< Is this the first thing we add?
+    Utf8String firstSeparator;  ///< First separator, used for merging
+    Utf8String value;      ///< Currently accumulated value
+    Date ts;
+};
+
+static RegisterAggregatorT<StringAggAccum>
+registerStringAgg("string_agg", "vertical_string_agg");
 
 template<typename Cmp>
 struct MinMaxAccum {
+    static constexpr int nargs = 1;
     MinMaxAccum()
         : first(true), ts(Date::negativeInfinity())
     {
@@ -561,6 +633,7 @@ static RegisterAggregatorT<MinMaxAccum<std::less<CellValue> > > registerMin("min
 static RegisterAggregatorT<MinMaxAccum<std::greater<CellValue> > > registerMax("max");
 
 struct CountAccum {
+    static constexpr int nargs = 1;
     CountAccum()
         : n(0), ts(Date::negativeInfinity())
     {
@@ -747,6 +820,7 @@ static RegisterAggregator registerPivot(pivot, "pivot");
 
 template<typename AccumCmp>
 struct EarliestLatestAccum {
+    static constexpr int nargs = 1;
     EarliestLatestAccum()
         : value(ExpressionValue::null(AccumCmp::getInitialDate()))
     {

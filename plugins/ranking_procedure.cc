@@ -201,7 +201,9 @@ regRankingProcedure(
     builtinPackage(),
     "ranking",
     "Assign ranks over a sorted dataset",
-    "procedures/RankingProcedure.md.html");
+    "procedures/RankingProcedure.md.html",
+    nullptr /* static route */,
+    { MldbEntity::INTERNAL_ENTITY });
  
 
 } // namespace MLDB

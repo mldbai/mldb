@@ -13,9 +13,12 @@
 #include "mldb/server/static_content_handler.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/rest/rest_request_router.h"
+#include "mldb/types/any_impl.h"
+#include <boost/filesystem.hpp>
 #include <dlfcn.h>
 #include <mutex>
-#include "mldb/types/any_impl.h"
+
+namespace fs = boost::filesystem;
 
 namespace Datacratic {
 namespace MLDB {
@@ -155,7 +158,7 @@ struct SharedLibraryPlugin::Itl {
         }
 
         //std::string path = "lib" + params.address + ".so";
-        std::string path = params.address + params.library;
+        fs::path path = fs::path(params.address) / fs::path(params.library);
 
         dlerror();  // clear existing error
         void * handle = dlopen(path.c_str(), RTLD_NOW | RTLD_LOCAL);
@@ -175,12 +178,14 @@ struct SharedLibraryPlugin::Itl {
             pluginImpl.reset(plugin);
         }
         
-        if (!params.doc.empty())
-            docHandler = getStaticRouteHandler(params.address + "/" + params.doc,
-                                               owner->server);
-        if (!params.staticAssets.empty())
-            staticAssetHandler = getStaticRouteHandler(params.address + "/" + params.staticAssets,
-                                                        owner->server);
+        if (!params.doc.empty()) {
+            fs::path docPath = fs::path(params.address) / fs::path(params.doc);
+            docHandler = getStaticRouteHandler(docPath.string(), owner->server);
+        }
+        if (!params.staticAssets.empty()) {
+            fs::path assetsPath = fs::path(params.address) / fs::path(params.staticAssets);
+            staticAssetHandler = getStaticRouteHandler(assetsPath.string(), owner->server);
+        }
 
     }
 
