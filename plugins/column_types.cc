@@ -25,10 +25,10 @@ namespace MLDB {
 
 ColumnTypes::   
 ColumnTypes()
-    : numNulls(false), numIntegers(false),
+    : numNulls(0), numIntegers(0),
       minNegativeInteger(0), maxPositiveInteger(0),
-      numReals(false), numStrings(false), numBlobs(false),
-      numOther(false)
+      numReals(0), numStrings(0), numBlobs(0),
+      numOther(0)
 {
 }
 
@@ -82,7 +82,7 @@ std::shared_ptr<ExpressionValueInfo>
 ColumnTypes::   
 getExpressionValueInfo() const
 {
-    if (!numNulls && !numReals && !numStrings && !numOther) {
+    if (!numNulls && !numReals && !numStrings && !numBlobs && !numOther) {
         // Integers only
         if (minNegativeInteger == 0) {
             // All positive
@@ -98,7 +98,7 @@ getExpressionValueInfo() const
             return std::make_shared<AtomValueInfo>();
         }
     }
-    else if (!numNulls && !numStrings && !numOther) {
+    else if (!numNulls && !numStrings && !numBlobs && !numOther) {
         // Reals and integers.  If all integers are representable as
         // doubles, in other words a maximum of 53 bits, then we're all
         // doubles.
@@ -109,7 +109,7 @@ getExpressionValueInfo() const
         // Doubles would lose precision.  It's an atom.
         return std::make_shared<AtomValueInfo>();
     }
-    else if (!numNulls && !numIntegers && !numReals && !numOther) {
+    else if (!numNulls && !numIntegers && !numReals && !numBlobs && !numOther) {
         return std::make_shared<Utf8StringValueInfo>();
     }
     else {

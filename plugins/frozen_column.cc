@@ -90,14 +90,15 @@ struct TableFrozenColumn: public FrozenColumn {
         return result;
     }
 
-    virtual bool forEachDistinctValue(std::function<bool (const CellValue &, size_t)> fn) const
+    virtual bool
+    forEachDistinctValue(std::function<bool (const CellValue &)> fn) const
     {
         if (hasNulls) {
-            if (!fn(CellValue(), columnTypes.numNulls))
+            if (!fn(CellValue()))
                 return false;
         }
         for (auto & v: table) {
-            if (!fn(v, 1 /* todo: real count */))
+            if (!fn(v))
                 return false;
         }
 
@@ -238,12 +239,13 @@ struct SparseTableFrozenColumn: public FrozenColumn {
         return result;
     }
 
-    virtual bool forEachDistinctValue(std::function<bool (const CellValue &, size_t)> fn) const
+    virtual bool
+    forEachDistinctValue(std::function<bool (const CellValue &)> fn) const
     {
-        if (!fn(CellValue(), columnTypes.numNulls))
+        if (!fn(CellValue()))
             return false;
         for (auto & v: table) {
-            if (!fn(v, 1 /* todo: real count */))
+            if (!fn(v))
                 return false;
         }
         

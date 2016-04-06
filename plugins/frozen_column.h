@@ -32,7 +32,9 @@ struct FrozenColumn {
 
     virtual size_t memusage() const = 0;
 
-    virtual bool forEachDistinctValue(std::function<bool (const CellValue &, size_t)> fn) const = 0;
+    virtual bool
+    forEachDistinctValue(std::function<bool (const CellValue &)> fn)
+        const = 0;
 
     CellValue operator [] (size_t index) const
     {

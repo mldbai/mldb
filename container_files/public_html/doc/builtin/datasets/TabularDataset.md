@@ -6,8 +6,12 @@ columns. It is ideal for storing text files such as Comma-Separated Values
 
 The dataset will learn the available columns from the first data that is
 recorded into it, and will be optimized to record many rows with the same
-columns.  On a fast machine, it is capable of recording several million
-rows per second.
+columns.  (By setting `unknownColumns` to `add`, it's not limited to
+storing just the columns from the first data, but these will be the ones
+for which fast storage is pre-allocated).
+
+On a fast machine, it is capable of recording several million rows per second
+from a 10 column CSV file.
 
 ## Configuration
 
@@ -29,16 +33,13 @@ are listed below:
 The tabular dataset has the following limitations:
 
 - Each row has a single timestamp; it is not possible for different values
-  in the row to have separate timestamps
-- Each column can only have a single value within a single row
+  in the row to have separate timestamps.
+- Each column can only have a single value within a single row.
 - The dataset will work well up to tens of thousands of columns, but for
   extremely sparse data it will not be efficient due to a per-column
   overhead.  It's better to use a sparse dataset for these situations.
 - It may only be committed once, and will not be queryable until it is
-  committed the first time.  As a reusult, this dataset type is mostly
+  committed the first time.  As a result, this dataset type is mostly
   useful for analytic, not operational data.
 - It is not possible to save data from the Tabular dataset, apart from
   by writing it to a CSV file (see the ![](%%doclink csv.export procedure).
-
-
-

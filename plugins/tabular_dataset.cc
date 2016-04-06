@@ -19,10 +19,9 @@
 #include "mldb/base/scope.h"
 #include "mldb/server/bucket.h"
 #include "mldb/types/any_impl.h"
-#include "mldb/arch/spinlock.h"
 #include "mldb/types/hash_wrapper_description.h"
 #include "mldb/http/http_exception.h"
-
+#include "mldb/utils/atomic_shared_ptr.h"
 #include <mutex>
 
 using namespace std;
@@ -32,63 +31,6 @@ namespace MLDB {
 
 static constexpr size_t TABULAR_DATASET_DEFAULT_ROWS_PER_CHUNK=65536;
 static constexpr size_t NUM_PARALLEL_CHUNKS=16;
-
-namespace {
-
-// Note: in GCC 4.9+, we can use the std::atomic_xxx overloads for
-// std::shared_ptr.  Once the Concurrency TR is available, we can
-// replace with those classes.  For the moment we use a simple,
-// spinlock protected implementation that is a lowest common
-// denominator.
-template<typename T>
-struct atomic_shared_ptr {
-
-    atomic_shared_ptr(std::shared_ptr<T> ptr = nullptr)
-        : ptr(std::move(ptr))
-    {
-    }
-    
-    std::shared_ptr<T> load() const
-    {
-        std::unique_lock<ML::Spinlock> guard(lock);
-        return ptr;
-    }
-
-    void store(std::shared_ptr<T> newVal)
-    {
-        std::unique_lock<ML::Spinlock> guard(lock);
-        ptr = std::move(newVal);
-    }
-
-    std::shared_ptr<T> exchange(std::shared_ptr<T> newVal)
-    {
-        std::unique_lock<ML::Spinlock> guard(lock);
-        std::shared_ptr<T> result = std::move(ptr);
-        ptr = std::move(newVal);
-        return result;
-    }
-
-    bool compare_exchange_strong(std::shared_ptr<T> & expected,
-                                 std::shared_ptr<T> desired)
-    {
-        std::unique_lock<ML::Spinlock> guard(lock);
-        if (ptr == expected) {
-            expected = std::move(ptr);
-            ptr = std::move(desired);
-            return true;
-        }
-        else {
-            expected = ptr;
-            return false;
-        }
-    }
-
-private:
-    mutable ML::Spinlock lock;
-    std::shared_ptr<T> ptr;
-};
-
-} // file scope
 
 
 /*****************************************************************************/
@@ -334,7 +276,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         size_t totalRows = 0;
 
         for (unsigned i = 0;  i < chunks.size();  ++i) {
-            auto onValue = [&] (CellValue val, size_t /* count */)
+            auto onValue = [&] (const CellValue & val)
                 {
                     if (values.insert({val,0}).second)
                         valueList.push_back(std::move(val));
@@ -474,7 +416,10 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     {
         auto result = tryLookupRow(rowName);
         if (result.first == -1)
-            throw HttpReturnException(400, "Row not found in tabular dataset");
+            throw HttpReturnException
+                (400, "Row not found in tabular dataset: "
+                 + rowName.toUtf8String(),
+                 "rowName", rowName);
         return result;
     }
 
@@ -495,7 +440,10 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
         auto it = rowIndex.find(rowName);
         if (it == rowIndex.end()) {
-            throw HttpReturnException(400, "Row not found in tabular dataset");
+            throw HttpReturnException
+                (400, "Row not found in tabular dataset: "
+                 + rowName.toUtf8String(),
+                 "rowName", rowName);
         }
 
         result.columns
@@ -527,6 +475,10 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     virtual const ColumnStats &
     getColumnStats(const ColumnName & column, ColumnStats & stats) const
     {
+        // WARNING: we don't calculate the correct value here; we don't
+        // correctly record the row counts.  We should probably remove it
+        // from the interface, since it's hard for any dataset to get it
+        // right.
         auto it = columnIndex.find(column.newHash());
         if (it == columnIndex.end()) {
             throw HttpReturnException(400, "Tabular dataset contains no column with given hash",
@@ -540,8 +492,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
         for (auto & c: columns.at(it->second).chunks) {
 
-            auto onValue = [&] (const CellValue & value,
-                                size_t rowCount)
+            auto onValue = [&] (const CellValue & value)
                 {
                     if (!value.isNumber())
                         isNumeric = false;
@@ -637,7 +588,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         for (unsigned i = 0;  i < chunks.size();  ++i) {
             for (unsigned j = 0;  j < chunks[i].rowNames.size();  ++j) {
                 if (!rowIndex.insert({ chunks[i].rowNames[j], { i, j } }).second)
-                    throw HttpReturnException(400, "Duplicate row name in text dataset",
+                    throw HttpReturnException(400, "Duplicate row name in tabular dataset",
                                               "rowName", chunks[i].rowNames[j]);
             }
         }
@@ -655,7 +606,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             if (!fixedColumnIndex.insert(make_pair(fixedColumns[i].newHash(), i))
                 .second)
                 throw HttpReturnException(500,
-                                          "Duplicate column name in text dataset",
+                                          "Duplicate column name in tabular dataset",
                                           "columnName", fixedColumns[i]);
         }
     }

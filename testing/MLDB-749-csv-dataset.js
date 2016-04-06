@@ -106,7 +106,7 @@ mldb.put("/v1/procedures/csv_proc", csv_conf)
 res = mldb.put("/v1/procedures/csv_proc/runs/0", {})
 mldb.log(res);
 assertEqual(res['responseCode'], 400);
-assertEqual(res['json']['error'], "Duplicate row name in text dataset");
+assertEqual(res['json']['error'], "Duplicate row name in tabular dataset");
 
 // Test correctness of parser
 var correctnessConfig = {
