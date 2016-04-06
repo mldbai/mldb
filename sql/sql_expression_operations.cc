@@ -2788,18 +2788,20 @@ InExpression::
 transform(const TransformArgs & transformArgs) const
 {
     auto result = std::make_shared<InExpression>(*this);
-    result->expr  = result->expr->transform(transformArgs);
+    result->expr = transformArgs({expr}).at(0);
 
     switch (kind) {
     case SUBTABLE:
+        //SelectSubtableExpression is  a tableExpression, not an SQLExpression
         result->subtable = std::make_shared<SelectSubtableExpression>(*(result->subtable));
         break;
     case TUPLE:
+        //Todo: tuple should be an SQL_EXPRESSION
         result->tuple = std::make_shared<TupleExpression>(result->tuple->transform(transformArgs));
         break;
     case KEYS:
     case VALUES:
-        result->setExpr = setExpr->transform(transformArgs);
+        result->setExpr = transformArgs({setExpr}).at(0);
         break;
     }
 

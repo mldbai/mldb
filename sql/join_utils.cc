@@ -104,7 +104,10 @@ removeTableName(const SqlExpression & expr, const Utf8String & tableName, const 
     //build list of prefixes to look for in function names
     //with a tuple of table-name, prefix, prefix length
     std::vector<std::tuple<Utf8String, Utf8String, size_t> > functionprefixes;
-    for (const Utf8String& alias : childAliases)
+    auto aliases = childAliases;
+    if (tableName != "")
+        aliases.insert(tableName);
+    for (const Utf8String& alias : aliases)
     {
         Utf8String prefixToFind = alias + ".";
         size_t length = prefixToFind.length();
@@ -113,7 +116,7 @@ removeTableName(const SqlExpression & expr, const Utf8String & tableName, const 
         Utf8String prefixToFind2 = "\"" + alias + "\"" + ".";
         length = prefixToFind.length();
         functionprefixes.push_back(std::make_tuple(alias, std::move(prefixToFind2), length));
-    }
+    } 
 
     // If an expression refers to a variable, then remove the table name
     // from it.  Otherwise return the same expression.
@@ -215,6 +218,7 @@ AnnotatedClause(std::shared_ptr<SqlExpression> c,
     
     for (auto & func: funcs) {
         Utf8String v = func.first.name;
+
         auto dotIt = v.find('.');
         if (dotIt == v.end()) {
             externalFuncs.emplace_back(v);
