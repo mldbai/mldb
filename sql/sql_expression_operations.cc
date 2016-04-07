@@ -1585,8 +1585,8 @@ getChildren() const
 /*****************************************************************************/
 
 EmbeddingLiteralExpression::
-EmbeddingLiteralExpression(vector<std::shared_ptr<SqlExpression> >& clauses)
-    : clauses(clauses)
+EmbeddingLiteralExpression(vector<std::shared_ptr<SqlExpression> > clauses)
+    : clauses(std::move(clauses))
 {
 }
 
@@ -1600,13 +1600,17 @@ EmbeddingLiteralExpression::
 bind(SqlBindingScope & context) const
 {
     if (clauses.empty()) {
-        return BoundSqlExpression([] (const SqlRowScope &, 
-                                      ExpressionValue & storage, 
-                                      const VariableFilter & filter) 
-                                  { return storage = std::move(ExpressionValue::null(Date::notADate())); },
-                                  this,
-                                  std::make_shared<EmptyValueInfo>(),
-                                  true /* is constant */);
+        return BoundSqlExpression
+            ([] (const SqlRowScope &, 
+                 ExpressionValue & storage, 
+                 const VariableFilter & filter) 
+             -> const ExpressionValue &
+             {
+                 return storage = ExpressionValue::null(Date::notADate());
+             },
+             this,
+             std::make_shared<EmptyValueInfo>(),
+             true /* is constant */);
     }
 
     vector<BoundSqlExpression> boundClauses;
@@ -1690,9 +1694,11 @@ Utf8String
 EmbeddingLiteralExpression::
 print() const
 {
-    Utf8String output =  "embed[" + clauses[0]->print();
+    Utf8String output =  "embed[";
+    if (!clauses.empty())
+        output += clauses[0]->print();
 
-    for (int i = 1; i < clauses.size(); ++i)
+    for (size_t i = 1; i < clauses.size(); ++i)
     {
         output += "," + clauses[i]->print();
     }
@@ -3361,18 +3367,16 @@ bind(SqlBindingScope & context) const
             {
                 const ExpressionValue & val = exprBound(context, storage, filter);
 
+                StructValue row;
                 if (&val == &storage) {
                     // We own the only copy; we can move it
-                    StructValue row;
                     row.emplace_back(aliasCol, std::move(storage));
-                    return storage = std::move(ExpressionValue(row));
                 }
                 else {
                     // We got a reference; copy it
-                    StructValue row;
                     row.emplace_back(aliasCol, val);
-                    return storage = std::move(ExpressionValue(row));
                 }
+                return storage = ExpressionValue(std::move(row));
             };
 
         std::vector<KnownColumn> knownColumns = {

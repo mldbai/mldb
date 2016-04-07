@@ -199,7 +199,7 @@ struct SelectWithinExpression: public SqlExpression {
 };
 
 struct EmbeddingLiteralExpression: public SqlExpression {
-    EmbeddingLiteralExpression(std::vector<std::shared_ptr<SqlExpression> >& clauses);
+    EmbeddingLiteralExpression(std::vector<std::shared_ptr<SqlExpression> > clauses);
 
     virtual ~EmbeddingLiteralExpression();
 
