@@ -2069,7 +2069,7 @@ parse(ML::Parse_Context & context, bool allowUtf8)
             // It can only be a wildcard if followed by:
             // - eof
             // - a comma
-            // - closing paranthesis, if used as an expression
+            // - closing parenthesis, if used as an expression
             // - AS
             // - EXCLUDING
             // - a keyword: FROM, WHERE, GROUP BY, HAVING, LIMIT, OFFSET
@@ -3103,7 +3103,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
 
     std::shared_ptr<TableExpression> result;
 
-    auto expectCloseParanthesis = [&] ()
+    auto expectCloseParenthesis = [&] ()
         {
             if (!context.match_literal(')')) {
                 context.exception("Expected to find a ')' parsing a table "
@@ -3124,7 +3124,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
             auto statement = SelectStatement::parse(context, allowUtf8);
             skip_whitespace(context);
 
-            expectCloseParanthesis();
+            expectCloseParenthesis();
 
             skip_whitespace(context);
             Utf8String asName;
@@ -3144,7 +3144,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         {
             result = TableExpression::parse(context, currentPrecedence, allowUtf8);
             skip_whitespace(context);
-            expectCloseParanthesis();
+            expectCloseParenthesis();
             result->surface = ML::trim(token.captured());
         }
     }
@@ -3158,7 +3158,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         // Row expression, presented as a table
         auto statement = SqlExpression::parse(context, allowUtf8, 10 /* precedence */);
         skip_whitespace(context);
-        expectCloseParanthesis();
+        expectCloseParenthesis();
         skip_whitespace(context);
 
         Utf8String asName;
@@ -3217,7 +3217,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
                     } while (context.match_literal(','));
                 }
 
-                expectCloseParanthesis();
+                expectCloseParenthesis();
 
                 expr.reset(new DatasetFunctionExpression(identifier, args, options));
             }
