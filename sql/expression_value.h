@@ -297,6 +297,71 @@ struct ExpressionValueInfo {
         it will throw.
     */
     virtual StorageType getEmbeddingType() const;
+
+    typedef ML::distribution<double, std::vector<double> > DoubleDist;
+
+    /** Return a function which, when called, will extract an embedding
+        from the given value.
+    */
+    typedef std::function<DoubleDist (const ExpressionValue &)>
+    ExtractDoubleEmbeddingFunction;
+
+    /** Return a function that extracts the given embedding, in the order
+        of columns provided.  This will throw if the column names are not
+        compatible with those given.
+    */
+    virtual ExtractDoubleEmbeddingFunction
+    extractDoubleEmbedding(const std::vector<ColumnName> & cols) const;
+
+    /** Function used to turn two expression values into compatible
+        embeddings.  By compatible, we mean that there are the same
+        number of columns and they occur in the same order in each.
+
+        This is returned from getCompatibleDoubleEmbeddings().
+    */
+    typedef std::function<std::tuple<DoubleDist,
+                                     DoubleDist,
+                                     std::shared_ptr<const void>,
+                                     Date>
+                          (const ExpressionValue & exp1,
+                           const ExpressionValue & exp2)>
+    GetCompatibleDoubleEmbeddingsFn;
+
+    /** Function used to convert an embedding back into an expression
+        value object that's compatible with it.  It's used where we
+        want to perform operations on embeddings and then turn them
+        back into an ExpressionValue that contains the original column
+        names and structure.
+        
+        This is returned from getCompatibleDoubleEmbeddings().
+    */
+    typedef std::function<ExpressionValue (std::vector<double> vals,
+                                           const std::shared_ptr<const void> & info,
+                                           Date timestamp) >
+    ReconstituteFromEmbeddingFn;
+
+    /** Returns a function that can be called to extract a compatible
+        embedding from two values, as well as a function to convert it
+        back to the original representation, and a value info object
+        used to describe the output of the reconstitution.
+
+        Used when binding a function that needs to extract a compatible
+        embedding from two values.
+
+        These functions will work both statically (where the columns are
+        known ahead of time, so they can be extracted directly via a
+        specialized function) and dynamically (where the columns aren't
+        known ahead of time, and so need to be discovered and aligned
+        on each call).
+
+        Default will call an override either from this or other, and if
+        neither is found will extract row names (statically or dynamically)
+        and work from there.
+    */
+    virtual std::tuple<GetCompatibleDoubleEmbeddingsFn,
+                       std::shared_ptr<ExpressionValueInfo>,
+                       ReconstituteFromEmbeddingFn>
+    getCompatibleDoubleEmbeddings(const ExpressionValueInfo & other) const;
 };
 
 PREDECLARE_VALUE_DESCRIPTION(std::shared_ptr<ExpressionValueInfo>);
@@ -322,22 +387,37 @@ DECLARE_ENUM_DESCRIPTION(ColumnSparsity);
 
 struct KnownColumn {
     KnownColumn()
-        : sparsity(COLUMN_IS_SPARSE)
+        : sparsity(COLUMN_IS_SPARSE), offset(VARIABLE_OFFSET)
     {
     }
 
     KnownColumn(ColumnName columnName,
                 std::shared_ptr<ExpressionValueInfo> valueInfo,
-                ColumnSparsity sparsity)
+                ColumnSparsity sparsity,
+                int32_t offset = VARIABLE_OFFSET)
         : columnName(columnName),
           valueInfo(valueInfo),
-          sparsity(sparsity)
+          sparsity(sparsity),
+          offset(offset)
     {
     }
     
     ColumnName columnName;
     std::shared_ptr<ExpressionValueInfo> valueInfo;
+
+    /// Tells is whether we can count on the column being there or not.  The
+    /// COLUMN_IS_DENSE property is basically required for offset to not be
+    /// VARIABLE_OFFSET.
     ColumnSparsity sparsity;
+
+    /// If this column has a fixed position in the expression value returned
+    /// then its offset is set here.  Otherwise, it has VARIABLE_OFFSET which
+    /// meansthat calling code can't rely on the position its sorted in.
+    int32_t offset;
+
+    /// Allows us to say that we don't know the position of a column in an
+    /// expression.
+    static constexpr int32_t VARIABLE_OFFSET = -1;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(KnownColumn);
@@ -424,7 +504,7 @@ struct ExpressionValue {
 
     // Construct from an embedding of simple values with common names
     // This is more efficient than a row as only the values are kept
-    ExpressionValue(const std::vector<float> & values,
+    ExpressionValue(const std::vector<double> & values,
                     std::shared_ptr<const std::vector<ColumnName> > cols,
                     Date ts);
 
@@ -613,6 +693,7 @@ struct ExpressionValue {
         return getField(Utf8String(fieldName), filter);
     }
 
+#if 1
     /** Return an embedding from the value, asserting on the length.  If the
         length is -1, it is unknown and any length will be accepted. */
     ML::distribution<float, std::vector<float> >
@@ -626,6 +707,7 @@ struct ExpressionValue {
     /** Return a flattened embedding as CellValues. */
     std::vector<CellValue>
     getEmbeddingCell(ssize_t knownLength = -1) const;
+#endif
 
     /** Return the shape of the embedding. */
     std::vector<size_t>
@@ -636,6 +718,7 @@ struct ExpressionValue {
     */
     ExpressionValue reshape(std::vector<size_t> newShape) const;
 
+#if 1
     /** Return an embedding from the value, asserting on the names of the
         columns.  Note that this method will not extract the given names;
         it will only assert that the names in the value are the same as
@@ -644,10 +727,9 @@ struct ExpressionValue {
         The numDone parameter tells how many have already been done.  It
         is used as an offset in the knownNames array.
     */
-    ML::distribution<float, std::vector<float> >
-    getEmbedding(const std::vector<ColumnName> & knownNames,
-                 ssize_t maxLength = -1,
-                 size_t numDone = 0) const;
+    ML::distribution<double, std::vector<double> >
+    getEmbedding(const ColumnName * knownNames, size_t len) const;
+#endif
 
     /** Iterate over the child expression. */
     bool forEachSubexpression(const std::function<bool (const Coord & columnName,

@@ -402,11 +402,13 @@ apply(const FunctionApplier & applier,
       const FunctionContext & context) const
 {
     throw HttpReturnException(500, "t-sne application is not implemented yet");
-    
+
+#if 0    
     FunctionOutput result;
 
     ExpressionValue storage;
     const ExpressionValue & inputVal = context.get("embedding", storage);
+
     ML::distribution<float> input = inputVal.getEmbedding(itl->inputColumnNames.size());
 
     Date ts = Date::negativeInfinity();
@@ -415,6 +417,7 @@ apply(const FunctionApplier & applier,
     result.set("tsne", ExpressionValue(embedding, ts));
     
     return result;
+#endif
 }
 
 FunctionInfo

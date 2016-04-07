@@ -239,14 +239,12 @@ struct EmbeddingDataset::Itl
     Itl(MetricSpace metric)
         : metric(metric), committed(lock, metric), uncommitted(nullptr)
     {
-        initRoutes();
     }
 
     // TODO: make it loadable...
     Itl(const std::string & address, MetricSpace metric)
         : metric(metric), committed(lock, metric), uncommitted(nullptr), address(address)
     {
-        initRoutes();
     }
 
     ~Itl()
@@ -266,22 +264,6 @@ struct EmbeddingDataset::Itl
     std::string address;
 
     RestRequestRouter router;
-
-    void initRoutes()
-    {
-        addRouteSyncJsonReturn(router, "/rowNeighbours", {"GET"},
-                               "Return the nearest neighbours of a known row",
-                               "Tuple of [rowName, rowId, distance]",
-                               &Itl::getRowNeighbours,
-                               this,
-                               RestParam<RowName>("row", "The row to query"),
-                               RestParamDefault<int>("numNeighbours",
-                                                     "Number of neighbours to find",
-                                                     10),
-                               RestParamDefault<double>("maxDistance",
-                                                        "Maximum distance to return",
-                                                        INFINITY));
-    }
 
     virtual std::vector<RowName>
     getRowNames(ssize_t start = 0, ssize_t limit = -1) const
@@ -895,6 +877,36 @@ struct EmbeddingDataset::Itl
     }
 
     vector<tuple<RowName, RowHash, float> >
+    getNeighbours(const ML::distribution<float> & coord,
+                  int numNeighbours,
+                  double maxDistance)
+    {
+        auto repr = committed();
+        if (!repr->initialized())
+            return {};
+
+        auto dist = [&] (int item) -> float
+        {
+            float result = repr->dist(item, coord);
+            ExcAssert(isfinite(result));
+            return result;
+        };
+
+        auto neighbours = repr->vpTree->search(dist, numNeighbours, maxDistance);
+
+        //cerr << "neighbours = " << jsonEncode(neighbours) << endl;
+        
+        vector<tuple<RowName, RowHash, float> > result;
+        for (auto & n: neighbours) {
+            result.emplace_back(repr->rows[n.second].rowName,
+                                repr->rows[n.second].rowName,
+                                n.first);
+        }
+
+        return result;
+    }
+
+    vector<tuple<RowName, RowHash, float> >
     getRowNeighbours(const RowName & row, int numNeighbours, double maxDistance)
     {
         auto repr = committed();
@@ -908,7 +920,7 @@ struct EmbeddingDataset::Itl
             throw HttpReturnException(400, "Couldn't find row '" + row.toUtf8String()
                                       + "' in embedding");
         }
-        
+       
         //const EmbeddingDatasetRepr::Row & row = repr->rows[it->second];
         
         auto dist = [&] (int item) -> float
@@ -917,8 +929,8 @@ struct EmbeddingDataset::Itl
                 ExcAssert(isfinite(result));
                 return result;
             };
-        
-        auto neighbours = repr->vpTree->search(dist, numNeighbours, INFINITY);
+
+        auto neighbours = repr->vpTree->search(dist, numNeighbours, maxDistance);
 
         vector<tuple<RowName, RowHash, float> > result;
         for (auto & n: neighbours) {
@@ -928,78 +940,6 @@ struct EmbeddingDataset::Itl
         }
 
         return result;
-    }
-
-    virtual RestRequestMatchResult
-    handleRequest(RestConnection & connection,
-                  const RestRequest & request,
-                  RestRequestParsingContext & context) const
-    {
-        if (context.remaining == "/neighbours") {
-            // get all of the points
-
-            int numNeighbours = 10;
-
-            auto repr = committed();
-            if (!repr->initialized())
-                return RestRequestRouter::MR_NO;
-            
-            ML::distribution<float> vals(repr->columnIndex.size(), 0.0);
-            //std::numeric_limits<float>::quiet_NaN());
-
-            for (auto & p: request.params) {
-                CellValue v = jsonDecodeStr<CellValue>(p.second);
-
-                if (p.first == "numNeighbours") {
-                    numNeighbours = v.toInt();
-                    continue;
-                }
-                ColumnName n(p.first);
-                
-                auto it = repr->columnIndex.find(n);
-                if (it == repr->columnIndex.end()) {
-                    connection.sendErrorResponse(422, "unknown column name '" + p.first + "'");
-                    return RestRequestRouter::MR_ERROR;
-                }
-                vals.at(it->second) = v.toDouble();
-            }
-
-            auto dist = [&] (int item) -> float
-            {
-                float result = repr->dist(item, vals);
-                ExcAssert(isfinite(result));
-                return result;
-            };
-
-            auto neighbours = repr->vpTree->search(dist, numNeighbours, INFINITY);
-
-            //cerr << "neighbours = " << jsonEncode(neighbours) << endl;
-            
-            vector<tuple<RowName, RowHash, float> > result;
-            for (auto & n: neighbours) {
-                result.emplace_back(repr->rows[n.second].rowName,
-                                    repr->rows[n.second].rowName,
-                                    n.first);
-            }
-
-#if 0
-            vector<MatrixNamedRow> result;
-            for (auto & n: neighbours) {
-                MatrixNamedRow row;
-                row.rowName = repr->rows[n.second].rowName;
-                row.rowHash = row.rowName;
-                row.columns.emplace_back(RowName("distance"), n.first, Date());
-                result.emplace_back(std::move(row));
-            }
-#endif
-            
-            connection.sendResponse(200, jsonEncodeStr(result), "application/json");
-
-            return RestRequestRouter::MR_YES;
-            
-        }
-
-        return router.processRequest(connection, request, context);
     }
 
     std::pair<Date, Date> getTimestampRange() const
@@ -1197,6 +1137,20 @@ overrideFunction(const Utf8String & tableName,
     return BoundFunction();
 }
 
+vector<tuple<RowName, RowHash, float> >
+EmbeddingDataset::
+getNeighbours(const ML::distribution<float> & coord, int numNeighbours, double maxDistance) const
+{
+    return itl->getNeighbours(coord, numNeighbours, maxDistance);
+}
+    
+vector<tuple<RowName, RowHash, float> >
+EmbeddingDataset::
+getRowNeighbours(const RowName & row, int numNeighbours, double maxDistance) const
+{
+    return itl->getRowNeighbours(row, numNeighbours, maxDistance);
+}
+
 KnownColumn
 EmbeddingDataset::
 getKnownColumnInfo(const ColumnName & columnName) const
@@ -1211,20 +1165,187 @@ getKnownColumnInfos(const std::vector<ColumnName> & columnNames) const
     return itl->getKnownColumnInfos(columnNames);
 }
 
-RestRequestMatchResult
-EmbeddingDataset::
-handleRequest(RestConnection & connection,
-              const RestRequest & request,
-              RestRequestParsingContext & context) const
+
+/*****************************************************************************/
+/* NEAREST NEIGHBOUR FUNCTION                                                */
+/*****************************************************************************/
+
+DEFINE_STRUCTURE_DESCRIPTION(NearestNeighborsFunctionConfig);
+
+NearestNeighborsFunctionConfigDescription::
+NearestNeighborsFunctionConfigDescription()
 {
-    return itl->handleRequest(connection, request, context);
+    addField("default_num_neighbors", &NearestNeighborsFunctionConfig::default_num_neighbors,
+             "Default number of neighbors to return. This can be overritten when calling "
+             "the function.", unsigned(10));
+    addField("default_max_distance", &NearestNeighborsFunctionConfig::default_max_distance,
+             "Default maximum distance from the original row returned neighbors can be.",
+             double(INFINITY));
+    addField("dataset", &NearestNeighborsFunctionConfig::dataset,
+             "Embedding dataset in which to find neighbors.");
 }
+
+NearestNeighborsFunction::
+NearestNeighborsFunction(MldbServer * owner,
+                         PolyConfig config,
+                         const std::function<bool (const Json::Value &)> & onProgress)
+    : Function(owner)
+{
+    functionConfig = config.params.convert<NearestNeighborsFunctionConfig>();
+}
+
+NearestNeighborsFunction::
+~NearestNeighborsFunction()
+{
+}
+
+Any
+NearestNeighborsFunction::
+getStatus() const
+{
+    return Json::Value();
+}
+
+Any
+NearestNeighborsFunction::
+getDetails() const
+{
+    return Json::Value();
+}
+
+struct NearestNeighborsFunctionApplier: public FunctionApplier {
+    NearestNeighborsFunctionApplier(const Function * owner)
+        : FunctionApplier(owner)
+    {
+        info = owner->getFunctionInfo();
+    }
+
+    std::shared_ptr<EmbeddingDataset> embeddingDataset;
+
+    /// This is used to extract an embedding in the right column order from
+    /// the ExpressionValue passed into the coords pin of the function.
+    ExpressionValueInfo::ExtractDoubleEmbeddingFunction getEmbeddingFromExpr;
+};
+
+std::unique_ptr<FunctionApplier>
+NearestNeighborsFunction::
+bind(SqlBindingScope & outerContext,
+     const FunctionValues & input) const
+{
+    std::unique_ptr<NearestNeighborsFunctionApplier> result
+        (new NearestNeighborsFunctionApplier(this));
+
+    auto boundDataset = functionConfig.dataset->bind(outerContext);
+    if (!boundDataset.dataset) {
+        throw HttpReturnException
+            (400, "Nearest neighbours function cannot operate on the output of "
+             "a table expression, only dataset of type embedding.");
+    }
+    
+    std::shared_ptr<ExpressionValueInfo> datasetInput
+        = boundDataset.dataset->getRowInfo();
+    vector<ColumnName> columnNames
+        = datasetInput->allColumnNames();
+    auto coordInput = input.getValueInfo("coords").getExpressionValueInfo();
+    if (coordInput->couldBeRow()) {
+        result->getEmbeddingFromExpr
+            = coordInput->extractDoubleEmbedding(columnNames);
+    }
+
+    result->embeddingDataset
+        = dynamic_pointer_cast<EmbeddingDataset>(boundDataset.dataset);
+    if (!result->embeddingDataset) {
+        throw HttpReturnException
+            (400, "A dataset of type embedding needs to be provided for "
+             "the nearest.neighbors function");
+    }
+ 
+    return std::move(result);
+}
+
+FunctionOutput
+NearestNeighborsFunction::
+apply(const FunctionApplier & applier_,
+      const FunctionContext & context) const
+{
+    auto & applier = static_cast<const NearestNeighborsFunctionApplier &>(applier_);
+    
+    FunctionOutput output;
+
+    ExpressionValue storage;
+    const ExpressionValue & inputRow = context.get("coords", storage);
+
+    unsigned num_neighbors = functionConfig.default_num_neighbors;
+    double max_distance = functionConfig.default_max_distance;
+
+    auto extracted_num_neighbors
+        = context.getValueOrNull("num_neighbours");
+    if(!extracted_num_neighbors.empty()) {
+        num_neighbors = extracted_num_neighbors.toInt();
+    }
+    auto extracted_max_distance
+        = context.getValueOrNull("max_distance");
+    if(!extracted_max_distance.empty()) {
+        max_distance = extracted_max_distance.toDouble();
+    }
+
+    Date ts;
+    vector<tuple<RowName, RowHash, float> > neighbors;
+    if (inputRow.isAtom()) {
+        neighbors = applier.embeddingDataset
+            ->getRowNeighbours(RowName(inputRow.toUtf8String()),
+                               num_neighbors, max_distance);
+    }
+    else if(inputRow.isEmbedding() || inputRow.isRow()) {
+        auto embedding = applier.getEmbeddingFromExpr(inputRow);
+        neighbors = applier.embeddingDataset
+            ->getNeighbours(inputRow.getEmbedding(-1),
+                            num_neighbors, max_distance);
+    }
+    else {
+        throw ML::Exception("Input row must be either a row name or an embedding");
+    }
+
+    RowValue rtnRow;
+    rtnRow.reserve(neighbors.size());
+    for(auto & neighbor : neighbors) {
+        rtnRow.emplace_back(get<0>(neighbor), get<2>(neighbor), ts);
+    }
+
+    output.set("neighbors", std::move(rtnRow));
+    return output;
+}
+
+FunctionInfo
+NearestNeighborsFunction::
+getFunctionInfo() const
+{
+    FunctionInfo result;
+
+    result.input.addAtomValue("coords");
+    result.input.addNumericValue("num_neighbours");
+    result.input.addNumericValue("max_distance");
+
+    result.output.addRowValue("neighbors");
+
+    return result;
+}
+
+
+
 
 static RegisterDatasetType<EmbeddingDataset, EmbeddingDatasetConfig>
 regEmbedding(builtinPackage(),
              "embedding",
              "Dataset to record a set of coordinates per row",
              "datasets/EmbeddingDataset.md.html");
+
+static RegisterFunctionType<NearestNeighborsFunction, NearestNeighborsFunctionConfig>
+regNearestNeighborsFunction(builtinPackage(),
+                   "nearest.neighbors",
+                   "Return the nearest neighbours of a known row in an embedding dataset",
+                   "functions/NearestNeighborsFunction.md.html");
+
 
 } // namespace MLDB
 } // namespace Datacratic

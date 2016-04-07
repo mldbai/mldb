@@ -158,7 +158,7 @@ struct ClassifyFunction: public Function {
 };
 
 /*****************************************************************************/
-/* EXPLAIN CLASSIFY FUNCTION                                                    */
+/* EXPLAIN CLASSIFY FUNCTION                                                 */
 /*****************************************************************************/
 
 struct ExplainFunction: public ClassifyFunction {

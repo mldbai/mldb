@@ -1,4 +1,3 @@
-
 /** em.cc
     Mathieu Marquis Bolduc, 30 January 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
@@ -22,6 +21,7 @@
 
 #include "mldb/ml/algebra/matrix_ops.h"
 #include "mldb/ml/algebra/least_squares.h"
+#include "mldb/types/jml_serialization.h"
 
 using namespace std;
 using namespace Datacratic;
@@ -32,10 +32,15 @@ namespace ML {
 
 double distance(const ML::distribution<double> & x,
                 const ML::distribution<double> & y)
-{ return (x - y).two_norm(); }
+{
+    return (x - y).two_norm();
+}
 
-double gaussianDistance(const ML::distribution<double> & pt, const ML::distribution<double> & origin, const MatrixType& covarianceMatrix, 
-                        const  MatrixType & invertCovarianceMatrix, float determinant)
+double gaussianDistance(const ML::distribution<double> & pt,
+                        const ML::distribution<double> & origin,
+                        const MatrixType& covarianceMatrix, 
+                        const  MatrixType & invertCovarianceMatrix,
+                        float determinant)
 {
     auto xToU = pt - origin;
     auto variance = invertCovarianceMatrix * xToU ;
@@ -46,15 +51,22 @@ double gaussianDistance(const ML::distribution<double> & pt, const ML::distribut
     if (determinantCovMatrix < 0)
       determinantCovMatrix = fabs(determinantCovMatrix);
 
-    double distance = (1.0f / (pow(2.0f * 3.14159, pt.size() / 2.0f) * sqrt(determinantCovMatrix))) * exp(value_exponent);
-
+    double distance
+        = (1.0f / (pow(2.0f * 3.14159, pt.size() / 2.0f)
+                   * sqrt(determinantCovMatrix))) 
+        * exp(value_exponent);
+    
     return distance;
 
 }
 
 
- boost::multi_array<double, 2> EstimateCovariance(int i, const std::vector<ML::distribution<double>> & points, 
-                                 const  MatrixType& distanceMatrix, double totalWeight, ML::distribution<double> average)
+boost::multi_array<double, 2>
+EstimateCovariance(int i,
+                   const std::vector<ML::distribution<double>> & points, 
+                   const  MatrixType& distanceMatrix,
+                   double totalWeight,
+                   ML::distribution<double> average)
 {
     boost::multi_array<double, 2> variant;
 
@@ -92,220 +104,229 @@ double gaussianDistance(const ML::distribution<double> & pt, const ML::distribut
 void
 EstimationMaximisation::
 train(const std::vector<ML::distribution<double>> & points,
-    std::vector<int> & in_cluster,
-    int nbClusters,
-    int maxIterations,
-    int randomSeed
-    ) 
+      std::vector<int> & in_cluster,
+      int nbClusters,
+      int maxIterations,
+      int randomSeed) 
 {
-	using namespace std;
+    using namespace std;
 
-	if (nbClusters < 2)
-	    throw ML::Exception("EM with less than 2 clusters doesn't make any sense!");
+    if (nbClusters < 2)
+        throw ML::Exception("EM with less than 2 clusters doesn't make any sense!");
 
-	boost::mt19937 rng;
-	rng.seed(randomSeed);
+    boost::mt19937 rng;
+    rng.seed(randomSeed);
 
-	int npoints = points.size();
-	in_cluster.resize(npoints, -1);
-	clusters.resize(nbClusters);
+    int npoints = points.size();
+    in_cluster.resize(npoints, -1);
+    clusters.resize(nbClusters);
 
-    boost::multi_array<double, 2> distanceMatrix(boost::extents[npoints][nbClusters]);
+    boost::multi_array<double, 2> distanceMatrix
+        (boost::extents[npoints][nbClusters]);
 
-	// Smart initialization of the centroids
-	// Same as Kmeans at the moment
-	clusters[0].centroid = points[rng() % points.size()];
-	int n = min(100, (int) points.size()/2);
-	for (int i=1; i < nbClusters; ++i) {
-	    // This is our version of the wiki algorithm :
-	    // Amongst 100 random points, I take the farthest from the closest
-	    // centroid as the next centroid
-	    double distMax = -INFINITY;
-	    int bestPoint = -1;
-	    // We try it for 100 points
-	    for (int j=0; j < n; ++j) {
-	        // For a random point
-	        int randomIdx = rng() % points.size();
-	        // Find the closest cluster
-	        float distMin = INFINITY;
-	        // For each cluster
-	        for (int k=0; k < i; ++k) {
+    // Smart initialization of the centroids
+    // Same as Kmeans at the moment
+    clusters[0].centroid = points[rng() % points.size()];
+    int n = min(100, (int) points.size()/2);
+    for (int i=1; i < nbClusters; ++i) {
+        // This is our version of the wiki algorithm :
+        // Amongst 100 random points, I take the farthest from the closest
+        // centroid as the next centroid
+        double distMax = -INFINITY;
+        int bestPoint = -1;
+        // We try it for 100 points
+        for (int j=0; j < n; ++j) {
+            // For a random point
+            int randomIdx = rng() % points.size();
+            // Find the closest cluster
+            float distMin = INFINITY;
+            // For each cluster
+            for (int k=0; k < i; ++k) {
 
-	            double dist = distance(points[randomIdx], clusters[k].centroid);
+                double dist = distance(points[randomIdx], clusters[k].centroid);
 
-	            distanceMatrix[j][i] = dist;
+                distanceMatrix[j][i] = dist;
 
-	            if (dist < distMin) {
-	                distMin = dist;
-	            }
-	        }
-	        if (distMin > distMax) {
-	            distMax = distMin;
-	            bestPoint = randomIdx;
-	        }
-	    }
-	    if (bestPoint == -1) {
-	        bestPoint = rng() % points.size();
-	    }
-	    clusters[i].centroid = points[bestPoint];
-	}
+                if (dist < distMin) {
+                    distMin = dist;
+                }
+            }
+            if (distMin > distMax) {
+                distMax = distMin;
+                bestPoint = randomIdx;
+            }
+        }
+        if (bestPoint == -1) {
+            bestPoint = rng() % points.size();
+        }
+        clusters[i].centroid = points[bestPoint];
+    }
 
-	int numdimensions = points[0].size();
-	for (int i=0; i < nbClusters; ++i) {
+    int numdimensions = points[0].size();
+    for (int i=0; i < nbClusters; ++i) {
 
-	  ML::setIdentity<double>(numdimensions, clusters[i].covarianceMatrix);
-	  clusters[i].invertCovarianceMatrix.resize(boost::extents[numdimensions][numdimensions]);
-	  clusters[i].invertCovarianceMatrix = clusters[i].covarianceMatrix;
-	  clusters[i].pseudoDeterminant = 1.0f; 
-	}
+        ML::setIdentity<double>(numdimensions, clusters[i].covarianceMatrix);
+        clusters[i].invertCovarianceMatrix
+            .resize(boost::extents[numdimensions][numdimensions]);
+        clusters[i].invertCovarianceMatrix = clusters[i].covarianceMatrix;
+        clusters[i].pseudoDeterminant = 1.0f; 
+    }
 
-	for (int iter = 0;  iter < maxIterations;  ++iter) {
+    for (int iter = 0;  iter < maxIterations;  ++iter) {
 
-	    // How many have changed cluster?  Used to know when the cluster
-	    // contents are stable
-	    int changes = 0;
+        // How many have changed cluster?  Used to know when the cluster
+        // contents are stable
+        int changes = 0;
 
-	     //Step 1: assign each point to a distribution in the mixture
+        //Step 1: assign each point to a distribution in the mixture
 
-	     auto findNewCluster = [&] (int i) {
+        auto findNewCluster = [&] (int i) {
+            
+            int best_cluster = this->assign(points[i], distanceMatrix, i);
 
-	        int best_cluster = this->assign(points[i], distanceMatrix, i);
+            if (best_cluster != in_cluster[i]) {
+                ML::atomic_inc(changes);
+                in_cluster[i] = best_cluster;
+            }
+        };
 
-	        if (best_cluster != in_cluster[i]) {
-	            ML::atomic_inc(changes);
-	            in_cluster[i] = best_cluster;
-	        }
-	    };
+        for (int i = 0; i < points.size(); ++i)
+            findNewCluster(i);
 
-	    for (int i = 0; i < points.size(); ++i)
-	      findNewCluster(i);
+        //Step 2: maximizing distribution's parameters 
+        for (auto & c : clusters) {
+            // If no member, we want to leave it there
+            std::fill(c.centroid.begin(), c.centroid.end(), 0.0);
+            c.totalWeight = 0.0f;
+        }
 
-	    //Step 2: maximizing distribution's parameters 
-	    for (auto & c : clusters)
-	    {
-	        // If no member, we want to leave it there
-	        std::fill(c.centroid.begin(), c.centroid.end(), 0.0);
-		        c.totalWeight = 0.0f;
-	    }
+        std::vector<std::mutex> locks(clusters.size());
 
-	    std::vector<std::mutex> locks(clusters.size());
+        auto addToMeanForPoint = [&] (int i) {
 
-	    auto addToMeanForPoint = [&] (int i) {
+            auto point = points[i];
+            for (int cluster = 0; cluster < clusters.size(); ++cluster) {
+                double distance = distanceMatrix[i][cluster];
+                clusters[cluster].centroid += point * distance;
+                clusters[cluster].totalWeight += distance;
+            }
+        };
 
-	        auto point = points[i];
-	         for (int cluster = 0; cluster < clusters.size(); ++cluster)    
-	        {
-	            double distance = distanceMatrix[i][cluster];
-	            clusters[cluster].centroid += point * distance;
-		        clusters[cluster].totalWeight += distance;
-	        }
-	    };
+        // calculate mean
+        for (int i = 0; i < points.size(); ++i) {
+            addToMeanForPoint(i);
+        }
 
-	    // calculate mean
-	    for (int i = 0; i < points.size(); ++i)
-	    {
-	      addToMeanForPoint(i);
-	    }
-
-	    //normalizeMean
-	    for (int cluster = 0; cluster < clusters.size(); ++cluster)
-	    {
-	      if (clusters[cluster].totalWeight > 0.000001f)
-	      {
-	        clusters[cluster].centroid = clusters[cluster].centroid / clusters[cluster].totalWeight;
-	      }
-	    }
+        //normalizeMean
+        for (int cluster = 0; cluster < clusters.size(); ++cluster) {
+            if (clusters[cluster].totalWeight > 0.000001f)
+                {
+                    clusters[cluster].centroid
+                        = clusters[cluster].centroid
+                        / clusters[cluster].totalWeight;
+                }
+        }
 	     
-	    //calculate covariant matrix
-	    for (int i = 0; i < clusters.size(); ++i)
-	    {
-	      clusters[i].covarianceMatrix = EstimateCovariance(i, points, distanceMatrix, clusters[i].totalWeight, clusters[i].centroid);
-	      ExcAssert(clusters[i].covarianceMatrix.shape()[0] == clusters[i].covarianceMatrix.shape()[1]);
+        //calculate covariant matrix
+        for (int i = 0; i < clusters.size(); ++i) {
+            clusters[i].covarianceMatrix
+                = EstimateCovariance(i, points, distanceMatrix,
+                                     clusters[i].totalWeight,
+                                     clusters[i].centroid);
+            ExcAssertEqual(clusters[i].covarianceMatrix.shape()[0],
+                           clusters[i].covarianceMatrix.shape()[1]);
 
-	      auto svdMatrix = clusters[i].covarianceMatrix;
-	      MatrixType VT,U;
-	      ML::distribution<double> svalues;
-	      ML::svd_square(svdMatrix, VT, U, svalues);
+            auto svdMatrix = clusters[i].covarianceMatrix;
+            MatrixType VT,U;
+            ML::distribution<double> svalues;
+            ML::svd_square(svdMatrix, VT, U, svalues);
 
-	      //Remove small values and calculate pseudo determinant
-	      double pseudoDeterminant = 1.0f;
-	      auto invertSingularValues = svalues;
-	      for (int i = 0; i < svalues.size(); ++i) {
+            //Remove small values and calculate pseudo determinant
+            double pseudoDeterminant = 1.0f;
+            auto invertSingularValues = svalues;
+            for (int i = 0; i < svalues.size(); ++i) {
 
-	          if (svalues[i] < 0.0001f) {
-	              svalues[i] = 0.0f;
-	              invertSingularValues[i] = 0.0f;
-	          }
-	          else {
-	              pseudoDeterminant *= svalues[i];
-	              invertSingularValues[i] = 1.0f / svalues[i];
-	          }
-	      }
+                if (svalues[i] < 0.0001f) {
+                    svalues[i] = 0.0f;
+                    invertSingularValues[i] = 0.0f;
+                }
+                else {
+                    pseudoDeterminant *= svalues[i];
+                    invertSingularValues[i] = 1.0f / svalues[i];
+                }
+            }
 
-	      //calculate pseudo inverse and pseudo determinant
+            // calculate pseudo inverse and pseudo determinant
 
-	      //We dont actually need the pseudo covariant but it sould look like this
-	      //MatrixType pseudoCovariant = U * diag(svalues) * VT;
-
-	      clusters[i].invertCovarianceMatrix = transpose(VT) * diag(invertSingularValues) * transpose(U);
-	      clusters[i].pseudoDeterminant = pseudoDeterminant;
-	    }
-  }
+            // We dont actually need the pseudo covariant but it sould look
+            // like this
+            // MatrixType pseudoCovariant = U * diag(svalues) * VT;
+            
+            clusters[i].invertCovarianceMatrix
+                = transpose(VT) * diag(invertSingularValues) * transpose(U);
+            clusters[i].pseudoDeterminant = pseudoDeterminant;
+        }
+    }
 }
 
 int
 EstimationMaximisation::
 assign(const ML::distribution<double> & point) const
 {
-	boost::multi_array<double, 2> dummySoftAssignMatrix;
-	return assign(point, dummySoftAssignMatrix, -1);
+    boost::multi_array<double, 2> dummySoftAssignMatrix;
+    return assign(point, dummySoftAssignMatrix, -1);
 }
 
 int
 EstimationMaximisation::
-assign(const ML::distribution<double> & point, boost::multi_array<double, 2>& distanceMatrix, int pIndex) const
+assign(const ML::distribution<double> & point,
+       boost::multi_array<double, 2>& distanceMatrix,
+       int pIndex) const
 {
-	using namespace std;
-	if (clusters.size() == 0)
-	    throw ML::Exception("Did you train your em?");
+    using namespace std;
+    if (clusters.size() == 0)
+        throw ML::Exception("Did you train your em?");
 
-	ML::distribution<double> distances(clusters.size());
-	for (int i=0; i < clusters.size(); ++i) {
-	    distances[i] = gaussianDistance(point, clusters[i].centroid, clusters[i].covarianceMatrix, clusters[i].invertCovarianceMatrix, clusters[i].pseudoDeterminant);
-	}
+    ML::distribution<double> distances(clusters.size());
+    for (int i=0; i < clusters.size(); ++i) {
+        distances[i]
+            = gaussianDistance(point, clusters[i].centroid,
+                               clusters[i].covarianceMatrix,
+                               clusters[i].invertCovarianceMatrix,
+                               clusters[i].pseudoDeterminant);
+    }
 
-	double distMin = 0;
-	int best_cluster = -1;
-	double totalWeight = 0.0f;
+    double distMin = 0;
+    int best_cluster = -1;
+    double totalWeight = 0.0f;
 
-	for (int i=0; i < clusters.size(); ++i) {
+    for (int i=0; i < clusters.size(); ++i) {
 
-	    double distance = distances[i];
+        double distance = distances[i];
 
-	    if (pIndex >= 0)
-	    {
-	    	totalWeight += distance;
-	   		distanceMatrix[pIndex][i] = distance;
-	    }	    
+        if (pIndex >= 0) {
+            totalWeight += distance;
+            distanceMatrix[pIndex][i] = distance;
+        }	    
+        
+        if (distances[i] > distMin) {
+            distMin = distances[i];
+            best_cluster = i;
+        }
+    }
 
-	    if (distances[i] > distMin) {
-	        distMin = distances[i];
-	        best_cluster = i;
-	      }
-	}
+    if (pIndex >= 0 && totalWeight > 0) {
+        for (int i=0; i < clusters.size(); ++i) {
+            distanceMatrix[pIndex][i] /= totalWeight;
+        }
+    }
 
-	if (pIndex >= 0 && totalWeight > 0) {
-
-	    for (int i=0; i < clusters.size(); ++i) {
-	        distanceMatrix[pIndex][i] /= totalWeight;
-	    }
-	}
-
-	//Most likely these are points with all distance at 0, often during the first iteration
-	if (best_cluster == -1)
-	    best_cluster = 0;
-
-	return best_cluster;
+    // Most likely these are points with all distance at 0, often during the
+    // first iteration
+    if (best_cluster == -1)
+        best_cluster = 0;
+    
+    return best_cluster;
 }
 
 void
@@ -313,17 +334,17 @@ EstimationMaximisation::
 serialize(ML::DB::Store_Writer & store) const
 {
     std::string name = "em";
-    int version = 0;
+    int version = 1;
     store << name << version;
     store << (int) clusters.size();
     for (auto & c : clusters) {
-
         store << c.totalWeight;
         store << c.centroid;
         store << c.covarianceMatrix;
         store << c.invertCovarianceMatrix;
         store << c.pseudoDeterminant;
     }
+    store << columnNames;
 }
 
 
@@ -337,25 +358,22 @@ reconstitute(ML::DB::Store_Reader & store)
         throw ML::Exception("invalid name when loading a EM object");  
     int version;
     store >> version;
-    if (version != 0)
+    if (version != 1)
         throw ML::Exception("invalid EM version");
     int nbClusters;
     store >> nbClusters;
     clusters.clear();
     clusters.resize(nbClusters);
 
-    cerr << "reconstitute nb Clusters" << nbClusters << endl;
-
     for (int i=0; i < nbClusters; ++i) {
-
         store >> clusters[i].totalWeight;
         store >> clusters[i].centroid;
         store >> clusters[i].covarianceMatrix;
         store >> clusters[i].invertCovarianceMatrix;
         store >> clusters[i].pseudoDeterminant;
-
-        cerr << "reconstitute centroid " << clusters[i].centroid << endl;
     }    
+
+    store >> columnNames;
 }
 
 
