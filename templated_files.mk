@@ -6,7 +6,12 @@ define mldb_install_templated_directory
 $(eval $(call install_templated_directory,$(1),$(2),mldb,mldb/container_files/template_vars.mk,$(J2ENV)))
 endef
 
-$(eval $(call mldb_install_templated_directory,mldb/container_files/public_html,$(ALTROOT)/opt/local/))
+$(eval $(call mldb_install_templated_file,mldb/container_files/public_html/index.html,$(ALTROOT)/opt/local/public_html/index.html))
+$(eval $(call mldb_install_templated_file,mldb/container_files/public_html/licensing.html,$(ALTROOT)/opt/local/public_html/licensing.html))
+$(eval $(call mldb_install_templated_file,mldb/container_files/public_html/version.json,$(ALTROOT)/opt/local/public_html/version.json))
+$(eval $(call mldb_install_templated_file,mldb/container_files/public_html/5xx.html,$(ALTROOT)/opt/local/public_html/5xx.html))
+$(eval $(call mldb_install_templated_file,mldb/container_files/public_html/5xx.json,$(ALTROOT)/opt/local/public_html/5xx.json))
+$(eval $(call install_file,mldb/container_files/public_html/favicon.ico,$(ALTROOT)/opt/local/public_html/favicon.ico,444,mldb))
 
 $(eval $(call mldb_install_templated_file,mldb/container_files/init/05-mldb-id-mapping.sh,$(ETC)/my_init.d/05-mldb-id-mapping.sh,555))
 $(eval $(call mldb_install_templated_file,mldb/container_files/init/mldb_runner.sh,$(ETC)/service/mldb_runner/run,555))
