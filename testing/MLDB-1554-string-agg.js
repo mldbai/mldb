@@ -52,4 +52,25 @@ expected = [
 assertEqual(mldb.diff(expected, resp.json, false /* strict */), {},
             "Query 2 output was not the same as expected output");
 
+// test horizontal_agg
+
+var resp = mldb.get("/v1/datasets/test/query", {select: "horizontal_string_agg({who, what, how}, ', ') AS aggs", format: 'table', orderBy: 'rowName()'});
+
+plugin.log(resp.json);
+
+assertEqual(resp.responseCode, 200, "Error executing query");
+
+expected = [
+   [ "_rowName", "aggs" ],
+   [ "0", "mustard, moved, kitchen" ],
+   [ "1", "plum, moved, kitchen" ],
+   [ "2", "mustard, stabbed, plum" ],
+   [ "3", "mustard, killed, plum" ],
+   [ "4", "plum, died, stabbed" ]
+];
+
+assertEqual(mldb.diff(expected, resp.json, false /* strict */), {},
+            "Query 2 output was not the same as expected output");
+
+
 "success"

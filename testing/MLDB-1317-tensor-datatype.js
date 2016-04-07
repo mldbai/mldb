@@ -135,4 +135,23 @@ var expected = [
 
 assertEqual(resp, expected);
 
+// MLDB-1564
+
+var resp = mldb.query("select vector_sum([1,2], null) as *");
+
+mldb.log(resp);
+
+var expected = [
+   {
+      "columns" : [
+         [ 0, 1, "1970-01-01T00:00:00Z" ],
+         [ 1, 2, "1970-01-01T00:00:00Z" ]
+      ],
+      "rowHash" : "d54892b736cac3ab",
+      "rowName" : "result"
+   }
+];
+
+assertEqual(resp, expected);
+
 "success"

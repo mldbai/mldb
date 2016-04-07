@@ -2131,6 +2131,7 @@ BoundFunction horizontal_latest(const std::vector<BoundSqlExpression> & args)
 static RegisterBuiltin registerHorizontal_Latest(horizontal_latest, "horizontal_latest");
 
 struct DiffOp {
+    static constexpr int IDENTITY = 0;
     static ML::distribution<double> apply(ML::distribution<double> & d1,
                                           ML::distribution<double> & d2)
     {
@@ -2139,6 +2140,7 @@ struct DiffOp {
 };
 
 struct SumOp {
+    static constexpr int IDENTITY = 0;
     static ML::distribution<double> apply(ML::distribution<double> & d1,
                                           ML::distribution<double> & d2)
     {
@@ -2147,6 +2149,7 @@ struct SumOp {
 };
 
 struct ProductOp {
+    static constexpr int IDENTITY = 1;
     static ML::distribution<double> apply(ML::distribution<double> & d1,
                                           ML::distribution<double> & d2)
     {
@@ -2155,6 +2158,7 @@ struct ProductOp {
 };
 
 struct QuotientOp {
+    static constexpr int IDENTITY = 1;
     static ML::distribution<double> apply(ML::distribution<double> & d1,
                                           ML::distribution<double> & d2)
     {
@@ -2180,18 +2184,33 @@ struct RegisterVectorOp {
         //cerr << "vector_diff arg 1 = " << jsonEncode(args[1]) << endl;
 
         return {[] (const std::vector<ExpressionValue> & args,
-                     const SqlRowScope & scope) -> ExpressionValue
+                    const SqlRowScope & scope) -> ExpressionValue
                 {
-                    //cerr << "val1 = " << jsonEncode(args.at(0)) << endl;
-                    //cerr << "val2 = " << jsonEncode(args.at(1)) << endl;
+                    const auto & expr1 = args[0]; //(scope, GET_LATEST);
+                    const auto & expr2 = args[1]; //(scope, GET_LATEST);
 
-                    // Get it as an embedding
-                    const auto expr1 = args[0]; //(scope, GET_LATEST);
-                    const auto expr2 = args[1]; //(scope, GET_LATEST);
-                    ML::distribution<double> val1 = expr1.getEmbeddingDouble();
-                    ML::distribution<double> val2 = expr2.getEmbeddingDouble();
+                    cerr << "expr1 = " << jsonEncode(expr1) << endl;
+                    cerr << "expr2 = " << jsonEncode(expr2) << endl;
+
                     Date ts = calcTs(expr1, expr2);
+                    ML::distribution<double> val1, val2;
 
+                    if (expr1.empty() && expr2.empty()) {
+                        return ExpressionValue::null(ts);
+                    }
+                    else if (expr2.empty()) {
+                        val1 = expr1.getEmbeddingDouble();
+                        val2.resize(val1.size(), Op::IDENTITY);
+                    }
+                    else if (expr1.empty()) {
+                        val2 = expr2.getEmbeddingDouble();
+                        val1.resize(val2.size(), Op::IDENTITY);
+                    }
+                    else {
+                        val1 = expr1.getEmbeddingDouble();
+                        val2 = expr2.getEmbeddingDouble();
+                    }
+                    
                     return ExpressionValue(std::move(Op::apply(val1, val2)), ts);
                 },
                 std::make_shared<UnknownRowValueInfo>()};
