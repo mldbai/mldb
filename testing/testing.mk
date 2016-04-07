@@ -339,6 +339,8 @@ $(eval $(call mldb_unit_test,MLDB-1500-transpose-query.js,,manual)) # awaiting f
 $(eval $(call include_sub_make,MLDB-1398-plugin))
 $(eval $(call mldb_unit_test,MLDB-1398-plugin-library-dependency.js,MLDB-1398-plugin))
 $(eval $(call mldb_unit_test,MLDB-1554-string-agg.js))
+$(eval $(call mldb_unit_test,MLDB-1562-join-with-in.js))
+
 
 $(eval $(call test,MLDB-1360-sparse-mutable-multithreaded-insert,mldb,boost))
 
