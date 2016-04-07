@@ -960,17 +960,6 @@ bool matchConstant(ML::Parse_Context & context, ExpressionValue & result,
     }
 
     else return false;
-
-#if 0
-    else if (context.match_literal('[')) {
-        throw HttpReturnException(400, "TODO: array literal");
-        // Array literal
-    }
-    else if (context.match_literal('{')) {
-        throw HttpReturnException(400, "TODO: object literal");
-        // Object literal
-    }
-#endif
 }
 
 
@@ -1148,29 +1137,30 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         skip_whitespace(context);
 
         vector<std::shared_ptr<SqlRowExpression> > clauses;
-        do {
-            skip_whitespace(context);
-            auto expr = SqlRowExpression::parse(context, allowUtf8);
-            skip_whitespace(context);
-            clauses.emplace_back(std::move(expr));
-        } while (context.match_literal(','));
 
-        if (clauses.size() > 1)
-        {
+        if (!context.match_literal('}')) {
+            do {
+                skip_whitespace(context);
+                auto expr = SqlRowExpression::parse(context, allowUtf8);
+                skip_whitespace(context);
+                clauses.emplace_back(std::move(expr));
+            } while (context.match_literal(','));
+
+            skip_whitespace(context);
+            context.expect_literal('}');
+        }
+
+        if (clauses.size() != 1) {
             auto select = std::make_shared<SelectExpression>(clauses);
             auto arg = std::make_shared<SelectWithinExpression>(select);
             lhs = arg;
         }
-        else
-        {
+        else {
             ExcAssertEqual(1, clauses.size());
             auto arg = std::make_shared<SelectWithinExpression>(clauses[0]);
             lhs = arg;  
         }
 
-        skip_whitespace(context);
-        context.expect_literal('}');
-        
         lhs->surface = ML::trim(token.captured());
     }
 
@@ -1179,17 +1169,19 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         skip_whitespace(context);
 
         vector<std::shared_ptr<SqlExpression> > clauses;
-        do {
-            context.skip_whitespace();
-            auto expr = SqlExpression::parse(context, 10, allowUtf8);
-            context.skip_whitespace();
-            clauses.emplace_back(std::move(expr));
-        } while (context.match_literal(','));
+        if (!context.match_literal(']')) {
+            do {
+                context.skip_whitespace();
+                auto expr = SqlExpression::parse(context, 10, allowUtf8);
+                context.skip_whitespace();
+                clauses.emplace_back(std::move(expr));
+            } while (context.match_literal(','));
+
+            skip_whitespace(context);
+            context.expect_literal(']');
+        }
 
         lhs = std::make_shared<EmbeddingLiteralExpression>(clauses);
-
-        skip_whitespace(context);
-        context.expect_literal(']');
         
         lhs->surface = ML::trim(token.captured());
     }
@@ -2077,7 +2069,7 @@ parse(ML::Parse_Context & context, bool allowUtf8)
             // It can only be a wildcard if followed by:
             // - eof
             // - a comma
-            // - closing paranthesis, if used as an expression
+            // - closing parenthesis, if used as an expression
             // - AS
             // - EXCLUDING
             // - a keyword: FROM, WHERE, GROUP BY, HAVING, LIMIT, OFFSET
@@ -2958,7 +2950,7 @@ bind(SqlBindingScope & context) const
             StructValue result;
 
             for (auto & c: boundClauses) {
-                ExpressionValue v = c(context, filter); 
+                ExpressionValue v = c(context, filter);
                 v.mergeToRowDestructive(result);
             }
             
@@ -3111,6 +3103,18 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
 
     std::shared_ptr<TableExpression> result;
 
+    auto expectCloseParenthesis = [&] ()
+        {
+            if (!context.match_literal(')')) {
+                context.exception("Expected to find a ')' parsing a table "
+                                  "expression.  This is normally because of "
+                                  "not putting a sub-SELECT within '()' "
+                                  "characters; eg transpose(select 1,2) should "
+                                  "be transpose((select 1,2)) so that multiple "
+                                  "arguments aren't ambiguous.");
+            }
+        };
+
     if (context.match_literal('(')) {
 
         skip_whitespace(context);
@@ -3119,7 +3123,8 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
             //sub-table
             auto statement = SelectStatement::parse(context, allowUtf8);
             skip_whitespace(context);
-            context.expect_literal(')');
+
+            expectCloseParenthesis();
 
             skip_whitespace(context);
             Utf8String asName;
@@ -3139,7 +3144,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         {
             result = TableExpression::parse(context, currentPrecedence, allowUtf8);
             skip_whitespace(context);
-            context.expect_literal(')');
+            expectCloseParenthesis();
             result->surface = ML::trim(token.captured());
         }
     }
@@ -3153,7 +3158,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         // Row expression, presented as a table
         auto statement = SqlExpression::parse(context, allowUtf8, 10 /* precedence */);
         skip_whitespace(context);
-        context.expect_literal(')');
+        expectCloseParenthesis();
         skip_whitespace(context);
 
         Utf8String asName;
@@ -3212,7 +3217,8 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
                     } while (context.match_literal(','));
                 }
 
-                context.expect_literal(')');
+                expectCloseParenthesis();
+
                 expr.reset(new DatasetFunctionExpression(identifier, args, options));
             }
             else
