@@ -60,7 +60,7 @@ typedef EntityType<Dataset> DatasetType;
 struct MatrixView {
     virtual ~MatrixView();
 
-    /*
+    /**
     Return a list of all rownames.
     Rownames are always unique.
 
@@ -437,7 +437,8 @@ struct Dataset: public MldbEntity {
         because the where expression will not be evaluated outside of this method
         if this method is called.
 
-        Ordering can be arbitrary but need to be deterministic
+        Ordering can be arbitrary but needs to be deterministic, and there must not
+        be duplicated rows.
     */    
 
     virtual GenerateRowsWhereFunction
