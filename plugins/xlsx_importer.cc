@@ -810,7 +810,9 @@ static RegisterProcedureType<XlsxImporter, XlsxImporterConfig>
 regXlsx(builtinPackage(),
         "experimental.import.xlsx",
         "Import an Excel workbook into MLDB",
-        "procedures/XlsxImporter.md.html");
+        "procedures/XlsxImporter.md.html",
+        nullptr /* static route */,
+        { MldbEntity::INTERNAL_ENTITY });
 
 
 } // namespace MLDB

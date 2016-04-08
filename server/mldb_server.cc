@@ -220,6 +220,9 @@ initRoutes()
                                              true),
                       RestParamDefault<bool>("rowHashes",
                                              "Do we include row hashes in output",
+                                             false),
+                      RestParamDefault<bool>("sortColumns",
+                                             "Do we sort the column names",
                                              false));
     
  
@@ -253,7 +256,8 @@ runHttpQuery(const Utf8String& query,
              const std::string & format,
              bool createHeaders,
              bool rowNames,
-             bool rowHashes) const
+             bool rowHashes,
+             bool sortColumns) const
 {
     auto stm = SelectStatement::parse(query.rawString());
     SqlExpressionMldbContext mldbContext(this);
@@ -264,7 +268,7 @@ runHttpQuery(const Utf8String& query,
         };
     
     MLDB::runHttpQuery(runQuery, connection, format, createHeaders,
-                       rowNames, rowHashes);
+                       rowNames, rowHashes, sortColumns);
 }
 
 std::vector<MatrixNamedRow>

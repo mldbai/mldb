@@ -477,13 +477,17 @@ RegisterProcedureType<SVMProcedure, SVMConfig>
 regClassifier(builtinPackage(),
               "svm.train",
               "Train a supervised Support Vector Machine",
-              "procedures/Svm.md.html");
+              "procedures/Svm.md.html",
+                            nullptr /* static route */,
+                            { MldbEntity::INTERNAL_ENTITY });
 
 RegisterFunctionType<SVMFunction, SVMFunctionConfig>
 regClassifyFunction(builtinPackage(),
                     "svm",
                     "Apply a trained Support Vector Machine to new data",
-                    "functions/SVMApply.md.html");
+                    "functions/SVMApply.md.html",
+                            nullptr /* static route */,
+                            { MldbEntity::INTERNAL_ENTITY });
 
 } // filescope
 } // MLDB

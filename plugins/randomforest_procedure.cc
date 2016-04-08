@@ -53,7 +53,7 @@ RandomForestProcedureConfigDescription()
              "the derived columns as a previous step and run the classifier over that dataset instead.");
     addField("modelFileUrl", &RandomForestProcedureConfig::modelFileUrl,
              "URL where the model file (with extension '.cls') should be saved. "
-             "This file can be loaded by a function of type 'classifier'.");   
+             "This file can be loaded by the ![](%%doclink classifier function). ");   
     addField("featureVectorSamplings", &RandomForestProcedureConfig::featureVectorSamplings,
              "Number of samplings of feature vectors. "
              "The total number of bags will be featureVectorSamplings*featureSamplings.", 5);
@@ -67,8 +67,9 @@ RandomForestProcedureConfigDescription()
     addField("maxDepth", &RandomForestProcedureConfig::maxDepth,
              "Maximum depth of the trees ", 20);   
     addField("functionName", &RandomForestProcedureConfig::functionName,
-             "If specified, a classifier function of this name will be created using "
-             "the trained classifier.");
+             "If specified, an instance of the ![](%%doclink classifier function) of this name will be created using "
+             "the trained model. Note that to use this parameter, the `modelFileUrl` must "
+             "also be provided.");
     addField("verbosity", &RandomForestProcedureConfig::verbosity,
              "Should the procedure be verbose for debugging and tuning purposes", false);
     addParent<ProcedureConfig>();    

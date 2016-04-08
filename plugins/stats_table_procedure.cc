@@ -149,11 +149,13 @@ StatsTableProcedureConfigDescription()
              "involving the columns in the dataset. The type of the outcomes "
              "must be a boolean (0 or 1)");
     addField("statsTableFileUrl", &StatsTableProcedureConfig::statsTableFileUrl,
-             "URL where the stats table file (with extension '.st') should be saved. "
-             "This file can be loaded by a function of type 'statsTable.getCounts'.");
+             "URL where the model file (with extension '.st') should be saved. "
+             "This file can be loaded by the ![](%%doclink statsTable.getCounts function). "
+             "This parameter is optional unless the `functionName` parameter is used.");
     addField("functionName", &StatsTableProcedureConfig::functionName,
-             "If specified, a 'statsTable.getCounts' function of this name will be "
-             "created using the trained stats tables.");
+             "If specified, an instance of the ![](%%doclink statsTable.getCounts function) of this name will be created using "
+             "the trained model. Note that to use this parameter, the `statsTableFileUrl` must "
+             "also be provided.");
     addParent<ProcedureConfig>();
 
     onPostValidate = validate<StatsTableProcedureConfig,
@@ -354,8 +356,8 @@ StatsTableFunctionConfigDescription::
 StatsTableFunctionConfigDescription()
 {
     addField("statsTableFileUrl", &StatsTableFunctionConfig::statsTableFileUrl,
-             "URL of the stats tables file (with extension '.st') to load. "
-             "This file is created by a procedure of type 'statsTable.train'.");
+             "URL of the model file (with extension '.st') to load. "
+             "This file is created by the ![](%%doclink statsTable.train procedure).");
 }
 
 StatsTableFunction::
@@ -460,10 +462,10 @@ StatsTableDerivedColumnsGeneratorProcedureConfigDescription()
 {
     addParent<ProcedureConfig>();
     addField("functionId", &StatsTableDerivedColumnsGeneratorProcedureConfig::functionId,
-            "ID to use for the sql.expression function that will be created");
+            "ID to use for the instance of the ![](%%doclink sql.expression function) that will be created");
     addField("statsTableFileUrl", &StatsTableDerivedColumnsGeneratorProcedureConfig::statsTableFileUrl,
-             "URL of the stats tables file (with extension '.st') to load. "
-             "This file is created by a procedure of type 'statsTable.train'.");
+             "URL of the model file (with extension '.st') to load. "
+             "This file is created by the ![](%%doclink statsTable.train procedure).");
     addField("expression", &StatsTableDerivedColumnsGeneratorProcedureConfig::expression,
              "Expression to be expanded");
 }
@@ -574,8 +576,8 @@ BagOfWordsStatsTableProcedureConfigDescription()
              "involving the columns in the dataset. The type of the outcomes "
              "must be a boolean (0 or 1)");
     addField("statsTableFileUrl", &BagOfWordsStatsTableProcedureConfig::statsTableFileUrl,
-             "URL where the stats table file (with extension '.st') should be saved. "
-             "This file can be loaded by a function of type 'statsTable.bagOfWords.posneg'.");
+             "URL where the model file (with extension '.st') should be saved. "
+             "This file can be loaded by the ![](%%doclink statsTable.bagOfWords.posneg function). ");
     addParent<ProcedureConfig>();
 
     onPostValidate = validate<BagOfWordsStatsTableProcedureConfig,
@@ -699,14 +701,14 @@ StatsTablePosNegFunctionConfigDescription()
     addField("numNeg", &StatsTablePosNegFunctionConfig::numNeg,
             "Number of top negative words to use", ssize_t(50));
     addField("minTrials", &StatsTablePosNegFunctionConfig::minTrials,
-            "Minimum number of trials a words needs to have "
+            "Minimum number of trials a word needs to have in order "
             "to be considered", ssize_t(50));
     addField("outcomeToUse", &StatsTablePosNegFunctionConfig::outcomeToUse,
-            "Outcome to use. This must be one of the outcomes the stats "
+            "This must be one of the outcomes the stats "
             "table was trained with.");
     addField("statsTableFileUrl", &StatsTablePosNegFunctionConfig::statsTableFileUrl,
-             "URL of the stats tables file (with extension '.st') to load. "
-             "This file is created by a procedure of type 'statsTable.bagOfWords.train'.");
+             "URL of the model file (with extension '.st') to load. "
+             "This file is created by the ![](%%doclink statsTable.bagOfWords.train procedure).");
 }
 
 StatsTablePosNegFunction::

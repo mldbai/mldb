@@ -140,6 +140,7 @@ void iterateDense(const SelectExpression & select,
     }
     
     // Get a list of rows that we run over
+    // getRowNames can return row names in an arbitrary order as long as it is deterministic.
     auto rows = matrix->getRowNames();
 
     auto doRow = [&] (int rowNum) -> bool

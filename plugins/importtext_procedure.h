@@ -1,4 +1,4 @@
-/* importextprocedure.h
+/* importextprocedure.h                                            -*- C++ -*-
     Mathieu Marquis Bolduc, February 12, 2016
     Copyright (c) 2016 Datacratic Inc.  All rights reserved.
 
@@ -16,15 +16,9 @@
 #include "mldb/ml/value_descriptions.h"
 #include "mldb/types/optional.h"
 
-namespace ML
-{
-	struct filter_istream;
-}
-
 namespace Datacratic {
 namespace MLDB {
 
-struct TabularDataset;
 
 struct ImportTextConfig : public ProcedureConfig  {
     ImportTextConfig()     
@@ -87,5 +81,6 @@ private:
 
 };
 
-}
-}
+} // namespace MLDB
+} // namespace Datacratic
+
