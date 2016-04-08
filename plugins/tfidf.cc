@@ -130,28 +130,27 @@ TfidfConfigDescription()
                      withType(TfidfConfig::defaultOutputDatasetType));
     
     addField("trainingData", &TfidfConfig::trainingData,
-             "An SQL query to provide for input to the tfidf procedure."
-             "Each row represents the terms in a given document.  Note that "
-             "the procedure will not modify the terms in any ways. "
-             "As an example, terms with different capitalization 'Montreal', "
+             "An SQL query to provide for input to the tfidf procedure. "
+             "Rows represent documents, and column names are terms. "
+             "If a cell contains anything other than `null` the document will be "
+             "take to contain the term.  Note that "
+             "this procedure will not normalize the terms in any ways: for example, "
+             "terms with different capitalization 'Montreal', "
              "'montreal' or with accented characters 'Montréal' "
-             "will all be considered as different terms.");
-    addField("modelFileUrl", &TfidfConfig::modelFileUrl,
-             "URL where the model file (with extension '.idf') should be saved. "
-             "This file can be loaded by a function of type 'tfidf' to compute "
-             "the tf-idf of a given term. "
-             "If someone is only interested in the number of documents the "
-             "terms in the training input appear in then the parameter can be "
-             "omitted and the outputDataset param can be provided instead.");
+             "will all be considered to be different terms.");
     addField("outputDataset", &TfidfConfig::output,
-             "Output dataset.  This dataset will contain one row for each "
-             "term appearing in the documents.  The row name will be the term "
+             "This dataset will contain one row for each "
+             "term in the input.  The row name will be the term "
              "and the column `count` will contain the number of documents "
              "containing the term.",
              optional);
+    addField("modelFileUrl", &TfidfConfig::modelFileUrl,
+             "URL where the model file (with extension '.idf') should be saved. "
+             "This file can be loaded by the ![](%%doclink tfidf function). "
+             "This parameter is optional unless the `functionName` parameter is used.");
     addField("functionName", &TfidfConfig::functionName,
-             "If specified, a function of this name will be created using "
-             "the training model.  Note that the 'modelFileUrl' must "
+             "If specified, an instance of the ![](%%doclink tfidf function) of this name will be created using "
+             "the trained model. Note that to use this parameter, the `modelFileUrl` must "
              "also be provided.");
     addParent<ProcedureConfig>();
 
@@ -284,7 +283,9 @@ TfidfFunctionConfigDescription::
 TfidfFunctionConfigDescription()
 {
     addField("modelFileUrl", &TfidfFunctionConfig::modelFileUrl,
-             "An URL to a model file previously created with a 'tfidf.train' procedure.");
+             "URL of the model file (with extension '.idf') to load. "
+             "This file is created by the ![](%%doclink tfidf.train procedure)."
+             );
     addField("tfType", &TfidfFunctionConfig::tf_type,
              "Type of TF scoring", TF_raw);
     addField("idfType", &TfidfFunctionConfig::idf_type,

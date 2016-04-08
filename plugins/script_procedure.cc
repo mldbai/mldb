@@ -128,7 +128,9 @@ RegisterProcedureType<ScriptProcedure, ScriptProcedureConfig>
 regScript(builtinPackage(),
           "script.run",
           "Run a script",
-          "procedures/ScriptProcedure.md.html");
+          "procedures/ScriptProcedure.md.html",
+                            nullptr /* static route */,
+                            { MldbEntity::INTERNAL_ENTITY });
 
 } // file scope
 

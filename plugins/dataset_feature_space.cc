@@ -367,7 +367,7 @@ print(const ML::Feature & feature, float value) const
 
     auto val = getValue(feature, value);
 
-    if (val.isString())
+    if (val.isAsciiString())
         return val.toString();
     else if (val.isUtf8String())
         return val.toUtf8String().rawString();

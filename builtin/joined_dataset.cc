@@ -8,10 +8,12 @@
 
 #include "joined_dataset.h"
 #include "mldb/server/dataset_context.h"
+#include "mldb/server/parallel_merge_sort.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/sql/sql_expression_operations.h"
 #include "mldb/sql/execution_pipeline_impl.h"
 #include "mldb/jml/utils/lightweight_hash.h"
+#include "mldb/jml/utils/profile.h"
 #include "mldb/sql/join_utils.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/types/structure_description.h"
@@ -19,7 +21,6 @@
 #include "mldb/http/http_exception.h"
 #include "mldb/types/hash_wrapper_description.h"
 #include "mldb/jml/utils/compact_vector.h"
-
 
 using namespace std;
 
@@ -363,13 +364,13 @@ struct JoinedDataset::Itl
                 // SqlExpressionMldbContext, we know that it takes an
                 // empty rowScope with nothing that depends on the current
                 // row.
-                SqlRowScope rowScope;
 
-                auto rows = generator(-1, rowScope);
+                SqlRowScope rowScope;
+                auto rows = generator(-1, rowScope); //Todo: destructing this can be really expensive.
             
                 if (debug)
                     cerr << "got rows " << jsonEncode(rows) << endl;
-                
+
                 // Now we extract all values 
                 std::vector<std::tuple<ExpressionValue, RowName, RowHash> > sorted;
 
@@ -391,7 +392,7 @@ struct JoinedDataset::Itl
                     sorted.emplace_back(value, r.rowName, r.rowHash);
                 }
 
-                std::sort(sorted.begin(), sorted.end());
+                parallelQuickSortRecursive<std::tuple<ExpressionValue, RowName, RowHash> >(sorted.begin(), sorted.end());
 
                 return sorted;
             };

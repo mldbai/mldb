@@ -197,13 +197,25 @@ parse(const Utf8String & str)
 
 CellValue
 CellValue::
-parse(const char * s, size_t len, StringCharacteristics characteristics)
+parse(const char * s_, size_t len, StringCharacteristics characteristics)
 {
+    static constexpr size_t NUMERICAL_BUFFER = 64;
+
+    // if the string is longer than 64 characters it can't realistically
+    // be a numerical value
+    if (len > NUMERICAL_BUFFER)
+        return CellValue(s_, len, characteristics);
+
     if (len == 0)
         return CellValue();
 
+    // this ensures that our buffer is null terminated as required below
+    char s[NUMERICAL_BUFFER + 1];
+    memcpy(s, s_, len);
+    s[len] = 0;
+
     // First try as an int
-    char * e = (char *)s + len;
+    char * e = s + len;
     int64_t intVal = strtoll(s, &e, 10);
 
     if (e == s + len) {
@@ -211,14 +223,14 @@ parse(const char * s, size_t len, StringCharacteristics characteristics)
     }
     
     // TODO: only need this one if the length is long enough... optimization
-    e = (char *)s + len;
+    e = s + len;
     uint64_t uintVal = strtoull(s, &e, 10);
 
     if (e == s + len) {
         return CellValue(uintVal);
     }
     
-    e = (char *)s + len;
+    e = s + len;
     double floatVal = strtod(s, &e);
 
     if (e == s + len) {
@@ -1122,6 +1134,29 @@ extractStructuredJson(JsonPrintingContext & context) const
         throw HttpReturnException(400, "unknown cell type");
         return;
     }
+}
+
+size_t
+CellValue::
+memusage() const
+{
+    switch (type) {
+    case ST_EMPTY:
+    case ST_TIMESTAMP:
+    case ST_TIMEINTERVAL:
+    case ST_ASCII_SHORT_STRING:
+    case ST_SHORT_BLOB:
+    case ST_UTF8_SHORT_STRING:
+    case ST_INTEGER:
+    case ST_UNSIGNED:
+    case ST_FLOAT:
+        return sizeof(*this);
+    case ST_ASCII_LONG_STRING:
+    case ST_UTF8_LONG_STRING:
+    case ST_LONG_BLOB:
+        return sizeof(*this) + sizeof(StringRepr) + strLength;
+    }
+    throw HttpReturnException(400, "unknown CellValue type");
 }
 
 struct CellValueDescription: public ValueDescriptionT<CellValue> {

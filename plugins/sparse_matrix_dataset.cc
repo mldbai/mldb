@@ -18,7 +18,7 @@
 #include "mldb/arch/timers.h"
 #include "mldb/base/parallel.h"
 #include "mldb/base/thread_pool.h"
-#include "mldb/arch/spinlock.h"
+#include "mldb/utils/atomic_shared_ptr.h"
 #include <mutex>
 
 using namespace std;
@@ -26,38 +26,6 @@ using namespace std;
 
 namespace Datacratic {
 namespace MLDB {
-
-// Note: in GCC 4.9+, we can use the std::atomic_xxx overloads for
-// std::shared_ptr.  Once the Concurrency TR is available, we can
-// replace with those classes.  For the moment we use a simple,
-// spinlock protected implementation that is a lowest common
-// denominator.
-template<typename T>
-struct atomic_shared_ptr {
-
-    template<typename... Args>
-    atomic_shared_ptr(Args&&... args)
-        : ptr(std::forward<Args>(args)...)
-    {
-    }
-    
-    std::shared_ptr<T> load() const
-    {
-        std::unique_lock<ML::Spinlock> guard(lock);
-        return ptr;
-    }
-
-    void store(std::shared_ptr<T> newVal)
-    {
-        std::unique_lock<ML::Spinlock> guard(lock);
-        ptr = std::move(newVal);
-    }
-
-private:
-    mutable ML::Spinlock lock;
-    std::shared_ptr<T> ptr;
-};
-
 
 DEFINE_STRUCTURE_DESCRIPTION(BaseEntry);
 
@@ -933,7 +901,7 @@ enum CommitMode {
 struct MutableBaseData {
 
     MutableBaseData(CommitMode commitMode)
-        : repr(new Repr()), commitMode(commitMode)
+        : repr(std::make_shared<Repr>()), commitMode(commitMode)
     {
     }
 

@@ -83,9 +83,6 @@ ClassifierConfigDescription()
              "not expressions involving columns. So X will work, but not X + 1. "
              "If you need derived values in the select expression, create a dataset with "
              "the derived columns as a previous step and run the classifier over that dataset instead.");
-    addField("modelFileUrl", &ClassifierConfig::modelFileUrl,
-             "URL where the model file (with extension '.cls') should be saved. "
-             "This file can be loaded by a function of type 'classifier'.");
     addField("algorithm", &ClassifierConfig::algorithm,
              "Algorithm to use to train classifier with.  This must point to "
              "an entry in the configuration or configurationFile parameters");
@@ -109,10 +106,15 @@ ClassifierConfigDescription()
              0.5);
     addField("mode", &ClassifierConfig::mode,
              "Mode of classifier.  Controls how the label is interpreted and "
-             "what is the output of the classifier.", CM_BOOLEAN);
+             "what is the output of the classifier.", CM_BOOLEAN);    
+    addField("modelFileUrl", &ClassifierConfig::modelFileUrl,
+             "URL where the model file (with extension '.cls') should be saved. "
+             "This file can be loaded by the ![](%%doclink classifier function). "
+             "This parameter is optional unless the `functionName` parameter is used.");
     addField("functionName", &ClassifierConfig::functionName,
-             "If specified, a classifier function of this name will be created using "
-             "the trained classifier.");
+             "If specified, an instance of the ![](%%doclink classifier function) of this name will be created using "
+             "the trained model. Note that to use this parameter, the `modelFileUrl` must "
+             "also be provided.");
     addParent<ProcedureConfig>();
 
     onPostValidate = validate<ClassifierConfig, 
@@ -224,7 +226,7 @@ run(const ProcedureRunConfig & run,
         }
     }
 
-    logger->debug() << "knownInputColumns are " << jsonEncode(knownInputColumns);
+    // logger->debug() << "knownInputColumns are " << jsonEncode(knownInputColumns);
 
     ML::Timer timer;
 
@@ -372,10 +374,10 @@ run(const ProcedureRunConfig & run,
 
             float weight = extraVals.at(1).toDouble();
 
-            logger->debug() << "label = " << label << " weight = " << weight;
-            logger->debug() << "row.columns.size() = " << row.columns.size();
+            // logger->debug() << "label = " << label << " weight = " << weight;
+            // logger->debug() << "row.columns.size() = " << row.columns.size();
 
-            logger->debug() << "got row " << jsonEncode(row);
+            // logger->debug() << "got row " << jsonEncode(row);
             ++numRows;
 
             std::vector<std::pair<ML::Feature, float> > features
@@ -548,10 +550,10 @@ run(const ProcedureRunConfig & run,
     std::vector<ML::Feature> trainingFeatures;
 
     for (unsigned i = 0;  i < allFeatures.size();  ++i) {
-        logger->debug() << "allFeatures[i] = " << allFeatures[i];
+        // logger->debug() << "allFeatures[i] = " << allFeatures[i];
 
         string featureName = featureSpace->print(allFeatures[i]);
-        logger->debug() << "featureName = " << featureName;
+        // logger->debug() << "featureName = " << featureName;
 
         if (allFeatures[i] == labelFeature)
             continue;
@@ -613,10 +615,10 @@ run(const ProcedureRunConfig & run,
         weights.normalize();
     }
 
-    logger->debug() << "training classifier";
+    // logger->debug() << "training classifier";
     ML::Classifier classifier(trainer->generate(threadContext, trainingSet, weights,
                                                 trainingFeatures));
-    logger->debug() << "done training classifier";
+    // logger->debug() << "done training classifier";
 
     logger->info() << "trained classifier in " << timer.elapsed();
 
@@ -643,7 +645,7 @@ run(const ProcedureRunConfig & run,
         server->handleRequest(connection, request);
     }
 
-    logger->debug() << "done saving classifier";
+    // logger->debug() << "done saving classifier";
 
     //trainingSet.dump("training_set.txt.gz");
  
@@ -662,7 +664,7 @@ ClassifyFunctionConfigDescription()
 {
     addField("modelFileUrl", &ClassifyFunctionConfig::modelFileUrl,
              "URL of the model file (with extension '.cls') to load. "
-             "This file is created by a procedure of type 'classifier.train'.");
+             "This file is created by the ![](%%doclink classifier.train procedure).");
 }
 
 struct ClassifyFunction::Itl {
@@ -915,7 +917,7 @@ getFunctionInfo() const
         ColumnSparsity sparsity = col.second.info.optional()
             ? COLUMN_IS_SPARSE : COLUMN_IS_DENSE;
 
-        logger->debug() << "column " << col.second.columnName << " info " << col.second.info;
+        // logger->debug() << "column " << col.second.columnName << " info " << col.second.info;
 
         // Be specific about what type we're looking for.  This will allow
         // us to be more leniant when encoding for input.

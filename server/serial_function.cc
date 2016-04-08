@@ -450,7 +450,9 @@ RegisterFunctionType<SerialFunction, SerialFunctionConfig>
 regSerialFunction(builtinPackage(),
                   "serial",
                   "Function type that runs several functions in order",
-                  "functions/Serial.md.html");
+                  "functions/Serial.md.html",
+                    nullptr /* static route */,
+                    { MldbEntity::INTERNAL_ENTITY });
 
 } // file scope
 

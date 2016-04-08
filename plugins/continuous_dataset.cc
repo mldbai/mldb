@@ -473,7 +473,9 @@ static RegisterDatasetType<ContinuousDataset, ContinuousDatasetConfig>
 regContinuous(builtinPackage(),
               "continuous",
               "Dataset that can be continuously recorded to",
-              "datasets/ContinuousDataset.md.html");
+              "datasets/ContinuousDataset.md.html",
+               nullptr,
+               {MldbEntity::INTERNAL_ENTITY});
 
 
 /*****************************************************************************/
@@ -627,7 +629,9 @@ static RegisterDatasetType<ContinuousWindowDataset,
 regContinuousWindow(builtinPackage(),
                     "continuous.window",
                     "View of a static time window view over a continuous dataset",
-                    "datasets/ContinuousDataset.md.html");
+                    "datasets/ContinuousDataset.md.html",
+                    nullptr,
+                    {MldbEntity::INTERNAL_ENTITY});
 
 } // namespace MLDB
 } // namespace Datacratic
