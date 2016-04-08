@@ -1061,7 +1061,8 @@ generateRowsWhere(const SqlBindingScope & scope,
                     && unbound.wildcards.empty()) {
                     //cerr << "*** rowName() IN (constant set expr)" << endl;
 
-                    SqlExpressionParamScope paramScope;
+                    SqlExpressionParamScope paramScope
+                        (const_cast<SqlBindingScope &>(scope));
 
                     auto boundSet = inExpression->setExpr->bind(paramScope);
                     auto matrixView = this->getMatrixView();
