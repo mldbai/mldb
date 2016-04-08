@@ -1313,6 +1313,13 @@ generateRowsWhere(const SqlBindingScope & scope,
             "scan table filtering by where expression"};
 }
 
+/**
+
+As queryBasic always sort by the orderby, the result will NOT be deterministic if the orderby
+is not a valid sorting criteria (e.g., "1")
+
+*/
+
 BasicRowGenerator
 Dataset::
 queryBasic(const SqlBindingScope & scope,
