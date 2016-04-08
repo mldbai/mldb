@@ -58,7 +58,7 @@ The `melted_data` dataset will look like this:
 | row1_friends.1 | bill | 25 | friends.1 | {"name": "jean", "age": 18} |
 
 
-### Example with a bag of words sparse dataset
+### Example with bags of words
 
 Suppose the following dataset `data` containing a sentence per row:
 
