@@ -10,6 +10,7 @@
 #include "thread_pool.h"
 #include "thread_pool_impl.h"
 #include "mldb/arch/thread_specific.h"
+#include "mldb/arch/demangle.h"
 #include "mldb/jml/utils/environment.h"
 #include <atomic>
 #include <condition_variable>
@@ -421,9 +422,25 @@ struct ThreadPool::Itl: public std::enable_shared_from_this<ThreadPool::Itl> {
         try {
             job();
             finished += 1;
-        } JML_CATCH_ALL {
+        } catch (const std::exception & exc) {
             finished += 1;
-            throw;
+            cerr << "ERROR: job submitted to ThreadPool of type "
+                 << ML::demangle(job.target_type())
+                 << " threw exception: " << exc.what() << endl;
+            cerr << "A Job in a ThreadPool which throws an exception "
+                 << "causes the program to crash, which is happening now"
+                 << endl;
+            abort();
+        }
+        JML_CATCH_ALL {
+            finished += 1;
+            cerr << "ERROR: job submitted to ThreadPool of type "
+                 << ML::demangle(job.target_type())
+                 << " threw exception " << ML::getExceptionString() << endl;
+            cerr << "A Job in a ThreadPool which throws an exception "
+                 << "causes the program to crash, which is happening now"
+                 << endl;
+            abort();
         }
     }
 
@@ -508,7 +525,7 @@ struct ThreadPool::Itl: public std::enable_shared_from_this<ThreadPool::Itl> {
                         // to give up on it.  We wait a small amount of
                         // time and try again.
                         std::this_thread::yield();
-                        std::this_thread::sleep_for(std::chrono::microseconds(100));
+                        std::this_thread::sleep_for(std::chrono::milliseconds(1));
                     }
                 } else {
                     itersWithNoWork = 0;
