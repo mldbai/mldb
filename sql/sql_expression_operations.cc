@@ -2236,10 +2236,29 @@ getChildren() const
 {   
     std::vector<std::shared_ptr<SqlExpression> > res = args;
    
-    if (extract)
-        res.push_back(extract);
+    // We don't include extract here as the variables referred to
+    // must be satisfied internally, so it's really an internal
+    // part of the expression not a child expression.
 
     return res;
+}
+
+std::map<ScopedName, UnboundVariable>
+FunctionCallWrapper::
+variableNames() const
+{
+    std::map<ScopedName, UnboundVariable> result;
+    
+    for (auto & c: args) {
+        auto childVars = (*c).variableNames();
+        for (auto & cv: childVars) {
+            result[cv.first].merge(std::move(cv.second));
+        }
+    }
+
+    // We don't include the extract values here
+    
+    return result;
 }
 
 std::map<ScopedName, UnboundFunction>

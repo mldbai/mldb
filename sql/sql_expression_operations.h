@@ -493,7 +493,11 @@ struct FunctionCallWrapper: public SqlRowExpression {
     virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
     virtual bool isConstant() const { return false; } // TODO: not always
 
-    std::map<ScopedName, UnboundFunction> functionNames() const;
+    virtual std::map<ScopedName, UnboundVariable>
+    variableNames() const override;
+
+    virtual std::map<ScopedName, UnboundFunction>
+    functionNames() const override;
 
 private:
 
