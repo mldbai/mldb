@@ -378,13 +378,6 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             result.insert(result.end(), c.rowNames.begin(), c.rowNames.end());
         }
 
-        std::sort(result.begin(), result.end(),
-                  [] (const RowName & n1,
-                      const RowName & n2)
-                  {
-                      return n1.hash() < n2.hash();
-                  });
-
         return result;
     }
 

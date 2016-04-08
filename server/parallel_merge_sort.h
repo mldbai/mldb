@@ -14,6 +14,8 @@
 #include <vector>
 #include <memory>
 
+#include "mldb/base/thread_pool.h"
+
 namespace Datacratic {
 namespace MLDB {
 
@@ -145,6 +147,55 @@ parallelMergeSort(std::vector<std::shared_ptr<std::vector<T> > > & range,
 
     return std::move(*range[0]);
 }
+
+/* taken from http://demin.ws/blog/english/2012/04/28/multithreaded-quicksort/ */
+
+template<class T, class Compare >
+void
+parallelQuickSortRecursive(typename std::vector<T>::iterator begin, typename std::vector<T>::iterator end, Compare less, int depth = 0)
+{
+    size_t numElements = end - begin;
+    if (numElements <= 1)
+        return;
+
+    if (depth > 8 || numElements < 1024) {
+        std::sort(begin, end, less);
+        return;
+    }
+
+    auto pivot = begin + numElements / 2;
+    auto const pivotValue = *pivot;
+
+    std::swap(*pivot, *(end-1));
+    auto p = std::partition(begin, end, [&](const T& a) { return less(a, pivotValue); } );
+    std::swap(*p, *(end - 1));
+
+    ThreadPool tp;
+
+    auto runLeft = [&] () { parallelQuickSortRecursive<T, Compare>(begin, p, less, depth+1); };
+    auto runRight = [&] () { parallelQuickSortRecursive<T, Compare>(p + 1, end, less, depth+1); };
+    
+    // Put the smallest one on the thread pool, so that we have the highest
+    // probability of running both on our thread in case of lots of work.
+    if (p-begin < end-p){
+        tp.add(runLeft);
+        runRight();
+    }
+    else {
+        tp.add(runRight);
+        runLeft();
+    }
+  
+    tp.waitForAll();
+}
+
+template<class T, class Compare = std::less<T> >
+void 
+parallelQuickSortRecursive(typename std::vector<T>::iterator begin, typename std::vector<T>::iterator end) 
+{
+    return parallelQuickSortRecursive<T, Compare>(begin, end, Compare());
+}
+
 
 } // namespace MLDB
 } // namespace Datacratic
