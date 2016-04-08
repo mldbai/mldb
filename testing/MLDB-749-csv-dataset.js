@@ -106,7 +106,7 @@ mldb.put("/v1/procedures/csv_proc", csv_conf)
 res = mldb.put("/v1/procedures/csv_proc/runs/0", {})
 mldb.log(res);
 assertEqual(res['responseCode'], 400);
-assertEqual(res['json']['error'], "Duplicate row name in CSV dataset");
+assertEqual(res['json']['error'], "Duplicate row name in tabular dataset");
 
 // Test correctness of parser
 var correctnessConfig = {
@@ -191,7 +191,6 @@ expected = [
             ["City","aixas","2012-05-03T03:14:46Z"],
             ["AccentCity","Aixàs","2012-05-03T03:14:46Z"],
             ["Region",6,"2012-05-03T03:14:46Z"],
-            ["Population",null,"2012-05-03T03:14:46Z"],
             ["Latitude",42.4833333,"2012-05-03T03:14:46Z"],
             ["Longitude",1.4666667,"2012-05-03T03:14:46Z"]
         ],
@@ -203,7 +202,6 @@ expected = [
             ["City","`abd ur rahim khel","2012-05-03T03:14:46Z"],
             ["AccentCity","`Abd ur Rahim Khel","2012-05-03T03:14:46Z"],
             ["Region",27,"2012-05-03T03:14:46Z"],
-            ["Population",null,"2012-05-03T03:14:46Z"],
             ["Latitude",33.911152,"2012-05-03T03:14:46Z"],
             ["Longitude",68.441101,"2012-05-03T03:14:46Z"]
         ],
@@ -227,7 +225,6 @@ expected = [
             ["City","kajia","2012-05-03T03:14:46Z"],
             ["AccentCity","Kajia","2012-05-03T03:14:46Z"],
             ["Region",44,"2012-05-03T03:14:46Z"],
-            ["Population",null,"2012-05-03T03:14:46Z"],
             ["Latitude",12.6274,"2012-05-03T03:14:46Z"],
             ["Longitude",10.8192,"2012-05-03T03:14:46Z"]
         ],
@@ -239,7 +236,6 @@ expected = [
             ["City","greasy ridge","2012-05-03T03:14:46Z"],
             ["AccentCity","Greasy Ridge","2012-05-03T03:14:46Z"],
             ["Region","OH","2012-05-03T03:14:46Z"],
-            ["Population",null,"2012-05-03T03:14:46Z"],
             ["Latitude",38.6452778,"2012-05-03T03:14:46Z"],
             ["Longitude",-82.4211111,"2012-05-03T03:14:46Z"]
         ],

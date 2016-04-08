@@ -19,6 +19,7 @@
 #include "mldb/server/dataset_context.h"
 #include "mldb/server/per_thread_accumulator.h"
 #include "mldb/server/bucket.h"
+#include "mldb/server/parallel_merge_sort.h"
 #include "mldb/jml/utils/environment.h"
 #include "mldb/ml/jml/buckets.h"
 #include "mldb/base/parallel.h"
@@ -68,7 +69,7 @@ struct SortByRowHash {
 
 
 /*****************************************************************************/
-/* DATASET                                                                    */
+/* DATASET                                                                   */
 /*****************************************************************************/
 
 DEFINE_STRUCTURE_DESCRIPTION(MatrixRow);
@@ -342,6 +343,7 @@ ColumnIndex::
 getColumnDense(const ColumnName & column) const
 {
     auto columnValues = getColumn(column);
+    // getRowNames can return row names in an arbitrary order as long as it is deterministic.
     std::vector<RowName> rowNames = getRowNames();
     std::vector<CellValue> result;
     result.reserve(rowNames.size());
@@ -405,7 +407,57 @@ getColumnBuckets(const ColumnName & column,
 
 
 /*****************************************************************************/
-/* DATASET                                                                    */
+/* DATASET RECORDER                                                          */
+/*****************************************************************************/
+
+// This is here to allow future extension without breaking the ABI
+struct DatasetRecorder::Itl {
+};
+
+DatasetRecorder::
+DatasetRecorder(Dataset * dataset)
+    : dataset(dataset)
+{
+}
+
+DatasetRecorder::
+~DatasetRecorder()
+{
+}
+
+void
+DatasetRecorder::
+recordRowExpr(const RowName & rowName,
+              const ExpressionValue & expr)
+{
+    dataset->recordRowExpr(rowName, expr);
+}
+
+void
+DatasetRecorder::
+recordRow(const RowName & rowName,
+          const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
+{
+    dataset->recordRow(rowName, vals);
+}
+
+void
+DatasetRecorder::
+recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows)
+{
+    dataset->recordRows(rows);
+}
+
+void
+DatasetRecorder::
+recordRowsExpr(const std::vector<std::pair<RowName, ExpressionValue > > & rows)
+{
+    dataset->recordRowsExpr(rows);
+}
+
+
+/*****************************************************************************/
+/* DATASET                                                                   */
 /*****************************************************************************/
 
 Dataset::
@@ -608,6 +660,21 @@ recordEmbedding(const std::vector<ColumnName> & columnNames,
     }
 
     recordRows(rowsOut);
+}
+
+Dataset::MultiChunkRecorder
+Dataset::
+getChunkRecorder()
+{
+    MultiChunkRecorder result;
+    result.newChunk = [=] (size_t)
+        {
+            return std::unique_ptr<Recorder>
+                (new DatasetRecorder(this));
+        };
+
+    result.commit = [=] () { this->commit(); };
+    return result;
 }
 
 KnownColumn
@@ -845,6 +912,8 @@ generateRownameIsConstant(const Dataset & dataset,
     Must return the *exact* set of rows or a stream that will do the same
     because the where expression will not be evaluated outside of this method
     if this method is called.
+
+    Ordering can be arbitrary but need to be deterministic
 */    
 GenerateRowsWhereFunction
 Dataset::
@@ -998,7 +1067,8 @@ generateRowsWhere(const SqlBindingScope & scope,
                     && unbound.wildcards.empty()) {
                     //cerr << "*** rowName() IN (constant set expr)" << endl;
 
-                    SqlExpressionParamScope paramScope;
+                    SqlExpressionParamScope paramScope
+                        (const_cast<SqlBindingScope &>(scope));
 
                     auto boundSet = inExpression->setExpr->bind(paramScope);
                     auto matrixView = this->getMatrixView();
@@ -1131,6 +1201,7 @@ generateRowsWhere(const SqlBindingScope & scope,
                         {
                             std::vector<RowName> filtered;
 
+                            // getRowNames can return row names in an arbitrary order as long as it is deterministic.
                             for (const RowName & n: this->getMatrixView()
                                      ->getRowNames()) {
                                 uint64_t hash = RowHash(n).hash();
@@ -1190,6 +1261,7 @@ generateRowsWhere(const SqlBindingScope & scope,
                         if (!token.empty())
                             start = token.convert<size_t>();
 
+                        //Row names can be returned in an arbitrary order as long as it is deterministic.
                         auto rows = this->getMatrixView()
                             ->getRowNames(start, limit);
 
@@ -1250,6 +1322,7 @@ generateRowsWhere(const SqlBindingScope & scope,
 
                 auto matrix = this->getMatrixView();
 
+                //Row names can be returned in an arbitrary order as long as it is deterministic.
                 auto rows = matrix->getRowNames(start, limit);
 
                 std::vector<RowName> rowsToKeep;
@@ -1492,9 +1565,7 @@ queryBasic(const SqlBindingScope & scope,
                         return boundOrderBy.less(std::get<0>(row1), std::get<0>(row2));
                     };
 
-                std::sort(rowsSorted.begin(), rowsSorted.end(), compareRows);
-
-                //std::erase(rowsSorted.begin(), rowsSorted.begin() + offset);
+                parallelQuickSortRecursive<SortedRow>(rowsSorted.begin(), rowsSorted.end(), compareRows);
 
                 ssize_t realLimit = -1;
                 if (realLimit == -1)

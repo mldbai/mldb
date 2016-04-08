@@ -32,6 +32,14 @@ or compatible across releases.
 
 ![](%%config dataset sparse.mutable)
 
+The `consistencyLevel` values are as follows:
+
+![](%%type Datacratic::MLDB::WriteTransactionLevel)
+
+The `favor` values are as follows:
+
+![](%%type Datacratic::MLDB::TransactionFavor)
+
 ## Committing
 
 The dataset is transactional, which means that each record operation will

@@ -3,6 +3,7 @@ LIBMLDB_CORE_SOURCES:= \
 	dataset.cc \
 	procedure.cc \
 	function.cc \
+	recorder.cc
 
 LIBMLDB_CORE_LINK:= \
 	sql_expression rest_entity rest

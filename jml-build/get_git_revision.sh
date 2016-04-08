@@ -105,7 +105,7 @@ if [ $NUMUNCLEAN -gt 0 ]; then
         if [ $NUMNOTCHECKEDIN -ne 0 ]; then
             echo $COLOR_ERROR"==== Uncommitted files in submodule $sm$COLOR_RESET" > /dev/stderr
             echo -n $COLOR_RED > /dev/stderr
-            cat $SMFILESUSED | xargs git status -uno | grep 'modified:' > /dev/stderr
+            cat $SMFILESUSED | xargs git status -uno | grep -E '(modified|new file):' > /dev/stderr
             echo -n $COLOR_RESET > /dev/stderr
             echo $COLOR_ERROR"==== Commit those files and try again $COLOR_RESET" > /dev/stderr
 
