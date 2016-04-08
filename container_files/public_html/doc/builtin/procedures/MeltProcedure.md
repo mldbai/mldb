@@ -14,6 +14,8 @@ objects and the way we want to process it is one object per row.
 
 ## Example
 
+### Example with a JSON array
+
 Suppose the following dataset `data` with the `friends` column containing strings.
 
 | rowName | name | age | friends |
@@ -36,7 +38,7 @@ We can do the melt like this:
 mldb.put("/v1/procedures/melt", {
     "type": "melt",
     "params": {
-        "trainingData": """
+        "inputData": """
                     SELECT {name, age} as to_fix,
                            {friends*} as to_melt
                     FROM (
@@ -56,7 +58,47 @@ The `melted_data` dataset will look like this:
 | row1_friends.1 | bill | 25 | friends.1 | {"name": "jean", "age": 18} |
 
 
+### Example with a bag of words sparse dataset
+
+Suppose the following dataset `data` containing a sentence per row:
+
+| rowName | text |
+|-----------|--------|
+| row1 | hello my friend |
+| row2 | hello it's me |
+
+By running a `melt` procedure and using the `tokenize` function on the text, 
+we can obtain a new dataset with one row per *(rowName, word)* pair:
+
+```python
+mldb.put("/v1/procedures/melt", {
+    "type": "melt",
+    "params": {
+        "inputData": """
+            SELECT {rowName() as rowName} as to_fix,
+                   {tokenize(text, {splitchars: ' '}) as *} as to_melt
+            FROM data
+        """,
+        "outputDataset": "melted_data"
+        "runOnCreation": True
+    }
+})
+```
+This gives us the following dataset:
+
+| rowName | row | key | count |
+|---------|-----|-----|-------|
+| row1_my | row1  |  my | 1|
+| row2_hello | row2 | hello | 1 |
+| row2_me | row2 | me | 1 |
+| row2_it's | row2 | it's | 1 |
+| row1_friend | row1 | friend | 1 |
+| row1_hello | row1 | hello | 1 |
+
+
+
 ## See also
 
 * The [parse_json](../sql/ValueExpression.md.html#parse_json) builtin function can perform 
 JSON unpacking to a text cell in an SQL query
+
