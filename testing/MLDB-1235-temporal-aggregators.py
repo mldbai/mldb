@@ -421,7 +421,7 @@ class TemporalTest(MldbUnitTest):
             ["user1", 1]
         ])
 
-    @unittest.expectedFailure
+    @unittest.skip("MLDBFB-344")
     def test_mldbfb_344_temporal_segfault(self):
         ds = mldb.create_dataset({'id' : 'behs', 'type' : 'sparse.mutable'})
         ds.record_row('user1', [['behA', 1, 2]])
