@@ -421,16 +421,26 @@ class TemporalTest(MldbUnitTest):
             ["user1", 1]
         ])
 
-    @unittest.skip("MLDBFB-344")
     def test_mldbfb_344_temporal_segfault(self):
-        ds = mldb.create_dataset({'id' : 'behs', 'type' : 'sparse.mutable'})
+        ds = mldb.create_dataset({'id' : 'ds2', 'type' : 'sparse.mutable'})
         ds.record_row('user1', [['behA', 1, 2]])
         ds.commit()
 
         for fct in ['count', 'sum', 'avg', 'min', 'max', 'latest', 'earliest']:
-            mldb.query("""
-                SELECT temporal_{}("behC") FROM behs
-            """.format(fct))
+            self.assertTableResultEquals(
+                mldb.query("""
+                SELECT temporal_{}(behC) FROM ds2
+                """.format(fct)), [
+                    [
+                        "_rowName",
+                        "temporal_{}(behC)".format(fct)
+                    ],
+                    [
+                        "user1",
+                        None
+                    ]
+                ]
+            )
 
 
 mldb.run_tests()
