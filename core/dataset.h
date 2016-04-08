@@ -13,6 +13,7 @@
 #include "mldb/core/mldb_entity.h"
 #include "mldb/sql/cell_value.h"
 #include "mldb/types/url.h"
+#include "mldb/core/recorder.h"
 #include <set>
 
 // NOTE TO MLDB DEVELOPERS: This is an API header file.  No includes
@@ -235,6 +236,39 @@ struct RowStream {
 
 
 /*****************************************************************************/
+/* DATASET RECORDER                                                          */
+/*****************************************************************************/
+
+/** This is a recorder that forwards directly its records to a dataset. */
+
+struct DatasetRecorder: public Recorder {
+    
+    DatasetRecorder(Dataset * dataset);
+
+    virtual ~DatasetRecorder();
+
+    virtual void
+    recordRowExpr(const RowName & rowName,
+                  const ExpressionValue & expr) override;
+    virtual void
+    recordRow(const RowName & rowName,
+              const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals) override;
+
+    virtual void
+    recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows) override;
+
+    virtual void
+    recordRowsExpr(const std::vector<std::pair<RowName, ExpressionValue > > & rows) override;
+
+private:
+    Dataset * dataset;
+    struct Itl;
+    std::unique_ptr<Itl> itl;
+};
+
+
+
+/*****************************************************************************/
 /* DATASET                                                                   */
 /*****************************************************************************/
 
@@ -320,6 +354,25 @@ struct Dataset: public MldbEntity {
         all other functions.
     */
     virtual void recordRowsExpr(const std::vector<std::pair<RowName, ExpressionValue> > & rows);
+
+    struct MultiChunkRecorder {
+        std::function<std::unique_ptr<Recorder> (size_t chunkIndex)> newChunk;
+        std::function<void ()> commit;
+    };
+
+    /** Set up for a multithreaded record.  This returns an object that can
+        generate a recorder for each chunk of an input.  Those chunks can
+        be recorded into in a multithreaded manner, and finally all committed
+        to the dataset at once.
+
+        This allows for deterministic, multithreaded recording from bulk
+        insert scenarios.
+
+        The default will return an object that simply forwards to the
+        record* methods.  Dataset types that support chunked recording can
+        override.
+    */
+    virtual MultiChunkRecorder getChunkRecorder();
 
     /** Return what is known about the given column.  Default returns
         an "any value" result, ie nothing is known about the column.

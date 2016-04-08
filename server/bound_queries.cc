@@ -1226,17 +1226,18 @@ struct GroupContext: public SqlExpressionDatasetContext {
                 std::make_shared<AtomValueInfo>()};
     }
 
-    RowContext getRowContext(NamedRowValue & output,
-                             const std::vector<ExpressionValue> & currentGroupKey) const
+    RowContext
+    getRowContext(NamedRowValue & output,
+                  const std::vector<ExpressionValue> & currentGroupKey) const
     {
         return RowContext(output, currentGroupKey);
     }
 
-        // Represents a clause that is output by the program TODO: Rename this
+    // Represents a clause that is output by the program TODO: Rename this
     struct OutputAggregator {
         /// Initialize from an aggregator function
         OutputAggregator(int inputIndex, int numInputs,
-                     BoundAggregator aggregate)
+                         BoundAggregator aggregate)
             :  inputIndex(inputIndex), numInputs(numInputs),
                aggregate(std::move(aggregate))
         {
@@ -1256,21 +1257,25 @@ struct GroupContext: public SqlExpressionDatasetContext {
         }
     }
 
-    void aggregateRow(GroupMapValue& mapInstance, const std::vector<ExpressionValue>& row)
+    void aggregateRow(GroupMapValue& mapInstance,
+                      const std::vector<ExpressionValue>& row)
     {
-       for (unsigned i = 0;  i < outputAgg.size();  ++i) {
 
-                outputAgg[i].aggregate.process(&row[argOffset + outputAgg[i].inputIndex],
-                                                       outputAgg[i].numInputs,
-                                                       mapInstance[i].get());
-            }
+        for (unsigned i = 0;  i < outputAgg.size();  ++i) {
+            outputAgg[i].aggregate
+                .process(&row[argOffset + outputAgg[i].inputIndex],
+                         outputAgg[i].numInputs,
+                         mapInstance[i].get());
+        }
     }
 
-    void mergeThreadMap(GroupMapValue& outMapInstance, const GroupMapValue& inMapInstance)
+    void mergeThreadMap(GroupMapValue& outMapInstance,
+                        const GroupMapValue& inMapInstance)
     {
         for (unsigned i = 0;  i < outputAgg.size();  ++i) {
-           outputAgg[i].aggregate.mergeInto(outMapInstance[i].get(), inMapInstance[i].get());
-       }
+           outputAgg[i].aggregate
+               .mergeInto(outMapInstance[i].get(), inMapInstance[i].get());
+        }
     }
              
 
@@ -1281,8 +1286,9 @@ struct GroupContext: public SqlExpressionDatasetContext {
     bool evaluateEmptyGroups;
 };
 
+
 /*****************************************************************************/
-/* BOUND GROUP BY QUERY                                               */
+/* BOUND GROUP BY QUERY                                                      */
 /*****************************************************************************/
 
 BoundGroupByQuery::
@@ -1383,7 +1389,7 @@ execute(std::function<bool (NamedRowValue & output)> aggregator,
        RowKey rowKey(calc.begin(), calc.begin() + groupBy.clauses.size());
 
        auto pair = map.insert({rowKey, GroupMapValue()});
-       auto iter = pair.first;
+       auto & iter = pair.first;
        if (pair.second)
        {
           //initialize aggregator data
@@ -1420,7 +1426,8 @@ execute(std::function<bool (NamedRowValue & output)> aggregator,
         }
     }
 
-    if (destMap.empty() && groupContext->evaluateEmptyGroups && groupBy.clauses.empty())
+    if (destMap.empty() && groupContext->evaluateEmptyGroups
+        && groupBy.clauses.empty())
     {
         auto pair = destMap.emplace(RowKey(), GroupMapValue());
         groupContext->initializePerThreadAggregators(pair.first->second);

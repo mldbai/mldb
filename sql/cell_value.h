@@ -340,6 +340,8 @@ struct CellValue {
     */
     void extractSimplifiedJson(JsonPrintingContext & context) const;
 
+    size_t memusage() const;
+
 private:
     double toDoubleImpl() const;
     
