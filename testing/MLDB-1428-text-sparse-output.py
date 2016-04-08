@@ -98,7 +98,7 @@ class ImportTextToSparseTest(unittest.TestCase):
 
         res = mldb.query("select * from onechunk where rowName() in ('1', '2', '3')")
 
-        expected = [["_rowName", "x"],["2",18],["1",17],["3","banane"]]
+        expected = [["_rowName", "x"],["1",17],["2",18],["3","banane"]]
 
         self.assertEqual(res, expected)
 

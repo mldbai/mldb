@@ -675,21 +675,23 @@ queryStructured(const SelectExpression & select,
                 MatrixNamedRow row = row_.flattenDestructive();
                 row.rowName = GetValidatedRowName(calc.at(0));
                 row.rowHash = row.rowName;
-                std::unique_lock<std::mutex> guard(lock);
+                //std::unique_lock<std::mutex> guard(lock);
                 output.emplace_back(std::move(row));
                 return true;
             };
 
-        // MLDB-154: if we have a limit or offset, we probably want a stable ordering
+       /* // MLDB-154: if we have a limit or offset, we probably want a stable ordering
         // Due to a bug that led to it being always enabled we will always do this
         OrderByExpression orderBy_ = orderBy;
         if (limit != -1 || offset != 0 || true) {
             orderBy_.clauses.emplace_back(SqlExpression::parse("rowHash()"), ASC);
-        }
+        }*/
+
+        //QueryStructured always want a stable ordering, but it doesnt have to be by rowhash
         
         //cerr << "orderBy_ = " << jsonEncode(orderBy_) << endl;
         iterateDataset(select, *this, alias, when, where,
-                       { rowName.shallowCopy() }, aggregator, orderBy_, offset, limit,
+                       { rowName.shallowCopy() }, {aggregator, false/*aggregateInParallel*/}, orderBy, offset, limit,
                        nullptr);
     }
     else {
@@ -700,14 +702,15 @@ queryStructured(const SelectExpression & select,
         auto aggregator = [&] (NamedRowValue & row_)
             {
                 MatrixNamedRow row = row_.flattenDestructive();
-                std::unique_lock<std::mutex> guard(lock);
+                //std::unique_lock<std::mutex> guard(lock);
                 output.emplace_back(row);
                 return true;
             };
 
+         //QueryStructured always want a stable ordering, but it doesnt have to be by rowhash
         iterateDatasetGrouped(select, *this, alias, when, where,
                               groupBy, aggregators, having, rowName,
-                              aggregator, orderBy, offset, limit,
+                              {aggregator, false/*aggregateInParallel*/}, orderBy, offset, limit,
                               nullptr);
     }
 

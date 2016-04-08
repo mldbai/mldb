@@ -42,8 +42,7 @@ void iterateDataset(const SelectExpression & select,
                     const WhenExpression & when,
                     const SqlExpression & where,
                     std::vector<std::shared_ptr<SqlExpression> > calc,
-                    std::function<bool (NamedRowValue & output,
-                                        const std::vector<ExpressionValue> & calcd)> aggregator,
+                    RowAggregatorEx aggregator,
                     const OrderByExpression & orderBy,
                     ssize_t offset,
                     ssize_t limit,
@@ -64,7 +63,7 @@ void iterateDatasetGrouped(const SelectExpression & select,
                            const std::vector< std::shared_ptr<SqlExpression> >& aggregators,
                            const SqlExpression & having,
                            const SqlExpression & rowName,
-                           std::function<bool (NamedRowValue & output)> aggregator,
+                           RowAggregator aggregator,
                            const OrderByExpression & orderBy,
                            ssize_t offset,
                            ssize_t limit,
@@ -79,7 +78,7 @@ void iterateDataset(const SelectExpression & select,
                     const Utf8String & alias,
                     const WhenExpression & when,
                     const SqlExpression & where,
-                    std::function<bool (NamedRowValue & output)> aggregator,
+                    RowAggregator aggregator,
                     const OrderByExpression & orderBy,
                     ssize_t offset,
                     ssize_t limit,
@@ -92,8 +91,8 @@ void iterateDataset(const SelectExpression & select,
         {
             return aggregator(output);
         };
-    
-    iterateDataset(select, from, std::move(alias), when, where, {}, aggregator2, orderBy, offset, limit, onProgress);
+
+    iterateDataset(select, from, std::move(alias), when, where, {}, {aggregator2, aggregator.aggregateInParallel}, orderBy, offset, limit, onProgress);
 }
 
 /** Iterates over the dataset, extracting a dense feature vector from each row. */
@@ -246,8 +245,6 @@ getEmbedding(const SelectExpression & select,
             aggregator = [&] (NamedRowValue & output,
                               const std::vector<ExpressionValue> & calcd)
             {
-                std::unique_lock<std::mutex> guard(rowsLock);
-               
                 auto features = getEmbeddingDouble(output.columns);
                
                 if (features.size() <= maxDimensions) {
@@ -263,7 +260,8 @@ getEmbedding(const SelectExpression & select,
                 return true;
             };
        
-        iterateDataset(select, dataset, std::move(alias), when, where, calc, aggregator, orderBy, offset, limit, onProgress);
+        //getEmbedding is expected to have a consistent row order
+        iterateDataset(select, dataset, std::move(alias), when, where, calc, {aggregator, false /*aggregateinparallel*/}, orderBy, offset, limit, onProgress);
     }
     else { // this has opportunity for more optimization since there are no offset or limit
         auto aggregator = [&] (const RowHash & rowHash,

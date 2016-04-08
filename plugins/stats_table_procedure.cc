@@ -316,7 +316,8 @@ run(const ProcedureRunConfig & run,
                    runProcConf.trainingData.stm->when,
                    *runProcConf.trainingData.stm->where,
                    extra,
-                   aggregator, runProcConf.trainingData.stm->orderBy,
+                   {aggregator,false/*aggregateInParallel*/}, 
+                   runProcConf.trainingData.stm->orderBy,
                    runProcConf.trainingData.stm->offset,
                    runProcConf.trainingData.stm->limit);
 
@@ -671,7 +672,8 @@ run(const ProcedureRunConfig & run,
                    runProcConf.trainingData.stm->when, 
                    *runProcConf.trainingData.stm->where,
                    extra,
-                   aggregator, runProcConf.trainingData.stm->orderBy,
+                   {aggregator,false/*aggregateInParallel*/}, 
+                   runProcConf.trainingData.stm->orderBy,
                    runProcConf.trainingData.stm->offset,
                    runProcConf.trainingData.stm->limit);
 

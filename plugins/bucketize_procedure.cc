@@ -158,7 +158,7 @@ run(const ProcedureRunConfig & run,
                      *runProcConf.inputData.stm->where,
                      runProcConf.inputData.stm->orderBy,
                      calc)
-        .execute(getSize, 
+        .execute({getSize, false/*aggregateInParallel*/}, 
                  runProcConf.inputData.stm->offset, 
                  runProcConf.inputData.stm->limit, 
                  onProgress);

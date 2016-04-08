@@ -585,7 +585,7 @@ run(const ProcedureRunConfig & run,
                          *runProcConf.inputData.stm->where,
                          runProcConf.inputData.stm->orderBy,
                          { runProcConf.inputData.stm->rowName })
-            .execute(recordRowInOutputDataset,
+            .execute({recordRowInOutputDataset, true/*aggregateInParallel*/},
                      runProcConf.inputData.stm->offset,
                      runProcConf.inputData.stm->limit,
                      onProgress);
@@ -615,7 +615,7 @@ run(const ProcedureRunConfig & run,
                           *runProcConf.inputData.stm->having,
                           *runProcConf.inputData.stm->rowName,
                           runProcConf.inputData.stm->orderBy)
-            .execute(recordRowInOutputDataset,
+            .execute({recordRowInOutputDataset,false/*aggregateInParallel*/},
                      runProcConf.inputData.stm->offset,
                      runProcConf.inputData.stm->limit,
                      onProgress);

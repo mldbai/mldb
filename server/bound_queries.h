@@ -8,6 +8,7 @@
 #pragma once
 
 #include "sql/sql_expression.h"
+#include "server/analytics.h"
 
 
 namespace Datacratic {
@@ -100,14 +101,14 @@ struct BoundSelectQuery {
                      std::vector<std::shared_ptr<SqlExpression> > calc,
                      int numBuckets = -1);
 
-    void execute(std::function<bool (NamedRowValue & output,
-                                     std::vector<ExpressionValue> & calcd)> aggregator,
+    void execute(RowAggregatorEx aggregator,
                  ssize_t offset,
                  ssize_t limit,
                  std::function<bool (const Json::Value &)> onProgress);
 
     void execute(std::function<bool (NamedRowValue & output,
                                      std::vector<ExpressionValue> & calcd, int rowNum)> aggregator,
+                 bool aggregateInParallel,
                  ssize_t offset,
                  ssize_t limit,
                  std::function<bool (const Json::Value &)> onProgress);
@@ -134,7 +135,7 @@ struct BoundGroupByQuery {
                      const SqlExpression & rowName,
                      const OrderByExpression & orderBy);
 
-    void execute(std::function<bool (NamedRowValue & output)> aggregator,  
+    void execute(RowAggregator aggregator,  
             ssize_t offset, ssize_t limit,
             std::function<bool (const Json::Value &)> onProgress);
 

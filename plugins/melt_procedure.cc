@@ -182,7 +182,7 @@ run(const ProcedureRunConfig & run,
                      boundDataset.asName, runProcConf.inputData.stm->when,
                      *runProcConf.inputData.stm->where,
                      runProcConf.inputData.stm->orderBy, extra)
-        .execute(aggregator, 
+        .execute({aggregator,true/*aggregateInParallel*/},
                  runProcConf.inputData.stm->offset, 
                  runProcConf.inputData.stm->limit, 
                  nullptr /* progress */);

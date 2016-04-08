@@ -140,7 +140,7 @@ runBoolean(AccuracyConfig & runAccuracyConf,
             return true;
         };
 
-    selectQuery.execute(aggregator, runAccuracyConf.testingData.stm->offset,
+    selectQuery.execute({aggregator,true/*aggregateInParallel*/}, runAccuracyConf.testingData.stm->offset,
              runAccuracyConf.testingData.stm->limit,
              nullptr /* progress */);
     
@@ -277,7 +277,7 @@ runCategorical(AccuracyConfig & runAccuracyConf,
             return true;
         };
 
-    selectQuery.execute(aggregator,
+    selectQuery.execute({aggregator,true/*aggregateInParallel*/},
             runAccuracyConf.testingData.stm->offset,
             runAccuracyConf.testingData.stm->limit,
             nullptr /* progress */);
@@ -464,7 +464,8 @@ runRegression(AccuracyConfig & runAccuracyConf,
             return true;
         };
 
-    selectQuery.execute(aggregator, runAccuracyConf.testingData.stm->offset,
+    selectQuery.execute({aggregator,true/*aggregateInParallel*/}, 
+             runAccuracyConf.testingData.stm->offset,
              runAccuracyConf.testingData.stm->limit,
              nullptr /* progress */);
 

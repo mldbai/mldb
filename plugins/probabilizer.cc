@@ -180,7 +180,7 @@ run(const ProcedureRunConfig & run,
     iterateDataset(SelectExpression(), *boundDataset.dataset, boundDataset.asName, 
                    runProcConf.trainingData.stm->when,
                    *runProcConf.trainingData.stm->where,
-                   extra, aggregator,
+                   extra, {aggregator,true/*aggregateInParallel*/},
                    runProcConf.trainingData.stm->orderBy,
                    runProcConf.trainingData.stm->offset,
                    runProcConf.trainingData.stm->limit);

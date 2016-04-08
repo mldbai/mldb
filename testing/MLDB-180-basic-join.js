@@ -78,9 +78,9 @@ testQuery('select * from test1 join test2 on test1.x = test2.x and test1.x = tes
 
 
 expected = [
-   [ "_rowName", "test1.x", "test1.z", "test2.x", "test2.z", "test1.y" ],
-   [ "[ex2]-[ex5]", 2, 4, 2, 2, null ],
-   [ "[ex1]-[ex4]", 1, null, 1, 2, 2 ]
+   [ "_rowName", "test1.x", "test1.y", "test2.x", "test2.z", "test1.z" ],
+   [ "[ex1]-[ex4]", 1, 2, 1, 2, null ],
+   [ "[ex2]-[ex5]", 2, null, 2, 2, 4 ]
 ];
 
 testQuery('select * from test1 join test2 on test1.x = test2.x',
@@ -258,9 +258,9 @@ for (var i in funcs) {
 // MLDB-1088
 
 expected = [
-   [ "_rowName", "test1.x", "test1.z", "test1.y" ],
-   [ "[ex2]-[ex5]", 2, 4, null ],
-   [ "[ex1]-[ex4]", 1, null, 2 ]
+   [ "_rowName", "test1.x", "test1.y", "test1.z" ],
+   [ "[ex1]-[ex4]", 1, 2, null ],
+   [ "[ex2]-[ex5]", 2, null, 4 ]
 ];
 
 testQuery('SELECT test1.* FROM test1 JOIN test2 ON test1.x = test2.x',
@@ -270,8 +270,8 @@ testQuery('SELECT test1.* FROM test1 JOIN test2 ON test1.x = test2.x',
 
 expected = [
    [ "_rowName", "test1.x", "test1.y", "test2.x", "test2.z" ],
-   [ "[ex1]-[ex5]", 1, 2, 2, 2 ],
    [ "[ex1]-[ex4]", 1, 2, 1, 2 ],
+   [ "[ex1]-[ex5]", 1, 2, 2, 2 ],
    [ "[ex1]-[ex6]", 1, 2, null, 3 ]
 ];
 
@@ -287,7 +287,8 @@ expected = [
    [ "[ex1]-[ex6]", 1, 2, null, 3, null ]
 ];
 
-testQuery('SELECT * FROM test1 LEFT JOIN test2 ON test1.x = 1',
+//TODO: Looks like outer join are not stable in ordering
+testQuery('SELECT * FROM test1 LEFT JOIN test2 ON test1.x = 1 ORDER BY rowHash()',
           expected);
 
 expected = [
@@ -297,7 +298,7 @@ expected = [
    [ "[ex1]-[ex6]", 1, 2, null, 3 ]
 ];
 
-testQuery('SELECT * FROM test1 RIGHT JOIN test2 ON test1.x = 1',
+testQuery('SELECT * FROM test1 RIGHT JOIN test2 ON test1.x = 1 ORDER BY rowHash()',
           expected);
 
 expected = [
@@ -309,7 +310,7 @@ expected = [
    [ "[]-[ex5]", null, null, 2, 2, null ]
 ];
 
-testQuery('SELECT * FROM test1 RIGHT JOIN test2 ON test2.x = 1',
+testQuery('SELECT * FROM test1 RIGHT JOIN test2 ON test2.x = 1 ORDER BY rowHash()',
           expected);
 
 expected = [
@@ -321,13 +322,13 @@ expected = [
    [ "[ex2]-[]", null, null, 2, null, 4 ]
 ];
 
-testQuery('SELECT * FROM test1 FULL JOIN test2 ON test1.x = 1 AND test2.x = 1',
+testQuery('SELECT * FROM test1 FULL JOIN test2 ON test1.x = 1 AND test2.x = 1 ORDER BY rowHash()',
           expected);
 
-testQuery('SELECT * FROM test1 OUTER JOIN test2 ON test1.x = 1 AND test2.x = 1',
+testQuery('SELECT * FROM test1 OUTER JOIN test2 ON test1.x = 1 AND test2.x = 1 ORDER BY rowHash()',
           expected);
 
-testQuery('SELECT * FROM test1 FULL OUTER JOIN test2 ON test1.x = 1 AND test2.x = 1',
+testQuery('SELECT * FROM test1 FULL OUTER JOIN test2 ON test1.x = 1 AND test2.x = 1 ORDER BY rowHash()',
           expected);
 
 expected = [
@@ -338,7 +339,7 @@ expected = [
    [ "[ex3]-[]", null, 3, null, null, null ]
 ];
 
-testQuery('SELECT * FROM test1 FULL JOIN test2 ON test1.x = test2.x',
+testQuery('SELECT * FROM test1 FULL JOIN test2 ON test1.x = test2.x ORDER BY rowHash()',
           expected);
 
 expected = [
@@ -350,7 +351,7 @@ expected = [
    [ "[ex2]-[]", null, null, 2, null, 4 ]
 ];
 
-testQuery('SELECT * FROM test1 FULL JOIN test2 ON (test1.x = test2.x) AND (test2.x != 2)',
+testQuery('SELECT * FROM test1 FULL JOIN test2 ON (test1.x = test2.x) AND (test2.x != 2) ORDER BY rowHash()',
           expected);
 
 expected = [
@@ -360,10 +361,10 @@ expected = [
    [ "[ex2]-[]", 2, null, null, null, 4 ]
 ];
 
-testQuery('SELECT * FROM test1 LEFT JOIN test2 ON test1.x = test2.x AND test2.x != 2',
+testQuery('SELECT * FROM test1 LEFT JOIN test2 ON test1.x = test2.x AND test2.x != 2 ORDER BY rowHash()',
           expected);
 
-testQuery('SELECT * FROM test1 LEFT OUTER JOIN test2 ON test1.x = test2.x AND test2.x != 2',
+testQuery('SELECT * FROM test1 LEFT OUTER JOIN test2 ON test1.x = test2.x AND test2.x != 2 ORDER BY rowHash()',
           expected);
 
 expected = [
@@ -373,10 +374,10 @@ expected = [
    [ "[]-[ex5]", 2, 2, null, null ]
 ];
 
-testQuery('SELECT * FROM test1 RIGHT JOIN test2 ON test1.x = test2.x AND test2.x != 2',
+testQuery('SELECT * FROM test1 RIGHT JOIN test2 ON test1.x = test2.x AND test2.x != 2 ORDER BY rowHash()',
           expected);
 
-testQuery('SELECT * FROM test1 RIGHT OUTER JOIN test2 ON test1.x = test2.x AND test2.x != 2',
+testQuery('SELECT * FROM test1 RIGHT OUTER JOIN test2 ON test1.x = test2.x AND test2.x != 2 ORDER BY rowHash()',
           expected);
 
 // MLDB-1255
@@ -414,7 +415,7 @@ expected = [
    [ "[ex2]-[]", 2, 4, null, null, null ]
 ];
 
-testQuery('SELECT * FROM test3 OUTER JOIN test4 ON test3.rowName() = test4.rowName()',
+testQuery('SELECT * FROM test3 OUTER JOIN test4 ON test3.rowName() = test4.rowName() ORDER BY rowHash()',
           expected);
 
 expected = [
@@ -428,7 +429,7 @@ expected = [
    [ "[ex2]-[]-[]", null, null, null, null, 2, null, 4 ]
 ];
 
-testQuery('SELECT * FROM test3 OUTER JOIN test4 ON test3.rowName() = test4.rowName() OUTER JOIN test5 on test3.rowName() = test5.rowName()',
+testQuery('SELECT * FROM test3 OUTER JOIN test4 ON test3.rowName() = test4.rowName() OUTER JOIN test5 on test3.rowName() = test5.rowName() ORDER BY rowHash()',
           expected);
 
 var dataset6 = mldb.createDataset({type:'sparse.mutable',id:'test6'});
@@ -452,14 +453,14 @@ expected = [
 ];
 
 
-testQuery('SELECT * FROM test3 OUTER JOIN test4 ON test3.rowName() = test4.rowName() OUTER JOIN test5 on test3.rowName() = test5.rowName() OUTER JOIN test6 on test3.rowName() = test6.rowName()',
+testQuery('SELECT * FROM test3 OUTER JOIN test4 ON test3.rowName() = test4.rowName() OUTER JOIN test5 on test3.rowName() = test5.rowName() OUTER JOIN test6 on test3.rowName() = test6.rowName() ORDER BY rowHash()',
           expected);
 
 //MLDB-1384
 //asking for unknow column in the WHERE should not throw.
 expected = [[ "_rowName" ]];
 
-testQuery('SELECT 1 FROM (SELECT 2) as a OUTER JOIN (SELECT 2) as b WHERE x',
+testQuery('SELECT 1 FROM (SELECT 2) as a OUTER JOIN (SELECT 2) as b WHERE x ORDER BY rowHash()',
           expected);
 
 "success"
