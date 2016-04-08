@@ -60,8 +60,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
         virtual std::shared_ptr<RowStream> clone() const
         {
-            auto ptr = std::make_shared<TabularDataStoreRowStream>(store);
-            return ptr;
+            return std::make_shared<TabularDataStoreRowStream>(store);
         }
 
         virtual void initAt(size_t start)
@@ -81,8 +80,8 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
         virtual RowName next()
         {
-            RowName row = *rowiter;
-            rowiter++;
+            ExcAssert(rowiter != chunkiter->rowNames.end());
+            RowName row = *rowiter++;
             if (rowiter == chunkiter->rowNames.end())
             {
                 ++chunkiter;

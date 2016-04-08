@@ -252,9 +252,9 @@ struct AggregatorT {
 
         void merge(DenseRowState* from)
         {
-            if (fallback.get()) {
-                if (!from->fallback.get())
-                    from->pessimize();
+            if (from->fallback.get()) {
+                if (!fallback.get())
+                    pessimize();
                 fallback->merge(from->fallback.get());
                 return;
             }
@@ -354,16 +354,11 @@ struct AggregatorT {
                 isDense = false;
             c.valueInfo = outputColumnInfo;
             c.sparsity = COLUMN_IS_DENSE;  // always one for each
-            denseColumnNames.push_back(c.columnName);
+            if (isDense) {
+                denseColumnNames.push_back(c.columnName);
+            }
         }
 
-        std::sort(cols.begin(), cols.end(),
-                  [] (const KnownColumn & c1, const KnownColumn & c2)
-                  {
-                      return c1.columnName < c2.columnName;
-                  });
-
-        
         auto rowInfo = std::make_shared<RowValueInfo>(cols, hasUnknown);
 
         if (!isDense) {
