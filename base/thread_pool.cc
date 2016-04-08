@@ -470,6 +470,27 @@ struct ThreadPool::Itl: public std::enable_shared_from_this<ThreadPool::Itl> {
                     // nothing to do then we go to sleep and wait for
                     // some more work to come.
                     ++itersWithNoWork;
+
+                    // Look for when we're idle, and if we are just sleep
+                    // MLDB-1538
+                    uint32_t s = submitted.load(std::memory_order_relaxed);
+                    uint32_t f = finished.load(std::memory_order_relaxed);
+
+                    if (s == f) {
+                        // We're idle.  No need to look for a job; we almost
+                        // certainly won't find one.
+                        ++threadsSleeping;
+                        std::unique_lock<std::mutex> guard(wakeupMutex);
+
+                        // We can't sleep forever, since we allow for
+                        // wakeups to be missed for efficiency reasons,
+                        // and so we need to poll every now and again.
+                        wakeupCv.wait_for(guard, std::chrono::milliseconds(250));
+
+                        --threadsSleeping;
+                        itersWithNoWork = 0;
+                    }
+
                     if (itersWithNoWork == 10) {
                         ++threadsSleeping;
                         std::unique_lock<std::mutex> guard(wakeupMutex);
