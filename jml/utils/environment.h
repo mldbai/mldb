@@ -1,19 +1,15 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* environment.h                                                   -*- C++ -*-
    Jeremy Barnes, 1 February 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
       
-
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    ---
 
    Environment access functions.
 */
 
-#ifndef __utils__environment_h__
-#define __utils__environment_h__
-
+#pragma once
 
 #include <map>
 #include <string>
@@ -92,5 +88,3 @@ private:
 
 };
 } // namespace ML
-
-#endif /* __utils__environment_h__ */

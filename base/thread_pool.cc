@@ -10,7 +10,7 @@
 #include "thread_pool.h"
 #include "thread_pool_impl.h"
 #include "mldb/arch/thread_specific.h"
-#include "arch/cpu_info.h"
+#include "mldb/jml/utils/environment.h"
 #include <atomic>
 #include <condition_variable>
 #include <vector>
@@ -23,9 +23,12 @@ using namespace std;
 
 namespace Datacratic {
 
+static ML::Env_Option<int, true /* trace */>
+NUM_CPUS("NUM_CPUS", std::thread::hardware_concurrency());
+
 int numCpus()
 {
-    return ML::num_cpus();
+    return NUM_CPUS;
 }
 
 /*****************************************************************************/
