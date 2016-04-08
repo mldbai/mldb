@@ -1103,25 +1103,41 @@ struct GroupContext: public SqlExpressionDatasetContext {
                 resolvedTableName = alias;
         }
 
+        auto getGroupRowName = [] (const SqlRowScope & context){
+            auto & row = context.as<RowContext>();
+
+            static VectorDescription<ExpressionValue>
+                desc(getExpressionValueDescriptionNoTimestamp());
+
+            std::string result;
+            result.reserve(116);  /// try to force a 128 byte allocation
+            StringJsonPrintingContext scontext(result);
+            scontext.writeUtf8 = true;
+            desc.printJsonTyped(&row.currentGroupKey, scontext);
+
+            return result;
+        };
+
         if (resolvedFunctionName == "rowName") {
-            return {[] (const std::vector<ExpressionValue> & args,
+            return {[getGroupRowName] (const std::vector<ExpressionValue> & args,
                         const SqlRowScope & context)
-                    {
-                        auto & row = context.as<RowContext>();
-
-                        static VectorDescription<ExpressionValue>
-                            desc(getExpressionValueDescriptionNoTimestamp());
-
-                        std::string result;
-                        result.reserve(116);  /// try to force a 128 byte allocation
-                        StringJsonPrintingContext scontext(result);
-                        scontext.writeUtf8 = true;
-                        desc.printJsonTyped(&row.currentGroupKey, scontext);
-
+                    {                        
+                        auto result = getGroupRowName(context);
                         return ExpressionValue(std::move(Utf8String(std::move(result), false /* check */)),
                                                Date::negativeInfinity());
                     },
                     std::make_shared<StringValueInfo>()};
+        }
+        else if (resolvedFunctionName == "rowHash") {
+                return {[getGroupRowName] (const std::vector<ExpressionValue> & args,
+                        const SqlRowScope & context)
+                    {                        
+                        auto rowName = getGroupRowName(context);
+                        return ExpressionValue(RowHash(RowName(std::move(rowName))),
+                                           Date::negativeInfinity());
+                        
+                    },
+                    std::make_shared<Uint64ValueInfo>()};
         }
         else if (resolvedFunctionName == "groupKeyElement" || resolvedFunctionName == "group_key_element") {
             return {[] (const std::vector<ExpressionValue> & args,
