@@ -374,6 +374,7 @@ $(eval $(call mldb_unit_test,MLDB-1706-horizontal.py))
 $(eval $(call mldb_unit_test,MLDB-1603-nonprintable-chars-json.js))
 $(eval $(call mldb_unit_test,MLDBFB-638-groupby-orderby-transform.py))
 $(eval $(call mldb_unit_test,encode-multiple-png.py, tensorflow))
+$(eval $(call mldb_unit_test,MLFBFB-470_python_unjoined_threads_crash.py))
 
 # The MLDB-1398 test case requires a library and a plugin
 # Tensorflow plugins
