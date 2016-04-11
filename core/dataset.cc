@@ -742,17 +742,9 @@ queryStructured(const SelectExpression & select,
                 MatrixNamedRow row = row_.flattenDestructive();
                 row.rowName = GetValidatedRowName(calc.at(0));
                 row.rowHash = row.rowName;
-                //std::unique_lock<std::mutex> guard(lock);
                 output.emplace_back(std::move(row));
                 return true;
             };
-
-       /* // MLDB-154: if we have a limit or offset, we probably want a stable ordering
-        // Due to a bug that led to it being always enabled we will always do this
-        OrderByExpression orderBy_ = orderBy;
-        if (limit != -1 || offset != 0 || true) {
-            orderBy_.clauses.emplace_back(SqlExpression::parse("rowHash()"), ASC);
-        }*/
 
         //QueryStructured always want a stable ordering, but it doesnt have to be by rowhash
         
@@ -769,7 +761,6 @@ queryStructured(const SelectExpression & select,
         auto aggregator = [&] (NamedRowValue & row_)
             {
                 MatrixNamedRow row = row_.flattenDestructive();
-                //std::unique_lock<std::mutex> guard(lock);
                 output.emplace_back(row);
                 return true;
             };
@@ -1373,7 +1364,7 @@ generateRowsWhere(const SqlBindingScope & scope,
                 //Todo: need sorting because the parallelisation breaks determinism, but it should be sorted in parallel
                 // or process in parallel in a deterministic manner.
                 if (needSort) 
-                    std::sort(rowsToKeep.begin(), rowsToKeep.end(), SortByRowHash());
+                    parallelQuickSortRecursive<RowName, SortByRowHash>(rowsToKeep.begin(), rowsToKeep.end());
 
                 start += rows.size();
                 Any newToken;

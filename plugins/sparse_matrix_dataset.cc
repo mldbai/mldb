@@ -19,6 +19,7 @@
 #include "mldb/base/parallel.h"
 #include "mldb/base/thread_pool.h"
 #include "mldb/utils/atomic_shared_ptr.h"
+#include "mldb/server/parallel_merge_sort.h"
 #include <mutex>
 
 using namespace std;
@@ -972,11 +973,16 @@ struct MutableBaseData {
                 }
             }
 
-            //Todo: Why would we have duplicated rows?
-            //this sort doesnt scale well.
-            //if we can't remove it, do it in parallel.
-            std::sort(allRows.begin(), allRows.end());
-            auto end = std::unique(allRows.begin(), allRows.end());
+            std::vector<uint64_t>::iterator end;
+            if (entries.size() > 1) {
+                //if we haven't commited the entries yet there can be duplicates
+                parallelQuickSortRecursive<uint64_t>(allRows.begin(), allRows.end());
+                end = std::unique(allRows.begin(), allRows.end());
+            }
+            else{
+                end = allRows.end();
+            }
+ 
             for (auto it = allRows.begin(); it != end;  ++it) {
                 if (!onRow(*it))
                     return false;
@@ -1014,13 +1020,17 @@ struct MutableBaseData {
                 }
             }
 
-            //Todo: Why would we have duplicated rows?
-            //this sort doesnt scale well.
-            //if we can't remove it, do it in parallel.
-            std::sort(allRows.begin(), allRows.end());
+            int64_t rowCount = 0;
 
-            int64_t rowCount = std::unique(allRows.begin(), allRows.end())
-                - allRows.begin();
+            if (entries.size() > 1) {
+                //if we haven't commited the entries yet there can be duplicates
+                parallelQuickSortRecursive<uint64_t >(allRows.begin(), allRows.end());
+                rowCount = std::unique(allRows.begin(), allRows.end()) - allRows.begin();
+            }
+            else{
+                rowCount = allRows.size();
+            }
+
             cachedRowCount = rowCount;
             return rowCount;
         }

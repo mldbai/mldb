@@ -18,6 +18,7 @@
 #include "mldb/sql/execution_pipeline.h"
 #include <boost/algorithm/string.hpp>
 #include "mldb/server/bound_queries.h"
+#include "mldb/server/parallel_merge_sort.h"
 #include "mldb/jml/stats/distribution.h"
 #include <mutex>
 
@@ -293,8 +294,7 @@ getEmbedding(const SelectExpression & select,
 
         // because the results come in parallel
         // we still need to order by rowHash to ensure determinism in the results
-        // todo: sort in parallel
-        std::sort(rows.begin(), rows.end());
+        parallelQuickSortRecursive<std::tuple<RowHash, RowName, std::vector<double>, std::vector<ExpressionValue> > >(rows.begin(), rows.end());
     }
   
 
