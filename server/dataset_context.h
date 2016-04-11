@@ -116,13 +116,16 @@ struct SqlExpressionDatasetContext: public SqlExpressionMldbContext {
     doResolveTableName(const ColumnName & fullColumnName,
                        Utf8String & tableName) const;
     
+#if 0
 protected:
 
     // This is for the context where we have several datasets
     // resolve ambiguity of different table names
     // by finding the dataset name that resolves first.
-    Utf8String resolveTableName(const Utf8String& variableName) const;
-    Utf8String resolveTableName(const Utf8String& variableName, Utf8String& resolvedTableName) const;
+    Utf8String resolveTableName(const Utf8String& columnName) const;
+    Utf8String resolveTableName(const Utf8String& columnName,
+                                Utf8String& resolvedTableName) const;
+#endif
 };
 
 

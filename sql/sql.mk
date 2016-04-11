@@ -22,3 +22,6 @@ SQL_EXPRESSION_SOURCES := \
 # NOTE: the SQL library should NOT depend on MLDB.  See the comment in testing/testing.mk
 $(eval $(call library,sql_expression,$(SQL_EXPRESSION_SOURCES),types utils value_description any ml services_base json_diff siphash hash))
 
+$(eval $(call include_sub_make,sql_testing,testing,sql_testing.mk))
+
+

@@ -73,9 +73,9 @@ extractTableName(ColumnName & columnName, const std::set<Utf8String> & tables)
 std::shared_ptr<SqlExpression>
 removeTableName(const SqlExpression & expr,
                 const Utf8String & tableName,
-                const std::set<Utf8String>& childAliases);
-#if 0
+                const std::set<Utf8String>& childAliases)
 {
+#if 0
     //prefixes to look for in variable names
     //variable names use only the table name not the child aliases
     //because the child columns will have been flattened
@@ -103,6 +103,7 @@ removeTableName(const SqlExpression & expr,
         length = prefixToFind.length();
         functionprefixes.push_back(std::make_tuple(alias, std::move(prefixToFind2), length));
     }
+#endif
 
     // If an expression refers to a variable, then remove the table name
     // from it.  Otherwise return the same expression.
@@ -126,32 +127,25 @@ removeTableName(const SqlExpression & expr,
             auto var = std::dynamic_pointer_cast<ReadColumnExpression>(a);
             if (var) {
 
-                for (auto& prefixt : variablePrefixes)
-                {
-                     if (var->columnName.startsWith(std::get<1>(prefixt))) {
-                         Utf8String name(var->columnName);
-                         name.replace(0, std::get<2>(prefixt), Utf8String());
-                         ExcAssert(!name.empty());
-                         ExcAssert(!name.startsWith("."));
-                         return std::make_shared<ReadColumnExpression>(std::get<0>(prefixt), name);
-                    }
+                if (var->columnName.startsWith(tableName)) {
+                    Coords newName = var->columnName.removePrefix(tableName);
+                    return std::make_shared<ReadColumnExpression>(newName);
                 }               
             }
-            auto func = std::dynamic_pointer_cast<FunctionCallWrapper>(a);
+            auto func = std::dynamic_pointer_cast<FunctionCallExpression>(a);
             if (func) {
-                for (auto& prefixt : functionprefixes)
-                {
-                    if (func->functionName.startsWith(std::get<1>(prefixt))) {
-                        Utf8String name(func->functionName);
-                        name.replace(0, std::get<2>(prefixt), Utf8String());
-                        ExcAssert(!name.empty());
-                        ExcAssert(!name.startsWith("."));
-
+                for (auto & prefixt: childAliases) {
+                    if (func->functionName.startsWith(prefixt)) {
+                        Utf8String newName
+                            = var->columnName.removePrefix(tableName)
+                            .toSimpleName();
                         vector<std::shared_ptr<SqlExpression> > newArgs;
                         for (auto & a: func->args) {
                             newArgs.emplace_back(std::move(doArg(a)));
                         }
-                        return std::make_shared<FunctionCallWrapper>(std::get<0>(prefixt), name, std::move(newArgs), func->extract);
+                        return std::make_shared<FunctionCallExpression>
+                            (newName, std::move(newArgs),
+                             func->extract);
                     }
                 }
             }
@@ -168,7 +162,7 @@ removeTableName(const SqlExpression & expr,
 
     return result;
 }
-#endif
+
 
 /*****************************************************************************/
 /* ANNOTATED CLAUSE                                                          */

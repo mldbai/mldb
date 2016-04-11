@@ -68,7 +68,7 @@ struct DatasetFeatureSpace: public ML::Feature_Space {
     };
 
     static ColumnInfo getColumnInfo(std::shared_ptr<Dataset> dataset,
-                                    const Utf8String & columnName,
+                                    const ColumnName & columnName,
                                     bool bucketize);
 
     std::unordered_map<ColumnHash, ColumnInfo> columnInfo;

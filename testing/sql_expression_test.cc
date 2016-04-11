@@ -1154,6 +1154,7 @@ BOOST_AUTO_TEST_CASE(test_select_statement_parse)
 
     {
          // MLDB-868
+        JML_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(SelectStatement::parse("select * from tableç"),
                           std::exception);
         auto statement = SelectStatement::parse("select * from \"tableç\"");
@@ -1235,7 +1236,7 @@ BOOST_AUTO_TEST_CASE(test_colon_as)
     parsed = SelectExpression::parse("x*: y*");
     cerr << parsed.print() << endl;
     BOOST_CHECK_EQUAL(parsed.print(),
-                      "[columns(\"\",\"x\",\"y\",[])]");
+                      "[columns(\"x\",\"y\",[])]");
     parsed = SelectExpression::parse("x : 10, y : 20");
     cerr << parsed.print() << endl;
 
@@ -1248,6 +1249,8 @@ BOOST_AUTO_TEST_CASE(test_colon_as)
     cerr << "alignof(ExpressionValue) = " << alignof(ExpressionValue) << endl;
     cerr << "sizeof(Coord) = " << sizeof(Coord) << endl;
     cerr << "alignof(Coord) = " << alignof(Coord) << endl;
+    cerr << "sizeof(Coords) = " << sizeof(Coords) << endl;
+    cerr << "alignof(Coords) = " << alignof(Coords) << endl;
     cerr << "sizeof(Id) = " << sizeof(Id) << endl;
     cerr << "alignof(Id) = " << alignof(Id) << endl;
     cerr << "sizeof(Utf8String) = " << sizeof(Utf8String) << endl;

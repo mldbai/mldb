@@ -39,7 +39,7 @@ void testMtInsert(MutableSparseMatrixDatasetConfig config)
             int base = random();
             for (unsigned i = 0;  i < niter;  ++i) {
                 std::vector<std::tuple<ColumnName, CellValue, Date> > vals;
-                dataset.recordRow(base + i, vals);
+                dataset.recordRow(Coord(base + i), vals);
 
                 if (done.fetch_add(1) % 1000 == 0)
                     cerr << "done " << done << " insertions" << endl;

@@ -445,11 +445,76 @@ DECLARE_STRUCTURE_DESCRIPTION(EmbeddingMetadata);
 /** This is the type used to hold the value of an expression.  It can be a
     scalar, in which case it is a CellValue.  Or it can be a row, a table
     or a structured value.
+
+    IMPORTANT
+    
+    This class implements storage and manipulation of values in the MLDB
+    SQL system.  However, there are two aspects of those which should be
+    understood separately:
+
+    1.  The logical type of a value, which specifies what operations are
+        available and what the effect of those operations is.
+    2.  The actual storage type of a value, which allows for different
+        ways of storing things to improve efficiency.  The storage type
+        of a value should NEVER affect which operations are available,
+        and the same logical value should ALWAYS return the same result
+        from an operation NO MATTER HOW IT IS STORED.
+
+    The logical types are the most important, so we will start with those.
+    A value in MLDB is either:
+
+    - An atomic value, with a timestamp.  These are handled by the
+      CellValue class for the value part.  These always have exactly one
+      way to store them: inside a CellValue, or not at all for a null.
+    - A row, which is logically a set of named columns, each of which has a
+      value and a timestamp.  Each of those values may also be a row,
+      which allows for recursive structures.
+
+      There are certain sub-types of rows that meet certain conditions.
+      These still meet the definition of a row, however, and should not
+      behave differently for standard operations:
+
+      - A row with consecutive columns from 0 to n is an array of length
+        n+1
+      - A row with consecutive columns from 0 to n, each of which is an
+        atomic value, with a common timestamp across all elements, is a
+        one dimensional embedding of shape [n+1].
+      - A row with consecutive columns from 0 to n and 0 to m, named
+        like 0.0, 0.1, ..., 0.n, 1.0, ..., 1.n, ..., m.0, ..., m.n,
+        each of which is an atomic value, with a common timestamp across
+        all elements, is a 2 dimensional embedding of shape [m+1, n+1].
+    
+    Storage types exist because it would be to expensive to always store
+    all of the elements as per the definition.  Instead, sometimes these
+    may be stored more efficiently, with the ExpressionValue class handling
+    translation of operations on the logical API to operate efficiently
+    on the storage class.
+
+    The three ways of storing rows are:
+
+    1.  As a structured representation, which is a sequence of (name, value)
+        pairs where names are simple strings (ie, not paths: Coord not Coords)
+        and each value can also be structured;
+    2.  As a flattened representation, which is a sequence of (path, atom,
+        timestamp) tuples.  Here, the paths may represent a whole route
+        through an object, like a.b.c.  This is how most datasets represent
+        their data, but logically operations should have the same result
+        no matter how they are stored.
+    3.  As an embedding representation, which has a contiguous array of
+        atomic values and a shape to understand how the indexes apply, along
+        with a single timestamp that is shared amongst all elements.  This
+        is an efficient way to store numerical data like indexes or matrices.
+
+    Again, although it is possible to ask the ExpressionValue if its elements
+    are an embedding or stored in a structured or flattened representation,
+    this is only to allow for optimizations and the result of an operation
+    should be identical no matter how it is stored.  In particular, the user
+    is not required to know that a row with keys 0 and 1 and an integer in
+    each cell is actually an embedding, and to store it as one.
 */
 
 struct ExpressionValue {
-    // BADSMELL confusion in naming between struct and row
-    typedef StructValue Row;
+    typedef StructValue Structured;
 
     /// Initialize as null.
     ExpressionValue();
@@ -470,13 +535,13 @@ struct ExpressionValue {
     ExpressionValue(unsigned long long int intValue, Date ts) { initUInt(intValue, ts); }
 
     ExpressionValue(double doubleValue, Date ts)
-        : type_(NONE)
+        : type_(Type::NONE)
     {
         initAtom(doubleValue, ts);
     }
 
     ExpressionValue(float floatValue, Date ts)
-        : type_(NONE)
+        : type_(Type::NONE)
     {
         initAtom(floatValue, ts);
     }
@@ -602,10 +667,12 @@ struct ExpressionValue {
 
     bool isTimeinterval() const;
 
+#if 0
     bool isObject() const;
+#endif    
 
     bool isArray() const;
-    
+
     bool isAtom() const;
 
     bool isRow() const;
@@ -624,10 +691,10 @@ struct ExpressionValue {
 
     /// Destructive getAtom() call, that moves it into the result
     CellValue stealAtom();
-    const Row & getRow() const;
+    const Structured & getStructured() const;
 
     // like getRow, but it actually moves it out so no copying is required
-    Row stealRow();
+    Structured stealStructured();
 
     CellValue coerceToString() const;
     CellValue coerceToInteger() const;
@@ -791,13 +858,13 @@ struct ExpressionValue {
     void mergeToRowDestructive(StructValue & row);
 
     /** Apply filter to select values in the row according to their timestamp */
-    Row getFiltered(const VariableFilter & filter) const;
+    Structured getFiltered(const VariableFilter & filter) const;
 
     /** Apply filter to select values in the row according to their timestamp.
         This will leave the current object in an indeterminate state
         afterwards.
     */
-    Row getFilteredDestructive(const VariableFilter & filter);
+    Structured getFilteredDestructive(const VariableFilter & filter);
 
     typedef std::function<bool (const ColumnName & columnName,
                                 std::pair<CellValue, Date> * vals1,
@@ -876,15 +943,15 @@ private:
     void initUInt(uint64_t intValue, Date ts);
     void initAtom(CellValue value, Date ts) noexcept
     {
-        ExcAssertEqual(type_, NONE);
+        ExcAssertEqual((int)type_, (int)Type::NONE);
         ts_ = ts;
         if (value.empty())
             return;
         new (storage_) CellValue(std::move(value));
-        type_ = ATOM;
+        type_ = Type::ATOM;
     }
-    void initRow(Row row) noexcept;
-    void initRow(std::shared_ptr<const Row> row) noexcept;
+    void initStructured(Structured row) noexcept;
+    void initStructured(std::shared_ptr<const Structured> row) noexcept;
 
     void setAtom(CellValue value, Date ts);
 
@@ -894,44 +961,22 @@ private:
     template<typename Fn>
     bool forEachColumnDestructiveT(Fn && onSubexpression) const;
 
-    enum Type {
-        NONE,     ///< Expression is empty or not initialized yet.  Shouldn't be exposed to user.
-        ATOM,     ///< Expression is an atom (CellValue), including null
-        ROW,      ///< Expression is a row, ie a destructured complex type with independent timestamps
-        STRUCT,   ///< Expression is a structure of keys and elements.
+    enum class Type : uint8_t {
+        NONE,        ///< Expression is empty or not initialized yet.  Shouldn't be exposed to user.
+        ATOM,        ///< Expression is an atom (CellValue), including null
+        STRUCTURED,  ///< Expression is a structured, ie a destructured complex type with independent timestamps
+        FLATTENED,   ///< Expression is a structure of keys and elements.
         EMBEDDING    ///< Uniform typed n-dimensional array of atoms
     };
 
     Type type_;
 
-    static inline std::string print(Type t) {
-        switch (t)  {
-        case NONE:      return "empty";
-        case ATOM:      return "atomic value";
-        case ROW:       return "row";
-        case STRUCT:    return "struct";
-        case EMBEDDING: return "embedding";
-        default:
-            throw ML::Exception("Unknown ExpressionValue type: " + t);
-        }
-    }
-
-    void inline assertType(Type requested, const std::string & details="") const {
-        if(requested != type_) {
-            std::string msg = "Cannot convert value of type "
-                        "'" + print(type_) + "' to "
-                        "'" + print(requested) + "'";
-            if(!details.empty()) {
-                msg += " (" + details+ ")";
-            }
-
-            throw ML::Exception(msg);
-        }
-    }
+    static std::string print(Type t);
+    void assertType(Type requested, const std::string & details="") const;
 
     /// This is how we store a structure with a single value for each
     /// element and an external set of column names
-    struct Struct;
+    struct Flattened;
 
     /// This is how we store a embedding, which is a dense array of a
     /// uniform data type.
@@ -941,8 +986,8 @@ private:
     union {
         uint64_t storage_[2];
         CellValue cell_;
-        std::shared_ptr<const Row> row_;
-        std::shared_ptr<const Struct> struct_;
+        std::shared_ptr<const Structured> structured_;
+        std::shared_ptr<const Flattened> flattened_;
         std::shared_ptr<const Embedding> embedding_;
     };
     Date ts_;   ///< Nominal timestamp that the information was known

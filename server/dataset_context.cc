@@ -111,9 +111,9 @@ SqlExpressionDatasetContext(const BoundTableExpression& boundDataset)
 }
 
 #if 0
-Utf8String 
+ColumnName 
 SqlExpressionDatasetContext::
-resolveTableName(const Utf8String& variable, Utf8String& resolvedTableName) const;
+resolveTableName(const ColumnName& variable, Utf8String& resolvedTableName) const
 {
     if (variable.empty())
         return Utf8String();
@@ -186,19 +186,23 @@ resolveTableName(const Utf8String& variable, Utf8String& resolvedTableName) cons
 }
 #endif
 
-Utf8String 
+#if 0
+ColumnName 
 SqlExpressionDatasetContext::
-resolveTableName(const Utf8String& variable) const
+resolveTableName(const ColumnName& variable) const
 {
     Utf8String resolvedTableName;
     return resolveTableName(variable, resolvedTableName);
 }
+#endif
 
 ColumnGetter
 SqlExpressionDatasetContext::
 doGetColumn(const Utf8String & tableName,
             const ColumnName & columnName)
 {   
+    // TO RESOLVE BEFORE MERGING
+#if 0
     Utf8String simplifiedVariableName;
     
     if (!childaliases.empty())
@@ -208,6 +212,7 @@ doGetColumn(const Utf8String & tableName,
             = removeTableName(alias, columnName).toSimpleName();
 
     ColumnName columnName(simplifiedVariableName);
+#endif
 
     return {[=] (const SqlRowScope & context,
                  ExpressionValue & storage,
@@ -350,7 +355,7 @@ doGetAllColumns(const Utf8String & tableName,
     vector<ColumnName> columnsNeedingInfo;
 
     for (auto & columnName: columns) {
-        ColumnName outputName(filterColumnName(columnName.toUtf8String()));
+        ColumnName outputName(filterColumnName(columnName));
         if (outputName == ColumnName()) {
             allWereKept = false;
             continue;
@@ -500,8 +505,6 @@ doGetColumn(const Utf8String & tableName, const ColumnName & columnName)
         and then fall back to the underlying row.
     */
 
-    ColumnName columnName(columnName);
-
     auto innerGetVariable
         = ReadThroughBindingContext::doGetColumn(tableName, columnName);
 
@@ -512,7 +515,8 @@ doGetColumn(const Utf8String & tableName, const ColumnName & columnName)
                 auto & row = context.as<RowContext>();
                 
                 const ExpressionValue * fromOutput
-                    = searchRow(row.output.columns, columnName, filter, storage);
+                    = searchRow(row.output.columns, columnName.toSimpleName(),
+                                filter, storage);
                 if (fromOutput)
                     return *fromOutput;
                 

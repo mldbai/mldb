@@ -13,7 +13,7 @@
 #include "mldb/ext/siphash/csiphash.h"
 #include "mldb/types/itoa.h"
 #include "mldb/utils/json_utils.h"
-
+#include "mldb/ext/cityhash/src/city.h"
 
 using namespace std;
 
@@ -190,12 +190,12 @@ toEscapedUtf8String() const
 {
     const char * d = data();
     size_t l = dataLength();
-    bool isSimple = l == 0 || isalpha(l[0]);
+    bool isSimple = l == 0 || isalpha(d[0]);
     for (size_t i = 0;  i < l && isSimple;  ++i) {
-        if (!isalnum(l[i]) && l[i] != '_')
+        if (!isalnum(d[i]) && d[i] != '_')
             isSimple = false;
     }
-    if (isSimple())
+    if (isSimple)
         return toUtf8String();
     else {
         Utf8String result = "\"";
@@ -237,6 +237,38 @@ Coord::
 newHash() const
 {
     return ::mldb_siphash24(data(), dataLength(), defaultSeedStable.b);
+}
+
+Coords
+Coord::
+operator + (const Coord & other) const
+{
+    Coords result(*this);
+    return result + other;
+}
+
+Coords
+Coord::
+operator + (Coord && other) const
+{
+    Coords result(*this);
+    return result + std::move(other);
+}
+
+Coords
+Coord::
+operator + (const Coords & other) const
+{
+    Coords result(*this);
+    return result + other;
+}
+
+Coords
+Coord::
+operator + (Coords && other) const
+{
+    Coords result(*this);
+    return result + std::move(other);
 }
 
 #if 0
@@ -343,11 +375,6 @@ void
 Coord::
 initString(Utf8String str)
 {
-    for (auto c: str) {
-        if (c == '.')
-            throw HttpReturnException(500, "Column names can't include a dot: "
-                                      + str);
-    }
     ExcAssertEqual(strlen(str.rawData()), str.rawLength());
     words[0] = words[1] = words[2] = words[3] = 0;
     if (str.rawLength() <= 31) {
@@ -366,11 +393,6 @@ void
 Coord::
 initChars(const char * str, size_t len)
 {
-    for (size_t i = 0;  i < len;  ++i) {
-        if (str[i] == '.')
-            throw HttpReturnException(500, "Column names can't include a dot: " + Utf8String(str, len));
-    }
-
     words[0] = words[1] = words[2] = words[3] = 0;
     if (len <= 31) {
         complex_ = 0;
@@ -492,6 +514,8 @@ Coords::Coords()
 
 Coords::Coords(Coord coord)
 {
+    if (coord.empty())
+        throw HttpReturnException(400, "Attempt to create a column or row name with an empty element");
     emplace_back(std::move(coord));
 }
 
@@ -541,6 +565,8 @@ Coords
 Coords::
 operator + (const Coord & other) const
 {
+    if (other.empty())
+        throw HttpReturnException(400, "Attempt to create a column or row name with an empty element");
     Coords result = *this;
     result.push_back(other);
     return result;
@@ -550,6 +576,8 @@ Coords
 Coords::
 operator + (Coord && other) const
 {
+    if (other.empty())
+        throw HttpReturnException(400, "Attempt to create a column or row name with an empty element");
     Coords result = *this;
     result.push_back(std::move(other));
     return result;
@@ -606,18 +634,50 @@ removePrefix(const Coords & prefix) const
     return result;
 }
 
+Coords
+Coords::
+replacePrefix(const Coord & prefix, const Coords & newPrefix) const
+{
+    Coords result(newPrefix);
+    result.insert(result.end(), begin() + 1, end());
+    return result;
+}
+
+Coords
+Coords::
+replacePrefix(const Coords & prefix, const Coords & newPrefix) const
+{
+    Coords result(newPrefix);
+    result.insert(result.end(), begin() + prefix.size(), end());
+    return result;
+}
+
 uint64_t
 Coords::
 oldHash() const
 {
-    throw HttpReturnException(600, "TODO: implement coords oldhash");
+    uint64_t result = 0;
+    if (empty())
+        return result;
+    result = at(0).oldHash();
+    for (size_t i = 1;  i < size();  ++i) {
+        result = Hash128to64({result, at(i).newHash()});
+    }
+    return result;
 }
 
 uint64_t
 Coords::
 newHash() const
 {
-    throw HttpReturnException(600, "TODO: implement coords hash");
+    uint64_t result = 0;
+    if (empty())
+        return result;
+    result = at(0).newHash();
+    for (size_t i = 1;  i < size();  ++i) {
+        result = Hash128to64({result, at(i).newHash()});
+    }
+    return result;
 }
 
 std::ostream &

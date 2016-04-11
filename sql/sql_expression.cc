@@ -698,8 +698,12 @@ static ColumnName matchColumnName(ML::Parse_Context & context, bool allowUtf8)
 
     if (context.eof())
         return result;
-    
-    result = Coord(matchIdentifier(context, allowUtf8));
+
+    Utf8String first = matchIdentifier(context, allowUtf8);
+
+    if (first.empty())
+        return result;
+    result = Coord(std::move(first));
 
     while (context.match_literal('.')) {
         result = result + matchIdentifier(context, allowUtf8);

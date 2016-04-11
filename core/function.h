@@ -38,6 +38,7 @@ struct ValueMapKey {
     ValueMapKey(Utf8String str);
     ValueMapKey(std::string str);
     ValueMapKey(const MLDB::Coord & coord);
+    ValueMapKey(const MLDB::Coords & coords);
     ValueMapKey(const char * utf8Start);
     ValueMapKey(const char * utf8Start, size_t utf8Len);
 

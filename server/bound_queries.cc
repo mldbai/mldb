@@ -619,7 +619,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
                         for (auto & c: row.columns) {
                             outputRow.columns.emplace_back
                                 (std::move(std::get<0>(c)),
-                                 ExpressionValue(std::move(std::get<1>(c)),
+                                 ExpressionValue(std::move(std::get<1>(c).toSimpleName()),
                                                  std::get<2>(c)));
                         }
                     }
@@ -1196,15 +1196,12 @@ struct GroupContext: public SqlExpressionDatasetContext {
     virtual ColumnGetter doGetColumn(const Utf8String & tableName,
                                      const ColumnName & columnName)
     {
-        Utf8String simplifiedVariableName = variableName;
-        //= removeTableName(alias, variableName).toSimpleName();
-
         for (unsigned i = 0;  i < groupByExpression.clauses.size();  ++i) {
             const std::shared_ptr<SqlExpression> & g
                 = groupByExpression.clauses[i];
 
-            Utf8String simplifiedSurface
-                = removeTableName(alias, g->surface).toSimpleName();
+            ColumnName simplifiedSurface
+                = removeTableName(alias, Coord(g->surface));
             
             if (simplifiedSurface == simplifiedVariableName) {
                 return {[=] (const SqlRowScope & context,
@@ -1220,8 +1217,6 @@ struct GroupContext: public SqlExpressionDatasetContext {
             }
         }
 
-        ColumnName columnName(simplifiedVariableName);
-
         return {[=] (const SqlRowScope & context,
                      ExpressionValue & storage,
                      const VariableFilter & filter) -> const ExpressionValue &
@@ -1234,7 +1229,7 @@ struct GroupContext: public SqlExpressionDatasetContext {
                     if (result)
                         return *result;     
                     
-                    throw HttpReturnException(400, "variable '" + variableName 
+                    throw HttpReturnException(400, "variable '" + columnName.toUtf8Sring() 
                                               + "' must appear in the GROUP BY clause or "
                                               "be used in an aggregate function");
                 },

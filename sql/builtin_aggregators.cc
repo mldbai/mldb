@@ -209,7 +209,7 @@ struct AggregatorT {
                 return;
             }
             const ExpressionValue & val = args[0];
-            const auto & row = val.getRow();
+            const auto & row = val.getStructured();
 
             // Check if the column names or number don't match, and
             // pessimize back to the sparse version if it's the case.

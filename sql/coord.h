@@ -297,7 +297,9 @@ struct CoordNewHasher
 
 /** A list of coordinate points that gives a full path to an entity. */
 
-struct Coords: public std::vector<Coord> {
+struct Coords: protected std::vector<Coord> {
+    typedef std::vector<Coord> Base;
+
     Coords();
     Coords(Coord coord);
 
@@ -345,6 +347,50 @@ struct Coords: public std::vector<Coord> {
     /// Return the non-Id compatible (new) hash.  Faster but not compatible
     /// with legacy hashes.
     uint64_t newHash() const;
+
+    using Base::size;
+    using Base::empty;
+    using Base::begin;
+    using Base::end;
+    using Base::cbegin;
+    using Base::cend;
+    using Base::rbegin;
+    using Base::rend;
+    using Base::crbegin;
+    using Base::crend;
+    using Base::at;
+    using Base::back;
+    using Base::operator [];
+
+    bool operator == (const Coords & other) const
+    {
+        return static_cast<const Base &>(*this) == other;
+    }
+
+    bool operator != (const Coords & other) const
+    {
+        return ! operator == (other);
+    }
+
+    bool operator < (const Coords & other) const
+    {
+        return static_cast<const Base &>(*this) < other;
+    }
+
+    bool operator <= (const Coords & other) const
+    {
+        return static_cast<const Base &>(*this) <= other;
+    }
+
+    bool operator > (const Coords & other) const
+    {
+        return static_cast<const Base &>(*this) > other;
+    }
+
+    bool operator >= (const Coords & other) const
+    {
+        return static_cast<const Base &>(*this) >= other;
+    }
 };
 
 std::ostream & operator << (std::ostream & stream, const Coords & id);

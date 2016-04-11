@@ -2377,7 +2377,7 @@ getChildren() const
 }
 
 std::map<ScopedName, UnboundVariable>
-FunctionCallWrapper::
+FunctionCallExpression::
 variableNames() const
 {
     std::map<ScopedName, UnboundVariable> result;
@@ -3410,8 +3410,8 @@ Utf8String
 WildcardExpression::
 print() const
 {
-    Utf8String result = "columns(\"" + jsonEncodeUtf8(prefix) + "\",\""
-        + jsonEncodeUtf8(asPrefix) + "\",[";
+    Utf8String result = "columns(" + jsonEncodeUtf8(prefix) + ","
+        + jsonEncodeUtf8(asPrefix) + ",[";
     
     bool first = true;
     for (auto ex: excluding) {

@@ -785,7 +785,7 @@ ExpressionValue replaceIf(const std::vector<ExpressionValue> & args,
     ExcAssertEqual(args.size(), 2);
     ExcAssert(args[1].isNumber());
 
-    if(args[0].isArray() || args[0].isObject()) {
+    if(args[0].isRow()) {
         RowValue rtnRow;
 
         auto onAtom = [&] (const ColumnName & columnName,
@@ -1714,7 +1714,8 @@ ParseTokenizeArguments(Utf8String& splitchar, Utf8String& quotechar,
                        int& offset, int& limit, int& min_token_length,
                        ML::distribution<float, std::vector<float> > & ngram_range,
                        ExpressionValue& values,
-                       bool check[7], const ExpressionValue::Row & argRow)
+                       bool check[7],
+                       const ExpressionValue::Structured & argRow)
 {
     auto assertArg = [&] (size_t field, const string & name)
         {
@@ -1722,7 +1723,7 @@ ParseTokenizeArguments(Utf8String& splitchar, Utf8String& quotechar,
                 throw HttpReturnException(400, "Argument " + name + " is specified more than once");
             check[field] = true;
         };
-
+    
     for (auto& arg : argRow) {
         const ColumnName& columnName = std::get<0>(arg);
         if (columnName == ColumnName("splitchars")) {
@@ -1788,7 +1789,7 @@ BoundFunction tokenize(const std::vector<BoundSqlExpression> & args)
                 if (args.size() == 2)
                     ParseTokenizeArguments(splitchar, quotechar, offset, limit,
                                            min_token_length, ngram_range, values,
-                                           check, args.at(1).getRow());
+                                           check, args.at(1).getStructured());
 
                 ML::Parse_Context pcontext(text.rawData(), text.rawData(), text.rawLength());
 
@@ -1862,7 +1863,7 @@ BoundFunction token_extract(const std::vector<BoundSqlExpression> & args)
 
                 if (args.size() == 3)
                     ParseTokenizeArguments(splitchar, quotechar, offset, limit, min_token_length,
-                                           ngram_range, values, check, args.at(2).getRow());
+                                           ngram_range, values, check, args.at(2).getStructured());
 
                 ML::Parse_Context pcontext(text.rawData(), text.rawData(), text.rawLength());
 
@@ -2223,7 +2224,7 @@ RegisterVectorOp<QuotientOp> registerVectorQuotient("vector_quotient");
 
 void
 ParseConcatArguments(Utf8String& separator, bool& columnValue,
-                     const ExpressionValue::Row & argRow)
+                     const ExpressionValue::Structured & argRow)
 {
     bool check[3] = {false, false, false};
     auto assertArg = [&] (size_t field, const string & name) {
@@ -2269,7 +2270,7 @@ BoundFunction concat(const std::vector<BoundSqlExpression> & args)
     if (args.size() == 2) {
         SqlRowScope emptyScope;
         ParseConcatArguments(separator, columnValue,
-                             args[1](emptyScope, GET_LATEST).getRow());
+                             args[1](emptyScope, GET_LATEST).getStructured());
     }
 
     return {[=] (const std::vector<ExpressionValue> & args,
