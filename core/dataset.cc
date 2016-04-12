@@ -1361,8 +1361,7 @@ generateRowsWhere(const SqlBindingScope & scope,
                 
                 accum.forEach(onThreadOutput);
 
-                //Todo: need sorting because the parallelisation breaks determinism, but it should be sorted in parallel
-                // or process in parallel in a deterministic manner.
+                //Need sorting because the parallelisation breaks determinism
                 if (needSort) 
                     parallelQuickSortRecursive<RowName, SortByRowHash>(rowsToKeep.begin(), rowsToKeep.end());
 

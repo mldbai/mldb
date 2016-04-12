@@ -124,8 +124,6 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
 
         // Simple case... no order by and no limit
 
-       // ExcAssertEqual(limit, -1);
-       // ExcAssertEqual(offset, 0);
         ExcAssert(numBuckets != 0);
 
         // Do we select *?  In that case we can avoid a lot of copying
@@ -137,19 +135,19 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
 
         auto doRow = [&] (int rowNum) -> bool
             {
-                QueryThreadTracker childTracker = parentTracker.child();
-
                 //if (rowNum % 1000 == 0)
                 //    cerr << "applying row " << rowNum << " of " << rows.size() << endl;
 
                 //RowName rowName = rows[rowNum];
 
                 auto row = matrix->getRow(rows[rowNum]);
+                auto output = processRow(row, rowNum, numPerBucket, selectStar);
 
-                // Check it matches the where expression.  If not, we don't process
-                // it.
-                return processRow(row, rowNum, numPerBucket, selectStar, aggregator);
-            };        
+                int bucketNumber = numBuckets > 0 ? std::min((size_t)(rowNum/numPerBucket), (size_t)(numBuckets-1)) : -1;
+
+                /* Finally, pass to the terminator to continue. */
+                return aggregator(std::get<0>(output), std::get<1>(output), bucketNumber);
+            };
 
         if (numBuckets > 0) {
             ExcAssert(aggregateInParallel);
@@ -180,9 +178,25 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
             }
             else
             {
-                //todo: process in MT, output in ST
+                //Todo: to reduce memory usage, we should fill blocks of output on worker threads
+                // in order as much as possible
+                // while calling the aggregator on the caller thread.
+                std::vector<std::tuple<NamedRowValue, std::vector<ExpressionValue> > > output(upper-offset);
+
+                auto copyRow = [&] (int rowNum)
+                {
+                   auto row = matrix->getRow(rows[rowNum]);
+
+                   auto outputRow = processRow(row, rowNum, numPerBucket, selectStar);
+                   output[rowNum-offset] = std::move(outputRow);
+                };
+
+                parallelMap(offset, upper, copyRow);
+
                 for (size_t i = offset; i < upper; ++i) {
-                    doRow(i);
+                    auto& outputRow = output[i-offset];
+                    if (!aggregator(std::get<0>(outputRow), std::get<1>(outputRow), -1))
+                        break;
                 }
             }            
         }
@@ -232,8 +246,13 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                 {
                     RowName rowName = stream->next();
                     auto row = matrix->getRow(rowName);
-                    if (!processRow(row, it, numPerBucket, selectStar, aggregator))
-                       return false;
+
+                    auto output = processRow(row, it, numPerBucket, selectStar);
+                    int bucketNumber = numBuckets > 0 ? std::min((size_t)(it/numPerBucket), (size_t)(numBuckets-1)) : -1;
+
+                    /* Finally, pass to the terminator to continue. */
+                    if (!aggregator(std::get<0>(output), std::get<1>(output), bucketNumber))
+                        return false;
                 }
                 return true;
             };
@@ -241,22 +260,26 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
             parallelMap(0, effectiveNumBucket, doBucket);
     }
 
-    bool processRow(MatrixNamedRow& row,
+    std::tuple<NamedRowValue, std::vector<ExpressionValue> >
+    processRow(MatrixNamedRow& row,
                     int rowNum,
                     int numPerBucket,
-                    bool selectStar,
-                    ExecutorAggregator& aggregator)
+                    bool selectStar)
     {
         auto rowContext = context.getRowContext(row);
 
         whenBound.filterInPlace(row, rowContext);
 
-        NamedRowValue outputRow;
+        std::tuple<NamedRowValue, std::vector<ExpressionValue> > output;
+
+        NamedRowValue& outputRow = std::get<0>(output);
         outputRow.rowName = row.rowName;
         outputRow.rowHash = row.rowName;
     
         auto selectRowContext = context.getRowContext(row);
-        vector<ExpressionValue> calcd(boundCalc.size());
+        vector<ExpressionValue>& calcd = std::get<1>(output);
+        calcd.resize(boundCalc.size());
+
         // Run the extra calculations
         for (unsigned i = 0;  i < boundCalc.size();  ++i) {
             calcd[i] = std::move(boundCalc[i](selectRowContext, GET_LATEST));
@@ -278,10 +301,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
             selectOutput.mergeToRowDestructive(outputRow.columns);
         }
 
-        int bucketNumber = numBuckets > 0 ? std::min(rowNum/numPerBucket, numBuckets-1) : -1;
-
-        /* Finally, pass to the terminator to continue. */
-        return aggregator(outputRow, calcd, bucketNumber);
+        return output;
     }
 
     virtual std::shared_ptr<ExpressionValueInfo> getOutputInfo() const
