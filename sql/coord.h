@@ -125,6 +125,21 @@ struct Coord {
 
     Utf8String toEscapedUtf8String() const;
 
+    /** Returns if this is an index, that is a non-negative integer
+        (possibly with leading zeros) that can be converted into an
+        array index.
+    */
+    bool isIndex() const;
+
+    /** Convert to an integer, and return it.  If isIndex() is false,
+        then this will return -1.
+    */
+    ssize_t toIndex() const;
+
+    /** Convert to an integer, and return it.  If isIndex() is false,
+        then this will throw an exception.
+    */
+    size_t requireIndex() const;
 
     /** If true, we can return a const char * and length that will
         live as long as this CellValue and can be used instead of

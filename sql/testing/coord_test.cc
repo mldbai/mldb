@@ -142,3 +142,15 @@ BOOST_AUTO_TEST_CASE(test_wildcards)
     BOOST_CHECK_EQUAL(svd.replaceWildcard(Coord("s"), xy).toUtf8String(),
                       "x.yvd");
 }
+
+BOOST_AUTO_TEST_CASE(test_indexes)
+{
+    BOOST_CHECK_EQUAL(Coord(0).toIndex(), 0);
+    BOOST_CHECK_EQUAL(Coord("0").toIndex(), 0);
+    BOOST_CHECK_EQUAL(Coord("00").toIndex(), 0);
+    BOOST_CHECK_EQUAL(Coord(123456789).toIndex(), 123456789);
+    BOOST_CHECK_EQUAL(Coord("123456789").toIndex(), 123456789);
+    BOOST_CHECK_EQUAL(Coord("0123456789").toIndex(), 123456789);
+    BOOST_CHECK_EQUAL(Coord(-1).toIndex(), -1);
+    BOOST_CHECK_EQUAL(Coord(-1000).toIndex(), -1);
+}

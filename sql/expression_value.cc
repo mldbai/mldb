@@ -1141,6 +1141,54 @@ struct ExpressionValue::Embedding {
         return MLDB::getValue(data_.get(), storageType_, n);
     }
 
+    ExpressionValue getColumn(const Coords & column, Date ts) const
+    {
+        if (column.size() == dims_.size()) {
+            // we're getting an atom.  Look up the element we need
+            size_t offset = 0;
+            size_t stride = length();
+            for (size_t i = 0;  i < column.size();  ++i) {
+                stride /= dims_[i];
+                const Coord & coord = column[i];
+                if (!coord.isIndex())
+                    return ExpressionValue();
+                size_t index = coord.toIndex();
+                offset += stride * index;
+            }
+
+            return ExpressionValue(getValue(offset), ts);
+        }
+        else {
+            // we're getting a sub-embedding
+            // We need to calculate:
+            // a) a new set of dims
+            // b) the offset of the start of our value
+            // c) new dimensions for the value
+            size_t offset = 0;
+            size_t stride = length();
+            for (size_t i = 0;  i < column.size();  ++i) {
+                stride /= dims_[i];
+                const Coord & coord = column[i];
+                if (!coord.isIndex())
+                    return ExpressionValue();
+                size_t index = coord.toIndex();
+                offset += stride * index;
+            }
+
+            std::vector<size_t> newDims;
+            for (size_t i = column.size();  i < dims_.size();  ++i)
+                newDims.emplace_back(dims_[i]);
+            
+            const char * p = reinterpret_cast<const char *>(data_.get());
+            size_t offsetBytes = getCellSizeInBytes(storageType_) * offset;
+            const void * start = p + offsetBytes;
+            return ExpressionValue::embedding
+                    (ts,
+                     std::shared_ptr<const void>(data_, start),
+                     storageType_, newDims);
+        }
+    }
+
     bool forEachValue(std::function<bool (const std::vector<int> & indexes,
                                           CellValue & val)> onVal) const
     {
@@ -2042,7 +2090,38 @@ ExpressionValue
 ExpressionValue::
 getColumn(const Coord & columnName, const VariableFilter & filter) const
 {
-    throw HttpReturnException(600, "ExpressionValue::getColumn() not done");
+    switch (type_) {
+    case Type::STRUCTURED: {
+        ExpressionValue storage;
+        const ExpressionValue * result
+            = searchRow(*structured_, columnName, filter, storage);
+        if (result) {
+            if (result == &storage)
+                return std::move(storage);
+            else return *result;
+        }
+
+        return ExpressionValue();
+    }
+    case Type::FLATTENED: {
+        // TODO: any / latest / etc...
+        // Needs to be restructured for flattened...
+        for (size_t i = 0;  i != flattened_->length();  ++i) {
+            const auto & name = flattened_->columnName(i);
+            if (name.size() == 1 && name[0] == columnName) {
+                return ExpressionValue(flattened_->value(i), ts_);
+            }
+        }
+        return ExpressionValue();
+    }
+    case Type::EMBEDDING: {
+        return embedding_->getColumn(columnName, ts_);
+    }
+    case Type::NONE:
+    case Type::ATOM:
+        break;
+    }
+    return ExpressionValue();
 }
 
 ExpressionValue
@@ -2052,7 +2131,7 @@ getNestedColumn(const ColumnName & columnName, const VariableFilter & filter) co
     switch (type_) {
     case Type::STRUCTURED: {
 
-        throw HttpReturnException(600, "ExpressionValue::getField() for structured not done");
+        throw HttpReturnException(600, "ExpressionValue::getNestedColumn() for structured not done");
 #if 0
         ExpressionValue storage;
         const ExpressionValue * result
@@ -2512,6 +2591,7 @@ appendToRowDestructive(ColumnName & columnName, RowValue & row)
                 };
             
             forEachAtomDestructiveT(onSubexpr);
+            return;
         }
         else {
             auto onSubexpr = [&] (ColumnName & innerColumnName,
@@ -2525,10 +2605,11 @@ appendToRowDestructive(ColumnName & columnName, RowValue & row)
                 };
             
             forEachAtomDestructiveT(onSubexpr);
+            return;
         }
     }
 
-    throw HttpReturnException(500, "Unknown storage type for reshape()");
+    throw HttpReturnException(500, "Unknown storage type for appendToRowDestructive()");
 }
 
 size_t
@@ -2775,7 +2856,7 @@ forEachAtomDestructive(const std::function<bool (Coords & columnName,
 template<typename Fn>
 bool
 ExpressionValue::
-forEachAtomDestructiveT(Fn && onAtom) const
+forEachAtomDestructiveT(Fn && onAtom)
 {
     switch (type_) {
     case Type::STRUCTURED: {
@@ -2848,11 +2929,16 @@ forEachAtomDestructiveT(Fn && onAtom) const
         
         return embedding_->forEachAtom(onCol);
     }
-    case Type::NONE:
-    case Type::ATOM:
-        throw HttpReturnException(500, "Expected row expression",
-                                  "expression", *this,
-                                  "type", (int)type_);
+    case Type::NONE: {
+        Coords name;
+        CellValue val;
+        return onAtom(name, val, ts_);
+    }
+    case Type::ATOM: {
+        Coords name;
+        CellValue val = stealAtom();
+        return onAtom(name, val, ts_);
+    }
     }
     throw HttpReturnException(500, "Unknown expression type",
                               "expression", *this,

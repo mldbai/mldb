@@ -985,7 +985,7 @@ private:
         type to allow for inlining.  Defined in expression_value.cc.
     */
     template<typename Fn>
-    bool forEachAtomDestructiveT(Fn && onSubexpression) const;
+    bool forEachAtomDestructiveT(Fn && onSubexpression);
 
     enum class Type : uint8_t {
         NONE,        ///< Expression is empty or not initialized yet.  Shouldn't be exposed to user.

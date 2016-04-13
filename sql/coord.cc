@@ -218,6 +218,32 @@ toEscapedUtf8String() const
 
 bool
 Coord::
+isIndex() const
+{
+    return toIndex() != -1;
+}
+
+ssize_t
+Coord::
+toIndex() const
+{
+    if (dataLength() > 12)
+        return -1;
+    uint64_t val = 0;
+    const char * p = data();
+    const char * e = p + dataLength();
+    if (e == p)
+        return false;
+    for (; p != e;  ++p) {
+        if (!isdigit(*p))
+            return -1;
+        val = 10 * val + (*p - '0');
+    }
+    return val;
+}
+
+bool
+Coord::
 hasStringView() const
 {
     return true;  // currently we store as a string, so always true
@@ -941,7 +967,7 @@ CoordsDescription::
 printJsonTyped(const Coords * val,
                JsonPrintingContext & context) const
 {
-    context.writeJson(jsonEncode(val->toUtf8String()));
+    context.writeStringUtf8(val->toUtf8String());
 }
 
 bool

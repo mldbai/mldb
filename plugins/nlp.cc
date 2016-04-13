@@ -204,7 +204,8 @@ apply(const FunctionApplier & applier,
 
     ExpressionValue storage;
     const ExpressionValue & arg
-        = context.mustGet("keys", storage);
+        = context.mustGet("words", storage);
+
     arg.forEachAtom(onAtom);
 
     RowValue rtnRow;
