@@ -297,19 +297,17 @@ Bound(const GenerateRowsElement * parent,
 
 std::shared_ptr<ElementExecutor>
 GenerateRowsElement::Bound::
-start(const BoundParameters & getParam,
-      bool allowParallel) const
+start(const BoundParameters & getParam) const
 {
     auto result = std::make_shared<GenerateRowsExecutor>();
-    result->source = source_->start(getParam, allowParallel);
+    result->source = source_->start(getParam);
     result->generator
         = parent->from.runQuery(*outputScope_,
                                 parent->select,
                                 parent->when,
                                 *parent->where,
                                 parent->orderBy,
-                                0 /* offset */, -1 /* limit */,
-                                allowParallel);
+                                0 /* offset */, -1 /* limit */);
     result->params = getParam;
     ExcAssert(result->params);
     return result;
@@ -958,24 +956,23 @@ createOutputScope()
         
 std::shared_ptr<ElementExecutor>
 JoinElement::Bound::
-start(const BoundParameters & getParam,
-      bool allowParallel) const
+start(const BoundParameters & getParam) const
 {
     switch (condition_.style) {
 
     case AnnotatedJoinCondition::CROSS_JOIN:
         return std::make_shared<CrossJoinExecutor>
             (this,
-             root_->start(getParam, allowParallel),
-             left_->start(getParam, allowParallel),
-             right_->start(getParam, allowParallel));
+             root_->start(getParam),
+             left_->start(getParam),
+             right_->start(getParam));
 
     case AnnotatedJoinCondition::EQUIJOIN:
         return std::make_shared<EquiJoinExecutor>
             (this,
-             root_->start(getParam, allowParallel),
-             left_->start(getParam, allowParallel),
-             right_->start(getParam, allowParallel));
+             root_->start(getParam),
+             left_->start(getParam),
+             right_->start(getParam));
 
     default:
         throw HttpReturnException(400, "Can't execute that kind of join",
@@ -1044,7 +1041,7 @@ Bound(std::shared_ptr<SqlBindingScope> outer)
 
 std::shared_ptr<ElementExecutor>
 RootElement::Bound::
-start(const BoundParameters & getParam, bool allowParallel) const
+start(const BoundParameters & getParam) const
 {
     return std::make_shared<Executor>();
 }
@@ -1206,12 +1203,11 @@ Bound(std::shared_ptr<BoundPipelineElement> source,
 
 std::shared_ptr<ElementExecutor>
 FilterWhereElement::Bound::
-start(const BoundParameters & getParam,
-      bool allowParallel) const
+start(const BoundParameters & getParam) const
 {
     auto result = std::make_shared<Executor>();
     result->parent_ = this;
-    result->source_ = source_->start(getParam, allowParallel);
+    result->source_ = source_->start(getParam);
     return result;
 }
 
@@ -1306,12 +1302,11 @@ Bound(std::shared_ptr<BoundPipelineElement> source,
 
 std::shared_ptr<ElementExecutor>
 SelectElement::Bound::
-start(const BoundParameters & getParam,
-      bool allowParallel) const
+start(const BoundParameters & getParam) const
 {
     auto result = std::make_shared<Executor>();
     result->parent = this;
-    result->source = source_->start(getParam, allowParallel);
+    result->source = source_->start(getParam);
     return result;
 }
 
@@ -1432,11 +1427,10 @@ Bound(std::shared_ptr<BoundPipelineElement> source,
 
 std::shared_ptr<ElementExecutor>
 OrderByElement::Bound::
-start(const BoundParameters & getParam,
-      bool allowParallel) const
+start(const BoundParameters & getParam) const
 {
     return std::make_shared<Executor>(this,
-                                      source_->start(getParam, allowParallel));
+                                      source_->start(getParam));
 }
 
 std::shared_ptr<BoundPipelineElement>
@@ -1643,11 +1637,10 @@ Bound(std::shared_ptr<BoundPipelineElement> source,
 
 std::shared_ptr<ElementExecutor>
 PartitionElement::Bound::
-start(const BoundParameters & getParam,
-      bool allowParallel) const
+start(const BoundParameters & getParam) const
 {
     return std::make_shared<Executor>
-        (this, source_->start(getParam, allowParallel),
+        (this, source_->start(getParam),
          source_->numOutputFields() - numValues_,
          source_->numOutputFields());
 }
@@ -1730,9 +1723,9 @@ Bound(std::shared_ptr<BoundPipelineElement> source,
         
 std::shared_ptr<ElementExecutor>
 ParamsElement::Bound::
-start(const BoundParameters & getParam, bool allowParallel) const
+start(const BoundParameters & getParam) const
 {
-    return std::make_shared<Executor>(source_->start(getParam, allowParallel),
+    return std::make_shared<Executor>(source_->start(getParam),
                                       getParam);
 }
 

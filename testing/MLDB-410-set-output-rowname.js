@@ -32,10 +32,10 @@ assertEqual(resp.responseCode, 200);
 plugin.log(resp.json);
 
 var expected = [
-   [ "_rowName", "x", "y", "label" ],
-   [ "ex1", 0, 0, "cat" ],
+   [ "_rowName", "x", "y", "label" ],   
    [ "ex3", 1, 2, "cat" ],
-   [ "ex2", 1, 1, "dog" ]
+   [ "ex2", 1, 1, "dog" ],
+   [ "ex1", 0, 0, "cat" ]
 ];
 
 assertEqual(mldb.diff(expected, resp.json, false /* strict */), {},
@@ -52,9 +52,9 @@ plugin.log(resp);
 
 expected = [
     [ "_rowName", "x", "y", "label" ],
-    [ "ex1_transformed", 0, 0, "cat" ],
     [ "ex3_transformed", 1, 2, "cat" ],
-    [ "ex2_transformed", 1, 1, "dog" ]
+    [ "ex2_transformed", 1, 1, "dog" ],
+    [ "ex1_transformed", 0, 0, "cat" ],
 ];
 
 assertEqual(mldb.diff(expected, resp.json, false /* strict */), {},

@@ -139,7 +139,7 @@ run(const ProcedureRunConfig & run,
     ColumnName valueColumnName(runProcConf.valueColumnName);
 
     std::mutex recordMutex;
-    auto aggregator = [&] (NamedRowValue & row_,
+    auto processor = [&] (NamedRowValue & row_,
                            const std::vector<ExpressionValue> & extraVals)
         {
             MatrixNamedRow row = row_.flattenDestructive();
@@ -181,9 +181,8 @@ run(const ProcedureRunConfig & run,
                      *boundDataset.dataset,
                      boundDataset.asName, runProcConf.inputData.stm->when,
                      *runProcConf.inputData.stm->where,
-                     runProcConf.inputData.stm->orderBy, extra,
-                     false /* implicit order by row hash */)
-        .execute(aggregator, 
+                     runProcConf.inputData.stm->orderBy, extra)
+        .execute({processor,true/*processInParallel*/},
                  runProcConf.inputData.stm->offset, 
                  runProcConf.inputData.stm->limit, 
                  nullptr /* progress */);

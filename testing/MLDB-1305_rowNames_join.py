@@ -111,14 +111,12 @@ res = mldb.perform("GET", "/v1/query", [["q", """
     JOIN dataset2 ON dataset2.rowName() = dataset1.rowName()
     """],['format', 'table']])
 
-mldb.log(json.loads(res['response']))
-
 assert res["statusCode"] != 404
 assert json.loads(res['response']) == expected
 
 expected = [["_rowName","dataset1.rowName()","dataset2.rowName()","dataset3.rowName()"],
-            [ "[row2]-[row2]-[row2]", "row2", "row2", "row2" ],
-            [ "[row1]-[row1]-[row1]", "row1", "row1", "row1" ]]
+            [ "[row1]-[row1]-[row1]", "row1", "row1", "row1" ],
+            [ "[row2]-[row2]-[row2]", "row2", "row2", "row2" ]]
 
 res = mldb.perform("GET", "/v1/query", [["q", """
     SELECT dataset1.rowName(), dataset2.rowName(), dataset3.rowName()

@@ -37,9 +37,9 @@ plugin.log(resp.json);
 
 var expected = [
    [ "_rowName", "x", "y", "label" ],
-   [ "ex1", 0, 0, "cat" ],
    [ "ex3", 1, 2, "cat" ],
-   [ "ex2", 1, 1, "dog" ]
+   [ "ex2", 1, 1, "dog" ],
+   [ "ex1", 0, 0, "cat" ]
 ];
 
 assertEqual(resp.json, expected);

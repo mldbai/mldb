@@ -723,8 +723,7 @@ queryStructured(const SelectExpression & select,
                 const SqlExpression & rowName,
                 ssize_t offset,
                 ssize_t limit,
-                Utf8String alias,
-                bool allowMT) const
+                Utf8String alias) const
 {
     std::mutex lock;
     std::vector<MatrixNamedRow> output;
@@ -737,27 +736,21 @@ queryStructured(const SelectExpression & select,
 
     // Do it ungrouped if possible
     if (groupBy.clauses.empty() && aggregators.empty()) {
-        auto aggregator = [&] (NamedRowValue & row_,
+        auto processor = [&] (NamedRowValue & row_,
                                const std::vector<ExpressionValue> & calc)
             {
                 MatrixNamedRow row = row_.flattenDestructive();
                 row.rowName = GetValidatedRowName(calc.at(0));
                 row.rowHash = row.rowName;
-                std::unique_lock<std::mutex> guard(lock);
                 output.emplace_back(std::move(row));
                 return true;
             };
 
-        // MLDB-154: if we have a limit or offset, we probably want a stable ordering
-        // Due to a bug that led to it being always enabled we will always do this
-        OrderByExpression orderBy_ = orderBy;
-        if (limit != -1 || offset != 0 || true) {
-            orderBy_.clauses.emplace_back(SqlExpression::parse("rowHash()"), ASC);
-        }
+        //QueryStructured always want a stable ordering, but it doesnt have to be by rowhash
         
         //cerr << "orderBy_ = " << jsonEncode(orderBy_) << endl;
         iterateDataset(select, *this, alias, when, where,
-                       { rowName.shallowCopy() }, aggregator, orderBy_, offset, limit,
+                       { rowName.shallowCopy() }, {processor, false/*processInParallel*/}, orderBy, offset, limit,
                        nullptr);
     }
     else {
@@ -765,18 +758,18 @@ queryStructured(const SelectExpression & select,
         aggregators.insert(aggregators.end(), havingaggregators.begin(), havingaggregators.end());
 
         // Otherwise do it grouped...
-        auto aggregator = [&] (NamedRowValue & row_)
+        auto processor = [&] (NamedRowValue & row_)
             {
                 MatrixNamedRow row = row_.flattenDestructive();
-                std::unique_lock<std::mutex> guard(lock);
                 output.emplace_back(row);
                 return true;
             };
 
+         //QueryStructured always want a stable ordering, but it doesnt have to be by rowhash
         iterateDatasetGrouped(select, *this, alias, when, where,
                               groupBy, aggregators, having, rowName,
-                              aggregator, orderBy, offset, limit,
-                              nullptr, allowMT);
+                              {processor, false/*processInParallel*/}, orderBy, offset, limit,
+                              nullptr);
     }
 
     return output;
@@ -1346,9 +1339,11 @@ generateRowsWhere(const SqlBindingScope & scope,
                             accum.get().push_back(r);
                     };
 
+                bool needSort = false;
                 if (rows.size() >= 1000) {
                     // Scan the whole lot with the when in parallel
                     parallelMap(0, rows.size(), onRow);
+                    needSort = true;
                 } else {
                     // Serial, since probably it's not worth the overhead
                     // to run them in parallel.
@@ -1366,7 +1361,9 @@ generateRowsWhere(const SqlBindingScope & scope,
                 
                 accum.forEach(onThreadOutput);
 
-                std::sort(rowsToKeep.begin(), rowsToKeep.end(), SortByRowHash());
+                //Need sorting because the parallelisation breaks determinism
+                if (needSort) 
+                    parallelQuickSortRecursive<RowName, SortByRowHash>(rowsToKeep.begin(), rowsToKeep.end());
 
                 start += rows.size();
                 Any newToken;
@@ -1379,6 +1376,13 @@ generateRowsWhere(const SqlBindingScope & scope,
             "scan table filtering by where expression"};
 }
 
+/**
+
+As queryBasic always sort by the orderby, the result will NOT be deterministic if the orderby
+is not a valid sorting criteria (e.g., "1")
+
+*/
+
 BasicRowGenerator
 Dataset::
 queryBasic(const SqlBindingScope & scope,
@@ -1387,8 +1391,7 @@ queryBasic(const SqlBindingScope & scope,
            const SqlExpression & where,
            const OrderByExpression & orderBy,
            ssize_t offset,
-           ssize_t limit,
-           bool allowParallel) const
+           ssize_t limit) const
 {
     // 1.  Get the rows that match the where clause
     auto rowGenerator = generateRowsWhere(scope, "" /*alias*/ , where, 0 /* offset */, -1 /* limit */);
@@ -1515,12 +1518,7 @@ queryBasic(const SqlBindingScope & scope,
                         return true;
                     };
                 
-                if (allowParallel)
-                    parallelMap(0, rows.size(), doRow);
-                else {
-                    for (unsigned i = 0;  i < rows.size();  ++i)
-                        doRow(i);
-                }
+                parallelMap(0, rows.size(), doRow);
 
                 size_t totalRows = 0;
                 vector<size_t> startAt;
@@ -1546,12 +1544,7 @@ queryBasic(const SqlBindingScope & scope,
                         }
                     };
         
-                if (allowParallel)
-                    parallelMap(0, accum.numThreads(), copyRow);
-                else {
-                    for (unsigned i = 0;  i < accum.numThreads();  ++i)
-                        copyRow(i);
-                }
+                parallelMap(0, accum.numThreads(), copyRow);
 
                 ExcAssertEqual(rowsDone, totalRows);
 
