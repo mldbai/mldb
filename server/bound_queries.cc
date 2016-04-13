@@ -46,8 +46,8 @@ __thread int QueryThreadTracker::depth = 0;
 struct BoundSelectQuery::Executor {
     virtual void execute(std::function<bool (NamedRowValue & output,
                                              std::vector<ExpressionValue> & calcd,
-                                             int bucketNum)> aggregator,
-                         bool aggregateInParallel,
+                                             int bucketNum)> processor,
+                         bool processInParallel,
                          ssize_t offset,
                          ssize_t limit,
                          std::function<bool (const Json::Value &)> onProgress) = 0;
@@ -88,8 +88,8 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
 
      virtual void execute(std::function<bool (NamedRowValue & output,
                                              std::vector<ExpressionValue> & calcd,
-                                             int rowNum)> aggregator,
-                         bool aggregateInParallel,
+                                             int rowNum)> processor,
+                         bool processInParallel,
                          ssize_t offset,
                          ssize_t limit,
                          std::function<bool (const Json::Value &)> onProgress)
@@ -97,17 +97,17 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
         //There are two variations on how to generate the rows, 
         //but most of the output code is the same
         if (numBuckets > 1 && whereGenerator.rowStream)
-          return execute_iterative(aggregator, aggregateInParallel, offset, limit, onProgress);
+          return execute_iterative(processor, processInParallel, offset, limit, onProgress);
         else
-            return execute_bloc(aggregator, aggregateInParallel, offset, limit, onProgress);
+            return execute_bloc(processor, processInParallel, offset, limit, onProgress);
      }
 
     /* execute_bloc will query all the relevant rowNames in advance
        using the whereGenerator()                                  */
     void execute_bloc(std::function<bool (NamedRowValue & output,
                                           std::vector<ExpressionValue> & calcd,
-                                          int rowNum)> aggregator,
-                      bool aggregateInParallel,
+                                          int rowNum)> processor,
+                      bool processInParallel,
                       ssize_t offset,
                       ssize_t limit,
                       std::function<bool (const Json::Value &)> onProgress)
@@ -146,11 +146,11 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                 int bucketNumber = numBuckets > 0 ? std::min((size_t)(rowNum/numPerBucket), (size_t)(numBuckets-1)) : -1;
 
                 /* Finally, pass to the terminator to continue. */
-                return aggregator(std::get<0>(output), std::get<1>(output), bucketNumber);
+                return processor(std::get<0>(output), std::get<1>(output), bucketNumber);
             };
 
         if (numBuckets > 0) {
-            ExcAssert(aggregateInParallel);
+            ExcAssert(processInParallel);
             ExcAssertEqual(limit, -1);
             ExcAssertEqual(offset, 0);
             auto doBucket = [&] (int bucketNumber) -> bool
@@ -172,15 +172,16 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
             if (limit != -1)
                 upper = std::min((size_t)(offset+limit), upper);
 
-            if (aggregateInParallel) {
+            if (processInParallel) {
 
                 parallelMap(offset, upper, doRow);
             }
-            else
+            else if (offset <= upper)
             {
                 //Todo: to reduce memory usage, we should fill blocks of output on worker threads
                 // in order as much as possible
                 // while calling the aggregator on the caller thread.
+                ExcAssert(offset >= 0 && offset <= upper);
                 std::vector<std::tuple<NamedRowValue, std::vector<ExpressionValue> > > output(upper-offset);
 
                 auto copyRow = [&] (int rowNum)
@@ -195,7 +196,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
 
                 for (size_t i = offset; i < upper; ++i) {
                     auto& outputRow = output[i-offset];
-                    if (!aggregator(std::get<0>(outputRow), std::get<1>(outputRow), -1))
+                    if (!processor(std::get<0>(outputRow), std::get<1>(outputRow), -1))
                         break;
                 }
             }            
@@ -206,8 +207,8 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
        in order to avoid having a big array of all the relevant rowNames                    */
      void execute_iterative(std::function<bool (NamedRowValue & output,
                                              std::vector<ExpressionValue> & calcd,
-                                             int rowNum)> aggregator,
-                         bool aggregateInParallel,
+                                             int rowNum)> processor,
+                         bool processInParallel,
                          ssize_t offset,
                          ssize_t limit,
                          std::function<bool (const Json::Value &)> onProgress)
@@ -234,7 +235,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
         //cerr << "Number of row per bucket: " << numPerBucket << endl;
         //cerr << "Number of rows: " << numRows << endl;
 
-        ExcAssert(aggregateInParallel);
+        ExcAssert(processInParallel);
 
         auto doBucket = [&] (int bucketNumber) -> bool
             {                
@@ -251,7 +252,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                     int bucketNumber = numBuckets > 0 ? std::min((size_t)(it/numPerBucket), (size_t)(numBuckets-1)) : -1;
 
                     /* Finally, pass to the terminator to continue. */
-                    if (!aggregator(std::get<0>(output), std::get<1>(output), bucketNumber))
+                    if (!processor(std::get<0>(output), std::get<1>(output), bucketNumber))
                         return false;
                 }
                 return true;
@@ -339,8 +340,8 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
 
     virtual void execute(std::function<bool (NamedRowValue & output,
                                              std::vector<ExpressionValue> & calcd, 
-                                             int rowNum)> aggregator,
-        bool aggregateInParallel,
+                                             int rowNum)> processor,
+        bool processInParallel,
         ssize_t offset,
         ssize_t limit,
         std::function<bool (const Json::Value &)> onProgress)
@@ -447,7 +448,7 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
                 auto & calcd = std::get<2>(rowsSorted[rowNum]);
 
                 /* Finally, pass to the terminator to continue. */
-                return aggregator(row, calcd, rowNum);
+                return processor(row, calcd, rowNum);
             };
 
         // Now select only the required subset of sorted rows
@@ -516,23 +517,23 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
 
      virtual void execute(std::function<bool (NamedRowValue & output,
                                              std::vector<ExpressionValue> & calcd,
-                                             int rowNum)> aggregator,
-                         bool aggregateInParallel,
+                                             int rowNum)> processor,
+                         bool processInParallel,
                          ssize_t offset,
                          ssize_t limit,
                          std::function<bool (const Json::Value &)> onProgress)
     {
         if (limit < 0 || !(whereGenerator.rowStream))
-          return execute_bloc(aggregator, offset, limit, onProgress);
+          return execute_bloc(processor, offset, limit, onProgress);
         else
-          return execute_iter(aggregator, offset, limit, onProgress);
+          return execute_iter(processor, offset, limit, onProgress);
     }
 
      /* execute_bloc will query all the relevant rowNames in advance
        using the whereGenerator()                                           */          
      virtual void execute_bloc(std::function<bool (NamedRowValue & output,
                                              std::vector<ExpressionValue> & calcd,
-                                             int rowNum)> aggregator,
+                                             int rowNum)> processor,
                          ssize_t offset,
                          ssize_t limit,
                          std::function<bool (const Json::Value &)> onProgress)
@@ -754,7 +755,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
         if (!allowParallelOutput) {
 
             for (unsigned i = begin;  i < end;  ++i) {
-                if (!aggregator(std::get<1>(sorted[i]), std::get<2>(sorted[i]), i - begin))
+                if (!processor(std::get<1>(sorted[i]), std::get<2>(sorted[i]), i - begin))
                     return;
             }
         }
@@ -765,7 +766,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
                     if (stop)
                         return;
 
-                    if (!aggregator(std::get<1>(sorted[i]), std::get<2>(sorted[i]), i - begin)) {
+                    if (!processor(std::get<1>(sorted[i]), std::get<2>(sorted[i]), i - begin)) {
                         stop = true;
                         return;
                     }
@@ -786,7 +787,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
        in order to avoid having a big array of all the relevant rowNames                    */
     virtual void execute_iter(std::function<bool (NamedRowValue & output,
                                              std::vector<ExpressionValue> & calcd,
-                                             int rowNum)> aggregator,
+                                             int rowNum)> processor,
                          ssize_t offset,
                          ssize_t limit,
                          std::function<bool (const Json::Value &)> onProgress)
@@ -912,7 +913,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
                 ExpressionValue selectOutput = boundSelect(rowContext, GET_ALL);
                 selectOutput.mergeToRowDestructive(outputRow.columns);
             }
-            if (!aggregator(outputRow, calcd, count))
+            if (!processor(outputRow, calcd, count))
               break;
 
             ++count;
@@ -1020,21 +1021,21 @@ BoundSelectQuery(const SelectExpression & select,
 
 void
 BoundSelectQuery::
-execute(RowAggregatorEx aggregator,
+execute(RowProcessorEx processor,
         ssize_t offset,
         ssize_t limit,
         std::function<bool (const Json::Value &)> onProgress)
 {
     //STACK_PROFILE(BoundSelectQuery);
 
-    auto subAggregator = [&] (NamedRowValue & row,
+    auto subProcessor = [&] (NamedRowValue & row,
                               std::vector<ExpressionValue> & calc,
                               int groupNum)
     {
-       return aggregator(row, calc);
+       return processor(row, calc);
     };
 
-    return execute(subAggregator, aggregator.aggregateInParallel, offset, limit, onProgress);
+    return execute(subProcessor, processor.processInParallel, offset, limit, onProgress);
 
 }
 
@@ -1042,18 +1043,18 @@ void
 BoundSelectQuery::
 execute(std::function<bool (NamedRowValue & output,
                             std::vector<ExpressionValue> & calcd,
-                            int groupNum)> aggregator,
-        bool aggregateInParallel,
+                            int groupNum)> processor,
+        bool processInParallel,
         ssize_t offset,
         ssize_t limit,
         std::function<bool (const Json::Value &)> onProgress)
 {
     //STACK_PROFILE(BoundSelectQuery);
 
-    ExcAssert(aggregator);
+    ExcAssert(processor);
 
     try {
-        executor->execute(aggregator, aggregateInParallel, offset, limit, onProgress);
+        executor->execute(processor, processInParallel, offset, limit, onProgress);
     } JML_CATCH_ALL {
         rethrowHttpException(-1, "Execution error: "
                              + ML::getExceptionString(),
@@ -1374,7 +1375,7 @@ BoundGroupByQuery(const SelectExpression & select,
 
 void
 BoundGroupByQuery::
-execute(RowAggregator aggregator,
+execute(RowProcessor processor,
              ssize_t offset,
              ssize_t limit,
              std::function<bool (const Json::Value &)> onProgress)
@@ -1425,7 +1426,7 @@ execute(RowAggregator aggregator,
        return true;
     };  
             
-    subSelect->execute(onRow, true /*aggregateInParallel*/, 0, -1, onProgress);
+    subSelect->execute(onRow, true /*processInParallel*/, 0, -1, onProgress);
   
     //merge the maps in fixed order
     GroupByMapType destMap;
@@ -1488,7 +1489,7 @@ execute(RowAggregator aggregator,
             if (limit != -1 && n >= limit)
                break;
 
-            aggregator(outputRow);
+            processor(outputRow);
         }
         else
         {
@@ -1523,7 +1524,7 @@ execute(RowAggregator aggregator,
             auto & row = std::get<1>(rowsSorted[rowNum]);
 
             /* Finally, pass to the terminator to continue. */
-            return aggregator(row);
+            return processor(row);
         };
 
     // Now select only the required subset of sorted rows

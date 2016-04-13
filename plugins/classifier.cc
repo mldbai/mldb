@@ -334,7 +334,7 @@ run(const ProcedureRunConfig & run,
     PerThreadAccumulator<ThreadAccum> accum;
 
 
-    auto aggregator = [&] (NamedRowValue & row_,
+    auto processor = [&] (NamedRowValue & row_,
                            const std::vector<ExpressionValue> & extraVals)
         {
             MatrixNamedRow row = row_.flattenDestructive();
@@ -408,7 +408,7 @@ run(const ProcedureRunConfig & run,
                      boundDataset.asName, runProcConf.trainingData.stm->when,
                      *runProcConf.trainingData.stm->where,
                      runProcConf.trainingData.stm->orderBy, extra)
-        .execute({aggregator,true/*aggregateInParallel*/}, 
+        .execute({processor,true/*processInParallel*/}, 
                  runProcConf.trainingData.stm->offset, 
                  runProcConf.trainingData.stm->limit, 
                  nullptr /* progress */);

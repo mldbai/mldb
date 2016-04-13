@@ -53,7 +53,7 @@ TokenSplit(MldbServer * owner,
     SqlExpressionMldbContext context(owner);
  
     //get all values from the dataset and add them to our dictionary of tokens
-    auto aggregator = [&] (const MatrixNamedRow & row) {
+    auto processor = [&] (const MatrixNamedRow & row) {
             for (auto & c: row.columns) {
                 const CellValue & cellValue = std::get<1>(c);
                 
@@ -64,8 +64,8 @@ TokenSplit(MldbServer * owner,
         };
 
 
-    auto aggregator2 = [&] (NamedRowValue & row) {
-        return aggregator(row.flattenDestructive());
+    auto processor2 = [&] (NamedRowValue & row) {
+        return processor(row.flattenDestructive());
         };
 
     BoundTableExpression boundDataset;
@@ -77,14 +77,14 @@ TokenSplit(MldbServer * owner,
                        *boundDataset.dataset, boundDataset.asName, 
                        functionConfig.tokens.stm->when,
                        *functionConfig.tokens.stm->where,
-                       {aggregator2, false/*aggregateInParallel*/},
+                       {processor2, false/*processInParallel*/},
                        functionConfig.tokens.stm->orderBy,
                        functionConfig.tokens.stm->offset,
                        functionConfig.tokens.stm->limit,
                        onProgress);
     else { // query containing only a select (e.g. select "token1", "token2", "token3")
         std::vector<MatrixNamedRow> rows  = queryWithoutDataset(*functionConfig.tokens.stm, context);
-        std::for_each(rows.begin(), rows.end(), aggregator);
+        std::for_each(rows.begin(), rows.end(), processor);
     }
     
     // sorting is important here - it is used to optimize the tokenization

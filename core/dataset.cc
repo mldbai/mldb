@@ -736,7 +736,7 @@ queryStructured(const SelectExpression & select,
 
     // Do it ungrouped if possible
     if (groupBy.clauses.empty() && aggregators.empty()) {
-        auto aggregator = [&] (NamedRowValue & row_,
+        auto processor = [&] (NamedRowValue & row_,
                                const std::vector<ExpressionValue> & calc)
             {
                 MatrixNamedRow row = row_.flattenDestructive();
@@ -750,7 +750,7 @@ queryStructured(const SelectExpression & select,
         
         //cerr << "orderBy_ = " << jsonEncode(orderBy_) << endl;
         iterateDataset(select, *this, alias, when, where,
-                       { rowName.shallowCopy() }, {aggregator, false/*aggregateInParallel*/}, orderBy, offset, limit,
+                       { rowName.shallowCopy() }, {processor, false/*processInParallel*/}, orderBy, offset, limit,
                        nullptr);
     }
     else {
@@ -758,7 +758,7 @@ queryStructured(const SelectExpression & select,
         aggregators.insert(aggregators.end(), havingaggregators.begin(), havingaggregators.end());
 
         // Otherwise do it grouped...
-        auto aggregator = [&] (NamedRowValue & row_)
+        auto processor = [&] (NamedRowValue & row_)
             {
                 MatrixNamedRow row = row_.flattenDestructive();
                 output.emplace_back(row);
@@ -768,7 +768,7 @@ queryStructured(const SelectExpression & select,
          //QueryStructured always want a stable ordering, but it doesnt have to be by rowhash
         iterateDatasetGrouped(select, *this, alias, when, where,
                               groupBy, aggregators, having, rowName,
-                              {aggregator, false/*aggregateInParallel*/}, orderBy, offset, limit,
+                              {processor, false/*processInParallel*/}, orderBy, offset, limit,
                               nullptr);
     }
 

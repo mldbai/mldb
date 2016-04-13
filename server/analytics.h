@@ -41,18 +41,18 @@ struct SqlExpressionMldbContext;
 
 extern const OrderByExpression ORDER_BY_NOTHING;
 
-struct RowAggregator {
-    std::function<bool (NamedRowValue & output)> aggregatorfct;
-    bool aggregateInParallel;
+struct RowProcessor {
+    std::function<bool (NamedRowValue & output)> processorfct;
+    bool processInParallel;
 
-    bool operator () (NamedRowValue & output) {return aggregatorfct(output);}
+    bool operator () (NamedRowValue & output) {return processorfct(output);}
 };
 
-struct RowAggregatorEx {
-    std::function<bool (NamedRowValue & output, const std::vector<ExpressionValue> & calc)> aggregatorfct;
-    bool aggregateInParallel;
+struct RowProcessorEx {
+    std::function<bool (NamedRowValue & output, const std::vector<ExpressionValue> & calc)> processorfct;
+    bool processInParallel;
 
-    bool operator () (NamedRowValue & output, const std::vector<ExpressionValue> & calc) {return aggregatorfct(output, calc);}
+    bool operator () (NamedRowValue & output, const std::vector<ExpressionValue> & calc) {return processorfct(output, calc);}
 };
 
 /** Equivalent to SELECT (select) FROM (dataset) WHEN (when) WHERE (where), and each matching
@@ -63,7 +63,7 @@ void iterateDataset(const SelectExpression & select,
                     const Utf8String & alias,
                     const WhenExpression & when,
                     const SqlExpression & where,
-                    RowAggregator aggregator,
+                    RowProcessor processor,
                     const OrderByExpression & orderBy,
                     ssize_t offset,
                     ssize_t limit,
@@ -78,7 +78,7 @@ void iterateDataset(const SelectExpression & select,
                     const WhenExpression & when,
                     const SqlExpression & where,
                     std::vector<std::shared_ptr<SqlExpression> > calc,
-                    RowAggregatorEx aggregator,
+                    RowProcessorEx processor,
                     const OrderByExpression & orderBy = ORDER_BY_NOTHING,
                     ssize_t offset = 0 /* start at start */,
                     ssize_t limit = -1 /* all */,
@@ -94,7 +94,7 @@ void iterateDatasetGrouped(const SelectExpression & select,
                            const std::vector< std::shared_ptr<SqlExpression> >& aggregators,
                            const SqlExpression & having,
                            const SqlExpression & rowName,
-                           RowAggregator aggregator,
+                           RowProcessor processor,
                            const OrderByExpression & orderBy = ORDER_BY_NOTHING,
                            ssize_t offset = 0 /* start at start */,
                            ssize_t limit = -1 /* all */,

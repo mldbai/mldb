@@ -202,7 +202,7 @@ run(const ProcedureRunConfig & run,
     std::unordered_map<Utf8String, uint64_t> dfs;
     std::atomic<uint64_t> corpusSize(0);
 
-    auto aggregator = [&] (NamedRowValue & row_)
+    auto processor = [&] (NamedRowValue & row_)
         {
             MatrixNamedRow row = row_.flattenDestructive();
             for (auto& col : row.columns) {            
@@ -217,7 +217,7 @@ run(const ProcedureRunConfig & run,
     iterateDataset(runProcConf.trainingData.stm->select, *boundDataset.dataset, boundDataset.asName, 
                    runProcConf.trainingData.stm->when,
                    *runProcConf.trainingData.stm->where,
-                   {aggregator,false/*aggregateInParallel*/},
+                   {processor,false/*processInParallel*/},
                    runProcConf.trainingData.stm->orderBy,
                    runProcConf.trainingData.stm->offset,
                    runProcConf.trainingData.stm->limit,

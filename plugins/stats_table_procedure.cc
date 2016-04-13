@@ -230,7 +230,7 @@ run(const ProcedureRunConfig & run,
     // columns cache
     map<ColumnName, vector<ColumnName>> colCache;
 
-    auto aggregator = [&] (NamedRowValue & row_,
+    auto processor = [&] (NamedRowValue & row_,
                            const std::vector<ExpressionValue> & extraVals)
         {
             MatrixNamedRow row = row_.flattenDestructive();
@@ -316,7 +316,7 @@ run(const ProcedureRunConfig & run,
                    runProcConf.trainingData.stm->when,
                    *runProcConf.trainingData.stm->where,
                    extra,
-                   {aggregator,false/*aggregateInParallel*/}, 
+                   {processor,false/*processInParallel*/}, 
                    runProcConf.trainingData.stm->orderBy,
                    runProcConf.trainingData.stm->offset,
                    runProcConf.trainingData.stm->limit);
@@ -636,7 +636,7 @@ run(const ProcedureRunConfig & run,
     int num_req = 0;
     Date start = Date::now();
 
-    auto aggregator = [&] (NamedRowValue & row_,
+    auto processor = [&] (NamedRowValue & row_,
                            const std::vector<ExpressionValue> & extraVals)
         {
             MatrixNamedRow row = row_.flattenDestructive();
@@ -672,7 +672,7 @@ run(const ProcedureRunConfig & run,
                    runProcConf.trainingData.stm->when, 
                    *runProcConf.trainingData.stm->where,
                    extra,
-                   {aggregator,false/*aggregateInParallel*/}, 
+                   {processor,false/*processInParallel*/}, 
                    runProcConf.trainingData.stm->orderBy,
                    runProcConf.trainingData.stm->offset,
                    runProcConf.trainingData.stm->limit);
