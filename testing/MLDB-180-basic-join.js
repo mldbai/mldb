@@ -462,4 +462,10 @@ expected = [[ "_rowName" ]];
 testQuery('SELECT 1 FROM (SELECT 2) as a OUTER JOIN (SELECT 2) as b WHERE x',
           expected);
 
+//MLDB-1559
+expected = [[ "_rowName" ]];
+
+testQuery('SELECT * FROM test1 as patate JOIN test2 as banane where patate.rowName() in (3, banane.x)',
+          expected);
+
 "success"
