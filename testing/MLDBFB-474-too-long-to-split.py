@@ -3,11 +3,13 @@
 # Mich, 2016-04-13
 # Copyright (c) 2016 Datacratic Inc. All rights reserved.
 #
+import unittest
 
 mldb = mldb_wrapper.wrap(mldb)  # noqa
 
 class TooLongToSplitTest(MldbUnitTest):  # noqa
 
+    @unittest.skip("Skipping because it's too long")
     def test_it(self):
         mldb.put('/v1/datasets/ds', {
             'type' : 'beh.binary',
