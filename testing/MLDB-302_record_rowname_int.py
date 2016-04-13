@@ -24,7 +24,7 @@ dataset.record_row(0, [[5, 5, datetime.datetime.now()]])
 dataset.record_row("0", [[6, 6, datetime.datetime.now()]])
 dataset.commit()
 
-resp = mldb.get("/v1/datasets/recordWork/query", ).json()
+resp = mldb.get("/v1/datasets/recordWork/query", orderBy="rowHash()").json()
 
 mldb.log(resp);
 

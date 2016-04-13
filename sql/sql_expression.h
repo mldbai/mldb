@@ -231,8 +231,7 @@ struct TableOperations {
                                      const SqlExpression & where,
                                      const OrderByExpression & orderBy,
                                      ssize_t offset,
-                                     ssize_t limit,
-                                     bool allowParallel)>
+                                     ssize_t limit)>
     runQuery;
 
     bool operator ! () const {return !getRowInfo && !getFunction  && !runQuery; }

@@ -437,8 +437,7 @@ struct Dataset: public MldbEntity {
                     const SqlExpression & rowName,
                     ssize_t offset,
                     ssize_t limit,
-                    Utf8String alias = "",
-                    bool allowMT = true) const;
+                    Utf8String alias = "") const;
 
     /** Select from the database. */
     virtual std::vector<MatrixNamedRow>
@@ -520,8 +519,7 @@ struct Dataset: public MldbEntity {
                const SqlExpression & where,
                const OrderByExpression & orderBy,
                ssize_t offset,
-               ssize_t limit,
-               bool allowParallel) const;
+               ssize_t limit) const;
 
     /** Method to overwrite to handle a request.  By default, the dataset
         will return that it can't handle any requests.  Used to expose

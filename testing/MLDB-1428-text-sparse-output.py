@@ -25,19 +25,21 @@ class ImportTextToSparseTest(unittest.TestCase):
 
         res = mldb.query('SELECT * FROM iris limit 1')
 
-        expected = [["_rowName",
-                    "a",
-                    "b",
-                    "c",
-                    "d",
-                    "label"],
+        expected = [[
+                        "_rowName",
+                        "a",
+                        "b",
+                        "c",
+                        "d",
+                        "label"
+                    ],
                     [
-                        "97",
-                        5.7,
-                        2.9,
-                        4.2,
-                        1.3,
-                        "Iris-versicolor"
+                        "150",
+                        5.9,
+                        3,
+                        5.1,
+                        1.8,
+                        "Iris-virginica"
                     ]]
 
         self.assertEqual(res, expected)
@@ -57,8 +59,8 @@ class ImportTextToSparseTest(unittest.TestCase):
 
         res = mldb.query('SELECT * FROM iris_ex limit 1')
 
-        expected = [["_rowName", "a", "b", "d","label"],
-                    ["97", 5.7, 2.9, 1.3, "Iris-versicolor"]]
+        expected = [["_rowName", "a", "b", "d", "label" ],
+                    ["150", 5.9, 3, 1.8, "Iris-virginica"]]
 
         self.assertEqual(res, expected)
 
@@ -76,9 +78,7 @@ class ImportTextToSparseTest(unittest.TestCase):
             } 
         })
 
-      #  mldb.log(res)
-
-        res = mldb.query('SELECT gonewild FROM reddit LIMIT 1')
+        res = mldb.query('SELECT gonewild FROM reddit WHERE gonewild IS NOT NULL LIMIT 1')
 
         expected = [["_rowName","gonewild"],
                     ["471242",1]]
@@ -98,7 +98,7 @@ class ImportTextToSparseTest(unittest.TestCase):
 
         res = mldb.query("select * from onechunk where rowName() in ('1', '2', '3')")
 
-        expected = [["_rowName", "x"],["2",18],["1",17],["3","banane"]]
+        expected = [["_rowName", "x"],["1",17],["2",18],["3","banane"]]
 
         self.assertEqual(res, expected)
 

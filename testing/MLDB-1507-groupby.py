@@ -55,12 +55,17 @@ class Mldb1507Test(MldbUnitTest):
             named 'counts'
             from %s
         ))
-        order by counts desc limit 20
+        order by counts desc, rowHash()
+        limit 20
         """
         for s in ["sum", "count"]:
+
+            res1 = mldb.query(q % (s, "titanic_tabular"));
+            res2 = mldb.query(q % (s, "titanic_sparse"));
+
             self.assertTableResultEquals(
-                mldb.query(q % (s, "titanic_tabular")),
-                mldb.query(q % (s, "titanic_sparse"))
+                res1,
+                res2
             )
 
         # all of these permutations should be equivalent!

@@ -207,13 +207,11 @@ struct JoinedDataset::Itl
             
             // We can use a fast path, since we have simple non-filtered
             // equijoin
-
             makeJoinConstantWhere(condition, context, left, right, joinConfig.qualification);            
 
         } else {
             // Complex join condition.  We need to generate the full set of
             // values.  To do this, we use the new executor.
-
             auto gotElement = [&] (std::shared_ptr<PipelineResults> & res) -> bool
                 {
                     //cerr << "got rows complex " << res->values.size() << endl;
@@ -241,7 +239,7 @@ struct JoinedDataset::Itl
             PipelineElement::root(context)
                 ->join(joinConfig.left, joinConfig.right, joinConfig.on, joinConfig.qualification)
                 ->bind()
-                ->start(getParam, true)
+                ->start(getParam)
                 ->takeAll(gotElement);
         }
 
@@ -358,7 +356,7 @@ struct JoinedDataset::Itl
 
                 auto generator = dataset.queryBasic
                 (context, queryExpression, side.when, *sideCondition, side.orderBy,
-                 0, -1, true /* allowParallel */);
+                 0, -1);
 
                 // Because we know that our outer context is an
                 // SqlExpressionMldbContext, we know that it takes an
@@ -373,6 +371,7 @@ struct JoinedDataset::Itl
 
                 // Now we extract all values 
                 std::vector<std::tuple<ExpressionValue, RowName, RowHash> > sorted;
+                std::vector<std::tuple<RowName, RowHash> > outerRows;
 
                 for (auto & r: rows) {
                     ExcAssertEqual(r.columns.size(), 1);
@@ -383,7 +382,9 @@ struct JoinedDataset::Itl
                         const ExpressionValue & embeddingCondition = embedding.getField(1);
                         if (!embeddingCondition.asBool())
                         {
-                            recordOuterRow(r.rowName, r.rowHash);
+                            //if side.orderBy is not valid, the result will not be deterministic
+                            //and we want a deterministic result, so output once sorted.
+                            outerRows.emplace_back(r.rowName, r.rowHash);
                             continue;
                         }
                     }
@@ -393,6 +394,11 @@ struct JoinedDataset::Itl
                 }
 
                 parallelQuickSortRecursive<std::tuple<ExpressionValue, RowName, RowHash> >(sorted.begin(), sorted.end());
+                parallelQuickSortRecursive<std::tuple<RowName, RowHash> >(outerRows.begin(), outerRows.end());
+
+                for (auto & r: outerRows) {
+                    recordOuterRow(std::get<0>(r), std::get<1>(r));
+                }
 
                 return sorted;
             };
@@ -506,14 +512,12 @@ struct JoinedDataset::Itl
             }
         }
 
-        while (outerLeft && it1 != end1)
-        {
+        while (outerLeft && it1 != end1) {
             recordJoinRow(std::get<1>(*it1), std::get<2>(*it1), RowName(), RowHash()); //For LEFT and FULL joins
             ++it1;
         }
 
-        while (outerRight && it2 != end2)
-        {
+        while (outerRight && it2 != end2) {
             recordJoinRow(RowName(), RowHash(),std::get<1>(*it2), std::get<2>(*it2)); //For RIGHT and FULL joins
             ++it2;
         }

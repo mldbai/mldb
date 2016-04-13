@@ -2625,7 +2625,7 @@ bind(SqlBindingScope & context) const
                                             WhenExpression::TRUE,
                                             *SqlExpression::TRUE,
                                             orderBy,
-                                            offset, limit, true /* allowParallel */);
+                                            offset, limit);
             
             // This is a set of all values we can search for in our expression
             auto valsPtr = std::make_shared<std::unordered_set<ExpressionValue> >();
