@@ -416,7 +416,7 @@ querySubDataset(MldbServer * server,
         rowOut.rowName = std::move(row.rowName);
         rowOut.rowHash = std::move(row.rowHash);
         for (auto & c: row.columns) {
-            rowOut.columns.emplace_back(std::move(std::get<0>(c)),
+            rowOut.columns.emplace_back(std::move(std::get<0>(c).toSimpleName()),
                                         ExpressionValue(std::move(std::get<1>(c)),
                                                         std::get<2>(c)));
         }

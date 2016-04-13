@@ -476,20 +476,23 @@ doGetColumnFunction(const Utf8String & functionName)
     return nullptr;
 }
 
-Utf8String 
+ColumnName
 SqlExpressionDatasetContext::
-doResolveTableName(const Utf8String & fullVariableName, Utf8String &tableName) const
+doResolveTableName(const ColumnName & fullColumnName, Utf8String &tableName) const
 {
+    throw HttpReturnException(600, "To implement: SqlExpressionDatasetContext::doResolveTableName");
+#if 0
     if (!childaliases.empty()) {
-        return resolveTableName(fullVariableName, tableName);
+        return resolveTableName(fullColumnName, tableName);
     }
     else {
         Utf8String simplifiedVariableName
-            = removeTableName(alias, fullVariableName).toSimpleName();
-        if (simplifiedVariableName != fullVariableName)
+            = removeTableName(alias, fullColumnName).toSimpleName();
+        if (simplifiedVariableName != fullColumnName)
             tableName = alias;
         return std::move(simplifiedVariableName);
     }
+#endif
 }   
 
 /*****************************************************************************/

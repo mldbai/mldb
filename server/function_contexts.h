@@ -119,9 +119,9 @@ struct FunctionExpressionContext : public SqlBindingScope{
 
 private:
 
-    bool findVariableRecursive(const Utf8String& variableName,
-                               std::shared_ptr<ExpressionValueInfo>& valueInfo,
-                               SchemaCompleteness& schemaCompleteness) const;
+    bool findColumnRecursive(const ColumnName& columnName,
+                             std::shared_ptr<ExpressionValueInfo>& valueInfo,
+                             SchemaCompleteness& schemaCompleteness) const;
     
     MldbServer * mldb;
 };

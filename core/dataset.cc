@@ -841,7 +841,7 @@ generateVariableEqualsConstant(const Dataset & dataset,
                                const ReadColumnExpression & variable,
                                const ConstantExpression & constant)
 {
-    ColumnName columnName(removeTableName(alias,variable.variableName).toSimpleName());
+    ColumnName columnName(removeTableName(alias,variable.columnName).toSimpleName());
     CellValue constantValue(constant.constant.getAtom());
 
     auto filter = [=] (const CellValue & val)
@@ -851,7 +851,7 @@ generateVariableEqualsConstant(const Dataset & dataset,
 
     return generateFilteredColumnExpression
         (dataset, columnName, filter,
-         "generate rows where var '" + variable.variableName.toUtf8String()
+         "generate rows where var '" + variable.columnName.toUtf8String()
          + "' matches value '"
          + constantValue.toString() + "'");
 }
@@ -861,7 +861,7 @@ generateVariableIsTrue(const Dataset & dataset,
                        const Utf8String& alias,
                        const ReadColumnExpression & variable)
 {
-    ColumnName columnName(removeTableName(alias,variable.variableName));
+    ColumnName columnName(removeTableName(alias,variable.columnName));
     
     auto filter = [&] (const CellValue & val)
         {
@@ -870,7 +870,7 @@ generateVariableIsTrue(const Dataset & dataset,
 
     return generateFilteredColumnExpression
         (dataset, columnName, filter,
-         "generate rows where var '" + variable.variableName.toUtf8String()
+         "generate rows where var '" + variable.columnName.toUtf8String()
          + "' is true");
 }
 
@@ -879,7 +879,7 @@ generateVariableIsNotNull(const Dataset & dataset,
                           const Utf8String& alias,
                           const ReadColumnExpression & variable)
 {
-    ColumnName columnName(removeTableName(alias,variable.variableName));
+    ColumnName columnName(removeTableName(alias,variable.columnName));
     
     auto filter = [&] (const CellValue & val)
         {
@@ -888,7 +888,7 @@ generateVariableIsNotNull(const Dataset & dataset,
 
     return generateFilteredColumnExpression
         (dataset, columnName, filter,
-         "generate rows where var '" + variable.variableName.toUtf8String()
+         "generate rows where var '" + variable.columnName.toUtf8String()
          + "' is not null");
 }
 
@@ -1035,7 +1035,8 @@ generateRowsWhere(const SqlBindingScope & scope,
     if (inExpression) 
     {
         auto fexpr = getFunction(*(inExpression->expr));
-        if (fexpr && removeTableName(alias, fexpr->functionName).stringEqual("rowName")) {
+        // TODO BEFORE MERGING: functionName should be a compound
+        if (fexpr && removeTableName(alias, Coords(fexpr->functionName)).toSimpleName() == "rowName") {
             if (inExpression->tuple && inExpression->tuple->isConstant()) {
                 return {[=] (ssize_t numToGenerate, Any token,
                              const BoundParameters & params)
@@ -1154,7 +1155,8 @@ generateRowsWhere(const SqlBindingScope & scope,
         // Optimization for rowName() == constant.  In this case, we can generate a
         // single row.
         if (flhs && crhs && comparison->op == "=") {
-            if (removeTableName(alias, flhs->functionName).toSimpleName()
+            if (removeTableName(alias, Coords(Coord(flhs->functionName)))
+                .toSimpleName()
                 == "rowName") {
                 return generateRownameIsConstant(*this, *crhs);
             }
@@ -1162,8 +1164,9 @@ generateRowsWhere(const SqlBindingScope & scope,
         // Optimization for constant == rowName().  In this case, we can generate a
         // single row.
         if (frhs && clhs && comparison->op == "=") {
-            if (removeTableName(alias, frhs->functionName).toSimpleName()
-                == "rowName" ) {
+            if (removeTableName(alias, Coords(Coord(frhs->functionName)))
+                .toSimpleName()
+                    == "rowName" ) {
                 return generateRownameIsConstant(*this, *clhs);
             }
         }
@@ -1177,8 +1180,9 @@ generateRowsWhere(const SqlBindingScope & scope,
             
 
             if (flhs2
-                && removeTableName(alias, flhs2->functionName).toSimpleName()
-                   == "rowHash"
+                && removeTableName(alias, Coords(Coord(flhs2->functionName)))
+                .toSimpleName()
+                    == "rowHash"
                 && crhs2 && crhs2->constant.isInteger()) {
 
                 std::function<bool (uint64_t, uint64_t)> op;
@@ -1485,8 +1489,9 @@ queryBasic(const SqlBindingScope & scope,
 
                             outputRow.columns.reserve(row.columns.size());
                             for (auto & c: row.columns) {
+                                // TODO BEFORE MERGE: no toSimpleName()
                                 outputRow.columns.emplace_back
-                                    (std::get<0>(c),
+                                    (std::get<0>(c).toSimpleName(),
                                      ExpressionValue(std::move(std::get<1>(c)),
                                                      std::move(std::get<2>(c))));
                             }

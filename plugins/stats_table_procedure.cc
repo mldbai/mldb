@@ -49,7 +49,17 @@ operator >> (ML::DB::Store_Reader & store, Coord & coord)
     return store;
 }
 
+inline ML::DB::Store_Writer &
+operator << (ML::DB::Store_Writer & store, const Coords & coord)
+{
+    throw HttpReturnException(500, "serialize coords");
+}
 
+inline ML::DB::Store_Reader &
+operator >> (ML::DB::Store_Reader & store, Coords & coord)
+{
+    throw HttpReturnException(500, "reconstitute coords");
+}
 
 
 /*****************************************************************************/
@@ -401,9 +411,10 @@ apply(const FunctionApplier & applier,
 {
     FunctionOutput result;
 
-    ExpressionValue args = context.get<ExpressionValue>("keys");
+    ExpressionValue storage;
+    const ExpressionValue & arg = context.mustGet("keys", storage);
 
-    if(args.isObject()) {
+    if(arg.isRow()) {
         RowValue rtnRow;
 
         // TODO should we cache column names as we did in the procedure?
@@ -430,7 +441,7 @@ apply(const FunctionApplier & applier,
                 return true;
             };
 
-        args.forEachAtom(onAtom);
+        arg.forEachAtom(onAtom);
         result.set("counts", ExpressionValue(std::move(rtnRow)));
     }
     else {
@@ -800,9 +811,10 @@ apply(const FunctionApplier & applier,
 {
     FunctionOutput result;
 
-    ExpressionValue args = context.get<ExpressionValue>("words");
+    ExpressionValue storage;
+    const ExpressionValue & arg = context.mustGet("keys", storage);
 
-    if(args.isObject()) {
+    if(arg.isRow()) {
         RowValue rtnRow;
 
         // TODO should we cache column names as we did in the procedure?
@@ -824,7 +836,7 @@ apply(const FunctionApplier & applier,
                 return true;
             };
 
-        args.forEachAtom(onAtom);
+        arg.forEachAtom(onAtom);
         result.set("probs", ExpressionValue(std::move(rtnRow)));
     }
     else {

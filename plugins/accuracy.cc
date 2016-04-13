@@ -240,8 +240,8 @@ runCategorical(AccuracyConfig & runAccuracyConf,
 
             static const ColumnName score("score");
             
-            auto onAtom = [&] (const Coord & columnName,
-                               const Coord & prefix,
+            auto onAtom = [&] (const Coords & columnName,
+                               const Coords & prefix,
                                const CellValue & val,
                                Date ts) 
                 {

@@ -618,8 +618,8 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
                         outputRow.columns.reserve(row.columns.size());
                         for (auto & c: row.columns) {
                             outputRow.columns.emplace_back
-                                (std::move(std::get<0>(c)),
-                                 ExpressionValue(std::move(std::get<1>(c).toSimpleName()),
+                                (std::move(std::get<0>(c).toSimpleName()),
+                                 ExpressionValue(std::move(std::get<1>(c)),
                                                  std::get<2>(c)));
                         }
                     }
@@ -891,7 +891,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
                 outputRow.columns.reserve(row.columns.size());
                 for (auto & c: row.columns) {
                     outputRow.columns.emplace_back
-                        (std::move(std::get<0>(c)),
+                        (std::move(std::get<0>(c).toSimpleName()),
                          ExpressionValue(std::move(std::get<1>(c)),
                                          std::get<2>(c)));
                 }
@@ -1110,21 +1110,7 @@ struct GroupContext: public SqlExpressionDatasetContext {
                                         const std::vector<BoundSqlExpression> & args,
                                         SqlBindingScope & argScope)
     {
-        Utf8String resolvedTableName = tableName;
-        Utf8String resolvedFunctionName = functionName;
-
-        // TODO BEFORE MERGE
-        throw HttpReturnException(500, "Need to resolve table names in GroupContext");
-#if 0
-        if (tableName.empty()) {
-            resolvedFunctionName
-                = removeTableName(alias, functionName).toSimpleName();
-            if (resolvedFunctionName != functionName)
-                resolvedTableName = alias;
-        }
-#endif
-
-        if (resolvedFunctionName == "rowName") {
+        if (functionName == "rowName") {
             return {[] (const std::vector<ExpressionValue> & args,
                         const SqlRowScope & context)
                     {
@@ -1144,8 +1130,8 @@ struct GroupContext: public SqlExpressionDatasetContext {
                     },
                     std::make_shared<StringValueInfo>()};
         }
-        else if (resolvedFunctionName == "groupKeyElement"
-                 || resolvedFunctionName == "group_key_element") {
+        else if (functionName == "groupKeyElement"
+                 || functionName == "group_key_element") {
             return {[] (const std::vector<ExpressionValue> & args,
                         const SqlRowScope & context)
                     {
@@ -1160,9 +1146,9 @@ struct GroupContext: public SqlExpressionDatasetContext {
         }
 
         //check aggregators
-        auto aggFn = SqlBindingScope::doGetAggregator(resolvedFunctionName, args);
+        auto aggFn = SqlBindingScope::doGetAggregator(functionName, args);
         if (aggFn) {
-            if (resolvedFunctionName == "count")
+            if (functionName == "count")
                 {
                     //count is *special*
                     evaluateEmptyGroups = true;
@@ -1185,8 +1171,8 @@ struct GroupContext: public SqlExpressionDatasetContext {
                     // TODO: get it from the value info for the group keys...
                     std::make_shared<AnyValueInfo>()};
         }
-        return SqlBindingScope::doGetFunction(resolvedTableName,
-                                              resolvedFunctionName,
+        return SqlBindingScope::doGetFunction(tableName,
+                                              functionName,
                                               args, argScope);
     }
 
@@ -1196,6 +1182,8 @@ struct GroupContext: public SqlExpressionDatasetContext {
     virtual ColumnGetter doGetColumn(const Utf8String & tableName,
                                      const ColumnName & columnName)
     {
+        // First, search for something that matches the surface (ugh)
+        // of a group by clause.  We can use that directly.
         for (unsigned i = 0;  i < groupByExpression.clauses.size();  ++i) {
             const std::shared_ptr<SqlExpression> & g
                 = groupByExpression.clauses[i];
@@ -1203,7 +1191,7 @@ struct GroupContext: public SqlExpressionDatasetContext {
             ColumnName simplifiedSurface
                 = removeTableName(alias, Coord(g->surface));
             
-            if (simplifiedSurface == simplifiedVariableName) {
+            if (simplifiedSurface == columnName) {
                 return {[=] (const SqlRowScope & context,
                              ExpressionValue & storage,
                              const VariableFilter & filter)
@@ -1217,21 +1205,25 @@ struct GroupContext: public SqlExpressionDatasetContext {
             }
         }
 
+        // Otherwise, it must be a variable in the output row.
         return {[=] (const SqlRowScope & context,
                      ExpressionValue & storage,
                      const VariableFilter & filter) -> const ExpressionValue &
                 {
                     auto & row = context.as<RowContext>();
              
+                    // TODO BEFORE MERGE: shouldn't be toSimpleName()
                     const ExpressionValue * result
-                        = searchRow(row.output.columns, columnName, filter, storage);
+                        = searchRow(row.output.columns, columnName.toSimpleName(),
+                                    filter, storage);
 
                     if (result)
                         return *result;     
                     
-                    throw HttpReturnException(400, "variable '" + columnName.toUtf8Sring() 
-                                              + "' must appear in the GROUP BY clause or "
-                                              "be used in an aggregate function");
+                    throw HttpReturnException
+                        (400, "variable '" + columnName.toUtf8String() 
+                         + "' must appear in the GROUP BY clause or "
+                         "be used in an aggregate function");
                 },
                 std::make_shared<AtomValueInfo>()};
     }

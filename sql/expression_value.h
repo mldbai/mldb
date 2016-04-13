@@ -279,10 +279,8 @@ struct ExpressionValueInfo {
         with columns name separated by a '.'
     */
     virtual std::shared_ptr<ExpressionValueInfo>
-    findNestedColumn(const ColumnName& columnName,
-                     SchemaCompleteness& schemaCompleteness)
+    findNestedColumn(const ColumnName& columnName)
     {
-        schemaCompleteness = SCHEMA_CLOSED;
         return nullptr;
     }
 
@@ -467,22 +465,29 @@ DECLARE_STRUCTURE_DESCRIPTION(EmbeddingMetadata);
       CellValue class for the value part.  These always have exactly one
       way to store them: inside a CellValue, or not at all for a null.
     - A row, which is logically a set of named columns, each of which has a
-      value and a timestamp.  Each of those values may also be a row,
-      which allows for recursive structures.
+      value (which may be an atom or a row) and a timestamp.  Since each of
+      those values may also be a row, this representation allows for recursive
+      structures.
 
       There are certain sub-types of rows that meet certain conditions.
       These still meet the definition of a row, however, and should not
       behave differently for standard operations:
 
-      - A row with consecutive columns from 0 to n is an array of length
-        n+1
+      - A row with consecutive columns from 0 to n, and where each element
+        has the same timestamp, is an *array* of length n+1
+      - A row with n distinct columns (with any name), where each has
+        one value and the same timestamp, is an *object*.  (This definition
+        is rarely used, but it's important as it describes the subset of
+        values that can be losslessly converted to JSON).  Note that all
+        arrays are also objects.
       - A row with consecutive columns from 0 to n, each of which is an
-        atomic value, with a common timestamp across all elements, is a
-        one dimensional embedding of shape [n+1].
+        atomic value, with a common type and a common timestamp across
+        all elements, is a one dimensional embedding of shape [n+1].
       - A row with consecutive columns from 0 to n and 0 to m, named
         like 0.0, 0.1, ..., 0.n, 1.0, ..., 1.n, ..., m.0, ..., m.n,
-        each of which is an atomic value, with a common timestamp across
-        all elements, is a 2 dimensional embedding of shape [m+1, n+1].
+        each of which is an atomic value, with a common type and with a
+        common timestamp across all elements, is a 2 dimensional embedding
+        of shape [m+1, n+1].
     
     Storage types exist because it would be to expensive to always store
     all of the elements as per the definition.  Instead, sometimes these
@@ -610,10 +615,10 @@ struct ExpressionValue {
     */
     static ExpressionValue
     embedding(Date ts,
-           std::shared_ptr<const void> data,
-           StorageType storage,
-           std::vector<size_t> dims,
-           std::shared_ptr<const EmbeddingMetadata> md = nullptr);
+              std::shared_ptr<const void> data,
+              StorageType storage,
+              std::vector<size_t> dims,
+              std::shared_ptr<const EmbeddingMetadata> md = nullptr);
     
     //Construct from a m/d/s time interval
     static ExpressionValue
@@ -736,10 +741,14 @@ struct ExpressionValue {
     bool isLater(const Date& compareTimeStamp,
                  const ExpressionValue& compareValue) const;
 
-    // Return the given field name.  Valid for anything that is a
-    // structured type... rows, JSON values, objects, arrays, embeddings.
-    ExpressionValue getField(const ColumnName & fieldName,
-                             const VariableFilter & filter = GET_LATEST) const;
+    // Return the value of the given column (non-nested).
+    ExpressionValue getColumn(const Coord & columnName,
+                              const VariableFilter & filter = GET_LATEST) const;
+
+    // Return the given nested column.  Valid for anything that is a
+    // row type... rows, JSON values, objects, arrays, embeddings.
+    ExpressionValue getNestedColumn(const ColumnName & columnName,
+                                    const VariableFilter & filter = GET_LATEST) const;
 
 #if 0    
     // Return the given field by index.  Valid for anything that is a
@@ -748,8 +757,8 @@ struct ExpressionValue {
 #endif
 
     const ExpressionValue*
-    findNestedField(const ColumnName & fieldName,
-                    const VariableFilter & filter = GET_LATEST) const;
+    findNestedColumn(const ColumnName & fieldName,
+                     const VariableFilter & filter = GET_LATEST) const;
 
 #if 0
     // Return the given field name.  Valid for anything that is a
@@ -807,8 +816,10 @@ struct ExpressionValue {
     getEmbedding(const ColumnName * knownNames, size_t len) const;
 #endif
 
-    /** Iterate over the child expression. */
-    bool forEachSubexpression(const std::function<bool (const Coords & columnName,
+    /** Iterate over the child expression, with an ExpressionValue at each
+        level.
+    */
+    bool forEachSubexpression(const std::function<bool (const Coord & columnName,
                                                         const Coords & prefix,
                                                         const ExpressionValue & val)>
                                                   & onSubexpression,
@@ -820,7 +831,7 @@ struct ExpressionValue {
         Only works for row-typed values.
     */
     bool forEachColumnDestructive
-        (const std::function<bool (Coords & columnName, ExpressionValue & val)>
+        (const std::function<bool (Coord & columnName, ExpressionValue & val)>
          & onSubexpression) const;
 
 
@@ -830,6 +841,15 @@ struct ExpressionValue {
                                                const CellValue & val,
                                                Date ts) > & onAtom,
                      const Coords & columnName = Coords()) const;
+
+
+    /** Iterate over the flattened representation, destroying this object
+        as we go to make the operations more efficient.  The called object
+        will be left in an indeterminate state afterwards.
+    */
+    bool forEachAtomDestructive(const std::function<bool (Coords & columnName,
+                                                          CellValue & val,
+                                                          Date ts) > & onAtom);
 
     /** For a row (structured) storage, returns the number of elements
         that are in it.  Note that this is the non-flattened version,
@@ -960,6 +980,12 @@ private:
     */
     template<typename Fn>
     bool forEachColumnDestructiveT(Fn && onSubexpression) const;
+
+    /** Same as forEachAtomDestructive, but templated on the function
+        type to allow for inlining.  Defined in expression_value.cc.
+    */
+    template<typename Fn>
+    bool forEachAtomDestructiveT(Fn && onSubexpression) const;
 
     enum class Type : uint8_t {
         NONE,        ///< Expression is empty or not initialized yet.  Shouldn't be exposed to user.
@@ -1281,8 +1307,7 @@ struct RowValueInfo: public ExpressionValueInfoT<RowValue> {
                                                    Date timestamp)> & write) const;
 
     virtual std::shared_ptr<ExpressionValueInfo>
-    findNestedColumn(const ColumnName & columnName,
-                     SchemaCompleteness& schemaCompleteness);
+    findNestedColumn(const ColumnName & columnName);
 
     virtual std::vector<KnownColumn> getKnownColumns() const;
     virtual SchemaCompleteness getSchemaCompleteness() const;

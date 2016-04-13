@@ -298,32 +298,8 @@ SampledDataset(MldbServer * owner,
                const ExpressionValue & options)
     : Dataset(owner)
 {
-     SampledDatasetConfig config;
-
-    if(!options.isRow())
-        throw ML::Exception("options should be a row");
-
-    for(auto elem : options.getRow()) {
-        const ColumnName& columnName = std::get<0>(elem);
-
-        if (columnName == ColumnName("rows")) {
-            config.rows = std::get<1>(elem).toInt();
-        }
-        else if (columnName == ColumnName("fraction")) {
-            config.fraction = std::get<1>(elem).toDouble();
-        }
-        else if (columnName == ColumnName("withReplacement")) {
-            config.withReplacement = std::get<1>(elem).asBool();
-        }
-        else if (columnName == ColumnName("seed")) {
-            config.seed = std::get<1>(elem).toInt();
-        }
-        else {
-            auto expVal2 = std::get<1>(elem);
-            throw HttpReturnException(400, "unknown option: '"+columnName.toUtf8String()+"'");
-        }
-    }
-
+    SampledDatasetConfig config
+        = jsonDecode<SampledDatasetConfig>(options.extractJson());
     itl.reset(new Itl(server, dataset, config));
 }
 

@@ -153,6 +153,27 @@ void to_js(JS::JSValue & value, const Coord & val)
     return to_js(value, jsonEncode(val));
 }
 
+Coords from_js(const JS::JSValue & value, Coords *)
+{
+    if (value->IsNull() || value->IsUndefined())
+        return Coords();
+    return jsonDecode<Coords>(JS::from_js(value, (Json::Value *)0));
+}
+
+Coords from_js_ref(const JS::JSValue & value, Coords *)
+{
+    if (value->IsNull() || value->IsUndefined())
+        return Coords();
+    return jsonDecode<Coords>(JS::from_js(value, (Json::Value *)0));
+}
+
+void to_js(JS::JSValue & value, const Coords & val)
+{
+    if (val.empty())
+        value = v8::Null();
+    return to_js(value, vector<Coord>(val.begin(), val.end()));
+}
+
 void to_js(JS::JSValue & value, const ExpressionValue & val)
 {
     to_js(value, val.getAtom());

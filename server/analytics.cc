@@ -131,8 +131,10 @@ void iterateDense(const SelectExpression & select,
 
     if (numOutputVariables == 0)
         throw HttpReturnException(400, "Select expression '"
-                                + (select.surface.empty() ? select.surface : select.print())
-                                + "' matched no columns");
+                                  + (select.surface.empty() ? select.surface : select.print())
+                                  + "' matched no columns",
+                                  "rowInfo",
+                                  static_pointer_cast<ExpressionValueInfo>(from.getRowInfo()));
     
     std::vector<BoundSqlExpression> boundCalc;
     for (auto & c: calc) {

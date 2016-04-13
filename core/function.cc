@@ -345,55 +345,58 @@ const ExpressionValue FunctionContext::NONE;
 
 const ExpressionValue *
 FunctionContext::
-findValue(const Utf8String & name) const
+findValue(const ColumnName & name) const
 {
+    ExcAssert(!name.empty());
+
+    auto key = ValueMapKey::ref(name[0]);
+
+    auto it = values.find(key);
+    if (it == values.end()) {
+        return nullptr;
+    }
+    else if (name.size() == 1) {
+        return &it->second;
+    }
+    else {
+        return it->second.findNestedColumn(name.removePrefix(name[0])); 
+    }             
+}
+
+const ExpressionValue *
+FunctionContext::
+findValue(const Coord & name) const
+{
+    ExcAssert(!name.empty());
+
     auto key = ValueMapKey::ref(name);
 
     auto it = values.find(key);
-    if (it == values.end())
-    {
-        auto jt = name.find('.');
-        if (jt != name.end())
-        {
-            //"x.y form"
-            Utf8String head(name.begin(), jt);
-            ++jt;
-            auto kt = values.find(head);
-
-            if (kt != values.end())
-            {
-                Utf8String tail(jt, name.end());
-
-                return kt->second.findNestedField(tail); 
-            }             
-
-        }
-
+    if (it == values.end()) {
         return nullptr;
     }
-       
     return &it->second;
+}
+
+const ExpressionValue *
+FunctionContext::
+findValue(const Utf8String & name) const
+{
+    return findValue(Coord(name));
 }
 
 const ExpressionValue *
 FunctionContext::
 findValue(const std::string & name) const
 {
-    return findValue(Utf8String(name));
-}
-
-const ExpressionValue *
-FunctionContext::
-findValue(const ColumnName & name) const
-{
-    return findValue(name);
+    return findValue(Coord(name));
 }
 
 const ExpressionValue *
 FunctionContext::
 findValue(const char * name) const
 {
-    return findValue(Utf8String(name));
+    return findValue(Coord(name, strlen(name)));
 }
 
 void
@@ -414,26 +417,28 @@ get(const Utf8String & name) const
     auto key = ValueMapKey::ref(name);
     auto it = values.find(key);
     if (it == values.end()) {
-        // Look for a path, ie x.y
-        auto it2 = name.find('.');
-        if (it2 != name.end()) {
-            // Split it.  Look for that field
-            Utf8String key(name.begin(), it2);
-            it = values.find(key);
-            if (it != values.end()) {
-                Utf8String val(std::next(it2), name.end());
-                return it->second.getField(val);
-            }
-        }
-        
         throw HttpReturnException(400, "couldn't find named value '" + name + "'",
                                   "context", *this);
     }
     if (it->second.empty()) {
         return ExpressionValue();
-        throw HttpReturnException(400, "Value '" + name
-                                  + "' was read but has not been written",
-                                  "value", name);
+    }
+    return it->second;
+}
+
+ExpressionValue
+FunctionContext::
+get(const Coord & name) const
+{
+    auto key = ValueMapKey::ref(name);
+    auto it = values.find(key);
+    if (it == values.end()) {
+        throw HttpReturnException(400, "couldn't find named value '"
+                                  + name.toUtf8String() + "'",
+                                  "context", *this);
+    }
+    if (it->second.empty()) {
+        return ExpressionValue();
     }
     return it->second;
 }
@@ -441,14 +446,6 @@ get(const Utf8String & name) const
 ExpressionValue
 FunctionContext::
 getValueOrNull(const Utf8String & name) const
-{
-    auto key = ValueMapKey::ref(name);
-    return getValueOrNull(key);
-}
-
-ExpressionValue
-FunctionContext::
-getValueOrNull(const ColumnName & name) const
 {
     auto key = ValueMapKey::ref(name);
     return getValueOrNull(key);
@@ -468,18 +465,6 @@ getValueOrNull(const ValueMapKey & key) const
 {
     auto it = values.find(key);
     if (it == values.end()) {
-        Utf8String name = key.toUtf8String();
-        // Look for a path, ie x.y
-        auto it2 = name.find('.');
-        if (it2 != name.end()) {
-            // Split it.  Look for that field
-            Utf8String key(name.begin(), it2);
-            it = values.find(key);
-            if (it != values.end()) {
-                Utf8String val(std::next(it2), name.end());
-                return it->second.getField(val);
-            }
-        }
         return ExpressionValue();
     }
     if (it->second.empty()) {
@@ -722,7 +707,7 @@ toRowInfo() const
         knownColumns.emplace_back(p.first.toCoord(), p.second.valueInfo,
                                   COLUMN_IS_DENSE);
     }
-
+    
     return std::make_shared<RowValueInfo>(knownColumns, SCHEMA_CLOSED);
 }
 

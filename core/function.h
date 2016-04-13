@@ -38,7 +38,6 @@ struct ValueMapKey {
     ValueMapKey(Utf8String str);
     ValueMapKey(std::string str);
     ValueMapKey(const MLDB::Coord & coord);
-    ValueMapKey(const MLDB::Coords & coords);
     ValueMapKey(const char * utf8Start);
     ValueMapKey(const char * utf8Start, size_t utf8Len);
 
@@ -127,9 +126,10 @@ struct FunctionContext {
     void initializeFrom(const FunctionContext & other);
 
     ExpressionValue get(const Utf8String & name) const;
+    ExpressionValue get(const Coord & name) const;
 
     ExpressionValue getValueOrNull(const Utf8String & name) const;
-    ExpressionValue getValueOrNull(const ColumnName & name) const;
+    ExpressionValue getValueOrNull(const Coord & name) const;
     ExpressionValue getValueOrNull(const ValueMapKey & name) const;
     ExpressionValue getValueOrNull(const char * name) const;
     template<size_t N>
@@ -146,6 +146,9 @@ struct FunctionContext {
     const ExpressionValue * findValue(const Utf8String & name) const;
     const ExpressionValue * findValue(const std::string & name) const;
     const ExpressionValue * findValue(const char * name) const;
+    const ExpressionValue * findValue(const Coord & name) const;
+
+    // This one is is special; it will look recursively
     const ExpressionValue * findValue(const ColumnName & name) const;
 
     template<typename Key>

@@ -9,6 +9,7 @@
 #include <cstring>
 #include "mldb/types/hash_wrapper.h"
 #include "mldb/types/value_description.h"
+#include "mldb/types/vector_description.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/ext/siphash/csiphash.h"
 #include "mldb/types/itoa.h"
@@ -190,9 +191,15 @@ toEscapedUtf8String() const
 {
     const char * d = data();
     size_t l = dataLength();
-    bool isSimple = l == 0 || isalpha(d[0]);
+
+    auto isSimpleChar = [] (int c) -> bool
+        {
+            return c != '\"' && c != '.';
+        };
+
+    bool isSimple = l == 0 || isSimpleChar(d[0]);
     for (size_t i = 0;  i < l && isSimple;  ++i) {
-        if (!isalnum(d[i]) && d[i] != '_')
+        if (!isSimpleChar(d[i]) && d[i] != '_')
             isSimple = false;
     }
     if (isSimple)
@@ -375,6 +382,8 @@ void
 Coord::
 initString(Utf8String str)
 {
+    if (str.empty())
+        throw HttpReturnException(400, "Attempt to create empty Coord");
     ExcAssertEqual(strlen(str.rawData()), str.rawLength());
     words[0] = words[1] = words[2] = words[3] = 0;
     if (str.rawLength() <= 31) {
@@ -393,6 +402,8 @@ void
 Coord::
 initChars(const char * str, size_t len)
 {
+    if (len == 0)
+        throw HttpReturnException(400, "Attempt to create empty Coord");
     words[0] = words[1] = words[2] = words[3] = 0;
     if (len <= 31) {
         complex_ = 0;
@@ -543,6 +554,93 @@ toUtf8String() const
 
 Coords
 Coords::
+parse(const Utf8String & val)
+{
+    Coords result;
+    result.reserve(4);
+
+    const char * p = val.rawData();
+    const char * e = p + val.rawLength();
+
+    if (p == e) {
+        if (result.empty()) {
+            throw HttpReturnException(400, "Parsing empty string for coord");
+        }
+    }
+
+    auto parseOne = [&] () -> Coord
+        {
+            ExcAssert(p != e);
+
+            if (*p == '\"') {
+                Utf8String result;
+                ++p;
+
+                if (p == e) {
+                    throw HttpReturnException(400, "Coords quoted incorrectly");
+                }
+
+                utf8::iterator<const char *> ufirst(p, p, e);
+                utf8::iterator<const char *> ulast(e, p, e);
+
+                while (ufirst != ulast) {
+                    auto c = *ufirst++;
+                    if (c == '\"') {
+                        if (ufirst == ulast || *ufirst != '\"') {
+                            p = ufirst.base();
+                            if (result.empty()) {
+                                throw HttpReturnException(400, "Empty quoted coord");
+                            }
+
+                            return result;
+                        }
+                        result += '\"';
+                    }
+                    else {
+                        result += c;
+                    }
+                }
+                throw HttpReturnException(400, "Coords terminated incorrectly");
+            }
+            else {
+                const char * start = p;
+                while (start < e && *start != '.') {
+                    char c = *start++;
+                    if (c == '\"' || c < ' ')
+                        throw HttpReturnException(400, "invalid char in Coords");
+                }
+                size_t sz = start - p;
+                if (sz == 0) {
+                    throw HttpReturnException(400, "Empty coord");
+                }
+                Coord result(p, sz);
+                p = start;
+                return std::move(result);
+            }
+        };
+
+    while (p < e) {
+        result.emplace_back(parseOne());
+        if (p < e) {
+            if (*p != '.') {
+                throw HttpReturnException(400, "expected '.' between elements in Coords, got " + to_string((int)*p),
+                                          "position", p - val.rawData(),
+                                          "val", val);
+            }
+            ++p;
+        }
+    }
+
+    if (result.empty()) {
+        throw HttpReturnException(400, "Coords were empty",
+                                  "val", val);
+    }
+    
+    return result;
+}
+
+Coords
+Coords::
 operator + (const Coords & other) const
 {
     Coords result = *this;
@@ -629,8 +727,16 @@ removePrefix(const Coords & prefix) const
 {
     if (!startsWith(prefix))
         return *this;
+    return removePrefix(prefix.size());
+}
+
+Coords
+Coords::
+removePrefix(size_t n) const
+{
+    ExcAssertLessEqual(n, size());
     Coords result;
-    result.insert(result.end(), begin() + prefix.size(), end());
+    result.insert(result.end(), begin() + n, end());
     return result;
 }
 
@@ -651,6 +757,50 @@ replacePrefix(const Coords & prefix, const Coords & newPrefix) const
     result.insert(result.end(), begin() + prefix.size(), end());
     return result;
 }
+
+bool
+Coords::
+matchWildcard(const Coords & wildcard) const
+{
+    if (wildcard.empty())
+        return true;
+    if (size() < wildcard.size())
+        return false;
+    for (ssize_t i = 0;  i < wildcard.size() - 1;  ++i) {
+        if (at(i) != wildcard[i])
+            return false;
+    }
+    
+    return at(wildcard.size() - 1).startsWith(wildcard.back());
+}
+
+Coords
+Coords::
+replaceWildcard(const Coords & wildcard, const Coords & with) const
+{
+    if (wildcard.empty()) {
+        if (with.empty())
+            return *this;
+        return with + *this;
+    }
+
+    if (size() < wildcard.size())
+        return Coords();
+
+    Coords result;
+    for (ssize_t i = 0;  i < with.size() - 1;  ++i)
+        result.push_back(with[i]);
+
+    // The last one may be a prefix match, so we do it explicity
+    Utf8String current = at(wildcard.size() - 1).toUtf8String();
+    current.removePrefix(wildcard.back().toUtf8String());
+    result.emplace_back(with.back().toUtf8String() + current);
+
+    for (size_t i = wildcard.size();  i < size();  ++i)
+        result.emplace_back(at(i));
+    
+    return result;
+}   
 
 uint64_t
 Coords::
@@ -676,6 +826,17 @@ newHash() const
     result = at(0).newHash();
     for (size_t i = 1;  i < size();  ++i) {
         result = Hash128to64({result, at(i).newHash()});
+    }
+    return result;
+}
+
+size_t
+Coords::
+memusage() const
+{
+    size_t result = sizeof(*this) + (capacity() - size() * sizeof(Coord));
+    for (auto & c: *this) {
+        result += c.memusage();
     }
     return result;
 }
@@ -762,17 +923,17 @@ parseJsonTyped(Coords * val,
 {
     if (context.isNull())
         *val = Coords();
-
-    // TO RESOLVE BEFORE MERGING
-    throw HttpReturnException(600, "TODO: CoordsDescription::parseJsonTyped");
-
-#if 0
+    if (context.isInt())
+        *val = Coord(context.expectInt());
     else if (context.isString())
-        *val = context.expectStringUtf8();
-    else {
-        *val = context.expectJson().toStringNoNewLine();
+        *val = Coords::parse(context.expectStringUtf8());
+    else if (context.isArray()) {
+        auto vec = jsonDecode<vector<Coord> >(context.expectJson());
+        *val = Coords(std::make_move_iterator(vec.begin()),
+                      std::make_move_iterator(vec.end()));
     }
-#endif
+    else throw HttpReturnException(400, "Unparseable JSON Coords value",
+                                   "value", context.expectJson());
 }
 
 void
@@ -781,7 +942,6 @@ printJsonTyped(const Coords * val,
                JsonPrintingContext & context) const
 {
     context.writeJson(jsonEncode(val->toUtf8String()));
-    //context.writeStringUtf8(val->toUtf8String());
 }
 
 bool

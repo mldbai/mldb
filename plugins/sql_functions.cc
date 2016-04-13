@@ -186,7 +186,7 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
             return result;
         }
         case NAMED_COLUMNS:
-            std::vector<std::tuple<ColumnName, ExpressionValue> > row;
+            std::vector<std::tuple<Coord, ExpressionValue> > row;
 
             ssize_t limit = function->functionConfig.query.stm->limit;
             ssize_t offset = function->functionConfig.query.stm->offset;
@@ -207,19 +207,19 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
                     continue;
                 }
 
-                ColumnName foundCol;
+                Coord foundCol;
                 ExpressionValue foundVal;
                 int numFoundCol = 0;
                 int numFoundVal = 0;
 
-                auto onVal = [&] (ColumnName & col,
+                auto onVal = [&] (Coord & col,
                                   ExpressionValue & val)
                     {
-                        if (col == ColumnName("column")) {
-                            foundCol = ColumnName(val.getAtom().toUtf8String());
+                        if (col == Coord("column")) {
+                            foundCol = Coord(val.getAtom().toUtf8String());
                             ++numFoundCol;
                         }
-                        else if (col == ColumnName("value")) {
+                        else if (col == Coord("value")) {
                             foundVal = std::move(val);
                             ++numFoundVal;
                         }
@@ -246,7 +246,7 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
                          "numTimesFoundValue", numFoundVal);
                 }
                 
-                if (foundCol == ColumnName()) {
+                if (foundCol.empty()) {
                     throw HttpReturnException
                         (400, "Empty or null column names cannot be "
                          "returned from NAMED_COLUMNS sql query");

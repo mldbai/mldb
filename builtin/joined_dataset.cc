@@ -374,17 +374,16 @@ struct JoinedDataset::Itl
                     ExcAssertEqual(r.columns.size(), 1);
 
                     const ExpressionValue & embedding = std::get<1>(r.columns[0]);
-                    if (outer)
-                    {
-                        const ExpressionValue & embeddingCondition = embedding.getField(1);
-                        if (!embeddingCondition.asBool())
-                        {
+                    if (outer) {
+                        const ExpressionValue & embeddingCondition
+                            = embedding.getColumn(1);
+                        if (!embeddingCondition.asBool()) {
                             recordOuterRow(r.rowName, r.rowHash);
                             continue;
                         }
                     }
 
-                    const ExpressionValue & value = embedding.getField(0);
+                    const ExpressionValue & value = embedding.getColumn(0);
                     sorted.emplace_back(value, r.rowName, r.rowHash);
                 }
 

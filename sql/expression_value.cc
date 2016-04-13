@@ -110,6 +110,50 @@ getValue(const void * buf, StorageType storageType, size_t n)
                               "storageType", storageType);
 }
 
+static size_t
+getCellSizeInBytes(StorageType storageType)
+{
+    switch (storageType) {
+    case ST_FLOAT32:
+        return sizeof(float);
+    case ST_FLOAT64:
+        return sizeof(double);
+    case ST_INT8:
+        return sizeof(int8_t);
+    case ST_UINT8:
+        return sizeof(uint8_t);
+    case ST_INT16:
+        return sizeof(int16_t);
+    case ST_UINT16:
+        return sizeof(uint16_t);
+    case ST_INT32:
+        return sizeof(int32_t);
+    case ST_UINT32:
+        return sizeof(uint32_t);
+    case ST_INT64:
+        return sizeof(int64_t);
+    case ST_UINT64:
+        return sizeof(uint64_t);
+    case ST_BLOB:
+        return sizeof(std::string);
+    case ST_STRING:
+        return sizeof(std::string);
+    case ST_UTF8STRING:
+        return sizeof(Utf8String);
+    case ST_ATOM:
+        return sizeof(CellValue);
+    case ST_BOOL:
+        return sizeof(bool);
+    case ST_TIMESTAMP:
+        return sizeof(Date);
+    case ST_TIMEINTERVAL:
+        throw HttpReturnException(500, "Can't store time intervals");
+    }
+        
+    throw HttpReturnException(500, "Unknown embedding storage type",
+                              "storageType", storageType);
+}
+
 #if 0
 static double
 getDouble(const void * buf, StorageType storageType, size_t n)
@@ -1004,8 +1048,7 @@ getSchemaCompleteness() const
 
 std::shared_ptr<ExpressionValueInfo> 
 RowValueInfo::
-findNestedColumn(const ColumnName& columnName,
-                 SchemaCompleteness& schemaCompleteness)
+findNestedColumn(const ColumnName& columnName)
 {  
     for (auto& col : columns)
     {
@@ -1123,8 +1166,8 @@ struct ExpressionValue::Embedding {
         return runLevel(0);
     }
 
-    bool forEachColumn(std::function<bool (ColumnName & col,
-                                           CellValue & val)> onColumn) const
+    bool forEachAtom(std::function<bool (ColumnName & col,
+                                         CellValue & val)> onColumn) const
     {
         auto onValue = [&] (const vector<int> & indexes, CellValue & val)
             {
@@ -1137,6 +1180,55 @@ struct ExpressionValue::Embedding {
             };
 
         return forEachValue(onValue);
+    }
+
+    bool forEachColumn(std::function<bool (Coord & col,
+                                           ExpressionValue & val)> onColumn,
+                       Date ts) const
+    {
+        // We destructure into shape[0] elements, each of which is
+        // either a sub-embedding or an element
+        if (dims_.empty()) {
+            // Nothing stored there at all
+            return true;
+        }
+
+        if (dims_.size() == 1) {
+            // Each value is a simple value
+            for (size_t i = 0;  i < dims_[0];  ++i) {
+                ExpressionValue val(getValue(i), ts);
+                Coord col(i);
+                if (!onColumn(col, val))
+                    return false;
+            }
+
+            return true;
+        }
+        else {
+            // Each value is a sub-embedding
+            std::vector<size_t> newDims;
+            newDims.reserve(dims_.size() - 1);
+            size_t stride = 1;
+            for (size_t i = 1;  i < dims_.size();  ++i) {
+                stride *= dims_[i];
+                newDims.emplace_back(dims_[i]);
+            }
+
+            size_t strideBytes = getCellSizeInBytes(storageType_) * stride;
+            const char * p = reinterpret_cast<const char *>(data_.get());
+
+            for (size_t i = 0;  i < dims_[0];  ++i) {
+                const void * start = p + i * strideBytes;
+                ExpressionValue val
+                    = embedding(ts, std::shared_ptr<const void>(data_, start),
+                                storageType_, newDims);
+                Coord col(i);
+                if (!onColumn(col, val))
+                    return false;
+            }
+
+            return true;
+        }
     }
 
     void writeJson(JsonPrintingContext & context) const
@@ -1948,7 +2040,14 @@ isLater(const Date& compareTimeStamp, const ExpressionValue& compareValue) const
 
 ExpressionValue
 ExpressionValue::
-getField(const ColumnName & fieldName, const VariableFilter & filter) const
+getColumn(const Coord & columnName, const VariableFilter & filter) const
+{
+    throw HttpReturnException(600, "ExpressionValue::getColumn() not done");
+}
+
+ExpressionValue
+ExpressionValue::
+getNestedColumn(const ColumnName & columnName, const VariableFilter & filter) const
 {
     switch (type_) {
     case Type::STRUCTURED: {
@@ -1957,7 +2056,7 @@ getField(const ColumnName & fieldName, const VariableFilter & filter) const
 #if 0
         ExpressionValue storage;
         const ExpressionValue * result
-            = searchRow(*structured_, fieldName, filter, storage);
+            = searchRow(*structured_, columnName, filter, storage);
         if (result) {
             if (result == &storage)
                 return std::move(storage);
@@ -1971,7 +2070,7 @@ getField(const ColumnName & fieldName, const VariableFilter & filter) const
         // TODO: any / latest / etc...
 
         for (unsigned i = 0;  i != flattened_->length();  ++i) {
-            if (fieldName == flattened_->columnName(i))
+            if (columnName == flattened_->columnName(i))
                 return ExpressionValue(flattened_->value(i), ts_);
         }
         return ExpressionValue();
@@ -2002,41 +2101,29 @@ getField(int fieldIndex) const
 }
 #endif
 
-#if 0
 const ExpressionValue*
 ExpressionValue::
-findNestedField(const ColumnName & fieldName,
-                const VariableFilter & filter /*= GET_LATEST*/) const
+findNestedColumn(const ColumnName & columnName,
+                 const VariableFilter & filter /*= GET_LATEST*/) const
 {
+    ExcAssert(!columnName.empty());
+    throw HttpReturnException(600, "ExpressionValue::findNestedColumn() not done");
+
     if (type_ == Type::STRUCTURED) {
 
-        ColumnName colName(fieldName);
-
         ExpressionValue storage;
-        const ExpressionValue * result = searchRow(*structured_, colName, filter, storage);
-        if (result) {
-            if (result == &storage)
-                return nullptr; // we want an address, no good
-            else 
-                return result;
+        const ExpressionValue * result
+            = searchRow(*structured_, columnName[0], filter, storage);
+        if (result == nullptr) {
+            return nullptr;
         }
-        else
-        {
-            auto it = fieldName.find('.');
-            if (it != fieldName.end())
-            {
-                Utf8String head(fieldName.begin(),it);
-                ++it;
-
-                ColumnName colName(head);
-
-                result = searchRow(*structured_, colName, filter, storage);
-                if (result && result != &storage) 
-                {
-                    Utf8String tail(it, fieldName.end());
-                    return result->findNestedField(tail, filter);
-                }   
-            }
+        ExcAssertNotEqual(result, &storage);
+        if (columnName.size() == 1) {
+            return result;
+        }
+        else {
+            return result->findNestedColumn(columnName.removePrefix(columnName[0]),
+                                            filter);
         }
     }
     else if (type_ == Type::FLATTENED) {
@@ -2049,7 +2136,6 @@ findNestedField(const ColumnName & fieldName,
 
     return nullptr;
 }
-#endif
 
 std::vector<size_t>
 ExpressionValue::
@@ -2282,13 +2368,13 @@ getEmbedding(const ColumnName * knownNames, size_t len) const
             // Not the simple case (either out of order, or more than
             // one dimension).  Do it the slower way; at least we will
             // get the right result!
-            auto onColumn = [&] (ColumnName & col, CellValue & val)
+            auto onAtom = [&] (ColumnName & col, CellValue & val)
                 {
                     addCell(col, val);
                     return true;
                 };
             
-            embedding_->forEachColumn(onColumn);
+            embedding_->forEachAtom(onAtom);
         }
         break;
     }
@@ -2398,13 +2484,16 @@ void
 ExpressionValue::
 appendToRowDestructive(ColumnName & columnName, RowValue & row)
 {
-    if (type_ == Type::NONE) {
+    switch (type_) {
+    case Type::NONE:
         row.emplace_back(std::move(columnName), CellValue(), ts_);
-    }
-    else if (type_ == Type::ATOM) {
+        return;
+    case Type::ATOM:
         row.emplace_back(std::move(columnName), stealAtom(), ts_);
-    }
-    else {
+        return;
+    case Type::STRUCTURED:
+    case Type::FLATTENED:
+    case Type::EMBEDDING:
         if (row.capacity() == 0)
             row.reserve(rowLength());
         else if (row.capacity() < row.size() + rowLength())
@@ -2412,28 +2501,35 @@ appendToRowDestructive(ColumnName & columnName, RowValue & row)
 
         if (columnName.empty()) {
             auto onSubexpr = [&] (ColumnName & innerColumnName,
-                                  ExpressionValue & val)
+                                  CellValue & val,
+                                  Date ts)
                 {
-                    val.appendToRowDestructive(innerColumnName, row);
+                    
+                    row.emplace_back(std::move(innerColumnName),
+                                     std::move(val),
+                                     ts);
                     return true;
                 };
             
-            forEachColumnDestructiveT(onSubexpr);
+            forEachAtomDestructiveT(onSubexpr);
         }
         else {
             auto onSubexpr = [&] (ColumnName & innerColumnName,
-                                  ExpressionValue & val)
+                                  CellValue & val,
+                                  Date ts)
                 {
-                    ColumnName newColumnName = columnName + innerColumnName;
-                    val.appendToRowDestructive(newColumnName, row);
+                    row.emplace_back(std::move(innerColumnName),
+                                     std::move(val),
+                                     ts);
                     return true;
                 };
             
-            forEachColumnDestructiveT(onSubexpr);
+            forEachAtomDestructiveT(onSubexpr);
         }
     }
-}
 
+    throw HttpReturnException(500, "Unknown storage type for reshape()");
+}
 
 size_t
 ExpressionValue::
@@ -2456,13 +2552,9 @@ void
 ExpressionValue::
 mergeToRowDestructive(StructValue & row)
 {
-    // TO FIX BEFORE MERGING
-    throw HttpReturnException(500, "mergeToRowDestructive needs fixing");
-
-#if 0
     row.reserve(row.size() + rowLength());
 
-    auto onSubexpr = [&] (ColumnName & columnName,
+    auto onSubexpr = [&] (Coord & columnName,
                           ExpressionValue & val)
         {
             row.emplace_back(std::move(columnName), std::move(val));
@@ -2470,7 +2562,6 @@ mergeToRowDestructive(StructValue & row)
         };
 
     forEachColumnDestructiveT(onSubexpr);
-#endif
 }
 
 void 
@@ -2480,13 +2571,14 @@ mergeToRowDestructive(RowValue & row)
     row.reserve(row.size() + rowLength());
 
     auto onSubexpr = [&] (ColumnName & columnName,
-                          ExpressionValue & val)
+                          CellValue & val,
+                          Date ts)
         {
-            val.appendToRow(columnName, row);
+            row.emplace_back(std::move(columnName), std::move(val), ts);
             return true;
         };
 
-    forEachColumnDestructiveT(onSubexpr);
+    forEachAtomDestructiveT(onSubexpr);
 }
 
 bool
@@ -2531,7 +2623,7 @@ forEachAtom(const std::function<bool (const Coords & columnName,
                 return onAtom(columnName, prefix, val, ts_);
             };
         
-        return embedding_->forEachColumn(onCol);
+        return embedding_->forEachAtom(onCol);
     }
     case Type::NONE: {
         return onAtom(Coords(), prefix, CellValue(), ts_);
@@ -2548,7 +2640,7 @@ forEachAtom(const std::function<bool (const Coords & columnName,
 
 bool
 ExpressionValue::
-forEachSubexpression(const std::function<bool (const Coords & columnName,
+forEachSubexpression(const std::function<bool (const Coord & columnName,
                                                const Coords & prefix,
                                                const ExpressionValue & val)>
                          & onSubexpression,
@@ -2566,7 +2658,9 @@ forEachSubexpression(const std::function<bool (const Coords & columnName,
     case Type::FLATTENED: {
         for (unsigned i = 0;  i < flattened_->length();  ++i) {
             ExpressionValue val(flattened_->value(i), ts_);
-            if (!onSubexpression(flattened_->columnName(i), prefix, val))
+            // TO RESOLVE BEFORE MERGE: toSimpleName() is not right; need to
+            // reconfigure here
+            if (!onSubexpression(flattened_->columnName(i).toSimpleName(), prefix, val))
                 return false;
         }
         return true;
@@ -2575,10 +2669,10 @@ forEachSubexpression(const std::function<bool (const Coords & columnName,
         throw HttpReturnException(400, "Not implemented: forEachSubexpression for Embedding value");
     }
     case Type::NONE: {
-        return onSubexpression(Coords(), prefix, ExpressionValue::null(ts_));
+        return onSubexpression(Coord(), prefix, ExpressionValue::null(ts_));
     }
     case Type::ATOM: {
-        return onSubexpression(Coords(), prefix, ExpressionValue(cell_, ts_));
+        return onSubexpression(Coord(), prefix, ExpressionValue(cell_, ts_));
     }
     }
 
@@ -2589,7 +2683,7 @@ forEachSubexpression(const std::function<bool (const Coords & columnName,
 
 bool
 ExpressionValue::
-forEachColumnDestructive(const std::function<bool (Coords & columnName, ExpressionValue & val)>
+forEachColumnDestructive(const std::function<bool (Coord & columnName, ExpressionValue & val)>
                                 & onSubexpression) const
 {
     return forEachColumnDestructiveT(onSubexpression);
@@ -2611,16 +2705,16 @@ forEachColumnDestructiveT(Fn && onSubexpression) const
 
             for (auto & col: const_cast<Structured &>(*structured_)) {
                 ExpressionValue val(std::move(std::get<1>(col)));
-                Coords columnName(std::move(std::get<0>(col)));
-                if (!onSubexpression(columnName, val))
+                Coord name(std::move(std::get<0>(col)));
+                if (!onSubexpression(name, val))
                     return false;
             }
         }
         else {
             for (auto & col: *structured_) {
                 ExpressionValue val = std::get<1>(col);
-                Coords columnName = std::get<0>(col);
-                if (!onSubexpression(columnName, val))
+                Coord name = std::get<0>(col);
+                if (!onSubexpression(name, val))
                     return false;
             }
         }
@@ -2633,8 +2727,9 @@ forEachColumnDestructiveT(Fn && onSubexpression) const
 
             for (unsigned i = 0;  i < s.length();  ++i) {
                 ExpressionValue val(std::move(s.moveValue(i)), ts_);
-                Coords columnName = s.columnName(i);
-                if (!onSubexpression(columnName, val))
+                // TO RESOLVE BEFORE MERGE: shouldn't be toSimpleName()
+                Coord name = s.columnName(i).toSimpleName();
+                if (!onSubexpression(name, val))
                     return false;
             }
 
@@ -2642,21 +2737,116 @@ forEachColumnDestructiveT(Fn && onSubexpression) const
         else {
             for (unsigned i = 0;  i < flattened_->length();  ++i) {
                 ExpressionValue val(flattened_->value(i), ts_);
-                Coords columnName = flattened_->columnName(i);
-                if (!onSubexpression(columnName, val))
+                Coord name = flattened_->columnName(i).toSimpleName();
+                if (!onSubexpression(name, val))
                     return false;
             }
         }
         return true;
     }
     case Type::EMBEDDING: {
-        auto onCol = [&] (ColumnName & columnName, CellValue & val)
+        auto onCol = [&] (Coord & columnName, ExpressionValue & val)
             {
-                ExpressionValue eval(std::move(val), ts_);
-                return onSubexpression(columnName, eval);
+                return onSubexpression(columnName, val);
             };
         
-        return embedding_->forEachColumn(onCol);
+        return embedding_->forEachColumn(onCol, ts_);
+    }
+    case Type::NONE:
+    case Type::ATOM:
+        throw HttpReturnException(500, "Expected row expression",
+                                  "expression", *this,
+                                  "type", (int)type_);
+    }
+    throw HttpReturnException(500, "Unknown expression type",
+                              "expression", *this,
+                              "type", (int)type_);
+}
+
+bool
+ExpressionValue::
+forEachAtomDestructive(const std::function<bool (Coords & columnName,
+                                                 CellValue & val,
+                                                 Date ts) > & onAtom)
+{
+    return forEachAtomDestructiveT(onAtom);
+}
+
+template<typename Fn>
+bool
+ExpressionValue::
+forEachAtomDestructiveT(Fn && onAtom) const
+{
+    switch (type_) {
+    case Type::STRUCTURED: {
+        if (structured_.unique()) {
+            // We have the only reference in the shared pointer, AND we have
+            // a non-const version of that expression.  This means that it
+            // should be thread-safe to break constness and steal the result,
+            // as otherwise we would have two references from different threads
+            // with at least one non-const, which breaks thread safety.
+
+            for (auto & col: const_cast<Structured &>(*structured_)) {
+                auto onAtom2 = [&] (ColumnName & columnName,
+                                    CellValue & val,
+                                    Date ts)
+                    {
+                        Coords fullColumnName
+                            = std::move(std::get<0>(col)) + std::move(columnName);
+                        return onAtom(fullColumnName,
+                                      val, ts);
+                    };
+                
+                std::get<1>(col).forEachAtomDestructive(onAtom2);
+            }
+        }
+        else {
+            for (auto & col: *structured_) {
+                auto onAtom2 = [&] (ColumnName columnName,
+                                    ColumnName prefix,
+                                    CellValue val,
+                                    Date ts)
+                    {
+                        Coords fullColumnName
+                            = std::move(prefix) + std::move(columnName);
+
+                        return onAtom(fullColumnName, val, ts);
+                    };
+                
+                std::get<1>(col).forEachAtom(onAtom2, std::get<0>(col));
+            }
+        }
+        return true;
+    }
+    case Type::FLATTENED: {
+        if (flattened_.unique()) {
+            // See same comment above
+            Flattened & s = const_cast<Flattened &>(*flattened_);
+
+            for (unsigned i = 0;  i < s.length();  ++i) {
+                CellValue val(s.moveValue(i));
+                Coords name = s.columnName(i);
+                if (!onAtom(name, val, ts_))
+                    return false;
+            }
+        }
+        else {
+            for (unsigned i = 0;  i < flattened_->length();  ++i) {
+                CellValue val(flattened_->value(i));
+                Coords name = flattened_->columnName(i);
+                if (!onAtom(name, val, ts_))
+                    return false;
+            }
+        }
+        return true;
+    }
+    case Type::EMBEDDING: {
+        auto onCol = [&] (Coords & columnName, CellValue & val)
+            {
+                return onAtom(columnName, val, ts_);
+            };
+        
+        return embedding_->forEachAtom(onCol);
     }
     case Type::NONE:
     case Type::ATOM:

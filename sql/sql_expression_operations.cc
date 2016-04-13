@@ -3360,19 +3360,19 @@ bind(SqlBindingScope & context) const
 #endif
 
     // This function figures out the new name of the column.  If it's excluded,
-    // then it returns the empty string
-    auto newColumnName = [&, simplifiedPrefix]
+    // then it returns the empty column name
+    auto newColumnName = [=]
         (const ColumnName & inputColumnName) -> ColumnName
         {
             // First, check it matches the prefix
-            if (!inputColumnName.startsWith(simplifiedPrefix))
+            if (!inputColumnName.matchWildcard(simplifiedPrefix))
                 return ColumnName();
 
             // Second, check it doesn't match an exclusion
             for (auto & ex: excluding) {
                 if (ex.second) {
                     // prefix
-                    if (inputColumnName.startsWith(ex.first))
+                    if (inputColumnName.matchWildcard(ex.first))
                         return ColumnName();
                 }
                 else {
@@ -3383,7 +3383,7 @@ bind(SqlBindingScope & context) const
             }
 
             // Finally, replace the prefix with the new prefix
-            return inputColumnName.replacePrefix(simplifiedPrefix, asPrefix);
+            return inputColumnName.replaceWildcard(simplifiedPrefix, asPrefix);
         };
 
     auto allColumns = context.doGetAllColumns(resolvedTableName, newColumnName);

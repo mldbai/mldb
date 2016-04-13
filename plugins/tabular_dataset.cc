@@ -974,7 +974,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
                 uint64_t ch(c.newHash());
                 if (!inputColumnIndex.insert(make_pair(ch, i)).second)
                     throw HttpReturnException(400, "Duplicate column name in tabular dataset entry",
-                                              "columnName", c.toString());
+                                              "columnName", c.toUtf8String());
                 columnNames.push_back(c);
             }
 
@@ -1014,7 +1014,11 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             if (iter == fixedColumnIndex.end()) {
                 switch (config.unknownColumns) {
                 case UC_ERROR:
-                    throw HttpReturnException(400, "New column name while recording row in tabular dataset", "columnName", c.toString());
+                    throw HttpReturnException
+                        (400,
+                         "New column name while recording row in tabular dataset "
+                         "with unknownColumns=ERROR",
+                         "columnName", c.toUtf8String());
                 case UC_IGNORE:
                     continue;
                 case UC_ADD:

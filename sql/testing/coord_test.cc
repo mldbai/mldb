@@ -72,3 +72,73 @@ BOOST_AUTO_TEST_CASE(test_coord_printing)
     Coords coords4 = coord1 + coord2 + coord3;
     BOOST_CHECK_EQUAL(coords4.toUtf8String(), "x.\"x.y\".\"x\"\"y\"");
 }
+
+BOOST_AUTO_TEST_CASE(test_coord_parsing)
+{
+    {
+        Coords coords1 = Coords::parse("x");
+        BOOST_CHECK_EQUAL(coords1.toUtf8String(), "x");
+    }
+
+    {
+        Coords coords1 = Coords::parse("x.y");
+        BOOST_CHECK_EQUAL(coords1.toUtf8String(), "x.y");
+    }
+
+    {
+        Coords coords1 = Coords::parse("\"x.y\"");
+        BOOST_CHECK_EQUAL(coords1.toUtf8String(), "\"x.y\"");
+    }
+
+    {
+        Coords coords1 = Coords::parse("\"x.y\".z");
+        BOOST_CHECK_EQUAL(coords1.toUtf8String(), "\"x.y\".z");
+    }
+
+    {
+        Coords coords1 = Coords::parse("\"x\".y");
+        BOOST_CHECK_EQUAL(coords1.toUtf8String(), "x.y");
+    }
+
+    {
+        JML_TRACE_EXCEPTIONS(false);
+        BOOST_CHECK_THROW(Coords::parse(""), ML::Exception);
+        BOOST_CHECK_THROW(Coords::parse("."), ML::Exception);
+        BOOST_CHECK_THROW(Coords::parse("\n"), ML::Exception);
+        BOOST_CHECK_THROW(Coords::parse("\""), ML::Exception);
+        BOOST_CHECK_THROW(Coords::parse("\"\""), ML::Exception);
+        BOOST_CHECK_THROW(Coords::parse(".."), ML::Exception);
+        BOOST_CHECK_THROW(Coords::parse("\"x."), ML::Exception);
+        BOOST_CHECK_THROW(Coords::parse("\"x."), ML::Exception);
+        BOOST_CHECK_THROW(Coords::parse("x\"\""), ML::Exception);
+        BOOST_CHECK_THROW(Coords::parse("\"x\",y"), ML::Exception);
+    }
+}
+
+BOOST_AUTO_TEST_CASE(test_wildcards)
+{
+    Coords empty;
+    Coords x("x");
+    Coords y("y");
+    Coords svd("svd");
+    Coords xy = x + y;
+
+    BOOST_CHECK(x.matchWildcard(Coords()));
+    BOOST_CHECK(x.matchWildcard(x));
+    BOOST_CHECK(!x.matchWildcard(y));
+
+    BOOST_CHECK_EQUAL(x.replaceWildcard(empty, empty).toUtf8String(),
+                      "x");
+    BOOST_CHECK_EQUAL(x.replaceWildcard(empty, x).toUtf8String(),
+                      "x.x");
+    BOOST_CHECK_EQUAL(x.replaceWildcard(empty, y).toUtf8String(),
+                      "y.x");
+    BOOST_CHECK_EQUAL(x.replaceWildcard(x, y).toUtf8String(),
+                      "y");
+    BOOST_CHECK_EQUAL(x.replaceWildcard(x, xy).toUtf8String(),
+                      "x.y");
+    BOOST_CHECK_EQUAL(x.replaceWildcard(empty, xy).toUtf8String(),
+                      "x.y.x");
+    BOOST_CHECK_EQUAL(svd.replaceWildcard(Coord("s"), xy).toUtf8String(),
+                      "x.yvd");
+}

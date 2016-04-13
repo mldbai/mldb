@@ -68,13 +68,13 @@ apply(const FunctionApplier & applier,
       const FunctionContext & context) const
 {
     RowValue rtnRow;
-    auto onAtom = [&] (const Coord & columnName,
-                       const Coord & prefix,
+    auto onAtom = [&] (const Coords & columnName,
+                       const Coords & prefix,
                        const CellValue & val,
                        Date ts)
         {
-            const string colStr = columnName.toUtf8String().stealRawString();
-            if(selected_stopwords->find(colStr) == selected_stopwords->end()) {
+            const string colStr = columnName.toSimpleName().stealRawString();
+            if(!selected_stopwords->count(colStr)) {
                 rtnRow.push_back(make_tuple(columnName, val, ts));
             }
 
@@ -166,12 +166,12 @@ apply(const FunctionApplier & applier,
 
     map<Coord, pair<double, Date>> accum;
 
-    auto onAtom = [&] (const Coord & columnName,
-                       const Coord & prefix,
+    auto onAtom = [&] (const Coords & columnName,
+                       const Coords & prefix,
                        const CellValue & val,
                        Date ts)
         {
-            string str = columnName.toUtf8String().stealRawString();
+            string str = columnName.toSimpleName().stealRawString();
             // cerr << "got: " << str << endl;
             const sb_symbol * stemmed = sb_stemmer_stem(stemmer.get(),
                     (const unsigned char*)str.c_str(), str.size());
@@ -202,8 +202,10 @@ apply(const FunctionApplier & applier,
             return true;
         };
 
-    ExpressionValue args = context.get<ExpressionValue>("words");
-    args.forEachAtom(onAtom);
+    ExpressionValue storage;
+    const ExpressionValue & arg
+        = context.mustGet("keys", storage);
+    arg.forEachAtom(onAtom);
 
     RowValue rtnRow;
     for(auto it=accum.begin(); it != accum.end(); it++) {

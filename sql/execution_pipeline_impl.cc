@@ -67,7 +67,8 @@ doGetColumn(const ColumnName & columnName, int fieldOffset)
                 //     << " returns " << rowContents.getField(columnName)
                 //     << endl;
 
-                return storage = std::move(rowContents.getField(columnName, filter));
+                return storage = std::move(rowContents.getNestedColumn(columnName,
+                                                                       filter));
             },
             std::make_shared<AtomValueInfo>()};
 
@@ -730,26 +731,21 @@ takeMoreInput()
                                  std::shared_ptr<ElementExecutor>& executor,
                                  bool doOuter)
     {
-        do
-        {
-            while (s && s->values.back().empty())
+        do {
+            while (s && s->values.back().empty()) {
                 s = executor->take();
+            }
 
-            if (s)
-            {
+            if (s) {
                 ExpressionValue & embedding = s->values.back();
-                ExpressionValue field = embedding.getField(Coord(0), GET_ALL);
-
+                ExpressionValue field = embedding.getNestedColumn(Coord(0), GET_ALL);
                 //if we want to do an outer join we need all rows
-                if (!field.empty() || doOuter)
-                {
+                if (!field.empty() || doOuter) {
                     break;
                 }
-                else 
-                {
+                else {
                     s = executor->take();
                 }
-
             }
         }
         while (s);
@@ -773,8 +769,8 @@ take()
         ExpressionValue & lEmbedding = l->values.back();
         ExpressionValue & rEmbedding = r->values.back();
 
-        ExpressionValue lField = lEmbedding.getField(Coord(0), GET_ALL);
-        ExpressionValue rField = rEmbedding.getField(Coord(0), GET_ALL);
+        ExpressionValue lField = lEmbedding.getColumn(0, GET_ALL);
+        ExpressionValue rField = rEmbedding.getColumn(0, GET_ALL);
 
         //in case of outer join
         //check the where condition that we took out and put in the embedding instead
@@ -783,7 +779,7 @@ take()
                                     ExpressionValue& field,
                                     ExpressionValue & embedding) -> bool
         {
-            ExpressionValue where = embedding.getField(Coord(1), GET_ALL);
+            ExpressionValue where = embedding.getColumn(1, GET_ALL);
             //if the condition would have failed, or the select value is null, return the row.
             if (field.empty() || !where.asBool())
             {

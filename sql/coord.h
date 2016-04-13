@@ -303,6 +303,17 @@ struct Coords: protected std::vector<Coord> {
     Coords();
     Coords(Coord coord);
 
+    template<typename It>
+    Coords(It first, It last)
+        : Base(first, last)
+    {
+        for (Coord & c: *this) {
+            ExcAssert(!c.empty());
+        }
+    }
+
+    static Coords parse(const Utf8String & str);
+
     /** This function asserts that there is only a single element in
         the scope, and returns it as an Utf8String.  This is used
         for when we want to access the value as a simple, unadulterated
@@ -327,8 +338,12 @@ struct Coords: protected std::vector<Coord> {
     bool startsWith(const Coord & prefix) const;
     bool startsWith(const Coords & prefix) const;
 
+    bool matchWildcard(const Coords & wildcard) const;
+    Coords replaceWildcard(const Coords & wildcard, const Coords & with) const;
+
     Coords removePrefix(const Coord & prefix) const;
     Coords removePrefix(const Coords & prefix) const;
+    Coords removePrefix(size_t n = 1) const;
 
     Coords replacePrefix(const Coord & prefix, const Coords & newPrefix) const;
     Coords replacePrefix(const Coords & prefix, const Coords & newPrefix) const;
@@ -391,6 +406,8 @@ struct Coords: protected std::vector<Coord> {
     {
         return static_cast<const Base &>(*this) >= other;
     }
+
+    size_t memusage() const;
 };
 
 std::ostream & operator << (std::ostream & stream, const Coords & id);

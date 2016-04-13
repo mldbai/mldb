@@ -383,13 +383,16 @@ run(const ProcedureRunConfig & run,
             std::vector<std::pair<ML::Feature, float> > features
             = { { labelFeature, encodedLabel }, { weightFeature, weight } };
 
-            unordered_set<Coord> unique_known_features;
+            unordered_set<Coords> unique_known_features;
             for (auto & c: row.columns) {
                 featureSpace->encodeFeature(std::get<0>(c), std::get<1>(c), features);
 
-                if(unique_known_features.count(std::get<0>(c)) != 0) {
-                    throw HttpReturnException(500, "Training dataset cannot have duplicated column '" + 
-                        std::get<0>(c).toUtf8String() + "' for row '"+row.rowName.toUtf8String()+"'");
+                if (unique_known_features.count(std::get<0>(c)) != 0) {
+                    throw HttpReturnException
+                        (400, "Training dataset cannot have duplicated column '" + 
+                         std::get<0>(c).toUtf8String()
+                         + "' for row '"
+                         +row.rowName.toUtf8String()+"'");
                 }
                 unique_known_features.insert(std::get<0>(c));
             }
@@ -852,7 +855,7 @@ apply(const FunctionApplier & applier_,
 
             vector<tuple<Coord, ExpressionValue> > row;
             for (unsigned i = 0;  i < labelCount;  ++i) {
-                row.emplace_back(RowName(cat->print(i)),
+                row.emplace_back(Coord(cat->print(i)),
                                  ExpressionValue(scores[i], ts));
             }
 
@@ -882,7 +885,7 @@ apply(const FunctionApplier & applier_,
             vector<tuple<Coord, ExpressionValue> > row;
 
             for (unsigned i = 0;  i < labelCount;  ++i) {
-                row.emplace_back(RowName(cat->print(i)),
+                row.emplace_back(Coord(cat->print(i)),
                                  ExpressionValue(scores[i], ts));
             }
         

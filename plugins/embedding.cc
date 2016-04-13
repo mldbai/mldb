@@ -46,6 +46,22 @@ operator >> (ML::DB::Store_Reader & store, Coord & coord)
     throw ML::Exception("Coord deserialization");
 }
 
+inline ML::DB::Store_Writer &
+operator << (ML::DB::Store_Writer & store, const Coords & coords)
+{
+    // Currently not used, since we haven't exposed serialization
+    // of embedding datasets.
+    throw ML::Exception("Coords serialization");
+}
+
+inline ML::DB::Store_Reader &
+operator >> (ML::DB::Store_Reader & store, Coords & coords)
+{
+    // Currently not used, since we haven't exposed serialization
+    // of embedding datasets.
+    throw ML::Exception("Coords deserialization");
+}
+
 
 /*****************************************************************************/
 /* EMBEDDING DATASET CONFIG                                                  */
@@ -109,9 +125,9 @@ struct EmbeddingDatasetRepr {
     {
         uint64_t result = RowHash(rowName).hash();
         if (result == nullHashIn) {
-            if (rowName.stringEqual("0"))
+            if (rowName.size() == 1 && rowName[0] == Coord("0"))
                 return result;
-            ExcAssert(rowName.stringEqual("null"));
+            ExcAssert(rowName == Coord("null"));
             result = nullHashOut;
         }
         return result;
@@ -191,7 +207,7 @@ struct EmbeddingDatasetRepr {
 
         return { earliest, latest };
     }
-
+    
     std::vector<ColumnName> columnNames;
     std::vector<std::vector<float> > columns;
     ML::Lightweight_Hash<ColumnHash, int> columnIndex;
@@ -541,11 +557,14 @@ struct EmbeddingDataset::Itl
     virtual std::shared_ptr<RowValueInfo> getRowInfo() const
     {
         std::vector<KnownColumn> knownColumns;
+
+        cerr << "getRowInfo()" << endl;
         
         auto valueInfo = std::make_shared<Float32ValueInfo>();
         
         auto repr = committed();
         if (repr->initialized()) {
+cerr << "initialized with " << repr->columnNames.size() << endl;
             for (size_t i = 0;  i < repr->columnNames.size();  ++i) {
                 knownColumns.emplace_back(repr->columnNames[i], valueInfo,
                                           COLUMN_IS_DENSE, i /* fixed index */);
@@ -1054,6 +1073,8 @@ overrideFunction(const Utf8String & tableName,
                  const Utf8String & functionName,
                  SqlBindingScope & context) const
 {
+// Should probably remove; it's subsumed by the nearest neigbours function.
+#if 0
     if (functionName == "distance") {
         // 1.  We need the rowName() function
         //auto rowName = context.getfunction("rowName");
@@ -1134,6 +1155,7 @@ overrideFunction(const Utf8String & tableName,
                 },
                 std::make_shared<Float64ValueInfo>() };
     }
+#endif
 
     return BoundFunction();
 }

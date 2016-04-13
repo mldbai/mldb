@@ -263,7 +263,7 @@ inferInputFromOutput(const FunctionValues & requiredWithOutput,
                         if (!v.first.scope.empty())
                             continue;
 
-                        auto & valueInfo = inputInfo.values[v.first.name];
+                        auto & valueInfo = inputInfo.values[v.first.name.toSimpleName()];
 
                         // TODO: infer types
                         

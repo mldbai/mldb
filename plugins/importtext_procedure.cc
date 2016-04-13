@@ -151,18 +151,18 @@ struct SqlCsvScope: public SqlExpressionMldbContext {
     Utf8String dataFileUrl;
 
     virtual ColumnGetter doGetColumn(const Utf8String & tableName,
-                                         const Utf8String & variableName)
+                                     const ColumnName & columnName)
     {
         if (!tableName.empty()) {
             throw HttpReturnException(400, "Unknown table name in import.text procedure",
                                       "tableName", tableName);
         }
 
-        int index = std::find(columnNames.begin(), columnNames.end(), variableName)
+        int index = std::find(columnNames.begin(), columnNames.end(), columnName)
             - columnNames.begin();
         if (index == columnNames.size())
             throw HttpReturnException(400, "Unknown column name in import.text procedure",
-                                      "columnName", variableName,
+                                      "columnName", columnName,
                                       "knownColumnNames", columnNames);
 
         columnsUsed[index] = true;
@@ -186,9 +186,9 @@ struct SqlCsvScope: public SqlExpressionMldbContext {
 
         for (unsigned i = 0;  i < columnNames.size();  ++i) {
             const ColumnName & columnName = columnNames[i];
-            ColumnName outputName(keep(columnName.toUtf8String()));
+            ColumnName outputName(keep(columnName));
 
-            bool keep = outputName != ColumnName();
+            bool keep = !outputName.empty();
             toKeep.emplace_back(outputName);
             if (keep) {
                 columnsUsed[i] = true;

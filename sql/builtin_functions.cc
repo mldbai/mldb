@@ -1652,10 +1652,9 @@ BoundFunction parse_json(const std::vector<BoundSqlExpression> & args)
 
                 JsonArrayHandling encode = PARSE_ARRAYS;
 
-                if (args.size() > 1)
-                {
+                if (args.size() > 1) {
                     Utf8String arrays
-                        = args[1].getField(Coord("arrays")).toUtf8String();
+                        = args[1].getColumn("arrays").toUtf8String();
                     if (arrays == "encode")
                       encode = ENCODE_ARRAYS;
                     else if (arrays != "parse")
@@ -2365,7 +2364,7 @@ BoundFunction extract_column(const std::vector<BoundSqlExpression> & args)
                 cerr << "extracting " << jsonEncodeStr(val1)
                      << " from " << jsonEncodeStr(val2) << endl;
                 
-                return args[1].getField(Coord(fieldName));
+                return args[1].getColumn(fieldName);
             },
             std::make_shared<AnyValueInfo>()
             };
