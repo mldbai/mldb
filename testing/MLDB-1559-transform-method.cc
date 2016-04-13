@@ -32,39 +32,39 @@ void TestExpression(const T& expression, int expected)
 {
     int count = 0;
 
+    auto printBefore = expression.print();
+
     TransformArgs onChild = [&] (std::vector<std::shared_ptr<SqlExpression> > args)
     -> std::vector<std::shared_ptr<SqlExpression> >
         {     
             count += args.size();
 
-            for (auto& a : args)
+            for (auto& a : args) {
+
+                auto var = std::dynamic_pointer_cast<ReadVariableExpression>(a);
+                if (var) {
+
+                    a = std::make_shared<ReadVariableExpression>("noprefix", "replaced");                             
+                }
+
                 a = a->transform(onChild);
+            }
 
             return std::move(args);
         };
 
     expression.transform(onChild);
     BOOST_CHECK_EQUAL(count, expected);
+
+    auto printAfter = expression.print();
+
+    BOOST_CHECK_EQUAL(printBefore, printAfter);
 }
 
 template <class T>
 void TestExpression(const std::shared_ptr<T> expression, int expected)
 {
-    int count = 0;
-
-    TransformArgs onChild = [&] (std::vector<std::shared_ptr<SqlExpression> > args)
-    -> std::vector<std::shared_ptr<SqlExpression> >
-        {     
-            count += args.size();
-
-            for (auto& a : args)
-                a = a->transform(onChild);
-
-            return std::move(args);
-        };
-
-    expression->transform(onChild);
-    BOOST_CHECK_EQUAL(count, expected);
+    return TestExpression(*expression, expected);
 }
 
 BOOST_AUTO_TEST_CASE(test_transform)
