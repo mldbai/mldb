@@ -334,6 +334,7 @@ $(eval $(call mldb_unit_test,MLDB-1490-grouped-validation.py))
 $(eval $(call mldb_unit_test,MLDB-1491-get-all-not-implemented-for-datasets.js,,manual)) # awaiting fix
 $(eval $(call mldb_unit_test,MLDB-1500-transpose-query.js,,manual)) # awaiting fix
 $(eval $(call mldb_unit_test,MLDB-1507-groupby.py))
+$(eval $(call mldb_unit_test,MLDBFB-474-too-long-to-split.py,,$(MANUAL_IF_NO_S3)))
 
 # The MLDB-1398 test case requires a library and a plugin
 # Tensorflow plugins
