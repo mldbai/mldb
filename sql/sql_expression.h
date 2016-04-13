@@ -1227,6 +1227,8 @@ struct OrderByExpression {
     {
         return ! operator == (other);
     }
+
+    UnboundEntities getUnbound() const;
 };
 
 PREDECLARE_VALUE_DESCRIPTION(OrderByExpression);
@@ -1268,6 +1270,8 @@ struct TupleExpression {  // TODO: should be a row expression
 
     /** Are all clauses constant? */
     bool isConstant() const;
+
+    UnboundEntities getUnbound() const;
 };
 
 PREDECLARE_VALUE_DESCRIPTION(TupleExpression);
@@ -1495,6 +1499,8 @@ struct WhenExpression {
 
     std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
 
+    UnboundEntities getUnbound() const;
+
     bool operator == (const WhenExpression & other) const;
 
     Utf8String surface;
@@ -1534,6 +1540,8 @@ struct SelectStatement
     static SelectStatement parse(const char * body);
     static SelectStatement parse(const Utf8String& body);
     static SelectStatement parse(ML::Parse_Context& context, bool allowUtf8);
+
+    UnboundEntities getUnbound() const;
 
     Utf8String print() const;
 };
