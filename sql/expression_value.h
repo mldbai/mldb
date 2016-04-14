@@ -858,18 +858,18 @@ struct ExpressionValue {
     size_t rowLength() const;
     
     /** Write a flattened representation of the current value to the given
-        dataset row or event.
+        dataset row or event, prepending the given column name.
     */
     void appendToRow(const Coords & columnName, MatrixNamedRow & row) const;
     void appendToRow(const Coords & columnName, RowValue & row) const;
-    void appendToRow(const Coord & columnName, StructValue & row) const;
+    void appendToRow(const Coords & columnName, StructValue & row) const;
 
     /** Write a flattened representation of the current value to the given
         dataset row or event, moving values and destroying this object in
         the process.
     */
     void appendToRowDestructive(ColumnName & columnName, RowValue & row);
-    void appendToRowDestructive(Coord & columnName, StructValue & row);
+    void appendToRowDestructive(const Coords & columnName, StructValue & row);
 
     /// Destructively merge into the given row
     void mergeToRowDestructive(RowValue & row);

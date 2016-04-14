@@ -389,8 +389,22 @@ struct Coords: protected std::vector<Coord> {
     using Base::crbegin;
     using Base::crend;
     using Base::at;
+    using Base::front;
     using Base::back;
     using Base::operator [];
+
+    Coord head() const
+    {
+        return at(0);
+    }
+
+    Coords tail() const
+    {
+        ExcAssert(!empty());
+        Coords result;
+        result.insert(result.end(), begin() + 1, end());
+        return result;
+    }
 
     bool operator == (const Coords & other) const
     {

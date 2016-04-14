@@ -247,7 +247,8 @@ inferInputFromOutput(const FunctionValues & requiredWithOutput,
                 = dynamic_cast<const ComputedColumn *>(clause.get());
 
             if (computed) {
-                if (computed->alias == name) {
+                if (computed->alias.size() == 1
+                    && computed->alias.front() == name) {
 
                     foundName = true;
 

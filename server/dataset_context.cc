@@ -518,10 +518,17 @@ doGetColumn(const Utf8String & tableName, const ColumnName & columnName)
                 auto & row = context.as<RowContext>();
                 
                 const ExpressionValue * fromOutput
-                    = searchRow(row.output.columns, columnName.toSimpleName(),
+                    = searchRow(row.output.columns, columnName.front(),
                                 filter, storage);
-                if (fromOutput)
-                    return *fromOutput;
+                if (fromOutput) {
+                    if (columnName.size() == 1) {
+                        return *fromOutput;
+                    }
+                    else {
+                        ColumnName tail = columnName.removePrefix();
+                        return storage = fromOutput->getNestedColumn(tail, filter);
+                    }
+                }
                 
                 return innerGetVariable(context, storage);
             },

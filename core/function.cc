@@ -453,6 +453,14 @@ getValueOrNull(const Utf8String & name) const
 
 ExpressionValue
 FunctionContext::
+getValueOrNull(const Coord & name) const
+{
+    auto key = ValueMapKey::ref(name);
+    return getValueOrNull(key);
+}
+
+ExpressionValue
+FunctionContext::
 getValueOrNull(const char * name) const
 {
     auto key = ValueMapKey::ref(name);
@@ -704,7 +712,8 @@ toRowInfo() const
     vector<KnownColumn> knownColumns;
 
     for (auto & p: values) {
-        knownColumns.emplace_back(p.first.toCoord(), p.second.valueInfo,
+        knownColumns.emplace_back(p.first.toCoord(),
+                                  p.second.valueInfo,
                                   COLUMN_IS_DENSE);
     }
     

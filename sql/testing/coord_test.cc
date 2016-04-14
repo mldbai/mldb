@@ -154,3 +154,12 @@ BOOST_AUTO_TEST_CASE(test_indexes)
     BOOST_CHECK_EQUAL(Coord(-1).toIndex(), -1);
     BOOST_CHECK_EQUAL(Coord(-1000).toIndex(), -1);
 }
+
+BOOST_AUTO_TEST_CASE(test_remove_prefix)
+{
+    Coords test = Coord("test1") + Coord("x");
+    Coords none;
+
+    BOOST_CHECK(test.startsWith(none));
+    BOOST_CHECK_EQUAL(test.removePrefix(none), test);
+}

@@ -268,7 +268,7 @@ template<typename FieldType> struct PlainColumnSelect<Optional<FieldType> >
     }
 };
 
-inline bool containsNamedSubSelect(const InputQuery& query, const std::string& name) 
+inline bool containsNamedSubSelect(const InputQuery& query, const Utf8String& name) 
 {
 
     auto getComputedColumn = [] (const std::shared_ptr<SqlRowExpression> expression)
@@ -282,7 +282,9 @@ inline bool containsNamedSubSelect(const InputQuery& query, const std::string& n
         for (const auto & clause : select.clauses) {
             
             auto computedVariable = getComputedColumn(clause);
-            if (computedVariable && computedVariable->alias ==  name)
+            if (computedVariable
+                && computedVariable->alias.size() == 1
+                && computedVariable->alias[0] ==  name)
                 return true;
         }
     }

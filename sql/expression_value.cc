@@ -2130,18 +2130,24 @@ getNestedColumn(const ColumnName & columnName, const VariableFilter & filter) co
 {
     switch (type_) {
     case Type::STRUCTURED: {
-
-        throw HttpReturnException(600, "ExpressionValue::getNestedColumn() for structured not done");
-#if 0
+        if (columnName.empty())
+            return *this;
+        
         ExpressionValue storage;
         const ExpressionValue * result
-            = searchRow(*structured_, columnName, filter, storage);
-        if (result) {
-            if (result == &storage)
-                return std::move(storage);
-            else return *result;
+            = searchRow(*structured_, columnName.front(), filter, storage);
+        if (!result)
+            return ExpressionValue();
+        else if (columnName.size() == 1) {
+            if (result) {
+                if (result == &storage)
+                    return std::move(storage);
+                else return *result;
+            }
         }
-#endif
+        else {
+            return result->getNestedColumn(columnName.removePrefix(), filter);
+        }
 
         return ExpressionValue();
     }
@@ -2155,7 +2161,7 @@ getNestedColumn(const ColumnName & columnName, const VariableFilter & filter) co
         return ExpressionValue();
     }
     case Type::EMBEDDING: {
-        throw HttpReturnException(400, "TODO: field access for embedding type");
+        return embedding_->getColumn(columnName, ts_);
     }
     case Type::NONE:
     case Type::ATOM:
@@ -2542,21 +2548,85 @@ appendToRow(const ColumnName & columnName, RowValue & row) const
 
 void
 ExpressionValue::
-appendToRow(const Coord & columnName, StructValue & row) const
+appendToRow(const Coords & columnName, StructValue & row) const
 {
-    // TO FIX BEFORE MERGING
-    throw HttpReturnException(500, "appendToRow() needs fixing");
-#if 0
-    auto onSubexpr = [&] (const Coords & columnName,
-                          const Coords & prefix,
-                          const ExpressionValue & val)
-        {
-            row.emplace_back(prefix + columnName, val);
-            return true;
-        };
+    if (columnName.empty()) {
+        auto onSubexpr = [&] (const Coord & columnName,
+                              const Coords & prefix,
+                              const ExpressionValue & val)
+            {
+                row.emplace_back(columnName, val);
+                return true;
+            };
 
-    forEachSubexpression(onSubexpr, columnName);
-#endif
+        forEachSubexpression(onSubexpr);
+    }
+    else {
+        // This function deals with if we want our value to be
+        // x.y.z.  In that case, we have to structure it like
+        // this: {"x": {"y": {"z": value } } }, in other words
+        // create nested objects.  This recursive function creates
+        // those nested objects.
+        std::function<ExpressionValue (ExpressionValue inner,
+                                       size_t scope)>
+            wrapOutput = [&] (ExpressionValue inner,
+                              ssize_t scope) -> ExpressionValue
+            {
+                if (scope == columnName.size()) {
+                    return std::move(inner);
+                }
+                else {
+                    StructValue row;
+                    row.reserve(1);
+                    row.emplace_back(columnName.at(scope),
+                                     wrapOutput(std::move(inner), scope + 1));
+                    return std::move(row);
+                }
+            };
+
+        row.emplace_back(columnName[0], wrapOutput(*this, 1));
+    }
+}
+
+void
+ExpressionValue::
+appendToRowDestructive(const Coords & columnName, StructValue & row)
+{
+    if (columnName.empty()) {
+        auto onSubexpr = [&] (Coord & columnName,
+                              ExpressionValue & val)
+            {
+                row.emplace_back(std::move(columnName), std::move(val));
+                return true;
+            };
+
+        forEachColumnDestructive(onSubexpr);
+    }
+    else {
+        // This function deals with if we want our value to be
+        // x.y.z.  In that case, we have to structure it like
+        // this: {"x": {"y": {"z": value } } }, in other words
+        // create nested objects.  This recursive function creates
+        // those nested objects.
+        std::function<ExpressionValue (ExpressionValue inner,
+                                       size_t scope)>
+            wrapOutput = [&] (ExpressionValue inner,
+                              ssize_t scope) -> ExpressionValue
+            {
+                if (scope == columnName.size()) {
+                    return std::move(inner);
+                }
+                else {
+                    StructValue row;
+                    row.reserve(1);
+                    row.emplace_back(columnName.at(scope),
+                                     wrapOutput(std::move(inner), scope + 1));
+                    return std::move(row);
+                }
+            };
+
+        row.emplace_back(columnName[0], wrapOutput(std::move(*this), 1));
+    }
 }
 
 void
@@ -2583,7 +2653,6 @@ appendToRowDestructive(ColumnName & columnName, RowValue & row)
                                   CellValue & val,
                                   Date ts)
                 {
-                    
                     row.emplace_back(std::move(innerColumnName),
                                      std::move(val),
                                      ts);
@@ -2598,6 +2667,7 @@ appendToRowDestructive(ColumnName & columnName, RowValue & row)
                                   CellValue & val,
                                   Date ts)
                 {
+                    innerColumnName = columnName + std::move(innerColumnName);
                     row.emplace_back(std::move(innerColumnName),
                                      std::move(val),
                                      ts);

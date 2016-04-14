@@ -435,10 +435,10 @@ struct WildcardExpression: public SqlRowExpression {
 
 /** Represents "SELECT expression" */
 struct ComputedColumn: public SqlRowExpression {
-    ComputedColumn(Utf8String alias,
-                     std::shared_ptr<SqlExpression>);
+    ComputedColumn(ColumnName alias,
+                   std::shared_ptr<SqlExpression>);
 
-    Utf8String alias;  ///< Name of variable alias
+    ColumnName alias;  ///< Name of variable alias
     std::shared_ptr<SqlExpression> expression;
 
     virtual BoundSqlExpression
@@ -456,7 +456,7 @@ struct ComputedColumn: public SqlRowExpression {
 
     virtual Utf8String getOperation() const
     {
-        return alias;
+        return alias.toUtf8String();
     }
 
     virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const;

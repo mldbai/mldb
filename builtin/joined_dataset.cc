@@ -171,19 +171,6 @@ struct JoinedDataset::Itl
         left.dataset->getChildAliases(sideChildNames[JOIN_SIDE_LEFT]);
         right.dataset->getChildAliases(sideChildNames[JOIN_SIDE_RIGHT]);
       
-        //if table aliases contains a dot '.', surround it with quotes to prevent ambiguity
-        Utf8String quotedLeftName = left.asName;
-        if (quotedLeftName.find('.') != quotedLeftName.end())
-        {
-            quotedLeftName = "\"" + left.asName + "\"";
-        }
-        Utf8String quotedRightName = right.asName;
-        if (quotedRightName.find('.') != quotedRightName.end())
-        {
-            quotedRightName = "\"" + right.asName + "\"";
-        }
-
-        // ...
         AnnotatedJoinCondition condition(joinConfig.left, joinConfig.right,
                                          joinConfig.on, 
                                          nullptr, //where
@@ -208,7 +195,8 @@ struct JoinedDataset::Itl
             // We can use a fast path, since we have simple non-filtered
             // equijoin
 
-            makeJoinConstantWhere(condition, context, left, right, joinConfig.qualification);            
+            makeJoinConstantWhere(condition, context, left, right,
+                                  joinConfig.qualification);            
 
         } else {
             // Complex join condition.  We need to generate the full set of
@@ -247,7 +235,11 @@ struct JoinedDataset::Itl
 
         // Finally, the column indexes
         for (auto & c: left.dataset->getColumnNames()) {
-            ColumnName newColumnName(ColumnName(quotedLeftName) + c);
+            ColumnName newColumnName;
+            if (!left.asName.empty())
+                newColumnName = ColumnName(left.asName) + c;
+            else newColumnName = c;
+
             ColumnHash newColumnHash(newColumnName);
 
             ColumnEntry entry;
@@ -261,7 +253,11 @@ struct JoinedDataset::Itl
 
         // Finally, the column indexes
         for (auto & c: right.dataset->getColumnNames()) {
-            ColumnName newColumnName(ColumnName(quotedRightName) + c);
+            ColumnName newColumnName;
+
+            if (!right.asName.empty())
+                newColumnName = ColumnName(right.asName) + c;
+            else newColumnName = c;
             ColumnHash newColumnHash(newColumnName);
 
             ColumnEntry entry;
@@ -282,7 +278,8 @@ struct JoinedDataset::Itl
     }
 
      /* This is called to record a new entry from the join. */
-    void recordJoinRow(const RowName & leftName, RowHash leftHash, const RowName & rightName, RowHash rightHash)
+    void recordJoinRow(const RowName & leftName, RowHash leftHash,
+                       const RowName & rightName, RowHash rightHash)
     {
         bool debug = false;
         RowName rowName;
@@ -327,12 +324,15 @@ struct JoinedDataset::Itl
         auto runSide = [&] (const AnnotatedJoinCondition::Side & side,
                             const Dataset & dataset,
                             bool outer,
-                            const std::function<void (const RowName&, const RowHash& )> & recordOuterRow)
+                            const std::function<void (const RowName&,
+                                                      const RowHash& )>
+                                & recordOuterRow)
             -> std::vector<std::tuple<ExpressionValue, RowName, RowHash> >
             {
                 auto sideCondition = side.where;
 
-                std::vector<std::shared_ptr<SqlExpression> > clauses = { side.selectExpression };
+                std::vector<std::shared_ptr<SqlExpression> > clauses
+                    = { side.selectExpression };
 
                 if (outer)
                 {
@@ -340,14 +340,18 @@ struct JoinedDataset::Itl
                     sideCondition = SqlExpression::TRUE;
 
                     //but evaluate if the row is valid to join with the other side
-                    auto notnullExpr = std::make_shared<IsTypeExpression>(side.where, true, "null");
-                    auto complementExpr = std::make_shared<BooleanOperatorExpression>(BooleanOperatorExpression(side.where, notnullExpr, "AND"));
+                    auto notnullExpr = std::make_shared<IsTypeExpression>
+                        (side.where, true, "null");
+                    auto complementExpr = std::make_shared<BooleanOperatorExpression>
+                        (BooleanOperatorExpression(side.where, notnullExpr, "AND"));
 
                     clauses.push_back(complementExpr);
                 }
 
-                auto embedding = std::make_shared<EmbeddingLiteralExpression>(clauses);
-                auto rowExpression = std::make_shared<ComputedColumn>("var", embedding);
+                auto embedding = std::make_shared<EmbeddingLiteralExpression>
+                    (clauses);
+                auto rowExpression = std::make_shared<ComputedColumn>
+                    (Coord("var"), embedding);
 
                 SelectExpression queryExpression;
                 queryExpression.clauses.push_back(rowExpression);

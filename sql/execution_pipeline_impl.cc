@@ -10,6 +10,8 @@
 #include "execution_pipeline_impl.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/types/basic_value_descriptions.h"
+#include "mldb/types/set_description.h"
+#include "mldb/types/tuple_description.h"
 #include "table_expression_operations.h"
 #include <algorithm>
 #include "mldb/sql/sql_expression_operations.h"
@@ -372,7 +374,7 @@ doGetColumn(const ColumnName & columnName, int fieldOffset)
                     // we need to remove the table name since it's no
                     // longer ambiguous.
                     if (scope.as() == t)
-                        name.removePrefix(prefix);
+                        name = name.removePrefix(prefix);
                         
 #if 0
                     cerr << "getting from lexical scope " << t
@@ -796,14 +798,14 @@ take()
         {
             auto result = std::move(r);                
             r = right->take();
-            return result;    
+            return std::move(result);
         }
 
         if (outerRight && checkOuterWhere(r, right, rField, lEmbedding))
         {
             auto result = std::move(r);                
             r = right->take();
-            return result;
+            return std::move(result);
         }
 
         if (lField == rField) {
@@ -821,7 +823,7 @@ take()
 
             //cerr << "returning " << jsonEncode(l) << endl;
 
-            auto result = std::move(l);
+            std::shared_ptr<PipelineResults> result = std::move(l);
 
             l = left->take();
             r = right->take();
@@ -835,7 +837,7 @@ take()
                 continue;
             }
 
-            return result;
+            return std::move(result);
         }
         else if (lField < rField) {
             do {

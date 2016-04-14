@@ -2237,7 +2237,8 @@ FunctionCallExpression::
 bindUserFunction(SqlBindingScope & context) const
 {
     //first check that the function exist, else it really confounds people if we throw errors about arguments for a non-existing function...
-    std::shared_ptr<Function> function = context.doGetFunctionEntity(functionName);
+    std::shared_ptr<Function> function
+        = context.doGetFunctionEntity(functionName);
 
     std::vector<std::shared_ptr<SqlRowExpression> > clauses;
     if (args.size() > 0)
@@ -3472,10 +3473,10 @@ isIdentitySelect(SqlExpressionDatasetContext & context) const
 /*****************************************************************************/
 
 ComputedColumn::
-ComputedColumn(Utf8String alias,
-                 std::shared_ptr<SqlExpression> expression)
-    : alias(alias),
-      expression(expression)
+ComputedColumn(ColumnName alias,
+               std::shared_ptr<SqlExpression> expression)
+    : alias(std::move(alias)),
+      expression(std::move(expression))
 {
 }
 
@@ -3518,29 +3519,27 @@ bind(SqlBindingScope & context) const
         return result;
     }
     else {
-        Coord aliasCol(alias);
-
         auto exec = [=] (const SqlRowScope & context,
                          ExpressionValue & storage,
                          const VariableFilter & filter)
             -> const ExpressionValue &
             {
                 const ExpressionValue & val = exprBound(context, storage, filter);
-
                 StructValue row;
                 if (&val == &storage) {
                     // We own the only copy; we can move it
-                    row.emplace_back(aliasCol, std::move(storage));
+                    storage.appendToRowDestructive(alias, row);
+                    return storage = std::move(row);
                 }
                 else {
                     // We got a reference; copy it
-                    row.emplace_back(aliasCol, val);
+                    storage.appendToRow(alias, row);
+                    return storage = std::move(row);
                 }
-                return storage = ExpressionValue(std::move(row));
             };
 
         std::vector<KnownColumn> knownColumns = {
-            KnownColumn(aliasCol, exprBound.info, COLUMN_IS_DENSE) };
+            KnownColumn(alias, exprBound.info, COLUMN_IS_DENSE) };
         
         auto info = std::make_shared<RowValueInfo>(knownColumns, SCHEMA_CLOSED);
 
@@ -3552,7 +3551,7 @@ Utf8String
 ComputedColumn::
 print() const
 {
-    return "computed(\"" + alias + "\"," + expression->print() + ")";
+    return "computed(\"" + alias.toUtf8String() + "\"," + expression->print() + ")";
 }
 
 std::shared_ptr<SqlExpression>

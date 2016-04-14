@@ -1,8 +1,6 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** function_contexts.cc                                              -*- C++ -*-
     Jeremy Barnes, 14 March 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Contexts in which to execute the WITH and EXTRACT clauses of applying
     functions.
@@ -147,8 +145,16 @@ doGetAllColumns(const Utf8String & tableName,
                          const ColumnName & col)
 
         {
+            ExcAssert(!col.empty());
             auto & row = context.as<RowContext>();
-            return std::move(row.input.getValueOrNull(col.toUtf8String()));
+            if (col.size() == 1) {
+                return row.input.getValueOrNull(col[0]);
+            }
+            else {
+                // Look recursively
+                return row.input.getValueOrNull(col.head())
+                    .getNestedColumn(col.tail());
+            }
         };
 
     return getAllColumnsFromFunctionImpl(tableName, keep, values, getValue);

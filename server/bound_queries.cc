@@ -616,12 +616,8 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
                     if (selectStar) {
                         // Move into place, since we know we're selecting *
                         outputRow.columns.reserve(row.columns.size());
-                        for (auto & c: row.columns) {
-                            outputRow.columns.emplace_back
-                                (std::move(std::get<0>(c).toSimpleName()),
-                                 ExpressionValue(std::move(std::get<1>(c)),
-                                                 std::get<2>(c)));
-                        }
+                        ExpressionValue output(std::move(row.columns));
+                        output.mergeToRowDestructive(outputRow.columns);
                     }
                     else {
                         // Run the select expression

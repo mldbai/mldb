@@ -2065,7 +2065,7 @@ parse(ML::Parse_Context & context, bool allowUtf8)
     ColumnName prefixAs;
     std::vector<std::pair<ColumnName, bool> > exclusions;   // Prefixes to exclude
     std::shared_ptr<SqlExpression> expr;
-    Utf8String columnName;
+    ColumnName columnName;
 
     {
         ML::Parse_Context::Revert_Token token(context);
@@ -2104,7 +2104,7 @@ parse(ML::Parse_Context & context, bool allowUtf8)
         ML::Parse_Context::Revert_Token token(context);
 
         // Do we have an identifier?
-        Utf8String asName = matchIdentifier(context, allowUtf8);
+        ColumnName asName = matchColumnName(context, allowUtf8);
         
         if (!asName.empty()) {
 
@@ -2234,15 +2234,15 @@ parse(ML::Parse_Context & context, bool allowUtf8)
             // No alias for rows
         }
         else {
-            columnName = matchIdentifier(context, allowUtf8);
+            columnName = matchColumnName(context, allowUtf8);
             if (columnName.empty())
                 context.exception("Expected identifier as name of variable");
         }
     } else {
         auto colExpr = std::dynamic_pointer_cast<ReadColumnExpression>(expr);
         if (colExpr)
-            columnName = colExpr->columnName.toUtf8String();
-        else columnName = expr->surface;
+            columnName = colExpr->columnName;
+        else columnName = Coord(expr->surface);
     }
 
     auto result = std::make_shared<ComputedColumn>(columnName, expr);

@@ -7,6 +7,8 @@
 
 #include "mldb/sql/expression_value.h"
 #include "mldb/types/value_description.h"
+#include "mldb/types/vector_description.h"
+#include "mldb/types/tuple_description.h"
 #include "mldb/jml/stats/distribution.h"
 #include "mldb/http/http_exception.h"
 
@@ -124,4 +126,52 @@ BOOST_AUTO_TEST_CASE( test_unflatten_nested_double_val )
                                  "\"1970-01-01T00:00:00Z\"]],"
                         "[\"d\",[5,\"1970-01-01T00:00:00Z\"]]],"
                       "\"1970-01-01T00:00:00Z\"]");
+
+    // Test that appending it back to a row works
+    
+    std::vector<std::tuple<Coords, CellValue, Date> > vals2;
+    Coords prefix = Coord("out");
+    val.appendToRowDestructive(prefix, vals2);
+
+    std::string expected
+        = "["
+	"[ \"out.a\", 1, \"1970-01-01T00:00:00Z\" ],"
+	"[ \"out.b\", 2, \"1970-01-01T00:00:00Z\" ],"
+	"[ \"out.c\", 6, \"1970-01-01T00:00:00Z\" ],"
+	"[ \"out.c.a\", 3, \"1970-01-01T00:00:00Z\" ],"
+	"[ \"out.c.b\", 4, \"1970-01-01T00:00:00Z\" ],"
+	"[ \"out.d\", 5, \"1970-01-01T00:00:00Z\" ] ]";
+    BOOST_CHECK_EQUAL(jsonEncode(vals2), Json::parse(expected));
+}
+
+BOOST_AUTO_TEST_CASE(test_get_nested_column)
+{
+    std::vector<std::tuple<Coords, CellValue, Date> > vals;
+    Date ts;
+    vals.emplace_back(Coord("a"), 1, ts);
+    vals.emplace_back(Coord("b"), 2, ts);
+    vals.emplace_back(Coord("c") + Coord("a"), 3, ts);
+    vals.emplace_back(Coord("c") + Coord("b"), 4, ts);
+    vals.emplace_back(Coord("d"), 5, ts);
+
+    ExpressionValue val(vals);
+
+    // Test that we can get a nested field
+    Coords path0;
+    Coords path1 = Coord("a");
+    Coords path2 = Coord("c");
+    Coords path3 = Coord("c") + Coord("a");
+    Coords path4 = Coord("c") + Coord("a") + Coord("x");
+    
+    ExpressionValue val0 = val.getNestedColumn(path0);
+    ExpressionValue val1 = val.getNestedColumn(path1);
+    ExpressionValue val2 = val.getNestedColumn(path2);
+    ExpressionValue val3 = val.getNestedColumn(path3);
+    ExpressionValue val4 = val.getNestedColumn(path4);
+
+    BOOST_CHECK_EQUAL(val0.extractJson(), val.extractJson());
+    BOOST_CHECK_EQUAL(val1.getAtom(), 1);
+    BOOST_CHECK_EQUAL(val2.extractJson(), Json::parse("{\"a\":3,\"b\":4}"));
+    BOOST_CHECK_EQUAL(val3.getAtom(), 3);
+    BOOST_CHECK(val4.empty());
 }
