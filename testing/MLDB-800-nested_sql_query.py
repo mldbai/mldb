@@ -116,4 +116,27 @@ expected = [["_rowName", "patate().column", "patate().value"],
 
 assert res == expected
 
+#MLDB-1574
+
+mldb.put("/v1/functions/patate", {
+    "type": "sql.query",
+    "params": {
+        "query": """
+                select avg(value) from (select * from
+                row_dataset({x: 1, y:2, z: 3}))
+
+        """,
+        "output": "FIRST_ROW"
+    }
+})
+
+res = mldb.query("select patate()")
+
+mldb.log(res)
+
+expected = [[ "_rowName", "patate().avg(value)" ],
+           [ "result", 2 ]]
+
+assert res == expected
+
 mldb.script.set_return('success')
