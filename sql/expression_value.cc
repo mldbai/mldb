@@ -1153,10 +1153,15 @@ struct ExpressionValue::Embedding {
                 if (!coord.isIndex())
                     return ExpressionValue();
                 size_t index = coord.toIndex();
+                if (index >= dims_[i])
+                    return ExpressionValue(); // out of range index
                 offset += stride * index;
             }
 
             return ExpressionValue(getValue(offset), ts);
+        }
+        else if (column.size() > dims_.size()) {
+            return ExpressionValue::null(ts);
         }
         else {
             // we're getting a sub-embedding

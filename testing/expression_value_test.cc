@@ -175,3 +175,39 @@ BOOST_AUTO_TEST_CASE(test_get_nested_column)
     BOOST_CHECK_EQUAL(val3.getAtom(), 3);
     BOOST_CHECK(val4.empty());
 }
+
+BOOST_AUTO_TEST_CASE(test_embedding_get_column)
+{
+    vector<double> vals = { 1, 2, 3, 4.5, 6, 12 };
+    Date ts;
+
+    // Create a 1x6 vector
+    ExpressionValue val(vals, ts);
+
+    BOOST_CHECK_EQUAL(val.getNestedColumn({0}).getAtom(), 1);
+    BOOST_CHECK_EQUAL(val.getNestedColumn({2}).getAtom(), 3);
+    BOOST_CHECK_EQUAL(val.getNestedColumn({4}).getAtom(), 6);
+    BOOST_CHECK(val.getNestedColumn({0,0}).empty());
+    BOOST_CHECK_EQUAL(val.getNestedColumn({10221312213021}).getAtom(), CellValue());
+    BOOST_CHECK_EQUAL(val.getNestedColumn({-10221312213021}).getAtom(), CellValue());
+    BOOST_CHECK_EQUAL(val.getNestedColumn({-1}).getAtom(), CellValue());
+    BOOST_CHECK_EQUAL(val.getNestedColumn({"hello"}).getAtom(), CellValue());
+
+    // Create a 2x3 matrix
+    ExpressionValue val2(vals, ts, {2,3});
+
+    // Test in bounds 2 dimensional accesses
+    BOOST_CHECK_EQUAL(val2.getNestedColumn({0,0}).getAtom(), 1);
+    BOOST_CHECK_EQUAL(val2.getNestedColumn({0,2}).getAtom(), 3);
+    BOOST_CHECK(val2.getNestedColumn({0,4}).empty());
+    BOOST_CHECK_EQUAL(val2.getNestedColumn({1,0}).getAtom(), 4.5);
+    BOOST_CHECK_EQUAL(val2.getNestedColumn({1,2}).getAtom(), 12);
+    BOOST_CHECK(val2.getNestedColumn({1,4}).empty());
+
+    // Test out of bound accesses
+    BOOST_CHECK(val2.getNestedColumn({10221312213021}).empty());
+    BOOST_CHECK(val2.getNestedColumn({-10221312213021}).empty());
+    BOOST_CHECK(val2.getNestedColumn({-1}).empty());
+    BOOST_CHECK(val2.getNestedColumn({"hello"}).empty());
+
+}
