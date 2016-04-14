@@ -99,7 +99,7 @@ mldbPluginEnterV100(Datacratic::MLDB::MldbServer * server)
     argv[0] = strdup("myprogram");
     argv[1] = nullptr;
 
-    cerr << "Initializing TensorFlow" << endl;
+    //cerr << "Initializing TensorFlow" << endl;
     tensorflow::port::InitMain(argv[0], &argc, &argv);
 
     using namespace tensorflow;

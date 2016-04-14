@@ -32,7 +32,6 @@ dataset.commit()
 result = mldb.get(
     '/v1/query',
     q='select pivot(thing, has) as * from example group by person')
-mldb.log(result)
 
 rez = mldb.put("/v1/procedures/dataset_creator", {
     "type": "transform",
@@ -41,16 +40,47 @@ rez = mldb.put("/v1/procedures/dataset_creator", {
         "outputDataset": { "id": "example2", "type":"sparse.mutable" }
     }
 })
-mldb.log(rez)
 
 rez = mldb.post("/v1/procedures/dataset_creator/runs")
-mldb.log(rez)
 
 result = mldb.get('/v1/query', q='select * from example2')
-mldb.log(result)
 
-row = result.json()[0]
-assert row['columns'][0][0] == "tsla" or row['columns'][0][0] == "appl"
+expected = [
+    {
+        "rowName": "[\"nick\"]",
+        "rowHash": "676fb0c3ba9e8500",
+        "columns": [
+            [
+                "goog",
+                2,
+                "1970-01-01T00:00:00Z"
+            ],
+            [
+                "appl",
+                1,
+                "1970-01-01T00:00:00Z"
+            ]
+        ]
+    },
+    {
+        "rowName": "[\"francois\"]",
+        "rowHash": "65a04ce6031d924d",
+        "columns": [
+            [
+                "tsla",
+                4,
+                "1970-01-01T00:00:00Z"
+            ],
+            [
+                "appl",
+                3,
+                "1970-01-01T00:00:00Z"
+            ]
+        ]
+    }
+]
+
+assert result.json() == expected;
 
 #MLDB-914
 

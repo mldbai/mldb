@@ -55,26 +55,8 @@ struct SubDataset::Itl
     Itl(SelectStatement statement, MldbServer* owner)
     {
         SqlExpressionMldbContext mldbContext(owner);
-        BoundTableExpression table = statement.from->bind(mldbContext);  
 
-        std::vector<MatrixNamedRow> rows;
-
-        if (table.dataset)
-        {  
-            rows = table.dataset->queryStructured(statement.select, statement.when, 
-                                                  *statement.where,
-                                                  statement.orderBy,
-                                                  statement.groupBy,
-                                                  *statement.having,
-                                                  *statement.rowName,
-                                                  statement.offset,
-                                                  statement.limit,
-                                                  table.asName);
-        }
-        else
-        {
-            rows = queryWithoutDataset(statement, mldbContext);
-        }
+        std::vector<MatrixNamedRow> rows = queryFromStatement(statement, mldbContext);
 
         init(std::move(rows));
     }
@@ -371,9 +353,11 @@ getRowStream() const
 
 static RegisterDatasetType<SubDataset, SubDatasetConfig> 
 regSub(builtinPackage(),
-          "sub",
-          "Dataset view on the result of a SELECT query",
-          "datasets/SubDataset.md.html");
+       "sub",
+       "Dataset view on the result of a SELECT query",
+       "datasets/SubDataset.md.html",
+       nullptr,
+       {MldbEntity::INTERNAL_ENTITY});
 
 extern std::shared_ptr<Dataset> (*createSubDatasetFn) (MldbServer *, const SubDatasetConfig &);
 
@@ -403,8 +387,7 @@ querySubDataset(MldbServer * server,
     std::vector<MatrixNamedRow> output
         = dataset
         ->queryStructured(select, when, where, orderBy, groupBy,
-                          having, named, offset, limit, "" /* alias */,
-                          false /* allow MT */);
+                          having, named, offset, limit, "" /* alias */);
     
     std::vector<NamedRowValue> result;
     result.reserve(output.size());

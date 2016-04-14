@@ -40,6 +40,8 @@ for i in range(25):
              preProcessed: 'I really loved this party!!!'}) as *""")
 
 expected_response = [{
+    "rowName": "result",
+    "rowHash": "d54892b736cac3ab",
     "columns" : [
         ["msgStats.msgLen", 28, "-Inf"],
         ["words.party", 1, "-Inf"],

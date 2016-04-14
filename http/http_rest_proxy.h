@@ -202,7 +202,12 @@ struct HttpRestProxy {
                  OnHeader onHeader = nullptr,
                  bool followRedirect = false) const;
 
-    /** Perform a synchronous request from end to end. */
+    /** Perform a synchronous request from end to end. 
+        Note that when followRedirect is set, the onHeader
+        callback will be called for each redirect, that is, 
+        any response with code in [300, 400), but onData
+        is only called on the last request.
+     **/
     Response perform(const std::string & verb,
                      const std::string & resource,
                      const Content & content = Content(),

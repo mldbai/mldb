@@ -22,6 +22,7 @@
 #include "mldb/arch/simd_vector.h"
 #include "mldb/jml/utils/vector_utils.h"
 #include "mldb/types/basic_value_descriptions.h"
+#include "mldb/types/set_description.h"
 #include "mldb/ml/value_descriptions.h"
 #include "mldb/plugins/sql_config_validator.h"
 #include "mldb/plugins/sql_expression_extractors.h"
@@ -82,9 +83,6 @@ ClassifierConfigDescription()
              "not expressions involving columns. So X will work, but not X + 1. "
              "If you need derived values in the select expression, create a dataset with "
              "the derived columns as a previous step and run the classifier over that dataset instead.");
-    addField("modelFileUrl", &ClassifierConfig::modelFileUrl,
-             "URL where the model file (with extension '.cls') should be saved. "
-             "This file can be loaded by a function of type 'classifier'.");
     addField("algorithm", &ClassifierConfig::algorithm,
              "Algorithm to use to train classifier with.  This must point to "
              "an entry in the configuration or configurationFile parameters");
@@ -108,10 +106,15 @@ ClassifierConfigDescription()
              0.5);
     addField("mode", &ClassifierConfig::mode,
              "Mode of classifier.  Controls how the label is interpreted and "
-             "what is the output of the classifier.", CM_BOOLEAN);
+             "what is the output of the classifier.", CM_BOOLEAN);    
+    addField("modelFileUrl", &ClassifierConfig::modelFileUrl,
+             "URL where the model file (with extension '.cls') should be saved. "
+             "This file can be loaded by the ![](%%doclink classifier function). "
+             "This parameter is optional unless the `functionName` parameter is used.");
     addField("functionName", &ClassifierConfig::functionName,
-             "If specified, a classifier function of this name will be created using "
-             "the trained classifier.");
+             "If specified, an instance of the ![](%%doclink classifier function) of this name will be created using "
+             "the trained model. Note that to use this parameter, the `modelFileUrl` must "
+             "also be provided.");
     addParent<ProcedureConfig>();
 
     onPostValidate = validate<ClassifierConfig, 
@@ -223,7 +226,7 @@ run(const ProcedureRunConfig & run,
         }
     }
 
-    // cerr << "knownInputColumns are " << jsonEncode(knownInputColumns);
+    // logger->debug() << "knownInputColumns are " << jsonEncode(knownInputColumns);
 
     ML::Timer timer;
 
@@ -232,7 +235,7 @@ run(const ProcedureRunConfig & run,
     auto featureSpace = std::make_shared<DatasetFeatureSpace>
         (boundDataset.dataset, labelInfo, knownInputColumns);
     
-    cerr << "initialized feature space in " << timer.elapsed() << endl;
+    logger->info() << "initialized feature space in " << timer.elapsed();
     
     // We want to calculate the label and weight of each row as well
     // as the select expression
@@ -331,7 +334,7 @@ run(const ProcedureRunConfig & run,
     PerThreadAccumulator<ThreadAccum> accum;
 
 
-    auto aggregator = [&] (NamedRowValue & row_,
+    auto processor = [&] (NamedRowValue & row_,
                            const std::vector<ExpressionValue> & extraVals)
         {
             MatrixNamedRow row = row_.flattenDestructive();
@@ -371,10 +374,10 @@ run(const ProcedureRunConfig & run,
 
             float weight = extraVals.at(1).toDouble();
 
-            //cerr << "label = " << label << " weight = " << weight << endl;
-            //cerr << "row.columns.size() = " << row.columns.size() << endl;
+            // logger->debug() << "label = " << label << " weight = " << weight;
+            // logger->debug() << "row.columns.size() = " << row.columns.size();
 
-            //cerr << "got row " << jsonEncode(row) << endl;
+            // logger->debug() << "got row " << jsonEncode(row);
             ++numRows;
 
             std::vector<std::pair<ML::Feature, float> > features
@@ -404,14 +407,13 @@ run(const ProcedureRunConfig & run,
     BoundSelectQuery(select, *boundDataset.dataset,
                      boundDataset.asName, runProcConf.trainingData.stm->when,
                      *runProcConf.trainingData.stm->where,
-                     runProcConf.trainingData.stm->orderBy, extra,
-                     false /* implicit order by row hash */)
-        .execute(aggregator, 
+                     runProcConf.trainingData.stm->orderBy, extra)
+        .execute({processor,true/*processInParallel*/}, 
                  runProcConf.trainingData.stm->offset, 
                  runProcConf.trainingData.stm->limit, 
                  nullptr /* progress */);
 
-    cerr << "extracted feature vectors in " << timer.elapsed() << endl;
+    logger->info() << "extracted feature vectors in " << timer.elapsed();
     
     // If we're categorical, we need to sort out the labels over all
     // of the threads.
@@ -469,7 +471,7 @@ run(const ProcedureRunConfig & run,
                                },
                                10000 /* thread threshold */);
     
-    cerr << "merged feature vectors in " << timer.elapsed() << endl;
+    logger->info() << "merged feature vectors in " << timer.elapsed();
 
     if (!accum.threads.empty()) {
         fvs = std::move(accum.threads[0]->fvs);
@@ -529,20 +531,12 @@ run(const ProcedureRunConfig & run,
 
     ExcAssertEqual(nx, trainingSet.example_count());
 
-    cerr << "added feature vectors in " << timer.elapsed() << endl;
+    logger->info() << "added feature vectors in " << timer.elapsed();
 
+    timer.restart();
+    trainingSet.preindex(labelFeature);
 
-    {
-        timer.restart();
-        trainingSet.preindex(labelFeature);
-
-        //cerr << "indexed " << nx
-        //     << " feature vectors in " << after.secondsSince(before)
-        //     << " at " << nx / after.secondsSince(before)
-        //     << " per second" << endl;
-    }
-
-    cerr << "indexed training data in " << timer.elapsed() << endl;
+    logger->info() << "indexed training data in " << timer.elapsed();
 
     // ...
     //trainingSet.dump("training_set.txt.gz");
@@ -550,15 +544,15 @@ run(const ProcedureRunConfig & run,
     // Find all features
     std::vector<ML::Feature> allFeatures = trainingSet.index().all_features();
 
-    cerr << "Training with " << allFeatures.size() << " features" << endl;
+    logger->info() << "Training with " << allFeatures.size() << " features";
 
     std::vector<ML::Feature> trainingFeatures;
 
     for (unsigned i = 0;  i < allFeatures.size();  ++i) {
-        //cerr << "allFeatures[i] = " << allFeatures[i] << endl;
+        // logger->debug() << "allFeatures[i] = " << allFeatures[i];
 
         string featureName = featureSpace->print(allFeatures[i]);
-        //cerr << "featureName = " << featureName << endl;
+        // logger->debug() << "featureName = " << featureName;
 
         if (allFeatures[i] == labelFeature)
             continue;
@@ -568,8 +562,7 @@ run(const ProcedureRunConfig & run,
 #if 0
         if (boost::regex_match(featureName, excludeFeatures)
             || featureName == "LABEL") {
-            cerr << "excluding feature " << featureName << " from training"
-                 << endl;
+            logger->info() << "excluding feature " << featureName << " from training";
             continue;
         }
 #endif
@@ -611,8 +604,8 @@ run(const ProcedureRunConfig & run,
         double factorTrue  = pow(labelWeights[1].total(), -equalizationFactor);
         double factorFalse = pow(labelWeights[0].total(), -equalizationFactor);
 
-        cerr << "factorTrue = " << factorTrue << endl;
-        cerr << "factorFalse = " << factorFalse << endl;
+        logger->info() << "factorTrue = " << factorTrue;
+        logger->info() << "factorFalse = " << factorFalse;
 
         weights = exampleWeights
             * (factorTrue  * labelWeights[true]
@@ -621,12 +614,12 @@ run(const ProcedureRunConfig & run,
         weights.normalize();
     }
 
-    //cerr << "training classifier" << endl;
+    // logger->debug() << "training classifier";
     ML::Classifier classifier(trainer->generate(threadContext, trainingSet, weights,
                                                 trainingFeatures));
-    //cerr << "done training classifier" << endl;
+    // logger->debug() << "done training classifier";
 
-    cerr << "trained classifier in " << timer.elapsed() << endl;
+    logger->info() << "trained classifier in " << timer.elapsed();
 
     bool saved = true;
     try {
@@ -635,7 +628,7 @@ run(const ProcedureRunConfig & run,
     }
     catch (const std::exception & exc) {
         saved = false;
-        cerr << "Error saving classifier: " << exc.what() << endl;
+        logger->info() << "Error saving classifier: " << exc.what();
     }
 
 
@@ -651,7 +644,7 @@ run(const ProcedureRunConfig & run,
         server->handleRequest(connection, request);
     }
 
-    //cerr << "done saving classifier" << endl;
+    // logger->debug() << "done saving classifier";
 
     //trainingSet.dump("training_set.txt.gz");
  
@@ -670,7 +663,7 @@ ClassifyFunctionConfigDescription()
 {
     addField("modelFileUrl", &ClassifyFunctionConfig::modelFileUrl,
              "URL of the model file (with extension '.cls') to load. "
-             "This file is created by a procedure of type 'classifier.train'.");
+             "This file is created by the ![](%%doclink classifier.train procedure).");
 }
 
 struct ClassifyFunction::Itl {
@@ -698,7 +691,7 @@ ClassifyFunction(MldbServer * owner,
 
     itl->labelInfo = labelInfo;
 
-    //cerr << "labelInfo = " << labelInfo << endl;
+    isRegression = itl->classifier.label_count() == 1;
 }
 
 ClassifyFunction::
@@ -782,8 +775,6 @@ getFeatureSet(const FunctionContext & context, bool attemptDense) const
 
 
     std::vector<std::pair<ML::Feature, float> > features;
-
-    //cerr << "row = " << jsonEncode(row) << endl;
 
     for (auto & r: row) {
         ColumnName columnName(std::get<0>(r));
@@ -878,6 +869,11 @@ apply(const FunctionApplier & applier_,
         }
     }
     else {
+        if(!fset) {
+            throw ML::Exception("Feature_Set is null! Are you giving only null features to "
+                "the classifier function?");
+        }
+
         if (cat) {
             auto scores = itl->classifier.predict(*fset);
             ExcAssertEqual(scores.size(), labelCount);
@@ -920,8 +916,7 @@ getFunctionInfo() const
         ColumnSparsity sparsity = col.second.info.optional()
             ? COLUMN_IS_SPARSE : COLUMN_IS_DENSE;
 
-        //cerr << "column " << col.second.columnName << " info " << col.second.info
-        //     << endl;
+        // logger->debug() << "column " << col.second.columnName << " info " << col.second.info;
 
         // Be specific about what type we're looking for.  This will allow
         // us to be more leniant when encoding for input.
@@ -1020,7 +1015,8 @@ apply(const FunctionApplier & applier,
 
     ML::Explanation expl
         = itl->classifier.impl
-        ->explain(*fset, itl->featureSpace->encodeLabel(context.get<CellValue>("label")));
+        ->explain(*fset, itl->featureSpace->encodeLabel(context.get<CellValue>("label"),
+                                                        isRegression));
 
     result.set("bias", ExpressionValue(expl.bias, ts));
 

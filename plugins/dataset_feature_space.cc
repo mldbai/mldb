@@ -1,13 +1,12 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** dataset_feature_space.cc
-
- */
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+*/
 
 #include "dataset_feature_space.h"
 #include "mldb/core/dataset.h"
 #include "mldb/ml/jml/registry.h"
 #include "mldb/base/parallel.h"
+#include "mldb/ml/jml/training_index_entry.h"
 #include "mldb/types/value_description.h"
 #include "mldb/types/hash_wrapper_description.h"
 
@@ -18,7 +17,7 @@ namespace Datacratic {
 namespace MLDB {
 
 
-ML::Feature labelFeature(0, 0, 0), weightFeature(0, 1, 0);
+const ML::Feature labelFeature(0, 0, 0), weightFeature(0, 1, 0);
 
 
 /*****************************************************************************/
@@ -33,7 +32,8 @@ DatasetFeatureSpace()
 DatasetFeatureSpace::
 DatasetFeatureSpace(std::shared_ptr<Dataset> dataset,
                     ML::Feature_Info labelInfo,
-                    const std::set<ColumnName> & knownInputColumns)
+                    const std::set<ColumnName> & knownInputColumns,
+                    bool bucketize)
     : labelInfo(labelInfo)
 {
     auto columns = dataset->getColumnNames();
@@ -54,54 +54,84 @@ DatasetFeatureSpace(std::shared_ptr<Dataset> dataset,
         {
             const ColumnName & columnName = filteredColumns[i];
             ColumnHash ch = columnName;
-
-
-            //cerr << "doing column " << columnName << endl;
-            ColumnStats statsStorage;
-            auto & stats = dataset->getColumnIndex()
-                ->getColumnStats(columnName, statsStorage);
-
-            if (stats.isNumeric()) {
-                columnInfo[ch].info = ML::REAL;
-            }
-            else {
-                std::map<CellValue::CellType, std::pair<size_t, size_t> > types;
-
-                std::vector<std::string> stringValues;
-                std::vector<std::string> allValues;
-
-                for (auto & v: stats.values) {
-                    types[v.first.cellType()].first += 1;
-                    types[v.first.cellType()].second += v.second.rowCount();
-                    if (v.first.cellType() == CellValue::ASCII_STRING)
-                        stringValues.push_back(v.first.toString());
-                    else if (v.first.cellType() == CellValue::UTF8_STRING)
-                        stringValues.push_back(v.first.toUtf8String().rawString());
-
-                    if(v.first.cellType() != CellValue::UTF8_STRING)
-                        allValues.push_back(v.first.toString());
-                    else
-                        allValues.push_back(v.first.toUtf8String().rawString());
-                }
-
-                //cerr << "feature " << columnName << " has types " << jsonEncodeStr(types)
-                //     << endl;
-
-                if (types.count(CellValue::ASCII_STRING) || 
-                    types.count(CellValue::UTF8_STRING)) {
-                    // Has string values; make it categorical
-                    auto categorical = std::make_shared<ML::Fixed_Categorical_Info>(allValues);
-                    columnInfo[ch].info = ML::Feature_Info(categorical);
-                }
-                else {
-                    columnInfo[ch].info = ML::REAL;
-                }
-            }
-
+            int oldIndex = columnInfo[ch].index;
+            columnInfo[ch] = getColumnInfo(dataset, columnName.toUtf8String(), bucketize);
+            columnInfo[ch].index = oldIndex;
             return true;
         };
 
     parallelMap(0, filteredColumns.size(), onColumn);
+}
+
+//static
+DatasetFeatureSpace::ColumnInfo
+DatasetFeatureSpace::
+getColumnInfo(std::shared_ptr<Dataset> dataset,
+              const Utf8String & columnName,
+              bool bucketize)
+{
+    ColumnInfo result;
+    result.columnName = columnName;
+
+    if (!bucketize) {
+        //cerr << "doing column " << columnName << endl;
+        ColumnStats statsStorage;
+        auto & stats = dataset->getColumnIndex()
+            ->getColumnStats(columnName, statsStorage);
+
+        result.distinctValues = stats.values.size();
+
+        if (stats.isNumeric()) {
+            result.info = ML::REAL;
+        }
+        else {
+            std::map<CellValue::CellType, std::pair<size_t, size_t> > types;
+
+            std::vector<std::string> stringValues;
+            std::vector<std::string> allValues;
+
+            for (auto & v: stats.values) {
+                types[v.first.cellType()].first += 1;
+                types[v.first.cellType()].second += v.second.rowCount();
+                if (v.first.cellType() == CellValue::ASCII_STRING)
+                    stringValues.push_back(v.first.toString());
+                else if (v.first.cellType() == CellValue::UTF8_STRING)
+                    stringValues.push_back(v.first.toUtf8String().rawString());
+
+                if(v.first.cellType() != CellValue::UTF8_STRING)
+                    allValues.push_back(v.first.toString());
+                else
+                    allValues.push_back(v.first.toUtf8String().rawString());
+            }
+
+            //cerr << "feature " << columnName << " has types " << jsonEncodeStr(types)
+            //     << endl;
+
+            if (types.count(CellValue::ASCII_STRING) || 
+                types.count(CellValue::UTF8_STRING)) {
+                // Has string values; make it categorical
+                auto categorical = std::make_shared<ML::Fixed_Categorical_Info>(allValues);
+                result.info = ML::Feature_Info(categorical);
+            }
+            else {
+                result.info = ML::REAL;
+            }
+        }
+    }
+    else {
+        auto bucketsAndDescriptions
+            = dataset->getColumnIndex()
+            ->getColumnBuckets(columnName, 255 /* num buckets */);
+
+        BucketList & buckets = std::get<0>(bucketsAndDescriptions);
+        BucketDescriptions & descriptions = std::get<1>(bucketsAndDescriptions);
+
+        result.distinctValues = descriptions.numBuckets();
+        result.buckets = std::move(buckets);
+        result.bucketDescriptions = std::move(descriptions);
+    }
+
+    return result;
 }
 
 float
@@ -132,18 +162,54 @@ encodeFeature(ColumnHash column, const CellValue & value,
         throw ML::Exception("Encoding unknown column");
     }
 
+    ML::Feature f = getFeature(column);
+    
     fset.emplace_back(getFeature(column),
                       encodeValue(value, it->second.columnName,
                                   it->second.info));
 }
 
-float
+std::pair<int, int>
 DatasetFeatureSpace::
-encodeLabel(const CellValue & value) const
+getFeatureBucket(ColumnHash column, const CellValue & value) const
+{
+    if (value.empty())
+        throw ML::Exception("Encoding empty value");
+        
+    auto it = columnInfo.find(column);
+    if (it == columnInfo.end()) {
+        throw ML::Exception("Encoding unknown column");
+    }
+
+    if (it->second.info.type() == ML::CATEGORICAL
+        || it->second.info.type() == ML::STRING) {
+        std::string key;
+        if (value.isUtf8String())
+            key = value.toUtf8String().rawString();
+        else 
+            key  = value.toString();
+
+        int val = it->second.info.categorical()->lookup(key);
+        return { it->second.index, val };
+    }
+
+    return { it->second.index, it->second.bucketDescriptions.getBucket(value) };
+}
+
+ML::Label
+DatasetFeatureSpace::
+encodeLabel(const CellValue & value, bool isRegression) const
 {
     static ColumnName LABEL("<<LABEL>>");
-    return encodeValue(value.isString() ? jsonEncodeStr(value) : value,
-                       LABEL, labelInfo);
+    float label = encodeValue(value.isString() ? jsonEncodeStr(value) : value,
+                           LABEL, labelInfo);
+
+    if (isRegression) {
+        return ML::Label(label);
+    }
+    else {
+        return ML::Label((int)label);
+    }
 }
 
 float
@@ -176,6 +242,7 @@ encodeValue(const CellValue & value,
         
     }
     return value.toDouble();
+
 }
 
 ML::Feature_Info
@@ -285,8 +352,9 @@ print(const ML::Feature & feature) const
 
         
     auto it = columnInfo.find(getHash(feature));
-    if (it == columnInfo.end())
+    if (it == columnInfo.end()) {
         throw ML::Exception("Couldn't find feature in dataset");
+    }
     return it->second.columnName.toUtf8String().rawString();
 }
 
@@ -299,7 +367,7 @@ print(const ML::Feature & feature, float value) const
 
     auto val = getValue(feature, value);
 
-    if (val.isString())
+    if (val.isAsciiString())
         return val.toString();
     else if (val.isUtf8String())
         return val.toUtf8String().rawString();
@@ -419,11 +487,19 @@ serialize(ML::DB::Store_Writer & store) const
     //cerr << "serializing " << columnInfo.size() << " features" << endl;
     for (auto & i: columnInfo) {
         store << jsonEncodeStr(i.first);
-        store << i.second.columnName.toUtf8String().rawString();
-        i.second.info.serialize(store);
+        const ColumnInfo& columnInfo = i.second;
+        store << columnInfo.columnName.toUtf8String().rawString();
+        columnInfo.info.serialize(store);
     }
 
     //cerr << "done serializing feature space" << endl;
+}
+
+std::ostream & operator << (std::ostream & stream,
+                            const DatasetFeatureSpace::ColumnInfo & columnInfo)
+{
+    stream << columnInfo.print();
+    return stream;
 }
 
 

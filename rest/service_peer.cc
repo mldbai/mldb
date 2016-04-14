@@ -15,6 +15,7 @@
 #include "mldb/jml/utils/hex_dump.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/watch/watch_impl.h"
+#include "mldb/utils/log.h"
 #include "rest_collection_impl.h"
 #include <future>
 
@@ -36,7 +37,8 @@ ServicePeer(const std::string & localPeerName,
             bool enableLogging)
     : RestDirectory(this, "ROOT"),
       HttpRestService(enableLogging),
-      peers(this)
+      peers(this),
+      logger(MLDB::getMldbLog<ServicePeer>())
 {
     peerInfo.peerName = localPeerName;
     peerInfo.serviceType = serviceType;
@@ -130,7 +132,7 @@ createHttpWatch(RestConnection & connection,
         // to data
         Data * dataPtr = data.get();
 
-        cerr << "watching " << jsonEncode(resource) << endl;
+        logger->debug() << "watching " << jsonEncode(resource);
 
         // Create the watch which will receive the information we need
         data->watch = this->watch(resource, true /* catchUp */,
@@ -138,8 +140,8 @@ createHttpWatch(RestConnection & connection,
 
         auto onFire = [=] (const Any & valueIn)
             {
-                cerr << "watchRouter onFire" << jsonEncode(valueIn)
-                << " shutdown " << this->shutdown_ << endl;
+                logger->debug() << "watchRouter onFire" << jsonEncode(valueIn)
+                << " shutdown " << this->shutdown_;
                 if (this->shutdown_)
                     return;
                 if (!dataPtr->connection.isConnected())
@@ -152,8 +154,7 @@ createHttpWatch(RestConnection & connection,
             {
                 if (this->shutdown_)
                     return;
-                cerr << "watchRouter onError"
-                << jsonEncode(error) << endl;
+                logger->debug() << "watchRouter onError" << jsonEncode(error);
             };
 #endif
 
@@ -186,12 +187,12 @@ void
 ServicePeer::
 onNewConnection(std::shared_ptr<PeerConnection> conn)
 {
-    cerr << peerInfo.peerName << " accepted new connection" << endl;
+    logger->debug() << peerInfo.peerName << " accepted new connection";
     auto entry = std::make_shared<RemotePeer>(this);
     PeerInfo remoteInfo = entry->initAfterAccept(conn);
 
-    cerr << peerInfo.peerName << " got new connection from "
-         << remoteInfo.peerName << endl;
+    logger->debug() << peerInfo.peerName << " got new connection from "
+         << remoteInfo.peerName;
     peers.addEntry(remoteInfo.peerName, entry);
 
     // Start it running
@@ -213,23 +214,22 @@ void
 ServicePeer::
 onNewPeer(const RestCollection<std::string, PeerInfo>::ChildEvent & newPeer)
 {
-    cerr << "peer " << peerInfo.peerName << " found a new peer "
-         << newPeer.key << endl;
-    cerr << "newPeer.event = " << newPeer.event << endl;
+    logger->debug() << "peer " << peerInfo.peerName << " found a new peer " << newPeer.key;
+    logger->debug() << "newPeer.event = " << newPeer.event;
 
     switch (newPeer.event) {
     case CE_NEW:
         if (newPeer.key == peerInfo.peerName) {
             if (jsonEncode(*newPeer.value) != jsonEncode(peerInfo))
                 throw ML::Exception("our peer was discovered with different info");
-            cerr << "new entry for me " << peerInfo.peerName << " "
-                 << newPeer.key << " " << jsonEncode(peers.getKeys()) << endl;
+            logger->debug() << "new entry for me " << peerInfo.peerName << " "
+                 << newPeer.key << " " << jsonEncode(peers.getKeys());
             ExcAssert(peers.tryGetExistingEntry(peerInfo.peerName));
         }
         else if (newPeer.key < peerInfo.peerName) {
             auto entry = peers.tryGetExistingEntry(newPeer.key);
             if (entry) {
-                cerr << "onNewPeer: peer " << newPeer.key << " already exists" << endl;
+                logger->error() << "onNewPeer: peer " << newPeer.key << " already exists";
                 abort();  // logic error
             }
 
@@ -237,45 +237,44 @@ onNewPeer(const RestCollection<std::string, PeerInfo>::ChildEvent & newPeer)
             // TODO: async connect (for when we have lots of peers)
 
             try {
-                cerr << "peer " << peerInfo.peerName 
+                logger->debug() << "peer " << peerInfo.peerName 
                      << " is connecting to new peer "
-                     << newPeer.key << endl;
+                     << newPeer.key;
                 auto conn = peerServer->connect(*newPeer.value);
                 auto entry = std::make_shared<RemotePeer>(this);
                 entry->initAfterConnect(conn, *newPeer.value);
 
-                cerr << "peer " << peerInfo.peerName 
+                logger->debug() << "peer " << peerInfo.peerName 
                      << " being added after connecting to "
-                     << newPeer.key << endl;
+                     << newPeer.key;
 
                 peers.addEntry(newPeer.key, entry);
                 
                 // Now it's added we can make it live
                 entry->start();
             } catch (const std::exception & exc) {
-                cerr << "error connecting to peer " << peerInfo.peerName
-                     << ": " << exc.what() << endl;
+                logger->error() << "error connecting to peer " << peerInfo.peerName
+                     << ": " << exc.what();
             }
         }
         else {
             // We accept.  Once that's done we add ourselves to the peers.
-            cerr << "waiting for accept from peer " << newPeer.key << endl;
+            logger->debug() << "waiting for accept from peer " << newPeer.key;
         }
         break;
     case CE_DELETED:
-        cerr << "deleted peer " << newPeer.key << endl;
+        logger->debug() << "deleted peer " << newPeer.key;
         if (newPeer.key == peerInfo.peerName) {
             // We lost our own entry.  We need to restart.
-            cerr << "WARNING: peer " << peerInfo.peerName
-                 << " lost its own entry in discovery.  Letting it come"
-                 << " back" << endl;
+            logger->warn() << "WARNING: peer " << peerInfo.peerName
+                 << " lost its own entry in discovery.  Letting it come back";
             return;
         }
         peers.deleteEntry(newPeer.key);
         break;
     case CE_UPDATED:
-        cerr << "updated peer " << newPeer.key << endl;
-        cerr << "TODO: implement updates" << endl;
+        logger->debug() << "updated peer " << newPeer.key;
+        logger->debug() << "TODO: implement updates";
     default:
         throw ML::Exception("unexpected discovery event type");
     }
@@ -293,7 +292,7 @@ onPeerStateChange(RemotePeer * peer)
     
     PeerInfo info = peer->remotePeerInfo;
     
-    //cerr << "peer state change for " << jsonEncode(info) << endl;
+    //logger->debug() << "peer state change for " << jsonEncode(info);
 
     // post this so that we can let it get out of its callback
     peerServer->postWork([=] () { peers.deleteEntry(info.peerName); });
@@ -331,7 +330,7 @@ start()
     auto newPeerInfo = peerServer->listen(peerInfo);
     peerInfo = newPeerInfo;
 
-    //cerr << "after: " << jsonEncode(peerInfo) << endl;
+    //logger->debug() << "after: " << jsonEncode(peerInfo);
 
     // 2.  Check that we can establish a connection with our published
     // address (externally).  To do this we go through the entire connection
@@ -344,15 +343,15 @@ start()
             ([&] (std::shared_ptr<PeerConnection> accepted)
              {
                 selfAcceptEntry->initAfterAccept(accepted);
-                //cerr << "**** ONNEWCONNECTION" << endl;
+                //logger->debug() << "**** ONNEWCONNECTION";
                 acceptedPeerInfo.set_value(selfAcceptEntry->remotePeerInfo);
-                //cerr << "accept done" << endl;
+                //logger->debug() << "accept done";
             });
 
         auto selfConnection = peerServer->connect(newPeerInfo);
         auto selfConnectEntry = std::make_shared<RemotePeer>(this);
         selfConnectEntry->initAfterConnect(selfConnection, newPeerInfo);
-        //cerr << "got selfConnection and connect done" << endl;
+        //logger->debug() << "got selfConnection and connect done";
 
         std::future<PeerInfo> future = acceptedPeerInfo.get_future();
 
@@ -371,7 +370,7 @@ start()
     }
 
     // 2.  Connect to ourself
-    cerr << "Checking we can connect to ourself..." << endl;
+    logger->debug() << "Checking we can connect to ourself...";
     auto selfConnection = peerServer->connectToSelf();
     auto selfEntry = std::make_shared<RemotePeer>(this);
     selfEntry->initAfterConnect(selfConnection, newPeerInfo);
@@ -380,7 +379,7 @@ start()
     if (selfEntry->state != PS_OK) {
         throw ML::Exception("Can't start service peer: unable to talk to itself (error is '" + selfEntry->error + "').  Check that etcd is OK and that the published port and hostname is really the exterally accessible port and hostname.");
     }
-    //cerr << "done checking" << endl;
+    //logger->debug() << "done checking";
 
     peerServer->setNewConnectionHandler(std::bind(&ServicePeer::onNewConnection,
                                                   this,
@@ -390,12 +389,12 @@ start()
     // 3.  Add our entry
     peers.addEntry(peerInfo.peerName, selfEntry);
 
-    //cerr << "publishing" << endl;
+    //logger->debug() << "publishing";
 
     // 4.  Announce ourselves to the world
     discovery->publish(peerInfo);
 
-    //cerr << "starting" << endl;
+    //logger->debug() << "starting";
 
     // 5.  Start our self entry running
     selfEntry->start();
@@ -473,11 +472,11 @@ doCreateLink(RestEntity * forWho,
              const std::string & linkType,
              Any linkParams)
 {
-    //cerr << "creating link " << endl;
-    //cerr << "from " << jsonEncode(forWho->getPath()) << endl;
-    //cerr << "to   " << jsonEncode(remotePath) << endl;
-    //cerr << "linkType " << linkType << endl;
-    //cerr << "linkParams " << jsonEncode(linkParams) << endl;
+    //logger->debug() << "creating link ";
+    //logger->debug() << "from " << jsonEncode(forWho->getPath());
+    //logger->debug() << "to   " << jsonEncode(remotePath);
+    //logger->debug() << "linkType " << linkType;
+    //logger->debug() << "linkParams " << jsonEncode(linkParams);
 
     return this->acceptLink(forWho->getPath(),
                             remotePath,
@@ -543,7 +542,7 @@ sendPeerMessage(const std::string & peer,
             try {
                 onError(std::move(peerMessage));
             } JML_CATCH_ALL {
-                cerr << "error on onError handler of message" << endl;
+                logger->error() << "error on onError handler of message";
                 abort();
             }
         }
@@ -677,8 +676,8 @@ watchChannel(const Utf8String & channel,
              bool catchUp,
              Any info)
 {
-    //cerr << "PeerCollection::watchChannel " << channel << " " << filter
-    //     << " " << catchUp << " " << jsonEncodeStr(info) << endl;
+    //logger->debug() << "PeerCollection::watchChannel " << channel << " " << filter
+    //     << " " << catchUp << " " << jsonEncodeStr(info);
 
     if (channel == "children")
         return watchChildren(filter, catchUp, info);
@@ -689,7 +688,7 @@ watchChannel(const Utf8String & channel,
 #if 0
         return transform<std::string>(watchChildren(filter, catchUp, info),
                                      [] (const RestEntityChildEvent & ev)
-                                      { cerr << "channel event " << ev.name << " " << ev.event << endl;
+                                      { logger->debug() << "channel event " << ev.name << " " << ev.event;
                                          return (ev.event == CE_NEW
                                                ? "+" : "-") + ev.name; });
 #endif

@@ -13,8 +13,7 @@ mldb = mldb_wrapper.wrap(mldb) # noqa
 resp = mldb.put_async("/v1/datasets/dummy2", {
     'type' : 'text.line',
     'params' : {
-        'dataFileUrl':
-            'https://s3-eu-west-1.amazonaws.com/pfigshare-u-files/1310438/reddituserpostingbehavior.csv.gz'
+        'dataFileUrl': 'https://s3.amazonaws.com/public.mldb.ai/reddit.csv.gz'
     }
 })
 assert resp.json()['state'] == 'initializing', \

@@ -13,6 +13,8 @@
 #include "mldb/core/mldb_entity.h"
 #include "mldb/sql/cell_value.h"
 #include "mldb/types/url.h"
+#include "mldb/core/recorder.h"
+#include <set>
 
 // NOTE TO MLDB DEVELOPERS: This is an API header file.  No includes
 // should be added, especially value_description.h.
@@ -36,6 +38,8 @@ struct TupleExpression;
 struct WhenExpression;
 struct RowValueInfo;
 struct ExpressionValue;
+struct BucketList;
+struct BucketDescriptions;
 
 typedef EntityType<Dataset> DatasetType;
 
@@ -57,6 +61,18 @@ typedef EntityType<Dataset> DatasetType;
 struct MatrixView {
     virtual ~MatrixView();
 
+    /**
+    Return a list of all rownames.
+    Rownames are always unique.
+
+    The sorting criteria is the same as with RowStream:
+
+    Row names can be returned in an arbitrary order as long as it is deterministic.
+    I.e. Calling getRowNames several times on the same (unchanged) dataset should return rownames
+    in the same (arbitrary) order.
+
+    The ordering needs to be preserved regardless of start and limit.
+    */
     virtual std::vector<RowName>
     getRowNames(ssize_t start = 0, ssize_t limit = -1) const = 0;
 
@@ -129,7 +145,6 @@ struct ColumnStats {
     uint64_t rowCount_;
 };
 
-
 /*****************************************************************************/
 /* COLUMN INDEX                                                              */
 /*****************************************************************************/
@@ -155,9 +170,33 @@ struct ColumnIndex {
     getColumnStats(const ColumnName & column, ColumnStats & toStoreResult) const;
 
     /** Return the value of the column for all rows and timestamps. */
+    /** Will throw if column is unknown                              */
     virtual MatrixColumn getColumn(const ColumnName & column) const = 0;
 
-    /** Return the value of the column for all rows, ignoring timestamps. */
+    /** Return a dense column, with one value for every row in the same order as
+        getRowNames().
+
+        Default builts on top of getColumn() and getRowNames(), but is
+        quite inefficient.
+    */
+    virtual std::vector<CellValue>
+    getColumnDense(const ColumnName & column) const;
+
+    /** Return a bucketed dense column, with one value for every row in the same
+        order as rowNames().  Numerical values will be split into a maximum of
+        maxNumBuckets buckets, with split points as described in the
+        return value.  
+
+        Default builds on top of getColumnDense().
+    */
+    virtual std::tuple<BucketList, BucketDescriptions>
+    getColumnBuckets(const ColumnName & column,
+                     int maxNumBuckets = -1) const;
+
+    /** Return the value of the column for all rows, ignoring timestamps. 
+        Default implementation is based on getColumn
+        Will throw if column is unknown
+    */
     virtual std::vector<std::tuple<RowName, CellValue> >
     getColumnValues(const ColumnName & column,
                     const std::function<bool (const CellValue &)> & filter = nullptr) const;
@@ -172,6 +211,9 @@ struct ColumnIndex {
         implementation uses getColumnStats.
     */
     virtual uint64_t getColumnRowCount(const ColumnName & column) const;
+
+    virtual std::vector<RowName>
+    getRowNames(ssize_t start = 0, ssize_t limit = -1) const = 0;
 };
 
 
@@ -179,7 +221,19 @@ struct ColumnIndex {
 /* ROW STREAM                                                                */
 /*****************************************************************************/
 
+/** This structure is used for streaming queries to generate a set of
+    matching row names one at a time.
+
+    Row names can be streamed in an arbitrary order as long as it is deterministic.
+    I.e. using different rowstreams on the same (unchanged) dataset should return rownames
+    in the same (arbitrary) order.
+*/
+
 struct RowStream {
+
+    virtual ~RowStream()
+    {
+    }
 
     /* Clone the stream with just enough information to use the initAt 
        clones streams should be un-initialized                        */
@@ -195,6 +249,39 @@ struct RowStream {
     virtual RowName next() = 0;
 
 };
+
+
+/*****************************************************************************/
+/* DATASET RECORDER                                                          */
+/*****************************************************************************/
+
+/** This is a recorder that forwards directly its records to a dataset. */
+
+struct DatasetRecorder: public Recorder {
+    
+    DatasetRecorder(Dataset * dataset);
+
+    virtual ~DatasetRecorder();
+
+    virtual void
+    recordRowExpr(const RowName & rowName,
+                  const ExpressionValue & expr) override;
+    virtual void
+    recordRow(const RowName & rowName,
+              const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals) override;
+
+    virtual void
+    recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows) override;
+
+    virtual void
+    recordRowsExpr(const std::vector<std::pair<RowName, ExpressionValue > > & rows) override;
+
+private:
+    Dataset * dataset;
+    struct Itl;
+    std::unique_ptr<Itl> itl;
+};
+
 
 
 /*****************************************************************************/
@@ -238,19 +325,28 @@ struct Dataset: public MldbEntity {
     /** Record multiple rows in a single transaction.  Default implementation
         forwards to recordRow.
 
-        If you override this call make sure to do handle the validation of column names
-        and row names (see validateNames)
+        If you override this call make sure to do handle the validation of
+        column names and row names (see validateNames)
+
+        This function must be thread safe with respect to concurrent calls to
+        all other functions.
     */
     virtual void recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows);
 
     /** Record a column.  Default will forward to recordRows after transposing
         the input data.
+
+        This function must be thread safe with respect to concurrent calls to
+        all other functions.
     */
     virtual void recordColumn(const ColumnName & columnName,
                               const std::vector<std::tuple<RowName, CellValue, Date> > & vals);
     
     /** Record multiple columns in a single transaction.  Default implementation
         forwards to recordRow.
+
+        This function must be thread safe with respect to concurrent calls to
+        all other functions.
     */
     virtual void recordColumns(const std::vector<std::pair<ColumnName, std::vector<std::tuple<RowName, CellValue, Date> > > > & cols);
 
@@ -258,6 +354,9 @@ struct Dataset: public MldbEntity {
         datasets that require flattening.
         
         Default will flatten and call recordRow().
+
+        This function must be thread safe with respect to concurrent calls to
+        all other functions.
     */
     virtual void recordRowExpr(const RowName & rowName,
                                const ExpressionValue & expr);
@@ -266,8 +365,30 @@ struct Dataset: public MldbEntity {
         datasets that require flattening.
         
         Default will flatten and call recordRows().
+
+        This function must be thread safe with respect to concurrent calls to
+        all other functions.
     */
     virtual void recordRowsExpr(const std::vector<std::pair<RowName, ExpressionValue> > & rows);
+
+    struct MultiChunkRecorder {
+        std::function<std::unique_ptr<Recorder> (size_t chunkIndex)> newChunk;
+        std::function<void ()> commit;
+    };
+
+    /** Set up for a multithreaded record.  This returns an object that can
+        generate a recorder for each chunk of an input.  Those chunks can
+        be recorded into in a multithreaded manner, and finally all committed
+        to the dataset at once.
+
+        This allows for deterministic, multithreaded recording from bulk
+        insert scenarios.
+
+        The default will return an object that simply forwards to the
+        record* methods.  Dataset types that support chunked recording can
+        override.
+    */
+    virtual MultiChunkRecorder getChunkRecorder();
 
     /** Return what is known about the given column.  Default returns
         an "any value" result, ie nothing is known about the column.
@@ -290,10 +411,19 @@ struct Dataset: public MldbEntity {
 
     /** Return a RowValueInfo that describes all rows that could be returned
         from the dataset.
+
+        This function must be thread safe with respect to concurrent calls to
+        all other functions.
     */
     virtual std::shared_ptr<RowValueInfo> getRowInfo() const;
 
-    /** Commit changes to the database.  Default is a no-op. */
+    /** Commit changes to the database.  Default is a no-op.
+
+        This function must be thread safe with respect to concurrent calls to
+        all other functions.  In particular, it must be safe to call commit()
+        from multiple threads, and to call commit() in parallel with
+        recordXxx() operations.
+    */
     virtual void commit();
 
     /** Select from the database. */
@@ -307,8 +437,7 @@ struct Dataset: public MldbEntity {
                     const SqlExpression & rowName,
                     ssize_t offset,
                     ssize_t limit,
-                    Utf8String alias = "",
-                    bool allowMT = true) const;
+                    Utf8String alias = "") const;
 
     /** Select from the database. */
     virtual std::vector<MatrixNamedRow>
@@ -351,11 +480,22 @@ struct Dataset: public MldbEntity {
         The where expression must only refer to columns in the dataset,
         or variables that are available in the context.
 
+        The alias is the potential alias of the dataset in the context
+
         This is called by queryStructured and queryBasic, so cannot use those
         functions.
-    */
+
+        Must return the *exact* set of rows or a stream that will do the same
+        because the where expression will not be evaluated outside of this method
+        if this method is called.
+
+        Ordering can be arbitrary but needs to be deterministic, and there must not
+        be duplicated rows.
+    */    
+
     virtual GenerateRowsWhereFunction
     generateRowsWhere(const SqlBindingScope & context,
+                      const Utf8String& alias,
                       const SqlExpression & where,
                       ssize_t offset,
                       ssize_t limit) const;
@@ -379,8 +519,7 @@ struct Dataset: public MldbEntity {
                const SqlExpression & where,
                const OrderByExpression & orderBy,
                ssize_t offset,
-               ssize_t limit,
-               bool allowParallel) const;
+               ssize_t limit) const;
 
     /** Method to overwrite to handle a request.  By default, the dataset
         will return that it can't handle any requests.  Used to expose
@@ -479,7 +618,8 @@ registerDatasetType(const Package & package,
                         createEntity,
                     TypeCustomRouteHandler docRoute,
                     TypeCustomRouteHandler customRoute,
-                    std::shared_ptr<const ValueDescription> config);
+                    std::shared_ptr<const ValueDescription> config,
+                    std::set<std::string> registryFlags);
 
 /** Register a new dataset kind.  This takes care of registering everything behind
     the scenes.
@@ -490,7 +630,8 @@ registerDatasetType(const Package & package,
                     const Utf8String & name,
                     const Utf8String & description,
                     const Utf8String & docRoute,
-                    TypeCustomRouteHandler customRoute = nullptr)
+                    TypeCustomRouteHandler customRoute = nullptr,
+                    std::set<std::string> registryFlags = {})
 {
     return registerDatasetType
         (package, name, description,
@@ -502,7 +643,8 @@ registerDatasetType(const Package & package,
          },
          makeInternalDocRedirect(package, docRoute),
          customRoute,
-         getDefaultDescriptionSharedT<Config>());
+         getDefaultDescriptionSharedT<Config>(),
+         registryFlags);
 }
 
 template<typename DatasetT, typename Config>
@@ -511,10 +653,11 @@ struct RegisterDatasetType {
                         const Utf8String & name,
                         const Utf8String & description,
                         const Utf8String & docRoute,
-                        TypeCustomRouteHandler customRoute = nullptr)
+                        TypeCustomRouteHandler customRoute = nullptr,
+                        std::set<std::string> registryFlags = {})
     {
         handle = registerDatasetType<DatasetT, Config>
-            (package, name, description, docRoute, customRoute);
+            (package, name, description, docRoute, customRoute, registryFlags);
     }
 
     std::shared_ptr<DatasetType> handle;

@@ -130,20 +130,20 @@ rez = mldb.get("/v1/functions/getDerived")
 js_rez = rez.json()
 mldb.log(js_rez)
 
-def assert_val_for_col(rows, key, goodVal):
-    for rowName, rowVal, rowTs in rows:
-        if rowName == key:
-            assert abs(rowVal - goodVal) < 0.001
+def assert_val_for_col(cols, key, goodVal):
+    for colName, colVal, colTs in cols:
+        if colName == key:
+            assert abs(colVal - goodVal) < 0.001
             return True
-    mldb.log(str(rows))
+    mldb.log(str(cols))
     raise Exception("Could not find key: " + key)
 
-def assert_for_rows(rows, name, col, goodVal):
+def assert_for_rows(rows, rowName, col, goodVal):
     for row in rows:
-        if row["rowName"] == name:
+        if row["rowName"] == rowName:
             return assert_val_for_col(row["columns"], col, goodVal)
 
-    raise Exception("Could not find row: " + name)
+    raise Exception("Could not find row: " + rowName)
 
 #########
 # Test the function within a select statement
@@ -201,8 +201,18 @@ conf = {
         "runOnCreation": True
     }
 }
-rez = mldb.put("/v1/procedures/myroll_posneg_%s" % output_id, conf)
+rez = mldb.put("/v1/procedures/myroll_posneg", conf)
 mldb.log(rez.json())
+
+conf['params']['outputDataset'] = 'stats_table_counts'
+rez = mldb.put("/v1/procedures/myroll_posneg2", conf)
+rez = mldb.get('/v1/query', q='select * from stats_table_counts')
+assert_for_rows(rez.json(), "I", "trials", 2)
+assert_for_rows(rez.json(), "I", "outcome.label", 1)
+assert_for_rows(rez.json(), "yellow", "trials", 1)
+assert_for_rows(rez.json(), "yellow", "outcome.label", 0)
+assert_for_rows(rez.json(), "are", "trials", 3)
+assert_for_rows(rez.json(), "are", "outcome.label", 1)
 
 conf = {
     "type": "statsTable.bagOfWords.posneg",

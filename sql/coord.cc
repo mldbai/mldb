@@ -11,6 +11,7 @@
 #include "mldb/types/value_description.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/ext/siphash/csiphash.h"
+#include "mldb/types/itoa.h"
 #include "mldb/utils/json_utils.h"
 
 
@@ -52,7 +53,11 @@ Coord(const char * str, size_t len)
 Coord::
 Coord(uint64_t i)
 {
-    initString(std::to_string(i));
+    ItoaBuf buf;
+    char * begin;
+    char * end;
+    std::tie(begin, end) = itoa(i, buf);
+    initChars(begin, end - begin);
 }
 
 bool
@@ -158,32 +163,79 @@ toString() const
     return toUtf8String().stealRawString();
 }
 
-//constexpr HashSeed defaultSeedStable { .i64 = { 0x1958DF94340e7cbaULL, 0x8928Fc8B84a0ULL } };
+bool
+Coord::
+hasStringView() const
+{
+    return true;  // currently we store as a string, so always true
+}
+
+std::pair<const char *, size_t>
+Coord::
+getStringView() const
+{
+    return { data(), dataLength() };
+}
 
 uint64_t
 Coord::
-hash() const
+oldHash() const
 {
     return Id(data(), dataLength()).hash();
-    //return ::mldb_siphash24(str.rawData(), str.rawLength(), defaultSeedStable.b);
 }
 
-bool
+constexpr HashSeed defaultSeedStable { .i64 = { 0x1958DF94340e7cbaULL, 0x8928Fc8B84a0ULL } };
+
+uint64_t
 Coord::
-empty() const
+newHash() const
 {
-    return complex_ == 0 && simpleLen_ == 0;
+    return ::mldb_siphash24(data(), dataLength(), defaultSeedStable.b);
 }
 
 Coord
 Coord::
 operator + (const Coord & other) const
 {
-    if (empty())
-        return std::move(other);
-    if (other.empty())
+    size_t l1 = dataLength();
+    size_t l2 = other.dataLength();
+
+    if (l1 == 0)
+        return other;
+    if (l2 == 0)
         return *this;
-    return toUtf8String() + "." + other.toUtf8String();
+
+    size_t len = 1 + l1 + l2;
+
+    Coord result;
+
+    if (len <= 31) {
+        // We can construct in-place
+        result.complex_ = 0;
+        result.simpleLen_ = len;
+        auto d = data();
+        std::copy(d, d + l1, result.bytes + 1);
+        result.bytes[l1 + 1] = '.';
+        d = other.data();
+        std::copy(d, d + l2, result.bytes + l1 + 2);
+    }
+    else if (len < 4096) {
+        // Construct on the stack and do just one allocation
+        char str[4096];
+        result.complex_ = 1;
+        auto d = data();
+        std::copy(d, d + l1, str);
+        str[l1] = '.';
+        d = other.data();
+        std::copy(d, d + l2, str + l1 + 1);
+        new (&result.str.str) Utf8String(str, len);
+    }
+    else {
+        // It's long; just use the Utf8String
+        result = toUtf8String() + "." + other.toUtf8String();
+    }
+
+    return result;
 }
 
 Coord
@@ -192,9 +244,7 @@ operator + (Coord && other) const
 {
     if (empty())
         return std::move(other);
-    if (other.empty())
-        return *this;
-    return toUtf8String() + "." + other.toUtf8String();
+    return operator + ((const Coord &)other);
 }
 
 Coord::
@@ -207,6 +257,15 @@ Coord::
 operator ColumnHash() const
 {
     return ColumnHash(hash());
+}
+
+size_t
+Coord::
+memusage() const
+{
+    if (complex_)
+        return sizeof(*this) + getComplex().rawLength();
+    else return sizeof(*this);
 }
 
 void

@@ -27,8 +27,45 @@ else:
 
 #MLDB-835
 
-result = mldb.get('/v1/query', q='SELECT x.* FROM dataset1 as x')
-assert result.json()[0]['columns'][0][1] == 9
+result = mldb.get('/v1/query', q='SELECT x.* FROM dataset1 as x limit 3')
+
+expected = [
+    {
+        "rowName": "row_8",
+        "rowHash": "671b4a4dfa1563b5",
+        "columns": [
+            [
+                "x.x",
+                8,
+                "1970-01-01T00:00:00Z"
+            ]
+        ]
+    },
+    {
+        "rowName": "row_9",
+        "rowHash": "0e832fd840141af8",
+        "columns": [
+            [
+                "x.x",
+                9,
+                "1970-01-01T00:00:00Z"
+            ]
+        ]
+    },
+    {
+        "rowName": "row_7",
+        "rowHash": "54569df01a700c8b",
+        "columns": [
+            [
+                "x.x",
+                7,
+                "1970-01-01T00:00:00Z"
+            ]
+        ]
+    }
+]
+
+result.json() == expected
 
 #MLDB-958 rowhash printing when rowhash bigger than 7FFFFFFFFFFFFFFF
 result = mldb.get('/v1/query',

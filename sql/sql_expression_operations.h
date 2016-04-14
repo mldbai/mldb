@@ -199,7 +199,7 @@ struct SelectWithinExpression: public SqlExpression {
 };
 
 struct EmbeddingLiteralExpression: public SqlExpression {
-    EmbeddingLiteralExpression(std::vector<std::shared_ptr<SqlExpression> >& clauses);
+    EmbeddingLiteralExpression(std::vector<std::shared_ptr<SqlExpression> > clauses);
 
     virtual ~EmbeddingLiteralExpression();
 
@@ -310,7 +310,6 @@ struct InExpression: public SqlExpression {
     virtual std::string getType() const;
     virtual Utf8String getOperation() const;
     virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
-    virtual bool isConstant() const { return false; } // TODO: not always
 
     std::shared_ptr<SqlExpression> expr;
     std::shared_ptr<TupleExpression> tuple;
@@ -319,6 +318,31 @@ struct InExpression: public SqlExpression {
 
     bool isnegative;
     Kind kind;
+};
+
+struct LikeExpression: public SqlExpression {
+
+    // Constructor for IN (tuple)
+    LikeExpression(std::shared_ptr<SqlExpression> left,
+                 std::shared_ptr<SqlExpression> right,
+                 bool negative);
+
+    virtual BoundSqlExpression
+    bind(SqlBindingScope & context) const;
+
+    virtual Utf8String print() const;
+
+    virtual std::shared_ptr<SqlExpression>
+    transform(const TransformArgs & transformArgs) const;
+
+    virtual std::string getType() const;
+    virtual Utf8String getOperation() const;
+    virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
+
+    std::shared_ptr<SqlExpression> left;
+    std::shared_ptr<SqlExpression> right;
+
+    bool isnegative;
 };
 
 /** Represents CAST (expression AS type) */
@@ -469,7 +493,11 @@ struct FunctionCallWrapper: public SqlRowExpression {
     virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
     virtual bool isConstant() const { return false; } // TODO: not always
 
-    std::map<ScopedName, UnboundFunction> functionNames() const;
+    virtual std::map<ScopedName, UnboundVariable>
+    variableNames() const override;
+
+    virtual std::map<ScopedName, UnboundFunction>
+    functionNames() const override;
 
 private:
 
@@ -516,6 +544,8 @@ struct SelectColumnExpression: public SqlRowExpression {
     }
 
     virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
+
+    std::map<ScopedName, UnboundWildcard> wildcards() const;
 };
 
 } // namespace MLDB

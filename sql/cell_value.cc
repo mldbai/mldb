@@ -12,6 +12,7 @@
 #include "mldb/http/http_exception.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/enum_description.h"
+#include "mldb/types/itoa.h"
 #include "cell_value_impl.h"
 #include "mldb/base/parse_context.h"
 #include "interval.h"
@@ -196,13 +197,25 @@ parse(const Utf8String & str)
 
 CellValue
 CellValue::
-parse(const char * s, size_t len, StringCharacteristics characteristics)
+parse(const char * s_, size_t len, StringCharacteristics characteristics)
 {
+    static constexpr size_t NUMERICAL_BUFFER = 64;
+
+    // if the string is longer than 64 characters it can't realistically
+    // be a numerical value
+    if (len > NUMERICAL_BUFFER)
+        return CellValue(s_, len, characteristics);
+
     if (len == 0)
         return CellValue();
 
+    // this ensures that our buffer is null terminated as required below
+    char s[NUMERICAL_BUFFER + 1];
+    memcpy(s, s_, len);
+    s[len] = 0;
+
     // First try as an int
-    char * e = (char *)s + len;
+    char * e = s + len;
     int64_t intVal = strtoll(s, &e, 10);
 
     if (e == s + len) {
@@ -210,14 +223,14 @@ parse(const char * s, size_t len, StringCharacteristics characteristics)
     }
     
     // TODO: only need this one if the length is long enough... optimization
-    e = (char *)s + len;
+    e = s + len;
     uint64_t uintVal = strtoull(s, &e, 10);
 
     if (e == s + len) {
         return CellValue(uintVal);
     }
     
-    e = (char *)s + len;
+    e = s + len;
     double floatVal = strtod(s, &e);
 
     if (e == s + len) {
@@ -312,12 +325,11 @@ toString() const
     case ST_EMPTY:
         return "";
     case ST_INTEGER:
-        return std::to_string(intVal);
+        return Datacratic::itoa(intVal);
     case ST_UNSIGNED:
-        return std::to_string(uintVal);
+        return Datacratic::itoa(uintVal);
     case ST_FLOAT: {
         return Datacratic::dtoa(floatVal);
-        //return std::to_string(floatVal);
     }
     case ST_ASCII_SHORT_STRING:
         return string(shortString, shortString + strLength);
@@ -1015,6 +1027,138 @@ CellValue::printInterval() const
 
 }
 
+void
+CellValue::
+extractStructuredJson(JsonPrintingContext & context) const
+{
+    switch (cellType()) {
+    case CellValue::EMPTY:
+        context.writeNull();
+        return;
+    case CellValue::INTEGER:
+        if (isInt64())
+            context.writeLong(toInt());
+        else
+            context.writeUnsignedLongLong(toUInt());
+        return;
+    case CellValue::FLOAT:
+        {
+            double floatVal = toDouble();
+            if (std::isnan(floatVal))
+                {
+                    Json::Value v;
+                    v["num"] = std::signbit(floatVal) ? "-NaN" : "NaN";
+                    context.writeJson(v);
+                }
+            else if (std::isinf(floatVal))
+                {
+                    Json::Value v;
+                    v["num"] = std::signbit(floatVal) ? "-Inf" : "Inf";
+                    context.writeJson(v);
+                }
+            else
+                {
+                    context.writeDouble(toDouble());
+                }
+                
+            return;
+        }           
+    case CellValue::UTF8_STRING:
+    case CellValue::ASCII_STRING:
+        switch (type) {
+        case ST_UTF8_SHORT_STRING:
+            context.writeStringUtf8((const char *)shortString, (size_t)strLength);
+            return;
+        case ST_ASCII_SHORT_STRING:
+            context.writeString((const char *)shortString, (size_t)strLength);
+            return;
+        case ST_UTF8_LONG_STRING:
+            context.writeStringUtf8(longString->repr, (size_t)strLength);
+            return;
+        case ST_ASCII_LONG_STRING:
+            context.writeString(longString->repr, (size_t)strLength);
+            return;
+        default:
+            throw HttpReturnException(400, "unknown string cell type");
+            return;
+        }
+    case CellValue::TIMESTAMP: {
+        context.startObject();
+        context.startMember("ts");
+        context.writeString(toString());
+        context.endObject();
+        return;    
+    }
+    case CellValue::TIMEINTERVAL: {
+        context.startObject();
+        context.startMember("interval");
+        context.writeString(toString());
+        context.endObject();
+        return;         
+    }
+    case CellValue::BLOB: {
+        context.startObject();
+        context.startMember("blob");
+        context.startArray();
+            
+        // Chunks of ASCII are written as a string; non-ASCII is
+        // as integers.
+        const unsigned char * p = blobData();
+        const unsigned char * e = p + blobLength();
+
+        while (p < e) {
+            const unsigned char * s = p;
+            while (p < e && *p >= ' ' && *p < 127 && isascii(*p))
+                ++p;
+            size_t len = p - s;
+            //cerr << "len = " << len << endl;
+            if (len == 1) {
+                context.newArrayElement();
+                context.writeInt(*s);
+            }
+            else if (len >= 2) {
+                context.newArrayElement();
+                context.writeString((const char *)s, len);
+            }
+                
+            while (p < e && (*p <= ' ' || *p >= 127 || !isascii(*p))) {
+                context.newArrayElement();
+                context.writeInt(*p++);
+            }
+        }
+        context.endArray();
+        context.endObject();
+        return;
+    }
+    default:
+        throw HttpReturnException(400, "unknown cell type");
+        return;
+    }
+}
+
+size_t
+CellValue::
+memusage() const
+{
+    switch (type) {
+    case ST_EMPTY:
+    case ST_TIMESTAMP:
+    case ST_TIMEINTERVAL:
+    case ST_ASCII_SHORT_STRING:
+    case ST_SHORT_BLOB:
+    case ST_UTF8_SHORT_STRING:
+    case ST_INTEGER:
+    case ST_UNSIGNED:
+    case ST_FLOAT:
+        return sizeof(*this);
+    case ST_ASCII_LONG_STRING:
+    case ST_UTF8_LONG_STRING:
+    case ST_LONG_BLOB:
+        return sizeof(*this) + sizeof(StringRepr) + strLength;
+    }
+    throw HttpReturnException(400, "unknown CellValue type");
+}
+
 struct CellValueDescription: public ValueDescriptionT<CellValue> {
     virtual void parseJsonTyped(CellValue * val,
                                 JsonParsingContext & context) const
@@ -1112,95 +1256,7 @@ struct CellValueDescription: public ValueDescriptionT<CellValue> {
     virtual void printJsonTyped(const CellValue * val,
                                 JsonPrintingContext & context) const
     {
-
-        switch (val->cellType()) {
-        case CellValue::EMPTY:
-            context.writeNull();
-            return;
-        case CellValue::INTEGER:
-            if (val->isInt64())
-                context.writeLong(val->toInt());
-            else
-                context.writeUnsignedLongLong(val->toUInt());
-            return;
-        case CellValue::FLOAT:
-            {
-                double floatVal = val->toDouble();
-                if (std::isnan(floatVal))
-                {
-                    Json::Value v;
-                    v["num"] = std::signbit(floatVal) ? "-NaN" : "NaN";
-                    context.writeJson(v);
-                }
-                else if (std::isinf(floatVal))
-                {
-                    Json::Value v;
-                    v["num"] = std::signbit(floatVal) ? "-Inf" : "Inf";
-                    context.writeJson(v);
-                }
-                else
-                {
-                    context.writeDouble(val->toDouble());
-                }
-                
-                return;
-            }           
-        case CellValue::UTF8_STRING:
-            context.writeStringUtf8(val->toUtf8String());
-            return;
-        case CellValue::ASCII_STRING:
-            context.writeString(val->toString());
-            return;
-        case CellValue::TIMESTAMP: {
-            Json::Value v;
-            v["ts"] = val->toString();
-            context.writeJson(v);
-            return;    
-        }
-        case CellValue::TIMEINTERVAL: {
-            Json::Value v2;
-            v2["interval"] = val->toString();
-            context.writeJson(v2);
-            return;         
-        }
-        case CellValue::BLOB: {
-            context.startObject();
-            context.startMember("blob");
-            context.startArray();
-            
-            // Chunks of ASCII are written as a string; non-ASCII is
-            // as integers.
-            const unsigned char * p = val->blobData();
-            const unsigned char * e = p + val->blobLength();
-
-            while (p < e) {
-                const unsigned char * s = p;
-                while (p < e && *p >= ' ' && *p < 127 && isascii(*p))
-                    ++p;
-                size_t len = p - s;
-                //cerr << "len = " << len << endl;
-                if (len == 1) {
-                    context.newArrayElement();
-                    context.writeInt(*s);
-                }
-                else if (len >= 2) {
-                    context.newArrayElement();
-                    context.writeString(string(s, p));
-                }
-                
-                while (p < e && (*p <= ' ' || *p >= 127 || !isascii(*p))) {
-                    context.newArrayElement();
-                    context.writeInt(*p++);
-                }
-            }
-            context.endArray();
-            context.endObject();
-            return;
-        }
-        default:
-            throw HttpReturnException(400, "unknown cell type");
-            return;
-        }
+        val->extractStructuredJson(context);
     }
 
     virtual bool isDefaultTyped(const CellValue * val) const

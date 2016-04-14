@@ -344,12 +344,16 @@ namespace {
 RegisterProcedureType<EMProcedure, EMConfig>
 regEM(builtinPackage(), "gaussianclustering.train",
           "Gaussian clustering algorithm using Estimation Maximization on Gaussian Mixture Models",
-          "procedures/EMProcedure.md.html");
+          "procedures/EMProcedure.md.html",
+                            nullptr /* static route */,
+                            { MldbEntity::INTERNAL_ENTITY });
 
 RegisterFunctionType<EMFunction, EMFunctionConfig>
 regEMFunction(builtinPackage(), "gaussianclustering",
                "Apply an gaussian clustering to new data",
-               "functions/EM.md.html");
+               "functions/EM.md.html",
+                            nullptr /* static route */,
+                            { MldbEntity::INTERNAL_ENTITY });
 
 } // file scope
 

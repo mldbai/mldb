@@ -54,8 +54,7 @@ function createDataset()
         type: 'text.line',
         id: 'reddit_text_file',
         params: {
-            //dataFileUrl: 'file://reddit_user_posting_behavior.csv'
-            dataFileUrl: 'https://s3-eu-west-1.amazonaws.com/pfigshare-u-files/1310438/reddituserpostingbehavior.csv.gz'
+            dataFileUrl: 'https://s3.amazonaws.com/public.mldb.ai/reddit.csv.gz'
         }
     };
 

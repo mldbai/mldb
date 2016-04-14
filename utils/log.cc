@@ -7,6 +7,24 @@
 */
 
 #include "log.h"
+#include "mldb/utils/config.h"
+#include "mldb/arch/exception.h"
+
+namespace {
+    spdlog::level::level_enum stringToLevel(const std::string & level) {
+        if (level == "debug")
+            return spdlog::level::debug;
+        else if (level == "info")
+            return spdlog::level::info;
+        else if (level == "warning")
+            return spdlog::level::warn;
+        else if (level == "error")
+            return spdlog::level::err;
+        else 
+            throw ML::Exception("Unknown level '" + level 
+                                + "' expected one of \"debug\", \"info\", \"warning\" or \"error\"");
+    }
+}
 
 namespace Datacratic {
 
@@ -26,10 +44,16 @@ std::shared_ptr<spdlog::logger> getQueryLog() {
     return queryLog;
 }
 
-std::shared_ptr<spdlog::logger> getMldbLog() {
-    static std::shared_ptr<spdlog::logger> mldbLog = 
-        getConfiguredLogger("mldb", std::string("L [") + timestampFormat + "] %l %v");
-    return mldbLog;
+std::shared_ptr<spdlog::logger> getMldbLog(const std::string & loggerName) {
+    auto logger = spdlog::get(loggerName);
+    if (!logger) {
+        auto config = Config::get();
+        std::string level = config ? config->getString("logging." + loggerName + ".level", "info") : "info";
+        std::string className = loggerName.substr(loggerName.find_last_of(':') + 1);
+        logger = getConfiguredLogger(loggerName, className + std::string(" [") + timestampFormat + "] %l %v");
+        logger->set_level(stringToLevel(level));
+    }
+    return logger;
 }
 
 
@@ -42,7 +66,7 @@ std::shared_ptr<spdlog::logger> getServerLog() {
 // force gcc to export these types
 void dummy() {
     (void)getQueryLog();
-    (void)getMldbLog();
+    (void)getMldbLog("dummy");
     (void)getServerLog();
 }
 

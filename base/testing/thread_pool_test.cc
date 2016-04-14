@@ -25,6 +25,21 @@
 using namespace std;
 using namespace Datacratic;
 
+BOOST_AUTO_TEST_CASE (thread_pool_idle_cpu_usage)
+{
+    ThreadPool threadPool(32);
+    // let it start up and settle down
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    ML::Timer timer;
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    double elapsedCpu = timer.elapsed_cpu();
+    double elapsedWall = timer.elapsed_wall();
+    double cores = elapsedCpu / elapsedWall;
+    cerr << "idle thread pool used " << cores * 100
+         << "% cores" << endl;
+    BOOST_CHECK_LE(cores, 0.01);
+}
+
 BOOST_AUTO_TEST_CASE (thread_pool_startup_shutdown_one_job)
 {
     ThreadPool threadPool(1);
@@ -468,3 +483,4 @@ BOOST_AUTO_TEST_CASE(PushPopSteal) {
 BOOST_AUTO_TEST_CASE(PushPopStealWithWraparound) {
     TestPushPopSteal(std::numeric_limits<uint_fast32_t>::max() - 10 /* top and bottom of empty queue */);
 }
+

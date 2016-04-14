@@ -201,7 +201,7 @@ run(const ProcedureRunConfig & run,
         }
         csv.endl();
     }
-    bsq.execute(outputCsvLine, 
+    bsq.execute({outputCsvLine, false/*processInParallel*/}, 
                 runProcConf.exportData.stm->offset, 
                 runProcConf.exportData.stm->limit,
                 onProgress);

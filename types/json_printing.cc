@@ -34,10 +34,10 @@ static char * NO_ESCAPING = reinterpret_cast<char *>(1);
 
     UTF-8 characters are passed through as their UTF-8 encoded equivalent.
 */
-char * jsonEscapeCore(const std::string & str, char * p, char * end)
+char * jsonEscapeCore(const char * str, size_t strLen, char * p, char * end)
 {
     bool anyEscaped = false;
-    for (unsigned i = 0;  i < str.size();  ++i) {
+    for (unsigned i = 0;  i < strLen;  ++i) {
         if (p + 4 >= end)
             return BUFFER_TOO_SMALL;
 
@@ -57,10 +57,10 @@ char * jsonEscapeCore(const std::string & str, char * p, char * end)
             case '\\':
             case '\"': *p++ = (c);  break;
             default:
-                for (auto & c: str)
+                for (auto & c: string(str, str + strLen))
                     cerr << "char " << (int)c << " " << c << endl;
                 throw ML::Exception("Invalid character in JSON string %d: %s", (int)c,
-                                    str.c_str());
+                                    str);
             }
         }
     }
@@ -83,7 +83,7 @@ jsonEscape(const std::string & str)
         char buf[sz];
         char * p = buf, * end = buf + sz;
 
-        p = jsonEscapeCore(str, p, end);
+        p = jsonEscapeCore(str.data(), str.length(), p, end);
         
         if (p == BUFFER_TOO_SMALL)
             throw ML::Exception("To fix: logic error in JSON escaping");
@@ -95,7 +95,7 @@ jsonEscape(const std::string & str)
         std::string heap_buf(sz, 0);
         char * p = (char *)heap_buf.data(), * end = p + sz;
 
-        p = jsonEscapeCore(str, p, end);
+        p = jsonEscapeCore(str.data(), str.length(), p, end);
         
         if (p == BUFFER_TOO_SMALL)
             throw ML::Exception("To fix: logic error in JSON escaping");
@@ -116,7 +116,7 @@ void jsonEscape(const std::string & str, std::ostream & stream)
         char buf[sz];
         char * p = buf, * end = buf + sz;
 
-        p = jsonEscapeCore(str, p, end);
+        p = jsonEscapeCore(str.data(), str.length(), p, end);
 
         if (p == BUFFER_TOO_SMALL)
             throw ML::Exception("To fix: logic error in JSON escaping");
@@ -131,6 +131,31 @@ void jsonEscape(const std::string & str, std::ostream & stream)
     }
 }
 
+void jsonEscape(const char * str, size_t len, std::ostream & stream)
+{
+    // No character can expand to more than two, so this should be
+    // enough.
+    size_t sz = len * 2 + 4;
+
+    if (sz <= MAX_STACK_CHARS) {
+        char buf[sz];
+        char * p = buf, * end = buf + sz;
+
+        p = jsonEscapeCore(str, len, p, end);
+
+        if (p == BUFFER_TOO_SMALL)
+            throw ML::Exception("To fix: logic error in JSON escaping");
+        else if (p == NO_ESCAPING)
+            p = buf + len;
+
+        stream.write(buf, p - buf);
+    }
+    else {
+        // We need an allocation anyway, so use the simple solution
+        stream << jsonEscape(string(str, str + len));
+    }
+}
+
 void jsonEscape(const std::string & str, std::string & out)
 {
     // No character can expand to more than two, so this should be
@@ -141,7 +166,7 @@ void jsonEscape(const std::string & str, std::string & out)
         char buf[sz];
         char * p = buf, * end = buf + sz;
 
-        p = jsonEscapeCore(str, p, end);
+        p = jsonEscapeCore(str.data(), str.length(), p, end);
 
         if (p == BUFFER_TOO_SMALL)
             throw ML::Exception("To fix: logic error in JSON escaping");
@@ -157,6 +182,32 @@ void jsonEscape(const std::string & str, std::string & out)
     }
 }
 
+void jsonEscape(const char * str, size_t len, std::string & out)
+{
+    // No character can expand to more than two, so this should be
+    // enough.
+    size_t sz = len * 2 + 4;
+
+    if (sz <= MAX_STACK_CHARS) {
+        char buf[sz];
+        char * p = buf, * end = buf + sz;
+
+        p = jsonEscapeCore(str, len, p, end);
+
+        if (p == BUFFER_TOO_SMALL)
+            throw ML::Exception("To fix: logic error in JSON escaping");
+        else if (p == NO_ESCAPING)
+            p = buf + len;
+
+        out.append(buf, p - buf);
+    } else {
+        // We need an allocation anyway, so use the simple solution
+        if (out.empty())
+            out = std::move(jsonEscape(string(str, str + len)));
+        else out += jsonEscape(string(str, str + len));
+    }
+}
+
 void
 StreamJsonPrintingContext::
 writeStringUtf8(const Utf8String & s)
@@ -164,6 +215,45 @@ writeStringUtf8(const Utf8String & s)
     stream << '\"';
 
     for (auto it = s.begin(), end = s.end();  it != end;  ++it) {
+        int c = *it;
+        if (c >= ' ' && c < 127 && c != '\"' && c != '\\')
+            stream << (char)c;
+        else {
+            switch (c) {
+            case '\t': stream << "\\t";  break;
+            case '\n': stream << "\\n";  break;
+            case '\r': stream << "\\r";  break;
+            case '\b': stream << "\\b";  break;
+            case '\f': stream << "\\f";  break;
+            case '/':
+            case '\\':
+            case '\"': stream << '\\' << (char)c;  break;
+            default:
+                if (writeUtf8) {
+                    char buf[4];
+                    char * p = utf8::unchecked::append(c, buf);
+                    stream.write(buf, p - buf);
+                }
+                else {
+                    ExcAssert(c >= 0 && c < 65536);
+                    stream << ML::format("\\u%04x", (unsigned)c);
+                }
+            }
+        }
+    }
+    
+    stream << '\"';
+}
+
+void
+StreamJsonPrintingContext::
+writeStringUtf8(const char * p, size_t len)
+{
+    stream << '\"';
+
+    typedef utf8::iterator<const char *> It;
+
+    for (It it = It(p, p, p + len), end = It(p + len, p, p + len);  it != end;  ++it) {
         int c = *it;
         if (c >= ' ' && c < 127 && c != '\"' && c != '\\')
             stream << (char)c;
@@ -223,6 +313,19 @@ startMember(const Utf8String & memberName)
     if (path.back().memberNum != 0)
         stream << ",";
     writeStringUtf8(memberName);
+    stream << ":";
+}
+
+void
+StreamJsonPrintingContext::
+startMember(const char * memberNameStr, size_t memberNameLen)
+{
+    ExcAssert(path.back().isObject);
+    //path.back().memberName = memberName;
+    ++path.back().memberNum;
+    if (path.back().memberNum != 0)
+        stream << ",";
+    writeStringUtf8(memberNameStr, memberNameLen);
     stream << ":";
 }
 
@@ -347,6 +450,15 @@ writeString(const std::string & s)
 
 void
 StreamJsonPrintingContext::
+writeString(const char * p, size_t len)
+{
+    stream << '\"';
+    jsonEscape(p, len, stream);
+    stream << '\"';
+}
+
+void
+StreamJsonPrintingContext::
 writeJson(const Json::Value & val)
 {
     stream << val.toStringNoNewLine();
@@ -438,6 +550,45 @@ writeStringUtf8(const Utf8String & s)
     write('"');
 }
 
+void
+StringJsonPrintingContext::
+writeStringUtf8(const char * p, size_t len)
+{
+    write('"');
+
+    typedef utf8::iterator<const char *> It;
+
+    for (It it = It(p, p, p + len), end = It(p + len, p, p + len);  it != end;  ++it) {
+        wchar_t c = *it;
+        if (c >= ' ' && c < 127 && c != '\"' && c != '\\')
+            write((char)c);
+        else {
+            switch (c) {
+            case '\t': write('\\', 't');  break;
+            case '\n': write('\\', 'n');  break;
+            case '\r': write('\\', 'r');  break;
+            case '\b': write('\\', 'b');  break;
+            case '\f': write('\\', 'f');  break;
+            case '/':
+            case '\\':
+            case '\"': write('\\', (char)c);  break;
+            default:
+                if (writeUtf8) {
+                    char buf[4];
+                    char * p = utf8::unchecked::append(c, buf);
+                    write(buf, p - buf);
+                }
+                else {
+                    ExcAssert(c >= 0 && c < 65536);
+                    write(ML::format("\\u%04x", (unsigned)c));
+                }
+            }
+        }
+    }
+    
+    write('"');
+}
+
 StringJsonPrintingContext::
 StringJsonPrintingContext(std::string & str)
     : str(str), writeUtf8(true)
@@ -462,6 +613,19 @@ startMember(const Utf8String & memberName)
     if (path.back().memberNum != 0)
         write(',');
     writeStringUtf8(memberName);
+    write(':');
+}
+
+void
+StringJsonPrintingContext::
+startMember(const char * memberNameStr, size_t memberNameLen)
+{
+    ExcAssert(path.back().isObject);
+    //path.back().memberName = memberName;
+    ++path.back().memberNum;
+    if (path.back().memberNum != 0)
+        write(',');
+    writeStringUtf8(memberNameStr, memberNameLen);
     write(':');
 }
 
@@ -606,6 +770,15 @@ writeString(const std::string & s)
 
 void
 StringJsonPrintingContext::
+writeString(const char * p, size_t len)
+{
+    write('"');
+    jsonEscape(p, len, str);
+    write('"');
+}
+
+void
+StringJsonPrintingContext::
 writeJson(const Json::Value & val)
 {
     write(val.toStringNoNewLine());
@@ -642,6 +815,13 @@ StructuredJsonPrintingContext::
 startMember(const Utf8String & memberName)
 {
     current = &(*path.back())[memberName];
+}
+
+void
+StructuredJsonPrintingContext::
+startMember(const char * memberNameStr, size_t memberNameLen)
+{
+    current = &(*path.back())[string(memberNameStr, memberNameStr + memberNameLen)];
 }
 
 void
@@ -753,9 +933,23 @@ writeString(const std::string & s)
 
 void
 StructuredJsonPrintingContext::
+writeString(const char * p, size_t len)
+{
+    *current = string(p, p + len);
+}
+
+void
+StructuredJsonPrintingContext::
 writeStringUtf8(const Utf8String & s)
 {
     *current = s;
+}
+
+void
+StructuredJsonPrintingContext::
+writeStringUtf8(const char * p, size_t len)
+{
+    *current = Utf8String(p, p + len);
 }
 
 void

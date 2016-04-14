@@ -47,7 +47,7 @@ assertEqual(resp.responseCode, 201);
 
 var expected = [
     [ "_rowName", "all systems", "hello" ],
-    [ "", "GO", "world" ]
+    [ "result", "GO", "world" ]
 ];
 
 testQuery('SELECT poil()[output] as *', expected);
@@ -69,7 +69,7 @@ assertEqual(resp.responseCode, 201);
 
 var expected = [
     [ "_rowName", "all systems" ],
-    [ "", "GO" ]
+    [ "result", "GO" ]
 ];
 
 testQuery('SELECT poil()[output] as *', expected);
@@ -92,7 +92,7 @@ assertEqual(resp.responseCode, 201);
 
 var expected = [
     [ "_rowName", "hello" ],
-    [ "", "world" ]
+    [ "result", "world" ]
 ];
 
 testQuery('SELECT poil()[output] as *', expected);

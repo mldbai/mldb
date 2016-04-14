@@ -12,6 +12,7 @@
 #include "mldb/types/structure_description.h"
 #include "mldb/types/pointer_description.h"
 #include "mldb/types/id.h"
+#include "mldb/utils/log.h"
 #include <signal.h>
 
 using namespace std;
@@ -80,35 +81,6 @@ CredentialRule::
 CredentialRule(CredentialRuleConfig config)
 {
     this->config.reset(new CredentialRuleConfig(config));
-    cerr << "Added rule " << jsonEncode(config) << endl;
-}
-
-std::vector<Credential>
-CredentialRule::
-match(const std::string & resourceType,
-      const std::string & resource,
-      const std::string & role,
-      const std::string & operation,
-      const TimePeriod & validity,
-      const Json::Value & extra) const
-{
-    cerr << "matching " << jsonEncode(config) << endl;
-
-    if (config->store) {
-        if (resourceType.find(config->store->resourceType) != 0) {
-            cerr << "no resource type" << endl;
-            return {};
-        }
-        if (resource.find(config->store->resource) != 0) {
-            cerr << "resource = " << resource << endl;
-            cerr << "config   = " << config->store->resource << endl;
-            cerr << "no resource" << endl;
-            return {};
-        }
-        return { config->store->credential };
-    }
-
-    return {};
 }
 
 /*****************************************************************************/
@@ -209,7 +181,8 @@ CredentialsDaemon::
 CredentialsDaemon()
     : EventRecorder("", nullptr),
       RestDirectory(this, "root"),
-      rules(this)
+      rules(this),
+      logger(MLDB::getMldbLog<CredentialsDaemon>())
 {
 }
 
@@ -274,32 +247,34 @@ init(std::shared_ptr<CollectionConfigStore> configStore)
                          Json::Value());
 
 
-    // If we want persisitent rules, then attach the config store
+    // If we want persistent rules, then attach the config store
     if (configStore) {
-        cerr << "Attaching config store" << endl;
+        logger->debug() << "Attaching config store";
         rules.attachConfig(configStore);
         rules.loadConfig();
     }
 
     rules.init(versionNode);
 
-    logRequest = [&] (const ConnectionId & conn, const RestRequest & req)
-        {
-            this->recordHit("rest.request.count");
-            this->recordHit("rest.request.verbs.%s", req.verb.c_str());
-        };
+    if (false) {
+        logRequest = [&] (const ConnectionId & conn, const RestRequest & req)
+            {
+                this->recordHit("rest.request.count");
+                this->recordHit("rest.request.verbs.%s", req.verb.c_str());
+            };
 
-    logResponse = [&] (const ConnectionId & conn,
-                       int code,
-                       const std::string & resp,
-                       const std::string & contentType)
-        {
-            double processingTimeMs
+        logResponse = [&] (const ConnectionId & conn,
+                           int code,
+                           const std::string & resp,
+                           const std::string & contentType)
+            {
+                double processingTimeMs
                 = Date::now().secondsSince(conn.itl->startDate) * 1000.0;
-            this->recordOutcome(processingTimeMs,
-                                "rest.response.processingTimeMs");
-            this->recordHit("rest.response.codes.%d", code);
-        };
+                this->recordOutcome(processingTimeMs,
+                                    "rest.response.processingTimeMs");
+                this->recordHit("rest.response.codes.%d", code);
+            };
+    }
 
     addEntity("rules", rules);
 
@@ -367,27 +342,37 @@ getCredentials(const std::string & resourceType,
                const TimePeriod & validity,
                const Json::Value & extra)
 {
-    cerr << "getCredentials: resourceType " << resourceType
-         << " resource " << resource
-         << " role " << role
-         << " operation " << operation
-         << " validity " << validity.toString()
-         << " extra " << extra
-         << endl;
+    logger->debug() << "getCredentials: resourceType " << resourceType
+                    << " resource " << resource
+                    << " role " << role
+                    << " operation " << operation
+                    << " validity " << validity.toString()
+                    << " extra " << extra;
 
     std::vector<Credential> result;
 
     auto onEntry = [&] (const std::string & ruleName,
                         const CredentialRule & rule)
         {
-            cerr << "trying entry " << ruleName << endl;
-
-            auto ruleCreds = rule.match(resourceType, resource, role,
-                                        operation, validity, extra);
-
-            cerr << "returned " << jsonEncode(ruleCreds) << endl;
+            logger->info() << "attempting to match rule " << rule.config->id;
             
-            result.insert(result.end(), ruleCreds.begin(), ruleCreds.end());
+            if (rule.config->store) {
+                if (resourceType.find(rule.config->store->resourceType) != 0) {
+                    logger->info() << "failed to match on resource type " 
+                                   << rule.config->store->resourceType;
+                    return true;
+                }
+                if (resource.find(rule.config->store->resource) != 0) {
+                    logger->info() << "failed to match on resource "
+                                   << rule.config->store->resource;
+                    return true;
+                }
+                logger->info() << "matched rule " << rule.config->id;
+                result.emplace_back(rule.config->store->credential);
+                return true;
+            }
+
+            logger->info() << "failed to matched rule " << rule.config->id;
             return true;
         };
     

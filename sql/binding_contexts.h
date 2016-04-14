@@ -125,6 +125,9 @@ struct ColumnExpressionBindingContext: public SqlBindingScope {
     {
         return outer.getMldbServer();
     }
+
+    virtual VariableGetter doGetVariable(const Utf8String & tableName,
+                                         const Utf8String & variableName);
 };
 
 
@@ -181,11 +184,20 @@ struct SqlExpressionWhenScope: public ReadThroughBindingContext {
     are passed in after binding but are constant for each query execution.
 */
 
-struct SqlExpressionParamScope: public SqlBindingScope {
+struct SqlExpressionParamScope: public ReadThroughBindingContext {
 
-    struct RowScope: public SqlRowScope {
+    SqlExpressionParamScope(SqlBindingScope & outer)
+        : ReadThroughBindingContext(outer)
+    {
+    }
+
+    // This row scope initializes the inner scope with itself; it should
+    // never be used unless we are in a correlated sub-select in which
+    // case we will need to thread the outer scope through.
+    struct RowScope: public ReadThroughBindingContext::RowContext {
         RowScope(const BoundParameters & params)
-            : params(params)
+            : ReadThroughBindingContext::RowContext(*this),
+              params(params)
         {
         }
 

@@ -132,12 +132,11 @@ queryStructured(const SelectExpression & select,
                 const SqlExpression & rowName,
                 ssize_t offset,
                 ssize_t limit,
-                Utf8String alias,
-                bool allowMT) const
+                Utf8String alias) const
 {
     ExcAssert(underlying);
     return underlying->queryStructured(select, when, where, orderBy,
-            groupBy, having, rowName, offset, limit, alias, allowMT);
+            groupBy, having, rowName, offset, limit, alias);
 }
 
 std::vector<MatrixNamedRow>
@@ -178,12 +177,13 @@ overrideFunction(const Utf8String & tableName,
 GenerateRowsWhereFunction
 ForwardedDataset::
 generateRowsWhere(const SqlBindingScope & context,
+                  const Utf8String& alias,
                   const SqlExpression & where,
                   ssize_t offset,
                   ssize_t limit) const
 {
     ExcAssert(underlying);
-    return underlying->generateRowsWhere(context, where, offset, limit);
+    return underlying->generateRowsWhere(context, alias, where, offset, limit);
 }
 
 BasicRowGenerator
@@ -194,11 +194,10 @@ queryBasic(const SqlBindingScope & context,
            const SqlExpression & where,
            const OrderByExpression & orderBy,
            ssize_t offset,
-           ssize_t limit,
-           bool allowParallel) const
+           ssize_t limit) const
 {
     ExcAssert(underlying);
-    return underlying->queryBasic(context, select, when, where, orderBy, offset, limit, allowParallel);
+    return underlying->queryBasic(context, select, when, where, orderBy, offset, limit);
 }
 
 RestRequestMatchResult

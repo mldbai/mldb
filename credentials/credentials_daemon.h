@@ -14,6 +14,7 @@
 #include "mldb/soa/credentials/credential_provider.h"
 #include "mldb/rest/rest_collection.h"
 #include "mldb/rest/poly_collection.h"
+#include "mldb/utils/log_fwd.h"
 
 namespace Datacratic {
 
@@ -51,13 +52,6 @@ DECLARE_STRUCTURE_DESCRIPTION(CredentialRuleStatus);
 struct CredentialRule {
     CredentialRule(CredentialRuleConfig config);
     std::shared_ptr<CredentialRuleConfig> config;
-    
-    std::vector<Credential> match(const std::string & resourceType,
-                                  const std::string & resource,
-                                  const std::string & role,
-                                  const std::string & operation,
-                                  const TimePeriod & validity,
-                                  const Json::Value & extra) const;
 };
 
 struct CredentialRuleCollection
@@ -142,6 +136,7 @@ private:
     RestRequestRouter router;    
     std::shared_ptr<CollectionConfigStore> config;
     std::shared_ptr<RestRouteManager> routeManager;
+    std::shared_ptr<spdlog::logger> logger;
 };
 
 } // namespace Datacratic

@@ -30,6 +30,7 @@ struct MldbServer;
 /*****************************************************************************/
 
 struct MacroData {
+    MacroData() : server(nullptr) {}
     std::string dir;            ///< Base directory for serving
     bool hideInternalEntities;  ///< Are internal entities hidden from doc?
     MldbServer * server;        ///< MLDB server we're running inside of
@@ -54,6 +55,7 @@ struct MacroContext: public MacroData {
     void writeInternalLink(Utf8String url,
                            const Utf8String & anchorText,
                            bool followInternalRedirect);
+    Utf8String prefixUrl(Utf8String url) const;
 };
 
 typedef std::function<void (MacroContext & context,

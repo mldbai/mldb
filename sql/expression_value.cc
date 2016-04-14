@@ -801,7 +801,7 @@ struct ExpressionValue::Struct {
         return values.size();
     }
 
-    CellValue value(int i) const
+    const CellValue & value(int i) const
     {
         return values.at(i);
     }
@@ -1090,6 +1090,7 @@ parseJson(JsonParsingContext & context,
     if (context.isObject()) {
 
         std::vector<std::tuple<ColumnName, ExpressionValue> > out;
+        out.reserve(16);  // TODO: context may know object size
 
         auto onObjectField = [&] ()
             {
@@ -1104,6 +1105,7 @@ parseJson(JsonParsingContext & context,
     }
     else if (context.isArray()) {
         std::vector<std::tuple<ColumnName, ExpressionValue> > out;
+        out.reserve(16);  // TODO: context may know array length
 
         bool hasNonAtom = false;
         bool hasNonObject = false;
@@ -1407,9 +1409,7 @@ double
 ExpressionValue::
 toDouble() const
 {
-    //ExcAssertEqual(type_, ATOM);
-   if (type_ != ATOM)
-        throw HttpReturnException(400, "Can't convert from " + getTypeAsUtf8String() + " to double");
+    assertType(ATOM, "double");
     return cell_.toDouble();
 }
 
@@ -1417,8 +1417,7 @@ int64_t
 ExpressionValue::
 toInt() const
 {
-    if (type_ != ATOM)
-        throw HttpReturnException(400, "Can't convert from " + getTypeAsUtf8String() + " to integer");
+    assertType(ATOM, "integer");
     return cell_.toInt();
 }
     
@@ -1429,8 +1428,7 @@ asBool() const
     if (type_ == NONE)
         return false;
     
-    if (type_ != ATOM)
-        throw HttpReturnException(400, "Can't convert from " + getTypeAsUtf8String() + " to boolean");
+    assertType(ATOM, "boolean");
 
     return cell_.asBool();
 }
@@ -1588,8 +1586,7 @@ std::string
 ExpressionValue::
 toString() const
 {
-    if (type_ != ATOM)
-        throw HttpReturnException(400, "Can't convert from " + getTypeAsUtf8String() + " to string");
+    assertType(ATOM, "string");
     return cell_.toString();
 }
 
@@ -1597,37 +1594,22 @@ Utf8String
 ExpressionValue::
 toUtf8String() const
 {
-    if (type_ != ATOM)
-        throw HttpReturnException(400, "Can't convert from " + getTypeAsUtf8String() + " to UTF8 string");
+    assertType(ATOM, "Utf8 string");
     return cell_.toUtf8String();
 }
 
-Utf8String
+string
 ExpressionValue::
-getTypeAsUtf8String() const
+getTypeAsString() const
 {
-    switch (type_)
-    {
-        case NONE:
-            return "empty";
-        case ATOM:
-            return "atomic value";
-        case ROW:
-            return "row";
-        case STRUCT:
-            return "embedding";
-        default:
-            ExcAssert(false);
-            return "unknown";
-    }
+    return print(type_);
 }
 
 std::basic_string<char32_t>
 ExpressionValue::
 toWideString() const
 {
-    if (type_ != ATOM)
-        throw HttpReturnException(400, "Can't convert from " + getTypeAsUtf8String() + " to wide string");
+    assertType(ATOM, "wide string");
     return cell_.toWideString();
 }
 
@@ -2040,22 +2022,27 @@ appendToRowDestructive(ColumnName & columnName, RowValue & row)
         else if (row.capacity() < row.size() + rowLength())
             row.reserve(row.capacity() * 2);
 
-        auto onSubexpr = [&] (ColumnName & innerColumnName,
-                              ExpressionValue & val)
-            {
-                ColumnName newColumnName;
-                if (columnName.empty())
-                    newColumnName = std::move(innerColumnName);
-                else if (innerColumnName.empty())
-                    newColumnName = columnName;
-                else newColumnName = ColumnName(columnName.toUtf8String()
-                                                + "."
-                                                + innerColumnName.toUtf8String());
-                val.appendToRowDestructive(newColumnName, row);
-                return true;
-            };
-
-        forEachColumnDestructiveT(onSubexpr);
+        if (columnName.empty()) {
+            auto onSubexpr = [&] (ColumnName & innerColumnName,
+                                  ExpressionValue & val)
+                {
+                    val.appendToRowDestructive(innerColumnName, row);
+                    return true;
+                };
+            
+            forEachColumnDestructiveT(onSubexpr);
+        }
+        else {
+            auto onSubexpr = [&] (ColumnName & innerColumnName,
+                                  ExpressionValue & val)
+                {
+                    ColumnName newColumnName = columnName + innerColumnName;
+                    val.appendToRowDestructive(newColumnName, row);
+                    return true;
+                };
+            
+            forEachColumnDestructiveT(onSubexpr);
+        }
     }
 }
 
@@ -2294,12 +2281,18 @@ ExpressionValue::Row
 ExpressionValue::
 getFiltered(const VariableFilter & filter) const
 {
-    ExcAssertEqual(type_, ROW);
+    assertType(ROW);
 
     if (filter == GET_ALL)
         return *row_;
     
-    std::function<bool(const ExpressionValue&, const ExpressionValue&)> filterFn = [](const ExpressionValue& left, const ExpressionValue& right){return false;};
+    // By default we don't get anything
+    std::function<bool(const ExpressionValue&, const ExpressionValue&)>
+        filterFn
+        = [](const ExpressionValue& left, const ExpressionValue& right)
+        {
+            return false;
+        };
     
     switch (filter) {
     case GET_ANY_ONE:
@@ -2322,10 +2315,11 @@ getFiltered(const VariableFilter & filter) const
     
     // keep a list of indices so that we can construct the 
     // filtered row in the same 'natural' order
-    std::unordered_map<ColumnName, size_t> indices;
+    std::unordered_map<ColumnName, size_t, CoordNewHasher> indices;
+    indices.reserve(row_->size());
     size_t index = 0;
     for (auto & col: *row_) {
-        Coord columnName = std::get<0>(col);
+        const Coord & columnName = std::get<0>(col);
         auto iter = indices.find(columnName);
         if (iter != indices.end()) {
             const ExpressionValue& val = std::get<1>(col);
@@ -2345,10 +2339,84 @@ getFiltered(const VariableFilter & filter) const
         keeps[index.second] = true;
 
     Row output;  
+    output.reserve(indices.size());
     index = 0; 
     for (auto & keep : keeps) {
         if (keep)
             output.emplace_back(row_->at(index));
+        index++;
+    }
+
+    return output; 
+}
+
+ExpressionValue::Row
+ExpressionValue::
+getFilteredDestructive(const VariableFilter & filter)
+{
+    assertType(ROW);
+
+    if (filter == GET_ALL)
+        return std::move(*row_);
+    
+    // By default we don't get anything
+    std::function<bool(const ExpressionValue&, const ExpressionValue&)>
+        filterFn
+        = [](const ExpressionValue& left, const ExpressionValue& right)
+        {
+            return false;
+        };
+    
+    switch (filter) {
+    case GET_ANY_ONE:
+        //default is fine
+        break;
+    case GET_EARLIEST:
+        filterFn = [](const ExpressionValue& left, const ExpressionValue& right){
+            return right.isEarlier(left.getEffectiveTimestamp(), left);
+        };
+        break;
+    case GET_LATEST:
+        filterFn = [](const ExpressionValue& left, const ExpressionValue& right){
+            return right.isLater(left.getEffectiveTimestamp(), left);
+        };
+        break;
+    case GET_ALL: //optimized above
+     default:
+         throw HttpReturnException(500, "Unexpected filter");
+    }
+    
+    // keep a list of indices so that we can construct the 
+    // filtered row in the same 'natural' order
+    std::unordered_map<ColumnName, size_t, CoordNewHasher> indices;
+    indices.reserve(row_->size());
+    size_t index = 0;
+    for (auto & col: *row_) {
+        const Coord & columnName = std::get<0>(col);
+        auto iter = indices.find(columnName);
+        if (iter != indices.end()) {
+            const ExpressionValue& val = std::get<1>(col);
+            if (filterFn(std::get<1>(row_->at(iter->second)), val)) {
+                iter->second = index;
+            }
+        }
+        else {
+            indices.insert({columnName, index});
+         }
+        index++;
+    }
+    
+    //re-flatten to row
+    std::vector<char> keeps(row_->size(), false);  // not bool to avoid bitmap
+    for (auto & index : indices)
+        keeps[index.second] = true;
+
+    Row output;  
+    output.reserve(indices.size());
+    index = 0; 
+    for (auto & keep : keeps) {
+        if (keep)
+            output.emplace_back(std::move(row_->at(index)));
         index++;
     }
 
@@ -2629,7 +2697,7 @@ void
 ExpressionValue::
 initRow(std::shared_ptr<const Row> value) noexcept
 {
-    ExcAssertEqual(type_, NONE);
+    assertType(NONE);
     ts_ = Date();
     if (value->size() == 0) {
         ts_ = Date::notADate();
@@ -2652,7 +2720,7 @@ getAtom() const
 {
     if (type_ == NONE)
         return EMPTY_CELL;
-    ExcAssertEqual(type_, ATOM);
+    assertType(ATOM);
     return cell_;
 }
 
@@ -2662,7 +2730,7 @@ stealAtom()
 {
     if (type_ == NONE)
         return CellValue();
-    ExcAssertEqual(type_, ATOM);
+    assertType(ATOM);
     return std::move(cell_);
 }
 
@@ -2695,7 +2763,7 @@ const ExpressionValue::Row &
 ExpressionValue::
 getRow() const
 {
-    ExcAssertEqual(type_, ROW);
+    assertType(ROW);
     return *row_;
 }
 
@@ -2703,7 +2771,7 @@ ExpressionValue::Row
 ExpressionValue::
 stealRow()
 {
-    ExcAssertEqual(type_, ROW);
+    assertType(ROW);
     type_ = NONE;
     return std::move(*row_);
 }
@@ -2919,49 +2987,71 @@ extractJson(JsonPrintingContext & context) const
         return;
 
     case ExpressionValue::ROW: {
-        Json::Value output(Json::objectValue);
+        context.startObject();
 
-        for (auto & r: *row_)
-            output[std::get<0>(r).toUtf8String()] = std::get<1>(r).extractJson();
+        for (auto & r: *row_) {
+            if (std::get<0>(r).hasStringView()) {
+                const char * start;
+                size_t len;
 
-        context.writeJson(output);
+                std::tie(start, len) = std::get<0>(r).getStringView();
+
+                context.startMember(start, len);
+            }
+            else {
+                context.startMember(std::get<0>(r).toUtf8String());
+            }
+
+            std::get<1>(r).extractJson(context);
+        }
+
+        context.endObject();
+
         return;
     }
     case ExpressionValue::STRUCT: {
         Json::Value output(Json::arrayValue);
 
-        if (!struct_->columnNames) {
-            for (unsigned i = 0;  i < struct_->length();  ++i)
-                output[i] = jsonEncode(struct_->value(i));
-        }
-        else if (struct_->length() > 0
-                 && struct_->columnNames->at(0) == ColumnName(0)) {
-            // Assume it's an array
-            
-            for (unsigned i = 0;  i < struct_->length();  ++i) {
-                output[i] = jsonEncode(struct_->value(i));
-                if (struct_->columnNames->at(i) != i) {
-                    // Not really an array or embedding...
-                    output = Json::Value();
-                    break;
-                }
+        bool isArray = true;
+
+        if (struct_->columnNames && struct_->length() > 0
+            && struct_->columnNames->at(0) == ColumnName(0)) {
+            // Assume it's an array; check if not
+            bool isArray = true;
+            for (unsigned i = 1;  i < struct_->length() && isArray;  ++i) {
+                if (struct_->columnNames->at(i) != i)
+                    isArray = false;
             }
         }
-
-        if (!output.isNull()) {
-            context.writeJson(output);
-            return;
+        if (isArray) {
+            context.startArray();
+            for (unsigned i = 0;  i < struct_->length();  ++i) {
+                context.newArrayElement();
+                struct_->value(i).extractStructuredJson(context);
+            }
+            context.endArray();
         }
+        else {
+            context.startObject();
 
-        output = Json::Value(Json::objectValue);
+            for (unsigned i = 0;  i < struct_->length();  ++i) {
+                if (struct_->columnName(i).hasStringView()) {
+                    const char * start;
+                    size_t len;
 
-        for (unsigned i = 0;  i < struct_->length();  ++i) {
-            output[struct_->columnName(i).toUtf8String()]
-                = jsonEncode(struct_->value(i));
+                    std::tie(start, len) = struct_->columnName(i).getStringView();
+
+                    context.startMember(start, len);
+                }
+                else {
+                    context.startMember(struct_->columnName(i).toUtf8String());
+                }
+
+                struct_->value(i).extractStructuredJson(context);
+            }
+
+            context.endObject();
         }
-
-        context.writeJson(output);
-        return;
     }
     case ExpressionValue::EMBEDDING: {
         throw HttpReturnException(500, "extractJson EMBEDDING: not impl");

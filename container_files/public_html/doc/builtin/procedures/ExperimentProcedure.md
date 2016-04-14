@@ -79,7 +79,7 @@ The following example would be for a 2-fold run:
     "runStarted" : "...",
     "state" : "finished",
     "status" : {
-        "aggregated": {
+        "aggregatedTest": {
             "auc": {
                 "max": x,
                 "mean": y,
@@ -90,17 +90,20 @@ The following example would be for a 2-fold run:
         },
         "folds": [
             {
-                "results" : { <classifier.test output for fold 1> },
+                "resultsTest" : { <classifier.test output for fold 1> },
                 "fold": { <dataset_fold used for fold 1> }
             },
             {
-                "results" : { <classifier.test output for fold 2> },
+                "resultsTest" : { <classifier.test output for fold 2> },
                 "fold": { <dataset_fold used for fold 2> }
             }
         ]
     }
 }
 ```
+
+If the training set is also evaluated, the additional keys `aggregated_train` and `results_train` 
+will also be returned and will have the same structure as the results for the testing set.
 
 ## Examples
 

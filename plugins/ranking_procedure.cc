@@ -94,12 +94,13 @@ run(const ProcedureRunConfig & run,
     // clause.  First, we need to calculate each of the order by clauses
     for (auto & c: runProcConf.inputData.stm->orderBy.clauses) {
         auto whenClause = std::make_shared<FunctionCallWrapper>
-            ("", "when", vector<shared_ptr<SqlExpression> >(1, c.first),
+            ("", "latest_timestamp",
+             vector<shared_ptr<SqlExpression> >(1, c.first),
              nullptr /* extract */);
         calc.emplace_back(whenClause);
     }
 
-    vector<Coord> orderedRowNames;
+    vector<RowName> orderedRowNames;
     Date globalMaxOrderByTimestamp = Date::negativeInfinity();
     auto getSize = [&] (NamedRowValue & row,
                         const vector<ExpressionValue> & calc)
@@ -122,7 +123,7 @@ run(const ProcedureRunConfig & run,
                      *runProcConf.inputData.stm->where,
                      runProcConf.inputData.stm->orderBy,
                      calc)
-        .execute(getSize,
+        .execute({getSize,false/*processInParallel*/},
                  runProcConf.inputData.stm->offset,
                  runProcConf.inputData.stm->limit,
                  onProgress);
@@ -200,7 +201,9 @@ regRankingProcedure(
     builtinPackage(),
     "ranking",
     "Assign ranks over a sorted dataset",
-    "procedures/RankingProcedure.md.html");
+    "procedures/RankingProcedure.md.html",
+    nullptr /* static route */,
+    { MldbEntity::INTERNAL_ENTITY });
  
 
 } // namespace MLDB

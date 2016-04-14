@@ -42,7 +42,7 @@ result = mldb.put("/v1/procedures/kmeans", {
 result = mldb.post("/v1/procedures/kmeans/runs", {})
 
 result = mldb.get("/v1/datasets/iris_dataset/query",
-                  select="* excluding (class)", format="table",
+                  select="* excluding (class)", orderBy = "rowHash()", format="table",
                   rowNames="true")
 iris_dataset = result.json()
 
@@ -58,7 +58,7 @@ for row in rows:
 #mldb.log(nearest_centroid)
 
 result = mldb.get("/v1/datasets/iris_kmeans_dataset/query",
-                  select="* excluding (class)", format="table",
+                  select="* excluding (class)", orderBy = "rowHash()", format="table",
                   rowNames="true", headers="false")
 kmeans_clusters = result.json()
 

@@ -17,6 +17,10 @@
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/sql/builtin_functions.h"
+#include "mldb/server/per_thread_accumulator.h"
+#include "mldb/base/parallel.h"
+#include "mldb/arch/timers.h"
+#include "mldb/base/parse_context.h"
 
 using namespace std;
 
@@ -100,8 +104,6 @@ struct JSONImporter: public Procedure {
 
         Date zeroTs;
 
-        std::mutex recordMutex;
-
         std::atomic<int64_t> errors(0);
         std::atomic<int64_t> recordedLines(0);
         int64_t lineOffset = 1;
@@ -111,6 +113,8 @@ struct JSONImporter: public Procedure {
         filter_istream stream(filename);
 
         Date timestamp = stream.info().lastModified;
+
+        ML::Timer timer;
 
         // Skip those up to the offset
         for (size_t i = 0;  stream && i < config.offset;  ++i, ++lineOffset) {
@@ -132,11 +136,40 @@ struct JSONImporter: public Procedure {
                                       "line", line);
         };
 
-        auto onLine = [& ](const char * line,
+        Dataset::MultiChunkRecorder recorder
+            = outputDataset->getChunkRecorder();
+
+        struct ThreadAccum {
+            /// Recorder object for this thread that the dataset gives us
+            /// to record into the dataset.
+            std::unique_ptr<Recorder> threadRecorder;
+        };
+
+        PerThreadAccumulator<ThreadAccum> accum;
+
+        auto startChunk = [&] (int64_t chunkNumber, size_t lineNumber)
+            {
+                auto & threadAccum = accum.get();
+                threadAccum.threadRecorder = recorder.newChunk(chunkNumber);
+                return true;
+            };
+
+        auto doneChunk = [&] (int64_t chunkNumber, size_t lineNumber)
+            {
+                auto & threadAccum = accum.get();
+                ExcAssert(threadAccum.threadRecorder.get());
+                threadAccum.threadRecorder->finishedChunk();
+                threadAccum.threadRecorder.reset(nullptr);
+                return true;
+            };
+
+        auto onLine = [&] (const char * line,
                            size_t lineLength,
                            int64_t blockNumber,
                            int64_t lineNumber)
         {
+            auto & threadAccum = accum.get();
+
             int64_t actualLineNum = lineNumber + lineOffset;
 
             // MLDB-1111 empty lines are treated as error
@@ -145,6 +178,11 @@ struct JSONImporter: public Procedure {
 
             StreamingJsonParsingContext parser(filename, line, lineLength,
                                                actualLineNum);
+
+            skipJsonWhitespace(*parser.context);
+            if (parser.context->eof()) {
+                return handleError("empty line", actualLineNum, "");
+            }
 
             // TODO: in the configuration
             JsonArrayHandling arrays = ENCODE_ARRAYS;
@@ -156,15 +194,32 @@ struct JSONImporter: public Procedure {
                 return handleError(exc.what(), actualLineNum, string(line, lineLength));
             }
 
+            skipJsonWhitespace(*parser.context);
+            if (!parser.context->eof()) {
+                return handleError("extra characters at end of line", actualLineNum, "");
+            }
+
             recordedLines++;
 
-            std::lock_guard<std::mutex> lock(recordMutex);
-            outputDataset->recordRowExpr(RowName(actualLineNum), expr);
+            RowName rowName(actualLineNum);
+            threadAccum.threadRecorder->recordRowExprDestructive(RowName(actualLineNum), std::move(expr));
+
             return true;
         };
+        
+        forEachLineBlock(stream, onLine, runProcConf.limit, 32,
+                         startChunk, doneChunk);
 
-        forEachLineBlock(stream, onLine, runProcConf.limit);
-        outputDataset->commit();
+        cerr << timer.elapsed() << endl;
+        timer.restart();
+
+        cerr << "committing dataset" << endl;
+
+        recorder.commit();
+
+        cerr << timer.elapsed() << endl;
+
+        cerr << "done" << endl;
 
         Json::Value result;
         result["rowCount"] = (int64_t)recordedLines;

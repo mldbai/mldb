@@ -223,7 +223,8 @@ namespace MLDB {
 
 struct GitImporterConfig : ProcedureConfig {
     GitImporterConfig()
-        : revisions({"HEAD"}), importStats(false), importTree(false)
+        : revisions({"HEAD"}), importStats(false), importTree(false),
+          ignoreUnknownEncodings(true)
     {
         outputDataset.withType("sparse.mutable");
     }
@@ -233,6 +234,7 @@ struct GitImporterConfig : ProcedureConfig {
     std::vector<std::string> revisions;
     bool importStats;
     bool importTree;
+    bool ignoreUnknownEncodings;
 
     // TODO
     // when
@@ -259,7 +261,7 @@ GitImporterConfigDescription()
              "See the documentation for the output format.",
              PolyConfigT<Dataset>().withType("sparse.mutable"));
 
-    std::vector<std::string> defaultRevisions = { "HEAD " };
+    std::vector<std::string> defaultRevisions = { "HEAD" };
     addField("revisions", &GitImporterConfig::revisions,
              "Revisions to load from Git (eg, HEAD, HEAD~20..HEAD, tags/*). "
              "See the gitrevisions (7) documentation.  Default is all revisions "
@@ -269,6 +271,12 @@ GitImporterConfigDescription()
              "changed, lines added and lines deleted)", false);
     addField("importTree", &GitImporterConfig::importTree,
              "If true, then import the tree (names of files changed)", false);
+    addField("ignoreUnknownEncodings",
+             &GitImporterConfig::ignoreUnknownEncodings,
+             "If true (default), ignore commit messages with unknown encodings "
+             "(supported are ISO-8859-1 and UTF-8) and replace with a "
+             "placeholder.  If false, messages with unknown encodings will "
+             "cause the commit to abort.");
 
     addParent<ProcedureConfig>();
 }
@@ -327,6 +335,13 @@ struct GitImporter: public Procedure {
         Utf8String message;
         if (!encoding || strcmp(encoding, "UTF-8") == 0) {
             message = Utf8String(messageStr);
+        }
+        else if (strcmp(encoding,"ISO-8859-1") == 0) {
+            message = Utf8String::fromLatin1(messageStr);
+        }
+        else if (config.ignoreUnknownEncodings) {
+            message = "<<<couldn't decode message in "
+                + string(encoding) + " character set>>>";
         }
         else {
             throw HttpReturnException(500,
@@ -543,7 +558,10 @@ struct GitImporter: public Procedure {
             output->recordRows(t->rows);
         }
 
+        output->commit();
+
         RunOutput result;
+
         return result;
     }
 

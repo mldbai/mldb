@@ -41,10 +41,10 @@ class RowAggregatorTest(MldbUnitTest):
                                     [
                                         {
                                             "columns" : [
-                                                [ "min.label", "cat", self.ts ],
+                                                [ "min.label", "cat", self.after_ts ],
                                                 [ "min.x", 0, self.ts ],
                                                 [ "min.y", 0, self.ts ],
-                                                [ "max.label", "cat", self.ts ],
+                                                [ "max.label", "cat", self.after_ts ],
                                                 [ "max.x", 1, self.after_ts ],
                                                 [ "max.y", 2, self.after_ts ]
                                             ],

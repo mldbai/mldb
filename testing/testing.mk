@@ -9,6 +9,8 @@ HAS_S3_CREDENTIALS:=$(shell grep -l "^s3" ~/.cloud_credentials >/dev/null 2>/dev
 # Make a test manual if there are no S3 credentials available
 MANUAL_IF_NO_S3:=$(if $(HAS_S3_CREDENTIALS),,manual)
 
+$(eval $(call include_sub_make,cookbook))
+
 #$(warning HAS_S3_CREDENTIALS=$(HAS_S3_CREDENTIALS))
 #$(warning MANUAL_IF_NO_S3=$(MANUAL_IF_NO_S3))
 
@@ -40,7 +42,7 @@ $(eval $(call test,mldb_internal_plugin_doc_test,mldb,boost))
 
 
 
-$(eval $(call test,mldb_config_persistence_test,mldb,boost))
+$(eval $(call test,mldb_config_persistence_test,mldb,boost manual)) #this code will be removed as part of MLDB-1441
 $(eval $(call test,mldb_startup_test,mldb,boost))
 $(eval $(call test,mldb_plugin_delete_test,mldb,boost))
 $(eval $(call test,pyplugin_static_folder_test,mldb,boost))
@@ -261,8 +263,11 @@ $(eval $(call mldb_unit_test,MLDB-1353-EM.py))
 $(eval $(call mldb_unit_test,MLDB-1361_join_on_subselect.py))
 $(eval $(call mldb_unit_test,MLDB-1364_dataset_cant_be_overwritten.py))
 $(eval $(call mldb_unit_test,MLDB-1336-builtin-checks.py))
+$(eval $(call mldb_unit_test,MLDB-1433-random-forest.py))
 $(eval $(call mldb_unit_test,MLDB-1430-aggregate-bug.py))
 $(eval $(call mldb_unit_test,MLDB-1428-text-sparse-output.py))
+$(eval $(call mldb_unit_test,MLDB-1452-like-operator.py))
+$(eval $(call mldb_unit_test,MLDB-1440_sqlexpr_ignore_unknown_param.py))
 
 $(eval $(call mldb_unit_test,pytanic_plugin_test.py))
 $(eval $(call python_test,mldb_merged_dataset_test,mldb_py_runner))
@@ -324,8 +329,19 @@ $(eval $(call mldb_unit_test,get_http_bound_address.py))
 $(eval $(call mldb_unit_test,get_http_bound_address.js))
 $(eval $(call mldb_unit_test,MLDB-815-sparse-mutable-record-strings.js))
 $(eval $(call mldb_unit_test,MLDB-1395-error-message-file-doesnt-exist.js))
+$(eval $(call mldb_unit_test,ranking_test.py))
+$(eval $(call mldb_unit_test,MLDB-1490-grouped-validation.py))
+$(eval $(call mldb_unit_test,MLDB-1491-get-all-not-implemented-for-datasets.js,,manual)) # awaiting fix
+$(eval $(call mldb_unit_test,MLDB-1500-transpose-query.js,,manual)) # awaiting fix
+$(eval $(call mldb_unit_test,MLDB-1507-groupby.py))
 
 # The MLDB-1398 test case requires a library and a plugin
 # Tensorflow plugins
 $(eval $(call include_sub_make,MLDB-1398-plugin))
 $(eval $(call mldb_unit_test,MLDB-1398-plugin-library-dependency.js,MLDB-1398-plugin))
+$(eval $(call mldb_unit_test,MLDB-1554-string-agg.js))
+$(eval $(call mldb_unit_test,MLDB-1567-empty-literal.js))
+$(eval $(call mldb_unit_test,MLDB-1563-keys-values-of.js))
+
+$(eval $(call test,MLDB-1360-sparse-mutable-multithreaded-insert,mldb,boost))
+

@@ -54,11 +54,11 @@ BucketizeProcedureConfigDescription()
     addField("percentileBuckets", &BucketizeProcedureConfig::percentileBuckets,
              "Key/ranges of the buckets to create. Buckets ranges can share "
              "start and end values but cannot overlap such that a row can "
-             "belong to multiple buckets. "
-             "E.g. {\"a\":[0, 50], \"b\": [50, 100]} will give two buckets: "
-             "\"a\" has rows where 0% < rank/count <= 50% and "
-             "\"b\" has rows where 50% < rank/count <= 100%, where the 'rank' "
-             "is based on the orderBy parameter.");
+             "belong to multiple buckets. \n\n"
+             "E.g. `{\"a\": [0, 50], \"b\": [50, 100]}` will give two buckets: "
+             "\"a\" with rows where 0% < rank/count <= 50% "
+             "and \"b\" with rows where 50% < rank/count <= 100% "
+             "where rank is based on the orderBy parameter.");
     addParent<ProcedureConfig>();
 
     onPostValidate = [&] (BucketizeProcedureConfig * cfg,
@@ -158,13 +158,13 @@ run(const ProcedureRunConfig & run,
                      *runProcConf.inputData.stm->where,
                      runProcConf.inputData.stm->orderBy,
                      calc)
-        .execute(getSize, 
+        .execute({getSize, false/*processInParallel*/}, 
                  runProcConf.inputData.stm->offset, 
                  runProcConf.inputData.stm->limit, 
                  onProgress);
 
     int64_t rowCount = orderedRowNames.size();
-    //cerr << "Row count: " << rowCount  << endl;
+    logger->debug() << "Row count: " << rowCount;
 
     auto output = createDataset(server, runProcConf.outputDataset,
                                 nullptr, true /*overwrite*/);
@@ -198,8 +198,8 @@ run(const ProcedureRunConfig & run,
         
         ExcAssert(higherBound <= rowCount);
 
-        //cerr << "Bucket " << mappedRange.first << " from " << lowerBound
-        //     << " to " << higherBound << endl;
+        logger->debug() << "Bucket " << mappedRange.first << " from " << lowerBound
+                        << " to " << higherBound;
 
         parallelMap(lowerBound, higherBound, applyFct);
     }
@@ -226,7 +226,9 @@ regBucketizeProcedure(
     builtinPackage(),
     "bucketize",
     "Assign buckets based on percentile ranges over a sorted dataset",
-    "procedures/BucketizeProcedure.md.html");
+    "procedures/BucketizeProcedure.md.html",
+    nullptr /* static route */,
+    { MldbEntity::INTERNAL_ENTITY });
  
 
 } // namespace MLDB

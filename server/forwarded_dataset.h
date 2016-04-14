@@ -67,8 +67,7 @@ struct ForwardedDataset: public Dataset {
                     const SqlExpression & rowName,
                     ssize_t offset,
                     ssize_t limit,
-                    Utf8String alias = "",
-                    bool allowMT = true) const;
+                    Utf8String alias = "") const;
 
     virtual std::vector<MatrixNamedRow>
     queryString(const Utf8String & query) const;
@@ -87,6 +86,7 @@ struct ForwardedDataset: public Dataset {
 
     virtual GenerateRowsWhereFunction
     generateRowsWhere(const SqlBindingScope & context,
+                      const Utf8String& alias,
                       const SqlExpression & where,
                       ssize_t offset,
                       ssize_t limit) const;
@@ -98,8 +98,7 @@ struct ForwardedDataset: public Dataset {
                const SqlExpression & where,
                const OrderByExpression & orderBy,
                ssize_t offset,
-               ssize_t limit,
-               bool allowParallel) const;
+               ssize_t limit) const;
 
     virtual RestRequestMatchResult
     handleRequest(RestConnection & connection,

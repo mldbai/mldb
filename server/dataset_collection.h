@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** dataset_collection.h                                           -*- C++ -*-
     Jeremy Barnes, 4 December 2014
     Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Interface for datasets into MLDB.
 */
@@ -32,7 +32,8 @@ void runHttpQuery(std::function<std::vector<MatrixNamedRow> ()> runQuery,
                   const std::string & format,
                   bool createHeaders,
                   bool rowNames,
-                  bool rowHashes);
+                  bool rowHashes,
+                  bool sortColumns);
                       
 
 /*****************************************************************************/
@@ -64,11 +65,12 @@ struct DatasetCollection: public PolyCollection<Dataset> {
                     const Utf8String & groupBy,
                     const Utf8String & having,
                     const Utf8String & rowName,
-                    ssize_t limit,
                     ssize_t offset,
+                    ssize_t limit,
                     bool createHeaders,
                     bool rowNames,
-                    bool rowHashes) const;
+                    bool rowHashes,
+                    bool sortColumns) const;
 };
 
 } // namespace MLDB
