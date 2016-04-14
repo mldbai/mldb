@@ -944,38 +944,167 @@ generateRowsWhere(const SqlBindingScope & scope,
             return dynamic_cast<const ArithmeticExpression *>(&expression);
         };
 
+    auto getBoundParameter = [] (const SqlExpression & expression) -> const BoundParameterExpression *
+        {
+            return dynamic_cast<const BoundParameterExpression *>(&expression);
+        };
+
+    auto isRowNameFilter = [&](const SqlExpression & expression)
+    {
+        auto comparison = dynamic_cast<const ComparisonExpression *>(&expression);
+
+        if (comparison) {
+
+            auto clhs = getConstant(*comparison->lhs);
+            auto crhs = getConstant(*comparison->rhs);
+            auto flhs = getFunction(*comparison->lhs);
+            auto frhs = getFunction(*comparison->rhs);
+            auto blhs = getBoundParameter(*comparison->lhs);
+            auto brhs = getBoundParameter(*comparison->rhs);
+
+            //look for rowName() != constant-or-bound 
+            //or       constant-or-bound != rowName()
+
+            if (frhs && (clhs || blhs) && comparison->op == "!=") {
+                if (removeTableName(alias, frhs->functionName) == "rowName" ) {
+                    return true;
+                }
+            }
+            else if (flhs && (crhs || brhs) && comparison->op == "!=") {
+                if (removeTableName(alias, flhs->functionName) == "rowName" ) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    };
+
+    // extract x from rowName() != constant or constant != rowName()
+
+    auto getRowNameFilter = [&](const SqlExpression & expression) {
+        auto comparison = dynamic_cast<const ComparisonExpression *>(&expression);
+        ExcAssert(comparison);
+        auto clhs = getConstant(*comparison->lhs);
+        auto crhs = getConstant(*comparison->rhs);
+
+        if (clhs) {
+            return RowName(clhs->constant.toString());
+        }
+        else if (crhs) {
+            return RowName(crhs->constant.toString());
+        }
+        else {
+
+            ExcAssert(false);
+
+            return RowName();
+        }
+    };
+
+    // extract bound-parameter from rowName() != bound-parameter or bound-parameter != rowName()
+
+    auto getBoundParameterFilter = [&] (const SqlExpression & expression)
+    -> const BoundParameterExpression *
+    {
+        auto comparison = dynamic_cast<const ComparisonExpression *>(&expression);
+        ExcAssert(comparison);
+        auto blhs = getBoundParameter(*comparison->lhs);
+        auto brhs = getBoundParameter(*comparison->rhs);
+
+        return blhs ? : brhs;
+    };
+
     auto boolean = getBoolean(where);
 
     if (boolean) {
         // Optimize a boolean operator
 
         if (boolean->op == "AND") {
-            GenerateRowsWhereFunction lhsGen = generateRowsWhere(scope, alias, *boolean->lhs, 0, -1);
-            GenerateRowsWhereFunction rhsGen = generateRowsWhere(scope, alias, *boolean->rhs, 0, -1);
-            cerr << "AND between " << lhsGen.explain << " and " << rhsGen.explain
-                 << endl;
 
-            if (lhsGen.explain != "scan table" && rhsGen.explain != "scan table") {
+            bool isLeft = false;
+            if ((isLeft = isRowNameFilter(*boolean->lhs)) || isRowNameFilter(*boolean->rhs)) {
+
+                auto scanExpression = isLeft? boolean->rhs : boolean->lhs;
+                auto filterExpression = isLeft? boolean->lhs : boolean->rhs;
+
+                GenerateRowsWhereFunction gen = generateRowsWhere(scope, alias, *scanExpression, 0, -1);
+                SqlExpressionDatasetContext dsScope(*this, alias);
+
+                cerr << "And filter using " << gen.explain << " filtering " /*<< except.toString()*/
+                     << endl;
+
+                auto boundParameterExpression = isLeft ? getBoundParameterFilter(*boolean->lhs) : getBoundParameter(*boolean->rhs);
+
+                auto getFilteredRowName = [&] (const BoundParameters & params) {
+                    return getRowNameFilter(*filterExpression);
+                };
+
+                std::function<RowName(const BoundParameters & params)> filterCallback = getFilteredRowName;
+
+                if (boundParameterExpression) {
+
+                    cerr << "bound parameter" << endl;
+
+                    auto paramName = boundParameterExpression->paramName;
+
+                    auto getFilteredRowNameFromBoundParameter = [=] (const BoundParameters & params) {
+                        ExpressionValue value = std::move(params(paramName));
+                        return RowName(value.getAtom().toString());
+                    };
+
+                    filterCallback = getFilteredRowNameFromBoundParameter;
+
+                }
 
                 return {[=] (ssize_t numToGenerate, Any token,
                              const BoundParameters & params)
                         -> std::pair<std::vector<RowName>, Any>
                         {
-                            auto lhsRows = lhsGen(-1, Any(), params).first;
-                            auto rhsRows = rhsGen(-1, Any(), params).first;
+                            RowName except = filterCallback(params);
 
-                            std::sort(lhsRows.begin(), lhsRows.end(), SortByRowHash());
-                            std::sort(rhsRows.begin(), rhsRows.end(), SortByRowHash());
+                            auto rows = gen(-1, Any(), params).first;                                
+                            auto iter = std::find(rows.begin(), rows.end(), except);
+                            if (iter != rows.end()) {
+                                *iter = rows.back();
+                                rows.pop_back();
+                            }
 
-                            vector<RowName> intersection;
-                            std::set_intersection(lhsRows.begin(), lhsRows.end(),
-                                                  rhsRows.begin(), rhsRows.end(),
-                                                  std::back_inserter(intersection),
-                                                  SortByRowHash());
-
-                            return { std::move(intersection), Any() };
+                            return { std::move(rows), Any() };
                         },
-                        "set intersection for AND " + boolean->print().rawString() };
+                        ""};
+
+            }
+            else {
+
+                GenerateRowsWhereFunction lhsGen = generateRowsWhere(scope, alias, *boolean->lhs, 0, -1);
+                GenerateRowsWhereFunction rhsGen = generateRowsWhere(scope, alias, *boolean->rhs, 0, -1);
+                cerr << "AND between " << lhsGen.explain << " and " << rhsGen.explain
+                     << endl;
+
+                //MLDB-1553 this condition doesnt work anymore.
+                if (lhsGen.explain != "scan table" && rhsGen.explain != "scan table") {
+
+                    return {[=] (ssize_t numToGenerate, Any token,
+                                 const BoundParameters & params)
+                            -> std::pair<std::vector<RowName>, Any>
+                            {
+                                auto lhsRows = lhsGen(-1, Any(), params).first;
+                                auto rhsRows = rhsGen(-1, Any(), params).first;
+
+                                std::sort(lhsRows.begin(), lhsRows.end(), SortByRowHash());
+                                std::sort(rhsRows.begin(), rhsRows.end(), SortByRowHash());
+
+                                vector<RowName> intersection;
+                                std::set_intersection(lhsRows.begin(), lhsRows.end(),
+                                                      rhsRows.begin(), rhsRows.end(),
+                                                      std::back_inserter(intersection),
+                                                      SortByRowHash());
+
+                                return { std::move(intersection), Any() };
+                            },
+                            "set intersection for AND " + boolean->print().rawString() };
+                }
             }
         }
         else if (boolean->op == "OR") {
