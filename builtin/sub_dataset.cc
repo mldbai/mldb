@@ -55,26 +55,8 @@ struct SubDataset::Itl
     Itl(SelectStatement statement, MldbServer* owner)
     {
         SqlExpressionMldbContext mldbContext(owner);
-        BoundTableExpression table = statement.from->bind(mldbContext);  
 
-        std::vector<MatrixNamedRow> rows;
-
-        if (table.dataset)
-        {  
-            rows = table.dataset->queryStructured(statement.select, statement.when, 
-                                                  *statement.where,
-                                                  statement.orderBy,
-                                                  statement.groupBy,
-                                                  *statement.having,
-                                                  *statement.rowName,
-                                                  statement.offset,
-                                                  statement.limit,
-                                                  table.asName);
-        }
-        else
-        {
-            rows = queryWithoutDataset(statement, mldbContext);
-        }
+        std::vector<MatrixNamedRow> rows = queryFromStatement(statement, mldbContext);
 
         init(std::move(rows));
     }

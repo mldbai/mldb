@@ -341,9 +341,7 @@ UnboundEntities
 SelectSubtableExpression::
 getUnbound() const
 {
-    UnboundEntities result;
-    throw HttpReturnException(500, "getUnbound() for SelectSubtableExpression: not done");
-    return result;
+    return statement.getUnbound();
 }
 
 

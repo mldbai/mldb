@@ -2572,6 +2572,18 @@ operator == (const OrderByExpression & other) const
     return true;
 }
 
+UnboundEntities
+OrderByExpression::
+getUnbound() const
+{
+    UnboundEntities result;
+    for (const auto & c: clauses) {
+        result.merge(c.first->getUnbound());
+    }
+
+    return result;
+}
+
 DEFINE_ENUM_DESCRIPTION(OrderByDirection);
 
 OrderByDirectionDescription::
@@ -2763,6 +2775,18 @@ isConstant() const
         }
     }
     return constant;
+}
+
+UnboundEntities
+TupleExpression::
+getUnbound() const
+{
+    UnboundEntities result;
+    for (const auto & c: clauses) {
+        result.merge(c->getUnbound());
+    }
+
+    return result;
 }
 
 struct TupleExpressionDescription
@@ -3580,6 +3604,13 @@ operator == (const WhenExpression & other) const
     return surface == other.surface;
 }
 
+UnboundEntities
+WhenExpression::
+getUnbound() const
+{
+   return when->getUnbound();
+}
+
 struct WhenExpressionDescription
     : public ValueDescriptionT<WhenExpression> {
 
@@ -3772,6 +3803,24 @@ print() const
         orderBy.print() +
         groupBy.print() +
         having->print();
+}
+
+UnboundEntities
+SelectStatement::
+getUnbound() const
+{
+    UnboundEntities result;
+
+    result.merge(select.getUnbound());
+    result.merge(from->getUnbound());
+    result.merge(when.getUnbound());
+    result.merge(where->getUnbound());
+    result.merge(orderBy.getUnbound());
+    result.merge(groupBy.getUnbound());
+    result.merge(having->getUnbound());
+    result.merge(rowName->getUnbound());
+
+    return result;
 }
 
 DEFINE_STRUCTURE_DESCRIPTION(SelectStatement);

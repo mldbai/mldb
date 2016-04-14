@@ -93,4 +93,27 @@ res = mldb.get('/v1/datasets/ds1/query', select='poil2({*})')
 mldb.log("query result")
 mldb.log(res)
 
+#MLDB-1573
+
+res = mldb.put("/v1/functions/patate", {
+    "type": "sql.query",
+    "params": {
+        "query": """
+            select * from ((
+
+                select * from 
+                row_dataset({x: 1, y:2, z: 'three'})
+            ))
+        """,
+        "output": "FIRST_ROW"
+    }
+})
+
+res = mldb.query("select patate()")
+
+expected = [["_rowName", "patate().column", "patate().value"],
+            ["result", "x", 1 ]]
+
+assert res == expected
+
 mldb.script.set_return('success')
