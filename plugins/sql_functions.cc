@@ -107,9 +107,18 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
                 return info;
             };
 
-        if (!config.query.stm->groupBy.empty()) {
-            // Create our pipeline
+        bool hasGroupBy = !config.query.stm->groupBy.empty();
+        std::vector< std::shared_ptr<SqlExpression> > aggregators = config.query.stm->select.findAggregators(hasGroupBy);
 
+        if (!hasGroupBy && !aggregators.empty()) {
+            //if we have no group by but aggregators, make a universal group
+            config.query.stm->groupBy.clauses.emplace_back(SqlExpression::parse("1"));
+            hasGroupBy = true;
+        }
+
+        if (hasGroupBy) {
+
+            // Create our pipeline
             pipeline
                 = getMldbRoot(function->server)
                 ->params(getParamInfo)
