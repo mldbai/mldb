@@ -27,6 +27,8 @@
 #include "mldb/types/jml_serialization.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/plugins/sql_config_validator.h"
+#include "mldb/base/parallel.h"
+#include "mldb/types/optional_description.h"
 
 
 using namespace std;
@@ -70,10 +72,9 @@ increment(const CellValue & val, const vector<uint> & outcomes) {
     Utf8String key = val.toUtf8String();
     auto it = counts.find(key);
     if(it == counts.end()) {
-        auto rtn = counts.emplace(key,
-                std::move(make_pair(1, vector<int64_t>(outcomes.begin(),
-                                                    outcomes.end()))));
-
+        auto rtn = counts.emplace(
+            key, std::move(make_pair(1, vector<int64_t>(outcomes.begin(),
+                                                        outcomes.end()))));
         // return inserted value
         return (*(rtn.first)).second;
     }
@@ -570,6 +571,10 @@ DEFINE_STRUCTURE_DESCRIPTION(BagOfWordsStatsTableProcedureConfig);
 BagOfWordsStatsTableProcedureConfigDescription::
 BagOfWordsStatsTableProcedureConfigDescription()
 {
+    Optional<PolyConfigT<Dataset> > optionalOutputDataset;
+    optionalOutputDataset.emplace(PolyConfigT<Dataset>().
+                                  withType(BagOfWordsStatsTableProcedureConfig::defaultOutputDatasetType));
+
     addField("trainingData", &BagOfWordsStatsTableProcedureConfig::trainingData,
              "SQL query to select the data on which the rolling operations will be performed.");
     addField("outcomes", &BagOfWordsStatsTableProcedureConfig::outcomes,
@@ -579,6 +584,9 @@ BagOfWordsStatsTableProcedureConfigDescription()
     addField("statsTableFileUrl", &BagOfWordsStatsTableProcedureConfig::statsTableFileUrl,
              "URL where the model file (with extension '.st') should be saved. "
              "This file can be loaded by the ![](%%doclink statsTable.bagOfWords.posneg function). ");
+    addField("outputDataset", &BagOfWordsStatsTableProcedureConfig::outputDataset,
+             "Output dataset with the total counts for each word along with"
+             " the cooccurrence count with each outcome.", optionalOutputDataset);
     addParent<ProcedureConfig>();
 
     onPostValidate = validate<BagOfWordsStatsTableProcedureConfig,
@@ -625,7 +633,6 @@ run(const ProcedureRunConfig & run,
 
     StatsTable statsTable(ColumnName("words"), outcome_names);
 
-
     auto onProgress2 = [&] (const Json::Value & progress)
         {
             Json::Value value;
@@ -648,7 +655,7 @@ run(const ProcedureRunConfig & run,
             }
 
             vector<uint> encodedLabels;
-            for(int lbl_idx=0; lbl_idx<runProcConf.outcomes.size(); lbl_idx++) {
+            for(int lbl_idx=0; lbl_idx < runProcConf.outcomes.size(); lbl_idx++) {
                 CellValue outcome = extraVals.at(lbl_idx).getAtom();
                 encodedLabels.push_back( !outcome.empty() && outcome.isTrue() );
             }
@@ -659,7 +666,6 @@ run(const ProcedureRunConfig & run,
 
             return true;
         };
-
 
     // We want to calculate the outcome and weight of each row as well
     // as the select expression
@@ -676,6 +682,58 @@ run(const ProcedureRunConfig & run,
                    runProcConf.trainingData.stm->orderBy,
                    runProcConf.trainingData.stm->offset,
                    runProcConf.trainingData.stm->limit);
+
+    // Optionally save counts to a dataset
+    if (runProcConf.outputDataset) {
+        Date date0;
+        PolyConfigT<Dataset> outputDatasetConf = *runProcConf.outputDataset;
+        if (outputDatasetConf.type.empty())
+            outputDatasetConf.type = BagOfWordsStatsTableProcedureConfig
+                                     ::defaultOutputDatasetType;
+        auto output = createDataset(server, outputDatasetConf, onProgress2,
+                                    true /*overwrite*/);
+
+        uint64_t load_factor = std::ceil(statsTable.counts.load_factor());
+
+        vector<ColumnName> outcome_col_names;
+        outcome_col_names.reserve(statsTable.outcome_names.size());
+        for (int i=0; i < statsTable.outcome_names.size(); ++i)
+            outcome_col_names.emplace_back(
+                    "outcome." + statsTable.outcome_names[i]);
+
+        typedef std::vector<std::tuple<ColumnName, CellValue, Date>> Columns;
+
+        auto onBucketChunk = [&] (size_t i0, size_t i1)
+        {
+            std::vector<std::pair<RowName, Columns>> rows;
+            rows.reserve((i1 - i0)*load_factor);
+            // for each bucket of the unordered_map in our chunk
+            for (size_t i = i0; i < i1; ++i) {
+                // for each item in the bucket
+                for (auto it = statsTable.counts.begin(i);
+                        it != statsTable.counts.end(i); ++it) {
+                    Columns columns;
+                    // number of trials
+                    columns.emplace_back(
+                        "trials", it->second.first, date0);
+                    // coocurence with outcome for each outcome
+                    for (int i=0; i < statsTable.outcome_names.size(); ++i) {
+                        columns.emplace_back(
+                            outcome_col_names[i],
+                            it->second.second[i],
+                            date0);
+                    }
+                    rows.emplace_back(make_pair(it->first, columns));
+                }
+            }
+            output->recordRows(rows);
+            return true;
+        };
+
+        parallelMapChunked(0, statsTable.counts.bucket_count(),
+                           256 /* chunksize */, onBucketChunk);
+        output->commit();
+    }
 
 
     // save if required
