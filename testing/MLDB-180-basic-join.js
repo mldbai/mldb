@@ -154,15 +154,15 @@ assertEqual(resp.responseCode, 201);
 testQuery(
     'SELECT poil() as *',
     [
-        [ "_rowName", "test1.x", "test1.y", "test1.z", "test2.x", "test2.z" ],
-        [ "result", 1, 2, null, 1, 2 ]
+        [ "_rowName", "test1.x", "test1.y", "test2.x", "test2.z" ],
+        [ "result", 1, 2, 1, 2 ]
     ]);
 
 testQuery(
     'SELECT poil_as() as *',
     [
-        [ "_rowName", "t1.x", "t1.y", "t1.z", "t2.x", "t2.z" ],
-        [ "result", 1, 2, null, 1, 2 ]
+        [ "_rowName", "t1.x", "t1.y", "t2.x", "t2.z" ],
+        [ "result", 1, 2, 1, 2 ]
     ]);
 
 // almost same again but with a groupBy

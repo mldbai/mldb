@@ -17,7 +17,7 @@
 
 #include <boost/test/unit_test.hpp>
 #include <tuple>
-
+#include <iostream>
 
 using namespace std;
 using namespace Datacratic;
@@ -74,6 +74,38 @@ BOOST_AUTO_TEST_CASE(test_coord_printing)
 }
 
 BOOST_AUTO_TEST_CASE(test_coord_parsing)
+{
+    {
+        Coord coord = Coord::parse("x");
+        BOOST_CHECK_EQUAL(coord.toUtf8String(), "x");
+    }
+
+    for (auto c: { "x", "x.y", "\"", "\"\"", "\"x.y\"", ".", "..", "...", "\".\"" }) {
+        //cerr << "doing " << c << endl;
+        Coord coord(c);
+        //cerr << "c = " << coord.toEscapedUtf8String() << endl;
+        Coord coord2 = Coord::parse(coord.toEscapedUtf8String());
+        //cerr << "coord2 = " << coord2 << endl;
+        BOOST_CHECK_EQUAL(coord2.toUtf8String(), c);
+    }
+
+    {
+        JML_TRACE_EXCEPTIONS(false);
+        BOOST_CHECK_THROW(Coord::parse(""), ML::Exception);
+        BOOST_CHECK_THROW(Coord::parse("."), ML::Exception);
+        BOOST_CHECK_THROW(Coord::parse("\n"), ML::Exception);
+        BOOST_CHECK_THROW(Coord::parse("\""), ML::Exception);
+        BOOST_CHECK_THROW(Coord::parse("\"\""), ML::Exception);
+        BOOST_CHECK_THROW(Coord::parse(".."), ML::Exception);
+        BOOST_CHECK_THROW(Coord::parse("\"x."), ML::Exception);
+        BOOST_CHECK_THROW(Coord::parse("\"x."), ML::Exception);
+        BOOST_CHECK_THROW(Coord::parse("x\"\""), ML::Exception);
+        BOOST_CHECK_THROW(Coord::parse("x.y"), ML::Exception);
+        BOOST_CHECK_THROW(Coord::parse("\"x\",y"), ML::Exception);
+    }
+}
+
+BOOST_AUTO_TEST_CASE(test_coords_parsing)
 {
     {
         Coords coords1 = Coords::parse("x");

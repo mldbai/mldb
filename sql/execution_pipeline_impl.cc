@@ -429,24 +429,17 @@ doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
 
                 
             StructValue output;
-            leftResult.appendToRow(leftPrefix, output);
-            rightResult.appendToRow(rightPrefix, output);
+            output.emplace_back(leftPrefix, std::move(leftResult));
+            output.emplace_back(rightPrefix, std::move(rightResult));
 
             return std::move(output);
         };
 
-    auto cols1 = leftOutput.info->getKnownColumns();
-    auto cols2 = rightOutput.info->getKnownColumns();
-
     std::vector<KnownColumn> knownColumns;
-    for (auto & c: cols1) {
-        c.columnName = leftPrefix + c.columnName;
-        knownColumns.emplace_back(std::move(c));
-    }
-    for (auto & c: cols2) {
-        c.columnName = rightPrefix + c.columnName;
-        knownColumns.emplace_back(std::move(c));
-    }
+    knownColumns.emplace_back(leftPrefix, leftOutput.info, COLUMN_IS_DENSE, 
+                              0 /* fixed offset */);
+    knownColumns.emplace_back(rightPrefix, rightOutput.info, COLUMN_IS_DENSE, 
+                              1 /* fixed offset */);
 
     SchemaCompleteness unk1 = leftOutput.info->getSchemaCompleteness();
     SchemaCompleteness unk2 = rightOutput.info->getSchemaCompleteness();

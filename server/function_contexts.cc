@@ -106,7 +106,9 @@ getAllColumnsFromFunctionImpl(const Utf8String & tableName,
         toKeep.emplace_back(inputColumnName, outputColumnName);
 
         const FunctionValueInfo & functionValueInfo = p.second;
-        const std::shared_ptr<ExpressionValueInfo> & valueInfo = functionValueInfo.valueInfo;
+        const std::shared_ptr<ExpressionValueInfo> & valueInfo
+            = functionValueInfo.valueInfo;
+
 
         KnownColumn column(outputColumnName, valueInfo, COLUMN_IS_DENSE);
         knownColumns.emplace_back(std::move(column));

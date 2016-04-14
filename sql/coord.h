@@ -10,6 +10,7 @@
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/base/exc_assert.h"
 #include <vector>
+#include <cstring>
 
 // NOTE TO MLDB DEVELOPERS: This is an API header file.  No includes
 // should be added, especially value_description.h.
@@ -40,6 +41,10 @@ struct Coord {
     Coord(Utf8String str);
     Coord(std::string str);
     Coord(const char * str, size_t len);
+    Coord(const char * str)
+        : Coord(str, std::strlen(str))
+    {
+    }
 
     Coord(const Coord & other)
         : words{other.words[0], other.words[1], other.words[2], other.words[3]}
@@ -66,8 +71,18 @@ struct Coord {
     {
     }
 
-    // Create as an array index
+    // Create as an array index, from any integral type
+    template<typename T>
+    Coord(T i, typename std::enable_if<std::is_integral<T>::value>::type * = 0)
+        : Coord((uint64_t)i)
+    {
+    }
+
     Coord(uint64_t i);
+
+    static Coord parse(const Utf8String & str);
+    static Coord parse(const char * p, size_t l);
+    static Coord parsePartial(const char * & p, const char * e);
 
     ~Coord()
     {
@@ -317,6 +332,11 @@ struct Coords: protected std::vector<Coord> {
 
     Coords();
     Coords(Coord coord);
+    template<typename T>
+    Coords(const std::initializer_list<T> & val)
+        : Coords(val.begin(), val.end())
+    {
+    }
 
     template<typename It>
     Coords(It first, It last)

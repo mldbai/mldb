@@ -61,6 +61,82 @@ Coord(uint64_t i)
     initChars(begin, end - begin);
 }
 
+Coord
+Coord::
+parse(const Utf8String & str)
+{
+    return parse(str.rawData(), str.rawLength());
+}
+
+Coord
+Coord::
+parse(const char * p, size_t l)
+{
+    const char * e = p + l;
+    Coord result = parsePartial(p, e);
+    if (p != e)
+        throw HttpReturnException(400, "Coord had extra characters at end");
+    return result;
+}
+
+Coord
+Coord::
+parsePartial(const char * & p, const char * e)
+{
+    ExcAssertLessEqual((void *)p, (void *)e);
+
+    if (p == e) {
+        throw HttpReturnException(400, "Parsing empty string for coord");
+    }
+
+    if (*p == '\"') {
+        Utf8String result;
+        ++p;
+
+        if (p == e) {
+            throw HttpReturnException(400, "Coords quoted incorrectly");
+        }
+
+        utf8::iterator<const char *> ufirst(p, p, e);
+        utf8::iterator<const char *> ulast(e, p, e);
+
+        while (ufirst != ulast) {
+            auto c = *ufirst++;
+            if (c == '\"') {
+                if (ufirst == ulast || *ufirst != '\"') {
+                    p = ufirst.base();
+                    if (result.empty()) {
+                        throw HttpReturnException(400, "Empty quoted coord");
+                    }
+
+                    return result;
+                }
+                result += '\"';
+                ++ufirst;  // skip the second quote
+            }
+            else {
+                result += c;
+            }
+        }
+        throw HttpReturnException(400, "Coord terminated incorrectly");
+    }
+    else {
+        const char * start = p;
+        while (start < e && *start != '.') {
+            char c = *start++;
+            if (c == '\"' || c < ' ')
+                throw HttpReturnException(400, "invalid char in Coord");
+        }
+        size_t sz = start - p;
+        if (sz == 0) {
+            throw HttpReturnException(400, "Empty coord");
+        }
+        Coord result(p, sz);
+        p = start;
+        return std::move(result);
+    }
+}
+
 bool
 Coord::
 stringEqual(const std::string & other) const
@@ -596,57 +672,11 @@ parse(const Utf8String & val)
 
     auto parseOne = [&] () -> Coord
         {
-            ExcAssert(p != e);
-
-            if (*p == '\"') {
-                Utf8String result;
-                ++p;
-
-                if (p == e) {
-                    throw HttpReturnException(400, "Coords quoted incorrectly");
-                }
-
-                utf8::iterator<const char *> ufirst(p, p, e);
-                utf8::iterator<const char *> ulast(e, p, e);
-
-                while (ufirst != ulast) {
-                    auto c = *ufirst++;
-                    if (c == '\"') {
-                        if (ufirst == ulast || *ufirst != '\"') {
-                            p = ufirst.base();
-                            if (result.empty()) {
-                                throw HttpReturnException(400, "Empty quoted coord");
-                            }
-
-                            return result;
-                        }
-                        result += '\"';
-                    }
-                    else {
-                        result += c;
-                    }
-                }
-                throw HttpReturnException(400, "Coords terminated incorrectly");
-            }
-            else {
-                const char * start = p;
-                while (start < e && *start != '.') {
-                    char c = *start++;
-                    if (c == '\"' || c < ' ')
-                        throw HttpReturnException(400, "invalid char in Coords");
-                }
-                size_t sz = start - p;
-                if (sz == 0) {
-                    throw HttpReturnException(400, "Empty coord");
-                }
-                Coord result(p, sz);
-                p = start;
-                return std::move(result);
-            }
+            return Coord::parsePartial(p, e);
         };
 
     while (p < e) {
-        result.emplace_back(parseOne());
+        result.emplace_back(Coord::parsePartial(p, e));
         if (p < e) {
             if (*p != '.') {
                 throw HttpReturnException(400, "expected '.' between elements in Coords, got " + to_string((int)*p),
@@ -967,7 +997,9 @@ CoordsDescription::
 printJsonTyped(const Coords * val,
                JsonPrintingContext & context) const
 {
-    context.writeStringUtf8(val->toUtf8String());
+    vector<Coord> v(val->begin(), val->end());
+    context.writeJson(jsonEncode(v));
+    //    context.writeStringUtf8(val->toUtf8String());
 }
 
 bool
