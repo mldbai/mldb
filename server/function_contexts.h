@@ -18,57 +18,19 @@ namespace MLDB {
 
 
 /*****************************************************************************/
-/* EXTRACT CONTEXT                                                           */
-/*****************************************************************************/
-
-/** Used to extract named values from the output of a function. */
-
-struct ExtractContext: public SqlBindingScope {
-
-    struct RowContext: public SqlRowScope {
-        RowContext(const FunctionContext & input)
-            : input(input)
-        {
-        }
-
-        const FunctionContext & input;
-    };
-
-    ExtractContext(MldbServer * server,
-                   FunctionValues values);
-
-    MldbServer * server;
-    FunctionValues values;
-
-    /** Return an extractor function that will retrieve the given variable
-        from the function input or output.
-    */
-    ColumnGetter doGetColumn(const Utf8String & tableName,
-                             const ColumnName & columnName);
-
-    GetAllColumnsOutput
-    doGetAllColumns(const Utf8String & tableName,
-                    std::function<ColumnName (const ColumnName &)> keep);
-
-    RowContext getRowContext(const FunctionContext & input) const
-    {
-        return RowContext(input);
-    }
-
-    virtual MldbServer * getMldbServer() const;
-};
-
-/*****************************************************************************/
 /* FUNCTION EXPRESSION CONTEXT                                               */
 /*****************************************************************************/
 
 /** Used to run an expression in a purely function context. */
 /** Only input values and server functions will be available in this context */
 
+/** TODO: this should be basically the same as the ExtractContext.  Use that
+    instead.
+*/
 struct FunctionExpressionContext : public SqlBindingScope{
 
-    struct RowContext : public SqlRowScope{
-        RowContext(const FunctionContext & input)
+    struct RowScope : public SqlRowScope{
+        RowScope(const FunctionContext & input)
             : input(input)
         {
         }
@@ -99,9 +61,9 @@ struct FunctionExpressionContext : public SqlBindingScope{
     doGetAllColumns(const Utf8String & tableName,
                     std::function<ColumnName (const ColumnName &)> keep);
 
-    RowContext getRowContext(const FunctionContext & input) const
+    RowScope getRowScope(const FunctionContext & input) const
     {
-        return RowContext(input);
+        return RowScope(input);
     }
 
     virtual std::shared_ptr<Function>

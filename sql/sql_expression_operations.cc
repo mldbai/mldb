@@ -177,7 +177,7 @@ struct BinaryOpHelper {
 
     struct ScalarContext;
     struct EmbeddingContext;
-    struct RowContext;
+    struct RowScope;
     struct UnknownContext;
 
     static const ExpressionValue &
@@ -313,7 +313,7 @@ struct BinaryOpHelper {
         }
 
         std::shared_ptr<ExpressionValueInfo>
-        getInfoRow(const RowContext & lhsContext)
+        getInfoRow(const RowScope & lhsContext)
         {
             // Row * scalar
             auto cols = lhsContext.bound.info->getKnownColumns();
@@ -441,7 +441,7 @@ struct BinaryOpHelper {
         }
 
         std::shared_ptr<ExpressionValueInfo>
-        getInfoRow(const RowContext & lhsContext)
+        getInfoRow(const RowScope & lhsContext)
         {
             // Row * embedding
             std::shared_ptr<ExpressionValueInfo> info;
@@ -515,9 +515,9 @@ struct BinaryOpHelper {
     };
 
     // Context object for rows on the LHS or RHS
-    struct RowContext {
+    struct RowScope {
 
-        RowContext(BoundSqlExpression bound)
+        RowScope(BoundSqlExpression bound)
             : bound(std::move(bound))
         {
         }
@@ -568,7 +568,7 @@ struct BinaryOpHelper {
         }
 
         std::shared_ptr<ExpressionValueInfo>
-        getInfoRow(const RowContext & lhsContext)
+        getInfoRow(const RowScope & lhsContext)
         {
             return genericGetInfoRowRow(lhsContext, *this);
         }
@@ -679,7 +679,7 @@ struct BinaryOpHelper {
         }
 
         std::shared_ptr<ExpressionValueInfo>
-        getInfoRow(const RowContext & lhsContext)
+        getInfoRow(const RowScope & lhsContext)
         {
             // Row * unknown.  It must be a row
             auto cols = lhsContext.bound.info->getKnownColumns();
@@ -706,7 +706,7 @@ struct BinaryOpHelper {
                 return lhsContext.applyLhs(rhsContext, lhs, rhs, storage);
             }
             else if (lhs.isRow()) {
-                RowContext lhsContext(bound);
+                RowScope lhsContext(bound);
                 return lhsContext.applyLhs(rhsContext, lhs, rhs, storage);
             }
             else {
@@ -729,7 +729,7 @@ struct BinaryOpHelper {
                 return rhsContext.applyRhsScalar(lhs, rhs, storage);
             }
             else if (rhs.isRow()) {
-                RowContext rhsContext(bound);
+                RowScope rhsContext(bound);
                 return rhsContext.applyRhsScalar(lhs, rhs, storage);
             }
             else {
@@ -752,7 +752,7 @@ struct BinaryOpHelper {
                 return rhsContext.applyRhsEmbedding(lhs, rhs, storage);
             }
             else if (rhs.isRow()) {
-                RowContext rhsContext(bound);
+                RowScope rhsContext(bound);
                 return rhsContext.applyRhsEmbedding(lhs, rhs, storage);
             }
             else {
@@ -775,7 +775,7 @@ struct BinaryOpHelper {
                 return rhsContext.applyRhsRow(lhs, rhs, storage);
             }
             else if (rhs.isRow()) {
-                RowContext rhsContext(bound);
+                RowScope rhsContext(bound);
                 return rhsContext.applyRhsRow(lhs, rhs, storage);
             }
             else {
@@ -840,7 +840,7 @@ struct BinaryOpHelper {
             return bindAll(lhsContext, rhsContext, expr);
         }
         else if (row && !scalar) {
-            RowContext rhsContext(boundRhs);
+            RowScope rhsContext(boundRhs);
             return bindAll(lhsContext, rhsContext, expr);
         }
         else {
@@ -869,7 +869,7 @@ struct BinaryOpHelper {
             return bindRhs(lhsContext, expr, boundRhs);
         }
         else if (row && !scalar) {
-            RowContext lhsContext(boundLhs);
+            RowScope lhsContext(boundLhs);
             return bindRhs(lhsContext, expr, boundRhs);
         }
         else {
@@ -2172,9 +2172,8 @@ getChildren() const
 
 FunctionCallExpression::
 FunctionCallExpression(Utf8String function,
-                       std::vector<std::shared_ptr<SqlExpression> > args,
-                       std::shared_ptr<SqlExpression> extract)
-    : functionName(function), args(args), extract(extract)
+                       std::vector<std::shared_ptr<SqlExpression> > args)
+    : functionName(std::move(function)), args(std::move(args))
 {
 
 }
@@ -2182,7 +2181,6 @@ FunctionCallExpression(Utf8String function,
 FunctionCallExpression::
 ~FunctionCallExpression()
 {
-
 }
 
 BoundSqlExpression
@@ -2191,107 +2189,43 @@ bind(SqlBindingScope & context) const
 {
     //check whether it is a builtin or not
     if (context.functionStackDepth > 100)
-            throw HttpReturnException(400, "Reached a stack depth of over 100 functions while analysing query, possible infinite recursion");
-
+            throw HttpReturnException
+                (400, "Reached a stack depth of over 100 functions while "
+                 "analysing query, possible infinite recursion");
+    
     ++context.functionStackDepth;
     Scope_Exit(--context.functionStackDepth);
 
     std::vector<BoundSqlExpression> boundArgs;
-    for (auto& arg : args)
-    {
+    for (auto& arg : args) {
         boundArgs.emplace_back(std::move(arg->bind(context)));
     }
 
     BoundFunction fn = context.doGetFunction("" /* tableName */,
                                              functionName, boundArgs, context);
-    BoundSqlExpression boundOutput;
 
-    if (fn)
-    {
-        //context confirm it is builtin
-        boundOutput = bindBuiltinFunction(context, boundArgs, fn);
+    if (!fn) {
+        throw HttpReturnException(400, "Unable to find function " + functionName);
     }
-    else
-    {
-        //assume user
-        boundOutput = bindUserFunction(context);
-    }
-    return boundOutput;
-}
 
-BoundSqlExpression
-(*bindSelectApplyFunctionExpressionFn) (std::shared_ptr<Function> function,
-                                        const SelectExpression & with,
-                                           const SqlRowExpression * expr,
-                                        const SqlBindingScope & context);
-
-BoundSqlExpression
-(*bindApplyFunctionExpressionFn) (std::shared_ptr<Function> function,
-                                  const SelectExpression & with,
-                                  const SqlExpression & extract,
-                                  const SqlExpression * expr,
-                                  SqlBindingScope & context);
-
-BoundSqlExpression
-FunctionCallExpression::
-bindUserFunction(SqlBindingScope & context) const
-{
-    //first check that the function exist, else it really confounds people if we throw errors about arguments for a non-existing function...
-    std::shared_ptr<Function> function
-        = context.doGetFunctionEntity(functionName);
-
-    std::vector<std::shared_ptr<SqlRowExpression> > clauses;
-    if (args.size() > 0)
-    {
-         if (args.size() > 1)
-            throw HttpReturnException(400, "User function " + functionName + " expected a single row { } argument");
-
-         auto result = std::dynamic_pointer_cast<SelectWithinExpression>(args[0]);
-         if (result)
-         {
-            clauses.push_back(result->select);
-         }
-         else
-         {
-            auto functionresult = std::dynamic_pointer_cast<FunctionCallExpression>(args[0]);
-
-            if (functionresult)
-                clauses.push_back(functionresult);
-            else
-                throw HttpReturnException(400, "User function " + functionName
-                                       + " expect a row argument ({ }) or a user function, got " + args[0]->print() );
-         }
-    }    
-
-    SelectExpression with(clauses);
-
-    if (extract)
-    {
-        //extract, return the single value
-        return bindApplyFunctionExpressionFn(function, with, *extract, this, context);
-    }
-    else
-    {
-        //no extract, return the whole row
-       return bindSelectApplyFunctionExpressionFn(function, with, this, context);
-    }
+    return bindBuiltinFunction(context, boundArgs, fn);
 }
 
 BoundSqlExpression
 FunctionCallExpression::
-bindBuiltinFunction(SqlBindingScope & context, std::vector<BoundSqlExpression>& boundArgs, BoundFunction& fn) const
+bindBuiltinFunction(SqlBindingScope & context,
+                    std::vector<BoundSqlExpression>& boundArgs,
+                    BoundFunction& fn) const
 {
-    if (extract)
-        throw HttpReturnException(400, "Builtin function " + functionName
-                                  + " should not have an extract [] expression, got " + extract->print() );
-   
     bool isAggregate = tryLookupAggregator(functionName) != nullptr;	
+
     if (isAggregate) {
         return {[=] (const SqlRowScope & row,		
                      ExpressionValue & storage,
                      const VariableFilter & filter) -> const ExpressionValue &		
                 {		
                     std::vector<ExpressionValue> evaluatedArgs;		
+                    // ??? BAD SMELL
                     //Don't evaluate the args for aggregator		
                     evaluatedArgs.resize(boundArgs.size());		
                     return storage = std::move(fn(evaluatedArgs, row));		
@@ -2309,8 +2243,6 @@ bindBuiltinFunction(SqlBindingScope & context, std::vector<BoundSqlExpression>& 
                     for (auto & a: boundArgs)		
                         evaluatedArgs.emplace_back(std::move(a(row, fn.filter)));
                     
-                    // TODO: function call that allows function to own its args & have		
-                    // storage		
                     return storage = std::move(fn(evaluatedArgs, row));		
                 },		         
                 this,
@@ -2324,13 +2256,9 @@ print() const
 {
     Utf8String result = "function(\"" + functionName + "\"";
 
-    for (auto & a : args)
-    {
+    for (auto & a : args) {
         result += "," + a->print();
     }
-
-    if (extract)
-        result += "," + extract->print();
 
     result += ")";
 
@@ -2344,9 +2272,6 @@ transform(const TransformArgs & transformArgs) const
     auto newArgs = transformArgs(args);
     auto result = std::make_shared<FunctionCallExpression>(*this);
     result->args = newArgs;
-    if (extract)
-        result->extract = transformArgs({result->extract}).at(0);
-
     return result;
 }
 
@@ -2411,6 +2336,119 @@ functionNames() const
             result[a.first].merge(a.second);
         }
     }
+
+    return result;
+}
+/*****************************************************************************/
+/* FUNCTION CALL EXPRESSION                                                  */
+/*****************************************************************************/
+
+ExtractExpression::
+ExtractExpression(std::shared_ptr<SqlExpression> from,
+                  std::shared_ptr<SqlExpression> extract)
+    : from(std::move(from)), extract(std::move(extract))
+{
+    ExcAssert(this->from);
+    ExcAssert(this->extract);
+}
+
+ExtractExpression::
+~ExtractExpression()
+{
+}
+
+BoundSqlExpression
+ExtractExpression::
+bind(SqlBindingScope & outerScope) const
+{
+    BoundSqlExpression fromBound = from->bind(outerScope);
+    
+    SqlExpressionExtractScope extractScope(outerScope, fromBound.info);
+
+    BoundSqlExpression extractBound = extract->bind(extractScope);
+
+    return {[=] (const SqlRowScope & row,		
+                 ExpressionValue & storage,
+                 const VariableFilter & filter) -> const ExpressionValue &
+            {		
+                ExpressionValue storage2;
+                const ExpressionValue & fromOutput
+                    = fromBound(row, storage2, filter);
+
+                auto extractRowScope = extractScope.getRowScope(row, fromOutput);
+
+                return extractBound(extractRowScope, storage, filter);
+            },
+            this,		
+            extractBound.info};
+}
+
+Utf8String
+ExtractExpression::
+print() const
+{
+    return "extract(\"" + from->print() + "," + extract->print() + "\")";
+}
+
+std::shared_ptr<SqlExpression>
+ExtractExpression::
+transform(const TransformArgs & transformArgs) const
+{
+    auto newArgs = transformArgs({from, extract});
+    auto result = std::make_shared<ExtractExpression>(*this);
+    result->from = newArgs[0];
+    result->extract = newArgs[1];
+    return result;
+}
+
+std::string
+ExtractExpression::
+getType() const
+{
+    return "extract";
+}
+
+Utf8String
+ExtractExpression::
+getOperation() const
+{
+    return "";
+}
+
+std::vector<std::shared_ptr<SqlExpression> >
+ExtractExpression::
+getChildren() const
+{   
+    // We don't include extract here as the variables referred to
+    // must be satisfied internally, so it's really an internal
+    // part of the expression not a child expression.
+
+    return { from };
+}
+
+std::map<ScopedName, UnboundVariable>
+ExtractExpression::
+variableNames() const
+{
+    std::map<ScopedName, UnboundVariable> result;
+
+    // This is:
+    // - all variable names in the from
+    // - plus all variable names in the extract not satisfied by the from
+    // For the moment, assume that all in the extract are satisfied by
+    // the from
+
+    return from->variableNames();
+}
+
+std::map<ScopedName, UnboundFunction>
+ExtractExpression::
+functionNames() const
+{
+    std::map<ScopedName, UnboundFunction> result = from->functionNames();
+
+    for (auto & f: extract->functionNames())
+        result[f.first].merge(f.second);
 
     return result;
 }

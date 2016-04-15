@@ -391,6 +391,16 @@ isRow() const
     return false;
 }
 
+std::shared_ptr<RowValueInfo>
+ExpressionValueInfo::
+toRow(std::shared_ptr<ExpressionValueInfo> row)
+{
+    auto result = dynamic_pointer_cast<RowValueInfo>(row);
+    if (!result)
+        throw HttpReturnException(500, "Value is not a row");
+    return result;
+}
+
 bool
 ExpressionValueInfo::
 isEmbedding() const
@@ -431,43 +441,6 @@ getScalarDescription() const
     throw HttpReturnException(500, "Value description doesn't describe a scalar",
                               "type", ML::type_name(*this));
 }
-
-struct ExpressionValueInfoPtrDescription
-    : public ValueDescriptionT<std::shared_ptr<ExpressionValueInfo> > {
-
-    virtual void parseJsonTyped(std::shared_ptr<ExpressionValueInfo> * val,
-                                    JsonParsingContext & context) const
-    {
-        throw HttpReturnException(400, "ExpressionValueInfoPtrDescription::parseJsonTyped");
-    }
-
-    virtual void printJsonTyped(const std::shared_ptr<ExpressionValueInfo> * val,
-                                JsonPrintingContext & context) const
-    {
-        Json::Value out;
-        out["type"] = ML::type_name(**val);
-        if ((*val)->isScalar()) {
-            out["kind"] = "scalar";
-            out["scalar"] = (*val)->getScalarDescription();
-        }
-        else if ((*val)->isEmbedding()) {
-            out["kind"] = "embedding";
-            out["shape"] = jsonEncode((*val)->getEmbeddingShape());
-            out["type"] = jsonEncode((*val)->getEmbeddingType());
-        }
-        else if ((*val)->isRow()) {
-            out["kind"] = "row";
-            out["knownColumns"] = jsonEncode((*val)->getKnownColumns());
-            out["hasUnknownColumns"] = (*val)->getSchemaCompleteness() == SCHEMA_OPEN;
-        }
-        context.writeJson(out);
-    }
-
-    virtual bool isDefaultTyped(const std::shared_ptr<ExpressionValueInfo> * val) const
-    {
-        return !*val;
-    }
-};
 
 std::vector<ssize_t>
 ExpressionValueInfo::
@@ -558,8 +531,76 @@ getCompatibleDoubleEmbeddings(const ExpressionValueInfo & other) const
     return std::make_tuple(std::move(get), std::move(info), std::move(reconst));
 }
 
+struct ExpressionValueInfoPtrDescription
+    : public ValueDescriptionT<std::shared_ptr<ExpressionValueInfo> > {
+
+    virtual void parseJsonTyped(std::shared_ptr<ExpressionValueInfo> * val,
+                                    JsonParsingContext & context) const
+    {
+        throw HttpReturnException(400, "ExpressionValueInfoPtrDescription::parseJsonTyped");
+    }
+
+    virtual void printJsonTyped(const std::shared_ptr<ExpressionValueInfo> * val,
+                                JsonPrintingContext & context) const
+    {
+        Json::Value out;
+        out["type"] = ML::type_name(**val);
+        if ((*val)->isScalar()) {
+            out["kind"] = "scalar";
+            out["scalar"] = (*val)->getScalarDescription();
+        }
+        else if ((*val)->isEmbedding()) {
+            out["kind"] = "embedding";
+            out["shape"] = jsonEncode((*val)->getEmbeddingShape());
+            out["type"] = jsonEncode((*val)->getEmbeddingType());
+        }
+        else if ((*val)->isRow()) {
+            out["kind"] = "row";
+            out["knownColumns"] = jsonEncode((*val)->getKnownColumns());
+            out["hasUnknownColumns"] = (*val)->getSchemaCompleteness() == SCHEMA_OPEN;
+        }
+        context.writeJson(out);
+    }
+
+    virtual bool isDefaultTyped(const std::shared_ptr<ExpressionValueInfo> * val) const
+    {
+        return !*val;
+    }
+};
+
 DEFINE_VALUE_DESCRIPTION_NS(std::shared_ptr<ExpressionValueInfo>,
                             ExpressionValueInfoPtrDescription);
+
+// BAD SMELL: value description should be able to handle shared ptrs to derived
+// types...
+struct RowValueInfoPtrDescription
+    : public ValueDescriptionT<std::shared_ptr<RowValueInfo> > {
+
+    virtual void parseJsonTyped(std::shared_ptr<RowValueInfo> * val,
+                                JsonParsingContext & context) const
+    {
+        throw HttpReturnException(400, "RowValueInfoPtrDescription::parseJsonTyped");
+    }
+    
+    virtual void printJsonTyped(const std::shared_ptr<RowValueInfo> * val,
+                                JsonPrintingContext & context) const
+    {
+        Json::Value out;
+        out["type"] = ML::type_name(**val);
+        out["kind"] = "row";
+        out["knownColumns"] = jsonEncode((*val)->getKnownColumns());
+        out["hasUnknownColumns"] = (*val)->getSchemaCompleteness() == SCHEMA_OPEN;
+        context.writeJson(out);
+    }
+    
+    virtual bool isDefaultTyped(const std::shared_ptr<RowValueInfo> * val) const
+    {
+        return !*val;
+    }
+};
+
+DEFINE_VALUE_DESCRIPTION_NS(std::shared_ptr<RowValueInfo>,
+                            RowValueInfoPtrDescription);
 
 
 /*****************************************************************************/

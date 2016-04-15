@@ -997,9 +997,9 @@ CoordsDescription::
 printJsonTyped(const Coords * val,
                JsonPrintingContext & context) const
 {
-    vector<Coord> v(val->begin(), val->end());
-    context.writeJson(jsonEncode(v));
-    //    context.writeStringUtf8(val->toUtf8String());
+    //vector<Coord> v(val->begin(), val->end());
+    //context.writeJson(jsonEncode(v));
+    context.writeStringUtf8(val->toUtf8String());
 }
 
 bool

@@ -744,7 +744,7 @@ std::tuple<std::vector<float>, std::shared_ptr<ML::Mutable_Feature_Set>, Date>
 ClassifyFunction::
 getFeatureSet(const FunctionContext & context, bool attemptDense) const
 {
-    auto row = context.get<RowValue>("features");
+    auto row = context.getColumn(Coord("features"));
 
     Date ts = Date::negativeInfinity();
 
@@ -752,26 +752,34 @@ getFeatureSet(const FunctionContext & context, bool attemptDense) const
     if (attemptDense) {
         std::vector<float> denseFeatures(itl->featureSpace->columnInfo.size(),
                                          std::numeric_limits<float>::quiet_NaN());
-        for (auto & r: row) {
-            ColumnName columnName(std::get<0>(r));
-            ColumnHash columnHash(columnName);
 
-            auto it = itl->featureSpace->columnInfo.find(columnHash);
-            if (it == itl->featureSpace->columnInfo.end())
-                continue;
+        auto onAtom = [&] (const Coords & suffix,
+                           const Coords & prefix,
+                           const CellValue & value,
+                           Date tsIn)
+            {
+                ColumnName columnName(prefix + suffix);
+                ColumnHash columnHash(columnName);
+                
+                auto it = itl->featureSpace->columnInfo.find(columnHash);
+                if (it == itl->featureSpace->columnInfo.end())
+                    return true;
 
-            CellValue value = std::get<1>(r);
-            ts.setMax(std::get<2>(r));
+                ts.setMax(tsIn);
 
-            // TODO: if more than one value, we need to fall back
-            if (!isnanf(denseFeatures[it->second.index])) {
-                multiValue = true;
-                break;
-            }
+                if (!isnanf(denseFeatures[it->second.index])) {
+                    multiValue = true;
+                    return false;
+                }
+                
+                denseFeatures[it->second.index]
+                    = itl->featureSpace->encodeFeatureValue(columnHash, value);
 
-            denseFeatures[it->second.index]
-                = itl->featureSpace->encodeFeatureValue(columnHash, value);
-        }
+                return true;
+            };
+
+        row.forEachAtom(onAtom);
+
         if (!multiValue)
             return std::make_tuple( std::move(denseFeatures), nullptr, ts );
     }
@@ -779,25 +787,33 @@ getFeatureSet(const FunctionContext & context, bool attemptDense) const
 
     std::vector<std::pair<ML::Feature, float> > features;
 
-    for (auto & r: row) {
-        ColumnName columnName(std::get<0>(r));
-        ColumnHash columnHash(columnName);
+    auto onAtom = [&] (const Coords & suffix,
+                       const Coords & prefix,
+                       const CellValue & value,
+                       Date tsIn)
+        {
+            ColumnName columnName(prefix + suffix);
+            ColumnHash columnHash(columnName);
 
-        auto it = itl->featureSpace->columnInfo.find(columnHash);
-        if (it == itl->featureSpace->columnInfo.end())
-            continue;
+            auto it = itl->featureSpace->columnInfo.find(columnHash);
+            if (it == itl->featureSpace->columnInfo.end())
+                return true;
 
-        CellValue value = std::get<1>(r);
-        ts.setMax(std::get<2>(r));
+            ts.setMax(tsIn);
 
-        itl->featureSpace->encodeFeature(columnHash, value, features);
-    }
+            itl->featureSpace->encodeFeature(columnHash, value, features);
+
+            return true;
+        };
+
+    row.forEachAtom(onAtom);
 
     std::sort(features.begin(), features.end());
 
-    auto fset = std::make_shared<ML::Mutable_Feature_Set>(features.begin(), features.end());
+    auto fset = std::make_shared<ML::Mutable_Feature_Set>
+        (features.begin(), features.end());
     fset->locked = true;
-
+    
     return std::make_tuple( vector<float>(), std::move(fset), ts );
 }
 
@@ -836,8 +852,6 @@ apply(const FunctionApplier & applier_,
 {
     auto & applier = (ClassifyFunctionApplier &)applier_;
 
-    FunctionOutput result;
-
     int labelCount = itl->classifier.label_count();
 
     std::vector<float> dense;
@@ -845,6 +859,9 @@ apply(const FunctionApplier & applier_,
     Date ts;
 
     std::tie(dense, fset, ts) = getFeatureSet(context, true /* try to optimize */);
+
+    StructValue result;
+    result.reserve(1);
 
     auto cat = itl->labelInfo.categorical();
     if (!dense.empty()) {
@@ -858,25 +875,25 @@ apply(const FunctionApplier & applier_,
                                  ExpressionValue(scores[i], ts));
             }
 
-            result.set("scores", row);
+            result.emplace_back("scores", std::move(row));
         }
         else if (itl->labelInfo.type() == ML::REAL) {
             ExcAssertEqual(labelCount, 1);
             float score = itl->classifier.impl->predict(0, dense, applier.optInfo);
-            result.set("score", ExpressionValue(score, ts));
+            result.emplace_back("score", ExpressionValue(score, ts));
         }
         else {
             ExcAssertEqual(labelCount, 2);
             float score = itl->classifier.impl->predict(1, dense, applier.optInfo);
-            result.set("score", ExpressionValue(score, ts));
+            result.emplace_back("score", ExpressionValue(score, ts));
         }
     }
     else {
         if(!fset) {
-            throw ML::Exception("Feature_Set is null! Are you giving only null features to "
-                "the classifier function?");
+            throw ML::Exception("Feature_Set is null! Are you giving "
+                                "only null features to the classifier function?");
         }
-
+        
         if (cat) {
             auto scores = itl->classifier.predict(*fset);
             ExcAssertEqual(scores.size(), labelCount);
@@ -887,22 +904,21 @@ apply(const FunctionApplier & applier_,
                 row.emplace_back(Coord(cat->print(i)),
                                  ExpressionValue(scores[i], ts));
             }
-
-            result.set("scores", row);
+            result.emplace_back("scores", std::move(row));
         }
         else if (itl->labelInfo.type() == ML::REAL) {
             ExcAssertEqual(labelCount, 1);
             float score = itl->classifier.predict(0, *fset);
-            result.set("score", ExpressionValue(score, ts));
+            result.emplace_back("score", ExpressionValue(score, ts));
         }
         else {
             ExcAssertEqual(labelCount, 2);
             float score = itl->classifier.predict(1, *fset);
-            result.set("score", ExpressionValue(score, ts));
+            result.emplace_back("score", ExpressionValue(score, ts));
         }
     }
 
-    return result;
+    return std::move(result);
 }
 
 FunctionInfo
@@ -911,7 +927,7 @@ getFunctionInfo() const
 {
     FunctionInfo result;
 
-    std::vector<KnownColumn> inputColumns;
+    std::vector<KnownColumn> featureColumns;
 
     // Input is cell values
     for (auto & col: itl->featureSpace->columnInfo) {
@@ -925,20 +941,20 @@ getFunctionInfo() const
         // us to be more leniant when encoding for input.
         switch (col.second.info.type()) {
         case ML::BOOLEAN:
-            inputColumns.emplace_back(col.second.columnName,
+            featureColumns.emplace_back(col.second.columnName,
                                       std::make_shared<BooleanValueInfo>(),
                                       sparsity);
             break;
 
         case ML::REAL:
-            inputColumns.emplace_back(col.second.columnName,
+            featureColumns.emplace_back(col.second.columnName,
                                       std::make_shared<Float32ValueInfo>(),
                                       sparsity);
             break;
 
         case ML::CATEGORICAL:
         case ML::STRING:
-            inputColumns.emplace_back(col.second.columnName,
+            featureColumns.emplace_back(col.second.columnName,
                                       std::make_shared<StringValueInfo>(),
                                       sparsity);
             break;
@@ -948,13 +964,22 @@ getFunctionInfo() const
         }
     }
 
-    std::sort(inputColumns.begin(), inputColumns.end(),
+    std::sort(featureColumns.begin(), featureColumns.end(),
               [] (const KnownColumn & c1, const KnownColumn & c2)
               {
                   return c1.columnName < c2.columnName;
               });
 
-    result.input.addRowValue("features", inputColumns, SCHEMA_CLOSED);
+
+    std::vector<KnownColumn> inputColumns;
+    inputColumns.emplace_back(Coord("features"),
+                              std::make_shared<RowValueInfo>(featureColumns,
+                                                             SCHEMA_CLOSED),
+                              COLUMN_IS_DENSE);
+    result.input = std::make_shared<RowValueInfo>(std::move(inputColumns),
+                                                  SCHEMA_CLOSED);
+    
+    std::vector<KnownColumn> outputColumns;
 
     auto cat = itl->labelInfo.categorical();
 
@@ -966,7 +991,7 @@ getFunctionInfo() const
         for (unsigned i = 0;  i < labelCount;  ++i) {
             scoreColumns.emplace_back(ColumnName(cat->print(i)),
                                       std::make_shared<Float32ValueInfo>(),
-                                      COLUMN_IS_DENSE);
+                                      COLUMN_IS_DENSE, i);
         }
 
 #if 0 // disabled because we want them in the same order produced by the output
@@ -977,23 +1002,32 @@ getFunctionInfo() const
               });
 #endif
 
-        result.output.addRowValue("scores", scoreColumns, SCHEMA_CLOSED);
+        outputColumns.emplace_back(Coord("scores"),
+                                   std::make_shared<RowValueInfo>(scoreColumns,
+                                                                  SCHEMA_CLOSED),
+                                   COLUMN_IS_DENSE, 0);
     }
     else {
-        result.output.addNumericValue("score");
+        outputColumns.emplace_back(Coord("score"),
+                                   std::make_shared<NumericValueInfo>(),
+                                   COLUMN_IS_DENSE, 0);
     }
+
+    result.output = std::make_shared<RowValueInfo>(std::move(outputColumns),
+                                                   SCHEMA_CLOSED);
+
     return result;
 }
 
 
 /*****************************************************************************/
-/* EXPLAIN FUNCTION                                                             */
+/* EXPLAIN FUNCTION                                                          */
 /*****************************************************************************/
 
 ExplainFunction::
 ExplainFunction(MldbServer * owner,
-             PolyConfig config,
-             const std::function<bool (const Json::Value &)> & onProgress)
+                PolyConfig config,
+                const std::function<bool (const Json::Value &)> & onProgress)
     : ClassifyFunction(owner, config, onProgress)
 {
 }
@@ -1016,24 +1050,27 @@ apply(const FunctionApplier & applier,
 
     std::tie(dense, fset, ts) = getFeatureSet(context, false /* attempt to optimize */);
 
+    CellValue label = context.getColumn("label").getAtom();
+
     ML::Explanation expl
         = itl->classifier.impl
-        ->explain(*fset, itl->featureSpace->encodeLabel(context.get<CellValue>("label"),
-                                                        isRegression));
+        ->explain(*fset, itl->featureSpace->encodeLabel(label, isRegression));
 
-    result.set("bias", ExpressionValue(expl.bias, ts));
-
-    RowValue output;
+    StructValue output;
+    output.reserve(2);
+    output.emplace_back("bias", ExpressionValue(expl.bias, ts));
+    
+    RowValue features;
 
     Date effectiveDate = ts;
 
     for(auto iter=expl.feature_weights.begin(); iter!=expl.feature_weights.end(); iter++) {
-        output.emplace_back(ColumnName(itl->featureSpace->print(iter->first)),
-                            iter->second,
-                            effectiveDate);
+        features.emplace_back(ColumnName(itl->featureSpace->print(iter->first)),
+                              iter->second,
+                              effectiveDate);
     }
 
-    result.set("explanation", output);
+    output.emplace_back("explanation", std::move(features));
 
     return result;
 }
@@ -1044,11 +1081,23 @@ getFunctionInfo() const
 {
     FunctionInfo result;
 
-    result.input.addAtomValue("label");
-    result.input.addRowValue("features");
-    result.output.addRowValue("explanation");
-    result.output.addNumericValue("bias");
+    std::vector<KnownColumn> inputCols, outputCols;
 
+    inputCols.emplace_back(Coord("label"), std::make_shared<AtomValueInfo>(),
+                           COLUMN_IS_DENSE, 0);
+    inputCols.emplace_back(Coord("features"), std::make_shared<UnknownRowValueInfo>(),
+                           COLUMN_IS_DENSE, 1);
+
+    outputCols.emplace_back(Coord("explanation"), std::make_shared<UnknownRowValueInfo>(),
+                            COLUMN_IS_DENSE, 0);
+    outputCols.emplace_back(Coord("bias"), std::make_shared<NumericValueInfo>(),
+                            COLUMN_IS_DENSE, 1);
+
+    result.input = std::make_shared<RowValueInfo>(std::move(inputCols),
+                                                  SCHEMA_CLOSED);
+    result.output = std::make_shared<RowValueInfo>(std::move(outputCols),
+                                                   SCHEMA_CLOSED);
+    
     return result;
 }
 

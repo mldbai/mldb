@@ -20,157 +20,6 @@ namespace MLDB {
 
 
 /*****************************************************************************/
-/* EXTRACT CONTEXT                                                           */
-/*****************************************************************************/
-
-ExtractContext::
-ExtractContext(MldbServer * server,
-               FunctionValues values)
-    : server(server), values(std::move(values))
-{
-}
-
-ColumnGetter
-ExtractContext::
-doGetColumn(const Utf8String & tableName,
-            const ColumnName & columnName)
-{
-    std::shared_ptr<ExpressionValueInfo> valueInfo;
-    
-    ExcAssert(!columnName.empty());
-
-    // Ask our function info for how to convert the value to an
-    // ExpressionValue
-    auto it = values.values.find(columnName[0]);
-    if (it == values.values.end()) {
-        throw HttpReturnException(400, "unknown column "
-                                  + columnName[0].toUtf8String() + " looking for "
-                                  + columnName.toUtf8String());
-    }
-
-    // If we're asking for a one-element path, return it directly
-    if (columnName.size() == 1) {
-        valueInfo = it->second.valueInfo;
-
-        return {[=] (const SqlRowScope & context,
-                     ExpressionValue & storage,
-                     const VariableFilter & filter)
-                -> const ExpressionValue &
-                {
-                    ExcAssert(canIgnoreIfExactlyOneValue(filter));
-
-                    auto & row = context.as<RowContext>();
-                    return storage = std::move(row.input.get(columnName.toSimpleName()));
-                },
-                valueInfo};
-    }
-    
-    // Recursively get the info and the value
-    ColumnName suffix = columnName.removePrefix();
-    valueInfo = it->second.valueInfo->findNestedColumn(suffix);
-
-    return {[=] (const SqlRowScope & context,
-                 ExpressionValue & storage,
-                 const VariableFilter & filter)
-            -> const ExpressionValue &
-            {
-                ExcAssert(canIgnoreIfExactlyOneValue(filter));
-
-                auto & row = context.as<RowContext>();
-                storage = std::move(row.input.get(columnName[0]));
-                return storage = storage.getNestedColumn(suffix);
-            },
-            valueInfo
-           };
-}
-
-GetAllColumnsOutput
-getAllColumnsFromFunctionImpl(const Utf8String & tableName,
-                              std::function<ColumnName (const ColumnName &)> keep,
-                              const FunctionValues & input,
-                              const std::function<ExpressionValue (const SqlRowScope &,
-                                                                   const ColumnName &)> &
-                              getValue)
-{
-    vector<KnownColumn> knownColumns;
-
-    // List of input name -> outputName for those to keep
-    std::vector<std::pair<ColumnName, ColumnName> > toKeep;
-
-    for (auto & p: input.values) {
-        ColumnName outputColumnName = keep(p.first.toCoord());
-        if (outputColumnName.empty())
-            continue;
-
-        ColumnName inputColumnName(p.first.toCoord());
-        toKeep.emplace_back(inputColumnName, outputColumnName);
-
-        const FunctionValueInfo & functionValueInfo = p.second;
-        const std::shared_ptr<ExpressionValueInfo> & valueInfo
-            = functionValueInfo.valueInfo;
-
-
-        KnownColumn column(outputColumnName, valueInfo, COLUMN_IS_DENSE);
-        knownColumns.emplace_back(std::move(column));
-    }
-
-    GetAllColumnsOutput result;
-
-    result.exec = [=] (const SqlRowScope & scope) -> ExpressionValue
-        {
-            StructValue output;
-
-            for (auto & k: toKeep) {
-                const ColumnName & inputColumnName = k.first;
-                const ColumnName & outputColumnName = k.second;
-                ExpressionValue val = getValue(scope, inputColumnName);
-                // toSimpleName() is OK here since we know that functions
-                // have only a single nesting level.
-                output.emplace_back(outputColumnName.toSimpleName(),
-                                    std::move(val));
-            };
-            
-            return std::move(output);
-        };
-
-    result.info = std::make_shared<RowValueInfo>(knownColumns, SCHEMA_CLOSED);
-
-    return result;
-}
-
-GetAllColumnsOutput
-ExtractContext::
-doGetAllColumns(const Utf8String & tableName,
-                std::function<ColumnName (const ColumnName &)> keep)
-{
-    auto getValue = [&] (const SqlRowScope & context,
-                         const ColumnName & col)
-
-        {
-            ExcAssert(!col.empty());
-            auto & row = context.as<RowContext>();
-            if (col.size() == 1) {
-                return row.input.getValueOrNull(col[0]);
-            }
-            else {
-                // Look recursively
-                return row.input.getValueOrNull(col.head())
-                    .getNestedColumn(col.tail());
-            }
-        };
-
-    return getAllColumnsFromFunctionImpl(tableName, keep, values, getValue);
-}
-
-MldbServer *
-ExtractContext::
-getMldbServer() const
-{
-    return server;
-}
-
-
-/*****************************************************************************/
 /* FUNCTION EXPRESSION CONTEXT                                               */
 /*****************************************************************************/
 
@@ -195,6 +44,8 @@ doGetColumn(const Utf8String & tableName,
             const ColumnName & columnName)
 {
     std::shared_ptr<ExpressionValueInfo> valueInfo;
+
+    std::unordered_map<Utf8String, std::shared_ptr<ExpressionValueInfo> > inputInfo;
 
     //check if the variable could be in a row with unknown columns
     SchemaCompleteness schemaCompleteness(SCHEMA_CLOSED);
@@ -224,7 +75,7 @@ doGetColumn(const Utf8String & tableName,
             {
                 ExcAssert(canIgnoreIfExactlyOneValue(filter));
 
-                auto & row = context.as<RowContext>();
+                auto & row = context.as<RowScope>();
 
                 return row.input.mustGet(columnName, storage);
             },
@@ -292,7 +143,7 @@ doGetAllColumns(const Utf8String & tableName,
                          const ColumnName & col)
 
         {
-            auto & row = context.as<RowContext>();
+            auto & row = context.as<RowScope>();
             // TO RESOLVE BEFORE MERGE: toSimpleName();
             return std::move(row.input.getValueOrNull(col.toSimpleName()));
 };

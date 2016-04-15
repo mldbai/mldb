@@ -95,8 +95,7 @@ run(const ProcedureRunConfig & run,
     for (auto & c: runProcConf.inputData.stm->orderBy.clauses) {
         auto whenClause = std::make_shared<FunctionCallExpression>
             ("latest_timestamp",
-             vector<shared_ptr<SqlExpression> >(1, c.first),
-             nullptr /* extract */);
+             vector<shared_ptr<SqlExpression> >(1, c.first));
         calc.emplace_back(whenClause);
     }
 

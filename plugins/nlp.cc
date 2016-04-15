@@ -21,6 +21,23 @@ namespace Datacratic {
 namespace MLDB {
 
 
+DEFINE_STRUCTURE_DESCRIPTION(Words);
+
+WordsDescription::WordsDescription()
+{
+    addField("words", &Words::words,
+             "Row-valued bag of words where keys are words and values are "
+             "counts or weights");
+}
+
+DEFINE_STRUCTURE_DESCRIPTION(Document);
+
+DocumentDescription::DocumentDescription()
+{
+    addField("document", &Document::document,
+             "String-valued value containing the text of the document");
+}
+
 
 /*****************************************************************************/
 /* APPLY STOP WORDS FUNCTION CONFIG                                          */
@@ -39,9 +56,9 @@ ApplyStopWordsFunctionConfigDescription()
                       
 ApplyStopWordsFunction::
 ApplyStopWordsFunction(MldbServer * owner,
-               PolyConfig config,
-               const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner)
+                       PolyConfig config,
+                       const std::function<bool (const Json::Value &)> & onProgress)
+    : BaseT(owner)
 {
     //functionConfig = config.params.convert<ApplyStopWordsFunctionConfig>();
 
@@ -54,18 +71,9 @@ ApplyStopWordsFunction(MldbServer * owner,
     selected_stopwords = &(it->second);
 }
 
-Any
+Words
 ApplyStopWordsFunction::
-getStatus() const
-{
-    return Any();
-}
-
-
-FunctionOutput
-ApplyStopWordsFunction::
-apply(const FunctionApplier & applier,
-      const FunctionContext & context) const
+call(const Words & input) const
 {
     RowValue rtnRow;
     auto onAtom = [&] (const Coords & columnName,
@@ -81,24 +89,10 @@ apply(const FunctionApplier & applier,
             return true;
         };
 
-    ExpressionValue args = context.get<ExpressionValue>("words");
-    args.forEachAtom(onAtom);
-
-
-    FunctionOutput foResult;
-    foResult.set("words", rtnRow);
-    return foResult;
-}
-
-FunctionInfo
-ApplyStopWordsFunction::
-getFunctionInfo() const
-{
-
-    FunctionInfo result;
-    result.input.addRowValue("words");
-    result.output.addRowValue("words");
-
+    input.words.forEachAtom(onAtom);
+    
+    Words result;
+    result.words = std::move(rtnRow);
     return result;
 }
 
@@ -122,7 +116,7 @@ StemmerFunctionConfigDescription::
 StemmerFunctionConfigDescription()
 {
     addField("language", &StemmerFunctionConfig::language,
-            "Stemming algorithm to use", string("english"));
+             "Stemming algorithm to use", string("english"));
 }
 
 /*****************************************************************************/
@@ -131,9 +125,9 @@ StemmerFunctionConfigDescription()
 
 StemmerFunction::
 StemmerFunction(MldbServer * owner,
-               PolyConfig config,
-               const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner)
+                PolyConfig config,
+                const std::function<bool (const Json::Value &)> & onProgress)
+    : BaseT(owner)
 {
     functionConfig = config.params.convert<StemmerFunctionConfig>();
 
@@ -146,25 +140,16 @@ StemmerFunction(MldbServer * owner,
     }
 }
 
-Any
+Words
 StemmerFunction::
-getStatus() const
-{
-    return Any();
-}
-
-
-FunctionOutput
-StemmerFunction::
-apply(const FunctionApplier & applier,
-      const FunctionContext & context) const
+call(const Words & input) const
 {
     // the sb_stemmer object is not thread safe
     // but this allocation is not very expensive as profiled
     // compared to actually doing the stemming
     std::unique_ptr<sb_stemmer> stemmer(sb_stemmer_new(functionConfig.language.c_str(), "UTF_8"));
 
-    map<Coord, pair<double, Date>> accum;
+    map<Coord, pair<double, Date> > accum;
 
     auto onAtom = [&] (const Coords & columnName,
                        const Coords & prefix,
@@ -202,30 +187,17 @@ apply(const FunctionApplier & applier,
             return true;
         };
 
-    ExpressionValue storage;
-    const ExpressionValue & arg
-        = context.mustGet("words", storage);
-
-    arg.forEachAtom(onAtom);
+    input.words.forEachAtom(onAtom);
 
     RowValue rtnRow;
-    for(auto it=accum.begin(); it != accum.end(); it++) {
-        rtnRow.push_back(make_tuple(it->first, it->second.first, it->second.second));
+    rtnRow.reserve(accum.size());
+    for(auto & r: accum) {
+        rtnRow.emplace_back(r.first, std::move(r.second.first),
+                            r.second.second);
     }
-
-    FunctionOutput foResult;
-    foResult.set("words", rtnRow);
-    return foResult;
-}
-
-FunctionInfo
-StemmerFunction::
-getFunctionInfo() const
-{
-    FunctionInfo result;
-    result.input.addRowValue("words");
-    result.output.addRowValue("words");
-
+    
+    Words result;
+    result.words = std::move(rtnRow);
     return result;
 }
 
@@ -242,9 +214,9 @@ regStemmerFunction(builtinPackage(),
 
 StemmerOnDocumentFunction::
 StemmerOnDocumentFunction(MldbServer * owner,
-               PolyConfig config,
-               const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner)
+                          PolyConfig config,
+                          const std::function<bool (const Json::Value &)> & onProgress)
+    : BaseT(owner)
 {
     functionConfig = config.params.convert<StemmerFunctionConfig>();
 
@@ -257,18 +229,9 @@ StemmerOnDocumentFunction(MldbServer * owner,
     }
 }
 
-Any
+Document
 StemmerOnDocumentFunction::
-getStatus() const
-{
-    return Any();
-}
-
-
-FunctionOutput
-StemmerOnDocumentFunction::
-apply(const FunctionApplier & applier,
-      const FunctionContext & context) const
+call(const Document & doc) const
 {
     // the sb_stemmer object is not thread safe
     // but this allocation is not very expensive as profiled
@@ -298,25 +261,14 @@ apply(const FunctionApplier & applier,
         return true;
     };
 
-    ExpressionValue args = context.get<ExpressionValue>("document");
-    Utf8String text = args.toUtf8String();
+    Utf8String text = doc.document.toUtf8String();
     ML::Parse_Context pcontext(text.rawData(), text.rawData(), text.rawLength());
 
     tokenize_exec(onGram, pcontext, " ", "", 0);
 
-    FunctionOutput foResult;
-    foResult.set("document", ExpressionValue(accum, args.getEffectiveTimestamp()));
-    return foResult;
-}
-
-FunctionInfo
-StemmerOnDocumentFunction::
-getFunctionInfo() const
-{
-    FunctionInfo result;
-    result.input.addAtomValue("document");
-    result.output.addAtomValue("document");
-
+    Document result;
+    result.document = ExpressionValue(std::move(accum),
+                                      doc.document.getEffectiveTimestamp());
     return result;
 }
 

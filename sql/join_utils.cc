@@ -143,8 +143,7 @@ removeTableName(const SqlExpression & expr,
                             newArgs.emplace_back(std::move(doArg(a)));
                         }
                         return std::make_shared<FunctionCallExpression>
-                            (newName, std::move(newArgs),
-                             func->extract);
+                            (newName, std::move(newArgs));
                     }
                 }
             }

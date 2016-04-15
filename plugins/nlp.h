@@ -1,14 +1,13 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** nlp.h                                               -*- C++ -*-
     Francois Maillet, 20 octobre 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
 
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #pragma once
 
-#include "mldb/core/function.h"
+#include "mldb/core/value_function.h"
 #include "mldb/ext/libstemmer/libstemmer.h"
 #include <mutex>
 
@@ -30,24 +29,31 @@ struct ApplyStopWordsFunctionConfig {
 
 DECLARE_STRUCTURE_DESCRIPTION(ApplyStopWordsFunctionConfig);
 
+struct Words {
+    ExpressionValue words;  // row 
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(Words);
+
+struct Document {
+    ExpressionValue document; // string
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(Document);
+
 
 /*****************************************************************************/
 /* APPLY STOP WORDS FUNCTION                                                 */
 /*****************************************************************************/
 
-struct ApplyStopWordsFunction: public Function {
+struct ApplyStopWordsFunction: public ValueFunctionT<Words, Words> {
     ApplyStopWordsFunction(MldbServer * owner,
-                   PolyConfig config,
-                   const std::function<bool (const Json::Value &)> & onProgress);
+                           PolyConfig config,
+                           const std::function<bool (const Json::Value &)> & onProgress);
     
-    virtual Any getStatus() const;
+    virtual Words call(const Words & input) const override;
 
-    virtual FunctionOutput apply(const FunctionApplier & applier,
-                              const FunctionContext & context) const;
-
-    virtual FunctionInfo getFunctionInfo() const;
-
-    std::map<std::string, std::set<std::string>> stopwords;
+    std::map<std::string, std::set<std::string> > stopwords;
     std::set<std::string> * selected_stopwords;
 
     ApplyStopWordsFunctionConfig functionConfig;
@@ -70,36 +76,26 @@ DECLARE_STRUCTURE_DESCRIPTION(StemmerFunctionConfig);
 
 
 /*****************************************************************************/
-/* APPLY STOP WORDS FUNCTION                                                 */
+/* STEMMER FUNCTION                                                          */
 /*****************************************************************************/
 
-struct StemmerFunction: public Function {
+struct StemmerFunction: public ValueFunctionT<Words, Words> {
     StemmerFunction(MldbServer * owner,
-                   PolyConfig config,
-                   const std::function<bool (const Json::Value &)> & onProgress);
+                    PolyConfig config,
+                    const std::function<bool (const Json::Value &)> & onProgress);
    
-    virtual Any getStatus() const;
-
-    virtual FunctionOutput apply(const FunctionApplier & applier,
-                              const FunctionContext & context) const;
-
-    virtual FunctionInfo getFunctionInfo() const;
+    virtual Words call(const Words & input) const override;
 
     StemmerFunctionConfig functionConfig;
 };
 
-struct StemmerOnDocumentFunction: public Function {
+struct StemmerOnDocumentFunction: public ValueFunctionT<Document, Document> {
     StemmerOnDocumentFunction(MldbServer * owner,
-                   PolyConfig config,
-                   const std::function<bool (const Json::Value &)> & onProgress);
-   
-    virtual Any getStatus() const;
-
-    virtual FunctionOutput apply(const FunctionApplier & applier,
-                              const FunctionContext & context) const;
-
-    virtual FunctionInfo getFunctionInfo() const;
-
+                              PolyConfig config,
+                              const std::function<bool (const Json::Value &)> & onProgress);
+    
+    virtual Document call(const Document & input) const override;
+    
     StemmerFunctionConfig functionConfig;
 };
 

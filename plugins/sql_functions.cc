@@ -116,14 +116,13 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
                             const SqlQueryFunctionConfig & config)
         : FunctionApplier(function), function(function)
     {
+        std::set<Utf8String> inputParams;
+
         // Called when we bind a parameter, to get its information
         auto getParamInfo = [&] (const Utf8String & paramName)
             {
-                auto info = std::make_shared<AnyValueInfo>();
-
-                // Record that we need it into our input info
-                this->info.input.addValue(paramName, info);
-                return info;
+                inputParams.insert(paramName);
+                return std::make_shared<AnyValueInfo>();
             };
 
         bool hasGroupBy = !config.query.stm->groupBy.empty();
@@ -166,16 +165,33 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
                 ->select(config.query.stm->select);
         }
 
+        std::vector<KnownColumn> inputColumns;
+        inputColumns.reserve(inputParams.size());
+        for (auto & p: inputParams) {
+            inputColumns.emplace_back(Coord(p), std::make_shared<AnyValueInfo>(),
+                                      COLUMN_IS_SPARSE);
+        }
+        
+        this->info.input = std::make_shared<RowValueInfo>(std::move(inputColumns),
+                                                          SCHEMA_CLOSED);
+        
         // Bind the pipeline
         boundPipeline = pipeline->bind();
 
         switch (function->functionConfig.output) {
         case FIRST_ROW:
             // What type does the pipeline return?
-            this->info.output = *boundPipeline->outputScope()->outputInfo().back();
+            this->info.output = ExpressionValueInfo::toRow
+                (boundPipeline->outputScope()->outputInfo().back());
             break;
         case NAMED_COLUMNS:
-            this->info.output.addRowValue("output");
+            std::vector<KnownColumn> outputColumns;
+            outputColumns.emplace_back(Coord("output"),
+                                       std::make_shared<UnknownRowValueInfo>(),
+                                       COLUMN_IS_DENSE,
+                                       0);
+            this->info.output.reset(new RowValueInfo(std::move(outputColumns),
+                                                     SCHEMA_CLOSED));
             break;
         }
     }
@@ -190,7 +206,7 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
         BoundParameters params
             = [&] (const Utf8String & name) -> ExpressionValue
             {
-                return context.get(name);
+                return context.getColumn(name);
             };
 
         auto executor = boundPipeline->start(params);
@@ -281,12 +297,10 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
                 row.emplace_back(std::move(foundCol), std::move(foundVal));
             }
 
-            FunctionOutput result;
+            StructValue result;
+            result.emplace_back("output", std::move(row));
 
-            ExpressionValue val(std::move(row));
-            result.set("output", std::move(val));
-
-            return result;
+            return std::move(result);
         }
 
         ExcAssert(false);
@@ -307,7 +321,8 @@ bind(SqlBindingScope & outerContext,
         (new SqlQueryFunctionApplier(this, functionConfig));
 
     // Check that these input values can provide everything needed for the result
-    input.checkCompatibleAsInputTo(result->info.input);
+    // TO RESOLVE BEFORE MERGE
+    //input.checkCompatibleAsInputTo(result->info.input);
 
     return std::move(result);
 }
@@ -378,8 +393,8 @@ SqlExpressionFunction(MldbServer * owner,
         this->bound = functionConfig.expression.bind(innerScope);
 
         // 2.  Our output is known by the bound expression
-        this->info.output = *this->bound.info;
-
+        this->info.output = ExpressionValueInfo::toRow(this->bound.info);
+    
         // 3.  Our required input is known by the binding context, as it records
         //     what was read.
         info.input = innerScope.input;
@@ -409,7 +424,7 @@ struct SqlExpressionFunctionApplier: public FunctionApplier {
             // Specialize to this input
             this->bound = function->functionConfig.expression.bind(innerScope);
             // That leads to a specialized output
-            this->info.output = *bound.info;
+            this->info.output = ExpressionValueInfo::toRow(bound.info);
         }
         else {
             this->info = function->info;
@@ -423,12 +438,12 @@ struct SqlExpressionFunctionApplier: public FunctionApplier {
     FunctionOutput apply(const FunctionContext & context) const
     {
         if (function->functionConfig.prepared) {
-            // Use the pre-bound version.
-            return function->bound(function->innerScope.getRowContext(context), GET_LATEST);
+            // Use the pre-bound version.   
+            return function->bound(function->innerScope.getRowScope(context), GET_LATEST);
         }
         else {
-            // Use the specialized version.
-            return bound(this->innerScope.getRowContext(context), GET_LATEST);
+            // Use the specialized version. 
+            return bound(this->innerScope.getRowScope(context), GET_LATEST);
         }
     }
 
@@ -445,8 +460,9 @@ bind(SqlBindingScope & outerContext,
     std::unique_ptr<SqlExpressionFunctionApplier> result
         (new SqlExpressionFunctionApplier(outerContext, this, input));
 
+    // TO RESOLVE BEORE MERGE
     // Check that these input values can provide everything needed for the result
-    input.checkCompatibleAsInputTo(result->info.input);
+    //input.checkCompatibleAsInputTo(result->info.input);
 
     return std::move(result);
 }
@@ -480,8 +496,8 @@ getFunctionInfo() const
     BoundSqlExpression bound = functionConfig.expression.bind(context);
 
     // 3.  Our output is known by the bound expression
-    result.output = *bound.info;
-
+    result.output = ExpressionValueInfo::toRow(bound.info);
+    
     // 4.  Our required input is known by the binding context, as it records
     //     what was read.
     result.input = context.input;

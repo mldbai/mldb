@@ -968,13 +968,13 @@ struct AtInit {
         bp::class_<FunctionInfo, boost::noncopyable>("function_info", bp::no_init)
             ;
         
+#if 0
         bp::class_<FunctionOutput, boost::noncopyable>("function_output", bp::init<>())
             .def("set_str", (SetFn<std::string>::OutputType) &FunctionOutput::setT<std::string>)
             ;
 
         bp::class_<FunctionApplier, boost::noncopyable>("function_applier", bp::no_init)
             ;
-
 
 //         const Datacratic::Any& (FunctionContext::*functionContextGetStr)(const std::string &) = &FunctionContext::get;
 
@@ -989,6 +989,7 @@ struct AtInit {
 //         bp::class_<FunctionInfo, std::shared_ptr<FunctionInfo>, boost::noncopyable>("", bp::no_init)
 //             .def("subject_count", &BehaviourDomain::subjectCount)
 //             ;
+#endif
 
         auto main_module = boost::python::import("__main__"); 
         auto main_namespace = main_module.attr("__dict__");

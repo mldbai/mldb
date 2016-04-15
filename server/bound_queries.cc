@@ -267,7 +267,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                     int numPerBucket,
                     bool selectStar)
     {
-        auto rowContext = context.getRowContext(row);
+        auto rowContext = context.getRowScope(row);
 
         whenBound.filterInPlace(row, rowContext);
 
@@ -277,13 +277,13 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
         outputRow.rowName = row.rowName;
         outputRow.rowHash = row.rowName;
     
-        auto selectRowContext = context.getRowContext(row);
+        auto selectRowContext = context.getRowScope(row);
         vector<ExpressionValue>& calcd = std::get<1>(output);
         calcd.resize(boundCalc.size());
 
         // Run the extra calculations
         for (unsigned i = 0;  i < boundCalc.size();  ++i) {
-            calcd[i] = std::move(boundCalc[i](selectRowContext, GET_LATEST));
+            calcd[i] = std::move(boundCalc[i](selectRowScope, GET_LATEST));
         }
         
         if (selectStar) {
@@ -300,7 +300,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
         }
         else {
             // Run the select expression
-            ExpressionValue selectOutput = boundSelect(selectRowContext, GET_ALL);
+            ExpressionValue selectOutput = boundSelect(selectRowScope, GET_ALL);
             selectOutput.mergeToRowDestructive(outputRow.columns);
         }
 
@@ -386,7 +386,7 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
 
                 // Check it matches the where expression.  If not, we don't process
                 // it.
-                auto rowContext = context.getRowContext(row);
+                auto rowContext = context.getRowScope(row);
 
                 //where already checked in whereGenerator
 
@@ -396,25 +396,25 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
                 outputRow.rowName = row.rowName;
                 outputRow.rowHash = row.rowName;
             
-                auto selectRowContext = context.getRowContext(row);
+                auto selectRowScope = context.getRowScope(row);
              
                 // Run the bound select expressions
                 ExpressionValue selectOutput
-                = boundSelect(selectRowContext, GET_ALL);
+                = boundSelect(selectRowScope, GET_ALL);
                 selectOutput.mergeToRowDestructive(outputRow.columns);
 
                 vector<ExpressionValue> calcd(boundCalc.size());
                 for (unsigned i = 0;  i < boundCalc.size();  ++i) {
-                    calcd[i] = std::move(boundCalc[i](selectRowContext, GET_LATEST));
+                    calcd[i] = std::move(boundCalc[i](selectRowScope, GET_LATEST));
                 }
 
                 // Get the order by context, which can read from both the result
                 // of the select and the underlying row.
-                auto orderByRowContext
-                    = orderByContext.getRowContext(rowContext, outputRow);
+                auto orderByRowScope
+                    = orderByContext.getRowScope(rowContext, outputRow);
 
                 std::vector<ExpressionValue> sortFields
-                    = boundOrderBy.apply(orderByRowContext);
+                    = boundOrderBy.apply(orderByRowScope);
 
                 SortedRows * sortedRows = &accum.get();
                 sortedRows->emplace_back(std::move(sortFields),
@@ -620,7 +620,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
 
                     // Check it matches the where expression.  If not, we don't process
                     // it.
-                    auto rowContext = context.getRowContext(row);
+                    auto rowContext = context.getRowScope(row);
 
                     //where was already filtered by the where generator
 
@@ -884,7 +884,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
         for (auto & r : rowsMerged) {
 
             MatrixNamedRow row = std::move(matrix->getRow(r));
-            auto rowContext = context.getRowContext(row);
+            auto rowContext = context.getRowScope(row);
 
             whenBound.filterInPlace(row, rowContext);
             NamedRowValue outputRow;
@@ -1097,8 +1097,8 @@ struct GroupContext: public SqlExpressionDatasetContext {
 
     const TupleExpression & groupByExpression;
 
-    struct RowContext: public SqlRowScope {
-        RowContext(NamedRowValue & output,
+    struct RowScope: public SqlRowScope {
+        RowScope(NamedRowValue & output,
                    const std::vector<ExpressionValue> & currentGroupKey)
             : output(output), currentGroupKey(currentGroupKey)
         {
@@ -1115,7 +1115,7 @@ struct GroupContext: public SqlExpressionDatasetContext {
     {
 
         auto getGroupRowName = [] (const SqlRowScope & context){
-            auto & row = context.as<RowContext>();
+            auto & row = context.as<RowScope>();
 
             static VectorDescription<ExpressionValue>
                 desc(getExpressionValueDescriptionNoTimestamp());
@@ -1155,7 +1155,7 @@ struct GroupContext: public SqlExpressionDatasetContext {
             return {[] (const std::vector<ExpressionValue> & args,
                         const SqlRowScope & context)
                     {
-                        auto & row = context.as<RowContext>();
+                        auto & row = context.as<RowScope>();
 
                         int position = args[0].toInt(); //(context, GET_LATEST).toInt();
 
@@ -1217,7 +1217,7 @@ struct GroupContext: public SqlExpressionDatasetContext {
                              const VariableFilter & filter)
                         -> const ExpressionValue &
                         {
-                            auto & row = context.as<RowContext>();
+                            auto & row = context.as<RowScope>();
                             return storage = row.currentGroupKey.at(i);
                         },
                         // TODO: return real type
@@ -1230,7 +1230,7 @@ struct GroupContext: public SqlExpressionDatasetContext {
                      ExpressionValue & storage,
                      const VariableFilter & filter) -> const ExpressionValue &
                 {
-                    auto & row = context.as<RowContext>();
+                    auto & row = context.as<RowScope>();
              
                     // TODO BEFORE MERGE: shouldn't be toSimpleName()
                     const ExpressionValue * result
@@ -1248,11 +1248,11 @@ struct GroupContext: public SqlExpressionDatasetContext {
                 std::make_shared<AtomValueInfo>()};
     }
 
-    RowContext
-    getRowContext(NamedRowValue & output,
+    RowScope
+    getRowScope(NamedRowValue & output,
                   const std::vector<ExpressionValue> & currentGroupKey) const
     {
-        return RowContext(output, currentGroupKey);
+        return RowScope(output, currentGroupKey);
     }
 
     // Represents a clause that is output by the program TODO: Rename this
@@ -1463,7 +1463,7 @@ execute(RowProcessor processor,
          // Create the context to evaluate the row name and order by
         NamedRowValue outputRow;
 
-        auto rowContext = groupContext->getRowContext(outputRow, rowKey);
+        auto rowContext = groupContext->getRowScope(outputRow, rowKey);
 
         //Evaluate the HAVING expression
         ExpressionValue havingResult = boundHaving(rowContext, GET_LATEST);

@@ -949,7 +949,7 @@ BOOST_AUTO_TEST_CASE(test_result_variable_expressions)
         // MLDB-200
         auto parsed = SqlRowExpression::parse("2.2");
         ExcAssert(parsed);
-        BOOST_CHECK_EQUAL(parsed->print(), "computed(\"2.2\",constant([2.2,\"-Inf\"]))");
+        BOOST_CHECK_EQUAL(parsed->print(), "computed(\"\"2.2\"\",constant([2.2,\"-Inf\"]))");
     }
 
     {
@@ -1125,7 +1125,7 @@ BOOST_AUTO_TEST_CASE(test_select_statement_parse)
         BOOST_CHECK_EQUAL(ML::type_name(*statement.select.clauses[0].get()),
                           "Datacratic::MLDB::ComputedColumn");
         auto cast = dynamic_cast<ComputedColumn *>(statement.select.clauses[0].get());
-        BOOST_CHECK_EQUAL(cast->alias, Utf8String("1"));
+        BOOST_CHECK_EQUAL(cast->alias, ColumnName("1"));
     }
 
     {

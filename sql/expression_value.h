@@ -184,6 +184,9 @@ struct ExpressionValueInfo {
     /// Is this a value description for a row?
     virtual bool isRow() const;
 
+    static std::shared_ptr<RowValueInfo>
+    toRow(std::shared_ptr<ExpressionValueInfo> row);
+
     /// Is this a value description for an embedding?
     virtual bool isEmbedding() const;
 
@@ -363,6 +366,7 @@ struct ExpressionValueInfo {
 };
 
 PREDECLARE_VALUE_DESCRIPTION(std::shared_ptr<ExpressionValueInfo>);
+PREDECLARE_VALUE_DESCRIPTION(std::shared_ptr<RowValueInfo>);
 
 
 /*****************************************************************************/
@@ -750,6 +754,14 @@ struct ExpressionValue {
     ExpressionValue getNestedColumn(const ColumnName & columnName,
                                     const VariableFilter & filter = GET_LATEST) const;
 
+    // Return the given nested column.  Valid for anything that is a
+    // row type... rows, JSON values, objects, arrays, embeddings.
+    // If it's not found, will return null and false in the second element.
+    // This allows explicit null versus undefined to be distinguished.
+    std::pair<ExpressionValue, bool>
+    tryGetNestedColumn(const ColumnName & columnName,
+                       const VariableFilter & filter = GET_LATEST) const;
+    
 #if 0    
     // Return the given field by index.  Valid for anything that is a
     // arrays or embedding.
@@ -1350,12 +1362,6 @@ struct UnknownRowValueInfo: public RowValueInfo {
     }
 };
 
-// Get a value description for expression values
-ValueDescriptionT<std::shared_ptr<ExpressionValueInfo> > *
-getDefaultDescription(std::shared_ptr<ExpressionValueInfo> *);
-ValueDescriptionT<std::shared_ptr<ExpressionValueInfo> > *
-getDefaultDescriptionUninitialized(std::shared_ptr<ExpressionValueInfo> *);
-
 
 /*****************************************************************************/
 /* NAMED ROW VALUE                                                           */
@@ -1383,19 +1389,6 @@ DECLARE_STRUCTURE_DESCRIPTION(NamedRowValue);
 
 /** These functions search the given row for the named value. */
 
-#if 0
-const ExpressionValue *
-searchRow(const std::vector<std::tuple<ColumnHash, CellValue, Date> > & columns,
-          const ColumnName & key,
-          const VariableFilter & filter,
-          ExpressionValue & storage);
-
-const ExpressionValue *
-searchRow(const std::vector<std::tuple<ColumnName, CellValue, Date> > & columns,
-          const ColumnHash & key,
-          const VariableFilter & filter,
-          ExpressionValue & storage);
-#endif
 const ExpressionValue *
 searchRow(const std::vector<std::tuple<ColumnName, CellValue, Date> > & columns,
           const ColumnName & key,

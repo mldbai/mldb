@@ -9,6 +9,7 @@
 
 #include "binding_contexts.h"
 #include "http/http_exception.h"
+#include <unordered_map>
 
 using namespace std;
 
@@ -22,7 +23,7 @@ namespace MLDB {
 /*****************************************************************************/
 
 BoundFunction
-ReadThroughBindingContext::
+ReadThroughBindingScope::
 doGetFunction(const Utf8String & tableName,
               const Utf8String & functionName,
               const std::vector<BoundSqlExpression> & args,
@@ -48,8 +49,8 @@ doGetFunction(const Utf8String & tableName,
     result.exec = [=] (const std::vector<ExpressionValue> & args,
                        const SqlRowScope & context)
         {
-            //ExcAssert(dynamic_cast<const RowContext *>(&context) != nullptr);
-            auto & row = context.as<RowContext>();
+            //ExcAssert(dynamic_cast<const RowScope *>(&context) != nullptr);
+            auto & row = context.as<RowScope>();
 
             //cerr << "rebinding to apply function " << functionName
             //<< ": context type is "
@@ -63,7 +64,7 @@ doGetFunction(const Utf8String & tableName,
 }
 
 BoundSqlExpression		
-ReadThroughBindingContext::		
+ReadThroughBindingScope::		
 rebind(BoundSqlExpression expr)		
 {		
     auto outerExec = expr.exec;		
@@ -74,7 +75,7 @@ rebind(BoundSqlExpression expr)
                      const VariableFilter & filter)		
         -> const ExpressionValue &		
         {		
-            auto & row = static_cast<const RowContext &>(context);		
+            auto & row = static_cast<const RowScope &>(context);		
             return outerExec(row.outer, storage, filter);		
         };		
 		
@@ -83,7 +84,7 @@ rebind(BoundSqlExpression expr)
 
 
 ColumnGetter
-ReadThroughBindingContext::
+ReadThroughBindingScope::
 doGetColumn(const Utf8String & tableName,
             const ColumnName & columnName)
 {
@@ -93,14 +94,14 @@ doGetColumn(const Utf8String & tableName,
                  ExpressionValue & storage,
                  const VariableFilter & filter) -> const ExpressionValue &
             {
-                auto & row = context.as<RowContext>();
+                auto & row = context.as<RowScope>();
                 return outerImpl(row.outer, storage, filter);
             },
             outerImpl.info};
 }
 
 GetAllColumnsOutput
-ReadThroughBindingContext::
+ReadThroughBindingScope::
 doGetAllColumns(const Utf8String & tableName,
                 std::function<ColumnName (const ColumnName &)> keep)
 {
@@ -108,14 +109,14 @@ doGetAllColumns(const Utf8String & tableName,
     auto outerFn = result.exec;
     result.exec = [=] (const SqlRowScope & scope)
         {
-            auto & row = scope.as<RowContext>();
+            auto & row = scope.as<RowScope>();
             return outerFn(row.outer);
         };
     return result;
 }
 
 ColumnGetter
-ReadThroughBindingContext::
+ReadThroughBindingScope::
 doGetBoundParameter(const Utf8String & paramName)
 {
     auto outerImpl = outer.doGetBoundParameter(paramName);
@@ -124,28 +125,21 @@ doGetBoundParameter(const Utf8String & paramName)
                  ExpressionValue & storage,
                  const VariableFilter & filter) -> const ExpressionValue &
             {
-                auto & row = context.as<RowContext>();
+                auto & row = context.as<RowScope>();
                 return outerImpl(row.outer, storage, filter);
             },
             outerImpl.info};
 }
 
-std::shared_ptr<Function>
-ReadThroughBindingContext::
-doGetFunctionEntity(const Utf8String & functionName)
-{
-    return outer.doGetFunctionEntity(functionName);
-}
-
 std::shared_ptr<Dataset>
-ReadThroughBindingContext::
+ReadThroughBindingScope::
 doGetDataset(const Utf8String & datasetName)
 {
     return outer.doGetDataset(datasetName);
 }
 
 std::shared_ptr<Dataset>
-ReadThroughBindingContext::
+ReadThroughBindingScope::
 doGetDatasetFromConfig(const Any & datasetConfig)
 {
     return outer.doGetDatasetFromConfig(datasetConfig);
@@ -227,7 +221,7 @@ doGetFunction(const Utf8String & tableName,
                 std::make_shared<TimestampValueInfo>()};
     }
 
-    return ReadThroughBindingContext::doGetFunction(tableName, functionName,
+    return ReadThroughBindingScope::doGetFunction(tableName, functionName,
                                                     args, argScope);
 }
 
@@ -251,6 +245,181 @@ doGetBoundParameter(const Utf8String & paramName)
             std::make_shared<AnyValueInfo>() };
 }
 
+
+/*****************************************************************************/
+/* SQL EXPRESSION EXTRACT SCOPE                                              */
+/*****************************************************************************/
+
+SqlExpressionExtractScope::
+SqlExpressionExtractScope(SqlBindingScope & outer,
+                          std::shared_ptr<ExpressionValueInfo> inputInfo)
+    : ReadThroughBindingScope(outer), inputInfo(inputInfo)
+{
+    ExcAssert(inputInfo);
+}
+
+ColumnGetter
+SqlExpressionExtractScope::
+doGetColumn(const Utf8String & tableName,
+            const ColumnName & columnName)
+{
+    ExcAssert(!columnName.empty());
+    
+    // If we have a table name, we're not looking for a column in the
+    // current scope
+    if (!tableName.empty()) {
+        throw HttpReturnException(400, "Cannot use table names inside an extract");
+        return ReadThroughBindingScope::doGetColumn(tableName, columnName);
+    }
+
+    // Ask the info about what type it is
+    std::shared_ptr<ExpressionValueInfo> info
+        = inputInfo->findNestedColumn(columnName);
+
+    if (!info) {
+        // Don't know the column.  Is it because it never exists, or because
+        // the schema is dynamic?
+        if (inputInfo->getSchemaCompleteness() != SCHEMA_CLOSED) {
+            // Dynamic columns; be prepared to do either depending upon
+            // what we find
+
+            // Set up our doGetColumn for if we need to go to the outer
+            // scope.
+            //auto outer = ReadThroughBindingScope
+            //    ::doGetColumn(tableName, columnName);
+
+            return {[=] (const SqlRowScope & context,
+                         ExpressionValue & storage,
+                         const VariableFilter & filter)
+                    -> const ExpressionValue &
+                    {
+                        auto & row = context.as<RowScope>();
+
+#if 1 // don't allow reads through to outer scope
+                        return storage = row.input.getNestedColumn(columnName, filter);
+                        return storage;
+#else // do allow reads to outer scope
+                        bool found;
+                        std::tie(storage, found)
+                            = row.input.tryGetNestedColumn(columnName, filter);
+
+                        if (found) {
+                            return storage;
+                        }
+                        else {
+                            return outer(row.outer, context, storage);
+                        }
+#endif
+                    },
+                    std::make_shared<AnyValueInfo>()};
+        }
+
+        // Didn't find the column and schema is closed.  Let it pass through.
+        throw HttpReturnException(400, "Couldn't find column in extract");
+        return ReadThroughBindingScope::doGetColumn(tableName, columnName);
+    }
+
+    // Found the column.  Get it from our context.
+    return {[=] (const SqlRowScope & context,
+                 ExpressionValue & storage,
+                 const VariableFilter & filter)
+            -> const ExpressionValue &
+            {
+                auto & row = context.as<RowScope>();
+                return storage = row.input.getNestedColumn(columnName, filter);
+            },
+            info};
+}
+
+GetAllColumnsOutput
+SqlExpressionExtractScope::
+doGetAllColumns(const Utf8String & tableName,
+                std::function<ColumnName (const ColumnName &)> keep)
+{
+    GetAllColumnsOutput result;
+
+    if (inputInfo->getSchemaCompleteness() != SCHEMA_CLOSED) {
+        // Dynamic columns; we filter once we have the value
+
+        result.exec = [=] (const SqlRowScope & scope) -> ExpressionValue
+            {
+                auto & row = scope.as<RowScope>();
+
+                RowValue output;
+
+                auto onAtom = [&] (Coords columnName,
+                                  const Coords & prefix,
+                                  CellValue val,
+                                  Date ts)
+                {
+                    ColumnName outputColumnName
+                        = keep(prefix + std::move(columnName));
+                    if (outputColumnName.empty())
+                        return true;
+                    output.emplace_back(std::move(outputColumnName),
+                                        std::move(val),
+                                        ts);
+                    return true;
+                };
+
+                row.input.forEachAtom(onAtom);
+            
+                return std::move(output);
+            };
+
+        result.info = std::make_shared<UnknownRowValueInfo>();
+
+        return result;
+    }
+
+    vector<KnownColumn> inputColumns
+        = inputInfo->getKnownColumns();
+
+    vector<KnownColumn> outputColumns;
+
+    // List of input name -> outputName for those to keep
+    std::unordered_map<ColumnName, ColumnName> toKeep;
+
+    for (auto & c: inputColumns) {
+        ColumnName outputColumnName = keep(c.columnName);
+        if (outputColumnName.empty())
+            continue;
+
+        toKeep[c.columnName] = outputColumnName;
+        c.columnName = outputColumnName;
+
+        outputColumns.emplace_back(std::move(c));
+    }
+
+    result.exec = [=] (const SqlRowScope & scope) -> ExpressionValue
+        {
+            auto & row = scope.as<RowScope>();
+            
+            RowValue output;
+
+            auto onAtom = [&] (const Coords & columnName,
+                               const Coords & prefix,
+                               CellValue val,
+                               Date ts)
+            {
+                auto it = toKeep.find(prefix + columnName);
+                if (it != toKeep.end()) {
+                    output.emplace_back(it->second,
+                                        std::move(val),
+                                        ts);
+                }
+                return true;
+            };
+
+            row.input.forEachAtom(onAtom);
+            
+            return std::move(output);
+        };
+
+    result.info = std::make_shared<RowValueInfo>(outputColumns, SCHEMA_CLOSED);
+
+    return result;
+}
 
 } // namespace MLDB
 } // namespace Datacratic

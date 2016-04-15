@@ -75,7 +75,6 @@ struct OrderByExpression;
 struct TupleExpression;
 struct GenerateRowsWhereFunction;
 struct SelectExpression;
-struct Function;
 struct SqlBindingScope;
 struct MldbServer;
 struct BasicRowGenerator;
@@ -555,11 +554,6 @@ struct SqlBindingScope {
                                ssize_t offset,
                                ssize_t limit);
     
-    // Function used to get a function.  Default throws an exception that the
-    // function is not available.
-    virtual std::shared_ptr<Function>
-    doGetFunctionEntity(const Utf8String & functionName);
-
     /** Used to obtain functions that operate on a given column, within an
         expression designed to select columns programatically.
     */
