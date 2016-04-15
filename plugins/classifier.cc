@@ -745,7 +745,7 @@ std::tuple<std::vector<float>, std::shared_ptr<ML::Mutable_Feature_Set>, Date>
 ClassifyFunction::
 getFeatureSet(const FunctionContext & context, bool attemptDense) const
 {
-    auto row = context.get<RowValue>("features");
+    auto row = context.getColumn(Coord("features"));
 
     Date ts = Date::negativeInfinity();
 
@@ -753,26 +753,36 @@ getFeatureSet(const FunctionContext & context, bool attemptDense) const
     if (attemptDense) {
         std::vector<float> denseFeatures(itl->featureSpace->columnInfo.size(),
                                          std::numeric_limits<float>::quiet_NaN());
-        for (auto & r: row) {
-            ColumnName columnName(std::get<0>(r));
-            ColumnHash columnHash(columnName);
 
-            auto it = itl->featureSpace->columnInfo.find(columnHash);
-            if (it == itl->featureSpace->columnInfo.end())
-                continue;
+        auto onAtom = [&] (const Coords & suffix,
+                           const Coords & prefix,
+                           const CellValue & val,
+                           Date ts)
+            {
+                ColumnName columnName(prefix + suffix);
+                ColumnHash columnHash(columnName);
+                
+                auto it = itl->featureSpace->columnInfo.find(columnHash);
+                if (it == itl->featureSpace->columnInfo.end())
+                    return true;
 
-            CellValue value = std::get<1>(r);
-            ts.setMax(std::get<2>(r));
+                CellValue value = std::get<1>(r);
+                ts.setMax(std::get<2>(r));
 
-            // TODO: if more than one value, we need to fall back
-            if (!isnanf(denseFeatures[it->second.index])) {
-                multiValue = true;
-                break;
-            }
+                // TODO: if more than one value, we need to fall back
+                if (!isnanf(denseFeatures[it->second.index])) {
+                    multiValue = true;
+                    return false;
+                }
         
-            denseFeatures[it->second.index]
-                = itl->featureSpace->encodeFeatureValue(columnHash, value);
-        }
+                denseFeatures[it->second.index]
+                    = itl->featureSpace->encodeFeatureValue(columnHash, value);
+
+                return true;
+            };
+
+        row.forEachAtom(onAtom);
+
         if (!multiValue)
             return std::make_tuple( std::move(denseFeatures), nullptr, ts );
     }
@@ -780,25 +790,34 @@ getFeatureSet(const FunctionContext & context, bool attemptDense) const
 
     std::vector<std::pair<ML::Feature, float> > features;
 
-    for (auto & r: row) {
-        ColumnName columnName(std::get<0>(r));
-        ColumnHash columnHash(columnName);
+    auto onAtom = [&] (const Coords & suffix,
+                       const Coords & prefix,
+                       const CellValue & val,
+                       Date ts)
+        {
+            ColumnName columnName(prefix + suffix);
+            ColumnHash columnHash(columnName);
 
-        auto it = itl->featureSpace->columnInfo.find(columnHash);
-        if (it == itl->featureSpace->columnInfo.end())
-            continue;
+            auto it = itl->featureSpace->columnInfo.find(columnHash);
+            if (it == itl->featureSpace->columnInfo.end())
+                return true;
 
-        CellValue value = std::get<1>(r);
-        ts.setMax(std::get<2>(r));
+            CellValue value = std::get<1>(r);
+            ts.setMax(std::get<2>(r));
 
-        itl->featureSpace->encodeFeature(columnHash, value, features);
-    }
+            itl->featureSpace->encodeFeature(columnHash, value, features);
+
+            return true;
+        };
+
+    row.forEachAtom(onAtom);
 
     std::sort(features.begin(), features.end());
     
-    auto fset = std::make_shared<ML::Mutable_Feature_Set>(features.begin(), features.end());
+    auto fset = std::make_shared<ML::Mutable_Feature_Set>
+        (features.begin(), features.end());
     fset->locked = true;
-
+    
     return std::make_tuple( vector<float>(), std::move(fset), ts );
 }
 
@@ -874,10 +893,10 @@ apply(const FunctionApplier & applier_,
     }
     else {
         if(!fset) {
-            throw ML::Exception("Feature_Set is null! Are you giving only null features to "
-                "the classifier function?");
+            throw ML::Exception("Feature_Set is null! Are you giving "
+                                "only null features to the classifier function?");
         }
-
+        
         if (cat) {
             auto scores = itl->classifier.predict(*fset);
             ExcAssertEqual(scores.size(), labelCount);

@@ -949,7 +949,7 @@ BOOST_AUTO_TEST_CASE(test_result_variable_expressions)
         // MLDB-200
         auto parsed = SqlRowExpression::parse("2.2");
         ExcAssert(parsed);
-        BOOST_CHECK_EQUAL(parsed->print(), "computed(\"2.2\",constant([2.2,\"-Inf\"]))");
+        BOOST_CHECK_EQUAL(parsed->print(), "computed(\"\"2.2\"\",constant([2.2,\"-Inf\"]))");
     }
 
     {

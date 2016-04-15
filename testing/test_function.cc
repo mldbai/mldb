@@ -50,17 +50,23 @@ TestFunction::
 apply(const FunctionApplier & applier,
       const FunctionContext & context) const
 {
-    FunctionOutput result;
-    result.set("cnt", ExpressionValue((int)cnt, Date::now()));
-    return result;
+    StructValue result;
+    result.emplace_back("cnt", ExpressionValue((int)cnt, Date::now()));
+    return std::move(result);
 }
 
 FunctionInfo
 TestFunction::
 getFunctionInfo() const
 {
+    vector<KnownColumn> cols;
+    cols.emplace_back(Coord("cnt"), std::make_shared<NumericValueInfo>(),
+                      COLUMN_IS_DENSE);
+
     FunctionInfo result;
-    result.output.addNumericValue("cnt");
+    result.output = std::make_shared<RowValueInfo>(cols, SCHEMA_CLOSED);
+    cols.clear();
+    result.input = std::make_shared<RowValueInfo>(cols, SCHEMA_CLOSED);
     return result;
 }
 

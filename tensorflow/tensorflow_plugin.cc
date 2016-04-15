@@ -728,13 +728,15 @@ struct TensorflowGraph: public Function {
             boundOutputs = owner->functionConfig.outputs.bind(graphScope);
 
             info.input = input;
-            info.output = *boundOutputs.info;
-
+            info.output = ExpressionValueInfo::toRow(boundOutputs.info);
+            
             // Check that all values on the passed input are compatible with the
             // required inputs.
-            for (auto & p: info.input.values) {
-                input.checkValueCompatibleAsInputTo(p.first.toUtf8String(), p.second);
-            }
+            // TO DO BEFORE MERGE
+            throw HttpReturnException(600, "Need to fix before merge");
+            //for (auto & p: info.input.values) {
+            //    input.checkValueCompatibleAsInputTo(p.first.toUtf8String(), p.second);
+            //}
         }
 
         const TensorflowGraph * owner;
@@ -1170,7 +1172,7 @@ struct TensorflowGraph: public Function {
 
         FunctionInfo result;
         result.input = std::move(functionScope.input);
-        result.output = *boundOutputs.info;
+        result.output = ExpressionValueInfo::toRow(boundOutputs.info);
         
         return result;
     }

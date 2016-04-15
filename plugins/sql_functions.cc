@@ -144,7 +144,7 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
         switch (function->functionConfig.output) {
         case FIRST_ROW:
             // What type does the pipeline return?
-            this->info.output = *boundPipeline->outputScope()->outputInfo().back();
+            this->info.output = boundPipeline->outputScope()->outputInfo().back();
             break;
         case NAMED_COLUMNS:
             this->info.output.addRowValue("output");
@@ -352,7 +352,7 @@ SqlExpressionFunction(MldbServer * owner,
         this->bound = functionConfig.expression.bind(innerScope);
 
         // 2.  Our output is known by the bound expression
-        this->info.output = *this->bound.info;
+        this->info.output = this->bound.info;
     
         // 3.  Our required input is known by the binding context, as it records
         //     what was read.
@@ -383,7 +383,7 @@ struct SqlExpressionFunctionApplier: public FunctionApplier {
             // Specialize to this input
             this->bound = function->functionConfig.expression.bind(innerScope);
             // That leads to a specialized output
-            this->info.output = *bound.info;
+            this->info.output = bound.info;
         }
         else {
             this->info = function->info;
@@ -454,7 +454,7 @@ getFunctionInfo() const
     BoundSqlExpression bound = functionConfig.expression.bind(context);
 
     // 3.  Our output is known by the bound expression
-    result.output = *bound.info;
+    result.output = bound.info;
     
     // 4.  Our required input is known by the binding context, as it records
     //     what was read.

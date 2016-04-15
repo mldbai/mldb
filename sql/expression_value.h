@@ -184,6 +184,9 @@ struct ExpressionValueInfo {
     /// Is this a value description for a row?
     virtual bool isRow() const;
 
+    static std::shared_ptr<RowValueInfo>
+    toRow(std::shared_ptr<ExpressionValueInfo> row);
+
     /// Is this a value description for an embedding?
     virtual bool isEmbedding() const;
 

@@ -13,7 +13,6 @@ LIBMLDB_SOURCES:= \
 	procedure_collection.cc \
 	procedure_run_collection.cc \
 	function_collection.cc \
-	function_contexts.cc \
 	type_collection.cc \
 	analytics.cc \
 	plugin_resource.cc \
@@ -25,7 +24,9 @@ LIBMLDB_SOURCES:= \
 	script_output.cc \
 	forwarded_dataset.cc \
 	column_scope.cc \
-	bucket.cc
+	bucket.cc \
+
+#	function_contexts.cc \
 
 LIBMLDB_LINK:= \
 	service_peer mldb_builtin_plugins sql_expression git2 hoedown credentials_daemon mldb_builtin command_expression cloud mldb_core

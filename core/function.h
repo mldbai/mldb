@@ -404,7 +404,7 @@ struct FunctionValues {
 DECLARE_STRUCTURE_DESCRIPTION(FunctionValues);
 #endif
 
-typedef std::shared_ptr<ExpressionValueInfo> FunctionValues;
+typedef std::shared_ptr<RowValueInfo> FunctionValues;
 typedef ExpressionValue FunctionOutput;
 typedef ExpressionValue FunctionContext;
 
@@ -528,8 +528,7 @@ struct Function: public MldbEntity {
         requires functionality from the server to create the scope for the
         bind.
     */
-    FunctionOutput
-    call(const std::map<Utf8String, ExpressionValue> & input) const;
+    FunctionOutput call(const ExpressionValue & input) const;
 
     /** Method to overwrite to handle a request.  By default, the function
         will return that it can't handle any requests.  Used to expose

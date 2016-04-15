@@ -52,15 +52,19 @@ doGetFunction(const Utf8String & tableName,
         std::shared_ptr<FunctionApplier> applier;
 
         if (args.empty()) {
-            applier.reset(fn->bind(argScope, std::make_shared<RowValueInfo>({})).get());
+            applier.reset
+                (fn->bind(argScope,
+                          std::make_shared<RowValueInfo>(std::vector<KnownColumn>()))
+                 .get());
         }
         else {
-            if (!args[0]->isRow()) {
+            if (!args[0].info->isRow()) {
                 throw HttpReturnException(400, "User function " + functionName
                                           + " expects a row argument ({ }), "
-                                          + "got " + args[0]->print() );
+                                          + "got " + args[0].expr->print() );
             }
-            applier.reset(fn->bind(argScope, args[0].info).get());
+            applier.reset(fn->bind(argScope, ExpressionValueInfo::toRow(args[0].info))
+                          .get());
         }
         
         auto exec = [=] (const std::vector<ExpressionValue> & args,
@@ -75,7 +79,7 @@ doGetFunction(const Utf8String & tableName,
                 }
             };
 
-        return BoundFunction(exec, applier.info);
+        return BoundFunction(exec, applier->info.output);
     }
 
     return SqlBindingScope::doGetFunction(tableName, functionName, args,

@@ -24,6 +24,9 @@ namespace MLDB {
 /** Used to run an expression in a purely function context. */
 /** Only input values and server functions will be available in this context */
 
+/** TODO: this should be basically the same as the ExtractContext.  Use that
+    instead.
+*/
 struct FunctionExpressionContext : public SqlBindingScope{
 
     struct RowScope : public SqlRowScope{
