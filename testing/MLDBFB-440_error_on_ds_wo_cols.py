@@ -17,7 +17,7 @@ class TestErrorOnDsWoCols(MldbUnitTest):  # noqa
         ds.commit()
 
         res = mldb.query("SELECT sum({*}) FROM noColDs")
-        self.assertEqual(res[1][1], 0)
+        self.assertEqual(len(res[1]), 1) #rowname, no columns
 
 
 if __name__ == '__main__':
