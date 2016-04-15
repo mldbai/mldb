@@ -32,13 +32,13 @@ LIBMLDB_BUILTIN_PLUGIN_SOURCES:= \
 	column_types.cc \
 	tabular_dataset_column.cc \
 	randomforest_procedure.cc \
+    kmeans.cc \
+    embedding.cc \
+    pooling_function.cc \
+    feature_generators.cc \
 
 # MATHIEU HERE THEY ARE
-#	kmeans.cc \
-	embedding.cc \
-	pooling_function.cc \
-	feature_generators.cc \
-	em.cc \
+#	em.cc \
 	tsne.cc \
 	svm.cc \
 	probabilizer.cc \

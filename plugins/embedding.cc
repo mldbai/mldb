@@ -1212,7 +1212,7 @@ NearestNeighborsFunction::
 NearestNeighborsFunction(MldbServer * owner,
                          PolyConfig config,
                          const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner)
+    : BaseT(owner)
 {
     functionConfig = config.params.convert<NearestNeighborsFunctionConfig>();
 }
@@ -1222,23 +1222,9 @@ NearestNeighborsFunction::
 {
 }
 
-Any
-NearestNeighborsFunction::
-getStatus() const
-{
-    return Json::Value();
-}
-
-Any
-NearestNeighborsFunction::
-getDetails() const
-{
-    return Json::Value();
-}
-
-struct NearestNeighborsFunctionApplier: public FunctionApplier {
+struct NearestNeighborsFunctionApplier: public FunctionApplierT<NearestNeighborInput, NearestNeighborOuput> {
     NearestNeighborsFunctionApplier(const Function * owner)
-        : FunctionApplier(owner)
+        : FunctionApplierT<NearestNeighborInput, NearestNeighborOuput>(owner)
     {
         info = owner->getFunctionInfo();
     }
@@ -1250,67 +1236,22 @@ struct NearestNeighborsFunctionApplier: public FunctionApplier {
     ExpressionValueInfo::ExtractDoubleEmbeddingFunction getEmbeddingFromExpr;
 };
 
-std::unique_ptr<FunctionApplier>
+NearestNeighborOuput
 NearestNeighborsFunction::
-bind(SqlBindingScope & outerContext,
-     const FunctionValues & input) const
-{
-    std::unique_ptr<NearestNeighborsFunctionApplier> result
-        (new NearestNeighborsFunctionApplier(this));
-
-    auto boundDataset = functionConfig.dataset->bind(outerContext);
-    if (!boundDataset.dataset) {
-        throw HttpReturnException
-            (400, "Nearest neighbours function cannot operate on the output of "
-             "a table expression, only dataset of type embedding.");
-    }
-    
-    std::shared_ptr<ExpressionValueInfo> datasetInput
-        = boundDataset.dataset->getRowInfo();
-    vector<ColumnName> columnNames
-        = datasetInput->allColumnNames();
-    auto coordInput = input.getValueInfo("coords").getExpressionValueInfo();
-    if (coordInput->couldBeRow()) {
-        result->getEmbeddingFromExpr
-            = coordInput->extractDoubleEmbedding(columnNames);
-    }
-
-    result->embeddingDataset
-        = dynamic_pointer_cast<EmbeddingDataset>(boundDataset.dataset);
-    if (!result->embeddingDataset) {
-        throw HttpReturnException
-            (400, "A dataset of type embedding needs to be provided for "
-             "the nearest.neighbors function");
-    }
- 
-    return std::move(result);
-}
-
-FunctionOutput
-NearestNeighborsFunction::
-apply(const FunctionApplier & applier_,
-      const FunctionContext & context) const
+applyT(const ApplierT & applier_, const NearestNeighborInput & input) const
 {
     auto & applier = static_cast<const NearestNeighborsFunctionApplier &>(applier_);
     
-    FunctionOutput output;
-
-    ExpressionValue storage;
-    const ExpressionValue & inputRow = context.get("coords", storage);
+    const ExpressionValue & inputRow = input.coords;
 
     unsigned num_neighbors = functionConfig.default_num_neighbors;
     double max_distance = functionConfig.default_max_distance;
 
-    auto extracted_num_neighbors
-        = context.getValueOrNull("num_neighbours");
-    if(!extracted_num_neighbors.empty()) {
-        num_neighbors = extracted_num_neighbors.toInt();
-    }
-    auto extracted_max_distance
-        = context.getValueOrNull("max_distance");
-    if(!extracted_max_distance.empty()) {
-        max_distance = extracted_max_distance.toDouble();
-    }
+    if(!input.num_neighbors.empty())
+        num_neighbors = input.num_neighbors.toInt();
+
+    if(!input.max_distance.empty())
+        max_distance = input.max_distance.toDouble();
 
     Date ts;
     vector<tuple<RowName, RowHash, float> > neighbors;
@@ -1334,28 +1275,44 @@ apply(const FunctionApplier & applier_,
     for(auto & neighbor : neighbors) {
         rtnRow.emplace_back(get<0>(neighbor), get<2>(neighbor), ts);
     }
-
-    output.set("neighbors", std::move(rtnRow));
-    return output;
+    
+    return {ExpressionValue(rtnRow)};
 }
-
-FunctionInfo
+    
+std::unique_ptr<FunctionApplierT<NearestNeighborInput, NearestNeighborOuput> >
 NearestNeighborsFunction::
-getFunctionInfo() const
+bindT(SqlBindingScope & outerContext, const FunctionValues & input) const
 {
-    FunctionInfo result;
+    std::unique_ptr<NearestNeighborsFunctionApplier> result
+        (new NearestNeighborsFunctionApplier(this));
 
-    result.input.addAtomValue("coords");
-    result.input.addNumericValue("num_neighbours");
-    result.input.addNumericValue("max_distance");
+    auto boundDataset = functionConfig.dataset->bind(outerContext);
+    if (!boundDataset.dataset) {
+        throw HttpReturnException
+            (400, "Nearest neighbours function cannot operate on the output of "
+             "a table expression, only dataset of type embedding.");
+    }
+    
+    std::shared_ptr<ExpressionValueInfo> datasetInput
+        = boundDataset.dataset->getRowInfo();
+    vector<ColumnName> columnNames
+        = datasetInput->allColumnNames();
+    auto coordInput = *input;//input.getValueInfo("coords").getExpressionValueInfo();
+    if (coordInput.couldBeRow()) {
+        result->getEmbeddingFromExpr
+            = coordInput.extractDoubleEmbedding(columnNames);
+    }
 
-    result.output.addRowValue("neighbors");
-
-    return result;
+    result->embeddingDataset
+        = dynamic_pointer_cast<EmbeddingDataset>(boundDataset.dataset);
+    if (!result->embeddingDataset) {
+        throw HttpReturnException
+            (400, "A dataset of type embedding needs to be provided for "
+             "the nearest.neighbors function");
+    }
+ 
+    return std::move(result);
 }
-
-
-
 
 static RegisterDatasetType<EmbeddingDataset, EmbeddingDatasetConfig>
 regEmbedding(builtinPackage(),
