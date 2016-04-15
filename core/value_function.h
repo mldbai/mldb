@@ -12,6 +12,13 @@
 namespace Datacratic {
 namespace MLDB {
 
+template<typename Input, typename Output>
+struct FunctionApplierT;
+
+template<typename Input, typename Output,
+         typename Applier = FunctionApplierT<Input, Output> >
+struct ValueFunctionT;
+
 /*****************************************************************************/
 /* VALUE FUNCTION                                                            */
 /*****************************************************************************/
@@ -30,7 +37,17 @@ struct ValueFunction: public Function {
                   std::shared_ptr<const ValueDescription> outputDescription);
     
     virtual Any getStatus() const;
+    
+    std::shared_ptr<const ValueDescription> inputDescription;
+    std::shared_ptr<const ValueDescription> outputDescription;
 
+    std::shared_ptr<ExpressionValueInfo> inputInfo;
+    std::shared_ptr<ExpressionValueInfo> outputInfo;
+
+    void fromInput(void * obj, const ExpressionValue & inputVal) const;
+    ExpressionValue toOutput(const void * obj) const;
+
+    virtual FunctionInfo getFunctionInfo() const;
 };
 
 
@@ -48,13 +65,10 @@ struct FunctionApplierT: public FunctionApplier {
         : FunctionApplier(function)
     {
     }
-
+    
     virtual ~FunctionApplierT()
     {
     }
-
-    /// Apply the function to the given input
-    Output apply(const Input & input) const;
 };
 
 
@@ -66,10 +80,10 @@ struct FunctionApplierT: public FunctionApplier {
     output types describable with the ValueDescription class.
 */
 
-template<typename Input, typename Output>
+template<typename Input, typename Output, typename Applier>
 struct ValueFunctionT: public ValueFunction {
 
-    typedef FunctionApplierT<Input, Output> ApplierT;
+    typedef Applier ApplierT;
     typedef ValueFunctionT<Input, Output> BaseT;
 
     ValueFunctionT(MldbServer * server,
@@ -89,7 +103,12 @@ struct ValueFunctionT: public ValueFunction {
         Either this or applyT needs to be overridden, or an infinite
         loop will ensue.
     */
-    virtual Output call(const Input & input) const;
+    virtual Output call(const Input & input) const
+    {
+        throw HttpReturnException(500, "ValueFunctionT type "
+                                  + ML::type_name(*this)
+                                  + " needs to override call()");
+    }
 
     /** Complex interface for when a special applier type is required.
 
@@ -101,22 +120,58 @@ struct ValueFunctionT: public ValueFunction {
         loop will ensue.
     */
     virtual Output applyT(const ApplierT & applier,
-                          const Input & input) const;
+                          const Input & input) const
+    {
+        return call(input);
+    }
     
-    virtual std::unique_ptr<FunctionApplierT<Input, Output> >
+    virtual std::unique_ptr<Applier>
     bindT(SqlBindingScope & outerContext,
-          const FunctionValues & input) const;
+          const FunctionValues & input) const
+    {
+        std::unique_ptr<Applier> result(new Applier(this));
+        result->info = getFunctionInfo();
 
-protected:
+        // Check that all values on the passed input are compatible with the required
+        // inputs.
+        // TO RESOLVE BEFORE MERGE
+        throw HttpReturnException(600, "ValueFunctionT::bindT");
+#if 0
+        for (auto & p: result->info.input.values) {
+            input.checkValueCompatibleAsInputTo(p.first.toUtf8String(), p.second);
+        }
+#endif
+
+        return result;
+    }
+
+private:
     virtual std::unique_ptr<FunctionApplier>
     bind(SqlBindingScope & outerContext,
-         const FunctionValues & input) const;
-
-    virtual FunctionInfo getFunctionInfo() const;
-    
+         const FunctionValues & input) const
+    {
+        return bindT(outerContext, input);
+    }
     
     virtual FunctionOutput apply(const FunctionApplier & applier,
-                                 const FunctionContext & context) const;
+                                 const FunctionContext & context) const
+    {
+        const auto * downcast
+            = dynamic_cast<const FunctionApplierT<Input, Output> *>(&applier);
+        if (!downcast) {
+            throw HttpReturnException(500, "Couldn't downcast applier");
+        }
+
+        // Convert the input from an ExpressionValue to its real type
+        Input in;
+        fromInput(&in, context);
+
+        // Apply the function with the proper types
+        Output out = applyT(*downcast, in);
+
+        // Return the output
+        return toOutput(&out);
+    }
 
     template<typename InputT, typename OutputT>
     friend class FunctionApplierT;

@@ -366,6 +366,7 @@ struct ExpressionValueInfo {
 };
 
 PREDECLARE_VALUE_DESCRIPTION(std::shared_ptr<ExpressionValueInfo>);
+PREDECLARE_VALUE_DESCRIPTION(std::shared_ptr<RowValueInfo>);
 
 
 /*****************************************************************************/
@@ -1366,6 +1367,11 @@ ValueDescriptionT<std::shared_ptr<ExpressionValueInfo> > *
 getDefaultDescription(std::shared_ptr<ExpressionValueInfo> *);
 ValueDescriptionT<std::shared_ptr<ExpressionValueInfo> > *
 getDefaultDescriptionUninitialized(std::shared_ptr<ExpressionValueInfo> *);
+
+ValueDescriptionT<std::shared_ptr<RowValueInfo> > *
+getDefaultDescription(std::shared_ptr<RowValueInfo> *);
+ValueDescriptionT<std::shared_ptr<RowValueInfo> > *
+getDefaultDescriptionUninitialized(std::shared_ptr<RowValueInfo> *);
 
 
 /*****************************************************************************/

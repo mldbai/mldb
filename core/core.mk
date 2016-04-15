@@ -2,10 +2,9 @@ LIBMLDB_CORE_SOURCES:= \
 	plugin.cc \
 	dataset.cc \
 	procedure.cc \
-	recorder.cc
-
-#	function.cc \
-
+	recorder.cc \
+	function.cc \
+	value_function.cc
 
 LIBMLDB_CORE_LINK:= \
 	sql_expression rest_entity rest

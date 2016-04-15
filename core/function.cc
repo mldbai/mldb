@@ -22,7 +22,7 @@ using namespace std;
 
 namespace Datacratic {
 
-
+#if 0
 using MLDB::Coord;
 
 
@@ -194,10 +194,11 @@ struct ValueMapKeyDescription
 
 DEFINE_VALUE_DESCRIPTION(ValueMapKey, ValueMapKeyDescription);
 
+#endif
 
 namespace MLDB {
 
-
+#if 0
 /*****************************************************************************/
 /* FUNCTION STEP INFO                                                        */
 /*****************************************************************************/
@@ -219,7 +220,7 @@ FunctionValuesDescription()
     addField("values", &FunctionValues::values,
              "Values that step touches");
 }
-
+#endif
 
 DEFINE_STRUCTURE_DESCRIPTION(FunctionInfo);
 
@@ -256,6 +257,7 @@ FunctionPolyConfigDescription()
     documentationUri = "/doc/builtin/functions/FunctionConfig.md";
 }
 
+#if 0
 
 /*****************************************************************************/
 /* FUNCTION OUTPUT                                                           */
@@ -720,9 +722,10 @@ toRowInfo() const
     return std::make_shared<RowValueInfo>(knownColumns, SCHEMA_CLOSED);
 }
 
+#endif
 
 /*****************************************************************************/
-/* FUNCTION INFO                                                             */
+/* FUNCTION APPLIER                                                          */
 /*****************************************************************************/
 
 FunctionOutput
@@ -773,11 +776,15 @@ bind(SqlBindingScope & outerContext,
     result->function = this;
     result->info = getFunctionInfo();
 
+    // TO RESOLVE BEFORE MERGE
+    throw HttpReturnException(600, "Function::bind(): check compatibility");
+#if 0
     // Check that all values on the passed input are compatible with the required
     // inputs.
     for (auto & p: result->info.input.values) {
         input.checkValueCompatibleAsInputTo(p.first.toUtf8String(), p.second);
     }
+#endif
 
     return result;
 }
