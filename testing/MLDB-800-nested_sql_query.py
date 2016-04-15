@@ -139,4 +139,65 @@ expected = [[ "_rowName", "patate().avg(value)" ],
 
 assert res == expected
 
+mldb.put('/v1/datasets/exampleA', { "type":"sparse.mutable" })
+mldb.put('/v1/datasets/exampleB', { "type":"sparse.mutable" })
+mldb.post('/v1/datasets/exampleA/rows', {
+    "rowName": "first row",
+    "columns": [
+        ["a.1", 1, 0],
+        ["a.2", 2, 0]
+    ]
+})
+
+mldb.post('/v1/datasets/exampleA/rows', {
+    "rowName": "second row",
+    "columns": [
+        ["a.1", 3, 0],
+        ["a.2", 4, 0]
+    ]
+})
+mldb.post('/v1/datasets/exampleA/rows', {
+    "rowName": "third row",
+    "columns": [
+        ["a.1", 5, 0],
+        ["a.2", 6, 0]
+    ]
+})
+mldb.post('/v1/datasets/exampleB/rows', {
+    "rowName": "first row",
+    "columns": [
+        ["b.1", 10, 0],
+        ["b.2", 20, 0]
+    ]
+})
+
+mldb.post("/v1/datasets/exampleA/commit")
+mldb.post("/v1/datasets/exampleB/commit")
+
+mldb.put("/v1/functions/patate", {
+    "type": "sql.query",
+    "params": {
+        "query": """
+            SELECT vertical_avg(norm(vector_diff({exampleA.a.*}, {exampleB.b.*}), 2)) as score
+            FROM exampleA JOIN exampleB
+        """,
+        "output": "FIRST_ROW"
+    }
+})
+
+res = mldb.query("select patate()")
+
+expected = [
+    [
+        "_rowName",
+        "patate().score"
+    ],
+    [
+        "result",
+        17.484976580463197
+    ]
+]
+
+assert expected == res
+
 mldb.script.set_return('success')
