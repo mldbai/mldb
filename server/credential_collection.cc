@@ -1,12 +1,12 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
-/** credentiald.cc
+/** credential_collection.cc
     Jeremy Barnes, 11 November 2014
     Copyright (c) 2014 Datacratic Inc.  All rights reserved.
 
+     This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
-#include "credentials_daemon.h"
+#include "credential_collection.h"
+#include "mldb/server/mldb_server.h"
 #include "mldb/rest/rest_collection_impl.h"
 #include "mldb/rest/rest_request_binding.h"
 #include "mldb/types/structure_description.h"
@@ -19,6 +19,8 @@ using namespace std;
 
 
 namespace Datacratic {
+
+namespace MLDB {
 
 DEFINE_STRUCTURE_DESCRIPTION(StoredCredentials);
 
@@ -88,8 +90,8 @@ CredentialRule(CredentialRuleConfig config)
 /*****************************************************************************/
 
 CredentialRuleCollection::
-CredentialRuleCollection(CredentialsDaemon * owner)
-    : Base2("rule", "rules", owner)
+CredentialRuleCollection(MLDB::MldbServer * server)
+    : Base("credential", "credentials", server)
 {
     this->backgroundCreate = false;
 }
@@ -109,7 +111,7 @@ void
 CredentialRuleCollection::
 initRoutes(RouteManager & manager)
 {
-    Base2::initRoutes(manager);
+    Base::initRoutes(manager);
 
     manager.addPutRoute();
     manager.addPostRoute();
@@ -167,16 +169,36 @@ getConfig(std::string key, const CredentialRule & value) const
 }
 
 
-template class RestCollection<std::string, CredentialRule>;
-template class RestConfigurableCollection<std::string, CredentialRule,
-                                          CredentialRuleConfig,
-                                          CredentialRuleStatus>;
+std::shared_ptr<CredentialRuleCollection>
+createCredentialCollection(MLDB::MldbServer * server, RestRouteManager & routeManager,
+                           std::shared_ptr<CollectionConfigStore> configStore) {
 
+    auto result = std::make_shared<CredentialRuleCollection>(server);
+    //result->init(configStore);
+
+    auto getCollection = [=] (const RestRequestParsingContext & context)
+        {
+            return result.get();
+        };
+
+    auto collectionRouteManager
+        = std::make_shared<typename CredentialRuleCollection::RouteManager>
+        (routeManager, *routeManager.parentNode,
+         routeManager.resourceElementsMatched + 2,
+         getCollection, "credential", "credentials");
+    CredentialRuleCollection::initRoutes(*collectionRouteManager);
+
+    // Save our child route
+    routeManager.childRoutes["credentials"] = collectionRouteManager;
+
+    server->addEntity("credentials", *result);
+    return result;
+}
 
 /*****************************************************************************/
 /* CREDENTIAL DAEMON                                                         */
 /*****************************************************************************/
-
+#if 0
 CredentialsDaemon::
 CredentialsDaemon()
     : EventRecorder("", nullptr),
@@ -212,11 +234,11 @@ init(std::shared_ptr<CollectionConfigStore> configStore)
         connection.sendResponse(200, result);
         return RestRequestRouter::MR_YES;
     };
-        
+
     router.addRoute("/info", "GET", "Return service information (version, etc)",
                     serviceInfoRoute,
                     Json::Value());
-        
+
     // Push our this pointer in to make sure that it's available to sub
     // routes
     auto addObject = [=] (RestConnection & connection,
@@ -233,7 +255,7 @@ init(std::shared_ptr<CollectionConfigStore> configStore)
         = [=] (RestConnection & connection,
                const RestRequest & request,
                const RestRequestParsingContext & context) {
-        
+
         kill(getpid(), SIGUSR2);
 
         Json::Value result;
@@ -241,7 +263,7 @@ init(std::shared_ptr<CollectionConfigStore> configStore)
         connection.sendResponse(200, result);
         return RestRequestRouter::MR_YES;
     };
-    
+
     versionNode.addRoute("/shutdown", "POST", "Shutdown the service",
                          handleShutdown,
                          Json::Value());
@@ -295,7 +317,7 @@ init(std::shared_ptr<CollectionConfigStore> configStore)
             = std::make_shared<CredentialRuleCollection::RouteManager>
             (versionNode, getRulesCollection, "rule", "rules");
         CredentialRuleCollection::initRoutes(*collectionRouteManager);
-    
+
         // Save our child route
         routeManager->childRoutes["rules"] = collectionRouteManager;
     }
@@ -305,14 +327,14 @@ init(std::shared_ptr<CollectionConfigStore> configStore)
 
     auto & typeNode = typesNode.addSubRouter(Rx("/([a-zA-Z0-9:]*)", "/<resourceType>"),
                                              "Node for resources of a type");
-    
+
     RequestParam<std::string> typeParam(3, "/<resourceType>", "Type of resource");
-    
+
     auto & resourcesNode = typeNode.addSubRouter("/resources", "Node for specific resources");
-    
+
     //auto & resourceNode = resourcesNode.addSubRouter(Rx("/(.*)/credentials", "/<resource>"),
     //                                                 "Node for a given resource");
-    
+
     RequestParam<std::string> resourceParam(6, "<resource>", "Name of resource");
 
     addRouteSyncJsonReturn(resourcesNode,
@@ -355,10 +377,10 @@ getCredentials(const std::string & resourceType,
                         const CredentialRule & rule)
         {
             logger->info() << "attempting to match rule " << rule.config->id;
-            
+
             if (rule.config->store) {
                 if (resourceType.find(rule.config->store->resourceType) != 0) {
-                    logger->info() << "failed to match on resource type " 
+                    logger->info() << "failed to match on resource type "
                                    << rule.config->store->resourceType;
                     return true;
                 }
@@ -375,7 +397,7 @@ getCredentials(const std::string & resourceType,
             logger->info() << "failed to matched rule " << rule.config->id;
             return true;
         };
-    
+
     rules.forEachEntry(onEntry);
 
     return result;
@@ -398,5 +420,8 @@ getUriForPath(ResourcePath path)
         result += "/" + e;
     return result;
 }
+#endif
+
+} // namespace MLDB
 
 } // namespace datacratic

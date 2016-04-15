@@ -9,12 +9,11 @@ MLDB (version {{VERSION_NAME2}}) is starting up
 EOF
 
 export BIN=/opt/bin
-export REMOTE_CREDENTIAL_PROVIDER=http://127.0.0.1:{{CREDENTIALSD_LISTEN_PORT}}
 
 exec /sbin/setuser _mldb \
     /opt/bin/mldb_runner \
         --http-listen-port {{MLDB_RUNNER_LISTEN_PORT}} \
-        --configuration-path {{MLDB_CONFIGURATION_PATH}} \
+        --credentials-path {{MLDB_CREDENTIALS_PATH}} \
         --static-assets-path {{MLDB_PUBLIC_HTML_PATH}}/resources \
         --static-doc-path {{MLDB_PUBLIC_HTML_PATH}}/doc \
         --cache-dir {{MLDB_SSD_CACHE_PATH}} \
@@ -23,4 +22,3 @@ exec /sbin/setuser _mldb \
         --http-base-url "${HTTP_BASE_URL}" \
         {{MLDB_EXTRA_FLAGS}} \
         $MLDB_RUNNER_ARGS
-

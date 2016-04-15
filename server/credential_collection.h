@@ -1,9 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
-/** credentiald.h                                                  -*- C++ -*-
+/** credential_collection.h                                                  -*- C++ -*-
     Jeremy Barnes, 11 November 2014
     Copyright (c) 2014 Datacratic Inc.  All rights reserved.
 
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #pragma once
@@ -13,12 +12,12 @@
 #include "mldb/rest/rest_service_endpoint.h"
 #include "mldb/soa/credentials/credential_provider.h"
 #include "mldb/rest/rest_collection.h"
-#include "mldb/rest/poly_collection.h"
 #include "mldb/utils/log_fwd.h"
 
 namespace Datacratic {
 
-struct CredentialsDaemon;
+namespace MLDB {
+struct MldbServer;
 
 /*****************************************************************************/
 /* CREDENTIAL RULE                                                           */
@@ -61,11 +60,11 @@ struct CredentialRuleCollection
 
     typedef RestConfigurableCollection<std::string, CredentialRule,
                                        CredentialRuleConfig,
-                                       CredentialRuleStatus> Base2;
-    
-    CredentialRuleCollection(CredentialsDaemon * owner);
+                                       CredentialRuleStatus> Base;
+
+    CredentialRuleCollection(MLDB::MldbServer * owner);
     ~CredentialRuleCollection();
-    
+
     void init(RestRequestRouter & parentNode);
 
     static void initRoutes(RouteManager & manager);
@@ -91,16 +90,11 @@ struct CredentialRuleCollection
     getConfig(std::string key, const CredentialRule & value) const;
 };
 
-extern template class RestCollection<std::string, CredentialRule>;
-extern template class RestConfigurableCollection<std::string, CredentialRule,
-                                                 CredentialRuleConfig,
-                                                 CredentialRuleStatus>;
 
-
+#if 0
 /*****************************************************************************/
 /* CREDENTIAL DAEMON                                                         */
 /*****************************************************************************/
-
 struct CredentialsDaemon
     : public EventRecorder, public RestServiceEndpoint, public RestDirectory {
 
@@ -133,10 +127,14 @@ struct CredentialsDaemon
 
 private:
     CredentialRuleCollection rules;
-    RestRequestRouter router;    
+    RestRequestRouter router;
     std::shared_ptr<CollectionConfigStore> config;
     std::shared_ptr<RestRouteManager> routeManager;
     std::shared_ptr<spdlog::logger> logger;
 };
+
+#endif
+
+} // MLDB namespace
 
 } // namespace Datacratic

@@ -11,7 +11,7 @@
 #include "mldb/server/mldb_server.h"
 #include "mldb/server/plugin_resource.h"
 #include "mldb/http/http_rest_proxy.h"
-#include "mldb/credentials/credentials_daemon.h"
+#include "mldb/server/credential_collection.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/utils/config.h"
 #include <boost/filesystem.hpp>
@@ -115,7 +115,6 @@ int main(int argc, char ** argv)
     int peerPublishPort = -1;
     string peerPublishHost;
 #endif
-    string configurationPath; // path to the config store
     string configPath;  // path to the configuration file
     std::string staticAssetsPath = "mldb/container_files/public_html/resources";
     std::string staticDocPath = "mldb/container_files/public_html/doc";
@@ -127,9 +126,10 @@ int main(int argc, char ** argv)
     string scriptArgsUrl;
 
     // List of credentials to add.  Each should be in JSON format as a
-    // 
+    //
     vector<string> addCredentials;
     string addCredentialsFromUrl;
+    std::string credentialsPath;
 
     // List of directories to scan for plugins
     vector<string> pluginDirectory;
@@ -158,7 +158,7 @@ int main(int argc, char ** argv)
          "directory to serve documentation from")
         ("cache-dir", value(&cacheDir),
          "Cache directory to memory map large files and store downloads")
-        
+
 #if 0
         ("peer-listen-port,l",
          value(&peerListenPort)->default_value(peerListenPort),
@@ -173,14 +173,13 @@ int main(int argc, char ** argv)
          value(&peerPublishHost)->default_value(peerPublishHost),
          "host to publish for the outside world")
 #endif
-        ("configuration-path,C",
-         value(&configurationPath),
-         "Path that persistent configuration is stored to allow the service " 
-         "to stop and restart (file:// for filesystem or s3:// for S3 uri)")
-        ("config-path", 
+        ("config-path",
          value(&configPath),
          "Path to the mldb configuration.  This is optional. Configuration option "
          "in that file have acceptable default values.")
+        ("credentials-path,c", value(&credentialsPath),
+         "Path in which to store saved credentials and rules "
+         "(file:// for filesystem or s3:// for S3 uri)")
         ("hide-internal-entities",
          "Hide in the documentation entities that are not meant to be exposed")
         ("mute-final-output", bool_switch(&muteFinalOutput),
@@ -211,7 +210,7 @@ int main(int argc, char ** argv)
         ("plugin-directory", value(&pluginDirectory),
          "URL of directory to scan for plugins (can be added multiple times). "
          "Don't forget file://.");
-    
+
     options_description all_opt;
     all_opt
         .add(configuration_options)
@@ -219,7 +218,7 @@ int main(int argc, char ** argv)
         .add(plugin_options)
         .add_options()
         ("help", "print this message");
-   
+
     variables_map vm;
     // command line has precendence over config
     store(command_line_parser(argc, argv)
@@ -231,7 +230,7 @@ int main(int argc, char ** argv)
     notify(vm);
 
     auto cmdConfig = Config::createFromProgramOptions(vm);
-    
+
     if (vm.count("config-path")) {
         cerr << "reading configuration from file: '" << configPath << "'" << endl;
         auto parsed_options = parse_config_file<char>(configPath.c_str(), all_opt, true);
@@ -296,7 +295,7 @@ int main(int argc, char ** argv)
                 }
                 else throw ML::Exception("Couldn't understand credentials " + val.toString());
             }
-            
+
             if (!fileCredentials.empty()) {
                 CredentialProvider::registerProvider
                     ("mldbCredentialsUrl",
@@ -326,12 +325,11 @@ int main(int argc, char ** argv)
         }
     }
 
-
     bool enableAccessLog = vm.count("enable-access-log");
     bool hideInternalEntities = vm.count("hide-internal-entities");
 
     MldbServer server("mldb", etcdUri, etcdPath, enableAccessLog, httpBaseUrl);
-    bool initSuccess = server.init(configurationPath, staticAssetsPath,
+    bool initSuccess = server.init(credentialsPath, staticAssetsPath,
                                    staticDocPath, hideInternalEntities);
 
     // if the server initialization fails don't register plugins
@@ -347,7 +345,7 @@ int main(int argc, char ** argv)
             server.scanPlugins(d);
         }
     }
-    
+
     server.httpBoundAddress = server.bindTcp(httpListenPort, httpListenHost);
     server.router.addAutodocRoute("/autodoc", "/v1/help", "autodoc");
     server.threadPool->ensureThreads(numThreads);
@@ -368,7 +366,7 @@ int main(int argc, char ** argv)
         else throw ML::Exception("Unsupported extension '" +extension+ "'");
 
         HttpRestProxy proxy(server.httpBoundAddress);
-        
+
         PluginResource config;
         if (runScript.find("://") == string::npos)
             config.address = "file://" + runScript;
@@ -408,7 +406,7 @@ int main(int argc, char ** argv)
 
         auto output = proxy.post("/v1/types/plugins/" + runner + "/routes/run",
                                  jsonEncode(config));
-        
+
         bool success = false;
 
         auto result = output.jsonBody();

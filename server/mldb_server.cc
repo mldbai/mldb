@@ -24,6 +24,7 @@
 #include "mldb/server/plugin_collection.h"
 #include "mldb/server/procedure_collection.h"
 #include "mldb/server/function_collection.h"
+#include "mldb/server/credential_collection.h"
 #include "mldb/server/dataset_context.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/vfs/filter_streams.h"
@@ -59,6 +60,10 @@ createProcedureCollection(MldbServer * server, RestRouteManager & routeManager,
 
 std::shared_ptr<FunctionCollection>
 createFunctionCollection(MldbServer * server, RestRouteManager & routeManager,
+                      std::shared_ptr<CollectionConfigStore> configStore);
+
+std::shared_ptr<CredentialRuleCollection>
+createCredentialCollection(MldbServer * server, RestRouteManager & routeManager,
                       std::shared_ptr<CollectionConfigStore> configStore);
 
 std::shared_ptr<TypeClassCollection>
@@ -97,27 +102,9 @@ MldbServer::
     shutdown();
 }
 
-#if 0
-void
-MldbServer::
-init(PortRange bindPort, const std::string & bindHost,
-     int publishPort, std::string publishHost,
-     std::string configurationPath,
-     std::string staticFilesPath,
-     std::string staticDocPath)
-{
-    auto server = std::make_shared<AsioPeerServer>();
-    server->init(bindPort, bindHost, publishPort, publishHost);
-
-    initServer(server);
-    initRoutes();
-    initCollections(configurationPath, staticFilesPath, staticDocPath);
-}
-#endif
-
 bool
 MldbServer::
-init(std::string configurationPath,
+init(std::string credentialsPath,
      std::string staticFilesPath,
      std::string staticDocPath,
      bool hideInternalEntities)
@@ -127,7 +114,7 @@ init(std::string configurationPath,
     preInit();
     initServer(server);
     if (initRoutes()) { // if initRoutes fails no need to add collections to routes
-        initCollections(configurationPath, staticFilesPath, staticDocPath, hideInternalEntities);
+        initCollections(credentialsPath, staticFilesPath, staticDocPath, hideInternalEntities);
         return true;
     }
     return false;
@@ -157,13 +144,13 @@ initRoutes()
         connection.sendResponse(200, result);
         return RestRequestRouter::MR_YES;
     };
-        
+
     router.addHelpRoute("/v1/help", "GET");
-    
+
     router.addRoute("/info", "GET", "Return service information (version, etc)",
                     serviceInfoRoute,
                     Json::Value());
-        
+
     // Push our this pointer in to make sure that it's available to sub
     // routes
     auto addObject = [=] (RestConnection & connection,
@@ -175,12 +162,12 @@ initRoutes()
 
     auto & versionNode = router.addSubRouter("/v1", "version 1 of API",
                                              addObject);
- 
+
     RestRequestRouter::OnProcessRequest handleShutdown
         = [=] (RestConnection & connection,
                const RestRequest & request,
                const RestRequestParsingContext & context) {
-        
+
         kill(getpid(), SIGUSR2);
 
         Json::Value result;
@@ -195,7 +182,7 @@ initRoutes()
                            &MldbServer::getTypeInfo,
                            this,
                            RestParam<std::string>("type", "The type to look up"));
-    
+
     versionNode.addRoute("/shutdown", "POST", "Shutdown the service",
                          handleShutdown,
                          Json::Value());
@@ -224,12 +211,12 @@ initRoutes()
                       RestParamDefault<bool>("sortColumns",
                                              "Do we sort the column names",
                                              false));
-    
- 
+
+
         this->versionNode = &versionNode;
         return true;
     } else {
-        static constexpr auto errorMessage = 
+        static constexpr auto errorMessage =
             "*** ERROR ***\n"
             "* MLDB requires a cpu with minimally SSE 4.2 instruction set. *\n"
             "* This system does not support SSE 4.2, therefore most of the *\n"
@@ -241,7 +228,7 @@ initRoutes()
                                            const RestRequest & request) {
             connection.sendErrorResponse(500, errorMessage);
         };
-         
+
         router.notFoundHandler = versionNode.notFoundHandler;
         logger->error() << errorMessage;
         this->versionNode = &versionNode;
@@ -266,7 +253,7 @@ runHttpQuery(const Utf8String& query,
         {
             return queryFromStatement(stm, mldbContext);
         };
-    
+
     MLDB::runHttpQuery(runQuery, connection, format, createHeaders,
                        rowNames, rowHashes, sortColumns);
 }
@@ -337,6 +324,7 @@ initCollections(std::string configurationPath,
     datasets = createDatasetCollection(this, *routeManager, makeConfigStore("datasets"));
     procedures = createProcedureCollection(this, *routeManager, makeConfigStore("procedures"));
     functions = createFunctionCollection(this, *routeManager, makeConfigStore("functions"));
+    credentials = createCredentialCollection(this, *routeManager, makeConfigStore("credentials"));
     types = createTypeClassCollection(this, *routeManager);
 
     plugins->loadConfig();
@@ -471,7 +459,7 @@ scanPlugins(const std::string & dir_)
                 }
                 return true;
             };
-        
+
         try {
             forEachUriObject(dir, onFile, onSubdir);
         } catch (const HttpReturnException & exc) {
@@ -572,7 +560,7 @@ makeInternalDocRedirect(const Package & package, const Utf8String & relativePath
         {
             Utf8String basePath = static_cast<MldbServer *>(server)
                 ->getPackageDocumentationPath(package);
-            connection.sendRedirect(301, (basePath + relativePath).rawString()); 
+            connection.sendRedirect(301, (basePath + relativePath).rawString());
             return RestRequestRouter::MR_YES;
         };
 }

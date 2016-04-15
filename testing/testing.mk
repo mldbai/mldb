@@ -52,11 +52,10 @@ $(eval $(call test,MLDB-267-delete-while-loading,mldb,boost))
 $(eval $(call test,mldb_crash_multiple_py_routes,mldb,boost manual))  #manual - intermittent - MLDB-787
 $(eval $(call test,mldb_function_pin_test,mldb,boost))
 $(eval $(call test,mldb_determinism_test,mldb,boost))
-$(eval $(call test,credentials_daemon_test,credentials_daemon cloud,boost))
+$(eval $(call test,credentials_persistence_test,mldb cloud,boost))
 $(eval $(call test,MLDB-1025-output-dataset-serialization-test,mldb,boost))
 
-$(TESTS)/credentials_daemon_test: $(BIN)/credentialsd
-
+$(TESTS)/credentials_persistence_test: $(BIN)/mldb_runner
 
 $(eval $(call mldb_unit_test,test_the_tester.js))
 $(eval $(call mldb_unit_test,test_the_tester.py))
@@ -121,7 +120,7 @@ $(eval $(call mldb_unit_test,MLDB-541-record-column.js))
 $(eval $(call mldb_unit_test,MLDB-581-multiple-select.js))
 $(eval $(call mldb_unit_test,MLDB-529-duplicate-pin.js))
 $(eval $(call mldb_unit_test,MLDB-284-tsne-reapply.js,,manual))  #manual - waiting for fix
-$(eval $(call mldb_unit_test,MLDB-592-bs-training-failure.py)) 
+$(eval $(call mldb_unit_test,MLDB-592-bs-training-failure.py))
 $(eval $(call mldb_unit_test,MLDB-390-sql-expression-function.js))
 $(eval $(call mldb_unit_test,MLDB-593-serial-function-with-extract.js))
 $(eval $(call mldb_unit_test,MLDB-587-empty-classifier.js))
@@ -342,6 +341,7 @@ $(eval $(call mldb_unit_test,MLDB-1398-plugin-library-dependency.js,MLDB-1398-pl
 $(eval $(call mldb_unit_test,MLDB-1554-string-agg.js))
 $(eval $(call mldb_unit_test,MLDB-1567-empty-literal.js))
 $(eval $(call mldb_unit_test,MLDB-1563-keys-values-of.js))
+$(eval $(call mldb_unit_test,MLDB-1468-credentials-test.py))
+
 
 $(eval $(call test,MLDB-1360-sparse-mutable-multithreaded-insert,mldb,boost))
-
