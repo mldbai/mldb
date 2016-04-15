@@ -16,6 +16,7 @@
 #include "mldb/sql/sql_expression.h"
 #include "mldb/sql/sql_utils.h"
 #include "mldb/jml/utils/lightweight_hash.h"
+#include "mldb/jml/utils/profile.h"
 #include "mldb/server/dataset_context.h"
 #include "mldb/server/per_thread_accumulator.h"
 #include "mldb/server/bucket.h"
@@ -949,6 +950,8 @@ generateRowsWhere(const SqlBindingScope & scope,
             return dynamic_cast<const BoundParameterExpression *>(&expression);
         };
 
+    //look for rowName() != constant-or-bound 
+    //or constant-or-bound != rowName()
     auto isRowNameFilter = [&](const SqlExpression & expression)
     {
         auto comparison = dynamic_cast<const ComparisonExpression *>(&expression);
@@ -961,9 +964,6 @@ generateRowsWhere(const SqlBindingScope & scope,
             auto frhs = getFunction(*comparison->rhs);
             auto blhs = getBoundParameter(*comparison->lhs);
             auto brhs = getBoundParameter(*comparison->rhs);
-
-            //look for rowName() != constant-or-bound 
-            //or       constant-or-bound != rowName()
 
             if (frhs && (clhs || blhs) && comparison->op == "!=") {
                 if (removeTableName(alias, frhs->functionName) == "rowName" ) {
@@ -981,7 +981,6 @@ generateRowsWhere(const SqlBindingScope & scope,
     };
 
     // extract x from rowName() != constant or constant != rowName()
-
     auto getRowNameFilter = [&](const SqlExpression & expression) {
         auto comparison = dynamic_cast<const ComparisonExpression *>(&expression);
         ExcAssert(comparison);
@@ -1003,7 +1002,6 @@ generateRowsWhere(const SqlBindingScope & scope,
     };
 
     // extract bound-parameter from rowName() != bound-parameter or bound-parameter != rowName()
-
     auto getBoundParameterFilter = [&] (const SqlExpression & expression)
     -> const BoundParameterExpression *
     {
@@ -1019,10 +1017,12 @@ generateRowsWhere(const SqlBindingScope & scope,
 
     if (boolean) {
         // Optimize a boolean operator
-
         if (boolean->op == "AND") {
 
             bool isLeft = false;
+            //MLDB-1553 ideally we should only do this if the other side is not a full table scan.
+            //we could also generalize to other cases like 'AND rowname() NOT in (...)'
+
             if ((isLeft = isRowNameFilter(*boolean->lhs)) || isRowNameFilter(*boolean->rhs)) {
 
                 auto scanExpression = isLeft? boolean->rhs : boolean->lhs;
@@ -1031,23 +1031,16 @@ generateRowsWhere(const SqlBindingScope & scope,
                 GenerateRowsWhereFunction gen = generateRowsWhere(scope, alias, *scanExpression, 0, -1);
                 SqlExpressionDatasetContext dsScope(*this, alias);
 
-                cerr << "And filter using " << gen.explain << " filtering " /*<< except.toString()*/
-                     << endl;
-
-                auto boundParameterExpression = isLeft ? getBoundParameterFilter(*boolean->lhs) : getBoundParameter(*boolean->rhs);
-
-                auto getFilteredRowName = [&] (const BoundParameters & params) {
+                auto getFilteredRowName = [=] (const BoundParameters & params) {
                     return getRowNameFilter(*filterExpression);
                 };
 
                 std::function<RowName(const BoundParameters & params)> filterCallback = getFilteredRowName;
 
+                auto boundParameterExpression = isLeft ? getBoundParameterFilter(*boolean->lhs) : getBoundParameter(*boolean->rhs);
                 if (boundParameterExpression) {
 
-                    cerr << "bound parameter" << endl;
-
                     auto paramName = boundParameterExpression->paramName;
-
                     auto getFilteredRowNameFromBoundParameter = [=] (const BoundParameters & params) {
                         ExpressionValue value = std::move(params(paramName));
                         return RowName(value.getAtom().toString());
@@ -1063,7 +1056,7 @@ generateRowsWhere(const SqlBindingScope & scope,
                         {
                             RowName except = filterCallback(params);
 
-                            auto rows = gen(-1, Any(), params).first;                                
+                            auto rows = gen(-1, Any(), params).first;
                             auto iter = std::find(rows.begin(), rows.end(), except);
                             if (iter != rows.end()) {
                                 *iter = rows.back();
