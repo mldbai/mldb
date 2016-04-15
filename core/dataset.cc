@@ -1305,7 +1305,7 @@ generateRowsWhere(const SqlBindingScope & scope,
                             row.rowHash = row.rowName = r;
                         }
 
-                        auto rowScope = dsScope.getRowContext(row, &params);
+                        auto rowScope = dsScope.getRowScope(row, &params);
                         
                         bool keep = whereBound(rowScope, GET_LATEST).isTrue();
                         
@@ -1424,7 +1424,7 @@ queryBasic(const SqlBindingScope & scope,
                         outputRow.rowName = row.rowName;
                         outputRow.rowHash = row.rowName;
 
-                        auto rowScope = selectScope.getRowContext(row, &params);
+                        auto rowScope = selectScope.getRowScope(row, &params);
 
                         // Filter the tuple using the WHEN expression
                         if (!whenTrue)
@@ -1448,7 +1448,7 @@ queryBasic(const SqlBindingScope & scope,
                             // since they will be found in the output
                             // row anyway
                             auto orderByRowScope
-                                = orderByScope.getRowContext(rowScope,
+                                = orderByScope.getRowScope(rowScope,
                                                              outputRow);
 
                             
@@ -1464,7 +1464,7 @@ queryBasic(const SqlBindingScope & scope,
                             // Get the order by scope, which can read from both the result
                             // of the select and the underlying row.
                             auto orderByRowScope
-                                = orderByScope.getRowContext(rowScope, outputRow);
+                                = orderByScope.getRowScope(rowScope, outputRow);
 
                             sortFields
                                 = boundOrderBy.apply(orderByRowScope);

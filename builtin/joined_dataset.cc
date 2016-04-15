@@ -878,7 +878,7 @@ overrideFunction(const Utf8String & tableName,
             return {[&, tableSide] (const std::vector<ExpressionValue> & args,
                      const SqlRowScope & context)
                 { 
-                    auto & row = context.as<SqlExpressionDatasetContext::RowContext>();
+                    auto & row = context.as<SqlExpressionDatasetContext::RowScope>();
                     return ExpressionValue(itl->getSubRowName(row.row.rowName, tableSide).toUtf8String(), Date::negativeInfinity());
                 },
                 std::make_shared<Utf8StringValueInfo>()
@@ -895,7 +895,7 @@ overrideFunction(const Utf8String & tableName,
             return {[&, tableName, tableSide] (const std::vector<ExpressionValue> & args,
                      const SqlRowScope & context)
                 {
-                    auto & row = context.as<SqlExpressionDatasetContext::RowContext>();
+                    auto & row = context.as<SqlExpressionDatasetContext::RowScope>();
                     return ExpressionValue(itl->getSubRowNameFromChildTable(tableName, row.row.rowName, tableSide).toUtf8String(), Date::negativeInfinity());
                 },
                 std::make_shared<Utf8StringValueInfo>()

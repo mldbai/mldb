@@ -24,7 +24,7 @@
 
 namespace Datacratic {
 
-
+#if 0
 /*****************************************************************************/
 /* VALUE MAP KEY                                                             */
 /*****************************************************************************/
@@ -94,22 +94,22 @@ PREDECLARE_VALUE_DESCRIPTION(ValueMapKey);
 ValueMapKey stringToKey(const std::string & str, ValueMapKey *);
 std::string keyToString(const ValueMapKey & key);
 std::string keyToString(ValueMapKey && key);
-
+#endif
 
 namespace MLDB {
 
 struct Function;
 struct MldbServer;
-struct FunctionOutput;
 struct SqlExpression;
 struct SqlRowExpression;
 struct ExpressionValueInfo;
+struct RowValueInfo;
 struct KnownColumn;
 
 typedef EntityType<Function> FunctionType;
 
 
-
+#if 0
 /*****************************************************************************/
 /* FUNCTION CONTEXT                                                          */
 /*****************************************************************************/
@@ -402,6 +402,11 @@ struct FunctionValues {
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(FunctionValues);
+#endif
+
+typedef std::shared_ptr<ExpressionValueInfo> FunctionValues;
+typedef ExpressionValue FunctionOutput;
+typedef ExpressionValue FunctionContext;
 
 
 /*****************************************************************************/
@@ -413,10 +418,10 @@ DECLARE_STRUCTURE_DESCRIPTION(FunctionValues);
 struct FunctionInfo {
 
     /// Values that this function takes as an input
-    FunctionValues input;
+    std::shared_ptr<RowValueInfo> input;
 
     /// Values that this function produces as an output
-    FunctionValues output;
+    std::shared_ptr<RowValueInfo> output;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(FunctionInfo);
@@ -430,6 +435,9 @@ DECLARE_STRUCTURE_DESCRIPTION(FunctionInfo);
     input data.
 
     Functions may override to include extra information.
+
+    Note that this is essentially a BoundFunction now, apart from not taking
+    an argument to its outside row scope.
 */
 
 struct FunctionApplier {

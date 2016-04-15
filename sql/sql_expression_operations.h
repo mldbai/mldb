@@ -467,14 +467,12 @@ struct ComputedColumn: public SqlRowExpression {
 */
 struct FunctionCallExpression: public SqlRowExpression {
     FunctionCallExpression(Utf8String functionName,
-                           std::vector<std::shared_ptr<SqlExpression> > args,
-                           std::shared_ptr<SqlExpression> extract);
+                           std::vector<std::shared_ptr<SqlExpression> > args);
     
     virtual ~FunctionCallExpression();
     
     Utf8String functionName;
     std::vector<std::shared_ptr<SqlExpression> > args;
-    std::shared_ptr<SqlExpression> extract;
 
     virtual BoundSqlExpression bind(SqlBindingScope & context) const;
 
@@ -496,10 +494,39 @@ struct FunctionCallExpression: public SqlRowExpression {
 
 private:
 
-    BoundSqlExpression bindBuiltinFunction(SqlBindingScope & context,
-                                           std::vector<BoundSqlExpression> & boundArgs,
-                                           BoundFunction& fn) const;
-    BoundSqlExpression bindUserFunction(SqlBindingScope & context) const;
+    BoundSqlExpression
+    bindBuiltinFunction(SqlBindingScope & context,
+                        std::vector<BoundSqlExpression> & boundArgs,
+                        BoundFunction& fn) const;
+};
+
+/** Represents extracting or rewriting an object. */
+struct ExtractExpression: public SqlRowExpression {
+    ExtractExpression(std::shared_ptr<SqlExpression> from,
+                      std::shared_ptr<SqlExpression> extract);
+    
+    virtual ~ExtractExpression();
+    
+    std::shared_ptr<SqlExpression> from;
+    std::shared_ptr<SqlExpression> extract;
+
+    virtual BoundSqlExpression bind(SqlBindingScope & context) const;
+
+    virtual Utf8String print() const;
+
+    virtual std::shared_ptr<SqlExpression>
+    transform(const TransformArgs & transformArgs) const;
+
+    virtual std::string getType() const;
+    virtual Utf8String getOperation() const;
+    virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
+    virtual bool isConstant() const { return false; } // TODO: not always
+
+    virtual std::map<ScopedName, UnboundVariable>
+    variableNames() const override;
+
+    virtual std::map<ScopedName, UnboundFunction>
+    functionNames() const override;
 };
 
 /** Represents "SELECT COLUMNS expression" */

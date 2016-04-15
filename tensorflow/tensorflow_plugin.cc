@@ -628,10 +628,10 @@ struct TensorflowGraph: public Function {
     /** Used to bind the output of a Tensorflow graph into an SQL
         expression that extracts from it.
     */
-    struct GraphExtractScope: public ReadThroughBindingContext {
+    struct GraphExtractScope: public ReadThroughBindingScope {
         GraphExtractScope(SqlBindingScope & outerScope,
                           const tensorflow::GraphDef & graph)
-            : ReadThroughBindingContext(outerScope)
+            : ReadThroughBindingScope(outerScope)
         {
             // Go through all of the layers of the graph and index
             // them by node name
@@ -641,11 +641,11 @@ struct TensorflowGraph: public Function {
         }
         
         // Derives from inner row scope, so we can pass directly through
-        struct RowScope: public ReadThroughBindingContext::RowContext {
+        struct RowScope: public ReadThroughBindingScope::RowScope {
             RowScope(const SqlRowScope & outerScope,
                      const std::vector<tensorflow::Tensor> & graphOutput,
                      Date ts)
-                : ReadThroughBindingContext::RowContext(outerScope),
+                : ReadThroughBindingScope::RowScope(outerScope),
                   graphOutput(graphOutput),
                   ts(ts)
             {
@@ -666,7 +666,7 @@ struct TensorflowGraph: public Function {
                                  const ColumnName & columnName)
         {
             if (!tableName.empty())
-                return ReadThroughBindingContext
+                return ReadThroughBindingScope
                     ::doGetColumn(tableName, columnName);
 
             cerr << "looking for graph variable " << columnName << endl;
@@ -674,7 +674,7 @@ struct TensorflowGraph: public Function {
             auto it = graphNodes.find(columnName.toSimpleName());
             if (it == graphNodes.end()) {
                 // Not found in nodes; read through to the outside
-                return ReadThroughBindingContext
+                return ReadThroughBindingScope
                     ::doGetColumn(tableName, columnName);
             }
             
@@ -753,7 +753,7 @@ struct TensorflowGraph: public Function {
             vector<Tensor> inputTensors;
             vector<string> inputLayers;
 
-            auto rowScope = functionScope.getRowContext(inputData);
+            auto rowScope = functionScope.getRowScope(inputData);
 
             ExpressionValue inStorage;
             const ExpressionValue & in = boundInputs(rowScope, inStorage, GET_LATEST);

@@ -750,6 +750,14 @@ struct ExpressionValue {
     ExpressionValue getNestedColumn(const ColumnName & columnName,
                                     const VariableFilter & filter = GET_LATEST) const;
 
+    // Return the given nested column.  Valid for anything that is a
+    // row type... rows, JSON values, objects, arrays, embeddings.
+    // If it's not found, will return null and false in the second element.
+    // This allows explicit null versus undefined to be distinguished.
+    std::pair<ExpressionValue, bool>
+    tryGetNestedColumn(const ColumnName & columnName,
+                       const VariableFilter & filter = GET_LATEST) const;
+    
 #if 0    
     // Return the given field by index.  Valid for anything that is a
     // arrays or embedding.

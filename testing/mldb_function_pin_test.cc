@@ -24,17 +24,6 @@ using namespace Datacratic::MLDB;
 
 BOOST_AUTO_TEST_CASE( test_function_pins )
 {
-    MldbServer server;
-    
-    server.init();
-    string httpBoundAddress = server.bindTcp(PortRange(17000,18000), "127.0.0.1");
-    cerr << "http listening on " << httpBoundAddress << endl;
-    server.start();
-    HttpRestProxy proxy(httpBoundAddress);
-    
-    PolyConfig config;
-    config.type = "testfunction";
-
     FunctionInfo info;
     info.input.addRowValue("row");
 

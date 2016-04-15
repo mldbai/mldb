@@ -398,11 +398,11 @@ struct SqlExpressionFunctionApplier: public FunctionApplier {
     {
         if (function->functionConfig.prepared) {
             // Use the pre-bound version.   
-            return function->bound(function->innerScope.getRowContext(context), GET_LATEST);
+            return function->bound(function->innerScope.getRowScope(context), GET_LATEST);
         }
         else {
             // Use the specialized version. 
-            return bound(this->innerScope.getRowContext(context), GET_LATEST);
+            return bound(this->innerScope.getRowScope(context), GET_LATEST);
         }
     }
 

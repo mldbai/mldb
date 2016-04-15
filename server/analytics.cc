@@ -161,7 +161,7 @@ void iterateDense(const SelectExpression & select,
 
             // Check it matches the where expression.  If not, we don't process
             // it.
-            auto rowContext = context.getRowContext(row);
+            auto rowContext = context.getRowScope(row);
 
             if (!whereBound(rowContext, GET_LATEST).isTrue())
                 return true;

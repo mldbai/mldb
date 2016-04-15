@@ -99,6 +99,12 @@ struct PolyCollection: public PolyCollectionBase {
     std::shared_ptr<Entity>
     getExistingEntity(const Utf8String & key) const;
 
+    /** Try to get an entity, but return nullptr rather than throwing if
+        it's not found.
+    */
+    std::shared_ptr<Entity>
+    tryGetExistingEntity(const Utf8String & key) const;
+
 private:
     /*************************************************************************/
     /* REGISTRY                                                              */

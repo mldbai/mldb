@@ -139,11 +139,6 @@ struct PipelineExpressionScope:
     virtual ColumnFunction
     doGetColumnFunction(const Utf8String & functionName);
 
-    // Function used to get a function.  Default throws an exception that the
-    // function is not available.
-    virtual std::shared_ptr<Function>
-    doGetFunctionEntity(const Utf8String & functionName);
-
     virtual ColumnGetter doGetBoundParameter(const Utf8String & paramName);
 
     virtual ColumnName

@@ -35,9 +35,6 @@ struct SqlExpressionMldbContext: public SqlBindingScope {
                   const std::vector<BoundSqlExpression> & args,
                   SqlBindingScope & argScope);
     
-    virtual std::shared_ptr<Function>
-    doGetFunctionEntity(const Utf8String & functionName);
-
     virtual std::shared_ptr<Dataset>
     doGetDataset(const Utf8String & datasetName);
 
@@ -59,8 +56,8 @@ struct SqlExpressionMldbContext: public SqlBindingScope {
 
 struct SqlExpressionDatasetContext: public SqlExpressionMldbContext {
 
-    struct RowContext: public SqlRowScope {
-        RowContext(const MatrixNamedRow & row,
+    struct RowScope: public SqlRowScope {
+        RowScope(const MatrixNamedRow & row,
                    const BoundParameters * params = nullptr)
             : row(row), params(params)
         {
@@ -106,10 +103,10 @@ struct SqlExpressionDatasetContext: public SqlExpressionMldbContext {
     virtual ColumnGetter
     doGetBoundParameter(const Utf8String & paramName);
     
-    static RowContext getRowContext(const MatrixNamedRow & row,
+    static RowScope getRowScope(const MatrixNamedRow & row,
                                     const BoundParameters * params = nullptr)
     {
-        return RowContext(row, params);
+        return RowScope(row, params);
     }
 
     virtual ColumnName
@@ -137,17 +134,17 @@ protected:
     clause.  This has access to all of the input and output columns.
 */
 
-struct SqlExpressionOrderByContext: public ReadThroughBindingContext {
+struct SqlExpressionOrderByContext: public ReadThroughBindingScope {
 
     SqlExpressionOrderByContext(SqlBindingScope & outer)
-        : ReadThroughBindingContext(outer)
+        : ReadThroughBindingScope(outer)
     {
     }
 
-    struct RowContext: public ReadThroughBindingContext::RowContext {
-        RowContext(const SqlRowScope & outer,
+    struct RowScope: public ReadThroughBindingScope::RowScope {
+        RowScope(const SqlRowScope & outer,
                    const NamedRowValue & output)
-            : ReadThroughBindingContext::RowContext(outer), output(output)
+            : ReadThroughBindingScope::RowScope(outer), output(output)
         {
         }
 
@@ -161,10 +158,10 @@ struct SqlExpressionOrderByContext: public ReadThroughBindingContext {
     virtual ColumnGetter doGetColumn(const Utf8String & tableName,
                                        const ColumnName & columnName);
     
-    RowContext getRowContext(const SqlRowScope & outer,
+    RowScope getRowScope(const SqlRowScope & outer,
                              const NamedRowValue & output) const
     {
-        return RowContext(outer, output);
+        return RowScope(outer, output);
     }
 };
 

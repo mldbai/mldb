@@ -350,14 +350,6 @@ doCreateRowsWhereGenerator(const SqlExpression & where,
                         + " must override doCreateRowsWhereGenerator");
 }
 
-std::shared_ptr<Function>
-SqlBindingScope::
-doGetFunctionEntity(const Utf8String & functionName)
-{
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
-                        + " must override doGetFunctionEntity");
-}
-
 ColumnFunction
 SqlBindingScope::
 doGetColumnFunction(const Utf8String & functionName)
@@ -1301,23 +1293,27 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
                     context.expect_literal(',');
                 }
 
+                lhs = std::make_shared<FunctionCallExpression>
+                    (identifier.toSimpleName(), args);
+
+                lhs->surface = ML::trim(token.captured());
+
                 skip_whitespace(context);
 
+                // Look for an extract expression, which allows us to rewrite
+                // the output of the function.
                 std::shared_ptr<SqlExpression> extractExpression;
                 if (context.match_literal('[')) {
                     //extract brackets for user functions
-                    extractExpression
+                    auto extractExpression
                         = SqlExpression::parse(context,
                                                10 /*precedence*/, allowUtf8);
                     skip_whitespace(context);
                     context.expect_literal(']');
-                }
-                
-                lhs = std::make_shared<FunctionCallExpression>
-                    (identifier.toSimpleName(), args, extractExpression);
 
-                lhs->surface = ML::trim(token.captured());
-        
+                    lhs = std::make_shared<ExtractExpression>(lhs, extractExpression);
+                    lhs->surface = ML::trim(token.captured());
+                }
             } // if '(''
         } // if ! identifier empty
     } //if (!lhs)
@@ -1767,7 +1763,7 @@ func(std::shared_ptr<SqlExpression> lhs,
     if (lhs)
         args.push_back(lhs); // binary operator
     args.push_back(rhs);
-    return std::make_shared<FunctionCallExpression>(funcMap[op], args, nullptr);
+    return std::make_shared<FunctionCallExpression>(funcMap[op], args);
 }
 
 std::shared_ptr<SqlExpression>
