@@ -466,11 +466,13 @@ struct ComputedColumn: public SqlRowExpression {
     or a built-in function.
 */
 struct FunctionCallExpression: public SqlRowExpression {
-    FunctionCallExpression(Utf8String functionName,
+    FunctionCallExpression(Utf8String tableName,
+                           Utf8String functionName,
                            std::vector<std::shared_ptr<SqlExpression> > args);
     
     virtual ~FunctionCallExpression();
     
+    Utf8String tableName;
     Utf8String functionName;
     std::vector<std::shared_ptr<SqlExpression> > args;
 

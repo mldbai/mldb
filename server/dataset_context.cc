@@ -26,60 +26,63 @@ namespace MLDB {
 /* ROW EXPRESSION MLDB CONTEXT                                               */
 /*****************************************************************************/
 
-SqlExpressionMldbContext::
-SqlExpressionMldbContext(const MldbServer * mldb)
+SqlExpressionMldbScope::
+SqlExpressionMldbScope(const MldbServer * mldb)
     : mldb(const_cast<MldbServer *>(mldb))
 {
     ExcAssert(mldb);
 }
 
 BoundFunction
-SqlExpressionMldbContext::
+SqlExpressionMldbScope::
 doGetFunction(const Utf8String & tableName,
               const Utf8String & functionName,
               const std::vector<BoundSqlExpression> & args,
               SqlBindingScope & argScope)
 {
-    // 1.  Try to get a function entity
-    auto fn = mldb->functions->tryGetExistingEntity(functionName.rawString());
+    // User functions don't live in table scope
+    if (tableName.empty()) {
+        // 1.  Try to get a function entity
+        auto fn = mldb->functions->tryGetExistingEntity(functionName.rawString());
 
-    if (fn) {
-        // We found one.  Now wrap it up as a normal function.
-        if (args.size() > 1)
-            throw HttpReturnException(400, "User function " + functionName
-                                      + " expected a single row { } argument");
-
-        std::shared_ptr<FunctionApplier> applier;
-
-        if (args.empty()) {
-            applier.reset
-                (fn->bind(argScope,
-                          std::make_shared<RowValueInfo>(std::vector<KnownColumn>()))
-                 .get());
-        }
-        else {
-            if (!args[0].info->isRow()) {
+        if (fn) {
+            // We found one.  Now wrap it up as a normal function.
+            if (args.size() > 1)
                 throw HttpReturnException(400, "User function " + functionName
-                                          + " expects a row argument ({ }), "
-                                          + "got " + args[0].expr->print() );
-            }
-            applier.reset(fn->bind(argScope, ExpressionValueInfo::toRow(args[0].info))
-                          .get());
-        }
-        
-        auto exec = [=] (const std::vector<ExpressionValue> & args,
-                         const SqlRowScope & context)
-            -> ExpressionValue
-            {
-                if (args.empty()) {
-                    return applier->apply(ExpressionValue());
-                }
-                else {
-                    return applier->apply(args[0]);
-                }
-            };
+                                          + " expected a single row { } argument");
 
-        return BoundFunction(exec, applier->info.output);
+            std::shared_ptr<FunctionApplier> applier;
+
+            if (args.empty()) {
+                applier.reset
+                    (fn->bind(argScope,
+                              std::make_shared<RowValueInfo>(std::vector<KnownColumn>()))
+                     .release());
+            }
+            else {
+                if (!args[0].info->isRow()) {
+                    throw HttpReturnException(400, "User function " + functionName
+                                              + " expects a row argument ({ }), "
+                                              + "got " + args[0].expr->print() );
+                }
+                applier.reset(fn->bind(argScope, ExpressionValueInfo::toRow(args[0].info))
+                              .release());
+            }
+        
+            auto exec = [=] (const std::vector<ExpressionValue> & args,
+                             const SqlRowScope & context)
+                -> ExpressionValue
+                {
+                    if (args.empty()) {
+                        return applier->apply(ExpressionValue());
+                    }
+                    else {
+                        return applier->apply(args[0]);
+                    }
+                };
+
+            return BoundFunction(exec, applier->info.output);
+        }
     }
 
     return SqlBindingScope::doGetFunction(tableName, functionName, args,
@@ -87,14 +90,14 @@ doGetFunction(const Utf8String & tableName,
 }
 
 std::shared_ptr<Dataset>
-SqlExpressionMldbContext::
+SqlExpressionMldbScope::
 doGetDataset(const Utf8String & datasetName)
 {
     return mldb->datasets->getExistingEntity(datasetName.rawString());
 }
 
 std::shared_ptr<Dataset>
-SqlExpressionMldbContext::
+SqlExpressionMldbScope::
 doGetDatasetFromConfig(const Any & datasetConfig)
 {
     return obtainDataset(mldb, datasetConfig.convert<PolyConfig>());
@@ -105,14 +108,14 @@ BoundTableExpression
 bindDataset(std::shared_ptr<Dataset> dataset, Utf8String asName);
 
 TableOperations
-SqlExpressionMldbContext::
+SqlExpressionMldbScope::
 doGetTable(const Utf8String & tableName)
 {
     return bindDataset(doGetDataset(tableName), Utf8String()).table;
 }
 
 MldbServer *
-SqlExpressionMldbContext::
+SqlExpressionMldbScope::
 getMldbServer() const
 {
     return mldb;
@@ -126,21 +129,21 @@ getMldbServer() const
 
 SqlExpressionDatasetContext::
 SqlExpressionDatasetContext(std::shared_ptr<Dataset> dataset, const Utf8String& alias)
-    : SqlExpressionMldbContext(dataset->server), dataset(*dataset), alias(alias)
+    : SqlExpressionMldbScope(dataset->server), dataset(*dataset), alias(alias)
 {
      dataset->getChildAliases(childaliases);
 }
 
 SqlExpressionDatasetContext::
 SqlExpressionDatasetContext(const Dataset & dataset, const Utf8String& alias)
-    : SqlExpressionMldbContext(dataset.server), dataset(dataset), alias(alias)
+    : SqlExpressionMldbScope(dataset.server), dataset(dataset), alias(alias)
 {
     dataset.getChildAliases(childaliases);
 }
 
 SqlExpressionDatasetContext::
 SqlExpressionDatasetContext(const BoundTableExpression& boundDataset)
-: SqlExpressionMldbContext(boundDataset.dataset->server), dataset(*boundDataset.dataset), alias(boundDataset.asName)
+: SqlExpressionMldbScope(boundDataset.dataset->server), dataset(*boundDataset.dataset), alias(boundDataset.asName)
 {
     boundDataset.dataset->getChildAliases(childaliases);
 }
@@ -272,7 +275,6 @@ doGetFunction(const Utf8String & tableName,
               const std::vector<BoundSqlExpression> & args,
               SqlBindingScope & argScope)
 {
-
     Utf8String resolvedTableName = tableName;
     Utf8String resolvedFunctionName = functionName;
 
@@ -337,7 +339,9 @@ doGetFunction(const Utf8String & tableName,
                 std::make_shared<Uint64ValueInfo>()};
     }
 
-    return SqlBindingScope::doGetFunction(resolvedTableName, resolvedFunctionName, args, argScope);
+    return SqlExpressionMldbScope
+        ::doGetFunction(resolvedTableName, resolvedFunctionName,
+                        args, argScope);
 }
 
 ColumnGetter

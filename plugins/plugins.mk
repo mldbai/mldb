@@ -34,19 +34,22 @@ LIBMLDB_BUILTIN_PLUGIN_SOURCES:= \
 	randomforest_procedure.cc \
 	classifier.cc \
 	sql_functions.cc \
-
-# MATHIEU HERE THEY ARE
-#	kmeans.cc \
+	kmeans.cc \
 	embedding.cc \
+	pooling_function.cc \
+	feature_generators.cc \
+	svd.cc \
+	embedding.cc \
+	kmeans.cc \
 	pooling_function.cc \
 	feature_generators.cc \
 	em.cc \
 	tsne.cc \
-	svm.cc \
-	probabilizer.cc \
+
+# MATHIEU HERE THEY ARE
+#	svm.cc \
 	stats_table_procedure.cc \
 	tfidf.cc \
-	svd.cc \
 	tokensplit.cc \
 	script_function.cc \
 

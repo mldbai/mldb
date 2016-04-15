@@ -10,7 +10,7 @@
 
 
 #include "mldb/core/dataset.h"
-#include "mldb/core/function.h"
+#include "mldb/core/value_function.h"
 #include "mldb/types/value_description.h"
 #include "metric_space.h"
 
@@ -51,8 +51,9 @@ struct EmbeddingDataset: public Dataset {
     virtual void recordRowItl(const RowName & rowName,
                            const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals);
 
-    virtual void recordEmbedding(const std::vector<ColumnName> & columnNames,
-                                 const std::vector<std::tuple<RowName, std::vector<float>, Date> > & rows);
+    virtual void
+    recordEmbedding(const std::vector<ColumnName> & columnNames,
+                    const std::vector<std::tuple<RowName, std::vector<float>, Date> > & rows);
 
     virtual void commit();
 
@@ -74,10 +75,12 @@ struct EmbeddingDataset: public Dataset {
     getKnownColumnInfos(const std::vector<ColumnName> & columnNames) const;
     
     std::vector<std::tuple<RowName, RowHash, float> >
-    getNeighbours(const ML::distribution<float> & coord, int numNeighbours, double maxDistance) const;
+    getNeighbors(const ML::distribution<float> & coord, int numNeighbors,
+                 double maxDistance) const;
     
     std::vector<std::tuple<RowName, RowHash, float> >
-    getRowNeighbours(const RowName & row, int numNeighbours, double maxDistance) const;
+    getRowNeighbors(const RowName & row, int numNeighbors,
+                    double maxDistance) const;
 
 private:
     EmbeddingDatasetConfig datasetConfig;
@@ -93,38 +96,48 @@ private:
 
 struct NearestNeighborsFunctionConfig {
     NearestNeighborsFunctionConfig()
-        : default_num_neighbors(10), default_max_distance(INFINITY)
+        : defaultNumNeighbors(10), defaultMaxDistance(INFINITY)
     {
     }
 
-    unsigned default_num_neighbors;
-    double default_max_distance;
+    unsigned defaultNumNeighbors;
+    double defaultMaxDistance;
     std::shared_ptr<TableExpression> dataset;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(NearestNeighborsFunctionConfig);
 
-struct NearestNeighborsFunction: public Function {
+struct NearestNeighborsInput {
+    NearestNeighborsInput();
+    ExpressionValue coords;
+    CellValue numNeighbors; // positive integer or null
+    CellValue maxDistance;  // double or null
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(NearestNeighborsInput);
+
+struct NearestNeighborsOutput {
+    ExpressionValue row;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(NearestNeighborsOutput);
+
+struct NearestNeighborsFunction
+    : public ValueFunctionT<NearestNeighborsInput, NearestNeighborsOutput> {
+
     NearestNeighborsFunction(MldbServer * owner,
-                  PolyConfig config,
-                  const std::function<bool (const Json::Value &)> & onProgress);
+                             PolyConfig config,
+                             const std::function<bool (const Json::Value &)> & onProgress);
 
-    ~NearestNeighborsFunction();
+    virtual ~NearestNeighborsFunction();
 
-    virtual Any getStatus() const;
-
-    virtual Any getDetails() const;
-
-    virtual FunctionOutput apply(const FunctionApplier & applier,
-                              const FunctionContext & context) const;
-
-    /** Describe what the input and output is for this function. */
-    virtual FunctionInfo getFunctionInfo() const;
+    virtual NearestNeighborsOutput
+    applyT(const ApplierT & applier, NearestNeighborsInput input) const override;
     
-    virtual std::unique_ptr<FunctionApplier>
-    bind(SqlBindingScope & outerContext,
-         const FunctionValues & input) const;
-
+    virtual std::unique_ptr<ApplierT>
+    bindT(SqlBindingScope & outerContext,
+          const FunctionValues & input) const override;
+    
     NearestNeighborsFunctionConfig functionConfig;
 };
 

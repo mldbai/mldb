@@ -112,7 +112,7 @@ run(const ProcedureRunConfig & run,
         };
 
 
-    SqlExpressionMldbContext context(server);
+    SqlExpressionMldbScope context(server);
     auto boundDataset = runProcConf.inputData.stm->from->bind(context);
 
     auto toFix = extractNamedSubSelect("to_fix", runProcConf.inputData.stm->select)->expression;

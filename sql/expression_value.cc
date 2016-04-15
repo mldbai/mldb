@@ -395,9 +395,10 @@ std::shared_ptr<RowValueInfo>
 ExpressionValueInfo::
 toRow(std::shared_ptr<ExpressionValueInfo> row)
 {
+    ExcAssert(row);
     auto result = dynamic_pointer_cast<RowValueInfo>(row);
     if (!result)
-        throw HttpReturnException(500, "Value is not a row");
+        throw HttpReturnException(500, "Value is not a row: " + ML::type_name(*row));
     return result;
 }
 
@@ -412,7 +413,7 @@ SchemaCompleteness
 ExpressionValueInfo::
 getSchemaCompleteness() const
 {
-    throw HttpReturnException(500, "Value description doesn't describe a row",
+    throw HttpReturnException(500, "Value description doesn't describe a row: type " + ML::type_name(*this) + " " + jsonEncodeStr(std::shared_ptr<ExpressionValueInfo>(const_cast<ExpressionValueInfo *>(this), [] (ExpressionValueInfo *) {})),
                               "type", ML::type_name(*this));
 }
 
@@ -543,6 +544,10 @@ struct ExpressionValueInfoPtrDescription
     virtual void printJsonTyped(const std::shared_ptr<ExpressionValueInfo> * val,
                                 JsonPrintingContext & context) const
     {
+        if (!(*val)) {
+            context.writeNull();
+            return;
+        }
         Json::Value out;
         out["type"] = ML::type_name(**val);
         if ((*val)->isScalar()) {
@@ -585,6 +590,10 @@ struct RowValueInfoPtrDescription
     virtual void printJsonTyped(const std::shared_ptr<RowValueInfo> * val,
                                 JsonPrintingContext & context) const
     {
+        if (!(*val)) {
+            context.writeNull();
+            return;
+        }
         Json::Value out;
         out["type"] = ML::type_name(**val);
         out["kind"] = "row";
@@ -1091,38 +1100,19 @@ std::shared_ptr<ExpressionValueInfo>
 RowValueInfo::
 findNestedColumn(const ColumnName& columnName)
 {  
-    for (auto& col : columns)
-    {
-         if (col.columnName == columnName)
-         {
-             return col.valueInfo;
-         }
-    }   
-
-    // TODO BEFORE MERGE: FIX THIS
-    
-    throw HttpReturnException(500, "Need to fix findNestedColumn");
-#if 0
-
-    auto it = variableName.find('.');
-    if (it != variableName.end())
-    {
-        Utf8String head(variableName.begin(),it);
-        ++it;
-
-        for (auto& col : columns)
-        {
-             if (col.columnName == head)
-             {
-                 Utf8String tail(it, variableName.end());
-                 return col.valueInfo->findNestedColumn(tail, schemaCompleteness);
-             }
-         }   
+    for (auto& col : columns) {
+        if (col.columnName == columnName) {
+            // Found directly
+            return col.valueInfo;
+        }
+        else if (columnName.startsWith(col.columnName)) {
+            // Nested; look inside the sub-info
+            ColumnName tail = columnName.removePrefix(col.columnName.size());
+            return col.valueInfo->findNestedColumn(tail);
+        }
     }
-
-    schemaCompleteness = getSchemaCompleteness();
-    return nullptr;
-#endif
+    
+    return nullptr;  // not found
 }            
 
 

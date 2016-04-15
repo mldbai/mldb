@@ -244,7 +244,7 @@ run(const ProcedureRunConfig & run,
             return onProgress(value);
     };
 
-    SqlExpressionMldbContext context(server);
+    SqlExpressionMldbScope context(server);
 
     auto embeddingOutput
         = getEmbedding(*runProcConf.trainingData.stm, context, -1, onProgress2);

@@ -73,7 +73,7 @@ ApplyStopWordsFunction(MldbServer * owner,
 
 Words
 ApplyStopWordsFunction::
-call(const Words & input) const
+call(Words input) const
 {
     RowValue rtnRow;
     auto onAtom = [&] (const Coords & columnName,
@@ -142,7 +142,7 @@ StemmerFunction(MldbServer * owner,
 
 Words
 StemmerFunction::
-call(const Words & input) const
+call(Words input) const
 {
     // the sb_stemmer object is not thread safe
     // but this allocation is not very expensive as profiled
@@ -231,7 +231,7 @@ StemmerOnDocumentFunction(MldbServer * owner,
 
 Document
 StemmerOnDocumentFunction::
-call(const Document & doc) const
+call(Document doc) const
 {
     // the sb_stemmer object is not thread safe
     // but this allocation is not very expensive as profiled

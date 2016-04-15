@@ -24,8 +24,6 @@ using namespace std;
 namespace Datacratic {
 namespace MLDB {
 
-
-
 /*****************************************************************************/
 /* HASHED COLUMN FEAT GEN CONFIG                                             */
 /*****************************************************************************/
@@ -40,12 +38,31 @@ HashedColumnFeatureGeneratorConfigDescription()
                 "buckets will be 2^numBits.", 8);
 }
 
+/*****************************************************************************/
+/* HASHED COLUMN FEAT GEN                                                    */
+/*****************************************************************************/
+
+DEFINE_STRUCTURE_DESCRIPTION(FeatureGeneratorInput);
+
+FeatureGeneratorInputDescription::FeatureGeneratorInputDescription()
+{
+    addField("columns", &FeatureGeneratorInput::columns,
+             "Undocumented");
+}
+
+DEFINE_STRUCTURE_DESCRIPTION(FeatureGeneratorOutput);
+
+FeatureGeneratorOutputDescription::FeatureGeneratorOutputDescription()
+{
+    addField("hash", &FeatureGeneratorOutput::hash,
+             "Undocumented");
+}
 
 HashedColumnFeatureGenerator::
 HashedColumnFeatureGenerator(MldbServer * owner,
                  PolyConfig config,
                  const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner)
+    : BaseT(owner)
 {
     functionConfig = config.params.convert<HashedColumnFeatureGeneratorConfig>();
 
@@ -61,34 +78,26 @@ HashedColumnFeatureGenerator::
 {
 }
 
-Any
+FeatureGeneratorOutput
 HashedColumnFeatureGenerator::
-getStatus() const
+call(FeatureGeneratorInput input) const
 {
-    return Any();
-}
-
-FunctionOutput
-HashedColumnFeatureGenerator::
-apply(const FunctionApplier & applier,
-      const FunctionContext & context) const
-{
-    auto rows = context.get<RowValue>("columns");
     ML::distribution<float> result(numBuckets());
 
     ML::Lightweight_Hash_Set<uint64_t> doneHashes;
 
     Date ts = Date::negativeInfinity();
     // copied from the LAL repo
-    for(auto & r : rows) {
-        ColumnName columnName(std::get<0>(r));
-        ts.setMax(std::get<2>(r));
 
-        ColumnHash columnHash(columnName);
+    auto onSubexpression = [&] (const Coord & columnName,
+                                const Coords & prefix,
+                                const ExpressionValue & val)
+    {
+        ts.setMax(val.getEffectiveTimestamp());
         
-        uint64_t hash = columnHash.hash();
+        uint64_t hash = columnName.hash();
         if (!doneHashes.insert(hash).second)
-            continue;
+            return true;
 
         // cerr << "got " << hash << endl;
 
@@ -101,8 +110,11 @@ apply(const FunctionApplier & applier,
             //     << " val = " << val << endl;
             result[bucket] += val;
         }
+
+        return true;
     };
 
+    input.columns.forEachSubexpression(onSubexpression);
 
     FunctionOutput foResult;
     RowValue rowVal;
@@ -110,23 +122,9 @@ apply(const FunctionApplier & applier,
         rowVal.push_back(make_tuple(ColumnName(ML::format("hashColumn%d", i)),
                                     CellValue(result[i]), ts));
     }
-    foResult.set("hash", rowVal);
-    return foResult;
-}
-
-FunctionInfo
-HashedColumnFeatureGenerator::
-getFunctionInfo() const
-{
-    FunctionInfo result;
-
-    result.input.addRowValue("columns");
-    result.output.addRowValue("hash", outputColumns, SCHEMA_CLOSED);
-
-    return result;
-}
     
-
+    return {ExpressionValue(rowVal)};
+}
 
 namespace {
 

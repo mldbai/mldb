@@ -698,7 +698,10 @@ static ColumnName matchColumnName(ML::Parse_Context & context, bool allowUtf8)
     result = Coord(std::move(first));
 
     while (context.match_literal('.')) {
-        result = result + matchIdentifier(context, allowUtf8);
+        Utf8String next = matchIdentifier(context, allowUtf8);
+        if (next.empty())
+            break;  // will happen for a *
+        result = result + next;
     }
 
     return result;
@@ -1293,8 +1296,29 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
                     context.expect_literal(',');
                 }
 
+                // For a function call, the last element is always the name
+                // of the function.  The rest is the path through the table.
+
+                Utf8String tableName, functionName;
+                if (identifier.size() == 1) {
+                    functionName = identifier[0].toUtf8String();
+                }
+                else if (identifier.size() == 2) {
+                    tableName = identifier[0].toUtf8String();
+                    functionName = identifier[1].toUtf8String();
+                }
+                else {
+                    context.exception
+                        ("Ambiguous function name.  There should be one or two "
+                         "elements; either tableName.functionName or "
+                         "functionName.  If your table name contains dots, put "
+                         "them in quotes.  For example, to access the rowName() "
+                         "function in table x.y, use \"x.y\".rowName() instead "
+                         "of x.y.rowName()");
+                }
+
                 lhs = std::make_shared<FunctionCallExpression>
-                    (identifier.toSimpleName(), args);
+                    (tableName, functionName, args);
 
                 lhs->surface = ML::trim(token.captured());
 
@@ -1763,7 +1787,7 @@ func(std::shared_ptr<SqlExpression> lhs,
     if (lhs)
         args.push_back(lhs); // binary operator
     args.push_back(rhs);
-    return std::make_shared<FunctionCallExpression>(funcMap[op], args);
+    return std::make_shared<FunctionCallExpression>("" /* tableName */, funcMap[op], args);
 }
 
 std::shared_ptr<SqlExpression>
@@ -2955,8 +2979,8 @@ bind(SqlBindingScope & context) const
     bool hasUnknownColumns = false;
     bool isConstant = true;
     for (auto & c: boundClauses) {
-        if (c.info->getSchemaCompleteness() == SCHEMA_OPEN)
-        {
+        ExcAssert(c.info);
+        if (c.info->getSchemaCompleteness() == SCHEMA_OPEN) {
             hasUnknownColumns = true;
         }
 

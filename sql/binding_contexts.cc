@@ -253,9 +253,23 @@ doGetBoundParameter(const Utf8String & paramName)
 SqlExpressionExtractScope::
 SqlExpressionExtractScope(SqlBindingScope & outer,
                           std::shared_ptr<ExpressionValueInfo> inputInfo)
-    : ReadThroughBindingScope(outer), inputInfo(inputInfo)
+    : ReadThroughBindingScope(outer),
+      inputInfo(ExpressionValueInfo::toRow(inputInfo))
 {
-    ExcAssert(inputInfo);
+    ExcAssert(this->inputInfo);
+}
+
+SqlExpressionExtractScope::
+SqlExpressionExtractScope(SqlBindingScope & outer)
+    : ReadThroughBindingScope(outer)
+{
+}
+
+void
+SqlExpressionExtractScope::
+inferInput()
+{
+    throw HttpReturnException(600, "SqlExpressionExtractScope::inferInput()");
 }
 
 ColumnGetter

@@ -14,15 +14,12 @@
 #include "mldb/core/dataset.h"
 #include "mldb/sql/sql_expression.h"
 
-// TODO: hide these from the .h file
-#include "mldb/server/dataset_context.h"
-#include "mldb/server/function_contexts.h"
-
-
 namespace Datacratic {
 namespace MLDB {
 
 struct SqlExpression;
+struct SqlExpressionMldbScope;
+struct SqlExpressionExtractScope;
 
 
 /*****************************************************************************/
@@ -95,9 +92,10 @@ DECLARE_STRUCTURE_DESCRIPTION(SqlExpressionFunctionConfig);
 
 struct SqlExpressionFunction: public Function {
     SqlExpressionFunction(MldbServer * owner,
-                    PolyConfig config,
-                    const std::function<bool (const Json::Value &)> & onProgress);
-    
+                          PolyConfig config,
+                          const std::function<bool (const Json::Value &)> & onProgress);
+    ~SqlExpressionFunction();
+
     virtual Any getStatus() const;
     
     virtual std::unique_ptr<FunctionApplier>
@@ -111,8 +109,8 @@ struct SqlExpressionFunction: public Function {
 
     SqlExpressionFunctionConfig functionConfig;
 
-    SqlExpressionMldbContext outerScope;
-    FunctionExpressionContext innerScope;
+    std::unique_ptr<SqlExpressionMldbScope> outerScope;
+    std::unique_ptr<SqlExpressionExtractScope> innerScope;
     FunctionInfo info;
     BoundSqlExpression bound;
 };

@@ -135,7 +135,7 @@ run(const ProcedureRunConfig & run,
             return onProgress(value);
         };
 
-    SqlExpressionMldbContext context(server);
+    SqlExpressionMldbScope context(server);
 
     auto embeddingOutput = getEmbedding(*runProcConf.trainingData.stm,
                                         context,
@@ -279,8 +279,25 @@ EMFunctionConfigDescription()
 
 
 /*****************************************************************************/
-/* EM FUNCTION                                                              */
+/* EM FUNCTION                                                               */
 /*****************************************************************************/
+
+DEFINE_STRUCTURE_DESCRIPTION(EMInput);
+
+EMInputDescription::EMInputDescription()
+{
+    addField("embedding", &EMInput::embedding,
+             "Values to be assigned to a cluster.");
+}
+
+DEFINE_STRUCTURE_DESCRIPTION(EMOutput);
+
+EMOutputDescription::EMOutputDescription()
+{
+    addField("cluster", &EMOutput::cluster,
+             "Cluster corresponding to the input values.");
+}
+
 
 struct EMFunction::Impl {
     ML::EstimationMaximisation em;
@@ -297,7 +314,7 @@ EMFunction::
 EMFunction(MldbServer * owner,
             PolyConfig config,
             const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner)
+    : BaseT(owner)
 {  
 
     functionConfig = config.params.convert<EMFunctionConfig>();
@@ -311,70 +328,43 @@ EMFunction(MldbServer * owner,
     //     << "values" << endl;
 }
 
-Any
-EMFunction::
-getStatus() const
-{
-    return Any();
-}
-
-struct EMFunctionApplier: public FunctionApplier {
+struct EMFunctionApplier: public FunctionApplierT<EMInput, EMOutput> {
     EMFunctionApplier(const EMFunction * owner,
                       const FunctionValues & input)
-        : FunctionApplier(owner)
+        : FunctionApplierT<EMInput, EMOutput>(owner)
     {
         info = owner->getFunctionInfo();
-        auto info = input.getValueInfo("embedding");
-        extract = info.getExpressionValueInfo()
-            ->extractDoubleEmbedding(owner->impl->columnNames);
+        extract = input->extractDoubleEmbedding(owner->impl->columnNames);
     }
 
     ExpressionValueInfo::ExtractDoubleEmbeddingFunction extract;
 };
 
-std::unique_ptr<FunctionApplier>
+std::unique_ptr<FunctionApplierT<EMInput, EMOutput> >
 EMFunction::
-bind(SqlBindingScope & outerContext,
-     const FunctionValues & input) const
+bindT(SqlBindingScope & outerContext, const FunctionValues & input) const
 {
     return std::unique_ptr<EMFunctionApplier>
         (new EMFunctionApplier(this, input));
 }
 
-FunctionOutput
+EMOutput 
 EMFunction::
-apply(const FunctionApplier & applier_,
-      const FunctionContext & context) const
+applyT(const ApplierT & applier_, EMInput input_) const
 {
-    auto & applier = static_cast<const EMFunctionApplier &>(applier_);
-
-    FunctionOutput result;
-
     // Extract an embedding with the given column names
     ExpressionValue storage;
-    const ExpressionValue & inputVal = context.get("embedding", storage);
-    ML::distribution<double> input = applier.extract(inputVal);
-    Date ts = inputVal.getEffectiveTimestamp();
+
+    const auto * downcast
+            = dynamic_cast<const EMFunctionApplier *>(&applier_);
+
+    ML::distribution<double> input = downcast->extract(input_.embedding);
+    Date ts = input_.embedding.getEffectiveTimestamp();
 
     int bestCluster = impl->em.assign(input);
 
-    result.set("cluster", ExpressionValue(bestCluster, ts));
-    
-    return result;
+    return {ExpressionValue(bestCluster, ts)};
 }
-
-FunctionInfo
-EMFunction::
-getFunctionInfo() const
-{
-    FunctionInfo result;
-
-    result.input.addEmbeddingValue("embedding", dimension);
-    result.output.addAtomValue("cluster");
-
-    return result;
-}
-
 
 namespace {
 

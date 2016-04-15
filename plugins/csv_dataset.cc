@@ -109,7 +109,7 @@ CsvDatasetConfigDescription::CsvDatasetConfigDescription()
     allowing it to find the variables, etc.
 */
 
-struct SqlCsvScope: public SqlExpressionMldbContext {
+struct SqlCsvScope: public SqlExpressionMldbScope {
 
     struct RowScope: public SqlRowScope {
         RowScope(const CellValue * row, Date ts, int64_t lineNumber,
@@ -126,7 +126,7 @@ struct SqlCsvScope: public SqlExpressionMldbContext {
 
     SqlCsvScope(MldbServer * server, const std::vector<ColumnName> & columnNames,
                 Date fileTimestamp, Utf8String dataFileUrl)
-        : SqlExpressionMldbContext(server), columnNames(columnNames),
+        : SqlExpressionMldbScope(server), columnNames(columnNames),
           fileTimestamp(fileTimestamp),
           dataFileUrl(std::move(dataFileUrl))
     {

@@ -168,7 +168,7 @@ run(const ProcedureRunConfig & run,
     }
 
     // 1.  Get the input dataset
-    SqlExpressionMldbContext context(server);
+    SqlExpressionMldbScope context(server);
 
     auto boundDataset = runProcConf.trainingData.stm->from->bind(context);
 
@@ -989,7 +989,7 @@ getFunctionInfo() const
         std::vector<KnownColumn> scoreColumns;
 
         for (unsigned i = 0;  i < labelCount;  ++i) {
-            scoreColumns.emplace_back(ColumnName(cat->print(i)),
+            scoreColumns.emplace_back(ColumnName::parse(cat->print(i)),
                                       std::make_shared<Float32ValueInfo>(),
                                       COLUMN_IS_DENSE, i);
         }

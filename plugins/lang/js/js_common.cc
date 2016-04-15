@@ -136,21 +136,21 @@ Coord from_js(const JS::JSValue & value, Coord *)
 {
     if (value->IsNull() || value->IsUndefined())
         return Coord();
-    return jsonDecode<Coord>(JS::from_js(value, (Json::Value *)0));
+    return JS::from_js(value, (Utf8String *)0);
 }
 
 Coord from_js_ref(const JS::JSValue & value, Coord *)
 {
     if (value->IsNull() || value->IsUndefined())
         return Coord();
-    return jsonDecode<Coord>(JS::from_js(value, (Json::Value *)0));
+    return JS::from_js(value, (Utf8String *)0);
 }
 
 void to_js(JS::JSValue & value, const Coord & val)
 {
     if (val.empty())
         value = v8::Null();
-    return to_js(value, jsonEncode(val));
+    return to_js(value, val.toUtf8String());
 }
 
 Coords from_js(const JS::JSValue & value, Coords *)

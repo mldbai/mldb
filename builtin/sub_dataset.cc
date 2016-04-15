@@ -54,9 +54,10 @@ struct SubDataset::Itl
 
     Itl(SelectStatement statement, MldbServer* owner)
     {
-        SqlExpressionMldbContext mldbContext(owner);
+        SqlExpressionMldbScope mldbContext(owner);
 
-        std::vector<MatrixNamedRow> rows = queryFromStatement(statement, mldbContext);
+        std::vector<MatrixNamedRow> rows
+            = queryFromStatement(statement, mldbContext);
 
         init(std::move(rows));
     }

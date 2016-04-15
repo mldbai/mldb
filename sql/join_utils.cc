@@ -67,7 +67,6 @@ extractTableName(ColumnName & columnName, const std::set<Utf8String> & tables)
     return false;
 }
 
-
 // Replace all variable names like "table.x" with "x" to be run
 // in the context of a table
 std::shared_ptr<SqlExpression>
@@ -105,6 +104,8 @@ removeTableName(const SqlExpression & expr,
     }
 #endif
 
+    // BAD SMELL why are functions and columns treated differently?
+
     // If an expression refers to a variable, then remove the table name
     // from it.  Otherwise return the same expression.
     std::function<std::shared_ptr<SqlExpression> (std::shared_ptr<SqlExpression> a)>
@@ -131,20 +132,17 @@ removeTableName(const SqlExpression & expr,
                     return std::make_shared<ReadColumnExpression>(newName);
                 }
             }
+
             auto func = std::dynamic_pointer_cast<FunctionCallExpression>(a);
             if (func) {
-                for (auto & prefixt: childAliases) {
-                    if (func->functionName.startsWith(prefixt)) {
-                        Utf8String newName
-                            = var->columnName.removePrefix(tableName)
-                            .toSimpleName();
-                        vector<std::shared_ptr<SqlExpression> > newArgs;
-                        for (auto & a: func->args) {
-                            newArgs.emplace_back(std::move(doArg(a)));
-                        }
-                        return std::make_shared<FunctionCallExpression>
-                            (newName, std::move(newArgs));
+                if (childAliases.count(func->tableName)) {
+                    vector<std::shared_ptr<SqlExpression> > newArgs;
+                    Utf8String newTableName = func->tableName;
+                    for (auto & a: func->args) {
+                        newArgs.emplace_back(std::move(doArg(a)));
                     }
+                    return std::make_shared<FunctionCallExpression>
+                        (newTableName, func->functionName, std::move(newArgs));
                 }
             }
 
@@ -194,21 +192,16 @@ AnnotatedClause(std::shared_ptr<SqlExpression> c,
     }
     
     for (auto & func: funcs) {
-        ColumnName v = func.first.name;
-        if (v.size() > 1) {
-            externalFuncs.emplace_back(v.toSimpleName());
-            continue;
-        }
+        const Utf8String & tableName = func.first.scope;
+        Utf8String functionName = func.first.name.toSimpleName();
 
-        Utf8String tableName(v[0].toUtf8String());
-
-        if (leftTables.count(tableName)) {
-            leftFuncs.emplace_back(v.removePrefix(tableName).toSimpleName());
+        if (!tableName.empty() && leftTables.count(tableName)) {
+            leftFuncs.emplace_back(func.first);
         }
-        else if (rightTables.count(tableName)) {
-            rightFuncs.emplace_back(v.removePrefix(tableName).toSimpleName());
+        else if (!tableName.empty() && rightTables.count(tableName)) {
+            rightFuncs.emplace_back(func.first);
         }
-        else externalFuncs.emplace_back(v.toSimpleName());
+        else externalFuncs.emplace_back(func.first);
     }
 
     if (leftVars.empty() && rightVars.empty()
@@ -294,7 +287,8 @@ AnnotatedJoinCondition(std::shared_ptr<TableExpression> leftTable,
                           std::back_inserter(commonTables));
 
     if (!commonTables.empty()) {
-        throw HttpReturnException(400, "Join has ambiguous table name(s) with same name occurring on both left and right side",
+        throw HttpReturnException(400, "Join has ambiguous table name(s) with "
+                                  "same name occurring on both left and right side",
                                   "ambiguousTableNames", commonTables,
                                   "left", left,
                                   "right", right,
@@ -317,7 +311,7 @@ AnnotatedJoinCondition(std::shared_ptr<TableExpression> leftTable,
     for (auto & c: andClauses) {
         if (debug)
             cerr << "clause " << c->print() << endl;
-        AnnotatedClause clauseOut(c, leftTables, rightTables);
+        AnnotatedClause clauseOut(c, leftTables, rightTables, debug);
 
         if (!clauseOut.externalVars.empty()) {
             throw HttpReturnException(400, "Join condition refers to unknown variables",
@@ -349,7 +343,7 @@ AnnotatedJoinCondition(std::shared_ptr<TableExpression> leftTable,
     right.where = generateWhereExpression(right.whereClauses,
                                           rightTable->getAs());
 
-    //WHEN is not supported in JOIN
+    // WHEN is not supported in JOIN
     left.when = WhenExpression::parse("true");
     right.when = WhenExpression::parse("true");
 

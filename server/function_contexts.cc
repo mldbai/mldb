@@ -43,12 +43,16 @@ FunctionExpressionContext::
 doGetColumn(const Utf8String & tableName,
             const ColumnName & columnName)
 {
+    ExcAssert(!columnName.empty());
     std::shared_ptr<ExpressionValueInfo> valueInfo;
 
     std::unordered_map<Utf8String, std::shared_ptr<ExpressionValueInfo> > inputInfo;
 
     //check if the variable could be in a row with unknown columns
     SchemaCompleteness schemaCompleteness(SCHEMA_CLOSED);
+
+    // Look at just the first portion of the path
+    const Coord & head = columnName.head();
 
     // If we can't find this column, then we know it's a required input
     if (!findColumnRecursive(columnName, valueInfo, schemaCompleteness)) {
