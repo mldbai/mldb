@@ -87,9 +87,18 @@ doGetAllColumns(std::function<Utf8String (const Utf8String &)> keep, int fieldOf
     std::map<ColumnHash, ColumnName> index;
 
     for (auto & column: knownColumns) {
-        Utf8String outputName = keep(column.columnName.toUtf8String());
-        if (outputName.empty())
+        Utf8String columnName = column.columnName.toUtf8String();
+        Utf8String outputName = keep(columnName);
+        if (outputName.empty() && !asName.empty()) {
+            //try with the table alias
+             columnName = asName + "." + columnName;
+             outputName = keep(columnName);
+        }
+
+        if (outputName.empty()) {
             continue;
+        }
+
         KnownColumn out = column;
         out.columnName = ColumnName(outputName);
         columnsWithInfo.emplace_back(std::move(out));
