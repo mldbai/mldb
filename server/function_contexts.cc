@@ -45,6 +45,8 @@ doGetColumn(const Utf8String & tableName,
 {
     std::shared_ptr<ExpressionValueInfo> valueInfo;
 
+    std::unordered_map<Utf8String, std::shared_ptr<ExpressionValueInfo> > inputInfo;
+
     //check if the variable could be in a row with unknown columns
     SchemaCompleteness schemaCompleteness(SCHEMA_CLOSED);
 

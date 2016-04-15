@@ -33,6 +33,7 @@ LIBMLDB_BUILTIN_PLUGIN_SOURCES:= \
 	tabular_dataset_column.cc \
 	randomforest_procedure.cc \
 	classifier.cc \
+	sql_functions.cc \
 
 # MATHIEU HERE THEY ARE
 #	kmeans.cc \
@@ -48,9 +49,6 @@ LIBMLDB_BUILTIN_PLUGIN_SOURCES:= \
 	svd.cc \
 	tokensplit.cc \
 	script_function.cc \
-
-# JEREMY TO FINISH
-#	sql_functions.cc \
 
 
 # Needed so that Python plugin can find its header
