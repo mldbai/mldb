@@ -21,6 +21,23 @@ namespace Datacratic {
 namespace MLDB {
 
 
+DEFINE_STRUCTURE_DESCRIPTION(Words);
+
+WordsDescription::WordsDescription()
+{
+    addField("words", &Words::words,
+             "Row-valued bag of words where keys are words and values are "
+             "counts or weights");
+}
+
+DEFINE_STRUCTURE_DESCRIPTION(Document);
+
+DocumentDescription::DocumentDescription()
+{
+    addField("document", &Document::document,
+             "String-valued value containing the text of the document");
+}
+
 
 /*****************************************************************************/
 /* APPLY STOP WORDS FUNCTION CONFIG                                          */
@@ -39,8 +56,8 @@ ApplyStopWordsFunctionConfigDescription()
                       
 ApplyStopWordsFunction::
 ApplyStopWordsFunction(MldbServer * owner,
-               PolyConfig config,
-               const std::function<bool (const Json::Value &)> & onProgress)
+                       PolyConfig config,
+                       const std::function<bool (const Json::Value &)> & onProgress)
     : BaseT(owner)
 {
     //functionConfig = config.params.convert<ApplyStopWordsFunctionConfig>();

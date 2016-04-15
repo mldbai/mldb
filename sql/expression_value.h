@@ -1362,17 +1362,6 @@ struct UnknownRowValueInfo: public RowValueInfo {
     }
 };
 
-// Get a value description for expression values
-ValueDescriptionT<std::shared_ptr<ExpressionValueInfo> > *
-getDefaultDescription(std::shared_ptr<ExpressionValueInfo> *);
-ValueDescriptionT<std::shared_ptr<ExpressionValueInfo> > *
-getDefaultDescriptionUninitialized(std::shared_ptr<ExpressionValueInfo> *);
-
-ValueDescriptionT<std::shared_ptr<RowValueInfo> > *
-getDefaultDescription(std::shared_ptr<RowValueInfo> *);
-ValueDescriptionT<std::shared_ptr<RowValueInfo> > *
-getDefaultDescriptionUninitialized(std::shared_ptr<RowValueInfo> *);
-
 
 /*****************************************************************************/
 /* NAMED ROW VALUE                                                           */
@@ -1400,19 +1389,6 @@ DECLARE_STRUCTURE_DESCRIPTION(NamedRowValue);
 
 /** These functions search the given row for the named value. */
 
-#if 0
-const ExpressionValue *
-searchRow(const std::vector<std::tuple<ColumnHash, CellValue, Date> > & columns,
-          const ColumnName & key,
-          const VariableFilter & filter,
-          ExpressionValue & storage);
-
-const ExpressionValue *
-searchRow(const std::vector<std::tuple<ColumnName, CellValue, Date> > & columns,
-          const ColumnHash & key,
-          const VariableFilter & filter,
-          ExpressionValue & storage);
-#endif
 const ExpressionValue *
 searchRow(const std::vector<std::tuple<ColumnName, CellValue, Date> > & columns,
           const ColumnName & key,
