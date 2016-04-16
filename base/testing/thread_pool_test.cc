@@ -25,6 +25,35 @@
 using namespace std;
 using namespace Datacratic;
 
+// MLDB-1579
+BOOST_AUTO_TEST_CASE (test_threads_disappearing_jobs_run)
+{
+    ThreadPool threadPool(1);
+
+    std::atomic<uint64_t> jobsSubmitted(0);
+    std::atomic<uint64_t> jobsRun(0);
+
+    auto doJob = [&] ()
+        {
+            ++jobsRun;
+        };
+
+    auto runThread = [&] ()
+        {
+            threadPool.add(doJob);
+            ++jobsSubmitted;
+            // Now exit our thread
+        };
+
+    for (int i = 0;  i < 1000;  ++i) {
+        std::thread(runThread).detach();
+    }
+
+    while (jobsSubmitted < 1000) ;
+
+    BOOST_CHECK_EQUAL(jobsRun, 1000);
+}
+
 BOOST_AUTO_TEST_CASE (thread_pool_idle_cpu_usage)
 {
     ThreadPool threadPool(32);
