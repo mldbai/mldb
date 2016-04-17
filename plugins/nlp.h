@@ -51,7 +51,7 @@ struct ApplyStopWordsFunction: public ValueFunctionT<Words, Words> {
                            PolyConfig config,
                            const std::function<bool (const Json::Value &)> & onProgress);
     
-    virtual Words call(const Words & input) const override;
+    virtual Words call(Words input) const override;
 
     std::map<std::string, std::set<std::string> > stopwords;
     std::set<std::string> * selected_stopwords;
@@ -84,7 +84,7 @@ struct StemmerFunction: public ValueFunctionT<Words, Words> {
                     PolyConfig config,
                     const std::function<bool (const Json::Value &)> & onProgress);
    
-    virtual Words call(const Words & input) const override;
+    virtual Words call(Words input) const override;
 
     StemmerFunctionConfig functionConfig;
 };
@@ -94,7 +94,7 @@ struct StemmerOnDocumentFunction: public ValueFunctionT<Document, Document> {
                               PolyConfig config,
                               const std::function<bool (const Json::Value &)> & onProgress);
     
-    virtual Document call(const Document & input) const override;
+    virtual Document call(Document input) const override;
     
     StemmerFunctionConfig functionConfig;
 };

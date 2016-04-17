@@ -76,7 +76,7 @@ EmbeddingDatasetConfigDescription()
 
     addField("metric", &EmbeddingDatasetConfig::metric,
              "Metric space which is used to index the data for nearest "
-             "neighbours calculations.  Options are 'cosine' (which is "
+             "neighbors calculations.  Options are 'cosine' (which is "
              "good for normalized embeddings like the SVD) and 'euclidean' "
              "(which is good for geometric embeddings like the t-SNE "
              "algorithm).", METRIC_EUCLIDEAN);
@@ -897,8 +897,8 @@ cerr << "initialized with " << repr->columnNames.size() << endl;
     }
 
     vector<tuple<RowName, RowHash, float> >
-    getNeighbours(const ML::distribution<float> & coord,
-                  int numNeighbours,
+    getNeighbors(const ML::distribution<float> & coord,
+                  int numNeighbors,
                   double maxDistance)
     {
         auto repr = committed();
@@ -912,12 +912,12 @@ cerr << "initialized with " << repr->columnNames.size() << endl;
             return result;
         };
 
-        auto neighbours = repr->vpTree->search(dist, numNeighbours, maxDistance);
+        auto neighbors = repr->vpTree->search(dist, numNeighbors, maxDistance);
 
-        //cerr << "neighbours = " << jsonEncode(neighbours) << endl;
+        //cerr << "neighbors = " << jsonEncode(neighbors) << endl;
         
         vector<tuple<RowName, RowHash, float> > result;
-        for (auto & n: neighbours) {
+        for (auto & n: neighbors) {
             result.emplace_back(repr->rows[n.second].rowName,
                                 repr->rows[n.second].rowName,
                                 n.first);
@@ -927,7 +927,7 @@ cerr << "initialized with " << repr->columnNames.size() << endl;
     }
 
     vector<tuple<RowName, RowHash, float> >
-    getRowNeighbours(const RowName & row, int numNeighbours, double maxDistance)
+    getRowNeighbors(const RowName & row, int numNeighbors, double maxDistance)
     {
         auto repr = committed();
         if (!repr->initialized())
@@ -950,10 +950,10 @@ cerr << "initialized with " << repr->columnNames.size() << endl;
                 return result;
             };
 
-        auto neighbours = repr->vpTree->search(dist, numNeighbours, maxDistance);
+        auto neighbors = repr->vpTree->search(dist, numNeighbors, maxDistance);
 
         vector<tuple<RowName, RowHash, float> > result;
-        for (auto & n: neighbours) {
+        for (auto & n: neighbors) {
             result.emplace_back(repr->rows[n.second].rowName,
                                 repr->rows[n.second].rowName,
                                 n.first);
@@ -1073,7 +1073,7 @@ overrideFunction(const Utf8String & tableName,
                  const Utf8String & functionName,
                  SqlBindingScope & context) const
 {
-// Should probably remove; it's subsumed by the nearest neigbours function.
+// Should probably remove; it's subsumed by the nearest neigbors function.
 #if 0
     if (functionName == "distance") {
         // 1.  We need the rowName() function
@@ -1162,16 +1162,16 @@ overrideFunction(const Utf8String & tableName,
 
 vector<tuple<RowName, RowHash, float> >
 EmbeddingDataset::
-getNeighbours(const ML::distribution<float> & coord, int numNeighbours, double maxDistance) const
+getNeighbors(const ML::distribution<float> & coord, int numNeighbors, double maxDistance) const
 {
-    return itl->getNeighbours(coord, numNeighbours, maxDistance);
+    return itl->getNeighbors(coord, numNeighbors, maxDistance);
 }
     
 vector<tuple<RowName, RowHash, float> >
 EmbeddingDataset::
-getRowNeighbours(const RowName & row, int numNeighbours, double maxDistance) const
+getRowNeighbors(const RowName & row, int numNeighbors, double maxDistance) const
 {
-    return itl->getRowNeighbours(row, numNeighbours, maxDistance);
+    return itl->getRowNeighbors(row, numNeighbors, maxDistance);
 }
 
 KnownColumn
@@ -1198,14 +1198,48 @@ DEFINE_STRUCTURE_DESCRIPTION(NearestNeighborsFunctionConfig);
 NearestNeighborsFunctionConfigDescription::
 NearestNeighborsFunctionConfigDescription()
 {
-    addField("default_num_neighbors", &NearestNeighborsFunctionConfig::default_num_neighbors,
-             "Default number of neighbors to return. This can be overritten when calling "
-             "the function.", unsigned(10));
-    addField("default_max_distance", &NearestNeighborsFunctionConfig::default_max_distance,
-             "Default maximum distance from the original row returned neighbors can be.",
+    addField("defaultNumNeighbors",
+             &NearestNeighborsFunctionConfig::defaultNumNeighbors,
+             "Default number of neighbors to return. This can be overritten "
+             "when calling the function.", unsigned(10));
+    addField("defaultMaxDistance",
+             &NearestNeighborsFunctionConfig::defaultMaxDistance,
+             "Default maximum distance from the original row returned "
+             "neighbors can be.",
              double(INFINITY));
     addField("dataset", &NearestNeighborsFunctionConfig::dataset,
              "Embedding dataset in which to find neighbors.");
+}
+
+NearestNeighborsInput::
+NearestNeighborsInput()
+{
+}
+
+DEFINE_STRUCTURE_DESCRIPTION(NearestNeighborsInput);
+
+NearestNeighborsInputDescription::
+NearestNeighborsInputDescription()
+{
+    addField("numNeighbors", &NearestNeighborsInput::numNeighbors,
+             "Number of neighbors to find (-1, which is the default, will "
+             "use the value in the config", CellValue());
+    addField("maxDistance", &NearestNeighborsInput::maxDistance,
+             "Maximum distance to accept.  Passing null will use the "
+             "value in the config", CellValue());
+    addField("coords", &NearestNeighborsInput::coords,
+             "Coordinates of the value whose neighbors are being sought, "
+             "or alternatively the `rowName` of the value in the underlying "
+             "dataset whose neighbors are being sought");
+}
+
+DEFINE_STRUCTURE_DESCRIPTION(NearestNeighborsOutput);
+
+NearestNeighborsOutputDescription::
+NearestNeighborsOutputDescription()
+{
+    addField("row", &NearestNeighborsOutput::row,
+             "Row containing the nearest neighbors, sorted by distance");
 }
 
 NearestNeighborsFunction::
@@ -1222,9 +1256,11 @@ NearestNeighborsFunction::
 {
 }
 
-struct NearestNeighborsFunctionApplier: public FunctionApplierT<NearestNeighborInput, NearestNeighborOuput> {
+struct NearestNeighborsFunctionApplier
+    : public FunctionApplierT<NearestNeighborsInput, NearestNeighborsOutput> {
+
     NearestNeighborsFunctionApplier(const Function * owner)
-        : FunctionApplierT<NearestNeighborInput, NearestNeighborOuput>(owner)
+        : FunctionApplierT<NearestNeighborsInput, NearestNeighborsOutput>(owner)
     {
         info = owner->getFunctionInfo();
     }
@@ -1236,35 +1272,35 @@ struct NearestNeighborsFunctionApplier: public FunctionApplierT<NearestNeighborI
     ExpressionValueInfo::ExtractDoubleEmbeddingFunction getEmbeddingFromExpr;
 };
 
-NearestNeighborOuput
+NearestNeighborsOutput
 NearestNeighborsFunction::
-applyT(const ApplierT & applier_, const NearestNeighborInput & input) const
+applyT(const ApplierT & applier_, NearestNeighborsInput input) const
 {
     auto & applier = static_cast<const NearestNeighborsFunctionApplier &>(applier_);
     
     const ExpressionValue & inputRow = input.coords;
 
-    unsigned num_neighbors = functionConfig.default_num_neighbors;
-    double max_distance = functionConfig.default_max_distance;
+    unsigned numNeighbors = functionConfig.defaultNumNeighbors;
+    double maxDistance = functionConfig.defaultMaxDistance;
 
-    if(!input.num_neighbors.empty())
-        num_neighbors = input.num_neighbors.toInt();
+    if(!input.numNeighbors.empty())
+        numNeighbors = input.numNeighbors.toInt();
 
-    if(!input.max_distance.empty())
-        max_distance = input.max_distance.toDouble();
-
+    if(!input.maxDistance.empty())
+        maxDistance = input.maxDistance.toDouble();
+    
     Date ts;
     vector<tuple<RowName, RowHash, float> > neighbors;
     if (inputRow.isAtom()) {
         neighbors = applier.embeddingDataset
-            ->getRowNeighbours(RowName(inputRow.toUtf8String()),
-                               num_neighbors, max_distance);
+            ->getRowNeighbors(RowName(inputRow.toUtf8String()),
+                               numNeighbors, maxDistance);
     }
     else if(inputRow.isEmbedding() || inputRow.isRow()) {
         auto embedding = applier.getEmbeddingFromExpr(inputRow);
         neighbors = applier.embeddingDataset
-            ->getNeighbours(inputRow.getEmbedding(-1),
-                            num_neighbors, max_distance);
+            ->getNeighbors(inputRow.getEmbedding(-1),
+                           numNeighbors, maxDistance);
     }
     else {
         throw ML::Exception("Input row must be either a row name or an embedding");
@@ -1279,7 +1315,7 @@ applyT(const ApplierT & applier_, const NearestNeighborInput & input) const
     return {ExpressionValue(rtnRow)};
 }
     
-std::unique_ptr<FunctionApplierT<NearestNeighborInput, NearestNeighborOuput> >
+std::unique_ptr<FunctionApplierT<NearestNeighborsInput, NearestNeighborsOutput> >
 NearestNeighborsFunction::
 bindT(SqlBindingScope & outerContext, const FunctionValues & input) const
 {
@@ -1289,7 +1325,7 @@ bindT(SqlBindingScope & outerContext, const FunctionValues & input) const
     auto boundDataset = functionConfig.dataset->bind(outerContext);
     if (!boundDataset.dataset) {
         throw HttpReturnException
-            (400, "Nearest neighbours function cannot operate on the output of "
+            (400, "Nearest neighbors function cannot operate on the output of "
              "a table expression, only dataset of type embedding.");
     }
     
@@ -1322,9 +1358,9 @@ regEmbedding(builtinPackage(),
 
 static RegisterFunctionType<NearestNeighborsFunction, NearestNeighborsFunctionConfig>
 regNearestNeighborsFunction(builtinPackage(),
-                   "nearest.neighbors",
-                   "Return the nearest neighbours of a known row in an embedding dataset",
-                   "functions/NearestNeighborsFunction.md.html");
+                            "neighbors",
+                            "Return the nearest neighbors of a known row in an embedding dataset",
+                            "functions/NearestNeighborsFunction.md.html");
 
 
 } // namespace MLDB

@@ -87,7 +87,7 @@ struct FetcherFunction: public ValueFunctionT<FetcherArgs, FetcherOutput> {
     }
     
     virtual FetcherOutput applyT(const ApplierT & applier,
-                                 const FetcherArgs & args) const
+                                 FetcherArgs args) const
     {
         FetcherOutput result;
         Utf8String url = args.url;

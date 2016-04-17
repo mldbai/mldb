@@ -344,7 +344,7 @@ KmeansFunction(MldbServer * owner,
 
 KmeansFunctionOutput 
 KmeansFunction::
-call(const KmeansFunctionArgs & input) const
+call(KmeansFunctionArgs input) const
 {
     Date ts = input.values.getEffectiveTimestamp();
 

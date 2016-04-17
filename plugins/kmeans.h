@@ -100,7 +100,7 @@ struct KmeansFunction: public ValueFunctionT<KmeansFunctionArgs, KmeansFunctionO
                 PolyConfig config,
                 const std::function<bool (const Json::Value &)> & onProgress);
     
-    virtual KmeansFunctionOutput call(const KmeansFunctionArgs & input) const override; 
+    virtual KmeansFunctionOutput call(KmeansFunctionArgs input) const override; 
   
     KmeansFunctionConfig functionConfig;
 

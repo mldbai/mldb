@@ -34,10 +34,11 @@ LIBMLDB_BUILTIN_PLUGIN_SOURCES:= \
 	randomforest_procedure.cc \
 	classifier.cc \
 	sql_functions.cc \
+	svd.cc \
+	embedding.cc \
 
 # Not finished; they need their ValueDescriptions to be done
 #	kmeans.cc \
-	embedding.cc \
 	pooling_function.cc \
 	feature_generators.cc \
 
@@ -48,7 +49,6 @@ LIBMLDB_BUILTIN_PLUGIN_SOURCES:= \
 	probabilizer.cc \
 	stats_table_procedure.cc \
 	tfidf.cc \
-	svd.cc \
 	tokensplit.cc \
 	script_function.cc \
 

@@ -103,7 +103,7 @@ struct ValueFunctionT: public ValueFunction {
         Either this or applyT needs to be overridden, or an infinite
         loop will ensue.
     */
-    virtual Output call(const Input & input) const
+    virtual Output call(Input input) const
     {
         throw HttpReturnException(500, "ValueFunctionT type "
                                   + ML::type_name(*this)
@@ -120,9 +120,9 @@ struct ValueFunctionT: public ValueFunction {
         loop will ensue.
     */
     virtual Output applyT(const ApplierT & applier,
-                          const Input & input) const
+                          Input input) const
     {
-        return call(input);
+        return call(std::move(input));
     }
     
     virtual std::unique_ptr<Applier>
@@ -167,7 +167,7 @@ private:
         fromInput(&in, context);
 
         // Apply the function with the proper types
-        Output out = applyT(*downcast, in);
+        Output out = applyT(*downcast, std::move(in));
 
         // Return the output
         return toOutput(&out);
