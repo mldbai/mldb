@@ -49,7 +49,9 @@ struct AnnotatedClause {
     std::vector<ColumnName> leftVars, rightVars, externalVars;
 
     /// Lists of functions on the left, the right, and satisfied by neither side
-    std::vector<Utf8String> leftFuncs, rightFuncs, externalFuncs;
+    /// We still need to keep the scope, as table1.rowName() is not the same as
+    /// rowName() for a joined table.
+    std::vector<ScopedName> leftFuncs, rightFuncs, externalFuncs;
     
     /// Role that this clause plays in the overall join logic
     enum Role {

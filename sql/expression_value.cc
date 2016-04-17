@@ -412,7 +412,7 @@ SchemaCompleteness
 ExpressionValueInfo::
 getSchemaCompleteness() const
 {
-    throw HttpReturnException(500, "Value description doesn't describe a row",
+    throw HttpReturnException(500, "Value description doesn't describe a row: type " + ML::type_name(*this) + " " + jsonEncodeStr(std::shared_ptr<ExpressionValueInfo>(const_cast<ExpressionValueInfo *>(this), [] (ExpressionValueInfo *) {})),
                               "type", ML::type_name(*this));
 }
 
@@ -543,6 +543,10 @@ struct ExpressionValueInfoPtrDescription
     virtual void printJsonTyped(const std::shared_ptr<ExpressionValueInfo> * val,
                                 JsonPrintingContext & context) const
     {
+        if (!(*val)) {
+            context.writeNull();
+            return;
+        }
         Json::Value out;
         out["type"] = ML::type_name(**val);
         if ((*val)->isScalar()) {
@@ -585,6 +589,10 @@ struct RowValueInfoPtrDescription
     virtual void printJsonTyped(const std::shared_ptr<RowValueInfo> * val,
                                 JsonPrintingContext & context) const
     {
+        if (!(*val)) {
+            context.writeNull();
+            return;
+        }
         Json::Value out;
         out["type"] = ML::type_name(**val);
         out["kind"] = "row";

@@ -286,7 +286,7 @@ SampledDataset(MldbServer * owner,
 {
     auto sampleConfig = config.params.convert<SampledDatasetConfig>();
     
-    SqlExpressionMldbContext context(owner);
+    SqlExpressionMldbScope context(owner);
     bondTableExpression = sampleConfig.dataset->bind(context);
 
     itl.reset(new Itl(server, bondTableExpression.dataset, sampleConfig));

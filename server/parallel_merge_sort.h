@@ -1,10 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* parallel_merge_sort.h
    Jeremy Barnes, 12 August 2015
    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
 
-
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #pragma once
@@ -191,9 +189,10 @@ parallelQuickSortRecursive(typename std::vector<T>::iterator begin, typename std
 
 template<class T, class Compare = std::less<T> >
 void 
-parallelQuickSortRecursive(typename std::vector<T>::iterator begin, typename std::vector<T>::iterator end) 
+parallelQuickSortRecursive(std::vector<T> & vec)
 {
-    return parallelQuickSortRecursive<T, Compare>(begin, end, Compare());
+    return parallelQuickSortRecursive<T, Compare>(vec.begin(), vec.end(),
+                                                  Compare());
 }
 
 

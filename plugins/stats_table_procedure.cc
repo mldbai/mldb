@@ -204,7 +204,7 @@ run(const ProcedureRunConfig & run,
     StatsTableProcedureConfig runProcConf =
         applyRunConfOverProcConf(procConfig, run);
 
-    SqlExpressionMldbContext context(server);
+    SqlExpressionMldbScope context(server);
     auto boundDataset = runProcConf.trainingData.stm->from->bind(context);
     
     vector<string> outcome_names;
@@ -626,7 +626,7 @@ run(const ProcedureRunConfig & run,
     BagOfWordsStatsTableProcedureConfig runProcConf =
         applyRunConfOverProcConf(procConfig, run);
 
-    SqlExpressionMldbContext context(server);
+    SqlExpressionMldbScope context(server);
     auto boundDataset = runProcConf.trainingData.stm->from->bind(context);
     
     vector<string> outcome_names;

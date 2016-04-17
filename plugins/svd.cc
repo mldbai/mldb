@@ -690,7 +690,7 @@ run(const ProcedureRunConfig & run,
 
     int numBasisVectors = runProcConf.numDenseBasisVectors;
     
-    SqlExpressionMldbContext context(server);
+    SqlExpressionMldbScope context(server);
 
     auto dataset = runProcConf.trainingData.stm->from->bind(context).dataset;
     

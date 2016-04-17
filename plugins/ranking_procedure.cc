@@ -83,7 +83,7 @@ run(const ProcedureRunConfig & run,
     const std::function<bool (const Json::Value &)> & onProgress) const
 {
     auto runProcConf = applyRunConfOverProcConf(procedureConfig, run);
-    SqlExpressionMldbContext context(server);
+    SqlExpressionMldbScope context(server);
 
     auto boundDataset = runProcConf.inputData.stm->from->bind(context);
 
@@ -94,7 +94,7 @@ run(const ProcedureRunConfig & run,
     // clause.  First, we need to calculate each of the order by clauses
     for (auto & c: runProcConf.inputData.stm->orderBy.clauses) {
         auto whenClause = std::make_shared<FunctionCallExpression>
-            ("latest_timestamp",
+            ("" /* tableName */, "latest_timestamp",
              vector<shared_ptr<SqlExpression> >(1, c.first));
         calc.emplace_back(whenClause);
     }

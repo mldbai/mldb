@@ -233,7 +233,7 @@ run(const ProcedureRunConfig & run,
     //cerr << "doing t-SNE" << endl;
 
 
-    SqlExpressionMldbContext context(server);
+    SqlExpressionMldbScope context(server);
 
     //cerr << "numDims = " << numDims << endl;
 

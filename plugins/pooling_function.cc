@@ -84,7 +84,7 @@ PoolingFunction(MldbServer * owner,
     queryFunction = std::make_shared<SqlQueryFunction>(owner, fnPConfig,
                                                        onProgress);
 
-    SqlExpressionMldbContext context(owner);
+    SqlExpressionMldbScope context(owner);
     boundEmbeddingDataset = functionConfig.embeddingDataset->bind(context);
     
     columnNames = boundEmbeddingDataset.dataset->getRowInfo()->allColumnNames();

@@ -23,9 +23,9 @@ struct BoundTableExpression;
 
 /** Context to bind a row expression into an MLDB instance. */
 
-struct SqlExpressionMldbContext: public SqlBindingScope {
+struct SqlExpressionMldbScope: public SqlBindingScope {
 
-    SqlExpressionMldbContext(const MldbServer * mldb);
+    SqlExpressionMldbScope(const MldbServer * mldb);
 
     MldbServer * mldb;
       
@@ -54,7 +54,7 @@ struct SqlExpressionMldbContext: public SqlBindingScope {
 
 /** Context to bind a row expression into a dataset. */
 
-struct SqlExpressionDatasetContext: public SqlExpressionMldbContext {
+struct SqlExpressionDatasetContext: public SqlExpressionMldbScope {
 
     struct RowScope: public SqlRowScope {
         RowScope(const MatrixNamedRow & row,

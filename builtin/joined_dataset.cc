@@ -60,14 +60,13 @@ struct JoinedDataset::Itl
         //ML::compact_vector<RowHash, 2> rowHashes;   ///< Row hash from input datasets
     };
 
-    enum JoinSide
-    {
+    enum JoinSide {
         JOIN_SIDE_LEFT = 0,
         JOIN_SIDE_RIGHT,
         JOIN_SIDE_MAX
     };
 
-     struct JoinedRowStream : public RowStream {
+    struct JoinedRowStream : public RowStream {
 
         JoinedRowStream(JoinedDataset::Itl* source) : source(source)
         {
@@ -138,10 +137,10 @@ struct JoinedDataset::Itl
 
     Itl(MldbServer * server, JoinedDatasetConfig joinConfig)
     {
-        SqlExpressionMldbContext context(server);
+        SqlExpressionMldbScope context(server);
 
         // Create a context to get our datasets from
-        SqlExpressionMldbContext mldbContext(server);
+        SqlExpressionMldbScope mldbContext(server);
 
         // Obtain our datasets
         BoundTableExpression left = joinConfig.left->bind(mldbContext);
@@ -311,7 +310,7 @@ struct JoinedDataset::Itl
 
     //Easiest case with constant Where
     void makeJoinConstantWhere(AnnotatedJoinCondition& condition,
-                               SqlExpressionMldbContext& context,
+                               SqlExpressionMldbScope& context,
                                BoundTableExpression& left,
                                BoundTableExpression& right,
                                JoinQualification qualification)
@@ -334,15 +333,15 @@ struct JoinedDataset::Itl
                 std::vector<std::shared_ptr<SqlExpression> > clauses
                     = { side.selectExpression };
 
-                if (outer)
-                {
+                if (outer) {
                     //return all rows
                     sideCondition = SqlExpression::TRUE;
 
                     //but evaluate if the row is valid to join with the other side
                     auto notnullExpr = std::make_shared<IsTypeExpression>
                         (side.where, true, "null");
-                    auto complementExpr = std::make_shared<BooleanOperatorExpression>
+                    auto complementExpr
+                        = std::make_shared<BooleanOperatorExpression>
                         (BooleanOperatorExpression(side.where, notnullExpr, "AND"));
 
                     clauses.push_back(complementExpr);
@@ -361,12 +360,13 @@ struct JoinedDataset::Itl
                  0, -1, true /* allowParallel */);
 
                 // Because we know that our outer context is an
-                // SqlExpressionMldbContext, we know that it takes an
+                // SqlExpressionMldbScope, we know that it takes an
                 // empty rowScope with nothing that depends on the current
                 // row.
 
                 SqlRowScope rowScope;
-                auto rows = generator(-1, rowScope); //Todo: destructing this can be really expensive.
+                //Todo: destroying this can be really expensive.
+                auto rows = generator(-1, rowScope);
             
                 if (debug)
                     cerr << "got rows " << jsonEncode(rows) << endl;
@@ -391,34 +391,39 @@ struct JoinedDataset::Itl
                     sorted.emplace_back(value, r.rowName, r.rowHash);
                 }
 
-                parallelQuickSortRecursive<std::tuple<ExpressionValue, RowName, RowHash> >(sorted.begin(), sorted.end());
+                parallelQuickSortRecursive(sorted);
 
                 return sorted;
             };
 
-        auto recordOuterLeft = [&] ( const RowName& rowName, const RowHash& rowHash )
+        auto recordOuterLeft = [&] (const RowName& rowName, const RowHash& rowHash)
         {
             recordJoinRow(rowName, rowHash, RowName(), RowHash());
         };
 
-        auto recordOuterRight = [&] ( const RowName& rowName, const RowHash& rowHash  )
+        auto recordOuterRight = [&] (const RowName& rowName, const RowHash& rowHash)
         {
             recordJoinRow( RowName(), RowHash(), rowName, rowHash);
         };
 
-        std::vector<std::tuple<ExpressionValue, RowName, RowHash> > leftRows, rightRows;
+        std::vector<std::tuple<ExpressionValue, RowName, RowHash> >
+            leftRows, rightRows;
 
-        leftRows = runSide(condition.left, *left.dataset, outerLeft, recordOuterLeft);
-        rightRows = runSide(condition.right, *right.dataset, outerRight, recordOuterRight);
+        leftRows = runSide(condition.left, *left.dataset, outerLeft,
+                           recordOuterLeft);
+        rightRows = runSide(condition.right, *right.dataset, outerRight,
+                            recordOuterRight);
 
         switch (condition.style) {
         case AnnotatedJoinCondition::CROSS_JOIN: {
             // Join with no restrictions on the joined column
             if (leftRows.size() * rightRows.size() > 100000000) {
-                throw HttpReturnException(400, "Cross join too big: cowardly refusing to materialize row IDs for a dataset with > 100,000,000 rows",
-                                          "leftSize", leftRows.size(),
-                                          "rightSize", rightRows.size());//,
-                                          //"joinOn", joinConfig.on);
+                throw HttpReturnException
+                    (400, "Cross join too big: cowardly refusing to materialize "
+                     "row IDs for a dataset with > 100,000,000 rows",
+                     "leftSize", leftRows.size(),
+                     "rightSize", rightRows.size());//,
+                //"joinOn", joinConfig.on);
             }
             break;
         }
@@ -444,16 +449,19 @@ struct JoinedDataset::Itl
             const ExpressionValue & val2 = std::get<0>(*it2);
             
             if (debug)
-                cerr << "joining " << jsonEncodeStr(val1) << " and " << jsonEncodeStr(val2) << endl;
+                cerr << "joining " << jsonEncodeStr(val1)
+                     << " and " << jsonEncodeStr(val2) << endl;
 
             if (val1 < val2) {
                 if (outerLeft)
-                    recordJoinRow(std::get<1>(*it1), std::get<2>(*it1), RowName(), RowHash()); //For LEFT and FULL joins
+                    recordJoinRow(std::get<1>(*it1), std::get<2>(*it1),
+                                  RowName(), RowHash()); //For LEFT and FULL joins
                 ++it1;
             }
             else if (val2 < val1) {
                 if (outerRight)
-                    recordJoinRow(RowName(), RowHash(),std::get<1>(*it2), std::get<2>(*it2)); //For RIGHT and FULL joins
+                    recordJoinRow(RowName(), RowHash(),std::get<1>(*it2),
+                                  std::get<2>(*it2)); //For RIGHT and FULL joins
                 ++it2;
             }
             else {
@@ -481,22 +489,25 @@ struct JoinedDataset::Itl
                             const RowHash & rightHash = std::get<2>(*it2a);
 
                             if (debug)
-                                cerr << "rows " << leftName << " and " << rightName << " join on value " << val1 << endl;
+                                cerr << "rows " << leftName << " and "
+                                     << rightName << " join on value "
+                                     << val1 << endl;
                             
                             recordJoinRow(leftName, leftHash, rightName, rightHash);
                         }
                     }
                 }
-                else if (qualification != JOIN_INNER)
-                {
-                    for (auto it1a = it1; it1a < erng1 && outerLeft;  ++it1a)
-                    {
-                        recordJoinRow(std::get<1>(*it1), std::get<2>(*it1), RowName(), RowHash()); //For LEFT and FULL joins
+                else if (qualification != JOIN_INNER) {
+                    for (auto it1a = it1; it1a < erng1 && outerLeft;  ++it1a) {
+                        // For LEFT and FULL joins
+                        recordJoinRow(std::get<1>(*it1), std::get<2>(*it1),
+                                      RowName(), RowHash());
                     }
-
-                    for (auto it2a = it2; it2a < erng2 && outerRight;  ++it2a)
-                    {
-                        recordJoinRow(RowName(), RowHash(),std::get<1>(*it2), std::get<2>(*it2)); //For RIGHT and FULL joins
+                    
+                    for (auto it2a = it2; it2a < erng2 && outerRight;  ++it2a) {
+                        // For RIGHT and FULL joins
+                        recordJoinRow(RowName(), RowHash(),std::get<1>(*it2),
+                                      std::get<2>(*it2));
                     }
                 }
 
@@ -505,15 +516,17 @@ struct JoinedDataset::Itl
             }
         }
 
-        while (outerLeft && it1 != end1)
-        {
-            recordJoinRow(std::get<1>(*it1), std::get<2>(*it1), RowName(), RowHash()); //For LEFT and FULL joins
+        while (outerLeft && it1 != end1) {
+            // For LEFT and FULL joins
+            recordJoinRow(std::get<1>(*it1), std::get<2>(*it1),
+                          RowName(), RowHash()); 
             ++it1;
         }
 
-        while (outerRight && it2 != end2)
-        {
-            recordJoinRow(RowName(), RowHash(),std::get<1>(*it2), std::get<2>(*it2)); //For RIGHT and FULL joins
+        while (outerRight && it2 != end2) {
+            // For RIGHT and FULL joins
+            recordJoinRow(RowName(), RowHash(),std::get<1>(*it2),
+                          std::get<2>(*it2));
             ++it2;
         }
     }

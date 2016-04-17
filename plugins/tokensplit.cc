@@ -50,7 +50,7 @@ TokenSplit(MldbServer * owner,
     : Function(owner)
 {
     functionConfig = config.params.convert<TokenSplitConfig>();   
-    SqlExpressionMldbContext context(owner);
+    SqlExpressionMldbScope context(owner);
  
     //get all values from the dataset and add them to our dictionary of tokens
     auto aggregator = [&] (const MatrixNamedRow & row) {

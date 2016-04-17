@@ -37,7 +37,7 @@ struct SelectExpression;
 struct TupleExpression;
 struct NamedRowValue;
 struct SelectStatement;
-struct SqlExpressionMldbContext;
+struct SqlExpressionMldbScope;
 
 extern const OrderByExpression ORDER_BY_NOTHING;
 
@@ -110,7 +110,7 @@ getEmbedding(const SelectExpression & select,
 std::pair<std::vector<std::tuple<RowHash, RowName, std::vector<double>, std::vector<ExpressionValue> > >,
           std::vector<KnownColumn> >
 getEmbedding(const SelectStatement & stm,
-             SqlExpressionMldbContext & context,
+             SqlExpressionMldbScope & context,
              int maxDimensions = -1,
              const std::function<bool (const Json::Value &)> & onProgress = nullptr);
 
@@ -120,7 +120,7 @@ getEmbedding(const SelectStatement & stm,
    of the elements of the query, as it will be set up with an empty
    row scope.  If you get strange behaviour and segfaults running a
    query under this function, it's probably the case.  Most likely
-   you should be running this function under an SqlExpressionMldbContext.
+   you should be running this function under an SqlExpressionMldbScope.
  */
 std::vector<MatrixNamedRow>
 queryWithoutDataset(SelectStatement& stm, SqlBindingScope& scope);

@@ -54,7 +54,7 @@ struct SubDataset::Itl
 
     Itl(SelectStatement statement, MldbServer* owner)
     {
-        SqlExpressionMldbContext mldbContext(owner);
+        SqlExpressionMldbScope mldbContext(owner);
         BoundTableExpression table = statement.from->bind(mldbContext);  
 
         std::vector<MatrixNamedRow> rows;

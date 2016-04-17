@@ -77,7 +77,7 @@ FunctionOutput
 Function::
 call(const ExpressionValue & input) const
 {
-    SqlExpressionMldbContext outerContext(MldbEntity::getOwner(this->server));
+    SqlExpressionMldbScope outerContext(MldbEntity::getOwner(this->server));
     
     auto info = this->getFunctionInfo();
 

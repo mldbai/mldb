@@ -19,9 +19,9 @@
 namespace Datacratic {
 namespace MLDB {
 
-struct ColumnScope: public SqlExpressionMldbContext {
+struct ColumnScope: public SqlExpressionMldbScope {
     ColumnScope(MldbServer * server, std::shared_ptr<Dataset> dataset)
-        : SqlExpressionMldbContext(server), dataset(dataset)
+        : SqlExpressionMldbScope(server), dataset(dataset)
     {
     }
 

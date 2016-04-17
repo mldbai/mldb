@@ -142,7 +142,7 @@ run(const ProcedureRunConfig & run,
             return onProgress(value);
         };
 
-    SqlExpressionMldbContext context(server);
+    SqlExpressionMldbScope context(server);
 
     auto boundDataset = runProcConf.trainingData.stm->from->bind(context);
     auto score = extractNamedSubSelect("score", runProcConf.trainingData.stm->select)->expression;

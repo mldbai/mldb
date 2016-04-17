@@ -2171,11 +2171,15 @@ getChildren() const
 /*****************************************************************************/
 
 FunctionCallExpression::
-FunctionCallExpression(Utf8String function,
+FunctionCallExpression(Utf8String tableName,
+                       Utf8String functionName,
                        std::vector<std::shared_ptr<SqlExpression> > args)
-    : functionName(std::move(function)), args(std::move(args))
+    : tableName(std::move(tableName)),
+      functionName(std::move(functionName)),
+      args(std::move(args))
 {
-
+    // Catch accidentally passing functionName as tableName
+    ExcAssert(!this->functionName.empty());
 }
 
 FunctionCallExpression::
@@ -2201,9 +2205,9 @@ bind(SqlBindingScope & context) const
         boundArgs.emplace_back(std::move(arg->bind(context)));
     }
 
-    BoundFunction fn = context.doGetFunction("" /* tableName */,
-                                             functionName, boundArgs, context);
-
+    BoundFunction fn = context.doGetFunction(tableName, functionName,
+                                             boundArgs, context);
+    
     if (!fn) {
         throw HttpReturnException(400, "Unable to find function " + functionName);
     }
@@ -2254,8 +2258,9 @@ Utf8String
 FunctionCallExpression::
 print() const
 {
-    Utf8String result = "function(\"" + functionName + "\"";
-
+    Utf8String result = "function(" + jsonEncodeStr(tableName)
+        + "," + jsonEncodeStr(functionName);
+        
     for (auto & a : args) {
         result += "," + a->print();
     }
@@ -2326,7 +2331,7 @@ functionNames() const
 {
     std::map<ScopedName, UnboundFunction> result;
     // TODO: actually get arguments
-    result[ScopedName("" /*tableName*/, ColumnName(functionName))]
+    result[ScopedName(tableName, ColumnName(functionName))]
         .argsForArity[args.size()] = {};
     
     // Now go into our arguments and also extract the functions called

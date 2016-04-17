@@ -26,8 +26,6 @@ LIBMLDB_SOURCES:= \
 	column_scope.cc \
 	bucket.cc \
 
-#	function_contexts.cc \
-
 LIBMLDB_LINK:= \
 	service_peer mldb_builtin_plugins sql_expression git2 hoedown credentials_daemon mldb_builtin command_expression cloud mldb_core
 

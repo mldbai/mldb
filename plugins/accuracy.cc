@@ -559,7 +559,7 @@ run(const ProcedureRunConfig & run,
     auto runAccuracyConf = applyRunConfOverProcConf(accuracyConfig, run);
 
     // 1.  Get the input dataset
-    SqlExpressionMldbContext context(server);
+    SqlExpressionMldbScope context(server);
 
     auto dataset = runAccuracyConf.testingData.stm->from->bind(context).dataset;
    

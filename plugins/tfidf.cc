@@ -194,7 +194,7 @@ run(const ProcedureRunConfig & run,
 {
     auto runProcConf = applyRunConfOverProcConf(tfidfconfig, run);
 
-    SqlExpressionMldbContext context(server);
+    SqlExpressionMldbScope context(server);
 
     auto boundDataset = runProcConf.trainingData.stm->from->bind(context);
 

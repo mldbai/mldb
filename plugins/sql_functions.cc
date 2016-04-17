@@ -9,9 +9,9 @@
 #include "mldb/server/mldb_server.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/server/dataset_context.h"
+#include "mldb/server/dataset_context.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/base/parallel.h"
-#include "mldb/server/function_contexts.h"
 #include "mldb/server/bound_queries.h"
 #include "mldb/sql/table_expression_operations.h"
 #include "mldb/sql/join_utils.h"
@@ -32,7 +32,7 @@ namespace MLDB {
 std::shared_ptr<PipelineElement>
 getMldbRoot(MldbServer * server)
 {
-    return PipelineElement::root(std::make_shared<SqlExpressionMldbContext>(server));
+    return PipelineElement::root(std::make_shared<SqlExpressionMldbScope>(server));
 }
 
 /*****************************************************************************/
@@ -357,22 +357,32 @@ SqlExpressionFunction::
 SqlExpressionFunction(MldbServer * owner,
                       PolyConfig config,
                       const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner), outerScope(owner), innerScope(owner)
+    : Function(owner),
+      outerScope(new SqlExpressionMldbScope(owner)),
+      innerScope(new SqlExpressionExtractScope(*outerScope))
 {
     functionConfig = config.params.convert<SqlExpressionFunctionConfig>();
 
     if (functionConfig.prepared) {
         // 1.  Bind the expression in.  That will tell us what it is expecting
         //     as an input.
-        this->bound = functionConfig.expression.bind(innerScope);
+        this->bound = functionConfig.expression.bind(*innerScope);
 
         // 2.  Our output is known by the bound expression
         this->info.output = ExpressionValueInfo::toRow(this->bound.info);
     
-        // 3.  Our required input is known by the binding context, as it records
+        // 3.  Infer the input, now the binding is all done
+        innerScope->inferInput();
+
+        // 4.  Our required input is known by the binding context, as it records
         //     what was read.
-        info.input = innerScope.input;
+        info.input = innerScope->inputInfo;
     }
+}
+
+SqlExpressionFunction::
+~SqlExpressionFunction()
+{
 }
 
 Any
@@ -392,11 +402,12 @@ struct SqlExpressionFunctionApplier: public FunctionApplier {
                                  const FunctionValues & input)
         : FunctionApplier(function),
           function(function),
-          innerScope(outerScope.getMldbServer(), input, outerScope.functionStackDepth)
+          innerScope(outerScope, input)
     {
         if (!function->functionConfig.prepared) {
             // Specialize to this input
             this->bound = function->functionConfig.expression.bind(innerScope);
+
             // That leads to a specialized output
             this->info.output = ExpressionValueInfo::toRow(bound.info);
         }
@@ -411,18 +422,25 @@ struct SqlExpressionFunctionApplier: public FunctionApplier {
 
     FunctionOutput apply(const FunctionContext & context) const
     {
+        // We know that we won't go outside of the current row, so we can
+        // pass in a dummy object here.
+        SqlRowScope outerRow;
+
         if (function->functionConfig.prepared) {
             // Use the pre-bound version.   
-            return function->bound(function->innerScope.getRowScope(context), GET_LATEST);
+            return function->bound(function->innerScope
+                                   ->getRowScope(outerRow, context),
+                                   GET_LATEST);
         }
         else {
             // Use the specialized version. 
-            return bound(this->innerScope.getRowScope(context), GET_LATEST);
+            return bound(this->innerScope.getRowScope(outerRow, context),
+                         GET_LATEST);
         }
     }
 
     const SqlExpressionFunction * function;
-    FunctionExpressionContext innerScope;
+    SqlExpressionExtractScope innerScope;
     BoundSqlExpression bound;
 };
 
@@ -463,18 +481,22 @@ getFunctionInfo() const
     // 1.  Create a binding context to see what this function takes
     //     We want the pure function information, so we assume there is
     //     no context for it apart from MLDB itself.
-    FunctionExpressionContext context(MldbEntity::getOwner(this->server));
+    SqlExpressionMldbScope ultimateScope(MldbEntity::getOwner(this->server));
+    SqlExpressionExtractScope outerScope(ultimateScope);
 
     // 2.  Bind the expression in.  That will tell us what it is expecting
     //     as an input.
-    BoundSqlExpression bound = functionConfig.expression.bind(context);
+    BoundSqlExpression bound = functionConfig.expression.bind(outerScope);
 
     // 3.  Our output is known by the bound expression
     result.output = ExpressionValueInfo::toRow(bound.info);
     
+    // 4.  Infer our input
+    outerScope.inferInput();
+
     // 4.  Our required input is known by the binding context, as it records
     //     what was read.
-    result.input = context.input;
+    result.input = outerScope.inputInfo;
 
     return result;
 }
@@ -538,7 +560,7 @@ run(const ProcedureRunConfig & run,
     auto runProcConf = applyRunConfOverProcConf(procedureConfig, run);
 
     // Get the input dataset
-    SqlExpressionMldbContext context(server);
+    SqlExpressionMldbScope context(server);
 
     auto boundDataset = runProcConf.inputData.stm->from->bind(context);
     std::vector< std::shared_ptr<SqlExpression> > aggregators = 

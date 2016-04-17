@@ -137,7 +137,7 @@ run(const ProcedureRunConfig & run,
     }
 
     // 1.  Get the input dataset
-    SqlExpressionMldbContext context(server);
+    SqlExpressionMldbScope context(server);
 
     auto boundDataset = runProcConf.trainingData.stm->from->bind(context);
 

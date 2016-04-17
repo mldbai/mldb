@@ -315,7 +315,7 @@ getEmbedding(const SelectExpression & select,
 std::pair<std::vector<std::tuple<RowHash, RowName, std::vector<double>, std::vector<ExpressionValue> > >,
           std::vector<KnownColumn> >
 getEmbedding(const SelectStatement & stm,
-             SqlExpressionMldbContext & context,
+             SqlExpressionMldbScope & context,
              int maxDimensions,
              const std::function<bool (const Json::Value &)> & onProgress)
 {
