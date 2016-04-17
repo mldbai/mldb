@@ -35,12 +35,14 @@ LIBMLDB_BUILTIN_PLUGIN_SOURCES:= \
 	classifier.cc \
 	sql_functions.cc \
 
-# MATHIEU HERE THEY ARE
+# Not finished; they need their ValueDescriptions to be done
 #	kmeans.cc \
 	embedding.cc \
 	pooling_function.cc \
 	feature_generators.cc \
-	em.cc \
+
+# MATHIEU HERE THEY ARE
+#	em.cc \
 	tsne.cc \
 	svm.cc \
 	probabilizer.cc \

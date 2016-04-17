@@ -10,7 +10,7 @@
 
 
 #include "mldb/core/dataset.h"
-#include "mldb/core/function.h"
+#include "mldb/core/value_function.h"
 #include "mldb/types/value_description.h"
 #include "metric_space.h"
 
@@ -104,27 +104,34 @@ struct NearestNeighborsFunctionConfig {
 
 DECLARE_STRUCTURE_DESCRIPTION(NearestNeighborsFunctionConfig);
 
-struct NearestNeighborsFunction: public Function {
+struct NearestNeighborInput {
+    const ExpressionValue coords;
+    const ExpressionValue num_neighbors; //can be empty
+    const ExpressionValue max_distance; //can be empty
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(NearestNeighborInput);
+
+struct NearestNeighborOuput {
+    ExpressionValue row;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(NearestNeighborOuput);
+
+struct NearestNeighborsFunction: public ValueFunctionT<NearestNeighborInput, NearestNeighborOuput> {
     NearestNeighborsFunction(MldbServer * owner,
                   PolyConfig config,
                   const std::function<bool (const Json::Value &)> & onProgress);
 
     ~NearestNeighborsFunction();
 
-    virtual Any getStatus() const;
-
-    virtual Any getDetails() const;
-
-    virtual FunctionOutput apply(const FunctionApplier & applier,
-                              const FunctionContext & context) const;
-
-    /** Describe what the input and output is for this function. */
-    virtual FunctionInfo getFunctionInfo() const;
+    virtual NearestNeighborOuput applyT(const ApplierT & applier,
+                          const NearestNeighborInput & input) const;
     
-    virtual std::unique_ptr<FunctionApplier>
-    bind(SqlBindingScope & outerContext,
-         const FunctionValues & input) const;
-
+    virtual std::unique_ptr<FunctionApplierT<NearestNeighborInput, NearestNeighborOuput> >
+    bindT(SqlBindingScope & outerContext,
+          const FunctionValues & input) const;
+    
     NearestNeighborsFunctionConfig functionConfig;
 };
 

@@ -9,11 +9,10 @@
 
 #pragma once
 
-
+#include "mldb/core/value_function.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/core/dataset.h"
 #include "mldb/core/procedure.h"
-#include "mldb/core/function.h"
 #include "matrix.h"
 #include "mldb/types/value_description.h"
 #include "mldb/types/optional.h"
@@ -84,23 +83,25 @@ struct KmeansFunctionConfig {
 
 DECLARE_STRUCTURE_DESCRIPTION(KmeansFunctionConfig);
 
-struct KmeansFunction: public Function {
+struct KmeansFunctionArgs {
+   ExpressionValue values; //embedding
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(KmeansFunctionArgs);
+
+struct KmeansFunctionOutput {
+   ExpressionValue bestCluster;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(KmeansFunctionOutput);
+
+struct KmeansFunction: public ValueFunctionT<KmeansFunctionArgs, KmeansFunctionOutput>  {
     KmeansFunction(MldbServer * owner,
                 PolyConfig config,
                 const std::function<bool (const Json::Value &)> & onProgress);
     
-    virtual Any getStatus() const;
-    
-    virtual std::unique_ptr<FunctionApplier>
-    bind(SqlBindingScope & outerContext,
-         const FunctionValues & input) const;
-
-    virtual FunctionOutput apply(const FunctionApplier & applier,
-                              const FunctionContext & context) const;
-    
-    /** Describe what the input and output is for this function. */
-    virtual FunctionInfo getFunctionInfo() const;
-    
+    virtual KmeansFunctionOutput call(const KmeansFunctionArgs & input) const override; 
+  
     KmeansFunctionConfig functionConfig;
 
     // holds the dimension of the embedding space

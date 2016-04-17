@@ -333,7 +333,7 @@ KmeansFunction::
 KmeansFunction(MldbServer * owner,
                PolyConfig config,
                const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner)
+    : BaseT(owner)
 {
     functionConfig = config.params.convert<KmeansFunctionConfig>();
 
@@ -342,70 +342,13 @@ KmeansFunction(MldbServer * owner,
     dimension = impl->kmeans.clusters[0].centroid.size();
 }
 
-Any
+KmeansFunctionOutput 
 KmeansFunction::
-getStatus() const
+call(const KmeansFunctionArgs & input) const
 {
-    return Any();
-}
+    Date ts = input.values.getEffectiveTimestamp();
 
-struct KmeansFunctionApplier: public FunctionApplier {
-    KmeansFunctionApplier(const KmeansFunction * owner,
-                          const FunctionValues & input)
-        : FunctionApplier(owner)
-    {
-        info = owner->getFunctionInfo();
-        auto info = input.getValueInfo("embedding");
-        extract = info.getExpressionValueInfo()
-            ->extractDoubleEmbedding(owner->impl->columnNames);
-    }
-
-    ExpressionValueInfo::ExtractDoubleEmbeddingFunction extract;
-};
-
-std::unique_ptr<FunctionApplier>
-KmeansFunction::
-bind(SqlBindingScope & outerContext,
-     const FunctionValues & input) const
-{
-    return std::unique_ptr<KmeansFunctionApplier>
-        (new KmeansFunctionApplier(this, input));
-}
-
-FunctionOutput
-KmeansFunction::
-apply(const FunctionApplier & applier_,
-      const FunctionContext & context) const
-{
-    auto & applier = static_cast<const KmeansFunctionApplier &>(applier_);
-
-    FunctionOutput result;
-    
-    // Extract an embedding with the given column names
-    ExpressionValue storage;
-    const ExpressionValue & inputVal = context.get("embedding", storage);
-    ML::distribution<double> input = applier.extract(inputVal);
-
-    Date ts = inputVal.getEffectiveTimestamp();
-
-    int bestCluster
-        = impl->kmeans.assign(input.cast<float>());
-
-    result.set("cluster", ExpressionValue(bestCluster, ts));
-
-    return result;
-}
-
-FunctionInfo
-KmeansFunction::
-getFunctionInfo() const
-{
-    FunctionInfo result;
-
-    result.input.addEmbeddingValue("embedding", dimension);
-    result.output.addAtomValue("cluster");
-
-    return result;
+    return {ExpressionValue(impl->kmeans.assign(input.values.getEmbedding()), ts)};
 }
 
 namespace {
