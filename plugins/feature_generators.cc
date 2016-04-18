@@ -38,6 +38,26 @@ HashedColumnFeatureGeneratorConfigDescription()
                 "buckets will be 2^numBits.", 8);
 }
 
+/*****************************************************************************/
+/* HASHED COLUMN FEAT GEN                                                    */
+/*****************************************************************************/
+
+DEFINE_STRUCTURE_DESCRIPTION(FeatureGeneratorInput);
+
+FeatureGeneratorInputDescription::FeatureGeneratorInputDescription()
+{
+    addField("columns", &FeatureGeneratorInput::columns,
+             "Undocumented");
+}
+
+DEFINE_STRUCTURE_DESCRIPTION(FeatureGeneratorOutput);
+
+FeatureGeneratorOutputDescription::FeatureGeneratorOutputDescription()
+{
+    addField("hash", &FeatureGeneratorOutput::hash,
+             "Undocumented");
+}
+
 HashedColumnFeatureGenerator::
 HashedColumnFeatureGenerator(MldbServer * owner,
                  PolyConfig config,
@@ -60,7 +80,7 @@ HashedColumnFeatureGenerator::
 
 FeatureGeneratorOutput
 HashedColumnFeatureGenerator::
-call(const FeatureGeneratorInput & input) const
+call(FeatureGeneratorInput input) const
 {
     ML::distribution<float> result(numBuckets());
 

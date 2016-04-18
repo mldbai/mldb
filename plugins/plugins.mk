@@ -39,14 +39,13 @@ LIBMLDB_BUILTIN_PLUGIN_SOURCES:= \
 	kmeans.cc \
 	probabilizer.cc \
 
-# Not finished; they need their ValueDescriptions to be done
-#	pooling_function.cc \
-	feature_generators.cc \
+#    pooling_function.cc \
+    feature_generators.cc \
+    em.cc \
+    tsne.cc \
 
 # MATHIEU HERE THEY ARE
-#	em.cc \
-	tsne.cc \
-	svm.cc \
+#	svm.cc \
 	stats_table_procedure.cc \
 	tfidf.cc \
 	tokensplit.cc \

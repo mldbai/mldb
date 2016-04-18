@@ -303,7 +303,7 @@ KmeansFunctionConfigDescription()
 
 
 /*****************************************************************************/
-/* KMEANS FUNCTION                                                              */
+/* KMEANS FUNCTION                                                           */
 /*****************************************************************************/
 
 DEFINE_STRUCTURE_DESCRIPTION(KmeansFunctionArgs);
@@ -323,7 +323,9 @@ KmeansFunctionOutputDescription::
 KmeansFunctionOutputDescription()
 {
     addField("bestCluster", &KmeansFunctionOutput::bestCluster,
-             "The number of the best cluster for the given example.");
+             "Index of the row in the `centroids` dataset whose columns describe "
+             "the point which is closest to the input according to the `metric` "
+             "specified in training.");
 }
 
 struct KmeansFunction::Impl {

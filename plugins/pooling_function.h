@@ -55,12 +55,12 @@ struct PoolingFunction: public ValueFunctionT<PoolingInput, PoolingOutput> {
                    PolyConfig config,
                    const std::function<bool (const Json::Value &)> & onProgress);
 
-    virtual PoolingOutput applyT(const ApplierT & applier,
-                          const PoolingInput & input) const;
+    virtual PoolingOutput applyT(const ApplierT & applier, 
+                                 PoolingInput input) const override;
     
     virtual std::unique_ptr<FunctionApplierT<PoolingInput, PoolingOutput> >
     bindT(SqlBindingScope & outerContext,
-          const FunctionValues & input) const;
+          const FunctionValues & input) const override;
    
     std::shared_ptr<SqlQueryFunction> queryFunction;
 
