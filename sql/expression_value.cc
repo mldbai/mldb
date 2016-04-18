@@ -1560,7 +1560,7 @@ ExpressionValue(RowValue row) noexcept
 
     // If we have a single timestamp, we can use the more efficient
     // structured representation.
-
+    
     // ...
 
     if (!isSorted)
@@ -2079,7 +2079,7 @@ getMinTimestamp() const
             return true;
         };
 
-    forEachSubexpression(onSubex);
+    forEachColumn(onSubex);
 
     return result;
 }
@@ -2101,7 +2101,7 @@ getMaxTimestamp() const
             return true;
         };
     
-    forEachSubexpression(onSubex);
+    forEachColumn(onSubex);
 
     return result;
 }
@@ -2225,6 +2225,7 @@ getField(int fieldIndex) const
 const ExpressionValue*
 ExpressionValue::
 findNestedColumn(const ColumnName & columnName,
+                 ExpressionValue & storage,
                  const VariableFilter & filter /*= GET_LATEST*/) const
 {
     ExcAssert(!columnName.empty());
@@ -2244,6 +2245,7 @@ findNestedColumn(const ColumnName & columnName,
         }
         else {
             return result->findNestedColumn(columnName.removePrefix(columnName[0]),
+                                            storage,
                                             filter);
         }
     }
@@ -2595,7 +2597,7 @@ appendToRow(const Coords & columnName, StructValue & row) const
                 return true;
             };
 
-        forEachSubexpression(onSubexpr);
+        forEachColumn(onSubexpr);
     }
     else {
         // This function deals with if we want our value to be
@@ -2825,41 +2827,113 @@ forEachAtom(const std::function<bool (const Coords & columnName,
                               "type", (int)type_);
 }
 
+#if 0
+template<typename Flattened, typename Fn>
+static bool forEachColumnFlattened(Flattened&& flattened, Date ts,
+                                   Fn fn)
+{
+    // For each prefix, what is the value?
+    std::map<Coord, std::vector<int> > index;
+    for (unsigned i = 0;  i < flattened->length();  ++i) {
+        index[flattened->columnName(i).head()].push_back(i);
+    }
+
+    for (auto & entry: index) {
+        RowValue expr;
+        expr.reserve(entry.second.size());
+        for (int i: entry.second) {
+            if (flattened->columnName(i).size() == 1) {
+                if (!onColumn(index.first, prefix,
+                              ExpressionValue(flattened->value(i), ts_)))
+                    return false;
+            }
+            else {
+                expr.emplace_back(flattened->columnName(i).tail(),
+                                  flattened->value(i), ts_);
+            }
+        }
+        if (!expr.empty())
+            if (!onColumn(index.first, prefix, std::move(expr)))
+                return false;
+    }
+
+    return true;
+}
+#endif
+
 bool
 ExpressionValue::
-forEachSubexpression(const std::function<bool (const Coord & columnName,
-                                               const Coords & prefix,
-                                               const ExpressionValue & val)>
-                         & onSubexpression,
-                     const Coords & prefix) const
+forEachColumn(const std::function<bool (const Coord & columnName,
+                                        const Coords & prefix,
+                                        const ExpressionValue & val)>
+              & onColumn,
+              const Coords & prefix) const
 {
     switch (type_) {
     case Type::STRUCTURED: {
         for (auto & col: *structured_) {
             const ExpressionValue & val = std::get<1>(col);
-            if (!onSubexpression(std::get<0>(col), prefix, val))
+            if (!onColumn(std::get<0>(col), prefix, val))
                 return false;
         }
         return true;
     }
     case Type::FLATTENED: {
+        // NOTE: this function call is really freaking expensive!
+        // We need to do one column at a time, so we need to do it by
+        // looking for all of the prefixes and doing them one at a time.
+
+        // For each prefix, what is the value?
+        std::map<Coord, std::vector<int> > index;
+        for (unsigned i = 0;  i < flattened_->length();  ++i) {
+            index[flattened_->columnName(i).head()].push_back(i);
+        }
+
+        for (auto & entry: index) {
+            RowValue expr;
+            expr.reserve(entry.second.size());
+            for (int i: entry.second) {
+                if (flattened_->columnName(i).size() == 1) {
+                    if (!onColumn(entry.first, prefix,
+                                  ExpressionValue(flattened_->value(i), ts_)))
+                        return false;
+                }
+                else {
+                    expr.emplace_back(flattened_->columnName(i).tail(),
+                                      flattened_->value(i), ts_);
+                }
+            }
+            if (!expr.empty())
+                if (!onColumn(entry.first, prefix, std::move(expr)))
+                    return false;
+        }
+
+        return true;
+
+#if 0
         for (unsigned i = 0;  i < flattened_->length();  ++i) {
             ExpressionValue val(flattened_->value(i), ts_);
             // TO RESOLVE BEFORE MERGE: toSimpleName() is not right; need to
             // reconfigure here
-            if (!onSubexpression(flattened_->columnName(i).toSimpleName(), prefix, val))
+            if (!onColumn(flattened_->columnName(i).toSimpleName(), prefix, val))
                 return false;
         }
         return true;
+#endif
     }
     case Type::EMBEDDING: {
-        throw HttpReturnException(400, "Not implemented: forEachSubexpression for Embedding value");
+        auto onColumn2 = [&] (Coord & col,
+                             ExpressionValue & val)
+            {
+                return onColumn(col, prefix, val);
+            };
+        return embedding_->forEachColumn(onColumn2, ts_);
     }
     case Type::NONE: {
-        return onSubexpression(Coord(), prefix, ExpressionValue::null(ts_));
+        return onColumn(Coord(), prefix, ExpressionValue::null(ts_));
     }
     case Type::ATOM: {
-        return onSubexpression(Coord(), prefix, ExpressionValue(cell_, ts_));
+        return onColumn(Coord(), prefix, ExpressionValue(cell_, ts_));
     }
     }
 
@@ -2871,15 +2945,15 @@ forEachSubexpression(const std::function<bool (const Coord & columnName,
 bool
 ExpressionValue::
 forEachColumnDestructive(const std::function<bool (Coord & columnName, ExpressionValue & val)>
-                                & onSubexpression) const
+                                & onColumn) const
 {
-    return forEachColumnDestructiveT(onSubexpression);
+    return forEachColumnDestructiveT(onColumn);
 }
 
 template<typename Fn>
 bool
 ExpressionValue::
-forEachColumnDestructiveT(Fn && onSubexpression) const
+forEachColumnDestructiveT(Fn && onColumn) const
 {
     switch (type_) {
     case Type::STRUCTURED: {
@@ -2893,7 +2967,7 @@ forEachColumnDestructiveT(Fn && onSubexpression) const
             for (auto & col: const_cast<Structured &>(*structured_)) {
                 ExpressionValue val(std::move(std::get<1>(col)));
                 Coord name(std::move(std::get<0>(col)));
-                if (!onSubexpression(name, val))
+                if (!onColumn(name, val))
                     return false;
             }
         }
@@ -2901,13 +2975,15 @@ forEachColumnDestructiveT(Fn && onSubexpression) const
             for (auto & col: *structured_) {
                 ExpressionValue val = std::get<1>(col);
                 Coord name = std::get<0>(col);
-                if (!onSubexpression(name, val))
+                if (!onColumn(name, val))
                     return false;
             }
         }
         return true;
     }
     case Type::FLATTENED: {
+        throw HttpReturnException(600, "forEachColumnDestructive(flattened)");
+#if 0
         if (flattened_.unique()) {
             // See same comment above
             Flattened & s = const_cast<Flattened &>(*flattened_);
@@ -2916,7 +2992,7 @@ forEachColumnDestructiveT(Fn && onSubexpression) const
                 ExpressionValue val(std::move(s.moveValue(i)), ts_);
                 // TO RESOLVE BEFORE MERGE: shouldn't be toSimpleName()
                 Coord name = s.columnName(i).toSimpleName();
-                if (!onSubexpression(name, val))
+                if (!onColumn(name, val))
                     return false;
             }
 
@@ -2925,16 +3001,17 @@ forEachColumnDestructiveT(Fn && onSubexpression) const
             for (unsigned i = 0;  i < flattened_->length();  ++i) {
                 ExpressionValue val(flattened_->value(i), ts_);
                 Coord name = flattened_->columnName(i).toSimpleName();
-                if (!onSubexpression(name, val))
+                if (!onColumn(name, val))
                     return false;
             }
         }
         return true;
+#endif
     }
     case Type::EMBEDDING: {
         auto onCol = [&] (Coord & columnName, ExpressionValue & val)
             {
-                return onSubexpression(columnName, val);
+                return onColumn(columnName, val);
             };
         
         return embedding_->forEachColumn(onCol, ts_);
@@ -3359,7 +3436,7 @@ hasKey(const Utf8String & key) const
             };
      
         // Can't be with next line due to sequence points
-        bool result = !forEachSubexpression(onExpr);
+        bool result = !forEachColumn(onExpr);
         return { result, outputDate };
     }
 #if 0
@@ -3413,7 +3490,7 @@ hasValue(const ExpressionValue & val) const
             };
         
         // Can't be with next line due to sequence points
-        bool result = !forEachSubexpression(onExpr);
+        bool result = !forEachColumn(onExpr);
         return { result, outputDate };
     }
     }
@@ -4283,6 +4360,31 @@ searchRow(const std::vector<std::tuple<Coord, ExpressionValue> > & columns,
           ExpressionValue & storage)
 {
     return doSearchRow(columns, key, filter, storage);
+}
+
+const ExpressionValue *
+searchRow(const std::vector<std::tuple<Coord, ExpressionValue> > & columns,
+          const ColumnName & key,
+          const VariableFilter & filter,
+          ExpressionValue & storage)
+{
+    ExcAssert(!key.empty());
+
+    if (key.size() == 1)
+        return searchRow(columns, key.head(), filter, storage);
+    
+    for (auto & c: columns) {
+        if (std::get<0>(c) != key.head())
+            continue;
+
+        // Prefix match; now do the suffix
+        auto res = std::get<1>(c).findNestedColumn(key.tail(), storage, filter);
+        
+        if (res)
+            return res;
+    }
+
+    return nullptr;
 }
 
 

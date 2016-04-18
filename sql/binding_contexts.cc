@@ -254,14 +254,16 @@ SqlExpressionExtractScope::
 SqlExpressionExtractScope(SqlBindingScope & outer,
                           std::shared_ptr<ExpressionValueInfo> inputInfo)
     : ReadThroughBindingScope(outer),
-      inputInfo(ExpressionValueInfo::toRow(inputInfo))
+      inputInfo(ExpressionValueInfo::toRow(inputInfo)),
+      wildcardsInInput(false)
 {
     ExcAssert(this->inputInfo);
 }
 
 SqlExpressionExtractScope::
 SqlExpressionExtractScope(SqlBindingScope & outer)
-    : ReadThroughBindingScope(outer)
+    : ReadThroughBindingScope(outer),
+      wildcardsInInput(false)
 {
 }
 
@@ -269,7 +271,15 @@ void
 SqlExpressionExtractScope::
 inferInput()
 {
-    throw HttpReturnException(600, "SqlExpressionExtractScope::inferInput()");
+    std::vector<KnownColumn> knownColumns;
+
+    for (auto & c: inferredInputs) {
+        knownColumns.emplace_back(c, std::make_shared<AnyValueInfo>(),
+                                  COLUMN_IS_SPARSE);
+    }
+
+    inputInfo.reset(new RowValueInfo(std::move(knownColumns),
+                                     wildcardsInInput ? SCHEMA_OPEN : SCHEMA_CLOSED));
 }
 
 ColumnGetter
@@ -284,6 +294,21 @@ doGetColumn(const Utf8String & tableName,
     if (!tableName.empty()) {
         throw HttpReturnException(400, "Cannot use table names inside an extract");
         return ReadThroughBindingScope::doGetColumn(tableName, columnName);
+    }
+
+    if (!inputInfo) {
+        // We're in recording mode.  Simply record that we need this column.
+        inferredInputs.insert(columnName);
+
+        return {[=] (const SqlRowScope & context,
+                     ExpressionValue & storage,
+                     const VariableFilter & filter)
+                -> const ExpressionValue &
+                {
+                    auto & row = context.as<RowScope>();
+                    return storage = row.input.getNestedColumn(columnName, filter);
+                },
+                std::make_shared<AnyValueInfo>()};
     }
 
     // Ask the info about what type it is
@@ -352,8 +377,14 @@ doGetAllColumns(const Utf8String & tableName,
 {
     GetAllColumnsOutput result;
 
-    if (inputInfo->getSchemaCompleteness() != SCHEMA_CLOSED) {
-        // Dynamic columns; we filter once we have the value
+    if (!inputInfo || inputInfo->getSchemaCompleteness() != SCHEMA_CLOSED) {
+        // In recording mode, or with dynamic columns; we filter once we have the
+        // value
+
+        // If we're recording our input and we asked for a wildcard, we know that
+        // we may match unknown parts of our input value.
+        if (!inputInfo)
+            wildcardsInInput = true;
 
         result.exec = [=] (const SqlRowScope & scope) -> ExpressionValue
             {

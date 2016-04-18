@@ -122,7 +122,7 @@ struct AggregatorT {
         {
         }
         
-        std::unordered_map<ColumnName, State> columns;
+        std::unordered_map<Coord, State> columns;
 
         void process(const ExpressionValue * args, size_t nargs)
         {
@@ -149,7 +149,7 @@ struct AggregatorT {
             StructValue result;
 
             for (auto & v: columns) {
-                result.emplace_back(v.first.toSimpleName(), v.second.extract());
+                result.emplace_back(v.first, v.second.extract());
             }
 
             std::sort(result.begin(), result.end());

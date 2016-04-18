@@ -1071,8 +1071,8 @@ generateRowsWhere(const SqlBindingScope & scope,
                                     
                                     
                                     if (keys)
-                                        evaluatedSet.forEachSubexpression(onKey);
-                                    else evaluatedSet.forEachSubexpression(onValue);
+                                        evaluatedSet.forEachColumn(onKey);
+                                    else evaluatedSet.forEachColumn(onValue);
                                     
                                     return { std::move(filtered), Any() };
                                 },

@@ -349,7 +349,7 @@ apply(const FunctionApplier & applier,
             return true;
         };
 
-    inputVal.forEachSubexpression(onColumn);
+    inputVal.forEachColumn(onColumn);
 
     // the different possible TF scores
     auto tf_raw = [=] (double frequency) {
@@ -440,7 +440,7 @@ apply(const FunctionApplier & applier,
             return true;
         };
 
-    inputVal.forEachSubexpression(onColumn2);
+    inputVal.forEachColumn(onColumn2);
 
     ExpressionValue outputRow(values);
     result.set("output", std::move(outputRow));

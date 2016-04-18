@@ -611,9 +611,11 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
 
                     if (selectStar) {
                         // Move into place, since we know we're selecting *
-                        outputRow.columns.reserve(row.columns.size());
-                        ExpressionValue output(std::move(row.columns));
-                        output.mergeToRowDestructive(outputRow.columns);
+                        // This is more complicated than it looks, because the input is
+                        // flattened but the output is structured, so we have to go
+                        // through the ExpressionValue to add the structure in first.
+                        ExpressionValue structured(std::move(row.columns));
+                        structured.mergeToRowDestructive(outputRow.columns);
                     }
                     else {
                         // Run the select expression
@@ -880,13 +882,11 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
 
             if (selectStar) {
                 // Move into place, since we know we're selecting *
-                outputRow.columns.reserve(row.columns.size());
-                for (auto & c: row.columns) {
-                    outputRow.columns.emplace_back
-                        (std::move(std::get<0>(c).toSimpleName()),
-                         ExpressionValue(std::move(std::get<1>(c)),
-                                         std::get<2>(c)));
-                }
+                // This is more complicated than it looks, because the input is
+                // flattened but the output is structured, so we have to go
+                // through the ExpressionValue to add the structure in first.
+                ExpressionValue structured(std::move(row.columns));
+                structured.mergeToRowDestructive(outputRow.columns);
             }
             else {
                 // Run the select expression
@@ -1204,9 +1204,8 @@ struct GroupContext: public SqlExpressionDatasetContext {
                 {
                     auto & row = context.as<RowScope>();
              
-                    // TODO BEFORE MERGE: shouldn't be toSimpleName()
                     const ExpressionValue * result
-                        = searchRow(row.output.columns, columnName.toSimpleName(),
+                        = searchRow(row.output.columns, columnName,
                                     filter, storage);
 
                     if (result)

@@ -276,6 +276,10 @@ struct SqlExpressionExtractScope: public ReadThroughBindingScope {
     /// Set of column names that we're inferring
     std::unordered_set<ColumnName> inferredInputs;
 
+    /// Do we have wildcards in our input?  If so, we can't have a closed
+    /// schema for our inputs.
+    bool wildcardsInInput;
+
     /** Once we're done binding, we call this method to fill in the
         inputInfo from the inferredInputs.  It will modify the inputInfo
         field to reflect what is required as an input.

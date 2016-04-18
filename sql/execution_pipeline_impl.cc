@@ -106,7 +106,7 @@ doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
 
             StructValue result;
 
-            auto onSubexpression = [&] (const Coords & columnName,
+            auto onColumn = [&] (const Coords & columnName,
                                         const Coords & prefix,  // always null
                                         const ExpressionValue & value)
             {
@@ -118,7 +118,7 @@ doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
                 return true;
             };
 
-            rowContents.forEachSubexpression(onSubexpression);
+            rowContents.forEachColumn(onColumn);
 
             return std::move(result);
         };

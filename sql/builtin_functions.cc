@@ -1511,82 +1511,79 @@ void normalize(ML::distribution<double>& val, double p)
     }
 }
 
-BoundFunction normalize(const std::vector<BoundSqlExpression> & args)
-{
-    // Get the current row as an embedding, and return a normalized version
-    // of it.
+ BoundFunction normalize(const std::vector<BoundSqlExpression> & args)
+ {
+     // Get the current row as an embedding, and return a normalized version
+     // of it.
 
-    checkArgsSize(args.size(), 2);
+     checkArgsSize(args.size(), 2);
 
-    // TODO: improve performance by getting the embedding directly
+     // TODO: improve performance by getting the embedding directly
 
-    // As an input we get an embedding, which should have a fixed
-    // number of values.  Check that's the case.
-    auto vectorInfo = args[0].info;
+     // As an input we get an embedding, which should have a fixed
+     // number of values.  Check that's the case.
+     auto vectorInfo = args[0].info;
 
-    if (!vectorInfo->isScalar())
-    {
-        ssize_t numDims = -1; //if its a row we dont know the number of dimensions the embedding is going to have
-
-        if (vectorInfo->isEmbedding())
-        {
-            return {[=] (const std::vector<ExpressionValue> & args,
-                 const SqlRowScope & scope) -> ExpressionValue
-            {
-                    // Get it as an embedding
-                    ML::distribution<double> val
-                        = args.at(0).getEmbeddingDouble();
-                    Date ts = args.at(0).getEffectiveTimestamp();
-                    double p = args.at(1).toDouble();
-
-                    normalize(val, p);
-
-                    ExpressionValue result(std::move(val),
-                                           ts,
-                                           args.at(0).getEmbeddingShape());
-
-                    return std::move(result);
-
-            },
-                    std::make_shared<EmbeddingValueInfo>
-                        (vectorInfo->getEmbeddingShape(), ST_FLOAT32)};
-        }
-        else
-        {
-            if (vectorInfo->isRow() && (args[0].info->getSchemaCompleteness() == SCHEMA_OPEN))
-                throw HttpReturnException(500, "Can't normalize a row with unknown columns");
-
-            auto columnNames = std::make_shared<std::vector<ColumnName> >();
-
-            std::vector<KnownColumn> columns = args[0].info->getKnownColumns();
-            for (auto & c: columns)
-               columnNames->emplace_back(c.columnName);
-
+     if (!vectorInfo->isScalar()) {
+         if (vectorInfo->isEmbedding()) {
              return {[=] (const std::vector<ExpressionValue> & args,
-                 const SqlRowScope & scope) -> ExpressionValue
-            {
-                // Get it as an embedding
-                ML::distribution<double> val = args[0].getEmbeddingDouble();
-                Date ts = args[0].getEffectiveTimestamp();
-                double p = args[1].toDouble();
+                          const SqlRowScope & scope) -> ExpressionValue
+                     {
+                         // Get it as an embedding
+                         ML::distribution<double> val
+                             = args.at(0).getEmbeddingDouble();
+                         Date ts = args.at(0).getEffectiveTimestamp();
+                         double p = args.at(1).toDouble();
 
-                normalize(val, p);
+                         normalize(val, p);
 
-                ExpressionValue result(std::move(val),
-                                       columnNames,
-                                       ts);
+                         ExpressionValue result(std::move(val),
+                                                ts,
+                                                args.at(0).getEmbeddingShape());
 
-                 return std::move(result);
-            },
+                         return std::move(result);
+
+                     },
+                     std::make_shared<EmbeddingValueInfo>
+                         (vectorInfo->getEmbeddingShape(), ST_FLOAT32)};
+         }
+         else {
+             if (vectorInfo->isRow()
+                 && (args[0].info->getSchemaCompleteness() == SCHEMA_OPEN))
+                 throw HttpReturnException
+                     (500, "Can't normalize a row with unknown columns");
+
+             auto columnNames = std::make_shared<std::vector<ColumnName> >();
+
+             std::vector<KnownColumn> columns = args[0].info->getKnownColumns();
+             for (auto & c: columns)
+                 columnNames->emplace_back(c.columnName);
+
+             size_t numDims = -1;
+             if (args[0].info->getSchemaCompleteness() == SCHEMA_CLOSED)
+                 numDims = columnNames->size();
+             
+             return {[=] (const std::vector<ExpressionValue> & args,
+                          const SqlRowScope & scope) -> ExpressionValue
+                     {
+                         // Get it as an embedding
+                         ML::distribution<double> val = args[0].getEmbeddingDouble();
+                         Date ts = args[0].getEffectiveTimestamp();
+                         double p = args[1].toDouble();
+
+                         normalize(val, p);
+
+                         ExpressionValue result(std::move(val), columnNames,  ts);
+
+                         return std::move(result);
+                     },
                      std::make_shared<EmbeddingValueInfo>(numDims)};
-
-        }
-    }
-    else
-    {
-        throw HttpReturnException(500, "Can't normalize something that's not a row or embedding");
-    }
-
+         }
+     }
+     else {
+         throw HttpReturnException
+             (500, "Can't normalize something that's not a row or embedding");
+     }
 }
 
 static RegisterBuiltin registerNormalize(normalize, "normalize");
