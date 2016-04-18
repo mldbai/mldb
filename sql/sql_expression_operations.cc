@@ -6,7 +6,6 @@
 */
 
 #include "sql_expression_operations.h"
-#include "mldb/server/function_contexts.h"
 #include "mldb/http/http_exception.h"
 #include <boost/algorithm/string.hpp>
 #include "mldb/types/structure_description.h"

@@ -9,7 +9,6 @@
 #include "nlp.h"
 #include "mldb/server/mldb_server.h"
 #include "mldb/types/basic_value_descriptions.h"
-#include "mldb/server/function_contexts.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/sql/tokenize.h"
 #include "mldb/base/parse_context.h"

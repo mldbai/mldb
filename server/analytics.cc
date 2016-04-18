@@ -14,7 +14,6 @@
 #include "mldb/arch/timers.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/server/dataset_context.h"
-#include "mldb/server/function_contexts.h"
 #include "mldb/sql/execution_pipeline.h"
 #include <boost/algorithm/string.hpp>
 #include "mldb/server/bound_queries.h"
