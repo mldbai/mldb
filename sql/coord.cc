@@ -123,9 +123,17 @@ parsePartial(const char * & p, const char * e)
     else {
         const char * start = p;
         while (start < e && *start != '.') {
-            char c = *start++;
-            if (c == '\"' || c < ' ')
-                throw HttpReturnException(400, "invalid char in Coord");
+            unsigned char c = *start++;
+            if (c == '\"' || c < ' ') {
+                if (c == '\"') {
+                    throw HttpReturnException
+                        (400, "invalid char in Coord.  Quotes must be doubled.");
+                }
+                else {
+                    throw HttpReturnException
+                        (400, "invalid char in Coord.  Special characters must be quoted.");
+                }
+            }
         }
         size_t sz = start - p;
         if (sz == 0) {

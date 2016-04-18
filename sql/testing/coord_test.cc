@@ -133,6 +133,11 @@ BOOST_AUTO_TEST_CASE(test_coords_parsing)
     }
 
     {
+        Coords coords1 = Coords::parse("é");
+        BOOST_CHECK_EQUAL(coords1.toUtf8String(), "é");
+    }
+
+    {
         JML_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(Coords::parse(""), ML::Exception);
         BOOST_CHECK_THROW(Coords::parse("."), ML::Exception);
