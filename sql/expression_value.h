@@ -282,10 +282,13 @@ struct ExpressionValueInfo {
         with columns name separated by a '.'
     */
     virtual std::shared_ptr<ExpressionValueInfo>
-    findNestedColumn(const ColumnName& columnName)
-    {
-        return nullptr;
-    }
+    findNestedColumn(const ColumnName& columnName);
+
+    /** Return the info object for the given column.  Default will throw that
+        the column is unknown; row info needs to override.
+    */
+    virtual std::shared_ptr<ExpressionValueInfo>
+    getColumn(const Coord & columnName) const;
 
     /** Return the shape of an embedding.  For scalars, it's the empty
         vector.  For vectors, matrices, tensors it's the real shape.
@@ -770,6 +773,7 @@ struct ExpressionValue {
 
     const ExpressionValue*
     findNestedColumn(const ColumnName & fieldName,
+                     ExpressionValue & storage,
                      const VariableFilter & filter = GET_LATEST) const;
 
 #if 0
@@ -829,14 +833,15 @@ struct ExpressionValue {
 #endif
 
     /** Iterate over the child expression, with an ExpressionValue at each
-        level.
+        level.  Note that if isRow() is false, than this function will
+        NOT call the callback; it's only called for row-valued values.
     */
-    bool forEachSubexpression(const std::function<bool (const Coord & columnName,
-                                                        const Coords & prefix,
-                                                        const ExpressionValue & val)>
-                                                  & onSubexpression,
-                              const Coords & prefix = Coords()) const;
-
+    bool forEachColumn(const std::function<bool (const Coord & columnName,
+                                                 const Coords & prefix,
+                                                 const ExpressionValue & val)>
+                       & onColumn,
+                       const Coords & prefix = Coords()) const;
+    
     /** Iterate over child columns, returning a reference that may be moved
         elsewhere.
 
@@ -844,7 +849,7 @@ struct ExpressionValue {
     */
     bool forEachColumnDestructive
         (const std::function<bool (Coord & columnName, ExpressionValue & val)>
-         & onSubexpression) const;
+         & onColumn) const;
 
 
     /** Iterate over the flattened representation. */
@@ -991,13 +996,13 @@ private:
         type to allow for inlining.  Defined in expression_value.cc.
     */
     template<typename Fn>
-    bool forEachColumnDestructiveT(Fn && onSubexpression) const;
+    bool forEachColumnDestructiveT(Fn && onColumn) const;
 
     /** Same as forEachAtomDestructive, but templated on the function
         type to allow for inlining.  Defined in expression_value.cc.
     */
     template<typename Fn>
-    bool forEachAtomDestructiveT(Fn && onSubexpression);
+    bool forEachAtomDestructiveT(Fn && onColumn);
 
     enum class Type : uint8_t {
         NONE,        ///< Expression is empty or not initialized yet.  Shouldn't be exposed to user.
@@ -1321,6 +1326,9 @@ struct RowValueInfo: public ExpressionValueInfoT<RowValue> {
     virtual std::shared_ptr<ExpressionValueInfo>
     findNestedColumn(const ColumnName & columnName);
 
+    virtual std::shared_ptr<ExpressionValueInfo>
+    getColumn(const Coord & columnName) const;
+
     virtual std::vector<KnownColumn> getKnownColumns() const;
     virtual SchemaCompleteness getSchemaCompleteness() const;
 
@@ -1398,6 +1406,12 @@ searchRow(const std::vector<std::tuple<ColumnName, CellValue, Date> > & columns,
 const ExpressionValue *
 searchRow(const std::vector<std::tuple<Coord, ExpressionValue> > & columns,
           const Coord & key,
+          const VariableFilter & filter,
+          ExpressionValue & storage);
+
+const ExpressionValue *
+searchRow(const std::vector<std::tuple<Coord, ExpressionValue> > & columns,
+          const ColumnName & key,
           const VariableFilter & filter,
           ExpressionValue & storage);
 

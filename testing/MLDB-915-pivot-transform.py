@@ -113,8 +113,8 @@ result = mldb.get('/v1/query',
 mldb.log(result)
 
 assert result.json()[0]['rowName'] \
-    == unicode('["françois"]',encoding='utf-8'), 'failed non-ascii support'
+    == unicode('"[""françois""]"',encoding='utf-8'), 'failed non-ascii support'
 assert result.json()[1]['rowName'] \
-    == unicode('["nick"]',encoding='utf-8'), 'failed non-ascii support'
+    == unicode('"[""nick""]"',encoding='utf-8'), 'failed non-ascii support'
 
 mldb.script.set_return("success")

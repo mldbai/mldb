@@ -89,7 +89,7 @@ call(FeatureGeneratorInput input) const
     Date ts = Date::negativeInfinity();
     // copied from the LAL repo
 
-    auto onSubexpression = [&] (const Coord & columnName,
+    auto onColumn = [&] (const Coord & columnName,
                                 const Coords & prefix,
                                 const ExpressionValue & val)
     {
@@ -114,7 +114,7 @@ call(FeatureGeneratorInput input) const
         return true;
     };
 
-    input.columns.forEachSubexpression(onSubexpression);
+    input.columns.forEachColumn(onColumn);
 
     FunctionOutput foResult;
     RowValue rowVal;

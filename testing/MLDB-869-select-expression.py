@@ -65,7 +65,9 @@ expected = [
     }
 ]
 
-result.json() == expected
+mldb.log(result.json())
+
+assert result.json() == expected
 
 #MLDB-958 rowhash printing when rowhash bigger than 7FFFFFFFFFFFFFFF
 result = mldb.get('/v1/query',

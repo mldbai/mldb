@@ -20,7 +20,6 @@
 #include "jml/utils/string_functions.h"
 #include "plugins/sql_functions.h"
 #include "sql/execution_pipeline.h"
-#include "server/function_contexts.h"
 #include "server/bound_queries.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/jml/db/persistent.h"
@@ -52,15 +51,18 @@ operator >> (ML::DB::Store_Reader & store, Coord & coord)
 }
 
 inline ML::DB::Store_Writer &
-operator << (ML::DB::Store_Writer & store, const Coords & coord)
+operator << (ML::DB::Store_Writer & store, const Coords & coords)
 {
-    throw HttpReturnException(500, "serialize coords");
+    return store << coords.toUtf8String();
 }
 
 inline ML::DB::Store_Reader &
-operator >> (ML::DB::Store_Reader & store, Coords & coord)
+operator >> (ML::DB::Store_Reader & store, Coords & coords)
 {
-    throw HttpReturnException(500, "reconstitute coords");
+    Utf8String str;
+    store >> str;
+    coords = Coords::parse(str);
+    return store;
 }
 
 
@@ -120,7 +122,7 @@ save(const std::string & filename) const
 void StatsTable::
 serialize(ML::DB::Store_Writer & store) const
 {
-    int version = 1;
+    int version = 2;
     store << version << colName << outcome_names << counts << zeroCounts;
 }
 
@@ -128,10 +130,10 @@ void StatsTable::
 reconstitute(ML::DB::Store_Reader & store)
 {
     int version;
-    int REQUIRED_V = 1;
+    int REQUIRED_V = 2;
     store >> version;
     if(version!=REQUIRED_V) {
-        throw ML::Exception(ML::format(
+        throw HttpReturnException(400, ML::format(
                     "invalid StatsTable version! exptected %d, got %d",
                     REQUIRED_V, version));
     }
@@ -216,7 +218,7 @@ run(const ProcedureRunConfig & run,
 
     {
         // Find only those variables used
-        SqlExpressionDatasetContext context(boundDataset);
+        SqlExpressionDatasetScope context(boundDataset);
 
         auto selectBound = runProcConf.trainingData.stm->select.bind(context);
 
@@ -289,7 +291,7 @@ run(const ProcedureRunConfig & run,
                         vector<ColumnName> names;
                         names.emplace_back(Coord("trial_"+keySuffix));
                         for(int lbl_idx=0; lbl_idx<encodedLabels.size(); lbl_idx++) {
-                            names.emplace_back(Coord(outcome_names[lbl_idx]+"_"+keySuffix));
+                            names.emplace_back(Coord(outcome_names[lbl_idx]) + Coord(keySuffix));
                         }
 
                         auto inserted = colCache.emplace(get<0>(col), names);
@@ -411,10 +413,9 @@ StatsTableFunction::
 apply(const FunctionApplier & applier,
       const FunctionContext & context) const
 {
-    FunctionOutput result;
+    StructValue result;
 
-    ExpressionValue storage;
-    const ExpressionValue & arg = context.mustGet("keys", storage);
+    ExpressionValue arg = context.getColumn("keys");
 
     if(arg.isRow()) {
         RowValue rtnRow;
@@ -444,13 +445,14 @@ apply(const FunctionApplier & applier,
             };
 
         arg.forEachAtom(onAtom);
-        result.set("counts", ExpressionValue(std::move(rtnRow)));
+        result.emplace_back("counts", ExpressionValue(std::move(rtnRow)));
     }
     else {
-        throw ML::Exception("wrong input type");
+        throw HttpReturnException(400, "wrong input type to stats table",
+                                  "input", arg);
     }
 
-    return result;
+    return std::move(result);
 }
 
 FunctionInfo
@@ -458,8 +460,16 @@ StatsTableFunction::
 getFunctionInfo() const
 {
     FunctionInfo result;
-    result.input.addRowValue("keys");
-    result.output.addRowValue("counts");
+
+    std::vector<KnownColumn> inputColumns, outputColumns;
+    inputColumns.emplace_back(Coord("keys"), std::make_shared<UnknownRowValueInfo>(),
+                              COLUMN_IS_DENSE, 0);
+    outputColumns.emplace_back(Coord("counts"), std::make_shared<UnknownRowValueInfo>(),
+                               COLUMN_IS_DENSE, 0);
+    
+    result.input.reset(new RowValueInfo(inputColumns, SCHEMA_CLOSED));
+    result.output.reset(new RowValueInfo(outputColumns, SCHEMA_CLOSED));
+    
     return result;
 }
 
@@ -805,8 +815,8 @@ StatsTablePosNegFunction(MldbServer * owner,
         }
     }
     if(outcomeToUseIdx == -1) {
-        throw ML::Exception("Outcome '"+functionConfig.outcomeToUse+
-                "' not found in stats table!");
+        throw HttpReturnException(400, "Outcome '"+functionConfig.outcomeToUse+
+                                  "' not found in stats table!");
     }
    
     // sort all the keys by their p(outcome)
@@ -869,10 +879,9 @@ StatsTablePosNegFunction::
 apply(const FunctionApplier & applier,
       const FunctionContext & context) const
 {
-    FunctionOutput result;
+    StructValue result;
 
-    ExpressionValue storage;
-    const ExpressionValue & arg = context.mustGet("keys", storage);
+    ExpressionValue arg = context.getColumn("keys");
 
     if(arg.isRow()) {
         RowValue rtnRow;
@@ -897,13 +906,13 @@ apply(const FunctionApplier & applier,
             };
 
         arg.forEachAtom(onAtom);
-        result.set("probs", ExpressionValue(std::move(rtnRow)));
+        result.emplace_back("probs", ExpressionValue(std::move(rtnRow)));
     }
     else {
-        throw ML::Exception("wrong input type");
+        throw HttpReturnException(400, "wrong input type");
     }
-
-    return result;
+    
+    return std::move(result);
 }
 
 FunctionInfo
@@ -911,8 +920,16 @@ StatsTablePosNegFunction::
 getFunctionInfo() const
 {
     FunctionInfo result;
-    result.input.addRowValue("words");
-    result.output.addRowValue("probs");
+    
+    std::vector<KnownColumn> inputColumns, outputColumns;
+    inputColumns.emplace_back(Coord("words"), std::make_shared<UnknownRowValueInfo>(),
+                              COLUMN_IS_DENSE, 0);
+    outputColumns.emplace_back(Coord("probs"), std::make_shared<UnknownRowValueInfo>(),
+                               COLUMN_IS_DENSE, 0);
+    
+    result.input.reset(new RowValueInfo(inputColumns, SCHEMA_CLOSED));
+    result.output.reset(new RowValueInfo(outputColumns, SCHEMA_CLOSED));
+    
     return result;
 }
 

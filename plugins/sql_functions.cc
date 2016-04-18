@@ -259,6 +259,11 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
                                   ExpressionValue & val)
                     {
                         if (col == Coord("column")) {
+                            if (val.empty()) {
+                                throw HttpReturnException
+                                (400, "Column names in NAMED_COLUMNS SQL can't be "
+                                 "null");
+                            }
                             foundCol = Coord(val.getAtom().toUtf8String());
                             ++numFoundCol;
                         }
@@ -454,13 +459,12 @@ struct SqlExpressionFunctionApplier: public FunctionApplier {
 
         if (function->functionConfig.prepared) {
             // Use the pre-bound version.   
-            return function->bound(function->innerScope
-                                   ->getRowScope(outerRow, context),
+            return function->bound(function->innerScope->getRowScope(context),
                                    GET_LATEST);
         }
         else {
             // Use the specialized version. 
-            return bound(this->innerScope.getRowScope(outerRow, context),
+            return bound(this->innerScope.getRowScope(context),
                          GET_LATEST);
         }
     }
@@ -594,7 +598,8 @@ run(const ProcedureRunConfig & run,
     bool skipEmptyRows = runProcConf.skipEmptyRows;
 
     auto recordRowInOutputDataset = [&output, &skipEmptyRows] (MatrixNamedRow & row) {
-        std::vector<std::tuple<ColumnName, CellValue, Date> > cols = filterEmptyColumns(row);
+        std::vector<std::tuple<ColumnName, CellValue, Date> > cols
+            = filterEmptyColumns(row);
 
         if (!skipEmptyRows || cols.size() > 0)
             output->recordRow(row.rowName, cols);
@@ -624,12 +629,13 @@ run(const ProcedureRunConfig & run,
             {
                 MatrixNamedRow row = row_.flattenDestructive();
 
-                std::vector<std::tuple<ColumnName, CellValue, Date> > cols = filterEmptyColumns(row);
+                std::vector<std::tuple<ColumnName, CellValue, Date> > cols
+                    = filterEmptyColumns(row);
 
                 if (!skipEmptyRows || cols.size() > 0) {
                     auto & rows = accum.get();
                     rows.reserve(10000);
-                    rows.emplace_back(RowName(calc.at(0).toUtf8String()),
+                    rows.emplace_back(RowName::parse(calc.at(0).toUtf8String()),
                                       std::move(cols));
 
                     if (rows.size() >= 10000) {
@@ -665,7 +671,8 @@ run(const ProcedureRunConfig & run,
             = [&] (NamedRowValue & row_)
             {
                 MatrixNamedRow row = row_.flattenDestructive();
-                std::vector<std::tuple<ColumnName, CellValue, Date> > cols = filterEmptyColumns(row);
+                std::vector<std::tuple<ColumnName, CellValue, Date> > cols
+                    = filterEmptyColumns(row);
                 if (!skipEmptyRows || cols.size() > 0)
                     output->recordRow(row.rowName, cols);
 

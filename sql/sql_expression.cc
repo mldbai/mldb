@@ -1721,7 +1721,7 @@ traverse(const TraverseFunction & visitor) const
 
 bool
 SqlExpression::
-isIdentitySelect(SqlExpressionDatasetContext & context) const
+isIdentitySelect(SqlExpressionDatasetScope & context) const
 {
     return false;  // safe default; subclasses can override for better perf
 }
@@ -3075,7 +3075,7 @@ getChildren() const
 
 bool
 SelectExpression::
-isIdentitySelect(SqlExpressionDatasetContext & context) const
+isIdentitySelect(SqlExpressionDatasetScope & context) const
 {
     // Allow us to identify a select * which will apply the identity
     // function to the row coming in.  This can be used to optimize
@@ -3245,7 +3245,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
                     {
                         if(options) {
                             context.exception("options to table expression should "
-                                    "be last argument");
+                                              "be last argument");
                         }
 
                         skip_whitespace(context);

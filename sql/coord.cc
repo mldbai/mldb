@@ -123,9 +123,17 @@ parsePartial(const char * & p, const char * e)
     else {
         const char * start = p;
         while (start < e && *start != '.') {
-            char c = *start++;
-            if (c == '\"' || c < ' ')
-                throw HttpReturnException(400, "invalid char in Coord");
+            unsigned char c = *start++;
+            if (c == '\"' || c < ' ') {
+                if (c == '\"') {
+                    throw HttpReturnException
+                        (400, "invalid char in Coord.  Quotes must be doubled.");
+                }
+                else {
+                    throw HttpReturnException
+                        (400, "invalid char in Coord.  Special characters must be quoted.");
+                }
+            }
         }
         size_t sz = start - p;
         if (sz == 0) {
@@ -570,6 +578,16 @@ int
 Coord::
 compareString(const char * str, size_t len) const
 {
+#if 0
+    std::string s1(str, str + len);
+    std::string s2(data(), data() + dataLength());
+
+    cerr << "strverscmp " << s1 << " and " << s2 << " = "
+         << strverscmp(s2.c_str(), s1.c_str()) << endl;
+
+    return strverscmp(s2.c_str(), s1.c_str());
+#endif    
+
     int res = std::strncmp(data(), str, std::min(dataLength(), len));
 
     if (res) return res;
@@ -625,11 +643,18 @@ Coords::Coords()
 {
 }
 
-Coords::Coords(Coord coord)
+Coords::Coords(Coord && coord)
 {
     if (coord.empty())
         throw HttpReturnException(400, "Attempt to create a column or row name with an empty element");
     emplace_back(std::move(coord));
+}
+
+Coords::Coords(const Coord & coord)
+{
+    if (coord.empty())
+        throw HttpReturnException(400, "Attempt to create a column or row name with an empty element");
+    emplace_back(coord);
 }
 
 Utf8String

@@ -58,7 +58,7 @@ struct BoundSelectQuery::Executor {
 struct UnorderedExecutor: public BoundSelectQuery::Executor {
     std::shared_ptr<MatrixView> matrix;
     GenerateRowsWhereFunction whereGenerator;
-    SqlExpressionDatasetContext & context;
+    SqlExpressionDatasetScope & context;
     BoundSqlExpression whereBound;
     BoundWhenExpression whenBound;
     BoundSqlExpression boundSelect;
@@ -70,7 +70,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
 
     UnorderedExecutor(std::shared_ptr<MatrixView> matrix,
                       GenerateRowsWhereFunction whereGenerator,
-                      SqlExpressionDatasetContext & context,
+                      SqlExpressionDatasetScope & context,
                       BoundWhenExpression whenBound,
                       BoundSqlExpression boundSelect,
                       std::vector<BoundSqlExpression> boundCalc,
@@ -313,7 +313,7 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
 
     std::shared_ptr<MatrixView> matrix;
     GenerateRowsWhereFunction whereGenerator;
-    SqlExpressionDatasetContext & context;
+    SqlExpressionDatasetScope & context;
     BoundWhenExpression whenBound;
     BoundSqlExpression boundSelect;
     std::vector<BoundSqlExpression> boundCalc;
@@ -321,7 +321,7 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
 
     OrderedExecutor(std::shared_ptr<MatrixView> matrix,
                     GenerateRowsWhereFunction whereGenerator,
-                    SqlExpressionDatasetContext & context,
+                    SqlExpressionDatasetScope & context,
                     BoundWhenExpression whenBound,
                     BoundSqlExpression boundSelect,
                     std::vector<BoundSqlExpression> boundCalc,
@@ -353,7 +353,7 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
         // cerr << "doing " << rows.size() << " rows with order by" << endl;
         // We have a defined order, so we need to sort here
 
-        SqlExpressionOrderByContext orderByContext(context);
+        SqlExpressionOrderByScope orderByContext(context);
 
         auto boundOrderBy = newOrderBy.bindAll(orderByContext);
 
@@ -487,7 +487,7 @@ struct SortByRowHash {
 struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
     std::shared_ptr<MatrixView> matrix;
     GenerateRowsWhereFunction whereGenerator;
-    SqlExpressionDatasetContext & context;
+    SqlExpressionDatasetScope & context;
     BoundWhenExpression whenBound;
     BoundSqlExpression boundSelect;
     std::vector<BoundSqlExpression> boundCalc;
@@ -496,7 +496,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
 
     RowHashOrderedExecutor(std::shared_ptr<MatrixView> matrix,
                            GenerateRowsWhereFunction whereGenerator,
-                           SqlExpressionDatasetContext & context,
+                           SqlExpressionDatasetScope & context,
                            BoundWhenExpression whenBound,
                            BoundSqlExpression boundSelect,
                            std::vector<BoundSqlExpression> boundCalc,
@@ -632,9 +632,11 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
 
                     if (selectStar) {
                         // Move into place, since we know we're selecting *
-                        outputRow.columns.reserve(row.columns.size());
-                        ExpressionValue output(std::move(row.columns));
-                        output.mergeToRowDestructive(outputRow.columns);
+                        // This is more complicated than it looks, because the input is
+                        // flattened but the output is structured, so we have to go
+                        // through the ExpressionValue to add the structure in first.
+                        ExpressionValue structured(std::move(row.columns));
+                        structured.mergeToRowDestructive(outputRow.columns);
                     }
                     else {
                         // Run the select expression
@@ -894,13 +896,11 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
 
             if (selectStar) {
                 // Move into place, since we know we're selecting *
-                outputRow.columns.reserve(row.columns.size());
-                for (auto & c: row.columns) {
-                    outputRow.columns.emplace_back
-                        (std::move(std::get<0>(c).toSimpleName()),
-                         ExpressionValue(std::move(std::get<1>(c)),
-                                         std::get<2>(c)));
-                }
+                // This is more complicated than it looks, because the input is
+                // flattened but the output is structured, so we have to go
+                // through the ExpressionValue to add the structure in first.
+                ExpressionValue structured(std::move(row.columns));
+                structured.mergeToRowDestructive(outputRow.columns);
             }
             else {
                 // Run the select expression
@@ -930,7 +930,7 @@ BoundSelectQuery(const SelectExpression & select,
                  std::vector<std::shared_ptr<SqlExpression> > calc,
                  int  numBuckets)
     : select(select), from(from), when(when), where(where), calc(calc),
-      orderBy(orderBy), context(new SqlExpressionDatasetContext(from, std::move(alias)))
+      orderBy(orderBy), context(new SqlExpressionDatasetScope(from, std::move(alias)))
 {
     try {
         SqlExpressionWhenScope whenScope(*context);
@@ -1080,11 +1080,11 @@ getSelectOutputInfo() const
 
 typedef std::vector<std::shared_ptr<void> > GroupMapValue;
 
-struct GroupContext: public SqlExpressionDatasetContext {
+struct GroupContext: public SqlExpressionDatasetScope {
 
     GroupContext(const Dataset& dataset, const Utf8String& alias, 
             const TupleExpression & groupByExpression) : 
-        SqlExpressionDatasetContext(dataset, alias), 
+        SqlExpressionDatasetScope(dataset, alias), 
         groupByExpression(groupByExpression),
         argCounter(0), argOffset(0),
         evaluateEmptyGroups(false)
@@ -1187,9 +1187,9 @@ struct GroupContext: public SqlExpressionDatasetContext {
                     // TODO: get it from the value info for the group keys...
                     std::make_shared<AnyValueInfo>()};
         }
-        return SqlBindingScope::doGetFunction(tableName,
-                                              functionName,
-                                              args, argScope);
+        return SqlExpressionDatasetScope::doGetFunction(tableName,
+                                                        functionName,
+                                                        args, argScope);
     }
 
     // Within a group by context, we can get either:
@@ -1204,10 +1204,28 @@ struct GroupContext: public SqlExpressionDatasetContext {
             const std::shared_ptr<SqlExpression> & g
                 = groupByExpression.clauses[i];
 
-            ColumnName simplifiedSurface
-                = removeTableName(alias, Coord(g->surface));
-            
-            if (simplifiedSurface == columnName) {
+            // This logic is not completely implemented.  We need to identify
+            // any parts of the group by expression that are referred to by
+            // the select clause and return their value, not just the variable
+            // names.  For the moment, we're just hacking it so that it will
+            // work with variable names.
+
+            //cerr << "columnName = " << columnName << endl;
+            //cerr << "g->print() = " << g->print() << endl;
+            //cerr << "alias = " << alias << endl;
+            //cerr << "surface = " << g->surface << endl;
+
+            // BAD SMELL using the surface here
+            ColumnName simplifiedSurface;
+            if (columnName[0] == alias) {
+                simplifiedSurface = columnName.removePrefix();
+            }
+
+            //cerr << "simplifiedSurface = " << simplifiedSurface << endl;
+   
+            if (g->surface == columnName.toUtf8String()
+                || (!simplifiedSurface.empty()
+                    && simplifiedSurface.toUtf8String() == g->surface)) {
                 return {[=] (const SqlRowScope & context,
                              ExpressionValue & storage,
                              const VariableFilter & filter)
@@ -1228,9 +1246,8 @@ struct GroupContext: public SqlExpressionDatasetContext {
                 {
                     auto & row = context.as<RowScope>();
              
-                    // TODO BEFORE MERGE: shouldn't be toSimpleName()
                     const ExpressionValue * result
-                        = searchRow(row.output.columns, columnName.toSimpleName(),
+                        = searchRow(row.output.columns, columnName,
                                     filter, storage);
 
                     if (result)
@@ -1322,7 +1339,7 @@ BoundGroupByQuery(const SelectExpression & select,
     : from(from),
       when(when),
       where(where),
-      rowContext(new SqlExpressionDatasetContext(from, alias)),
+      rowContext(new SqlExpressionDatasetScope(from, alias)),
       groupContext(new GroupContext(from, alias, groupBy)),
       groupBy(groupBy),
       select(select),

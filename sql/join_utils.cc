@@ -193,6 +193,9 @@ AnnotatedClause(std::shared_ptr<SqlExpression> c,
     
     for (auto & func: funcs) {
         const Utf8String & tableName = func.first.scope;
+
+        // Functions can only have simple names, so toSimpleName() is OK
+        // here.
         Utf8String functionName = func.first.name.toSimpleName();
 
         if (!tableName.empty() && leftTables.count(tableName)) {

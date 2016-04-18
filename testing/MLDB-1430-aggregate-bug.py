@@ -53,7 +53,16 @@ class HavingTest(unittest.TestCase):
 
         mldb.log(re.exception.response.json()["error"])
 
-        expected = 'Binding error: Cannot read column "P.*" inside COLUMN EXPR.'
+        expected = 'Binding error: Cannot read column \'"P.*"\' inside COLUMN EXPR'
+
+        self.assertEqual(re.exception.response.json()["error"], expected)
+
+        with self.assertRaises(mldb_wrapper.ResponseException) as re:
+            res = mldb.get("/v1/query", q='select COLUMN EXPR (WHERE regex_match(columnName(), {P.*}) ) from titanic2')
+
+        mldb.log(re.exception.response.json()["error"])
+
+        expected = 'Binding error: Cannot use wildcard \'P.*\' inside COLUMN EXPR'
 
         self.assertEqual(re.exception.response.json()["error"], expected)
 
@@ -65,7 +74,7 @@ class HavingTest(unittest.TestCase):
 
         mldb.log(re.exception.response.json()["error"])
 
-        expected = "function entry 'hash' doesn't exist"
+        expected = "Unable to find function 'hash' binding function call 'hash(2)'.  The function is not a built-in function, and either it's not a registered user function, or user functions are not available in the scope of the expression."
 
         self.assertEqual(re.exception.response.json()["error"], expected)
 

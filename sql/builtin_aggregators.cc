@@ -122,7 +122,7 @@ struct AggregatorT {
         {
         }
         
-        std::unordered_map<ColumnName, State> columns;
+        std::unordered_map<Coord, State> columns;
 
         void process(const ExpressionValue * args, size_t nargs)
         {
@@ -149,7 +149,7 @@ struct AggregatorT {
             StructValue result;
 
             for (auto & v: columns) {
-                result.emplace_back(v.first.toSimpleName(), v.second.extract());
+                result.emplace_back(v.first, v.second.extract());
             }
 
             std::sort(result.begin(), result.end());
@@ -172,13 +172,13 @@ struct AggregatorT {
         state for each of the columns.
     */
     struct DenseRowState {
-        DenseRowState(const std::vector<ColumnName> & columnNames)
+        DenseRowState(const std::vector<Coord> & columnNames)
             : columnNames(columnNames),
               columnState(columnNames.size())
         {
         }
         
-        std::vector<ColumnName> columnNames;
+        std::vector<Coord> columnNames;
         std::vector<State> columnState;
 
         /// If we guessed wrong about denseness, this is the sparse
@@ -216,7 +216,7 @@ struct AggregatorT {
             bool needToPessimize = row.size() != columnNames.size();
             for (unsigned i = 0;  i < columnNames.size() && !needToPessimize;
                  ++i) {
-                needToPessimize = columnNames[i].toSimpleName() != std::get<0>(row[i]);
+                needToPessimize = columnNames[i] != std::get<0>(row[i]);
             }
 
             if (needToPessimize) {
@@ -241,7 +241,7 @@ struct AggregatorT {
             StructValue result;
 
             for (unsigned i = 0;  i < columnNames.size();  ++i) {
-                result.emplace_back(columnNames[i].toSimpleName(),
+                result.emplace_back(columnNames[i],
                                     columnState[i].extract());
             }
 
@@ -292,7 +292,7 @@ struct AggregatorT {
     }
 
     static std::shared_ptr<DenseRowState>
-    denseRowInit(const std::vector<ColumnName> & columnNames)
+    denseRowInit(const std::vector<Coord> & columnNames)
     {
         ExcAssert(columnNames.size() > 0);
         return std::make_shared<DenseRowState>(columnNames);
@@ -346,16 +346,17 @@ struct AggregatorT {
         // can be far more optimized about it
         bool isDense = hasUnknown == SCHEMA_CLOSED;
 
-        std::vector<ColumnName> denseColumnNames;
+        std::vector<Coord> denseColumnNames;
 
         // For each known column, give the output type
         for (KnownColumn & c: cols) {
-            if (c.sparsity == COLUMN_IS_SPARSE)
+            if (c.sparsity == COLUMN_IS_SPARSE || c.columnName.size() != 1)
                 isDense = false;
             c.valueInfo = outputColumnInfo;
             c.sparsity = COLUMN_IS_DENSE;  // always one for each
             if (isDense) {
-                denseColumnNames.push_back(c.columnName);
+                // toSimpleName() is OK, since we just checked it was of length 1
+                denseColumnNames.push_back(c.columnName.toSimpleName());
             }
         }
 

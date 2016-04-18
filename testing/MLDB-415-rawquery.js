@@ -64,7 +64,7 @@ expected =  [
          [ "label", "cat", "2015-01-01T00:00:00Z" ]
       ],
       "rowHash" : "554f96c80ea05ddb",
-      "rowName" : "[\"cat\"]"
+      "rowName" : "\"[\"\"cat\"\"]\""
    },
    {
       "columns" : [
@@ -73,7 +73,7 @@ expected =  [
          [ "label", "dog", "2015-01-01T00:00:00Z" ]
       ],
       "rowHash" : "d55e0e284796f79e",
-      "rowName" : "[\"dog\"]"
+      "rowName" : "\"[\"\"dog\"\"]\""
    }
 ];
 

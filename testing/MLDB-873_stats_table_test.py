@@ -57,12 +57,12 @@ for output_type, output_id in [("sparse.mutable", "out_beh"),
     mldb.log(js_resp)
 
     assert js_resp[0]["rowName"] == "br_1"
-    assert val_for_key(js_resp[2]["columns"], "label_region") == 0
-    assert val_for_key(js_resp[2]["columns"], "trial_region") == 1
-    assert val_for_key(js_resp[2]["columns"], "label_host") == 1
+    assert val_for_key(js_resp[2]["columns"], "label.region") == 0
+    assert val_for_key(js_resp[2]["columns"], "trial.region") == 1
+    assert val_for_key(js_resp[2]["columns"], "label.host") == 1
 
-    assert val_for_key(js_resp[2]["columns"], "not_label_region") == 1
-    assert val_for_key(js_resp[2]["columns"], "not_label_host") == 0
+    assert val_for_key(js_resp[2]["columns"], "not_label.region") == 1
+    assert val_for_key(js_resp[2]["columns"], "not_label.host") == 0
 
 
 ############
@@ -81,12 +81,12 @@ mldb.log(js_rez)
 assert js_rez == {
         "output" : {
          "counts" : [
-             ["trial_host", [ 1, "NaD" ]],
-             ["label_host", [ 0, "NaD" ]],
-             ["not_label_host", [ 1, "NaD" ]],
-             ["trial_region", [ 0, "NaD" ]],
-             ["label_region", [ 0, "NaD" ]],
-             ["not_label_region", [ 0, "NaD" ]]
+             ["label.host", [ 0, "NaD" ]],
+             ["label.region", [ 0, "NaD" ]],
+             ["not_label.host", [ 1, "NaD" ]],
+             ["not_label.region", [ 0, "NaD" ]],
+             ["trial.host", [ 1, "NaD" ]],
+             ["trial.region", [ 0, "NaD" ]]
           ]}}
 
 

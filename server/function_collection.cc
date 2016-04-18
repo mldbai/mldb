@@ -194,7 +194,7 @@ applyFunction(const Function * function,
             return true;
         };
 
-    result.forEachSubexpression(onColumn);
+    result.forEachColumn(onColumn);
     
     context.endObject();
     context.endObject();

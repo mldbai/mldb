@@ -151,7 +151,7 @@ queryFromStatement(SelectStatement & stm,
 /** Build a RowName from an expression value and throw if
     it is not valid (row, empty, etc)
 */
-RowName GetValidatedRowName(const ExpressionValue& rowNameEV);
+RowName getValidatedRowName(const ExpressionValue& rowNameEV);
 
 } // namespace MLDB
 } // namespace Datacratic

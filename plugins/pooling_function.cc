@@ -7,7 +7,6 @@
 #include "pooling_function.h"
 #include "mldb/server/mldb_server.h"
 #include "mldb/types/basic_value_descriptions.h"
-#include "mldb/server/function_contexts.h"
 #include "mldb/types/any_impl.h"
 #include "server/dataset_context.h"
 #include "mldb/server/analytics.h"
@@ -125,10 +124,11 @@ applyT(const ApplierT & applier_, PoolingInput input) const
 
     size_t num_embed_cols = columnNames.size() * functionConfig.aggregators.size();
 
-    FunctionContext context; //TODO
+    StructValue inputRow;
+    inputRow.emplace_back("words", std::move(input.words));
 
     FunctionOutput queryOutput
-        = queryFunction->apply(*applier.queryApplier, context);
+        = queryFunction->apply(*applier.queryApplier, std::move(inputRow));
 
     std::vector<double> outputEmbedding;
     outputEmbedding.reserve(num_embed_cols);

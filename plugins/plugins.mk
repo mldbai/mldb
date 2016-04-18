@@ -41,13 +41,12 @@ LIBMLDB_BUILTIN_PLUGIN_SOURCES:= \
 	svd.cc \
 	embedding.cc \
 	kmeans.cc \
+	probabilizer.cc \
 	pooling_function.cc \
 	feature_generators.cc \
 	em.cc \
 	tsne.cc \
-
-# MATHIEU HERE THEY ARE
-#	svm.cc \
+	svm.cc \
 	stats_table_procedure.cc \
 	tfidf.cc \
 	tokensplit.cc \

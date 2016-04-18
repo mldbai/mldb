@@ -44,17 +44,19 @@ dataset.commit();
 // Check we can find the points properly in the VP tree
 
 var sql_func_res = mldb.put("/v1/functions/nn", {
-    type: 'nearest.neighbors',
+    type: 'embedding.neighbors',
     params: {
         'dataset': {id: 'test1', type: "embedding"}
     }
 });
 
+mldb.log(sql_func_res);
+
 coords = [];
 for(var i=0; i<numDims; i++) coords.push(0);
 coords[0] = 1;
 
-var res = mldb.query("select nn({coords: "+JSON.stringify(coords)+", num_neighbours:5})[neighbors] as *");
+var res = mldb.query("select nn({coords: "+JSON.stringify(coords)+", numNeighbors:5})[neighbors] as *");
 
 plugin.log(res);
 
@@ -62,8 +64,8 @@ gres = res[0]["columns"];
 
 // First two should have distance 0, the rest should have distance sqrt(2) as a 32 bit float
 assertEqual(gres.length, 5, "length");
-assertEqual(gres[0][0], "row0", "name0");
-assertEqual(gres[1][0], "row0_a", "name1");
+assertEqual(gres[0][0], "row0_a", "name0");
+assertEqual(gres[1][0], "row0", "name1");
 assertEqual(gres[0][1], 0, "dist0");
 assertEqual(gres[1][1], 0, "dist1");
 assertEqual(gres[2][1], 1.4142135381698608, "dist2");

@@ -679,21 +679,21 @@ struct ImportTextProcedureWorkInstance
                 switch (encoding) {
                 case ASCII:
                     for (const auto & f: fields)
-                        inputColumnNames.emplace_back(ColumnName(f));
+                        inputColumnNames.emplace_back(ColumnName::parse(f));
                     break;
                 case UTF8:
                     for (const auto & f: fields)
-                        inputColumnNames.emplace_back(ColumnName(Utf8String(f)));
+                        inputColumnNames.emplace_back(ColumnName::parse(Utf8String(f)));
                     break;
                 case LATIN1:
                     for (const auto & f: fields)
-                        inputColumnNames.emplace_back(ColumnName(Utf8String::fromLatin1(f)));
+                        inputColumnNames.emplace_back(ColumnName::parse(Utf8String::fromLatin1(f)));
                     break;
                 };
             }
             else {
                 for (const auto & f: config.headers)
-                    inputColumnNames.emplace_back(ColumnName(f));
+                    inputColumnNames.emplace_back(ColumnName::parse(f));
             }             
         }
 
@@ -719,7 +719,7 @@ struct ImportTextProcedureWorkInstance
 
         // Do we have a "select *"?  In that case, we can perform various
         // optimizations to avoid calling into the SQL layer
-        SqlExpressionDatasetContext noContext(*dataset, ""); //needs a context because x.* is ambiguous
+        SqlExpressionDatasetScope noContext(*dataset, ""); //needs a context because x.* is ambiguous
         isIdentitySelect = config.select.isIdentitySelect(noContext);  
 
         // Is the name the lineNumber()?  If so, we can save on

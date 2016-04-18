@@ -146,7 +146,7 @@ struct JoinedDataset::Itl
         BoundTableExpression left = joinConfig.left->bind(mldbContext);
         BoundTableExpression right = joinConfig.right->bind(mldbContext);
 
-        bool debug = false;
+        bool debug = true;
 
         std::set<Utf8String> leftTables = joinConfig.left->getTableNames();
         std::set<Utf8String> rightTables = joinConfig.right->getTableNames();
@@ -313,7 +313,7 @@ struct JoinedDataset::Itl
                                BoundTableExpression& right,
                                JoinQualification qualification)
     {
-        bool debug = false;
+        bool debug = true;
         bool outerLeft = qualification == JOIN_LEFT || qualification == JOIN_FULL;
         bool outerRight = qualification == JOIN_RIGHT || qualification == JOIN_FULL;
 
@@ -899,7 +899,7 @@ overrideFunction(const Utf8String & tableName,
             return {[&, tableSide] (const std::vector<ExpressionValue> & args,
                      const SqlRowScope & context)
                 { 
-                    auto & row = context.as<SqlExpressionDatasetContext::RowScope>();
+                    auto & row = context.as<SqlExpressionDatasetScope::RowScope>();
                     return ExpressionValue(itl->getSubRowName(row.row.rowName, tableSide).toUtf8String(), Date::negativeInfinity());
                 },
                 std::make_shared<Utf8StringValueInfo>()
@@ -916,7 +916,7 @@ overrideFunction(const Utf8String & tableName,
             return {[&, tableName, tableSide] (const std::vector<ExpressionValue> & args,
                      const SqlRowScope & context)
                 {
-                    auto & row = context.as<SqlExpressionDatasetContext::RowScope>();
+                    auto & row = context.as<SqlExpressionDatasetScope::RowScope>();
                     return ExpressionValue(itl->getSubRowNameFromChildTable(tableName, row.row.rowName, tableSide).toUtf8String(), Date::negativeInfinity());
                 },
                 std::make_shared<Utf8StringValueInfo>()

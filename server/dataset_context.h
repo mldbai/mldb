@@ -21,7 +21,17 @@ struct BoundTableExpression;
 /* SQL EXPRESSION MLDB CONTEXT                                               */
 /*****************************************************************************/
 
-/** Context to bind a row expression into an MLDB instance. */
+/** Context to bind a row expression into an MLDB instance.  This is normally
+    the outer-most scope that is used.
+
+    It brings the following entities into scope:
+
+    - User-defined functions registered into the MLDB server;
+    - Datasets that have been created by the MLDB server
+    
+    It also allows for builtin SQL functions to be accessed via the
+    SqlBindingScope it inherits from.
+*/
 
 struct SqlExpressionMldbScope: public SqlBindingScope {
 
@@ -52,9 +62,16 @@ struct SqlExpressionMldbScope: public SqlBindingScope {
 /* SQL EXPRESSION DATASET CONTEXT                                            */
 /*****************************************************************************/
 
-/** Context to bind a row expression into a dataset. */
+/** Context to bind a row expression into a dataset.  This makes the given
+    dataset available to expressions that are bound within it, which means:
 
-struct SqlExpressionDatasetContext: public SqlExpressionMldbScope {
+    - Columns within the dataset can be accessed by name or by wildcard;
+    - Functions that are defined by the dataset can be called;
+    
+    It also, for historical reasons, allows for parameters to be bound.
+*/
+
+struct SqlExpressionDatasetScope: public SqlExpressionMldbScope {
 
     struct RowScope: public SqlRowScope {
         RowScope(const MatrixNamedRow & row,
@@ -71,9 +88,9 @@ struct SqlExpressionDatasetContext: public SqlExpressionMldbScope {
         //const Date date;
     };
 
-    SqlExpressionDatasetContext(std::shared_ptr<Dataset> dataset, const Utf8String& alias);
-    SqlExpressionDatasetContext(const Dataset & dataset, const Utf8String& alias);
-    SqlExpressionDatasetContext(const BoundTableExpression& boundDataset);
+    SqlExpressionDatasetScope(std::shared_ptr<Dataset> dataset, const Utf8String& alias);
+    SqlExpressionDatasetScope(const Dataset & dataset, const Utf8String& alias);
+    SqlExpressionDatasetScope(const BoundTableExpression& boundDataset);
 
     const Dataset & dataset;
     Utf8String alias;
@@ -134,9 +151,9 @@ protected:
     clause.  This has access to all of the input and output columns.
 */
 
-struct SqlExpressionOrderByContext: public ReadThroughBindingScope {
+struct SqlExpressionOrderByScope: public ReadThroughBindingScope {
 
-    SqlExpressionOrderByContext(SqlBindingScope & outer)
+    SqlExpressionOrderByScope(SqlBindingScope & outer)
         : ReadThroughBindingScope(outer)
     {
     }

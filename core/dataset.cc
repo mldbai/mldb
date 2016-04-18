@@ -680,8 +680,10 @@ queryStructured(const SelectExpression & select,
     if (!having.isConstantTrue() && groupBy.clauses.empty())
         throw HttpReturnException(400, "HAVING expression requires a GROUP BY expression");
 
-    std::vector< std::shared_ptr<SqlExpression> > aggregators = select.findAggregators(!groupBy.clauses.empty());
-    std::vector< std::shared_ptr<SqlExpression> > havingaggregators = having.findAggregators(!groupBy.clauses.empty());
+    std::vector< std::shared_ptr<SqlExpression> > aggregators
+        = select.findAggregators(!groupBy.clauses.empty());
+    std::vector< std::shared_ptr<SqlExpression> > havingaggregators
+        = having.findAggregators(!groupBy.clauses.empty());
 
     // Do it ungrouped if possible
     if (groupBy.clauses.empty() && aggregators.empty()) {
@@ -689,7 +691,7 @@ queryStructured(const SelectExpression & select,
                                const std::vector<ExpressionValue> & calc)
             {
                 MatrixNamedRow row = row_.flattenDestructive();
-                row.rowName = GetValidatedRowName(calc.at(0));
+                row.rowName = getValidatedRowName(calc.at(0));
                 row.rowHash = row.rowName;
                 output.emplace_back(std::move(row));
                 return true;
@@ -783,7 +785,7 @@ generateVariableEqualsConstant(const Dataset & dataset,
                                const ReadColumnExpression & variable,
                                const ConstantExpression & constant)
 {
-    ColumnName columnName(removeTableName(alias,variable.columnName).toSimpleName());
+    ColumnName columnName(removeTableName(alias,variable.columnName));
     CellValue constantValue(constant.constant.getAtom());
 
     auto filter = [=] (const CellValue & val)
@@ -1099,7 +1101,7 @@ generateRowsWhere(const SqlBindingScope & scope,
     {
         auto fexpr = getFunction(*(inExpression->expr));
         // TODO BEFORE MERGING: functionName should be a compound
-        if (fexpr && removeTableName(alias, Coords(fexpr->functionName)).toSimpleName() == "rowName") {
+        if (fexpr && removeTableName(alias, Coords(fexpr->functionName)) == Coords(Coord("rowName"))) {
             if (inExpression->tuple && inExpression->tuple->isConstant()) {
                 return {[=] (ssize_t numToGenerate, Any token,
                              const BoundParameters & params)
@@ -1173,7 +1175,9 @@ generateRowsWhere(const SqlBindingScope & scope,
                                                         const ColumnName & prefix,
                                                         const ExpressionValue & val)
                                         {
-                                            //casting other types to string will give a different result than non-optimized path.
+                                            //casting other types to string will give
+                                            // a different result than non-optimized
+                                            // path.
                                             if (!val.isString())
                                                 return true;
 
@@ -1186,8 +1190,8 @@ generateRowsWhere(const SqlBindingScope & scope,
                                     
                                     
                                     if (keys)
-                                        evaluatedSet.forEachSubexpression(onKey);
-                                    else evaluatedSet.forEachSubexpression(onValue);
+                                        evaluatedSet.forEachColumn(onKey);
+                                    else evaluatedSet.forEachColumn(onValue);
                                     
                                     return { std::move(filtered), Any() };
                                 },
@@ -1373,7 +1377,7 @@ generateRowsWhere(const SqlBindingScope & scope,
     // Couldn't optimize.  Fall through to scanning, evaluating the where
     // expression at each point
 
-    SqlExpressionDatasetContext dsScope(*this, alias);
+    SqlExpressionDatasetScope dsScope(*this, alias);
     auto whereBound = where.bind(dsScope);
 
     // Detect if where needs columns or not, by looking at what is unbound
@@ -1497,13 +1501,13 @@ queryBasic(const SqlBindingScope & scope,
         newOrderBy.clauses.push_back(x);
     }
 
-    SqlExpressionDatasetContext selectScope(*this, "");
+    SqlExpressionDatasetScope selectScope(*this, "");
     SqlExpressionWhenScope whenScope(selectScope);
     auto boundWhen = when.bind(whenScope);
 
     auto boundSelect = select.bind(selectScope);
     
-    SqlExpressionOrderByContext orderByScope(selectScope);
+    SqlExpressionOrderByScope orderByScope(selectScope);
     
     auto boundOrderBy = newOrderBy.bindAll(orderByScope);
 

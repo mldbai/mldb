@@ -79,7 +79,7 @@ struct SqlBindingScope;
 struct MldbServer;
 struct BasicRowGenerator;
 struct WhenExpression;
-struct SqlExpressionDatasetContext;
+struct SqlExpressionDatasetScope;
 struct TableOperations;
 struct RowStream;
 
@@ -484,12 +484,25 @@ ColumnFunction;
 
 
 /*****************************************************************************/
-/* ROW EXPRESSION BINDING CONTEXT                                            */
+/* ROW EXPRESSION BINDING SCOPE                                              */
 /*****************************************************************************/
 
-/** Context in which a row expression is bound.  At this point, the dataset
-    on which the expression is being applied is known, which allows
-    specialization based upon known characteristics of the data.
+/** This is the base class for a scope into which an SQL expression can be
+    bound.  It defines all of the different elements that are provided by
+    a scope, which includes:
+
+    - Functions, both vanilla and dataset varieties;
+    - Aggregators;
+    - Columns, both with direct names and wildcard expressions;
+    - Named parameters ($xxx);
+    - Datasets/tables
+    - The MLDB server (which is opaque to the SQL layer, but passed through)
+
+    The base scope itself provides only builtin functions and aggregators;
+    an attempt to bind something else will result in an error.  Other scopes
+    will normally be layered on top based upon the SQL expression; for example
+    an MLDB scope will add datasets; a FROM clause will add a dataset to the
+    scope, and a SELECT clause can then ask for columns within that dataset.
 */
 
 struct SqlBindingScope {
@@ -538,12 +551,42 @@ struct SqlBindingScope {
     doGetAggregator(const Utf8String & functionName,
                     const std::vector<BoundSqlExpression> & args);
     
-    // Used to get the value of a column
+    /** Used to get the value of a column.  The tableName tells us which
+        table the column lives in (if resolved), or is empty if it's
+        not known.  The columnName parameter gives the name of the
+        column.
+
+        If this function is overridden, then doResolveTableName() should
+        be overridden too.
+    */
     virtual ColumnGetter doGetColumn(const Utf8String & tableName,
                                      const ColumnName & columnName);
 
-    // Used to list all columns in a dataset.  It returns a function that can
-    // be used to return a row containing just those columns.
+    /** Used to resolve a wildcard expression.  This function returns
+        another function that can be used to return a row containing just a
+        subset of the columns where the names match.
+
+        The keep argument is used to filter the function names and to
+        indicate what the new name of the column should be.  If it returns
+        an empty ColumnName, then the column will not be kept.
+
+        NOTE ABOUT DYNAMIC SCHEMAS
+
+        It is possible that an expression has a dynamic schema, in other words
+        the column names aren't all known at binding time.  This can be known
+        by looking for info->getSchemaCompleteness() != SCHEMA_CLOSED in the
+        bound version of the expression that generates the input arguments.
+
+        This function needs to be able to handle that situation, by applying
+        the keep expression a column at a time to each input row.  In that
+        case, the keep expression WILL BE COPIED INTO THE RESULT OF THIS
+        FUNCTION.  And so, a keep expression that captures by reference
+        (via [&]) will probably crash the program.  Keep that in mind when
+        passing in the keep argument.
+
+        If this function is overridden, then doResolveTableName() should
+        be overridden too.
+    */
     virtual GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
                     std::function<ColumnName (const ColumnName &)> keep);
@@ -587,6 +630,11 @@ struct SqlBindingScope {
         This is primarily used for datasets that implement joins,
         where they may need to be able to resolve their variables to
         several underlying tables.
+
+        NOTE: a caller that calls doGetColumn() or doGetAllColumns()
+        will almost certainly call this function too.  So if either
+        of those functions is overridden, this function should 
+        be overridden too.
     */
     virtual ColumnName
     doResolveTableName(const ColumnName & fullVariableName,
@@ -608,7 +656,9 @@ struct SqlBindingScope {
 /** Create a copy, applying the given transformation to each of the child
     expressions.
 */
-typedef std::function<std::vector<std::shared_ptr<SqlExpression> > (const std::vector<std::shared_ptr<SqlExpression> > & args)> TransformArgs;
+typedef std::function<std::vector<std::shared_ptr<SqlExpression> >
+                      (const std::vector<std::shared_ptr<SqlExpression> > & args)>
+TransformArgs;
 
 
 /*****************************************************************************/
@@ -730,10 +780,26 @@ struct SqlRowScope {
     {
     }
 
+    /** In some circumstances, such as calling functions, we want to signal
+        that there is no row available even though the functions require
+        one to be passed.
+
+        To do this, use an SqlRowScope object directly.  The code can detect
+        whether it has a row or not by calling this hasRow() function.
+    */
+    bool hasRow() const
+    {
+        return typeid(*this) != typeid(SqlRowScope);
+    }
+
+    /** Throw an exception saying that the types requested were wrong. */
     static void throwBadNestingError(const std::type_info & typeRequested,
                                      const std::type_info & typeFound)
         __attribute__((noreturn));
 
+    /** Assert that the type of this object is the one given, and return it
+        as that type.
+    */
     template<typename T>
     T & as()
     {
@@ -746,6 +812,10 @@ struct SqlRowScope {
         throwBadNestingError(typeid(T), typeid(*this));
     }
 
+
+    /** Assert that the type of this object is the one given, and return it
+        as that type.
+    */
     template<typename T>
     const T & as() const
     {
@@ -933,7 +1003,7 @@ struct SqlExpression: public std::enable_shared_from_this<SqlExpression> {
         Default implementation returns false; the subclasses which could be
         a SELECT * should override.
     */
-    virtual bool isIdentitySelect(SqlExpressionDatasetContext & context) const;
+    virtual bool isIdentitySelect(SqlExpressionDatasetScope & context) const;
 
     /** Find any children that is an aggregator call 
         This function perform partial validation of the parse tree for 
@@ -1112,7 +1182,7 @@ struct SelectExpression: public SqlRowExpression {
     virtual Utf8String getOperation() const;
     virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
 
-    virtual bool isIdentitySelect(SqlExpressionDatasetContext & context) const;
+    virtual bool isIdentitySelect(SqlExpressionDatasetScope & context) const;
 
     std::vector<std::shared_ptr<SqlRowExpression> > clauses;
 

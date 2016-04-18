@@ -93,7 +93,7 @@ toValueInfo(std::shared_ptr<const ValueDescription> desc)
                     return true;
                 };
 
-                input.forEachSubexpression(onColumn);
+                input.forEachColumn(onColumn);
             };
 
         // Function used to convert back from the binary value to the
@@ -133,15 +133,78 @@ toValueInfo(std::shared_ptr<const ValueDescription> desc)
             return std::make_tuple(info, fromInput, toOutput);
         }
         else if (*desc->type == typeid(CellValue)) {
+            auto info = std::make_shared<AtomValueInfo>();
+            FromInput fromInput = [] (void * obj, const ExpressionValue & input)
+                {
+                    *static_cast<CellValue *>(obj) = input.getAtom();
+                };
+            
+            ToOutput toOutput = [] (const void * obj) -> ExpressionValue
+                {
+                    return ExpressionValue(*static_cast<const CellValue *>(obj),
+                                           Date::notADate());
+                };
+            
+            return std::make_tuple(info, fromInput, toOutput);
            
         }
         break;
     }
 
+    case ValueKind::STRING: {
+        if (*desc->type == typeid(Utf8String)) {
+            auto info = std::make_shared<Utf8StringValueInfo>();
+            FromInput fromInput = [] (void * obj, const ExpressionValue & input)
+                {
+                    *static_cast<Utf8String *>(obj) = input.toUtf8String();
+                };
+            
+            ToOutput toOutput = [] (const void * obj) -> ExpressionValue
+                {
+                    return ExpressionValue(*static_cast<const Utf8String *>(obj),
+                                           Date::notADate());
+                };
+            return std::make_tuple(info, fromInput, toOutput);
+        }
+        else if (*desc->type == typeid(std::string)) {
+            auto info = std::make_shared<StringValueInfo>();
+            FromInput fromInput = [] (void * obj, const ExpressionValue & input)
+                {
+                    *static_cast<std::string *>(obj) = input.toString();
+                };
+            
+            ToOutput toOutput = [] (const void * obj) -> ExpressionValue
+                {
+                    return ExpressionValue(*static_cast<const std::string *>(obj),
+                                           Date::notADate());
+                };
+            return std::make_tuple(info, fromInput, toOutput);
+        }
+        else {
+            auto info = std::make_shared<Utf8StringValueInfo>();
+            FromInput fromInput = [desc] (void * obj, const ExpressionValue & input)
+                {
+                    Json::Value val(input.toUtf8String());
+                    StructuredJsonParsingContext context(val);
+                    desc->parseJson(obj, context);
+                };
+            
+            ToOutput toOutput = [desc] (const void * obj) -> ExpressionValue
+                {
+                    Json::Value val;
+                    StructuredJsonPrintingContext context(val);
+                    desc->printJson(obj, context);
+                    return ExpressionValue(Utf8String(val.toString()),
+                                           Date::notADate());
+                };
+            return std::make_tuple(info, fromInput, toOutput);
+            
+        }
+    }
+
     case ValueKind::INTEGER:
     case ValueKind::FLOAT:
     case ValueKind::BOOLEAN:
-    case ValueKind::STRING:
     case ValueKind::ENUM:
     case ValueKind::OPTIONAL:
     case ValueKind::LINK:
