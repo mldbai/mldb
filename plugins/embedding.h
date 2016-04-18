@@ -132,11 +132,11 @@ struct NearestNeighborsFunction
     virtual ~NearestNeighborsFunction();
 
     virtual NearestNeighborsOutput
-    applyT(const ApplierT & applier, NearestNeighborsInput input) const;
+    applyT(const ApplierT & applier, NearestNeighborsInput input) const override;
     
     virtual std::unique_ptr<ApplierT>
     bindT(SqlBindingScope & outerContext,
-          const FunctionValues & input) const;
+          const FunctionValues & input) const override;
     
     NearestNeighborsFunctionConfig functionConfig;
 };

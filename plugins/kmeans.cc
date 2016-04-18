@@ -303,8 +303,27 @@ KmeansFunctionConfigDescription()
 
 
 /*****************************************************************************/
-/* KMEANS FUNCTION                                                              */
+/* KMEANS FUNCTION                                                           */
 /*****************************************************************************/
+
+DEFINE_STRUCTURE_DESCRIPTION(KmeansFunctionArgs);
+
+KmeansFunctionArgsDescription::KmeansFunctionArgsDescription()
+{
+    addField("values", &KmeansFunctionArgs::values,
+             "Values to be classified in a cluster."
+             "The columns must be the same as the ones used in training");
+}
+
+DEFINE_STRUCTURE_DESCRIPTION(KmeansFunctionOutput);
+
+KmeansFunctionOutputDescription::KmeansFunctionOutputDescription()
+{
+    addField("bestCluster", &KmeansFunctionOutput::bestCluster,
+             "Index of the row in the `centroids` dataset whose columns describe the point which is closest to the" 
+             "input according to the `metric` specified in training.");
+}
+
 
 struct KmeansFunction::Impl {
     ML::KMeans kmeans;

@@ -7,6 +7,8 @@
     Interface for functions into MLDB.
 */
 
+#pragma once
+
 #include "function.h"
 
 namespace Datacratic {

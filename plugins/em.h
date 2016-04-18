@@ -11,7 +11,7 @@
 
 #include "mldb/core/dataset.h"
 #include "mldb/core/procedure.h"
-#include "mldb/core/function.h"
+#include "mldb/core/value_function.h"
 #include "matrix.h"
 #include "mldb/ml/value_descriptions.h"
 #include "metric_space.h"
@@ -84,23 +84,30 @@ struct EMFunctionConfig {
 
 DECLARE_STRUCTURE_DESCRIPTION(EMFunctionConfig);
 
-struct EMFunction: public Function {
+struct EMInput {
+    ExpressionValue embedding;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(EMInput);
+
+struct EMOutput {
+    ExpressionValue cluster;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(EMOutput);
+
+struct EMFunction: public ValueFunctionT<EMInput, EMOutput> {
     EMFunction(MldbServer * owner,
                PolyConfig config,
                const std::function<bool (const Json::Value &)> & onProgress);
-    
-    virtual Any getStatus() const;
-    
-    virtual std::unique_ptr<FunctionApplier>
-    bind(SqlBindingScope & outerContext,
-         const FunctionValues & input) const;
 
-    virtual FunctionOutput apply(const FunctionApplier & applier,
-                                 const FunctionContext & context) const;
+    virtual EMOutput applyT(const ApplierT & applier,
+                                 EMInput args) const override;
     
-    /** Describe what the input and output is for this function. */
-    virtual FunctionInfo getFunctionInfo() const;
-    
+    virtual std::unique_ptr<FunctionApplierT<EMInput, EMOutput> >
+    bindT(SqlBindingScope & outerContext,
+          const FunctionValues & input) const override;
+   
     EMFunctionConfig functionConfig;
   
      // holds the dimension of the embedding space

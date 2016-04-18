@@ -379,30 +379,38 @@ TsneEmbedConfigDescription()
 /* TSNE EMBED ROW                                                            */
 /*****************************************************************************/
 
+DEFINE_STRUCTURE_DESCRIPTION(TsneInput);
+
+TsneInputDescription::TsneInputDescription()
+{
+    addField("embedding", &TsneInput::embedding,
+             "Undocumented.");
+}
+
+DEFINE_STRUCTURE_DESCRIPTION(TsneOutput);
+
+TsneOutputDescription::TsneOutputDescription()
+{
+    addField("cluster", &TsneOutput::tsne,
+             "Undocumented.");
+}
+
+
 TsneEmbed::
 TsneEmbed(MldbServer * owner,
           PolyConfig config,
           const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner)
+    : BaseT(owner)
 {
     functionConfig = config.params.convert<TsneEmbedConfig>();
     itl = std::make_shared<TsneItl>(functionConfig.modelFileUrl);
 }
 
-Any
-TsneEmbed::
-getStatus() const
-{
-    return Any();
-}
 
-FunctionOutput
+TsneOutput 
 TsneEmbed::
-apply(const FunctionApplier & applier,
-      const FunctionContext & context) const
+call(TsneInput input) const
 {
-    throw HttpReturnException(500, "t-sne application is not implemented yet");
-
 #if 0    
     FunctionOutput result;
 
@@ -418,18 +426,6 @@ apply(const FunctionApplier & applier,
     
     return result;
 #endif
-}
-
-FunctionInfo
-TsneEmbed::
-getFunctionInfo() const
-{
-    FunctionInfo result;
-    
-    result.input.addEmbeddingValue("embedding", itl->inputColumnNames.size());
-    result.output.addEmbeddingValue("tsne", itl->numOutputDimensions());
-    
-    return result;
 }
 
 namespace {

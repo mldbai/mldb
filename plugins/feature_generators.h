@@ -53,7 +53,7 @@ struct HashedColumnFeatureGenerator: public ValueFunctionT<FeatureGeneratorInput
     
     ~HashedColumnFeatureGenerator();
 
-    virtual FeatureGeneratorOutput call(const FeatureGeneratorInput & input) const override;
+    virtual FeatureGeneratorOutput call(FeatureGeneratorInput input) const override;
 
     std::vector<KnownColumn> outputColumns;
 

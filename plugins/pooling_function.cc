@@ -44,6 +44,22 @@ PoolingFunctionConfigDescription()
 /* POOLING FUNCTION                                                          */
 /*****************************************************************************/
 
+DEFINE_STRUCTURE_DESCRIPTION(PoolingInput);
+
+PoolingInputDescription::PoolingInputDescription()
+{
+    addField("words", &PoolingInput::words,
+             "Row with the words to be pooled.");
+}
+
+DEFINE_STRUCTURE_DESCRIPTION(PoolingOutput);
+
+PoolingOutputDescription::PoolingOutputDescription()
+{
+    addField("embedding", &PoolingOutput::embedding,
+             "Embedding corresponding to the input words.");
+}
+
 PoolingFunction::
 PoolingFunction(MldbServer * owner,
                PolyConfig config,
@@ -104,7 +120,7 @@ struct PoolingFunctionApplier: public FunctionApplierT<PoolingInput, PoolingOutp
 
 PoolingOutput 
 PoolingFunction::
-applyT(const ApplierT & applier_, const PoolingInput & input) const
+applyT(const ApplierT & applier_, PoolingInput input) const
 {
     //   STACK_PROFILE(PoolingFunction_apply)
 
