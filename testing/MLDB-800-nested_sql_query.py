@@ -93,17 +93,48 @@ res = mldb.get('/v1/datasets/ds1/query', select='poil2({*})')
 mldb.log("query result")
 mldb.log(res)
 
+
+#MLDBFB-480
+
+expected = [["_rowName", "param"],
+            ["result", "hi" ]]
+
+res = mldb.put("/v1/functions/patate1", {
+    "type": "sql.query",
+    "params": {
+        "query": """
+            select $param as param from ds1
+        """,
+        "output": "FIRST_ROW"
+    }
+})
+
+assert expected == mldb.query("select patate1({param: 'hi'}) as *")
+
+
+res = mldb.put("/v1/functions/patate2", {
+    "type": "sql.query",
+    "params": {
+        "query": """
+            select * from ( select $param as param from ds1 )
+        """,
+        "output": "FIRST_ROW"
+    }
+})
+
+assert expected == mldb.query("select patate2({param: 'hi'}) as *")
+
+
 #MLDB-1573
 
 res = mldb.put("/v1/functions/patate", {
     "type": "sql.query",
     "params": {
         "query": """
-            select * from ((
-
+            select * from (
                 select * from 
                 row_dataset({x: 1, y:2, z: 'three'})
-            ))
+            )
         """,
         "output": "FIRST_ROW"
     }
