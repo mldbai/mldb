@@ -84,7 +84,7 @@ struct KmeansFunctionConfig {
 DECLARE_STRUCTURE_DESCRIPTION(KmeansFunctionConfig);
 
 struct KmeansFunctionArgs {
-   ExpressionValue values; //embedding
+   ExpressionValue embedding; //embedding
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(KmeansFunctionArgs);
@@ -97,11 +97,11 @@ DECLARE_STRUCTURE_DESCRIPTION(KmeansFunctionOutput);
 
 struct KmeansFunction: public ValueFunctionT<KmeansFunctionArgs, KmeansFunctionOutput>  {
     KmeansFunction(MldbServer * owner,
-                PolyConfig config,
-                const std::function<bool (const Json::Value &)> & onProgress);
+                   PolyConfig config,
+                   const std::function<bool (const Json::Value &)> & onProgress);
     
     virtual KmeansFunctionOutput call(KmeansFunctionArgs input) const override; 
-  
+    
     KmeansFunctionConfig functionConfig;
 
     // holds the dimension of the embedding space

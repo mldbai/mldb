@@ -1076,7 +1076,7 @@ namespace {
 RegisterProcedureType<SvdProcedure, SvdConfig>
 regSvd(builtinPackage(),
        "svd.train",
-       "Train a SVD to convert rows or columns to summary coordinates",
+       "Train a SVD to convert rows or columns to embedding coordinates",
        "procedures/Svd.md.html");
 
 RegisterFunctionType<SvdEmbedRow, SvdEmbedConfig>

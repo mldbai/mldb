@@ -564,12 +564,15 @@ run(const ProcedureRunConfig & run,
 
     auto boundDataset = runProcConf.inputData.stm->from->bind(context);
     std::vector< std::shared_ptr<SqlExpression> > aggregators = 
-        runProcConf.inputData.stm->select.findAggregators(!runProcConf.inputData.stm->groupBy.clauses.empty());
+        runProcConf.inputData.stm->select
+        .findAggregators(!runProcConf.inputData.stm->groupBy.clauses.empty());
 
     // Create the output 
     std::shared_ptr<Dataset> output;
-    if (!runProcConf.outputDataset.type.empty() || !runProcConf.outputDataset.id.empty()) {
-        output = createDataset(server, runProcConf.outputDataset, nullptr, true /*overwrite*/);
+    if (!runProcConf.outputDataset.type.empty()
+        || !runProcConf.outputDataset.id.empty()) {
+        output = createDataset(server, runProcConf.outputDataset, nullptr,
+                               true /*overwrite*/);
     }
 
     bool skipEmptyRows = runProcConf.skipEmptyRows;
@@ -606,7 +609,8 @@ run(const ProcedureRunConfig & run,
                 {
                     auto & rows = accum.get();
                     rows.reserve(10000);
-                    rows.emplace_back(RowName(calc.at(0).toUtf8String()), std::move(cols));
+                    rows.emplace_back(RowName(calc.at(0).toUtf8String()),
+                                      std::move(cols));
 
                     if (rows.size() >= 10000) {
                         output->recordRows(rows);

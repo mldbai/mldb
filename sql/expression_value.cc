@@ -1100,38 +1100,19 @@ std::shared_ptr<ExpressionValueInfo>
 RowValueInfo::
 findNestedColumn(const ColumnName& columnName)
 {  
-    for (auto& col : columns)
-    {
-         if (col.columnName == columnName)
-         {
-             return col.valueInfo;
-         }
-    }   
-
-    // TODO BEFORE MERGE: FIX THIS
-    
-    throw HttpReturnException(500, "Need to fix findNestedColumn");
-#if 0
-
-    auto it = variableName.find('.');
-    if (it != variableName.end())
-    {
-        Utf8String head(variableName.begin(),it);
-        ++it;
-
-        for (auto& col : columns)
-        {
-             if (col.columnName == head)
-             {
-                 Utf8String tail(it, variableName.end());
-                 return col.valueInfo->findNestedColumn(tail, schemaCompleteness);
-             }
-         }   
+    for (auto& col : columns) {
+        if (col.columnName == columnName) {
+            // Found directly
+            return col.valueInfo;
+        }
+        else if (columnName.startsWith(col.columnName)) {
+            // Nested; look inside the sub-info
+            ColumnName tail = columnName.removePrefix(col.columnName.size());
+            return col.valueInfo->findNestedColumn(tail);
+        }
     }
-
-    schemaCompleteness = getSchemaCompleteness();
-    return nullptr;
-#endif
+    
+    return nullptr;  // not found
 }            
 
 

@@ -339,8 +339,9 @@ doGetFunction(const Utf8String & tableName,
                 std::make_shared<Uint64ValueInfo>()};
     }
 
-    return SqlBindingScope::doGetFunction(resolvedTableName, resolvedFunctionName,
-                                          args, argScope);
+    return SqlExpressionMldbScope
+        ::doGetFunction(resolvedTableName, resolvedFunctionName,
+                        args, argScope);
 }
 
 ColumnGetter

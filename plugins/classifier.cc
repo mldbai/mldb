@@ -991,7 +991,7 @@ getFunctionInfo() const
         std::vector<KnownColumn> scoreColumns;
 
         for (unsigned i = 0;  i < labelCount;  ++i) {
-            scoreColumns.emplace_back(ColumnName(cat->print(i)),
+            scoreColumns.emplace_back(ColumnName::parse(cat->print(i)),
                                       std::make_shared<Float32ValueInfo>(),
                                       COLUMN_IS_DENSE, i);
         }

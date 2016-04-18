@@ -263,15 +263,11 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
         
         if (selectStar) {
             // Move into place, since we know we're selecting *
-            outputRow.columns.reserve(row.columns.size());
-            for (auto & c: row.columns) {
-                // TODO: toSimpleName isn't right here... we need to output as
-                // a MatrixNamedRow or ExpressionValue
-                outputRow.columns.emplace_back
-                    (std::move(std::get<0>(c).toSimpleName()),
-                     ExpressionValue(std::move(std::get<1>(c)),
-                                     std::get<2>(c)));
-            }
+            // This is more complicated than it looks, because the input is
+            // flattened but the output is structured, so we have to go
+            // through the ExpressionValue to add the structure in first.
+            ExpressionValue structured(std::move(row.columns));
+            structured.mergeToRowDestructive(outputRow.columns);
         }
         else {
             // Run the select expression

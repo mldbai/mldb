@@ -306,6 +306,26 @@ KmeansFunctionConfigDescription()
 /* KMEANS FUNCTION                                                              */
 /*****************************************************************************/
 
+DEFINE_STRUCTURE_DESCRIPTION(KmeansFunctionArgs);
+
+KmeansFunctionArgsDescription::
+KmeansFunctionArgsDescription()
+{
+    addField("embedding", &KmeansFunctionArgs::embedding,
+             "Embedding values for the k-means function.  The column names in "
+             "this embedding must match those used in the original kmeans "
+             "dataset.");
+}
+
+DEFINE_STRUCTURE_DESCRIPTION(KmeansFunctionOutput);
+
+KmeansFunctionOutputDescription::
+KmeansFunctionOutputDescription()
+{
+    addField("bestCluster", &KmeansFunctionOutput::bestCluster,
+             "The number of the best cluster for the given example.");
+}
+
 struct KmeansFunction::Impl {
     ML::KMeans kmeans;
     std::vector<ColumnName> columnNames;
@@ -346,9 +366,14 @@ KmeansFunctionOutput
 KmeansFunction::
 call(KmeansFunctionArgs input) const
 {
-    Date ts = input.values.getEffectiveTimestamp();
+    Date ts = input.embedding.getEffectiveTimestamp();
 
-    return {ExpressionValue(impl->kmeans.assign(input.values.getEmbedding()), ts)};
+    return {ExpressionValue
+            (impl->kmeans.assign
+             (input.embedding.getEmbedding(impl->columnNames.data(),
+                                           impl->columnNames.size())
+              .cast<float>()),
+             ts)};
 }
 
 namespace {

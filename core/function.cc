@@ -113,7 +113,7 @@ bind(SqlBindingScope & outerContext,
     result->info = getFunctionInfo();
 
     // TO RESOLVE BEFORE MERGE
-    throw HttpReturnException(600, "Function::bind(): check compatibility");
+    //throw HttpReturnException(600, "Function::bind(): check compatibility");
 #if 0
     // Check that all values on the passed input are compatible with the required
     // inputs.

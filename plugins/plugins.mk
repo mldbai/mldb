@@ -36,17 +36,17 @@ LIBMLDB_BUILTIN_PLUGIN_SOURCES:= \
 	sql_functions.cc \
 	svd.cc \
 	embedding.cc \
+	kmeans.cc \
+	probabilizer.cc \
 
 # Not finished; they need their ValueDescriptions to be done
-#	kmeans.cc \
-	pooling_function.cc \
+#	pooling_function.cc \
 	feature_generators.cc \
 
 # MATHIEU HERE THEY ARE
 #	em.cc \
 	tsne.cc \
 	svm.cc \
-	probabilizer.cc \
 	stats_table_procedure.cc \
 	tfidf.cc \
 	tokensplit.cc \

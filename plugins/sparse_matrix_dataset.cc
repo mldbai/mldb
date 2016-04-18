@@ -478,8 +478,9 @@ struct SparseMatrixDataset::Itl
 
     uint64_t encodeCol(const ColumnName & col, WriteTransaction & trans)
     {
-        if (col == ColumnName())
-            throw HttpReturnException(400, "Datasets don't accept empty column names");
+        if (col.empty())
+            throw HttpReturnException(400,
+                                      "Datasets don't accept empty column names");
 
         ColumnHash ch(col);
         if (!trans.values->knownRow(ch.hash())) {
@@ -501,7 +502,8 @@ struct SparseMatrixDataset::Itl
         trans->matrix
             ->iterateRows([&] (uint64_t row)
                           {
-                              result.emplace_back(getRowNameTrans(RowHash(row), *trans));
+                              result.emplace_back(getRowNameTrans(RowHash(row),
+                                                                  *trans));
                               return true;
                           });
 
@@ -599,7 +601,7 @@ struct SparseMatrixDataset::Itl
 
         auto onRow = [&] (const BaseEntry & entry)
             {
-                result = RowName(entry.metadata.at(0));
+                result = RowName::parse(entry.metadata.at(0));
                 return false;
             };
             
@@ -627,7 +629,7 @@ struct SparseMatrixDataset::Itl
 
         auto onRow = [&] (const BaseEntry & entry)
             {
-                result = ColumnName(entry.metadata.at(0));
+                result = ColumnName::parse(entry.metadata.at(0));
                 return false;  // return false to short circuit
             };
             

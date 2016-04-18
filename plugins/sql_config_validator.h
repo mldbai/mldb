@@ -203,6 +203,12 @@ template<typename FieldType> struct PlainColumnSelect
                 return std::dynamic_pointer_cast<const FunctionCallExpression>(expression);
             };
 
+        auto getExtractExpression = [] (const std::shared_ptr<SqlExpression> expression) 
+            -> std::shared_ptr<const ExtractExpression>
+            {
+                return std::dynamic_pointer_cast<const ExtractExpression>(expression);
+            };
+
         auto getConstantExpression = [] (const std::shared_ptr<SqlExpression> expression) 
             -> std::shared_ptr<const ConstantExpression>
             {
@@ -222,6 +228,7 @@ template<typename FieldType> struct PlainColumnSelect
                     continue;
 
                 auto computedVariable = getComputedColumn(clause);
+
                 if (computedVariable) {
                     auto readVariable = getReadVariable(computedVariable->expression);
                     if (readVariable)
@@ -242,10 +249,16 @@ template<typename FieldType> struct PlainColumnSelect
                     auto booleanExpression = getBooleanExpression(computedVariable->expression);
                     if (booleanExpression)
                         continue;
-                    // function(args)[extract]
+                    // function(args)
                     auto functionCallExpression = getFunctionCallExpression(computedVariable->expression);
                     if (functionCallExpression)
                         continue;
+
+                    // (...)[extract]
+                    auto extractExpression = getExtractExpression(computedVariable->expression);
+                    if (extractExpression)
+                        continue;
+
                      // 1.0
                     auto constantExpression = getConstantExpression(computedVariable->expression);
                     if (constantExpression)
@@ -253,7 +266,7 @@ template<typename FieldType> struct PlainColumnSelect
                 }
 
                 throw ML::Exception(std::string(name) + 
-                                    " training only accept wildcard and column names at " + 
+                                    " training only accepts wildcard and column names at " + 
                                     clause->surface.rawString());
             }
         }
