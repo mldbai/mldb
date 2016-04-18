@@ -114,6 +114,11 @@ struct ValueDescription {
         {
             return ((char*) obj) + offset;
         }
+
+        const void * getFieldPtr(const void * obj) const
+        {
+            return ((const char*) obj) + offset;
+        }
     };
 
     virtual size_t getFieldCount(const void * val) const;

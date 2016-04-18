@@ -395,9 +395,10 @@ std::shared_ptr<RowValueInfo>
 ExpressionValueInfo::
 toRow(std::shared_ptr<ExpressionValueInfo> row)
 {
+    ExcAssert(row);
     auto result = dynamic_pointer_cast<RowValueInfo>(row);
     if (!result)
-        throw HttpReturnException(500, "Value is not a row");
+        throw HttpReturnException(500, "Value is not a row: " + ML::type_name(*row));
     return result;
 }
 

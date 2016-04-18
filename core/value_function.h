@@ -19,6 +19,7 @@ template<typename Input, typename Output,
          typename Applier = FunctionApplierT<Input, Output> >
 struct ValueFunctionT;
 
+
 /*****************************************************************************/
 /* VALUE FUNCTION                                                            */
 /*****************************************************************************/
@@ -36,18 +37,42 @@ struct ValueFunction: public Function {
                   std::shared_ptr<const ValueDescription> inputDescription,
                   std::shared_ptr<const ValueDescription> outputDescription);
     
-    virtual Any getStatus() const;
+    /// Default status is empty; don't make everyone copy and paste it.
+    virtual Any getStatus() const override;
     
+    /// Description of the binary type used as a parameter for the applyT
+    /// function.
     std::shared_ptr<const ValueDescription> inputDescription;
+
+    /// Description of the binary type returned by the applyT function.
     std::shared_ptr<const ValueDescription> outputDescription;
 
+    /// Description of the ExpressionValue for the input
     std::shared_ptr<ExpressionValueInfo> inputInfo;
+
+    /// Description of the ExpressionValue for the output
     std::shared_ptr<ExpressionValueInfo> outputInfo;
 
-    void fromInput(void * obj, const ExpressionValue & inputVal) const;
-    ExpressionValue toOutput(const void * obj) const;
+    /// Type of function that converts from an ExpressionValue described by
+    /// inputInfo into a binary representation described by inputDescription.
+    typedef std::function<void (void * obj, const ExpressionValue & inputVal) >
+    FromInput;
 
-    virtual FunctionInfo getFunctionInfo() const;
+    /// Type of function that converts from a binary representation (described
+    /// by outputDescription) into an ExpressionValue described by outputInfo.
+    typedef std::function<ExpressionValue (const void * obj)> ToOutput;
+
+    /// Function that does the conversion from ExpressionValue -> binary for
+    /// the function's input parameters
+    FromInput fromInput;
+
+    /// Function that does the conversion from binary -> ExpressionValue for
+    /// the function's return type.
+    ToOutput toOutput;
+    
+    /// Since we know the input and output types, we can provide a default
+    /// implementation of this function.
+    virtual FunctionInfo getFunctionInfo() const override;
 };
 
 
@@ -135,7 +160,6 @@ struct ValueFunctionT: public ValueFunction {
         // Check that all values on the passed input are compatible with the required
         // inputs.
         // TO RESOLVE BEFORE MERGE
-        throw HttpReturnException(600, "ValueFunctionT::bindT");
 #if 0
         for (auto & p: result->info.input.values) {
             input.checkValueCompatibleAsInputTo(p.first.toUtf8String(), p.second);
@@ -148,13 +172,13 @@ struct ValueFunctionT: public ValueFunction {
 private:
     virtual std::unique_ptr<FunctionApplier>
     bind(SqlBindingScope & outerContext,
-         const FunctionValues & input) const
+         const FunctionValues & input) const override
     {
         return bindT(outerContext, input);
     }
     
     virtual FunctionOutput apply(const FunctionApplier & applier,
-                                 const FunctionContext & context) const
+                                 const FunctionContext & context) const override
     {
         const auto * downcast
             = dynamic_cast<const FunctionApplierT<Input, Output> *>(&applier);
