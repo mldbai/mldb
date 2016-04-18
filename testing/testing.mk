@@ -57,7 +57,7 @@ $(eval $(call test,MLDB-1025-output-dataset-serialization-test,mldb,boost))
 
 $(TESTS)/credentials_daemon_test: $(BIN)/credentialsd
 
-
+$(eval $(call mldb_unit_test,MLDB-1586_colname_multivalue.py))
 $(eval $(call mldb_unit_test,test_the_tester.js))
 $(eval $(call mldb_unit_test,test_the_tester.py))
 $(eval $(call mldb_unit_test,MLDB-119-select_no_columns.js))
