@@ -151,7 +151,7 @@ doGetDatasetFromConfig(const Any & datasetConfig)
 /*****************************************************************************/
 
 BoundFunction
-ColumnExpressionBindingContext::
+ColumnExpressionBindingScope::
 doGetFunction(const Utf8String & tableName,
               const Utf8String & functionName,
               const std::vector<BoundSqlExpression> & args,
@@ -193,7 +193,7 @@ doGetFunction(const Utf8String & tableName,
 }
 
 ColumnGetter 
-ColumnExpressionBindingContext::
+ColumnExpressionBindingScope::
 doGetColumn(const Utf8String & tableName, const ColumnName & columnName)
 {
     throw HttpReturnException(400, "Cannot read column \"" + columnName.toUtf8String() + "\" inside COLUMN EXPR.");

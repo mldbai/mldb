@@ -78,10 +78,10 @@ doComparison(const SqlExpression * expr,
 
 BoundSqlExpression
 ComparisonExpression::
-bind(SqlBindingScope & context) const
+bind(SqlBindingScope & scope) const
 {
-    auto boundLhs = lhs->bind(context);
-    auto boundRhs = rhs->bind(context);
+    auto boundLhs = lhs->bind(scope);
+    auto boundRhs = rhs->bind(scope);
 
     if (op == "=" || op == "==") {
         return doComparison(this, boundLhs, boundRhs,
@@ -1248,10 +1248,10 @@ struct BinaryModulusOp {
 
 BoundSqlExpression
 ArithmeticExpression::
-bind(SqlBindingScope & context) const
+bind(SqlBindingScope & scope) const
 {
-    auto boundLhs = lhs ? lhs->bind(context) : BoundSqlExpression();
-    auto boundRhs = rhs->bind(context);
+    auto boundLhs = lhs ? lhs->bind(scope) : BoundSqlExpression();
+    auto boundRhs = rhs->bind(scope);
 
     if (op == "+" && lhs) {
         return BinaryOpHelper<BinaryPlusOp>::bind(this, boundLhs, boundRhs);
@@ -1414,10 +1414,10 @@ static CellValue doBitwiseNot(int64_t v1)
 
 BoundSqlExpression
 BitwiseExpression::
-bind(SqlBindingScope & context) const
+bind(SqlBindingScope & scope) const
 {
-    auto boundLhs = lhs ? lhs->bind(context) : BoundSqlExpression();
-    auto boundRhs = rhs->bind(context);
+    auto boundLhs = lhs ? lhs->bind(scope) : BoundSqlExpression();
+    auto boundRhs = rhs->bind(scope);
 
     if (op == "&" && lhs) {
         return doBinaryBitwise(this, boundLhs, boundRhs, &doBitwiseAnd);
@@ -1502,12 +1502,12 @@ ReadColumnExpression::
 
 BoundSqlExpression
 ReadColumnExpression::
-bind(SqlBindingScope & context) const
+bind(SqlBindingScope & scope) const
 {
-    auto getVariable = context.doGetColumn("" /*tableName*/, columnName);
+    auto getVariable = scope.doGetColumn("" /*tableName*/, columnName);
 
     if (!getVariable.info) {
-        throw HttpReturnException(400, "context " + ML::type_name(context)
+        throw HttpReturnException(400, "scope " + ML::type_name(scope)
                                   + " getColumn '" + columnName.toUtf8String()
                                   + "' didn't return info");
     }
@@ -1584,7 +1584,7 @@ ConstantExpression::
 
 BoundSqlExpression
 ConstantExpression::
-bind(SqlBindingScope & context) const
+bind(SqlBindingScope & scope) const
 {
     ExpressionValue val = constant;
 
@@ -1667,9 +1667,9 @@ SelectWithinExpression::
 
 BoundSqlExpression
 SelectWithinExpression::
-bind(SqlBindingScope & context) const
+bind(SqlBindingScope & scope) const
 {
-    return select->bind(context);
+    return select->bind(scope);
 }
 
 Utf8String
@@ -1729,7 +1729,7 @@ EmbeddingLiteralExpression::
 
 BoundSqlExpression
 EmbeddingLiteralExpression::
-bind(SqlBindingScope & context) const
+bind(SqlBindingScope & scope) const
 {
     if (clauses.empty()) {
         return BoundSqlExpression
@@ -1751,7 +1751,7 @@ bind(SqlBindingScope & context) const
     std::vector<std::shared_ptr<ExpressionValueInfo> > clauseInfo;
 
     for (auto & c: clauses) {
-        boundClauses.emplace_back(std::move(c->bind(context)));
+        boundClauses.emplace_back(std::move(c->bind(scope)));
         clauseInfo.push_back(boundClauses.back().info);
     }   
 
@@ -1763,7 +1763,7 @@ bind(SqlBindingScope & context) const
 
     bool lastLevel = outputInfo->numDimensions() == 1;
 
-    auto exec = [=] (const SqlRowScope & context,
+    auto exec = [=] (const SqlRowScope & scope,
                      ExpressionValue & storage,
                      const VariableFilter & filter) -> const ExpressionValue &
         {  
@@ -1774,7 +1774,7 @@ bind(SqlBindingScope & context) const
                 cells.reserve(boundClauses.size());
 
                 for (auto & c: boundClauses) {
-                    ExpressionValue v = c(context, filter);
+                    ExpressionValue v = c(scope, filter);
                     ts.setMax(v.getEffectiveTimestamp());
                     cells.emplace_back(v.stealAtom());
                 }
@@ -1788,7 +1788,7 @@ bind(SqlBindingScope & context) const
 
                 for (unsigned i = 0;  i < boundClauses.size();  ++i) {
                     auto & c = boundClauses[i];
-                    ExpressionValue v = c(context, GET_LATEST);
+                    ExpressionValue v = c(scope, GET_LATEST);
                     
                     // Get the number of dimensions in the embedding
                     if (i == 0) {
@@ -1908,10 +1908,10 @@ BooleanOperatorExpression::
 
 BoundSqlExpression
 BooleanOperatorExpression::
-bind(SqlBindingScope & context) const
+bind(SqlBindingScope & scope) const
 {
-    auto boundLhs = lhs ? lhs->bind(context) : BoundSqlExpression();
-    auto boundRhs = rhs->bind(context);
+    auto boundLhs = lhs ? lhs->bind(scope) : BoundSqlExpression();
+    auto boundRhs = rhs->bind(scope);
 
     if (op == "AND" && lhs) {
         return {[=] (const SqlRowScope & row,
@@ -2077,9 +2077,9 @@ IsTypeExpression::
 
 BoundSqlExpression
 IsTypeExpression::
-bind(SqlBindingScope & context) const
+bind(SqlBindingScope & scope) const
 {
-    auto boundExpr = expr->bind(context);
+    auto boundExpr = expr->bind(scope);
 
     bool (ExpressionValue::* fn) () const;
     
@@ -2188,35 +2188,48 @@ FunctionCallExpression::
 
 BoundSqlExpression
 FunctionCallExpression::
-bind(SqlBindingScope & context) const
+bind(SqlBindingScope & scope) const
 {
     //check whether it is a builtin or not
-    if (context.functionStackDepth > 100)
+    if (scope.functionStackDepth > 100)
             throw HttpReturnException
                 (400, "Reached a stack depth of over 100 functions while "
                  "analysing query, possible infinite recursion");
     
-    ++context.functionStackDepth;
-    Scope_Exit(--context.functionStackDepth);
+    ++scope.functionStackDepth;
+    Scope_Exit(--scope.functionStackDepth);
 
     std::vector<BoundSqlExpression> boundArgs;
     for (auto& arg : args) {
-        boundArgs.emplace_back(std::move(arg->bind(context)));
+        boundArgs.emplace_back(std::move(arg->bind(scope)));
     }
 
-    BoundFunction fn = context.doGetFunction(tableName, functionName,
-                                             boundArgs, context);
+    BoundFunction fn = scope.doGetFunction(tableName, functionName,
+                                             boundArgs, scope);
     
     if (!fn) {
-        throw HttpReturnException(400, "Unable to find function " + functionName);
+        Utf8String message = "Unable to find function '" + functionName + "'";
+        if (!tableName.empty())
+            message += " in dataset '" + tableName + "'";
+        message += " binding function call '";
+        message += (surface.empty() ? print() : surface);
+        message += "'.  The function is not a built-in function, and either "
+            "it's not a registered user function, or user functions are not "
+            "available in the scope of the expression.";
+        throw HttpReturnException(400, message,
+                                  "functionName", functionName,
+                                  "tableName", tableName,
+                                  "scopeType", ML::type_name(scope),
+                                  "expr", print(),
+                                  "surface", surface);
     }
 
-    return bindBuiltinFunction(context, boundArgs, fn);
+    return bindBuiltinFunction(scope, boundArgs, fn);
 }
 
 BoundSqlExpression
 FunctionCallExpression::
-bindBuiltinFunction(SqlBindingScope & context,
+bindBuiltinFunction(SqlBindingScope & scope,
                     std::vector<BoundSqlExpression>& boundArgs,
                     BoundFunction& fn) const
 {
@@ -2475,22 +2488,22 @@ CaseExpression(std::shared_ptr<SqlExpression> expr,
 
 BoundSqlExpression
 CaseExpression::
-bind(SqlBindingScope & context) const
+bind(SqlBindingScope & scope) const
 {
     BoundSqlExpression boundElse;
     if (elseExpr)
-        boundElse = elseExpr->bind(context);
+        boundElse = elseExpr->bind(scope);
 
     std::vector<std::pair<BoundSqlExpression, BoundSqlExpression> > boundWhen;
 
     for (auto & w: when) {
-        boundWhen.emplace_back(w.first->bind(context), w.second->bind(context));
+        boundWhen.emplace_back(w.first->bind(scope), w.second->bind(scope));
     }
 
     if (expr) {
         // Simple CASE expression
 
-        auto boundExpr = expr->bind(context);
+        auto boundExpr = expr->bind(scope);
 
         return {[=] (const SqlRowScope & row,
                      ExpressionValue & storage,
@@ -2633,11 +2646,11 @@ BetweenExpression(std::shared_ptr<SqlExpression> expr,
 
 BoundSqlExpression
 BetweenExpression::
-bind(SqlBindingScope & context) const
+bind(SqlBindingScope & scope) const
 {
-    BoundSqlExpression boundExpr  = expr->bind(context);
-    BoundSqlExpression boundLower = lower->bind(context);
-    BoundSqlExpression boundUpper = upper->bind(context);
+    BoundSqlExpression boundExpr  = expr->bind(scope);
+    BoundSqlExpression boundLower = lower->bind(scope);
+    BoundSqlExpression boundUpper = upper->bind(scope);
 
     return {[=] (const SqlRowScope & row,
                  ExpressionValue & storage,
@@ -2764,16 +2777,16 @@ InExpression(std::shared_ptr<SqlExpression> expr,
 
 BoundSqlExpression
 InExpression::
-bind(SqlBindingScope & context) const
+bind(SqlBindingScope & scope) const
 {
-    BoundSqlExpression boundExpr  = expr->bind(context);
+    BoundSqlExpression boundExpr  = expr->bind(scope);
 
     //cerr << "boundExpr: " << expr->print() << " has subtable " << subtable
     //     << endl;
 
     switch (kind) {
     case SUBTABLE: {
-        BoundTableExpression boundTable = subtable->bind(context);
+        BoundTableExpression boundTable = subtable->bind(scope);
 
         // TODO: we need to detect a correlated subquery.  This means that
         // the query depends upon variables from the surrounding scope.
@@ -2802,7 +2815,7 @@ bind(SqlBindingScope & context) const
             ssize_t limit = -1;
 
             BasicRowGenerator generator
-                = boundTable.table.runQuery(context, SelectExpression::STAR,
+                = boundTable.table.runQuery(scope, SelectExpression::STAR,
                                             WhenExpression::TRUE,
                                             *SqlExpression::TRUE,
                                             orderBy,
@@ -2864,7 +2877,7 @@ bind(SqlBindingScope & context) const
         tupleExpressions.reserve(tuple->clauses.size());
 
         for (auto & tupleItem: tuple->clauses) {
-            tupleExpressions.emplace_back(tupleItem->bind(context));
+            tupleExpressions.emplace_back(tupleItem->bind(scope));
         }
 
         return {[=] (const SqlRowScope & rowScope,
@@ -2901,7 +2914,7 @@ bind(SqlBindingScope & context) const
         std::make_shared<BooleanValueInfo>()};
     }
     case KEYS: {
-        BoundSqlExpression boundSet = setExpr->bind(context);
+        BoundSqlExpression boundSet = setExpr->bind(scope);
 
         return {[=] (const SqlRowScope & rowScope,
                      ExpressionValue & storage,
@@ -2931,7 +2944,7 @@ bind(SqlBindingScope & context) const
         std::make_shared<BooleanValueInfo>()};
     }
     case VALUES: {
-        BoundSqlExpression boundSet = setExpr->bind(context);
+        BoundSqlExpression boundSet = setExpr->bind(scope);
 
         return {[=] (const SqlRowScope & rowScope,
                      ExpressionValue & storage,
@@ -3072,10 +3085,10 @@ LikeExpression(std::shared_ptr<SqlExpression> left,
 
 BoundSqlExpression
 LikeExpression::
-bind(SqlBindingScope & context) const
+bind(SqlBindingScope & scope) const
 {
-    BoundSqlExpression boundLeft  = left->bind(context);
-    BoundSqlExpression boundRight  = right->bind(context);
+    BoundSqlExpression boundLeft  = left->bind(scope);
+    BoundSqlExpression boundRight  = right->bind(scope);
 
     return {[=] (const SqlRowScope & rowScope,
                      ExpressionValue & storage,
@@ -3170,9 +3183,9 @@ CastExpression(std::shared_ptr<SqlExpression> expr,
 
 BoundSqlExpression
 CastExpression::
-bind(SqlBindingScope & context) const
+bind(SqlBindingScope & scope) const
 {
-    BoundSqlExpression boundExpr  = expr->bind(context);
+    BoundSqlExpression boundExpr  = expr->bind(scope);
 
     if (type == "string") {
         return {[=] (const SqlRowScope & row,
@@ -3313,12 +3326,12 @@ BoundParameterExpression(Utf8String paramName)
 
 BoundSqlExpression
 BoundParameterExpression::
-bind(SqlBindingScope & context) const
+bind(SqlBindingScope & scope) const
 {
-    auto getParam = context.doGetBoundParameter(paramName);
+    auto getParam = scope.doGetBoundParameter(paramName);
 
     if (!getParam.info) {
-        throw HttpReturnException(400, "context " + ML::type_name(context)
+        throw HttpReturnException(400, "scope " + ML::type_name(scope)
                             + " getBoundParameter '" + paramName
                             + "' didn't return info");
     }
@@ -3391,7 +3404,7 @@ WildcardExpression(ColumnName prefix,
 
 BoundSqlExpression
 WildcardExpression::
-bind(SqlBindingScope & context) const
+bind(SqlBindingScope & scope) const
 {
     ColumnName simplifiedPrefix = prefix;
     Utf8String resolvedTableName; // = tableName;
@@ -3399,7 +3412,7 @@ bind(SqlBindingScope & context) const
     // TO RESOLVE BEFORE MERGE
 #if 0
     if (tableName.empty() && !prefix.empty())
-        simplifiedPrefix = context.doResolveTableName(prefix, resolvedTableName);
+        simplifiedPrefix = scope.doResolveTableName(prefix, resolvedTableName);
 #endif
 
     // This function figures out the new name of the column.  If it's excluded,
@@ -3429,7 +3442,7 @@ bind(SqlBindingScope & context) const
             return inputColumnName.replaceWildcard(simplifiedPrefix, asPrefix);
         };
 
-    auto allColumns = context.doGetAllColumns(resolvedTableName, newColumnName);
+    auto allColumns = scope.doGetAllColumns(resolvedTableName, newColumnName);
 
     auto exec = [=] (const SqlRowScope & scope,
                      ExpressionValue & storage,
@@ -3483,7 +3496,7 @@ std::vector<std::shared_ptr<SqlExpression> >
 WildcardExpression::
 getChildren() const
 {
-    // tough to do without a context...
+    // tough to do without a scope...
     return {};
 }
 
@@ -3498,7 +3511,7 @@ wildcards() const
 
 bool
 WildcardExpression::
-isIdentitySelect(SqlExpressionDatasetContext & context) const
+isIdentitySelect(SqlExpressionDatasetContext & scope) const
 {
     // A select * is identified like this
     return prefix.empty()
@@ -3506,7 +3519,7 @@ isIdentitySelect(SqlExpressionDatasetContext & context) const
         && excluding.empty();
 
     // TO RESOLVE BEFORE MERGE
-    // && (tableName.empty() || context.childaliases.empty());
+    // && (tableName.empty() || scope.childaliases.empty());
 }
 
 
@@ -3524,9 +3537,9 @@ ComputedColumn(ColumnName alias,
 
 BoundSqlExpression
 ComputedColumn::
-bind(SqlBindingScope & context) const
+bind(SqlBindingScope & scope) const
 {
-    auto exprBound = expression->bind(context);
+    auto exprBound = expression->bind(scope);
 
     if (!exprBound.info)
         cerr << "expression didn't return info: " << expression->print() << endl;
@@ -3542,12 +3555,12 @@ bind(SqlBindingScope & context) const
 
         auto info = exprBound.info;
      
-        auto exec = [=] (const SqlRowScope & context,
+        auto exec = [=] (const SqlRowScope & scope,
                          ExpressionValue & storage,
                          const VariableFilter & filter)
             -> const ExpressionValue &
             {
-                const ExpressionValue & val = exprBound(context, storage, filter);
+                const ExpressionValue & val = exprBound(scope, storage, filter);
 
                 if (val.isAtom())
                     throw HttpReturnException(400, "Expression with AS * must return a row",
@@ -3561,12 +3574,12 @@ bind(SqlBindingScope & context) const
         return result;
     }
     else {
-        auto exec = [=] (const SqlRowScope & context,
+        auto exec = [=] (const SqlRowScope & scope,
                          ExpressionValue & storage,
                          const VariableFilter & filter)
             -> const ExpressionValue &
             {
-                const ExpressionValue & val = exprBound(context, storage, filter);
+                const ExpressionValue & val = exprBound(scope, storage, filter);
                 StructValue row;
                 if (&val == &storage) {
                     // We own the only copy; we can move it
@@ -3634,11 +3647,11 @@ SelectColumnExpression(std::shared_ptr<SqlExpression> select,
 
 BoundSqlExpression
 SelectColumnExpression::
-bind(SqlBindingScope & context) const
+bind(SqlBindingScope & scope) const
 {
     // 1.  Get all columns
     auto allColumns
-        = context.doGetAllColumns("" /* table name */,
+        = scope.doGetAllColumns("" /* table name */,
                                   [] (ColumnName n) { return std::move(n); });
     
     // Only known columns are kept.  For each one, we filter it then calculate
@@ -3656,15 +3669,15 @@ bind(SqlBindingScope & context) const
 
     std::vector<ColumnEntry> columns;
 
-    // Bind those expressions that operate in the column context
-    ColumnExpressionBindingContext colContext(context);
+    // Bind those expressions that operate in the column scope
+    ColumnExpressionBindingScope colScope(scope);
 
-    auto boundWhere = where->bind(colContext);
-    auto boundAs = as->bind(colContext);
+    auto boundWhere = where->bind(colScope);
+    auto boundAs = as->bind(colScope);
 
     std::vector<BoundSqlExpression> boundOrderBy;
     for (auto & o: orderBy.clauses)
-        boundOrderBy.emplace_back(o.first->bind(colContext));
+        boundOrderBy.emplace_back(o.first->bind(colScope));
 
     /// List of all functions to run in our run() operator
     std::vector<std::function<void (const SqlRowScope &, StructValue &)> > functionsToRun;
@@ -3678,18 +3691,18 @@ bind(SqlBindingScope & context) const
 
         const ColumnName & columnName = col.columnName;
             
-        auto thisContext = colContext.getColumnContext(columnName);
+        auto thisScope = colScope.getColumnContext(columnName);
 
-        bool keep = boundWhere(thisContext, GET_LATEST).isTrue();
+        bool keep = boundWhere(thisScope, GET_LATEST).isTrue();
 
         if (!keep)
             continue;
 
-        Utf8String newColName = boundAs(thisContext, GET_LATEST).toUtf8String();
+        Utf8String newColName = boundAs(thisScope, GET_LATEST).toUtf8String();
 
         vector<ExpressionValue> orderBy;
         for (auto & c: boundOrderBy) {
-            orderBy.emplace_back(c(thisContext, GET_LATEST));
+            orderBy.emplace_back(c(thisScope, GET_LATEST));
         }
 
         ColumnEntry entry;
@@ -3774,14 +3787,14 @@ bind(SqlBindingScope & context) const
     
     // Finally, return a filtered set from the underlying dataset
     auto outputColumns
-        = context.doGetAllColumns("" /* prefix */, filterColumns);
+        = scope.doGetAllColumns("" /* prefix */, filterColumns);
 
-    auto exec = [=] (const SqlRowScope & context,
+    auto exec = [=] (const SqlRowScope & scope,
                      ExpressionValue & storage,
                      const VariableFilter & filter)
         -> const ExpressionValue &
         {
-            return storage = std::move(outputColumns.exec(context));
+            return storage = std::move(outputColumns.exec(scope));
         };
 
     BoundSqlExpression result(exec, this, outputColumns.info);

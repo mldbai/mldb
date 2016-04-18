@@ -88,9 +88,9 @@ struct ReadThroughBindingScope: public SqlBindingScope {
     applying to the columns.
 */
 
-struct ColumnExpressionBindingContext: public SqlBindingScope {
+struct ColumnExpressionBindingScope: public SqlBindingScope {
 
-    ColumnExpressionBindingContext(SqlBindingScope & outer)
+    ColumnExpressionBindingScope(SqlBindingScope & outer)
         : outer(outer)
     {
     }
