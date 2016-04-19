@@ -569,6 +569,11 @@ struct ThreadPool::Itl: public std::enable_shared_from_this<ThreadPool::Itl> {
     {
         if (shutdown)
             return;
+
+        // Finish all the jobs first, otherwise they will simply
+        // disappear.
+        while (runMine(*thread)) ;
+
         ExcAssert(thread);
         std::unique_lock<std::mutex> guard(queuesMutex);
         if (shutdown)

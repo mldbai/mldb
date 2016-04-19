@@ -11,6 +11,7 @@
 #include "mldb/rest/rest_request_binding.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/pointer_description.h"
+#include "mldb/soa/credentials/credential_provider.h"
 #include "mldb/types/id.h"
 #include "mldb/utils/log.h"
 #include <signal.h>
@@ -84,6 +85,57 @@ CredentialRule(CredentialRuleConfig config)
 {
     this->config.reset(new CredentialRuleConfig(config));
 }
+
+/*****************************************************************************/
+/* COLLECITON CREDENTIAL PROVIDER                                            */
+/*****************************************************************************/
+struct CollectionCredentialProvider: public CredentialProvider {
+
+    CollectionCredentialProvider(const std::shared_ptr<CredentialRuleCollection> rules)
+        : rules(rules)
+    {
+
+    }
+
+    std::shared_ptr<CredentialRuleCollection> rules;
+
+    virtual std::vector<std::string>
+    getResourceTypePrefixes() const
+    {
+        auto keys =  rules->getKeys();
+        std::vector<std::string> result;
+        for (const auto & key : keys) {
+            auto cred = rules->tryGetEntry(key);
+            ExcAssert(!cred.second); // still under construction
+            if (cred.first)
+                result.push_back(cred.first->config->store->resourceType);
+        }
+        return result;
+    }
+
+    virtual std::vector<Credential>
+    getSync(const std::string & resourceType,
+            const std::string & resource,
+            const CredentialContext & context,
+            Json::Value extraData) const
+    {
+        vector<Credential> result;
+        auto keys =  rules->getKeys();
+        for (const auto & key : keys) {
+            auto cred = rules->tryGetEntry(key);
+            ExcAssert(!cred.second); // still under construction
+            if (cred.first) {
+                auto stored = cred.first->config->store;
+                if (resourceType != stored->resourceType)
+                    continue;
+                if (resource.find(stored->resource) != 0)
+                    continue;
+                result.push_back(stored->credential);
+            }
+        }
+        return result;
+    }
+};
 
 /*****************************************************************************/
 /* CREDENTIAL RULE COLLECTION                                                */
@@ -174,7 +226,13 @@ createCredentialCollection(MLDB::MldbServer * server, RestRouteManager & routeMa
                            std::shared_ptr<CollectionConfigStore> configStore) {
 
     auto result = std::make_shared<CredentialRuleCollection>(server);
-    //result->init(configStore);
+
+    // if the CollectionConfigStore is valid
+    // ensure that credentials are persisted
+    if (configStore) {
+        result->attachConfig(configStore);
+        result->loadConfig();
+    }
 
     auto getCollection = [=] (const RestRequestParsingContext & context)
         {
@@ -192,6 +250,9 @@ createCredentialCollection(MLDB::MldbServer * server, RestRouteManager & routeMa
     routeManager.childRoutes["credentials"] = collectionRouteManager;
 
     server->addEntity("credentials", *result);
+
+    CredentialProvider::registerProvider("collectionCredentials",
+                                         std::make_shared<CollectionCredentialProvider>(result));
     return result;
 }
 

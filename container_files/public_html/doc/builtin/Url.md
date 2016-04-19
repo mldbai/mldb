@@ -1,8 +1,8 @@
 # Files and URLs
 
-MLDB gives users full control over where and how data is persisted. Datasets can be saved and loaded from files. Procedures can create files and Functions can load up parameters from files. 
+MLDB gives users full control over where and how data is persisted. Datasets can be saved and loaded from files. Procedures can create files and Functions can load up parameters from files.
 
-If data is stored in a system such as S3 or HDFS, it is possible to run multiple instances of MLDB so as to distribute computational load. For example, one powerful and expensive machine could handle model training, storing model files on S3, while a load-balanced cluster of smaller, cheaper machines could load these model files and do real-time scoring over HTTP. 
+If data is stored in a system such as S3 or HDFS, it is possible to run multiple instances of MLDB so as to distribute computational load. For example, one powerful and expensive machine could handle model training, storing model files on S3, while a load-balanced cluster of smaller, cheaper machines could load these model files and do real-time scoring over HTTP.
 
 ## Protocol Handlers
 
@@ -46,14 +46,12 @@ external tools.
 
 ## Credentials
 
-MLDB uses an subprogram known as `credentialsd` to keep credentials and supply them to the main
-MLDB process when required.
+MLDB can store credentials and supply them whenever required.
 
-This allows for MLDB users to control how credentials are stored and used, and
-to create temporary credentials for MLDB to limit its permissions to exactly what are needed.
+Capabilities have been added to control how credentials are stored and used, and
+to create temporary credentials to limit its permissions to exactly what are needed.
 
-The credentialsd program has a REST API, which is accessible at the route `/v1/creds` in
-the container.
+MLDB exposes a REST API which is accessible at the route `/v1/credentials`.
 
 ### Credentials rules
 
@@ -63,15 +61,17 @@ Credentials are specified by giving rules.  A credentials rule contains two part
     as the location of that resource and other metadata required to complete the request;
 2.  A rule which tells us which requests are covered by this resource.
 
-When a resource that requires credentials is requested, MLDB will ask the credentials
-daemon for those credentials, passing it the resource and the context (user id, etc)
-in which the request is being made.  The credenials service will scan through its list
-of rules, and return the credentials of the first matching rule to satisfy the request.
+When a resource that requires credentials is requested, MLDB will scan the stored
+rules for those credentials, passing it the resource and the context (user id, etc)
+in which the request is being made.  MLDB will use the first matching rule that satisfies
+the request.
 
 ### Credentials storage
 
-Credentials are stored in the `mldb_data` directory under the `.mldb_credentials` subdirectory.
-Each one is in a pure JSON file.
+Credentials stored in MLDB are persisted to disk by default.  This is different
+than other MLDB entities.  As a consequence, if MLDB is restarted, the credentials
+will be reloaded automatically.  Deleting a credential entity will also delete
+its persisted copy.
 
 ### Credentials objects
 
@@ -87,7 +87,7 @@ access) as follows:
 ### Storing credentials
 
 You can `PUT` (without an ID) or `POST` (with an ID) the following object to
-`/v1/creds/rules` in order to store new credentials:
+`/v1/credentials` in order to store new credentials:
 
 ![](%%type Datacratic::CredentialRuleConfig)
 
@@ -98,10 +98,10 @@ The first thing that you will probably want to do is to post some AWS S3
 credentials into the credentials daemon, as otherwise you won't be able to
 do anything on Amazon.
 
-The way to do this is to `PUT` to `/v1/creds/rules/<id>`:
+The way to do this is to `PUT` to `/v1/credentials/<id>`:
 
 ```python
-mldb.put("/v1/creds/rules/mys3creds", {
+mldb.put("/v1/credentials/mys3creds", {
     "store":
     {
         "resource":"s3://",
@@ -153,4 +153,3 @@ The `extra` parameters that can be returned are:
 - `bandwidthToServiceMbps`: if this is set, then it indicates the available total
   bandwidth to the S3 service in mbps (default 20).  This influences the timeouts
   that are calculated on S3 requests.
-

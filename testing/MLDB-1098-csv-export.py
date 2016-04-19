@@ -70,8 +70,9 @@ class CsvExportTest(unittest.TestCase):
         mldb.post('/v1/procedures/export/runs', {})
 
         lines_expect = ['rowName,colA,colB',
-                        'ascii row,1,2',
-                        u'utf8 row,Ǆώύψ,ăØÆÅ']
+                        u'utf8 row,Ǆώύψ,ăØÆÅ',
+                        'ascii row,1,2'
+                        ]
         self.assert_file_content(tmp_file.name, lines_expect)
 
         # import it
@@ -119,8 +120,8 @@ class CsvExportTest(unittest.TestCase):
 
         mldb.post('/v1/procedures/export3/runs')
 
-        lines_expect = ['oascii roowo;1;2',
-                        u'outf8 roowo;Ǆώύψ;ăØÆÅ']
+        lines_expect = [u'outf8 roowo;Ǆώύψ;ăØÆÅ',
+                        'oascii roowo;1;2']
         self.assert_file_content(tmp_file.name, lines_expect)
 
     def test_bad_target(self):

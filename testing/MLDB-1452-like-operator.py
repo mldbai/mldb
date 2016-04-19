@@ -24,7 +24,7 @@ class LikeTest(unittest.TestCase):
             from sample
         ''')
 
-        expected = [["_rowName","v"],["d",1],["a",1],["b",1],["e",1],["c",1]]
+        expected = [["_rowName","v"],["d",1],["e",1],["c",1],["b",1],["a",1]]
         self.assertEqual(res, expected)
 
         res = mldb.query('''
@@ -32,7 +32,7 @@ class LikeTest(unittest.TestCase):
             from sample
         ''')
 
-        expected = [["_rowName","v"],["d",1],["a",0],["b",1],["e",1],["c",0]]
+        expected = [["_rowName","v"],["d",1],["e",1],["c",0],["b",1],["a",0]]
         self.assertEqual(res, expected)
 
         res = mldb.query('''
@@ -40,7 +40,7 @@ class LikeTest(unittest.TestCase):
             from sample
         ''')
 
-        expected = [["_rowName","v"],["d",0],["a",1],["b",0],["e",0],["c",1]]
+        expected = [["_rowName","v"],["d",0],["e",0],["c",1],["b",0],["a",1]]
         self.assertEqual(res, expected)
 
         res = mldb.query('''
@@ -48,7 +48,7 @@ class LikeTest(unittest.TestCase):
             from sample
         ''')
 
-        expected = [["_rowName","v"],["d",0],["a",0],["b",0],["e",1],["c",0]]
+        expected = [["_rowName","v"],["d",0],["e",1],["c",0],["b",0],["a",0]]
         self.assertEqual(res, expected)
 
         res = mldb.query('''
@@ -56,7 +56,7 @@ class LikeTest(unittest.TestCase):
             from sample
         ''')
 
-        expected = [["_rowName","v"],["d",1],["a",0],["b",0],["e",0],["c",0]]
+        expected = [["_rowName","v"],["d",1],["e",0],["c",0],["b",0],["a",0]]
         self.assertEqual(res, expected)
 
         res = mldb.query('''
@@ -64,7 +64,7 @@ class LikeTest(unittest.TestCase):
             from sample
         ''')        
 
-        expected = [["_rowName","v"],["d",0],["a",0],["b",0],["e",1],["c",0]]
+        expected = [["_rowName","v"],["d",0],["e",1],["c",0],["b",0],["a",0]]
         self.assertEqual(res, expected)
 
     def test_like_in_where(self):
@@ -83,7 +83,7 @@ class LikeTest(unittest.TestCase):
             where x LIKE '%o%'
         ''')
 
-        expected = [["_rowName","x"],["d","drollic"],["b","blaternation"],["e","egrote"]]
+        expected = [["_rowName","x"],["d","drollic"],["e","egrote"],["b","blaternation"]]
         self.assertEqual(res, expected)
 
     def test_like_special(self):

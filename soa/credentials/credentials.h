@@ -2,7 +2,7 @@
 
 /* credentials.h                                                   -*- C++ -*-
    Jeremy Barnes, 5 November 2014
-   
+
    A pluggable mechanism for getting credentials.
 */
 
@@ -20,7 +20,11 @@ struct Credential {
     std::string location; ///< URI to call to get resource
     std::string id;       ///< User ID
     std::string secret;   ///< Password / secret / etc
-
+    /** Extra parameters to control the use of the credentials.
+     *  For example, the field `bandwidthToServiceMbps` can be used
+     *  for S3 credentials to indicate the available bandwidth to the service.
+     *  This affects the timeouts.
+     */
     Json::Value extra;    ///< Other fields
 
     Date validUntil;

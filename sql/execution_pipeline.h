@@ -248,8 +248,7 @@ struct BoundPipelineElement {
 
     /** Start running the query */
     virtual std::shared_ptr<ElementExecutor>
-    start(const BoundParameters & getParam,
-          bool allowParallel) const = 0;
+    start(const BoundParameters & getParam) const = 0;
 
     /** Return the context that describes the output of this element. */
     virtual std::shared_ptr<PipelineExpressionScope>

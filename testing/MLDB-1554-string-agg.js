@@ -39,13 +39,13 @@ assertEqual(resp.responseCode, 200, "Error executing query");
 expected = [
    [
       [ "_rowName", "mustard" ],
-      [ "hows", "kitchenplumplum" ],
-      [ "whats", "moved, stabbed, killed" ]
+      [ "hows", "plumplumkitchen" ],
+      [ "whats", "killed, stabbed, moved" ]
    ],
    [
       [ "_rowName", "plum" ],
-      [ "hows", "stabbedkitchen" ],
-      [ "whats", "died, moved" ]
+      [ "hows", "kitchenstabbed" ],
+      [ "whats", "moved, died" ]
    ]
 ];
 

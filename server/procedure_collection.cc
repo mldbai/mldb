@@ -23,12 +23,10 @@ namespace Datacratic {
 namespace MLDB {
 
 std::shared_ptr<ProcedureCollection>
-createProcedureCollection(MldbServer * server, RestRouteManager & routeManager,
-                         std::shared_ptr<CollectionConfigStore> configStore)
+createProcedureCollection(MldbServer * server, RestRouteManager & routeManager)
 {
     return createCollection<ProcedureCollection>(2, "procedure", "procedures",
-                                                server, routeManager,
-                                                configStore);
+                                                 server, routeManager, nullptr);
 }
 
 std::shared_ptr<Procedure>

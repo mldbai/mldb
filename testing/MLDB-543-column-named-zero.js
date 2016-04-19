@@ -28,9 +28,9 @@ dataset.recordRow(1, [ [ 0, 0, ts ] ]);
 dataset.commit()
 
 var expected = [
-   [ "_rowName", "0" ],
-   [ "0", 0 ],
-   [ "1", 0 ]
+   [ "_rowName", "0" ],   
+   [ "1", 0 ],
+   [ "0", 0 ]
 ];
 
 var resp = mldb.get("/v1/query", { q: 'select * from test', format: 'table' });

@@ -26,25 +26,12 @@
 #include <boost/test/unit_test.hpp>
 
 namespace {
-void addCredentials(const std::string & ruleName,
-                    const std::string & resourceType,
-                    const std::string & resource,
-                    const std::string & role,
-                    Datacratic::Credential credential,
-                    const Datacratic::HttpRestProxy & conn)
+void addCredentialRule(const Datacratic::HttpRestProxy & conn,
+                    const Datacratic::MLDB::CredentialRuleConfig & rule)
 {
-    std::cerr << "adding credentials" <<std::endl;
-    std::string uri = "/v1/credentials/" + ruleName;
+    std::string uri = "/v1/credentials";
 
-    Datacratic::MLDB::CredentialRuleConfig rule;
-    rule.store.reset(new Datacratic::MLDB::StoredCredentials);
-    rule.store->resourceType = resourceType;
-    rule.store->resource = resource;
-    rule.store->role = role;
-    rule.store->operation = "*";
-    rule.store->credential = credential;
-
-    auto res = conn.put(uri, Datacratic::jsonEncode(rule));
+    auto res = conn.post(uri, Datacratic::jsonEncode(rule));
 
     if (res.code() != 201) {
         std::cerr << res << std::endl;
@@ -53,19 +40,27 @@ void addCredentials(const std::string & ruleName,
     }
 }
 
-void deleteAll(const Datacratic::HttpRestProxy & conn)
+void deleteAllCredentials(const Datacratic::HttpRestProxy & conn)
 {
-    auto res = conn.perform("DELETE", "/v1/rules");
-    std::cerr << "deleting got " << res << std::endl;
+    auto res = conn.perform("DELETE", "/v1/credentials");
+    if (res.code() != 200 && res.code() != 204) {
+        std::cerr << res << std::endl;
+        throw ML::Exception("Couldn't delete credentials: returned code %d",
+                            res.code());
+    }
 }
 
-void deleteRule(const Datacratic::HttpRestProxy & conn,
+void deleteCredentialRule(const Datacratic::HttpRestProxy & conn,
                 const std::string & ruleName)
 {
-    std::string uri = "/v1/rules/" + ruleName;
+    std::string uri = "/v1/credentials/" + ruleName;
 
     auto res = conn.perform("DELETE", uri);
-    std::cerr << "deleting got " << res << std::endl;
+    if (res.code() != 200 && res.code() != 204) {
+        std::cerr << res << std::endl;
+        throw ML::Exception("Couldn't delete credentials: returned code %d",
+                            res.code());
+    }
 }
 
 } // anonymous namespace
@@ -76,7 +71,7 @@ using namespace Datacratic::MLDB;
 
 struct SubprocessMldbRunner {
 
-    SubprocessMldbRunner()
+    SubprocessMldbRunner(const std::string & path)
         : stdin(&runner.getStdInSink()), shutdown(false)
     {
         messageLoop.addSource("runner", runner);
@@ -84,7 +79,7 @@ struct SubprocessMldbRunner {
 
         vector<string> command = { "./build/x86_64/bin/mldb_runner",
                                    "--credentials-path",
-                                   "file://tmp/credentials_test/",
+                                   path,
                                    "-p", "13345"};
 
         auto onTerminate = std::bind(&SubprocessMldbRunner::commandHasTerminated, this,
@@ -98,6 +93,7 @@ struct SubprocessMldbRunner {
                 boost::split(lines, data, boost::is_any_of("\n"));
 
                 for (auto & l: lines) {
+                    // cerr << l << endl;
                     if (l != "MLDB ready")
                         continue;
 
@@ -112,16 +108,14 @@ struct SubprocessMldbRunner {
                    getStdout(),
                    getStdout());
 
-        /* Give it 5 seconds to launch */
-        bool started = runner.waitStart(5);
-
-        if (!started) {
-            throw HttpReturnException(500, "Error starting mldb_runner subprocess");
-        }
 
         std::future<bool> future = gotReadyMessage.get_future();
-        future.get();
-        cerr << "ready" << endl;
+        std::future_status status = future.wait_for(std::chrono::seconds(5));
+        if (status == std::future_status::timeout)
+            throw HttpReturnException(500, "Error starting mldb_runner subprocess. "
+                                      "Has the \"MLDB ready\" message changed?");
+
+        cerr << "MLDB ready" << endl;
     }
 
     ~SubprocessMldbRunner()
@@ -142,8 +136,6 @@ struct SubprocessMldbRunner {
     std::atomic<bool> shutdown;
 
     std::function<void (const std::string &) > onStdOut;
-
-    std::string daemonUri;
 
     void commandHasTerminated(const RunResult & result)
     {
@@ -176,34 +168,17 @@ struct SubprocessMldbRunner {
     }
 };
 
-
-
 BOOST_AUTO_TEST_CASE( test_credentials_persistence )
 {
-    // start MLDB
-    SubprocessMldbRunner mldb;
-    cerr << "here" << endl;
+    constexpr const char * credentialsPath = "tmp/credentials_test";
+
+    // make sure we start with a clean folder
+    int res = system((string("rm -rf ") + credentialsPath).c_str());
+    ExcAssertEqual(res, 0);
+
     HttpRestProxy conn;
     const std::string baseUri = "http://localhost:13345";
     conn.init(baseUri);
-
-    int res = system("rm -rf ./tmp/credentials_test");
-    ExcAssertEqual(res, 0);
-
-    // TODO - add test for credential provider
-#if 0
-    addRemoteCredentialProvider(daemonUri);
-
-    try {
-        JML_TRACE_EXCEPTIONS(false);
-        filter_istream stream("s3://test.bucket/file.txt");
-        BOOST_CHECK(false);
-    } catch (const std::exception & exc) {
-        cerr << "opening stream got error: " << exc.what() << endl;
-        BOOST_CHECK(string(exc.what()).find("No credentials found")
-                    != string::npos);
-    }
-#endif
 
     Credential cred;
     cred.provider = "Test program";
@@ -213,73 +188,84 @@ BOOST_AUTO_TEST_CASE( test_credentials_persistence )
     cred.secret   = "iamasecret";
     cred.validUntil = Date(2030, 1, 1);
 
-    addCredentials("mycreds", "aws:s3", "s3://test.bucket/", "", cred, conn);
+    Datacratic::MLDB::CredentialRuleConfig rule;
+    rule.id = "mycreds";
+    rule.store.reset(new Datacratic::MLDB::StoredCredentials);
+    rule.store->resourceType = "aws:s3";
+    rule.store->resource = "s3://test.bucket/";
+    rule.store->role = "";
+    rule.store->operation = "*";
+    rule.store->credential = cred;
 
-#if 0
-    try {
-        JML_TRACE_EXCEPTIONS(false);
-        filter_istream stream("s3://test.bucket/file.txt");
-        BOOST_CHECK(false);
-    } catch (const std::exception & exc) {
-        cerr << "opening stream got error: " << exc.what() << endl;
-    }
+    {
+        // start MLDB
+        SubprocessMldbRunner mldb(string("file://") + credentialsPath);
 
-    filter_istream persistStream("file://tmp/credentials_daemon_test/mycreds");
+        addCredentialRule(conn, rule);
 
-    auto loadedCreds = jsonDecodeStream<CredentialRuleConfig>(persistStream);
-
-    cerr << "saved creds are " << jsonEncode(loadedCreds) << endl;
-
-    auto key = conn.get("/v1/credentials").jsonBody()[0].asString();
-
-    auto resp = conn.get("/v1/credentials/" + key).jsonBody();
-
-    cerr << resp << endl;
-
-    ExcAssertEqual(resp["stored"]["credential"]["secret"].asString(),
-                   "<<credentials removed>>");
-
-    // Remove them
-    deleteRule(conn, "mycreds");
-
-    // Check they are no longer there
-
-    try {
-        JML_TRACE_EXCEPTIONS(false);
-        filter_istream persistStream("file://tmp/credentials_daemon_test/mycreds");
+        // the credential is properly saved to disk
+        filter_istream persistStream(string("file://") + credentialsPath + "/mycreds");
         auto loadedCreds = jsonDecodeStream<CredentialRuleConfig>(persistStream);
-        BOOST_CHECK(false);
-    } catch (const std::exception & exc) {
-        cerr << "reading deleted creds got expected error " << exc.what() << endl;
+        BOOST_CHECK_EQUAL(jsonEncode(loadedCreds), jsonEncode(rule));
+
+        // the REST interface returns the newly created creds
+        auto key = conn.get("/v1/credentials").jsonBody()[0].asString();
+        BOOST_CHECK_EQUAL(key, "mycreds");
+
+        // the REST interface does not leak the credentials
+        auto resp = conn.get("/v1/credentials/" + key).jsonBody();
+        BOOST_CHECK_EQUAL(resp["stored"]["credential"]["secret"].asString(),
+                          "<<credentials removed>>");
     }
 
-    auto s3CredsStored = make_shared<StoredCredentials>(StoredCredentials{
-        "aws:s3", //type
-        "s3://",  //resource
-        "",       //role
-        "",       //operation
-        Date(),   //expiration
-        Json::Value(), //extra
-        {
-            "",     //provider
-            "http",
-            "s3.amazonaws.com",
-            "key_id",
-            "key_secret",
-            Json::Value(), //extra
-            Date() //validUntil
+    // the credential is still on disk after MLDB has shutdown
+    filter_istream persistStream(string("file://") + credentialsPath + "/mycreds");
+    auto loadedCreds = jsonDecodeStream<CredentialRuleConfig>(persistStream);
+    BOOST_CHECK_EQUAL(jsonEncode(loadedCreds), jsonEncode(rule));
+
+    auto runMldbWithPath = [&conn](const std::string & path)
+    {
+        // restart MLDB
+        SubprocessMldbRunner mldb(path);
+
+        // the credentials have been properly loaded from disk
+        auto key = conn.get("/v1/credentials").jsonBody()[0].asString();
+        BOOST_CHECK_EQUAL(key, "mycreds");
+
+        // the REST interface does not leak the credentials
+        auto resp = conn.get("/v1/credentials/" + key).jsonBody();
+        BOOST_CHECK_EQUAL(resp["stored"]["credential"]["secret"].asString(),
+                          "<<credentials removed>>");
+    };
+
+    runMldbWithPath(string("file://") + credentialsPath);
+
+    // test MLDB robustness against user input
+
+    // file::tmp/credentials_test/
+    runMldbWithPath(string("file://") + credentialsPath + "/");
+
+    // tmp/credentials_test
+    runMldbWithPath(credentialsPath);
+
+    // tmp/credentials_test/
+    runMldbWithPath(string(credentialsPath) + "/");
+
+    {
+        // restart MLDB
+        SubprocessMldbRunner mldb(string("file://") + credentialsPath);
+
+        // Remove the credentials
+        deleteCredentialRule(conn, "mycreds");
+
+        // Check they are no longer there
+        try {
+            JML_TRACE_EXCEPTIONS(false);
+            filter_istream persistStream(string("file://") + credentialsPath + "/mycreds");
+            auto loadedCreds = jsonDecodeStream<CredentialRuleConfig>(persistStream);
+            BOOST_CHECK_MESSAGE(false, "expected the credentials on disk to be deleted");
+        } catch (const std::exception & exc) {
+            cerr << "reading deleted creds got ***expected error*** " << exc.what() << endl;
         }
-        });
-
-    CredentialRuleConfig s3Creds = {"mys3creds", s3CredsStored};
-
-    auto resp2 = conn.post("/v1/rules", jsonEncode(s3Creds));
-    cerr << resp2 << endl;
-
-    auto resp3 = conn.get("/v1/rules/mys3creds");
-    cerr << resp3 << endl;
-
-    auto resp4 = conn.get("/v1/types/aws:s3/resources/s3:///credentials");
-    cerr << resp4 << endl;
-#endif
+    }
 }

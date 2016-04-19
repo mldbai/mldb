@@ -26,12 +26,10 @@ namespace Datacratic {
 namespace MLDB {
 
 std::shared_ptr<DatasetCollection>
-createDatasetCollection(MldbServer * server, RestRouteManager & routeManager,
-                       std::shared_ptr<CollectionConfigStore> configStore)
+createDatasetCollection(MldbServer * server, RestRouteManager & routeManager)
 {
     return createCollection<DatasetCollection>(2, L"dataset", L"datasets",
-                                               server, routeManager,
-                                               configStore);
+                                               server, routeManager, nullptr);
 }
 
 std::shared_ptr<Dataset>
@@ -93,10 +91,10 @@ void runHttpQuery(std::function<std::vector<MatrixNamedRow> ()> runQuery,
         output.reserve(sparseOutput.size());
 
         for (auto & row: sparseOutput) {
-            
+
             std::vector<std::pair<ColumnName, CellValue> > rowOut;
             rowOut.reserve(row.columns.size() + rowNames + rowHashes);
-                        
+
             if (rowNames)
                 rowOut.emplace_back(ColumnName("_rowName"), row.rowName.toUtf8String());
             if (rowHashes)
@@ -124,7 +122,7 @@ void runHttpQuery(std::function<std::vector<MatrixNamedRow> ()> runQuery,
             if (rowHashes)
                 output[ColumnName("_rowHash")]
                     .push_back(sparseOutput[i].rowHash.toString());
-            
+
             for (auto & c: sparseOutput[i].columns) {
                 const ColumnName & col = std::get<0>(c);
                 const CellValue & val = std::get<1>(c);
@@ -188,7 +186,7 @@ void runHttpQuery(std::function<std::vector<MatrixNamedRow> ()> runQuery,
                 headers.push_back("_rowName");
             if (rowHashes)
                 headers.push_back("_rowHash");
-            
+
             for (auto & c: columns) {
                 headers.push_back(c.toUtf8String());
             }
@@ -230,7 +228,7 @@ void runHttpQuery(std::function<std::vector<MatrixNamedRow> ()> runQuery,
                     {
                         std::string stringVal = std::signbit(value) ? "-Inf" : "Inf";
                         cellValue = CellValue(stringVal);
-                    }                      
+                    }
                 }
 
                 rowOut[columnIndex[columnName] + rowHashes + rowNames] = std::move(cellValue);
@@ -361,11 +359,11 @@ initRoutes(RouteManager & manager)
                            "[ earliest, latest ] timestamp",
                            &Dataset::getTimestampRange,
                            getDataset);
-    
+
     //auto & matrix
     //    = manager.valueNode->addSubRouter("/matrix", "Operations on dataset as matrix");
-    
-    
+
+
     /************************
      *      /rows
      * ***************/
@@ -386,7 +384,7 @@ initRoutes(RouteManager & manager)
 
                 auto dataset = std::static_pointer_cast<Dataset>
                     (cxt.getSharedPtrAs<PolyEntity>(2));
-                
+
                 int start = getParam(req, "start", 0);
                 int limit = getParam(req, "limit", -1);
 
@@ -395,7 +393,7 @@ initRoutes(RouteManager & manager)
 
                 connection.sendHttpResponse(200, jsonEncodeStr(result),
                                             "application/json", {});
-                
+
                 return RestRequestRouter::MR_YES;
             } catch (const std::exception & exc) {
                 //return sendExceptionResponse(connection, exc);
@@ -424,12 +422,12 @@ initRoutes(RouteManager & manager)
                  getDataset,
                  JsonParam<std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > >
                  ("", "[ [ row name, [ [ column name, value, timestamp ], ... ] ], ...] tuples to record"));
-    
+
     auto & row JML_UNUSED
         = rows.addSubRouter(Rx("/([0-9a-z]{16})", "/<rowHash>"),
                             "operations on an individual row");
 
-    
+
     auto & columns
         = manager.valueNode->addSubRouter("/columns", "Operations on matrix columns");
 
@@ -447,7 +445,7 @@ initRoutes(RouteManager & manager)
                  getDataset,
                  JsonParam<std::vector<std::pair<ColumnName, std::vector<std::tuple<RowName, CellValue, Date> > > > >
                  ("", "[ [ col name, [ [ row name, value, timestamp ], ... ] ], ...] tuples to record"));
-    
+
 
     addRouteSyncJsonReturn(columns, "", { "GET" },
                            "Get a list of column names in the dataset",
@@ -473,10 +471,10 @@ initRoutes(RouteManager & manager)
     auto & column JML_UNUSED
         = columns.addSubRouter(Rx("/([^/]*)", "/<columnName>"),
                                "operations on an individual column");
-    
+
     RequestParam<ColumnName> columnParam(6, "<columnName>",
                                          "Column to operate on");
-    
+
     RestRequestRouter::OnProcessRequest getColumnValues
         = [=] (RestConnection & connection,
                const RestRequest & req,
@@ -493,7 +491,7 @@ initRoutes(RouteManager & manager)
                     (cxt.getSharedPtrAs<PolyEntity>(2));
 
                 auto index = dataset->getColumnIndex();
-                
+
                 ColumnStats columnStatsStorage;
                 auto stats = index->getColumnStats(ColumnName(cxt.resources.at(6)),
                                                    columnStatsStorage);
@@ -504,7 +502,7 @@ initRoutes(RouteManager & manager)
 
                 connection.sendHttpResponse(200, jsonEncodeStr(result),
                                             "application/json", {});
-                
+
                 return RestRequestRouter::MR_YES;
             } catch (const std::exception & exc) {
                 //return sendExceptionResponse(connection, exc);
@@ -555,9 +553,9 @@ initRoutes(RouteManager & manager)
 
     RestRequestRouter & subRouter
         = manager.valueNode->addSubRouter("/routes", "Dataset type-specific routes");
-    
+
     subRouter.rootHandler = handlePluginRoute;
-    
+
 }
 
 std::vector<std::pair<CellValue, int64_t> >
@@ -616,7 +614,7 @@ queryStructured(const Dataset * dataset,
     if (!rowName.empty())
         rowNameParsed = SqlExpression::parse(rowName);
     else rowNameParsed = SqlExpression::parse(string("rowName()"));
-    
+
     //cerr << "limit = " << limit << endl;
     //cerr << "offset = " << offset << endl;
 
@@ -626,7 +624,7 @@ queryStructured(const Dataset * dataset,
                 (selectParsed, whenParsed, *whereParsed, orderByParsed,
                  groupByParsed, *havingParsed, *rowNameParsed, offset, limit);
         };
-    
+
     runHttpQuery(runQuery, connection, format, createHeaders,rowNames, rowHashes, sortColumns);
 }
 

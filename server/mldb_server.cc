@@ -47,20 +47,16 @@ namespace MLDB {
 
 // Creation functions exposed elsewhere
 std::shared_ptr<PluginCollection>
-createPluginCollection(MldbServer * server, RestRouteManager & routeManager,
-                       std::shared_ptr<CollectionConfigStore> configStore);
+createPluginCollection(MldbServer * server, RestRouteManager & routeManager);
 
 std::shared_ptr<DatasetCollection>
-createDatasetCollection(MldbServer * server, RestRouteManager & routeManager,
-                        std::shared_ptr<CollectionConfigStore> configStore);
+createDatasetCollection(MldbServer * server, RestRouteManager & routeManager);
 
 std::shared_ptr<ProcedureCollection>
-createProcedureCollection(MldbServer * server, RestRouteManager & routeManager,
-                         std::shared_ptr<CollectionConfigStore> configStore);
+createProcedureCollection(MldbServer * server, RestRouteManager & routeManager);
 
 std::shared_ptr<FunctionCollection>
-createFunctionCollection(MldbServer * server, RestRouteManager & routeManager,
-                      std::shared_ptr<CollectionConfigStore> configStore);
+createFunctionCollection(MldbServer * server, RestRouteManager & routeManager);
 
 std::shared_ptr<CredentialRuleCollection>
 createCredentialCollection(MldbServer * server, RestRouteManager & routeManager,
@@ -287,15 +283,16 @@ getTypeInfo(const std::string & typeName)
 
 void
 MldbServer::
-initCollections(std::string configurationPath,
+initCollections(std::string credentialsPath,
                 std::string staticFilesPath,
                 std::string staticDocPath,
                 bool hideInternalEntities)
 {
-    // MLDB-696... workaround to stop everything from breaking
-    if (!configurationPath.empty()
-        && configurationPath.find("://") == string::npos)
-        configurationPath = "file://" + configurationPath;
+    // MLDB-696 - ensure paths passed on the command line
+    // are interpreted as file by default
+    if (!credentialsPath.empty()
+        && credentialsPath.find("://") == string::npos)
+        credentialsPath = "file://" + credentialsPath;
     if (!staticFilesPath.empty()
         && staticFilesPath.find("://") == string::npos)
         staticFilesPath = "file://" + staticFilesPath;
@@ -303,28 +300,23 @@ initCollections(std::string configurationPath,
         && staticDocPath.find("://") == string::npos)
         staticDocPath = "file://" + staticDocPath;
 
-
-    //configStore.reset(new S3CollectionConfigStore("s3://tests.datacratic.com/rtBehaviourService/test1/servers/" + getServerName()));
-
-    string persistentConfigBase = configurationPath + "/";
-
-    auto makeConfigStore = [&] (const std::string & path)
+    auto makeCredentialStore = [&credentialsPath] ()
         -> std::shared_ptr<CollectionConfigStore>
         {
-            if (configurationPath.empty())
+            if (credentialsPath.empty())
                 return nullptr;
             return std::make_shared<S3CollectionConfigStore>
-            (configurationPath + "/mldb/" + path);
+            (credentialsPath);
         };
 
     ExcAssert(versionNode);
     routeManager.reset(new RestRouteManager(*versionNode, 1 /* elements in path: [ "/v1" ] */));
 
-    plugins = createPluginCollection(this, *routeManager, makeConfigStore("plugins"));
-    datasets = createDatasetCollection(this, *routeManager, makeConfigStore("datasets"));
-    procedures = createProcedureCollection(this, *routeManager, makeConfigStore("procedures"));
-    functions = createFunctionCollection(this, *routeManager, makeConfigStore("functions"));
-    credentials = createCredentialCollection(this, *routeManager, makeConfigStore("credentials"));
+    plugins = createPluginCollection(this, *routeManager);
+    datasets = createDatasetCollection(this, *routeManager);
+    procedures = createProcedureCollection(this, *routeManager);
+    functions = createFunctionCollection(this, *routeManager);
+    credentials = createCredentialCollection(this, *routeManager, makeCredentialStore());
     types = createTypeClassCollection(this, *routeManager);
 
     plugins->loadConfig();

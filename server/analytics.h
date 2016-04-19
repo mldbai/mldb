@@ -41,6 +41,20 @@ struct SqlExpressionMldbContext;
 
 extern const OrderByExpression ORDER_BY_NOTHING;
 
+struct RowProcessor {
+    std::function<bool (NamedRowValue & output)> processorfct;
+    bool processInParallel;
+
+    bool operator () (NamedRowValue & output) {return processorfct(output);}
+};
+
+struct RowProcessorEx {
+    std::function<bool (NamedRowValue & output, const std::vector<ExpressionValue> & calc)> processorfct;
+    bool processInParallel;
+
+    bool operator () (NamedRowValue & output, const std::vector<ExpressionValue> & calc) {return processorfct(output, calc);}
+};
+
 /** Equivalent to SELECT (select) FROM (dataset) WHEN (when) WHERE (where), and each matching
     row is passed to the aggregator.
 */
@@ -49,7 +63,7 @@ void iterateDataset(const SelectExpression & select,
                     const Utf8String & alias,
                     const WhenExpression & when,
                     const SqlExpression & where,
-                    std::function<bool (NamedRowValue & output)> aggregator,
+                    RowProcessor processor,
                     const OrderByExpression & orderBy,
                     ssize_t offset,
                     ssize_t limit,
@@ -64,8 +78,7 @@ void iterateDataset(const SelectExpression & select,
                     const WhenExpression & when,
                     const SqlExpression & where,
                     std::vector<std::shared_ptr<SqlExpression> > calc,
-                    std::function<bool (NamedRowValue & output,
-                                        const std::vector<ExpressionValue> & calc)> aggregator,
+                    RowProcessorEx processor,
                     const OrderByExpression & orderBy = ORDER_BY_NOTHING,
                     ssize_t offset = 0 /* start at start */,
                     ssize_t limit = -1 /* all */,
@@ -81,12 +94,11 @@ void iterateDatasetGrouped(const SelectExpression & select,
                            const std::vector< std::shared_ptr<SqlExpression> >& aggregators,
                            const SqlExpression & having,
                            const SqlExpression & rowName,
-                           std::function<bool (NamedRowValue & output)> aggregator,
+                           RowProcessor processor,
                            const OrderByExpression & orderBy = ORDER_BY_NOTHING,
                            ssize_t offset = 0 /* start at start */,
                            ssize_t limit = -1 /* all */,
-                           std::function<bool (const Json::Value &)> onProgress = nullptr,
-                           bool allowMT = true);
+                           std::function<bool (const Json::Value &)> onProgress = nullptr);
 
 
 /** Create an embedding matrix, one embedding per row.  Returns both the embedding

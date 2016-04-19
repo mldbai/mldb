@@ -57,6 +57,7 @@ $(eval $(call test,MLDB-1025-output-dataset-serialization-test,mldb,boost))
 
 $(TESTS)/credentials_persistence_test: $(BIN)/mldb_runner
 
+$(eval $(call mldb_unit_test,MLDB-1586_colname_multivalue.py))
 $(eval $(call mldb_unit_test,test_the_tester.js))
 $(eval $(call mldb_unit_test,test_the_tester.py))
 $(eval $(call mldb_unit_test,MLDB-119-select_no_columns.js))
@@ -343,5 +344,5 @@ $(eval $(call mldb_unit_test,MLDB-1567-empty-literal.js))
 $(eval $(call mldb_unit_test,MLDB-1563-keys-values-of.js))
 $(eval $(call mldb_unit_test,MLDB-1468-credentials-test.py))
 
-
 $(eval $(call test,MLDB-1360-sparse-mutable-multithreaded-insert,mldb,boost))
+$(eval $(call mldb_unit_test,MLDBFB-440_error_on_ds_wo_cols.py))

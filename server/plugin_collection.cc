@@ -18,12 +18,10 @@ namespace Datacratic {
 namespace MLDB {
 
 std::shared_ptr<PluginCollection>
-createPluginCollection(MldbServer * server, RestRouteManager & routeManager,
-                       std::shared_ptr<CollectionConfigStore> configStore)
+createPluginCollection(MldbServer * server, RestRouteManager & routeManager)
 {
     return createCollection<PluginCollection>(2, L"plugin", L"plugins",
-                                              server, routeManager,
-                                              configStore);
+                                              server, routeManager, nullptr);
 }
 
 std::shared_ptr<Plugin>
@@ -75,17 +73,17 @@ PluginCollection::
 initRoutes(RouteManager & manager)
 {
     PolyCollection<Plugin>::initRoutes(manager);
-    
+
     // Get the actual plugin we're asking for
     auto getPlugin = [=] (const RestRequestParsingContext & context)
         -> Plugin *
         {
             // Get the parent collection
             auto collection = manager.getCollection(context);
-            
+
             // Get the key
             auto key = manager.getKey(context);
-            
+
             // Look up the value
             auto plugin = static_cast< Plugin * > (collection->getExistingEntry(key).get());
 
@@ -109,10 +107,10 @@ initRoutes(RouteManager & manager)
             }
         };
 
-    
+
     RestRequestRouter & subRouter
         = manager.valueNode->addSubRouter("/routes", "Plugin routes");
-    
+
     subRouter.rootHandler = handlePluginRoute;
 
 

@@ -25,12 +25,10 @@ namespace Datacratic {
 namespace MLDB {
 
 std::shared_ptr<FunctionCollection>
-createFunctionCollection(MldbServer * server, RestRouteManager & routeManager,
-                       std::shared_ptr<CollectionConfigStore> configStore)
+createFunctionCollection(MldbServer * server, RestRouteManager & routeManager)
 {
     return createCollection<FunctionCollection>(2, "function", "functions",
-                                              server, routeManager,
-                                              configStore);
+                                                server, routeManager, nullptr);
 }
 
 std::shared_ptr<Function>
@@ -78,7 +76,7 @@ Function::
 call(const std::map<Utf8String, ExpressionValue> & input) const
 {
     SqlExpressionMldbContext outerContext(MldbEntity::getOwner(this->server));
-    
+
     auto info = this->getFunctionInfo();
 
     //cerr << "function info is " << jsonEncode(info) << endl;
@@ -90,7 +88,7 @@ call(const std::map<Utf8String, ExpressionValue> & input) const
         const Utf8String & name(p.first);
         const ExpressionValue & v(p.second);
         const ExpressionValueInfo * valueInfo = nullptr;
-        
+
         auto it = info.input.values.find(name);
 
         try {
@@ -102,7 +100,7 @@ call(const std::map<Utf8String, ExpressionValue> & input) const
 
             // Save the expected value type to put it in an error message later
             valueInfo = it->second.valueInfo.get();
-        
+
             inputContext.set(name, v);
         } catch (const std::exception & exc) {
             Json::Value details;
@@ -123,7 +121,7 @@ call(const std::map<Utf8String, ExpressionValue> & input) const
     //cerr << "inputContext = " << jsonEncode(inputContext) << endl;
 
     auto applier = this->bind(outerContext, info.input);
-    
+
     return applier->apply(inputContext);
 }
 
@@ -202,7 +200,7 @@ initRoutes(RouteManager & manager)
                   RestParamJsonDefault<std::vector<Utf8String> >
                   ("keepValues", "Keep only these values for the output", {}),
                   PassConnectionId());
-    
+
     addRouteSyncJsonReturn(*manager.valueNode, "/info", { "GET" },
                            "Return information about the values and metadata of the function",
                            "Function information structure",
@@ -239,7 +237,7 @@ initRoutes(RouteManager & manager)
 
     RestRequestRouter & subRouter
         = manager.valueNode->addSubRouter("/routes", "Function type-specific routes");
-    
+
     subRouter.rootHandler = handlePluginRoute;
 }
 
