@@ -37,6 +37,51 @@ var expected = [
 
 testQuery('select static_type(1) as *', expected);
 
+expected = [
+   [
+      "_rowName",
+      "0.columnName",
+      "0.offset",
+      "0.sparsity",
+      "0.valueInfo.kind",
+      "0.valueInfo.scalar",
+      "0.valueInfo.type",
+      "1.columnName",
+      "1.offset",
+      "1.sparsity",
+      "1.valueInfo.kind",
+      "1.valueInfo.scalar",
+      "1.valueInfo.type",
+      "2.columnName",
+      "2.offset",
+      "2.sparsity",
+      "2.valueInfo.kind",
+      "2.valueInfo.scalar",
+      "2.valueInfo.type"
+   ],
+   [
+      "result",
+      "0",
+      0,
+      "dense",
+      "scalar",
+      "Datacratic::MLDB::CellValue",
+      "Datacratic::MLDB::AtomValueInfo",
+      "1",
+      1,
+      "dense",
+      "scalar",
+      "Datacratic::MLDB::CellValue",
+      "Datacratic::MLDB::AtomValueInfo",
+      "2",
+      2,
+      "dense",
+      "scalar",
+      "Datacratic::MLDB::CellValue",
+      "Datacratic::MLDB::AtomValueInfo"
+   ]
+];        
+
 testQuery('select static_known_columns([1,2,3]) as *', expected);
 
 "success"

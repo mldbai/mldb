@@ -739,7 +739,7 @@ struct TensorflowGraph: public Function {
         }
 
         const TensorflowGraph * owner;
-        FunctionExpressionContext functionScope;
+        SqlExpressionExtractScope functionScope;
         GraphExtractScope graphScope;
         BoundSqlExpression boundInputs, boundOutputs;
 

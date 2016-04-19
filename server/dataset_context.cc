@@ -143,7 +143,9 @@ SqlExpressionDatasetContext(const Dataset & dataset, const Utf8String& alias)
 
 SqlExpressionDatasetContext::
 SqlExpressionDatasetContext(const BoundTableExpression& boundDataset)
-: SqlExpressionMldbScope(boundDataset.dataset->server), dataset(*boundDataset.dataset), alias(boundDataset.asName)
+    : SqlExpressionMldbScope(boundDataset.dataset->server),
+      dataset(*boundDataset.dataset),
+      alias(boundDataset.asName)
 {
     boundDataset.dataset->getChildAliases(childaliases);
 }
@@ -158,20 +160,15 @@ doGetColumn(const Utf8String & tableName,
         if (!alias.empty() && columnName.startsWith(alias)) {
             simplified = columnName.removePrefix();
         }
-        else {
-            for (auto & a: childaliases) {
-                if (columnName.startsWith(a)) {
-                    simplified = columnName.removePrefix();
-                }
-            }
-        }
     }
     if (simplified.empty())
         simplified = columnName;
 
     //cerr << "doGetColumn: " << tableName << " " << columnName << endl;
     //cerr << columnName.size() << endl;
-    //cerr << "aliases " << alias << endl;
+    //cerr << "alias " << alias << endl;
+    //for (auto & c: childaliases)
+    //    cerr << "  child " << c << endl;
     //cerr << "simplified = " << simplified << endl;
 
     return {[=] (const SqlRowScope & context,

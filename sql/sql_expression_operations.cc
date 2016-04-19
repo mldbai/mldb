@@ -3406,14 +3406,15 @@ BoundSqlExpression
 WildcardExpression::
 bind(SqlBindingScope & scope) const
 {
-    ColumnName simplifiedPrefix = prefix;
-    Utf8String resolvedTableName; // = tableName;
+    ColumnName simplifiedPrefix;
+    Utf8String resolvedTableName;
 
-    // TO RESOLVE BEFORE MERGE
-#if 0
-    if (tableName.empty() && !prefix.empty())
+    //cerr << "binding wildcard expression " << print() << endl;
+    //cerr << "tableName = " << tableName << endl;
+    //cerr << "prefix = " << prefix << endl;
+
+    if (!prefix.empty())
         simplifiedPrefix = scope.doResolveTableName(prefix, resolvedTableName);
-#endif
 
     // This function figures out the new name of the column.  If it's excluded,
     // then it returns the empty column name

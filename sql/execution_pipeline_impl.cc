@@ -81,7 +81,8 @@ TableLexicalScope::
 doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
                 int fieldOffset)
 {
-    //cerr << "dataset lexical scope get columns: fieldOffset = " << fieldOffset << endl;
+    //cerr << "dataset lexical scope get columns: fieldOffset = "
+    //     << fieldOffset << endl;
     ExcAssertGreaterEqual(fieldOffset, 0);
 
     std::vector<KnownColumn> columnsWithInfo;
@@ -104,17 +105,30 @@ doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
             const ExpressionValue & rowContents
                 = row.values.at(fieldOffset + ROW_CONTENTS);
 
-            StructValue result;
+            RowValue result;
 
-            auto onColumn = [&] (const Coords & columnName,
-                                        const Coords & prefix,  // always null
-                                        const ExpressionValue & value)
+            auto onColumn = [&] (const Coord & columnName,
+                                 const Coords & prefix,  // always null
+                                 const ExpressionValue & value)
             {
-                auto it = index.find(columnName);
+                auto it = index.find(Coords(columnName));
                 if (it == index.end()) {
                     return true;
                 }
-                result.emplace_back(it->second.toSimpleName(), std::move(value));
+
+                auto onAtom = [&] (const Coords & columnName,
+                                   const Coords & prefix,
+                                   CellValue atom,
+                                   Date ts)
+                {
+                    result.emplace_back(prefix + columnName,
+                                        std::move(atom), ts);
+                    return true;
+                };
+
+                // TODO: lots of optimizations possible here...
+                value.forEachAtom(onAtom, it->second);
+                
                 return true;
             };
 

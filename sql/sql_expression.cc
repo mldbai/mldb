@@ -3221,7 +3221,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
                     {
                         if(options) {
                             context.exception("options to table expression should "
-                                    "be last argument");
+                                              "be last argument");
                         }
 
                         skip_whitespace(context);

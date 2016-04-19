@@ -59,8 +59,8 @@ tableNames() const
 /*****************************************************************************/
 
 PipelineExpressionScope::
-PipelineExpressionScope(std::shared_ptr<SqlBindingScope> context)
-    : context_(context)
+PipelineExpressionScope(std::shared_ptr<SqlBindingScope> outerScope)
+    : outerScope_(outerScope)
 {
 }
 
@@ -149,7 +149,7 @@ doGetColumn(const Utf8String & tableName, const ColumnName & columnName)
     }        
 
     // Otherwise, look for it in the enclosing scope
-    return context_->doGetColumn(tableName, columnName);
+    return outerScope_->doGetColumn(tableName, columnName);
 }
 
 GetAllColumnsOutput 
@@ -170,7 +170,7 @@ doGetAllColumns(const Utf8String & tableName,
         }
     }        
 
-    return context_->doGetAllColumns(tableName, keep);
+    return outerScope_->doGetAllColumns(tableName, keep);
 }
 
 BoundFunction
@@ -188,10 +188,9 @@ doGetFunction(const Utf8String & tableName,
         }
 
         for (auto & t: tables) {
-            auto toFind = t.first + ".";
-            if (functionName.startsWith(toFind)) {
+            if (functionName.startsWith(t.first)) {
                 Utf8String suffix = functionName;
-                suffix.removePrefix(toFind);
+                suffix.removePrefix(t.first);
                 return t.second.doGetFunction(suffix, args, argScope);
             }
         }
@@ -204,14 +203,14 @@ doGetFunction(const Utf8String & tableName,
         }
     }        
 
-    return SqlBindingScope::doGetFunction(tableName, functionName, args, argScope);
+    return outerScope_->doGetFunction(tableName, functionName, args, argScope);
 }
 
 ColumnFunction
 PipelineExpressionScope::
 doGetColumnFunction(const Utf8String & functionName)
 {
-    return context_->doGetColumnFunction(functionName);
+    return outerScope_->doGetColumnFunction(functionName);
 }
 
 ColumnGetter
@@ -245,9 +244,7 @@ doResolveTableName(const ColumnName & fullVariableName,
     for (auto & t: tables) {
         if (fullVariableName.startsWith(t.first)) {
             tableName = t.first;
-            ColumnName v = fullVariableName;
-            v.removePrefix(t.first + ".");
-            return v;
+            return fullVariableName.removePrefix();
         }
     }
 
@@ -258,21 +255,21 @@ MldbServer *
 PipelineExpressionScope::
 getMldbServer() const
 {
-    return context_->getMldbServer();
+    return outerScope_->getMldbServer();
 }
 
 std::shared_ptr<Dataset>
 PipelineExpressionScope::
 doGetDataset(const Utf8String & datasetName)
 {
-    return context_->doGetDataset(datasetName);
+    return outerScope_->doGetDataset(datasetName);
 }
 
 std::shared_ptr<Dataset>
 PipelineExpressionScope::
 doGetDatasetFromConfig(const Any & datasetConfig)
 {
-     return context_->doGetDatasetFromConfig(datasetConfig);
+     return outerScope_->doGetDatasetFromConfig(datasetConfig);
 }
 
 PipelineExpressionScope::TableEntry::
