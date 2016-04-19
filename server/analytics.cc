@@ -338,7 +338,7 @@ queryWithoutDataset(SelectStatement& stm, SqlBindingScope& scope)
     MatrixNamedRow row;
     auto boundRowName = stm.rowName->bind(scope);
 
-    row.rowName = GetValidatedRowName(boundRowName(context, GET_ALL));
+    row.rowName = getValidatedRowName(boundRowName(context, GET_ALL));
     row.rowHash = row.rowName;
     val.mergeToRowDestructive(row.columns);
 
@@ -445,12 +445,13 @@ queryFromStatement(SelectStatement & stm,
         return rows;
     }
     else {
+        cerr << "no from" << endl;
         // No from at all
         return queryWithoutDataset(stm, scope);
     }
 }
 
-RowName GetValidatedRowName(const ExpressionValue& rowNameEV)
+RowName getValidatedRowName(const ExpressionValue& rowNameEV)
 {
     if (rowNameEV.empty())
         throw HttpReturnException(400, "Can't create a row with a null or empty name.");
@@ -458,12 +459,12 @@ RowName GetValidatedRowName(const ExpressionValue& rowNameEV)
     if (!rowNameEV.isAtom())
         throw HttpReturnException(400, "NAMED expression must evaluate to a single value");
 
-    Utf8String rowName = rowNameEV.toUtf8String();
+    auto rowName = RowName::parse(rowNameEV.toUtf8String());
 
     if (rowName.empty())
         throw HttpReturnException(400, "Can't create a row with an empty name.");
 
-    return std::move(RowName(rowName));
+    return std::move(rowName);
 }
 
 } // namespace MLDB

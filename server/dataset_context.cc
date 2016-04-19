@@ -148,109 +148,31 @@ SqlExpressionDatasetContext(const BoundTableExpression& boundDataset)
     boundDataset.dataset->getChildAliases(childaliases);
 }
 
-#if 0
-ColumnName 
-SqlExpressionDatasetContext::
-resolveTableName(const ColumnName& variable, Utf8String& resolvedTableName) const
-{
-    if (variable.empty())
-        return Utf8String();
-
-    auto it = variable.begin();
-    if (*it == '"') {
-        //identifier starts in quote 
-        //we want to remove the quotes if they are extraneous (now that we have context)
-        //and we want to remove the quotes around the variable's name (if any)
-        Utf8String quoteString = "\"";
-        ++it;
-        it = std::search(it, variable.end(), quoteString.begin(), quoteString.end());
-        if (it != variable.end()) {
-            auto next = it;
-            next ++;
-            if (next != variable.end() && *next == '.') {
-                //Found something like "text".
-                //which is an explicit dataset name
-                //remove the quotes around the table name if there is no ambiguity (i.e, a "." inside)      
-                Utf8String tableName(variable.begin(), next);          
-                if (tableName.find(".") == tableName.end()) 
-                    tableName = removeQuotes(tableName);
-
-                //remove the quote aroud the variable's name
-                next++;
-                if (next != variable.end()) {
-                    Utf8String shortVariableName(next, variable.end());
-                    shortVariableName = tableName + "." + removeQuotes(shortVariableName);
-                    resolvedTableName = std::move(tableName);
-                    return shortVariableName;
-                }            
-            }
-        }       
-    }
-    else {
-
-
-        Utf8String dotString = ".";
-
-        do  {
-            it = std::search(it, variable.end(), dotString.begin(), dotString.end());
-
-            if (it != variable.end()) {
-
-                //check if this portion of the identifier correspond to a dataset name within this context
-                Utf8String tableName(variable.begin(), it);
-                for (auto& datasetName: childaliases) {
-
-                    if (tableName == datasetName) {
-                        resolvedTableName = std::move(tableName);
-                        if (datasetName.find('.') != datasetName.end()) {
-                            //we need to enclose it in quotes to resolve any potential ambiguity
-                            Utf8String quotedVariableName(++it, variable.end());
-                            quotedVariableName = "\"" + tableName + "\"" + "." + removeQuotes(quotedVariableName);
-                            return quotedVariableName;
-                        }
-                        else {
-                            //keep it unquoted 
-                            return variable;
-                        }
-                    }
-                }
-
-                ++it;
-            } 
-        } while (it != variable.end());
-    }
-
-    return variable;
-}
-#endif
-
-#if 0
-ColumnName 
-SqlExpressionDatasetContext::
-resolveTableName(const ColumnName& variable) const
-{
-    Utf8String resolvedTableName;
-    return resolveTableName(variable, resolvedTableName);
-}
-#endif
-
 ColumnGetter
 SqlExpressionDatasetContext::
 doGetColumn(const Utf8String & tableName,
             const ColumnName & columnName)
 {   
-    // TO RESOLVE BEFORE MERGING
-#if 0
-    Utf8String simplifiedVariableName;
-    
-    if (!childaliases.empty())
-        simplifiedVariableName = resolveTableName(columnName);
-    else
-        simplifiedVariableName
-            = removeTableName(alias, columnName).toSimpleName();
+    ColumnName simplified;
+    if (tableName.empty() && columnName.size() > 1) {
+        if (!alias.empty() && columnName.startsWith(alias)) {
+            simplified = columnName.removePrefix();
+        }
+        else {
+            for (auto & a: childaliases) {
+                if (columnName.startsWith(a)) {
+                    simplified = columnName.removePrefix();
+                }
+            }
+        }
+    }
+    if (simplified.empty())
+        simplified = columnName;
 
-    ColumnName columnName(simplifiedVariableName);
-#endif
+    //cerr << "doGetColumn: " << tableName << " " << columnName << endl;
+    //cerr << columnName.size() << endl;
+    //cerr << "aliases " << alias << endl;
+    //cerr << "simplified = " << simplified << endl;
 
     return {[=] (const SqlRowScope & context,
                  ExpressionValue & storage,
@@ -259,7 +181,7 @@ doGetColumn(const Utf8String & tableName,
                 auto & row = context.as<RowScope>();
 
                 const ExpressionValue * fromOutput
-                    = searchRow(row.row.columns, columnName, filter, storage);
+                    = searchRow(row.row.columns, simplified, filter, storage);
                 if (fromOutput)
                     return *fromOutput;
 

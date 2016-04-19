@@ -578,6 +578,16 @@ int
 Coord::
 compareString(const char * str, size_t len) const
 {
+#if 0
+    std::string s1(str, str + len);
+    std::string s2(data(), data() + dataLength());
+
+    cerr << "strverscmp " << s1 << " and " << s2 << " = "
+         << strverscmp(s2.c_str(), s1.c_str()) << endl;
+
+    return strverscmp(s2.c_str(), s1.c_str());
+#endif    
+
     int res = std::strncmp(data(), str, std::min(dataLength(), len));
 
     if (res) return res;
