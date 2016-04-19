@@ -47,7 +47,7 @@ struct DatasetPy {
     
     std::shared_ptr<Dataset> dataset;
 
-    static DatasetPy* createDataset(MldbPythonContext * c,
+    static DatasetPy* createDataset(PythonContext * c,
                                     const Json::Value & config);
 
 };
@@ -72,7 +72,7 @@ struct PythonProcedure: public Procedure {
     
     std::function<Json::Value (const ProcedureRunConfig & training)> trainPy;
 
-    static void createPythonProcedure(MldbPythonContext * c,
+    static void createPythonProcedure(PythonContext * c,
                                      const std::string & name, 
                                      const std::string & description,
                                      PyObject * trainFunction);

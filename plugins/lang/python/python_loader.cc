@@ -63,7 +63,7 @@ struct PythonPlugin: public Plugin {
     
     ~PythonPlugin();
 
-    void addPluginPathToEnv(PythonSubinterpreter & pyControl) const;
+    void addPluginPathToEnv() const;
 
     ScriptOutput getLastOutput() const;
     
@@ -81,27 +81,14 @@ struct PythonPlugin: public Plugin {
 
     virtual Any getVersion() const;
 
-    static ScriptOutput
-    runPythonScript(std::shared_ptr<PythonContext> itl,
-                    PackageElement elementToRun,
-                    const RestRequest & request,
-                    RestRequestParsingContext & context,
-                    PythonSubinterpreter & pyControl);
-    
-    static ScriptOutput
-    runPythonScript(std::shared_ptr<PythonContext> itl,
-                    PackageElement elementToRun,
-                    PythonSubinterpreter & pyControl);
-
     static RestRequestMatchResult
     handleTypeRoute(RestDirectory * server, RestConnection & conn,
                     const RestRequest & request,
                     RestRequestParsingContext & context);
 
-    static void injectMldbWrapper(PythonSubinterpreter & pyControl);
+    static void injectMldbWrapper();
 
     std::shared_ptr<PythonPluginContext> itl;
-    std::shared_ptr<MldbPythonContext> mldbPy;
 
     mutable std::mutex routeHandlingMutex;
 
@@ -136,29 +123,14 @@ PythonPlugin(MldbServer * server,
             this);
 
 
-    mldbPy.reset(new MldbPythonContext());
-    mldbPy->setPlugin(itl);
-
     Utf8String scriptSource = itl->pluginResource->getScript(PackageElement::MAIN);
-
-    // initialize interpreter. if the plugin is being constructed from a python plugin 
-    // perform call, the __mldb_child_call will be set so we can engage child mode
-    bool isChild = false;
-    if(!res.args.empty() && res.args.is<Json::Value>()) {
-        auto jsVal = res.args.as<Json::Value>();
-        isChild = jsVal.isObject() && 
-            res.args.as<Json::Value>().isMember("__mldb_child_call");
-    }
-
-    PythonSubinterpreter pyControl(isChild);
-    addPluginPathToEnv(pyControl);
 
     try {
         JML_TRACE_EXCEPTIONS(false);
-        pyControl.main_namespace["mldb"] =
-            boost::python::object(boost::python::ptr(mldbPy.get()));
+        //pyControl.main_namespace["mldb"] =
+        //    boost::python::object(boost::python::ptr(mldbPy.get()));
     } catch (const boost::python::error_already_set & exc) {
-        ScriptException pyexc = convertException(pyControl, exc, "PyPlugin init");
+        ScriptException pyexc = convertException(exc, "PyPlugin init");
 
         {
             std::unique_lock<std::mutex> guard(itl->logMutex);
@@ -171,10 +143,10 @@ PythonPlugin(MldbServer * server,
     }
 
     try {
-        boost::python::object obj = boost::python::exec(boost::python::str(scriptSource.rawString()),
-                                                        pyControl.main_namespace);
+        boost::python::object obj = boost::python::exec(boost::python::str(scriptSource.rawString()));
+
     } catch (const boost::python::error_already_set & exc) {
-        ScriptException pyexc = convertException(pyControl, exc, "Running PyPlugin script");
+        ScriptException pyexc = convertException(exc, "Running PyPlugin script");
 
         {
             std::unique_lock<std::mutex> guard(itl->logMutex);
@@ -184,12 +156,12 @@ PythonPlugin(MldbServer * server,
         JML_TRACE_EXCEPTIONS(false);
 
         string context = "Exception executing Python initialization script";
-        ScriptOutput result = exceptionToScriptOutput(pyControl, pyexc, context);
+        ScriptOutput result = exceptionToScriptOutput(pyexc, context);
         throw HttpReturnException(400, context, result);
     }
 
     last_output = ScriptOutput();
-    getOutputFromPy(pyControl, last_output);
+    getOutputFromPy(last_output);
 
 }
 
@@ -199,15 +171,10 @@ PythonPlugin::
 }
     
 void PythonPlugin::
-addPluginPathToEnv(PythonSubinterpreter & pyControl) const
+addPluginPathToEnv() const
 {
-    pyControl.acquireGil();
-    
     boost::python::import("sys").attr("path").attr("append")("build/x86_64/bin");
     boost::python::import("sys").attr("path").attr("append")(itl->pluginResource->getPluginDir().string());
-
-    // change working dir to script dir
-//     PyRun_SimpleString(ML::format("import os\nos.chdir(\"%s\")", pluginDir).c_str());
 }
 
 ScriptOutput PythonPlugin::
@@ -283,28 +250,24 @@ handleRequest(RestConnection & connection,
     if (res != RestRequestRouter::MR_NO)
         return res;
 
-    // check if 
-    bool isChild = request.header.headers.find("__mldb_child_call") != request.header.headers.end();
-    PythonSubinterpreter pyControl(isChild);
-    addPluginPathToEnv(pyControl);
-
     // Second, check for a generic request handler
     if(itl->hasRequestHandler) {
+        addPluginPathToEnv();
+
         try {
             RestRequestMatchResult rtn;
             {
                 JML_TRACE_EXCEPTIONS(false);
 
-                pyControl.releaseGil();
 
                 itl->restRequest = make_shared<PythonRestRequest>(request, context);
                 itl->setReturnValue(Json::Value());
-                auto jsonResult = runPythonScript(itl,
-                        PackageElement::ROUTES, request, context, pyControl);
+                auto jsonResult = itl->runScript(PackageElement::ROUTES,
+                                                 request, context);
 
                 last_output = ScriptOutput();
 
-                getOutputFromPy(pyControl, last_output, false);
+                getOutputFromPy(last_output, false);
                 if(jsonResult.exception) {
                     connection.sendResponse(400, jsonEncodeStr(jsonResult), "application/json");
                 }
@@ -319,7 +282,7 @@ handleRequest(RestConnection & connection,
 
             return rtn;
         } catch (const boost::python::error_already_set & exc) {
-            ScriptException pyexc = convertException(pyControl, exc, "Handling PyPlugin route");
+            ScriptException pyexc = convertException(exc, "Handling PyPlugin route");
 
             {
                 std::unique_lock<std::mutex> guard(itl->logMutex);
@@ -329,7 +292,7 @@ handleRequest(RestConnection & connection,
             JML_TRACE_EXCEPTIONS(false);
             string context = "Exception in Python request handler";
             ScriptOutput result = exceptionToScriptOutput(
-                    pyControl, pyexc, context);
+                    pyexc, context);
             throw HttpReturnException(400, context, result);
         }
    
@@ -364,13 +327,8 @@ handleTypeRoute(RestDirectory * server,
                           "application/json");
         }
 
-        bool isChild = request.header.headers.find("__mldb_child_call") != request.header.headers.end();
-        PythonSubinterpreter pyControl(isChild);
-        pyControl.acquireGil();
-        boost::python::import("sys").attr("path").attr("append")("./build/x86_64/bin");
-        // Why is there no releaseGil() here?!
+        auto result = titl->runScript(PackageElement::MAIN);
 
-        auto result = runPythonScript(titl, PackageElement::MAIN, pyControl);
         conn.sendResponse(result.exception ? 400 : 200,
                           jsonEncodeStr(result), "application/json");
 
@@ -380,125 +338,15 @@ handleTypeRoute(RestDirectory * server,
     return RestRequestRouter::MR_NO;
 }
 
-ScriptOutput
-PythonPlugin::
-runPythonScript(std::shared_ptr<PythonContext> titl, 
-        PackageElement elementToRun,
-        PythonSubinterpreter & pyControl)
-{
-    RestRequest request;
-    RestRequestParsingContext context(request);
+//boost::python::import("sys").attr("path").attr("append")("./build/x86_64/bin");
 
-    return runPythonScript(titl, elementToRun, request, context, pyControl);
-}
-
-ScriptOutput
-PythonPlugin::
-runPythonScript(std::shared_ptr<PythonContext> titl, 
-        PackageElement elementToRun,
-        const RestRequest & request,
-        RestRequestParsingContext & context,
-        PythonSubinterpreter & pyControl)
-{
-    auto mldbPy = std::make_shared<MldbPythonContext>();
-    bool isScript = titl->pluginResource->scriptType == LoadedPluginResource::ScriptType::SCRIPT;
-    if(isScript) {
-        mldbPy->setScript(static_pointer_cast<PythonScriptContext>(titl));
-    }
-    else {
-        mldbPy->setPlugin(static_pointer_cast<PythonPluginContext>(titl));
-    }
-
-    Utf8String scriptSource = titl->pluginResource->getScript(elementToRun);
-
-    pyControl.acquireGil();
-
-    try {
-        JML_TRACE_EXCEPTIONS(false);
-        pyControl.main_namespace["mldb"] = boost::python::object(boost::python::ptr(mldbPy.get()));
-        injectMldbWrapper(pyControl);
-
-    } catch (const boost::python::error_already_set & exc) {
-        ScriptException pyexc = convertException(pyControl, exc, "PyRunner init");
-
-        {
-            std::unique_lock<std::mutex> guard(titl->logMutex);
-            LOG(titl->loader) << jsonEncode(pyexc) << endl;
-        }
-
-        JML_TRACE_EXCEPTIONS(false);
-
-        ScriptOutput result;
-
-        result.exception = std::make_shared<ScriptException>(std::move(pyexc));
-        result.exception->context.push_back("Initializing Python script");
-        return result;
-    }
-
-    ScriptOutput result;
-    auto scriptSourceStr = boost::python::str(scriptSource.rawString());
-
-    auto pySetArgv = [] {
-        char argv1[] = "mldb-boost-python";
-        char *argv[] = {argv1};
-        int argc = sizeof(argv[0]) / sizeof(char *);
-        PySys_SetArgv(argc, argv);
-    };
-
-    // if we're simply executing the body of the script
-    try {
-        if(elementToRun == PackageElement::MAIN) {
-            JML_TRACE_EXCEPTIONS(false);
-            pySetArgv();
-            boost::python::object obj =
-                boost::python::exec(scriptSourceStr, pyControl.main_namespace);
-
-            getOutputFromPy(pyControl, result);
-
-            if(isScript) {
-                auto ctitl = static_pointer_cast<PythonScriptContext>(titl);
-                result.result = ctitl->rtnVal;
-                result.setReturnCode(ctitl->rtnCode);
-                for (auto & l: ctitl->logs)
-                    result.logs.emplace_back(std::move(l));
-                std::stable_sort(result.logs.begin(), result.logs.end());
-            }
-
-            return result;
-        }
-        // if we need to call the routes function
-        else if(elementToRun == PackageElement::ROUTES) {
-
-            pySetArgv();
-            boost::python::object obj
-                = boost::python::exec(scriptSourceStr, pyControl.main_namespace);
-
-            result.result = titl->rtnVal;
-            result.setReturnCode(titl->rtnCode);
-            return result;
-        }
-        else {
-            throw ML::Exception("Unknown element to run!!");
-        }
-    } catch (const boost::python::error_already_set & exc) {
-        ScriptException pyexc = convertException(pyControl, exc, "Running PyRunner script");
-
-        {
-            std::unique_lock<std::mutex> guard(titl->logMutex);
-            LOG(titl->loader) << jsonEncode(pyexc) << endl;
-        }
-
-        getOutputFromPy(pyControl, result);
-        result.exception = std::make_shared<ScriptException>(std::move(pyexc));
-        result.exception->context.push_back("Executing Python script");
-        return result;
-    };
-}
 
 void
 PythonPlugin::
-injectMldbWrapper(PythonSubinterpreter & pyControl)
+injectMldbWrapper()
 {
+    EnterPython enterPythonGuard;
+
     std::string code = R"code(
 
 import unittest
@@ -740,8 +588,7 @@ class MldbUnitTest(unittest.TestCase):
 
     )code"; //this is python code
 
-    auto pyCode = boost::python::str(code);
-    boost::python::exec(pyCode, pyControl.main_namespace);
+    boost::python::exec(boost::python::str(code));
 }
 
 
@@ -805,7 +652,7 @@ logArgs(boost::python::tuple args, boost::python::dict kwargs)
         str_accum += pyObjectToString(bp::object(args[i]).ptr());
     }
 
-    MldbPythonContext* pymldb = bp::extract<MldbPythonContext*>(bp::object(args[0]).ptr());
+    PythonContext* pymldb = bp::extract<PythonContext*>(bp::object(args[0]).ptr());
     pymldb->log(str_accum);
 
     return bp::object();
@@ -913,9 +760,9 @@ struct AtInit {
             std::shared_ptr<PythonScriptContext>,
             boost::noncopyable>
             script("Script", bp::no_init);
-        bp::class_<MldbPythonContext,
-             std::shared_ptr<MldbPythonContext>,
-            boost::noncopyable>
+        bp::class_<PythonContext,
+                   std::shared_ptr<PythonContext>,
+                   boost::noncopyable>
              mldb("Mldb", bp::no_init);
 
         script.add_property("args", &PythonContext::getArgs);
@@ -935,8 +782,8 @@ struct AtInit {
 
         mldb.def("set_return", &PythonContext::setReturnValue1);
         mldb.def("log", bp::raw_function(logArgs, 1));
-        mldb.def("log", &MldbPythonContext::logUnicode);
-        mldb.def("log", &MldbPythonContext::logJsVal);
+        mldb.def("log", &PythonContext::logUnicode);
+        mldb.def("log", &PythonContext::logJsVal);
         mldb.def("perform", perform); // for 5 args
         mldb.def("perform", perform4); // for 4 args
         mldb.def("perform", perform3); // for 3 args
@@ -951,8 +798,8 @@ struct AtInit {
         mldb.def("create_procedure", &PythonProcedure::createPythonProcedure);
 //         mldb.def("create_function", &PythonFunction::createPythonFunction);
 
-        mldb.add_property("script", &MldbPythonContext::getScript);
-        mldb.add_property("plugin", &MldbPythonContext::getPlugin);
+        mldb.add_property("script", &PythonContext::getScript);
+        mldb.add_property("plugin", &PythonContext::getPlugin);
 
         /****
          *  Functions

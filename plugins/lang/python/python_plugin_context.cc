@@ -24,93 +24,82 @@ namespace fs = boost::filesystem;
 namespace Datacratic {
 namespace MLDB {
 
+std::shared_ptr<void>
+enterPython()
+{
+    auto state = PyGILState_Ensure();
+
+    auto onFinish = [=] (void *)
+        {
+            PyGILState_Release(state);
+        };
+
+    return std::shared_ptr<void>(nullptr, onFinish);
+}
+
+#if 0
 /****************************************************************************/
 /* PythonSubinterpreter                                                     */
 /****************************************************************************/
 
-std::mutex PythonSubinterpreter::youShallNotPassMutex;
-
 PythonSubinterpreter::
-PythonSubinterpreter(bool isChild) : isChild(isChild)
+PythonSubinterpreter()
 {
-    if(!isChild) {
-        lock = std::unique_ptr<std::lock_guard<std::mutex>>(
-                new std::lock_guard<std::mutex>(PythonSubinterpreter::youShallNotPassMutex));
-    }
+    auto state = PyGILState_Ensure();
 
-    // acquire gilles
-    PyEval_AcquireLock();
-    hasGil = true;
-    
-    // Create the sub interpreter
-    interpState = Py_NewInterpreter();
-    threadState = PyThreadState_New(interpState->interp);
-
-    // change current thread state
-    savedThreadState = PyThreadState_Swap(threadState);
+    // Create the new thread
+    //threadState = PyThreadState_New(PyThreadState_Get()->interp);
 
     main_module = boost::python::import("__main__"); 
     main_namespace = main_module.attr("__dict__");
 
     injectOutputLoggingCode();
+
+    PyGILState_Release(state);
 }
 
 PythonSubinterpreter::
 ~PythonSubinterpreter()
 {
-    acquireGil();
+    auto state = PyGILState_Ensure();
 
-    // release thread state
-    PyThreadState_Swap(NULL);
+    //PyThreadState_Clear(threadState);
+    //PyThreadState_Delete(threadState);
 
-    PyThreadState_Clear(threadState);
-    PyThreadState_Delete(threadState);
-
-    // destroy the interpreter
-    PyThreadState_Swap(interpState);
-    Py_EndInterpreter(interpState);
-    
-    PyThreadState_Swap(savedThreadState);
-    
     // release gilles
-    PyEval_ReleaseLock();
+    //PyEval_ReleaseLock();
+
+    PyGILState_Release(state);
 }
 
-void PythonSubinterpreter::
-acquireGil()
+std::shared_ptr<void>
+PythonSubinterpreter::
+enter()
 {
-    if(hasGil) return;
-
-    // acquire gilles
-    PyEval_AcquireLock();
-    hasGil = true;
+    auto state = PyGILState_Ensure();
 
     // change current thread state
-    PyThreadState_Swap(threadState);
+    //auto oldState = PyThreadState_Swap(threadState);
+
+    auto onFinish = [=] (void *)
+        {
+            //auto currentState = PyThreadState_Swap(oldState);
+            //ExcAssertEqual(currentState, threadState);
+            PyGILState_Release(state);
+        };
+
+    return std::shared_ptr<void>(nullptr, onFinish);
 }
-
-void PythonSubinterpreter::
-releaseGil()
-{
-    if(!hasGil) return;
-
-    // release thread state
-    PyThreadState_Swap(NULL);
-
-    // release gilles
-    PyEval_ReleaseLock();
-    hasGil = false;
-}
+#endif
 
 ScriptException
-convertException(PythonSubinterpreter & pyControl,
-        const boost::python::error_already_set & exc2,
-        const std::string & context)
+convertException(const boost::python::error_already_set & exc2,
+                 const std::string & context)
 {
+    EnterPython guard;
+
     using namespace boost::python;
     using namespace boost;
-
-    pyControl.acquireGil();
 
     PyObject *exc,*val,*tb;
     object formatted_list, formatted;
@@ -216,13 +205,13 @@ _sys.stderr = catctOutErr
     PyRun_SimpleString(stdOutErr.c_str()); //invoke code to redirect
 }
 
-void getOutputFromPy(PythonSubinterpreter & pyControl,
-                     ScriptOutput & result,
-                     bool reset)
+void getOutputFromPy(ScriptOutput & result, bool reset)
 {
-    pyControl.acquireGil();
+    EnterPython guard;
 
-    PyObject *outCatcher = PyObject_GetAttrString(pyControl.main_module.ptr(),"catchOut"); //get our catchOutErr created above
+    PyObject *outCatcher = PyObject_GetAttrString(boost::python::scope().ptr(),
+                                                  "catchOut"); //get our catchOutErr created above
+    ExcAssert(outCatcher);
 
     PyErr_Print(); //make python print any errors
     PyObject *outOutput = PyObject_GetAttrString(outCatcher,"value"); //get the stdout and stderr from our catchOutErr object
@@ -257,19 +246,19 @@ void getOutputFromPy(PythonSubinterpreter & pyControl,
 
 };
 
-ScriptOutput exceptionToScriptOutput(PythonSubinterpreter & pyControl,
-                                           ScriptException & exc,
-                                           const string & context)
+ScriptOutput exceptionToScriptOutput(ScriptException & exc,
+                                     const string & context)
 {
     ScriptOutput result;
 
     result.exception = std::make_shared<ScriptException>(std::move(exc));
     result.exception->context.push_back(context);
 
-    getOutputFromPy(pyControl, result);
+    getOutputFromPy(result);
 
     return result;
 }
+
 
 /****************************************************************************/
 /* PythonRestRequest                                                        */
@@ -303,8 +292,9 @@ PythonRestRequest(const RestRequest & request,
 /****************************************************************************/
 /* HELPER FUNCTION                                                          */
 /****************************************************************************/
+
 Json::Value
-perform2(MldbPythonContext * mldbCon,
+perform2(PythonContext * mldbCon,
         const std::string & verb,
         const std::string & resource)
 {
@@ -313,7 +303,7 @@ perform2(MldbPythonContext * mldbCon,
 
 
 Json::Value
-perform3(MldbPythonContext * mldbCon,
+perform3(PythonContext * mldbCon,
         const std::string & verb,
         const std::string & resource,
         const RestParams & params)
@@ -322,7 +312,7 @@ perform3(MldbPythonContext * mldbCon,
 }
 
 Json::Value
-perform4(MldbPythonContext * mldbCon,
+perform4(PythonContext * mldbCon,
         const std::string & verb,
         const std::string & resource,
         const RestParams & params,
@@ -333,7 +323,7 @@ perform4(MldbPythonContext * mldbCon,
 
     
 Json::Value
-perform(MldbPythonContext * mldbCon,
+perform(PythonContext * mldbCon,
         const std::string & verb,
         const std::string & resource,
         const RestParams & params,
@@ -372,7 +362,7 @@ perform(MldbPythonContext * mldbCon,
     PyThreadState_Swap(NULL);
     PyEval_ReleaseLock();
 
-    mldbCon->getPyContext()->server->handleRequest(connection, request);
+    mldbCon->server->handleRequest(connection, request);
 
     // relock and restore thread state
     PyEval_AcquireLock();
@@ -400,14 +390,14 @@ perform(MldbPythonContext * mldbCon,
 }
 
 Json::Value
-readLines1(MldbPythonContext * mldbCon,
+readLines1(PythonContext * mldbCon,
           const std::string & path)
 {
     return readLines(mldbCon, path);
 }
 
 Json::Value
-readLines(MldbPythonContext * mldbCon,
+readLines(PythonContext * mldbCon,
           const std::string & path, int maxLines)
 {
     filter_istream stream(path);
@@ -427,7 +417,7 @@ readLines(MldbPythonContext * mldbCon,
 }
 
 Json::Value
-ls(MldbPythonContext * mldbCon,
+ls(PythonContext * mldbCon,
    const std::string & dir)
 {
     std::vector<std::string> dirs;
@@ -459,9 +449,9 @@ ls(MldbPythonContext * mldbCon,
 }
 
 string
-getHttpBoundAddress(MldbPythonContext * mldbCon)
+getHttpBoundAddress(PythonContext * mldbCon)
 {
-    return mldbCon->getPyContext()->server->httpBoundAddress;
+    return mldbCon->server->httpBoundAddress;
 }
 
 
@@ -496,6 +486,110 @@ setReturnValue1(const Json::Value & rtn)
     setReturnValue(rtn);
 }
 
+ScriptOutput
+PythonContext::
+runScript(PackageElement elementToRun)
+{
+    RestRequest request;
+    RestRequestParsingContext context(request);
+
+    return runScript(elementToRun, request, context);
+}
+
+ScriptOutput
+PythonContext::
+runScript(PackageElement elementToRun,
+          const RestRequest & request,
+          RestRequestParsingContext & context)
+{
+    bool isScript = pluginResource->scriptType == LoadedPluginResource::ScriptType::SCRIPT;
+
+    Utf8String scriptSource = pluginResource->getScript(elementToRun);
+
+    EnterPython enterPythonGuard;
+
+    try {
+        JML_TRACE_EXCEPTIONS(false);
+        //pyControl.main_namespace["mldb"] = boost::python::object(boost::python::ptr(mldbPy.get()));
+        //injectMldbWrapper(pyControl);
+
+    } catch (const boost::python::error_already_set & exc) {
+        ScriptException pyexc = convertException(exc, "PyRunner init");
+
+        {
+            std::unique_lock<std::mutex> guard(this->logMutex);
+            LOG(this->loader) << jsonEncode(pyexc) << endl;
+        }
+
+        JML_TRACE_EXCEPTIONS(false);
+
+        ScriptOutput result;
+
+        result.exception = std::make_shared<ScriptException>(std::move(pyexc));
+        result.exception->context.push_back("Initializing Python script");
+        return result;
+    }
+
+    ScriptOutput result;
+    auto scriptSourceStr = boost::python::str(scriptSource.rawString());
+
+    auto pySetArgv = [] {
+        char argv1[] = "mldb-boost-python";
+        char *argv[] = {argv1};
+        int argc = sizeof(argv[0]) / sizeof(char *);
+        PySys_SetArgv(argc, argv);
+    };
+
+    // if we're simply executing the body of the script
+    try {
+        if(elementToRun == PackageElement::MAIN) {
+            JML_TRACE_EXCEPTIONS(false);
+            pySetArgv();
+            boost::python::object obj =
+                boost::python::exec(scriptSourceStr);
+
+            getOutputFromPy(result);
+
+            if(isScript) {
+                auto ctitl = this->getScript();
+                result.result = ctitl->rtnVal;
+                result.setReturnCode(ctitl->rtnCode);
+                for (auto & l: ctitl->logs)
+                    result.logs.emplace_back(std::move(l));
+                std::stable_sort(result.logs.begin(), result.logs.end());
+            }
+
+            return result;
+        }
+        // if we need to call the routes function
+        else if(elementToRun == PackageElement::ROUTES) {
+
+            pySetArgv();
+            boost::python::object obj
+                = boost::python::exec(scriptSourceStr);
+
+            result.result = this->rtnVal;
+            result.setReturnCode(this->rtnCode);
+            return result;
+        }
+        else {
+            throw ML::Exception("Unknown element to run!!");
+        }
+    } catch (const boost::python::error_already_set & exc) {
+        ScriptException pyexc = convertException(exc, "Running PyRunner script");
+
+        {
+            std::unique_lock<std::mutex> guard(this->logMutex);
+            LOG(this->loader) << jsonEncode(pyexc) << endl;
+        }
+
+        getOutputFromPy(result);
+        result.exception = std::make_shared<ScriptException>(std::move(pyexc));
+        result.exception->context.push_back("Executing Python script");
+        return result;
+    };
+}
+
 
 /****************************************************************************/
 /* PYTHON PLUGIN CONTEXT                                                    */
@@ -508,7 +602,8 @@ setStatusHandler(PyObject * callback)
     if(!callback)
         throw ML::Exception("Must specify handler function");
 
-    auto localsPlugin = boost::python::object(boost::python::ptr(mldbContext));
+    auto localsPlugin = boost::python::object(boost::python::ptr(this));
+
     getStatus = [=] ()
         {
             return boost::python::call<Json::Value>(callback, localsPlugin);
@@ -569,6 +664,8 @@ getRestRequest() const
 /****************************************************************************/
 /* MLDB PYTHON CONTEXT                                                      */ 
 /****************************************************************************/
+
+#if 0
 
 void MldbPythonContext::
 log(const std::string & message)
@@ -641,6 +738,7 @@ getScript()
     throw ML::Exception("Cannot call the script object in this context");
 }
 
+#endif
 
 } // namespace MLDB
 } // namespace Datacratic

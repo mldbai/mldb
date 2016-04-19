@@ -207,6 +207,34 @@
 }
 
 {
+   Python funky 3
+   Memcheck:Addr4
+   fun:PyObject_Free
+   ...
+}
+
+{
+   Python funky 3
+   Memcheck:Addr4
+   fun:PyObject_Realloc
+   ...
+}
+
+{
+   Python funky 3
+   Memcheck:Cond
+   fun:PyObject_Free
+   ...
+}
+
+{
+   Python funky 3
+   Memcheck:Value8
+   fun:PyObject_Free
+   ...
+}
+
+{
    <insert_a_suppression_name_here>
    Memcheck:Cond
    fun:PyObject_Free

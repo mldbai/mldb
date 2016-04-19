@@ -57,11 +57,11 @@ commit() {
 }
 
 DatasetPy* DatasetPy::
-createDataset(MldbPythonContext * mldbContext, const Json::Value & rawConfig)
+createDataset(PythonContext * mldbContext, const Json::Value & rawConfig)
 {
     PolyConfig config = jsonDecode<PolyConfig>(rawConfig);
 
-    auto dataset = MLDB::createDataset(mldbContext->getPyContext()->server,
+    auto dataset = MLDB::createDataset(mldbContext->server,
                                        config);
     return new DatasetPy(dataset);
 }
@@ -94,7 +94,7 @@ getStatus() const
 }
 
 void PythonProcedure::
-createPythonProcedure(MldbPythonContext * c,
+createPythonProcedure(PythonContext * c,
                      const std::string & name,
                      const std::string & description,
                      PyObject * trainFunction)
@@ -109,16 +109,13 @@ createPythonProcedure(MldbPythonContext * c,
                     PythonProcedure::getOwner(peer), config, onProgress);
             procedure->trainPy = [=] (const ProcedureRunConfig & training)
                 {
-                    PythonSubinterpreter pyControl;
-
-                    cout << "calling python function" << endl;
                     try {
                         return boost::python::call<Json::Value>(
                             trainFunction, localsPlugin, jsonEncode(training).toString());
 
                     } catch (const boost::python::error_already_set & exc) {
-                        ScriptException pyexc = convertException(pyControl,
-                                exc, "Procedure '"+name+"' train");
+                        ScriptException pyexc
+                          = convertException(exc, "Procedure '"+name+"' train");
 
                         {
 //                             std::unique_lock<std::mutex> guard(itl->logMutex);

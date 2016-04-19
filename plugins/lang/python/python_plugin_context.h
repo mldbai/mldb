@@ -1,9 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** python_plugin_context.h                                        -*- C++ -*-
     Francois Maillet, 6 mars 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
 
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 */
 
 #pragma once
@@ -34,38 +33,45 @@
 namespace Datacratic {
 namespace MLDB {
 
+std::shared_ptr<void> enterPython();
 
+struct EnterPython {
+    EnterPython()
+        : handle(enterPython())
+    {
+    }
+    std::shared_ptr<void> handle;
+};
+
+#if 0
 /****************************************************************************/
 /* PythonSubinterpreter                                                     */
 /****************************************************************************/
 
 struct PythonSubinterpreter {
 
-    PythonSubinterpreter(bool isChild=false);
+    PythonSubinterpreter();
     ~PythonSubinterpreter();
 
-    void acquireGil();
-    void releaseGil();
-    
-    PyThreadState* savedThreadState;
-    
-    PyThreadState* interpState;
-    PyThreadState* threadState;
-    
+    PythonSubinterpreter(const PythonSubinterpreter & other) = delete;
+    void operator = (const PythonSubinterpreter & other) = delete;
+
+    /// Enter into this interpreter.  This will take the GIL and swap the
+    /// current thread onto the Python execution thread.  Once the return
+    /// value is released, the operation will be undone.
+    std::shared_ptr<void> enter();
+
     boost::python::object main_module;
     boost::python::object main_namespace;
 
-    bool hasGil;
-    bool isChild;
-
-    static std::mutex youShallNotPassMutex;
-    std::unique_ptr<std::lock_guard<std::mutex>> lock;
+private:
+    PyThreadState* threadState;
 };
+#endif
 
 ScriptException
-convertException(PythonSubinterpreter & pyControl,
-        const boost::python::error_already_set & exc2,
-        const std::string & context);
+convertException(const boost::python::error_already_set & exc2,
+                 const std::string & context);
 
 
 
@@ -74,12 +80,10 @@ convertException(PythonSubinterpreter & pyControl,
 /*****************************************************************************/
 
 void injectOutputLoggingCode();
-void getOutputFromPy(PythonSubinterpreter & pyControl,
-                     ScriptOutput & result,
+void getOutputFromPy(ScriptOutput & result,
                      bool reset=true);
 
-ScriptOutput exceptionToScriptOutput(PythonSubinterpreter & pyControl,
-                                     ScriptException & exc,
+ScriptOutput exceptionToScriptOutput(ScriptException & exc,
                                      const std::string & context);
 
 
@@ -108,9 +112,12 @@ struct PythonRestRequest {
 /* PYTHON CONTEXT                                                           */
 /****************************************************************************/
 
-struct MldbPythonContext;
+struct PythonPluginContext;
+struct PythonScriptContext;
 
-struct PythonContext {
+struct PythonContext: public std::enable_shared_from_this<PythonContext> {
+
+protected:
     PythonContext(const Utf8String &  name, MldbServer * server,
             std::shared_ptr<LoadedPluginResource> pluginResource)
     : categoryName(name + " plugin"),
@@ -122,6 +129,11 @@ struct PythonContext {
     {
     }
 
+public:
+    virtual ~PythonContext()
+    {
+    }
+    
     void log(const std::string & message);
     
     Json::Value getArgs() const;
@@ -144,7 +156,19 @@ struct PythonContext {
 
     std::shared_ptr<LoadedPluginResource> pluginResource;
 
-    MldbPythonContext* mldbContext;
+    boost::python::object scope;
+
+    ScriptOutput runScript(PackageElement elementToRun);
+
+    ScriptOutput runScript(PackageElement elementToRun,
+                           const RestRequest & request,
+                           RestRequestParsingContext & context);
+
+    void logJsVal(const Json::Value & jsVal);
+    void logUnicode(const Utf8String & msg);
+  
+    std::shared_ptr<PythonPluginContext> getPlugin();
+    std::shared_ptr<PythonScriptContext> getScript();
 };
 
 
@@ -153,25 +177,25 @@ struct PythonContext {
 /****************************************************************************/
 
 Json::Value
-perform2(MldbPythonContext * mldbCon,
+perform2(PythonContext * mldbCon,
         const std::string & verb,
         const std::string & resource);
 
 Json::Value
-perform3(MldbPythonContext * mldbCon,
+perform3(PythonContext * mldbCon,
         const std::string & verb,
         const std::string & resource,
         const RestParams & params);
 
 Json::Value
-perform4(MldbPythonContext * mldbCon,
+perform4(PythonContext * mldbCon,
         const std::string & verb,
         const std::string & resource,
         const RestParams & params,
         Json::Value payload);
 
 Json::Value
-perform(MldbPythonContext * mldbCon,
+perform(PythonContext * mldbCon,
         const std::string & verb,
         const std::string & resource,
         const RestParams & params=RestParams(),
@@ -179,20 +203,20 @@ perform(MldbPythonContext * mldbCon,
         const RestParams & header=RestParams());
 
 Json::Value
-readLines1(MldbPythonContext * mldbCon,
+readLines1(PythonContext * mldbCon,
           const std::string & path);
 
 Json::Value
-readLines(MldbPythonContext * mldbCon,
+readLines(PythonContext * mldbCon,
           const std::string & path,
           int maxLine = -1);
 
 Json::Value
-ls(MldbPythonContext * mldbCon,
+ls(PythonContext * mldbCon,
     const std::string & path);
 
 std::string
-getHttpBoundAddress(MldbPythonContext * mldbCon);
+getHttpBoundAddress(PythonContext * mldbCon);
 
 
 
@@ -246,7 +270,7 @@ struct PythonScriptContext: public PythonContext  {
     }
 };
 
-
+#if 0
 /****************************************************************************/
 /* MLDB PYTHON CONTEXT  
  * this just holds pointers to the plugin/script contexts. this is the mldb
@@ -255,8 +279,8 @@ struct PythonScriptContext: public PythonContext  {
 
 struct MldbPythonContext {
 
-    std::shared_ptr<PythonPluginContext> getPlugin();
-    std::shared_ptr<PythonScriptContext> getScript();
+    PythonPluginContext * getPlugin();
+    PythonScriptContext * getScript();
 
     void log(const std::string & message);
     void logJsVal(const Json::Value & jsVal);
@@ -264,13 +288,14 @@ struct MldbPythonContext {
 
     PythonContext* getPyContext();
 
-    void setPlugin(std::shared_ptr<PythonPluginContext> plug);
-    void setScript(std::shared_ptr<PythonScriptContext> scrp);
+    void setPlugin(PythonPluginContext * plug);
+    void setScript(PythonScriptContext * scrp);
 
-    std::shared_ptr<PythonPluginContext> plugin;
-    std::shared_ptr<PythonScriptContext> script;
+    PythonPluginContext * plugin;
+    PythonScriptContext * script;
 
 };
+#endif
 
 } // namespace mldb
 } // namespace datacratic
