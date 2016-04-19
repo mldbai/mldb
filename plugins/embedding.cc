@@ -1238,8 +1238,8 @@ DEFINE_STRUCTURE_DESCRIPTION(NearestNeighborsOutput);
 NearestNeighborsOutputDescription::
 NearestNeighborsOutputDescription()
 {
-    addField("row", &NearestNeighborsOutput::row,
-             "Row containing the nearest neighbors, sorted by distance");
+    addField("neighbors", &NearestNeighborsOutput::neighbors,
+             "Row containing the nearest neighbors, each with its distance");
 }
 
 NearestNeighborsFunction::
@@ -1358,7 +1358,7 @@ regEmbedding(builtinPackage(),
 
 static RegisterFunctionType<NearestNeighborsFunction, NearestNeighborsFunctionConfig>
 regNearestNeighborsFunction(builtinPackage(),
-                            "neighbors",
+                            "embedding.neighbors",
                             "Return the nearest neighbors of a known row in an embedding dataset",
                             "functions/NearestNeighborsFunction.md.html");
 

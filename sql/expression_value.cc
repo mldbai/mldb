@@ -4261,7 +4261,8 @@ doSearchRow(const std::vector<std::tuple<Key, CellValue, Date> > & columns,
     }
 
     default:
-        throw HttpReturnException(500, "Unknown GET_ALL not implemented for datasets");
+        throw HttpReturnException
+            (500, "Unknown variable filter not implemented for datasets");
     }
 
     if (index == -1)
@@ -4337,10 +4338,24 @@ doSearchRow(const std::vector<std::tuple<Key, ExpressionValue> > & columns,
         break;
     }
 
-   case GET_ALL: {
-        RowValue row;
+    case GET_ALL: {
+        StructValue row;
 
-        throw HttpReturnException(500, "GET_ALL not implemented for datasets");
+        for (unsigned i = 0;  i < columns.size();  ++i) {
+            const auto & c = columns[i];
+            if (std::get<0>(c) == key) {
+                row.emplace_back(Coord(), std::get<1>(c));
+                index = i;
+            }
+        }
+
+        if (row.size() == 0) {
+            return nullptr;
+        }
+        else if (row.size() == 1) {
+            break;
+        }
+        else return &(storage = std::move(row));
     }
 
     default:

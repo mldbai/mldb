@@ -9,6 +9,7 @@
 
 #include "binding_contexts.h"
 #include "http/http_exception.h"
+#include "mldb/types/basic_value_descriptions.h"
 #include <unordered_map>
 
 using namespace std;
@@ -354,7 +355,11 @@ doGetColumn(const Utf8String & tableName,
         }
 
         // Didn't find the column and schema is closed.  Let it pass through.
-        throw HttpReturnException(400, "Couldn't find column in extract");
+        throw HttpReturnException
+            (400, "Couldn't find column '" + columnName.toUtf8String()
+             + "' in extract",
+             "columnName", columnName,
+             "inputInfo", inputInfo);
         return ReadThroughBindingScope::doGetColumn(tableName, columnName);
     }
 

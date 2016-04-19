@@ -445,7 +445,6 @@ queryFromStatement(SelectStatement & stm,
         return rows;
     }
     else {
-        cerr << "no from" << endl;
         // No from at all
         return queryWithoutDataset(stm, scope);
     }

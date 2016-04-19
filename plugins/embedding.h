@@ -117,7 +117,7 @@ struct NearestNeighborsInput {
 DECLARE_STRUCTURE_DESCRIPTION(NearestNeighborsInput);
 
 struct NearestNeighborsOutput {
-    ExpressionValue row;
+    ExpressionValue neighbors;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(NearestNeighborsOutput);

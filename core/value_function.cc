@@ -133,6 +133,19 @@ toValueInfo(std::shared_ptr<const ValueDescription> desc)
             return std::make_tuple(info, fromInput, toOutput);
         }
         else if (*desc->type == typeid(CellValue)) {
+            auto info = std::make_shared<AtomValueInfo>();
+            FromInput fromInput = [] (void * obj, const ExpressionValue & input)
+                {
+                    *static_cast<CellValue *>(obj) = input.getAtom();
+                };
+            
+            ToOutput toOutput = [] (const void * obj) -> ExpressionValue
+                {
+                    return ExpressionValue(*static_cast<const CellValue *>(obj),
+                                           Date::notADate());
+                };
+            
+            return std::make_tuple(info, fromInput, toOutput);
            
         }
         break;
