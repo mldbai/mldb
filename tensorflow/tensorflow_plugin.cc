@@ -715,8 +715,8 @@ struct TensorflowGraph: public Function {
                 const FunctionValues & input)
             : FunctionApplier(owner),
               owner(owner),
-              functionScope(owner->server, input,
-                            outerScope.functionStackDepth),
+              mldbScope(owner->server),
+              functionScope(mldbScope, input),
               graphScope(outerScope, *owner->graph)
         {
             // 1.  Collect what is known for each of the input clauses.
@@ -739,6 +739,7 @@ struct TensorflowGraph: public Function {
         }
 
         const TensorflowGraph * owner;
+        SqlExpressionMldbScope mldbScope;
         SqlExpressionExtractScope functionScope;
         GraphExtractScope graphScope;
         BoundSqlExpression boundInputs, boundOutputs;
@@ -1160,7 +1161,9 @@ struct TensorflowGraph: public Function {
     {
         // Create a function binding context that can infer the
         // required inputs
-        FunctionExpressionContext functionScope(server);
+        SqlExpressionMldbScope mldbScope(server);
+
+        SqlExpressionExtractScope functionScope(mldbScope);
 
         // 1.  Collect what is known for each of the input clauses.
         auto boundInputs = functionConfig.inputs.bind(functionScope);
@@ -1169,8 +1172,10 @@ struct TensorflowGraph: public Function {
 
         auto boundOutputs = functionConfig.outputs.bind(graphScope);
 
+        functionScope.inferInput();
+        
         FunctionInfo result;
-        result.input = std::move(functionScope.input);
+        result.input = std::move(functionScope.inputInfo);
         result.output = ExpressionValueInfo::toRow(boundOutputs.info);
         
         return result;

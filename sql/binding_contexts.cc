@@ -4,7 +4,7 @@
     This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
 
-    Contexts in which to execute scoped SQL expressions.
+    Scopes in which to execute scoped SQL expressions.
 */
 
 #include "binding_contexts.h"
@@ -20,7 +20,7 @@ namespace MLDB {
 
 
 /*****************************************************************************/
-/* READ THROUGH BINDING CONTEXT                                              */
+/* READ THROUGH BINDING SCOPE                                                */
 /*****************************************************************************/
 
 BoundFunction
@@ -38,26 +38,31 @@ doGetFunction(const Utf8String & tableName,
             outerArgs.emplace_back(std::move(rebind(arg)));		
     }
 
-    // Get the outer function		
-    auto outerFunction = outer.doGetFunction(tableName, functionName, outerArgs, argScope);
+    // Get function from the outer scope
+    auto outerFunction
+        = outer.doGetFunction(tableName, functionName, outerArgs, argScope);
 
     BoundFunction result = outerFunction;
 
     if (!outerFunction)
         return result;
   
-    // Call it with the outer context
+    // Call it with the outer scope
     result.exec = [=] (const std::vector<ExpressionValue> & args,
-                       const SqlRowScope & context)
+                       const SqlRowScope & scope)
         {
-            //ExcAssert(dynamic_cast<const RowScope *>(&context) != nullptr);
-            auto & row = context.as<RowScope>();
+            if (!scope.hasRow()) {
+                // We don't normally need a scope for function calls, since their
+                // arguments are already evaluated in the outer scope and their
+                // value shouldn't depend upon anything but their arguments.
+                //
+                // If this is the case, we pass through an empty scope into
+                // the context.
+                return outerFunction(args, scope);
+            }
 
-            //cerr << "rebinding to apply function " << functionName
-            //<< ": context type is "
-            //<< ML::type_name(context) << " outer type is "
-            //<< ML::type_name(row.outer) << endl;
-
+            // Otherwise, we call through.
+            auto & row = scope.as<RowScope>();
             return outerFunction(args, row.outer);
         };
 
@@ -70,13 +75,13 @@ rebind(BoundSqlExpression expr)
 {		
     auto outerExec = expr.exec;		
 		
-    // Call the exec function with the context pivoted to the output context		
-    expr.exec = [=] (const SqlRowScope & context,		
+    // Call the exec function with the scope pivoted to the output scope		
+    expr.exec = [=] (const SqlRowScope & scope,		
                      ExpressionValue & storage,
                      const VariableFilter & filter)		
         -> const ExpressionValue &		
         {		
-            auto & row = static_cast<const RowScope &>(context);		
+            auto & row = static_cast<const RowScope &>(scope);		
             return outerExec(row.outer, storage, filter);		
         };		
 		
@@ -91,11 +96,11 @@ doGetColumn(const Utf8String & tableName,
 {
     auto outerImpl = outer.doGetColumn(tableName, columnName);
 
-    return {[=] (const SqlRowScope & context,
+    return {[=] (const SqlRowScope & scope,
                  ExpressionValue & storage,
                  const VariableFilter & filter) -> const ExpressionValue &
             {
-                auto & row = context.as<RowScope>();
+                auto & row = scope.as<RowScope>();
                 return outerImpl(row.outer, storage, filter);
             },
             outerImpl.info};
@@ -122,11 +127,11 @@ doGetBoundParameter(const Utf8String & paramName)
 {
     auto outerImpl = outer.doGetBoundParameter(paramName);
 
-    return {[=] (const SqlRowScope & context,
+    return {[=] (const SqlRowScope & scope,
                  ExpressionValue & storage,
                  const VariableFilter & filter) -> const ExpressionValue &
             {
-                auto & row = context.as<RowScope>();
+                auto & row = scope.as<RowScope>();
                 return outerImpl(row.outer, storage, filter);
             },
             outerImpl.info};
@@ -148,7 +153,7 @@ doGetDatasetFromConfig(const Any & datasetConfig)
 
 
 /*****************************************************************************/
-/* COLUMN EXPRESSION BINDING CONTEXT                                         */
+/* COLUMN EXPRESSION BINDING SCOPE                                         */
 /*****************************************************************************/
 
 BoundFunction
@@ -161,9 +166,9 @@ doGetFunction(const Utf8String & tableName,
 
     if (functionName == "columnName") {
         return {[=] (const std::vector<ExpressionValue> & args,
-                     const SqlRowScope & context)
+                     const SqlRowScope & scope)
                 {
-                    auto & col = context.as<ColumnContext>();
+                    auto & col = scope.as<ColumnScope>();
                     return ExpressionValue(col.columnName.toUtf8String(),
                                            Date::negativeInfinity());
                 },
@@ -175,9 +180,9 @@ doGetFunction(const Utf8String & tableName,
     if (fn)
     {
          return {[=] (const std::vector<ExpressionValue> & evaluatedArgs,
-                 const SqlRowScope & context)
+                 const SqlRowScope & scope)
             {
-                auto & col = context.as<ColumnContext>();
+                auto & col = scope.as<ColumnScope>();
                 return fn(col.columnName, evaluatedArgs); 
             },
             std::make_shared<Utf8StringValueInfo>()};
@@ -254,18 +259,20 @@ doGetBoundParameter(const Utf8String & paramName)
 SqlExpressionExtractScope::
 SqlExpressionExtractScope(SqlBindingScope & outer,
                           std::shared_ptr<ExpressionValueInfo> inputInfo)
-    : ReadThroughBindingScope(outer),
+    : outer(outer),
       inputInfo(ExpressionValueInfo::toRow(inputInfo)),
       wildcardsInInput(false)
 {
     ExcAssert(this->inputInfo);
+    this->functionStackDepth = outer.functionStackDepth + 1;
 }
 
 SqlExpressionExtractScope::
 SqlExpressionExtractScope(SqlBindingScope & outer)
-    : ReadThroughBindingScope(outer),
+    : outer(outer),
       wildcardsInInput(false)
 {
+    this->functionStackDepth = outer.functionStackDepth + 1;
 }
 
 void
@@ -294,19 +301,18 @@ doGetColumn(const Utf8String & tableName,
     // current scope
     if (!tableName.empty()) {
         throw HttpReturnException(400, "Cannot use table names inside an extract");
-        return ReadThroughBindingScope::doGetColumn(tableName, columnName);
     }
 
     if (!inputInfo) {
         // We're in recording mode.  Simply record that we need this column.
         inferredInputs.insert(columnName);
 
-        return {[=] (const SqlRowScope & context,
+        return {[=] (const SqlRowScope & scope,
                      ExpressionValue & storage,
                      const VariableFilter & filter)
                 -> const ExpressionValue &
                 {
-                    auto & row = context.as<RowScope>();
+                    auto & row = scope.as<RowScope>();
                     return storage = row.input.getNestedColumn(columnName, filter);
                 },
                 std::make_shared<AnyValueInfo>()};
@@ -328,28 +334,13 @@ doGetColumn(const Utf8String & tableName,
             //auto outer = ReadThroughBindingScope
             //    ::doGetColumn(tableName, columnName);
 
-            return {[=] (const SqlRowScope & context,
+            return {[=] (const SqlRowScope & scope,
                          ExpressionValue & storage,
                          const VariableFilter & filter)
                     -> const ExpressionValue &
                     {
-                        auto & row = context.as<RowScope>();
-
-#if 1 // don't allow reads through to outer scope
+                        auto & row = scope.as<RowScope>();
                         return storage = row.input.getNestedColumn(columnName, filter);
-                        return storage;
-#else // do allow reads to outer scope
-                        bool found;
-                        std::tie(storage, found)
-                            = row.input.tryGetNestedColumn(columnName, filter);
-
-                        if (found) {
-                            return storage;
-                        }
-                        else {
-                            return outer(row.outer, context, storage);
-                        }
-#endif
                     },
                     std::make_shared<AnyValueInfo>()};
         }
@@ -360,16 +351,15 @@ doGetColumn(const Utf8String & tableName,
              + "' in extract",
              "columnName", columnName,
              "inputInfo", inputInfo);
-        return ReadThroughBindingScope::doGetColumn(tableName, columnName);
     }
 
-    // Found the column.  Get it from our context.
-    return {[=] (const SqlRowScope & context,
+    // Found the column.  Get it from our scope.
+    return {[=] (const SqlRowScope & scope,
                  ExpressionValue & storage,
                  const VariableFilter & filter)
             -> const ExpressionValue &
             {
-                auto & row = context.as<RowScope>();
+                auto & row = scope.as<RowScope>();
                 return storage = row.input.getNestedColumn(columnName, filter);
             },
             info};
@@ -469,6 +459,19 @@ doGetAllColumns(const Utf8String & tableName,
     result.info = std::make_shared<RowValueInfo>(outputColumns, SCHEMA_CLOSED);
 
     return result;
+}
+
+BoundFunction
+SqlExpressionExtractScope::
+doGetFunction(const Utf8String & tableName,
+              const Utf8String & functionName,
+              const std::vector<BoundSqlExpression> & args,
+              SqlBindingScope & argScope)
+{
+    cerr << "doGetFunction for " << functionName << " depth "
+         << functionStackDepth << endl;
+    // Get function from the outer scope
+    return outer.doGetFunction(tableName, functionName, args, argScope);
 }
 
 } // namespace MLDB

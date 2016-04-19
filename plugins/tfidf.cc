@@ -330,9 +330,8 @@ apply(const FunctionApplier & applier,
 {
     FunctionOutput result;
 
-    ExpressionValue storage;
-    const ExpressionValue & inputVal = context.mustGet("input", storage);
-
+    ExpressionValue inputVal = context.getColumn(Coord("input"));
+    
     uint64_t maxFrequency = 0; // max term frequency for the current document
     uint64_t maxNt = 0;        // max document frequency for terms in the current doc
 
@@ -442,10 +441,10 @@ apply(const FunctionApplier & applier,
 
     inputVal.forEachColumn(onColumn2);
 
-    ExpressionValue outputRow(values);
-    result.set("output", std::move(outputRow));
+    StructValue outputRow;
+    outputRow.emplace_back("output", std::move(values));
     
-    return result;
+    return std::move(outputRow);
 }
 
 FunctionInfo
@@ -454,9 +453,15 @@ getFunctionInfo() const
 {
     FunctionInfo result;
 
-    result.input.addRowValue("input");
-    result.output.addRowValue("output");
-
+    std::vector<KnownColumn> inputColumns, outputColumns;
+    inputColumns.emplace_back(Coord("input"), std::make_shared<UnknownRowValueInfo>(),
+                              COLUMN_IS_DENSE, 0);
+    outputColumns.emplace_back(Coord("output"), std::make_shared<UnknownRowValueInfo>(),
+                               COLUMN_IS_DENSE, 0);
+    
+    result.input.reset(new RowValueInfo(inputColumns, SCHEMA_CLOSED));
+    result.output.reset(new RowValueInfo(outputColumns, SCHEMA_CLOSED));
+    
     return result;
 }
 

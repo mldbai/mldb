@@ -426,9 +426,8 @@ struct SVMFunctionApplier: public FunctionApplier {
         : FunctionApplier(owner)
     {
        info = owner->getFunctionInfo();
-       auto info = input.getValueInfo("embedding");
-       extract = info.getExpressionValueInfo()
-           ->extractDoubleEmbedding(owner->itl->columnNames);
+       auto info = input->getColumn("embedding");
+       extract = info->extractDoubleEmbedding(owner->itl->columnNames);
     }
 
     ExpressionValueInfo::ExtractDoubleEmbeddingFunction extract;
@@ -450,12 +449,7 @@ apply(const FunctionApplier & applier_,
 {
     auto & applier = static_cast<const SVMFunctionApplier &>(applier_);
 
-    FunctionOutput result;
-
-    ExpressionValue storage;
-
-
-    const ExpressionValue & inputVal = context.get("embedding", storage);
+    ExpressionValue inputVal = context.getColumn("embedding");
     std::vector<double> input = applier.extract(inputVal);
     Date ts = inputVal.getEffectiveTimestamp();
 
@@ -475,8 +469,7 @@ apply(const FunctionApplier & applier_,
 
     double predict_label = svm_predict(itl->model,x);
 
-    result.set("output", ExpressionValue(predict_label, ts));
-
+    StructValue result{ { make_tuple("output", ExpressionValue(predict_label, ts)) } };
     return std::move(result);
 }
 
@@ -486,10 +479,16 @@ getFunctionInfo() const
 {    
     FunctionInfo result;
 
-    result.input.addEmbeddingValue("embedding", 2);
-    result.output.addAtomValue("output");
+    std::vector<KnownColumn> inputColumns, outputColumns;
+    inputColumns.emplace_back(Coord("embedding"), std::make_shared<EmbeddingValueInfo>(2),
+                              COLUMN_IS_DENSE, 0);
+    outputColumns.emplace_back(Coord("output"), std::make_shared<AtomValueInfo>(),
+                               COLUMN_IS_DENSE, 0);
 
-    return std::move(result);
+    result.input.reset(new RowValueInfo(inputColumns, SCHEMA_CLOSED));
+    result.output.reset(new RowValueInfo(outputColumns, SCHEMA_CLOSED));
+    
+    return result;
 }
 
 namespace {

@@ -719,7 +719,7 @@ struct ImportTextProcedureWorkInstance
 
         // Do we have a "select *"?  In that case, we can perform various
         // optimizations to avoid calling into the SQL layer
-        SqlExpressionDatasetContext noContext(*dataset, ""); //needs a context because x.* is ambiguous
+        SqlExpressionDatasetScope noContext(*dataset, ""); //needs a context because x.* is ambiguous
         isIdentitySelect = config.select.isIdentitySelect(noContext);  
 
         // Is the name the lineNumber()?  If so, we can save on

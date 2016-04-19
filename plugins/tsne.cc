@@ -411,6 +411,7 @@ TsneOutput
 TsneEmbed::
 call(TsneInput input) const
 {
+    throw HttpReturnException(600, "TsneEmbed::call()");
 #if 0    
     FunctionOutput result;
 

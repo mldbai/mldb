@@ -643,11 +643,18 @@ Coords::Coords()
 {
 }
 
-Coords::Coords(Coord coord)
+Coords::Coords(Coord && coord)
 {
     if (coord.empty())
         throw HttpReturnException(400, "Attempt to create a column or row name with an empty element");
     emplace_back(std::move(coord));
+}
+
+Coords::Coords(const Coord & coord)
+{
+    if (coord.empty())
+        throw HttpReturnException(400, "Attempt to create a column or row name with an empty element");
+    emplace_back(coord);
 }
 
 Utf8String

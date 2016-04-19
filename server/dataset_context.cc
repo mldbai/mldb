@@ -70,7 +70,7 @@ doGetFunction(const Utf8String & tableName,
             }
         
             auto exec = [=] (const std::vector<ExpressionValue> & args,
-                             const SqlRowScope & context)
+                             const SqlRowScope & scope)
                 -> ExpressionValue
                 {
                     if (args.empty()) {
@@ -127,22 +127,22 @@ getMldbServer() const
 /* ROW EXPRESSION DATASET CONTEXT                                            */
 /*****************************************************************************/
 
-SqlExpressionDatasetContext::
-SqlExpressionDatasetContext(std::shared_ptr<Dataset> dataset, const Utf8String& alias)
+SqlExpressionDatasetScope::
+SqlExpressionDatasetScope(std::shared_ptr<Dataset> dataset, const Utf8String& alias)
     : SqlExpressionMldbScope(dataset->server), dataset(*dataset), alias(alias)
 {
      dataset->getChildAliases(childaliases);
 }
 
-SqlExpressionDatasetContext::
-SqlExpressionDatasetContext(const Dataset & dataset, const Utf8String& alias)
+SqlExpressionDatasetScope::
+SqlExpressionDatasetScope(const Dataset & dataset, const Utf8String& alias)
     : SqlExpressionMldbScope(dataset.server), dataset(dataset), alias(alias)
 {
     dataset.getChildAliases(childaliases);
 }
 
-SqlExpressionDatasetContext::
-SqlExpressionDatasetContext(const BoundTableExpression& boundDataset)
+SqlExpressionDatasetScope::
+SqlExpressionDatasetScope(const BoundTableExpression& boundDataset)
     : SqlExpressionMldbScope(boundDataset.dataset->server),
       dataset(*boundDataset.dataset),
       alias(boundDataset.asName)
@@ -151,7 +151,7 @@ SqlExpressionDatasetContext(const BoundTableExpression& boundDataset)
 }
 
 ColumnGetter
-SqlExpressionDatasetContext::
+SqlExpressionDatasetScope::
 doGetColumn(const Utf8String & tableName,
             const ColumnName & columnName)
 {   
@@ -188,7 +188,7 @@ doGetColumn(const Utf8String & tableName,
 }
 
 BoundFunction
-SqlExpressionDatasetContext::
+SqlExpressionDatasetScope::
 doGetFunction(const Utf8String & tableName,
               const Utf8String & functionName,
               const std::vector<BoundSqlExpression> & args,
@@ -264,7 +264,7 @@ doGetFunction(const Utf8String & tableName,
 }
 
 ColumnGetter
-SqlExpressionDatasetContext::
+SqlExpressionDatasetScope::
 doGetBoundParameter(const Utf8String & paramName)
 {
     return {[=] (const SqlRowScope & context,
@@ -282,7 +282,7 @@ doGetBoundParameter(const Utf8String & paramName)
 }
 
 GetAllColumnsOutput
-SqlExpressionDatasetContext::
+SqlExpressionDatasetScope::
 doGetAllColumns(const Utf8String & tableName,
                 std::function<ColumnName (const ColumnName &)> keep)
 {
@@ -314,6 +314,7 @@ doGetAllColumns(const Utf8String & tableName,
 
     for (auto & columnName: columns) {
         ColumnName outputName(filterColumnName(columnName));
+
         if (outputName == ColumnName()) {
             allWereKept = false;
             continue;
@@ -387,7 +388,7 @@ doGetAllColumns(const Utf8String & tableName,
 }
 
 GenerateRowsWhereFunction
-SqlExpressionDatasetContext::
+SqlExpressionDatasetScope::
 doCreateRowsWhereGenerator(const SqlExpression & where,
                            ssize_t offset,
                            ssize_t limit)
@@ -400,7 +401,7 @@ doCreateRowsWhereGenerator(const SqlExpression & where,
 }
 
 ColumnFunction
-SqlExpressionDatasetContext::
+SqlExpressionDatasetScope::
 doGetColumnFunction(const Utf8String & functionName)
 {
     if (functionName == "columnName") {
@@ -435,30 +436,34 @@ doGetColumnFunction(const Utf8String & functionName)
 }
 
 ColumnName
-SqlExpressionDatasetContext::
+SqlExpressionDatasetScope::
 doResolveTableName(const ColumnName & fullColumnName, Utf8String &tableName) const
 {
-    throw HttpReturnException(600, "To implement: SqlExpressionDatasetContext::doResolveTableName");
-#if 0
     if (!childaliases.empty()) {
-        return resolveTableName(fullColumnName, tableName);
+        for (auto & a: childaliases) {
+            if (fullColumnName.startsWith(a)) {
+                tableName = a;
+                return fullColumnName.removePrefix();
+            }
+        }
     }
     else {
-        Utf8String simplifiedVariableName
-            = removeTableName(alias, fullColumnName).toSimpleName();
-        if (simplifiedVariableName != fullColumnName)
+        if (fullColumnName.startsWith(alias)) {
             tableName = alias;
-        return std::move(simplifiedVariableName);
+            return fullColumnName.removePrefix();
+        }
     }
-#endif
+    tableName = Utf8String();
+    return fullColumnName;
 }   
+
 
 /*****************************************************************************/
 /* ROW EXPRESSION ORDER BY CONTEXT                                           */
 /*****************************************************************************/
 
 ColumnGetter
-SqlExpressionOrderByContext::
+SqlExpressionOrderByScope::
 doGetColumn(const Utf8String & tableName, const ColumnName & columnName)
 {
     /** An order by clause can read through both what was selected and what

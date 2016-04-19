@@ -1721,7 +1721,7 @@ traverse(const TraverseFunction & visitor) const
 
 bool
 SqlExpression::
-isIdentitySelect(SqlExpressionDatasetContext & context) const
+isIdentitySelect(SqlExpressionDatasetScope & context) const
 {
     return false;  // safe default; subclasses can override for better perf
 }
@@ -3051,7 +3051,7 @@ getChildren() const
 
 bool
 SelectExpression::
-isIdentitySelect(SqlExpressionDatasetContext & context) const
+isIdentitySelect(SqlExpressionDatasetScope & context) const
 {
     // Allow us to identify a select * which will apply the identity
     // function to the row coming in.  This can be used to optimize

@@ -9,7 +9,6 @@
 #include "script_function.h"
 #include "mldb/server/mldb_server.h"
 #include "mldb/types/basic_value_descriptions.h"
-#include "mldb/server/function_contexts.h"
 #include "mldb/rest/in_process_rest_connection.h"
 #include "mldb/types/any_impl.h"
 
@@ -84,7 +83,7 @@ apply(const FunctionApplier & applier,
     // its contents to the args parameter of the script
     ScriptResource copiedSR(cachedResource);
 
-    ExpressionValue args = context.get<ExpressionValue>("args");
+    ExpressionValue args = context.getColumn(Coord("args"));
     //Json::Value val = { args.extractJson(), jsonEncode(args.getEffectiveTimestamp()) };
     Json::Value val = jsonEncode(args);
     copiedSR.args = val;
@@ -124,20 +123,27 @@ apply(const FunctionApplier & applier,
                                                   Date::parseIso8601DateTime(elem[2].asString()))));
     }
 
-    FunctionOutput foResult;
-    foResult.set("return", vals);
-    return foResult;
+    StructValue sresult;
+    sresult.emplace_back("return", std::move(vals));
+
+    return std::move(sresult);
 }
 
 FunctionInfo
 ScriptFunction::
 getFunctionInfo() const
 {
-
     FunctionInfo result;
-    result.input.addRowValue("args");
-    result.output.addRowValue("return");
 
+    std::vector<KnownColumn> inputColumns, outputColumns;
+    inputColumns.emplace_back(Coord("args"), std::make_shared<UnknownRowValueInfo>(),
+                              COLUMN_IS_DENSE, 0);
+    outputColumns.emplace_back(Coord("return"), std::make_shared<UnknownRowValueInfo>(),
+                               COLUMN_IS_DENSE, 0);
+    
+    result.input.reset(new RowValueInfo(inputColumns, SCHEMA_CLOSED));
+    result.output.reset(new RowValueInfo(outputColumns, SCHEMA_CLOSED));
+    
     return result;
 }
 

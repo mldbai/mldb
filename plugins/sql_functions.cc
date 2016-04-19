@@ -232,6 +232,11 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
                                   ExpressionValue & val)
                     {
                         if (col == Coord("column")) {
+                            if (val.empty()) {
+                                throw HttpReturnException
+                                (400, "Column names in NAMED_COLUMNS SQL can't be "
+                                 "null");
+                            }
                             foundCol = Coord(val.getAtom().toUtf8String());
                             ++numFoundCol;
                         }
@@ -428,13 +433,12 @@ struct SqlExpressionFunctionApplier: public FunctionApplier {
 
         if (function->functionConfig.prepared) {
             // Use the pre-bound version.   
-            return function->bound(function->innerScope
-                                   ->getRowScope(outerRow, context),
+            return function->bound(function->innerScope->getRowScope(context),
                                    GET_LATEST);
         }
         else {
             // Use the specialized version. 
-            return bound(this->innerScope.getRowScope(outerRow, context),
+            return bound(this->innerScope.getRowScope(context),
                          GET_LATEST);
         }
     }

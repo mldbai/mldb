@@ -54,7 +54,7 @@ struct SqlExpressionMldbScope: public SqlBindingScope {
 
 /** Context to bind a row expression into a dataset. */
 
-struct SqlExpressionDatasetContext: public SqlExpressionMldbScope {
+struct SqlExpressionDatasetScope: public SqlExpressionMldbScope {
 
     struct RowScope: public SqlRowScope {
         RowScope(const MatrixNamedRow & row,
@@ -71,9 +71,9 @@ struct SqlExpressionDatasetContext: public SqlExpressionMldbScope {
         //const Date date;
     };
 
-    SqlExpressionDatasetContext(std::shared_ptr<Dataset> dataset, const Utf8String& alias);
-    SqlExpressionDatasetContext(const Dataset & dataset, const Utf8String& alias);
-    SqlExpressionDatasetContext(const BoundTableExpression& boundDataset);
+    SqlExpressionDatasetScope(std::shared_ptr<Dataset> dataset, const Utf8String& alias);
+    SqlExpressionDatasetScope(const Dataset & dataset, const Utf8String& alias);
+    SqlExpressionDatasetScope(const BoundTableExpression& boundDataset);
 
     const Dataset & dataset;
     Utf8String alias;
@@ -134,9 +134,9 @@ protected:
     clause.  This has access to all of the input and output columns.
 */
 
-struct SqlExpressionOrderByContext: public ReadThroughBindingScope {
+struct SqlExpressionOrderByScope: public ReadThroughBindingScope {
 
-    SqlExpressionOrderByContext(SqlBindingScope & outer)
+    SqlExpressionOrderByScope(SqlBindingScope & outer)
         : ReadThroughBindingScope(outer)
     {
     }

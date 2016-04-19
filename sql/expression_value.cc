@@ -443,6 +443,20 @@ getScalarDescription() const
                               "type", ML::type_name(*this));
 }
 
+std::shared_ptr<ExpressionValueInfo>
+ExpressionValueInfo::
+findNestedColumn(const ColumnName& columnName)
+{
+    return nullptr;
+}
+
+std::shared_ptr<ExpressionValueInfo>
+ExpressionValueInfo::
+getColumn(const Coord & columnName) const
+{
+    return nullptr;
+}
+
 std::vector<ssize_t>
 ExpressionValueInfo::
 getEmbeddingShape() const
@@ -1108,12 +1122,39 @@ findNestedColumn(const ColumnName& columnName)
         else if (columnName.startsWith(col.columnName)) {
             // Nested; look inside the sub-info
             ColumnName tail = columnName.removePrefix(col.columnName.size());
+            auto res = col.valueInfo->findNestedColumn(tail);
+            if (res)
+                return res;
+        }
+    }
+    
+    if (completeness == SCHEMA_CLOSED)
+        return nullptr;
+
+    return std::make_shared<AnyValueInfo>();
+}            
+
+std::shared_ptr<ExpressionValueInfo>
+RowValueInfo::
+getColumn(const Coord & columnName) const
+{
+    throw HttpReturnException(600, "RowValueInfo::getColumn()");
+#if 0
+    for (auto& col : columns) {
+        if (col.columnName == columnName) {
+            // Found directly
+            return col.valueInfo;
+        }
+        else if (col.columnName.startsWith(columnName)) {
+            // Nested; look inside the sub-info
+            ColumnName tail = columnName.removePrefix(col.columnName.size());
             return col.valueInfo->findNestedColumn(tail);
         }
     }
     
     return nullptr;  // not found
-}            
+#endif
+}
 
 
 /*****************************************************************************/

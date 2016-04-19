@@ -331,7 +331,8 @@ struct Coords: protected std::vector<Coord> {
     typedef std::vector<Coord> Base;
 
     Coords();
-    Coords(Coord coord);
+    Coords(Coord && coord);
+    Coords(const Coord & coord);
     template<typename T>
     Coords(const std::initializer_list<T> & val)
         : Coords(val.begin(), val.end())

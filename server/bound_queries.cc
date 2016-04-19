@@ -57,7 +57,7 @@ struct BoundSelectQuery::Executor {
 struct UnorderedExecutor: public BoundSelectQuery::Executor {
     std::shared_ptr<MatrixView> matrix;
     GenerateRowsWhereFunction whereGenerator;
-    SqlExpressionDatasetContext & context;
+    SqlExpressionDatasetScope & context;
     BoundSqlExpression whereBound;
     BoundWhenExpression whenBound;
     BoundSqlExpression boundSelect;
@@ -69,7 +69,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
 
     UnorderedExecutor(std::shared_ptr<MatrixView> matrix,
                       GenerateRowsWhereFunction whereGenerator,
-                      SqlExpressionDatasetContext & context,
+                      SqlExpressionDatasetScope & context,
                       BoundWhenExpression whenBound,
                       BoundSqlExpression boundSelect,
                       std::vector<BoundSqlExpression> boundCalc,
@@ -291,7 +291,7 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
 
     std::shared_ptr<MatrixView> matrix;
     GenerateRowsWhereFunction whereGenerator;
-    SqlExpressionDatasetContext & context;
+    SqlExpressionDatasetScope & context;
     BoundWhenExpression whenBound;
     BoundSqlExpression boundSelect;
     std::vector<BoundSqlExpression> boundCalc;
@@ -299,7 +299,7 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
 
     OrderedExecutor(std::shared_ptr<MatrixView> matrix,
                     GenerateRowsWhereFunction whereGenerator,
-                    SqlExpressionDatasetContext & context,
+                    SqlExpressionDatasetScope & context,
                     BoundWhenExpression whenBound,
                     BoundSqlExpression boundSelect,
                     std::vector<BoundSqlExpression> boundCalc,
@@ -331,7 +331,7 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
         // cerr << "doing " << rows.size() << " rows with order by" << endl;
         // We have a defined order, so we need to sort here
 
-        SqlExpressionOrderByContext orderByContext(context);
+        SqlExpressionOrderByScope orderByContext(context);
 
         auto boundOrderBy = newOrderBy.bindAll(orderByContext);
 
@@ -465,7 +465,7 @@ struct SortByRowHash {
 struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
     std::shared_ptr<MatrixView> matrix;
     GenerateRowsWhereFunction whereGenerator;
-    SqlExpressionDatasetContext & context;
+    SqlExpressionDatasetScope & context;
     BoundWhenExpression whenBound;
     BoundSqlExpression boundSelect;
     std::vector<BoundSqlExpression> boundCalc;
@@ -474,7 +474,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
 
     RowHashOrderedExecutor(std::shared_ptr<MatrixView> matrix,
                            GenerateRowsWhereFunction whereGenerator,
-                           SqlExpressionDatasetContext & context,
+                           SqlExpressionDatasetScope & context,
                            BoundWhenExpression whenBound,
                            BoundSqlExpression boundSelect,
                            std::vector<BoundSqlExpression> boundCalc,
@@ -917,7 +917,7 @@ BoundSelectQuery(const SelectExpression & select,
                  bool implicitOrderByRowHash, 
                  int  numBuckets)
     : select(select), from(from), when(when), where(where), calc(calc),
-      orderBy(orderBy), context(new SqlExpressionDatasetContext(from, std::move(alias)))
+      orderBy(orderBy), context(new SqlExpressionDatasetScope(from, std::move(alias)))
 {
     try {
         SqlExpressionWhenScope whenScope(*context);
@@ -1073,11 +1073,11 @@ getSelectOutputInfo() const
 
 typedef std::vector<std::shared_ptr<void> > GroupMapValue;
 
-struct GroupContext: public SqlExpressionDatasetContext {
+struct GroupContext: public SqlExpressionDatasetScope {
 
     GroupContext(const Dataset& dataset, const Utf8String& alias, 
             const TupleExpression & groupByExpression) : 
-        SqlExpressionDatasetContext(dataset, alias), 
+        SqlExpressionDatasetScope(dataset, alias), 
         groupByExpression(groupByExpression),
         argCounter(0), argOffset(0),
         evaluateEmptyGroups(false)
@@ -1297,7 +1297,7 @@ BoundGroupByQuery(const SelectExpression & select,
     : from(from),
       when(when),
       where(where),
-      rowContext(new SqlExpressionDatasetContext(from, alias)),
+      rowContext(new SqlExpressionDatasetScope(from, alias)),
       groupContext(new GroupContext(from, alias, groupBy)),
       groupBy(groupBy),
       select(select),

@@ -282,10 +282,13 @@ struct ExpressionValueInfo {
         with columns name separated by a '.'
     */
     virtual std::shared_ptr<ExpressionValueInfo>
-    findNestedColumn(const ColumnName& columnName)
-    {
-        return nullptr;
-    }
+    findNestedColumn(const ColumnName& columnName);
+
+    /** Return the info object for the given column.  Default will throw that
+        the column is unknown; row info needs to override.
+    */
+    virtual std::shared_ptr<ExpressionValueInfo>
+    getColumn(const Coord & columnName) const;
 
     /** Return the shape of an embedding.  For scalars, it's the empty
         vector.  For vectors, matrices, tensors it's the real shape.
@@ -1321,6 +1324,9 @@ struct RowValueInfo: public ExpressionValueInfoT<RowValue> {
 
     virtual std::shared_ptr<ExpressionValueInfo>
     findNestedColumn(const ColumnName & columnName);
+
+    virtual std::shared_ptr<ExpressionValueInfo>
+    getColumn(const Coord & columnName) const;
 
     virtual std::vector<KnownColumn> getKnownColumns() const;
     virtual SchemaCompleteness getSchemaCompleteness() const;

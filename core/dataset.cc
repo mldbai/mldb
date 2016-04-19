@@ -1260,7 +1260,7 @@ generateRowsWhere(const SqlBindingScope & scope,
     // Couldn't optimize.  Fall through to scanning, evaluating the where
     // expression at each point
 
-    SqlExpressionDatasetContext dsScope(*this, alias);
+    SqlExpressionDatasetScope dsScope(*this, alias);
     auto whereBound = where.bind(dsScope);
 
     // Detect if where needs columns or not, by looking at what is unbound
@@ -1374,13 +1374,13 @@ queryBasic(const SqlBindingScope & scope,
         newOrderBy.clauses.push_back(x);
     }
 
-    SqlExpressionDatasetContext selectScope(*this, "");
+    SqlExpressionDatasetScope selectScope(*this, "");
     SqlExpressionWhenScope whenScope(selectScope);
     auto boundWhen = when.bind(whenScope);
 
     auto boundSelect = select.bind(selectScope);
     
-    SqlExpressionOrderByContext orderByScope(selectScope);
+    SqlExpressionOrderByScope orderByScope(selectScope);
     
     auto boundOrderBy = newOrderBy.bindAll(orderByScope);
 

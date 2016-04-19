@@ -112,7 +112,7 @@ void iterateDense(const SelectExpression & select,
 {
     ExcAssert(aggregator);
 
-    SqlExpressionDatasetContext context(from, alias);
+    SqlExpressionDatasetScope context(from, alias);
     SqlExpressionWhenScope whenContext(context);
     auto whenBound = when.bind(whenContext);
     // Bind our where statement
@@ -199,7 +199,7 @@ getEmbedding(const SelectExpression & select,
              int limit,
              const std::function<bool (const Json::Value &)> & onProgress)
 {
-    SqlExpressionDatasetContext context(dataset, alias);
+    SqlExpressionDatasetScope context(dataset, alias);
 
     BoundSqlExpression boundSelect = select.bind(context);
 
@@ -213,95 +213,53 @@ getEmbedding(const SelectExpression & select,
 
     ExcAssertGreaterEqual(maxDimensions, 0);
 
+    std::vector<ColumnName> varNames;
+    varNames.reserve(vars.size());
+    for (auto & v: vars)
+        varNames.emplace_back(v.columnName);
+
+    auto getEmbeddingDouble = boundSelect.info->extractDoubleEmbedding(varNames);
+
     // Now we know what values came out of it
 
     std::mutex rowsLock;
     std::vector<std::tuple<RowHash, RowName, std::vector<double>, std::vector<ExpressionValue> > > rows;
 
+    auto aggregator = [&] (const RowHash & rowHash,
+                           const RowName & rowName,
+                           int64_t rowIndex,
+                           const std::vector<double> & features,
+                           const std::vector<ExpressionValue> & extraVals)
+        {
+            std::unique_lock<std::mutex> guard(rowsLock);
+                
+            if (features.size() <= maxDimensions) {
+                rows.emplace_back(rowHash, rowName, features, extraVals);
+            }
+            else {
+                ExcAssertLessEqual(maxDimensions, features.size());
+                rows.emplace_back(rowHash, rowName,
+                                  vector<double>(features.begin(), features.begin() + maxDimensions),
+                                  extraVals);
+            }
+
+            return true;
+        };
+
+    auto sparseAggregator = [&] (NamedRowValue & output,
+                                 const std::vector<ExpressionValue> & calcd)
+        {
+            auto features = getEmbeddingDouble(std::move(output.columns));
+            return aggregator(output.rowHash, output.rowName, -1 /* rowIndex */,
+                              features, calcd);
+        };
+
     if (limit != -1 || offset != 0) { //TODO - MLDB-1127 - orderBy condition here
-        auto getEmbeddingDouble = [] (const StructValue & columns)
-            -> ML::distribution<double>
-            {
-                // BEFORE MERGING FIX THIS
-                throw HttpReturnException(500, "TODO: use generic getEmbeddingDouble");
-#if 0
-                //cerr << "getEmbedding for " << jsonEncode(*this) << endl;
 
-                // TODO: this is inefficient.  We should be able to have the
-                // info function return us one that does it much more
-                // efficiently.
-
-                std::vector<std::pair<ColumnName, double> > features;
-             
-                auto onColumnValue = [&] (const std::tuple<Coords, ExpressionValue> & column)
-                {
-                    features.emplace_back(get<0>(column), get<1>(column).toDouble());
-                    return true;
-                };
-                
-                std::for_each(columns.begin(), columns.end(), onColumnValue);
-                
-                std::sort(features.begin(), features.end());
-
-                ML::distribution<double> result;
-                result.reserve(features.size());
-                for (unsigned i = 0;  i < features.size();  ++i) {
-                    result.push_back(features[i].second);
-                }
-
-                return result;
-#endif
-            };
-
-        std::function<bool (NamedRowValue & output,
-                            const std::vector<ExpressionValue> & calcd)>
-            aggregator = [&] (NamedRowValue & output,
-                              const std::vector<ExpressionValue> & calcd)
-            {
-                std::unique_lock<std::mutex> guard(rowsLock);
-               
-                auto features = getEmbeddingDouble(output.columns);
-               
-                if (features.size() <= maxDimensions) {
-                    rows.emplace_back(output.rowHash, output.rowName, features, calcd);
-                }
-                else {
-                    ExcAssertLessEqual(maxDimensions, features.size());
-                    rows.emplace_back(output.rowHash, output.rowName,
-                                      vector<double>(features.begin(), features.begin() + maxDimensions),
-                                      calcd);
-                }
-               
-                return true;
-            };
-       
-        iterateDataset(select, dataset, std::move(alias), when, where, calc, aggregator, orderBy, offset, limit, onProgress);
+        iterateDataset(select, dataset, std::move(alias), when, where, calc,
+                       sparseAggregator, orderBy, offset, limit, onProgress);
     }
     else { // this has opportunity for more optimization since there are no offset or limit
-        auto aggregator = [&] (const RowHash & rowHash,
-                               const RowName & rowName,
-                               int64_t rowIndex,
-                               const std::vector<double> & features,
-                               const std::vector<ExpressionValue> & extraVals)
-            {
-                std::unique_lock<std::mutex> guard(rowsLock);
-                
-                //cerr << "embedding got row " << rowName << " with index "
-                //     << rowIndex << endl;
-
-                if (features.size() <= maxDimensions) {
-                    rows.emplace_back(rowHash, rowName, features, extraVals);
-                }
-                else {
-                    ExcAssertLessEqual(maxDimensions, features.size());
-                    rows.emplace_back(rowHash, rowName,
-                                      vector<double>(features.begin(), features.begin() + maxDimensions),
-                                      extraVals);
-                }
-
-                return true;
-            };
-
         iterateDense(select, dataset, alias, when, where, calc, aggregator, nullptr);
 
         // we still need to order by rowHash to ensure determinism in the results

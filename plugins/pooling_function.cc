@@ -7,7 +7,6 @@
 #include "pooling_function.h"
 #include "mldb/server/mldb_server.h"
 #include "mldb/types/basic_value_descriptions.h"
-#include "mldb/server/function_contexts.h"
 #include "mldb/types/any_impl.h"
 #include "server/dataset_context.h"
 #include "mldb/server/analytics.h"

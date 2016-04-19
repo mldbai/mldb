@@ -20,7 +20,6 @@
 #include "jml/utils/string_functions.h"
 #include "plugins/sql_functions.h"
 #include "sql/execution_pipeline.h"
-#include "server/function_contexts.h"
 #include "server/bound_queries.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/jml/db/persistent.h"
@@ -215,7 +214,7 @@ run(const ProcedureRunConfig & run,
 
     {
         // Find only those variables used
-        SqlExpressionDatasetContext context(boundDataset);
+        SqlExpressionDatasetScope context(boundDataset);
 
         auto selectBound = runProcConf.trainingData.stm->select.bind(context);
 
@@ -409,10 +408,9 @@ StatsTableFunction::
 apply(const FunctionApplier & applier,
       const FunctionContext & context) const
 {
-    FunctionOutput result;
+    StructValue result;
 
-    ExpressionValue storage;
-    const ExpressionValue & arg = context.mustGet("keys", storage);
+    ExpressionValue arg = context.getColumn("keys");
 
     if(arg.isRow()) {
         RowValue rtnRow;
@@ -442,13 +440,13 @@ apply(const FunctionApplier & applier,
             };
 
         arg.forEachAtom(onAtom);
-        result.set("counts", ExpressionValue(std::move(rtnRow)));
+        result.emplace_back("counts", ExpressionValue(std::move(rtnRow)));
     }
     else {
         throw ML::Exception("wrong input type");
     }
 
-    return result;
+    return std::move(result);
 }
 
 FunctionInfo
@@ -456,8 +454,16 @@ StatsTableFunction::
 getFunctionInfo() const
 {
     FunctionInfo result;
-    result.input.addRowValue("keys");
-    result.output.addRowValue("counts");
+
+    std::vector<KnownColumn> inputColumns, outputColumns;
+    inputColumns.emplace_back(Coord("keys"), std::make_shared<UnknownRowValueInfo>(),
+                              COLUMN_IS_DENSE, 0);
+    outputColumns.emplace_back(Coord("counts"), std::make_shared<UnknownRowValueInfo>(),
+                               COLUMN_IS_DENSE, 0);
+    
+    result.input.reset(new RowValueInfo(inputColumns, SCHEMA_CLOSED));
+    result.output.reset(new RowValueInfo(outputColumns, SCHEMA_CLOSED));
+    
     return result;
 }
 
@@ -809,10 +815,9 @@ StatsTablePosNegFunction::
 apply(const FunctionApplier & applier,
       const FunctionContext & context) const
 {
-    FunctionOutput result;
+    StructValue result;
 
-    ExpressionValue storage;
-    const ExpressionValue & arg = context.mustGet("keys", storage);
+    ExpressionValue arg = context.getColumn("keys");
 
     if(arg.isRow()) {
         RowValue rtnRow;
@@ -837,13 +842,13 @@ apply(const FunctionApplier & applier,
             };
 
         arg.forEachAtom(onAtom);
-        result.set("probs", ExpressionValue(std::move(rtnRow)));
+        result.emplace_back("probs", ExpressionValue(std::move(rtnRow)));
     }
     else {
         throw ML::Exception("wrong input type");
     }
-
-    return result;
+    
+    return std::move(result);
 }
 
 FunctionInfo
@@ -851,8 +856,16 @@ StatsTablePosNegFunction::
 getFunctionInfo() const
 {
     FunctionInfo result;
-    result.input.addRowValue("words");
-    result.output.addRowValue("probs");
+    
+    std::vector<KnownColumn> inputColumns, outputColumns;
+    inputColumns.emplace_back(Coord("words"), std::make_shared<UnknownRowValueInfo>(),
+                              COLUMN_IS_DENSE, 0);
+    outputColumns.emplace_back(Coord("probs"), std::make_shared<UnknownRowValueInfo>(),
+                               COLUMN_IS_DENSE, 0);
+    
+    result.input.reset(new RowValueInfo(inputColumns, SCHEMA_CLOSED));
+    result.output.reset(new RowValueInfo(outputColumns, SCHEMA_CLOSED));
+    
     return result;
 }
 

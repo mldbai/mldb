@@ -2392,7 +2392,7 @@ bind(SqlBindingScope & outerScope) const
                 const ExpressionValue & fromOutput
                     = fromBound(row, storage2, filter);
 
-                auto extractRowScope = extractScope.getRowScope(row, fromOutput);
+                auto extractRowScope = extractScope.getRowScope(fromOutput);
 
                 return extractBound(extractRowScope, storage, filter);
             },
@@ -3406,23 +3406,25 @@ BoundSqlExpression
 WildcardExpression::
 bind(SqlBindingScope & scope) const
 {
-    ColumnName simplifiedPrefix;
+    ColumnName simplifiedPrefix = prefix;
     Utf8String resolvedTableName;
 
     //cerr << "binding wildcard expression " << print() << endl;
-    //cerr << "tableName = " << tableName << endl;
     //cerr << "prefix = " << prefix << endl;
+    //cerr << "asPrefix = " << asPrefix << endl;
 
     if (!prefix.empty())
         simplifiedPrefix = scope.doResolveTableName(prefix, resolvedTableName);
 
+    //cerr << "tableName = " << resolvedTableName << endl;
+    //cerr << "simplifiedPrefix = " << simplifiedPrefix << endl;
+
     // This function figures out the new name of the column.  If it's excluded,
     // then it returns the empty column name
-    auto newColumnName = [=]
-        (const ColumnName & inputColumnName) -> ColumnName
+    auto newColumnName = [=] (const ColumnName & inputColumnName) -> ColumnName
         {
             // First, check it matches the prefix
-            if (!inputColumnName.matchWildcard(simplifiedPrefix))
+            if (!inputColumnName.matchWildcard(prefix))
                 return ColumnName();
 
             // Second, check it doesn't match an exclusion
@@ -3439,8 +3441,11 @@ bind(SqlBindingScope & scope) const
                 }
             }
 
+            //cerr << "replacing wildcard " << resolvedTableName
+            //     << " with " << asPrefix << " on " << inputColumnName << endl;
+
             // Finally, replace the prefix with the new prefix
-            return inputColumnName.replaceWildcard(simplifiedPrefix, asPrefix);
+            return inputColumnName.replaceWildcard(prefix, asPrefix);
         };
 
     auto allColumns = scope.doGetAllColumns(resolvedTableName, newColumnName);
@@ -3512,7 +3517,7 @@ wildcards() const
 
 bool
 WildcardExpression::
-isIdentitySelect(SqlExpressionDatasetContext & scope) const
+isIdentitySelect(SqlExpressionDatasetScope & scope) const
 {
     // A select * is identified like this
     return prefix.empty()
@@ -3684,7 +3689,6 @@ bind(SqlBindingScope & scope) const
     std::vector<std::function<void (const SqlRowScope &, StructValue &)> > functionsToRun;
 
     std::vector<KnownColumn> knownColumns = allColumns.info->getKnownColumns();
-   
 
     // For each group of columns, find which match
     for (unsigned j = 0;  j < knownColumns.size();  ++j) {
@@ -3692,7 +3696,7 @@ bind(SqlBindingScope & scope) const
 
         const ColumnName & columnName = col.columnName;
             
-        auto thisScope = colScope.getColumnContext(columnName);
+        auto thisScope = colScope.getColumnScope(columnName);
 
         bool keep = boundWhere(thisScope, GET_LATEST).isTrue();
 

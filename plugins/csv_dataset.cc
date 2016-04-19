@@ -696,7 +696,7 @@ struct CsvDataset::Itl: public TabularDataStore {
 
         // Do we have a "select *"?  In that case, we can perform various
         // optimizations to avoid calling into the SQL layer
-        SqlExpressionDatasetContext noContext(*parentDataset, ""); //needs a context because x.* is ambiguous
+        SqlExpressionDatasetScope noContext(*parentDataset, ""); //needs a context because x.* is ambiguous
         bool isIdentitySelect = config.select.isIdentitySelect(noContext);
         
         // Do we have a "where true'?  In that case, we don't need to

@@ -217,7 +217,7 @@ run(const ProcedureRunConfig & run,
     std::set<ColumnName> knownInputColumns;
     {
         // Find only those variables used
-        SqlExpressionDatasetContext context(boundDataset);
+        SqlExpressionDatasetScope context(boundDataset);
         
         auto selectBound = select.bind(context);
 

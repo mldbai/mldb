@@ -79,7 +79,7 @@ struct SqlBindingScope;
 struct MldbServer;
 struct BasicRowGenerator;
 struct WhenExpression;
-struct SqlExpressionDatasetContext;
+struct SqlExpressionDatasetScope;
 struct TableOperations;
 struct RowStream;
 
@@ -731,10 +731,26 @@ struct SqlRowScope {
     {
     }
 
+    /** In some circumstances, such as calling functions, we want to signal
+        that there is no row available even though the functions require
+        one to be passed.
+
+        To do this, use an SqlRowScope object directly.  The code can detect
+        whether it has a row or not by calling this hasRow() function.
+    */
+    bool hasRow() const
+    {
+        return typeid(*this) != typeid(SqlRowScope);
+    }
+
+    /** Throw an exception saying that the types requested were wrong. */
     static void throwBadNestingError(const std::type_info & typeRequested,
                                      const std::type_info & typeFound)
         __attribute__((noreturn));
 
+    /** Assert that the type of this object is the one given, and return it
+        as that type.
+    */
     template<typename T>
     T & as()
     {
@@ -747,6 +763,10 @@ struct SqlRowScope {
         throwBadNestingError(typeid(T), typeid(*this));
     }
 
+
+    /** Assert that the type of this object is the one given, and return it
+        as that type.
+    */
     template<typename T>
     const T & as() const
     {
@@ -934,7 +954,7 @@ struct SqlExpression: public std::enable_shared_from_this<SqlExpression> {
         Default implementation returns false; the subclasses which could be
         a SELECT * should override.
     */
-    virtual bool isIdentitySelect(SqlExpressionDatasetContext & context) const;
+    virtual bool isIdentitySelect(SqlExpressionDatasetScope & context) const;
 
     /** Find any children that is an aggregator call 
         This function perform partial validation of the parse tree for 
@@ -1113,7 +1133,7 @@ struct SelectExpression: public SqlRowExpression {
     virtual Utf8String getOperation() const;
     virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
 
-    virtual bool isIdentitySelect(SqlExpressionDatasetContext & context) const;
+    virtual bool isIdentitySelect(SqlExpressionDatasetScope & context) const;
 
     std::vector<std::shared_ptr<SqlRowExpression> > clauses;
 
