@@ -30,6 +30,24 @@ using namespace std;
 namespace Datacratic {
 namespace MLDB {
 
+namespace {
+inline std::vector<std::tuple<ColumnName, CellValue, Date> >
+filterEmptyColumns(MatrixNamedRow & row) {
+    // Nulls with non-finite timestamp are not recorded; they
+    // come from an expression that matched nothing and can't
+    // be represented (they will be read automatically as nulls).
+    std::vector<std::tuple<ColumnName, CellValue, Date> > cols;
+    cols.reserve(row.columns.size());
+    for (auto & c: row.columns) {
+        if (std::get<1>(c).empty()
+            && !std::get<2>(c).isADate())
+            continue;
+        cols.emplace_back(std::move(c));
+    }
+    return cols;
+}
+}
+
 std::shared_ptr<PipelineElement>
 getMldbRoot(MldbServer * server)
 {
@@ -539,9 +557,12 @@ run(const ProcedureRunConfig & run,
     bool skipEmptyRows = runProcConf.skipEmptyRows;
 
     auto recordRowInOutputDataset = [&output, &skipEmptyRows] (MatrixNamedRow & row) {
-            if (!skipEmptyRows || row.columns.size() > 0)
-                output->recordRow(row.rowName, row.columns);
-            return true;
+        std::vector<std::tuple<ColumnName, CellValue, Date> > cols = filterEmptyColumns(row);
+
+        if (!skipEmptyRows || cols.size() > 0)
+            output->recordRow(row.rowName, cols);
+
+        return true;
         };
 
     if (!runProcConf.inputData.stm->from) {
@@ -566,31 +587,18 @@ run(const ProcedureRunConfig & run,
             {
                 MatrixNamedRow row = row_.flattenDestructive();
 
-                //cerr << "got row " << jsonEncodeStr(row) << endl;
+                std::vector<std::tuple<ColumnName, CellValue, Date> > cols = filterEmptyColumns(row);
 
-                // Nulls with non-finite timestamp are not recorded; they
-                // come from an expression that matched nothing and can't
-                // be represented (they will be read automatically as nulls).
-                std::vector<std::tuple<ColumnName, CellValue, Date> > cols;
-                cols.reserve(row.columns.size());
-                for (auto & c: row.columns) {
-                    if (std::get<1>(c).empty()
-                        && !std::get<2>(c).isADate())
-                        continue;
-                    cols.emplace_back(std::move(c));
-                }
+                if (!skipEmptyRows || cols.size() > 0) {
+                    auto & rows = accum.get();
+                    rows.reserve(10000);
+                    rows.emplace_back(RowName(calc.at(0).toUtf8String()), std::move(cols));
 
-                if (!skipEmptyRows || cols.size() > 0)
-                    {
-                        auto & rows = accum.get();
-                        rows.reserve(10000);
-                        rows.emplace_back(RowName(calc.at(0).toUtf8String()), std::move(cols));
-
-                        if (rows.size() >= 10000) {
-                            output->recordRows(rows);
-                            rows.clear();
-                        }
+                    if (rows.size() >= 10000) {
+                        output->recordRows(rows);
+                        rows.clear();
                     }
+                }
 
                 return true;
             };
@@ -603,9 +611,9 @@ run(const ProcedureRunConfig & run,
                          *runProcConf.inputData.stm->where,
                          runProcConf.inputData.stm->orderBy,
                          { runProcConf.inputData.stm->rowName })
-            .execute({recordRowInOutputDataset, true/*processInParallel*/},
+            .execute({recordRowInOutputDataset, true /*processInParallel*/},
                      runProcConf.inputData.stm->offset,
-                         runProcConf.inputData.stm->limit,
+                     runProcConf.inputData.stm->limit,
                      onProgress);
 
         // Finish off the last bits of each thread
@@ -615,27 +623,31 @@ run(const ProcedureRunConfig & run,
                       });
     }
     else {
-        auto recordRowValueInOutputDataset
+        auto recordRowInOutputDataset
             = [&] (NamedRowValue & row_)
             {
                 MatrixNamedRow row = row_.flattenDestructive();
-                return recordRowInOutputDataset(row);
+                std::vector<std::tuple<ColumnName, CellValue, Date> > cols = filterEmptyColumns(row);
+                if (!skipEmptyRows || cols.size() > 0)
+                    output->recordRow(row.rowName, cols);
+
+                return true;
             };
 
         BoundGroupByQuery(runProcConf.inputData.stm->select,
                           *boundDataset.dataset,
-                              boundDataset.asName,
+                          boundDataset.asName,
                           runProcConf.inputData.stm->when,
                           *runProcConf.inputData.stm->where,
                           runProcConf.inputData.stm->groupBy,
                           aggregators,
                           *runProcConf.inputData.stm->having,
-                              *runProcConf.inputData.stm->rowName,
+                          *runProcConf.inputData.stm->rowName,
                           runProcConf.inputData.stm->orderBy)
-            .execute({recordRowValueInOutputDataset,false/*processInParallel*/},
+            .execute({recordRowInOutputDataset, false /*processInParallel*/},
                      runProcConf.inputData.stm->offset,
                      runProcConf.inputData.stm->limit,
-                         onProgress);
+                     onProgress);
     }
 
     // Save the dataset we created

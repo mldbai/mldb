@@ -88,7 +88,7 @@ assertEqual(mldb.diff(expected, resp.json, false /* strict */), {},
 var transform_config2 = {
     type: 'transform',
     params: {
-        inputData: { 
+        inputData: {
             select: 'x, y, x * 10 AS z, y + 6 AS q',
             from : 'test',
             orderBy: "rowName()",
@@ -133,7 +133,7 @@ dataset2.commit()
 var transform_config3 = {
     type: 'transform',
     params: {
-        inputData: { 
+        inputData: {
             select: 'x',
             from: 'test2',
             orderBy: "rowName()",
@@ -159,6 +159,37 @@ var expected = [
 assertEqual(mldb.diff(expected, resp.json, false /* strict */), {},
             "Output was not the same as expected output");
 
+
+var transform_config4 = {
+    type: 'transform',
+    params: {
+        inputData: {
+            select: 'y',
+            from: 'test2',
+            orderBy: "rowName()",
+            named: "rowName() + '_transformed'",
+            groupBy: "y"
+        },
+        outputDataset: { id: 'transformed4', type: 'sparse.mutable' },
+        skipEmptyRows: true
+    }
+};
+
+createAndRunProcedure(transform_config4, "transform4");
+
+var resp = mldb.get("/v1/datasets/transformed4/query", {select: '*', format: 'table', orderBy: 'rowName()'});
+
+plugin.log(resp);
+
+var expected = [
+    [ "_rowName", "y" ],
+    [ "[2]_transformed", 2 ],
+    [ "[3]_transformed", 3 ]
+];
+
+assertEqual(mldb.diff(expected, resp.json, false), {},
+            "Output was not the same as expected output");
+
 function runTransformWithNoFrom(query, expected) {
     var transform_config_no_from = {
         type: 'transform',
@@ -168,7 +199,7 @@ function runTransformWithNoFrom(query, expected) {
             skipEmptyRows: true
         }
     };
-    
+
     createAndRunProcedure(transform_config_no_from, "transform_no_from");
 
     var resp = mldb.get("/v1/datasets/transformed_no_from/query", {select: '*', format: 'table'});
