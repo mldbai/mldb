@@ -791,7 +791,7 @@ generateVariableEqualsConstant(const Dataset & dataset,
                                const ReadColumnExpression & variable,
                                const ConstantExpression & constant)
 {
-    ColumnName columnName(removeTableName(alias,variable.columnName).toSimpleName());
+    ColumnName columnName(removeTableName(alias,variable.columnName));
     CellValue constantValue(constant.constant.getAtom());
 
     auto filter = [=] (const CellValue & val)
@@ -986,7 +986,7 @@ generateRowsWhere(const SqlBindingScope & scope,
     {
         auto fexpr = getFunction(*(inExpression->expr));
         // TODO BEFORE MERGING: functionName should be a compound
-        if (fexpr && removeTableName(alias, Coords(fexpr->functionName)).toSimpleName() == "rowName") {
+        if (fexpr && removeTableName(alias, Coords(fexpr->functionName)) == Coords(Coord("rowName"))) {
             if (inExpression->tuple && inExpression->tuple->isConstant()) {
                 return {[=] (ssize_t numToGenerate, Any token,
                              const BoundParameters & params)

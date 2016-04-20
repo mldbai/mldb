@@ -1,5 +1,5 @@
 #
-# GLDB-800-nested_sql_query.py
+# MLDB-800-nested_sql_query.py
 # datacratic, 2015
 # this file is part of mldb. copyright 2015 datacratic. all rights reserved.
 #
@@ -47,44 +47,52 @@ res = mldb.put('/v1/functions/poil2', {
     'params': {
         'expression': 'patate({*})'}})
 
-try:
-    mldb.get('/v1/functions/poil2/info')
-except mldb_wrapper.ResponseException as exc:
-    res = exc.response
-else:
-    assert False, 'should not be here'
-# Uncomment this for the MLDB-801 test-case
-#assert res['statusCode'] == 200
-# also, check that the output looks like this:
-# {
-#   "input" : {
-#       "pins" : {
-#          "x" : {
-#             "valueInfo" : {
-#                "type" : "Datacratic::MLDB::AnyValueInfo"
-#             }
-#          }
-#       }
-#    },
-#    "output" : {
-#       "pins" : {
-#          "x" : {
-#             "valueInfo" : {
-#                "kind" : "scalar",
-#                "scalar" : "Datacratic::MLDB::CellValue",
-#                "type" : "Datacratic::MLDB::AtomValueInfo"
-#             }
-#          },
-#          "y" : {
-#             "valueInfo" : {
-#                "kind" : "scalar",
-#                "scalar" : "Datacratic::MLDB::CellValue",
-#                "type" : "Datacratic::MLDB::AtomValueInfo"
-#             }
-#          }
-#       }
-#    }
-# }
+res = mldb.get('/v1/functions/poil2/info')
+mldb.log(res.json())
+#assert res.statusCode == 200
+
+expected = {
+    "input": {
+        "hasUnknownColumns": True, 
+        "type": "Datacratic::MLDB::RowValueInfo", 
+        "kind": "row", 
+        "knownColumns": []
+    }, 
+    "output": {
+        "hasUnknownColumns": False, 
+        "type": "Datacratic::MLDB::RowValueInfo", 
+        "kind": "row", 
+        "knownColumns": [
+            {
+                "columnName": "patate({*})", 
+                "valueInfo": {
+                    "hasUnknownColumns": False, 
+                    "type": "Datacratic::MLDB::RowValueInfo", 
+                    "kind": "row", 
+                    "knownColumns": [
+                        {
+                            "columnName": "x", 
+                            "valueInfo": {
+                                "type": "Datacratic::MLDB::AnyValueInfo"
+                            }, 
+                            "sparsity": "sparse"
+                        }, 
+                        {
+                            "columnName": "y", 
+                            "valueInfo": {
+                                "type": "Datacratic::MLDB::AnyValueInfo"
+                            }, 
+                            "sparsity": "sparse"
+                        }
+                    ]
+                }, 
+                "sparsity": "dense"
+            }
+        ]
+    }
+}
+
+assert res.json() == expected
 
 mldb.log("poil2 function info")
 mldb.log(res.json())

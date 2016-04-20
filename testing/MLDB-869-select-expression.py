@@ -28,6 +28,7 @@ else:
 #MLDB-835
 
 result = mldb.get('/v1/query', q='SELECT x.* FROM dataset1 as x')
+mldb.log(result.json())
 assert result.json()[0]['columns'][0][1] == 9
 
 #MLDB-958 rowhash printing when rowhash bigger than 7FFFFFFFFFFFFFFF

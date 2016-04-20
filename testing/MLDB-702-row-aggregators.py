@@ -49,7 +49,7 @@ class RowAggregatorTest(MldbUnitTest):
                                                 [ "max.y", 2, self.after_ts ]
                                             ],
                                             "rowHash" : "554f96c80ea05ddb",
-                                            "rowName" : "[\"cat\"]"
+                                            "rowName" : "\"[\"\"cat\"\"]\""
                                         },
                                         {
                                             "columns" : [
@@ -61,7 +61,7 @@ class RowAggregatorTest(MldbUnitTest):
                                                 [ "max.y", 1, self.before_ts ]
                                             ],
                                             "rowHash" : "d55e0e284796f79e",
-                                            "rowName" : "[\"dog\"]"
+                                            "rowName" : "\"[\"\"dog\"\"]\""
                                     }
                                     ]);
 

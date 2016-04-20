@@ -122,7 +122,7 @@ bool matchSqlFilter(const Utf8String& valueString, const Utf8String& filterStrin
 Coords
 removeTableName(const Utf8String & alias, const Coords & columnName)
 {    
-    if (!alias.empty() && columnName.startsWith(alias)) {
+    if (!alias.empty() && columnName.size() > 1 && columnName.startsWith(alias)) {
         return columnName.removePrefix();
     }
     return columnName;
