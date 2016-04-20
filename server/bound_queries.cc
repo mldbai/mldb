@@ -1163,9 +1163,9 @@ struct GroupContext: public SqlExpressionDatasetScope {
                     // TODO: get it from the value info for the group keys...
                     std::make_shared<AnyValueInfo>()};
         }
-        return SqlBindingScope::doGetFunction(tableName,
-                                              functionName,
-                                              args, argScope);
+        return SqlExpressionDatasetScope::doGetFunction(tableName,
+                                                        functionName,
+                                                        args, argScope);
     }
 
     // Within a group by context, we can get either:
@@ -1180,10 +1180,28 @@ struct GroupContext: public SqlExpressionDatasetScope {
             const std::shared_ptr<SqlExpression> & g
                 = groupByExpression.clauses[i];
 
-            ColumnName simplifiedSurface
-                = removeTableName(alias, Coord(g->surface));
-            
-            if (simplifiedSurface == columnName) {
+            // This logic is not completely implemented.  We need to identify
+            // any parts of the group by expression that are referred to by
+            // the select clause and return their value, not just the variable
+            // names.  For the moment, we're just hacking it so that it will
+            // work with variable names.
+
+            //cerr << "columnName = " << columnName << endl;
+            //cerr << "g->print() = " << g->print() << endl;
+            //cerr << "alias = " << alias << endl;
+            //cerr << "surface = " << g->surface << endl;
+
+            // BAD SMELL using the surface here
+            ColumnName simplifiedSurface;
+            if (columnName[0] == alias) {
+                simplifiedSurface = columnName.removePrefix();
+            }
+
+            //cerr << "simplifiedSurface = " << simplifiedSurface << endl;
+   
+            if (g->surface == columnName.toUtf8String()
+                || (!simplifiedSurface.empty()
+                    && simplifiedSurface.toUtf8String() == g->surface)) {
                 return {[=] (const SqlRowScope & context,
                              ExpressionValue & storage,
                              const VariableFilter & filter)

@@ -485,12 +485,25 @@ ColumnFunction;
 
 
 /*****************************************************************************/
-/* ROW EXPRESSION BINDING CONTEXT                                            */
+/* ROW EXPRESSION BINDING SCOPE                                              */
 /*****************************************************************************/
 
-/** Context in which a row expression is bound.  At this point, the dataset
-    on which the expression is being applied is known, which allows
-    specialization based upon known characteristics of the data.
+/** This is the base class for a scope into which an SQL expression can be
+    bound.  It defines all of the different elements that are provided by
+    a scope, which includes:
+
+    - Functions, both vanilla and dataset varieties;
+    - Aggregators;
+    - Columns, both with direct names and wildcard expressions;
+    - Named parameters ($xxx);
+    - Datasets/tables
+    - The MLDB server (which is opaque to the SQL layer, but passed through)
+
+    The base scope itself provides only builtin functions and aggregators;
+    an attempt to bind something else will result in an error.  Other scopes
+    will normally be layered on top based upon the SQL expression; for example
+    an MLDB scope will add datasets; a FROM clause will add a dataset to the
+    scope, and a SELECT clause can then ask for columns within that dataset.
 */
 
 struct SqlBindingScope {

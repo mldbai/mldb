@@ -833,14 +833,15 @@ struct ExpressionValue {
 #endif
 
     /** Iterate over the child expression, with an ExpressionValue at each
-        level.
+        level.  Note that if isRow() is false, than this function will
+        NOT call the callback; it's only called for row-valued values.
     */
     bool forEachColumn(const std::function<bool (const Coord & columnName,
-                                                        const Coords & prefix,
-                                                        const ExpressionValue & val)>
-                                                  & onColumn,
-                              const Coords & prefix = Coords()) const;
-
+                                                 const Coords & prefix,
+                                                 const ExpressionValue & val)>
+                       & onColumn,
+                       const Coords & prefix = Coords()) const;
+    
     /** Iterate over child columns, returning a reference that may be moved
         elsewhere.
 

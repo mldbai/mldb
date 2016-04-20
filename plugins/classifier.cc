@@ -1042,8 +1042,6 @@ ExplainFunction::
 apply(const FunctionApplier & applier,
       const FunctionContext & context) const
 {
-    FunctionOutput result;
-
     std::vector<float> dense;
     std::shared_ptr<ML::Mutable_Feature_Set> fset;
     Date ts;
@@ -1065,14 +1063,14 @@ apply(const FunctionApplier & applier,
     Date effectiveDate = ts;
 
     for(auto iter=expl.feature_weights.begin(); iter!=expl.feature_weights.end(); iter++) {
-        features.emplace_back(ColumnName(itl->featureSpace->print(iter->first)),
+        features.emplace_back(ColumnName::parse(itl->featureSpace->print(iter->first)),
                               iter->second,
                               effectiveDate);
     }
 
     output.emplace_back("explanation", std::move(features));
 
-    return result;
+    return std::move(output);
 }
 
 FunctionInfo

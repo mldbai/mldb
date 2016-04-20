@@ -142,6 +142,7 @@ class InputDataSpecTest(unittest.TestCase):
             select='classifier_apply({{label, labels} as features}) as *, '
                    'features')
         rows = result.json()
+        mldb.log(rows)
 
         # compare the classifier results on the train data with the original
         # label
@@ -153,7 +154,7 @@ class InputDataSpecTest(unittest.TestCase):
                 if column[1] > _max:
                     _max = column[1]
                     # remove the leading scores. and quotation marks
-                    category = column[0][8:-1]
+                    category = column[0][10:-3]
             if category != row['columns'][3][1]:
                 count += 1
 

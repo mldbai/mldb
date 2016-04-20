@@ -127,10 +127,11 @@ applyT(const ApplierT & applier_, PoolingInput input) const
 
     size_t num_embed_cols = columnNames.size() * functionConfig.aggregators.size();
 
-    FunctionContext context; //TODO
+    StructValue inputRow;
+    inputRow.emplace_back("words", std::move(input.words));
 
     FunctionOutput queryOutput
-        = queryFunction->apply(*applier.queryApplier, context);
+        = queryFunction->apply(*applier.queryApplier, std::move(inputRow));
 
     std::vector<double> outputEmbedding;
     outputEmbedding.reserve(num_embed_cols);

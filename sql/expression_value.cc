@@ -2970,12 +2970,21 @@ forEachColumn(const std::function<bool (const Coord & columnName,
             };
         return embedding_->forEachColumn(onColumn2, ts_);
     }
-    case Type::NONE: {
-        return onColumn(Coord(), prefix, ExpressionValue::null(ts_));
+    case Type::NONE:
+    case Type::ATOM:
+        throw HttpReturnException(500, "Expected row expression",
+                                  "expression", *this,
+                                  "type", (int)type_);
+#if 0        
+
+        return true;
+        //return onColumn(Coord(), prefix, ExpressionValue::null(ts_));
     }
     case Type::ATOM: {
-        return onColumn(Coord(), prefix, ExpressionValue(cell_, ts_));
+        return true;
+        //return onColumn(Coord(), prefix, ExpressionValue(cell_, ts_));
     }
+#endif
     }
 
     throw HttpReturnException(500, "Unknown expression type",

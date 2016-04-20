@@ -52,8 +52,8 @@ The `melted_data` dataset will look like this:
 
 | rowName | name | age | key | value |
 |-----------|--------|-------|-----------|-----|
-| row1_friends.0 | bill | 25 | friends.0 | {"name": "mich", "age": 20} |
-| row1_friends.1 | bill | 25 | friends.1 | {"name": "jean", "age": 18} |
+| row1.friends.0 | bill | 25 | friends.0 | {"name": "mich", "age": 20} |
+| row1.friends.1 | bill | 25 | friends.1 | {"name": "jean", "age": 18} |
 
 
 ## See also

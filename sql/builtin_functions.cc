@@ -1229,138 +1229,167 @@ static RegisterBuiltin registerTempLatest(temporal_latest, "temporal_latest");
 template <typename AggregatorFunc>
 BoundFunction temporalAggregatorT(const std::vector<BoundSqlExpression> & args)
 {
-    // MUST BE FIXED BEFORE MERGE
-    throw HttpReturnException(600, "Bound aggregators");
-#if 0
     typedef typename AggregatorFunc::value_type value_type;
 
     checkArgsSize(args.size(), 1);
     auto info = args[0].info;
-
-    return {[=] (const std::vector<ExpressionValue> & args,
-                 const SqlRowScope & scope) -> ExpressionValue
+    
+    auto apply = [=] (const std::vector<ExpressionValue> & args,
+                      const SqlRowScope & scope) -> ExpressionValue
+        {
+            ExcAssertEqual(args.size(), 1);
+            
+            const ExpressionValue & val = args[0];
+            
+            // TODO - figure out what should be the ordering of the columns in the result
+            std::unordered_map<Coord, std::pair<value_type, Date> > results;
+            
+            auto onColumn = [&] (const Coord & columnName,
+                                 const Coords & prefix,
+                                 const ExpressionValue & val)
             {
-                ExcAssertEqual(args.size(), 1);
+                Date ts = val.getEffectiveTimestamp();
+                
+                if (val.empty())
+                    return true;
 
-                auto val = args[0];
-
-                // TODO - figure out what should be the ordering of the columns in the result
-                std::unordered_map<Coords, std::pair<value_type, Date> > results;
-
-                auto onAtom = [&] (const Coords & columnName,
-                                   const Coords & prefix,
-                                   const CellValue & val,
-                                   Date atomTs)
-                    {
-                        if (!val.empty()) {
-                            auto iter = results.find(columnName);
-                            if (iter != results.end()) {
-                                iter->second = AggregatorFunc::apply(iter->second, {val, atomTs});
-                            }
-                            else { // first time seen
-                                results.insert({columnName, AggregatorFunc::init({val, atomTs})});
-                            }
-                        }
-                        return true;
-                    };
-
-                val.forEachAtom(onAtom);
-
-                if (info->isScalar()) {
-                    if (results.empty())
-                        return ExpressionValue::null(args[0].getEffectiveTimestamp());
-                    auto result = results.begin();
-                    return ExpressionValue
-                        (AggregatorFunc::extract(get<0>(result->second)),
-                         get<1>(result->second));
-                } else if (info->isRow()) {
-                    std::vector<std::tuple<Coord, ExpressionValue> > row;
-                    for (auto & result : results) {
-                        row.emplace_back(result.first,
-                                         ExpressionValue(AggregatorFunc::extract(get<0>(result.second)), 
-                                                         get<1>(result.second)));
-                        return row;
+                auto iter = results.find(columnName);
+                if (iter != results.end()) {
+                    iter->second = AggregatorFunc::apply(iter->second, {val, ts});
                 }
-                else if (info->isEmbedding()) {
-                    throw HttpReturnException(500, "embeddings are not yet supported in temporal aggregators");
-                } else {
-                    throw HttpReturnException(500, "temporal aggregators invoked on unknown type");
+                else { // first time seen
+                    results.emplace(columnName, AggregatorFunc::init({val, ts}));
                 }
-            },
+
+                return true;
+            };
+
+            val.forEachColumn(onColumn);
+
+            if (val.isAtom()) {
+                if (results.empty())
+                    return ExpressionValue::null(args[0].getEffectiveTimestamp());
+                auto result = results.begin();
+                return AggregatorFunc::extract(result->second);
+            } else if (val.isRow()) {
+                std::vector<std::tuple<Coord, ExpressionValue> > row;
+                for (auto & result : results) {
+                    row.emplace_back(result.first,
+                                     AggregatorFunc::extract(result.second));
+                }
+                return std::move(row);
+            } else {
+                throw HttpReturnException
+                (500, "temporal aggregators invoked on unknown type",
+                 "value", val);
+            }
+        };
+
+    return {apply,
             std::make_shared<UnknownRowValueInfo>(),
             GET_ALL};
-#endif
 }
 
+namespace {
+
 struct Min {
-    typedef CellValue value_type;
+    typedef ExpressionValue value_type;
     typedef std::pair<value_type, Date> CellDate;
     static CellDate init(const CellDate & val) { return val; }
     static CellDate apply(const CellDate & left, const CellDate & right) {
         return right < left ? right : left;
     }
-    static CellValue extract(const value_type & val) { return val; }
+    static ExpressionValue extract(CellDate val)
+    {
+        val.first.setEffectiveTimestamp(val.second);
+        return std::move(val.first);
+    }
 };
 
 static RegisterBuiltin registerTempMin(temporalAggregatorT<Min>, "temporal_min");
 
 struct Max {
-    typedef CellValue value_type;
+    typedef ExpressionValue value_type;
     typedef std::pair<value_type, Date> CellDate;
     static CellDate init(const CellDate & val) { return val; }
     static CellDate apply(const CellDate & left, const CellDate & right) {
         return right > left ? right : left;
     }
-    static CellValue extract(const value_type & val) { return val; }
+    static ExpressionValue extract(CellDate val)
+    {
+        val.first.setEffectiveTimestamp(val.second);
+        return std::move(val.first);
+    }
 };
 
 static RegisterBuiltin registerTempMax(temporalAggregatorT<Max>, "temporal_max");
 
 struct Sum {
-    typedef CellValue value_type;
+    typedef ExpressionValue value_type;
     typedef std::pair<value_type, Date> CellDate;
     static CellDate init(const CellDate & val) { return val; }
     static CellDate apply(const CellDate & left, const CellDate & right) {
         auto value = get<0>(left).toDouble() + get<0>(right).toDouble();
         auto date = get<1>(left);
-        return {value, date.setMax(get<1>(right))};
+        date.setMax(get<1>(right));
+        return {ExpressionValue(value, date), date};
     }
-    static CellValue extract(const value_type & val) { return val; }
+    static ExpressionValue extract(CellDate val)
+    {
+        val.first.setEffectiveTimestamp(val.second);
+        return std::move(val.first);
+    }
 };
 
 static RegisterBuiltin registerTempSum(temporalAggregatorT<Sum>, "temporal_sum");
 
 struct Avg {
-    typedef std::pair<CellValue, uint64_t> value_type;
-    typedef std::pair<CellValue, Date> CellDate;
+    typedef std::pair<ExpressionValue, uint64_t> value_type;
+    typedef std::pair<ExpressionValue, Date> CellDate;
     typedef std::pair<value_type, Date> AccumValueDate;
-    static AccumValueDate init(const CellDate & val) {
+    static AccumValueDate init(const CellDate & val)
+    {
         return {{get<0>(val), 1}, get<1>(val)};
     }
     static AccumValueDate apply(const AccumValueDate & left, const CellDate & right) {
         auto sum = get<0>(get<0>(left)).toDouble() + get<0>(right).toDouble();
         auto count = get<1>(get<0>(left));
         auto date = get<1>(left);
-        return {{sum, ++count}, date.setMax(get<1>(right))};
+        date.setMax(get<1>(right));
+        return {{ExpressionValue(sum, date), ++count}, date};
     }
-    static CellValue extract(const value_type & val) { return get<0>(val).toDouble() / get<1>(val); }
+    static ExpressionValue extract(const AccumValueDate & val)
+    {
+        return ExpressionValue(val.first.first.toDouble() / val.first.second,
+                               val.second);
+    }
 };
 
 static RegisterBuiltin registerTempAvg(temporalAggregatorT<Avg>, "temporal_avg");
 
 struct Count {
-    typedef CellValue value_type;
+    typedef ExpressionValue value_type;
     typedef std::pair<value_type, Date> CellDate;
-    static CellDate init(const CellDate & val) { return {1, get<1>(val)}; }
+    static CellDate init(const CellDate & val)
+    {
+        return {ExpressionValue(1, get<1>(val)),
+                get<1>(val)}; }
     static CellDate apply(const CellDate & left, const CellDate & right) {
         auto value = get<0>(left).toInt();
         auto date = get<1>(left);
-        return {++value, date.setMax(get<1>(right))};
+        date.setMax(get<1>(right));
+        return {ExpressionValue(++value, date), date};
     }
-    static CellValue extract(const CellValue & val) { return val; }
+    static ExpressionValue extract(const CellDate & val)
+    {
+        ExpressionValue result(val.first);
+        result.setEffectiveTimestamp(val.second);
+        return result;
+    }
 };
 
 static RegisterBuiltin registerTempCount(temporalAggregatorT<Count>, "temporal_count");
+} // file scope
 
 BoundFunction date_part(const std::vector<BoundSqlExpression> & args)
 {

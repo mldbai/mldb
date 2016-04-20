@@ -124,8 +124,19 @@ struct ColumnExpressionBindingScope: public SqlBindingScope {
         return outer.getMldbServer();
     }
 
+    // Only so we can return a good error message
     virtual ColumnGetter doGetColumn(const Utf8String & tableName,
                                        const ColumnName & columnName);
+
+    // Only so we can return a good error message
+    virtual GetAllColumnsOutput
+    doGetAllColumns(const Utf8String & tableName,
+                    std::function<ColumnName (const ColumnName &)> keep);
+
+    // Only so we can return a good error message
+    virtual ColumnName
+    doResolveTableName(const ColumnName & fullVariableName,
+                       Utf8String & tableName) const;
 };
 
 

@@ -1060,7 +1060,9 @@ generateRowsWhere(const SqlBindingScope & scope,
                                                         const ColumnName & prefix,
                                                         const ExpressionValue & val)
                                         {
-                                            //casting other types to string will give a different result than non-optimized path.
+                                            //casting other types to string will give
+                                            // a different result than non-optimized
+                                            // path.
                                             if (!val.isString())
                                                 return true;
 

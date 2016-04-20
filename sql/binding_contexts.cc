@@ -202,7 +202,27 @@ ColumnGetter
 ColumnExpressionBindingScope::
 doGetColumn(const Utf8String & tableName, const ColumnName & columnName)
 {
-    throw HttpReturnException(400, "Cannot read column \"" + columnName.toUtf8String() + "\" inside COLUMN EXPR.");
+    throw HttpReturnException(400, "Cannot read column '"
+                              + columnName.toUtf8String()
+                              + "' inside COLUMN EXPR");
+}
+
+GetAllColumnsOutput
+ColumnExpressionBindingScope::
+doGetAllColumns(const Utf8String & tableName,
+                std::function<ColumnName (const ColumnName &)> keep)
+{
+    throw HttpReturnException(400, "Cannot use wildcard inside COLUMN EXPR");
+}
+
+ColumnName
+ColumnExpressionBindingScope::
+doResolveTableName(const ColumnName & fullVariableName,
+                   Utf8String & tableName) const
+{
+    throw HttpReturnException
+        (400, "Cannot use wildcard '"
+         + fullVariableName.toUtf8String() + ".*' inside COLUMN EXPR");
 }
 
 /*****************************************************************************/
@@ -468,8 +488,6 @@ doGetFunction(const Utf8String & tableName,
               const std::vector<BoundSqlExpression> & args,
               SqlBindingScope & argScope)
 {
-    cerr << "doGetFunction for " << functionName << " depth "
-         << functionStackDepth << endl;
     // Get function from the outer scope
     return outer.doGetFunction(tableName, functionName, args, argScope);
 }

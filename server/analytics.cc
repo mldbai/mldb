@@ -416,10 +416,15 @@ RowName getValidatedRowName(const ExpressionValue& rowNameEV)
     if (!rowNameEV.isAtom())
         throw HttpReturnException(400, "NAMED expression must evaluate to a single value");
 
+    Utf8String rowNameStr = rowNameEV.toUtf8String();
+
+    if (rowNameStr.empty())
+        throw HttpReturnException(400, "Can't create a row with an empty name");
+
     auto rowName = RowName::parse(rowNameEV.toUtf8String());
 
     if (rowName.empty())
-        throw HttpReturnException(400, "Can't create a row with an empty name.");
+        throw HttpReturnException(400, "Can't create a row with an empty name");
 
     return std::move(rowName);
 }

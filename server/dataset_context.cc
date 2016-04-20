@@ -448,7 +448,7 @@ doResolveTableName(const ColumnName & fullColumnName, Utf8String &tableName) con
         }
     }
     else {
-        if (fullColumnName.startsWith(alias)) {
+        if (!alias.empty() && fullColumnName.startsWith(alias)) {
             tableName = alias;
             return fullColumnName.removePrefix();
         }
