@@ -124,6 +124,26 @@ class Mldb1415Test(MldbUnitTest):
             assert any([x for idx, x in enumerate(rez[i+1]) if idx > 0 and not_null_idx != 1]) == False
 
 
+    def test_num_neighbours_parameter(self):
+        # our kmeans gave us 3 centroids. the nn function is a nearest neighbour
+        # on the iris_kmeans_centroids dataset. asking for 1 neighbour and running
+        # it on the whole dataset, will essentially give us the nearest centroid for each
+        # point in the iris_dataset. so it should give us 3 columns. each row will have
+        # a single column that is not be null. so doing the following calls should give us
+        # a non zero count each time
+        for cluster in [1, 2, 3]:
+            rez = mldb.query("""
+                select count(*) from ((
+                    select nn({coords: {* excluding(class)}, num_neighbours:1}) as *
+                    from iris_dataset
+                ))
+                where "neighbors.%d" is not null
+            """ % cluster)
+
+            mldb.log("Testing cluster %d" % cluster)
+            self.assertGreater(rez[1][1], 0)
+
+
     # TODO MLDB-1486
     def test_nearest_neigbour_in_centroid_space_to_points_is_assigned_cluster(self):
         # make sure that if we take each point and get it's nearest neighbour in the
@@ -137,14 +157,14 @@ class Mldb1415Test(MldbUnitTest):
                 from iris_dataset
             ) as tbl ON tbl.rowName() = iris_kmeans_dataset.rowName()
         """)
-        mldb.log("------------ results");
+        mldb.log("------------ results")
         mldb.log(rez)
         for line in rez[1:]:
             not_null_idx = line.index(max(line[2:]))
 
             # make sure the nearst neighbour is the assigned cluster
             assert rez[0][not_null_idx] == "tbl.neighbors.%d" % line[1]
-            
+
 
 mldb.run_tests()
 
