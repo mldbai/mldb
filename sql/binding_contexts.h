@@ -312,6 +312,10 @@ struct SqlExpressionExtractScope: public SqlBindingScope {
                   const std::vector<BoundSqlExpression> & args,
                   SqlBindingScope & argScope);
 
+    virtual ColumnName
+    doResolveTableName(const ColumnName & fullVariableName,
+                       Utf8String & tableName) const;
+
     struct RowScope: public SqlRowScope {
         RowScope(const ExpressionValue & input)
             : input(input)

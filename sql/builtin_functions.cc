@@ -1233,7 +1233,11 @@ BoundFunction temporalAggregatorT(const std::vector<BoundSqlExpression> & args)
 
     checkArgsSize(args.size(), 1);
     auto info = args[0].info;
-    
+
+    // What we do depends upon whether we have a scalar or row value in the
+    // info.
+    bool extractScalar = info->isScalar();
+
     auto apply = [=] (const std::vector<ExpressionValue> & args,
                       const SqlRowScope & scope) -> ExpressionValue
         {
@@ -1241,43 +1245,57 @@ BoundFunction temporalAggregatorT(const std::vector<BoundSqlExpression> & args)
             
             const ExpressionValue & val = args[0];
             
-            // TODO - figure out what should be the ordering of the columns in the result
-            std::unordered_map<Coord, std::pair<value_type, Date> > results;
-            
-            auto onColumn = [&] (const Coord & columnName,
-                                 const Coords & prefix,
-                                 const ExpressionValue & val)
-            {
-                Date ts = val.getEffectiveTimestamp();
-                
-                if (val.empty())
-                    return true;
-
-                auto iter = results.find(columnName);
-                if (iter != results.end()) {
-                    iter->second = AggregatorFunc::apply(iter->second, {val, ts});
-                }
-                else { // first time seen
-                    results.emplace(columnName, AggregatorFunc::init({val, ts}));
-                }
-
-                return true;
-            };
-
-            val.forEachColumn(onColumn);
-
-            if (val.isAtom()) {
-                if (results.empty())
-                    return ExpressionValue::null(args[0].getEffectiveTimestamp());
-                auto result = results.begin();
-                return AggregatorFunc::extract(result->second);
+            if (val.empty()) {
+                return val;
+            } else if (val.isAtom()) {
+                return AggregatorFunc::extract
+                (AggregatorFunc::init(make_pair(val, val.getEffectiveTimestamp())));
             } else if (val.isRow()) {
-                std::vector<std::tuple<Coord, ExpressionValue> > row;
-                for (auto & result : results) {
-                    row.emplace_back(result.first,
-                                     AggregatorFunc::extract(result.second));
+                // TODO - figure out what should be the ordering of the columns in
+                // the result
+                std::unordered_map<Coord, std::pair<value_type, Date> > results;
+            
+                auto onColumn = [&] (const Coord & columnName,
+                                     const Coords & prefix,
+                                     const ExpressionValue & val)
+                {
+                    Date ts = val.getEffectiveTimestamp();
+                
+                    if (val.empty())
+                        return true;
+
+                    auto iter = results.find(columnName);
+                    if (iter != results.end()) {
+                        iter->second = AggregatorFunc::apply(iter->second, {val, ts});
+                    }
+                    else { // first time seen
+                        results.emplace(columnName, AggregatorFunc::init({val, ts}));
+                    }
+
+                    return true;
+                };
+
+                val.forEachColumn(onColumn);
+
+                if (extractScalar) {
+                    if (results.size() != 1) {
+                        throw HttpReturnException
+                            (500, "Problem with output determination for temporal agg",
+                             "info", info,
+                             "input", val);
+                    }
+                    
+                    return AggregatorFunc::extract(results.begin()->second);
                 }
-                return std::move(row);
+                else {
+                    StructValue row;
+                    for (auto & result : results) {
+                        row.emplace_back(result.first,
+                                         AggregatorFunc::extract(result.second));
+                    }
+                    return std::move(row);
+                }
+
             } else {
                 throw HttpReturnException
                 (500, "temporal aggregators invoked on unknown type",

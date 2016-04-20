@@ -552,12 +552,42 @@ struct SqlBindingScope {
     doGetAggregator(const Utf8String & functionName,
                     const std::vector<BoundSqlExpression> & args);
     
-    // Used to get the value of a column
+    /** Used to get the value of a column.  The tableName tells us which
+        table the column lives in (if resolved), or is empty if it's
+        not known.  The columnName parameter gives the name of the
+        column.
+
+        If this function is overridden, then doResolveTableName() should
+        be overridden too.
+    */
     virtual ColumnGetter doGetColumn(const Utf8String & tableName,
                                      const ColumnName & columnName);
 
-    // Used to list all columns in a dataset.  It returns a function that can
-    // be used to return a row containing just those columns.
+    /** Used to resolve a wildcard expression.  This function returns
+        another function that can be used to return a row containing just a
+        subset of the columns where the names match.
+
+        The keep argument is used to filter the function names and to
+        indicate what the new name of the column should be.  If it returns
+        an empty ColumnName, then the column will not be kept.
+
+        NOTE ABOUT DYNAMIC SCHEMAS
+
+        It is possible that an expression has a dynamic schema, in other words
+        the column names aren't all known at binding time.  This can be known
+        by looking for info->getSchemaCompleteness() != SCHEMA_CLOSED in the
+        bound version of the expression that generates the input arguments.
+
+        This function needs to be able to handle that situation, by applying
+        the keep expression a column at a time to each input row.  In that
+        case, the keep expression WILL BE COPIED INTO THE RESULT OF THIS
+        FUNCTION.  And so, a keep expression that captures by reference
+        (via [&]) will probably crash the program.  Keep that in mind when
+        passing in the keep argument.
+
+        If this function is overridden, then doResolveTableName() should
+        be overridden too.
+    */
     virtual GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
                     std::function<ColumnName (const ColumnName &)> keep);
@@ -601,6 +631,11 @@ struct SqlBindingScope {
         This is primarily used for datasets that implement joins,
         where they may need to be able to resolve their variables to
         several underlying tables.
+
+        NOTE: a caller that calls doGetColumn() or doGetAllColumns()
+        will almost certainly call this function too.  So if either
+        of those functions is overridden, this function should 
+        be overridden too.
     */
     virtual ColumnName
     doResolveTableName(const ColumnName & fullVariableName,
@@ -622,7 +657,9 @@ struct SqlBindingScope {
 /** Create a copy, applying the given transformation to each of the child
     expressions.
 */
-typedef std::function<std::vector<std::shared_ptr<SqlExpression> > (const std::vector<std::shared_ptr<SqlExpression> > & args)> TransformArgs;
+typedef std::function<std::vector<std::shared_ptr<SqlExpression> >
+                      (const std::vector<std::shared_ptr<SqlExpression> > & args)>
+TransformArgs;
 
 
 /*****************************************************************************/

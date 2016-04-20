@@ -492,5 +492,14 @@ doGetFunction(const Utf8String & tableName,
     return outer.doGetFunction(tableName, functionName, args, argScope);
 }
 
+ColumnName
+SqlExpressionExtractScope::
+doResolveTableName(const ColumnName & fullVariableName,
+                   Utf8String & tableName) const
+{
+    // Let the outer context resolve our table name
+    return outer.doResolveTableName(fullVariableName, tableName);
+}
+
 } // namespace MLDB
 } // namespace Datacratic

@@ -2205,7 +2205,7 @@ bind(SqlBindingScope & scope) const
     }
 
     BoundFunction fn = scope.doGetFunction(tableName, functionName,
-                                             boundArgs, scope);
+                                           boundArgs, scope);
     
     if (!fn) {
         Utf8String message = "Unable to find function '" + functionName + "'";
