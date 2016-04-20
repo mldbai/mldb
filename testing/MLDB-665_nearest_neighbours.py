@@ -56,7 +56,7 @@ class Mldb1415Test(MldbUnitTest):
 
         # create a nearest neighbour function
         sql_func_res = mldb.put("/v1/functions/nn", {
-            "type": 'nearest.neighbors',
+            "type": 'embedding.neighbors',
             "params": {
                 'dataset': 'iris_kmeans_centroids'
             }
@@ -110,7 +110,7 @@ class Mldb1415Test(MldbUnitTest):
         # make sure if we only ask for 1 neighhbor, we'll get the centroid back and the other
         # cols will be null
         rez = mldb.query("""
-            select nn({coords: {* excluding (class)}, num_neighbours:1}) as * from iris_kmeans_centroids
+            select nn({coords: {* excluding (class)}, numNeighbors:1}) as * from iris_kmeans_centroids
         """)
         mldb.log(rez)
         for i in xrange(2):
@@ -132,7 +132,7 @@ class Mldb1415Test(MldbUnitTest):
             select *
             from iris_kmeans_dataset
             join (
-                select nn({coords: {* excluding(class)}, num_neighbours:1}) as *
+                select nn({coords: {* excluding(class)}, numNeighbors:1}) as *
                 from iris_dataset
             ) as tbl ON tbl.rowName() = iris_kmeans_dataset.rowName()
         """)

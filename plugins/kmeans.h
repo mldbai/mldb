@@ -90,7 +90,7 @@ struct KmeansFunctionArgs {
 DECLARE_STRUCTURE_DESCRIPTION(KmeansFunctionArgs);
 
 struct KmeansFunctionOutput {
-   ExpressionValue bestCluster;
+   ExpressionValue cluster;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(KmeansFunctionOutput);

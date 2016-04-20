@@ -1210,23 +1210,23 @@ struct GroupContext: public SqlExpressionDatasetScope {
             // names.  For the moment, we're just hacking it so that it will
             // work with variable names.
 
-            //cerr << "columnName = " << columnName << endl;
-            //cerr << "g->print() = " << g->print() << endl;
-            //cerr << "alias = " << alias << endl;
-            //cerr << "surface = " << g->surface << endl;
-
-            // BAD SMELL using the surface here
             ColumnName simplifiedSurface;
             if (columnName[0] == alias) {
                 simplifiedSurface = columnName.removePrefix();
             }
+            else {
+                if (!alias.empty())
+                    simplifiedSurface = Coord(alias) + columnName;
+                else simplifiedSurface = columnName;
+            }
 
-            //cerr << "simplifiedSurface = " << simplifiedSurface << endl;
-   
-            if (g->surface == columnName.toUtf8String()
-                || (!simplifiedSurface.empty()
-                    && simplifiedSurface.toUtf8String() == g->surface)) {
-                return {[=] (const SqlRowScope & context,
+            auto variable = std::dynamic_pointer_cast<ReadColumnExpression>(g);
+
+            if (variable) {
+                if (variable->columnName == columnName ||
+                    (!simplifiedSurface.empty() && simplifiedSurface == variable->columnName)) {
+
+                    return {[=] (const SqlRowScope & context,
                              ExpressionValue & storage,
                              const VariableFilter & filter)
                         -> const ExpressionValue &
@@ -1236,7 +1236,16 @@ struct GroupContext: public SqlExpressionDatasetScope {
                         },
                         // TODO: return real type
                         std::make_shared<AnyValueInfo>()};
+                }
             }
+
+            // cerr << "columnName = " << columnName << endl;
+            // cerr << "simplified columnName = " << simplifiedSurface << endl;
+            // cerr << "g->print() = " << g->print() << endl;
+            // cerr << "alias = " << alias << endl;
+            // cerr << "surface = " << g->surface << endl;
+            // if (variable)
+                //cerr << "expression variable = " << variable->columnName << endl;
         }
 
         // Otherwise, it must be a variable in the output row.
@@ -1251,7 +1260,7 @@ struct GroupContext: public SqlExpressionDatasetScope {
                                     filter, storage);
 
                     if (result)
-                        return *result;     
+                        return *result;
                     
                     throw HttpReturnException
                         (400, "variable '" + columnName.toUtf8String() 
