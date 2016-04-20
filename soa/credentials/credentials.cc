@@ -19,8 +19,8 @@ CredentialDescription::
 CredentialDescription()
 {
     addField("provider", &Credential::provider,
-             "Provider of credentials.  This is normally an address on the internet that "
-             "can be connected to in order to request the provided service.");
+             "Provider of credentials.  This is an identifier that could help "
+             "locating where the credentials are stored. ");
     addField("protocol", &Credential::protocol,
              "Protocol to use to access the service");
     addField("location", &Credential::location,
@@ -44,11 +44,30 @@ CredentialDescription()
              "credentials.");
 }
 
-DEFINE_STRUCTURE_DESCRIPTION(CredentialContext);
+DEFINE_STRUCTURE_DESCRIPTION(StoredCredentials);
 
-CredentialContextDescription::
-CredentialContextDescription()
+StoredCredentialsDescription::
+StoredCredentialsDescription()
 {
+    addField("resourceType", &StoredCredentials::resourceType,
+             "Type of resource that this credential rule applies to.  Currently, "
+             "resources of type aws:s3 are supported when accessing AWS S3.");
+    addField("resource", &StoredCredentials::resource,
+             "Resource that this credential rule applies to.  This is a URI style path. "
+             "If the requested resource match this prefix, the credentials will be used. "
+             "The most specific match is used.  If this is empty, the credentials will "
+             "be used for all resources of type `resourceType`.");
+    addField("expiration", &StoredCredentials::expiration,
+             "Date on which credentials expire.  After this date they will no "
+             "longer match.");
+    addField("extra", &StoredCredentials::extra,
+             "Extra credential parameters.  Some credentials types require extra "
+             "information; that information can be put here.  See the documentation "
+             "for the specific credentials type for more information.");
+    addField("credential", &StoredCredentials::credential,
+             "Credentials for when the pattern matches.  These will be returned "
+             "to the caller if the above rules match.");
 }
+
 
 } // namespace Datacratic

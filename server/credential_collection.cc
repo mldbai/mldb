@@ -23,36 +23,6 @@ namespace Datacratic {
 
 namespace MLDB {
 
-DEFINE_STRUCTURE_DESCRIPTION(StoredCredentials);
-
-StoredCredentialsDescription::
-StoredCredentialsDescription()
-{
-    addField("resourceType", &StoredCredentials::resourceType,
-             "Type of resource that this credentials rule applies to.  This is "
-             "matched by checking that the prefix matches the resource.  So a "
-             "rule with a resourceType of 'aws' will match a resource request "
-             "for a resource type of 'aws' and 'aws:s3', but not 'aw'.  If this "
-             "field is empty, it will match all resource types.");
-    addField("resource", &StoredCredentials::resource,
-             "Resource that this credentials rule applies to.  Again, this is "
-             "a prefix match.  If this is empty, it will match all resources.");
-    addField("role", &StoredCredentials::role,
-             "Role to match.  This is currently unused.");
-    addField("operation", &StoredCredentials::operation,
-             "Operation to perform on the credentials.  This is currently unused.");
-    addField("expiration", &StoredCredentials::expiration,
-             "Date on which credentials expire.  After this date they will no "
-             "longer match.");
-    addField("extra", &StoredCredentials::extra,
-             "Extra credential parameters.  Some credentials types require extra "
-             "information; that information can be put here.  See the documentation "
-             "for the specific credentials type for more information.");
-    addField("credential", &StoredCredentials::credential,
-             "Credentials for when the pattern matches.  These will be returned "
-             "to the caller if the above rules match.");
-}
-
 DEFINE_STRUCTURE_DESCRIPTION(CredentialRuleConfig);
 
 CredentialRuleConfigDescription::
@@ -87,7 +57,7 @@ CredentialRule(CredentialRuleConfig config)
 }
 
 /*****************************************************************************/
-/* COLLECITON CREDENTIAL PROVIDER                                            */
+/* COLLECTION CREDENTIAL PROVIDER                                            */
 /*****************************************************************************/
 struct CollectionCredentialProvider: public CredentialProvider {
 
@@ -97,43 +67,36 @@ struct CollectionCredentialProvider: public CredentialProvider {
 
     }
 
-    std::shared_ptr<CredentialRuleCollection> rules;
+    // not owning because credential providers are stored in a global
+    // object and we don't want to delay the destruction of a collection
+    // object that late in the MLDB shutdown process
+    std::weak_ptr<CredentialRuleCollection> rules;
 
-    virtual std::vector<std::string>
-    getResourceTypePrefixes() const
+    virtual std::vector<StoredCredentials>
+    getCredentialsOfType(const std::string & resourceType) const
     {
-        auto keys =  rules->getKeys();
-        std::vector<std::string> result;
-        for (const auto & key : keys) {
-            auto cred = rules->tryGetEntry(key);
-            ExcAssert(!cred.second); // still under construction
-            if (cred.first)
-                result.push_back(cred.first->config->store->resourceType);
-        }
-        return result;
-    }
+        std::shared_ptr<CredentialRuleCollection> sharedRules =
+            rules.lock();
 
-    virtual std::vector<Credential>
-    getSync(const std::string & resourceType,
-            const std::string & resource,
-            const CredentialContext & context,
-            Json::Value extraData) const
-    {
-        vector<Credential> result;
-        auto keys =  rules->getKeys();
-        for (const auto & key : keys) {
-            auto cred = rules->tryGetEntry(key);
-            ExcAssert(!cred.second); // still under construction
-            if (cred.first) {
-                auto stored = cred.first->config->store;
-                if (resourceType != stored->resourceType)
-                    continue;
-                if (resource.find(stored->resource) != 0)
-                    continue;
-                result.push_back(stored->credential);
+        // getCredentialsOfType called after destruction of the collection!
+        ExcAssert(sharedRules);
+
+        vector<StoredCredentials> matchingCreds;
+        if (sharedRules) {
+            auto keys = sharedRules->getKeys();
+            for (const auto & key : keys) {
+                auto cred = sharedRules->tryGetEntry(key);
+                ExcAssert(!cred.second); // still under construction!
+                if (cred.first) {
+                    auto stored = cred.first->config->store;
+                    if (resourceType != stored->resourceType)
+                        continue;
+                    matchingCreds.push_back(*stored);
+                }
             }
         }
-        return result;
+
+        return matchingCreds;
     }
 };
 
@@ -251,8 +214,8 @@ createCredentialCollection(MLDB::MldbServer * server, RestRouteManager & routeMa
 
     server->addEntity("credentials", *result);
 
-    CredentialProvider::registerProvider("collectionCredentials",
-                                         std::make_shared<CollectionCredentialProvider>(result));
+    CredentialProvider::
+        registerProvider(std::make_shared<CollectionCredentialProvider>(result));
     return result;
 }
 

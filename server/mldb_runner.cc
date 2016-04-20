@@ -14,6 +14,8 @@
 #include "mldb/server/credential_collection.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/utils/config.h"
+#include "mldb/soa/credentials/credential_provider.h"
+#include "mldb/soa/credentials/credentials.h"
 #include <boost/filesystem.hpp>
 #include <boost/program_options/cmdline.hpp>
 #include <boost/program_options/options_description.hpp>
@@ -44,43 +46,25 @@ struct CommandLineCredentialProvider: public CredentialProvider {
 
     CommandLineCredentialProvider(const std::vector<string> & credsStr)
     {
-        set<string> resourceTypeSet;
         for (auto & c: credsStr) {
             creds.emplace_back(jsonDecodeStr<StoredCredentials>(c));
-            resourceTypeSet.insert(creds.back().resourceType);
         }
-
-        resourceTypePrefixes.insert(resourceTypePrefixes.begin(),
-                                    resourceTypeSet.begin(),
-                                    resourceTypeSet.end());
     }
 
-    std::vector<std::string> resourceTypePrefixes;
     std::vector<StoredCredentials> creds;
 
-    virtual std::vector<std::string>
-    getResourceTypePrefixes() const
+    virtual std::vector<StoredCredentials>
+    getCredentialsOfType(const std::string & resourceType) const
     {
-        return resourceTypePrefixes;
-    }
+        vector<StoredCredentials> matchingCreds;
 
-    virtual std::vector<Credential>
-    getSync(const std::string & resourceType,
-            const std::string & resource,
-            const CredentialContext & context,
-            Json::Value extraData) const
-    {
-        vector<Credential> result;
-
-        for (auto & c: creds) {
-            if (resourceType != c.resourceType)
+        for (auto & cred: creds) {
+            if (resourceType != cred.resourceType)
                 continue;
-            if (resource.find(c.resource) != 0)
-                continue;
-            result.push_back(c.credential);
+            matchingCreds.push_back(cred);
         }
 
-        return result;
+        return matchingCreds;
     }
 };
 
@@ -254,8 +238,7 @@ int main(int argc, char ** argv)
     if (!addCredentials.empty()) {
         try {
             CredentialProvider::registerProvider
-                ("mldbCommandLineCredentials",
-                 std::make_shared<CommandLineCredentialProvider>(addCredentials));
+                (std::make_shared<CommandLineCredentialProvider>(addCredentials));
         }
         catch (const HttpReturnException & exc) {
             cerr << "error reading credentials from command line: "
@@ -298,8 +281,7 @@ int main(int argc, char ** argv)
 
             if (!fileCredentials.empty()) {
                 CredentialProvider::registerProvider
-                    ("mldbCredentialsUrl",
-                     std::make_shared<CommandLineCredentialProvider>(fileCredentials));
+                    (std::make_shared<CommandLineCredentialProvider>(fileCredentials));
             }
         }
         catch (const HttpReturnException & exc) {

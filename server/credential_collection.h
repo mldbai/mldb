@@ -10,7 +10,7 @@
 #include "mldb/soa/service/event_service.h"
 #include "mldb/rest/rest_request_router.h"
 #include "mldb/rest/rest_service_endpoint.h"
-#include "mldb/soa/credentials/credential_provider.h"
+#include "mldb/soa/credentials/credentials.h"
 #include "mldb/rest/rest_collection.h"
 #include "mldb/utils/log_fwd.h"
 
@@ -22,18 +22,6 @@ struct MldbServer;
 /*****************************************************************************/
 /* CREDENTIAL RULE                                                           */
 /*****************************************************************************/
-
-struct StoredCredentials {
-    std::string resourceType;
-    std::string resource;
-    std::string role;
-    std::string operation;
-    Date expiration;
-    Json::Value extra;
-    Credential credential;
-};
-
-DECLARE_STRUCTURE_DESCRIPTION(StoredCredentials);
 
 struct CredentialRuleConfig {
     std::string id;
