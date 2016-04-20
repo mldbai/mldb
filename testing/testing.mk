@@ -57,7 +57,7 @@ $(eval $(call test,MLDB-1025-output-dataset-serialization-test,mldb,boost))
 
 $(TESTS)/credentials_daemon_test: $(BIN)/credentialsd
 
-
+$(eval $(call mldb_unit_test,MLDB-1586_colname_multivalue.py))
 $(eval $(call mldb_unit_test,test_the_tester.js))
 $(eval $(call mldb_unit_test,test_the_tester.py))
 $(eval $(call mldb_unit_test,MLDB-119-select_no_columns.js))
@@ -333,12 +333,16 @@ $(eval $(call mldb_unit_test,ranking_test.py))
 $(eval $(call mldb_unit_test,MLDB-1490-grouped-validation.py))
 $(eval $(call mldb_unit_test,MLDB-1491-get-all-not-implemented-for-datasets.js,,manual)) # awaiting fix
 $(eval $(call mldb_unit_test,MLDB-1500-transpose-query.js,,manual)) # awaiting fix
+$(eval $(call mldb_unit_test,MLDB-1507-groupby.py))
 
 # The MLDB-1398 test case requires a library and a plugin
 # Tensorflow plugins
 $(eval $(call include_sub_make,MLDB-1398-plugin))
 $(eval $(call mldb_unit_test,MLDB-1398-plugin-library-dependency.js,MLDB-1398-plugin))
 $(eval $(call mldb_unit_test,MLDB-1554-string-agg.js))
+$(eval $(call mldb_unit_test,MLDB-1567-empty-literal.js))
+$(eval $(call mldb_unit_test,MLDB-1563-keys-values-of.js))
 
 $(eval $(call test,MLDB-1360-sparse-mutable-multithreaded-insert,mldb,boost))
+$(eval $(call mldb_unit_test,MLDBFB-440_error_on_ds_wo_cols.py))
 

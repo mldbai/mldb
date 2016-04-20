@@ -44,12 +44,11 @@ bindDataset(std::shared_ptr<Dataset> dataset, Utf8String asName)
                                  const SqlExpression & where,
                                  const OrderByExpression & orderBy,
                                  ssize_t offset,
-                                 ssize_t limit,
-                                 bool allowParallel)
+                                 ssize_t limit)
         -> BasicRowGenerator
         {
             return dataset->queryBasic(context, select, when, where, orderBy,
-                                       offset, limit, allowParallel);
+                                       offset, limit);
         };
 
     return result;
@@ -342,9 +341,7 @@ UnboundEntities
 SelectSubtableExpression::
 getUnbound() const
 {
-    UnboundEntities result;
-    throw HttpReturnException(500, "getUnbound() for SelectSubtableExpression: not done");
-    return result;
+    return statement.getUnbound();
 }
 
 
@@ -583,8 +580,7 @@ bind(SqlBindingScope & context) const
                                  const SqlExpression & where_,
                                  const OrderByExpression & orderBy,
                                  ssize_t offset,
-                                 ssize_t limit,
-                                 bool allowParallel)
+                                 ssize_t limit)
         -> BasicRowGenerator
         {
             // Copy the where expression

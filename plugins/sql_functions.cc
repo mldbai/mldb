@@ -72,7 +72,7 @@ SqlQueryFunctionConfigDescription()
              "be used as a column name, otherwise the row name will be used.",
              FIRST_ROW);
 }
-                      
+
 SqlQueryFunction::
 SqlQueryFunction(MldbServer * owner,
                  PolyConfig config,
@@ -102,15 +102,24 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
         auto getParamInfo = [&] (const Utf8String & paramName)
             {
                 auto info = std::make_shared<AnyValueInfo>();
-                    
+
                 // Record that we need it into our input info
                 this->info.input.addValue(paramName, info);
                 return info;
             };
 
-        if (!config.query.stm->groupBy.empty()) {
-            // Create our pipeline
+        bool hasGroupBy = !config.query.stm->groupBy.empty();
+        std::vector< std::shared_ptr<SqlExpression> > aggregators = config.query.stm->select.findAggregators(hasGroupBy);
 
+        if (!hasGroupBy && !aggregators.empty()) {
+            //if we have no group by but aggregators, make a universal group
+            config.query.stm->groupBy.clauses.emplace_back(SqlExpression::parse("1"));
+            hasGroupBy = true;
+        }
+
+        if (hasGroupBy) {
+
+            // Create our pipeline
             pipeline
                 = getMldbRoot(function->server)
                 ->params(getParamInfo)
@@ -126,7 +135,7 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
                 ->select(config.query.stm->select);
         }
         else {
-                
+
             // Create our pipeline
             pipeline
                 = getMldbRoot(function->server)
@@ -165,9 +174,8 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
             {
                 return context.get(name);
             };
-        
-        auto executor = boundPipeline->start(params,
-                                             !QueryThreadTracker::inChildThread() /* allowParallel */);
+
+        auto executor = boundPipeline->start(params);
 
         switch (function->functionConfig.output) {
         case FIRST_ROW: {
@@ -246,7 +254,7 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
                          "numTimesFoundColumn", numFoundCol,
                          "numTimesFoundValue", numFoundVal);
                 }
-                
+
                 if (foundCol == ColumnName()) {
                     throw HttpReturnException
                         (400, "Empty or null column names cannot be "
@@ -354,7 +362,7 @@ SqlExpressionFunction(MldbServer * owner,
 
         // 2.  Our output is known by the bound expression
         this->info.output = *this->bound.info;
-    
+
         // 3.  Our required input is known by the binding context, as it records
         //     what was read.
         info.input = innerScope.input;
@@ -390,7 +398,7 @@ struct SqlExpressionFunctionApplier: public FunctionApplier {
             this->info = function->info;
         }
     }
-    
+
     virtual ~SqlExpressionFunctionApplier()
     {
     }
@@ -398,11 +406,11 @@ struct SqlExpressionFunctionApplier: public FunctionApplier {
     FunctionOutput apply(const FunctionContext & context) const
     {
         if (function->functionConfig.prepared) {
-            // Use the pre-bound version.   
+            // Use the pre-bound version.
             return function->bound(function->innerScope.getRowContext(context), GET_LATEST);
         }
         else {
-            // Use the specialized version. 
+            // Use the specialized version.
             return bound(this->innerScope.getRowContext(context), GET_LATEST);
         }
     }
@@ -456,7 +464,7 @@ getFunctionInfo() const
 
     // 3.  Our output is known by the bound expression
     result.output = *bound.info;
-    
+
     // 4.  Our required input is known by the binding context, as it records
     //     what was read.
     result.input = context.input;
@@ -521,11 +529,11 @@ run(const ProcedureRunConfig & run,
     // Get the input dataset
     SqlExpressionMldbContext context(server);
 
-    std::vector< std::shared_ptr<SqlExpression> > aggregators = 
+    std::vector< std::shared_ptr<SqlExpression> > aggregators =
         runProcConf.inputData.stm->select.findAggregators(!runProcConf.inputData.stm->groupBy.clauses.empty());
 
-    // Create the output 
-    std::shared_ptr<Dataset> output = 
+    // Create the output
+    std::shared_ptr<Dataset> output =
         createDataset(server, runProcConf.outputDataset, nullptr, true /*overwrite*/);
 
     bool skipEmptyRows = runProcConf.skipEmptyRows;
@@ -536,102 +544,98 @@ run(const ProcedureRunConfig & run,
             return true;
         };
 
-    // Run it
     if (!runProcConf.inputData.stm->from) {
         // query without dataset
         std::vector<MatrixNamedRow> rows = queryWithoutDataset(*runProcConf.inputData.stm, context);
         std::for_each(rows.begin(), rows.end(), recordRowInOutputDataset);
-    } else {
-        auto boundDataset = runProcConf.inputData.stm->from->bind(context);       
-        if (runProcConf.inputData.stm->groupBy.clauses.empty() && aggregators.empty()) {
-
-            // We accumulate multiple rows per thread and insert with recordRows
-            // to be more efficient.
-            PerThreadAccumulator<std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > > accum;
+        output->commit();
+        return output->getStatus();
+    }
 
 
-            auto recordRowInOutputDataset
-                = [&] (NamedRowValue & row_,
-                       const std::vector<ExpressionValue> & calc)
-                {
-                    MatrixNamedRow row = row_.flattenDestructive();
+    auto boundDataset = runProcConf.inputData.stm->from->bind(context);
+    if (runProcConf.inputData.stm->groupBy.clauses.empty() && aggregators.empty()) {
 
-                    //cerr << "got row " << jsonEncodeStr(row) << endl;
+        // We accumulate multiple rows per thread and insert with recordRows
+        // to be more efficient.
+        PerThreadAccumulator<std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > > accum;
 
-                    // Nulls with non-finite timestamp are not recorded; they
-                    // come from an expression that matched nothing and can't
-                    // be represented (they will be read automatically as nulls).
-                    std::vector<std::tuple<ColumnName, CellValue, Date> > cols;
-                    cols.reserve(row.columns.size());
-                    for (auto & c: row.columns) {
-                        if (std::get<1>(c).empty()
-                            && !std::get<2>(c).isADate())
-                            continue;
-                        cols.emplace_back(std::move(c));
+        auto recordRowInOutputDataset
+            = [&] (NamedRowValue & row_,
+                   const std::vector<ExpressionValue> & calc)
+            {
+                MatrixNamedRow row = row_.flattenDestructive();
+
+                //cerr << "got row " << jsonEncodeStr(row) << endl;
+
+                // Nulls with non-finite timestamp are not recorded; they
+                // come from an expression that matched nothing and can't
+                // be represented (they will be read automatically as nulls).
+                std::vector<std::tuple<ColumnName, CellValue, Date> > cols;
+                cols.reserve(row.columns.size());
+                for (auto & c: row.columns) {
+                    if (std::get<1>(c).empty()
+                        && !std::get<2>(c).isADate())
+                        continue;
+                    cols.emplace_back(std::move(c));
+                }
+
+                if (!skipEmptyRows || cols.size() > 0)
+                    {
+                        auto & rows = accum.get();
+                        rows.reserve(10000);
+                        rows.emplace_back(RowName(calc.at(0).toUtf8String()), std::move(cols));
+
+                        if (rows.size() >= 10000) {
+                            output->recordRows(rows);
+                            rows.clear();
+                        }
                     }
 
-                    if (!skipEmptyRows || cols.size() > 0)
-                        {
-                            auto & rows = accum.get();
-                            rows.reserve(10000);
-                            rows.emplace_back(RowName(calc.at(0).toUtf8String()), std::move(cols));
+                return true;
+            };
 
-                            if (rows.size() >= 10000) {
-                                output->recordRows(rows);
-                                rows.clear();
-                            }
-                        }
 
-                    return true;
-                };
-
-            // We only add an implicit order by (which defeats parallelization)
-            // if we have a limit or offset parameter.
-            bool implicitOrderByRowHash
-                = (runProcConf.inputData.stm->offset != 0 || 
-                   runProcConf.inputData.stm->limit != -1);
-
-            BoundSelectQuery(runProcConf.inputData.stm->select,
-                             *boundDataset.dataset,
-                             boundDataset.asName,
-                             runProcConf.inputData.stm->when,
-                             *runProcConf.inputData.stm->where,
-                             runProcConf.inputData.stm->orderBy,
-                             { runProcConf.inputData.stm->rowName },
-                             implicitOrderByRowHash)
-                .execute(recordRowInOutputDataset,
-                         runProcConf.inputData.stm->offset,
+        BoundSelectQuery(runProcConf.inputData.stm->select,
+                         *boundDataset.dataset,
+                         boundDataset.asName,
+                         runProcConf.inputData.stm->when,
+                         *runProcConf.inputData.stm->where,
+                         runProcConf.inputData.stm->orderBy,
+                         { runProcConf.inputData.stm->rowName })
+            .execute({recordRowInOutputDataset, true/*processInParallel*/},
+                     runProcConf.inputData.stm->offset,
                          runProcConf.inputData.stm->limit,
-                         onProgress);
+                     onProgress);
 
-            // Finish off the last bits of each thread
-            accum.forEach([&] (std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > * rows)
-                          {
-                              output->recordRows(*rows);
-                          });
-        }
-        else {
-            auto recordRowValueInOutputDataset = [&] (NamedRowValue & row_)
+        // Finish off the last bits of each thread
+        accum.forEach([&] (std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > * rows)
+                      {
+                          output->recordRows(*rows);
+                      });
+    }
+    else {
+        auto recordRowValueInOutputDataset
+            = [&] (NamedRowValue & row_)
             {
                 MatrixNamedRow row = row_.flattenDestructive();
                 return recordRowInOutputDataset(row);
             };
 
-            BoundGroupByQuery(runProcConf.inputData.stm->select,
-                              *boundDataset.dataset,
+        BoundGroupByQuery(runProcConf.inputData.stm->select,
+                          *boundDataset.dataset,
                               boundDataset.asName,
-                              runProcConf.inputData.stm->when,
-                              *runProcConf.inputData.stm->where,
-                              runProcConf.inputData.stm->groupBy,
-                              aggregators,
-                              *runProcConf.inputData.stm->having,
+                          runProcConf.inputData.stm->when,
+                          *runProcConf.inputData.stm->where,
+                          runProcConf.inputData.stm->groupBy,
+                          aggregators,
+                          *runProcConf.inputData.stm->having,
                               *runProcConf.inputData.stm->rowName,
-                              runProcConf.inputData.stm->orderBy)
-                .execute(recordRowValueInOutputDataset,
-                         runProcConf.inputData.stm->offset,
-                         runProcConf.inputData.stm->limit,
+                          runProcConf.inputData.stm->orderBy)
+            .execute({recordRowValueInOutputDataset,false/*processInParallel*/},
+                     runProcConf.inputData.stm->offset,
+                     runProcConf.inputData.stm->limit,
                          onProgress);
-        }
     }
 
     // Save the dataset we created

@@ -54,6 +54,7 @@ function createAndRunProcedure(config, name)
 }
 
 // transform our 4 elements with limit=3 (MLDB-799)
+// Note: Transform is not ordering-stable.
 var transform_config = {
     type: 'transform',
     params: {
@@ -69,15 +70,15 @@ var transform_config = {
 
 createAndRunProcedure(transform_config, "transform");
 
-var resp = mldb.get("/v1/datasets/transformed/query", {select: 'x,y,z,q', format: 'table'});
+var resp = mldb.get("/v1/datasets/transformed/query", {select: 'x,y,z,q', orderBy: 'rowHash()',format: 'table'});
 
 plugin.log("transform limit 3 query result", resp.json);
 
 var expected = [
-    [ "_rowName", "x", "y", "z", "q" ],
-    [ "ex3_transformed", 1, 2, 10, 8 ],
-    [ "ex1_transformed", 0, 0, 0, 6 ],
-    [ "ex4_transformed", 6, 6, 60, 12 ]
+   [ "_rowName", "x", "y", "z", "q" ],
+   [ "ex3_transformed", 1, 2, 10, 8 ],
+   [ "ex2_transformed", 1, 1, 10, 7 ],
+   [ "ex4_transformed", 6, 6, 60, 12 ]
 ];
 
 assertEqual(mldb.diff(expected, resp.json, false /* strict */), {},
