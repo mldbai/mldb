@@ -360,42 +360,8 @@ queryFromStatement(SelectStatement & stm,
         if (!params)
             params = [] (const Utf8String & param) -> ExpressionValue { throw HttpReturnException(500, "No query parameter " + param); };
 
+        std::shared_ptr<PipelineElement> pipeline = PipelineElement::root(scope)->statement(stm, getParamInfo);
 
-            
-
-        std::shared_ptr<PipelineElement> pipeline;
-
-        if (!stm.groupBy.empty()) {
-            // Create our pipeline
-
-            pipeline
-                = PipelineElement::root(scope)
-                ->params(getParamInfo)
-                ->from(stm.from, stm.when,
-                       SelectExpression::STAR, stm.where)
-                ->where(stm.where)
-                ->select(stm.groupBy)
-                ->sort(stm.groupBy)
-                ->partition(stm.groupBy.clauses.size())
-                ->where(stm.having)
-                ->select(stm.orderBy)
-                ->sort(stm.orderBy)
-                ->select(stm.rowName)  // second last element is rowName
-                ->select(stm.select);  // last element is select
-        }
-        else {
-            pipeline
-                = PipelineElement::root(scope)
-                ->params(getParamInfo)
-                ->from(stm.from, stm.when,
-                       SelectExpression::STAR, stm.where)
-                ->where(stm.where)
-                ->select(stm.orderBy)
-                ->sort(stm.orderBy)
-                ->select(stm.rowName)  // second last element is rowname
-                ->select(stm.select);  // last element is select
-        }
-        
         auto boundPipeline = pipeline->bind();
 
         auto executor = boundPipeline->start(params);

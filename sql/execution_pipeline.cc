@@ -447,6 +447,52 @@ partition(int numElements)
     return std::make_shared<PartitionElement>(shared_from_this(), numElements);
 }
 
+std::shared_ptr<PipelineElement>
+PipelineElement::
+statement(SelectStatement& stm, GetParamInfo getParamInfo)
+{
+    auto root = shared_from_this();
+
+    bool hasGroupBy = !stm.groupBy.empty();
+    std::vector< std::shared_ptr<SqlExpression> > aggregators = stm.select.findAggregators(hasGroupBy);
+
+    if (!hasGroupBy && !aggregators.empty()) {
+        //if we have no group by but aggregators, make a universal group
+        stm.groupBy.clauses.emplace_back(SqlExpression::parse("1"));
+        hasGroupBy = true;
+    }
+
+    if (hasGroupBy) {
+
+        return root
+            ->params(getParamInfo)
+            ->from(stm.from, stm.when,
+                   SelectExpression::STAR, stm.where,
+                   OrderByExpression(), getParamInfo)
+            ->where(stm.where)
+            ->select(stm.groupBy)
+            ->sort(stm.groupBy)
+            ->partition(stm.groupBy.clauses.size())
+            ->where(stm.having)
+            ->select(stm.orderBy)
+            ->sort(stm.orderBy)
+            ->select(stm.rowName)  // second last element is rowname
+            ->select(stm.select);
+    }
+    else {
+
+        return root
+            ->params(getParamInfo)
+            ->from(stm.from, stm.when,
+                   SelectExpression::STAR, stm.where,
+                   OrderByExpression(), getParamInfo)
+            ->where(stm.where)
+            ->select(stm.orderBy)
+            ->sort(stm.orderBy)
+            ->select(stm.rowName)  // second last element is rowname
+            ->select(stm.select);
+    }
+}
 
 } // namespace MLDB
 } // namespace Datacratic

@@ -20,7 +20,6 @@ using namespace std;
 namespace Datacratic {
 namespace MLDB {
 
-
 /*****************************************************************************/
 /* TABLE LEXICAL SCOPE                                                       */
 /*****************************************************************************/
@@ -463,6 +462,19 @@ doGetFunction(const Utf8String & functionName,
               const std::vector<BoundSqlExpression> & args,
               int fieldOffset,
               SqlBindingScope & argsScope) {
+
+    if (functionName == "rowName") {
+
+        auto exec = [=] (const std::vector<ExpressionValue> & args,
+                         const SqlRowScope & context)
+            -> ExpressionValue
+            {
+                return ExpressionValue("[]", Date::notADate());
+            };
+
+        return { exec, std::make_shared<Utf8StringValueInfo>() };
+    }
+
     return inner->doGetFunction(Utf8String(), functionName, args, argsScope);
 }
 
@@ -524,46 +536,7 @@ SubSelectElement(std::shared_ptr<PipelineElement> root,
                  SelectStatement& stm,
                  GetParamInfo getParamInfo) : root(root){
 
-    bool hasGroupBy = !stm.groupBy.empty();
-    std::vector< std::shared_ptr<SqlExpression> > aggregators = stm.select.findAggregators(hasGroupBy);
-
-    if (!hasGroupBy && !aggregators.empty()) {
-        //if we have no group by but aggregators, make a universal group
-        stm.groupBy.clauses.emplace_back(SqlExpression::parse("1"));
-        hasGroupBy = true;
-    }
-
-    if (hasGroupBy) {
-
-        pipeline
-            = root
-            ->params(getParamInfo)
-            ->from(stm.from, stm.when,
-                   SelectExpression::STAR, stm.where,
-                   OrderByExpression(), getParamInfo)
-            ->where(stm.where)
-            ->select(stm.groupBy)
-            ->sort(stm.groupBy)
-            ->partition(stm.groupBy.clauses.size())
-            ->where(stm.having)
-            ->select(stm.orderBy)
-            ->sort(stm.orderBy)
-            ->select(stm.select);
-    }
-    else {
-
-        pipeline
-            = root
-            ->params(getParamInfo)
-            ->from(stm.from, stm.when,
-                   SelectExpression::STAR, stm.where,
-                   OrderByExpression(), getParamInfo)
-            ->where(stm.where)
-            ->select(stm.orderBy)
-            ->sort(stm.orderBy)
-            ->select(stm.select);
-    }
-
+    pipeline = root->statement(stm, getParamInfo);
 }
 
 std::shared_ptr<BoundPipelineElement>
