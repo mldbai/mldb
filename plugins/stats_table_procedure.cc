@@ -49,15 +49,18 @@ operator >> (ML::DB::Store_Reader & store, Coord & coord)
 }
 
 inline ML::DB::Store_Writer &
-operator << (ML::DB::Store_Writer & store, const Coords & coord)
+operator << (ML::DB::Store_Writer & store, const Coords & coords)
 {
-    throw HttpReturnException(500, "serialize coords");
+    return store << coords.toUtf8String();
 }
 
 inline ML::DB::Store_Reader &
-operator >> (ML::DB::Store_Reader & store, Coords & coord)
+operator >> (ML::DB::Store_Reader & store, Coords & coords)
 {
-    throw HttpReturnException(500, "reconstitute coords");
+    Utf8String str;
+    store >> str;
+    coords = Coords::parse(str);
+    return store;
 }
 
 
@@ -118,7 +121,7 @@ save(const std::string & filename) const
 void StatsTable::
 serialize(ML::DB::Store_Writer & store) const
 {
-    int version = 1;
+    int version = 2;
     store << version << colName << outcome_names << counts << zeroCounts;
 }
 
@@ -126,10 +129,10 @@ void StatsTable::
 reconstitute(ML::DB::Store_Reader & store)
 {
     int version;
-    int REQUIRED_V = 1;
+    int REQUIRED_V = 2;
     store >> version;
     if(version!=REQUIRED_V) {
-        throw ML::Exception(ML::format(
+        throw HttpReturnException(400, ML::format(
                     "invalid StatsTable version! exptected %d, got %d",
                     REQUIRED_V, version));
     }
@@ -287,7 +290,7 @@ run(const ProcedureRunConfig & run,
                         vector<ColumnName> names;
                         names.emplace_back(Coord("trial_"+keySuffix));
                         for(int lbl_idx=0; lbl_idx<encodedLabels.size(); lbl_idx++) {
-                            names.emplace_back(Coord(outcome_names[lbl_idx]+"_"+keySuffix));
+                            names.emplace_back(Coord(outcome_names[lbl_idx]) + Coord(keySuffix));
                         }
 
                         auto inserted = colCache.emplace(get<0>(col), names);
@@ -443,7 +446,8 @@ apply(const FunctionApplier & applier,
         result.emplace_back("counts", ExpressionValue(std::move(rtnRow)));
     }
     else {
-        throw ML::Exception("wrong input type");
+        throw HttpReturnException(400, "wrong input type to stats table",
+                                  "input", arg);
     }
 
     return std::move(result);
@@ -751,8 +755,8 @@ StatsTablePosNegFunction(MldbServer * owner,
         }
     }
     if(outcomeToUseIdx == -1) {
-        throw ML::Exception("Outcome '"+functionConfig.outcomeToUse+
-                "' not found in stats table!");
+        throw HttpReturnException(400, "Outcome '"+functionConfig.outcomeToUse+
+                                  "' not found in stats table!");
     }
    
     // sort all the keys by their p(outcome)
@@ -845,7 +849,7 @@ apply(const FunctionApplier & applier,
         result.emplace_back("probs", ExpressionValue(std::move(rtnRow)));
     }
     else {
-        throw ML::Exception("wrong input type");
+        throw HttpReturnException(400, "wrong input type");
     }
     
     return std::move(result);

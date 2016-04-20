@@ -595,8 +595,6 @@ run(const ProcedureRunConfig & run,
             {
                 MatrixNamedRow row = row_.flattenDestructive();
 
-                //cerr << "got row " << jsonEncodeStr(row) << endl;
-
                 // Nulls with non-finite timestamp are not recorded; they
                 // come from an expression that matched nothing and can't
                 // be represented (they will be read automatically as nulls).
@@ -613,7 +611,7 @@ run(const ProcedureRunConfig & run,
                 {
                     auto & rows = accum.get();
                     rows.reserve(10000);
-                    rows.emplace_back(RowName(calc.at(0).toUtf8String()),
+                    rows.emplace_back(RowName::parse(calc.at(0).toUtf8String()),
                                       std::move(cols));
 
                     if (rows.size() >= 10000) {

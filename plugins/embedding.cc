@@ -96,7 +96,7 @@ struct EmbeddingDatasetRepr {
 
     EmbeddingDatasetRepr(std::vector<ColumnName> columnNames,
                          MetricSpace metric)
-        : columnNames(columnNames), columns(this->columnNames.size()),
+        : columnNames(std::move(columnNames)), columns(this->columnNames.size()),
           vpTree(new ML::VantagePointTreeT<int>()),
           distance(DistanceMetric::create(metric))
     {
@@ -558,13 +558,10 @@ struct EmbeddingDataset::Itl
     {
         std::vector<KnownColumn> knownColumns;
 
-        cerr << "getRowInfo()" << endl;
-        
         auto valueInfo = std::make_shared<Float32ValueInfo>();
         
         auto repr = committed();
         if (repr->initialized()) {
-cerr << "initialized with " << repr->columnNames.size() << endl;
             for (size_t i = 0;  i < repr->columnNames.size();  ++i) {
                 knownColumns.emplace_back(repr->columnNames[i], valueInfo,
                                           COLUMN_IS_DENSE, i /* fixed index */);

@@ -26,7 +26,7 @@ class Mldb283Test(MldbUnitTest):
 
         # create nn function
         mldb.put("/v1/functions/nn", {
-            "type": 'nearest.neighbors',
+            "type": 'embedding.neighbors',
             "params": {
                 'dataset': {"id": 'test', "type": "embedding"}
             }
@@ -34,7 +34,7 @@ class Mldb283Test(MldbUnitTest):
 
     def test_select(self):
         self.assertTableResultEquals(
-            mldb.query("select nn({coords: [0.5, 0.5]})[neighbors] as *"),
+            mldb.query("select nn({coords: {x:0.5, y:0.5}})[neighbors] as *"),
             [
                 ["_rowName", "ex1", "ex2", "ex3", "ex4"],
                 ["result",  0.7071067690849304,
@@ -45,7 +45,7 @@ class Mldb283Test(MldbUnitTest):
         )
         
         self.assertTableResultEquals(
-            mldb.query("select nn({coords: [0.1, 0.2]})[neighbors] as *"),
+            mldb.query("select nn({coords: {x:0.1, y:0.2}})[neighbors] as *"),
             [
                 ["_rowName", "ex1", "ex2", "ex3", "ex4"],
                 ["result",  0.22360680997371674,
@@ -67,7 +67,7 @@ class Mldb283Test(MldbUnitTest):
 
     def test_select_params(self):
         self.assertTableResultEquals(
-            mldb.query("select nn({coords: 'ex1', num_neighbours:2})[neighbors] as *"),
+            mldb.query("select nn({coords: 'ex1', numNeighbors:2})[neighbors] as *"),
             [
                 ["_rowName", "ex1", "ex2"],
                 ["result",  0, 1]
@@ -75,7 +75,7 @@ class Mldb283Test(MldbUnitTest):
         )
         
         self.assertTableResultEquals(
-            mldb.query("select nn({coords: 'ex1', num_neighbours:2, max_distance:0.5})[neighbors] as *"),
+            mldb.query("select nn({coords: 'ex1', numNeighbors:2, maxDistance:0.5})[neighbors] as *"),
             [
                 ["_rowName", "ex1"],
                 ["result",  0]

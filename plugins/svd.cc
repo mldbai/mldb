@@ -375,8 +375,6 @@ validate()
 {
     for (unsigned i = 0;  i < columns.size();  ++i) {
         auto & c = columns[i];
-        //cerr << "loaded column " << c.columnName << " op " << c.op
-        //     << " val " << jsonEncodeStr(c.cellValue) << endl;
         ExcAssert(columnIndex.count(c.columnName));
         ExcAssert(columnIndex[c.columnName].values.count(c.cellValue));
         ExcAssertEqual(columnIndex[c.columnName].columnName, c.columnName);
@@ -1037,6 +1035,16 @@ SvdEmbedRow(MldbServer * owner,
 {
     functionConfig = config.params.convert<SvdEmbedConfig>();
     svd = std::move(jsonDecodeFile<SvdBasis>(functionConfig.modelFileUrl.toString()));
+
+    std::map<ColumnHash, SvdColumnIndexEntry> columnIndex2;
+
+    // Deal with the older version of the file
+    for (auto & c: svd.columnIndex) {
+        columnIndex2[c.second.columnName] = std::move(c.second);
+    }
+
+    svd.columnIndex = std::move(columnIndex2);
+
     svd.validate();
     
     nsv = functionConfig.maxSingularValues;
