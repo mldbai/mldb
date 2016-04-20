@@ -214,7 +214,7 @@ BOOST_AUTO_TEST_CASE (test_int_to_string)
 
 BOOST_AUTO_TEST_CASE (test_realistic_float)
 {
-    constexpr char * realisticFloat1 = "-0.38860246539115906";
+    constexpr const char * realisticFloat1 = "-0.38860246539115906";
 
     auto cell1 = CellValue::parse(realisticFloat1, 
                                   strlen(realisticFloat1), 
@@ -222,7 +222,7 @@ BOOST_AUTO_TEST_CASE (test_realistic_float)
 
     BOOST_CHECK_EQUAL(cell1.cellType(), CellValue::FLOAT);
 
-    constexpr char * realisticFloat2 = "-0.38860246539115906123454634";
+    constexpr const char * realisticFloat2 = "-0.38860246539115906123454634";
 
     auto cell2 = CellValue::parse(realisticFloat2, 
                                   strlen(realisticFloat1), // intended - must not read passed the length
@@ -234,7 +234,7 @@ BOOST_AUTO_TEST_CASE (test_realistic_float)
 
 BOOST_AUTO_TEST_CASE (test_realistic_int)
 {
-    constexpr char * realisticInt1 = "-38860246539115906";
+    constexpr const char * realisticInt1 = "-38860246539115906";
 
     auto cell1 = CellValue::parse(realisticInt1, 
                                   strlen(realisticInt1), 
@@ -242,7 +242,7 @@ BOOST_AUTO_TEST_CASE (test_realistic_int)
 
     BOOST_CHECK_EQUAL(cell1.cellType(), CellValue::INTEGER);
 
-    constexpr char * realisticInt2 = "-38860246539115906123454634";
+    constexpr const char * realisticInt2 = "-38860246539115906123454634";
 
     auto cell2 = CellValue::parse(realisticInt2, 
                                   strlen(realisticInt1), // intended - must not read passed the length
@@ -254,7 +254,7 @@ BOOST_AUTO_TEST_CASE (test_realistic_int)
 
 BOOST_AUTO_TEST_CASE (test_realistic_uint)
 {
-    constexpr char * realisticUInt1 = "38860246539115906";
+    constexpr const char * realisticUInt1 = "38860246539115906";
 
     auto cell1 = CellValue::parse(realisticUInt1, 
                                   strlen(realisticUInt1), 
@@ -262,7 +262,7 @@ BOOST_AUTO_TEST_CASE (test_realistic_uint)
 
     BOOST_CHECK_EQUAL(cell1.cellType(), CellValue::INTEGER);
 
-    constexpr char * realisticUInt2 = "38860246539115906123454634";
+    constexpr const char * realisticUInt2 = "38860246539115906123454634";
 
     auto cell2 = CellValue::parse(realisticUInt2, 
                                   strlen(realisticUInt1), // intended - must not read passed the length

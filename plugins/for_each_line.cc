@@ -250,7 +250,7 @@ void forEachLineBlock(std::istream & stream,
                       std::function<bool (int64_t blockNumber, int64_t lineNumber)> endBlock)
 {
     //static constexpr int64_t BLOCK_SIZE = 100000000;  // 100MB blocks
-    static constexpr int64_t BLOCK_SIZE = 10000000;  // 10MB blocks
+    static constexpr int64_t BLOCK_SIZE = 20000000;  // 20MB blocks
     static constexpr int64_t READ_SIZE = 200000;  // read&scan 200kb to fit in cache
 
     std::atomic<int64_t> doneLines(0); //number of lines processed but not yet returned

@@ -113,8 +113,7 @@ struct GenerateRowsElement: public PipelineElement {
               std::shared_ptr<BoundPipelineElement> source);
 
         std::shared_ptr<ElementExecutor>
-        start(const BoundParameters & getParam,
-              bool allowParallel) const;
+        start(const BoundParameters & getParam) const;
 
         virtual std::shared_ptr<BoundPipelineElement>
         boundSource() const;
@@ -277,8 +276,7 @@ struct JoinElement: public PipelineElement {
         createOutputScope();
         
         std::shared_ptr<ElementExecutor>
-        start(const BoundParameters & getParam,
-              bool allowParallel) const;
+        start(const BoundParameters & getParam) const;
 
         virtual std::shared_ptr<BoundPipelineElement>
         boundSource() const;
@@ -319,7 +317,7 @@ struct RootElement: public PipelineElement {
         std::shared_ptr<PipelineExpressionScope> scope_;
 
         std::shared_ptr<ElementExecutor>
-        start(const BoundParameters & getParam, bool allowParallel) const;
+        start(const BoundParameters & getParam) const;
 
         virtual std::shared_ptr<BoundPipelineElement>
         boundSource() const;
@@ -399,8 +397,7 @@ struct FilterWhereElement: public PipelineElement {
         BoundSqlExpression where_;
 
         std::shared_ptr<ElementExecutor>
-        start(const BoundParameters & getParam,
-              bool allowParallel) const;
+        start(const BoundParameters & getParam) const;
 
         virtual std::shared_ptr<BoundPipelineElement>
         boundSource() const;
@@ -452,8 +449,7 @@ struct SelectElement: public PipelineElement {
         std::shared_ptr<PipelineExpressionScope> outputScope_;
         
         std::shared_ptr<ElementExecutor>
-        start(const BoundParameters & getParam,
-              bool allowParallel) const;
+        start(const BoundParameters & getParam) const;
 
         virtual std::shared_ptr<BoundPipelineElement>
         boundSource() const;
@@ -509,8 +505,7 @@ struct OrderByElement: public PipelineElement {
         BoundOrderByExpression orderBy_;
         
         std::shared_ptr<ElementExecutor>
-        start(const BoundParameters & getParam,
-              bool allowParallel) const;
+        start(const BoundParameters & getParam) const;
 
         virtual std::shared_ptr<BoundPipelineElement>
         boundSource() const;
@@ -608,8 +603,7 @@ struct PartitionElement: public PipelineElement {
         int numValues_;
         
         std::shared_ptr<ElementExecutor>
-        start(const BoundParameters & getParam,
-              bool allowParallel) const;
+        start(const BoundParameters & getParam) const;
         
         virtual std::shared_ptr<BoundPipelineElement>
         boundSource() const;
@@ -660,7 +654,7 @@ struct ParamsElement: public PipelineElement {
         std::shared_ptr<PipelineExpressionScope> outputScope_;
         
         std::shared_ptr<ElementExecutor>
-        start(const BoundParameters & getParam, bool allowParallel) const;
+        start(const BoundParameters & getParam) const;
 
         virtual std::shared_ptr<BoundPipelineElement>
         boundSource() const;

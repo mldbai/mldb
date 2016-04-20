@@ -18,6 +18,7 @@
 #include "mldb/sql/execution_pipeline.h"
 #include <boost/algorithm/string.hpp>
 #include "mldb/server/bound_queries.h"
+#include "mldb/server/parallel_merge_sort.h"
 #include "mldb/jml/stats/distribution.h"
 #include <mutex>
 
@@ -42,15 +43,14 @@ void iterateDataset(const SelectExpression & select,
                     const WhenExpression & when,
                     const SqlExpression & where,
                     std::vector<std::shared_ptr<SqlExpression> > calc,
-                    std::function<bool (NamedRowValue & output,
-                                        const std::vector<ExpressionValue> & calcd)> aggregator,
+                    RowProcessorEx processor,
                     const OrderByExpression & orderBy,
                     ssize_t offset,
                     ssize_t limit,
                     std::function<bool (const Json::Value &)> onProgress)
 {
     BoundSelectQuery(select, from, alias, when, where, orderBy, calc)
-        .execute(aggregator, offset, limit, onProgress);
+        .execute(processor, offset, limit, onProgress);
 }
 
 
@@ -64,15 +64,14 @@ void iterateDatasetGrouped(const SelectExpression & select,
                            const std::vector< std::shared_ptr<SqlExpression> >& aggregators,
                            const SqlExpression & having,
                            const SqlExpression & rowName,
-                           std::function<bool (NamedRowValue & output)> aggregator,
+                           RowProcessor processor,
                            const OrderByExpression & orderBy,
                            ssize_t offset,
                            ssize_t limit,
-                           std::function<bool (const Json::Value &)> onProgress,
-                           bool allowMT)
+                           std::function<bool (const Json::Value &)> onProgress)
 {
     BoundGroupByQuery(select, from, alias, when, where, groupBy, aggregators, having, rowName, orderBy)
-      .execute(aggregator, offset, limit, onProgress, allowMT);
+      .execute(processor, offset, limit, onProgress);
 }
 
 void iterateDataset(const SelectExpression & select,
@@ -80,7 +79,7 @@ void iterateDataset(const SelectExpression & select,
                     const Utf8String & alias,
                     const WhenExpression & when,
                     const SqlExpression & where,
-                    std::function<bool (NamedRowValue & output)> aggregator,
+                    RowProcessor processor,
                     const OrderByExpression & orderBy,
                     ssize_t offset,
                     ssize_t limit,
@@ -88,13 +87,13 @@ void iterateDataset(const SelectExpression & select,
 {
     std::function<bool (NamedRowValue & output,
                         const std::vector<ExpressionValue> & calcd)>
-    aggregator2 = [&] (NamedRowValue & output,
+    processor2 = [&] (NamedRowValue & output,
                        const std::vector<ExpressionValue> & calcd)
         {
-            return aggregator(output);
+            return processor(output);
         };
-    
-    iterateDataset(select, from, std::move(alias), when, where, {}, aggregator2, orderBy, offset, limit, onProgress);
+
+    iterateDataset(select, from, std::move(alias), when, where, {}, {processor2, processor.processInParallel}, orderBy, offset, limit, onProgress);
 }
 
 /** Iterates over the dataset, extracting a dense feature vector from each row. */
@@ -108,10 +107,10 @@ void iterateDense(const SelectExpression & select,
                                       const RowName & rowName,
                                       int64_t rowNumber,
                                       const std::vector<double> & features,
-                                      const std::vector<ExpressionValue> & extra)> aggregator,
+                                      const std::vector<ExpressionValue> & extra)> processor,
                   std::function<bool (const Json::Value &)> onProgress)
 {
-    ExcAssert(aggregator);
+    ExcAssert(processor);
 
     SqlExpressionDatasetContext context(from, alias);
     SqlExpressionWhenScope whenContext(context);
@@ -140,6 +139,7 @@ void iterateDense(const SelectExpression & select,
     }
     
     // Get a list of rows that we run over
+    // getRowNames can return row names in an arbitrary order as long as it is deterministic.
     auto rows = matrix->getRowNames();
 
     auto doRow = [&] (int rowNum) -> bool
@@ -171,7 +171,7 @@ void iterateDense(const SelectExpression & select,
             }
             
             /* Finally, pass to the aggregator to continue. */
-            return aggregator(row.rowHash, rowName, rowNum, embedding, calcd);
+            return processor(row.rowHash, rowName, rowNum, embedding, calcd);
         };
 
     parallelMap(0, rows.size(), doRow);
@@ -244,11 +244,9 @@ getEmbedding(const SelectExpression & select,
 
         std::function<bool (NamedRowValue & output,
                             const std::vector<ExpressionValue> & calcd)>
-            aggregator = [&] (NamedRowValue & output,
+            processor = [&] (NamedRowValue & output,
                               const std::vector<ExpressionValue> & calcd)
             {
-                std::unique_lock<std::mutex> guard(rowsLock);
-               
                 auto features = getEmbeddingDouble(output.columns);
                
                 if (features.size() <= maxDimensions) {
@@ -264,10 +262,11 @@ getEmbedding(const SelectExpression & select,
                 return true;
             };
        
-        iterateDataset(select, dataset, std::move(alias), when, where, calc, aggregator, orderBy, offset, limit, onProgress);
+        //getEmbedding is expected to have a consistent row order
+        iterateDataset(select, dataset, std::move(alias), when, where, calc, {processor, false /*processInParallel*/}, orderBy, offset, limit, onProgress);
     }
     else { // this has opportunity for more optimization since there are no offset or limit
-        auto aggregator = [&] (const RowHash & rowHash,
+        auto processor = [&] (const RowHash & rowHash,
                                const RowName & rowName,
                                int64_t rowIndex,
                                const std::vector<double> & features,
@@ -291,10 +290,11 @@ getEmbedding(const SelectExpression & select,
                 return true;
             };
 
-        iterateDense(select, dataset, alias, when, where, calc, aggregator, nullptr);
+        iterateDense(select, dataset, alias, when, where, calc, processor, nullptr);
 
+        // because the results come in parallel
         // we still need to order by rowHash to ensure determinism in the results
-        std::sort(rows.begin(), rows.end());
+        parallelQuickSortRecursive<std::tuple<RowHash, RowName, std::vector<double>, std::vector<ExpressionValue> > >(rows.begin(), rows.end());
     }
   
 
@@ -340,8 +340,6 @@ queryFromStatement(SelectStatement & stm,
 {
     BoundTableExpression table = stm.from->bind(scope);
     
-    bool allowParallel = !QueryThreadTracker::inChildThread();
-
     if (table.dataset) {
         return table.dataset->queryStructured(stm.select, stm.when,
                                               *stm.where,
@@ -400,7 +398,7 @@ queryFromStatement(SelectStatement & stm,
         
         auto boundPipeline = pipeline->bind();
 
-        auto executor = boundPipeline->start(params, allowParallel);
+        auto executor = boundPipeline->start(params);
         
         std::vector<MatrixNamedRow> rows;
 

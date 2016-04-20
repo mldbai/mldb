@@ -259,6 +259,15 @@ operator ColumnHash() const
     return ColumnHash(hash());
 }
 
+size_t
+Coord::
+memusage() const
+{
+    if (complex_)
+        return sizeof(*this) + getComplex().rawLength();
+    else return sizeof(*this);
+}
+
 void
 Coord::
 complexDestroy()

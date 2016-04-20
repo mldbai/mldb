@@ -73,9 +73,16 @@ void runHttpQuery(std::function<std::vector<MatrixNamedRow> ()> runQuery,
                   const std::string & format,
                   bool createHeaders,
                   bool rowNames,
-                  bool rowHashes)
+                  bool rowHashes,
+                  bool sortColumns)
 {
     std::vector<MatrixNamedRow> sparseOutput = runQuery();
+
+    if (sortColumns) {
+        for (auto & r: sparseOutput) {
+            std::sort(r.columns.begin(), r.columns.end());
+        }
+    }
 
     if (format == "full" || format == "") {
         connection.sendResponse(200, jsonEncodeStr(sparseOutput),
@@ -327,6 +334,9 @@ initRoutes(RouteManager & manager)
                                          true),
                   RestParamDefault<bool>("rowHashes",
                                          "Do we include row hashes in output",
+                                         false),
+                  RestParamDefault<bool>("sortColumns",
+                                         "Sort the columns in the output",
                                          false));
 
     addRouteSyncJsonReturn(*manager.valueNode, "/queryexplain", { "GET" },
@@ -380,6 +390,7 @@ initRoutes(RouteManager & manager)
                 int start = getParam(req, "start", 0);
                 int limit = getParam(req, "limit", -1);
 
+                // getRowNames can return row names in an arbitrary order as long as it is deterministic.
                 auto result = dataset->getMatrixView()->getRowNames(start, limit);
 
                 connection.sendHttpResponse(200, jsonEncodeStr(result),
@@ -584,7 +595,8 @@ queryStructured(const Dataset * dataset,
                 ssize_t limit,
                 bool createHeaders,
                 bool rowNames,
-                bool rowHashes) const
+                bool rowHashes,
+                bool sortColumns) const
 {
     std::vector<std::shared_ptr<SqlRowExpression> > selectParsed
         = SqlRowExpression::parseList(select);
@@ -615,7 +627,7 @@ queryStructured(const Dataset * dataset,
                  groupByParsed, *havingParsed, *rowNameParsed, offset, limit);
         };
     
-    runHttpQuery(runQuery, connection, format, createHeaders,rowNames, rowHashes);
+    runHttpQuery(runQuery, connection, format, createHeaders,rowNames, rowHashes, sortColumns);
 }
 
 } // namespace MLDB

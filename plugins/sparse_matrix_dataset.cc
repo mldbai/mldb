@@ -18,7 +18,8 @@
 #include "mldb/arch/timers.h"
 #include "mldb/base/parallel.h"
 #include "mldb/base/thread_pool.h"
-#include "mldb/arch/spinlock.h"
+#include "mldb/utils/atomic_shared_ptr.h"
+#include "mldb/server/parallel_merge_sort.h"
 #include <mutex>
 
 using namespace std;
@@ -26,38 +27,6 @@ using namespace std;
 
 namespace Datacratic {
 namespace MLDB {
-
-// Note: in GCC 4.9+, we can use the std::atomic_xxx overloads for
-// std::shared_ptr.  Once the Concurrency TR is available, we can
-// replace with those classes.  For the moment we use a simple,
-// spinlock protected implementation that is a lowest common
-// denominator.
-template<typename T>
-struct atomic_shared_ptr {
-
-    template<typename... Args>
-    atomic_shared_ptr(Args&&... args)
-        : ptr(std::forward<Args>(args)...)
-    {
-    }
-    
-    std::shared_ptr<T> load() const
-    {
-        std::unique_lock<ML::Spinlock> guard(lock);
-        return ptr;
-    }
-
-    void store(std::shared_ptr<T> newVal)
-    {
-        std::unique_lock<ML::Spinlock> guard(lock);
-        ptr = std::move(newVal);
-    }
-
-private:
-    mutable ML::Spinlock lock;
-    std::shared_ptr<T> ptr;
-};
-
 
 DEFINE_STRUCTURE_DESCRIPTION(BaseEntry);
 
@@ -537,11 +506,7 @@ struct SparseMatrixDataset::Itl
                               return true;
                           });
 
-         std::sort(result.begin(), result.end(),
-              [&] (const RowName & r1, const RowName & r2)
-              {
-                  return r1.hash() < r2.hash();
-              });
+        //Make sure that the result of the above is in a deterministic order
 
         if (start < 0)
             throw HttpReturnException(400, "Invalid start for row names",
@@ -575,7 +540,7 @@ struct SparseMatrixDataset::Itl
                               return true;
                           });
 
-        std::sort(result.begin(), result.end());
+        //Make sure that the result of the above is in a deterministic order
 
         if (start < 0)
             throw HttpReturnException(400, "Invalid start for row names",
@@ -933,7 +898,7 @@ enum CommitMode {
 struct MutableBaseData {
 
     MutableBaseData(CommitMode commitMode)
-        : repr(new Repr()), commitMode(commitMode)
+        : repr(std::make_shared<Repr>()), commitMode(commitMode)
     {
     }
 
@@ -1008,8 +973,16 @@ struct MutableBaseData {
                 }
             }
 
-            std::sort(allRows.begin(), allRows.end());
-            auto end = std::unique(allRows.begin(), allRows.end());
+            std::vector<uint64_t>::iterator end;
+            if (entries.size() > 1) {
+                //if we haven't commited the entries yet there can be duplicates
+                parallelQuickSortRecursive<uint64_t>(allRows.begin(), allRows.end());
+                end = std::unique(allRows.begin(), allRows.end());
+            }
+            else{
+                end = allRows.end();
+            }
+ 
             for (auto it = allRows.begin(); it != end;  ++it) {
                 if (!onRow(*it))
                     return false;
@@ -1047,10 +1020,17 @@ struct MutableBaseData {
                 }
             }
 
-            std::sort(allRows.begin(), allRows.end());
+            int64_t rowCount = 0;
 
-            int64_t rowCount = std::unique(allRows.begin(), allRows.end())
-                - allRows.begin();
+            if (entries.size() > 1) {
+                //if we haven't commited the entries yet there can be duplicates
+                parallelQuickSortRecursive<uint64_t >(allRows.begin(), allRows.end());
+                rowCount = std::unique(allRows.begin(), allRows.end()) - allRows.begin();
+            }
+            else{
+                rowCount = allRows.size();
+            }
+
             cachedRowCount = rowCount;
             return rowCount;
         }

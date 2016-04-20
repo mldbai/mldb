@@ -37,10 +37,10 @@ assertEqual(resp.responseCode, 200, "Error executing query");
 plugin.log("returned", resp.json);
 
 var expected = [
-   [ "_rowName", "y", "label", "x" ],
-   [ "ex1", 0, "cat", 0 ],
+   [ "_rowName", "y", "label", "x" ],   
    [ "ex3", 2, "cat", 1 ],
-   [ "ex2", 1, "dog", 1 ]
+   [ "ex2", 1, "dog", 1 ],
+   [ "ex1", 0, "cat", 0 ]
 ];
 
 plugin.log("expected", expected);

@@ -126,7 +126,7 @@ runBoolean(AccuracyConfig & runAccuracyConf,
 
     PerThreadAccumulator<ScoredStats> accum;
 
-    auto aggregator = [&] (NamedRowValue & row,
+    auto processor = [&] (NamedRowValue & row,
                            const std::vector<ExpressionValue> & scoreLabelWeight)
         {
             //cerr << "got vals " << labelWeight << " " << score << endl;
@@ -140,7 +140,7 @@ runBoolean(AccuracyConfig & runAccuracyConf,
             return true;
         };
 
-    selectQuery.execute(aggregator, runAccuracyConf.testingData.stm->offset,
+    selectQuery.execute({processor,true/*processInParallel*/}, runAccuracyConf.testingData.stm->offset,
              runAccuracyConf.testingData.stm->limit,
              nullptr /* progress */);
     
@@ -230,7 +230,7 @@ runCategorical(AccuracyConfig & runAccuracyConf,
     Date recordDate = Date::now();
 
 
-    auto aggregator = [&] (NamedRowValue & row,
+    auto processor = [&] (NamedRowValue & row,
                            const std::vector<ExpressionValue> & scoreLabelWeight)
         {
             CellValue maxLabel;
@@ -277,7 +277,7 @@ runCategorical(AccuracyConfig & runAccuracyConf,
             return true;
         };
 
-    selectQuery.execute(aggregator,
+    selectQuery.execute({processor,true/*processInParallel*/},
             runAccuracyConf.testingData.stm->offset,
             runAccuracyConf.testingData.stm->limit,
             nullptr /* progress */);
@@ -438,7 +438,7 @@ runRegression(AccuracyConfig & runAccuracyConf,
     PerThreadAccumulator<Rows> rowsAccum;
     Date recordDate = Date::now();
 
-    auto aggregator = [&] (NamedRowValue & row,
+    auto processor = [&] (NamedRowValue & row,
                            const std::vector<ExpressionValue> & scoreLabelWeight)
         {
             double score = scoreLabelWeight[0].toDouble();
@@ -464,7 +464,8 @@ runRegression(AccuracyConfig & runAccuracyConf,
             return true;
         };
 
-    selectQuery.execute(aggregator, runAccuracyConf.testingData.stm->offset,
+    selectQuery.execute({processor,true/*processInParallel*/}, 
+             runAccuracyConf.testingData.stm->offset,
              runAccuracyConf.testingData.stm->limit,
              nullptr /* progress */);
 
@@ -588,8 +589,7 @@ run(const ProcedureRunConfig & run,
                      runAccuracyConf.testingData.stm->when,
                      *runAccuracyConf.testingData.stm->where,
                      runAccuracyConf.testingData.stm->orderBy,
-                     calc,
-                     false /* implicit order by row hash */);
+                     calc);
 
     if(runAccuracyConf.mode == CM_BOOLEAN)
         return runBoolean(runAccuracyConf, boundQuery, output);

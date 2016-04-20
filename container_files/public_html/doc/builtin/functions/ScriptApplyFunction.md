@@ -40,7 +40,7 @@ mldb.script.set_return(results)
 You can now apply `myFunction` on the `myData` dataset with the following query:
 
 ```sql
-select myFunction({*} as args)[return] from meData
+select myFunction({{*} as args})[return] from myData
 ```
 
 The `return` value will contain:

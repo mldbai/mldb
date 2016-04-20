@@ -74,9 +74,6 @@ PoolingFunction(MldbServer * owner,
     fnConfig.query.stm->select = SelectExpression::parseList(select_expr);
     fnConfig.query.stm->from = functionConfig.embeddingDataset;
     fnConfig.query.stm->where = SqlExpression::parse("rowName() IN (KEYS OF $words)");
-    // Force group by, since that query executor doesn't know how to determine
-    // aggregators
-    fnConfig.query.stm->groupBy.clauses.emplace_back(SqlExpression::parse("1"));
 
     PolyConfig fnPConfig;
     fnPConfig.params = fnConfig;

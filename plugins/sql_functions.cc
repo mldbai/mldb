@@ -107,9 +107,18 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
                 return info;
             };
 
-        if (!config.query.stm->groupBy.empty()) {
-            // Create our pipeline
+        bool hasGroupBy = !config.query.stm->groupBy.empty();
+        std::vector< std::shared_ptr<SqlExpression> > aggregators = config.query.stm->select.findAggregators(hasGroupBy);
 
+        if (!hasGroupBy && !aggregators.empty()) {
+            //if we have no group by but aggregators, make a universal group
+            config.query.stm->groupBy.clauses.emplace_back(SqlExpression::parse("1"));
+            hasGroupBy = true;
+        }
+
+        if (hasGroupBy) {
+
+            // Create our pipeline
             pipeline
                 = getMldbRoot(function->server)
                 ->params(getParamInfo)
@@ -165,8 +174,7 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
                 return context.get(name);
             };
         
-        auto executor = boundPipeline->start(params,
-                                             !QueryThreadTracker::inChildThread() /* allowParallel */);
+        auto executor = boundPipeline->start(params);
 
         switch (function->functionConfig.output) {
         case FIRST_ROW: {
@@ -579,21 +587,14 @@ run(const ProcedureRunConfig & run,
                 return true;
             };
 
-        // We only add an implicit order by (which defeats parallelization)
-        // if we have a limit or offset parameter.
-        bool implicitOrderByRowHash
-            = (runProcConf.inputData.stm->offset != 0 || 
-               runProcConf.inputData.stm->limit != -1);
-
         BoundSelectQuery(runProcConf.inputData.stm->select,
                          *boundDataset.dataset,
                          boundDataset.asName,
                          runProcConf.inputData.stm->when,
                          *runProcConf.inputData.stm->where,
                          runProcConf.inputData.stm->orderBy,
-                         { runProcConf.inputData.stm->rowName },
-                         implicitOrderByRowHash)
-            .execute(recordRowInOutputDataset,
+                         { runProcConf.inputData.stm->rowName })
+            .execute({recordRowInOutputDataset, true/*processInParallel*/},
                      runProcConf.inputData.stm->offset,
                      runProcConf.inputData.stm->limit,
                      onProgress);
@@ -623,7 +624,7 @@ run(const ProcedureRunConfig & run,
                           *runProcConf.inputData.stm->having,
                           *runProcConf.inputData.stm->rowName,
                           runProcConf.inputData.stm->orderBy)
-            .execute(recordRowInOutputDataset,
+            .execute({recordRowInOutputDataset,false/*processInParallel*/},
                      runProcConf.inputData.stm->offset,
                      runProcConf.inputData.stm->limit,
                      onProgress);
