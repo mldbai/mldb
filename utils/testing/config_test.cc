@@ -1,9 +1,9 @@
 /* config_test.cc
    Guy Dumais, 9 March 2016
-   
+
    This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
 
-   Test of JSON diffs.
+   Test of configuration interface.
 */
 
 #define BOOST_TEST_MAIN
@@ -23,8 +23,8 @@ using namespace boost::program_options;
 BOOST_AUTO_TEST_CASE(test_map_config)
 {
     std::unordered_map<std::string, std::string> map = {
-        {"string", "string"}, 
-        {"int", "123"}, 
+        {"string", "string"},
+        {"int", "123"},
         {"bool_int_true", "1"},
         {"bool_int_false", "0"},
         {"bool_str_true", "true"},
@@ -49,7 +49,7 @@ BOOST_AUTO_TEST_CASE(test_map_config)
 BOOST_AUTO_TEST_CASE(test_options_config)
 {
 auto parsed_options = parse_config_file<char>("mldb/utils/testing/config_test.conf", options_description(), true);
-    auto config = Config::createFromProgramOptions(parsed_options);   
+    auto config = Config::createFromProgramOptions(parsed_options);
 
     BOOST_CHECK_EQUAL(config->getString("string", "dummy"), "string");
     BOOST_CHECK_EQUAL(config->getString("dummy", "string"), "string");
