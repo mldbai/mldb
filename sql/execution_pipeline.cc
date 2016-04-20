@@ -125,9 +125,6 @@ VariableGetter
 PipelineExpressionScope::
 doGetVariable(const Utf8String & tableName, const Utf8String & variableName)
 {
-    //cerr << "doGetVariable with tableName " << tableName
-    //     << " and variable name " << variableName << endl;
-        
     if (tableName.empty()) {
         if (defaultTables.empty()) {
 
@@ -364,10 +361,11 @@ from(std::shared_ptr<TableExpression> from,
      WhenExpression when,
      SelectExpression select,
      std::shared_ptr<SqlExpression> where,
-     OrderByExpression orderBy)
+     OrderByExpression orderBy,
+     GetParamInfo getParamInfo)
 {
     return std::make_shared<FromElement>(shared_from_this(), from, when,
-                                         select, where, orderBy);
+                                         select, where, orderBy, getParamInfo);
 }
 
 std::shared_ptr<PipelineElement>

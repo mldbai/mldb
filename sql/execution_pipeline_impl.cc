@@ -80,13 +80,13 @@ GetAllColumnsOutput
 TableLexicalScope::
 doGetAllColumns(std::function<Utf8String (const Utf8String &)> keep, int fieldOffset)
 {
-    //cerr << "dataset lexical scope get columns: fieldOffset = " << fieldOffset << endl;
     ExcAssertGreaterEqual(fieldOffset, 0);
 
     std::vector<KnownColumn> columnsWithInfo;
     std::map<ColumnHash, ColumnName> index;
 
     for (auto & column: knownColumns) {
+
         Utf8String columnName = column.columnName.toUtf8String();
         Utf8String outputName = keep(columnName);
         if (outputName.empty() && !asName.empty()) {
@@ -110,7 +110,7 @@ doGetAllColumns(std::function<Utf8String (const Utf8String &)> keep, int fieldOf
             auto & row = rowScope.as<PipelineResults>();
 
             const ExpressionValue & rowContents
-            = row.values.at(fieldOffset + ROW_CONTENTS);
+            = row.values.at(fieldOffset + TableLexicalScope::ROW_CONTENTS);
 
             StructValue result;
 
@@ -336,6 +336,285 @@ outputScope() const
     return outputScope_;
 }
 
+/*****************************************************************************/
+/* SUB SELECT LEXICAL SCOPE                                                  */
+/*****************************************************************************/
+
+/** Lexical scope for a sub select.  It allows for the output of the SELECT to be
+    used in wildcards (SELECT * from (SELECT 1 AS X))
+*/
+
+SubSelectLexicalScope::
+SubSelectLexicalScope(std::shared_ptr<PipelineExpressionScope> inner, std::shared_ptr<ExpressionValueInfo> selectInfo)
+                    : inner(inner), selectInfo(selectInfo) {
+
+}
+
+VariableGetter
+SubSelectLexicalScope::
+doGetVariable(const Utf8String & variableName, int fieldOffset){
+
+    //TODO: we might know the info of the variable while the inner can't possibly.
+    //As to not return AtomValueInfo
+
+    ColumnName columnName(variableName);
+
+    return {[=] (const SqlRowScope & context,
+                 ExpressionValue & storage,
+                 const VariableFilter & filter) -> const ExpressionValue &
+            {
+                auto & row = context.as<PipelineResults>();
+                const ExpressionValue & rowContents
+                = row.values.at(fieldOffset + TableLexicalScope::ROW_CONTENTS);
+
+                ExpressionValue result = rowContents.getField(variableName, filter);
+
+                return (storage = std::move(result));
+            },
+            std::make_shared<AtomValueInfo>()};
+
+}
+
+GetAllColumnsOutput
+SubSelectLexicalScope::
+doGetAllColumns(std::function<Utf8String (const Utf8String &)> keep, int fieldOffset)
+{
+    std::vector<KnownColumn> knownColumns = selectInfo->getKnownColumns();
+
+    std::unordered_map<ColumnHash, ColumnName> index;
+    std::vector<KnownColumn> columnsWithInfo;
+    bool allWereKept = true;
+    bool noneWereRenamed = true;
+
+    vector<ColumnName> columnsNeedingInfo;
+
+    for (auto & column : knownColumns) {
+        ColumnName outputName(keep(column.columnName.toUtf8String()));
+        if (outputName == ColumnName()) {
+            allWereKept = false;
+            continue;
+        }
+
+        if (outputName != column.columnName)
+            noneWereRenamed = false;
+        columnsNeedingInfo.push_back(column.columnName);
+
+        index[column.columnName] = outputName;
+
+        columnsWithInfo.emplace_back(outputName, column.valueInfo,
+                                     COLUMN_IS_DENSE);
+
+    }
+
+    std::function<ExpressionValue (const SqlRowScope &)> exec;
+
+    if (allWereKept && noneWereRenamed) {
+        // We can pass right through; we have a select *
+
+        exec = [=] (const SqlRowScope & context) -> ExpressionValue
+            {
+                auto & row = context.as<PipelineResults>();
+
+                const ExpressionValue rowContents
+                = row.values.at(fieldOffset + TableLexicalScope::ROW_CONTENTS);
+
+                return std::move(rowContents);
+            };
+    }
+    else {
+        // Some are excluded or renamed; we need to go one by one
+        exec = [=] (const SqlRowScope & context)
+            {
+                auto & row = context.as<PipelineResults>();
+
+                const ExpressionValue & rowContents
+                = row.values.at(fieldOffset + TableLexicalScope::ROW_CONTENTS);
+
+                StructValue result;
+
+                auto onSubexpression = [&] (const Coord & columnName,
+                                            const Coord & prefix,  // always null
+                                            const ExpressionValue & value)
+                {
+                    auto it = index.find(columnName);
+                    if (it == index.end()) {
+                        return true;
+                    }
+                    result.emplace_back(it->second, std::move(value));
+                    return true;
+                };
+
+                rowContents.forEachSubexpression(onSubexpression);
+
+                return std::move(result);
+            };
+    }
+
+    GetAllColumnsOutput result;
+    result.exec = exec;
+    result.info = std::make_shared<RowValueInfo>(std::move(columnsWithInfo),
+                                                 SCHEMA_CLOSED);
+    return result;
+}
+
+BoundFunction
+SubSelectLexicalScope::
+doGetFunction(const Utf8String & functionName,
+              const std::vector<BoundSqlExpression> & args,
+              int fieldOffset,
+              SqlBindingScope & argsScope) {
+    return inner->doGetFunction(Utf8String(), functionName, args, argsScope);
+}
+
+/** Sub select don't introduce a scope name */
+Utf8String
+SubSelectLexicalScope::
+as() const {
+    return Utf8String();
+}
+
+std::set<Utf8String>
+SubSelectLexicalScope::
+tableNames() const {
+    return {};
+}
+
+std::vector<std::shared_ptr<ExpressionValueInfo> >
+SubSelectLexicalScope::
+outputAdded() const {
+    return {};
+}
+
+/*****************************************************************************/
+/* SUB SELECT EXECUTOR                                                       */
+/*****************************************************************************/
+
+SubSelectExecutor::
+SubSelectExecutor(std::shared_ptr<BoundPipelineElement> boundSelect,
+                  const BoundParameters & getParam)
+{
+    pipeline = boundSelect->start(getParam);
+}
+
+std::shared_ptr<PipelineResults>
+SubSelectExecutor::
+take()
+{
+    auto subResult = pipeline->take();
+    if (subResult)
+        subResult->group.clear();
+
+    return subResult;
+}
+
+void
+SubSelectExecutor::
+restart()
+{
+    pipeline->restart();
+}
+
+
+/*****************************************************************************/
+/* SUB SELECT ELEMENT                                                        */
+/*****************************************************************************/
+
+SubSelectElement::
+SubSelectElement(std::shared_ptr<PipelineElement> root,
+                 SelectStatement& stm,
+                 GetParamInfo getParamInfo) : root(root){
+
+    bool hasGroupBy = !stm.groupBy.empty();
+    std::vector< std::shared_ptr<SqlExpression> > aggregators = stm.select.findAggregators(hasGroupBy);
+
+    if (!hasGroupBy && !aggregators.empty()) {
+        //if we have no group by but aggregators, make a universal group
+        stm.groupBy.clauses.emplace_back(SqlExpression::parse("1"));
+        hasGroupBy = true;
+    }
+
+    if (hasGroupBy) {
+
+        pipeline
+            = root
+            ->params(getParamInfo)
+            ->from(stm.from, stm.when,
+                   SelectExpression::STAR, stm.where,
+                   OrderByExpression(), getParamInfo)
+            ->where(stm.where)
+            ->select(stm.groupBy)
+            ->sort(stm.groupBy)
+            ->partition(stm.groupBy.clauses.size())
+            ->where(stm.having)
+            ->select(stm.orderBy)
+            ->sort(stm.orderBy)
+            ->select(stm.select);
+    }
+    else {
+
+        pipeline
+            = root
+            ->params(getParamInfo)
+            ->from(stm.from, stm.when,
+                   SelectExpression::STAR, stm.where,
+                   OrderByExpression(), getParamInfo)
+            ->where(stm.where)
+            ->select(stm.orderBy)
+            ->sort(stm.orderBy)
+            ->select(stm.select);
+    }
+
+}
+
+std::shared_ptr<BoundPipelineElement>
+SubSelectElement::
+bind() const
+{
+    return std::make_shared<Bound>(this, root->bind());
+}
+
+/*****************************************************************************/
+/* BOUND SUB SELECT ELEMENT                                                  */
+/*****************************************************************************/
+
+SubSelectElement::Bound::
+Bound(const SubSelectElement * parent,
+      std::shared_ptr<BoundPipelineElement> source)
+    : parent(std::dynamic_pointer_cast<const SubSelectElement>
+             (parent->shared_from_this())),
+      source_(std::move(source)),
+      inputScope_(std::move(source_->outputScope()))
+{
+    boundSelect = parent->pipeline->bind();
+    shared_ptr<SelectElement::Bound> castBoundSelect = dynamic_pointer_cast<SelectElement::Bound>(boundSelect);
+
+    ExcAssert(castBoundSelect);
+
+    outputScope_ = inputScope_
+        ->tableScope(std::make_shared<SubSelectLexicalScope>(inputScope_, castBoundSelect->select_.info));
+}
+
+std::shared_ptr<ElementExecutor>
+SubSelectElement::Bound::
+start(const BoundParameters & getParam) const
+{
+    auto result = std::make_shared<SubSelectExecutor>(boundSelect, getParam);
+    return result;
+}
+
+std::shared_ptr<BoundPipelineElement>
+SubSelectElement::Bound::
+boundSource() const
+{
+    return source_;
+}
+
+std::shared_ptr<PipelineExpressionScope>
+SubSelectElement::Bound::
+outputScope() const
+{
+    return outputScope_;
+}
 
 /*****************************************************************************/
 /* JOIN LEXICAL SCOPE                                                        */
@@ -1080,7 +1359,8 @@ FromElement(std::shared_ptr<PipelineElement> root_,
             WhenExpression when_,
             SelectExpression select_,
             std::shared_ptr<SqlExpression> where_,
-            OrderByExpression orderBy_)
+            OrderByExpression orderBy_,
+            GetParamInfo params_)
     : root(std::move(root_)), from(std::move(from_)),
       select(std::move(select_)), when(std::move(when_)), where(std::move(where_)),
       orderBy(std::move(orderBy_))
@@ -1106,6 +1386,23 @@ FromElement(std::shared_ptr<PipelineElement> root_,
         impl.reset(new JoinElement(root, join->left, join->right, join->on, join->qualification, select, where, orderBy_));
         // TODO: order by for join output
             
+    }
+    else if (from->getType() == "select") {
+        std::shared_ptr<SelectSubtableExpression> subSelect
+            = std::dynamic_pointer_cast<SelectSubtableExpression>(from);
+
+        ExcAssert(subSelect);
+
+        GetParamInfo getParamInfo = [&] (const Utf8String & paramName)
+            -> std::shared_ptr<ExpressionValueInfo>
+            {
+                throw HttpReturnException(500, "No query parameter " + paramName);
+            };
+
+        if (params_)
+            getParamInfo = params_;
+
+        impl.reset(new SubSelectElement(root, subSelect->statement, getParamInfo));
     }
     else {
         auto rootBound = root->bind();
@@ -1272,11 +1569,11 @@ take()
 {
     while (true) {
         std::shared_ptr<PipelineResults> input = source->take();
-                
+
         // If nothing left to give, then return an empty vector
         if (!input)
             return input;
-                
+
         // Run the select expression in this input's context
         ExpressionValue selected = parent->select_(*input, GET_LATEST);
 

@@ -326,7 +326,8 @@ struct PipelineElement: public std::enable_shared_from_this<PipelineElement> {
          WhenExpression when,
          SelectExpression select = SelectExpression::STAR,
          std::shared_ptr<SqlExpression> where = SqlExpression::TRUE,
-         OrderByExpression orderBy = OrderByExpression());
+         OrderByExpression orderBy = OrderByExpression(),
+         GetParamInfo getParamInfo = nullptr);
 
     /** Add a join to the pipeline. */
     std::shared_ptr<PipelineElement>

@@ -117,13 +117,13 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
         }
 
         if (hasGroupBy) {
-
             // Create our pipeline
             pipeline
                 = getMldbRoot(function->server)
                 ->params(getParamInfo)
                 ->from(config.query.stm->from, config.query.stm->when,
-                       SelectExpression::STAR, config.query.stm->where)
+                       SelectExpression::STAR, config.query.stm->where,
+                       OrderByExpression(), getParamInfo)
                 ->where(config.query.stm->where)
                 ->select(config.query.stm->groupBy)
                 ->sort(config.query.stm->groupBy)
@@ -134,13 +134,13 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
                 ->select(config.query.stm->select);
         }
         else {
-                
             // Create our pipeline
             pipeline
                 = getMldbRoot(function->server)
                 ->params(getParamInfo)
                 ->from(config.query.stm->from, config.query.stm->when,
-                       SelectExpression::STAR, config.query.stm->where)
+                       SelectExpression::STAR, config.query.stm->where,
+                       OrderByExpression(), getParamInfo)
                 ->where(config.query.stm->where)
                 ->select(config.query.stm->orderBy)
                 ->sort(config.query.stm->orderBy)
@@ -187,7 +187,6 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
                 // reference chain that stops the elements from being
                 // released.
                 output->group.clear();
-
                 result = std::move(output->values.back());
             }
 
