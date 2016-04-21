@@ -322,7 +322,7 @@ DEFINE_STRUCTURE_DESCRIPTION(KmeansFunctionOutput);
 KmeansFunctionOutputDescription::
 KmeansFunctionOutputDescription()
 {
-    addField("bestCluster", &KmeansFunctionOutput::bestCluster,
+    addField("cluster", &KmeansFunctionOutput::cluster,
              "Index of the row in the `centroids` dataset whose columns describe "
              "the point which is closest to the input according to the `metric` "
              "specified in training.");

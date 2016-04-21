@@ -411,7 +411,7 @@ TsneOutput
 TsneEmbed::
 call(TsneInput input) const
 {
-    throw HttpReturnException(600, "TsneEmbed::call()");
+    throw HttpReturnException(500, "t-SNE Embed apply function is not yet implemented");
 #if 0    
     FunctionOutput result;
 
