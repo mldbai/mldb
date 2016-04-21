@@ -362,6 +362,25 @@ SVMFunctionConfigDescription()
              "This file is created by a procedure of type 'svm.train'.");
 }
 
+DEFINE_STRUCTURE_DESCRIPTION(SVMFunctionArgs);
+
+SVMFunctionArgsDescription::
+SVMFunctionArgsDescription()
+{
+    addField("embedding", &SVMFunctionArgs::embedding,
+             "Embedding values for the SVM function.  The column names in "
+             "this embedding must match those used in the original dataset.");
+}
+
+DEFINE_STRUCTURE_DESCRIPTION(SVMFunctionOutput);
+
+SVMFunctionOutputDescription::
+SVMFunctionOutputDescription()
+{
+    addField("output", &SVMFunctionOutput::output,
+             "Output of the SVM for either classification or regression");
+}
+
 struct SVMFunction::Itl {
     svm_model * model;
     std::vector<ColumnName> columnNames;
@@ -371,7 +390,7 @@ SVMFunction::
 SVMFunction(MldbServer * owner,
             PolyConfig config,
             const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner)
+    : BaseT(owner)
 {
     auto functionConfig = config.params.convert<SVMFunctionConfig>();
 
@@ -413,54 +432,22 @@ SVMFunction::
     svm_free_and_destroy_model(&itl->model);
 }
 
-Any
+SVMFunctionOutput 
 SVMFunction::
-getStatus() const
+call(SVMFunctionArgs input) const
 {
-    return Any();
-}
+    auto embedding = input.embedding.getEmbedding(itl->columnNames.data(),
+                                                  itl->columnNames.size());
+    Date ts = input.embedding.getEffectiveTimestamp();
 
-struct SVMFunctionApplier: public FunctionApplier {
-    SVMFunctionApplier(const SVMFunction * owner,
-                       const FunctionValues & input)
-        : FunctionApplier(owner)
-    {
-       info = owner->getFunctionInfo();
-       auto info = input->getColumn("embedding");
-       extract = info->extractDoubleEmbedding(owner->itl->columnNames);
-    }
-
-    ExpressionValueInfo::ExtractDoubleEmbeddingFunction extract;
-};
-
-std::unique_ptr<FunctionApplier>
-SVMFunction::
-bind(SqlBindingScope & outerContext,
-     const FunctionValues & input) const
-{
-    return std::unique_ptr<SVMFunctionApplier>
-        (new SVMFunctionApplier(this, input));
-}
-
-FunctionOutput
-SVMFunction::
-apply(const FunctionApplier & applier_,
-      const FunctionContext & context) const
-{
-    auto & applier = static_cast<const SVMFunctionApplier &>(applier_);
-
-    ExpressionValue inputVal = context.getColumn("embedding");
-    std::vector<double> input = applier.extract(inputVal);
-    Date ts = inputVal.getEffectiveTimestamp();
-
-    svm_node * x = new svm_node[input.size()+1];
+    svm_node * x = new svm_node[embedding.size()+1];
     Scope_Exit(delete x);
 
     int nbSparse = 0;
-    for (size_t i = 0; i < input.size(); ++i) {
-        if (input[i] != 0) {
+    for (size_t i = 0; i < embedding.size(); ++i) {
+        if (embedding[i] != 0) {
              x[nbSparse].index = i;
-             x[nbSparse].value = input[i];
+             x[nbSparse].value = embedding[i];
              nbSparse++;
         }     
     }
@@ -469,26 +456,7 @@ apply(const FunctionApplier & applier_,
 
     double predict_label = svm_predict(itl->model,x);
 
-    StructValue result{ { make_tuple("output", ExpressionValue(predict_label, ts)) } };
-    return std::move(result);
-}
-
-FunctionInfo
-SVMFunction::
-getFunctionInfo() const
-{    
-    FunctionInfo result;
-
-    std::vector<KnownColumn> inputColumns, outputColumns;
-    inputColumns.emplace_back(Coord("embedding"), std::make_shared<EmbeddingValueInfo>(2),
-                              COLUMN_IS_DENSE, 0);
-    outputColumns.emplace_back(Coord("output"), std::make_shared<AtomValueInfo>(),
-                               COLUMN_IS_DENSE, 0);
-
-    result.input.reset(new RowValueInfo(inputColumns, SCHEMA_CLOSED));
-    result.output.reset(new RowValueInfo(outputColumns, SCHEMA_CLOSED));
-    
-    return result;
+    return {ExpressionValue(predict_label, ts)};    
 }
 
 namespace {
