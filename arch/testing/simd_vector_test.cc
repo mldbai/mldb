@@ -236,6 +236,39 @@ BOOST_AUTO_TEST_CASE( vec_prod_float_test )
     vec_prod_float_test_case(123);
 }
 
+void vec_minus_float_test_case(int nvals)
+{
+    cerr << "testing " << nvals << endl;
+
+    float x[nvals], r[nvals], r2[nvals], y[nvals];
+
+    for (unsigned i = 0; i < nvals;  ++i) {
+        x[i] = rand() / 16384.0;
+        y[i] = rand() / 16384.0;
+        r2[i] = x[i] - y[i];
+    }
+
+    SIMD::vec_minus(x, y, r, nvals);
+
+    for (unsigned i = 0;  i < nvals;  ++i) {
+        BOOST_CHECK_EQUAL(r[i], r2[i]);
+    }
+}
+
+BOOST_AUTO_TEST_CASE( vec_minus_float_test )
+{
+    vec_minus_float_test_case(1);
+    vec_minus_float_test_case(2);
+    vec_minus_float_test_case(3);
+    vec_minus_float_test_case(4);
+    vec_minus_float_test_case(5);
+    vec_minus_float_test_case(8);
+    vec_minus_float_test_case(9);
+    vec_minus_float_test_case(12);
+    vec_minus_float_test_case(16);
+    vec_minus_float_test_case(123);
+}
+
 float get_eps(float)
 {
     return 1e-7;

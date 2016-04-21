@@ -541,6 +541,44 @@ double vec_dotprod_sse2(const double * x, const double * y, size_t n)
     return result;
 }
 
+void vec_minus_sse2(const float * x, const float * y, float * r, size_t n)
+{
+    size_t i = 0;
+
+    if (false) ;
+    else {
+        //cerr << "unoptimized" << endl;
+        
+        for (; i + 16 <= n;  i += 16) {
+            v4sf yyyy0 = _mm_loadu_ps(y + i + 0);
+            v4sf xxxx0 = _mm_loadu_ps(x + i + 0);
+            v4sf yyyy1 = _mm_loadu_ps(y + i + 4);
+            xxxx0 -= yyyy0;
+            v4sf xxxx1 = _mm_loadu_ps(x + i + 4);
+            __builtin_ia32_storeups(r + i + 0, xxxx0);
+            v4sf yyyy2 = _mm_loadu_ps(y + i + 8);
+            xxxx1 -= yyyy1;
+            v4sf xxxx2 = _mm_loadu_ps(x + i + 8);
+            __builtin_ia32_storeups(r + i + 4, xxxx1);
+            v4sf yyyy3 = _mm_loadu_ps(y + i + 12);
+            xxxx2 -= yyyy2;
+            v4sf xxxx3 = _mm_loadu_ps(x + i + 12);
+            __builtin_ia32_storeups(r + i + 8, xxxx2);
+            xxxx3 -= yyyy3;
+            __builtin_ia32_storeups(r + i + 12, xxxx3);
+        }
+
+        for (; i + 4 <= n;  i += 4) {
+            v4sf yyyy0 = _mm_loadu_ps(y + i + 0);
+            v4sf xxxx0 = _mm_loadu_ps(x + i + 0);
+            xxxx0 -= yyyy0;
+            __builtin_ia32_storeups(r + i + 0, xxxx0);
+        }
+        
+        for (; i < n;  ++i) r[i] = x[i] - y[i];
+    }
+}
+
 #if 0  // GCC 4.8 segfaults on initialization of loaded shlibs when multiversioning used.  It may actually be a linker problem... hard to tell
 __attribute__ ((target ("default")))
 double vec_dotprod_(const double * x, const double * y, size_t n)
@@ -571,12 +609,38 @@ double vec_dotprod(const double * x, const double * y, size_t n)
     }
 }
 
-#endif // GCC 4.8 multiversion problems
-
 void vec_minus(const float * x, const float * y, float * r, size_t n)
 {
-    for (unsigned i = 0;  i < n;  ++i) r[i] = x[i] - y[i];
+    // Interrogate the cpuid flags directly to decide which one to use
+    if (has_avx()) {
+        Avx::vec_minus(x, y, r, n);
+    }
+    else if (true) /* sse2 */ {
+        vec_minus_sse2(x, y, r, n);
+    } else {
+        for (unsigned i = 0;  i < n;  ++i) r[i] = x[i] - y[i];
+    }
 }
+
+double vec_euclid(const float * x, const float * y, size_t n)
+{
+    // Interrogate the cpuid flags directly to decide which one to use
+    if (has_avx()) {
+        return Avx::vec_euclid(x, y, n);
+    }
+    else if (true) /* sse2 */ {
+        float tmp[n];
+        vec_minus(x, y, tmp, n);
+        return vec_dotprod(tmp, tmp, n);
+    } else {
+        double result = 0.0;
+        for (unsigned i = 0;  i < n;  ++i)
+            result += (x[i] - y[i]) * (x[i] - y[i]);
+        return result;
+    }
+}
+
+#endif // GCC 4.8 multiversion problems
 
 double vec_accum_prod3(const float * x, const float * y, const float * z,
                        size_t n)
