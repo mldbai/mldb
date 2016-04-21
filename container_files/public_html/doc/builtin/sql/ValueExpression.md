@@ -585,7 +585,7 @@ function fib(x) {
     return fib(x - 1) + fib(x - 2);
 }
 return fib(i);
-', 'i', i
+', 'i', i)
 ```
 
 or to parse a comma separated list of 'key=value' attributes into a row, one could write
