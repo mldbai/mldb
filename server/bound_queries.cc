@@ -1191,7 +1191,9 @@ struct GroupContext: public SqlExpressionDatasetScope {
                 simplifiedSurface = columnName.removePrefix();
             }
             else {
-                simplifiedSurface = Coord(alias) + columnName;
+                if (!alias.empty())
+                    simplifiedSurface = Coord(alias) + columnName;
+                else simplifiedSurface = columnName;
             }
 
             auto variable = std::dynamic_pointer_cast<ReadColumnExpression>(g);
