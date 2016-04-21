@@ -23,10 +23,10 @@ class WhenInWhen(unittest.TestCase):
         for i in xrange(row_count - 1):
             # row name is x's value
             ds1.record_row(str(i),
-                           [['x', i, same_time_tomorrow], ['y', i, now]])
+                           [['x', str(i), same_time_tomorrow], ['y', str(i), now]])
 
-        ds1.record_row(str(row_count - 1), [['x', 9, same_time_tomorrow],
-                                            ['y', 9, same_time_tomorrow]])
+        ds1.record_row(str(row_count - 1), [['x', "9", same_time_tomorrow],
+                                            ['y', "9", same_time_tomorrow]])
         ds1.commit()
 
     def test_1(self):
