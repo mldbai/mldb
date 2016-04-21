@@ -271,7 +271,7 @@ BOOST_AUTO_TEST_CASE( vec_minus_float_test )
 
 float get_eps(float)
 {
-    return 1e-7;
+    return 2e-7;
 }
 
 double get_eps(double)
@@ -295,7 +295,13 @@ void vec_dotprod_test_case(int nvals)
     r2 = SIMD::vec_dotprod(x, y, nvals);
 
     T eps = get_eps(T());
-    BOOST_CHECK(fabs(r - r2) / max(fabs(r), fabs(r2)) < eps);
+    float error = fabs(r - r2) / max(fabs(r), fabs(r2));
+    if (error >= eps) {
+        cerr << "r = " << r << " r2 = " << r2 << endl;
+        cerr << "error = " << error << " eps = " << eps << endl;
+        cerr << "type " << ML::type_name<T>() << endl;
+    }
+    BOOST_CHECK(error < eps);
 }
 
 namespace ML {
