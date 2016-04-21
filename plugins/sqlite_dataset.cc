@@ -228,7 +228,7 @@ struct SqliteSparseDataset::Itl
     static Coords decodeQuery(const sqlite3pp::query::rows & rows, Coords *)
     {
         size_t len = rows.column_bytes(0);
-        return Coords(Coord(rows.get<const char *>(0), len));
+        return Coords::parse(rows.get<const char *>(0), len);
     }
 
     static std::pair<int, Coords>
@@ -236,7 +236,7 @@ struct SqliteSparseDataset::Itl
     {
         size_t len = rows.column_bytes(1);
         return make_pair(rows.get<int>(0),
-                         Coords(Coord(rows.get<const char *>(1), len)));
+                         Coords::parse(rows.get<const char *>(1), len));
     }
     
     static std::pair<Date, Date>
@@ -252,7 +252,8 @@ struct SqliteSparseDataset::Itl
     {
         size_t len1 = rows.column_bytes(0);
         size_t len2 = rows.column_bytes(1);
-        return std::make_tuple(jsonDecodeStr<ColumnName>(rows.get<const char *>(0), len1),
+
+        return std::make_tuple(ColumnName::parse(rows.get<const char *>(0), len1),
                                jsonDecodeStr<CellValue>(rows.get<const char *>(1), len2),
                                decodeTs(rows.get<long long>(2)));
     }

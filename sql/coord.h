@@ -349,6 +349,7 @@ struct Coords: protected std::vector<Coord> {
     }
 
     static Coords parse(const Utf8String & str);
+    static Coords parse(const char * str, size_t len);
 
     /** This function asserts that there is only a single element in
         the scope, and returns it as an Utf8String.  This is used
