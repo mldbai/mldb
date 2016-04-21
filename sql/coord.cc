@@ -681,13 +681,13 @@ toUtf8String() const
 
 Coords
 Coords::
-parse(const Utf8String & val)
+parse(const char * str, size_t len)
 {
     Coords result;
     result.reserve(4);
 
-    const char * p = val.rawData();
-    const char * e = p + val.rawLength();
+    const char * p = str;
+    const char * e = p + len;
 
     if (p == e) {
         if (result.empty()) {
@@ -705,8 +705,8 @@ parse(const Utf8String & val)
         if (p < e) {
             if (*p != '.') {
                 throw HttpReturnException(400, "expected '.' between elements in Coords, got " + to_string((int)*p),
-                                          "position", p - val.rawData(),
-                                          "val", val);
+                                          "position", p - str,
+                                          "val", Utf8String(str, len));
             }
             ++p;
         }
@@ -714,10 +714,17 @@ parse(const Utf8String & val)
 
     if (result.empty()) {
         throw HttpReturnException(400, "Coords were empty",
-                                  "val", val);
+                                  "val", Utf8String(str, len));
     }
     
     return result;
+}
+
+Coords
+Coords::
+parse(const Utf8String & val)
+{
+    return parse(val.rawData(), val.rawLength());
 }
 
 Coords
