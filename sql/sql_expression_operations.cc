@@ -3424,7 +3424,7 @@ bind(SqlBindingScope & scope) const
     auto newColumnName = [=] (const ColumnName & inputColumnName) -> ColumnName
         {
             // First, check it matches the prefix
-            if (!inputColumnName.matchWildcard(prefix))
+            if (!inputColumnName.matchWildcard(simplifiedPrefix))
                 return ColumnName();
 
             // Second, check it doesn't match an exclusion
@@ -3445,7 +3445,10 @@ bind(SqlBindingScope & scope) const
             //     << " with " << asPrefix << " on " << inputColumnName << endl;
 
             // Finally, replace the prefix with the new prefix
-            return inputColumnName.replaceWildcard(prefix, asPrefix);
+            if (!simplifiedPrefix.empty() || (prefix != asPrefix))
+                return inputColumnName.replaceWildcard(prefix, asPrefix);
+            else
+                return inputColumnName;
         };
 
     auto allColumns = scope.doGetAllColumns(resolvedTableName, newColumnName);
