@@ -1,8 +1,6 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** simd_vector_avx.h                                              -*- C++ -*-
     Jeremy Barnes, 11 October 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     SIMD vector operations; AVX specializations.
 */
@@ -20,6 +18,12 @@ double vec_dotprod(const double * x, const double * y, size_t n);
 
 /// Single precision vector dot product, avx version
 float vec_dotprod(const float * x, const float * y, size_t n);
+
+/// Single precision vector minus
+void vec_minus(const float * x, const float * y, float * r, size_t n);
+
+/// Single precision vector euclidean distance squared
+double vec_euclid(const float * x, const float * y, size_t n);
 
 } // namespace Avx
 } // namespace SIMD

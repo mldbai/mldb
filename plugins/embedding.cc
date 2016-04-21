@@ -895,8 +895,8 @@ struct EmbeddingDataset::Itl
 
     vector<tuple<RowName, RowHash, float> >
     getNeighbors(const ML::distribution<float> & coord,
-                  int numNeighbors,
-                  double maxDistance)
+                 int numNeighbors,
+                 double maxDistance)
     {
         auto repr = committed();
         if (!repr->initialized())
@@ -909,7 +909,11 @@ struct EmbeddingDataset::Itl
             return result;
         };
 
+        //ML::Timer timer;
+
         auto neighbors = repr->vpTree->search(dist, numNeighbors, maxDistance);
+
+        //cerr << "neighbors took " << timer.elapsed() << endl;
 
         //cerr << "neighbors = " << jsonEncode(neighbors) << endl;
         
