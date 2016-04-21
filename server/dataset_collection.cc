@@ -29,7 +29,7 @@ std::shared_ptr<DatasetCollection>
 createDatasetCollection(MldbServer * server, RestRouteManager & routeManager)
 {
     return createCollection<DatasetCollection>(2, L"dataset", L"datasets",
-                                               server, routeManager, nullptr);
+                                               server, routeManager);
 }
 
 std::shared_ptr<Dataset>

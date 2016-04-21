@@ -90,51 +90,8 @@ struct CredentialRuleCollection
     getConfig(std::string key, const CredentialRule & value) const;
 };
 
-
-#if 0
-/*****************************************************************************/
-/* CREDENTIAL DAEMON                                                         */
-/*****************************************************************************/
-struct CredentialsDaemon
-    : public EventRecorder, public RestServiceEndpoint, public RestDirectory {
-
-    CredentialsDaemon();
-
-    // Initialize with an event recorder
-    CredentialsDaemon(const std::string & eventPrefix,
-                      std::shared_ptr<EventService> events);
-
-    ~CredentialsDaemon();
-
-    void init(std::shared_ptr<CollectionConfigStore> configStore);
-
-    std::string bindTcp(const PortRange & portRange = PortRange(),
-                        const std::string & host = "localhost");
-
-    /** Main query method to return credentials. */
-    std::vector<Credential>
-    getCredentials(const std::string & resourceType,
-                   const std::string & resource,
-                   const std::string & role,
-                   const std::string & operation,
-                   const TimePeriod & validity,
-                   const Json::Value & extra);
-
-    /** ServicePeer method that allows the Location: header to be filled in
-        for POSTs
-    */
-    Utf8String getUriForPath(ResourcePath path);
-
-private:
-    CredentialRuleCollection rules;
-    RestRequestRouter router;
-    std::shared_ptr<CollectionConfigStore> config;
-    std::shared_ptr<RestRouteManager> routeManager;
-    std::shared_ptr<spdlog::logger> logger;
-};
-
-#endif
-
 } // MLDB namespace
+
+extern template class RestCollection<std::string, MLDB::CredentialRule>;
 
 } // namespace Datacratic

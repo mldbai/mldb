@@ -26,7 +26,7 @@ std::shared_ptr<ProcedureCollection>
 createProcedureCollection(MldbServer * server, RestRouteManager & routeManager)
 {
     return createCollection<ProcedureCollection>(2, "procedure", "procedures",
-                                                 server, routeManager, nullptr);
+                                                 server, routeManager);
 }
 
 std::shared_ptr<Procedure>

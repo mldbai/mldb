@@ -48,9 +48,6 @@ external tools.
 
 MLDB can store credentials and supply them whenever required.
 
-Capabilities have been added to control how credentials are stored and used, and
-to create temporary credentials to limit its permissions to exactly what are needed.
-
 MLDB exposes a REST API which is accessible at the route `/v1/credentials`.
 
 ### Credentials rules
@@ -68,7 +65,8 @@ the request.
 
 ### Credentials storage
 
-Credentials stored in MLDB are persisted to disk by default.  This is different
+Credentials stored in MLDB are persisted by default under the `.mldb_credentials` sub-folder
+of the `mldb_data` folder.  This is different
 than other MLDB entities.  As a consequence, if MLDB is restarted, the credentials
 will be reloaded automatically.  Deleting a credential entity will also delete
 its persisted copy.

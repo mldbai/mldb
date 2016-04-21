@@ -425,7 +425,7 @@ createCollection(int numResourcesProducedByPathSpec,
                  const Utf8String & nounSingular,
                  const Utf8String & nounPlural,
                  RestDirectory * server, RestRouteManager & routeManager,
-                 std::shared_ptr<CollectionConfigStore> configStore)
+                 std::shared_ptr<CollectionConfigStore> configStore = nullptr)
 {
     auto result = std::make_shared<Collection>(Collection::EntityT::getOwner(server));
     result->init(configStore);
