@@ -849,7 +849,7 @@ apply(const FunctionApplier & applier,
         result.emplace_back("probs", ExpressionValue(std::move(rtnRow)));
     }
     else {
-        throw HttpReturnException(400, "wrong input type");
+        throw HttpReturnException(400, "statsTable.bagOfWords.posneg : expect 'keys' as a row");
     }
     
     return std::move(result);

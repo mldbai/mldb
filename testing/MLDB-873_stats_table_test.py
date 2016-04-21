@@ -58,7 +58,7 @@ for output_type, output_id in [("sparse.mutable", "out_beh"),
 
     assert js_resp[0]["rowName"] == "br_1"
     assert val_for_key(js_resp[2]["columns"], "label.region") == 0
-    assert val_for_key(js_resp[2]["columns"], "trial.region") == 1
+    assert val_for_key(js_resp[2]["columns"], "trial_region") == 1
     assert val_for_key(js_resp[2]["columns"], "label.host") == 1
 
     assert val_for_key(js_resp[2]["columns"], "not_label.region") == 1
@@ -81,13 +81,13 @@ mldb.log(js_rez)
 assert js_rez == {
         "output" : {
          "counts" : [
-             ["label.host", [ 0, "NaD" ]],
-             ["label.region", [ 0, "NaD" ]],
-             ["not_label.host", [ 1, "NaD" ]],
-             ["not_label.region", [ 0, "NaD" ]],
-             ["trial.host", [ 1, "NaD" ]],
-             ["trial.region", [ 0, "NaD" ]]
-          ]}}
+             ["label_host", [ 0, "NaD" ]],
+             ["label_region", [ 0, "NaD" ]],
+             ["not_label_host", [ 1, "NaD" ]],
+             ["not_label_region", [ 0, "NaD" ]],
+             ["trial_host", [ 1, "NaD"]],
+             ["trial_region", [0,"NaD"]]
+             ]}}
 
 
 
@@ -219,7 +219,7 @@ mldb.log(rez.json())
 
 rez = mldb.get(
     "/v1/query",
-    q="select posnegz({words: tokenize(text, {splitchars: ' .'})}) as * from posneg")
+    q="select posnegz({keys: tokenize(text, {splitchars: ' _'})}) as * from posneg")
 js_rez = rez.json()
 mldb.log(js_rez)
 
