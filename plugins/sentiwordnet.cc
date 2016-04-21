@@ -30,6 +30,8 @@ namespace MLDB {
 /*****************************************************************************/
 
 struct SentiWordNetImporterConfig : ProcedureConfig {
+    static constexpr const char * name = "import.sentiwordnet";
+
     SentiWordNetImporterConfig()
     {
         outputDataset.withType("sparse.mutable");
@@ -63,7 +65,7 @@ struct SentiWordNetImporter: public Procedure {
     {
         config = config_.params.convert<SentiWordNetImporterConfig>();
     }
-    
+
     SentiWordNetImporterConfig config;
 
     virtual RunOutput run(const ProcedureRunConfig & run,
@@ -98,9 +100,9 @@ struct SentiWordNetImporter: public Procedure {
 
             vector<string> fields;
             boost::split(fields, line, boost::is_any_of("\t"));
-            
+
             ExcAssertEqual(fields.size(), 6);
-            
+
             const string & wordType = fields[0];
             SynsetScores scores;
             try {
@@ -177,12 +179,11 @@ struct SentiWordNetImporter: public Procedure {
     {
         return Any();
     }
-    
+
 };
 
 RegisterProcedureType<SentiWordNetImporter, SentiWordNetImporterConfig>
 regSentiWordNet(builtinPackage(),
-                "import.sentiwordnet",
                 "Import a SentiWordNet file into MLDB",
                 "procedures/SentiWordNetImporter.md.html");
 

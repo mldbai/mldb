@@ -25,6 +25,8 @@ struct SqlExpression;
 
 
 struct SvdConfig : ProcedureConfig {
+    static constexpr char const * name = "svd.train";
+
     SvdConfig()
         : outputColumn("svd"),
           numSingularValues(100),
@@ -103,7 +105,7 @@ struct SvdBasis {
     doLeftSingularVector(const std::vector<Tuple> & row,
                          int maxValues,
                          bool acceptUnknownValues) const;
-    
+
     /** Check the validity of the data structure after loading. */
     void validate();
 };
@@ -169,15 +171,15 @@ struct SvdEmbedRow: public Function {
     SvdEmbedRow(MldbServer * owner,
                 PolyConfig config,
                 const std::function<bool (const Json::Value &)> & onProgress);
-    
+
     virtual Any getStatus() const;
-    
+
     virtual FunctionOutput apply(const FunctionApplier & applier,
                                  const FunctionContext & context) const;
-    
+
     /** Describe what the input and output is for this function. */
     virtual FunctionInfo getFunctionInfo() const;
-    
+
     SvdBasis svd;
     SvdEmbedConfig functionConfig;
 

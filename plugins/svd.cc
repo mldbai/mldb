@@ -45,9 +45,9 @@ template<typename T>
 T jsonDecodeFile(const std::string & filename, T * = 0)
 {
     T result;
-    
+
     filter_istream stream(filename);
-    
+
     static auto desc = getDefaultDescriptionSharedT<T>();
     StreamingJsonParsingContext context(filename, stream);
     desc->parseJson(&result, context);
@@ -103,11 +103,11 @@ SvdConfigDescription()
              "also be provided.");
     addParent<ProcedureConfig>();
 
-    onPostValidate = validate<SvdConfig, 
-                              InputQuery, 
-                              NoGroupByHaving, 
-                              PlainColumnSelect,
-                              MustContainFrom>(&SvdConfig::trainingData, "svd");
+    onPostValidate = chain(validateQuery(&SvdConfig::trainingData,
+                                         NoGroupByHaving(),
+                                         PlainColumnSelect(),
+                                         MustContainFrom()),
+                           validateFunction<SvdConfig>());
 }
 
 DEFINE_STRUCTURE_DESCRIPTION(SvdColumnEntry);
@@ -158,9 +158,9 @@ rightSingularVector(const ColumnIndexEntries & basisColumns,
             //cerr << "overlap with " << columns[i].columnName
             //     << " is " << overlap << endl;
         }
-        
+
     }
-    
+
     return result;
 }
 
@@ -191,7 +191,7 @@ rightSingularVectorForColumn(ColumnHash col, const CellValue & value,
 
             //cerr << "looking into " << columnEntry.values.size() << " values"
             //     << " for column " << it->second.columnName << endl;
-            
+
             for (auto & e: columnEntry.values) {
                 //cerr << "e.first = " << jsonEncodeStr(e.first) << endl;
                 //cerr << "e.first.cellType() = " << jsonEncodeStr(e.first.cellType()) << endl;
@@ -209,7 +209,7 @@ rightSingularVectorForColumn(ColumnHash col, const CellValue & value,
                 d *= col.scale;
 
                 //cerr << "value " << oldd << " transformed to " << d << endl;
-                
+
                 result *= d;
                 return result;
             }
@@ -222,7 +222,7 @@ rightSingularVectorForColumn(ColumnHash col, const CellValue & value,
                 // seen in training.
 
                 auto & col = columns[columnEntry.values.begin()->second];
-                
+
                 ML::distribution<float> result = col.singularVector;
                 result.resize(maxValues);
 
@@ -232,11 +232,11 @@ rightSingularVectorForColumn(ColumnHash col, const CellValue & value,
                 d *= col.scale;
 
                 //cerr << "value " << oldd << " transformed to " << d << endl;
-                
+
                 result *= d;
                 return result;
             }
-            
+
 #if 0
             // It's a value we haven't seen.  We can't really do anything but return
             // an empty vector
@@ -342,7 +342,7 @@ doLeftSingularVector(const std::vector<Tuple> & row,
 {
     if (maxValues < 0 || maxValues > singularValues.size())
         maxValues = singularValues.size();
-    
+
     Date ts = modelTs;
     ML::distribution<float> result(maxValues);
 
@@ -482,10 +482,10 @@ calcSvdBasis(const ColumnCorrelations & correlations,
     svdResult->d = realD;
 
     cerr << "got " << svdResult->d << " singular values" << endl;
-    
+
     numSingularValues = svdResult->d;
 
-    
+
 #if 0
     cerr    << "Vt rows " << svdResult->Vt->rows << endl
             << "Vt cols " << svdResult->Vt->cols << endl;
@@ -586,7 +586,7 @@ calcRightSingular(const ClassifiedColumns & columns,
         cerr << "vec0 = " << vec0 << " svec = " << svec << endl;
     }
 
-    auto calcRightSingular = [&] (int i) 
+    auto calcRightSingular = [&] (int i)
         {
             int done = numDone.fetch_add(1);
 
@@ -637,14 +637,14 @@ calcRightSingular(const ClassifiedColumns & columns,
 
             ExcAssertEqual(val, col.cellValue);
             ExcAssertEqual(i.second.columnName, col.columnName);
-            
+
             if (col.op == COL_VALUE)
                 ExcAssertEqual(val, CellValue());
         }
     }
 
     ExcAssertLessEqual(result.columnIndex.size(), result.columns.size());
-    
+
     for (auto & c: result.columns) {
         ExcAssertNotEqual(c.columnName, ColumnName());
     }
@@ -689,19 +689,19 @@ run(const ProcedureRunConfig & run,
         };
 
     int numBasisVectors = runProcConf.numDenseBasisVectors;
-    
+
     SqlExpressionMldbContext context(server);
 
     auto dataset = runProcConf.trainingData.stm->from->bind(context).dataset;
-    
+
     ClassifiedColumns columns = classifyColumns(*dataset, runProcConf.trainingData.stm->select);
 
 #if 0
     cerr << "columns: " << columns.continuousColumns.size()
-         << " continuous, " << columns.sparseColumns.size() 
+         << " continuous, " << columns.sparseColumns.size()
          << " sparse" << endl;
     for (auto & c: columns.continuousColumns) {
-        cerr << "name " << c.columnName << " val " << c.cellValue << " op " << c.op 
+        cerr << "name " << c.columnName << " val " << c.cellValue << " op " << c.op
              << " rowCount " << c.rowCount << endl;
     }
     cerr << "sparse" << endl;
@@ -711,7 +711,7 @@ run(const ProcedureRunConfig & run,
     }
 #endif
 
-    FeatureBuckets extractedFeatures = extractFeaturesFromRows(*dataset, 
+    FeatureBuckets extractedFeatures = extractFeaturesFromRows(*dataset,
                                                                runProcConf.trainingData.stm->when,
                                                                runProcConf.trainingData.stm->where,
                                                                runProcConf.trainingData.stm->orderBy,
@@ -759,7 +759,7 @@ run(const ProcedureRunConfig & run,
         PolyConfigT<Dataset> columnOutput = *runProcConf.columnOutput;
         if (columnOutput.type.empty())
             columnOutput.type = SvdConfig::defaultOutputDatasetType;
-            
+
         auto output = createDataset(server, columnOutput, onProgress2, true /*overwrite*/);
 
         auto doColumn = [&] (size_t i)
@@ -777,16 +777,16 @@ run(const ProcedureRunConfig & run,
 
 
                 try {
-                
+
                     //cerr << "saving column named " << col.columnName << " as " << i << " of "
                     //     << allSvd.columns.size() << endl;
                     //cerr << col.singularVector << endl;
-                
+
                     std::vector<std::tuple<ColumnName, CellValue, Date> > cols;
                     for (unsigned i = 0;  i < col.singularVector.size();  ++i) {
                         cols.emplace_back(columnNames[i], col.singularVector[i], Date());
                     }
-        
+
                     output->recordRow(ColumnName(name), cols);
                 } catch (const std::exception & exc) {
                     rethrowHttpException(-1, "Error adding SVD column '" + name + "' to output: "
@@ -813,7 +813,7 @@ run(const ProcedureRunConfig & run,
 
         // getRowNames can return row names in an arbitrary order as long as it is deterministic.
         auto rows = dataset->getMatrixView()->getRowNames(0, -1);
-        
+
         //cerr << "writing embeddings for " << rows.size() << " rows to dataset "
         //     << runProcConf.rowOutput.id << endl;
 
@@ -824,9 +824,9 @@ run(const ProcedureRunConfig & run,
                 if (rowNum % 10000 == 0)
                     cerr << "saving row " << rowNum << " of " << rows.size()
                          << endl;
-                
+
                 auto row = dataset->getMatrixView()->getRow(rows[rowNum]);
-        
+
                 ML::distribution<float> embedding;
                 Date ts;
 
@@ -837,31 +837,31 @@ run(const ProcedureRunConfig & run,
 #if 0
                 cerr << "row = " << jsonEncodeStr(row) << endl;
                 cerr << "embedding = " << embedding << endl;
-                
+
                 // Now go back to the original representation
                 for (auto & column: row.columns) {
 
                     auto index = allSvd.columnIndex.find(std::get<0>(column));
                     if (index == allSvd.columnIndex.end())
                         continue;
-            
+
                     float val = embedding.dotprod(allSvd.rightSingularVectorForColumn(std::get<0>(column), std::get<1>(column), 50));
 
-            
+
 
                     cerr << "reconstruction: input " << std::get<1>(column) << " reconst "
                          << val << endl;
                 }
 #endif
-                
+
                 std::vector<std::tuple<ColumnName, CellValue, Date> > cols;
                 for (unsigned i = 0;  i < numSingularValues;  ++i) {
                     cols.emplace_back(columnNames[i], embedding[i], Date());
                 }
-                
+
                 output->recordRow(row.rowName, cols);
             };
-        
+
         parallelMap(0, rows.size(), doRow);
 
         output->commit();
@@ -878,7 +878,7 @@ run(const ProcedureRunConfig & run,
 
     return Any();
 }
- 
+
 #if 0
 
 
@@ -893,7 +893,7 @@ run(const ProcedureRunConfig & run,
         for (const ExtractedRow & entry: s.second) {
 
             // Look for out of range values of first order
-            
+
 
             // In goes the values
             ML::distribution<double> accum(numSingularValues);
@@ -926,13 +926,13 @@ run(const ProcedureRunConfig & run,
             }
 
             cerr << "accum = " << accum << endl;
-            
+
             // We should also do the sparse, but we don't currently have
             // them
 
             //...
 
-            // We now have an approximation to V in accum.  Take it back to 
+            // We now have an approximation to V in accum.  Take it back to
             // a feature vector
 
             ML::distribution<double> reconst(featureNum);
@@ -942,7 +942,7 @@ run(const ProcedureRunConfig & run,
                     reconst[i] += accum[j] * singularVectors[i][j];
                 }
             }
-            
+
             reconst = reconst * stddevs.cast<double>() + means.cast<double>();
 
             cerr << "input: " << entry.values << endl;
@@ -960,7 +960,7 @@ run(const ProcedureRunConfig & run,
             for (unsigned i = 0;  i < numDenseColumns;  ++i) {
                 sorted2.emplace_back(sorted[i].first, reconstDense[i]);
             }
-            
+
             ML::sort_on_second_descending(sorted2);
 
 #if 0
@@ -1014,7 +1014,7 @@ SvdEmbedRow(MldbServer * owner,
     functionConfig = config.params.convert<SvdEmbedConfig>();
     svd = std::move(jsonDecodeFile<SvdBasis>(functionConfig.modelFileUrl.toString()));
     svd.validate();
-    
+
     nsv = functionConfig.maxSingularValues;
     if (nsv < 0 || nsv > svd.numSingularValues())
         nsv = svd.numSingularValues();
@@ -1045,13 +1045,13 @@ apply(const FunctionApplier & applier,
 
     //cerr << "nsv = " << nsv << endl;
     //cerr << "embedding = " << embedding << endl;
-    
+
     // TODO: what to do when no embedding is returned?
     if (embedding.empty())
         embedding.resize(nsv);
 
     result.set("embedding", ExpressionValue(std::move((vector<float> &)embedding), ts));
-    
+
     return result;
 }
 
@@ -1063,7 +1063,7 @@ getFunctionInfo() const
 
     result.input.addRowValue("row");
     result.output.addEmbeddingValue("embedding", nsv);
-    
+
     return result;
 }
 
@@ -1071,7 +1071,6 @@ namespace {
 
 RegisterProcedureType<SvdProcedure, SvdConfig>
 regSvd(builtinPackage(),
-       "svd.train",
        "Train a SVD to convert rows or columns to summary coordinates",
        "procedures/Svd.md.html");
 
@@ -1085,4 +1084,3 @@ regSvdEmbedRow(builtinPackage(),
 
 } // namespace MLDB
 } // namespace Datacratic
-

@@ -37,13 +37,14 @@ namespace MLDB {
 
 DEFINE_STRUCTURE_DESCRIPTION(KmeansConfig);
 
+
 KmeansConfigDescription::
 KmeansConfigDescription()
 {
     Optional<PolyConfigT<Dataset> > optional;
     optional.emplace(PolyConfigT<Dataset>().
                      withType(KmeansConfig::defaultOutputDatasetType));
-    
+
     addField("trainingData", &KmeansConfig::trainingData,
              "Specification of the data for input to the k-means procedure.  This should be "
              "organized as an embedding, with each selected row containing the same "
@@ -88,10 +89,10 @@ KmeansConfigDescription()
              "also be provided.");
     addParent<ProcedureConfig>();
 
-    onPostValidate = validate<KmeansConfig,
-                              InputQuery,
-                              MustContainFrom,
-                              NoGroupByHaving>(&KmeansConfig::trainingData, "kmeans");
+    onPostValidate = chain(validateQuery(&KmeansConfig::trainingData,
+                                         MustContainFrom(),
+                                         NoGroupByHaving()),
+                           validateFunction<KmeansConfig>());
 }
 
 // TODO: see http://www.eecs.tufts.edu/~dsculley/papers/fastkmeans.pdf
@@ -143,7 +144,7 @@ run(const ProcedureRunConfig & run,
 
     // an empty url is allowed but other invalid urls are not
     if(!runProcConf.modelFileUrl.empty() && !runProcConf.modelFileUrl.valid()) {
-        throw ML::Exception("modelFileUrl \"" + 
+        throw ML::Exception("modelFileUrl \"" +
                             runProcConf.modelFileUrl.toString() + "\" is not valid");
     }
 
@@ -216,13 +217,13 @@ run(const ProcedureRunConfig & run,
         auto output = createDataset(server, outputDataset, onProgress2, true /*overwrite*/);
 
         Date applyDate = Date::now();
-        
+
         for (unsigned i = 0;  i < rows.size();  ++i) {
             std::vector<std::tuple<ColumnName, CellValue, Date> > cols;
             cols.emplace_back(ColumnName("cluster"), inCluster[i], applyDate);
             output->recordRow(std::get<1>(rows[i]), cols);
         }
-        
+
         output->commit();
     }
 
@@ -244,10 +245,10 @@ run(const ProcedureRunConfig & run,
             for (unsigned j = 0;  j < cluster.centroid.size();  ++j) {
                 cols.emplace_back(columnNames[j], cluster.centroid[j], applyDate);
             }
-            
+
             centroids->recordRow(RowName(ML::format("%i", i)), cols);
         }
-        
+
         centroids->commit();
     }
 
@@ -264,7 +265,7 @@ run(const ProcedureRunConfig & run,
             obtainFunction(server, kmeansFuncPC, onProgress);
         } else {
             throw HttpReturnException(400, "Can't create kmeans function '" +
-                                      runProcConf.functionName.rawString() + 
+                                      runProcConf.functionName.rawString() +
                                       "'. Have you provided a valid modelFileUrl?",
                                       "modelFileUrl", runProcConf.modelFileUrl.toString());
         }
@@ -282,11 +283,11 @@ KmeansFunctionConfigDescription()
              "URL of the model file (with extension '.kms') to load. "
              "This file is created by the ![](%%doclink kmeans.train procedure).");
 
-    onPostValidate = [] (KmeansFunctionConfig * cfg, 
+    onPostValidate = [] (KmeansFunctionConfig * cfg,
                          JsonParsingContext & context) {
         // this includes empty url
         if(!cfg->modelFileUrl.valid()) {
-            throw ML::Exception("modelFileUrl \"" + cfg->modelFileUrl.toString() 
+            throw ML::Exception("modelFileUrl \"" + cfg->modelFileUrl.toString()
                                 + "\" is not valid");
         }
     };
@@ -299,7 +300,7 @@ KmeansFunctionConfigDescription()
 
 struct KmeansFunction::Impl {
     ML::KMeans kmeans;
-    
+
     Impl(const Url & modelFileUrl) {
         kmeans.load(modelFileUrl.toString());
     }
@@ -314,7 +315,7 @@ KmeansFunction(MldbServer * owner,
     functionConfig = config.params.convert<KmeansFunctionConfig>();
 
     impl.reset(new Impl(functionConfig.modelFileUrl));
-    
+
     dimension = impl->kmeans.clusters[0].centroid.size();
 
     cerr << "got " << impl->kmeans.clusters.size()
@@ -346,7 +347,7 @@ apply(const FunctionApplier & applier,
     int bestCluster = impl->kmeans.assign(input);
 
     result.set("cluster", ExpressionValue(bestCluster, ts));
-    
+
     return result;
 }
 
@@ -366,7 +367,6 @@ namespace {
 
 RegisterProcedureType<KmeansProcedure, KmeansConfig>
 regKmeans(builtinPackage(),
-          "kmeans.train",
           "Simple clustering algorithm based on cluster centroids in embedding space",
           "procedures/KmeansProcedure.md.html");
 
@@ -380,4 +380,3 @@ regKmeansFunction(builtinPackage(),
 
 } // namespace MLDB
 } // namespace Datacratic
-

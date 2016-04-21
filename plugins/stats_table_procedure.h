@@ -67,6 +67,8 @@ struct StatsTable {
 /*****************************************************************************/
 
 struct StatsTableProcedureConfig : public ProcedureConfig {
+    static constexpr const char * name = "statsTable.train";
+
     StatsTableProcedureConfig()
     {
         output.withType("sparse.mutable");
@@ -78,7 +80,7 @@ struct StatsTableProcedureConfig : public ProcedureConfig {
     /// The expression to generate the outcomes
     std::vector<std::pair<std::string, std::shared_ptr<SqlExpression>>> outcomes;
 
-    Url statsTableFileUrl;
+    Url modelFileUrl;
 
     Utf8String functionName;
 };
@@ -89,7 +91,7 @@ DECLARE_STRUCTURE_DESCRIPTION(StatsTableProcedureConfig);
 /*****************************************************************************/
 /* STATS TABLE PROCEDURE                                                     */
 /*****************************************************************************/
-    
+
 typedef std::map<ColumnName, StatsTable> StatsTablesMap;
 
 struct StatsTableProcedure: public Procedure {
@@ -112,12 +114,12 @@ struct StatsTableProcedure: public Procedure {
 /*****************************************************************************/
 
 struct StatsTableFunctionConfig {
-    StatsTableFunctionConfig(const Url & statsTableFileUrl = Url())
-        : statsTableFileUrl(statsTableFileUrl)
+    StatsTableFunctionConfig(const Url & modelFileUrl = Url())
+        : modelFileUrl(modelFileUrl)
     {
     }
 
-    Url statsTableFileUrl;
+    Url modelFileUrl;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(StatsTableFunctionConfig);
@@ -150,15 +152,17 @@ struct StatsTableFunction: public Function {
 /*****************************************************************************/
 
 struct StatsTableDerivedColumnsGeneratorProcedureConfig: public ProcedureConfig {
+    static constexpr const char * name = "experimental.statsTable.derivedColumnsGenerator";
+
     StatsTableDerivedColumnsGeneratorProcedureConfig(
-            const Url & statsTableFileUrl = Url())
-        : statsTableFileUrl(statsTableFileUrl)
+            const Url & modelFileUrl = Url())
+        : modelFileUrl(modelFileUrl)
     {
     }
 
     std::string functionId;
     std::string expression;
-    Url statsTableFileUrl;
+    Url modelFileUrl;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(StatsTableDerivedColumnsGeneratorProcedureConfig);
@@ -185,12 +189,14 @@ struct StatsTableDerivedColumnsGeneratorProcedure: public Procedure {
 
 struct BagOfWordsStatsTableProcedureConfig : ProcedureConfig {
 
+    static constexpr const char * name = "statsTable.bagOfWords.train";
+
     InputQuery trainingData;
-    
+
     /// The expression to generate the outcomes
     std::vector<std::pair<std::string, std::shared_ptr<SqlExpression>>> outcomes;
 
-    Url statsTableFileUrl;
+    Url modelFileUrl;
 
     Utf8String functionName;
 
@@ -205,7 +211,7 @@ DECLARE_STRUCTURE_DESCRIPTION(BagOfWordsStatsTableProcedureConfig);
 /*****************************************************************************/
 /* BOW STATS TABLE PROCEDURE                                                 */
 /*****************************************************************************/
-    
+
 struct BagOfWordsStatsTableProcedure: public Procedure {
 
     BagOfWordsStatsTableProcedure(MldbServer * owner,
@@ -226,9 +232,9 @@ struct BagOfWordsStatsTableProcedure: public Procedure {
 /*****************************************************************************/
 
 struct StatsTablePosNegFunctionConfig {
-    StatsTablePosNegFunctionConfig(const Url & statsTableFileUrl = Url()) :
+    StatsTablePosNegFunctionConfig(const Url & modelFileUrl = Url()) :
         numPos(50), numNeg(50), minTrials(50),
-        statsTableFileUrl(statsTableFileUrl)
+        modelFileUrl(modelFileUrl)
     {
     }
 
@@ -238,7 +244,7 @@ struct StatsTablePosNegFunctionConfig {
 
     std::string outcomeToUse;
 
-    Url statsTableFileUrl;
+    Url modelFileUrl;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(StatsTablePosNegFunctionConfig);

@@ -21,6 +21,8 @@ namespace MLDB {
 struct TsneItl;
 
 struct TsneConfig : public ProcedureConfig {
+    static constexpr const char * name = "tsne.train";
+
     TsneConfig()
         : numInputDimensions(-1),
           numOutputDimensions(2),
@@ -60,10 +62,10 @@ struct TsneProcedure: public Procedure {
     TsneProcedure(MldbServer * owner,
                   PolyConfig config,
                   const std::function<bool (const Json::Value &)> & onProgress);
-    
+
     virtual RunOutput run(const ProcedureRunConfig & run,
                           const std::function<bool (const Json::Value &)> & onProgress) const;
-    
+
     virtual Any getStatus() const;
 
     TsneConfig tsneConfig;
@@ -89,15 +91,15 @@ struct TsneEmbed: public Function {
     TsneEmbed(MldbServer * owner,
               PolyConfig config,
               const std::function<bool (const Json::Value &)> & onProgress);
-    
+
     virtual Any getStatus() const;
-    
+
     virtual FunctionOutput apply(const FunctionApplier & applier,
                               const FunctionContext & context) const;
 
     /** Describe what the input and output is for this configured function. */
     virtual FunctionInfo getFunctionInfo() const;
-    
+
     TsneEmbedConfig functionConfig;
     std::shared_ptr<TsneItl> itl;
 };

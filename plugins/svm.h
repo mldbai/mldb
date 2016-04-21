@@ -29,7 +29,9 @@ enum SVMType {
 DECLARE_ENUM_DESCRIPTION(SVMType);
 
 struct SVMConfig : public ProcedureConfig {
-   SVMConfig()
+    static constexpr const char * name = "svm.train";
+
+    SVMConfig()
         : svmType(SVM_CLASSIFICATION)
     {
     }

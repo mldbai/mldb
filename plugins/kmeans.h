@@ -23,6 +23,8 @@ namespace Datacratic {
 namespace MLDB {
 
 struct KmeansConfig : public ProcedureConfig {
+    static constexpr const char * name = "kmeans.train";
+
     KmeansConfig()
         : numInputDimensions(-1),
           numClusters(10),
@@ -54,7 +56,7 @@ DECLARE_STRUCTURE_DESCRIPTION(KmeansConfig);
 /*****************************************************************************/
 
 struct KmeansProcedure: public Procedure {
-    
+
     KmeansProcedure(MldbServer * owner,
                    PolyConfig config,
                    const std::function<bool (const Json::Value &)> & onProgress);
@@ -73,7 +75,7 @@ struct KmeansProcedure: public Procedure {
 /*****************************************************************************/
 
 struct KmeansFunctionConfig {
-    
+
     Url modelFileUrl;
 };
 
@@ -83,15 +85,15 @@ struct KmeansFunction: public Function {
     KmeansFunction(MldbServer * owner,
                 PolyConfig config,
                 const std::function<bool (const Json::Value &)> & onProgress);
-    
+
     virtual Any getStatus() const;
-    
+
     virtual FunctionOutput apply(const FunctionApplier & applier,
                               const FunctionContext & context) const;
-    
+
     /** Describe what the input and output is for this function. */
     virtual FunctionInfo getFunctionInfo() const;
-    
+
     KmeansFunctionConfig functionConfig;
 
     // holds the dimension of the embedding space

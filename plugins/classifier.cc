@@ -117,12 +117,12 @@ ClassifierConfigDescription()
              "also be provided.");
     addParent<ProcedureConfig>();
 
-    onPostValidate = validate<ClassifierConfig,
-                              InputQuery,
-                              NoGroupByHaving,
-                              PlainColumnSelect,
-                              MustContainFrom,
-                              FeaturesLabelSelect>(&ClassifierConfig::trainingData, "classifier");
+    onPostValidate = chain(validateQuery(&ClassifierConfig::trainingData,
+                                         NoGroupByHaving(),
+                                         PlainColumnSelect(),
+                                         MustContainFrom(),
+                                         FeaturesLabelSelect()),
+                           validateFunction<ClassifierConfig>());
 }
 
 /*****************************************************************************/
@@ -1084,7 +1084,6 @@ auto regJmlClassifier = RegisterMacro("jmlclassifier", jmlclassifierMacro);
 
 static RegisterProcedureType<ClassifierProcedure, ClassifierConfig>
 regClassifier(builtinPackage(),
-              "classifier.train",
               "Train a supervised classifier",
               "procedures/Classifier.md.html");
 
