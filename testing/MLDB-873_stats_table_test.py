@@ -207,12 +207,15 @@ mldb.log(rez.json())
 conf['params']['outputDataset'] = 'stats_table_counts'
 rez = mldb.put("/v1/procedures/myroll_posneg2", conf)
 rez = mldb.get('/v1/query', q='select * from stats_table_counts')
+
+mldb.log(rez)
+
 assert_for_rows(rez.json(), "I", "trials", 2)
-assert_for_rows(rez.json(), "I", "outcome.label", 1)
+assert_for_rows(rez.json(), "I", "\"outcome.label\"", 1)
 assert_for_rows(rez.json(), "yellow", "trials", 1)
-assert_for_rows(rez.json(), "yellow", "outcome.label", 0)
+assert_for_rows(rez.json(), "yellow", "\"outcome.label\"", 0)
 assert_for_rows(rez.json(), "are", "trials", 3)
-assert_for_rows(rez.json(), "are", "outcome.label", 1)
+assert_for_rows(rez.json(), "are", "\"outcome.label\"", 1)
 
 conf = {
     "type": "statsTable.bagOfWords.posneg",

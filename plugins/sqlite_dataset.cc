@@ -413,7 +413,11 @@ struct SqliteSparseDataset::Itl
     /** Return a list of all columns. */
     virtual std::vector<ColumnName> getColumnNames() const
     {
-        return runQuery<ColumnName>("SELECT colName FROM (SELECT DISTINCT colHash,colName FROM cols) ORDER BY colHash");
+      // return runQuery<ColumnName>("SELECT colName FROM (SELECT DISTINCT colHash,colName FROM cols) ORDER BY colHash");
+
+        // TO RESOLVE BEFORE MERGE
+        // somehow we end up with duplicated column hash for a single column name
+        return runQuery<ColumnName>("SELECT colName FROM (SELECT DISTINCT colName FROM cols)");
     }
 
     virtual size_t getRowCount() const
@@ -533,7 +537,12 @@ struct SqliteSparseDataset::Itl
 
         sqlite3pp::command command(*db, "INSERT OR IGNORE INTO vals VALUES (?, ?, ?, ?)");
 
+        cerr << "CHECKING INPUT" << endl;
+
+        std::vector<ColumnName> tmp;
+
         for (auto & r: rows) {
+
             const RowName & rowName = r.first;
             const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals = r.second;
             
