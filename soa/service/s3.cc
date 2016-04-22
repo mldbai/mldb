@@ -401,13 +401,20 @@ performSync() const
 
         myRequest.get_info(CURLINFO_RESPONSE_CODE, responseCode);
 
-        /* Detect so-called "REST error", which may or may not have an HTTP
-           status >= 200
+        /* Detect so-called "REST error"
            (http://docs.aws.amazon.com/AmazonS3/latest/API/ErrorResponses.html)
+
+           Some S3 methods may return an XML error AND still have a 200 HTTP
+           status code:
+           http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadComplete.html
+           Explanation of the why:
+           https://github.com/aws/aws-sdk-go/issues/501.
         */
         pair<string, string> xmlError; /* {code, message} */
-        if (responseHeaders.find("Content-Type: application/xml")
-            != string::npos) {
+        if (!(responseCode == 200
+              && (params.verb == "GET" || params.verb == "HEAD"))
+            && (responseHeaders.find("Content-Type: application/xml")
+                != string::npos)) {
             unique_ptr<tinyxml2::XMLDocument> localXml(
                 new tinyxml2::XMLDocument()
                 );
