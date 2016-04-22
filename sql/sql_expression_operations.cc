@@ -3423,7 +3423,7 @@ bind(SqlBindingScope & scope) const
     // then it returns the empty column name
     auto newColumnName = [=] (const ColumnName & inputColumnName) -> ColumnName
         {
-            cerr << "input column name " << inputColumnName << endl;
+            //cerr << "input column name " << inputColumnName << endl;
 
             // First, check it matches the prefix
             if (!inputColumnName.matchWildcard(simplifiedPrefix)) {
