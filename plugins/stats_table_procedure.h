@@ -133,8 +133,8 @@ struct StatsTableFunction: public Function {
 
     virtual Any getDetails() const;
 
-    virtual FunctionOutput apply(const FunctionApplier & applier,
-                              const FunctionContext & context) const;
+    virtual ExpressionValue apply(const FunctionApplier & applier,
+                              const ExpressionValue & context) const;
 
     /** Describe what the input and output is for this function. */
     virtual FunctionInfo getFunctionInfo() const;
@@ -254,8 +254,8 @@ struct StatsTablePosNegFunction: public Function {
 
     virtual Any getDetails() const;
 
-    virtual FunctionOutput apply(const FunctionApplier & applier,
-                              const FunctionContext & context) const;
+    virtual ExpressionValue apply(const FunctionApplier & applier,
+                              const ExpressionValue & context) const;
 
     /** Describe what the input and output is for this function. */
     virtual FunctionInfo getFunctionInfo() const;

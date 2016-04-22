@@ -73,7 +73,7 @@ registerFunctionType(const Package & package,
 /* FUNCTION                                                                  */
 /*****************************************************************************/
 
-FunctionOutput
+ExpressionValue
 Function::
 call(const ExpressionValue & input) const
 {
@@ -158,11 +158,11 @@ applyFunction(const Function * function,
         inputExpr.emplace_back(i.first, i.second);
     }
 
-    FunctionOutput output = function->call(std::move(inputExpr));
+    ExpressionValue output = function->call(std::move(inputExpr));
 
     //cerr << "output = " << jsonEncode(output) << endl;
 
-    FunctionOutput result;
+    ExpressionValue result;
 
     if (!keepValues.empty()) {
         StructValue outputStruct;

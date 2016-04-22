@@ -136,7 +136,7 @@ struct NearestNeighborsFunction
     
     virtual std::unique_ptr<ApplierT>
     bindT(SqlBindingScope & outerContext,
-          const FunctionValues & input) const override;
+          const std::shared_ptr<RowValueInfo> & input) const override;
     
     NearestNeighborsFunctionConfig functionConfig;
 };

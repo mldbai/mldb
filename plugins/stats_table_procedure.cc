@@ -408,10 +408,10 @@ getDetails() const
     return Any();
 }
 
-FunctionOutput
+ExpressionValue
 StatsTableFunction::
 apply(const FunctionApplier & applier,
-      const FunctionContext & context) const
+      const ExpressionValue & context) const
 {
     StructValue result;
 
@@ -874,10 +874,10 @@ getDetails() const
     return Any();
 }
 
-FunctionOutput
+ExpressionValue
 StatsTablePosNegFunction::
 apply(const FunctionApplier & applier,
-      const FunctionContext & context) const
+      const ExpressionValue & context) const
 {
     StructValue result;
 

@@ -64,9 +64,9 @@ FunctionPolyConfigDescription()
 /* FUNCTION APPLIER                                                          */
 /*****************************************************************************/
 
-FunctionOutput
+ExpressionValue
 FunctionApplier::
-apply(const FunctionContext & input) const
+apply(const ExpressionValue & input) const
 { 
     ExcAssert(function);
     return function->apply(*this, input);
@@ -106,7 +106,7 @@ getDetails() const
 std::unique_ptr<FunctionApplier>
 Function::
 bind(SqlBindingScope & outerContext,
-     const FunctionValues & input) const
+     const std::shared_ptr<RowValueInfo> & input) const
 {
     std::unique_ptr<FunctionApplier> result(new FunctionApplier());
     result->function = this;

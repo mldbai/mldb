@@ -372,12 +372,12 @@ SVMFunctionArgsDescription()
              "this embedding must match those used in the original dataset.");
 }
 
-DEFINE_STRUCTURE_DESCRIPTION(SVMFunctionOutput);
+DEFINE_STRUCTURE_DESCRIPTION(SVMExpressionValue);
 
-SVMFunctionOutputDescription::
-SVMFunctionOutputDescription()
+SVMExpressionValueDescription::
+SVMExpressionValueDescription()
 {
-    addField("output", &SVMFunctionOutput::output,
+    addField("output", &SVMExpressionValue::output,
              "Output of the SVM for either classification or regression");
 }
 
@@ -432,7 +432,7 @@ SVMFunction::
     svm_free_and_destroy_model(&itl->model);
 }
 
-SVMFunctionOutput 
+SVMExpressionValue 
 SVMFunction::
 call(SVMFunctionArgs input) const
 {

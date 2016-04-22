@@ -60,7 +60,7 @@ struct PoolingFunction: public ValueFunctionT<PoolingInput, PoolingOutput> {
     
     virtual std::unique_ptr<FunctionApplierT<PoolingInput, PoolingOutput> >
     bindT(SqlBindingScope & outerContext,
-          const FunctionValues & input) const override;
+          const std::shared_ptr<RowValueInfo> & input) const override;
    
     std::shared_ptr<SqlQueryFunction> queryFunction;
 

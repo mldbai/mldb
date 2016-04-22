@@ -317,11 +317,11 @@ KmeansFunctionArgsDescription()
              "dataset.");
 }
 
-DEFINE_STRUCTURE_DESCRIPTION(KmeansFunctionOutput);
+DEFINE_STRUCTURE_DESCRIPTION(KmeansExpressionValue);
 
-KmeansFunctionOutputDescription::KmeansFunctionOutputDescription()
+KmeansExpressionValueDescription::KmeansExpressionValueDescription()
 {
-    addField("cluster", &KmeansFunctionOutput::cluster,
+    addField("cluster", &KmeansExpressionValue::cluster,
              "Index of the row in the `centroids` dataset whose columns describe "
              "the point which is closest to the input according to the `metric` "
              "specified in training.");
@@ -364,7 +364,7 @@ KmeansFunction(MldbServer * owner,
     dimension = impl->kmeans.clusters[0].centroid.size();
 }
 
-KmeansFunctionOutput 
+KmeansExpressionValue 
 KmeansFunction::
 call(KmeansFunctionArgs input) const
 {

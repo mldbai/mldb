@@ -93,20 +93,20 @@ struct SVMFunctionArgs {
 
 DECLARE_STRUCTURE_DESCRIPTION(SVMFunctionArgs);
 
-struct SVMFunctionOutput {
+struct SVMExpressionValue {
    ExpressionValue output;
 };
 
-DECLARE_STRUCTURE_DESCRIPTION(SVMFunctionOutput);
+DECLARE_STRUCTURE_DESCRIPTION(SVMExpressionValue);
 
-struct SVMFunction: public ValueFunctionT<SVMFunctionArgs, SVMFunctionOutput>  {
+struct SVMFunction: public ValueFunctionT<SVMFunctionArgs, SVMExpressionValue>  {
     SVMFunction(MldbServer * owner,
                   PolyConfig config,
                   const std::function<bool (const Json::Value &)> & onProgress);
 
     ~SVMFunction();
 
-    virtual SVMFunctionOutput call(SVMFunctionArgs input) const override; 
+    virtual SVMExpressionValue call(SVMFunctionArgs input) const override; 
 
     SVMFunctionConfig functionConfig;
 

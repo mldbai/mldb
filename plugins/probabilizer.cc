@@ -343,10 +343,10 @@ getStatus() const
     return Any();
 }
 
-FunctionOutput
+ExpressionValue
 ProbabilizeFunction::
 apply(const FunctionApplier & applier,
-      const FunctionContext & context) const
+      const ExpressionValue & context) const
 {
     ExpressionValue score = context.getColumn(Coord("score"));
     float prob  = itl->probabilizer.apply(ML::Label_Dist(1, score.toDouble()))[0];

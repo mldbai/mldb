@@ -742,7 +742,7 @@ getDetails() const
 
 std::tuple<std::vector<float>, std::shared_ptr<ML::Mutable_Feature_Set>, Date>
 ClassifyFunction::
-getFeatureSet(const FunctionContext & context, bool attemptDense) const
+getFeatureSet(const ExpressionValue & context, bool attemptDense) const
 {
     auto row = context.getColumn(Coord("features"));
 
@@ -830,7 +830,7 @@ struct ClassifyFunctionApplier: public FunctionApplier {
 std::unique_ptr<FunctionApplier>
 ClassifyFunction::
 bind(SqlBindingScope & outerContext,
-     const FunctionValues & input) const
+     const std::shared_ptr<RowValueInfo> & input) const
 {
     // Assume there is one of each features
     vector<ML::Feature> features(itl->featureSpace->columnInfo.size());
@@ -845,10 +845,10 @@ bind(SqlBindingScope & outerContext,
     return std::move(result);
 }
 
-FunctionOutput
+ExpressionValue
 ClassifyFunction::
 apply(const FunctionApplier & applier_,
-      const FunctionContext & context) const
+      const ExpressionValue & context) const
 {
     auto & applier = (ClassifyFunctionApplier &)applier_;
 
@@ -1037,10 +1037,10 @@ ExplainFunction::
 {
 }
 
-FunctionOutput
+ExpressionValue
 ExplainFunction::
 apply(const FunctionApplier & applier,
-      const FunctionContext & context) const
+      const ExpressionValue & context) const
 {
     std::vector<float> dense;
     std::shared_ptr<ML::Mutable_Feature_Set> fset;

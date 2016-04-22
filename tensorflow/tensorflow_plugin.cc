@@ -347,11 +347,11 @@ struct TensorflowKernel: public Function {
         return Any();
     }
 
-    FunctionOutput
+    ExpressionValue
     apply(const FunctionApplier & applier,
-          const FunctionContext & context) const
+          const ExpressionValue & context) const
     {
-        FunctionOutput result;
+        ExpressionValue result;
 
         Utf8String output("output");
         result.set("output", ExpressionValue("hello", Date::notADate()));
@@ -712,7 +712,7 @@ struct TensorflowGraph: public Function {
     struct Applier: public FunctionApplier {
         Applier(const TensorflowGraph * owner,
                 SqlBindingScope & outerScope,
-                const FunctionValues & input)
+                const std::shared_ptr<RowValueInfo> & input)
             : FunctionApplier(owner),
               owner(owner),
               mldbScope(owner->server),
@@ -744,9 +744,9 @@ struct TensorflowGraph: public Function {
         GraphExtractScope graphScope;
         BoundSqlExpression boundInputs, boundOutputs;
 
-        FunctionOutput apply(const FunctionContext & inputData) const
+        ExpressionValue apply(const ExpressionValue & inputData) const
         {
-            FunctionOutput result;
+            ExpressionValue result;
 
             using namespace tensorflow;
 
@@ -814,7 +814,7 @@ struct TensorflowGraph: public Function {
 
     virtual std::unique_ptr<FunctionApplier>
     bind(SqlBindingScope & outerScope,
-         const FunctionValues & input) const
+         const std::shared_ptr<RowValueInfo> & input) const
     {
         std::unique_ptr<FunctionApplier> result(new Applier(this, outerScope, input));
         return result;
@@ -1148,9 +1148,9 @@ struct TensorflowGraph: public Function {
         return std::move(outputs);
     }
 
-    virtual FunctionOutput
+    virtual ExpressionValue
     apply(const FunctionApplier & applier,
-          const FunctionContext & context) const
+          const ExpressionValue & context) const
     {
         return static_cast<const Applier &>(applier)
             .apply(context);

@@ -72,10 +72,10 @@ getStatus() const
     return Any();
 }
 
-FunctionOutput
+ExpressionValue
 ScriptFunction::
 apply(const FunctionApplier & applier,
-      const FunctionContext & context) const
+      const ExpressionValue & context) const
 {
     string resource = "/v1/types/plugins/" + runner + "/routes/run";
 

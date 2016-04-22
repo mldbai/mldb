@@ -60,10 +60,10 @@ struct SqlQueryFunction: public Function {
     
     virtual std::unique_ptr<FunctionApplier>
     bind(SqlBindingScope & outerContext,
-         const FunctionValues & input) const;
+         const std::shared_ptr<RowValueInfo> & input) const;
 
-    virtual FunctionOutput apply(const FunctionApplier & applier,
-                              const FunctionContext & context) const;
+    virtual ExpressionValue apply(const FunctionApplier & applier,
+                              const ExpressionValue & context) const;
 
     virtual FunctionInfo getFunctionInfo() const;
 
@@ -100,10 +100,10 @@ struct SqlExpressionFunction: public Function {
     
     virtual std::unique_ptr<FunctionApplier>
     bind(SqlBindingScope & outerContext,
-         const FunctionValues & inputInfo) const;
+         const std::shared_ptr<RowValueInfo> & inputInfo) const;
 
-    virtual FunctionOutput apply(const FunctionApplier & applier,
-                              const FunctionContext & context) const;
+    virtual ExpressionValue apply(const FunctionApplier & applier,
+                              const ExpressionValue & context) const;
 
     virtual FunctionInfo getFunctionInfo() const;
 

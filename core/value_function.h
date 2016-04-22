@@ -154,7 +154,7 @@ struct ValueFunctionT: public ValueFunction {
     
     virtual std::unique_ptr<Applier>
     bindT(SqlBindingScope & outerContext,
-          const FunctionValues & input) const
+          const std::shared_ptr<RowValueInfo> & input) const
     {
         std::unique_ptr<Applier> result(new Applier(this));
         result->info = getFunctionInfo();
@@ -174,13 +174,13 @@ struct ValueFunctionT: public ValueFunction {
 private:
     virtual std::unique_ptr<FunctionApplier>
     bind(SqlBindingScope & outerContext,
-         const FunctionValues & input) const override
+         const std::shared_ptr<RowValueInfo> & input) const override
     {
         return bindT(outerContext, input);
     }
     
-    virtual FunctionOutput apply(const FunctionApplier & applier,
-                                 const FunctionContext & context) const override
+    virtual ExpressionValue apply(const FunctionApplier & applier,
+                                 const ExpressionValue & context) const override
     {
         const auto * downcast
             = dynamic_cast<const FunctionApplierT<Input, Output> *>(&applier);

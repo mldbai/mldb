@@ -106,7 +106,7 @@ struct EMFunction: public ValueFunctionT<EMInput, EMOutput> {
     
     virtual std::unique_ptr<FunctionApplierT<EMInput, EMOutput> >
     bindT(SqlBindingScope & outerContext,
-          const FunctionValues & input) const override;
+          const std::shared_ptr<RowValueInfo> & input) const override;
    
     EMFunctionConfig functionConfig;
   

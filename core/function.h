@@ -38,13 +38,6 @@ struct KnownColumn;
 typedef EntityType<Function> FunctionType;
 
 
-// TO RESOLVE BEFORE MERGE
-// Temporary typedefs to ease porting
-typedef std::shared_ptr<RowValueInfo> FunctionValues;
-typedef ExpressionValue FunctionOutput;
-typedef ExpressionValue FunctionContext;
-
-
 /*****************************************************************************/
 /* FUNCTION INFO                                                             */
 /*****************************************************************************/
@@ -93,7 +86,7 @@ struct FunctionApplier {
     FunctionInfo info;       ///< Information about the input and output of the applier
 
     /// Apply the function to the given context
-    FunctionOutput apply(const FunctionContext & input) const;
+    ExpressionValue apply(const ExpressionValue & input) const;
 };
 
 
@@ -144,7 +137,7 @@ struct Function: public MldbEntity {
     */
     virtual std::unique_ptr<FunctionApplier>
     bind(SqlBindingScope & outerContext,
-         const FunctionValues & input) const;
+         const std::shared_ptr<RowValueInfo> & input) const;
 
     /** Return the input and the output expected by the function.  Every
         function needs to be able to say what it expects; there is no
@@ -164,7 +157,7 @@ struct Function: public MldbEntity {
         requires functionality from the server to create the scope for the
         bind.
     */
-    FunctionOutput call(const ExpressionValue & input) const;
+    ExpressionValue call(const ExpressionValue & input) const;
 
     /** Method to overwrite to handle a request.  By default, the function
         will return that it can't handle any requests.  Used to expose
@@ -181,8 +174,8 @@ protected:
         method.
     */
 
-    virtual FunctionOutput apply(const FunctionApplier & applier,
-                                 const FunctionContext & context) const = 0;
+    virtual ExpressionValue apply(const FunctionApplier & applier,
+                                  const ExpressionValue & context) const = 0;
 
     friend class FunctionApplier;
 };

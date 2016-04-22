@@ -750,14 +750,14 @@ class MldbUnitTest(unittest.TestCase):
 
 namespace {
 
-// The set function in FunctionOutput and FunctionContext are both overloaded due to
+// The set function in ExpressionValue and ExpressionValue are both overloaded due to
 // the UTF8String variants. This the helpers used to provide the required
 // casting type to extract the function pointer of one of the overloaded types.
 template<typename T>
 struct SetFn
 {
-    typedef void (FunctionContext::* CtxType)(const std::string&, const T&, Date);
-    typedef void (FunctionOutput::* OutputType)(const std::string&, const T&, Date);
+    typedef void (ExpressionValue::* CtxType)(const std::string&, const T&, Date);
+    typedef void (ExpressionValue::* OutputType)(const std::string&, const T&, Date);
 };
 
 
@@ -969,21 +969,21 @@ struct AtInit {
             ;
         
 #if 0
-        bp::class_<FunctionOutput, boost::noncopyable>("function_output", bp::init<>())
-            .def("set_str", (SetFn<std::string>::OutputType) &FunctionOutput::setT<std::string>)
+        bp::class_<ExpressionValue, boost::noncopyable>("function_output", bp::init<>())
+            .def("set_str", (SetFn<std::string>::OutputType) &ExpressionValue::setT<std::string>)
             ;
 
         bp::class_<FunctionApplier, boost::noncopyable>("function_applier", bp::no_init)
             ;
 
-//         const Datacratic::Any& (FunctionContext::*functionContextGetStr)(const std::string &) = &FunctionContext::get;
+//         const Datacratic::Any& (ExpressionValue::*functionContextGetStr)(const std::string &) = &ExpressionValue::get;
 
-        bp::class_<FunctionContext, boost::noncopyable>("FunctionContext", bp::no_init)
+        bp::class_<ExpressionValue, boost::noncopyable>("ExpressionValue", bp::no_init)
 //                .def("get",      functionContextGetStr)
-//                .def("getStr",   &FunctionContext::get<std::string>)
-            .def("setStr",   (SetFn<std::string>::CtxType) &FunctionContext::setT<std::string>)
-            .def("setInt",   (SetFn<int>::CtxType) &FunctionContext::setT<int>)
-            .def("setFloat", (SetFn<float>::CtxType) &FunctionContext::setT<float>)
+//                .def("getStr",   &ExpressionValue::get<std::string>)
+            .def("setStr",   (SetFn<std::string>::CtxType) &ExpressionValue::setT<std::string>)
+            .def("setInt",   (SetFn<int>::CtxType) &ExpressionValue::setT<int>)
+            .def("setFloat", (SetFn<float>::CtxType) &ExpressionValue::setT<float>)
             ;
 
 //         bp::class_<FunctionInfo, std::shared_ptr<FunctionInfo>, boost::noncopyable>("", bp::no_init)

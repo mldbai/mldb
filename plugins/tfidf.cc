@@ -323,12 +323,12 @@ getStatus() const
     return Any();
 }
 
-FunctionOutput
+ExpressionValue
 TfidfFunction::
 apply(const FunctionApplier & applier,
-      const FunctionContext & context) const
+      const ExpressionValue & context) const
 {
-    FunctionOutput result;
+    ExpressionValue result;
 
     ExpressionValue inputVal = context.getColumn(Coord("input"));
     

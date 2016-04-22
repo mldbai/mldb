@@ -89,18 +89,18 @@ struct KmeansFunctionArgs {
 
 DECLARE_STRUCTURE_DESCRIPTION(KmeansFunctionArgs);
 
-struct KmeansFunctionOutput {
+struct KmeansExpressionValue {
    ExpressionValue cluster;
 };
 
-DECLARE_STRUCTURE_DESCRIPTION(KmeansFunctionOutput);
+DECLARE_STRUCTURE_DESCRIPTION(KmeansExpressionValue);
 
-struct KmeansFunction: public ValueFunctionT<KmeansFunctionArgs, KmeansFunctionOutput>  {
+struct KmeansFunction: public ValueFunctionT<KmeansFunctionArgs, KmeansExpressionValue>  {
     KmeansFunction(MldbServer * owner,
                    PolyConfig config,
                    const std::function<bool (const Json::Value &)> & onProgress);
     
-    virtual KmeansFunctionOutput call(KmeansFunctionArgs input) const override; 
+    virtual KmeansExpressionValue call(KmeansFunctionArgs input) const override; 
     
     KmeansFunctionConfig functionConfig;
 

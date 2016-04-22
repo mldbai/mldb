@@ -98,10 +98,10 @@ getStatus() const
     return Any();
 }
 
-FunctionOutput
+ExpressionValue
 TokenSplit::
 apply(const FunctionApplier & applier,
-      const FunctionContext & context) const
+      const ExpressionValue & context) const
 {
     //The whole thing is a bit contrived because UTF8 strings dont have direct access 
     const ExpressionValue & text = context.getColumn(Coord("text"));

@@ -45,10 +45,10 @@ getStatus() const
     return Any();
 }
 
-FunctionOutput
+ExpressionValue
 TestFunction::
 apply(const FunctionApplier & applier,
-      const FunctionContext & context) const
+      const ExpressionValue & context) const
 {
     StructValue result;
     result.emplace_back("cnt", ExpressionValue((int)cnt, Date::now()));

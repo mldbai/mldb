@@ -1318,7 +1318,7 @@ applyT(const ApplierT & applier_, NearestNeighborsInput input) const
     
 std::unique_ptr<FunctionApplierT<NearestNeighborsInput, NearestNeighborsOutput> >
 NearestNeighborsFunction::
-bindT(SqlBindingScope & outerContext, const FunctionValues & input) const
+bindT(SqlBindingScope & outerContext, const std::shared_ptr<RowValueInfo> & input) const
 {
     std::unique_ptr<NearestNeighborsFunctionApplier> result
         (new NearestNeighborsFunctionApplier(this));

@@ -116,7 +116,7 @@ call(FeatureGeneratorInput input) const
 
     input.columns.forEachColumn(onColumn);
 
-    FunctionOutput foResult;
+    ExpressionValue foResult;
     RowValue rowVal;
     for(int i=0; i<result.size(); i++) {
         rowVal.push_back(make_tuple(ColumnName(ML::format("hashColumn%d", i)),

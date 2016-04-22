@@ -105,7 +105,7 @@ PoolingFunction(MldbServer * owner,
 struct PoolingFunctionApplier: public FunctionApplierT<PoolingInput, PoolingOutput> {
     PoolingFunctionApplier(const PoolingFunction * owner,
                            SqlBindingScope & outerContext,
-                           const FunctionValues & input)
+                           const std::shared_ptr<RowValueInfo> & input)
         : FunctionApplierT<PoolingInput, PoolingOutput>(owner)
     {
         queryApplier = owner->queryFunction->bind(outerContext, input);
@@ -127,7 +127,7 @@ applyT(const ApplierT & applier_, PoolingInput input) const
     StructValue inputRow;
     inputRow.emplace_back("words", std::move(input.words));
 
-    FunctionOutput queryOutput
+    ExpressionValue queryOutput
         = queryFunction->apply(*applier.queryApplier, std::move(inputRow));
 
     std::vector<double> outputEmbedding;
@@ -165,7 +165,7 @@ applyT(const ApplierT & applier_, PoolingInput input) const
     
 std::unique_ptr<FunctionApplierT<PoolingInput, PoolingOutput> >
 PoolingFunction::
-bindT(SqlBindingScope & outerContext, const FunctionValues & input) const
+bindT(SqlBindingScope & outerContext, const std::shared_ptr<RowValueInfo> & input) const
 {
     std::unique_ptr<PoolingFunctionApplier> result
         (new PoolingFunctionApplier(this, outerContext, input));

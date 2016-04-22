@@ -200,7 +200,7 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
     {
     }
 
-    FunctionOutput apply(const FunctionContext & context) const
+    ExpressionValue apply(const ExpressionValue & context) const
     {
         // 1.  Run our generator, finding all rows
         BoundParameters params
@@ -213,7 +213,7 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
 
         switch (function->functionConfig.output) {
         case FIRST_ROW: {
-            FunctionOutput result;
+            ExpressionValue result;
 
             auto output = executor->take();
 
@@ -320,7 +320,7 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
 std::unique_ptr<FunctionApplier>
 SqlQueryFunction::
 bind(SqlBindingScope & outerContext,
-     const FunctionValues & input) const
+     const std::shared_ptr<RowValueInfo> & input) const
 {
     std::unique_ptr<SqlQueryFunctionApplier> result
         (new SqlQueryFunctionApplier(this, functionConfig));
@@ -332,10 +332,10 @@ bind(SqlBindingScope & outerContext,
     return std::move(result);
 }
 
-FunctionOutput
+ExpressionValue
 SqlQueryFunction::
 apply(const FunctionApplier & applier,
-      const FunctionContext & context) const
+      const ExpressionValue & context) const
 {
     return static_cast<const SqlQueryFunctionApplier &>(applier)
         .apply(context);
@@ -430,7 +430,7 @@ getStatus() const
 struct SqlExpressionFunctionApplier: public FunctionApplier {
     SqlExpressionFunctionApplier(SqlBindingScope & outerScope,
                                  const SqlExpressionFunction * function,
-                                 const FunctionValues & input)
+                                 const std::shared_ptr<RowValueInfo> & input)
         : FunctionApplier(function),
           function(function),
           innerScope(outerScope, input)
@@ -451,7 +451,7 @@ struct SqlExpressionFunctionApplier: public FunctionApplier {
     {
     }
 
-    FunctionOutput apply(const FunctionContext & context) const
+    ExpressionValue apply(const ExpressionValue & context) const
     {
         // We know that we won't go outside of the current row, so we can
         // pass in a dummy object here.
@@ -477,7 +477,7 @@ struct SqlExpressionFunctionApplier: public FunctionApplier {
 std::unique_ptr<FunctionApplier>
 SqlExpressionFunction::
 bind(SqlBindingScope & outerContext,
-     const FunctionValues & input) const
+     const std::shared_ptr<RowValueInfo> & input) const
 {
     std::unique_ptr<SqlExpressionFunctionApplier> result
         (new SqlExpressionFunctionApplier(outerContext, this, input));
@@ -489,10 +489,10 @@ bind(SqlBindingScope & outerContext,
     return std::move(result);
 }
 
-FunctionOutput
+ExpressionValue
 SqlExpressionFunction::
 apply(const FunctionApplier & applier,
-      const FunctionContext & context) const
+      const ExpressionValue & context) const
 {
     return static_cast<const SqlExpressionFunctionApplier &>(applier)
            .apply(context);
