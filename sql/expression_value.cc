@@ -1110,30 +1110,6 @@ getSchemaCompleteness() const
     return completeness;
 }
 
-std::shared_ptr<ExpressionValueInfo> 
-RowValueInfo::
-findNestedColumn(const ColumnName& columnName)
-{  
-    for (auto& col : columns) {
-        if (col.columnName == columnName) {
-            // Found directly
-            return col.valueInfo;
-        }
-        else if (columnName.startsWith(col.columnName)) {
-            // Nested; look inside the sub-info
-            ColumnName tail = columnName.removePrefix(col.columnName.size());
-            auto res = col.valueInfo->findNestedColumn(tail);
-            if (res)
-                return res;
-        }
-    }
-    
-    if (completeness == SCHEMA_CLOSED)
-        return nullptr;
-
-    return std::make_shared<AnyValueInfo>();
-}            
-
 std::shared_ptr<ExpressionValueInfo>
 RowValueInfo::
 getColumn(const Coord & columnName) const
@@ -1356,6 +1332,9 @@ struct ExpressionValue::Embedding {
         }
     }
 
+    /** Write the value, including metadata and encoding types, to JSON for
+        more efficient deserialization.
+    */
     void writeJson(JsonPrintingContext & context) const
     {
         context.startObject();
@@ -1365,6 +1344,14 @@ struct ExpressionValue::Embedding {
         context.writeString(jsonEncode(storageType_).asString());
         context.startMember("val");
 
+        extractJson(context);
+
+        context.endObject();
+    }
+
+    /** Print only the value, not the metadata, as JSON. */
+    void extractJson(JsonPrintingContext & context) const
+    {
         vector<int> indexes(dims_.size());
         size_t n = 0;
 
@@ -1387,8 +1374,12 @@ struct ExpressionValue::Embedding {
             };
         
         runLevel(0);
+    }
 
-        context.endObject();
+    std::shared_ptr<EmbeddingValueInfo>
+    getSpecializedValueInfo()
+    {
+        return std::make_shared<EmbeddingValueInfo>();
     }
 };
 
@@ -3675,7 +3666,7 @@ getSpecializedValueInfo() const
         // "it's a row with some values we don't know about yet"
         return std::make_shared<RowValueInfo>(vector<KnownColumn>(), SCHEMA_OPEN);
     case Type::EMBEDDING:
-        throw HttpReturnException(400, "embedding getSpecializedValueInfo not done");
+        return embedding_->getSpecializedValueInfo();
     }
     throw HttpReturnException(400, "unknown ExpressionValue type");
 }
@@ -3726,11 +3717,11 @@ extractJson(JsonPrintingContext & context) const
         return;
     }
     case ExpressionValue::Type::EMBEDDING: {
-        throw HttpReturnException(500, "extractJson Type::EMBEDDING: not impl");
+        embedding_->extractJson(context);
     }
     }
     throw HttpReturnException(400, "unknown ExpressionValue type");
-}
+ }
 
 Json::Value
 ExpressionValue::

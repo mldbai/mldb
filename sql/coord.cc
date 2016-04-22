@@ -29,7 +29,7 @@ namespace MLDB {
 
 Coord::
 Coord()
-    : words{0, 0, 0, 0}
+    : words{0, 0, 0}
 {
 }
 
@@ -405,7 +405,7 @@ operator + (const Coord & other) const
 
     Coord result;
 
-    if (len <= 31) {
+    if (len <= INTERNAL_BYTES - 1) {
         // We can construct in-place
         result.complex_ = 0;
         result.simpleLen_ = len;
@@ -495,8 +495,8 @@ initString(Utf8String str)
     if (str.empty())
         throw HttpReturnException(400, "Attempt to create empty Coord");
     ExcAssertEqual(strlen(str.rawData()), str.rawLength());
-    words[0] = words[1] = words[2] = words[3] = 0;
-    if (str.rawLength() <= 31) {
+    words[0] = words[1] = words[2] = 0;
+    if (str.rawLength() <= INTERNAL_BYTES - 1) {
         complex_ = 0;
         simpleLen_ = str.rawLength();
         std::copy(str.rawData(), str.rawData() + str.rawLength(),
@@ -514,8 +514,8 @@ initChars(const char * str, size_t len)
 {
     if (len == 0)
         throw HttpReturnException(400, "Attempt to create empty Coord");
-    words[0] = words[1] = words[2] = words[3] = 0;
-    if (len <= 31) {
+    words[0] = words[1] = words[2] = 0;
+    if (len <= INTERNAL_BYTES - 1) {
         complex_ = 0;
         simpleLen_ = len;
         std::copy(str, str + len, bytes + 1);

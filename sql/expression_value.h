@@ -761,40 +761,12 @@ struct ExpressionValue {
     // row type... rows, JSON values, objects, arrays, embeddings.
     // If it's not found, will return null and false in the second element.
     // This allows explicit null versus undefined to be distinguished.
-    std::pair<ExpressionValue, bool>
-    tryGetNestedColumn(const ColumnName & columnName,
-                       const VariableFilter & filter = GET_LATEST) const;
-    
-#if 0    
-    // Return the given field by index.  Valid for anything that is a
-    // arrays or embedding.
-    ExpressionValue getField(int fieldIndex) const;
-#endif
 
     const ExpressionValue*
     findNestedColumn(const ColumnName & fieldName,
                      ExpressionValue & storage,
                      const VariableFilter & filter = GET_LATEST) const;
 
-#if 0
-    // Return the given field name.  Valid for anything that is a
-    // structured type... rows, JSON values, objects, arrays, embeddings.
-    ExpressionValue getField(const char * fieldName,
-                             const VariableFilter & filter = GET_LATEST) const
-    {
-        return getField(Utf8String(fieldName), filter);
-    }
-
-    // Return the given field name.  Valid for anything that is a
-    // structured type... rows, JSON values, objects, arrays, embeddings.
-    ExpressionValue getField(const std::string & fieldName,
-                             const VariableFilter & filter = GET_LATEST) const
-    {
-        return getField(Utf8String(fieldName), filter);
-    }
-#endif
-
-#if 1
     /** Return an embedding from the value, asserting on the length.  If the
         length is -1, it is unknown and any length will be accepted. */
     ML::distribution<float, std::vector<float> >
@@ -808,7 +780,6 @@ struct ExpressionValue {
     /** Return a flattened embedding as CellValues. */
     std::vector<CellValue>
     getEmbeddingCell(ssize_t knownLength = -1) const;
-#endif
 
     /** Return the shape of the embedding. */
     std::vector<size_t>
@@ -819,7 +790,6 @@ struct ExpressionValue {
     */
     ExpressionValue reshape(std::vector<size_t> newShape) const;
 
-#if 1
     /** Return an embedding from the value, asserting on the names of the
         columns.  Note that this method will not extract the given names;
         it will only assert that the names in the value are the same as
@@ -830,7 +800,6 @@ struct ExpressionValue {
     */
     ML::distribution<double, std::vector<double> >
     getEmbedding(const ColumnName * knownNames, size_t len) const;
-#endif
 
     /** Iterate over the child expression, with an ExpressionValue at each
         level.  Note that if isRow() is false, than this function will
@@ -1321,9 +1290,6 @@ struct RowValueInfo: public ExpressionValueInfoT<RowValue> {
                          const std::function<void (const ColumnName & columnName,
                                                    const CellValue & value,
                                                    Date timestamp)> & write) const;
-
-    virtual std::shared_ptr<ExpressionValueInfo>
-    findNestedColumn(const ColumnName & columnName);
 
     virtual std::shared_ptr<ExpressionValueInfo>
     getColumn(const Coord & columnName) const;

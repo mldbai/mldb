@@ -9,6 +9,7 @@
 #include "mldb/types/string.h"
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/base/exc_assert.h"
+#include "mldb/jml/utils/compact_vector.h"
 #include <vector>
 #include <cstring>
 
@@ -47,7 +48,7 @@ struct Coord {
     }
 
     Coord(const Coord & other)
-        : words{other.words[0], other.words[1], other.words[2], other.words[3]}
+        : words{other.words[0], other.words[1], other.words[2] }
     {
         if (other.complex_) {
             complexCopyConstruct(other);
@@ -55,7 +56,7 @@ struct Coord {
     }
 
     Coord(Coord && other) noexcept
-        : words{other.words[0], other.words[1], other.words[2], other.words[3]}
+        : words{other.words[0], other.words[1], other.words[2] }
     {
         if (other.complex_) {
             complexMoveConstruct(std::move(other));
@@ -104,7 +105,6 @@ struct Coord {
         std::swap(words[0], other.words[0]);
         std::swap(words[1], other.words[1]);
         std::swap(words[2], other.words[2]);
-        std::swap(words[3], other.words[3]);
     }
 
     Coord & operator = (const Coord & other) noexcept
@@ -220,12 +220,15 @@ struct Coord {
         uint64_t savedHash;
     };
 
+    static constexpr size_t INTERNAL_WORDS = 3;
+    static constexpr size_t INTERNAL_BYTES = 8 * INTERNAL_WORDS;
+
     union {
         // The complex_ flag means we can't simply copy the words around;
         // we need to do some more work.
         struct { uint8_t complex_: 1; uint8_t simpleLen_:5; };
-        uint8_t bytes[32];
-        uint64_t words[4];
+        uint8_t bytes[INTERNAL_BYTES];
+        uint64_t words[INTERNAL_WORDS];
         Str str;
     };
 };
@@ -327,8 +330,8 @@ struct CoordNewHasher
 
 /** A list of coordinate points that gives a full path to an entity. */
 
-struct Coords: protected std::vector<Coord> {
-    typedef std::vector<Coord> Base;
+struct Coords: protected ML::compact_vector<Coord, 2, uint32_t, false> {
+    typedef ML::compact_vector<Coord, 2, uint32_t, false> Base;
 
     Coords();
     Coords(Coord && coord);
@@ -404,12 +407,6 @@ struct Coords: protected std::vector<Coord> {
     using Base::empty;
     using Base::begin;
     using Base::end;
-    using Base::cbegin;
-    using Base::cend;
-    using Base::rbegin;
-    using Base::rend;
-    using Base::crbegin;
-    using Base::crend;
     using Base::at;
     using Base::front;
     using Base::back;
