@@ -48,20 +48,64 @@ external tools.
 
 MLDB can store credentials and supply them whenever required.
 
-MLDB exposes a REST API which is accessible at the route `/v1/credentials`.
+MLDB exposes a REST API which is accessible at the route `/v1/credentials`. It
+is also possible to specify credentials when starting MLDB.  Please refer
+to the [BatchMode](BatchMode.md) Section for details.
 
-### Credentials rules
+### Credential rules
 
-Credentials are specified by giving rules.  A credentials rule contains two parts:
+Credentials are specified by giving rules.  A credential rule contains two parts:
 
-1.  The credentials, which give the actual credentials to access a resource as well
-    as the location of that resource and other metadata required to complete the request;
-2.  A rule which tells us which requests are covered by this resource.
+1.  The credentials, which gives the actual secret information to access a resource as well
+    as the location of that resource and other metadata required for the service
+    hosting the resource to complete the request;
+2.  A rule which includes the resource type (e.g. S3) and a resource path prefix.
+    The rule allows a user to store many credentials for the same service
+    and control when the credentials is used.
 
 When a resource that requires credentials is requested, MLDB will scan the stored
-rules for those credentials, passing it the resource and the context (user id, etc)
-in which the request is being made.  MLDB will use the first matching rule that satisfies
-the request.
+rules for matching credentials.  The matching is performed on the resource path
+using prefixes.  For example, suppose that two sets of credentials are stored
+in MLDB for the AWS S3 service, one set with read-only access
+
+```
+{
+  "store":{
+    "resource":"s3://public.example.com",
+    "resourceType":"aws:s3",
+    "credential":{
+      "protocol":"http",
+      "location":"s3.amazonaws.com",
+      "id":"<READ ACCESS KEY ID>",
+      "secret":"<READ ACCESS KEY>",
+      "validUntil":"2030-01-01T00:00:00Z"
+    }
+  }
+}
+```
+
+and one set with read-write access
+
+```
+{
+  "store":{
+    "resource":"s3://public.example.com/mystuff",
+    "resourceType":"aws:s3",
+    "credential":{
+      "protocol":"http",
+      "location":"s3.amazonaws.com",
+      "id":"<READ-WRITE ACCESS KEY ID>",
+      "secret":"<READ-WRITE ACCESS KEY>",
+      "validUntil":"2030-01-01T00:00:00Z"
+    }
+  }
+}
+```
+When requesting this resource `s3://public.example.com/text.csv`, MLDB will match the first
+rule only because its `resource` field is a prefix of the resource path and it will therefore
+use the read-only credentials. On the other-hand, if the resource
+`s3://public.example.com/mystuff/text.csv` is requested, both rules will match but
+MLDB will use the second one because it matches a longer prefix of the resource path.
 
 ### Credentials storage
 
@@ -86,13 +130,13 @@ access) as follows:
 You can `PUT` (without an ID) or `POST` (with an ID) the following object to
 `/v1/credentials` in order to store new credentials:
 
-![](%%type Datacratic::CredentialRuleConfig)
+![](%%type Datacratic::MLDB::CredentialRuleConfig)
 
 
 ### Example: storing Amazon Web Services S3 credentials
 
 The first thing that you will probably want to do is to post some AWS S3
-credentials into the credentials daemon, as otherwise you won't be able to
+credentials into MLDB, as otherwise you won't be able to
 do anything on Amazon.
 
 The way to do this is to `PUT` to `/v1/credentials/<id>`:
@@ -135,7 +179,7 @@ for that resource.
 
 ### Amazon Web Services
 
-Requests to AWS all start with resourceType of `aws:`.
+Requests to AWS all start with `resourceType` of `aws:`.
 
 #### Amazon S3
 
