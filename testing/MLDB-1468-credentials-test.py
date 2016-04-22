@@ -81,7 +81,7 @@ class CredentialTest(MldbUnitTest):
                             "protocol" : "http",
                             "location" : "s3.amazonaws.com",
                             "id" : key,
-                            "secret" : secret
+                            "secret" : secret.strip()
                         }
                     }
                 })
