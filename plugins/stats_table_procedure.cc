@@ -736,7 +736,7 @@ run(const ProcedureRunConfig & run,
                     Columns columns;
                     // number of trials
                     columns.emplace_back(
-                        "trials", it->second.first, date0);
+                                         Coord("trials"), it->second.first, date0);
                     // coocurence with outcome for each outcome
                     for (int i=0; i < statsTable.outcome_names.size(); ++i) {
                         columns.emplace_back(
@@ -744,7 +744,7 @@ run(const ProcedureRunConfig & run,
                             it->second.second[i],
                             date0);
                     }
-                    rows.emplace_back(make_pair(it->first, columns));
+                    rows.emplace_back(Coord(it->first), columns);
                 }
             }
             output->recordRows(rows);

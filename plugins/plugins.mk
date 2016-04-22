@@ -34,12 +34,8 @@ LIBMLDB_BUILTIN_PLUGIN_SOURCES:= \
 	randomforest_procedure.cc \
 	classifier.cc \
 	sql_functions.cc \
-	kmeans.cc \
 	embedding.cc \
-	pooling_function.cc \
-	feature_generators.cc \
 	svd.cc \
-	embedding.cc \
 	kmeans.cc \
 	probabilizer.cc \
 	pooling_function.cc \

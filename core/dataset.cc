@@ -920,12 +920,12 @@ generateRowsWhere(const SqlBindingScope & scope,
             auto brhs = getBoundParameter(*comparison->rhs);
 
             if (frhs && (clhs || blhs) && comparison->op == "!=") {
-                if (removeTableName(alias, frhs->functionName) == "rowName" ) {
+                if (frhs->functionName == "rowName" ) {
                     return true;
                 }
             }
             else if (flhs && (crhs || brhs) && comparison->op == "!=") {
-                if (removeTableName(alias, flhs->functionName) == "rowName" ) {
+                if (flhs->functionName == "rowName" ) {
                     return true;
                 }
             }
@@ -983,7 +983,7 @@ generateRowsWhere(const SqlBindingScope & scope,
                 auto filterExpression = isLeft? boolean->lhs : boolean->rhs;
 
                 GenerateRowsWhereFunction gen = generateRowsWhere(scope, alias, *scanExpression, 0, -1);
-                SqlExpressionDatasetContext dsScope(*this, alias);
+                SqlExpressionDatasetScope dsScope(*this, alias);
 
                 auto getFilteredRowName = [=] (const BoundParameters & params) {
                     return getRowNameFilter(*filterExpression);

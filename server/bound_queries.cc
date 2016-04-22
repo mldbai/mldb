@@ -263,9 +263,9 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
 
     std::tuple<NamedRowValue, std::vector<ExpressionValue> >
     processRow(MatrixNamedRow& row,
-                    int rowNum,
-                    int numPerBucket,
-                    bool selectStar)
+               int rowNum,
+               int numPerBucket,
+               bool selectStar)
     {
         auto rowContext = context.getRowScope(row);
 
@@ -277,7 +277,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
         outputRow.rowName = row.rowName;
         outputRow.rowHash = row.rowName;
     
-        auto selectRowContext = context.getRowScope(row);
+        auto selectRowScope = context.getRowScope(row);
         vector<ExpressionValue>& calcd = std::get<1>(output);
         calcd.resize(boundCalc.size());
 
@@ -1125,7 +1125,7 @@ struct GroupContext: public SqlExpressionDatasetScope {
             return result;
         };
 
-        if (resolvedFunctionName == "rowName") {
+        if (functionName == "rowName") {
             return {[getGroupRowName] (const std::vector<ExpressionValue> & args,
                         const SqlRowScope & context)
                     {                        
@@ -1135,7 +1135,7 @@ struct GroupContext: public SqlExpressionDatasetScope {
                     },
                     std::make_shared<StringValueInfo>()};
         }
-        else if (resolvedFunctionName == "rowHash") {
+        else if (functionName == "rowHash") {
                 return {[getGroupRowName] (const std::vector<ExpressionValue> & args,
                         const SqlRowScope & context)
                     {                        

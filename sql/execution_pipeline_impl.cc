@@ -93,11 +93,10 @@ doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
         if (outputName.empty() && !asName.empty()) {
             // BAD SMELL
             //try with the table alias
-            columnName = asName + columnName;
-            outputName = keep(columnName);
+            outputName = keep(Coord(asName) + column.columnName);
         }
 
-        if (outputName.empty())
+        if (outputName.empty()) {
             continue;
         }
 

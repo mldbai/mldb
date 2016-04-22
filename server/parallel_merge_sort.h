@@ -1,4 +1,4 @@
-/* parallel_merge_sort.h
+/* parallel_merge_sort.h                                           -*- C++ -*-
    Jeremy Barnes, 12 August 2015
    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
 
@@ -150,7 +150,7 @@ parallelMergeSort(std::vector<std::shared_ptr<std::vector<T> > > & range,
 
 template<class T, class Compare >
 void
-parallelQuickSortRecursive(typename std::vector<T>::iterator begin, typename std::vector<T>::iterator end, Compare less, int depth = 0)
+parallelQuickSortRecursive(typename std::vector<T>::iterator begin, typename std::vector<T>::iterator end, Compare less = Compare(), int depth = 0)
 {
     size_t numElements = end - begin;
     if (numElements <= 1)

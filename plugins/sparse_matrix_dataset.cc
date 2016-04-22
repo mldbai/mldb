@@ -978,7 +978,7 @@ struct MutableBaseData {
             std::vector<uint64_t>::iterator end;
             if (entries.size() > 1) {
                 //if we haven't commited the entries yet there can be duplicates
-                parallelQuickSortRecursive<uint64_t>(allRows.begin(), allRows.end());
+                parallelQuickSortRecursive(allRows);
                 end = std::unique(allRows.begin(), allRows.end());
             }
             else{
@@ -1026,7 +1026,7 @@ struct MutableBaseData {
 
             if (entries.size() > 1) {
                 //if we haven't commited the entries yet there can be duplicates
-                parallelQuickSortRecursive<uint64_t >(allRows.begin(), allRows.end());
+                parallelQuickSortRecursive(allRows);
                 rowCount = std::unique(allRows.begin(), allRows.end()) - allRows.begin();
             }
             else{
