@@ -28,7 +28,7 @@ std::shared_ptr<FunctionCollection>
 createFunctionCollection(MldbServer * server, RestRouteManager & routeManager)
 {
     return createCollection<FunctionCollection>(2, "function", "functions",
-                                                server, routeManager, nullptr);
+                                                server, routeManager);
 }
 
 std::shared_ptr<Function>

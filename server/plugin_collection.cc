@@ -21,7 +21,7 @@ std::shared_ptr<PluginCollection>
 createPluginCollection(MldbServer * server, RestRouteManager & routeManager)
 {
     return createCollection<PluginCollection>(2, L"plugin", L"plugins",
-                                              server, routeManager, nullptr);
+                                              server, routeManager);
 }
 
 std::shared_ptr<Plugin>
