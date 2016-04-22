@@ -29,9 +29,13 @@ dataset.record_row("r4", [["person", "francois", 0],
 mldb.log("Committing dataset")
 dataset.commit()
 
+# mldb.log(mldb.get('/v1/query', q='select * from example').json())
+
 result = mldb.get(
     '/v1/query',
     q='select pivot(thing, has) as * from example group by person')
+
+mldb.log(result.json());
 
 rez = mldb.put("/v1/procedures/dataset_creator", {
     "type": "transform",
@@ -47,38 +51,40 @@ result = mldb.get('/v1/query', q='select * from example2')
 
 expected = [
     {
-        "rowName": "[\"nick\"]",
+        "rowName": "\"[\"\"nick\"\"]\"",
         "rowHash": "676fb0c3ba9e8500",
         "columns": [
             [
-                "goog",
-                2,
+                "appl",
+                1,
                 "1970-01-01T00:00:00Z"
             ],
             [
-                "appl",
-                1,
+                "goog",
+                2,
                 "1970-01-01T00:00:00Z"
             ]
         ]
     },
     {
-        "rowName": "[\"francois\"]",
+        "rowName": "\"[\"\"francois\"\"]\"",
         "rowHash": "65a04ce6031d924d",
         "columns": [
             [
-                "tsla",
-                4,
+                "appl",
+                3,
                 "1970-01-01T00:00:00Z"
             ],
             [
-                "appl",
-                3,
+                "tsla",
+                4,
                 "1970-01-01T00:00:00Z"
             ]
         ]
     }
 ]
+
+mldb.log(result.json())
 
 assert result.json() == expected;
 

@@ -876,13 +876,14 @@ replaceWildcard(const Coords & wildcard, const Coords & with) const
         return Coords();
 
     Coords result;
-    for (ssize_t i = 0;  i < with.size() - 1;  ++i)
+    for (ssize_t i = 0;  i < (ssize_t)(with.size()) - 1;  ++i)
         result.push_back(with[i]);
 
     // The last one may be a prefix match, so we do it explicity
     Utf8String current = at(wildcard.size() - 1).toUtf8String();
     current.removePrefix(wildcard.back().toUtf8String());
-    result.emplace_back(with.back().toUtf8String() + current);
+    if (!with.empty())
+        result.emplace_back(with.back().toUtf8String() + current);
 
     for (size_t i = wildcard.size();  i < size();  ++i)
         result.emplace_back(at(i));

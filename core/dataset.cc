@@ -1566,9 +1566,9 @@ queryBasic(const SqlBindingScope & scope,
 
                             outputRow.columns.reserve(row.columns.size());
                             for (auto & c: row.columns) {
-                                // TODO BEFORE MERGE: no toSimpleName()
+                                // TODO BEFORE MERGE: no toUtf8String()
                                 outputRow.columns.emplace_back
-                                    (std::get<0>(c).toSimpleName(),
+                                    (std::get<0>(c).toUtf8String(),
                                      ExpressionValue(std::move(std::get<1>(c)),
                                                      std::move(std::get<2>(c))));
                             }

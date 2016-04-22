@@ -35,7 +35,7 @@ expected = [
         "rowHash": "671b4a4dfa1563b5",
         "columns": [
             [
-                "x.x",
+                "x",
                 8,
                 "1970-01-01T00:00:00Z"
             ]
@@ -46,7 +46,7 @@ expected = [
         "rowHash": "0e832fd840141af8",
         "columns": [
             [
-                "x.x",
+                "x",
                 9,
                 "1970-01-01T00:00:00Z"
             ]
@@ -57,7 +57,7 @@ expected = [
         "rowHash": "54569df01a700c8b",
         "columns": [
             [
-                "x.x",
+                "x",
                 7,
                 "1970-01-01T00:00:00Z"
             ]
