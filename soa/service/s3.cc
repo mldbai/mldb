@@ -224,10 +224,8 @@ init(const std::string & accessKeyId,
 S3Api::Content::
 Content(const tinyxml2::XMLDocument & xml)
 {
-    tinyxml2::XMLPrinter printer;
-    const_cast<tinyxml2::XMLDocument &>(xml).Print(&printer);
     this->contentType = "application/xml";
-    this->str = printer.CStr();
+    this->str = xmlDocumentAsString(xml);
     this->hasContent = true;
     this->data = str.c_str();
     this->size = str.length();
@@ -776,8 +774,6 @@ obtainMultiPartUpload(const std::string & bucket,
                                              "uploadId=" + uploadId)
                 .bodyXml();
 
-            inProgressInfo->Print();
-
             XMLHandle handle(*inProgressInfo);
 
             auto foundPart
@@ -818,7 +814,6 @@ obtainMultiPartUpload(const std::string & bucket,
         RestParams headers = metadata.getRequestHeaders();
         auto result = postEscaped(bucket, escapedResource,
                                   "uploads", headers).bodyXml();
-        //result->Print();
         //cerr << "result = " << result << endl;
 
         uploadId
@@ -855,8 +850,6 @@ finishMultiPartUpload(const std::string & bucket,
             ->InsertEndChild(joinRequest.NewText(etags[i].c_str()));
     }
 
-    //joinRequest.Print();
-
     string escapedResource = s3EscapeResource(resource);
 
     auto joinResponse
@@ -873,9 +866,11 @@ finishMultiPartUpload(const std::string & bucket,
                                       "CompleteMultipartUploadResult/ETag");
         return etag;
     } catch (const std::exception & exc) {
-        cerr << "--- request is " << endl;
-        joinRequest.Print();
-        cerr << "error completing multipart upload: " << exc.what() << endl;
+        cerr << ("--- request is\n"
+                 + xmlDocumentAsString(joinRequest) + "\n"
+                 + "error completing multipart upload: "
+                 + exc.what()
+                 + "\n");
         throw;
     }
 }
@@ -917,7 +912,6 @@ upload(const char * data,
             .bodyXml();
 
         //cerr << "existing" << endl;
-        //existingResource->Print();
 
         auto foundContent
             = tinyxml2::XMLHandle(*existingResource)
@@ -1186,8 +1180,6 @@ forEachObject(const std::string & bucket,
         auto listingResult = get(bucket, "/", Range::Full, "",
                                  {}, queryParams);
         auto listingResultXml = listingResult.bodyXml();
-
-        //listingResultXml->Print();
 
         string foundPrefix
             = extractDef<string>(listingResult, "ListBucketResult/Prefix", "");
@@ -2286,8 +2278,6 @@ forEachBucket(const OnBucket & onBucket) const
 
     auto listingResult = get("", "/", Range::Full, "");
     auto listingResultXml = listingResult.bodyXml();
-
-    //listingResultXml->Print();
 
     auto foundBucket
         = XMLHandle(*listingResultXml)
