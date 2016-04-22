@@ -401,7 +401,27 @@ performSync() const
 
         myRequest.get_info(CURLINFO_RESPONSE_CODE, responseCode);
 
-        if (responseCode >= 300 && responseCode != 404) {
+        /* Detect so-called "REST error", which may or may not have an HTTP
+           status >= 200
+           (http://docs.aws.amazon.com/AmazonS3/latest/API/ErrorResponses.html)
+        */
+        pair<string, string> xmlError; /* {code, message} */
+        if (responseHeaders.find("Content-Type: application/xml")
+            != string::npos) {
+            unique_ptr<tinyxml2::XMLDocument> localXml(
+                new tinyxml2::XMLDocument()
+                );
+            localXml->Parse(responseBody.c_str());
+            auto element
+                = tinyxml2::XMLHandle(*localXml).FirstChildElement("Error")
+                .ToElement();
+            if (element) {
+                xmlError.first = extract<string>(element, "Code");
+                xmlError.second = extract<string>(element, "Message");
+            }
+        }
+
+        auto makeErrorMsg = [&] () {
             string message("S3 operation failed with HTTP code "
                            + to_string(responseCode) + "\n"
                            + params.verb + " " + uri + "\n");
@@ -412,38 +432,28 @@ performSync() const
                 message += (string("body (") + to_string(responseBody.size())
                             + " bytes):\n" + responseBody + "\n");
             }
-
-
-            /* log so-called "REST error"
-               (http://docs.aws.amazon.com/AmazonS3/latest/API/ErrorResponses.html)
-            */
-            if (responseHeaders.find("Content-Type: application/xml")
-                != string::npos) {
-                unique_ptr<tinyxml2::XMLDocument> localXml(
-                    new tinyxml2::XMLDocument()
-                );
-                localXml->Parse(responseBody.c_str());
-                auto element
-                    = tinyxml2::XMLHandle(*localXml).FirstChildElement("Error")
-                    .ToElement();
-                if (element) {
-                    message += ("S3 REST error: ["
-                                + extract<string>(element, "Code")
-                                + "] message ["
-                                + extract<string>(element, "Message")
-                                +"]\n");
-                }
+            if (!xmlError.first.empty()) {
+                message += ("S3 REST error code: "
+                            + xmlError.first
+                            + "; message: "
+                            + xmlError.second
+                            +"\n");
             }
+
+            return message;
+        };
+
+        if (!xmlError.first.empty()
+            || (responseCode >= 300 && responseCode != 404)) {
+            string message(makeErrorMsg());
             ::fprintf(stderr, "%s\n", message.c_str());
 
             /* retry on 50X range errors (recoverable) */
-            if (responseCode >= 500 && responseCode < 505) {
+            if ((responseCode >= 500 && responseCode < 505)
+                || xmlError.first == "InternalError") {
                 continue;
             }
             else {
-                //cerr << "Unrecoverable S3 error: code " << responseCode
-                //     << endl;
-                //cerr << string(body, 0, 4096) << endl;
                 string firstLine(responseHeaders, 0, responseHeaders.find('\n'));
 
                 throw ML::Exception("S3 error loading '%s': %s",
