@@ -165,7 +165,8 @@ applyT(const ApplierT & applier_, PoolingInput input) const
     
 std::unique_ptr<FunctionApplierT<PoolingInput, PoolingOutput> >
 PoolingFunction::
-bindT(SqlBindingScope & outerContext, const std::shared_ptr<RowValueInfo> & input) const
+bindT(SqlBindingScope & outerContext,
+      const std::shared_ptr<RowValueInfo> & input) const
 {
     std::unique_ptr<PoolingFunctionApplier> result
         (new PoolingFunctionApplier(this, outerContext, input));
@@ -173,11 +174,7 @@ bindT(SqlBindingScope & outerContext, const std::shared_ptr<RowValueInfo> & inpu
 
     // Check that all values on the passed input are compatible with the required
     // inputs.
-
-    //TODO
-    /*for (auto & p: result->info.input.values) {
-        input.checkValueCompatibleAsInputTo(p.first.toUtf8String(), p.second);
-    }*/
+    result->info.checkInputCompatibility(*input);
 
     return std::move(result);
 }

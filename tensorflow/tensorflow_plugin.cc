@@ -731,11 +731,7 @@ struct TensorflowGraph: public Function {
             
             // Check that all values on the passed input are compatible with the
             // required inputs.
-            // TO DO BEFORE MERGE
-            throw HttpReturnException(600, "Need to fix before merge");
-            //for (auto & p: info.input.values) {
-            //    input.checkValueCompatibleAsInputTo(p.first.toUtf8String(), p.second);
-            //}
+            info.checkInputCompatibility(*input);
         }
 
         const TensorflowGraph * owner;

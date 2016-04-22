@@ -51,6 +51,14 @@ struct FunctionInfo {
 
     /// Values that this function produces as an output
     std::shared_ptr<RowValueInfo> output;
+
+    /** Statically check that the fields in input are compatible with our
+        input specification, and throw an exception if incompatibility can
+        be statically proven at bind time.  Note that this function succeeding
+        is not a guarantee that input will always be compatible; if the
+        input is dynamic, then it may fail at runtime.
+    */
+    void checkInputCompatibility(const ExpressionValueInfo & input) const;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(FunctionInfo);

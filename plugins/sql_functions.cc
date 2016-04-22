@@ -325,9 +325,7 @@ bind(SqlBindingScope & outerContext,
     std::unique_ptr<SqlQueryFunctionApplier> result
         (new SqlQueryFunctionApplier(this, functionConfig));
 
-    // Check that these input values can provide everything needed for the result
-    // TO RESOLVE BEFORE MERGE
-    //input.checkCompatibleAsInputTo(result->info.input);
+    result->info.checkInputCompatibility(*input);
 
     return std::move(result);
 }
@@ -482,9 +480,7 @@ bind(SqlBindingScope & outerContext,
     std::unique_ptr<SqlExpressionFunctionApplier> result
         (new SqlExpressionFunctionApplier(outerContext, this, input));
 
-    // TO RESOLVE BEORE MERGE
-    // Check that these input values can provide everything needed for the result
-    //input.checkCompatibleAsInputTo(result->info.input);
+    result->info.checkInputCompatibility(*input);
 
     return std::move(result);
 }

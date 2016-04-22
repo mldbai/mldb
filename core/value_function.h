@@ -158,16 +158,7 @@ struct ValueFunctionT: public ValueFunction {
     {
         std::unique_ptr<Applier> result(new Applier(this));
         result->info = getFunctionInfo();
-
-        // Check that all values on the passed input are compatible with the required
-        // inputs.
-        // TO RESOLVE BEFORE MERGE
-#if 0
-        for (auto & p: result->info.input.values) {
-            input.checkValueCompatibleAsInputTo(p.first.toUtf8String(), p.second);
-        }
-#endif
-
+        result->info.checkInputCompatibility(*input);
         return result;
     }
 

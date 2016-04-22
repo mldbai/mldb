@@ -61,6 +61,18 @@ FunctionPolyConfigDescription()
 
 
 /*****************************************************************************/
+/* FUNCTION INFO                                                             */
+/*****************************************************************************/
+
+void
+FunctionInfo::
+checkInputCompatibility(const ExpressionValueInfo & input) const
+{
+    // For now, say yes...
+}
+
+
+/*****************************************************************************/
 /* FUNCTION APPLIER                                                          */
 /*****************************************************************************/
 
@@ -111,17 +123,7 @@ bind(SqlBindingScope & outerContext,
     std::unique_ptr<FunctionApplier> result(new FunctionApplier());
     result->function = this;
     result->info = getFunctionInfo();
-
-    // TO RESOLVE BEFORE MERGE
-    //throw HttpReturnException(600, "Function::bind(): check compatibility");
-#if 0
-    // Check that all values on the passed input are compatible with the required
-    // inputs.
-    for (auto & p: result->info.input.values) {
-        input.checkValueCompatibleAsInputTo(p.first.toUtf8String(), p.second);
-    }
-#endif
-
+    result->info.checkInputCompatibility(*input);
     return result;
 }
 

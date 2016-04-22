@@ -194,26 +194,13 @@ doGetFunction(const Utf8String & tableName,
               const std::vector<BoundSqlExpression> & args,
               SqlBindingScope & argScope)
 {
-    Utf8String resolvedTableName = tableName;
-    Utf8String resolvedFunctionName = functionName;
-
-    // TO RESOLVE BEFORE MERGE
-#if 0
-    //Dont call "resolveTableName" for function because it puts quotes to resolve variables ambiguity
-    if (tableName.empty()) {
-        resolvedFunctionName = removeTableName(alias, functionName).toSimpleName();
-        if (resolvedFunctionName != functionName)
-            resolvedTableName = alias;
-    }
-#endif
-
     // First, let the dataset either override or implement the function
     // itself.
-    auto fnoverride = dataset.overrideFunction(resolvedTableName, resolvedFunctionName, argScope);
+    auto fnoverride = dataset.overrideFunction(tableName, functionName, argScope);
     if (fnoverride)
         return fnoverride;
 
-    if (resolvedFunctionName == "rowName") {
+    if (functionName == "rowName") {
         return {[=] (const std::vector<ExpressionValue> & args,
                      const SqlRowScope & context)
                 {
@@ -225,7 +212,7 @@ doGetFunction(const Utf8String & tableName,
                 };
     }
 
-    if (resolvedFunctionName == "rowHash") {
+    if (functionName == "rowHash") {
         return {[=] (const std::vector<ExpressionValue> & args,
                      const SqlRowScope & context)
                 {
@@ -240,7 +227,7 @@ doGetFunction(const Utf8String & tableName,
     /* columnCount function: return number of columns with explicit values set
        in the current row.
     */
-    if (resolvedFunctionName == "columnCount") {
+    if (functionName == "columnCount") {
         return {[=] (const std::vector<ExpressionValue> & args,
                      const SqlRowScope & context)
                 {
@@ -259,7 +246,7 @@ doGetFunction(const Utf8String & tableName,
     }
 
     return SqlExpressionMldbScope
-        ::doGetFunction(resolvedTableName, resolvedFunctionName,
+        ::doGetFunction(tableName, functionName,
                         args, argScope);
 }
 
