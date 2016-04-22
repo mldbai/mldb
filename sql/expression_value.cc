@@ -1681,7 +1681,6 @@ ExpressionValue::
     case Type::NONE: return;
     case Type::ATOM: cell_.~CellValue();  return;
     case Type::STRUCTURED:  structured_.~StructuredRepr();  return;
-    case Type::FLATTENED: flattened_.~FlattenedRepr();  return;
     case Type::EMBEDDING: embedding_.~EmbeddingRepr();  return;
     }
     throw HttpReturnException(400, "Unknown expression value type");
@@ -1695,12 +1694,6 @@ ExpressionValue(const ExpressionValue & other)
     case Type::NONE: ts_ = other.ts_;  return;
     case Type::ATOM: initAtom(other.cell_, other.ts_);  return;
     case Type::STRUCTURED:  initStructured(other.structured_);  return;
-    case Type::FLATTENED: {
-        ts_ = other.ts_;
-        new (storage_) std::shared_ptr<const Flattened>(other.flattened_);
-        type_ = Type::FLATTENED;
-        return;
-    }
     case Type::EMBEDDING: {
         ts_ = other.ts_;
         new (storage_) std::shared_ptr<const Embedding>(other.embedding_);
@@ -1722,7 +1715,6 @@ ExpressionValue(ExpressionValue && other) noexcept
     case Type::NONE: return;
     case Type::ATOM: new (storage_) CellValue(std::move(other.cell_));  return;
     case Type::STRUCTURED:  new (storage_) std::shared_ptr<const Structured>(std::move(other.structured_));  return;
-    case Type::FLATTENED: new (storage_) std::shared_ptr<const Flattened>(std::move(other.flattened_));  return;
     case Type::EMBEDDING: new (storage_) std::shared_ptr<const Embedding>(std::move(other.embedding_));  return;
     }
     throw HttpReturnException(400, "Unknown expression value type");
@@ -1773,12 +1765,14 @@ ExpressionValue(std::vector<CellValue> values,
 {
     ExcAssertEqual(values.size(), (*cols).size());
 
-    std::shared_ptr<Flattened> content(new Flattened());
-    content->values = std::move(values);
-    content->columnNames = std::move(cols);
+    RowValue row;
+    row.reserve(cols->size());
+    for (size_t i = 0;  i < cols->size();  ++i) {
+        row.emplace_back(cols->at(i), std::move(values[i]), ts);
+    }
 
-    new (storage_) std::shared_ptr<const Flattened>(std::move(content));
-    type_ = Type::FLATTENED;
+    ExpressionValue v(std::move(row));
+    v.swap(*this);
 }
 
 ExpressionValue::
@@ -1789,13 +1783,16 @@ ExpressionValue(const std::vector<double> & values,
 {
     ExcAssertEqual(values.size(), (*cols).size());
 
-    std::shared_ptr<Flattened> content(new Flattened());
-    vector<CellValue> cellValues(values.begin(), values.end());
-    content->values = std::move(cellValues);
-    content->columnNames = std::move(cols);
+    ExcAssertEqual(values.size(), (*cols).size());
 
-    new (storage_) std::shared_ptr<const Flattened>(std::move(content));
-    type_ = Type::FLATTENED;
+    RowValue row;
+    row.reserve(cols->size());
+    for (size_t i = 0;  i < cols->size();  ++i) {
+        row.emplace_back(cols->at(i), values[i], ts);
+    }
+
+    ExpressionValue v(std::move(row));
+    v.swap(*this);
 }
 
 ExpressionValue::
@@ -1931,8 +1928,6 @@ isTrue() const
         return cell_.isTrue();
     case Type::STRUCTURED:
         return !structured_->empty();
-    case Type::FLATTENED:
-        return flattened_->length();
     case Type::EMBEDDING:
         return embedding_->length();
     }
@@ -1951,8 +1946,6 @@ isFalse() const
         return cell_.isFalse();
     case Type::STRUCTURED:
         return structured_->empty();
-    case Type::FLATTENED:
-        return !flattened_->length();
     case Type::EMBEDDING:
         return embedding_->length();
     }
@@ -2061,8 +2054,7 @@ bool
 ExpressionValue::
 isRow() const
 {
-    return type_ == Type::STRUCTURED || type_ == Type::FLATTENED
-        || type_ == Type::EMBEDDING;
+    return type_ == Type::STRUCTURED || type_ == Type::EMBEDDING;
 }
 
 bool
@@ -2180,17 +2172,6 @@ getColumn(const Coord & columnName, const VariableFilter & filter) const
 
         return ExpressionValue();
     }
-    case Type::FLATTENED: {
-        // TODO: any / latest / etc...
-        // Needs to be restructured for flattened...
-        for (size_t i = 0;  i != flattened_->length();  ++i) {
-            const auto & name = flattened_->columnName(i);
-            if (name.size() == 1 && name[0] == columnName) {
-                return ExpressionValue(flattened_->value(i), ts_);
-            }
-        }
-        return ExpressionValue();
-    }
     case Type::EMBEDDING: {
         return embedding_->getColumn(columnName, ts_);
     }
@@ -2228,15 +2209,6 @@ getNestedColumn(const ColumnName & columnName, const VariableFilter & filter) co
 
         return ExpressionValue();
     }
-    case Type::FLATTENED: {
-        // TODO: any / latest / etc...
-
-        for (unsigned i = 0;  i != flattened_->length();  ++i) {
-            if (columnName == flattened_->columnName(i))
-                return ExpressionValue(flattened_->value(i), ts_);
-        }
-        return ExpressionValue();
-    }
     case Type::EMBEDDING: {
         return embedding_->getColumn(columnName, ts_);
     }
@@ -2246,22 +2218,6 @@ getNestedColumn(const ColumnName & columnName, const VariableFilter & filter) co
     }
     return ExpressionValue();
 }
-
-#if 0
-ExpressionValue
-ExpressionValue::
-getField(int fieldIndex) const
-{
-    if (type_ == Type::FLATTENED) {
-        return ExpressionValue(flattened_->value(fieldIndex), ts_);
-    }
-    else if (type_ == Type::EMBEDDING) {
-        return ExpressionValue(embedding_->getValue(fieldIndex), ts_);
-    }
-
-    return ExpressionValue();
-}
-#endif
 
 const ExpressionValue*
 ExpressionValue::
@@ -2290,10 +2246,6 @@ findNestedColumn(const ColumnName & columnName,
                                             filter);
         }
     }
-    else if (type_ == Type::FLATTENED) {
-        throw HttpReturnException(400, "findNestedField for struct");
-        
-    }
     else if (type_ == Type::EMBEDDING) {
         throw HttpReturnException(400, "findNestedField for embedding");
     }
@@ -2309,8 +2261,6 @@ getEmbeddingShape() const
     case Type::NONE:
     case Type::ATOM:
         return {};
-    case Type::FLATTENED:
-        return { flattened_->length() };
     case Type::STRUCTURED:
         return { structured_->size() };
     case Type::EMBEDDING:
@@ -2327,7 +2277,6 @@ reshape(std::vector<size_t> newShape) const
     switch (type_) {
     case Type::NONE:
     case Type::ATOM:
-    case Type::FLATTENED:
     case Type::STRUCTURED:
         throw HttpReturnException(500, "Cannot reshape non-embedding");
     case Type::EMBEDDING: {
@@ -2486,18 +2435,6 @@ getEmbedding(const ColumnName * knownNames, size_t len) const
         };
 
     switch (type_) {
-
-    case Type::FLATTENED:
-        if (flattened_->columnNames) {
-            for (unsigned i = 0;  i < flattened_->values.size();  ++i) {
-                addCell(flattened_->columnNames->at(i), flattened_->values[i]);
-            }
-        } else {
-            for (unsigned i = 0;  i < flattened_->values.size();  ++i) {
-                addCell(Coord(i), flattened_->values[i]);
-            }
-        }
-        break;
 
     case Type::EMBEDDING: {
         std::vector<size_t> shape = getEmbeddingShape();
@@ -2720,7 +2657,6 @@ appendToRowDestructive(ColumnName & columnName, RowValue & row)
         row.emplace_back(std::move(columnName), stealAtom(), ts_);
         return;
     case Type::STRUCTURED:
-    case Type::FLATTENED:
     case Type::EMBEDDING:
         if (row.capacity() == 0)
             row.reserve(rowLength());
@@ -2767,9 +2703,6 @@ rowLength() const
 {
     if (type_ == Type::STRUCTURED) {
         return structured_->size();
-    }
-    else if (type_ == Type::FLATTENED) {
-        return flattened_->length();
     }
     else if (type_ == Type::EMBEDDING) {
         return embedding_->length();
@@ -2837,13 +2770,6 @@ forEachAtom(const std::function<bool (const Coords & columnName,
                 if (!val.forEachAtom(onAtom, prefix + std::get<0>(col)))
                     return false;
             }
-        }
-        return true;
-    }
-    case Type::FLATTENED: {
-        for (unsigned i = 0;  i < flattened_->length();  ++i) {
-            if (!onAtom(flattened_->columnName(i), prefix, flattened_->value(i), ts_))
-                return false;
         }
         return true;
     }
@@ -2919,38 +2845,6 @@ forEachColumn(const std::function<bool (const Coord & columnName,
         }
         return true;
     }
-    case Type::FLATTENED: {
-        // NOTE: this function call is really freaking expensive!
-        // We need to do one column at a time, so we need to do it by
-        // looking for all of the prefixes and doing them one at a time.
-
-        // For each prefix, what is the value?
-        std::map<Coord, std::vector<int> > index;
-        for (unsigned i = 0;  i < flattened_->length();  ++i) {
-            index[flattened_->columnName(i).head()].push_back(i);
-        }
-
-        for (auto & entry: index) {
-            RowValue expr;
-            expr.reserve(entry.second.size());
-            for (int i: entry.second) {
-                if (flattened_->columnName(i).size() == 1) {
-                    if (!onColumn(entry.first, prefix,
-                                  ExpressionValue(flattened_->value(i), ts_)))
-                        return false;
-                }
-                else {
-                    expr.emplace_back(flattened_->columnName(i).tail(),
-                                      flattened_->value(i), ts_);
-                }
-            }
-            if (!expr.empty())
-                if (!onColumn(entry.first, prefix, std::move(expr)))
-                    return false;
-        }
-
-        return true;
-    }
     case Type::EMBEDDING: {
         auto onColumn2 = [&] (Coord & col,
                              ExpressionValue & val)
@@ -3010,33 +2904,6 @@ forEachColumnDestructiveT(Fn && onColumn) const
             }
         }
         return true;
-    }
-    case Type::FLATTENED: {
-        // TO RESOLVE BEFORE MERGE: either remove flattened or fix it
-        throw HttpReturnException(600, "forEachColumnDestructive(flattened)");
-#if 0
-        if (flattened_.unique()) {
-            // See same comment above
-            Flattened & s = const_cast<Flattened &>(*flattened_);
-
-            for (unsigned i = 0;  i < s.length();  ++i) {
-                ExpressionValue val(std::move(s.moveValue(i)), ts_);
-                Coord name = s.columnName(i).toSimpleName();
-                if (!onColumn(name, val))
-                    return false;
-            }
-
-        }
-        else {
-            for (unsigned i = 0;  i < flattened_->length();  ++i) {
-                ExpressionValue val(flattened_->value(i), ts_);
-                Coord name = flattened_->columnName(i).toSimpleName();
-                if (!onColumn(name, val))
-                    return false;
-            }
-        }
-        return true;
-#endif
     }
     case Type::EMBEDDING: {
         auto onCol = [&] (Coord & columnName, ExpressionValue & val)
@@ -3108,28 +2975,6 @@ forEachAtomDestructiveT(Fn && onAtom)
                     };
                 
                 std::get<1>(col).forEachAtom(onAtom2, std::get<0>(col));
-            }
-        }
-        return true;
-    }
-    case Type::FLATTENED: {
-        if (flattened_.unique()) {
-            // See same comment above
-            Flattened & s = const_cast<Flattened &>(*flattened_);
-
-            for (unsigned i = 0;  i < s.length();  ++i) {
-                CellValue val(s.moveValue(i));
-                Coords name = s.columnName(i);
-                if (!onAtom(name, val, ts_))
-                    return false;
-            }
-        }
-        else {
-            for (unsigned i = 0;  i < flattened_->length();  ++i) {
-                CellValue val(flattened_->value(i));
-                Coords name = flattened_->columnName(i);
-                if (!onAtom(name, val, ts_))
-                    return false;
             }
         }
         return true;
@@ -3449,7 +3294,6 @@ hasKey(const Utf8String & key) const
     case Type::ATOM:
         return { false, Date::negativeInfinity() };
     case Type::STRUCTURED: 
-    case Type::FLATTENED:
     case Type::EMBEDDING: {
         // TODO: for Embedding, we can do much, much better
         Date outputDate = Date::negativeInfinity();
@@ -3503,7 +3347,6 @@ hasValue(const ExpressionValue & val) const
     case Type::ATOM:
         return { false, Date::negativeInfinity() };
     case Type::STRUCTURED: 
-    case Type::FLATTENED:
     case Type::EMBEDDING: {
         // TODO: for embedding, we can do much, much better
         Date outputDate = Date::negativeInfinity();
@@ -3540,7 +3383,6 @@ hash() const
     case Type::ATOM:
         return cell_.hash();
     case Type::STRUCTURED:
-    case Type::FLATTENED:
     case Type::EMBEDDING:
         // TODO: a more reasonable speed in hashing
         return jsonHash(jsonEncode(*this));
@@ -3630,9 +3472,6 @@ coerceToAtom() const
     case Type::STRUCTURED:
         ExcAssertEqual(structured_->size(), 1);
         return std::get<1>((*structured_)[0]).getAtom();
-    case Type::FLATTENED:
-        ExcAssertEqual(flattened_->length(), 1);
-        return CellValue(flattened_->value(0));
     case Type::EMBEDDING:
         ExcAssertEqual(embedding_->length(), 1);
         return embedding_->getValue(0);
@@ -3768,9 +3607,6 @@ compare(const ExpressionValue & other) const
         auto rightRow = other.getStructured();
         return ML::compare_sorted(leftRow, rightRow, ML::compare<Structured>());
     }
-    case Type::FLATTENED: {
-        return compare_t<vector<pair<ColumnName, CellValue> >, ML::compare>(*this, other);
-    }
     case Type::EMBEDDING: {
         return compare_t<vector<pair<ColumnName, CellValue> >, ML::compare>(*this, other);
     }
@@ -3793,7 +3629,6 @@ operator == (const ExpressionValue & other) const
         auto rightRow = other.getStructured();
         return ML::compare_sorted(leftRow, rightRow, std::equal_to<Structured>());
     }
-    case Type::FLATTENED:
     case Type::EMBEDDING: {
         return compare_t<vector<pair<ColumnName, CellValue> >, equal_to>(*this, other);
     }
@@ -3818,9 +3653,6 @@ operator <  (const ExpressionValue & other) const
         auto rightRow = other.getStructured();
         return ML::compare_sorted(leftRow, rightRow, std::less<Structured>());
     }
-    case Type::FLATTENED: {
-        return compare_t<vector<pair<ColumnName, CellValue> >, less>(*this, other);
-    }
     case Type::EMBEDDING: {
         return compare_t<vector<pair<ColumnName, CellValue> >, less>(*this, other);
     }
@@ -3842,8 +3674,6 @@ getSpecializedValueInfo() const
         // TODO: specialize for concrete value.  Currently we just say
         // "it's a row with some values we don't know about yet"
         return std::make_shared<RowValueInfo>(vector<KnownColumn>(), SCHEMA_OPEN);
-    case Type::FLATTENED:
-        throw HttpReturnException(400, "struct getSpecializedValueInfo not done");
     case Type::EMBEDDING:
         throw HttpReturnException(400, "embedding getSpecializedValueInfo not done");
     }
@@ -3894,55 +3724,6 @@ extractJson(JsonPrintingContext & context) const
         context.endObject();
 
         return;
-    }
-    case ExpressionValue::Type::FLATTENED: {
-        Json::Value output(Json::arrayValue);
-
-        bool isArray = true;
-
-        if (flattened_->columnNames && flattened_->length() > 0
-            && flattened_->columnNames->at(0) == ColumnName(0)) {
-            // Assume it's an array; check if not
-            bool isArray = true;
-            for (unsigned i = 1;  i < flattened_->length() && isArray;  ++i) {
-                if (flattened_->columnNames->at(i) != Coords(Coord(i)))
-                    isArray = false;
-            }
-        }
-        if (isArray) {
-            context.startArray();
-            for (unsigned i = 0;  i < flattened_->length();  ++i) {
-                context.newArrayElement();
-                flattened_->value(i).extractStructuredJson(context);
-            }
-            context.endArray();
-        }
-        else {
-            context.startObject();
-
-            // TO RESOLVE BEFORE MERGE
-            // Flattened values need to be unflattened...
-            throw HttpReturnException(500, "extractJson needs to be finished");
-#if 0
-            for (unsigned i = 0;  i < flattened_->length();  ++i) {
-                if (flattened_->columnName(i).hasStringView()) {
-                    const char * start;
-                    size_t len;
-
-                    std::tie(start, len) = flattened_->columnName(i).getStringView();
-
-                    context.startMember(start, len);
-                }
-                else {
-                    context.startMember(flattened_->columnName(i).toUtf8String());
-                }
-
-                flattened_->value(i).extractStructuredJson(context);
-            }
-#endif
-
-            context.endObject();
-        }
     }
     case ExpressionValue::Type::EMBEDDING: {
         throw HttpReturnException(500, "extractJson Type::EMBEDDING: not impl");
@@ -4085,42 +3866,6 @@ printJsonTyped(const ExpressionValue * val,
     case ExpressionValue::Type::STRUCTURED:
         structuredDesc->printJsonTyped(val->structured_.get(), context);
         return;
-    case ExpressionValue::Type::FLATTENED: {
-        Json::Value output(Json::arrayValue);
-
-        if (!val->flattened_->columnNames) {
-            for (unsigned i = 0;  i < val->flattened_->length();  ++i)
-                output[i] = jsonEncode(val->flattened_->value(i));
-        }
-        else if (val->flattened_->length() > 0
-                 && val->flattened_->columnName(0) == Coords(0)) {
-            // Assume it's an array
-            
-            for (unsigned i = 0;  i < val->flattened_->length();  ++i) {
-                output[i] = jsonEncode(val->flattened_->value(i));
-                if (val->flattened_->columnName(i) != Coords(Coord(i))) {
-                    // Not really an array or embedding...
-                    output = Json::Value();
-                    return;
-                }
-            }
-        }
-
-        if (!output.isNull()) {
-            context.writeJson(output);
-            return;
-        }
-
-        output = Json::Value(Json::objectValue);
-
-        for (unsigned i = 0;  i < val->flattened_->length();  ++i) {
-            output[val->flattened_->columnName(i).toUtf8String()]
-                = jsonEncode(val->flattened_->value(i));
-        }
-
-        context.writeJson(output);
-        return;
-    }
     case ExpressionValue::Type::EMBEDDING: {
         val->embedding_->writeJson(context);
         return;
@@ -4144,7 +3889,6 @@ print(Type t)
     case Type::NONE:      return "empty";
     case Type::ATOM:      return "atomic value";
     case Type::STRUCTURED:       return "structured";
-    case Type::FLATTENED: return "flattened";
     case Type::EMBEDDING: return "embedding";
     default:
         throw HttpReturnException(400, "Unknown ExpressionValue type: "

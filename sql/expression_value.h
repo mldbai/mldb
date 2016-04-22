@@ -1008,7 +1008,6 @@ private:
         NONE,        ///< Expression is empty or not initialized yet.  Shouldn't be exposed to user.
         ATOM,        ///< Expression is an atom (CellValue), including null
         STRUCTURED,  ///< Expression is a structured, ie a destructured complex type with independent timestamps
-        FLATTENED,   ///< Expression is a structure of keys and elements.
         EMBEDDING    ///< Uniform typed n-dimensional array of atoms
     };
 
