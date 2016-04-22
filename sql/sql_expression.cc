@@ -1677,6 +1677,7 @@ getUnbound() const
     }
 
     for (auto & v: functionNames()) {
+        // toSimpleName() is OK, since functions can't have compound names
         if (v.first.scope.empty())
             result.funcs[v.first.name.toSimpleName()].merge(v.second);
         else

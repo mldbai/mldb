@@ -394,14 +394,13 @@ querySubDataset(MldbServer * server,
     result.reserve(output.size());
                 
     for (auto & row: output) {
+        // All of this is to properly unflatten the output of the
+        // queryStructured call.
+        ExpressionValue val(std::move(row.columns));
         NamedRowValue rowOut;
         rowOut.rowName = std::move(row.rowName);
         rowOut.rowHash = std::move(row.rowHash);
-        for (auto & c: row.columns) {
-            rowOut.columns.emplace_back(std::move(std::get<0>(c).toSimpleName()),
-                                        ExpressionValue(std::move(std::get<1>(c)),
-                                                        std::get<2>(c)));
-        }
+        val.mergeToRowDestructive(rowOut.columns);
         result.emplace_back(std::move(rowOut));
     }
 

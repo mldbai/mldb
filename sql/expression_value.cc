@@ -2950,17 +2950,6 @@ forEachColumn(const std::function<bool (const Coord & columnName,
         }
 
         return true;
-
-#if 0
-        for (unsigned i = 0;  i < flattened_->length();  ++i) {
-            ExpressionValue val(flattened_->value(i), ts_);
-            // TO RESOLVE BEFORE MERGE: toSimpleName() is not right; need to
-            // reconfigure here
-            if (!onColumn(flattened_->columnName(i).toSimpleName(), prefix, val))
-                return false;
-        }
-        return true;
-#endif
     }
     case Type::EMBEDDING: {
         auto onColumn2 = [&] (Coord & col,
@@ -2972,19 +2961,10 @@ forEachColumn(const std::function<bool (const Coord & columnName,
     }
     case Type::NONE:
     case Type::ATOM:
+        // A non-row doesn't have columns, so this call doesn't make sense
         throw HttpReturnException(500, "Expected row expression",
                                   "expression", *this,
                                   "type", (int)type_);
-#if 0        
-
-        return true;
-        //return onColumn(Coord(), prefix, ExpressionValue::null(ts_));
-    }
-    case Type::ATOM: {
-        return true;
-        //return onColumn(Coord(), prefix, ExpressionValue(cell_, ts_));
-    }
-#endif
     }
 
     throw HttpReturnException(500, "Unknown expression type",
@@ -3032,6 +3012,7 @@ forEachColumnDestructiveT(Fn && onColumn) const
         return true;
     }
     case Type::FLATTENED: {
+        // TO RESOLVE BEFORE MERGE: either remove flattened or fix it
         throw HttpReturnException(600, "forEachColumnDestructive(flattened)");
 #if 0
         if (flattened_.unique()) {
@@ -3040,7 +3021,6 @@ forEachColumnDestructiveT(Fn && onColumn) const
 
             for (unsigned i = 0;  i < s.length();  ++i) {
                 ExpressionValue val(std::move(s.moveValue(i)), ts_);
-                // TO RESOLVE BEFORE MERGE: shouldn't be toSimpleName()
                 Coord name = s.columnName(i).toSimpleName();
                 if (!onColumn(name, val))
                     return false;

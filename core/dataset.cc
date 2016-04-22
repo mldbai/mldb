@@ -1222,18 +1222,14 @@ generateRowsWhere(const SqlBindingScope & scope,
         // Optimization for rowName() == constant.  In this case, we can generate a
         // single row.
         if (flhs && crhs && comparison->op == "=") {
-            if (removeTableName(alias, Coords(Coord(flhs->functionName)))
-                .toSimpleName()
-                == "rowName") {
+            if (flhs->functionName == "rowName") {
                 return generateRownameIsConstant(*this, *crhs);
             }
         }
         // Optimization for constant == rowName().  In this case, we can generate a
         // single row.
         if (frhs && clhs && comparison->op == "=") {
-            if (removeTableName(alias, Coords(Coord(frhs->functionName)))
-                .toSimpleName()
-                    == "rowName" ) {
+            if (frhs->functionName == "rowName") {
                 return generateRownameIsConstant(*this, *clhs);
             }
         }
@@ -1246,12 +1242,9 @@ generateRowsWhere(const SqlBindingScope & scope,
             auto crhs2 = getConstant(*alhs->rhs);
             
 
-            if (flhs2
-                && removeTableName(alias, Coords(Coord(flhs2->functionName)))
-                .toSimpleName()
-                    == "rowHash"
+            if (flhs2->functionName == "rowHash"
                 && crhs2 && crhs2->constant.isInteger()) {
-
+                
                 std::function<bool (uint64_t, uint64_t)> op;
 
                 if (comparison->op == "=" || comparison->op == "==") {
@@ -1564,25 +1557,16 @@ queryBasic(const SqlBindingScope & scope,
 
                         if (selectStar) {
 
-                            outputRow.columns.reserve(row.columns.size());
-                            for (auto & c: row.columns) {
-                                // TODO BEFORE MERGE: no toSimpleName()
-                                outputRow.columns.emplace_back
-                                    (std::get<0>(c).toSimpleName(),
-                                     ExpressionValue(std::move(std::get<1>(c)),
-                                                     std::move(std::get<2>(c))));
-                            }
+                            ExpressionValue selectOutput(std::move(row.columns));
+                            selectOutput.mergeToRowDestructive(outputRow.columns);
 
                             // We can move things out of the row scope,
                             // since they will be found in the output
                             // row anyway
                             auto orderByRowScope
-                                = orderByScope.getRowScope(rowScope,
-                                                             outputRow);
-
+                                = orderByScope.getRowScope(rowScope, outputRow);
                             
                             sortFields = boundOrderBy.apply(orderByRowScope);
-
                         }
                         else {
                             ExpressionValue selectOutput
