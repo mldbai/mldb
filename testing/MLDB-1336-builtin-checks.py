@@ -8,7 +8,7 @@ import unittest
 class myTest(unittest.TestCase):
 
     def test_sequence(self):
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, "Executing builtin function exp: Can't convert value 'a' to double") as re:
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, "Executing builtin function exp: Can't convert value 'a' of type 'ASCII_STRING' to double") as re:
             query = "SELECT exp('a')"
             mldb.query(query)
         with self.assertRaisesRegexp(mldb_wrapper.ResponseException, "Executing builtin function ln: ln function supports positive numbers only") as re:
