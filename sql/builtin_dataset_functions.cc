@@ -139,10 +139,11 @@ BoundTableExpression sample(const SqlBindingScope & context,
                                   "alias", alias);
 
     if(!options.empty() && !options.isRow()) {
-        throw HttpReturnException(400, "options should be a row; we got "
-                                  + jsonEncodeStr(options),
-                                  "options", options,
-                                  "alias", alias);
+        throw HttpReturnException(400, "options should be a row containing "
+                "the dataset's configuration, or be empty to use the defaults; "
+                "we got " + jsonEncodeStr(options),
+                "options", options,
+                "alias", alias);
     }
 
     auto ds = createSampledDatasetFn(context.getMldbServer(),
