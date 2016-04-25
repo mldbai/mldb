@@ -58,6 +58,9 @@ Queries can be made to a sample of a dataset by using the sample() function in t
 SELECT x.* FROM sample(dataset, {rows: 25, withReplacement: FALSE}) AS x
 ```
 
+The second argument, a row with the dataset's configuration, is optional. When it is not specified, it will sample
+50 rows without replacement.
+
 See ![](%%doclink sampled dataset) for more details.
 
 ## Transpose 

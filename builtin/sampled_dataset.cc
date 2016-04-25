@@ -48,10 +48,10 @@ SampledDatasetConfigDescription()
     addField("rows", &SampledDatasetConfig::rows,
             "Number of rows to sample. This option cannot be set when fraction is "
             "set. This option cannot be set higher than the number of rows of "
-            "input unless withReplacement is set to true.");
+            "input unless withReplacement is set to true.", unsigned(0));
     addField("fraction", &SampledDatasetConfig::fraction,
             "Fraction of rows in dataset to sample. It cannot be set when "
-            "rows is set.");
+            "rows is set.", float(0));
     addField("withReplacement", &SampledDatasetConfig::withReplacement,
             "Sample with or without replacement. Sampling with replacement "
             "means that the same input row can appear in the output more "
@@ -299,28 +299,33 @@ SampledDataset(MldbServer * owner,
 {
      SampledDatasetConfig config;
 
-    if(!options.isRow())
-        throw ML::Exception("options should be a row");
+    if(options.isRow()) {
+        for(auto elem : options.getRow()) {
+            const ColumnName& columnName = std::get<0>(elem);
 
-    for(auto elem : options.getRow()) {
-        const ColumnName& columnName = std::get<0>(elem);
-
-        if (columnName == ColumnName("rows")) {
-            config.rows = std::get<1>(elem).toInt();
+            if (columnName == ColumnName("rows")) {
+                config.rows = std::get<1>(elem).toInt();
+            }
+            else if (columnName == ColumnName("fraction")) {
+                config.fraction = std::get<1>(elem).toDouble();
+            }
+            else if (columnName == ColumnName("withReplacement")) {
+                config.withReplacement = std::get<1>(elem).asBool();
+            }
+            else if (columnName == ColumnName("seed")) {
+                config.seed = std::get<1>(elem).toInt();
+            }
+            else {
+                auto expVal2 = std::get<1>(elem);
+                throw ML::Exception("unknown option: '"+columnName.toString()+"'");
+            }
         }
-        else if (columnName == ColumnName("fraction")) {
-            config.fraction = std::get<1>(elem).toDouble();
-        }
-        else if (columnName == ColumnName("withReplacement")) {
-            config.withReplacement = std::get<1>(elem).asBool();
-        }
-        else if (columnName == ColumnName("seed")) {
-            config.seed = std::get<1>(elem).toInt();
-        }
-        else {
-            auto expVal2 = std::get<1>(elem);
-            throw ML::Exception("unknown option: '"+columnName.toString()+"'");
-        }
+    }
+    else if(options.empty()) {
+        config.rows = 50;
+    }
+    else {
+        throw ML::Exception("options should be a row or empty");
     }
 
     itl.reset(new Itl(server, dataset, config));

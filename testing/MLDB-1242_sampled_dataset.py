@@ -118,6 +118,11 @@ class SampledDatasetTest(unittest.TestCase):
         rez2 = mldb.get("/v1/query", q="select * from sample(toy, {rows: 1})")
         self.assertNotEqual(rez.json()[0], rez2.json()[0])
 
+    def test_default_options(self):
+        rez = mldb.get(
+            "/v1/query",
+            q="select * from sample(toy)")
+        self.assertEqual(len(rez.json()), 50)
 
 if __name__ == '__main__':
     mldb.run_tests()
