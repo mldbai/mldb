@@ -198,7 +198,9 @@ conf = {
         "trainingData": "select tokenize(text, {splitchars: ' '}) as * from posneg",
         "outcomes": [["label", "CLICK IS NOT NULL"]],
         "statsTableFileUrl": "file://build/x86_64/tmp/mldb-873-stats_table_posneg.st",
-        "runOnCreation": True
+        "runOnCreation": True,
+        "functionName": "myBowSt",
+        "functionOutcomeToUse": "label"
     }
 }
 rez = mldb.put("/v1/procedures/myroll_posneg", conf)
@@ -236,5 +238,18 @@ mldb.log(js_rez)
 assert_for_rows(js_rez, "d", "probs.red_label", 1)
 assert_for_rows(js_rez, "a", "probs.I_label", 0.5)
 assert_for_rows(js_rez, "b", "probs.I_label", 0.5)
+
+
+# lets try with the function we created at procedure run time
+rez = mldb.get(
+    "/v1/query",
+    q="select myBowSt({words: tokenize(text, {splitchars: ' .'})}) as * from posneg")
+js_rez = rez.json()
+mldb.log(js_rez)
+
+# default min instance is 50 so we should get not columns back
+for row in js_rez:
+    assert "columns" not in row
+
 
 mldb.script.set_return("success")
