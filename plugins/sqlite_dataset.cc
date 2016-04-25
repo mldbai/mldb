@@ -537,8 +537,6 @@ struct SqliteSparseDataset::Itl
 
         sqlite3pp::command command(*db, "INSERT OR IGNORE INTO vals VALUES (?, ?, ?, ?)");
 
-        cerr << "CHECKING INPUT" << endl;
-
         std::vector<ColumnName> tmp;
 
         for (auto & r: rows) {
