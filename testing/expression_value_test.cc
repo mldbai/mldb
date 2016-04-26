@@ -314,3 +314,62 @@ BOOST_AUTO_TEST_CASE( test_unflatten_nested_row_doubled )
     BOOST_CHECK_EQUAL(val.getNestedColumn(b + b).extractJson(), 4);
 }
 
+BOOST_AUTO_TEST_CASE( test_deeply_nested )
+{
+    Coord f("f"), r("r"), a("a"), b("b"), c("c"), d("d");
+    
+    Date ts;
+
+    StructValue sub1, sub2, sub3, sub4;
+    sub1.emplace_back(a, ExpressionValue(1, ts));
+    sub2.emplace_back(b, ExpressionValue(2, ts));
+    sub3.emplace_back(c, ExpressionValue(3, ts));
+    sub4.emplace_back(d, ExpressionValue(4, ts));
+    
+    StructValue nest1, nest2, nest3, nest4;
+    nest1.emplace_back(r, sub1);
+    nest2.emplace_back(r, sub2);
+    nest3.emplace_back(r, sub3);
+    nest4.emplace_back(r, sub4);
+
+    StructValue inner;
+    inner.emplace_back(r, sub1);
+    inner.emplace_back(r, sub2);
+    inner.emplace_back(r, sub3);
+    inner.emplace_back(r, sub4);
+
+    ExpressionValue innerv(inner);
+
+    BOOST_CHECK_EQUAL(innerv.extractJson(),
+                      Json::parse("{ 'r': {'a' : 1,'b' : 2,'c' : 3,'d' : 4}}"));
+
+    BOOST_CHECK_EQUAL(innerv.getColumn(r).extractJson(),
+                      Json::parse("{'a' : 1,'b' : 2,'c' : 3,'d' : 4}"));
+
+    BOOST_CHECK_EQUAL(innerv.getNestedColumn(r + a).extractJson(),
+                      Json::parse("1"));
+    BOOST_CHECK_EQUAL(innerv.getNestedColumn(r + b).extractJson(),
+                      Json::parse("2"));
+    BOOST_CHECK_EQUAL(innerv.getNestedColumn(r + c).extractJson(),
+                      Json::parse("3"));
+    BOOST_CHECK_EQUAL(innerv.getNestedColumn(r + d).extractJson(),
+                      Json::parse("4"));
+
+    auto onColumn = [&] (Coord coord,
+                         Coords prefix,
+                         ExpressionValue val)
+        {
+            cerr << "got " << coord << " = " << jsonEncode(val) << endl;
+            return true;
+        };
+
+    innerv.forEachColumn(onColumn);
+
+#if 0
+    StructValue outer;
+    outer.emplace_back(r, nest1);
+    outer.emplace_back(r, nest2);
+    outer.emplace_back(r, nest3);
+    outer.emplace_back(r, nest4);
+#endif
+}

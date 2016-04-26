@@ -3590,6 +3590,42 @@ void
 ExpressionValue::
 initStructured(Structured value) noexcept
 {
+    // Do we need sorting, etc?
+    bool needsSorting = true;  // TODO: detect this; it will make things much faster
+
+    if (needsSorting) {
+        // Deduplicate...
+
+        // Sort by row name then value
+        std::sort(value.begin(), value.end());
+
+        Structured newValue;
+        newValue.reserve(value.size());
+
+        // Remove dups
+        for (ssize_t i = 0;  i < value.size();  /* no inc */) {
+            // Find the end of the range of dups
+            ssize_t j = i + 1;
+            for (; j < value.size() && std::get<0>(value[i]) == std::get<0>(value[j]);
+                 ++j);
+
+            if (j == i + 1) {
+                newValue.emplace_back(std::move(value[i]));
+                i = j;
+            }
+            else {
+                std::vector<ExpressionValue> vals;
+                for (; i < j;  ++i) {
+                    vals.emplace_back(std::move(std::get<1>(value[i])));
+                }
+                newValue.emplace_back(std::get<0>(value[i - 1]),
+                                      superpose(std::move(vals)));
+            }
+        }
+
+        value.swap(newValue);
+    }
+
     initStructured(std::make_shared<Structured>(std::move(value)));
 }
 
@@ -3608,9 +3644,10 @@ initStructured(std::shared_ptr<const Structured> value) noexcept
         }
     }
 
-    for (auto & v: *value) {
-        ExcAssert(!std::get<0>(v).empty());
-    }
+    // In the case of a superposition, this isn't true
+    //for (auto & v: *value) {
+    //    ExcAssert(!std::get<0>(v).empty());
+    //}
 
     new (storage_) std::shared_ptr<const Structured>(std::move(value));
     type_ = Type::STRUCTURED;
@@ -3913,11 +3950,13 @@ extractJson(JsonPrintingContext & context) const
             else {
                 // Need to merge them together
                 Json::Value jval;
-                StructuredJsonPrintingContext writer(jval);
 
                 for (int index: v.second) {
                     const ExpressionValue & v = std::get<1>((*structured_)[index]);
-                    v.extractJson(writer);
+                    Json::Value val = v.extractJson();
+                    for (auto it = val.begin();  it != val.end();  ++it) {
+                        jval[it.memberName()] = *it;
+                    }
                 }
                 
                 context.writeJson(jval);
