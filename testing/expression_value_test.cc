@@ -144,6 +144,42 @@ BOOST_AUTO_TEST_CASE( test_unflatten_nested_double_val )
     BOOST_CHECK_EQUAL(jsonEncode(vals2), Json::parse(expected));
 }
 
+BOOST_AUTO_TEST_CASE( test_unflatten_nested_bad_order )
+{
+    std::vector<std::tuple<Coords, CellValue, Date> > vals;
+    Date ts;
+    Coord a("a"), b("b");
+    vals.emplace_back(a + a, 1, ts);
+    vals.emplace_back(b + a, 2, ts);
+    vals.emplace_back(a + b, 3, ts);
+    vals.emplace_back(b + b, 4, ts);
+
+    ExpressionValue val(vals);
+
+    BOOST_CHECK_EQUAL(jsonEncode(val),
+                      Json::parse("[[[\"a\",[[[\"a\",[1,\"1970-01-01T00:00:00Z\"]],"
+                                            "[\"b\",[3,\"1970-01-01T00:00:00Z\"]]],"
+                                    "\"1970-01-01T00:00:00Z\"]],"
+                                   "[\"b\",[[[\"a\",[2,\"1970-01-01T00:00:00Z\"]],"
+                                            "[\"b\",[4,\"1970-01-01T00:00:00Z\"]]],"
+                                    "\"1970-01-01T00:00:00Z\"]]],"
+                                 "\"1970-01-01T00:00:00Z\"]"));
+
+    // Test that appending it back to a row works
+    
+    std::vector<std::tuple<Coords, CellValue, Date> > vals2;
+    Coords prefix = Coord("out");
+    val.appendToRowDestructive(prefix, vals2);
+
+    std::string expected
+        = "["
+	"[ \"out.a.a\", 1, \"1970-01-01T00:00:00Z\" ],"
+	"[ \"out.a.b\", 3, \"1970-01-01T00:00:00Z\" ],"
+	"[ \"out.b.a\", 2, \"1970-01-01T00:00:00Z\" ],"
+	"[ \"out.b.b\", 4, \"1970-01-01T00:00:00Z\" ] ]";
+    BOOST_CHECK_EQUAL(jsonEncode(vals2), Json::parse(expected));
+}
+
 BOOST_AUTO_TEST_CASE(test_get_nested_column)
 {
     std::vector<std::tuple<Coords, CellValue, Date> > vals;
@@ -211,3 +247,70 @@ BOOST_AUTO_TEST_CASE(test_embedding_get_column)
     BOOST_CHECK(val2.getNestedColumn({"hello"}).empty());
 
 }
+
+BOOST_AUTO_TEST_CASE( test_unflatten_nested_row_bad_order )
+{
+    StructValue sub1, sub2;
+    Date ts;
+    Coord a("a"), b("b");
+    sub1.emplace_back(a, ExpressionValue(1, ts));
+    sub1.emplace_back(b, ExpressionValue(2, ts));
+    sub2.emplace_back(a, ExpressionValue(3, ts));
+    sub2.emplace_back(b, ExpressionValue(4, ts));
+
+    StructValue valInit;
+    valInit.emplace_back(a, sub1);
+    valInit.emplace_back(b, sub2);
+
+    ExpressionValue val(valInit);
+
+    BOOST_CHECK_EQUAL(val.getColumn(a).extractJson(),
+                      Json::parse("{'a': 1, 'b': 2}"));
+    BOOST_CHECK_EQUAL(val.getColumn(b).extractJson(),
+                      Json::parse("{'a': 3, 'b': 4}"));
+
+    BOOST_CHECK_EQUAL(val.getNestedColumn(a).extractJson(),
+                      Json::parse("{'a': 1, 'b': 2}"));
+    BOOST_CHECK_EQUAL(val.getNestedColumn(b).extractJson(),
+                      Json::parse("{'a': 3, 'b': 4}"));
+
+    BOOST_CHECK_EQUAL(val.getNestedColumn(a + a).extractJson(), 1);
+    BOOST_CHECK_EQUAL(val.getNestedColumn(a + b).extractJson(), 2);
+    BOOST_CHECK_EQUAL(val.getNestedColumn(b + a).extractJson(), 3);
+    BOOST_CHECK_EQUAL(val.getNestedColumn(b + b).extractJson(), 4);
+}
+
+BOOST_AUTO_TEST_CASE( test_unflatten_nested_row_doubled )
+{
+    StructValue sub1, sub2, sub3, sub4;
+    Date ts;
+    Coord a("a"), b("b");
+    sub1.emplace_back(a, ExpressionValue(1, ts));
+    sub2.emplace_back(b, ExpressionValue(2, ts));
+    sub3.emplace_back(a, ExpressionValue(3, ts));
+    sub4.emplace_back(b, ExpressionValue(4, ts));
+
+    StructValue valInit;
+    valInit.emplace_back(a, sub1);
+    valInit.emplace_back(b, sub3);
+    valInit.emplace_back(a, sub2);
+    valInit.emplace_back(b, sub4);
+
+    ExpressionValue val(valInit);
+
+    BOOST_CHECK_EQUAL(val.getColumn(a).extractJson(),
+                      Json::parse("{'a': 1, 'b': 2}"));
+    BOOST_CHECK_EQUAL(val.getColumn(b).extractJson(),
+                      Json::parse("{'a': 3, 'b': 4}"));
+
+    BOOST_CHECK_EQUAL(val.getNestedColumn(a).extractJson(),
+                      Json::parse("{'a': 1, 'b': 2}"));
+    BOOST_CHECK_EQUAL(val.getNestedColumn(b).extractJson(),
+                      Json::parse("{'a': 3, 'b': 4}"));
+
+    BOOST_CHECK_EQUAL(val.getNestedColumn(a + a).extractJson(), 1);
+    BOOST_CHECK_EQUAL(val.getNestedColumn(a + b).extractJson(), 2);
+    BOOST_CHECK_EQUAL(val.getNestedColumn(b + a).extractJson(), 3);
+    BOOST_CHECK_EQUAL(val.getNestedColumn(b + b).extractJson(), 4);
+}
+

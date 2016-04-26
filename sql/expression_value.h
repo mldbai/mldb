@@ -282,7 +282,7 @@ struct ExpressionValueInfo {
         with columns name separated by a '.'
     */
     virtual std::shared_ptr<ExpressionValueInfo>
-    findNestedColumn(const ColumnName& columnName);
+    findNestedColumn(const ColumnName& columnName) const;
 
     /** Return the info object for the given column.  Default will throw that
         the column is unknown; row info needs to override.
@@ -626,7 +626,19 @@ struct ExpressionValue {
               StorageType storage,
               std::vector<size_t> dims,
               std::shared_ptr<const EmbeddingMetadata> md = nullptr);
-    
+
+    /** Create a single ExpressionValue that is the superposition of several
+        values.
+
+        This will merge together anything that is non-conflicting, and
+        provide a superposition of the rest.
+
+        Note that multiple atomic values will be represented in a row with
+        empty keys.
+    */
+    static ExpressionValue
+    superpose(std::vector<ExpressionValue> vals);
+
     //Construct from a m/d/s time interval
     static ExpressionValue
     fromInterval(uint16_t months, uint16_t days, float seconds, Date ts);
@@ -703,10 +715,13 @@ struct ExpressionValue {
 
     /// Destructive getAtom() call, that moves it into the result
     CellValue stealAtom();
+
     const Structured & getStructured() const;
 
+#if 0
     // like getRow, but it actually moves it out so no copying is required
     Structured stealStructured();
+#endif
 
     CellValue coerceToString() const;
     CellValue coerceToInteger() const;
@@ -752,20 +767,20 @@ struct ExpressionValue {
     ExpressionValue getColumn(const Coord & columnName,
                               const VariableFilter & filter = GET_LATEST) const;
 
+    const ExpressionValue *
+    tryGetColumn(const Coord & columnName,
+                 ExpressionValue & storage,
+                 const VariableFilter & filter = GET_LATEST) const;
+
     // Return the given nested column.  Valid for anything that is a
     // row type... rows, JSON values, objects, arrays, embeddings.
     ExpressionValue getNestedColumn(const ColumnName & columnName,
                                     const VariableFilter & filter = GET_LATEST) const;
 
-    // Return the given nested column.  Valid for anything that is a
-    // row type... rows, JSON values, objects, arrays, embeddings.
-    // If it's not found, will return null and false in the second element.
-    // This allows explicit null versus undefined to be distinguished.
-
-    const ExpressionValue*
-    findNestedColumn(const ColumnName & fieldName,
-                     ExpressionValue & storage,
-                     const VariableFilter & filter = GET_LATEST) const;
+    const ExpressionValue *
+    tryGetNestedColumn(const ColumnName & columnName,
+                       ExpressionValue & storage,
+                       const VariableFilter & filter = GET_LATEST) const;
 
     /** Return an embedding from the value, asserting on the length.  If the
         length is -1, it is unknown and any length will be accepted. */
@@ -1292,7 +1307,10 @@ struct RowValueInfo: public ExpressionValueInfoT<RowValue> {
                                                    Date timestamp)> & write) const;
 
     virtual std::shared_ptr<ExpressionValueInfo>
-    getColumn(const Coord & columnName) const;
+    getColumn(const Coord & columnName) const override;
+
+    virtual std::shared_ptr<ExpressionValueInfo> 
+    findNestedColumn(const ColumnName& columnName) const override;
 
     virtual std::vector<KnownColumn> getKnownColumns() const;
     virtual SchemaCompleteness getSchemaCompleteness() const;
@@ -1361,7 +1379,6 @@ DECLARE_STRUCTURE_DESCRIPTION(NamedRowValue);
 /*****************************************************************************/
 
 /** These functions search the given row for the named value. */
-
 const ExpressionValue *
 searchRow(const std::vector<std::tuple<ColumnName, CellValue, Date> > & columns,
           const ColumnName & key,

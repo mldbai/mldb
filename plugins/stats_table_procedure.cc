@@ -286,12 +286,12 @@ run(const ProcedureRunConfig & run,
                     }
                     else {
                         // if we didn't compute the column names yet, do that now
-                        Utf8String keySuffix = get<0>(col).toUtf8String();
+                        const Coords & key = std::get<0>(col);
 
                         vector<ColumnName> names;
-                        names.emplace_back(Coord("trial_"+keySuffix));
+                        names.emplace_back(Coord("trial") + key);
                         for(int lbl_idx=0; lbl_idx<encodedLabels.size(); lbl_idx++) {
-                            names.emplace_back(Coord(outcome_names[lbl_idx]) + Coord(keySuffix));
+                            names.emplace_back(Coord(outcome_names[lbl_idx]) + key);
                         }
 
                         auto inserted = colCache.emplace(get<0>(col), names);
@@ -432,15 +432,15 @@ apply(const FunctionApplier & applier,
 
                 auto counts = st->second.getCounts(val);
 
-                auto strCol = columnName.toUtf8String(); 
-                rtnRow.push_back(make_tuple(Coord("trial_"+strCol), counts.first, ts));
+                rtnRow.emplace_back(Coord("trial") + columnName, counts.first, ts);
 
                 for(int lbl_idx=0; lbl_idx<st->second.outcome_names.size(); lbl_idx++) {
-                    rtnRow.push_back(make_tuple(Coord(st->second.outcome_names[lbl_idx]+"_"+strCol),
-                                                counts.second[lbl_idx],
-                                                ts));
+                    rtnRow.emplace_back(Coord(st->second.outcome_names[lbl_idx])
+                                        +columnName,
+                                        counts.second[lbl_idx],
+                                        ts);
                 }
-
+                
                 return true;
             };
 
@@ -541,7 +541,8 @@ run(const ProcedureRunConfig & run,
     auto do_replace = [&] (const std::string & outcome)
         {
             for(int i=0; i<tempExpressions.size(); i++) {
-                if(!ML::replace_all(tempExpressions[i], outcome, outcome+"_"+stNames[i]))
+                if(!ML::replace_all(tempExpressions[i], outcome,
+                                    outcome+"."+stNames[i]))
                     return;
             }
         };
@@ -719,8 +720,8 @@ run(const ProcedureRunConfig & run,
         vector<ColumnName> outcome_col_names;
         outcome_col_names.reserve(statsTable.outcome_names.size());
         for (int i=0; i < statsTable.outcome_names.size(); ++i)
-            outcome_col_names.emplace_back(
-                    "outcome." + statsTable.outcome_names[i]);
+            outcome_col_names
+                .emplace_back(Coord("outcome") + statsTable.outcome_names[i]);
 
         typedef std::vector<std::tuple<ColumnName, CellValue, Date>> Columns;
 
@@ -735,8 +736,7 @@ run(const ProcedureRunConfig & run,
                         it != statsTable.counts.end(i); ++it) {
                     Columns columns;
                     // number of trials
-                    columns.emplace_back(
-                                         Coord("trials"), it->second.first, date0);
+                    columns.emplace_back(Coord("trials"), it->second.first, date0);
                     // coocurence with outcome for each outcome
                     for (int i=0; i < statsTable.outcome_names.size(); ++i) {
                         columns.emplace_back(
@@ -898,7 +898,8 @@ apply(const FunctionApplier & applier,
                     return true;
                 }
 
-                rtnRow.emplace_back(Coord(columnName.toUtf8String() + "_" + functionConfig.outcomeToUse),
+                rtnRow.emplace_back(columnName
+                                    + Coord(functionConfig.outcomeToUse),
                                     it->second,
                                     ts);
 
