@@ -1301,14 +1301,24 @@ PREDECLARE_VALUE_DESCRIPTION(TupleExpression);
 */
 struct GenerateRowsWhereFunction {
 
+    enum Complexity {        
+       
+        CONSTANT = 0,
+        BETTER_THAN_TABLESCAN,        
+        UNFILTERED_TABLESCAN,
+        TABLESCAN
+
+    };
+
     typedef std::function<std::pair<std::vector<RowName>, Any>
                           (ssize_t numToGenerate, Any token,
                            const BoundParameters & params)> Exec;
 
     GenerateRowsWhereFunction(Exec exec = nullptr, const std::string & explain = "",
-                     OrderByExpression orderedBy = ORDER_BY_NOTHING)
+                              Complexity complexity = TABLESCAN, OrderByExpression orderedBy = ORDER_BY_NOTHING)
         : exec(std::move(exec)),
           explain(explain),
+          complexity(complexity),
           orderedBy(std::move(orderedBy))
     {
     }
@@ -1329,6 +1339,9 @@ struct GenerateRowsWhereFunction {
 
     /// Explain the type of algorithm used
     std::string explain;
+
+    //How does the algorithm scale
+    Complexity complexity;
 
     /// How the results are ordered.  Null means not ordered
     OrderByExpression orderedBy;
