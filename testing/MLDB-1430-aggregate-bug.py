@@ -57,6 +57,24 @@ class HavingTest(unittest.TestCase):
 
         self.assertEqual(re.exception.response.json()["error"], expected)
 
+        with self.assertRaises(mldb_wrapper.ResponseException) as re:
+            res = mldb.get("/v1/query", q='SELECT a')
+
+        mldb.log(re.exception.response.json()["error"])
+
+        expected = 'Cannot read column "a" with no dataset.'
+
+        self.assertEqual(re.exception.response.json()["error"], expected)
+
+        with self.assertRaises(mldb_wrapper.ResponseException) as re:
+            res = mldb.get("/v1/query", q='SELECT 1 named a')
+
+        expected = 'Cannot read column "a" with no dataset.'
+
+        mldb.log(re.exception.response.json()["error"])
+
+        self.assertEqual(re.exception.response.json()["error"], expected)
+
     #MLDB-1484
     def test_error_function(self):
 
