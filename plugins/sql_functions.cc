@@ -503,7 +503,7 @@ regSqlExpressionFunction(builtinPackage(),
 
 TransformDatasetConfig::
 TransformDatasetConfig()
-    : skipEmptyRows(false)
+    : skipEmptyRows(false), deterministicOrdering(false)
 {
     outputDataset.withType("sparse.mutable");
 }
@@ -524,6 +524,9 @@ TransformDatasetConfigDescription()
              "which will be created by the procedure.", PolyConfigT<Dataset>().withType("sparse.mutable"));
     addField("skipEmptyRows", &TransformDatasetConfig::skipEmptyRows,
              "Skip rows from the input dataset where no values are selected",
+             false);
+    addField("deterministicOrdering", &TransformDatasetConfig::deterministicOrdering,
+             "Enforce a deterministic ordering of the rows in the transformed dataset",
              false);
     addParent<ProcedureConfig>();
 }
@@ -611,7 +614,7 @@ run(const ProcedureRunConfig & run,
                          *runProcConf.inputData.stm->where,
                          runProcConf.inputData.stm->orderBy,
                          { runProcConf.inputData.stm->rowName })
-            .execute({recordRowInOutputDataset, true /*processInParallel*/},
+            .execute({recordRowInOutputDataset, !runProcConf.deterministicOrdering /*processInParallel*/},
                      runProcConf.inputData.stm->offset,
                      runProcConf.inputData.stm->limit,
                      onProgress);
@@ -644,7 +647,7 @@ run(const ProcedureRunConfig & run,
                           *runProcConf.inputData.stm->having,
                           *runProcConf.inputData.stm->rowName,
                           runProcConf.inputData.stm->orderBy)
-            .execute({recordRowInOutputDataset, false /*processInParallel*/},
+            .execute({recordRowInOutputDataset, !runProcConf.deterministicOrdering /*processInParallel*/},
                      runProcConf.inputData.stm->offset,
                      runProcConf.inputData.stm->limit,
                      onProgress);

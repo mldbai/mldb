@@ -138,6 +138,9 @@ struct TransformDatasetConfig : ProcedureConfig {
 
     /// Skip rows with no columns
     bool skipEmptyRows;
+
+    /// Enforce deterministic ordering
+    bool deterministicOrdering;
 };
 
 
