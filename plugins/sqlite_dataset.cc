@@ -413,11 +413,7 @@ struct SqliteSparseDataset::Itl
     /** Return a list of all columns. */
     virtual std::vector<ColumnName> getColumnNames() const
     {
-      // return runQuery<ColumnName>("SELECT colName FROM (SELECT DISTINCT colHash,colName FROM cols) ORDER BY colHash");
-
-        // TO RESOLVE BEFORE MERGE
-        // somehow we end up with duplicated column hash for a single column name
-        return runQuery<ColumnName>("SELECT colName FROM (SELECT DISTINCT colName FROM cols)");
+        return runQuery<ColumnName>("SELECT colName FROM (SELECT DISTINCT colHash,colName FROM cols) ORDER BY colHash");
     }
 
     virtual size_t getRowCount() const
