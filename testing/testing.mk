@@ -55,7 +55,7 @@ $(eval $(call test,mldb_determinism_test,mldb,boost))
 $(eval $(call test,credentials_daemon_test,credentials_daemon cloud,boost))
 $(eval $(call test,MLDB-1025-output-dataset-serialization-test,mldb,boost))
 $(eval $(call test,MLDB-1559-transform-method,mldb,boost))
-$(eval $(call test,mldb-1225-rowname-generator-explain,mldb,boost))
+$(eval $(call test,mldb-1525-rowname-generator-explain,mldb,boost))
 
 $(TESTS)/credentials_daemon_test: $(BIN)/credentialsd
 

@@ -52,6 +52,20 @@ BOOST_AUTO_TEST_CASE(test_explain)
         }
 
         {
+            auto where = SqlExpression::parse("FALSE");
+            auto generator = dataset.generateRowsWhere(scope, "", *where, 0, -1);
+            BOOST_CHECK_EQUAL(generator.explain, "Return nothing as constant where expression doesn't evaluate true");
+            BOOST_CHECK_EQUAL(generator.complexity, GenerateRowsWhereFunction::CONSTANT);
+        }
+
+        {
+            auto where = SqlExpression::parse("x IS TRUE");
+            auto generator = dataset.generateRowsWhere(scope, "", *where, 0, -1);
+            BOOST_CHECK_EQUAL(generator.explain, "generate rows where var 'x' is true");
+            BOOST_CHECK_EQUAL(generator.complexity, GenerateRowsWhereFunction::BETTER_THAN_TABLESCAN);
+        }
+
+        {
             auto where = SqlExpression::parse("x IS TRUE AND y IS NOT NULL");
             auto generator = dataset.generateRowsWhere(scope, "", *where, 0, -1);
             BOOST_CHECK_EQUAL(generator.explain, "set intersection for AND boolean(\"AND\",istype(variable(\"x\"),\"true\",1),istype(variable(\"y\"),\"null\",0))");
