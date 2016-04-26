@@ -3423,9 +3423,13 @@ bind(SqlBindingScope & scope) const
     // then it returns the empty column name
     auto newColumnName = [=] (const ColumnName & inputColumnName) -> ColumnName
         {
+            //cerr << "input column name " << inputColumnName << endl;
+
             // First, check it matches the prefix
-            if (!inputColumnName.matchWildcard(simplifiedPrefix))
+            if (!inputColumnName.matchWildcard(simplifiedPrefix)) {
+                //cerr << "rejected by prefix" << endl;
                 return ColumnName();
+            }
 
             // Second, check it doesn't match an exclusion
             for (auto & ex: excluding) {
@@ -3441,14 +3445,20 @@ bind(SqlBindingScope & scope) const
                 }
             }
 
-            //cerr << "replacing wildcard " << resolvedTableName
-            //     << " with " << asPrefix << " on " << inputColumnName << endl;
-
             // Finally, replace the prefix with the new prefix
-            if (!simplifiedPrefix.empty() || (prefix != asPrefix))
-                return inputColumnName.replaceWildcard(prefix, asPrefix);
-            else
-                return inputColumnName;
+            if (!simplifiedPrefix.empty() || (prefix != asPrefix)) {
+
+                if (prefix != asPrefix) {
+                    //cerr << "replacing wildcard " << prefix
+                    // << " with " << asPrefix << " on " << inputColumnName << endl;
+                    //cerr << "result: " << inputColumnName.replaceWildcard(prefix, asPrefix) << endl;
+
+                    return inputColumnName.replaceWildcard(prefix, asPrefix);
+                }
+            }
+
+            //cerr << "kept" << endl;
+            return inputColumnName;
         };
 
     auto allColumns = scope.doGetAllColumns(resolvedTableName, newColumnName);

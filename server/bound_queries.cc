@@ -1113,6 +1113,7 @@ struct GroupContext: public SqlExpressionDatasetScope {
         auto getGroupRowName = [] (const SqlRowScope & context){
             auto & row = context.as<RowScope>();
 
+            //Todo: now we end up with extra quotes, not super pretty
             static VectorDescription<ExpressionValue>
                 desc(getExpressionValueDescriptionNoTimestamp());
 

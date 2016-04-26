@@ -1242,8 +1242,9 @@ generateRowsWhere(const SqlBindingScope & scope,
             auto crhs2 = getConstant(*alhs->rhs);
             
 
-            if (flhs2->functionName == "rowHash"
-                && crhs2 && crhs2->constant.isInteger()) {
+            if (flhs2 && crhs2
+                && flhs2->functionName == "rowHash"
+                && crhs2->constant.isInteger()) {
                 
                 std::function<bool (uint64_t, uint64_t)> op;
 
@@ -1556,7 +1557,6 @@ queryBasic(const SqlBindingScope & scope,
                         std::vector<ExpressionValue> sortFields;
 
                         if (selectStar) {
-
                             ExpressionValue selectOutput(std::move(row.columns));
                             selectOutput.mergeToRowDestructive(outputRow.columns);
 
