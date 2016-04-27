@@ -38,6 +38,10 @@ PoolingFunctionConfigDescription()
              defaultAgg);
     addField("embeddingDataset", &PoolingFunctionConfig::embeddingDataset,
              "Dataset containing the word embedding");
+    addField("useExcept", &PoolingFunctionConfig::useExcept,
+             "Enable use of the 'except' parameter that allows the specification "
+             "of a row name to be excluded from the pooling. This can be used to "
+             "prevent bias.", false);
 }
 
 /*****************************************************************************/
@@ -73,7 +77,12 @@ PoolingFunction(MldbServer * owner,
     }
     fnConfig.query.stm->select = SelectExpression::parseList(select_expr);
     fnConfig.query.stm->from = functionConfig.embeddingDataset;
-    fnConfig.query.stm->where = SqlExpression::parse("rowName() != $except AND rowName() IN (KEYS OF $words)");
+
+    string whereStatement = "rowName() IN (KEYS OF $words)";
+    if(functionConfig.useExcept)
+        whereStatement = "rowName() != $except AND " + whereStatement;
+    fnConfig.query.stm->where = SqlExpression::parse(whereStatement);
+
     // Force group by, since that query executor doesn't know how to determine
     // aggregators
     fnConfig.query.stm->groupBy.clauses.emplace_back(SqlExpression::parse("1"));
@@ -86,7 +95,7 @@ PoolingFunction(MldbServer * owner,
 
     SqlExpressionMldbContext context(owner);
     boundEmbeddingDataset = functionConfig.embeddingDataset->bind(context);
-    
+
     num_embed_cols
         = boundEmbeddingDataset.dataset->getRowInfo()->columns.size()
         * functionConfig.aggregators.size();
@@ -181,7 +190,8 @@ getFunctionInfo() const
 {
     FunctionInfo result;
     result.input.addRowValue("words");
-    result.input.addAtomValue("except");
+    if(functionConfig.useExcept)
+        result.input.addAtomValue("except");
 
     result.output.addEmbeddingValue("embedding", num_embed_cols);
 

@@ -10,7 +10,7 @@ mldb = mldb_wrapper.wrap(mldb) # noqa
 
 
 
-class Mldb1550Test(MldbUnitTest):  
+class Mldb1550Test(MldbUnitTest):
 
     def assert_val(self, res, rowName, colName, value):
         for row in res:
@@ -19,7 +19,7 @@ class Mldb1550Test(MldbUnitTest):
 
             for col in row["columns"]:
                 if col[0] == colName:
-                    self.assertAlmostEqual(col[1], value) 
+                    self.assertAlmostEqual(col[1], value)
                     return True
 
             # did not find col
@@ -73,11 +73,21 @@ class Mldb1550Test(MldbUnitTest):
         res = mldb.put("/v1/functions/poolz", conf)
         mldb.log(res.json())
 
-    def test_normal(self):
+        conf = {
+            "type": "pooling",
+            "params": {
+                "embeddingDataset": "wordEmbedding",
+                "aggregators": ["avg", "max"],
+                "useExcept": True
+            }
+        }
+        res = mldb.put("/v1/functions/poolz_except", conf)
+        mldb.log(res.json())
 
+    def test_normal(self):
         res = mldb.get(
             "/v1/query",
-            q="select poolz({except:'', words: {*}})[embedding] as word2vec from bag_o_words")
+            q="select poolz({words: {*}})[embedding] as word2vec from bag_o_words")
         js_res = res.json()
         mldb.log(js_res)
 
@@ -88,16 +98,25 @@ class Mldb1550Test(MldbUnitTest):
         # no match
         self.assert_val(js_res, "doc4", "word2vec.0", 0)
 
-    
-    def test_normal(self):
+
+    def test_except(self):
         res = mldb.get(
             "/v1/query",
-            q="select poolz({except:'beau', words: {*}})[embedding] as word2vec from bag_o_words")
+            q="select poolz_except({except:'beau', words: {*}})[embedding] as word2vec from bag_o_words")
         js_res = res.json()
         mldb.log(js_res)
 
         # avg of y dim for allo, mon and NOT beau
         self.assert_val(js_res, "doc2", "word2vec.1", 0.475)
+
+    @unittest.expectedFailure
+    def test_except_when_not_conf_for_except(self):
+        # this should fail because we're calling the function that is NOT configured
+        # for an except parameter with an except parameter
+        res = mldb.get(
+            "/v1/query",
+            q="select poolz({except:'beau', words: {*}})[embedding] as word2vec from bag_o_words")
+
 
 
 mldb.run_tests()

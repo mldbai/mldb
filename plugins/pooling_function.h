@@ -23,10 +23,11 @@ namespace MLDB {
 
 struct PoolingFunctionConfig {
     PoolingFunctionConfig()
-        : aggregators({"avg"})
+        : useExcept(false), aggregators({"avg"})
     {
     }
 
+    bool useExcept;
     std::vector<Utf8String> aggregators;
     std::shared_ptr<TableExpression> embeddingDataset;
 };
