@@ -294,6 +294,13 @@ Coord::
 initString(Utf8String str)
 {
     ExcAssertEqual(strlen(str.rawData()), str.rawLength());
+    initStringUnchecked(str);
+}
+
+void
+Coord::
+initStringUnchecked(Utf8String str)
+{
     words[0] = words[1] = words[2] = words[3] = 0;
     if (str.rawLength() <= 31) {
         complex_ = 0;
