@@ -1,5 +1,5 @@
 #
-# GLDB-800-nested_sql_query.py
+# MLDB-800-nested_sql_query.py
 # datacratic, 2015
 # this file is part of mldb. copyright 2015 datacratic. all rights reserved.
 #
@@ -231,5 +231,28 @@ expected = [
 ]
 
 assert expected == res
+
+
+res = mldb.put('/v1/functions/fwin', {
+    'type': 'sql.query',
+    'params': {
+        'query': 'select $varrr as hoho from ds1 limit 1'
+    }
+})
+
+
+res = mldb.put('/v1/functions/pwel', {
+    'type': 'sql.query',
+    'params': {
+        'query': 'select fwin({varrr: $y}) from ds1 where rowName() = $x'
+    }
+})
+
+
+mldb.log("ds1 query")
+# This test case fails on binding, so simply not throwing means it's fixed
+res = mldb.get('/v1/query', q="select pwel({x:'row_2', y:'prout'}) from ds1")
+mldb.log(res.json())
+
 
 mldb.script.set_return('success')

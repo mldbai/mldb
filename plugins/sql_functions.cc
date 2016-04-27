@@ -122,7 +122,11 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
                 auto info = std::make_shared<AnyValueInfo>();
 
                 // Record that we need it into our input info
-                this->info.input.addValue(paramName, info);
+                // When binding, we may do so more than once, or use
+                // the same parameter twice, so we allow it to be
+                // inserted twice.
+                if (!this->info.input.values.count(paramName))
+                    this->info.input.addValue(paramName, info);
                 return info;
             };
 
