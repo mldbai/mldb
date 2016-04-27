@@ -122,7 +122,18 @@ class SampledDatasetTest(unittest.TestCase):
         rez = mldb.get(
             "/v1/query",
             q="select * from sample(toy)")
-        self.assertEqual(len(rez.json()), 50)
+        self.assertEqual(len(rez.json()), 1)
+
+    def test_functions_with_invalid_params(self):
+        with self.assertRaises(mldb_wrapper.ResponseException) as re:
+            mldb.get("/v1/query", q="select * from sample(toy, {rows: 1, fraction: 0.2})")
+        with self.assertRaises(mldb_wrapper.ResponseException) as re:
+            mldb.get("/v1/query", q="select * from sample(toy, {fraction: 0})")
+        with self.assertRaises(mldb_wrapper.ResponseException) as re:
+            mldb.get("/v1/query", q="select * from sample(toy, {fraction: -0.2})")
+        with self.assertRaises(mldb_wrapper.ResponseException) as re:
+            mldb.get("/v1/query", q="select * from sample(toy, {fraction: 2})")
+
 
 if __name__ == '__main__':
     mldb.run_tests()
