@@ -337,8 +337,8 @@ toString() const
         return string(longString->repr, longString->repr + strLength);
     case ST_UTF8_SHORT_STRING:
     case ST_UTF8_LONG_STRING:
-        throw HttpReturnException(400, "cannot call toString on CellValue of type '"+to_string(cellType())+
-                "' with value '"+trimmedExceptionString()+"'");
+        throw HttpReturnException(400, "Can't convert value '" + trimmedExceptionString() + "' of type '"
+                            + to_string(cellType()) + "' to ASCII string");
     case ST_TIMESTAMP:
         return Date::fromSecondsSinceEpoch(timestamp)
             .printIso8601(-1 /* as many digits as necessary */);
