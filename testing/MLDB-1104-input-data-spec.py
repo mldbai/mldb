@@ -142,6 +142,7 @@ class InputDataSpecTest(unittest.TestCase):
             select='classifier_apply({{label, labels} as features}) as *, '
                    'features')
         rows = result.json()
+        mldb.log("-------------------------------");
         mldb.log(rows)
 
         # compare the classifier results on the train data with the original
@@ -150,18 +151,18 @@ class InputDataSpecTest(unittest.TestCase):
         for row in rows:
             _max = 0
             category = ""
-            for column in row['columns'][0:3]:
+            for column in row['columns'][1:4]:
                 if column[1] > _max:
                     _max = column[1]
                     # remove the leading scores. and quotation marks
                     category = column[0][10:-3]
-            if category != row['columns'][3][1]:
+            if category != row['columns'][0][1]:
                 count += 1
 
         # misclassified result should be a small fraction
         self.assertTrue(
             float(count) / len(rows) < 0.2,
-            'the classifier results on the train data are starngely low')
+            'the classifier results on the train data are strangely low')
 
 if __name__ == '__main__':
     mldb.run_tests()

@@ -27,20 +27,6 @@ BOOST_AUTO_TEST_CASE( test_size )
     BOOST_CHECK_EQUAL(sizeof(ExpressionValue), 32);
 }
 
-BOOST_AUTO_TEST_CASE( test_get_embedding_atom )
-{
-    CellValue atom("hello");
-    Date ts;
-
-    ExpressionValue val(atom, ts);
-
-    {
-        /// Test that extracting from an atom throws as it's not an embedding
-        JML_TRACE_EXCEPTIONS(false);
-        BOOST_CHECK_THROW(val.getEmbedding(nullptr, 0), HttpReturnException);
-    }
-}
-
 BOOST_AUTO_TEST_CASE( test_get_embedding_row )
 {
     Date ts;
@@ -117,30 +103,41 @@ BOOST_AUTO_TEST_CASE( test_unflatten_nested_double_val )
 
     ExpressionValue val(vals);
 
-    BOOST_CHECK_EQUAL(jsonEncodeStr(val),
-                      "[[[\"a\",[1,\"1970-01-01T00:00:00Z\"]],"
-                        "[\"b\",[2,\"1970-01-01T00:00:00Z\"]],"
-                        "[\"c\",[6,\"1970-01-01T00:00:00Z\"]],"
-                        "[\"c\",[[[\"a\",[3,\"1970-01-01T00:00:00Z\"]],"
-                                 "[\"b\",[4,\"1970-01-01T00:00:00Z\"]]],"
-                                 "\"1970-01-01T00:00:00Z\"]],"
-                        "[\"d\",[5,\"1970-01-01T00:00:00Z\"]]],"
-                      "\"1970-01-01T00:00:00Z\"]");
+    std::string expected =
+        "[["
+        "[\"a\",[ 1, \"1970-01-01T00:00:00Z\" ]	],"
+        "[\"b\",[ 2, \"1970-01-01T00:00:00Z\" ]	],"
+        "[\"c\",[[[\"a\",[ 3, \"1970-01-01T00:00:00Z\" ]],"
+        "         [\"b\",[ 4, \"1970-01-01T00:00:00Z\" ]],"
+        "         [\"\", [ 6, \"1970-01-01T00:00:00Z\" ]]],"
+        "         \"1970-01-01T00:00:00Z\"]],"
+        "[\"d\",[ 5, \"1970-01-01T00:00:00Z\" ]]],"
+	"\"1970-01-01T00:00:00Z\"]";
+
+
+    BOOST_CHECK_EQUAL(jsonEncode(val),
+                      Json::parse(expected));
 
     // Test that appending it back to a row works
     
     std::vector<std::tuple<Coords, CellValue, Date> > vals2;
     Coords prefix = Coord("out");
-    val.appendToRowDestructive(prefix, vals2);
+    val.appendToRow(prefix, vals2);
 
-    std::string expected
+    expected
         = "["
 	"[ \"out.a\", 1, \"1970-01-01T00:00:00Z\" ],"
 	"[ \"out.b\", 2, \"1970-01-01T00:00:00Z\" ],"
-	"[ \"out.c\", 6, \"1970-01-01T00:00:00Z\" ],"
 	"[ \"out.c.a\", 3, \"1970-01-01T00:00:00Z\" ],"
 	"[ \"out.c.b\", 4, \"1970-01-01T00:00:00Z\" ],"
+	"[ \"out.c\", 6, \"1970-01-01T00:00:00Z\" ],"
 	"[ \"out.d\", 5, \"1970-01-01T00:00:00Z\" ] ]";
+
+    BOOST_CHECK_EQUAL(jsonEncode(vals2), Json::parse(expected));
+
+    vals2.clear();
+    val.appendToRowDestructive(prefix, vals2);
+
     BOOST_CHECK_EQUAL(jsonEncode(vals2), Json::parse(expected));
 }
 
@@ -356,7 +353,6 @@ BOOST_AUTO_TEST_CASE( test_deeply_nested )
                       Json::parse("4"));
 
     auto onColumn = [&] (Coord coord,
-                         Coords prefix,
                          ExpressionValue val)
         {
             cerr << "got " << coord << " = " << jsonEncode(val) << endl;
@@ -373,3 +369,129 @@ BOOST_AUTO_TEST_CASE( test_deeply_nested )
     outer.emplace_back(r, nest4);
 #endif
 }
+
+BOOST_AUTO_TEST_CASE( test_get_filtered_superposition )
+{
+    Date ts1, ts2 = ts1.plusSeconds(1), ts3 = ts2.plusSeconds(1);
+
+    auto makeVal = [&] () -> ExpressionValue
+        {
+            StructValue result;
+            result.emplace_back(Coord(), ExpressionValue(1, ts1));
+            result.emplace_back(Coord(), ExpressionValue(2, ts2));
+            result.emplace_back(Coord(), ExpressionValue(3, ts3));
+            return result;
+        };
+
+    auto makeAndFilter = [&] (VariableFilter filter) -> ExpressionValue
+        {
+            ExpressionValue val = makeVal();
+            ExpressionValue storage;
+            ExpressionValue result = val.getFiltered(filter, storage);
+            cerr << "returning " << jsonEncode(result) << endl;
+            return result;
+        };
+
+    BOOST_CHECK_EQUAL(makeAndFilter(GET_LATEST).getAtom(),
+                      3);
+    BOOST_CHECK_EQUAL(makeAndFilter(GET_EARLIEST).getAtom(),
+                      1);
+    BOOST_CHECK_EQUAL(makeAndFilter(GET_ANY_ONE).getAtom(),
+                      1);
+    string expected =
+        "[[['',[ 1, '1970-01-01T00:00:00Z' ]],"
+        "  ['',[ 2, '1970-01-01T00:00:01Z' ]],"
+	"  ['',[ 3, '1970-01-01T00:00:02Z' ]]],"
+        "'1970-01-01T00:00:02Z']";
+
+    BOOST_CHECK_EQUAL(jsonEncode(makeAndFilter(GET_ALL)),
+                      Json::parse(expected));
+
+    auto makeAndFilterDestructive = [&] (VariableFilter filter) -> ExpressionValue
+        {
+            ExpressionValue val = makeVal();
+            return val.getFilteredDestructive(filter);
+        };
+
+    BOOST_CHECK_EQUAL(makeAndFilterDestructive(GET_LATEST).getAtom(),
+                      3);
+    BOOST_CHECK_EQUAL(makeAndFilterDestructive(GET_EARLIEST).getAtom(),
+                      1);
+    BOOST_CHECK_EQUAL(makeAndFilterDestructive(GET_ANY_ONE).getAtom(),
+                      1);
+    BOOST_CHECK_EQUAL(jsonEncode(makeAndFilterDestructive(GET_ALL)),
+                      Json::parse(expected));
+}
+
+BOOST_AUTO_TEST_CASE( test_get_filtered_nested )
+{
+    Date ts1, ts2 = ts1.plusSeconds(1), ts3 = ts2.plusSeconds(1);
+
+    auto makeVal = [&] () -> ExpressionValue
+        {
+            StructValue result;
+            result.emplace_back(Coord(), ExpressionValue(1, ts1));
+            result.emplace_back(Coord(), ExpressionValue(2, ts2));
+            result.emplace_back(Coord(), ExpressionValue(3, ts3));
+
+            StructValue outer;
+            outer.emplace_back(Coord("a"), std::move(result));
+            return outer;
+        };
+
+    auto makeAndFilter = [&] (VariableFilter filter) -> ExpressionValue
+        {
+            ExpressionValue val = makeVal();
+            ExpressionValue storage;
+            ExpressionValue result = val.getFiltered(filter, storage);
+            cerr << "returning " << jsonEncode(result) << endl;
+            return result;
+        };
+
+    BOOST_CHECK_EQUAL(makeAndFilter(GET_LATEST).extractJson().toStringNoNewLine(),
+                      "{\"a\":3}");
+    BOOST_CHECK_EQUAL(makeAndFilter(GET_EARLIEST).extractJson().toStringNoNewLine(),
+                      "{\"a\":1}");
+    BOOST_CHECK_EQUAL(makeAndFilter(GET_ANY_ONE).extractJson().toStringNoNewLine(),
+                      "{\"a\":1}");
+
+    string expected =
+        "[[['a', [[['',[ 1, '1970-01-01T00:00:00Z' ]],"
+        "          ['',[ 2, '1970-01-01T00:00:01Z' ]],"
+	"          ['',[ 3, '1970-01-01T00:00:02Z' ]]],"
+        "        '1970-01-01T00:00:02Z']]],"
+        " '1970-01-01T00:00:02Z']";
+
+    BOOST_CHECK_EQUAL(jsonEncode(makeAndFilter(GET_ALL)),
+                      Json::parse(expected));
+
+    auto makeAndFilterDestructive = [&] (VariableFilter filter) -> ExpressionValue
+        {
+            ExpressionValue val = makeVal();
+            return val.getFilteredDestructive(filter);
+        };
+
+    BOOST_CHECK_EQUAL(makeAndFilterDestructive(GET_LATEST).extractJson().toStringNoNewLine(),
+                      "{\"a\":3}");
+    BOOST_CHECK_EQUAL(makeAndFilterDestructive(GET_EARLIEST).extractJson().toStringNoNewLine(),
+                      "{\"a\":1}");
+    BOOST_CHECK_EQUAL(makeAndFilterDestructive(GET_ANY_ONE).extractJson().toStringNoNewLine(),
+                      "{\"a\":1}");
+    BOOST_CHECK_EQUAL(jsonEncode(makeAndFilterDestructive(GET_ALL)),
+                      Json::parse(expected));
+}
+
+BOOST_AUTO_TEST_CASE( test_get_embedding_atom )
+{
+    CellValue atom("hello");
+    Date ts;
+
+    ExpressionValue val(atom, ts);
+
+    {
+        /// Test that extracting from an atom throws as it's not an embedding
+        JML_TRACE_EXCEPTIONS(false);
+        BOOST_CHECK_THROW(val.getEmbedding(nullptr, 0), HttpReturnException);
+    }
+}
+

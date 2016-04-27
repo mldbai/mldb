@@ -130,18 +130,16 @@ struct AggregatorT {
             const ExpressionValue & val = args[0];
 
             // This must be a row...
-            auto onSubExpression = [&] (const Coord & columnName,
-                                        const ExpressionValue & val)
+            auto onColumn = [&] (const Coord & columnName,
+                                 const ExpressionValue & val)
                 {
                     columns[columnName].process(&val, 1);
                     return true;
                 };
 
             // will keep only the LATEST of each column (if there are duplicates)
-            auto filteredRow = val.getFiltered(GET_LATEST);
-
-            for (auto & c: filteredRow)
-                onSubExpression(std::get<0>(c), std::get<1>(c));
+            ExpressionValue storage;
+            val.getFiltered(GET_LATEST, storage).forEachColumn(onColumn);
         }
 
         ExpressionValue extract()

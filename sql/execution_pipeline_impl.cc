@@ -116,7 +116,6 @@ doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
             RowValue result;
 
             auto onColumn = [&] (const Coord & columnName,
-                                 const Coords & prefix,  // always null
                                  const ExpressionValue & value)
             {
                 auto it = index.find(Coords(columnName));

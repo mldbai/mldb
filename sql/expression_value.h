@@ -802,6 +802,8 @@ struct ExpressionValue {
 
     /** Reshape the embedding into a new shape.  The total number of
         elements must be equal to the new total number of elements.
+
+        This will throw an exception if the shape doesn't match.
     */
     ExpressionValue reshape(std::vector<size_t> newShape) const;
 
@@ -819,15 +821,26 @@ struct ExpressionValue {
     /** Iterate over the child expression, with an ExpressionValue at each
         level.  Note that if isRow() is false, than this function will
         NOT call the callback; it's only called for row-valued values.
+
+        This function:
+        - Must be called once only for each columnName
+        - May have an empty columnName, when we have a superposition
+          (multiple atom values at the current level)
+        - Will be called in a single thread only
+        - Will not be called again if it returns false
+        
+        The returned value is the output of the last time the callback was
+        called, or true if never called.  In other words, if a callback
+        returns false the return value is false, otherwise true.
     */
     bool forEachColumn(const std::function<bool (const Coord & columnName,
-                                                 const Coords & prefix,
                                                  const ExpressionValue & val)>
-                       & onColumn,
-                       const Coords & prefix = Coords()) const;
+                       & onColumn) const;
     
     /** Iterate over child columns, returning a reference that may be moved
-        elsewhere.
+        elsewhere.  This is similar to forEachColumn(), but will allow the
+        values returned to be moved out of place, and will leave *this in
+        an indeterminate state afterwards.
 
         Only works for row-typed values.
     */
@@ -879,13 +892,15 @@ struct ExpressionValue {
     void mergeToRowDestructive(StructValue & row);
 
     /** Apply filter to select values in the row according to their timestamp */
-    Structured getFiltered(const VariableFilter & filter) const;
+    const ExpressionValue &
+    getFiltered(const VariableFilter & filter,
+                ExpressionValue & storage) const;
 
     /** Apply filter to select values in the row according to their timestamp.
         This will leave the current object in an indeterminate state
         afterwards.
     */
-    Structured getFilteredDestructive(const VariableFilter & filter);
+    ExpressionValue getFilteredDestructive(const VariableFilter & filter);
 
     typedef std::function<bool (const ColumnName & columnName,
                                 std::pair<CellValue, Date> * vals1,

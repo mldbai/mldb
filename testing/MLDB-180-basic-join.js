@@ -185,8 +185,8 @@ mldb.log("testing query poil_group");
 testQuery(
     'SELECT poil_group() as *',
     [
-        [ "_rowName", "t1.x", "\"max(t1.y)\"", "\"min(t3.x)\"", "rn" ],
-        [ "result", 1, 2, 1, "ex1-ex4-ex4" ]
+        [ "_rowName", "\"max(t1.y)\"", "\"min(t3.x)\"", "rn", "t1.x" ],
+        [ "result", 2, 1, "ex1-ex4-ex4", 1 ]
     ]);
 
 // big example with where and groupby
@@ -250,8 +250,8 @@ for (var i in funcs) {
         "SELECT " + func +
         "({1 AS a, 1 AS b}) AS *",
         [
-            [ "_rowName", "t1.x", "\"max(t1.y)\"", "\"min(t3.x)\"" ],
-            [ "result", 1, 2, 1 ]
+            [ "_rowName", "\"max(t1.y)\"", "\"min(t3.x)\"", "t1.x" ],
+            [ "result", 2, 1, 1 ]
         ]);
 }
 

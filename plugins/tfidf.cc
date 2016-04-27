@@ -336,7 +336,6 @@ apply(const FunctionApplier & applier,
     uint64_t maxNt = 0;        // max document frequency for terms in the current doc
 
     auto onColumn = [&] (const Coord & name,
-                         const Coords & prefix,
                          const ExpressionValue & val)
         {
             Utf8String term = name.toUtf8String();
@@ -420,7 +419,6 @@ apply(const FunctionApplier & applier,
     logger->debug() << "corpus size: " << corpusSize;
 
     auto onColumn2 = [&] (const Coord & name,
-                          const Coords & prefix,
                           const ExpressionValue & val)
         {
             Utf8String term = name.toUtf8String();

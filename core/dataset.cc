@@ -1160,7 +1160,6 @@ generateRowsWhere(const SqlBindingScope & scope,
                                     // Lambda for KEYS, which looks for a
                                     // matching row from the key
                                     auto onKey = [&] (const ColumnName & key,
-                                                      const ColumnName & prefix,
                                                       const ExpressionValue & val)
                                         {
                                             if (matrixView->knownRow(key)) {
@@ -1172,7 +1171,6 @@ generateRowsWhere(const SqlBindingScope & scope,
                                     // Lambda for VALUES, which looks for a
                                     // matching row from the value
                                     auto onValue = [&] (const ColumnName & key,
-                                                        const ColumnName & prefix,
                                                         const ExpressionValue & val)
                                         {
                                             //casting other types to string will give

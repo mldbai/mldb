@@ -35,17 +35,17 @@ BOOST_AUTO_TEST_CASE(test_coord_constructor)
 
     BOOST_CHECK_EQUAL(coords1.toUtf8String(), "");
 
-    // Make sure we can't add an empty element to a Coords
-    {
-        JML_TRACE_EXCEPTIONS(false);
-        BOOST_CHECK_THROW(coords1 + coord1, HttpReturnException);
-    }
+    BOOST_CHECK_EQUAL((coords1 + coord1).toUtf8String(), "");
+    BOOST_CHECK_EQUAL(Coords(coord1).toUtf8String(), "");
 
-    // Make sure we can't create a coords from an empty coord
+    vector<Coord> coords2;
+    coords2.push_back(coord1);
+
+    // Make sure we can't create a Coords with an empty element
     {
         JML_TRACE_EXCEPTIONS(false);
-        
-        BOOST_CHECK_THROW(Coords val(coord1), HttpReturnException);
+        BOOST_CHECK_THROW(auto coord = Coords(coords2.begin(), coords2.end()),
+                          std::exception);
     }
 }
 

@@ -172,10 +172,10 @@ var expected = [
    [
       "_rowName",
       "count(*)",
-      "min(cast (rowName() as integer))",
-      "max(cast (rowName() as integer))"
+      "max(cast (rowName() as integer))",
+      "min(cast (rowName() as integer))"
    ],
-   [ "[]", 3173958, 2, 3173959 ]
+   [ "[]", 3173958, 3173959, 2 ]
 ];
 
 assertEqual(res, expected);

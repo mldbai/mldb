@@ -186,7 +186,6 @@ applyFunction(const Function * function,
     context.startObject();
 
     auto onColumn = [&] (const Coord & columnName,
-                         const Coords & prefix,
                          const ExpressionValue & val)
         {
             context.startMember(columnName.toUtf8String());

@@ -322,9 +322,10 @@ class Mldb256Test(MldbUnitTest):
 
         quart_rez = mldb.query("""select abs((label-score)/label) as prnct_error, label, score 
                                   from toy_regression order by prnct_error ASC""")
+        mldb.log("------------------------ here")
         mldb.log(quart_rez)
-        self.assertAlmostEqual(jsRez["status"]["firstRun"]["status"]["quantileErrors"]["0.5"], quart_rez[2][1])
-        self.assertAlmostEqual(jsRez["status"]["firstRun"]["status"]["quantileErrors"]["0.9"], quart_rez[3][1])
+        self.assertAlmostEqual(jsRez["status"]["firstRun"]["status"]["quantileErrors"]["0.5"], quart_rez[2][2])
+        self.assertAlmostEqual(jsRez["status"]["firstRun"]["status"]["quantileErrors"]["0.9"], quart_rez[3][2])
 
         # Check the accuracy dataset
         self.assertEqual(len(mldb.query("select * from toy_reg_output")), 5)

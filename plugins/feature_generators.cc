@@ -90,8 +90,7 @@ call(FeatureGeneratorInput input) const
     // copied from the LAL repo
 
     auto onColumn = [&] (const Coord & columnName,
-                                const Coords & prefix,
-                                const ExpressionValue & val)
+                         const ExpressionValue & val)
     {
         ts.setMax(val.getEffectiveTimestamp());
         

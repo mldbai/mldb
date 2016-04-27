@@ -645,16 +645,14 @@ Coords::Coords()
 
 Coords::Coords(Coord && coord)
 {
-    if (coord.empty())
-        throw HttpReturnException(400, "Attempt to create a column or row name with an empty element");
-    emplace_back(std::move(coord));
+    if (!coord.empty())
+        emplace_back(std::move(coord));
 }
 
 Coords::Coords(const Coord & coord)
 {
-    if (coord.empty())
-        throw HttpReturnException(400, "Attempt to create a column or row name with an empty element");
-    emplace_back(coord);
+    if (!coord.empty())
+        emplace_back(coord);
 }
 
 Utf8String
@@ -751,10 +749,9 @@ Coords
 Coords::
 operator + (const Coord & other) const
 {
-    if (other.empty())
-        throw HttpReturnException(400, "Attempt to create a column or row name with an empty element");
     Coords result = *this;
-    result.push_back(other);
+    if (!other.empty())
+        result.push_back(other);
     return result;
 }
 
@@ -762,10 +759,9 @@ Coords
 Coords::
 operator + (Coord && other) const
 {
-    if (other.empty())
-        throw HttpReturnException(400, "Attempt to create a column or row name with an empty element");
     Coords result = *this;
-    result.push_back(std::move(other));
+    if (!other.empty())
+        result.emplace_back(std::move(other));
     return result;
 }
 

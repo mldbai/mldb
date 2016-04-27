@@ -1256,9 +1256,11 @@ BoundFunction temporalAggregatorT(const std::vector<BoundSqlExpression> & args)
                 std::unordered_map<Coord, std::pair<value_type, Date> > results;
             
                 auto onColumn = [&] (const Coord & columnName,
-                                     const Coords & prefix,
                                      const ExpressionValue & val)
                 {
+                    cerr << "onColumn with name " << columnName << " and val "
+                    << val << " extractScalar = " << extractScalar << endl;
+
                     Date ts = val.getEffectiveTimestamp();
                 
                     if (val.empty())

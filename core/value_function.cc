@@ -74,7 +74,6 @@ toValueInfo(std::shared_ptr<const ValueDescription> desc)
         auto fromInput = [=] (void * obj, const ExpressionValue & input)
             {
                 auto onColumn = [&] (const Coord & columnName,
-                                     const Coords & prefix,
                                      const ExpressionValue & val)
                 {
                     auto it = columnToIndex.find(columnName);

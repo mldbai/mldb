@@ -2157,7 +2157,6 @@ getMinTimestamp() const
     Date result = Date::positiveInfinity();
 
     auto onSubex = [&] (const Coords & columnName,
-                        const Coords & prefix,
                         const ExpressionValue & val)
         {
             result.setMin(val.getMinTimestamp());
@@ -2179,7 +2178,6 @@ getMaxTimestamp() const
     Date result = Date::negativeInfinity();
 
     auto onSubex = [&] (const Coords & columnName,
-                        const Coords & prefix,
                         const ExpressionValue & val)
         {
             result.setMax(val.getMaxTimestamp());
@@ -2232,10 +2230,16 @@ struct FilterAccumulator {
     {
         if (val.isRow()) {
             auto onColumn = [&] (const Coord & columnName,
-                                 const ColumnName &,
                                  const ExpressionValue & expr)
                 {
-                    foundRows.emplace_back(columnName, expr);
+                    if (columnName.empty()) {
+                        // This is a superposition, and so we need to go
+                        // down a level
+                        accum(expr);
+                    }
+                    else {
+                        foundRows.emplace_back(columnName, expr);
+                    }
                     return true;
                 };
 
@@ -2251,7 +2255,7 @@ struct FilterAccumulator {
         
         case GET_EARLIEST:
             if (foundAtoms.empty()
-                || foundAtoms[0].getEffectiveTimestamp() < val.getEffectiveTimestamp()
+                || foundAtoms[0].getEffectiveTimestamp() > val.getEffectiveTimestamp()
                 || (foundAtoms[0].getEffectiveTimestamp() == val.getEffectiveTimestamp()
                     && val < foundAtoms[0])) {
                 if (foundAtoms.empty())
@@ -2262,7 +2266,7 @@ struct FilterAccumulator {
 
         case GET_LATEST:
             if (foundAtoms.empty()
-                || foundAtoms[0].getEffectiveTimestamp() > val.getEffectiveTimestamp()
+                || foundAtoms[0].getEffectiveTimestamp() < val.getEffectiveTimestamp()
                 || (foundAtoms[0].getEffectiveTimestamp() == val.getEffectiveTimestamp()
                     && val < foundAtoms[0])) {
 
@@ -2286,6 +2290,8 @@ struct FilterAccumulator {
 
     const ExpressionValue * extract(ExpressionValue & storage)
     {
+        //cerr << "got " << foundRows.size() << " rows and "
+        //     << foundAtoms.size() << " atoms" << endl;
         if (foundRows.empty()) {
             if (foundAtoms.empty()) {
                 return nullptr;
@@ -2303,12 +2309,14 @@ struct FilterAccumulator {
             foundRows.emplace_back(Coord(), std::move(a));
         }
 
+        //cerr << "got rows " << jsonEncode(foundRows) << endl;
+
         if (filter == GET_ALL || foundRows.size() == 1) {
             return &(storage = std::move(foundRows));
         }
         else {
             ExpressionValue unfiltered(std::move(foundRows));
-            return &(storage = unfiltered.getFiltered(filter));
+            return &(storage = unfiltered.getFilteredDestructive(filter));
         }
     }
     
@@ -2746,7 +2754,6 @@ appendToRow(const Coords & columnName, StructValue & row) const
 {
     if (columnName.empty()) {
         auto onSubexpr = [&] (const Coord & columnName,
-                              const Coords & prefix,
                               const ExpressionValue & val)
             {
                 row.emplace_back(columnName, val);
@@ -2972,64 +2979,23 @@ forEachAtom(const std::function<bool (const Coords & columnName,
                               "type", (int)type_);
 }
 
-#if 0
-template<typename Flattened, typename Fn>
-static bool forEachColumnFlattened(Flattened&& flattened, Date ts,
-                                   Fn fn)
-{
-    // For each prefix, what is the value?
-    std::map<Coord, std::vector<int> > index;
-    for (unsigned i = 0;  i < flattened->length();  ++i) {
-        index[flattened->columnName(i).head()].push_back(i);
-    }
-
-    for (auto & entry: index) {
-        RowValue expr;
-        expr.reserve(entry.second.size());
-        for (int i: entry.second) {
-            if (flattened->columnName(i).size() == 1) {
-                if (!onColumn(index.first, prefix,
-                              ExpressionValue(flattened->value(i), ts_)))
-                    return false;
-            }
-            else {
-                expr.emplace_back(flattened->columnName(i).tail(),
-                                  flattened->value(i), ts_);
-            }
-        }
-        if (!expr.empty())
-            if (!onColumn(index.first, prefix, std::move(expr)))
-                return false;
-    }
-
-    return true;
-}
-#endif
-
 bool
 ExpressionValue::
 forEachColumn(const std::function<bool (const Coord & columnName,
-                                        const Coords & prefix,
                                         const ExpressionValue & val)>
-              & onColumn,
-              const Coords & prefix) const
+              & onColumn) const
 {
     switch (type_) {
     case Type::STRUCTURED: {
         for (auto & col: *structured_) {
             const ExpressionValue & val = std::get<1>(col);
-            if (!onColumn(std::get<0>(col), prefix, val))
+            if (!onColumn(std::get<0>(col), val))
                 return false;
         }
         return true;
     }
     case Type::EMBEDDING: {
-        auto onColumn2 = [&] (Coord & col,
-                             ExpressionValue & val)
-            {
-                return onColumn(col, prefix, val);
-            };
-        return embedding_->forEachColumn(onColumn2, ts_);
+        return embedding_->forEachColumn(onColumn, ts_);
     }
     case Type::NONE:
     case Type::ATOM:
@@ -3132,8 +3098,7 @@ forEachAtomDestructiveT(Fn && onAtom)
                     {
                         Coords fullColumnName
                             = std::move(std::get<0>(col)) + std::move(columnName);
-                        return onAtom(fullColumnName,
-                                      val, ts);
+                        return onAtom(fullColumnName, val, ts);
                     };
                 
                 std::get<1>(col).forEachAtomDestructive(onAtom2);
@@ -3182,150 +3147,121 @@ forEachAtomDestructiveT(Fn && onAtom)
 }
 
 // Remove any duplicated columns according to the filter
-ExpressionValue::Structured
+const ExpressionValue &
 ExpressionValue::
-getFiltered(const VariableFilter & filter) const
+getFiltered(const VariableFilter & filter,
+            ExpressionValue & storage) const
 {
-    assertType(Type::STRUCTURED);
+    if (filter == GET_ALL || empty() || isAtom() || type_ == Type::EMBEDDING)
+        return storage = *this;
 
-    if (filter == GET_ALL)
-        return *structured_;
-    
-    // By default we don't get anything
-    std::function<bool(const ExpressionValue&, const ExpressionValue&)>
-        filterFn
-        = [](const ExpressionValue& left, const ExpressionValue& right)
+    // This accumulates everything that's an atom, ie a straight atom or
+    // elements of a superposition.
+    FilterAccumulator atoms(filter);
+
+    // This accumulates the row elements
+    StructValue rows;
+
+    auto onColumn = [&] (const Coord & col,
+                         const ExpressionValue & val)
         {
-            return false;
+            if (col.empty()) {
+                atoms(val);
+                return true;
+            }
+
+            FilterAccumulator accum(filter);
+            accum(val);
+            ExpressionValue storage;
+            const ExpressionValue * output = accum.extract(storage);
+            ExcAssert(output);
+            if (output != &storage)
+                rows.emplace_back(std::move(col), *output);
+            else rows.emplace_back(std::move(col), std::move(storage));
+            return true;
         };
     
-    switch (filter) {
-    case GET_ANY_ONE:
-        //default is fine
-        break;
-    case GET_EARLIEST:
-        filterFn = [](const ExpressionValue& left, const ExpressionValue& right){
-            return right.isEarlier(left.getEffectiveTimestamp(), left);
-        };
-        break;
-    case GET_LATEST:
-        filterFn = [](const ExpressionValue& left, const ExpressionValue& right){
-            return right.isLater(left.getEffectiveTimestamp(), left);
-        };
-        break;
-    case GET_ALL: //optimized above
-     default:
-         throw HttpReturnException(500, "Unexpected filter");
+    forEachColumn(onColumn);
+
+    if (rows.empty()) {
+        const ExpressionValue * output = atoms.extract(storage);
+        if (output)
+            return *output;
+        else return (storage = ExpressionValue());
     }
-    
-    // keep a list of indices so that we can construct the 
-    // filtered row in the same 'natural' order
-    std::unordered_map<ColumnName, size_t, CoordsNewHasher> indices;
-    indices.reserve(structured_->size());
-    size_t index = 0;
-    for (auto & col: *structured_) {
-        const Coords & columnName = std::get<0>(col);
-        auto iter = indices.find(columnName);
-        if (iter != indices.end()) {
-            const ExpressionValue& val = std::get<1>(col);
-            if (filterFn(std::get<1>(structured_->at(iter->second)), val)) {
-                iter->second = index;
+    else {
+        // Atoms get added to rows
+        if (!atoms.empty()) {
+            ExpressionValue storage2;
+            const ExpressionValue * atomOutput = atoms.extract(storage2);
+            if (atomOutput) {
+                // TODO: move from storage
+                rows.emplace_back(Coord(), *atomOutput);
             }
         }
-        else {
-            indices.insert({columnName, index});
-         }
-        index++;
     }
     
-    //re-flatten to row
-    std::vector<char> keeps(structured_->size(), false);  // not bool to avoid bitmap
-    for (auto & index : indices)
-        keeps[index.second] = true;
-
-    Structured output;  
-    output.reserve(indices.size());
-    index = 0; 
-    for (auto & keep : keeps) {
-        if (keep)
-            output.emplace_back(structured_->at(index));
-        index++;
-    }
-
-    return output; 
+    return (storage = std::move(rows));
 }
 
-ExpressionValue::Structured
+// Remove any duplicated columns according to the filter
+ExpressionValue
 ExpressionValue::
 getFilteredDestructive(const VariableFilter & filter)
 {
-    assertType(Type::STRUCTURED);
+    if (filter == GET_ALL || empty() || isAtom() || type_ == Type::EMBEDDING)
+        return std::move(*this);
 
-    if (filter == GET_ALL)
-        return std::move(*structured_);
-    
-    // By default we don't get anything
-    std::function<bool(const ExpressionValue&, const ExpressionValue&)>
-        filterFn
-        = [](const ExpressionValue& left, const ExpressionValue& right)
+    // This accumulates everything that's an atom, ie a straight atom or
+    // elements of a superposition.
+    FilterAccumulator atoms(filter);
+
+    // This accumulates the row elements
+    StructValue rows;
+
+    auto onColumn = [&] (Coord & col,
+                         ExpressionValue & val)
         {
-            return false;
+            if (col.empty()) {
+                atoms(val);
+                return true;
+            }
+
+            FilterAccumulator accum(filter);
+            accum(val);
+            ExpressionValue storage;
+            const ExpressionValue * output = accum.extract(storage);
+            ExcAssert(output);
+            if (output != &storage)
+                rows.emplace_back(std::move(col), *output);
+            else rows.emplace_back(std::move(col), std::move(storage));
+            return true;
         };
     
-    switch (filter) {
-    case GET_ANY_ONE:
-        //default is fine
-        break;
-    case GET_EARLIEST:
-        filterFn = [](const ExpressionValue& left, const ExpressionValue& right){
-            return right.isEarlier(left.getEffectiveTimestamp(), left);
-        };
-        break;
-    case GET_LATEST:
-        filterFn = [](const ExpressionValue& left, const ExpressionValue& right){
-            return right.isLater(left.getEffectiveTimestamp(), left);
-        };
-        break;
-    case GET_ALL: //optimized above
-     default:
-         throw HttpReturnException(500, "Unexpected filter");
+    forEachColumnDestructive(onColumn);
+
+    if (rows.empty()) {
+        ExpressionValue storage;
+        const ExpressionValue * output = atoms.extract(storage);
+        if (output) {
+            if (output == &storage)
+                return std::move(storage);
+            else return *output;
+        }
     }
-    
-    // keep a list of indices so that we can construct the 
-    // filtered row in the same 'natural' order
-    std::unordered_map<ColumnName, size_t, CoordsNewHasher> indices;
-    indices.reserve(structured_->size());
-    size_t index = 0;
-    for (auto & col: *structured_) {
-        const Coords & columnName = std::get<0>(col);
-        auto iter = indices.find(columnName);
-        if (iter != indices.end()) {
-            const ExpressionValue& val = std::get<1>(col);
-            if (filterFn(std::get<1>(structured_->at(iter->second)), val)) {
-                iter->second = index;
+    else {
+        // Atoms get added to rows
+        if (!atoms.empty()) {
+            ExpressionValue storage2;
+            const ExpressionValue * atomOutput = atoms.extract(storage2);
+            if (atomOutput) {
+                // TODO: move from storage
+                rows.emplace_back(Coord(), *atomOutput);
             }
         }
-        else {
-            indices.insert({columnName, index});
-         }
-        index++;
     }
     
-    //re-flatten to row
-    std::vector<char> keeps(structured_->size(), false);  // not bool to avoid bitmap
-    for (auto & index : indices)
-        keeps[index.second] = true;
-
-    Structured output;  
-    output.reserve(indices.size());
-    index = 0; 
-    for (auto & keep : keeps) {
-        if (keep)
-            output.emplace_back(std::move(structured_->at(index)));
-        index++;
-    }
-
-    return output; 
+    return std::move(rows);
 }
 
 bool
@@ -3476,7 +3412,6 @@ hasKey(const Utf8String & key) const
         // TODO: for Embedding, we can do much, much better
         Date outputDate = Date::negativeInfinity();
         auto onExpr = [&] (const Coords & columnName,
-                           const Coords & prefix,
                            const ExpressionValue & val)
             {
                 if (columnName == Coords(Coord(key))) {
@@ -3529,7 +3464,6 @@ hasValue(const ExpressionValue & val) const
         // TODO: for embedding, we can do much, much better
         Date outputDate = Date::negativeInfinity();
         auto onExpr = [&] (const Coords & columnName,
-                           const Coords & prefix,
                            const ExpressionValue & value)
             {
                 if (val == value) {
@@ -3609,12 +3543,21 @@ initStructured(Structured value) noexcept
             for (; j < value.size() && std::get<0>(value[i]) == std::get<0>(value[j]);
                  ++j);
 
+            if (i == 0 && j == value.size()) {
+                // All have the same key.  We have one single element as a
+                // superposition.  If we continue, we'll get into an infinite
+                // loop.
+                value.swap(newValue);  // it will be swapped back...
+                break;
+            }
+
             if (j == i + 1) {
                 newValue.emplace_back(std::move(value[i]));
                 i = j;
             }
             else {
                 std::vector<ExpressionValue> vals;
+                vals.reserve(j - i);
                 for (; i < j;  ++i) {
                     vals.emplace_back(std::move(std::get<1>(value[i])));
                 }
