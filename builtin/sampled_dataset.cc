@@ -21,17 +21,6 @@ namespace MLDB {
 
 
 /*****************************************************************************/
-/* HELPER FUNCTION                                                           */
-/*****************************************************************************/
-std::string
-getErrorMsg(const std::string msg)
-{
-    return msg + " See the documentation for the dataset of type 'sampled' "
-        "for the supported paramters, or of the 'From Expressions' for more "
-        "details on using the 'sample' function.";
-}
-
-/*****************************************************************************/
 /* SAMPLED DATASET CONFIG                                                    */
 /*****************************************************************************/
 
@@ -52,15 +41,15 @@ SampledDatasetConfig() :
 void validateConfig(SampledDatasetConfig * config)
 {
     if (config->rows != 0 && config->fraction != 0) {
-        throw ML::Exception(getErrorMsg("The 'rows' and 'fraction' parameters "
+        throw ML::Exception(SampledDataset::getErrorMsg("The 'rows' and 'fraction' parameters "
                     "cannot be set at the same time."));
     }
     if (config->rows != 0 && config->fraction != 0) {
-        throw ML::Exception(getErrorMsg("The 'rows' or 'fraction' parameters "
+        throw ML::Exception(SampledDataset::getErrorMsg("The 'rows' or 'fraction' parameters "
                     "need to be set."));
     }
     if(config->rows == 0 && (config->fraction > 1 || config->fraction <= 0)) {
-        throw ML::Exception(getErrorMsg(ML::format("The 'fraction' parameter needs to "
+        throw ML::Exception(SampledDataset::getErrorMsg(ML::format("The 'fraction' parameter needs to "
                     "be between 0 and 1. Value provided is '%0.4f'", config->fraction)));
     }
 }
@@ -390,6 +379,15 @@ SampledDataset::
 getColumnIndex() const
 {
     return itl;
+}
+
+std::string
+SampledDataset::
+getErrorMsg(const std::string msg)
+{
+    return msg + " See the documentation for the dataset of type 'sampled' "
+        "for the supported paramters, or of the 'From Expressions' for more "
+        "details on using the 'sample' function.";
 }
 
 

@@ -4,6 +4,7 @@
 #include "sql_expression.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/builtin/transposed_dataset.h"
+#include "mldb/builtin/sampled_dataset.h"
 
 using namespace std;
 
@@ -139,11 +140,11 @@ BoundTableExpression sample(const SqlBindingScope & context,
                                   "alias", alias);
 
     if(!options.empty() && !options.isRow()) {
-        throw HttpReturnException(400, "options should be a row containing "
-                "the dataset's configuration, or be empty to use the defaults; "
-                "we got " + jsonEncodeStr(options),
-                "options", options,
-                "alias", alias);
+        throw HttpReturnException(400, SampledDataset::getErrorMsg(
+                "The parameters provided to the 'sample' function "
+                "should be a row expression, or not be provided to use the "
+                "sampled dataset's defaults. Value provided: " + 
+                jsonEncodeStr(options) + "."));
     }
 
     auto ds = createSampledDatasetFn(context.getMldbServer(),
