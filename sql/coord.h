@@ -201,6 +201,7 @@ struct Coord {
     void complexCopyConstruct(const Coord & other);
     void complexMoveConstruct(Coord && other);
     void initString(Utf8String str);
+    void initStringUnchecked(Utf8String str);
     void initChars(const char * str, size_t len);
 
     const char * data() const;

@@ -37,3 +37,5 @@ bottle==0.12.9
 elasticsearch==2.2.0
 psutil==3.4.2
 
+# MLDBFB-499
+boto==2.39.0

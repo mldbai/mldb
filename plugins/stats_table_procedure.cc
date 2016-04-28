@@ -166,9 +166,9 @@ StatsTableProcedureConfigDescription()
              "This file can be loaded by the ![](%%doclink statsTable.getCounts function). "
              "This parameter is optional unless the `functionName` parameter is used.");
     addField("functionName", &StatsTableProcedureConfig::functionName,
-             "If specified, an instance of the ![](%%doclink statsTable.getCounts function) of this name will be created using "
-             "the trained model. Note that to use this parameter, the `statsTableFileUrl` must "
-             "also be provided.");
+             "If specified, an instance of the ![](%%doclink statsTable.getCounts function) "
+             "of this name will be created using the trained stats tables. Note that to use "
+             "this parameter, the `statsTableFileUrl` must also be provided.");
     addParent<ProcedureConfig>();
 
     onPostValidate = validate<StatsTableProcedureConfig,
@@ -350,7 +350,7 @@ run(const ProcedureRunConfig & run,
         clsFuncPC.id = runProcConf.functionName;
         clsFuncPC.params = StatsTableFunctionConfig(runProcConf.statsTableFileUrl);
 
-        obtainFunction(server, clsFuncPC, onProgress);
+        createFunction(server, clsFuncPC, onProgress, true);
     }
 
     return RunOutput();
@@ -605,10 +605,20 @@ BagOfWordsStatsTableProcedureConfigDescription()
              "must be a boolean (0 or 1)");
     addField("statsTableFileUrl", &BagOfWordsStatsTableProcedureConfig::statsTableFileUrl,
              "URL where the model file (with extension '.st') should be saved. "
-             "This file can be loaded by the ![](%%doclink statsTable.bagOfWords.posneg function). ");
+             "This file can be loaded by the ![](%%doclink statsTable.bagOfWords.posneg function). "
+             "This parameter is optional unless the `functionName` parameter is used.");
     addField("outputDataset", &BagOfWordsStatsTableProcedureConfig::outputDataset,
              "Output dataset with the total counts for each word along with"
              " the cooccurrence count with each outcome.", optionalOutputDataset);
+    addField("functionName", &BagOfWordsStatsTableProcedureConfig::functionName,
+             "If specified, an instance of the ![](%%doclink statsTable.bagOfWords.posneg function) "
+             "of this name will be created using the trained stats tables and that function type's "
+             "default parameters. Note that to use this parameter, the `statsTableFileUrl` must also "
+             "be provided.");
+    addField("functionOutcomeToUse", &BagOfWordsStatsTableProcedureConfig::functionOutcomeToUse,
+            "When `functionName` is provided, an instance of the "
+            "![](%%doclink statsTable.bagOfWords.posneg function) with the outcome of this name will "
+            "be created. This parameter represents the `outcomeToUse` field of the ![](%%doclink statsTable.bagOfWords.posneg function).");
     addParent<ProcedureConfig>();
 
     onPostValidate = validate<BagOfWordsStatsTableProcedureConfig,
@@ -645,6 +655,11 @@ run(const ProcedureRunConfig & run,
 
     BagOfWordsStatsTableProcedureConfig runProcConf =
         applyRunConfOverProcConf(procConfig, run);
+    
+    if(!runProcConf.functionName.empty() && runProcConf.functionOutcomeToUse.empty()) {
+        throw ML::Exception("The 'functionOutcomeToUse' parameter must be set when the "
+                "'functionName' parameter is set.");
+    }
 
     SqlExpressionMldbScope context(server);
     auto boundDataset = runProcConf.trainingData.stm->from->bind(context);
@@ -762,6 +777,18 @@ run(const ProcedureRunConfig & run,
         filter_ostream stream(runProcConf.statsTableFileUrl.toString());
         ML::DB::Store_Writer store(stream);
         store << statsTable;
+    }
+    
+    if(!runProcConf.statsTableFileUrl.empty() && !runProcConf.functionName.empty() &&
+            !runProcConf.functionOutcomeToUse.empty()) {
+        cerr << "Saving stats tables to " << runProcConf.statsTableFileUrl.toString() << endl;
+        PolyConfig clsFuncPC;
+        clsFuncPC.type = "statsTable.bagOfWords.posneg";
+        clsFuncPC.id = runProcConf.functionName;
+        clsFuncPC.params = StatsTablePosNegFunctionConfig(runProcConf.statsTableFileUrl,
+                                                          runProcConf.functionOutcomeToUse);
+
+        createFunction(server, clsFuncPC, onProgress, true);
     }
     
     return RunOutput();

@@ -54,6 +54,7 @@ $(eval $(call test,mldb_crash_multiple_py_routes,mldb,boost manual))  #manual - 
 $(eval $(call test,mldb_determinism_test,mldb,boost))
 $(eval $(call test,credentials_daemon_test,credentials_daemon cloud,boost))
 $(eval $(call test,MLDB-1025-output-dataset-serialization-test,mldb,boost))
+$(eval $(call test,MLDB-1559-transform-method,mldb,boost))
 
 $(TESTS)/credentials_daemon_test: $(BIN)/credentialsd
 

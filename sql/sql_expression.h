@@ -904,6 +904,16 @@ struct SqlExpression: public std::enable_shared_from_this<SqlExpression> {
     
     /** Function to create a copy of a potentially transformed version of the
         given function.
+
+        This method should create a copy of itself, then replace all of the
+        child expressions of the copy with the result of transformArgs({childexpressions}).
+
+        This can be done in one or several calls. transformArgs needs to call transform 
+        on the child expressions.
+
+        If this is not implemented correctly, typically it will fail when attempting to use
+        dataset.rowName() on a join condition inside the expression.
+
     */
     virtual std::shared_ptr<SqlExpression>
     transform(const TransformArgs & transformArgs) const = 0;

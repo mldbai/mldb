@@ -193,6 +193,7 @@ struct BagOfWordsStatsTableProcedureConfig : ProcedureConfig {
     Url statsTableFileUrl;
 
     Utf8String functionName;
+    std::string functionOutcomeToUse;
 
     Optional<PolyConfigT<Dataset>> outputDataset;
 
@@ -226,8 +227,10 @@ struct BagOfWordsStatsTableProcedure: public Procedure {
 /*****************************************************************************/
 
 struct StatsTablePosNegFunctionConfig {
-    StatsTablePosNegFunctionConfig(const Url & statsTableFileUrl = Url()) :
+    StatsTablePosNegFunctionConfig(const Url & statsTableFileUrl = Url(),
+            const std::string & outcomeToUse = "") :
         numPos(50), numNeg(50), minTrials(50),
+        outcomeToUse(outcomeToUse),
         statsTableFileUrl(statsTableFileUrl)
     {
     }

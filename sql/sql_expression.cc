@@ -2682,8 +2682,8 @@ transform(const TransformArgs & transformArgs) const
     OrderByExpression result(*this);
 
     for (auto & clause: result.clauses)
-        clause.first = clause.first->transform(transformArgs);
-    
+        clause.first = transformArgs({clause.first})[0];
+  
     return std::move(result);
 }
     
@@ -2787,10 +2787,7 @@ transform(const TransformArgs & transformArgs) const
 {
     TupleExpression transformedExpression;
 
-    for (auto x : clauses)
-    {
-        transformedExpression.clauses.emplace_back(x->transform(transformArgs));
-    }
+    transformedExpression.clauses = transformArgs(clauses);
 
     return transformedExpression;
 }

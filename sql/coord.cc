@@ -495,6 +495,15 @@ initString(Utf8String str)
     if (str.empty())
         throw HttpReturnException(400, "Attempt to create empty Coord");
     ExcAssertEqual(strlen(str.rawData()), str.rawLength());
+    initStringUnchecked(str);
+}
+
+void
+Coord::
+initStringUnchecked(Utf8String str)
+{
+    // This method is used only for when we know we may have invalid
+    // characters, for example when importing legacy files.
     words[0] = words[1] = words[2] = 0;
     if (str.rawLength() <= INTERNAL_BYTES - 1) {
         complex_ = 0;
