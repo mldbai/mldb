@@ -348,4 +348,4 @@ $(eval $(call mldb_unit_test,MLDB-1563-keys-values-of.js))
 
 $(eval $(call test,MLDB-1360-sparse-mutable-multithreaded-insert,mldb,boost))
 $(eval $(call mldb_unit_test,MLDBFB-440_error_on_ds_wo_cols.py))
-
+$(eval $(call mldb_unit_test,MLDB-1355-explain-bad-alloc.js))
