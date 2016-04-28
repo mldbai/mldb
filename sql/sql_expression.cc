@@ -1368,16 +1368,19 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
 
         // Between expression
         bool notBetween = false;
-        if (matchKeyword(context, "BETWEEN")
-            || ((notBetween = true) && matchKeyword(context, "NOT BETWEEN"))) {
-            expect_whitespace(context);
-            auto lower = SqlExpression::parse(context, 5 /* precedence */, allowUtf8);
-            expectKeyword(context, "AND");
-            auto upper = SqlExpression::parse(context, 5 /* precedence */, allowUtf8);
+        // BETWEEN precedence is the same as > operator
+        if (currentPrecedence > 4) {
+            if (matchKeyword(context, "BETWEEN")
+                || ((notBetween = true) && matchKeyword(context, "NOT BETWEEN"))) {
+                expect_whitespace(context);
+                auto lower = SqlExpression::parse(context, 5 /* precedence */, allowUtf8);
+                expectKeyword(context, "AND");
+                auto upper = SqlExpression::parse(context, 5 /* precedence */, allowUtf8);
             
-            lhs = std::make_shared<BetweenExpression>(lhs, lower, upper, notBetween);
-            lhs->surface = ML::trim(token.captured());
-            continue;
+                lhs = std::make_shared<BetweenExpression>(lhs, lower, upper, notBetween);
+                lhs->surface = ML::trim(token.captured());
+                continue;
+            }
         }
 
         // 'In' expression
