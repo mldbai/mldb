@@ -560,6 +560,9 @@ checkWritability(const std::string & url, const std::string & parameterName)
                 "in parameter '%s'. Value: '%s'. Exception: %s",
                 parameterName, url, ex.what()));
     }
+
+    // remove empty file
+    tryEraseUriObject(url);
 }
 
 
