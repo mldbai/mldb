@@ -194,6 +194,10 @@ run(const ProcedureRunConfig & run,
 {
     auto runProcConf = applyRunConfOverProcConf(tfidfconfig, run);
 
+    if (!runProcConf.modelFileUrl.empty()) {
+        checkWritability(runProcConf.modelFileUrl.toString(), "modelFileUrl");
+    }
+
     SqlExpressionMldbScope context(server);
 
     auto boundDataset = runProcConf.trainingData.stm->from->bind(context);

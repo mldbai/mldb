@@ -164,8 +164,14 @@ run(const ProcedureRunConfig & run,
 
     // this includes being empty
     if(!runProcConf.modelFileUrl.valid()) {
-        throw ML::Exception("modelFileUrl is not valid");
+        throw ML::Exception(ML::format("The 'modelFileUrl' parameter "
+                    "is not valid. Value: '%s'",
+                    runProcConf.modelFileUrl.toString()));
     }
+
+    // try to create output folder and write open a writer to make sure 
+    // we have permissions before we do the actual training
+    checkWritability(runProcConf.modelFileUrl.toString(), "modelFileUrl");
 
     // 1.  Get the input dataset
     SqlExpressionMldbScope context(server);
@@ -626,7 +632,6 @@ run(const ProcedureRunConfig & run,
 
     bool saved = true;
     try {
-        Datacratic::makeUriDirectory(runProcConf.modelFileUrl.toString());
         classifier.save(runProcConf.modelFileUrl.toString());
     }
     catch (const std::exception & exc) {
@@ -641,10 +646,7 @@ run(const ProcedureRunConfig & run,
         clsFuncPC.id = runProcConf.functionName;
         clsFuncPC.params = ClassifyFunctionConfig(runProcConf.modelFileUrl);
 
-        InProcessRestConnection connection;
-        RestRequest request("PUT", "/v1/functions/" + runProcConf.functionName.rawString(),
-                RestParams(), jsonEncode(clsFuncPC).toString());
-        server->handleRequest(connection, request);
+        createFunction(server, clsFuncPC, onProgress, true);
     }
 
     DEBUG_MSG(logger) << "done saving classifier";

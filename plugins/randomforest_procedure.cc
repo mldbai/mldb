@@ -136,6 +136,8 @@ run(const ProcedureRunConfig & run,
          throw ML::Exception("modelFileUrl is not valid");
     }
 
+    checkWritability(runProcConf.modelFileUrl.toString(), "modelFileUrl");
+
     // 1.  Get the input dataset
     SqlExpressionMldbScope context(server);
 

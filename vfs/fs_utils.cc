@@ -537,6 +537,36 @@ dirName(const std::string & filename)
 }
 
 /****************************************************************************/
+/* UX FUNCTIONS                                                             */
+/****************************************************************************/
+
+void
+checkWritability(const std::string & url, const std::string & parameterName)
+{
+    // try to create output folder and write open a writer to make sure 
+    // we have permissions before
+    try {
+        Datacratic::makeUriDirectory(url);
+    } catch ( std::exception const& ex) {
+        throw ML::Exception(ML::format("Error when trying to create folder specified "
+                "in parameter '%s'. Value: '%s'. Exception: %s",
+                parameterName, url, ex.what()));
+    }
+
+    try {
+        filter_ostream writer(url);
+    } catch (std::exception const& ex) {
+        throw ML::Exception(ML::format("Error when trying to write to file specified "
+                "in parameter '%s'. Value: '%s'. Exception: %s",
+                parameterName, url, ex.what()));
+    }
+
+    // remove empty file
+    tryEraseUriObject(url);
+}
+
+
+/****************************************************************************/
 /* FILE COMMITER                                                            */
 /****************************************************************************/
 

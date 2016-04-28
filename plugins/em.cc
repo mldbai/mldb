@@ -135,6 +135,10 @@ run(const ProcedureRunConfig & run,
             return onProgress(value);
         };
 
+    if (!runProcConf.modelFileUrl.empty()) {
+        checkWritability(runProcConf.modelFileUrl.toString(), "modelFileUrl");
+    }
+
     SqlExpressionMldbScope context(server);
 
     auto embeddingOutput = getEmbedding(*runProcConf.trainingData.stm,
@@ -245,7 +249,6 @@ run(const ProcedureRunConfig & run,
             emPC.type = "gaussianclustering";
             emPC.id = runProcConf.functionName;
             emPC.params = funcConf;
-            
             obtainFunction(server, emPC, onProgress);
         } else {
             throw HttpReturnException(400, "Can't create gaussian clustering function '" +

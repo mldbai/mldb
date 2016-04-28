@@ -244,6 +244,8 @@ run(const ProcedureRunConfig & run,
             return onProgress(value);
     };
 
+    checkWritability(runProcConf.modelFileUrl.toString(), "modelFileUrl");
+
     SqlExpressionMldbScope context(server);
 
     auto embeddingOutput

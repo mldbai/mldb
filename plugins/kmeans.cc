@@ -144,8 +144,13 @@ run(const ProcedureRunConfig & run,
 
     // an empty url is allowed but other invalid urls are not
     if(!runProcConf.modelFileUrl.empty() && !runProcConf.modelFileUrl.valid()) {
-        throw ML::Exception("modelFileUrl \"" +
-                            runProcConf.modelFileUrl.toString() + "\" is not valid");
+        throw HttpReturnException(400, "modelFileUrl \"" +
+                                  runProcConf.modelFileUrl.toUtf8String()
+                                  + "\" is not valid");
+    }
+
+    if (!runProcConf.modelFileUrl.empty()) {
+        checkWritability(runProcConf.modelFileUrl.toString(), "modelFileUrl");
     }
 
     auto onProgress2 = [&] (const Json::Value & progress)
@@ -270,7 +275,7 @@ run(const ProcedureRunConfig & run,
             kmeansFuncPC.id = runProcConf.functionName;
             kmeansFuncPC.params = funcConf;
 
-            obtainFunction(server, kmeansFuncPC, onProgress);
+            createFunction(server, kmeansFuncPC, onProgress, true);
         } else {
             throw HttpReturnException(400, "Can't create kmeans function '" +
                                       runProcConf.functionName.rawString() + 
