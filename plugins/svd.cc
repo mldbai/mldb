@@ -688,6 +688,10 @@ run(const ProcedureRunConfig & run,
             return onProgress(value);
         };
 
+    if (!runProcConf.modelFileUrl.empty()) {
+        checkWritability(runProcConf.modelFileUrl.toString(), "modelFileUrl");
+    }
+
     int numBasisVectors = runProcConf.numDenseBasisVectors;
     
     SqlExpressionMldbContext context(server);
@@ -873,7 +877,7 @@ run(const ProcedureRunConfig & run,
         svdFuncPC.id = runProcConf.functionName;
         svdFuncPC.params = SvdEmbedConfig(runProcConf.modelFileUrl);
 
-        obtainFunction(server, svdFuncPC, onProgress);
+        createFunction(server, svdFuncPC, onProgress, true);
     }
 
     return Any();

@@ -212,6 +212,10 @@ run(const ProcedureRunConfig & run,
 {
     auto runProcConf = applyRunConfOverProcConf(tsneConfig, run);
 
+    if (!runProcConf.modelFileUrl.empty()) {
+        checkWritability(runProcConf.modelFileUrl.toString(), "modelFileUrl");
+    }
+
     auto onProgress2 = [&] (const Json::Value & progress)
         {
             Json::Value value;
@@ -357,7 +361,7 @@ run(const ProcedureRunConfig & run,
         tsneFuncPC.id = runProcConf.functionName;
         tsneFuncPC.params = TsneEmbedConfig(runProcConf.modelFileUrl);
 
-        obtainFunction(server, tsneFuncPC, onProgress);
+        createFunction(server, tsneFuncPC, onProgress, true);
     }
 
     return Any();
