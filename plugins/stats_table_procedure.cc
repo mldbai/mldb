@@ -123,7 +123,8 @@ void StatsTable::
 serialize(ML::DB::Store_Writer & store) const
 {
     int version = 2;
-    store << version << colName << outcome_names << counts << zeroCounts;
+    store << string("MLDB Stats Table Binary")
+          << version << colName << outcome_names << counts << zeroCounts;
 }
 
 void StatsTable::
@@ -131,7 +132,12 @@ reconstitute(ML::DB::Store_Reader & store)
 {
     int version;
     int REQUIRED_V = 2;
-    store >> version;
+    std::string name;
+    store >> name >> version;
+    if (name != "MLDB Stats Table Binary") {
+        throw HttpReturnException(400, "File does not appear to be a stats "
+                                  "table model");
+    }
     if(version!=REQUIRED_V) {
         throw HttpReturnException(400, ML::format(
                     "invalid StatsTable version! exptected %d, got %d",
@@ -908,7 +914,7 @@ apply(const FunctionApplier & applier,
 {
     StructValue result;
 
-    ExpressionValue arg = context.getColumn("keys");
+    ExpressionValue arg = context.getColumn("words");
 
     if(arg.isRow()) {
         RowValue rtnRow;
@@ -937,6 +943,7 @@ apply(const FunctionApplier & applier,
         result.emplace_back("probs", ExpressionValue(std::move(rtnRow)));
     }
     else {
+        cerr << jsonEncode(arg) << endl;
         throw HttpReturnException(400, "statsTable.bagOfWords.posneg : expect 'keys' as a row");
     }
     

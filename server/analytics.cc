@@ -430,7 +430,7 @@ RowName getValidatedRowName(const ExpressionValue& rowNameEV)
     if (rowNameStr.empty())
         throw HttpReturnException(400, "Can't create a row with an empty name");
 
-    auto rowName = RowName::parse(rowNameEV.toUtf8String());
+    auto rowName = RowName::parse(rowNameStr);
 
     if (rowName.empty())
         throw HttpReturnException(400, "Can't create a row with an empty name");

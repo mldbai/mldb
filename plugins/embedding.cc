@@ -1074,90 +1074,6 @@ overrideFunction(const Utf8String & tableName,
                  const Utf8String & functionName,
                  SqlBindingScope & context) const
 {
-// Should probably remove; it's subsumed by the nearest neigbors function.
-#if 0
-    if (functionName == "distance") {
-        // 1.  We need the rowName() function
-        //auto rowName = context.getfunction("rowName");
-
-        return {[=] (const std::vector<ExpressionValue> & evaluatedArgs,
-                     const SqlRowScope & context) -> ExpressionValue
-                {
-                    //cerr << "calling overridden distance with args " << jsonEncode(args)
-                    //     << endl;
-                    auto row1 = evaluatedArgs.at(1).getRow();
-                    Utf8String row2Name = evaluatedArgs.at(2).toUtf8String();
-                    auto row2 = itl->getRow(RowName(row2Name)).columns;
-
-                    // Work out the timestamp at which this was known
-                    Date ts = Date::negativeInfinity();
-                    for (auto & c: row1)
-                        ts.setMax(std::get<1>(c).getEffectiveTimestamp());
-                    for (auto & c: row2)
-                        ts.setMax(std::get<2>(c));
-
-                    //cerr << "row = " << jsonEncode(row) << endl;
-
-                    if (evaluatedArgs.at(0).toUtf8String() == "pythag") {
-                        ExcAssertEqual(row1.size(), row2.size());
-                        double total = 0.0;
-                        for (unsigned i = 0;  i < row1.size();  ++i) {
-                            double v1 = std::get<1>(row1[i]).toDouble();
-                            double v2 = std::get<1>(row2[i]).toDouble();
-
-                            //cerr << "v1 = " << v1 << " v2 = " << v2 << endl;
-
-                            ExcAssertEqual(std::get<0>(row1[i]),
-                                           std::get<0>(row2[i]));
-                            total += (v1 - v2) * (v1 - v2);
-                        }
-
-                        //cerr << "total = " << total << endl;
-
-                        return ExpressionValue(sqrt(total), ts);
-                    }
-                    else if (evaluatedArgs.at(0).toUtf8String() == "cosine") {
-                        ExcAssertEqual(row1.size(), row2.size());
-                        size_t nd = row1.size();
-                        
-                        ML::distribution<double> vec1(nd), vec2(nd);
-                        for (unsigned i = 0;  i < nd;  ++i) {
-                            double v1 = std::get<1>(row1[i]).toDouble();
-                            double v2 = std::get<1>(row2[i]).toDouble();
-
-                            ExcAssertEqual(std::get<0>(row1[i]),
-                                           std::get<0>(row2[i]));
-                            vec1[i] = v1;
-                            vec2[i] = v2;
-                        }
-
-                        return ExpressionValue(1 - vec1.dotprod(vec2) / (vec1.two_norm() * vec2.two_norm()), ts);
-                    }
-                    else if (evaluatedArgs.at(0).toUtf8String() == "angular") {
-                        ExcAssertEqual(row1.size(), row2.size());
-                        size_t nd = row1.size();
-                        
-                        ML::distribution<double> vec1(nd), vec2(nd);
-                        for (unsigned i = 0;  i < nd;  ++i) {
-                            double v1 = std::get<1>(row1[i]).toDouble();
-                            double v2 = std::get<1>(row2[i]).toDouble();
-
-                            ExcAssertEqual(std::get<0>(row1[i]),
-                                           std::get<0>(row2[i]));
-                            vec1[i] = v1;
-                            vec2[i] = v2;
-                        }
-
-                        return ExpressionValue(1 - acos(vec1.dotprod(vec2) / (vec1.two_norm() * vec2.two_norm())) / M_PI, ts);
-                    }
-                    
-                    throw HttpReturnException(400,
-                                              "unknown distance metric " + evaluatedArgs.at(0).toUtf8String());
-                },
-                std::make_shared<Float64ValueInfo>() };
-    }
-#endif
-
     return BoundFunction();
 }
 
@@ -1201,12 +1117,13 @@ NearestNeighborsFunctionConfigDescription()
 {
     addField("defaultNumNeighbors",
              &NearestNeighborsFunctionConfig::defaultNumNeighbors,
-             "Default number of neighbors to return. This can be overritten "
+             "Default number of neighbors to return. This can be overwritten "
              "when calling the function.", unsigned(10));
     addField("defaultMaxDistance",
              &NearestNeighborsFunctionConfig::defaultMaxDistance,
-             "Default maximum distance from the original row returned "
-             "neighbors can be.",
+             "Default value for `maxDistance` parameter to function if not "
+             "specified in the function call.  This can be overridden on "
+             "a call-by-call basis.",
              double(INFINITY));
     addField("dataset", &NearestNeighborsFunctionConfig::dataset,
              "Embedding dataset in which to find neighbors.");

@@ -303,7 +303,7 @@ mldb.log(rez.json())
 
 rez = mldb.get(
     "/v1/query",
-    q="select posnegz({keys: tokenize(text, {splitchars: ' _'})}) as * from posneg")
+    q="select posnegz({words: tokenize(text, {splitchars: ' _'})}) as * from posneg")
 js_rez = rez.json()
 mldb.log(js_rez)
 

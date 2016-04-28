@@ -1100,8 +1100,7 @@ generateRowsWhere(const SqlBindingScope & scope,
     if (inExpression) 
     {
         auto fexpr = getFunction(*(inExpression->expr));
-        // TODO BEFORE MERGING: functionName should be a compound
-        if (fexpr && removeTableName(alias, Coords(fexpr->functionName)) == Coords(Coord("rowName"))) {
+        if (fexpr && fexpr->functionName == "rowName") {
             if (inExpression->tuple && inExpression->tuple->isConstant()) {
                 return {[=] (ssize_t numToGenerate, Any token,
                              const BoundParameters & params)

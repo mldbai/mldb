@@ -1019,7 +1019,7 @@ SvdOutputDescription::
 SvdOutputDescription()
 {
     addField("embedding", &SvdOutput::embedding,
-             "Embedding of the row into the vector spaced defined by the "
+             "Embedding of the row into the vector space defined by the "
              "SVD.  There will be a number of coordinates equal to the "
              "`maxSingluarValues` value of the configuration, or if not "
              "set, the number of SVD coordinates available in the SVD model "

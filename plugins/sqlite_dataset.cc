@@ -533,8 +533,6 @@ struct SqliteSparseDataset::Itl
 
         sqlite3pp::command command(*db, "INSERT OR IGNORE INTO vals VALUES (?, ?, ?, ?)");
 
-        std::vector<ColumnName> tmp;
-
         for (auto & r: rows) {
 
             const RowName & rowName = r.first;

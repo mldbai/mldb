@@ -27,11 +27,11 @@ The metric field has the following possibilities:
 ![](%%type Datacratic::MLDB::MetricSpace)
 
 
-## Querying Nearest Neighbours
+## Querying Nearest Neighbors
 
 The embedding dataset stores an index in a [Vantage Point Tree] which allows
 for efficient queries of points that are close in the embedding space.  This
-can be used for nearest-neighbours searches, which when combined with a good
+can be used for nearest-neighbors searches, which when combined with a good
 embedding algorithm can be used to implement recommendations.
 
 See the ![](%%doclink nearest.neighbors function) for more details.
@@ -44,7 +44,7 @@ See the ![](%%doclink nearest.neighbors function) for more details.
 ## See Also
 
 * [Vantage Point Tree] is the data structure used to allow quick lookups
-* the ![](%%doclink nearest.neighbors function) is used to find nearest neighbours in an embedding dataset.
+* the ![](%%doclink nearest.neighbors function) is used to find nearest neighbors in an embedding dataset.
 * the ![](%%doclink kmeans.train procedure) is another way of identifying similar points.
 * the ![](%%doclink svd.train procedure) procedure is often used to train an embedding with a high number of dimensions
 * the ![](%%doclink tsne.train procedure) can be used to train a 2 or 3 dimensional embedding

@@ -750,17 +750,6 @@ class MldbUnitTest(unittest.TestCase):
 
 namespace {
 
-// The set function in ExpressionValue and ExpressionValue are both overloaded due to
-// the UTF8String variants. This the helpers used to provide the required
-// casting type to extract the function pointer of one of the overloaded types.
-template<typename T>
-struct SetFn
-{
-    typedef void (ExpressionValue::* CtxType)(const std::string&, const T&, Date);
-    typedef void (ExpressionValue::* OutputType)(const std::string&, const T&, Date);
-};
-
-
 std::string pyObjectToString(PyObject * pyObj)
 {
     namespace bp = boost::python;
@@ -968,29 +957,6 @@ struct AtInit {
         bp::class_<FunctionInfo, boost::noncopyable>("function_info", bp::no_init)
             ;
         
-#if 0
-        bp::class_<ExpressionValue, boost::noncopyable>("function_output", bp::init<>())
-            .def("set_str", (SetFn<std::string>::OutputType) &ExpressionValue::setT<std::string>)
-            ;
-
-        bp::class_<FunctionApplier, boost::noncopyable>("function_applier", bp::no_init)
-            ;
-
-//         const Datacratic::Any& (ExpressionValue::*functionContextGetStr)(const std::string &) = &ExpressionValue::get;
-
-        bp::class_<ExpressionValue, boost::noncopyable>("ExpressionValue", bp::no_init)
-//                .def("get",      functionContextGetStr)
-//                .def("getStr",   &ExpressionValue::get<std::string>)
-            .def("setStr",   (SetFn<std::string>::CtxType) &ExpressionValue::setT<std::string>)
-            .def("setInt",   (SetFn<int>::CtxType) &ExpressionValue::setT<int>)
-            .def("setFloat", (SetFn<float>::CtxType) &ExpressionValue::setT<float>)
-            ;
-
-//         bp::class_<FunctionInfo, std::shared_ptr<FunctionInfo>, boost::noncopyable>("", bp::no_init)
-//             .def("subject_count", &BehaviourDomain::subjectCount)
-//             ;
-#endif
-
         auto main_module = boost::python::import("__main__"); 
         auto main_namespace = main_module.attr("__dict__");
 
