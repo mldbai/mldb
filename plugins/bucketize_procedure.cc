@@ -31,6 +31,75 @@ using namespace std;
 namespace Datacratic {
 namespace MLDB {
 
+struct Step {
+    Step(const std::string & name) 
+        : name(name), started(Date::now()), percent(0)
+    {}
+    Step()
+        : started(Date::now())
+    {}
+
+    // signals that the step is completed and that the next one can start
+    std::shared_ptr<Step> nextStep() {
+        ended = Date::now();
+        percent = 1;
+        return _nextStep.lock();
+    }
+
+    std::string name;
+    Date started;
+    Date ended;
+    float percent;
+    std::weak_ptr<Step> _nextStep;
+};
+
+DEFINE_STRUCTURE_DESCRIPTION(Step);
+StepDescription::
+StepDescription()
+{
+    addField("name", &Step::name, "");
+    addField("started", &Step::started, "");
+    addField("ended", &Step::ended, "");
+    addField("percent", &Step::percent, "");
+}
+
+struct Progress {
+    Progress(){}
+    std::shared_ptr<Step> steps(std::vector<std::string> names) {
+        std::shared_ptr<Step> previousStep;
+        for (const auto & name : names) {
+            std::shared_ptr<Step> step = std::make_shared<Step>(name);
+            if (previousStep)
+                previousStep->_nextStep = step;
+            _steps.push_back(step);
+            previousStep = step;
+        }
+        return _steps.front();
+    }
+    std::vector<std::shared_ptr<Step> > _steps;
+};
+
+DEFINE_STRUCTURE_DESCRIPTION(Progress);
+ProgressDescription::
+ProgressDescription()
+{
+    addField("steps", &Progress::_steps, "");
+}
+
+struct IterationProgress {
+    IterationProgress() : percent(0)
+    {}
+    float percent;
+};
+
+DEFINE_STRUCTURE_DESCRIPTION(IterationProgress);
+
+IterationProgressDescription::
+IterationProgressDescription() 
+{
+    addField("percent", &IterationProgress::percent, "");
+}
+
 BucketizeProcedureConfig::
 BucketizeProcedureConfig()
 {
@@ -118,6 +187,8 @@ run(const ProcedureRunConfig & run,
     const std::function<bool (const Json::Value &)> & onProgress) const
 {
     auto runProcConf = applyRunConfOverProcConf(procedureConfig, run);
+    Progress bucketizeProgress;
+    std::shared_ptr<Step> iterationStep = bucketizeProgress.steps({"iterating","bucketizing"});
 
     SqlExpressionMldbContext context(server);
 
@@ -151,6 +222,12 @@ run(const ProcedureRunConfig & run,
         return true;
     };
 
+    auto onProgress2 = [&](const Json::Value & progress) {
+        IterationProgress itProgress = jsonDecode<IterationProgress>(progress);
+        iterationStep->percent = itProgress.percent;
+        return onProgress(jsonEncode(bucketizeProgress));
+    };
+
     BoundSelectQuery(select,
                      *boundDataset.dataset,
                      boundDataset.asName,
@@ -161,7 +238,7 @@ run(const ProcedureRunConfig & run,
         .execute({getSize, false/*processInParallel*/}, 
                  runProcConf.inputData.stm->offset, 
                  runProcConf.inputData.stm->limit, 
-                 onProgress);
+                 onProgress2);
 
     int64_t rowCount = orderedRowNames.size();
     logger->debug() << "Row count: " << rowCount;
@@ -172,6 +249,7 @@ run(const ProcedureRunConfig & run,
     typedef tuple<ColumnName, CellValue, Date> Cell;
     PerThreadAccumulator<vector<pair<RowName, vector<Cell> > > > accum;
 
+    auto bucketizeStep = iterationStep->nextStep();
     float bucketCount = runProcConf.percentileBuckets.size();
     unsigned int bucketIndex = 1; 
     for (const auto & mappedRange: runProcConf.percentileBuckets) {
@@ -202,11 +280,12 @@ run(const ProcedureRunConfig & run,
 
         logger->debug() << "Bucket " << mappedRange.first << " from " << lowerBound
                         << " to " << higherBound;
-        Json::Value progress;
-        progress["bucket"] = mappedRange.first;
-        progress["percent"] = bucketIndex / bucketCount;
-        onProgress(progress);
-        bucketIndex++;
+
+        if (onProgress) {
+            bucketizeStep->percent = bucketIndex / bucketCount;
+            onProgress(jsonEncode(bucketizeProgress));
+            bucketIndex++;
+        }
 
         parallelMap(lowerBound, higherBound, applyFct);
     }
