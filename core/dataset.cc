@@ -385,7 +385,7 @@ getColumnBuckets(const ColumnName & column,
 
     for (auto& v : vals) {
         if (values.insert({v,0}).second)
-            valueList.push_back(std::move(v));
+            valueList.push_back(v);
     }
 
     BucketDescriptions descriptions;
