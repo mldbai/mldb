@@ -242,6 +242,8 @@ run(const ProcedureRunConfig & run,
             return onProgress(value);
     };
 
+    checkWritability(runProcConf.modelFileUrl.toString(), "modelFileUrl");
+
     SqlExpressionMldbContext context(server);
 
     auto embeddingOutput = getEmbedding(*runProcConf.trainingData.stm, context, -1, onProgress2);

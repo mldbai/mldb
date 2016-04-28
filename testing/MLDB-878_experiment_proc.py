@@ -302,7 +302,35 @@ class Mldb878Test(MldbUnitTest):
         # performance should be comparable
         self.assertAlmostEqual(js_rez["status"]["folds"][0]["resultsTrain"]["auc"],
                                js_rez["status"]["folds"][0]["resultsTest"]["auc"], delta=0.05)
-        
+    
+
+    def test_no_cls_write_perms(self):
+        conf = {
+            "type": "classifier.experiment",
+            "params": {
+                "experimentName": "my_test_no_write",
+                "trainingData": "select {* EXCLUDING(label)} as features, label from toy",
+                "kfold": 2,
+                "modelFileUrlPattern": "file:///bouya-$runid.cls",
+                "algorithm": "glz",
+                "mode": "boolean",
+                "configuration": {
+                    "glz": {
+                        "type": "glz",
+                        "verbosity": 3,
+                        "normalize": False,
+                        "link": "linear",
+                        "ridge_regression": True
+                    }
+                },
+                "outputAccuracyDataset": False,
+                "runOnCreation": True
+            }
+        }
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
+                'Error when trying'):
+            rez = mldb.put("/v1/procedures/rocket_science", conf)
+
 
 mldb.run_tests()
 
