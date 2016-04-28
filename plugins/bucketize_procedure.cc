@@ -33,17 +33,19 @@ namespace MLDB {
 
 struct Step {
     Step(const std::string & name) 
-        : name(name), started(Date::now()), percent(0)
+        : name(name), percent(0)
     {}
     Step()
-        : started(Date::now())
     {}
 
     // signals that the step is completed and that the next one can start
     std::shared_ptr<Step> nextStep() {
         ended = Date::now();
         percent = 1;
-        return _nextStep.lock();
+        auto nextStep = _nextStep.lock();
+        if (nextStep)
+            nextStep->started = Date::now();
+        return nextStep;
     }
 
     std::string name;
@@ -74,7 +76,10 @@ struct Progress {
             _steps.push_back(step);
             previousStep = step;
         }
-        return _steps.front();
+        auto firstStep = _steps.begin();
+        if (firstStep != _steps.end())
+            (*firstStep)->started = Date::now();
+        return *firstStep;
     }
     std::vector<std::shared_ptr<Step> > _steps;
 };
