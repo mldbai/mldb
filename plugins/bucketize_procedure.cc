@@ -172,6 +172,8 @@ run(const ProcedureRunConfig & run,
     typedef tuple<ColumnName, CellValue, Date> Cell;
     PerThreadAccumulator<vector<pair<RowName, vector<Cell> > > > accum;
 
+    float bucketCount = runProcConf.percentileBuckets.size();
+    unsigned int bucketIndex = 1; 
     for (const auto & mappedRange: runProcConf.percentileBuckets) {
         std::vector<Cell> rowValue;
         rowValue.emplace_back(ColumnName("bucket"),
@@ -200,6 +202,11 @@ run(const ProcedureRunConfig & run,
 
         logger->debug() << "Bucket " << mappedRange.first << " from " << lowerBound
                         << " to " << higherBound;
+        Json::Value progress;
+        progress["bucket"] = mappedRange.first;
+        progress["percent"] = bucketIndex / bucketCount;
+        onProgress(progress);
+        bucketIndex++;
 
         parallelMap(lowerBound, higherBound, applyFct);
     }

@@ -162,6 +162,10 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                         if (!doRow(it))
                             return false;
                     }
+                    Json::Value progress;
+                    progress["bucket"] = bucketNumber;
+                    progress["percent"] = bucketNumber / numBuckets;
+                    onProgress(progress);
                     return true;
                 };
 
@@ -255,6 +259,10 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                     if (!processor(std::get<0>(output), std::get<1>(output), bucketNumber))
                         return false;
                 }
+                Json::Value progress;
+                progress["bucket"] = bucketNumber;
+                progress["percent"] = bucketNumber / effectiveNumBucket;
+                onProgress(progress);
                 return true;
             };
 
@@ -379,8 +387,13 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
 
                 auto row = matrix->getRow(rows[rowNum]);
 
-                //if (rowNum % 1000 == 0)
-                //    cerr << "applying row " << rowNum << " of " << rows.size() << endl;
+                if (rowNum % 1000 == 0) {
+                    //    cerr << "applying row " << rowNum << " of " << rows.size() << endl;
+                    Json::Value progress;
+                    progress["bucket"] = rowNum;
+                    progress["percent"] = rowNum / rows.size();
+                    onProgress(progress);
+                }
 
                 // Check it matches the where expression.  If not, we don't process
                 // it.
