@@ -3471,7 +3471,7 @@ bind(SqlBindingScope & scope) const
             if (filter == GET_ALL)
                 return storage = allColumns.exec(scope);
             else {
-                ExpressionValue expr =  std::move(allColumns.exec(scope));
+                ExpressionValue expr = allColumns.exec(scope);
                 return storage = expr.getFilteredDestructive(filter);
             }
         };

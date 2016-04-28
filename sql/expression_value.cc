@@ -1410,6 +1410,76 @@ struct ExpressionValue::Embedding {
     }
 };
 
+struct ExpressionValue::Superposition {
+    std::vector<ExpressionValue> values;
+
+    ExpressionValue latest() const
+    {
+        throw HttpReturnException(600, __PRETTY_FUNCTION__);
+    }
+
+    ExpressionValue earliest() const
+    {
+        throw HttpReturnException(600, __PRETTY_FUNCTION__);
+    }
+
+    size_t length() const
+    {
+        throw HttpReturnException(600, __PRETTY_FUNCTION__);
+    }
+
+    CellValue getValue(size_t n) const
+    {
+        throw HttpReturnException(600, __PRETTY_FUNCTION__);
+    }
+
+    const ExpressionValue *
+    tryGetNestedColumn(const Coords & column, ExpressionValue & storage,
+                       Date ts) const
+    {
+        throw HttpReturnException(600, __PRETTY_FUNCTION__);
+    }
+
+    bool forEachValue(std::function<bool (const std::vector<int> & indexes,
+                                          CellValue & val)> onVal) const
+    {
+        throw HttpReturnException(600, __PRETTY_FUNCTION__);
+    }
+
+    bool forEachAtom(std::function<bool (ColumnName & col,
+                                         CellValue & val)> onColumn) const
+    {
+        throw HttpReturnException(600, __PRETTY_FUNCTION__);
+    }
+
+    bool forEachColumn(std::function<bool (Coord & col,
+                                           ExpressionValue & val)> onColumn,
+                       Date ts) const
+    {
+        throw HttpReturnException(600, __PRETTY_FUNCTION__);
+    }
+
+    /** Write the value, including metadata and encoding types, to JSON for
+        more efficient deserialization.
+    */
+    void writeJson(JsonPrintingContext & context) const
+    {
+        throw HttpReturnException(600, __PRETTY_FUNCTION__);
+    }
+
+    /** Print only the value, not the metadata, as JSON. */
+    void extractJson(JsonPrintingContext & context) const
+    {
+        throw HttpReturnException(600, __PRETTY_FUNCTION__);
+    }
+
+    std::shared_ptr<ExpressionValueInfo>
+    getSpecializedValueInfo() const
+    {
+        throw HttpReturnException(600, __PRETTY_FUNCTION__);
+    }
+};
+
 
 static_assert(sizeof(CellValue) <= 24, "CellValue is too big to fit");
 static_assert(sizeof(ExpressionValue::Structured) <= 24, "Structured is too big to fit");
@@ -1694,12 +1764,14 @@ ExpressionValue::
     typedef std::shared_ptr<const Structured> StructuredRepr;
     typedef std::shared_ptr<const Flattened> FlattenedRepr;
     typedef std::shared_ptr<const Embedding> EmbeddingRepr;
+    typedef std::shared_ptr<const Superposition> SuperpositionRepr;
 
     switch (type_) {
     case Type::NONE: return;
     case Type::ATOM: cell_.~CellValue();  return;
     case Type::STRUCTURED:  structured_.~StructuredRepr();  return;
     case Type::EMBEDDING: embedding_.~EmbeddingRepr();  return;
+    case Type::SUPERPOSITION: superposition_.~SuperpositionRepr();  return;
     }
     throw HttpReturnException(400, "Unknown expression value type");
 }
@@ -1718,6 +1790,12 @@ ExpressionValue(const ExpressionValue & other)
         type_ = Type::EMBEDDING;
         return;
     }
+    case Type::SUPERPOSITION: {
+        ts_ = other.ts_;
+        new (storage_) std::shared_ptr<const Superposition>(other.superposition_);
+        type_ = Type::SUPERPOSITION;
+        return;
+    }
     }
     throw HttpReturnException(400, "Unknown expression value type");
 }
@@ -1734,6 +1812,7 @@ ExpressionValue(ExpressionValue && other) noexcept
     case Type::ATOM: new (storage_) CellValue(std::move(other.cell_));  return;
     case Type::STRUCTURED:  new (storage_) std::shared_ptr<const Structured>(std::move(other.structured_));  return;
     case Type::EMBEDDING: new (storage_) std::shared_ptr<const Embedding>(std::move(other.embedding_));  return;
+    case Type::SUPERPOSITION: new (storage_) std::shared_ptr<const Superposition>(std::move(other.superposition_));  return;
     }
     throw HttpReturnException(400, "Unknown expression value type");
 }
@@ -1982,6 +2061,8 @@ isTrue() const
         return !structured_->empty();
     case Type::EMBEDDING:
         return embedding_->length();
+    case Type::SUPERPOSITION:
+        return superposition_->latest().isTrue();
     }
 
     throw HttpReturnException(500, "Unknown expression value type");
@@ -2000,6 +2081,8 @@ isFalse() const
         return structured_->empty();
     case Type::EMBEDDING:
         return embedding_->length();
+    case Type::SUPERPOSITION:
+        return superposition_->latest().isFalse();
     }
 
     throw HttpReturnException(500, "Unknown expression value type");
@@ -2107,6 +2190,16 @@ ExpressionValue::
 isRow() const
 {
     return type_ == Type::STRUCTURED || type_ == Type::EMBEDDING;
+}
+
+bool
+ExpressionValue::
+isSuperposition() const
+{
+    //return type_ == Type::SUPERPOSITION;
+    return type_ == Type::STRUCTURED
+        && structured_->size() > 0
+        && std::get<0>(structured_->at(0)).empty();
 }
 
 bool
@@ -2356,6 +2449,9 @@ tryGetColumn(const Coord & columnName,
     case Type::EMBEDDING: {
         return embedding_->tryGetNestedColumn(columnName, storage, ts_);
     }
+    case Type::SUPERPOSITION: {
+        return superposition_->tryGetNestedColumn(columnName, storage, ts_);
+    }
     case Type::NONE:
     case Type::ATOM:
         return nullptr;
@@ -2419,6 +2515,9 @@ tryGetNestedColumn(const ColumnName & columnName,
     case Type::EMBEDDING: {
         return embedding_->tryGetNestedColumn(columnName, storage, ts_);
     }
+    case Type::SUPERPOSITION: {
+        return superposition_->tryGetNestedColumn(columnName, storage, ts_);
+    }
     case Type::NONE:
     case Type::ATOM:
         return nullptr;
@@ -2451,6 +2550,8 @@ getEmbeddingShape() const
         return { structured_->size() };
     case Type::EMBEDDING:
         return embedding_->dims_;
+    case Type::SUPERPOSITION:
+        return superposition_->latest().getEmbeddingShape();
     }
 
     throw HttpReturnException(500, "Unknown storage type for getEmbeddingShape()");
@@ -2465,6 +2566,8 @@ reshape(std::vector<size_t> newShape) const
     case Type::ATOM:
     case Type::STRUCTURED:
         throw HttpReturnException(500, "Cannot reshape non-embedding");
+    case Type::SUPERPOSITION:
+        return superposition_->latest().reshape(newShape);
     case Type::EMBEDDING: {
         size_t totalLength = 1;
         for (auto & s: newShape)
@@ -2692,6 +2795,8 @@ getEmbedding(const ColumnName * knownNames, size_t len) const
     case Type::NONE:
     case Type::ATOM:
         throw HttpReturnException(400, "Cannot extract embedding from atom");
+    case Type::SUPERPOSITION:
+        return superposition_->latest().getEmbedding(knownNames, len);
     }
 
     return features;
@@ -2711,6 +2816,9 @@ getEmbeddingCell(ssize_t knownLength) const
         for (size_t i = 0;  i < len;  ++i)
             result.emplace_back(embedding_->getValue(i));
         return result;
+    }
+    else if (type_ == Type::SUPERPOSITION) {
+        return superposition_->latest().getEmbeddingCell(knownLength);
     }
 
     throw HttpReturnException(500, "getEmbeddingCell called for non-embedding");
@@ -2843,6 +2951,7 @@ appendToRowDestructive(ColumnName & columnName, RowValue & row)
         return;
     case Type::STRUCTURED:
     case Type::EMBEDDING:
+    case Type::SUPERPOSITION:
         if (row.capacity() == 0)
             row.reserve(rowLength());
         else if (row.capacity() < row.size() + rowLength())
@@ -2891,6 +3000,9 @@ rowLength() const
     }
     else if (type_ == Type::EMBEDDING) {
         return embedding_->length();
+    }
+    else if (type_ == Type::SUPERPOSITION) {
+        return superposition_->length();
     }
     else throw HttpReturnException(500, "Attempt to access non-row as row",
                                    "value", *this);
@@ -2966,6 +3078,14 @@ forEachAtom(const std::function<bool (const Coords & columnName,
         
         return embedding_->forEachAtom(onCol);
     }
+    case Type::SUPERPOSITION: {
+        auto onCol = [&] (ColumnName & columnName, CellValue & val)
+            {
+                return onAtom(columnName, prefix, val, ts_);
+            };
+        
+        return superposition_->forEachAtom(onCol);
+    }
     case Type::NONE: {
         return onAtom(Coords(), prefix, CellValue(), ts_);
     }
@@ -2995,6 +3115,9 @@ forEachColumn(const std::function<bool (const Coord & columnName,
         return true;
     }
     case Type::EMBEDDING: {
+        return embedding_->forEachColumn(onColumn, ts_);
+    }
+    case Type::SUPERPOSITION: {
         return embedding_->forEachColumn(onColumn, ts_);
     }
     case Type::NONE:
@@ -3056,6 +3179,14 @@ forEachColumnDestructiveT(Fn && onColumn) const
             };
         
         return embedding_->forEachColumn(onCol, ts_);
+    }
+    case Type::SUPERPOSITION: {
+        auto onCol = [&] (Coord & columnName, ExpressionValue & val)
+            {
+                return onColumn(columnName, val);
+            };
+        
+        return superposition_->forEachColumn(onCol, ts_);
     }
     case Type::NONE:
     case Type::ATOM:
@@ -3130,6 +3261,14 @@ forEachAtomDestructiveT(Fn && onAtom)
         
         return embedding_->forEachAtom(onCol);
     }
+    case Type::SUPERPOSITION: {
+        auto onCol = [&] (Coords & columnName, CellValue & val)
+            {
+                return onAtom(columnName, val, ts_);
+            };
+        
+        return superposition_->forEachAtom(onCol);
+    }
     case Type::NONE: {
         Coords name;
         CellValue val;
@@ -3146,6 +3285,57 @@ forEachAtomDestructiveT(Fn && onAtom)
                               "type", (int)type_);
 }
 
+bool
+ExpressionValue::
+forEachSuperposedValue(const std::function<bool (const ExpressionValue & val)> & onValue) const
+{
+    switch (type_) {
+    case Type::STRUCTURED: {
+
+        // First, iterate through all the superposed values (with an empty
+        // column name).
+        size_t numAtoms = 0;
+        StructValue nonAtoms;
+        auto onColumn = [&] (const Coord & columnName,
+                             const ExpressionValue & val)
+            {
+                if (!columnName.empty()) {
+                    nonAtoms.emplace_back(columnName, val);
+                    return true;
+                }
+                ++numAtoms;
+                return onValue(val);
+            };
+
+        if (!forEachColumn(onColumn))
+            return false;
+
+        if (!nonAtoms.empty()) {
+            // Secondly, return the non-atoms which are in their own row
+            // valued object.
+            return onValue(std::move(nonAtoms));
+        }
+        
+        return true;
+    }
+    case Type::NONE:
+        return true;
+    case Type::EMBEDDING:
+    case Type::ATOM:
+        return onValue(*this);
+    case Type::SUPERPOSITION:
+        for (auto & v: superposition_->values) {
+            if (!onValue(v))
+                return false;
+            return true;
+        }
+    }
+        
+    throw HttpReturnException(500, "Unknown expression type",
+                              "expression", *this,
+                              "type", (int)type_);
+}
+
 // Remove any duplicated columns according to the filter
 const ExpressionValue &
 ExpressionValue::
@@ -3154,6 +3344,19 @@ getFiltered(const VariableFilter & filter,
 {
     if (filter == GET_ALL || empty() || isAtom() || type_ == Type::EMBEDDING)
         return storage = *this;
+
+    if (type_ == Type::SUPERPOSITION) {
+        switch (filter) {
+        case GET_ANY_ONE:
+            return superposition_->values[0];
+        case GET_EARLIEST:
+            return superposition_->earliest();
+        case GET_LATEST:
+            return superposition_->latest();
+        case GET_ALL:
+            assert(false);  // can't happen
+        }
+    }
 
     // This accumulates everything that's an atom, ie a straight atom or
     // elements of a superposition.
@@ -3211,6 +3414,19 @@ getFilteredDestructive(const VariableFilter & filter)
 {
     if (filter == GET_ALL || empty() || isAtom() || type_ == Type::EMBEDDING)
         return std::move(*this);
+
+    if (type_ == Type::SUPERPOSITION) {
+        switch (filter) {
+        case GET_ANY_ONE:
+            return superposition_->values[0];
+        case GET_EARLIEST:
+            return superposition_->earliest();
+        case GET_LATEST:
+            return superposition_->latest();
+        case GET_ALL:
+            assert(false);  // can't happen
+        }
+    }
 
     // This accumulates everything that's an atom, ie a straight atom or
     // elements of a superposition.
@@ -3408,6 +3624,7 @@ hasKey(const Utf8String & key) const
     case Type::ATOM:
         return { false, Date::negativeInfinity() };
     case Type::STRUCTURED: 
+    case Type::SUPERPOSITION: 
     case Type::EMBEDDING: {
         // TODO: for Embedding, we can do much, much better
         Date outputDate = Date::negativeInfinity();
@@ -3460,6 +3677,7 @@ hasValue(const ExpressionValue & val) const
     case Type::ATOM:
         return { false, Date::negativeInfinity() };
     case Type::STRUCTURED: 
+    case Type::SUPERPOSITION: 
     case Type::EMBEDDING: {
         // TODO: for embedding, we can do much, much better
         Date outputDate = Date::negativeInfinity();
@@ -3496,6 +3714,7 @@ hash() const
         return cell_.hash();
     case Type::STRUCTURED:
     case Type::EMBEDDING:
+    case Type::SUPERPOSITION:
         // TODO: a more reasonable speed in hashing
         return jsonHash(jsonEncode(*this));
     }
@@ -3544,12 +3763,17 @@ initStructured(Structured value) noexcept
                  ++j);
 
             if (i == 0 && j == value.size()) {
-                // All have the same key.  We have one single element as a
-                // superposition.  If we continue, we'll get into an infinite
-                // loop.
-                value.swap(newValue);  // it will be swapped back...
-                break;
+                const Coord & key = std::get<0>(value[i]);
+
+                if (key.empty()) {
+                    // All have the same key.  We have one single element as a
+                    // superposition.  If we continue, we'll get into an infinite
+                    // loop.
+                    value.swap(newValue);  // it will be swapped back...
+                    break;
+                }
             }
+
 
             if (j == i + 1) {
                 newValue.emplace_back(std::move(value[i]));
@@ -3633,6 +3857,8 @@ coerceToAtom() const
     case Type::EMBEDDING:
         ExcAssertEqual(embedding_->length(), 1);
         return embedding_->getValue(0);
+    case Type::SUPERPOSITION:
+        return superposition_->values[0].getAtom();
     }
 
     throw HttpReturnException(500, "coerceToAtom: unknown expression type");
@@ -3767,6 +3993,7 @@ compare(const ExpressionValue & other) const
         auto rightRow = other.getStructured();
         return ML::compare_sorted(leftRow, rightRow, ML::compare<Structured>());
     }
+    case Type::SUPERPOSITION:
     case Type::EMBEDDING: {
         return compare_t<vector<pair<ColumnName, CellValue> >, ML::compare>(*this, other);
     }
@@ -3789,6 +4016,7 @@ operator == (const ExpressionValue & other) const
         auto rightRow = other.getStructured();
         return ML::compare_sorted(leftRow, rightRow, std::equal_to<Structured>());
     }
+    case Type::SUPERPOSITION:
     case Type::EMBEDDING: {
         return compare_t<vector<pair<ColumnName, CellValue> >, equal_to>(*this, other);
     }
@@ -3813,6 +4041,7 @@ operator <  (const ExpressionValue & other) const
         auto rightRow = other.getStructured();
         return ML::compare_sorted(leftRow, rightRow, std::less<Structured>());
     }
+    case Type::SUPERPOSITION:
     case Type::EMBEDDING: {
         return compare_t<vector<pair<ColumnName, CellValue> >, less>(*this, other);
     }
@@ -3834,6 +4063,8 @@ getSpecializedValueInfo() const
         // TODO: specialize for concrete value.  Currently we just say
         // "it's a row with some values we don't know about yet"
         return std::make_shared<RowValueInfo>(vector<KnownColumn>(), SCHEMA_OPEN);
+    case Type::SUPERPOSITION:
+        return superposition_->getSpecializedValueInfo();
     case Type::EMBEDDING:
         return embedding_->getSpecializedValueInfo();
     }
@@ -3910,8 +4141,12 @@ extractJson(JsonPrintingContext & context) const
 
         return;
     }
+    case ExpressionValue::Type::SUPERPOSITION:
+        superposition_->extractJson(context);
+        return;
     case ExpressionValue::Type::EMBEDDING: {
         embedding_->extractJson(context);
+        return;
     }
     }
     throw HttpReturnException(400, "unknown ExpressionValue type");
@@ -4051,6 +4286,9 @@ printJsonTyped(const ExpressionValue * val,
     case ExpressionValue::Type::STRUCTURED:
         structuredDesc->printJsonTyped(val->structured_.get(), context);
         return;
+    case ExpressionValue::Type::SUPERPOSITION:
+        val->superposition_->writeJson(context);
+        return;
     case ExpressionValue::Type::EMBEDDING: {
         val->embedding_->writeJson(context);
         return;
@@ -4075,6 +4313,7 @@ print(Type t)
     case Type::ATOM:      return "atomic value";
     case Type::STRUCTURED:       return "structured";
     case Type::EMBEDDING: return "embedding";
+    case Type::SUPERPOSITION: return "superposition";
     default:
         throw HttpReturnException(400, "Unknown ExpressionValue type: "
                                   + std::to_string((int)t));

@@ -181,7 +181,8 @@ struct ExpressionValueInfo {
     /// contexts, for example to generate a row.
     virtual bool isScalar() const = 0;
 
-    /// Is this a value description for a row?
+    /// Is this a value description for a row?  This includes a normal row
+    /// and a superposition.
     virtual bool isRow() const;
 
     static std::shared_ptr<RowValueInfo>
@@ -636,8 +637,7 @@ struct ExpressionValue {
         Note that multiple atomic values will be represented in a row with
         empty keys.
     */
-    static ExpressionValue
-    superpose(std::vector<ExpressionValue> vals);
+    static ExpressionValue superpose(std::vector<ExpressionValue> vals);
 
     //Construct from a m/d/s time interval
     static ExpressionValue
@@ -700,6 +700,10 @@ struct ExpressionValue {
     bool isAtom() const;
 
     bool isRow() const;
+
+    /// Is this a superposition?  Meaning that there are multiple values
+    /// superposed.
+    bool isSuperposition() const;
 
     bool isEmbedding() const;
 
@@ -848,7 +852,6 @@ struct ExpressionValue {
         (const std::function<bool (Coord & columnName, ExpressionValue & val)>
          & onColumn) const;
 
-
     /** Iterate over the flattened representation. */
     bool forEachAtom(const std::function<bool (const Coords & columnName,
                                                const Coords & prefix,
@@ -864,6 +867,16 @@ struct ExpressionValue {
     bool forEachAtomDestructive(const std::function<bool (Coords & columnName,
                                                           CellValue & val,
                                                           Date ts) > & onAtom);
+
+
+    /** Iterate over each superposed value.  This occurs only when there is more
+        than one value in the ExpressionValue, for example when it has different
+        values at different points in time.
+
+        If it's not a superposition, then only the one value is returned.
+    */
+    bool forEachSuperposedValue
+        (const std::function<bool (const ExpressionValue & val)> & onValue) const;
 
     /** For a row (structured) storage, returns the number of elements
         that are in it.  Note that this is the non-flattened version,
@@ -1007,7 +1020,8 @@ private:
         NONE,        ///< Expression is empty or not initialized yet.  Shouldn't be exposed to user.
         ATOM,        ///< Expression is an atom (CellValue), including null
         STRUCTURED,  ///< Expression is a structured, ie a destructured complex type with independent timestamps
-        EMBEDDING    ///< Uniform typed n-dimensional array of atoms
+        EMBEDDING,    ///< Uniform typed n-dimensional array of atoms
+        SUPERPOSITION ///< Multiple values of the same thing
     };
 
     Type type_;
@@ -1023,6 +1037,10 @@ private:
     /// uniform data type.
     struct Embedding;
 
+    /// This is how we store superposed values, which is multiple values
+    /// of the same variable, possibly at different time points
+    struct Superposition;
+
     /// This is where the underlying values are actually stored
     union {
         uint64_t storage_[2];
@@ -1030,6 +1048,7 @@ private:
         std::shared_ptr<const Structured> structured_;
         std::shared_ptr<const Flattened> flattened_;
         std::shared_ptr<const Embedding> embedding_;
+        std::shared_ptr<const Superposition> superposition_;
     };
     Date ts_;   ///< Nominal timestamp that the information was known
 
