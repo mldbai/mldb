@@ -21,12 +21,16 @@ def assert_fail(qry):
 # problem was a modulus by 0
 assert_fail('select CAST (61971-71%0 AS timestamp)')
 assert_fail('select CAST (61971-7%-0 AS timestamp)')
+
 # this was a bug of precedence - operator % has higher precedence than IN
 # so this expression evaluates to (1%2) IN (4) = 1 IN (4) = false
 # and NOT 1 % (2 IN (4)) = 1 % false = 1 % 0
 mldb.log(mldb.get('/v1/query', q='select 1 % 2IN (4)'))
-# MLDBFB-504 - this should not succeed
+
+# the double dash is starting a comment
+# this is equivalent to select 01
 mldb.log(mldb.get('/v1/query', q='select 01--1%0e83^ 2 + (9)'))
+
 # this was a bug of precedence - this expression is evaluated as
 # 2 IN (-(1%1)-11, 1 IN (21%1,11), (1%1)%1 IN (31%1,11), (1%1)<(1%1), 11)
 # = 2 IN (-12, True, True, False, 11)
