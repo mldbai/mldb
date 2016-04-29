@@ -98,29 +98,33 @@ when a generic classification step is required.
 
 ![](%%jmlclassifier decision_tree)
 
-#### Parameter update_alg
+#### Parameter `update_alg`
 The parameter update_alg can take three different values: normal, gentle and prob.
-Here is how they work. We'll work with a leaf node that contains 8 positives
-and 2 negatives labels.
+'normal' and 'gentle' are described in more details in this 
+[paper](http://projecteuclid.org/download/pdf_1/euclid.aos/1016218223)
+Here is how they work. We'll work with a leaf node that contains 8 positive
+and 2 negative labels.
 
 ##### prob
-It is the proportion of positive class, so simply #pos/(#pos + #neg).
-8/10=0.8
+It is the proportion of positive classes, so simply \\(\#pos/(\#pos + \#neg)\\)
+
+$$8/10=0.8$$
 
 ##### normal
 It uses the margin between both probabilities, 80% positives, 20% negatives.
-0.8 - 0.2 = 0.6 and 1 - 0.6 = 0.4
+\\(0.8 - 0.2 = 0.6\\) and \\(1 - 0.6 = 0.4\\)
 
-Those scores are fed to a function, f, of the exponential family, and output
-f(0.6) - f(0.4)
+Those scores are fed to a function, $$f$$, of the exponential family, and output
+
+$$f(0.6) - f(0.4)$$
 
 The output of f is unbounded and will return a score between -infinity and +infinity.
 
 ##### gentle
 Also uses the margin, but with a different function, g, bounded between -1 and 1.
-In an ensemble it is recommended to use this value.
+In an ensemble, such as boosting or random forest, it is recommended to use this value.
 
-g(0.6) - g(0.4)
+$$g(0.6) - g(0.4)$$
 
 ### Generalized Linear Models (type=glz)
 
