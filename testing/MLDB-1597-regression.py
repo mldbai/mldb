@@ -1,8 +1,4 @@
-
 # This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
-
-
-
 
 import unittest
 
@@ -10,16 +6,13 @@ mldb = mldb_wrapper.wrap(mldb) # noqa
 
 class Mldb1597Test(MldbUnitTest):  
 
-    def test_sequence(self):
-
-        # BUG: this procedure should give the same results with or without
-        # the headers line
-
+    @classmethod
+    def setUpClass(cls):
+        
         mldb.post("/v1/procedures", {
             "type": "import.text",
             "params":{
                 "dataFileUrl": "http://public.mldb.ai/regression_test.csv.gz",
-                #"headers": ["day","a_int","b_1","b_2","c_1","c_2","d_1","d_2","e_1","e_2"],
                 "select": """
                     'd'+date_part('dow', timestamp(jseval('return new Date(d);', 'd', day))) as dow,
                     a_int,
@@ -30,19 +23,70 @@ class Mldb1597Test(MldbUnitTest):
                     c_1+c_2-d_1-d_2 as p, 
                     1-(d_1+d_2-c_2)/c_1 as r
                 """,
+                "limit" : 100,
                 "outputDataset": {"id":"ds", "type":"tabular"},
                 "runOnCreation": True
             }
         })
 
-        # BUG: the commented-out clause should not cause a problem
+    def test_operator_precedence(self):
+        self.assertTableResultEquals(
+            mldb.query("select (4/2) between 0 and 1 as boolean"),
+            [ [ "_rowName",  "boolean"],
+              [ "result", False] ])
 
+        self.assertTableResultEquals(
+            mldb.query("select 4/2 between 0 and 1 as boolean"),
+            [ [ "_rowName",  "boolean"],
+              [ "result", False] ])
+
+        self.assertTableResultEquals(
+            mldb.query("select (4/2) between 0 and 5 as boolean"),
+            [ [ "_rowName",  "boolean"],
+              [ "result", True] ])
+
+        self.assertTableResultEquals(
+            mldb.query("select 4/2 between 0 and 5 as boolean"),
+            [ [ "_rowName",  "boolean"],
+              [ "result", True] ])
+
+        # the division should be performed before the between
+        # this was throwing an exception before
         mldb.query("""
         select count(*) from ds group by dow
-        --having sum(c)/sum(d) between -1 and 1
+        having sum(c)/sum(d) between -1 and 1
         """)
 
-        # BUG: the commented-out clause should not cause a segfault
+        # the negation should be taken before the in operation
+        resp1 = mldb.query("""
+        select * from ds where r in (-nan) limit 1
+        """)
+        mldb.log(resp1)
+
+        resp2 = mldb.query("""
+        select * from ds where -nan in (r) limit 1
+        """)
+        self.assertEqual(resp1, resp2)
+
+        resp1 = mldb.query("""
+        select * from ds where r in (-inf) limit 1
+        """)
+        mldb.log(resp1)
+
+        resp2 = mldb.query("""
+        select * from ds where -inf in (r) limit 1
+        """)
+        self.assertEqual(resp1, resp2)
+
+    @unittest.skip("awaiting MLDB-1500")
+    def test_order_by_with_aggregate(self):
+        mldb.query("""
+        select 
+            sum(c) as s
+        from ds 
+        group by dow
+        order by sum(income)
+        """)
 
         mldb.query("""
         select 
@@ -50,27 +94,11 @@ class Mldb1597Test(MldbUnitTest):
             sum(c - d) as p
         from ds 
         group by dow
-        --order by 1-(0.001+sum(cost))/(0.001+sum(income)) --this is the culprit
+        order by 1-(0.001+sum(cost))/(0.001+sum(income))
         """)
-
-        # BUG: theses calls should all return a bunch of rows, just like the one after
-
-        mldb.query("""
-        select * from ds where r in (-nan)
-        """)
-
-        mldb.query("""
-        select * from ds where -nan in (r)
-        """)
-
-        mldb.query("""
-        select * from ds where r in (-inf)
-        """)
-
-        mldb.query("""
-        select * from ds where -inf in (r)
-        """)
-
+        
+    @unittest.skip("test")
+    def test_remaining(self):
         # setup
         mldb.post("/v1/procedures", {
                 "type": "transform",
