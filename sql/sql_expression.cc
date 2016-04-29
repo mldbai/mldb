@@ -1966,7 +1966,8 @@ parse(ML::Parse_Context & context, bool allowUtf8)
 {
     ML::Parse_Context::Hold_Token capture(context);
 
-    if (matchKeyword(context, "COLUMN EXPR (")) {
+    if (matchKeyword(context, "COLUMN EXPR (")
+        || matchKeyword(context, "COLUMN EXPR(")) {
         
         // Components
         // - select: value to select as column; row expression
