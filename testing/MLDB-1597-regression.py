@@ -1,8 +1,4 @@
-
 # This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
-
-
-
 
 import unittest
 
@@ -33,7 +29,6 @@ class Mldb1597Test(MldbUnitTest):
             }
         })
 
-
     def test_operator_precedence(self):
         self.assertTableResultEquals(
             mldb.query("select (4/2) between 0 and 1 as boolean"),
@@ -62,9 +57,36 @@ class Mldb1597Test(MldbUnitTest):
         having sum(c)/sum(d) between -1 and 1
         """)
 
-    @unittest.skip("test")
-    def test_remaining(self):
-        # BUG: the commented-out clause should not cause a segfault
+        # the negation should be taken before the in operation
+        resp1 = mldb.query("""
+        select * from ds where r in (-nan) limit 1
+        """)
+        mldb.log(resp1)
+
+        resp2 = mldb.query("""
+        select * from ds where -nan in (r) limit 1
+        """)
+        self.assertEqual(resp1, resp2)
+
+        resp1 = mldb.query("""
+        select * from ds where r in (-inf) limit 1
+        """)
+        mldb.log(resp1)
+
+        resp2 = mldb.query("""
+        select * from ds where -inf in (r) limit 1
+        """)
+        self.assertEqual(resp1, resp2)
+
+    @unittest.skip("awaiting MLDB-1500")
+    def test_order_by_with_aggregate(self):
+        mldb.query("""
+        select 
+            sum(c) as s
+        from ds 
+        group by dow
+        order by sum(income)
+        """)
 
         mldb.query("""
         select 
@@ -72,27 +94,11 @@ class Mldb1597Test(MldbUnitTest):
             sum(c - d) as p
         from ds 
         group by dow
-        --order by 1-(0.001+sum(cost))/(0.001+sum(income)) --this is the culprit
+        order by 1-(0.001+sum(cost))/(0.001+sum(income))
         """)
-
-        # BUG: theses calls should all return a bunch of rows, just like the one after
-
-        mldb.query("""
-        select * from ds where r in (-nan)
-        """)
-
-        mldb.query("""
-        select * from ds where -nan in (r)
-        """)
-
-        mldb.query("""
-        select * from ds where r in (-inf)
-        """)
-
-        mldb.query("""
-        select * from ds where -inf in (r)
-        """)
-
+        
+    @unittest.skip("test")
+    def test_remaining(self):
         # setup
         mldb.post("/v1/procedures", {
                 "type": "transform",
