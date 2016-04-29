@@ -148,6 +148,7 @@ $(eval $(call mldb_unit_test,MLDB-704-jseval-row.js))
 $(eval $(call mldb_unit_test,MLDB-723-jseval-exceptions.js))
 $(eval $(call mldb_unit_test,MLDB-761-sub-queries.py))
 $(eval $(call mldb_unit_test,MLDB-565-classifier-details.js))
+$(eval $(call mldb_unit_test,MLDB-1597-regression.py))
 $(eval $(call mldb_unit_test,MLDB-749-csv-dataset.js))
 $(eval $(call mldb_unit_test,MLDB-702-row-aggregators.py))
 $(eval $(call mldb_unit_test,MLDB-770-group-by-parsing.js))
@@ -346,4 +347,4 @@ $(eval $(call mldb_unit_test,MLDB-1563-keys-values-of.js))
 
 $(eval $(call test,MLDB-1360-sparse-mutable-multithreaded-insert,mldb,boost))
 $(eval $(call mldb_unit_test,MLDBFB-440_error_on_ds_wo_cols.py))
-
+$(eval $(call mldb_unit_test,MLDB-1355-explain-bad-alloc.js))

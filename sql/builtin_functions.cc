@@ -2592,6 +2592,7 @@ BoundFunction static_known_columns(const std::vector<BoundSqlExpression> & args)
 
     ExpressionValue result(jsonEncode(cols), ts);
 
+
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
@@ -2600,10 +2601,28 @@ BoundFunction static_known_columns(const std::vector<BoundSqlExpression> & args)
             },
             outputInfo
         };
-}
+}            
 
 static RegisterBuiltin
 registerStaticKnownColumns(static_known_columns, "static_known_columns");
+
+// Test function that fails due to a std::bad_alloc on memory allocation
+BoundFunction fail_memory_allocation(const std::vector<BoundSqlExpression> & args)
+{
+    // Return the result indexed on a single dimension
+    auto outputInfo = std::make_shared<UnknownRowValueInfo>();
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                throw std::bad_alloc();
+            },
+            outputInfo
+        };
+}
+
+static RegisterBuiltin
+registerFailMemoryAllocation(fail_memory_allocation, "_fail_memory_allocation");
 
 
 } // namespace Builtins
