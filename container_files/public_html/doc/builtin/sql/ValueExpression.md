@@ -387,6 +387,7 @@ expression|result
 - `replace_inf(x, y)`: replace all Inf in x by y.
 - `binomial_lb_80(trials, successes)` returns the 80% lower bound using the Wilson score.
 - `binomial_ub_80(trials, successes)` returns the 80% upper bound using the Wilson score.
+- `clamp(x,lower,upper)` will clamp the value 'x' between the lower and upper bounds.
 
 More details on the [Binomial proportion confidence interval Wikipedia page](https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval).
 
