@@ -32,6 +32,7 @@
 #include "mldb/plugins/sql_config_validator.h"
 #include "mldb/plugins/sql_expression_extractors.h"
 #include "mldb/server/parallel_merge_sort.h"
+#include <array>
 
 using namespace std;
 
@@ -397,20 +398,19 @@ runRegression(AccuracyConfig & runAccuracyConf,
                BoundSelectQuery & selectQuery,
                std::shared_ptr<Dataset> output)
 {
-
     /* Calculate the r-squared. */
     struct ThreadStats {
         ThreadStats() :
-            sum_vsq(0), sum_v(0), sum_lsq(0), sum_l(0),
-            sum_vl(0), mse_sum(0), n(0)
+            mse_sum(0), n(0)
         {}
 
         void increment(double v, double l) {
-            sum_vsq += v*v;  sum_v += v;
-            sum_lsq += l*l;  sum_l += l;
-            sum_vl  += v*l;
+            if (!finite(v)) return;
+
             mse_sum += pow(v-l, 2);
             absolute_percentage.push_back(abs( (v-l)/l ));
+
+            values.push_back({v, l});
             n++;
         }
 
@@ -428,9 +428,10 @@ runRegression(AccuracyConfig & runAccuracyConf,
                                t1.absolute_percentage.end());
         }
 
-        double sum_vsq, sum_v, sum_lsq, sum_l, sum_vl, mse_sum;
+        double mse_sum;
         int n;
         ML::distribution<double> absolute_percentage;
+        vector<std::array<double, 2>> values;
     };
 
     PerThreadAccumulator<ThreadStats> accum;
@@ -439,7 +440,7 @@ runRegression(AccuracyConfig & runAccuracyConf,
     Date recordDate = Date::now();
 
     auto processor = [&] (NamedRowValue & row,
-                           const std::vector<ExpressionValue> & scoreLabelWeight)
+                          const std::vector<ExpressionValue> & scoreLabelWeight)
         {
             double score = scoreLabelWeight[0].toDouble();
             double label = scoreLabelWeight[1].toDouble();
@@ -479,29 +480,47 @@ runRegression(AccuracyConfig & runAccuracyConf,
     }
 
 
-
-    double sum_vsq = 0.0, sum_v = 0.0, sum_lsq = 0.0, sum_l = 0.0;
-    double sum_vl = 0.0, n = 0, mse_sum = 0;
-
+    double n = 0, mse_sum = 0;
+    vector<vector<std::array<double, 2>>> allThreadValues;
     accum.forEach([&] (ThreadStats * thrStats)
                   {
-                        sum_vsq += thrStats->sum_vsq;
-                        sum_v += thrStats-> sum_v;
-                        sum_lsq += thrStats->sum_lsq;
-                        sum_l += thrStats->sum_l;
-                        sum_vl += thrStats->sum_vl;
                         n += thrStats->n;
                         mse_sum += thrStats->mse_sum;
+                        allThreadValues.emplace_back(std::move(thrStats->values));
                   });
 
 
-    double svl = n * sum_vl - sum_v * sum_l;
-    double svv = n * sum_vsq - sum_v * sum_v;
-    double sll = n * sum_lsq - sum_l * sum_l;
+    std::mutex mergeAccumsLock;
 
-    double r_squared = svl*svl / (svv * sll);
-//     double b = svl / svv;
-//     double bd = svl / sll;
+    double meanOfLabel = 0;
+    auto doThreadMeanLbl = [&] (int threadNum) -> bool
+    {
+        double averageAccum = 0;
+        for(auto & values : allThreadValues[threadNum])
+            averageAccum += values[1] / n;
+
+        std::unique_lock<std::mutex> guard(mergeAccumsLock);
+        meanOfLabel += averageAccum;
+        return true;
+    };
+    parallelMap(0, allThreadValues.size(), doThreadMeanLbl);
+
+    double totalSumSquares = 0;
+    auto doThreadSS = [&] (int threadNum) -> bool
+    {
+        double ssAccum = 0;
+        for(auto & values : allThreadValues[threadNum])
+            ssAccum += pow(values[1] - meanOfLabel, 2);
+
+        std::unique_lock<std::mutex> guard(mergeAccumsLock);
+        totalSumSquares += ssAccum;
+        return true;
+    };
+    parallelMap(0, allThreadValues.size(), doThreadSS);
+
+
+
+    double r_squared = 1 - (totalSumSquares / mse_sum);
 
 
     // prepare absolute_percentage distribution 
