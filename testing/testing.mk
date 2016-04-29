@@ -270,6 +270,7 @@ $(eval $(call mldb_unit_test,MLDB-1430-aggregate-bug.py))
 $(eval $(call mldb_unit_test,MLDB-1428-text-sparse-output.py))
 $(eval $(call mldb_unit_test,MLDB-1452-like-operator.py))
 $(eval $(call mldb_unit_test,MLDB-1440_sqlexpr_ignore_unknown_param.py))
+$(eval $(call mldb_unit_test,MLDB-1595-count-distinct.py))
 
 $(eval $(call mldb_unit_test,pytanic_plugin_test.py))
 $(eval $(call python_test,mldb_merged_dataset_test,mldb_py_runner))
