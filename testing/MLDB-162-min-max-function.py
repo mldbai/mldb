@@ -118,4 +118,19 @@ assert result.json()[0]['columns'][1][1] == 5
 assert result.json()[1]['columns'][0][1] == 1
 assert result.json()[1]['columns'][1][1] == 5
 
+#MLDB-1599 clamp
+result = mldb.query('SELECT clamp(x, 3, y + 3) FROM dataset1 ORDER BY x')
+
+expected = [["_rowName","clamp(x, 3, y + 3)"],
+    ["row_0",3],["row_1",3],["row_2",3],["row_3",3],["row_4",3],["row_5",4],["row_6",3],["row_7",4],["row_8",3],["row_9",4]]
+
+assert result == expected
+
+result = mldb.query('SELECT clamp({x, y}, 3, 7) FROM dataset1 ORDER BY x')
+
+expected = [["_rowName","clamp({x, y}, 3, 7).x","clamp({x, y}, 3, 7).y"],
+     ["row_0",3,3],["row_1",3,3],["row_2",3,3],["row_3",3,3],["row_4",4,3],["row_5",5,3],["row_6",6,3],["row_7",7,3],["row_8",7,3],["row_9",7,3]]
+
+assert result == expected
+
 mldb.script.set_return('success')

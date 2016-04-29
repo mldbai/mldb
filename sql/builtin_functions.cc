@@ -18,6 +18,7 @@
 #include "mldb/base/hash.h"
 #include "mldb/base/parse_context.h"
 #include <boost/lexical_cast.hpp>
+#include <boost/algorithm/clamp.hpp>
 
 #include <boost/regex/icu.hpp>
 #include <iterator>
@@ -2431,6 +2432,50 @@ BoundFunction flatten(const std::vector<BoundSqlExpression> & args)
 }
 
 static RegisterBuiltin registerFlatten(flatten, "flatten");
+
+BoundFunction clamp(const std::vector<BoundSqlExpression> & args)
+{
+    // Return the result indexed on a single dimension
+
+    checkArgsSize(args.size(), 3);
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                double lower = args[1].toDouble();
+                double upper = args[2].toDouble();
+
+                Date limitsTs = std::max(args[1].getEffectiveTimestamp(), args[2].getEffectiveTimestamp());
+
+                if (args[0].isAtom()) {
+                    double clamped = boost::algorithm::clamp(args[0].toDouble(), lower, upper);
+                    return ExpressionValue(clamped, std::max(args[0].getEffectiveTimestamp(), limitsTs));
+                }
+                else {
+                    std::vector<std::tuple<Coord, ExpressionValue> > vals;
+                    auto exec = [&] (const Coord & columnName,
+                                           const Coord & prefix,
+                                           const ExpressionValue & val) {
+                        double clamped = boost::algorithm::clamp(val.toDouble(), lower, upper);
+                        auto ts = std::max(val.getEffectiveTimestamp(), limitsTs);
+                        vals.emplace_back(columnName, ExpressionValue(clamped, ts));
+                        return true;
+                    } ;
+
+                    ExcAssertEqual(args.size(), 3);
+                    args[0].forEachSubexpression(exec);
+
+                    return ExpressionValue(vals);
+                }
+
+
+
+            },
+            args[0].info
+        };
+}
+
+static RegisterBuiltin registerClamp(clamp, "clamp");
 
 
 } // namespace Builtins
