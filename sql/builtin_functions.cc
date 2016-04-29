@@ -1728,7 +1728,7 @@ BoundFunction parse_json(const std::vector<BoundSqlExpression> & args)
                  const SqlRowScope & scope) -> ExpressionValue
             {
                 ExcAssert(args.size() > 0 && args.size() < 3);
-                auto val = args[0];
+                auto & val = args[0];
                 Utf8String str = val.toUtf8String();
 
                 JsonArrayHandling encode = PARSE_ARRAYS;
@@ -1759,6 +1759,27 @@ BoundFunction parse_json(const std::vector<BoundSqlExpression> & args)
 }
 
 static RegisterBuiltin registerJsonDecode(parse_json, "parse_json");
+
+BoundFunction print_json(const std::vector<BoundSqlExpression> & args)
+{
+    checkArgsSize(args.size(), 1);
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                ExcAssertEqual(args.size(), 1);
+                auto & val = args[0];
+                std::string str;
+                StringJsonPrintingContext context(str);
+                val.extractJson(context);
+                return ExpressionValue(Utf8String(std::move(str)),
+                                       val.getEffectiveTimestamp());
+            },
+            std::make_shared<Utf8StringValueInfo>()
+            };
+}
+
+static RegisterBuiltin registerPrintJson(print_json, "print_json");
 
 BoundFunction get_bound_unpack_json(const std::vector<BoundSqlExpression> & args)
 {
