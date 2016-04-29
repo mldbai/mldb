@@ -363,7 +363,7 @@ class Mldb256Test(MldbUnitTest):
 
         jsRez = rez.json()
         mldb.log(jsRez)
-        self.assertGreater(jsRez["status"]["firstRun"]["status"]["aggregatedTest"]["r2"]["mean"], 0.98)
+        self.assertGreater(jsRez["status"]["firstRun"]["status"]["aggregatedTest"]["r2"]["mean"], 0.94)
 
 
 mldb.run_tests()
