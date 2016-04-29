@@ -14,8 +14,8 @@ mldb = Connection('http://localhost:8087')
 
 # In[2]:
 
-NB_TRAIN = 4000
-NB_TEST = 1000
+NB_TRAIN = 2500
+NB_TEST = 2500
 
 def import_data():
     mldb.put('/v1/datasets/enron_data', {'type': 'sparse.mutable'})
@@ -104,18 +104,19 @@ def fg_bow():
         }
     })
 
-    for which in ['bow', 'bow2']:
-        print mldb.put('/v1/procedures/generate_{}'.format(which), {
-            'type': 'transform',
-            'params': {
-                'inputData': """
-                    select {0}({{msg:msg}})[{0}] as *
-                    from enron_data
-                    """.format(which),
-                'outputDataset': 'enron_{}'.format(which),
-                'runOnCreation': True
-            }
-        })
+    if 0:
+        for which in ['bow', 'bow2']:
+            print mldb.put('/v1/procedures/generate_{}'.format(which), {
+                'type': 'transform',
+                'params': {
+                    'inputData': """
+                        select {0}({{msg:msg}})[{0}] as *
+                        from enron_data
+                        """.format(which),
+                    'outputDataset': 'enron_{}'.format(which),
+                    'runOnCreation': True
+                }
+            })
 
 
 def fg_svd():
@@ -160,33 +161,70 @@ def fg_w2v():
         }
     })
 
-    print mldb.put('/v1/procedures/embedder', {
-        "type": "transform",
+    print mldb.put('/v1/functions/bow_embed', {
+        "type": "sql.expression",
         "params": {
-            "inputData": 'select pooler({words: {*}}) as bow_embed from enron_bow',
-            "outputDataset": 'enron_bow_embed',
-            "runOnCreation": True
+            'expression': 'pooler({words: {bow({msg})[bow] as *}}) as bow_w2v'
+        }
+    })
+
+
+def fg_stats_table():
+    print mldb.put('/v1/procedures/train_stats_tables', {
+        'type': 'statsTable.bagOfWords.train',
+        'params': {
+            'trainingData': 'select bow2({msg:msg})[bow2] as * from enron_data',
+            'outcomes': [['label', "label = 'spam'"]],
+            'statsTableFileUrl': 'file://bow2_stats_table.st',
+            'outputDataset': 'bow2_st',
+            'runOnCreation': True
+        }
+    })
+
+    print mldb.put('/v1/functions/bow2_posneg', {
+        'type': 'statsTable.bagOfWords.posneg',
+        'params': {
+            'numPos': 5000,
+            'numNeg': 5000,
+            'minTrials': 10,
+            'outcomeToUse': 'label',
+            'statsTableFileUrl': 'file://bow2_stats_table.st'
+        }
+    })
+
+    print mldb.put('/v1/functions/apply_bow2_posneg', {
+        'type': 'sql.expression',
+        'params': {
+            'expression': 'bow2_posneg({words: {bow2({msg:msg})[bow2] as *}})[probs] as *'
+        }
+    })
+
+    print mldb.put('/v1/functions/agg_bow2_posneg', {
+        'type': 'sql.expression',
+        'params': {
+            'expression': 'horizontal_avg({apply_bow2_posneg({msg:msg}) as *})'
         }
     })
 
 
 def fg_all():
-    print mldb.put('/v1/datasets/all_feats', {
-        'type': 'merged',
-        'params':{
-            'datasets': ['enron_bow_embed']
-        }
-    })
+    # print mldb.put('/v1/datasets/all_feats', {
+    #     'type': 'merged',
+    #     'params':{
+    #         'datasets': ['enron_bow_embed']
+    #     }
+    # })
 
     print mldb.put('/v1/procedures/generate_raw_feats', {
         'type': 'transform',
         'params': {
             'inputData': """
-                select svd{bow({msg:msg})[bow] as bow, bow2({msg:msg})[bow2] as bow2} as features,
+            select {bow_embed({msg}) as *
+                    } as features,
                     label = 'spam' as label
-                from enron_bow
+                from enron_data
                 """,
-            'outputDataset': 'enron_bow',
+            'outputDataset': 'enron_features',
             'runOnCreation': True
         }
     })
@@ -197,8 +235,8 @@ def fg_all():
 
 
 def train():
-    n = mldb.get('/v1/query', q='select count(*) as n from enron_features',
-                format='aos').json()[0]['n']
+    # n = mldb.get('/v1/query', q='select count(*) as n from enron_features',
+    #             format='aos').json()[0]['n']
     res = mldb.put('/v1/procedures/experiment', {
         'type': 'classifier.experiment',
         'params': {
@@ -224,7 +262,9 @@ def train():
 
     # In[7]:
 
-    print 'AUC =', res.json()['status']['firstRun']['status']['aggregated']['auc']['mean']
+    from pprint import pprint
+    pprint(res.json())
+    print 'AUC =', res.json()['status']['firstRun']['status']['aggregatedTest']['auc']['mean']
 
 
 # Not a bad AUC for a model that simple. But [the AUC score of a classifier is only a very generic measure of performance][1]. When having a specific problem like spam filtering, we're better off using a performance metric that truly matches our intuition about what a good spam filter ought to be. Namely, a good spam filtering algorithm should almost never flag as spam a legitime email, while keeping your inbox as spam-free as possible. This is what should be used to choose the threshold for the classifier, and then to measure its performance.
@@ -272,7 +312,10 @@ def test():
 # import_w2v()
 # fg_bow()
 # fg_w2v()
+fg_stats_table()
+# fg_all()
+# train()
+# test()
+
 # add_0_column('enron_bow2')
 # fg_svd() # waiting for the svd to get fixed
-train()
-# test()
