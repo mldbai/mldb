@@ -1368,62 +1368,67 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
 
         // Between expression
         bool notBetween = false;
-        if (matchKeyword(context, "BETWEEN")
-            || ((notBetween = true) && matchKeyword(context, "NOT BETWEEN"))) {
-            expect_whitespace(context);
-            auto lower = SqlExpression::parse(context, 5 /* precedence */, allowUtf8);
-            expectKeyword(context, "AND");
-            auto upper = SqlExpression::parse(context, 5 /* precedence */, allowUtf8);
+        // BETWEEN precedence is the same as > operator
+        if (currentPrecedence > 4) {
+            if (matchKeyword(context, "BETWEEN")
+                || ((notBetween = true) && matchKeyword(context, "NOT BETWEEN"))) {
+                expect_whitespace(context);
+                auto lower = SqlExpression::parse(context, 5 /* precedence */, allowUtf8);
+                expectKeyword(context, "AND");
+                auto upper = SqlExpression::parse(context, 5 /* precedence */, allowUtf8);
             
-            lhs = std::make_shared<BetweenExpression>(lhs, lower, upper, notBetween);
-            lhs->surface = ML::trim(token.captured());
-            continue;
+                lhs = std::make_shared<BetweenExpression>(lhs, lower, upper, notBetween);
+                lhs->surface = ML::trim(token.captured());
+                continue;
+            }
         }
 
         // 'In' expression
 
         bool negative = false;
-        if ((negative = matchKeyword(context, "NOT IN")) || matchKeyword(context, "IN"))
-        {
-            expect_whitespace(context);
+        // IN and NOT IN precedence is the same as the NOT operator
+        if (currentPrecedence > 5) {
+            if ((negative = matchKeyword(context, "NOT IN")) || matchKeyword(context, "IN")) {
+                expect_whitespace(context);
 
-            context.expect_literal('(');
-            skip_whitespace(context);
-            if (peekKeyword(context, "SELECT")) {
-                //sub-table
-                auto statement = SelectStatement::parse(context, allowUtf8);
+                context.expect_literal('(');
+                skip_whitespace(context);
+                if (peekKeyword(context, "SELECT")) {
+                    //sub-table
+                    auto statement = SelectStatement::parse(context, allowUtf8);
                            
-                skip_whitespace(context);
-                context.expect_literal(')');
+                    skip_whitespace(context);
+                    context.expect_literal(')');
 
-                Utf8String asName("");
+                    Utf8String asName("");
 
-                auto rhs = std::make_shared<SelectSubtableExpression>(statement, asName);
-                lhs = std::make_shared<InExpression>(lhs, rhs, negative);
-                lhs->surface = ML::trim(token.captured());
-            }
-            else if (matchKeyword(context, "KEYS OF")) {
-                auto rhs = SqlExpression::parse(context, allowUtf8, 10);
-                skip_whitespace(context);
-                context.expect_literal(')');
-                lhs = std::make_shared<InExpression>(lhs, rhs, negative, InExpression::KEYS);
-                lhs->surface = ML::trim(token.captured());                
-            }
-            else if (matchKeyword(context, "VALUES OF")) {
-                auto rhs = SqlExpression::parse(context, allowUtf8, 10);
-                skip_whitespace(context);
-                context.expect_literal(')');
-                lhs = std::make_shared<InExpression>(lhs, rhs, negative, InExpression::VALUES);
-                lhs->surface = ML::trim(token.captured());                
-            }
-            else {
-                auto rhs = std::make_shared<TupleExpression>(TupleExpression::parse(context, allowUtf8));
+                    auto rhs = std::make_shared<SelectSubtableExpression>(statement, asName);
+                    lhs = std::make_shared<InExpression>(lhs, rhs, negative);
+                    lhs->surface = ML::trim(token.captured());
+                }
+                else if (matchKeyword(context, "KEYS OF")) {
+                    auto rhs = SqlExpression::parse(context, allowUtf8, 10);
+                    skip_whitespace(context);
+                    context.expect_literal(')');
+                    lhs = std::make_shared<InExpression>(lhs, rhs, negative, InExpression::KEYS);
+                    lhs->surface = ML::trim(token.captured());                
+                }
+                else if (matchKeyword(context, "VALUES OF")) {
+                    auto rhs = SqlExpression::parse(context, allowUtf8, 10);
+                    skip_whitespace(context);
+                    context.expect_literal(')');
+                    lhs = std::make_shared<InExpression>(lhs, rhs, negative, InExpression::VALUES);
+                    lhs->surface = ML::trim(token.captured());                
+                }
+                else {
+                    auto rhs = std::make_shared<TupleExpression>(TupleExpression::parse(context, allowUtf8));
 
-                context.expect_literal(')');
+                    context.expect_literal(')');
                 
-                lhs = std::make_shared<InExpression>(lhs, rhs, negative);
-                lhs->surface = ML::trim(token.captured());
-                continue;
+                    lhs = std::make_shared<InExpression>(lhs, rhs, negative);
+                    lhs->surface = ML::trim(token.captured());
+                    continue;
+                }
             }
         }
 

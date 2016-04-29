@@ -65,7 +65,7 @@ always are left associative, that is the expression
      `+` , `-`      |  unary arithmetic  |          3 
      `+` , `-`      |  binary arithmetic |          3 
      `&` , <code>&#124;</code> , `^`      |  binary bitwise    |          3 
-     `=` , `!=`, `>` , `<` , `>=` , `<=` , `<>` , `!>` , `!<`       |  binary comparison |          4 
+     `=` , `!=`, `>` , `<` , `>=` , `<=`       |  binary comparison |          4 
      `NOT`    |  unary boolean     |          5 
      `AND` , `OR`     |  binary boolean    |          7 
 
@@ -383,8 +383,8 @@ expression|result
 `quantize(-217, 100)`   | -200
 
 
-- `replace_nan(x, y)`: replace all NaNs in x by y.
-- `replace_inf(x, y)`: replace all Inf in x by y.
+- `replace_nan(x, y)`: replace all `NaN`s and `-NaN`s in `x` by `y`.
+- `replace_inf(x, y)`: replace all `Inf`s and `-Inf`s in `x` by `y`.
 - `binomial_lb_80(trials, successes)` returns the 80% lower bound using the Wilson score.
 - `binomial_ub_80(trials, successes)` returns the 80% upper bound using the Wilson score.
 - `clamp(x,lower,upper)` will clamp the value 'x' between the lower and upper bounds.
