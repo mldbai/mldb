@@ -2435,30 +2435,48 @@ static RegisterBuiltin registerFlatten(flatten, "flatten");
 
 BoundFunction clamp(const std::vector<BoundSqlExpression> & args)
 {
-    // Return the result indexed on a single dimension
-
     checkArgsSize(args.size(), 3);
 
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                double lower = args[1].toDouble();
-                double upper = args[2].toDouble();
+                if (args[0].empty())
+                    return ExpressionValue();
+
+                CellValue lower = args[1].getAtom();
+                CellValue upper = args[2].getAtom();
 
                 Date limitsTs = std::max(args[1].getEffectiveTimestamp(), args[2].getEffectiveTimestamp());
 
+                auto doAtom = [&] (const CellValue& val) {
+                    if (val.empty()) {
+                        return val;
+                    }
+                    else if (val.isNaN()) {
+                        if (lower.empty())
+                            return val;
+                        else
+                            return lower;
+                    }
+                    else if (upper.empty()) {
+                        return std::max(val, lower);
+                    }
+                    else {
+                        CellValue clamped = boost::algorithm::clamp(val, lower, upper);
+                        return clamped;
+                    }
+                };
+
                 if (args[0].isAtom()) {
-                    double clamped = boost::algorithm::clamp(args[0].toDouble(), lower, upper);
-                    return ExpressionValue(clamped, std::max(args[0].getEffectiveTimestamp(), limitsTs));
+                    return ExpressionValue(doAtom(args[0].getAtom()), std::max(args[0].getEffectiveTimestamp(), limitsTs));
                 }
                 else {
                     std::vector<std::tuple<Coord, ExpressionValue> > vals;
                     auto exec = [&] (const Coord & columnName,
                                            const Coord & prefix,
                                            const ExpressionValue & val) {
-                        double clamped = boost::algorithm::clamp(val.toDouble(), lower, upper);
-                        auto ts = std::max(val.getEffectiveTimestamp(), limitsTs);
-                        vals.emplace_back(columnName, ExpressionValue(clamped, ts));
+
+                        vals.emplace_back(columnName, ExpressionValue(doAtom(val.getAtom()), std::max(val.getEffectiveTimestamp(), limitsTs)));
                         return true;
                     } ;
 
@@ -2467,9 +2485,6 @@ BoundFunction clamp(const std::vector<BoundSqlExpression> & args)
 
                     return ExpressionValue(vals);
                 }
-
-
-
             },
             args[0].info
         };
