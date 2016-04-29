@@ -32,7 +32,6 @@
 #include "mldb/plugins/sql_config_validator.h"
 #include "mldb/plugins/sql_expression_extractors.h"
 #include "mldb/server/parallel_merge_sort.h"
-#include <array>
 
 using namespace std;
 
@@ -410,7 +409,7 @@ runRegression(AccuracyConfig & runAccuracyConf,
             mse_sum += pow(v-l, 2);
             absolute_percentage.push_back(abs( (v-l)/l ));
 
-            values.push_back({v, l});
+            labels.push_back(l);
             n++;
         }
 
@@ -431,7 +430,7 @@ runRegression(AccuracyConfig & runAccuracyConf,
         double mse_sum;
         int n;
         ML::distribution<double> absolute_percentage;
-        vector<std::array<double, 2>> values;
+        vector<double> labels;
     };
 
     PerThreadAccumulator<ThreadStats> accum;
@@ -481,12 +480,12 @@ runRegression(AccuracyConfig & runAccuracyConf,
 
 
     double n = 0, mse_sum = 0;
-    vector<vector<std::array<double, 2>>> allThreadValues;
+    vector<vector<double> > allThreadLabels;
     accum.forEach([&] (ThreadStats * thrStats)
                   {
                         n += thrStats->n;
                         mse_sum += thrStats->mse_sum;
-                        allThreadValues.emplace_back(std::move(thrStats->values));
+                        allThreadLabels.emplace_back(std::move(thrStats->labels));
                   });
 
 
@@ -496,27 +495,27 @@ runRegression(AccuracyConfig & runAccuracyConf,
     auto doThreadMeanLbl = [&] (int threadNum) -> bool
     {
         double averageAccum = 0;
-        for(auto & values : allThreadValues[threadNum])
-            averageAccum += values[1] / n;
+        for(auto & label : allThreadLabels[threadNum])
+            averageAccum += label / n;
 
         std::unique_lock<std::mutex> guard(mergeAccumsLock);
         meanOfLabel += averageAccum;
         return true;
     };
-    parallelMap(0, allThreadValues.size(), doThreadMeanLbl);
+    parallelMap(0, allThreadLabels.size(), doThreadMeanLbl);
 
     double totalSumSquares = 0;
     auto doThreadSS = [&] (int threadNum) -> bool
     {
         double ssAccum = 0;
-        for(auto & values : allThreadValues[threadNum])
-            ssAccum += pow(values[1] - meanOfLabel, 2);
+        for(auto & label : allThreadLabels[threadNum])
+            ssAccum += pow(label - meanOfLabel, 2);
 
         std::unique_lock<std::mutex> guard(mergeAccumsLock);
         totalSumSquares += ssAccum;
         return true;
     };
-    parallelMap(0, allThreadValues.size(), doThreadSS);
+    parallelMap(0, allThreadLabels.size(), doThreadSS);
 
 
 
