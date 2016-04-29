@@ -1,5 +1,5 @@
 #
-# GLDB-800-nested_sql_query.py
+# MLDB-800-nested_sql_query.py
 # datacratic, 2015
 # this file is part of mldb. copyright 2015 datacratic. all rights reserved.
 #
@@ -93,17 +93,49 @@ res = mldb.get('/v1/datasets/ds1/query', select='poil2({*})')
 mldb.log("query result")
 mldb.log(res)
 
+
+#MLDBFB-480
+
+expected = [["_rowName", "param"],
+            ["result", "hi" ]]
+
+res = mldb.put("/v1/functions/patate1", {
+    "type": "sql.query",
+    "params": {
+        "query": """
+            select $param as param from ds1
+        """,
+        "output": "FIRST_ROW"
+    }
+})
+
+assert expected == mldb.query("select patate1({param: 'hi'}) as *")
+
+
+res = mldb.put("/v1/functions/patate2", {
+    "type": "sql.query",
+    "params": {
+        "query": """
+            select * from ( select $param as param from ds1 )
+        """,
+        "output": "FIRST_ROW"
+    }
+})
+
+# uncomment for failing case
+#assert expected == mldb.query("select patate2({param: 'hi'}) as *")
+
+
 #MLDB-1573
 
 res = mldb.put("/v1/functions/patate", {
     "type": "sql.query",
     "params": {
         "query": """
-            select * from ((
-
+            select * from (
                 select * from 
                 row_dataset({x: 1, y:2, z: 'three'})
-            ))
+            )
         """,
         "output": "FIRST_ROW"
     }
@@ -115,5 +147,112 @@ expected = [["_rowName", "patate().column", "patate().value"],
             ["result", "x", 1 ]]
 
 assert res == expected
+
+#MLDB-1574
+
+mldb.put("/v1/functions/patate", {
+    "type": "sql.query",
+    "params": {
+        "query": """
+                select avg(value) from (select * from
+                row_dataset({x: 1, y:2, z: 3}))
+
+        """,
+        "output": "FIRST_ROW"
+    }
+})
+
+res = mldb.query("select patate()")
+
+mldb.log(res)
+
+expected = [[ "_rowName", "patate().avg(value)" ],
+           [ "result", 2 ]]
+
+assert res == expected
+
+mldb.put('/v1/datasets/exampleA', { "type":"sparse.mutable" })
+mldb.put('/v1/datasets/exampleB', { "type":"sparse.mutable" })
+mldb.post('/v1/datasets/exampleA/rows', {
+    "rowName": "first row",
+    "columns": [
+        ["a.1", 1, 0],
+        ["a.2", 2, 0]
+    ]
+})
+
+mldb.post('/v1/datasets/exampleA/rows', {
+    "rowName": "second row",
+    "columns": [
+        ["a.1", 3, 0],
+        ["a.2", 4, 0]
+    ]
+})
+mldb.post('/v1/datasets/exampleA/rows', {
+    "rowName": "third row",
+    "columns": [
+        ["a.1", 5, 0],
+        ["a.2", 6, 0]
+    ]
+})
+mldb.post('/v1/datasets/exampleB/rows', {
+    "rowName": "first row",
+    "columns": [
+        ["b.1", 10, 0],
+        ["b.2", 20, 0]
+    ]
+})
+
+mldb.post("/v1/datasets/exampleA/commit")
+mldb.post("/v1/datasets/exampleB/commit")
+
+mldb.put("/v1/functions/patate", {
+    "type": "sql.query",
+    "params": {
+        "query": """
+            SELECT vertical_avg(norm(vector_diff({exampleA.a.*}, {exampleB.b.*}), 2)) as score
+            FROM exampleA JOIN exampleB
+        """,
+        "output": "FIRST_ROW"
+    }
+})
+
+res = mldb.query("select patate()")
+
+expected = [
+    [
+        "_rowName",
+        "patate().score"
+    ],
+    [
+        "result",
+        17.484976580463197
+    ]
+]
+
+assert expected == res
+
+
+res = mldb.put('/v1/functions/fwin', {
+    'type': 'sql.query',
+    'params': {
+        'query': 'select $varrr as hoho from ds1 limit 1'
+    }
+})
+
+
+res = mldb.put('/v1/functions/pwel', {
+    'type': 'sql.query',
+    'params': {
+        'query': 'select fwin({varrr: $y}) from ds1 where rowName() = $x'
+    }
+})
+
+
+mldb.log("ds1 query")
+# This test case fails on binding, so simply not throwing means it's fixed
+res = mldb.get('/v1/query', q="select pwel({x:'row_2', y:'prout'}) from ds1")
+mldb.log(res.json())
+
 
 mldb.script.set_return('success')

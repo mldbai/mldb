@@ -104,7 +104,10 @@ removeTableName(const SqlExpression & expr, const Utf8String & tableName, const 
     //build list of prefixes to look for in function names
     //with a tuple of table-name, prefix, prefix length
     std::vector<std::tuple<Utf8String, Utf8String, size_t> > functionprefixes;
-    for (const Utf8String& alias : childAliases)
+    auto aliases = childAliases;
+    if (tableName != "")
+        aliases.insert(tableName);
+    for (const Utf8String& alias : aliases)
     {
         Utf8String prefixToFind = alias + ".";
         size_t length = prefixToFind.length();

@@ -386,6 +386,8 @@ private:
 
     std::string printInterval() const;
 
+    Utf8String trimmedExceptionString() const;
+
     enum StorageType {
         ST_EMPTY,
         ST_INTEGER,

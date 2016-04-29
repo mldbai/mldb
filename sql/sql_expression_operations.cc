@@ -1712,13 +1712,7 @@ std::shared_ptr<SqlExpression>
 EmbeddingLiteralExpression::
 transform(const TransformArgs & transformArgs) const
 {
-    vector<std::shared_ptr<SqlExpression> > transformclauses;
-
-    for (auto& c : clauses)
-    {
-        transformclauses.push_back(c->transform(transformArgs));
-    }
-
+    vector<std::shared_ptr<SqlExpression> > transformclauses = transformArgs(clauses);
     auto result = std::make_shared<EmbeddingLiteralExpression>(transformclauses);
 
     return result;
@@ -2395,13 +2389,15 @@ transform(const TransformArgs & transformArgs) const
     auto result = std::make_shared<CaseExpression>(*this);
 
     if (expr)
-        result->expr = result->expr->transform(transformArgs);
+        result->expr = transformArgs({result->expr})[0];
+
     for (auto & w: result->when) {
-        w.first = w.first->transform(transformArgs);
-        w.second = w.second->transform(transformArgs);
+        w.first = transformArgs({ w.first })[0];
+        w.second = transformArgs({ w.second })[0];
     }
+
     if (elseExpr)
-        result->elseExpr = result->elseExpr->transform(transformArgs);
+        result->elseExpr = transformArgs({elseExpr })[0];
 
     return result;
 }
@@ -2518,9 +2514,9 @@ BetweenExpression::
 transform(const TransformArgs & transformArgs) const
 {
     auto result = std::make_shared<BetweenExpression>(*this);
-    result->expr  = result->expr->transform(transformArgs);
-    result->lower = result->lower->transform(transformArgs);
-    result->upper = result->upper->transform(transformArgs);
+    result->expr  = transformArgs({result->expr})[0];
+    result->lower = transformArgs({result->lower})[0];
+    result->upper = transformArgs({result->upper})[0];
     return result;
 }
 
@@ -2813,18 +2809,18 @@ InExpression::
 transform(const TransformArgs & transformArgs) const
 {
     auto result = std::make_shared<InExpression>(*this);
-    result->expr  = result->expr->transform(transformArgs);
+    result->expr  = transformArgs({result->expr})[0];
 
     switch (kind) {
     case SUBTABLE:
         result->subtable = std::make_shared<SelectSubtableExpression>(*(result->subtable));
         break;
     case TUPLE:
-        result->tuple = std::make_shared<TupleExpression>(result->tuple->transform(transformArgs));
+        result->tuple->transform(transformArgs); //tuple is not an SQLExpression
         break;
     case KEYS:
     case VALUES:
-        result->setExpr = setExpr->transform(transformArgs);
+        result->setExpr = transformArgs({result->setExpr})[0];
         break;
     }
 
@@ -2946,8 +2942,8 @@ LikeExpression::
 transform(const TransformArgs & transformArgs) const
 {
     auto result = std::make_shared<LikeExpression>(*this);
-    result->left  = result->left->transform(transformArgs);
-    result->right  = result->right->transform(transformArgs);
+    result->left  = transformArgs({result->left})[0];
+    result->right  = transformArgs({result->right})[0];
 
     return result;
 }
