@@ -488,6 +488,8 @@ runRegression(AccuracyConfig & runAccuracyConf,
                         allThreadLabels.emplace_back(std::move(thrStats->labels));
                   });
 
+    if(n == 0)
+        throw ML::Exception("Cannot run classifier.test procedure on empty test set");
 
     std::mutex mergeAccumsLock;
 
@@ -518,9 +520,11 @@ runRegression(AccuracyConfig & runAccuracyConf,
     parallelMap(0, allThreadLabels.size(), doThreadSS);
 
 
-
-    double r_squared = 1 - (mse_sum / totalSumSquares);
-
+    // calculate the r2 while catching the edge cases
+    double r_squared;
+    if      (mse_sum == 0)          r_squared = 1;
+    else if (totalSumSquares == 0)  r_squared = 0;
+    else                            r_squared = 1 - (mse_sum / totalSumSquares);
 
     // prepare absolute_percentage distribution 
     ML::distribution<double> absolute_percentage;
