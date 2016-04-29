@@ -2522,30 +2522,68 @@ BoundFunction flatten(const std::vector<BoundSqlExpression> & args)
 
     checkArgsSize(args.size(), 1);
 
-    std::vector<ssize_t> shape = args[0].info->getEmbeddingShape();
+    if (args[0].info->isEmbedding()) {
+        std::vector<ssize_t> shape = args[0].info->getEmbeddingShape();
 
-    ssize_t outputShape = 1;
-    for (auto s: shape) {
-        if (s < 0) {
-            outputShape = -1;
-            break;
+        ssize_t outputShape = 1;
+        for (auto s: shape) {
+            if (s < 0) {
+                outputShape = -1;
+                break;
+            }
+            outputShape *= s;
         }
-        outputShape *= s;
+        auto st = args[0].info->getEmbeddingType();
+
+        auto outputInfo
+            = std::make_shared<EmbeddingValueInfo>(outputShape, st);
+
+        return {[=] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & scope) -> ExpressionValue
+                {
+                    ExcAssertEqual(args.size(), 1);
+                    size_t len = args[0].rowLength();
+                    return args[0].reshape({len});
+                },
+                outputInfo
+                    };
     }
-    auto st = args[0].info->getEmbeddingType();
-
-    auto outputInfo
-        = std::make_shared<EmbeddingValueInfo>(outputShape, st);
-
-    return {[=] (const std::vector<ExpressionValue> & args,
-                 const SqlRowScope & scope) -> ExpressionValue
-            {
-                ExcAssertEqual(args.size(), 1);
-                size_t len = args[0].rowLength();
-                return args[0].reshape({len});
-            },
-            outputInfo
-        };
+    else {
+        // Simpler but slower... extract each atom, one by one
+        // TODO: infer size and type if known
+        auto outputInfo
+            = std::make_shared<EmbeddingValueInfo>(ST_ATOM);
+        
+        return {[=] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & scope) -> ExpressionValue
+                {
+                    std::vector<std::tuple<ColumnName, CellValue> > vals;
+                    vals.reserve(100);
+                    Date tsOut = Date::negativeInfinity();
+                    auto onAtom = [&] (ColumnName col,
+                                       const ColumnName & prefix,
+                                       CellValue val,
+                                       Date ts)
+                        {
+                            vals.emplace_back(std::move(col), std::move(val));
+                            ts.setMax(tsOut);
+                            return true;
+                        };
+                    
+                    args.at(0).forEachAtom(onAtom);
+                    
+                    std::sort(vals.begin(), vals.end());
+                  
+                    std::vector<CellValue> valsOut;
+                    valsOut.reserve(vals.size());
+                    for (auto & v: vals)
+                        valsOut.emplace_back(std::move(std::get<1>(v)));
+  
+                    return ExpressionValue(std::move(valsOut), tsOut);
+                },
+                outputInfo
+         };
+    }
 }
 
 static RegisterBuiltin registerFlatten(flatten, "flatten");

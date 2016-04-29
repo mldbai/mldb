@@ -2484,6 +2484,28 @@ tryGetNestedColumn(const ColumnName & columnName,
         if (columnName.empty())
             return this;
 
+        // Note that in the structured representation, we will never have
+        // more than one value for a column.  So we simply need to return
+        // filtered version of the column.
+        if (columnName.size() == 1) {
+            bool found = false;
+            auto onValue = [&] (ExpressionValue val) -> bool
+                {
+                    if (found)
+                        return false;
+                    storage = val.getFilteredDestructive(filter);
+                    found = true;
+                    return true;
+                };
+        
+            if (iterateStructured(*structured_, columnName[0], onValue)) {
+                if (found)
+                    return &storage;
+                else return nullptr;
+            }
+            // More than one value, fall back
+        }
+
         FilterAccumulator accum(filter);
         ColumnName tail = columnName.tail();
 
