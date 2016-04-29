@@ -231,7 +231,7 @@ class Mldb174Test(MldbUnitTest):
                     """ % dataset,
                     "datasetFolds": [
                             {
-                                "training_where": "rowHash() % 2 = 0", 
+                                "training_where": "rowHash() % 2 = 0",
                                 "testing_where": "rowHash() % 2 = 1"
                             }
                         ],
@@ -325,6 +325,27 @@ class Mldb174Test(MldbUnitTest):
             for line in explain_rez[1:]:
                 self.assertAlmostEqual(sum((x for x in line[1:4] if x != None)), line[4], places=5)
 
+
+    def test_r2(self):
+        ds = mldb.create_dataset({ "id": "r2_sample", "type": "sparse.mutable" })
+        ds.record_row("a",[["score", 2.5, 0], ["score2", 25, 0], ["target", 3, 0]])
+        ds.record_row("b",[["score", 0, 0], ["score2", -5, 0], ["target", -0.5, 0]])
+        ds.record_row("c",[["score", 2, 0], ["score2", 22, 0], ["target", 2, 0]])
+        ds.record_row("d",[["score", 8, 0], ["score2", 5, 0], ["target", 7, 0]])
+        ds.commit()
+
+        for scoreCol, r2 in [("score", 0.948), ("score2", -30.1177)]:
+            rez = mldb.put("/v1/procedures/patate", {
+                "type": "classifier.test",
+                "params": {
+                    "testingData": "select %s as score, target as label from r2_sample" % scoreCol,
+                    "mode": "regression",
+                    "runOnCreation": True
+                }
+            })
+
+            mldb.log(rez.json()["status"])
+            self.assertAlmostEqual(rez.json()["status"]["firstRun"]["status"]["r2"], r2, places=2)
 
 
 mldb.run_tests()

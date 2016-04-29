@@ -520,7 +520,7 @@ runRegression(AccuracyConfig & runAccuracyConf,
 
 
 
-    double r_squared = 1 - (totalSumSquares / mse_sum);
+    double r_squared = 1 - (mse_sum / totalSumSquares);
 
 
     // prepare absolute_percentage distribution 
