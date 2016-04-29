@@ -3939,6 +3939,27 @@ coerceToBlob() const
     return cell_.coerceToBlob();
 }
 
+Coords
+ExpressionValue::
+coerceToPath() const
+{
+    if (empty())
+        return Coords();
+    else if (isAtom()) {
+        return Coord(getAtom().coerceToPathElement());
+    }
+    else {
+        vector<CellValue> vals = getEmbeddingCell();
+        vector<Coord> coords;
+        coords.reserve(vals.size());
+        for (auto & v: vals) {
+            coords.emplace_back(v.coerceToPathElement());
+        }
+        return Coords(std::make_move_iterator(coords.begin()),
+                      std::make_move_iterator(coords.end()));
+    }
+}
+
 void
 ExpressionValue::
 setAtom(CellValue value, Date ts)

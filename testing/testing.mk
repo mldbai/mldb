@@ -102,7 +102,7 @@ $(eval $(call mldb_unit_test,MLDB-283-embedding-nearest-neighbours.py))
 $(eval $(call mldb_unit_test,MLDB-417-empty-svd.js))
 $(eval $(call mldb_unit_test,MLDB-485-svd_embedRow_returns_zeroes.py))
 $(eval $(call mldb_unit_test,MLDB-481-vp-tree-high-dimensional-cube.js))
-$(eval $(call mldb_unit_test,MLDB-466-full-reddit.js,,manual)) #manual - slow
+$(eval $(call mldb_unit_test,MLDB-466-full-reddit.js,,$(MANUAL_IF_NO_S3)))
 $(eval $(call mldb_unit_test,MLDB-489-svd-nonvarying-reals.js))
 $(eval $(call mldb_unit_test,MLDB-462-transposed-dataset.js))
 $(eval $(call mldb_unit_test,MLDB-461_horizontal_ops_test.py))

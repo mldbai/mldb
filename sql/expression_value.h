@@ -735,6 +735,14 @@ struct ExpressionValue {
     CellValue coerceToAtom() const;
     CellValue coerceToBlob() const;
 
+    /** Convert the current ExpressionValue to a path (used as a column or
+        row name).
+        
+        This handles integers, strings (both converted to length one
+        paths) and arrays (converted to structured arrays).
+    */
+    Coords coerceToPath() const;
+
     // Return the timestamp at which all of the information in this value
     // was known.  This is used to determine the timestamp of the outputcellva
     // of an expression involving this value.

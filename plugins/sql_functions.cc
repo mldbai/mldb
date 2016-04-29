@@ -631,8 +631,13 @@ run(const ProcedureRunConfig & run,
                 if (!skipEmptyRows || cols.size() > 0) {
                     auto & rows = accum.get();
                     rows.reserve(10000);
-                    rows.emplace_back(RowName::parse(calc.at(0).toUtf8String()),
-                                      std::move(cols));
+                    try {
+                        rows.emplace_back(calc.at(0).coerceToPath(),
+                                          std::move(cols));
+                    } catch (...) {
+                        cerr << "parsing " << calc.at(0).toUtf8String() << endl;
+                        throw;
+                    }
 
                     if (rows.size() >= 10000) {
                         output->recordRows(rows);
