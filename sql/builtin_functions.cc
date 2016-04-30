@@ -812,6 +812,13 @@ CellValue replaceIfNotFinite(const CellValue & v1, const CellValue & v2)
     return v1;
 }
 
+CellValue replaceIfNull(const CellValue & v1, const CellValue & v2)
+{
+    if (v1.empty())
+        return v2;
+    return v1;
+}
+
 static RegisterBuiltinBinaryScalar
 registerReplaceIfNan(replaceIfNan, std::make_shared<AtomValueInfo>(),
                      "replace_nan");
@@ -823,6 +830,10 @@ registerReplaceIfInf(replaceIfInf, std::make_shared<AtomValueInfo>(),
 static RegisterBuiltinBinaryScalar
 registerReplaceIfNotFinite(replaceIfNotFinite, std::make_shared<AtomValueInfo>(),
                            "replace_not_finite");
+
+static RegisterBuiltinBinaryScalar
+registerReplaceIfNull(replaceIfNull, std::make_shared<AtomValueInfo>(),
+                      "replace_null");
 
 CellValue pow(const CellValue & v1, const CellValue & v2)
 {

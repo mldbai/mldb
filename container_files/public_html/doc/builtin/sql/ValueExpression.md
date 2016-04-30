@@ -365,7 +365,7 @@ With `{arrays: 'encode'}` the output will be:
 - `mod(x, y)`: returns x modulo y.  The value of x and y must be an integer.
 - `abs(x)`: returns the absolute value of x.
 - `sqrt(x)`: returns the square root of x.  The value of x must be greater or equal to 0.
-- `isnan(x)`: return true if x is not-a-number in the floating point representation.
+- `isnan(x)`: return true if x is 'NaN' in the floating point representation.
 - `isinf(x)`: return true if x is infinity in the floating point representation.
 - `isfinite(x)`: return true if x is neither infinite nor not-a-number.
 
@@ -390,6 +390,7 @@ expression|result
 - `replace_nan(x, y)`: replace all `NaN`s and `-NaN`s in `x` by `y`.  Works on scalars or rows.
 - `replace_inf(x, y)`: replace all `Inf`s and `-Inf`s in `x` by `y`.  Works on scalars or rows.
 - `replace_not_finite(x, y)`: replace all `Inf`s, `-Inf`s and `NaN`s in `x` by `y`.  Works on scalars or rows.
+- `replace_null(x, y)`: replace all `null`s in `x` by `y`.  Works on scalars or rows.
 - `binomial_lb_80(trials, successes)` returns the 80% lower bound using the Wilson score.
 - `binomial_ub_80(trials, successes)` returns the 80% upper bound using the Wilson score.
 
