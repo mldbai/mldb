@@ -85,6 +85,7 @@ mldb.put("/v1/functions/recurse", {
 })
 
 # MLDB-1251
+mldb.log("MLDB-1251")
 try:
     mldb.get("/v1/query", q="select recurse({input: -1})")
 except mldb_wrapper.ResponseException as exc:

@@ -479,8 +479,9 @@ struct SparseMatrixDataset::Itl
 
     uint64_t encodeCol(const ColumnName & col, WriteTransaction & trans)
     {
-        if (col == ColumnName())
-            throw HttpReturnException(400, "Datasets don't accept empty column names");
+        if (col.empty())
+            throw HttpReturnException(400,
+                                      "Datasets don't accept empty column names");
 
         ColumnHash ch(col);
         if (!trans.values->knownRow(ch.hash())) {
@@ -488,7 +489,7 @@ struct SparseMatrixDataset::Itl
             entry.rowcol = 0;
             entry.timestamp = 0;
             entry.val = 0;
-            entry.metadata.push_back(col.toString());
+            entry.metadata.push_back(col.toUtf8String().rawData());
             trans.values->recordRow(ch.hash(), &entry, 1);
         }
         return ch.hash();
@@ -502,7 +503,8 @@ struct SparseMatrixDataset::Itl
         trans->matrix
             ->iterateRows([&] (uint64_t row)
                           {
-                              result.emplace_back(getRowNameTrans(RowHash(row), *trans));
+                              result.emplace_back(getRowNameTrans(RowHash(row),
+                                                                  *trans));
                               return true;
                           });
 
@@ -596,7 +598,7 @@ struct SparseMatrixDataset::Itl
 
         auto onRow = [&] (const BaseEntry & entry)
             {
-                result = RowName(entry.metadata.at(0));
+                result = RowName::parse(entry.metadata.at(0));
                 return false;
             };
             
@@ -624,7 +626,7 @@ struct SparseMatrixDataset::Itl
 
         auto onRow = [&] (const BaseEntry & entry)
             {
-                result = ColumnName(entry.metadata.at(0));
+                result = ColumnName::parse(entry.metadata.at(0));
                 return false;  // return false to short circuit
             };
             
@@ -708,7 +710,7 @@ struct SparseMatrixDataset::Itl
             entry.rowcol = 0;
             entry.timestamp = 0;
             entry.val = 0;
-            entry.metadata.push_back(rowName.toString());
+            entry.metadata.push_back(rowName.toUtf8String().rawData());
             trans.values->recordRow(hash, &entry, 1);
         }
         
@@ -976,7 +978,7 @@ struct MutableBaseData {
             std::vector<uint64_t>::iterator end;
             if (entries.size() > 1) {
                 //if we haven't commited the entries yet there can be duplicates
-                parallelQuickSortRecursive<uint64_t>(allRows.begin(), allRows.end());
+                parallelQuickSortRecursive(allRows);
                 end = std::unique(allRows.begin(), allRows.end());
             }
             else{
@@ -1024,7 +1026,7 @@ struct MutableBaseData {
 
             if (entries.size() > 1) {
                 //if we haven't commited the entries yet there can be duplicates
-                parallelQuickSortRecursive<uint64_t >(allRows.begin(), allRows.end());
+                parallelQuickSortRecursive(allRows);
                 rowCount = std::unique(allRows.begin(), allRows.end()) - allRows.begin();
             }
             else{

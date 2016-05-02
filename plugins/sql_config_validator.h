@@ -1,9 +1,10 @@
-/** sql_config_validator.h                                                       -*- C++ -*-
+/** sql_config_validator.h                                         -*- C++ -*-
     Guy Dumais, 18 December 2015
 
     This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
-    Several templates to validate constraints on SQL statements in entity configs.
+    Several templates to validate constraints on SQL statements in entity
+    configs.
 */
 
 #include "mldb/sql/sql_expression.h"
@@ -160,16 +161,16 @@ template<typename FieldType> struct PlainColumnSelect
                 return std::dynamic_pointer_cast<const SelectColumnExpression>(expression);
             };
 
-        auto getComputedVariable = [] (const std::shared_ptr<SqlRowExpression> expression)
-            -> std::shared_ptr<const ComputedVariable>
+        auto getComputedColumn = [] (const std::shared_ptr<SqlRowExpression> expression)
+            -> std::shared_ptr<const ComputedColumn>
             {
-                return std::dynamic_pointer_cast<const ComputedVariable>(expression);
+                return std::dynamic_pointer_cast<const ComputedColumn>(expression);
             };
 
         auto getReadVariable = [] (const std::shared_ptr<SqlExpression> expression) 
-            -> std::shared_ptr<const ReadVariableExpression>
+            -> std::shared_ptr<const ReadColumnExpression>
             {
-                return std::dynamic_pointer_cast<const ReadVariableExpression>(expression);
+                return std::dynamic_pointer_cast<const ReadColumnExpression>(expression);
             };
 
         auto getWithinExpression = [] (const std::shared_ptr<SqlExpression> expression) 
@@ -197,9 +198,15 @@ template<typename FieldType> struct PlainColumnSelect
             };
 
         auto getFunctionCallExpression = [] (const std::shared_ptr<SqlExpression> expression) 
-            -> std::shared_ptr<const FunctionCallWrapper>
+            -> std::shared_ptr<const FunctionCallExpression>
             {
-                return std::dynamic_pointer_cast<const FunctionCallWrapper>(expression);
+                return std::dynamic_pointer_cast<const FunctionCallExpression>(expression);
+            };
+
+        auto getExtractExpression = [] (const std::shared_ptr<SqlExpression> expression) 
+            -> std::shared_ptr<const ExtractExpression>
+            {
+                return std::dynamic_pointer_cast<const ExtractExpression>(expression);
             };
 
         auto getConstantExpression = [] (const std::shared_ptr<SqlExpression> expression) 
@@ -220,7 +227,8 @@ template<typename FieldType> struct PlainColumnSelect
                 if (columnExpression)
                     continue;
 
-                auto computedVariable = getComputedVariable(clause);
+                auto computedVariable = getComputedColumn(clause);
+
                 if (computedVariable) {
                     auto readVariable = getReadVariable(computedVariable->expression);
                     if (readVariable)
@@ -241,10 +249,16 @@ template<typename FieldType> struct PlainColumnSelect
                     auto booleanExpression = getBooleanExpression(computedVariable->expression);
                     if (booleanExpression)
                         continue;
-                    // function(args)[extract]
+                    // function(args)
                     auto functionCallExpression = getFunctionCallExpression(computedVariable->expression);
                     if (functionCallExpression)
                         continue;
+
+                    // (...)[extract]
+                    auto extractExpression = getExtractExpression(computedVariable->expression);
+                    if (extractExpression)
+                        continue;
+
                      // 1.0
                     auto constantExpression = getConstantExpression(computedVariable->expression);
                     if (constantExpression)
@@ -252,7 +266,7 @@ template<typename FieldType> struct PlainColumnSelect
                 }
 
                 throw ML::Exception(std::string(name) + 
-                                    " training only accept wildcard and column names at " + 
+                                    " training only accepts wildcard and column names at " + 
                                     clause->surface.rawString());
             }
         }
@@ -267,21 +281,23 @@ template<typename FieldType> struct PlainColumnSelect<Optional<FieldType> >
     }
 };
 
-inline bool containsNamedSubSelect(const InputQuery& query, const std::string& name) 
+inline bool containsNamedSubSelect(const InputQuery& query, const Utf8String& name) 
 {
 
-    auto getComputedVariable = [] (const std::shared_ptr<SqlRowExpression> expression)
-        -> std::shared_ptr<const ComputedVariable>
+    auto getComputedColumn = [] (const std::shared_ptr<SqlRowExpression> expression)
+        -> std::shared_ptr<const ComputedColumn>
         {
-            return std::dynamic_pointer_cast<const ComputedVariable>(expression);
+            return std::dynamic_pointer_cast<const ComputedColumn>(expression);
         };
 
     if (query.stm) {
         auto & select = query.stm->select;
         for (const auto & clause : select.clauses) {
             
-            auto computedVariable = getComputedVariable(clause);
-            if (computedVariable && computedVariable->alias ==  name)
+            auto computedVariable = getComputedColumn(clause);
+            if (computedVariable
+                && computedVariable->alias.size() == 1
+                && computedVariable->alias[0] ==  name)
                 return true;
         }
     }

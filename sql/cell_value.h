@@ -20,7 +20,7 @@ namespace MLDB {
 
 
 typedef HashWrapper<4> CellValueHash;
-
+struct Coord;
 
 /*****************************************************************************/
 /* STRING CHARACTERISTICS                                                    */
@@ -282,12 +282,41 @@ struct CellValue {
         return cellType() == BLOB;
     }
 
+    bool isNaN() const
+    {
+        CellType t = cellType();
+        if (t == INTEGER) {
+            return std::isnan(toInt());
+        }
+        else if (t == FLOAT) {
+            return std::isnan(toDouble());
+        }
+        else {
+            return false;
+        }
+    }
+
+    bool isInf() const
+    {
+        CellType t = cellType();
+        if (t == INTEGER) {
+            return std::isinf(toInt());
+        }
+        else if (t == FLOAT) {
+            return std::isinf(toDouble());
+        }
+        else {
+            return false;
+        }
+    }
+
     CellValue coerceToInteger() const;
     CellValue coerceToNumber() const;
     CellValue coerceToString() const;
     CellValue coerceToBoolean() const;
     CellValue coerceToTimestamp() const;
     CellValue coerceToBlob() const;
+    Coord coerceToPathElement() const;
     
     /** This is always the SIPhash of the toString() representation.
         Only for blobs, which have no toString(), is it calculated
