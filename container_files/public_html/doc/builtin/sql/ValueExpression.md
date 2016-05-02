@@ -497,6 +497,7 @@ The following standard SQL aggregation functions are supported. They may only be
 - `max` calculates the maximum of all values in the group.
 - `count` calculates the number of non-null values in the group.
     - `count(*)` is a special function which will count the number of rows in the group with non-null values in any column
+- 'count_distinct' calculates the number of unique, distinct non-null values in the group.
 
 The following useful non-standard aggregation functions is also supported:
 

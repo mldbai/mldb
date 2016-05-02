@@ -13,7 +13,7 @@
 #include "mldb/jml/utils/csv.h"
 #include "mldb/types/vector_description.h"
 #include <array>
-
+#include <unordered_set>
 
 using namespace std;
 
@@ -718,6 +718,47 @@ struct CountAccum {
 };
 
 static RegisterAggregatorT<CountAccum> registerCount("count", "vertical_count");
+
+struct DistinctAccum {
+    static constexpr int nargs = 1;
+    DistinctAccum()
+        : ts(Date::negativeInfinity())
+    {
+    }
+
+    static std::shared_ptr<ExpressionValueInfo>
+    info(const std::vector<BoundSqlExpression> & args)
+    {
+        return std::make_shared<IntegerValueInfo>();
+    }
+
+    void process (const ExpressionValue * args,
+                  size_t nargs)
+    {
+        ExcAssertEqual(nargs, 1);
+        const ExpressionValue & val = args[0];
+        if (val.empty())
+            return;
+
+        knownValues.insert(val.getAtom());
+        ts.setMax(val.getEffectiveTimestamp());
+    };
+
+    ExpressionValue extract()
+    {
+       return ExpressionValue(knownValues.size(), ts);
+    }
+
+    void merge(DistinctAccum* src)
+    {
+        knownValues.insert(src->knownValues.begin(), src->knownValues.end());
+    }
+    
+    std::unordered_set<CellValue> knownValues;
+    Date ts;
+};
+
+static RegisterAggregatorT<DistinctAccum> registerDistinct("count_distinct");
 
 struct LikelihoodRatioAccum {
     LikelihoodRatioAccum()
