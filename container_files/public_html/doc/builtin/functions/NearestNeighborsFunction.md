@@ -6,7 +6,7 @@ in an existing ![](%%doclink embedding dataset).
 
 ## Configuration
 
-![](%%config function nearest.neighbors)
+![](%%config function embedding.neighbors)
 
 ## Input and Output Values
 
