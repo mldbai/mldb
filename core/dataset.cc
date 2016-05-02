@@ -854,6 +854,32 @@ generateRownameIsConstant(const Dataset & dataset,
             "generate single row matching rowName()"};
 }
 
+static GenerateRowsWhereFunction
+generateRownameIsExpression(const Dataset & dataset,
+                            const SqlExpression & rowNameExpr,
+                            const SqlBindingScope & outerScope)
+{
+    auto datasetPtr = &dataset;
+    // Bring the query parameters into scope
+    SqlExpressionParamScope scope(const_cast<SqlBindingScope &>(outerScope));
+    auto bound = rowNameExpr.bind(scope);
+
+
+    return {[=] (ssize_t numToGenerate, Any token,
+                 const BoundParameters & params)
+            -> std::pair<std::vector<RowName>, Any>
+            {
+                SqlExpressionParamScope::RowScope rowScope(params);
+                Coords rowName = bound(rowScope, GET_LATEST).coerceToPath();
+
+                // There should be exactly one row
+                if (datasetPtr->getMatrixView()->knownRow(rowName))
+                    return { { rowName }, token };
+                else return { {}, token };
+            },
+            "generate single row matching rowName() expression"};
+}
+
 /*
     Must return the *exact* set of rows or a stream that will do the same
     because the where expression will not be evaluated outside of this method
@@ -1228,6 +1254,25 @@ generateRowsWhere(const SqlBindingScope & scope,
         if (frhs && clhs && comparison->op == "=") {
             if (frhs->functionName == "rowName") {
                 return generateRownameIsConstant(*this, *clhs);
+            }
+        }
+
+        // Optimization for rowName() == expression (with dependency only on
+        // parameters).  In this case, we can generate a single row (this is
+        // a weaker version of the previous).
+        if (flhs && comparison->op == "=" && flhs->functionName == "rowName") {
+            auto unbound = comparison->rhs->getUnbound();
+            if (unbound.vars.empty() && unbound.tables.empty()
+                && unbound.wildcards.empty()) {
+                return generateRownameIsExpression(*this, *comparison->rhs, scope);
+            }
+        }
+
+        if (frhs && comparison->op == "=" && frhs->functionName == "rowName") {
+            auto unbound = comparison->lhs->getUnbound();
+            if (unbound.vars.empty() && unbound.tables.empty()
+                && unbound.wildcards.empty()) {
+                return generateRownameIsExpression(*this, *comparison->lhs, scope);
             }
         }
 
