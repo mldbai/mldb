@@ -59,8 +59,8 @@ tableNames() const
 /*****************************************************************************/
 
 PipelineExpressionScope::
-PipelineExpressionScope(std::shared_ptr<SqlBindingScope> context)
-    : context_(context)
+PipelineExpressionScope(std::shared_ptr<SqlBindingScope> outerScope)
+    : outerScope_(outerScope)
 {
 }
 
@@ -121,10 +121,13 @@ selectScope(std::vector<std::shared_ptr<ExpressionValueInfo> > outputAdded) cons
     return result;
 }
 
-VariableGetter
+ColumnGetter
 PipelineExpressionScope::
-doGetVariable(const Utf8String & tableName, const Utf8String & variableName)
+doGetColumn(const Utf8String & tableName, const ColumnName & columnName)
 {
+    //cerr << "doGetColumn with tableName " << tableName
+    //     << " and variable name " << columnName << endl;
+
     if (tableName.empty()) {
         if (defaultTables.empty()) {
 
@@ -133,26 +136,26 @@ doGetVariable(const Utf8String & tableName, const Utf8String & variableName)
                 cerr << t.first;
             cerr << endl;
             throw HttpReturnException(500, "Get variable without table name with no default table in scope",
-                                      "variableName", variableName);
+                                      "columnName", columnName);
         }
-        return defaultTables.back().doGetVariable(variableName);
+        return defaultTables.back().doGetColumn(columnName);
     }
     else {
         // Otherwise, look in the table scope
         auto it = tables.find(tableName);
         if (it != tables.end()) {
-            return it->second.doGetVariable(variableName);
+            return it->second.doGetColumn(columnName);
         }
     }        
 
     // Otherwise, look for it in the enclosing scope
-    return context_->doGetVariable(tableName, variableName);
+    return outerScope_->doGetColumn(tableName, columnName);
 }
 
 GetAllColumnsOutput 
 PipelineExpressionScope::
 doGetAllColumns(const Utf8String & tableName,
-                std::function<Utf8String (const Utf8String &)> keep)
+                std::function<ColumnName (const ColumnName &)> keep)
 {
     if (tableName.empty()) {
         if (defaultTables.empty())
@@ -167,7 +170,7 @@ doGetAllColumns(const Utf8String & tableName,
         }
     }        
 
-    return context_->doGetAllColumns(tableName, keep);
+    return outerScope_->doGetAllColumns(tableName, keep);
 }
 
 BoundFunction
@@ -185,10 +188,9 @@ doGetFunction(const Utf8String & tableName,
         }
 
         for (auto & t: tables) {
-            auto toFind = t.first + ".";
-            if (functionName.startsWith(toFind)) {
+            if (functionName.startsWith(t.first)) {
                 Utf8String suffix = functionName;
-                suffix.removePrefix(toFind);
+                suffix.removePrefix(t.first);
                 return t.second.doGetFunction(suffix, args, argScope);
             }
         }
@@ -201,34 +203,27 @@ doGetFunction(const Utf8String & tableName,
         }
     }        
 
-    return SqlBindingScope::doGetFunction(tableName, functionName, args, argScope);
-}
-
-std::shared_ptr<Function>
-PipelineExpressionScope::
-doGetFunctionEntity(const Utf8String & functionName)
-{
-    return context_->doGetFunctionEntity(functionName);
+    return outerScope_->doGetFunction(tableName, functionName, args, argScope);
 }
 
 ColumnFunction
 PipelineExpressionScope::
 doGetColumnFunction(const Utf8String & functionName)
 {
-    return context_->doGetColumnFunction(functionName);
+    return outerScope_->doGetColumnFunction(functionName);
 }
 
-VariableGetter
+ColumnGetter
 PipelineExpressionScope::
 doGetBoundParameter(const Utf8String & paramName)
 {
     //cerr << "doGetBoundParameter for " << paramName << endl;
     if (!getParamInfo_)
-        return VariableGetter();
+        return ColumnGetter();
 
     auto info = getParamInfo_(paramName);
     if (!info)
-        return VariableGetter();
+        return ColumnGetter();
 
     auto exec = [=] (const SqlRowScope & rowScope,
                      ExpressionValue & storage,
@@ -241,16 +236,15 @@ doGetBoundParameter(const Utf8String & paramName)
     return { exec, info };
 }
 
-Utf8String 
+ColumnName
 PipelineExpressionScope::
-doResolveTableName(const Utf8String & fullVariableName, Utf8String &tableName) const
+doResolveTableName(const ColumnName & fullVariableName,
+                   Utf8String &tableName) const
 {
     for (auto & t: tables) {
-        if (fullVariableName.startsWith(t.first + ".")) {
+        if (fullVariableName.startsWith(t.first)) {
             tableName = t.first;
-            Utf8String v = fullVariableName;
-            v.removePrefix(t.first + ".");
-            return v;
+            return fullVariableName.removePrefix();
         }
     }
 
@@ -261,21 +255,21 @@ MldbServer *
 PipelineExpressionScope::
 getMldbServer() const
 {
-    return context_->getMldbServer();
+    return outerScope_->getMldbServer();
 }
 
 std::shared_ptr<Dataset>
 PipelineExpressionScope::
 doGetDataset(const Utf8String & datasetName)
 {
-    return context_->doGetDataset(datasetName);
+    return outerScope_->doGetDataset(datasetName);
 }
 
 std::shared_ptr<Dataset>
 PipelineExpressionScope::
 doGetDatasetFromConfig(const Any & datasetConfig)
 {
-     return context_->doGetDatasetFromConfig(datasetConfig);
+     return outerScope_->doGetDatasetFromConfig(datasetConfig);
 }
 
 PipelineExpressionScope::TableEntry::
@@ -285,16 +279,16 @@ TableEntry(std::shared_ptr<LexicalScope> scope,
 {
 }
 
-VariableGetter
+ColumnGetter
 PipelineExpressionScope::TableEntry::
-doGetVariable(const Utf8String & variableName) const
+doGetColumn(const ColumnName & columnName) const
 {
-    return scope->doGetVariable(variableName, fieldOffset);
+    return scope->doGetColumn(columnName, fieldOffset);
 }
     
 GetAllColumnsOutput
 PipelineExpressionScope::TableEntry::
-doGetAllColumns(std::function<Utf8String (const Utf8String &)> keep) const
+doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep) const
 {
     return scope->doGetAllColumns(keep, fieldOffset);
 }

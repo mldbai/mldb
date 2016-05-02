@@ -14,13 +14,22 @@
 namespace Datacratic {
 namespace MLDB {
 
+struct Coords;
+
 Utf8String escapeSql(const Utf8String & str);
 std::string escapeSql(const std::string & str);
 std::string escapeSql(const char * str);
 
-bool matchSqlFilter(const Utf8String& valueString, const Utf8String& filterString);
+bool matchSqlFilter(const Utf8String& valueString,
+                    const Utf8String& filterString);
 
-Utf8String removeTableName(const Utf8String & alias, const Utf8String & variableName);
+/** For when we have a variable reference like "x.y" in table x, when
+    passing the expression through the table we need to remove it from
+    the passed version.  This function does that, removing the table
+    name in alias from the beginning of the given variable name.
+*/
+Coords removeTableName(const Utf8String & alias,
+                       const Coords & variableName);
 
 } // namespace MLDB
 } // namespace Datacratic

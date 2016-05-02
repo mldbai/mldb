@@ -106,7 +106,7 @@ ClassifierConfigDescription()
              0.5);
     addField("mode", &ClassifierConfig::mode,
              "Mode of classifier.  Controls how the label is interpreted and "
-             "what is the output of the classifier.", CM_BOOLEAN);    
+             "what is the output of the classifier.", CM_BOOLEAN);
     addField("modelFileUrl", &ClassifierConfig::modelFileUrl,
              "URL where the model file (with extension '.cls') should be saved. "
              "This file can be loaded by the ![](%%doclink classifier function). "
@@ -117,7 +117,7 @@ ClassifierConfigDescription()
              "also be provided.");
     addParent<ProcedureConfig>();
 
-    onPostValidate = validate<ClassifierConfig, 
+    onPostValidate = validate<ClassifierConfig,
                               InputQuery,
                               NoGroupByHaving,
                               PlainColumnSelect,
@@ -151,7 +151,7 @@ run(const ProcedureRunConfig & run,
       const std::function<bool (const Json::Value &)> & onProgress) const
 {
     // 1.  Construct an applyFunctionToProcedure object
-    
+
     // 2.  Extend with our training function
 
     // 3.  Apply everything to construct the dataset
@@ -164,11 +164,17 @@ run(const ProcedureRunConfig & run,
 
     // this includes being empty
     if(!runProcConf.modelFileUrl.valid()) {
-        throw ML::Exception("modelFileUrl is not valid");
+        throw ML::Exception(ML::format("The 'modelFileUrl' parameter "
+                    "is not valid. Value: '%s'",
+                    runProcConf.modelFileUrl.toString()));
     }
 
+    // try to create output folder and write open a writer to make sure 
+    // we have permissions before we do the actual training
+    checkWritability(runProcConf.modelFileUrl.toString(), "modelFileUrl");
+
     // 1.  Get the input dataset
-    SqlExpressionMldbContext context(server);
+    SqlExpressionMldbScope context(server);
 
     auto boundDataset = runProcConf.trainingData.stm->from->bind(context);
 
@@ -193,13 +199,13 @@ run(const ProcedureRunConfig & run,
 
     labelInfo.set_biased(true);
 
-    auto extractWithinExpression = [](std::shared_ptr<SqlExpression> expr) 
+    auto extractWithinExpression = [](std::shared_ptr<SqlExpression> expr)
         -> std::shared_ptr<SqlRowExpression>
         {
             auto withinExpression = std::dynamic_pointer_cast<const SelectWithinExpression>(expr);
             if (withinExpression)
                 return withinExpression->select;
-            
+
             return nullptr;
         };
 
@@ -217,7 +223,7 @@ run(const ProcedureRunConfig & run,
     std::set<ColumnName> knownInputColumns;
     {
         // Find only those variables used
-        SqlExpressionDatasetContext context(boundDataset);
+        SqlExpressionDatasetScope context(boundDataset);
         
         auto selectBound = select.bind(context);
 
@@ -226,7 +232,7 @@ run(const ProcedureRunConfig & run,
         }
     }
 
-    // logger->debug() << "knownInputColumns are " << jsonEncode(knownInputColumns);
+    DEBUG_MSG(logger) << "knownInputColumns are " << jsonEncode(knownInputColumns);
 
     ML::Timer timer;
 
@@ -234,9 +240,9 @@ run(const ProcedureRunConfig & run,
     // the select expression that's important...
     auto featureSpace = std::make_shared<DatasetFeatureSpace>
         (boundDataset.dataset, labelInfo, knownInputColumns);
-    
-    logger->info() << "initialized feature space in " << timer.elapsed();
-    
+
+    INFO_MSG(logger) << "initialized feature space in " << timer.elapsed();
+
     // We want to calculate the label and weight of each row as well
     // as the select expression
     std::vector<std::shared_ptr<SqlExpression> > extra
@@ -256,7 +262,7 @@ run(const ProcedureRunConfig & run,
 
         RowName rowName;
         ML::Mutable_Feature_Set featureSet;
-        
+
         float label() const
         {
             ExcAssertEqual(featureSet.at(0).first, labelFeature);
@@ -274,7 +280,7 @@ run(const ProcedureRunConfig & run,
             ExcAssertEqual(featureSet.at(0).first, labelFeature);
             featureSet.at(0).second = label;
         }
-        
+
         bool operator < (const Fv & other) const
         {
             return rowName < other.rowName
@@ -318,7 +324,7 @@ run(const ProcedureRunConfig & run,
         {
             size_t split = t1.fvs.size();
 
-            t1.fvs.insert(t1.fvs.end(), 
+            t1.fvs.insert(t1.fvs.end(),
                           std::make_move_iterator(t2.fvs.begin()),
                           std::make_move_iterator(t2.fvs.end()));
             t2.fvs.clear();
@@ -374,22 +380,25 @@ run(const ProcedureRunConfig & run,
 
             float weight = extraVals.at(1).toDouble();
 
-            // logger->debug() << "label = " << label << " weight = " << weight;
-            // logger->debug() << "row.columns.size() = " << row.columns.size();
+            DEBUG_MSG(logger) << "label = " << label << " weight = " << weight;
+            DEBUG_MSG(logger) << "row.columns.size() = " << row.columns.size();
 
-            // logger->debug() << "got row " << jsonEncode(row);
+            DEBUG_MSG(logger) << "got row " << jsonEncode(row);
             ++numRows;
 
             std::vector<std::pair<ML::Feature, float> > features
             = { { labelFeature, encodedLabel }, { weightFeature, weight } };
 
-            unordered_set<Coord> unique_known_features;
+            unordered_set<Coords> unique_known_features;
             for (auto & c: row.columns) {
                 featureSpace->encodeFeature(std::get<0>(c), std::get<1>(c), features);
 
-                if(unique_known_features.count(std::get<0>(c)) != 0) {
-                    throw ML::Exception("Training dataset cannot have duplicated column '" + 
-                        std::get<0>(c).toString() + "' for row '"+row.rowName.toString()+"'");
+                if (unique_known_features.count(std::get<0>(c)) != 0) {
+                    throw HttpReturnException
+                        (400, "Training dataset cannot have duplicated column '" + 
+                         std::get<0>(c).toUtf8String()
+                         + "' for row '"
+                         +row.rowName.toUtf8String()+"'");
                 }
                 unique_known_features.insert(std::get<0>(c));
             }
@@ -408,20 +417,20 @@ run(const ProcedureRunConfig & run,
                      boundDataset.asName, runProcConf.trainingData.stm->when,
                      *runProcConf.trainingData.stm->where,
                      runProcConf.trainingData.stm->orderBy, extra)
-        .execute({processor,true/*processInParallel*/}, 
-                 runProcConf.trainingData.stm->offset, 
-                 runProcConf.trainingData.stm->limit, 
+        .execute({processor,true/*processInParallel*/},
+                 runProcConf.trainingData.stm->offset,
+                 runProcConf.trainingData.stm->limit,
                  nullptr /* progress */);
 
-    logger->info() << "extracted feature vectors in " << timer.elapsed();
-    
+    INFO_MSG(logger) << "extracted feature vectors in " << timer.elapsed();
+
     // If we're categorical, we need to sort out the labels over all
     // of the threads.
 
     std::map<std::string, int> labelMapping;
-    
+
     if (runProcConf.mode == CM_CATEGORICAL) {
-    
+
         std::set<std::string> allLabels;
 
         auto onThread = [&] (ThreadAccum * acc)
@@ -429,7 +438,7 @@ run(const ProcedureRunConfig & run,
                 allLabels.insert(acc->categoricalLabelList.begin(),
                                  acc->categoricalLabelList.end());
             };
-        
+
         accum.forEach(onThread);
 
         // Now, initialize a mapping for each thread
@@ -437,7 +446,7 @@ run(const ProcedureRunConfig & run,
             int encodedLabel = categorical->parse_or_add(labelStr);
             labelMapping[labelStr] = encodedLabel;
         }
-        
+
         auto onThread2 = [&] (ThreadAccum * acc)
             {
                 for (auto & labelStr: acc->categoricalLabelList) {
@@ -445,7 +454,7 @@ run(const ProcedureRunConfig & run,
                         = labelMapping[labelStr];
                 }
             };
-        
+
         accum.forEach(onThread2);
     }
 
@@ -454,7 +463,7 @@ run(const ProcedureRunConfig & run,
     std::vector<Fv> fvs;
 
     timer.restart();
-   
+
     parallelMergeSortRecursive(accum.threads, 0, accum.threads.size(),
                                [] (const std::shared_ptr<ThreadAccum> & t)
                                {
@@ -470,8 +479,8 @@ run(const ProcedureRunConfig & run,
                                    return t->fvs.size();
                                },
                                10000 /* thread threshold */);
-    
-    logger->info() << "merged feature vectors in " << timer.elapsed();
+
+    INFO_MSG(logger) << "merged feature vectors in " << timer.elapsed();
 
     if (!accum.threads.empty()) {
         fvs = std::move(accum.threads[0]->fvs);
@@ -502,7 +511,7 @@ run(const ProcedureRunConfig & run,
                                   "offsetClause", runProcConf.trainingData.stm->offset,
                                   "limitClause", runProcConf.trainingData.stm->limit);
     }
-    
+
     timer.restart();
 
     ML::Training_Data trainingSet(featureSpace);
@@ -522,6 +531,15 @@ run(const ProcedureRunConfig & run,
         if (!isfinite(weight))
             throw HttpReturnException(400, "classifier example weights must be finite");
 
+        if (runProcConf.mode == CM_REGRESSION
+            && !isfinite(label)) {
+            throw HttpReturnException
+                (400,
+                 "Regression labels must not be infinite or NaN.  Should you "
+                 "add a condition like `WHERE isfinite(label)` to your data, "
+                 "or preprocess your labels with `replace_if_not_finite(label, 0)`?");
+        }
+
         trainingSet.add_example(std::make_shared<ML::Mutable_Feature_Set>(std::move(fvs[i].featureSet)));
 
         labelWeights[0][i] = weight * !label;
@@ -531,12 +549,12 @@ run(const ProcedureRunConfig & run,
 
     ExcAssertEqual(nx, trainingSet.example_count());
 
-    logger->info() << "added feature vectors in " << timer.elapsed();
+    INFO_MSG(logger) << "added feature vectors in " << timer.elapsed();
 
     timer.restart();
     trainingSet.preindex(labelFeature);
 
-    logger->info() << "indexed training data in " << timer.elapsed();
+    INFO_MSG(logger) << "indexed training data in " << timer.elapsed();
 
     // ...
     //trainingSet.dump("training_set.txt.gz");
@@ -544,15 +562,15 @@ run(const ProcedureRunConfig & run,
     // Find all features
     std::vector<ML::Feature> allFeatures = trainingSet.index().all_features();
 
-    logger->info() << "Training with " << allFeatures.size() << " features";
+    INFO_MSG(logger) << "Training with " << allFeatures.size() << " features";
 
     std::vector<ML::Feature> trainingFeatures;
 
     for (unsigned i = 0;  i < allFeatures.size();  ++i) {
-        // logger->debug() << "allFeatures[i] = " << allFeatures[i];
+        DEBUG_MSG(logger) << "allFeatures[i] = " << allFeatures[i];
 
         string featureName = featureSpace->print(allFeatures[i]);
-        // logger->debug() << "featureName = " << featureName;
+        DEBUG_MSG(logger) << "featureName = " << featureName;
 
         if (allFeatures[i] == labelFeature)
             continue;
@@ -562,7 +580,7 @@ run(const ProcedureRunConfig & run,
 #if 0
         if (boost::regex_match(featureName, excludeFeatures)
             || featureName == "LABEL") {
-            logger->info() << "excluding feature " << featureName << " from training";
+            INFO_MSG(logger) << "excluding feature " << featureName << " from training";
             continue;
         }
 #endif
@@ -604,8 +622,8 @@ run(const ProcedureRunConfig & run,
         double factorTrue  = pow(labelWeights[1].total(), -equalizationFactor);
         double factorFalse = pow(labelWeights[0].total(), -equalizationFactor);
 
-        logger->info() << "factorTrue = " << factorTrue;
-        logger->info() << "factorFalse = " << factorFalse;
+        INFO_MSG(logger) << "factorTrue = " << factorTrue;
+        INFO_MSG(logger) << "factorFalse = " << factorFalse;
 
         weights = exampleWeights
             * (factorTrue  * labelWeights[true]
@@ -614,21 +632,20 @@ run(const ProcedureRunConfig & run,
         weights.normalize();
     }
 
-    // logger->debug() << "training classifier";
+    DEBUG_MSG(logger) << "training classifier";
     ML::Classifier classifier(trainer->generate(threadContext, trainingSet, weights,
                                                 trainingFeatures));
-    // logger->debug() << "done training classifier";
+    DEBUG_MSG(logger) << "done training classifier";
 
-    logger->info() << "trained classifier in " << timer.elapsed();
+    INFO_MSG(logger) << "trained classifier in " << timer.elapsed();
 
     bool saved = true;
     try {
-        Datacratic::makeUriDirectory(runProcConf.modelFileUrl.toString());
         classifier.save(runProcConf.modelFileUrl.toString());
     }
     catch (const std::exception & exc) {
         saved = false;
-        logger->info() << "Error saving classifier: " << exc.what();
+        INFO_MSG(logger) << "Error saving classifier: " << exc.what();
     }
 
 
@@ -638,22 +655,19 @@ run(const ProcedureRunConfig & run,
         clsFuncPC.id = runProcConf.functionName;
         clsFuncPC.params = ClassifyFunctionConfig(runProcConf.modelFileUrl);
 
-        InProcessRestConnection connection;
-        RestRequest request("PUT", "/v1/functions/" + runProcConf.functionName.rawString(),
-                RestParams(), jsonEncode(clsFuncPC).toString());
-        server->handleRequest(connection, request);
+        createFunction(server, clsFuncPC, onProgress, true);
     }
 
-    // logger->debug() << "done saving classifier";
+    DEBUG_MSG(logger) << "done saving classifier";
 
     //trainingSet.dump("training_set.txt.gz");
- 
+
     return RunOutput();
 }
 
 
 /*****************************************************************************/
-/* CLASSIFIER FUNCTION                                                          */
+/* CLASSIFIER FUNCTION                                                       */
 /*****************************************************************************/
 
 DEFINE_STRUCTURE_DESCRIPTION(ClassifyFunctionConfig);
@@ -739,9 +753,9 @@ getDetails() const
 
 std::tuple<std::vector<float>, std::shared_ptr<ML::Mutable_Feature_Set>, Date>
 ClassifyFunction::
-getFeatureSet(const FunctionContext & context, bool attemptDense) const
+getFeatureSet(const ExpressionValue & context, bool attemptDense) const
 {
-    auto row = context.get<RowValue>("features");
+    auto row = context.getColumn(Coord("features"));
 
     Date ts = Date::negativeInfinity();
 
@@ -749,26 +763,34 @@ getFeatureSet(const FunctionContext & context, bool attemptDense) const
     if (attemptDense) {
         std::vector<float> denseFeatures(itl->featureSpace->columnInfo.size(),
                                          std::numeric_limits<float>::quiet_NaN());
-        for (auto & r: row) {
-            ColumnName columnName(std::get<0>(r));
-            ColumnHash columnHash(columnName);
 
-            auto it = itl->featureSpace->columnInfo.find(columnHash);
-            if (it == itl->featureSpace->columnInfo.end())
-                continue;
+        auto onAtom = [&] (const Coords & suffix,
+                           const Coords & prefix,
+                           const CellValue & value,
+                           Date tsIn)
+            {
+                ColumnName columnName(prefix + suffix);
+                ColumnHash columnHash(columnName);
+                
+                auto it = itl->featureSpace->columnInfo.find(columnHash);
+                if (it == itl->featureSpace->columnInfo.end())
+                    return true;
 
-            CellValue value = std::get<1>(r);
-            ts.setMax(std::get<2>(r));
+                ts.setMax(tsIn);
 
-            // TODO: if more than one value, we need to fall back
-            if (!isnanf(denseFeatures[it->second.index])) {
-                multiValue = true;
-                break;
-            }
-        
-            denseFeatures[it->second.index]
-                = itl->featureSpace->encodeFeatureValue(columnHash, value);
-        }
+                if (!isnanf(denseFeatures[it->second.index])) {
+                    multiValue = true;
+                    return false;
+                }
+                
+                denseFeatures[it->second.index]
+                    = itl->featureSpace->encodeFeatureValue(columnHash, value);
+
+                return true;
+            };
+
+        row.forEachAtom(onAtom);
+
         if (!multiValue)
             return std::make_tuple( std::move(denseFeatures), nullptr, ts );
     }
@@ -776,25 +798,33 @@ getFeatureSet(const FunctionContext & context, bool attemptDense) const
 
     std::vector<std::pair<ML::Feature, float> > features;
 
-    for (auto & r: row) {
-        ColumnName columnName(std::get<0>(r));
-        ColumnHash columnHash(columnName);
+    auto onAtom = [&] (const Coords & suffix,
+                       const Coords & prefix,
+                       const CellValue & value,
+                       Date tsIn)
+        {
+            ColumnName columnName(prefix + suffix);
+            ColumnHash columnHash(columnName);
 
-        auto it = itl->featureSpace->columnInfo.find(columnHash);
-        if (it == itl->featureSpace->columnInfo.end())
-            continue;
+            auto it = itl->featureSpace->columnInfo.find(columnHash);
+            if (it == itl->featureSpace->columnInfo.end())
+                return true;
 
-        CellValue value = std::get<1>(r);
-        ts.setMax(std::get<2>(r));
+            ts.setMax(tsIn);
 
-        itl->featureSpace->encodeFeature(columnHash, value, features);
-    }
+            itl->featureSpace->encodeFeature(columnHash, value, features);
+
+            return true;
+        };
+
+    row.forEachAtom(onAtom);
 
     std::sort(features.begin(), features.end());
-    
-    auto fset = std::make_shared<ML::Mutable_Feature_Set>(features.begin(), features.end());
-    fset->locked = true;
 
+    auto fset = std::make_shared<ML::Mutable_Feature_Set>
+        (features.begin(), features.end());
+    fset->locked = true;
+    
     return std::make_tuple( vector<float>(), std::move(fset), ts );
 }
 
@@ -811,7 +841,7 @@ struct ClassifyFunctionApplier: public FunctionApplier {
 std::unique_ptr<FunctionApplier>
 ClassifyFunction::
 bind(SqlBindingScope & outerContext,
-     const FunctionValues & input) const
+     const std::shared_ptr<RowValueInfo> & input) const
 {
     // Assume there is one of each features
     vector<ML::Feature> features(itl->featureSpace->columnInfo.size());
@@ -822,18 +852,16 @@ bind(SqlBindingScope & outerContext,
     std::unique_ptr<ClassifyFunctionApplier> result
         (new ClassifyFunctionApplier(this));
     result->optInfo = itl->classifier.impl->optimize(features);
- 
+
     return std::move(result);
 }
 
-FunctionOutput
+ExpressionValue
 ClassifyFunction::
 apply(const FunctionApplier & applier_,
-      const FunctionContext & context) const
+      const ExpressionValue & context) const
 {
     auto & applier = (ClassifyFunctionApplier &)applier_;
-
-    FunctionOutput result;
 
     int labelCount = itl->classifier.label_count();
 
@@ -843,6 +871,9 @@ apply(const FunctionApplier & applier_,
 
     std::tie(dense, fset, ts) = getFeatureSet(context, true /* try to optimize */);
 
+    StructValue result;
+    result.reserve(1);
+
     auto cat = itl->labelInfo.categorical();
     if (!dense.empty()) {
         if (cat) {
@@ -851,29 +882,29 @@ apply(const FunctionApplier & applier_,
 
             vector<tuple<Coord, ExpressionValue> > row;
             for (unsigned i = 0;  i < labelCount;  ++i) {
-                row.emplace_back(RowName(cat->print(i)),
+                row.emplace_back(Coord(cat->print(i)),
                                  ExpressionValue(scores[i], ts));
             }
 
-            result.set("scores", row);
+            result.emplace_back("scores", std::move(row));
         }
         else if (itl->labelInfo.type() == ML::REAL) {
             ExcAssertEqual(labelCount, 1);
             float score = itl->classifier.impl->predict(0, dense, applier.optInfo);
-            result.set("score", ExpressionValue(score, ts));
+            result.emplace_back("score", ExpressionValue(score, ts));
         }
         else {
             ExcAssertEqual(labelCount, 2);
             float score = itl->classifier.impl->predict(1, dense, applier.optInfo);
-            result.set("score", ExpressionValue(score, ts));
+            result.emplace_back("score", ExpressionValue(score, ts));
         }
     }
     else {
         if(!fset) {
-            throw ML::Exception("Feature_Set is null! Are you giving only null features to "
-                "the classifier function?");
+            throw ML::Exception("Feature_Set is null! Are you giving "
+                                "only null features to the classifier function?");
         }
-
+        
         if (cat) {
             auto scores = itl->classifier.predict(*fset);
             ExcAssertEqual(scores.size(), labelCount);
@@ -881,25 +912,24 @@ apply(const FunctionApplier & applier_,
             vector<tuple<Coord, ExpressionValue> > row;
 
             for (unsigned i = 0;  i < labelCount;  ++i) {
-                row.emplace_back(RowName(cat->print(i)),
+                row.emplace_back(Coord(cat->print(i)),
                                  ExpressionValue(scores[i], ts));
             }
-        
-            result.set("scores", row);
+            result.emplace_back("scores", std::move(row));
         }
         else if (itl->labelInfo.type() == ML::REAL) {
             ExcAssertEqual(labelCount, 1);
             float score = itl->classifier.predict(0, *fset);
-            result.set("score", ExpressionValue(score, ts));
+            result.emplace_back("score", ExpressionValue(score, ts));
         }
         else {
             ExcAssertEqual(labelCount, 2);
             float score = itl->classifier.predict(1, *fset);
-            result.set("score", ExpressionValue(score, ts));
+            result.emplace_back("score", ExpressionValue(score, ts));
         }
     }
 
-    return result;
+    return std::move(result);
 }
 
 FunctionInfo
@@ -908,34 +938,34 @@ getFunctionInfo() const
 {
     FunctionInfo result;
 
-    std::vector<KnownColumn> inputColumns;
+    std::vector<KnownColumn> featureColumns;
 
     // Input is cell values
     for (auto & col: itl->featureSpace->columnInfo) {
-        
+
         ColumnSparsity sparsity = col.second.info.optional()
             ? COLUMN_IS_SPARSE : COLUMN_IS_DENSE;
 
-        // logger->debug() << "column " << col.second.columnName << " info " << col.second.info;
+        DEBUG_MSG(logger) << "column " << col.second.columnName << " info " << col.second.info;
 
         // Be specific about what type we're looking for.  This will allow
         // us to be more leniant when encoding for input.
         switch (col.second.info.type()) {
         case ML::BOOLEAN:
-            inputColumns.emplace_back(col.second.columnName,
+            featureColumns.emplace_back(col.second.columnName,
                                       std::make_shared<BooleanValueInfo>(),
                                       sparsity);
             break;
 
         case ML::REAL:
-            inputColumns.emplace_back(col.second.columnName,
+            featureColumns.emplace_back(col.second.columnName,
                                       std::make_shared<Float32ValueInfo>(),
                                       sparsity);
             break;
 
         case ML::CATEGORICAL:
         case ML::STRING:
-            inputColumns.emplace_back(col.second.columnName,
+            featureColumns.emplace_back(col.second.columnName,
                                       std::make_shared<StringValueInfo>(),
                                       sparsity);
             break;
@@ -945,13 +975,22 @@ getFunctionInfo() const
         }
     }
 
-    std::sort(inputColumns.begin(), inputColumns.end(),
+    std::sort(featureColumns.begin(), featureColumns.end(),
               [] (const KnownColumn & c1, const KnownColumn & c2)
               {
                   return c1.columnName < c2.columnName;
               });
 
-    result.input.addRowValue("features", inputColumns, SCHEMA_CLOSED);
+
+    std::vector<KnownColumn> inputColumns;
+    inputColumns.emplace_back(Coord("features"),
+                              std::make_shared<RowValueInfo>(featureColumns,
+                                                             SCHEMA_CLOSED),
+                              COLUMN_IS_DENSE);
+    result.input = std::make_shared<RowValueInfo>(std::move(inputColumns),
+                                                  SCHEMA_CLOSED);
+    
+    std::vector<KnownColumn> outputColumns;
 
     auto cat = itl->labelInfo.categorical();
 
@@ -961,12 +1000,12 @@ getFunctionInfo() const
         std::vector<KnownColumn> scoreColumns;
 
         for (unsigned i = 0;  i < labelCount;  ++i) {
-            scoreColumns.emplace_back(ColumnName(cat->print(i)),
+            scoreColumns.emplace_back(ColumnName::parse(cat->print(i)),
                                       std::make_shared<Float32ValueInfo>(),
-                                      COLUMN_IS_DENSE);
+                                      COLUMN_IS_DENSE, i);
         }
 
-#if 0 // disabled because we want them in the same order produced by the output       
+#if 0 // disabled because we want them in the same order produced by the output
         std::sort(scoreColumns.begin(), scoreColumns.end(),
               [] (const KnownColumn & c1, const KnownColumn & c2)
               {
@@ -974,23 +1013,32 @@ getFunctionInfo() const
               });
 #endif
 
-        result.output.addRowValue("scores", scoreColumns, SCHEMA_CLOSED);
+        outputColumns.emplace_back(Coord("scores"),
+                                   std::make_shared<RowValueInfo>(scoreColumns,
+                                                                  SCHEMA_CLOSED),
+                                   COLUMN_IS_DENSE, 0);
     }
     else {
-        result.output.addNumericValue("score");
+        outputColumns.emplace_back(Coord("score"),
+                                   std::make_shared<NumericValueInfo>(),
+                                   COLUMN_IS_DENSE, 0);
     }
+
+    result.output = std::make_shared<RowValueInfo>(std::move(outputColumns),
+                                                   SCHEMA_CLOSED);
+
     return result;
 }
 
 
 /*****************************************************************************/
-/* EXPLAIN FUNCTION                                                             */
+/* EXPLAIN FUNCTION                                                          */
 /*****************************************************************************/
 
 ExplainFunction::
 ExplainFunction(MldbServer * owner,
-             PolyConfig config,
-             const std::function<bool (const Json::Value &)> & onProgress)
+                PolyConfig config,
+                const std::function<bool (const Json::Value &)> & onProgress)
     : ClassifyFunction(owner, config, onProgress)
 {
 }
@@ -1000,39 +1048,40 @@ ExplainFunction::
 {
 }
 
-FunctionOutput
+ExpressionValue
 ExplainFunction::
 apply(const FunctionApplier & applier,
-      const FunctionContext & context) const
+      const ExpressionValue & context) const
 {
-    FunctionOutput result;
-
     std::vector<float> dense;
     std::shared_ptr<ML::Mutable_Feature_Set> fset;
     Date ts;
 
     std::tie(dense, fset, ts) = getFeatureSet(context, false /* attempt to optimize */);
 
+    CellValue label = context.getColumn("label").getAtom();
+
     ML::Explanation expl
         = itl->classifier.impl
-        ->explain(*fset, itl->featureSpace->encodeLabel(context.get<CellValue>("label"),
-                                                        isRegression));
+        ->explain(*fset, itl->featureSpace->encodeLabel(label, isRegression));
 
-    result.set("bias", ExpressionValue(expl.bias, ts));
-
-    RowValue output;
+    StructValue output;
+    output.reserve(2);
+    output.emplace_back("bias", ExpressionValue(expl.bias, ts));
+    
+    RowValue features;
 
     Date effectiveDate = ts;
 
     for(auto iter=expl.feature_weights.begin(); iter!=expl.feature_weights.end(); iter++) {
-        output.emplace_back(ColumnName(itl->featureSpace->print(iter->first)),
-                            iter->second,
-                            effectiveDate);
+        features.emplace_back(ColumnName::parse(itl->featureSpace->print(iter->first)),
+                              iter->second,
+                              effectiveDate);
     }
 
-    result.set("explanation", output);
+    output.emplace_back("explanation", std::move(features));
 
-    return result;
+    return std::move(output);
 }
 
 FunctionInfo
@@ -1041,11 +1090,23 @@ getFunctionInfo() const
 {
     FunctionInfo result;
 
-    result.input.addAtomValue("label");
-    result.input.addRowValue("features");
-    result.output.addRowValue("explanation");
-    result.output.addNumericValue("bias");
+    std::vector<KnownColumn> inputCols, outputCols;
 
+    inputCols.emplace_back(Coord("label"), std::make_shared<AtomValueInfo>(),
+                           COLUMN_IS_DENSE, 0);
+    inputCols.emplace_back(Coord("features"), std::make_shared<UnknownRowValueInfo>(),
+                           COLUMN_IS_DENSE, 1);
+
+    outputCols.emplace_back(Coord("explanation"), std::make_shared<UnknownRowValueInfo>(),
+                            COLUMN_IS_DENSE, 0);
+    outputCols.emplace_back(Coord("bias"), std::make_shared<NumericValueInfo>(),
+                            COLUMN_IS_DENSE, 1);
+
+    result.input = std::make_shared<RowValueInfo>(std::move(inputCols),
+                                                  SCHEMA_CLOSED);
+    result.output = std::make_shared<RowValueInfo>(std::move(outputCols),
+                                                   SCHEMA_CLOSED);
+    
     return result;
 }
 
@@ -1059,7 +1120,7 @@ void jmlclassifierMacro(MacroContext & context,
     try {
         std::shared_ptr<ML::Classifier_Generator> generator
             = ML::Registry<ML::Classifier_Generator>::singleton().create(classifierType);
-        
+
 
         context.writeHtml("<table><tr><th>Parameter</th><th>Range</th>"
                           "<th>Default</th><th>Description</th></tr>");

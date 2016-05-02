@@ -103,7 +103,7 @@ struct TabularDatasetChunk {
     }
 
     std::vector<std::shared_ptr<FrozenColumn> > columns;
-    std::unordered_map<ColumnName, std::shared_ptr<FrozenColumn>, CoordNewHasher> sparseColumns;
+    std::unordered_map<ColumnName, std::shared_ptr<FrozenColumn>, CoordsNewHasher> sparseColumns;
     std::vector<RowName> rowNames;
     std::shared_ptr<FrozenColumn> timestamps;
 

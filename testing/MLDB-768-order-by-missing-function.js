@@ -40,8 +40,10 @@ function assertContains(str, val, msg)
 
 var resp = mldb.get("/v1/datasets/test/query", {select:"1", orderBy: 'hello()'});
 
-assertEqual(resp.responseCode, 404);
-assertContains(resp.json.error, "Execution error: function entry 'hello' doesn't exist",
+mldb.log(resp);
+
+assertEqual(resp.responseCode, 400);
+assertContains(resp.json.error, "Unable to find function 'hello'",
                "Error message for function not found");
 
 mldb.log(resp);

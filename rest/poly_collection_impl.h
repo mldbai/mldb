@@ -161,6 +161,15 @@ getExistingEntity(const Utf8String & key) const
 }
 
 template<typename Entity>
+std::shared_ptr<Entity>
+PolyCollection<Entity>::
+tryGetExistingEntity(const Utf8String & key) const
+{
+    return std::static_pointer_cast<Entity>
+        (PolyCollectionBase::tryGetExistingEntry(key));
+}
+
+template<typename Entity>
 struct PolyCollection<Entity>::Registry {
     mutable std::recursive_mutex mutex;
 
