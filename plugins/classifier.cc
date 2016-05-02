@@ -537,7 +537,7 @@ run(const ProcedureRunConfig & run,
                 (400,
                  "Regression labels must not be infinite or NaN.  Should you "
                  "add a condition like `WHERE isfinite(label)` to your data, "
-                 "or preprocess your labels with `replace_if_not_finite(label, 0)`?");
+                 "or preprocess your labels with `replace_not_finite(label, 0)`?");
         }
 
         trainingSet.add_example(std::make_shared<ML::Mutable_Feature_Set>(std::move(fvs[i].featureSet)));
