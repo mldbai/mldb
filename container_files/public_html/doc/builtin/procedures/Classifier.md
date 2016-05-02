@@ -126,6 +126,11 @@ In an ensemble, such as boosting or random forest, it is recommended to use this
 
 $$g(0.6) - g(0.4)$$
 
+###### References
+Friedman, Hastie, Tibshirani,
+["Additive Logistic Regression: A Statistical View of Boosting"](http://projecteuclid.org/download/pdf_1/euclid.aos/1016218223)
+, The Annals of Statistics 2000, Vol. 28, No. 2, 337–407
+
 ### Generalized Linear Models (type=glz)
 
 ![](%%jmlclassifier glz)
