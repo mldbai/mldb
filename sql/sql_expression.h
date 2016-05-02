@@ -75,12 +75,11 @@ struct OrderByExpression;
 struct TupleExpression;
 struct GenerateRowsWhereFunction;
 struct SelectExpression;
-struct Function;
 struct SqlBindingScope;
 struct MldbServer;
 struct BasicRowGenerator;
 struct WhenExpression;
-struct SqlExpressionDatasetContext;
+struct SqlExpressionDatasetScope;
 struct TableOperations;
 struct RowStream;
 
@@ -261,16 +260,16 @@ struct BoundTableExpression {
 
 /** Object returned when we bind a get variable expression. */
 
-struct VariableGetter {
+struct ColumnGetter {
     typedef std::function<const ExpressionValue & (const SqlRowScope & context,
                                                    ExpressionValue & storage,
                                                    const VariableFilter & filter) > Exec;
     
-    VariableGetter()
+    ColumnGetter()
     {
     }
     
-    VariableGetter(Exec exec, std::shared_ptr<ExpressionValueInfo> info)
+    ColumnGetter(Exec exec, std::shared_ptr<ExpressionValueInfo> info)
         : exec(exec), info(info)
     {
     }
@@ -485,12 +484,25 @@ ColumnFunction;
 
 
 /*****************************************************************************/
-/* ROW EXPRESSION BINDING CONTEXT                                            */
+/* ROW EXPRESSION BINDING SCOPE                                              */
 /*****************************************************************************/
 
-/** Context in which a row expression is bound.  At this point, the dataset
-    on which the expression is being applied is known, which allows
-    specialization based upon known characteristics of the data.
+/** This is the base class for a scope into which an SQL expression can be
+    bound.  It defines all of the different elements that are provided by
+    a scope, which includes:
+
+    - Functions, both vanilla and dataset varieties;
+    - Aggregators;
+    - Columns, both with direct names and wildcard expressions;
+    - Named parameters ($xxx);
+    - Datasets/tables
+    - The MLDB server (which is opaque to the SQL layer, but passed through)
+
+    The base scope itself provides only builtin functions and aggregators;
+    an attempt to bind something else will result in an error.  Other scopes
+    will normally be layered on top based upon the SQL expression; for example
+    an MLDB scope will add datasets; a FROM clause will add a dataset to the
+    scope, and a SELECT clause can then ask for columns within that dataset.
 */
 
 struct SqlBindingScope {
@@ -522,41 +534,69 @@ struct SqlBindingScope {
         outer scope but the arguments evaluated in an inner scope, then
         argScope will not be the same as *this.
     */
-    virtual BoundFunction doGetFunction(const Utf8String & tableName,
-                                        const Utf8String & functionName,
-                                        const std::vector<BoundSqlExpression> & args,
-                                        SqlBindingScope & argScope);
-
-
-    virtual BoundTableExpression doGetDatasetFunction(const Utf8String & functionName,
-                                                      const std::vector<BoundTableExpression> & args,
-                                                      const ExpressionValue & options,
-                                                      const Utf8String & alias);
-
-    virtual BoundAggregator doGetAggregator(const Utf8String & functionName,
-                                            const std::vector<BoundSqlExpression> & args);
+    virtual BoundFunction
+    doGetFunction(const Utf8String & tableName,
+                  const Utf8String & functionName,
+                  const std::vector<BoundSqlExpression> & args,
+                  SqlBindingScope & argScope);
     
-    // Used to get a variable
-    virtual VariableGetter doGetVariable(const Utf8String & tableName,
-                                         const Utf8String & variableName);
 
-    // Used to list all columns in a dataset.  It returns a function that can
-    // be used to return a row containing just those columns.
+    virtual BoundTableExpression
+    doGetDatasetFunction(const Utf8String & functionName,
+                         const std::vector<BoundTableExpression> & args,
+                         const ExpressionValue & options,
+                         const Utf8String & alias);
+    
+    virtual BoundAggregator
+    doGetAggregator(const Utf8String & functionName,
+                    const std::vector<BoundSqlExpression> & args);
+    
+    /** Used to get the value of a column.  The tableName tells us which
+        table the column lives in (if resolved), or is empty if it's
+        not known.  The columnName parameter gives the name of the
+        column.
+
+        If this function is overridden, then doResolveTableName() should
+        be overridden too.
+    */
+    virtual ColumnGetter doGetColumn(const Utf8String & tableName,
+                                     const ColumnName & columnName);
+
+    /** Used to resolve a wildcard expression.  This function returns
+        another function that can be used to return a row containing just a
+        subset of the columns where the names match.
+
+        The keep argument is used to filter the function names and to
+        indicate what the new name of the column should be.  If it returns
+        an empty ColumnName, then the column will not be kept.
+
+        NOTE ABOUT DYNAMIC SCHEMAS
+
+        It is possible that an expression has a dynamic schema, in other words
+        the column names aren't all known at binding time.  This can be known
+        by looking for info->getSchemaCompleteness() != SCHEMA_CLOSED in the
+        bound version of the expression that generates the input arguments.
+
+        This function needs to be able to handle that situation, by applying
+        the keep expression a column at a time to each input row.  In that
+        case, the keep expression WILL BE COPIED INTO THE RESULT OF THIS
+        FUNCTION.  And so, a keep expression that captures by reference
+        (via [&]) will probably crash the program.  Keep that in mind when
+        passing in the keep argument.
+
+        If this function is overridden, then doResolveTableName() should
+        be overridden too.
+    */
     virtual GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    std::function<Utf8String (const Utf8String &)> keep);
+                    std::function<ColumnName (const ColumnName &)> keep);
 
     // Function used to create a generator for an expression
     virtual GenerateRowsWhereFunction
     doCreateRowsWhereGenerator(const SqlExpression & where,
-                      ssize_t offset,
-                      ssize_t limit);
-
-    // Function used to get a function.  Default throws an exception that the
-    // function is not available.
-    virtual std::shared_ptr<Function>
-    doGetFunctionEntity(const Utf8String & functionName);
-
+                               ssize_t offset,
+                               ssize_t limit);
+    
     /** Used to obtain functions that operate on a given column, within an
         expression designed to select columns programatically.
     */
@@ -564,7 +604,7 @@ struct SqlBindingScope {
     doGetColumnFunction(const Utf8String & functionName);
 
     /** Used to obtain the value of a bound parameter. */
-    virtual VariableGetter
+    virtual ColumnGetter
     doGetBoundParameter(const Utf8String & paramName);
 
     /** Used to obtain a dataset from a dataset name. */
@@ -586,9 +626,19 @@ struct SqlBindingScope {
 
         Returns the table name in tableName and the variable part in
         the return value.  The middle dot should be removed.
+
+        This is primarily used for datasets that implement joins,
+        where they may need to be able to resolve their variables to
+        several underlying tables.
+
+        NOTE: a caller that calls doGetColumn() or doGetAllColumns()
+        will almost certainly call this function too.  So if either
+        of those functions is overridden, this function should 
+        be overridden too.
     */
-    virtual Utf8String 
-    doResolveTableName(const Utf8String & fullVariableName, Utf8String &tableName) const;
+    virtual ColumnName
+    doResolveTableName(const ColumnName & fullVariableName,
+                       Utf8String & tableName) const;
 
     /** Return the MLDB server behind this context.  Default returns a null
         pointer which means we're running outside of MLDB.
@@ -606,7 +656,9 @@ struct SqlBindingScope {
 /** Create a copy, applying the given transformation to each of the child
     expressions.
 */
-typedef std::function<std::vector<std::shared_ptr<SqlExpression> > (const std::vector<std::shared_ptr<SqlExpression> > & args)> TransformArgs;
+typedef std::function<std::vector<std::shared_ptr<SqlExpression> >
+                      (const std::vector<std::shared_ptr<SqlExpression> > & args)>
+TransformArgs;
 
 
 /*****************************************************************************/
@@ -620,14 +672,14 @@ typedef std::function<std::vector<std::shared_ptr<SqlExpression> > (const std::v
 
 struct ScopedName {
     ScopedName(Utf8String scope = Utf8String(),
-               Utf8String name = Utf8String()) noexcept
+               ColumnName name = ColumnName()) noexcept
         : scope(std::move(scope)),
           name (std::move(name))
     {
     }
 
     Utf8String scope;
-    Utf8String name;
+    ColumnName name;
 
     bool operator == (const ScopedName & other) const;
     bool operator != (const ScopedName & other) const;
@@ -649,7 +701,7 @@ struct UnboundVariable {
 DECLARE_STRUCTURE_DESCRIPTION(UnboundVariable);
 
 struct UnboundWildcard {
-    Utf8String prefix;
+    ColumnName prefix;
     void merge(UnboundWildcard wildcard);
 };
 
@@ -664,9 +716,9 @@ struct UnboundFunction {
 DECLARE_STRUCTURE_DESCRIPTION(UnboundFunction);
 
 struct UnboundTable {
-    std::map<Utf8String, UnboundVariable> vars;
-    std::map<Utf8String, UnboundWildcard> wildcards;
-    std::map<Utf8String, UnboundFunction> funcs;
+    std::map<Coords, UnboundVariable> vars;
+    std::map<Coords, UnboundWildcard> wildcards;
+    std::map<Coords, UnboundFunction> funcs;
     void merge(UnboundTable table);
 };
 
@@ -683,11 +735,11 @@ struct UnboundEntities {
 
     /// List of variables that are unbound.  Only those with no table name are
     /// included here.
-    std::map<Utf8String, UnboundVariable> vars;
+    std::map<ColumnName, UnboundVariable> vars;
 
     /// List of wildcards which are unbound.  Only those with no table name are
     /// included here.
-    std::map<Utf8String, UnboundWildcard> wildcards;
+    std::map<ColumnName, UnboundWildcard> wildcards;
 
     /// List of functions that are unbound.  Only those with no table name are
     /// included here.
@@ -728,10 +780,26 @@ struct SqlRowScope {
     {
     }
 
+    /** In some circumstances, such as calling functions, we want to signal
+        that there is no row available even though the functions require
+        one to be passed.
+
+        To do this, use an SqlRowScope object directly.  The code can detect
+        whether it has a row or not by calling this hasRow() function.
+    */
+    bool hasRow() const
+    {
+        return typeid(*this) != typeid(SqlRowScope);
+    }
+
+    /** Throw an exception saying that the types requested were wrong. */
     static void throwBadNestingError(const std::type_info & typeRequested,
                                      const std::type_info & typeFound)
         __attribute__((noreturn));
 
+    /** Assert that the type of this object is the one given, and return it
+        as that type.
+    */
     template<typename T>
     T & as()
     {
@@ -744,6 +812,10 @@ struct SqlRowScope {
         throwBadNestingError(typeid(T), typeid(*this));
     }
 
+
+    /** Assert that the type of this object is the one given, and return it
+        as that type.
+    */
     template<typename T>
     const T & as() const
     {
@@ -941,7 +1013,7 @@ struct SqlExpression: public std::enable_shared_from_this<SqlExpression> {
         Default implementation returns false; the subclasses which could be
         a SELECT * should override.
     */
-    virtual bool isIdentitySelect(SqlExpressionDatasetContext & context) const;
+    virtual bool isIdentitySelect(SqlExpressionDatasetScope & context) const;
 
     /** Find any children that is an aggregator call 
         This function perform partial validation of the parse tree for 
@@ -1120,7 +1192,7 @@ struct SelectExpression: public SqlRowExpression {
     virtual Utf8String getOperation() const;
     virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
 
-    virtual bool isIdentitySelect(SqlExpressionDatasetContext & context) const;
+    virtual bool isIdentitySelect(SqlExpressionDatasetScope & context) const;
 
     std::vector<std::shared_ptr<SqlRowExpression> > clauses;
 
@@ -1314,10 +1386,12 @@ struct GenerateRowsWhereFunction {
                           (ssize_t numToGenerate, Any token,
                            const BoundParameters & params)> Exec;
 
-    GenerateRowsWhereFunction(Exec exec = nullptr, const std::string & explain = "",
-                              Complexity complexity = TABLESCAN, OrderByExpression orderedBy = ORDER_BY_NOTHING)
+    GenerateRowsWhereFunction(Exec exec = nullptr,
+                              Utf8String explain = "",
+                              Complexity complexity = TABLESCAN,
+                              OrderByExpression orderedBy = ORDER_BY_NOTHING)
         : exec(std::move(exec)),
-          explain(explain),
+          explain(std::move(explain)),
           complexity(complexity),
           orderedBy(std::move(orderedBy))
     {
@@ -1332,13 +1406,15 @@ struct GenerateRowsWhereFunction {
 
     Exec exec;
 
+    // BADSMELL the rowStream and upperBound are implementation details and
+    // should be hidden inside the lambda
     std::shared_ptr<RowStream> rowStream;
     int      upperBound;
 
     operator bool () const { return !!exec; };
 
     /// Explain the type of algorithm used
-    std::string explain;
+    Utf8String explain;
 
     //How does the algorithm scale
     Complexity complexity;

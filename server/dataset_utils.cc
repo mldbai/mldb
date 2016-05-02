@@ -6,6 +6,7 @@
 */
 
 #include "mldb/server/dataset_utils.h"
+#include "mldb/http/http_exception.h"
 #include <algorithm>
 
 using namespace std;
@@ -103,7 +104,7 @@ getRow(const RowName & row) const
     }
 
     if (result.columns.empty())
-        throw ML::Exception("unknown row '%s'", row.toUtf8String().rawData());
+        throw HttpReturnException(400, "unknown row '" + row.toUtf8String() + "'");
 
     return result;
 }
@@ -171,7 +172,7 @@ getColumn(const ColumnName & column) const
     }
 
     if (result.rows.empty())
-        throw ML::Exception("unknown column '%s'", column.toUtf8String().rawData());
+        throw HttpReturnException(400, "unknown column '" + column.toUtf8String() + "'");
 
     return result;
 }

@@ -142,7 +142,7 @@ run(const ProcedureRunConfig & run,
             return onProgress(value);
         };
 
-    SqlExpressionMldbContext context(server);
+    SqlExpressionMldbScope context(server);
 
     auto boundDataset = runProcConf.trainingData.stm->from->bind(context);
     auto score = extractNamedSubSelect("score", runProcConf.trainingData.stm->select)->expression;
@@ -343,15 +343,17 @@ getStatus() const
     return Any();
 }
 
-FunctionOutput
+ExpressionValue
 ProbabilizeFunction::
 apply(const FunctionApplier & applier,
-      const FunctionContext & context) const
+      const ExpressionValue & context) const
 {
-    ExpressionValue score = context.get<ExpressionValue>("score");
+    ExpressionValue score = context.getColumn(Coord("score"));
     float prob  = itl->probabilizer.apply(ML::Label_Dist(1, score.toDouble()))[0];
-    FunctionOutput result;
-    result.set("prob", ExpressionValue(prob, score.getEffectiveTimestamp()));
+
+    StructValue result;
+    result.emplace_back(Coord("prob"),
+                        ExpressionValue(prob, score.getEffectiveTimestamp()));
     return result;
 }
 
@@ -359,11 +361,21 @@ FunctionInfo
 ProbabilizeFunction::
 getFunctionInfo() const
 {
-    FunctionInfo result;
+    std::vector<KnownColumn> knownInputColumns;
+    knownInputColumns.emplace_back(ColumnName("score"),
+                                   std::make_shared<NumericValueInfo>(),
+                                   COLUMN_IS_DENSE,
+                                   0 /* position */);
 
-    result.input.addNumericValue("score");
-    result.output.addNumericValue("prob");
+    std::vector<KnownColumn> knownOutputColumns;
+    knownOutputColumns.emplace_back(ColumnName("prob"),
+                                    std::make_shared<NumericValueInfo>(),
+                                    COLUMN_IS_DENSE,
+                                    0 /* position */);
     
+    FunctionInfo result;
+    result.input.reset(new RowValueInfo(knownInputColumns, SCHEMA_CLOSED));
+    result.output.reset(new RowValueInfo(knownOutputColumns, SCHEMA_CLOSED));
     return result;
 }
 

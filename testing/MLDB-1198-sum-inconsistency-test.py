@@ -32,6 +32,7 @@ mldb.log("First query count: {}".format(count))
 
 query = "SELECT sum({*}) AS * FROM ds"
 data = mldb.query(query)
+mldb.log(data)
 cols = data[0]
 vals = data[1]
 for col, val in zip(cols, vals):

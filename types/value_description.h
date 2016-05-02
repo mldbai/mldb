@@ -114,6 +114,11 @@ struct ValueDescription {
         {
             return ((char*) obj) + offset;
         }
+
+        const void * getFieldPtr(const void * obj) const
+        {
+            return ((const char*) obj) + offset;
+        }
     };
 
     virtual size_t getFieldCount(const void * val) const;
@@ -497,6 +502,20 @@ T jsonDecodeStr(const Utf8String & json, T * = 0)
 
     static auto desc = getDefaultDescriptionSharedT<T>();
     StreamingJsonParsingContext context(json.rawString(), json.rawData(), json.rawLength());
+    desc->parseJson(&result, context);
+    return result;
+}
+
+// jsonDecode implementation for any type which:
+// 1) has a default description;
+// NOTE: this works for UTF-8 or ASCII.
+template<typename T>
+T jsonDecodeStr(const char * str, size_t len, T * = 0)
+{
+    T result;
+
+    static auto desc = getDefaultDescriptionSharedT<T>();
+    StreamingJsonParsingContext context("<<JSON STR>>", str, len);
     desc->parseJson(&result, context);
     return result;
 }

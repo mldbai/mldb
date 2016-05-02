@@ -191,6 +191,20 @@ std::string dirName(const std::string & filename);
 
 
 /****************************************************************************/
+/* UX FUNCTIONS                                                             */
+/****************************************************************************/
+
+/* The checkWritability function will try to create the folders required
+ * to write to the given url and then attempt to open an output stream to
+ * that location. This is meant to be used before running a big job that would
+ * then try to write its output to this location in order to catch this
+ * error before spending the time running the job
+ */
+void
+checkWritability(const std::string & url, const std::string & parameterName);
+
+
+/****************************************************************************/
 /* FILE COMMITER                                                            */
 /****************************************************************************/
 

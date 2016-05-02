@@ -1,17 +1,14 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* stump_regress.h                                                 -*- C++ -*-
    Jeremy Barnes, 30 March 2004
    Copyright (c) 2004 Jeremy Barnes.  All rights reserved.
-   $Source$
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Regression training for the decision stumps.  Includes a W data structure
    for the accumulation, a Z object to calculate the split score, and a
    C object to give the final distributions.
 */
 
-#ifndef __boosting__stump_regress_h__
-#define __boosting__stump_regress_h__
+#pragma once
 
 #include <string>
 #include <vector>
@@ -91,7 +88,11 @@ struct W_regress {
              Iterator it, int advance)
     {
         float f = correct_label.value();
+        ExcAssert(std::isfinite(f));
+        ExcAssert(std::isfinite(weight));
+        ExcAssert(std::isfinite(*it));
         float w = *it * weight;
+        ExcAssert(std::isfinite(w));
 
         if (w < 0.0)
             throw Exception("negative weight");
@@ -311,8 +312,3 @@ struct C_regress {
 
 
 } // namespace ML
-
-
-
-#endif /* __boosting__stump_regress_h__ */
-

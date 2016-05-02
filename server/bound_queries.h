@@ -15,7 +15,7 @@ namespace Datacratic {
 namespace MLDB {
 
 struct GroupContext;
-struct SqlExpressionDatasetContext;
+struct SqlExpressionDatasetScope;
 
 
 /** This object is designed to track whether a thread is executing a
@@ -82,7 +82,7 @@ struct BoundSelectQuery {
     const SqlExpression & where;
     std::vector<std::shared_ptr<SqlExpression> > calc;
     const OrderByExpression & orderBy;
-    std::shared_ptr<SqlExpressionDatasetContext> context;
+    std::shared_ptr<SqlExpressionDatasetScope> context;
 
     /** Note on the ordering of rows
      *  Users are expecting determinist results (e.g. repeated queries
@@ -142,7 +142,7 @@ struct BoundGroupByQuery {
     const Dataset & from;
     WhenExpression when;
     const SqlExpression & where;
-    std::shared_ptr<SqlExpressionDatasetContext> rowContext;
+    std::shared_ptr<SqlExpressionDatasetScope> rowContext;
     std::shared_ptr<GroupContext> groupContext;
     TupleExpression groupBy;
 

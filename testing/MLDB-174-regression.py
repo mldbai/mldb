@@ -323,7 +323,7 @@ class Mldb174Test(MldbUnitTest):
 
             # make sure that summing up all explain values gives us the prediction
             for line in explain_rez[1:]:
-                self.assertAlmostEqual(sum((x for x in line[1:4] if x != None)), line[4], places=5)
+                self.assertAlmostEqual(sum((x for x in line[1:4] if x != None)), line[5], places=5)
 
 
 

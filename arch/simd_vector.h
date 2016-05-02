@@ -1,14 +1,12 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* simd_vector.h                                                   -*- C++ -*-
    Jeremy Barnes, 1 February 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Generic SIMD vectorized loop kernels.
 */
 
-#ifndef __arch__simd_vector_h__
-#define __arch__simd_vector_h__
+#pragma once
 
 #include "simd.h"
 #include "mldb/arch/arch.h"
@@ -170,6 +168,9 @@ double vec_kl(const float * p, const float * q, size_t n);
 // Simultaneous min and max
 void vec_min_max_el(const float * x, float * mins, float * maxs, size_t n);
 
+// Euclidean distance squared: sum((p - q)^2)
+double vec_euclid(const float * p, const float * q, size_t n);
+
 } // namespace Generic
 
 #if JML_USE_SSE1
@@ -189,7 +190,3 @@ using namespace Generic;
 
 } // namespace SIMD
 } // namespace ML
-
-
-#endif /* __arch__simd_vector_h__ */
-
