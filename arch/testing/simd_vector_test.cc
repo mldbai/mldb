@@ -308,10 +308,12 @@ namespace ML {
 namespace SIMD {
 namespace Generic {
 double vec_dotprod_sse2(const float * x, const float * y, size_t n);
+double vec_dotprod_dp_sse2(const float * x, const float * y, size_t n);
 double vec_dotprod_sse2(const double * x, const double * y, size_t n);
 } // namespace Generic
 namespace Avx {
 double vec_dotprod(const float * x, const float * y, size_t n);
+double vec_dotprod_dp(const float * x, const float * y, size_t n);
 double vec_dotprod(const double * x, const double * y, size_t n);
 } // namespace Avx
 } // namespace SIMD
@@ -321,7 +323,7 @@ template<typename T>
 void vec_dotprod_dp_test_case(int nvals)
 {
     T x[nvals], y[nvals];
-    double r = 0.0, r2;
+    double r = 0.0;
 
     for (unsigned i = 0; i < nvals;  ++i) {
         x[i] = rand() / 16384.0;
@@ -329,7 +331,13 @@ void vec_dotprod_dp_test_case(int nvals)
         r += x[i] * y[i];
     }
     
-    r2 = SIMD::vec_dotprod_dp(x, y, nvals);
+    double r2 = SIMD::vec_dotprod_dp_sse2(x, y, nvals);
+    double r2a = SIMD::Avx::vec_dotprod_dp(x, y, nvals);
+
+    if (r2 != r2a)
+        cerr << "error: nvals = " << nvals << endl;
+
+    BOOST_CHECK_EQUAL(r2, r2a);
 
     double r3 = SIMD::Avx::vec_dotprod(x, y, nvals);
     double r4 = SIMD::vec_dotprod_sse2(x, y, nvals);
@@ -393,6 +401,7 @@ BOOST_AUTO_TEST_CASE(vec_dotprod_test)
     vec_dotprod_dp_test_case<float>(12);
     vec_dotprod_dp_test_case<float>(16);
     vec_dotprod_dp_test_case<float>(123);
+    vec_dotprod_dp_test_case<float>(1023);
 
     cerr << "double" << endl;
     vec_dotprod_test_case<double>(1);

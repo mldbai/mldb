@@ -19,6 +19,10 @@ double vec_dotprod(const double * x, const double * y, size_t n);
 /// Single precision vector dot product, avx version
 float vec_dotprod(const float * x, const float * y, size_t n);
 
+/// Single precision vector dot product with internal summation in dp,
+/// avx version
+double vec_dotprod_dp(const float * x, const float * y, size_t n);
+
 /// Single precision vector minus
 void vec_minus(const float * x, const float * y, float * r, size_t n);
 

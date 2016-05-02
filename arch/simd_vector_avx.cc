@@ -260,6 +260,49 @@ double vec_euclid(const float * x, const float * y, size_t n)
     return result;
 }
 
+double vec_dotprod_dp(const float * x, const float * y, size_t n)
+{
+    double res = 0.0;
+    size_t i = 0;
+
+    if (true) {
+        v4df rr0 = _mm256_setzero_pd(), rr1 = rr0, rr2 = rr0, rr3 = rr0;
+
+        auto accum = [&] (size_t i)
+            {
+                v8sf yyyy0 = _mm256_loadu_ps(y + i);
+                v8sf xxxx0 = _mm256_loadu_ps(x + i);
+                yyyy0 *= xxxx0;
+                v4df dd0a = _mm256_cvtps_pd(_mm256_extractf128_ps(yyyy0, 0));
+                v4df dd0b = _mm256_cvtps_pd(_mm256_extractf128_ps(yyyy0, 1));
+                return dd0a + dd0b;
+            };
+
+        for (; i + 32 <= n;  i += 32) {
+            rr0 += accum(i);
+            rr1 += accum(i + 8);
+            rr2 += accum(i + 16);
+            rr3 += accum(i + 24);
+        }
+
+        rr0 += rr1 + rr2 + rr3;
+
+        for (; i + 8 <= n;  i += 8) {
+            rr0 += accum(i);
+        }
+
+        double results[4];
+        *(v4df *)results = rr0;
+
+        res = results[0] + results[1] + results[2] + results[3];
+    }
+        
+
+    for (;  i < n;  ++i) res += x[i] * y[i];
+
+    return res;
+}
+
 } // namespace Avx
 } // namespace SIMD
 } // namespace ML

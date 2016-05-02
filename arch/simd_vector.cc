@@ -871,7 +871,7 @@ double vec_sum(const double * x, size_t n)
     return res;
 }
 
-double vec_dotprod_dp(const float * x, const float * y, size_t n)
+double vec_dotprod_dp_sse2(const float * x, const float * y, size_t n)
 {
     double res = 0.0;
     unsigned i = 0;
@@ -997,6 +997,17 @@ double vec_dotprod_dp(const double * x, const float * y, size_t n)
     for (;  i < n;  ++i) res += x[i] * y[i];
 
     return res;
+}
+
+double vec_dotprod_dp(const float * x, const float * y, size_t n)
+{
+    // Interrogate the cpuid flags directly to decide which one to use
+    if (has_avx()) {
+        return Avx::vec_dotprod_dp(x, y, n);
+    }
+    else {
+        return vec_dotprod_dp_sse2(x, y, n);
+    }
 }
 
 double vec_sum_dp(const float * x, size_t n)
