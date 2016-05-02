@@ -67,16 +67,16 @@ var resp = mldb.put('/v1/functions/poil3', {
 assertEqual(resp.responseCode, 201);
 
 var expected = [
-    [ "_rowName", "test1.x", "test1.y", "test1.z", "test2.x", "test2.z" ],
-    [ "result", 1, 2, null, 1, 2 ]
+    [ "_rowName", "test1.x", "test1.y", "test2.x", "test2.z" ],
+    [ "result", 1, 2, 1, 2 ]
 ];
 
 testQuery('SELECT poil() as *', expected);
 testQuery('SELECT poil2() as *', expected);
 
 var expected2 = [
-    [ "_rowName", "test1.x", "test1.y", "test1.z", "test2.x", "test2.z" ],
-    [ "result", 2, null, 4, 1, 2 ]
+    [ "_rowName", "test1.x", "test1.z", "test2.x", "test2.z" ],
+    [ "result", 2, 4, 1, 2 ]
 ];
 
 testQuery('SELECT poil3({n:1}) as *', expected2);

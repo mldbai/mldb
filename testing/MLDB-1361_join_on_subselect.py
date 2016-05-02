@@ -39,49 +39,51 @@ class SampleTest(MldbUnitTest):
 
         """)
 
+        mldb.log(rez.json())
+
         expected = [
-            {
-                "rowName": "[a]-[row_a]-[]",
-                "rowHash": "2da3149200523a02",
-                "columns": [
-                    [
-                        "text.txt",
-                        "raise shields",
-                        "1970-01-01T00:00:00Z"
-                    ],
-                    [
-                        "sub1.warp",
-                        8,
-                        "1970-01-01T00:00:00Z"
-                    ],
-                    [
-                        "sub2.warp",
-                        None,
-                        "-Inf"
-                    ]
-                ]
-            },
-            {
-                "rowName": "[b]-[]-[row_b]",
-                "rowHash": "ed3e1bbb01a92ba6",
-                "columns": [
-                    [
-                        "text.txt",
-                        "set a course",
-                        "1970-01-01T00:00:00Z"
-                    ],
-                    [
-                        "sub1.warp",
-                        None,
-                        "-Inf"
-                    ],
-                    [
-                        "sub2.warp",
-                        9,
-                        "1970-01-01T00:00:00Z"
-                    ]
-                ]
-            }
+             {
+                 "rowName": "[a]-[row_a]-[]", 
+                 "rowHash": "2da3149200523a02", 
+                 "columns": [
+                     [
+                         "sub1.warp", 
+                         8, 
+                         "1970-01-01T00:00:00Z"
+                     ], 
+                     [
+                         "sub2.warp", 
+                         None, 
+                         "-Inf"
+                     ], 
+                     [
+                         "text.txt", 
+                         "raise shields", 
+                         "1970-01-01T00:00:00Z"
+                     ]
+                 ]
+             }, 
+             {
+                 "rowName": "[b]-[]-[row_b]", 
+                 "rowHash": "ed3e1bbb01a92ba6", 
+                 "columns": [
+                     [
+                         "sub1.warp", 
+                         None, 
+                         "-Inf"
+                     ], 
+                     [
+                         "sub2.warp", 
+                         9, 
+                         "1970-01-01T00:00:00Z"
+                     ], 
+                     [
+                         "text.txt", 
+                         "set a course", 
+                         "1970-01-01T00:00:00Z"
+                     ]
+                 ]
+             }
         ]
         assert rez.json() == expected
     
@@ -101,16 +103,14 @@ class SampleTest(MldbUnitTest):
             ) as tbl2 ON text.rowName() = tbl2.rowName
         """)
 
+
+        mldb.log(rez.json())
+
         expected = [
             {
                 "rowName": "[a]-[row_a]-[]",
                 "rowHash": "2da3149200523a02",
                 "columns": [
-                    [
-                        "text.txt",
-                        "raise shields",
-                        "1970-01-01T00:00:00Z"
-                    ],
                     [
                         "tbl1.warp",
                         8,
@@ -120,6 +120,11 @@ class SampleTest(MldbUnitTest):
                         "tbl2.warp",
                         None,
                         "-Inf"
+                    ],
+                    [
+                        "text.txt",
+                        "raise shields",
+                        "1970-01-01T00:00:00Z"
                     ]
                 ]
             },
@@ -127,11 +132,6 @@ class SampleTest(MldbUnitTest):
                 "rowName": "[b]-[]-[row_b]",
                 "rowHash": "ed3e1bbb01a92ba6",
                 "columns": [
-                    [
-                        "text.txt",
-                        "set a course",
-                        "1970-01-01T00:00:00Z"
-                    ],
                     [
                         "tbl1.warp",
                         None,
@@ -141,7 +141,12 @@ class SampleTest(MldbUnitTest):
                         "tbl2.warp",
                         9,
                         "1970-01-01T00:00:00Z"
-                    ]
+                    ],
+                    [
+                        "text.txt",
+                        "set a course",
+                        "1970-01-01T00:00:00Z"
+                    ],
                 ]
             }
         ]

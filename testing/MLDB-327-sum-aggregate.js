@@ -59,7 +59,7 @@ function assertEqual(expr, val, msg)
 }
 
 assertEqual(resp.responseCode, 200, "response code");
-assertEqual(resp.json[0].rowName, '["cat"]', "rowName");  // MLDB-363
+assertEqual(resp.json[0].rowName, '"[""cat""]"', "rowName");  // MLDB-363
 assertEqual(resp.json[0].columns[0][1], "cat", "label1");
 assertEqual(resp.json[0].columns[1][1], 1, "sum of x for cat");
 assertEqual(resp.json[0].columns[2][1], 2, "sum of y for cat");

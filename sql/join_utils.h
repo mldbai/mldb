@@ -12,8 +12,13 @@
 namespace Datacratic {
 namespace MLDB {
 
+/** Fix up an expression, by looking for all column references and removing
+    the table name in the set of aliases from each one.
+*/
 std::shared_ptr<SqlExpression>
-removeTableName(const SqlExpression & expr, const Utf8String & tableName, const std::set<Utf8String>& aliases);
+removeTableName(const SqlExpression & expr,
+                const Utf8String & tableName,
+                const std::set<Utf8String>& aliases);
 
 
 /*****************************************************************************/
@@ -41,10 +46,12 @@ struct AnnotatedClause {
     std::shared_ptr<SqlExpression> expr;
 
     /// Lists of variables on the left, the right, and satisfied by neither side
-    std::vector<Utf8String> leftVars, rightVars, externalVars;
+    std::vector<ColumnName> leftVars, rightVars, externalVars;
 
     /// Lists of functions on the left, the right, and satisfied by neither side
-    std::vector<Utf8String> leftFuncs, rightFuncs, externalFuncs;
+    /// We still need to keep the scope, as table1.rowName() is not the same as
+    /// rowName() for a joined table.
+    std::vector<ScopedName> leftFuncs, rightFuncs, externalFuncs;
     
     /// Role that this clause plays in the overall join logic
     enum Role {

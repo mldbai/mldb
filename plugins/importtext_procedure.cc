@@ -107,7 +107,7 @@ ImportTextConfigDescription::ImportTextConfigDescription()
     allowing it to find the variables, etc.
 */
 
-struct SqlCsvScope: public SqlExpressionMldbContext {
+struct SqlCsvScope: public SqlExpressionMldbScope {
 
     struct RowScope: public SqlRowScope {
         RowScope(const CellValue * row, Date ts, int64_t lineNumber,
@@ -125,7 +125,7 @@ struct SqlCsvScope: public SqlExpressionMldbContext {
     SqlCsvScope(MldbServer * server,
                 const std::vector<ColumnName> & columnNames,
                 Date fileTimestamp, Utf8String dataFileUrl)
-        : SqlExpressionMldbContext(server), columnNames(columnNames),
+        : SqlExpressionMldbScope(server), columnNames(columnNames),
           fileTimestamp(fileTimestamp),
           dataFileUrl(std::move(dataFileUrl))
     {
@@ -150,19 +150,19 @@ struct SqlCsvScope: public SqlExpressionMldbContext {
     /// What is the URI for this file?
     Utf8String dataFileUrl;
 
-    virtual VariableGetter doGetVariable(const Utf8String & tableName,
-                                         const Utf8String & variableName)
+    virtual ColumnGetter doGetColumn(const Utf8String & tableName,
+                                     const ColumnName & columnName)
     {
         if (!tableName.empty()) {
             throw HttpReturnException(400, "Unknown table name in import.text procedure",
                                       "tableName", tableName);
         }
 
-        int index = std::find(columnNames.begin(), columnNames.end(), variableName)
+        int index = std::find(columnNames.begin(), columnNames.end(), columnName)
             - columnNames.begin();
         if (index == columnNames.size())
             throw HttpReturnException(400, "Unknown column name in import.text procedure",
-                                      "columnName", variableName,
+                                      "columnName", columnName,
                                       "knownColumnNames", columnNames);
 
         columnsUsed[index] = true;
@@ -179,16 +179,16 @@ struct SqlCsvScope: public SqlExpressionMldbContext {
 
     GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    std::function<Utf8String (const Utf8String &)> keep)
+                    std::function<ColumnName (const ColumnName &)> keep)
     {
         vector<ColumnName> toKeep;
         std::vector<KnownColumn> columnsWithInfo;
 
         for (unsigned i = 0;  i < columnNames.size();  ++i) {
             const ColumnName & columnName = columnNames[i];
-            ColumnName outputName(keep(columnName.toUtf8String()));
+            ColumnName outputName(keep(columnName));
 
-            bool keep = outputName != ColumnName();
+            bool keep = !outputName.empty();
             toKeep.emplace_back(outputName);
             if (keep) {
                 columnsUsed[i] = true;
@@ -679,21 +679,21 @@ struct ImportTextProcedureWorkInstance
                 switch (encoding) {
                 case ASCII:
                     for (const auto & f: fields)
-                        inputColumnNames.emplace_back(ColumnName(f));
+                        inputColumnNames.emplace_back(ColumnName::parse(f));
                     break;
                 case UTF8:
                     for (const auto & f: fields)
-                        inputColumnNames.emplace_back(ColumnName(Utf8String(f)));
+                        inputColumnNames.emplace_back(ColumnName::parse(Utf8String(f)));
                     break;
                 case LATIN1:
                     for (const auto & f: fields)
-                        inputColumnNames.emplace_back(ColumnName(Utf8String::fromLatin1(f)));
+                        inputColumnNames.emplace_back(ColumnName::parse(Utf8String::fromLatin1(f)));
                     break;
                 };
             }
             else {
                 for (const auto & f: config.headers)
-                    inputColumnNames.emplace_back(ColumnName(f));
+                    inputColumnNames.emplace_back(ColumnName::parse(f));
             }             
         }
 
@@ -704,7 +704,7 @@ struct ImportTextProcedureWorkInstance
             ColumnHash ch(c);
             if (!inputColumnIndex.insert(make_pair(ch, i)).second)
                 throw HttpReturnException(400, "Duplicate column name in CSV file",
-                                          "columnName", c.toString());
+                                          "columnName", c);
         }
 
         // Now we know the columns, we can bind our SQL expressions for the
@@ -719,7 +719,7 @@ struct ImportTextProcedureWorkInstance
 
         // Do we have a "select *"?  In that case, we can perform various
         // optimizations to avoid calling into the SQL layer
-        SqlExpressionDatasetContext noContext(*dataset, ""); //needs a context because x.* is ambiguous
+        SqlExpressionDatasetScope noContext(*dataset, ""); //needs a context because x.* is ambiguous
         isIdentitySelect = config.select.isIdentitySelect(noContext);  
 
         // Is the name the lineNumber()?  If so, we can save on
@@ -748,7 +748,7 @@ struct ImportTextProcedureWorkInstance
             ColumnHash ch(col.columnName);
             if (!columnIndex.insert(make_pair(ch, i)).second)
                 throw HttpReturnException(400, "Duplicate column name in select expression",
-                                          "columnName", col.columnName.toString());
+                                          "columnName", col.columnName);
 	        
             knownColumnNames.emplace_back(col.columnName);
         }

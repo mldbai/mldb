@@ -35,14 +35,14 @@ assert [x[1] for x in js_rez[0]["columns"]] == [98]
 rez = mldb.get("/v1/query", q="select replace_inf({1/0, 5/0, 23}, 98)")
 js_rez = rez.json()
 mldb.log(js_rez)
-assert [x[1] for x in js_rez[0]["columns"]] == [98, 98, 23]
+assert [x[1] for x in js_rez[0]["columns"]] == [98, 23, 98]
 
 rez = mldb.get("/v1/query", q="select replace_not_finite({1/0, 0/0, -1/0, -0/0, 23}, 98)")
 js_rez = rez.json()
 mldb.log(js_rez)
 assert [x[1] for x in js_rez[0]["columns"]] == [98, 98, 98, 98, 23]
 
-rez = mldb.get("/v1/query", q="select replace_null({1/0, 0/0, -1/0, -0/0, null, 23}, 98)")
+rez = mldb.get("/v1/query", q="select replace_null([1/0, 0/0, -1/0, -0/0, null, 23], 98)")
 js_rez = rez.json()
 mldb.log(js_rez)
 assert [x[1] for x in js_rez[0]["columns"]] == [{"num":"Inf"}, {"num":"-NaN"}, {"num":"-Inf"},{"num":"NaN"}, 98, 23]

@@ -236,9 +236,42 @@ BOOST_AUTO_TEST_CASE( vec_prod_float_test )
     vec_prod_float_test_case(123);
 }
 
+void vec_minus_float_test_case(int nvals)
+{
+    cerr << "testing " << nvals << endl;
+
+    float x[nvals], r[nvals], r2[nvals], y[nvals];
+
+    for (unsigned i = 0; i < nvals;  ++i) {
+        x[i] = rand() / 16384.0;
+        y[i] = rand() / 16384.0;
+        r2[i] = x[i] - y[i];
+    }
+
+    SIMD::vec_minus(x, y, r, nvals);
+
+    for (unsigned i = 0;  i < nvals;  ++i) {
+        BOOST_CHECK_EQUAL(r[i], r2[i]);
+    }
+}
+
+BOOST_AUTO_TEST_CASE( vec_minus_float_test )
+{
+    vec_minus_float_test_case(1);
+    vec_minus_float_test_case(2);
+    vec_minus_float_test_case(3);
+    vec_minus_float_test_case(4);
+    vec_minus_float_test_case(5);
+    vec_minus_float_test_case(8);
+    vec_minus_float_test_case(9);
+    vec_minus_float_test_case(12);
+    vec_minus_float_test_case(16);
+    vec_minus_float_test_case(123);
+}
+
 float get_eps(float)
 {
-    return 1e-7;
+    return 2e-7;
 }
 
 double get_eps(double)
@@ -262,17 +295,25 @@ void vec_dotprod_test_case(int nvals)
     r2 = SIMD::vec_dotprod(x, y, nvals);
 
     T eps = get_eps(T());
-    BOOST_CHECK(fabs(r - r2) / max(fabs(r), fabs(r2)) < eps);
+    float error = fabs(r - r2) / max(fabs(r), fabs(r2));
+    if (error >= eps) {
+        cerr << "r = " << r << " r2 = " << r2 << endl;
+        cerr << "error = " << error << " eps = " << eps << endl;
+        cerr << "type " << ML::type_name<T>() << endl;
+    }
+    BOOST_CHECK(error < eps);
 }
 
 namespace ML {
 namespace SIMD {
 namespace Generic {
 double vec_dotprod_sse2(const float * x, const float * y, size_t n);
+double vec_dotprod_dp_sse2(const float * x, const float * y, size_t n);
 double vec_dotprod_sse2(const double * x, const double * y, size_t n);
 } // namespace Generic
 namespace Avx {
 double vec_dotprod(const float * x, const float * y, size_t n);
+double vec_dotprod_dp(const float * x, const float * y, size_t n);
 double vec_dotprod(const double * x, const double * y, size_t n);
 } // namespace Avx
 } // namespace SIMD
@@ -282,7 +323,7 @@ template<typename T>
 void vec_dotprod_dp_test_case(int nvals)
 {
     T x[nvals], y[nvals];
-    double r = 0.0, r2;
+    double r = 0.0;
 
     for (unsigned i = 0; i < nvals;  ++i) {
         x[i] = rand() / 16384.0;
@@ -290,7 +331,13 @@ void vec_dotprod_dp_test_case(int nvals)
         r += x[i] * y[i];
     }
     
-    r2 = SIMD::vec_dotprod_dp(x, y, nvals);
+    double r2 = SIMD::vec_dotprod_dp_sse2(x, y, nvals);
+    double r2a = SIMD::Avx::vec_dotprod_dp(x, y, nvals);
+
+    if (r2 != r2a)
+        cerr << "error: nvals = " << nvals << endl;
+
+    BOOST_CHECK_EQUAL(r2, r2a);
 
     double r3 = SIMD::Avx::vec_dotprod(x, y, nvals);
     double r4 = SIMD::vec_dotprod_sse2(x, y, nvals);
@@ -354,6 +401,7 @@ BOOST_AUTO_TEST_CASE(vec_dotprod_test)
     vec_dotprod_dp_test_case<float>(12);
     vec_dotprod_dp_test_case<float>(16);
     vec_dotprod_dp_test_case<float>(123);
+    vec_dotprod_dp_test_case<float>(1023);
 
     cerr << "double" << endl;
     vec_dotprod_test_case<double>(1);

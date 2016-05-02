@@ -40,7 +40,7 @@ struct ExpressionValueInfo;
 struct RowValueInfo;
 
 /** A row in an expression value is a set of (key, atom, timestamp) pairs. */
-typedef std::vector<std::tuple<Coord, CellValue, Date> > RowValue;
+typedef std::vector<std::tuple<Coords, CellValue, Date> > RowValue;
 
 /** A struct in an expression value is a set of (key, value) pairs. */
 typedef std::vector<std::tuple<Coord, ExpressionValue> > StructValue;
@@ -181,8 +181,12 @@ struct ExpressionValueInfo {
     /// contexts, for example to generate a row.
     virtual bool isScalar() const = 0;
 
-    /// Is this a value description for a row?
+    /// Is this a value description for a row?  This includes a normal row
+    /// and a superposition.
     virtual bool isRow() const;
+
+    static std::shared_ptr<RowValueInfo>
+    toRow(std::shared_ptr<ExpressionValueInfo> row);
 
     /// Is this a value description for an embedding?
     virtual bool isEmbedding() const;
@@ -278,13 +282,14 @@ struct ExpressionValueInfo {
     /** Get the expression value info of a value nested at any level
         with columns name separated by a '.'
     */
-    virtual std::shared_ptr<ExpressionValueInfo> findNestedColumn(
-            const Utf8String& variableName,
-            SchemaCompleteness& schemaCompleteness)
-    {
-        schemaCompleteness = SCHEMA_CLOSED;
-        return std::shared_ptr<ExpressionValueInfo>();
-    }
+    virtual std::shared_ptr<ExpressionValueInfo>
+    findNestedColumn(const ColumnName& columnName) const;
+
+    /** Return the info object for the given column.  Default will throw that
+        the column is unknown; row info needs to override.
+    */
+    virtual std::shared_ptr<ExpressionValueInfo>
+    getColumn(const Coord & columnName) const;
 
     /** Return the shape of an embedding.  For scalars, it's the empty
         vector.  For vectors, matrices, tensors it's the real shape.
@@ -297,9 +302,75 @@ struct ExpressionValueInfo {
         it will throw.
     */
     virtual StorageType getEmbeddingType() const;
+
+    typedef ML::distribution<double, std::vector<double> > DoubleDist;
+
+    /** Return a function which, when called, will extract an embedding
+        from the given value.
+    */
+    typedef std::function<DoubleDist (const ExpressionValue &)>
+    ExtractDoubleEmbeddingFunction;
+
+    /** Return a function that extracts the given embedding, in the order
+        of columns provided.  This will throw if the column names are not
+        compatible with those given.
+    */
+    virtual ExtractDoubleEmbeddingFunction
+    extractDoubleEmbedding(const std::vector<ColumnName> & cols) const;
+
+    /** Function used to turn two expression values into compatible
+        embeddings.  By compatible, we mean that there are the same
+        number of columns and they occur in the same order in each.
+
+        This is returned from getCompatibleDoubleEmbeddings().
+    */
+    typedef std::function<std::tuple<DoubleDist,
+                                     DoubleDist,
+                                     std::shared_ptr<const void>,
+                                     Date>
+                          (const ExpressionValue & exp1,
+                           const ExpressionValue & exp2)>
+    GetCompatibleDoubleEmbeddingsFn;
+
+    /** Function used to convert an embedding back into an expression
+        value object that's compatible with it.  It's used where we
+        want to perform operations on embeddings and then turn them
+        back into an ExpressionValue that contains the original column
+        names and structure.
+        
+        This is returned from getCompatibleDoubleEmbeddings().
+    */
+    typedef std::function<ExpressionValue (std::vector<double> vals,
+                                           const std::shared_ptr<const void> & info,
+                                           Date timestamp) >
+    ReconstituteFromDoubleEmbeddingFn;
+
+    /** Returns a function that can be called to extract a compatible
+        embedding from two values, as well as a function to convert it
+        back to the original representation, and a value info object
+        used to describe the output of the reconstitution.
+
+        Used when binding a function that needs to extract a compatible
+        embedding from two values.
+
+        These functions will work both statically (where the columns are
+        known ahead of time, so they can be extracted directly via a
+        specialized function) and dynamically (where the columns aren't
+        known ahead of time, and so need to be discovered and aligned
+        on each call).
+
+        Default will call an override either from this or other, and if
+        neither is found will extract row names (statically or dynamically)
+        and work from there.
+    */
+    virtual std::tuple<GetCompatibleDoubleEmbeddingsFn,
+                       std::shared_ptr<ExpressionValueInfo>,
+                       ReconstituteFromDoubleEmbeddingFn>
+    getCompatibleDoubleEmbeddings(const ExpressionValueInfo & other) const;
 };
 
 PREDECLARE_VALUE_DESCRIPTION(std::shared_ptr<ExpressionValueInfo>);
+PREDECLARE_VALUE_DESCRIPTION(std::shared_ptr<RowValueInfo>);
 
 
 /*****************************************************************************/
@@ -322,22 +393,37 @@ DECLARE_ENUM_DESCRIPTION(ColumnSparsity);
 
 struct KnownColumn {
     KnownColumn()
-        : sparsity(COLUMN_IS_SPARSE)
+        : sparsity(COLUMN_IS_SPARSE), offset(VARIABLE_OFFSET)
     {
     }
 
     KnownColumn(ColumnName columnName,
                 std::shared_ptr<ExpressionValueInfo> valueInfo,
-                ColumnSparsity sparsity)
+                ColumnSparsity sparsity,
+                int32_t offset = VARIABLE_OFFSET)
         : columnName(columnName),
           valueInfo(valueInfo),
-          sparsity(sparsity)
+          sparsity(sparsity),
+          offset(offset)
     {
     }
     
     ColumnName columnName;
     std::shared_ptr<ExpressionValueInfo> valueInfo;
+
+    /// Tells is whether we can count on the column being there or not.  The
+    /// COLUMN_IS_DENSE property is basically required for offset to not be
+    /// VARIABLE_OFFSET.
     ColumnSparsity sparsity;
+
+    /// If this column has a fixed position in the expression value returned
+    /// then its offset is set here.  Otherwise, it has VARIABLE_OFFSET which
+    /// meansthat calling code can't rely on the position its sorted in.
+    int32_t offset;
+
+    /// Allows us to say that we don't know the position of a column in an
+    /// expression.
+    static constexpr int32_t VARIABLE_OFFSET = -1;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(KnownColumn);
@@ -365,10 +451,83 @@ DECLARE_STRUCTURE_DESCRIPTION(EmbeddingMetadata);
 /** This is the type used to hold the value of an expression.  It can be a
     scalar, in which case it is a CellValue.  Or it can be a row, a table
     or a structured value.
+
+    IMPORTANT
+    
+    This class implements storage and manipulation of values in the MLDB
+    SQL system.  However, there are two aspects of those which should be
+    understood separately:
+
+    1.  The logical type of a value, which specifies what operations are
+        available and what the effect of those operations is.
+    2.  The actual storage type of a value, which allows for different
+        ways of storing things to improve efficiency.  The storage type
+        of a value should NEVER affect which operations are available,
+        and the same logical value should ALWAYS return the same result
+        from an operation NO MATTER HOW IT IS STORED.
+
+    The logical types are the most important, so we will start with those.
+    A value in MLDB is either:
+
+    - An atomic value, with a timestamp.  These are handled by the
+      CellValue class for the value part.  These always have exactly one
+      way to store them: inside a CellValue, or not at all for a null.
+    - A row, which is logically a set of named columns, each of which has a
+      value (which may be an atom or a row) and a timestamp.  Since each of
+      those values may also be a row, this representation allows for recursive
+      structures.
+
+      There are certain sub-types of rows that meet certain conditions.
+      These still meet the definition of a row, however, and should not
+      behave differently for standard operations:
+
+      - A row with consecutive columns from 0 to n, and where each element
+        has the same timestamp, is an *array* of length n+1
+      - A row with n distinct columns (with any name), where each has
+        one value and the same timestamp, is an *object*.  (This definition
+        is rarely used, but it's important as it describes the subset of
+        values that can be losslessly converted to JSON).  Note that all
+        arrays are also objects.
+      - A row with consecutive columns from 0 to n, each of which is an
+        atomic value, with a common type and a common timestamp across
+        all elements, is a one dimensional embedding of shape [n+1].
+      - A row with consecutive columns from 0 to n and 0 to m, named
+        like 0.0, 0.1, ..., 0.n, 1.0, ..., 1.n, ..., m.0, ..., m.n,
+        each of which is an atomic value, with a common type and with a
+        common timestamp across all elements, is a 2 dimensional embedding
+        of shape [m+1, n+1].
+    
+    Storage types exist because it would be to expensive to always store
+    all of the elements as per the definition.  Instead, sometimes these
+    may be stored more efficiently, with the ExpressionValue class handling
+    translation of operations on the logical API to operate efficiently
+    on the storage class.
+
+    The three ways of storing rows are:
+
+    1.  As a structured representation, which is a sequence of (name, value)
+        pairs where names are simple strings (ie, not paths: Coord not Coords)
+        and each value can also be structured;
+    2.  As a flattened representation, which is a sequence of (path, atom,
+        timestamp) tuples.  Here, the paths may represent a whole route
+        through an object, like a.b.c.  This is how most datasets represent
+        their data, but logically operations should have the same result
+        no matter how they are stored.
+    3.  As an embedding representation, which has a contiguous array of
+        atomic values and a shape to understand how the indexes apply, along
+        with a single timestamp that is shared amongst all elements.  This
+        is an efficient way to store numerical data like indexes or matrices.
+
+    Again, although it is possible to ask the ExpressionValue if its elements
+    are an embedding or stored in a structured or flattened representation,
+    this is only to allow for optimizations and the result of an operation
+    should be identical no matter how it is stored.  In particular, the user
+    is not required to know that a row with keys 0 and 1 and an integer in
+    each cell is actually an embedding, and to store it as one.
 */
 
 struct ExpressionValue {
-    typedef std::vector<std::tuple<ColumnName, ExpressionValue> > Row;
+    typedef StructValue Structured;
 
     /// Initialize as null.
     ExpressionValue();
@@ -389,13 +548,13 @@ struct ExpressionValue {
     ExpressionValue(unsigned long long int intValue, Date ts) { initUInt(intValue, ts); }
 
     ExpressionValue(double doubleValue, Date ts)
-        : type_(NONE)
+        : type_(Type::NONE)
     {
         initAtom(doubleValue, ts);
     }
 
     ExpressionValue(float floatValue, Date ts)
-        : type_(NONE)
+        : type_(Type::NONE)
     {
         initAtom(floatValue, ts);
     }
@@ -424,7 +583,7 @@ struct ExpressionValue {
 
     // Construct from an embedding of simple values with common names
     // This is more efficient than a row as only the values are kept
-    ExpressionValue(const std::vector<float> & values,
+    ExpressionValue(const std::vector<double> & values,
                     std::shared_ptr<const std::vector<ColumnName> > cols,
                     Date ts);
 
@@ -464,11 +623,22 @@ struct ExpressionValue {
     */
     static ExpressionValue
     embedding(Date ts,
-           std::shared_ptr<const void> data,
-           StorageType storage,
-           std::vector<size_t> dims,
-           std::shared_ptr<const EmbeddingMetadata> md = nullptr);
-    
+              std::shared_ptr<const void> data,
+              StorageType storage,
+              std::vector<size_t> dims,
+              std::shared_ptr<const EmbeddingMetadata> md = nullptr);
+
+    /** Create a single ExpressionValue that is the superposition of several
+        values.
+
+        This will merge together anything that is non-conflicting, and
+        provide a superposition of the rest.
+
+        Note that multiple atomic values will be represented in a row with
+        empty keys.
+    */
+    static ExpressionValue superpose(std::vector<ExpressionValue> vals);
+
     //Construct from a m/d/s time interval
     static ExpressionValue
     fromInterval(uint16_t months, uint16_t days, float seconds, Date ts);
@@ -521,13 +691,19 @@ struct ExpressionValue {
 
     bool isTimeinterval() const;
 
+#if 0
     bool isObject() const;
+#endif    
 
     bool isArray() const;
-    
+
     bool isAtom() const;
 
     bool isRow() const;
+
+    /// Is this a superposition?  Meaning that there are multiple values
+    /// superposed.
+    bool isSuperposition() const;
 
     bool isEmbedding() const;
 
@@ -543,10 +719,13 @@ struct ExpressionValue {
 
     /// Destructive getAtom() call, that moves it into the result
     CellValue stealAtom();
-    const Row & getRow() const;
 
+    const Structured & getStructured() const;
+
+#if 0
     // like getRow, but it actually moves it out so no copying is required
-    Row stealRow();
+    Structured stealStructured();
+#endif
 
     CellValue coerceToString() const;
     CellValue coerceToInteger() const;
@@ -555,6 +734,14 @@ struct ExpressionValue {
     CellValue coerceToTimestamp() const;
     CellValue coerceToAtom() const;
     CellValue coerceToBlob() const;
+
+    /** Convert the current ExpressionValue to a path (used as a column or
+        row name).
+        
+        This handles integers, strings (both converted to length one
+        paths) and arrays (converted to structured arrays).
+    */
+    Coords coerceToPath() const;
 
     // Return the timestamp at which all of the information in this value
     // was known.  This is used to determine the timestamp of the outputcellva
@@ -580,38 +767,32 @@ struct ExpressionValue {
     */
     Date getMaxTimestamp() const;
 
-    /** return if this value should be sorted as earlier or later than the one provided
+    /** Return if this value should be sorted as earlier or later than the one
+        provided.
     */
-    bool isEarlier(const Date& compareTimeStamp, const ExpressionValue& compareValue) const;
-    bool isLater(const Date& compareTimeStamp, const ExpressionValue& compareValue) const;
+    bool isEarlier(const Date& compareTimeStamp,
+                   const ExpressionValue& compareValue) const;
+    bool isLater(const Date& compareTimeStamp,
+                 const ExpressionValue& compareValue) const;
 
-    // Return the given field name.  Valid for anything that is a
-    // structured type... rows, JSON values, objects, arrays, embeddings.
-    ExpressionValue getField(const Utf8String & fieldName,
-                             const VariableFilter & filter = GET_LATEST) const;
+    // Return the value of the given column (non-nested).
+    ExpressionValue getColumn(const Coord & columnName,
+                              const VariableFilter & filter = GET_LATEST) const;
 
-    // Return the given field by index.  Valid for anything that is a
-    // arrays or embedding.
-    ExpressionValue getField(int fieldIndex) const;
+    const ExpressionValue *
+    tryGetColumn(const Coord & columnName,
+                 ExpressionValue & storage,
+                 const VariableFilter & filter = GET_LATEST) const;
 
-    const ExpressionValue* findNestedField(const Utf8String & fieldName,
-                                       const VariableFilter & filter = GET_LATEST) const;
+    // Return the given nested column.  Valid for anything that is a
+    // row type... rows, JSON values, objects, arrays, embeddings.
+    ExpressionValue getNestedColumn(const ColumnName & columnName,
+                                    const VariableFilter & filter = GET_LATEST) const;
 
-    // Return the given field name.  Valid for anything that is a
-    // structured type... rows, JSON values, objects, arrays, embeddings.
-    ExpressionValue getField(const char * fieldName,
-                             const VariableFilter & filter = GET_LATEST) const
-    {
-        return getField(Utf8String(fieldName), filter);
-    }
-
-    // Return the given field name.  Valid for anything that is a
-    // structured type... rows, JSON values, objects, arrays, embeddings.
-    ExpressionValue getField(const std::string & fieldName,
-                             const VariableFilter & filter = GET_LATEST) const
-    {
-        return getField(Utf8String(fieldName), filter);
-    }
+    const ExpressionValue *
+    tryGetNestedColumn(const ColumnName & columnName,
+                       ExpressionValue & storage,
+                       const VariableFilter & filter = GET_LATEST) const;
 
     /** Return an embedding from the value, asserting on the length.  If the
         length is -1, it is unknown and any length will be accepted. */
@@ -633,6 +814,8 @@ struct ExpressionValue {
 
     /** Reshape the embedding into a new shape.  The total number of
         elements must be equal to the new total number of elements.
+
+        This will throw an exception if the shape doesn't match.
     */
     ExpressionValue reshape(std::vector<size_t> newShape) const;
 
@@ -644,34 +827,64 @@ struct ExpressionValue {
         The numDone parameter tells how many have already been done.  It
         is used as an offset in the knownNames array.
     */
-    ML::distribution<float, std::vector<float> >
-    getEmbedding(const std::vector<ColumnName> & knownNames,
-                 ssize_t maxLength = -1,
-                 size_t numDone = 0) const;
+    ML::distribution<double, std::vector<double> >
+    getEmbedding(const ColumnName * knownNames, size_t len) const;
 
-    /** Iterate over the child expression. */
-    bool forEachSubexpression(const std::function<bool (const Coord & columnName,
-                                                        const Coord & prefix,
-                                                        const ExpressionValue & val)>
-                                                  & onSubexpression,
-                              const Coord & prefix = Coord()) const;
+    /** Iterate over the child expression, with an ExpressionValue at each
+        level.  Note that if isRow() is false, than this function will
+        NOT call the callback; it's only called for row-valued values.
 
+        This function:
+        - Must be called once only for each columnName
+        - May have an empty columnName, when we have a superposition
+          (multiple atom values at the current level)
+        - Will be called in a single thread only
+        - Will not be called again if it returns false
+        
+        The returned value is the output of the last time the callback was
+        called, or true if never called.  In other words, if a callback
+        returns false the return value is false, otherwise true.
+    */
+    bool forEachColumn(const std::function<bool (const Coord & columnName,
+                                                 const ExpressionValue & val)>
+                       & onColumn) const;
+    
     /** Iterate over child columns, returning a reference that may be moved
-        elsewhere.
+        elsewhere.  This is similar to forEachColumn(), but will allow the
+        values returned to be moved out of place, and will leave *this in
+        an indeterminate state afterwards.
 
         Only works for row-typed values.
     */
     bool forEachColumnDestructive
         (const std::function<bool (Coord & columnName, ExpressionValue & val)>
-         & onSubexpression) const;
-
+         & onColumn) const;
 
     /** Iterate over the flattened representation. */
-    bool forEachAtom(const std::function<bool (const Coord & columnName,
-                                               const Coord & prefix,
+    bool forEachAtom(const std::function<bool (const Coords & columnName,
+                                               const Coords & prefix,
                                                const CellValue & val,
                                                Date ts) > & onAtom,
-                     const Coord & columnName = Coord()) const;
+                     const Coords & columnName = Coords()) const;
+
+
+    /** Iterate over the flattened representation, destroying this object
+        as we go to make the operations more efficient.  The called object
+        will be left in an indeterminate state afterwards.
+    */
+    bool forEachAtomDestructive(const std::function<bool (Coords & columnName,
+                                                          CellValue & val,
+                                                          Date ts) > & onAtom);
+
+
+    /** Iterate over each superposed value.  This occurs only when there is more
+        than one value in the ExpressionValue, for example when it has different
+        values at different points in time.
+
+        If it's not a superposition, then only the one value is returned.
+    */
+    bool forEachSuperposedValue
+        (const std::function<bool (const ExpressionValue & val)> & onValue) const;
 
     /** For a row (structured) storage, returns the number of elements
         that are in it.  Note that this is the non-flattened version,
@@ -680,18 +893,18 @@ struct ExpressionValue {
     size_t rowLength() const;
     
     /** Write a flattened representation of the current value to the given
-        dataset row or event.
+        dataset row or event, prepending the given column name.
     */
-    void appendToRow(const Coord & columnName, MatrixNamedRow & row) const;
-    void appendToRow(const Coord & columnName, RowValue & row) const;
-    void appendToRow(const Coord & columnName, StructValue & row) const;
+    void appendToRow(const Coords & columnName, MatrixNamedRow & row) const;
+    void appendToRow(const Coords & columnName, RowValue & row) const;
+    void appendToRow(const Coords & columnName, StructValue & row) const;
 
     /** Write a flattened representation of the current value to the given
         dataset row or event, moving values and destroying this object in
         the process.
     */
     void appendToRowDestructive(ColumnName & columnName, RowValue & row);
-    void appendToRowDestructive(ColumnName & columnName, StructValue & row);
+    void appendToRowDestructive(const Coords & columnName, StructValue & row);
 
     /// Destructively merge into the given row
     void mergeToRowDestructive(RowValue & row);
@@ -700,13 +913,15 @@ struct ExpressionValue {
     void mergeToRowDestructive(StructValue & row);
 
     /** Apply filter to select values in the row according to their timestamp */
-    Row getFiltered(const VariableFilter & filter) const;
+    const ExpressionValue &
+    getFiltered(const VariableFilter & filter,
+                ExpressionValue & storage) const;
 
     /** Apply filter to select values in the row according to their timestamp.
         This will leave the current object in an indeterminate state
         afterwards.
     */
-    Row getFilteredDestructive(const VariableFilter & filter);
+    ExpressionValue getFilteredDestructive(const VariableFilter & filter);
 
     typedef std::function<bool (const ColumnName & columnName,
                                 std::pair<CellValue, Date> * vals1,
@@ -785,15 +1000,15 @@ private:
     void initUInt(uint64_t intValue, Date ts);
     void initAtom(CellValue value, Date ts) noexcept
     {
-        ExcAssertEqual(type_, NONE);
+        ExcAssertEqual((int)type_, (int)Type::NONE);
         ts_ = ts;
         if (value.empty())
             return;
         new (storage_) CellValue(std::move(value));
-        type_ = ATOM;
+        type_ = Type::ATOM;
     }
-    void initRow(Row row) noexcept;
-    void initRow(std::shared_ptr<const Row> row) noexcept;
+    void initStructured(Structured row) noexcept;
+    void initStructured(std::shared_ptr<const Structured> row) noexcept;
 
     void setAtom(CellValue value, Date ts);
 
@@ -801,58 +1016,47 @@ private:
         type to allow for inlining.  Defined in expression_value.cc.
     */
     template<typename Fn>
-    bool forEachColumnDestructiveT(Fn && onSubexpression) const;
+    bool forEachColumnDestructiveT(Fn && onColumn) const;
 
-    enum Type {
-        NONE,     ///< Expression is empty or not initialized yet.  Shouldn't be exposed to user.
-        ATOM,     ///< Expression is an atom (CellValue), including null
-        ROW,      ///< Expression is a row, ie a destructured complex type with independent timestamps
-        STRUCT,   ///< Expression is a structure of keys and elements.
-        EMBEDDING    ///< Uniform typed n-dimensional array of atoms
+    /** Same as forEachAtomDestructive, but templated on the function
+        type to allow for inlining.  Defined in expression_value.cc.
+    */
+    template<typename Fn>
+    bool forEachAtomDestructiveT(Fn && onColumn);
+
+    enum class Type : uint8_t {
+        NONE,        ///< Expression is empty or not initialized yet.  Shouldn't be exposed to user.
+        ATOM,        ///< Expression is an atom (CellValue), including null
+        STRUCTURED,  ///< Expression is a structured, ie a destructured complex type with independent timestamps
+        EMBEDDING,    ///< Uniform typed n-dimensional array of atoms
+        SUPERPOSITION ///< Multiple values of the same thing
     };
 
     Type type_;
 
-    static inline std::string print(Type t) {
-        switch (t)  {
-        case NONE:      return "empty";
-        case ATOM:      return "atomic value";
-        case ROW:       return "row";
-        case STRUCT:    return "struct";
-        case EMBEDDING: return "embedding";
-        default:
-            throw ML::Exception("Unknown ExpressionValue type: " + t);
-        }
-    }
-
-    void inline assertType(Type requested, const std::string & details="") const {
-        if(requested != type_) {
-            std::string msg = "Cannot convert value of type "
-                        "'" + print(type_) + "' to "
-                        "'" + print(requested) + "'";
-            if(!details.empty()) {
-                msg += " (" + details+ ")";
-            }
-
-            throw ML::Exception(msg);
-        }
-    }
+    static std::string print(Type t);
+    void assertType(Type requested, const std::string & details="") const;
 
     /// This is how we store a structure with a single value for each
     /// element and an external set of column names
-    struct Struct;
+    struct Flattened;
 
     /// This is how we store a embedding, which is a dense array of a
     /// uniform data type.
     struct Embedding;
 
+    /// This is how we store superposed values, which is multiple values
+    /// of the same variable, possibly at different time points
+    struct Superposition;
+
     /// This is where the underlying values are actually stored
     union {
         uint64_t storage_[2];
         CellValue cell_;
-        std::shared_ptr<const Row> row_;
-        std::shared_ptr<const Struct> struct_;
+        std::shared_ptr<const Structured> structured_;
+        std::shared_ptr<const Flattened> flattened_;
         std::shared_ptr<const Embedding> embedding_;
+        std::shared_ptr<const Superposition> superposition_;
     };
     Date ts_;   ///< Nominal timestamp that the information was known
 
@@ -1144,9 +1348,11 @@ struct RowValueInfo: public ExpressionValueInfoT<RowValue> {
                                                    const CellValue & value,
                                                    Date timestamp)> & write) const;
 
-    virtual std::shared_ptr<ExpressionValueInfo> findNestedColumn(
-            const Utf8String& variableName,
-            SchemaCompleteness& schemaCompleteness);
+    virtual std::shared_ptr<ExpressionValueInfo>
+    getColumn(const Coord & columnName) const override;
+
+    virtual std::shared_ptr<ExpressionValueInfo> 
+    findNestedColumn(const ColumnName& columnName) const override;
 
     virtual std::vector<KnownColumn> getKnownColumns() const;
     virtual SchemaCompleteness getSchemaCompleteness() const;
@@ -1189,12 +1395,6 @@ struct UnknownRowValueInfo: public RowValueInfo {
     }
 };
 
-// Get a value description for expression values
-ValueDescriptionT<std::shared_ptr<ExpressionValueInfo> > *
-getDefaultDescription(std::shared_ptr<ExpressionValueInfo> *);
-ValueDescriptionT<std::shared_ptr<ExpressionValueInfo> > *
-getDefaultDescriptionUninitialized(std::shared_ptr<ExpressionValueInfo> *);
-
 
 /*****************************************************************************/
 /* NAMED ROW VALUE                                                           */
@@ -1221,20 +1421,6 @@ DECLARE_STRUCTURE_DESCRIPTION(NamedRowValue);
 /*****************************************************************************/
 
 /** These functions search the given row for the named value. */
-
-#if 0
-const ExpressionValue *
-searchRow(const std::vector<std::tuple<ColumnHash, CellValue, Date> > & columns,
-          const ColumnName & key,
-          const VariableFilter & filter,
-          ExpressionValue & storage);
-
-const ExpressionValue *
-searchRow(const std::vector<std::tuple<ColumnName, CellValue, Date> > & columns,
-          const ColumnHash & key,
-          const VariableFilter & filter,
-          ExpressionValue & storage);
-#endif
 const ExpressionValue *
 searchRow(const std::vector<std::tuple<ColumnName, CellValue, Date> > & columns,
           const ColumnName & key,
@@ -1242,7 +1428,13 @@ searchRow(const std::vector<std::tuple<ColumnName, CellValue, Date> > & columns,
           ExpressionValue & storage);
 
 const ExpressionValue *
-searchRow(const std::vector<std::tuple<ColumnName, ExpressionValue> > & columns,
+searchRow(const std::vector<std::tuple<Coord, ExpressionValue> > & columns,
+          const Coord & key,
+          const VariableFilter & filter,
+          ExpressionValue & storage);
+
+const ExpressionValue *
+searchRow(const std::vector<std::tuple<Coord, ExpressionValue> > & columns,
           const ColumnName & key,
           const VariableFilter & filter,
           ExpressionValue & storage);

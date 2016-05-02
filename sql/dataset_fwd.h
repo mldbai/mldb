@@ -25,11 +25,12 @@ struct BoundFunction;
 typedef HashWrapper<1> RowHash;
 
 struct Coord;
+struct Coords;
 
-typedef Coord RowName;
+typedef Coords RowName;
 
 typedef HashWrapper<3> ColumnHash;
-typedef Coord ColumnName;
+typedef Coords ColumnName;
 
 struct Dataset;
 

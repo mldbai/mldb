@@ -14,6 +14,7 @@
 #include "mldb/types/distribution_description.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/base/exc_assert.h"
+#include "mldb/arch/simd_vector.h"
 
 using namespace std;
 
@@ -76,6 +77,7 @@ EuclideanDistanceMetric::
 calc(const ML::distribution<float> & coords1,
      const ML::distribution<float> & coords2)
 {
+    return sqrt(ML::SIMD::vec_euclid(coords1.data(), coords2.data(), coords1.size()));
     return (coords2 - coords1).two_norm();
 }
 

@@ -75,10 +75,10 @@ var resp = mldb.get("/v1/datasets/transformed/query", {select: 'x,y,z,q', orderB
 plugin.log("transform limit 3 query result", resp.json);
 
 var expected = [
-   [ "_rowName", "x", "y", "z", "q" ],
-   [ "ex3_transformed", 1, 2, 10, 8 ],
-   [ "ex2_transformed", 1, 1, 10, 7 ],
-   [ "ex4_transformed", 6, 6, 60, 12 ]
+   [ "_rowName", "q", "x", "y", "z" ],
+   [ "ex3_transformed", 8, 1, 2, 10 ],
+   [ "ex2_transformed", 7, 1, 1, 10 ],
+   [ "ex4_transformed", 12, 6, 6, 60 ]
 ];
 
 assertEqual(mldb.diff(expected, resp.json, false /* strict */), {},
@@ -105,11 +105,11 @@ var resp = mldb.get("/v1/datasets/transformed2/query", {select: 'x,y,z,q', forma
 plugin.log(resp);
 
 var expected = [
-    [ "_rowName", "x", "y", "z", "q" ],
-    [ "ex1_transformed", 0, 0, 0, 6  ],
-    [ "ex2_transformed", 1, 1, 10, 7 ],
-    [ "ex3_transformed", 1, 2, 10, 8 ],
-    [ "ex4_transformed", 6, 6, 60, 12]
+    [ "_rowName", "q", "x", "y", "z" ],
+    [ "ex1_transformed", 6, 0, 0, 0 ],
+    [ "ex2_transformed", 7, 1, 1, 10 ],
+    [ "ex3_transformed", 8, 1, 2, 10 ],
+    [ "ex4_transformed", 12, 6, 6, 60 ]
 ];
 
 assertEqual(mldb.diff(expected, resp.json, false /* strict */), {},

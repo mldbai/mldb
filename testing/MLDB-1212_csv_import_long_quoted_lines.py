@@ -32,7 +32,7 @@ result = mldb.get(
 js_rez = result.json()
 mldb.log(js_rez)
 
-answers = {2: 50, 3: 100, 4: 1000, 5: 10000}
+answers = {"2": 50, "3": 100, "4": 1000, "5": 10000}
 for row in js_rez:
     assert answers[row["rowName"]] == row["columns"][0][1]
 
