@@ -282,6 +282,34 @@ struct CellValue {
         return cellType() == BLOB;
     }
 
+    bool isNaN() const
+    {
+        CellType t = cellType();
+        if (t == INTEGER) {
+            return std::isnan(toInt());
+        }
+        else if (t == FLOAT) {
+            return std::isnan(toDouble());
+        }
+        else {
+            return false;
+        }
+    }
+
+    bool isInf() const
+    {
+        CellType t = cellType();
+        if (t == INTEGER) {
+            return std::isinf(toInt());
+        }
+        else if (t == FLOAT) {
+            return std::isinf(toDouble());
+        }
+        else {
+            return false;
+        }
+    }
+
     CellValue coerceToInteger() const;
     CellValue coerceToNumber() const;
     CellValue coerceToString() const;

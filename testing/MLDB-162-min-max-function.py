@@ -118,4 +118,111 @@ assert result.json()[0]['columns'][0][1] == 5
 assert result.json()[1]['columns'][1][1] == 1
 assert result.json()[1]['columns'][0][1] == 5
 
+#MLDB-1599 clamp
+result = mldb.query('SELECT clamp(x, 3, y + 3) FROM dataset1 ORDER BY x')
+expected = [["_rowName","clamp(x, 3, y + 3)"],
+    ["row_0",3],["row_1",3],["row_2",3],["row_3",3],["row_4",3],["row_5",4],["row_6",3],["row_7",4],["row_8",3],["row_9",4]]
+assert result == expected
+
+result = mldb.query('SELECT clamp({x, y}, 3, 7) FROM dataset1 ORDER BY x')
+expected = [["_rowName","clamp({x, y}, 3, 7).x","clamp({x, y}, 3, 7).y"],
+     ["row_0",3,3],["row_1",3,3],["row_2",3,3],["row_3",3,3],["row_4",4,3],["row_5",5,3],["row_6",6,3],["row_7",7,3],["row_8",7,3],["row_9",7,3]]
+assert result == expected
+
+result = mldb.query('SELECT clamp(null, 3, 7)')
+expected = [["_rowName","clamp(null, 3, 7)"],["result", None]]
+assert result == expected
+
+result = mldb.query('SELECT clamp({null, 11}, 3, 7) as v')
+expected = [["_rowName","v.null","v.11"],["result",None,7]]
+assert result == expected
+
+result = mldb.query('SELECT clamp(NaN, 3, 7) as v')
+expected = [["_rowName","v"],["result",3]]
+assert result == expected 
+
+result = mldb.query('SELECT clamp(-NaN, 3, 7) as v')
+expected = [["_rowName","v"],["result",3]]
+assert result == expected 
+
+result = mldb.query('SELECT clamp(inf, 3, 7) as v')
+expected = [["_rowName","v"],["result",7]]
+assert result == expected 
+
+result = mldb.query('SELECT clamp(-inf, 3, 7) as v')
+expected = [["_rowName","v"],["result",3]]
+assert result == expected 
+
+result = mldb.query('SELECT clamp(2, null, 3) as v')
+expected = [["_rowName","v"],["result",2]]
+assert result == expected 
+
+result = mldb.query('SELECT clamp(2, null, 1) as v')
+expected = [["_rowName","v"],["result",1]]
+assert result == expected
+
+result = mldb.query('SELECT clamp(NaN, null, 1) as v')
+expected = [["_rowName","v"],["result","NaN"]]
+assert result == expected
+
+result = mldb.query('SELECT clamp(-NaN, null, 1) as v')
+expected = [["_rowName","v"],["result","-NaN"]]
+assert result == expected
+
+result = mldb.query('SELECT clamp(inf, null, 1) as v')
+expected = [["_rowName","v"],["result",1]]
+assert result == expected
+
+result = mldb.query('SELECT clamp(-inf, null, 1) as v')
+expected = [["_rowName","v"],["result","-Inf"]]
+assert result == expected
+
+result = mldb.query('SELECT clamp(null, null, 1) as v')
+expected = [["_rowName","v"],["result",None]]
+assert result == expected
+
+result = mldb.query('SELECT clamp(-2, -1, null) as v')
+expected = [["_rowName","v"],["result",-1]]
+assert result == expected
+
+result = mldb.query('SELECT clamp(0, -1, null) as v')
+expected = [["_rowName","v"],["result",0]]
+assert result == expected
+
+result = mldb.query('SELECT clamp(2, -1, null) as v')
+expected = [["_rowName","v"],["result",2]]
+assert result == expected
+
+result = mldb.query('SELECT clamp(nan, -1, null) as v')
+expected = [["_rowName","v"],["result",-1]]
+assert result == expected
+
+result = mldb.query('SELECT clamp(-nan, -1, null) as v')
+expected = [["_rowName","v"],["result",-1]]
+assert result == expected
+
+result = mldb.query('SELECT clamp(inf, -1, null) as v')
+expected = [["_rowName","v"],["result","Inf"]]
+assert result == expected
+
+result = mldb.query('SELECT clamp(-inf, -1, null) as v')
+expected = [["_rowName","v"],["result",-1]]
+assert result == expected
+
+result = mldb.query('SELECT clamp(null, -1, null) as v')
+expected = [["_rowName","v"],["result",None]]
+assert result == expected
+
+result = mldb.query('SELECT clamp(2, null, null) as v')
+expected = [["_rowName","v"],["result",2]]
+assert result == expected
+
+result = mldb.query('SELECT clamp(null, null, null) as v')
+expected = [["_rowName","v"],["result",None]]
+assert result == expected
+
+result = mldb.query('SELECT clamp(nan, null, null) as v')
+expected = [["_rowName","v"],["result","NaN"]]
+assert result == expected
+
 mldb.script.set_return('success')

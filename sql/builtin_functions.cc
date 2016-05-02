@@ -18,6 +18,7 @@
 #include "mldb/base/hash.h"
 #include "mldb/base/parse_context.h"
 #include <boost/lexical_cast.hpp>
+#include <boost/algorithm/clamp.hpp>
 
 #include <boost/regex/icu.hpp>
 #include <iterator>
@@ -2642,6 +2643,7 @@ BoundFunction static_known_columns(const std::vector<BoundSqlExpression> & args)
 static RegisterBuiltin
 registerStaticKnownColumns(static_known_columns, "static_known_columns");
 
+
 // Test function that fails due to a std::bad_alloc on memory allocation
 BoundFunction fail_memory_allocation(const std::vector<BoundSqlExpression> & args)
 {
@@ -2650,16 +2652,73 @@ BoundFunction fail_memory_allocation(const std::vector<BoundSqlExpression> & arg
 
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
-            {
-                throw std::bad_alloc();
-            },
-            outputInfo
-        };
+        {
+            throw std::bad_alloc();
+        },
+        outputInfo
+    };
 }
 
 static RegisterBuiltin
 registerFailMemoryAllocation(fail_memory_allocation, "_fail_memory_allocation");
 
+BoundFunction clamp(const std::vector<BoundSqlExpression> & args)
+{
+    checkArgsSize(args.size(), 3);
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                if (args[0].empty())
+                    return ExpressionValue();
+
+                CellValue lower = args[1].getAtom();
+                CellValue upper = args[2].getAtom();
+
+                Date limitsTs = std::max(args[1].getEffectiveTimestamp(), args[2].getEffectiveTimestamp());
+
+                auto doAtom = [&] (const CellValue& val) {
+                    if (val.empty()) {
+                        return val;
+                    }
+                    else if (val.isNaN()) {
+                        if (lower.empty())
+                            return val;
+                        else
+                            return lower;
+                    }
+                    else if (upper.empty()) {
+                        return std::max(val, lower);
+                    }
+                    else {
+                        CellValue clamped = boost::algorithm::clamp(val, lower, upper);
+                        return clamped;
+                    }
+                };
+
+                if (args[0].isAtom()) {
+                    return ExpressionValue(doAtom(args[0].getAtom()), std::max(args[0].getEffectiveTimestamp(), limitsTs));
+                }
+                else {
+                    std::vector<std::tuple<Coord, ExpressionValue> > vals;
+                    auto exec = [&] (const Coord & columnName,
+                                     const ExpressionValue & val) {
+
+                        vals.emplace_back(columnName, ExpressionValue(doAtom(val.getAtom()), std::max(val.getEffectiveTimestamp(), limitsTs)));
+                        return true;
+                    } ;
+
+                    ExcAssertEqual(args.size(), 3);
+                    args[0].forEachColumn(exec);
+
+                    return ExpressionValue(vals);
+                }
+            },
+            args[0].info
+        };
+}
+
+static RegisterBuiltin registerClamp(clamp, "clamp");
 
 } // namespace Builtins
 } // namespace MLDB
