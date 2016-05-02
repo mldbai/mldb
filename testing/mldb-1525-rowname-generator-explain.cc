@@ -68,7 +68,7 @@ BOOST_AUTO_TEST_CASE(test_explain)
         {
             auto where = SqlExpression::parse("x IS TRUE AND y IS NOT NULL");
             auto generator = dataset.generateRowsWhere(scope, "", *where, 0, -1);
-            BOOST_CHECK_EQUAL(generator.explain, "set intersection for AND boolean(\"AND\",istype(variable(\"x\"),\"true\",1),istype(variable(\"y\"),\"null\",0))");
+            BOOST_CHECK_EQUAL(generator.explain, "set intersection for AND boolean(\"AND\",istype(column(\"x\"),\"true\",1),istype(column(\"y\"),\"null\",0))");
             BOOST_CHECK_EQUAL(generator.complexity, GenerateRowsWhereFunction::BETTER_THAN_TABLESCAN);
         }
 

@@ -1017,7 +1017,6 @@ generateRowsWhere(const SqlBindingScope & scope,
                 };
 
                 if (gen.complexity < GenerateRowsWhereFunction::TABLESCAN) {
-                     SqlExpressionDatasetContext dsScope(*this, alias);
 
                     auto getFilteredRowName = [=] (const BoundParameters & params) {
                         return getRowNameFilter(*filterExpression);
