@@ -34,7 +34,13 @@ Coord()
 }
 
 Coord::
-Coord(Utf8String str)
+Coord(Utf8String && str)
+{
+    initString(std::move(str));
+}
+
+Coord::
+Coord(const Utf8String & str)
 {
     initString(std::move(str));
 }
@@ -488,27 +494,55 @@ complexMoveConstruct(Coord && other)
     new (&str.str) Utf8String(std::move(other.getComplex()));
 }
 
+namespace {
+
+const char * rawData(const Utf8String & str)
+{
+    return str.rawData();
+}
+
+size_t rawLength(const Utf8String & str)
+{
+    return str.rawLength();
+}
+
+const char * rawData(const std::string & str)
+{
+    return str.data();
+}
+
+size_t rawLength(const std::string & str)
+{
+    return str.size();
+}
+
+
+
+} // file scope
+
+template<typename T>
 void
 Coord::
-initString(Utf8String str)
+initString(T && str)
 {
     if (str.empty())
         throw HttpReturnException(400, "Attempt to create empty Coord");
-    ExcAssertEqual(strlen(str.rawData()), str.rawLength());
-    initStringUnchecked(str);
+    ExcAssertEqual(strlen(rawData(str)), rawLength(str));
+    initStringUnchecked(std::move(str));
 }
 
+template<typename T>
 void
 Coord::
-initStringUnchecked(Utf8String str)
+initStringUnchecked(T && str)
 {
     // This method is used only for when we know we may have invalid
     // characters, for example when importing legacy files.
     words[0] = words[1] = words[2] = 0;
-    if (str.rawLength() <= INTERNAL_BYTES - 1) {
+    if (rawLength(str) <= INTERNAL_BYTES - 1) {
         complex_ = 0;
-        simpleLen_ = str.rawLength();
-        std::copy(str.rawData(), str.rawData() + str.rawLength(),
+        simpleLen_ = rawLength(str);
+        std::copy(rawData(str), rawData(str) + rawLength(str),
                   bytes + 1);
     }
     else {

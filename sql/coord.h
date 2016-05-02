@@ -39,7 +39,8 @@ struct Coords;
 
 struct Coord {
     Coord();
-    Coord(Utf8String str);
+    Coord(const Utf8String & str);
+    Coord(Utf8String && str);
     Coord(std::string str);
     Coord(const char * str, size_t len);
     Coord(const char * str)
@@ -200,8 +201,12 @@ struct Coord {
     void complexDestroy();
     void complexCopyConstruct(const Coord & other);
     void complexMoveConstruct(Coord && other);
-    void initString(Utf8String str);
-    void initStringUnchecked(Utf8String str);
+
+    template<typename Str>
+    void initString(Str && str);
+    template<typename Str>
+    void initStringUnchecked(Str && str);
+
     void initChars(const char * str, size_t len);
 
     const char * data() const;
