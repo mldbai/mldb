@@ -267,6 +267,8 @@ ColumnHash
 DatasetFeatureSpace::
 getHash(ML::Feature feature)
 {
+    if (feature == ML::MISSING_FEATURE)
+        return ColumnHash();
     ExcAssertEqual(feature.type(), 1);
 
     uint64_t high = (uint32_t)feature.arg1();
@@ -364,6 +366,9 @@ print(const ML::Feature & feature, float value) const
 {
     if (feature == weightFeature)
         return to_string(value);
+    if (feature == ML::MISSING_FEATURE) {
+        return "";
+    }
 
     auto val = getValue(feature, value);
 

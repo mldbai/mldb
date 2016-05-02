@@ -124,6 +124,25 @@ BOOST_AUTO_TEST_CASE(test_column_expression)
         cerr << parsed->print() << endl;
     }
 
+    {
+        // MLDB-1590
+        auto parsed = SqlRowExpression::parse
+            ("COLUMN EXPR(ORDER BY count(values()) DESC LIMIT 1000)");
+    
+        cerr << parsed->print() << endl;
+    }
+
+    {
+        auto parsed = SqlRowExpression::parse
+            ("COLUMN EXPR(WHERE (rowCount() > 100) ORDER BY rowCount()DESC LIMIT 1000)");
+        cerr << parsed->print() << endl;
+    }
+
+    {
+        auto parsed = SqlRowExpression::parse
+            ("COLUMN EXPR(WHERE rowCount() > 100 ORDER BY rowCount() DESC LIMIT 1000)");
+        cerr << parsed->print() << endl;
+    }
 }
 
 

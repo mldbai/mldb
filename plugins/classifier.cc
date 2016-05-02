@@ -531,6 +531,15 @@ run(const ProcedureRunConfig & run,
         if (!isfinite(weight))
             throw HttpReturnException(400, "classifier example weights must be finite");
 
+        if (runProcConf.mode == CM_REGRESSION
+            && !isfinite(label)) {
+            throw HttpReturnException
+                (400,
+                 "Regression labels must not be infinite or NaN.  Should you "
+                 "add a condition like `WHERE isfinite(label)` to your data, "
+                 "or preprocess your labels with `replace_if_not_finite(label, 0)`?");
+        }
+
         trainingSet.add_example(std::make_shared<ML::Mutable_Feature_Set>(std::move(fvs[i].featureSet)));
 
         labelWeights[0][i] = weight * !label;

@@ -779,66 +779,61 @@ ExpressionValue binaryFunction(const std::vector<ExpressionValue> & args,
     return ExpressionValue(func(v1.toDouble(), v2.toDouble()), calcTs(v1, v2));
 }
 
-ExpressionValue replaceIf(const std::vector<ExpressionValue> & args,
-                          std::function<bool(double)> ifFunc)
+CellValue replaceIfNan(const CellValue & v1, const CellValue & v2)
 {
-    ExcAssertEqual(args.size(), 2);
-    ExcAssert(args[1].isNumber());
-
-    if(args[0].isRow()) {
-        RowValue rtnRow;
-
-        auto onAtom = [&] (const ColumnName & columnName,
-                           const ColumnName & prefix,
-                           const CellValue & val,
-                           Date ts)
-            {
-                if(!val.isNumber() || !ifFunc(val.toDouble())) {
-                    rtnRow.push_back(make_tuple(columnName, val, ts));
-                }
-                else {
-                    rtnRow.push_back(make_tuple(columnName, args[1].getAtom(), ts));
-                }
-                return true;
-            };
-
-        args[0].forEachAtom(onAtom);
-        return ExpressionValue(std::move(rtnRow));
-    }
-    else {
-        if(!args[0].isNumber() || !ifFunc(args[0].toDouble()))
-            return args[0];
-
-        return args[1];
-    }
+    if (v1.empty())
+        return v1;
+    if (!v1.isNumber())
+        return v1;
+    if (std::isnan(v1.toDouble()))
+        return v2;
+    return v1;
 }
 
-
-BoundFunction replaceIfNaN(const std::vector<BoundSqlExpression> & args)
+CellValue replaceIfInf(const CellValue & v1, const CellValue & v2)
 {
-    checkArgsSize(args.size(), 2);
-    return {[] (const std::vector<ExpressionValue> & args,
-                const SqlRowScope & scope) -> ExpressionValue
-            {
-                return replaceIf(args, [](double d) { return std::isnan(d); });
-            },
-            std::make_shared<Float64ValueInfo>()};
+    if (v1.empty())
+        return v1;
+    if (!v1.isNumber())
+        return v1;
+    if (std::isinf(v1.toDouble()))
+        return v2;
+    return v1;
 }
 
-static RegisterBuiltin registerReplaceNaN(replaceIfNaN, "replace_nan", "replaceNan");
-
-BoundFunction replaceIfInf(const std::vector<BoundSqlExpression> & args)
+CellValue replaceIfNotFinite(const CellValue & v1, const CellValue & v2)
 {
-    checkArgsSize(args.size(), 2);
-    return {[] (const std::vector<ExpressionValue> & args,
-                const SqlRowScope & scope) -> ExpressionValue
-            {
-                return replaceIf(args, [](double d) { return std::isinf(d); });
-            },
-            std::make_shared<Float64ValueInfo>()};
+    if (v1.empty())
+        return v1;
+    if (!v1.isNumber())
+        return v1;
+    if (!std::isfinite(v1.toDouble()))
+        return v2;
+    return v1;
 }
 
-static RegisterBuiltin registerReplaceInf(replaceIfInf, "replace_inf", "replaceInf");
+CellValue replaceIfNull(const CellValue & v1, const CellValue & v2)
+{
+    if (v1.empty())
+        return v2;
+    return v1;
+}
+
+static RegisterBuiltinBinaryScalar
+registerReplaceIfNan(replaceIfNan, std::make_shared<AtomValueInfo>(),
+                     "replace_nan");
+
+static RegisterBuiltinBinaryScalar
+registerReplaceIfInf(replaceIfInf, std::make_shared<AtomValueInfo>(),
+                     "replace_inf");
+
+static RegisterBuiltinBinaryScalar
+registerReplaceIfNotFinite(replaceIfNotFinite, std::make_shared<AtomValueInfo>(),
+                           "replace_not_finite");
+
+static RegisterBuiltinBinaryScalar
+registerReplaceIfNull(replaceIfNull, std::make_shared<AtomValueInfo>(),
+                      "replace_null");
 
 CellValue pow(const CellValue & v1, const CellValue & v2)
 {
@@ -886,6 +881,9 @@ WRAP_UNARY_MATH_OP(acos, std::acos);
 WRAP_UNARY_MATH_OP(atan, std::atan);
 WRAP_UNARY_MATH_OP(ln, Builtins::ln);
 WRAP_UNARY_MATH_OP(sqrt, Builtins::sqrt);
+WRAP_UNARY_MATH_OP(isfinite, std::isfinite);
+WRAP_UNARY_MATH_OP(isinf, std::isinf);
+WRAP_UNARY_MATH_OP(isnan, std::isnan);
 
 CellValue quantize(const CellValue & x, const CellValue & q)
 {
