@@ -96,6 +96,22 @@ var res = mldb.query('SELECT incept({url: ' + mldb.sqlEscape(filename) + '})[out
 
 mldb.log(res);
 
+
+mldb.put('/v1/functions/inception', {
+    "type": 'tensorflow.graph',
+    "params": {
+        "modelFileUrl": 'archive+' + inceptionUrl + '#tensorflow_inception_graph.pb',
+        "inputs": 'fetch({url})[content] AS "DecodeJpeg/contents"',
+        "outputs": "softmax"
+    }
+});
+
+mldb.log(mldb.query("SELECT inception({url: " + mldb.sqlEscape(filename) + "}) as *"));
+
+mldb.log(mldb.query("SELECT flatten(inception({url: " + mldb.sqlEscape(filename) + "})[softmax]) as *"));
+
+
+
 if (false) {
 
     var blob = mldb.openStream(filename).readBlob();

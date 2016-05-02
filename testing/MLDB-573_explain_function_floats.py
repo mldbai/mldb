@@ -97,31 +97,6 @@ train_prob_result = mldb.put("/v1/procedures/float_encoding_prob_train/runs/1")
 mldb.log("The train probabilizer runs : " + prob_procedure_output.text)
 
 
-probabilizer_function_config = {
-    "id":"probabilizer",
-    "type":"serial",
-    "params":{
-        "steps":[
-            {
-                "id":"classifyFunction"
-                },
-            {
-                "id":"apply_probabilizer",
-                "type":"probabilizer",
-                "params": {
-                    "modelFileUrl":"file://tmp/MLDB-573-probabilizer.json"
-                    }
-                }
-            ]
-        }
-    }
-
-probabilizer_function_output = mldb.put(
-    "/v1/functions/" + probabilizer_function_config["id"],
-    probabilizer_function_config)
-mldb.log("The result of the probabilizer function config"
-         + probabilizer_function_output.text)
-
 #add an explain function
 expl_function_config = {
     "id":"explainFunction",
@@ -135,14 +110,12 @@ explain_function_output = mldb.put(
 mldb.log("THe resulf of the explain function creation "
          + explain_function_output.text)
 
-# now call the probabilizer
 rest_params = {
     "input": {
         "features": {"Surface": "clay", "ProbWin": 0.2, "Rank": 10}
     }
 }
-res = mldb.get("/v1/functions/probabilizer/application", **rest_params)
-mldb.log("the result of calling the classifier " + res.text)
+
 
 rest_params["input"]["label"] = 1
 # now call the expain function

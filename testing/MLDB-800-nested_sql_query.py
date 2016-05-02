@@ -47,44 +47,52 @@ res = mldb.put('/v1/functions/poil2', {
     'params': {
         'expression': 'patate({*})'}})
 
-try:
-    mldb.get('/v1/functions/poil2/info')
-except mldb_wrapper.ResponseException as exc:
-    res = exc.response
-else:
-    assert False, 'should not be here'
-# Uncomment this for the MLDB-801 test-case
-#assert res['statusCode'] == 200
-# also, check that the output looks like this:
-# {
-#   "input" : {
-#       "pins" : {
-#          "x" : {
-#             "valueInfo" : {
-#                "type" : "Datacratic::MLDB::AnyValueInfo"
-#             }
-#          }
-#       }
-#    },
-#    "output" : {
-#       "pins" : {
-#          "x" : {
-#             "valueInfo" : {
-#                "kind" : "scalar",
-#                "scalar" : "Datacratic::MLDB::CellValue",
-#                "type" : "Datacratic::MLDB::AtomValueInfo"
-#             }
-#          },
-#          "y" : {
-#             "valueInfo" : {
-#                "kind" : "scalar",
-#                "scalar" : "Datacratic::MLDB::CellValue",
-#                "type" : "Datacratic::MLDB::AtomValueInfo"
-#             }
-#          }
-#       }
-#    }
-# }
+res = mldb.get('/v1/functions/poil2/info')
+mldb.log(res.json())
+#assert res.statusCode == 200
+
+expected = {
+    "input": {
+        "hasUnknownColumns": True, 
+        "type": "Datacratic::MLDB::RowValueInfo", 
+        "kind": "row", 
+        "knownColumns": []
+    }, 
+    "output": {
+        "hasUnknownColumns": False, 
+        "type": "Datacratic::MLDB::RowValueInfo", 
+        "kind": "row", 
+        "knownColumns": [
+            {
+                "columnName": "patate({*})", 
+                "valueInfo": {
+                    "hasUnknownColumns": False, 
+                    "type": "Datacratic::MLDB::RowValueInfo", 
+                    "kind": "row", 
+                    "knownColumns": [
+                        {
+                            "columnName": "x", 
+                            "valueInfo": {
+                                "type": "Datacratic::MLDB::AnyValueInfo"
+                            }, 
+                            "sparsity": "sparse"
+                        }, 
+                        {
+                            "columnName": "y", 
+                            "valueInfo": {
+                                "type": "Datacratic::MLDB::AnyValueInfo"
+                            }, 
+                            "sparsity": "sparse"
+                        }
+                    ]
+                }, 
+                "sparsity": "dense"
+            }
+        ]
+    }
+}
+
+assert res.json() == expected
 
 mldb.log("poil2 function info")
 mldb.log(res.json())
@@ -176,30 +184,30 @@ mldb.put('/v1/datasets/exampleB', { "type":"sparse.mutable" })
 mldb.post('/v1/datasets/exampleA/rows', {
     "rowName": "first row",
     "columns": [
-        ["a.1", 1, 0],
-        ["a.2", 2, 0]
+        ["a1", 1, 0],
+        ["a2", 2, 0]
     ]
 })
 
 mldb.post('/v1/datasets/exampleA/rows', {
     "rowName": "second row",
     "columns": [
-        ["a.1", 3, 0],
-        ["a.2", 4, 0]
+        ["a1", 3, 0],
+        ["a2", 4, 0]
     ]
 })
 mldb.post('/v1/datasets/exampleA/rows', {
     "rowName": "third row",
     "columns": [
-        ["a.1", 5, 0],
-        ["a.2", 6, 0]
+        ["a1", 5, 0],
+        ["a2", 6, 0]
     ]
 })
 mldb.post('/v1/datasets/exampleB/rows', {
     "rowName": "first row",
     "columns": [
-        ["b.1", 10, 0],
-        ["b.2", 20, 0]
+        ["b1", 10, 0],
+        ["b2", 20, 0]
     ]
 })
 
@@ -210,7 +218,7 @@ mldb.put("/v1/functions/patate", {
     "type": "sql.query",
     "params": {
         "query": """
-            SELECT vertical_avg(norm(vector_diff({exampleA.a.*}, {exampleB.b.*}), 2)) as score
+            SELECT vertical_avg(norm(vector_diff([exampleA.a1, exampleA.a2], [exampleB.b1, exampleB.b2]), 2)) as score
             FROM exampleA JOIN exampleB
         """,
         "output": "FIRST_ROW"
@@ -229,6 +237,8 @@ expected = [
         17.484976580463197
     ]
 ]
+
+mldb.log(res)
 
 assert expected == res
 

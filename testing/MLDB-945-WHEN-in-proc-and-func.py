@@ -108,10 +108,10 @@ def load_test_dataset():
     row_count = 10
     for i in xrange(row_count - 1):
         # row name is x's value
-        ds1.record_row(str(i), [['x', i, now], ['y', i, now]])
+        ds1.record_row(str(i), [['x', str(i), now], ['y', str(i), now]])
 
-    ds1.record_row(str(row_count - 1), [['x', 9, same_time_tomorrow],
-                                        ['y', 9, same_time_tomorrow]])
+    ds1.record_row(str(row_count - 1), [['x', '9', same_time_tomorrow],
+                                        ['y', '9', same_time_tomorrow]])
     ds1.commit()
 
 
@@ -249,7 +249,7 @@ for row in run_transform("value_timestamp() <= TIMESTAMP '%s'" % in_two_hours):
 # SQL.QUERY FUNCTION
 output = run_query_function(
     "value_timestamp() BETWEEN TIMESTAMP '2015-01-01' AND TIMESTAMP '2030-01-06'")
-assert output['x'] == 9, 'expected row 9 value'
+assert output['x'] == '9', 'expected row 9 value'
 
 output = run_query_function(
     "value_timestamp() between TIMESTAMP '%s' and TIMESTAMP '%s'" % (now, in_two_hours))

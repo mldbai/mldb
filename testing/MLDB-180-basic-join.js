@@ -154,15 +154,15 @@ assertEqual(resp.responseCode, 201);
 testQuery(
     'SELECT poil() as *',
     [
-        [ "_rowName", "test1.x", "test1.y", "test1.z", "test2.x", "test2.z" ],
-        [ "result", 1, 2, null, 1, 2 ]
+        [ "_rowName", "test1.x", "test1.y", "test2.x", "test2.z" ],
+        [ "result", 1, 2, 1, 2 ]
     ]);
 
 testQuery(
     'SELECT poil_as() as *',
     [
-        [ "_rowName", "t1.x", "t1.y", "t1.z", "t2.x", "t2.z" ],
-        [ "result", 1, 2, null, 1, 2 ]
+        [ "_rowName", "t1.x", "t1.y", "t2.x", "t2.z" ],
+        [ "result", 1, 2, 1, 2 ]
     ]);
 
 // almost same again but with a groupBy
@@ -185,7 +185,7 @@ mldb.log("testing query poil_group");
 testQuery(
     'SELECT poil_group() as *',
     [
-        [ "_rowName", "max(t1.y)", "min(t3.x)", "rn", "t1.x" ],
+        [ "_rowName", "\"max(t1.y)\"", "\"min(t3.x)\"", "rn", "t1.x" ],
         [ "result", 2, 1, "ex1-ex4-ex4", 1 ]
     ]);
 
@@ -250,7 +250,7 @@ for (var i in funcs) {
         "SELECT " + func +
         "({1 AS a, 1 AS b}) AS *",
         [
-            [ "_rowName", "max(t1.y)", "min(t3.x)", "t1.x" ],
+            [ "_rowName", "\"max(t1.y)\"", "\"min(t3.x)\"", "t1.x" ],
             [ "result", 2, 1, 1 ]
         ]);
 }

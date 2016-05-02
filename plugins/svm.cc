@@ -15,11 +15,13 @@
 #include "mldb/core/dataset.h"
 #include "mldb/server/analytics.h"
 #include "mldb/plugins/sql_config_validator.h"
-#include "types/structure_description.h"
+#include "mldb/types/structure_description.h"
+#include "mldb/types/vector_description.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/jml/db/persistent.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/vfs/filter_streams.h"
+#include "mldb/base/scope.h"
 
 #include "mldb/ext/svm/svm.h"
 
@@ -242,9 +244,12 @@ run(const ProcedureRunConfig & run,
             return onProgress(value);
     };
 
-    SqlExpressionMldbContext context(server);
+    checkWritability(runProcConf.modelFileUrl.toString(), "modelFileUrl");
 
-    auto embeddingOutput = getEmbedding(*runProcConf.trainingData.stm, context, -1, onProgress2);
+    SqlExpressionMldbScope context(server);
+
+    auto embeddingOutput
+        = getEmbedding(*runProcConf.trainingData.stm, context, -1, onProgress2);
 
     std::vector<std::tuple<RowHash, RowName, std::vector<double>,
                            std::vector<ExpressionValue> > > & rows
@@ -255,13 +260,15 @@ run(const ProcedureRunConfig & run,
     size_t num_features = vars.size();
     size_t sizeY = rows.size();
     size_t labelIndex = 0;
+    std::vector<ColumnName> columnNames;
 
     for (size_t i = 0; i < num_features; ++i) {
         if (vars[i].columnName.toUtf8String() == "label")
         {
             labelIndex = i;
-            break;
+            continue;
         }
+        columnNames.push_back(vars[i].columnName);
     }
 
     size_t maxNodeNumber = (num_features+1)*sizeY;
@@ -297,12 +304,9 @@ run(const ProcedureRunConfig & run,
         prob.l++;        
     }
 
-   
-
     SVMParameterWrapper paramWrapper;
 
     if (!runProcConf.configuration.isNull()) {
-        cerr << "Has Configuration" << endl;
         paramWrapper = jsonDecode<SVMParameterWrapper>(runProcConf.configuration);
     }
 
@@ -319,6 +323,7 @@ run(const ProcedureRunConfig & run,
     if(!model) {
         throw HttpReturnException(500, "Could not train support vector machine");
     }
+    Scope_Exit(svm_free_and_destroy_model(&model));
 
     auto plugin_working_dir = fs::temp_directory_path() / fs::unique_path();
     auto model_tmp_name = plugin_working_dir.string() + std::string("svmmodeltemp_a.svm");
@@ -329,15 +334,18 @@ run(const ProcedureRunConfig & run,
         Datacratic::makeUriDirectory(runProcConf.modelFileUrl.toString());
         filter_istream in(model_tmp_name);
         filter_ostream out(runProcConf.modelFileUrl.toString());
+
+        // Write a header that gives the model kind
+        Json::Value md;
+        md["algorithm"] = "MLDB SVM model";
+        md["version"] = 1;
+        md["columnNames"] = jsonEncode(columnNames);
+        out << md.toString();
         out << in.rdbuf();
     }
     catch (const std::exception & exc) {
-        svm_free_and_destroy_model(&model);
-
-        throw HttpReturnException(500, "Could not save support vector machine model file", runProcConf.modelFileUrl.toString());
+        rethrowHttpException(500, "Could not save support vector machine model file", runProcConf.modelFileUrl.toString());
     }
-
-    svm_free_and_destroy_model(&model);   
 
     return RunOutput();
 }
@@ -356,15 +364,35 @@ SVMFunctionConfigDescription()
              "This file is created by a procedure of type 'svm.train'.");
 }
 
+DEFINE_STRUCTURE_DESCRIPTION(SVMFunctionArgs);
+
+SVMFunctionArgsDescription::
+SVMFunctionArgsDescription()
+{
+    addField("embedding", &SVMFunctionArgs::embedding,
+             "Embedding values for the SVM function.  The column names in "
+             "this embedding must match those used in the original dataset.");
+}
+
+DEFINE_STRUCTURE_DESCRIPTION(SVMExpressionValue);
+
+SVMExpressionValueDescription::
+SVMExpressionValueDescription()
+{
+    addField("output", &SVMExpressionValue::output,
+             "Output of the SVM for either classification or regression");
+}
+
 struct SVMFunction::Itl {
     svm_model * model;
+    std::vector<ColumnName> columnNames;
 };
 
 SVMFunction::
 SVMFunction(MldbServer * owner,
             PolyConfig config,
             const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner)
+    : BaseT(owner)
 {
     auto functionConfig = config.params.convert<SVMFunctionConfig>();
 
@@ -376,6 +404,16 @@ SVMFunction(MldbServer * owner,
     auto model_tmp_name = plugin_working_dir.string() + std::string("svmmodeltemp_b.svm");
     try {
         filter_istream in(functionConfig.modelFileUrl.toString());
+        std::string firstLine;
+        std::getline(in, firstLine);
+        Json::Value md = Json::parse(firstLine);
+        if (md["algorithm"] != "MLDB SVM model") {
+            throw HttpReturnException(400, "Model file is not an SVM model");
+        }
+        if (md["version"].asInt() != 1) {
+            throw HttpReturnException(400, "SVM model version is wrong");
+        }
+        itl->columnNames = jsonDecode<std::vector<ColumnName> >(md["columnNames"]);
         filter_ostream out(model_tmp_name);
         out << in.rdbuf();
         in.close();
@@ -396,54 +434,22 @@ SVMFunction::
     svm_free_and_destroy_model(&itl->model);
 }
 
-Any
+SVMExpressionValue 
 SVMFunction::
-getStatus() const
+call(SVMFunctionArgs input) const
 {
-    return Any();
-}
+    auto embedding = input.embedding.getEmbedding(itl->columnNames.data(),
+                                                  itl->columnNames.size());
+    Date ts = input.embedding.getEffectiveTimestamp();
 
-struct SVMFunctionApplier: public FunctionApplier {
-    SVMFunctionApplier(const Function * owner)
-        : FunctionApplier(owner)
-    {
-       info = owner->getFunctionInfo();
-    }
-
-  
-};
-
-std::unique_ptr<FunctionApplier>
-SVMFunction::
-bind(SqlBindingScope & outerContext,
-     const FunctionValues & input) const
-{
-
-    std::unique_ptr<SVMFunctionApplier> result
-        (new SVMFunctionApplier(this));
- 
-    return std::move(result);
-}
-
-FunctionOutput
-SVMFunction::
-apply(const FunctionApplier & applier_,
-      const FunctionContext & context) const
-{
-    FunctionOutput result;
-
-    ExpressionValue storage;
-    const ExpressionValue & inputVal = context.get("embedding", storage);
-    ML::distribution<float> input = inputVal.getEmbedding();
-    Date ts = inputVal.getEffectiveTimestamp();
-
-    svm_node * x = new svm_node[input.size()+1];
+    svm_node * x = new svm_node[embedding.size()+1];
+    Scope_Exit(delete x);
 
     int nbSparse = 0;
-    for (size_t i = 0; i < input.size(); ++i) {
-        if (input[i] != 0) {
+    for (size_t i = 0; i < embedding.size(); ++i) {
+        if (embedding[i] != 0) {
              x[nbSparse].index = i;
-             x[nbSparse].value = input[i];
+             x[nbSparse].value = embedding[i];
              nbSparse++;
         }     
     }
@@ -452,23 +458,7 @@ apply(const FunctionApplier & applier_,
 
     double predict_label = svm_predict(itl->model,x);
 
-    result.set("output", ExpressionValue(predict_label, ts));
-
-    delete x;
-
-    return std::move(result);
-}
-
-FunctionInfo
-SVMFunction::
-getFunctionInfo() const
-{    
-    FunctionInfo result;
-
-    result.input.addEmbeddingValue("embedding", 2);
-    result.output.addAtomValue("output");
-
-    return std::move(result);
+    return {ExpressionValue(predict_label, ts)};    
 }
 
 namespace {

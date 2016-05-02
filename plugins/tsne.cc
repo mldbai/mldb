@@ -212,6 +212,10 @@ run(const ProcedureRunConfig & run,
 {
     auto runProcConf = applyRunConfOverProcConf(tsneConfig, run);
 
+    if (!runProcConf.modelFileUrl.empty()) {
+        checkWritability(runProcConf.modelFileUrl.toString(), "modelFileUrl");
+    }
+
     auto onProgress2 = [&] (const Json::Value & progress)
         {
             Json::Value value;
@@ -233,7 +237,7 @@ run(const ProcedureRunConfig & run,
     //cerr << "doing t-SNE" << endl;
 
 
-    SqlExpressionMldbContext context(server);
+    SqlExpressionMldbScope context(server);
 
     //cerr << "numDims = " << numDims << endl;
 
@@ -317,10 +321,10 @@ run(const ProcedureRunConfig & run,
 
     // Record the column names for later
     for (auto & c: vars) {
-        itl->inputColumnNames.push_back(c.columnName.toUtf8String());
+        itl->inputColumnNames.emplace_back(c.columnName.toUtf8String());
     }
     for (auto & c: names) {
-        itl->outputColumnNames.push_back(c.toUtf8String());
+        itl->outputColumnNames.emplace_back(c.toUtf8String());
     }
 
     itl->outputColumnNamesShared
@@ -357,7 +361,7 @@ run(const ProcedureRunConfig & run,
         tsneFuncPC.id = runProcConf.functionName;
         tsneFuncPC.params = TsneEmbedConfig(runProcConf.modelFileUrl);
 
-        obtainFunction(server, tsneFuncPC, onProgress);
+        createFunction(server, tsneFuncPC, onProgress, true);
     }
 
     return Any();
@@ -379,34 +383,45 @@ TsneEmbedConfigDescription()
 /* TSNE EMBED ROW                                                            */
 /*****************************************************************************/
 
+DEFINE_STRUCTURE_DESCRIPTION(TsneInput);
+
+TsneInputDescription::TsneInputDescription()
+{
+    addField("embedding", &TsneInput::embedding,
+             "Undocumented.");
+}
+
+DEFINE_STRUCTURE_DESCRIPTION(TsneOutput);
+
+TsneOutputDescription::TsneOutputDescription()
+{
+    addField("cluster", &TsneOutput::tsne,
+             "Undocumented.");
+}
+
+
 TsneEmbed::
 TsneEmbed(MldbServer * owner,
           PolyConfig config,
           const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner)
+    : BaseT(owner)
 {
     functionConfig = config.params.convert<TsneEmbedConfig>();
     itl = std::make_shared<TsneItl>(functionConfig.modelFileUrl);
 }
 
-Any
-TsneEmbed::
-getStatus() const
-{
-    return Any();
-}
 
-FunctionOutput
+TsneOutput 
 TsneEmbed::
-apply(const FunctionApplier & applier,
-      const FunctionContext & context) const
+call(TsneInput input) const
 {
-    throw HttpReturnException(500, "t-sne application is not implemented yet");
-    
-    FunctionOutput result;
+    throw HttpReturnException(500, "t-SNE Embed apply function is not yet implemented");
+#if 0    
+    ExpressionValue result;
 
     ExpressionValue storage;
     const ExpressionValue & inputVal = context.get("embedding", storage);
+
     ML::distribution<float> input = inputVal.getEmbedding(itl->inputColumnNames.size());
 
     Date ts = Date::negativeInfinity();
@@ -415,18 +430,7 @@ apply(const FunctionApplier & applier,
     result.set("tsne", ExpressionValue(embedding, ts));
     
     return result;
-}
-
-FunctionInfo
-TsneEmbed::
-getFunctionInfo() const
-{
-    FunctionInfo result;
-    
-    result.input.addEmbeddingValue("embedding", itl->inputColumnNames.size());
-    result.output.addEmbeddingValue("tsne", itl->numOutputDimensions());
-    
-    return result;
+#endif
 }
 
 namespace {
