@@ -252,7 +252,7 @@ struct SubDataset::Itl
                 if (cName == columnName)
                 {
                     const CellValue & cell = std::get<1>(c);
-                    if (filter(cell))
+                    if (!filter || filter(cell))
                     {
                         result.emplace_back(row.rowName, cell);
                     }
