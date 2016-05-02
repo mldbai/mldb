@@ -13,7 +13,7 @@
 #include "mldb/jml/utils/csv.h"
 #include "mldb/types/vector_description.h"
 #include <array>
-
+#include <unordered_set>
 
 using namespace std;
 
