@@ -100,8 +100,7 @@ when a generic classification step is required.
 
 #### Parameter `update_alg`
 The parameter update_alg can take three different values: normal, gentle and prob.
-'normal' and 'gentle' are described in more details in this 
-[paper](http://projecteuclid.org/download/pdf_1/euclid.aos/1016218223)
+'normal' and 'gentle'.
 Here is how they work. We'll work with a leaf node that contains 8 positive
 and 2 negative labels.
 
