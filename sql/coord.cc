@@ -551,6 +551,11 @@ initStringUnchecked(T && str)
     }
 }
 
+template void Coord::initStringUnchecked<Utf8String>(Utf8String && str);
+template void Coord::initStringUnchecked<const Utf8String &>(const Utf8String & str);
+template void Coord::initStringUnchecked<std::string>(std::string && str);
+template void Coord::initStringUnchecked<const std::string &>(const std::string & str);
+
 void
 Coord::
 initChars(const char * str, size_t len)
