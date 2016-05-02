@@ -56,8 +56,8 @@ struct SqlExpressionMldbScope: public SqlBindingScope {
 
     virtual MldbServer * getMldbServer() const;
 
-    virtual VariableGetter doGetVariable(const Utf8String & tableName,
-                                         const Utf8String & variableName);
+    virtual ColumnGetter doGetColumn(const Utf8String & tableName,
+                                     const ColumnName & columnName);
 };
 
 

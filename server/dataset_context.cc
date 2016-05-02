@@ -121,12 +121,12 @@ getMldbServer() const
     return mldb;
 }
 
-VariableGetter
-SqlExpressionMldbContext::
-doGetVariable(const Utf8String & tableName,
-              const Utf8String & variableName)
+ColumnGetter
+SqlExpressionMldbScope::
+doGetColumn(const Utf8String & tableName,
+            const ColumnName & columnName)
 {
-    throw HttpReturnException(400, "Cannot read column \"" + variableName + "\" with no dataset.");
+    throw HttpReturnException(400, "Cannot read column \"" + columnName.toUtf8String() + "\" with no dataset.");
 }
 
 /*****************************************************************************/
