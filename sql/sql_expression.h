@@ -716,9 +716,9 @@ struct UnboundFunction {
 DECLARE_STRUCTURE_DESCRIPTION(UnboundFunction);
 
 struct UnboundTable {
-    std::map<Coords, UnboundVariable> vars;
-    std::map<Coords, UnboundWildcard> wildcards;
-    std::map<Coords, UnboundFunction> funcs;
+    std::map<Path, UnboundVariable> vars;
+    std::map<Path, UnboundWildcard> wildcards;
+    std::map<Path, UnboundFunction> funcs;
     void merge(UnboundTable table);
 };
 

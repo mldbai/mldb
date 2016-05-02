@@ -93,7 +93,7 @@ doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
         if (outputName.empty() && !asName.empty()) {
             // BAD SMELL
             //try with the table alias
-            outputName = keep(Coord(asName) + column.columnName);
+            outputName = keep(PathElement(asName) + column.columnName);
         }
 
         if (outputName.empty()) {
@@ -115,16 +115,16 @@ doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
 
             RowValue result;
 
-            auto onColumn = [&] (const Coord & columnName,
+            auto onColumn = [&] (const PathElement & columnName,
                                  const ExpressionValue & value)
             {
-                auto it = index.find(Coords(columnName));
+                auto it = index.find(Path(columnName));
                 if (it == index.end()) {
                     return true;
                 }
 
-                auto onAtom = [&] (const Coords & columnName,
-                                   const Coords & prefix,
+                auto onAtom = [&] (const Path & columnName,
+                                   const Path & prefix,
                                    CellValue atom,
                                    Date ts)
                 {
@@ -179,7 +179,7 @@ doGetFunction(const Utf8String & functionName,
                      const SqlRowScope & rowScope)
                 {
                     auto & row = rowScope.as<PipelineResults>();
-                    RowHash result(Coords(Coord(row.values.at(fieldOffset + ROW_NAME).toUtf8String())));
+                    RowHash result(Path(PathElement(row.values.at(fieldOffset + ROW_NAME).toUtf8String())));
                     return ExpressionValue(result.hash(),
                                            Date::notADate());
                 },
@@ -381,7 +381,7 @@ doGetColumn(const ColumnName & columnName, int fieldOffset)
     auto check = [&] (LexicalScope & scope, int fieldOffset) -> ColumnGetter
         {
             for (auto & t: scope.tableNames()) {
-                Coord prefix(t);
+                PathElement prefix(t);
                 if (columnName.startsWith(prefix)) {
                     //cerr << "matches this side" << endl;
 
@@ -430,8 +430,8 @@ doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
 {
     //cerr << "doGetAllColums for join with field offset " << fieldOffset << endl;
 
-    Coord leftPrefix(left->as());
-    Coord rightPrefix(right->as());
+    PathElement leftPrefix(left->as());
+    PathElement rightPrefix(right->as());
 
     auto leftOutput = left->doGetAllColumns(keep, leftFieldOffset(fieldOffset));
     auto rightOutput = right->doGetAllColumns(keep, rightFieldOffset(fieldOffset));
@@ -752,7 +752,7 @@ takeMoreInput()
 
             if (s) {
                 ExpressionValue & embedding = s->values.back();
-                ExpressionValue field = embedding.getNestedColumn(Coord(0), GET_ALL);
+                ExpressionValue field = embedding.getNestedColumn(PathElement(0), GET_ALL);
                 //if we want to do an outer join we need all rows
                 if (!field.empty() || doOuter) {
                     break;

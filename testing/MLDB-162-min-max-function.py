@@ -134,7 +134,8 @@ expected = [["_rowName","clamp(null, 3, 7)"],["result", None]]
 assert result == expected
 
 result = mldb.query('SELECT clamp({null, 11}, 3, 7) as v')
-expected = [["_rowName","v.null","v.11"],["result",None,7]]
+mldb.log(result)
+expected = [["_rowName","v.11","v.null"],["result",7,None]]
 assert result == expected
 
 result = mldb.query('SELECT clamp(NaN, 3, 7) as v')

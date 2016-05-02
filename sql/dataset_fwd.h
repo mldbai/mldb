@@ -24,13 +24,13 @@ struct BoundFunction;
 
 typedef HashWrapper<1> RowHash;
 
-struct Coord;
-struct Coords;
+struct PathElement;
+struct Path;
 
-typedef Coords RowName;
+typedef Path RowName;
 
 typedef HashWrapper<3> ColumnHash;
-typedef Coords ColumnName;
+typedef Path ColumnName;
 
 struct Dataset;
 

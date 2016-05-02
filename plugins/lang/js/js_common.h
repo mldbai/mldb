@@ -14,7 +14,7 @@
 #include "mldb/server/script_output.h"
 #include <mutex>
 #include "mldb/rest/rest_request_router.h"
-#include "mldb/sql/coord.h"
+#include "mldb/sql/path.h"
 
 #pragma once
 
@@ -77,17 +77,17 @@ CellValue from_js(const JS::JSValue & value, CellValue * = 0);
 
 CellValue from_js_ref(const JS::JSValue & value, CellValue * = 0);
 
-void to_js(JS::JSValue & value, const Coord & val);
+void to_js(JS::JSValue & value, const PathElement & val);
 
-Coord from_js(const JS::JSValue & value, Coord * = 0);
+PathElement from_js(const JS::JSValue & value, PathElement * = 0);
 
-Coord from_js_ref(const JS::JSValue & value, Coord * = 0);
+PathElement from_js_ref(const JS::JSValue & value, PathElement * = 0);
 
-void to_js(JS::JSValue & value, const Coords & val);
+void to_js(JS::JSValue & value, const Path & val);
 
-Coords from_js(const JS::JSValue & value, Coords * = 0);
+Path from_js(const JS::JSValue & value, Path * = 0);
 
-Coords from_js_ref(const JS::JSValue & value, Coords * = 0);
+Path from_js_ref(const JS::JSValue & value, Path * = 0);
 
 void to_js(JS::JSValue & value, const ExpressionValue & val);
 
@@ -145,8 +145,8 @@ struct JsPluginContext {
     v8::Persistent<v8::FunctionTemplate> Mldb;
     v8::Persistent<v8::FunctionTemplate> Stream;
     v8::Persistent<v8::FunctionTemplate> CellValue;
-    v8::Persistent<v8::FunctionTemplate> Coord;
-    v8::Persistent<v8::FunctionTemplate> Coords;
+    v8::Persistent<v8::FunctionTemplate> PathElement;
+    v8::Persistent<v8::FunctionTemplate> Path;
     v8::Persistent<v8::FunctionTemplate> Dataset;
     v8::Persistent<v8::FunctionTemplate> Function;
     v8::Persistent<v8::FunctionTemplate> Procedure;

@@ -104,7 +104,7 @@ apply(const FunctionApplier & applier,
       const ExpressionValue & context) const
 {
     //The whole thing is a bit contrived because UTF8 strings dont have direct access 
-    const ExpressionValue & text = context.getColumn(Coord("text"));
+    const ExpressionValue & text = context.getColumn(PathElement("text"));
     Utf8String textstring = text.toUtf8String();
 
     auto startIt = textstring.begin();
@@ -237,7 +237,7 @@ apply(const FunctionApplier & applier,
     }
 
     StructValue result;
-    result.emplace_back(Coord("output"),
+    result.emplace_back(PathElement("output"),
                         ExpressionValue(output, text.getEffectiveTimestamp()));
     
     return std::move(result);
@@ -250,9 +250,9 @@ getFunctionInfo() const
     FunctionInfo result;
 
     std::vector<KnownColumn> inputColumns, outputColumns;
-    inputColumns.emplace_back(Coord("text"), std::make_shared<AtomValueInfo>(),
+    inputColumns.emplace_back(PathElement("text"), std::make_shared<AtomValueInfo>(),
                               COLUMN_IS_DENSE, 0);
-    outputColumns.emplace_back(Coord("output"), std::make_shared<AtomValueInfo>(),
+    outputColumns.emplace_back(PathElement("output"), std::make_shared<AtomValueInfo>(),
                                COLUMN_IS_DENSE, 0);
 
     result.input.reset(new RowValueInfo(inputColumns, SCHEMA_CLOSED));

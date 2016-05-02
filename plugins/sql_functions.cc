@@ -168,7 +168,7 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
         std::vector<KnownColumn> inputColumns;
         inputColumns.reserve(inputParams.size());
         for (auto & p: inputParams) {
-            inputColumns.emplace_back(Coord(p), std::make_shared<AnyValueInfo>(),
+            inputColumns.emplace_back(PathElement(p), std::make_shared<AnyValueInfo>(),
                                       COLUMN_IS_SPARSE);
         }
         
@@ -186,7 +186,7 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
             break;
         case NAMED_COLUMNS:
             std::vector<KnownColumn> outputColumns;
-            outputColumns.emplace_back(Coord("output"),
+            outputColumns.emplace_back(PathElement("output"),
                                        std::make_shared<UnknownRowValueInfo>(),
                                        COLUMN_IS_DENSE,
                                        0);
@@ -229,7 +229,7 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
             return result;
         }
         case NAMED_COLUMNS:
-            std::vector<std::tuple<Coord, ExpressionValue> > row;
+            std::vector<std::tuple<PathElement, ExpressionValue> > row;
 
             ssize_t limit = function->functionConfig.query.stm->limit;
             ssize_t offset = function->functionConfig.query.stm->offset;
@@ -250,24 +250,24 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
                     continue;
                 }
 
-                Coord foundCol;
+                PathElement foundCol;
                 ExpressionValue foundVal;
                 int numFoundCol = 0;
                 int numFoundVal = 0;
 
-                auto onVal = [&] (Coord & col,
+                auto onVal = [&] (PathElement & col,
                                   ExpressionValue & val)
                     {
-                        if (col == Coord("column")) {
+                        if (col == PathElement("column")) {
                             if (val.empty()) {
                                 throw HttpReturnException
                                 (400, "Column names in NAMED_COLUMNS SQL can't be "
                                  "null");
                             }
-                            foundCol = Coord(val.getAtom().toUtf8String());
+                            foundCol = PathElement(val.getAtom().toUtf8String());
                             ++numFoundCol;
                         }
-                        else if (col == Coord("value")) {
+                        else if (col == PathElement("value")) {
                             foundVal = std::move(val);
                             ++numFoundVal;
                         }

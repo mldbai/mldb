@@ -131,7 +131,7 @@ removeTableName(const SqlExpression & expr,
             auto var = std::dynamic_pointer_cast<ReadColumnExpression>(a);
             if (var) {
                 if (!tableName.empty() && var->columnName.startsWith(tableName)) {
-                    Coords newName = var->columnName.removePrefix(Coord(tableName));
+                    Path newName = var->columnName.removePrefix(PathElement(tableName));
                     return std::make_shared<ReadColumnExpression>(newName);
                 }
             }
@@ -430,7 +430,7 @@ AnnotatedJoinCondition(std::shared_ptr<TableExpression> leftTable,
             // Construct the select expression.  It's simply the value of
             // the join expression.
             side.select.clauses.push_back
-            (std::make_shared<ComputedColumn>(Coord("val"),
+            (std::make_shared<ComputedColumn>(PathElement("val"),
                                               localExpr));
             side.select.surface = side.select.print();
             
