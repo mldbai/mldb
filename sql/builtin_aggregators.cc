@@ -755,7 +755,7 @@ struct DistinctAccum {
         knownValues.insert(src->knownValues.begin(), src->knownValues.end());
     }
     
-    std::set<CellValue> knownValues;
+    std::unordered_set<CellValue> knownValues;
     Date ts;
 };
 
