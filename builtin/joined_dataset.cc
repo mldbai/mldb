@@ -313,7 +313,7 @@ struct JoinedDataset::Itl
                                BoundTableExpression& right,
                                JoinQualification qualification)
     {
-        bool debug = true;
+        bool debug = false;
         bool outerLeft = qualification == JOIN_LEFT || qualification == JOIN_FULL;
         bool outerRight = qualification == JOIN_RIGHT || qualification == JOIN_FULL;
 
