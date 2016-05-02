@@ -176,7 +176,7 @@ class Mldb1597Test(MldbUnitTest):
 
 
         # all of these permutations should either work or have clear error messages
-        for l in ["ds.c", "ds.d", "ds.e", "ds.r", "ds.p"]:
+        for l in ["idonotexist", "ds.c", "ds.d", "ds.e", "ds.r", "ds.p"]:
             for a in ["dt", "bdt", "glz_linear"]:
                 for f in [
                     ["ds.b_ratio"],
