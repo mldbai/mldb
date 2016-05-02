@@ -2702,15 +2702,14 @@ BoundFunction clamp(const std::vector<BoundSqlExpression> & args)
                 else {
                     std::vector<std::tuple<Coord, ExpressionValue> > vals;
                     auto exec = [&] (const Coord & columnName,
-                                           const Coord & prefix,
-                                           const ExpressionValue & val) {
+                                     const ExpressionValue & val) {
 
                         vals.emplace_back(columnName, ExpressionValue(doAtom(val.getAtom()), std::max(val.getEffectiveTimestamp(), limitsTs)));
                         return true;
                     } ;
 
                     ExcAssertEqual(args.size(), 3);
-                    args[0].forEachSubexpression(exec);
+                    args[0].forEachColumn(exec);
 
                     return ExpressionValue(vals);
                 }
