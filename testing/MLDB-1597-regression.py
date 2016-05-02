@@ -97,7 +97,6 @@ class Mldb1597Test(MldbUnitTest):
         order by 1-(0.001+sum(cost))/(0.001+sum(income))
         """)
         
-    @unittest.skip("test")
     def test_remaining(self):
         # setup
         mldb.post("/v1/procedures", {
@@ -160,13 +159,20 @@ class Mldb1597Test(MldbUnitTest):
                                 ",".join(features), label),
                         "algorithm": algo,
                         "mode": "regression",
-                        "modelFileUrlPattern": "file:///mldb_data/$runid.cls",
+                        "configurationFile": "./container_files/classifiers.json",
+                        "modelFileUrlPattern": "file://tmp/MLDB-1597-$runid.cls",
                         "runOnCreation": True
                     }
                 })
-                result.json()["status"]["firstRun"]["status"]["aggregatedTest"]["r2"]["mean"]
+                mldb.log(result)
+                self.assertEqual(result.status_code, 201, result)
+                #result.json()["status"]["firstRun"]["status"]["aggregatedTest"]["r2"]["mean"]
+                mldb.log("passed")
             except Exception as e:
+                mldb.log("failed")
+                mldb.log(e)
                 print features, label, algo, e
+                #raise e
 
 
         # all of these permutations should either work or have clear error messages
