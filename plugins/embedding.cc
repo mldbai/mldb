@@ -827,6 +827,7 @@ struct EmbeddingDataset::Itl
         for (unsigned j = 0;  j < (*uncommitted).columns.size();  ++j)
             (*uncommitted).columns[j].resize((*uncommitted).rows.size());
 
+#if 0
         // Create the column index; this is a standard matrix inversion
         auto indexRow = [&] (size_t i)
             {
@@ -835,6 +836,7 @@ struct EmbeddingDataset::Itl
             };
 
         parallelMap(0, (*uncommitted).rows.size(), indexRow);
+#endif
 
         // Create the vantage point tree
         cerr << "creating vantage point tree" << endl;
@@ -902,21 +904,64 @@ struct EmbeddingDataset::Itl
         if (!repr->initialized())
             return {};
 
+        size_t numDist = 0;
+
         auto dist = [&] (int item) -> float
         {
+            ++numDist;
             float result = repr->dist(item, coord);
             ExcAssert(isfinite(result));
             return result;
         };
 
-        //ML::Timer timer;
+        ML::Timer timer;
+
+#if 1
+        std::vector<std::pair<float, int> > neighbors;
+
+        for (size_t i = 0;  i < repr->rows.size();  ++i) {
+            float myDist = dist(i);
+            if (myDist > maxDistance)
+                continue;
+            if (neighbors.empty() || myDist <= neighbors.back().first) {
+                neighbors.emplace_back(myDist, i);
+                std::sort(neighbors.begin(), neighbors.end());
+                size_t n = std::min<size_t>(neighbors.size() - 1, numNeighbors);
+                maxDistance = neighbors[n].first;
+                while (n < neighbors.size() && neighbors[n].first == maxDistance)
+                    ++n;
+                neighbors.erase(neighbors.begin() + n, neighbors.end());
+            }
+        }
+
+#elif 0
+        std::vector<std::pair<float, int> > distances(repr->rows.size());
+
+        auto doDistance = [&] (size_t i)
+            {
+                distances[i] = { dist(i), i };
+            };
+
+        parallelMap(0, repr->rows.size(), doDistance);
+
+        std::sort(distances.begin(), distances.end());
+
+        vector<pair<float, int> > neighbors;
+        for (unsigned i = 0;  i < numNeighbors && i < distances.size();  ++i)
+            neighbors.push_back(distances[i]);
+
+#else       
 
         auto neighbors = repr->vpTree->search(dist, numNeighbors, maxDistance);
+#endif
 
-        //cerr << "neighbors took " << timer.elapsed() << endl;
+        cerr << "neighbors took " << timer.elapsed() << endl;
 
         //cerr << "neighbors = " << jsonEncode(neighbors) << endl;
         
+        cerr << "performed " << numDist << " distance comparisons of "
+             << repr->vpTree->totalChildren << endl;
+
         vector<tuple<RowName, RowHash, float> > result;
         for (auto & n: neighbors) {
             result.emplace_back(repr->rows[n.second].rowName,

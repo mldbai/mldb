@@ -30,6 +30,11 @@ struct VantagePointTreeT {
           radius(radius),
           inside(std::move(inside)), outside(std::move(outside))
     {
+        totalChildren = this->items.size();
+        if (this->inside.get())
+            totalChildren += this->inside->totalChildren;
+        if (this->outside.get())
+            totalChildren += this->outside->totalChildren;
     }
 
     VantagePointTreeT(ML::compact_vector<Item, 1> items, double radius,
@@ -39,6 +44,11 @@ struct VantagePointTreeT {
           radius(radius),
           inside(std::move(inside)), outside(std::move(outside))
     {
+        totalChildren = this->items.size();
+        if (this->inside.get())
+            totalChildren += this->inside->totalChildren;
+        if (this->outside.get())
+            totalChildren += this->outside->totalChildren;
     }
 
     /** Construct for a clump of items all of which are equidistant from the
@@ -48,6 +58,7 @@ struct VantagePointTreeT {
                       ML::compact_vector<Item, 1> clumpItems)
         : items(std::move(items)), radius(clumpRadius), clump(std::move(clumpItems))
     {
+        totalChildren = this->items.size();
     }
 
     VantagePointTreeT(Item item, double radius,
@@ -57,23 +68,31 @@ struct VantagePointTreeT {
           radius(radius),
           inside(std::move(inside)), outside(std::move(outside))
     {
+        totalChildren = this->items.size();
+        if (this->inside.get())
+            totalChildren += this->inside->totalChildren;
+        if (this->outside.get())
+            totalChildren += this->outside->totalChildren;
     }
 
     VantagePointTreeT(Item item)
         : items{item},
           radius(std::numeric_limits<float>::quiet_NaN())
     {
+        totalChildren = 1;
     }
 
     VantagePointTreeT(compact_vector<Item, 1> items)
         : items(std::move(items)),
           radius(std::numeric_limits<float>::quiet_NaN())
     {
+        totalChildren = this->items.size();
     }
 
     VantagePointTreeT()
         : radius(INFINITY)
     {
+        totalChildren = 0;
     }
 
     ML::compact_vector<Item, 1> items; ///< All these have distance zero from each other
@@ -92,6 +111,8 @@ struct VantagePointTreeT {
 
     /// Children that are outside the ball of given radius on the object
     std::unique_ptr<VantagePointTreeT> outside;
+
+    size_t totalChildren;
 
     static VantagePointTreeT *
     create(const std::vector<Item> & objectsToInsert,
