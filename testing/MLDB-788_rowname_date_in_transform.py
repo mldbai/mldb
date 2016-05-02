@@ -42,13 +42,14 @@ response = json.loads(res['response'])
 res = mldb.perform('POST', '/v1/procedures/poil/runs', [], {})
 assert res['statusCode'] == 201
 
-res = mldb.perform('GET', '/v1/query', [['q', 'select * from ds2']], {})
+res = mldb.perform('GET', '/v1/query', [['q', 'select x, y, rowname from ds2']], {})
 response = json.loads(res['response'])
 mldb.log(response)
 
 assert res['statusCode'] == 200
 
 # assert that this query returns the same thing as the first one
+
 assert expected == response
 
 mldb.script.set_return('success')

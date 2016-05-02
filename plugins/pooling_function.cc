@@ -7,7 +7,6 @@
 #include "pooling_function.h"
 #include "mldb/server/mldb_server.h"
 #include "mldb/types/basic_value_descriptions.h"
-#include "mldb/server/function_contexts.h"
 #include "mldb/types/any_impl.h"
 #include "server/dataset_context.h"
 #include "mldb/server/analytics.h"
@@ -44,11 +43,27 @@ PoolingFunctionConfigDescription()
 /* POOLING FUNCTION                                                          */
 /*****************************************************************************/
 
+DEFINE_STRUCTURE_DESCRIPTION(PoolingInput);
+
+PoolingInputDescription::PoolingInputDescription()
+{
+    addField("words", &PoolingInput::words,
+             "Row with the words to be pooled.");
+}
+
+DEFINE_STRUCTURE_DESCRIPTION(PoolingOutput);
+
+PoolingOutputDescription::PoolingOutputDescription()
+{
+    addField("embedding", &PoolingOutput::embedding,
+             "Embedding corresponding to the input words.");
+}
+
 PoolingFunction::
 PoolingFunction(MldbServer * owner,
                PolyConfig config,
                const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner)
+    : BaseT(owner)
 {
     functionConfig = config.params.convert<PoolingFunctionConfig>();
 
@@ -81,26 +96,17 @@ PoolingFunction(MldbServer * owner,
     queryFunction = std::make_shared<SqlQueryFunction>(owner, fnPConfig,
                                                        onProgress);
 
-    SqlExpressionMldbContext context(owner);
+    SqlExpressionMldbScope context(owner);
     boundEmbeddingDataset = functionConfig.embeddingDataset->bind(context);
     
-    num_embed_cols
-        = boundEmbeddingDataset.dataset->getRowInfo()->columns.size()
-        * functionConfig.aggregators.size();
+    columnNames = boundEmbeddingDataset.dataset->getRowInfo()->allColumnNames();
 }
 
-Any
-PoolingFunction::
-getStatus() const
-{
-    return Any();
-}
-
-struct PoolingFunctionApplier: public FunctionApplier {
+struct PoolingFunctionApplier: public FunctionApplierT<PoolingInput, PoolingOutput> {
     PoolingFunctionApplier(const PoolingFunction * owner,
                            SqlBindingScope & outerContext,
-                           const FunctionValues & input)
-        : FunctionApplier(owner)
+                           const std::shared_ptr<RowValueInfo> & input)
+        : FunctionApplierT<PoolingInput, PoolingOutput>(owner)
     {
         queryApplier = owner->queryFunction->bind(outerContext, input);
     }
@@ -108,80 +114,69 @@ struct PoolingFunctionApplier: public FunctionApplier {
     std::unique_ptr<FunctionApplier> queryApplier;
 };
 
-std::unique_ptr<FunctionApplier>
+PoolingOutput 
 PoolingFunction::
-bind(SqlBindingScope & outerContext,
-     const FunctionValues & input) const
+applyT(const ApplierT & applier_, PoolingInput input) const
 {
-    std::unique_ptr<PoolingFunctionApplier> result(new PoolingFunctionApplier(this, outerContext, input));
-    result->info = getFunctionInfo();
-
-    // Check that all values on the passed input are compatible with the required
-    // inputs.
-    for (auto & p: result->info.input.values) {
-        input.checkValueCompatibleAsInputTo(p.first.toUtf8String(), p.second);
-    }
-
-    return std::move(result);
-}
-
-FunctionOutput
-PoolingFunction::
-apply(const FunctionApplier & applier_,
-      const FunctionContext & context) const
-{
- //   STACK_PROFILE(PoolingFunction_apply)
+    //   STACK_PROFILE(PoolingFunction_apply)
 
     auto & applier = static_cast<const PoolingFunctionApplier &>(applier_);
 
-    FunctionOutput queryOutput
-        = queryFunction->apply(*applier.queryApplier, context);
+    size_t num_embed_cols = columnNames.size() * functionConfig.aggregators.size();
+
+    StructValue inputRow;
+    inputRow.emplace_back("words", std::move(input.words));
+
+    ExpressionValue queryOutput
+        = queryFunction->apply(*applier.queryApplier, std::move(inputRow));
 
     std::vector<double> outputEmbedding;
     outputEmbedding.reserve(num_embed_cols);
 
-    Date outputTs = context.get<ExpressionValue>("words").getEffectiveTimestamp();
+    Date outputTs = input.words.getEffectiveTimestamp();
 
-    if (queryOutput.values.empty()) {
+    if (queryOutput.empty()) {
         outputEmbedding.resize(num_embed_cols, 0.0);  // TODO: should be NaN?
     }
     else {
         for (auto & agg: functionConfig.aggregators) {
-            auto it = queryOutput.values.find(agg);
-            if (it == queryOutput.values.end()) {
+
+            ExpressionValue val = queryOutput.getColumn(agg);
+
+            if (val.empty()) {
                 throw HttpReturnException(500, "Didn't find output of aggregator",
                                           "queryOutput", queryOutput,
                                           "aggregator", agg);
             }
 
-            const ExpressionValue & val = it->second;
-
             ML::distribution<double> dist
-                = val.getEmbeddingDouble(num_embed_cols / functionConfig.aggregators.size());
+                = val.getEmbedding(columnNames.data(), columnNames.size());
             outputEmbedding.insert(outputEmbedding.end(),
                                    dist.begin(), dist.end());
 
             outputTs.setMax(val.getEffectiveTimestamp());
         }
-
+        
         ExcAssertEqual(outputEmbedding.size(), num_embed_cols);
-    }
+    }   
 
-    FunctionOutput foResult;
-    foResult.set("embedding", ExpressionValue(std::move(outputEmbedding), outputTs));
-    return foResult;
+    return {ExpressionValue(std::move(outputEmbedding), outputTs)};
 }
-
-FunctionInfo
+    
+std::unique_ptr<FunctionApplierT<PoolingInput, PoolingOutput> >
 PoolingFunction::
-getFunctionInfo() const
+bindT(SqlBindingScope & outerContext,
+      const std::shared_ptr<RowValueInfo> & input) const
 {
-    FunctionInfo result;
-    result.input.addRowValue("words");
+    std::unique_ptr<PoolingFunctionApplier> result
+        (new PoolingFunctionApplier(this, outerContext, input));
+    result->info = getFunctionInfo();
 
-    result.output.addEmbeddingValue("embedding", num_embed_cols);
+    // Check that all values on the passed input are compatible with the required
+    // inputs.
+    result->info.checkInputCompatibility(*input);
 
-    return result;
+    return std::move(result);
 }
 
 static RegisterFunctionType<PoolingFunction, PoolingFunctionConfig>

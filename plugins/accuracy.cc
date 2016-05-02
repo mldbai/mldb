@@ -238,19 +238,21 @@ runCategorical(AccuracyConfig & runAccuracyConf,
 
             std::vector<std::tuple<RowName, CellValue, Date> > outputRow;
 
-            auto onAtom = [&] (const Coord & columnName,
-                               const Coord & prefix,
+            static const ColumnName score("score");
+            
+            auto onAtom = [&] (const Coords & columnName,
+                               const Coords & prefix,
                                const CellValue & val,
                                Date ts) 
                 {
                     auto v = val.toDouble();
                     if(v > maxLabelScore) {
                         maxLabelScore = v;
-                        maxLabel = jsonDecodeStr<CellValue>(columnName.toUtf8String());
+                        maxLabel = jsonDecodeStr<CellValue>(columnName.toSimpleName());
                     }
 
                     if(output) {
-                        outputRow.emplace_back(ColumnName("score." + columnName.toString()), v, recordDate);
+                        outputRow.emplace_back(score + columnName, v, recordDate);
                     }
 
                     return true;
@@ -267,7 +269,7 @@ runCategorical(AccuracyConfig & runAccuracyConf,
                 outputRow.emplace_back(ColumnName("label"), label, recordDate);
                 outputRow.emplace_back(ColumnName("weight"), weight, recordDate);
 
-                rowsAccum.get().emplace_back(row.rowName, outputRow);
+                rowsAccum.get().emplace_back(row.rowName, std::move(outputRow));
                 if(rowsAccum.get().size() > 1000) {
                     output->recordRows(rowsAccum.get());
                     rowsAccum.get().clear();
@@ -299,18 +301,22 @@ runCategorical(AccuracyConfig & runAccuracyConf,
     accum.forEach([&] (AccumBucket * thrBucket) 
             {
                 for(auto & elem : *thrBucket) {
-                    auto label_it = confusion_matrix.find(get<0>(elem));
+                    const CellValue & label = std::get<0>(elem);
+                    const CellValue & predicted = std::get<1>(elem);
+
+                    auto label_it = confusion_matrix.find(label);
                     // label is a new true label
                     if(label_it == confusion_matrix.end()) {
-                        confusion_matrix.emplace(get<0>(elem), map<CellValue, uint>{{get<1>(elem), 1}});
+                        confusion_matrix.emplace(label,
+                                                 map<CellValue, uint>{{predicted, 1}});
                     }
                     // we already know about this true label
                     else {
-                        label_it->second[get<1>(elem)] += 1;
+                        label_it->second[label] += 1;
                     }
 
-                    real_sums[get<0>(elem)] += 1;
-                    predicted_sums[get<1>(elem)] += 1;
+                    real_sums[label] += 1;
+                    predicted_sums[predicted] += 1;
                 }
             });
 
@@ -558,7 +564,7 @@ run(const ProcedureRunConfig & run,
     auto runAccuracyConf = applyRunConfOverProcConf(accuracyConfig, run);
 
     // 1.  Get the input dataset
-    SqlExpressionMldbContext context(server);
+    SqlExpressionMldbScope context(server);
 
     auto dataset = runAccuracyConf.testingData.stm->from->bind(context).dataset;
    

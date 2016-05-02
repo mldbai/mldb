@@ -327,6 +327,10 @@ Note that this syntax is not part of SQL, it is an MLDB extension.
   base-64 data provided in its argument.
 - `extract_column(row)` extracts the given column from the row, keeping
   only its latest value by timestamp.
+- `print_json(expr)` returns string with the value of expr converted to JSON.  If
+  there is ambiguity in the expression (for example, the same key with multiple
+  values), then one of the values of the key will be chosen to represent the value
+  of the key.
 - <a name="parse_json"></a>`parse_json(string, {arrays: string})` returns a row with the JSON decoding of the
   string in the argument. If the `arrays` option is set to `'parse'` (this is the default) then nested arrays and objects will be parsed recursively; no flattening is performed. If the `arrays` option is set to `'encode'`, then arrays containing only scalar values will be one-hot encoded and arrays containing only objects will contain the string representation of the objects. 
 
@@ -365,6 +369,10 @@ With `{arrays: 'encode'}` the output will be:
 - `mod(x, y)`: returns x modulo y.  The value of x and y must be an integer.
 - `abs(x)`: returns the absolute value of x.
 - `sqrt(x)`: returns the square root of x.  The value of x must be greater or equal to 0.
+- `isnan(x)`: return true if x is 'NaN' in the floating point representation.
+- `isinf(x)`: return true if x is infinity in the floating point representation.
+- `isfinite(x)`: return true if x is neither infinite nor not-a-number.
+
 - `quantize(x, y)`: returns x rounded to the precision of y.  Here are some examples:
 
 expression|result
@@ -383,8 +391,10 @@ expression|result
 `quantize(-217, 100)`   | -200
 
 
-- `replace_nan(x, y)`: replace all `NaN`s and `-NaN`s in `x` by `y`.
-- `replace_inf(x, y)`: replace all `Inf`s and `-Inf`s in `x` by `y`.
+- `replace_nan(x, y)`: replace all `NaN`s and `-NaN`s in `x` by `y`.  Works on scalars or rows.
+- `replace_inf(x, y)`: replace all `Inf`s and `-Inf`s in `x` by `y`.  Works on scalars or rows.
+- `replace_not_finite(x, y)`: replace all `Inf`s, `-Inf`s and `NaN`s in `x` by `y`.  Works on scalars or rows.
+- `replace_null(x, y)`: replace all `null`s in `x` by `y`.  Works on scalars or rows.
 - `binomial_lb_80(trials, successes)` returns the 80% lower bound using the Wilson score.
 - `binomial_ub_80(trials, successes)` returns the 80% upper bound using the Wilson score.
 - `clamp(x,lower,upper)` will clamp the value 'x' between the lower and upper bounds.

@@ -37,10 +37,10 @@ assert result.json()[0]['columns'][0][1] == 45 + 9
 result = mldb.get(
     '/v1/query', q='SELECT sum(x) as "sum_x", max(x) as "max_x" FROM dataset1')
 
-mldb.log(result.text)
+mldb.log(result.json())
 
-assert result.json()[0]['columns'][0][1] == 45
-assert result.json()[0]['columns'][1][1] == 9
+assert result.json()[0]['columns'][1][1] == 45
+assert result.json()[0]['columns'][0][1] == 9
 
 result = mldb.get(
     '/v1/query',
@@ -67,11 +67,11 @@ result = mldb.get(
 mldb.log(result.text)
 
 assert result.json()[0]['columns'][0][1] == 0
-assert result.json()[0]['columns'][1][1] == 0
-assert result.json()[0]['columns'][2][1] == 8
+assert result.json()[0]['columns'][2][1] == 0
+assert result.json()[0]['columns'][1][1] == 8
 assert result.json()[1]['columns'][0][1] == 1
-assert result.json()[1]['columns'][1][1] == 1
-assert result.json()[1]['columns'][2][1] == 9
+assert result.json()[1]['columns'][2][1] == 1
+assert result.json()[1]['columns'][1][1] == 9
 
 #MLDB-234
 try:
@@ -113,10 +113,10 @@ result = mldb.get(
     q='SELECT min(x) as mymin, count(*) AS mycount FROM dataset1 GROUP BY y')
 mldb.log(result.text)
 
-assert result.json()[0]['columns'][0][1] == 0
-assert result.json()[0]['columns'][1][1] == 5
-assert result.json()[1]['columns'][0][1] == 1
-assert result.json()[1]['columns'][1][1] == 5
+assert result.json()[0]['columns'][1][1] == 0
+assert result.json()[0]['columns'][0][1] == 5
+assert result.json()[1]['columns'][1][1] == 1
+assert result.json()[1]['columns'][0][1] == 5
 
 #MLDB-1599 clamp
 result = mldb.query('SELECT clamp(x, 3, y + 3) FROM dataset1 ORDER BY x')

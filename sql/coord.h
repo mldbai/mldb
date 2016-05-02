@@ -9,6 +9,9 @@
 #include "mldb/types/string.h"
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/base/exc_assert.h"
+#include "mldb/jml/utils/compact_vector.h"
+#include <vector>
+#include <cstring>
 
 // NOTE TO MLDB DEVELOPERS: This is an API header file.  No includes
 // should be added, especially value_description.h.
@@ -18,6 +21,7 @@
 namespace Datacratic {
 namespace MLDB {
 
+struct Coords;
 
 /*****************************************************************************/
 /* COORD                                                                     */
@@ -35,12 +39,17 @@ namespace MLDB {
 
 struct Coord {
     Coord();
-    Coord(Utf8String str);
+    Coord(const Utf8String & str);
+    Coord(Utf8String && str);
     Coord(std::string str);
     Coord(const char * str, size_t len);
+    Coord(const char * str)
+        : Coord(str, std::strlen(str))
+    {
+    }
 
     Coord(const Coord & other)
-        : words{other.words[0], other.words[1], other.words[2], other.words[3]}
+        : words{other.words[0], other.words[1], other.words[2] }
     {
         if (other.complex_) {
             complexCopyConstruct(other);
@@ -48,7 +57,7 @@ struct Coord {
     }
 
     Coord(Coord && other) noexcept
-        : words{other.words[0], other.words[1], other.words[2], other.words[3]}
+        : words{other.words[0], other.words[1], other.words[2] }
     {
         if (other.complex_) {
             complexMoveConstruct(std::move(other));
@@ -64,8 +73,18 @@ struct Coord {
     {
     }
 
-    // Create as an array index
+    // Create as an array index, from any integral type
+    template<typename T>
+    Coord(T i, typename std::enable_if<std::is_integral<T>::value>::type * = 0)
+        : Coord((uint64_t)i)
+    {
+    }
+
     Coord(uint64_t i);
+
+    static Coord parse(const Utf8String & str);
+    static Coord parse(const char * p, size_t l);
+    static Coord parsePartial(const char * & p, const char * e);
 
     ~Coord()
     {
@@ -87,7 +106,6 @@ struct Coord {
         std::swap(words[0], other.words[0]);
         std::swap(words[1], other.words[1]);
         std::swap(words[2], other.words[2]);
-        std::swap(words[3], other.words[3]);
     }
 
     Coord & operator = (const Coord & other) noexcept
@@ -113,8 +131,31 @@ struct Coord {
     bool operator != (const Coord & other) const;
     bool operator <  (const Coord & other) const;
 
+    bool startsWith(const std::string & other) const;
+    bool startsWith(const Coord & other) const;
+    bool startsWith(const char * other) const;
+    bool startsWith(const Utf8String & other) const;
+
+
     Utf8String toUtf8String() const;
-    std::string toString() const;  // TODO: will disappear
+
+    Utf8String toEscapedUtf8String() const;
+
+    /** Returns if this is an index, that is a non-negative integer
+        (possibly with leading zeros) that can be converted into an
+        array index.
+    */
+    bool isIndex() const;
+
+    /** Convert to an integer, and return it.  If isIndex() is false,
+        then this will return -1.
+    */
+    ssize_t toIndex() const;
+
+    /** Convert to an integer, and return it.  If isIndex() is false,
+        then this will throw an exception.
+    */
+    size_t requireIndex() const;
 
     /** If true, we can return a const char * and length that will
         live as long as this CellValue and can be used instead of
@@ -149,11 +190,10 @@ struct Coord {
         return complex_ == 0 && simpleLen_ == 0;
     }
 
-    Coord operator + (const Coord & other) const;
-    Coord operator + (Coord && other) const;
-
-    operator RowHash() const;
-    operator ColumnHash() const;
+    Coords operator + (const Coord & other) const;
+    Coords operator + (Coord && other) const;
+    Coords operator + (const Coords & other) const;
+    Coords operator + (Coords && other) const;
 
     size_t memusage() const;
     
@@ -161,13 +201,16 @@ struct Coord {
     void complexDestroy();
     void complexCopyConstruct(const Coord & other);
     void complexMoveConstruct(Coord && other);
-    void initString(Utf8String str);
-    void initStringUnchecked(Utf8String str);
+
+    template<typename Str>
+    void initString(Str && str);
+    template<typename Str>
+    void initStringUnchecked(Str && str);
+
     void initChars(const char * str, size_t len);
 
     const char * data() const;
     size_t dataLength() const;
-
 
     int compareString(const char * str, size_t len) const;
     int compareStringNullTerminated(const char * str) const;
@@ -183,12 +226,15 @@ struct Coord {
         uint64_t savedHash;
     };
 
+    static constexpr size_t INTERNAL_WORDS = 3;
+    static constexpr size_t INTERNAL_BYTES = 8 * INTERNAL_WORDS;
+
     union {
         // The complex_ flag means we can't simply copy the words around;
         // we need to do some more work.
         struct { uint8_t complex_: 1; uint8_t simpleLen_:5; };
-        uint8_t bytes[32];
-        uint64_t words[4];
+        uint8_t bytes[INTERNAL_BYTES];
+        uint64_t words[INTERNAL_WORDS];
         Str str;
     };
 };
@@ -274,7 +320,6 @@ inline Coord stringToKey(const std::string & str, Coord *)
 
 PREDECLARE_VALUE_DESCRIPTION(Coord);
 
-
 struct CoordNewHasher
     : public std::unary_function<Datacratic::MLDB::Coord, size_t>
 {
@@ -285,8 +330,172 @@ struct CoordNewHasher
 };
 
 
-} // namespace MLDB
+/*****************************************************************************/
+/* COORDS                                                                    */
+/*****************************************************************************/
 
+/** A list of coordinate points that gives a full path to an entity. */
+
+struct Coords: protected ML::compact_vector<Coord, 2, uint32_t, false> {
+    typedef ML::compact_vector<Coord, 2, uint32_t, false> Base;
+
+    Coords();
+    Coords(Coord && coord);
+    Coords(const Coord & coord);
+    template<typename T>
+    Coords(const std::initializer_list<T> & val)
+        : Coords(val.begin(), val.end())
+    {
+    }
+
+    template<typename It>
+    Coords(It first, It last)
+        : Base(first, last)
+    {
+        for (Coord & c: *this) {
+            ExcAssert(!c.empty());
+        }
+    }
+
+    static Coords parse(const Utf8String & str);
+    static Coords parse(const char * str, size_t len);
+
+    /** This function asserts that there is only a single element in
+        the scope, and returns it as an Utf8String.  This is used
+        for when we want to access the value as a simple, unadulterated
+        variable or function name name.
+
+        This will not escape any special characters, and so is not the same
+        as toUtf8String(), and nor can the result of this version be
+        re-parsed (as embedded dots will cause extra names to be created).
+    */
+    Utf8String toSimpleName() const;
+
+    Utf8String toUtf8String() const;
+
+    Coords operator + (const Coords & other) const;
+    Coords operator + (Coords && other) const;
+    Coords operator + (const Coord & other) const;
+    Coords operator + (Coord && other) const;
+
+    operator RowHash() const;
+    operator ColumnHash() const;
+
+    bool startsWith(const Coord & prefix) const;
+    bool startsWith(const Coords & prefix) const;
+
+    bool matchWildcard(const Coords & wildcard) const;
+    Coords replaceWildcard(const Coords & wildcard, const Coords & with) const;
+
+    Coords removePrefix(const Coord & prefix) const;
+    Coords removePrefix(const Coords & prefix) const;
+    Coords removePrefix(size_t n = 1) const;
+
+    Coords replacePrefix(const Coord & prefix, const Coords & newPrefix) const;
+    Coords replacePrefix(const Coords & prefix, const Coords & newPrefix) const;
+
+    /// Forwarding function for the hash().  This will, one day soon,
+    /// switch to the newHash() function.
+    uint64_t hash() const
+    {
+        return oldHash();
+    }
+
+    /// Return the Id-compatible (old) hash.  Slower but compatible with
+    /// legacy binaries.
+    uint64_t oldHash() const;
+
+    /// Return the non-Id compatible (new) hash.  Faster but not compatible
+    /// with legacy hashes.
+    uint64_t newHash() const;
+
+    using Base::size;
+    using Base::empty;
+    using Base::begin;
+    using Base::end;
+    using Base::at;
+    using Base::front;
+    using Base::back;
+    using Base::operator [];
+
+    Coord head() const
+    {
+        return at(0);
+    }
+
+    Coords tail() const
+    {
+        ExcAssert(!empty());
+        Coords result;
+        result.insert(result.end(), begin() + 1, end());
+        return result;
+    }
+
+    bool operator == (const Coords & other) const
+    {
+        return static_cast<const Base &>(*this) == other;
+    }
+
+    bool operator != (const Coords & other) const
+    {
+        return ! operator == (other);
+    }
+
+    bool operator < (const Coords & other) const
+    {
+        return static_cast<const Base &>(*this) < other;
+    }
+
+    bool operator <= (const Coords & other) const
+    {
+        return static_cast<const Base &>(*this) <= other;
+    }
+
+    bool operator > (const Coords & other) const
+    {
+        return static_cast<const Base &>(*this) > other;
+    }
+
+    bool operator >= (const Coords & other) const
+    {
+        return static_cast<const Base &>(*this) >= other;
+    }
+
+    size_t memusage() const;
+};
+
+std::ostream & operator << (std::ostream & stream, const Coords & id);
+
+std::istream & operator >> (std::istream & stream, Coords & id);
+
+inline Utf8String keyToString(const Coords & key)
+{
+    return key.toUtf8String();
+}
+
+inline Coords stringToKey(const Utf8String & str, Coords *)
+{
+    return Coords(str);
+}
+
+inline Coords stringToKey(const std::string & str, Coords *)
+{
+    return Coords(str);
+}
+
+
+PREDECLARE_VALUE_DESCRIPTION(Coords);
+
+struct CoordsNewHasher
+    : public std::unary_function<Datacratic::MLDB::Coords, size_t>
+{
+    size_t operator()(const Datacratic::MLDB::Coords & coord) const
+    {
+        return coord.newHash();
+    }
+};
+
+} // namespace MLDB
 } // namespace Datacratic
 
 namespace std {
@@ -299,6 +508,15 @@ struct hash<Datacratic::MLDB::Coord> : public std::unary_function<Datacratic::ML
     size_t operator()(const Datacratic::MLDB::Coord & coord) const
     {
         return coord.hash();
+    }
+};
+
+template<>
+struct hash<Datacratic::MLDB::Coords> : public std::unary_function<Datacratic::MLDB::Coords, size_t>
+{
+    size_t operator()(const Datacratic::MLDB::Coords & coords) const
+    {
+        return coords.hash();
     }
 };
 

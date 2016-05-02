@@ -9,7 +9,7 @@
 
 #include "mldb/core/dataset.h"
 #include "mldb/core/procedure.h"
-#include "mldb/core/function.h"
+#include "mldb/core/value_function.h"
 #include "mldb/types/value_description.h"
 #include "mldb/ml/jml/feature_info.h"
 #include "mldb/ml/value_descriptions.h"
@@ -34,21 +34,26 @@ struct HashedColumnFeatureGeneratorConfig {
 
 DECLARE_STRUCTURE_DESCRIPTION(HashedColumnFeatureGeneratorConfig);
 
+struct FeatureGeneratorInput {
+    ExpressionValue columns;  // row 
+};
 
-struct HashedColumnFeatureGenerator: public Function {
+DECLARE_STRUCTURE_DESCRIPTION(FeatureGeneratorInput);
+
+struct FeatureGeneratorOutput {
+    ExpressionValue hash; // column
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(FeatureGeneratorOutput);
+
+struct HashedColumnFeatureGenerator: public ValueFunctionT<FeatureGeneratorInput, FeatureGeneratorOutput>  {
     HashedColumnFeatureGenerator(MldbServer * owner,
                      PolyConfig config,
                      const std::function<bool (const Json::Value &)> & onProgress);
     
     ~HashedColumnFeatureGenerator();
 
-    virtual Any getStatus() const;
-
-    virtual FunctionOutput apply(const FunctionApplier & applier,
-                              const FunctionContext & context) const;
-
-    /** Describe what the input and output is for this function. */
-    virtual FunctionInfo getFunctionInfo() const;
+    virtual FeatureGeneratorOutput call(FeatureGeneratorInput input) const override;
 
     std::vector<KnownColumn> outputColumns;
 
