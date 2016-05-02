@@ -24,7 +24,7 @@ struct FieldInfo {
     ValueDescription::FieldDescription desc;
     ValueFunction::FromInput fromInput;
     ValueFunction::ToOutput toOutput;
-    Coord fieldName;
+    PathElement fieldName;
 };
 
 std::tuple<std::shared_ptr<ExpressionValueInfo>,
@@ -40,7 +40,7 @@ toValueInfo(std::shared_ptr<const ValueDescription> desc)
     case ValueKind::STRUCTURE: {
         std::vector<FieldInfo> fields;
         std::vector<KnownColumn> knownColumns;
-        std::unordered_map<Coord, int> columnToIndex;
+        std::unordered_map<PathElement, int> columnToIndex;
 
         auto onField = [&] (const ValueDescription::FieldDescription & field)
             {
@@ -49,7 +49,7 @@ toValueInfo(std::shared_ptr<const ValueDescription> desc)
                 info.desc = field;
                 std::tie(info.info, info.fromInput, info.toOutput)
                     = toValueInfo(field.description);
-                knownColumns.emplace_back(Coord(field.fieldName),
+                knownColumns.emplace_back(PathElement(field.fieldName),
                                           info.info,
                                           COLUMN_IS_SPARSE /* todo: optional? */
                                           /*, field.fieldNum */);
@@ -73,7 +73,7 @@ toValueInfo(std::shared_ptr<const ValueDescription> desc)
         // object is expected.
         auto fromInput = [=] (void * obj, const ExpressionValue & input)
             {
-                auto onColumn = [&] (const Coord & columnName,
+                auto onColumn = [&] (const PathElement & columnName,
                                      const ExpressionValue & val)
                 {
                     auto it = columnToIndex.find(columnName);

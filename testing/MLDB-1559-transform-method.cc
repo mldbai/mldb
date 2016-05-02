@@ -46,7 +46,7 @@ void TestExpression(const T& expression, int expected)
                 auto var = std::dynamic_pointer_cast<ReadColumnExpression>(a);
                 if (var) {
 
-                    a = std::make_shared<ReadColumnExpression>(Coord("replaced"));
+                    a = std::make_shared<ReadColumnExpression>(PathElement("replaced"));
                 }
 
                 a = a->transform(onChild);

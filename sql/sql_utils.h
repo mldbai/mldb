@@ -14,7 +14,7 @@
 namespace Datacratic {
 namespace MLDB {
 
-struct Coords;
+struct Path;
 
 Utf8String escapeSql(const Utf8String & str);
 std::string escapeSql(const std::string & str);
@@ -28,8 +28,8 @@ bool matchSqlFilter(const Utf8String& valueString,
     the passed version.  This function does that, removing the table
     name in alias from the beginning of the given variable name.
 */
-Coords removeTableName(const Utf8String & alias,
-                       const Coords & variableName);
+Path removeTableName(const Utf8String & alias,
+                       const Path & variableName);
 
 } // namespace MLDB
 } // namespace Datacratic

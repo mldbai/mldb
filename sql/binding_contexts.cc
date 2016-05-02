@@ -407,8 +407,8 @@ doGetAllColumns(const Utf8String & tableName,
 
                 RowValue output;
 
-                auto onAtom = [&] (Coords columnName,
-                                  const Coords & prefix,
+                auto onAtom = [&] (Path columnName,
+                                  const Path & prefix,
                                   CellValue val,
                                   Date ts)
                 {
@@ -457,8 +457,8 @@ doGetAllColumns(const Utf8String & tableName,
             
             RowValue output;
 
-            auto onAtom = [&] (const Coords & columnName,
-                               const Coords & prefix,
+            auto onAtom = [&] (const Path & columnName,
+                               const Path & prefix,
                                CellValue val,
                                Date ts)
             {

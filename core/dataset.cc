@@ -871,7 +871,7 @@ generateRownameIsExpression(const Dataset & dataset,
             -> std::pair<std::vector<RowName>, Any>
             {
                 SqlExpressionParamScope::RowScope rowScope(params);
-                Coords rowName = bound(rowScope, GET_LATEST).coerceToPath();
+                Path rowName = bound(rowScope, GET_LATEST).coerceToPath();
 
                 // There should be exactly one row
                 if (datasetPtr->getMatrixView()->knownRow(rowName))

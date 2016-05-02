@@ -89,7 +89,7 @@ call(FeatureGeneratorInput input) const
     Date ts = Date::negativeInfinity();
     // copied from the LAL repo
 
-    auto onColumn = [&] (const Coord & columnName,
+    auto onColumn = [&] (const PathElement & columnName,
                          const ExpressionValue & val)
     {
         ts.setMax(val.getEffectiveTimestamp());

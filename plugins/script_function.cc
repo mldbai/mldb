@@ -83,7 +83,7 @@ apply(const FunctionApplier & applier,
     // its contents to the args parameter of the script
     ScriptResource copiedSR(cachedResource);
 
-    ExpressionValue args = context.getColumn(Coord("args"));
+    ExpressionValue args = context.getColumn(PathElement("args"));
     //Json::Value val = { args.extractJson(), jsonEncode(args.getEffectiveTimestamp()) };
     Json::Value val = jsonEncode(args);
     copiedSR.args = val;
@@ -109,7 +109,7 @@ apply(const FunctionApplier & applier,
 
     Json::Value result = Json::parse(connection.response)["result"];
     
-    vector<tuple<Coord, ExpressionValue>> vals;
+    vector<tuple<PathElement, ExpressionValue>> vals;
     if(!result.isArray()) {
         throw ML::Exception("Function should return array of arrays.");
     }
@@ -118,7 +118,7 @@ apply(const FunctionApplier & applier,
         if(!elem.isArray() || elem.size() != 3)
             throw ML::Exception("elem should be array of size 3");
 
-        vals.push_back(make_tuple(Coord(elem[0].asString()),
+        vals.push_back(make_tuple(PathElement(elem[0].asString()),
                                   ExpressionValue(elem[1],
                                                   Date::parseIso8601DateTime(elem[2].asString()))));
     }
@@ -136,9 +136,9 @@ getFunctionInfo() const
     FunctionInfo result;
 
     std::vector<KnownColumn> inputColumns, outputColumns;
-    inputColumns.emplace_back(Coord("args"), std::make_shared<UnknownRowValueInfo>(),
+    inputColumns.emplace_back(PathElement("args"), std::make_shared<UnknownRowValueInfo>(),
                               COLUMN_IS_DENSE, 0);
-    outputColumns.emplace_back(Coord("return"), std::make_shared<UnknownRowValueInfo>(),
+    outputColumns.emplace_back(PathElement("return"), std::make_shared<UnknownRowValueInfo>(),
                                COLUMN_IS_DENSE, 0);
     
     result.input.reset(new RowValueInfo(inputColumns, SCHEMA_CLOSED));

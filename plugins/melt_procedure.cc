@@ -153,8 +153,8 @@ run(const ProcedureRunConfig & run,
             RowValue fixedOutputRows;
             for(auto & expr : extraVals) {
 
-                auto onAtom = [&] (const Coords & columnName,
-                                   const Coords & prefix,
+                auto onAtom = [&] (const Path & columnName,
+                                   const Path & prefix,
                                    const CellValue & val,
                                    Date ts)
                     {

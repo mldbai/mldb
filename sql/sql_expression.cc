@@ -695,7 +695,7 @@ static ColumnName matchColumnName(ML::Parse_Context & context, bool allowUtf8)
 
     if (first.empty())
         return result;
-    result = Coord(std::move(first));
+    result = PathElement(std::move(first));
 
     while (context.match_literal('.')) {
         Utf8String next = matchIdentifier(context, allowUtf8);
@@ -2269,7 +2269,7 @@ parse(ML::Parse_Context & context, bool allowUtf8)
         auto colExpr = std::dynamic_pointer_cast<ReadColumnExpression>(expr);
         if (colExpr)
             columnName = colExpr->columnName;
-        else columnName = Coord(expr->surface);
+        else columnName = PathElement(expr->surface);
     }
 
     auto result = std::make_shared<ComputedColumn>(columnName, expr);

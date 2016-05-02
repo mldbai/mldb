@@ -122,7 +122,7 @@ struct AggregatorT {
         {
         }
         
-        std::unordered_map<Coord, State> columns;
+        std::unordered_map<PathElement, State> columns;
 
         void process(const ExpressionValue * args, size_t nargs)
         {
@@ -130,7 +130,7 @@ struct AggregatorT {
             const ExpressionValue & val = args[0];
 
             // This must be a row...
-            auto onColumn = [&] (const Coord & columnName,
+            auto onColumn = [&] (const PathElement & columnName,
                                  const ExpressionValue & val)
                 {
                     columns[columnName].process(&val, 1);
@@ -170,13 +170,13 @@ struct AggregatorT {
         state for each of the columns.
     */
     struct DenseRowState {
-        DenseRowState(const std::vector<Coord> & columnNames)
+        DenseRowState(const std::vector<PathElement> & columnNames)
             : columnNames(columnNames),
               columnState(columnNames.size())
         {
         }
         
-        std::vector<Coord> columnNames;
+        std::vector<PathElement> columnNames;
         std::vector<State> columnState;
 
         /// If we guessed wrong about denseness, this is the sparse
@@ -290,7 +290,7 @@ struct AggregatorT {
     }
 
     static std::shared_ptr<DenseRowState>
-    denseRowInit(const std::vector<Coord> & columnNames)
+    denseRowInit(const std::vector<PathElement> & columnNames)
     {
         ExcAssert(columnNames.size() > 0);
         return std::make_shared<DenseRowState>(columnNames);
@@ -344,7 +344,7 @@ struct AggregatorT {
         // can be far more optimized about it
         bool isDense = hasUnknown == SCHEMA_CLOSED;
 
-        std::vector<Coord> denseColumnNames;
+        std::vector<PathElement> denseColumnNames;
 
         // For each known column, give the output type
         for (KnownColumn & c: cols) {
@@ -787,8 +787,8 @@ BoundAggregator lr(const std::vector<BoundSqlExpression> & args)
             bool conv = args[1].isTrue();
             LikelihoodRatioAccum & accum = *(LikelihoodRatioAccum *)data;
             // This must be a row...
-            auto onAtom = [&] (const Coords & columnName,
-                               const Coords & prefix,
+            auto onAtom = [&] (const Path & columnName,
+                               const Path & prefix,
                                const CellValue & val,
                                Date ts)
             {

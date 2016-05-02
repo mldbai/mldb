@@ -36,13 +36,13 @@ namespace Datacratic {
 namespace MLDB {
 
 inline ML::DB::Store_Writer &
-operator << (ML::DB::Store_Writer & store, const Coord & coord)
+operator << (ML::DB::Store_Writer & store, const PathElement & coord)
 {
     return store << Id(coord.toUtf8String());
 }
 
 inline ML::DB::Store_Reader &
-operator >> (ML::DB::Store_Reader & store, Coord & coord)
+operator >> (ML::DB::Store_Reader & store, PathElement & coord)
 {
     Id id;
     store >> id;
@@ -51,17 +51,17 @@ operator >> (ML::DB::Store_Reader & store, Coord & coord)
 }
 
 inline ML::DB::Store_Writer &
-operator << (ML::DB::Store_Writer & store, const Coords & coords)
+operator << (ML::DB::Store_Writer & store, const Path & coords)
 {
     return store << coords.toUtf8String();
 }
 
 inline ML::DB::Store_Reader &
-operator >> (ML::DB::Store_Reader & store, Coords & coords)
+operator >> (ML::DB::Store_Reader & store, Path & coords)
 {
     Utf8String str;
     store >> str;
-    coords = Coords::parse(str);
+    coords = Path::parse(str);
     return store;
 }
 
@@ -292,12 +292,12 @@ run(const ProcedureRunConfig & run,
                     }
                     else {
                         // if we didn't compute the column names yet, do that now
-                        const Coords & key = std::get<0>(col);
+                        const Path & key = std::get<0>(col);
 
                         vector<ColumnName> names;
-                        names.emplace_back(Coord("trial") + key);
+                        names.emplace_back(PathElement("trial") + key);
                         for(int lbl_idx=0; lbl_idx<encodedLabels.size(); lbl_idx++) {
-                            names.emplace_back(Coord(outcome_names[lbl_idx]) + key);
+                            names.emplace_back(PathElement(outcome_names[lbl_idx]) + key);
                         }
 
                         auto inserted = colCache.emplace(get<0>(col), names);
@@ -438,10 +438,10 @@ apply(const FunctionApplier & applier,
 
                 auto counts = st->second.getCounts(val);
 
-                rtnRow.emplace_back(Coord("trial") + columnName, counts.first, ts);
+                rtnRow.emplace_back(PathElement("trial") + columnName, counts.first, ts);
 
                 for(int lbl_idx=0; lbl_idx<st->second.outcome_names.size(); lbl_idx++) {
-                    rtnRow.emplace_back(Coord(st->second.outcome_names[lbl_idx])
+                    rtnRow.emplace_back(PathElement(st->second.outcome_names[lbl_idx])
                                         +columnName,
                                         counts.second[lbl_idx],
                                         ts);
@@ -468,9 +468,9 @@ getFunctionInfo() const
     FunctionInfo result;
 
     std::vector<KnownColumn> inputColumns, outputColumns;
-    inputColumns.emplace_back(Coord("keys"), std::make_shared<UnknownRowValueInfo>(),
+    inputColumns.emplace_back(PathElement("keys"), std::make_shared<UnknownRowValueInfo>(),
                               COLUMN_IS_DENSE, 0);
-    outputColumns.emplace_back(Coord("counts"), std::make_shared<UnknownRowValueInfo>(),
+    outputColumns.emplace_back(PathElement("counts"), std::make_shared<UnknownRowValueInfo>(),
                                COLUMN_IS_DENSE, 0);
     
     result.input.reset(new RowValueInfo(inputColumns, SCHEMA_CLOSED));
@@ -742,7 +742,7 @@ run(const ProcedureRunConfig & run,
         outcome_col_names.reserve(statsTable.outcome_names.size());
         for (int i=0; i < statsTable.outcome_names.size(); ++i)
             outcome_col_names
-                .emplace_back(Coord("outcome") + statsTable.outcome_names[i]);
+                .emplace_back(PathElement("outcome") + statsTable.outcome_names[i]);
 
         typedef std::vector<std::tuple<ColumnName, CellValue, Date>> Columns;
 
@@ -757,7 +757,7 @@ run(const ProcedureRunConfig & run,
                         it != statsTable.counts.end(i); ++it) {
                     Columns columns;
                     // number of trials
-                    columns.emplace_back(Coord("trials"), it->second.first, date0);
+                    columns.emplace_back(PathElement("trials"), it->second.first, date0);
                     // coocurence with outcome for each outcome
                     for (int i=0; i < statsTable.outcome_names.size(); ++i) {
                         columns.emplace_back(
@@ -765,7 +765,7 @@ run(const ProcedureRunConfig & run,
                             it->second.second[i],
                             date0);
                     }
-                    rows.emplace_back(Coord(it->first), columns);
+                    rows.emplace_back(PathElement(it->first), columns);
                 }
             }
             output->recordRows(rows);
@@ -932,7 +932,7 @@ apply(const FunctionApplier & applier,
                 }
 
                 rtnRow.emplace_back(columnName
-                                    + Coord(functionConfig.outcomeToUse),
+                                    + PathElement(functionConfig.outcomeToUse),
                                     it->second,
                                     ts);
 
@@ -957,9 +957,9 @@ getFunctionInfo() const
     FunctionInfo result;
     
     std::vector<KnownColumn> inputColumns, outputColumns;
-    inputColumns.emplace_back(Coord("words"), std::make_shared<UnknownRowValueInfo>(),
+    inputColumns.emplace_back(PathElement("words"), std::make_shared<UnknownRowValueInfo>(),
                               COLUMN_IS_DENSE, 0);
-    outputColumns.emplace_back(Coord("probs"), std::make_shared<UnknownRowValueInfo>(),
+    outputColumns.emplace_back(PathElement("probs"), std::make_shared<UnknownRowValueInfo>(),
                                COLUMN_IS_DENSE, 0);
     
     result.input.reset(new RowValueInfo(inputColumns, SCHEMA_CLOSED));

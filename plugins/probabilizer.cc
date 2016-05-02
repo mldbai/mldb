@@ -348,11 +348,11 @@ ProbabilizeFunction::
 apply(const FunctionApplier & applier,
       const ExpressionValue & context) const
 {
-    ExpressionValue score = context.getColumn(Coord("score"));
+    ExpressionValue score = context.getColumn(PathElement("score"));
     float prob  = itl->probabilizer.apply(ML::Label_Dist(1, score.toDouble()))[0];
 
     StructValue result;
-    result.emplace_back(Coord("prob"),
+    result.emplace_back(PathElement("prob"),
                         ExpressionValue(prob, score.getEffectiveTimestamp()));
     return result;
 }
