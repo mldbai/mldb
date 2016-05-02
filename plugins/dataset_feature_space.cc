@@ -55,7 +55,7 @@ DatasetFeatureSpace(std::shared_ptr<Dataset> dataset,
             const ColumnName & columnName = filteredColumns[i];
             ColumnHash ch = columnName;
             int oldIndex = columnInfo[ch].index;
-            columnInfo[ch] = getColumnInfo(dataset, columnName.toUtf8String(), bucketize);
+            columnInfo[ch] = getColumnInfo(dataset, columnName, bucketize);
             columnInfo[ch].index = oldIndex;
             return true;
         };
@@ -67,7 +67,7 @@ DatasetFeatureSpace(std::shared_ptr<Dataset> dataset,
 DatasetFeatureSpace::ColumnInfo
 DatasetFeatureSpace::
 getColumnInfo(std::shared_ptr<Dataset> dataset,
-              const Utf8String & columnName,
+              const ColumnName & columnName,
               bool bucketize)
 {
     ColumnInfo result;
@@ -267,6 +267,8 @@ ColumnHash
 DatasetFeatureSpace::
 getHash(ML::Feature feature)
 {
+    if (feature == ML::MISSING_FEATURE)
+        return ColumnHash();
     ExcAssertEqual(feature.type(), 1);
 
     uint64_t high = (uint32_t)feature.arg1();
@@ -364,6 +366,9 @@ print(const ML::Feature & feature, float value) const
 {
     if (feature == weightFeature)
         return to_string(value);
+    if (feature == ML::MISSING_FEATURE) {
+        return "";
+    }
 
     auto val = getValue(feature, value);
 

@@ -136,8 +136,10 @@ run(const ProcedureRunConfig & run,
          throw ML::Exception("modelFileUrl is not valid");
     }
 
+    checkWritability(runProcConf.modelFileUrl.toString(), "modelFileUrl");
+
     // 1.  Get the input dataset
-    SqlExpressionMldbContext context(server);
+    SqlExpressionMldbScope context(server);
 
     auto boundDataset = runProcConf.trainingData.stm->from->bind(context);
 
@@ -182,7 +184,7 @@ run(const ProcedureRunConfig & run,
             std::set<ColumnName> knownInputColumns;
             
             // Find only those variables used
-            SqlExpressionDatasetContext scope(boundDataset);
+            SqlExpressionDatasetScope scope(boundDataset);
             
             auto selectBound = select.bind(scope);
             
@@ -203,7 +205,7 @@ run(const ProcedureRunConfig & run,
     timer.restart();
 
     for (auto& c : knownInputColumns) {
-        cerr << c.toString() << " feature " << featureSpace->getFeature(c)
+        cerr << c << " feature " << featureSpace->getFeature(c)
              << " had " << featureSpace->columnInfo[c].buckets.numBuckets
              << " buckets" 
              << " type is " << featureSpace->columnInfo[c].info << endl;

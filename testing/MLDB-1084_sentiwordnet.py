@@ -45,9 +45,9 @@ def check_word(word, good):
     mldb.log(js_rez)
 
     cols = js_rez[0]["columns"]
-    pos = cols[0][1]
+    pos = cols[3][1]
     neg = cols[1][1]
-    POS = cols[3][1]
+    POS = cols[0][1]
     baseWord = cols[4][1]
     mldb.log("Word: %s    Good:%0.8f     Us: %0.8f - %0.8f = %0.8f   Base: %s    POS: %s"
              % (word, good, pos, neg, pos-neg, baseWord, POS))

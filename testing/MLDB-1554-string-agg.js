@@ -62,11 +62,11 @@ assertEqual(resp.responseCode, 200, "Error executing query");
 
 expected = [
    [ "_rowName", "aggs" ],
-   [ "0", "mustard, moved, kitchen" ],
-   [ "1", "plum, moved, kitchen" ],
-   [ "2", "mustard, stabbed, plum" ],
-   [ "3", "mustard, killed, plum" ],
-   [ "4", "plum, died, stabbed" ]
+   [ "0", "kitchen, moved, mustard" ],
+   [ "1", "kitchen, moved, plum" ],
+   [ "2", "plum, stabbed, mustard" ],
+   [ "3", "plum, killed, mustard" ],
+   [ "4", "stabbed, died, plum" ]
 ];
 
 assertEqual(mldb.diff(expected, resp.json, false /* strict */), {},

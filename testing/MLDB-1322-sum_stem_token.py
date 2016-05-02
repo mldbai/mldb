@@ -40,13 +40,13 @@ class SumStemTokenTest(unittest.TestCase):
         '''
         res = mldb.query(q)
 
-        expected = [
-            ["_rowName","carrots","potato","label",   "potatoes", "carrot"],
-            ["row_0",   1,        1,       0      ,   None,       None   ],
-            ["row_1",   None,     2,       0      ,   1,          None   ],
-            ["row_2",   1,        None,    1      ,   None,       1      ],
-        ]
+        mldb.log(res);
 
+        expected = [
+            [ "_rowName", "carrots", "label", "potato", "potatoes", "carrot" ], 
+            [ "row_0", 1, 0, 1, None, None ], 
+            [ "row_1", None, 0, 2, 1, None ], 
+            [ "row_2", 1, 1, None, None, 1 ] ]
         assert res == expected
 
         # Step 2: tokenize and then stem
@@ -61,11 +61,13 @@ class SumStemTokenTest(unittest.TestCase):
         '''
         res = mldb.query(q)
 
+        mldb.log(res)
+
         expected = [
-            ["_rowName", "carrot","potato", "label"],
-            ["row_0",    1       ,1,        0      ],
-            ["row_1",    None    ,3,        0      ],
-            ["row_2",    2       ,None,     1      ],
+            ["_rowName", "carrot","label","potato"],
+            ["row_0",    1       ,0,1,     ],
+            ["row_1",    None    ,0,3,     ],
+            ["row_2",    2       ,1,None   ],
         ]
         assert res == expected
 
