@@ -96,46 +96,104 @@ class Mldb1597Test(MldbUnitTest):
         group by dow
         order by 1-(0.001+sum(cost))/(0.001+sum(income))
         """)
-        
-    @unittest.skip("test")
-    def test_remaining(self):
-        # setup
-        mldb.post("/v1/procedures", {
-                "type": "transform",
-                "params":{
-                    "inputData": """
-                        select
-                            dow, a_int, 
-                            sum(e_1)/sum(e_2) as e, 
-                            avg({b_1, b_2}) as *,
-                            avg(b_1)/avg(b_2) as b_ratio, 
-                            1-sum(d_1+d_2-c_2)/sum(c_1) as r
-                        from ds
-                        group by dow, a_int
-                    """,
-                    "outputDataset": {"id":"ds_stats", "type":"tabular"},
-                    "runOnCreation": True
-                }
-            })
 
-        # BUG
-        # the commented-out join condition should work instead of the hack on the 
-        # next line
+    def run_query_and_compare(self, query):
+        resp = mldb.query(query)
+        mldb.log(resp)
+        # expecting the header + 10 lines
+        self.assertEqual(len(resp), 10 + 1)
+        
+        # columns in the same order as the input
+        self.assertEqual(resp[0], [
+            "_rowName",
+            "left_table.asc",
+            "left_table.desc",
+            "left_table.const",
+            "right_table.index",
+            "right_table.mod",
+            "right_table.const"
+        ], "expected the row output layout to be the same as the row input layouts")
+    
+        for line in resp[1:]:
+            self.assertEqual(line[1], line[4], "expected equal values on these fields")
+            self.assertEqual(line[3], line[6], "expected equal values on these fields")
+
+    def test_left_join_with_and(self):
+        left = mldb.create_dataset({ "id": "left_table", "type": "sparse.mutable" })
+        for i in range(0,10):
+            left.record_row("a" + str(i),[["asc", i, 0], ["desc", 10 - i, 0], ["const", 729, 0]])
+        left.commit()
+
+        right = mldb.create_dataset({ "id": "right_table", "type": "sparse.mutable" })
+        for i in range(0,10):
+            right.record_row("b" + str(i),[["index", i, 0], ["mod", i%2, 0], ["const", 729, 0]])
+        right.commit()
+
+        self.run_query_and_compare("""
+        select * 
+        from left_table outer join right_table 
+        on (left_table.asc = right_table.index
+        and left_table.const = right_table.const)
+        """)
+
+        self.run_query_and_compare("""
+        select * 
+        from left_table outer join right_table 
+        on (left_table.asc + left_table.const = 
+        right_table.index + right_table.const)
+        """)
+            
+    def test_join_with_and(self):
+        mldb.post("/v1/procedures", {
+            "type": "transform",
+            "params":{
+                "inputData": """
+                select 
+                    dow, a_int, 
+                    sum(e_1)/sum(e_2) as e, 
+                    avg({b_1, b_2}) as *,
+                    avg(b_1)/avg(b_2) as b_ratio, 
+                    1-sum(d_1+d_2-c_2)/sum(c_1) as r
+                from ds
+                group by dow, a_int
+                """,
+                "outputDataset": {"id":"ds_stats", "type":"tabular"},
+                "runOnCreation": True
+            }
+        })
+
+        # equivalent join conditions should be returning the same dataset
         mldb.post("/v1/procedures", {
                 "type": "transform",
                 "params":{
                     "inputData": """
                         select *
-                        from ds left join ds_stats on (
-                            -- this doesn't work: ds.dow=ds_stats.dow and ds.a_int=ds_stats.a_int
-                            ds.dow + ds.a_int = ds_stats.dow + ds_stats.a_int
-                        )
+                        from ds left join ds_stats on (ds.dow + ds.a_int = ds_stats.dow + ds_stats.a_int)
+                        limit 10
                     """,
                     "outputDataset": {"id":"ds_train", "type":"tabular"},
                     "runOnCreation": True
                 }
             })
 
+        resp = mldb.query('select * from ds_train')
+        mldb.post("/v1/procedures", {
+                "type": "transform",
+                "params":{
+                    "inputData": """
+                        select *
+                        from ds left join ds_stats on (ds.dow=ds_stats.dow and ds.a_int=ds_stats.a_int)
+                        limit 10
+                    """,
+                    "outputDataset": {"id":"ds_train2", "type":"tabular"},
+                    "runOnCreation": True
+                }
+            })
+        resp2 = mldb.query('select * from ds_train2')
+        self.assertEqual(resp, resp2, 'expected identical response')
+
+    @unittest.skip("test")
+    def test_remaining(self):
         # BUG: 
         # r2 should not be null every time score has only zeros after the decimal point
         mldb.post("/v1/procedures", {

@@ -816,8 +816,8 @@ take()
 
         if (outerLeft && checkOuterWhere(l, left, lField, rEmbedding))
         {
-            auto result = std::move(r);                
-            r = right->take();
+            auto result = std::move(l);                
+            l = left->take();
             return result;    
         }
 

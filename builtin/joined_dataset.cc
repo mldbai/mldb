@@ -147,7 +147,7 @@ struct JoinedDataset::Itl
         BoundTableExpression left = joinConfig.left->bind(mldbContext);
         BoundTableExpression right = joinConfig.right->bind(mldbContext);
 
-        bool debug = false;
+        bool debug = true;
 
         std::set<Utf8String> leftTables = joinConfig.left->getTableNames();
         std::set<Utf8String> rightTables = joinConfig.right->getTableNames();
