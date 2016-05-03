@@ -11,7 +11,7 @@ class CountYieldsNullTest(MldbUnitTest):  # noqa
 
     @unittest.expectedFailure
     def test_it(self):
-        ds = mldb.create_dataset({'id' : 'ds', 'type' : 'beh.mutable'})
+        ds = mldb.create_dataset({'id' : 'ds', 'type' : 'sparse.mutable'})
         ds.record_row('user2', [['bucket', '0-100', 0],
                                 ['trainConv', 0, 0]])
         ds.record_row('user1', [['bucket', '0-100', 0],
