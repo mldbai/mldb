@@ -368,13 +368,15 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     virtual std::vector<RowName>
     getRowNames(ssize_t start = 0, ssize_t limit = -1) const
     {
-        ExcAssertEqual(start, 0);
-        ExcAssertEqual(limit, -1);
-
         std::vector<RowName> result;
         result.reserve(rowCount);
 
+        size_t n = 0;
         for (auto & c: chunks) {
+            if (n++ < start)
+                continue;
+            if (limit != -1 && n > start + limit)
+                break;
             result.insert(result.end(), c.rowNames.begin(), c.rowNames.end());
         }
 
@@ -384,12 +386,14 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     virtual std::vector<RowHash>
     getRowHashes(ssize_t start = 0, ssize_t limit = -1) const
     {
-        ExcAssertEqual(start, 0);
-        ExcAssertEqual(limit, -1);
-
         std::vector<RowHash> result;
 
+        size_t n = 0;
         for (auto & i: rowIndex) {
+            if (n++ < start)
+                continue;
+            if (limit != -1 && n > start + limit)
+                break;
             result.emplace_back(i.first);
         }
 
