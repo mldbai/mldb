@@ -62,21 +62,23 @@ PipelineExpressionScope::
 PipelineExpressionScope(std::shared_ptr<SqlBindingScope> outerScope)
     : outerScope_(outerScope)
 {
+
 }
 
 PipelineExpressionScope::
 ~PipelineExpressionScope()
 {
 }
-    
+
 std::shared_ptr<PipelineExpressionScope>
 PipelineExpressionScope::
 tableScope(std::shared_ptr<LexicalScope> table)
 {
     auto result = std::make_shared<PipelineExpressionScope>(*this);
 
-    TableEntry entry(table, outputInfo_.size());
+    TableEntry entry(table, numOutputFields());
     Utf8String asName = table->as();
+
     result->defaultTables.emplace_back(entry);
     if (!asName.empty())
         result->tables[asName] = entry;
@@ -89,7 +91,7 @@ tableScope(std::shared_ptr<LexicalScope> table)
                                std::make_move_iterator(outputAdded.end()));
 
     //cerr << "table scope for " << ML::type_name(*table) << " goes from "
-    //     << entry.fieldOffset << " to " << result->outputInfo_.size()
+    //     << entry.fieldOffset << " to " << result->numOutputFields()
     //     << endl;
 
     return result;
@@ -106,6 +108,10 @@ parameterScope(GetParamInfo getParamInfo,
     result->outputInfo_.insert(result->outputInfo_.end(),
                                std::make_move_iterator(outputAdded.begin()),
                                std::make_move_iterator(outputAdded.end()));
+
+    //cerr << "parameter scope goes from "
+    //     << numOutputFields() << " to " << result->numOutputFields()
+    //     << endl;
     return result;
 }
 
@@ -118,6 +124,11 @@ selectScope(std::vector<std::shared_ptr<ExpressionValueInfo> > outputAdded) cons
     result->outputInfo_.insert(result->outputInfo_.end(),
                                std::make_move_iterator(outputAdded.begin()),
                                std::make_move_iterator(outputAdded.end()));
+
+    //cerr << "select scope goes from "
+    //     << numOutputFields() << " to " << result->numOutputFields()
+    //     << endl;
+
     return result;
 }
 

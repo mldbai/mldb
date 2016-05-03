@@ -204,6 +204,7 @@ std::vector<std::shared_ptr<ExpressionValueInfo> >
 TableLexicalScope::
 outputAdded() const
 {
+    cerr << "TableLexicalScope::output added" << endl;
     return { std::make_shared<Utf8StringValueInfo>(), table.getRowInfo() };
 }
 
@@ -379,7 +380,7 @@ doGetColumn(const ColumnName & columnName, int fieldOffset)
             {
                 auto & row = context.as<PipelineResults>();
                 const ExpressionValue & rowContents
-                = row.values.at(fieldOffset + TableLexicalScope::ROW_CONTENTS);
+                = row.values.at(fieldOffset + SUB_ROW_CONTENTS);
 
                 ExpressionValue result = rowContents.getNestedColumn(columnName, filter);
 
@@ -403,6 +404,7 @@ doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep, int fieldOf
     vector<ColumnName> columnsNeedingInfo;
 
     for (auto & column : knownColumns) {
+
         ColumnName outputName(keep(column.columnName));
         if (outputName == ColumnName()) {
             allWereKept = false;
@@ -430,7 +432,7 @@ doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep, int fieldOf
                 auto & row = context.as<PipelineResults>();
 
                 const ExpressionValue rowContents
-                = row.values.at(fieldOffset + TableLexicalScope::ROW_CONTENTS);
+                = row.values.at(fieldOffset + SUB_ROW_CONTENTS);
 
                 return std::move(rowContents);
             };
@@ -442,7 +444,7 @@ doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep, int fieldOf
                 auto & row = context.as<PipelineResults>();
 
                 const ExpressionValue & rowContents
-                = row.values.at(fieldOffset + TableLexicalScope::ROW_CONTENTS);
+                = row.values.at(fieldOffset + SUB_ROW_CONTENTS);
 
                 RowValue result;
 
@@ -485,7 +487,7 @@ doGetFunction(const Utf8String & functionName,
                          const SqlRowScope & context)
             -> ExpressionValue
             {
-                return ExpressionValue("[]", Date::notADate());
+                return ExpressionValue("[ouput]", Date::notADate());
             };
 
         return { exec, std::make_shared<Utf8StringValueInfo>() };
@@ -510,7 +512,7 @@ tableNames() const {
 std::vector<std::shared_ptr<ExpressionValueInfo> >
 SubSelectLexicalScope::
 outputAdded() const {
-    return {};
+    return { }; //*we* add nothing, the select(s) inside the sub statement adds something.
 }
 
 /*****************************************************************************/
@@ -570,11 +572,11 @@ SubSelectElement::Bound::
 Bound(const SubSelectElement * parent,
       std::shared_ptr<BoundPipelineElement> source)
     : parent(std::dynamic_pointer_cast<const SubSelectElement>
-             (parent->shared_from_this())),
-      source_(std::move(source)),
-      inputScope_(std::move(source_->outputScope()))
+      (parent->shared_from_this())),
+      source_(std::move(source))
 {
     boundSelect = parent->pipeline->bind();
+    inputScope_ = boundSelect->outputScope();
     shared_ptr<SelectElement::Bound> castBoundSelect = dynamic_pointer_cast<SelectElement::Bound>(boundSelect);
 
     ExcAssert(castBoundSelect);
@@ -1293,6 +1295,7 @@ RootElement::Bound::
 Bound(std::shared_ptr<SqlBindingScope> outer)
     : scope_(new PipelineExpressionScope(outer))
 {
+
 }
 
 std::shared_ptr<ElementExecutor>

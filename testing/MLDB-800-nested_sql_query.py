@@ -104,7 +104,7 @@ mldb.log(res)
 
 #MLDBFB-480
 
-mldb.log("MLDB-480")
+mldb.log("MLDBFB-480")
 
 expected = [["_rowName", "param"],
             ["result", "hi" ]]

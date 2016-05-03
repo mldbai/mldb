@@ -159,6 +159,8 @@ struct SubSelectLexicalScope: public LexicalScope {
 
     virtual std::vector<std::shared_ptr<ExpressionValueInfo> >
     outputAdded() const;
+
+    static constexpr int SUB_ROW_CONTENTS = -1; //Because the row contents is the last thing added in the sub pipeline
 };
 
 /*****************************************************************************/
