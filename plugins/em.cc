@@ -309,7 +309,7 @@ struct EMFunction::Impl {
     Impl(const Url & modelFileUrl) {
         em.load(modelFileUrl.toString());
         for (auto & c: em.columnNames)
-            this->columnNames.push_back(Coord(c));
+            this->columnNames.push_back(PathElement(c));
     }
 };
 

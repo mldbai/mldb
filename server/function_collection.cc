@@ -87,8 +87,8 @@ call(const ExpressionValue & input) const
     ExpressionValue inputContext;
 
     // 
-    auto onColumn = [&] (const Coord & columnName,
-                         const Coords & prefix,
+    auto onColumn = [&] (const PathElement & columnName,
+                         const Path & prefix,
                          const ExpressionValue & val)
         {
             const Utf8String & name(p.first);
@@ -185,7 +185,7 @@ applyFunction(const Function * function,
     context.startMember("output");
     context.startObject();
 
-    auto onColumn = [&] (const Coord & columnName,
+    auto onColumn = [&] (const PathElement & columnName,
                          const ExpressionValue & val)
         {
             context.startMember(columnName.toUtf8String());

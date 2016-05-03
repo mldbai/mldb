@@ -15,7 +15,7 @@ SQL_EXPRESSION_SOURCES := \
 	execution_pipeline.cc \
 	execution_pipeline_impl.cc \
 	sql_utils.cc \
-	coord.cc \
+	path.cc \
 	dataset_types.cc \
 	sql_expression_operations.cc \
 

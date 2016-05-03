@@ -60,7 +60,7 @@ TestFunction::
 getFunctionInfo() const
 {
     vector<KnownColumn> cols;
-    cols.emplace_back(Coord("cnt"), std::make_shared<NumericValueInfo>(),
+    cols.emplace_back(PathElement("cnt"), std::make_shared<NumericValueInfo>(),
                       COLUMN_IS_DENSE);
 
     FunctionInfo result;

@@ -1027,7 +1027,7 @@ SvdOutputDescription()
              "SVD.  There will be a number of coordinates equal to the "
              "`maxSingluarValues` value of the configuration, or if not "
              "set, the number of SVD coordinates available in the SVD model "
-             "file.  Coordinates will have simple numerical names.");
+             "file.  PathElementinates will have simple numerical names.");
 }
 
 

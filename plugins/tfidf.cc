@@ -249,12 +249,12 @@ run(const ProcedureRunConfig & run,
         auto output = createDataset(server, outputDataset, onProgress, true /*overwrite*/);
 
         Date applyDate = Date::now();
-        ColumnName columnName(Coord("count"));
+        ColumnName columnName(PathElement("count"));
 
         for (auto & df : dfs) {
             std::vector<std::tuple<ColumnName, CellValue, Date> > columns;
             columns.emplace_back(columnName, df.second, applyDate);
-            output->recordRow(Coord(df.first), columns);
+            output->recordRow(PathElement(df.first), columns);
         }
         output->commit();
     }
@@ -334,12 +334,12 @@ apply(const FunctionApplier & applier,
 {
     ExpressionValue result;
 
-    ExpressionValue inputVal = context.getColumn(Coord("input"));
+    ExpressionValue inputVal = context.getColumn(PathElement("input"));
     
     uint64_t maxFrequency = 0; // max term frequency for the current document
     uint64_t maxNt = 0;        // max document frequency for terms in the current doc
 
-    auto onColumn = [&] (const Coord & name,
+    auto onColumn = [&] (const PathElement & name,
                          const ExpressionValue & val)
         {
             Utf8String term = name.toUtf8String();
@@ -422,7 +422,7 @@ apply(const FunctionApplier & applier,
     // Compute the score for every word in the input
     logger->debug() << "corpus size: " << corpusSize;
 
-    auto onColumn2 = [&] (const Coord & name,
+    auto onColumn2 = [&] (const PathElement & name,
                           const ExpressionValue & val)
         {
             Utf8String term = name.toUtf8String();
@@ -456,9 +456,9 @@ getFunctionInfo() const
     FunctionInfo result;
 
     std::vector<KnownColumn> inputColumns, outputColumns;
-    inputColumns.emplace_back(Coord("input"), std::make_shared<UnknownRowValueInfo>(),
+    inputColumns.emplace_back(PathElement("input"), std::make_shared<UnknownRowValueInfo>(),
                               COLUMN_IS_DENSE, 0);
-    outputColumns.emplace_back(Coord("output"), std::make_shared<UnknownRowValueInfo>(),
+    outputColumns.emplace_back(PathElement("output"), std::make_shared<UnknownRowValueInfo>(),
                                COLUMN_IS_DENSE, 0);
     
     result.input.reset(new RowValueInfo(inputColumns, SCHEMA_CLOSED));

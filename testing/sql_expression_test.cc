@@ -44,7 +44,7 @@ TestContext createRow(const std::vector<std::pair<std::string, CellValue> > & va
 {
     TestContext result;
     for (auto & v: vars) {
-        result.vars[Coord(v.first)] = ExpressionValue(v.second, Date());
+        result.vars[PathElement(v.first)] = ExpressionValue(v.second, Date());
     }
     return result;
 }
@@ -78,7 +78,7 @@ struct TestBindingContext: public SqlBindingScope {
             {
                 const TestContext & testContext
                     = static_cast<const TestContext &>(context);
-                std::vector<std::tuple<Coord, ExpressionValue> > result;
+                std::vector<std::tuple<PathElement, ExpressionValue> > result;
 
                 for (auto & v: testContext.vars) {
                     ColumnName name = keep(v.first);
@@ -253,8 +253,8 @@ BOOST_AUTO_TEST_CASE(test_simple_comparison)
         cerr << parsed->print() << endl;
         auto expr = parsed->bind(context);
         cerr << jsonEncode(expr) << endl;
-        vector<tuple<Coord, ExpressionValue> > expected;
-        expected.emplace_back(Coord("x + 1"), ExpressionValue(11, Date()));
+        vector<tuple<PathElement, ExpressionValue> > expected;
+        expected.emplace_back(PathElement("x + 1"), ExpressionValue(11, Date()));
         BOOST_CHECK_EQUAL(expr(createRow({{"x", 10}, {"y", 3}, {"z", 2}}), GET_LATEST),
                           ExpressionValue(expected));
     }
@@ -1266,10 +1266,10 @@ BOOST_AUTO_TEST_CASE(test_colon_as)
     cerr << "alignof(CellValue) = " << alignof(CellValue) << endl;
     cerr << "sizeof(ExpressionValue) = " << sizeof(ExpressionValue) << endl;
     cerr << "alignof(ExpressionValue) = " << alignof(ExpressionValue) << endl;
-    cerr << "sizeof(Coord) = " << sizeof(Coord) << endl;
-    cerr << "alignof(Coord) = " << alignof(Coord) << endl;
-    cerr << "sizeof(Coords) = " << sizeof(Coords) << endl;
-    cerr << "alignof(Coords) = " << alignof(Coords) << endl;
+    cerr << "sizeof(PathElement) = " << sizeof(PathElement) << endl;
+    cerr << "alignof(PathElement) = " << alignof(PathElement) << endl;
+    cerr << "sizeof(Path) = " << sizeof(Path) << endl;
+    cerr << "alignof(Path) = " << alignof(Path) << endl;
     cerr << "sizeof(Id) = " << sizeof(Id) << endl;
     cerr << "alignof(Id) = " << alignof(Id) << endl;
     cerr << "sizeof(Utf8String) = " << sizeof(Utf8String) << endl;

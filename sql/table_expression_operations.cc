@@ -587,8 +587,8 @@ bind(SqlBindingScope & context) const
                 rows.reserve(row.rowLength());
                 int n = 0;
 
-                auto onColumn = [&] (const Coords & columnName,
-                                     const Coords & prefix,
+                auto onColumn = [&] (const Path & columnName,
+                                     const Path & prefix,
                                      const CellValue & cell,
                                      Date ts)
                 {

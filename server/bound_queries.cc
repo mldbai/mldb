@@ -1217,7 +1217,7 @@ struct GroupContext: public SqlExpressionDatasetScope {
             }
             else {
                 if (!alias.empty())
-                    simplifiedSurface = Coord(alias) + columnName;
+                    simplifiedSurface = PathElement(alias) + columnName;
                 else simplifiedSurface = columnName;
             }
 

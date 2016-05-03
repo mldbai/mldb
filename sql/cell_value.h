@@ -20,7 +20,7 @@ namespace MLDB {
 
 
 typedef HashWrapper<4> CellValueHash;
-struct Coord;
+struct PathElement;
 
 /*****************************************************************************/
 /* STRING CHARACTERISTICS                                                    */
@@ -316,7 +316,7 @@ struct CellValue {
     CellValue coerceToBoolean() const;
     CellValue coerceToTimestamp() const;
     CellValue coerceToBlob() const;
-    Coord coerceToPathElement() const;
+    PathElement coerceToPathElement() const;
     
     /** This is always the SIPhash of the toString() representation.
         Only for blobs, which have no toString(), is it calculated
