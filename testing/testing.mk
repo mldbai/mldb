@@ -338,6 +338,7 @@ $(eval $(call mldb_unit_test,MLDB-1500-transpose-query.js,,manual)) # awaiting f
 $(eval $(call mldb_unit_test,MLDB-1507-groupby.py))
 $(eval $(call mldb_unit_test,MLDB-1552-where-and-rowname-optim.py))
 $(eval $(call mldb_unit_test,MLDB-1486-embedding-types.js))
+$(eval $(call mldb_unit_test,MLDBFB-506-stats-tbl-sql-expr.py))
 
 # The MLDB-1398 test case requires a library and a plugin
 # Tensorflow plugins
