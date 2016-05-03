@@ -16,7 +16,7 @@ class PushNonPrintableCharCantReadTest(MldbUnitTest):  # noqa
         ds.record_row(barbarous_name, [['colA', 1, 0]])
         ds.commit()
 
-        # crash!
+        # http status 400
         mldb.log(mldb.query("SELECT * FROM ds1"))
 
     @unittest.expectedFailure
@@ -26,7 +26,7 @@ class PushNonPrintableCharCantReadTest(MldbUnitTest):  # noqa
         ds.record_row('row1', [[barbarous_name, 1, 0]])
         ds.commit()
 
-        # crash!
+        # http status 400
         mldb.log(mldb.query("SELECT * FROM ds2"))
 
     @unittest.expectedFailure
@@ -36,7 +36,7 @@ class PushNonPrintableCharCantReadTest(MldbUnitTest):  # noqa
         ds.record_row('row1', [['colA', barbarous_name, 0]])
         ds.commit()
 
-        # crash!
+        # http status 400
         mldb.log(mldb.query("SELECT * FROM ds3"))
 
 if __name__ == '__main__':
