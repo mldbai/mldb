@@ -39,18 +39,44 @@ for i in range(25):
         q="""select getFeatVec({raw_text: 'I really loved this party!!!',
              preProcessed: 'I really loved this party!!!'}) as *""")
 
-expected_response = [{
-    "rowName": "result",
-    "rowHash": "d54892b736cac3ab",
-    "columns" : [
-        ["msgStats.msgLen", 28, "-Inf"],
-        ["words.party", 1, "-Inf"],
-        ["words.this", 1, "-Inf"],
-        ["words.really", 1, "-Inf"],
-        ["words.loved", 1, "-Inf"],
-        ["words.I", 1, "-Inf"]
-    ]
-}]
+expected_response = [
+    {
+        "rowName": "result", 
+        "rowHash": "d54892b736cac3ab", 
+        "columns": [
+            [
+                "msgStats.msgLen", 
+                28, 
+                "-Inf"
+            ], 
+            [
+                "words.I", 
+                1, 
+                "-Inf"
+            ], 
+            [
+                "words.loved", 
+                1, 
+                "-Inf"
+            ], 
+            [
+                "words.party", 
+                1, 
+                "-Inf"
+            ], 
+            [
+                "words.really", 
+                1, 
+                "-Inf"
+            ], 
+            [
+                "words.this", 
+                1, 
+                "-Inf"
+            ]
+        ]
+    }
+]
 
 mldb.log(res.json())
 

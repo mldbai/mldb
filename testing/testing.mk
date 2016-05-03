@@ -28,6 +28,7 @@ $(eval $(call test,svd_utils_test,mldb,boost))
 
 $(eval $(call test,mldb_reddit_test,mldb,boost))
 $(eval $(call test,cell_value_test,sql_expression,boost))
+$(eval $(call test,expression_value_test,sql_expression,boost))
 
 # NOTE: sql_expression_test should NOT depend on the MLDB library.  If you
 # are tempted to add it, you have coupled them together and broken
@@ -50,10 +51,11 @@ $(eval $(call test,mldb_function_delete_test,mldb mldb_test_function,boost))
 $(eval $(call test,MLDB-204-circular-references-initialization,mldb,boost))
 $(eval $(call test,MLDB-267-delete-while-loading,mldb,boost))
 $(eval $(call test,mldb_crash_multiple_py_routes,mldb,boost manual))  #manual - intermittent - MLDB-787
-$(eval $(call test,mldb_function_pin_test,mldb,boost))
 $(eval $(call test,mldb_determinism_test,mldb,boost))
 $(eval $(call test,credentials_daemon_test,credentials_daemon cloud,boost))
 $(eval $(call test,MLDB-1025-output-dataset-serialization-test,mldb,boost))
+$(eval $(call test,MLDB-1559-transform-method,mldb,boost))
+$(eval $(call test,mldb-1525-rowname-generator-explain,mldb,boost))
 
 $(TESTS)/credentials_daemon_test: $(BIN)/credentialsd
 
@@ -85,7 +87,6 @@ $(eval $(call mldb_unit_test,MLDB-409-transform-dataset.js))
 $(eval $(call mldb_unit_test,MLDB-410-set-output-rowname.js))
 $(eval $(call mldb_unit_test,MLDB-415-rawquery.js))
 $(eval $(call mldb_unit_test,MLDB-312_cant_overwrite_dataset.py))
-$(eval $(call mldb_unit_test,MLDB-302_record_rowname_int.py))
 $(eval $(call mldb_unit_test,MLDB-297-can-use-datetime.py))
 $(eval $(call mldb_unit_test,MLDB-256_accuracy_accepts_all_cls_modes.py))
 $(eval $(call mldb_unit_test,python_mldb_log.py))
@@ -98,11 +99,11 @@ $(eval $(call mldb_unit_test,MLDB-251-invalid-script-host.js))
 $(eval $(call mldb_unit_test,MLDB-429-classifier-empty-label.js))
 $(eval $(call mldb_unit_test,MLDB-434-beh-dataset-nulls.js))
 $(eval $(call mldb_unit_test,MLDB-301-commit-empty-dataset.js))
-$(eval $(call mldb_unit_test,MLDB-283-embedding-nearest-neighbours.js))
+$(eval $(call mldb_unit_test,MLDB-283-embedding-nearest-neighbours.py))
 $(eval $(call mldb_unit_test,MLDB-417-empty-svd.js))
 $(eval $(call mldb_unit_test,MLDB-485-svd_embedRow_returns_zeroes.py))
 $(eval $(call mldb_unit_test,MLDB-481-vp-tree-high-dimensional-cube.js))
-$(eval $(call mldb_unit_test,MLDB-466-full-reddit.js,,manual)) #manual - slow
+$(eval $(call mldb_unit_test,MLDB-466-full-reddit.js,,$(MANUAL_IF_NO_S3)))
 $(eval $(call mldb_unit_test,MLDB-489-svd-nonvarying-reals.js))
 $(eval $(call mldb_unit_test,MLDB-462-transposed-dataset.js))
 $(eval $(call mldb_unit_test,MLDB-461_horizontal_ops_test.py))
@@ -123,7 +124,6 @@ $(eval $(call mldb_unit_test,MLDB-529-duplicate-pin.js))
 $(eval $(call mldb_unit_test,MLDB-284-tsne-reapply.js,,manual))  #manual - waiting for fix
 $(eval $(call mldb_unit_test,MLDB-592-bs-training-failure.py)) 
 $(eval $(call mldb_unit_test,MLDB-390-sql-expression-function.js))
-$(eval $(call mldb_unit_test,MLDB-593-serial-function-with-extract.js))
 $(eval $(call mldb_unit_test,MLDB-587-empty-classifier.js))
 $(eval $(call mldb_unit_test,MLDB-620-nonexistant-dataset-messages.js))
 $(eval $(call mldb_unit_test,MLDB-572-error-procedure-config.js))
@@ -149,6 +149,7 @@ $(eval $(call mldb_unit_test,MLDB-704-jseval-row.js))
 $(eval $(call mldb_unit_test,MLDB-723-jseval-exceptions.js))
 $(eval $(call mldb_unit_test,MLDB-761-sub-queries.py))
 $(eval $(call mldb_unit_test,MLDB-565-classifier-details.js))
+$(eval $(call mldb_unit_test,MLDB-1597-regression.py))
 $(eval $(call mldb_unit_test,MLDB-749-csv-dataset.js))
 $(eval $(call mldb_unit_test,MLDB-702-row-aggregators.py))
 $(eval $(call mldb_unit_test,MLDB-770-group-by-parsing.js))
@@ -268,8 +269,9 @@ $(eval $(call mldb_unit_test,MLDB-1430-aggregate-bug.py))
 $(eval $(call mldb_unit_test,MLDB-1428-text-sparse-output.py))
 $(eval $(call mldb_unit_test,MLDB-1452-like-operator.py))
 $(eval $(call mldb_unit_test,MLDB-1440_sqlexpr_ignore_unknown_param.py))
+$(eval $(call mldb_unit_test,MLDB-1595-count-distinct.py))
 
-$(eval $(call mldb_unit_test,pytanic_plugin_test.py))
+#$(eval $(call mldb_unit_test,pytanic_plugin_test.py))
 $(eval $(call python_test,mldb_merged_dataset_test,mldb_py_runner))
 
 pytanic_plugin_test mldb_recordrow_test_py pytanic_test mldb_dataset_test_py null_column_test dcframe_test reddit_example_test pytanic_test mldb_merged_test $(BIN)/mldb_py_runner/__init__.py: \
@@ -334,6 +336,8 @@ $(eval $(call mldb_unit_test,MLDB-1490-grouped-validation.py))
 $(eval $(call mldb_unit_test,MLDB-1491-get-all-not-implemented-for-datasets.js,,manual)) # awaiting fix
 $(eval $(call mldb_unit_test,MLDB-1500-transpose-query.js,,manual)) # awaiting fix
 $(eval $(call mldb_unit_test,MLDB-1507-groupby.py))
+$(eval $(call mldb_unit_test,MLDB-1552-where-and-rowname-optim.py))
+$(eval $(call mldb_unit_test,MLDB-1486-embedding-types.js))
 
 # The MLDB-1398 test case requires a library and a plugin
 # Tensorflow plugins
@@ -345,4 +349,5 @@ $(eval $(call mldb_unit_test,MLDB-1563-keys-values-of.js))
 
 $(eval $(call test,MLDB-1360-sparse-mutable-multithreaded-insert,mldb,boost))
 $(eval $(call mldb_unit_test,MLDBFB-440_error_on_ds_wo_cols.py))
-
+$(eval $(call mldb_unit_test,MLDBFB-509_pushed_non_printable_char_cant_query.py))
+$(eval $(call mldb_unit_test,MLDB-1355-explain-bad-alloc.js))

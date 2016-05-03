@@ -7,7 +7,7 @@
     Functions to fetch a URLs.
 */
 
-#include "mldb/core/function.h"
+#include "mldb/core/value_function.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/types/value_description.h"
@@ -40,27 +40,57 @@ FetcherFunctionConfigDescription()
     nullAccepted = true;
 }
 
-struct FetcherFunction: public Function {
+struct FetcherArgs {
+    Utf8String url;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(FetcherArgs);
+
+DEFINE_STRUCTURE_DESCRIPTION(FetcherArgs)
+FetcherArgsDescription::
+FetcherArgsDescription()
+{
+    addField("url", &FetcherArgs::url,
+             "URL to fetch the blob from.  All URI schemes are accepted. "
+             "Note that URIs requiring credentials will need those "
+             "credentials to be pre-loaded into MLDB before the call is "
+             "made.");
+}
+
+struct FetcherOutput {
+    ExpressionValue content;
+    ExpressionValue error;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(FetcherOutput);
+
+DEFINE_STRUCTURE_DESCRIPTION(FetcherOutput);
+
+FetcherOutputDescription::FetcherOutputDescription()
+{
+    addField("content", &FetcherOutput::content,
+             "Binary blob containing the contents of the fetched version of "
+             "the URL.  Will be null if there was an error.");
+    addField("error", &FetcherOutput::error,
+             "Row containing the structured error message obtained when "
+             "attempting to read the URL.  Will be null if the fetch was "
+             "successful.");
+}
+
+struct FetcherFunction: public ValueFunctionT<FetcherArgs, FetcherOutput> {
     FetcherFunction(MldbServer * owner,
                     PolyConfig config,
                     const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner)
+        : BaseT(owner)
     {
         functionConfig = config.params.convert<FetcherFunctionConfig>();
     }
     
-    virtual Any getStatus() const
+    virtual FetcherOutput applyT(const ApplierT & applier,
+                                 FetcherArgs args) const
     {
-        Json::Value result;
-        return result;
-    }
-    
-    virtual FunctionOutput apply(const FunctionApplier & applier,
-                                 const FunctionContext & context) const
-    {
-        // Get the URL as a string
-        FunctionOutput result;
-        Utf8String url = context.get<CellValue>("url").toUtf8String();
+        FetcherOutput result;
+        Utf8String url = args.url;
         try {
             filter_istream stream(url.rawString(), { { "mapped", "true" } });
 
@@ -80,26 +110,14 @@ struct FetcherFunction: public Function {
                 blob = CellValue::blob(std::move(streamo.str()));
             }
 
-            result.set("content", ExpressionValue(std::move(blob), info.lastModified));
-            result.set("error", ExpressionValue::null(Date::notADate()));
+            result.content = ExpressionValue(std::move(blob), info.lastModified);
+            result.error = ExpressionValue::null(Date::notADate());
             return result;
         }
         JML_CATCH_ALL {
-            result.set("content", ExpressionValue::null(Date::notADate()));
-            result.set("error", ExpressionValue(ML::getExceptionString(), Date::now()));
+            result.content = ExpressionValue::null(Date::notADate());
+            result.error = ExpressionValue(ML::getExceptionString(), Date::now());
         }
-        return result;
-    }
-
-    virtual FunctionInfo getFunctionInfo() const
-    {
-        FunctionInfo result;
-        result.input.addStringValue("url");
-        result.output.addBlobValue("content");
-        //result.output.addRowValue("metadata");
-        //result.output.addTimestampValue("lastModified");
-        //result.output.addStringValue("etag");
-        result.output.addRowValue("error");
         return result;
     }
 

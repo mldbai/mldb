@@ -138,7 +138,7 @@ struct SentiWordNetImporter: public Procedure {
         }
 
         Date d = Date::now();
-        vector<ColumnName> columnNames = {Coord("SentiPos"), Coord("SentiNeg"), Coord("SentiObj")};
+        vector<ColumnName> columnNames = {PathElement("SentiPos"), PathElement("SentiNeg"), PathElement("SentiObj")};
 
         // We now go through our accumulator to compute the final scores
         vector<pair<RowName, vector<tuple<ColumnName, CellValue, Date> > > > rows;
@@ -157,8 +157,8 @@ struct SentiWordNetImporter: public Procedure {
             for(int i=0; i<3; i++) {
                 cols.emplace_back(columnNames[i], (scoreAccum[i] / sum), d);
             }
-            cols.emplace_back(Coord("POS"), it.first.substr(it.first.size() - 1), d);
-            cols.emplace_back(Coord("baseWord"), it.first.substr(0, it.first.size() - 2), d);
+            cols.emplace_back(PathElement("POS"), it.first.substr(it.first.size() - 1), d);
+            cols.emplace_back(PathElement("baseWord"), it.first.substr(0, it.first.size() - 2), d);
 
             rows.emplace_back(RowName(it.first), std::move(cols));
             ++numRecorded;

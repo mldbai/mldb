@@ -39,14 +39,14 @@ plugin.log(resp.json);
 expected = [
    [
       "_rowName",
-      "min.label",
-      "min.x",
-      "min.y",
       "max.label",
       "max.x",
-      "max.y"
+      "max.y",
+      "min.label",
+      "min.x",
+      "min.y"
    ],
-   [ "cat", "cat", 0, 0, "cat", 1, 2 ],
+   [ "cat", "cat", 1, 2, "cat", 0, 0 ],
    [ "dog", "dog", 1, 1, "dog", 1, 1 ]
 ];
 

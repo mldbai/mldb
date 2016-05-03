@@ -10,6 +10,7 @@
 #include "mldb/types/any_impl.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/server/dataset_context.h"
+#include "mldb/http/http_exception.h"
 #include <random>
 #include <unordered_set>
 
@@ -67,7 +68,7 @@ SampledDatasetConfigDescription()
             "unless `withReplacement` = 1. Default = 1 if `fraction` is 0.");
     addField("fraction", &SampledDatasetConfig::fraction,
             "Fraction of rows to sample from `dataset`. Cannot be used when "
-            "`rows` != 0. Value should be between 0 and 1.");
+            "`rows` != 0. Value should be between 0 and 1.", float(0));
     addField("withReplacement", &SampledDatasetConfig::withReplacement,
             "Sample with or without replacement. Sampling with replacement "
             "means that the same input row can appear in the output more "
@@ -291,7 +292,7 @@ SampledDataset(MldbServer * owner,
 {
     auto sampleConfig = config.params.convert<SampledDatasetConfig>();
 
-    SqlExpressionMldbContext context(owner);
+    SqlExpressionMldbScope context(owner);
     bondTableExpression = sampleConfig.dataset->bind(context);
 
     itl.reset(new Itl(server, bondTableExpression.dataset, sampleConfig));
@@ -303,47 +304,13 @@ SampledDataset(MldbServer * owner,
                const ExpressionValue & options)
     : Dataset(owner)
 {
-    SampledDatasetConfig config;
+    SampledDatasetConfig config
+        = jsonDecode<SampledDatasetConfig>(options.extractJson());
 
-    if(options.isRow()) {
-        bool gotRows, gotFraction = false;
-
-        for(auto elem : options.getRow()) {
-            const ColumnName& columnName = std::get<0>(elem);
-
-            if (columnName == ColumnName("rows")) {
-                config.rows = std::get<1>(elem).toInt();
-                gotRows = true;
-            }
-            else if (columnName == ColumnName("fraction")) {
-                config.fraction = std::get<1>(elem).toDouble();
-                gotFraction = true;
-            }
-            else if (columnName == ColumnName("withReplacement")) {
-                config.withReplacement = std::get<1>(elem).asBool();
-            }
-            else if (columnName == ColumnName("seed")) {
-                config.seed = std::get<1>(elem).toInt();
-            }
-            else {
-                auto expVal2 = std::get<1>(elem);
-                throw ML::Exception(getErrorMsg("Unknown parameter '"+columnName.toString()+"' "
-                        "provided to the 'sample' function."));
-            }
-
-            if(gotFraction && !gotRows)
-                config.rows = 0;
-
-            validateConfig(&config);
-        }
-    }
-    else if(options.empty()) {
+    if(config.rows == 0 && config.fraction == 0) {
         config.rows = 1;
-    } else {
-        throw ML::Exception(getErrorMsg("The parameters provided to the 'sample' function "
-                "should be a row expression, or not be provided to use the "
-                "sampled dataset's defaults."));
     }
+    validateConfig(&config);
 
     itl.reset(new Itl(server, dataset, config));
 }

@@ -35,7 +35,7 @@ struct FunctionCollection: public PolyCollection<Function> {
                        const std::vector<Utf8String> & keepPins,
                        RestConnection & connection) const;
     
-    static FunctionOutput call(MldbServer * server,
+    static ExpressionValue call(MldbServer * server,
                                const Function * function,
                                const std::map<Utf8String, ExpressionValue> & input,
                                const std::vector<Utf8String> & keepPins);

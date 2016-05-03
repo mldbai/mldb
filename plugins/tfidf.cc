@@ -194,7 +194,11 @@ run(const ProcedureRunConfig & run,
 {
     auto runProcConf = applyRunConfOverProcConf(tfidfconfig, run);
 
-    SqlExpressionMldbContext context(server);
+    if (!runProcConf.modelFileUrl.empty()) {
+        checkWritability(runProcConf.modelFileUrl.toString(), "modelFileUrl");
+    }
+
+    SqlExpressionMldbScope context(server);
 
     auto boundDataset = runProcConf.trainingData.stm->from->bind(context);
 
@@ -245,12 +249,12 @@ run(const ProcedureRunConfig & run,
         auto output = createDataset(server, outputDataset, onProgress, true /*overwrite*/);
 
         Date applyDate = Date::now();
-        ColumnName columnName("count");
+        ColumnName columnName(PathElement("count"));
 
         for (auto & df : dfs) {
             std::vector<std::tuple<ColumnName, CellValue, Date> > columns;
-            columns.emplace_back(make_tuple(columnName, df.second, applyDate));
-            output->recordRow(df.first, columns);
+            columns.emplace_back(columnName, df.second, applyDate);
+            output->recordRow(PathElement(df.first), columns);
         }
         output->commit();
     }
@@ -323,27 +327,31 @@ getStatus() const
     return Any();
 }
 
-FunctionOutput
+ExpressionValue
 TfidfFunction::
 apply(const FunctionApplier & applier,
-      const FunctionContext & context) const
+      const ExpressionValue & context) const
 {
-    FunctionOutput result;
+    ExpressionValue result;
 
-    ExpressionValue storage;
-    const ExpressionValue & inputVal = context.get("input", storage);
-
+    ExpressionValue inputVal = context.getColumn(PathElement("input"));
+    
     uint64_t maxFrequency = 0; // max term frequency for the current document
     uint64_t maxNt = 0;        // max document frequency for terms in the current doc
 
-    for (auto& col : inputVal.getRow() ) {
-        Utf8String term = std::get<0>(col).toUtf8String();
-        uint64_t value = std::get<1>(col).getAtom().toUInt();
-        maxFrequency = std::max(value, maxFrequency);
-        const auto termFrequency = dfs.find(term);
-        if (termFrequency != dfs.end())
-            maxNt = std::max(maxNt, termFrequency->second); 
-    }
+    auto onColumn = [&] (const PathElement & name,
+                         const ExpressionValue & val)
+        {
+            Utf8String term = name.toUtf8String();
+            uint64_t value = val.getAtom().toUInt();
+            maxFrequency = std::max(value, maxFrequency);
+            const auto termFrequency = dfs.find(term);
+            if (termFrequency != dfs.end())
+                maxNt = std::max(maxNt, termFrequency->second); 
+            return true;
+        };
+
+    inputVal.forEachColumn(onColumn);
 
     // the different possible TF scores
     auto tf_raw = [=] (double frequency) {
@@ -414,24 +422,31 @@ apply(const FunctionApplier & applier,
     // Compute the score for every word in the input
     logger->debug() << "corpus size: " << corpusSize;
 
-    for (auto& col : inputVal.getRow() ) {
-        Utf8String term = std::get<0>(col).toUtf8String(); // the term is the columnName
-        double frequency = (double) std::get<1>(col).getAtom().toUInt();
+    auto onColumn2 = [&] (const PathElement & name,
+                          const ExpressionValue & val)
+        {
+            Utf8String term = name.toUtf8String();
+            double frequency = val.getAtom().toDouble();
 
-        double tf = tf_fct(frequency);
-        const auto docFrequency = dfs.find(term);
-        uint64_t docFrequencyInt = docFrequency != dfs.end() ? docFrequency->second : 0;
-        double idf = idf_fct(docFrequencyInt);
+            double tf = tf_fct(frequency);
+            const auto docFrequency = dfs.find(term);
+            uint64_t docFrequencyInt = docFrequency != dfs.end() ? docFrequency->second : 0;
+            double idf = idf_fct(docFrequencyInt);
 
-        logger->debug() << "term: '" << term << "', df: " << docFrequencyInt << ", tf: " << tf << ", idf: " << idf;
+            logger->debug()
+                << "term: '" << term << "', df: "
+                << docFrequencyInt << ", tf: " << tf << ", idf: " << idf;
 
-        values.emplace_back(std::get<0>(col), tf*idf, ts);
-    }
+            values.emplace_back(name, tf*idf, ts);
+            return true;
+        };
 
-    ExpressionValue outputRow(values);
-    result.set("output", outputRow);
+    inputVal.forEachColumn(onColumn2);
+
+    StructValue outputRow;
+    outputRow.emplace_back("output", std::move(values));
     
-    return result;
+    return std::move(outputRow);
 }
 
 FunctionInfo
@@ -440,9 +455,15 @@ getFunctionInfo() const
 {
     FunctionInfo result;
 
-    result.input.addRowValue("input");
-    result.output.addRowValue("output");
-
+    std::vector<KnownColumn> inputColumns, outputColumns;
+    inputColumns.emplace_back(PathElement("input"), std::make_shared<UnknownRowValueInfo>(),
+                              COLUMN_IS_DENSE, 0);
+    outputColumns.emplace_back(PathElement("output"), std::make_shared<UnknownRowValueInfo>(),
+                               COLUMN_IS_DENSE, 0);
+    
+    result.input.reset(new RowValueInfo(inputColumns, SCHEMA_CLOSED));
+    result.output.reset(new RowValueInfo(outputColumns, SCHEMA_CLOSED));
+    
     return result;
 }
 
