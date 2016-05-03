@@ -113,7 +113,6 @@ doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
             auto & row = rowScope.as<PipelineResults>();
 
             const ExpressionValue & rowContents
-
             = row.values.at(fieldOffset + ROW_CONTENTS);
 
             RowValue result;
@@ -204,7 +203,6 @@ std::vector<std::shared_ptr<ExpressionValueInfo> >
 TableLexicalScope::
 outputAdded() const
 {
-    cerr << "TableLexicalScope::output added" << endl;
     return { std::make_shared<Utf8StringValueInfo>(), table.getRowInfo() };
 }
 
