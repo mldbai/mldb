@@ -16,6 +16,7 @@
 #include "cell_value_impl.h"
 #include "mldb/base/parse_context.h"
 #include "interval.h"
+#include "path.h"
 
 using namespace std;
 
@@ -549,6 +550,15 @@ coerceToBlob() const
         return CellValue::blob(toUtf8String().stealRawString());
     }
     return toUtf8String();
+}
+
+PathElement
+CellValue::
+coerceToPathElement() const
+{
+    if (type == ST_EMPTY)
+        return PathElement();
+    else return PathElement(toUtf8String());
 }
 
 bool

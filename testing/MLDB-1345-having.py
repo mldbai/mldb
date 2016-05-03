@@ -32,6 +32,8 @@ class HavingTest(unittest.TestCase):
             having count(*) > 5
         ''')
 
+        mldb.log(res)
+
         for row in res[1:]:
             assert row[1] > 5
 
@@ -44,6 +46,6 @@ class HavingTest(unittest.TestCase):
         mldb.log(res)
 
         for row in res[1:]:
-            assert row[1] < 64 and (row[2] > 5 or row[3] == 'C')
+            assert row[3] < 64 and (row[2] > 5 or row[1] == 'C')
 
 mldb.run_tests()

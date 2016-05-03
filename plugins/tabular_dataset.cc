@@ -368,13 +368,15 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     virtual std::vector<RowName>
     getRowNames(ssize_t start = 0, ssize_t limit = -1) const
     {
-        ExcAssertEqual(start, 0);
-        ExcAssertEqual(limit, -1);
-
         std::vector<RowName> result;
         result.reserve(rowCount);
 
+        size_t n = 0;
         for (auto & c: chunks) {
+            if (n++ < start)
+                continue;
+            if (limit != -1 && n > start + limit)
+                break;
             result.insert(result.end(), c.rowNames.begin(), c.rowNames.end());
         }
 
@@ -384,12 +386,14 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     virtual std::vector<RowHash>
     getRowHashes(ssize_t start = 0, ssize_t limit = -1) const
     {
-        ExcAssertEqual(start, 0);
-        ExcAssertEqual(limit, -1);
-
         std::vector<RowHash> result;
 
+        size_t n = 0;
         for (auto & i: rowIndex) {
+            if (n++ < start)
+                continue;
+            if (limit != -1 && n > start + limit)
+                break;
             result.emplace_back(i.first);
         }
 
@@ -451,7 +455,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             throw HttpReturnException(400, "Row not found in tabular dataset");
         }
 
-        return RowName(chunks.at(it->second.first).rowNames[it->second.second].toUtf8String());
+        return chunks.at(it->second.first).rowNames[it->second.second];
     }
 
     virtual ColumnName getColumnName(ColumnHash column) const
@@ -974,7 +978,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
                 uint64_t ch(c.newHash());
                 if (!inputColumnIndex.insert(make_pair(ch, i)).second)
                     throw HttpReturnException(400, "Duplicate column name in tabular dataset entry",
-                                              "columnName", c.toString());
+                                              "columnName", c.toUtf8String());
                 columnNames.push_back(c);
             }
 
@@ -1014,7 +1018,11 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             if (iter == fixedColumnIndex.end()) {
                 switch (config.unknownColumns) {
                 case UC_ERROR:
-                    throw HttpReturnException(400, "New column name while recording row in tabular dataset", "columnName", c.toString());
+                    throw HttpReturnException
+                        (400,
+                         "New column name while recording row in tabular dataset "
+                         "with unknownColumns=ERROR",
+                         "columnName", c.toUtf8String());
                 case UC_IGNORE:
                     continue;
                 case UC_ADD:
