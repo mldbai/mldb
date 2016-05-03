@@ -158,7 +158,7 @@ static RegisterFunctionType<HashedColumnFeatureGenerator,
 regHashedColFeatGenFunction(builtinPackage(),
                             "feature_hasher",
                             "Feature hashing feature generator",
-                            "functions/FeatureGeneratorHashedColumn.md.html",
+                            "functions/FeatureHashingFunction.md.html",
                             nullptr /* static route */);
 
 } // file scope
