@@ -296,8 +296,6 @@ getColumnDense(const ColumnName & column) const
     std::vector<RowName> rowNames = getRowNames();
     std::vector<CellValue> result;
     result.reserve(rowNames.size());
-    const auto rowNamesBegin = rowNames.begin();
-    const auto rowNamesEnd = rowNames.end();
 
     std::unordered_map<RowName, std::pair<CellValue, Date> > values;
 

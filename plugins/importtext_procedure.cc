@@ -28,8 +28,6 @@ using namespace std;
 namespace Datacratic {
 namespace MLDB {
 
-static constexpr size_t ROWS_PER_CHUNK=65536;
-
 DEFINE_STRUCTURE_DESCRIPTION(ImportTextConfig);
 
 ImportTextConfigDescription::ImportTextConfigDescription()

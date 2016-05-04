@@ -220,7 +220,7 @@ template<typename T>
 double coerceTo(const T & t, double *,
                 typename std::enable_if<!std::is_arithmetic<T>::value>::type * = 0)
 {
-    throw HttpReturnException("can't coerce to numeric type");
+    throw HttpReturnException(400, "Can't coerce non-numeric value to numeric type");
 }
 
 
@@ -1762,7 +1762,6 @@ ExpressionValue::
 ~ExpressionValue()
 {
     typedef std::shared_ptr<const Structured> StructuredRepr;
-    typedef std::shared_ptr<const Flattened> FlattenedRepr;
     typedef std::shared_ptr<const Embedding> EmbeddingRepr;
     typedef std::shared_ptr<const Superposition> SuperpositionRepr;
 
@@ -3372,9 +3371,9 @@ getFiltered(const VariableFilter & filter,
         case GET_ANY_ONE:
             return superposition_->values[0];
         case GET_EARLIEST:
-            return superposition_->earliest();
+            return storage = superposition_->earliest();
         case GET_LATEST:
-            return superposition_->latest();
+            return storage = superposition_->latest();
         case GET_ALL:
             assert(false);  // can't happen
         }
