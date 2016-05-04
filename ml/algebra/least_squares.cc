@@ -270,6 +270,7 @@ diag_mult(const boost::multi_array<double, 2> & U,
 template<typename Float>
 struct RidgeRegressionIteration {
     double lambda;
+    double current_lambda;
     double total_mse_unbiased;
     distribution<Float> x;
 
@@ -284,125 +285,124 @@ struct RidgeRegressionIteration {
         int m = A.shape()[0];
         int n = A.shape()[1];
 
-            double current_lambda = lambda;
-            
-            Timer t(debug);
-        
-            auto doneStep = [&] (const std::string & where)
-            {
-                if (!debug)
-                    return;
-                cerr << "      " << where << ": " << t.elapsed() << endl;
-                t.restart();
-            };
+        Timer t(debug);
 
-            //cerr << "i = " << i << " current_lambda = " << current_lambda << endl;
-            // Adjust the singular values for the new lambda
-            distribution<Float> my_singular = singular_values;
+        auto doneStep = [&] (const std::string & where)
+        {
+            if (!debug)
+                return;
+            cerr << "      " << where << ": " << t.elapsed() << endl;
+            t.restart();
+        };
+
+        //cerr << "i = " << i << " current_lambda = " << current_lambda << endl;
+        // Adjust the singular values for the new lambda
+        distribution<Float> my_singular = singular_values;
+        if (current_lambda != lambda)
             my_singular += (current_lambda - lambda);
 
-            //boost::multi_array<Float, 2> GK_pinv
-            //    = U * diag((Float)1.0 / my_singular) * VT;
+        //boost::multi_array<Float, 2> GK_pinv
+        //    = U * diag((Float)1.0 / my_singular) * VT;
 
-            boost::multi_array<Float, 2> GK_pinv
-                = diag_mult(U, (Float)1.0 / my_singular, VT, false /* parallel */);
+        boost::multi_array<Float, 2> GK_pinv
+            = diag_mult(U, (Float)1.0 / my_singular, VT, true /* parallel */);
 
-            doneStep("diag_mult");
+        doneStep("diag_mult");
 
-            // TODO: reduce GK by removing those basis vectors where the singular
-            // values are too close to lambda
-        
-            if (debug && false) {
-                cerr << "GK_pinv = " << endl << GK_pinv
-                     << endl;
-                cerr << "prod = " << endl << (GK * GK_pinv * GK) << endl;
-                cerr << "prod2 = " << endl << (GK_pinv * GK * GK) << endl;
-            }
+        // TODO: reduce GK by removing those basis vectors where the singular
+        // values are too close to lambda
+    
+        if (debug && false) {
+            cerr << "GK_pinv = " << endl << GK_pinv
+                 << endl;
+            cerr << "prod = " << endl << (GK * GK_pinv * GK) << endl;
+            cerr << "prod2 = " << endl << (GK_pinv * GK * GK) << endl;
+        }
 
-            boost::multi_array<Float, 2> A_pinv
-                = (m < n ? GK_pinv * A : A * GK_pinv);
+        boost::multi_array<Float, 2> A_pinv
+            = (m < n ? GK_pinv * A : A * GK_pinv);
 
-            doneStep("A_pinv");
+        doneStep("A_pinv");
 
-            if (debug && false)
-                cerr << "A_pinv = " << endl << A_pinv << endl;
+        if (debug && false)
+            cerr << "A_pinv = " << endl << A_pinv << endl;
 
-            x = b * A_pinv;
-        
-            if (debug)
-                cerr << "x = " << x << endl;
-
-            distribution<Float> predictions = A * x;
-
-            //cerr << "A: " << A.shape()[0] << "x" << A.shape()[1] << endl;
-            //cerr << "A_pinv: " << A_pinv.shape()[0] << "x" << A_pinv.shape()[1]
-            //     << endl;
-
-            //boost::multi_array<Float, 2> A_A_pinv
-            //    = A * transpose(A_pinv);
-
-            doneStep("predictions");
-
-#if 0
-            boost::multi_array<Float, 2> A_A_pinv
-            = multiply_transposed(A, A_pinv);
-
-            cerr << "A_A_pinv: " << A_A_pinv.shape()[0] << "x"
-            << A_A_pinv.shape()[1] << " m = " << m << endl;
-
-            if (debug && false)
-                cerr << "A_A_pinv = " << endl << A_A_pinv << endl;
-#else
-            // We only need the diagonal of A * A_pinv
-
-            distribution<Float> A_A_pinv_diag(m);
-            for (unsigned j = 0;  j < m;  ++j)
-                A_A_pinv_diag[j] = SIMD::vec_dotprod_dp(&A[j][0], &A_pinv[j][0], n);
-#endif
-
-            doneStep("A_A_pinv");
-
-            // Now figure out the performance
-            double total_mse_biased = 0.0, total_mse_unbiased = 0.0;
-            for (unsigned j = 0;  j < m;  ++j) {
-
-                if (j < 10 && false)
-                    cerr << "j = " << j << " b[j] = " << b[j]
-                         << " predictions[j] = " << predictions[j]
-                         << endl;
-
-                double resid = b[j] - predictions[j];
-
-                // Adjust for the bias cause by training on this example.  This is
-                // A * pinv(A), which is A * 
-
-                double factor = 1.0 - A_A_pinv_diag[j];
-
-                double resid_unbiased = resid / factor;
-
-                total_mse_biased += (1.0 / m) * resid * resid;
-                total_mse_unbiased += (1.0 / m) * resid_unbiased * resid_unbiased;
-            }
-
-            doneStep("mse");
-
-            //cerr << "lambda " << current_lambda
-            //     << " rmse_biased = " << sqrt(total_mse_biased)
-            //     << " rmse_unbiased = " << sqrt(total_mse_unbiased)
-            //     << endl;
-
-            //if (sqrt(total_mse_biased) > 1.0) {
-            //    cerr << "rmse_biased: x = " << x << endl;
-            //}
-        
-#if 0
-            cerr << "m = " << m << endl;
-            cerr << "total_mse_biased   = " << total_mse_biased << endl;
-            cerr << "total_mse_unbiased = " << total_mse_unbiased << endl;
-            cerr << "best_error = " << best_error << endl;
+        x = b * A_pinv;
+    
+        if (debug)
             cerr << "x = " << x << endl;
+
+        distribution<Float> predictions = A * x;
+
+        //cerr << "A: " << A.shape()[0] << "x" << A.shape()[1] << endl;
+        //cerr << "A_pinv: " << A_pinv.shape()[0] << "x" << A_pinv.shape()[1]
+        //     << endl;
+
+        //boost::multi_array<Float, 2> A_A_pinv
+        //    = A * transpose(A_pinv);
+
+        doneStep("predictions");
+
+#if 0
+        boost::multi_array<Float, 2> A_A_pinv
+        = multiply_transposed(A, A_pinv);
+
+        cerr << "A_A_pinv: " << A_A_pinv.shape()[0] << "x"
+        << A_A_pinv.shape()[1] << " m = " << m << endl;
+
+        if (debug && false)
+            cerr << "A_A_pinv = " << endl << A_A_pinv << endl;
+#else
+        // We only need the diagonal of A * A_pinv
+
+        distribution<Float> A_A_pinv_diag(m);
+        for (unsigned j = 0;  j < m;  ++j)
+            A_A_pinv_diag[j] = SIMD::vec_dotprod_dp(&A[j][0], &A_pinv[j][0], n);
 #endif
-        };
+
+        doneStep("A_A_pinv");
+
+        // Now figure out the performance
+        double total_mse_biased = 0.0;
+        for (unsigned j = 0;  j < m;  ++j) {
+
+            if (j < 10 && false)
+                cerr << "j = " << j << " b[j] = " << b[j]
+                     << " predictions[j] = " << predictions[j]
+                     << endl;
+
+            double resid = b[j] - predictions[j];
+
+            // Adjust for the bias cause by training on this example.  This is
+            // A * pinv(A), which is A * 
+
+            double factor = 1.0 - A_A_pinv_diag[j];
+
+            double resid_unbiased = resid / factor;
+
+            total_mse_biased += (1.0 / m) * resid * resid;
+            total_mse_unbiased += (1.0 / m) * resid_unbiased * resid_unbiased;
+        }
+
+        doneStep("mse");
+
+        //cerr << "lambda " << current_lambda
+        //     << " rmse_biased = " << sqrt(total_mse_biased)
+        //     << " rmse_unbiased = " << sqrt(total_mse_unbiased)
+        //     << endl;
+
+        //if (sqrt(total_mse_biased) > 1.0) {
+        //    cerr << "rmse_biased: x = " << x << endl;
+        //}
+    
+#if 0
+        cerr << "m = " << m << endl;
+        cerr << "total_mse_biased   = " << total_mse_biased << endl;
+        cerr << "total_mse_unbiased = " << total_mse_unbiased << endl;
+        cerr << "best_error = " << best_error << endl;
+        cerr << "x = " << x << endl;
+#endif
+    };
 
 };
 
@@ -430,6 +430,7 @@ ridge_regression_impl(const boost::multi_array<Float, 2> & A,
                       float lambda)
 {
     using namespace std;
+    float initialLambda = lambda < 0 ? 1e-5 : lambda;
     //cerr << "ridge_regression: A = " << A.shape()[0] << "x" << A.shape()[1]
     //     << " b = " << b.size() << endl;
 
@@ -498,7 +499,7 @@ ridge_regression_impl(const boost::multi_array<Float, 2> & A,
 
     // Add in the ridge
     for (unsigned i = 0;  i < minmn;  ++i)
-        GK[i][i] += lambda;
+        GK[i][i] += initialLambda;
 
     if (debug)
         cerr << "GK with ridge = " << endl << GK << endl;
@@ -530,39 +531,50 @@ ridge_regression_impl(const boost::multi_array<Float, 2> & A,
 
     // Figure out the optimal value of lambda based upon leave-one-out cross
     // validation
-
-    double current_lambda = 10.0;
-
-    typedef RidgeRegressionIteration<Float> Iteration;
-
-    RidgeRegressionIterations<Float> iterations;
-
-    for (unsigned i = 0; current_lambda >= 1e-14;  ++i, current_lambda /= 10.0) {
-        Iteration iter;
-        iter.lambda = current_lambda;
-        iterations.push_back(iter);
-    };
-
-    Datacratic::parallelMap(0, iterations.size(),
-                    std::bind(std::mem_fn(&RidgeRegressionIterations<Float>::run),
-                              std::ref(iterations),
-                              std::cref(singular_values),
-                              std::cref(A), std::cref(b),
-                              std::cref(VT), std::cref(U),
-                              std::cref(GK), debug,
-                              std::placeholders::_1));
-
-    //double best_lambda = -1000;
-    double best_error = 1000000;
     distribution<Float> x_best;
+    typedef RidgeRegressionIteration<Float> Iteration;
+    if (lambda < 0) {
+        double current_lambda = 10.0;
 
-    for (unsigned i = 0;  i < iterations.size();  ++i) {
+        RidgeRegressionIterations<Float> iterations;
 
-        if (iterations[i].total_mse_unbiased < best_error || i == 0) {
-            x_best = iterations[i].x;
-            //best_lambda = current_lambda;
-            best_error = iterations[i].total_mse_unbiased;
-        }
+        for (unsigned i = 0; current_lambda >= 1e-14;  ++i, current_lambda /= 10.0) {
+            Iteration iter;
+            iter.lambda = initialLambda;
+            iter.current_lambda = current_lambda;
+            iterations.push_back(iter);
+        };
+
+        Datacratic::parallelMap(0, iterations.size(),
+                        std::bind(std::mem_fn(&RidgeRegressionIterations<Float>::run),
+                                  std::ref(iterations),
+                                  std::cref(singular_values),
+                                  std::cref(A), std::cref(b),
+                                  std::cref(VT), std::cref(U),
+                                  std::cref(GK), debug,
+                                  std::placeholders::_1));
+
+        //double best_lambda = -1000;
+        double best_error = 1000000;
+
+        for (unsigned i = 0;  i < iterations.size();  ++i) {
+
+            if (iterations[i].total_mse_unbiased < best_error || i == 0) {
+
+                //cerr << "best_lambda " << iterations[i].current_lambda << " error : " << iterations[i].total_mse_unbiased << endl;
+
+                x_best = iterations[i].x;
+                //best_lambda = current_lambda;
+                best_error = iterations[i].total_mse_unbiased;
+            }
+        } 
+    }
+    else {
+        Iteration iter;
+        iter.lambda = initialLambda;
+        iter.current_lambda = initialLambda;
+        iter.run(singular_values, A, b, VT, U, GK, debug);
+        x_best = iter.x;
     }
 
     doneStep("    lambda");

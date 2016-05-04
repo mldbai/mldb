@@ -353,7 +353,8 @@ perform_irls_unconditioned(const distribution<Float> & correct,
                            const boost::multi_array<Float, 2> & outputs,
                            const distribution<Float> & w,
                            Link_Function link_function,
-                           bool ridge_regression)
+                           bool ridge_regression,
+                           Float regularization_factor)
 {
     int nx = correct.size();
 
@@ -374,7 +375,7 @@ perform_irls_unconditioned(const distribution<Float> & correct,
     }
     else {
         if (ridge_regression) {
-            Ridge_Regressor regressor(1e-5);
+            Ridge_Regressor regressor(regularization_factor);
             trained
                 = run_irls(correct, outputs, w, link_function, regressor);
         }
@@ -398,7 +399,8 @@ perform_irls_conditioned(const distribution<Float> & correct,
                               const boost::multi_array<Float, 2> & outputs,
                               const distribution<Float> & w,
                               Link_Function link_function,
-                              bool ridge_regression)
+                              bool ridge_regression, 
+                              Float regularization_factor)
 {
     int nx = correct.size();
     int nv = outputs.shape()[0];
@@ -504,7 +506,8 @@ perform_irls_conditioned(const distribution<Float> & correct,
 
     distribution<Float> trained = perform_irls_unconditioned(correct, outputs_reduced,
                                                              w, link_function,
-                                                             ridge_regression);
+                                                             ridge_regression,
+                                                             regularization_factor);
 
     doneTimer("training");
 
@@ -581,14 +584,15 @@ perform_irls(const distribution<float> & correct,
              const distribution<float> & w,
              Link_Function link_function,
              bool ridge_regression,
+             float regularization_factor,
              bool condition)
 {
     if (condition)
         return perform_irls_conditioned(correct, outputs, w, link_function,
-                                        ridge_regression);
+                                        ridge_regression, regularization_factor);
     else
         return perform_irls_unconditioned(correct, outputs, w, link_function,
-                                          ridge_regression);
+                                          ridge_regression, regularization_factor);
 }
 
 distribution<double>
@@ -597,14 +601,15 @@ perform_irls(const distribution<double> & correct,
              const distribution<double> & w,
              Link_Function link_function,
              bool ridge_regression,
+             double regularization_factor,
              bool condition)
 {
     if (condition)
         return perform_irls_conditioned(correct, outputs, w, link_function,
-                                        ridge_regression);
+                                        ridge_regression, regularization_factor);
     else
         return perform_irls_unconditioned(correct, outputs, w, link_function,
-                                          ridge_regression);
+                                          ridge_regression, regularization_factor);
 }
 
 distribution<double>

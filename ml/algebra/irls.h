@@ -298,6 +298,7 @@ perform_irls(const distribution<float> & correct,
              const distribution<float> & w,
              Link_Function link_function,
              bool ridge_regression = true,
+             float regularization_factor = 1e-5,
              bool condition = true);
 
 /** Perform an IRLS in double precision.
@@ -314,6 +315,7 @@ perform_irls(const distribution<double> & correct,
              const distribution<double> & w,
              Link_Function link_function,
              bool ridge_regression = true,
+             double regularization_factor = 1e-5,
              bool condition = true);
 
 
