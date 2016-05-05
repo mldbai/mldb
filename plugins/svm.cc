@@ -181,10 +181,10 @@ SVMConfigDescription()
              "the trained SVM.", SVM_CLASSIFICATION);
     addParent<ProcedureConfig>();
 
-    onPostValidate = validate<SVMConfig,
-                              InputQuery,
-                              MustContainFrom,
-                              NoGroupByHaving>(&SVMConfig::trainingData, "svm");
+    onPostValidate = chain(validateQuery(&SVMConfig::trainingData,
+                                         MustContainFrom(),
+                                         NoGroupByHaving()),
+                           validateFunction<SVMConfig>());
 }
 
 /*****************************************************************************/
@@ -204,7 +204,7 @@ struct MLDBSVM_Problem : svm_problem
     ~MLDBSVM_Problem()
     {
         delete [] y;
-        delete [] x; 
+        delete [] x;
         delete [] x_space;
     }
 
@@ -220,7 +220,7 @@ SVMProcedure(MldbServer * owner,
             const std::function<bool (const Json::Value &)> & onProgress)
     : Procedure(owner)
 {
-    procedureConfig = config.params.convert<SVMConfig>();   
+    procedureConfig = config.params.convert<SVMConfig>();
 }
 
 Any
@@ -282,7 +282,7 @@ run(const ProcedureRunConfig & run,
         const std::vector<double>& row = std::get<2>(r);
 
         for (size_t i = 0; i < row.size(); ++i)
-        {            
+        {
             if (i == labelIndex)
             {
                 prob.y[prob.l] = row[i];
@@ -295,13 +295,13 @@ run(const ProcedureRunConfig & run,
                     prob.x_space[element].index = i < labelIndex ? i : i - 1;
                     prob.x_space[element].value = val;
                     element++;
-                }                
+                }
             }
         }
 
          prob.x_space[element++].index = -1;
 
-        prob.l++;        
+        prob.l++;
     }
 
     SVMParameterWrapper paramWrapper;
@@ -328,7 +328,7 @@ run(const ProcedureRunConfig & run,
     auto plugin_working_dir = fs::temp_directory_path() / fs::unique_path();
     auto model_tmp_name = plugin_working_dir.string() + std::string("svmmodeltemp_a.svm");
     try {
-        if (svm_save_model(model_tmp_name.c_str(),model))          
+        if (svm_save_model(model_tmp_name.c_str(),model))
             throw ML::Exception("");
 
         Datacratic::makeUriDirectory(runProcConf.modelFileUrl.toString());
@@ -451,7 +451,7 @@ call(SVMFunctionArgs input) const
              x[nbSparse].index = i;
              x[nbSparse].value = embedding[i];
              nbSparse++;
-        }     
+        }
     }
 
     x[nbSparse].index = -1;
@@ -465,7 +465,6 @@ namespace {
 
 RegisterProcedureType<SVMProcedure, SVMConfig>
 regClassifier(builtinPackage(),
-              "svm.train",
               "Train a supervised Support Vector Machine",
               "procedures/Svm.md.html",
                             nullptr /* static route */,

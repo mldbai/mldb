@@ -27,6 +27,8 @@ namespace MLDB {
 /*****************************************************************************/
 
 struct KmeansConfig : public ProcedureConfig {
+    static constexpr const char * name = "kmeans.train";
+
     KmeansConfig()
         : numInputDimensions(-1),
           numClusters(10),
@@ -58,7 +60,7 @@ DECLARE_STRUCTURE_DESCRIPTION(KmeansConfig);
 /*****************************************************************************/
 
 struct KmeansProcedure: public Procedure {
-    
+
     KmeansProcedure(MldbServer * owner,
                    PolyConfig config,
                    const std::function<bool (const Json::Value &)> & onProgress);
@@ -77,7 +79,7 @@ struct KmeansProcedure: public Procedure {
 /*****************************************************************************/
 
 struct KmeansFunctionConfig {
-    
+
     Url modelFileUrl;
 };
 

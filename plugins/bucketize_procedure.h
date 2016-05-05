@@ -16,8 +16,10 @@ namespace Datacratic {
 namespace MLDB {
 
 struct BucketizeProcedureConfig : ProcedureConfig {
+    static constexpr const char * name = "bucketize";
+
     BucketizeProcedureConfig();
-    
+
     InputQuery inputData;
     PolyConfigT<Dataset> outputDataset;
     std::map<std::string, std::pair<float, float>> percentileBuckets;
@@ -43,4 +45,3 @@ struct BucketizeProcedure: public Procedure {
 
 } // namespace MLDB
 } // namespace Datacratic
-

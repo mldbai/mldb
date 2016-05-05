@@ -23,6 +23,8 @@ namespace MLDB {
 /*****************************************************************************/
 
 struct ScriptProcedureConfig : ProcedureConfig {
+    static constexpr const char * name = "script.run";
+
     ScriptProcedureConfig()
     {
     }

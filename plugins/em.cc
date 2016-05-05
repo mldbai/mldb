@@ -27,6 +27,7 @@
 #include "mldb/types/any_impl.h"
 #include "jml/utils/smart_ptr_utils.h"
 #include "mldb/vfs/fs_utils.h"
+#include "mldb/plugins/sql_config_validator.h"
 
 
 using namespace std;
@@ -43,9 +44,9 @@ std::vector<double> tovector(boost::multi_array<double, 2>& m)
         for(int j = 0; j < m.shape()[1]; j++) {
              embedding.push_back(m[i][j]); // multiply by elements on diagonal
         }
-    }       
+    }
 
-    return embedding;    
+    return embedding;
 }
 
 DEFINE_STRUCTURE_DESCRIPTION(EMConfig);
@@ -56,7 +57,7 @@ EMConfigDescription()
     Optional<PolyConfigT<Dataset> > optional;
     optional.emplace(PolyConfigT<Dataset>().
                      withType(EMConfig::defaultOutputDatasetType));
-    
+
     addField("trainingData", &EMConfig::trainingData,
              "Specification of the data for input to the procedure.  This should be "
              "organized as an embedding, with each selected row containing the same "
@@ -98,6 +99,7 @@ EMConfigDescription()
              "the training result.");
     addParent<ProcedureConfig>();
 
+    onPostValidate = validateFunction<EMConfig>();
 }
 
 /*****************************************************************************/
@@ -203,13 +205,13 @@ run(const ProcedureRunConfig & run,
         auto output = createDataset(server, outputDataset, onProgress2, true /*overwrite*/);
 
         Date applyDate = Date::now();
-        
+
         for (unsigned i = 0;  i < rows.size();  ++i) {
             std::vector<std::tuple<ColumnName, CellValue, Date> > cols;
             cols.emplace_back(ColumnName("cluster"), inCluster[i], applyDate);
             output->recordRow(std::get<1>(rows[i]), cols);
         }
-        
+
         output->commit();
     }
 
@@ -233,10 +235,10 @@ run(const ProcedureRunConfig & run,
             for (unsigned j = 0;  j < flatmatrix.size();  ++j) {
                 cols.emplace_back(ColumnName(ML::format("c%02d", j)), flatmatrix[j], applyDate);
             }
-            
+
             centroids->recordRow(RowName(ML::format("%i", i)), cols);
         }
-        
+
         centroids->commit();
     }
 
@@ -252,13 +254,13 @@ run(const ProcedureRunConfig & run,
             obtainFunction(server, emPC, onProgress);
         } else {
             throw HttpReturnException(400, "Can't create gaussian clustering function '" +
-                                      runProcConf.functionName.rawString() + 
+                                      runProcConf.functionName.rawString() +
                                       "'. Have you provided a valid modelFileUrl?",
                                       "modelFileUrl", runProcConf.modelFileUrl.toString());
         }
     }
 
-    return Any();  
+    return Any();
 }
 
 DEFINE_STRUCTURE_DESCRIPTION(EMFunctionConfig);
@@ -270,11 +272,11 @@ EMFunctionConfigDescription()
              "URL of the model file (with extension '.gs') to load. "
              "This file is created by a procedure of type 'gaussianclustering.train'.");
 
-    onPostValidate = [] (EMFunctionConfig * cfg, 
+    onPostValidate = [] (EMFunctionConfig * cfg,
                          JsonParsingContext & context) {
         // this includes empty url
         if(!cfg->modelFileUrl.valid()) {
-            throw ML::Exception("modelFileUrl \"" + cfg->modelFileUrl.toString() 
+            throw ML::Exception("modelFileUrl \"" + cfg->modelFileUrl.toString()
                                 + "\" is not valid");
         }
     };
@@ -323,7 +325,7 @@ EMFunction(MldbServer * owner,
     functionConfig = config.params.convert<EMFunctionConfig>();
 
     impl.reset(new Impl(functionConfig.modelFileUrl));
-    
+
     dimension = impl->em.clusters[0].centroid.size();
 
     //cerr << "got " << impl->em.clusters.size()
@@ -372,18 +374,18 @@ applyT(const ApplierT & applier_, EMInput input_) const
 namespace {
 
 RegisterProcedureType<EMProcedure, EMConfig>
-regEM(builtinPackage(), "gaussianclustering.train",
-          "Gaussian clustering algorithm using Estimation Maximization on Gaussian Mixture Models",
-          "procedures/EMProcedure.md.html",
-                            nullptr /* static route */,
-                            { MldbEntity::INTERNAL_ENTITY });
+regEM(builtinPackage(),
+      "Gaussian clustering algorithm using Estimation Maximization on Gaussian Mixture Models",
+      "procedures/EMProcedure.md.html",
+      nullptr /* static route */,
+      { MldbEntity::INTERNAL_ENTITY });
 
 RegisterFunctionType<EMFunction, EMFunctionConfig>
 regEMFunction(builtinPackage(), "gaussianclustering",
-               "Apply an gaussian clustering to new data",
-               "functions/EM.md.html",
-                            nullptr /* static route */,
-                            { MldbEntity::INTERNAL_ENTITY });
+              "Apply an gaussian clustering to new data",
+              "functions/EM.md.html",
+              nullptr /* static route */,
+              { MldbEntity::INTERNAL_ENTITY });
 
 } // file scope
 

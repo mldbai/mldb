@@ -61,7 +61,7 @@ AccuracyConfigDescription()
              "of whatever is having its accuracy tested.  This needs to be "
              "a number, and normally should be a floating point number that "
              "represents the degree of confidence in the prediction, not "
-             "just the class. This is typically, the training function returned "  
+             "just the class. This is typically, the training function returned "
              "by a classifier.train procedure. "
              "The select expression can also contain an optional weight sub-expression. "
              "This expression generates the relative weight for each example.  In some "
@@ -84,13 +84,12 @@ AccuracyConfigDescription()
               "they have the same score when mode=boolean. Specifying a "
              "dataset is optional.", optionalOutputDataset);
     addParent<ProcedureConfig>();
-            
-    onPostValidate = validate<AccuracyConfig, 
-                              InputQuery,
-                              NoGroupByHaving,
-                              PlainColumnSelect,
-                              ScoreLabelSelect,
-                              MustContainFrom>(&AccuracyConfig::testingData, "accuracy");
+
+    onPostValidate = validateQuery(&AccuracyConfig::testingData,
+                                   NoGroupByHaving(),
+                                   PlainColumnSelect(),
+                                   ScoreLabelSelect(),
+                                   MustContainFrom());
 
 }
 
@@ -134,16 +133,16 @@ runBoolean(AccuracyConfig & runAccuracyConf,
             double score = scoreLabelWeight[0].toDouble();
             bool label = scoreLabelWeight[1].asBool();
             double weight = scoreLabelWeight[2].toDouble();
-            
+
             accum.get().update(label, score, weight, row.rowName);
-            
+
             return true;
         };
 
     selectQuery.execute({processor,true/*processInParallel*/}, runAccuracyConf.testingData.stm->offset,
              runAccuracyConf.testingData.stm->limit,
              nullptr /* progress */);
-    
+
     // Now merge out stats together
     ScoredStats stats;
 
@@ -243,7 +242,7 @@ runCategorical(AccuracyConfig & runAccuracyConf,
             auto onAtom = [&] (const Path & columnName,
                                const Path & prefix,
                                const CellValue & val,
-                               Date ts) 
+                               Date ts)
                 {
                     auto v = val.toDouble();
                     if(v > maxLabelScore) {
@@ -298,7 +297,7 @@ runCategorical(AccuracyConfig & runAccuracyConf,
     map<CellValue, map<CellValue, unsigned>> confusion_matrix;
     map<CellValue, unsigned> predicted_sums;
     map<CellValue, unsigned> real_sums;
-    accum.forEach([&] (AccumBucket * thrBucket) 
+    accum.forEach([&] (AccumBucket * thrBucket)
             {
                 for(auto & elem : *thrBucket) {
                     const CellValue & label = std::get<0>(elem);
@@ -341,7 +340,7 @@ runCategorical(AccuracyConfig & runAccuracyConf,
             } else{
                 fn += predicted_it.second;
             }
-            
+
             Json::Value conf_mat_elem;
             conf_mat_elem["predicted"] = jsonEncode(predicted_it.first);
             conf_mat_elem["actual"] = jsonEncode(actual_it.first);
@@ -384,7 +383,7 @@ runCategorical(AccuracyConfig & runAccuracyConf,
         // if it is not a true label
         if(real_sums.find(predicted_it.first) == real_sums.end()) {
             if(weighted_stats["precision"].asDouble() == 0) {
-                throw ML::Exception(ML::format("Weighted precision is 0 and label '%s' " 
+                throw ML::Exception(ML::format("Weighted precision is 0 and label '%s' "
                         "was predicted but not in true labels! Are the columns of the predicted "
                         "labels named properly?", predicted_it.first.toString()));
             }
@@ -470,7 +469,7 @@ runRegression(AccuracyConfig & runAccuracyConf,
             return true;
         };
 
-    selectQuery.execute({processor,true/*processInParallel*/}, 
+    selectQuery.execute({processor,true/*processInParallel*/},
              runAccuracyConf.testingData.stm->offset,
              runAccuracyConf.testingData.stm->limit,
              nullptr /* progress */);
@@ -532,7 +531,7 @@ runRegression(AccuracyConfig & runAccuracyConf,
     else if (totalSumSquares == 0)  r_squared = 0;
     else                            r_squared = 1 - (mse_sum / totalSumSquares);
 
-    // prepare absolute_percentage distribution 
+    // prepare absolute_percentage distribution
     ML::distribution<double> absolute_percentage;
 
     parallelMergeSortRecursive(accum.threads, 0, accum.threads.size(),
@@ -589,7 +588,7 @@ run(const ProcedureRunConfig & run,
     SqlExpressionMldbScope context(server);
 
     auto dataset = runAccuracyConf.testingData.stm->from->bind(context).dataset;
-   
+
     // prepare output dataset
     std::shared_ptr<Dataset> output;
     if(runAccuracyConf.outputDataset) {
@@ -601,7 +600,7 @@ run(const ProcedureRunConfig & run,
     }
 
     // 5.  Run it
-    auto score = extractNamedSubSelect("score", runAccuracyConf.testingData.stm->select)->expression; 
+    auto score = extractNamedSubSelect("score", runAccuracyConf.testingData.stm->select)->expression;
     auto label = extractNamedSubSelect("label", runAccuracyConf.testingData.stm->select)->expression;
     auto weightSubSelect = extractNamedSubSelect("weight", runAccuracyConf.testingData.stm->select);
     shared_ptr<SqlExpression> weight = weightSubSelect ? weightSubSelect->expression : SqlExpression::ONE;
@@ -612,7 +611,7 @@ run(const ProcedureRunConfig & run,
         weight
     };
 
-    auto boundQuery = 
+    auto boundQuery =
         BoundSelectQuery({} /* select */, *dataset, "" /* table alias */,
                      runAccuracyConf.testingData.stm->when,
                      *runAccuracyConf.testingData.stm->where,
@@ -633,7 +632,6 @@ namespace {
 
 RegisterProcedureType<AccuracyProcedure, AccuracyConfig>
 regAccuracy(builtinPackage(),
-            "classifier.test",
             "Calculate the accuracy of a classifier on held-out data",
             "procedures/Accuracy.md.html");
 

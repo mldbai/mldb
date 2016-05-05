@@ -55,9 +55,9 @@ struct SqlQueryFunction: public Function {
     SqlQueryFunction(MldbServer * owner,
                   PolyConfig config,
                   const std::function<bool (const Json::Value &)> & onProgress);
-    
+
     virtual Any getStatus() const;
-    
+
     virtual std::unique_ptr<FunctionApplier>
     bind(SqlBindingScope & outerContext,
          const std::shared_ptr<RowValueInfo> & input) const;
@@ -97,7 +97,7 @@ struct SqlExpressionFunction: public Function {
     ~SqlExpressionFunction();
 
     virtual Any getStatus() const;
-    
+
     virtual std::unique_ptr<FunctionApplier>
     bind(SqlBindingScope & outerContext,
          const std::shared_ptr<RowValueInfo> & inputInfo) const;
@@ -125,6 +125,7 @@ struct SqlExpressionFunction: public Function {
 */
 
 struct TransformDatasetConfig : ProcedureConfig {
+    static constexpr const char * name = "transform";
 
     TransformDatasetConfig();
 
@@ -159,4 +160,3 @@ struct TransformDataset: public Procedure {
 
 } // namespace MLDB
 } // namespace Datacratic
-
