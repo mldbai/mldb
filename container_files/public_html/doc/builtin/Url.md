@@ -65,11 +65,10 @@ the request.
 
 ### Credentials storage
 
-Credentials stored in MLDB are persisted by default under the `.mldb_credentials` sub-folder
-of the `mldb_data` folder.  This is different
-than other MLDB entities.  As a consequence, if MLDB is restarted, the credentials
-will be reloaded automatically.  Deleting a credential entity will also delete
-its persisted copy.
+Unlike other resources stored in MLDB, the credentials are persisted to disk under the `.mldb_credentials`
+sub-folder of the `mldb_data` folder.  The credentials are persisted in clear so it is important to
+protect them and users are encourage to put in place the proper safeguards on that location.
+Deleting a credential entity will also delete its persisted copy.
 
 ### Credentials objects
 
