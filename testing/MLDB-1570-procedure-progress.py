@@ -41,6 +41,7 @@ class ProcedureProgressTest(MldbUnitTest):
         })
 
         running = True
+        last_percent = 0.0
         while(running):
             resp = mldb.get(location).json()
             assert 'id' in resp, "status is expected to return the id of the run"
@@ -49,6 +50,10 @@ class ProcedureProgressTest(MldbUnitTest):
                 running = False
             elif resp['state'] == 'executing': # still executing
                 assert 'progress' in resp, "status is expected to return the progress of the run " + str(resp)
+                current_percent = resp['progress']['steps'][0]['percent'] 
+                assert current_percent >= last_percent, 'percent must be increasing'
+                last_percent = current_percent
+                mldb.log(resp)
             time.sleep(0.001)
 
 
