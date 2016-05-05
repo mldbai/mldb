@@ -11,7 +11,7 @@
 
 #include "mldb/core/dataset.h"
 #include "mldb/core/procedure.h"
-#include "mldb/core/function.h"
+#include "mldb/core/value_function.h"
 #include "matrix.h"
 #include "mldb/types/value_description_fwd.h"
 
@@ -29,7 +29,9 @@ enum SVMType {
 DECLARE_ENUM_DESCRIPTION(SVMType);
 
 struct SVMConfig : public ProcedureConfig {
-   SVMConfig()
+    static constexpr const char * name = "svm.train";
+
+    SVMConfig()
         : svmType(SVM_CLASSIFICATION)
     {
     }
@@ -87,28 +89,27 @@ struct SVMFunctionConfig {
 
 DECLARE_STRUCTURE_DESCRIPTION(SVMFunctionConfig);
 
-struct SVMFunction: public Function {
+struct SVMFunctionArgs {
+   ExpressionValue embedding; //embedding
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(SVMFunctionArgs);
+
+struct SVMExpressionValue {
+   ExpressionValue output;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(SVMExpressionValue);
+
+struct SVMFunction: public ValueFunctionT<SVMFunctionArgs, SVMExpressionValue>  {
     SVMFunction(MldbServer * owner,
                   PolyConfig config,
                   const std::function<bool (const Json::Value &)> & onProgress);
 
     ~SVMFunction();
 
-    virtual Any getStatus() const;
+    virtual SVMExpressionValue call(SVMFunctionArgs input) const override; 
 
-    // The function needs to be able to bind so an optimized classifier
-    // can be produced.
-    virtual std::unique_ptr<FunctionApplier>
-    bind(SqlBindingScope & outerContext,
-         const FunctionValues & input) const;
-
-    virtual FunctionOutput apply(const FunctionApplier & applier,
-                              const FunctionContext & context) const;
-
-    /** Describe what the input and output is for this function. */
-    virtual FunctionInfo getFunctionInfo() const;
-
-    //Classifier classifier;
     SVMFunctionConfig functionConfig;
 
     struct Itl;

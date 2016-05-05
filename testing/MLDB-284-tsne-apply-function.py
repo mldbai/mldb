@@ -45,6 +45,7 @@ def runProcedure():
 
 def applyFunction(row):
     rez = mldb.perform("GET", "/v1/functions/tsne_embed/application", [['input', {'embedding':row}]])
+    mldb.log(rez)
     return rez
 
 firstRunRows = runProcedure()

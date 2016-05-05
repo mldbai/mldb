@@ -170,17 +170,15 @@ ExperimentProcedureConfigDescription()
               true);
     addParent<ProcedureConfig>();
 
-    onPostValidate = chain(validate<ExperimentProcedureConfig,
-                           InputQuery,
-                           NoGroupByHaving,
-                           MustContainFrom,
-                           PlainColumnSelect>(&ExperimentProcedureConfig::trainingData, "classifier.experiment"),
-                           validate<ExperimentProcedureConfig,
-                           Optional<InputQuery>,
-                           NoGroupByHaving,
-                           MustContainFrom,
-                           PlainColumnSelect,
-                           FeaturesLabelSelect>(&ExperimentProcedureConfig::testingData, "classifier.experiment"));
+    onPostValidate = chain(validateQuery(&ExperimentProcedureConfig::trainingData,
+                                         NoGroupByHaving(),
+                                         MustContainFrom(),
+                                         PlainColumnSelect()),
+                           validateQuery(&ExperimentProcedureConfig::testingData,
+                                         NoGroupByHaving(),
+                                         MustContainFrom(),
+                                         PlainColumnSelect(),
+                                         FeaturesLabelSelect()));
 
 }
 
@@ -482,7 +480,7 @@ run(const ProcedureRunConfig & run,
         }
 
         // setup to run on the training set
-        accuracyConfig.testingData = runProcConf.testingData ? *runProcConf.testingData 
+        accuracyConfig.testingData = runProcConf.testingData ? *runProcConf.testingData
                                                              : runProcConf.trainingData;
         accuracyConfig.testingData.stm->where = datasetFold.testing_where;
 
@@ -559,7 +557,6 @@ namespace {
 
 RegisterProcedureType<ExperimentProcedure, ExperimentProcedureConfig>
 regExpProc(builtinPackage(),
-          "classifier.experiment",
           "Train and test a classifier",
           "procedures/ExperimentProcedure.md.html");
 

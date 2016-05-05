@@ -109,7 +109,7 @@ CsvDatasetConfigDescription::CsvDatasetConfigDescription()
     allowing it to find the variables, etc.
 */
 
-struct SqlCsvScope: public SqlExpressionMldbContext {
+struct SqlCsvScope: public SqlExpressionMldbScope {
 
     struct RowScope: public SqlRowScope {
         RowScope(const CellValue * row, Date ts, int64_t lineNumber,
@@ -126,7 +126,7 @@ struct SqlCsvScope: public SqlExpressionMldbContext {
 
     SqlCsvScope(MldbServer * server, const std::vector<ColumnName> & columnNames,
                 Date fileTimestamp, Utf8String dataFileUrl)
-        : SqlExpressionMldbContext(server), columnNames(columnNames),
+        : SqlExpressionMldbScope(server), columnNames(columnNames),
           fileTimestamp(fileTimestamp),
           dataFileUrl(std::move(dataFileUrl))
     {
@@ -151,7 +151,7 @@ struct SqlCsvScope: public SqlExpressionMldbContext {
     /// What is the URI for this file?
     Utf8String dataFileUrl;
 
-    virtual VariableGetter doGetVariable(const Utf8String & tableName,
+    virtual ColumnGetter doGetColumn(const Utf8String & tableName,
                                          const Utf8String & variableName)
     {
         if (!tableName.empty()) {
@@ -696,7 +696,7 @@ struct CsvDataset::Itl: public TabularDataStore {
 
         // Do we have a "select *"?  In that case, we can perform various
         // optimizations to avoid calling into the SQL layer
-        SqlExpressionDatasetContext noContext(*parentDataset, ""); //needs a context because x.* is ambiguous
+        SqlExpressionDatasetScope noContext(*parentDataset, ""); //needs a context because x.* is ambiguous
         bool isIdentitySelect = config.select.isIdentitySelect(noContext);
         
         // Do we have a "where true'?  In that case, we don't need to

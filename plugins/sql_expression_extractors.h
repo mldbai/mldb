@@ -1,4 +1,4 @@
-/** sql_expression_extractors.h                                                   -*- C++ -*-
+/** sql_expression_extractors.h                                         -*- C++ -*-
     Guy Dumais, 18 December 2015
 
     This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
@@ -11,15 +11,17 @@
 namespace Datacratic {
 namespace MLDB {
 
-/**  Iterates over the select sub expressions of type ComputedVariable to match a given named.
+/**  Iterates over the select sub expressions of type ComputedColumn to match a given named.
  *   Returns the matched expression or nullptr if there are no matches.
 */
-inline std::shared_ptr<ComputedVariable>
+inline std::shared_ptr<ComputedColumn>
 extractNamedSubSelect (const Utf8String & name, const SelectExpression & select) 
 {
     for (const auto & clause : select.clauses) {
-        auto computedVariable = std::dynamic_pointer_cast<ComputedVariable>(clause);
-        if (computedVariable && computedVariable->alias == name)
+        auto computedVariable = std::dynamic_pointer_cast<ComputedColumn>(clause);
+        if (computedVariable
+            && computedVariable->alias.size() == 1
+            && computedVariable->alias[0] == name)
             return computedVariable;
     }
     return nullptr;

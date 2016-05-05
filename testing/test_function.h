@@ -28,8 +28,8 @@ struct TestFunction: public Function {
     
     virtual Any getStatus() const;
     
-    virtual FunctionOutput apply(const FunctionApplier & applier,
-                              const FunctionContext & context) const;
+    virtual ExpressionValue apply(const FunctionApplier & applier,
+                              const ExpressionValue & context) const;
 
     /** Describe what the input and output is for this function. */
     virtual FunctionInfo getFunctionInfo() const;

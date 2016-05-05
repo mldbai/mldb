@@ -143,7 +143,7 @@ run(const std::vector<ExpressionValue> & args,
     for (unsigned i = 2;  i < args.size();  ++i) {
         if (args[i].isRow()) {
             RowValue row;
-            args[i].appendToRow(Coord(), row);
+            args[i].appendToRow(Path(), row);
             argv.push_back(JS::toJS(row));
         }
         else {
@@ -178,11 +178,11 @@ run(const std::vector<ExpressionValue> & args,
     else if (result->IsObject()) {
         std::map<Utf8String, CellValue> cols = JS::fromJS(result);
 
-        std::vector<std::tuple<ColumnName, ExpressionValue> > row;
+        std::vector<std::tuple<PathElement, ExpressionValue> > row;
         row.reserve(cols.size());
         for (auto & c: cols) {
-            row.emplace_back(ColumnName(c.first), ExpressionValue(std::move(c.second),
-                                                                  ts));
+            row.emplace_back(c.first, ExpressionValue(std::move(c.second),
+                                                      ts));
         }
         return ExpressionValue(std::move(row));
     }

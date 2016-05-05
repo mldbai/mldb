@@ -44,8 +44,8 @@ var data = mldb.get('/v1/datasets/test/query', {select: 'x,y,label', where:"rowN
 plugin.log(data);
 
 var expected = [
-   [ "_rowName", "x", "y", "label" ],
-   [ "ex112", 1, 1, null ]
+   [ "_rowName", "label", "x", "y" ],
+   [ "ex112", null, 1, 1 ]
 ];
 
 assertEqual(mldb.diff(expected, data, false /* strict */), {},

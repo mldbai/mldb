@@ -80,6 +80,9 @@ std::string getExceptionString()
         JML_TRACE_EXCEPTIONS(false);
         throw;
     }
+    catch (const std::bad_alloc & exc) {
+        return "Out of memory (std::bad_alloc)";
+    }
     catch (const std::exception & exc) {
         return exc.what();
     }

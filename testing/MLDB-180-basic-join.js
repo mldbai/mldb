@@ -154,15 +154,15 @@ assertEqual(resp.responseCode, 201);
 testQuery(
     'SELECT poil() as *',
     [
-        [ "_rowName", "test1.x", "test1.y", "test1.z", "test2.x", "test2.z" ],
-        [ "result", 1, 2, null, 1, 2 ]
+        [ "_rowName", "test1.x", "test1.y", "test2.x", "test2.z" ],
+        [ "result", 1, 2, 1, 2 ]
     ]);
 
 testQuery(
     'SELECT poil_as() as *',
     [
-        [ "_rowName", "t1.x", "t1.y", "t1.z", "t2.x", "t2.z" ],
-        [ "result", 1, 2, null, 1, 2 ]
+        [ "_rowName", "t1.x", "t1.y", "t2.x", "t2.z" ],
+        [ "result", 1, 2, 1, 2 ]
     ]);
 
 // almost same again but with a groupBy
@@ -185,7 +185,7 @@ mldb.log("testing query poil_group");
 testQuery(
     'SELECT poil_group() as *',
     [
-        [ "_rowName", "max(t1.y)", "min(t3.x)", "rn", "t1.x" ],
+        [ "_rowName", "\"max(t1.y)\"", "\"min(t3.x)\"", "rn", "t1.x" ],
         [ "result", 2, 1, "ex1-ex4-ex4", 1 ]
     ]);
 
@@ -250,7 +250,7 @@ for (var i in funcs) {
         "SELECT " + func +
         "({1 AS a, 1 AS b}) AS *",
         [
-            [ "_rowName", "max(t1.y)", "min(t3.x)", "t1.x" ],
+            [ "_rowName", "\"max(t1.y)\"", "\"min(t3.x)\"", "t1.x" ],
             [ "result", 2, 1, 1 ]
         ]);
 }
@@ -460,6 +460,27 @@ testQuery('SELECT * FROM test3 OUTER JOIN test4 ON test3.rowName() = test4.rowNa
 expected = [[ "_rowName" ]];
 
 testQuery('SELECT 1 FROM (SELECT 2) as a OUTER JOIN (SELECT 2) as b WHERE x',
+          expected);
+
+//MLDB-1559
+expected = [[ "_rowName" ]];
+
+testQuery('SELECT * FROM test1 as patate JOIN test2 as banane where patate.rowName() in (3, banane.x)',
+          expected);
+
+var dataset7 = mldb.createDataset({type:'sparse.mutable',id:'test7'});
+dataset7.recordRow("x", [[ "k", 1, ts ]] );
+dataset7.recordRow("blah", [[ "k", 1, ts ]] );
+
+dataset7.commit()
+
+expected = [
+   [ "_rowName", "table1.k", "table2.x", "table2.z" ],
+   [ "[x]-[ex4]", 1, 1, 2 ],
+   [ "[x]-[ex5]", 1, 2, 2 ],
+   [ "[x]-[ex6]", 1, null, 3 ]];
+
+testQuery('SELECT * FROM test7 as table1 JOIN test2 as table2 where table1.rowName() IN (KEYS OF ({table2.* as *}))',
           expected);
 
 "success"

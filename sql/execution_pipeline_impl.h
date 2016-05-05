@@ -35,11 +35,11 @@ struct TableLexicalScope: public LexicalScope {
     static constexpr int ROW_NAME = 0;
     static constexpr int ROW_CONTENTS = 1;
 
-    virtual VariableGetter
-    doGetVariable(const Utf8String & variableName, int fieldOffset);
+    virtual ColumnGetter
+    doGetColumn(const ColumnName & columnName, int fieldOffset);
 
     virtual GetAllColumnsOutput
-    doGetAllColumns(std::function<Utf8String (const Utf8String &)> keep,
+    doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
                     int fieldOffset);
 
     virtual BoundFunction
@@ -156,12 +156,15 @@ struct JoinLexicalScope: public LexicalScope {
     }
 
 
-    virtual VariableGetter
-    doGetVariable(const Utf8String & variableName, int fieldOffset);
+    virtual ColumnGetter
+    doGetColumn(const ColumnName & columnName, int fieldOffset);
 
-    /** For a join, we can select over the columns for either one or the other. */
+    /** For a join, we can select over the columns for either one or the
+        other.
+    */
     virtual GetAllColumnsOutput
-    doGetAllColumns(std::function<Utf8String (const Utf8String &)> keep, int fieldOffset);
+    doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
+                    int fieldOffset);
 
     virtual BoundFunction
     doGetFunction(const Utf8String & functionName,
@@ -214,6 +217,10 @@ struct JoinElement: public PipelineElement {
 
     struct Bound;
 
+    /** Execution runs over all left rows for each right row.  The complexity is
+        therefore O(left rows) * O(right rows).  The canonical example of this
+        is `SELECT * FROM t1 JOIN t2`.
+    */
     struct CrossJoinExecutor: public ElementExecutor {
         CrossJoinExecutor(const Bound * parent,
                           std::shared_ptr<ElementExecutor> root,
@@ -230,6 +237,11 @@ struct JoinElement: public PipelineElement {
         void restart();
     };
 
+    /** Execution runs on left rows and right rows together.  The complexity is
+        therefore O(max(left rows, right rows)).  The canonical example of this
+        is `SELECT * FROM t1 JOIN t2 ON t1.id = t2.id`.  This requires that the
+        the id column is sorted.
+    */
     struct EquiJoinExecutor: public ElementExecutor {
         EquiJoinExecutor(const Bound * parent,
                          std::shared_ptr<ElementExecutor> root,
@@ -536,11 +548,11 @@ struct AggregateLexicalScope: public LexicalScope {
 
     std::shared_ptr<PipelineExpressionScope> inner;
 
-    virtual VariableGetter doGetVariable(const Utf8String & variableName,
-                                         int fieldOffset);
+    virtual ColumnGetter
+    doGetColumn(const ColumnName & columnName, int fieldOffset);
 
     virtual GetAllColumnsOutput
-    doGetAllColumns(std::function<Utf8String (const Utf8String &)> keep,
+    doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
                     int fieldOffset);
 
     virtual BoundFunction
