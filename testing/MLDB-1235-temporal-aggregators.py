@@ -442,5 +442,40 @@ class TemporalTest(MldbUnitTest):
                 ]
             )
 
+    @unittest.expectedFailure
+    def test_mldbfb_516_aggregator_incorrect_with_join(self):
+        ds = mldb.create_dataset({
+            'id' : 'ds',
+            'type' : 'beh.binary.mutable'
+        })
+        ds.record_row('user3', [['behA', 1, 11], ['conv', 1, 70],
+                                ['behB', 1, 14], ['behA', 1, 14]])
+        ds.commit()
+
+        ds = mldb.create_dataset({
+            'id' : 'conv',
+            'type' : 'beh.mutable'
+        })
+        ds.record_row('user3', [['ts', 70, 0]])
+        ds.commit()
+
+        res = mldb.query("""
+            SELECT temporal_count({ds.*}) AS *
+            FROM ds
+        """)
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'behA', 'behB', 'conv'],
+            ['user3', 2, 1, 1]
+        ])
+
+        res = mldb.query("""
+            SELECT temporal_count({ds.*}) AS *
+            FROM ds INNER JOIN conv ON ds.rowName() = conv.rowName()
+        """)
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'behA', 'behB', 'conv'],
+            ['[user3]-[user3]', 2, 1, 1]
+        ])
+        mldb.log(res)
 
 mldb.run_tests()
