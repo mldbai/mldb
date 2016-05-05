@@ -9,6 +9,7 @@ class Mldb1597Test(MldbUnitTest):
     @classmethod
     def setUpClass(cls):
         
+        # the raw data
         mldb.post("/v1/procedures", {
             "type": "import.text",
             "params":{
@@ -28,6 +29,39 @@ class Mldb1597Test(MldbUnitTest):
                 "runOnCreation": True
             }
         })
+
+        # the stats
+        mldb.post("/v1/procedures", {
+            "type": "transform",
+            "params":{
+                "inputData": """
+                select 
+                    dow, a_int, 
+                    sum(e_1)/sum(e_2) as e, 
+                    avg({b_1, b_2}) as *,
+                    avg(b_1)/avg(b_2) as b_ratio, 
+                    1-sum(d_1+d_2-c_2)/sum(c_1) as r
+                from ds
+                group by dow, a_int
+                """,
+                "outputDataset": {"id":"ds_stats", "type":"tabular"},
+                "runOnCreation": True
+            }
+        })
+
+        # the training data
+        mldb.post("/v1/procedures", {
+                "type": "transform",
+                "params":{
+                    "inputData": """
+                        select *
+                        from ds left join ds_stats on (ds.dow + ds.a_int = ds_stats.dow + ds_stats.a_int)
+                        limit 10
+                    """,
+                    "outputDataset": {"id":"ds_train", "type":"tabular"},
+                    "runOnCreation": True
+                }
+            })
 
     def test_operator_precedence(self):
         self.assertTableResultEquals(
@@ -145,39 +179,9 @@ class Mldb1597Test(MldbUnitTest):
         """)
             
     def test_join_with_and(self):
-        mldb.post("/v1/procedures", {
-            "type": "transform",
-            "params":{
-                "inputData": """
-                select 
-                    dow, a_int, 
-                    sum(e_1)/sum(e_2) as e, 
-                    avg({b_1, b_2}) as *,
-                    avg(b_1)/avg(b_2) as b_ratio, 
-                    1-sum(d_1+d_2-c_2)/sum(c_1) as r
-                from ds
-                group by dow, a_int
-                """,
-                "outputDataset": {"id":"ds_stats", "type":"tabular"},
-                "runOnCreation": True
-            }
-        })
 
-        # equivalent join conditions should be returning the same dataset
-
-        mldb.post("/v1/procedures", {
-                "type": "transform",
-                "params":{
-                    "inputData": """
-                        select *
-                        from ds left join ds_stats on (ds.dow + ds.a_int = ds_stats.dow + ds_stats.a_int)
-                        limit 10
-                    """,
-                    "outputDataset": {"id":"ds_train", "type":"tabular"},
-                    "runOnCreation": True
-                }
-            })
         resp = mldb.query('select * from ds_train')
+        mldb.log(resp)
 
         mldb.post("/v1/procedures", {
                 "type": "transform",
@@ -192,8 +196,12 @@ class Mldb1597Test(MldbUnitTest):
                 }
             })
         resp2 = mldb.query('select * from ds_train2')
+        mldb.log(resp2)
 
-        #self.assertEqual(resp, resp2, 'expected identical response')
+        # equivalent join conditions should be returning the same dataset
+        # this is a very weak check because the columns and the row ordering
+        # of these two equivalent joins are currently very different
+        self.assertEqual(len(resp), len(resp2), 'expected response sizes to match')
 
     def test_remaining(self):
         # setup

@@ -284,7 +284,7 @@ struct JoinedDataset::Itl
     void recordJoinRow(const RowName & leftName, RowHash leftHash,
                        const RowName & rightName, RowHash rightHash)
     {
-        bool debug = true;
+        bool debug = false;
         RowName rowName;
 
         if (isChainedJoin && !leftName.empty())
