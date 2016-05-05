@@ -739,11 +739,6 @@ parse(const char * str, size_t len)
         }
     }
 
-    auto parseOne = [&] () -> PathElement
-        {
-            return PathElement::parsePartial(p, e);
-        };
-
     while (p < e) {
         result.emplace_back(PathElement::parsePartial(p, e));
         if (p < e) {

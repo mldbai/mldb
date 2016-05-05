@@ -1339,14 +1339,14 @@ struct RowValueInfo: public ExpressionValueInfoT<RowValue> {
     RowValueInfo(const std::vector<KnownColumn> & columns,
                  SchemaCompleteness completeness = SCHEMA_CLOSED);
 
-    virtual bool isScalar() const;
+    virtual bool isScalar() const override;
 
-    virtual std::shared_ptr<RowValueInfo> getFlattenedInfo() const;
+    virtual std::shared_ptr<RowValueInfo> getFlattenedInfo() const override;
 
     virtual void flatten(const ExpressionValue & value,
                          const std::function<void (const ColumnName & columnName,
                                                    const CellValue & value,
-                                                   Date timestamp)> & write) const;
+                                                   Date timestamp)> & write) const override;
 
     virtual std::shared_ptr<ExpressionValueInfo>
     getColumn(const PathElement & columnName) const override;
@@ -1354,28 +1354,28 @@ struct RowValueInfo: public ExpressionValueInfoT<RowValue> {
     virtual std::shared_ptr<ExpressionValueInfo> 
     findNestedColumn(const ColumnName& columnName) const override;
 
-    virtual std::vector<KnownColumn> getKnownColumns() const;
-    virtual SchemaCompleteness getSchemaCompleteness() const;
+    virtual std::vector<KnownColumn> getKnownColumns() const override;
+    virtual SchemaCompleteness getSchemaCompleteness() const override;
 
     std::vector<KnownColumn> columns;
     SchemaCompleteness completeness;
 
-    virtual bool isCompatible(const ExpressionValue & value) const
+    virtual bool isCompatible(const ExpressionValue & value) const override
     {
         return value.isRow();
     }
 
-    virtual bool isRow() const
+    virtual bool isRow() const override
     {
         return true;
     }
 
-    virtual bool couldBeRow() const
+    virtual bool couldBeRow() const override
     {
         return true;
     }
 
-    virtual bool couldBeScalar() const
+    virtual bool couldBeScalar() const override
     {
         return false;
     }
