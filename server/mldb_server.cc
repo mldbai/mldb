@@ -243,7 +243,7 @@ runHttpQuery(const Utf8String& query,
              bool sortColumns) const
 {
     auto stm = SelectStatement::parse(query.rawString());
-    SqlExpressionMldbContext mldbContext(this);
+    SqlExpressionMldbScope mldbContext(this);
 
     auto runQuery = [&] ()
         {
@@ -259,7 +259,7 @@ MldbServer::
 query(const Utf8String& query) const
 {
     auto stm = SelectStatement::parse(query.rawString());
-    SqlExpressionMldbContext mldbContext(this);
+    SqlExpressionMldbScope mldbContext(this);
     BoundTableExpression table = stm.from->bind(mldbContext);
 
     return queryFromStatement(stm, mldbContext);

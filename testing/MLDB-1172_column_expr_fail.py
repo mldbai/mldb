@@ -73,7 +73,15 @@ class ColumnExprTest(MldbUnitTest):  # noqa
             ["user1", 1]
         ])
 
-
+    def test_column_expr_sub_select(self):
+        ds = mldb.create_dataset({'id' : 'ds2', 'type' : 'sparse.mutable'})
+        ds.record_row('user1', [['x', 1, 0],['y', 3, 0]])
+        ds.record_row('user2', [['x', 1, 0]])
+        ds.commit()
+        res = mldb.query("""
+            SELECT COLUMN EXPR (WHERE rowCount() > 1) from (select * from ds2)
+        """)
+        self.assertTableResultEquals(res,[["_rowName","x"],["user2",1],["user1",1]])
 
 if __name__ == '__main__':
     mldb.run_tests()

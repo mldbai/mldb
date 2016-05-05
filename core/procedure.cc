@@ -174,7 +174,7 @@ ProcedureConfig() : runOnCreation(false)
 DEFINE_STRUCTURE_DESCRIPTION(ProcedureConfig);
 
 ProcedureConfigDescription::
-ProcedureConfigDescription() 
+ProcedureConfigDescription()
     : StructureDescription(true /*nullAccepted*/)
 {
     addField("runOnCreation", &ProcedureConfig::runOnCreation,
@@ -227,7 +227,6 @@ run(const ProcedureRunConfig & run,
 
 RegisterProcedureType<NullProcedure, NullProcedureConfig>
 regNullProcedure(builtinPackage(),
-                 "null",
                  "Testing procedure type that does nothing",
                  "procedures/NullProcedure.md.html",
                  nullptr /* static route */,
@@ -315,13 +314,12 @@ run(const ProcedureRunConfig & run,
         result.steps.emplace_back(std::move(output.results));
         detail.steps.emplace_back(std::move(output.details));
     }
-    
+
     return { result, detail };
 }
 
 static RegisterProcedureType<SerialProcedure, SerialProcedureConfig>
 regSerialProcedure(builtinPackage(),
-                   "serial",
                    "Train multiple procedures in sequence",
                    "procedures/SerialProcedure.md.html",
                     nullptr /* static route */,
@@ -394,7 +392,7 @@ run(const ProcedureRunConfig & run,
             result.status = entity->getStatus();
             return Any(result);
         };
-    
+
     if (config.kind == "dataset") {
         return makeResult(obtainDataset(server, config, onProgress));
     }
@@ -413,11 +411,10 @@ run(const ProcedureRunConfig & run,
 static RegisterProcedureType<CreateEntityProcedure,
                              CreateEntityProcedureConfig>
 regCreateEntityProcedure(builtinPackage(),
-                         "createEntity",
                          "Create an entity as part of a procedure application",
                          "procedures/CreateEntityProcedure.md.html",
-                    nullptr /* static route */,
-                    { MldbEntity::INTERNAL_ENTITY });
+                         nullptr /* static route */,
+                         { MldbEntity::INTERNAL_ENTITY });
 
 
 
@@ -433,4 +430,3 @@ ProcedurePolyConfigDescription()
 
 } // namespace MLDB
 } // namespace Datacratic
-

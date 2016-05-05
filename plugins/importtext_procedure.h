@@ -3,7 +3,7 @@
     Copyright (c) 2016 Datacratic Inc.  All rights reserved.
 
     This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
-    
+
     Procedure that reads text files into an indexed dataset.
 */
 
@@ -21,7 +21,9 @@ namespace MLDB {
 
 
 struct ImportTextConfig : public ProcedureConfig  {
-    ImportTextConfig()     
+    static constexpr const char * name = "import.text";
+
+    ImportTextConfig()
         : delimiter(","),
           quoter("\""),
           encoding("utf-8"),
@@ -65,7 +67,7 @@ DECLARE_STRUCTURE_DESCRIPTION(ImportTextConfig);
 /*****************************************************************************/
 
 struct ImportTextProcedure: public Procedure {
-    
+
     ImportTextProcedure(MldbServer * owner,
                 PolyConfig config,
                 const std::function<bool (const Json::Value &)> & onProgress);
@@ -83,4 +85,3 @@ private:
 
 } // namespace MLDB
 } // namespace Datacratic
-

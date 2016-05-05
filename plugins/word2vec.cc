@@ -27,6 +27,8 @@ namespace MLDB {
 /*****************************************************************************/
 
 struct Word2VecImporterConfig : ProcedureConfig {
+    static constexpr const char * name = "import.word2vec";
+
     Word2VecImporterConfig()
         : offset(0), limit(-1)
     {
@@ -67,7 +69,7 @@ struct Word2VecImporter: public Procedure {
     {
         config = config_.params.convert<Word2VecImporterConfig>();
     }
-    
+
     Word2VecImporterConfig config;
 
     virtual RunOutput run(const ProcedureRunConfig & run,
@@ -124,7 +126,7 @@ struct Word2VecImporter: public Procedure {
                 cerr << "recorded " << (i+1) << " of " << numWords << " words"
                      << endl;
             }
-            
+
             //cerr << "got word " << word << endl;
         }
 
@@ -145,7 +147,6 @@ struct Word2VecImporter: public Procedure {
 
 RegisterProcedureType<Word2VecImporter, Word2VecImporterConfig>
 regScript(builtinPackage(),
-          "import.word2vec",
           "Import a word2vec file into MLDB",
           "procedures/Word2VecImporter.md.html");
 

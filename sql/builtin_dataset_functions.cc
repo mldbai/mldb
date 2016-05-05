@@ -133,20 +133,27 @@ BoundTableExpression sample(const SqlBindingScope & context,
                             const Utf8String& alias)
 {
     if (args.size() != 1)
-        throw HttpReturnException(400, "sample() takes 1 dataset as input, "
-                                  "followed by a row of dataset options",
+        throw HttpReturnException(400, "The 'sample' function takes 1 dataset as input, "
+                                  "followed by a row expression of optional parameters. "
+                                  "See the documentation of the 'From Expressions' for "
+                                  "more details.",
                                   "options", options,
                                   "alias", alias);
 
-    if(!options.isRow())
-        throw HttpReturnException(400, "options should be a row; we got "
-                                  + jsonEncodeStr(options),
-                                  "options", options,
-                                  "alias", alias);
+    if(!options.empty() && !options.isRow()) {
+        throw HttpReturnException(400,
+                "The parameters provided to the 'sample' function "
+                "should be a row expression, or not be provided to use the "
+                "sampled dataset's defaults. Value provided: " + 
+                jsonEncodeStr(options) + ". See the documentation for the "
+                "dataset of type 'sampled' for the supported paramters, or "
+                "of the 'From Expressions' for more details on using "
+                "the 'sample' function");
+    }
 
     auto ds = createSampledDatasetFn(context.getMldbServer(),
                                      args[0].dataset,
-                                     options); //config);
+                                     options);
 
     return bindDataset(ds, alias); 
 }

@@ -59,6 +59,7 @@ result = mldb.perform("PUT", "/v1/functions/titanic_explainer", [], {
     "type": "classifier.explain",
     "params": { "modelFileUrl": "file://tmp/MLDB-1304.cls" }
 })
+mldb.log(result)
 assert result["statusCode"] < 400, result["response"]
 
 

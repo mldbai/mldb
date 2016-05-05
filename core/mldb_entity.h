@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** mldb_entity.h                                                  -*- C++ -*-
     Jeremy Barnes, 2 March 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Base class for MLDB entities (plugin, function, etc).
 */

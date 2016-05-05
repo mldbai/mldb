@@ -54,9 +54,10 @@ struct SubDataset::Itl
 
     Itl(SelectStatement statement, MldbServer* owner)
     {
-        SqlExpressionMldbContext mldbContext(owner);
+        SqlExpressionMldbScope mldbContext(owner);
 
-        std::vector<MatrixNamedRow> rows = queryFromStatement(statement, mldbContext);
+        std::vector<MatrixNamedRow> rows
+            = queryFromStatement(statement, mldbContext);
 
         init(std::move(rows));
     }
@@ -251,7 +252,7 @@ struct SubDataset::Itl
                 if (cName == columnName)
                 {
                     const CellValue & cell = std::get<1>(c);
-                    if (filter(cell))
+                    if (!filter || filter(cell))
                     {
                         result.emplace_back(row.rowName, cell);
                     }
@@ -393,14 +394,13 @@ querySubDataset(MldbServer * server,
     result.reserve(output.size());
                 
     for (auto & row: output) {
+        // All of this is to properly unflatten the output of the
+        // queryStructured call.
+        ExpressionValue val(std::move(row.columns));
         NamedRowValue rowOut;
         rowOut.rowName = std::move(row.rowName);
         rowOut.rowHash = std::move(row.rowHash);
-        for (auto & c: row.columns) {
-            rowOut.columns.emplace_back(std::move(std::get<0>(c)),
-                                        ExpressionValue(std::move(std::get<1>(c)),
-                                                        std::get<2>(c)));
-        }
+        val.mergeToRowDestructive(rowOut.columns);
         result.emplace_back(std::move(rowOut));
     }
 

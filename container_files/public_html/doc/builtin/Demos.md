@@ -9,10 +9,13 @@ MLDB ships with some demo and tutorial [Notebooks](Notebooks.md).
 * ![](%%nblink _tutorials/Querying Data Tutorial) 
 * ![](%%nblink _tutorials/SELECT Tutorial) 
 * ![](%%nblink _tutorials/Procedures and Functions Tutorial) 
+* ![](%%nblink _tutorials/Tensorflow Image Recognition Tutorial) 
 
-## Demos
+## Benchmarks
 
-### Predicting Titanic Survival
+The ![](%%nblink _demos/Benchmarking MLDB) notebook shows how to run the [The Absolute Minimal Machine Learning Benchmark](https://github.com/szilard/benchm-ml/tree/master/z-other-tools) with MLDB.
+
+## Predicting Titanic Survival
 
 The ![](%%nblink _demos/Predicting Titanic Survival) demo shows a classification workflow:
 
@@ -21,7 +24,7 @@ The ![](%%nblink _demos/Predicting Titanic Survival) demo shows a classification
 * calling a classifier with the ![](%%doclink classifier function)
 * understanding it with the ![](%%doclink classifier.explain function)
 
-### Mapping Reddit and Visualizing StackOverflow tags
+## Mapping Reddit and Visualizing StackOverflow tags
 
 The ![](%%nblink _demos/Mapping Reddit) and  ![](%%nblink _demos/Visualizing StackOverflow Tags)  demos show how to use MLDB to visualize high-dimensional datasets:
 
@@ -29,11 +32,15 @@ The ![](%%nblink _demos/Mapping Reddit) and  ![](%%nblink _demos/Visualizing Sta
 * clustering with the ![](%%doclink kmeans.train procedure)
 * visualizting with the ![](%%doclink tsne.train procedure).
 
-### Recommending Movies
+## Recommending Movies
 
 The ![](%%nblink _demos/Recommending Movies) demo shows how to use MLDB to do recommendation with the ![](%%doclink svd.train procedure).
 
-### Exploring Favourite Recipes
+## Exploring Favourite Recipes
 
 The ![](%%nblink _demos/Exploring Favourite Recipes) demo shows how to use MLDB to do clustering/topic extraction among recipes with the ![](%%doclink kmeans.train procedure).
+
+## Transfer Learning with Tensorflow
+
+The ![](%%nblink _demos/Transfer Learning with Tensorflow) demo demonstrates how to do transfer learning to leverage the power of a deep convolutional neural network without having to train one yourself. Most people do not train those types of networks from scratch because of the large data and computational power requirements. What is more common is to train the network on a large dataset (unrelated to our task) and then leverage the representation it learnt.
 

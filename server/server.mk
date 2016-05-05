@@ -14,8 +14,6 @@ LIBMLDB_SOURCES:= \
 	procedure_run_collection.cc \
 	function_collection.cc \
         credential_collection.cc \
-	function_contexts.cc \
-	sql_expression_function_operations.cc \
 	type_collection.cc \
 	analytics.cc \
 	plugin_resource.cc \
@@ -26,7 +24,6 @@ LIBMLDB_SOURCES:= \
 	bound_queries.cc \
 	script_output.cc \
 	forwarded_dataset.cc \
-	serial_function.cc \
 	column_scope.cc \
 	bucket.cc \
 
