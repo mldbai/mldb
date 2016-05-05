@@ -166,33 +166,13 @@ if (trainProbabilizer) {
                 from: { id: "reddit_embeddings" },
             },
             modelFileUrl: "file://tmp/reddit_probabilizer.json",
-        }
+            functionName: "probabilizer"
+       }
     };
 
     checkOutput("prob-train procedure", mldb.put("/v1/procedures/reddit_prob_train", trainProbabilizerProcedureConfig));
     checkOutput("prob-train training", mldb.put("/v1/procedures/reddit_prob_train/runs/1", {}));
 }
-
-var probabilizerFunctionConfig = {
-    id: "probabilizer",
-    type: "serial",
-    params: {
-        steps: [
-            {
-                id: "classifier"
-            },
-            {
-                id: "apply_probabilizer",
-                type: "probabilizer",
-                params: {
-                    modelFileUrl: "file://tmp/reddit_probabilizer.json"
-                }
-            }
-        ]
-    }
-};
-
-checkOutput("probabilizer", mldb.put("/v1/functions/probabilizer", probabilizerFunctionConfig));
 
 var testClassifier = true;
 
@@ -202,7 +182,7 @@ if (testClassifier) {
         type: "classifier.test",
         params: {
             testingData: "select adventuretime IS NOT NULL as label, \
-                          probabilizer({{ * EXCLUDING (adventuretime) } AS features})[score] as score \
+                          probabilizer(classifier({{ * EXCLUDING (adventuretime) } AS features}))[prob] as score \
                           from reddit_embeddings where rowHash() % 4 = 3",
             outputDataset: { id: "cls_test_results", type: "sparse.mutable" }
         }

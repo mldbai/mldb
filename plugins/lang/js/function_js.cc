@@ -129,7 +129,14 @@ call(const v8::Arguments & args)
         auto input
             = JS::getArg<std::map<Utf8String, ExpressionValue> >(args, 0, "config");
 
-        auto result = function->call(input);
+        // Convert to a row, which can then be converted to an ExpressionValue
+        StructValue row;
+        row.reserve(input.size());
+        for (auto & r: input) {
+            row.emplace_back(PathElement(std::move(r.first)), std::move(r.second));
+        }
+
+        auto result = function->call(std::move(row));
         
         return JS::toJS(jsonEncode(result));
 

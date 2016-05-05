@@ -63,7 +63,7 @@ class ConcatTest(unittest.TestCase):
         self.assertEqual(res[1][1], 'val2A,val2C')
 
     def test_static_columns(self):
-        res = mldb.query('SELECT concat({colA, \'static\', colB}) FROM sample')
+        res = mldb.query('SELECT concat([colA, \'static\', colB]) FROM sample')
         self.assertEqual(res[2][1], 'val1A,static,val1B')
         self.assertEqual(res[1][1], 'val2A,static')
 
@@ -71,8 +71,8 @@ class ConcatTest(unittest.TestCase):
         res = mldb.query(
             "SELECT concat({colA, 'static', colB}, {columnValue: false}) "
             "FROM sample")
-        self.assertEqual(res[2][1], "colA,'static',colB")
-        self.assertEqual(res[1][1], "colA,'static'")
+        self.assertEqual(res[2][1], "'static',colA,colB")
+        self.assertEqual(res[1][1], "'static',colA")
 
 if __name__ == '__main__':
     mldb.run_tests()

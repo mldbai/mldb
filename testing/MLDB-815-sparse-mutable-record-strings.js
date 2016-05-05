@@ -36,10 +36,10 @@ var resp = mldb.get("/v1/datasets/test/query", {format: 'table'});
 plugin.log(resp.json);
 
 var expected = [
-   [ "_rowName", "x", "y", "label" ],
-   [ "ex3", 1, 2, "cat" ],
-   [ "ex2", 1, 1, "dog" ],
-   [ "ex1", 0, 0, "cat" ]
+   [ "_rowName", "label", "x", "y" ],
+   [ "ex3", "cat", 1, 2 ],
+   [ "ex2", "dog", 1, 1 ],
+   [ "ex1", "cat", 0, 0 ]
 ];
 
 assertEqual(resp.json, expected);

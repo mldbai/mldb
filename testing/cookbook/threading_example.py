@@ -8,7 +8,10 @@
 # case would be downloading and applying transform operations over multiple
 # files.
 #
-# NOTE: You need to have threadpool in your python environment.
+# NOTE: You need to have threadpool in your python environment. If you are
+# confident about your operations, it is possible to achieve the same result
+# using multiprocessing.pool.ThreadPool. In python 2 the implementation lacks
+# the error_callback attribute to allow error handling. Python 3 has it.
 
 from threadpool import ThreadPool, makeRequests
 import threading

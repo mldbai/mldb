@@ -28,6 +28,7 @@
 #include "mldb/types/any_impl.h"
 #include "mldb/types/optional_description.h"
 #include "mldb/vfs/fs_utils.h"
+#include "mldb/vfs/filter_streams.h"
 
 using namespace std;
 
@@ -144,8 +145,13 @@ run(const ProcedureRunConfig & run,
 
     // an empty url is allowed but other invalid urls are not
     if(!runProcConf.modelFileUrl.empty() && !runProcConf.modelFileUrl.valid()) {
-        throw ML::Exception("modelFileUrl \"" +
-                            runProcConf.modelFileUrl.toString() + "\" is not valid");
+        throw HttpReturnException(400, "modelFileUrl \"" +
+                                  runProcConf.modelFileUrl.toUtf8String()
+                                  + "\" is not valid");
+    }
+
+    if (!runProcConf.modelFileUrl.empty()) {
+        checkWritability(runProcConf.modelFileUrl.toString(), "modelFileUrl");
     }
 
     auto onProgress2 = [&] (const Json::Value & progress)
@@ -155,7 +161,7 @@ run(const ProcedureRunConfig & run,
             return onProgress(value);
         };
 
-    SqlExpressionMldbContext context(server);
+    SqlExpressionMldbScope context(server);
 
     auto embeddingOutput = getEmbedding(*runProcConf.trainingData.stm,
                                         context,
@@ -198,7 +204,15 @@ run(const ProcedureRunConfig & run,
     if (!runProcConf.modelFileUrl.empty()) {
         try {
             Datacratic::makeUriDirectory(runProcConf.modelFileUrl.toString());
-            kmeans.save(runProcConf.modelFileUrl.toString());
+            Json::Value md;
+            md["algorithm"] = "MLDB k-Means model";
+            md["version"] = 1;
+            md["columnNames"] = jsonEncode(columnNames);
+
+            filter_ostream stream(runProcConf.modelFileUrl.toString());
+            stream << md.toString();
+            ML::DB::Store_Writer writer(stream);
+            kmeans.serialize(writer);
             saved = true;
         }
         catch (const std::exception & exc) {
@@ -262,7 +276,7 @@ run(const ProcedureRunConfig & run,
             kmeansFuncPC.id = runProcConf.functionName;
             kmeansFuncPC.params = funcConf;
 
-            obtainFunction(server, kmeansFuncPC, onProgress);
+            createFunction(server, kmeansFuncPC, onProgress, true);
         } else {
             throw HttpReturnException(400, "Can't create kmeans function '" +
                                       runProcConf.functionName.rawString() +
@@ -295,14 +309,51 @@ KmeansFunctionConfigDescription()
 
 
 /*****************************************************************************/
-/* KMEANS FUNCTION                                                              */
+/* KMEANS FUNCTION                                                           */
 /*****************************************************************************/
+
+DEFINE_STRUCTURE_DESCRIPTION(KmeansFunctionArgs);
+
+KmeansFunctionArgsDescription::
+KmeansFunctionArgsDescription()
+{
+    addField("embedding", &KmeansFunctionArgs::embedding,
+             "Embedding values for the k-means function.  The column names in "
+             "this embedding must match those used in the original kmeans "
+             "dataset.");
+}
+
+DEFINE_STRUCTURE_DESCRIPTION(KmeansExpressionValue);
+
+KmeansExpressionValueDescription::KmeansExpressionValueDescription()
+{
+    addField("cluster", &KmeansExpressionValue::cluster,
+             "Index of the row in the `centroids` dataset whose columns describe "
+             "the point which is closest to the input according to the `metric` "
+             "specified in training.");
+}
+
 
 struct KmeansFunction::Impl {
     ML::KMeans kmeans;
+    std::vector<ColumnName> columnNames;
 
-    Impl(const Url & modelFileUrl) {
-        kmeans.load(modelFileUrl.toString());
+    Impl(const Url & modelFileUrl)
+    {
+        filter_istream stream(modelFileUrl.toString());
+        std::string firstLine;
+        std::getline(stream, firstLine);
+        Json::Value md = Json::parse(firstLine);
+        if (md["algorithm"] != "MLDB k-Means model") {
+            throw HttpReturnException(400, "Model file is not a k-means model");
+        }
+        if (md["version"].asInt() != 1) {
+            throw HttpReturnException(400, "k-Means model version is wrong");
+        }
+        columnNames = jsonDecode<std::vector<ColumnName> >(md["columnNames"]);
+        
+        ML::DB::Store_Reader store(stream);
+        kmeans.reconstitute(store);
     }
 };
 
@@ -310,57 +361,27 @@ KmeansFunction::
 KmeansFunction(MldbServer * owner,
                PolyConfig config,
                const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner)
+    : BaseT(owner)
 {
     functionConfig = config.params.convert<KmeansFunctionConfig>();
 
     impl.reset(new Impl(functionConfig.modelFileUrl));
 
     dimension = impl->kmeans.clusters[0].centroid.size();
-
-    cerr << "got " << impl->kmeans.clusters.size()
-         << " clusters with " << dimension
-         << "values" << endl;
 }
 
-Any
+KmeansExpressionValue 
 KmeansFunction::
-getStatus() const
+call(KmeansFunctionArgs input) const
 {
-    return Any();
-}
+    Date ts = input.embedding.getEffectiveTimestamp();
 
-FunctionOutput
-KmeansFunction::
-apply(const FunctionApplier & applier,
-      const FunctionContext & context) const
-{
-    FunctionOutput result;
-
-    // Extract an embedding with the given column names
-    ExpressionValue storage;
-    const ExpressionValue & inputVal = context.get("embedding", storage);
-
-    ML::distribution<float> input = inputVal.getEmbedding(dimension);
-    Date ts = inputVal.getEffectiveTimestamp();
-
-    int bestCluster = impl->kmeans.assign(input);
-
-    result.set("cluster", ExpressionValue(bestCluster, ts));
-
-    return result;
-}
-
-FunctionInfo
-KmeansFunction::
-getFunctionInfo() const
-{
-    FunctionInfo result;
-
-    result.input.addEmbeddingValue("embedding", dimension);
-    result.output.addAtomValue("cluster");
-
-    return result;
+    return {ExpressionValue
+            (impl->kmeans.assign
+             (input.embedding.getEmbedding(impl->columnNames.data(),
+                                           impl->columnNames.size())
+              .cast<float>()),
+             ts)};
 }
 
 namespace {

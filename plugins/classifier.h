@@ -129,10 +129,10 @@ struct ClassifyFunction: public Function {
     // can be produced.
     virtual std::unique_ptr<FunctionApplier>
     bind(SqlBindingScope & outerContext,
-         const FunctionValues & input) const;
+         const std::shared_ptr<RowValueInfo> & input) const;
 
-    virtual FunctionOutput apply(const FunctionApplier & applier,
-                              const FunctionContext & context) const;
+    virtual ExpressionValue apply(const FunctionApplier & applier,
+                              const ExpressionValue & context) const;
 
     /** Describe what the input and output is for this function. */
     virtual FunctionInfo getFunctionInfo() const;
@@ -148,7 +148,7 @@ struct ClassifyFunction: public Function {
         set as a whole.
     */
     std::tuple<std::vector<float>, std::shared_ptr<ML::Mutable_Feature_Set>, Date>
-    getFeatureSet(const FunctionContext & context, bool returnDense) const;
+    getFeatureSet(const ExpressionValue & context, bool returnDense) const;
 
     //Classifier classifier;
     ClassifyFunctionConfig functionConfig;
@@ -160,7 +160,7 @@ struct ClassifyFunction: public Function {
 };
 
 /*****************************************************************************/
-/* EXPLAIN CLASSIFY FUNCTION                                                    */
+/* EXPLAIN CLASSIFY FUNCTION                                                 */
 /*****************************************************************************/
 
 struct ExplainFunction: public ClassifyFunction {
@@ -170,8 +170,8 @@ struct ExplainFunction: public ClassifyFunction {
 
     ~ExplainFunction();
 
-    virtual FunctionOutput apply(const FunctionApplier & applier,
-                              const FunctionContext & context) const;
+    virtual ExpressionValue apply(const FunctionApplier & applier,
+                              const ExpressionValue & context) const;
 
     /** Describe what the input and output is for this function. */
     virtual FunctionInfo getFunctionInfo() const;

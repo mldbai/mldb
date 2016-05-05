@@ -35,11 +35,11 @@ struct TableLexicalScope: public LexicalScope {
     static constexpr int ROW_NAME = 0;
     static constexpr int ROW_CONTENTS = 1;
 
-    virtual VariableGetter
-    doGetVariable(const Utf8String & variableName, int fieldOffset);
+    virtual ColumnGetter
+    doGetColumn(const ColumnName & columnName, int fieldOffset);
 
     virtual GetAllColumnsOutput
-    doGetAllColumns(std::function<Utf8String (const Utf8String &)> keep,
+    doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
                     int fieldOffset);
 
     virtual BoundFunction
@@ -156,12 +156,15 @@ struct JoinLexicalScope: public LexicalScope {
     }
 
 
-    virtual VariableGetter
-    doGetVariable(const Utf8String & variableName, int fieldOffset);
+    virtual ColumnGetter
+    doGetColumn(const ColumnName & columnName, int fieldOffset);
 
-    /** For a join, we can select over the columns for either one or the other. */
+    /** For a join, we can select over the columns for either one or the
+        other.
+    */
     virtual GetAllColumnsOutput
-    doGetAllColumns(std::function<Utf8String (const Utf8String &)> keep, int fieldOffset);
+    doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
+                    int fieldOffset);
 
     virtual BoundFunction
     doGetFunction(const Utf8String & functionName,
@@ -536,11 +539,11 @@ struct AggregateLexicalScope: public LexicalScope {
 
     std::shared_ptr<PipelineExpressionScope> inner;
 
-    virtual VariableGetter doGetVariable(const Utf8String & variableName,
-                                         int fieldOffset);
+    virtual ColumnGetter
+    doGetColumn(const ColumnName & columnName, int fieldOffset);
 
     virtual GetAllColumnsOutput
-    doGetAllColumns(std::function<Utf8String (const Utf8String &)> keep,
+    doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
                     int fieldOffset);
 
     virtual BoundFunction

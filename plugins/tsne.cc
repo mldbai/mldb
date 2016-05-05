@@ -107,21 +107,21 @@ struct TsneItl {
     }
 
     ML::TSNE_Params params;
-    boost::multi_array<float, 2> inputCoords;
-    boost::multi_array<float, 2> outputCoords;
+    boost::multi_array<float, 2> inputPath;
+    boost::multi_array<float, 2> outputPath;
     std::unique_ptr<ML::VantagePointTree> vpTree;
     std::unique_ptr<ML::Quadtree> qtree;
     std::vector<Utf8String> inputColumnNames;
     std::vector<Utf8String> outputColumnNames;
     std::shared_ptr<const std::vector<ColumnName> > outputColumnNamesShared;
 
-    size_t numOutputDimensions() const { return outputCoords.shape()[1]; }
+    size_t numOutputDimensions() const { return outputPath.shape()[1]; }
 
     int64_t memusage() const
     {
         int64_t result = sizeof(*this);
-        result += sizeof(float) * inputCoords.shape()[0] * inputCoords.shape()[1];
-        result += sizeof(float) * outputCoords.shape()[0] * outputCoords.shape()[1];
+        result += sizeof(float) * inputPath.shape()[0] * inputPath.shape()[1];
+        result += sizeof(float) * outputPath.shape()[0] * outputPath.shape()[1];
         result += vpTree->memusage();
         result += qtree->root->memusage();
         return result;
@@ -139,17 +139,17 @@ struct TsneItl {
         using namespace ML::DB;
 
         store << string("TSNE") << compact_size_t(2);
-
-        size_t rows = inputCoords.shape()[0];
-        size_t dimsIn = inputCoords.shape()[1];
-        size_t dimsOut = outputCoords.shape()[1];
+        
+        size_t rows = inputPath.shape()[0];
+        size_t dimsIn = inputPath.shape()[1];
+        size_t dimsOut = outputPath.shape()[1];
 
 
         store << compact_size_t(rows)
               << compact_size_t(dimsIn)
               << compact_size_t(dimsOut);
-
-        store << inputCoords << outputCoords;
+        
+        store << inputPath << outputPath;
 
         store << inputColumnNames << outputColumnNames;
 
@@ -171,7 +171,7 @@ struct TsneItl {
 
         compact_size_t rows(store), dimsIn(store), dimsOut(store);
 
-        store >> inputCoords >> outputCoords;
+        store >> inputPath >> outputPath;
 
         store >> inputColumnNames >> outputColumnNames;
 
@@ -183,7 +183,7 @@ struct TsneItl {
 
     ML::distribution<float> reembed(const ML::distribution<float> & v) const
     {
-        return retsneApproxFromCoords(v, inputCoords, outputCoords,
+        return retsneApproxFromCoords(v, inputPath, outputPath,
                                       *qtree, *vpTree, params);
     }
 
@@ -212,6 +212,10 @@ run(const ProcedureRunConfig & run,
 {
     auto runProcConf = applyRunConfOverProcConf(tsneConfig, run);
 
+    if (!runProcConf.modelFileUrl.empty()) {
+        checkWritability(runProcConf.modelFileUrl.toString(), "modelFileUrl");
+    }
+
     auto onProgress2 = [&] (const Json::Value & progress)
         {
             Json::Value value;
@@ -233,7 +237,7 @@ run(const ProcedureRunConfig & run,
     //cerr << "doing t-SNE" << endl;
 
 
-    SqlExpressionMldbContext context(server);
+    SqlExpressionMldbScope context(server);
 
     //cerr << "numDims = " << numDims << endl;
 
@@ -282,8 +286,8 @@ run(const ProcedureRunConfig & run,
          << endl;
 #endif
 
-    itl->inputCoords.resize(boost::extents[rows.size()][numDims]);
-    itl->inputCoords = coords;
+    itl->inputPath.resize(boost::extents[rows.size()][numDims]);
+    itl->inputPath = coords;
 
     ML::TSNE_Callback callback = [&] (int iter, float cost,
                                       std::string phase)
@@ -296,8 +300,8 @@ run(const ProcedureRunConfig & run,
 
     ExcAssertGreaterEqual(runProcConf.numOutputDimensions, 1);
 
-    itl->outputCoords.resize(boost::extents[rows.size()][runProcConf.numOutputDimensions]);
-    itl->outputCoords
+    itl->outputPath.resize(boost::extents[rows.size()][runProcConf.numOutputDimensions]);
+    itl->outputPath
         = ML::tsneApproxFromCoords(coords, runProcConf.numOutputDimensions,
                                    itl->params, callback, &itl->vpTree,
                                    &itl->qtree);
@@ -317,10 +321,10 @@ run(const ProcedureRunConfig & run,
 
     // Record the column names for later
     for (auto & c: vars) {
-        itl->inputColumnNames.push_back(c.columnName.toUtf8String());
+        itl->inputColumnNames.emplace_back(c.columnName.toUtf8String());
     }
     for (auto & c: names) {
-        itl->outputColumnNames.push_back(c.toUtf8String());
+        itl->outputColumnNames.emplace_back(c.toUtf8String());
     }
 
     itl->outputColumnNamesShared
@@ -337,12 +341,12 @@ run(const ProcedureRunConfig & run,
         auto output = createDataset(server, runProcConf.output, onProgress2, true /*overwrite*/);
 
         for (unsigned i = 0;  i < rows.size();  ++i) {
-            //cerr << "row " << i << " had coords " << itl->outputCoords[i][0] << ","
-            //     << itl->outputCoords[i][1] << endl;
+            //cerr << "row " << i << " had coords " << itl->outputPath[i][0] << ","
+            //     << itl->outputPath[i][1] << endl;
             std::vector<std::tuple<ColumnName, CellValue, Date> > cols;
             for (unsigned j = 0;  j < runProcConf.numOutputDimensions;  ++j) {
-                ExcAssert(isfinite(itl->outputCoords[i][j]));
-                cols.emplace_back(names[j], itl->outputCoords[i][j], Date());
+                ExcAssert(isfinite(itl->outputPath[i][j]));
+                cols.emplace_back(names[j], itl->outputPath[i][j], Date());
             }
 
             output->recordRow(std::get<1>(rows[i]), cols);
@@ -357,7 +361,7 @@ run(const ProcedureRunConfig & run,
         tsneFuncPC.id = runProcConf.functionName;
         tsneFuncPC.params = TsneEmbedConfig(runProcConf.modelFileUrl);
 
-        obtainFunction(server, tsneFuncPC, onProgress);
+        createFunction(server, tsneFuncPC, onProgress, true);
     }
 
     return Any();
@@ -379,34 +383,45 @@ TsneEmbedConfigDescription()
 /* TSNE EMBED ROW                                                            */
 /*****************************************************************************/
 
+DEFINE_STRUCTURE_DESCRIPTION(TsneInput);
+
+TsneInputDescription::TsneInputDescription()
+{
+    addField("embedding", &TsneInput::embedding,
+             "Undocumented.");
+}
+
+DEFINE_STRUCTURE_DESCRIPTION(TsneOutput);
+
+TsneOutputDescription::TsneOutputDescription()
+{
+    addField("cluster", &TsneOutput::tsne,
+             "Undocumented.");
+}
+
+
 TsneEmbed::
 TsneEmbed(MldbServer * owner,
           PolyConfig config,
           const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner)
+    : BaseT(owner)
 {
     functionConfig = config.params.convert<TsneEmbedConfig>();
     itl = std::make_shared<TsneItl>(functionConfig.modelFileUrl);
 }
 
-Any
-TsneEmbed::
-getStatus() const
-{
-    return Any();
-}
 
-FunctionOutput
+TsneOutput 
 TsneEmbed::
-apply(const FunctionApplier & applier,
-      const FunctionContext & context) const
+call(TsneInput input) const
 {
-    throw HttpReturnException(500, "t-sne application is not implemented yet");
-
-    FunctionOutput result;
+    throw HttpReturnException(500, "t-SNE Embed apply function is not yet implemented");
+#if 0    
+    ExpressionValue result;
 
     ExpressionValue storage;
     const ExpressionValue & inputVal = context.get("embedding", storage);
+
     ML::distribution<float> input = inputVal.getEmbedding(itl->inputColumnNames.size());
 
     Date ts = Date::negativeInfinity();
@@ -415,18 +430,7 @@ apply(const FunctionApplier & applier,
     result.set("tsne", ExpressionValue(embedding, ts));
 
     return result;
-}
-
-FunctionInfo
-TsneEmbed::
-getFunctionInfo() const
-{
-    FunctionInfo result;
-
-    result.input.addEmbeddingValue("embedding", itl->inputColumnNames.size());
-    result.output.addEmbeddingValue("tsne", itl->numOutputDimensions());
-
-    return result;
+#endif
 }
 
 namespace {

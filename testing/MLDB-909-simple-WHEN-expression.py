@@ -39,8 +39,8 @@ class SimpleWhenExpressionTest(unittest.TestCase):
         row_count = 10
         for i in xrange(row_count - 1):
             # row name is x's value
-            ds1.record_row(str(i), [['x', i, now]])
-        ds1.record_row(str(row_count - 1), [['x', 9, same_time_tomorrow]])
+            ds1.record_row(str(i), [['x', str(i), now]])
+        ds1.record_row(str(row_count - 1), [['x', "9", same_time_tomorrow]])
         ds1.commit()
 
         ds = mldb.create_dataset({
@@ -63,7 +63,7 @@ class SimpleWhenExpressionTest(unittest.TestCase):
 
         rows = query("SELECT * FROM dataset1 WHEN value_timestamp() BETWEEN "
                           "TIMESTAMP '{}' AND TIMESTAMP '{}'"
-                          .format(year_ago_str, year_from_now_str))
+                          .format(year_ago_str, year_from_now_str))        
 
         for row in rows:
             self.assertEqual(
@@ -74,25 +74,23 @@ class SimpleWhenExpressionTest(unittest.TestCase):
         rows = query(
             "SELECT * FROM dataset1 WHEN value_timestamp() BETWEEN "
             "TIMESTAMP '{}' AND TIMESTAMP '{}'".format(year_ago_str, week_ago_str))
-        log(rows)
         for row in rows:
             self.assertTrue(
                 "columns" not in row,
                 'no tuple should be returned on row name %s' % row["rowName"])
 
     def test_get_single_row(self):
-        rows = query("SELECT x FROM dataset1 WHERE x = 9")
+        rows = query("SELECT x FROM dataset1 WHERE x = '9'")
         self.assertEqual(
             len(rows), 1,
             "expecting only one row to be selected by the where clause")
-        self.assertEqual(rows[0]["columns"][0][1], 9,
+        self.assertEqual(rows[0]["columns"][0][1], '9',
                          "expecting row 9 to be selected by where clause")
 
     def test_last_tuple_filtered_out(self):
         rows = query(
             "SELECT x FROM dataset1 WHEN value_timestamp() BETWEEN "
             "TIMESTAMP '%s' and TIMESTAMP '%s'" % (a_second_before_now, in_two_hours))
-        log(rows)
         for row in rows:
             if row['rowName'] is 9:
                 self.assertTrue(
@@ -102,12 +100,12 @@ class SimpleWhenExpressionTest(unittest.TestCase):
     def test_when_exec_after_where(self):
         # check that the when clause is executed after the where one
         rows = query("SELECT x FROM dataset1 WHEN value_timestamp() BETWEEN "
-                          "TIMESTAMP '%s' and TIMESTAMP '%s' WHERE x = 9"
+                          "TIMESTAMP '%s' and TIMESTAMP '%s' WHERE x = '9'"
                           % (a_second_before_now, in_two_hours))
         self.assertTrue(
             rows[0]["columns"][0][1] is None and len(rows) == 1,
             "expecting the tuple to be filtered out by when clause")
-        self.assertEqual(rows[0]['rowName'], 9,
+        self.assertEqual(rows[0]['rowName'], "9",
                          "expecting only row 9 to remain")
 
     def test_multiple_ts_same_row_col(self):

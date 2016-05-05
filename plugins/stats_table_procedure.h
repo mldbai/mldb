@@ -135,8 +135,8 @@ struct StatsTableFunction: public Function {
 
     virtual Any getDetails() const;
 
-    virtual FunctionOutput apply(const FunctionApplier & applier,
-                              const FunctionContext & context) const;
+    virtual ExpressionValue apply(const FunctionApplier & applier,
+                              const ExpressionValue & context) const;
 
     /** Describe what the input and output is for this function. */
     virtual FunctionInfo getFunctionInfo() const;
@@ -199,6 +199,7 @@ struct BagOfWordsStatsTableProcedureConfig : ProcedureConfig {
     Url modelFileUrl;
 
     Utf8String functionName;
+    std::string functionOutcomeToUse;
 
     Optional<PolyConfigT<Dataset>> outputDataset;
 
@@ -232,8 +233,10 @@ struct BagOfWordsStatsTableProcedure: public Procedure {
 /*****************************************************************************/
 
 struct StatsTablePosNegFunctionConfig {
-    StatsTablePosNegFunctionConfig(const Url & modelFileUrl = Url()) :
+    StatsTablePosNegFunctionConfig(const Url & modelFileUrl = Url(),
+            const std::string & outcomeToUse = "") :
         numPos(50), numNeg(50), minTrials(50),
+        outcomeToUse(outcomeToUse),
         modelFileUrl(modelFileUrl)
     {
     }
@@ -260,8 +263,8 @@ struct StatsTablePosNegFunction: public Function {
 
     virtual Any getDetails() const;
 
-    virtual FunctionOutput apply(const FunctionApplier & applier,
-                              const FunctionContext & context) const;
+    virtual ExpressionValue apply(const FunctionApplier & applier,
+                              const ExpressionValue & context) const;
 
     /** Describe what the input and output is for this function. */
     virtual FunctionInfo getFunctionInfo() const;
