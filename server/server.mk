@@ -13,7 +13,7 @@ LIBMLDB_SOURCES:= \
 	procedure_collection.cc \
 	procedure_run_collection.cc \
 	function_collection.cc \
-        credential_collection.cc \
+	credential_collection.cc \
 	type_collection.cc \
 	analytics.cc \
 	plugin_resource.cc \
