@@ -50,7 +50,7 @@ TokenSplit(MldbServer * owner,
     : Function(owner)
 {
     functionConfig = config.params.convert<TokenSplitConfig>();   
-    SqlExpressionMldbContext context(owner);
+    SqlExpressionMldbScope context(owner);
  
     //get all values from the dataset and add them to our dictionary of tokens
     auto processor = [&] (const MatrixNamedRow & row) {
@@ -98,15 +98,13 @@ getStatus() const
     return Any();
 }
 
-FunctionOutput
+ExpressionValue
 TokenSplit::
 apply(const FunctionApplier & applier,
-      const FunctionContext & context) const
+      const ExpressionValue & context) const
 {
     //The whole thing is a bit contrived because UTF8 strings dont have direct access 
-    FunctionOutput result;
-
-    const ExpressionValue & text = context.get<ExpressionValue>("text");
+    const ExpressionValue & text = context.getColumn(PathElement("text"));
     Utf8String textstring = text.toUtf8String();
 
     auto startIt = textstring.begin();
@@ -238,9 +236,11 @@ apply(const FunctionApplier & applier,
         output += Utf8String(start, textstring.end());
     }
 
-    result.set("output", ExpressionValue(output, text.getEffectiveTimestamp()));
+    StructValue result;
+    result.emplace_back(PathElement("output"),
+                        ExpressionValue(output, text.getEffectiveTimestamp()));
     
-    return result;
+    return std::move(result);
 }
 
 FunctionInfo
@@ -249,8 +249,14 @@ getFunctionInfo() const
 {
     FunctionInfo result;
 
-    result.input.addAtomValue("text");
-    result.output.addAtomValue("output");
+    std::vector<KnownColumn> inputColumns, outputColumns;
+    inputColumns.emplace_back(PathElement("text"), std::make_shared<AtomValueInfo>(),
+                              COLUMN_IS_DENSE, 0);
+    outputColumns.emplace_back(PathElement("output"), std::make_shared<AtomValueInfo>(),
+                               COLUMN_IS_DENSE, 0);
+
+    result.input.reset(new RowValueInfo(inputColumns, SCHEMA_CLOSED));
+    result.output.reset(new RowValueInfo(outputColumns, SCHEMA_CLOSED));
     
     return result;
 }

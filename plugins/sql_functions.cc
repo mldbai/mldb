@@ -9,9 +9,9 @@
 #include "mldb/server/mldb_server.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/server/dataset_context.h"
+#include "mldb/server/dataset_context.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/base/parallel.h"
-#include "mldb/server/function_contexts.h"
 #include "mldb/server/bound_queries.h"
 #include "mldb/sql/table_expression_operations.h"
 #include "mldb/sql/join_utils.h"
@@ -51,7 +51,7 @@ filterEmptyColumns(MatrixNamedRow & row) {
 std::shared_ptr<PipelineElement>
 getMldbRoot(MldbServer * server)
 {
-    return PipelineElement::root(std::make_shared<SqlExpressionMldbContext>(server));
+    return PipelineElement::root(std::make_shared<SqlExpressionMldbScope>(server));
 }
 
 /*****************************************************************************/
@@ -116,18 +116,13 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
                             const SqlQueryFunctionConfig & config)
         : FunctionApplier(function), function(function)
     {
+        std::set<Utf8String> inputParams;
+
         // Called when we bind a parameter, to get its information
         auto getParamInfo = [&] (const Utf8String & paramName)
             {
-                auto info = std::make_shared<AnyValueInfo>();
-
-                // Record that we need it into our input info
-                // When binding, we may do so more than once, or use
-                // the same parameter twice, so we allow it to be
-                // inserted twice.
-                if (!this->info.input.values.count(paramName))
-                    this->info.input.addValue(paramName, info);
-                return info;
+                inputParams.insert(paramName);
+                return std::make_shared<AnyValueInfo>();
             };
 
         bool hasGroupBy = !config.query.stm->groupBy.empty();
@@ -170,16 +165,33 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
                 ->select(config.query.stm->select);
         }
 
+        std::vector<KnownColumn> inputColumns;
+        inputColumns.reserve(inputParams.size());
+        for (auto & p: inputParams) {
+            inputColumns.emplace_back(PathElement(p), std::make_shared<AnyValueInfo>(),
+                                      COLUMN_IS_SPARSE);
+        }
+        
+        this->info.input = std::make_shared<RowValueInfo>(std::move(inputColumns),
+                                                          SCHEMA_CLOSED);
+        
         // Bind the pipeline
         boundPipeline = pipeline->bind();
 
         switch (function->functionConfig.output) {
         case FIRST_ROW:
             // What type does the pipeline return?
-            this->info.output = *boundPipeline->outputScope()->outputInfo().back();
+            this->info.output = ExpressionValueInfo::toRow
+                (boundPipeline->outputScope()->outputInfo().back());
             break;
         case NAMED_COLUMNS:
-            this->info.output.addRowValue("output");
+            std::vector<KnownColumn> outputColumns;
+            outputColumns.emplace_back(PathElement("output"),
+                                       std::make_shared<UnknownRowValueInfo>(),
+                                       COLUMN_IS_DENSE,
+                                       0);
+            this->info.output.reset(new RowValueInfo(std::move(outputColumns),
+                                                     SCHEMA_CLOSED));
             break;
         }
     }
@@ -188,20 +200,20 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
     {
     }
 
-    FunctionOutput apply(const FunctionContext & context) const
+    ExpressionValue apply(const ExpressionValue & context) const
     {
         // 1.  Run our generator, finding all rows
         BoundParameters params
             = [&] (const Utf8String & name) -> ExpressionValue
             {
-                return context.get(name);
+                return context.getColumn(name);
             };
 
         auto executor = boundPipeline->start(params);
 
         switch (function->functionConfig.output) {
         case FIRST_ROW: {
-            FunctionOutput result;
+            ExpressionValue result;
 
             auto output = executor->take();
 
@@ -217,7 +229,7 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
             return result;
         }
         case NAMED_COLUMNS:
-            std::vector<std::tuple<ColumnName, ExpressionValue> > row;
+            std::vector<std::tuple<PathElement, ExpressionValue> > row;
 
             ssize_t limit = function->functionConfig.query.stm->limit;
             ssize_t offset = function->functionConfig.query.stm->offset;
@@ -238,19 +250,24 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
                     continue;
                 }
 
-                ColumnName foundCol;
+                PathElement foundCol;
                 ExpressionValue foundVal;
                 int numFoundCol = 0;
                 int numFoundVal = 0;
 
-                auto onVal = [&] (ColumnName & col,
+                auto onVal = [&] (PathElement & col,
                                   ExpressionValue & val)
                     {
-                        if (col == ColumnName("column")) {
-                            foundCol = ColumnName(val.getAtom().toUtf8String());
+                        if (col == PathElement("column")) {
+                            if (val.empty()) {
+                                throw HttpReturnException
+                                (400, "Column names in NAMED_COLUMNS SQL can't be "
+                                 "null");
+                            }
+                            foundCol = PathElement(val.getAtom().toUtf8String());
                             ++numFoundCol;
                         }
-                        else if (col == ColumnName("value")) {
+                        else if (col == PathElement("value")) {
                             foundVal = std::move(val);
                             ++numFoundVal;
                         }
@@ -276,8 +293,7 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
                          "numTimesFoundColumn", numFoundCol,
                          "numTimesFoundValue", numFoundVal);
                 }
-
-                if (foundCol == ColumnName()) {
+                if (foundCol.empty()) {
                     throw HttpReturnException
                         (400, "Empty or null column names cannot be "
                          "returned from NAMED_COLUMNS sql query");
@@ -286,12 +302,10 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
                 row.emplace_back(std::move(foundCol), std::move(foundVal));
             }
 
-            FunctionOutput result;
+            StructValue result;
+            result.emplace_back("output", std::move(row));
 
-            ExpressionValue val(std::move(row));
-            result.set("output", std::move(val));
-
-            return result;
+            return std::move(result);
         }
 
         ExcAssert(false);
@@ -306,21 +320,20 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
 std::unique_ptr<FunctionApplier>
 SqlQueryFunction::
 bind(SqlBindingScope & outerContext,
-     const FunctionValues & input) const
+     const std::shared_ptr<RowValueInfo> & input) const
 {
     std::unique_ptr<SqlQueryFunctionApplier> result
         (new SqlQueryFunctionApplier(this, functionConfig));
 
-    // Check that these input values can provide everything needed for the result
-    input.checkCompatibleAsInputTo(result->info.input);
+    result->info.checkInputCompatibility(*input);
 
     return std::move(result);
 }
 
-FunctionOutput
+ExpressionValue
 SqlQueryFunction::
 apply(const FunctionApplier & applier,
-      const FunctionContext & context) const
+      const ExpressionValue & context) const
 {
     return static_cast<const SqlQueryFunctionApplier &>(applier)
         .apply(context);
@@ -373,22 +386,32 @@ SqlExpressionFunction::
 SqlExpressionFunction(MldbServer * owner,
                       PolyConfig config,
                       const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner), outerScope(owner), innerScope(owner)
+    : Function(owner),
+      outerScope(new SqlExpressionMldbScope(owner)),
+      innerScope(new SqlExpressionExtractScope(*outerScope))
 {
     functionConfig = config.params.convert<SqlExpressionFunctionConfig>();
 
     if (functionConfig.prepared) {
         // 1.  Bind the expression in.  That will tell us what it is expecting
         //     as an input.
-        this->bound = functionConfig.expression.bind(innerScope);
+        this->bound = functionConfig.expression.bind(*innerScope);
 
         // 2.  Our output is known by the bound expression
-        this->info.output = *this->bound.info;
+        this->info.output = ExpressionValueInfo::toRow(this->bound.info);
+    
+        // 3.  Infer the input, now the binding is all done
+        innerScope->inferInput();
 
-        // 3.  Our required input is known by the binding context, as it records
+        // 4.  Our required input is known by the binding context, as it records
         //     what was read.
-        info.input = innerScope.input;
+        info.input = innerScope->inputInfo;
     }
+}
+
+SqlExpressionFunction::
+~SqlExpressionFunction()
+{
 }
 
 Any
@@ -405,16 +428,17 @@ getStatus() const
 struct SqlExpressionFunctionApplier: public FunctionApplier {
     SqlExpressionFunctionApplier(SqlBindingScope & outerScope,
                                  const SqlExpressionFunction * function,
-                                 const FunctionValues & input)
+                                 const std::shared_ptr<RowValueInfo> & input)
         : FunctionApplier(function),
           function(function),
-          innerScope(outerScope.getMldbServer(), input, outerScope.functionStackDepth)
+          innerScope(outerScope, input)
     {
         if (!function->functionConfig.prepared) {
             // Specialize to this input
             this->bound = function->functionConfig.expression.bind(innerScope);
+
             // That leads to a specialized output
-            this->info.output = *bound.info;
+            this->info.output = ExpressionValueInfo::toRow(bound.info);
         }
         else {
             this->info = function->info;
@@ -425,41 +449,46 @@ struct SqlExpressionFunctionApplier: public FunctionApplier {
     {
     }
 
-    FunctionOutput apply(const FunctionContext & context) const
+    ExpressionValue apply(const ExpressionValue & context) const
     {
+        // We know that we won't go outside of the current row, so we can
+        // pass in a dummy object here.
+        SqlRowScope outerRow;
+
         if (function->functionConfig.prepared) {
-            // Use the pre-bound version.
-            return function->bound(function->innerScope.getRowContext(context), GET_LATEST);
+            // Use the pre-bound version.   
+            return function->bound(function->innerScope->getRowScope(context),
+                                   GET_LATEST);
         }
         else {
-            // Use the specialized version.
-            return bound(this->innerScope.getRowContext(context), GET_LATEST);
+            // Use the specialized version. 
+            return bound(this->innerScope.getRowScope(context),
+                         GET_LATEST);
         }
     }
 
     const SqlExpressionFunction * function;
-    FunctionExpressionContext innerScope;
+    SqlExpressionExtractScope innerScope;
     BoundSqlExpression bound;
 };
 
 std::unique_ptr<FunctionApplier>
 SqlExpressionFunction::
 bind(SqlBindingScope & outerContext,
-     const FunctionValues & input) const
+     const std::shared_ptr<RowValueInfo> & input) const
 {
     std::unique_ptr<SqlExpressionFunctionApplier> result
         (new SqlExpressionFunctionApplier(outerContext, this, input));
 
-    // Check that these input values can provide everything needed for the result
-    input.checkCompatibleAsInputTo(result->info.input);
+    result->info.checkInputCompatibility(*input);
 
     return std::move(result);
 }
 
-FunctionOutput
+ExpressionValue
 SqlExpressionFunction::
 apply(const FunctionApplier & applier,
-      const FunctionContext & context) const
+      const ExpressionValue & context) const
 {
     return static_cast<const SqlExpressionFunctionApplier &>(applier)
            .apply(context);
@@ -478,18 +507,22 @@ getFunctionInfo() const
     // 1.  Create a binding context to see what this function takes
     //     We want the pure function information, so we assume there is
     //     no context for it apart from MLDB itself.
-    FunctionExpressionContext context(MldbEntity::getOwner(this->server));
+    SqlExpressionMldbScope ultimateScope(MldbEntity::getOwner(this->server));
+    SqlExpressionExtractScope outerScope(ultimateScope);
 
     // 2.  Bind the expression in.  That will tell us what it is expecting
     //     as an input.
-    BoundSqlExpression bound = functionConfig.expression.bind(context);
+    BoundSqlExpression bound = functionConfig.expression.bind(outerScope);
 
     // 3.  Our output is known by the bound expression
-    result.output = *bound.info;
+    result.output = ExpressionValueInfo::toRow(bound.info);
+    
+    // 4.  Infer our input
+    outerScope.inferInput();
 
     // 4.  Our required input is known by the binding context, as it records
     //     what was read.
-    result.input = context.input;
+    result.input = outerScope.inputInfo;
 
     return result;
 }
@@ -549,19 +582,20 @@ run(const ProcedureRunConfig & run,
     auto runProcConf = applyRunConfOverProcConf(procedureConfig, run);
 
     // Get the input dataset
-    SqlExpressionMldbContext context(server);
+    SqlExpressionMldbScope context(server);
 
-    std::vector< std::shared_ptr<SqlExpression> > aggregators =
-        runProcConf.inputData.stm->select.findAggregators(!runProcConf.inputData.stm->groupBy.clauses.empty());
+    std::vector< std::shared_ptr<SqlExpression> > aggregators = 
+        runProcConf.inputData.stm->select
+        .findAggregators(!runProcConf.inputData.stm->groupBy.clauses.empty());
 
     // Create the output
     std::shared_ptr<Dataset> output =
         createDataset(server, runProcConf.outputDataset, nullptr, true /*overwrite*/);
-
     bool skipEmptyRows = runProcConf.skipEmptyRows;
 
     auto recordRowInOutputDataset = [&output, &skipEmptyRows] (MatrixNamedRow & row) {
-        std::vector<std::tuple<ColumnName, CellValue, Date> > cols = filterEmptyColumns(row);
+        std::vector<std::tuple<ColumnName, CellValue, Date> > cols
+            = filterEmptyColumns(row);
 
         if (!skipEmptyRows || cols.size() > 0)
             output->recordRow(row.rowName, cols);
@@ -591,12 +625,19 @@ run(const ProcedureRunConfig & run,
             {
                 MatrixNamedRow row = row_.flattenDestructive();
 
-                std::vector<std::tuple<ColumnName, CellValue, Date> > cols = filterEmptyColumns(row);
+                std::vector<std::tuple<ColumnName, CellValue, Date> > cols
+                    = filterEmptyColumns(row);
 
                 if (!skipEmptyRows || cols.size() > 0) {
                     auto & rows = accum.get();
                     rows.reserve(10000);
-                    rows.emplace_back(RowName(calc.at(0).toUtf8String()), std::move(cols));
+                    try {
+                        rows.emplace_back(calc.at(0).coerceToPath(),
+                                          std::move(cols));
+                    } catch (...) {
+                        cerr << "parsing " << calc.at(0).toUtf8String() << endl;
+                        throw;
+                    }
 
                     if (rows.size() >= 10000) {
                         output->recordRows(rows);
@@ -631,7 +672,8 @@ run(const ProcedureRunConfig & run,
             = [&] (NamedRowValue & row_)
             {
                 MatrixNamedRow row = row_.flattenDestructive();
-                std::vector<std::tuple<ColumnName, CellValue, Date> > cols = filterEmptyColumns(row);
+                std::vector<std::tuple<ColumnName, CellValue, Date> > cols
+                    = filterEmptyColumns(row);
                 if (!skipEmptyRows || cols.size() > 0)
                     output->recordRow(row.rowName, cols);
 

@@ -14,7 +14,6 @@
 #include "mldb/arch/timers.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/server/dataset_context.h"
-#include "mldb/server/function_contexts.h"
 #include "mldb/sql/execution_pipeline.h"
 #include <boost/algorithm/string.hpp>
 #include "mldb/server/bound_queries.h"
@@ -112,7 +111,7 @@ void iterateDense(const SelectExpression & select,
 {
     ExcAssert(processor);
 
-    SqlExpressionDatasetContext context(from, alias);
+    SqlExpressionDatasetScope context(from, alias);
     SqlExpressionWhenScope whenContext(context);
     auto whenBound = when.bind(whenContext);
     // Bind our where statement
@@ -130,14 +129,21 @@ void iterateDense(const SelectExpression & select,
 
     if (numOutputVariables == 0)
         throw HttpReturnException(400, "Select expression '"
-                                + (select.surface.empty() ? select.surface : select.print())
-                                + "' matched no columns");
+                                  + (select.surface.empty() ? select.surface : select.print())
+                                  + "' matched no columns",
+                                  "rowInfo",
+                                  static_pointer_cast<ExpressionValueInfo>(from.getRowInfo()));
     
     std::vector<BoundSqlExpression> boundCalc;
     for (auto & c: calc) {
         boundCalc.emplace_back(c->bind(context));
     }
     
+    auto columns = boundSelect.info->allColumnNames();
+
+    // This function lets us efficiently extract the embedding from each row
+    auto extractEmbedding = boundSelect.info->extractDoubleEmbedding(columns);
+
     // Get a list of rows that we run over
     // getRowNames can return row names in an arbitrary order as long as it is deterministic.
     auto rows = matrix->getRowNames();
@@ -147,13 +153,13 @@ void iterateDense(const SelectExpression & select,
             //if (rowNum % 1000 == 0)
             //    cerr << "applying row " << rowNum << " of " << rows.size() << endl;
 
-            RowName rowName = rows[rowNum];
+            const RowName & rowName = rows[rowNum];
 
             auto row = matrix->getRow(rowName);
 
             // Check it matches the where expression.  If not, we don't process
             // it.
-            auto rowContext = context.getRowContext(row);
+            auto rowContext = context.getRowScope(row);
 
             if (!whereBound(rowContext, GET_LATEST).isTrue())
                 return true;
@@ -163,7 +169,8 @@ void iterateDense(const SelectExpression & select,
 
             // Run the with expressions
             ExpressionValue out = boundSelect(rowContext, GET_ALL);
-            auto embedding = out.getEmbeddingDouble(-1);
+
+            auto embedding = extractEmbedding(out);
 
             vector<ExpressionValue> calcd(boundCalc.size());
             for (unsigned i = 0;  i < boundCalc.size();  ++i) {
@@ -191,7 +198,7 @@ getEmbedding(const SelectExpression & select,
              int limit,
              const std::function<bool (const Json::Value &)> & onProgress)
 {
-    SqlExpressionDatasetContext context(dataset, alias);
+    SqlExpressionDatasetScope context(dataset, alias);
 
     BoundSqlExpression boundSelect = select.bind(context);
 
@@ -205,110 +212,84 @@ getEmbedding(const SelectExpression & select,
 
     ExcAssertGreaterEqual(maxDimensions, 0);
 
- 
+    std::vector<ColumnName> varNames;
+    varNames.reserve(vars.size());
+    for (auto & v: vars)
+        varNames.emplace_back(v.columnName);
+
+    auto getEmbeddingDouble = boundSelect.info->extractDoubleEmbedding(varNames);
+
     // Now we know what values came out of it
 
     std::mutex rowsLock;
-    std::vector<std::tuple<RowHash, RowName, std::vector<double>, std::vector<ExpressionValue> > > rows;
+    std::vector<std::tuple<RowHash, RowName, std::vector<double>,
+                           std::vector<ExpressionValue> > > rows;
 
-    if (limit != -1 || offset != 0) { //TODO - MLDB-1127 - orderBy condition here
-
-        auto getEmbeddingDouble = [] (const StructValue & columns)
-            {
-                //cerr << "getEmbedding for " << jsonEncode(*this) << endl;
-
-                // TODO: this is inefficient.  We should be able to have the
-                // info function return us one that does it much more
-                // efficiently.
-
-                std::vector<std::pair<ColumnName, double> > features;
-             
-                auto onColumnValue = [&] (const std::tuple<Coord, ExpressionValue> & column)
-                {
-                    features.emplace_back(get<0>(column), get<1>(column).toDouble());
-                    return true;
-                };
+    auto processor = [&] (const RowHash & rowHash,
+                          const RowName & rowName,
+                          int64_t rowIndex,
+                          const std::vector<double> & features,
+                          const std::vector<ExpressionValue> & extraVals)
+        {
+            std::unique_lock<std::mutex> guard(rowsLock);
                 
-                std::for_each(columns.begin(), columns.end(), onColumnValue);
-                
-                std::sort(features.begin(), features.end());
+            if (features.size() <= maxDimensions) {
+                rows.emplace_back(rowHash, rowName, features, extraVals);
+            }
+            else {
+                ExcAssertLessEqual(maxDimensions, features.size());
+                rows.emplace_back(rowHash, rowName,
+                                  vector<double>(features.begin(),
+                                                 features.begin() + maxDimensions),
+                                  extraVals);
+            }
 
-                ML::distribution<double> result;
-                result.reserve(features.size());
-                for (unsigned i = 0;  i < features.size();  ++i) {
-                    result.push_back(features[i].second);
-                }
+            return true;
+        };
+
+    auto sparseProcessor = [&] (NamedRowValue & output,
+                                const std::vector<ExpressionValue> & calcd)
+        {
+            auto features = getEmbeddingDouble(std::move(output.columns));
+            return processor(output.rowHash, output.rowName, -1 /* rowIndex */,
+                             features, calcd);
+        };
     
-                return result;
-            };
-
-        std::function<bool (NamedRowValue & output,
-                            const std::vector<ExpressionValue> & calcd)>
-            processor = [&] (NamedRowValue & output,
-                              const std::vector<ExpressionValue> & calcd)
-            {
-                auto features = getEmbeddingDouble(output.columns);
-               
-                if (features.size() <= maxDimensions) {
-                    rows.emplace_back(output.rowHash, output.rowName, features, calcd);
-                }
-                else {
-                    ExcAssertLessEqual(maxDimensions, features.size());
-                    rows.emplace_back(output.rowHash, output.rowName,
-                                      vector<double>(features.begin(), features.begin() + maxDimensions),
-                                      calcd);
-                }
-               
-                return true;
-            };
-       
+    if (limit != -1 || offset != 0) { //TODO - MLDB-1127 - orderBy condition here
+        
         //getEmbedding is expected to have a consistent row order
-        iterateDataset(select, dataset, std::move(alias), when, where, calc, {processor, false /*processInParallel*/}, orderBy, offset, limit, onProgress);
+        iterateDataset(select, dataset, std::move(alias), when, where, calc,
+                       {sparseProcessor, false /*processInParallel*/},
+                       orderBy, offset, limit, onProgress);
     }
-    else { // this has opportunity for more optimization since there are no offset or limit
-        auto processor = [&] (const RowHash & rowHash,
-                               const RowName & rowName,
-                               int64_t rowIndex,
-                               const std::vector<double> & features,
-                               const std::vector<ExpressionValue> & extraVals)
-            {
-                std::unique_lock<std::mutex> guard(rowsLock);
-                
-                //cerr << "embedding got row " << rowName << " with index "
-                //     << rowIndex << endl;
-                
-                if (features.size() <= maxDimensions) {
-                    rows.emplace_back(rowHash, rowName, features, extraVals);
-                }
-                else {
-                    ExcAssertLessEqual(maxDimensions, features.size());
-                    rows.emplace_back(rowHash, rowName,
-                                      vector<double>(features.begin(), features.begin() + maxDimensions),
-                                      extraVals);
-                }
-
-                return true;
-            };
-
-        iterateDense(select, dataset, alias, when, where, calc, processor, nullptr);
-
+    else { 
+        // this has opportunity for more optimization since there are no
+        // offset or limit
+        
+        iterateDense(select, dataset, alias, when, where, calc,
+                     processor, nullptr);
+        
         // because the results come in parallel
         // we still need to order by rowHash to ensure determinism in the results
-        parallelQuickSortRecursive<std::tuple<RowHash, RowName, std::vector<double>, std::vector<ExpressionValue> > >(rows.begin(), rows.end());
+        parallelQuickSortRecursive(rows);
     }
-  
 
     return { std::move(rows), std::move(vars) };
 }
 
-std::pair<std::vector<std::tuple<RowHash, RowName, std::vector<double>, std::vector<ExpressionValue> > >,
+std::pair<std::vector<std::tuple<RowHash, RowName, std::vector<double>,
+                                 std::vector<ExpressionValue> > >,
           std::vector<KnownColumn> >
 getEmbedding(const SelectStatement & stm,
-             SqlExpressionMldbContext & context,
+             SqlExpressionMldbScope & context,
              int maxDimensions,
              const std::function<bool (const Json::Value &)> & onProgress)
 {
     auto boundDataset = stm.from->bind(context);
+    if (!boundDataset.dataset)
+        throw HttpReturnException
+            (400, "You can't train this algorithm from a sub-select or "
+             "table expression; it must be FROM <dataset name>");
     return getEmbedding(stm.select, 
                         *boundDataset.dataset, 
                         boundDataset.asName, 
@@ -326,7 +307,7 @@ queryWithoutDataset(SelectStatement& stm, SqlBindingScope& scope)
     MatrixNamedRow row;
     auto boundRowName = stm.rowName->bind(scope);
 
-    row.rowName = GetValidatedRowName(boundRowName(context, GET_ALL));
+    row.rowName = getValidatedRowName(boundRowName(context, GET_ALL));
     row.rowHash = row.rowName;
     val.mergeToRowDestructive(row.columns);
 
@@ -436,7 +417,7 @@ queryFromStatement(SelectStatement & stm,
     }
 }
 
-RowName GetValidatedRowName(const ExpressionValue& rowNameEV)
+RowName getValidatedRowName(const ExpressionValue& rowNameEV)
 {
     if (rowNameEV.empty())
         throw HttpReturnException(400, "Can't create a row with a null or empty name.");
@@ -444,12 +425,17 @@ RowName GetValidatedRowName(const ExpressionValue& rowNameEV)
     if (!rowNameEV.isAtom())
         throw HttpReturnException(400, "NAMED expression must evaluate to a single value");
 
-    Utf8String rowName = rowNameEV.toUtf8String();
+    Utf8String rowNameStr = rowNameEV.toUtf8String();
+
+    if (rowNameStr.empty())
+        throw HttpReturnException(400, "Can't create a row with an empty name");
+
+    auto rowName = RowName::parse(rowNameStr);
 
     if (rowName.empty())
-        throw HttpReturnException(400, "Can't create a row with an empty name.");
+        throw HttpReturnException(400, "Can't create a row with an empty name");
 
-    return std::move(RowName(rowName));
+    return std::move(rowName);
 }
 
 } // namespace MLDB

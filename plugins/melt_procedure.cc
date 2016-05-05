@@ -112,7 +112,7 @@ run(const ProcedureRunConfig & run,
         };
 
 
-    SqlExpressionMldbContext context(server);
+    SqlExpressionMldbScope context(server);
     auto boundDataset = runProcConf.inputData.stm->from->bind(context);
 
     auto toFix = extractNamedSubSelect("to_fix", runProcConf.inputData.stm->select)->expression;
@@ -152,9 +152,18 @@ run(const ProcedureRunConfig & run,
             // Fixed columns
             RowValue fixedOutputRows;
             for(auto & expr : extraVals) {
-                for(auto & col : expr.getRow()) {
-                    fixedOutputRows.emplace_back(get<0>(col), get<1>(col).getAtom(), rowTs);
-                }
+
+                auto onAtom = [&] (const Path & columnName,
+                                   const Path & prefix,
+                                   const CellValue & val,
+                                   Date ts)
+                    {
+                        fixedOutputRows.emplace_back(prefix + columnName,
+                                                     val, ts);
+                        return true;
+                    };
+
+                expr.forEachAtom(onAtom, ColumnName());
             }
 
             // Melted
@@ -165,9 +174,7 @@ run(const ProcedureRunConfig & run,
                 currOutputRow.emplace_back(keyColumnName, get<0>(col).toUtf8String(), rowTs);
                 currOutputRow.emplace_back(valueColumnName, get<1>(col), rowTs);
 
-                RowName rowName(ML::format("%s_%s",
-                                           row.rowName.toUtf8String().rawData(),
-                                           get<0>(col).toUtf8String().rawData()));
+                RowName rowName = row.rowName + std::get<0>(col);
 
                 std::unique_lock<std::mutex> guard(recordMutex);
                 outputDataset->recordRow(rowName, currOutputRow);

@@ -13,7 +13,7 @@
 #include "mldb/jml/utils/csv.h"
 #include "mldb/types/vector_description.h"
 #include <array>
-
+#include <unordered_set>
 
 using namespace std;
 
@@ -122,7 +122,7 @@ struct AggregatorT {
         {
         }
         
-        std::unordered_map<ColumnName, State> columns;
+        std::unordered_map<PathElement, State> columns;
 
         void process(const ExpressionValue * args, size_t nargs)
         {
@@ -130,18 +130,16 @@ struct AggregatorT {
             const ExpressionValue & val = args[0];
 
             // This must be a row...
-            auto onSubExpression = [&] (const Coord & columnName,
-                                        const ExpressionValue & val)
+            auto onColumn = [&] (const PathElement & columnName,
+                                 const ExpressionValue & val)
                 {
                     columns[columnName].process(&val, 1);
                     return true;
                 };
 
             // will keep only the LATEST of each column (if there are duplicates)
-            auto filteredRow = val.getFiltered(GET_LATEST);
-
-            for (auto & c: filteredRow)
-                onSubExpression(std::get<0>(c), std::get<1>(c));
+            ExpressionValue storage;
+            val.getFiltered(GET_LATEST, storage).forEachColumn(onColumn);
         }
 
         ExpressionValue extract()
@@ -172,13 +170,13 @@ struct AggregatorT {
         state for each of the columns.
     */
     struct DenseRowState {
-        DenseRowState(const std::vector<ColumnName> & columnNames)
+        DenseRowState(const std::vector<PathElement> & columnNames)
             : columnNames(columnNames),
               columnState(columnNames.size())
         {
         }
         
-        std::vector<ColumnName> columnNames;
+        std::vector<PathElement> columnNames;
         std::vector<State> columnState;
 
         /// If we guessed wrong about denseness, this is the sparse
@@ -209,7 +207,7 @@ struct AggregatorT {
                 return;
             }
             const ExpressionValue & val = args[0];
-            const auto & row = val.getRow();
+            const auto & row = val.getStructured();
 
             // Check if the column names or number don't match, and
             // pessimize back to the sparse version if it's the case.
@@ -292,7 +290,7 @@ struct AggregatorT {
     }
 
     static std::shared_ptr<DenseRowState>
-    denseRowInit(const std::vector<ColumnName> & columnNames)
+    denseRowInit(const std::vector<PathElement> & columnNames)
     {
         ExcAssert(columnNames.size() > 0);
         return std::make_shared<DenseRowState>(columnNames);
@@ -346,16 +344,17 @@ struct AggregatorT {
         // can be far more optimized about it
         bool isDense = hasUnknown == SCHEMA_CLOSED;
 
-        std::vector<ColumnName> denseColumnNames;
+        std::vector<PathElement> denseColumnNames;
 
         // For each known column, give the output type
         for (KnownColumn & c: cols) {
-            if (c.sparsity == COLUMN_IS_SPARSE)
+            if (c.sparsity == COLUMN_IS_SPARSE || c.columnName.size() != 1)
                 isDense = false;
             c.valueInfo = outputColumnInfo;
             c.sparsity = COLUMN_IS_DENSE;  // always one for each
             if (isDense) {
-                denseColumnNames.push_back(c.columnName);
+                // toSimpleName() is OK, since we just checked it was of length 1
+                denseColumnNames.push_back(c.columnName.toSimpleName());
             }
         }
 
@@ -720,6 +719,47 @@ struct CountAccum {
 
 static RegisterAggregatorT<CountAccum> registerCount("count", "vertical_count");
 
+struct DistinctAccum {
+    static constexpr int nargs = 1;
+    DistinctAccum()
+        : ts(Date::negativeInfinity())
+    {
+    }
+
+    static std::shared_ptr<ExpressionValueInfo>
+    info(const std::vector<BoundSqlExpression> & args)
+    {
+        return std::make_shared<IntegerValueInfo>();
+    }
+
+    void process (const ExpressionValue * args,
+                  size_t nargs)
+    {
+        ExcAssertEqual(nargs, 1);
+        const ExpressionValue & val = args[0];
+        if (val.empty())
+            return;
+
+        knownValues.insert(val.getAtom());
+        ts.setMax(val.getEffectiveTimestamp());
+    };
+
+    ExpressionValue extract()
+    {
+       return ExpressionValue(knownValues.size(), ts);
+    }
+
+    void merge(DistinctAccum* src)
+    {
+        knownValues.insert(src->knownValues.begin(), src->knownValues.end());
+    }
+    
+    std::unordered_set<CellValue> knownValues;
+    Date ts;
+};
+
+static RegisterAggregatorT<DistinctAccum> registerDistinct("count_distinct");
+
 struct LikelihoodRatioAccum {
     LikelihoodRatioAccum()
         : ts(Date::negativeInfinity())
@@ -747,8 +787,8 @@ BoundAggregator lr(const std::vector<BoundSqlExpression> & args)
             bool conv = args[1].isTrue();
             LikelihoodRatioAccum & accum = *(LikelihoodRatioAccum *)data;
             // This must be a row...
-            auto onAtom = [&] (const Coord & columnName,
-                               const Coord & prefix,
+            auto onAtom = [&] (const Path & columnName,
+                               const Path & prefix,
                                const CellValue & val,
                                Date ts)
             {
@@ -835,9 +875,7 @@ BoundAggregator pivot(const std::vector<BoundSqlExpression> & args)
             const ExpressionValue & col = args[0];
             const ExpressionValue & val = args[1];
 
-            ColumnName columnName(col.toUtf8String());
-
-            accum.vals.emplace_back(columnName, val);
+            accum.vals.emplace_back(col.toUtf8String(), val);
         };
 
     auto extract = [] (void * data) -> ExpressionValue

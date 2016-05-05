@@ -9,11 +9,10 @@
 
 #pragma once
 
-
+#include "mldb/core/value_function.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/core/dataset.h"
 #include "mldb/core/procedure.h"
-#include "mldb/core/function.h"
 #include "matrix.h"
 #include "mldb/types/value_description.h"
 #include "mldb/types/optional.h"
@@ -21,6 +20,11 @@
 
 namespace Datacratic {
 namespace MLDB {
+
+
+/*****************************************************************************/
+/* KMEANS CONFIG                                                             */
+/*****************************************************************************/
 
 struct KmeansConfig : public ProcedureConfig {
     KmeansConfig()
@@ -79,18 +83,24 @@ struct KmeansFunctionConfig {
 
 DECLARE_STRUCTURE_DESCRIPTION(KmeansFunctionConfig);
 
-struct KmeansFunction: public Function {
+struct KmeansFunctionArgs {
+   ExpressionValue embedding; //embedding
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(KmeansFunctionArgs);
+
+struct KmeansExpressionValue {
+   ExpressionValue cluster;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(KmeansExpressionValue);
+
+struct KmeansFunction: public ValueFunctionT<KmeansFunctionArgs, KmeansExpressionValue>  {
     KmeansFunction(MldbServer * owner,
-                PolyConfig config,
-                const std::function<bool (const Json::Value &)> & onProgress);
+                   PolyConfig config,
+                   const std::function<bool (const Json::Value &)> & onProgress);
     
-    virtual Any getStatus() const;
-    
-    virtual FunctionOutput apply(const FunctionApplier & applier,
-                              const FunctionContext & context) const;
-    
-    /** Describe what the input and output is for this function. */
-    virtual FunctionInfo getFunctionInfo() const;
+    virtual KmeansExpressionValue call(KmeansFunctionArgs input) const override; 
     
     KmeansFunctionConfig functionConfig;
 

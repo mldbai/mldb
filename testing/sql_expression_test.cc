@@ -29,11 +29,11 @@ BOOST_CHECK_EQUAL(val, ExpressionValue(expected, Date()))
 
 
 struct TestContext: public SqlRowScope {
-    std::map<Utf8String, ExpressionValue> vars;
+    std::map<ColumnName, ExpressionValue> vars;
 
-    virtual ExpressionValue getVariable(const Utf8String & variableName) const
+    virtual ExpressionValue getVariable(const ColumnName & columnName) const
     {
-        auto it = vars.find(variableName);
+        auto it = vars.find(columnName);
         if (it == vars.end())
             return ExpressionValue();
         return it->second;
@@ -44,7 +44,7 @@ TestContext createRow(const std::vector<std::pair<std::string, CellValue> > & va
 {
     TestContext result;
     for (auto & v: vars) {
-        result.vars[Utf8String(v.first)] = ExpressionValue(v.second, Date());
+        result.vars[PathElement(v.first)] = ExpressionValue(v.second, Date());
     }
     return result;
 }
@@ -54,35 +54,36 @@ struct TestBindingContext: public SqlBindingScope {
     {
     }
 
-    VariableGetter doGetVariable(const Utf8String & tableName,
-                                 const Utf8String & variableName)
+    ColumnGetter doGetColumn(const Utf8String & tableName,
+                               const ColumnName & columnName)
     {
         return {[=] (const SqlRowScope & context,
                      ExpressionValue & storage,
                      const VariableFilter & filter) -> const ExpressionValue &
                 {
                     return storage = static_cast<const TestContext &>(context)
-                        .getVariable(variableName);
+                        .getVariable(columnName);
                 },
                 std::make_shared<AtomValueInfo>()};
     }
 
     virtual GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    std::function<Utf8String (const Utf8String &)> keep)
+                    std::function<ColumnName (const ColumnName &)> keep)
     {
         GetAllColumnsOutput result;
 
         result.exec = [=] (const SqlRowScope & context)
+            -> ExpressionValue
             {
                 const TestContext & testContext
                     = static_cast<const TestContext &>(context);
-                std::vector<std::tuple<ColumnName, ExpressionValue> > result;
+                std::vector<std::tuple<PathElement, ExpressionValue> > result;
 
                 for (auto & v: testContext.vars) {
-                    Utf8String name = keep(v.first);
+                    ColumnName name = keep(v.first);
                     if (!name.empty())
-                        result.emplace_back(ColumnName(name), v.second);
+                        result.emplace_back(name.toSimpleName(), v.second);
                 }
                 
                 return std::move(result);
@@ -123,6 +124,25 @@ BOOST_AUTO_TEST_CASE(test_column_expression)
         cerr << parsed->print() << endl;
     }
 
+    {
+        // MLDB-1590
+        auto parsed = SqlRowExpression::parse
+            ("COLUMN EXPR(ORDER BY count(values()) DESC LIMIT 1000)");
+    
+        cerr << parsed->print() << endl;
+    }
+
+    {
+        auto parsed = SqlRowExpression::parse
+            ("COLUMN EXPR(WHERE (rowCount() > 100) ORDER BY rowCount()DESC LIMIT 1000)");
+        cerr << parsed->print() << endl;
+    }
+
+    {
+        auto parsed = SqlRowExpression::parse
+            ("COLUMN EXPR(WHERE rowCount() > 100 ORDER BY rowCount() DESC LIMIT 1000)");
+        cerr << parsed->print() << endl;
+    }
 }
 
 
@@ -233,8 +253,8 @@ BOOST_AUTO_TEST_CASE(test_simple_comparison)
         cerr << parsed->print() << endl;
         auto expr = parsed->bind(context);
         cerr << jsonEncode(expr) << endl;
-        vector<tuple<Coord, ExpressionValue> > expected;
-        expected.emplace_back(Coord("x + 1"), ExpressionValue(11, Date()));
+        vector<tuple<PathElement, ExpressionValue> > expected;
+        expected.emplace_back(PathElement("x + 1"), ExpressionValue(11, Date()));
         BOOST_CHECK_EQUAL(expr(createRow({{"x", 10}, {"y", 3}, {"z", 2}}), GET_LATEST),
                           ExpressionValue(expected));
     }
@@ -948,7 +968,7 @@ BOOST_AUTO_TEST_CASE(test_result_variable_expressions)
         // MLDB-200
         auto parsed = SqlRowExpression::parse("2.2");
         ExcAssert(parsed);
-        BOOST_CHECK_EQUAL(parsed->print(), "computed(\"2.2\",constant([2.2,\"-Inf\"]))");
+        BOOST_CHECK_EQUAL(parsed->print(), "computed(\"\"2.2\"\",constant([2.2,\"-Inf\"]))");
     }
 
     {
@@ -1122,9 +1142,9 @@ BOOST_AUTO_TEST_CASE(test_select_statement_parse)
         auto statement = SelectStatement::parse("select 1 from table");
         BOOST_CHECK_EQUAL(statement.select.clauses.size(), 1);
         BOOST_CHECK_EQUAL(ML::type_name(*statement.select.clauses[0].get()),
-                          "Datacratic::MLDB::ComputedVariable");
-        auto cast = dynamic_cast<ComputedVariable *>(statement.select.clauses[0].get());
-        BOOST_CHECK_EQUAL(cast->alias, Utf8String("1"));
+                          "Datacratic::MLDB::ComputedColumn");
+        auto cast = dynamic_cast<ComputedColumn *>(statement.select.clauses[0].get());
+        BOOST_CHECK_EQUAL(cast->alias, ColumnName("1"));
     }
 
     {
@@ -1153,6 +1173,7 @@ BOOST_AUTO_TEST_CASE(test_select_statement_parse)
 
     {
          // MLDB-868
+        JML_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(SelectStatement::parse("select * from tableç"),
                           std::exception);
         auto statement = SelectStatement::parse("select * from \"tableç\"");
@@ -1234,7 +1255,7 @@ BOOST_AUTO_TEST_CASE(test_colon_as)
     parsed = SelectExpression::parse("x*: y*");
     cerr << parsed.print() << endl;
     BOOST_CHECK_EQUAL(parsed.print(),
-                      "[columns(\"\",\"x\",\"y\",[])]");
+                      "[columns(\"x\",\"y\",[])]");
     parsed = SelectExpression::parse("x : 10, y : 20");
     cerr << parsed.print() << endl;
 
@@ -1245,8 +1266,10 @@ BOOST_AUTO_TEST_CASE(test_colon_as)
     cerr << "alignof(CellValue) = " << alignof(CellValue) << endl;
     cerr << "sizeof(ExpressionValue) = " << sizeof(ExpressionValue) << endl;
     cerr << "alignof(ExpressionValue) = " << alignof(ExpressionValue) << endl;
-    cerr << "sizeof(Coord) = " << sizeof(Coord) << endl;
-    cerr << "alignof(Coord) = " << alignof(Coord) << endl;
+    cerr << "sizeof(PathElement) = " << sizeof(PathElement) << endl;
+    cerr << "alignof(PathElement) = " << alignof(PathElement) << endl;
+    cerr << "sizeof(Path) = " << sizeof(Path) << endl;
+    cerr << "alignof(Path) = " << alignof(Path) << endl;
     cerr << "sizeof(Id) = " << sizeof(Id) << endl;
     cerr << "alignof(Id) = " << alignof(Id) << endl;
     cerr << "sizeof(Utf8String) = " << sizeof(Utf8String) << endl;

@@ -89,7 +89,7 @@ struct TabularDatasetChunk {
     }
 
     const FrozenColumn *
-    maybeGetColumn(size_t columnIndex, const Coord & columnName) const
+    maybeGetColumn(size_t columnIndex, const PathElement & columnName) const
     {
         if (columnIndex < columns.size()) {
             return columns[columnIndex].get();
@@ -103,7 +103,7 @@ struct TabularDatasetChunk {
     }
 
     std::vector<std::shared_ptr<FrozenColumn> > columns;
-    std::unordered_map<ColumnName, std::shared_ptr<FrozenColumn>, CoordNewHasher> sparseColumns;
+    std::unordered_map<ColumnName, std::shared_ptr<FrozenColumn>, PathNewHasher> sparseColumns;
     std::vector<RowName> rowNames;
     std::shared_ptr<FrozenColumn> timestamps;
 

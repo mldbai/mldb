@@ -20,7 +20,6 @@
 #include "jml/utils/string_functions.h"
 #include "plugins/sql_functions.h"
 #include "sql/execution_pipeline.h"
-#include "server/function_contexts.h"
 #include "server/bound_queries.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/jml/db/persistent.h"
@@ -37,13 +36,13 @@ namespace Datacratic {
 namespace MLDB {
 
 inline ML::DB::Store_Writer &
-operator << (ML::DB::Store_Writer & store, const Coord & coord)
+operator << (ML::DB::Store_Writer & store, const PathElement & coord)
 {
     return store << Id(coord.toUtf8String());
 }
 
 inline ML::DB::Store_Reader &
-operator >> (ML::DB::Store_Reader & store, Coord & coord)
+operator >> (ML::DB::Store_Reader & store, PathElement & coord)
 {
     Id id;
     store >> id;
@@ -51,7 +50,20 @@ operator >> (ML::DB::Store_Reader & store, Coord & coord)
     return store;
 }
 
+inline ML::DB::Store_Writer &
+operator << (ML::DB::Store_Writer & store, const Path & coords)
+{
+    return store << coords.toUtf8String();
+}
 
+inline ML::DB::Store_Reader &
+operator >> (ML::DB::Store_Reader & store, Path & coords)
+{
+    Utf8String str;
+    store >> str;
+    coords = Path::parse(str);
+    return store;
+}
 
 
 /*****************************************************************************/
@@ -110,18 +122,24 @@ save(const std::string & filename) const
 void StatsTable::
 serialize(ML::DB::Store_Writer & store) const
 {
-    int version = 1;
-    store << version << colName << outcome_names << counts << zeroCounts;
+    int version = 2;
+    store << string("MLDB Stats Table Binary")
+          << version << colName << outcome_names << counts << zeroCounts;
 }
 
 void StatsTable::
 reconstitute(ML::DB::Store_Reader & store)
 {
     int version;
-    int REQUIRED_V = 1;
-    store >> version;
+    int REQUIRED_V = 2;
+    std::string name;
+    store >> name >> version;
+    if (name != "MLDB Stats Table Binary") {
+        throw HttpReturnException(400, "File does not appear to be a stats "
+                                  "table model");
+    }
     if(version!=REQUIRED_V) {
-        throw ML::Exception(ML::format(
+        throw HttpReturnException(400, ML::format(
                     "invalid StatsTable version! exptected %d, got %d",
                     REQUIRED_V, version));
     }
@@ -195,7 +213,7 @@ run(const ProcedureRunConfig & run,
     StatsTableProcedureConfig runProcConf =
         applyRunConfOverProcConf(procConfig, run);
 
-    SqlExpressionMldbContext context(server);
+    SqlExpressionMldbScope context(server);
     auto boundDataset = runProcConf.trainingData.stm->from->bind(context);
     
     vector<string> outcome_names;
@@ -206,7 +224,7 @@ run(const ProcedureRunConfig & run,
 
     {
         // Find only those variables used
-        SqlExpressionDatasetContext context(boundDataset);
+        SqlExpressionDatasetScope context(boundDataset);
 
         auto selectBound = runProcConf.trainingData.stm->select.bind(context);
 
@@ -274,12 +292,12 @@ run(const ProcedureRunConfig & run,
                     }
                     else {
                         // if we didn't compute the column names yet, do that now
-                        Utf8String keySuffix = get<0>(col).toUtf8String();
+                        const Path & key = std::get<0>(col);
 
                         vector<ColumnName> names;
-                        names.emplace_back(Coord("trial_"+keySuffix));
+                        names.emplace_back(PathElement("trial") + key);
                         for(int lbl_idx=0; lbl_idx<encodedLabels.size(); lbl_idx++) {
-                            names.emplace_back(Coord(outcome_names[lbl_idx]+"_"+keySuffix));
+                            names.emplace_back(PathElement(outcome_names[lbl_idx]) + key);
                         }
 
                         auto inserted = colCache.emplace(get<0>(col), names);
@@ -396,16 +414,16 @@ getDetails() const
     return Any();
 }
 
-FunctionOutput
+ExpressionValue
 StatsTableFunction::
 apply(const FunctionApplier & applier,
-      const FunctionContext & context) const
+      const ExpressionValue & context) const
 {
-    FunctionOutput result;
+    StructValue result;
 
-    ExpressionValue args = context.get<ExpressionValue>("keys");
+    ExpressionValue arg = context.getColumn("keys");
 
-    if(args.isObject()) {
+    if(arg.isRow()) {
         RowValue rtnRow;
 
         // TODO should we cache column names as we did in the procedure?
@@ -420,26 +438,27 @@ apply(const FunctionApplier & applier,
 
                 auto counts = st->second.getCounts(val);
 
-                auto strCol = columnName.toUtf8String(); 
-                rtnRow.push_back(make_tuple(Coord("trial_"+strCol), counts.first, ts));
+                rtnRow.emplace_back(PathElement("trial") + columnName, counts.first, ts);
 
                 for(int lbl_idx=0; lbl_idx<st->second.outcome_names.size(); lbl_idx++) {
-                    rtnRow.push_back(make_tuple(Coord(st->second.outcome_names[lbl_idx]+"_"+strCol),
-                                                counts.second[lbl_idx],
-                                                ts));
+                    rtnRow.emplace_back(PathElement(st->second.outcome_names[lbl_idx])
+                                        +columnName,
+                                        counts.second[lbl_idx],
+                                        ts);
                 }
-
+                
                 return true;
             };
 
-        args.forEachAtom(onAtom);
-        result.set("counts", ExpressionValue(std::move(rtnRow)));
+        arg.forEachAtom(onAtom);
+        result.emplace_back("counts", ExpressionValue(std::move(rtnRow)));
     }
     else {
-        throw ML::Exception("wrong input type");
+        throw HttpReturnException(400, "wrong input type to stats table",
+                                  "input", arg);
     }
 
-    return result;
+    return std::move(result);
 }
 
 FunctionInfo
@@ -447,8 +466,16 @@ StatsTableFunction::
 getFunctionInfo() const
 {
     FunctionInfo result;
-    result.input.addRowValue("keys");
-    result.output.addRowValue("counts");
+
+    std::vector<KnownColumn> inputColumns, outputColumns;
+    inputColumns.emplace_back(PathElement("keys"), std::make_shared<UnknownRowValueInfo>(),
+                              COLUMN_IS_DENSE, 0);
+    outputColumns.emplace_back(PathElement("counts"), std::make_shared<UnknownRowValueInfo>(),
+                               COLUMN_IS_DENSE, 0);
+    
+    result.input.reset(new RowValueInfo(inputColumns, SCHEMA_CLOSED));
+    result.output.reset(new RowValueInfo(outputColumns, SCHEMA_CLOSED));
+    
     return result;
 }
 
@@ -520,7 +547,8 @@ run(const ProcedureRunConfig & run,
     auto do_replace = [&] (const std::string & outcome)
         {
             for(int i=0; i<tempExpressions.size(); i++) {
-                if(!ML::replace_all(tempExpressions[i], outcome, outcome+"_"+stNames[i]))
+                if(!ML::replace_all(tempExpressions[i], outcome,
+                                    outcome+"."+stNames[i]))
                     return;
             }
         };
@@ -639,7 +667,7 @@ run(const ProcedureRunConfig & run,
                 "'functionName' parameter is set.");
     }
 
-    SqlExpressionMldbContext context(server);
+    SqlExpressionMldbScope context(server);
     auto boundDataset = runProcConf.trainingData.stm->from->bind(context);
     
     vector<string> outcome_names;
@@ -713,8 +741,8 @@ run(const ProcedureRunConfig & run,
         vector<ColumnName> outcome_col_names;
         outcome_col_names.reserve(statsTable.outcome_names.size());
         for (int i=0; i < statsTable.outcome_names.size(); ++i)
-            outcome_col_names.emplace_back(
-                    "outcome." + statsTable.outcome_names[i]);
+            outcome_col_names
+                .emplace_back(PathElement("outcome") + statsTable.outcome_names[i]);
 
         typedef std::vector<std::tuple<ColumnName, CellValue, Date>> Columns;
 
@@ -729,8 +757,7 @@ run(const ProcedureRunConfig & run,
                         it != statsTable.counts.end(i); ++it) {
                     Columns columns;
                     // number of trials
-                    columns.emplace_back(
-                        "trials", it->second.first, date0);
+                    columns.emplace_back(PathElement("trials"), it->second.first, date0);
                     // coocurence with outcome for each outcome
                     for (int i=0; i < statsTable.outcome_names.size(); ++i) {
                         columns.emplace_back(
@@ -738,7 +765,7 @@ run(const ProcedureRunConfig & run,
                             it->second.second[i],
                             date0);
                     }
-                    rows.emplace_back(make_pair(it->first, columns));
+                    rows.emplace_back(PathElement(it->first), columns);
                 }
             }
             output->recordRows(rows);
@@ -821,8 +848,8 @@ StatsTablePosNegFunction(MldbServer * owner,
         }
     }
     if(outcomeToUseIdx == -1) {
-        throw ML::Exception("Outcome '"+functionConfig.outcomeToUse+
-                "' not found in stats table!");
+        throw HttpReturnException(400, "Outcome '"+functionConfig.outcomeToUse+
+                                  "' not found in stats table!");
     }
    
     // sort all the keys by their p(outcome)
@@ -880,16 +907,16 @@ getDetails() const
     return Any();
 }
 
-FunctionOutput
+ExpressionValue
 StatsTablePosNegFunction::
 apply(const FunctionApplier & applier,
-      const FunctionContext & context) const
+      const ExpressionValue & context) const
 {
-    FunctionOutput result;
+    StructValue result;
 
-    ExpressionValue args = context.get<ExpressionValue>("words");
+    ExpressionValue arg = context.getColumn("words");
 
-    if(args.isObject()) {
+    if(arg.isRow()) {
         RowValue rtnRow;
 
         // TODO should we cache column names as we did in the procedure?
@@ -904,21 +931,23 @@ apply(const FunctionApplier & applier,
                     return true;
                 }
 
-                rtnRow.emplace_back(Coord(columnName.toUtf8String() + "_" + functionConfig.outcomeToUse),
+                rtnRow.emplace_back(columnName
+                                    + PathElement(functionConfig.outcomeToUse),
                                     it->second,
                                     ts);
 
                 return true;
             };
 
-        args.forEachAtom(onAtom);
-        result.set("probs", ExpressionValue(std::move(rtnRow)));
+        arg.forEachAtom(onAtom);
+        result.emplace_back("probs", ExpressionValue(std::move(rtnRow)));
     }
     else {
-        throw ML::Exception("wrong input type");
+        cerr << jsonEncode(arg) << endl;
+        throw HttpReturnException(400, "statsTable.bagOfWords.posneg : expect 'keys' as a row");
     }
-
-    return result;
+    
+    return std::move(result);
 }
 
 FunctionInfo
@@ -926,8 +955,16 @@ StatsTablePosNegFunction::
 getFunctionInfo() const
 {
     FunctionInfo result;
-    result.input.addRowValue("words");
-    result.output.addRowValue("probs");
+    
+    std::vector<KnownColumn> inputColumns, outputColumns;
+    inputColumns.emplace_back(PathElement("words"), std::make_shared<UnknownRowValueInfo>(),
+                              COLUMN_IS_DENSE, 0);
+    outputColumns.emplace_back(PathElement("probs"), std::make_shared<UnknownRowValueInfo>(),
+                               COLUMN_IS_DENSE, 0);
+    
+    result.input.reset(new RowValueInfo(inputColumns, SCHEMA_CLOSED));
+    result.output.reset(new RowValueInfo(outputColumns, SCHEMA_CLOSED));
+    
     return result;
 }
 

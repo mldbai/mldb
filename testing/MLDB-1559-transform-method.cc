@@ -34,6 +34,8 @@ void TestExpression(const T& expression, int expected)
 
     auto printBefore = expression.print();
 
+    cerr << "testing " << printBefore << endl;
+
     TransformArgs onChild = [&] (std::vector<std::shared_ptr<SqlExpression> > args)
     -> std::vector<std::shared_ptr<SqlExpression> >
         {     
@@ -41,10 +43,10 @@ void TestExpression(const T& expression, int expected)
 
             for (auto& a : args) {
 
-                auto var = std::dynamic_pointer_cast<ReadVariableExpression>(a);
+                auto var = std::dynamic_pointer_cast<ReadColumnExpression>(a);
                 if (var) {
 
-                    a = std::make_shared<ReadVariableExpression>("noprefix", "replaced");                             
+                    a = std::make_shared<ReadColumnExpression>(PathElement("replaced"));
                 }
 
                 a = a->transform(onChild);
@@ -155,12 +157,12 @@ BOOST_AUTO_TEST_CASE(test_transform)
 
     {
         auto functionExpr = SqlExpression::parse("f(a)[c]");
-        TestExpression(functionExpr, 2);
+        TestExpression(functionExpr, 3);
     }
 
     {
         auto functionExpr = SqlExpression::parse("f(a+b)[c+e]");
-        TestExpression(functionExpr, 6);
+        TestExpression(functionExpr, 7);
     }
 
     {

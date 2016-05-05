@@ -375,8 +375,6 @@ validate()
 {
     for (unsigned i = 0;  i < columns.size();  ++i) {
         auto & c = columns[i];
-        //cerr << "loaded column " << c.columnName << " op " << c.op
-        //     << " val " << jsonEncodeStr(c.cellValue) << endl;
         ExcAssert(columnIndex.count(c.columnName));
         ExcAssert(columnIndex[c.columnName].values.count(c.cellValue));
         ExcAssertEqual(columnIndex[c.columnName].columnName, c.columnName);
@@ -694,7 +692,7 @@ run(const ProcedureRunConfig & run,
 
     int numBasisVectors = runProcConf.numDenseBasisVectors;
     
-    SqlExpressionMldbContext context(server);
+    SqlExpressionMldbScope context(server);
 
     auto dataset = runProcConf.trainingData.stm->from->bind(context).dataset;
     
@@ -1009,14 +1007,48 @@ SvdEmbedConfigDescription()
 /* SVD EMBED ROW                                                             */
 /*****************************************************************************/
 
+DEFINE_STRUCTURE_DESCRIPTION(SvdInput);
+
+SvdInputDescription::
+SvdInputDescription()
+{
+    addField("row", &SvdInput::row,
+             "Row to apply SVD to.  The embedding will be the average of "
+             "the SVD of each of the keys of the row.");
+}
+
+DEFINE_STRUCTURE_DESCRIPTION(SvdOutput);
+
+SvdOutputDescription::
+SvdOutputDescription()
+{
+    addField("embedding", &SvdOutput::embedding,
+             "Embedding of the row into the vector space defined by the "
+             "SVD.  There will be a number of coordinates equal to the "
+             "`maxSingluarValues` value of the configuration, or if not "
+             "set, the number of SVD coordinates available in the SVD model "
+             "file.  PathElementinates will have simple numerical names.");
+}
+
+
 SvdEmbedRow::
 SvdEmbedRow(MldbServer * owner,
             PolyConfig config,
             const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner)
+    : BaseT(owner)
 {
     functionConfig = config.params.convert<SvdEmbedConfig>();
     svd = std::move(jsonDecodeFile<SvdBasis>(functionConfig.modelFileUrl.toString()));
+
+    std::map<ColumnHash, SvdColumnIndexEntry> columnIndex2;
+
+    // Deal with the older version of the file
+    for (auto & c: svd.columnIndex) {
+        columnIndex2[c.second.columnName] = std::move(c.second);
+    }
+
+    svd.columnIndex = std::move(columnIndex2);
+
     svd.validate();
     
     nsv = functionConfig.maxSingularValues;
@@ -1024,22 +1056,13 @@ SvdEmbedRow(MldbServer * owner,
         nsv = svd.numSingularValues();
 }
 
-Any
+SvdOutput
 SvdEmbedRow::
-getStatus() const
+call(SvdInput input) const
 {
-    return Any();
-}
-
-FunctionOutput
-SvdEmbedRow::
-apply(const FunctionApplier & applier,
-      const FunctionContext & context) const
-{
-    FunctionOutput result;
-
-    RowValue row = context.get<RowValue>("row");
-
+    RowValue row;
+    input.row.mergeToRowDestructive(row);
+    
     ML::distribution<float> embedding;
     Date ts;
 
@@ -1054,19 +1077,8 @@ apply(const FunctionApplier & applier,
     if (embedding.empty())
         embedding.resize(nsv);
 
-    result.set("embedding", ExpressionValue(std::move((vector<float> &)embedding), ts));
-    
-    return result;
-}
-
-FunctionInfo
-SvdEmbedRow::
-getFunctionInfo() const
-{
-    FunctionInfo result;
-
-    result.input.addRowValue("row");
-    result.output.addEmbeddingValue("embedding", nsv);
+    SvdOutput result;
+    result.embedding = ExpressionValue(std::move((vector<float> &)embedding), ts);
     
     return result;
 }
@@ -1076,7 +1088,7 @@ namespace {
 RegisterProcedureType<SvdProcedure, SvdConfig>
 regSvd(builtinPackage(),
        "svd.train",
-       "Train a SVD to convert rows or columns to summary coordinates",
+       "Train a SVD to convert rows or columns to embedding coordinates",
        "procedures/Svd.md.html");
 
 RegisterFunctionType<SvdEmbedRow, SvdEmbedConfig>

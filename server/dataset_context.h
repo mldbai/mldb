@@ -21,11 +21,21 @@ struct BoundTableExpression;
 /* SQL EXPRESSION MLDB CONTEXT                                               */
 /*****************************************************************************/
 
-/** Context to bind a row expression into an MLDB instance. */
+/** Context to bind a row expression into an MLDB instance.  This is normally
+    the outer-most scope that is used.
 
-struct SqlExpressionMldbContext: public SqlBindingScope {
+    It brings the following entities into scope:
 
-    SqlExpressionMldbContext(const MldbServer * mldb);
+    - User-defined functions registered into the MLDB server;
+    - Datasets that have been created by the MLDB server
+    
+    It also allows for builtin SQL functions to be accessed via the
+    SqlBindingScope it inherits from.
+*/
+
+struct SqlExpressionMldbScope: public SqlBindingScope {
+
+    SqlExpressionMldbScope(const MldbServer * mldb);
 
     MldbServer * mldb;
       
@@ -35,9 +45,6 @@ struct SqlExpressionMldbContext: public SqlBindingScope {
                   const std::vector<BoundSqlExpression> & args,
                   SqlBindingScope & argScope);
     
-    virtual std::shared_ptr<Function>
-    doGetFunctionEntity(const Utf8String & functionName);
-
     virtual std::shared_ptr<Dataset>
     doGetDataset(const Utf8String & datasetName);
 
@@ -48,6 +55,9 @@ struct SqlExpressionMldbContext: public SqlBindingScope {
     doGetTable(const Utf8String & tableName);
 
     virtual MldbServer * getMldbServer() const;
+
+    virtual ColumnGetter doGetColumn(const Utf8String & tableName,
+                                     const ColumnName & columnName);
 };
 
 
@@ -55,12 +65,19 @@ struct SqlExpressionMldbContext: public SqlBindingScope {
 /* SQL EXPRESSION DATASET CONTEXT                                            */
 /*****************************************************************************/
 
-/** Context to bind a row expression into a dataset. */
+/** Context to bind a row expression into a dataset.  This makes the given
+    dataset available to expressions that are bound within it, which means:
 
-struct SqlExpressionDatasetContext: public SqlExpressionMldbContext {
+    - Columns within the dataset can be accessed by name or by wildcard;
+    - Functions that are defined by the dataset can be called;
+    
+    It also, for historical reasons, allows for parameters to be bound.
+*/
 
-    struct RowContext: public SqlRowScope {
-        RowContext(const MatrixNamedRow & row,
+struct SqlExpressionDatasetScope: public SqlExpressionMldbScope {
+
+    struct RowScope: public SqlRowScope {
+        RowScope(const MatrixNamedRow & row,
                    const BoundParameters * params = nullptr)
             : row(row), params(params)
         {
@@ -74,20 +91,20 @@ struct SqlExpressionDatasetContext: public SqlExpressionMldbContext {
         //const Date date;
     };
 
-    SqlExpressionDatasetContext(std::shared_ptr<Dataset> dataset, const Utf8String& alias);
-    SqlExpressionDatasetContext(const Dataset & dataset, const Utf8String& alias);
-    SqlExpressionDatasetContext(const BoundTableExpression& boundDataset);
+    SqlExpressionDatasetScope(std::shared_ptr<Dataset> dataset, const Utf8String& alias);
+    SqlExpressionDatasetScope(const Dataset & dataset, const Utf8String& alias);
+    SqlExpressionDatasetScope(const BoundTableExpression& boundDataset);
 
     const Dataset & dataset;
     Utf8String alias;
     std::vector<Utf8String> childaliases;
 
-    virtual VariableGetter doGetVariable(const Utf8String & tableName,
-                                         const Utf8String & variableName);
+    virtual ColumnGetter doGetColumn(const Utf8String & tableName,
+                                       const ColumnName & columnName);
 
     GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    std::function<Utf8String (const Utf8String &)> keep);
+                    std::function<ColumnName (const ColumnName &)> keep);
 
     virtual BoundFunction
     doGetFunction(const Utf8String & tableName,
@@ -103,23 +120,29 @@ struct SqlExpressionDatasetContext: public SqlExpressionMldbContext {
     virtual ColumnFunction
     doGetColumnFunction(const Utf8String & functionName);
 
-    virtual VariableGetter
+    virtual ColumnGetter
     doGetBoundParameter(const Utf8String & paramName);
     
-    static RowContext getRowContext(const MatrixNamedRow & row,
+    static RowScope getRowScope(const MatrixNamedRow & row,
                                     const BoundParameters * params = nullptr)
     {
-        return RowContext(row, params);
+        return RowScope(row, params);
     }
 
-    virtual Utf8String 
-    doResolveTableName(const Utf8String & fullVariableName, Utf8String &tableName) const;
+    virtual ColumnName
+    doResolveTableName(const ColumnName & fullColumnName,
+                       Utf8String & tableName) const;
     
+#if 0
 protected:
 
-    Utf8String removeQuotes(const Utf8String & variableName) const;
-    Utf8String resolveTableName(const Utf8String& variableName) const;
-    Utf8String resolveTableName(const Utf8String& variableName, Utf8String& resolvedTableName) const;
+    // This is for the context where we have several datasets
+    // resolve ambiguity of different table names
+    // by finding the dataset name that resolves first.
+    Utf8String resolveTableName(const Utf8String& columnName) const;
+    Utf8String resolveTableName(const Utf8String& columnName,
+                                Utf8String& resolvedTableName) const;
+#endif
 };
 
 
@@ -131,17 +154,17 @@ protected:
     clause.  This has access to all of the input and output columns.
 */
 
-struct SqlExpressionOrderByContext: public ReadThroughBindingContext {
+struct SqlExpressionOrderByScope: public ReadThroughBindingScope {
 
-    SqlExpressionOrderByContext(SqlBindingScope & outer)
-        : ReadThroughBindingContext(outer)
+    SqlExpressionOrderByScope(SqlBindingScope & outer)
+        : ReadThroughBindingScope(outer)
     {
     }
 
-    struct RowContext: public ReadThroughBindingContext::RowContext {
-        RowContext(const SqlRowScope & outer,
+    struct RowScope: public ReadThroughBindingScope::RowScope {
+        RowScope(const SqlRowScope & outer,
                    const NamedRowValue & output)
-            : ReadThroughBindingContext::RowContext(outer), output(output)
+            : ReadThroughBindingScope::RowScope(outer), output(output)
         {
         }
 
@@ -152,13 +175,13 @@ struct SqlExpressionOrderByContext: public ReadThroughBindingContext {
         was in the underlying row.  So we first look in what was selected,
         and then fall back to the underlying row.
     */
-    virtual VariableGetter doGetVariable(const Utf8String & tableName,
-                                         const Utf8String & variableName);
-
-    RowContext getRowContext(const SqlRowScope & outer,
+    virtual ColumnGetter doGetColumn(const Utf8String & tableName,
+                                       const ColumnName & columnName);
+    
+    RowScope getRowScope(const SqlRowScope & outer,
                              const NamedRowValue & output) const
     {
-        return RowContext(outer, output);
+        return RowScope(outer, output);
     }
 };
 
