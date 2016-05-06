@@ -1235,7 +1235,7 @@ extractStructuredJson(JsonPrintingContext & context) const
         context.startMember("path");
         context.startArray();
 
-        for (auto & p: coerceToPath()) {
+        for (auto p: coerceToPath()) {
             context.newArrayElement();
             context.writeStringUtf8(p.toUtf8String());
         }

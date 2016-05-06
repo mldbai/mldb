@@ -423,6 +423,25 @@ operator + (Path && other) const
     return result + std::move(other);
 }
 
+std::string
+PathElement::
+getBytes() const
+{
+    if (complex_)
+        return str.str.rawString();
+    else return std::string(data(), data() + dataLength());
+}
+
+std::string
+PathElement::
+stealBytes()
+{
+    if (complex_)
+        return str.str.stealRawString();
+    else return std::string(data(), data() + dataLength());
+}
+
+
 #if 0
 PathElement
 PathElement::
@@ -587,6 +606,8 @@ void
 PathElement::
 initChars(const char * str, size_t len)
 {
+    //cerr << "len = " << len << endl;
+    ExcAssertLess(len, 1ULL << 32);
     words[0] = words[1] = words[2] = 0;
     if (len <= INTERNAL_BYTES - 1) {
         complex_ = 0;
@@ -671,16 +692,13 @@ countDigits(const char * p, size_t len)
     return { lz, i - lz };
 }
 
-
+/** Compare two UTF-8 encoded strings, with numeric ranges sorting in
+    natural order.
+*/
 int
-PathElement::
-compareString(const char * str, size_t len) const
+compareNatural(const char * p1, size_t len1,
+               const char * p2, size_t len2)
 {
-    const char * p1 = data();
-    size_t len1 = dataLength();
-    const char * p2 = str;
-    size_t len2 = len;
-    
     size_t i1 = 0, i2 = 0;
     
     while (i1 < len1 && i2 < len2) {
@@ -730,24 +748,18 @@ compareString(const char * str, size_t len) const
     }
 
     return len1 < len2 ? -1 : 1;
+}
 
-#if 1
-    std::string s1(str, str + len);
-    std::string s2(data(), data() + dataLength());
-
-    //cerr << "strverscmp " << s1 << " and " << s2 << " = "
-    //     << strverscmp(s2.c_str(), s1.c_str()) << endl;
-
-    return strverscmp(s2.c_str(), s1.c_str());
-#endif    
-
-    int res = std::strncmp(data(), str, std::min(dataLength(), len));
-
-    if (res) return res;
-
-    // Equal for the whole common part.  Return based upon which
-    // is longer
-    return (ssize_t)len - (ssize_t)dataLength();
+int
+PathElement::
+compareString(const char * str, size_t len) const
+{
+    const char * p1 = data();
+    size_t len1 = dataLength();
+    const char * p2 = str;
+    size_t len2 = len;
+    
+    return compareNatural(p1, len1, p2, len2);
 }
 
 int
@@ -786,24 +798,121 @@ std::istream & operator >> (std::istream & stream, PathElement & path)
     return stream;
 }
 
+
+/*****************************************************************************/
+/* PATH BUILDER                                                              */
+/*****************************************************************************/
+
+PathBuilder::
+PathBuilder()
+{
+    indexes.reserve(8);
+    indexes.push_back(0);
+}
+
+PathBuilder &
+PathBuilder::
+add(PathElement && element)
+{
+    if (bytes.empty()) {
+        bytes = element.stealBytes();
+    }
+    else {
+        auto v = element.getStringView();
+        bytes.append(v.first, v.first + v.second);
+    }
+    indexes.emplace_back(bytes.size());
+    return *this;
+}
+
+PathBuilder &
+PathBuilder::
+add(const PathElement & element)
+{
+    auto v = element.getStringView();
+    bytes.append(v.first, v.first + v.second);
+    indexes.emplace_back(bytes.size());
+
+    return *this;
+}
+
+PathBuilder &
+PathBuilder::
+addRange(const Path & path, size_t first, size_t last)
+{
+    if (last > path.size())
+        last = path.size();
+    if (first > last)
+        first = last;
+    for (auto it = path.begin() + first, end = path.begin() + last;
+         it < end;  ++it) {
+        add(*it);
+    }
+    return *this;
+}
+
+Path
+PathBuilder::
+extract()
+{
+    Path result;
+    result.bytes_ = std::move(bytes);
+    result.length_ = indexes.size() - 1;
+
+    bool isExternal = result.externalOfs();
+
+    if (isExternal) {
+        result.ofsPtr_ = new uint32_t[indexes.size()];
+        std::copy(indexes.begin(), indexes.end(), result.ofsPtr_);
+    }
+    else {
+        std::copy(indexes.begin(), indexes.end(), result.ofs_);
+    }
+
+    return result;
+}
+
+
 /*****************************************************************************/
 /* PATH                                                                      */
 /*****************************************************************************/
 
-Path::Path()
-{
-}
-
 Path::Path(PathElement && path)
+    : length_(1), ofsBits_(0)
 {
-    if (!path.empty())
-        emplace_back(std::move(path));
+    if (path.empty()) {
+        length_ = 0;
+        return;
+    }
+    bytes_ = path.stealBytes();
+    if (externalOfs()) {
+        ofsPtr_ = new uint32_t[2];
+        ofsPtr_[0] = 0;
+        ofsPtr_[1] = bytes_.size();
+    }
+    else {
+        ofs_[0] = 0;
+        ofs_[1] = bytes_.size();
+    }
 }
 
 Path::Path(const PathElement & path)
+    : length_(1), ofsBits_(0)
 {
-    if (!path.empty())
-        emplace_back(path);
+    if (path.empty()) {
+        length_ = 0;
+        return;
+    }
+    bytes_ = path.getBytes();
+    if (externalOfs()) {
+        ofsPtr_ = new uint32_t[2];
+        ofsPtr_[0] = 0;
+        ofsPtr_[1] = bytes_.size();
+    }
+    else {
+        ofs_[0] = 0;
+        ofs_[1] = bytes_.size();
+    }
 }
 
 Path::
@@ -827,10 +936,10 @@ toUtf8String() const
 {
     Utf8String result;
     bool first = true;
-    for (auto & c: *this) {
+    for (size_t i = 0;  i < length_;  ++i) {
         if (!first)
             result += '.';
-        result += c.toEscapedUtf8String(); 
+        result += at(i).toEscapedUtf8String(); 
         first = false;
     }
     return result;
@@ -840,21 +949,24 @@ std::pair<Path, bool>
 Path::
 parseImpl(const char * str, size_t len, bool exceptions)
 {
-    Path result;
-    result.reserve(4);
-
     const char * p = str;
     const char * e = p + len;
 
+    PathBuilder builder;
+
     if (p == e) {
-        return { result, true };
+        return { Path(), true };
     }
 
     while (p < e) {
         bool valid;
         PathElement el;
         std::tie(el, valid) = PathElement::tryParsePartial(p, e, exceptions);
-        result.emplace_back(std::move(el));
+        if (!valid) {
+            return { Path(), false };
+        }
+        builder.add(std::move(el));
+
         if (p < e) {
             if (*p != '.') {
                 if (exceptions) {
@@ -874,11 +986,10 @@ parseImpl(const char * str, size_t len, bool exceptions)
     }
 
     if (str != e && e[-1] == '.') {
-        result.emplace_back();
+        builder.add(PathElement());
     }
 
-    return { std::move(result), true };
-    
+    return { builder.extract(), true };
 }
 
 std::pair<Path, bool>
@@ -904,42 +1015,59 @@ parse(const Utf8String & val)
 
 Path
 Path::
+tail() const
+{
+    if (length_ == 0)
+        throw HttpReturnException(500, "Attempt to tail empty path");
+    if (length_ == 1)
+        return Path();
+
+    PathBuilder result;
+    return result.addRange(*this, 1, size()).extract();
+}
+
+Path
+Path::
 operator + (const Path & other) const
 {
-    Path result = *this;
-    result.insert(result.end(), other.begin(), other.end());
-    return result;
+    PathBuilder result;
+    return result
+        .addRange(*this, 0, size())
+        .addRange(other, 0, other.size())
+        .extract();
 }
 
 Path
 Path::
 operator + (Path && other) const
 {
-    Path result = *this;
-    result.insert(result.end(),
-                  std::make_move_iterator(other.begin()),
-                  std::make_move_iterator(other.end()));
-    return result;
+    PathBuilder result;
+    return result
+        .addRange(*this, 0, size())
+        .addRange(std::move(other), 0, other.size())
+        .extract();
 }
 
 Path
 Path::
 operator + (const PathElement & other) const
 {
-    Path result = *this;
-    if (!other.empty())
-        result.push_back(other);
-    return result;
+    PathBuilder result;
+    return result
+        .addRange(*this, 0, size())
+        .add(std::move(other))
+        .extract();
 }
 
 Path
 Path::
 operator + (PathElement && other) const
 {
-    Path result = *this;
-    if (!other.empty())
-        result.emplace_back(std::move(other));
-    return result;
+    PathBuilder result;
+    return result
+        .addRange(*this, 0, size())
+        .add(std::move(other))
+        .extract();
 }
 
 Path::operator RowHash() const
@@ -967,8 +1095,11 @@ startsWith(const Path & prefix) const
 {
     if (size() < prefix.size())
         return false;
-    return std::equal(begin(), begin() + prefix.size(),
-                      prefix.begin());
+    for (size_t i = 0;  i < prefix.size();  ++i) {
+        if (!equalElement(i, prefix, i))
+            return false;
+    }
+    return true;
 }
 
 Path
@@ -977,9 +1108,9 @@ removePrefix(const PathElement & prefix) const
 {
     if (!startsWith(prefix))
         return *this;
-    Path result;
-    result.insert(result.end(), begin() + 1, end());
-    return result;
+    PathBuilder result;
+    result.addRange(*this, 1, size());
+    return result.extract();
 }
 
 Path
@@ -988,7 +1119,9 @@ removePrefix(const Path & prefix) const
 {
     if (!startsWith(prefix))
         return *this;
-    return removePrefix(prefix.size());
+    PathBuilder result;
+    result.addRange(*this, prefix.size(), size());
+    return result.extract();
 }
 
 Path
@@ -996,27 +1129,30 @@ Path::
 removePrefix(size_t n) const
 {
     ExcAssertLessEqual(n, size());
-    Path result;
-    result.insert(result.end(), begin() + n, end());
-    return result;
+    PathBuilder result;
+    return result.addRange(*this, n, size()).extract();
 }
 
 Path
 Path::
 replacePrefix(const PathElement & prefix, const Path & newPrefix) const
 {
-    Path result(newPrefix);
-    result.insert(result.end(), begin() + 1, end());
-    return result;
+    PathBuilder result;
+    return result
+        .addRange(newPrefix, 0, newPrefix.size())
+        .addRange(*this, 1, size())
+        .extract();
 }
 
 Path
 Path::
 replacePrefix(const Path & prefix, const Path & newPrefix) const
 {
-    Path result(newPrefix);
-    result.insert(result.end(), begin() + prefix.size(), end());
-    return result;
+    PathBuilder result;
+    return result
+        .addRange(newPrefix, 0, newPrefix.size())
+        .addRange(*this, prefix.size(), size())
+        .extract();
 }
 
 bool
@@ -1048,20 +1184,20 @@ replaceWildcard(const Path & wildcard, const Path & with) const
     if (size() < wildcard.size())
         return Path();
 
-    Path result;
+    PathBuilder result;
     for (ssize_t i = 0;  i < (ssize_t)(with.size()) - 1;  ++i)
-        result.push_back(with[i]);
+        result.add(with[i]);
 
     // The last one may be a prefix match, so we do it explicity
     Utf8String current = at(wildcard.size() - 1).toUtf8String();
     current.removePrefix(wildcard.back().toUtf8String());
     if (!with.empty())
-        result.emplace_back(with.back().toUtf8String() + current);
+        result.add(with.back().toUtf8String() + current);
 
     for (size_t i = wildcard.size();  i < size();  ++i)
-        result.emplace_back(at(i));
+        result.add(at(i));
     
-    return result;
+    return result.extract();
 }   
 
 uint64_t
@@ -1096,11 +1232,118 @@ size_t
 Path::
 memusage() const
 {
-    size_t result = sizeof(*this) + (capacity() - size() * sizeof(PathElement));
-    for (auto & c: *this) {
-        result += c.memusage();
-    }
+    size_t result = sizeof(*this) + bytes_.size();  // todo: extra length bytes
     return result;
+}
+
+bool
+Path::
+equalElement(size_t el, const Path & other, size_t otherEl) const
+{
+    const char * s0;
+    size_t l0;
+    const char * s1;
+    size_t l1;
+    
+    std::tie(s0, l0) = getStringView(el);
+    std::tie(s1, l1) = other.getStringView(otherEl);
+
+    if (l0 != l1)
+        return false;
+    return strncmp(s0, s1, l0) == 0;
+}
+
+bool
+Path::
+lessElement(size_t el, const Path & other, size_t otherEl) const
+{
+    return compareElement(el, other, otherEl) == -1;
+}
+
+int
+Path::
+compareElement(size_t el, const Path & other, size_t otherEl) const
+{
+    const char * s0;
+    size_t l0;
+    const char * s1;
+    size_t l1;
+    
+    std::tie(s0, l0) = getStringView(el);
+    std::tie(s1, l1) = other.getStringView(otherEl);
+
+    return compareNatural(s0, l0, s1, l1);
+}
+
+int
+Path::
+compare(const Path & other) const
+{
+    for (size_t i = 0; i < length_ && i < other.length_; ++i) {
+        int cmp = compareElement(i, other, i);
+        if (cmp)
+            return cmp;
+    }
+
+    return length_ - other.length_;
+}
+
+bool
+Path::
+operator == (const Path & other) const
+{
+    if (length_ != other.length_) {
+        return false;
+    }
+
+    // Short circuit
+    if (offset(0) == 0 && other.offset(0) == 0) {
+        for (size_t i = 1;  i <= length_;  ++i) {
+            if (offset(i) != other.offset(i)) {
+                return false;
+            }
+        }
+        if (bytes_.size() != other.bytes_.size())
+            return false;
+        return std::memcmp(bytes_.data(), other.bytes_.data(), bytes_.size()) == 0;
+    }
+
+    return compare(other) == 0;
+}
+
+bool
+Path::
+operator != (const Path & other) const
+{
+    return ! operator == (other);
+}
+
+bool
+Path::
+operator < (const Path & other) const
+{
+    return compare(other) < 0;
+}
+
+bool
+Path::
+operator <= (const Path & other) const
+{
+    return compare(other) <= 0;
+}
+
+bool
+Path::
+operator > (const Path & other) const
+{
+    return compare(other) > 0;
+}
+
+bool
+Path::
+operator >= (const Path & other) const
+{
+    return compare(other) >= 0;
 }
 
 std::ostream &
