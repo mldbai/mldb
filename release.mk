@@ -21,7 +21,6 @@ $(eval $(call install_file,mldb/container_files/bashrc,$(ETC)/bash.bashrc,555,ml
 
 mldb: \
 	$(BIN)/mldb_runner \
-	$(BIN)/credentialsd \
 	$(BIN)/validator_api.wsgi \
 	mldb_plugins
 
