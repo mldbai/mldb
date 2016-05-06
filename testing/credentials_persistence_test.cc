@@ -13,6 +13,7 @@
 #include "mldb/rest/collection_config_store.h"
 #include "mldb/soa/service/runner.h"
 #include "mldb/soa/service/message_loop.h"
+#include "mldb/soa/credentials/credentials.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/http/http_rest_proxy.h"
 #include <boost/algorithm/string.hpp>
@@ -190,11 +191,9 @@ BOOST_AUTO_TEST_CASE( test_credentials_persistence )
 
     Datacratic::MLDB::CredentialRuleConfig rule;
     rule.id = "mycreds";
-    rule.store.reset(new Datacratic::MLDB::StoredCredentials);
+    rule.store.reset(new Datacratic::StoredCredentials);
     rule.store->resourceType = "aws:s3";
     rule.store->resource = "s3://test.bucket/";
-    rule.store->role = "";
-    rule.store->operation = "*";
     rule.store->credential = cred;
 
     {

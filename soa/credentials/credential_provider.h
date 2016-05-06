@@ -18,42 +18,30 @@ namespace Datacratic {
 /* CREDENTIAL PROVIDER                                                       */
 /*****************************************************************************/
 
-/** Base class that can provide credentials to access a given resource.
+/** Interface that can provide access to credentials to unlock private resources.
 
-    Credentials are pluggable to allow for flexible scenarios.
+    Example of credential providers include file-based provider, command-line
+    provider and in-memory provider.
 */
 struct CredentialProvider {
 
     virtual ~CredentialProvider();
 
     /**
-       Returns a set of resource types (e.g. aws:s3).  This is
-       used by the look-up credential algorithm to find the
-       right credential provider for the resource.
+       Returns a list of credentials matching the resource type.
 
-       If one of the resource type is a prefix of the resource,
-       the credential look-up algorithm calls getSync.
+       This call must return <b>all</b> the available stored credentials
+       matching  <b>exactly</b> the resourceType.  Additional logic is implemented
+       on top of that call to find the best matching credential for the resource.
     */
-    virtual std::vector<std::string>
-    getResourceTypePrefixes() const = 0;
-
-    /**
-       Returns a list of credentials matching the resource type
-       and resource.  Currently, the context and extraData params
-       are not used.
-    */
-    virtual std::vector<Credential>
-    getSync(const std::string & resourceType,
-            const std::string & resource,
-            const CredentialContext & context,
-            Json::Value extraData) const = 0;
+    virtual std::vector<StoredCredentials>
+    getCredentialsOfType(const std::string & resourceType) const = 0;
 
     /**
-       Adds a provider to the list of providers.  Currently, the
-       name param is not used.
+       Adds a provider to the list of providers.  This should be called at
+       load time for all providers.
     */
-    static void registerProvider(const std::string & name,
-                                 std::shared_ptr<CredentialProvider> provider);
+    static void registerProvider(std::shared_ptr<CredentialProvider> provider);
 };
 
 
