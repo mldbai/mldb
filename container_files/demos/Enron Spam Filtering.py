@@ -184,8 +184,8 @@ def fg_stats_table():
     print mldb.put('/v1/functions/bow2_posneg', {
         'type': 'statsTable.bagOfWords.posneg',
         'params': {
-            'numPos': 5000,
-            'numNeg': 5000,
+            'numPos': 10000,
+            'numNeg': 10000,
             'minTrials': 10,
             'outcomeToUse': 'label',
             'statsTableFileUrl': 'file://bow2_stats_table.st'
@@ -202,7 +202,9 @@ def fg_stats_table():
     print mldb.put('/v1/functions/agg_bow2_posneg', {
         'type': 'sql.expression',
         'params': {
-            'expression': 'horizontal_avg({apply_bow2_posneg({msg:msg}) as *})'
+            'expression': 'horizontal_avg({apply_bow2_posneg({msg}) as *}) as bow2_posneg_avg,'
+                          'horizontal_max({apply_bow2_posneg({msg}) as *}) as bow2_posneg_max,'
+                          'horizontal_min({apply_bow2_posneg({msg}) as *}) as bow2_posneg_min'
         }
     })
 
@@ -219,7 +221,9 @@ def fg_all():
         'type': 'transform',
         'params': {
             'inputData': """
-            select {bow_embed({msg}) as *
+            select {
+                    bow_embed({msg}) as *,
+                    agg_bow2_posneg({msg}) as *,
                     } as features,
                     label = 'spam' as label
                 from enron_data
@@ -308,14 +312,14 @@ def test():
 
 #     As you can see, the best threshold is the one where in case of doubt, everything is classified as "ham". This leads to 615 spam messages in the inbox, but no ham wrongly filtered as spam. Clearly this can be improved!
 
-# import_data()
-# import_w2v()
-# fg_bow()
-# fg_w2v()
+import_data()
+import_w2v()
+fg_bow()
+fg_w2v()
 fg_stats_table()
-# fg_all()
-# train()
-# test()
+fg_all()
+train()
+test()
 
 # add_0_column('enron_bow2')
 # fg_svd() # waiting for the svd to get fixed
