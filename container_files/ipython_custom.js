@@ -1,12 +1,41 @@
 function mldb_defer() {
     if (window.jQuery) {
-        $("#header-container").append(
-            $("<div>", {class:"pull-right", style:"padding: 10px;"}).append(
-                $("<a>", {href:"{{HTTP_BASE_URL}}/doc", style:"font-weight: bold; padding: 10px;"}).text("MLDB Documentation")
+
+        //munge the existing tabs
+        $('#tabs a[href="#notebooks"]')
+            .text("Notebooks & Files")
+            .css({"font-size": "18px"})                                       
+        $('#tabs a[href="#running"]')
+            .text("Active Notebooks")
+            .css({"font-size": "18px"});        
+
+        //delete the clusters tab
+        $('#tabs a[href="#clusters"]').parent().remove();   
+        $('#clusters').remove();   
+
+        //add the queries tab
+        $('#tabs').append(
+            $("<li>").append(
+                $('<a href="#queries" data-toggle="tab" aria-expanded="false">')
+                    .text("Query Runner")
+                    .css({"font-size": "18px"})
+            )
+        );
+        $('#running').after(
+            $('<div id="queries" class="tab-pane">').append(
+                $('<iframe width="100%" height="900" frameborder="0" '+
+                        'src="{{HTTP_BASE_URL}}/resources/queries/index.html">')
             )
         );
 
-        $.getJSON("{{HTTP_BASE_URL}}/resources/version.json", function(version){
+        $("#header-container").append(
+            $("<div>", {class:"pull-right", style:"padding: 10px;"}).append(
+                $("<a>", {href:"{{HTTP_BASE_URL}}/doc", target:"_blank", style:"font-weight: bold; padding: 10px;"})
+                    .text("MLDB Documentation")
+            )
+        );
+
+        $.getJSON("{{HTTP_BASE_URL}}/resources/version.json?t="+Date.now(), function(version){
             $("#ipython_notebook").append(
                 $("<span>", {style: "font-size: 12px;"}).text("version "+version.version)
             );
@@ -14,9 +43,11 @@ function mldb_defer() {
 
         if(window.location.pathname.endsWith("tree")){
             $("#tab_content").before(
-                $("<div>", {style:"font-size: 18px; margin: 0 auto; width: 700px;"}).append(
-                    $("<p>", {style:"margin: 10px; line-height: 1.6;"}).html("This is MLDB's <a href='http://jupyter.org' target='_blank'>Jupyter</a>-powered Notebook interface, which enables you to interact with our demos and tutorials below."),
-                    $("<p>", {style:"margin: 10px; line-height: 1.6;"}).html("You can also check out our <a href='{{HTTP_BASE_URL}}/doc'>documentation</a> or get in touch with us at any time at <a href='mailto:mldb@datacratic.com'>mldb@datacratic.com</a> with questions or feedback.")
+                $("<div align=center>").append(
+                    $('<iframe width="530" height="300" '+
+                        'style="border: 1px solid grey; margin: 10px;" '+
+                        'src="https://www.youtube.com/embed/YR9tfxA0kH8" '+
+                        'frameborder="0" allowfullscreen>')
                 )
             );
         }
@@ -25,7 +56,7 @@ function mldb_defer() {
             var exp = Date.parse(data.expiration);
             var countDownSpan = $("<div>", {id:"countdown", 
                 class: "notification_widget btn btn-xs navbar-btn pull-right"});
-            if(window.location.pathname.endsWith("tree")) {
+            if(window.location.pathname.indexOf("/ipy/tree") != -1) {
                 $("#header-container").append(countDownSpan);
             }
             else {
@@ -36,15 +67,15 @@ function mldb_defer() {
                 if(minLeft < 0) {
                     countDownSpan
                     .addClass("danger")
-                    .html("MLDB Container expired " + Math.abs(minLeft) + " minutes ago: save your data now!");
+                    .html("MLDB session expired " + Math.abs(minLeft) + " minutes ago.");
                 }
                 else if(minLeft < 10) {
                     countDownSpan
                     .addClass("warning")
-                    .html("MLDB Container expires in " + minLeft + " minutes: save your data now!");
+                    .html("MLDB session expires in " + minLeft + " minutes: export your data now!");
                 }
                 else {
-                    countDownSpan.html("MLDB Container expires in " + minLeft + " minutes");
+                    countDownSpan.html("MLDB session expires in " + minLeft + " minutes");
                 }
             }
             setInterval(updateCountdown, 10000); 

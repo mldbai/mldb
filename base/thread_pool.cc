@@ -10,7 +10,8 @@
 #include "thread_pool.h"
 #include "thread_pool_impl.h"
 #include "mldb/arch/thread_specific.h"
-#include "arch/cpu_info.h"
+#include "mldb/arch/demangle.h"
+#include "mldb/jml/utils/environment.h"
 #include <atomic>
 #include <condition_variable>
 #include <vector>
@@ -23,9 +24,12 @@ using namespace std;
 
 namespace Datacratic {
 
+static ML::Env_Option<int, true /* trace */>
+NUM_CPUS("NUM_CPUS", std::thread::hardware_concurrency());
+
 int numCpus()
 {
-    return ML::num_cpus();
+    return NUM_CPUS;
 }
 
 /*****************************************************************************/
@@ -382,7 +386,9 @@ struct ThreadPool::Itl: public std::enable_shared_from_this<ThreadPool::Itl> {
                 ThreadJob * job;
                 while ((job = q->steal())) {
                     entry.lastFound = n;
+
                     ++jobsStolen;
+
                     runJob(*job);
                     foundWork = true;
                     delete job;
@@ -416,9 +422,25 @@ struct ThreadPool::Itl: public std::enable_shared_from_this<ThreadPool::Itl> {
         try {
             job();
             finished += 1;
-        } JML_CATCH_ALL {
+        } catch (const std::exception & exc) {
             finished += 1;
-            throw;
+            cerr << "ERROR: job submitted to ThreadPool of type "
+                 << ML::demangle(job.target_type())
+                 << " threw exception: " << exc.what() << endl;
+            cerr << "A Job in a ThreadPool which throws an exception "
+                 << "causes the program to crash, which is happening now"
+                 << endl;
+            abort();
+        }
+        JML_CATCH_ALL {
+            finished += 1;
+            cerr << "ERROR: job submitted to ThreadPool of type "
+                 << ML::demangle(job.target_type())
+                 << " threw exception " << ML::getExceptionString() << endl;
+            cerr << "A Job in a ThreadPool which throws an exception "
+                 << "causes the program to crash, which is happening now"
+                 << endl;
+            abort();
         }
     }
 
@@ -465,6 +487,27 @@ struct ThreadPool::Itl: public std::enable_shared_from_this<ThreadPool::Itl> {
                     // nothing to do then we go to sleep and wait for
                     // some more work to come.
                     ++itersWithNoWork;
+
+                    // Look for when we're idle, and if we are just sleep
+                    // MLDB-1538
+                    uint32_t s = submitted.load(std::memory_order_relaxed);
+                    uint32_t f = finished.load(std::memory_order_relaxed);
+
+                    if (s == f) {
+                        // We're idle.  No need to look for a job; we almost
+                        // certainly won't find one.
+                        ++threadsSleeping;
+                        std::unique_lock<std::mutex> guard(wakeupMutex);
+
+                        // We can't sleep forever, since we allow for
+                        // wakeups to be missed for efficiency reasons,
+                        // and so we need to poll every now and again.
+                        wakeupCv.wait_for(guard, std::chrono::milliseconds(250));
+
+                        --threadsSleeping;
+                        itersWithNoWork = 0;
+                    }
+
                     if (itersWithNoWork == 10) {
                         ++threadsSleeping;
                         std::unique_lock<std::mutex> guard(wakeupMutex);
@@ -482,7 +525,7 @@ struct ThreadPool::Itl: public std::enable_shared_from_this<ThreadPool::Itl> {
                         // to give up on it.  We wait a small amount of
                         // time and try again.
                         std::this_thread::yield();
-                        std::this_thread::sleep_for(std::chrono::microseconds(100));
+                        std::this_thread::sleep_for(std::chrono::milliseconds(1));
                     }
                 } else {
                     itersWithNoWork = 0;
@@ -526,6 +569,11 @@ struct ThreadPool::Itl: public std::enable_shared_from_this<ThreadPool::Itl> {
     {
         if (shutdown)
             return;
+
+        // Finish all the jobs first, otherwise they will simply
+        // disappear.
+        while (runMine(*thread)) ;
+
         ExcAssert(thread);
         std::unique_lock<std::mutex> guard(queuesMutex);
         if (shutdown)

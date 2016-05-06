@@ -14,7 +14,7 @@ class PoolingPerformanceTest(unittest.TestCase):
         mldb.create_dataset({
             "id": "reddit_raw", "type": "text.line",
             "params": {
-                "dataFileUrl": "https://s3-eu-west-1.amazonaws.com/pfigshare-u-files/1310438/reddituserpostingbehavior.csv.gz"
+                "dataFileUrl": "https://s3.amazonaws.com/public.mldb.ai/reddit.csv.gz"
             }
         })
 

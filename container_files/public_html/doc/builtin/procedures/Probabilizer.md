@@ -44,6 +44,9 @@ transformation of the output of the classifier onto a probability space.
 
 ![](%%config procedure probabilizer.train)
 
+
+![](%%type ML::Link_Function)
+
 A probabilizer is trained on the output of a classifier applied over a
 dataset.  The dataset should *not* have been used to train the classifier,
 or a biased probabilizer will result.

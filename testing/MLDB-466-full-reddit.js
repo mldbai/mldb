@@ -23,219 +23,118 @@ function succeeded(response)
 
 function assertSucceeded(process, response)
 {
-    plugin.log(process, response);
+    plugin.log(process, response.json);
 
     if (!succeeded(response)) {
         throw process + " failed: " + JSON.stringify(response);
     }
 }
 
-function createAndTrainProcedure(config, name)
-{
-    var start = new Date();
+res = mldb.put('/v1/procedures/import_reddit', { 
+    "type": "import.text",  
+    "params": { 
+        "dataFileUrl": "http://public.mldb.ai/reddit.csv.gz",
+        'delimiter':'', 
+        'quotechar':'',
+        'outputDataset': 'reddit_raw',
+        'runOnCreation': true,
+        'limit': 10000
+    } 
+});
 
-    var createOutput = mldb.put("/v1/procedures/" + name, config);
-    assertSucceeded("procedure " + name + " creation", createOutput);
+assertSucceeded("import text", res);
 
-    // Run the training
-    var trainingOutput = mldb.put("/v1/procedures/" + name + "/runs/1", {});
-    assertSucceeded("procedure " + name + " training", trainingOutput);
+res = mldb.query("select * from reddit_raw limit 5");
 
-    var end = new Date();
+mldb.log(res);
 
-    plugin.log("procedure " + name + " took " + (end - start) / 1000 + " seconds");
-}
-
-function createDataset()
-{
-    var start = new Date();
-
-    var dataset_config = {
-        type: 'text.line',
-        id: 'reddit_text_file',
-        params: {
-            //dataFileUrl: 'file://reddit_user_posting_behavior.csv'
-            dataFileUrl: 'https://s3-eu-west-1.amazonaws.com/pfigshare-u-files/1310438/reddituserpostingbehavior.csv.gz'
-        }
-    };
-
-    var now = new Date();
-
-    var dataset = mldb.createDataset(dataset_config);
-
-    var end = new Date();
-    
-    plugin.log("creating text dataset took " + (end - start) / 1000 + " seconds");
-
-    var transformConfig = {
-        type: "transform",
-        params: {
-            inputData: { 
-                select: "parse_sparse_csv(lineText) as reddit",
-                //rowName: "regex_replace(lineText, '([^,]\+).*', '\\1')",
-                //rowName: "lineNumber"
-                rowName: "jseval('return x.substr(0, x.indexOf('',''));', 'x', lineText)"
-                from: 'reddit_text_file' 
-            },
-            outputDataset: { type: 'sparse.mutable', id: 'reddit_dataset' }
-            //outputDataset: { type: 'beh.binary.mutable', id: 'reddit_dataset' }
-    };
-
-    createAndTrainProcedure(transformConfig, "dataset import");
-
-    // Save the dataset for later
-    //var saveResp = mldb.post("/v1/datasets/reddit_dataset/routes/saves",
-    //                         {dataFileUrl: 'file://tmp/MLDB-499.beh'});
-    //plugin.log(saveResp);
-}
-
-function createDatasetOld()
-{
-    var start = new Date();
-
-    var dataset_config = {
-        type: 'sparse.mutable',
-        id: 'reddit_dataset',
-        params: {
-            dataFileUrl: 'file://tmp/MLDB-4660-reddit.beh'
-        }
-    };
-
-    var dataset = mldb.createDataset(dataset_config)
-    plugin.log("Reddit data loader created dataset")
-
-    //var dataset_address = 'http://files.figshare.com/1310438/reddit_user_posting_behavior.csv.gz'
-    var dataset_address = 'file://reddit_user_posting_behavior.csv'
-
-    var now = new Date();
-
-    var stream = mldb.openStream(dataset_address);
-
-    var numLines = 875000;
-
-    var lineNum = 0;
-
-    var rows = [];
-
-    while (!stream.eof() && lineNum < numLines) {
-        ++lineNum;
-        if (lineNum % 100000 == 0)
-            plugin.log("loaded", lineNum, "lines");
-        var line = stream.readLine();
-        var fields = line.split(',');
-        var tuples = [];
-        for (var i = 1;  i < fields.length;  ++i) {
-            tuples.push([fields[i], 1, now]);
-        }
-
-        rows.push([fields[0], tuples]);
-
-        // Commit every 100000
-        if (rows.length >= 100000) {
-            dataset.recordRows(rows);
-            rows = [];
-        }
+res = mldb.put('/v1/procedures/reddit_import', {
+    "type": "transform",
+    "params": {
+        "inputData": "select tokenize(lineText, {offset: 1, value: 1}) as * from reddit_raw",
+        "outputDataset": "reddit_dataset",
+        "runOnCreation": true
     }
+});
 
-    dataset.recordRows(rows);
+assertSucceeded("tokenize", res);
 
-    plugin.log("Committing dataset")
-    dataset.commit()
-
-    var end = new Date();
-    
-    plugin.log("creating dataset took " + (end - start) / 1000 + " seconds");
-
-    return dataset;
-}
-
-function loadDataset()
-{
-    var dataset_config = {
-        'type'    : 'beh.binary',
-        'id'      : 'reddit_dataset',
-        'address' : 'file://tmp/MLDB-466-reddit.beh'
-    };
-
-    var dataset = mldb.createDataset(dataset_config)
-    plugin.log("Reddit data loader created dataset")
-
-    return dataset;
-}
-
-//var dataset = createDataset();
-
-var dataset;
-try {
-    throw "disabled"
-    dataset = loadDataset();
-} catch (e) {
-    mldb.del("/v1/datasets/reddit_text_file");
-    mldb.del("/v1/datasets/reddit_dataset");
-    dataset = createDataset();
-}
-
-
-// Create a dataset with just the column sums (number of users per reddit)
-var userCountsConfig = {
-    type: "transform",
-    params: {
-        inputData: { 
-            select: 'columnCount() AS numUsers',
-            orderBy: 'columnCount() DESC, rowName()',
-            limit: 1000,
-            rowName: "rowName() + '|1'"
-            from: {
-                type: 'transposed',
-                params: { dataset: { id: 'reddit_dataset' } } 
-            },
-        },
-        outputDataset: { type: 'embedding', id: 'reddit_user_counts' }
-};
-
-createAndTrainProcedure(userCountsConfig, "reddit_user_counts");
-
-plugin.log(mldb.get("/v1/datasets/reddit_user_counts/query", {limit:100}));
-
-
-// Create a SVD procedure.  We only want to embed the 1,000 columns with the
-// highest row counts.
-
-var svdConfig = {
-    type: "svd.train",
-    params: {
-        trainingData: { "from" : {"id": "reddit_dataset" },
-                        select: "COLUMN EXPR (AS columnName() WHERE rowCount() > 100 ORDER BY rowCount() DESC, columnName() LIMIT 1000)"
-                      },
-        columnOutputDataset: { "id": "reddit_svd_embedding", type: "embedding" }
+res = mldb.put('/v1/procedures/reddit_count_users', {
+    "type": "transform",
+    "params": {
+        "inputData": "select columnCount() as numUsers named rowName() + '|1' from transpose(reddit_dataset)",
+        "outputDataset": "reddit_user_counts",
+        "runOnCreation": true
     }
-};
+});
 
-createAndTrainProcedure(svdConfig, 'reddit_svd');
+assertSucceeded("user counts", res);
 
-plugin.log(mldb.get("/v1/datasets/svd_output/query", {select:'rowName()', limit:100}));
+res = mldb.query("select * from reddit_dataset limit 5");
 
-var kmeansConfig = {
-    type: "kmeans.train",
-    params: {
-        trainingData: "select * from reddit_svd_embedding",
-        outputDataset: {
-            id: "reddit_kmeans_clusters", type: "embedding"
-        }
+mldb.log(res);
+
+res = mldb.put('/v1/procedures/reddit_svd', {
+    "type" : "svd.train",
+    "params" : {
+        "trainingData" : "SELECT COLUMN EXPR (AS columnName() ORDER BY rowCount() DESC, columnName() LIMIT 1000) FROM reddit_dataset",
+        "columnOutputDataset" : "reddit_svd_embedding",
+        "runOnCreation": true
     }
-};
+});
 
-createAndTrainProcedure(kmeansConfig, 'reddit_kmeans');
+assertSucceeded("svd", res);
 
-var tsneConfig = {
-    type: "tsne.train",
-    params: {
-        trainingData: { "from" : { "id": "reddit_svd_embedding" } },
-        rowOutputDataset: { "id": "reddit_tsne_embedding", "type": "embedding" }
+res = mldb.query("select * from reddit_svd_embedding limit 5");
+
+mldb.log(res);
+
+res = mldb.put('/v1/procedures/reddit_kmeans', {
+    "type" : "kmeans.train",
+    "params" : {
+        "trainingData" : "select * from reddit_svd_embedding",
+        "outputDataset" : "reddit_kmeans_clusters",
+        "numClusters" : 20,
+        "runOnCreation": true
     }
-};
+});
 
-createAndTrainProcedure(tsneConfig, 'reddit_tsne');
+assertSucceeded("kmeans", res);
+
+res = mldb.query("select * from reddit_kmeans_clusters limit 5");
+
+mldb.log(res);
+
+res = mldb.put('/v1/procedures/reddit_tsne', {
+    "type" : "tsne.train",
+    "params" : {
+        "trainingData" : "select * from reddit_svd_embedding",
+        "rowOutputDataset" : "reddit_tsne_embedding",
+        "runOnCreation": true
+    }
+});
+
+assertSucceeded("tsne", res);
+
+mldb.log(res.json);
+
+res = mldb.query("select * from reddit_tsne_embedding limit 5");
+
+mldb.log(res);
+
+res = mldb.query("select * from reddit_user_counts limit 5");
+
+mldb.log(res);
+
+res = mldb.query(
+    "select *, quantize(x, 7) as grid_x, quantize(y, 7) as grid_y " +
+    "named regex_replace(rowName(), '\|1', '') " +
+    "from merge(reddit_user_counts, reddit_tsne_embedding, reddit_kmeans_clusters) " +
+    "where cluster is not null " +
+    "order by numUsers desc limit 100"
+);
+
+mldb.log(res);
 
 var mergedConfig = {
     type: "merged",
@@ -264,3 +163,4 @@ plugin.log(resp)
 assertEqual(resp.json, expected.json);
 
 "success"
+

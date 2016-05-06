@@ -25,19 +25,21 @@ class ImportTextToSparseTest(unittest.TestCase):
 
         res = mldb.query('SELECT * FROM iris limit 1')
 
-        expected = [["_rowName",
-                    "a",
-                    "b",
-                    "c",
-                    "d",
-                    "label"],
+        expected = [[
+                        "_rowName",
+                        "a",
+                        "b",
+                        "c",
+                        "d",
+                        "label"
+                    ],
                     [
-                        "97",
-                        5.7,
-                        2.9,
-                        4.2,
-                        1.3,
-                        "Iris-versicolor"
+                        "150",
+                        5.9,
+                        3,
+                        5.1,
+                        1.8,
+                        "Iris-virginica"
                     ]]
 
         self.assertEqual(res, expected)
@@ -57,8 +59,8 @@ class ImportTextToSparseTest(unittest.TestCase):
 
         res = mldb.query('SELECT * FROM iris_ex limit 1')
 
-        expected = [["_rowName", "a", "b", "d","label"],
-                    ["97", 5.7, 2.9, 1.3, "Iris-versicolor"]]
+        expected = [["_rowName", "a", "b", "d", "label" ],
+                    ["150", 5.9, 3, 1.8, "Iris-virginica"]]
 
         self.assertEqual(res, expected)
 
@@ -67,7 +69,7 @@ class ImportTextToSparseTest(unittest.TestCase):
         res = mldb.put('/v1/procedures/import_reddit', {
             "type": "import.text",
             "params": {
-                "dataFileUrl": "https://s3-eu-west-1.amazonaws.com/pfigshare-u-files/1310438/reddituserpostingbehavior.csv.gz",
+                "dataFileUrl": "https://s3.amazonaws.com/public.mldb.ai/reddit.csv.gz",
                 "delimiter": "",
                 "quotechar": "",
                 "select": "tokenize(lineText, {offset: 1, value: 1}) as *",
@@ -76,12 +78,45 @@ class ImportTextToSparseTest(unittest.TestCase):
             } 
         })
 
-      #  mldb.log(res)
-
-        res = mldb.query('SELECT gonewild FROM reddit LIMIT 1')
+        res = mldb.query('SELECT gonewild FROM reddit WHERE gonewild IS NOT NULL LIMIT 1')
 
         expected = [["_rowName","gonewild"],
                     ["471242",1]]
+        self.assertEqual(res, expected)
+
+    # MLDB-1513
+    def test_missing_rows(self):
+        ds = mldb.create_dataset({
+            'type': 'tabular',
+            'id': 'onechunk'})
+
+        ds.record_row('1', [['x', 17, 0]])
+        ds.record_row('2', [['x', 18, 0]])
+        ds.record_row('3', [['x', 'banane', 0]])
+
+        ds.commit()
+
+        res = mldb.query("select * from onechunk where rowName() in ('1', '2', '3')")
+
+        expected = [["_rowName", "x"],["1",17],["2",18],["3","banane"]]
+
+        self.assertEqual(res, expected)
+
+    def test_missing_rows_order(self):
+
+        ds = mldb.create_dataset({
+            'type': 'sparse.mutable',
+            'id': 'onechunk2'})
+
+        ds.record_row('1', [['x', 17, 0]])
+        ds.record_row('2', [['x', 18, 0]])
+        ds.record_row('3', [['x', 'banane', 0]])
+
+        ds.commit()
+
+        res = mldb.query("select * from onechunk2 where rowName() in ('1', '2', '3') order by rowName()")
+        expected = [["_rowName", "x"],["1",17],["2",18],["3","banane"]]
+
         self.assertEqual(res, expected)
 
 mldb.run_tests()

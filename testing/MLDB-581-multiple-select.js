@@ -27,8 +27,7 @@ function createDataset()
     
     var dataset = mldb.createDataset(dataset_config)
 
-    var dataset_address = 'https://s3-eu-west-1.amazonaws.com/pfigshare-u-files/1310438/reddituserpostingbehavior.csv.gz'
-    //var dataset_address = 'file://reddit_user_posting_behavior.csv';
+    var dataset_address = 'https://s3.amazonaws.com/public.mldb.ai/reddit.csv.gz';
     var now = new Date();
 
     var stream = mldb.openStream(dataset_address);

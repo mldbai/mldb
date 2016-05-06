@@ -16,6 +16,7 @@
 #include "mldb/core/function.h"
 #include "sql/sql_expression.h"
 #include "mldb/jml/db/persistent_fwd.h"
+#include "mldb/types/optional.h"
 
 namespace Datacratic {
 namespace MLDB {
@@ -38,6 +39,8 @@ struct StatsTable {
 
     StatsTable(const std::string & filename);
 
+    // .first : nb trial
+    // .second : nb of occurence of each outcome
     typedef std::pair<int64_t, std::vector<int64_t>> BucketCounts;
     const BucketCounts & increment(const CellValue & val,
                                    const std::vector<uint> & outcomes);
@@ -51,9 +54,9 @@ struct StatsTable {
     ColumnName colName;
 
     std::vector<std::string> outcome_names;
-    std::map<Utf8String, BucketCounts> counts;
+    std::unordered_map<Utf8String, BucketCounts> counts;
 
-    std::pair<int64_t, std::vector<int64_t>> zeroCounts;
+    BucketCounts zeroCounts;
 };
 
 
@@ -130,8 +133,8 @@ struct StatsTableFunction: public Function {
 
     virtual Any getDetails() const;
 
-    virtual FunctionOutput apply(const FunctionApplier & applier,
-                              const FunctionContext & context) const;
+    virtual ExpressionValue apply(const FunctionApplier & applier,
+                              const ExpressionValue & context) const;
 
     /** Describe what the input and output is for this function. */
     virtual FunctionInfo getFunctionInfo() const;
@@ -190,6 +193,11 @@ struct BagOfWordsStatsTableProcedureConfig : ProcedureConfig {
     Url statsTableFileUrl;
 
     Utf8String functionName;
+    std::string functionOutcomeToUse;
+
+    Optional<PolyConfigT<Dataset>> outputDataset;
+
+    static constexpr char const * defaultOutputDatasetType = "tabular";
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(BagOfWordsStatsTableProcedureConfig);
@@ -219,8 +227,10 @@ struct BagOfWordsStatsTableProcedure: public Procedure {
 /*****************************************************************************/
 
 struct StatsTablePosNegFunctionConfig {
-    StatsTablePosNegFunctionConfig(const Url & statsTableFileUrl = Url()) :
+    StatsTablePosNegFunctionConfig(const Url & statsTableFileUrl = Url(),
+            const std::string & outcomeToUse = "") :
         numPos(50), numNeg(50), minTrials(50),
+        outcomeToUse(outcomeToUse),
         statsTableFileUrl(statsTableFileUrl)
     {
     }
@@ -247,8 +257,8 @@ struct StatsTablePosNegFunction: public Function {
 
     virtual Any getDetails() const;
 
-    virtual FunctionOutput apply(const FunctionApplier & applier,
-                              const FunctionContext & context) const;
+    virtual ExpressionValue apply(const FunctionApplier & applier,
+                              const ExpressionValue & context) const;
 
     /** Describe what the input and output is for this function. */
     virtual FunctionInfo getFunctionInfo() const;

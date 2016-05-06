@@ -1,14 +1,12 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* buckets.h                                                       -*- C++ -*-
    Jeremy Barnes, 12 September 2011
    Copyright (c) 2011 Jeremy Barnes and Datacratic.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Bucketing algorithms, extracted.
 */
 
-#ifndef __jml__buckets_h__
-#define __jml__buckets_h__
+#pragma once
 
 #include "mldb/jml/stats/sparse_distribution.h"
 #include "mldb/jml/utils/sorted_vector.h"
@@ -72,7 +70,5 @@ Bucket_Info create_buckets(const std::vector<float> & values,
 
 
 } // namespace ML
-
-#endif /* __jml__buckets_h__ */
 
 

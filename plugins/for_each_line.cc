@@ -244,10 +244,13 @@ void forEachLineBlock(std::istream & stream,
                                           size_t lineLength,
                                           int64_t blockNumber,
                                           int64_t lineNumber)> onLine,
-                      int64_t maxLines)   // -1
+                      int64_t maxLines,
+                      int maxParallelism,
+                      std::function<bool (int64_t blockNumber, int64_t lineNumber)> startBlock,
+                      std::function<bool (int64_t blockNumber, int64_t lineNumber)> endBlock)
 {
     //static constexpr int64_t BLOCK_SIZE = 100000000;  // 100MB blocks
-    static constexpr int64_t BLOCK_SIZE = 10000000;  // 10MB blocks
+    static constexpr int64_t BLOCK_SIZE = 20000000;  // 20MB blocks
     static constexpr int64_t READ_SIZE = 200000;  // read&scan 200kb to fit in cache
 
     std::atomic<int64_t> doneLines(0); //number of lines processed but not yet returned
@@ -255,13 +258,7 @@ void forEachLineBlock(std::istream & stream,
     std::atomic<int64_t> byteOffset(0);
     std::atomic<int> chunkNumber(0);
 
-    // TODO: use the global thread pool, but with limited parallelism.
-    // The limit of 8 threads here is to avoid lock contention in the
-    // downstream task; instead the downstream task should pass through
-    // the amount of parallelism (eg, 8) to this routine which will
-    // arrange for only that number of threads to scheduled at a time
-    // on the parent thread pool.
-    ThreadPool tp(8);
+    ThreadPool tp(maxParallelism);
 
     // Memory map if possible
     const char * mapped = nullptr;
@@ -289,9 +286,11 @@ void forEachLineBlock(std::istream & stream,
             int64_t startLine = doneLines;
             vector<size_t> lineOffsets = {0};
             bool lastBlock = false;
-
+            size_t myChunkNumber = 0;
+            
             try {
-                if (mapped) {
+                //MLDB-1426
+                if (mapped && false) {
                     const char * start = mapped + stream.tellg();
                     const char * current = start;
                     const char * end = mapped + mappedSize;
@@ -314,8 +313,8 @@ void forEachLineBlock(std::istream & stream,
                         lineOffsets.push_back(end - start);
                         ++doneLines;
                     }
-
-                    ++chunkNumber;
+                    
+                    myChunkNumber = chunkNumber++;
 
                     if (current && current < end &&
                         (maxLines == -1 || doneLines < maxLines)) // don't schedule a new block if we have enough lines
@@ -414,7 +413,7 @@ void forEachLineBlock(std::istream & stream,
                         }                
                     }
 
-                    ++chunkNumber;
+                    myChunkNumber = chunkNumber++;
 
                     if (stream && !stream.eof() &&
                         (maxLines == -1 || doneLines < maxLines)) // don't schedule a new block if we have enough lines
@@ -432,6 +431,10 @@ void forEachLineBlock(std::istream & stream,
 
                 int64_t chunkLineNumber = startLine;
                 size_t lastLineOffset = lineOffsets[0];
+
+                if (startBlock)
+                    if (!startBlock(myChunkNumber, chunkLineNumber))
+                        return;
 
                 for (unsigned i = 1;  i < lineOffsets.size() && (maxLines == -1 || returnedLines++ < maxLines);  ++i) {
                     if (hasExc.load(std::memory_order_relaxed))
@@ -451,6 +454,11 @@ void forEachLineBlock(std::istream & stream,
                     lastLineOffset = lineOffsets[i] + 1;
 
                 }
+
+                if (endBlock)
+                    if (!endBlock(myChunkNumber, chunkLineNumber))
+                        return;
+
             } JML_CATCH_ALL {
                 if (hasExc.fetch_add(1) == 0) {
                     exc = std::current_exception();

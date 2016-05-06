@@ -29,7 +29,7 @@ def run_transform(when, format):
     mldb.post("/v1/procedures/when_procedure/runs")
 
     result = mldb.get('/v1/query',
-                      q="SELECT * FROM dataset_out_" + str(dataset_index),
+                      q="SELECT * FROM dataset_out_" + str(dataset_index) + " ORDER BY rowHash()",
                       format=format)
     rows = result.json()
     return rows
@@ -63,15 +63,18 @@ formats = ['full', 'sparse', 'soa', 'aos', 'table']
 
 for format in formats:
     result = mldb.get('/v1/query',
-        q="SELECT * FROM dataset1 WHEN value_timestamp() > '%s'" % later,
+        q="SELECT * FROM dataset1 WHEN value_timestamp() > '%s' ORDER BY rowHash()" % later ,
         format=format)
+
     rows1 = json.dumps(result.json(), indent=4, sort_keys=True)
 
     result = mldb.get('/v1/datasets/dataset1/query',
-        when="value_timestamp() > '%s'" % later, format=format)
+        when="value_timestamp() > '%s'" % later, orderBy ="rowHash()", format=format)
+
     rows2 = json.dumps(result.json(), indent=4, sort_keys=True)
 
     response = run_transform("value_timestamp() > '%s'" % later, format)
+
     rows3 = json.dumps(response, indent=4, sort_keys=True, default=str)
 
     compare_json(rows1, rows2, format)

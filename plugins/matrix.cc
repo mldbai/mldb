@@ -58,7 +58,7 @@ classifyColumns(const Dataset & dataset, SelectExpression select)
     if (select.clauses.empty())
         select = SelectExpression::parse("*");
 
-    SqlExpressionDatasetContext context(dataset, "");
+    SqlExpressionDatasetScope context(dataset, "");
 
     auto boundSelect = select.bind(context);
 
@@ -225,8 +225,7 @@ extractFeaturesFromRows(const Dataset & dataset,
 
             return true;
         };
-    
-    iterateDataset(select, dataset, "", when, *where, onRow, orderBy, offset, limit, nullptr);
+    iterateDataset(select, dataset, "", when, *where, {onRow, true /*processInParallel*/}, orderBy, offset, limit, nullptr);
 
     cerr << "done extracting values in " << timer.elapsed() << endl;
 

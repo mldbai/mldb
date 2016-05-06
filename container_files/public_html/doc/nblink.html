@@ -1,7 +1,13 @@
 <html>
     <script type="text/javascript">
-        var destination = "{{HTTP_BASE_URL}}/{{IPYTHON_NB_PREFIX}}/notebooks/"+ window.location.hash.slice(1);
-        if(window.location.origin == "http://mldb.ai")
+
+        var path_parts = window.location.hash.slice(1).split("/");
+        path_parts.splice(-1,0,"_latest");
+        var destination = "{{HTTP_BASE_URL}}/{{IPYTHON_NB_PREFIX}}/notebooks/"+
+            path_parts.join("/");
+        if( window.location.origin ==  "http://mldb.ai"      || 
+            window.location.origin ==  "http://docs.mldb.ai" || 
+            window.location.origin == "https://docs.mldb.ai"   )
         {
             window.location = destination + ".html";
         }

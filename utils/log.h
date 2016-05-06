@@ -1,27 +1,13 @@
 /* log.h                                                           -*- C++ -*-
-   Guy Dumais, 29 January 2016
+   Guy Dumais, 7 March 2016
 
    This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
 
-   Logging interface.
+   NOTE TO DEVELOPERS : Ideally this file should only be added to your implementation
+   files (.cc). For declaration use the log_fwd.h.
 */
 
 #pragma once
 
+#include "log_fwd.h"
 #include "mldb/ext/spdlog/include/spdlog/spdlog.h"
-
-namespace spdlog {
-    class logger;
-}
-
-namespace Datacratic {
-
-namespace MLDB {
-
-std::shared_ptr<spdlog::logger> getQueryLog();
-std::shared_ptr<spdlog::logger> getMldbLog();
-std::shared_ptr<spdlog::logger> getServerLog();
-
-} // MLDB
-
-} // Datacratic

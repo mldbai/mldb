@@ -561,9 +561,37 @@ var expected = {
         [ "Реестр:6", null, null, null, null, null, null, null ]
     ],
     "twolettercolumns.xlsx": [
-        [ "_rowName", "A", "B", "C", "D", "E", "F", "G", "H", "I", "Z", "AA", "AB" ],
-        [ "Sheet1:1", 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 ],
-        [ "Sheet1:2", "a", "b", "c", "d", "e", "f", "g", null, null, "h", "I", "j" ]
+        [
+            "_rowName",
+            "AA",
+            "AB",
+            "A",
+            "B",
+            "C",
+            "D",
+            "E",
+            "F",
+            "G",
+            "H",
+            "I",
+            "Z"
+        ],
+        [ "Sheet1:1", 11, 12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 ],
+        [
+            "Sheet1:2",
+            "I",
+            "j",
+            "a",
+            "b",
+            "c",
+            "d",
+            "e",
+            "f",
+            "g",
+            null,
+            null,
+            "h"
+        ]
     ],
     "xlsx2csv-test-file.xlsx": [
         [ "_rowName", "A", "B", "C" ],

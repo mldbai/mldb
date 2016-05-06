@@ -15,7 +15,6 @@ while getopts "s" opt; do
   esac
 done
 
-
 # Make sure we don't have the default nginx site lying around
 rm -f /etc/nginx/sites-enabled/default || true
 
@@ -31,6 +30,6 @@ fi
 # _mldb user #
 ##############
 groupadd -g 1234567 _mldb
-useradd -u 1234567 -g 1234567 -c 'MLDB user' -M --home /mldb_data _mldb 
+useradd -u 1234567 -g 1234567 -c 'MLDB user' -s /bin/bash -M --home /mldb_data _mldb 
 install -d -o _mldb -g _mldb /mldb_data
 chown -R _mldb:_mldb /opt

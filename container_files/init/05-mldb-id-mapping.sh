@@ -18,10 +18,10 @@ else
     MLDB_GID=$(id -g _mldb)
 fi
 
-echo "Mapping $MLDB_USER to uid $MLDB_UID" >&2
+#echo "Mapping $MLDB_USER to uid $MLDB_UID" >&2
 /usr/sbin/usermod --non-unique --uid $MLDB_UID $MLDB_USER
 
-echo "Mapping $MLDB_USER to gid $MLDB_GID" >&2
+#echo "Mapping $MLDB_USER to gid $MLDB_GID" >&2
 /usr/sbin/groupmod --non-unique -g "$MLDB_GID" $MLDB_USER
 
 # Adjust perms for a few directories

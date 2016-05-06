@@ -224,10 +224,8 @@ init(const std::string & accessKeyId,
 S3Api::Content::
 Content(const tinyxml2::XMLDocument & xml)
 {
-    tinyxml2::XMLPrinter printer;
-    const_cast<tinyxml2::XMLDocument &>(xml).Print(&printer);
     this->contentType = "application/xml";
-    this->str = printer.CStr();
+    this->str = xmlDocumentAsString(xml);
     this->hasContent = true;
     this->data = str.c_str();
     this->size = str.length();
@@ -403,7 +401,34 @@ performSync() const
 
         myRequest.get_info(CURLINFO_RESPONSE_CODE, responseCode);
 
-        if (responseCode >= 300 && responseCode != 404) {
+        /* Detect so-called "REST error"
+           (http://docs.aws.amazon.com/AmazonS3/latest/API/ErrorResponses.html)
+
+           Some S3 methods may return an XML error AND still have a 200 HTTP
+           status code:
+           http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadComplete.html
+           Explanation of the why:
+           https://github.com/aws/aws-sdk-go/issues/501.
+        */
+        pair<string, string> xmlError; /* {code, message} */
+        if (!(responseCode == 200
+              && (params.verb == "GET" || params.verb == "HEAD"))
+            && (responseHeaders.find("Content-Type: application/xml")
+                != string::npos)) {
+            unique_ptr<tinyxml2::XMLDocument> localXml(
+                new tinyxml2::XMLDocument()
+                );
+            localXml->Parse(responseBody.c_str());
+            auto element
+                = tinyxml2::XMLHandle(*localXml).FirstChildElement("Error")
+                .ToElement();
+            if (element) {
+                xmlError.first = extract<string>(element, "Code");
+                xmlError.second = extract<string>(element, "Message");
+            }
+        }
+
+        auto makeErrorMsg = [&] () {
             string message("S3 operation failed with HTTP code "
                            + to_string(responseCode) + "\n"
                            + params.verb + " " + uri + "\n");
@@ -414,38 +439,28 @@ performSync() const
                 message += (string("body (") + to_string(responseBody.size())
                             + " bytes):\n" + responseBody + "\n");
             }
-
-
-            /* log so-called "REST error"
-               (http://docs.aws.amazon.com/AmazonS3/latest/API/ErrorResponses.html)
-            */
-            if (responseHeaders.find("Content-Type: application/xml")
-                != string::npos) {
-                unique_ptr<tinyxml2::XMLDocument> localXml(
-                    new tinyxml2::XMLDocument()
-                );
-                localXml->Parse(responseBody.c_str());
-                auto element
-                    = tinyxml2::XMLHandle(*localXml).FirstChildElement("Error")
-                    .ToElement();
-                if (element) {
-                    message += ("S3 REST error: ["
-                                + extract<string>(element, "Code")
-                                + "] message ["
-                                + extract<string>(element, "Message")
-                                +"]\n");
-                }
+            if (!xmlError.first.empty()) {
+                message += ("S3 REST error code: "
+                            + xmlError.first
+                            + "; message: "
+                            + xmlError.second
+                            +"\n");
             }
+
+            return message;
+        };
+
+        if (!xmlError.first.empty()
+            || (responseCode >= 300 && responseCode != 404)) {
+            string message(makeErrorMsg());
             ::fprintf(stderr, "%s\n", message.c_str());
 
             /* retry on 50X range errors (recoverable) */
-            if (responseCode >= 500 && responseCode < 505) {
+            if ((responseCode >= 500 && responseCode < 505)
+                || xmlError.first == "InternalError") {
                 continue;
             }
             else {
-                //cerr << "Unrecoverable S3 error: code " << responseCode
-                //     << endl;
-                //cerr << string(body, 0, 4096) << endl;
                 string firstLine(responseHeaders, 0, responseHeaders.find('\n'));
 
                 throw ML::Exception("S3 error loading '%s': %s",
@@ -776,8 +791,6 @@ obtainMultiPartUpload(const std::string & bucket,
                                              "uploadId=" + uploadId)
                 .bodyXml();
 
-            inProgressInfo->Print();
-
             XMLHandle handle(*inProgressInfo);
 
             auto foundPart
@@ -818,7 +831,6 @@ obtainMultiPartUpload(const std::string & bucket,
         RestParams headers = metadata.getRequestHeaders();
         auto result = postEscaped(bucket, escapedResource,
                                   "uploads", headers).bodyXml();
-        //result->Print();
         //cerr << "result = " << result << endl;
 
         uploadId
@@ -855,8 +867,6 @@ finishMultiPartUpload(const std::string & bucket,
             ->InsertEndChild(joinRequest.NewText(etags[i].c_str()));
     }
 
-    //joinRequest.Print();
-
     string escapedResource = s3EscapeResource(resource);
 
     auto joinResponse
@@ -873,9 +883,11 @@ finishMultiPartUpload(const std::string & bucket,
                                       "CompleteMultipartUploadResult/ETag");
         return etag;
     } catch (const std::exception & exc) {
-        cerr << "--- request is " << endl;
-        joinRequest.Print();
-        cerr << "error completing multipart upload: " << exc.what() << endl;
+        cerr << ("--- request is\n"
+                 + xmlDocumentAsString(joinRequest) + "\n"
+                 + "error completing multipart upload: "
+                 + exc.what()
+                 + "\n");
         throw;
     }
 }
@@ -917,7 +929,6 @@ upload(const char * data,
             .bodyXml();
 
         //cerr << "existing" << endl;
-        //existingResource->Print();
 
         auto foundContent
             = tinyxml2::XMLHandle(*existingResource)
@@ -1186,8 +1197,6 @@ forEachObject(const std::string & bucket,
         auto listingResult = get(bucket, "/", Range::Full, "",
                                  {}, queryParams);
         auto listingResultXml = listingResult.bodyXml();
-
-        //listingResultXml->Print();
 
         string foundPrefix
             = extractDef<string>(listingResult, "ListBucketResult/Prefix", "");
@@ -2286,8 +2295,6 @@ forEachBucket(const OnBucket & onBucket) const
 
     auto listingResult = get("", "/", Range::Full, "");
     auto listingResultXml = listingResult.bodyXml();
-
-    //listingResultXml->Print();
 
     auto foundBucket
         = XMLHandle(*listingResultXml)

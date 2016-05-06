@@ -67,40 +67,8 @@ var resp = mldb.get("/v1/query", { q: "select * from git limit 10",
                                    format: "sparse" }).json;
 
 mldb.log(resp);
-
-var svdConfig = {
-    type: "svd.train",
-    params: {
-        trainingData: "select  *excluding (message, parent) from git",
-        columnOutputDataset: { "id": "git_svd_embedding", type: "embedding" }
-    }
-};
-
-createAndRunProcedure(svdConfig, "svd");
-
-var resp = mldb.get("/v1/query", { q: "select rowName() from git_svd_embedding limit 10",
-                                   format: "table" }).json;
-
-mldb.log(resp);
-
-var res3 = mldb.get("/v1/datasets/git_svd_embedding/routes/rowNeighbours", {row: "file|sql/sql_expression.h", numNeighbours: 50 }).json;
-
-mldb.log(res3);
-
-
-var tsneConfig = {
-    type: "tsne.train",
-    params: {
-        trainingData: "select * from git_svd_embedding",
-        rowOutputDataset: { "id": "git_tsne_embedding", "type": "embedding" }
-    }
-};
-
-//createAndRunProcedure(tsneConfig, 'tsne');
-
-
-var resp = mldb.get("/v1/query", { q: "select count(*) as cnt, author, min(when({*})) as earliest, max(when({*})) as latest, sum(filesChanged) as changes, sum(insertions) as insertions, sum(deletions) as deletions from git group by author order by cnt desc limit 5", format: 'table', rowNames: false }).json;
-
-mldb.log(resp);
+if(resp.length != 10) {
+    throw "Expected result of length 10";
+}
 
 "success"

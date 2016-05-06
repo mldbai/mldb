@@ -10,12 +10,9 @@
 #include "sql_expression.h"
 #include "binding_contexts.h"
 #include "table_expression_operations.h"
-#include "mldb/server/dataset_context.h"
 
 namespace Datacratic {
 namespace MLDB {
-
-struct PipelineExpressionContext;
 
 
 /*****************************************************************************/
@@ -50,20 +47,20 @@ struct LexicalScope {
     virtual ~LexicalScope();
 
     /** Return a variable accessor for the table.  fieldOffset gives the
-        offset within the row context for this table's fields.
+        offset within the row scope for this table's fields.
     */
-    virtual VariableGetter
-    doGetVariable(const Utf8String & variableName, int fieldOffset) = 0;
+    virtual ColumnGetter
+    doGetColumn(const ColumnName & variableName, int fieldOffset) = 0;
 
     /** Return a wildcard accessor for the table.  fieldOffset gives the
-        offset within the row context for this table's fields.
+        offset within the row scope for this table's fields.
     */
     virtual GetAllColumnsOutput
-    doGetAllColumns(std::function<Utf8String (const Utf8String &)> keep,
+    doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
                     int fieldOffset) = 0;
 
     /** Return a function accessor for the table.  fieldOffset gives the
-        offset within the row context for this table's fields.
+        offset within the row scope for this table's fields.
     */
     virtual BoundFunction
     doGetFunction(const Utf8String & functionName,
@@ -101,34 +98,34 @@ struct PipelineExpressionScope:
         public SqlBindingScope,
         public std::enable_shared_from_this<PipelineExpressionScope> {
     
-    PipelineExpressionScope(std::shared_ptr<SqlBindingScope> context);
+    PipelineExpressionScope(std::shared_ptr<SqlBindingScope> outerScope);
 
     ~PipelineExpressionScope();
     
-    /** Return a new context, with the given table added to the scope. */
+    /** Return a new scope, with the given table added to the scope. */
     std::shared_ptr<PipelineExpressionScope>
     tableScope(std::shared_ptr<LexicalScope> table);
 
-    /** Return a new context, with the given bound parameter getter added to
+    /** Return a new scope, with the given bound parameter getter added to
         the scope.
     */
     std::shared_ptr<PipelineExpressionScope>
     parameterScope(GetParamInfo getParamInfo,
                    std::vector<std::shared_ptr<ExpressionValueInfo> > outputAdded) const;
 
-    /** Return a new context, with the extra variables selected. */
+    /** Return a new scope, with the extra variables selected. */
     std::shared_ptr<PipelineExpressionScope>
     selectScope(std::vector<std::shared_ptr<ExpressionValueInfo> > outputAdded) const;
 
     /** Return an extractor function that will retrieve the given variable
         from the function input or output.
     */
-    virtual VariableGetter
-    doGetVariable(const Utf8String & tableName, const Utf8String & variableName);
+    virtual ColumnGetter
+    doGetColumn(const Utf8String & tableName, const ColumnName & columnName);
 
     virtual GetAllColumnsOutput 
     doGetAllColumns(const Utf8String & tableName,
-                    std::function<Utf8String (const Utf8String &)> keep);
+                    std::function<ColumnName (const ColumnName &)> keep);
 
     virtual BoundFunction
     doGetFunction(const Utf8String & tableName,
@@ -139,15 +136,11 @@ struct PipelineExpressionScope:
     virtual ColumnFunction
     doGetColumnFunction(const Utf8String & functionName);
 
-    // Function used to get a function.  Default throws an exception that the
-    // function is not available.
-    virtual std::shared_ptr<Function>
-    doGetFunctionEntity(const Utf8String & functionName);
+    virtual ColumnGetter doGetBoundParameter(const Utf8String & paramName);
 
-    virtual VariableGetter doGetBoundParameter(const Utf8String & paramName);
-
-    virtual Utf8String 
-    doResolveTableName(const Utf8String & fullVariableName, Utf8String &tableName) const;
+    virtual ColumnName
+    doResolveTableName(const ColumnName & fullColumnName,
+                       Utf8String &tableName) const;
 
     bool inLexicalScope() const
     {
@@ -181,11 +174,11 @@ private:
         std::shared_ptr<LexicalScope> scope;  ///< Scope for the table
         int fieldOffset;                    ///< Offset for fields of table
 
-        VariableGetter
-        doGetVariable(const Utf8String & variableName) const;
+        ColumnGetter
+        doGetColumn(const ColumnName & variableName) const;
 
         GetAllColumnsOutput
-        doGetAllColumns(std::function<Utf8String (const Utf8String &)> keep) const;
+        doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep) const;
 
         virtual BoundFunction
         doGetFunction(const Utf8String & functionName,
@@ -193,10 +186,10 @@ private:
                       SqlBindingScope & argsScope) const;
     };
 
-    /** The inner context, with the scope for the current element. */
-    std::shared_ptr<SqlBindingScope> context_;
+    /** The outer scope, with the scope for the current element. */
+    std::shared_ptr<SqlBindingScope> outerScope_;
     
-    /** The parent pipeline context, if it's a pipeline. */
+    /** The parent pipeline scope, if it's a pipeline. */
     std::shared_ptr<const PipelineExpressionScope> parent_;
 
     /// Default table into which we will look, starting at last
@@ -248,10 +241,9 @@ struct BoundPipelineElement {
 
     /** Start running the query */
     virtual std::shared_ptr<ElementExecutor>
-    start(const BoundParameters & getParam,
-          bool allowParallel) const = 0;
+    start(const BoundParameters & getParam) const = 0;
 
-    /** Return the context that describes the output of this element. */
+    /** Return the scope that describes the output of this element. */
     virtual std::shared_ptr<PipelineExpressionScope>
     outputScope() const = 0;
 
@@ -280,45 +272,45 @@ struct PipelineElement: public std::enable_shared_from_this<PipelineElement> {
 
     /** Note that normally we have a reference to the tail of a pipeline, 
         not the head, and each knows what the earlier element in the
-        pipeline is.  This is the other order from which contexts work,
-        where the context at the tail end has resolved everything, whereas
-        the context at the head has nothing resolved.
+        pipeline is.  This is the other order from which scopes work,
+        where the scope at the tail end has resolved everything, whereas
+        the scope at the head has nothing resolved.
         
-        Since contexts need to be created in the reverse order, it is
+        Since scopes need to be created in the reverse order, it is
         normally necessary to bind the source first, and then create the
-        current context from the context in the returned value.
+        current scope from the scope in the returned value.
 
         Those elements at the head always contain a reference to a root
-        binding context, such as the database itself or an empty context
+        binding scope, such as the database itself or an empty scope
         for an isolated expression.
     */
     virtual std::shared_ptr<BoundPipelineElement> bind() const = 0;
 
-    /** Start from an existing context.  Everything in-scope from that context is
-        also available within this context.
+    /** Start from an existing scope.  Everything in-scope from that scope is
+        also available within this scope.
     */
     static std::shared_ptr<PipelineElement>
     root(std::shared_ptr<SqlBindingScope> scope);
 
-    /** Start from an existing context.  Everything in-scope from that context is
-        also available within this context.
+    /** Start from an existing scope.  Everything in-scope from that scope is
+        also available within this scope.
 
         The caller must guarantee that the scope outlives the returned object.
     */
     static std::shared_ptr<PipelineElement>
     root(SqlBindingScope & scope);
     
-    /** Start with absolutely no context.  The expression will be executed in
+    /** Start with absolutely no scope.  The expression will be executed in
         isolation.
     */
     static std::shared_ptr<PipelineElement>
     root();
 
-    /** Add the given bound parameters in to the context. */
+    /** Add the given bound parameters in to the scope. */
     std::shared_ptr<PipelineElement>
     params(GetParamInfo getParamInfo);
 
-    /** Add a generic from expression to the context.  The rest of the
+    /** Add a generic from expression to the scope.  The rest of the
         parameters can be used to push down part of the query into
         the dataset itself.
     */

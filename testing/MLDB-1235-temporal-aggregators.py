@@ -3,13 +3,11 @@
 # 2016-02-04
 # This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
 #
-
 # add this line to testing.mk:
 # $(eval $(call mldb_unit_test,MLDBFB-336-sample_test.py,,manual))
-
+#
 
 import unittest
-import datetime
 
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
@@ -119,7 +117,7 @@ class TemporalTest(MldbUnitTest):
                 }
             ]
         )
-      
+
 
     def test_temporal_latest_on_row(self):
         resp = mldb.get('/v1/query',
@@ -197,7 +195,7 @@ class TemporalTest(MldbUnitTest):
             ]
         )
 
- 
+
     def test_temporal_max_on_column(self):
         resp = mldb.get('/v1/query',
                         q = 'select temporal_max(x) as max from dataset order by rowName()',
@@ -373,7 +371,7 @@ class TemporalTest(MldbUnitTest):
             ]
         )
 
-    def test_temporal_sum_on_row(self):
+    def test_temporal_avg_on_row(self):
         resp = mldb.get('/v1/query',
                         q = 'select temporal_avg({*}) as * from dataset order by rowName()',
                         format = 'full').json()
@@ -398,5 +396,51 @@ class TemporalTest(MldbUnitTest):
                 }
             ]
         )
+
+    def test_as_issue(self):
+        """MLDBFB-415 temporal_min({*}) AS * issue"""
+        ds = mldb.create_dataset({'id' : 'ds', 'type' : 'sparse.mutable'})
+        ds.record_row("user1", [["behA",1,0]])
+        ds.commit()
+
+        mldb.post('/v1/procedures', {
+            'type' : 'transform',
+            'params' : {
+                'inputData' : 'SELECT temporal_min({*}) AS * FROM ds',
+                'outputDataset' : {
+                    'id' : 'outDs',
+                    'type' : 'sparse.mutable',
+                },
+                'runOnCreation' : True
+            }
+        })
+
+        res = mldb.query("SELECT * FROM outDs")
+        self.assertTableResultEquals(res, [
+            ["_rowName", "behA"],
+            ["user1", 1]
+        ])
+
+    def test_mldbfb_344_temporal_segfault(self):
+        ds = mldb.create_dataset({'id' : 'ds2', 'type' : 'sparse.mutable'})
+        ds.record_row('user1', [['behA', 1, 2]])
+        ds.commit()
+
+        for fct in ['count', 'sum', 'avg', 'min', 'max', 'latest', 'earliest']:
+            self.assertTableResultEquals(
+                mldb.query("""
+                SELECT temporal_{}(behC) FROM ds2
+                """.format(fct)), [
+                    [
+                        "_rowName",
+                        "temporal_{}(behC)".format(fct)
+                    ],
+                    [
+                        "user1",
+                        None
+                    ]
+                ]
+            )
+
 
 mldb.run_tests()

@@ -27,7 +27,7 @@ function createDataset(style, iface)
 
     var dataset = mldb.createDataset(dataset_config)
 
-    var dataset_address = 'https://s3-eu-west-1.amazonaws.com/pfigshare-u-files/1310438/reddituserpostingbehavior.csv.gz'
+    var dataset_address = 'https://s3.amazonaws.com/public.mldb.ai/reddit.csv.gz'
     var now = new Date("2015-01-01");
 
     var stream = mldb.openStream(dataset_address);
@@ -192,13 +192,13 @@ var col_tr = mldb.createDataset({type: 'transposed', id: 'reddit_dataset_col_tr_
 
 var cols_tr = mldb.createDataset({type: 'transposed', id: 'reddit_dataset_cols_tr_func', params: { dataset: { id: 'reddit_dataset_cols_func' } } });
 
-var res1 = mldb.get("/v1/query", {q: "select * from reddit_dataset_row_func limit 10", format:"sparse"}).json;
-var res2 = mldb.get("/v1/query", {q: "select * from reddit_dataset_rows_func limit 10", format:"sparse"}).json;
-var res3 = mldb.get("/v1/query", {q: "select * from reddit_dataset_col_tr_func limit 10", format:"sparse"}).json;
-var res4 = mldb.get("/v1/query", {q: "select * from reddit_dataset_cols_tr_func limit 10", format:"sparse"}).json;
+var res1 = mldb.get("/v1/query", {q: "select * from reddit_dataset_row_func order by rowHash() limit 10", format:"sparse"}).json;
+var res2 = mldb.get("/v1/query", {q: "select * from reddit_dataset_rows_func order by rowHash() limit 10", format:"sparse"}).json;
+var res3 = mldb.get("/v1/query", {q: "select * from reddit_dataset_col_tr_func order by rowHash() limit 10", format:"sparse"}).json;
+var res4 = mldb.get("/v1/query", {q: "select * from reddit_dataset_cols_tr_func order by rowHash() limit 10", format:"sparse"}).json;
 
-var res5 = mldb.get("/v1/query", {q: "select * from reddit_dataset_col_func limit 10", format:"sparse"}).json;
-var res6 = mldb.get("/v1/query", {q: "select * from reddit_dataset_cols_func limit 10", format:"sparse"}).json;
+var res5 = mldb.get("/v1/query", {q: "select * from reddit_dataset_col_func order by rowHash() limit 10", format:"sparse"}).json;
+var res6 = mldb.get("/v1/query", {q: "select * from reddit_dataset_cols_func order by rowHash() limit 10", format:"sparse"}).json;
 
 
 
@@ -225,8 +225,8 @@ var cols_rest = createDataset('cols', 'rest');
 
 plugin.log(mldb.get("/v1/datasets").json);
 
-var res7 = mldb.get("/v1/query", {q: "select * from reddit_dataset_row_rest limit 10", format:"sparse"}).json;
-var res8 = mldb.get("/v1/query", {q: "select * from reddit_dataset_rows_rest limit 10", format:"sparse"}).json;
+var res7 = mldb.get("/v1/query", {q: "select * from reddit_dataset_row_rest order by rowHash() limit 10", format:"sparse"}).json;
+var res8 = mldb.get("/v1/query", {q: "select * from reddit_dataset_rows_rest order by rowHash() limit 10", format:"sparse"}).json;
 
 plugin.log("test5");
 
@@ -235,8 +235,8 @@ plugin.log("test6");
 assertEqual(res1, res8);
 
 
-var res9 = mldb.get("/v1/query", {q: "select * from reddit_dataset_col_rest limit 10", format:"sparse"}).json;
-var res10 = mldb.get("/v1/query", {q: "select * from reddit_dataset_cols_rest limit 10", format:"sparse"}).json;
+var res9 = mldb.get("/v1/query", {q: "select * from reddit_dataset_col_rest order by rowHash() limit 10", format:"sparse"}).json;
+var res10 = mldb.get("/v1/query", {q: "select * from reddit_dataset_cols_rest order by rowHash() limit 10", format:"sparse"}).json;
 
 plugin.log("test7");
 

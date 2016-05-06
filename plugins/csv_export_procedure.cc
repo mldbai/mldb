@@ -12,7 +12,6 @@
 #include "mldb/server/dataset_context.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/base/parallel.h"
-#include "mldb/server/function_contexts.h"
 #include "mldb/server/bound_queries.h"
 #include "mldb/sql/table_expression_operations.h"
 #include "mldb/sql/join_utils.h"
@@ -88,7 +87,7 @@ run(const ProcedureRunConfig & run,
 {
     auto runProcConf = applyRunConfOverProcConf(procedureConfig, run);
             
-    SqlExpressionMldbContext context(server);
+    SqlExpressionMldbScope context(server);
     filter_ostream out(runProcConf.dataFileUrl.toString());
     CsvWriter csv(out, runProcConf.delimiter.at(0),
                   runProcConf.quoteChar.at(0));
@@ -201,7 +200,7 @@ run(const ProcedureRunConfig & run,
         }
         csv.endl();
     }
-    bsq.execute(outputCsvLine, 
+    bsq.execute({outputCsvLine, false/*processInParallel*/}, 
                 runProcConf.exportData.stm->offset, 
                 runProcConf.exportData.stm->limit,
                 onProgress);

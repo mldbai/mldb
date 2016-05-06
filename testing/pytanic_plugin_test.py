@@ -50,6 +50,7 @@ resp = mldb.perform("GET", "/v1/functions/probabilizerglz/application",
                     }})]])
 
 jsResp = json.loads(resp['response'])
+mldb.log(jsResp)
 score1 = jsResp["output"]["prob"]
 
 assert score1 > 0.40, "score upper bound"

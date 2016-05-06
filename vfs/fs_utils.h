@@ -120,6 +120,9 @@ void registerUrlFsHandler(const std::string & scheme,
 /* FREE FUNCTIONS                                                            */
 /*****************************************************************************/
 
+// Parse a string into an URL
+Url makeUrl(const std::string & urlStr);
+
 /// Set a GLOBAL flag that URIs without a scheme will not be accepted
 void setGlobalAcceptUrisWithoutScheme(bool accept);
 
@@ -185,6 +188,20 @@ bool forEachUriObject(const std::string & uriPrefix,
 // wrappers around "basename" and "dirname" from the libc
 std::string baseName(const std::string & filename);
 std::string dirName(const std::string & filename);
+
+
+/****************************************************************************/
+/* UX FUNCTIONS                                                             */
+/****************************************************************************/
+
+/* The checkWritability function will try to create the folders required
+ * to write to the given url and then attempt to open an output stream to
+ * that location. This is meant to be used before running a big job that would
+ * then try to write its output to this location in order to catch this
+ * error before spending the time running the job
+ */
+void
+checkWritability(const std::string & url, const std::string & parameterName);
 
 
 /****************************************************************************/

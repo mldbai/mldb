@@ -13,11 +13,14 @@
 
 
 namespace Datacratic {
+
+struct JsonPrintingContext;
+
 namespace MLDB {
 
 
 typedef HashWrapper<4> CellValueHash;
-
+struct PathElement;
 
 /*****************************************************************************/
 /* STRING CHARACTERISTICS                                                    */
@@ -279,12 +282,41 @@ struct CellValue {
         return cellType() == BLOB;
     }
 
+    bool isNaN() const
+    {
+        CellType t = cellType();
+        if (t == INTEGER) {
+            return std::isnan(toInt());
+        }
+        else if (t == FLOAT) {
+            return std::isnan(toDouble());
+        }
+        else {
+            return false;
+        }
+    }
+
+    bool isInf() const
+    {
+        CellType t = cellType();
+        if (t == INTEGER) {
+            return std::isinf(toInt());
+        }
+        else if (t == FLOAT) {
+            return std::isinf(toDouble());
+        }
+        else {
+            return false;
+        }
+    }
+
     CellValue coerceToInteger() const;
     CellValue coerceToNumber() const;
     CellValue coerceToString() const;
     CellValue coerceToBoolean() const;
     CellValue coerceToTimestamp() const;
     CellValue coerceToBlob() const;
+    PathElement coerceToPathElement() const;
     
     /** This is always the SIPhash of the toString() representation.
         Only for blobs, which have no toString(), is it calculated
@@ -320,6 +352,24 @@ struct CellValue {
     {
         return !operator < (other);
     }
+
+    /** Print the value to the given JSON context.  This allows for
+        JSON to be extracted without going through a Json::Value
+        object.  This version provides full fidelity in type conversion,
+        but the JSON returned is less natural.
+    */
+    void extractStructuredJson(JsonPrintingContext & context) const;
+
+    /** Print the value to the given JSON context.  This allows for
+        JSON to be extracted without going through a Json::Value
+        object.  This version provides a simplified JSON representation,
+        for example converting timestamps into strings, and as a result
+        will lose fidelity in the output for things that don't have a
+        natural JSON representation.
+    */
+    void extractSimplifiedJson(JsonPrintingContext & context) const;
+
+    size_t memusage() const;
 
 private:
     double toDoubleImpl() const;
@@ -364,6 +414,8 @@ private:
     void deleteString();
 
     std::string printInterval() const;
+
+    Utf8String trimmedExceptionString() const;
 
     enum StorageType {
         ST_EMPTY,

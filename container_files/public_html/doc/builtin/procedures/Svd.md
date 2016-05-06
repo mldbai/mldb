@@ -119,6 +119,21 @@ The SVD algorithm produces three outputs:
 - Columns that contain infinite values are currently not accepted.  This will be
   rectified in a future release.
 
+## Troubleshooting
+
+If the SVD produces all-zero vectors for rows or columns, it may be one of the following:
+
+- A column which is present in only a single row with no other columns will have a zero embedding vector
+- A row which is present only in a single column with no other rows will have a zero embedding vector
+- If all of the values in the columns for a given row are zero, the row will have a zero embedding vector
+- If all of the values in the rows for a given column are zero, the column will have a zero embedding vector
+- An empty row or empty column will have a zero embedding vector
+
+(For an SVD to produce meaningful results, it needs to be able to determine how a given
+column varies with other columns, which means it needs to be present in two or more
+rows, each of which contain columns present in two or more rows.  Same holds in the
+other direction).
+
 ## Examples
 
 * The ![](%%nblink _demos/Recommending Movies) demo notebook

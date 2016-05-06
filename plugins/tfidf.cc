@@ -23,6 +23,7 @@
 #include "mldb/types/any_impl.h"
 #include "mldb/types/optional_description.h"
 #include "mldb/vfs/filter_streams.h"
+#include "mldb/vfs/fs_utils.h"
 #include "mldb/plugins/sql_config_validator.h"
 
 using namespace std;
@@ -36,7 +37,8 @@ serialize(ML::DB::Store_Writer & store,
     std::string name = "tfidf";
     int version = 0;
     store << name << version;
-    store << corpusSize;
+    store << corpusSize; // number of documents in corpus
+    store << dfs.size(); // number of terms in corpus
     for (auto & df : dfs) {
         store << df.first.rawString();
         store << df.second;
@@ -58,10 +60,13 @@ reconstitute(ML::DB::Store_Reader & store,
     if (version != 0)
         throw ML::Exception("invalid tf-idf version");
 
-    store >> corpusSize;
+    uint64_t termCount = 0;
+
+    store >> corpusSize; // number of documents in corpus
+    store >> termCount; // number of terms in corpus
     dfs.clear();
-    dfs.reserve(corpusSize);
-    for (int i=0; i < corpusSize; ++i) {
+    dfs.reserve(termCount);
+    for (int i=0; i < termCount; ++i) {
         std::string term;
         uint64_t df;
         store >> term;
@@ -125,26 +130,27 @@ TfidfConfigDescription()
                      withType(TfidfConfig::defaultOutputDatasetType));
     
     addField("trainingData", &TfidfConfig::trainingData,
-             "An SQL query to provide for input to the tfidf procedure."
-             "Each row represents the terms in a given document.  Note that "
-             "the procedure will not modify the terms in any ways. "
-             "As an example, terms with different capitalization 'Montreal', "
+             "An SQL query to provide for input to the tfidf procedure. "
+             "Rows represent documents, and column names are terms. "
+             "If a cell contains anything other than `null` the document will be "
+             "take to contain the term.  Note that "
+             "this procedure will not normalize the terms in any ways: for example, "
+             "terms with different capitalization 'Montreal', "
              "'montreal' or with accented characters 'Montréal' "
-             "will all be considered as different terms.");
+             "will all be considered to be different terms.");
+    addField("outputDataset", &TfidfConfig::output,
+             "This dataset will contain one row for each "
+             "term in the input.  The row name will be the term "
+             "and the column `count` will contain the number of documents "
+             "containing the term.",
+             optional);
     addField("modelFileUrl", &TfidfConfig::modelFileUrl,
              "URL where the model file (with extension '.idf') should be saved. "
-             "This file can be loaded by a function of type 'tfidf' to compute "
-             "the tf-idf of a given term. "
-             "If someone is only interested in the number of documents the "
-             "terms in the training input appear in then the parameter can be "
-             "omitted and the outputDataset param can be provided instead.");
-    addField("outputDataset", &TfidfConfig::output,
-             "Output dataset.  This dataset will contain a single row "
-             "containing the number of documents each term appears in.",
-             optional);
+             "This file can be loaded by the ![](%%doclink tfidf function). "
+             "This parameter is optional unless the `functionName` parameter is used.");
     addField("functionName", &TfidfConfig::functionName,
-             "If specified, a function of this name will be created using "
-             "the training model.  Note that the 'modelFileUrl' must "
+             "If specified, an instance of the ![](%%doclink tfidf function) of this name will be created using "
+             "the trained model. Note that to use this parameter, the `modelFileUrl` must "
              "also be provided.");
     addParent<ProcedureConfig>();
 
@@ -188,20 +194,26 @@ run(const ProcedureRunConfig & run,
 {
     auto runProcConf = applyRunConfOverProcConf(tfidfconfig, run);
 
-    SqlExpressionMldbContext context(server);
+    if (!runProcConf.modelFileUrl.empty()) {
+        checkWritability(runProcConf.modelFileUrl.toString(), "modelFileUrl");
+    }
+
+    SqlExpressionMldbScope context(server);
 
     auto boundDataset = runProcConf.trainingData.stm->from->bind(context);
 
     //This will cummulate the number of documents each word is in 
     std::unordered_map<Utf8String, uint64_t> dfs;
+    std::atomic<uint64_t> corpusSize(0);
 
-    auto aggregator = [&] (NamedRowValue & row_)
+    auto processor = [&] (NamedRowValue & row_)
         {
             MatrixNamedRow row = row_.flattenDestructive();
             for (auto& col : row.columns) {            
                 Utf8String word = get<0>(col).toUtf8String();
                 dfs[word] += 1;               
             }
+            ++corpusSize;
 
             return true;
         };
@@ -209,7 +221,7 @@ run(const ProcedureRunConfig & run,
     iterateDataset(runProcConf.trainingData.stm->select, *boundDataset.dataset, boundDataset.asName, 
                    runProcConf.trainingData.stm->when,
                    *runProcConf.trainingData.stm->where,
-                   aggregator,
+                   {processor,false/*processInParallel*/},
                    runProcConf.trainingData.stm->orderBy,
                    runProcConf.trainingData.stm->offset,
                    runProcConf.trainingData.stm->limit,
@@ -218,7 +230,8 @@ run(const ProcedureRunConfig & run,
     bool saved = false;
     if (!runProcConf.modelFileUrl.empty()) {
         try {
-            save(runProcConf.modelFileUrl.toString(), dfs.size(), dfs);
+            Datacratic::makeUriDirectory(runProcConf.modelFileUrl.toString());
+            save(runProcConf.modelFileUrl.toString(), corpusSize, dfs);
             saved = true;
         }
         catch (const std::exception & exc) {
@@ -236,15 +249,13 @@ run(const ProcedureRunConfig & run,
         auto output = createDataset(server, outputDataset, onProgress, true /*overwrite*/);
 
         Date applyDate = Date::now();
+        ColumnName columnName(PathElement("count"));
 
-        std::vector<std::tuple<ColumnName, CellValue, Date> > row;
-        row.reserve(dfs.size());
-
-        for (auto& df : dfs) {
-            row.emplace_back(ColumnName(df.first), df.second/*(float)count*/, applyDate);
+        for (auto & df : dfs) {
+            std::vector<std::tuple<ColumnName, CellValue, Date> > columns;
+            columns.emplace_back(columnName, df.second, applyDate);
+            output->recordRow(PathElement(df.first), columns);
         }
-
-        output->recordRow(RowName("Number of Documents with Word"), row);        
         output->commit();
     }
 
@@ -276,7 +287,9 @@ TfidfFunctionConfigDescription::
 TfidfFunctionConfigDescription()
 {
     addField("modelFileUrl", &TfidfFunctionConfig::modelFileUrl,
-             "An URL to a model file previously created with a 'tfidf.train' procedure.");
+             "URL of the model file (with extension '.idf') to load. "
+             "This file is created by the ![](%%doclink tfidf.train procedure)."
+             );
     addField("tfType", &TfidfFunctionConfig::tf_type,
              "Type of TF scoring", TF_raw);
     addField("idfType", &TfidfFunctionConfig::idf_type,
@@ -314,27 +327,31 @@ getStatus() const
     return Any();
 }
 
-FunctionOutput
+ExpressionValue
 TfidfFunction::
 apply(const FunctionApplier & applier,
-      const FunctionContext & context) const
+      const ExpressionValue & context) const
 {
-    FunctionOutput result;
+    ExpressionValue result;
 
-    ExpressionValue storage;
-    const ExpressionValue & inputVal = context.get("input", storage);
-
+    ExpressionValue inputVal = context.getColumn(PathElement("input"));
+    
     uint64_t maxFrequency = 0; // max term frequency for the current document
     uint64_t maxNt = 0;        // max document frequency for terms in the current doc
 
-    for (auto& col : inputVal.getRow() ) {
-        Utf8String term = std::get<0>(col).toUtf8String();
-        uint64_t value = std::get<1>(col).getAtom().toUInt();
-        maxFrequency = std::max(value, maxFrequency);
-        const auto termFrequency = dfs.find(term);
-        if (termFrequency != dfs.end())
-            maxNt = std::max(maxNt, termFrequency->second); 
-    }
+    auto onColumn = [&] (const PathElement & name,
+                         const ExpressionValue & val)
+        {
+            Utf8String term = name.toUtf8String();
+            uint64_t value = val.getAtom().toUInt();
+            maxFrequency = std::max(value, maxFrequency);
+            const auto termFrequency = dfs.find(term);
+            if (termFrequency != dfs.end())
+                maxNt = std::max(maxNt, termFrequency->second); 
+            return true;
+        };
+
+    inputVal.forEachColumn(onColumn);
 
     // the different possible TF scores
     auto tf_raw = [=] (double frequency) {
@@ -403,26 +420,33 @@ apply(const FunctionApplier & applier,
     Date ts = inputVal.getEffectiveTimestamp();
 
     // Compute the score for every word in the input
-    for (auto& col : inputVal.getRow() ) {
-        Utf8String term = std::get<0>(col).toUtf8String(); // the term is the columnName
-        double frequency = (double) std::get<1>(col).getAtom().toUInt();
+    logger->debug() << "corpus size: " << corpusSize;
 
-        double tf = tf_fct(frequency);
-        const auto docFrequency = dfs.find(term);
-        double idf = (docFrequency != dfs.end() 
-                      ? idf_fct(docFrequency->second) 
-                      : idf_fct(0)); 
+    auto onColumn2 = [&] (const PathElement & name,
+                          const ExpressionValue & val)
+        {
+            Utf8String term = name.toUtf8String();
+            double frequency = val.getAtom().toDouble();
 
-        //cerr << term << " tf " << tf << " idf " << idf << endl;
-        values.emplace_back(std::get<0>(col),
-                            tf*idf,
-                            ts);
-    }
+            double tf = tf_fct(frequency);
+            const auto docFrequency = dfs.find(term);
+            uint64_t docFrequencyInt = docFrequency != dfs.end() ? docFrequency->second : 0;
+            double idf = idf_fct(docFrequencyInt);
 
-    ExpressionValue outputRow(values);
-    result.set("output", outputRow);
+            logger->debug()
+                << "term: '" << term << "', df: "
+                << docFrequencyInt << ", tf: " << tf << ", idf: " << idf;
+
+            values.emplace_back(name, tf*idf, ts);
+            return true;
+        };
+
+    inputVal.forEachColumn(onColumn2);
+
+    StructValue outputRow;
+    outputRow.emplace_back("output", std::move(values));
     
-    return result;
+    return std::move(outputRow);
 }
 
 FunctionInfo
@@ -431,9 +455,15 @@ getFunctionInfo() const
 {
     FunctionInfo result;
 
-    result.input.addRowValue("input");
-    result.output.addRowValue("output");
-
+    std::vector<KnownColumn> inputColumns, outputColumns;
+    inputColumns.emplace_back(PathElement("input"), std::make_shared<UnknownRowValueInfo>(),
+                              COLUMN_IS_DENSE, 0);
+    outputColumns.emplace_back(PathElement("output"), std::make_shared<UnknownRowValueInfo>(),
+                               COLUMN_IS_DENSE, 0);
+    
+    result.input.reset(new RowValueInfo(inputColumns, SCHEMA_CLOSED));
+    result.output.reset(new RowValueInfo(outputColumns, SCHEMA_CLOSED));
+    
     return result;
 }
 

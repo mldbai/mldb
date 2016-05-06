@@ -112,7 +112,7 @@ run(const ProcedureRunConfig & run,
         };
 
 
-    SqlExpressionMldbContext context(server);
+    SqlExpressionMldbScope context(server);
     auto boundDataset = runProcConf.inputData.stm->from->bind(context);
 
     auto toFix = extractNamedSubSelect("to_fix", runProcConf.inputData.stm->select)->expression;
@@ -139,7 +139,7 @@ run(const ProcedureRunConfig & run,
     ColumnName valueColumnName(runProcConf.valueColumnName);
 
     std::mutex recordMutex;
-    auto aggregator = [&] (NamedRowValue & row_,
+    auto processor = [&] (NamedRowValue & row_,
                            const std::vector<ExpressionValue> & extraVals)
         {
             MatrixNamedRow row = row_.flattenDestructive();
@@ -152,9 +152,18 @@ run(const ProcedureRunConfig & run,
             // Fixed columns
             RowValue fixedOutputRows;
             for(auto & expr : extraVals) {
-                for(auto & col : expr.getRow()) {
-                    fixedOutputRows.emplace_back(get<0>(col), get<1>(col).getAtom(), rowTs);
-                }
+
+                auto onAtom = [&] (const Path & columnName,
+                                   const Path & prefix,
+                                   const CellValue & val,
+                                   Date ts)
+                    {
+                        fixedOutputRows.emplace_back(prefix + columnName,
+                                                     val, ts);
+                        return true;
+                    };
+
+                expr.forEachAtom(onAtom, ColumnName());
             }
 
             // Melted
@@ -165,9 +174,7 @@ run(const ProcedureRunConfig & run,
                 currOutputRow.emplace_back(keyColumnName, get<0>(col).toUtf8String(), rowTs);
                 currOutputRow.emplace_back(valueColumnName, get<1>(col), rowTs);
 
-                RowName rowName(ML::format("%s_%s",
-                                           row.rowName.toUtf8String().rawData(),
-                                           get<0>(col).toUtf8String().rawData()));
+                RowName rowName = row.rowName + std::get<0>(col);
 
                 std::unique_lock<std::mutex> guard(recordMutex);
                 outputDataset->recordRow(rowName, currOutputRow);
@@ -181,9 +188,8 @@ run(const ProcedureRunConfig & run,
                      *boundDataset.dataset,
                      boundDataset.asName, runProcConf.inputData.stm->when,
                      *runProcConf.inputData.stm->where,
-                     runProcConf.inputData.stm->orderBy, extra,
-                     false /* implicit order by row hash */)
-        .execute(aggregator, 
+                     runProcConf.inputData.stm->orderBy, extra)
+        .execute({processor,true/*processInParallel*/},
                  runProcConf.inputData.stm->offset, 
                  runProcConf.inputData.stm->limit, 
                  nullptr /* progress */);

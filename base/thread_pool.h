@@ -15,7 +15,7 @@
 
 namespace Datacratic {
 
-typedef std::function<void ()> ThreadJob;
+typedef std::function<void () noexcept> ThreadJob;
 
 /** Return the number of CPUs in the system. */
 int numCpus();
@@ -34,6 +34,23 @@ struct ThreadPool {
     ThreadPool(int numThreads);
     ~ThreadPool();
 
+    /** Add the given job to the thread pool.
+
+        The job MUST NOT throw an exception; any exception thrown within the
+        job WILL CRASH THE PROGRAM.  (The lambda will be marked noexcept at
+        a later date).
+
+        The job may either:
+        1.  Be run before the add() function terminates
+        2.  Be enqueued and run later
+
+        If there is an exception setting the job up to run (eg, out of memory
+        allocating an object), then the exception will be returned from this
+        function and will NOT have run.
+
+        If this function returns, the job WILL be eventually run, or has
+        already been run.
+    */
     void add(ThreadJob job);
 
     void waitForAll() const;

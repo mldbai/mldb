@@ -60,17 +60,17 @@ ProbabilizerConfigDescription()
              "over the dataset that the probabilizer is trained on.  The "
              "default will weight each example the same."
              "The select statement does not support groupby and having clauses. ");
+    addField("link", &ProbabilizerConfig::link,
+             "Link function to use.",
+             ML::LOGIT);
     addField("modelFileUrl", &ProbabilizerConfig::modelFileUrl,
              "URL where the model file (with extension '.prb') should be saved. "
-             "This file can be loaded by a function of type 'probabilizer'.");
-    addField("link", &ProbabilizerConfig::link,
-             "Link function to use.  See documentation.  Generally the "
-             "default, PROBIT, is a good place to start for binary "
-             "classifification",
-             ML::LOGIT);
+             "This file can be loaded by the ![](%%doclink probabilizer function). "
+             "This parameter is optional unless the `functionName` parameter is used.");
     addField("functionName", &ProbabilizerConfig::functionName,
-             "If specified, a probabilizer function of this name will be created using "
-             "the trained probabilizer.");
+             "If specified, an instance of the ![](%%doclink probabilizer function) of this name will be created using "
+             "the trained model. Note that to use this parameter, the `modelFileUrl` must "
+             "also be provided.");
     addParent<ProcedureConfig>();
 
     onPostValidate = validate<ProbabilizerConfig, 
@@ -142,7 +142,7 @@ run(const ProcedureRunConfig & run,
             return onProgress(value);
         };
 
-    SqlExpressionMldbContext context(server);
+    SqlExpressionMldbScope context(server);
 
     auto boundDataset = runProcConf.trainingData.stm->from->bind(context);
     auto score = extractNamedSubSelect("score", runProcConf.trainingData.stm->select)->expression;
@@ -163,7 +163,7 @@ run(const ProcedureRunConfig & run,
     
     std::atomic<int> numRows(0);
 
-    auto aggregator = [&] (NamedRowValue & row,
+    auto processor = [&] (NamedRowValue & row,
                            const std::vector<ExpressionValue> & extraVals)
         {
             float score = extraVals.at(0).toDouble();
@@ -180,7 +180,7 @@ run(const ProcedureRunConfig & run,
     iterateDataset(SelectExpression(), *boundDataset.dataset, boundDataset.asName, 
                    runProcConf.trainingData.stm->when,
                    *runProcConf.trainingData.stm->where,
-                   extra, aggregator,
+                   extra, {processor,true/*processInParallel*/},
                    runProcConf.trainingData.stm->orderBy,
                    runProcConf.trainingData.stm->offset,
                    runProcConf.trainingData.stm->limit);
@@ -298,7 +298,8 @@ ProbabilizeFunctionConfigDescription()
 {
     addField("modelFileUrl", &ProbabilizeFunctionConfig::modelFileUrl,
              "URL of the model file (with extension '.prb') to load. "
-             "This file is created by a procedure of type 'probabilizer.train'.");
+             "This file is created by the ![](%%doclink probabilizer.train procedure)."
+             );
 }
 
 struct ProbabilizeFunction::Itl {
@@ -342,15 +343,17 @@ getStatus() const
     return Any();
 }
 
-FunctionOutput
+ExpressionValue
 ProbabilizeFunction::
 apply(const FunctionApplier & applier,
-      const FunctionContext & context) const
+      const ExpressionValue & context) const
 {
-    ExpressionValue score = context.get<ExpressionValue>("score");
+    ExpressionValue score = context.getColumn(PathElement("score"));
     float prob  = itl->probabilizer.apply(ML::Label_Dist(1, score.toDouble()))[0];
-    FunctionOutput result;
-    result.set("prob", ExpressionValue(prob, score.getEffectiveTimestamp()));
+
+    StructValue result;
+    result.emplace_back(PathElement("prob"),
+                        ExpressionValue(prob, score.getEffectiveTimestamp()));
     return result;
 }
 
@@ -358,11 +361,21 @@ FunctionInfo
 ProbabilizeFunction::
 getFunctionInfo() const
 {
-    FunctionInfo result;
+    std::vector<KnownColumn> knownInputColumns;
+    knownInputColumns.emplace_back(ColumnName("score"),
+                                   std::make_shared<NumericValueInfo>(),
+                                   COLUMN_IS_DENSE,
+                                   0 /* position */);
 
-    result.input.addNumericValue("score");
-    result.output.addNumericValue("prob");
+    std::vector<KnownColumn> knownOutputColumns;
+    knownOutputColumns.emplace_back(ColumnName("prob"),
+                                    std::make_shared<NumericValueInfo>(),
+                                    COLUMN_IS_DENSE,
+                                    0 /* position */);
     
+    FunctionInfo result;
+    result.input.reset(new RowValueInfo(knownInputColumns, SCHEMA_CLOSED));
+    result.output.reset(new RowValueInfo(knownOutputColumns, SCHEMA_CLOSED));
     return result;
 }
 

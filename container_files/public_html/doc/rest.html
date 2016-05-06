@@ -13,7 +13,7 @@ Copyright (c) 2015 Datacratic Inc.  All rights reserved.
     <script src="{{HTTP_BASE_URL}}/resources/js/ace.js"  type="text/javascript" charset="utf-8"></script>
 
     <style>
-        @import url(http://fonts.googleapis.com/css?family=Roboto:400,700|Roboto+Slab:400,700);
+        @import url(//fonts.googleapis.com/css?family=Roboto:400,700|Roboto+Slab:400,700);
         h2, h3  { font-family: "Roboto Slab"; font-weight: bold;}
         .row {margin-left: 15px; }
         .row > p { font-size: 16px; }
@@ -640,7 +640,9 @@ $(document).ready(function () {
             .text('Send ' + method + ' request')
             .appendTo($well);
 
-        if(window.location.origin == "http://mldb.ai")
+        if( window.location.origin ==  "http://mldb.ai"      || 
+            window.location.origin ==  "http://docs.mldb.ai" || 
+            window.location.origin == "https://docs.mldb.ai"   )
         {
             $tryButton.click(function(){
                 alert("Interactive REST calls only work with a running MLDB instance, not on mldb.ai.\n\n" +
