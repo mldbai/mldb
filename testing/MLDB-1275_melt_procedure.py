@@ -83,9 +83,9 @@ res = mldb.perform("GET", "/v1/query", [["q", """SELECT
 jsRes = json.loads(res["response"])
 mldb.log(jsRes)
 
-assertVal(jsRes, "row1_friends.1", "name", "bill")
-assertVal(jsRes, "row1_friends.1", "key", "friends.1")
-assertVal(jsRes, "row1_friends.1", "friends.age", 18)
+assertVal(jsRes, "row1.friends.1", "name", "bill")
+assertVal(jsRes, "row1.friends.1", "key", "friends.1")
+assertVal(jsRes, "row1.friends.1", "friends.age", 18)
 
 
 

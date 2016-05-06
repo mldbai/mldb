@@ -4,43 +4,44 @@
 
     This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
-    Binding contexts for dealing with scopes.
+    Binding scopes for dealing with scopes.
 */
 
 #pragma once
 
 #include "sql_expression.h"
+#include <unordered_set>
+
 
 namespace Datacratic {
 namespace MLDB {
 
 
 /*****************************************************************************/
-/* READ THROUGH BINDING CONTEXT                                              */
+/* READ THROUGH BINDING SCOPE                                              */
 /*****************************************************************************/
 
-/** This context is used to build a read-through-write-local select
+/** This scope is used to build a read-through-write-local select
     expression on top of.  It allows for functions and variables to
-    read through to the outer context, but mutations are not supported
-    (they can be in a subclass).
+    read through to the outer scope.
 
     It is used as the base for any kind of sub-select operation within
     the expression execution.
 */
 
-struct ReadThroughBindingContext: public SqlBindingScope {
-    ReadThroughBindingContext(SqlBindingScope & outer)
+struct ReadThroughBindingScope: public SqlBindingScope {
+    ReadThroughBindingScope(SqlBindingScope & outer)
         : outer(outer)
     {
-        functionStackDepth = outer.functionStackDepth;
+        functionStackDepth = outer.functionStackDepth + 1;
     }
 
-    /// Outer context, which we can pass through non-mutating operations to
+    /// Outer scope, which we can pass through non-mutating operations to
     SqlBindingScope & outer;
     
-    /// RowContex structure. Derived class's row context must derive from this
-    struct RowContext: public SqlRowScope {
-        RowContext(const SqlRowScope & outer)
+    /// RowContex structure. Derived class's row scope must derive from this
+    struct RowScope: public SqlRowScope {
+        RowScope(const SqlRowScope & outer)
             : outer(outer)
         {
         }
@@ -48,8 +49,8 @@ struct ReadThroughBindingContext: public SqlBindingScope {
         const SqlRowScope & outer;
     };
 
-    /// Rebind a BoundSqlExpression from the outer context to run on our		
-    /// context.		
+    /// Rebind a BoundSqlExpression from the outer scope to run on our		
+    /// scope.		
     static BoundSqlExpression rebind(BoundSqlExpression expr);
 
     virtual BoundFunction
@@ -58,18 +59,15 @@ struct ReadThroughBindingContext: public SqlBindingScope {
                   const std::vector<BoundSqlExpression> & args,
                   SqlBindingScope & argScope);
 
-    virtual VariableGetter doGetVariable(const Utf8String & tableName,
-                                         const Utf8String & variableName);
+    virtual ColumnGetter doGetColumn(const Utf8String & tableName,
+                                       const ColumnName & columnName);
 
     virtual GetAllColumnsOutput
     doGetAllColumns(const Utf8String & tableName,
-                    std::function<Utf8String (const Utf8String &)> keep);
+                    std::function<ColumnName (const ColumnName &)> keep);
 
-    virtual VariableGetter doGetBoundParameter(const Utf8String & paramName);
+    virtual ColumnGetter doGetBoundParameter(const Utf8String & paramName);
     
-    virtual std::shared_ptr<Function>
-    doGetFunctionEntity(const Utf8String & functionName);
-
     virtual std::shared_ptr<Dataset>
     doGetDataset(const Utf8String & datasetName);
 
@@ -83,26 +81,26 @@ struct ReadThroughBindingContext: public SqlBindingScope {
 };
 
 /*****************************************************************************/
-/* COLUMN EXPRESSION BINDING CONTEXT                                         */
+/* COLUMN EXPRESSION BINDING SCOPE                                         */
 /*****************************************************************************/
 
-/** Context to bind a row expression into a dataset, but where we are
+/** Scope to bind a row expression into a dataset, but where we are
     applying to the columns.
 */
 
-struct ColumnExpressionBindingContext: public SqlBindingScope {
+struct ColumnExpressionBindingScope: public SqlBindingScope {
 
-    ColumnExpressionBindingContext(SqlBindingScope & outer)
+    ColumnExpressionBindingScope(SqlBindingScope & outer)
         : outer(outer)
     {
     }
 
-    /// Outer context, which we can pass through non-mutating operations to
+    /// Outer scope, which we can pass through non-mutating operations to
     SqlBindingScope & outer;
     
-    /// RowContex structure. Derived class's row context must derive from this
-    struct ColumnContext: public SqlRowScope {
-        ColumnContext(const ColumnName & columnName)
+    /// RowContex structure. Derived class's row scope must derive from this
+    struct ColumnScope: public SqlRowScope {
+        ColumnScope(const ColumnName & columnName)
             : columnName(columnName)
         {
         }
@@ -116,9 +114,9 @@ struct ColumnExpressionBindingContext: public SqlBindingScope {
                   const std::vector<BoundSqlExpression> & args,
                   SqlBindingScope & argScope);
 
-    ColumnContext getColumnContext(const ColumnName & columnName)
+    ColumnScope getColumnScope(const ColumnName & columnName)
     {
-        return ColumnContext(columnName);
+        return ColumnScope(columnName);
     }
 
     virtual MldbServer * getMldbServer() const
@@ -126,8 +124,19 @@ struct ColumnExpressionBindingContext: public SqlBindingScope {
         return outer.getMldbServer();
     }
 
-    virtual VariableGetter doGetVariable(const Utf8String & tableName,
-                                         const Utf8String & variableName);
+    // Only so we can return a good error message
+    virtual ColumnGetter doGetColumn(const Utf8String & tableName,
+                                       const ColumnName & columnName);
+
+    // Only so we can return a good error message
+    virtual GetAllColumnsOutput
+    doGetAllColumns(const Utf8String & tableName,
+                    std::function<ColumnName (const ColumnName &)> keep);
+
+    // Only so we can return a good error message
+    virtual ColumnName
+    doResolveTableName(const ColumnName & fullVariableName,
+                       Utf8String & tableName) const;
 };
 
 
@@ -135,19 +144,19 @@ struct ColumnExpressionBindingContext: public SqlBindingScope {
 /* SQL EXPRESSION WHEN SCOPE                                                 */
 /*****************************************************************************/
 
-/** Context to bind a given record of a row into a dataset. */
+/** Scope to bind a given record of a row into a dataset. */
 
-struct SqlExpressionWhenScope: public ReadThroughBindingContext {
+struct SqlExpressionWhenScope: public ReadThroughBindingScope {
 
     SqlExpressionWhenScope(SqlBindingScope & outer)
-        : ReadThroughBindingContext(outer), isTupleDependent(false)
+        : ReadThroughBindingScope(outer), isTupleDependent(false)
     {
     }
 
-    struct RowScope: public ReadThroughBindingContext::RowContext {
+    struct RowScope: public ReadThroughBindingScope::RowScope {
         RowScope(const SqlRowScope & outer,
                  Date ts)
-            : ReadThroughBindingContext::RowContext(outer), ts(ts)
+            : ReadThroughBindingScope::RowScope(outer), ts(ts)
         {
         }
 
@@ -184,18 +193,27 @@ struct SqlExpressionWhenScope: public ReadThroughBindingContext {
     are passed in after binding but are constant for each query execution.
 */
 
-struct SqlExpressionParamScope: public SqlBindingScope {
+struct SqlExpressionParamScope: public ReadThroughBindingScope {
 
-    struct RowScope: public SqlRowScope {
+    SqlExpressionParamScope(SqlBindingScope & outer)
+        : ReadThroughBindingScope(outer)
+    {
+    }
+
+    // This row scope initializes the inner scope with itself; it should
+    // never be used unless we are in a correlated sub-select in which
+    // case we will need to thread the outer scope through.
+    struct RowScope: public ReadThroughBindingScope::RowScope {
         RowScope(const BoundParameters & params)
-            : params(params)
+            : ReadThroughBindingScope::RowScope(*this),
+              params(params)
         {
         }
 
         const BoundParameters & params;
     };
     
-    virtual VariableGetter doGetBoundParameter(const Utf8String & paramName);
+    virtual ColumnGetter doGetBoundParameter(const Utf8String & paramName);
 
     static RowScope getRowScope(const BoundParameters & params)
     {
@@ -219,6 +237,100 @@ struct SqlExpressionConstantScope: public SqlBindingScope {
         return SqlRowScope();
     }
 };
+
+
+/*****************************************************************************/
+/* SQL EXPRESSION EXTRACT SCOPE                                              */
+/*****************************************************************************/
+
+/** This scope allows for an expression to be bound to receive its inputs
+    from a row, rather than from the outer scope.  The outer scope is still
+    present, but it is only used to resolve non-column references (functions,
+    etc).
+
+    It has two modes:
+
+    a) Known input mode, where the contents (ExpressionValueInfo) of the input
+       row are known at binding time.  In this case, it will merely check that
+       the columns referenced are satisfiable by the input row at bind time.
+    b) Unknown input mode, where we infer that the ExpressionValueInfo of the
+       input row looks like at bind time by resolving references.  In this
+       case, at the end of the binding process we know what inputs are
+       required.
+
+    It is used in two situations currently: when applying an extract expression
+    (rewriting a row), and when applying an sql.query or sql.expression
+    function.
+*/
+    
+struct SqlExpressionExtractScope: public SqlBindingScope {
+
+    /** Set up the scope with a known set of input values.  In this mode,
+        only that input will be used, and references to variables not
+        satisfied by the input will result in an error on binding.
+    */
+    SqlExpressionExtractScope(SqlBindingScope & outer,
+                              std::shared_ptr<ExpressionValueInfo> inputInfo);
+
+    /** Set up the scope to learn what input it should provide.  In this
+        mode, anything that can't be satisfied will be recorded into the
+        inferredInput upon binding, such that once binding is done, all
+        required expressions are known in inferredInput.
+    */
+    SqlExpressionExtractScope(SqlBindingScope & outer);
+
+    /// Outer scope from which we resolve function references
+    SqlBindingScope & outer;
+
+    /// Input variables, for when they are known.  Will be null
+    /// when the input is unknown.
+    std::shared_ptr<RowValueInfo> inputInfo;
+
+    /// Set of column names that we're inferring
+    std::unordered_set<ColumnName> inferredInputs;
+
+    /// Do we have wildcards in our input?  If so, we can't have a closed
+    /// schema for our inputs.
+    bool wildcardsInInput;
+
+    /** Once we're done binding, we call this method to fill in the
+        inputInfo from the inferredInputs.  It will modify the inputInfo
+        field to reflect what is required as an input.
+    */
+    void inferInput();
+
+    ColumnGetter doGetColumn(const Utf8String & tableName,
+                             const ColumnName & columnName);
+
+    GetAllColumnsOutput
+    doGetAllColumns(const Utf8String & tableName,
+                    std::function<ColumnName (const ColumnName &)> keep);
+
+    virtual BoundFunction
+    doGetFunction(const Utf8String & tableName,
+                  const Utf8String & functionName,
+                  const std::vector<BoundSqlExpression> & args,
+                  SqlBindingScope & argScope);
+
+    virtual ColumnName
+    doResolveTableName(const ColumnName & fullVariableName,
+                       Utf8String & tableName) const;
+
+    struct RowScope: public SqlRowScope {
+        RowScope(const ExpressionValue & input)
+            : input(input)
+        {
+        }
+
+        const ExpressionValue & input;
+    };
+
+    RowScope getRowScope(const ExpressionValue & input) const
+    {
+        return RowScope(input);
+    }
+};
+
 
 
 

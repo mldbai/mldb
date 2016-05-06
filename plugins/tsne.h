@@ -11,7 +11,7 @@
 
 #include "mldb/core/dataset.h"
 #include "mldb/core/procedure.h"
-#include "mldb/core/function.h"
+#include "mldb/core/value_function.h"
 #include "matrix.h"
 #include "mldb/types/value_description.h"
 
@@ -21,6 +21,8 @@ namespace MLDB {
 struct TsneItl;
 
 struct TsneConfig : public ProcedureConfig {
+    static constexpr const char * name = "tsne.train";
+
     TsneConfig()
         : numInputDimensions(-1),
           numOutputDimensions(2),
@@ -60,10 +62,10 @@ struct TsneProcedure: public Procedure {
     TsneProcedure(MldbServer * owner,
                   PolyConfig config,
                   const std::function<bool (const Json::Value &)> & onProgress);
-    
+
     virtual RunOutput run(const ProcedureRunConfig & run,
                           const std::function<bool (const Json::Value &)> & onProgress) const;
-    
+
     virtual Any getStatus() const;
 
     TsneConfig tsneConfig;
@@ -85,18 +87,24 @@ DECLARE_STRUCTURE_DESCRIPTION(TsneEmbedConfig);
 /* TSNE EMBED ROW                                                            */
 /*****************************************************************************/
 
-struct TsneEmbed: public Function {
+struct TsneInput {
+    ExpressionValue embedding;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(TsneInput);
+
+struct TsneOutput {
+    ExpressionValue tsne;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(TsneOutput);
+
+struct TsneEmbed: public ValueFunctionT<TsneInput, TsneOutput> {
     TsneEmbed(MldbServer * owner,
               PolyConfig config,
               const std::function<bool (const Json::Value &)> & onProgress);
     
-    virtual Any getStatus() const;
-    
-    virtual FunctionOutput apply(const FunctionApplier & applier,
-                              const FunctionContext & context) const;
-
-    /** Describe what the input and output is for this configured function. */
-    virtual FunctionInfo getFunctionInfo() const;
+    virtual TsneOutput call(TsneInput input) const override;
     
     TsneEmbedConfig functionConfig;
     std::shared_ptr<TsneItl> itl;

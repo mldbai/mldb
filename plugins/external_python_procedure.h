@@ -17,6 +17,8 @@ namespace Datacratic {
 namespace MLDB {
 
 struct ExternalPythonProcedureConfig: public ProcedureConfig {
+    static constexpr const char * name = "experimental.external.procedure";
+
     ExternalPythonProcedureConfig()
     {
     }
@@ -34,7 +36,7 @@ DECLARE_STRUCTURE_DESCRIPTION(ExternalPythonProcedureConfig);
 /*****************************************************************************/
 
 struct ExternalPythonProcedure: public Procedure {
-    
+
     ExternalPythonProcedure(MldbServer * owner,
                    PolyConfig config,
                    const std::function<bool (const Json::Value &)> & onProgress);

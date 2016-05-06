@@ -25,12 +25,10 @@ namespace Datacratic {
 namespace MLDB {
 
 std::shared_ptr<FunctionCollection>
-createFunctionCollection(MldbServer * server, RestRouteManager & routeManager,
-                       std::shared_ptr<CollectionConfigStore> configStore)
+createFunctionCollection(MldbServer * server, RestRouteManager & routeManager)
 {
     return createCollection<FunctionCollection>(2, "function", "functions",
-                                              server, routeManager,
-                                              configStore);
+                                                server, routeManager);
 }
 
 std::shared_ptr<Function>
@@ -73,58 +71,65 @@ registerFunctionType(const Package & package,
 /* FUNCTION                                                                  */
 /*****************************************************************************/
 
-FunctionOutput
+ExpressionValue
 Function::
-call(const std::map<Utf8String, ExpressionValue> & input) const
+call(const ExpressionValue & input) const
 {
-    SqlExpressionMldbContext outerContext(MldbEntity::getOwner(this->server));
+    SqlExpressionMldbScope outerContext(MldbEntity::getOwner(this->server));
     
     auto info = this->getFunctionInfo();
 
+#if 0
     //cerr << "function info is " << jsonEncode(info) << endl;
 
-    FunctionContext inputContext;
+    ExpressionValue inputContext;
 
-    // 2.  Extract the seed values for the context
+    auto onColumn = [&] (const PathElement & columnName,
+                         const Path & prefix,
+                         const ExpressionValue & val)
+        {
+            const Utf8String & name(p.first);
+            const ExpressionValue & v(p.second);
+            const ExpressionValueInfo * valueInfo = nullptr;
+        
+            auto it = info.input.values.find(name);
+
+            try {
+                JML_TRACE_EXCEPTIONS(false);
+
+                // skip unknown values
+                if (it == info.input.values.end())
+                    continue;
+
+                // Save the expected value type to put it in an error message later
+                valueInfo = it->second.valueInfo.get();
+        
+                inputContext.set(name, v);
+            } catch (const std::exception & exc) {
+                Json::Value details;
+                details["valueName"] = name;
+                details["value"] = jsonEncode(v);
+                details["functionName"] = this->config_->id;
+                details["functionType"] = this->type_;
+                if (valueInfo)
+                    details["valueExpectedType"] = jsonEncode(it->second.valueInfo);
+
+                rethrowHttpException(400, "Parsing value '" + name + "' with value '"
+                                     + jsonEncodeStr(v) + "' for function '"
+                                     + this->config_->id + "': " + exc.what(),
+                                     details);
+            }
+        };
+
     for (auto & p: input) {
-        const Utf8String & name(p.first);
-        const ExpressionValue & v(p.second);
-        const ExpressionValueInfo * valueInfo = nullptr;
-        
-        auto it = info.input.values.find(name);
-
-        try {
-            JML_TRACE_EXCEPTIONS(false);
-
-            // skip unknown values
-            if (it == info.input.values.end())
-                continue;
-
-            // Save the expected value type to put it in an error message later
-            valueInfo = it->second.valueInfo.get();
-        
-            inputContext.set(name, v);
-        } catch (const std::exception & exc) {
-            Json::Value details;
-            details["valueName"] = name;
-            details["value"] = jsonEncode(v);
-            details["functionName"] = this->config_->id;
-            details["functionType"] = this->type_;
-            if (valueInfo)
-                details["valueExpectedType"] = jsonEncode(it->second.valueInfo);
-
-            rethrowHttpException(400, "Parsing value '" + name + "' with value '"
-                                 + jsonEncodeStr(v) + "' for function '"
-                                 + this->config_->id + "': " + exc.what(),
-                                 details);
-        }
     }
+#endif
 
     //cerr << "inputContext = " << jsonEncode(inputContext) << endl;
 
     auto applier = this->bind(outerContext, info.input);
     
-    return applier->apply(inputContext);
+    return applier->apply(input);
 }
 
 /*****************************************************************************/
@@ -144,15 +149,25 @@ applyFunction(const Function * function,
               const std::vector<Utf8String> & keepValues,
               RestConnection & connection) const
 {
-    FunctionOutput output = function->call(input);
+    StructValue inputExpr;
+    inputExpr.reserve(input.size());
+    for (auto & i: input) {
+        inputExpr.emplace_back(i.first, i.second);
+    }
+
+    ExpressionValue output = function->call(std::move(inputExpr));
 
     //cerr << "output = " << jsonEncode(output) << endl;
 
-    FunctionOutput result;
+    ExpressionValue result;
 
     if (!keepValues.empty()) {
-        for (auto & p: keepValues)
-            result.values[p] = std::move(output.values[p]);
+        StructValue outputStruct;
+        outputStruct.reserve(keepValues.size());
+        for (auto & p: keepValues) {
+            outputStruct.emplace_back(p, output.getColumn(p));
+        }
+        result = std::move(outputStruct);
     }
     else {
         result = std::move(output);
@@ -166,10 +181,17 @@ applyFunction(const Function * function,
     context.startObject();
     context.startMember("output");
     context.startObject();
-    for (auto & p: result.values) {
-        context.startMember(p.first.rawString());
-        valDesc->printJsonTyped(&p.second, context);
-    }
+
+    auto onColumn = [&] (const PathElement & columnName,
+                         const ExpressionValue & val)
+        {
+            context.startMember(columnName.toUtf8String());
+            valDesc->printJsonTyped(&val, context);
+            return true;
+        };
+
+    result.forEachColumn(onColumn);
+    
     context.endObject();
     context.endObject();
     connection.sendResponse(200, stream.str(), "application/json");
@@ -202,7 +224,7 @@ initRoutes(RouteManager & manager)
                   RestParamJsonDefault<std::vector<Utf8String> >
                   ("keepValues", "Keep only these values for the output", {}),
                   PassConnectionId());
-    
+
     addRouteSyncJsonReturn(*manager.valueNode, "/info", { "GET" },
                            "Return information about the values and metadata of the function",
                            "Function information structure",
@@ -239,7 +261,7 @@ initRoutes(RouteManager & manager)
 
     RestRequestRouter & subRouter
         = manager.valueNode->addSubRouter("/routes", "Function type-specific routes");
-    
+
     subRouter.rootHandler = handlePluginRoute;
 }
 

@@ -44,12 +44,11 @@ bindDataset(std::shared_ptr<Dataset> dataset, Utf8String asName)
                                  const SqlExpression & where,
                                  const OrderByExpression & orderBy,
                                  ssize_t offset,
-                                 ssize_t limit,
-                                 bool allowParallel)
+                                 ssize_t limit)
         -> BasicRowGenerator
         {
             return dataset->queryBasic(context, select, when, where, orderBy,
-                                       offset, limit, allowParallel);
+                                       offset, limit);
         };
 
     return result;
@@ -249,23 +248,11 @@ getUnbound() const
     result.merge(rightUnbound);
     result.mergeFiltered(onUnbound, tables);
 
-    // HACK: fix them up until we've resolved the . for scope issue
-    std::vector<std::pair<Utf8String, Utf8String> > prefixedNames;
-    for (auto & t: tables) {
-        prefixedNames.emplace_back(t, t + ".");
-    }
-
-    std::vector<Utf8String> toRemove;
+    std::vector<ColumnName> toRemove;
     for (auto & v: result.vars) {
-        for (auto & p: prefixedNames) {
-            if (v.first.startsWith(p.second)) {
+        for (auto & t: tables) {
+            if (v.first.startsWith(t)) {
                 toRemove.push_back(v.first);
-                
-                // Don't add it back anywhere... since we know about the
-                // table, it's a resolved variable.
-                //Utf8String newName(v.first);
-                //newName.replace(0, p.second.length(), Utf8String());
-                //result.tables[p.first].vars[newName].merge(v.second);
             }
         }
     }
@@ -342,9 +329,7 @@ UnboundEntities
 SelectSubtableExpression::
 getUnbound() const
 {
-    UnboundEntities result;
-    throw HttpReturnException(500, "getUnbound() for SelectSubtableExpression: not done");
-    return result;
+    return statement.getUnbound();
 }
 
 
@@ -583,8 +568,7 @@ bind(SqlBindingScope & context) const
                                  const SqlExpression & where_,
                                  const OrderByExpression & orderBy,
                                  ssize_t offset,
-                                 ssize_t limit,
-                                 bool allowParallel)
+                                 ssize_t limit)
         -> BasicRowGenerator
         {
             // Copy the where expression
@@ -603,8 +587,8 @@ bind(SqlBindingScope & context) const
                 rows.reserve(row.rowLength());
                 int n = 0;
 
-                auto onColumn = [&] (const Coord & columnName,
-                                     const Coord & prefix,
+                auto onColumn = [&] (const Path & columnName,
+                                     const Path & prefix,
                                      const CellValue & cell,
                                      Date ts)
                 {

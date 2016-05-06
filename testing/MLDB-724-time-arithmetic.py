@@ -286,8 +286,8 @@ class TimeArithmeticTest(MldbUnitTest):
         self.assertTableResultEquals(query,
             [
                 ["_rowName", "click", "imp"],
-                ["imp_then_click_1d", 0, 0],
-                ["click_then_imp_2d", 0, 0]
+                ["click_then_imp_2d", 0, 0],
+                ["imp_then_click_1d", 0, 0]                
             ]
         )
 

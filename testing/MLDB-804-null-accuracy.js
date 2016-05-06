@@ -41,6 +41,6 @@ var resp = mldb.put("/v1/procedures/test1", config);
 mldb.log(resp);
 
 assertEqual(resp.responseCode, 400);
-assertContains(resp.json.error, "accuracy training expect a scalar named 'score' and a scalar named 'label'");
+assertContains(resp.json.error, "classifier.test expects a scalar named 'score' and a scalar named 'label'");
 
 "success"

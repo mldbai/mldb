@@ -16,6 +16,7 @@
 #include "cell_value_impl.h"
 #include "mldb/base/parse_context.h"
 #include "interval.h"
+#include "path.h"
 
 using namespace std;
 
@@ -337,7 +338,8 @@ toString() const
         return string(longString->repr, longString->repr + strLength);
     case ST_UTF8_SHORT_STRING:
     case ST_UTF8_LONG_STRING:
-        throw HttpReturnException(400, "cannot call toString on utf8 string");
+        throw HttpReturnException(400, "Can't convert value '" + trimmedExceptionString() + "' of type '"
+                            + to_string(cellType()) + "' to ASCII string");
     case ST_TIMESTAMP:
         return Date::fromSecondsSinceEpoch(timestamp)
             .printIso8601(-1 /* as many digits as necessary */);
@@ -363,7 +365,8 @@ toDoubleImpl() const
     case ST_FLOAT:
         return floatVal;
     default:
-        throw HttpReturnException(400, "Can't convert value '" + toUtf8String() + "' to double");
+        throw HttpReturnException(400, "Can't convert value '" + trimmedExceptionString() + "' of type '"
+                                    + to_string(cellType()) + "' to double");
     }
 }
 
@@ -372,8 +375,8 @@ CellValue::
 toInt() const
 {
     if (type != ST_INTEGER) {
-        throw HttpReturnException(400, "Can't convert value '" + toUtf8String() + "' of type '"
-                                  + std::to_string(type) + "' to integer");
+        throw HttpReturnException(400, "Can't convert value '" + trimmedExceptionString() + "' of type '"
+                                  + to_string(cellType()) + "' to integer");
     }
     return intVal;
 }
@@ -388,8 +391,8 @@ toUInt() const
     else if (type == ST_UNSIGNED) {
         return uintVal;
     }
-        throw HttpReturnException(400, "Can't convert value '" + toUtf8String() + "' of type '"
-                                  + std::to_string(type) + "' to unsigned integer");
+        throw HttpReturnException(400, "Can't convert value '" + trimmedExceptionString() + "' of type '"
+                                  + to_string(cellType()) + "' to unsigned integer");
 }
 
 Date
@@ -397,8 +400,8 @@ CellValue::
 toTimestamp() const
 {
     if (type != ST_TIMESTAMP)
-        throw HttpReturnException(400, "Can't convert value to timestamp",
-                                  "value", *this);
+        throw HttpReturnException(400, "Can't convert value '" + trimmedExceptionString() + "' of type '"+
+                                        to_string(cellType()) +"' to timestamp", "value", *this);
     return Date::fromSecondsSinceEpoch(timestamp);
 }
 
@@ -407,8 +410,8 @@ CellValue::
 toMonthDaySecond() const
 {
     if (type != ST_TIMEINTERVAL) {
-        throw HttpReturnException(400, "Can't convert value to time interval",
-                                  "value", *this);
+        throw HttpReturnException(400, "Can't convert value '" + trimmedExceptionString() + "' of type '"+ 
+                                        to_string(cellType()) +"' to time interval", "value", *this);
     }
     return make_tuple(timeInterval.months, timeInterval.days, timeInterval.seconds);
 }
@@ -547,6 +550,15 @@ coerceToBlob() const
         return CellValue::blob(toUtf8String().stealRawString());
     }
     return toUtf8String();
+}
+
+PathElement
+CellValue::
+coerceToPathElement() const
+{
+    if (type == ST_EMPTY)
+        return PathElement();
+    else return PathElement(toUtf8String());
 }
 
 bool
@@ -716,7 +728,9 @@ operator == (const CellValue & other) const
         if (sign1 != sign2)
             return false;
 
-        return timeInterval.months == other.timeInterval.months && timeInterval.days == other.timeInterval.days && timeInterval.seconds == other.timeInterval.seconds;
+        return timeInterval.months == other.timeInterval.months && 
+               timeInterval.days == other.timeInterval.days && 
+               timeInterval.seconds == other.timeInterval.seconds;
     }
         
     default:
@@ -899,8 +913,8 @@ blobData() const
     case ST_LONG_BLOB:
         return (const unsigned char *)longString->repr;
     default:
-        throw HttpReturnException(400, "CellValue is not a blob",
-                                  "value", *this);
+        throw HttpReturnException(400, "CellValue of type '"+to_string(cellType())+"' with value '"+
+                                    trimmedExceptionString()+"' is not a blob", "value", *this);
     }
 }
 
@@ -913,8 +927,8 @@ blobLength() const
     case ST_LONG_BLOB:
         return strLength;
     default:
-        throw HttpReturnException(400, "CellValue is not a blob",
-                                  "value", *this);
+        throw HttpReturnException(400, "CellValue of type '"+to_string(cellType())+"' with value '"+
+                                    trimmedExceptionString()+"' is not a blob", "value", *this);
     }
 }
 
@@ -954,6 +968,22 @@ deleteString()
     }
     type = ST_EMPTY;
     longString = nullptr;
+}
+
+Utf8String
+CellValue::
+trimmedExceptionString() const
+{
+    try {
+        auto str = toUtf8String();
+        // trim if too long
+        if(str.length() < 200) return str;
+
+        return Utf8String(str, 0, 200) + "... (trimmed)";
+    }
+    catch(...) {
+        return Utf8String("Exception trying to print string");
+    }
 }
 
 std::string
@@ -1136,6 +1166,29 @@ extractStructuredJson(JsonPrintingContext & context) const
     }
 }
 
+size_t
+CellValue::
+memusage() const
+{
+    switch (type) {
+    case ST_EMPTY:
+    case ST_TIMESTAMP:
+    case ST_TIMEINTERVAL:
+    case ST_ASCII_SHORT_STRING:
+    case ST_SHORT_BLOB:
+    case ST_UTF8_SHORT_STRING:
+    case ST_INTEGER:
+    case ST_UNSIGNED:
+    case ST_FLOAT:
+        return sizeof(*this);
+    case ST_ASCII_LONG_STRING:
+    case ST_UTF8_LONG_STRING:
+    case ST_LONG_BLOB:
+        return sizeof(*this) + sizeof(StringRepr) + strLength;
+    }
+    throw HttpReturnException(400, "unknown CellValue type");
+}
+
 struct CellValueDescription: public ValueDescriptionT<CellValue> {
     virtual void parseJsonTyped(CellValue * val,
                                 JsonParsingContext & context) const
@@ -1197,7 +1250,7 @@ struct CellValueDescription: public ValueDescriptionT<CellValue> {
                         if (v2.isUInt() || v2.isInt()) {
                             uint64_t val = v2.asUInt();
                             if (val > 255)
-                                context.exception("Invalid byte value " + to_string(val) + " reading blob data (must be 0-255)");
+                                context.exception("Invalid byte value " + std::to_string(val) + " reading blob data (must be 0-255)");
                             contents += val;
                         }
                         else if (v2.isString()) {

@@ -39,17 +39,38 @@ assertEqual(resp.responseCode, 200, "Error executing query");
 expected = [
    [
       [ "_rowName", "mustard" ],
-      [ "hows", "kitchenplumplum" ],
-      [ "whats", "moved, stabbed, killed" ]
+      [ "hows", "plumplumkitchen" ],
+      [ "whats", "killed, stabbed, moved" ]
    ],
    [
       [ "_rowName", "plum" ],
-      [ "hows", "stabbedkitchen" ],
-      [ "whats", "died, moved" ]
+      [ "hows", "kitchenstabbed" ],
+      [ "whats", "moved, died" ]
    ]
 ];
 
 assertEqual(mldb.diff(expected, resp.json, false /* strict */), {},
             "Query 2 output was not the same as expected output");
+
+// test horizontal_agg
+
+var resp = mldb.get("/v1/datasets/test/query", {select: "horizontal_string_agg({who, what, how}, ', ') AS aggs", format: 'table', orderBy: 'rowName()'});
+
+plugin.log(resp.json);
+
+assertEqual(resp.responseCode, 200, "Error executing query");
+
+expected = [
+   [ "_rowName", "aggs" ],
+   [ "0", "kitchen, moved, mustard" ],
+   [ "1", "kitchen, moved, plum" ],
+   [ "2", "plum, stabbed, mustard" ],
+   [ "3", "plum, killed, mustard" ],
+   [ "4", "stabbed, died, plum" ]
+];
+
+assertEqual(mldb.diff(expected, resp.json, false /* strict */), {},
+            "Query 2 output was not the same as expected output");
+
 
 "success"

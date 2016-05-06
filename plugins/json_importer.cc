@@ -2,7 +2,7 @@
    Francois Maillet, 19 janvier 2016
 
    This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
-   
+
    Importer for text files containing a JSON per line
 */
 
@@ -20,6 +20,7 @@
 #include "mldb/server/per_thread_accumulator.h"
 #include "mldb/base/parallel.h"
 #include "mldb/arch/timers.h"
+#include "mldb/base/parse_context.h"
 
 using namespace std;
 
@@ -34,6 +35,8 @@ namespace MLDB {
 
 struct JSONImporterConfig : ProcedureConfig {
 
+    static constexpr const char * name = "import.json";
+
     JSONImporterConfig() :
           limit(-1),
           offset(0),
@@ -42,7 +45,7 @@ struct JSONImporterConfig : ProcedureConfig {
 
     Url dataFileUrl;
     PolyConfigT<Dataset> outputDataset;
-    
+
     int64_t limit;
     int64_t offset;
     bool ignoreBadLines;
@@ -67,7 +70,7 @@ JSONImporterConfigDescription()
     addField("ignoreBadLines", &JSONImporterConfig::ignoreBadLines,
              "If true, any line causing an error will be skipped. Any line "
              "with an invalid JSON object will cause an error.", false);
-    
+
     addParent<ProcedureConfig>();
 }
 
@@ -81,17 +84,17 @@ struct JSONImporter: public Procedure {
     {
         config = config_.params.convert<JSONImporterConfig>();
     }
-    
+
     JSONImporterConfig config;
 
     virtual RunOutput run(const ProcedureRunConfig & run,
                           const std::function<bool (const Json::Value &)> & onProgress) const
     {
         auto runProcConf = applyRunConfOverProcConf(config, run);
-        
+
         // Create the output dataset
         std::shared_ptr<Dataset> outputDataset;
- 
+
         if (!runProcConf.outputDataset.type.empty()
             || !runProcConf.outputDataset.id.empty()) {
             outputDataset = createDataset(server, runProcConf.outputDataset, nullptr, true);
@@ -108,7 +111,7 @@ struct JSONImporter: public Procedure {
         int64_t lineOffset = 1;
         std::string line;
         std::string filename = runProcConf.dataFileUrl.toString();
-        
+
         filter_istream stream(filename);
 
         Date timestamp = stream.info().lastModified;
@@ -120,14 +123,14 @@ struct JSONImporter: public Procedure {
             getline(stream, line);
         }
 
-        auto handleError = [&](const std::string & message, 
-                               int64_t lineNumber, 
+        auto handleError = [&](const std::string & message,
+                               int64_t lineNumber,
                                const std::string& line) {
             if (config.ignoreBadLines) {
                 ++errors;
                 return true;
             }
-            
+
             throw HttpReturnException(400, "Error parsing JSON row: "
                                       + message,
                                       "filename", filename,
@@ -135,15 +138,40 @@ struct JSONImporter: public Procedure {
                                       "line", line);
         };
 
-        PerThreadAccumulator<std::vector<std::pair<RowName, ExpressionValue> > > accum;
+        Dataset::MultiChunkRecorder recorder
+            = outputDataset->getChunkRecorder();
 
-        auto onLine = [& ](const char * line,
+        struct ThreadAccum {
+            /// Recorder object for this thread that the dataset gives us
+            /// to record into the dataset.
+            std::unique_ptr<Recorder> threadRecorder;
+        };
+
+        PerThreadAccumulator<ThreadAccum> accum;
+
+        auto startChunk = [&] (int64_t chunkNumber, size_t lineNumber)
+            {
+                auto & threadAccum = accum.get();
+                threadAccum.threadRecorder = recorder.newChunk(chunkNumber);
+                return true;
+            };
+
+        auto doneChunk = [&] (int64_t chunkNumber, size_t lineNumber)
+            {
+                auto & threadAccum = accum.get();
+                ExcAssert(threadAccum.threadRecorder.get());
+                threadAccum.threadRecorder->finishedChunk();
+                threadAccum.threadRecorder.reset(nullptr);
+                return true;
+            };
+
+        auto onLine = [&] (const char * line,
                            size_t lineLength,
                            int64_t blockNumber,
                            int64_t lineNumber)
         {
-            auto & rows = accum.get();
-            
+            auto & threadAccum = accum.get();
+
             int64_t actualLineNum = lineNumber + lineOffset;
 
             // MLDB-1111 empty lines are treated as error
@@ -153,9 +181,14 @@ struct JSONImporter: public Procedure {
             StreamingJsonParsingContext parser(filename, line, lineLength,
                                                actualLineNum);
 
+            skipJsonWhitespace(*parser.context);
+            if (parser.context->eof()) {
+                return handleError("empty line", actualLineNum, "");
+            }
+
             // TODO: in the configuration
             JsonArrayHandling arrays = ENCODE_ARRAYS;
-            
+
             ExpressionValue expr;
             try {
                 expr = ExpressionValue::parseJson(parser, timestamp, arrays);
@@ -163,35 +196,28 @@ struct JSONImporter: public Procedure {
                 return handleError(exc.what(), actualLineNum, string(line, lineLength));
             }
 
+            skipJsonWhitespace(*parser.context);
+            if (!parser.context->eof()) {
+                return handleError("extra characters at end of line", actualLineNum, "");
+            }
+
             recordedLines++;
 
-            rows.emplace_back(RowName(actualLineNum), std::move(expr));
+            RowName rowName(actualLineNum);
+            threadAccum.threadRecorder->recordRowExprDestructive(RowName(actualLineNum), std::move(expr));
 
-            if (rows.size() > 1000) {
-                outputDataset->recordRowsExpr(rows);
-                rows.clear();
-            }
             return true;
         };
 
-        forEachLineBlock(stream, onLine, runProcConf.limit, 32);
-
-        cerr << "cleaning up" << endl;
-        
-        auto doLeftoverChunk = [&] (int threadNum)
-            {
-                auto rows = *accum.threads.at(threadNum).get();
-                outputDataset->recordRowsExpr(rows);
-            };
-
-        parallelMap(0, accum.threads.size(), doLeftoverChunk);
+        forEachLineBlock(stream, onLine, runProcConf.limit, 32,
+                         startChunk, doneChunk);
 
         cerr << timer.elapsed() << endl;
         timer.restart();
 
         cerr << "committing dataset" << endl;
 
-        outputDataset->commit();
+        recorder.commit();
 
         cerr << timer.elapsed() << endl;
 
@@ -207,13 +233,12 @@ struct JSONImporter: public Procedure {
     {
         return Any();
     }
-    
+
     JSONImporterConfig procConfig;
 };
 
 static RegisterProcedureType<JSONImporter, JSONImporterConfig>
 regJSON(builtinPackage(),
-        "import.json",
         "Import a text file with one JSON per line into MLDB",
         "procedures/JSONImporter.md.html");
 

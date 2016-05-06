@@ -30,6 +30,8 @@ namespace MLDB {
 /*****************************************************************************/
 
 struct SentiWordNetImporterConfig : ProcedureConfig {
+    static constexpr const char * name = "import.sentiwordnet";
+
     SentiWordNetImporterConfig()
     {
         outputDataset.withType("sparse.mutable");
@@ -63,7 +65,7 @@ struct SentiWordNetImporter: public Procedure {
     {
         config = config_.params.convert<SentiWordNetImporterConfig>();
     }
-    
+
     SentiWordNetImporterConfig config;
 
     virtual RunOutput run(const ProcedureRunConfig & run,
@@ -98,9 +100,9 @@ struct SentiWordNetImporter: public Procedure {
 
             vector<string> fields;
             boost::split(fields, line, boost::is_any_of("\t"));
-            
+
             ExcAssertEqual(fields.size(), 6);
-            
+
             const string & wordType = fields[0];
             SynsetScores scores;
             try {
@@ -138,7 +140,7 @@ struct SentiWordNetImporter: public Procedure {
         }
 
         Date d = Date::now();
-        vector<ColumnName> columnNames = {Coord("SentiPos"), Coord("SentiNeg"), Coord("SentiObj")};
+        vector<ColumnName> columnNames = {PathElement("SentiPos"), PathElement("SentiNeg"), PathElement("SentiObj")};
 
         // We now go through our accumulator to compute the final scores
         vector<pair<RowName, vector<tuple<ColumnName, CellValue, Date> > > > rows;
@@ -157,8 +159,8 @@ struct SentiWordNetImporter: public Procedure {
             for(int i=0; i<3; i++) {
                 cols.emplace_back(columnNames[i], (scoreAccum[i] / sum), d);
             }
-            cols.emplace_back(Coord("POS"), it.first.substr(it.first.size() - 1), d);
-            cols.emplace_back(Coord("baseWord"), it.first.substr(0, it.first.size() - 2), d);
+            cols.emplace_back(PathElement("POS"), it.first.substr(it.first.size() - 1), d);
+            cols.emplace_back(PathElement("baseWord"), it.first.substr(0, it.first.size() - 2), d);
 
             rows.emplace_back(RowName(it.first), std::move(cols));
             ++numRecorded;
@@ -177,12 +179,11 @@ struct SentiWordNetImporter: public Procedure {
     {
         return Any();
     }
-    
+
 };
 
 RegisterProcedureType<SentiWordNetImporter, SentiWordNetImporterConfig>
 regSentiWordNet(builtinPackage(),
-                "import.sentiwordnet",
                 "Import a SentiWordNet file into MLDB",
                 "procedures/SentiWordNetImporter.md.html");
 

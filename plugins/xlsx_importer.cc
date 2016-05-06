@@ -3,7 +3,7 @@
    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
 
    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-   
+
    Importer for Excel .xlsx files.  These files are actually .zip
    files full of .xml documents.
 */
@@ -31,6 +31,8 @@ namespace MLDB {
 /*****************************************************************************/
 
 struct XlsxImporterConfig: public ProcedureConfig {
+    static constexpr const char * name = "experimental.import.xlsx";
+
     Url dataFileUrl;
     PolyConfigT<Dataset> output;
 };
@@ -50,7 +52,7 @@ XlsxImporterConfigDescription()
 }
 
 struct SharedStrings {
-    
+
 
     void load(std::streambuf * buf)
     {
@@ -61,16 +63,16 @@ struct SharedStrings {
         xml->Parse(allText.str().c_str());
 
         //xml->Print();
-        
+
         using namespace tinyxml2;
-        
+
         XMLHandle handle(*xml);
 
         XMLElement * sst = handle.FirstChildElement("sst").ToElement();
 
         if (!sst)
             throw HttpReturnException(400, "xlsx file SharedStrings have no sst element");
-            
+
 
         unsigned numStrings;
         int res = sst->QueryUnsignedAttribute("uniqueCount", &numStrings);
@@ -80,8 +82,8 @@ struct SharedStrings {
         //cerr << "got " << numStrings << " unique strings" << endl;
 
         strings.reserve(numStrings);
-        
-        
+
+
 
         for (XMLNode * node = sst->FirstChildElement();  node;
              node = node->NextSibling()) {
@@ -214,9 +216,9 @@ struct Styles {
 
 
         map<int, string> formats = STANDARD_FORMATS;
-        
+
         using namespace tinyxml2;
-        
+
         XMLHandle handle(*xml);
 
         XMLElement * numFmts
@@ -228,13 +230,13 @@ struct Styles {
         if (numFmts) {
             for (XMLNode * node = numFmts->FirstChildElement("numFmt");  node;
                  node = node->NextSibling()) {
-                
+
                 XMLElement * element = node->ToElement();
 
                 if (!element)
                     throw HttpReturnException(400, "xlsx worksheet number format entry is not an element");
-                
-                
+
+
                 auto readAttr = [&] (const std::string & attr) -> std::string
                     {
                         const char * foundAttr = element->Attribute(attr.c_str());
@@ -242,10 +244,10 @@ struct Styles {
                             return std::string();
                         return std::string(foundAttr);
                     };
-                
+
                 string formatCode = readAttr("formatCode");
                 int numFormatId = std::stoi(readAttr("numFmtId"));
-                
+
                 formats[numFormatId] = formatCode;
             }
         }
@@ -259,11 +261,11 @@ struct Styles {
         if (cellXfs) {
             for (XMLNode * node = cellXfs->FirstChildElement("xf");  node;
                  node = node->NextSibling()) {
-                
+
                 XMLElement * element = node->ToElement();
                 if (!element)
                     throw HttpReturnException(400, "xlsx worksheet sheet entry is not an element");
-                
+
                 auto readAttr = [&] (const std::string & attr) -> std::string
                     {
                         const char * foundAttr = element->Attribute(attr.c_str());
@@ -271,7 +273,7 @@ struct Styles {
                             return std::string();
                         return std::string(foundAttr);
                     };
-                
+
                 int numFormatId = std::stoi(readAttr("numFmtId"));
 
                 std::string formatStr;
@@ -349,11 +351,11 @@ struct Workbook {
         xml->Parse(allText.str().c_str());
 
         //cerr << "workbook XML contents" << endl;
-        
+
         //xml->Print();
 
         using namespace tinyxml2;
-        
+
         XMLHandle handle(*xml);
 
         XMLElement * workbookPr
@@ -372,7 +374,7 @@ struct Workbook {
 
         if (!workbookPr)
             throw HttpReturnException(400, "xlsx workbook not found");
-        
+
         // date1904 attribute says that the epoch is 1904-01-01
         const char * foundAttr = workbookPr->Attribute("date1904");
         if (foundAttr && strcmp(foundAttr, "1") == 0) {
@@ -428,11 +430,11 @@ struct Workbook {
         xml->Parse(allText.str().c_str());
 
         //cerr << "workbook relationship XML contents" << endl;
-        
+
         //xml->Print();
 
         using namespace tinyxml2;
-        
+
         XMLHandle handle(*xml);
 
         auto el = handle.FirstChildElement().ToElement();
@@ -457,7 +459,7 @@ struct Workbook {
             XMLElement * element = node->ToElement();
             if (!element)
                 throw HttpReturnException(400, "xlsx worksheet Relationship entry is not an element");
-            
+
             auto readAttr = [&] (const std::string & attr) -> Utf8String
                 {
                     const char * foundAttr = element->Attribute(attr.c_str());
@@ -489,18 +491,18 @@ struct Sheet {
         xml->Parse(allText.str().c_str());
 
         //cerr << "workbook sheet contents" << endl;
-        
+
         //xml->Print();
-        
+
         using namespace tinyxml2;
-        
+
         XMLHandle handle(*xml);
 
         XMLElement * data
             = handle.FirstChildElement("worksheet")
             .FirstChildElement("sheetData")
             .ToElement();
-        
+
         if (!data)
             throw HttpReturnException(400, "xlsx worksheet has no sheetData element");
 
@@ -526,7 +528,7 @@ struct Sheet {
             row.index = rowIndex;
 
             int64_t colIndex = 0;
-            
+
             for (XMLNode * colNode = element->FirstChildElement("c");  colNode;
                  colNode = colNode->NextSibling()) {
 
@@ -550,14 +552,14 @@ struct Sheet {
 
                 CellValue value;
                 Utf8String contents;
-                
+
                 XMLNode * v = colNode->FirstChildElement("v");
                 XMLElement * ve = v ? v->ToElement(): nullptr;
 
                 if (ve) {
                     if (ve->GetText())
                         contents = ve->GetText();
-                
+
                     //cerr << "type = " << type << endl;
                     //cerr << "style = " << style << endl;
 
@@ -604,10 +606,10 @@ struct Sheet {
                              << " s = " << style << " c " << contents << endl;
                     }
                 }
-                
+
                 // Get the column out of it
                 std::string columnPart;
-                
+
                 if (cellid.empty()) {
                     ++colIndex;
                 }
@@ -639,7 +641,7 @@ struct Sheet {
                     }
                     else throw HttpReturnException(400, "Unable to parse Cell ID '" + cellid + "'");
                 }
-                
+
                 //cerr << "cell " << cellid << " has value " << jsonEncodeStr(value) << endl;
                 //cerr << "row " << rowIndex << " column " << colIndex << endl;
                 row.columns.emplace_back(colIndex, std::move(value));
@@ -647,7 +649,7 @@ struct Sheet {
 
             rows.emplace_back(std::move(row));
         }
-    }    
+    }
 
     struct Row {
         int64_t index;   ///< Row index, 1-based
@@ -667,7 +669,7 @@ struct XlsxImporter: public Procedure {
     {
         config = config_.params.convert<XlsxImporterConfig>();
     }
-    
+
     XlsxImporterConfig config;
 
     virtual RunOutput run(const ProcedureRunConfig & run,
@@ -717,7 +719,7 @@ struct XlsxImporter: public Procedure {
                         std::istringstream stream(std::move(savedRelationships));
                         workbook.loadRelationships(stream.rdbuf());
                     }
-                    
+
                 }
                 else if (internalFilename == "xl/_rels/workbook.xml.rels") {
                     if (sheetsLoaded)
@@ -731,27 +733,27 @@ struct XlsxImporter: public Procedure {
                 else if (internalFilename == "xl/styles.xml") {
                     styles.load(open({}).buf);
                 }
-                
+
                 return true;
             };
 
         forEachUriObject("archive+" + runProcConf.dataFileUrl.toString(),
                          onFile);
-        
+
         // Create the output dataset
 
         std::shared_ptr<Dataset> output;
- 
+
         if (!runProcConf.output.type.empty()
             || !runProcConf.output.id.empty()) {
             output = obtainDataset(server, runProcConf.output);
         }
-       
+
         // 4.  Load the worksheets, one by one
         for (auto & sheetEntry: workbook.sheets) {
             Utf8String filename = "archive+" + runProcConf.dataFileUrl.toString() + "#xl/" + sheetEntry.filename;
             filter_istream sheetStream(filename.rawString());
-            
+
             Sheet sheet(sheetStream.rdbuf(), workbook, strings, styles);
 
             //cerr << "sheet had " << sheet.rows.size() << " rows" << endl;
@@ -771,19 +773,19 @@ struct XlsxImporter: public Procedure {
                             colIndex /= 26;
                         }
                     }
-                    
+
                     return ColumnName(result);
                 };
-            
+
             if (output && !sheet.rows.empty()) {
                 int maxRowIndex = sheet.rows.back().index;
                 int indexLength = ML::format("%d", maxRowIndex).length();
-                
+
                 for (auto & row: sheet.rows) {
                     MatrixNamedRow outputRow;
                     outputRow.rowHash = outputRow.rowName
                         = RowName(sheetEntry.name + ML::format(":%0*d", indexLength, row.index));
-                    
+
                     for (auto & col: row.columns) {
                         outputRow.columns.emplace_back(getColName(std::get<0>(col)),
                                                        std::get<1>(col),
@@ -802,13 +804,12 @@ struct XlsxImporter: public Procedure {
     {
         return Any();
     }
-    
+
     XlsxImporterConfig procConfig;
 };
 
 static RegisterProcedureType<XlsxImporter, XlsxImporterConfig>
 regXlsx(builtinPackage(),
-        "experimental.import.xlsx",
         "Import an Excel workbook into MLDB",
         "procedures/XlsxImporter.md.html",
         nullptr /* static route */,

@@ -1007,6 +1007,8 @@ Json::Value extractException(const std::exception & exc, int defaultCode)
 {
     const HttpReturnException * http
         = dynamic_cast<const HttpReturnException *>(&exc);
+    const std::bad_alloc * balloc
+        = dynamic_cast<const std::bad_alloc *>(&exc);
 
     Json::Value val;
     val["error"] = exc.what();
@@ -1015,7 +1017,13 @@ Json::Value extractException(const std::exception & exc, int defaultCode)
         val["httpCode"] = http->httpCode;
         if (!http->details.empty())
             val["details"] = jsonEncode(http->details);
-    } else {
+    } else if (balloc) {
+        val["error"] = "Out of memory.  A memory allocation failed when performing "
+            "the operation.  Consider retrying with a smaller amount of data "
+            "or running on a machine with more memory.  "
+            "(std::bad_alloc)";
+    }
+    else {
         val["httpCode"] = defaultCode;
     }
     
