@@ -35,7 +35,7 @@ function mldb_defer() {
             )
         );
 
-        $.getJSON("{{HTTP_BASE_URL}}/resources/version.json?t="+Date.now(), function(version){
+        $.getJSON("{{HTTP_BASE_URL}}/version.json?t="+Date.now(), function(version){
             $("#ipython_notebook").append(
                 $("<span>", {style: "font-size: 12px;"}).text("version "+version.version)
             );
