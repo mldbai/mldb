@@ -13,7 +13,6 @@ $(eval $(call mldb_install_templated_file,mldb/container_files/init/mldb_runner.
 $(eval $(call mldb_install_templated_file,mldb/container_files/init/nginx_runner.sh,$(ETC)/service/nginx/run,555))
 $(eval $(call mldb_install_templated_file,mldb/container_files/mldb_nginx_site.conf,$(ETC)/nginx/sites-enabled/mldb))
 $(eval $(call mldb_install_templated_file,mldb/container_files/nginx.conf,$(ETC)/nginx/nginx.conf))
-$(eval $(call mldb_install_templated_file,mldb/container_files/init/credentialsd_runner.sh,$(ETC)/service/credentialsd/run,555))
 $(eval $(call mldb_install_templated_file,mldb/container_files/init/ipython_notebook_runner.sh,$(ETC)/service/ipython_notebook/run,555))
 $(eval $(call mldb_install_templated_file,mldb/container_files/ipython_extra_config.py,$(ALTROOT)/$(IPYTHON_DIR)/config/jupyter_notebook_config.py))
 $(eval $(call mldb_install_templated_file,mldb/container_files/ipython_custom.js,$(ALTROOT)/$(IPYTHON_DIR)/config/custom/custom.js))
