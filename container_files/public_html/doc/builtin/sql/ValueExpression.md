@@ -65,7 +65,7 @@ always are left associative, that is the expression
      `+` , `-`      |  unary arithmetic  |          3 
      `+` , `-`      |  binary arithmetic |          3 
      `&` , <code>&#124;</code> , `^`      |  binary bitwise    |          3 
-     `=` , `!=`, `>` , `<` , `>=` , `<=` , `<>` , `!>` , `!<`       |  binary comparison |          4 
+     `=` , `!=`, `>` , `<` , `>=` , `<=`       |  binary comparison |          4 
      `NOT`    |  unary boolean     |          5 
      `AND` , `OR`     |  binary boolean    |          7 
 
@@ -201,6 +201,7 @@ intended. See also [the MLDB Type System](TypeSystem.md).
 - `expr IS [NOT] NUMBER` tests if the given expression is a number
 - `expr IS [NOT] INTEGER` tests if the given expression is an integer
 - `expr IS [NOT] TIMESTAMP` tests if the given expression is a timestamp
+- `expr IS [NOT] INTERVAL` tests if the given expression is a time interval
 
 ### [NOT] IN expression
 
@@ -241,6 +242,15 @@ For example: `expr IN (VALUES OF [3, 5, 7, 11])`
 is equivalent to expr IN (3, 5, 7, 11), but allows a full row expression
 to be used to construct the set, rather than enumerating tuple elements.
 
+### [NOT] LIKE expression
+
+This expression tests if a string on the left-hand side matches an SQL wildcard pattern on the right hand side.
+
+The `%` character will substitute for 0 or more characters. For example: `x LIKE 'abc%'` will test if x is a string that starts with `abc`.
+
+The `_` character will substitute for a single character. For example: `x LIKE 'a_a'` will test if x is a string that has 3 characters that starts and ends with `a`.
+
+For more intricate patterns, you can use the `regex_match` function.
 
 ## <a name="CallingFunctions"></a>Calling Functions</h2>
 
@@ -317,6 +327,10 @@ Note that this syntax is not part of SQL, it is an MLDB extension.
   base-64 data provided in its argument.
 - `extract_column(row)` extracts the given column from the row, keeping
   only its latest value by timestamp.
+- `print_json(expr)` returns string with the value of expr converted to JSON.  If
+  there is ambiguity in the expression (for example, the same key with multiple
+  values), then one of the values of the key will be chosen to represent the value
+  of the key.
 - <a name="parse_json"></a>`parse_json(string, {arrays: string})` returns a row with the JSON decoding of the
   string in the argument. If the `arrays` option is set to `'parse'` (this is the default) then nested arrays and objects will be parsed recursively; no flattening is performed. If the `arrays` option is set to `'encode'`, then arrays containing only scalar values will be one-hot encoded and arrays containing only objects will contain the string representation of the objects. 
 
@@ -355,6 +369,10 @@ With `{arrays: 'encode'}` the output will be:
 - `mod(x, y)`: returns x modulo y.  The value of x and y must be an integer.
 - `abs(x)`: returns the absolute value of x.
 - `sqrt(x)`: returns the square root of x.  The value of x must be greater or equal to 0.
+- `isnan(x)`: return true if x is 'NaN' in the floating point representation.
+- `isinf(x)`: return true if x is infinity in the floating point representation.
+- `isfinite(x)`: return true if x is neither infinite nor not-a-number.
+
 - `quantize(x, y)`: returns x rounded to the precision of y.  Here are some examples:
 
 expression|result
@@ -373,10 +391,13 @@ expression|result
 `quantize(-217, 100)`   | -200
 
 
-- `replace_nan(x, y)`: replace all NaNs in x by y.
-- `replace_inf(x, y)`: replace all Inf in x by y.
+- `replace_nan(x, y)`: replace all `NaN`s and `-NaN`s in `x` by `y`.  Works on scalars or rows.
+- `replace_inf(x, y)`: replace all `Inf`s and `-Inf`s in `x` by `y`.  Works on scalars or rows.
+- `replace_not_finite(x, y)`: replace all `Inf`s, `-Inf`s and `NaN`s in `x` by `y`.  Works on scalars or rows.
+- `replace_null(x, y)`: replace all `null`s in `x` by `y`.  Works on scalars or rows.
 - `binomial_lb_80(trials, successes)` returns the 80% lower bound using the Wilson score.
 - `binomial_ub_80(trials, successes)` returns the 80% upper bound using the Wilson score.
+- `clamp(x,lower,upper)` will clamp the value 'x' between the lower and upper bounds.
 
 More details on the [Binomial proportion confidence interval Wikipedia page](https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval).
 
@@ -399,6 +420,8 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
 - `earliest_timestamp(x)` returns the earliest timestamp associated with the scalar
   or object `x`.
 - `latest_timestamp(x)` returns the maximum timestamp associated with the scalar
+  or object `x`.
+- `distinct_timestamps(x)` returns an embedding of the distinct timestamps of a scalar
   or object `x`.
 - `x @ d` or `at(x, d)` returns the value of the expression `x`, but with the timestamp
   modified to be at timestamp `d`.
@@ -445,7 +468,7 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
 - `flatten(val)` will take a n-dimensional embedding and flatten it down
   into a one-dimensional embedding containing all of the elements.  The
   elements will be taken from end end dimensions first, ie
-  `flatten([ [ 1, 2], [3, 4] ]) will be `[1, 2, 3, 4]`.
+  `flatten([ [ 1, 2], [3, 4] ])` will be `[1, 2, 3, 4]`.
 
 ### <a name="importfunctions"></a>Data import functions
 
@@ -474,6 +497,7 @@ The following standard SQL aggregation functions are supported. They may only be
 - `max` calculates the maximum of all values in the group.
 - `count` calculates the number of non-null values in the group.
     - `count(*)` is a special function which will count the number of rows in the group with non-null values in any column
+- 'count_distinct' calculates the number of unique, distinct non-null values in the group.
 
 The following useful non-standard aggregation functions is also supported:
 
@@ -482,6 +506,11 @@ The following useful non-standard aggregation functions is also supported:
   column name and value given.  This can be used with a group by clause to
   transform a dense dataset of (actor,action,value) records into a sparse
   dataset with one sparse row per actor, for example to create one-hot feature vectors or term-document or cooccurrence matrices.
+- `string_agg(expr, separator)` will coerce the value of `expr` and that of
+  `separator` to a string, and produce a single string with the concatenation
+  of `expr` separated by `separators` at internal boundaries.  For example,
+  if `expr` is `"one"`, `"two"` and `"three"` in the group, and separator is
+  `', '` the output will be `"one, two, three"`.
 
 ### Aggregates of rows
 
@@ -514,6 +543,7 @@ The standard SQL aggregation functions operate 'vertically' down columns. MLDB d
 - Horizontal aggregation functions
   - `horizontal_count(<row>)` returns the number of non-null values in the row.
   - `horizontal_sum(<row>)` returns the sum of the non-null values in the row.
+  - `horizontal_string_agg(<row>, <separator>)` returns the string aggregator of the value of row, coerced to strings, separated by separator.
   - `horizontal_avg(<row>)` returns the average of the non-null values in the row.
   - `horizontal_min(<row>)` returns the minimum of the non-null values in the row.
   - `horizontal_max(<row>)` returns the maximum of the non-null value in the row.
@@ -567,7 +597,7 @@ function fib(x) {
     return fib(x - 1) + fib(x - 2);
 }
 return fib(i);
-', 'i', i
+', 'i', i)
 ```
 
 or to parse a comma separated list of 'key=value' attributes into a row, one could write

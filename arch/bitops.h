@@ -1,16 +1,13 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* bitops.h                                                        -*- C++ -*-
    Jeremy Barnes, 23 March 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
-
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
 
    Bitwise operations.
 */
 
-#ifndef __arch__bitops_h__
-#define __arch__bitops_h__
+#pragma once
 
 #include "mldb/compiler/compiler.h"
 #include <stdint.h>
@@ -497,5 +494,3 @@ Val rotate_left(Val val, uint32_t bits)
 }
 
 } // namespace ML
-
-#endif /* __arch__bitops_h__ */

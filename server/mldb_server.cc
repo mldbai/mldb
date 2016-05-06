@@ -24,12 +24,14 @@
 #include "mldb/server/plugin_collection.h"
 #include "mldb/server/procedure_collection.h"
 #include "mldb/server/function_collection.h"
+#include "mldb/server/credential_collection.h"
 #include "mldb/server/dataset_context.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/server/analytics.h"
 #include "mldb/types/meta_value_description.h"
 #include "mldb/arch/simd.h"
+#include "mldb/utils/log.h"
 
 
 using namespace std;
@@ -45,19 +47,19 @@ namespace MLDB {
 
 // Creation functions exposed elsewhere
 std::shared_ptr<PluginCollection>
-createPluginCollection(MldbServer * server, RestRouteManager & routeManager,
-                       std::shared_ptr<CollectionConfigStore> configStore);
+createPluginCollection(MldbServer * server, RestRouteManager & routeManager);
 
 std::shared_ptr<DatasetCollection>
-createDatasetCollection(MldbServer * server, RestRouteManager & routeManager,
-                        std::shared_ptr<CollectionConfigStore> configStore);
+createDatasetCollection(MldbServer * server, RestRouteManager & routeManager);
 
 std::shared_ptr<ProcedureCollection>
-createProcedureCollection(MldbServer * server, RestRouteManager & routeManager,
-                         std::shared_ptr<CollectionConfigStore> configStore);
+createProcedureCollection(MldbServer * server, RestRouteManager & routeManager);
 
 std::shared_ptr<FunctionCollection>
-createFunctionCollection(MldbServer * server, RestRouteManager & routeManager,
+createFunctionCollection(MldbServer * server, RestRouteManager & routeManager);
+
+std::shared_ptr<CredentialRuleCollection>
+createCredentialCollection(MldbServer * server, RestRouteManager & routeManager,
                       std::shared_ptr<CollectionConfigStore> configStore);
 
 std::shared_ptr<TypeClassCollection>
@@ -76,7 +78,8 @@ MldbServer(const std::string & serviceName,
            const std::string & httpBaseUrl)
     : ServicePeer(serviceName, "MLDB", "global", enableAccessLog),
       EventRecorder(serviceName, std::make_shared<NullEventService>()),
-      httpBaseUrl(httpBaseUrl), versionNode(nullptr)
+      httpBaseUrl(httpBaseUrl), versionNode(nullptr),
+      logger(getMldbLog<MldbServer>())
 {
     // Don't allow URIs without a scheme
     setGlobalAcceptUrisWithoutScheme(false);
@@ -95,27 +98,9 @@ MldbServer::
     shutdown();
 }
 
-#if 0
-void
-MldbServer::
-init(PortRange bindPort, const std::string & bindHost,
-     int publishPort, std::string publishHost,
-     std::string configurationPath,
-     std::string staticFilesPath,
-     std::string staticDocPath)
-{
-    auto server = std::make_shared<AsioPeerServer>();
-    server->init(bindPort, bindHost, publishPort, publishHost);
-
-    initServer(server);
-    initRoutes();
-    initCollections(configurationPath, staticFilesPath, staticDocPath);
-}
-#endif
-
 bool
 MldbServer::
-init(std::string configurationPath,
+init(std::string credentialsPath,
      std::string staticFilesPath,
      std::string staticDocPath,
      bool hideInternalEntities)
@@ -125,7 +110,7 @@ init(std::string configurationPath,
     preInit();
     initServer(server);
     if (initRoutes()) { // if initRoutes fails no need to add collections to routes
-        initCollections(configurationPath, staticFilesPath, staticDocPath, hideInternalEntities);
+        initCollections(credentialsPath, staticFilesPath, staticDocPath, hideInternalEntities);
         return true;
     }
     return false;
@@ -155,13 +140,13 @@ initRoutes()
         connection.sendResponse(200, result);
         return RestRequestRouter::MR_YES;
     };
-        
+
     router.addHelpRoute("/v1/help", "GET");
-    
+
     router.addRoute("/info", "GET", "Return service information (version, etc)",
                     serviceInfoRoute,
                     Json::Value());
-        
+
     // Push our this pointer in to make sure that it's available to sub
     // routes
     auto addObject = [=] (RestConnection & connection,
@@ -173,12 +158,12 @@ initRoutes()
 
     auto & versionNode = router.addSubRouter("/v1", "version 1 of API",
                                              addObject);
- 
+
     RestRequestRouter::OnProcessRequest handleShutdown
         = [=] (RestConnection & connection,
                const RestRequest & request,
                const RestRequestParsingContext & context) {
-        
+
         kill(getpid(), SIGUSR2);
 
         Json::Value result;
@@ -193,7 +178,7 @@ initRoutes()
                            &MldbServer::getTypeInfo,
                            this,
                            RestParam<std::string>("type", "The type to look up"));
-    
+
     versionNode.addRoute("/shutdown", "POST", "Shutdown the service",
                          handleShutdown,
                          Json::Value());
@@ -218,13 +203,16 @@ initRoutes()
                                              true),
                       RestParamDefault<bool>("rowHashes",
                                              "Do we include row hashes in output",
+                                             false),
+                      RestParamDefault<bool>("sortColumns",
+                                             "Do we sort the column names",
                                              false));
-    
- 
+
+
         this->versionNode = &versionNode;
         return true;
     } else {
-        static constexpr auto errorMessage = 
+        static constexpr auto errorMessage =
             "*** ERROR ***\n"
             "* MLDB requires a cpu with minimally SSE 4.2 instruction set. *\n"
             "* This system does not support SSE 4.2, therefore most of the *\n"
@@ -236,9 +224,9 @@ initRoutes()
                                            const RestRequest & request) {
             connection.sendErrorResponse(500, errorMessage);
         };
-         
+
         router.notFoundHandler = versionNode.notFoundHandler;
-        std::cerr << errorMessage << std::endl;
+        logger->error() << errorMessage;
         this->versionNode = &versionNode;
         return false;
     }
@@ -251,18 +239,19 @@ runHttpQuery(const Utf8String& query,
              const std::string & format,
              bool createHeaders,
              bool rowNames,
-             bool rowHashes) const
+             bool rowHashes,
+             bool sortColumns) const
 {
     auto stm = SelectStatement::parse(query.rawString());
-    SqlExpressionMldbContext mldbContext(this);
+    SqlExpressionMldbScope mldbContext(this);
 
     auto runQuery = [&] ()
         {
             return queryFromStatement(stm, mldbContext);
         };
-    
+
     MLDB::runHttpQuery(runQuery, connection, format, createHeaders,
-                       rowNames, rowHashes);
+                       rowNames, rowHashes, sortColumns);
 }
 
 std::vector<MatrixNamedRow>
@@ -270,7 +259,7 @@ MldbServer::
 query(const Utf8String& query) const
 {
     auto stm = SelectStatement::parse(query.rawString());
-    SqlExpressionMldbContext mldbContext(this);
+    SqlExpressionMldbScope mldbContext(this);
     BoundTableExpression table = stm.from->bind(mldbContext);
 
     return queryFromStatement(stm, mldbContext);
@@ -294,15 +283,16 @@ getTypeInfo(const std::string & typeName)
 
 void
 MldbServer::
-initCollections(std::string configurationPath,
+initCollections(std::string credentialsPath,
                 std::string staticFilesPath,
                 std::string staticDocPath,
                 bool hideInternalEntities)
 {
-    // MLDB-696... workaround to stop everything from breaking
-    if (!configurationPath.empty()
-        && configurationPath.find("://") == string::npos)
-        configurationPath = "file://" + configurationPath;
+    // MLDB-696 - ensure paths passed on the command line
+    // are interpreted as file by default
+    if (!credentialsPath.empty()
+        && credentialsPath.find("://") == string::npos)
+        credentialsPath = "file://" + credentialsPath;
     if (!staticFilesPath.empty()
         && staticFilesPath.find("://") == string::npos)
         staticFilesPath = "file://" + staticFilesPath;
@@ -310,27 +300,23 @@ initCollections(std::string configurationPath,
         && staticDocPath.find("://") == string::npos)
         staticDocPath = "file://" + staticDocPath;
 
-
-    //configStore.reset(new S3CollectionConfigStore("s3://tests.datacratic.com/rtBehaviourService/test1/servers/" + getServerName()));
-
-    string persistentConfigBase = configurationPath + "/";
-
-    auto makeConfigStore = [&] (const std::string & path)
+    auto makeCredentialStore = [&credentialsPath] ()
         -> std::shared_ptr<CollectionConfigStore>
         {
-            if (configurationPath.empty())
+            if (credentialsPath.empty())
                 return nullptr;
             return std::make_shared<S3CollectionConfigStore>
-            (configurationPath + "/mldb/" + path);
+            (credentialsPath);
         };
 
     ExcAssert(versionNode);
     routeManager.reset(new RestRouteManager(*versionNode, 1 /* elements in path: [ "/v1" ] */));
 
-    plugins = createPluginCollection(this, *routeManager, makeConfigStore("plugins"));
-    datasets = createDatasetCollection(this, *routeManager, makeConfigStore("datasets"));
-    procedures = createProcedureCollection(this, *routeManager, makeConfigStore("procedures"));
-    functions = createFunctionCollection(this, *routeManager, makeConfigStore("functions"));
+    plugins = createPluginCollection(this, *routeManager);
+    datasets = createDatasetCollection(this, *routeManager);
+    procedures = createProcedureCollection(this, *routeManager);
+    functions = createFunctionCollection(this, *routeManager);
+    credentials = createCredentialCollection(this, *routeManager, makeCredentialStore());
     types = createTypeClassCollection(this, *routeManager);
 
     plugins->loadConfig();
@@ -359,15 +345,11 @@ initCollections(std::string configurationPath,
     }
 
     // Serve up static documentation for the plugins
-    serveDocumentationDirectory(router, "/doc/builtin",
+    serveDocumentationDirectory(router, "/doc",
                                 staticDocPath, this, hideInternalEntities);
 
-    serveDocumentationDirectory(router, "/static/assets",
-                                staticFilesPath, this, hideInternalEntities);
-
     serveDocumentationDirectory(router, "/resources",
-                                "mldb/container_files/public_html/resources",
-                                this, hideInternalEntities);
+                                staticFilesPath, this, hideInternalEntities);
 }
 
 void
@@ -411,11 +393,9 @@ void
 MldbServer::
 scanPlugins(const std::string & dir_)
 {
-    cerr << "scanning plugins in directory " << dir_ << endl;
+    logger->debug() << "scanning plugins in directory " << dir_;
 
     std::string dir = dir_;
-    if (!dir.empty() && dir[dir.length() - 1] != '/')
-        dir += '/';
 
     auto foundPlugin = [&] (const std::string & dir,
                             std::istream & stream)
@@ -433,14 +413,14 @@ scanPlugins(const std::string & dir_)
                 auto plugin = plugins->obtainEntitySync(manifest.config,
                                                         nullptr /* on progress */);
             } catch (const HttpReturnException & exc) {
-                cerr << "error loading plugin " << dir << ": " << exc.what() << endl;
-                cerr << "details:" << endl;
-                cerr << jsonEncode(exc.details) << endl;
-                cerr << "plugin will be ignored" << endl;
+                logger->error() << "error loading plugin " << dir << ": " << exc.what();
+                logger->error() << "details:";
+                logger->error() << jsonEncode(exc.details);
+                logger->error() << "plugin will be ignored";
                 return;
             } catch (const std::exception & exc) {
-                cerr << "error loading plugin " << dir << ": " << exc.what() << endl;
-                cerr << "plugin will be ignored" << endl;
+                logger->error() << "error loading plugin " << dir << ": " << exc.what();
+                logger->error() << "plugin will be ignored";
                 return;
             }
         };
@@ -471,20 +451,20 @@ scanPlugins(const std::string & dir_)
                 }
                 return true;
             };
-        
+
         try {
             forEachUriObject(dir, onFile, onSubdir);
         } catch (const HttpReturnException & exc) {
-            cerr << "error scanning plugin directory "
-                 << dir << ": " << exc.what() << endl;
-            cerr << "details:" << endl;
-            cerr << jsonEncode(exc.details) << endl;
-            cerr << "plugins will be ignored" << endl;
+            logger->error() << "error scanning plugin directory "
+                            << dir << ": " << exc.what();
+            logger->error() << "details:";
+            logger->error() << jsonEncode(exc.details);
+            logger->error() << "plugins will be ignored";
             return;
         } catch (const std::exception & exc) {
-            cerr << "error scanning plugin directory  "
-                 << dir << ": " << exc.what() << endl;
-            cerr << "plugins will be ignored" << endl;
+            logger->error() << "error scanning plugin directory  "
+                            << dir << ": " << exc.what();
+            logger->error() << "plugins will be ignored";
             return;
         }
     }
@@ -572,7 +552,7 @@ makeInternalDocRedirect(const Package & package, const Utf8String & relativePath
         {
             Utf8String basePath = static_cast<MldbServer *>(server)
                 ->getPackageDocumentationPath(package);
-            connection.sendRedirect(301, (basePath + relativePath).rawString()); 
+            connection.sendRedirect(301, (basePath + relativePath).rawString());
             return RestRequestRouter::MR_YES;
         };
 }

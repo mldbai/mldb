@@ -1,14 +1,12 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* split.h                                                         -*- C++ -*-
    Jeremy Barnes, 5 March 2009
    Copyright (c) 2009 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Split class to divide a feature set up based upon the value of one feature.
 */
 
-#ifndef __boosting__split_h__
-#define __boosting__split_h__
+#pragma once
 
 #include "split_fwd.h"
 #include "mldb/jml/utils/less.h"
@@ -226,6 +224,3 @@ std::ostream & operator << (std::ostream & stream, Split::Op op);
 
 
 } // namespace ML
-
-
-#endif /* __boosting__split_h__ */

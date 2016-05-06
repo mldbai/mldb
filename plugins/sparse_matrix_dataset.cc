@@ -15,18 +15,18 @@
 #include "mldb/sql/sql_expression.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/types/any_impl.h"
-#include "mldb/arch/rcu_protected.h"
 #include "mldb/arch/timers.h"
 #include "mldb/base/parallel.h"
 #include "mldb/base/thread_pool.h"
-
+#include "mldb/utils/atomic_shared_ptr.h"
+#include "mldb/server/parallel_merge_sort.h"
+#include <mutex>
 
 using namespace std;
 
 
 namespace Datacratic {
 namespace MLDB {
-
 
 DEFINE_STRUCTURE_DESCRIPTION(BaseEntry);
 
@@ -76,7 +76,7 @@ struct SparseMatrixDataset::Itl
     : public MatrixView, public ColumnIndex {
 
     Itl()
-        : epoch(0), defaultTransaction(gc), timeQuantumSeconds(1.0)
+        : epoch(0), timeQuantumSeconds(1.0)
     {
     }
 
@@ -90,12 +90,13 @@ struct SparseMatrixDataset::Itl
         this->inverse  = std::move(inverse);
         this->values = std::move(values);
 
-        auto defaultTransaction = std::make_shared<ReadTransaction>();
-        defaultTransaction->matrix = this->matrix->startReadTransaction();
-        defaultTransaction->inverse = this->inverse->startReadTransaction();
-        defaultTransaction->values = this->values->startReadTransaction();
+        auto newDefaultTransaction = std::make_shared<ReadTransaction>();
+        newDefaultTransaction->matrix = this->matrix->startReadTransaction();
+        newDefaultTransaction->inverse = this->inverse->startReadTransaction();
+        newDefaultTransaction->values = this->values->startReadTransaction();
+        newDefaultTransaction->epoch = this->epoch;
 
-        setDefaultTransaction(defaultTransaction);
+        setDefaultTransaction(newDefaultTransaction);
     }
     
     ~Itl()
@@ -167,10 +168,8 @@ struct SparseMatrixDataset::Itl
             return std::shared_ptr<SparseRowStream>();
     }
 
-    GcLock gc;
-
     /// Default transaction when none was passed
-    RcuProtected<std::shared_ptr<ReadTransaction> > defaultTransaction;
+    atomic_shared_ptr<ReadTransaction> defaultTransaction;
 
     /// Control the quantization of timestamp (default is quantize to second)
     double timeQuantumSeconds;
@@ -179,15 +178,25 @@ struct SparseMatrixDataset::Itl
     std::shared_ptr<ReadTransaction>
     getReadTransaction() const
     {
-        return *defaultTransaction();
+        std::shared_ptr<ReadTransaction> result = defaultTransaction.load();
+
+        // Assertion failures here mean problems with the MVCC mechanism
+        ExcAssert(result->matrix);
+        ExcAssert(result->inverse);
+        ExcAssert(result->values);
+
+        return result;
     }
 
     /// Update the current default read transaction after a commit
     void setDefaultTransaction(std::shared_ptr<ReadTransaction> trans)
     {
-        this->defaultTransaction
-            .replace(new std::shared_ptr<ReadTransaction>
-                     (std::move(trans)));
+        ExcAssert(trans);
+        ExcAssert(trans->matrix);
+        ExcAssert(trans->inverse);
+        ExcAssert(trans->values);
+        
+        defaultTransaction.store(std::move(trans));
     }
 
     /// Obtain a new write transaction based upon a current read transaction
@@ -205,31 +214,47 @@ struct SparseMatrixDataset::Itl
 
         ThreadPool tp;
 
-        auto doCommit = [&] (MatrixWriteTransaction & trans)
+        // Everything that takes a long time: add it to the thread
+        // pool to do in parallel
+        auto doCommitInThread = [&] (MatrixWriteTransaction & trans)
             {
                 if (trans.commitNeedsThread())
                     tp.add(std::bind(&MatrixWriteTransaction::commit,
                                      &trans));
             };
+
+        doCommitInThread(*trans.matrix);
+        doCommitInThread(*trans.inverse);
+        doCommitInThread(*trans.values);
+
+        // Everything that doesn't take a long time: do it now,
+        // in this thread
+        auto doCommitNow = [&] (MatrixWriteTransaction & trans)
+            {
+                if (!trans.commitNeedsThread())
+                    trans.commit();
+            };
         
-        doCommit(*trans.matrix);
-        doCommit(*trans.inverse);
-        doCommit(*trans.values);
+        doCommitNow(*trans.matrix);
+        doCommitNow(*trans.inverse);
+        doCommitNow(*trans.values);
         
+        // Wait for the thread pool work to finish
         tp.waitForAll();
 
         auto result = std::make_shared<ReadTransaction>();
         result->matrix = matrix->startReadTransaction();
         result->inverse = inverse->startReadTransaction();
         result->values = values->startReadTransaction();
+        result->epoch = epoch;
 
-        setDefaultTransaction(result);
+        setDefaultTransaction(std::move(result));
     }
 
     void optimize()
     {
         //cerr << "optimize() on MutableSparseMatrixDataset" << endl;
-        ML::Timer timer;
+        //ML::Timer timer;
 
         std::unique_lock<RootLock> guard(rootLock);
         // We don't increment the epoch since logically it's exactly the same
@@ -249,8 +274,9 @@ struct SparseMatrixDataset::Itl
         result->matrix = matrix->startReadTransaction();
         result->inverse = inverse->startReadTransaction();
         result->values = values->startReadTransaction();
+        result->epoch = epoch;
 
-        setDefaultTransaction(result);
+        setDefaultTransaction(std::move(result));
     }
 
     Date decodeTs(int64_t ts) const
@@ -453,8 +479,9 @@ struct SparseMatrixDataset::Itl
 
     uint64_t encodeCol(const ColumnName & col, WriteTransaction & trans)
     {
-        if (col == ColumnName())
-            throw HttpReturnException(400, "Datasets don't accept empty column names");
+        if (col.empty())
+            throw HttpReturnException(400,
+                                      "Datasets don't accept empty column names");
 
         ColumnHash ch(col);
         if (!trans.values->knownRow(ch.hash())) {
@@ -462,7 +489,7 @@ struct SparseMatrixDataset::Itl
             entry.rowcol = 0;
             entry.timestamp = 0;
             entry.val = 0;
-            entry.metadata.push_back(col.toString());
+            entry.metadata.push_back(col.toUtf8String().rawData());
             trans.values->recordRow(ch.hash(), &entry, 1);
         }
         return ch.hash();
@@ -476,15 +503,12 @@ struct SparseMatrixDataset::Itl
         trans->matrix
             ->iterateRows([&] (uint64_t row)
                           {
-                              result.emplace_back(getRowNameTrans(RowHash(row), *trans));
+                              result.emplace_back(getRowNameTrans(RowHash(row),
+                                                                  *trans));
                               return true;
                           });
 
-         std::sort(result.begin(), result.end(),
-              [&] (const RowName & r1, const RowName & r2)
-              {
-                  return r1.hash() < r2.hash();
-              });
+        //Make sure that the result of the above is in a deterministic order
 
         if (start < 0)
             throw HttpReturnException(400, "Invalid start for row names",
@@ -518,7 +542,7 @@ struct SparseMatrixDataset::Itl
                               return true;
                           });
 
-        std::sort(result.begin(), result.end());
+        //Make sure that the result of the above is in a deterministic order
 
         if (start < 0)
             throw HttpReturnException(400, "Invalid start for row names",
@@ -574,7 +598,7 @@ struct SparseMatrixDataset::Itl
 
         auto onRow = [&] (const BaseEntry & entry)
             {
-                result = RowName(entry.metadata.at(0));
+                result = RowName::parse(entry.metadata.at(0));
                 return false;
             };
             
@@ -602,7 +626,7 @@ struct SparseMatrixDataset::Itl
 
         auto onRow = [&] (const BaseEntry & entry)
             {
-                result = ColumnName(entry.metadata.at(0));
+                result = ColumnName::parse(entry.metadata.at(0));
                 return false;  // return false to short circuit
             };
             
@@ -686,7 +710,7 @@ struct SparseMatrixDataset::Itl
             entry.rowcol = 0;
             entry.timestamp = 0;
             entry.val = 0;
-            entry.metadata.push_back(rowName.toString());
+            entry.metadata.push_back(rowName.toUtf8String().rawData());
             trans.values->recordRow(hash, &entry, 1);
         }
         
@@ -716,8 +740,9 @@ struct SparseMatrixDataset::Itl
     recordRow(const RowName & rowName,
               const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
     {
+        auto rtrans = getReadTransaction();
         std::shared_ptr<WriteTransaction> trans
-            = getWriteTransaction(**defaultTransaction());
+            = getWriteTransaction(*rtrans);
         recordRowTrans(rowName, vals, *trans);
         commitWrites(*trans);
     }
@@ -725,8 +750,9 @@ struct SparseMatrixDataset::Itl
     virtual void
     recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows)
     {
+        auto rtrans = getReadTransaction();
         std::shared_ptr<WriteTransaction> trans
-            = getWriteTransaction(**defaultTransaction());
+            = getWriteTransaction(*rtrans);
         
         for (auto & r: rows) {
             recordRowTrans(r.first, r.second, *trans);
@@ -873,8 +899,8 @@ enum CommitMode {
 
 struct MutableBaseData {
 
-    MutableBaseData(GcLock & gc, CommitMode commitMode)
-        : repr(gc, new Repr()), commitMode(commitMode)
+    MutableBaseData(CommitMode commitMode)
+        : repr(std::make_shared<Repr>()), commitMode(commitMode)
     {
     }
 
@@ -895,6 +921,13 @@ struct MutableBaseData {
         Rows(const Rows & other)
             : entries(other.entries),
               cachedRowCount(other.cachedRowCount.load())
+        {
+        }
+
+        Rows(std::vector<std::shared_ptr<const RowsEntry> > entries,
+             int64_t cachedRowCount)
+            : entries(std::move(entries)),
+              cachedRowCount(cachedRowCount)
         {
         }
 
@@ -942,8 +975,16 @@ struct MutableBaseData {
                 }
             }
 
-            std::sort(allRows.begin(), allRows.end());
-            auto end = std::unique(allRows.begin(), allRows.end());
+            std::vector<uint64_t>::iterator end;
+            if (entries.size() > 1) {
+                //if we haven't commited the entries yet there can be duplicates
+                parallelQuickSortRecursive(allRows);
+                end = std::unique(allRows.begin(), allRows.end());
+            }
+            else{
+                end = allRows.end();
+            }
+ 
             for (auto it = allRows.begin(); it != end;  ++it) {
                 if (!onRow(*it))
                     return false;
@@ -981,10 +1022,17 @@ struct MutableBaseData {
                 }
             }
 
-            std::sort(allRows.begin(), allRows.end());
+            int64_t rowCount = 0;
 
-            int64_t rowCount = std::unique(allRows.begin(), allRows.end())
-                - allRows.begin();
+            if (entries.size() > 1) {
+                //if we haven't commited the entries yet there can be duplicates
+                parallelQuickSortRecursive(allRows);
+                rowCount = std::unique(allRows.begin(), allRows.end()) - allRows.begin();
+            }
+            else{
+                rowCount = allRows.size();
+            }
+
             cachedRowCount = rowCount;
             return rowCount;
         }
@@ -1021,7 +1069,7 @@ struct MutableBaseData {
             nonReadableWrites.clear();
 
             result.entries.emplace_back(new RowsEntry(std::move(newEntries)));
-            return std::move(result);
+            return result;
         }
 
         struct Stream {       
@@ -1078,10 +1126,25 @@ struct MutableBaseData {
     };
 
     struct Repr {
+        Repr()
+        {
+        }
+    
+        Repr(Rows newRows)
+            : rows(std::move(newRows))
+        {
+        }
+        
+        Repr(std::vector<std::shared_ptr<const RowsEntry> > entries,
+             int64_t cachedRowCount)
+            : rows(std::move(entries), cachedRowCount)
+        {
+        }
+
         Rows rows;
     };
 
-    RcuProtected<std::shared_ptr<Repr> > repr;
+    atomic_shared_ptr<Repr> repr;
     CommitMode commitMode;
     std::vector<std::shared_ptr<RowsEntry> > nonReadableWrites;
 
@@ -1089,15 +1152,9 @@ struct MutableBaseData {
     void optimize()
     {
         std::unique_lock<std::mutex> guard(mutex);
-
-        auto newRows = (*repr.unsafePtr())->rows.optimize(nonReadableWrites);
-
-        std::unique_ptr<std::shared_ptr<Repr> > newRepr
-            (new std::shared_ptr<Repr>);
-        newRepr->reset(new Repr());
-        (**newRepr).rows = std::move(newRows);
-
-        repr.replace(newRepr.release());
+        auto newRows = repr.load()->rows.optimize(nonReadableWrites);
+        auto newRepr = std::make_shared<Repr>(std::move(newRows));
+        repr.store(std::move(newRepr));
     }
 
     /** Insert the given set of rows very quickly, but in a way that they
@@ -1117,23 +1174,18 @@ struct MutableBaseData {
     {
         std::unique_lock<std::mutex> guard(this->mutex);
 
-        auto r = this->repr();
-        const Rows & oldRows = (*r)->rows;
+        auto r = repr.load();
+        const Rows & oldRows = r->rows;
         
         std::vector<std::shared_ptr<const RowsEntry> >
             newRows = oldRows.entries;
         newRows.emplace_back(std::move(written));
 
-        std::unique_ptr<std::shared_ptr<Repr> > newRepr
-            (new std::shared_ptr<Repr>);
-        newRepr->reset(new Repr());
-
-        (**newRepr).rows.entries = std::move(newRows);
-        (**newRepr).rows.cachedRowCount = oldRows.cachedRowCount.load();
-
-        this->repr.replace(newRepr.release());
+        auto newRepr = std::make_shared<Repr>(std::move(newRows),
+                                              oldRows.cachedRowCount.load());
+        repr.store(std::move(newRepr));
     }
-
+    
     /** Insert the given set of rows in a manner that may have significant
         latency but will be fast to read back afterwards.
     */
@@ -1145,8 +1197,8 @@ struct MutableBaseData {
         ML::Timer timer;
 
         // Get a reference to the data
-        auto r = this->repr();
-        const Rows & oldRows = (*r)->rows;
+        auto r = this->repr.load();
+        const Rows & oldRows = r->rows;
         
         std::shared_ptr<RowsEntry> current = written;
 
@@ -1212,14 +1264,9 @@ struct MutableBaseData {
         //         << endl;
         //}
 
-        std::unique_ptr<std::shared_ptr<Repr> > newRepr
-            (new std::shared_ptr<Repr>);
-        newRepr->reset(new Repr());
-
-        (**newRepr).rows.entries = std::move(newRows);
-        (**newRepr).rows.cachedRowCount = oldRows.cachedRowCount.load();
-
-        this->repr.replace(newRepr.release());
+        auto newRepr = std::make_shared<Repr>(std::move(newRows),
+                                              oldRows.cachedRowCount.load());
+        repr.store(std::move(newRepr));
     }
 
     void insert(std::shared_ptr<RowsEntry> written)
@@ -1248,7 +1295,7 @@ struct MutableWriteTransaction: public MatrixWriteTransaction {
 
     MutableWriteTransaction(std::shared_ptr<MutableBaseData> data)
         : data(data),
-          view(*data->repr()),
+          view(data->repr.load()),
           rows(view->rows),
           written(new MutableBaseData::RowsEntry)
     {
@@ -1343,7 +1390,7 @@ struct MutableWriteTransaction: public MatrixWriteTransaction {
 
 struct MutableReadTransaction: public MatrixReadTransaction {
     MutableReadTransaction(std::shared_ptr<MutableBaseData> data)
-        : data(data), repr(*data->repr()), rows(repr->rows)
+        : data(data), repr(data->repr.load()), rows(repr->rows)
     {
     }
 
@@ -1415,8 +1462,8 @@ struct MutableReadTransaction: public MatrixReadTransaction {
 struct MutableBaseMatrix: public BaseMatrix {
     std::shared_ptr<MutableBaseData> data;
     
-    MutableBaseMatrix(GcLock & gc, CommitMode commitMode)
-        : data(new MutableBaseData(gc, commitMode))
+    MutableBaseMatrix(CommitMode commitMode)
+        : data(new MutableBaseData(commitMode))
     {
     }
 
@@ -1516,8 +1563,6 @@ MutableSparseMatrixDatasetConfigDescription()
 struct MutableSparseMatrixDataset::Itl
     : public SparseMatrixDataset::Itl {
 
-    GcLock gc;
-
     Itl(double timeQuantumSeconds,
         WriteTransactionLevel consistencyLevel,
         TransactionFavor favor) 
@@ -1530,10 +1575,10 @@ struct MutableSparseMatrixDataset::Itl
         else mode = WRITE_FAST;
 
         SparseMatrixDataset::Itl::timeQuantumSeconds = timeQuantumSeconds;
-        init(std::make_shared<MutableBaseMatrix>(gc, mode),
-             std::make_shared<MutableBaseMatrix>(gc, mode),
-             std::make_shared<MutableBaseMatrix>(gc, mode),
-             std::make_shared<MutableBaseMatrix>(gc, mode));
+        init(std::make_shared<MutableBaseMatrix>(mode),
+             std::make_shared<MutableBaseMatrix>(mode),
+             std::make_shared<MutableBaseMatrix>(mode),
+             std::make_shared<MutableBaseMatrix>(mode));
     }
 };
 

@@ -67,7 +67,7 @@ include $(JML_BUILD)/arch/$(ARCH).mk
 include $(JML_BUILD)/$(toolchain).mk
 
 VALGRIND ?= valgrind
-VALGRINDFLAGS := --suppressions=valgrind.supp --error-exitcode=1 --leak-check=full --soname-synonyms=somalloc=*tcmalloc*
+VALGRINDFLAGS := --soname-synonyms=somalloc=*tcmalloc* --suppressions=valgrind.supp --error-exitcode=1 --leak-check=full
 
 include $(JML_BUILD)/functions.mk
 include $(JML_BUILD)/rules.mk

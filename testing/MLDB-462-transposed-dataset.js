@@ -112,11 +112,20 @@ svdConfig.params.rowOutputDataset.id = "test2_row_embedding";
 
 createAndTrainProcedure(svdConfig, 'svd2');
 
-assertEqual(mldb.get('/v1/datasets/test_embedding/query').json,
-            mldb.get('/v1/datasets/test2_embedding/query').json);
+//mldb.log(mldb.get('/v1/datasets/test_embedding/query').json);
+//mldb.log(mldb.get('/v1/datasets/test2_embedding/query').json);
 
-assertEqual(mldb.get('/v1/datasets/test_row_embedding/query').json,
-            mldb.get('/v1/datasets/test2_row_embedding/query').json);
+var resp1 = mldb.get("/v1/query", {q:"SELECT * FROM test_embedding order by rowHash()", format:'table'});
+var resp2 = mldb.get("/v1/query", {q:"SELECT * FROM test2_embedding order by rowHash()", format:'table'});
+
+assertEqual(resp1.json,
+            resp2.json);
+
+resp1 = mldb.get("/v1/query", {q:"SELECT * FROM test_row_embedding order by rowHash()", format:'table'});
+resp2 = mldb.get("/v1/query", {q:"SELECT * FROM test2_row_embedding order by rowHash()", format:'table'});
+
+assertEqual(resp1.json,
+            resp2.json);
 
 // MLDB-1175 transposed dataset as a FROM function
 
@@ -145,20 +154,20 @@ plugin.log(resp)
 assertEqual(resp.json, expected);
 
 var expectedjoin = [
-      [ "_rowName", "[ex00]-[x]" ],
-      [ "transposed_table.ex00", 0 ],
-      [ "transposed_table.ex10", 1 ],
-      [ "table.label", 0 ],
-      [ "transposed_table.ex22", 2 ],
-      [ "table.x", 0 ],
-      [ "table.y", 0 ],
-      [ "transposed_table.ex111", 1 ],
-      [ "transposed_table.ex31", 3 ],
-      [ "transposed_table.ex110", 1 ],
-      [ "transposed_table.ex01", 0 ]
-   ]
+   [ "_rowName", "[ex00]-[x]" ],
+   [ "table.label", 0 ],
+   [ "table.x", 0 ],
+   [ "table.y", 0 ],
+   [ "transposed_table.ex00", 0 ],
+   [ "transposed_table.ex01", 0 ],
+   [ "transposed_table.ex10", 1 ],
+   [ "transposed_table.ex110", 1 ],
+   [ "transposed_table.ex111", 1 ],
+   [ "transposed_table.ex22", 2 ],
+   [ "transposed_table.ex31", 3 ]
+];
 
-var resp = mldb.get("/v1/query", {q:'SELECT "[ex00]-[x]" FROM transpose(test as table JOIN transpose(test) as transposed_table) as watcha', format:'table'});
+var resp = mldb.get("/v1/query", {q:'SELECT "[ex00]-[x]" FROM transpose(test as table JOIN transpose(test) as transposed_table) as watcha ORDER BY rowName()', format:'table'});
 plugin.log(resp)
 assertEqual(resp.json, expectedjoin);
 

@@ -1,15 +1,13 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* separation_stats.h                                              -*- C++ -*-
    Jeremy Barnes, 13 June 2011
    Copyright (c) 2011 Datacratic.  All rights reserved.
 
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+
    Stats for classifier separation.
 */
 
-#ifndef __ml__separation_stats_h__
-#define __ml__separation_stats_h__
-
+#pragma once
 
 #include "mldb/jml/utils/less.h"
 #include "mldb/jml/math/xdiv.h"
@@ -27,17 +25,26 @@ namespace Datacratic {
 
 /** Stats based just upon inclusion/exclusion. */
 
+typedef std::array<std::array<double, 2>, 2> Array2D;
+
 struct BinaryStats {
-    
+   
     BinaryStats()
-        : counts{{0.0, 0.0}, {0.0, 0.0}}, threshold(0)
+        : counts{{{{0.0, 0.0}}, {{0.0, 0.0}}}},
+        unweighted_counts{{{{0.0, 0.0}}, {{0.0, 0.0}}}},
+          threshold(0)
     {
     }
 
     BinaryStats(const BinaryStats & other, float threshold,
                 boost::any key = boost::any())
-        : counts{{ other.counts[0][0], other.counts[0][1]},
-                 { other.counts[1][0], other.counts[1][1]}},
+        : counts(other.counts), unweighted_counts(other.unweighted_counts),
+          /*
+        : counts{{{ other.counts[0][0], other.counts[0][1]},
+                  { other.counts[1][0], other.counts[1][1]}}},
+          unweighted_counts{{{ other.unweighted_counts[0][0], other.unweighted_counts[0][1]},
+                             { other.unweighted_counts[1][0], other.unweighted_counts[1][1]}}},
+          */
         threshold(threshold),
         key(std::move(key))
     {
@@ -46,16 +53,17 @@ struct BinaryStats {
     void update(bool label, bool inSegment, double weight = 1.0)
     {
         counts[label][inSegment] += weight;
+        counts[label][inSegment] += 1;
     }
 
-    double includedPopulation() const
+    double includedPopulation(bool weighted=true) const
     {
-        return truePositives() + falsePositives();
+        return truePositives(weighted) + falsePositives(weighted);
     }
 
-    double excludedPopulation() const
+    double excludedPopulation(bool weighted=true) const
     {
-        return falseNegatives() + trueNegatives();
+        return falseNegatives(weighted) + trueNegatives(weighted);
     }
 
     double precision() const
@@ -91,49 +99,54 @@ struct BinaryStats {
     	return ML::xdiv(num, den);
     }
 
-    double truePositives() const { return counts[true][true]; }
-    double falsePositives() const { return counts[false][true]; }
-    double trueNegatives() const { return counts[false][false]; }
-    double falseNegatives() const { return counts[true][false]; }
+    const Array2D & getCounts(bool weighted) const {
+        if(weighted) return counts;
+        return unweighted_counts;
+    }
 
-    double totalPositives() const
+    double truePositives(bool weighted=true) const { return getCounts(weighted)[true][true]; }
+    double falsePositives(bool weighted=true) const { return getCounts(weighted)[false][true]; }
+    double trueNegatives(bool weighted=true) const { return getCounts(weighted)[false][false]; }
+    double falseNegatives(bool weighted=true) const { return getCounts(weighted)[true][false]; }
+
+    double totalPositives(bool weighted=true) const
     {
         return counts[true][true] + counts[true][false];
     }
 
-    double totalNegatives() const
+    double totalNegatives(bool weighted=true) const
     {
         return counts[false][true] + counts[false][false];
     }
 
-    double totalPopulation() const
+    double totalPopulation(bool weighted=true) const
     {
-        return totalPositives() + totalNegatives();
+        return totalPositives(weighted) + totalNegatives(weighted);
     }
 
-    double truePositiveRate() const
+    double truePositiveRate(bool weighted=true) const
     {
-        return ML::xdiv(truePositives(), totalPositives());
+        return ML::xdiv(truePositives(weighted), totalPositives(weighted));
     }
 
-    double falsePositiveRate() const
+    double falsePositiveRate(bool weighted=true) const
     {
-        return ML::xdiv(falsePositives(), totalNegatives());
+        return ML::xdiv(falsePositives(weighted), totalNegatives(weighted));
     }
 
-    double proportionOfPopulation() const
+    double proportionOfPopulation(bool weighted=true) const
     {
-        return ML::xdiv(truePositives() + falsePositives(), totalPopulation());
+        return ML::xdiv(truePositives(weighted) + falsePositives(weighted), totalPopulation(weighted));
     }
 
-    double proportionOfPositives() const
+    double proportionOfPositives(bool weighted=true) const
     {
-        return ML::xdiv(truePositives(), totalPositives());
+        return ML::xdiv(truePositives(weighted), totalPositives(weighted));
     }
 
-    double proportionOfNegatives() const
+    double proportionOfNegatives(bool weighted=true) const
     {
-        return ML::xdiv(falsePositives(), totalNegatives());
+        return ML::xdiv(falsePositives(weighted), totalNegatives(weighted));
     }
 
     double gain() const
@@ -145,7 +158,8 @@ struct BinaryStats {
         another point. */
     double rocAreaSince(const BinaryStats & other) const;
 
-    double counts[2][2];  // [label][output]
+    Array2D counts; // [label][output]
+    Array2D unweighted_counts; // [label][output]
     double threshold;  // threshold at which stats are taken
     boost::any key;    // Key for this reading
 
@@ -247,6 +261,3 @@ struct ScoredStats {
 };
 
 } // namespace Datacratic
-
-#endif /* __ml__separation_stats_h__ */
-

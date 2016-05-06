@@ -16,6 +16,7 @@
 #include "mldb/core/function.h"
 #include "sql/sql_expression.h"
 #include "mldb/jml/db/persistent_fwd.h"
+#include "mldb/types/optional.h"
 
 namespace Datacratic {
 namespace MLDB {
@@ -38,6 +39,8 @@ struct StatsTable {
 
     StatsTable(const std::string & filename);
 
+    // .first : nb trial
+    // .second : nb of occurence of each outcome
     typedef std::pair<int64_t, std::vector<int64_t>> BucketCounts;
     const BucketCounts & increment(const CellValue & val,
                                    const std::vector<uint> & outcomes);
@@ -51,9 +54,9 @@ struct StatsTable {
     ColumnName colName;
 
     std::vector<std::string> outcome_names;
-    std::map<Utf8String, BucketCounts> counts;
+    std::unordered_map<Utf8String, BucketCounts> counts;
 
-    std::pair<int64_t, std::vector<int64_t>> zeroCounts;
+    BucketCounts zeroCounts;
 };
 
 
@@ -64,6 +67,8 @@ struct StatsTable {
 /*****************************************************************************/
 
 struct StatsTableProcedureConfig : public ProcedureConfig {
+    static constexpr const char * name = "statsTable.train";
+
     StatsTableProcedureConfig()
     {
         output.withType("sparse.mutable");
@@ -75,7 +80,7 @@ struct StatsTableProcedureConfig : public ProcedureConfig {
     /// The expression to generate the outcomes
     std::vector<std::pair<std::string, std::shared_ptr<SqlExpression>>> outcomes;
 
-    Url statsTableFileUrl;
+    Url modelFileUrl;
 
     Utf8String functionName;
 };
@@ -86,7 +91,7 @@ DECLARE_STRUCTURE_DESCRIPTION(StatsTableProcedureConfig);
 /*****************************************************************************/
 /* STATS TABLE PROCEDURE                                                     */
 /*****************************************************************************/
-    
+
 typedef std::map<ColumnName, StatsTable> StatsTablesMap;
 
 struct StatsTableProcedure: public Procedure {
@@ -109,12 +114,12 @@ struct StatsTableProcedure: public Procedure {
 /*****************************************************************************/
 
 struct StatsTableFunctionConfig {
-    StatsTableFunctionConfig(const Url & statsTableFileUrl = Url())
-        : statsTableFileUrl(statsTableFileUrl)
+    StatsTableFunctionConfig(const Url & modelFileUrl = Url())
+        : modelFileUrl(modelFileUrl)
     {
     }
 
-    Url statsTableFileUrl;
+    Url modelFileUrl;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(StatsTableFunctionConfig);
@@ -130,8 +135,8 @@ struct StatsTableFunction: public Function {
 
     virtual Any getDetails() const;
 
-    virtual FunctionOutput apply(const FunctionApplier & applier,
-                              const FunctionContext & context) const;
+    virtual ExpressionValue apply(const FunctionApplier & applier,
+                              const ExpressionValue & context) const;
 
     /** Describe what the input and output is for this function. */
     virtual FunctionInfo getFunctionInfo() const;
@@ -147,15 +152,17 @@ struct StatsTableFunction: public Function {
 /*****************************************************************************/
 
 struct StatsTableDerivedColumnsGeneratorProcedureConfig: public ProcedureConfig {
+    static constexpr const char * name = "experimental.statsTable.derivedColumnsGenerator";
+
     StatsTableDerivedColumnsGeneratorProcedureConfig(
-            const Url & statsTableFileUrl = Url())
-        : statsTableFileUrl(statsTableFileUrl)
+            const Url & modelFileUrl = Url())
+        : modelFileUrl(modelFileUrl)
     {
     }
 
     std::string functionId;
     std::string expression;
-    Url statsTableFileUrl;
+    Url modelFileUrl;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(StatsTableDerivedColumnsGeneratorProcedureConfig);
@@ -182,14 +189,21 @@ struct StatsTableDerivedColumnsGeneratorProcedure: public Procedure {
 
 struct BagOfWordsStatsTableProcedureConfig : ProcedureConfig {
 
+    static constexpr const char * name = "statsTable.bagOfWords.train";
+
     InputQuery trainingData;
-    
+
     /// The expression to generate the outcomes
     std::vector<std::pair<std::string, std::shared_ptr<SqlExpression>>> outcomes;
 
-    Url statsTableFileUrl;
+    Url modelFileUrl;
 
     Utf8String functionName;
+    std::string functionOutcomeToUse;
+
+    Optional<PolyConfigT<Dataset>> outputDataset;
+
+    static constexpr char const * defaultOutputDatasetType = "tabular";
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(BagOfWordsStatsTableProcedureConfig);
@@ -198,7 +212,7 @@ DECLARE_STRUCTURE_DESCRIPTION(BagOfWordsStatsTableProcedureConfig);
 /*****************************************************************************/
 /* BOW STATS TABLE PROCEDURE                                                 */
 /*****************************************************************************/
-    
+
 struct BagOfWordsStatsTableProcedure: public Procedure {
 
     BagOfWordsStatsTableProcedure(MldbServer * owner,
@@ -219,9 +233,11 @@ struct BagOfWordsStatsTableProcedure: public Procedure {
 /*****************************************************************************/
 
 struct StatsTablePosNegFunctionConfig {
-    StatsTablePosNegFunctionConfig(const Url & statsTableFileUrl = Url()) :
+    StatsTablePosNegFunctionConfig(const Url & modelFileUrl = Url(),
+            const std::string & outcomeToUse = "") :
         numPos(50), numNeg(50), minTrials(50),
-        statsTableFileUrl(statsTableFileUrl)
+        outcomeToUse(outcomeToUse),
+        modelFileUrl(modelFileUrl)
     {
     }
 
@@ -231,7 +247,7 @@ struct StatsTablePosNegFunctionConfig {
 
     std::string outcomeToUse;
 
-    Url statsTableFileUrl;
+    Url modelFileUrl;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(StatsTablePosNegFunctionConfig);
@@ -247,8 +263,8 @@ struct StatsTablePosNegFunction: public Function {
 
     virtual Any getDetails() const;
 
-    virtual FunctionOutput apply(const FunctionApplier & applier,
-                              const FunctionContext & context) const;
+    virtual ExpressionValue apply(const FunctionApplier & applier,
+                              const ExpressionValue & context) const;
 
     /** Describe what the input and output is for this function. */
     virtual FunctionInfo getFunctionInfo() const;

@@ -35,19 +35,19 @@ class ConcatTest(unittest.TestCase):
     def test_default(self):
         mldb.log("HERE")
         res = mldb.query('SELECT concat({*}) FROM sample')
-        self.assertEqual(res[1][1], 'val1A,val1B')
-        self.assertEqual(res[2][1], 'val2A,val2C')
+        self.assertEqual(res[2][1], 'val1A,val1B')
+        self.assertEqual(res[1][1], 'val2A,val2C')
 
     def test_separator(self):
         res = mldb.query('SELECT concat({*}, {separator: \':\'}) FROM sample')
-        self.assertEqual(res[1][1], 'val1A:val1B')
-        self.assertEqual(res[2][1], 'val2A:val2C')
+        self.assertEqual(res[2][1], 'val1A:val1B')
+        self.assertEqual(res[1][1], 'val2A:val2C')
 
     def test_column_value(self):
         res = mldb.query(
             'SELECT concat({*}, {columnValue: false}) FROM sample')
-        self.assertEqual(res[1][1], 'colA,colB')
-        self.assertEqual(res[2][1], 'colA,colC')
+        self.assertEqual(res[2][1], 'colA,colB')
+        self.assertEqual(res[1][1], 'colA,colC')
 
     def test_bad_params(self):
         with self.assertRaises(mldb_wrapper.ResponseException):
@@ -59,20 +59,20 @@ class ConcatTest(unittest.TestCase):
 
     def test_partial_columns(self):
         res = mldb.query('SELECT concat({colA, colC}) FROM sample')
-        self.assertEqual(res[1][1], 'val1A')
-        self.assertEqual(res[2][1], 'val2A,val2C')
+        self.assertEqual(res[2][1], 'val1A')
+        self.assertEqual(res[1][1], 'val2A,val2C')
 
     def test_static_columns(self):
-        res = mldb.query('SELECT concat({colA, \'static\', colB}) FROM sample')
-        self.assertEqual(res[1][1], 'val1A,static,val1B')
-        self.assertEqual(res[2][1], 'val2A,static')
+        res = mldb.query('SELECT concat([colA, \'static\', colB]) FROM sample')
+        self.assertEqual(res[2][1], 'val1A,static,val1B')
+        self.assertEqual(res[1][1], 'val2A,static')
 
     def test_static_columns_name(self):
         res = mldb.query(
             "SELECT concat({colA, 'static', colB}, {columnValue: false}) "
             "FROM sample")
-        self.assertEqual(res[1][1], "colA,'static',colB")
-        self.assertEqual(res[2][1], "colA,'static'")
+        self.assertEqual(res[2][1], "'static',colA,colB")
+        self.assertEqual(res[1][1], "'static',colA")
 
 if __name__ == '__main__':
     mldb.run_tests()

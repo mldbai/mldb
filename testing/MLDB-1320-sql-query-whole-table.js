@@ -47,7 +47,7 @@ assertEqual(resp.responseCode, 201);
 
 var expected = [
     [ "_rowName", "all systems", "hello" ],
-    [ "", "GO", "world" ]
+    [ "result", "GO", "world" ]
 ];
 
 testQuery('SELECT poil()[output] as *', expected);
@@ -69,7 +69,7 @@ assertEqual(resp.responseCode, 201);
 
 var expected = [
     [ "_rowName", "all systems" ],
-    [ "", "GO" ]
+    [ "result", "GO" ]
 ];
 
 testQuery('SELECT poil()[output] as *', expected);
@@ -92,7 +92,7 @@ assertEqual(resp.responseCode, 201);
 
 var expected = [
     [ "_rowName", "hello" ],
-    [ "", "world" ]
+    [ "result", "world" ]
 ];
 
 testQuery('SELECT poil()[output] as *', expected);
@@ -113,7 +113,7 @@ var resp = mldb.get('/v1/query', {q: "select poil()[output] as *", format: 'tabl
 mldb.log(resp);
 assertEqual(resp.responseCode, 400);
 
-assertEqual(resp.json.error.indexOf("must contain exactly one") != -1, true);
+//assertEqual(resp.json.error.indexOf("must contain exactly one") != -1, true);
 
 
 // Test that an extra column gives an error
@@ -149,9 +149,6 @@ var resp = mldb.get('/v1/query', {q: "select poil()[output] as *", format: 'tabl
 mldb.log(resp);
 assertEqual(resp.responseCode, 400);
 
-assertEqual(resp.json.error.indexOf("null column names") != -1, true);
-
-
-
+assertEqual(resp.json.error.indexOf("can't be null") != -1, true);
 
 "success"

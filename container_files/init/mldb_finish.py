@@ -31,7 +31,6 @@ if len(sys.argv) == 3:
     if os.WIFSIGNALED(int(status_code)):
         sig = os.WTERMSIG(int(status_code))
 
-print  # we like space
 print
 if sig == None:
     print "MLDB exited, shutting down container."
@@ -42,5 +41,5 @@ else:
         msg += " " + sigmap[sig]
     print msg
 print
-print
+
 

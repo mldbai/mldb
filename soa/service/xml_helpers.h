@@ -7,6 +7,7 @@
    Helper functions to deal with XML.   
 */
 
+#include <string>
 #include "mldb/ext/tinyxml2/tinyxml2.h"
 #include <boost/lexical_cast.hpp>
 #include "mldb/arch/exception.h"
@@ -88,6 +89,16 @@ T extractDef(const tinyxml2::XMLDocument & doc,
 {
     const tinyxml2::XMLNode * element = &doc;
     return extractDef<T>(element, path, def);
+}
+
+inline std::string
+xmlDocumentAsString(const tinyxml2::XMLDocument & xmlDocument)
+{
+    tinyxml2::XMLPrinter printer;
+
+    const_cast<tinyxml2::XMLDocument &>(xmlDocument).Print(&printer);
+
+    return std::string(printer.CStr());
 }
 
 } // namespace Datacratic

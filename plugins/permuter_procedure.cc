@@ -83,7 +83,7 @@ forEachPermutation(
                 flatten(js[key], newPath);
             }
             else {
-               throw ML::Exception("unsupported type!"); 
+               throw ML::Exception("unsupported type!");
             }
         }
     };
@@ -109,7 +109,7 @@ forEachPermutation(
                 if(!jsLocation->isMember(key)) {
                     (*jsLocation)[key] = Json::Value();
                 }
-                
+
                 jsLocation = &(*jsLocation)[key];
             }
 
@@ -119,7 +119,7 @@ forEachPermutation(
             for(int i=0; i<vals.size(); i++) {
                 // update val
                 (*jsLocation)[path.back()] = vals[i];
-        
+
                 // engage warp engines!!
                 if(lastList) {
                     doForPermutation(baseConfig);
@@ -159,10 +159,10 @@ run(const ProcedureRunConfig & run,
 
         // TODO the next couple lines are horrible. we're going from json config
         // to string to do a replace_all to catch all the $permutation to replace
-        // and then parsing that back to json... 
+        // and then parsing that back to json...
         string strConf = permutedConfTmp.toString();
         ML::replace_all(strConf, "$permutation", ML::format("permutation_%d", permutation_num));
-        
+
         Json::Value permutedConf;
         Json::Reader reader;
         if(!reader.parse(strConf, permutedConf))
@@ -192,8 +192,8 @@ run(const ProcedureRunConfig & run,
         rtn_results.append(rez);
 
     };
-    
-    
+
+
     PermutationProcedure::forEachPermutation(baseConfig, permutations, doForPermutation);
 
     return RunOutput(rtn_results);
@@ -204,7 +204,6 @@ namespace {
 
 RegisterProcedureType<PermutationProcedure, PermutationProcedureConfig>
 regScript(builtinPackage(),
-          "permuter.run",
           "Run a child procedure with permutations of its configuration",
           "procedures/PermuterProcedure.md.html");
 

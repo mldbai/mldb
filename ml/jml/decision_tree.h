@@ -1,15 +1,12 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* decision_tree.h                                                -*- C++ -*-
    Jeremy Barnes, 22 March 2004
    Copyright (c) 2004 Jeremy Barnes.  All rights reserved.
-   $Source$
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Decision tree classifier.
 */
 
-#ifndef __boosting__decision_tree_h__
-#define __boosting__decision_tree_h__
+#pragma once
 
 #include "mldb/ml/jml/classifier.h"
 #include "feature_set.h"
@@ -114,16 +111,17 @@ public:
                                 double weight = 1.0) const;
 
     virtual Explanation explain(const Feature_Set & feature_set,
-                                int label,
+                                const ML::Label & label,
                                 double weight = 1.0,
                                 PredictionContext * context = 0) const;
 
     void explain_recursive(Explanation & explanation,
                            const Feature_Set & fset,
-                           int label,
+                           const ML::Label & label,
                            double weight,
                            const Tree::Ptr & ptr,
-                           const Tree::Node * parent) const;
+                           const Tree::Node * parent,
+                           std::function<float (const Tree::Base&)>& get_pred) const;
 
     /** Convert the decision tree to a disjuction of conjunctions form
         of boolean rules. */
@@ -157,6 +155,3 @@ public:
 
 } // namespace ML
 
-
-
-#endif /* __boosting__decision_tree_h__ */

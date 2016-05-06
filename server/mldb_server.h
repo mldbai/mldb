@@ -12,6 +12,7 @@
 #include "mldb/rest/service_peer.h"
 #include "mldb/types/string.h"
 #include "mldb/soa/service/event_service.h"
+#include "mldb/utils/log_fwd.h"
 
 namespace Datacratic {
 
@@ -27,12 +28,14 @@ struct PluginCollection;
 struct DatasetCollection;
 struct ProcedureCollection;
 struct FunctionCollection;
+struct CredentialRuleCollection;
 struct TypeClassCollection;
 
 struct Plugin;
 struct Dataset;
 struct Procedure;
 struct Function;
+struct CredentialRule;
 
 struct MatrixNamedRow;
 
@@ -46,7 +49,7 @@ struct MatrixNamedRow;
 */
 
 struct MldbServer: public ServicePeer, public EventRecorder {
-    
+
     MldbServer(const std::string & serviceName = "mldb",
                const std::string & etcdUri = "",
                const std::string & etcdPath = "",
@@ -84,10 +87,10 @@ struct MldbServer: public ServicePeer, public EventRecorder {
         discovery or message passing is supported in this configuration.
     */
     bool init(std::string configurationPath = "",
-              std::string staticFilesPath = "file://mldb/doc",
-              std::string staticDocPath = "file://mldb/container_files/public_html/doc/builtin",
+              std::string staticFilesPath = "file://mldb/container_files/public_html/resources",
+              std::string staticDocPath = "file://mldb/container_files/public_html/doc",
               bool hideInternalEntities = false);
-    
+
     void start();
 
     void shutdown();
@@ -95,13 +98,14 @@ struct MldbServer: public ServicePeer, public EventRecorder {
     typedef std::function<bool (const Json::Value & progress)> OnProgress;
 
     /** Obtain the dataset with the given configuration. */
-    
+
     std::shared_ptr<RestRouteManager> routeManager;
 
     std::shared_ptr<PluginCollection> plugins;
     std::shared_ptr<DatasetCollection> datasets;
     std::shared_ptr<ProcedureCollection> procedures;
     std::shared_ptr<FunctionCollection> functions;
+    std::shared_ptr<CredentialRuleCollection> credentials;
     std::shared_ptr<TypeClassCollection> types;
 
     /** Parse and perform an SQL query. */
@@ -115,7 +119,8 @@ struct MldbServer: public ServicePeer, public EventRecorder {
                       const std::string & format,
                       bool createHeaders,
                       bool rowNames,
-                      bool rowHashes) const;
+                      bool rowHashes,
+                      bool sortColumns) const;
 
     /** Get a type info structure for the given type. */
     Json::Value
@@ -141,12 +146,13 @@ struct MldbServer: public ServicePeer, public EventRecorder {
 private:
     void preInit();
     bool initRoutes();
-    void initCollections(std::string configurationPath,
+    void initCollections(std::string credentialsPath,
                          std::string staticFilesPath,
                          std::string staticDocPath,
                          bool hideInternalEntities);
     RestRequestRouter * versionNode;
     std::string cacheDirectory_;
+    std::shared_ptr<spdlog::logger> logger;
 };
 
 } // namespace MLDB

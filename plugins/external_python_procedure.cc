@@ -31,7 +31,7 @@ ExternalPythonProcedureConfigDescription::
 ExternalPythonProcedureConfigDescription()
 {
     addParent<ProcedureConfig>();
-    addField("scriptConfig", &ExternalPythonProcedureConfig::scriptConfig, 
+    addField("scriptConfig", &ExternalPythonProcedureConfig::scriptConfig,
             "Script resource configuration");
     addField("stdInData", &ExternalPythonProcedureConfig::stdInData,
             "What to send on the stdin of the python process");
@@ -145,7 +145,6 @@ run(const ProcedureRunConfig & run,
 
 static RegisterProcedureType<ExternalPythonProcedure, ExternalPythonProcedureConfig>
 regExternalPipeline(builtinPackage(),
-                    "experimental.external.procedure",
                     "Run an external script as a procedure",
                     "procedures/ExternalPythonProcedure.md.html",
                     nullptr,
@@ -154,4 +153,3 @@ regExternalPipeline(builtinPackage(),
 
 } // namespace MLDB
 } // namespace Datacratic
-

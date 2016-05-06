@@ -57,12 +57,12 @@ for output_type, output_id in [("sparse.mutable", "out_beh"),
     mldb.log(js_resp)
 
     assert js_resp[0]["rowName"] == "br_1"
-    assert val_for_key(js_resp[2]["columns"], "label_region") == 0
-    assert val_for_key(js_resp[2]["columns"], "trial_region") == 1
-    assert val_for_key(js_resp[2]["columns"], "label_host") == 1
+    assert val_for_key(js_resp[2]["columns"], "label.region") == 0
+    assert val_for_key(js_resp[2]["columns"], "trial.region") == 1
+    assert val_for_key(js_resp[2]["columns"], "label.host") == 1
 
-    assert val_for_key(js_resp[2]["columns"], "not_label_region") == 1
-    assert val_for_key(js_resp[2]["columns"], "not_label_host") == 0
+    assert val_for_key(js_resp[2]["columns"], "not_label.region") == 1
+    assert val_for_key(js_resp[2]["columns"], "not_label.host") == 0
 
 
 ############
@@ -79,16 +79,77 @@ js_rez = rez.json()
 mldb.log(js_rez)
 
 assert js_rez == {
-        "output" : {
-         "counts" : [
-             ["trial_host", [ 1, "NaD" ]],
-             ["label_host", [ 0, "NaD" ]],
-             ["not_label_host", [ 1, "NaD" ]],
-             ["trial_region", [ 0, "NaD" ]],
-             ["label_region", [ 0, "NaD" ]],
-             ["not_label_region", [ 0, "NaD" ]]
-          ]}}
-
+    "output": {
+        "counts": [
+            [
+                "label", 
+                [
+                    [
+                        [
+                            "host", 
+                            [
+                                0, 
+                                "NaD"
+                            ]
+                        ], 
+                        [
+                            "region", 
+                            [
+                                0, 
+                                "NaD"
+                            ]
+                        ]
+                    ], 
+                    "NaD"
+                ]
+            ], 
+            [
+                "not_label", 
+                [
+                    [
+                        [
+                            "host", 
+                            [
+                                1, 
+                                "NaD"
+                            ]
+                        ], 
+                        [
+                            "region", 
+                            [
+                                0, 
+                                "NaD"
+                            ]
+                        ]
+                    ], 
+                    "NaD"
+                ]
+            ], 
+            [
+                "trial", 
+                [
+                    [
+                        [
+                            "host", 
+                            [
+                                1, 
+                                "NaD"
+                            ]
+                        ], 
+                        [
+                            "region", 
+                            [
+                                0, 
+                                "NaD"
+                            ]
+                        ]
+                    ], 
+                    "NaD"
+                ]
+            ]
+        ]
+    }
+}
 
 
 #########
@@ -99,11 +160,11 @@ rez = mldb.get(
 js_rez = rez.json()
 mldb.log(js_rez)
 
-assert val_for_key(js_rez[0]["columns"], "counts.label_region") == 1
-assert val_for_key(js_rez[1]["columns"], "counts.label_region") == 0
+assert val_for_key(js_rez[0]["columns"], "counts.label.region") == 1
+assert val_for_key(js_rez[1]["columns"], "counts.label.region") == 0
 
-assert val_for_key(js_rez[1]["columns"], "counts.trial_host") == 1
-assert val_for_key(js_rez[2]["columns"], "counts.trial_host") == 2
+assert val_for_key(js_rez[1]["columns"], "counts.trial.host") == 1
+assert val_for_key(js_rez[2]["columns"], "counts.trial.host") == 2
 
 
 #######
@@ -130,26 +191,36 @@ rez = mldb.get("/v1/functions/getDerived")
 js_rez = rez.json()
 mldb.log(js_rez)
 
-def assert_val_for_col(rows, key, goodVal):
-    for rowName, rowVal, rowTs in rows:
-        if rowName == key:
-            assert abs(rowVal - goodVal) < 0.001
+def assert_val_for_col(cols, key, goodVal):
+    for colName, colVal, colTs in cols:
+        if colName == key:
+            assert abs(colVal - goodVal) < 0.001
             return True
-    mldb.log(str(rows))
+    mldb.log(str(cols))
     raise Exception("Could not find key: " + key)
 
-def assert_for_rows(rows, name, col, goodVal):
+def assert_for_rows(rows, rowName, col, goodVal):
     for row in rows:
-        if row["rowName"] == name:
+        if row["rowName"] == rowName:
             return assert_val_for_col(row["columns"], col, goodVal)
 
-    raise Exception("Could not find row: " + name)
+    raise Exception("Could not find row: " + rowName)
 
 #########
 # Test the function within a select statement
 rez = mldb.get(
     "/v1/query",
-    q="select getDerived({counts: {label_host:5, trial_host: 500, label_region:0, trial_region:250}}) as *")
+    q="select getDerived({counts: {label: {host:5, region: 0}, trial: {host: 500, region: 250 } }}) as *")
+js_rez = rez.json()
+mldb.log(js_rez)
+
+assert_val_for_col(js_rez[0]["columns"], "ctr_host", 5/500.)
+assert_val_for_col(js_rez[0]["columns"], "ctr_region", 0)
+assert_val_for_col(js_rez[0]["columns"], "pwet_host", 1)
+
+rez = mldb.get(
+    "/v1/query",
+    q="select getDerived({counts: {label.host:5, trial.host: 500, label.region: 0, trial.region: 250}}) as *")
 js_rez = rez.json()
 mldb.log(js_rez)
 
@@ -198,11 +269,24 @@ conf = {
         "trainingData": "select tokenize(text, {splitchars: ' '}) as * from posneg",
         "outcomes": [["label", "CLICK IS NOT NULL"]],
         "statsTableFileUrl": "file://build/x86_64/tmp/mldb-873-stats_table_posneg.st",
-        "runOnCreation": True
+        "runOnCreation": True,
+        "functionName": "myBowSt",
+        "functionOutcomeToUse": "label"
     }
 }
-rez = mldb.put("/v1/procedures/myroll_posneg_%s" % output_id, conf)
+rez = mldb.put("/v1/procedures/myroll_posneg", conf)
 mldb.log(rez.json())
+
+conf['params']['outputDataset'] = 'stats_table_counts'
+rez = mldb.put("/v1/procedures/myroll_posneg2", conf)
+rez = mldb.get('/v1/query', q='select * from stats_table_counts')
+mldb.log(rez.json())
+assert_for_rows(rez.json(), "I", "trials", 2)
+assert_for_rows(rez.json(), "I", "outcome.label", 1)
+assert_for_rows(rez.json(), "yellow", "trials", 1)
+assert_for_rows(rez.json(), "yellow", "outcome.label", 0)
+assert_for_rows(rez.json(), "are", "trials", 3)
+assert_for_rows(rez.json(), "are", "outcome.label", 1)
 
 conf = {
     "type": "statsTable.bagOfWords.posneg",
@@ -219,12 +303,25 @@ mldb.log(rez.json())
 
 rez = mldb.get(
     "/v1/query",
-    q="select posnegz({words: tokenize(text, {splitchars: ' .'})}) as * from posneg")
+    q="select posnegz({words: tokenize(text, {splitchars: ' _'})}) as * from posneg")
 js_rez = rez.json()
 mldb.log(js_rez)
 
-assert_for_rows(js_rez, "d", "probs.red_label", 1)
-assert_for_rows(js_rez, "a", "probs.I_label", 0.5)
-assert_for_rows(js_rez, "b", "probs.I_label", 0.5)
+assert_for_rows(js_rez, "d", "probs.red.label", 1)
+assert_for_rows(js_rez, "a", "probs.I.label", 0.5)
+assert_for_rows(js_rez, "b", "probs.I.label", 0.5)
+
+
+# lets try with the function we created at procedure run time
+rez = mldb.get(
+    "/v1/query",
+    q="select myBowSt({words: tokenize(text, {splitchars: ' .'})}) as * from posneg")
+js_rez = rez.json()
+mldb.log(js_rez)
+
+# default min instance is 50 so we should get not columns back
+for row in js_rez:
+    assert "columns" not in row
+
 
 mldb.script.set_return("success")

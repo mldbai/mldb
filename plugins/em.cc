@@ -1,3 +1,11 @@
+/** em.cc                                                          -*- C++ -*-
+    Mathieu Marquis Bolduc, October 28th, 2015
+    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+
+    Guassian clustering procedure and functions.
+*/
 
 #include "em.h"
 #include "mldb/ml/em.h"
@@ -19,6 +27,7 @@
 #include "mldb/types/any_impl.h"
 #include "jml/utils/smart_ptr_utils.h"
 #include "mldb/vfs/fs_utils.h"
+#include "mldb/plugins/sql_config_validator.h"
 
 
 using namespace std;
@@ -35,9 +44,9 @@ std::vector<double> tovector(boost::multi_array<double, 2>& m)
         for(int j = 0; j < m.shape()[1]; j++) {
              embedding.push_back(m[i][j]); // multiply by elements on diagonal
         }
-    }       
+    }
 
-    return embedding;    
+    return embedding;
 }
 
 DEFINE_STRUCTURE_DESCRIPTION(EMConfig);
@@ -48,7 +57,7 @@ EMConfigDescription()
     Optional<PolyConfigT<Dataset> > optional;
     optional.emplace(PolyConfigT<Dataset>().
                      withType(EMConfig::defaultOutputDatasetType));
-    
+
     addField("trainingData", &EMConfig::trainingData,
              "Specification of the data for input to the procedure.  This should be "
              "organized as an embedding, with each selected row containing the same "
@@ -90,6 +99,7 @@ EMConfigDescription()
              "the training result.");
     addParent<ProcedureConfig>();
 
+    onPostValidate = validateFunction<EMConfig>();
 }
 
 /*****************************************************************************/
@@ -116,40 +126,39 @@ getStatus() const
 RunOutput
 EMProcedure::
 run(const ProcedureRunConfig & run,
-      const std::function<bool (const Json::Value &)> & onProgress) const
+    const std::function<bool (const Json::Value &)> & onProgress) const
 {
-  auto runProcConf = applyRunConfOverProcConf(emConfig, run);
+    auto runProcConf = applyRunConfOverProcConf(emConfig, run);
 
-  auto onProgress2 = [&] (const Json::Value & progress)
-  {
-      Json::Value value;
-      value["dataset"] = progress;
-      return onProgress(value);
-  };
+    auto onProgress2 = [&] (const Json::Value & progress)
+        {
+            Json::Value value;
+            value["dataset"] = progress;
+            return onProgress(value);
+        };
 
-  SqlExpressionMldbContext context(server);
+    if (!runProcConf.modelFileUrl.empty()) {
+        checkWritability(runProcConf.modelFileUrl.toString(), "modelFileUrl");
+    }
 
-  auto embeddingOutput = getEmbedding(*runProcConf.trainingData.stm,
-                                      context,
-                                      runProcConf.numInputDimensions,
-                                      onProgress2);
+    SqlExpressionMldbScope context(server);
 
-  auto rows = embeddingOutput.first;
-  std::vector<KnownColumn> & vars = embeddingOutput.second;
+    auto embeddingOutput = getEmbedding(*runProcConf.trainingData.stm,
+                                        context,
+                                        runProcConf.numInputDimensions,
+                                        onProgress2);
 
-  std::vector<ColumnName> columnNames;
-  for (auto & v: vars) {
-    columnNames.push_back(v.columnName);
-  }
+    auto rows = embeddingOutput.first;
+    std::vector<KnownColumn> & vars = embeddingOutput.second;
 
-  std::vector<ML::distribution<double> > vecs;
+    std::vector<ML::distribution<double> > vecs;
 
-  for (unsigned i = 0;  i < rows.size();  ++i) {
-    vecs.emplace_back(ML::distribution<double>(std::get<2>(rows[i]).begin(),
-                                                  std::get<2>(rows[i]).end()));
-  }
+    for (unsigned i = 0;  i < rows.size();  ++i) {
+        vecs.emplace_back(ML::distribution<double>(std::get<2>(rows[i]).begin(),
+                                                   std::get<2>(rows[i]).end()));
+    }
 
-  if (vecs.size() == 0)
+    if (vecs.size() == 0)
         throw HttpReturnException(400, "Gaussian clustering training requires at least 1 datapoint. "
                                   "Make sure your dataset is not empty and that your WHERE expression "
                                   "does not filter all the rows");
@@ -163,6 +172,13 @@ run(const ProcedureRunConfig & run,
     //cerr << "EM training start" << endl;
     em.train(vecs, inCluster, numClusters, numIterations, 0);
     //cerr << "EM training end" << endl;
+
+    // Let the model know about its column names
+    std::vector<ColumnName> columnNames;
+    for (auto & v: vars) {
+        columnNames.push_back(v.columnName);
+        em.columnNames.push_back(v.columnName.toUtf8String());
+    }
 
     // output
 
@@ -189,13 +205,13 @@ run(const ProcedureRunConfig & run,
         auto output = createDataset(server, outputDataset, onProgress2, true /*overwrite*/);
 
         Date applyDate = Date::now();
-        
+
         for (unsigned i = 0;  i < rows.size();  ++i) {
             std::vector<std::tuple<ColumnName, CellValue, Date> > cols;
             cols.emplace_back(ColumnName("cluster"), inCluster[i], applyDate);
             output->recordRow(std::get<1>(rows[i]), cols);
         }
-        
+
         output->commit();
     }
 
@@ -210,7 +226,7 @@ run(const ProcedureRunConfig & run,
 
             std::vector<std::tuple<ColumnName, CellValue, Date> > cols;
 
-           for (unsigned j = 0;  j < cluster.centroid.size();  ++j) {
+            for (unsigned j = 0;  j < cluster.centroid.size();  ++j) {
                 cols.emplace_back(columnNames[j], cluster.centroid[j], applyDate);
             }
 
@@ -219,33 +235,32 @@ run(const ProcedureRunConfig & run,
             for (unsigned j = 0;  j < flatmatrix.size();  ++j) {
                 cols.emplace_back(ColumnName(ML::format("c%02d", j)), flatmatrix[j], applyDate);
             }
-            
+
             centroids->recordRow(RowName(ML::format("%i", i)), cols);
         }
-        
+
         centroids->commit();
     }
 
-    if(!runProcConf.functionName.empty()) {
+    if (!runProcConf.functionName.empty()) {
         if (saved) {
             EMFunctionConfig funcConf;
             funcConf.modelFileUrl = runProcConf.modelFileUrl;
-
+            
             PolyConfig emPC;
-            emPC.type = "gaussian clustering";
+            emPC.type = "gaussianclustering";
             emPC.id = runProcConf.functionName;
             emPC.params = funcConf;
-
             obtainFunction(server, emPC, onProgress);
         } else {
             throw HttpReturnException(400, "Can't create gaussian clustering function '" +
-                                      runProcConf.functionName.rawString() + 
+                                      runProcConf.functionName.rawString() +
                                       "'. Have you provided a valid modelFileUrl?",
                                       "modelFileUrl", runProcConf.modelFileUrl.toString());
         }
     }
 
-    return Any();  
+    return Any();
 }
 
 DEFINE_STRUCTURE_DESCRIPTION(EMFunctionConfig);
@@ -257,11 +272,11 @@ EMFunctionConfigDescription()
              "URL of the model file (with extension '.gs') to load. "
              "This file is created by a procedure of type 'gaussianclustering.train'.");
 
-    onPostValidate = [] (EMFunctionConfig * cfg, 
+    onPostValidate = [] (EMFunctionConfig * cfg,
                          JsonParsingContext & context) {
         // this includes empty url
         if(!cfg->modelFileUrl.valid()) {
-            throw ML::Exception("modelFileUrl \"" + cfg->modelFileUrl.toString() 
+            throw ML::Exception("modelFileUrl \"" + cfg->modelFileUrl.toString()
                                 + "\" is not valid");
         }
     };
@@ -269,14 +284,34 @@ EMFunctionConfigDescription()
 
 
 /*****************************************************************************/
-/* EM FUNCTION                                                              */
+/* EM FUNCTION                                                               */
 /*****************************************************************************/
+
+DEFINE_STRUCTURE_DESCRIPTION(EMInput);
+
+EMInputDescription::EMInputDescription()
+{
+    addField("embedding", &EMInput::embedding,
+             "Values to be assigned to a cluster.");
+}
+
+DEFINE_STRUCTURE_DESCRIPTION(EMOutput);
+
+EMOutputDescription::EMOutputDescription()
+{
+    addField("cluster", &EMOutput::cluster,
+             "Cluster corresponding to the input values.");
+}
+
 
 struct EMFunction::Impl {
     ML::EstimationMaximisation em;
-    
+    std::vector<ColumnName> columnNames;
+
     Impl(const Url & modelFileUrl) {
         em.load(modelFileUrl.toString());
+        for (auto & c: em.columnNames)
+            this->columnNames.push_back(PathElement(c));
     }
 };
 
@@ -284,13 +319,13 @@ EMFunction::
 EMFunction(MldbServer * owner,
             PolyConfig config,
             const std::function<bool (const Json::Value &)> & onProgress)
-    : Function(owner)
+    : BaseT(owner)
 {  
 
     functionConfig = config.params.convert<EMFunctionConfig>();
 
     impl.reset(new Impl(functionConfig.modelFileUrl));
-    
+
     dimension = impl->em.clusters[0].centroid.size();
 
     //cerr << "got " << impl->em.clusters.size()
@@ -298,58 +333,59 @@ EMFunction(MldbServer * owner,
     //     << "values" << endl;
 }
 
-Any
+struct EMFunctionApplier: public FunctionApplierT<EMInput, EMOutput> {
+    EMFunctionApplier(const EMFunction * owner,
+                      const std::shared_ptr<RowValueInfo> & input)
+        : FunctionApplierT<EMInput, EMOutput>(owner)
+    {
+        info = owner->getFunctionInfo();
+        extract = input->extractDoubleEmbedding(owner->impl->columnNames);
+    }
+
+    ExpressionValueInfo::ExtractDoubleEmbeddingFunction extract;
+};
+
+std::unique_ptr<FunctionApplierT<EMInput, EMOutput> >
 EMFunction::
-getStatus() const
+bindT(SqlBindingScope & outerContext, const std::shared_ptr<RowValueInfo> & input) const
 {
-    return Any();
+    return std::unique_ptr<EMFunctionApplier>
+        (new EMFunctionApplier(this, input));
 }
 
-FunctionOutput
+EMOutput 
 EMFunction::
-apply(const FunctionApplier & applier,
-      const FunctionContext & context) const
+applyT(const ApplierT & applier_, EMInput input_) const
 {
-    FunctionOutput result;
-
     // Extract an embedding with the given column names
     ExpressionValue storage;
-    const ExpressionValue & inputVal = context.get("embedding", storage);
 
-    ML::distribution<double> input = inputVal.getEmbeddingDouble(dimension);
-    Date ts = inputVal.getEffectiveTimestamp();
+    const auto * downcast
+            = dynamic_cast<const EMFunctionApplier *>(&applier_);
+
+    ML::distribution<double> input = downcast->extract(input_.embedding);
+    Date ts = input_.embedding.getEffectiveTimestamp();
 
     int bestCluster = impl->em.assign(input);
 
-    result.set("cluster", ExpressionValue(bestCluster, ts));
-    
-    return result;
+    return {ExpressionValue(bestCluster, ts)};
 }
-
-FunctionInfo
-EMFunction::
-getFunctionInfo() const
-{
-    FunctionInfo result;
-
-    result.input.addEmbeddingValue("embedding", dimension);
-    result.output.addAtomValue("cluster");
-
-    return result;
-}
-
 
 namespace {
 
 RegisterProcedureType<EMProcedure, EMConfig>
-regEM(builtinPackage(), "gaussianclustering.train",
-          "Gaussian clustering algorithm using Estimation Maximization on Gaussian Mixture Models",
-          "procedures/EMProcedure.md.html");
+regEM(builtinPackage(),
+      "Gaussian clustering algorithm using Estimation Maximization on Gaussian Mixture Models",
+      "procedures/EMProcedure.md.html",
+      nullptr /* static route */,
+      { MldbEntity::INTERNAL_ENTITY });
 
 RegisterFunctionType<EMFunction, EMFunctionConfig>
 regEMFunction(builtinPackage(), "gaussianclustering",
-               "Apply an gaussian clustering to new data",
-               "functions/EM.md.html");
+              "Apply an gaussian clustering to new data",
+              "functions/EM.md.html",
+              nullptr /* static route */,
+              { MldbEntity::INTERNAL_ENTITY });
 
 } // file scope
 

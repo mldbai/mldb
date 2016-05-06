@@ -68,7 +68,7 @@ class ClassifierRowInputTest(unittest.TestCase):
 
         with_flattening = mldb.query("""
             select cls({features: {
-                a as "row.a", b as "row.b", c as "row.c", d as "row.d"
+                a as row.a, b as row.b, c as row.c, d as row.d
                 }}) as *
             from iris
             limit 10
@@ -79,6 +79,8 @@ class ClassifierRowInputTest(unittest.TestCase):
             from iris
             limit 10
         """)
+        #mldb.log(with_flattening)
+        #mldb.log(without_flattening)
 
         self.assertEqual(with_flattening, without_flattening)
 
@@ -88,12 +90,12 @@ class ClassifierRowInputTest(unittest.TestCase):
             limit 10
         """)
 
-        mldb.log(with_aliasing)
+        #mldb.log(with_aliasing)
         self.assertEqual(with_flattening, with_aliasing,
                          "results do not match")
 
         with_aliasing = mldb.query("""
-            select cls({features: {* as "row."*}}) as *
+            select cls({features: {* as row.*}}) as *
             from iris
             limit 10
         """)

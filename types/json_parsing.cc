@@ -1134,6 +1134,10 @@ isInt() const
 {
     skipJsonWhitespace(*context);
 
+    // Short circuit for EOF or not a digit or negative sign
+    if (!context || (!isdigit(*context) && (char(*context) != '-')))
+        return false;
+
     // Find the offset at which an integer finishes
     size_t offset1;
     {

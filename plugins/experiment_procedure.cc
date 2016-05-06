@@ -74,6 +74,9 @@ DEFINE_STRUCTURE_DESCRIPTION(ExperimentProcedureConfig);
 ExperimentProcedureConfigDescription::
 ExperimentProcedureConfigDescription()
 {
+    addField("experimentName", &ExperimentProcedureConfig::experimentName,
+             "A string without spaces which will be used to name the various datasets, "
+             "procedures and functions created this procedure runs.");
     addField("trainingData", &ExperimentProcedureConfig::trainingData,
              "Specification of the data for input to the classifier procedure. "
              "The select expression must contain these two sub-expressions: \n"
@@ -106,7 +109,7 @@ ExperimentProcedureConfigDescription()
              "of whatever is having its accuracy tested.  This needs to be "
              "a number, and normally should be a floating point number that "
              "represents the degree of confidence in the prediction, not "
-             "just the class. This is typically, the training function returned "  
+             "just the class. This is typically, the training function returned "
              "by a classifier.train procedure. "
              "The select expression can also contain an optional weight sub-expression. "
              "This expression generates the relative weight for each example.  In some "
@@ -119,8 +122,6 @@ ExperimentProcedureConfigDescription()
              "said, it is a good idea to keep the weights centered around 1 "
              "to avoid numeric errors in the calculations."
              "The select statement does not support groupby and having clauses.");
-    addField("experimentName", &ExperimentProcedureConfig::experimentName,
-             "Name of the experiment that will be used to name the artifacts.");
     addField("keepArtifacts", &ExperimentProcedureConfig::keepArtifacts,
              "If true, all procedures and intermediary datasets are kept.", false);
     addField("datasetFolds", &ExperimentProcedureConfig::datasetFolds,
@@ -160,23 +161,25 @@ ExperimentProcedureConfigDescription()
      addField("mode", &ExperimentProcedureConfig::mode,
               "Mode of classifier.  Controls how the label is interpreted and "
               "what is the output of the classifier.", CM_BOOLEAN);
+     addField("evalTrain", &ExperimentProcedureConfig::evalTrain,
+              "Run the evaluation on the training set. If true, the same performance "
+              "statistics that are returned for the testing set will also be "
+              "returned for the training set.", false);
      addField("outputAccuracyDataset", &ExperimentProcedureConfig::outputAccuracyDataset,
               "If true, an output dataset for scored examples will created for each fold.",
               true);
     addParent<ProcedureConfig>();
 
-    onPostValidate = chain(validate<ExperimentProcedureConfig, 
-                           InputQuery,
-                           NoGroupByHaving, 
-                           MustContainFrom,
-                           PlainColumnSelect>(&ExperimentProcedureConfig::trainingData, "classifier.experiment"),
-                           validate<ExperimentProcedureConfig, 
-                           Optional<InputQuery>,
-                           NoGroupByHaving, 
-                           MustContainFrom,
-                           PlainColumnSelect,
-                           FeaturesLabelSelect>(&ExperimentProcedureConfig::testingData, "classifier.experiment"));
-    
+    onPostValidate = chain(validateQuery(&ExperimentProcedureConfig::trainingData,
+                                         NoGroupByHaving(),
+                                         MustContainFrom(),
+                                         PlainColumnSelect()),
+                           validateQuery(&ExperimentProcedureConfig::testingData,
+                                         NoGroupByHaving(),
+                                         MustContainFrom(),
+                                         PlainColumnSelect(),
+                                         FeaturesLabelSelect()));
+
 }
 
 /*****************************************************************************/
@@ -270,6 +273,7 @@ run(const ProcedureRunConfig & run,
     const std::function<bool (const Json::Value &)> & onProgress) const
 {
     JsStatsStatsGenerator statsGen;
+    JsStatsStatsGenerator statsGenTrain;
     JsStatsStatsGenerator durationStatsGen;
 
     auto runProcConf = applyRunConfOverProcConf(procConfig, run);
@@ -290,9 +294,8 @@ run(const ProcedureRunConfig & run,
     std::shared_ptr<Procedure> clsProcedure;
     std::shared_ptr<Procedure> accuracyProc;
 
-    
-    Json::Value rtn_results(Json::ValueType::arrayValue);
-    Json::Value rtn_details(Json::ValueType::arrayValue);
+
+    Json::Value test_eval_results(Json::ValueType::arrayValue);
 
     if(!runProcConf.trainingData.stm) {
         throw ML::Exception("Training data must be specified.");
@@ -306,7 +309,7 @@ run(const ProcedureRunConfig & run,
     else if(runProcConf.kfold == 1) {
         throw ML::Exception("When using the kfold parameter, it must be >= 2.");
     }
-    
+
     // default behaviour if nothing is defined
     if(runProcConf.datasetFolds.size() == 0 && runProcConf.kfold == 0) {
         // if we're not using a testing dataset
@@ -319,7 +322,7 @@ run(const ProcedureRunConfig & run,
         // if we're using different train and test, use each one of them completely
         // for test and train
         else {
-            runProcConf.datasetFolds.push_back(DatasetFoldConfig(SqlExpression::parse("true"), 
+            runProcConf.datasetFolds.push_back(DatasetFoldConfig(SqlExpression::parse("true"),
                                                                  SqlExpression::parse("true")));
         }
     }
@@ -342,7 +345,6 @@ run(const ProcedureRunConfig & run,
 
     ExcAssertGreater(runProcConf.datasetFolds.size(), 0);
 
-
     for(auto & datasetFold : runProcConf.datasetFolds) {
         /***
          * TRAIN
@@ -360,8 +362,8 @@ run(const ProcedureRunConfig & run,
         clsProcConf.algorithm = runProcConf.algorithm;
         clsProcConf.equalizationFactor = runProcConf.equalizationFactor;
         clsProcConf.mode = runProcConf.mode;
-      
-     
+
+
         clsProcConf.functionName = ML::format("%s_scorer_%d", runProcConf.experimentName, (int)progress);
 
         if(progress == 0) {
@@ -387,8 +389,8 @@ run(const ProcedureRunConfig & run,
         RunOutput output = clsProcedure->run(clsProcRunConf, onProgress2);
         Date trainFinish = Date::now();
 
-//          cout << jsonEncode(output.results).toStyledString() << endl;
-//          cout << jsonEncode(output.details).toStyledString() << endl;
+        // cout << jsonEncode(output.results).toStyledString() << endl;
+        // cout << jsonEncode(output.details).toStyledString() << endl;
 
 
         /***
@@ -401,8 +403,68 @@ run(const ProcedureRunConfig & run,
         /***
          * accuracy
          * **/
-        AccuracyConfig accuracyConf;
-        accuracyConf.mode = runProcConf.mode;
+        auto createAccuracyProcedure = [&] (AccuracyConfig & accuracyConf)
+        {
+            PolyConfig accuracyProcPC;
+            accuracyProcPC.id = runProcConf.experimentName + "_scorer";
+            accuracyProcPC.type = "classifier.test";
+            accuracyProcPC.params = accuracyConf;
+
+            cerr << " >>>>> Creating testing procedure" << endl;
+            accuracyProc = obtainProcedure(server, accuracyProcPC, onProgress2);
+
+            resourcesToDelete.push_back("/v1/procedures/"+accuracyProcPC.id.utf8String());
+        };
+
+
+        // setup score expression
+        string scoreExpr;
+        if     (runProcConf.mode == CM_BOOLEAN ||
+                runProcConf.mode == CM_REGRESSION)  scoreExpr = "\"%s\"({%s})[score] as score";
+        else if(runProcConf.mode == CM_CATEGORICAL) scoreExpr = "\"%s\"({%s})[scores] as score";
+        else throw ML::Exception("Classifier mode %d not implemented", runProcConf.mode);
+
+
+        // this lambda actually runs the accuracy procedure for the given config
+        auto runAccuracyFor = [&] (AccuracyConfig & accuracyConf)
+        {
+
+            auto features = extractNamedSubSelect("features", accuracyConf.testingData.stm->select);
+            auto label = extractNamedSubSelect("label", accuracyConf.testingData.stm->select);
+            shared_ptr<SqlRowExpression> weight = extractNamedSubSelect("weight", accuracyConf.testingData.stm->select);
+            if (!weight)
+                weight = SqlRowExpression::parse("1.0 as weight");
+
+            auto score = SqlRowExpression::parse(ML::format(scoreExpr.c_str(),
+                                                            clsProcConf.functionName.utf8String(),
+                                                            features->surface.utf8String()));
+
+            accuracyConf.testingData.stm->select = SelectExpression({features, label, weight, score});
+
+            ML::Timer timer;
+
+
+            if(!accuracyProc) {
+                throw ML::Exception("Was unable to obtain accuracy procedure");
+            }
+
+            ProcedureRunConfig accuracyProcRunConf;
+            accuracyProcRunConf.id = "run_"+to_string(progress);
+            accuracyProcRunConf.params = jsonEncode(accuracyConf);
+            Date testStart = Date::now();
+            RunOutput accuracyOutput = accuracyProc->run(accuracyProcRunConf, onProgress2);
+            Date testFinish = Date::now();
+
+            cerr << "accuracy took " << timer.elapsed() << endl;
+
+            return make_tuple(accuracyOutput,
+                              testFinish.secondsSinceEpoch() - testStart.secondsSinceEpoch());
+        };
+
+
+        // create config for the accuracy procedure
+        AccuracyConfig accuracyConfig;
+        accuracyConfig.mode = runProcConf.mode;
 
         if(runProcConf.outputAccuracyDataset) {
             PolyConfigT<Dataset> outputPC;
@@ -414,73 +476,52 @@ run(const ProcedureRunConfig & run,
                 RestRequest request("DELETE", "/v1/datasets/"+outputPC.id.utf8String(), RestParams(), "{}");
                 server->handleRequest(connection, request);
             }
-            accuracyConf.outputDataset.emplace(outputPC);
-        }
-        
-        accuracyConf.testingData = runProcConf.testingData ? *runProcConf.testingData : runProcConf.trainingData;
-        accuracyConf.testingData.stm->where = datasetFold.testing_where;
-
-        auto features = extractNamedSubSelect("features", accuracyConf.testingData.stm->select);
-        auto label = extractNamedSubSelect("label", accuracyConf.testingData.stm->select);
-        shared_ptr<SqlRowExpression> weight = extractNamedSubSelect("weight", accuracyConf.testingData.stm->select);
-        if (!weight)
-            weight = SqlRowExpression::parse("1.0 as weight");
-
-        string scoreExpr;
-        if     (runProcConf.mode == CM_BOOLEAN || 
-                runProcConf.mode == CM_REGRESSION)  scoreExpr = "\"%s\"({%s})[score] as score";
-        else if(runProcConf.mode == CM_CATEGORICAL) scoreExpr = "\"%s\"({%s})[scores] as score";
-        else throw ML::Exception("Classifier mode %d not implemented", runProcConf.mode);
-
-        auto score = SqlRowExpression::parse(ML::format(scoreExpr.c_str(),
-                                                        clsProcConf.functionName.utf8String(),
-                                                        features->surface.utf8String()));
-        accuracyConf.testingData.stm->select = SelectExpression({features, label, weight, score});
-
-        ML::Timer timer;
-
-        if(progress == 0) {
-            PolyConfig accuracyProcPC;
-            accuracyProcPC.id = runProcConf.experimentName + "_scorer";
-            accuracyProcPC.type = "classifier.test";
-            accuracyProcPC.params = accuracyConf;
-
-            cerr << " >>>>> Creating testing procedure" << endl;
-            accuracyProc = obtainProcedure(server, accuracyProcPC, onProgress2);
-
-            resourcesToDelete.push_back("/v1/procedures/"+accuracyProcPC.id.utf8String());
+            accuracyConfig.outputDataset.emplace(outputPC);
         }
 
-        if(!accuracyProc) {
-            throw ML::Exception("Was unable to obtain accuracy procedure");
+        // setup to run on the training set
+        accuracyConfig.testingData = runProcConf.testingData ? *runProcConf.testingData
+                                                             : runProcConf.trainingData;
+        accuracyConfig.testingData.stm->where = datasetFold.testing_where;
+
+        // create empty testing procedure
+        if(progress == 0)
+            createAccuracyProcedure(accuracyConfig);
+
+        auto accuracyOutput = runAccuracyFor(accuracyConfig);
+
+        // run evaluation on training
+        std::tuple<RunOutput, double> accuracyOutputTrain;
+        if(runProcConf.evalTrain) {
+            accuracyConfig.testingData = runProcConf.trainingData;
+            accuracyConfig.testingData.stm->where = datasetFold.training_where;
+
+            accuracyOutputTrain = runAccuracyFor(accuracyConfig);
         }
 
-        ProcedureRunConfig accuracyProcRunConf;
-        accuracyProcRunConf.id = "run_"+to_string(progress);
-        accuracyProcRunConf.params = jsonEncode(accuracyConf);
-        Date testStart = Date::now();
-        RunOutput accuracyOutput = accuracyProc->run(accuracyProcRunConf, onProgress2);
-        Date testFinish = Date::now();
-
-        cerr << "accuracy took " << timer.elapsed() << endl;
-
-//          cout << jsonEncode(accuracyOutput.results).toStyledString() << endl;
-//          cout << jsonEncode(accuracyOutput.details).toStyledString() << endl;
+        // cout << jsonEncode(accuracyOutput.results).toStyledString() << endl;
+        // cout << jsonEncode(accuracyOutput.details).toStyledString() << endl;
 
         Json::Value duration;
         duration["train"] = trainFinish.secondsSinceEpoch() - trainStart.secondsSinceEpoch();
-        duration["test"]  = testFinish.secondsSinceEpoch() - testStart.secondsSinceEpoch();
+        duration["test"] = get<1>(accuracyOutput) + (runProcConf.evalTrain ? get<1>(accuracyOutputTrain)
+                                                                           : 0);
         durationStatsGen.accumStats(duration, "");
 
         // Add results
         Json::Value foldRez;
         foldRez["fold"] = jsonEncode(datasetFold);
         foldRez["modelFileUrl"] = clsProcConf.modelFileUrl.toUtf8String();
-        foldRez["results"] = jsonEncode(accuracyOutput.results);
+        foldRez["resultsTest"] = jsonEncode(get<0>(accuracyOutput).results);
         foldRez["durationSecs"] = duration;
-        statsGen.accumStats(foldRez["results"], "");
-        rtn_results.append(foldRez);
+        statsGen.accumStats(foldRez["resultsTest"], "");
 
+        if(runProcConf.evalTrain) {
+            foldRez["resultsTrain"] = jsonEncode(get<0>(accuracyOutputTrain).results);
+            statsGenTrain.accumStats(foldRez["resultsTrain"], "");
+        }
+
+        test_eval_results.append(foldRez);
 
         progress ++;
     }
@@ -501,9 +542,12 @@ run(const ProcedureRunConfig & run,
     }
 
     Json::Value final_res;
-    final_res["folds"] = rtn_results;
-    final_res["aggregated"] = statsGen.generateStatistics();
+    final_res["folds"] = test_eval_results;
+    final_res["aggregatedTest"] = statsGen.generateStatistics();
     final_res["avgDuration"] = durationStatsGen.generateStatistics();
+    if(runProcConf.evalTrain) {
+        final_res["aggregatedTrain"] = statsGenTrain.generateStatistics();
+    }
 
     return RunOutput(final_res);
 }
@@ -513,7 +557,6 @@ namespace {
 
 RegisterProcedureType<ExperimentProcedure, ExperimentProcedureConfig>
 regExpProc(builtinPackage(),
-          "classifier.experiment",
           "Train and test a classifier",
           "procedures/ExperimentProcedure.md.html");
 

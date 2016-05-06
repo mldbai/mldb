@@ -11,7 +11,7 @@
 
 #include "mldb/core/dataset.h"
 #include "mldb/core/procedure.h"
-#include "mldb/core/function.h"
+#include "mldb/core/value_function.h"
 #include "matrix.h"
 #include "mldb/types/value_description.h"
 #include "mldb/types/optional.h"
@@ -23,8 +23,9 @@ namespace MLDB {
 struct SelectExpression;
 struct SqlExpression;
 
-
 struct SvdConfig : ProcedureConfig {
+    static constexpr char const * name = "svd.train";
+
     SvdConfig()
         : outputColumn("svd"),
           numSingularValues(100),
@@ -103,7 +104,7 @@ struct SvdBasis {
     doLeftSingularVector(const std::vector<Tuple> & row,
                          int maxValues,
                          bool acceptUnknownValues) const;
-    
+
     /** Check the validity of the data structure after loading. */
     void validate();
 };
@@ -165,18 +166,24 @@ DECLARE_STRUCTURE_DESCRIPTION(SvdEmbedConfig);
 /* SVD EMBED ROW                                                             */
 /*****************************************************************************/
 
-struct SvdEmbedRow: public Function {
+struct SvdInput {
+    ExpressionValue row;  // is a row valued object
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(SvdInput);
+
+struct SvdOutput {
+    ExpressionValue embedding;  // is an embedding object
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(SvdOutput);
+
+struct SvdEmbedRow: public ValueFunctionT<SvdInput, SvdOutput> {
     SvdEmbedRow(MldbServer * owner,
                 PolyConfig config,
                 const std::function<bool (const Json::Value &)> & onProgress);
     
-    virtual Any getStatus() const;
-    
-    virtual FunctionOutput apply(const FunctionApplier & applier,
-                                 const FunctionContext & context) const;
-    
-    /** Describe what the input and output is for this function. */
-    virtual FunctionInfo getFunctionInfo() const;
+    virtual SvdOutput call(SvdInput input) const;
     
     SvdBasis svd;
     SvdEmbedConfig functionConfig;

@@ -12,7 +12,6 @@
 #include "mldb/server/dataset_context.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/base/parallel.h"
-#include "mldb/server/function_contexts.h"
 #include "mldb/server/bound_queries.h"
 #include "mldb/sql/table_expression_operations.h"
 #include "mldb/sql/join_utils.h"
@@ -54,11 +53,11 @@ BucketizeProcedureConfigDescription()
     addField("percentileBuckets", &BucketizeProcedureConfig::percentileBuckets,
              "Key/ranges of the buckets to create. Buckets ranges can share "
              "start and end values but cannot overlap such that a row can "
-             "belong to multiple buckets. "
-             "E.g. {\"a\":[0, 50], \"b\": [50, 100]} will give two buckets: "
-             "\"a\" has rows where 0% < rank/count <= 50% and "
-             "\"b\" has rows where 50% < rank/count <= 100%, where the 'rank' "
-             "is based on the orderBy parameter.");
+             "belong to multiple buckets. \n\n"
+             "E.g. `{\"a\": [0, 50], \"b\": [50, 100]}` will give two buckets: "
+             "\"a\" with rows where 0% < rank/count <= 50% "
+             "and \"b\" with rows where 50% < rank/count <= 100% "
+             "where rank is based on the orderBy parameter.");
     addParent<ProcedureConfig>();
 
     onPostValidate = [&] (BucketizeProcedureConfig * cfg,
@@ -99,7 +98,7 @@ BucketizeProcedureConfigDescription()
             }
             last = range;
         }
-        MustContainFrom<InputQuery>()(cfg->inputData, "bucketize");
+        MustContainFrom()(cfg->inputData, BucketizeProcedureConfig::name);
     };
 }
 
@@ -119,7 +118,7 @@ run(const ProcedureRunConfig & run,
 {
     auto runProcConf = applyRunConfOverProcConf(procedureConfig, run);
 
-    SqlExpressionMldbContext context(server);
+    SqlExpressionMldbScope context(server);
 
     auto boundDataset = runProcConf.inputData.stm->from->bind(context);
 
@@ -129,9 +128,9 @@ run(const ProcedureRunConfig & run,
     // We calculate an expression with the timestamp of the order by
     // clause.  First, we need to calculate each of the order by clauses
     for (auto & c: runProcConf.inputData.stm->orderBy.clauses) {
-        auto whenClause = std::make_shared<FunctionCallWrapper>
-            ("", "latest_timestamp", vector<shared_ptr<SqlExpression> >(1, c.first),
-             nullptr /* extract */);
+        auto whenClause = std::make_shared<FunctionCallExpression>
+            ("" /* tableName */, "latest_timestamp",
+             vector<shared_ptr<SqlExpression> >(1, c.first));
         calc.emplace_back(whenClause);
     }
 
@@ -158,13 +157,13 @@ run(const ProcedureRunConfig & run,
                      *runProcConf.inputData.stm->where,
                      runProcConf.inputData.stm->orderBy,
                      calc)
-        .execute(getSize, 
-                 runProcConf.inputData.stm->offset, 
-                 runProcConf.inputData.stm->limit, 
+        .execute({getSize, false/*processInParallel*/},
+                 runProcConf.inputData.stm->offset,
+                 runProcConf.inputData.stm->limit,
                  onProgress);
 
     int64_t rowCount = orderedRowNames.size();
-    //cerr << "Row count: " << rowCount  << endl;
+    logger->debug() << "Row count: " << rowCount;
 
     auto output = createDataset(server, runProcConf.outputDataset,
                                 nullptr, true /*overwrite*/);
@@ -177,7 +176,7 @@ run(const ProcedureRunConfig & run,
         rowValue.emplace_back(ColumnName("bucket"),
                               mappedRange.first,
                               globalMaxOrderByTimestamp);
-        
+
 
         auto applyFct = [&] (int64_t index)
         {
@@ -195,11 +194,11 @@ run(const ProcedureRunConfig & run,
         //Make sure that numerical issues dont let 100 percentile go out of bound
         int64_t lowerBound = range.second == 0 ? 0 : int64_t(range.first / 100 * rowCount);
         int64_t higherBound = range.second == 100 ? rowCount : int64_t(range.second / 100 * rowCount);
-        
+
         ExcAssert(higherBound <= rowCount);
 
-        //cerr << "Bucket " << mappedRange.first << " from " << lowerBound
-        //     << " to " << higherBound << endl;
+        logger->debug() << "Bucket " << mappedRange.first << " from " << lowerBound
+                        << " to " << higherBound;
 
         parallelMap(lowerBound, higherBound, applyFct);
     }
@@ -224,10 +223,11 @@ getStatus() const
 static RegisterProcedureType<BucketizeProcedure, BucketizeProcedureConfig>
 regBucketizeProcedure(
     builtinPackage(),
-    "bucketize",
     "Assign buckets based on percentile ranges over a sorted dataset",
-    "procedures/BucketizeProcedure.md.html");
- 
+    "procedures/BucketizeProcedure.md.html",
+    nullptr /* static route */,
+    { MldbEntity::INTERNAL_ENTITY });
+
 
 } // namespace MLDB
 } // namespace Datacratic

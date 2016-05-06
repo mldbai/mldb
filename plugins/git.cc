@@ -79,7 +79,7 @@ int stats_each_hunk_cb(const git_diff_delta *delta,
 int git_diff_get_stats(git_diff_stats **out, git_diff *diff)
 {
     *out = new git_diff_stats();
-    
+
     int error = git_diff_foreach(diff,
                                  stats_each_file_cb,
                                  stats_each_hunk_cb,
@@ -90,7 +90,7 @@ int git_diff_get_stats(git_diff_stats **out, git_diff *diff)
         delete *out;
         *out = 0;
     }
-    
+
     return error;
 }
 
@@ -168,7 +168,7 @@ int stats_by_file_each_file_cb(const git_diff_delta *delta,
 
     if (delta->old_file.path)
         stats.files[delta->old_file.path] = op;
-    
+
     return 0;
 }
 
@@ -191,7 +191,7 @@ int stats_by_file_each_hunk_cb(const git_diff_delta *delta,
 GitFileStats git_diff_by_file(git_diff *diff)
 {
     GitFileStats result;
-    
+
     int error = git_diff_foreach(diff,
                                  stats_by_file_each_file_cb,
                                  stats_by_file_each_hunk_cb,
@@ -202,7 +202,7 @@ GitFileStats git_diff_by_file(git_diff *diff)
         throw Datacratic::HttpReturnException(400, "Error traversing diff: "
                                               + std::string(giterr_last()->message));
     }
-    
+
     return result;
 }
 
@@ -222,8 +222,11 @@ namespace MLDB {
 /*****************************************************************************/
 
 struct GitImporterConfig : ProcedureConfig {
+    static constexpr const char * name = "import.git";
+
     GitImporterConfig()
-        : revisions({"HEAD"}), importStats(false), importTree(false)
+        : revisions({"HEAD"}), importStats(false), importTree(false),
+          ignoreUnknownEncodings(true)
     {
         outputDataset.withType("sparse.mutable");
     }
@@ -233,6 +236,7 @@ struct GitImporterConfig : ProcedureConfig {
     std::vector<std::string> revisions;
     bool importStats;
     bool importTree;
+    bool ignoreUnknownEncodings;
 
     // TODO
     // when
@@ -259,7 +263,7 @@ GitImporterConfigDescription()
              "See the documentation for the output format.",
              PolyConfigT<Dataset>().withType("sparse.mutable"));
 
-    std::vector<std::string> defaultRevisions = { "HEAD " };
+    std::vector<std::string> defaultRevisions = { "HEAD" };
     addField("revisions", &GitImporterConfig::revisions,
              "Revisions to load from Git (eg, HEAD, HEAD~20..HEAD, tags/*). "
              "See the gitrevisions (7) documentation.  Default is all revisions "
@@ -269,6 +273,12 @@ GitImporterConfigDescription()
              "changed, lines added and lines deleted)", false);
     addField("importTree", &GitImporterConfig::importTree,
              "If true, then import the tree (names of files changed)", false);
+    addField("ignoreUnknownEncodings",
+             &GitImporterConfig::ignoreUnknownEncodings,
+             "If true (default), ignore commit messages with unknown encodings "
+             "(supported are ISO-8859-1 and UTF-8) and replace with a "
+             "placeholder.  If false, messages with unknown encodings will "
+             "cause the commit to abort.");
 
     addParent<ProcedureConfig>();
 }
@@ -282,7 +292,7 @@ struct GitImporter: public Procedure {
     {
         config = config_.params.convert<GitImporterConfig>();
     }
-    
+
     GitImporterConfig config;
 
     std::string encodeOid(const git_oid & oid) const
@@ -306,8 +316,8 @@ struct GitImporter: public Procedure {
                                               "repository", config.repository,
                                               "commit", string(sha));
             };
-        
- 
+
+
         git_commit *commit;
         int error = git_commit_lookup(&commit, repo, &oid);
         checkError(error, "Error getting commit");
@@ -327,6 +337,13 @@ struct GitImporter: public Procedure {
         Utf8String message;
         if (!encoding || strcmp(encoding, "UTF-8") == 0) {
             message = Utf8String(messageStr);
+        }
+        else if (strcmp(encoding,"ISO-8859-1") == 0) {
+            message = Utf8String::fromLatin1(messageStr);
+        }
+        else if (config.ignoreUnknownEncodings) {
+            message = "<<<couldn't decode message in "
+                + string(encoding) + " character set>>>";
         }
         else {
             throw HttpReturnException(500,
@@ -361,12 +378,12 @@ struct GitImporter: public Procedure {
                     checkError(error, "Error getting commit tree");
                     Scope_Exit(git_tree_free(tree));
 
-                        
+
                     error = git_commit_tree(&parentTree, nth_parent);
                     checkError(error, "Error getting parent tree");
                     Scope_Exit(git_tree_free(parentTree));
 
-                    error = git_diff_tree_to_tree(&diff, repo, tree, parentTree, NULL);       
+                    error = git_diff_tree_to_tree(&diff, repo, tree, parentTree, NULL);
                     checkError(error, "Error diffing commits");
 
                     git_diff_find_options opts = GIT_DIFF_FIND_OPTIONS_INIT;
@@ -398,14 +415,14 @@ struct GitImporter: public Procedure {
 
         for (auto & p: parents)
             row.emplace_back(ColumnName("parent"), p, timestamp);
-            
+
         int filesChanged = 0;
         int insertions = 0;
         int deletions = 0;
-            
+
         if (diff) {
             GitFileStats stats = git_diff_by_file(diff);
-            
+
             filesChanged = stats.files.size();
             insertions = stats.insertions;
             deletions = stats.deletions;
@@ -449,19 +466,19 @@ struct GitImporter: public Procedure {
                                               + giterr_last()->message,
                                               "repository", runProcConf.repository);
             };
-        
+
         git_libgit2_init();
         Scope_Exit(git_libgit2_shutdown());
 
         git_repository * repo;
 
         Utf8String repoName(runProcConf.repository.toString());
-        repoName.removePrefix("file://"); 
+        repoName.removePrefix("file://");
 
         int error = git_repository_open(&repo, repoName.rawData());
         checkError(error, "Error opening git repository");
         Scope_Exit(git_repository_free(repo));
-                
+
         // Create the output dataset
         std::shared_ptr<Dataset> output;
         if (!runProcConf.outputDataset.type.empty()
@@ -469,19 +486,19 @@ struct GitImporter: public Procedure {
             output = createDataset(server, runProcConf.outputDataset,
                                    nullptr, true /*overwrite*/);
         }
-        
+
         git_revwalk *walker;
         error = git_revwalk_new(&walker, repo);
         checkError(error, "Error creating commit walker");
         Scope_Exit(git_revwalk_free(walker));
-        
+
         for (auto & r: runProcConf.revisions) {
             if (r.find("*") != string::npos)
                 error = git_revwalk_push_glob(walker, r.c_str());
             else if (r.find("..") != string::npos)
                 error = git_revwalk_push_range(walker, r.c_str());
             else error = git_revwalk_push_ref(walker, r.c_str());
-            
+
             if (error < 0)
                 throw HttpReturnException(500, "Error adding revision: "
                                           + string(giterr_last()->message),
@@ -489,7 +506,7 @@ struct GitImporter: public Procedure {
                                           "revision", r);
         }
         vector<git_oid> oids;
-        
+
         git_oid oid;
         while (!git_revwalk_next(&oid, walker)) {
             oids.push_back(oid);
@@ -506,7 +523,7 @@ struct GitImporter: public Procedure {
                                               + string(giterr_last()->message));
 
             }
-            
+
             ~Accum()
             {
                 git_repository_free(repo);
@@ -525,12 +542,12 @@ struct GitImporter: public Procedure {
             {
                 if (i && i % 100 == 0)
                     cerr << "imported commit " << i << " of " << oids.size() << endl;
-                
+
                 Accum & threadAccum = accum.get();
                 auto row = processCommit(repo, oids[i]);
                 threadAccum.rows.emplace_back(RowName(encodeOid(oids[i])),
                                               std::move(row));
-                
+
                 if (threadAccum.rows.size() == 1000) {
                     output->recordRows(threadAccum.rows);
                     threadAccum.rows.clear();
@@ -543,7 +560,10 @@ struct GitImporter: public Procedure {
             output->recordRows(t->rows);
         }
 
+        output->commit();
+
         RunOutput result;
+
         return result;
     }
 
@@ -551,13 +571,12 @@ struct GitImporter: public Procedure {
     {
         return Any();
     }
-    
+
     GitImporterConfig procConfig;
 };
 
 RegisterProcedureType<GitImporter, GitImporterConfig>
 regGit(builtinPackage(),
-       "import.git",
        "Import a Git repository's metadata into MLDB",
        "procedures/GitImporter.md.html");
 

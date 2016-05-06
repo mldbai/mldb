@@ -70,7 +70,7 @@ static std::string getTypeName(const ValueDescription & description,
     case ValueKind::FLOAT:     return wrap("float");
     case ValueKind::BOOLEAN:   return wrap("bool");
     case ValueKind::STRING:    return wrap("string");
-    case ValueKind::ARRAY:     return wrap("[ " + getTypeName(description.contained(), server) + " ]");
+    case ValueKind::ARRAY:     return wrap("ARRAY [ " + getTypeName(description.contained(), server) + " ]");
     case ValueKind::STRUCTURE: return wrap(printTypeName(printTypeName(description.typeName)));
     case ValueKind::ENUM:      return wrap(printTypeName(description.typeName));
     case ValueKind::ATOM:      return wrap(printTypeName(description.typeName));
@@ -90,8 +90,8 @@ static std::string getTypeName(const ValueDescription & description,
     case ValueKind::OPTIONAL:  return wrap(getTypeName(description.contained(), server)) + " (Optional)";
     case ValueKind::VARIANT:   return wrap("VARIANT "  + printTypeName(description.typeName));
     case ValueKind::MAP: {
-        return wrap("MAP {" + getTypeName(description.getKeyValueDescription(), server)
-                    + " : " + getTypeName(description.contained(), server) + "}");
+        return wrap("MAP { " + getTypeName(description.getKeyValueDescription(), server)
+                    + " : " + getTypeName(description.contained(), server) + " }");
     }
     case ValueKind::ANY:       return description.typeName == "Json::Value" ? "JSON" : printTypeName(description.typeName);
     default:
@@ -149,7 +149,7 @@ static void renderType(MacroContext & context,
 
             auto onField = [&] (const ValueDescription::FieldDescription & fd)
                 {
-                    context.writeHtml(ML::format("<tr><td align='right'><p><strong>%s</strong> <br/> %s <br/> <code>%s</code></p></td><td>%s</td></tr>\n",
+                    context.writeHtml(ML::format("<tr><td align='right'><p><strong>%s</strong> <br/> <nobr>%s</nobr> <br/> <code>%s</code></p></td><td>%s</td></tr>\n",
                                          fd.fieldName.c_str(),
                                          getTypeName(*fd.description, context.server).c_str(),
                                          getDefaultValue(*fd.description).c_str(),
@@ -417,31 +417,33 @@ void configMacro(MacroContext & context,
             context.writeHtml("</code></pre>");
             return;
         }
+
+        context.writeHtml("<p>A new " + kind + " of type <code>"+type+"</code> named <code>&lt;id&gt;</code> can be created as follows:</p>");
+        context.writeHtml("<pre><code class=\"language-python\">");
+        context.writeText("mldb.put(\"/v1/" + kind + "s/\"+<id>, {\n"+
+                              "    \"type\": \"" + type + "\"");
+        
         Json::Value params = Json::parse(connection.response);
         string typeName;
+        bool withParams = false;
         if (!params.isNull()) {
             typeName = params["configType"]["typeName"].asString();
+            withParams = !typeName.empty() && !params["configType"]["fields"].isNull();
         }
-            
-        //context.writeHtml("<h2>Configuration</h2>");
 
-        context.writeHtml("<p>A new " + kind + " of this type is created as follows:</p>");
-
-        context.writeHtml("<pre><code class=\"language-python\">");
-        context.writeText("mldb.put(\"/v1/" + kind + "s/<id>\", {\n"+
-                  "    \"type\": \"" + type + "\"");
-
-        if (!typeName.empty()) {
+        if (withParams) {
             context.writeText(",\n    \"params\": {");
             renderType(context, typeName, true);
             context.writeText("\n    }");
         }
+
         context.writeHtml("\n})</code></pre>");
 
-        if (!typeName.empty()) {
+        if (withParams) {
             context.writeHtml("<p>with the following key-value definitions for <code>params</code>:</p>");
             renderType(context, typeName);
         }
+
     } catch (const std::exception & exc) {
         context.writeHtml("Error running config macro: " + string(exc.what()));
     }

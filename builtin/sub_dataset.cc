@@ -54,27 +54,10 @@ struct SubDataset::Itl
 
     Itl(SelectStatement statement, MldbServer* owner)
     {
-        SqlExpressionMldbContext mldbContext(owner);
-        BoundTableExpression table = statement.from->bind(mldbContext);  
+        SqlExpressionMldbScope mldbContext(owner);
 
-        std::vector<MatrixNamedRow> rows;
-
-        if (table.dataset)
-        {  
-            rows = table.dataset->queryStructured(statement.select, statement.when, 
-                                                  *statement.where,
-                                                  statement.orderBy,
-                                                  statement.groupBy,
-                                                  *statement.having,
-                                                  *statement.rowName,
-                                                  statement.offset,
-                                                  statement.limit,
-                                                  table.asName);
-        }
-        else
-        {
-            rows = queryWithoutDataset(statement, mldbContext);
-        }
+        std::vector<MatrixNamedRow> rows
+            = queryFromStatement(statement, mldbContext);
 
         init(std::move(rows));
     }
@@ -269,7 +252,7 @@ struct SubDataset::Itl
                 if (cName == columnName)
                 {
                     const CellValue & cell = std::get<1>(c);
-                    if (filter(cell))
+                    if (!filter || filter(cell))
                     {
                         result.emplace_back(row.rowName, cell);
                     }
@@ -371,9 +354,11 @@ getRowStream() const
 
 static RegisterDatasetType<SubDataset, SubDatasetConfig> 
 regSub(builtinPackage(),
-          "sub",
-          "Dataset view on the result of a SELECT query",
-          "datasets/SubDataset.md.html");
+       "sub",
+       "Dataset view on the result of a SELECT query",
+       "datasets/SubDataset.md.html",
+       nullptr,
+       {MldbEntity::INTERNAL_ENTITY});
 
 extern std::shared_ptr<Dataset> (*createSubDatasetFn) (MldbServer *, const SubDatasetConfig &);
 
@@ -403,21 +388,19 @@ querySubDataset(MldbServer * server,
     std::vector<MatrixNamedRow> output
         = dataset
         ->queryStructured(select, when, where, orderBy, groupBy,
-                          having, named, offset, limit, "" /* alias */,
-                          false /* allow MT */);
+                          having, named, offset, limit, "" /* alias */);
     
     std::vector<NamedRowValue> result;
     result.reserve(output.size());
                 
     for (auto & row: output) {
+        // All of this is to properly unflatten the output of the
+        // queryStructured call.
+        ExpressionValue val(std::move(row.columns));
         NamedRowValue rowOut;
         rowOut.rowName = std::move(row.rowName);
         rowOut.rowHash = std::move(row.rowHash);
-        for (auto & c: row.columns) {
-            rowOut.columns.emplace_back(std::move(std::get<0>(c)),
-                                        ExpressionValue(std::move(std::get<1>(c)),
-                                                        std::get<2>(c)));
-        }
+        val.mergeToRowDestructive(rowOut.columns);
         result.emplace_back(std::move(rowOut));
     }
 

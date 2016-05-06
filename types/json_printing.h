@@ -40,6 +40,7 @@ struct JsonPrintingContext {
 
     virtual void startObject() = 0;
     virtual void startMember(const Utf8String & memberName) = 0;
+    virtual void startMember(const char * memberNameStr, size_t memberNameLen) = 0;
     virtual void endObject() = 0;
 
     virtual void startArray(int knownSize = -1) = 0;
@@ -55,7 +56,9 @@ struct JsonPrintingContext {
     virtual void writeFloat(float f) = 0;
     virtual void writeDouble(double d) = 0;
     virtual void writeString(const std::string & s) = 0;
+    virtual void writeString(const char * start, size_t len) = 0;
     virtual void writeStringUtf8(const Utf8String & s) = 0;
+    virtual void writeStringUtf8(const char * start, size_t len) = 0;
     virtual void writeBool(bool b) = 0;
     virtual void writeNull() = 0;
 
@@ -92,6 +95,7 @@ struct StreamJsonPrintingContext
     virtual void startObject();
 
     virtual void startMember(const Utf8String & memberName);
+    virtual void startMember(const char * memberNameStr, size_t memberNameLen);
 
     virtual void endObject();
 
@@ -122,8 +126,10 @@ struct StreamJsonPrintingContext
     virtual void writeDouble(double d);
 
     virtual void writeString(const std::string & s);
+    virtual void writeString(const char * start, size_t len);
 
     virtual void writeStringUtf8(const Utf8String & s);
+    virtual void writeStringUtf8(const char * start, size_t len);
 
     virtual void writeJson(const Json::Value & val);
 
@@ -161,6 +167,7 @@ struct StringJsonPrintingContext
     virtual void startObject();
 
     virtual void startMember(const Utf8String & memberName);
+    virtual void startMember(const char * memberNameStr, size_t memberNameLen);
 
     virtual void endObject();
 
@@ -191,8 +198,10 @@ struct StringJsonPrintingContext
     virtual void writeDouble(double d);
 
     virtual void writeString(const std::string & s);
+    virtual void writeString(const char * start, size_t len);
 
     virtual void writeStringUtf8(const Utf8String & s);
+    virtual void writeStringUtf8(const char * start, size_t len);
 
     virtual void writeJson(const Json::Value & val);
 
@@ -226,6 +235,7 @@ struct StructuredJsonPrintingContext
     virtual void startObject();
 
     virtual void startMember(const Utf8String & memberName);
+    virtual void startMember(const char * memberNameStr, size_t memberNameLen);
 
     virtual void endObject();
 
@@ -256,8 +266,10 @@ struct StructuredJsonPrintingContext
     virtual void writeDouble(double d);
 
     virtual void writeString(const std::string & s);
+    virtual void writeString(const char * start, size_t len);
 
     virtual void writeStringUtf8(const Utf8String & s);
+    virtual void writeStringUtf8(const char * start, size_t len);
 
     virtual void writeJson(const Json::Value & val);
 

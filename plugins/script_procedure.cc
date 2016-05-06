@@ -28,11 +28,11 @@ DEFINE_STRUCTURE_DESCRIPTION(ScriptProcedureConfig);
 ScriptProcedureConfigDescription::
 ScriptProcedureConfigDescription()
 {
-    addField("language", &ScriptProcedureConfig::language, 
+    addField("language", &ScriptProcedureConfig::language,
             "Script language (python or javascript)");
-    addField("scriptConfig", &ScriptProcedureConfig::scriptConfig, 
+    addField("scriptConfig", &ScriptProcedureConfig::scriptConfig,
             "Script resource configuration");
-    addField("args", &ScriptProcedureConfig::args, 
+    addField("args", &ScriptProcedureConfig::args,
             "Arguments to be passed to the script");
     addParent<ProcedureConfig>();
 }
@@ -117,7 +117,7 @@ run(const ProcedureRunConfig & run,
     }
 
     Json::Value result = Json::parse(connection.response);
-    
+
     return RunOutput(result["result"], details);
 }
 
@@ -126,9 +126,10 @@ namespace {
 
 RegisterProcedureType<ScriptProcedure, ScriptProcedureConfig>
 regScript(builtinPackage(),
-          "script.run",
           "Run a script",
-          "procedures/ScriptProcedure.md.html");
+          "procedures/ScriptProcedure.md.html",
+                            nullptr /* static route */,
+                            { MldbEntity::INTERNAL_ENTITY });
 
 } // file scope
 

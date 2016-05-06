@@ -36,6 +36,8 @@ enum ClassifierMode {
 DECLARE_ENUM_DESCRIPTION(ClassifierMode);
 
 struct ClassifierConfig : public ProcedureConfig {
+    static constexpr const char * name = "classifier.train";
+
     ClassifierConfig()
         : equalizationFactor(0.5),
           mode(CM_BOOLEAN)
@@ -116,7 +118,7 @@ struct ClassifyFunction: public Function {
     ClassifyFunction(MldbServer * owner,
                   std::shared_ptr<ML::Classifier_Impl> classifier,
                   const std::string & labelFeatureName);
-    
+
     ~ClassifyFunction();
 
     virtual Any getStatus() const;
@@ -127,10 +129,10 @@ struct ClassifyFunction: public Function {
     // can be produced.
     virtual std::unique_ptr<FunctionApplier>
     bind(SqlBindingScope & outerContext,
-         const FunctionValues & input) const;
+         const std::shared_ptr<RowValueInfo> & input) const;
 
-    virtual FunctionOutput apply(const FunctionApplier & applier,
-                              const FunctionContext & context) const;
+    virtual ExpressionValue apply(const FunctionApplier & applier,
+                              const ExpressionValue & context) const;
 
     /** Describe what the input and output is for this function. */
     virtual FunctionInfo getFunctionInfo() const;
@@ -146,28 +148,30 @@ struct ClassifyFunction: public Function {
         set as a whole.
     */
     std::tuple<std::vector<float>, std::shared_ptr<ML::Mutable_Feature_Set>, Date>
-    getFeatureSet(const FunctionContext & context, bool returnDense) const;
+    getFeatureSet(const ExpressionValue & context, bool returnDense) const;
 
     //Classifier classifier;
     ClassifyFunctionConfig functionConfig;
 
     struct Itl;
     std::shared_ptr<Itl> itl;
+
+    bool isRegression;
 };
 
 /*****************************************************************************/
-/* EXPLAIN CLASSIFY FUNCTION                                                    */
+/* EXPLAIN CLASSIFY FUNCTION                                                 */
 /*****************************************************************************/
 
 struct ExplainFunction: public ClassifyFunction {
     ExplainFunction(MldbServer * owner,
                   PolyConfig config,
                   const std::function<bool (const Json::Value &)> & onProgress);
-    
+
     ~ExplainFunction();
 
-    virtual FunctionOutput apply(const FunctionApplier & applier,
-                              const FunctionContext & context) const;
+    virtual ExpressionValue apply(const FunctionApplier & applier,
+                              const ExpressionValue & context) const;
 
     /** Describe what the input and output is for this function. */
     virtual FunctionInfo getFunctionInfo() const;

@@ -24,7 +24,7 @@ class Mldb1440Test(MldbUnitTest):
             mldb.query("select noIgnore({a:1, b:2}) as *"),
             [
                 ["_rowName", "rez"],
-                [       "",  3 ]
+                ["result",  3 ]
             ]
         )
 
@@ -33,7 +33,7 @@ class Mldb1440Test(MldbUnitTest):
             mldb.query("select noIgnore({a:1, b:2, c:5}) as *"),
             [
                 ["_rowName", "rez"],
-                [       "",  3 ]
+                ["result",  3 ]
             ]
         )
     
@@ -44,7 +44,7 @@ class Mldb1440Test(MldbUnitTest):
             mldb.query("select noIgnore({a:1, b:2, c:5}) as *"),
             [
                 ["_rowName", "rez"],
-                [       "",  3 ]
+                ["result",  3 ]
             ]
         )
 

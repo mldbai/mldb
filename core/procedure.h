@@ -12,6 +12,7 @@
 #include "mldb/rest/rest_entity.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/sql/sql_expression_operations.h"
+#include "mldb/utils/log.h"
 #include <set>
 #include <iostream>
 #include <typeinfo>
@@ -111,7 +112,7 @@ struct Procedure: public MldbEntity, public RestEntity {
     virtual RunOutput run(const ProcedureRunConfig & run,
                           const std::function<bool (const Json::Value &)> & onProgress)
         const = 0;
-    
+
     virtual bool isCollection() const;
 
     virtual Utf8String getDescription() const;
@@ -166,7 +167,7 @@ struct Procedure: public MldbEntity, public RestEntity {
 /* PROCEDURE CONFIG                                                          */
 /*****************************************************************************/
 
-/* 
+/*
  * Keep all the shared config parameters for procedure here.
  */
 struct ProcedureConfig
@@ -183,7 +184,7 @@ DECLARE_STRUCTURE_DESCRIPTION(ProcedureConfig);
 
 struct NullProcedureConfig : public ProcedureConfig
 {
-
+    static constexpr const char * name = "null";
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(NullProcedureConfig);
@@ -220,6 +221,7 @@ struct ProcedureStepConfig: public PolyConfig {
 DECLARE_STRUCTURE_DESCRIPTION(ProcedureStepConfig);
 
 struct SerialProcedureConfig : public ProcedureConfig {
+    static constexpr const char * name = "serial";
     std::vector<ProcedureStepConfig> steps;
 };
 
@@ -257,7 +259,9 @@ struct SerialProcedure: public Procedure {
 /** A procedure that creates an entity as its operation.
 */
 
-    struct CreateEntityProcedureConfig: public PolyConfig, ProcedureConfig {
+struct CreateEntityProcedureConfig: public PolyConfig, ProcedureConfig {
+    static constexpr const char * name = "createEntity";
+
     std::string kind;  ///< function, procedure, plugin, dataset, ...
 };
 
@@ -323,7 +327,6 @@ registerProcedureType(const Package & package,
 template<typename ProcedureT, typename Config>
 std::shared_ptr<ProcedureType>
 registerProcedureType(const Package & package,
-                      const Utf8String & name,
                       const Utf8String & description,
                       const Utf8String & docRoute,
                       TypeCustomRouteHandler customRoute = nullptr,
@@ -333,12 +336,14 @@ registerProcedureType(const Package & package,
                   "Procedure configuration type must derive from ProcedureConfig");
 
     return registerProcedureType
-        (package, name, description,
+        (package, Config::name, description,
          [] (RestDirectory * server,
              PolyConfig config,
              const std::function<bool (const Json::Value)> & onProgress)
          {
-             return new ProcedureT(ProcedureT::getOwner(server), config, onProgress);
+             auto procedure = new ProcedureT(ProcedureT::getOwner(server), config, onProgress);
+             procedure->logger = MLDB::getMldbLog<ProcedureT>();
+             return procedure;
          },
          makeInternalDocRedirect(package, docRoute),
          customRoute,
@@ -349,14 +354,13 @@ registerProcedureType(const Package & package,
 template<typename ProcedureT, typename Config>
 struct RegisterProcedureType {
     RegisterProcedureType(const Package & package,
-                          const Utf8String & name,
                           const Utf8String & description,
                           const Utf8String & docRoute,
                           TypeCustomRouteHandler customRoute = nullptr,
                           std::set<std::string> registryFlags = {})
     {
         handle = registerProcedureType<ProcedureT, Config>
-            (package, name, description, docRoute, customRoute,
+            (package, description, docRoute, customRoute,
              registryFlags);
     }
 

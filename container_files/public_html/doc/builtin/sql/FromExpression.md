@@ -52,11 +52,14 @@ First, an inner join is performed. Then, for each row in `left` that does not sa
 
 ## Sample
 
-Queries can be made to a sample of a dataset by using the sample() function in the FROM expression. For example:
+Queries can be made to a sample of a dataset by using the `sample` function in the FROM expression. For example:
 
 ```sql
 SELECT x.* FROM sample(dataset, {rows: 25, withReplacement: FALSE}) AS x
 ```
+
+The second argument, a row expression  with the dataset's configuration, is optional. When it is not specified, it 
+use the sampled dataset's default parameters.
 
 See ![](%%doclink sampled dataset) for more details.
 

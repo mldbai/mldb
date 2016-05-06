@@ -14,16 +14,16 @@ class Mldb256Test(MldbUnitTest):
     def setUpClass(self):
         # create a boolean classification dataset
         ds = mldb.create_dataset({ "id": "boolean", "type": "sparse.mutable" })
-        ds.record_row("a",[["label", 1, 0], ["x", 0, 0]])
-        ds.record_row("b",[["label", 1, 0], ["x", 0, 0]])
-        ds.record_row("c",[["label", 1, 0], ["x", 0, 0]])
-        ds.record_row("d",[["label", 1, 0], ["x", 0, 0]])
-        ds.record_row("e",[["label", 1, 0], ["x", 0.6, 0]])
-        ds.record_row("f",[["label", 0, 0], ["x", 0.4, 0]])
-        ds.record_row("g",[["label", 0, 0], ["x", 1, 0]])
-        ds.record_row("h",[["label", 0, 0], ["x", 1, 0]])
-        ds.record_row("i",[["label", 0, 0], ["x", 1, 0]])
-        ds.record_row("j",[["label", 0, 0], ["x", 1, 0]])
+        ds.record_row("a",[["label", 1, 0], ["x", 0, 0], ["y", 10, 0], ["weight", 0.5, 0]])
+        ds.record_row("b",[["label", 1, 0], ["x", 0, 0], ["y", 5, 0], ["weight", 0.8, 0]])
+        ds.record_row("c",[["label", 1, 0], ["x", 0, 0], ["y", 87, 0], ["weight", 0.22, 0]])
+        ds.record_row("d",[["label", 1, 0], ["x", 0, 0], ["y", -12, 0], ["weight", 1.5, 0]])
+        ds.record_row("e",[["label", 1, 0], ["x", 0.6, 0], ["y", 2, 0], ["weight", 1, 0]])
+        ds.record_row("f",[["label", 0, 0], ["x", 0.4, 0], ["y", 1, 0], ["weight", 0.5, 0]])
+        ds.record_row("g",[["label", 0, 0], ["x", 1, 0], ["y", 30, 0], ["weight", 0.26, 0]])
+        ds.record_row("h",[["label", 0, 0], ["x", 1, 0], ["y", -5, 0], ["weight", 0.92, 0]])
+        ds.record_row("i",[["label", 0, 0], ["x", 1, 0], ["y", -10, 0], ["weight", 1.45, 0]])
+        ds.record_row("j",[["label", 0, 0], ["x", 1, 0], ["y", -25, 0], ["weight", 0.75, 0]])
         ds.commit()
 
         #  toy multi class reprenseting the output of a classifier
@@ -68,6 +68,122 @@ class Mldb256Test(MldbUnitTest):
             ds.record_row("row%d" % x,[["label", x, 0], ["col", x/8, 0], ["col BBB", pow(x, 2), 0]])
         ds.commit()
 
+
+    # this test only validates that there is no segfault when testing a glz with only null features
+    def test_bool_cls_no_segfault_no_feature_cols(self):
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
+                "Feature_Set is null! Are you giving only null features.*") as re:
+            rez = mldb.put("/v1/procedures/bool_cls_seg", {
+                "type": "classifier.experiment",
+                "params": {
+                    "trainingData": "select {x, y} as features, label as label from categorical", # on purpose the wrong dataset
+                    "experimentName": "bool_exp_seg",
+                    "keepArtifacts": True,
+                    "modelFileUrlPattern": "file://temp/mldb-256_bool_seg.cls",
+                    "algorithm": "glz",
+                    "configuration": {
+                        "glz": {
+                            "type": "glz",
+                            "verbosity": 3,
+                            "normalize": True,
+                            "link_function": "logit",
+                            "ridge_regression": True
+                        }
+                    },
+                    "kfold": 2,
+                    "mode": "boolean",
+                    "outputAccuracyDataset": True,
+                    "runOnCreation": True
+                }
+            })
+
+    
+    def test_bool_cls_works(self):
+        rez = mldb.put("/v1/procedures/bool_cls", {
+            "type": "classifier.experiment",
+            "params": {
+                "trainingData": "select {x, y} as features, label as label from boolean",
+                "experimentName": "bool_exp",
+                "keepArtifacts": True,
+                "modelFileUrlPattern": "file://temp/mldb-256_bool.cls",
+                "algorithm": "glz",
+                "configuration": {
+                    "glz": {
+                        "type": "glz",
+                        "verbosity": 3,
+                        "normalize": True,
+                        "link_function": "logit",
+                        "ridge_regression": True
+                    },
+                    "dt": {
+                        "type": "decision_tree",
+                        "max_depth": 8,
+                        "verbosity": 3,
+                        "update_alg": "prob"
+                    }
+                },
+                "datasetFolds": [
+                    {
+                        "training_where": "rowHash() % 2 = 1",
+                        "testing_where": "rowHash() % 2 = 0",
+                    }],
+                "mode": "boolean",
+                "outputAccuracyDataset": True,
+                "runOnCreation": True
+            }
+        })
+
+        jsRez = rez.json()
+        self.assertEqual(jsRez["status"]["firstRun"]["status"]["folds"][0]["resultsTest"]["auc"], 1)
+
+
+    def test_bool_weighted_cls_works(self):
+        rez = mldb.put("/v1/procedures/bool_cls_weighted", {
+            "type": "classifier.experiment",
+            "params": {
+                "trainingData": "select {x, y} as features, label as label, weight as weight from boolean",
+                "experimentName": "bool_exp",
+                "keepArtifacts": True,
+                "modelFileUrlPattern": "file://temp/mldb-256_bool.cls",
+                "algorithm": "glz",
+                "configuration": {
+                    "glz": {
+                        "type": "glz",
+                        "verbosity": 3,
+                        "normalize": True,
+                        "link_function": "logit",
+                        "ridge_regression": True
+                    },
+                    "dt": {
+                        "type": "decision_tree",
+                        "max_depth": 8,
+                        "verbosity": 3,
+                        "update_alg": "prob"
+                    }
+                },
+                "datasetFolds": [
+                    {
+                        "training_where": "rowHash() % 2 = 1",
+                        "testing_where": "rowHash() % 2 = 0",
+                    }],
+                "mode": "boolean",
+                "outputAccuracyDataset": True,
+                "runOnCreation": True
+            }
+        })
+
+        jsRez = rez.json()
+        self.assertEqual(jsRez["status"]["firstRun"]["status"]["folds"][0]["resultsTest"]["auc"], 1)
+
+        # train again with a dt
+        rez = mldb.post("/v1/procedures/bool_cls_weighted/runs", {
+            "params": {
+                "algorithm": "dt"
+            }
+        })
+        jsRez = rez.json()
+        self.assertGreater(jsRez["status"]["folds"][0]["resultsTest"]["auc"], 0.65)
+    
 
     def test_toy_categorical_eval_works(self):
 
@@ -164,8 +280,8 @@ class Mldb256Test(MldbUnitTest):
 
         jsRez = rez.json()
         mldb.log(jsRez)
-        mldb.log(jsRez["status"]["firstRun"]["status"]["folds"][0]["results"]["confusionMatrix"])
-        self.assertEqual(jsRez["status"]["firstRun"]["status"]["folds"][0]["results"]["confusionMatrix"],
+        mldb.log(jsRez["status"]["firstRun"]["status"]["folds"][0]["resultsTest"]["confusionMatrix"])
+        self.assertEqual(jsRez["status"]["firstRun"]["status"]["folds"][0]["resultsTest"]["confusionMatrix"],
                 [{
                     "count": 3,
                     "actual": "x",
@@ -206,9 +322,10 @@ class Mldb256Test(MldbUnitTest):
 
         quart_rez = mldb.query("""select abs((label-score)/label) as prnct_error, label, score 
                                   from toy_regression order by prnct_error ASC""")
+        mldb.log("------------------------ here")
         mldb.log(quart_rez)
-        self.assertAlmostEqual(jsRez["status"]["firstRun"]["status"]["quantileErrors"]["0.5"], quart_rez[2][1])
-        self.assertAlmostEqual(jsRez["status"]["firstRun"]["status"]["quantileErrors"]["0.9"], quart_rez[3][1])
+        self.assertAlmostEqual(jsRez["status"]["firstRun"]["status"]["quantileErrors"]["0.5"], quart_rez[2][2])
+        self.assertAlmostEqual(jsRez["status"]["firstRun"]["status"]["quantileErrors"]["0.9"], quart_rez[3][2])
 
         # Check the accuracy dataset
         self.assertEqual(len(mldb.query("select * from toy_reg_output")), 5)
@@ -247,7 +364,7 @@ class Mldb256Test(MldbUnitTest):
 
         jsRez = rez.json()
         mldb.log(jsRez)
-        self.assertGreater(jsRez["status"]["firstRun"]["status"]["aggregated"]["r2"]["mean"], 0.98)
+        self.assertGreater(jsRez["status"]["firstRun"]["status"]["aggregatedTest"]["r2"]["mean"], 0.94)
 
 
 mldb.run_tests()
