@@ -53,6 +53,8 @@ function mldb_defer() {
         }
 
         $.getJSON("{{HTTP_BASE_URL}}/resources/expiration.json", function(data) {
+            if(!data.expiration) return;
+            
             var exp = Date.parse(data.expiration);
             var countDownSpan = $("<div>", {id:"countdown", 
                 class: "notification_widget btn btn-xs navbar-btn pull-right"});
