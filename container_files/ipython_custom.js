@@ -41,9 +41,19 @@ function mldb_defer() {
             );
         })
 
-        if(window.location.pathname.endsWith("tree")){
+        if(window.location.pathname.endsWith("tree") &&
+                document.cookie.indexOf("hidevideo=1") == -1){
             $("#tab_content").before(
-                $("<div align=center>").append(
+                $("<div>", {
+                        "id": "introvideo", "class":"panel panel-default",
+                        style:"width: 560px; margin: 5px auto; text-align: center;"
+                    })
+                .append(
+                    $('<button type="button" class="close">&times;</button>')
+                        .on("click", function(){
+                            $("#introvideo").hide();
+                            document.cookie = "hidevideo=1;";
+                        }),
                     $('<iframe width="530" height="300" '+
                         'style="border: 1px solid grey; margin: 10px;" '+
                         'src="https://www.youtube.com/embed/YR9tfxA0kH8" '+
