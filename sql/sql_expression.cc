@@ -117,10 +117,16 @@ ExpressionValue
 BoundSqlExpression::
 constantValue() const
 {
-    if (!metadata.isConstant)
-        throw HttpReturnException(400, "Attempt to extract constant from non-constant expression",
-                                  "surface", expr->surface,
-                                  "ast", expr->print());
+    if (!metadata.isConstant) {
+        cerr << "surface = " << expr->surface << endl;
+        throw HttpReturnException
+            (400, "Attempt to extract constant from non-constant expression.  "
+             "One of the elements of the expression requires a constant "
+             "value, for example the text of a regular expression, but was "
+             "actually a non-constant expression: '" + expr->surface + "'",
+             "surface", expr->surface,
+             "ast", expr->print());
+    }
 
     // This is only OK to do here because by setting isConstant in its metadata,
     // the expression is guaranteeing it will never access its context.
