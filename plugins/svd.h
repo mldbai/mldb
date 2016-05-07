@@ -39,7 +39,7 @@ struct SvdConfig : ProcedureConfig {
     static constexpr char const * defaultOutputDatasetType = "embedding";
 
     Url modelFileUrl;
-    std::string outputColumn;
+    PathElement outputColumn;
     int numSingularValues;
     int numDenseBasisVectors;
     Utf8String functionName;

@@ -86,13 +86,15 @@ SvdConfigDescription()
     addField("numDenseBasisVectors", &SvdConfig::numDenseBasisVectors,
              "Maximum number of dense basis vectors to use for the SVD.  "
              "This parameter gives the number of dimensions into which the "
-             "project is made.  The runtime goes up with the square of this parameter, "
+             "projection is made.  Higher values may allow the SVD to model "
+             "slightly more diverse behaviour.  "
+             "The runtime goes up with the square of this parameter, "
              "in other words 10 times as many is 100 times as long to run.",
              2000);
     addField("outputColumn", &SvdConfig::outputColumn,
              "Base name of the column that will be written by the SVD.  "
-             "A number will be appended from 0 to numSingularValues.",
-             string("svd"));
+             "It will be an embedding with numSingularValues elements.",
+             PathElement("svd"));
     addField("modelFileUrl", &SvdConfig::modelFileUrl,
              "URL where the model file (with extension '.svd') should be saved. "
              "This file can be loaded by the ![](%%doclink svd.embedRow function). "
@@ -679,6 +681,12 @@ run(const ProcedureRunConfig & run,
 {
     auto runProcConf = applyRunConfOverProcConf(svdConfig, run);
 
+    if (runProcConf.outputColumn.empty()) {
+        throw HttpReturnException
+            (400, "SVD training procedure requires a non-empty output column name",
+             "config", runProcConf);
+    }
+
     auto onProgress2 = [&] (const Json::Value & progress)
         {
             Json::Value value;
@@ -747,13 +755,7 @@ run(const ProcedureRunConfig & run,
         jsonEncodeToStream(allSvd, stream);
     }
 
-    int numSingularValues = allSvd.numSingularValues();
-
-    // Column names for the SVD output
-    std::vector<ColumnName> columnNames;
-    for (unsigned i = 0;  i < numSingularValues;  ++i) {
-        columnNames.push_back(ColumnName(runProcConf.outputColumn + ML::format("%04d", i)));
-    }
+    Date ts;  // TODO: actually fill this in...
 
     // Save the column embedding to a dataset if we ask for it
     if (runProcConf.columnOutput) {
@@ -772,28 +774,50 @@ run(const ProcedureRunConfig & run,
                     cerr << "saving column " << i << " of " << allSvd.columns.size()
                          << endl;
 
-                Utf8String name = col.columnName.toUtf8String();
+                ColumnName outputName = col.columnName;
+
                 if (col.op == COL_EQUAL) {
-                    name += "|" + col.cellValue.toUtf8String();
-                }
-
-
-                try {
-
-                    //cerr << "saving column named " << col.columnName << " as " << i << " of "
-                    //     << allSvd.columns.size() << endl;
-                    //cerr << col.singularVector << endl;
-
-                    std::vector<std::tuple<ColumnName, CellValue, Date> > cols;
-                    for (unsigned i = 0;  i < col.singularVector.size();  ++i) {
-                        cols.emplace_back(columnNames[i], col.singularVector[i], Date());
+                    if (col.cellValue.empty()) {
+                        outputName = outputName + PathElement("isNull");
                     }
-
-                    output->recordRow(ColumnName(name), cols);
+                    else if (col.cellValue.isNumber()) {
+                        outputName = outputName + PathElement("numberEquals")
+                            + col.cellValue.toUtf8String();
+                    }
+                    else if (col.cellValue.isString()) {
+                        if (col.cellValue.toUtf8String().empty()) {
+                            outputName = outputName + PathElement("stringEmpty");
+                        }
+                        else {
+                            outputName = outputName + PathElement("stringEquals")
+                                + col.cellValue.toUtf8String();
+                        }
+                    }
+#if 0
+                    else if (col.cellValue.isTimestamp()) {
+                    }
+                    else if (col.cellValue.isTimeinterval()) {
+                    }
+                    else if (col.cellValue.isBlob()) {
+                    }
+#endif
+                    else {
+                        throw HttpReturnException
+                            (400,"Can't apply an SVD to a column that's not "
+                             "numeric or categorical (string)",
+                             "columnValue", col.cellValue,
+                             "columnName", col.columnName);
+                    }
+                }
+                try {
+                    StructValue cols;
+                    cols.emplace_back(runProcConf.outputColumn,
+                                      ExpressionValue(col.singularVector, ts));
+                    output->recordRowExpr(outputName, std::move(cols));
                 } catch (const std::exception & exc) {
-                    rethrowHttpException(-1, "Error adding SVD column '" + name + "' to output: "
+                    rethrowHttpException(-1, "Error adding SVD column '" + outputName.toUtf8String() + "' to output: "
                                          + exc.what(),
-                                         "columnName", name);
+                                         "columnName", outputName);
                 }
             };
 
@@ -856,12 +880,10 @@ run(const ProcedureRunConfig & run,
                 }
 #endif
 
-                std::vector<std::tuple<ColumnName, CellValue, Date> > cols;
-                for (unsigned i = 0;  i < numSingularValues;  ++i) {
-                    cols.emplace_back(columnNames[i], embedding[i], Date());
-                }
-
-                output->recordRow(row.rowName, cols);
+                StructValue cols;
+                cols.emplace_back(runProcConf.outputColumn,
+                                  ExpressionValue(std::move(embedding), ts));
+                output->recordRowExpr(row.rowName, std::move(cols));
             };
 
         parallelMap(0, rows.size(), doRow);
