@@ -40,13 +40,6 @@ BOOST_AUTO_TEST_CASE(test_coord_constructor)
 
     vector<PathElement> coords2;
     coords2.push_back(coord1);
-
-    // Make sure we can't create a Path with an empty element
-    {
-        JML_TRACE_EXCEPTIONS(false);
-        BOOST_CHECK_THROW(auto coord = Path(coords2.begin(), coords2.end()),
-                          std::exception);
-    }
 }
 
 BOOST_AUTO_TEST_CASE(test_coord_printing)
@@ -91,11 +84,9 @@ BOOST_AUTO_TEST_CASE(test_coord_parsing)
 
     {
         JML_TRACE_EXCEPTIONS(false);
-        BOOST_CHECK_THROW(PathElement::parse(""), ML::Exception);
         BOOST_CHECK_THROW(PathElement::parse("."), ML::Exception);
         BOOST_CHECK_THROW(PathElement::parse("\n"), ML::Exception);
         BOOST_CHECK_THROW(PathElement::parse("\""), ML::Exception);
-        BOOST_CHECK_THROW(PathElement::parse("\"\""), ML::Exception);
         BOOST_CHECK_THROW(PathElement::parse(".."), ML::Exception);
         BOOST_CHECK_THROW(PathElement::parse("\"x."), ML::Exception);
         BOOST_CHECK_THROW(PathElement::parse("\"x."), ML::Exception);
@@ -138,13 +129,34 @@ BOOST_AUTO_TEST_CASE(test_coords_parsing)
     }
 
     {
+        Path coords1 = Path::parse("..");
+        BOOST_CHECK_EQUAL(coords1.size(), 3);
+        BOOST_CHECK_EQUAL(coords1.toUtf8String(), "\"\".\"\".\"\"");
+    }
+
+    {
+        Path coords1 = Path::parse("\"\".\"\".\"\"");
+        BOOST_CHECK_EQUAL(coords1.size(), 3);
+        BOOST_CHECK_EQUAL(coords1.toUtf8String(), "\"\".\"\".\"\"");
+    }
+
+    {
+        Path coords1 = Path::parse(".");
+        BOOST_CHECK_EQUAL(coords1.size(), 2);
+        BOOST_CHECK_EQUAL(coords1.toUtf8String(), "\"\".\"\"");
+    }
+
+    {
+        Path coords1 = Path::parse("\"\".\"\"");
+        BOOST_CHECK_EQUAL(coords1.size(), 2);
+        BOOST_CHECK_EQUAL(coords1.toUtf8String(), "\"\".\"\"");
+    }
+
+    {
         JML_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(Path::parse(""), ML::Exception);
-        BOOST_CHECK_THROW(Path::parse("."), ML::Exception);
         BOOST_CHECK_THROW(Path::parse("\n"), ML::Exception);
         BOOST_CHECK_THROW(Path::parse("\""), ML::Exception);
-        BOOST_CHECK_THROW(Path::parse("\"\""), ML::Exception);
-        BOOST_CHECK_THROW(Path::parse(".."), ML::Exception);
         BOOST_CHECK_THROW(Path::parse("\"x."), ML::Exception);
         BOOST_CHECK_THROW(Path::parse("\"x."), ML::Exception);
         BOOST_CHECK_THROW(Path::parse("x\"\""), ML::Exception);
