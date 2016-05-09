@@ -601,6 +601,129 @@ ridge_regression(const boost::multi_array<double, 2> & A,
 }
 
 template<class Float>
+distribution<Float>
+lasso_regression_impl(const boost::multi_array<Float, 2> & A,
+                      const distribution<Float> & b,
+                      float lambda)
+{ 
+    cerr << A.shape()[0] << " " << A.shape()[1] << " " << b.size() << endl;
+
+    //1st step, run a ridge regression
+    distribution<Float> x = ridge_regression_impl(A, b, lambda);
+
+    //test
+    lambda = 1.0f;
+
+    //2nd step, precompute
+
+    int n = A.shape()[0];
+    int p = A.shape()[1];
+    float halflambda = lambda / 2.0f;
+
+    distribution<Float> AtY(p);
+    boost::multi_array<Float, 2> XtX(boost::extents[p][p]);
+    //distribution<Float> XtX(n);
+
+    for (int j = 0; j < p; ++j) {
+        Float dotprod = 0.0f;
+        for (int i = 0; i < n; ++i) {
+            dotprod += A[i][j] * b[i];
+        }
+        AtY[j] = dotprod;
+
+        //each column dot each column
+        for (int i = 0; i < p; ++i) { //todo: triangular matrix?
+            Float dotprod2 = 0.0f;
+            for (int r = 0; r < n; ++r) {
+                dotprod2 += A[r][i]*A[r][j];
+            }
+            XtX[j][i] = dotprod2;
+        }
+    }
+
+    Float totallAbs = 0.0f;
+    do {
+        totallAbs = 0.0f;
+        Float convergence = 0.0f;
+        bool kept = false;
+        distribution<Float> oldX(p);
+        oldX = x;
+
+        for (int j = 0; j < p; ++j) { //for each column / variable
+
+            cerr << "column " << j << endl;
+            cerr << "x[j] = " << x[j] << endl;
+
+            Float rho = 0.0f;
+
+            for (int i = 0; i < n; ++i) { //sum over i
+                Float sum = 0.0f;
+                for (int k = 0; k < p; ++k){
+                    if (k != j)
+                        sum += A[i][k]*x[k];
+                }
+
+                rho += A[i][j]*(b[i] - sum);
+            }
+
+            cerr << "rho " << rho << endl;
+
+            if (rho > halflambda) {
+                cerr << "rho bigger than halflambda" << endl;
+                x[j] = (rho - halflambda) / (XtX[j][j]);
+                kept = true;
+            }
+            else if (rho < -halflambda){
+                cerr << "rho smaller than -halflambda" << endl;
+                cerr << "normalization factor: " << XtX[j][j] << endl;
+                x[j] = (rho + halflambda) / (XtX[j][j]);
+                kept = true;
+            }
+            else {
+                cerr << "rho null" << endl;
+                x[j] = 0;
+            }
+
+            cerr << "delta: " << x[j] - oldX[j] << endl;
+            totallAbs += fabs(x[j]);
+            convergence += fabs(x[j] - oldX[j]);
+        }
+        if (kept) {
+                cerr << "totallAbs " << totallAbs << endl;
+                if (totallAbs < lambda)
+                    break;
+                cerr << "totall convergence " << convergence << endl;
+                if (convergence < 1e-5)
+                    break;
+            }
+        else {
+            x = oldX;
+            break;
+        }
+    } while (true); //convergence*/
+
+    return x;
+}
+
+distribution<float>
+lasso_regression(const boost::multi_array<float, 2> & A,
+                 const distribution<float> & b,
+                 float lambda)
+{
+    return lasso_regression_impl(A, b, lambda);
+}
+
+distribution<double>
+lasso_regression(const boost::multi_array<double, 2> & A,
+                 const distribution<double> & b,
+                 float lambda)
+{
+    return lasso_regression_impl(A, b, lambda);
+}
+
+//***********************************************
+
+template<class Float>
 void doWeightedSquareRow(const boost::multi_array<Float, 2> & XT,
                          const distribution<Float> & d,
                          boost::multi_array<Float, 2> & result,
