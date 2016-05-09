@@ -256,7 +256,7 @@ take()
     //cerr << "got row " << current[currentDone].rowName << " "
     //     << jsonEncodeStr(current[currentDone].columns) << endl;
 
-    result->values.emplace_back(current[currentDone].rowName.toUtf8String(),
+    result->values.emplace_back(current[currentDone].rowName.toSimpleName(),
                                 Date::notADate());
     result->values.emplace_back(std::move(current[currentDone].columns));
     ++currentDone;
@@ -779,7 +779,6 @@ take()
         || parent->joinQualification_ == JOIN_FULL;
 
     while (l && r) {
-
         ExpressionValue & lEmbedding = l->values.back();
         ExpressionValue & rEmbedding = r->values.back();
 
@@ -804,21 +803,7 @@ take()
             }
 
             return false;
-        };
-
-        if (outerLeft && checkOuterWhere(l, left, lField, rEmbedding))
-        {
-            auto result = std::move(r);                
-            r = right->take();
-            return std::move(result);
-        }
-
-        if (outerRight && checkOuterWhere(r, right, rField, lEmbedding))
-        {
-            auto result = std::move(r);                
-            r = right->take();
-            return std::move(result);
-        }
+        };    
 
         if (lField == rField) {
             // Got a row!
@@ -852,13 +837,29 @@ take()
             return std::move(result);
         }
         else if (lField < rField) {
+            // loop until left field value is equal to the right field value
+            // returning nulls if left outer
             do {
-                l = this->left->take();     
+                if (outerLeft && checkOuterWhere(l, left, lField, rEmbedding)) {
+                    auto result = std::move(l);                
+                    l = left->take();
+                    return std::move(result);
+                } else {
+                    l = this->left->take();
+                }     
             } while (l && l->values.back() < rField);
         }
         else {
+            // loop until right field value is equal to the left field value
+            // returning nulls if right outer
             do {
-                r = this->right->take();
+                if (outerRight && checkOuterWhere(r, right, rField, lEmbedding)) {
+                    auto result = std::move(r);                
+                    r = right->take();
+                    return std::move(result);
+                } else {
+                    r = this->right->take();
+                }
             } while (r && r->values.back() < lField);
         }
     }
@@ -870,7 +871,7 @@ take()
         l->values.pop_back();
         l->values.emplace_back(ExpressionValue("", Date::notADate()));
         l->values.emplace_back(ExpressionValue("", Date::notADate()));
-        auto result = std::move(l);                
+        auto result = std::move(l);
         l = left->take();
         return result;
     }
@@ -881,11 +882,10 @@ take()
         r->values.insert(r->values.begin(), ExpressionValue("", Date::notADate()));
         r->values.insert(r->values.begin(), ExpressionValue("", Date::notADate()));
         auto result = std::move(r);
-
         r = right->take();
         return result;
-    }   
-            
+    }
+
     // Nothing more found
     return nullptr;
 }

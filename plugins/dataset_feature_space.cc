@@ -162,8 +162,6 @@ encodeFeature(ColumnHash column, const CellValue & value,
         throw ML::Exception("Encoding unknown column");
     }
 
-    ML::Feature f = getFeature(column);
-    
     fset.emplace_back(getFeature(column),
                       encodeValue(value, it->second.columnName,
                                   it->second.info));

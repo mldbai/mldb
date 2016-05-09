@@ -20,6 +20,8 @@ enum RankingType {
 DECLARE_ENUM_DESCRIPTION(RankingType);
 
 struct RankingProcedureConfig : ProcedureConfig {
+    static constexpr const char * name = "ranking";
+
     RankingProcedureConfig();
 
     InputQuery inputData;
@@ -48,4 +50,3 @@ struct RankingProcedure: public Procedure {
 
 } // namespace MLDB
 } // namespace Datacratic
-

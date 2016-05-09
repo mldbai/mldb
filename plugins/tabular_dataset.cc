@@ -209,7 +209,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     TabularDatasetConfig config;
 
     // Return the value of the column for all rows
-    virtual MatrixColumn getColumn(const ColumnName & column) const
+    virtual MatrixColumn getColumn(const ColumnName & column) const override
     {
         auto it = columnIndex.find(column.newHash());
         if (it == columnIndex.end()) {
@@ -230,7 +230,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     }
 
     virtual std::vector<CellValue>
-    getColumnDense(const ColumnName & column) const
+    getColumnDense(const ColumnName & column) const override
     {
         auto it = columnIndex.find(column.newHash());
         if (it == columnIndex.end()) {
@@ -310,17 +310,17 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         return std::make_tuple(std::move(buckets), std::move(descriptions));
     }
 
-    virtual uint64_t getColumnRowCount(const ColumnName & column) const
+    virtual uint64_t getColumnRowCount(const ColumnName & column) const override
     {
         return rowCount;
     }
 
-    virtual bool knownColumn(const ColumnName & column) const
+    virtual bool knownColumn(const ColumnName & column) const override
     {
         return columnIndex.count(column.newHash());
     }
 
-    virtual std::vector<ColumnName> getColumnNames() const
+    virtual std::vector<ColumnName> getColumnNames() const override
     {
         std::vector<ColumnName> result;
         result.reserve(columns.size());
@@ -366,7 +366,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     }
 
     virtual std::vector<RowName>
-    getRowNames(ssize_t start = 0, ssize_t limit = -1) const
+    getRowNames(ssize_t start = 0, ssize_t limit = -1) const override
     {
         std::vector<RowName> result;
         result.reserve(rowCount);
@@ -384,7 +384,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     }
 
     virtual std::vector<RowHash>
-    getRowHashes(ssize_t start = 0, ssize_t limit = -1) const
+    getRowHashes(ssize_t start = 0, ssize_t limit = -1) const override
     {
         std::vector<RowHash> result;
 
@@ -419,7 +419,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         return result;
     }
 
-    virtual bool knownRow(const RowName & rowName) const
+    virtual bool knownRow(const RowName & rowName) const override
     {
         int chunkIndex;
         int rowIndex;
@@ -428,7 +428,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         return chunkIndex >= 0;
     }
 
-    virtual MatrixNamedRow getRow(const RowName & rowName) const
+    virtual MatrixNamedRow getRow(const RowName & rowName) const override
     {
         MatrixNamedRow result;
         result.rowHash = rowName;
@@ -448,7 +448,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         return result;
     }
 
-    virtual RowName getRowName(const RowHash & rowHash) const
+    virtual RowName getRowName(const RowHash & rowHash) const override
     {
         auto it = rowIndex.find(rowHash);
         if (it == rowIndex.end()) {
@@ -458,7 +458,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         return chunks.at(it->second.first).rowNames[it->second.second];
     }
 
-    virtual ColumnName getColumnName(ColumnHash column) const
+    virtual ColumnName getColumnName(ColumnHash column) const override
     {
         auto it = columnHashIndex.find(column);
         if (it == columnHashIndex.end())
@@ -469,7 +469,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     }
 
     virtual const ColumnStats &
-    getColumnStats(const ColumnName & column, ColumnStats & stats) const
+    getColumnStats(const ColumnName & column, ColumnStats & stats) const override
     {
         // WARNING: we don't calculate the correct value here; we don't
         // correctly record the row counts.  We should probably remove it
@@ -504,12 +504,12 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         return stats;
     }
 
-    virtual size_t getRowCount() const
+    virtual size_t getRowCount() const override
     {
         return rowCount;
     }
 
-    virtual size_t getColumnCount() const
+    virtual size_t getColumnCount() const override
     {
         return columns.size();
     }

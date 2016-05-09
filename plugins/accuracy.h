@@ -25,6 +25,8 @@ class SqlExpression;
 
 
 struct AccuracyConfig : public ProcedureConfig {
+    static constexpr const char * name = "classifier.test";
+
     AccuracyConfig()
           : mode(CM_BOOLEAN)
     {
@@ -55,12 +57,12 @@ struct AccuracyProcedure: public Procedure {
     AccuracyProcedure(MldbServer * owner,
                      PolyConfig config,
                      const std::function<bool (const Json::Value &)> & onProgress);
-    
+
     virtual RunOutput run(const ProcedureRunConfig & run,
                           const std::function<bool (const Json::Value &)> & onProgress) const;
-    
+
     virtual Any getStatus() const;
-    
+
     AccuracyConfig accuracyConfig;
 };
 

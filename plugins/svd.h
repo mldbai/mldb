@@ -24,6 +24,8 @@ struct SelectExpression;
 struct SqlExpression;
 
 struct SvdConfig : ProcedureConfig {
+    static constexpr char const * name = "svd.train";
+
     SvdConfig()
         : outputColumn("svd"),
           numSingularValues(100),
@@ -102,7 +104,7 @@ struct SvdBasis {
     doLeftSingularVector(const std::vector<Tuple> & row,
                          int maxValues,
                          bool acceptUnknownValues) const;
-    
+
     /** Check the validity of the data structure after loading. */
     void validate();
 };

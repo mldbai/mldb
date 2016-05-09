@@ -113,11 +113,11 @@ struct AnnotatedJoinCondition {
     /// Original ON clause
     std::shared_ptr<SqlExpression> on;
 
-    /// Original WHERE clause
+    /// Original WHERE clause as in 
+    /// SELECT * FROM t1 JOIN t2 ON t1.c = t2.c WHERE c > 0
     std::shared_ptr<SqlExpression> where;
 
-    // Analyze the ON clause.  We look for any combination of AND
-    // clauses, and get the entire list no matter how nested.
+    /// Holds all the AND clauses in the ON and the WHERE statements
     std::vector<std::shared_ptr<SqlExpression> > andClauses;
 
     /// Style of join

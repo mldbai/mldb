@@ -711,7 +711,6 @@ getStatus() const
 
 static RegisterProcedureType<TransformDataset, TransformDatasetConfig>
 regTransformDataset(builtinPackage(),
-                    "transform",
                     "Apply an SQL expression over a dataset to transform into another dataset",
                     "procedures/TransformDataset.md.html");
 

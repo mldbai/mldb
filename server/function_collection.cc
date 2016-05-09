@@ -25,12 +25,10 @@ namespace Datacratic {
 namespace MLDB {
 
 std::shared_ptr<FunctionCollection>
-createFunctionCollection(MldbServer * server, RestRouteManager & routeManager,
-                       std::shared_ptr<CollectionConfigStore> configStore)
+createFunctionCollection(MldbServer * server, RestRouteManager & routeManager)
 {
     return createCollection<FunctionCollection>(2, "function", "functions",
-                                              server, routeManager,
-                                              configStore);
+                                                server, routeManager);
 }
 
 std::shared_ptr<Function>
@@ -86,7 +84,6 @@ call(const ExpressionValue & input) const
 
     ExpressionValue inputContext;
 
-    // 
     auto onColumn = [&] (const PathElement & columnName,
                          const Path & prefix,
                          const ExpressionValue & val)
@@ -227,7 +224,7 @@ initRoutes(RouteManager & manager)
                   RestParamJsonDefault<std::vector<Utf8String> >
                   ("keepValues", "Keep only these values for the output", {}),
                   PassConnectionId());
-    
+
     addRouteSyncJsonReturn(*manager.valueNode, "/info", { "GET" },
                            "Return information about the values and metadata of the function",
                            "Function information structure",
@@ -264,7 +261,7 @@ initRoutes(RouteManager & manager)
 
     RestRequestRouter & subRouter
         = manager.valueNode->addSubRouter("/routes", "Function type-specific routes");
-    
+
     subRouter.rootHandler = handlePluginRoute;
 }
 

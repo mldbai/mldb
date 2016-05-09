@@ -209,8 +209,14 @@ struct JoinedDataset::Itl
                         leftNameUtf8 += "-" + res->values.at(i).toUtf8String();
                     }                        
 
-                    RowName leftName(leftNameUtf8);
-                    RowName rightName(res->values.at(i).toUtf8String());
+                    RowName leftName;
+                    if (leftNameUtf8 != "")
+                        leftName = RowName(leftNameUtf8);
+
+                    Utf8String rightNameUtf8 = res->values.at(i).toUtf8String();
+                    RowName rightName;
+                    if (rightNameUtf8 != "")
+                        rightName = RowName(rightNameUtf8);
 
                     recordJoinRow(leftName, leftName, rightName, rightName);
 
@@ -296,7 +302,7 @@ struct JoinedDataset::Itl
 
         if (debug)
             cerr << "added entry number " << rows.size()
-                 << "named " << "("<< rowName <<")"
+                 << " named " << "("<< rowName <<")"
                  << endl;
 
         rows.emplace_back(std::move(entry));

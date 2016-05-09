@@ -309,7 +309,7 @@ AnnotatedJoinCondition(std::shared_ptr<TableExpression> leftTable,
         analyze(where);
 
     if (debug) {
-        cerr << "got " << andClauses.size() << " and clauses" << endl;
+        cerr << "got " << andClauses.size() << " AND clauses" << endl;
         cerr << jsonEncode(andClauses) << endl;
     }
 

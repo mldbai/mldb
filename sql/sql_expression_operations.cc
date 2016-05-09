@@ -814,6 +814,7 @@ struct BinaryOpHelper {
                                 std::placeholders::_1,
                                 std::placeholders::_2,
                                 GET_LATEST);
+        result.expr = expr->shared_from_this();
 
         return result;
     }

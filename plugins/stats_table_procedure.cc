@@ -98,7 +98,7 @@ increment(const CellValue & val, const vector<uint> & outcomes) {
     return it->second;
 }
 
-const StatsTable::BucketCounts & 
+const StatsTable::BucketCounts &
 StatsTable::
 getCounts(const CellValue & val) const
 {
@@ -167,7 +167,7 @@ StatsTableProcedureConfigDescription()
              "List of expressions to generate the outcomes. Each can be any expression "
              "involving the columns in the dataset. The type of the outcomes "
              "must be a boolean (0 or 1)");
-    addField("statsTableFileUrl", &StatsTableProcedureConfig::statsTableFileUrl,
+    addField("statsTableFileUrl", &StatsTableProcedureConfig::modelFileUrl,
              "URL where the model file (with extension '.st') should be saved. "
              "This file can be loaded by the ![](%%doclink statsTable.getCounts function). "
              "This parameter is optional unless the `functionName` parameter is used.");
@@ -177,9 +177,9 @@ StatsTableProcedureConfigDescription()
              "this parameter, the `statsTableFileUrl` must also be provided.");
     addParent<ProcedureConfig>();
 
-    onPostValidate = validate<StatsTableProcedureConfig,
-                              InputQuery,
-                              MustContainFrom>(&StatsTableProcedureConfig::trainingData, "statsTable.train");
+    onPostValidate = chain(validateQuery(&StatsTableProcedureConfig::trainingData,
+                                         MustContainFrom()),
+                           validateFunction<StatsTableProcedureConfig>());
 }
 
 
@@ -215,7 +215,7 @@ run(const ProcedureRunConfig & run,
 
     SqlExpressionMldbScope context(server);
     auto boundDataset = runProcConf.trainingData.stm->from->bind(context);
-    
+
     vector<string> outcome_names;
     for(const pair<string, std::shared_ptr<SqlExpression>> & lbl : runProcConf.outcomes)
         outcome_names.push_back(lbl.first);
@@ -265,10 +265,10 @@ run(const ProcedureRunConfig & run,
                 CellValue outcome = extraVals.at(lbl_idx).getAtom();
                 encodedLabels.push_back( !outcome.empty() && outcome.isTrue() );
             }
-  
+
             map<ColumnName, size_t> column_idx;
             for(int i=0; i<row.columns.size(); i++) {
-                column_idx.insert(make_pair(get<0>(row.columns[i]), i)); 
+                column_idx.insert(make_pair(get<0>(row.columns[i]), i));
             }
 
             std::vector<std::tuple<ColumnName, CellValue, Date> > output_cols;
@@ -331,11 +331,11 @@ run(const ProcedureRunConfig & run,
         extra.push_back(lbl.second);
 
     iterateDataset(runProcConf.trainingData.stm->select,
-                   *boundDataset.dataset, boundDataset.asName, 
+                   *boundDataset.dataset, boundDataset.asName,
                    runProcConf.trainingData.stm->when,
                    *runProcConf.trainingData.stm->where,
                    extra,
-                   {processor,false/*processInParallel*/}, 
+                   {processor,false/*processInParallel*/},
                    runProcConf.trainingData.stm->orderBy,
                    runProcConf.trainingData.stm->offset,
                    runProcConf.trainingData.stm->limit);
@@ -343,18 +343,18 @@ run(const ProcedureRunConfig & run,
     output->commit();
 
     // save if required
-    if(!runProcConf.statsTableFileUrl.empty()) {
-        filter_ostream stream(runProcConf.statsTableFileUrl.toString());
+    if(!runProcConf.modelFileUrl.empty()) {
+        filter_ostream stream(runProcConf.modelFileUrl.toString());
         ML::DB::Store_Writer store(stream);
         store << statsTables;
     }
-    
-    if(!runProcConf.statsTableFileUrl.empty() && !runProcConf.functionName.empty()) {
-        cerr << "Saving stats tables to " << runProcConf.statsTableFileUrl.toString() << endl;
+
+    if(!runProcConf.modelFileUrl.empty() && !runProcConf.functionName.empty()) {
+        cerr << "Saving stats tables to " << runProcConf.modelFileUrl.toString() << endl;
         PolyConfig clsFuncPC;
         clsFuncPC.type = "statsTable.getCounts";
         clsFuncPC.id = runProcConf.functionName;
-        clsFuncPC.params = StatsTableFunctionConfig(runProcConf.statsTableFileUrl);
+        clsFuncPC.params = StatsTableFunctionConfig(runProcConf.modelFileUrl);
 
         createFunction(server, clsFuncPC, onProgress, true);
     }
@@ -375,7 +375,7 @@ DEFINE_STRUCTURE_DESCRIPTION(StatsTableFunctionConfig);
 StatsTableFunctionConfigDescription::
 StatsTableFunctionConfigDescription()
 {
-    addField("statsTableFileUrl", &StatsTableFunctionConfig::statsTableFileUrl,
+    addField("statsTableFileUrl", &StatsTableFunctionConfig::modelFileUrl,
              "URL of the model file (with extension '.st') to load. "
              "This file is created by the ![](%%doclink statsTable.train procedure).");
 }
@@ -389,7 +389,7 @@ StatsTableFunction(MldbServer * owner,
     functionConfig = config.params.convert<StatsTableFunctionConfig>();
 
     // Load saved stats tables
-    filter_istream stream(functionConfig.statsTableFileUrl.toString());
+    filter_istream stream(functionConfig.modelFileUrl.toString());
     ML::DB::Store_Reader store(stream);
     store >> statsTables;
 }
@@ -492,7 +492,7 @@ StatsTableDerivedColumnsGeneratorProcedureConfigDescription()
     addParent<ProcedureConfig>();
     addField("functionId", &StatsTableDerivedColumnsGeneratorProcedureConfig::functionId,
             "ID to use for the instance of the ![](%%doclink sql.expression function) that will be created");
-    addField("statsTableFileUrl", &StatsTableDerivedColumnsGeneratorProcedureConfig::statsTableFileUrl,
+    addField("statsTableFileUrl", &StatsTableDerivedColumnsGeneratorProcedureConfig::modelFileUrl,
              "URL of the model file (with extension '.st') to load. "
              "This file is created by the ![](%%doclink statsTable.train procedure).");
     addField("expression", &StatsTableDerivedColumnsGeneratorProcedureConfig::expression,
@@ -525,9 +525,9 @@ run(const ProcedureRunConfig & run,
         applyRunConfOverProcConf(procConfig, run);
 
     // Load saved stats tables
-    filter_istream stream(runProcConf.statsTableFileUrl.toString());
+    filter_istream stream(runProcConf.modelFileUrl.toString());
     ML::DB::Store_Reader store(stream);
-    
+
     StatsTablesMap statsTables;
     store >> statsTables;
 
@@ -609,7 +609,7 @@ BagOfWordsStatsTableProcedureConfigDescription()
              "List of expressions to generate the outcomes. Each can be any expression "
              "involving the columns in the dataset. The type of the outcomes "
              "must be a boolean (0 or 1)");
-    addField("statsTableFileUrl", &BagOfWordsStatsTableProcedureConfig::statsTableFileUrl,
+    addField("statsTableFileUrl", &BagOfWordsStatsTableProcedureConfig::modelFileUrl,
              "URL where the model file (with extension '.st') should be saved. "
              "This file can be loaded by the ![](%%doclink statsTable.bagOfWords.posneg function). "
              "This parameter is optional unless the `functionName` parameter is used.");
@@ -627,10 +627,8 @@ BagOfWordsStatsTableProcedureConfigDescription()
             "be created. This parameter represents the `outcomeToUse` field of the ![](%%doclink statsTable.bagOfWords.posneg function).");
     addParent<ProcedureConfig>();
 
-    onPostValidate = validate<BagOfWordsStatsTableProcedureConfig,
-                              InputQuery,
-                              MustContainFrom>(&BagOfWordsStatsTableProcedureConfig::trainingData,
-                                               "statsTable.bagOfWords.train");
+    onPostValidate = validateQuery(&BagOfWordsStatsTableProcedureConfig::trainingData,
+                                   MustContainFrom());
 }
 
 /*****************************************************************************/
@@ -669,7 +667,7 @@ run(const ProcedureRunConfig & run,
 
     SqlExpressionMldbScope context(server);
     auto boundDataset = runProcConf.trainingData.stm->from->bind(context);
-    
+
     vector<string> outcome_names;
     for(const pair<string, std::shared_ptr<SqlExpression>> & lbl : runProcConf.outcomes)
         outcome_names.push_back(lbl.first);
@@ -702,7 +700,7 @@ run(const ProcedureRunConfig & run,
                 CellValue outcome = extraVals.at(lbl_idx).getAtom();
                 encodedLabels.push_back( !outcome.empty() && outcome.isTrue() );
             }
-  
+
             for(const std::tuple<ColumnName, CellValue, Date> & col : row.columns) {
                 statsTable.increment(CellValue(get<0>(col).toUtf8String()), encodedLabels);
             }
@@ -717,11 +715,11 @@ run(const ProcedureRunConfig & run,
         extra.push_back(lbl.second);
 
     iterateDataset(runProcConf.trainingData.stm->select,
-                   *boundDataset.dataset, boundDataset.asName, 
-                   runProcConf.trainingData.stm->when, 
+                   *boundDataset.dataset, boundDataset.asName,
+                   runProcConf.trainingData.stm->when,
                    *runProcConf.trainingData.stm->where,
                    extra,
-                   {processor,false/*processInParallel*/}, 
+                   {processor,false/*processInParallel*/},
                    runProcConf.trainingData.stm->orderBy,
                    runProcConf.trainingData.stm->offset,
                    runProcConf.trainingData.stm->limit);
@@ -779,19 +777,19 @@ run(const ProcedureRunConfig & run,
 
 
     // save if required
-    if(!runProcConf.statsTableFileUrl.empty()) {
-        filter_ostream stream(runProcConf.statsTableFileUrl.toString());
+    if(!runProcConf.modelFileUrl.empty()) {
+        filter_ostream stream(runProcConf.modelFileUrl.toString());
         ML::DB::Store_Writer store(stream);
         store << statsTable;
     }
     
-    if(!runProcConf.statsTableFileUrl.empty() && !runProcConf.functionName.empty() &&
+    if(!runProcConf.modelFileUrl.empty() && !runProcConf.functionName.empty() &&
             !runProcConf.functionOutcomeToUse.empty()) {
-        cerr << "Saving stats tables to " << runProcConf.statsTableFileUrl.toString() << endl;
+        cerr << "Saving stats tables to " << runProcConf.modelFileUrl.toString() << endl;
         PolyConfig clsFuncPC;
         clsFuncPC.type = "statsTable.bagOfWords.posneg";
         clsFuncPC.id = runProcConf.functionName;
-        clsFuncPC.params = StatsTablePosNegFunctionConfig(runProcConf.statsTableFileUrl,
+        clsFuncPC.params = StatsTablePosNegFunctionConfig(runProcConf.modelFileUrl,
                                                           runProcConf.functionOutcomeToUse);
 
         createFunction(server, clsFuncPC, onProgress, true);
@@ -820,7 +818,7 @@ StatsTablePosNegFunctionConfigDescription()
     addField("outcomeToUse", &StatsTablePosNegFunctionConfig::outcomeToUse,
             "This must be one of the outcomes the stats "
             "table was trained with.");
-    addField("statsTableFileUrl", &StatsTablePosNegFunctionConfig::statsTableFileUrl,
+    addField("statsTableFileUrl", &StatsTablePosNegFunctionConfig::modelFileUrl,
              "URL of the model file (with extension '.st') to load. "
              "This file is created by the ![](%%doclink statsTable.bagOfWords.train procedure).");
 }
@@ -836,7 +834,7 @@ StatsTablePosNegFunction(MldbServer * owner,
     StatsTable statsTable;
 
     // Load saved stats tables
-    filter_istream stream(functionConfig.statsTableFileUrl.toString());
+    filter_istream stream(functionConfig.modelFileUrl.toString());
     ML::DB::Store_Reader store(stream);
     store >> statsTable;
 
@@ -851,7 +849,7 @@ StatsTablePosNegFunction(MldbServer * owner,
         throw HttpReturnException(400, "Outcome '"+functionConfig.outcomeToUse+
                                   "' not found in stats table!");
     }
-   
+
     // sort all the keys by their p(outcome)
     vector<pair<Utf8String, float>> accum;
     for(auto it = statsTable.counts.begin(); it!=statsTable.counts.end(); it++) {
@@ -880,7 +878,7 @@ StatsTablePosNegFunction(MldbServer * owner,
             auto & a = accum[i];
             p_outcomes.insert(make_pair(a.first, a.second));
         }
-        
+
         for(int i=0; i<functionConfig.numNeg; i++) {
             auto & a = accum[accum.size() - 1 - i];
             p_outcomes.insert(make_pair(a.first, a.second));
@@ -985,7 +983,6 @@ regClassifyFunction(builtinPackage(),
 RegisterProcedureType<StatsTableDerivedColumnsGeneratorProcedure,
                       StatsTableDerivedColumnsGeneratorProcedureConfig>
 regSTDerColGenProc(builtinPackage(),
-                   "experimental.statsTable.derivedColumnsGenerator",
                    "Generate an sql.expression function to be used to compute "
                    "derived statistics from a stats table",
                    "procedures/StatsTableDerivedColumnsGeneratorProcedure.md.html",
@@ -994,7 +991,6 @@ regSTDerColGenProc(builtinPackage(),
 
 RegisterProcedureType<StatsTableProcedure, StatsTableProcedureConfig>
 regSTTrain(builtinPackage(),
-           "statsTable.train",
            "Create statistical tables of trials against outcomes",
            "procedures/StatsTableProcedure.md.html");
 
@@ -1002,7 +998,6 @@ regSTTrain(builtinPackage(),
 RegisterProcedureType<BagOfWordsStatsTableProcedure,
                       BagOfWordsStatsTableProcedureConfig>
 regPosNegTrain(builtinPackage(),
-           "statsTable.bagOfWords.train",
            "Create statistical tables of trials against outcomes for bag of words",
            "procedures/BagOfWordsStatsTableProcedure.md.html");
 

@@ -476,17 +476,17 @@ struct FunctionCallExpression: public SqlRowExpression {
     Utf8String functionName;
     std::vector<std::shared_ptr<SqlExpression> > args;
 
-    virtual BoundSqlExpression bind(SqlBindingScope & context) const;
+    virtual BoundSqlExpression bind(SqlBindingScope & context) const override;
 
-    virtual Utf8String print() const;
+    virtual Utf8String print() const override;
 
     virtual std::shared_ptr<SqlExpression>
-    transform(const TransformArgs & transformArgs) const;
+    transform(const TransformArgs & transformArgs) const override;
 
-    virtual std::string getType() const;
-    virtual Utf8String getOperation() const;
-    virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
-    virtual bool isConstant() const { return false; } // TODO: not always
+    virtual std::string getType() const override;
+    virtual Utf8String getOperation() const override;
+    virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const override;
+    virtual bool isConstant() const override { return false; } // TODO: not always
 
     virtual std::map<ScopedName, UnboundVariable>
     variableNames() const override;
@@ -512,17 +512,17 @@ struct ExtractExpression: public SqlRowExpression {
     std::shared_ptr<SqlExpression> from;
     std::shared_ptr<SqlExpression> extract;
 
-    virtual BoundSqlExpression bind(SqlBindingScope & context) const;
+    virtual BoundSqlExpression bind(SqlBindingScope & context) const override;
 
-    virtual Utf8String print() const;
+    virtual Utf8String print() const override;
 
     virtual std::shared_ptr<SqlExpression>
-    transform(const TransformArgs & transformArgs) const;
+    transform(const TransformArgs & transformArgs) const override;
 
-    virtual std::string getType() const;
-    virtual Utf8String getOperation() const;
-    virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
-    virtual bool isConstant() const { return false; } // TODO: not always
+    virtual std::string getType() const override;
+    virtual Utf8String getOperation() const override;
+    virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const override;
+    virtual bool isConstant() const override { return false; } // TODO: not always
 
     virtual std::map<ScopedName, UnboundVariable>
     variableNames() const override;
