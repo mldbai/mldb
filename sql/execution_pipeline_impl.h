@@ -193,9 +193,12 @@ struct JoinLexicalScope: public LexicalScope {
 */
 
 struct JoinElement: public PipelineElement {
+    /** Constructor for when the element is pre-bound. */
     JoinElement(std::shared_ptr<PipelineElement> root,
                 std::shared_ptr<TableExpression> left,
+                BoundTableExpression boundLeft,
                 std::shared_ptr<TableExpression> right,
+                BoundTableExpression boundRight,
                 std::shared_ptr<SqlExpression> on,
                 JoinQualification joinQualification,
                 SelectExpression select,
@@ -204,7 +207,9 @@ struct JoinElement: public PipelineElement {
     
     std::shared_ptr<PipelineElement> root;
     std::shared_ptr<TableExpression> left;
+    BoundTableExpression boundLeft;
     std::shared_ptr<TableExpression> right;
+    BoundTableExpression boundRight;
     std::shared_ptr<SqlExpression> on;
     SelectExpression select;
     std::shared_ptr<SqlExpression> where;
@@ -351,15 +356,25 @@ struct RootElement: public PipelineElement {
 /** Element that generates rows according to the FROM clause. */
 
 struct FromElement: public PipelineElement {
+
+    /** Create the from clause, which will forward a query to the executor
+        of the given table.  The table may be pre-bound (if boundFrom is
+        filled in), or otherwise will be bound by this element (if a default
+        constructed, or empty,  BoundTableExpression is passed in to
+        boundFrom).
+    */
     FromElement(std::shared_ptr<PipelineElement> root_,
                 std::shared_ptr<TableExpression> from_,
+                BoundTableExpression boundFrom_,
                 WhenExpression when_,
                 SelectExpression select_ = SelectExpression::parse("*"),
-                std::shared_ptr<SqlExpression> where_ = SqlExpression::parse("true"),
+                std::shared_ptr<SqlExpression> where_
+                    = SqlExpression::parse("true"),
                 OrderByExpression orderBy_ = OrderByExpression());
     
     std::shared_ptr<PipelineElement> root;
     std::shared_ptr<TableExpression> from;
+    BoundTableExpression boundFrom;
     SelectExpression select;
     WhenExpression when;
     std::shared_ptr<SqlExpression> where;
