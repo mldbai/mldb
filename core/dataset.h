@@ -295,12 +295,14 @@ struct Dataset: public MldbEntity {
 
     MldbServer * server;
     
-    virtual Any getStatus() const = 0;
+    virtual Any getStatus() const override = 0;
 
-    virtual std::string getKind() const
+    virtual std::string getKind() const override
     {
         return "dataset";
     }
+
+    virtual MemoryStats memUsage(MemoryStatsDetailLevel detail) const override;
 
     /** Base database methods require us to be able to iterate through rows.
         All other views are built on top of this.

@@ -123,12 +123,14 @@ struct Function: public MldbEntity {
 
     MldbServer * server;
     
-    virtual Any getStatus() const = 0;
+    virtual Any getStatus() const override = 0;
 
-    virtual std::string getKind() const
+    virtual std::string getKind() const override
     {
         return "function";
     }
+
+    virtual MemoryStats memUsage(MemoryStatsDetailLevel detail) const override;
 
     /** Return details about the internal representation of the function.  This
         can be verbose.  Default implementation returns nothing.

@@ -102,24 +102,26 @@ struct Procedure: public MldbEntity, public RestEntity {
 
     MldbServer * server;
 
-    virtual Any getStatus() const = 0;
+    virtual Any getStatus() const override = 0;
 
-    virtual std::string getKind() const
+    virtual std::string getKind() const override
     {
         return "procedure";
     }
+
+    virtual MemoryStats memUsage(MemoryStatsDetailLevel detail) const override;
 
     virtual RunOutput run(const ProcedureRunConfig & run,
                           const std::function<bool (const Json::Value &)> & onProgress)
         const = 0;
     
-    virtual bool isCollection() const;
+    virtual bool isCollection() const override;
 
-    virtual Utf8String getDescription() const;
+    virtual Utf8String getDescription() const override;
 
-    virtual Utf8String getName() const;
+    virtual Utf8String getName() const override;
 
-    virtual RestEntity * getParent() const;
+    virtual RestEntity * getParent() const override;
 
     /** Return details about a run.  Default gets the details from the
         Run object and returns directly.

@@ -72,7 +72,7 @@ struct MatrixWriteTransaction;
 
 struct MatrixReadTransaction {
 
-      struct Stream {       
+    struct Stream {       
 
         virtual std::shared_ptr<MatrixReadTransaction::Stream> clone() const = 0;
 
@@ -113,6 +113,8 @@ struct MatrixWriteTransaction: virtual public MatrixReadTransaction {
     virtual void commit() = 0;
 
     virtual bool isSingleReadEntry() const {return false;}
+
+    virtual MemoryStats memUsage(MemoryStatsDetailLevel detail) const = 0;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(BaseEntry);
@@ -125,6 +127,7 @@ struct BaseMatrix {
     virtual std::shared_ptr<MatrixReadTransaction> startReadTransaction() const = 0;
     virtual std::shared_ptr<MatrixWriteTransaction> startWriteTransaction() = 0;
     virtual void optimize() = 0;
+    virtual MemoryStats memUsage(MemoryStatsDetailLevel detail) const = 0;
 };
 
 } // namespace MLDB

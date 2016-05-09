@@ -1,4 +1,5 @@
 LIBMLDB_CORE_SOURCES:= \
+	mldb_entity.cc \
 	plugin.cc \
 	dataset.cc \
 	procedure.cc \

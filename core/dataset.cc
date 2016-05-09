@@ -439,6 +439,13 @@ Dataset::
     }
 }
 
+MemoryStats
+Dataset::
+memUsage(MemoryStatsDetailLevel detail) const
+{
+    return MemoryStats::unknown();
+}
+
 void
 Dataset::
 recordRow(const RowName & rowName,

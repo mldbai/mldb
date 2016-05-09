@@ -125,6 +125,13 @@ getStatus() const
     return Any();
 }
 
+MemoryStats
+Procedure::
+memUsage(MemoryStatsDetailLevel detail) const
+{
+    return MemoryStats::unknown();
+}
+
 bool
 Procedure::
 isCollection() const

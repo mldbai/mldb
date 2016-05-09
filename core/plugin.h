@@ -42,12 +42,14 @@ struct Plugin: MldbEntity {
 
     MldbServer * server;
     
-    virtual std::string getKind() const
+    virtual std::string getKind() const override
     {
         return "plugin";
     }
 
-    virtual Any getStatus() const;
+    virtual MemoryStats memUsage(MemoryStatsDetailLevel detail) const override;
+
+    virtual Any getStatus() const override;
     
     virtual Any getVersion() const;
 

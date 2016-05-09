@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** external_plugin.h                                              -*- C++ -*-
     Jeremy Barnes, 8 June 2015
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Setup a external plugin that lives out of process and communicates with MLDB
     via REST or an IPC mechanism.
@@ -36,14 +36,16 @@ struct ExternalPluginCommunication: public MldbEntity {
     /** Synchronously ping the plugin to make sure it's alive. */
     virtual bool pingSync() const = 0;
 
-    virtual std::string getKind() const
+    virtual std::string getKind() const override
     {
         return "pluginCommunication";
     }
 
     /** Return the status of the plugin. */
-    virtual Any getStatus() const = 0;
+    virtual Any getStatus() const override = 0;
     
+    virtual MemoryStats memUsage(MemoryStatsDetailLevel detail) const override;
+
     /** Return the version of the plugin. */
     virtual Any getVersion() const = 0;
 
@@ -73,15 +75,17 @@ struct ExternalPluginSetup: public MldbEntity {
     {
     }
 
-    virtual std::string getKind() const
+    virtual std::string getKind() const override
     {
         return "pluginSetup";
     }
 
-    virtual Any getStatus() const
+    virtual Any getStatus() const override
     {
         return Any();
     }
+
+    virtual MemoryStats memUsage(MemoryStatsDetailLevel detail) const override;
 
     virtual void setup() = 0;
 };
@@ -98,15 +102,17 @@ struct ExternalPluginStartup: public MldbEntity {
     {
     }
 
-    virtual std::string getKind() const
+    virtual std::string getKind() const override
     {
         return "pluginStartup";
     }
 
-    virtual Any getStatus() const
+    virtual Any getStatus() const override
     {
         return Any();
     }
+
+    virtual MemoryStats memUsage(MemoryStatsDetailLevel detail) const override;
 
     /** Start a new instance of the external plugin, returning an object to
         be used to communicate with it.

@@ -21,6 +21,33 @@ namespace MLDB {
 
 struct MldbServer;
 
+/** Structure to record memory statistics for the memUsage() call. */
+struct MemoryStats {
+    MemoryStats()
+        : allocationsMade(0), bytesAllocated(0)
+    {
+    }
+
+    size_t allocationsMade;
+    size_t bytesAllocated;
+
+    /** Function used when the memory stats are unknown or un-implemented. */
+    static MemoryStats unknown();
+
+    MemoryStats & operator += (const MemoryStats & other);
+
+    std::map<Utf8String, MemoryStats> details;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(MemoryStats);
+
+/** Enumeration of detail levels for a memory stats call. */
+enum MemoryStatsDetailLevel: int32_t {
+    SUMMARY,   ///< Summary detail level (only high level)
+    DETAILED   ///< More detailed (with sub-entries)
+};
+
+DECLARE_ENUM_DESCRIPTION(MemoryStats);
 
 /** This is the builtin package, which comes linked in to MLDB.  All
     entity types that are built in need to pass this as their
@@ -45,6 +72,9 @@ struct MldbEntity: public PolyEntity {
     virtual Any getStatus() const = 0;
 
     virtual std::string getKind() const = 0;
+
+    /** Return the amount of memory that this entity uses. */
+    virtual MemoryStats memUsage(MemoryStatsDetailLevel detail) const = 0;
 
     static MldbServer * getOwner(RestDirectory * peer)
     {

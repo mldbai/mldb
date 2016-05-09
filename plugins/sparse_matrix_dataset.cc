@@ -769,6 +769,18 @@ struct SparseMatrixDataset::Itl
         return Datacratic::MR_NO;
     }
 
+    virtual MemoryStats memUsage(MemoryStatsDetailLevel detail) const
+    {
+        MemoryStats stats;
+        stats.add(detail, "object", sizeof(*this));
+        stats.add(detail, "metadata", metadata->memUsage(detail));
+        stats.add(detail, "matrix", matrix->memUsage(detail));
+        stats.add(detail, "inverse", inverse->memUsage(detail));
+        stats.add(detail, "values", values->memUsage(detail));
+        stats.add(detail, "transaction", defaultTransaction.load()->memUsage());
+        return stats;
+    }
+
     virtual size_t getRowCount() const
     {
         auto trans = getReadTransaction();
@@ -886,6 +898,12 @@ handleRequest(RestConnection & connection,
     return itl->handleRequest(connection, request, context);
 }
 
+MemoryStats
+SparseMatrixDataset::
+memUsage(MemoryStatsDetailLevel detail) const
+{
+    return itl->memusage();
+}
 
 enum CommitMode {
     READ_ON_COMMIT,
@@ -1592,6 +1610,13 @@ MutableSparseMatrixDataset(MldbServer * owner,
 {
     auto params = config.params.convert<MutableSparseMatrixDatasetConfig>();
     itl.reset(new Itl(params.timeQuantumSeconds, params.consistencyLevel, params.favor));
+}
+
+MemoryStats
+MutableSparseMatrixDataset::
+memUsage(MemoryStatsDetailLevel detail) const
+{
+    return itl->memusage();
 }
 
 static RegisterDatasetType<MutableSparseMatrixDataset,

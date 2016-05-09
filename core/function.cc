@@ -107,6 +107,13 @@ getStatus() const
     return Any();
 }
 
+MemoryStats
+Function::
+memUsage(MemoryStatsDetailLevel detail) const
+{
+    return MemoryStats::unknown();
+}
+
 Any
 Function::
 getDetails() const
