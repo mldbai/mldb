@@ -4,6 +4,18 @@ from random import randrange, seed
 from StringIO import StringIO
 from pymldb import Connection
 
+# remove control chars that mldb doesn't like at the moment (see MLDB-1630)
+# http://stackoverflow.com/a/93029/1067132
+import unicodedata, re
+all_chars = (unichr(i) for i in xrange(0x110000))
+# control_chars = ''.join(c for c in all_chars if unicodedata.category(c) == 'Cc')
+# or equivalently and much more efficiently
+control_chars = ''.join(map(unichr, range(0,32) + range(127,160)))
+control_char_re = re.compile('[%s]' % re.escape(control_chars))
+
+def remove_control_chars(s):
+    return control_char_re.sub('', s)
+
 seed(1234)
 
 enron_base_url = 'http://www.aueb.gr/users/ion/data/enron-spam/preprocessed/'
@@ -38,9 +50,8 @@ def add_enron_file_to_dataset(mldb, dataset, no, max_msg=None):
         # mldb doesn't like non-utf-8 characters, which are present in some
         # mails
         msg = msg.decode('utf-8', 'ignore')
-        # remove weird chars that mldb doesn't like at the moment
-        msg = msg.replace(b'\x01', '')
-        msg = msg.replace(b'\x1b', '')
+        msg = remove_control_chars(msg)
+        
         msg = msg.replace('\r\n', '\n')
         mldb.post(dataset + '/rows', {
             'rowName': 'enron_{}_mail_{}'.format(no,i),
