@@ -979,97 +979,180 @@ BoundFunction implicit_cast(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerImplicitCast(implicit_cast, "implicit_cast");
 
+/** Helper class that takes care of regular expression application whether
+    it's a constant value or not.
+*/
+struct RegexHelper {
+    RegexHelper(BoundSqlExpression expr_)
+        : expr(std::move(expr_))
+    {
+        if (expr.metadata.isConstant) {
+            isPrecompiled = true;
+            precompiled = compile(expr.constantValue());
+        }
+        else isPrecompiled = false;
+    }
+
+    boost::u32regex compile(const ExpressionValue & val) const
+    {
+        Utf8String regexStr;
+        try {
+            regexStr = val.toUtf8String();
+        } JML_CATCH_ALL {
+            rethrowHttpException
+                (400, "Error when extracting regex from argument '"
+                 + expr.expr->surface + "': " + ML::getExceptionString()
+                 + ".  Regular expressions need to be strings.",
+                 "expr", expr,
+                 "value", val);
+        }
+        try {
+            return boost::make_u32regex(regexStr.rawData());
+        } JML_CATCH_ALL {
+            rethrowHttpException
+                (400, "Error when compiling regex '"
+                 + regexStr + "' from expression " + expr.expr->surface + "': "
+                 + ML::getExceptionString()
+                 + ".  Regular expressions must adhere to Perl-style "
+                 + "regular expression syntax.",
+                 "expr", expr,
+                 "value", val);
+        }
+    }
+
+    /// The expression that the regex came from, to help with error messages
+    BoundSqlExpression expr;
+
+    /// The pre-compiled version of that expression, when it's constant
+    boost::u32regex precompiled;
+
+    /// Is it actually constant (and precompiled), or computed on the fly?
+    bool isPrecompiled;
+
+    virtual ExpressionValue apply(const std::vector<ExpressionValue> & args,
+                                  const SqlRowScope & scope,
+                                  const boost::u32regex & regex) const = 0;
+
+    ExpressionValue operator () (const std::vector<ExpressionValue> & args,
+                                 const SqlRowScope & scope)
+    {
+        if (isPrecompiled) {
+            return apply(args, scope, precompiled);
+        }
+        else {
+            return apply(args, scope, compile(args.at(1)));
+        }
+    }
+};
+
+struct ApplyRegexReplace: public RegexHelper {
+    ApplyRegexReplace(BoundSqlExpression e)
+        : RegexHelper(std::move(e))
+    {
+    }
+
+    virtual ExpressionValue apply(const std::vector<ExpressionValue> & args,
+                                  const SqlRowScope & scope,
+                                  const boost::u32regex & regex) const
+    {
+        ExcAssertEqual(args.size(), 3);
+
+        if (args[0].empty() || args[1].empty() || args[2].empty())
+            return ExpressionValue::null(calcTs(args[0], args[1], args[2]));
+
+        std::basic_string<char32_t> matchStr = args[0].toWideString();
+        std::basic_string<char32_t> replacementStr = args[2].toWideString();
+
+        std::basic_string<int32_t>
+            matchStr2(matchStr.begin(), matchStr.end());
+        std::basic_string<int32_t>
+            replacementStr2(replacementStr.begin(), replacementStr.end());
+
+        auto result = boost::u32regex_replace(matchStr2, regex, replacementStr2);
+        std::basic_string<char32_t> result2(result.begin(), result.end());
+
+        return ExpressionValue(result2, calcTs(args[0], args[1], args[2]));
+    }
+};
+
 BoundFunction regex_replace(const std::vector<BoundSqlExpression> & args)
 {
     // regex_replace(string, regex, replacement)
     checkArgsSize(args.size(), 3);
 
-    Utf8String regexStr = args[1].constantValue().toUtf8String();
-
-    boost::u32regex regex = boost::make_u32regex(regexStr.rawData());
-
-    return {[=] (const std::vector<ExpressionValue> & args,
-                 const SqlRowScope & scope) -> ExpressionValue
-            {
-                ExcAssertEqual(args.size(), 3);
-
-                if (args[0].empty() || args[2].empty())
-                    return ExpressionValue::null(calcTs(args[0], args[1], args[2]));
-
-                std::basic_string<char32_t> matchStr = args[0].toWideString();
-                std::basic_string<char32_t> replacementStr = args[2].toWideString();
-
-                std::basic_string<int32_t>
-                    matchStr2(matchStr.begin(), matchStr.end());
-                std::basic_string<int32_t>
-                    replacementStr2(replacementStr.begin(), replacementStr.end());
-
-                auto result = boost::u32regex_replace(matchStr2, regex, replacementStr2);
-                std::basic_string<char32_t> result2(result.begin(), result.end());
-
-                return ExpressionValue(result2, calcTs(args[0], args[1], args[2]));
-            },
+    return {ApplyRegexReplace(args[1]),
             std::make_shared<Utf8StringValueInfo>()};
 }
 
 static RegisterBuiltin registerRegexReplace(regex_replace, "regex_replace");
 
+struct ApplyRegexMatch: public RegexHelper {
+    ApplyRegexMatch(BoundSqlExpression e)
+        : RegexHelper(std::move(e))
+    {
+    }
+
+    virtual ExpressionValue apply(const std::vector<ExpressionValue> & args,
+                                  const SqlRowScope & scope,
+                                  const boost::u32regex & regex) const
+    {
+        // TODO: should be able to pass utf-8 string directly in
+
+        ExcAssertEqual(args.size(), 2);
+
+        if (args[0].empty() || args[1].empty())
+            return ExpressionValue::null(calcTs(args[0], args[1]));
+
+        std::basic_string<char32_t> matchStr = args[0].toWideString();
+        
+        auto result = boost::u32regex_match(matchStr.begin(), matchStr.end(),
+                                            regex);
+        return ExpressionValue(result, calcTs(args[0], args[1]));
+    }
+};
+                     
 BoundFunction regex_match(const std::vector<BoundSqlExpression> & args)
 {
     // regex_match(string, regex)
     checkArgsSize(args.size(), 2);
 
-    Utf8String regexStr = args[1].constantValue().toUtf8String();
-
-    boost::u32regex regex = boost::make_u32regex(regexStr.rawData());
-
-    return {[=] (const std::vector<ExpressionValue> & args,
-                 const SqlRowScope & scope) -> ExpressionValue
-            {
-                // TODO: should be able to pass utf-8 string directly in
-
-                ExcAssertEqual(args.size(), 2);
-
-                if (args[0].empty())
-                    return ExpressionValue::null(calcTs(args[0], args[1]));
-
-                std::basic_string<char32_t> matchStr = args[0].toWideString();
-
-                auto result = boost::u32regex_match(matchStr.begin(), matchStr.end(),
-                                                    regex);
-                return ExpressionValue(result, calcTs(args[0], args[1]));
-            },
+    return {ApplyRegexMatch(args[1]),
             std::make_shared<BooleanValueInfo>()};
 }
 
 static RegisterBuiltin registerRegexMatch(regex_match, "regex_match");
 
+struct ApplyRegexSearch: public RegexHelper {
+    ApplyRegexSearch(BoundSqlExpression e)
+        : RegexHelper(std::move(e))
+    {
+    }
+
+    virtual ExpressionValue apply(const std::vector<ExpressionValue> & args,
+                                  const SqlRowScope & scope,
+                                  const boost::u32regex & regex) const
+    {
+        // TODO: should be able to pass utf-8 string directly in
+
+        ExcAssertEqual(args.size(), 2);
+
+        if (args[0].empty() || args[1].empty())
+            return ExpressionValue::null(calcTs(args[0], args[1]));
+
+        std::basic_string<char32_t> searchStr = args[0].toWideString();
+        
+        auto result = boost::u32regex_search(searchStr.begin(), searchStr.end(),
+                                            regex);
+        return ExpressionValue(result, calcTs(args[0], args[1]));
+    }
+};
+                     
 BoundFunction regex_search(const std::vector<BoundSqlExpression> & args)
 {
     // regex_search(string, regex)
     checkArgsSize(args.size(), 2);
 
-    Utf8String regexStr = args[1].constantValue().toUtf8String();
-
-    boost::u32regex regex = boost::make_u32regex(regexStr.rawData());
-
-    return {[=] (const std::vector<ExpressionValue> & args,
-                 const SqlRowScope & scope) -> ExpressionValue
-            {
-                // TODO: should be able to pass utf-8 string directly in
-
-                ExcAssertEqual(args.size(), 2);
-
-                if (args[0].empty())
-                    return ExpressionValue::null(calcTs(args[0], args[1]));
-
-                std::basic_string<char32_t> searchStr = args[0].toWideString();
-
-                auto result
-                    = boost::u32regex_search(searchStr.begin(), searchStr.end(),
-                                             regex);
-                return ExpressionValue(result, calcTs(args[0], args[1]));
-            },
+    return {ApplyRegexSearch(args[1]),
             std::make_shared<BooleanValueInfo>()};
 }
 

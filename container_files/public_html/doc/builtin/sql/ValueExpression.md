@@ -409,11 +409,19 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
   system locale.
 - `regex_replace(string, regex, replacement)` will return the given string with
   matches of the `regex` replaced by the `replacement`.  Perl-style regular
-  expressions are supported.
+  expressions are supported.  It is normally preferable that the `regex` be a
+  constant string; performance will be very poor if not as the regular expression
+  will need to be recompiled on every application.
 - `regex_match(string, regex)` will return true if the *entire* string matches
   the regex, and false otherwise.  If `string` is null, then null will be returned.
+  It is normally preferable that the `regex` be a
+  constant string; performance will be very poor if not as the regular expression
+  will need to be recompiled on every application.
 - `regex_search(string, regex)` will return true if *any portion of * `string` matches
   the regex, and false otherwise.  If `string` is null, then null will be returned.
+  It is normally preferable that the `regex` be a
+  constant string; performance will be very poor if not as the regular expression
+  will need to be recompiled on every application.
 
 ### Timestamp functions
 
