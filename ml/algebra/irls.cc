@@ -382,8 +382,8 @@ const Regressor & default_regressor()
 /*****************************************************************************/
 
 Lasso_Regressor::
-Lasso_Regressor(double lambda)
-    : lambda(lambda)
+Lasso_Regressor(double lambda, int maxIter, double epsilon)
+    : lambda(lambda), maxIter(maxIter), epsilon(epsilon)
 {
 }
 
@@ -397,7 +397,7 @@ Lasso_Regressor::
 calc(const boost::multi_array<float, 2> & A,
      const distribution<float> & b) const
 {
-    return lasso_regression(A, b, lambda);
+    return lasso_regression(A, b, lambda, maxIter, epsilon);
 }
 
 distribution<double>
@@ -405,26 +405,8 @@ Lasso_Regressor::
 calc(const boost::multi_array<double, 2> & A,
      const distribution<double> & b) const
 {
-    return lasso_regression(A, b, lambda);
+    return lasso_regression(A, b, lambda, maxIter, epsilon);
 }
-
-/*distribution<double>
-Lasso_Regressor::
-calc_scaled(const boost::multi_array<double, 2> & A,
-            const distribution<double> & aScale,
-            const distribution<double> & b) const
-{
-    return calc(weighted_square(A, aScale), b);
-}
-
-distribution<float>
-Lasso_Regressor::
-calc_scaled(const boost::multi_array<float, 2> & A,
-            const distribution<float> & aScale,
-            const distribution<float> & b) const
-{
-    return calc(weighted_square(A, aScale), b);
-}*/
 
 /*****************************************************************************/
 /* IRLS                                                                      */
@@ -437,7 +419,9 @@ perform_irls_unconditioned(const distribution<Float> & correct,
                            const distribution<Float> & w,
                            Link_Function link_function,
                            Regularization regularization,
-                           Float regularization_factor)
+                           Float regularization_factor,
+                           int maxIter,
+                           Float epsilon)
 {
     int nx = correct.size();
 
@@ -452,7 +436,7 @@ perform_irls_unconditioned(const distribution<Float> & correct,
             trained = regressor.calc(transpose(outputs), correct);
         }
         else if (regularization == Regularization_l1){
-            Lasso_Regressor regressor(regularization_factor);
+            Lasso_Regressor regressor(regularization_factor, maxIter, epsilon);
             trained = regressor.calc(transpose(outputs), correct);
         }
         else {
@@ -469,7 +453,7 @@ perform_irls_unconditioned(const distribution<Float> & correct,
                 = run_irls(correct, outputs, w, link_function, regressor);
         }
         else if (regularization == Regularization_l1){
-            Lasso_Regressor regressor(regularization_factor);
+            Lasso_Regressor regressor(regularization_factor, maxIter, epsilon);
             trained
                 = run_irls(correct, outputs, w, link_function, regressor);
         }
@@ -497,7 +481,9 @@ perform_irls_conditioned(const distribution<Float> & correct,
                               const distribution<Float> & w,
                               Link_Function link_function,
                               Regularization regularization, 
-                              Float regularization_factor)
+                              Float regularization_factor,
+                              int maxIter,
+                              Float epsilon)
 {
     int nx = correct.size();
     int nv = outputs.shape()[0];
@@ -604,7 +590,9 @@ perform_irls_conditioned(const distribution<Float> & correct,
     distribution<Float> trained = perform_irls_unconditioned(correct, outputs_reduced,
                                                              w, link_function,
                                                              regularization,
-                                                             regularization_factor);
+                                                             regularization_factor,
+                                                             maxIter,
+                                                             epsilon);
 
     doneTimer("training");
 
@@ -682,14 +670,16 @@ perform_irls(const distribution<float> & correct,
              Link_Function link_function,
              Regularization regularization,
              float regularization_factor,
+             int maxIter,
+             float epsilon,
              bool condition)
 {
     if (condition)
         return perform_irls_conditioned(correct, outputs, w, link_function,
-                                        regularization, regularization_factor);
+                                        regularization, regularization_factor, maxIter, epsilon);
     else
         return perform_irls_unconditioned(correct, outputs, w, link_function,
-                                          regularization, regularization_factor);
+                                          regularization, regularization_factor, maxIter, epsilon);
 }
 
 distribution<double>
@@ -699,14 +689,16 @@ perform_irls(const distribution<double> & correct,
              Link_Function link_function,
              Regularization regularization,
              double regularization_factor,
+             int maxIter,
+             double epsilon,
              bool condition)
 {
     if (condition)
         return perform_irls_conditioned(correct, outputs, w, link_function,
-                                        regularization, regularization_factor);
+                                        regularization, regularization_factor, maxIter, epsilon);
     else
         return perform_irls_unconditioned(correct, outputs, w, link_function,
-                                          regularization, regularization_factor);
+                                          regularization, regularization_factor, maxIter, epsilon);
 }
 
 distribution<double>

@@ -606,12 +606,12 @@ template<class Float>
 distribution<Float>
 lasso_regression_impl(const boost::multi_array<Float, 2> & A,
                       const distribution<Float> & b,
-                      float lambda)
+                      float lambda,
+                      int maxIter,
+                      float epsilon)
 { 
     int n = A.shape()[0];   //Number of samples
     int p = A.shape()[1];   //Number of variables
-    const int maxIter = 20; //Todo: as parameter
-    const Float epsilon = 1e-4; //Todo: as parameter
 
      distribution<Float> x(p); //our solution vector
 
@@ -693,17 +693,21 @@ lasso_regression_impl(const boost::multi_array<Float, 2> & A,
 distribution<float>
 lasso_regression(const boost::multi_array<float, 2> & A,
                  const distribution<float> & b,
-                 float lambda)
+                 float lambda,
+                 int maxIter,
+                 float epsilon)
 {
-    return lasso_regression_impl(A, b, lambda);
+    return lasso_regression_impl(A, b, lambda, maxIter, epsilon);
 }
 
 distribution<double>
 lasso_regression(const boost::multi_array<double, 2> & A,
                  const distribution<double> & b,
-                 float lambda)
+                 float lambda,
+                 int maxIter,
+                 float epsilon)
 {
-    return lasso_regression_impl(A, b, lambda);
+    return lasso_regression_impl(A, b, lambda, maxIter, epsilon);
 }
 
 //***********************************************

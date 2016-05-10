@@ -52,7 +52,9 @@ configure(const Configuration & config)
     config.find(normalize, "normalize");
     config.find(condition, "condition");
     config.find(regularization, "regularization");
-    config.find(regularization_factor, "regularization_factor");    
+    config.find(regularization_factor, "regularization_factor");
+    config.find(max_regularization_iteration, "max_regularization_iteration");
+    config.find(regularization_epsilon, "regularization_epsilon");
     config.find(feature_proportion, "feature_proportion");
 }
 
@@ -68,6 +70,8 @@ defaults()
     condition = false;
     regularization = Regularization_l2;
     regularization_factor = 1e-5;
+    max_regularization_iteration = 20;
+    regularization_epsilon = 1e-4;
     feature_proportion = 1.0;
 }
 
@@ -87,6 +91,10 @@ options() const
              "regularization factor to use. L1 is slower.")
         .add("regularization_factor", regularization_factor, "-1 to infinite",
              "regularization factor to use. Auto-determined if negative. Auto-determined is slower.")
+        .add("max_regularization_iteration", max_regularization_iteration, "1 to infinite",
+             "Maximum number of iterations in regularization. Not all regularizations will need to iterate.")
+        .add("regularization_epsilon", regularization_epsilon, "positive number",
+             "Epsilon to use when looking for convergence in regularization. Smaller numbers will mean more iterations.")
         .add("normalize", normalize,
              "normalize features to have zero mean and unit variance for greater numeric stability (but slower training)")
         .add("condition", condition,
@@ -376,7 +384,7 @@ train_weighted(Thread_Context & thread_context,
             
         distribution<double> trained
             = perform_irls(correct[l], dense_data, w[l], link_function,
-                           regularization, regularization_factor,condition);
+                           regularization, regularization_factor, max_regularization_iteration, regularization_epsilon, condition);
 
         trained /= stds;
         extra_bias = - (trained.dotprod(means));

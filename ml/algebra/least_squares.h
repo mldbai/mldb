@@ -148,12 +148,16 @@ ridge_regression(const boost::multi_array<double, 2> & A,
 distribution<float>
 lasso_regression(const boost::multi_array<float, 2> & A,
                  const distribution<float> & b,
-                 float lambda);
+                 float lambda,
+                 int maxIter = 20,
+                 float epsilon = 1e-4);
 
 distribution<double>
 lasso_regression(const boost::multi_array<double, 2> & A,
                  const distribution<double> & b,
-                 float lambda);
+                 float lambda,
+                 int maxIter = 20,
+                 float epsilon = 1e-4);
 
 
 /*****************************************************************************/

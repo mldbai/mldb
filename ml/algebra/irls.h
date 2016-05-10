@@ -177,7 +177,7 @@ struct Ridge_Regressor : Regressor {
 
 struct Lasso_Regressor : Regressor {
 
-    Lasso_Regressor(double lambda = 1e-5);
+    Lasso_Regressor(double lambda = 1e-5, int maxIter = 20, double epsilon = 1e-4);
 
     virtual ~Lasso_Regressor();
 
@@ -190,6 +190,8 @@ struct Lasso_Regressor : Regressor {
          const distribution<double> & b) const;
 
     double lambda;
+    int maxIter;
+    double epsilon;
 };
 
 
@@ -338,6 +340,8 @@ perform_irls(const distribution<float> & correct,
              Link_Function link_function,
              bool ridge_regression = true,
              float regularization_factor = 1e-5,
+             int maxIter = 20,
+             float epsilon = 1e-4,
              bool condition = true);
 
 /** Perform an IRLS in double precision.
@@ -355,6 +359,8 @@ perform_irls(const distribution<double> & correct,
              Link_Function link_function,
              Regularization = Regularization_l2,
              double regularization_factor = 1e-5,
+             int maxIter = 20,
+             double epsilon = 1e-4,
              bool condition = true);
 
 
