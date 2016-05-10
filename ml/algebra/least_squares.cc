@@ -427,7 +427,7 @@ template<class Float>
 distribution<Float>
 ridge_regression_impl(const boost::multi_array<Float, 2> & A,
                       const distribution<Float> & b,
-                      float lambda)
+                      float& lambda)
 {
     using namespace std;
     float initialLambda = lambda < 0 ? 1e-5 : lambda;
@@ -532,6 +532,7 @@ ridge_regression_impl(const boost::multi_array<Float, 2> & A,
     // Figure out the optimal value of lambda based upon leave-one-out cross
     // validation
     distribution<Float> x_best;
+    Float best_lambda = initialLambda;
     typedef RidgeRegressionIteration<Float> Iteration;
     if (lambda < 0) {
         double current_lambda = 10.0;
@@ -564,7 +565,7 @@ ridge_regression_impl(const boost::multi_array<Float, 2> & A,
                 //cerr << "best_lambda " << iterations[i].current_lambda << " error : " << iterations[i].total_mse_unbiased << endl;
 
                 x_best = iterations[i].x;
-                //best_lambda = current_lambda;
+                best_lambda = iterations[i].current_lambda;
                 best_error = iterations[i].total_mse_unbiased;
             }
         } 
@@ -581,6 +582,7 @@ ridge_regression_impl(const boost::multi_array<Float, 2> & A,
 
     //cerr << "total: " << t.elapsed() << endl;
 
+    lambda = best_lambda; //return the lambda we ended up using
     return x_best;
 }
 
@@ -606,24 +608,22 @@ lasso_regression_impl(const boost::multi_array<Float, 2> & A,
                       const distribution<Float> & b,
                       float lambda)
 { 
-    cerr << A.shape()[0] << " " << A.shape()[1] << " " << b.size() << endl;
+    int n = A.shape()[0];   //Number of samples
+    int p = A.shape()[1];   //Number of variables
+    const int maxIter = 20; //Todo: as parameter
+    const Float epsilon = 1e-4; //Todo: as parameter
 
-    //1st step, run a ridge regression
-    distribution<Float> x = ridge_regression_impl(A, b, lambda);
+     distribution<Float> x(p); //our solution vector
 
-    //test
-    lambda = 1.0f;
+    if (lambda <= 0) {
+        x = ridge_regression_impl(A, b, lambda); //Use the ridge regression to determine lambda and use the result as initialization
+    }
 
-    //2nd step, precompute
+    Float halflambda = lambda / 2.0f;
+    distribution<Float> AtY(p);                             //Correlation of each variable with the target vector
+    boost::multi_array<Float, 2> XtX(boost::extents[p][p]); //Correlation betwen each variables
 
-    int n = A.shape()[0];
-    int p = A.shape()[1];
-    float halflambda = lambda / 2.0f;
-
-    distribution<Float> AtY(p);
-    boost::multi_array<Float, 2> XtX(boost::extents[p][p]);
-    //distribution<Float> XtX(n);
-
+    //Precompute AtY and XtX
     for (int j = 0; j < p; ++j) {
         Float dotprod = 0.0f;
         for (int i = 0; i < n; ++i) {
@@ -632,7 +632,7 @@ lasso_regression_impl(const boost::multi_array<Float, 2> & A,
         AtY[j] = dotprod;
 
         //each column dot each column
-        for (int i = 0; i < p; ++i) { //todo: triangular matrix?
+        for (int i = 0; i < p; ++i) { //todo: optimise for triangular matrix
             Float dotprod2 = 0.0f;
             for (int r = 0; r < n; ++r) {
                 dotprod2 += A[r][i]*A[r][j];
@@ -641,66 +641,51 @@ lasso_regression_impl(const boost::multi_array<Float, 2> & A,
         }
     }
 
-    Float totallAbs = 0.0f;
+    //Main lasso loop, which is really a coordinate descent where we optimize each variable independently.
+    //We do this in a roundrobin fashion.
+    int iter = 0;
     do {
-        totallAbs = 0.0f;
         Float convergence = 0.0f;
-        bool kept = false;
+        bool kept = false;              //In case one iteration puts ALL to zero
         distribution<Float> oldX(p);
         oldX = x;
 
-        for (int j = 0; j < p; ++j) { //for each column / variable
+        //it is critical for convergence that we update the values of x one by one
 
-            cerr << "column " << j << endl;
-            cerr << "x[j] = " << x[j] << endl;
+        for (int j = 0; j < p; ++j) { //for each column / variable
 
             Float rho = 0.0f;
 
-            for (int i = 0; i < n; ++i) { //sum over i
-                Float sum = 0.0f;
-                for (int k = 0; k < p; ++k){
-                    if (k != j)
-                        sum += A[i][k]*x[k];
-                }
-
-                rho += A[i][j]*(b[i] - sum);
+            rho = AtY[j];
+            for (int i = 0; i < p; ++i){    //scales with the number of variables
+                if (i != j)
+                    rho -= XtX[j][i]*x[i];
             }
 
-            cerr << "rho " << rho << endl;
-
             if (rho > halflambda) {
-                cerr << "rho bigger than halflambda" << endl;
-                x[j] = (rho - halflambda) / (XtX[j][j]);
+                x[j] = (rho - halflambda) / (XtX[j][j]);  //XtX[j][j] is for normalization. Should be 1.0f is already normalized.
                 kept = true;
             }
             else if (rho < -halflambda){
-                cerr << "rho smaller than -halflambda" << endl;
-                cerr << "normalization factor: " << XtX[j][j] << endl;
                 x[j] = (rho + halflambda) / (XtX[j][j]);
                 kept = true;
             }
             else {
-                cerr << "rho null" << endl;
                 x[j] = 0;
             }
 
-            cerr << "delta: " << x[j] - oldX[j] << endl;
-            totallAbs += fabs(x[j]);
             convergence += fabs(x[j] - oldX[j]);
         }
         if (kept) {
-                cerr << "totallAbs " << totallAbs << endl;
-                if (totallAbs < lambda)
-                    break;
-                cerr << "totall convergence " << convergence << endl;
-                if (convergence < 1e-5)
+                if (convergence < epsilon || iter >= maxIter)
                     break;
             }
         else {
             x = oldX;
             break;
         }
-    } while (true); //convergence*/
+        iter++;
+    } while (true); //until convergence
 
     return x;
 }

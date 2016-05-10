@@ -155,7 +155,7 @@ def train_classifier(when):
                     "type": "glz",
                     "verbosity": 3,
                     "normalize": True,
-                    "ridge_regression": True
+                    "regularization": 'l2'
                 }
             },
             "algorithm": "glz",

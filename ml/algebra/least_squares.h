@@ -15,9 +15,10 @@
 #include "mldb/jml/stats/distribution_simd.h"
 #include "mldb/arch/timers.h"
 #include <iostream>
+#include "mldb/jml/db/persistent.h"
+#include "mldb/jml/utils/enum_info.h"
 
 namespace ML {
-
 
 /*****************************************************************************/
 /* LEAST_SQUARES                                                             */
@@ -432,5 +433,3 @@ irls(const distribution<Float> & y, const boost::multi_array<Float, 2> & x,
 
 
 } // namespace ML
-
-

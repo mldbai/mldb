@@ -56,7 +56,7 @@ conf = {
                 "verbosity": 3,
                 "normalize": False,
                 "link": "linear",
-                "ridge_regression": True
+               "regularization": 'l2'
             }
         },
         "functionName": "cls_func"
