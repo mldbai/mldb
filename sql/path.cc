@@ -695,6 +695,12 @@ Path::Path(const PathElement & path)
         emplace_back(path);
 }
 
+Path::
+Path(const PathElement * start, size_t len)
+    : Path(start, start + len)
+{
+}
+
 Utf8String
 Path::
 toSimpleName() const
