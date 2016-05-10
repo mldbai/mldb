@@ -140,11 +140,6 @@ void do_test2()
 
     BOOST_REQUIRE_EQUAL(x.size(), 4);
 
-    distribution<Float> error1 = (A * x) - b;
-    distribution<Float> error2 = (A * x2) - b;
-
-
-    BOOST_CHECK_CLOSE(x2[0], (Float)0.0034078, tol);
     BOOST_CHECK_CLOSE(x2[0], (Float)0.0034078, tol);
 
     if (x2[1] == 0.0)
@@ -208,11 +203,6 @@ void do_test3()
 
     BOOST_REQUIRE_EQUAL(x.size(), 4);
 
-    distribution<Float> error1 = (A * x) - b;
-    distribution<Float> error2 = (A * x2) - b;
-
-
-    BOOST_CHECK_CLOSE(x2[0], (Float)0.0034078, tol);
     BOOST_CHECK_CLOSE(x2[0], (Float)0.0034078, tol);
 
     if (x2[1] == 0.0)
@@ -241,12 +231,10 @@ BOOST_AUTO_TEST_CASE( test3 )
 template<typename Float>
 void do_test_lasso()
 {
-    cerr << "LASSSSOOOOOOOO" << endl;
-
     /* See https://www-old.cae.wisc.edu/pipermail/bug-octave/2007-October/003689.html for the test case */
 
     boost::multi_array<Float, 2> A(boost::extents[5][4]);
-    distribution<Float> b(5), x(4);
+    distribution<Float> b(5);
 
     A[0][0] = 0.00002;
     A[1][0] = 0.00003;
@@ -269,50 +257,34 @@ void do_test_lasso()
     b[3] = 4.9866e-07;
     b[4] = 5.8619e-07;
 
-    x[0] = 0.0034078;
-    x[1] = 0.0000000;
-    x[2] = 0.0000000;
-    x[3] = 0.0000003;
-
-    distribution<Float> x2 = lasso_regression(A, b, /*1e-5*/0.0000000001);
+    distribution<Float> x = lasso_regression(A, b, 0.0000000001);
 
     cerr << "A = " << A << endl;
     cerr << "x = " << x << endl;
-    cerr << "x2 = " << x2 << endl;
     cerr << "b = " << b << endl;
 
     cerr << "A x  = " << (A * x) << endl;
-    cerr << "A x2 = " << (A * x2) << endl;
     cerr << "A x - b = " << ((A * x) - b) << endl; 
-    cerr << "A x2 - b = " << ((A * x2) - b) << endl; 
 
-   /* Float tol = 20;  //percent 
+    auto error = ((A * x) - b);
 
     BOOST_REQUIRE_EQUAL(x.size(), 4);
 
-    distribution<Float> error1 = (A * x) - b;
-    distribution<Float> error2 = (A * x2) - b;
+    BOOST_CHECK(abs(error[0]) < 1e-5);
+    BOOST_CHECK(abs(error[1]) < 1e-5);
+    BOOST_CHECK(abs(error[2]) < 1e-5);
+    BOOST_CHECK(abs(error[3]) < 1e-5);
 
+    //check that lasso sparsifies by putting the first 3 weights to zero
 
-    BOOST_CHECK_CLOSE(x2[0], (Float)0.0034078, tol);
-    BOOST_CHECK_CLOSE(x2[0], (Float)0.0034078, tol);
-
-    if (x2[1] == 0.0)
-        BOOST_CHECK_CLOSE(x2[1], (Float)0.0000000, tol);
-    else BOOST_CHECK(abs(x2[1]) < 1e-10);
-
-    if (x2[2] == 0.0)
-        BOOST_CHECK_CLOSE(x2[2], (Float)0.0000000, tol);
-    else BOOST_CHECK(abs(x2[2]) < 1e-10);
-    
-    BOOST_CHECK_CLOSE(x2[3], (Float)0.0000003, tol);*/
+    BOOST_CHECK(abs(x[0]) == 0);
+    BOOST_CHECK(abs(x[1]) == 0);
+    BOOST_CHECK(abs(x[2]) == 0);
 }
 
 template<typename Float>
 void do_test_lasso2()
 {
-    cerr << "LASSSSOOOOOOOO DEUXXXXX" << endl;
-
     /* See https://www-old.cae.wisc.edu/pipermail/bug-octave/2007-October/003689.html for the test case */
 
     boost::multi_array<Float, 2> A(boost::extents[5][4]);
@@ -340,25 +312,32 @@ void do_test_lasso2()
     cerr << "A = " << A << endl;
     cerr << "b = " << b << endl;
 
-    distribution<Float> ls = least_squares(A, b);
-    distribution<Float> x = ridge_regression(A, b, /*1e-5*/0.001);
-    distribution<Float> x2 = lasso_regression(A, b, /*1e-5*/0.001);
+    distribution<Float> x = lasso_regression(A, b, /*1e-5*/0.001);
     
-    cerr << "ls = " << x << endl;
     cerr << "x = " << x << endl;
-    cerr << "x2 = " << x2 << endl;    
-
     cerr << "A x  = " << (A * x) << endl;
-    cerr << "A x2 = " << (A * x2) << endl;
-    cerr << "A ls - b = " << ((A * ls) - b) << endl; 
     cerr << "A x - b = " << ((A * x) - b) << endl; 
-    cerr << "A x2 - b = " << ((A * x2) - b) << endl; 
+
+    auto error = ((A * x) - b);
+
+    BOOST_CHECK(abs(error[0]) < 1e-5);
+    BOOST_CHECK(abs(error[1]) < 1e-5);
+    BOOST_CHECK(abs(error[2]) < 1e-5);
+    BOOST_CHECK(abs(error[3]) < 1e-5);
+
+    BOOST_CHECK(abs(x[0]) > 1);
+    BOOST_CHECK(abs(x[1]) < 1e-5);
+    BOOST_CHECK(abs(x[2]) < 1e-5);
+    BOOST_CHECK(abs(x[2]) < 1e-5);
+
 }
 
 BOOST_AUTO_TEST_CASE( test_lasso )
 {   
     do_test_lasso<double>();
-    do_test_lasso2<double>();
+    do_test_lasso<double>();
+    do_test_lasso2<float>();
+    do_test_lasso2<float>();
 }
 
 
