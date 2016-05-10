@@ -42,7 +42,6 @@ var resp1 = mldb.post("/v1/procedures", config1);
 plugin.log(resp1);
 
 assertEqual(resp1.responseCode, 400);
-assertContains(resp1.json.error, "accuracy training expect a scalar named 'score' and a scalar named 'label'");
+assertContains(resp1.json.error, "classifier.test expects a scalar named 'score' and a scalar named 'label'");
 
 "success"
-

@@ -31,35 +31,35 @@ namespace Datacratic {
 namespace MLDB {
 
 inline ML::DB::Store_Writer &
-operator << (ML::DB::Store_Writer & store, const Coord & coord)
+operator << (ML::DB::Store_Writer & store, const PathElement & coord)
 {
     // Currently not used, since we haven't exposed serialization
     // of embedding datasets.
-    throw ML::Exception("Coord serialization");
+    throw ML::Exception("PathElement serialization");
 }
 
 inline ML::DB::Store_Reader &
-operator >> (ML::DB::Store_Reader & store, Coord & coord)
+operator >> (ML::DB::Store_Reader & store, PathElement & coord)
 {
     // Currently not used, since we haven't exposed serialization
     // of embedding datasets.
-    throw ML::Exception("Coord deserialization");
+    throw ML::Exception("PathElement deserialization");
 }
 
 inline ML::DB::Store_Writer &
-operator << (ML::DB::Store_Writer & store, const Coords & coords)
+operator << (ML::DB::Store_Writer & store, const Path & coords)
 {
     // Currently not used, since we haven't exposed serialization
     // of embedding datasets.
-    throw ML::Exception("Coords serialization");
+    throw ML::Exception("Path serialization");
 }
 
 inline ML::DB::Store_Reader &
-operator >> (ML::DB::Store_Reader & store, Coords & coords)
+operator >> (ML::DB::Store_Reader & store, Path & coords)
 {
     // Currently not used, since we haven't exposed serialization
     // of embedding datasets.
-    throw ML::Exception("Coords deserialization");
+    throw ML::Exception("Path deserialization");
 }
 
 
@@ -125,9 +125,9 @@ struct EmbeddingDatasetRepr {
     {
         uint64_t result = RowHash(rowName).hash();
         if (result == nullHashIn) {
-            if (rowName.size() == 1 && rowName[0] == Coord("0"))
+            if (rowName.size() == 1 && rowName[0] == PathElement("0"))
                 return result;
-            ExcAssert(rowName == Coord("null"));
+            ExcAssert(rowName == PathElement("null"));
             result = nullHashOut;
         }
         return result;
@@ -1146,7 +1146,7 @@ NearestNeighborsInputDescription()
              "Maximum distance to accept.  Passing null will use the "
              "value in the config", CellValue());
     addField("coords", &NearestNeighborsInput::coords,
-             "Coordinates of the value whose neighbors are being sought, "
+             "PathElementinates of the value whose neighbors are being sought, "
              "or alternatively the `rowName` of the value in the underlying "
              "dataset whose neighbors are being sought");
 }

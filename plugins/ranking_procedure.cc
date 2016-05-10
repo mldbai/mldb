@@ -62,9 +62,8 @@ RankingProcedureConfigDescription()
     addField("rankingColumnName", &RankingProcedureConfig::rankingColumnName,
              "The name to give the ranking column.");
     addParent<ProcedureConfig>();
-    onPostValidate = validate<RankingProcedureConfig, 
-                              InputQuery, 
-                              MustContainFrom>(&RankingProcedureConfig::inputData, "ranking");
+    onPostValidate = validateQuery(&RankingProcedureConfig::inputData,
+                                   MustContainFrom());
 }
 
 RankingProcedure::
@@ -197,12 +196,11 @@ getStatus() const
 static RegisterProcedureType<RankingProcedure, RankingProcedureConfig>
 regRankingProcedure(
     builtinPackage(),
-    "ranking",
     "Assign ranks over a sorted dataset",
     "procedures/RankingProcedure.md.html",
     nullptr /* static route */,
     { MldbEntity::INTERNAL_ENTITY });
- 
+
 
 } // namespace MLDB
 } // namespace Datacratic

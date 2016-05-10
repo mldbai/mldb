@@ -117,10 +117,16 @@ ExpressionValue
 BoundSqlExpression::
 constantValue() const
 {
-    if (!metadata.isConstant)
-        throw HttpReturnException(400, "Attempt to extract constant from non-constant expression",
-                                  "surface", expr->surface,
-                                  "ast", expr->print());
+    if (!metadata.isConstant) {
+        cerr << "surface = " << expr->surface << endl;
+        throw HttpReturnException
+            (400, "Attempt to extract constant from non-constant expression.  "
+             "One of the elements of the expression requires a constant "
+             "value, for example the text of a regular expression, but was "
+             "actually a non-constant expression: '" + expr->surface + "'",
+             "surface", expr->surface,
+             "ast", expr->print());
+    }
 
     // This is only OK to do here because by setting isConstant in its metadata,
     // the expression is guaranteeing it will never access its context.
@@ -695,7 +701,7 @@ static ColumnName matchColumnName(ML::Parse_Context & context, bool allowUtf8)
 
     if (first.empty())
         return result;
-    result = Coord(std::move(first));
+    result = PathElement(std::move(first));
 
     while (context.match_literal('.')) {
         Utf8String next = matchIdentifier(context, allowUtf8);
@@ -2269,7 +2275,7 @@ parse(ML::Parse_Context & context, bool allowUtf8)
         auto colExpr = std::dynamic_pointer_cast<ReadColumnExpression>(expr);
         if (colExpr)
             columnName = colExpr->columnName;
-        else columnName = Coord(expr->surface);
+        else columnName = PathElement(expr->surface);
     }
 
     auto result = std::make_shared<ComputedColumn>(columnName, expr);

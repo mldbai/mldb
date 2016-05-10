@@ -2,7 +2,7 @@
    Francois Maillet, 19 janvier 2016
 
    This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
-   
+
    Importer for text files containing a JSON per line
 */
 
@@ -35,6 +35,8 @@ namespace MLDB {
 
 struct JSONImporterConfig : ProcedureConfig {
 
+    static constexpr const char * name = "import.json";
+
     JSONImporterConfig() :
           limit(-1),
           offset(0),
@@ -43,7 +45,7 @@ struct JSONImporterConfig : ProcedureConfig {
 
     Url dataFileUrl;
     PolyConfigT<Dataset> outputDataset;
-    
+
     int64_t limit;
     int64_t offset;
     bool ignoreBadLines;
@@ -68,7 +70,7 @@ JSONImporterConfigDescription()
     addField("ignoreBadLines", &JSONImporterConfig::ignoreBadLines,
              "If true, any line causing an error will be skipped. Any line "
              "with an invalid JSON object will cause an error.", false);
-    
+
     addParent<ProcedureConfig>();
 }
 
@@ -82,17 +84,17 @@ struct JSONImporter: public Procedure {
     {
         config = config_.params.convert<JSONImporterConfig>();
     }
-    
+
     JSONImporterConfig config;
 
     virtual RunOutput run(const ProcedureRunConfig & run,
                           const std::function<bool (const Json::Value &)> & onProgress) const
     {
         auto runProcConf = applyRunConfOverProcConf(config, run);
-        
+
         // Create the output dataset
         std::shared_ptr<Dataset> outputDataset;
- 
+
         if (!runProcConf.outputDataset.type.empty()
             || !runProcConf.outputDataset.id.empty()) {
             outputDataset = createDataset(server, runProcConf.outputDataset, nullptr, true);
@@ -109,7 +111,7 @@ struct JSONImporter: public Procedure {
         int64_t lineOffset = 1;
         std::string line;
         std::string filename = runProcConf.dataFileUrl.toString();
-        
+
         filter_istream stream(filename);
 
         Date timestamp = stream.info().lastModified;
@@ -121,14 +123,14 @@ struct JSONImporter: public Procedure {
             getline(stream, line);
         }
 
-        auto handleError = [&](const std::string & message, 
-                               int64_t lineNumber, 
+        auto handleError = [&](const std::string & message,
+                               int64_t lineNumber,
                                const std::string& line) {
             if (config.ignoreBadLines) {
                 ++errors;
                 return true;
             }
-            
+
             throw HttpReturnException(400, "Error parsing JSON row: "
                                       + message,
                                       "filename", filename,
@@ -186,7 +188,7 @@ struct JSONImporter: public Procedure {
 
             // TODO: in the configuration
             JsonArrayHandling arrays = ENCODE_ARRAYS;
-            
+
             ExpressionValue expr;
             try {
                 expr = ExpressionValue::parseJson(parser, timestamp, arrays);
@@ -206,7 +208,7 @@ struct JSONImporter: public Procedure {
 
             return true;
         };
-        
+
         forEachLineBlock(stream, onLine, runProcConf.limit, 32,
                          startChunk, doneChunk);
 
@@ -231,13 +233,12 @@ struct JSONImporter: public Procedure {
     {
         return Any();
     }
-    
+
     JSONImporterConfig procConfig;
 };
 
 static RegisterProcedureType<JSONImporter, JSONImporterConfig>
 regJSON(builtinPackage(),
-        "import.json",
         "Import a text file with one JSON per line into MLDB",
         "procedures/JSONImporter.md.html");
 

@@ -9,7 +9,7 @@
 #pragma once
 
 #include "dataset_fwd.h"
-#include "coord.h"
+#include "path.h"
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/types/date.h"
 #include "mldb/arch/demangle.h"
@@ -40,10 +40,10 @@ struct ExpressionValueInfo;
 struct RowValueInfo;
 
 /** A row in an expression value is a set of (key, atom, timestamp) pairs. */
-typedef std::vector<std::tuple<Coords, CellValue, Date> > RowValue;
+typedef std::vector<std::tuple<Path, CellValue, Date> > RowValue;
 
 /** A struct in an expression value is a set of (key, value) pairs. */
-typedef std::vector<std::tuple<Coord, ExpressionValue> > StructValue;
+typedef std::vector<std::tuple<PathElement, ExpressionValue> > StructValue;
 
 enum SchemaCompleteness {
     SCHEMA_OPEN,   ///< Schema is open; columns may exist that aren't known
@@ -289,7 +289,7 @@ struct ExpressionValueInfo {
         the column is unknown; row info needs to override.
     */
     virtual std::shared_ptr<ExpressionValueInfo>
-    getColumn(const Coord & columnName) const;
+    getColumn(const PathElement & columnName) const;
 
     /** Return the shape of an embedding.  For scalars, it's the empty
         vector.  For vectors, matrices, tensors it's the real shape.
@@ -506,7 +506,7 @@ DECLARE_STRUCTURE_DESCRIPTION(EmbeddingMetadata);
     The three ways of storing rows are:
 
     1.  As a structured representation, which is a sequence of (name, value)
-        pairs where names are simple strings (ie, not paths: Coord not Coords)
+        pairs where names are simple strings (ie, not paths: PathElement not Path)
         and each value can also be structured;
     2.  As a flattened representation, which is a sequence of (path, atom,
         timestamp) tuples.  Here, the paths may represent a whole route
@@ -647,7 +647,7 @@ struct ExpressionValue {
     ExpressionValue(RowValue row) noexcept;
 
     // Construct from a set of named values as a row
-    ExpressionValue(std::vector<std::tuple<Coord, ExpressionValue> > vals) noexcept;
+    ExpressionValue(std::vector<std::tuple<PathElement, ExpressionValue> > vals) noexcept;
     // Construct from JSON.  Will convert to an atom or a row.
     ExpressionValue(const Json::Value & json, Date ts);
     
@@ -741,7 +741,7 @@ struct ExpressionValue {
         This handles integers, strings (both converted to length one
         paths) and arrays (converted to structured arrays).
     */
-    Coords coerceToPath() const;
+    Path coerceToPath() const;
 
     // Return the timestamp at which all of the information in this value
     // was known.  This is used to determine the timestamp of the outputcellva
@@ -776,11 +776,11 @@ struct ExpressionValue {
                  const ExpressionValue& compareValue) const;
 
     // Return the value of the given column (non-nested).
-    ExpressionValue getColumn(const Coord & columnName,
+    ExpressionValue getColumn(const PathElement & columnName,
                               const VariableFilter & filter = GET_LATEST) const;
 
     const ExpressionValue *
-    tryGetColumn(const Coord & columnName,
+    tryGetColumn(const PathElement & columnName,
                  ExpressionValue & storage,
                  const VariableFilter & filter = GET_LATEST) const;
 
@@ -845,7 +845,7 @@ struct ExpressionValue {
         called, or true if never called.  In other words, if a callback
         returns false the return value is false, otherwise true.
     */
-    bool forEachColumn(const std::function<bool (const Coord & columnName,
+    bool forEachColumn(const std::function<bool (const PathElement & columnName,
                                                  const ExpressionValue & val)>
                        & onColumn) const;
     
@@ -857,22 +857,22 @@ struct ExpressionValue {
         Only works for row-typed values.
     */
     bool forEachColumnDestructive
-        (const std::function<bool (Coord & columnName, ExpressionValue & val)>
+        (const std::function<bool (PathElement & columnName, ExpressionValue & val)>
          & onColumn) const;
 
     /** Iterate over the flattened representation. */
-    bool forEachAtom(const std::function<bool (const Coords & columnName,
-                                               const Coords & prefix,
+    bool forEachAtom(const std::function<bool (const Path & columnName,
+                                               const Path & prefix,
                                                const CellValue & val,
                                                Date ts) > & onAtom,
-                     const Coords & columnName = Coords()) const;
+                     const Path & columnName = Path()) const;
 
 
     /** Iterate over the flattened representation, destroying this object
         as we go to make the operations more efficient.  The called object
         will be left in an indeterminate state afterwards.
     */
-    bool forEachAtomDestructive(const std::function<bool (Coords & columnName,
+    bool forEachAtomDestructive(const std::function<bool (Path & columnName,
                                                           CellValue & val,
                                                           Date ts) > & onAtom);
 
@@ -895,16 +895,16 @@ struct ExpressionValue {
     /** Write a flattened representation of the current value to the given
         dataset row or event, prepending the given column name.
     */
-    void appendToRow(const Coords & columnName, MatrixNamedRow & row) const;
-    void appendToRow(const Coords & columnName, RowValue & row) const;
-    void appendToRow(const Coords & columnName, StructValue & row) const;
+    void appendToRow(const Path & columnName, MatrixNamedRow & row) const;
+    void appendToRow(const Path & columnName, RowValue & row) const;
+    void appendToRow(const Path & columnName, StructValue & row) const;
 
     /** Write a flattened representation of the current value to the given
         dataset row or event, moving values and destroying this object in
         the process.
     */
     void appendToRowDestructive(ColumnName & columnName, RowValue & row);
-    void appendToRowDestructive(const Coords & columnName, StructValue & row);
+    void appendToRowDestructive(const Path & columnName, StructValue & row);
 
     /// Destructively merge into the given row
     void mergeToRowDestructive(RowValue & row);
@@ -1339,43 +1339,43 @@ struct RowValueInfo: public ExpressionValueInfoT<RowValue> {
     RowValueInfo(const std::vector<KnownColumn> & columns,
                  SchemaCompleteness completeness = SCHEMA_CLOSED);
 
-    virtual bool isScalar() const;
+    virtual bool isScalar() const override;
 
-    virtual std::shared_ptr<RowValueInfo> getFlattenedInfo() const;
+    virtual std::shared_ptr<RowValueInfo> getFlattenedInfo() const override;
 
     virtual void flatten(const ExpressionValue & value,
                          const std::function<void (const ColumnName & columnName,
                                                    const CellValue & value,
-                                                   Date timestamp)> & write) const;
+                                                   Date timestamp)> & write) const override;
 
     virtual std::shared_ptr<ExpressionValueInfo>
-    getColumn(const Coord & columnName) const override;
+    getColumn(const PathElement & columnName) const override;
 
     virtual std::shared_ptr<ExpressionValueInfo> 
     findNestedColumn(const ColumnName& columnName) const override;
 
-    virtual std::vector<KnownColumn> getKnownColumns() const;
-    virtual SchemaCompleteness getSchemaCompleteness() const;
+    virtual std::vector<KnownColumn> getKnownColumns() const override;
+    virtual SchemaCompleteness getSchemaCompleteness() const override;
 
     std::vector<KnownColumn> columns;
     SchemaCompleteness completeness;
 
-    virtual bool isCompatible(const ExpressionValue & value) const
+    virtual bool isCompatible(const ExpressionValue & value) const override
     {
         return value.isRow();
     }
 
-    virtual bool isRow() const
+    virtual bool isRow() const override
     {
         return true;
     }
 
-    virtual bool couldBeRow() const
+    virtual bool couldBeRow() const override
     {
         return true;
     }
 
-    virtual bool couldBeScalar() const
+    virtual bool couldBeScalar() const override
     {
         return false;
     }
@@ -1428,13 +1428,13 @@ searchRow(const std::vector<std::tuple<ColumnName, CellValue, Date> > & columns,
           ExpressionValue & storage);
 
 const ExpressionValue *
-searchRow(const std::vector<std::tuple<Coord, ExpressionValue> > & columns,
-          const Coord & key,
+searchRow(const std::vector<std::tuple<PathElement, ExpressionValue> > & columns,
+          const PathElement & key,
           const VariableFilter & filter,
           ExpressionValue & storage);
 
 const ExpressionValue *
-searchRow(const std::vector<std::tuple<Coord, ExpressionValue> > & columns,
+searchRow(const std::vector<std::tuple<PathElement, ExpressionValue> > & columns,
           const ColumnName & key,
           const VariableFilter & filter,
           ExpressionValue & storage);

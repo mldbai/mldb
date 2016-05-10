@@ -26,6 +26,8 @@ namespace MLDB {
 /*****************************************************************************/
 
 struct EMConfig : public ProcedureConfig  {
+    static constexpr const char * name = "gaussianclustering.train";
+
     EMConfig()
         : numInputDimensions(-1),
           numClusters(10),
@@ -55,7 +57,7 @@ DECLARE_STRUCTURE_DESCRIPTION(EMConfig);
 /*****************************************************************************/
 
 struct EMProcedure: public Procedure {
-    
+
     EMProcedure(MldbServer * owner,
                 PolyConfig config,
                 const std::function<bool (const Json::Value &)> & onProgress);
@@ -75,10 +77,10 @@ struct EMProcedure: public Procedure {
 /*****************************************************************************/
 
 struct EMFunctionConfig {
-    EMFunctionConfig()      
+    EMFunctionConfig()
     {
     }
-    
+
     Url modelFileUrl;
 };
 
@@ -109,7 +111,7 @@ struct EMFunction: public ValueFunctionT<EMInput, EMOutput> {
           const std::shared_ptr<RowValueInfo> & input) const override;
    
     EMFunctionConfig functionConfig;
-  
+
      // holds the dimension of the embedding space
     size_t dimension;
 

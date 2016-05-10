@@ -117,12 +117,12 @@ ClassifierConfigDescription()
              "also be provided.");
     addParent<ProcedureConfig>();
 
-    onPostValidate = validate<ClassifierConfig,
-                              InputQuery,
-                              NoGroupByHaving,
-                              PlainColumnSelect,
-                              MustContainFrom,
-                              FeaturesLabelSelect>(&ClassifierConfig::trainingData, "classifier");
+    onPostValidate = chain(validateQuery(&ClassifierConfig::trainingData,
+                                         NoGroupByHaving(),
+                                         PlainColumnSelect(),
+                                         MustContainFrom(),
+                                         FeaturesLabelSelect()),
+                           validateFunction<ClassifierConfig>());
 }
 
 /*****************************************************************************/
@@ -389,7 +389,7 @@ run(const ProcedureRunConfig & run,
             std::vector<std::pair<ML::Feature, float> > features
             = { { labelFeature, encodedLabel }, { weightFeature, weight } };
 
-            unordered_set<Coords> unique_known_features;
+            unordered_set<Path> unique_known_features;
             for (auto & c: row.columns) {
                 featureSpace->encodeFeature(std::get<0>(c), std::get<1>(c), features);
 
@@ -537,7 +537,7 @@ run(const ProcedureRunConfig & run,
                 (400,
                  "Regression labels must not be infinite or NaN.  Should you "
                  "add a condition like `WHERE isfinite(label)` to your data, "
-                 "or preprocess your labels with `replace_if_not_finite(label, 0)`?");
+                 "or preprocess your labels with `replace_not_finite(label, 0)`?");
         }
 
         trainingSet.add_example(std::make_shared<ML::Mutable_Feature_Set>(std::move(fvs[i].featureSet)));
@@ -755,7 +755,7 @@ std::tuple<std::vector<float>, std::shared_ptr<ML::Mutable_Feature_Set>, Date>
 ClassifyFunction::
 getFeatureSet(const ExpressionValue & context, bool attemptDense) const
 {
-    auto row = context.getColumn(Coord("features"));
+    auto row = context.getColumn(PathElement("features"));
 
     Date ts = Date::negativeInfinity();
 
@@ -764,8 +764,8 @@ getFeatureSet(const ExpressionValue & context, bool attemptDense) const
         std::vector<float> denseFeatures(itl->featureSpace->columnInfo.size(),
                                          std::numeric_limits<float>::quiet_NaN());
 
-        auto onAtom = [&] (const Coords & suffix,
-                           const Coords & prefix,
+        auto onAtom = [&] (const Path & suffix,
+                           const Path & prefix,
                            const CellValue & value,
                            Date tsIn)
             {
@@ -798,8 +798,8 @@ getFeatureSet(const ExpressionValue & context, bool attemptDense) const
 
     std::vector<std::pair<ML::Feature, float> > features;
 
-    auto onAtom = [&] (const Coords & suffix,
-                       const Coords & prefix,
+    auto onAtom = [&] (const Path & suffix,
+                       const Path & prefix,
                        const CellValue & value,
                        Date tsIn)
         {
@@ -880,9 +880,9 @@ apply(const FunctionApplier & applier_,
             auto scores = itl->classifier.impl->predict(dense, applier.optInfo);
             ExcAssertEqual(scores.size(), labelCount);
 
-            vector<tuple<Coord, ExpressionValue> > row;
+            vector<tuple<PathElement, ExpressionValue> > row;
             for (unsigned i = 0;  i < labelCount;  ++i) {
-                row.emplace_back(Coord(cat->print(i)),
+                row.emplace_back(PathElement(cat->print(i)),
                                  ExpressionValue(scores[i], ts));
             }
 
@@ -909,10 +909,10 @@ apply(const FunctionApplier & applier_,
             auto scores = itl->classifier.predict(*fset);
             ExcAssertEqual(scores.size(), labelCount);
 
-            vector<tuple<Coord, ExpressionValue> > row;
+            vector<tuple<PathElement, ExpressionValue> > row;
 
             for (unsigned i = 0;  i < labelCount;  ++i) {
-                row.emplace_back(Coord(cat->print(i)),
+                row.emplace_back(PathElement(cat->print(i)),
                                  ExpressionValue(scores[i], ts));
             }
             result.emplace_back("scores", std::move(row));
@@ -983,7 +983,7 @@ getFunctionInfo() const
 
 
     std::vector<KnownColumn> inputColumns;
-    inputColumns.emplace_back(Coord("features"),
+    inputColumns.emplace_back(PathElement("features"),
                               std::make_shared<RowValueInfo>(featureColumns,
                                                              SCHEMA_CLOSED),
                               COLUMN_IS_DENSE);
@@ -1013,13 +1013,13 @@ getFunctionInfo() const
               });
 #endif
 
-        outputColumns.emplace_back(Coord("scores"),
+        outputColumns.emplace_back(PathElement("scores"),
                                    std::make_shared<RowValueInfo>(scoreColumns,
                                                                   SCHEMA_CLOSED),
                                    COLUMN_IS_DENSE, 0);
     }
     else {
-        outputColumns.emplace_back(Coord("score"),
+        outputColumns.emplace_back(PathElement("score"),
                                    std::make_shared<NumericValueInfo>(),
                                    COLUMN_IS_DENSE, 0);
     }
@@ -1092,14 +1092,14 @@ getFunctionInfo() const
 
     std::vector<KnownColumn> inputCols, outputCols;
 
-    inputCols.emplace_back(Coord("label"), std::make_shared<AtomValueInfo>(),
+    inputCols.emplace_back(PathElement("label"), std::make_shared<AtomValueInfo>(),
                            COLUMN_IS_DENSE, 0);
-    inputCols.emplace_back(Coord("features"), std::make_shared<UnknownRowValueInfo>(),
+    inputCols.emplace_back(PathElement("features"), std::make_shared<UnknownRowValueInfo>(),
                            COLUMN_IS_DENSE, 1);
 
-    outputCols.emplace_back(Coord("explanation"), std::make_shared<UnknownRowValueInfo>(),
+    outputCols.emplace_back(PathElement("explanation"), std::make_shared<UnknownRowValueInfo>(),
                             COLUMN_IS_DENSE, 0);
-    outputCols.emplace_back(Coord("bias"), std::make_shared<NumericValueInfo>(),
+    outputCols.emplace_back(PathElement("bias"), std::make_shared<NumericValueInfo>(),
                             COLUMN_IS_DENSE, 1);
 
     result.input = std::make_shared<RowValueInfo>(std::move(inputCols),
@@ -1145,7 +1145,6 @@ auto regJmlClassifier = RegisterMacro("jmlclassifier", jmlclassifierMacro);
 
 static RegisterProcedureType<ClassifierProcedure, ClassifierConfig>
 regClassifier(builtinPackage(),
-              "classifier.train",
               "Train a supervised classifier",
               "procedures/Classifier.md.html");
 

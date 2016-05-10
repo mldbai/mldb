@@ -36,7 +36,6 @@ LIBSERVICES_SOURCES := \
 	async_writer_source.cc \
 	sink.cc \
 	xml_helpers.cc \
-	remote_credential_provider.cc \
 	runner.cc \
 
 

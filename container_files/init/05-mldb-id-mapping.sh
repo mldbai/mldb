@@ -32,7 +32,15 @@ if [ -z "$(find /mldb_data -maxdepth 0 -user $(id -u $MLDB_USER))" ]; then
     echo "" >&2
     echo "" >&2
     echo "" >&2
-    echo "Aborting boot: bad permissions on /mldb_data (not owned by $(id $MLDB_USER))" >&2
+    echo "Aborting boot!" >&2
+    echo "Permissions on directory mapped to /mldb_data do not match MLDB_IDS" >&2
+    echo "" >&2
+    echo "Apparent owner from within Docker container is:" >&2
+    echo "     $(id `stat -c '%U' /mldb_data` )" >&2
+    echo "" >&2
+    echo "Expected owner to match value of MLDB_IDS:" >&2
+    echo "     $(id $MLDB_USER))" >&2
+    echo "" >&2
     echo "" >&2
     echo "" >&2
     echo "" >&2

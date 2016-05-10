@@ -1,11 +1,11 @@
-/** coord.h                                                        -*- C++ -*-
+/** path.h                                                        -*- C++ -*-
     Jeremy Barnes, 29 January 2016
     Copyright (c) 2016 Datacratic Inc.  All rights reserved.
 
     This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
 */
 
-#include "coord.h"
+#include "path.h"
 #include <cstring>
 #include "mldb/types/hash_wrapper.h"
 #include "mldb/types/value_description.h"
@@ -24,41 +24,41 @@ namespace MLDB {
 
 
 /*****************************************************************************/
-/* COORD                                                                     */
+/* PATH ELEMENT                                                              */
 /*****************************************************************************/
 
-Coord::
-Coord()
+PathElement::
+PathElement()
     : words{0, 0, 0}
 {
 }
 
-Coord::
-Coord(Utf8String && str)
+PathElement::
+PathElement(Utf8String && str)
 {
     initString(std::move(str));
 }
 
-Coord::
-Coord(const Utf8String & str)
+PathElement::
+PathElement(const Utf8String & str)
 {
     initString(std::move(str));
 }
 
-Coord::
-Coord(std::string str)
+PathElement::
+PathElement(std::string str)
 {
     initString(std::move(str));
 }
 
-Coord::
-Coord(const char * str, size_t len)
+PathElement::
+PathElement(const char * str, size_t len)
 {
     initChars(str, len);
 }
 
-Coord::
-Coord(uint64_t i)
+PathElement::
+PathElement(uint64_t i)
 {
     ItoaBuf buf;
     char * begin;
@@ -67,32 +67,32 @@ Coord(uint64_t i)
     initChars(begin, end - begin);
 }
 
-Coord
-Coord::
+PathElement
+PathElement::
 parse(const Utf8String & str)
 {
     return parse(str.rawData(), str.rawLength());
 }
 
-Coord
-Coord::
+PathElement
+PathElement::
 parse(const char * p, size_t l)
 {
     const char * e = p + l;
-    Coord result = parsePartial(p, e);
+    PathElement result = parsePartial(p, e);
     if (p != e)
-        throw HttpReturnException(400, "Coord had extra characters at end");
+        throw HttpReturnException(400, "PathElement had extra characters at end");
     return result;
 }
 
-Coord
-Coord::
+PathElement
+PathElement::
 parsePartial(const char * & p, const char * e)
 {
     ExcAssertLessEqual((void *)p, (void *)e);
 
     if (p == e) {
-        throw HttpReturnException(400, "Parsing empty string for coord");
+        return PathElement();
     }
 
     if (*p == '\"') {
@@ -100,7 +100,7 @@ parsePartial(const char * & p, const char * e)
         ++p;
 
         if (p == e) {
-            throw HttpReturnException(400, "Coords quoted incorrectly");
+            throw HttpReturnException(400, "Path quoted incorrectly");
         }
 
         utf8::iterator<const char *> ufirst(p, p, e);
@@ -111,10 +111,6 @@ parsePartial(const char * & p, const char * e)
             if (c == '\"') {
                 if (ufirst == ulast || *ufirst != '\"') {
                     p = ufirst.base();
-                    if (result.empty()) {
-                        throw HttpReturnException(400, "Empty quoted coord");
-                    }
-
                     return result;
                 }
                 result += '\"';
@@ -124,7 +120,7 @@ parsePartial(const char * & p, const char * e)
                 result += c;
             }
         }
-        throw HttpReturnException(400, "Coord terminated incorrectly");
+        throw HttpReturnException(400, "PathElement terminated incorrectly");
     }
     else {
         const char * start = p;
@@ -133,26 +129,25 @@ parsePartial(const char * & p, const char * e)
             if (c == '\"' || c < ' ') {
                 if (c == '\"') {
                     throw HttpReturnException
-                        (400, "invalid char in Coord.  Quotes must be doubled.");
+                        (400, "invalid char in PathElement.  Quotes must be doubled.");
                 }
                 else {
                     throw HttpReturnException
-                        (400, "invalid char in Coord.  Special characters must be quoted.");
+                        (400, "invalid char in PathElement.  Special characters must be quoted.");
                 }
             }
         }
         size_t sz = start - p;
-        if (sz == 0) {
-            throw HttpReturnException(400, "Empty coord");
-        }
-        Coord result(p, sz);
+        if (sz == 0)
+            return PathElement();
+        PathElement result(p, sz);
         p = start;
         return std::move(result);
     }
 }
 
 bool
-Coord::
+PathElement::
 stringEqual(const std::string & other) const
 {
     return dataLength() == other.size()
@@ -160,7 +155,7 @@ stringEqual(const std::string & other) const
 }
 
 bool
-Coord::
+PathElement::
 stringEqual(const Utf8String & other) const
 {
     return dataLength() == other.rawLength()
@@ -168,106 +163,106 @@ stringEqual(const Utf8String & other) const
 }
 
 bool
-Coord::
+PathElement::
 stringEqual(const char * other) const
 {
     return compareStringNullTerminated(other) == 0;
 }
 
 bool
-Coord::
+PathElement::
 stringLess(const std::string & other) const
 {
     return compareString(other.data(), other.size()) < 0;
 }
 
 bool
-Coord::
+PathElement::
 stringLess(const Utf8String & other) const
 {
     return compareString(other.rawData(), other.rawLength()) < 0;
 }
 
 bool
-Coord::
+PathElement::
 stringLess(const char * other) const
 {
     return compareStringNullTerminated(other) < 0;
 }
 
 bool
-Coord::
+PathElement::
 stringGreaterEqual(const std::string & other) const
 {
     return compareString(other.data(), other.size()) >= 0;
 }
 
 bool
-Coord::
+PathElement::
 stringGreaterEqual(const Utf8String & other) const
 {
     return compareString(other.rawData(), other.rawLength()) >= 0;
 }
 
 bool
-Coord::
+PathElement::
 stringGreaterEqual(const char * other) const
 {
     return compareStringNullTerminated(other) >= 0;
 }
     
 bool
-Coord::
-operator == (const Coord & other) const
+PathElement::
+operator == (const PathElement & other) const
 {
     return dataLength() == other.dataLength()
         && compareString(other.data(), other.dataLength()) == 0;
 }
 
 bool
-Coord::
-operator != (const Coord & other) const
+PathElement::
+operator != (const PathElement & other) const
 {
     return ! operator == (other);
 }
 
 bool
-Coord::
-operator <  (const Coord & other) const
+PathElement::
+operator <  (const PathElement & other) const
 {
     return compareString(other.data(), other.dataLength()) < 0;
 }
 
 bool
-Coord::
+PathElement::
 startsWith(const std::string & other) const
 {
     return toUtf8String().startsWith(other);
 }
 
 bool
-Coord::
-startsWith(const Coord & other) const
+PathElement::
+startsWith(const PathElement & other) const
 {
     return toUtf8String().startsWith(other.toUtf8String());
 }
 
 bool
-Coord::
+PathElement::
 startsWith(const char * other) const
 {
     return toUtf8String().startsWith(other);
 }
 
 bool
-Coord::
+PathElement::
 startsWith(const Utf8String & other) const
 {
     return toUtf8String().startsWith(other);
 }
 
 Utf8String
-Coord::
+PathElement::
 toUtf8String() const
 {
     if (complex_)
@@ -276,9 +271,12 @@ toUtf8String() const
 }
 
 Utf8String
-Coord::
+PathElement::
 toEscapedUtf8String() const
 {
+    if (empty())
+        return "\"\"";
+
     const char * d = data();
     size_t l = dataLength();
 
@@ -307,14 +305,14 @@ toEscapedUtf8String() const
 }
 
 bool
-Coord::
+PathElement::
 isIndex() const
 {
     return toIndex() != -1;
 }
 
 ssize_t
-Coord::
+PathElement::
 toIndex() const
 {
     if (dataLength() > 12)
@@ -333,21 +331,21 @@ toIndex() const
 }
 
 bool
-Coord::
+PathElement::
 hasStringView() const
 {
     return true;  // currently we store as a string, so always true
 }
 
 std::pair<const char *, size_t>
-Coord::
+PathElement::
 getStringView() const
 {
     return { data(), dataLength() };
 }
 
 uint64_t
-Coord::
+PathElement::
 oldHash() const
 {
     return Id(data(), dataLength()).hash();
@@ -356,48 +354,48 @@ oldHash() const
 constexpr HashSeed defaultSeedStable { .i64 = { 0x1958DF94340e7cbaULL, 0x8928Fc8B84a0ULL } };
 
 uint64_t
-Coord::
+PathElement::
 newHash() const
 {
     return ::mldb_siphash24(data(), dataLength(), defaultSeedStable.b);
 }
 
-Coords
-Coord::
-operator + (const Coord & other) const
+Path
+PathElement::
+operator + (const PathElement & other) const
 {
-    Coords result(*this);
+    Path result(*this);
     return result + other;
 }
 
-Coords
-Coord::
-operator + (Coord && other) const
+Path
+PathElement::
+operator + (PathElement && other) const
 {
-    Coords result(*this);
+    Path result(*this);
     return result + std::move(other);
 }
 
-Coords
-Coord::
-operator + (const Coords & other) const
+Path
+PathElement::
+operator + (const Path & other) const
 {
-    Coords result(*this);
+    Path result(*this);
     return result + other;
 }
 
-Coords
-Coord::
-operator + (Coords && other) const
+Path
+PathElement::
+operator + (Path && other) const
 {
-    Coords result(*this);
+    Path result(*this);
     return result + std::move(other);
 }
 
 #if 0
-Coord
-Coord::
-operator + (const Coord & other) const
+PathElement
+PathElement::
+operator + (const PathElement & other) const
 {
     size_t l1 = dataLength();
     size_t l2 = other.dataLength();
@@ -409,7 +407,7 @@ operator + (const Coord & other) const
 
     size_t len = 1 + l1 + l2;
 
-    Coord result;
+    PathElement result;
 
     if (len <= INTERNAL_BYTES - 1) {
         // We can construct in-place
@@ -440,24 +438,24 @@ operator + (const Coord & other) const
     return result;
 }
 
-Coord
-Coord::
-operator + (Coord && other) const
+PathElement
+PathElement::
+operator + (PathElement && other) const
 {
     if (empty())
         return std::move(other);
-    return operator + ((const Coord &)other);
+    return operator + ((const PathElement &)other);
 }
 #endif
 
 #if 0
-Coord::
+PathElement::
 operator RowHash() const
 {
     return RowHash(hash());
 }
 
-Coord::
+PathElement::
 operator ColumnHash() const
 {
     return ColumnHash(hash());
@@ -465,7 +463,7 @@ operator ColumnHash() const
 #endif
 
 size_t
-Coord::
+PathElement::
 memusage() const
 {
     if (complex_)
@@ -474,22 +472,22 @@ memusage() const
 }
 
 void
-Coord::
+PathElement::
 complexDestroy()
 {
     getComplex().~Utf8String();
 }
 
 void
-Coord::
-complexCopyConstruct(const Coord & other)
+PathElement::
+complexCopyConstruct(const PathElement & other)
 {
     new (&str.str) Utf8String(other.getComplex());
 }
 
 void
-Coord::
-complexMoveConstruct(Coord && other)
+PathElement::
+complexMoveConstruct(PathElement && other)
 {
     new (&str.str) Utf8String(std::move(other.getComplex()));
 }
@@ -522,18 +520,16 @@ size_t rawLength(const std::string & str)
 
 template<typename T>
 void
-Coord::
+PathElement::
 initString(T && str)
 {
-    if (str.empty())
-        throw HttpReturnException(400, "Attempt to create empty Coord");
     ExcAssertEqual(strlen(rawData(str)), rawLength(str));
     initStringUnchecked(std::move(str));
 }
 
 template<typename T>
 void
-Coord::
+PathElement::
 initStringUnchecked(T && str)
 {
     // This method is used only for when we know we may have invalid
@@ -551,12 +547,15 @@ initStringUnchecked(T && str)
     }
 }
 
+template void PathElement::initStringUnchecked<Utf8String>(Utf8String && str);
+template void PathElement::initStringUnchecked<const Utf8String &>(const Utf8String & str);
+template void PathElement::initStringUnchecked<std::string>(std::string && str);
+template void PathElement::initStringUnchecked<const std::string &>(const std::string & str);
+
 void
-Coord::
+PathElement::
 initChars(const char * str, size_t len)
 {
-    if (len == 0)
-        throw HttpReturnException(400, "Attempt to create empty Coord");
     words[0] = words[1] = words[2] = 0;
     if (len <= INTERNAL_BYTES - 1) {
         complex_ = 0;
@@ -570,7 +569,7 @@ initChars(const char * str, size_t len)
 }
 
 const char *
-Coord::
+PathElement::
 data() const
 {
     if (complex_)
@@ -579,7 +578,7 @@ data() const
 }
 
 size_t
-Coord::
+PathElement::
 dataLength() const
 {
     if (complex_)
@@ -618,7 +617,7 @@ static strnverscmp(const char * s1, const char * s2, size_t len)
 #endif
 
 int
-Coord::
+PathElement::
 compareString(const char * str, size_t len) const
 {
 #if 0
@@ -641,14 +640,14 @@ compareString(const char * str, size_t len) const
 }
 
 int
-Coord::
+PathElement::
 compareStringNullTerminated(const char * str) const
 {
     return compareString(str, ::strlen(str));
 }
 
 const Utf8String &
-Coord::
+PathElement::
 getComplex() const
 {
     ExcAssert(complex_);
@@ -656,75 +655,75 @@ getComplex() const
 }
 
 Utf8String &
-Coord::
+PathElement::
 getComplex()
 {
     ExcAssert(complex_);
     return str.str;
 }
 
-std::ostream & operator << (std::ostream & stream, const Coord & coord)
+std::ostream & operator << (std::ostream & stream, const PathElement & path)
 {
-    return stream << coord.toUtf8String();
+    return stream << path.toUtf8String();
 }
 
-std::istream & operator >> (std::istream & stream, Coord & coord)
+std::istream & operator >> (std::istream & stream, PathElement & path)
 {
     std::string s;
     stream >> s;
-    coord = Coord(std::move(s));
+    path = PathElement(std::move(s));
     return stream;
 }
 
 /*****************************************************************************/
-/* COORDS                                                                    */
+/* PATH                                                                      */
 /*****************************************************************************/
 
-/** A list of coordinate points that gives a full path to an entity. */
-
-Coords::Coords()
+Path::Path()
 {
 }
 
-Coords::Coords(Coord && coord)
+Path::Path(PathElement && path)
 {
-    if (!coord.empty())
-        emplace_back(std::move(coord));
+    if (!path.empty())
+        emplace_back(std::move(path));
 }
 
-Coords::Coords(const Coord & coord)
+Path::Path(const PathElement & path)
 {
-    if (!coord.empty())
-        emplace_back(coord);
+    if (!path.empty())
+        emplace_back(path);
 }
 
 Utf8String
-Coords::
+Path::
 toSimpleName() const
 {
     if (size() != 1)
-        throw HttpReturnException(400, "Attempt to extract single name from multiple or empty coordinates: " + toUtf8String());
+        throw HttpReturnException(400, "Attempt to extract single name from multiple or empty path: " + toUtf8String());
     return at(0).toUtf8String();
 }
 
 Utf8String
-Coords::
+Path::
 toUtf8String() const
 {
     Utf8String result;
+    bool first = true;
     for (auto & c: *this) {
-        if (!result.empty())
+        if (!first)
             result += '.';
         result += c.toEscapedUtf8String(); 
+        first = false;
     }
     return result;
 }
 
-Coords
-Coords::
+Path
+Path::
 parse(const char * str, size_t len)
 {
-    Coords result;
+    Path result;
     result.reserve(4);
 
     const char * p = str;
@@ -732,20 +731,15 @@ parse(const char * str, size_t len)
 
     if (p == e) {
         if (result.empty()) {
-            throw HttpReturnException(400, "Parsing empty string for coord");
+            throw HttpReturnException(400, "Parsing empty string for path");
         }
     }
 
-    auto parseOne = [&] () -> Coord
-        {
-            return Coord::parsePartial(p, e);
-        };
-
     while (p < e) {
-        result.emplace_back(Coord::parsePartial(p, e));
+        result.emplace_back(PathElement::parsePartial(p, e));
         if (p < e) {
             if (*p != '.') {
-                throw HttpReturnException(400, "expected '.' between elements in Coords, got " + to_string((int)*p),
+                throw HttpReturnException(400, "expected '.' between elements in Path, got " + to_string((int)*p),
                                           "position", p - str,
                                           "val", Utf8String(str, len));
             }
@@ -753,74 +747,78 @@ parse(const char * str, size_t len)
         }
     }
 
+    if (str != e && e[-1] == '.') {
+        result.emplace_back();
+    }
+
     if (result.empty()) {
-        throw HttpReturnException(400, "Coords were empty",
+        throw HttpReturnException(400, "Path was empty",
                                   "val", Utf8String(str, len));
     }
     
     return result;
 }
 
-Coords
-Coords::
+Path
+Path::
 parse(const Utf8String & val)
 {
     return parse(val.rawData(), val.rawLength());
 }
 
-Coords
-Coords::
-operator + (const Coords & other) const
+Path
+Path::
+operator + (const Path & other) const
 {
-    Coords result = *this;
+    Path result = *this;
     result.insert(result.end(), other.begin(), other.end());
     return result;
 }
 
-Coords
-Coords::
-operator + (Coords && other) const
+Path
+Path::
+operator + (Path && other) const
 {
-    Coords result = *this;
+    Path result = *this;
     result.insert(result.end(),
                   std::make_move_iterator(other.begin()),
                   std::make_move_iterator(other.end()));
     return result;
 }
 
-Coords
-Coords::
-operator + (const Coord & other) const
+Path
+Path::
+operator + (const PathElement & other) const
 {
-    Coords result = *this;
+    Path result = *this;
     if (!other.empty())
         result.push_back(other);
     return result;
 }
 
-Coords
-Coords::
-operator + (Coord && other) const
+Path
+Path::
+operator + (PathElement && other) const
 {
-    Coords result = *this;
+    Path result = *this;
     if (!other.empty())
         result.emplace_back(std::move(other));
     return result;
 }
 
-Coords::operator RowHash() const
+Path::operator RowHash() const
 {
     return RowHash(hash());
 }
 
-Coords::operator ColumnHash() const
+Path::operator ColumnHash() const
 {
     return ColumnHash(hash());
 }
 
 bool
-Coords::
-startsWith(const Coord & prefix) const
+Path::
+startsWith(const PathElement & prefix) const
 {
     if (empty())
         return false;
@@ -828,8 +826,8 @@ startsWith(const Coord & prefix) const
 }
 
 bool
-Coords::
-startsWith(const Coords & prefix) const
+Path::
+startsWith(const Path & prefix) const
 {
     if (size() < prefix.size())
         return false;
@@ -837,57 +835,57 @@ startsWith(const Coords & prefix) const
                       prefix.begin());
 }
 
-Coords
-Coords::
-removePrefix(const Coord & prefix) const
+Path
+Path::
+removePrefix(const PathElement & prefix) const
 {
     if (!startsWith(prefix))
         return *this;
-    Coords result;
+    Path result;
     result.insert(result.end(), begin() + 1, end());
     return result;
 }
 
-Coords
-Coords::
-removePrefix(const Coords & prefix) const
+Path
+Path::
+removePrefix(const Path & prefix) const
 {
     if (!startsWith(prefix))
         return *this;
     return removePrefix(prefix.size());
 }
 
-Coords
-Coords::
+Path
+Path::
 removePrefix(size_t n) const
 {
     ExcAssertLessEqual(n, size());
-    Coords result;
+    Path result;
     result.insert(result.end(), begin() + n, end());
     return result;
 }
 
-Coords
-Coords::
-replacePrefix(const Coord & prefix, const Coords & newPrefix) const
+Path
+Path::
+replacePrefix(const PathElement & prefix, const Path & newPrefix) const
 {
-    Coords result(newPrefix);
+    Path result(newPrefix);
     result.insert(result.end(), begin() + 1, end());
     return result;
 }
 
-Coords
-Coords::
-replacePrefix(const Coords & prefix, const Coords & newPrefix) const
+Path
+Path::
+replacePrefix(const Path & prefix, const Path & newPrefix) const
 {
-    Coords result(newPrefix);
+    Path result(newPrefix);
     result.insert(result.end(), begin() + prefix.size(), end());
     return result;
 }
 
 bool
-Coords::
-matchWildcard(const Coords & wildcard) const
+Path::
+matchWildcard(const Path & wildcard) const
 {
     if (wildcard.empty())
         return true;
@@ -901,9 +899,9 @@ matchWildcard(const Coords & wildcard) const
     return at(wildcard.size() - 1).startsWith(wildcard.back());
 }
 
-Coords
-Coords::
-replaceWildcard(const Coords & wildcard, const Coords & with) const
+Path
+Path::
+replaceWildcard(const Path & wildcard, const Path & with) const
 {
     if (wildcard.empty()) {
         if (with.empty())
@@ -912,9 +910,9 @@ replaceWildcard(const Coords & wildcard, const Coords & with) const
     }
 
     if (size() < wildcard.size())
-        return Coords();
+        return Path();
 
-    Coords result;
+    Path result;
     for (ssize_t i = 0;  i < (ssize_t)(with.size()) - 1;  ++i)
         result.push_back(with[i]);
 
@@ -931,7 +929,7 @@ replaceWildcard(const Coords & wildcard, const Coords & with) const
 }   
 
 uint64_t
-Coords::
+Path::
 oldHash() const
 {
     uint64_t result = 0;
@@ -945,7 +943,7 @@ oldHash() const
 }
 
 uint64_t
-Coords::
+Path::
 newHash() const
 {
     uint64_t result = 0;
@@ -959,10 +957,10 @@ newHash() const
 }
 
 size_t
-Coords::
+Path::
 memusage() const
 {
-    size_t result = sizeof(*this) + (capacity() - size() * sizeof(Coord));
+    size_t result = sizeof(*this) + (capacity() - size() * sizeof(PathElement));
     for (auto & c: *this) {
         result += c.memusage();
     }
@@ -970,15 +968,15 @@ memusage() const
 }
 
 std::ostream &
-operator << (std::ostream & stream, const Coords & id)
+operator << (std::ostream & stream, const Path & id)
 {
     return stream << id.toUtf8String();
 }
 
 std::istream &
-operator >> (std::istream & stream, Coords & id)
+operator >> (std::istream & stream, Path & id)
 {
-    throw HttpReturnException(600, "TODO: implement istream >> Coords");
+    throw HttpReturnException(600, "TODO: implement istream >> Path");
 }
 
 
@@ -986,27 +984,27 @@ operator >> (std::istream & stream, Coords & id)
 /* VALUE DESCRIPTIONS                                                        */
 /*****************************************************************************/
 
-struct CoordDescription 
-    : public ValueDescriptionI<Coord, ValueKind::ATOM, CoordDescription> {
+struct PathElementDescription 
+    : public ValueDescriptionI<PathElement, ValueKind::ATOM, PathElementDescription> {
 
-    virtual void parseJsonTyped(Coord * val,
+    virtual void parseJsonTyped(PathElement * val,
                                 JsonParsingContext & context) const;
 
-    virtual void printJsonTyped(const Coord * val,
+    virtual void printJsonTyped(const PathElement * val,
                                 JsonPrintingContext & context) const;
 
-    virtual bool isDefaultTyped(const Coord * val) const;
+    virtual bool isDefaultTyped(const PathElement * val) const;
 };
 
-DEFINE_VALUE_DESCRIPTION_NS(Coord, CoordDescription);
+DEFINE_VALUE_DESCRIPTION_NS(PathElement, PathElementDescription);
 
 void
-CoordDescription::
-parseJsonTyped(Coord * val,
+PathElementDescription::
+parseJsonTyped(PathElement * val,
                JsonParsingContext & context) const
 {
     if (context.isNull())
-        *val = Coord();
+        *val = PathElement();
     else if (context.isString())
         *val = context.expectStringUtf8();
     else {
@@ -1015,8 +1013,8 @@ parseJsonTyped(Coord * val,
 }
 
 void
-CoordDescription::
-printJsonTyped(const Coord * val,
+PathElementDescription::
+printJsonTyped(const PathElement * val,
                JsonPrintingContext & context) const
 {
     context.writeJson(jsonEncode(Id(val->toUtf8String())));
@@ -1024,59 +1022,59 @@ printJsonTyped(const Coord * val,
 }
 
 bool
-CoordDescription::
-isDefaultTyped(const Coord * val) const
+PathElementDescription::
+isDefaultTyped(const PathElement * val) const
 {
     return val->empty();
 }
 
-struct CoordsDescription 
-    : public ValueDescriptionI<Coords, ValueKind::ATOM, CoordsDescription> {
+struct PathDescription 
+    : public ValueDescriptionI<Path, ValueKind::ATOM, PathDescription> {
 
-    virtual void parseJsonTyped(Coords * val,
+    virtual void parseJsonTyped(Path * val,
                                 JsonParsingContext & context) const;
 
-    virtual void printJsonTyped(const Coords * val,
+    virtual void printJsonTyped(const Path * val,
                                 JsonPrintingContext & context) const;
 
-    virtual bool isDefaultTyped(const Coords * val) const;
+    virtual bool isDefaultTyped(const Path * val) const;
 };
 
-DEFINE_VALUE_DESCRIPTION_NS(Coords, CoordsDescription);
+DEFINE_VALUE_DESCRIPTION_NS(Path, PathDescription);
 
 void
-CoordsDescription::
-parseJsonTyped(Coords * val,
+PathDescription::
+parseJsonTyped(Path * val,
                JsonParsingContext & context) const
 {
     if (context.isNull())
-        *val = Coords();
+        *val = Path();
     if (context.isInt())
-        *val = Coord(context.expectInt());
+        *val = PathElement(context.expectInt());
     else if (context.isString())
-        *val = Coords::parse(context.expectStringUtf8());
+        *val = Path::parse(context.expectStringUtf8());
     else if (context.isArray()) {
-        auto vec = jsonDecode<vector<Coord> >(context.expectJson());
-        *val = Coords(std::make_move_iterator(vec.begin()),
+        auto vec = jsonDecode<vector<PathElement> >(context.expectJson());
+        *val = Path(std::make_move_iterator(vec.begin()),
                       std::make_move_iterator(vec.end()));
     }
-    else throw HttpReturnException(400, "Unparseable JSON Coords value",
+    else throw HttpReturnException(400, "Unparseable JSON Path value",
                                    "value", context.expectJson());
 }
 
 void
-CoordsDescription::
-printJsonTyped(const Coords * val,
+PathDescription::
+printJsonTyped(const Path * val,
                JsonPrintingContext & context) const
 {
-    //vector<Coord> v(val->begin(), val->end());
+    //vector<PathElement> v(val->begin(), val->end());
     //context.writeJson(jsonEncode(v));
     context.writeStringUtf8(val->toUtf8String());
 }
 
 bool
-CoordsDescription::
-isDefaultTyped(const Coords * val) const
+PathDescription::
+isDefaultTyped(const Path * val) const
 {
     return val->empty();
 }

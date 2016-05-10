@@ -67,7 +67,7 @@ CsvExportProcedureConfigDescription()
         if (cfg->quoteChar.size() != 1) {
             throw ML::Exception("Quotechar must be 1 char long.");
         }
-        MustContainFrom<InputQuery>()(cfg->exportData, "export.csv");
+        MustContainFrom()(cfg->exportData, CsvExportProcedureConfig::name);
     };
 }
 
@@ -86,7 +86,6 @@ run(const ProcedureRunConfig & run,
     const std::function<bool (const Json::Value &)> & onProgress) const
 {
     auto runProcConf = applyRunConfOverProcConf(procedureConfig, run);
-            
     SqlExpressionMldbScope context(server);
     filter_ostream out(runProcConf.dataFileUrl.toString());
     CsvWriter csv(out, runProcConf.delimiter.at(0),
@@ -200,8 +199,8 @@ run(const ProcedureRunConfig & run,
         }
         csv.endl();
     }
-    bsq.execute({outputCsvLine, false/*processInParallel*/}, 
-                runProcConf.exportData.stm->offset, 
+    bsq.execute({outputCsvLine, false/*processInParallel*/},
+                runProcConf.exportData.stm->offset,
                 runProcConf.exportData.stm->limit,
                 onProgress);
     RunOutput output;
@@ -218,7 +217,6 @@ getStatus() const
 static RegisterProcedureType<CsvExportProcedure, CsvExportProcedureConfig>
 regCsvExportProcedure(
     builtinPackage(),
-    "export.csv",
     "Exports a dataset to a target location as a CSV",
     "procedures/CsvExportProcedure.md.html");
 

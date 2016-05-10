@@ -294,9 +294,12 @@ struct JoinLexicalScope: public LexicalScope {
 */
 
 struct JoinElement: public PipelineElement {
+    /** Constructor for when the element is pre-bound. */
     JoinElement(std::shared_ptr<PipelineElement> root,
                 std::shared_ptr<TableExpression> left,
+                BoundTableExpression boundLeft,
                 std::shared_ptr<TableExpression> right,
+                BoundTableExpression boundRight,
                 std::shared_ptr<SqlExpression> on,
                 JoinQualification joinQualification,
                 SelectExpression select,
@@ -305,7 +308,9 @@ struct JoinElement: public PipelineElement {
     
     std::shared_ptr<PipelineElement> root;
     std::shared_ptr<TableExpression> left;
+    BoundTableExpression boundLeft;
     std::shared_ptr<TableExpression> right;
+    BoundTableExpression boundRight;
     std::shared_ptr<SqlExpression> on;
     SelectExpression select;
     std::shared_ptr<SqlExpression> where;
@@ -318,6 +323,10 @@ struct JoinElement: public PipelineElement {
 
     struct Bound;
 
+    /** Execution runs over all left rows for each right row.  The complexity is
+        therefore O(left rows) * O(right rows).  The canonical example of this
+        is `SELECT * FROM t1 JOIN t2`.
+    */
     struct CrossJoinExecutor: public ElementExecutor {
         CrossJoinExecutor(const Bound * parent,
                           std::shared_ptr<ElementExecutor> root,
@@ -334,6 +343,11 @@ struct JoinElement: public PipelineElement {
         void restart();
     };
 
+    /** Execution runs on left rows and right rows together.  The complexity is
+        therefore O(max(left rows, right rows)).  The canonical example of this
+        is `SELECT * FROM t1 JOIN t2 ON t1.id = t2.id`.  This requires that the
+        the id column is sorted.
+    */
     struct EquiJoinExecutor: public ElementExecutor {
         EquiJoinExecutor(const Bound * parent,
                          std::shared_ptr<ElementExecutor> root,
@@ -443,8 +457,16 @@ struct RootElement: public PipelineElement {
 /** Element that generates rows according to the FROM clause. */
 
 struct FromElement: public PipelineElement {
+
+    /** Create the from clause, which will forward a query to the executor
+        of the given table.  The table may be pre-bound (if boundFrom is
+        filled in), or otherwise will be bound by this element (if a default
+        constructed, or empty,  BoundTableExpression is passed in to
+        boundFrom).
+    */
     FromElement(std::shared_ptr<PipelineElement> root_,
                 std::shared_ptr<TableExpression> from_,
+                BoundTableExpression boundFrom_,
                 WhenExpression when_,
                 SelectExpression select_ = SelectExpression::parse("*"),
                 std::shared_ptr<SqlExpression> where_ = SqlExpression::parse("true"),
@@ -453,6 +475,7 @@ struct FromElement: public PipelineElement {
     
     std::shared_ptr<PipelineElement> root;
     std::shared_ptr<TableExpression> from;
+    BoundTableExpression boundFrom;
     SelectExpression select;
     WhenExpression when;
     std::shared_ptr<SqlExpression> where;

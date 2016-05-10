@@ -262,6 +262,29 @@ doResolveTableName(const ColumnName & fullVariableName,
     return fullVariableName;
 }
 
+std::vector<Utf8String>
+PipelineExpressionScope::
+getTableNames() const
+{
+    std::vector<Utf8String> result;
+    for (auto & t: defaultTables) {
+        if (!t.scope)
+            continue;
+        std::set<Utf8String> n = t.scope->tableNames();
+        result.insert(result.end(), n.begin(), n.end());
+    }
+
+    for (auto & t: tables) {
+        result.push_back(t.first);
+    }
+
+    std::sort(result.begin(), result.end());
+    result.erase(std::unique(result.begin(), result.end()),
+                 result.end());
+
+    return result;
+}
+
 MldbServer * 
 PipelineExpressionScope::
 getMldbServer() const
@@ -369,8 +392,23 @@ from(std::shared_ptr<TableExpression> from,
      OrderByExpression orderBy,
      GetParamInfo getParamInfo)
 {
-    return std::make_shared<FromElement>(shared_from_this(), from, when,
+    return std::make_shared<FromElement>(shared_from_this(), from, 
+                                         BoundTableExpression(),
+                                         when,
                                          select, where, orderBy, getParamInfo);
+}
+
+std::shared_ptr<PipelineElement>
+PipelineElement::
+from(std::shared_ptr<TableExpression> from,
+     BoundTableExpression boundFrom,
+     WhenExpression when,
+     SelectExpression select,
+     std::shared_ptr<SqlExpression> where,
+     OrderByExpression orderBy)
+{
+    return std::make_shared<FromElement>(shared_from_this(), from, boundFrom,
+                                         when, select, where, orderBy);
 }
 
 std::shared_ptr<PipelineElement>
@@ -385,7 +423,33 @@ join(std::shared_ptr<TableExpression> left,
 {
     return std::make_shared<JoinElement>(shared_from_this(),
                                          std::move(left),
+                                         BoundTableExpression(),
                                          std::move(right),
+                                         BoundTableExpression(),
+                                         std::move(on),
+                                         joinQualification,
+                                         std::move(select),
+                                         std::move(where),
+                                         std::move(orderBy));
+}
+
+std::shared_ptr<PipelineElement>
+PipelineElement::
+join(std::shared_ptr<TableExpression> left,
+     BoundTableExpression boundLeft,
+     std::shared_ptr<TableExpression> right,
+     BoundTableExpression boundRight,
+     std::shared_ptr<SqlExpression> on,
+     JoinQualification joinQualification,
+     SelectExpression select,
+     std::shared_ptr<SqlExpression> where,
+     OrderByExpression orderBy)
+{
+    return std::make_shared<JoinElement>(shared_from_this(),
+                                         std::move(left),
+                                         std::move(boundLeft),
+                                         std::move(right),
+                                         std::move(boundRight),
                                          std::move(on),
                                          joinQualification,
                                          std::move(select),

@@ -397,6 +397,7 @@ expression|result
 - `replace_null(x, y)`: replace all `null`s in `x` by `y`.  Works on scalars or rows.
 - `binomial_lb_80(trials, successes)` returns the 80% lower bound using the Wilson score.
 - `binomial_ub_80(trials, successes)` returns the 80% upper bound using the Wilson score.
+- `clamp(x,lower,upper)` will clamp the value 'x' between the lower and upper bounds.
 
 More details on the [Binomial proportion confidence interval Wikipedia page](https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval).
 
@@ -408,11 +409,19 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
   system locale.
 - `regex_replace(string, regex, replacement)` will return the given string with
   matches of the `regex` replaced by the `replacement`.  Perl-style regular
-  expressions are supported.
+  expressions are supported.  It is normally preferable that the `regex` be a
+  constant string; performance will be very poor if not as the regular expression
+  will need to be recompiled on every application.
 - `regex_match(string, regex)` will return true if the *entire* string matches
   the regex, and false otherwise.  If `string` is null, then null will be returned.
+  It is normally preferable that the `regex` be a
+  constant string; performance will be very poor if not as the regular expression
+  will need to be recompiled on every application.
 - `regex_search(string, regex)` will return true if *any portion of * `string` matches
   the regex, and false otherwise.  If `string` is null, then null will be returned.
+  It is normally preferable that the `regex` be a
+  constant string; performance will be very poor if not as the regular expression
+  will need to be recompiled on every application.
 
 ### Timestamp functions
 
@@ -496,6 +505,7 @@ The following standard SQL aggregation functions are supported. They may only be
 - `max` calculates the maximum of all values in the group.
 - `count` calculates the number of non-null values in the group.
     - `count(*)` is a special function which will count the number of rows in the group with non-null values in any column
+- 'count_distinct' calculates the number of unique, distinct non-null values in the group.
 
 The following useful non-standard aggregation functions is also supported:
 

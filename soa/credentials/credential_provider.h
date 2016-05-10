@@ -1,9 +1,9 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* credential_provider.h                                           -*- C++ -*-
    Jeremy Barnes, 5 November 2014
    Copyright (c) 2014 Datacratic Inc.  All rights reserved.
-   
+
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
+
    Credential provider structure and registration.
 */
 
@@ -18,25 +18,30 @@ namespace Datacratic {
 /* CREDENTIAL PROVIDER                                                       */
 /*****************************************************************************/
 
-/** Base class that can provide credentials to access a given resource.
-    
-    Credentials are pluggable to allow for flexible scenarios.
+/** Interface that can provide access to credentials to unlock private resources.
+
+    Example of credential providers include file-based provider, command-line
+    provider and in-memory provider.
 */
 struct CredentialProvider {
 
     virtual ~CredentialProvider();
 
-    virtual std::vector<std::string>
-    getResourceTypePrefixes() const = 0;
+    /**
+       Returns a list of credentials matching the resource type.
 
-    virtual std::vector<Credential>
-    getSync(const std::string & resourceType,
-            const std::string & resource,
-            const CredentialContext & context,
-            Json::Value extraData) const = 0;
-    
-    static void registerProvider(const std::string & name,
-                                 std::shared_ptr<CredentialProvider> provider);
+       This call must return <b>all</b> the available stored credentials
+       matching  <b>exactly</b> the resourceType.  Additional logic is implemented
+       on top of that call to find the best matching credential for the resource.
+    */
+    virtual std::vector<StoredCredentials>
+    getCredentialsOfType(const std::string & resourceType) const = 0;
+
+    /**
+       Adds a provider to the list of providers.  This should be called at
+       load time for all providers.
+    */
+    static void registerProvider(std::shared_ptr<CredentialProvider> provider);
 };
 
 

@@ -3,7 +3,7 @@
     Copyright (c) 2015 Datacratic Inc.  All rights reserved.
 
     This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-    
+
     Implementation of TF-IDF algorithm
 */
 
@@ -30,8 +30,8 @@ using namespace std;
 
 namespace {
 void
-serialize(ML::DB::Store_Writer & store, 
-          uint64_t corpusSize, 
+serialize(ML::DB::Store_Writer & store,
+          uint64_t corpusSize,
           const std::unordered_map<Datacratic::Utf8String, uint64_t> & dfs)
 {
     std::string name = "tfidf";
@@ -46,7 +46,7 @@ serialize(ML::DB::Store_Writer & store,
 }
 
 void
-reconstitute(ML::DB::Store_Reader & store, 
+reconstitute(ML::DB::Store_Reader & store,
              uint64_t & corpusSize,
              std::unordered_map<Datacratic::Utf8String, uint64_t> & dfs)
 {
@@ -77,7 +77,7 @@ reconstitute(ML::DB::Store_Reader & store,
 
 void
 save(const std::string & filename,
-     uint64_t corpusSize, 
+     uint64_t corpusSize,
      const std::unordered_map<Datacratic::Utf8String, uint64_t> & dfs)
 {
     Datacratic::filter_ostream stream(filename);
@@ -87,7 +87,7 @@ save(const std::string & filename,
 
 void
 load(const std::string & filename,
-     uint64_t & corpusSize, 
+     uint64_t & corpusSize,
      std::unordered_map<Datacratic::Utf8String, uint64_t> & dfs)
 {
     Datacratic::filter_istream stream(filename);
@@ -128,7 +128,7 @@ TfidfConfigDescription()
     Optional<PolyConfigT<Dataset> > optional;
     optional.emplace(PolyConfigT<Dataset>().
                      withType(TfidfConfig::defaultOutputDatasetType));
-    
+
     addField("trainingData", &TfidfConfig::trainingData,
              "An SQL query to provide for input to the tfidf procedure. "
              "Rows represent documents, and column names are terms. "
@@ -154,16 +154,9 @@ TfidfConfigDescription()
              "also be provided.");
     addParent<ProcedureConfig>();
 
-    onPostValidate = [] (TfidfConfig * cfg, 
-                         JsonParsingContext & context) {
-        // to create a function we need access to a model
-        if(!cfg->modelFileUrl.valid() && !cfg->functionName.empty()) {
-            throw ML::Exception("modelFileUrl \"" + cfg->modelFileUrl.toString() 
-                                + "\" is not valid.  A valid modelFileUrl parameter "
-                                + "is required to create a function.");
-        }
-        MustContainFrom<InputQuery>()(cfg->trainingData, "tfidf.train");
-    };
+    onPostValidate = chain(validateQuery(&TfidfConfig::trainingData,
+                                         MustContainFrom()),
+                           validateFunction<TfidfConfig>());
 }
 
 
@@ -202,30 +195,30 @@ run(const ProcedureRunConfig & run,
 
     auto boundDataset = runProcConf.trainingData.stm->from->bind(context);
 
-    //This will cummulate the number of documents each word is in 
+    //This will cummulate the number of documents each word is in
     std::unordered_map<Utf8String, uint64_t> dfs;
     std::atomic<uint64_t> corpusSize(0);
 
     auto processor = [&] (NamedRowValue & row_)
         {
             MatrixNamedRow row = row_.flattenDestructive();
-            for (auto& col : row.columns) {            
+            for (auto& col : row.columns) {
                 Utf8String word = get<0>(col).toUtf8String();
-                dfs[word] += 1;               
+                dfs[word] += 1;
             }
             ++corpusSize;
 
             return true;
         };
 
-    iterateDataset(runProcConf.trainingData.stm->select, *boundDataset.dataset, boundDataset.asName, 
+    iterateDataset(runProcConf.trainingData.stm->select, *boundDataset.dataset, boundDataset.asName,
                    runProcConf.trainingData.stm->when,
                    *runProcConf.trainingData.stm->where,
                    {processor,false/*processInParallel*/},
                    runProcConf.trainingData.stm->orderBy,
                    runProcConf.trainingData.stm->offset,
                    runProcConf.trainingData.stm->limit,
-                   onProgress);     
+                   onProgress);
 
     bool saved = false;
     if (!runProcConf.modelFileUrl.empty()) {
@@ -249,12 +242,12 @@ run(const ProcedureRunConfig & run,
         auto output = createDataset(server, outputDataset, onProgress, true /*overwrite*/);
 
         Date applyDate = Date::now();
-        ColumnName columnName(Coord("count"));
+        ColumnName columnName(PathElement("count"));
 
         for (auto & df : dfs) {
             std::vector<std::tuple<ColumnName, CellValue, Date> > columns;
             columns.emplace_back(columnName, df.second, applyDate);
-            output->recordRow(Coord(df.first), columns);
+            output->recordRow(PathElement(df.first), columns);
         }
         output->commit();
     }
@@ -263,7 +256,7 @@ run(const ProcedureRunConfig & run,
         if (saved) {
             TfidfFunctionConfig tfidfFunctionConf;
             tfidfFunctionConf.modelFileUrl = runProcConf.modelFileUrl;
-            
+
             PolyConfig tfidfFuncPC;
             tfidfFuncPC.type = "tfidf";
             tfidfFuncPC.id = runProcConf.functionName;
@@ -272,7 +265,7 @@ run(const ProcedureRunConfig & run,
             obtainFunction(server, tfidfFuncPC, onProgress);
         } else {
             throw HttpReturnException(400, "Can't create tfidf function '" +
-                                      runProcConf.functionName.rawString() + 
+                                      runProcConf.functionName.rawString() +
                                       "'. Have you provided a valid modelFileUrl?",
                                       "modelFileUrl", runProcConf.modelFileUrl.toString());
         }
@@ -295,11 +288,11 @@ TfidfFunctionConfigDescription()
     addField("idfType", &TfidfFunctionConfig::idf_type,
              "Type of IDF scoring", IDF_inverseSmooth);
 
-    onPostValidate = [] (TfidfFunctionConfig * cfg, 
+    onPostValidate = [] (TfidfFunctionConfig * cfg,
                          JsonParsingContext & context) {
         // this includes empty url
         if(!cfg->modelFileUrl.valid()) {
-            throw ML::Exception("modelFileUrl \"" + cfg->modelFileUrl.toString() 
+            throw ML::Exception("modelFileUrl \"" + cfg->modelFileUrl.toString()
                                 + "\" is not valid");
         }
     };
@@ -334,12 +327,12 @@ apply(const FunctionApplier & applier,
 {
     ExpressionValue result;
 
-    ExpressionValue inputVal = context.getColumn(Coord("input"));
+    ExpressionValue inputVal = context.getColumn(PathElement("input"));
     
     uint64_t maxFrequency = 0; // max term frequency for the current document
     uint64_t maxNt = 0;        // max document frequency for terms in the current doc
 
-    auto onColumn = [&] (const Coord & name,
+    auto onColumn = [&] (const PathElement & name,
                          const ExpressionValue & val)
         {
             Utf8String term = name.toUtf8String();
@@ -422,7 +415,7 @@ apply(const FunctionApplier & applier,
     // Compute the score for every word in the input
     logger->debug() << "corpus size: " << corpusSize;
 
-    auto onColumn2 = [&] (const Coord & name,
+    auto onColumn2 = [&] (const PathElement & name,
                           const ExpressionValue & val)
         {
             Utf8String term = name.toUtf8String();
@@ -456,9 +449,9 @@ getFunctionInfo() const
     FunctionInfo result;
 
     std::vector<KnownColumn> inputColumns, outputColumns;
-    inputColumns.emplace_back(Coord("input"), std::make_shared<UnknownRowValueInfo>(),
+    inputColumns.emplace_back(PathElement("input"), std::make_shared<UnknownRowValueInfo>(),
                               COLUMN_IS_DENSE, 0);
-    outputColumns.emplace_back(Coord("output"), std::make_shared<UnknownRowValueInfo>(),
+    outputColumns.emplace_back(PathElement("output"), std::make_shared<UnknownRowValueInfo>(),
                                COLUMN_IS_DENSE, 0);
     
     result.input.reset(new RowValueInfo(inputColumns, SCHEMA_CLOSED));
@@ -471,18 +464,16 @@ namespace {
 
 RegisterProcedureType<TfidfProcedure, TfidfConfig>
 regTfidf(builtinPackage(),
-          "tfidf.train",
-          "Prepare data for a TF-IDF function",
-          "procedures/TfidfProcedure.md.html");
+         "Prepare data for a TF-IDF function",
+         "procedures/TfidfProcedure.md.html");
 
 RegisterFunctionType<TfidfFunction, TfidfFunctionConfig>
 regTfidfFunction(builtinPackage(),
-                  "tfidf",
-                  "Apply a TF-IDF scoring to a bag of words",
-                  "functions/Tfidf.md.html");
+                 "tfidf",
+                 "Apply a TF-IDF scoring to a bag of words",
+                 "functions/Tfidf.md.html");
 
 } // file scope
 
 } // namespace MLDB
 } // namespace Datacratic
-

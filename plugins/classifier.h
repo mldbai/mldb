@@ -36,6 +36,8 @@ enum ClassifierMode {
 DECLARE_ENUM_DESCRIPTION(ClassifierMode);
 
 struct ClassifierConfig : public ProcedureConfig {
+    static constexpr const char * name = "classifier.train";
+
     ClassifierConfig()
         : equalizationFactor(0.5),
           mode(CM_BOOLEAN)
@@ -116,7 +118,7 @@ struct ClassifyFunction: public Function {
     ClassifyFunction(MldbServer * owner,
                   std::shared_ptr<ML::Classifier_Impl> classifier,
                   const std::string & labelFeatureName);
-    
+
     ~ClassifyFunction();
 
     virtual Any getStatus() const;
@@ -165,7 +167,7 @@ struct ExplainFunction: public ClassifyFunction {
     ExplainFunction(MldbServer * owner,
                   PolyConfig config,
                   const std::function<bool (const Json::Value &)> & onProgress);
-    
+
     ~ExplainFunction();
 
     virtual ExpressionValue apply(const FunctionApplier & applier,

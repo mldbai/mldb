@@ -30,13 +30,13 @@ namespace MLDB {
  *  Ensure the select contains a rows named "to_melt" and "to_fix".
  *  FieldType must contain a SelectStatement named stm.
  */
-template<typename FieldType> struct MeltFixSelect
+struct MeltFixSelect
 {
-    void operator()(const FieldType & query, const char * name)
+    void operator()(const InputQuery & query, const std::string & name) const
     {
         if (!containsNamedSubSelect(query, "to_melt") ||
             !containsNamedSubSelect(query, "to_fix") )
-            throw ML::Exception("%s procedure expect a rows named 'to_melt' and 'to_fixed'", name);
+            throw ML::Exception("%s procedure expect a rows named 'to_melt' and 'to_fixed'", name.c_str());
     }
 };
 
@@ -64,12 +64,11 @@ MeltProcedureConfigDescription()
     addField("valueColumnName", &MeltProcedureConfig::valueColumnName,
             "Column name for the value column", string("value"));
     addParent<ProcedureConfig>();
-    
-    onPostValidate = validate<MeltProcedureConfig,
-                              InputQuery,
-                              NoGroupByHaving,
-                              MeltFixSelect,
-                              MustContainFrom>(&MeltProcedureConfig::inputData, "melt");
+
+    onPostValidate = validateQuery(&MeltProcedureConfig::inputData,
+                                   NoGroupByHaving(),
+                                   MeltFixSelect(),
+                                   MustContainFrom());
 
 }
 
@@ -101,7 +100,7 @@ run(const ProcedureRunConfig & run,
 {
     auto runProcConf = applyRunConfOverProcConf(procConfig, run);
 
-    auto extractWithinExpression = [](std::shared_ptr<SqlExpression> expr) 
+    auto extractWithinExpression = [](std::shared_ptr<SqlExpression> expr)
         -> std::shared_ptr<SqlRowExpression>
         {
             auto withinExpression = std::dynamic_pointer_cast<const SelectWithinExpression>(expr);
@@ -117,7 +116,7 @@ run(const ProcedureRunConfig & run,
 
     auto toFix = extractNamedSubSelect("to_fix", runProcConf.inputData.stm->select)->expression;
     auto toMelt = extractNamedSubSelect("to_melt", runProcConf.inputData.stm->select)->expression;
-     
+
     if (!toFix || !toMelt)
         throw HttpReturnException(400, "inputData must return a 'to_fix' row and a 'to_melt' row");
 
@@ -134,7 +133,7 @@ run(const ProcedureRunConfig & run,
         throw ML::Exception("Unable to obtain output dataset");
     }
 
-    
+
     ColumnName keyColumnName(runProcConf.keyColumnName);
     ColumnName valueColumnName(runProcConf.valueColumnName);
 
@@ -153,8 +152,8 @@ run(const ProcedureRunConfig & run,
             RowValue fixedOutputRows;
             for(auto & expr : extraVals) {
 
-                auto onAtom = [&] (const Coords & columnName,
-                                   const Coords & prefix,
+                auto onAtom = [&] (const Path & columnName,
+                                   const Path & prefix,
                                    const CellValue & val,
                                    Date ts)
                     {
@@ -190,8 +189,8 @@ run(const ProcedureRunConfig & run,
                      *runProcConf.inputData.stm->where,
                      runProcConf.inputData.stm->orderBy, extra)
         .execute({processor,true/*processInParallel*/},
-                 runProcConf.inputData.stm->offset, 
-                 runProcConf.inputData.stm->limit, 
+                 runProcConf.inputData.stm->offset,
+                 runProcConf.inputData.stm->limit,
                  nullptr /* progress */);
 
     outputDataset->commit();
@@ -204,7 +203,6 @@ namespace {
 
 RegisterProcedureType<MeltProcedure, MeltProcedureConfig>
 regMelt(builtinPackage(),
-          "melt",
           "Performs a melt operation on a dataset",
           "procedures/MeltProcedure.md.html");
 

@@ -1,4 +1,4 @@
-/** coord.h                                                        -*- C++ -*-
+/** path.h                                                        -*- C++ -*-
     Jeremy Barnes, 29 January 2016
     Copyright (c) 2016 Datacratic Inc.  All rights reserved.
 
@@ -21,34 +21,34 @@
 namespace Datacratic {
 namespace MLDB {
 
-struct Coords;
+struct Path;
 
 /*****************************************************************************/
-/* COORD                                                                     */
+/* PATH ELEMENT                                                              */
 /*****************************************************************************/
 
-/** This is a coordinate: a list of discrete (integer or string) values
-    that are used to index rows, columns, etc within MLDB.
+/** This is a path element: a single discrete part of a path which acts
+    like an atomic string (although integers can also be used, and will act
+    like the string that represents them).
 
-    It can deal with string representations (with dotted values) as well
-    as their destructured versions.
+    A list of path elements is a path, which is used to name rows and columns
+    in MLDB.
 
-    It takes up 32 bytes, and will do its best to inline whatever coordinates
-    it is storing.
+    It takes up 16 bytes.
 */
 
-struct Coord {
-    Coord();
-    Coord(const Utf8String & str);
-    Coord(Utf8String && str);
-    Coord(std::string str);
-    Coord(const char * str, size_t len);
-    Coord(const char * str)
-        : Coord(str, std::strlen(str))
+struct PathElement {
+    PathElement();
+    PathElement(const Utf8String & str);
+    PathElement(Utf8String && str);
+    PathElement(std::string str);
+    PathElement(const char * str, size_t len);
+    PathElement(const char * str)
+        : PathElement(str, std::strlen(str))
     {
     }
 
-    Coord(const Coord & other)
+    PathElement(const PathElement & other)
         : words{other.words[0], other.words[1], other.words[2] }
     {
         if (other.complex_) {
@@ -56,7 +56,7 @@ struct Coord {
         }
     }
 
-    Coord(Coord && other) noexcept
+    PathElement(PathElement && other) noexcept
         : words{other.words[0], other.words[1], other.words[2] }
     {
         if (other.complex_) {
@@ -68,38 +68,38 @@ struct Coord {
     }
 
     template<size_t N>
-    inline Coord(const char (&str)[N])
-        : Coord(str, (N && str[N - 1])?N:N-1)  // remove null char from end
+    inline PathElement(const char (&str)[N])
+        : PathElement(str, (N && str[N - 1])?N:N-1)  // remove null char from end
     {
     }
 
     // Create as an array index, from any integral type
     template<typename T>
-    Coord(T i, typename std::enable_if<std::is_integral<T>::value>::type * = 0)
-        : Coord((uint64_t)i)
+    PathElement(T i, typename std::enable_if<std::is_integral<T>::value>::type * = 0)
+        : PathElement((uint64_t)i)
     {
     }
 
-    Coord(uint64_t i);
+    PathElement(uint64_t i);
 
-    static Coord parse(const Utf8String & str);
-    static Coord parse(const char * p, size_t l);
-    static Coord parsePartial(const char * & p, const char * e);
+    static PathElement parse(const Utf8String & str);
+    static PathElement parse(const char * p, size_t l);
+    static PathElement parsePartial(const char * & p, const char * e);
 
-    ~Coord()
+    ~PathElement()
     {
         if (complex_)
             complexDestroy();
     }
 
-    Coord & operator = (Coord && other) noexcept
+    PathElement & operator = (PathElement && other) noexcept
     {
-        Coord newMe(std::move(other));
+        PathElement newMe(std::move(other));
         swap(newMe);
         return *this;
     }
 
-    void swap(Coord & other) noexcept
+    void swap(PathElement & other) noexcept
     {
         // NOTE: this is only possible because there are no self-referential
         // pointers (ie, this can't point to itself in its contents).
@@ -108,9 +108,9 @@ struct Coord {
         std::swap(words[2], other.words[2]);
     }
 
-    Coord & operator = (const Coord & other) noexcept
+    PathElement & operator = (const PathElement & other) noexcept
     {
-        Coord newMe(other);
+        PathElement newMe(other);
         swap(newMe);
         return *this;
     }
@@ -127,12 +127,12 @@ struct Coord {
     bool stringGreaterEqual(const Utf8String & other) const;
     bool stringGreaterEqual(const char * other) const;
     
-    bool operator == (const Coord & other) const;
-    bool operator != (const Coord & other) const;
-    bool operator <  (const Coord & other) const;
+    bool operator == (const PathElement & other) const;
+    bool operator != (const PathElement & other) const;
+    bool operator <  (const PathElement & other) const;
 
     bool startsWith(const std::string & other) const;
-    bool startsWith(const Coord & other) const;
+    bool startsWith(const PathElement & other) const;
     bool startsWith(const char * other) const;
     bool startsWith(const Utf8String & other) const;
 
@@ -190,17 +190,17 @@ struct Coord {
         return complex_ == 0 && simpleLen_ == 0;
     }
 
-    Coords operator + (const Coord & other) const;
-    Coords operator + (Coord && other) const;
-    Coords operator + (const Coords & other) const;
-    Coords operator + (Coords && other) const;
+    Path operator + (const PathElement & other) const;
+    Path operator + (PathElement && other) const;
+    Path operator + (const Path & other) const;
+    Path operator + (Path && other) const;
 
     size_t memusage() const;
     
     //private:
     void complexDestroy();
-    void complexCopyConstruct(const Coord & other);
-    void complexMoveConstruct(Coord && other);
+    void complexCopyConstruct(const PathElement & other);
+    void complexMoveConstruct(PathElement && other);
 
     template<typename Str>
     void initString(Str && str);
@@ -239,126 +239,125 @@ struct Coord {
     };
 };
 
-std::ostream & operator << (std::ostream & stream, const Coord & id);
+std::ostream & operator << (std::ostream & stream, const PathElement & id);
 
-std::istream & operator >> (std::istream & stream, Coord & id);
+std::istream & operator >> (std::istream & stream, PathElement & id);
 
-inline bool operator == (const std::string & str1, const Coord & str2)
+inline bool operator == (const std::string & str1, const PathElement & str2)
 {
     return str2.stringEqual(str1);
 }
 
-inline bool operator != (const std::string & str1, const Coord & str2)
+inline bool operator != (const std::string & str1, const PathElement & str2)
 {
     return !str2.stringEqual(str1);
 }
 
-inline bool operator <  (const std::string & str1, const Coord & str2)
+inline bool operator <  (const std::string & str1, const PathElement & str2)
 {
     return str2.stringGreaterEqual(str1);
 }
 
-inline bool operator == (const Utf8String & str1, const Coord & str2)
+inline bool operator == (const Utf8String & str1, const PathElement & str2)
 {
     return str2.stringEqual(str1.rawString());
 }
 
-inline bool operator != (const Utf8String & str1, const Coord & str2)
+inline bool operator != (const Utf8String & str1, const PathElement & str2)
 {
     return !str2.stringEqual(str1.rawString());
 }
 
-inline bool operator <  (const Utf8String & str1, const Coord & str2)
+inline bool operator <  (const Utf8String & str1, const PathElement & str2)
 {
     return !str2.stringGreaterEqual(str1.rawString());
 }
 
-inline bool operator == (const Coord & str1, const std::string & str2)
+inline bool operator == (const PathElement & str1, const std::string & str2)
 {
     return str1.stringEqual(str2);
 }
 
-inline bool operator != (const Coord & str1, const std::string & str2)
+inline bool operator != (const PathElement & str1, const std::string & str2)
 {
     return !str1.stringEqual(str2);
 }
 
-inline bool operator <  (const Coord & str1, const std::string & str2)
+inline bool operator <  (const PathElement & str1, const std::string & str2)
 {
     return str1.stringLess(str2);
 }
 
-inline bool operator == (const Coord & str1, const Utf8String & str2)
+inline bool operator == (const PathElement & str1, const Utf8String & str2)
 {
     return str1.stringEqual(str2.rawString());
 }
 
-inline bool operator != (const Coord & str1, const Utf8String & str2)
+inline bool operator != (const PathElement & str1, const Utf8String & str2)
 {
     return !str1.stringEqual(str2.rawString());
 }
 
-inline bool operator <  (const Coord & str1, const Utf8String & str2)
+inline bool operator <  (const PathElement & str1, const Utf8String & str2)
 {
     return str1.stringLess(str2.rawString());
 }
 
-inline Utf8String keyToString(const Coord & key)
+inline Utf8String keyToString(const PathElement & key)
 {
     return key.toUtf8String();
 }
 
-inline Coord stringToKey(const Utf8String & str, Coord *)
+inline PathElement stringToKey(const Utf8String & str, PathElement *)
 {
-    return Coord(str);
+    return PathElement(str);
 }
 
-inline Coord stringToKey(const std::string & str, Coord *)
+inline PathElement stringToKey(const std::string & str, PathElement *)
 {
-    return Coord(str);
+    return PathElement(str);
 }
 
-PREDECLARE_VALUE_DESCRIPTION(Coord);
+PREDECLARE_VALUE_DESCRIPTION(PathElement);
 
-struct CoordNewHasher
-    : public std::unary_function<Datacratic::MLDB::Coord, size_t>
+struct PathElementNewHasher
+    : public std::unary_function<Datacratic::MLDB::PathElement, size_t>
 {
-    size_t operator()(const Datacratic::MLDB::Coord & coord) const
+    size_t operator()(const Datacratic::MLDB::PathElement & path) const
     {
-        return coord.newHash();
+        return path.newHash();
     }
 };
 
 
 /*****************************************************************************/
-/* COORDS                                                                    */
+/* PATHS                                                                    */
 /*****************************************************************************/
 
-/** A list of coordinate points that gives a full path to an entity. */
+/** A list of path elements points that gives a full path to an entity.
+    Row and column names are paths.
+*/
 
-struct Coords: protected ML::compact_vector<Coord, 2, uint32_t, false> {
-    typedef ML::compact_vector<Coord, 2, uint32_t, false> Base;
+struct Path: protected ML::compact_vector<PathElement, 2, uint32_t, false> {
+    typedef ML::compact_vector<PathElement, 2, uint32_t, false> Base;
 
-    Coords();
-    Coords(Coord && coord);
-    Coords(const Coord & coord);
+    Path();
+    Path(PathElement && path);
+    Path(const PathElement & path);
     template<typename T>
-    Coords(const std::initializer_list<T> & val)
-        : Coords(val.begin(), val.end())
+    Path(const std::initializer_list<T> & val)
+        : Path(val.begin(), val.end())
     {
     }
 
     template<typename It>
-    Coords(It first, It last)
+    Path(It first, It last)
         : Base(first, last)
     {
-        for (Coord & c: *this) {
-            ExcAssert(!c.empty());
-        }
     }
 
-    static Coords parse(const Utf8String & str);
-    static Coords parse(const char * str, size_t len);
+    static Path parse(const Utf8String & str);
+    static Path parse(const char * str, size_t len);
 
     /** This function asserts that there is only a single element in
         the scope, and returns it as an Utf8String.  This is used
@@ -373,26 +372,26 @@ struct Coords: protected ML::compact_vector<Coord, 2, uint32_t, false> {
 
     Utf8String toUtf8String() const;
 
-    Coords operator + (const Coords & other) const;
-    Coords operator + (Coords && other) const;
-    Coords operator + (const Coord & other) const;
-    Coords operator + (Coord && other) const;
+    Path operator + (const Path & other) const;
+    Path operator + (Path && other) const;
+    Path operator + (const PathElement & other) const;
+    Path operator + (PathElement && other) const;
 
     operator RowHash() const;
     operator ColumnHash() const;
 
-    bool startsWith(const Coord & prefix) const;
-    bool startsWith(const Coords & prefix) const;
+    bool startsWith(const PathElement & prefix) const;
+    bool startsWith(const Path & prefix) const;
 
-    bool matchWildcard(const Coords & wildcard) const;
-    Coords replaceWildcard(const Coords & wildcard, const Coords & with) const;
+    bool matchWildcard(const Path & wildcard) const;
+    Path replaceWildcard(const Path & wildcard, const Path & with) const;
 
-    Coords removePrefix(const Coord & prefix) const;
-    Coords removePrefix(const Coords & prefix) const;
-    Coords removePrefix(size_t n = 1) const;
+    Path removePrefix(const PathElement & prefix) const;
+    Path removePrefix(const Path & prefix) const;
+    Path removePrefix(size_t n = 1) const;
 
-    Coords replacePrefix(const Coord & prefix, const Coords & newPrefix) const;
-    Coords replacePrefix(const Coords & prefix, const Coords & newPrefix) const;
+    Path replacePrefix(const PathElement & prefix, const Path & newPrefix) const;
+    Path replacePrefix(const Path & prefix, const Path & newPrefix) const;
 
     /// Forwarding function for the hash().  This will, one day soon,
     /// switch to the newHash() function.
@@ -418,45 +417,45 @@ struct Coords: protected ML::compact_vector<Coord, 2, uint32_t, false> {
     using Base::back;
     using Base::operator [];
 
-    Coord head() const
+    PathElement head() const
     {
         return at(0);
     }
 
-    Coords tail() const
+    Path tail() const
     {
         ExcAssert(!empty());
-        Coords result;
+        Path result;
         result.insert(result.end(), begin() + 1, end());
         return result;
     }
 
-    bool operator == (const Coords & other) const
+    bool operator == (const Path & other) const
     {
         return static_cast<const Base &>(*this) == other;
     }
 
-    bool operator != (const Coords & other) const
+    bool operator != (const Path & other) const
     {
         return ! operator == (other);
     }
 
-    bool operator < (const Coords & other) const
+    bool operator < (const Path & other) const
     {
         return static_cast<const Base &>(*this) < other;
     }
 
-    bool operator <= (const Coords & other) const
+    bool operator <= (const Path & other) const
     {
         return static_cast<const Base &>(*this) <= other;
     }
 
-    bool operator > (const Coords & other) const
+    bool operator > (const Path & other) const
     {
         return static_cast<const Base &>(*this) > other;
     }
 
-    bool operator >= (const Coords & other) const
+    bool operator >= (const Path & other) const
     {
         return static_cast<const Base &>(*this) >= other;
     }
@@ -464,34 +463,34 @@ struct Coords: protected ML::compact_vector<Coord, 2, uint32_t, false> {
     size_t memusage() const;
 };
 
-std::ostream & operator << (std::ostream & stream, const Coords & id);
+std::ostream & operator << (std::ostream & stream, const Path & id);
 
-std::istream & operator >> (std::istream & stream, Coords & id);
+std::istream & operator >> (std::istream & stream, Path & id);
 
-inline Utf8String keyToString(const Coords & key)
+inline Utf8String keyToString(const Path & key)
 {
     return key.toUtf8String();
 }
 
-inline Coords stringToKey(const Utf8String & str, Coords *)
+inline Path stringToKey(const Utf8String & str, Path *)
 {
-    return Coords(str);
+    return Path(str);
 }
 
-inline Coords stringToKey(const std::string & str, Coords *)
+inline Path stringToKey(const std::string & str, Path *)
 {
-    return Coords(str);
+    return Path(str);
 }
 
 
-PREDECLARE_VALUE_DESCRIPTION(Coords);
+PREDECLARE_VALUE_DESCRIPTION(Path);
 
-struct CoordsNewHasher
-    : public std::unary_function<Datacratic::MLDB::Coords, size_t>
+struct PathNewHasher
+    : public std::unary_function<Datacratic::MLDB::Path, size_t>
 {
-    size_t operator()(const Datacratic::MLDB::Coords & coord) const
+    size_t operator()(const Datacratic::MLDB::Path & path) const
     {
-        return coord.newHash();
+        return path.newHash();
     }
 };
 
@@ -503,20 +502,20 @@ namespace std {
 template<typename T> struct hash;
 
 template<>
-struct hash<Datacratic::MLDB::Coord> : public std::unary_function<Datacratic::MLDB::Coord, size_t>
+struct hash<Datacratic::MLDB::PathElement> : public std::unary_function<Datacratic::MLDB::PathElement, size_t>
 {
-    size_t operator()(const Datacratic::MLDB::Coord & coord) const
+    size_t operator()(const Datacratic::MLDB::PathElement & path) const
     {
-        return coord.hash();
+        return path.hash();
     }
 };
 
 template<>
-struct hash<Datacratic::MLDB::Coords> : public std::unary_function<Datacratic::MLDB::Coords, size_t>
+struct hash<Datacratic::MLDB::Path> : public std::unary_function<Datacratic::MLDB::Path, size_t>
 {
-    size_t operator()(const Datacratic::MLDB::Coords & coords) const
+    size_t operator()(const Datacratic::MLDB::Path & paths) const
     {
-        return coords.hash();
+        return paths.hash();
     }
 };
 

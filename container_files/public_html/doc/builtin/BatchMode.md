@@ -12,8 +12,9 @@ docker run \
   --run-script /mldb_data/<script>
 ```
 
-The `<script>` argument must be local (in the mldb_data directory), as the
-credentials daemon is not available when running MLDB in batch mode.
+The `<script>` argument can be local (in the mldb_data directory) or hosted.
+For privately accessible location, one must provide the proper credentials
+on the command-line as documented below.
 
 If you want MLDB to continue to run after the script is done, you may wish to
 pass the HTTP arguments and make Docker listen on a port, as so:
@@ -43,9 +44,6 @@ from a URL.  The contents of the URL must be a JSON object, array or value.
 
 ## Making credentials available to MLDB in batch mode
 
-In batch mode, MLDB has no credentials daemon available and so credentials
-will need to be passed directly.
-
 Credentials are JSON objects that have the following format:
 
 ![](%%type Datacratic::StoredCredentials)
@@ -72,7 +70,8 @@ following means:
     - A text file with JSON credentials objects one after the other, or
     - A text file containing one JSON array, with each element of the array
       being a JSON credentials object.
-
+ 3. Using the REST API as documented in [Url](Url.md) page.
+ 
 ## Loading plugins in batch mode
 
 MLDB will not automatically load any plugins in batch mode.  To make it do
