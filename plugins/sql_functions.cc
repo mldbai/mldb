@@ -83,8 +83,8 @@ SqlQueryFunctionConfigDescription()
              "calculation");
     addField("output", &SqlQueryFunctionConfig::output,
              "Controls how the query output is converted into a row. "
-             "'FIRST_ROW' (default) will return only the first row produced "
-             "by the query.  'NAMED_COLUMNS' will construct a row from the "
+             "`FIRST_ROW` (the default) will return only the first row produced "
+             "by the query.  `NAMED_COLUMNS` will construct a row from the "
              "whole returned table, which must have a 'value' column "
              "containing the value.  If there is a 'column' column, it will "
              "be used as a column name, otherwise the row name will be used.",
