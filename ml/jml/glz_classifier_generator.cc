@@ -16,6 +16,7 @@
 #include "mldb/jml/utils/smart_ptr_utils.h"
 #include "mldb/ml/algebra/matrix_ops.h"
 #include "mldb/ml/algebra/lapack.h"
+#include "mldb/ml/algebra/least_squares.h"
 #include "mldb/arch/timers.h"
 #include "mldb/base/parallel.h"
 
@@ -50,7 +51,8 @@ configure(const Configuration & config)
     config.find(link_function, "link_function");
     config.find(normalize, "normalize");
     config.find(condition, "condition");
-    config.find(ridge_regression, "ridge_regression");
+    config.find(regularization, "regularization");
+    config.find(regularization_factor, "regularization_factor");    
     config.find(feature_proportion, "feature_proportion");
 }
 
@@ -64,7 +66,8 @@ defaults()
     do_decode = true;
     normalize = true;
     condition = false;
-    ridge_regression = true;
+    regularization = Regularization_l2;
+    regularization_factor = 1e-5;
     feature_proportion = 1.0;
 }
 
@@ -80,8 +83,10 @@ options() const
              "run the decoder (link function) after classification?")
         .add("link_function", link_function,
              "which link function to use for the output function")
-        .add("ridge_regression", ridge_regression,
-             "use a regularized regression with smaller coefficients")
+        .add("regularization", regularization,
+             "regularization factor to use. L1 is slower.")
+        .add("regularization_factor", regularization_factor, "-1 to infinite",
+             "regularization factor to use. Auto-determined if negative. Auto-determined is slower.")
         .add("normalize", normalize,
              "normalize features to have zero mean and unit variance for greater numeric stability (but slower training)")
         .add("condition", condition,
@@ -371,7 +376,7 @@ train_weighted(Thread_Context & thread_context,
             
         distribution<double> trained
             = perform_irls(correct[l], dense_data, w[l], link_function,
-                           ridge_regression, condition);
+                           regularization, regularization_factor,condition);
 
         trained /= stds;
         extra_bias = - (trained.dotprod(means));

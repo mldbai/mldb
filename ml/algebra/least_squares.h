@@ -15,9 +15,10 @@
 #include "mldb/jml/stats/distribution_simd.h"
 #include "mldb/arch/timers.h"
 #include <iostream>
+#include "mldb/jml/db/persistent.h"
+#include "mldb/jml/utils/enum_info.h"
 
 namespace ML {
-
 
 /*****************************************************************************/
 /* LEAST_SQUARES                                                             */
@@ -119,6 +120,7 @@ void svd_square(boost::multi_array<double, 2> & X,
 
     \param    A the coefficient matrix
     \param    b the required output vector
+    \param    lambda regularization parameter
     \returns  x
 
     \pre      A.shape()[0] == b.size()
@@ -130,6 +132,26 @@ ridge_regression(const boost::multi_array<float, 2> & A,
 
 distribution<double>
 ridge_regression(const boost::multi_array<double, 2> & A,
+                 const distribution<double> & b,
+                 float lambda);
+
+/** Solve a least squares linear problem using LASSO regression
+    using 'shooting' L1 regularization
+
+    \param    A the coefficient matrix
+    \param    b the required output vector
+    \param    lambda regularization parameter
+    \returns  x
+
+    \pre      A.shape()[0] == b.size()
+ */
+distribution<float>
+lasso_regression(const boost::multi_array<float, 2> & A,
+                 const distribution<float> & b,
+                 float lambda);
+
+distribution<double>
+lasso_regression(const boost::multi_array<double, 2> & A,
                  const distribution<double> & b,
                  float lambda);
 
@@ -411,5 +433,3 @@ irls(const distribution<Float> & y, const boost::multi_array<Float, 2> & x,
 
 
 } // namespace ML
-
-

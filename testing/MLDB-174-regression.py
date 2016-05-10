@@ -30,7 +30,14 @@ class Mldb174Test(MldbUnitTest):
                 "verbosity": 3,
                 "normalize": True,
                 "link_function": 'linear',
-                "ridge_regression": True
+                "regularization": 'l2'
+            },
+            "glz_l1": {
+                "type": "glz",
+                "verbosity": 3,
+                "normalize": True,
+                "link_function": 'linear',
+                "regularization": 'l1'
             },
             "dt": {
                 "type": "decision_tree",
@@ -153,6 +160,50 @@ class Mldb174Test(MldbUnitTest):
 
         self.assertAlmostEqual(result, value, delta=0.0001)
 
+    def test_select_simple_regression_l1(self):
+
+        mldb.log("L1 regression")
+
+        modelFileUrl = "file://tmp/MLDB-174.cls"
+
+        trainClassifierProcedureConfig = {
+            "type": "classifier.train",
+            "params": {
+                "trainingData": { 
+                    "select": "{x} as features, y as label",
+                    "from": { "id": "test" }
+                },
+                "configuration": self.cls_conf,
+                "algorithm": "glz_l1",
+                "modelFileUrl": modelFileUrl,
+                "mode": "regression",
+                "runOnCreation": True
+            }
+        }
+
+        procedureOutput = mldb.put("/v1/procedures/cls_train_l1", trainClassifierProcedureConfig)
+        mldb.log(procedureOutput.json())
+
+
+        functionConfig = {
+            "type": "classifier",
+            "params": {
+                "modelFileUrl": modelFileUrl
+            }
+        }
+
+        createFunctionOutput = mldb.put("/v1/functions/regressor_l1", functionConfig)
+        mldb.log(createFunctionOutput.json())
+
+        value = 10
+        selected = mldb.get("/v1/functions/regressor_l1/application", input = { "features": { "x":value }})
+
+        jsSelected = selected.json()
+        mldb.log(jsSelected)
+        result = jsSelected["output"]["score"]
+
+        self.assertAlmostEqual(result, value, delta=0.0001)
+
     def test_wine_quality_merged_regression_glz(self):
         def getConfig(dataset):
             return {
@@ -173,6 +224,71 @@ class Mldb174Test(MldbUnitTest):
                     "experimentName": "winer",
                     "modelFileUrlPattern": "file://tmp/MLDB-174-wine.cls",
                     "algorithm": "glz",
+                    "configuration": self.cls_conf,
+                    "mode": "regression",
+                    "runOnCreation": True
+                }
+            }
+
+        # this should fail because we check for dupes
+        with self.assertRaises(mldb_wrapper.ResponseException) as re:
+            mldb.put('/v1/procedures/wine_trainer', getConfig("wine_full_collision"))
+
+        # the training should now work
+        config = getConfig("wine_full")
+        rez = mldb.put('/v1/procedures/wine_trainer', config)
+
+        # check the performance is in the expected range
+        self.assertAlmostEqual(rez.json()["status"]["firstRun"]["status"]["folds"][0]["resultsTest"]["r2"], 0.28, places=2)
+
+        # make sure the trained model used all features
+        scorerDetails = mldb.get("/v1/functions/winer_scorer_0/details").json()
+        mldb.log(scorerDetails)
+        usedFeatures = [x["feature"] for x in scorerDetails["model"]["params"]["features"]]
+        mldb.log(usedFeatures)
+        self.assertGreater(len(usedFeatures), 2)
+
+
+        # run an explain over the 
+        mldb.put("/v1/functions/explainer", {
+            "type": "classifier.explain",
+            "params": {
+                "modelFileUrl": config["params"]["modelFileUrlPattern"]
+            }
+        })
+
+        explain_rez = mldb.query("""
+                select explainer({{* EXCLUDING(quality)} as features,
+                                  quality as label})
+                from wine_full
+                where rowHash() % 2 = 1
+                limit 2
+        """)
+        
+        self.assertEqual(len(explain_rez), 3)
+
+        # TODO an actual test
+
+    def test_wine_quality_merged_regression_glz_l1(self):
+        def getConfig(dataset):
+            return {
+                "type": "classifier.experiment",
+                "params": {
+                    "trainingData": """
+                        select
+                        {* EXCLUDING(quality)} as features,
+                        quality as label
+                        from %s
+                    """ % dataset,
+                    "datasetFolds": [
+                            {
+                                "training_where": "rowHash() % 2 = 0", 
+                                "testing_where": "rowHash() % 2 = 1"
+                            }
+                        ],
+                    "experimentName": "winer",
+                    "modelFileUrlPattern": "file://tmp/MLDB-174-wine.cls",
+                    "algorithm": "glz_l1",
                     "configuration": self.cls_conf,
                     "mode": "regression",
                     "runOnCreation": True

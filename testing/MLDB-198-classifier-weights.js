@@ -71,7 +71,7 @@ function trainClassifier(name, weight)
                     verbosity: 3,
                     normalize: false,
                     link: 'linear',
-                    ridge_regression: true
+                    "regularization": 'l2'
                 }
             },
             algorithm: "glz",
