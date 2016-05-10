@@ -222,7 +222,7 @@ output;
 Putting it together, we construct our continuous dataset as follows
 
 ```python
-mldb.put("/v1/datatasets/example", {
+mldb.put("/v1/datasets/example", {
     "id": "recorder",
     "type": "continuous",
     "params": {
@@ -259,7 +259,7 @@ mldb.put("/v1/datatasets/example", {
 And a configuration to read data recorded in the last 3 days is
 
 ```python
-mldb.put("/v1/datatasets/example2", {
+mldb.put("/v1/datasets/example2", {
     "id": "window",
     "type": "continuous.window",
     "params": {
