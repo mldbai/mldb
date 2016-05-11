@@ -1128,10 +1128,10 @@ createOutputScope()
          << " total scope is " << tableScope->numOutputFields()
          << endl;
 
-   // cerr << "known tables: " << endl;
-   //for (auto & t: tableScope->tables) {
-   //     cerr << t.first << " " << t.second.fieldOffset << " " << ML::type_name(*t.second.scope) << endl;
-   // }
+    cerr << "known tables: " << endl;
+    for (auto & t: tableScope->tables) {
+        cerr << t.first << " " << t.second.fieldOffset << " " << ML::type_name(*t.second.scope) << endl;
+    }
 #endif
 
     return tableScope;

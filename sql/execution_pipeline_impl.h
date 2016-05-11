@@ -131,6 +131,11 @@ struct GenerateRowsElement: public PipelineElement {
 
 /** Lexical scope for a sub select.  It allows for the output of the SELECT to be
     used in wildcards (SELECT * from (SELECT 1 AS X))
+
+    It makes a bridge from a 'select' scope to a 'table scope.'
+
+    Output added are those of the select statement, 2 outputs if the statement has
+    no 'from' clause, 4 if it has one or more in cases of nested sub selects.
 */
 
 struct SubSelectLexicalScope: public TableLexicalScope {
@@ -465,7 +470,7 @@ struct FromElement: public PipelineElement {
                 BoundTableExpression boundFrom_,
                 WhenExpression when_,
                 SelectExpression select_ = SelectExpression::parse("*"),
-                std::shared_ptr<SqlExpression> where_ = SqlExpression::parse("true"),
+                std::shared_ptr<SqlExpression> where_ = SqlExpression::TRUE,
                 OrderByExpression orderBy_ = OrderByExpression(),
                 GetParamInfo params_ = nullptr);
     

@@ -392,6 +392,9 @@ from(std::shared_ptr<TableExpression> from,
      OrderByExpression orderBy,
      GetParamInfo getParamInfo)
 {
+    //The FromElement needs the GetParamInfo in case it is a sub select (e.g., "select * from (select $param)")
+    //In which case the GetParamInfo is needed to create the sub-pipeline.
+
     return std::make_shared<FromElement>(shared_from_this(), from, 
                                          BoundTableExpression(),
                                          when,
@@ -473,7 +476,7 @@ select(SelectExpression select)
 
 std::shared_ptr<PipelineElement>
 PipelineElement::
-selectunique(SelectExpression select)
+selectUnique(SelectExpression select)
 {
     return std::make_shared<SelectElement>(shared_from_this(), select, true /*unique*/);
 }
@@ -572,7 +575,7 @@ statement(SelectStatement& stm, GetParamInfo getParamInfo)
             return root
             ->params(getParamInfo)
             ->select(stm.rowName)  // second last element is rowname
-            ->selectunique(stm.select); // only select 1 value
+            ->selectUnique(stm.select); // only select 1 value
         }
     }
 }
