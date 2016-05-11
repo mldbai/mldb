@@ -1,14 +1,12 @@
 /**
- * list_files.h
+ * list_files_procedure.h
  * Mich, 2016-05-10
  * This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
  **/
 
 #pragma once
 #include "mldb/core/procedure.h"
-#include "mldb/core/function.h"
 #include "mldb/core/dataset.h"
-#include "mldb/sql/sql_expression.h"
 
 namespace Datacratic {
 namespace MLDB {
@@ -18,7 +16,7 @@ struct ListFilesProcedureConfig : ProcedureConfig {
 
     ListFilesProcedureConfig();
 
-    std::string path;
+    Url path;
     Date modifiedSince;
     PolyConfigT<Dataset> outputDataset;
 };

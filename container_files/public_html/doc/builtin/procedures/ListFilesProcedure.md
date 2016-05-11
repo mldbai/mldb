@@ -1,6 +1,6 @@
 # List Files Procedure
 
-This procedure lists files found under a path and stores their information
+This procedure recursively lists files found under a path and stores their information
 to the output dataset. File names will be used as row names. The columns of the dataset are:
 * size
 * last_modified

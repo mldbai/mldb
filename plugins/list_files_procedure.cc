@@ -10,17 +10,9 @@
 #include "mldb/sql/sql_expression.h"
 #include "mldb/server/dataset_context.h"
 #include "mldb/types/basic_value_descriptions.h"
-#include "mldb/base/parallel.h"
 #include "mldb/server/bound_queries.h"
-#include "mldb/sql/table_expression_operations.h"
-#include "mldb/sql/join_utils.h"
-#include "mldb/sql/execution_pipeline.h"
-#include "mldb/arch/backtrace.h"
 #include "mldb/types/any_impl.h"
-#include "mldb/server/per_thread_accumulator.h"
 #include "mldb/types/date.h"
-#include "mldb/sql/sql_expression.h"
-#include "mldb/plugins/sql_config_validator.h"
 #include <memory>
 
 using namespace std;
@@ -41,7 +33,7 @@ ListFilesProcedureConfigDescription::
 ListFilesProcedureConfigDescription()
 {
     addField("path", &ListFilesProcedureConfig::path,
-             "The path to start listing files from.");
+             "The path to start listing files from. ");
     addField("modifiedSince", &ListFilesProcedureConfig::modifiedSince,
              "Filter that will keep the files modified since the "
              "specified date.", Date::negativeInfinity());
@@ -89,8 +81,6 @@ run(const ProcedureRunConfig & run,
             return true;
         }
 
-        //RowName rowName(idx++);
-        //Cell c(ColumnName("path"), uri, now);
         vector<Cell> cells;
         cells.emplace_back(ColumnName("size"), info.size, now);
         cells.emplace_back(ColumnName("last_modified"), info.lastModified, now);
@@ -111,7 +101,7 @@ run(const ProcedureRunConfig & run,
     };
 
     string startScanAt = "";
-    forEachUriObject(runProcConf.path, onFoundObject, onSubDir, "/",
+    forEachUriObject(runProcConf.path.toString(), onFoundObject, onSubDir, "/",
                      startScanAt);
 
     if (rows.size()) {
