@@ -1,7 +1,7 @@
 # List Files Procedure
 
 This procedure lists files found under a path and stores their information
-to the output dataset. Row names will be contain the file names. The columns of the dataset are:
+to the output dataset. File names will be used as row names. The columns of the dataset are:
 * size
 * last_modified
 * etag
