@@ -49,7 +49,7 @@ ListFilesProcedureConfigDescription()
              "Output dataset configuration. This may refer either to an "
              "existing dataset, or a fully specified but non-existing dataset "
              "which will be created by the procedure.",
-             PolyConfigT<Dataset>().withType("sparse.mutable"));
+             PolyConfigT<Dataset>().withType("tabular"));
     addParent<ProcedureConfig>();
 }
 
@@ -95,9 +95,9 @@ run(const ProcedureRunConfig & run,
         cells.emplace_back(ColumnName("size"), info.size, now);
         cells.emplace_back(ColumnName("last_modified"), info.lastModified, now);
         cells.emplace_back(ColumnName("etag"), info.etag, now);
-        cells.emplace_back(ColumnName("storageClass"), info.storageClass, now);
-        cells.emplace_back(ColumnName("ownerId"), info.ownerId, now);
-        cells.emplace_back(ColumnName("ownerName"), info.ownerName, now);
+        cells.emplace_back(ColumnName("storage_class"), info.storageClass, now);
+        cells.emplace_back(ColumnName("owner_id"), info.ownerId, now);
+        cells.emplace_back(ColumnName("owner_name"), info.ownerName, now);
         rows.push_back(make_pair(RowName(uri), cells));
         if (rows.size() == ROWS_SIZE) {
             output->recordRows(rows);
