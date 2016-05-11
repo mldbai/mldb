@@ -383,6 +383,9 @@ struct PipelineElement: public std::enable_shared_from_this<PipelineElement> {
     select(SelectExpression select);
 
     std::shared_ptr<PipelineElement>
+    selectunique(SelectExpression select);
+
+    std::shared_ptr<PipelineElement>
     select(std::shared_ptr<SqlExpression> select);
 
     std::shared_ptr<PipelineElement>

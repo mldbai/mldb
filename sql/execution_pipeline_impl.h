@@ -24,9 +24,9 @@ struct TableLexicalScope: public LexicalScope {
         scope for the first of the two fields that a table row will add
         (the first is the rowName, the second is the actual row itself).
     */
-    TableLexicalScope(TableOperations table, Utf8String asName);
+    TableLexicalScope(std::shared_ptr<RowValueInfo> rowInfo, Utf8String asName);
 
-    TableOperations table;
+    std::shared_ptr<RowValueInfo> rowInfo;
     Utf8String asName;
 
     std::vector<KnownColumn> knownColumns;
@@ -133,9 +133,9 @@ struct GenerateRowsElement: public PipelineElement {
     used in wildcards (SELECT * from (SELECT 1 AS X))
 */
 
-struct SubSelectLexicalScope: public LexicalScope {
+struct SubSelectLexicalScope: public TableLexicalScope {
 
-    SubSelectLexicalScope(std::shared_ptr<PipelineExpressionScope> inner, std::shared_ptr<ExpressionValueInfo> selectInfo);
+    SubSelectLexicalScope(std::shared_ptr<PipelineExpressionScope> inner, std::shared_ptr<RowValueInfo> selectInfo, Utf8String asName_);
 
     std::shared_ptr<PipelineExpressionScope> inner;
     std::shared_ptr<ExpressionValueInfo> selectInfo;
@@ -152,15 +152,10 @@ struct SubSelectLexicalScope: public LexicalScope {
                   int fieldOffset,
                   SqlBindingScope & argsScope);
 
-    /** Sub select don't introduce a scope name for the join. */
-    virtual Utf8String as() const;
-
     virtual std::set<Utf8String> tableNames() const;
 
     virtual std::vector<std::shared_ptr<ExpressionValueInfo> >
     outputAdded() const;
-
-    static constexpr int SUB_ROW_CONTENTS = -1; //Because the row contents is the last thing added in the sub pipeline
 };
 
 /*****************************************************************************/
@@ -194,7 +189,8 @@ struct SubSelectElement: public PipelineElement {
 
     SubSelectElement(std::shared_ptr<PipelineElement> root,
                      SelectStatement& statement,
-                     GetParamInfo getParamInfo);
+                     GetParamInfo getParamInfo,
+                     const Utf8String& asName);
 
      struct Bound: public BoundPipelineElement {
 
@@ -222,8 +218,8 @@ struct SubSelectElement: public PipelineElement {
     bind() const;
 
     std::shared_ptr<PipelineElement> root;
-
     std::shared_ptr<PipelineElement> pipeline;
+    Utf8String asName;
 
 };
 
@@ -504,6 +500,7 @@ struct FilterWhereElement: public PipelineElement {
     struct Bound;
 
     struct Executor: public ElementExecutor {
+
         const Bound * parent_;
         std::shared_ptr<ElementExecutor> source_;
         PipelineExpressionScope * context_;
@@ -548,19 +545,23 @@ struct FilterWhereElement: public PipelineElement {
 
 struct SelectElement: public PipelineElement {
     SelectElement(std::shared_ptr<PipelineElement> source,
-                  SelectExpression select);
+                  SelectExpression select,
+                  bool unique);
 
     SelectElement(std::shared_ptr<PipelineElement> source,
                   std::shared_ptr<SqlExpression> expr);
 
     std::shared_ptr<SqlExpression> select;
     std::shared_ptr<PipelineElement> source;
+    bool unique;
 
     struct Bound;
 
     struct Executor: public ElementExecutor {
         const Bound * parent;
         std::shared_ptr<ElementExecutor> source;
+        bool unique;
+        bool taken;
 
         virtual std::shared_ptr<PipelineResults> take();
 
@@ -570,11 +571,13 @@ struct SelectElement: public PipelineElement {
     struct Bound: public BoundPipelineElement {
 
         Bound(std::shared_ptr<BoundPipelineElement> source,
-              const SqlExpression & select);
+              const SqlExpression & select,
+              bool unique);
 
         std::shared_ptr<BoundPipelineElement> source_;
         BoundSqlExpression select_;
         std::shared_ptr<PipelineExpressionScope> outputScope_;
+        bool unique;
         
         std::shared_ptr<ElementExecutor>
         start(const BoundParameters & getParam) const;
