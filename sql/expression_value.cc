@@ -9,6 +9,7 @@
 
 #include "expression_value.h"
 #include "sql_expression.h"
+#include "path.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/enum_description.h"
 #include "mldb/types/vector_description.h"
@@ -3964,10 +3965,11 @@ Path
 ExpressionValue::
 coerceToPath() const
 {
-    if (empty())
+    if (empty()) {
         return Path();
+    }
     else if (isAtom()) {
-        return PathElement(getAtom().coerceToPathElement());
+        return getAtom().coerceToPath();
     }
     else {
         vector<CellValue> vals = getEmbeddingCell();
@@ -3977,7 +3979,7 @@ coerceToPath() const
             coords.emplace_back(v.coerceToPathElement());
         }
         return Path(std::make_move_iterator(coords.begin()),
-                      std::make_move_iterator(coords.end()));
+                    std::make_move_iterator(coords.end()));
     }
 }
 
@@ -4398,6 +4400,7 @@ template class ExpressionValueInfoT<CellValue>;
 template class ExpressionValueInfoT<std::string>;
 template class ExpressionValueInfoT<Utf8String>;
 template class ExpressionValueInfoT<std::vector<unsigned char> >;
+template class ExpressionValueInfoT<Path>;
 template class ExpressionValueInfoT<int64_t>;
 template class ExpressionValueInfoT<uint64_t>;
 template class ExpressionValueInfoT<char>;
@@ -4408,6 +4411,7 @@ template class ScalarExpressionValueInfoT<CellValue>;
 template class ScalarExpressionValueInfoT<std::string>;
 template class ScalarExpressionValueInfoT<Utf8String>;
 template class ScalarExpressionValueInfoT<std::vector<unsigned char> >;
+template class ScalarExpressionValueInfoT<Path>;
 template class ScalarExpressionValueInfoT<int64_t>;
 template class ScalarExpressionValueInfoT<uint64_t>;
 template class ScalarExpressionValueInfoT<char>;

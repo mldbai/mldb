@@ -129,11 +129,13 @@ parsePartial(const char * & p, const char * e)
             if (c == '\"' || c < ' ') {
                 if (c == '\"') {
                     throw HttpReturnException
-                        (400, "invalid char in PathElement.  Quotes must be doubled.");
+                        (400, "invalid char in PathElement '" + Utf8String(start, e)
+                         + "'.  Quotes must be doubled.");
                 }
                 else {
                     throw HttpReturnException
-                        (400, "invalid char in PathElement.  Special characters must be quoted.");
+                        (400, "invalid char in PathElement '" + Utf8String(start, e)
+                         + "'.  Special characters must be quoted.");
                 }
             }
         }
@@ -736,9 +738,7 @@ parse(const char * str, size_t len)
     const char * e = p + len;
 
     if (p == e) {
-        if (result.empty()) {
-            throw HttpReturnException(400, "Parsing empty string for path");
-        }
+        return result;
     }
 
     while (p < e) {
@@ -757,11 +757,6 @@ parse(const char * str, size_t len)
         result.emplace_back();
     }
 
-    if (result.empty()) {
-        throw HttpReturnException(400, "Path was empty",
-                                  "val", Utf8String(str, len));
-    }
-    
     return result;
 }
 

@@ -287,6 +287,11 @@ struct CellValue {
         return cellType() == BLOB;
     }
 
+    bool isPath() const
+    {
+        return cellType() == PATH;
+    }
+
     bool isNaN() const
     {
         CellType t = cellType();

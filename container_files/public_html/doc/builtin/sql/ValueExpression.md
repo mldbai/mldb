@@ -310,8 +310,18 @@ Note that this syntax is not part of SQL, it is an MLDB extension.
 
 ### Dataset-provided functions
 
+These functions are always available when processing rows from a dataset, and
+will change values on each row under consideration.
+
 - `rowHash()`: returns the internal hash value of the current row, useful for random sampling and providing a stable [order](OrderByExpression.md) in query results
 - `rowName()`: returns the name the current row 
+- `rowPath()` is the structured path to the row under consideration.
+- `rowPathElement(n)` is the nth element of the `rowPath()` of the row
+  under consideration.  If n is less than zero, it will be a distance from the
+  end (for example, -1 is the last element).  For a rowName of `x.y.2`, then
+  `rowPathElement(0)` will be `x`, `rowPathElement(1)` will be `y` and
+  `rowPathElement(2)` is equivalent to `rowPathElement(-1)` which will
+  be `2`. 
 - `columnCount()`: returns the number of columns with explicit values set in the current row 
 
 ### Encoding and decoding functions
@@ -457,6 +467,27 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
 - `date_trunc(unit, x)` will truncate the timestamp `x` to the specified `unit`.
   - For example, `date_trunc('month', '1969-07-24')` will return `'1969-07-01'`
   - `day`, `dow`, `doy`, `isodow`, `isodoy` will all truncate to the day
+
+
+### Path manipulation functions
+
+MLDB represents structured data as a collection of distinct atoms, with each
+one having a path to where in the structure the atom lived.  The paths are
+used as row and column names.  The following functions are available to
+manipulate them:
+
+- `print_path(path)` will return a string representation of a path, with the
+  elements separated by periods and any elements with periods or quotes
+  quoted (and internal quotes doubled).  This is what is used by the `rowName()`
+  function to convert from the structured `rowPath()` representation.  For
+  example, a path with elements 'x' and 'hello.world' when passed through would
+  return the string `x."hello.world"`.  This is the inverse of `parse_path`
+  (below).
+- `parse_path(string)` will turn the string argument into a structured path
+  which may be used for example as the result of a `NAMED` clause.  This is the
+  inverse of `print_path` (above).
+- `path_element(path, n)` will return element `n` of the given path.
+
 
 ### Vector space functions
 

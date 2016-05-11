@@ -1266,7 +1266,11 @@ BOOST_AUTO_TEST_CASE(test_colon_as)
 
     parsed = SelectExpression::parse("x:10,y:20");
     cerr << parsed.print() << endl;
+}
 
+BOOST_AUTO_TEST_CASE(test_alignment)
+{
+    // Not really a test, but helpful for developers...
     cerr << "sizeof(CellValue) = " << sizeof(CellValue) << endl;
     cerr << "alignof(CellValue) = " << alignof(CellValue) << endl;
     cerr << "sizeof(ExpressionValue) = " << sizeof(ExpressionValue) << endl;

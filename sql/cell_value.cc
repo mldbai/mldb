@@ -45,7 +45,7 @@ CellValue(const Path & path)
         void * mem = malloc(sizeof(StringRepr) + strLength);
         longString = new (mem) StringRepr;
         std::copy(u.rawData(), u.rawData() + strLength, longString->repr);
-        type = ST_LONG_BLOB;
+        type = ST_LONG_PATH;
     }
 }
 
@@ -597,7 +597,10 @@ coerceToPath() const
 {
     if (type == ST_EMPTY)
         return Path();
-    else return Path::parse(toUtf8String());
+    else if (type == ST_SHORT_PATH || type == ST_LONG_PATH) {
+        return Path::parse(toUtf8String());
+    }
+    else return Path(toUtf8String());
 }
 
 bool
@@ -1228,7 +1231,7 @@ extractStructuredJson(JsonPrintingContext & context) const
     }
     case CellValue::PATH:
         context.startObject();
-        context.startMember("blob");
+        context.startMember("path");
         context.startArray();
 
         for (auto & p: coerceToPath()) {
@@ -1238,6 +1241,7 @@ extractStructuredJson(JsonPrintingContext & context) const
 
         context.endArray();
         context.endObject();
+        return;
     default:
         throw HttpReturnException(400, "unknown cell type");
         return;

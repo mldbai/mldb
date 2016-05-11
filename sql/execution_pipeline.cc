@@ -203,6 +203,14 @@ doGetFunction(const Utf8String & tableName,
         }
     }        
 
+    // Look for a derived function
+    auto fnderived
+        = getDatasetDerivedFunction(tableName, functionName, args, argScope,
+                                    *this, "row");
+
+    if (fnderived)
+        return fnderived;
+
     return outerScope_->doGetFunction(tableName, functionName, args, argScope);
 }
 

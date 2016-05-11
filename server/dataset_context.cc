@@ -23,7 +23,7 @@ namespace MLDB {
 
 
 /*****************************************************************************/
-/* ROW EXPRESSION MLDB CONTEXT                                               */
+/* SQL EXPRESSION MLDB SCOPE                                                 */
 /*****************************************************************************/
 
 SqlExpressionMldbScope::
@@ -193,6 +193,7 @@ doGetColumn(const Utf8String & tableName,
             std::make_shared<AtomValueInfo>()};
 }
 
+
 BoundFunction
 SqlExpressionDatasetScope::
 doGetFunction(const Utf8String & tableName,
@@ -206,6 +207,14 @@ doGetFunction(const Utf8String & tableName,
     if (fnoverride)
         return fnoverride;
 
+    // Look for a derived function
+    auto fnderived
+        = getDatasetDerivedFunction(tableName, functionName, args, argScope,
+                                    *this, "row");
+
+    if (fnderived)
+        return fnderived;
+
     if (functionName == "rowName") {
         return {[=] (const std::vector<ExpressionValue> & args,
                      const SqlRowScope & context)
@@ -215,6 +224,18 @@ doGetFunction(const Utf8String & tableName,
                                            Date::negativeInfinity());
                 },
                 std::make_shared<Utf8StringValueInfo>()
+                };
+    }
+
+    if (functionName == "rowPath") {
+        return {[=] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & context)
+                {
+                    auto & row = context.as<RowScope>();
+                    return ExpressionValue(CellValue(row.row.rowName),
+                                           Date::negativeInfinity());
+                },
+                std::make_shared<PathValueInfo>()
                 };
     }
 

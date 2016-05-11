@@ -127,6 +127,7 @@ SPECIALIZE_STORAGE_TYPE(Utf8String,           ST_UTF8STRING);
 SPECIALIZE_STORAGE_TYPE(CellValue,            ST_ATOM);
 SPECIALIZE_STORAGE_TYPE(bool,                 ST_BOOL);
 SPECIALIZE_STORAGE_TYPE(Date,                 ST_TIMESTAMP);
+SPECIALIZE_STORAGE_TYPE(Path,                 ST_ATOM);
 
 /** Return the ExpressionValueInfo type for the given storage type. */
 std::shared_ptr<ExpressionValueInfo>
@@ -1148,6 +1149,7 @@ extern template class ExpressionValueInfoT<CellValue>;
 extern template class ExpressionValueInfoT<std::string>;
 extern template class ExpressionValueInfoT<Utf8String>;
 extern template class ExpressionValueInfoT<std::vector<uint8_t> >;
+extern template class ExpressionValueInfoT<Path>;
 extern template class ExpressionValueInfoT<int64_t>;
 extern template class ExpressionValueInfoT<uint64_t>;
 extern template class ExpressionValueInfoT<char>;
@@ -1158,6 +1160,7 @@ extern template class ScalarExpressionValueInfoT<CellValue>;
 extern template class ScalarExpressionValueInfoT<std::string>;
 extern template class ScalarExpressionValueInfoT<Utf8String>;
 extern template class ScalarExpressionValueInfoT<std::vector<uint8_t> >;
+extern template class ScalarExpressionValueInfoT<Path>;
 extern template class ScalarExpressionValueInfoT<int64_t>;
 extern template class ScalarExpressionValueInfoT<uint64_t>;
 extern template class ScalarExpressionValueInfoT<char>;
@@ -1215,6 +1218,19 @@ struct BlobValueInfo: public ScalarExpressionValueInfoT<std::vector<uint8_t> > {
     virtual std::string getScalarDescription() const
     {
         return "blob";
+    }
+};
+
+struct PathValueInfo: public ScalarExpressionValueInfoT<Path> {
+    /// Is the other value compatible with this info?
+    virtual bool isCompatible(const ExpressionValue & value) const
+    {
+        return value.isAtom() && value.getAtom().isPath();
+    }
+
+    virtual std::string getScalarDescription() const
+    {
+        return "path";
     }
 };
 

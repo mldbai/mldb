@@ -2803,6 +2803,66 @@ BoundFunction clamp(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerClamp(clamp, "clamp");
 
+BoundFunction parse_path(const std::vector<BoundSqlExpression> & args)
+{
+    // Parse a string, and return a structured path
+    checkArgsSize(args.size(), 1);
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+
+                ExcAssertEqual(args.size(), 1);
+                ExpressionValue result(CellValue(Path::parse(args[0].getAtom().toUtf8String())),
+                                       args[0].getEffectiveTimestamp());
+                return result;
+            },
+            std::make_shared<PathValueInfo>()
+    };
+}
+
+static RegisterBuiltin registerParsePath(parse_path, "parse_path");
+
+BoundFunction stringify_path(const std::vector<BoundSqlExpression> & args)
+{
+    // Return an escaped string from a path
+    checkArgsSize(args.size(), 1);
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+
+                ExcAssertEqual(args.size(), 1);
+                ExpressionValue result(args[0].coerceToPath().toUtf8String(),
+                                       args[0].getEffectiveTimestamp());
+                return result;
+            },
+            std::make_shared<Utf8StringValueInfo>()
+    };
+}
+
+static RegisterBuiltin registerStringifyPath(stringify_path, "stringify_path");
+
+BoundFunction path_element(const std::vector<BoundSqlExpression> & args)
+{
+    // Return the given element of a path
+    checkArgsSize(args.size(), 2);
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                ExcAssertEqual(args.size(), 2);
+                size_t el = args[1].getAtom().toUInt();
+                ExpressionValue result(CellValue(args[0].coerceToPath().at(el)),
+                                       calcTs(args[0], args[1]));
+                return result;
+            },
+            std::make_shared<Utf8StringValueInfo>()
+    };
+}
+
+static RegisterBuiltin registerPathElement(path_element, "path_element");
+
 } // namespace Builtins
 } // namespace MLDB
 } // namespace Datacratic

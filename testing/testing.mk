@@ -349,6 +349,8 @@ $(eval $(call mldb_unit_test,MLDB-1567-empty-literal.js))
 $(eval $(call mldb_unit_test,MLDB-1563-keys-values-of.js))
 $(eval $(call mldb_unit_test,MLDB-1468-credentials-test.py))
 $(eval $(call mldb_unit_test,MLDB-1616-row-dataset-segfault.js))
+$(eval $(call mldb_unit_test,MLDB-1636-row-column-path.js))
+$(eval $(call mldb_unit_test,MLDB-1648-path-values.js))
 
 $(eval $(call test,MLDB-1360-sparse-mutable-multithreaded-insert,mldb,boost))
 $(eval $(call mldb_unit_test,MLDBFB-440_error_on_ds_wo_cols.py))

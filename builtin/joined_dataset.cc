@@ -237,19 +237,19 @@ struct JoinedDataset::Itl
                     //cerr << "got rows complex " << res->values.size() << endl;
                     Utf8String leftNameUtf8 = res->values.at(0).toUtf8String();
                     size_t i = 2;
-                    for (; i+ 2 < res->values.size(); i+=2)
+                    for (; i + 2 < res->values.size(); i+=2)
                     {
                         leftNameUtf8 += "-" + res->values.at(i).toUtf8String();
                     }                        
                     
                     RowName leftName;
                     if (leftNameUtf8 != "")
-                        leftName = RowName(leftNameUtf8);
+                        leftName = RowName::parse(leftNameUtf8);
 
                     Utf8String rightNameUtf8 = res->values.at(i).toUtf8String();
                     RowName rightName;
                     if (rightNameUtf8 != "")
-                        rightName = RowName(rightNameUtf8);
+                        rightName = RowName::parse(rightNameUtf8);
 
                     recordJoinRow(leftName, leftName, rightName, rightName);
 
