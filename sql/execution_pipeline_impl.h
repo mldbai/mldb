@@ -550,23 +550,19 @@ struct FilterWhereElement: public PipelineElement {
 
 struct SelectElement: public PipelineElement {
     SelectElement(std::shared_ptr<PipelineElement> source,
-                  SelectExpression select,
-                  bool unique);
+                  SelectExpression select);
 
     SelectElement(std::shared_ptr<PipelineElement> source,
                   std::shared_ptr<SqlExpression> expr);
 
     std::shared_ptr<SqlExpression> select;
     std::shared_ptr<PipelineElement> source;
-    bool unique;
 
     struct Bound;
 
     struct Executor: public ElementExecutor {
         const Bound * parent;
         std::shared_ptr<ElementExecutor> source;
-        bool unique;
-        bool taken;
 
         virtual std::shared_ptr<PipelineResults> take();
 
@@ -576,13 +572,11 @@ struct SelectElement: public PipelineElement {
     struct Bound: public BoundPipelineElement {
 
         Bound(std::shared_ptr<BoundPipelineElement> source,
-              const SqlExpression & select,
-              bool unique);
+              const SqlExpression & select);
 
         std::shared_ptr<BoundPipelineElement> source_;
         BoundSqlExpression select_;
         std::shared_ptr<PipelineExpressionScope> outputScope_;
-        bool unique;
         
         std::shared_ptr<ElementExecutor>
         start(const BoundParameters & getParam) const;

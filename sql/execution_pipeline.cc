@@ -471,14 +471,7 @@ std::shared_ptr<PipelineElement>
 PipelineElement::
 select(SelectExpression select)
 {
-    return std::make_shared<SelectElement>(shared_from_this(), select, false /*unique*/);
-}
-
-std::shared_ptr<PipelineElement>
-PipelineElement::
-selectUnique(SelectExpression select)
-{
-    return std::make_shared<SelectElement>(shared_from_this(), select, true /*unique*/);
+    return std::make_shared<SelectElement>(shared_from_this(), select);
 }
 
 std::shared_ptr<PipelineElement>
@@ -574,8 +567,11 @@ statement(SelectStatement& stm, GetParamInfo getParamInfo)
         else {
             return root
             ->params(getParamInfo)
+            ->from(stm.from, stm.when,
+                   SelectExpression::STAR, stm.where,
+                   OrderByExpression(), getParamInfo)
             ->select(stm.rowName)  // second last element is rowname
-            ->selectUnique(stm.select); // only select 1 value
+            ->select(stm.select); // only select 1 value
         }
     }
 }

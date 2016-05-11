@@ -1270,9 +1270,7 @@ FromElement(std::shared_ptr<PipelineElement> root_,
     ExcAssert(this->root);
 
     UnboundEntities unbound = from->getUnbound();
-    //cerr << "unbound for from = " << jsonEncode(unbound) << endl;
-
-    ExcAssert(from && from->getType() != "null"); //should have been handled, programming error
+    //cerr << "unbound for from = " << jsonEncode(unbound) << endl;   
 
     if (from->getType() == "join") {
         std::shared_ptr<JoinExpression> join
@@ -1312,8 +1310,71 @@ FromElement(std::shared_ptr<PipelineElement> root_,
                                       "exprType", from->getType(),
                                       "unbound", unbound);
 #endif
-            
-        if (!!boundFrom) {
+
+        if (!from || from->getType() == "null")
+        {
+            //We have no from so we add a dummy TableOperations that will return a single row with no values
+
+            TableOperations dummyTable;
+
+            // Allow us to query row information from the dataset
+            dummyTable.getRowInfo = [=] () { return make_shared<RowValueInfo>(std::vector<KnownColumn>()); };
+
+            // Allow the dataset to override functions
+            dummyTable.getFunction = [=] (SqlBindingScope & context,
+                                            const Utf8String & tableName,
+                                            const Utf8String & functionName,
+                                            const std::vector<std::shared_ptr<ExpressionValueInfo> > & args)
+                -> BoundFunction 
+                {
+                    return BoundFunction();
+                };
+
+            // Allow the dataset to run queries
+            dummyTable.runQuery = [=] (const SqlBindingScope & context,
+                                         const SelectExpression & select,
+                                         const WhenExpression & when,
+                                         const SqlExpression & where,
+                                         const OrderByExpression & orderBy,
+                                         ssize_t offset,
+                                         ssize_t limit)
+                -> BasicRowGenerator
+                {
+
+                    auto generateRows = [=] (ssize_t numToGenerate,
+                                            SqlRowScope & rowScope,
+                                            const BoundParameters & params)
+                    ->std::vector<NamedRowValue>
+                    {
+                        std::vector<NamedRowValue> result;
+
+                        if (offset == 0) {
+                            NamedRowValue row;
+                            row.rowName = RowName("result");
+                            row.rowHash = RowName("result");
+                            result.push_back(std::move(row));
+                        }
+
+                        return result;
+                    };
+
+                    return BasicRowGenerator(generateRows);
+                };
+
+            dummyTable.getChildAliases = [=] ()
+                {
+                    return std::vector<Utf8String>();
+                };
+
+            impl.reset(new GenerateRowsElement(root,
+                                               select,
+                                               dummyTable,
+                                               "",
+                                               when,
+                                               where,
+                                               orderBy));
+        }
+        else if (!!boundFrom) {
             // We have a pre-bound version of the dataset; use that
             impl.reset(new GenerateRowsElement(root,
                                                select,
@@ -1449,8 +1510,8 @@ outputScope() const
 
 SelectElement::
 SelectElement(std::shared_ptr<PipelineElement> source,
-              SelectExpression select, bool unique)
-    : select(std::make_shared<SelectExpression>(select)), source(source), unique(unique)
+              SelectExpression select)
+    : select(std::make_shared<SelectExpression>(select)), source(source)
 {
     ExcAssert(this->select);
 }
@@ -1458,7 +1519,7 @@ SelectElement(std::shared_ptr<PipelineElement> source,
 SelectElement::
 SelectElement(std::shared_ptr<PipelineElement> source,
               std::shared_ptr<SqlExpression> expr)
-    : select(expr), source(source), unique(false)
+    : select(expr), source(source)
 {
     ExcAssert(this->select);
 }
@@ -1467,7 +1528,7 @@ std::shared_ptr<BoundPipelineElement>
 SelectElement::
 bind() const
 {
-    return std::make_shared<Bound>(source->bind(), *select, unique);
+    return std::make_shared<Bound>(source->bind(), *select);
 }
 
 /*****************************************************************************/
@@ -1478,9 +1539,6 @@ std::shared_ptr<PipelineResults>
 SelectElement::Executor::
 take()
 {
-    if (unique && taken)
-        return nullptr;
-
     while (true) {
         std::shared_ptr<PipelineResults> input = source->take();
 
@@ -1493,8 +1551,6 @@ take()
 
         input->values.emplace_back(std::move(selected));
 
-        taken = true;
-
         return input;
     }
 }
@@ -1503,7 +1559,6 @@ void
 SelectElement::Executor::
 restart()
 {
-    taken = false;
     source->restart();
 }
 
@@ -1515,12 +1570,10 @@ restart()
 
 SelectElement::Bound::
 Bound(std::shared_ptr<BoundPipelineElement> source,
-      const SqlExpression & select,
-      bool unique)
+      const SqlExpression & select)
     : source_(std::move(source)),
       select_(select.bind(*source_->outputScope())),
-      outputScope_(source_->outputScope()->selectScope({select_.info})),
-      unique(unique)
+      outputScope_(source_->outputScope()->selectScope({select_.info}))
 {
 }
 
@@ -1531,8 +1584,6 @@ start(const BoundParameters & getParam) const
     auto result = std::make_shared<Executor>();
     result->parent = this;
     result->source = source_->start(getParam);
-    result->unique = unique;
-    result->taken = false;
     return result;
 }
 

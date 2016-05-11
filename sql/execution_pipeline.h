@@ -382,11 +382,6 @@ struct PipelineElement: public std::enable_shared_from_this<PipelineElement> {
     std::shared_ptr<PipelineElement>
     select(SelectExpression select);
 
-    // Only select a single result between each start/restart
-    // Used when there is no "from"
-    std::shared_ptr<PipelineElement>
-    selectUnique(SelectExpression select);
-
     std::shared_ptr<PipelineElement>
     select(std::shared_ptr<SqlExpression> select);
 
