@@ -323,7 +323,8 @@ struct PipelineElement: public std::enable_shared_from_this<PipelineElement> {
          WhenExpression when,
          SelectExpression select = SelectExpression::STAR,
          std::shared_ptr<SqlExpression> where = SqlExpression::TRUE,
-         OrderByExpression orderBy = OrderByExpression());
+         OrderByExpression orderBy = OrderByExpression(),
+         GetParamInfo getParamInfo = nullptr);
 
     /** Add a from expression which has already been bound into the
         immediate outer scope.
@@ -382,8 +383,13 @@ struct PipelineElement: public std::enable_shared_from_this<PipelineElement> {
     select(SelectExpression select);
 
     std::shared_ptr<PipelineElement>
+    selectunique(SelectExpression select);
+
+    std::shared_ptr<PipelineElement>
     select(std::shared_ptr<SqlExpression> select);
 
+    std::shared_ptr<PipelineElement>
+    statement(SelectStatement& statement, GetParamInfo getParamInfo);
 };
 
 } // namespace MLDB
