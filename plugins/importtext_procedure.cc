@@ -711,7 +711,12 @@ struct ImportTextProcedureWorkInstance
                 for (const auto & f: config.headers) {
                     inputColumnNames.emplace_back(parseColumnName(f));
                 }
-            }         
+            }
+
+            // MLDB-1649
+            // A trailing comma on the header row should be accepted
+            if (!inputColumnNames.empty() && inputColumnNames.back().empty())
+                inputColumnNames.pop_back();
         }
 
         // Early check for duplicate column names in input
