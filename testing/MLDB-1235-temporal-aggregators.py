@@ -478,4 +478,48 @@ class TemporalTest(MldbUnitTest):
         ])
         mldb.log(res)
 
+    @unittest.expectedFailure
+    def test_mldbfb_520(self):
+        """
+        temporal_earliest doesn't yield correct result when used with
+        COLUMN EXPR.
+        """
+        ds = mldb.create_dataset({
+            'id' : 'mldbfb520',
+            'type' : 'sparse.mutable'
+        })
+        ds.record_row('user1', [['behA', 1, 1], ['behA', 1, 2], ['behA', 1, 3],
+                                ['behB', 1, 9], ['behC', 1, 8]])
+        ds.commit()
+
+        query = """
+            SELECT temporal_earliest({behA, behB}) AS * FROM mldbfb520
+        """
+        res = mldb.get('/v1/query', q=query)
+
+        expected = [{
+            "rowName": "user1",
+            "columns": [
+                ["behA", 1, "1970-01-01T00:00:01Z"],
+                ["behB", 1, "1970-01-01T00:00:09Z"]
+            ]
+        }]
+        self.assertFullResultEquals(res.json(), expected)
+
+        query = """
+            SELECT temporal_earliest({
+                COLUMN EXPR (WHERE columnName() IN ('behA', 'behB'))
+            }) AS * FROM mldbfb520 LIMIT 1
+        """
+        res = mldb.get('/v1/query', q=query)
+        self.assertFullResultEquals(res.json(), expected)
+
+        query = """
+            SELECT temporal_earliest({
+                COLUMN EXPR (WHERE columnName() NOT IN ('behC'))
+            }) AS * FROM mldbfb520 LIMIT 1
+        """
+        res = mldb.get('/v1/query', q=query)
+        self.assertFullResultEquals(res.json(), expected)
+
 mldb.run_tests()
