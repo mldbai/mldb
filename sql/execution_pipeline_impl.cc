@@ -430,9 +430,13 @@ doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
 {
     //cerr << "doGetAllColums for join with field offset " << fieldOffset << endl;
 
-    PathElement leftPrefix(left->as());
-    PathElement rightPrefix(right->as());
-
+    PathElement leftPrefix;
+    if (!left->as().empty())
+        leftPrefix = left->as();
+    PathElement rightPrefix;
+    if (!right->as().empty())
+        rightPrefix = right->as();
+    
     auto leftOutput = left->doGetAllColumns(keep, leftFieldOffset(fieldOffset));
     auto rightOutput = right->doGetAllColumns(keep, rightFieldOffset(fieldOffset));
 
@@ -545,14 +549,17 @@ outputAdded() const
 JoinElement::
 JoinElement(std::shared_ptr<PipelineElement> root,
             std::shared_ptr<TableExpression> left,
+            BoundTableExpression boundLeft,
             std::shared_ptr<TableExpression> right,
+            BoundTableExpression boundRight,
             std::shared_ptr<SqlExpression> on,
             JoinQualification joinQualification,
             SelectExpression select,
             std::shared_ptr<SqlExpression> where,
             OrderByExpression orderBy)
-    : root(root), left(left), right(right), on(on),
-      select(select), where(where), orderBy(orderBy),
+    : root(root),
+      left(left), boundLeft(boundLeft), right(right), boundRight(boundRight),
+      on(on), select(select), where(where), orderBy(orderBy),
       condition(left, right, on, where), joinQualification(joinQualification)
 {
     switch (condition.style) {
@@ -617,13 +624,13 @@ JoinElement(std::shared_ptr<PipelineElement> root,
 
     leftImpl= root
         ->where(constantWhere)
-        ->from(left, when, selectAll, leftCondition,
+        ->from(left, boundLeft, when, selectAll, leftCondition,
                condition.left.orderBy)
         ->select(leftEmbedding);
 
     rightImpl = root
         ->where(constantWhere)
-        ->from(right, when, selectAll, rightCondition,
+        ->from(right, boundRight, when, selectAll, rightCondition,
                condition.right.orderBy)
         ->select(rightEmbedding);
 }
@@ -1069,11 +1076,13 @@ outputScope() const
 FromElement::
 FromElement(std::shared_ptr<PipelineElement> root_,
             std::shared_ptr<TableExpression> from_,
+            BoundTableExpression boundFrom_,
             WhenExpression when_,
             SelectExpression select_,
             std::shared_ptr<SqlExpression> where_,
             OrderByExpression orderBy_)
-    : root(std::move(root_)), from(std::move(from_)),
+    : root(std::move(root_)),
+      from(std::move(from_)), boundFrom(std::move(boundFrom_)),
       select(std::move(select_)), when(std::move(when_)), where(std::move(where_)),
       orderBy(std::move(orderBy_))
 {
@@ -1095,14 +1104,15 @@ FromElement(std::shared_ptr<PipelineElement> root_,
             = std::dynamic_pointer_cast<JoinExpression>(from);
         ExcAssert(join);
 
-        impl.reset(new JoinElement(root, join->left, join->right, join->on, join->qualification, select, where, orderBy_));
+        impl.reset(new JoinElement(root,
+                                   join->left, BoundTableExpression(),
+                                   join->right, BoundTableExpression(),
+                                   join->on, join->qualification,
+                                   select, where, orderBy_));
         // TODO: order by for join output
             
     }
     else {
-        auto rootBound = root->bind();
-        auto scope = rootBound->outputScope();
-
 #if 0
         if (!unbound.params.empty())
             throw HttpReturnException(400, "Can't deal with from expression "
@@ -1111,16 +1121,30 @@ FromElement(std::shared_ptr<PipelineElement> root_,
                                       "unbound", unbound);
 #endif
             
+        if (!!boundFrom) {
+            // We have a pre-bound version of the dataset; use that
+            impl.reset(new GenerateRowsElement(root,
+                                               select,
+                                               boundFrom.table,
+                                               boundFrom.asName,
+                                               when, 
+                                               where,
+                                               orderBy));
+        }
+        else { 
+            // Need to bound here to get the dataset
+            auto rootBound = root->bind();
+            auto scope = rootBound->outputScope();
 
-        // Need to bound here to get the dataset
-        BoundTableExpression bound = from->bind(*scope);
-        impl.reset(new GenerateRowsElement(root,
-                                           select,
-                                           bound.table,
-                                           bound.asName,
-                                           when, 
-                                           where,
-                                           orderBy));
+            BoundTableExpression bound = from->bind(*scope);
+            impl.reset(new GenerateRowsElement(root,
+                                               select,
+                                               bound.table,
+                                               bound.asName,
+                                               when, 
+                                               where,
+                                               orderBy));
+        }
     }
 }
 

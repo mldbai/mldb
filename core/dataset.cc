@@ -659,6 +659,14 @@ getRowInfo() const
                                           SCHEMA_CLOSED);
 }
 
+ExpressionValue
+Dataset::
+getRowExpr(const RowName & row) const
+{
+    MatrixNamedRow flattened = getMatrixView()->getRow(row);
+    return std::move(flattened.columns);
+}
+
 std::vector<MatrixNamedRow>
 Dataset::
 queryStructured(const SelectExpression & select,

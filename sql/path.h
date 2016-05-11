@@ -354,9 +354,6 @@ struct Path: protected ML::compact_vector<PathElement, 2, uint32_t, false> {
     Path(It first, It last)
         : Base(first, last)
     {
-        for (PathElement & c: *this) {
-            ExcAssert(!c.empty());
-        }
     }
 
     static Path parse(const Utf8String & str);
