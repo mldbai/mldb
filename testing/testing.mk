@@ -357,3 +357,4 @@ $(eval $(call mldb_unit_test,MLDB-1355-explain-bad-alloc.js))
 $(eval $(call mldb_unit_test,MLDB-1631-join-transpose-where-rowname.js))
 
 $(eval $(call mldb_unit_test,MLDB-1638-import-text-structured-names.js))
+$(eval $(call mldb_unit_test,MLDB-1649-csv-import-trailing-comma.js))
