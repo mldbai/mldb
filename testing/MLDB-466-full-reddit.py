@@ -17,6 +17,7 @@ class RedditTest(MldbUnitTest):
                 'delimiter':'', 
                 'quotechar':'',
                 'outputDataset': 'reddit_raw',
+                'limit': 5000,
                 'runOnCreation': True
             } 
         })
@@ -69,9 +70,11 @@ class RedditTest(MldbUnitTest):
             }
         })
 
+        mldb.log("querying for nearest subreddit")
+        
         mldb.query("""
             select nearest_subreddit({ coords: 
-                embedder({ row: {HongKong: 1} })[embedding]
+                embedder({ row: {HongKong: 1} })
             })
         """)
 

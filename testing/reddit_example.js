@@ -81,7 +81,7 @@ if (trainKmeans) {
     var kmeansConfig = {
         type: "kmeans.train",
         params: {
-            trainingData: "select svd* from svd_embedding",
+            trainingData: "select embedding* from svd_embedding",
             outputDataset: {
                 id: "kmeans_output", type: "embedding"
             }
@@ -110,7 +110,7 @@ if (trainTsne) {
     var tsneConfig = {
         type: "tsne.train",
         params: {
-            trainingData: { "select" : "svd*",
+            trainingData: { "select" : "embedding*",
                             "from" : { "id": "svd_embedding" }},
             rowOutputDataset: { "id": "tsne_output", "type": "embedding" },
         }

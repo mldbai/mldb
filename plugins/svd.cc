@@ -94,7 +94,7 @@ SvdConfigDescription()
     addField("outputColumn", &SvdConfig::outputColumn,
              "Base name of the column that will be written by the SVD.  "
              "It will be an embedding with numSingularValues elements.",
-             PathElement("svd"));
+             PathElement("embedding"));
     addField("modelFileUrl", &SvdConfig::modelFileUrl,
              "URL where the model file (with extension '.svd') should be saved. "
              "This file can be loaded by the ![](%%doclink svd.embedRow function). "

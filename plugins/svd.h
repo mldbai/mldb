@@ -27,7 +27,7 @@ struct SvdConfig : ProcedureConfig {
     static constexpr char const * name = "svd.train";
 
     SvdConfig()
-        : outputColumn("svd"),
+        : outputColumn("embedding"),
           numSingularValues(100),
           numDenseBasisVectors(1000)
     {
