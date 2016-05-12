@@ -809,6 +809,9 @@ run(const ProcedureRunConfig & run,
                              "columnName", col.columnName);
                     }
                 }
+                else if (col.op == COL_VALUE) {
+                    outputName = outputName + PathElement("numericValue");
+                }
                 try {
                     StructValue cols;
                     cols.emplace_back(runProcConf.outputColumn,
@@ -1002,6 +1005,10 @@ run(const ProcedureRunConfig & run,
 #endif
 
 
+/*****************************************************************************/
+/* SVD EMBED ROW                                                             */
+/*****************************************************************************/
+
 DEFINE_STRUCTURE_DESCRIPTION(SvdEmbedConfig);
 
 SvdEmbedConfigDescription::
@@ -1023,11 +1030,6 @@ SvdEmbedConfigDescription()
              "will return an error when the function is applied.",
              false);
 }
-
-
-/*****************************************************************************/
-/* SVD EMBED ROW                                                             */
-/*****************************************************************************/
 
 DEFINE_STRUCTURE_DESCRIPTION(SvdInput);
 

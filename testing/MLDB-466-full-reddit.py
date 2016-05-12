@@ -66,7 +66,8 @@ class RedditTest(MldbUnitTest):
             "type": "embedding.neighbors",
             "params": {
                 "dataset": "reddit_svd_embedding",
-                "defaultNumNeighbors": 1
+                "defaultNumNeighbors": 1,
+                "columnName": "embedding"
             }
         })
 
@@ -74,7 +75,7 @@ class RedditTest(MldbUnitTest):
         
         mldb.query("""
             select nearest_subreddit({ coords: 
-                embedder({ row: {HongKong: 1} })
+                embedder({ row: {HongKong: 1} })[embedding]
             })
         """)
 

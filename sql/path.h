@@ -418,6 +418,7 @@ struct Path: protected ML::compact_vector<PathElement, 2, uint32_t, false> {
     using Base::front;
     using Base::back;
     using Base::operator [];
+    using Base::pop_back;
 
     PathElement head() const
     {

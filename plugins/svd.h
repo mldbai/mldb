@@ -147,9 +147,15 @@ struct SvdProcedure: public Procedure {
    - What about x nearest neighbours, etc?
 */
 
+
+/*****************************************************************************/
+/* SVD EMBED ROW                                                             */
+/*****************************************************************************/
+
 struct SvdEmbedConfig {
     SvdEmbedConfig(const Url & modelFileUrl = Url())
-        : modelFileUrl(modelFileUrl), maxSingularValues(-1),
+        : modelFileUrl(modelFileUrl),
+          maxSingularValues(-1),
           acceptUnknownValues(false)
     {
     }
@@ -160,11 +166,6 @@ struct SvdEmbedConfig {
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(SvdEmbedConfig);
-
-
-/*****************************************************************************/
-/* SVD EMBED ROW                                                             */
-/*****************************************************************************/
 
 struct SvdInput {
     ExpressionValue row;  // is a row valued object
