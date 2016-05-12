@@ -1010,14 +1010,14 @@ struct ImportTextProcedureWorkInstance
             while(getline(stream, line)) {
                 // prepend previous line if we're tagging it along
                 if(!prevLine.empty()) {
-                    t_line = std::move(line);
-                    line = std::move(prevLine);
+                    t_line.assign(std::move(line));
+                    line.assign(std::move(prevLine));
                     line += t_line;
                 }
 
                 if(!onLine(line.c_str(), line.size(),
                            0 /* chunkNum */, lineNum)) {
-                    prevLine = std::move(line);
+                    prevLine.assign(std::move(line));
                 } else {
                     prevLine.erase();
                     lineNum++;
