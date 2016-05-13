@@ -203,6 +203,7 @@ class Mldb1597Test(MldbUnitTest):
         # of these two equivalent joins are currently very different
         self.assertEqual(len(resp), len(resp2), 'expected response sizes to match')
 
+    @unittest.skip("awaiting MLDB-1659")
     def test_r2_bug(self):
 
         mldb.query("select 11.0 as score, ds.c as label from ds")
@@ -211,7 +212,7 @@ class Mldb1597Test(MldbUnitTest):
         result = mldb.post("/v1/procedures", {
             "type": "classifier.test",
             "params": {
-                "testingData": "select 11.0 as score, c as label from ds",
+                "testingData": "select 11.0 as score, ds.c as label from ds",
                 "mode": "regression",
                 "runOnCreation": True
             }
