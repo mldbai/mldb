@@ -982,9 +982,9 @@ struct ImportTextProcedureWorkInstance
             if (isIdentitySelect) {
                 // If it's a select *, we don't really need to run the
                 // select clause.  We simply go for it.
-                    threadAccum.specializedRecorder(std::move(rowName),
-                                                    rowTs, values.data(),
-                                                    values.size(), {});
+                threadAccum.specializedRecorder(std::move(rowName),
+                                                rowTs, values.data(),
+                                                values.size(), {});
             }
             else {
                 // TODO: optimization for
@@ -994,11 +994,11 @@ struct ImportTextProcedureWorkInstance
                 const ExpressionValue & selectOutput
                         = selectBound(row, selectStorage, GET_ALL);
 
-                     if (&selectOutput == &selectStorage) {
+                if (&selectOutput == &selectStorage) {
                     // We can destructively work with it
-                        threadAccum.threadRecorder
-                            ->recordRowExprDestructive(std::move(rowName),
-                                                       std::move(selectStorage));
+                    threadAccum.threadRecorder
+                        ->recordRowExprDestructive(std::move(rowName),
+                                                   std::move(selectStorage));
                     }
                     else {
                         // We don't own the output; we will need to copy
