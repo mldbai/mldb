@@ -63,9 +63,9 @@ class Mldb1212(MldbUnitTest):
         self.assertTableResultEquals(
             mldb.query("select * from multiline"),
             [
-                ["_rowName", "colA", "colB BB", "colC"],
+                ["_rowName", "colA", "colB  B B", "colC"],
                 [       "2",  "a", "b", "c" ],
-                [       "3",  "a", "bouya ,hoho", "c2" ],
+                [       "3",  "a", "bouya , hoho", "c2" ],
                 [       "4",  "a5", "b5", "c5" ],
             ]
         )
@@ -88,9 +88,9 @@ class Mldb1212(MldbUnitTest):
         self.assertTableResultEquals(
             mldb.query("select * from multiline"),
             [
-                ["_rowName", "colA", "colB BB", "colC"],
+                ["_rowName", "colA", "colB  B B", "colC"],
                 [       "2",  "a", "b", "c" ],
-                [       "3",  "a", "bouya ,hoho", "c2" ]
+                [       "3",  "a", "bouya , hoho", "c2" ]
             ]
         )
    
@@ -115,7 +115,7 @@ class Mldb1212(MldbUnitTest):
         self.assertTableResultEquals(
             mldb.query("select * from multiline"),
             [
-                ["_rowName", "colA", "colB BB", "colC"],
+                ["_rowName", "colA", "colB  B B", "colC"],
                 [       "4",  "a5", "b5", "c5" ],
             ]
         )

@@ -701,7 +701,7 @@ struct ImportTextProcedureWorkInstance
                     std::getline(stream, header);
 
                     if(!prevHeader.empty()) {
-                        prevHeader += header;
+                        prevHeader += ' ' + header;
                         header.assign(std::move(prevHeader));
                     }
 
@@ -714,7 +714,7 @@ struct ImportTextProcedureWorkInstance
                     catch (std::exception & exp) {
                         if(config.allowMultiLines &&
                                 string(exp.what()) == "file finished inside quote") {
-                            prevHeader += header;
+                            prevHeader.assign(std::move(header));
                             continue;
                         }
 
@@ -1036,7 +1036,7 @@ struct ImportTextProcedureWorkInstance
                 if(!prevLine.empty()) {
                     t_line.assign(std::move(line));
                     line.assign(std::move(prevLine));
-                    line += t_line;
+                    line += ' ' + t_line;
                 }
 
                 if(!onLine(line.c_str(), line.size(),
