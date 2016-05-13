@@ -213,7 +213,7 @@ $(eval $(call mldb_unit_test,MLDB-991-svm.py))
 $(eval $(call mldb_unit_test,MLDB-995-sub-query-sparse.js))
 $(eval $(call mldb_unit_test,MLDB-1116-tokensplit.py))
 $(eval $(call mldb_unit_test,MLDB-1030_apply_stopwords.py))
-$(eval $(call mldb_unit_test,MLDB-1165-where-rowname-in-optim.py,,manual)) # based on perf of specific machine
+$(eval $(call mldb_unit_test,MLDB-1165-where-rowname-in-optim.py))
 $(eval $(call mldb_unit_test,MLDB-1304-titanic-demo.py))
 
 $(eval $(call mldb_unit_test,MLDB-1000-type-documentation-valid.js))
@@ -348,6 +348,7 @@ $(eval $(call mldb_unit_test,MLDB-1554-string-agg.js))
 $(eval $(call mldb_unit_test,MLDB-1567-empty-literal.js))
 $(eval $(call mldb_unit_test,MLDB-1563-keys-values-of.js))
 $(eval $(call mldb_unit_test,MLDB-1468-credentials-test.py))
+$(eval $(call mldb_unit_test,MLDB-1616-row-dataset-segfault.js))
 
 $(eval $(call test,MLDB-1360-sparse-mutable-multithreaded-insert,mldb,boost))
 $(eval $(call mldb_unit_test,MLDBFB-440_error_on_ds_wo_cols.py))
@@ -355,3 +356,5 @@ $(eval $(call mldb_unit_test,MLDBFB-509_pushed_non_printable_char_cant_query.py)
 $(eval $(call mldb_unit_test,MLDB-1355-explain-bad-alloc.js))
 $(eval $(call mldb_unit_test,MLDB-1631-join-transpose-where-rowname.js))
 
+$(eval $(call mldb_unit_test,MLDB-1638-import-text-structured-names.js))
+$(eval $(call mldb_unit_test,MLDB-1649-csv-import-trailing-comma.js))

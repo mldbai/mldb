@@ -56,6 +56,12 @@ ImportTextConfigDescription::ImportTextConfigDescription()
     addField("ignoreBadLines", &ImportTextConfig::ignoreBadLines,
              "If true, any line causing a parsing error will be skipped. "
              "Empty lines are considered bad lines.", false);
+    addField("structuredColumnNames", &ImportTextConfig::structuredColumnNames,
+             "If true, column names that look like 'x.y' will import like "
+             "`{ x: { y: ... } }` instead of `{ \"x.y\": ... }`, in other "
+             "words structure will be preserved.  The flip side is that quotes "
+             "will need to be doubled and any name that includes a period will "
+             "need to be quoted.  The default is to not preserve structure", false);
     addField("replaceInvalidCharactersWith",
              &ImportTextConfig::replaceInvalidCharactersWith,
              "If this is set, it should be a single Unicode character will be used "
@@ -651,6 +657,7 @@ struct ImportTextProcedureWorkInstance
 
         encoding = parseEncoding(config.encoding);
 
+
         if (isTextLine) {
 
             //MLDB-1312 optimize if there is no delimiter: only 1 column
@@ -663,6 +670,17 @@ struct ImportTextProcedureWorkInstance
             }
         }
         else {
+            // Turn a string into a column name, depending upon how the plugin
+            // is configured.
+            auto parseColumnName = [&] (const Utf8String & str) -> ColumnName
+                {
+                    if (config.structuredColumnNames) {
+                        return ColumnName::parse(str);
+                    }
+                    else {
+                        return ColumnName(str);
+                    }
+                };
 
             if (config.headers.empty()) {
                 // Read header line
@@ -677,22 +695,28 @@ struct ImportTextProcedureWorkInstance
                 switch (encoding) {
                 case ASCII:
                     for (const auto & f: fields)
-                        inputColumnNames.emplace_back(ColumnName::parse(f));
+                        inputColumnNames.emplace_back(parseColumnName(f));
                     break;
                 case UTF8:
                     for (const auto & f: fields)
-                        inputColumnNames.emplace_back(ColumnName::parse(Utf8String(f)));
+                        inputColumnNames.emplace_back(parseColumnName(Utf8String(f)));
                     break;
                 case LATIN1:
                     for (const auto & f: fields)
-                        inputColumnNames.emplace_back(ColumnName::parse(Utf8String::fromLatin1(f)));
+                        inputColumnNames.emplace_back(parseColumnName(Utf8String::fromLatin1(f)));
                     break;
                 };
             }
             else {
-                for (const auto & f: config.headers)
-                    inputColumnNames.emplace_back(ColumnName::parse(f));
-            }             
+                for (const auto & f: config.headers) {
+                    inputColumnNames.emplace_back(parseColumnName(f));
+                }
+            }
+
+            // MLDB-1649
+            // A trailing comma on the header row should be accepted
+            if (!inputColumnNames.empty() && inputColumnNames.back().empty())
+                inputColumnNames.pop_back();
         }
 
         // Early check for duplicate column names in input

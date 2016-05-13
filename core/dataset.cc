@@ -659,6 +659,14 @@ getRowInfo() const
                                           SCHEMA_CLOSED);
 }
 
+ExpressionValue
+Dataset::
+getRowExpr(const RowName & row) const
+{
+    MatrixNamedRow flattened = getMatrixView()->getRow(row);
+    return std::move(flattened.columns);
+}
+
 std::vector<MatrixNamedRow>
 Dataset::
 queryStructured(const SelectExpression & select,
@@ -1130,7 +1138,7 @@ generateRowsWhere(const SqlBindingScope & scope,
     // Optimize for rowName() IN (constant, constant, constant)
     // Optimize for rowName() IN ROWS / IN KEYS (...)
     auto inExpression = dynamic_cast<const InExpression *>(&where);
-    if (inExpression) 
+    if (inExpression && !inExpression->isnegative) 
     {
         auto fexpr = getFunction(*(inExpression->expr));
         if (fexpr && fexpr->functionName == "rowName") {

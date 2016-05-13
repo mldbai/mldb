@@ -233,7 +233,15 @@ struct TableOperations {
                                      ssize_t limit)>
     runQuery;
 
-    bool operator ! () const {return !getRowInfo && !getFunction  && !runQuery; }
+    /// What aliases (sub-dataset names) does this dataset contain?
+    /// Normally used in a join
+    std::function<std::vector<Utf8String> () > getChildAliases;
+
+    bool operator ! () const
+    {
+        return !getRowInfo && !getFunction && !runQuery
+            && !getChildAliases;
+    }
 };
 
 /*****************************************************************************/
