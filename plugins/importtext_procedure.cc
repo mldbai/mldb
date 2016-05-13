@@ -711,9 +711,8 @@ struct ImportTextProcedureWorkInstance
                         fields = ML::expect_csv_row(pcontext, -1, separator);
                         break;
                     }
-                    catch (std::exception & exp) {
-                        if(config.allowMultiLines &&
-                                string(exp.what()) == "file finished inside quote") {
+                    catch (ML::FileFinishInsideQuote & exp) {
+                        if(config.allowMultiLines) {
                             prevHeader.assign(std::move(header));
                             continue;
                         }
