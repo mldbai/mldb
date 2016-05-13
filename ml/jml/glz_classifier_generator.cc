@@ -338,8 +338,6 @@ train_weighted(Thread_Context & thread_context,
     /* Scale */
     for (unsigned v = 0;  v < nv && normalize;  ++v) {
 
-	std::cerr << "NORMALIZING" << std::endl;
-		
         double total = 0.0;
 
         for (unsigned x = 0;  x < nx2;  ++x)
@@ -364,9 +362,6 @@ train_weighted(Thread_Context & thread_context,
             std = 1.0;
             
         double std_recip = 1.0 / std;
-
-        cerr << "Std/stdr: " << std << "," << std_recip << endl;
-
         for (unsigned x = 0;  x < nx2;  ++x)
             dense_data[v][x] = (dense_data[v][x] - mean) * std_recip;
 
@@ -393,17 +388,7 @@ train_weighted(Thread_Context & thread_context,
                            regularization, regularization_factor, max_regularization_iteration, regularization_epsilon, 
                            condition);
 
-        cerr << "trained before de-normalization: " << endl;
-        for (unsigned v = 0;  v < nv && normalize;  ++v) {
-            cerr << "v: " << v << " , " << trained[v] << endl;
-        }
-
         trained /= stds;
-
-        cerr << "trained post de-normalization: " << endl;
-        for (unsigned v = 0;  v < nv && normalize;  ++v) {
-            cerr << "v: " << v << " , " << trained[v] << endl;
-        }
 
         extra_bias = - (trained.dotprod(means));
 
