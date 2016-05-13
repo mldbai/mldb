@@ -628,8 +628,8 @@ struct ImportTextProcedureWorkInstance
 
         string filename = config.dataFileUrl.toString();
 
-    	// Ask for a memory mappable stream if possible
-    	Datacratic::filter_istream stream(filename, { { "mapped", "true" } });
+        // Ask for a memory mappable stream if possible
+        Datacratic::filter_istream stream(filename, { { "mapped", "true" } });
 
         // Get the file timestamp out
         ts = stream.info().lastModified;
@@ -643,9 +643,9 @@ struct ImportTextProcedureWorkInstance
             throw HttpReturnException(400, "Separator string must have one character");
         }
         else if (config.quoter.length() > 0)
-	    {
-	        throw HttpReturnException(400, "Separator string must not be empty if we have a quoter string");
-	    }
+        {
+            throw HttpReturnException(400, "Separator string must not be empty if we have a quoter string");
+        }
 
         if (config.quoter.length() == 1) {
             quote = config.quoter[0];
@@ -800,7 +800,7 @@ struct ImportTextProcedureWorkInstance
             if (!columnIndex.insert(make_pair(ch, i)).second)
                 throw HttpReturnException(400, "Duplicate column name in select expression",
                                           "columnName", col.columnName);
-	        
+
             knownColumnNames.emplace_back(col.columnName);
         }
 
@@ -904,35 +904,35 @@ struct ImportTextProcedureWorkInstance
                            size_t length,
                            int chunkNum,
                            int64_t lineNum)
-	    {
+        {
             int64_t actualLineNum = lineNum + lineOffset;
 #if 0
-	        uint64_t linesDone = totalLinesProcessed.fetch_add(1);
+            uint64_t linesDone = totalLinesProcessed.fetch_add(1);
 
-	        if (linesDone && linesDone % 1000000 == 0) {
-	            double wall = timer.elapsed_wall();
-	            cerr << "done " << linesDone << " in " << wall
-	                 << "s at " << linesDone / wall * 0.000001 << "M lines/second on "
-	                 << timer.elapsed_cpu() / timer.elapsed_wall() << " CPUs" << endl;
-	        }
+            if (linesDone && linesDone % 1000000 == 0) {
+                double wall = timer.elapsed_wall();
+                cerr << "done " << linesDone << " in " << wall
+                     << "s at " << linesDone / wall * 0.000001 << "M lines/second on "
+                     << timer.elapsed_cpu() / timer.elapsed_wall() << " CPUs" << endl;
+            }
 #endif
 
             // MLDB-1111 empty lines are treated as error
-	        if (length == 0)
-	            return handleError("empty line", actualLineNum, 0, "");
+            if (length == 0)
+                return handleError("empty line", actualLineNum, 0, "");
 
 
-	        // Values that come in from the CSV file
-	        // TODO: clang doesn't like a variable length array
-	        // here.  Find another way to allocate it on the
-	        // stack.
-	        vector<CellValue> values(inputColumnNames.size());
+            // Values that come in from the CSV file
+            // TODO: clang doesn't like a variable length array
+            // here.  Find another way to allocate it on the
+            // stack.
+            vector<CellValue> values(inputColumnNames.size());
 
-	        const char * lineStart = line;
+            const char * lineStart = line;
 
             const size_t numInputColumn = inputColumnNames.size();
 
-	        const char * errorMsg
+            const char * errorMsg
                     = parseFixedWidthCsvRow(line, length, &values[0],
                                             numInputColumn,
                                             separator, quote, encoding,
@@ -950,55 +950,55 @@ struct ImportTextProcedureWorkInstance
                         }
                     }
 
-    	            return handleError(errorMsg, actualLineNum,
+                    return handleError(errorMsg, actualLineNum,
                                            line - lineStart + 1,
                                            string(line, length));
                 }
 
-	        auto row = scope.bindRow(&values[0], ts, actualLineNum,
+            auto row = scope.bindRow(&values[0], ts, actualLineNum,
                                          0 /* todo: chunk ofs */);
 
-	        // If it doesn't match the where, don't add it
-	        if (!isWhereTrue) {
-	            ExpressionValue storage;
-	            if (!whereBound(row, storage, GET_ALL).isTrue())
-	                return true;
-	        }
+            // If it doesn't match the where, don't add it
+            if (!isWhereTrue) {
+                ExpressionValue storage;
+                if (!whereBound(row, storage, GET_ALL).isTrue())
+                    return true;
+            }
 
-	        // Get the timestamp for the row
-	        Date rowTs = ts;
-	        ExpressionValue tsStorage;
-	        rowTs = timestampBound(row, tsStorage, GET_ALL)
+            // Get the timestamp for the row
+            Date rowTs = ts;
+            ExpressionValue tsStorage;
+            rowTs = timestampBound(row, tsStorage, GET_ALL)
                     .coerceToTimestamp().toTimestamp();
 
-	        ExpressionValue nameStorage;
-	        RowName rowName(namedBound(row, nameStorage, GET_ALL)
+            ExpressionValue nameStorage;
+            RowName rowName(namedBound(row, nameStorage, GET_ALL)
                                 .toUtf8String());
 
             //ExcAssert(!(isIdentitySelect && outputColumnNamesUnknown));
 
             auto & threadAccum = accum.get();
 
-	        if (isIdentitySelect) {
-	            // If it's a select *, we don't really need to run the
-	            // select clause.  We simply go for it.
-                    threadAccum.specializedRecorder(std::move(rowName),
-                                                    rowTs, values.data(),
-                                                    values.size(), {});
-	        }
-	        else {
-	            // TODO: optimization for
-	            // SELECT * excluding (...)
+            if (isIdentitySelect) {
+                // If it's a select *, we don't really need to run the
+                // select clause.  We simply go for it.
+                threadAccum.specializedRecorder(std::move(rowName),
+                                                rowTs, values.data(),
+                                                values.size(), {});
+            }
+            else {
+                // TODO: optimization for
+                // SELECT * excluding (...)
 
-	            ExpressionValue selectStorage;
-	            const ExpressionValue & selectOutput
+                ExpressionValue selectStorage;
+                const ExpressionValue & selectOutput
                         = selectBound(row, selectStorage, GET_ALL);
 
-     	            if (&selectOutput == &selectStorage) {
-	                // We can destructively work with it
-                        threadAccum.threadRecorder
-                            ->recordRowExprDestructive(std::move(rowName),
-                                                       std::move(selectStorage));
+                if (&selectOutput == &selectStorage) {
+                    // We can destructively work with it
+                    threadAccum.threadRecorder
+                        ->recordRowExprDestructive(std::move(rowName),
+                                                   std::move(selectStorage));
                     }
                     else {
                         // We don't own the output; we will need to copy
@@ -1007,10 +1007,10 @@ struct ImportTextProcedureWorkInstance
                             ->recordRowExpr(std::move(rowName),
                                             selectOutput);
                 }
-	        }
+            }
 
             return true;
-	    };
+        };
 
 
         if(!config.allowMultiLines) {
