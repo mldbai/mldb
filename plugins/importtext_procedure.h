@@ -38,7 +38,7 @@ struct ImportTextConfig : public ProcedureConfig  {
           named(SqlExpression::parse("lineNumber()")),
           timestamp(SqlExpression::parse("fileTimestamp()"))
     {
-    	outputDataset.withType("tabular");
+        outputDataset.withType("tabular");
     }
 
     Url dataFileUrl;
