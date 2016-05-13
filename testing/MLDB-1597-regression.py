@@ -203,7 +203,7 @@ class Mldb1597Test(MldbUnitTest):
         # of these two equivalent joins are currently very different
         self.assertEqual(len(resp), len(resp2), 'expected response sizes to match')
 
-    @unittest.skip("awaiting MLDB-1659")
+    @unittest.skip("awaiting MLDB-1660")
     def test_r2_bug(self):
 
         mldb.query("select 11.0 as score, ds.c as label from ds")
@@ -219,6 +219,37 @@ class Mldb1597Test(MldbUnitTest):
         })
         r2 = result.json()["status"]["firstRun"]["status"]["r2"]
         self.assertTrue( r2 is not None )
+
+    @unittest.skip("illustrative test only, no asserts")
+
+    def test_function_creation_bug(self):
+        mldb.post("/v1/procedures", {
+            "type": "import.text",
+            "params":{
+                "dataFileUrl": "http://public.mldb.ai/narrow_test.csv.gz",
+                "outputDataset": "narrow",
+                "runOnCreation": True
+            }
+        })
+
+        # it seems that the training fails to save the function but we proceed to testing
+        # where we try to use the function but then can't find it
+        # 1) we should not move to testing if function-creation fails
+           # we should report that function-creation failed
+        # 2) function creation should not fail for a dt on this dataset
+
+        mldb.put("/v1/procedures/train", {
+            "type": "classifier.experiment",
+            "params": {
+                "experimentName": "x",
+                "trainingData": "select {a} as features, b as label from narrow",
+                "algorithm": "dt",
+                "mode": "regression",
+                "configurationFile": "./mldb/container_files/classifiers.json",
+                "modelFileUrlPattern": "file:///tmp/MLDB-1597-creation$runid.cls",
+                "runOnCreation": True
+            }
+        })
 
     @unittest.skip("illustrative test only, no asserts")
     def test_permutations(self):
