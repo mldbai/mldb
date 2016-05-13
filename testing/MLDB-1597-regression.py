@@ -203,39 +203,24 @@ class Mldb1597Test(MldbUnitTest):
         # of these two equivalent joins are currently very different
         self.assertEqual(len(resp), len(resp2), 'expected response sizes to match')
 
-    def test_remaining(self):
-        # setup
-        mldb.post("/v1/procedures", {
-                "type": "transform",
-                "params":{
-                    "inputData": """
-                        select
-                            dow, a_int, 
-                            sum(e_1)/sum(e_2) as e, 
-                            avg({b_1, b_2}) as *,
-                            avg(b_1)/avg(b_2) as b_ratio, 
-                            1-sum(d_1+d_2-c_2)/sum(c_1) as r
-                        from ds
-                        group by dow, a_int
-                    """,
-                    "outputDataset": {"id":"ds_stats", "type":"tabular"},
-                    "runOnCreation": True
-                }
-            })
+    def test_r2_bug(self):
 
-        # BUG: 
+        mldb.query("select 11.0 as score, ds.c as label from ds")
+
         # r2 should not be null every time score has only zeros after the decimal point
-        mldb.post("/v1/procedures", {
+        result = mldb.post("/v1/procedures", {
             "type": "classifier.test",
             "params": {
-                "testingData": "select 11.0 as score, ds.c as label from ds_train",
+                "testingData": "select 11.0 as score, c as label from ds",
                 "mode": "regression",
                 "runOnCreation": True
             }
         })
+        r2 = result.json()["status"]["firstRun"]["status"]["r2"]
+        self.assertTrue( r2 is not None )
 
-        #setup
-
+    @unittest.skip("illustrative test only, no asserts")
+    def test_permutations(self):
         def train(features, label, algo):
             try:
                 result = mldb.post("/v1/procedures", {
