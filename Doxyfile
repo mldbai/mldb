@@ -331,7 +331,7 @@ TYPEDEF_HIDES_STRUCT   = NO
 # 2^(16+SYMBOL_CACHE_SIZE). The valid range is 0..9, the default is 0,
 # corresponding to a cache size of 2^16 = 65536 symbols.
 
-SYMBOL_CACHE_SIZE      = 1
+SYMBOL_CACHE_SIZE      = 2
 
 # Similar to the SYMBOL_CACHE_SIZE the size of the symbol lookup cache can be
 # set using LOOKUP_CACHE_SIZE. This cache is used to resolve symbols given
@@ -342,7 +342,7 @@ SYMBOL_CACHE_SIZE      = 1
 # formula: 2^(16+LOOKUP_CACHE_SIZE). The valid range is 0..9, the default is 0,
 # corresponding to a cache size of 2^16 = 65536 symbols.
 
-LOOKUP_CACHE_SIZE      = 1
+LOOKUP_CACHE_SIZE      = 2
 
 #---------------------------------------------------------------------------
 # Build related configuration options
@@ -701,7 +701,7 @@ EXCLUDE_SYMLINKS       = YES
 # against the file with absolute path, so to exclude all test directories
 # for example use the pattern */test/*
 
-EXCLUDE_PATTERNS       = */mldb/jml* *mldb/datacratic_sqlite/* */mldb/googleurl/* */testing/* */hoedown/* */lookalike/* */virtualenv/* 
+EXCLUDE_PATTERNS       = */mldb/jml* */mldb/ext/* */testing/* */virtualenv/* */build/*
 
 # The EXCLUDE_SYMBOLS tag can be used to specify one or more symbol names
 # (namespaces, classes, functions, etc.) that should be excluded from the
