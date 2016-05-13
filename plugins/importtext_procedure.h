@@ -32,6 +32,7 @@ struct ImportTextConfig : public ProcedureConfig  {
           offset(0),
           ignoreBadLines(false),
           structuredColumnNames(false),
+          allowMultiLines(false),
           select(SelectExpression::STAR),
           where(SqlExpression::TRUE),
           named(SqlExpression::parse("lineNumber()")),
@@ -51,6 +52,7 @@ struct ImportTextConfig : public ProcedureConfig  {
     int64_t offset;
     bool ignoreBadLines;
     bool structuredColumnNames;
+    bool allowMultiLines;
 
     SelectExpression select;               ///< What to select from the CSV
     std::shared_ptr<SqlExpression> where;  ///< Filter for the CSV

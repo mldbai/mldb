@@ -1,7 +1,5 @@
 /** importext_procedure.cc
     Mathieu Marquis Bolduc, February 12, 2016
-    Copyright (c) 2016 Datacratic Inc.  All rights reserved.
-
     This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
 
     Procedure that reads text files into an indexed dataset.
@@ -81,6 +79,11 @@ ImportTextConfigDescription::ImportTextConfigDescription()
     addField("timestamp", &ImportTextConfig::timestamp,
              "Expression for row timestamp.",
              SqlExpression::parse("fileTimestamp()"));
+    addField("allowMultiLines", &ImportTextConfig::allowMultiLines,
+             "Allows columns with multi-line quoted strings. "
+             "This option disables many optimizations and makes the procedure "
+             "run much slower. Only use if necessary. The `offset` parameter "
+             "will not be reliable when this is activated.", false);
 
     addParent<ProcedureConfig>();
     onUnknownField = [] (ImportTextConfig * config,
@@ -310,6 +313,11 @@ Encoding parseEncoding(const std::string & encodingStr)
 
 } // file scope
 
+namespace {
+    const string unclosedQuoteError = "Unclosed quoted CSV value";
+    const string notEnoughColsError = "not enough columns in row";
+}
+
 /** Parse a single row of CSV into an array of CellValues.
 
     Carefully designed to not perform any memory allocations in the
@@ -481,7 +489,7 @@ parseFixedWidthCsvRow(const char * & line,
             }
 
             if (!ok)
-                errorMsg = "Unclosed quoted CSV value";
+                errorMsg = unclosedQuoteError.c_str();
 
             if (errorMsg)
                 break;
@@ -563,7 +571,7 @@ parseFixedWidthCsvRow(const char * & line,
     }
 
     if (colNum != numColumns)
-        return "not enough columns in row";
+        return notEnoughColsError.c_str();
 
     return errorMsg;
 }
@@ -683,14 +691,35 @@ struct ImportTextProcedureWorkInstance
                 };
 
             if (config.headers.empty()) {
-                // Read header line
-                std::getline(stream, header);
-                lineOffset += 1;
-                ML::Parse_Context pcontext(filename,
-                                           header.c_str(), header.length(), 1, 0);
 
-                vector<string> fields
-                    = ML::expect_csv_row(pcontext, -1, separator);
+                vector<string> fields;
+
+                // Read header line
+                string prevHeader;
+                lineOffset += 1;
+                while(true) {
+                    std::getline(stream, header);
+
+                    if(!prevHeader.empty()) {
+                        prevHeader += ' ' + header;
+                        header.assign(std::move(prevHeader));
+                    }
+
+                    try {
+                        ML::Parse_Context pcontext(filename,
+                                               header.c_str(), header.length(), 1, 0);
+                        fields = ML::expect_csv_row(pcontext, -1, separator);
+                        break;
+                    }
+                    catch (ML::FileFinishInsideQuote & exp) {
+                        if(config.allowMultiLines) {
+                            prevHeader.assign(std::move(header));
+                            continue;
+                        }
+
+                        throw exp;
+                    }
+                }
 
                 switch (encoding) {
                 case ASCII:
@@ -876,7 +905,7 @@ struct ImportTextProcedureWorkInstance
                            int chunkNum,
                            int64_t lineNum)
 	    {
-	        int64_t actualLineNum = lineNum + lineOffset;
+            int64_t actualLineNum = lineNum + lineOffset;
 #if 0
 	        uint64_t linesDone = totalLinesProcessed.fetch_add(1);
 
@@ -888,7 +917,7 @@ struct ImportTextProcedureWorkInstance
 	        }
 #endif
 
-                // MLDB-1111 empty lines are treated as error
+            // MLDB-1111 empty lines are treated as error
 	        if (length == 0)
 	            return handleError("empty line", actualLineNum, 0, "");
 
@@ -901,7 +930,7 @@ struct ImportTextProcedureWorkInstance
 
 	        const char * lineStart = line;
 
-                const size_t numInputColumn = inputColumnNames.size();
+            const size_t numInputColumn = inputColumnNames.size();
 
 	        const char * errorMsg
                     = parseFixedWidthCsvRow(line, length, &values[0],
@@ -911,10 +940,20 @@ struct ImportTextProcedureWorkInstance
                                             isTextLine,
                                             hasQuoteChar);
 
-                if (errorMsg)
-	            return handleError(errorMsg, actualLineNum,
-                                       line - lineStart + 1,
-                                       string(line, length));
+                if (errorMsg) {
+                    if(config.allowMultiLines) {
+                        // check if we hit an error meaning we probably
+                        // have a multiline error
+                        if(errorMsg == unclosedQuoteError ||
+                           errorMsg == notEnoughColsError) {
+                            return false;
+                        }
+                    }
+
+    	            return handleError(errorMsg, actualLineNum,
+                                           line - lineStart + 1,
+                                           string(line, length));
+                }
 
 	        auto row = scope.bindRow(&values[0], ts, actualLineNum,
                                          0 /* todo: chunk ofs */);
@@ -936,9 +975,9 @@ struct ImportTextProcedureWorkInstance
 	        RowName rowName(namedBound(row, nameStorage, GET_ALL)
                                 .toUtf8String());
 
-                //ExcAssert(!(isIdentitySelect && outputColumnNamesUnknown));
+            //ExcAssert(!(isIdentitySelect && outputColumnNamesUnknown));
 
-                auto & threadAccum = accum.get();
+            auto & threadAccum = accum.get();
 
 	        if (isIdentitySelect) {
 	            // If it's a select *, we don't really need to run the
@@ -967,15 +1006,52 @@ struct ImportTextProcedureWorkInstance
                         threadAccum.threadRecorder
                             ->recordRowExpr(std::move(rowName),
                                             selectOutput);
-	            }
+                }
 	        }
 
-	        return true;
+            return true;
 	    };
 
-        forEachLineBlock(stream, onLine, config.limit,
-                         32 /* parallelism */,
-                         startChunk, doneChunk);
+
+        if(!config.allowMultiLines) {
+            forEachLineBlock(stream, onLine, config.limit,
+                             32 /* parallelism */,
+                             startChunk, doneChunk);
+        }
+        else {
+            // very simplistic and not efficient way of doing multi-line. we send
+            // lines one by one to the 'onLine' function, and if
+            // we get an error that probably is caused by a multi-
+            // line string, we concat the current line with the next
+            // one and try again. 
+            startChunk(0, 0);
+
+            string line;
+            string t_line;
+            string prevLine;
+            int64_t lineNum = 0;
+            while(getline(stream, line)) {
+                // prepend previous line if we're tagging it along
+                if(!prevLine.empty()) {
+                    t_line.assign(std::move(line));
+                    line.assign(std::move(prevLine));
+                    line += ' ' + t_line;
+                }
+
+                if(!onLine(line.c_str(), line.size(),
+                           0 /* chunkNum */, lineNum)) {
+                    prevLine.assign(std::move(line));
+                } else {
+                    prevLine.erase();
+                    lineNum++;
+                }
+
+                if(config.limit > 0 && lineNum >= config.limit)
+                    break;
+            }
+
+            doneChunk(0, lineNum);
+        }
 
         //cerr << "processed " << totalLinesProcessed << " lines" << endl;
 
