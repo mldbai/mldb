@@ -2149,7 +2149,7 @@ parse(ML::Parse_Context & context, bool allowUtf8)
                 columnName = asName;
                 skip_whitespace(context);
                 expr = SqlExpression::parse(context, 10, allowUtf8);
-                auto result = std::make_shared<ComputedColumn>
+                auto result = std::make_shared<NamedColumnExpression>
                     (columnName, expr);
                 result->surface = capture.captured();
                 return result;
@@ -2278,7 +2278,7 @@ parse(ML::Parse_Context & context, bool allowUtf8)
         else columnName = PathElement(expr->surface);
     }
 
-    auto result = std::make_shared<ComputedColumn>(columnName, expr);
+    auto result = std::make_shared<NamedColumnExpression>(columnName, expr);
 
     result->surface = capture.captured();
     return result;

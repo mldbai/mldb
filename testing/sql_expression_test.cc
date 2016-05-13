@@ -1142,8 +1142,8 @@ BOOST_AUTO_TEST_CASE(test_select_statement_parse)
         auto statement = SelectStatement::parse("select 1 from table");
         BOOST_CHECK_EQUAL(statement.select.clauses.size(), 1);
         BOOST_CHECK_EQUAL(ML::type_name(*statement.select.clauses[0].get()),
-                          "Datacratic::MLDB::ComputedColumn");
-        auto cast = dynamic_cast<ComputedColumn *>(statement.select.clauses[0].get());
+                          "Datacratic::MLDB::NamedColumnExpression");
+        auto cast = dynamic_cast<NamedColumnExpression *>(statement.select.clauses[0].get());
         BOOST_CHECK_EQUAL(cast->alias, ColumnName("1"));
     }
 
