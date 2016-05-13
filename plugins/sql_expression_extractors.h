@@ -11,14 +11,14 @@
 namespace Datacratic {
 namespace MLDB {
 
-/**  Iterates over the select sub expressions of type ComputedColumn to match a given named.
+/**  Iterates over the select sub expressions of type NamedColumnExpression to match a given name.
  *   Returns the matched expression or nullptr if there are no matches.
 */
-inline std::shared_ptr<ComputedColumn>
+inline std::shared_ptr<NamedColumnExpression>
 extractNamedSubSelect (const Utf8String & name, const SelectExpression & select) 
 {
     for (const auto & clause : select.clauses) {
-        auto computedVariable = std::dynamic_pointer_cast<ComputedColumn>(clause);
+        auto computedVariable = std::dynamic_pointer_cast<NamedColumnExpression>(clause);
         if (computedVariable
             && computedVariable->alias.size() == 1
             && computedVariable->alias[0] == name)
