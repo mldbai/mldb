@@ -495,3 +495,42 @@ BOOST_AUTO_TEST_CASE( test_get_embedding_atom )
     }
 }
 
+BOOST_AUTO_TEST_CASE( test_superposition_with_search_row )
+{
+    Date ts;
+
+    RowValue row;
+    row.emplace_back(PathElement("a"), 1, ts);
+    row.emplace_back(PathElement("a"), 2, ts.plusSeconds(1));
+
+    string expected =
+        "[[[ 'a', [[['',[ 1, '1970-01-01T00:00:00Z']], "
+        "         ['', [ 2, '1970-01-01T00:00:01Z' ]]], "
+        "         '1970-01-01T00:00:01Z']]], "
+        "'1970-01-01T00:00:01Z']";
+
+    ExpressionValue val(row);
+
+    BOOST_CHECK(!val.isSuperposition() && val.isRow() && !val.isAtom());
+    BOOST_CHECK_EQUAL(jsonEncode(val), Json::parse(expected));
+
+    ExpressionValue found;
+
+    searchRow(row, PathElement("a"), GET_ALL, found);
+    BOOST_CHECK(found.isSuperposition() && found.isRow() && !found.isAtom());
+    expected = " [[['',[ 1, '1970-01-01T00:00:00Z']], "
+        "         ['', [ 2, '1970-01-01T00:00:01Z' ]]], "
+        "         '1970-01-01T00:00:01Z']]";
+    BOOST_CHECK_EQUAL(jsonEncode(found), Json::parse(expected));
+
+    searchRow(row, PathElement("a"), GET_LATEST, found);
+    BOOST_CHECK(!found.isSuperposition() && !found.isRow() && found.isAtom());
+    expected = "[ 2, '1970-01-01T00:00:01Z' ]";
+    BOOST_CHECK_EQUAL(jsonEncode(found), Json::parse(expected));
+
+    searchRow(row, PathElement("a"), GET_EARLIEST, found);
+    BOOST_CHECK(!found.isSuperposition() && !found.isRow() && found.isAtom());
+    expected = "[ 1, '1970-01-01T00:00:00Z' ]";
+    BOOST_CHECK_EQUAL(jsonEncode(found), Json::parse(expected));
+}
+

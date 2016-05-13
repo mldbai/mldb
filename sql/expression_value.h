@@ -647,7 +647,7 @@ struct ExpressionValue {
     ExpressionValue(RowValue row) noexcept;
 
     // Construct from a set of named values as a row
-    ExpressionValue(std::vector<std::tuple<PathElement, ExpressionValue> > vals) noexcept;
+    ExpressionValue(StructValue vals) noexcept;
     // Construct from JSON.  Will convert to an atom or a row.
     ExpressionValue(const Json::Value & json, Date ts);
     
@@ -1422,20 +1422,20 @@ DECLARE_STRUCTURE_DESCRIPTION(NamedRowValue);
 
 /** These functions search the given row for the named value. */
 const ExpressionValue *
-searchRow(const std::vector<std::tuple<ColumnName, CellValue, Date> > & columns,
-          const ColumnName & key,
+searchRow(const RowValue & columns,
+          const ColumnName & columnName,
           const VariableFilter & filter,
           ExpressionValue & storage);
 
 const ExpressionValue *
-searchRow(const std::vector<std::tuple<PathElement, ExpressionValue> > & columns,
-          const PathElement & key,
+searchRow(const StructValue & columns,
+          const PathElement & columnName,
           const VariableFilter & filter,
           ExpressionValue & storage);
 
 const ExpressionValue *
-searchRow(const std::vector<std::tuple<PathElement, ExpressionValue> > & columns,
-          const ColumnName & key,
+searchRow(const StructValue & columns,
+          const ColumnName & columnName,
           const VariableFilter & filter,
           ExpressionValue & storage);
 
