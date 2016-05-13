@@ -119,7 +119,7 @@ class Mldb1597Test(MldbUnitTest):
             sum(c) as s
         from ds 
         group by dow
-        order by sum(income)
+        order by sum(c)
         """)
 
         mldb.query("""
@@ -128,7 +128,7 @@ class Mldb1597Test(MldbUnitTest):
             sum(c - d) as p
         from ds 
         group by dow
-        order by 1-(0.001+sum(cost))/(0.001+sum(income))
+        order by 1-(0.001+sum(d))/(0.001+sum(c))
         """)
 
     def run_query_and_compare(self, query):
