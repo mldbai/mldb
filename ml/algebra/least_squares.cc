@@ -431,8 +431,8 @@ ridge_regression_impl(const boost::multi_array<Float, 2> & A,
 {
     using namespace std;
     float initialLambda = lambda < 0 ? 1e-5 : lambda;
-    //cerr << "ridge_regression: A = " << A.shape()[0] << "x" << A.shape()[1]
-    //     << " b = " << b.size() << endl;
+    cerr << "ridge_regression: A = " << A.shape()[0] << "x" << A.shape()[1]
+         << " b = " << b.size() << endl;
 
     //cerr << "b = " << b << endl;
     //cerr << "A = " << A << endl;
@@ -606,12 +606,19 @@ template<class Float>
 distribution<Float>
 lasso_regression_impl(const boost::multi_array<Float, 2> & A,
                       const distribution<Float> & b,
+                      const distribution<Float>& stds,
                       float lambda,
                       int maxIter,
                       float epsilon)
 { 
+    //cerr << "lasso_regression: A = " << A.shape()[0] << "x" << A.shape()[1]
+    //     << " b = " << b.size() 
+    //     << " lambda " << lambda
+    //     << endl;
+
     int n = A.shape()[0];   //Number of samples
     int p = A.shape()[1];   //Number of variables
+    ExcAssertEqual(stds.size(), p);
 
      distribution<Float> x(p); //our solution vector
 
@@ -662,11 +669,14 @@ lasso_regression_impl(const boost::multi_array<Float, 2> & A,
                     rho -= XtX[j][i]*x[i];
             }
 
-            if (rho > halflambda) {
+            //Float rhoN = rho / (XtX[j][j] * stds[j] );
+            //cerr << "column " << j << " rho: " << rho << " rho normalized: " << rhoN << endl;
+
+            if (rho > halflambda * XtX[j][j] * stds[j]) {
                 x[j] = (rho - halflambda) / (XtX[j][j]);  //XtX[j][j] is for normalization. Should be 1.0f is already normalized.
                 kept = true;
             }
-            else if (rho < -halflambda){
+            else if (rho < -halflambda * XtX[j][j] * stds[j]){
                 x[j] = (rho + halflambda) / (XtX[j][j]);
                 kept = true;
             }
@@ -674,8 +684,13 @@ lasso_regression_impl(const boost::multi_array<Float, 2> & A,
                 x[j] = 0;
             }
 
+	        //cerr << "x[j]: " << x[j] << endl; 
+
             convergence += fabs(x[j] - oldX[j]);
         }
+
+        //cerr << "convergence: " << convergence << endl;
+
         if (kept) {
                 if (convergence < epsilon || iter >= maxIter)
                     break;
@@ -693,21 +708,23 @@ lasso_regression_impl(const boost::multi_array<Float, 2> & A,
 distribution<float>
 lasso_regression(const boost::multi_array<float, 2> & A,
                  const distribution<float> & b,
+                 const distribution<float>& stds,
                  float lambda,
                  int maxIter,
                  float epsilon)
 {
-    return lasso_regression_impl(A, b, lambda, maxIter, epsilon);
+    return lasso_regression_impl(A, b, stds, lambda, maxIter, epsilon);
 }
 
 distribution<double>
 lasso_regression(const boost::multi_array<double, 2> & A,
                  const distribution<double> & b,
+                 const distribution<double>& stds,
                  float lambda,
                  int maxIter,
                  float epsilon)
 {
-    return lasso_regression_impl(A, b, lambda, maxIter, epsilon);
+    return lasso_regression_impl(A, b, stds, lambda, maxIter, epsilon);
 }
 
 //***********************************************

@@ -148,6 +148,7 @@ ridge_regression(const boost::multi_array<double, 2> & A,
 distribution<float>
 lasso_regression(const boost::multi_array<float, 2> & A,
                  const distribution<float> & b,
+                 const distribution<float> & stds,
                  float lambda,
                  int maxIter = 20,
                  float epsilon = 1e-4);
@@ -155,6 +156,7 @@ lasso_regression(const boost::multi_array<float, 2> & A,
 distribution<double>
 lasso_regression(const boost::multi_array<double, 2> & A,
                  const distribution<double> & b,
+                 const distribution<double> & stds,
                  float lambda,
                  int maxIter = 20,
                  float epsilon = 1e-4);
@@ -277,9 +279,14 @@ diag_mult(const boost::multi_array<Float, 2> & X,
 template<class Link, class Dist, class Float, class Regressor>
 distribution<Float>
 irls(const distribution<Float> & y, const boost::multi_array<Float, 2> & x,
-     const distribution<Float> & w, const Link & link, const Dist & dist,
+     const distribution<Float> & w, 
+     const distribution<Float> & stds, 
+     const Link & link, 
+     const Dist & dist,
      const Regressor & regressor)
 {
+    std::cerr << "IRLS" << std::endl;
+
     using namespace std;
 
     bool debug = false;
@@ -380,7 +387,7 @@ irls(const distribution<Float> & y, const boost::multi_array<Float, 2> & x,
 
         /* Solve the reweighted problem using a linear least squares. */
         b2                 = b;
-        b                  = regressor.calc_scaled(x, fit_weights, xTwz);
+        b                  = regressor.calc_scaled(x, fit_weights, xTwz, stds);
         
         //if (debug_irls)
         //    (*debug_irls) << "b: " << b << endl;

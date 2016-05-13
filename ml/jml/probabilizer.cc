@@ -219,6 +219,7 @@ train_sparse(const std::vector<distribution<double> > & data,
 
     boost::multi_array<double, 2> outputs(boost::extents[3][nd]);  // value, max, bias
     distribution<double> correct(nd);
+    distribution<double> stds(nd, 1.0f);
     
     for (unsigned d = 0;  d < nd;  ++d) {
         outputs[0][d] = data[d][0];
@@ -232,7 +233,7 @@ train_sparse(const std::vector<distribution<double> > & data,
     distribution<double> param(3, 0.0);
 
     Ridge_Regressor regressor;
-    return run_irls(correct, outputs, weights, link, regressor);
+    return run_irls(correct, outputs, weights, stds, link, regressor);
 }
 
 void GLZ_Probabilizer::
@@ -242,9 +243,10 @@ train_glz_regress(const boost::multi_array<double, 2> & outputs,
                   bool debug)
 {
     distribution<double> w(weights.begin(), weights.end());
+    distribution<double> stds(correct.size(), 1.0f);
 
     /* Perform the GLZ. */
-    distribution<double> param = run_irls(correct, outputs, w, link);
+    distribution<double> param = run_irls(correct, outputs, w, stds, link);
 
     params.clear();
     params.push_back(distribution<float>(param.begin(), param.end()));
@@ -276,8 +278,9 @@ train_one_mode0(const boost::multi_array<double, 2> & outputs,
                 const vector<int> & dest) const
 {
     size_t ol = dest.size();
+    distribution<double> stds(correct.size(), 1.0f);
 
-    distribution<double> param = run_irls(correct, outputs, w, link);
+    distribution<double> param = run_irls(correct, outputs, w, stds, link);
     
     /* Expand the learned distribution back into its proper size,
        putting back the removed columns as zeros. */
@@ -344,7 +347,8 @@ train_one_mode1(const boost::multi_array<double, 2> & outputs,
     //cerr << "dest = " << dest << endl;
 
     distribution<double> param(3, 0.0);
-    param = run_irls(correct, outputs2, w, link);
+    distribution<double> stds(correct.size(), 1.0f);
+    param = run_irls(correct, outputs2, w, stds, link);
     
     /* Put the 3 columns back into ol columns, so that the output is
        still compatible. */
@@ -508,12 +512,13 @@ train_mode2(const boost::multi_array<double, 2> & outputs,
     /* Perform the GLZ. */
 
     distribution<double> param;
+    distribution<double> stds(correct2.size(), 1.0f);
     if (ridge) {
         Ridge_Regressor regressor;
-        param = run_irls(correct2, outputs2, w, link, regressor);
+        param = run_irls(correct2, outputs2, w, stds, link, regressor);
     }
     else {
-        param = run_irls(correct2, outputs2, w, link);
+        param = run_irls(correct2, outputs2, w, stds, link);
     }
     
     if (debug)
@@ -610,6 +615,7 @@ train_mode5(const boost::multi_array<double, 2> & outputs,
     /* Get the entire enormous data set. */
     boost::multi_array<double, 2> outputs2(boost::extents[3][nx]);  // value, max, bias
     distribution<double> correct2(nx);
+    distribution<double> stds(nx, 1.0f);
     
     for (unsigned x = 0;  x < nx;  ++x) {
         outputs2[0][x] = outputs[0][x];
@@ -625,7 +631,7 @@ train_mode5(const boost::multi_array<double, 2> & outputs,
     //cerr << "performing GLZ" << endl;
     
     /* Perform the GLZ. */
-    distribution<double> param = run_irls(correct2, outputs2, w, link);
+    distribution<double> param = run_irls(correct2, outputs2, w, stds, link);
     
     /* Construct it from the results.  We want the label 1 to be 1 - label 0,
        so we just learn a single label 0. */

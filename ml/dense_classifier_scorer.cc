@@ -377,9 +377,10 @@ trainProbabilizer(const DataPartition & partition,
     distribution<double> weights(nd, 1.0);
 #endif
 
+    distribution<double> stds(correct.size(), 1.0f);
     Ridge_Regressor regressor;
     distribution<double> probParams
-        = ML::run_irls(correct, outputs, weights, LOGIT, regressor);
+        = ML::run_irls(correct, outputs, weights, stds, LOGIT, regressor);
     
     cerr << "probParams = " << probParams << endl;
 

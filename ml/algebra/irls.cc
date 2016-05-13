@@ -287,18 +287,20 @@ distribution<double>
 Regressor::
 calc_scaled(const boost::multi_array<double, 2> & A,
             const distribution<double> & aScale,
-            const distribution<double> & b) const
+            const distribution<double> & b,
+            const distribution<double>& stds) const
 {
-    return calc(weighted_square(A, aScale), b);
+    return calc(weighted_square(A, aScale), b, stds);
 }
 
 distribution<float>
 Regressor::
 calc_scaled(const boost::multi_array<float, 2> & A,
             const distribution<float> & aScale,
-            const distribution<float> & b) const
+            const distribution<float> & b,
+            const distribution<float>& stds) const
 {
-    return calc(weighted_square(A, aScale), b);
+    return calc(weighted_square(A, aScale), b, stds);
 }
 
 Least_Squares_Regressor::
@@ -309,7 +311,8 @@ Least_Squares_Regressor::
 distribution<float>
 Least_Squares_Regressor::
 calc(const boost::multi_array<float, 2> & A,
-     const distribution<float> & b) const
+     const distribution<float> & b,
+     const distribution<float>& stds) const
 {
     return least_squares(A, b);
 }
@@ -317,7 +320,8 @@ calc(const boost::multi_array<float, 2> & A,
 distribution<double>
 Least_Squares_Regressor::
 calc(const boost::multi_array<double, 2> & A,
-     const distribution<double> & b) const
+     const distribution<double> & b,
+     const distribution<double>& stds) const
 {
     return least_squares(A, b);
 }
@@ -340,7 +344,8 @@ Ridge_Regressor::
 distribution<float>
 Ridge_Regressor::
 calc(const boost::multi_array<float, 2> & A,
-     const distribution<float> & b) const
+     const distribution<float> & b,
+     const distribution<float>& stds) const
 {
     return ridge_regression(A, b, lambda);
 }
@@ -348,7 +353,8 @@ calc(const boost::multi_array<float, 2> & A,
 distribution<double>
 Ridge_Regressor::
 calc(const boost::multi_array<double, 2> & A,
-     const distribution<double> & b) const
+     const distribution<double> & b,
+     const distribution<double>& stds) const
 {
     return ridge_regression(A, b, lambda);
 }
@@ -357,18 +363,20 @@ distribution<double>
 Ridge_Regressor::
 calc_scaled(const boost::multi_array<double, 2> & A,
             const distribution<double> & aScale,
-            const distribution<double> & b) const
+            const distribution<double> & b,
+            const distribution<double>& stds) const
 {
-    return calc(weighted_square(A, aScale), b);
+    return calc(weighted_square(A, aScale), b, stds);
 }
 
 distribution<float>
 Ridge_Regressor::
 calc_scaled(const boost::multi_array<float, 2> & A,
             const distribution<float> & aScale,
-            const distribution<float> & b) const
+            const distribution<float> & b,
+            const distribution<float>& stds) const
 {
-    return calc(weighted_square(A, aScale), b);
+    return calc(weighted_square(A, aScale), b, stds);
 }
 
 const Regressor & default_regressor()
@@ -395,17 +403,19 @@ Lasso_Regressor::
 distribution<float>
 Lasso_Regressor::
 calc(const boost::multi_array<float, 2> & A,
-     const distribution<float> & b) const
+     const distribution<float> & b,
+     const distribution<float>& stds) const
 {
-    return lasso_regression(A, b, lambda, maxIter, epsilon);
+    return lasso_regression(A, b, stds, lambda, maxIter, epsilon);
 }
 
 distribution<double>
 Lasso_Regressor::
 calc(const boost::multi_array<double, 2> & A,
-     const distribution<double> & b) const
+     const distribution<double> & b,
+     const distribution<double>& stds) const
 {
-    return lasso_regression(A, b, lambda, maxIter, epsilon);
+    return lasso_regression(A, b, stds, lambda, maxIter, epsilon);
 }
 
 /*****************************************************************************/
@@ -418,6 +428,7 @@ perform_irls_unconditioned(const distribution<Float> & correct,
                            const boost::multi_array<Float, 2> & outputs,
                            const distribution<Float> & w,
                            Link_Function link_function,
+                           const distribution<Float>& stds,
                            Regularization regularization,
                            Float regularization_factor,
                            int maxIter,
@@ -433,29 +444,29 @@ perform_irls_unconditioned(const distribution<Float> & correct,
     if (link_function == LINEAR && (w.min() == w.max())) {
         if (regularization == Regularization_l2) {
             Ridge_Regressor regressor(regularization_factor);
-            trained = regressor.calc(transpose(outputs), correct);
+            trained = regressor.calc(transpose(outputs), correct, stds);
         }
         else if (regularization == Regularization_l1){
             Lasso_Regressor regressor(regularization_factor, maxIter, epsilon);
-            trained = regressor.calc(transpose(outputs), correct);
+            trained = regressor.calc(transpose(outputs), correct, stds);
         }
         else {
              if(regularization != Regularization_none)
                 throw Exception("Unknown regularization method in perform_irls_unconditioned");
             Least_Squares_Regressor regressor;
-            trained = regressor.calc(transpose(outputs), correct);
+            trained = regressor.calc(transpose(outputs), correct, stds);
         }
     }
     else {
         if (regularization == Regularization_l2) {
             Ridge_Regressor regressor(regularization_factor);
             trained
-                = run_irls(correct, outputs, w, link_function, regressor);
+                = run_irls(correct, outputs, w, stds, link_function, regressor);
         }
         else if (regularization == Regularization_l1){
             Lasso_Regressor regressor(regularization_factor, maxIter, epsilon);
             trained
-                = run_irls(correct, outputs, w, link_function, regressor);
+                = run_irls(correct, outputs, w, stds, link_function, regressor);
         }
         else {
             if(regularization != Regularization_none)
@@ -463,7 +474,7 @@ perform_irls_unconditioned(const distribution<Float> & correct,
 
             Least_Squares_Regressor regressor;
             trained
-                = run_irls(correct, outputs, w, link_function, regressor);
+                = run_irls(correct, outputs, w, stds, link_function, regressor);
         }
     }
 
@@ -480,6 +491,7 @@ perform_irls_conditioned(const distribution<Float> & correct,
                               const boost::multi_array<Float, 2> & outputs,
                               const distribution<Float> & w,
                               Link_Function link_function,
+                              const distribution<Float>& stds,
                               Regularization regularization, 
                               Float regularization_factor,
                               int maxIter,
@@ -589,6 +601,7 @@ perform_irls_conditioned(const distribution<Float> & correct,
 
     distribution<Float> trained = perform_irls_unconditioned(correct, outputs_reduced,
                                                              w, link_function,
+                                                             stds,
                                                              regularization,
                                                              regularization_factor,
                                                              maxIter,
@@ -668,6 +681,7 @@ perform_irls(const distribution<float> & correct,
              const boost::multi_array<float, 2> & outputs,
              const distribution<float> & w,
              Link_Function link_function,
+             const distribution<float>& stds,
              Regularization regularization,
              float regularization_factor,
              int maxIter,
@@ -675,10 +689,10 @@ perform_irls(const distribution<float> & correct,
              bool condition)
 {
     if (condition)
-        return perform_irls_conditioned(correct, outputs, w, link_function,
+        return perform_irls_conditioned(correct, outputs, w, link_function, stds,
                                         regularization, regularization_factor, maxIter, epsilon);
     else
-        return perform_irls_unconditioned(correct, outputs, w, link_function,
+        return perform_irls_unconditioned(correct, outputs, w, link_function, stds,
                                           regularization, regularization_factor, maxIter, epsilon);
 }
 
@@ -687,6 +701,7 @@ perform_irls(const distribution<double> & correct,
              const boost::multi_array<double, 2> & outputs,
              const distribution<double> & w,
              Link_Function link_function,
+             const distribution<double>& stds,
              Regularization regularization,
              double regularization_factor,
              int maxIter,
@@ -694,10 +709,10 @@ perform_irls(const distribution<double> & correct,
              bool condition)
 {
     if (condition)
-        return perform_irls_conditioned(correct, outputs, w, link_function,
+        return perform_irls_conditioned(correct, outputs, w, link_function, stds, 
                                         regularization, regularization_factor, maxIter, epsilon);
     else
-        return perform_irls_unconditioned(correct, outputs, w, link_function,
+        return perform_irls_unconditioned(correct, outputs, w, link_function, stds,
                                           regularization, regularization_factor, maxIter, epsilon);
 }
 
@@ -705,9 +720,10 @@ distribution<double>
 irls_logit(const distribution<double> & correct,
            const boost::multi_array<double, 2> & outputs,
            const distribution<double> & w,
+           const distribution<double> & stds,
            const Regressor & regressor)
 {
-    return irls(correct, outputs, w, Logit_Link<double>(),
+    return irls(correct, outputs, w, stds, Logit_Link<double>(),
                 Binomial_Dist<double>(), regressor);
 }
 
@@ -715,9 +731,10 @@ distribution<double>
 irls_log(const distribution<double> & correct,
          const boost::multi_array<double, 2> & outputs,
          const distribution<double> & w,
+         const distribution<double> & stds,
          const Regressor & regressor)
 {
-    return irls(correct, outputs, w, Logarithm_Link<double>(),
+    return irls(correct, outputs, w, stds, Logarithm_Link<double>(),
                 Binomial_Dist<double>(), regressor);
 }
 
@@ -725,9 +742,10 @@ distribution<double>
 irls_linear(const distribution<double> & correct,
             const boost::multi_array<double, 2> & outputs,
             const distribution<double> & w,
+            const distribution<double> & stds,
             const Regressor & regressor)
 {
-    return irls(correct, outputs, w, Linear_Link<double>(),
+    return irls(correct, outputs, w, stds, Linear_Link<double>(),
                 Normal_Dist<double>(), regressor);
 }
 
@@ -735,9 +753,10 @@ distribution<double>
 irls_probit(const distribution<double> & correct,
             const boost::multi_array<double, 2> & outputs,
             const distribution<double> & w,
+            const distribution<double> & stds,
             const Regressor & regressor)
 {
-    return irls(correct, outputs, w, Probit_Link<double>(),
+    return irls(correct, outputs, w, stds, Probit_Link<double>(),
                 Binomial_Dist<double>(), regressor);
 }
 
@@ -745,34 +764,37 @@ distribution<double>
 irls_complog(const distribution<double> & correct,
              const boost::multi_array<double, 2> & outputs,
              const distribution<double> & w,
+             const distribution<double> & stds,
              const Regressor & regressor)
 {
-    return irls(correct, outputs, w, Comp_Log_Log_Link<double>(),
+    return irls(correct, outputs, w, stds, Comp_Log_Log_Link<double>(),
                 Binomial_Dist<double>(), regressor);
 }
 
 distribution<double>
 run_irls(const distribution<double> & correct,
          const boost::multi_array<double, 2> & outputs,
-         const distribution<double> & w, Link_Function func,
+         const distribution<double> & w, 
+         const distribution<double>& stds,
+         Link_Function func,
          const Regressor & regressor)
 {
     switch (func) {
 
     case LOGIT:
-        return irls_logit(correct, outputs, w, regressor);
+        return irls_logit(correct, outputs, w, stds, regressor);
 
     case LOG:
-        return irls_log(correct, outputs, w, regressor);
+        return irls_log(correct, outputs, w, stds, regressor);
 
     case LINEAR:
-        return irls_linear(correct, outputs, w, regressor);
+        return irls_linear(correct, outputs, w, stds, regressor);
 
     case PROBIT:
-        return irls_probit(correct, outputs, w, regressor);
+        return irls_probit(correct, outputs, w, stds, regressor);
 
     case COMP_LOG_LOG:
-        return irls_complog(correct, outputs, w, regressor);
+        return irls_complog(correct, outputs, w, stds, regressor);
 
     default:
         throw Exception(format("run_irls(): function %d "
@@ -784,9 +806,10 @@ distribution<float>
 irls_logit(const distribution<float> & correct,
            const boost::multi_array<float, 2> & outputs,
            const distribution<float> & w,
+           const distribution<float>& stds,
            const Regressor & regressor)
 {
-    return irls(correct, outputs, w, Logit_Link<float>(),
+    return irls(correct, outputs, w, stds, Logit_Link<float>(),
                 Binomial_Dist<float>(), regressor);
 }
 
@@ -794,9 +817,10 @@ distribution<float>
 irls_log(const distribution<float> & correct,
          const boost::multi_array<float, 2> & outputs,
          const distribution<float> & w,
+         const distribution<float>& stds,
          const Regressor & regressor)
 {
-    return irls(correct, outputs, w, Logarithm_Link<float>(),
+    return irls(correct, outputs, w, stds, Logarithm_Link<float>(),
                 Binomial_Dist<float>(), regressor);
 }
 
@@ -804,9 +828,10 @@ distribution<float>
 irls_linear(const distribution<float> & correct,
             const boost::multi_array<float, 2> & outputs,
             const distribution<float> & w,
+            const distribution<float>& stds,
             const Regressor & regressor)
 {
-    return irls(correct, outputs, w, Linear_Link<float>(),
+    return irls(correct, outputs, w, stds, Linear_Link<float>(),
                 Normal_Dist<float>(), regressor);
 }
 
@@ -814,9 +839,10 @@ distribution<float>
 irls_probit(const distribution<float> & correct,
             const boost::multi_array<float, 2> & outputs,
             const distribution<float> & w,
+            const distribution<float>& stds,
             const Regressor & regressor)
 {
-    return irls(correct, outputs, w, Probit_Link<float>(),
+    return irls(correct, outputs, w, stds, Probit_Link<float>(),
                 Binomial_Dist<float>(), regressor);
 }
 
@@ -824,34 +850,37 @@ distribution<float>
 irls_complog(const distribution<float> & correct,
              const boost::multi_array<float, 2> & outputs,
              const distribution<float> & w,
+             const distribution<float>& stds,
              const Regressor & regressor)
 {
-    return irls(correct, outputs, w, Comp_Log_Log_Link<float>(),
+    return irls(correct, outputs, w, stds, Comp_Log_Log_Link<float>(),
                 Binomial_Dist<float>(), regressor);
 }
 
 distribution<float>
 run_irls(const distribution<float> & correct,
          const boost::multi_array<float, 2> & outputs,
-         const distribution<float> & w, Link_Function func,
+         const distribution<float> & w, 
+         const distribution<float>& stds,
+         Link_Function func,
          const Regressor & regressor)
 {
     switch (func) {
 
     case LOGIT:
-        return irls_logit(correct, outputs, w, regressor);
+        return irls_logit(correct, outputs, w, stds, regressor);
 
     case LOG:
-        return irls_log(correct, outputs, w, regressor);
+        return irls_log(correct, outputs, w, stds, regressor);
 
     case LINEAR:
-        return irls_linear(correct, outputs, w, regressor);
+        return irls_linear(correct, outputs, w, stds, regressor);
 
     case PROBIT:
-        return irls_probit(correct, outputs, w, regressor);
+        return irls_probit(correct, outputs, w, stds, regressor);
 
     case COMP_LOG_LOG:
-        return irls_complog(correct, outputs, w, regressor);
+        return irls_complog(correct, outputs, w, stds, regressor);
 
     default:
         throw Exception(format("run_irls(): function %d "
