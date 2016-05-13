@@ -79,9 +79,9 @@ ImportTextConfigDescription::ImportTextConfigDescription()
     addField("timestamp", &ImportTextConfig::timestamp,
              "Expression for row timestamp.",
              SqlExpression::parse("fileTimestamp()"));
-    addField("multiLineSupport", &ImportTextConfig::multiLineSupport,
-             "Activates support for columns with multi-line quoted strings. "
-             "This option disables many optimisations and makes the procedure "
+    addField("allowMultiLines", &ImportTextConfig::allowMultiLines,
+             "Allows columns with multi-line quoted strings. "
+             "This option disables many optimizations and makes the procedure "
              "run much slower. Only use if necessary. The `offset` parameter "
              "will not be reliable when this is activated.", false);
 
@@ -313,8 +313,10 @@ Encoding parseEncoding(const std::string & encodingStr)
 
 } // file scope
 
-const string unclosedQuoteError = "Unclosed quoted CSV value";
-const string notEnoughColsError = "not enough columns in row";
+namespace {
+    const string unclosedQuoteError = "Unclosed quoted CSV value";
+    const string notEnoughColsError = "not enough columns in row";
+}
 
 /** Parse a single row of CSV into an array of CellValues.
 
@@ -689,14 +691,36 @@ struct ImportTextProcedureWorkInstance
                 };
 
             if (config.headers.empty()) {
-                // Read header line
-                std::getline(stream, header);
-                lineOffset += 1;
-                ML::Parse_Context pcontext(filename,
-                                           header.c_str(), header.length(), 1, 0);
 
-                vector<string> fields
-                    = ML::expect_csv_row(pcontext, -1, separator);
+                vector<string> fields;
+
+                // Read header line
+                string prevHeader;
+                lineOffset += 1;
+                while(true) {
+                    std::getline(stream, header);
+
+                    if(!prevHeader.empty()) {
+                        prevHeader += header;
+                        header.assign(std::move(prevHeader));
+                    }
+
+                    try {
+                        ML::Parse_Context pcontext(filename,
+                                               header.c_str(), header.length(), 1, 0);
+                        fields = ML::expect_csv_row(pcontext, -1, separator);
+                        break;
+                    }
+                    catch (std::exception & exp) {
+                        if(config.allowMultiLines &&
+                                string(exp.what()) == "file finished inside quote") {
+                            prevHeader += header;
+                            continue;
+                        }
+
+                        throw exp;
+                    }
+                }
 
                 switch (encoding) {
                 case ASCII:
@@ -918,7 +942,7 @@ struct ImportTextProcedureWorkInstance
                                             hasQuoteChar);
 
                 if (errorMsg) {
-                    if(config.multiLineSupport) {
+                    if(config.allowMultiLines) {
                         // check if we hit an error meaning we probably
                         // have a multiline error
                         if(errorMsg == unclosedQuoteError ||
@@ -990,7 +1014,7 @@ struct ImportTextProcedureWorkInstance
 	    };
 
 
-        if(!config.multiLineSupport) {
+        if(!config.allowMultiLines) {
             forEachLineBlock(stream, onLine, config.limit,
                              32 /* parallelism */,
                              startChunk, doneChunk);

@@ -53,7 +53,7 @@ class Mldb1212(MldbUnitTest):
                 'dataFileUrl' : 'file://./mldb/testing/dataset/MLDB-1652_multiline.csv',
                 "outputDataset": "multiline",
                 "runOnCreation": True,
-                "multiLineSupport": True,
+                "allowMultiLines": True,
                 "ignoreBadLines": False
             }
         }
@@ -63,7 +63,7 @@ class Mldb1212(MldbUnitTest):
         self.assertTableResultEquals(
             mldb.query("select * from multiline"),
             [
-                ["_rowName", "colA", "colB", "colC"],
+                ["_rowName", "colA", "colB BB", "colC"],
                 [       "2",  "a", "b", "c" ],
                 [       "3",  "a", "bouya ,hoho", "c2" ],
                 [       "4",  "a5", "b5", "c5" ],
@@ -77,7 +77,7 @@ class Mldb1212(MldbUnitTest):
                 'dataFileUrl' : 'file://./mldb/testing/dataset/MLDB-1652_multiline.csv',
                 "outputDataset": "multiline",
                 "runOnCreation": True,
-                "multiLineSupport": True,
+                "allowMultiLines": True,
                 "ignoreBadLines": False,
                 "limit": 2
             }
@@ -88,7 +88,7 @@ class Mldb1212(MldbUnitTest):
         self.assertTableResultEquals(
             mldb.query("select * from multiline"),
             [
-                ["_rowName", "colA", "colB", "colC"],
+                ["_rowName", "colA", "colB BB", "colC"],
                 [       "2",  "a", "b", "c" ],
                 [       "3",  "a", "bouya ,hoho", "c2" ]
             ]
@@ -103,7 +103,7 @@ class Mldb1212(MldbUnitTest):
                 'dataFileUrl' : 'file://./mldb/testing/dataset/MLDB-1652_multiline.csv',
                 "outputDataset": "multiline",
                 "runOnCreation": True,
-                "multiLineSupport": True,
+                "allowMultiLines": True,
                 "ignoreBadLines": False,
                 "offset": 2,
                 "limit": 2
@@ -115,7 +115,7 @@ class Mldb1212(MldbUnitTest):
         self.assertTableResultEquals(
             mldb.query("select * from multiline"),
             [
-                ["_rowName", "colA", "colB", "colC"],
+                ["_rowName", "colA", "colB BB", "colC"],
                 [       "4",  "a5", "b5", "c5" ],
             ]
         )
