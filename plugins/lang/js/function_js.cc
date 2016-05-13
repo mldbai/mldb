@@ -133,7 +133,7 @@ call(const v8::Arguments & args)
         StructValue row;
         row.reserve(input.size());
         for (auto & r: input) {
-            row.emplace_back(Coord(std::move(r.first)), std::move(r.second));
+            row.emplace_back(PathElement(std::move(r.first)), std::move(r.second));
         }
 
         auto result = function->call(std::move(row));

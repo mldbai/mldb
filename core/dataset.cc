@@ -296,8 +296,6 @@ getColumnDense(const ColumnName & column) const
     std::vector<RowName> rowNames = getRowNames();
     std::vector<CellValue> result;
     result.reserve(rowNames.size());
-    const auto rowNamesBegin = rowNames.begin();
-    const auto rowNamesEnd = rowNames.end();
 
     std::unordered_map<RowName, std::pair<CellValue, Date> > values;
 
@@ -333,7 +331,7 @@ getColumnBuckets(const ColumnName & column,
 
     for (auto& v : vals) {
         if (values.insert({v,0}).second)
-            valueList.push_back(std::move(v));
+            valueList.push_back(v);
     }
 
     BucketDescriptions descriptions;
@@ -661,6 +659,14 @@ getRowInfo() const
                                           SCHEMA_CLOSED);
 }
 
+ExpressionValue
+Dataset::
+getRowExpr(const RowName & row) const
+{
+    MatrixNamedRow flattened = getMatrixView()->getRow(row);
+    return std::move(flattened.columns);
+}
+
 std::vector<MatrixNamedRow>
 Dataset::
 queryStructured(const SelectExpression & select,
@@ -775,7 +781,8 @@ generateFilteredColumnExpression(const Dataset & dataset,
                     std::placeholders::_3,
                     columnName,
                     filter),
-                explanation
+                explanation,
+                GenerateRowsWhereFunction::BETTER_THAN_TABLESCAN
         };
 }
 
@@ -870,7 +877,7 @@ generateRownameIsExpression(const Dataset & dataset,
             -> std::pair<std::vector<RowName>, Any>
             {
                 SqlExpressionParamScope::RowScope rowScope(params);
-                Coords rowName = bound(rowScope, GET_LATEST).coerceToPath();
+                Path rowName = bound(rowScope, GET_LATEST).coerceToPath();
 
                 // There should be exactly one row
                 if (datasetPtr->getMatrixView()->knownRow(rowName))
@@ -1000,85 +1007,92 @@ generateRowsWhere(const SqlBindingScope & scope,
         if (boolean->op == "AND") {
 
             bool isLeft = false;
-            //MLDB-1553 ideally we should only do this if the other side is not a full table scan.
-            //we could also generalize to other cases like 'AND rowname() NOT in (...)'
 
+            //we could also generalize to other cases like 'AND rowname() NOT in (...)'
             if ((isLeft = isRowNameFilter(*boolean->lhs)) || isRowNameFilter(*boolean->rhs)) {
 
                 auto scanExpression = isLeft? boolean->rhs : boolean->lhs;
                 auto filterExpression = isLeft? boolean->lhs : boolean->rhs;
 
                 GenerateRowsWhereFunction gen = generateRowsWhere(scope, alias, *scanExpression, 0, -1);
+
                 SqlExpressionDatasetScope dsScope(*this, alias);
 
                 auto getFilteredRowName = [=] (const BoundParameters & params) {
                     return getRowNameFilter(*filterExpression);
                 };
 
-                std::function<RowName(const BoundParameters & params)> filterCallback = getFilteredRowName;
+                if (gen.complexity < GenerateRowsWhereFunction::TABLESCAN) {
 
-                auto boundParameterExpression = isLeft ? getBoundParameterFilter(*boolean->lhs) : getBoundParameter(*boolean->rhs);
-                if (boundParameterExpression) {
-
-                    auto paramName = boundParameterExpression->paramName;
-                    auto getFilteredRowNameFromBoundParameter = [=] (const BoundParameters & params) {
-                        ExpressionValue value = std::move(params(paramName));
-                        return RowName(value.getAtom().toString());
+                    auto getFilteredRowName = [=] (const BoundParameters & params) {
+                        return getRowNameFilter(*filterExpression);
                     };
 
-                    filterCallback = getFilteredRowNameFromBoundParameter;
+                    std::function<RowName(const BoundParameters & params)> filterCallback = getFilteredRowName;
 
-                }
+                    auto boundParameterExpression = isLeft ? getBoundParameterFilter(*boolean->lhs) : getBoundParameter(*boolean->rhs);
+                    if (boundParameterExpression) {
 
-                return {[=] (ssize_t numToGenerate, Any token,
-                             const BoundParameters & params)
-                        -> std::pair<std::vector<RowName>, Any>
-                        {
-                            RowName except = filterCallback(params);
+                        auto paramName = boundParameterExpression->paramName;
+                        auto getFilteredRowNameFromBoundParameter = [=] (const BoundParameters & params) {
+                            ExpressionValue value = std::move(params(paramName));
+                            return RowName(value.getAtom().toString());
+                        };
 
-                            auto rows = gen(-1, Any(), params).first;
-                            auto iter = std::find(rows.begin(), rows.end(), except);
-                            if (iter != rows.end()) {
-                                *iter = rows.back();
-                                rows.pop_back();
-                            }
+                        filterCallback = getFilteredRowNameFromBoundParameter;
 
-                            return { std::move(rows), Any() };
-                        },
-                        ""};
-
-            }
-            else {
-
-                GenerateRowsWhereFunction lhsGen = generateRowsWhere(scope, alias, *boolean->lhs, 0, -1);
-                GenerateRowsWhereFunction rhsGen = generateRowsWhere(scope, alias, *boolean->rhs, 0, -1);
-                cerr << "AND between " << lhsGen.explain << " and " << rhsGen.explain
-                     << endl;
-
-                //MLDB-1553 this condition doesnt work anymore.
-                if (lhsGen.explain != "scan table" && rhsGen.explain != "scan table") {
+                    }
 
                     return {[=] (ssize_t numToGenerate, Any token,
                                  const BoundParameters & params)
                             -> std::pair<std::vector<RowName>, Any>
                             {
-                                auto lhsRows = lhsGen(-1, Any(), params).first;
-                                auto rhsRows = rhsGen(-1, Any(), params).first;
+                                RowName except = filterCallback(params);
 
-                                std::sort(lhsRows.begin(), lhsRows.end(), SortByRowHash());
-                                std::sort(rhsRows.begin(), rhsRows.end(), SortByRowHash());
+                                auto rows = gen(-1, Any(), params).first;
+                                auto iter = std::find(rows.begin(), rows.end(), except);
+                                if (iter != rows.end()) {
+                                    *iter = rows.back();
+                                    rows.pop_back();
+                                }
 
-                                vector<RowName> intersection;
-                                std::set_intersection(lhsRows.begin(), lhsRows.end(),
-                                                      rhsRows.begin(), rhsRows.end(),
-                                                      std::back_inserter(intersection),
-                                                      SortByRowHash());
-
-                                return { std::move(intersection), Any() };
+                                return { std::move(rows), Any() };
                             },
-                            "set intersection for AND " + boolean->print().rawString() };
+                            "",
+                            GenerateRowsWhereFunction::BETTER_THAN_TABLESCAN};
                 }
             }
+
+            GenerateRowsWhereFunction lhsGen = generateRowsWhere(scope, alias, *boolean->lhs, 0, -1);
+            GenerateRowsWhereFunction rhsGen = generateRowsWhere(scope, alias, *boolean->rhs, 0, -1);
+            cerr << "AND between " << lhsGen.explain << " and " << rhsGen.explain
+                 << endl;
+
+            if (lhsGen.complexity < GenerateRowsWhereFunction::UNFILTERED_TABLESCAN 
+                && rhsGen.complexity < GenerateRowsWhereFunction::UNFILTERED_TABLESCAN) {
+
+                return {[=] (ssize_t numToGenerate, Any token,
+                             const BoundParameters & params)
+                        -> std::pair<std::vector<RowName>, Any>
+                        {
+                            auto lhsRows = lhsGen(-1, Any(), params).first;
+                            auto rhsRows = rhsGen(-1, Any(), params).first;
+
+                            std::sort(lhsRows.begin(), lhsRows.end(), SortByRowHash());
+                            std::sort(rhsRows.begin(), rhsRows.end(), SortByRowHash());
+
+                            vector<RowName> intersection;
+                            std::set_intersection(lhsRows.begin(), lhsRows.end(),
+                                                  rhsRows.begin(), rhsRows.end(),
+                                                  std::back_inserter(intersection),
+                                                  SortByRowHash());
+
+                            return { std::move(intersection), Any() };
+                        },
+                        "set intersection for AND " + boolean->print().rawString(),
+                        GenerateRowsWhereFunction::BETTER_THAN_TABLESCAN };
+            }
+
         }
         else if (boolean->op == "OR") {
             GenerateRowsWhereFunction lhsGen = generateRowsWhere(scope, alias, *boolean->lhs, 0, -1);
@@ -1105,7 +1119,8 @@ generateRowsWhere(const SqlBindingScope & scope,
 
                             return { std::move(u), Any() };
                         },
-                        "set union for OR " + boolean->print().rawString() };
+                        "set union for OR " + boolean->print().rawString(),
+                        GenerateRowsWhereFunction::BETTER_THAN_TABLESCAN };
             }
         }
         else if (boolean->op == "NOT") {
@@ -1149,7 +1164,8 @@ generateRowsWhere(const SqlBindingScope & scope,
                             }
                             return { std::move(filtered), Any() };
                         },
-                        "rowName in tuple " + inExpression->tuple->print().rawString() };
+                        "rowName in tuple " + inExpression->tuple->print().rawString(),
+                        GenerateRowsWhereFunction::BETTER_THAN_TABLESCAN };
             }
             else if (inExpression->setExpr) {
                 // in keys or in values expression
@@ -1218,7 +1234,8 @@ generateRowsWhere(const SqlBindingScope & scope,
                                     
                                     return { std::move(filtered), Any() };
                                 },
-                                "rowName in keys of (expr) " + inExpression->print().rawString()
+                                "rowName in keys of (expr) " + inExpression->print().rawString(),
+                                GenerateRowsWhereFunction::BETTER_THAN_TABLESCAN
                                     };
                     }
                 }
@@ -1332,8 +1349,8 @@ generateRowsWhere(const SqlBindingScope & scope,
 
                             return { std::move(filtered), Any() };
                         },
-                        "rowName modulus expression "
-                            + comparison->print().rawString() };
+                        "rowName modulus expression " + comparison->print().rawString(),
+                        GenerateRowsWhereFunction::BETTER_THAN_TABLESCAN };
             }
         }
 
@@ -1390,7 +1407,8 @@ generateRowsWhere(const SqlBindingScope & scope,
                         return make_pair(std::move(rows),
                                          std::move(newToken));
                     },
-                    "Scan table keeping all rows"};
+                    "Scan table keeping all rows",
+                    GenerateRowsWhereFunction::UNFILTERED_TABLESCAN};
 
             wheregen.upperBound = this->getMatrixView()->getRowCount();
             wheregen.rowStream = this->getRowStream();
@@ -1405,8 +1423,9 @@ generateRowsWhere(const SqlBindingScope & scope,
                     {
                         return { {}, Any() };
                     },
-                    "Return nothing as constant where expression doesn't "
-                    "evaluate to true"};
+
+                    "Return nothing as constant where expression doesn't evaluate true",
+                    GenerateRowsWhereFunction::CONSTANT};
         }
     }
 

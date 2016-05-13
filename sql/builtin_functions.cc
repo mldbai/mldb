@@ -18,6 +18,7 @@
 #include "mldb/base/hash.h"
 #include "mldb/base/parse_context.h"
 #include <boost/lexical_cast.hpp>
+#include <boost/algorithm/clamp.hpp>
 
 #include <boost/regex/icu.hpp>
 #include <iterator>
@@ -519,8 +520,8 @@ struct RegisterBuiltinBinaryScalar {
         throw HttpReturnException(500, "Row to row functions not done");
 #if 0
         RowValue v1, v2;
-        args[0].appendToRow(Coord(), v1);
-        args[1].appendToRow(Coord(), v2);
+        args[0].appendToRow(PathElement(), v1);
+        args[1].appendToRow(PathElement(), v2);
 
         RowValue output;
         output.reserve(std::max(v1.size(), v2.size()));
@@ -978,97 +979,180 @@ BoundFunction implicit_cast(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerImplicitCast(implicit_cast, "implicit_cast");
 
+/** Helper class that takes care of regular expression application whether
+    it's a constant value or not.
+*/
+struct RegexHelper {
+    RegexHelper(BoundSqlExpression expr_)
+        : expr(std::move(expr_))
+    {
+        if (expr.metadata.isConstant) {
+            isPrecompiled = true;
+            precompiled = compile(expr.constantValue());
+        }
+        else isPrecompiled = false;
+    }
+
+    boost::u32regex compile(const ExpressionValue & val) const
+    {
+        Utf8String regexStr;
+        try {
+            regexStr = val.toUtf8String();
+        } JML_CATCH_ALL {
+            rethrowHttpException
+                (400, "Error when extracting regex from argument '"
+                 + expr.expr->surface + "': " + ML::getExceptionString()
+                 + ".  Regular expressions need to be strings.",
+                 "expr", expr,
+                 "value", val);
+        }
+        try {
+            return boost::make_u32regex(regexStr.rawData());
+        } JML_CATCH_ALL {
+            rethrowHttpException
+                (400, "Error when compiling regex '"
+                 + regexStr + "' from expression " + expr.expr->surface + "': "
+                 + ML::getExceptionString()
+                 + ".  Regular expressions must adhere to Perl-style "
+                 + "regular expression syntax.",
+                 "expr", expr,
+                 "value", val);
+        }
+    }
+
+    /// The expression that the regex came from, to help with error messages
+    BoundSqlExpression expr;
+
+    /// The pre-compiled version of that expression, when it's constant
+    boost::u32regex precompiled;
+
+    /// Is it actually constant (and precompiled), or computed on the fly?
+    bool isPrecompiled;
+
+    virtual ExpressionValue apply(const std::vector<ExpressionValue> & args,
+                                  const SqlRowScope & scope,
+                                  const boost::u32regex & regex) const = 0;
+
+    ExpressionValue operator () (const std::vector<ExpressionValue> & args,
+                                 const SqlRowScope & scope)
+    {
+        if (isPrecompiled) {
+            return apply(args, scope, precompiled);
+        }
+        else {
+            return apply(args, scope, compile(args.at(1)));
+        }
+    }
+};
+
+struct ApplyRegexReplace: public RegexHelper {
+    ApplyRegexReplace(BoundSqlExpression e)
+        : RegexHelper(std::move(e))
+    {
+    }
+
+    virtual ExpressionValue apply(const std::vector<ExpressionValue> & args,
+                                  const SqlRowScope & scope,
+                                  const boost::u32regex & regex) const
+    {
+        ExcAssertEqual(args.size(), 3);
+
+        if (args[0].empty() || args[1].empty() || args[2].empty())
+            return ExpressionValue::null(calcTs(args[0], args[1], args[2]));
+
+        std::basic_string<char32_t> matchStr = args[0].toWideString();
+        std::basic_string<char32_t> replacementStr = args[2].toWideString();
+
+        std::basic_string<int32_t>
+            matchStr2(matchStr.begin(), matchStr.end());
+        std::basic_string<int32_t>
+            replacementStr2(replacementStr.begin(), replacementStr.end());
+
+        auto result = boost::u32regex_replace(matchStr2, regex, replacementStr2);
+        std::basic_string<char32_t> result2(result.begin(), result.end());
+
+        return ExpressionValue(result2, calcTs(args[0], args[1], args[2]));
+    }
+};
+
 BoundFunction regex_replace(const std::vector<BoundSqlExpression> & args)
 {
     // regex_replace(string, regex, replacement)
     checkArgsSize(args.size(), 3);
 
-    Utf8String regexStr = args[1].constantValue().toUtf8String();
-
-    boost::u32regex regex = boost::make_u32regex(regexStr.rawData());
-
-    return {[=] (const std::vector<ExpressionValue> & args,
-                 const SqlRowScope & scope) -> ExpressionValue
-            {
-                ExcAssertEqual(args.size(), 3);
-
-                if (args[0].empty() || args[2].empty())
-                    return ExpressionValue::null(calcTs(args[0], args[1], args[2]));
-
-                std::basic_string<char32_t> matchStr = args[0].toWideString();
-                std::basic_string<char32_t> replacementStr = args[2].toWideString();
-
-                std::basic_string<int32_t>
-                    matchStr2(matchStr.begin(), matchStr.end());
-                std::basic_string<int32_t>
-                    replacementStr2(replacementStr.begin(), replacementStr.end());
-
-                auto result = boost::u32regex_replace(matchStr2, regex, replacementStr2);
-                std::basic_string<char32_t> result2(result.begin(), result.end());
-
-                return ExpressionValue(result2, calcTs(args[0], args[1], args[2]));
-            },
+    return {ApplyRegexReplace(args[1]),
             std::make_shared<Utf8StringValueInfo>()};
 }
 
 static RegisterBuiltin registerRegexReplace(regex_replace, "regex_replace");
 
+struct ApplyRegexMatch: public RegexHelper {
+    ApplyRegexMatch(BoundSqlExpression e)
+        : RegexHelper(std::move(e))
+    {
+    }
+
+    virtual ExpressionValue apply(const std::vector<ExpressionValue> & args,
+                                  const SqlRowScope & scope,
+                                  const boost::u32regex & regex) const
+    {
+        // TODO: should be able to pass utf-8 string directly in
+
+        ExcAssertEqual(args.size(), 2);
+
+        if (args[0].empty() || args[1].empty())
+            return ExpressionValue::null(calcTs(args[0], args[1]));
+
+        std::basic_string<char32_t> matchStr = args[0].toWideString();
+        
+        auto result = boost::u32regex_match(matchStr.begin(), matchStr.end(),
+                                            regex);
+        return ExpressionValue(result, calcTs(args[0], args[1]));
+    }
+};
+                     
 BoundFunction regex_match(const std::vector<BoundSqlExpression> & args)
 {
     // regex_match(string, regex)
     checkArgsSize(args.size(), 2);
 
-    Utf8String regexStr = args[1].constantValue().toUtf8String();
-
-    boost::u32regex regex = boost::make_u32regex(regexStr.rawData());
-
-    return {[=] (const std::vector<ExpressionValue> & args,
-                 const SqlRowScope & scope) -> ExpressionValue
-            {
-                // TODO: should be able to pass utf-8 string directly in
-
-                ExcAssertEqual(args.size(), 2);
-
-                if (args[0].empty())
-                    return ExpressionValue::null(calcTs(args[0], args[1]));
-
-                std::basic_string<char32_t> matchStr = args[0].toWideString();
-
-                auto result = boost::u32regex_match(matchStr.begin(), matchStr.end(),
-                                                    regex);
-                return ExpressionValue(result, calcTs(args[0], args[1]));
-            },
+    return {ApplyRegexMatch(args[1]),
             std::make_shared<BooleanValueInfo>()};
 }
 
 static RegisterBuiltin registerRegexMatch(regex_match, "regex_match");
 
+struct ApplyRegexSearch: public RegexHelper {
+    ApplyRegexSearch(BoundSqlExpression e)
+        : RegexHelper(std::move(e))
+    {
+    }
+
+    virtual ExpressionValue apply(const std::vector<ExpressionValue> & args,
+                                  const SqlRowScope & scope,
+                                  const boost::u32regex & regex) const
+    {
+        // TODO: should be able to pass utf-8 string directly in
+
+        ExcAssertEqual(args.size(), 2);
+
+        if (args[0].empty() || args[1].empty())
+            return ExpressionValue::null(calcTs(args[0], args[1]));
+
+        std::basic_string<char32_t> searchStr = args[0].toWideString();
+        
+        auto result = boost::u32regex_search(searchStr.begin(), searchStr.end(),
+                                            regex);
+        return ExpressionValue(result, calcTs(args[0], args[1]));
+    }
+};
+                     
 BoundFunction regex_search(const std::vector<BoundSqlExpression> & args)
 {
     // regex_search(string, regex)
     checkArgsSize(args.size(), 2);
 
-    Utf8String regexStr = args[1].constantValue().toUtf8String();
-
-    boost::u32regex regex = boost::make_u32regex(regexStr.rawData());
-
-    return {[=] (const std::vector<ExpressionValue> & args,
-                 const SqlRowScope & scope) -> ExpressionValue
-            {
-                // TODO: should be able to pass utf-8 string directly in
-
-                ExcAssertEqual(args.size(), 2);
-
-                if (args[0].empty())
-                    return ExpressionValue::null(calcTs(args[0], args[1]));
-
-                std::basic_string<char32_t> searchStr = args[0].toWideString();
-
-                auto result
-                    = boost::u32regex_search(searchStr.begin(), searchStr.end(),
-                                             regex);
-                return ExpressionValue(result, calcTs(args[0], args[1]));
-            },
+    return {ApplyRegexSearch(args[1]),
             std::make_shared<BooleanValueInfo>()};
 }
 
@@ -1123,8 +1207,8 @@ BoundFunction distinct_timestamps(const std::vector<BoundSqlExpression> & args)
 
                 std::set<CellValue> results;
 
-                auto onAtom = [&] (const Coords & columnName,
-                                   const Coords & prefix,
+                auto onAtom = [&] (const Path & columnName,
+                                   const Path & prefix,
                                    const CellValue & val,
                                    Date atomTs)
                     {
@@ -1265,9 +1349,9 @@ BoundFunction temporalAggregatorT(const std::vector<BoundSqlExpression> & args)
             } else if (val.isRow()) {
                 // TODO - figure out what should be the ordering of the columns in
                 // the result
-                std::unordered_map<Coord, value_type> results;
+                std::unordered_map<PathElement, value_type> results;
             
-                auto onColumn = [&] (const Coord & columnName,
+                auto onColumn = [&] (const PathElement & columnName,
                                      const ExpressionValue & val)
                 {
                     if (val.empty())
@@ -1991,8 +2075,8 @@ BoundFunction horizontal_count(const std::vector<BoundSqlExpression> & args)
                 size_t result = 0;
                 Date ts = Date::negativeInfinity();
 
-                auto onAtom = [&] (const Coords & columnName,
-                                   const Coords & prefix,
+                auto onAtom = [&] (const Path & columnName,
+                                   const Path & prefix,
                                    const CellValue & val,
                                    Date atomTs)
                     {
@@ -2020,8 +2104,8 @@ BoundFunction horizontal_sum(const std::vector<BoundSqlExpression> & args)
             {
                 double result = 0;
                 Date ts = Date::negativeInfinity();
-                auto onAtom = [&] (const Coords & columnName,
-                                   const Coords & prefix,
+                auto onAtom = [&] (const Path & columnName,
+                                   const Path & prefix,
                                    const CellValue & val,
                                    Date atomTs)
                     {
@@ -2057,8 +2141,8 @@ BoundFunction horizontal_string_agg(const std::vector<BoundSqlExpression> & args
                         .coerceToString().toUtf8String();
                 }                
 
-                auto onAtom = [&] (const Coords & columnName,
-                                   const Coords & prefix,
+                auto onAtom = [&] (const Path & columnName,
+                                   const Path & prefix,
                                    const CellValue & val,
                                    Date atomTs)
                     {
@@ -2091,8 +2175,8 @@ BoundFunction horizontal_avg(const std::vector<BoundSqlExpression> & args)
                 double accum = 0;
                 Date ts = Date::negativeInfinity();
 
-                auto onAtom = [&] (const Coords & columnName,
-                                   const Coords & prefix,
+                auto onAtom = [&] (const Path & columnName,
+                                   const Path & prefix,
                                    const CellValue & val,
                                    Date atomTs)
                     {
@@ -2122,8 +2206,8 @@ BoundFunction horizontal_min(const std::vector<BoundSqlExpression> & args)
                 double min_val = nan("");
                 Date ts = Date::negativeInfinity();
 
-                auto onAtom = [&] (const Coords & columnName,
-                                   const Coords & prefix,
+                auto onAtom = [&] (const Path & columnName,
+                                   const Path & prefix,
                                    const CellValue & val,
                                    Date atomTs)
                     {
@@ -2155,8 +2239,8 @@ BoundFunction horizontal_max(const std::vector<BoundSqlExpression> & args)
                 double max_val = nan("");
                 Date ts = Date::negativeInfinity();
 
-                auto onAtom = [&] (const Coords & columnName,
-                                   const Coords & prefix,
+                auto onAtom = [&] (const Path & columnName,
+                                   const Path & prefix,
                                    const CellValue & val,
                                    Date atomTs)
                     {
@@ -2187,8 +2271,8 @@ BoundFunction horizontal_earliest(const std::vector<BoundSqlExpression> & args)
             {
                 auto earliest = ExpressionValue::null(Date::positiveInfinity());
 
-                auto onAtom = [&] (const Coords & columnName,
-                                   const Coords & prefix,
+                auto onAtom = [&] (const Path & columnName,
+                                   const Path & prefix,
                                    const CellValue & val,
                                    Date atomTs)
                     {
@@ -2215,8 +2299,8 @@ BoundFunction horizontal_latest(const std::vector<BoundSqlExpression> & args)
             {
                 auto latest = ExpressionValue::null(Date::negativeInfinity());
 
-                auto onAtom = [&] (const Coords & columnName,
-                                   const Coords & prefix,
+                auto onAtom = [&] (const Path & columnName,
+                                   const Path & prefix,
                                    const CellValue & val,
                                    Date atomTs)
                     {
@@ -2378,8 +2462,8 @@ BoundFunction concat(const std::vector<BoundSqlExpression> & args)
             Utf8String result = "";
             Date ts = Date::negativeInfinity();
             bool first = true;
-            auto onAtom = [&] (const Coords & columnName,
-                               const Coords & prefix,
+            auto onAtom = [&] (const Path & columnName,
+                               const Path & prefix,
                                const CellValue & val,
                                Date atomTs)
             {
@@ -2642,6 +2726,7 @@ BoundFunction static_known_columns(const std::vector<BoundSqlExpression> & args)
 static RegisterBuiltin
 registerStaticKnownColumns(static_known_columns, "static_known_columns");
 
+
 // Test function that fails due to a std::bad_alloc on memory allocation
 BoundFunction fail_memory_allocation(const std::vector<BoundSqlExpression> & args)
 {
@@ -2650,16 +2735,73 @@ BoundFunction fail_memory_allocation(const std::vector<BoundSqlExpression> & arg
 
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
-            {
-                throw std::bad_alloc();
-            },
-            outputInfo
-        };
+        {
+            throw std::bad_alloc();
+        },
+        outputInfo
+    };
 }
 
 static RegisterBuiltin
 registerFailMemoryAllocation(fail_memory_allocation, "_fail_memory_allocation");
 
+BoundFunction clamp(const std::vector<BoundSqlExpression> & args)
+{
+    checkArgsSize(args.size(), 3);
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                if (args[0].empty())
+                    return ExpressionValue();
+
+                CellValue lower = args[1].getAtom();
+                CellValue upper = args[2].getAtom();
+
+                Date limitsTs = std::max(args[1].getEffectiveTimestamp(), args[2].getEffectiveTimestamp());
+
+                auto doAtom = [&] (const CellValue& val) {
+                    if (val.empty()) {
+                        return val;
+                    }
+                    else if (val.isNaN()) {
+                        if (lower.empty())
+                            return val;
+                        else
+                            return lower;
+                    }
+                    else if (upper.empty()) {
+                        return std::max(val, lower);
+                    }
+                    else {
+                        CellValue clamped = boost::algorithm::clamp(val, lower, upper);
+                        return clamped;
+                    }
+                };
+
+                if (args[0].isAtom()) {
+                    return ExpressionValue(doAtom(args[0].getAtom()), std::max(args[0].getEffectiveTimestamp(), limitsTs));
+                }
+                else {
+                    std::vector<std::tuple<PathElement, ExpressionValue> > vals;
+                    auto exec = [&] (const PathElement & columnName,
+                                     const ExpressionValue & val) {
+
+                        vals.emplace_back(columnName, ExpressionValue(doAtom(val.getAtom()), std::max(val.getEffectiveTimestamp(), limitsTs)));
+                        return true;
+                    } ;
+
+                    ExcAssertEqual(args.size(), 3);
+                    args[0].forEachColumn(exec);
+
+                    return ExpressionValue(vals);
+                }
+            },
+            args[0].info
+        };
+}
+
+static RegisterBuiltin registerClamp(clamp, "clamp");
 
 } // namespace Builtins
 } // namespace MLDB

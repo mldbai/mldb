@@ -233,7 +233,15 @@ struct TableOperations {
                                      ssize_t limit)>
     runQuery;
 
-    bool operator ! () const {return !getRowInfo && !getFunction  && !runQuery; }
+    /// What aliases (sub-dataset names) does this dataset contain?
+    /// Normally used in a join
+    std::function<std::vector<Utf8String> () > getChildAliases;
+
+    bool operator ! () const
+    {
+        return !getRowInfo && !getFunction && !runQuery
+            && !getChildAliases;
+    }
 };
 
 /*****************************************************************************/
@@ -716,9 +724,9 @@ struct UnboundFunction {
 DECLARE_STRUCTURE_DESCRIPTION(UnboundFunction);
 
 struct UnboundTable {
-    std::map<Coords, UnboundVariable> vars;
-    std::map<Coords, UnboundWildcard> wildcards;
-    std::map<Coords, UnboundFunction> funcs;
+    std::map<Path, UnboundVariable> vars;
+    std::map<Path, UnboundWildcard> wildcards;
+    std::map<Path, UnboundFunction> funcs;
     void merge(UnboundTable table);
 };
 
@@ -1373,15 +1381,26 @@ PREDECLARE_VALUE_DESCRIPTION(TupleExpression);
 */
 struct GenerateRowsWhereFunction {
 
+    enum Complexity {        
+       
+        CONSTANT = 0,
+        BETTER_THAN_TABLESCAN,        
+        UNFILTERED_TABLESCAN,
+        TABLESCAN
+
+    };
+
     typedef std::function<std::pair<std::vector<RowName>, Any>
                           (ssize_t numToGenerate, Any token,
                            const BoundParameters & params)> Exec;
 
     GenerateRowsWhereFunction(Exec exec = nullptr,
                               Utf8String explain = "",
+                              Complexity complexity = TABLESCAN,
                               OrderByExpression orderedBy = ORDER_BY_NOTHING)
         : exec(std::move(exec)),
           explain(std::move(explain)),
+          complexity(complexity),
           orderedBy(std::move(orderedBy))
     {
     }
@@ -1404,6 +1423,9 @@ struct GenerateRowsWhereFunction {
 
     /// Explain the type of algorithm used
     Utf8String explain;
+
+    //How does the algorithm scale
+    Complexity complexity;
 
     /// How the results are ordered.  Null means not ordered
     OrderByExpression orderedBy;

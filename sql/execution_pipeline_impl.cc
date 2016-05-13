@@ -93,7 +93,7 @@ doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
         if (outputName.empty() && !asName.empty()) {
             // BAD SMELL
             //try with the table alias
-            outputName = keep(Coord(asName) + column.columnName);
+            outputName = keep(PathElement(asName) + column.columnName);
         }
 
         if (outputName.empty()) {
@@ -115,16 +115,16 @@ doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
 
             RowValue result;
 
-            auto onColumn = [&] (const Coord & columnName,
+            auto onColumn = [&] (const PathElement & columnName,
                                  const ExpressionValue & value)
             {
-                auto it = index.find(Coords(columnName));
+                auto it = index.find(Path(columnName));
                 if (it == index.end()) {
                     return true;
                 }
 
-                auto onAtom = [&] (const Coords & columnName,
-                                   const Coords & prefix,
+                auto onAtom = [&] (const Path & columnName,
+                                   const Path & prefix,
                                    CellValue atom,
                                    Date ts)
                 {
@@ -179,7 +179,7 @@ doGetFunction(const Utf8String & functionName,
                      const SqlRowScope & rowScope)
                 {
                     auto & row = rowScope.as<PipelineResults>();
-                    RowHash result(Coords(Coord(row.values.at(fieldOffset + ROW_NAME).toUtf8String())));
+                    RowHash result(Path(PathElement(row.values.at(fieldOffset + ROW_NAME).toUtf8String())));
                     return ExpressionValue(result.hash(),
                                            Date::notADate());
                 },
@@ -256,7 +256,7 @@ take()
     //cerr << "got row " << current[currentDone].rowName << " "
     //     << jsonEncodeStr(current[currentDone].columns) << endl;
 
-    result->values.emplace_back(current[currentDone].rowName.toUtf8String(),
+    result->values.emplace_back(current[currentDone].rowName.toSimpleName(),
                                 Date::notADate());
     result->values.emplace_back(std::move(current[currentDone].columns));
     ++currentDone;
@@ -381,7 +381,7 @@ doGetColumn(const ColumnName & columnName, int fieldOffset)
     auto check = [&] (LexicalScope & scope, int fieldOffset) -> ColumnGetter
         {
             for (auto & t: scope.tableNames()) {
-                Coord prefix(t);
+                PathElement prefix(t);
                 if (columnName.startsWith(prefix)) {
                     //cerr << "matches this side" << endl;
 
@@ -430,9 +430,13 @@ doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
 {
     //cerr << "doGetAllColums for join with field offset " << fieldOffset << endl;
 
-    Coord leftPrefix(left->as());
-    Coord rightPrefix(right->as());
-
+    PathElement leftPrefix;
+    if (!left->as().empty())
+        leftPrefix = left->as();
+    PathElement rightPrefix;
+    if (!right->as().empty())
+        rightPrefix = right->as();
+    
     auto leftOutput = left->doGetAllColumns(keep, leftFieldOffset(fieldOffset));
     auto rightOutput = right->doGetAllColumns(keep, rightFieldOffset(fieldOffset));
 
@@ -545,14 +549,17 @@ outputAdded() const
 JoinElement::
 JoinElement(std::shared_ptr<PipelineElement> root,
             std::shared_ptr<TableExpression> left,
+            BoundTableExpression boundLeft,
             std::shared_ptr<TableExpression> right,
+            BoundTableExpression boundRight,
             std::shared_ptr<SqlExpression> on,
             JoinQualification joinQualification,
             SelectExpression select,
             std::shared_ptr<SqlExpression> where,
             OrderByExpression orderBy)
-    : root(root), left(left), right(right), on(on),
-      select(select), where(where), orderBy(orderBy),
+    : root(root),
+      left(left), boundLeft(boundLeft), right(right), boundRight(boundRight),
+      on(on), select(select), where(where), orderBy(orderBy),
       condition(left, right, on, where), joinQualification(joinQualification)
 {
     switch (condition.style) {
@@ -617,13 +624,13 @@ JoinElement(std::shared_ptr<PipelineElement> root,
 
     leftImpl= root
         ->where(constantWhere)
-        ->from(left, when, selectAll, leftCondition,
+        ->from(left, boundLeft, when, selectAll, leftCondition,
                condition.left.orderBy)
         ->select(leftEmbedding);
 
     rightImpl = root
         ->where(constantWhere)
-        ->from(right, when, selectAll, rightCondition,
+        ->from(right, boundRight, when, selectAll, rightCondition,
                condition.right.orderBy)
         ->select(rightEmbedding);
 }
@@ -752,7 +759,7 @@ takeMoreInput()
 
             if (s) {
                 ExpressionValue & embedding = s->values.back();
-                ExpressionValue field = embedding.getNestedColumn(Coord(0), GET_ALL);
+                ExpressionValue field = embedding.getNestedColumn(PathElement(0), GET_ALL);
                 //if we want to do an outer join we need all rows
                 if (!field.empty() || doOuter) {
                     break;
@@ -779,7 +786,6 @@ take()
         || parent->joinQualification_ == JOIN_FULL;
 
     while (l && r) {
-
         ExpressionValue & lEmbedding = l->values.back();
         ExpressionValue & rEmbedding = r->values.back();
 
@@ -804,21 +810,7 @@ take()
             }
 
             return false;
-        };
-
-        if (outerLeft && checkOuterWhere(l, left, lField, rEmbedding))
-        {
-            auto result = std::move(r);                
-            r = right->take();
-            return std::move(result);
-        }
-
-        if (outerRight && checkOuterWhere(r, right, rField, lEmbedding))
-        {
-            auto result = std::move(r);                
-            r = right->take();
-            return std::move(result);
-        }
+        };    
 
         if (lField == rField) {
             // Got a row!
@@ -852,13 +844,29 @@ take()
             return std::move(result);
         }
         else if (lField < rField) {
+            // loop until left field value is equal to the right field value
+            // returning nulls if left outer
             do {
-                l = this->left->take();     
+                if (outerLeft && checkOuterWhere(l, left, lField, rEmbedding)) {
+                    auto result = std::move(l);                
+                    l = left->take();
+                    return std::move(result);
+                } else {
+                    l = this->left->take();
+                }     
             } while (l && l->values.back() < rField);
         }
         else {
+            // loop until right field value is equal to the left field value
+            // returning nulls if right outer
             do {
-                r = this->right->take();
+                if (outerRight && checkOuterWhere(r, right, rField, lEmbedding)) {
+                    auto result = std::move(r);                
+                    r = right->take();
+                    return std::move(result);
+                } else {
+                    r = this->right->take();
+                }
             } while (r && r->values.back() < lField);
         }
     }
@@ -870,7 +878,7 @@ take()
         l->values.pop_back();
         l->values.emplace_back(ExpressionValue("", Date::notADate()));
         l->values.emplace_back(ExpressionValue("", Date::notADate()));
-        auto result = std::move(l);                
+        auto result = std::move(l);
         l = left->take();
         return result;
     }
@@ -881,11 +889,10 @@ take()
         r->values.insert(r->values.begin(), ExpressionValue("", Date::notADate()));
         r->values.insert(r->values.begin(), ExpressionValue("", Date::notADate()));
         auto result = std::move(r);
-
         r = right->take();
         return result;
-    }   
-            
+    }
+
     // Nothing more found
     return nullptr;
 }
@@ -1069,11 +1076,13 @@ outputScope() const
 FromElement::
 FromElement(std::shared_ptr<PipelineElement> root_,
             std::shared_ptr<TableExpression> from_,
+            BoundTableExpression boundFrom_,
             WhenExpression when_,
             SelectExpression select_,
             std::shared_ptr<SqlExpression> where_,
             OrderByExpression orderBy_)
-    : root(std::move(root_)), from(std::move(from_)),
+    : root(std::move(root_)),
+      from(std::move(from_)), boundFrom(std::move(boundFrom_)),
       select(std::move(select_)), when(std::move(when_)), where(std::move(where_)),
       orderBy(std::move(orderBy_))
 {
@@ -1095,14 +1104,15 @@ FromElement(std::shared_ptr<PipelineElement> root_,
             = std::dynamic_pointer_cast<JoinExpression>(from);
         ExcAssert(join);
 
-        impl.reset(new JoinElement(root, join->left, join->right, join->on, join->qualification, select, where, orderBy_));
+        impl.reset(new JoinElement(root,
+                                   join->left, BoundTableExpression(),
+                                   join->right, BoundTableExpression(),
+                                   join->on, join->qualification,
+                                   select, where, orderBy_));
         // TODO: order by for join output
             
     }
     else {
-        auto rootBound = root->bind();
-        auto scope = rootBound->outputScope();
-
 #if 0
         if (!unbound.params.empty())
             throw HttpReturnException(400, "Can't deal with from expression "
@@ -1111,16 +1121,30 @@ FromElement(std::shared_ptr<PipelineElement> root_,
                                       "unbound", unbound);
 #endif
             
+        if (!!boundFrom) {
+            // We have a pre-bound version of the dataset; use that
+            impl.reset(new GenerateRowsElement(root,
+                                               select,
+                                               boundFrom.table,
+                                               boundFrom.asName,
+                                               when, 
+                                               where,
+                                               orderBy));
+        }
+        else { 
+            // Need to bound here to get the dataset
+            auto rootBound = root->bind();
+            auto scope = rootBound->outputScope();
 
-        // Need to bound here to get the dataset
-        BoundTableExpression bound = from->bind(*scope);
-        impl.reset(new GenerateRowsElement(root,
-                                           select,
-                                           bound.table,
-                                           bound.asName,
-                                           when, 
-                                           where,
-                                           orderBy));
+            BoundTableExpression bound = from->bind(*scope);
+            impl.reset(new GenerateRowsElement(root,
+                                               select,
+                                               bound.table,
+                                               bound.asName,
+                                               when, 
+                                               where,
+                                               orderBy));
+        }
     }
 }
 

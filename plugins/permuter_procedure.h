@@ -20,6 +20,8 @@ namespace MLDB {
 /*****************************************************************************/
 
 struct PermutationProcedureConfig : public ProcedureConfig {
+    static constexpr const char * name = "permuter.run";
+
     PermutationProcedureConfig()
     {
     }

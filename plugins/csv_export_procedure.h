@@ -16,6 +16,8 @@ namespace Datacratic {
 namespace MLDB {
 
 struct CsvExportProcedureConfig : ProcedureConfig {
+    static constexpr const char * name = "export.csv";
+
     CsvExportProcedureConfig();
     InputQuery exportData;
     Url dataFileUrl;
@@ -23,6 +25,7 @@ struct CsvExportProcedureConfig : ProcedureConfig {
     std::string delimiter;
     std::string quoteChar;
 };
+
 DECLARE_STRUCTURE_DESCRIPTION(CsvExportProcedureConfig);
 
 struct CsvExportProcedure: public Procedure {
@@ -43,4 +46,3 @@ struct CsvExportProcedure: public Procedure {
 
 } // namespace MLDB
 } // namespace Datacratic
-

@@ -16,7 +16,7 @@
 #include "cell_value_impl.h"
 #include "mldb/base/parse_context.h"
 #include "interval.h"
-#include "coord.h"
+#include "path.h"
 
 using namespace std;
 
@@ -552,13 +552,13 @@ coerceToBlob() const
     return toUtf8String();
 }
 
-Coord
+PathElement
 CellValue::
 coerceToPathElement() const
 {
     if (type == ST_EMPTY)
-        return Coord();
-    else return Coord(toUtf8String());
+        return PathElement();
+    else return PathElement(toUtf8String());
 }
 
 bool

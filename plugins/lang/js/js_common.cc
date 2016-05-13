@@ -132,46 +132,46 @@ void to_js(JS::JSValue & value, const CellValue & val)
     }
 }
 
-Coord from_js(const JS::JSValue & value, Coord *)
+PathElement from_js(const JS::JSValue & value, PathElement *)
 {
     if (value->IsNull() || value->IsUndefined())
-        return Coord();
+        return PathElement();
     return JS::from_js(value, (Utf8String *)0);
 }
 
-Coord from_js_ref(const JS::JSValue & value, Coord *)
+PathElement from_js_ref(const JS::JSValue & value, PathElement *)
 {
     if (value->IsNull() || value->IsUndefined())
-        return Coord();
+        return PathElement();
     return JS::from_js(value, (Utf8String *)0);
 }
 
-void to_js(JS::JSValue & value, const Coord & val)
+void to_js(JS::JSValue & value, const PathElement & val)
 {
     if (val.empty())
         value = v8::Null();
     return to_js(value, val.toUtf8String());
 }
 
-Coords from_js(const JS::JSValue & value, Coords *)
+Path from_js(const JS::JSValue & value, Path *)
 {
     if (value->IsNull() || value->IsUndefined())
-        return Coords();
-    return jsonDecode<Coords>(JS::from_js(value, (Json::Value *)0));
+        return Path();
+    return jsonDecode<Path>(JS::from_js(value, (Json::Value *)0));
 }
 
-Coords from_js_ref(const JS::JSValue & value, Coords *)
+Path from_js_ref(const JS::JSValue & value, Path *)
 {
     if (value->IsNull() || value->IsUndefined())
-        return Coords();
-    return jsonDecode<Coords>(JS::from_js(value, (Json::Value *)0));
+        return Path();
+    return jsonDecode<Path>(JS::from_js(value, (Json::Value *)0));
 }
 
-void to_js(JS::JSValue & value, const Coords & val)
+void to_js(JS::JSValue & value, const Path & val)
 {
     if (val.empty())
         value = v8::Null();
-    return to_js(value, vector<Coord>(val.begin(), val.end()));
+    return to_js(value, vector<PathElement>(val.begin(), val.end()));
 }
 
 void to_js(JS::JSValue & value, const ExpressionValue & val)

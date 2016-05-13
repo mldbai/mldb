@@ -6,7 +6,7 @@
 */
 
 #include "sql_utils.h"
-#include "coord.h"
+#include "path.h"
 #include "http/http_exception.h"
 
 #include <boost/regex.hpp>    //These have defines that conflits with some of our own, so we can't put regex stuff just anywhere.
@@ -119,8 +119,8 @@ bool matchSqlFilter(const Utf8String& valueString, const Utf8String& filterStrin
 //If we know the alias of the dataset we are working on, this will remove it from the variable's name
 //It will also verify that the variable identifier does not explicitly specify an dataset that is not of this context.
 //Aka "unknown".identifier
-Coords
-removeTableName(const Utf8String & alias, const Coords & columnName)
+Path
+removeTableName(const Utf8String & alias, const Path & columnName)
 {    
     if (!alias.empty() && columnName.size() > 1 && columnName.startsWith(alias)) {
         return columnName.removePrefix();

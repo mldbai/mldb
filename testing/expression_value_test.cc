@@ -32,12 +32,12 @@ BOOST_AUTO_TEST_CASE( test_get_embedding_row )
     Date ts;
 
     RowValue row;
-    row.emplace_back(Coord("a"), 1, ts);
-    row.emplace_back(Coord("b"), 2, ts);
+    row.emplace_back(PathElement("a"), 1, ts);
+    row.emplace_back(PathElement("b"), 2, ts);
         
     ExpressionValue val2(row);
 
-    ColumnName cols[2] = { Coord("a"), Coord("b") };
+    ColumnName cols[2] = { PathElement("a"), PathElement("b") };
 
     auto dist = val2.getEmbedding(cols, 2);
 
@@ -45,7 +45,7 @@ BOOST_AUTO_TEST_CASE( test_get_embedding_row )
 
     BOOST_CHECK_EQUAL(dist, expected);
 
-    ColumnName cols2[2] = { Coord("b"), Coord("a") };
+    ColumnName cols2[2] = { PathElement("b"), PathElement("a") };
 
     dist = val2.getEmbedding(cols2, 2);
 
@@ -56,7 +56,7 @@ BOOST_AUTO_TEST_CASE( test_get_embedding_row )
 
 BOOST_AUTO_TEST_CASE( test_unflatten_empty )
 {
-    std::vector<std::tuple<Coords, CellValue, Date> > vals;
+    std::vector<std::tuple<Path, CellValue, Date> > vals;
     ExpressionValue val(vals);
 
     BOOST_CHECK_EQUAL(jsonEncodeStr(val), "[[],\"NaD\"]");
@@ -64,10 +64,10 @@ BOOST_AUTO_TEST_CASE( test_unflatten_empty )
 
 BOOST_AUTO_TEST_CASE( test_unflatten )
 {
-    std::vector<std::tuple<Coords, CellValue, Date> > vals;
+    std::vector<std::tuple<Path, CellValue, Date> > vals;
     Date ts;
-    vals.emplace_back(Coord("a"), 1, ts);
-    vals.emplace_back(Coord("b"), 2, ts);
+    vals.emplace_back(PathElement("a"), 1, ts);
+    vals.emplace_back(PathElement("b"), 2, ts);
 
     ExpressionValue val(vals);
 
@@ -76,13 +76,13 @@ BOOST_AUTO_TEST_CASE( test_unflatten )
 
 BOOST_AUTO_TEST_CASE( test_unflatten_nested )
 {
-    std::vector<std::tuple<Coords, CellValue, Date> > vals;
+    std::vector<std::tuple<Path, CellValue, Date> > vals;
     Date ts;
-    vals.emplace_back(Coord("a"), 1, ts);
-    vals.emplace_back(Coord("b"), 2, ts);
-    vals.emplace_back(Coord("c") + Coord("a"), 3, ts);
-    vals.emplace_back(Coord("c") + Coord("b"), 4, ts);
-    vals.emplace_back(Coord("d"), 5, ts);
+    vals.emplace_back(PathElement("a"), 1, ts);
+    vals.emplace_back(PathElement("b"), 2, ts);
+    vals.emplace_back(PathElement("c") + PathElement("a"), 3, ts);
+    vals.emplace_back(PathElement("c") + PathElement("b"), 4, ts);
+    vals.emplace_back(PathElement("d"), 5, ts);
 
     ExpressionValue val(vals);
 
@@ -92,14 +92,14 @@ BOOST_AUTO_TEST_CASE( test_unflatten_nested )
 
 BOOST_AUTO_TEST_CASE( test_unflatten_nested_double_val )
 {
-    std::vector<std::tuple<Coords, CellValue, Date> > vals;
+    std::vector<std::tuple<Path, CellValue, Date> > vals;
     Date ts;
-    vals.emplace_back(Coord("a"), 1, ts);
-    vals.emplace_back(Coord("b"), 2, ts);
-    vals.emplace_back(Coord("c"), 6, ts); // C is both a value and a structure
-    vals.emplace_back(Coord("c") + Coord("a"), 3, ts);
-    vals.emplace_back(Coord("c") + Coord("b"), 4, ts);
-    vals.emplace_back(Coord("d"), 5, ts);
+    vals.emplace_back(PathElement("a"), 1, ts);
+    vals.emplace_back(PathElement("b"), 2, ts);
+    vals.emplace_back(PathElement("c"), 6, ts); // C is both a value and a structure
+    vals.emplace_back(PathElement("c") + PathElement("a"), 3, ts);
+    vals.emplace_back(PathElement("c") + PathElement("b"), 4, ts);
+    vals.emplace_back(PathElement("d"), 5, ts);
 
     ExpressionValue val(vals);
 
@@ -120,8 +120,8 @@ BOOST_AUTO_TEST_CASE( test_unflatten_nested_double_val )
 
     // Test that appending it back to a row works
     
-    std::vector<std::tuple<Coords, CellValue, Date> > vals2;
-    Coords prefix = Coord("out");
+    std::vector<std::tuple<Path, CellValue, Date> > vals2;
+    Path prefix = PathElement("out");
     val.appendToRow(prefix, vals2);
 
     expected
@@ -143,9 +143,9 @@ BOOST_AUTO_TEST_CASE( test_unflatten_nested_double_val )
 
 BOOST_AUTO_TEST_CASE( test_unflatten_nested_bad_order )
 {
-    std::vector<std::tuple<Coords, CellValue, Date> > vals;
+    std::vector<std::tuple<Path, CellValue, Date> > vals;
     Date ts;
-    Coord a("a"), b("b");
+    PathElement a("a"), b("b");
     vals.emplace_back(a + a, 1, ts);
     vals.emplace_back(b + a, 2, ts);
     vals.emplace_back(a + b, 3, ts);
@@ -164,8 +164,8 @@ BOOST_AUTO_TEST_CASE( test_unflatten_nested_bad_order )
 
     // Test that appending it back to a row works
     
-    std::vector<std::tuple<Coords, CellValue, Date> > vals2;
-    Coords prefix = Coord("out");
+    std::vector<std::tuple<Path, CellValue, Date> > vals2;
+    Path prefix = PathElement("out");
     val.appendToRowDestructive(prefix, vals2);
 
     std::string expected
@@ -179,22 +179,22 @@ BOOST_AUTO_TEST_CASE( test_unflatten_nested_bad_order )
 
 BOOST_AUTO_TEST_CASE(test_get_nested_column)
 {
-    std::vector<std::tuple<Coords, CellValue, Date> > vals;
+    std::vector<std::tuple<Path, CellValue, Date> > vals;
     Date ts;
-    vals.emplace_back(Coord("a"), 1, ts);
-    vals.emplace_back(Coord("b"), 2, ts);
-    vals.emplace_back(Coord("c") + Coord("a"), 3, ts);
-    vals.emplace_back(Coord("c") + Coord("b"), 4, ts);
-    vals.emplace_back(Coord("d"), 5, ts);
+    vals.emplace_back(PathElement("a"), 1, ts);
+    vals.emplace_back(PathElement("b"), 2, ts);
+    vals.emplace_back(PathElement("c") + PathElement("a"), 3, ts);
+    vals.emplace_back(PathElement("c") + PathElement("b"), 4, ts);
+    vals.emplace_back(PathElement("d"), 5, ts);
 
     ExpressionValue val(vals);
 
     // Test that we can get a nested field
-    Coords path0;
-    Coords path1 = Coord("a");
-    Coords path2 = Coord("c");
-    Coords path3 = Coord("c") + Coord("a");
-    Coords path4 = Coord("c") + Coord("a") + Coord("x");
+    Path path0;
+    Path path1 = PathElement("a");
+    Path path2 = PathElement("c");
+    Path path3 = PathElement("c") + PathElement("a");
+    Path path4 = PathElement("c") + PathElement("a") + PathElement("x");
     
     ExpressionValue val0 = val.getNestedColumn(path0);
     ExpressionValue val1 = val.getNestedColumn(path1);
@@ -249,7 +249,7 @@ BOOST_AUTO_TEST_CASE( test_unflatten_nested_row_bad_order )
 {
     StructValue sub1, sub2;
     Date ts;
-    Coord a("a"), b("b");
+    PathElement a("a"), b("b");
     sub1.emplace_back(a, ExpressionValue(1, ts));
     sub1.emplace_back(b, ExpressionValue(2, ts));
     sub2.emplace_back(a, ExpressionValue(3, ts));
@@ -281,7 +281,7 @@ BOOST_AUTO_TEST_CASE( test_unflatten_nested_row_doubled )
 {
     StructValue sub1, sub2, sub3, sub4;
     Date ts;
-    Coord a("a"), b("b");
+    PathElement a("a"), b("b");
     sub1.emplace_back(a, ExpressionValue(1, ts));
     sub2.emplace_back(b, ExpressionValue(2, ts));
     sub3.emplace_back(a, ExpressionValue(3, ts));
@@ -313,7 +313,7 @@ BOOST_AUTO_TEST_CASE( test_unflatten_nested_row_doubled )
 
 BOOST_AUTO_TEST_CASE( test_deeply_nested )
 {
-    Coord f("f"), r("r"), a("a"), b("b"), c("c"), d("d");
+    PathElement f("f"), r("r"), a("a"), b("b"), c("c"), d("d");
     
     Date ts;
 
@@ -352,7 +352,7 @@ BOOST_AUTO_TEST_CASE( test_deeply_nested )
     BOOST_CHECK_EQUAL(innerv.getNestedColumn(r + d).extractJson(),
                       Json::parse("4"));
 
-    auto onColumn = [&] (Coord coord,
+    auto onColumn = [&] (PathElement coord,
                          ExpressionValue val)
         {
             cerr << "got " << coord << " = " << jsonEncode(val) << endl;
@@ -377,9 +377,9 @@ BOOST_AUTO_TEST_CASE( test_get_filtered_superposition )
     auto makeVal = [&] () -> ExpressionValue
         {
             StructValue result;
-            result.emplace_back(Coord(), ExpressionValue(1, ts1));
-            result.emplace_back(Coord(), ExpressionValue(2, ts2));
-            result.emplace_back(Coord(), ExpressionValue(3, ts3));
+            result.emplace_back(PathElement(), ExpressionValue(1, ts1));
+            result.emplace_back(PathElement(), ExpressionValue(2, ts2));
+            result.emplace_back(PathElement(), ExpressionValue(3, ts3));
             return result;
         };
 
@@ -430,12 +430,12 @@ BOOST_AUTO_TEST_CASE( test_get_filtered_nested )
     auto makeVal = [&] () -> ExpressionValue
         {
             StructValue result;
-            result.emplace_back(Coord(), ExpressionValue(1, ts1));
-            result.emplace_back(Coord(), ExpressionValue(2, ts2));
-            result.emplace_back(Coord(), ExpressionValue(3, ts3));
+            result.emplace_back(PathElement(), ExpressionValue(1, ts1));
+            result.emplace_back(PathElement(), ExpressionValue(2, ts2));
+            result.emplace_back(PathElement(), ExpressionValue(3, ts3));
 
             StructValue outer;
-            outer.emplace_back(Coord("a"), std::move(result));
+            outer.emplace_back(PathElement("a"), std::move(result));
             return outer;
         };
 

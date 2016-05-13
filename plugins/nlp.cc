@@ -75,8 +75,8 @@ ApplyStopWordsFunction::
 call(Words input) const
 {
     RowValue rtnRow;
-    auto onAtom = [&] (const Coords & columnName,
-                       const Coords & prefix,
+    auto onAtom = [&] (const Path & columnName,
+                       const Path & prefix,
                        const CellValue & val,
                        Date ts)
         {
@@ -148,10 +148,10 @@ call(Words input) const
     // compared to actually doing the stemming
     std::unique_ptr<sb_stemmer> stemmer(sb_stemmer_new(functionConfig.language.c_str(), "UTF_8"));
 
-    map<Coord, pair<double, Date> > accum;
+    map<PathElement, pair<double, Date> > accum;
 
-    auto onAtom = [&] (const Coords & columnName,
-                       const Coords & prefix,
+    auto onAtom = [&] (const Path & columnName,
+                       const Path & prefix,
                        const CellValue & val,
                        Date ts)
         {
@@ -171,7 +171,7 @@ call(Words input) const
             else
                 val_as_double = val.toDouble();
 
-            Coord col(string((const char*)stemmed));
+            PathElement col(string((const char*)stemmed));
 
             auto it = accum.find(col);
             if(it == accum.end()) {

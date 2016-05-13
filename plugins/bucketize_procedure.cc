@@ -98,7 +98,7 @@ BucketizeProcedureConfigDescription()
             }
             last = range;
         }
-        MustContainFrom<InputQuery>()(cfg->inputData, "bucketize");
+        MustContainFrom()(cfg->inputData, BucketizeProcedureConfig::name);
     };
 }
 
@@ -157,9 +157,9 @@ run(const ProcedureRunConfig & run,
                      *runProcConf.inputData.stm->where,
                      runProcConf.inputData.stm->orderBy,
                      calc)
-        .execute({getSize, false/*processInParallel*/}, 
-                 runProcConf.inputData.stm->offset, 
-                 runProcConf.inputData.stm->limit, 
+        .execute({getSize, false/*processInParallel*/},
+                 runProcConf.inputData.stm->offset,
+                 runProcConf.inputData.stm->limit,
                  onProgress);
 
     int64_t rowCount = orderedRowNames.size();
@@ -176,7 +176,7 @@ run(const ProcedureRunConfig & run,
         rowValue.emplace_back(ColumnName("bucket"),
                               mappedRange.first,
                               globalMaxOrderByTimestamp);
-        
+
 
         auto applyFct = [&] (int64_t index)
         {
@@ -194,7 +194,7 @@ run(const ProcedureRunConfig & run,
         //Make sure that numerical issues dont let 100 percentile go out of bound
         int64_t lowerBound = range.second == 0 ? 0 : int64_t(range.first / 100 * rowCount);
         int64_t higherBound = range.second == 100 ? rowCount : int64_t(range.second / 100 * rowCount);
-        
+
         ExcAssert(higherBound <= rowCount);
 
         logger->debug() << "Bucket " << mappedRange.first << " from " << lowerBound
@@ -223,12 +223,11 @@ getStatus() const
 static RegisterProcedureType<BucketizeProcedure, BucketizeProcedureConfig>
 regBucketizeProcedure(
     builtinPackage(),
-    "bucketize",
     "Assign buckets based on percentile ranges over a sorted dataset",
     "procedures/BucketizeProcedure.md.html",
     nullptr /* static route */,
     { MldbEntity::INTERNAL_ENTITY });
- 
+
 
 } // namespace MLDB
 } // namespace Datacratic
