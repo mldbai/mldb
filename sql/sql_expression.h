@@ -472,7 +472,7 @@ std::shared_ptr<void> registerDatasetFunction(Utf8String name, ExternalDatasetFu
 struct GetAllColumnsOutput {
 
     /// Function that will return a row with the given columns
-    std::function<ExpressionValue (const SqlRowScope &)> exec;
+    std::function<ExpressionValue (const SqlRowScope &,  const VariableFilter &)> exec;
 
     /// Row information about the value returned from calling getColumns
     std::shared_ptr<RowValueInfo> info;
