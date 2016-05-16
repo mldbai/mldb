@@ -349,7 +349,7 @@ doGetAllColumns(const Utf8String & tableName,
                 // the only expression that touches the row, we could
                 // move it into place
                 ExpressionValue val(row.row.columns);
-                return val.getFiltered(filter, val);
+                return val.getFilteredDestructive(filter);
             };
     }
     else {
@@ -370,7 +370,7 @@ doGetAllColumns(const Utf8String & tableName,
                 }
 
                 ExpressionValue val(std::move(result));
-                return  val.getFiltered(filter, val);
+                return  val.getFilteredDestructive(filter);
             };
 
     }

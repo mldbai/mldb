@@ -142,7 +142,7 @@ doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
             rowContents.forEachColumn(onColumn);
             
             ExpressionValue val(std::move(result));
-            return val.getFiltered(filter, val);
+            return val.getFilteredDestructive(filter);
         };
 
     GetAllColumnsOutput result;
