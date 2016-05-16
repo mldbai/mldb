@@ -10,6 +10,7 @@
 #pragma once
 
 #include "mldb/rest/service_peer.h"
+#include "mldb/rest/in_process_rest_connection.h"
 #include "mldb/types/string.h"
 #include "mldb/soa/service/event_service.h"
 #include "mldb/utils/log_fwd.h"
@@ -142,6 +143,21 @@ struct MldbServer: public ServicePeer, public EventRecorder {
     Utf8String prefixUrl(Utf8String url) const;
     std::string prefixUrl(std::string url) const;
     std::string prefixUrl(const char* url) const;
+    
+    InProcessRestConnection mldbPerform(
+        const std::string & verb,
+        const Utf8String & resource,
+        const RestParams & params = RestParams(),
+        Json::Value payload = Json::Value(),
+        const RestParams & headers = RestParams()) const;
+    InProcessRestConnection mldbGet(const Utf8String & resource) const;
+    InProcessRestConnection mldbDelete(const Utf8String & resource) const;
+    InProcessRestConnection mldbPut(
+        const Utf8String & resource,
+        const Json::Value payload = Json::Value()) const;
+    InProcessRestConnection mldbPost(
+        const Utf8String & resource,
+        const Json::Value payload = Json::Value()) const;
 
 private:
     void preInit();
