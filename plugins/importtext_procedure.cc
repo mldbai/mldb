@@ -202,8 +202,14 @@ struct SqlCsvScope: public SqlExpressionMldbScope {
             }
         }
 
-        auto exec = [=] (const SqlRowScope & scope)
+        auto exec = [=] (const SqlRowScope & scope, const VariableFilter & filter)
             {
+                /* 
+                   The filter parameter here is not used since this context is
+                   only used when importing tabular data and there is no way to 
+                   specify a timestamp for this data.
+                */
+
                 auto & row = scope.as<RowScope>();
 
                 RowValue result;
