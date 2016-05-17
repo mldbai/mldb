@@ -113,10 +113,10 @@ doGetAllColumns(const Utf8String & tableName,
 {
     GetAllColumnsOutput result = outer.doGetAllColumns(tableName, keep);
     auto outerFn = result.exec;
-    result.exec = [=] (const SqlRowScope & scope)
+    result.exec = [=] (const SqlRowScope & scope, const VariableFilter & filter)
         {
             auto & row = scope.as<RowScope>();
-            return outerFn(row.outer);
+            return outerFn(row.outer, filter);
         };
     return result;
 }
@@ -401,7 +401,7 @@ doGetAllColumns(const Utf8String & tableName,
         if (!inputInfo)
             wildcardsInInput = true;
 
-        result.exec = [=] (const SqlRowScope & scope) -> ExpressionValue
+        result.exec = [=] (const SqlRowScope & scope, const VariableFilter & filter) -> ExpressionValue
             {
                 auto & row = scope.as<RowScope>();
 
@@ -451,7 +451,7 @@ doGetAllColumns(const Utf8String & tableName,
         outputColumns.emplace_back(std::move(c));
     }
 
-    result.exec = [=] (const SqlRowScope & scope) -> ExpressionValue
+    result.exec = [=] (const SqlRowScope & scope, const VariableFilter & filter) -> ExpressionValue
         {
             auto & row = scope.as<RowScope>();
             
