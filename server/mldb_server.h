@@ -150,13 +150,20 @@ struct MldbServer: public ServicePeer, public EventRecorder {
         const RestParams & params = RestParams(),
         Json::Value payload = Json::Value(),
         const RestParams & headers = RestParams()) const;
-    InProcessRestConnection mldbGet(const Utf8String & resource) const;
-    InProcessRestConnection mldbDelete(const Utf8String & resource) const;
+    InProcessRestConnection mldbGet(
+        const Utf8String & resource,
+        const RestParams & params = RestParams()) const;
+
+    InProcessRestConnection mldbDelete(
+        const Utf8String & resource,
+        const RestParams & params = RestParams()) const;
     InProcessRestConnection mldbPut(
         const Utf8String & resource,
+        const RestParams & params = RestParams(),
         const Json::Value payload = Json::Value()) const;
     InProcessRestConnection mldbPost(
         const Utf8String & resource,
+        const RestParams & params = RestParams(),
         const Json::Value payload = Json::Value()) const;
 
 private:

@@ -558,26 +558,28 @@ mldbPerform(const std::string & verb,
 
 InProcessRestConnection
 MldbServer::
-mldbGet(const Utf8String & resource) const {
-    return mldbPerform("GET", resource);
+mldbGet(const Utf8String & resource, const RestParams & params) const {
+    return mldbPerform("GET", resource, params);
 }
 
 InProcessRestConnection
 MldbServer::
-mldbDelete(const Utf8String & resource) const {
-    return mldbPerform("DELETE", resource);
+mldbDelete(const Utf8String & resource, const RestParams & params) const {
+    return mldbPerform("DELETE", resource, params);
 }
 
 InProcessRestConnection
 MldbServer::
-mldbPut(const Utf8String & resource, const Json::Value payload) const {
-    return mldbPerform("PUT", resource, RestParams(), std::move(payload));
+mldbPut(const Utf8String & resource, const RestParams & params,
+        const Json::Value payload) const {
+    return mldbPerform("PUT", resource, params, std::move(payload));
 }
 
 InProcessRestConnection
 MldbServer::
-mldbPost(const Utf8String & resource, const Json::Value payload) const {
-    return mldbPerform("POST", resource, RestParams(), std::move(payload));
+mldbPost(const Utf8String & resource, const RestParams & params,
+         const Json::Value payload) const {
+    return mldbPerform("POST", resource, params, std::move(payload));
 }
 
 
