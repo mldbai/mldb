@@ -653,17 +653,10 @@ doGetFunction(const Utf8String & functionName,
             {
                 Utf8String rowName;
                 ExpressionValue left = leftRowName(args, context);
-                if (left.empty())
-                    rowName = "[]-";
-                else
-                    rowName = "[" + left.toUtf8String() + "]-";
-
-
                 ExpressionValue right = rightRowName(args, context);
-                if (right.empty())
-                    rowName += "[]";
-                else
-                    rowName += "[" + right.toUtf8String() + "]";
+
+                rowName = left.empty() ? "[]-" : "[" + left.toUtf8String() + "]-";
+                rowName += right.empty() ? "[]" : "[" + right.toUtf8String() + "]";
 
                 return ExpressionValue(std::move(rowName),Date::notADate());
             };
