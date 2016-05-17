@@ -280,6 +280,7 @@ AnnotatedJoinCondition(std::shared_ptr<TableExpression> leftTable,
                        std::shared_ptr<TableExpression> rightTable,
                        std::shared_ptr<SqlExpression> on,
                        std::shared_ptr<SqlExpression> where,
+                       JoinQualification joinQualification,
                        bool debug)
     : debug(debug), on(on), where(where),
       style(UNKNOWN), left(leftTable), right(rightTable)
@@ -302,47 +303,62 @@ AnnotatedJoinCondition(std::shared_ptr<TableExpression> leftTable,
     }
     
 
+    auto checkAndClauses = [&] (std::vector<std::shared_ptr<SqlExpression> >::iterator start) {
+        // For each one, figure out which tables are referred to
+        //for (auto & c: andClauses) {
+        for (auto iter = start; iter != andClauses.end(); ++iter) {
+
+            auto& c = *iter;
+
+            if (debug)
+                cerr << "clause " << c->print() << endl;
+            AnnotatedClause clauseOut(c, leftTables, rightTables, debug);
+
+            if (!clauseOut.externalVars.empty()) {
+                throw HttpReturnException(400, "Join condition refers to unknown variables",
+                                          "unknownVariables", clauseOut.externalVars,
+                                          "clause", c,
+                                          "left", left,
+                                          "right",right,
+                                          "on", on);
+            }
+
+            switch (clauseOut.role) {
+            case AnnotatedClause::CONSTANT:
+                constantConditions.emplace_back(std::move(clauseOut));
+                break;
+            case AnnotatedClause::LEFT:
+                left.whereClauses.emplace_back(std::move(clauseOut));
+                break;
+            case AnnotatedClause::RIGHT:
+                right.whereClauses.emplace_back(std::move(clauseOut));
+                break;
+            case AnnotatedClause::CROSS:
+                crossConditions.emplace_back(std::move(clauseOut));
+                break;
+            }
+        }
+    };
+
     // No join clause = cross join
-    if (on)
+    if (on) {
         analyze(on);
-    if (where)
+        checkAndClauses(andClauses.begin());
+    }
+
+    size_t numOfCrossConditions = crossConditions.size();
+
+    //If we do an outer join its important that the 'where' be applied *after* the join else we will be missing rows
+    if (where && joinQualification == JOIN_INNER) {
+        auto numOnClauses = andClauses.size();
         analyze(where);
+        checkAndClauses(andClauses.begin() + numOnClauses);
+    }
 
     if (debug) {
         cerr << "got " << andClauses.size() << " AND clauses" << endl;
         cerr << jsonEncode(andClauses) << endl;
-    }
-
-    // For each one, figure out which tables are referred to
-    for (auto & c: andClauses) {
-        if (debug)
-            cerr << "clause " << c->print() << endl;
-        AnnotatedClause clauseOut(c, leftTables, rightTables, debug);
-
-        if (!clauseOut.externalVars.empty()) {
-            throw HttpReturnException(400, "Join condition refers to unknown variables",
-                                      "unknownVariables", clauseOut.externalVars,
-                                      "clause", c,
-                                      "left", left,
-                                      "right",right,
-                                      "on", on);
-        }
-            
-        switch (clauseOut.role) {
-        case AnnotatedClause::CONSTANT:
-            constantConditions.emplace_back(std::move(clauseOut));
-            break;
-        case AnnotatedClause::LEFT:
-            left.whereClauses.emplace_back(std::move(clauseOut));
-            break;
-        case AnnotatedClause::RIGHT:
-            right.whereClauses.emplace_back(std::move(clauseOut));
-            break;
-        case AnnotatedClause::CROSS:
-            crossConditions.emplace_back(std::move(clauseOut));
-            break;
-        }
-    }
+    }    
 
     left.where = generateWhereExpression(left.whereClauses,
                                          leftTable->getAs());
@@ -409,10 +425,20 @@ AnnotatedJoinCondition(std::shared_ptr<TableExpression> leftTable,
         }
 
         if (style != EQUIJOIN) {
-            throw HttpReturnException
+
+            if (numOfCrossConditions == 0) {
+                //this is a cross-join, the 'where' has some cross-conditions but no pivot
+                style = CROSS_JOIN;
+                left.equalExpression
+                    = right.equalExpression
+                    = SqlExpression::parse("true");
+            }
+            else {
+                throw HttpReturnException
                 (400, "Could not find join clause pivot: "
                  "Join condition must have one clause of form left.var1 = right.var2",
                  "conditions", *this);
+            }
         }
     }
 
