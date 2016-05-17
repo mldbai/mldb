@@ -3468,10 +3468,13 @@ getFilteredDestructive(const VariableFilter & filter)
             accum(val);
             ExpressionValue storage;
             const ExpressionValue * output = accum.extract(storage);
-            ExcAssert(output);
-            if (output != &storage)
-                rows.emplace_back(std::move(col), *output);
-            else rows.emplace_back(std::move(col), std::move(storage));
+            if (output) {
+                 if (output != &storage)
+                    rows.emplace_back(std::move(col), *output);
+                 else
+                    rows.emplace_back(std::move(col), std::move(storage));
+            }
+           
             return true;
         };
     

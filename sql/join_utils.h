@@ -8,6 +8,7 @@
 #pragma once
 
 #include "sql_expression.h"
+#include "mldb/sql/table_expression_operations.h" //for join qualification
 
 namespace Datacratic {
 namespace MLDB {
@@ -97,7 +98,8 @@ struct AnnotatedJoinCondition {
     AnnotatedJoinCondition(std::shared_ptr<TableExpression> left,
                            std::shared_ptr<TableExpression> right,
                            std::shared_ptr<SqlExpression> on,
-                           std::shared_ptr<SqlExpression> where = nullptr,
+                           std::shared_ptr<SqlExpression> where,
+                           JoinQualification joinQualification,
                            bool debug = false);
 
     bool debug;

@@ -139,25 +139,28 @@ doGetColumn(const Utf8String & tableName, const ColumnName & columnName)
     //cerr << "doGetColumn with tableName " << tableName
     //     << " and variable name " << columnName << endl;
 
-    if (tableName.empty()) {
-        if (defaultTables.empty()) {
-
-            cerr << "tables in scope: ";
-            for (auto & t: tables)
-                cerr << t.first;
-            cerr << endl;
-            throw HttpReturnException(500, "Get variable without table name with no default table in scope",
-                                      "columnName", columnName);
-        }
-        return defaultTables.back().doGetColumn(columnName);
-    }
-    else {
-        // Otherwise, look in the table scope
+    //if table is explicitly provided
+    if (!tableName.empty()) {
+        //look in the table scope
         auto it = tables.find(tableName);
         if (it != tables.end()) {
             return it->second.doGetColumn(columnName);
         }
-    }        
+    }
+    else {
+        //if we have a matching table name from the path
+        if (columnName.size() > 1) {
+            auto it = tables.find(columnName[0].toUtf8String());
+            if (it != tables.end()) {
+                return it->second.doGetColumn(columnName.removePrefix());
+            }
+        }
+
+         //check default table as last resort
+        if (tableName.empty() && !defaultTables.empty())
+            return defaultTables.back().doGetColumn(columnName);
+
+    }
 
     // Otherwise, look for it in the enclosing scope
     return outerScope_->doGetColumn(tableName, columnName);
