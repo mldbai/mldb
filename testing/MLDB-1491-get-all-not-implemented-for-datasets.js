@@ -60,10 +60,21 @@ var config = {
 createAndRunProcedure(config, "git");
 
 var resp = mldb.get("/v1/query", { q: 
-    "select count(*) as cnt, author, temporal_earliest({*}) as earliest, temporal_latest({*}) as latest, sum(filesChanged) as changes, sum(insertions) as insertions, sum(deletions) as deletions from git group by true", format: 'table', rowNames: false });
+    "select count(*) as cnt, author, sum(filesChanged) as changes, sum(insertions) as insertions, sum(deletions) as deletions from git group by author", format: 'table', rowNames: false });
 
 mldb.log(resp.json);
 assertEqual(resp.responseCode, 200);
 
+var resp = mldb.get("/v1/query", { q: 
+    "select count(*) as cnt, author, min(earliest_timestamp({*})) as earliest, max(latest_timestamp({*})) as latest, sum(filesChanged) as changes, sum(insertions) as insertions, sum(deletions) as deletions from git group by author", format: 'table', rowNames: false });
+
+mldb.log(resp.json);
+assertEqual(resp.responseCode, 200);
+
+var resp = mldb.get("/v1/query", { q: 
+    "select count(*) as cnt, author, temporal_earliest({*}), sum(filesChanged) as changes, sum(insertions) as insertions, sum(deletions) as deletions from git group by author", format: 'table', rowNames: false });
+mldb.log(resp.json);
+assertEqual(resp.responseCode, 400);
+assertEqual(resp.json.error, "Non-aggregator 'temporal_earliest({*})' with GROUP BY clause is not allowed");
 
 "success"

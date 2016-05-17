@@ -446,8 +446,9 @@ struct NamedColumnExpression: public SqlRowExpression {
                    std::shared_ptr<SqlExpression>);
 
     /** This value must be understood as follows:
-        - the alias is set, possibly with an empty string 
-        in the case of x AS *, when then this is a case
+        - the alias is set to the value of y in expression x AS y
+        - it is empty in the case of x AS *
+        - it contains the surface of x otherwise
     */
     ColumnName alias;  ///< Name of variable alias
     std::shared_ptr<SqlExpression> expression;

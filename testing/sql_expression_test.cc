@@ -73,7 +73,7 @@ struct TestBindingContext: public SqlBindingScope {
     {
         GetAllColumnsOutput result;
 
-        result.exec = [=] (const SqlRowScope & context)
+        result.exec = [=] (const SqlRowScope & context, const VariableFilter & filter)
             -> ExpressionValue
             {
                 const TestContext & testContext

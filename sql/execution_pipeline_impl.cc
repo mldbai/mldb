@@ -106,7 +106,7 @@ doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
         index[column.columnName] = ColumnName(outputName);
     }
     
-    auto exec = [=] (const SqlRowScope & rowScope) -> ExpressionValue
+    auto exec = [=] (const SqlRowScope & rowScope, const VariableFilter & filter) -> ExpressionValue
         {
             auto & row = rowScope.as<PipelineResults>();
 
@@ -140,9 +140,10 @@ doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
             };
 
             if (!rowContents.empty())
-              rowContents.forEachColumn(onColumn);
-
-            return std::move(result);
+                rowContents.forEachColumn(onColumn);
+            
+            ExpressionValue val(std::move(result));
+            return val.getFilteredDestructive(filter);
         };
 
     GetAllColumnsOutput result;
@@ -595,10 +596,10 @@ doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
     auto rightOutput = right->doGetAllColumns(keep, rightFieldOffset(fieldOffset));
 
     GetAllColumnsOutput result;
-    result.exec = [=] (const SqlRowScope & scope) -> ExpressionValue
+    result.exec = [=] (const SqlRowScope & scope, const VariableFilter & filter) -> ExpressionValue
         {
-            ExpressionValue leftResult = leftOutput.exec(scope);
-            ExpressionValue rightResult = rightOutput.exec(scope);
+            ExpressionValue leftResult = leftOutput.exec(scope, filter);
+            ExpressionValue rightResult = rightOutput.exec(scope, filter);
 
             //cerr << "get all columns merging "
             //     << jsonEncode(leftResult) << " and "
@@ -1597,7 +1598,7 @@ take()
             return input;
 
         // Run the select expression in this input's context
-        ExpressionValue selected = parent->select_(*input, GET_LATEST);
+        ExpressionValue selected = parent->select_(*input, GET_ALL);
 
         input->values.emplace_back(std::move(selected));
 

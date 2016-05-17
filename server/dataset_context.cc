@@ -336,24 +336,25 @@ doGetAllColumns(const Utf8String & tableName,
         columnsWithInfo[i].columnName = std::move(outputName);
     }
 
-    std::function<ExpressionValue (const SqlRowScope &)> exec;
+    std::function<ExpressionValue (const SqlRowScope &,  const VariableFilter &)> exec;
 
     if (allWereKept && noneWereRenamed) {
         // We can pass right through; we have a select *
 
-        exec = [=] (const SqlRowScope & context) -> ExpressionValue
+        exec = [=] (const SqlRowScope & context, const VariableFilter & filter) -> ExpressionValue
             {
                 auto & row = context.as<RowScope>();
 
                 // TODO: if one day we are able to prove that this is
                 // the only expression that touches the row, we could
                 // move it into place
-                return row.row.columns;
+                ExpressionValue val(row.row.columns);
+                return val.getFilteredDestructive(filter);
             };
     }
     else {
         // Some are excluded or renamed; we need to go one by one
-        exec = [=] (const SqlRowScope & context)
+        exec = [=] (const SqlRowScope & context, const VariableFilter & filter)
             {
                 auto & row = context.as<RowScope>();
 
@@ -368,7 +369,8 @@ doGetAllColumns(const Utf8String & tableName,
                     result.emplace_back(it->second, std::get<1>(c), std::get<2>(c));
                 }
 
-                return std::move(result);
+                ExpressionValue val(std::move(result));
+                return  val.getFilteredDestructive(filter);
             };
 
     }
