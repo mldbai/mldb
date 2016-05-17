@@ -8,7 +8,6 @@
 import unittest
 import json
 from operator import itemgetter
-from pandas import DataFrame
 
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
@@ -1755,5 +1754,3 @@ class JoinTest(MldbUnitTest):
         )
 
 mldb.run_tests()
-
-
