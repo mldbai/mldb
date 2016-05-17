@@ -346,7 +346,7 @@ AnnotatedJoinCondition(std::shared_ptr<TableExpression> leftTable,
         checkAndClauses(andClauses.begin());
     }
 
-    size_t numOnCrossConditions = crossConditions.size();
+    size_t numOfCrossConditions = crossConditions.size();
 
     //If we do an outer join its important that the 'where' be applied *after* the join else we will be missing rows
     if (where && joinQualification == JOIN_INNER) {
@@ -426,7 +426,7 @@ AnnotatedJoinCondition(std::shared_ptr<TableExpression> leftTable,
 
         if (style != EQUIJOIN) {
 
-            if (numOnCrossConditions == 0) {
+            if (numOfCrossConditions == 0) {
                 //this is a cross-join, the 'where' has some cross-conditions but no pivot
                 style = CROSS_JOIN;
                 left.equalExpression
