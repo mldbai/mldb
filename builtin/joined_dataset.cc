@@ -208,6 +208,7 @@ struct JoinedDataset::Itl
       
         AnnotatedJoinCondition condition(leftExpr, rightExpr, on, 
                                          nullptr, //where
+                                         qualification,
                                          debug);
 
         if (debug)
@@ -512,6 +513,7 @@ struct JoinedDataset::Itl
                 ++it2;
             }
             else {
+
                 ExcAssertEqual(val1, val2);
 
                 // We got a match on the join condition.  So now
