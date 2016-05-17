@@ -213,7 +213,7 @@ $(eval $(call mldb_unit_test,MLDB-991-svm.py))
 $(eval $(call mldb_unit_test,MLDB-995-sub-query-sparse.js))
 $(eval $(call mldb_unit_test,MLDB-1116-tokensplit.py))
 $(eval $(call mldb_unit_test,MLDB-1030_apply_stopwords.py))
-$(eval $(call mldb_unit_test,MLDB-1165-where-rowname-in-optim.py,,manual)) # based on perf of specific machine
+$(eval $(call mldb_unit_test,MLDB-1165-where-rowname-in-optim.py))
 $(eval $(call mldb_unit_test,MLDB-1304-titanic-demo.py))
 
 $(eval $(call mldb_unit_test,MLDB-1000-type-documentation-valid.js))
@@ -333,12 +333,13 @@ $(eval $(call mldb_unit_test,MLDB-815-sparse-mutable-record-strings.js))
 $(eval $(call mldb_unit_test,MLDB-1395-error-message-file-doesnt-exist.js))
 $(eval $(call mldb_unit_test,ranking_test.py))
 $(eval $(call mldb_unit_test,MLDB-1490-grouped-validation.py))
-$(eval $(call mldb_unit_test,MLDB-1491-get-all-not-implemented-for-datasets.js,,manual)) # awaiting fix
+$(eval $(call mldb_unit_test,MLDB-1491-get-all-not-implemented-for-datasets.js))
 $(eval $(call mldb_unit_test,MLDB-1500-transpose-query.js,,manual)) # awaiting fix
 $(eval $(call mldb_unit_test,MLDB-1507-groupby.py))
 $(eval $(call mldb_unit_test,MLDB-1552-where-and-rowname-optim.py))
 $(eval $(call mldb_unit_test,MLDB-1486-embedding-types.js))
 $(eval $(call mldb_unit_test,MLDBFB-506-stats-tbl-sql-expr.py))
+$(eval $(call mldb_unit_test,MLDB-1594-aggregator-empty-row.py))
 
 # The MLDB-1398 test case requires a library and a plugin
 # Tensorflow plugins

@@ -3465,12 +3465,7 @@ bind(SqlBindingScope & scope) const
                      const VariableFilter & filter)
         -> const ExpressionValue &
         {
-            if (filter == GET_ALL)
-                return storage = allColumns.exec(scope);
-            else {
-                ExpressionValue expr = allColumns.exec(scope);
-                return storage = expr.getFilteredDestructive(filter);
-            }
+            return storage = allColumns.exec(scope, filter);
         };
 
     BoundSqlExpression result(exec, this, allColumns.info);
@@ -3543,8 +3538,8 @@ isIdentitySelect(SqlExpressionDatasetScope & scope) const
 /* COMPUTED VARIABLE                                                         */
 /*****************************************************************************/
 
-ComputedColumn::
-ComputedColumn(ColumnName alias,
+NamedColumnExpression::
+NamedColumnExpression(ColumnName alias,
                std::shared_ptr<SqlExpression> expression)
     : alias(std::move(alias)),
       expression(std::move(expression))
@@ -3552,7 +3547,7 @@ ComputedColumn(ColumnName alias,
 }
 
 BoundSqlExpression
-ComputedColumn::
+NamedColumnExpression::
 bind(SqlBindingScope & scope) const
 {
     auto exprBound = expression->bind(scope);
@@ -3619,23 +3614,23 @@ bind(SqlBindingScope & scope) const
 }
 
 Utf8String
-ComputedColumn::
+NamedColumnExpression::
 print() const
 {
     return "computed(\"" + alias.toUtf8String() + "\"," + expression->print() + ")";
 }
 
 std::shared_ptr<SqlExpression>
-ComputedColumn::
+NamedColumnExpression::
 transform(const TransformArgs & transformArgs) const
 {
-    auto result = std::make_shared<ComputedColumn>(*this);
+    auto result = std::make_shared<NamedColumnExpression>(*this);
     result->expression = transformArgs({ expression}).at(0);
     return result;
 }
 
 std::vector<std::shared_ptr<SqlExpression> >
-ComputedColumn::
+NamedColumnExpression::
 getChildren() const
 {
     return { expression };
@@ -3809,7 +3804,7 @@ bind(SqlBindingScope & scope) const
                      const VariableFilter & filter)
         -> const ExpressionValue &
         {
-            return storage = std::move(outputColumns.exec(scope));
+            return storage = std::move(outputColumns.exec(scope, filter));
         };
 
     BoundSqlExpression result(exec, this, outputColumns.info);

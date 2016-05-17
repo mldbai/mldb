@@ -430,7 +430,7 @@ AnnotatedJoinCondition(std::shared_ptr<TableExpression> leftTable,
             // Construct the select expression.  It's simply the value of
             // the join expression.
             side.select.clauses.push_back
-            (std::make_shared<ComputedColumn>(PathElement("val"),
+            (std::make_shared<NamedColumnExpression>(PathElement("val"),
                                               localExpr));
             side.select.surface = side.select.print();
             

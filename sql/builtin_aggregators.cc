@@ -292,7 +292,6 @@ struct AggregatorT {
     static std::shared_ptr<DenseRowState>
     denseRowInit(const std::vector<PathElement> & columnNames)
     {
-        ExcAssert(columnNames.size() > 0);
         return std::make_shared<DenseRowState>(columnNames);
     }
     

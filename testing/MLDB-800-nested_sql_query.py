@@ -104,6 +104,8 @@ mldb.log(res)
 
 #MLDBFB-480
 
+mldb.log("MLDBFB-480")
+
 expected = [["_rowName", "param"],
             ["result", "hi" ]]
 
@@ -119,7 +121,6 @@ res = mldb.put("/v1/functions/patate1", {
 
 assert expected == mldb.query("select patate1({param: 'hi'}) as *")
 
-
 res = mldb.put("/v1/functions/patate2", {
     "type": "sql.query",
     "params": {
@@ -130,11 +131,13 @@ res = mldb.put("/v1/functions/patate2", {
     }
 })
 
-# uncomment for failing case
-#assert expected == mldb.query("select patate2({param: 'hi'}) as *")
+res = mldb.query("select patate2({param: 'hi'}) as *")
 
+assert expected == res
 
 #MLDB-1573
+
+mldb.log("MLDB-1573")
 
 res = mldb.put("/v1/functions/patate", {
     "type": "sql.query",
@@ -157,6 +160,8 @@ expected = [["_rowName", "patate().column", "patate().value"],
 assert res == expected
 
 #MLDB-1574
+
+mldb.log("MLDB-1574")
 
 mldb.put("/v1/functions/patate", {
     "type": "sql.query",
