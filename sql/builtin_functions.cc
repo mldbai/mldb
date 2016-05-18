@@ -23,6 +23,9 @@
 
 #include <boost/regex/icu.hpp>
 #include <iterator>
+#include <thread>
+#include <mutex>
+#include <atomic>
 
 using namespace std;
 
@@ -2602,41 +2605,78 @@ static RegisterBuiltin registerUpper(upper, "upper");
 
 BoundFunction levenshtein_distance(const std::vector<BoundSqlExpression> & args)
 {
-    if (args.size() != 2 || args.size() != 3)
+    if (args.size() != 2 || args.size() != 3) {
         throw HttpReturnException(400, "levenshtein_distance function takes 2 or 3 arguments");
+    }
 
-    return {[=] (const std::vector<ExpressionValue> & args,
-                 const SqlRowScope & scope) -> ExpressionValue
-            {
+     return {[=] (const std::vector<ExpressionValue> & args,
+                  const SqlRowScope & scope) -> ExpressionValue
+             {
                 ExcAssertEqual(args.size(), 2);
+                const auto query = args[0].getAtom().toUtf8String().rawString();
+                const auto target = args[1].getAtom().toUtf8String().rawString();
 
+                unsigned char convQuery[query.size()];
+                unsigned char convTarget[target.size()];
 
-                
-                const auto query = args[0].getAtom().toUtf8String();
-                const char * query_raw = query.rawData();
+                mutex myMutex;
+                atomic<int> idx(0);
+                map<char, int> charIdx;
 
-                const auto target = args[1].getAtom().toUtf8String();
-                const char * target = target.rawData();
-                
+                auto fct = [&] (const string & in, unsigned char * out) {
+                    auto strLen = in.size();
+                    for (int i = 0; i < strLen; ++i) {
+                        auto currChar = in[i];
+                        auto it = charIdx.find(currChar);
+                        if (it == charIdx.end()) {
+                            lock_guard<mutex> lock(myMutex);
+                            it = charIdx.find(currChar);
+                            if (it == charIdx.end()) {
+                                auto res = charIdx.emplace(currChar, idx ++);
+                                ExcAssert(std::get<1>(res));
+                                it = std::get<0>(res);
+                            }
+                        }
+                        out[i] = it->second;
+                    }
+                };
 
+                thread queryThread(fct, query, &convQuery[0]);
+                thread targetThread(fct, target, &convTarget[0]);
+                queryThread.join();
+                targetThread.join();
 
-                int rtn =  edlibCalcEditDistance(
-                        query.rawData(), query.rawLength(),
-                        target.rawData(), target.rawLength(),
-                        
-            }
+                // DEBUG OUTPUT------------------
+                cerr << "AFTER JOIN" << endl;
+                cerr << query << endl;
+                for (int i = 0; i < query.size(); ++i) {
+                    cerr << (int)convQuery[i];
+                }
+                cerr << endl << endl << target << endl;
+                for (int i = 0; i < target.size(); ++i) {
+                    cerr << (int)convTarget[i];
+                }
+                cerr << endl;
+                for (const auto & it: charIdx) {
+                    cerr << it.first << " - " << it.second << endl;
+                }
+                // ------------------------------
 
-
-        const unsigned char* query, int queryLength,
-        const unsigned char* target, int targetLength,
-        int alphabetLength, int k, int mode,
-        bool findStartLocations, bool findAlignment,
-        int* bestScore, int** endLocations, int** startLocations, int* numLocations,
-        unsigned char** alignment, int* alignmentLength);
-
-                .rawData()
-
-
+//                 int rtn = edlibCalcEditDistance(
+//                     convQuery, query.size(),
+//                     convTarget, target.size());
+// 
+// 
+//         const unsigned char* query, int queryLength,
+//         const unsigned char* target, int targetLength,
+//         int alphabetLength, int k, int mode,
+//         bool findStartLocations, bool findAlignment,
+//         int* bestScore, int** endLocations, int** startLocations, int* numLocations,
+//         unsigned char** alignment, int* alignmentLength);
+// 
+//                 .rawData()
+// 
+// 
                 ExpressionValue result(args[0].getAtom().toUtf8String().toUpper(),
                                        args[0].getEffectiveTimestamp());
                 return result;
