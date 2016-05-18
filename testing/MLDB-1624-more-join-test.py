@@ -1631,6 +1631,15 @@ class JoinTest(MldbUnitTest):
             ]
         )
 
+        res = mldb.query("""
+        select * from x left join y on (x.x1 = y.y1) left join x as xx
+        on (x.x1 = xx.xx1)
+        """)
+        pprint(res)
+        # number of columns
+        self.assertEqual(len(res[0]), 2 + 2 + 2 + 1)
+
+
     def test_join_with_subqueries(self):
         res = mldb.query("""
             SELECT * FROM
@@ -1937,14 +1946,20 @@ class JoinTest(MldbUnitTest):
         )
 
         res = mldb.query("""
-        select * from (x left join y on (x.x1 = y.y1)) left join x as xx
-        on (x.x1 = xx.xx1 and x.x2 is not null)
+        select * from x left join y left join x as xx
         """)
-        pprint(res)
-        self.assertTableResultEquals(res, 
-            [
-             
-            ]
-        )
+        # number of rows
+        self.assertEqual(len(res), 5 * 4 * 5 + 1)
+        # number of columns
+        self.assertEqual(len(res[0]), 2 + 2 + 2 + 1)
+
+        res = mldb.query("""
+        select * from x left join y on (x.x1 = y.y1) left join x as xx
+        """)
+        # number of rows
+        self.assertEqual(len(res), 5 * 5 + 1)
+        # number of columns
+        self.assertEqual(len(res[0]), 2 + 2 + 2 + 1)
+
 
 mldb.run_tests()
