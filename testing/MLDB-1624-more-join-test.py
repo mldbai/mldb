@@ -1471,7 +1471,7 @@ class JoinTest(MldbUnitTest):
         )
 
 
-    @unittest.expectedFailure
+    @unittest.expectedFailure # MLDB-1672
     def test_left_outer_join(self):
         """
         row 11 on the left table should be outputted
@@ -1509,7 +1509,7 @@ class JoinTest(MldbUnitTest):
             ]
         )
 
-    @unittest.expectedFailure
+    @unittest.expectedFailure # MLDB-1672
     def test_right_outer_join(self):
         """
         row 9 on the right table should be outputted
@@ -1542,7 +1542,7 @@ class JoinTest(MldbUnitTest):
             ]
         )
 
-    @unittest.expectedFailure
+    @unittest.expectedFailure # MLDB-1672
     def test_full_outer_join(self):
         """
         row 11 on the left table should be outputted
@@ -1609,8 +1609,8 @@ class JoinTest(MldbUnitTest):
             ]
         )
 
-    @unittest.expectedFailure
-    def test_multiway_full_join(self):
+    @unittest.expectedFailure # MLDB-1671
+    def test_multiway_join(self):
         """
         the name of the row is incorrect
         - [u'[]-[03]', None, None, None, None, u'dd', 33]
@@ -1836,7 +1836,7 @@ class JoinTest(MldbUnitTest):
             ]
         )
 
-    @unittest.expectedFailure
+    @unittest.expectedFailure # MLDB-1673
     def test_join_with_constant_expression_failing_on_get_variable(self):
         """
         {"details":{"columnName":"s2.n"},"error":"Get variable without table name with no default table in scope","httpCode":500}
@@ -1877,7 +1877,7 @@ class JoinTest(MldbUnitTest):
             ]
         )
 
-    @unittest.expectedFailure
+    @unittest.expectedFailure # MLDB-1674
     def test_join_with_constant_expression_failing_on_parsing(self):
         """
         confusing INNER JOIN with IN oeprator
@@ -1901,7 +1901,7 @@ class JoinTest(MldbUnitTest):
             ]
         )
 
-    @unittest.expectedFailure
+    @unittest.expectedFailure # MLDB-1671
     def test_join_with_constant_expression_failing_on_row_name(self):
         """
         - [u'[]-[03]', None, None, None, None, None, None, u'dd', 3, 33]
