@@ -88,6 +88,7 @@ class JoinTest(MldbUnitTest):
         ds.record_row("02",[["y1", 2, 0], ["y2", 222, 0]])
         ds.record_row("03",[["y1", 3, 0], ["y2", 333, 0]])
         ds.record_row("04",[["y1", 4, 0]])
+        ds.commit()
 
 
     def test_table_as(self):
@@ -1340,6 +1341,35 @@ class JoinTest(MldbUnitTest):
             ]
         )
 
+        res = mldb.query("""
+            SELECT J1_TBL.i, J2_TBL.k, J2_TBL.i FROM J1_TBL JOIN J2_TBL ON 
+            J1_TBL.i BETWEEN J2_TBL.k AND J2_TBL.i ORDER BY rowName()
+        """)
+        self.assertTableResultEquals(res, 
+            [   
+                [u'_rowName', u'J1_TBL.i', u'J2_TBL.i', u'J2_TBL.k'] ,
+                [u'[01]-[01]', 1, 1, -1] ,
+                [u'[01]-[03]', 1, 3, -3] ,
+                [u'[01]-[05]', 1, 5, -5] ,
+                [u'[01]-[06]', 1, 5, -5] ,
+                [u'[02]-[02]', 2, 2,  2] ,
+                [u'[02]-[03]', 2, 3, -3] ,
+                [u'[02]-[05]', 2, 5, -5] ,
+                [u'[02]-[06]', 2, 5, -5] ,
+                [u'[03]-[03]', 3, 3, -3] ,
+                [u'[03]-[05]', 3, 5, -5] ,
+                [u'[03]-[06]', 3, 5, -5] ,
+                [u'[04]-[05]', 4, 5, -5] ,
+                [u'[04]-[06]', 4, 5, -5] ,
+                [u'[05]-[05]', 5, 5, -5] ,
+                [u'[05]-[06]', 5, 5, -5] ,
+                [u'[09]-[01]', 0, 1, -1] ,
+                [u'[09]-[03]', 0, 3, -3] ,
+                [u'[09]-[05]', 0, 5, -5] ,
+                [u'[09]-[06]', 0, 5, -5]
+            ]
+        )
+
     # MLDB-1664
     def test_non_equi_join_with_function(self):
         res = mldb.query("""
@@ -1382,7 +1412,7 @@ class JoinTest(MldbUnitTest):
             ]
         )
 
-    # MLDB-1664
+    # MLDB-1664 and MLDB-1670
     def test_disguised_equi_join(self):
         res = mldb.query("""
             SELECT J1_TBL.t, J2_TBL.k FROM J1_TBL JOIN J2_TBL 
@@ -1889,18 +1919,12 @@ class JoinTest(MldbUnitTest):
             ]
         )
 
-    @unittest.expectedFailure
     def test_join_with_null_condition(self):
-        """
-        Missing right columns in output
-        - [u'_rowName', u'x.x1', u'x.x2']
-        + [u'_rowName', u'x.x1', u'x.x2', u'y.y1', u'y.y2']
-        ?                               ++++++++++++++++++
-        """
+      
         res = mldb.query("""
         select * from x left join y on x.x1 = y.y1 and x.x2 is not null
         """)
-        pprint(res)
+
         self.assertTableResultEquals(res, 
             [
                 [u'_rowName', u'x.x1', u'x.x2', u'y.y1', u'y.y2'] ,
@@ -1909,6 +1933,17 @@ class JoinTest(MldbUnitTest):
                 [u'[01]-[01]', 1, 11, 1, 111] ,
                 [u'[02]-[02]', 2, 22, 2, 222] ,
                 [u'[04]-[04]', 4, 44, 4, None]
+            ]
+        )
+
+        res = mldb.query("""
+        select * from (x left join y on (x.x1 = y.y1)) left join x as xx
+        on (x.x1 = xx.xx1 and x.x2 is not null)
+        """)
+        pprint(res)
+        self.assertTableResultEquals(res, 
+            [
+             
             ]
         )
 
