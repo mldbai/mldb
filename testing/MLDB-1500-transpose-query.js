@@ -103,7 +103,28 @@ expected = [
 mldb.log(res)
 
 assertEqual(mldb.diff(expected, res.json, false /* strict */), {},
-            "output was not the same as expected output");
+            "output was not the same as expected output in batch executor");
+
+// now with the pipeline executor
+res = mldb.put('/v1/functions/bop', {
+    'type': 'sql.query',
+    'params': {
+        'query': 'select rowName(), sum(horizontal_count({*})) as width from transpose(reddit) group by rowName() order by sum(horizontal_count({*})) desc limit 2'
+    }
+})
+
+res = mldb.get('/v1/query', {q: 'select bop()', format: 'table'});
+
+expected = [
+      [ "_rowName", "bop().rowName()", "bop().width" ],
+      [ "result", "AskReddit", 780 ]
+   ]
+
+
+mldb.log(res)
+
+assertEqual(mldb.diff(expected, res.json, false /* strict */), {},
+            "output was not the same as expected output in pipeline executor");
 
 "success"
 
