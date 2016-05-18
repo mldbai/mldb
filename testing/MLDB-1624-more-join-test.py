@@ -1257,9 +1257,6 @@ class JoinTest(MldbUnitTest):
             SELECT '' AS "xxx", * FROM J1_TBL JOIN J2_TBL ON J1_TBL.i <= J2_TBL.k ORDER BY rowName()
         """)
 
-        pprint(res)
-        
-        # output should look like that
         self.assertTableResultEquals(res, 
             [   
                 [u'_rowName', u'J1_TBL.i', u'J1_TBL.j', u'J1_TBL.t', u'J2_TBL.i', u'J2_TBL.k', u'xxx'] ,
@@ -1274,7 +1271,176 @@ class JoinTest(MldbUnitTest):
                 [u'[09]-[09]', 0, None, u'zero', None, 0, u'']
             ]
         )
-        
+
+        res = mldb.query("""
+            SELECT J1_TBL.i, J2_TBL.k FROM J1_TBL JOIN J2_TBL ON J1_TBL.i < J2_TBL.k ORDER BY rowName()
+        """)
+
+        self.assertTableResultEquals(res, 
+            [   
+                [u'_rowName', u'J1_TBL.i', 'J2_TBL.k'] ,
+                [u'[01]-[02]', 1, 2] ,
+                [u'[01]-[04]', 1, 4] ,
+                [u'[02]-[04]', 2, 4] ,
+                [u'[03]-[04]', 3, 4] ,
+                [u'[09]-[02]', 0, 2] ,
+                [u'[09]-[04]', 0, 4]
+            ]
+        )
+
+        res = mldb.query("""
+            SELECT J1_TBL.i, J2_TBL.k FROM J1_TBL JOIN J2_TBL ON J1_TBL.i > J2_TBL.k ORDER BY rowName() LIMIT 13
+        """)
+
+        self.assertTableResultEquals(res, 
+            [   
+                [u'_rowName', u'J1_TBL.i', u'J2_TBL.k'] ,
+                [u'[01]-[01]', 1, -1] ,
+                [u'[01]-[03]', 1, -3] ,
+                [u'[01]-[05]', 1, -5] ,
+                [u'[01]-[06]', 1, -5] ,
+                [u'[01]-[09]', 1, 0] ,
+                [u'[02]-[01]', 2, -1] ,
+                [u'[02]-[03]', 2, -3] ,
+                [u'[02]-[05]', 2, -5] ,
+                [u'[02]-[06]', 2, -5] ,
+                [u'[02]-[09]', 2, 0] ,
+                [u'[03]-[01]', 3, -1] ,
+                [u'[03]-[02]', 3, 2] ,
+                [u'[03]-[03]', 3, -3]
+            ]
+        )
+
+        res = mldb.query("""
+            SELECT J1_TBL.i, J2_TBL.k FROM J1_TBL JOIN J2_TBL ON 
+            J1_TBL.i = (-J2_TBL.k) + 3 ORDER BY rowName()
+        """)
+
+        self.assertTableResultEquals(res, 
+            [   
+                [u'_rowName', u'J1_TBL.i', u'J2_TBL.k'] ,
+                [u'[01]-[02]', 1, 2] ,
+                [u'[03]-[09]', 3, 0] ,
+                [u'[04]-[01]', 4, -1] ,
+                [u'[06]-[03]', 6, -3] ,
+                [u'[08]-[05]', 8, -5] ,
+                [u'[08]-[06]', 8, -5]
+            ]
+        )
+
+        res = mldb.query("""
+            SELECT J1_TBL.i, J2_TBL.k FROM J1_TBL JOIN J2_TBL ON 
+            J1_TBL.i < J2_TBL.k AND J1_TBL.i = (-J2_TBL.k) + 3 ORDER BY rowName()
+        """)
+
+        self.assertTableResultEquals(res, 
+            [   
+                [u'_rowName', u'J1_TBL.i', u'J2_TBL.k'] ,
+                [u'[01]-[02]', 1, 2]
+            ]
+        )
+
+    # MLDB-1664
+    def test_non_equi_join_with_function(self):
+        res = mldb.query("""
+            SELECT  J1_TBL.i, J2_TBL.k FROM J1_TBL JOIN J2_TBL ON J1_TBL.i < abs(J2_TBL.k) ORDER BY rowName()
+        """)
+        self.assertTableResultEquals(res, 
+            [   
+              [u'_rowName', u'J1_TBL.i', u'J2_TBL.k'] ,
+                [u'[01]-[02]', 1, 2] ,
+                [u'[01]-[03]', 1, -3] ,
+                [u'[01]-[04]', 1, 4] ,
+                [u'[01]-[05]', 1, -5] ,
+                [u'[01]-[06]', 1, -5] ,
+                [u'[02]-[03]', 2, -3] ,
+                [u'[02]-[04]', 2, 4] ,
+                [u'[02]-[05]', 2, -5] ,
+                [u'[02]-[06]', 2, -5] ,
+                [u'[03]-[04]', 3, 4] ,
+                [u'[03]-[05]', 3, -5] ,
+                [u'[03]-[06]', 3, -5] ,
+                [u'[04]-[05]', 4, -5] ,
+                [u'[04]-[06]', 4, -5] ,
+                [u'[09]-[01]', 0, -1] ,
+                [u'[09]-[02]', 0, 2] ,
+                [u'[09]-[03]', 0, -3] ,
+                [u'[09]-[04]', 0, 4] ,
+                [u'[09]-[05]', 0, -5] ,
+                [u'[09]-[06]', 0, -5] 
+            ]
+        )
+
+        res = mldb.query("""
+            SELECT  J1_TBL.t, J2_TBL.k FROM J1_TBL JOIN J2_TBL 
+            ON regex_search(J1_TBL.t, 'three') and J2_TBL.k > 3
+        """)
+        self.assertTableResultEquals(res, 
+            [   
+                [u'_rowName', u'J1_TBL.t', u'J2_TBL.k'] ,
+                [u'[03]-[04]', 'three', 4]
+            ]
+        )
+
+    # MLDB-1664
+    def test_disguised_equi_join(self):
+        res = mldb.query("""
+            SELECT J1_TBL.t, J2_TBL.k FROM J1_TBL JOIN J2_TBL 
+            ON J1_TBL.i + J2_TBL.k = 3 ORDER BY rowName()
+        """)
+        pprint(res)
+        self.assertTableResultEquals(res, 
+            [
+                [u'_rowName', u'J1_TBL.t', u'J2_TBL.k'] ,
+                [u'[01]-[02]', u'one', 2] ,
+                [u'[03]-[07]', u'three', None] ,
+                [u'[03]-[08]', u'three', None] ,
+                [u'[03]-[09]', u'three', 0] ,
+                [u'[04]-[01]', u'four', -1] ,
+                [u'[06]-[03]', u'six', -3] ,
+                [u'[08]-[05]', u'eight', -5] ,
+                [u'[08]-[06]', u'eight', -5]
+            ]
+        )
+
+    @unittest.expectedFailure
+    def test_precendence_in_on_condition_MLDBFB_503(self):
+        res = mldb.query("""
+            SELECT J1_TBL.i, J2_TBL.k FROM J1_TBL JOIN J2_TBL ON 
+            J1_TBL.i = (-J2_TBL.k) + 3 ORDER BY rowName()
+        """)
+        self.assertTableResultEquals(res, 
+            [   
+                [u'_rowName', u'J1_TBL.i', u'J2_TBL.k'] ,
+                [u'[01]-[02]', 1,  2] ,
+                [u'[03]-[09]', 3,  0] ,
+                [u'[04]-[01]', 4, -1] ,
+                [u'[06]-[03]', 6, -3] ,
+                [u'[08]-[05]', 8, -5] ,
+                [u'[08]-[06]', 8, -5]
+            ]
+        )
+
+        res = mldb.query("""
+            SELECT J1_TBL.i, J2_TBL.k FROM J1_TBL JOIN J2_TBL ON 
+            J1_TBL.i = -J2_TBL.k + 3 ORDER BY rowName()
+        """)
+
+        pprint(res)
+        # output should look as above
+        self.assertTableResultEquals(res, 
+            [   
+                [u'_rowName', u'J1_TBL.i', u'J2_TBL.k'] ,
+                [u'[01]-[02]', 1,  2] ,
+                [u'[03]-[09]', 3,  0] ,
+                [u'[04]-[01]', 4, -1] ,
+                [u'[06]-[03]', 6, -3] ,
+                [u'[08]-[05]', 8, -5] ,
+                [u'[08]-[06]', 8, -5]
+            ]
+        )
+
+
     @unittest.expectedFailure
     def test_left_outer_join(self):
         """

@@ -403,8 +403,10 @@ AnnotatedJoinCondition(std::shared_ptr<TableExpression> leftTable,
                     std::swap(leftAnnotated, rightAnnotated);
             
                 if (leftAnnotated.role != AnnotatedClause::LEFT
-                    || rightAnnotated.role != AnnotatedClause::RIGHT)
+                    || rightAnnotated.role != AnnotatedClause::RIGHT) {
+                    nonPivotWhere.push_back(c);
                     continue;
+                }
 
                 c.pivot = AnnotatedClause::POSSIBLE_PIVOT;
 
