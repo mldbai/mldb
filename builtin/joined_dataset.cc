@@ -142,7 +142,7 @@ struct JoinedDataset::Itl
         std::shared_ptr<SqlExpression> on,
         JoinQualification qualification)
     {
-        bool debug = true;
+        bool debug = false;
 
         // vector to set
         auto v2s = [] (std::vector<Utf8String> vec)
