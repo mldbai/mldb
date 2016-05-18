@@ -346,8 +346,6 @@ AnnotatedJoinCondition(std::shared_ptr<TableExpression> leftTable,
         checkAndClauses(andClauses.begin());
     }
 
-    size_t numOfCrossConditions = crossConditions.size();
-
     //If we do an outer join its important that the 'where' be applied *after* the join else we will be missing rows
     if (where && joinQualification == JOIN_INNER) {
         auto numOnClauses = andClauses.size();
@@ -382,6 +380,7 @@ AnnotatedJoinCondition(std::shared_ptr<TableExpression> leftTable,
             = SqlExpression::parse("true");
     }
     else {
+        // check for a possibility to optimize with an equijoin
         for (auto & c: crossConditions) {
             // Look for an equality condition in the cross condition
             auto cmpExpr = std::dynamic_pointer_cast<ComparisonExpression>(c.expr);
@@ -404,8 +403,10 @@ AnnotatedJoinCondition(std::shared_ptr<TableExpression> leftTable,
                     std::swap(leftAnnotated, rightAnnotated);
             
                 if (leftAnnotated.role != AnnotatedClause::LEFT
-                    || rightAnnotated.role != AnnotatedClause::RIGHT)
+                    || rightAnnotated.role != AnnotatedClause::RIGHT) {
+                    nonPivotWhere.push_back(c);
                     continue;
+                }
 
                 c.pivot = AnnotatedClause::POSSIBLE_PIVOT;
 
@@ -425,20 +426,10 @@ AnnotatedJoinCondition(std::shared_ptr<TableExpression> leftTable,
         }
 
         if (style != EQUIJOIN) {
-
-            if (numOfCrossConditions == 0) {
-                //this is a cross-join, the 'where' has some cross-conditions but no pivot
-                style = CROSS_JOIN;
-                left.equalExpression
-                    = right.equalExpression
-                    = SqlExpression::parse("true");
-            }
-            else {
-                throw HttpReturnException
-                (400, "Could not find join clause pivot: "
-                 "Join condition must have one clause of form left.var1 = right.var2",
-                 "conditions", *this);
-            }
+            style = CROSS_JOIN;
+            left.equalExpression
+                = right.equalExpression
+                = SqlExpression::parse("true");
         }
     }
 

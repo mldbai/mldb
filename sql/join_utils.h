@@ -142,7 +142,7 @@ struct AnnotatedJoinCondition {
         // WHERE condition on rows on the left side
         std::vector<AnnotatedClause> whereClauses;
         
-        /// Left side of equality part of the join expression, for JOIN_EQUAL
+        /// Left side of equality part of the join expression, for EQUIJOIN
         std::shared_ptr<SqlExpression> equalExpression;
 
         /// Clause for the select expression
