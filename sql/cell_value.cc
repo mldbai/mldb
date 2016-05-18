@@ -17,6 +17,7 @@
 #include "mldb/base/parse_context.h"
 #include "interval.h"
 #include "path.h"
+#include "mldb/ext/s2/s2.h"
 
 using namespace std;
 
