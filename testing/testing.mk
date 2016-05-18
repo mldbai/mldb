@@ -335,7 +335,7 @@ $(eval $(call mldb_unit_test,MLDB-1395-error-message-file-doesnt-exist.js))
 $(eval $(call mldb_unit_test,ranking_test.py))
 $(eval $(call mldb_unit_test,MLDB-1490-grouped-validation.py))
 $(eval $(call mldb_unit_test,MLDB-1491-get-all-not-implemented-for-datasets.js))
-$(eval $(call mldb_unit_test,MLDB-1500-transpose-query.js,,manual)) # awaiting fix
+$(eval $(call mldb_unit_test,MLDB-1500-transpose-query.js))
 $(eval $(call mldb_unit_test,MLDB-1507-groupby.py))
 $(eval $(call mldb_unit_test,MLDB-1552-where-and-rowname-optim.py))
 $(eval $(call mldb_unit_test,MLDB-1486-embedding-types.js))

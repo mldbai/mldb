@@ -1811,49 +1811,20 @@ unimp(std::shared_ptr<SqlExpression> lhs,
     throw HttpReturnException(400, "unimplemented operator " + op);
 }
 
+//Find aggregators for any class implementing getChildren.
+template <class T>
 std::vector<std::shared_ptr<SqlExpression> >
-SqlExpression::
-findAggregators(bool withGroupBy) const
+findAggregatorsT(const T* expression, bool withGroupBy)
 {
     typedef std::vector<std::shared_ptr<SqlExpression> >::iterator IterType;
-
     std::vector<std::shared_ptr<SqlExpression> > output;
-    std::vector<std::shared_ptr<SqlExpression> > children = getChildren();
+    std::vector<std::shared_ptr<SqlExpression> > children = expression->getChildren();
     
-    auto isAggregator = [](std::shared_ptr<SqlExpression> expr) {
-        if (expr->getType() == "function") {
-            const FunctionCallExpression * function
-                = dynamic_cast<const FunctionCallExpression *>(expr.get());
-            if (function) {
-                Utf8String functionName = function->functionName;
-                return !!tryLookupAggregator(functionName);
-            }
-            else {
-                throw HttpReturnException
-                    (500, "Unexpected: could not cast FunctionCallExpression");
-            }
-        }
-        return false;
-    };
-
-    auto isWildcard = [](std::shared_ptr<SqlExpression> expr) {
-        if (expr->getType() == "selectWildcard") {
-            const WildcardExpression * wildcard = dynamic_cast<const WildcardExpression *>(expr.get());
-            if (wildcard) {
-                return true;
-            }
-            else {
-                throw HttpReturnException(500, "Unexpected: could not cast WildcardExpression");
-            }
-        }
-        return false;
-    };
-
      // collect aggregators
     for (auto iter = children.begin(); iter != children.end(); ++iter)
     {
         auto child = *iter;
-        if (isAggregator(child))
+        if (child->isAggregator())
             output.push_back(child);
         else {
             //we dont look for aggregators in aggregator - its not legal - this check above
@@ -1877,12 +1848,13 @@ findAggregators(bool withGroupBy) const
        - "SELECT sum({*}), temporal_earliest({*})" is not valid
        Other invalid SELECT expressions in presence of GROUP BY like referring to a variable
        not in the GROUP BY expression are detected later when binding these expressions.
+       We use the same logic for group by expressions.
     */
     std::function<bool(IterType, IterType)> wildcardNestedInAggregator = [&](IterType begin, IterType end) {
         for (IterType it = begin; it < end; ++it) {
-            if (!isAggregator(*it)) {
+            if (!(*it)->isAggregator()) {
                 auto children = (*it)->getChildren();
-                if (children.size() == 0  && isWildcard(*it)) {
+                if (children.size() == 0  && (*it)->isWildcard()) {
                     return false;
                 }
                 culprit.push_back((*it)->surface);
@@ -1895,7 +1867,7 @@ findAggregators(bool withGroupBy) const
     };
     
     bool wildcardInAggs = wildcardNestedInAggregator(children.begin(), children.end());
-    
+ 
     if (!wildcardInAggs && (output.size() != 0 || withGroupBy)) {
         throw HttpReturnException(400, (withGroupBy ?
                                         "Non-aggregator '" + culprit.front() + 
@@ -1907,6 +1879,12 @@ findAggregators(bool withGroupBy) const
     return std::move(output);
 }
 
+std::vector<std::shared_ptr<SqlExpression> >
+SqlExpression::
+findAggregators(bool withGroupBy) const
+{
+    return findAggregatorsT<SqlExpression>(this, withGroupBy);
+}
 
 struct SqlExpressionDescription
     : public ValueDescriptionT<std::shared_ptr<SqlExpression> > {
@@ -2623,6 +2601,26 @@ getUnbound() const
     UnboundEntities result;
     for (const auto & c: clauses) {
         result.merge(c.first->getUnbound());
+    }
+
+    return result;
+}
+
+std::vector<std::shared_ptr<SqlExpression> >
+OrderByExpression::
+findAggregators(bool withGroupBy) const
+{
+    return findAggregatorsT<OrderByExpression>(this, withGroupBy);
+}
+
+std::vector<std::shared_ptr<SqlExpression> >
+OrderByExpression::
+getChildren() const
+{
+    std::vector<std::shared_ptr<SqlExpression> > result;
+
+    for (auto & c: clauses) {
+        result.push_back(c.first);
     }
 
     return result;

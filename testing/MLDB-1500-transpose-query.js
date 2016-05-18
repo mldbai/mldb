@@ -81,6 +81,29 @@ function createDataset()
 
 createDataset();
 
-mldb.log(mldb.get('/v1/query', { q: 'select * from reddit limit 1' }));
+res = mldb.get('/v1/query', { q: 'select sum(horizontal_count({*})) as width from transpose(reddit) group by rowName() order by sum(horizontal_count({*})) desc limit 2' });
 
-mldb.log(mldb.get('/v1/query', { q: 'select sum(horizontal_count({*})) from transpose(reddit) group by rowName() order by sum(horizontal_count({*})) desc limit 20' }));
+expected = [
+      {
+         "columns" : [
+            [ "width", 780, "2016-03-09T02:33:24Z" ]
+         ],
+         "rowHash" : "1a6e08b48361f340",
+         "rowName" : "\"[\"\"AskReddit\"\"]\""
+      },
+      {
+         "columns" : [
+            [ "width", 757, "2016-03-09T02:33:24Z" ]
+         ],
+         "rowHash" : "2d6c95775e682799",
+         "rowName" : "\"[\"\"funny\"\"]\""
+      }
+   ];
+
+mldb.log(res)
+
+assertEqual(mldb.diff(expected, res.json, false /* strict */), {},
+            "output was not the same as expected output");
+
+"success"
+
