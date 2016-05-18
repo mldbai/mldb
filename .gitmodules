@@ -13,3 +13,6 @@
 [submodule "ext/eigen"]
 	path = ext/eigen
 	url = https://github.com/mldbai/eigen.git
+[submodule "ext/edlib"]
+	path = ext/edlib
+	url = git@github.com:mldbai/edlib.git

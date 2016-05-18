@@ -8,3 +8,5 @@ $(eval $(call include_sub_make,hoedown,hoedown,../hoedown.mk))
 $(eval $(call include_sub_make,re2,re2,../re2.mk))
 $(eval $(call include_sub_make,jpeg,jpeg,../jpeg.mk))
 $(eval $(call include_sub_make,tensorflow,tensorflow,../tensorflow.mk))
+
+$(eval $(call library,edlib,edlib/src/edlib.cpp))

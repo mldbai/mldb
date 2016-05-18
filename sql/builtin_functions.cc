@@ -19,6 +19,7 @@
 #include "mldb/base/parse_context.h"
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/clamp.hpp>
+#include "mldb/ext/edlib/src/edlib.h"
 
 #include <boost/regex/icu.hpp>
 #include <iterator>
@@ -2597,6 +2598,57 @@ BoundFunction upper(const std::vector<BoundSqlExpression> & args)
 }
 
 static RegisterBuiltin registerUpper(upper, "upper");
+
+
+BoundFunction levenshtein_distance(const std::vector<BoundSqlExpression> & args)
+{
+    if (args.size() != 2 || args.size() != 3)
+        throw HttpReturnException(400, "levenshtein_distance function takes 2 or 3 arguments");
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                ExcAssertEqual(args.size(), 2);
+
+
+                
+                const auto query = args[0].getAtom().toUtf8String();
+                const char * query_raw = query.rawData();
+
+                const auto target = args[1].getAtom().toUtf8String();
+                const char * target = target.rawData();
+                
+
+
+                int rtn =  edlibCalcEditDistance(
+                        query.rawData(), query.rawLength(),
+                        target.rawData(), target.rawLength(),
+                        
+            }
+
+
+        const unsigned char* query, int queryLength,
+        const unsigned char* target, int targetLength,
+        int alphabetLength, int k, int mode,
+        bool findStartLocations, bool findAlignment,
+        int* bestScore, int** endLocations, int** startLocations, int* numLocations,
+        unsigned char** alignment, int* alignmentLength);
+
+                .rawData()
+
+
+                ExpressionValue result(args[0].getAtom().toUtf8String().toUpper(),
+                                       args[0].getEffectiveTimestamp());
+                return result;
+            },
+            std::make_shared<Utf8StringValueInfo>()
+    };
+
+}
+
+static RegisterBuiltin registerLevenshteinDistance(levenshtein_distance, "levenshtein_distance");
+
+
 
 BoundFunction flatten(const std::vector<BoundSqlExpression> & args)
 {
