@@ -79,17 +79,6 @@ class RedditTest(MldbUnitTest):
             })
         """)
 
-        self.assertTableResultEquals(
-             mldb.query("""
-                select {reddit_svd_embedding.*} = embedder({row: {HongKong: 1}}) as eq
-                from reddit_svd_embedding where rowPathElement(0) = 'HongKong'
-                """),
-            [
-                ["_rowName",                "eq"],
-                [ "HongKong.numberEquals.1",  1 ]
-            ]
-        )
-
         mldb.put('/v1/procedures/reddit_kmeans', {
             "type" : "kmeans.train",
             "params" : {
