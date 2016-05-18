@@ -1251,13 +1251,10 @@ class JoinTest(MldbUnitTest):
             ]
         )     
 
-    @unittest.expectedFailure
+    # MLDB-1664
     def test_non_equi_join(self):
-        """
-        Could not find join clause pivot: Join condition must have one clause of form left.var1 = right.var2
-        """
         res = mldb.query("""
-            SELECT '' AS "xxx", * FROM J1_TBL JOIN J2_TBL ON J1_TBL.i <= J2_TBL.k
+            SELECT '' AS "xxx", * FROM J1_TBL JOIN J2_TBL ON J1_TBL.i <= J2_TBL.k ORDER BY rowName()
         """)
 
         pprint(res)
@@ -1265,20 +1262,16 @@ class JoinTest(MldbUnitTest):
         # output should look like that
         self.assertTableResultEquals(res, 
             [   
-               """
-               xxx | i | j |   t   | i | k 
-               -----+---+---+-------+---+---
-               | 1 | 4 | one   | 2 | 2
-               | 2 | 3 | two   | 2 | 2
-               | 0 |   | zero  | 2 | 2
-               | 1 | 4 | one   | 2 | 4
-               | 2 | 3 | two   | 2 | 4
-               | 3 | 2 | three | 2 | 4
-               | 4 | 1 | four  | 2 | 4
-               | 0 |   | zero  | 2 | 4
-               | 0 |   | zero  |   | 0
-               (9 rows)
-               """
+                [u'_rowName', u'J1_TBL.i', u'J1_TBL.j', u'J1_TBL.t', u'J2_TBL.i', u'J2_TBL.k', u'xxx'] ,
+                [u'[01]-[02]', 1, 4, u'one', 2, 2, u''] ,
+                [u'[01]-[04]', 1, 4, u'one', 2, 4, u''] ,
+                [u'[02]-[02]', 2, 3, u'two', 2, 2, u''] ,
+                [u'[02]-[04]', 2, 3, u'two', 2, 4, u''] ,
+                [u'[03]-[04]', 3, 2, u'three', 2, 4, u''] ,
+                [u'[04]-[04]', 4, 1, u'four', 2, 4, u''] ,
+                [u'[09]-[02]', 0, None, u'zero', 2, 2, u''] ,
+                [u'[09]-[04]', 0, None, u'zero', 2, 4, u''] ,
+                [u'[09]-[09]', 0, None, u'zero', None, 0, u'']
             ]
         )
         
