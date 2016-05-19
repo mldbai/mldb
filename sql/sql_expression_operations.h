@@ -438,6 +438,8 @@ struct WildcardExpression: public SqlRowExpression {
     wildcards() const;
 
     virtual bool isIdentitySelect(SqlExpressionDatasetScope & context) const;
+
+    virtual bool isWildcard() const {return true; }
 };
 
 /** Represents x AS y, y : x, x AS * or x that appears in a SELECT expression" */
@@ -505,6 +507,8 @@ struct FunctionCallExpression: public SqlRowExpression {
 
     virtual std::map<ScopedName, UnboundFunction>
     functionNames() const override;
+
+    virtual bool isAggregator() const { return !!tryLookupAggregator(functionName); }
 
 private:
 

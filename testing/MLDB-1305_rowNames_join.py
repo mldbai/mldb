@@ -72,7 +72,7 @@ res = mldb.perform("GET", "/v1/query", [["q", """
 assert res["statusCode"] == 200
 assert json.loads(res['response']) == expected
 
-expected = [[ "_rowName", '"dataset1.rowName()"' ],[ '"[""row1""]"', '["row1"]' ],[ '"[""row2""]"', '["row2"]' ]]
+expected = [[ "_rowName", '"dataset1.rowName()"' ],[ '"[""row1""]"', '"[""row1""]"' ],[ '"[""row2""]"', '"[""row2""]"' ]]
 
 res = mldb.perform("GET", "/v1/query", [["q", """
     SELECT dataset1.rowName()

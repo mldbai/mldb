@@ -112,7 +112,6 @@ class Mldb1597Test(MldbUnitTest):
         """)
         self.assertEqual(resp1, resp2)
 
-    @unittest.skip("awaiting MLDB-1500")
     def test_order_by_with_aggregate(self):
         mldb.query("""
         select 
