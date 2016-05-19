@@ -50,10 +50,10 @@ TokenSplit(MldbServer * owner,
     : Function(owner)
 {
     functionConfig = config.params.convert<TokenSplitConfig>();   
-    SqlExpressionMldbContext context(owner);
+    SqlExpressionMldbScope context(owner);
  
     //get all values from the dataset and add them to our dictionary of tokens
-    auto aggregator = [&] (const MatrixNamedRow & row) {
+    auto processor = [&] (const MatrixNamedRow & row) {
             for (auto & c: row.columns) {
                 const CellValue & cellValue = std::get<1>(c);
                 
@@ -64,8 +64,8 @@ TokenSplit(MldbServer * owner,
         };
 
 
-    auto aggregator2 = [&] (NamedRowValue & row) {
-        return aggregator(row.flattenDestructive());
+    auto processor2 = [&] (NamedRowValue & row) {
+        return processor(row.flattenDestructive());
         };
 
     BoundTableExpression boundDataset;
@@ -77,14 +77,14 @@ TokenSplit(MldbServer * owner,
                        *boundDataset.dataset, boundDataset.asName, 
                        functionConfig.tokens.stm->when,
                        *functionConfig.tokens.stm->where,
-                       aggregator2,
+                       {processor2, false/*processInParallel*/},
                        functionConfig.tokens.stm->orderBy,
                        functionConfig.tokens.stm->offset,
                        functionConfig.tokens.stm->limit,
                        onProgress);
     else { // query containing only a select (e.g. select "token1", "token2", "token3")
         std::vector<MatrixNamedRow> rows  = queryWithoutDataset(*functionConfig.tokens.stm, context);
-        std::for_each(rows.begin(), rows.end(), aggregator);
+        std::for_each(rows.begin(), rows.end(), processor);
     }
     
     // sorting is important here - it is used to optimize the tokenization
@@ -98,15 +98,13 @@ getStatus() const
     return Any();
 }
 
-FunctionOutput
+ExpressionValue
 TokenSplit::
 apply(const FunctionApplier & applier,
-      const FunctionContext & context) const
+      const ExpressionValue & context) const
 {
     //The whole thing is a bit contrived because UTF8 strings dont have direct access 
-    FunctionOutput result;
-
-    const ExpressionValue & text = context.get<ExpressionValue>("text");
+    const ExpressionValue & text = context.getColumn(PathElement("text"));
     Utf8String textstring = text.toUtf8String();
 
     auto startIt = textstring.begin();
@@ -238,9 +236,11 @@ apply(const FunctionApplier & applier,
         output += Utf8String(start, textstring.end());
     }
 
-    result.set("output", ExpressionValue(output, text.getEffectiveTimestamp()));
+    StructValue result;
+    result.emplace_back(PathElement("output"),
+                        ExpressionValue(output, text.getEffectiveTimestamp()));
     
-    return result;
+    return std::move(result);
 }
 
 FunctionInfo
@@ -249,8 +249,14 @@ getFunctionInfo() const
 {
     FunctionInfo result;
 
-    result.input.addAtomValue("text");
-    result.output.addAtomValue("output");
+    std::vector<KnownColumn> inputColumns, outputColumns;
+    inputColumns.emplace_back(PathElement("text"), std::make_shared<AtomValueInfo>(),
+                              COLUMN_IS_DENSE, 0);
+    outputColumns.emplace_back(PathElement("output"), std::make_shared<AtomValueInfo>(),
+                               COLUMN_IS_DENSE, 0);
+
+    result.input.reset(new RowValueInfo(inputColumns, SCHEMA_CLOSED));
+    result.output.reset(new RowValueInfo(outputColumns, SCHEMA_CLOSED));
     
     return result;
 }

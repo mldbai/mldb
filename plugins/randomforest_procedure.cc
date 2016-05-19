@@ -53,7 +53,7 @@ RandomForestProcedureConfigDescription()
              "the derived columns as a previous step and run the classifier over that dataset instead.");
     addField("modelFileUrl", &RandomForestProcedureConfig::modelFileUrl,
              "URL where the model file (with extension '.cls') should be saved. "
-             "This file can be loaded by a function of type 'classifier'.");   
+             "This file can be loaded by the ![](%%doclink classifier function). ");
     addField("featureVectorSamplings", &RandomForestProcedureConfig::featureVectorSamplings,
              "Number of samplings of feature vectors. "
              "The total number of bags will be featureVectorSamplings*featureSamplings.", 5);
@@ -65,20 +65,21 @@ RandomForestProcedureConfigDescription()
     addField("featureSamplingProp", &RandomForestProcedureConfig::featureSamplingProp,
              "Proportion of features to select in each sample. ", 0.3f);
     addField("maxDepth", &RandomForestProcedureConfig::maxDepth,
-             "Maximum depth of the trees ", 20);   
+             "Maximum depth of the trees ", 20);
     addField("functionName", &RandomForestProcedureConfig::functionName,
-             "If specified, a classifier function of this name will be created using "
-             "the trained classifier.");
+             "If specified, an instance of the ![](%%doclink classifier function) of this name will be created using "
+             "the trained model. Note that to use this parameter, the `modelFileUrl` must "
+             "also be provided.");
     addField("verbosity", &RandomForestProcedureConfig::verbosity,
              "Should the procedure be verbose for debugging and tuning purposes", false);
-    addParent<ProcedureConfig>();    
+    addParent<ProcedureConfig>();
 
-    onPostValidate = validate<RandomForestProcedureConfig, 
-                              InputQuery,
-                              NoGroupByHaving,
-                              PlainColumnSelect,
-                              MustContainFrom,
-                              FeaturesLabelSelect>(&RandomForestProcedureConfig::trainingData, "randomforest");
+    onPostValidate = chain(validateQuery(&RandomForestProcedureConfig::trainingData,
+                                         NoGroupByHaving(),
+                                         PlainColumnSelect(),
+                                         MustContainFrom(),
+                                         FeaturesLabelSelect()),
+                           validateFunction<RandomForestProcedureConfig>());
 }
 
 /*****************************************************************************/
@@ -108,7 +109,7 @@ struct RandomForestRNG {
     }
 
     boost::mt19937 rng;
-    
+
     template<class T>
     T operator () (T val)
     {
@@ -135,21 +136,23 @@ run(const ProcedureRunConfig & run,
          throw ML::Exception("modelFileUrl is not valid");
     }
 
+    checkWritability(runProcConf.modelFileUrl.toString(), "modelFileUrl");
+
     // 1.  Get the input dataset
-    SqlExpressionMldbContext context(server);
+    SqlExpressionMldbScope context(server);
 
     auto boundDataset = runProcConf.trainingData.stm->from->bind(context);
 
     ML::Mutable_Feature_Info labelInfo = ML::Mutable_Feature_Info(ML::BOOLEAN);
     labelInfo.set_biased(true);
 
-    auto extractWithinExpression = [](std::shared_ptr<SqlExpression> expr) 
+    auto extractWithinExpression = [](std::shared_ptr<SqlExpression> expr)
         -> std::shared_ptr<SqlRowExpression>
         {
             auto withinExpression = std::dynamic_pointer_cast<const SelectWithinExpression>(expr);
             if (withinExpression)
                 return withinExpression->select;
-            
+
             return nullptr;
         };
 
@@ -169,7 +172,7 @@ run(const ProcedureRunConfig & run,
     ML::Timer labelsTimer;
 
     std::vector<CellValue> labels(std::move(colScope.run({boundLabel})[0]));
-    
+
     cerr << "got " << labels.size() << " labels in " << labelsTimer.elapsed()
          << endl;
 
@@ -179,19 +182,19 @@ run(const ProcedureRunConfig & run,
         -> std::set<ColumnName>
         {
             std::set<ColumnName> knownInputColumns;
-            
+
             // Find only those variables used
-            SqlExpressionDatasetContext scope(boundDataset);
+            SqlExpressionDatasetScope scope(boundDataset);
             
             auto selectBound = select.bind(scope);
-            
+
             for (auto & c : selectBound.info->getKnownColumns()) {
                 knownInputColumns.insert(c.columnName);
             }
 
             return knownInputColumns;
         };
-    
+
     std::set<ColumnName> knownInputColumns
         = getColumnsInExpression(select);
 
@@ -202,9 +205,9 @@ run(const ProcedureRunConfig & run,
     timer.restart();
 
     for (auto& c : knownInputColumns) {
-        cerr << c.toString() << " feature " << featureSpace->getFeature(c)
+        cerr << c << " feature " << featureSpace->getFeature(c)
              << " had " << featureSpace->columnInfo[c].buckets.numBuckets
-             << " buckets" 
+             << " buckets"
              << " type is " << featureSpace->columnInfo[c].info << endl;
     }
 
@@ -225,7 +228,7 @@ run(const ProcedureRunConfig & run,
         allData.addRow(labels[i].isTrue(), 1.0 /* weight */, i);
     }
 
-    const float trainprop = 1.0f;    
+    const float trainprop = 1.0f;
     RandomForestRNG myrng;
     int totalResultCount = runProcConf.featureVectorSamplings*runProcConf.featureSamplings;
     vector<shared_ptr<Decision_Tree>> results(totalResultCount);
@@ -249,7 +252,7 @@ run(const ProcedureRunConfig & run,
 
             distribution<float> example_weights(numRows);
 
-            // Generate our example weights. 
+            // Generate our example weights.
             for (unsigned i = 0;  i < numRows;  ++i)
                 example_weights[myrng(numRows)] += 1.0;
 
@@ -288,7 +291,7 @@ run(const ProcedureRunConfig & run,
 
                 results[resultIndex]->tree = std::move(tree);
 
-                if (runProcConf.verbosity) 
+                if (runProcConf.verbosity)
                     cerr << results[resultIndex]->print() << endl;
                 //cerr << dtree.print() << endl;
             };
@@ -302,7 +305,7 @@ run(const ProcedureRunConfig & run,
     parallelMap(0, runProcConf.featureVectorSamplings, doFeatureVectorSampling, maxBagsAtOnce);
 
     shared_ptr<Committee> result = make_shared<Committee>(contFeatureSpace, labelFeature);
-    
+
     for (unsigned i = 0;  i < totalResultCount;  ++i)
         result->add(results[i], 1.0 / totalResultCount);
 
@@ -335,7 +338,6 @@ run(const ProcedureRunConfig & run,
 namespace{
 	static RegisterProcedureType<RandomForestProcedure, RandomForestProcedureConfig>
 	regPrototypeClassifier(builtinPackage(),
-	              "randomforest.binary.train",
 	              "Train a supervised binary random forest",
 	              "procedures/RandomForest.md.html");
 

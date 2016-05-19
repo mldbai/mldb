@@ -35,7 +35,7 @@ struct DatasetFoldConfig {
         : training_where(training_where),
           testing_where(testing_where),
           orderBy(OrderByExpression::parse("rowHash()")),
-          training_offset(0), testing_offset(0),  
+          training_offset(0), testing_offset(0),
           training_limit(-1), testing_limit(-1)
     {
     }
@@ -60,6 +60,9 @@ DECLARE_STRUCTURE_DESCRIPTION(DatasetFoldConfig);
 
 
 struct ExperimentProcedureConfig : public ProcedureConfig {
+
+    static constexpr const char * name = "classifier.experiment";
+
     ExperimentProcedureConfig()
         : keepArtifacts(false),
           kfold(0),

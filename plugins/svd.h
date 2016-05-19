@@ -11,7 +11,7 @@
 
 #include "mldb/core/dataset.h"
 #include "mldb/core/procedure.h"
-#include "mldb/core/function.h"
+#include "mldb/core/value_function.h"
 #include "matrix.h"
 #include "mldb/types/value_description.h"
 #include "mldb/types/optional.h"
@@ -23,10 +23,11 @@ namespace MLDB {
 struct SelectExpression;
 struct SqlExpression;
 
-
 struct SvdConfig : ProcedureConfig {
+    static constexpr char const * name = "svd.train";
+
     SvdConfig()
-        : outputColumn("svd"),
+        : outputColumn("embedding"),
           numSingularValues(100),
           numDenseBasisVectors(1000)
     {
@@ -38,7 +39,7 @@ struct SvdConfig : ProcedureConfig {
     static constexpr char const * defaultOutputDatasetType = "embedding";
 
     Url modelFileUrl;
-    std::string outputColumn;
+    PathElement outputColumn;
     int numSingularValues;
     int numDenseBasisVectors;
     Utf8String functionName;
@@ -103,7 +104,7 @@ struct SvdBasis {
     doLeftSingularVector(const std::vector<Tuple> & row,
                          int maxValues,
                          bool acceptUnknownValues) const;
-    
+
     /** Check the validity of the data structure after loading. */
     void validate();
 };
@@ -146,9 +147,15 @@ struct SvdProcedure: public Procedure {
    - What about x nearest neighbours, etc?
 */
 
+
+/*****************************************************************************/
+/* SVD EMBED ROW                                                             */
+/*****************************************************************************/
+
 struct SvdEmbedConfig {
     SvdEmbedConfig(const Url & modelFileUrl = Url())
-        : modelFileUrl(modelFileUrl), maxSingularValues(-1),
+        : modelFileUrl(modelFileUrl),
+          maxSingularValues(-1),
           acceptUnknownValues(false)
     {
     }
@@ -160,23 +167,24 @@ struct SvdEmbedConfig {
 
 DECLARE_STRUCTURE_DESCRIPTION(SvdEmbedConfig);
 
+struct SvdInput {
+    ExpressionValue row;  // is a row valued object
+};
 
-/*****************************************************************************/
-/* SVD EMBED ROW                                                             */
-/*****************************************************************************/
+DECLARE_STRUCTURE_DESCRIPTION(SvdInput);
 
-struct SvdEmbedRow: public Function {
+struct SvdOutput {
+    ExpressionValue embedding;  // is an embedding object
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(SvdOutput);
+
+struct SvdEmbedRow: public ValueFunctionT<SvdInput, SvdOutput> {
     SvdEmbedRow(MldbServer * owner,
                 PolyConfig config,
                 const std::function<bool (const Json::Value &)> & onProgress);
     
-    virtual Any getStatus() const;
-    
-    virtual FunctionOutput apply(const FunctionApplier & applier,
-                                 const FunctionContext & context) const;
-    
-    /** Describe what the input and output is for this function. */
-    virtual FunctionInfo getFunctionInfo() const;
+    virtual SvdOutput call(SvdInput input) const;
     
     SvdBasis svd;
     SvdEmbedConfig functionConfig;

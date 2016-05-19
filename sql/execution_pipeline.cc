@@ -59,24 +59,26 @@ tableNames() const
 /*****************************************************************************/
 
 PipelineExpressionScope::
-PipelineExpressionScope(std::shared_ptr<SqlBindingScope> context)
-    : context_(context)
+PipelineExpressionScope(std::shared_ptr<SqlBindingScope> outerScope)
+    : outerScope_(outerScope)
 {
+
 }
 
 PipelineExpressionScope::
 ~PipelineExpressionScope()
 {
 }
-    
+
 std::shared_ptr<PipelineExpressionScope>
 PipelineExpressionScope::
 tableScope(std::shared_ptr<LexicalScope> table)
 {
     auto result = std::make_shared<PipelineExpressionScope>(*this);
 
-    TableEntry entry(table, outputInfo_.size());
+    TableEntry entry(table, numOutputFields());
     Utf8String asName = table->as();
+
     result->defaultTables.emplace_back(entry);
     if (!asName.empty())
         result->tables[asName] = entry;
@@ -89,7 +91,7 @@ tableScope(std::shared_ptr<LexicalScope> table)
                                std::make_move_iterator(outputAdded.end()));
 
     //cerr << "table scope for " << ML::type_name(*table) << " goes from "
-    //     << entry.fieldOffset << " to " << result->outputInfo_.size()
+    //     << entry.fieldOffset << " to " << result->numOutputFields()
     //     << endl;
 
     return result;
@@ -106,6 +108,10 @@ parameterScope(GetParamInfo getParamInfo,
     result->outputInfo_.insert(result->outputInfo_.end(),
                                std::make_move_iterator(outputAdded.begin()),
                                std::make_move_iterator(outputAdded.end()));
+
+    //cerr << "parameter scope goes from "
+    //     << numOutputFields() << " to " << result->numOutputFields()
+    //     << endl;
     return result;
 }
 
@@ -118,44 +124,52 @@ selectScope(std::vector<std::shared_ptr<ExpressionValueInfo> > outputAdded) cons
     result->outputInfo_.insert(result->outputInfo_.end(),
                                std::make_move_iterator(outputAdded.begin()),
                                std::make_move_iterator(outputAdded.end()));
+
+    //cerr << "select scope goes from "
+    //     << numOutputFields() << " to " << result->numOutputFields()
+    //     << endl;
+
     return result;
 }
 
-VariableGetter
+ColumnGetter
 PipelineExpressionScope::
-doGetVariable(const Utf8String & tableName, const Utf8String & variableName)
+doGetColumn(const Utf8String & tableName, const ColumnName & columnName)
 {
-    //cerr << "doGetVariable with tableName " << tableName
-    //     << " and variable name " << variableName << endl;
-        
-    if (tableName.empty()) {
-        if (defaultTables.empty()) {
+    //cerr << "doGetColumn with tableName " << tableName
+    //     << " and variable name " << columnName << endl;
 
-            cerr << "tables in scope: ";
-            for (auto & t: tables)
-                cerr << t.first;
-            cerr << endl;
-            throw HttpReturnException(500, "Get variable without table name with no default table in scope",
-                                      "variableName", variableName);
-        }
-        return defaultTables.back().doGetVariable(variableName);
-    }
-    else {
-        // Otherwise, look in the table scope
+    //if table is explicitly provided
+    if (!tableName.empty()) {
+        //look in the table scope
         auto it = tables.find(tableName);
         if (it != tables.end()) {
-            return it->second.doGetVariable(variableName);
+            return it->second.doGetColumn(columnName);
         }
-    }        
+    }
+    else {
+        //if we have a matching table name from the path
+        if (columnName.size() > 1) {
+            auto it = tables.find(columnName[0].toUtf8String());
+            if (it != tables.end()) {
+                return it->second.doGetColumn(columnName.removePrefix());
+            }
+        }
+
+         //check default table as last resort
+        if (tableName.empty() && !defaultTables.empty())
+            return defaultTables.back().doGetColumn(columnName);
+
+    }
 
     // Otherwise, look for it in the enclosing scope
-    return context_->doGetVariable(tableName, variableName);
+    return outerScope_->doGetColumn(tableName, columnName);
 }
 
 GetAllColumnsOutput 
 PipelineExpressionScope::
 doGetAllColumns(const Utf8String & tableName,
-                std::function<Utf8String (const Utf8String &)> keep)
+                std::function<ColumnName (const ColumnName &)> keep)
 {
     if (tableName.empty()) {
         if (defaultTables.empty())
@@ -170,7 +184,7 @@ doGetAllColumns(const Utf8String & tableName,
         }
     }        
 
-    return context_->doGetAllColumns(tableName, keep);
+    return outerScope_->doGetAllColumns(tableName, keep);
 }
 
 BoundFunction
@@ -188,10 +202,9 @@ doGetFunction(const Utf8String & tableName,
         }
 
         for (auto & t: tables) {
-            auto toFind = t.first + ".";
-            if (functionName.startsWith(toFind)) {
+            if (functionName.startsWith(t.first)) {
                 Utf8String suffix = functionName;
-                suffix.removePrefix(toFind);
+                suffix.removePrefix(t.first);
                 return t.second.doGetFunction(suffix, args, argScope);
             }
         }
@@ -204,34 +217,35 @@ doGetFunction(const Utf8String & tableName,
         }
     }        
 
-    return SqlBindingScope::doGetFunction(tableName, functionName, args, argScope);
-}
+    // Look for a derived function
+    auto fnderived
+        = getDatasetDerivedFunction(tableName, functionName, args, argScope,
+                                    *this, "row");
 
-std::shared_ptr<Function>
-PipelineExpressionScope::
-doGetFunctionEntity(const Utf8String & functionName)
-{
-    return context_->doGetFunctionEntity(functionName);
+    if (fnderived)
+        return fnderived;
+
+    return outerScope_->doGetFunction(tableName, functionName, args, argScope);
 }
 
 ColumnFunction
 PipelineExpressionScope::
 doGetColumnFunction(const Utf8String & functionName)
 {
-    return context_->doGetColumnFunction(functionName);
+    return outerScope_->doGetColumnFunction(functionName);
 }
 
-VariableGetter
+ColumnGetter
 PipelineExpressionScope::
 doGetBoundParameter(const Utf8String & paramName)
 {
     //cerr << "doGetBoundParameter for " << paramName << endl;
     if (!getParamInfo_)
-        return VariableGetter();
+        return ColumnGetter();
 
     auto info = getParamInfo_(paramName);
     if (!info)
-        return VariableGetter();
+        return ColumnGetter();
 
     auto exec = [=] (const SqlRowScope & rowScope,
                      ExpressionValue & storage,
@@ -244,41 +258,63 @@ doGetBoundParameter(const Utf8String & paramName)
     return { exec, info };
 }
 
-Utf8String 
+ColumnName
 PipelineExpressionScope::
-doResolveTableName(const Utf8String & fullVariableName, Utf8String &tableName) const
+doResolveTableName(const ColumnName & fullVariableName,
+                   Utf8String &tableName) const
 {
     for (auto & t: tables) {
-        if (fullVariableName.startsWith(t.first + ".")) {
+        if (fullVariableName.startsWith(t.first)) {
             tableName = t.first;
-            Utf8String v = fullVariableName;
-            v.removePrefix(t.first + ".");
-            return v;
+            return fullVariableName.removePrefix();
         }
     }
 
     return fullVariableName;
 }
 
+std::vector<Utf8String>
+PipelineExpressionScope::
+getTableNames() const
+{
+    std::vector<Utf8String> result;
+    for (auto & t: defaultTables) {
+        if (!t.scope)
+            continue;
+        std::set<Utf8String> n = t.scope->tableNames();
+        result.insert(result.end(), n.begin(), n.end());
+    }
+
+    for (auto & t: tables) {
+        result.push_back(t.first);
+    }
+
+    std::sort(result.begin(), result.end());
+    result.erase(std::unique(result.begin(), result.end()),
+                 result.end());
+
+    return result;
+}
+
 MldbServer * 
 PipelineExpressionScope::
 getMldbServer() const
 {
-    return context_->getMldbServer();
+    return outerScope_->getMldbServer();
 }
 
 std::shared_ptr<Dataset>
 PipelineExpressionScope::
 doGetDataset(const Utf8String & datasetName)
 {
-    return context_->doGetDataset(datasetName);
+    return outerScope_->doGetDataset(datasetName);
 }
 
 std::shared_ptr<Dataset>
 PipelineExpressionScope::
 doGetDatasetFromConfig(const Any & datasetConfig)
 {
-     return context_->doGetDatasetFromConfig(datasetConfig);
+     return outerScope_->doGetDatasetFromConfig(datasetConfig);
 }
 
 PipelineExpressionScope::TableEntry::
@@ -288,16 +324,16 @@ TableEntry(std::shared_ptr<LexicalScope> scope,
 {
 }
 
-VariableGetter
+ColumnGetter
 PipelineExpressionScope::TableEntry::
-doGetVariable(const Utf8String & variableName) const
+doGetColumn(const ColumnName & columnName) const
 {
-    return scope->doGetVariable(variableName, fieldOffset);
+    return scope->doGetColumn(columnName, fieldOffset);
 }
     
 GetAllColumnsOutput
 PipelineExpressionScope::TableEntry::
-doGetAllColumns(std::function<Utf8String (const Utf8String &)> keep) const
+doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep) const
 {
     return scope->doGetAllColumns(keep, fieldOffset);
 }
@@ -364,10 +400,29 @@ from(std::shared_ptr<TableExpression> from,
      WhenExpression when,
      SelectExpression select,
      std::shared_ptr<SqlExpression> where,
+     OrderByExpression orderBy,
+     GetParamInfo getParamInfo)
+{
+    //The FromElement needs the GetParamInfo in case it is a sub select (e.g., "select * from (select $param)")
+    //In which case the GetParamInfo is needed to create the sub-pipeline.
+
+    return std::make_shared<FromElement>(shared_from_this(), from, 
+                                         BoundTableExpression(),
+                                         when,
+                                         select, where, orderBy, getParamInfo);
+}
+
+std::shared_ptr<PipelineElement>
+PipelineElement::
+from(std::shared_ptr<TableExpression> from,
+     BoundTableExpression boundFrom,
+     WhenExpression when,
+     SelectExpression select,
+     std::shared_ptr<SqlExpression> where,
      OrderByExpression orderBy)
 {
-    return std::make_shared<FromElement>(shared_from_this(), from, when,
-                                         select, where, orderBy);
+    return std::make_shared<FromElement>(shared_from_this(), from, boundFrom,
+                                         when, select, where, orderBy);
 }
 
 std::shared_ptr<PipelineElement>
@@ -382,7 +437,33 @@ join(std::shared_ptr<TableExpression> left,
 {
     return std::make_shared<JoinElement>(shared_from_this(),
                                          std::move(left),
+                                         BoundTableExpression(),
                                          std::move(right),
+                                         BoundTableExpression(),
+                                         std::move(on),
+                                         joinQualification,
+                                         std::move(select),
+                                         std::move(where),
+                                         std::move(orderBy));
+}
+
+std::shared_ptr<PipelineElement>
+PipelineElement::
+join(std::shared_ptr<TableExpression> left,
+     BoundTableExpression boundLeft,
+     std::shared_ptr<TableExpression> right,
+     BoundTableExpression boundRight,
+     std::shared_ptr<SqlExpression> on,
+     JoinQualification joinQualification,
+     SelectExpression select,
+     std::shared_ptr<SqlExpression> where,
+     OrderByExpression orderBy)
+{
+    return std::make_shared<JoinElement>(shared_from_this(),
+                                         std::move(left),
+                                         std::move(boundLeft),
+                                         std::move(right),
+                                         std::move(boundRight),
                                          std::move(on),
                                          joinQualification,
                                          std::move(select),
@@ -449,6 +530,62 @@ partition(int numElements)
     return std::make_shared<PartitionElement>(shared_from_this(), numElements);
 }
 
+std::shared_ptr<PipelineElement>
+PipelineElement::
+statement(SelectStatement& stm, GetParamInfo getParamInfo)
+{
+    auto root = shared_from_this();
+
+    bool hasGroupBy = !stm.groupBy.empty();
+    std::vector< std::shared_ptr<SqlExpression> > aggregators = stm.select.findAggregators(hasGroupBy);
+
+    if (!hasGroupBy && !aggregators.empty()) {
+        //if we have no group by but aggregators, make a universal group
+        stm.groupBy.clauses.emplace_back(SqlExpression::parse("1"));
+        hasGroupBy = true;
+    }
+
+    if (hasGroupBy) {
+
+        return root
+            ->params(getParamInfo)
+            ->from(stm.from, stm.when,
+                   SelectExpression::STAR, stm.where,
+                   OrderByExpression(), getParamInfo)
+            ->where(stm.where)
+            ->select(stm.groupBy)
+            ->sort(stm.groupBy)
+            ->partition(stm.groupBy.clauses.size())
+            ->where(stm.having)
+            ->select(stm.orderBy)
+            ->sort(stm.orderBy)
+            ->select(stm.rowName)  // second last element is rowname
+            ->select(stm.select);
+    }
+    else {
+        if (stm.from && stm.from->getType() != "null") {
+            return root
+            ->params(getParamInfo)
+            ->from(stm.from, stm.when,
+                   SelectExpression::STAR, stm.where,
+                   OrderByExpression(), getParamInfo)
+            ->where(stm.where)
+            ->select(stm.orderBy)
+            ->sort(stm.orderBy)
+            ->select(stm.rowName)  // second last element is rowname
+            ->select(stm.select);
+        }
+        else {
+            return root
+            ->params(getParamInfo)
+            ->from(stm.from, stm.when,
+                   SelectExpression::STAR, stm.where,
+                   OrderByExpression(), getParamInfo)
+            ->select(stm.rowName)  // second last element is rowname
+            ->select(stm.select); // only select 1 value
+        }
+    }
+}
 
 } // namespace MLDB
 } // namespace Datacratic

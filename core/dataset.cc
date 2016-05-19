@@ -16,9 +16,11 @@
 #include "mldb/sql/sql_expression.h"
 #include "mldb/sql/sql_utils.h"
 #include "mldb/jml/utils/lightweight_hash.h"
+#include "mldb/jml/utils/profile.h"
 #include "mldb/server/dataset_context.h"
 #include "mldb/server/per_thread_accumulator.h"
 #include "mldb/server/bucket.h"
+#include "mldb/server/parallel_merge_sort.h"
 #include "mldb/jml/utils/environment.h"
 #include "mldb/ml/jml/buckets.h"
 #include "mldb/base/parallel.h"
@@ -68,60 +70,8 @@ struct SortByRowHash {
 
 
 /*****************************************************************************/
-/* DATASET                                                                    */
+/* DATASET                                                                   */
 /*****************************************************************************/
-
-DEFINE_STRUCTURE_DESCRIPTION(MatrixRow);
-
-MatrixRowDescription::
-MatrixRowDescription()
-{
-    addField("rowName", &MatrixRow::rowName, "Name of the row");
-    addField("rowHash", &MatrixRow::rowHash, "Hash of the row");
-    addField("columns", &MatrixRow::columns, "Columns active for this row");
-}
-
-DEFINE_STRUCTURE_DESCRIPTION(MatrixNamedRow);
-
-MatrixNamedRowDescription::
-MatrixNamedRowDescription()
-{
-    addField("rowName", &MatrixNamedRow::rowName, "Name of the row");
-    addField("rowHash", &MatrixNamedRow::rowHash, "Hash of the row");
-    addField("columns", &MatrixNamedRow::columns, "Columns active for this row");
-}
-
-DEFINE_STRUCTURE_DESCRIPTION(MatrixEvent);
-
-MatrixEventDescription::
-MatrixEventDescription()
-{
-    addField("rowName", &MatrixEvent::rowName, "Name of the row");
-    addField("rowHash", &MatrixEvent::rowHash, "Hash of the row");
-    addField("timestamp", &MatrixEvent::timestamp, "Timestamp of event");
-    addField("columns", &MatrixEvent::columns, "Columns active for this event");
-}
-
-DEFINE_STRUCTURE_DESCRIPTION(MatrixNamedEvent);
-
-MatrixNamedEventDescription::
-MatrixNamedEventDescription()
-{
-    addField("rowName", &MatrixNamedEvent::rowName, "Name of the row");
-    addField("rowHash", &MatrixNamedEvent::rowHash, "Hash of the row");
-    addField("timestamp", &MatrixNamedEvent::timestamp, "Timestamp of event");
-    addField("columns", &MatrixNamedEvent::columns, "Columns active for this event");
-}
-
-DEFINE_STRUCTURE_DESCRIPTION(MatrixColumn);
-
-MatrixColumnDescription::
-MatrixColumnDescription()
-{
-    addField("columnName", &MatrixColumn::columnName, "Name of the column");
-    addField("columnHash", &MatrixColumn::columnHash, "Hash of the column");
-    addField("rows", &MatrixColumn::rows, "Row values for this column");
-}
 
 struct DatasetPolyConfigDescription    
     :  public Datacratic::StructureDescription<PolyConfigT<Dataset> > {
@@ -342,11 +292,10 @@ ColumnIndex::
 getColumnDense(const ColumnName & column) const
 {
     auto columnValues = getColumn(column);
+    // getRowNames can return row names in an arbitrary order as long as it is deterministic.
     std::vector<RowName> rowNames = getRowNames();
     std::vector<CellValue> result;
     result.reserve(rowNames.size());
-    const auto rowNamesBegin = rowNames.begin();
-    const auto rowNamesEnd = rowNames.end();
 
     std::unordered_map<RowName, std::pair<CellValue, Date> > values;
 
@@ -382,7 +331,7 @@ getColumnBuckets(const ColumnName & column,
 
     for (auto& v : vals) {
         if (values.insert({v,0}).second)
-            valueList.push_back(std::move(v));
+            valueList.push_back(v);
     }
 
     BucketDescriptions descriptions;
@@ -405,7 +354,57 @@ getColumnBuckets(const ColumnName & column,
 
 
 /*****************************************************************************/
-/* DATASET                                                                    */
+/* DATASET RECORDER                                                          */
+/*****************************************************************************/
+
+// This is here to allow future extension without breaking the ABI
+struct DatasetRecorder::Itl {
+};
+
+DatasetRecorder::
+DatasetRecorder(Dataset * dataset)
+    : dataset(dataset)
+{
+}
+
+DatasetRecorder::
+~DatasetRecorder()
+{
+}
+
+void
+DatasetRecorder::
+recordRowExpr(const RowName & rowName,
+              const ExpressionValue & expr)
+{
+    dataset->recordRowExpr(rowName, expr);
+}
+
+void
+DatasetRecorder::
+recordRow(const RowName & rowName,
+          const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals)
+{
+    dataset->recordRow(rowName, vals);
+}
+
+void
+DatasetRecorder::
+recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows)
+{
+    dataset->recordRows(rows);
+}
+
+void
+DatasetRecorder::
+recordRowsExpr(const std::vector<std::pair<RowName, ExpressionValue > > & rows)
+{
+    dataset->recordRowsExpr(rows);
+}
+
+
+/*****************************************************************************/
+/* DATASET                                                                   */
 /*****************************************************************************/
 
 Dataset::
@@ -610,6 +609,21 @@ recordEmbedding(const std::vector<ColumnName> & columnNames,
     recordRows(rowsOut);
 }
 
+Dataset::MultiChunkRecorder
+Dataset::
+getChunkRecorder()
+{
+    MultiChunkRecorder result;
+    result.newChunk = [=] (size_t)
+        {
+            return std::unique_ptr<Recorder>
+                (new DatasetRecorder(this));
+        };
+
+    result.commit = [=] () { this->commit(); };
+    return result;
+}
+
 KnownColumn
 Dataset::
 getKnownColumnInfo(const ColumnName & columnName) const
@@ -645,6 +659,14 @@ getRowInfo() const
                                           SCHEMA_CLOSED);
 }
 
+ExpressionValue
+Dataset::
+getRowExpr(const RowName & row) const
+{
+    MatrixNamedRow flattened = getMatrixView()->getRow(row);
+    return std::move(flattened.columns);
+}
+
 std::vector<MatrixNamedRow>
 Dataset::
 queryStructured(const SelectExpression & select,
@@ -656,8 +678,7 @@ queryStructured(const SelectExpression & select,
                 const SqlExpression & rowName,
                 ssize_t offset,
                 ssize_t limit,
-                Utf8String alias,
-                bool allowMT) const
+                Utf8String alias) const
 {
     std::mutex lock;
     std::vector<MatrixNamedRow> output;
@@ -665,51 +686,50 @@ queryStructured(const SelectExpression & select,
     if (!having.isConstantTrue() && groupBy.clauses.empty())
         throw HttpReturnException(400, "HAVING expression requires a GROUP BY expression");
 
-    std::vector< std::shared_ptr<SqlExpression> > aggregators = select.findAggregators(!groupBy.clauses.empty());
-    std::vector< std::shared_ptr<SqlExpression> > havingaggregators = having.findAggregators(!groupBy.clauses.empty());
+    std::vector< std::shared_ptr<SqlExpression> > aggregators
+        = select.findAggregators(!groupBy.clauses.empty());
+    std::vector< std::shared_ptr<SqlExpression> > havingaggregators
+        = having.findAggregators(!groupBy.clauses.empty());
+    std::vector< std::shared_ptr<SqlExpression> > orderbyaggregators
+        = orderBy.findAggregators(!groupBy.clauses.empty());
 
     // Do it ungrouped if possible
     if (groupBy.clauses.empty() && aggregators.empty()) {
-        auto aggregator = [&] (NamedRowValue & row_,
+        auto processor = [&] (NamedRowValue & row_,
                                const std::vector<ExpressionValue> & calc)
             {
                 MatrixNamedRow row = row_.flattenDestructive();
-                row.rowName = GetValidatedRowName(calc.at(0));
+                row.rowName = getValidatedRowName(calc.at(0));
                 row.rowHash = row.rowName;
-                std::unique_lock<std::mutex> guard(lock);
                 output.emplace_back(std::move(row));
                 return true;
             };
 
-        // MLDB-154: if we have a limit or offset, we probably want a stable ordering
-        // Due to a bug that led to it being always enabled we will always do this
-        OrderByExpression orderBy_ = orderBy;
-        if (limit != -1 || offset != 0 || true) {
-            orderBy_.clauses.emplace_back(SqlExpression::parse("rowHash()"), ASC);
-        }
+        //QueryStructured always want a stable ordering, but it doesnt have to be by rowhash
         
         //cerr << "orderBy_ = " << jsonEncode(orderBy_) << endl;
         iterateDataset(select, *this, alias, when, where,
-                       { rowName.shallowCopy() }, aggregator, orderBy_, offset, limit,
+                       { rowName.shallowCopy() }, {processor, false/*processInParallel*/}, orderBy, offset, limit,
                        nullptr);
     }
     else {
 
         aggregators.insert(aggregators.end(), havingaggregators.begin(), havingaggregators.end());
+        aggregators.insert(aggregators.end(), orderbyaggregators.begin(), orderbyaggregators.end());
 
         // Otherwise do it grouped...
-        auto aggregator = [&] (NamedRowValue & row_)
+        auto processor = [&] (NamedRowValue & row_)
             {
                 MatrixNamedRow row = row_.flattenDestructive();
-                std::unique_lock<std::mutex> guard(lock);
                 output.emplace_back(row);
                 return true;
             };
 
+         //QueryStructured always want a stable ordering, but it doesnt have to be by rowhash
         iterateDatasetGrouped(select, *this, alias, when, where,
                               groupBy, aggregators, having, rowName,
-                              aggregator, orderBy, offset, limit,
-                              nullptr, allowMT);
+                              {processor, false/*processInParallel*/}, orderBy, offset, limit,
+                              nullptr);
     }
 
     return output;
@@ -754,25 +774,28 @@ static GenerateRowsWhereFunction
 generateFilteredColumnExpression(const Dataset & dataset,
                                  const ColumnName & columnName,
                                  const Filter & filter,
-                                 const std::string & explanation)
+                                 const Utf8String & explanation)
 {
-    return { std::bind(&executeFilteredColumnExpression<Filter>,
-                       std::cref(dataset),
-                       std::placeholders::_1,
-                       std::placeholders::_2,
-                       std::placeholders::_3,
-                       columnName,
-                       filter),
-            explanation };
+    return GenerateRowsWhereFunction
+        { std::bind(&executeFilteredColumnExpression<Filter>,
+                    std::cref(dataset),
+                    std::placeholders::_1,
+                    std::placeholders::_2,
+                    std::placeholders::_3,
+                    columnName,
+                    filter),
+                explanation,
+                GenerateRowsWhereFunction::BETTER_THAN_TABLESCAN
+        };
 }
 
 static GenerateRowsWhereFunction
 generateVariableEqualsConstant(const Dataset & dataset,
                                const Utf8String& alias,
-                               const ReadVariableExpression & variable,
+                               const ReadColumnExpression & variable,
                                const ConstantExpression & constant)
 {
-    ColumnName columnName(removeTableName(alias,variable.variableName).rawString());
+    ColumnName columnName(removeTableName(alias,variable.columnName));
     CellValue constantValue(constant.constant.getAtom());
 
     auto filter = [=] (const CellValue & val)
@@ -782,7 +805,7 @@ generateVariableEqualsConstant(const Dataset & dataset,
 
     return generateFilteredColumnExpression
         (dataset, columnName, filter,
-         "generate rows where var '" + variable.variableName.rawString()
+         "generate rows where var '" + variable.columnName.toUtf8String()
          + "' matches value '"
          + constantValue.toString() + "'");
 }
@@ -790,9 +813,9 @@ generateVariableEqualsConstant(const Dataset & dataset,
 static GenerateRowsWhereFunction
 generateVariableIsTrue(const Dataset & dataset,
                        const Utf8String& alias,
-                       const ReadVariableExpression & variable)
+                       const ReadColumnExpression & variable)
 {
-    ColumnName columnName(removeTableName(alias,variable.variableName).rawString());
+    ColumnName columnName(removeTableName(alias,variable.columnName));
     
     auto filter = [&] (const CellValue & val)
         {
@@ -801,15 +824,16 @@ generateVariableIsTrue(const Dataset & dataset,
 
     return generateFilteredColumnExpression
         (dataset, columnName, filter,
-         "generate rows where var '" + variable.variableName.rawString() + "' is true");
+         "generate rows where var '" + variable.columnName.toUtf8String()
+         + "' is true");
 }
 
 static GenerateRowsWhereFunction
 generateVariableIsNotNull(const Dataset & dataset,
                           const Utf8String& alias,
-                          const ReadVariableExpression & variable)
+                          const ReadColumnExpression & variable)
 {
-    ColumnName columnName(removeTableName(alias,variable.variableName).rawString());
+    ColumnName columnName(removeTableName(alias,variable.columnName));
     
     auto filter = [&] (const CellValue & val)
         {
@@ -818,7 +842,8 @@ generateVariableIsNotNull(const Dataset & dataset,
 
     return generateFilteredColumnExpression
         (dataset, columnName, filter,
-         "generate rows where var '" + variable.variableName.rawString() + "' is not null");
+         "generate rows where var '" + variable.columnName.toUtf8String()
+         + "' is not null");
 }
 
 static GenerateRowsWhereFunction
@@ -839,10 +864,38 @@ generateRownameIsConstant(const Dataset & dataset,
             "generate single row matching rowName()"};
 }
 
+static GenerateRowsWhereFunction
+generateRownameIsExpression(const Dataset & dataset,
+                            const SqlExpression & rowNameExpr,
+                            const SqlBindingScope & outerScope)
+{
+    auto datasetPtr = &dataset;
+    // Bring the query parameters into scope
+    SqlExpressionParamScope scope(const_cast<SqlBindingScope &>(outerScope));
+    auto bound = rowNameExpr.bind(scope);
+
+
+    return {[=] (ssize_t numToGenerate, Any token,
+                 const BoundParameters & params)
+            -> std::pair<std::vector<RowName>, Any>
+            {
+                SqlExpressionParamScope::RowScope rowScope(params);
+                Path rowName = bound(rowScope, GET_LATEST).coerceToPath();
+
+                // There should be exactly one row
+                if (datasetPtr->getMatrixView()->knownRow(rowName))
+                    return { { rowName }, token };
+                else return { {}, token };
+            },
+            "generate single row matching rowName() expression"};
+}
+
 /*
     Must return the *exact* set of rows or a stream that will do the same
     because the where expression will not be evaluated outside of this method
     if this method is called.
+
+    Ordering can be arbitrary but need to be deterministic
 */    
 GenerateRowsWhereFunction
 Dataset::
@@ -857,14 +910,14 @@ generateRowsWhere(const SqlBindingScope & scope,
             return dynamic_cast<const ConstantExpression *>(&expression);
         };
 
-    auto getVariable = [] (const SqlExpression & expression) -> const ReadVariableExpression *
+    auto getVariable = [] (const SqlExpression & expression) -> const ReadColumnExpression *
         {
-            return dynamic_cast<const ReadVariableExpression *>(&expression);
+            return dynamic_cast<const ReadColumnExpression *>(&expression);
         };
 
-    auto getFunction = [] (const SqlExpression & expression) -> const FunctionCallWrapper *
+    auto getFunction = [] (const SqlExpression & expression) -> const FunctionCallExpression *
         {
-            return dynamic_cast<const FunctionCallWrapper *>(&expression);
+            return dynamic_cast<const FunctionCallExpression *>(&expression);
         };
 
     auto getIsType = [] (const SqlExpression & expression) -> const IsTypeExpression *
@@ -882,18 +935,144 @@ generateRowsWhere(const SqlBindingScope & scope,
             return dynamic_cast<const ArithmeticExpression *>(&expression);
         };
 
+    auto getBoundParameter = [] (const SqlExpression & expression) -> const BoundParameterExpression *
+        {
+            return dynamic_cast<const BoundParameterExpression *>(&expression);
+        };
+
+    //look for rowName() != constant-or-bound 
+    //or constant-or-bound != rowName()
+    auto isRowNameFilter = [&](const SqlExpression & expression)
+    {
+        auto comparison = dynamic_cast<const ComparisonExpression *>(&expression);
+
+        if (comparison) {
+
+            auto clhs = getConstant(*comparison->lhs);
+            auto crhs = getConstant(*comparison->rhs);
+            auto flhs = getFunction(*comparison->lhs);
+            auto frhs = getFunction(*comparison->rhs);
+            auto blhs = getBoundParameter(*comparison->lhs);
+            auto brhs = getBoundParameter(*comparison->rhs);
+
+            if (frhs && (clhs || blhs) && comparison->op == "!=") {
+                if (frhs->functionName == "rowName" ) {
+                    return true;
+                }
+            }
+            else if (flhs && (crhs || brhs) && comparison->op == "!=") {
+                if (flhs->functionName == "rowName" ) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    };
+
+    // extract x from rowName() != constant or constant != rowName()
+    auto getRowNameFilter = [&](const SqlExpression & expression) {
+        auto comparison = dynamic_cast<const ComparisonExpression *>(&expression);
+        ExcAssert(comparison);
+        auto clhs = getConstant(*comparison->lhs);
+        auto crhs = getConstant(*comparison->rhs);
+
+        if (clhs) {
+            return RowName(clhs->constant.toString());
+        }
+        else if (crhs) {
+            return RowName(crhs->constant.toString());
+        }
+        else {
+
+            ExcAssert(false);
+
+            return RowName();
+        }
+    };
+
+    // extract bound-parameter from rowName() != bound-parameter or bound-parameter != rowName()
+    auto getBoundParameterFilter = [&] (const SqlExpression & expression)
+    -> const BoundParameterExpression *
+    {
+        auto comparison = dynamic_cast<const ComparisonExpression *>(&expression);
+        ExcAssert(comparison);
+        auto blhs = getBoundParameter(*comparison->lhs);
+        auto brhs = getBoundParameter(*comparison->rhs);
+
+        return blhs ? : brhs;
+    };
+
     auto boolean = getBoolean(where);
 
     if (boolean) {
         // Optimize a boolean operator
-
         if (boolean->op == "AND") {
+
+            bool isLeft = false;
+
+            //we could also generalize to other cases like 'AND rowname() NOT in (...)'
+            if ((isLeft = isRowNameFilter(*boolean->lhs)) || isRowNameFilter(*boolean->rhs)) {
+
+                auto scanExpression = isLeft? boolean->rhs : boolean->lhs;
+                auto filterExpression = isLeft? boolean->lhs : boolean->rhs;
+
+                GenerateRowsWhereFunction gen = generateRowsWhere(scope, alias, *scanExpression, 0, -1);
+
+                SqlExpressionDatasetScope dsScope(*this, alias);
+
+                auto getFilteredRowName = [=] (const BoundParameters & params) {
+                    return getRowNameFilter(*filterExpression);
+                };
+
+                if (gen.complexity < GenerateRowsWhereFunction::TABLESCAN) {
+
+                    auto getFilteredRowName = [=] (const BoundParameters & params) {
+                        return getRowNameFilter(*filterExpression);
+                    };
+
+                    std::function<RowName(const BoundParameters & params)> filterCallback = getFilteredRowName;
+
+                    auto boundParameterExpression = isLeft ? getBoundParameterFilter(*boolean->lhs) : getBoundParameter(*boolean->rhs);
+                    if (boundParameterExpression) {
+
+                        auto paramName = boundParameterExpression->paramName;
+                        auto getFilteredRowNameFromBoundParameter = [=] (const BoundParameters & params) {
+                            ExpressionValue value = std::move(params(paramName));
+                            return RowName(value.getAtom().toString());
+                        };
+
+                        filterCallback = getFilteredRowNameFromBoundParameter;
+
+                    }
+
+                    return {[=] (ssize_t numToGenerate, Any token,
+                                 const BoundParameters & params)
+                            -> std::pair<std::vector<RowName>, Any>
+                            {
+                                RowName except = filterCallback(params);
+
+                                auto rows = gen(-1, Any(), params).first;
+                                auto iter = std::find(rows.begin(), rows.end(), except);
+                                if (iter != rows.end()) {
+                                    *iter = rows.back();
+                                    rows.pop_back();
+                                }
+
+                                return { std::move(rows), Any() };
+                            },
+                            "",
+                            GenerateRowsWhereFunction::BETTER_THAN_TABLESCAN};
+                }
+            }
+
             GenerateRowsWhereFunction lhsGen = generateRowsWhere(scope, alias, *boolean->lhs, 0, -1);
             GenerateRowsWhereFunction rhsGen = generateRowsWhere(scope, alias, *boolean->rhs, 0, -1);
             cerr << "AND between " << lhsGen.explain << " and " << rhsGen.explain
                  << endl;
 
-            if (lhsGen.explain != "scan table" && rhsGen.explain != "scan table") {
+            if (lhsGen.complexity < GenerateRowsWhereFunction::UNFILTERED_TABLESCAN 
+                && rhsGen.complexity < GenerateRowsWhereFunction::UNFILTERED_TABLESCAN) {
 
                 return {[=] (ssize_t numToGenerate, Any token,
                              const BoundParameters & params)
@@ -913,8 +1092,10 @@ generateRowsWhere(const SqlBindingScope & scope,
 
                             return { std::move(intersection), Any() };
                         },
-                        "set intersection for AND " + boolean->print().rawString() };
+                        "set intersection for AND " + boolean->print().rawString(),
+                        GenerateRowsWhereFunction::BETTER_THAN_TABLESCAN };
             }
+
         }
         else if (boolean->op == "OR") {
             GenerateRowsWhereFunction lhsGen = generateRowsWhere(scope, alias, *boolean->lhs, 0, -1);
@@ -941,7 +1122,8 @@ generateRowsWhere(const SqlBindingScope & scope,
 
                             return { std::move(u), Any() };
                         },
-                        "set union for OR " + boolean->print().rawString() };
+                        "set union for OR " + boolean->print().rawString(),
+                        GenerateRowsWhereFunction::BETTER_THAN_TABLESCAN };
             }
         }
         else if (boolean->op == "NOT") {
@@ -959,10 +1141,10 @@ generateRowsWhere(const SqlBindingScope & scope,
     // Optimize for rowName() IN (constant, constant, constant)
     // Optimize for rowName() IN ROWS / IN KEYS (...)
     auto inExpression = dynamic_cast<const InExpression *>(&where);
-    if (inExpression) 
+    if (inExpression && !inExpression->isnegative) 
     {
         auto fexpr = getFunction(*(inExpression->expr));
-        if (fexpr && removeTableName(alias, fexpr->functionName) == "rowName" ) {
+        if (fexpr && fexpr->functionName == "rowName") {
             if (inExpression->tuple && inExpression->tuple->isConstant()) {
                 return {[=] (ssize_t numToGenerate, Any token,
                              const BoundParameters & params)
@@ -985,7 +1167,8 @@ generateRowsWhere(const SqlBindingScope & scope,
                             }
                             return { std::move(filtered), Any() };
                         },
-                        "rowName in tuple " + inExpression->tuple->print().rawString() };
+                        "rowName in tuple " + inExpression->tuple->print().rawString(),
+                        GenerateRowsWhereFunction::BETTER_THAN_TABLESCAN };
             }
             else if (inExpression->setExpr) {
                 // in keys or in values expression
@@ -996,7 +1179,8 @@ generateRowsWhere(const SqlBindingScope & scope,
                     && unbound.wildcards.empty()) {
                     //cerr << "*** rowName() IN (constant set expr)" << endl;
 
-                    SqlExpressionParamScope paramScope;
+                    SqlExpressionParamScope paramScope
+                        (const_cast<SqlBindingScope &>(scope));
 
                     auto boundSet = inExpression->setExpr->bind(paramScope);
                     auto matrixView = this->getMatrixView();
@@ -1020,7 +1204,6 @@ generateRowsWhere(const SqlBindingScope & scope,
                                     // Lambda for KEYS, which looks for a
                                     // matching row from the key
                                     auto onKey = [&] (const ColumnName & key,
-                                                      const ColumnName & prefix,
                                                       const ExpressionValue & val)
                                         {
                                             if (matrixView->knownRow(key)) {
@@ -1032,10 +1215,11 @@ generateRowsWhere(const SqlBindingScope & scope,
                                     // Lambda for VALUES, which looks for a
                                     // matching row from the value
                                     auto onValue = [&] (const ColumnName & key,
-                                                        const ColumnName & prefix,
                                                         const ExpressionValue & val)
                                         {
-                                            //casting other types to string will give a different result than non-optimized path.
+                                            //casting other types to string will give
+                                            // a different result than non-optimized
+                                            // path.
                                             if (!val.isString())
                                                 return true;
 
@@ -1048,12 +1232,13 @@ generateRowsWhere(const SqlBindingScope & scope,
                                     
                                     
                                     if (keys)
-                                        evaluatedSet.forEachSubexpression(onKey);
-                                    else evaluatedSet.forEachSubexpression(onValue);
+                                        evaluatedSet.forEachColumn(onKey);
+                                    else evaluatedSet.forEachColumn(onValue);
                                     
                                     return { std::move(filtered), Any() };
                                 },
-                                "rowName in keys of (expr) " + inExpression->print().rawString()
+                                "rowName in keys of (expr) " + inExpression->print().rawString(),
+                                GenerateRowsWhereFunction::BETTER_THAN_TABLESCAN
                                     };
                     }
                 }
@@ -1080,15 +1265,34 @@ generateRowsWhere(const SqlBindingScope & scope,
         // Optimization for rowName() == constant.  In this case, we can generate a
         // single row.
         if (flhs && crhs && comparison->op == "=") {
-            if (removeTableName(alias, flhs->functionName) == "rowName") {
+            if (flhs->functionName == "rowName") {
                 return generateRownameIsConstant(*this, *crhs);
             }
         }
         // Optimization for constant == rowName().  In this case, we can generate a
         // single row.
         if (frhs && clhs && comparison->op == "=") {
-            if (removeTableName(alias, frhs->functionName) == "rowName" ) {
+            if (frhs->functionName == "rowName") {
                 return generateRownameIsConstant(*this, *clhs);
+            }
+        }
+
+        // Optimization for rowName() == expression (with dependency only on
+        // parameters).  In this case, we can generate a single row (this is
+        // a weaker version of the previous).
+        if (flhs && comparison->op == "=" && flhs->functionName == "rowName") {
+            auto unbound = comparison->rhs->getUnbound();
+            if (unbound.vars.empty() && unbound.tables.empty()
+                && unbound.wildcards.empty()) {
+                return generateRownameIsExpression(*this, *comparison->rhs, scope);
+            }
+        }
+
+        if (frhs && comparison->op == "=" && frhs->functionName == "rowName") {
+            auto unbound = comparison->lhs->getUnbound();
+            if (unbound.vars.empty() && unbound.tables.empty()
+                && unbound.wildcards.empty()) {
+                return generateRownameIsExpression(*this, *comparison->lhs, scope);
             }
         }
 
@@ -1100,8 +1304,10 @@ generateRowsWhere(const SqlBindingScope & scope,
             auto crhs2 = getConstant(*alhs->rhs);
             
 
-            if (flhs2 && removeTableName(alias, flhs2->functionName) == "rowHash" && crhs2 && crhs2->constant.isInteger()) {
-
+            if (flhs2 && crhs2
+                && flhs2->functionName == "rowHash"
+                && crhs2->constant.isInteger()) {
+                
                 std::function<bool (uint64_t, uint64_t)> op;
 
                 if (comparison->op == "=" || comparison->op == "==") {
@@ -1117,8 +1323,9 @@ generateRowsWhere(const SqlBindingScope & scope,
                     op = std::greater<uint64_t>();
                 else if (comparison->op == ">=")
                     op = std::greater_equal<uint64_t>();
-                else throw HttpReturnException(400, "unknown operator for comparison",
-                                               "op", comparison->op);
+                else throw HttpReturnException
+                         (400, "unknown operator for comparison",
+                          "op", comparison->op);
                 
                 uint64_t m = crhs2->constant.getAtom().toUInt();
                 uint64_t c = crhs->constant.getAtom().toUInt();
@@ -1129,6 +1336,7 @@ generateRowsWhere(const SqlBindingScope & scope,
                         {
                             std::vector<RowName> filtered;
 
+                            // getRowNames can return row names in an arbitrary order as long as it is deterministic.
                             for (const RowName & n: this->getMatrixView()
                                      ->getRowNames()) {
                                 uint64_t hash = RowHash(n).hash();
@@ -1144,7 +1352,8 @@ generateRowsWhere(const SqlBindingScope & scope,
 
                             return { std::move(filtered), Any() };
                         },
-                        "rowName modulus expression " + comparison->print().rawString() };
+                        "rowName modulus expression " + comparison->print().rawString(),
+                        GenerateRowsWhereFunction::BETTER_THAN_TABLESCAN };
             }
         }
 
@@ -1177,8 +1386,9 @@ generateRowsWhere(const SqlBindingScope & scope,
     // Where constant
     if (where.isConstant()) {
         if (where.constantValue().isTrue()) {
-            GenerateRowsWhereFunction wheregen= {[=] (ssize_t numToGenerate, Any token,
-                         const BoundParameters & params)
+            GenerateRowsWhereFunction wheregen
+                = {[=] (ssize_t numToGenerate, Any token,
+                        const BoundParameters & params)
                     {
                         ssize_t start = 0;
                         ssize_t limit = numToGenerate;
@@ -1188,6 +1398,7 @@ generateRowsWhere(const SqlBindingScope & scope,
                         if (!token.empty())
                             start = token.convert<size_t>();
 
+                        //Row names can be returned in an arbitrary order as long as it is deterministic.
                         auto rows = this->getMatrixView()
                             ->getRowNames(start, limit);
 
@@ -1196,9 +1407,11 @@ generateRowsWhere(const SqlBindingScope & scope,
                         if (rows.size() == limit)
                             newToken = start;
                 
-                        return std::move(make_pair(std::move(rows), std::move(newToken)));
+                        return make_pair(std::move(rows),
+                                         std::move(newToken));
                     },
-                    "Scan table keeping all rows"};
+                    "Scan table keeping all rows",
+                    GenerateRowsWhereFunction::UNFILTERED_TABLESCAN};
 
             wheregen.upperBound = this->getMatrixView()->getRowCount();
             wheregen.rowStream = this->getRowStream();
@@ -1208,18 +1421,21 @@ generateRowsWhere(const SqlBindingScope & scope,
         }
         else {
             return { [=] (ssize_t numToGenerate, Any token,
-                          const BoundParameters & params) -> std::pair<std::vector<RowName>, Any>
+                          const BoundParameters & params)
+                    -> std::pair<std::vector<RowName>, Any>
                     {
                         return { {}, Any() };
                     },
-                    "Return nothing as constant where expression doesn't evaluate true"};
+
+                    "Return nothing as constant where expression doesn't evaluate true",
+                    GenerateRowsWhereFunction::CONSTANT};
         }
     }
 
     // Couldn't optimize.  Fall through to scanning, evaluating the where
     // expression at each point
 
-    SqlExpressionDatasetContext dsScope(*this, alias);
+    SqlExpressionDatasetScope dsScope(*this, alias);
     auto whereBound = where.bind(dsScope);
 
     // Detect if where needs columns or not, by looking at what is unbound
@@ -1248,6 +1464,7 @@ generateRowsWhere(const SqlBindingScope & scope,
 
                 auto matrix = this->getMatrixView();
 
+                //Row names can be returned in an arbitrary order as long as it is deterministic.
                 auto rows = matrix->getRowNames(start, limit);
 
                 std::vector<RowName> rowsToKeep;
@@ -1265,7 +1482,7 @@ generateRowsWhere(const SqlBindingScope & scope,
                             row.rowHash = row.rowName = r;
                         }
 
-                        auto rowScope = dsScope.getRowContext(row, &params);
+                        auto rowScope = dsScope.getRowScope(row, &params);
                         
                         bool keep = whereBound(rowScope, GET_LATEST).isTrue();
                         
@@ -1273,9 +1490,11 @@ generateRowsWhere(const SqlBindingScope & scope,
                             accum.get().push_back(r);
                     };
 
+                bool needSort = false;
                 if (rows.size() >= 1000) {
                     // Scan the whole lot with the when in parallel
                     parallelMap(0, rows.size(), onRow);
+                    needSort = true;
                 } else {
                     // Serial, since probably it's not worth the overhead
                     // to run them in parallel.
@@ -1293,7 +1512,9 @@ generateRowsWhere(const SqlBindingScope & scope,
                 
                 accum.forEach(onThreadOutput);
 
-                std::sort(rowsToKeep.begin(), rowsToKeep.end(), SortByRowHash());
+                //Need sorting because the parallelisation breaks determinism
+                if (needSort) 
+                    parallelQuickSortRecursive<RowName, SortByRowHash>(rowsToKeep.begin(), rowsToKeep.end());
 
                 start += rows.size();
                 Any newToken;
@@ -1306,6 +1527,13 @@ generateRowsWhere(const SqlBindingScope & scope,
             "scan table filtering by where expression"};
 }
 
+/**
+
+As queryBasic always sort by the orderby, the result will NOT be deterministic if the orderby
+is not a valid sorting criteria (e.g., "1")
+
+*/
+
 BasicRowGenerator
 Dataset::
 queryBasic(const SqlBindingScope & scope,
@@ -1314,8 +1542,7 @@ queryBasic(const SqlBindingScope & scope,
            const SqlExpression & where,
            const OrderByExpression & orderBy,
            ssize_t offset,
-           ssize_t limit,
-           bool allowParallel) const
+           ssize_t limit) const
 {
     // 1.  Get the rows that match the where clause
     auto rowGenerator = generateRowsWhere(scope, "" /*alias*/ , where, 0 /* offset */, -1 /* limit */);
@@ -1332,13 +1559,13 @@ queryBasic(const SqlBindingScope & scope,
         newOrderBy.clauses.push_back(x);
     }
 
-    SqlExpressionDatasetContext selectScope(*this, "");
+    SqlExpressionDatasetScope selectScope(*this, "");
     SqlExpressionWhenScope whenScope(selectScope);
     auto boundWhen = when.bind(whenScope);
 
     auto boundSelect = select.bind(selectScope);
     
-    SqlExpressionOrderByContext orderByScope(selectScope);
+    SqlExpressionOrderByScope orderByScope(selectScope);
     
     auto boundOrderBy = newOrderBy.bindAll(orderByScope);
 
@@ -1384,7 +1611,7 @@ queryBasic(const SqlBindingScope & scope,
                         outputRow.rowName = row.rowName;
                         outputRow.rowHash = row.rowName;
 
-                        auto rowScope = selectScope.getRowContext(row, &params);
+                        auto rowScope = selectScope.getRowScope(row, &params);
 
                         // Filter the tuple using the WHEN expression
                         if (!whenTrue)
@@ -1394,25 +1621,16 @@ queryBasic(const SqlBindingScope & scope,
                         std::vector<ExpressionValue> sortFields;
 
                         if (selectStar) {
-
-                            outputRow.columns.reserve(row.columns.size());
-                            for (auto & c: row.columns) {
-                                outputRow.columns.emplace_back
-                                    (std::get<0>(c),
-                                     ExpressionValue(std::move(std::get<1>(c)),
-                                                     std::move(std::get<2>(c))));
-                            }
+                            ExpressionValue selectOutput(std::move(row.columns));
+                            selectOutput.mergeToRowDestructive(outputRow.columns);
 
                             // We can move things out of the row scope,
                             // since they will be found in the output
                             // row anyway
                             auto orderByRowScope
-                                = orderByScope.getRowContext(rowScope,
-                                                             outputRow);
-
+                                = orderByScope.getRowScope(rowScope, outputRow);
                             
                             sortFields = boundOrderBy.apply(orderByRowScope);
-
                         }
                         else {
                             ExpressionValue selectOutput
@@ -1423,7 +1641,7 @@ queryBasic(const SqlBindingScope & scope,
                             // Get the order by scope, which can read from both the result
                             // of the select and the underlying row.
                             auto orderByRowScope
-                                = orderByScope.getRowContext(rowScope, outputRow);
+                                = orderByScope.getRowScope(rowScope, outputRow);
 
                             sortFields
                                 = boundOrderBy.apply(orderByRowScope);
@@ -1442,12 +1660,7 @@ queryBasic(const SqlBindingScope & scope,
                         return true;
                     };
                 
-                if (allowParallel)
-                    parallelMap(0, rows.size(), doRow);
-                else {
-                    for (unsigned i = 0;  i < rows.size();  ++i)
-                        doRow(i);
-                }
+                parallelMap(0, rows.size(), doRow);
 
                 size_t totalRows = 0;
                 vector<size_t> startAt;
@@ -1473,12 +1686,7 @@ queryBasic(const SqlBindingScope & scope,
                         }
                     };
         
-                if (allowParallel)
-                    parallelMap(0, accum.numThreads(), copyRow);
-                else {
-                    for (unsigned i = 0;  i < accum.numThreads();  ++i)
-                        copyRow(i);
-                }
+                parallelMap(0, accum.numThreads(), copyRow);
 
                 ExcAssertEqual(rowsDone, totalRows);
 
@@ -1489,9 +1697,7 @@ queryBasic(const SqlBindingScope & scope,
                         return boundOrderBy.less(std::get<0>(row1), std::get<0>(row2));
                     };
 
-                std::sort(rowsSorted.begin(), rowsSorted.end(), compareRows);
-
-                //std::erase(rowsSorted.begin(), rowsSorted.begin() + offset);
+                parallelQuickSortRecursive<SortedRow>(rowsSorted.begin(), rowsSorted.end(), compareRows);
 
                 ssize_t realLimit = -1;
                 if (realLimit == -1)

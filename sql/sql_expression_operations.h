@@ -109,10 +109,17 @@ struct BooleanOperatorExpression: public SqlExpression {
     std::string op;
 };
 
-struct ReadVariableExpression: public SqlExpression {
-    ReadVariableExpression(Utf8String tableName, Utf8String variableName);
+/** Read a column from a dataset.  This corresponds
+    to an expression `x` where `x` is a column name in a dataset.
+    This expression is further wrapped into SqlRowExpressions
+    to form the SELECT clauses.  For example, the expression
+    `x AS y` is parsed as a NamedColumnExpression with surface
+    `x AS y` containing a ReadColumnExpression with surface `x`.
+*/
+struct ReadColumnExpression: public SqlExpression {
+    ReadColumnExpression(ColumnName columnName);
 
-    virtual ~ReadVariableExpression();
+    virtual ~ReadColumnExpression();
 
     virtual BoundSqlExpression bind(SqlBindingScope & context) const;
 
@@ -129,8 +136,7 @@ struct ReadVariableExpression: public SqlExpression {
     virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
     virtual bool isConstant() const { return false; }
 
-    Utf8String tableName;
-    Utf8String variableName;
+    ColumnName columnName;
 };
 
 struct ConstantExpression: public SqlExpression {
@@ -199,7 +205,7 @@ struct SelectWithinExpression: public SqlExpression {
 };
 
 struct EmbeddingLiteralExpression: public SqlExpression {
-    EmbeddingLiteralExpression(std::vector<std::shared_ptr<SqlExpression> >& clauses);
+    EmbeddingLiteralExpression(std::vector<std::shared_ptr<SqlExpression> > clauses);
 
     virtual ~EmbeddingLiteralExpression();
 
@@ -398,15 +404,13 @@ struct BoundParameterExpression: public SqlExpression {
     SELECT abc* AS def* and SELECT * EXCLUDING (bad*)
 */
 struct WildcardExpression: public SqlRowExpression {
-    WildcardExpression(Utf8String tableName,
-                       Utf8String prefix,
-                       Utf8String asPrefix,
-                       std::vector<std::pair<Utf8String, bool> > excluding);
+    WildcardExpression(ColumnName prefix,
+                       ColumnName asPrefix,
+                       std::vector<std::pair<ColumnName, bool> > excluding);
 
-    Utf8String tableName;  ///< empty if none
-    Utf8String prefix;  
-    Utf8String asPrefix;
-    std::vector<std::pair<Utf8String, bool> > excluding;
+    ColumnName prefix;
+    ColumnName asPrefix;
+    std::vector<std::pair<ColumnName, bool> > excluding;
 
     virtual BoundSqlExpression
     bind(SqlBindingScope & context) const;
@@ -423,7 +427,7 @@ struct WildcardExpression: public SqlRowExpression {
 
     virtual Utf8String getOperation() const
     {
-        return prefix;
+        return prefix.toUtf8String();
     }
 
     virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
@@ -433,15 +437,22 @@ struct WildcardExpression: public SqlRowExpression {
     std::map<ScopedName, UnboundWildcard>
     wildcards() const;
 
-    virtual bool isIdentitySelect(SqlExpressionDatasetContext & context) const;
+    virtual bool isIdentitySelect(SqlExpressionDatasetScope & context) const;
+
+    virtual bool isWildcard() const {return true; }
 };
 
-/** Represents "SELECT expression" */
-struct ComputedVariable: public SqlRowExpression {
-    ComputedVariable(Utf8String alias,
-                     std::shared_ptr<SqlExpression>);
+/** Represents x AS y, y : x, x AS * or x that appears in a SELECT expression" */
+struct NamedColumnExpression: public SqlRowExpression {
+    NamedColumnExpression(ColumnName alias,
+                   std::shared_ptr<SqlExpression>);
 
-    Utf8String alias;  ///< Name of variable alias
+    /** This value must be understood as follows:
+        - the alias is set to the value of y in expression x AS y
+        - it is empty in the case of x AS *
+        - it contains the surface of x otherwise
+    */
+    ColumnName alias;  ///< Name of variable alias
     std::shared_ptr<SqlExpression> expression;
 
     virtual BoundSqlExpression
@@ -459,7 +470,7 @@ struct ComputedVariable: public SqlRowExpression {
 
     virtual Utf8String getOperation() const
     {
-        return alias;
+        return alias.toUtf8String();
     }
 
     virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
@@ -468,39 +479,72 @@ struct ComputedVariable: public SqlRowExpression {
 /** Wrapper when we dont know at parsing time if it is a user function
     or a built-in function.
 */
-struct FunctionCallWrapper: public SqlRowExpression {
-    FunctionCallWrapper(Utf8String tableName,
-                        Utf8String function,
-                        std::vector<std::shared_ptr<SqlExpression> > args,
-                        std::shared_ptr<SqlExpression> extract);
-
-    virtual ~FunctionCallWrapper();
-
+struct FunctionCallExpression: public SqlRowExpression {
+    FunctionCallExpression(Utf8String tableName,
+                           Utf8String functionName,
+                           std::vector<std::shared_ptr<SqlExpression> > args);
+    
+    virtual ~FunctionCallExpression();
+    
     Utf8String tableName;
     Utf8String functionName;
     std::vector<std::shared_ptr<SqlExpression> > args;
-    std::shared_ptr<SqlExpression> extract;
 
-    virtual BoundSqlExpression bind(SqlBindingScope & context) const;
+    virtual BoundSqlExpression bind(SqlBindingScope & context) const override;
 
-    virtual Utf8String print() const;
+    virtual Utf8String print() const override;
 
     virtual std::shared_ptr<SqlExpression>
-    transform(const TransformArgs & transformArgs) const;
+    transform(const TransformArgs & transformArgs) const override;
 
-    virtual std::string getType() const;
-    virtual Utf8String getOperation() const;
-    virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
-    virtual bool isConstant() const { return false; } // TODO: not always
+    virtual std::string getType() const override;
+    virtual Utf8String getOperation() const override;
+    virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const override;
+    virtual bool isConstant() const override { return false; } // TODO: not always
 
-    std::map<ScopedName, UnboundFunction> functionNames() const;
+    virtual std::map<ScopedName, UnboundVariable>
+    variableNames() const override;
+
+    virtual std::map<ScopedName, UnboundFunction>
+    functionNames() const override;
+
+    virtual bool isAggregator() const { return !!tryLookupAggregator(functionName); }
 
 private:
 
-    BoundSqlExpression bindBuiltinFunction(SqlBindingScope & context,
-                                           std::vector<BoundSqlExpression> & boundArgs,
-                                           BoundFunction& fn) const;
-    BoundSqlExpression bindUserFunction(SqlBindingScope & context) const;
+    BoundSqlExpression
+    bindBuiltinFunction(SqlBindingScope & context,
+                        std::vector<BoundSqlExpression> & boundArgs,
+                        BoundFunction& fn) const;
+};
+
+/** Represents extracting or rewriting an object. */
+struct ExtractExpression: public SqlRowExpression {
+    ExtractExpression(std::shared_ptr<SqlExpression> from,
+                      std::shared_ptr<SqlExpression> extract);
+    
+    virtual ~ExtractExpression();
+    
+    std::shared_ptr<SqlExpression> from;
+    std::shared_ptr<SqlExpression> extract;
+
+    virtual BoundSqlExpression bind(SqlBindingScope & context) const override;
+
+    virtual Utf8String print() const override;
+
+    virtual std::shared_ptr<SqlExpression>
+    transform(const TransformArgs & transformArgs) const override;
+
+    virtual std::string getType() const override;
+    virtual Utf8String getOperation() const override;
+    virtual std::vector<std::shared_ptr<SqlExpression> > getChildren() const override;
+    virtual bool isConstant() const override { return false; } // TODO: not always
+
+    virtual std::map<ScopedName, UnboundVariable>
+    variableNames() const override;
+
+    virtual std::map<ScopedName, UnboundFunction>
+    functionNames() const override;
 };
 
 /** Represents "SELECT COLUMNS expression" */

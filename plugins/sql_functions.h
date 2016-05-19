@@ -14,15 +14,12 @@
 #include "mldb/core/dataset.h"
 #include "mldb/sql/sql_expression.h"
 
-// TODO: hide these from the .h file
-#include "mldb/server/dataset_context.h"
-#include "mldb/server/function_contexts.h"
-
-
 namespace Datacratic {
 namespace MLDB {
 
 struct SqlExpression;
+struct SqlExpressionMldbScope;
+struct SqlExpressionExtractScope;
 
 
 /*****************************************************************************/
@@ -58,15 +55,15 @@ struct SqlQueryFunction: public Function {
     SqlQueryFunction(MldbServer * owner,
                   PolyConfig config,
                   const std::function<bool (const Json::Value &)> & onProgress);
-    
+
     virtual Any getStatus() const;
-    
+
     virtual std::unique_ptr<FunctionApplier>
     bind(SqlBindingScope & outerContext,
-         const FunctionValues & input) const;
+         const std::shared_ptr<RowValueInfo> & input) const;
 
-    virtual FunctionOutput apply(const FunctionApplier & applier,
-                              const FunctionContext & context) const;
+    virtual ExpressionValue apply(const FunctionApplier & applier,
+                              const ExpressionValue & context) const;
 
     virtual FunctionInfo getFunctionInfo() const;
 
@@ -95,24 +92,25 @@ DECLARE_STRUCTURE_DESCRIPTION(SqlExpressionFunctionConfig);
 
 struct SqlExpressionFunction: public Function {
     SqlExpressionFunction(MldbServer * owner,
-                    PolyConfig config,
-                    const std::function<bool (const Json::Value &)> & onProgress);
-    
+                          PolyConfig config,
+                          const std::function<bool (const Json::Value &)> & onProgress);
+    ~SqlExpressionFunction();
+
     virtual Any getStatus() const;
-    
+
     virtual std::unique_ptr<FunctionApplier>
     bind(SqlBindingScope & outerContext,
-         const FunctionValues & inputInfo) const;
+         const std::shared_ptr<RowValueInfo> & inputInfo) const;
 
-    virtual FunctionOutput apply(const FunctionApplier & applier,
-                              const FunctionContext & context) const;
+    virtual ExpressionValue apply(const FunctionApplier & applier,
+                              const ExpressionValue & context) const;
 
     virtual FunctionInfo getFunctionInfo() const;
 
     SqlExpressionFunctionConfig functionConfig;
 
-    SqlExpressionMldbContext outerScope;
-    FunctionExpressionContext innerScope;
+    std::unique_ptr<SqlExpressionMldbScope> outerScope;
+    std::unique_ptr<SqlExpressionExtractScope> innerScope;
     FunctionInfo info;
     BoundSqlExpression bound;
 };
@@ -127,6 +125,7 @@ struct SqlExpressionFunction: public Function {
 */
 
 struct TransformDatasetConfig : ProcedureConfig {
+    static constexpr const char * name = "transform";
 
     TransformDatasetConfig();
 
@@ -161,4 +160,3 @@ struct TransformDataset: public Procedure {
 
 } // namespace MLDB
 } // namespace Datacratic
-

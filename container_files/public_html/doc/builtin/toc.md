@@ -1,7 +1,7 @@
 
 <script>
 $("body").css({margin: "20px"});
-$.getJSON("{{HTTP_BASE_URL}}/resources/version.json?t="+Date.now(), function(v){ $("#version").text("version "+v.version) });
+$.getJSON("{{HTTP_BASE_URL}}/version.json?t="+Date.now(), function(v){ $("#version").text("version "+v.version) });
 </script>
 <style>
 p, li {

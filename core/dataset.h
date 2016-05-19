@@ -13,6 +13,7 @@
 #include "mldb/core/mldb_entity.h"
 #include "mldb/sql/cell_value.h"
 #include "mldb/types/url.h"
+#include "mldb/core/recorder.h"
 #include <set>
 
 // NOTE TO MLDB DEVELOPERS: This is an API header file.  No includes
@@ -60,6 +61,18 @@ typedef EntityType<Dataset> DatasetType;
 struct MatrixView {
     virtual ~MatrixView();
 
+    /**
+    Return a list of all rownames.
+    Rownames are always unique.
+
+    The sorting criteria is the same as with RowStream:
+
+    Row names can be returned in an arbitrary order as long as it is deterministic.
+    I.e. Calling getRowNames several times on the same (unchanged) dataset should return rownames
+    in the same (arbitrary) order.
+
+    The ordering needs to be preserved regardless of start and limit.
+    */
     virtual std::vector<RowName>
     getRowNames(ssize_t start = 0, ssize_t limit = -1) const = 0;
 
@@ -210,6 +223,10 @@ struct ColumnIndex {
 
 /** This structure is used for streaming queries to generate a set of
     matching row names one at a time.
+
+    Row names can be streamed in an arbitrary order as long as it is deterministic.
+    I.e. using different rowstreams on the same (unchanged) dataset should return rownames
+    in the same (arbitrary) order.
 */
 
 struct RowStream {
@@ -232,6 +249,39 @@ struct RowStream {
     virtual RowName next() = 0;
 
 };
+
+
+/*****************************************************************************/
+/* DATASET RECORDER                                                          */
+/*****************************************************************************/
+
+/** This is a recorder that forwards directly its records to a dataset. */
+
+struct DatasetRecorder: public Recorder {
+    
+    DatasetRecorder(Dataset * dataset);
+
+    virtual ~DatasetRecorder();
+
+    virtual void
+    recordRowExpr(const RowName & rowName,
+                  const ExpressionValue & expr) override;
+    virtual void
+    recordRow(const RowName & rowName,
+              const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals) override;
+
+    virtual void
+    recordRows(const std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > & rows) override;
+
+    virtual void
+    recordRowsExpr(const std::vector<std::pair<RowName, ExpressionValue > > & rows) override;
+
+private:
+    Dataset * dataset;
+    struct Itl;
+    std::unique_ptr<Itl> itl;
+};
+
 
 
 /*****************************************************************************/
@@ -321,6 +371,25 @@ struct Dataset: public MldbEntity {
     */
     virtual void recordRowsExpr(const std::vector<std::pair<RowName, ExpressionValue> > & rows);
 
+    struct MultiChunkRecorder {
+        std::function<std::unique_ptr<Recorder> (size_t chunkIndex)> newChunk;
+        std::function<void ()> commit;
+    };
+
+    /** Set up for a multithreaded record.  This returns an object that can
+        generate a recorder for each chunk of an input.  Those chunks can
+        be recorded into in a multithreaded manner, and finally all committed
+        to the dataset at once.
+
+        This allows for deterministic, multithreaded recording from bulk
+        insert scenarios.
+
+        The default will return an object that simply forwards to the
+        record* methods.  Dataset types that support chunked recording can
+        override.
+    */
+    virtual MultiChunkRecorder getChunkRecorder();
+
     /** Return what is known about the given column.  Default returns
         an "any value" result, ie nothing is known about the column.
     */
@@ -348,6 +417,12 @@ struct Dataset: public MldbEntity {
     */
     virtual std::shared_ptr<RowValueInfo> getRowInfo() const;
 
+    /** Return a row as an expression value.  Default forwards to the matrix
+        view's getRow() function.
+    */
+    virtual ExpressionValue getRowExpr(const RowName & row) const;
+
+
     /** Commit changes to the database.  Default is a no-op.
 
         This function must be thread safe with respect to concurrent calls to
@@ -368,8 +443,7 @@ struct Dataset: public MldbEntity {
                     const SqlExpression & rowName,
                     ssize_t offset,
                     ssize_t limit,
-                    Utf8String alias = "",
-                    bool allowMT = true) const;
+                    Utf8String alias = "") const;
 
     /** Select from the database. */
     virtual std::vector<MatrixNamedRow>
@@ -420,6 +494,9 @@ struct Dataset: public MldbEntity {
         Must return the *exact* set of rows or a stream that will do the same
         because the where expression will not be evaluated outside of this method
         if this method is called.
+
+        Ordering can be arbitrary but needs to be deterministic, and there must not
+        be duplicated rows.
     */    
 
     virtual GenerateRowsWhereFunction
@@ -448,8 +525,7 @@ struct Dataset: public MldbEntity {
                const SqlExpression & where,
                const OrderByExpression & orderBy,
                ssize_t offset,
-               ssize_t limit,
-               bool allowParallel) const;
+               ssize_t limit) const;
 
     /** Method to overwrite to handle a request.  By default, the dataset
         will return that it can't handle any requests.  Used to expose
@@ -500,7 +576,8 @@ struct Dataset: public MldbEntity {
 
     /* In the case of a dataset with rows composed from other datasets (i.e., joins)
        This will return the name that the row has in the table with this alias*/
-    virtual RowName getOriginalRowName(const Utf8String& tableName, const RowName & name) const;
+    virtual RowName getOriginalRowName(const Utf8String& tableName,
+                                       const RowName & name) const;
 };
 
 

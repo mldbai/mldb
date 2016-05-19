@@ -13,8 +13,7 @@ LIBMLDB_SOURCES:= \
 	procedure_collection.cc \
 	procedure_run_collection.cc \
 	function_collection.cc \
-	function_contexts.cc \
-	sql_expression_function_operations.cc \
+	credential_collection.cc \
 	type_collection.cc \
 	analytics.cc \
 	plugin_resource.cc \
@@ -25,12 +24,11 @@ LIBMLDB_SOURCES:= \
 	bound_queries.cc \
 	script_output.cc \
 	forwarded_dataset.cc \
-	serial_function.cc \
-    column_scope.cc \
-    bucket.cc
+	column_scope.cc \
+	bucket.cc \
 
 LIBMLDB_LINK:= \
-	service_peer mldb_builtin_plugins sql_expression git2 hoedown credentials_daemon mldb_builtin command_expression cloud mldb_core
+	service_peer mldb_builtin_plugins sql_expression git2 hoedown mldb_builtin command_expression cloud mldb_core
 
 
 $(eval $(call library,mldb,$(LIBMLDB_SOURCES),$(LIBMLDB_LINK)))

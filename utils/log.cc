@@ -16,13 +16,13 @@ namespace {
             return spdlog::level::debug;
         else if (level == "info")
             return spdlog::level::info;
-        else if (level == "warning")
+        else if (level == "warn")
             return spdlog::level::warn;
         else if (level == "error")
             return spdlog::level::err;
-        else 
-            throw ML::Exception("Unknown level '" + level 
-                                + "' expected one of \"debug\", \"info\", \"warning\" or \"error\"");
+        else
+            throw ML::Exception("Unknown level '" + level
+                                + "' expected one of \"debug\", \"info\", \"warn\" or \"error\"");
     }
 }
 
@@ -39,7 +39,7 @@ std::shared_ptr<spdlog::logger> getConfiguredLogger(const std::string & name, co
 }
 
 std::shared_ptr<spdlog::logger> getQueryLog() {
-    static std::shared_ptr<spdlog::logger> queryLog = 
+    static std::shared_ptr<spdlog::logger> queryLog =
         getConfiguredLogger("query-log", std::string("Q [") + timestampFormat + "] %l %v");
     return queryLog;
 }
@@ -58,7 +58,7 @@ std::shared_ptr<spdlog::logger> getMldbLog(const std::string & loggerName) {
 
 
 std::shared_ptr<spdlog::logger> getServerLog() {
-    static std::shared_ptr<spdlog::logger> serverLog = 
+    static std::shared_ptr<spdlog::logger> serverLog =
         getConfiguredLogger("server-log", std::string("A [") + timestampFormat + "] %v");
     return serverLog;
 }

@@ -65,7 +65,7 @@ always are left associative, that is the expression
      `+` , `-`      |  unary arithmetic  |          3 
      `+` , `-`      |  binary arithmetic |          3 
      `&` , <code>&#124;</code> , `^`      |  binary bitwise    |          3 
-     `=` , `!=`, `>` , `<` , `>=` , `<=` , `<>` , `!>` , `!<`       |  binary comparison |          4 
+     `=` , `!=`, `>` , `<` , `>=` , `<=`       |  binary comparison |          4 
      `NOT`    |  unary boolean     |          5 
      `AND` , `OR`     |  binary boolean    |          7 
 
@@ -310,8 +310,18 @@ Note that this syntax is not part of SQL, it is an MLDB extension.
 
 ### Dataset-provided functions
 
+These functions are always available when processing rows from a dataset, and
+will change values on each row under consideration.
+
 - `rowHash()`: returns the internal hash value of the current row, useful for random sampling and providing a stable [order](OrderByExpression.md) in query results
 - `rowName()`: returns the name the current row 
+- `rowPath()` is the structured path to the row under consideration.
+- `rowPathElement(n)` is the nth element of the `rowPath()` of the row
+  under consideration.  If n is less than zero, it will be a distance from the
+  end (for example, -1 is the last element).  For a rowName of `x.y.2`, then
+  `rowPathElement(0)` will be `x`, `rowPathElement(1)` will be `y` and
+  `rowPathElement(2)` is equivalent to `rowPathElement(-1)` which will
+  be `2`. 
 - `columnCount()`: returns the number of columns with explicit values set in the current row 
 
 ### Encoding and decoding functions
@@ -327,6 +337,10 @@ Note that this syntax is not part of SQL, it is an MLDB extension.
   base-64 data provided in its argument.
 - `extract_column(row)` extracts the given column from the row, keeping
   only its latest value by timestamp.
+- `print_json(expr)` returns string with the value of expr converted to JSON.  If
+  there is ambiguity in the expression (for example, the same key with multiple
+  values), then one of the values of the key will be chosen to represent the value
+  of the key.
 - <a name="parse_json"></a>`parse_json(string, {arrays: string})` returns a row with the JSON decoding of the
   string in the argument. If the `arrays` option is set to `'parse'` (this is the default) then nested arrays and objects will be parsed recursively; no flattening is performed. If the `arrays` option is set to `'encode'`, then arrays containing only scalar values will be one-hot encoded and arrays containing only objects will contain the string representation of the objects. 
 
@@ -365,6 +379,10 @@ With `{arrays: 'encode'}` the output will be:
 - `mod(x, y)`: returns x modulo y.  The value of x and y must be an integer.
 - `abs(x)`: returns the absolute value of x.
 - `sqrt(x)`: returns the square root of x.  The value of x must be greater or equal to 0.
+- `isnan(x)`: return true if x is 'NaN' in the floating point representation.
+- `isinf(x)`: return true if x is infinity in the floating point representation.
+- `isfinite(x)`: return true if x is neither infinite nor not-a-number.
+
 - `quantize(x, y)`: returns x rounded to the precision of y.  Here are some examples:
 
 expression|result
@@ -383,10 +401,13 @@ expression|result
 `quantize(-217, 100)`   | -200
 
 
-- `replace_nan(x, y)`: replace all NaNs in x by y.
-- `replace_inf(x, y)`: replace all Inf in x by y.
+- `replace_nan(x, y)`: replace all `NaN`s and `-NaN`s in `x` by `y`.  Works on scalars or rows.
+- `replace_inf(x, y)`: replace all `Inf`s and `-Inf`s in `x` by `y`.  Works on scalars or rows.
+- `replace_not_finite(x, y)`: replace all `Inf`s, `-Inf`s and `NaN`s in `x` by `y`.  Works on scalars or rows.
+- `replace_null(x, y)`: replace all `null`s in `x` by `y`.  Works on scalars or rows.
 - `binomial_lb_80(trials, successes)` returns the 80% lower bound using the Wilson score.
 - `binomial_ub_80(trials, successes)` returns the 80% upper bound using the Wilson score.
+- `clamp(x,lower,upper)` will clamp the value 'x' between the lower and upper bounds.
 
 More details on the [Binomial proportion confidence interval Wikipedia page](https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval).
 
@@ -398,11 +419,19 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
   system locale.
 - `regex_replace(string, regex, replacement)` will return the given string with
   matches of the `regex` replaced by the `replacement`.  Perl-style regular
-  expressions are supported.
+  expressions are supported.  It is normally preferable that the `regex` be a
+  constant string; performance will be very poor if not as the regular expression
+  will need to be recompiled on every application.
 - `regex_match(string, regex)` will return true if the *entire* string matches
   the regex, and false otherwise.  If `string` is null, then null will be returned.
+  It is normally preferable that the `regex` be a
+  constant string; performance will be very poor if not as the regular expression
+  will need to be recompiled on every application.
 - `regex_search(string, regex)` will return true if *any portion of * `string` matches
   the regex, and false otherwise.  If `string` is null, then null will be returned.
+  It is normally preferable that the `regex` be a
+  constant string; performance will be very poor if not as the regular expression
+  will need to be recompiled on every application.
 
 ### Timestamp functions
 
@@ -439,6 +468,27 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
   - For example, `date_trunc('month', '1969-07-24')` will return `'1969-07-01'`
   - `day`, `dow`, `doy`, `isodow`, `isodoy` will all truncate to the day
 
+
+### Path manipulation functions
+
+MLDB represents structured data as a collection of distinct atoms, with each
+one having a path to where in the structure the atom lived.  The paths are
+used as row and column names.  The following functions are available to
+manipulate them:
+
+- `print_path(path)` will return a string representation of a path, with the
+  elements separated by periods and any elements with periods or quotes
+  quoted (and internal quotes doubled).  This is what is used by the `rowName()`
+  function to convert from the structured `rowPath()` representation.  For
+  example, a path with elements 'x' and 'hello.world' when passed through would
+  return the string `x."hello.world"`.  This is the inverse of `parse_path`
+  (below).
+- `parse_path(string)` will turn the string argument into a structured path
+  which may be used for example as the result of a `NAMED` clause.  This is the
+  inverse of `print_path` (above).
+- `path_element(path, n)` will return element `n` of the given path.
+
+
 ### Vector space functions
 
 - `norm(vec, p)` will return the L-`p` norm of `vec`. The L-0 norm is the count of non-zero
@@ -458,6 +508,17 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
   into a one-dimensional embedding containing all of the elements.  The
   elements will be taken from end end dimensions first, ie
   `flatten([ [ 1, 2], [3, 4] ])` will be `[1, 2, 3, 4]`.
+
+### Geographical functions
+
+The following functions operate on latitudes and longtitudes and can be used to
+calculate
+
+- `geo_distance(lat1, lon1, lat2, lon2)` calculates the great circle distance from
+  the point at `(lat1, lon1)` to the point at (lat2, lon2)` in meters assuming that
+  the Earth is a perfect sphere with a radius of 6371008.8 meters.  It will be
+  accurate to within 0.3% anywhere on earth, apart from near the North or South
+  Poles.
 
 ### <a name="importfunctions"></a>Data import functions
 
@@ -486,6 +547,7 @@ The following standard SQL aggregation functions are supported. They may only be
 - `max` calculates the maximum of all values in the group.
 - `count` calculates the number of non-null values in the group.
     - `count(*)` is a special function which will count the number of rows in the group with non-null values in any column
+- 'count_distinct' calculates the number of unique, distinct non-null values in the group.
 
 The following useful non-standard aggregation functions is also supported:
 
@@ -494,6 +556,11 @@ The following useful non-standard aggregation functions is also supported:
   column name and value given.  This can be used with a group by clause to
   transform a dense dataset of (actor,action,value) records into a sparse
   dataset with one sparse row per actor, for example to create one-hot feature vectors or term-document or cooccurrence matrices.
+- `string_agg(expr, separator)` will coerce the value of `expr` and that of
+  `separator` to a string, and produce a single string with the concatenation
+  of `expr` separated by `separators` at internal boundaries.  For example,
+  if `expr` is `"one"`, `"two"` and `"three"` in the group, and separator is
+  `', '` the output will be `"one, two, three"`.
 
 ### Aggregates of rows
 
@@ -526,6 +593,7 @@ The standard SQL aggregation functions operate 'vertically' down columns. MLDB d
 - Horizontal aggregation functions
   - `horizontal_count(<row>)` returns the number of non-null values in the row.
   - `horizontal_sum(<row>)` returns the sum of the non-null values in the row.
+  - `horizontal_string_agg(<row>, <separator>)` returns the string aggregator of the value of row, coerced to strings, separated by separator.
   - `horizontal_avg(<row>)` returns the average of the non-null values in the row.
   - `horizontal_min(<row>)` returns the minimum of the non-null values in the row.
   - `horizontal_max(<row>)` returns the maximum of the non-null value in the row.
@@ -539,7 +607,6 @@ The standard SQL aggregation functions operate 'vertically' down columns. MLDB d
   - `temporal_max(<row>)` returns the maximum of the non-null value per cell.
   - `temporal_latest(<row>)` returns the non-null value with the latest timestamp per cell.
   - `temporal_earliest(<row>)` returns the non-null value with the earliest timestamp per cell.
-
 
 ## Evaluating a JS function from SQL (Experimental)
 
@@ -579,7 +646,7 @@ function fib(x) {
     return fib(x - 1) + fib(x - 2);
 }
 return fib(i);
-', 'i', i
+', 'i', i)
 ```
 
 or to parse a comma separated list of 'key=value' attributes into a row, one could write

@@ -30,7 +30,7 @@ class TemporalTest(MldbUnitTest):
                             ['x', 0, TemporalTest.sometime], ['y', 0, TemporalTest.sometime],
                             ['x', i+1, TemporalTest.after], ['y', -i-1, TemporalTest.after]])
         ds.commit()
-
+    
     def test_min_returns_last_event(self):
         # expressions are evaluated at latest time
         resp = mldb.query('select min(x) as min_x from dataset order by rowName()')
@@ -42,7 +42,7 @@ class TemporalTest(MldbUnitTest):
                 ["[]",  2 ]
             ]
         )
-
+    
     def test_temporal_earliest_on_column(self):
         resp = mldb.get('/v1/query',
                         q = 'select temporal_earliest(x) as t_earliest_x from dataset order by rowName()',
@@ -66,7 +66,7 @@ class TemporalTest(MldbUnitTest):
                 }
             ]
         )
-
+    
     def test_temporal_earliest_on_row(self):
         resp = mldb.get('/v1/query',
                         q = 'select temporal_earliest({*}) as * from dataset order by rowName()',
@@ -92,8 +92,7 @@ class TemporalTest(MldbUnitTest):
                 }
             ]
         )
-
-
+    
     def test_temporal_latest_on_column(self):
         resp = mldb.get('/v1/query',
                         q = 'select temporal_latest(x) as t_latest_x from dataset order by rowName()',
@@ -117,8 +116,7 @@ class TemporalTest(MldbUnitTest):
                 }
             ]
         )
-
-
+    
     def test_temporal_latest_on_row(self):
         resp = mldb.get('/v1/query',
                         q = 'select temporal_latest({*}) as * from dataset order by rowName()',
@@ -144,7 +142,7 @@ class TemporalTest(MldbUnitTest):
                 }
             ]
         )
-
+    
     def test_temporal_min_on_column(self):
         resp = mldb.get('/v1/query',
                         q = 'select temporal_min(x) from dataset order by rowName()',
@@ -168,7 +166,7 @@ class TemporalTest(MldbUnitTest):
                 }
             ]
         )
-
+    
     def test_temporal_min_on_row(self):
         resp = mldb.get('/v1/query',
                         q = 'select temporal_min({*}) as * from dataset order by rowName()',
@@ -194,8 +192,7 @@ class TemporalTest(MldbUnitTest):
                 }
             ]
         )
-
-
+    
     def test_temporal_max_on_column(self):
         resp = mldb.get('/v1/query',
                         q = 'select temporal_max(x) as max from dataset order by rowName()',
@@ -219,7 +216,7 @@ class TemporalTest(MldbUnitTest):
                 }
             ]
         )
-
+    
     def test_temporal_max_on_row(self):
 
         resp = mldb.get('/v1/query',
@@ -246,7 +243,7 @@ class TemporalTest(MldbUnitTest):
                 }
             ]
         )
-
+    
     def test_temporal_count_on_column(self):
         resp = mldb.get('/v1/query',
                         q = 'select temporal_count(x) from dataset order by rowName()',
@@ -270,7 +267,7 @@ class TemporalTest(MldbUnitTest):
                 }
             ]
         )
-
+    
     def test_temporal_count_on_row(self):
         resp = mldb.get('/v1/query',
                         q = 'select temporal_count({*}) as * from dataset order by rowName()',
@@ -296,7 +293,7 @@ class TemporalTest(MldbUnitTest):
                 }
             ]
         )
-
+    
     def test_temporal_sum_on_column(self):
         resp = mldb.get('/v1/query',
                         q = 'select temporal_sum(x) as sum from dataset order by rowName()',
@@ -320,7 +317,7 @@ class TemporalTest(MldbUnitTest):
                 }
             ]
         )
-
+    
     def test_temporal_sum_on_row(self):
         resp = mldb.get('/v1/query',
                         q = 'select temporal_sum({*}) as * from dataset order by rowName()',
@@ -346,7 +343,7 @@ class TemporalTest(MldbUnitTest):
                 }
             ]
         )
-
+    
     def test_temporal_avg_on_column(self):
         resp = mldb.get('/v1/query',
                         q = 'select temporal_avg(x) as avg from dataset order by rowName()',
@@ -370,7 +367,7 @@ class TemporalTest(MldbUnitTest):
                 }
             ]
         )
-
+    
     def test_temporal_avg_on_row(self):
         resp = mldb.get('/v1/query',
                         q = 'select temporal_avg({*}) as * from dataset order by rowName()',
@@ -421,5 +418,287 @@ class TemporalTest(MldbUnitTest):
             ["user1", 1]
         ])
 
+    def test_mldbfb_344_temporal_segfault(self):
+        ds = mldb.create_dataset({'id' : 'ds2', 'type' : 'sparse.mutable'})
+        ds.record_row('user1', [['behA', 1, 2]])
+        ds.commit()
 
+        for fct in ['count', 'sum', 'avg', 'min', 'max', 'latest', 'earliest']:
+            self.assertTableResultEquals(
+                mldb.query("""
+                SELECT temporal_{}(behC) FROM ds2
+                """.format(fct)), [
+                    [
+                        "_rowName",
+                        "temporal_{}(behC)".format(fct)
+                    ],
+                    [
+                        "user1",
+                        None
+                    ]
+                ]
+            )
+
+    @unittest.expectedFailure
+    def test_mldbfb_516_aggregator_incorrect_with_join(self):
+        ds = mldb.create_dataset({
+            'id' : 'ds_join',
+            'type' : 'beh.binary.mutable'
+        })
+        ds.record_row('user3', [['behA', 1, 11], ['conv', 1, 70],
+                                ['behB', 1, 14], ['behA', 1, 14]])
+        ds.commit()
+
+        ds = mldb.create_dataset({
+            'id' : 'conv',
+            'type' : 'beh.mutable'
+        })
+        ds.record_row('user3', [['ts', 70, 0]])
+        ds.commit()
+
+        res = mldb.query("""
+            SELECT temporal_count({ds_join.*}) AS *
+            FROM ds_join
+        """)
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'behA', 'behB', 'conv'],
+            ['user3', 2, 1, 1]
+        ])
+
+        res = mldb.query("""
+            SELECT temporal_count({ds_join.*}) AS *
+            FROM ds_join INNER JOIN conv ON ds_join.rowName() = conv.rowName()
+        """)
+        self.assertTableResultEquals(res, [
+            ['_rowName', 'behA', 'behB', 'conv'],
+            ['[user3]-[user3]', 2, 1, 1]
+        ])
+        mldb.log(res)
+    
+    def test_mldbfb_520_column_expr(self):
+        """
+        temporal_earliest doesn't yield correct result when used with
+        COLUMN EXPR and wildcard expression
+        """
+        ds = mldb.create_dataset({
+            'id' : 'mldbfb520_column_expr',
+            'type' : 'sparse.mutable'
+        })
+        ds.record_row('user1', [['behA', 1, 1], ['behA', 1, 2], ['behA', 1, 3],
+                                ['behB', 1, 9], ['behC', 1, 8]])
+        ds.commit()
+
+        query = """
+            SELECT temporal_earliest({behA, behB}) AS * FROM mldbfb520_column_expr
+        """
+        res = mldb.get('/v1/query', q=query)
+
+        expected = [{
+            "rowName": "user1",
+            "columns": [
+                ["behA", 1, "1970-01-01T00:00:01Z"],
+                ["behB", 1, "1970-01-01T00:00:09Z"]
+            ]
+        }]
+        mldb.log(res)
+        self.assertFullResultEquals(res.json(), expected)
+
+        expected2 = [{
+            "rowName": "user1",
+            "columns": [
+                ["behA", 1, "1970-01-01T00:00:01Z"],
+                ["behA", 1, "1970-01-01T00:00:02Z"],
+                ["behA", 1, "1970-01-01T00:00:03Z"],
+                ["behB", 1, "1970-01-01T00:00:09Z"]
+            ]
+        }]
+        query = """
+            SELECT COLUMN EXPR (WHERE columnName() IN ('behA', 'behB'))
+            FROM mldbfb520_column_expr
+        """
+        res = mldb.get('/v1/query', q=query)
+        mldb.log(res)
+        self.assertFullResultEquals(res.json(), expected2)
+
+        query = """
+            SELECT temporal_earliest({
+                COLUMN EXPR (WHERE columnName() IN ('behA', 'behB'))
+            }) AS * FROM mldbfb520_column_expr
+        """
+        res = mldb.get('/v1/query', q=query)
+        mldb.log(res)
+        self.assertFullResultEquals(res.json(), expected)
+
+        query = """
+            SELECT temporal_earliest({
+                COLUMN EXPR (WHERE columnName() NOT IN ('behC'))
+            }) AS * FROM mldbfb520_column_expr
+        """
+        res = mldb.get('/v1/query', q=query)
+        self.assertFullResultEquals(res.json(), expected)
+
+        expected = [{
+            "rowName": "user1",
+            "columns": [
+                ["behA", 1, "1970-01-01T00:00:01Z"],
+                ["behB", 1, "1970-01-01T00:00:09Z"],
+                ["behC", 1, "1970-01-01T00:00:08Z"]
+            ]
+        }]
+        query = """
+            SELECT temporal_earliest({beh*}) AS * FROM mldbfb520_column_expr
+        """
+        res = mldb.get('/v1/query', q=query)
+        mldb.log(res)
+        self.assertFullResultEquals(res.json(), expected)
+
+        expected = [{
+            "rowName": "user1",
+            "columns": [
+                ["behA", 1, "1970-01-01T00:00:03Z"],
+                ["behB", 1, "1970-01-01T00:00:09Z"],
+                ["behC", 1, "1970-01-01T00:00:08Z"]
+            ]
+        }]
+        query = """
+            SELECT temporal_latest({beh*}) AS * FROM mldbfb520_column_expr
+        """
+        res = mldb.get('/v1/query', q=query)
+        mldb.log(res)
+        self.assertFullResultEquals(res.json(), expected)
+
+
+    def test_mldbfb_520_sql_query(self):
+        """
+        temporal_earliest doesn't yield correct result when used with
+        sql.query.
+        """
+        ds = mldb.create_dataset({
+            'id' : 'mldbfb520_sql_query',
+            'type' : 'sparse.mutable'
+        })
+        ds.record_row('user1', [['behA', 1, 1], ['behA', 1, 2], ['behA', 1, 3],
+                                ['behB', 1, 9], ['behC', 1, 8]])
+        ds.commit()
+
+        query = """
+            SELECT temporal_earliest({behA, behB}) AS * FROM mldbfb520_sql_query
+        """
+        res = mldb.get('/v1/query', q=query)
+
+        expected = [{
+            "rowName": "user1",
+            "columns": [
+                ["behA", 1, "1970-01-01T00:00:01Z"],
+                ["behB", 1, "1970-01-01T00:00:09Z"]
+            ]
+        }]
+        mldb.log(res)
+        self.assertFullResultEquals(res.json(), expected)
+
+        res = mldb.put('/v1/functions/early', {
+            'type': 'sql.query',
+            'params': {
+                'query': 'SELECT temporal_earliest({beh*}) AS * FROM mldbfb520_sql_query'
+            }
+        })
+
+        res = mldb.get('/v1/query', 
+                       q = "SELECT early({}) AS * from mldbfb520_sql_query")
+        expected = [{
+            "rowName": "user1",
+            "columns": [
+                ["behA", 1, "1970-01-01T00:00:01Z"],
+                ["behB", 1, "1970-01-01T00:00:09Z"],
+                ["behC", 1, "1970-01-01T00:00:08Z"]
+            ]
+        }]
+        mldb.log(res)
+        self.assertFullResultEquals(res.json(), expected)
+
+
+        res = mldb.put('/v1/functions/late', {
+            'type': 'sql.query',
+            'params': {
+                'query': 'SELECT temporal_latest({beh*}) AS * FROM mldbfb520_sql_query'
+            }
+        })
+
+        res = mldb.get('/v1/query', 
+                       q = "SELECT late({}) AS * from mldbfb520_sql_query")
+        
+
+        expected = [{
+            "rowName": "user1",
+            "columns": [
+                ["behA", 1, "1970-01-01T00:00:03Z"],
+                ["behB", 1, "1970-01-01T00:00:09Z"],
+                ["behC", 1, "1970-01-01T00:00:08Z"]
+            ]
+        }]
+        mldb.log(res)
+        self.assertFullResultEquals(res.json(), expected)
+
+    @unittest.expectedFailure
+    def test_mldbfb_520_join(self):
+        """
+        temporal_earliest doesn't yield correct result when used with
+        join expressions.
+        """
+        ds = mldb.create_dataset({
+            'id' : 'mldbfb520_join_left',
+            'type' : 'sparse.mutable'
+        })
+        ds.record_row('user1', [['behA', 1, 1], ['behA', 1, 2], ['behA', 1, 3],
+                                ['behB', 1, 9], ['behC', 1, 8]])
+        ds.commit()
+
+        ds = mldb.create_dataset({
+            'id' : 'mldbfb520_join_right',
+            'type' : 'sparse.mutable'
+        })
+        ds.record_row('user1', [['behD', 1, 1], ['behD', 1, 2], ['behD', 1, 3],
+                                ['behB', 1, 9]])
+        ds.commit()
+
+        query = """
+            SELECT temporal_earliest({
+            COLUMN EXPR (WHERE columnName() IN ('l.behA', 'l.behB', 'r.behD'))}) AS * 
+            FROM mldbfb520_join_left AS l
+            INNER JOIN mldbfb520_join_right as r
+            ON l.behB = r.behB
+        """
+        res = mldb.get('/v1/query', q=query)
+
+        expected = [{
+            "rowName": "[user1]-[user1]",
+            "columns": [
+                ["l.behA", 1, "1970-01-01T00:00:01Z"],
+                ["l.behB", 1, "1970-01-01T00:00:09Z"],
+                ["r.behD", 1, "1970-01-01T00:00:01Z"]
+            ]
+        }]
+        mldb.log(res)
+        self.assertFullResultEquals(res.json(), expected)
+
+        query = """
+            SELECT temporal_latest({
+            COLUMN EXPR (WHERE columnName() IN ('l.behA', 'l.behB', 'r.behD'))}) AS * 
+            FROM mldbfb520_join_left AS l
+            INNER JOIN mldbfb520_join_right as r
+            ON l.behB = r.behB
+        """
+        res = mldb.get('/v1/query', q=query)
+
+        expected = [{
+            "rowName": "[user1]-[user1]",
+            "columns": [
+                ["l.behA", 1, "1970-01-01T00:00:03Z"],
+                ["l.behB", 1, "1970-01-01T00:00:09Z"],
+                ["r.behD", 1, "1970-01-01T00:00:03Z"]
+            ]
+        }]
+        mldb.log(res)
+        self.assertFullResultEquals(res.json(), expected)
+       
 mldb.run_tests()

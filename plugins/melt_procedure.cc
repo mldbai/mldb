@@ -30,13 +30,13 @@ namespace MLDB {
  *  Ensure the select contains a rows named "to_melt" and "to_fix".
  *  FieldType must contain a SelectStatement named stm.
  */
-template<typename FieldType> struct MeltFixSelect
+struct MeltFixSelect
 {
-    void operator()(const FieldType & query, const char * name)
+    void operator()(const InputQuery & query, const std::string & name) const
     {
         if (!containsNamedSubSelect(query, "to_melt") ||
             !containsNamedSubSelect(query, "to_fix") )
-            throw ML::Exception("%s procedure expect a rows named 'to_melt' and 'to_fixed'", name);
+            throw ML::Exception("%s procedure expect a rows named 'to_melt' and 'to_fixed'", name.c_str());
     }
 };
 
@@ -64,12 +64,11 @@ MeltProcedureConfigDescription()
     addField("valueColumnName", &MeltProcedureConfig::valueColumnName,
             "Column name for the value column", string("value"));
     addParent<ProcedureConfig>();
-    
-    onPostValidate = validate<MeltProcedureConfig,
-                              InputQuery,
-                              NoGroupByHaving,
-                              MeltFixSelect,
-                              MustContainFrom>(&MeltProcedureConfig::inputData, "melt");
+
+    onPostValidate = validateQuery(&MeltProcedureConfig::inputData,
+                                   NoGroupByHaving(),
+                                   MeltFixSelect(),
+                                   MustContainFrom());
 
 }
 
@@ -101,7 +100,7 @@ run(const ProcedureRunConfig & run,
 {
     auto runProcConf = applyRunConfOverProcConf(procConfig, run);
 
-    auto extractWithinExpression = [](std::shared_ptr<SqlExpression> expr) 
+    auto extractWithinExpression = [](std::shared_ptr<SqlExpression> expr)
         -> std::shared_ptr<SqlRowExpression>
         {
             auto withinExpression = std::dynamic_pointer_cast<const SelectWithinExpression>(expr);
@@ -112,12 +111,12 @@ run(const ProcedureRunConfig & run,
         };
 
 
-    SqlExpressionMldbContext context(server);
+    SqlExpressionMldbScope context(server);
     auto boundDataset = runProcConf.inputData.stm->from->bind(context);
 
     auto toFix = extractNamedSubSelect("to_fix", runProcConf.inputData.stm->select)->expression;
     auto toMelt = extractNamedSubSelect("to_melt", runProcConf.inputData.stm->select)->expression;
-     
+
     if (!toFix || !toMelt)
         throw HttpReturnException(400, "inputData must return a 'to_fix' row and a 'to_melt' row");
 
@@ -134,12 +133,12 @@ run(const ProcedureRunConfig & run,
         throw ML::Exception("Unable to obtain output dataset");
     }
 
-    
+
     ColumnName keyColumnName(runProcConf.keyColumnName);
     ColumnName valueColumnName(runProcConf.valueColumnName);
 
     std::mutex recordMutex;
-    auto aggregator = [&] (NamedRowValue & row_,
+    auto processor = [&] (NamedRowValue & row_,
                            const std::vector<ExpressionValue> & extraVals)
         {
             MatrixNamedRow row = row_.flattenDestructive();
@@ -152,9 +151,18 @@ run(const ProcedureRunConfig & run,
             // Fixed columns
             RowValue fixedOutputRows;
             for(auto & expr : extraVals) {
-                for(auto & col : expr.getRow()) {
-                    fixedOutputRows.emplace_back(get<0>(col), get<1>(col).getAtom(), rowTs);
-                }
+
+                auto onAtom = [&] (const Path & columnName,
+                                   const Path & prefix,
+                                   const CellValue & val,
+                                   Date ts)
+                    {
+                        fixedOutputRows.emplace_back(prefix + columnName,
+                                                     val, ts);
+                        return true;
+                    };
+
+                expr.forEachAtom(onAtom, ColumnName());
             }
 
             // Melted
@@ -165,9 +173,7 @@ run(const ProcedureRunConfig & run,
                 currOutputRow.emplace_back(keyColumnName, get<0>(col).toUtf8String(), rowTs);
                 currOutputRow.emplace_back(valueColumnName, get<1>(col), rowTs);
 
-                RowName rowName(ML::format("%s_%s",
-                                           row.rowName.toUtf8String().rawData(),
-                                           get<0>(col).toUtf8String().rawData()));
+                RowName rowName = row.rowName + std::get<0>(col);
 
                 std::unique_lock<std::mutex> guard(recordMutex);
                 outputDataset->recordRow(rowName, currOutputRow);
@@ -181,11 +187,10 @@ run(const ProcedureRunConfig & run,
                      *boundDataset.dataset,
                      boundDataset.asName, runProcConf.inputData.stm->when,
                      *runProcConf.inputData.stm->where,
-                     runProcConf.inputData.stm->orderBy, extra,
-                     false /* implicit order by row hash */)
-        .execute(aggregator, 
-                 runProcConf.inputData.stm->offset, 
-                 runProcConf.inputData.stm->limit, 
+                     runProcConf.inputData.stm->orderBy, extra)
+        .execute({processor,true/*processInParallel*/},
+                 runProcConf.inputData.stm->offset,
+                 runProcConf.inputData.stm->limit,
                  nullptr /* progress */);
 
     outputDataset->commit();
@@ -198,7 +203,6 @@ namespace {
 
 RegisterProcedureType<MeltProcedure, MeltProcedureConfig>
 regMelt(builtinPackage(),
-          "melt",
           "Performs a melt operation on a dataset",
           "procedures/MeltProcedure.md.html");
 

@@ -30,19 +30,30 @@ function mldb_defer() {
 
         $("#header-container").append(
             $("<div>", {class:"pull-right", style:"padding: 10px;"}).append(
-                $("<a>", {href:"{{HTTP_BASE_URL}}/doc", style:"font-weight: bold; padding: 10px;"}).text("MLDB Documentation")
+                $("<a>", {href:"{{HTTP_BASE_URL}}/doc", target:"_blank", style:"font-weight: bold; padding: 10px;"})
+                    .text("MLDB Documentation")
             )
         );
 
-        $.getJSON("{{HTTP_BASE_URL}}/resources/version.json?t="+Date.now(), function(version){
+        $.getJSON("{{HTTP_BASE_URL}}/version.json?t="+Date.now(), function(version){
             $("#ipython_notebook").append(
                 $("<span>", {style: "font-size: 12px;"}).text("version "+version.version)
             );
         })
 
-        if(window.location.pathname.endsWith("tree")){
+        if(window.location.pathname.endsWith("tree") &&
+                document.cookie.indexOf("hidevideo=1") == -1){
             $("#tab_content").before(
-                $("<div align=center>").append(
+                $("<div>", {
+                        "id": "introvideo", "class":"panel panel-default",
+                        style:"width: 560px; margin: 5px auto; text-align: center;"
+                    })
+                .append(
+                    $('<button type="button" class="close">&times;</button>')
+                        .on("click", function(){
+                            $("#introvideo").hide();
+                            document.cookie = "hidevideo=1;";
+                        }),
                     $('<iframe width="530" height="300" '+
                         'style="border: 1px solid grey; margin: 10px;" '+
                         'src="https://www.youtube.com/embed/YR9tfxA0kH8" '+
@@ -52,6 +63,8 @@ function mldb_defer() {
         }
 
         $.getJSON("{{HTTP_BASE_URL}}/resources/expiration.json", function(data) {
+            if(!data.expiration) return;
+            
             var exp = Date.parse(data.expiration);
             var countDownSpan = $("<div>", {id:"countdown", 
                 class: "notification_widget btn btn-xs navbar-btn pull-right"});

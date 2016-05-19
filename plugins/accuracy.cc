@@ -61,7 +61,7 @@ AccuracyConfigDescription()
              "of whatever is having its accuracy tested.  This needs to be "
              "a number, and normally should be a floating point number that "
              "represents the degree of confidence in the prediction, not "
-             "just the class. This is typically, the training function returned "  
+             "just the class. This is typically, the training function returned "
              "by a classifier.train procedure. "
              "The select expression can also contain an optional weight sub-expression. "
              "This expression generates the relative weight for each example.  In some "
@@ -84,13 +84,12 @@ AccuracyConfigDescription()
               "they have the same score when mode=boolean. Specifying a "
              "dataset is optional.", optionalOutputDataset);
     addParent<ProcedureConfig>();
-            
-    onPostValidate = validate<AccuracyConfig, 
-                              InputQuery,
-                              NoGroupByHaving,
-                              PlainColumnSelect,
-                              ScoreLabelSelect,
-                              MustContainFrom>(&AccuracyConfig::testingData, "accuracy");
+
+    onPostValidate = validateQuery(&AccuracyConfig::testingData,
+                                   NoGroupByHaving(),
+                                   PlainColumnSelect(),
+                                   ScoreLabelSelect(),
+                                   MustContainFrom());
 
 }
 
@@ -126,7 +125,7 @@ runBoolean(AccuracyConfig & runAccuracyConf,
 
     PerThreadAccumulator<ScoredStats> accum;
 
-    auto aggregator = [&] (NamedRowValue & row,
+    auto processor = [&] (NamedRowValue & row,
                            const std::vector<ExpressionValue> & scoreLabelWeight)
         {
             //cerr << "got vals " << labelWeight << " " << score << endl;
@@ -134,16 +133,16 @@ runBoolean(AccuracyConfig & runAccuracyConf,
             double score = scoreLabelWeight[0].toDouble();
             bool label = scoreLabelWeight[1].asBool();
             double weight = scoreLabelWeight[2].toDouble();
-            
+
             accum.get().update(label, score, weight, row.rowName);
-            
+
             return true;
         };
 
-    selectQuery.execute(aggregator, runAccuracyConf.testingData.stm->offset,
+    selectQuery.execute({processor,true/*processInParallel*/}, runAccuracyConf.testingData.stm->offset,
              runAccuracyConf.testingData.stm->limit,
              nullptr /* progress */);
-    
+
     // Now merge out stats together
     ScoredStats stats;
 
@@ -230,7 +229,7 @@ runCategorical(AccuracyConfig & runAccuracyConf,
     Date recordDate = Date::now();
 
 
-    auto aggregator = [&] (NamedRowValue & row,
+    auto processor = [&] (NamedRowValue & row,
                            const std::vector<ExpressionValue> & scoreLabelWeight)
         {
             CellValue maxLabel;
@@ -238,19 +237,21 @@ runCategorical(AccuracyConfig & runAccuracyConf,
 
             std::vector<std::tuple<RowName, CellValue, Date> > outputRow;
 
-            auto onAtom = [&] (const Coord & columnName,
-                               const Coord & prefix,
+            static const ColumnName score("score");
+            
+            auto onAtom = [&] (const Path & columnName,
+                               const Path & prefix,
                                const CellValue & val,
-                               Date ts) 
+                               Date ts)
                 {
                     auto v = val.toDouble();
                     if(v > maxLabelScore) {
                         maxLabelScore = v;
-                        maxLabel = jsonDecodeStr<CellValue>(columnName.toUtf8String());
+                        maxLabel = jsonDecodeStr<CellValue>(columnName.toSimpleName());
                     }
 
                     if(output) {
-                        outputRow.emplace_back(ColumnName("score." + columnName.toString()), v, recordDate);
+                        outputRow.emplace_back(score + columnName, v, recordDate);
                     }
 
                     return true;
@@ -267,7 +268,7 @@ runCategorical(AccuracyConfig & runAccuracyConf,
                 outputRow.emplace_back(ColumnName("label"), label, recordDate);
                 outputRow.emplace_back(ColumnName("weight"), weight, recordDate);
 
-                rowsAccum.get().emplace_back(row.rowName, outputRow);
+                rowsAccum.get().emplace_back(row.rowName, std::move(outputRow));
                 if(rowsAccum.get().size() > 1000) {
                     output->recordRows(rowsAccum.get());
                     rowsAccum.get().clear();
@@ -277,7 +278,7 @@ runCategorical(AccuracyConfig & runAccuracyConf,
             return true;
         };
 
-    selectQuery.execute(aggregator,
+    selectQuery.execute({processor,true/*processInParallel*/},
             runAccuracyConf.testingData.stm->offset,
             runAccuracyConf.testingData.stm->limit,
             nullptr /* progress */);
@@ -296,21 +297,25 @@ runCategorical(AccuracyConfig & runAccuracyConf,
     map<CellValue, map<CellValue, unsigned>> confusion_matrix;
     map<CellValue, unsigned> predicted_sums;
     map<CellValue, unsigned> real_sums;
-    accum.forEach([&] (AccumBucket * thrBucket) 
+    accum.forEach([&] (AccumBucket * thrBucket)
             {
                 for(auto & elem : *thrBucket) {
-                    auto label_it = confusion_matrix.find(get<0>(elem));
+                    const CellValue & label = std::get<0>(elem);
+                    const CellValue & predicted = std::get<1>(elem);
+
+                    auto label_it = confusion_matrix.find(label);
                     // label is a new true label
                     if(label_it == confusion_matrix.end()) {
-                        confusion_matrix.emplace(get<0>(elem), map<CellValue, uint>{{get<1>(elem), 1}});
+                        confusion_matrix.emplace(label,
+                                                 map<CellValue, uint>{{predicted, 1}});
                     }
                     // we already know about this true label
                     else {
-                        label_it->second[get<1>(elem)] += 1;
+                        label_it->second[label] += 1;
                     }
 
-                    real_sums[get<0>(elem)] += 1;
-                    predicted_sums[get<1>(elem)] += 1;
+                    real_sums[label] += 1;
+                    predicted_sums[predicted] += 1;
                 }
             });
 
@@ -335,7 +340,7 @@ runCategorical(AccuracyConfig & runAccuracyConf,
             } else{
                 fn += predicted_it.second;
             }
-            
+
             Json::Value conf_mat_elem;
             conf_mat_elem["predicted"] = jsonEncode(predicted_it.first);
             conf_mat_elem["actual"] = jsonEncode(actual_it.first);
@@ -378,7 +383,7 @@ runCategorical(AccuracyConfig & runAccuracyConf,
         // if it is not a true label
         if(real_sums.find(predicted_it.first) == real_sums.end()) {
             if(weighted_stats["precision"].asDouble() == 0) {
-                throw ML::Exception(ML::format("Weighted precision is 0 and label '%s' " 
+                throw ML::Exception(ML::format("Weighted precision is 0 and label '%s' "
                         "was predicted but not in true labels! Are the columns of the predicted "
                         "labels named properly?", predicted_it.first.toString()));
             }
@@ -397,20 +402,19 @@ runRegression(AccuracyConfig & runAccuracyConf,
                BoundSelectQuery & selectQuery,
                std::shared_ptr<Dataset> output)
 {
-
     /* Calculate the r-squared. */
     struct ThreadStats {
         ThreadStats() :
-            sum_vsq(0), sum_v(0), sum_lsq(0), sum_l(0),
-            sum_vl(0), mse_sum(0), n(0)
+            mse_sum(0), n(0)
         {}
 
         void increment(double v, double l) {
-            sum_vsq += v*v;  sum_v += v;
-            sum_lsq += l*l;  sum_l += l;
-            sum_vl  += v*l;
+            if (!finite(v)) return;
+
             mse_sum += pow(v-l, 2);
             absolute_percentage.push_back(abs( (v-l)/l ));
+
+            labels.push_back(l);
             n++;
         }
 
@@ -428,9 +432,10 @@ runRegression(AccuracyConfig & runAccuracyConf,
                                t1.absolute_percentage.end());
         }
 
-        double sum_vsq, sum_v, sum_lsq, sum_l, sum_vl, mse_sum;
+        double mse_sum;
         int n;
         ML::distribution<double> absolute_percentage;
+        vector<double> labels;
     };
 
     PerThreadAccumulator<ThreadStats> accum;
@@ -438,8 +443,8 @@ runRegression(AccuracyConfig & runAccuracyConf,
     PerThreadAccumulator<Rows> rowsAccum;
     Date recordDate = Date::now();
 
-    auto aggregator = [&] (NamedRowValue & row,
-                           const std::vector<ExpressionValue> & scoreLabelWeight)
+    auto processor = [&] (NamedRowValue & row,
+                          const std::vector<ExpressionValue> & scoreLabelWeight)
         {
             double score = scoreLabelWeight[0].toDouble();
             double label = scoreLabelWeight[1].toDouble();
@@ -464,7 +469,8 @@ runRegression(AccuracyConfig & runAccuracyConf,
             return true;
         };
 
-    selectQuery.execute(aggregator, runAccuracyConf.testingData.stm->offset,
+    selectQuery.execute({processor,true/*processInParallel*/},
+             runAccuracyConf.testingData.stm->offset,
              runAccuracyConf.testingData.stm->limit,
              nullptr /* progress */);
 
@@ -478,32 +484,54 @@ runRegression(AccuracyConfig & runAccuracyConf,
     }
 
 
-
-    double sum_vsq = 0.0, sum_v = 0.0, sum_lsq = 0.0, sum_l = 0.0;
-    double sum_vl = 0.0, n = 0, mse_sum = 0;
-
+    double n = 0, mse_sum = 0;
+    vector<vector<double> > allThreadLabels;
     accum.forEach([&] (ThreadStats * thrStats)
                   {
-                        sum_vsq += thrStats->sum_vsq;
-                        sum_v += thrStats-> sum_v;
-                        sum_lsq += thrStats->sum_lsq;
-                        sum_l += thrStats->sum_l;
-                        sum_vl += thrStats->sum_vl;
                         n += thrStats->n;
                         mse_sum += thrStats->mse_sum;
+                        allThreadLabels.emplace_back(std::move(thrStats->labels));
                   });
 
+    if(n == 0)
+        throw ML::Exception("Cannot run classifier.test procedure on empty test set");
 
-    double svl = n * sum_vl - sum_v * sum_l;
-    double svv = n * sum_vsq - sum_v * sum_v;
-    double sll = n * sum_lsq - sum_l * sum_l;
+    std::mutex mergeAccumsLock;
 
-    double r_squared = svl*svl / (svv * sll);
-//     double b = svl / svv;
-//     double bd = svl / sll;
+    double meanOfLabel = 0;
+    auto doThreadMeanLbl = [&] (int threadNum) -> bool
+    {
+        double averageAccum = 0;
+        for(auto & label : allThreadLabels[threadNum])
+            averageAccum += label / n;
+
+        std::unique_lock<std::mutex> guard(mergeAccumsLock);
+        meanOfLabel += averageAccum;
+        return true;
+    };
+    parallelMap(0, allThreadLabels.size(), doThreadMeanLbl);
+
+    double totalSumSquares = 0;
+    auto doThreadSS = [&] (int threadNum) -> bool
+    {
+        double ssAccum = 0;
+        for(auto & label : allThreadLabels[threadNum])
+            ssAccum += pow(label - meanOfLabel, 2);
+
+        std::unique_lock<std::mutex> guard(mergeAccumsLock);
+        totalSumSquares += ssAccum;
+        return true;
+    };
+    parallelMap(0, allThreadLabels.size(), doThreadSS);
 
 
-    // prepare absolute_percentage distribution 
+    // calculate the r2 while catching the edge cases
+    double r_squared;
+    if      (mse_sum == 0)          r_squared = 1;
+    else if (totalSumSquares == 0)  r_squared = 0;
+    else                            r_squared = 1 - (mse_sum / totalSumSquares);
+
+    // prepare absolute_percentage distribution
     ML::distribution<double> absolute_percentage;
 
     parallelMergeSortRecursive(accum.threads, 0, accum.threads.size(),
@@ -557,10 +585,10 @@ run(const ProcedureRunConfig & run,
     auto runAccuracyConf = applyRunConfOverProcConf(accuracyConfig, run);
 
     // 1.  Get the input dataset
-    SqlExpressionMldbContext context(server);
+    SqlExpressionMldbScope context(server);
 
     auto dataset = runAccuracyConf.testingData.stm->from->bind(context).dataset;
-   
+
     // prepare output dataset
     std::shared_ptr<Dataset> output;
     if(runAccuracyConf.outputDataset) {
@@ -572,7 +600,7 @@ run(const ProcedureRunConfig & run,
     }
 
     // 5.  Run it
-    auto score = extractNamedSubSelect("score", runAccuracyConf.testingData.stm->select)->expression; 
+    auto score = extractNamedSubSelect("score", runAccuracyConf.testingData.stm->select)->expression;
     auto label = extractNamedSubSelect("label", runAccuracyConf.testingData.stm->select)->expression;
     auto weightSubSelect = extractNamedSubSelect("weight", runAccuracyConf.testingData.stm->select);
     shared_ptr<SqlExpression> weight = weightSubSelect ? weightSubSelect->expression : SqlExpression::ONE;
@@ -583,13 +611,12 @@ run(const ProcedureRunConfig & run,
         weight
     };
 
-    auto boundQuery = 
+    auto boundQuery =
         BoundSelectQuery({} /* select */, *dataset, "" /* table alias */,
                      runAccuracyConf.testingData.stm->when,
                      *runAccuracyConf.testingData.stm->where,
                      runAccuracyConf.testingData.stm->orderBy,
-                     calc,
-                     false /* implicit order by row hash */);
+                     calc);
 
     if(runAccuracyConf.mode == CM_BOOLEAN)
         return runBoolean(runAccuracyConf, boundQuery, output);
@@ -605,7 +632,6 @@ namespace {
 
 RegisterProcedureType<AccuracyProcedure, AccuracyConfig>
 regAccuracy(builtinPackage(),
-            "classifier.test",
             "Calculate the accuracy of a classifier on held-out data",
             "procedures/Accuracy.md.html");
 

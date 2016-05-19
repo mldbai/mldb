@@ -8,13 +8,14 @@
 #pragma once
 
 #include "sql/sql_expression.h"
+#include "server/analytics.h"
 
 
 namespace Datacratic {
 namespace MLDB {
 
 struct GroupContext;
-struct SqlExpressionDatasetContext;
+struct SqlExpressionDatasetScope;
 
 
 /** This object is designed to track whether a thread is executing a
@@ -81,7 +82,7 @@ struct BoundSelectQuery {
     const SqlExpression & where;
     std::vector<std::shared_ptr<SqlExpression> > calc;
     const OrderByExpression & orderBy;
-    std::shared_ptr<SqlExpressionDatasetContext> context;
+    std::shared_ptr<SqlExpressionDatasetScope> context;
 
     /** Note on the ordering of rows
      *  Users are expecting determinist results (e.g. repeated queries
@@ -98,22 +99,19 @@ struct BoundSelectQuery {
                      const SqlExpression & where,
                      const OrderByExpression & orderBy,
                      std::vector<std::shared_ptr<SqlExpression> > calc,
-                     bool implicitOrderByRowHash = true,
                      int numBuckets = -1);
 
-    void execute(std::function<bool (NamedRowValue & output,
-                                     std::vector<ExpressionValue> & calcd)> aggregator,
+    void execute(RowProcessorEx processor,
                  ssize_t offset,
                  ssize_t limit,
-                 std::function<bool (const Json::Value &)> onProgress,
-                 bool allowMT = true);
+                 std::function<bool (const Json::Value &)> onProgress);
 
     void execute(std::function<bool (NamedRowValue & output,
-                                     std::vector<ExpressionValue> & calcd, int rowNum)> aggregator,
+                                     std::vector<ExpressionValue> & calcd, int rowNum)> processor,
+                 bool processInParallel,
                  ssize_t offset,
                  ssize_t limit,
-                 std::function<bool (const Json::Value &)> onProgress,
-                 bool allowMT = true);
+                 std::function<bool (const Json::Value &)> onProgress);
 
     std::shared_ptr<Executor> executor;
 
@@ -137,14 +135,14 @@ struct BoundGroupByQuery {
                      const SqlExpression & rowName,
                      const OrderByExpression & orderBy);
 
-    void execute(std::function<bool (NamedRowValue & output)> aggregator,  
+    void execute(RowProcessor processor,  
             ssize_t offset, ssize_t limit,
-            std::function<bool (const Json::Value &)> onProgress, bool allowMT = true);
+            std::function<bool (const Json::Value &)> onProgress);
 
     const Dataset & from;
     WhenExpression when;
     const SqlExpression & where;
-    std::shared_ptr<SqlExpressionDatasetContext> rowContext;
+    std::shared_ptr<SqlExpressionDatasetScope> rowContext;
     std::shared_ptr<GroupContext> groupContext;
     TupleExpression groupBy;
 
@@ -161,6 +159,9 @@ struct BoundGroupByQuery {
 
     // Having Expression to resolve
     const SqlExpression& having;
+
+    // groupby Expression to resolve
+    const OrderByExpression & orderBy;
 
     SelectExpression subSelectExpr;
 

@@ -160,5 +160,14 @@ else:
     assert False, 'Should have failed'
 mldb.log(result)
 
+result = mldb.get(
+    '/v1/query',
+    q="SELECT print_json(tokenize('I.am.a dog and.this is.my life.', {splitchars: ' '})) as tokens")
+jsRez = result.json()
+mldb.log(jsRez)
+
+find_column(result, "tokens", '{"I.am.a":1,"and.this":1,"dog":1,"is.my":1,"life.":1}')
+
+
 mldb.script.set_return("success")
 

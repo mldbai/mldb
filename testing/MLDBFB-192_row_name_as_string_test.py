@@ -41,7 +41,6 @@ class RowNameAsStringTest(MldbUnitTest):
             ['3', 'val2']
         ])
 
-    @unittest.expectedFailure
     def test_object_result(self):
         res = mldb.get('/v1/query', q=self.__class__.query).json()
         # because of the now ts beign inserted we only check for row names

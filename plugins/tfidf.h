@@ -38,6 +38,7 @@ DECLARE_ENUM_DESCRIPTION(TFType);
 DECLARE_ENUM_DESCRIPTION(IDFType);
 
 struct TfidfConfig : public ProcedureConfig {
+    static constexpr const char * name = "tfidf.train";
 
     InputQuery trainingData;
     Url modelFileUrl;
@@ -56,7 +57,7 @@ DECLARE_STRUCTURE_DESCRIPTION(TfidfConfig);
 /*****************************************************************************/
 
 struct TfidfProcedure: public Procedure {
-    
+
     TfidfProcedure(MldbServer * owner,
                    PolyConfig config,
                    const std::function<bool (const Json::Value &)> & onProgress);
@@ -92,15 +93,15 @@ struct TfidfFunction: public Function {
     TfidfFunction(MldbServer * owner,
                 PolyConfig config,
                 const std::function<bool (const Json::Value &)> & onProgress);
-    
+
     virtual Any getStatus() const;
     
-    virtual FunctionOutput apply(const FunctionApplier & applier,
-                              const FunctionContext & context) const;
+    virtual ExpressionValue apply(const FunctionApplier & applier,
+                              const ExpressionValue & context) const;
     
     /** Describe what the input and output is for this function. */
     virtual FunctionInfo getFunctionInfo() const;
-    
+
     TfidfFunctionConfig functionConfig;
     // document frequencies for terms
     std::unordered_map<Utf8String, uint64_t> dfs;

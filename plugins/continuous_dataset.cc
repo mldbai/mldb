@@ -473,7 +473,9 @@ static RegisterDatasetType<ContinuousDataset, ContinuousDatasetConfig>
 regContinuous(builtinPackage(),
               "continuous",
               "Dataset that can be continuously recorded to",
-              "datasets/ContinuousDataset.md.html");
+              "datasets/ContinuousDataset.md.html",
+               nullptr,
+               {MldbEntity::INTERNAL_ENTITY});
 
 
 /*****************************************************************************/
@@ -518,7 +520,7 @@ reconstituteConfig(const MatrixNamedRow & row)
 
     for (auto & col: row.columns) {
         Json::Value * p = &current;
-        vector<string> parts = ML::split(std::get<0>(col).toString(), '.');
+        vector<string> parts = ML::split(std::get<0>(col).toUtf8String().rawString(), '.');
         if (parts[0] != "config")
             continue;
         for (unsigned i = 1;  i < parts.size();  ++i) {
@@ -555,10 +557,10 @@ getDatasetConfig(std::shared_ptr<SqlExpression> datasetsWhere,
         ->queryStructured(SelectExpression::STAR,
                           WhenExpression::TRUE /* when */,
                           *SqlExpression::parse(where) /* where */,
-                          OrderByExpression::parse("rowName() ASC"),
+                          OrderByExpression::parse("rowPath() ASC"),
                           TupleExpression(),
                           *SqlExpression::TRUE /* having */,
-                          *SqlExpression::parse("rowName()") /* rowName */,
+                          *SqlExpression::parse("rowPath()") /* rowName */,
                           0 /* offset */,
                           -1 /* limit */,
                           "" /* alias */);
@@ -627,7 +629,9 @@ static RegisterDatasetType<ContinuousWindowDataset,
 regContinuousWindow(builtinPackage(),
                     "continuous.window",
                     "View of a static time window view over a continuous dataset",
-                    "datasets/ContinuousDataset.md.html");
+                    "datasets/ContinuousDataset.md.html",
+                    nullptr,
+                    {MldbEntity::INTERNAL_ENTITY});
 
 } // namespace MLDB
 } // namespace Datacratic

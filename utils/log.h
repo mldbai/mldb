@@ -3,7 +3,8 @@
 
    This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
 
-   Include this file where the logging interface is used.
+   NOTE TO DEVELOPERS : Ideally this file should only be added to your implementation
+   files (.cc). For declaration use the log_fwd.h.
 */
 
 #pragma once
