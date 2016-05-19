@@ -356,6 +356,8 @@ struct Path: protected ML::compact_vector<PathElement, 2, uint32_t, false> {
     {
     }
 
+    Path(const PathElement * path, size_t length);
+
     static Path parse(const Utf8String & str);
     static Path parse(const char * str, size_t len);
 
@@ -416,6 +418,7 @@ struct Path: protected ML::compact_vector<PathElement, 2, uint32_t, false> {
     using Base::front;
     using Base::back;
     using Base::operator [];
+    using Base::pop_back;
 
     PathElement head() const
     {

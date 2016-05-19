@@ -3697,7 +3697,7 @@ SelectStatement() :
     when(WhenExpression::TRUE),
     where(SelectExpression::TRUE),
     having(SelectExpression::TRUE),
-    rowName(SqlExpression::parse("rowName()")),
+    rowName(SqlExpression::parse("rowPath()")),
     offset(0),
     limit(-1)
 {
@@ -3753,7 +3753,7 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
         skip_whitespace(context);
     }
     else {
-        //default name is "rowName()" if there is a dataset and "result" if there is none
+        //default name is "rowPath()" if there is a dataset and "result" if there is none
         //we need to check if there is a FROM first.
         needDefaultRowName = true;
     }
@@ -3762,7 +3762,7 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
         statement.from = TableExpression::parse(context, 10, acceptUtf8);
         skip_whitespace(context);
         if (needDefaultRowName)
-            statement.rowName = SqlExpression::parse("rowName()");
+            statement.rowName = SqlExpression::parse("rowPath()");
     }
     else {
         statement.from = std::make_shared<NoTable>();

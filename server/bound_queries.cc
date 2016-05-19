@@ -1110,7 +1110,8 @@ struct GroupContext: public SqlExpressionDatasetScope {
                                         SqlBindingScope & argScope)
     {
 
-        auto getGroupRowName = [] (const SqlRowScope & context){
+        auto getGroupRowName = [] (const SqlRowScope & context) -> RowName
+            {
             auto & row = context.as<RowScope>();
 
             //Todo: now we end up with extra quotes, not super pretty
@@ -1123,7 +1124,7 @@ struct GroupContext: public SqlExpressionDatasetScope {
             scontext.writeUtf8 = true;
             desc.printJsonTyped(&row.currentGroupKey, scontext);
 
-            return result;
+            return PathElement(result);
         };
 
         if (functionName == "rowName") {
@@ -1131,18 +1132,28 @@ struct GroupContext: public SqlExpressionDatasetScope {
                         const SqlRowScope & context)
                     {                        
                         auto result = getGroupRowName(context);
-                        return ExpressionValue(std::move(Utf8String(std::move(result), false /* check */)),
+                        return ExpressionValue(result.toUtf8String(),
                                                Date::negativeInfinity());
                     },
                     std::make_shared<StringValueInfo>()};
+        }
+        if (functionName == "rowPath") {
+            return {[getGroupRowName] (const std::vector<ExpressionValue> & args,
+                        const SqlRowScope & context)
+                    {                        
+                        auto result = getGroupRowName(context);
+                        return ExpressionValue(CellValue(result),
+                                               Date::negativeInfinity());
+                    },
+                    std::make_shared<PathValueInfo>()};
         }
         else if (functionName == "rowHash") {
                 return {[getGroupRowName] (const std::vector<ExpressionValue> & args,
                         const SqlRowScope & context)
                     {                        
                         auto rowName = getGroupRowName(context);
-                        return ExpressionValue(RowHash(RowName(std::move(rowName))),
-                                           Date::negativeInfinity());
+                        return ExpressionValue(RowHash(rowName),
+                                               Date::negativeInfinity());
                         
                     },
                     std::make_shared<Uint64ValueInfo>()};
@@ -1496,7 +1507,7 @@ execute(RowProcessor processor,
         if (!havingResult.isTrue())
             continue;
 
-        outputRow.rowName = RowName(boundRowName(rowContext, GET_LATEST).toUtf8String());
+        outputRow.rowName = boundRowName(rowContext, GET_LATEST).coerceToPath();
         outputRow.rowHash = outputRow.rowName;        
 
         //Evaluating the whole bound select expression

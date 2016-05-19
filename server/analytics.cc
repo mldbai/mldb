@@ -385,23 +385,25 @@ queryFromStatement(SelectStatement & stm,
 
 RowName getValidatedRowName(const ExpressionValue& rowNameEV)
 {
-    if (rowNameEV.empty())
+    if (rowNameEV.empty()) {
         throw HttpReturnException(400, "Can't create a row with a null or empty name.");
+    }
 
-    if (!rowNameEV.isAtom())
-        throw HttpReturnException(400, "NAMED expression must evaluate to a single value");
+    RowName name;
+    try {
+        name = rowNameEV.coerceToPath();
+    }
+    JML_CATCH_ALL {
+        rethrowHttpException
+            (400, "Unable to create a row name from the passed expression. "
+             "Row names must be either a simple atom, or a Path atom, or an "
+             "array of atoms.",
+             "value", rowNameEV);
+    }
 
-    Utf8String rowNameStr = rowNameEV.toUtf8String();
-
-    if (rowNameStr.empty())
-        throw HttpReturnException(400, "Can't create a row with an empty name");
-
-    auto rowName = RowName::parse(rowNameStr);
-
-    if (rowName.empty())
-        throw HttpReturnException(400, "Can't create a row with an empty name");
-
-    return std::move(rowName);
+    if (name.empty())
+        throw HttpReturnException(400, "Can't create a row with a null or empty name.");
+    return name;
 }
 
 } // namespace MLDB

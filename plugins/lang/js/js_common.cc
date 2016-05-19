@@ -157,14 +157,16 @@ Path from_js(const JS::JSValue & value, Path *)
 {
     if (value->IsNull() || value->IsUndefined())
         return Path();
+    if (value->IsArray()) {
+        auto vals = JS::from_js(value, (std::vector<PathElement> *)0);
+        return Path(vals.data(), vals.size());
+    }
     return jsonDecode<Path>(JS::from_js(value, (Json::Value *)0));
 }
 
 Path from_js_ref(const JS::JSValue & value, Path *)
 {
-    if (value->IsNull() || value->IsUndefined())
-        return Path();
-    return jsonDecode<Path>(JS::from_js(value, (Json::Value *)0));
+    return from_js(value, (Path *)0);
 }
 
 void to_js(JS::JSValue & value, const Path & val)

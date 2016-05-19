@@ -170,10 +170,23 @@ doGetFunction(const Utf8String & functionName,
                      const SqlRowScope & rowScope)
                 {
                     auto & row = rowScope.as<PipelineResults>();
-                    return row.values.at(fieldOffset + ROW_NAME);
+                    return ExpressionValue(row.values.at(fieldOffset + ROW_PATH)
+                                           .toUtf8String(),
+                                           row.values.at(fieldOffset + ROW_PATH)
+                                           .getEffectiveTimestamp());
                 },
                 std::make_shared<Utf8StringValueInfo>()
-                    };
+            };
+    }
+    else if (functionName == "rowPath") {
+        return {[=] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & rowScope)
+                {
+                    auto & row = rowScope.as<PipelineResults>();
+                    return row.values.at(fieldOffset + ROW_PATH);
+                },
+                std::make_shared<PathValueInfo>()
+                };
     }
 
     else if (functionName == "rowHash") {
@@ -181,12 +194,13 @@ doGetFunction(const Utf8String & functionName,
                      const SqlRowScope & rowScope)
                 {
                     auto & row = rowScope.as<PipelineResults>();
-                    RowHash result(Path(PathElement(row.values.at(fieldOffset + ROW_NAME).toUtf8String())));
+                    RowHash result(row.values.at(fieldOffset + ROW_PATH)
+                                   .coerceToPath());
                     return ExpressionValue(result.hash(),
                                            Date::notADate());
                 },
                 std::make_shared<Uint64ValueInfo>()
-                    };
+                };
     }
 
     return BoundFunction();
@@ -258,7 +272,7 @@ take()
     //cerr << "got row " << current[currentDone].rowName << " "
     //     << jsonEncodeStr(current[currentDone].columns) << endl;
 
-    result->values.emplace_back(current[currentDone].rowName.toSimpleName(),
+    result->values.emplace_back(current[currentDone].rowName,
                                 Date::notADate());
     result->values.emplace_back(std::move(current[currentDone].columns));
     ++currentDone;
