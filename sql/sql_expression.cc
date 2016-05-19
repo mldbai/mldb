@@ -1848,7 +1848,7 @@ findAggregatorsT(const T* expression, bool withGroupBy)
        - "SELECT sum({*}), temporal_earliest({*})" is not valid
        Other invalid SELECT expressions in presence of GROUP BY like referring to a variable
        not in the GROUP BY expression are detected later when binding these expressions.
-       We use the same logic for group by expressions.
+       We use the same logic for order by expressions.
     */
     std::function<bool(IterType, IterType)> wildcardNestedInAggregator = [&](IterType begin, IterType end) {
         for (IterType it = begin; it < end; ++it) {

@@ -1870,7 +1870,6 @@ std::shared_ptr<BoundPipelineElement>
 PartitionElement::
 bind() const
 {
-    cerr << numValues << endl;
     return std::make_shared<Bound>(source->bind(), numValues);
 }
 
