@@ -90,6 +90,12 @@ class JoinTest(MldbUnitTest):
         ds.record_row("04",[["y1", 4, 0]])
         ds.commit()
 
+        ds = mldb.create_dataset({ "id": "z", "type": "tabular" })
+        ds.record_row("01",[["z1", 1, 0], ["z2", 11, 0]])
+        ds.record_row("02",[["z1", 2, 0], ["z2", 22, 0]])
+        ds.record_row("03",[["z1", 3, 0], ["z2", 33, 0]])
+        ds.commit()
+
 
     def test_table_as(self):
         res = mldb.query("""
@@ -1961,5 +1967,41 @@ class JoinTest(MldbUnitTest):
         # number of columns
         self.assertEqual(len(res[0]), 2 + 2 + 2 + 1)
 
+    # MDLB-1602
+    def test_left_join_with_and(self):
+        res1 = mldb.query("""
+        select * from x 
+        left join y on (x.x1 = y.y1) 
+        left join z on (x.x1 = z.z1 and x.x2 = z.z2)
+        order by rowName()
+        """)
+        pprint(res1)
 
+        res2 = mldb.query("""
+        select * from x 
+        left join y on (x.x1 = y.y1) 
+        left join z on (x.x1 + x.x2 = z.z1 + z.z2)
+        order by rowName()
+        """)
+        pprint(res2)
+        self.assertEquals(res1, res2)
+
+    def test_right_join_with_and(self):
+        res1 = mldb.query("""
+        select * from x 
+        right join y on (x.x1 = y.y1) 
+        right join z on (x.x1 = z.z1 and x.x2 = z.z2)
+        order by rowName()
+        """)
+        pprint(res1)
+
+        res2 = mldb.query("""
+        select * from x 
+        right join y on (x.x1 = y.y1) 
+        right join z on (x.x1 + x.x2 = z.z1 + z.z2)
+        order by rowName()
+        """)
+        pprint(res2)
+        self.assertEquals(res1, res2)
+        
 mldb.run_tests()

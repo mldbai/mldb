@@ -1035,31 +1035,45 @@ take()
             // Got a row!
             //cerr << "*** got row match on " << jsonEncode(lField) << endl;
 
-            // Pop the selected join condition from l
+            // Pop the selected join conditions from left and right
             l->values.pop_back();
-
-            // Pop the selected join condition from r
             r->values.pop_back();
 
             for (auto & v: r->values)
                 l->values.emplace_back(std::move(v));
 
-            //cerr << "returning " << jsonEncode(l) << endl;
-
-            std::shared_ptr<PipelineResults> result = std::move(l);
-
-            l = left->take();
-            r = right->take();
-
-            //cerr << "applying where " << parent->crossWhere_.expr->print()
-            //     << " to " << jsonEncode(result->values) << endl;
+            shared_ptr<PipelineResults> result = std::move(l);
 
             ExpressionValue storage;
-            if (!parent->crossWhere_(*result, storage, GET_LATEST).isTrue())
-            {
+            auto crossWhereTrue = parent->crossWhere_(*result, storage, GET_LATEST).isTrue();
+
+            if (!crossWhereTrue && outerLeft) {
+                 ExpressionValue where = lEmbedding.getColumn(1, GET_ALL);
+                 if (!where.asBool()) {
+                     result->values.pop_back();
+                     result->values.pop_back();
+                     result->values.push_back(ExpressionValue());
+                     result->values.push_back(ExpressionValue());
+                 }
+            }
+            else if (!crossWhereTrue && outerRight) {
+                 ExpressionValue where = lEmbedding.getColumn(1, GET_ALL);
+                 if (!where.asBool()) {
+                     result->values.clear();
+                     result->values.push_back(ExpressionValue());
+                     result->values.push_back(ExpressionValue());
+                     for (auto & v: r->values)
+                         result->values.emplace_back(std::move(v));
+                 }
+            }
+            else if (!crossWhereTrue && !outerRight && !outerLeft) {
+                l = left->take();
+                r = right->take();
                 continue;
             }
 
+            l = left->take();
+            r = right->take();
             return std::move(result);
         }
         else if (lField < rField) {

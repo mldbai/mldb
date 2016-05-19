@@ -233,29 +233,26 @@ struct JoinedDataset::Itl
         } else {
             // Complex join condition.  We need to generate the full set of
             // values.  To do this, we use the new executor.
-            auto gotElement = [&] (std::shared_ptr<PipelineResults> & res) -> bool
-                {
-                    //cerr << "got rows complex " << res->values.size() << endl;
-                    Utf8String leftNameUtf8 = res->values.at(0).toUtf8String();
-                    size_t i = 2;
-                    for (; i+ 2 < res->values.size(); i+=2)
-                    {
-                        leftNameUtf8 += "-" + res->values.at(i).toUtf8String();
-                    }                        
-                    
-                    RowName leftName;
-                    if (leftNameUtf8 != "")
-                        leftName = RowName(leftNameUtf8);
+            auto gotElement = [&] (std::shared_ptr<PipelineResults> & res) -> bool {
+                cerr << "got rows complex " << res->values.size() << endl;
 
-                    Utf8String rightNameUtf8 = res->values.at(i).toUtf8String();
-                    RowName rightName;
-                    if (rightNameUtf8 != "")
-                        rightName = RowName(rightNameUtf8);
+                Utf8String leftNameUtf8 = res->values.at(0).toUtf8String();
+                size_t i = 2;
 
-                    recordJoinRow(leftName, leftName, rightName, rightName);
+                for (; i+2 < res->values.size(); i+=2) {
+                    if (i == 2)
+                        leftNameUtf8 = "[" + leftNameUtf8 + "]";
+                    leftNameUtf8 += "-[" + res->values.at(i).toUtf8String() + "]";
+                }                        
+                RowName leftName(std::move(leftNameUtf8));
+                RowName rightName = res->values.at(i).empty() ? 
+                                    RowName() : 
+                                    RowName(res->values.at(i).toUtf8String());
 
-                    return true;
-                };
+                recordJoinRow(leftName, leftName, rightName, rightName);
+                
+                return true;
+            };
             
             auto getParam = [&] (const Utf8String & paramName)
                 -> ExpressionValue
