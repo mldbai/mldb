@@ -170,10 +170,16 @@ doGetFunction(const Utf8String & functionName,
                      const SqlRowScope & rowScope)
                 {
                     auto & row = rowScope.as<PipelineResults>();
-                    return ExpressionValue(row.values.at(fieldOffset + ROW_PATH)
-                                           .toUtf8String(),
-                                           row.values.at(fieldOffset + ROW_PATH)
-                                           .getEffectiveTimestamp());
+                    const ExpressionValue& rowNameValue = row.values.at(fieldOffset + ROW_PATH);
+
+                    //Can be empty in case of unmatched outerjoin
+                    if (rowNameValue.empty()) {
+                        return ExpressionValue("", Date::Date::notADate());
+                    }
+                    else {
+                        return ExpressionValue(rowNameValue.toUtf8String(),row.values.at(fieldOffset + ROW_PATH).getEffectiveTimestamp());
+                    }
+                    
                 },
                 std::make_shared<Utf8StringValueInfo>()
             };
