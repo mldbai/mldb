@@ -15,6 +15,7 @@ LIBMLDB_BUILTIN_PLUGIN_SOURCES:= \
 	experiment_procedure.cc \
 	docker_plugin.cc \
 	continuous_dataset.cc \
+    hdbscan_procedure.cc \
 	word2vec.cc \
 	nlp.cc \
 	sentiwordnet.cc \
