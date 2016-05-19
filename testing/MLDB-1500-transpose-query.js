@@ -166,7 +166,7 @@ res = mldb.get('/v1/query', {q: 'select bop2()', format: 'table'});
 //check that we get smallest value, should be the same (value) as in the batch executor
 expected = [
       [ "_rowName", "bop2().rowName()", "bop2().width" ],
-      [ "result", "NSFWIAMA", 1 ]
+      [ "result", "NBASpurs", 1 ]
    ]
 
 mldb.log(res)

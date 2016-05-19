@@ -45,7 +45,7 @@ var expected = [
          [
             "rowPath()",
             {
-               "path" : [ "result-0" ]
+               "path" : [ "[result]-[0]" ]
             },
             "NaD"
          ],
@@ -53,7 +53,7 @@ var expected = [
          [ "y.column", "x", "-Inf" ],
          [ "y.value", 1, "-Inf" ]
       ],
-      "rowName" : "result-0"
+      "rowName" : "[result]-[0]"
    }
 ];
 
