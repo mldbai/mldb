@@ -2605,9 +2605,8 @@ static RegisterBuiltin registerUpper(upper, "upper");
 
 BoundFunction levenshtein_distance(const std::vector<BoundSqlExpression> & args)
 {
-    if (args.size() != 2 || args.size() != 3) {
-        throw HttpReturnException(400, "levenshtein_distance function takes 2 or 3 arguments");
-    }
+    if (args.size() != 2)
+        throw HttpReturnException(400, "levenshtein_distance function takes 2 arguments");
 
      return {[=] (const std::vector<ExpressionValue> & args,
                   const SqlRowScope & scope) -> ExpressionValue
@@ -2615,6 +2614,18 @@ BoundFunction levenshtein_distance(const std::vector<BoundSqlExpression> & args)
                 ExcAssertEqual(args.size(), 2);
                 const auto query = args[0].getAtom().toUtf8String().rawString();
                 const auto target = args[1].getAtom().toUtf8String().rawString();
+
+                // start by testing easy edge cases
+                int bestScore = -1;
+                if(query.size() == 0 && target.size() == 0)
+                    bestScore = 0;
+                else if(query.size() == 0 || target.size() == 0)
+                    bestScore = max(query.size(), target.size());
+
+                if(bestScore != -1)
+                    return ExpressionValue(bestScore,
+                                           args[0].getEffectiveTimestamp());
+
 
                 unsigned char convQuery[query.size()];
                 unsigned char convTarget[target.size()];
@@ -2647,6 +2658,7 @@ BoundFunction levenshtein_distance(const std::vector<BoundSqlExpression> & args)
                 targetThread.join();
 
                 // DEBUG OUTPUT------------------
+                /*
                 cerr << "AFTER JOIN" << endl;
                 cerr << query << endl;
                 for (int i = 0; i < query.size(); ++i) {
@@ -2660,26 +2672,28 @@ BoundFunction levenshtein_distance(const std::vector<BoundSqlExpression> & args)
                 for (const auto & it: charIdx) {
                     cerr << it.first << " - " << it.second << endl;
                 }
+                */
                 // ------------------------------
 
-//                 int rtn = edlibCalcEditDistance(
-//                     convQuery, query.size(),
-//                     convTarget, target.size());
-// 
-// 
-//         const unsigned char* query, int queryLength,
-//         const unsigned char* target, int targetLength,
-//         int alphabetLength, int k, int mode,
-//         bool findStartLocations, bool findAlignment,
-//         int* bestScore, int** endLocations, int** startLocations, int* numLocations,
-//         unsigned char** alignment, int* alignmentLength);
-// 
-//                 .rawData()
-// 
-// 
-                ExpressionValue result(args[0].getAtom().toUtf8String().toUpper(),
-                                       args[0].getEffectiveTimestamp());
-                return result;
+                int numLocations;
+                int* endLocations1, * startLocations1;
+                unsigned char* alignment; int alignmentLength;
+
+                int rtn = edlibCalcEditDistance(
+                    convQuery, query.size(),
+                    convTarget, target.size(),
+                    (int)idx, /** TODO +1 ?? **/
+                    -1, EDLIB_MODE_NW, false, false,
+                    &bestScore, 
+                    &endLocations1, &startLocations1, &numLocations,
+                    &alignment, &alignmentLength);
+
+
+                if(rtn != 0)
+                    throw ML::Exception("Error computing Levenshtein distance");
+
+                return std::move(ExpressionValue(bestScore,
+                                       args[0].getEffectiveTimestamp()));
             },
             std::make_shared<Utf8StringValueInfo>()
     };
