@@ -478,6 +478,17 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
   elements will be taken from end end dimensions first, ie
   `flatten([ [ 1, 2], [3, 4] ])` will be `[1, 2, 3, 4]`.
 
+### Geographical functions
+
+The following functions operate on latitudes and longtitudes and can be used to
+calculate
+
+- `geo_distance(lat1, lon1, lat2, lon2)` calculates the great circle distance from
+  the point at `(lat1, lon1)` to the point at (lat2, lon2)` in meters assuming that
+  the Earth is a perfect sphere with a radius of 6371008.8 meters.  It will be
+  accurate to within 0.3% anywhere on earth, apart from near the North or South
+  Poles.
+
 ### <a name="importfunctions"></a>Data import functions
 
 - `tokenize(str, {splitchars: ',', quotechar: '', offset: 0, limit: null, value: null, min_token_length: 1, ngram_range:[1, 1]})`
@@ -565,7 +576,6 @@ The standard SQL aggregation functions operate 'vertically' down columns. MLDB d
   - `temporal_max(<row>)` returns the maximum of the non-null value per cell.
   - `temporal_latest(<row>)` returns the non-null value with the latest timestamp per cell.
   - `temporal_earliest(<row>)` returns the non-null value with the earliest timestamp per cell.
-
 
 ## Evaluating a JS function from SQL (Experimental)
 
