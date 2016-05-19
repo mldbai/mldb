@@ -78,5 +78,13 @@ Note that this syntax is not part of SQL, it is an MLDB extension.
 
 The following functions are available in the context of a column expression:
 
-- `columnName()` is the name of the column under consideration.
+- `columnName()` is the name of the column under consideration.  It is the same
+  as the `columnPath()` elements concatenated with a `.` character.
+- `columnPath()` is the structured path to the column under consideration.
+- `columnPathElement(n)` is the nth element of the column path of the column
+  under consideration.  If n is less than zero, it will be a distance from the
+  end (for example, -1 is the last element).  For a columnName of `x.y.2`, then
+  `columnPathElement(0)` will be `x`, `columnPathElement(1)` will be `y` and
+  `columnPathElement(2)` is equivalent to `columnPathElement(-1)` which will
+  be `2`. 
 - `rowCount()` is the number of rows that have a value for this column, including explicit NULLs.

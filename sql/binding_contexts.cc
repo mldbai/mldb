@@ -175,6 +175,17 @@ doGetFunction(const Utf8String & tableName,
                 std::make_shared<Utf8StringValueInfo>()};
     }
 
+    if (functionName == "columnPath") {
+        return {[=] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & scope)
+                {
+                    auto & col = scope.as<ColumnScope>();
+                    return ExpressionValue(CellValue(col.columnName),
+                                           Date::negativeInfinity());
+                },
+                std::make_shared<PathValueInfo>()};
+    }
+
     auto fn = outer.doGetColumnFunction(functionName);
 
     if (fn)
@@ -187,6 +198,13 @@ doGetFunction(const Utf8String & tableName,
             },
             std::make_shared<Utf8StringValueInfo>()};
     }
+
+    // Look for columnPath() or columnPathElement()
+    auto derivedFn = getDatasetDerivedFunction(tableName, functionName, args,
+                                               argScope, *this, "column");
+
+    if (derivedFn)
+        return derivedFn;
 
     auto sqlfn = SqlBindingScope::doGetFunction(tableName, functionName, args,
                                                 argScope);
@@ -500,6 +518,88 @@ doResolveTableName(const ColumnName & fullVariableName,
     // Let the outer context resolve our table name
     return outer.doResolveTableName(fullVariableName, tableName);
 }
+
+
+/*****************************************************************************/
+/* UTILITY FUNCTIONS                                                         */
+/*****************************************************************************/
+
+BoundFunction
+getDatasetDerivedFunction(const Utf8String & tableName,
+                          const Utf8String & functionName,
+                          const std::vector<BoundSqlExpression> & args,
+                          SqlBindingScope & argScope,
+                          SqlBindingScope & datasetScope,
+                          const Utf8String & baseFunctionName)
+{
+    // This will be intercepted if the outer scope doesn't implement the
+    // rowPath function.
+    if (functionName == baseFunctionName + "Path") {
+        if (args.size() != 0)
+            throw HttpReturnException
+                (400, baseFunctionName + "() function takes no arguments");
+
+        // Get the rowName() function
+        BoundFunction rowNameFn = datasetScope
+            .doGetFunction(tableName, baseFunctionName + "Name", {}, argScope);
+        if (!rowNameFn)
+            return BoundFunction();
+
+        // Call it and parse the result
+        return {[=] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & context)
+                {
+                    ExpressionValue rowName = rowNameFn(args, context);
+                    return ExpressionValue
+                        (CellValue(Path::parse(rowName.toUtf8String())),
+                         rowName.getEffectiveTimestamp());
+                },
+                std::make_shared<PathValueInfo>()
+            };
+    }
+
+    // This will be intercepted if the outer scope doesn't implement the
+    // rowPathElement function.
+    if (functionName == baseFunctionName + "PathElement") {
+        if (args.size() != 1)
+            throw HttpReturnException
+                (400, baseFunctionName + "PathElement() function takes "
+                 "one argument");
+
+        // Get the rowPath() function
+        BoundFunction rowPathFn = datasetScope
+            .doGetFunction(tableName, baseFunctionName + "Path", {}, argScope);
+        if (!rowPathFn)
+            return BoundFunction();
+
+        // Call it and parse the result
+        return {[=] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & context)
+                {
+                    ExcAssertEqual(args.size(), 1);
+                    ExpressionValue rowPath = rowPathFn(args, context);
+                    Path asPath = rowPath.coerceToPath();
+                    int64_t firstElement = args[0].getAtom().toInt();
+                    if (firstElement < 0)
+                        firstElement = asPath.size() + firstElement;
+                    if (firstElement < 0 || firstElement >= asPath.size()) {
+                        throw HttpReturnException
+                            (400, "Couldn't extract element '"
+                             + to_string(firstElement) + "' of path '"
+                             + asPath.toUtf8String() + "' with length "
+                             + to_string(asPath.size()));
+                    }
+                    return ExpressionValue(asPath.at(firstElement).toUtf8String(),
+                                           std::max(rowPath.getEffectiveTimestamp(),
+                                                    args[0].getEffectiveTimestamp()));
+                },
+                std::make_shared<PathValueInfo>()
+            };
+    }
+
+    return BoundFunction();
+}
+
 
 } // namespace MLDB
 } // namespace Datacratic

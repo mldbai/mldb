@@ -34,82 +34,6 @@ namespace Datacratic {
 namespace MLDB {
 namespace Builtins {
 
-namespace {
-    void checkArgsSize(size_t number, size_t expected)
-    {
-        if (number != expected)
-        {
-            if (expected != 1)
-                throw HttpReturnException(400, "expected " + to_string(expected) + " arguments, got " + to_string(number));
-            else
-                throw HttpReturnException(400, "expected " + to_string(expected) + " argument, got " + to_string(number));
-        }
-    }
-}
-
-// Calculate the effective timstamps for an expression involving two
-// operands.
-static Date calcTs(const ExpressionValue & v1,
-                   const ExpressionValue & v2)
-{
-    return std::max(v1.getEffectiveTimestamp(),
-                    v2.getEffectiveTimestamp());
-}
-
-typedef BoundFunction (*BuiltinFunction) (const std::vector<BoundSqlExpression> &);
-
-struct RegisterBuiltin {
-    template<typename... Names>
-    RegisterBuiltin(const BuiltinFunction & function, Names&&... names)
-    {
-        doRegister(function, std::forward<Names>(names)...);
-    }
-
-    void doRegister(const BuiltinFunction & function)
-    {
-    }
-
-    template<typename... Names>
-    void doRegister(const BuiltinFunction & function, std::string name,
-                    Names&&... names)
-    {
-        auto fn = [=] (const Utf8String & str,
-                       const std::vector<BoundSqlExpression> & args,
-                       SqlBindingScope & scope)
-            -> BoundFunction
-            {
-                try {
-                    BoundFunction result = std::move(function(args));
-                    auto fn = result.exec;
-                    result.exec = [=] (const std::vector<ExpressionValue> & args,
-                                       const SqlRowScope & scope)
-                    -> ExpressionValue
-                    {
-                        try {
-                            return fn(args, scope);
-                        } JML_CATCH_ALL {
-                            rethrowHttpException(-1, "Executing builtin function "
-                                                 + str + ": " + ML::getExceptionString(),
-                                                 "functionName", str,
-                                                 "functionArgs", args);
-                        }
-                    };
-
-                    return result;
-                } JML_CATCH_ALL {
-                    rethrowHttpException(-1, "Binding builtin function "
-                                         + str + ": " + ML::getExceptionString(),
-                                         "functionName", str,
-                                         "functionArgs", args);
-                }
-            };
-        handles.push_back(registerFunction(Utf8String(name), fn));
-        doRegister(function, std::forward<Names>(names)...);
-    }
-
-    std::vector<std::shared_ptr<void> > handles;
-};
-
 /*****************************************************************************/
 /* UNARY SCALARS                                                             */
 /*****************************************************************************/
@@ -763,16 +687,6 @@ struct RegisterBuiltinBinaryScalar {
     std::vector<std::shared_ptr<void> > handles;
 };
 
-static Date calcTs(const ExpressionValue & v1,
-                   const ExpressionValue & v2,
-                   const ExpressionValue & v3)
-{
-    return std::max({ v1.getEffectiveTimestamp(),
-                v2.getEffectiveTimestamp(),
-                v3.getEffectiveTimestamp()
-                });
-}
-
 typedef double (*DoubleBinaryFunction)(double, double);
 
 ExpressionValue binaryFunction(const std::vector<ExpressionValue> & args,
@@ -876,6 +790,7 @@ double sqrt(double v)
 
 WRAP_UNARY_MATH_OP(ceil, std::ceil);
 WRAP_UNARY_MATH_OP(floor, std::floor);
+WRAP_UNARY_MATH_OP(round, std::round);
 WRAP_UNARY_MATH_OP(exp, std::exp);
 WRAP_UNARY_MATH_OP(abs, std::abs);
 WRAP_UNARY_MATH_OP(sin, std::sin);
@@ -2927,6 +2842,66 @@ BoundFunction clamp(const std::vector<BoundSqlExpression> & args)
 }
 
 static RegisterBuiltin registerClamp(clamp, "clamp");
+
+BoundFunction parse_path(const std::vector<BoundSqlExpression> & args)
+{
+    // Parse a string, and return a structured path
+    checkArgsSize(args.size(), 1);
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+
+                ExcAssertEqual(args.size(), 1);
+                ExpressionValue result(CellValue(Path::parse(args[0].getAtom().toUtf8String())),
+                                       args[0].getEffectiveTimestamp());
+                return result;
+            },
+            std::make_shared<PathValueInfo>()
+    };
+}
+
+static RegisterBuiltin registerParsePath(parse_path, "parse_path");
+
+BoundFunction stringify_path(const std::vector<BoundSqlExpression> & args)
+{
+    // Return an escaped string from a path
+    checkArgsSize(args.size(), 1);
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+
+                ExcAssertEqual(args.size(), 1);
+                ExpressionValue result(args[0].coerceToPath().toUtf8String(),
+                                       args[0].getEffectiveTimestamp());
+                return result;
+            },
+            std::make_shared<Utf8StringValueInfo>()
+    };
+}
+
+static RegisterBuiltin registerStringifyPath(stringify_path, "stringify_path");
+
+BoundFunction path_element(const std::vector<BoundSqlExpression> & args)
+{
+    // Return the given element of a path
+    checkArgsSize(args.size(), 2);
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                ExcAssertEqual(args.size(), 2);
+                size_t el = args[1].getAtom().toUInt();
+                ExpressionValue result(CellValue(args[0].coerceToPath().at(el)),
+                                       calcTs(args[0], args[1]));
+                return result;
+            },
+            std::make_shared<Utf8StringValueInfo>()
+    };
+}
+
+static RegisterBuiltin registerPathElement(path_element, "path_element");
 
 } // namespace Builtins
 } // namespace MLDB

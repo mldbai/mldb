@@ -21,6 +21,7 @@ namespace MLDB {
 
 typedef HashWrapper<4> CellValueHash;
 struct PathElement;
+struct Path;
 
 /*****************************************************************************/
 /* STRING CHARACTERISTICS                                                    */
@@ -95,6 +96,9 @@ struct CellValue {
     {
         other.type = ST_EMPTY;
     }
+
+    /** Construct from a path. */
+    CellValue(const Path & path);
     
     /** Construct an interval CellValue.  Note that months and days have
         a limit of 16 bits, and that only one of months, days and seconds
@@ -240,6 +244,7 @@ struct CellValue {
         TIMESTAMP,
         TIMEINTERVAL,
         BLOB,
+        PATH,
         NUM_CELL_TYPES
     };
 
@@ -282,6 +287,11 @@ struct CellValue {
         return cellType() == BLOB;
     }
 
+    bool isPath() const
+    {
+        return cellType() == PATH;
+    }
+
     bool isNaN() const
     {
         CellType t = cellType();
@@ -317,6 +327,7 @@ struct CellValue {
     CellValue coerceToTimestamp() const;
     CellValue coerceToBlob() const;
     PathElement coerceToPathElement() const;
+    Path coerceToPath() const;
     
     /** This is always the SIPhash of the toString() representation.
         Only for blobs, which have no toString(), is it calculated
@@ -430,7 +441,9 @@ private:
         ST_TIMESTAMP,
         ST_TIMEINTERVAL,
         ST_SHORT_BLOB,
-        ST_LONG_BLOB
+        ST_LONG_BLOB,
+        ST_SHORT_PATH,
+        ST_LONG_PATH
     };
 
     struct StringRepr {
@@ -483,6 +496,7 @@ private:
 
     static bool isStringType(StorageType type);
     static bool isBlobType(StorageType type);
+    static bool isPathType(StorageType type);
 } __attribute__((__packed__)) ;
 
 inline void swap(CellValue & val1, CellValue & val2)

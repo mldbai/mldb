@@ -32,7 +32,7 @@ struct TableLexicalScope: public LexicalScope {
     std::vector<KnownColumn> knownColumns;
     bool hasUnknownColumns;
 
-    static constexpr int ROW_NAME = 0;
+    static constexpr int ROW_PATH = 0;
     static constexpr int ROW_CONTENTS = 1;
 
     virtual ColumnGetter
@@ -150,12 +150,6 @@ struct SubSelectLexicalScope: public TableLexicalScope {
 
     virtual GetAllColumnsOutput
     doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep, int fieldOffset);
-
-    virtual BoundFunction
-    doGetFunction(const Utf8String & functionName,
-                  const std::vector<BoundSqlExpression> & args,
-                  int fieldOffset,
-                  SqlBindingScope & argsScope);
 
     virtual std::set<Utf8String> tableNames() const;
 

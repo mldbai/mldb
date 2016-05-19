@@ -52,7 +52,7 @@ dataset.commit()
 
 
 
-res = mldb.perform("GET", "/v1/query", [["q", "select parse_json(data, {arrays: 'encode'}) as * from my_json_dataset"]])
+res = mldb.perform("GET", "/v1/query", [["q", "select parse_json(data, {arrays: 'encode'}) as * named rowPath() from my_json_dataset"]])
 jsRes = json.loads(res["response"])
 mldb.log(jsRes)
 
@@ -79,6 +79,7 @@ mldb.log(res)
 
 res = mldb.perform("GET", "/v1/query", [["q", """SELECT 
                                                 name, age, key, parse_json(value, {arrays: 'encode'}) as friends 
+                                                NAMED rowPath()
                                                 FROM melted_dataset"""]])
 jsRes = json.loads(res["response"])
 mldb.log(jsRes)
