@@ -1354,6 +1354,7 @@ BoundGroupByQuery(const SelectExpression & select,
       groupBy(groupBy),
       select(select),
       having(having),
+      orderBy(orderBy),
       numBuckets(1)
 {
     for (auto & g: groupBy.clauses) {
@@ -1372,9 +1373,6 @@ BoundGroupByQuery(const SelectExpression & select,
            calc.emplace_back(a);
         } 
     }
-
-    // Bind in the order by expression
-    boundOrderBy = orderBy.bindAll(*groupContext);
 
     // Bind the row name expression
     boundRowName = rowName.bind(*groupContext);
@@ -1422,6 +1420,10 @@ execute(RowProcessor processor,
     //The bound having must resolve to a boolean expression
     if (!having.isConstantTrue() && !having.isConstantFalse() && dynamic_cast<BooleanValueInfo*>(boundHaving.info.get()) == nullptr)
         throw HttpReturnException(400, "HAVING must be a boolean expression");
+
+    // Bind in the order by expression. Must be bound after the having because
+    //we placed the orderby aggregators after the having aggregator in the list
+    boundOrderBy = orderBy.bindAll(*groupContext);
 
     // When we get a row, we record it under the group key
     auto onRow = [&] (NamedRowValue & row,

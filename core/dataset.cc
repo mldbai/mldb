@@ -690,6 +690,8 @@ queryStructured(const SelectExpression & select,
         = select.findAggregators(!groupBy.clauses.empty());
     std::vector< std::shared_ptr<SqlExpression> > havingaggregators
         = having.findAggregators(!groupBy.clauses.empty());
+    std::vector< std::shared_ptr<SqlExpression> > orderbyaggregators
+        = orderBy.findAggregators(!groupBy.clauses.empty());
 
     // Do it ungrouped if possible
     if (groupBy.clauses.empty() && aggregators.empty()) {
@@ -713,6 +715,7 @@ queryStructured(const SelectExpression & select,
     else {
 
         aggregators.insert(aggregators.end(), havingaggregators.begin(), havingaggregators.end());
+        aggregators.insert(aggregators.end(), orderbyaggregators.begin(), orderbyaggregators.end());
 
         // Otherwise do it grouped...
         auto processor = [&] (NamedRowValue & row_)

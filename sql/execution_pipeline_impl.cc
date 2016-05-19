@@ -1927,7 +1927,7 @@ take()
     auto result = key;
     result->group = std::move(group);
 
-    //cerr << "got group " << jsonEncode(result->group) << endl;
+   //cerr << "got group " << jsonEncode(result->group) << endl;
 
     return result;
 }
@@ -1951,7 +1951,8 @@ Bound(std::shared_ptr<BoundPipelineElement> source,
     : source_(std::move(source)),
       outputScope_(source_->outputScope()
                    ->tableScope(std::make_shared<AggregateLexicalScope>
-                                (source_->outputScope())))
+                                (source_->outputScope()))),
+      numValues_(numValues)
 {
 }
 
