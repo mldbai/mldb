@@ -673,8 +673,10 @@ struct MinMaxAccum {
     Date ts;
 };
 
-static RegisterAggregatorT<MinMaxAccum<std::less<CellValue> > > registerMin("min");
-static RegisterAggregatorT<MinMaxAccum<std::greater<CellValue> > > registerMax("max");
+static RegisterAggregatorT<MinMaxAccum<std::less<CellValue> > >
+registerMin("min", "vertical_min");
+static RegisterAggregatorT<MinMaxAccum<std::greater<CellValue> > >
+registerMax("max", "vertical_max");
 
 struct CountAccum {
     static constexpr int nargs = 1;
