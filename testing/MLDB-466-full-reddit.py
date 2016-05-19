@@ -73,11 +73,33 @@ class RedditTest(MldbUnitTest):
 
         mldb.log("querying for nearest subreddit")
         
-        mldb.query("""
-            select nearest_subreddit({ coords: 
-                embedder({ row: {HongKong: 1} })[embedding]
-            })
-        """)
+        result = mldb.get("/v1/query", format="aos", q="""
+            select 
+                embedder({ row: {soccer: 1} })[embedding] as soccer,
+                neighbour.* as *, 
+                x.distance
+            from transpose(( 
+                select nearest_subreddit({ coords: 
+                    embedder({ row: {soccer: 1} })[embedding]
+                })[neighbors] as *
+                named 'distance'
+            )) as x
+            join reddit_svd_embedding as neighbour
+            on (x.rowName() = neighbour.rowName())
+        """).json()[0]
+
+        #result now contains a vector and its nearest neighbour
+        #plus distance from the nearest-neighbour function
+        #let's independently reconfirm that the distance is correct
+
+        dist_accum = 0
+        for i in range(100):
+            diff = result["embedding.%d" % i]-result["soccer.%d" % i]
+            dist_accum += diff*diff
+
+        import math
+        # MLDB-1677
+        #self.assertEqual(math.sqrt(dist_accum), result["x.distance"])
 
         mldb.put('/v1/procedures/reddit_kmeans', {
             "type" : "kmeans.train",
