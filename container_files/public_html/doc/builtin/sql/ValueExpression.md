@@ -458,6 +458,14 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
   - For example, `date_trunc('month', '1969-07-24')` will return `'1969-07-01'`
   - `day`, `dow`, `doy`, `isodow`, `isodoy` will all truncate to the day
 
+### Set operation functions
+
+- `jaccard_index(expr, expr)` will return the [Jaccard index](https://en.wikipedia.org/wiki/Jaccard_index), also
+  known as the *Jaccard similarity coefficient*, on two sets. The sets are specified using two row expressions 
+  representing two bags of words. The column names will be used as values, meaning this function can be used 
+  on the output of the `tokenize` function. The function will return 1 if the sets are equal, and 0 if they are 
+  completely different.
+
 ### Vector space functions
 
 - `norm(vec, p)` will return the L-`p` norm of `vec`. The L-0 norm is the count of non-zero

@@ -1239,9 +1239,9 @@ BoundFunction temporalAggregatorT(const std::vector<BoundSqlExpression> & args)
                       const SqlRowScope & scope) -> ExpressionValue
         {
             ExcAssertEqual(args.size(), 1);
-            
+
             const ExpressionValue & val = args[0];
-            
+
             auto applyAggregator = [&] (value_type current,
                                         const ExpressionValue & val)
             {
@@ -1250,7 +1250,7 @@ BoundFunction temporalAggregatorT(const std::vector<BoundSqlExpression> & args)
                     current = AggregatorFunc::apply(current, val);
                     return true;
                 };
-                    
+
                 val.forEachSuperposedValue(onColumn);
 
                 return current;
@@ -1265,7 +1265,7 @@ BoundFunction temporalAggregatorT(const std::vector<BoundSqlExpression> & args)
                 // TODO - figure out what should be the ordering of the columns in
                 // the result
                 std::unordered_map<PathElement, value_type> results;
-            
+
                 auto onColumn = [&] (const PathElement & columnName,
                                      const ExpressionValue & val)
                 {
@@ -1312,6 +1312,59 @@ BoundFunction temporalAggregatorT(const std::vector<BoundSqlExpression> & args)
             std::make_shared<UnknownRowValueInfo>(),
             GET_ALL};
 }
+
+
+BoundFunction jaccard_index(const std::vector<BoundSqlExpression> & args)
+{
+    if (args.size() != 2)
+        throw HttpReturnException(500, "jaccard_index function takes two arguments");
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                if(!args[0].isRow() || !args[1].isRow())
+                    throw ML::Exception("The arguments passed to the jaccard_index must be two "
+                        "row expressions");
+
+                set<Path> a, b;
+                auto onAtom = [&] (const Path & columnName,
+                                   const Path & prefix,
+                                   const CellValue & val,
+                                   Date atomTs)
+                    {
+                        if (val.empty())
+                            return true;
+
+                        a.insert(columnName);
+                        return true;
+                    };
+
+                args.at(0).forEachAtom(onAtom);
+                b = std::move(a);
+                args.at(1).forEachAtom(onAtom);
+
+                if(a.size() == 0 && b.size() == 0)
+                    return ExpressionValue(1, Date::now());
+
+                vector<Path> intersect(a.size() + b.size());
+                auto it=std::set_intersection(a.begin(), a.end(), b.begin(), b.end(), intersect.begin());
+                intersect.resize(it-intersect.begin());
+
+                double denom = a.size() + b.size() - intersect.size();
+                double index = 1;
+                if(denom != 0)
+                    index = intersect.size() / denom;
+
+                return ExpressionValue(index, Date::now());
+            },
+            std::make_shared<Float64ValueInfo>()};
+}
+
+static RegisterBuiltin registerJaccard_Index(jaccard_index, "jaccard_index");
+
+
+
+
 
 namespace {
 
@@ -1459,7 +1512,8 @@ BoundFunction date_part(const std::vector<BoundSqlExpression> & args)
     if (args.size() == 3 && args[2].metadata.isConstant) {
         const auto& constantValue = args[2].constantValue();
         if (!constantValue.isString()) {
-            throw HttpReturnException(400, "date_part expected a string as third argument, got " + constantValue.coerceToString().toUtf8String());
+            throw HttpReturnException(400, "date_part expected a string as third argument, got " +
+                    constantValue.coerceToString().toUtf8String());
         }
 
         Iso8601Parser timeZoneParser(constantValue.coerceToString().toString());
@@ -1483,7 +1537,8 @@ BoundFunction date_part(const std::vector<BoundSqlExpression> & args)
                     else {
                         const ExpressionValue& timezoneoffsetEV = args[2];
                         if (!timezoneoffsetEV.isString()) {
-                            throw HttpReturnException(400, "date_part expected a string as third argument, got " + timezoneoffsetEV.coerceToString().toUtf8String());
+                            throw HttpReturnException(400, "date_part expected a string as third argument, got " +
+                                    timezoneoffsetEV.coerceToString().toUtf8String());
                         }
 
                         Iso8601Parser timeZoneParser(timezoneoffsetEV.toString());
@@ -1519,7 +1574,8 @@ BoundFunction date_trunc(const std::vector<BoundSqlExpression> & args)
     if (args.size() == 3 && args[2].metadata.isConstant) {
         const auto& constantValue = args[2].constantValue();
         if (!constantValue.isString()) {
-            throw HttpReturnException(400, "date_trunc expected a string as third argument, got " + constantValue.coerceToString().toUtf8String());
+            throw HttpReturnException(400, "date_trunc expected a string as third argument, got " +
+                    constantValue.coerceToString().toUtf8String());
         }
 
         Iso8601Parser timeZoneParser(constantValue.coerceToString().toString());
