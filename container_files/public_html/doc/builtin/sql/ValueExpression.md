@@ -422,6 +422,8 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
   It is normally preferable that the `regex` be a
   constant string; performance will be very poor if not as the regular expression
   will need to be recompiled on every application.
+- `levenshtein_distance(string, string)` will return the [Levenshtein distance](https://en.wikipedia.org/wiki/Levenshtein_distance), 
+  or the *edit distance*, between the two strings.
 
 ### Timestamp functions
 

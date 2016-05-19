@@ -2627,6 +2627,8 @@ BoundFunction levenshtein_distance(const std::vector<BoundSqlExpression> & args)
                                            args[0].getEffectiveTimestamp());
 
 
+                bool singleThreaded = query.size() + target.size() < 1000;
+
                 unsigned char convQuery[query.size()];
                 unsigned char convTarget[target.size()];
 
@@ -2637,25 +2639,42 @@ BoundFunction levenshtein_distance(const std::vector<BoundSqlExpression> & args)
                 auto fct = [&] (const string & in, unsigned char * out) {
                     auto strLen = in.size();
                     for (int i = 0; i < strLen; ++i) {
-                        auto currChar = in[i];
+                        auto & currChar = in[i];
                         auto it = charIdx.find(currChar);
                         if (it == charIdx.end()) {
-                            lock_guard<mutex> lock(myMutex);
-                            it = charIdx.find(currChar);
-                            if (it == charIdx.end()) {
-                                auto res = charIdx.emplace(currChar, idx ++);
-                                ExcAssert(std::get<1>(res));
-                                it = std::get<0>(res);
+
+                            auto doEmplace = [&] ()
+                                {
+                                    auto res = charIdx.emplace(currChar, idx ++);
+                                    ExcAssert(std::get<1>(res));
+                                    it = std::get<0>(res);
+                                };
+
+                            if(singleThreaded) {
+                                doEmplace();
+                            }
+                            else {
+                                lock_guard<mutex> lock(myMutex);
+                                it = charIdx.find(currChar);
+                                if (it == charIdx.end()) {
+                                    doEmplace();
+                                }
                             }
                         }
                         out[i] = it->second;
                     }
                 };
 
-                thread queryThread(fct, query, &convQuery[0]);
-                thread targetThread(fct, target, &convTarget[0]);
-                queryThread.join();
-                targetThread.join();
+                if(singleThreaded) {
+                    fct(query, &convQuery[0]);
+                    fct(target, &convTarget[0]);
+                }
+                else {
+                    thread queryThread(fct, query, &convQuery[0]);
+                    thread targetThread(fct, target, &convTarget[0]);
+                    queryThread.join();
+                    targetThread.join();
+                }
 
                 // DEBUG OUTPUT------------------
                 /*
@@ -2682,7 +2701,7 @@ BoundFunction levenshtein_distance(const std::vector<BoundSqlExpression> & args)
                 int rtn = edlibCalcEditDistance(
                     convQuery, query.size(),
                     convTarget, target.size(),
-                    (int)idx, /** TODO +1 ?? **/
+                    (int)idx + 1,
                     -1, EDLIB_MODE_NW, false, false,
                     &bestScore, 
                     &endLocations1, &startLocations1, &numLocations,
