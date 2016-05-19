@@ -659,6 +659,14 @@ getRowInfo() const
                                           SCHEMA_CLOSED);
 }
 
+ExpressionValue
+Dataset::
+getRowExpr(const RowName & row) const
+{
+    MatrixNamedRow flattened = getMatrixView()->getRow(row);
+    return std::move(flattened.columns);
+}
+
 std::vector<MatrixNamedRow>
 Dataset::
 queryStructured(const SelectExpression & select,
@@ -682,6 +690,8 @@ queryStructured(const SelectExpression & select,
         = select.findAggregators(!groupBy.clauses.empty());
     std::vector< std::shared_ptr<SqlExpression> > havingaggregators
         = having.findAggregators(!groupBy.clauses.empty());
+    std::vector< std::shared_ptr<SqlExpression> > orderbyaggregators
+        = orderBy.findAggregators(!groupBy.clauses.empty());
 
     // Do it ungrouped if possible
     if (groupBy.clauses.empty() && aggregators.empty()) {
@@ -705,6 +715,7 @@ queryStructured(const SelectExpression & select,
     else {
 
         aggregators.insert(aggregators.end(), havingaggregators.begin(), havingaggregators.end());
+        aggregators.insert(aggregators.end(), orderbyaggregators.begin(), orderbyaggregators.end());
 
         // Otherwise do it grouped...
         auto processor = [&] (NamedRowValue & row_)
@@ -1130,7 +1141,7 @@ generateRowsWhere(const SqlBindingScope & scope,
     // Optimize for rowName() IN (constant, constant, constant)
     // Optimize for rowName() IN ROWS / IN KEYS (...)
     auto inExpression = dynamic_cast<const InExpression *>(&where);
-    if (inExpression) 
+    if (inExpression && !inExpression->isnegative) 
     {
         auto fexpr = getFunction(*(inExpression->expr));
         if (fexpr && fexpr->functionName == "rowName") {

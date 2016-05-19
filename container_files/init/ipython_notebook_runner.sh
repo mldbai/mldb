@@ -22,7 +22,7 @@ if [ ! -f {{IPYTHON_NB_DIR}}/_tutorials/_latest ]; then
     ln -rs {{IPYTHON_NB_DIR}}/_tutorials/v{{VERSION_NAME2}} {{IPYTHON_NB_DIR}}/_tutorials/_latest 
 fi
 
-cp {{MLDB_PUBLIC_HTML_PATH}}/favicon.ico {{IPYTHON_IMAGES_DIR}}/favicon.ico
+cp {{NGINX_ROOT}}/favicon.ico {{IPYTHON_IMAGES_DIR}}/favicon.ico
 cp {{MLDB_PUBLIC_HTML_PATH}}/resources/images/mldb_ipython_logo.png {{IPYTHON_IMAGES_DIR}}/logo.png
 
 export JUPYTER_CONFIG_DIR={{IPYTHON_DIR}}/config

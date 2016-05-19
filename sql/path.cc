@@ -92,7 +92,7 @@ parsePartial(const char * & p, const char * e)
     ExcAssertLessEqual((void *)p, (void *)e);
 
     if (p == e) {
-        throw HttpReturnException(400, "Parsing empty string for path");
+        return PathElement();
     }
 
     if (*p == '\"') {
@@ -111,10 +111,6 @@ parsePartial(const char * & p, const char * e)
             if (c == '\"') {
                 if (ufirst == ulast || *ufirst != '\"') {
                     p = ufirst.base();
-                    if (result.empty()) {
-                        throw HttpReturnException(400, "Empty quoted path");
-                    }
-
                     return result;
                 }
                 result += '\"';
@@ -133,18 +129,19 @@ parsePartial(const char * & p, const char * e)
             if (c == '\"' || c < ' ') {
                 if (c == '\"') {
                     throw HttpReturnException
-                        (400, "invalid char in PathElement.  Quotes must be doubled.");
+                        (400, "invalid char in PathElement '" + Utf8String(start, e)
+                         + "'.  Quotes must be doubled.");
                 }
                 else {
                     throw HttpReturnException
-                        (400, "invalid char in PathElement.  Special characters must be quoted.");
+                        (400, "invalid char in PathElement '" + Utf8String(start, e)
+                         + "'.  Special characters must be quoted.");
                 }
             }
         }
         size_t sz = start - p;
-        if (sz == 0) {
-            throw HttpReturnException(400, "Empty path");
-        }
+        if (sz == 0)
+            return PathElement();
         PathElement result(p, sz);
         p = start;
         return std::move(result);
@@ -279,6 +276,9 @@ Utf8String
 PathElement::
 toEscapedUtf8String() const
 {
+    if (empty())
+        return "\"\"";
+
     const char * d = data();
     size_t l = dataLength();
 
@@ -525,8 +525,6 @@ void
 PathElement::
 initString(T && str)
 {
-    if (str.empty())
-        throw HttpReturnException(400, "Attempt to create empty PathElement");
     ExcAssertEqual(strlen(rawData(str)), rawLength(str));
     initStringUnchecked(std::move(str));
 }
@@ -560,8 +558,6 @@ void
 PathElement::
 initChars(const char * str, size_t len)
 {
-    if (len == 0)
-        throw HttpReturnException(400, "Attempt to create empty PathElement");
     words[0] = words[1] = words[2] = 0;
     if (len <= INTERNAL_BYTES - 1) {
         complex_ = 0;
@@ -701,6 +697,12 @@ Path::Path(const PathElement & path)
         emplace_back(path);
 }
 
+Path::
+Path(const PathElement * start, size_t len)
+    : Path(start, start + len)
+{
+}
+
 Utf8String
 Path::
 toSimpleName() const
@@ -715,10 +717,12 @@ Path::
 toUtf8String() const
 {
     Utf8String result;
+    bool first = true;
     for (auto & c: *this) {
-        if (!result.empty())
+        if (!first)
             result += '.';
         result += c.toEscapedUtf8String(); 
+        first = false;
     }
     return result;
 }
@@ -734,9 +738,7 @@ parse(const char * str, size_t len)
     const char * e = p + len;
 
     if (p == e) {
-        if (result.empty()) {
-            throw HttpReturnException(400, "Parsing empty string for path");
-        }
+        return result;
     }
 
     while (p < e) {
@@ -751,11 +753,10 @@ parse(const char * str, size_t len)
         }
     }
 
-    if (result.empty()) {
-        throw HttpReturnException(400, "Path were empty",
-                                  "val", Utf8String(str, len));
+    if (str != e && e[-1] == '.') {
+        result.emplace_back();
     }
-    
+
     return result;
 }
 

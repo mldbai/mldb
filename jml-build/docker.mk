@@ -106,7 +106,7 @@ docker_%: altroot_prep_%  $(DOCKER_GLOBAL_DEPS) $(DOCKER_TARGET_DEPS)
 	cat $(TMPBIN)/$(*).cid
 	echo docker commit `cat $(TMPBIN)/$(*).cid` $(DOCKER_REGISTRY)$(DOCKER_USER)$(*):`cat $(TMPBIN)/$(*).rid`
 	docker commit $(DOCKER_COMMIT_ARGS) `cat $(TMPBIN)/$(*).cid` $(DOCKER_REGISTRY)$(DOCKER_USER)$(*):`cat $(TMPBIN)/$(*).rid` > $(TMPBIN)/$(*).iid && cat $(TMPBIN)/$(*).iid
-	$(foreach tag,$(DOCKER_TAGS),docker tag -f `cat $(TMPBIN)/$(*).iid` $(DOCKER_REGISTRY)$(DOCKER_USER)$(*):$(tag);)
+	$(foreach tag,$(DOCKER_TAGS),docker tag `cat $(TMPBIN)/$(*).iid` $(DOCKER_REGISTRY)$(DOCKER_USER)$(*):$(tag);)
 	@docker rm `cat $(TMPBIN)/$(*).cid`
 	$(if $(DOCKER_PUSH),$(foreach tag,$(DOCKER_TAGS),docker push $(DOCKER_REGISTRY)$(DOCKER_USER)$(*):$(tag);))
 	@echo $(COLOR_WHITE)Created $(if $(DOCKER_PUSH),and pushed )$(COLOR_BOLD)$(DOCKER_REGISTRY)$(DOCKER_USER)$(*):`cat $(TMPBIN)/$(*).rid`$(COLOR_RESET) as image $(COLOR_WHITE)$(COLOR_BOLD)`cat $(TMPBIN)/$(*).iid`$(COLOR_RESET)

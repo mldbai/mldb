@@ -134,7 +134,7 @@ struct BucketDescriptions {
     BucketDescriptions();
     bool hasNulls;
     NumericValues numeric;
-    CategoricalValues strings, blobs;
+    CategoricalValues strings, blobs, paths;
     OrdinalValues timestamps, intervals;
 
     void initialize(std::vector<CellValue> values,

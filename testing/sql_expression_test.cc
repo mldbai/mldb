@@ -73,7 +73,7 @@ struct TestBindingContext: public SqlBindingScope {
     {
         GetAllColumnsOutput result;
 
-        result.exec = [=] (const SqlRowScope & context)
+        result.exec = [=] (const SqlRowScope & context, const VariableFilter & filter)
             -> ExpressionValue
             {
                 const TestContext & testContext
@@ -1142,8 +1142,8 @@ BOOST_AUTO_TEST_CASE(test_select_statement_parse)
         auto statement = SelectStatement::parse("select 1 from table");
         BOOST_CHECK_EQUAL(statement.select.clauses.size(), 1);
         BOOST_CHECK_EQUAL(ML::type_name(*statement.select.clauses[0].get()),
-                          "Datacratic::MLDB::ComputedColumn");
-        auto cast = dynamic_cast<ComputedColumn *>(statement.select.clauses[0].get());
+                          "Datacratic::MLDB::NamedColumnExpression");
+        auto cast = dynamic_cast<NamedColumnExpression *>(statement.select.clauses[0].get());
         BOOST_CHECK_EQUAL(cast->alias, ColumnName("1"));
     }
 
@@ -1235,6 +1235,11 @@ BOOST_AUTO_TEST_CASE(test_select_statement_parse)
         BOOST_CHECK(isTupleDependent("value_timestamp() < TIMESTAMP '2014-01-09' AND latest_timestamp(a) BETWEEN TIMESTAMP '2015-01-10' AND TIMESTAMP '2016-10-01'"));
         BOOST_CHECK(!isTupleDependent("latest_timestamp(a) < TIMESTAMP '2015-01-09'"));
     }
+
+    {
+        // MLDB-1434
+        auto statement = SelectStatement::parse("select rowName(),a.b,a.c from table");
+    }
 }
 
 // MLDB-1002: x AS y <--> y: x, x* AS y* <--> y*: x*
@@ -1261,7 +1266,11 @@ BOOST_AUTO_TEST_CASE(test_colon_as)
 
     parsed = SelectExpression::parse("x:10,y:20");
     cerr << parsed.print() << endl;
+}
 
+BOOST_AUTO_TEST_CASE(test_alignment)
+{
+    // Not really a test, but helpful for developers...
     cerr << "sizeof(CellValue) = " << sizeof(CellValue) << endl;
     cerr << "alignof(CellValue) = " << alignof(CellValue) << endl;
     cerr << "sizeof(ExpressionValue) = " << sizeof(ExpressionValue) << endl;

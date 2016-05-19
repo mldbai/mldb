@@ -11,6 +11,7 @@ export UWSGI_VALIDATOR_PORT = 9100
 export MLDB_RUNNER_LISTEN_ADDR = 127.0.0.1
 export MLDB_RUNNER_LISTEN_PORT = 11700
 export MLDB_PUBLIC_HTML_PATH = /opt/local/public_html
+export NGINX_ROOT = /opt/local/public_html/nginx
 export MLDB_CREDENTIALS_PATH = file://$(MLDB_DATA_DIR)/.mldb_credentials
 export MLDB_VALIDATOR_DIR = $(MLDB_DATA_DIR)/.mldb_validator
 export VERSION_NAME2 = $(if $(VERSION_NAME),$(VERSION_NAME),$(shell date +"%Y.%m.%d.dev-")$(shell git rev-parse --short HEAD))
