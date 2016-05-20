@@ -109,6 +109,13 @@ struct BooleanOperatorExpression: public SqlExpression {
     std::string op;
 };
 
+/** Read a column from a dataset.  This corresponds
+    to an expression `x` where `x` is a column name in a dataset.
+    This expression is further wrapped into SqlRowExpressions
+    to form the SELECT clauses.  For example, the expression
+    `x AS y` is parsed as a NamedColumnExpression with surface
+    `x AS y` containing a ReadColumnExpression with surface `x`.
+*/
 struct ReadColumnExpression: public SqlExpression {
     ReadColumnExpression(ColumnName columnName);
 
@@ -431,13 +438,20 @@ struct WildcardExpression: public SqlRowExpression {
     wildcards() const;
 
     virtual bool isIdentitySelect(SqlExpressionDatasetScope & context) const;
+
+    virtual bool isWildcard() const {return true; }
 };
 
-/** Represents "SELECT expression" */
-struct ComputedColumn: public SqlRowExpression {
-    ComputedColumn(ColumnName alias,
+/** Represents x AS y, y : x, x AS * or x that appears in a SELECT expression" */
+struct NamedColumnExpression: public SqlRowExpression {
+    NamedColumnExpression(ColumnName alias,
                    std::shared_ptr<SqlExpression>);
 
+    /** This value must be understood as follows:
+        - the alias is set to the value of y in expression x AS y
+        - it is empty in the case of x AS *
+        - it contains the surface of x otherwise
+    */
     ColumnName alias;  ///< Name of variable alias
     std::shared_ptr<SqlExpression> expression;
 
@@ -493,6 +507,8 @@ struct FunctionCallExpression: public SqlRowExpression {
 
     virtual std::map<ScopedName, UnboundFunction>
     functionNames() const override;
+
+    virtual bool isAggregator() const { return !!tryLookupAggregator(functionName); }
 
 private:
 

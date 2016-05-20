@@ -1001,6 +1001,20 @@ struct MldbJS::Methods {
     }
     
     static v8::Handle<v8::Value>
+    createPath(const v8::Arguments & args)
+    {
+        using namespace v8;
+        JsPluginContext * context = MldbJS::getContext(args.This());
+
+        v8::HandleScope scope;
+        try {
+            Path val1 = JS::getArg<Path>(args, 0, "argument");
+            CellValue val(val1);
+            return scope.Close(CellValueJS::create(val, context));
+        } HANDLE_JS_EXCEPTIONS;
+    }
+    
+    static v8::Handle<v8::Value>
     sqlEscape(const v8::Arguments & args)
     {
         v8::HandleScope scope;
@@ -1078,6 +1092,8 @@ registerMe()
                 FunctionTemplate::New(Methods::createProcedure));
     result->Set(String::New("createInterval"),
                 FunctionTemplate::New(Methods::createInterval));
+    result->Set(String::New("createPath"),
+                FunctionTemplate::New(Methods::createPath));
     result->Set(String::New("createRandomNumberGenerator"),
                 FunctionTemplate::New(Methods::createRandomNumberGenerator));
     result->Set(String::New("perform"), FunctionTemplate::New(Methods::perform));

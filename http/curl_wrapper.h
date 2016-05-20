@@ -54,16 +54,20 @@ namespace CurlWrapper {
         void add_option(CURLoption option, long value);
         void add_option(CURLoption option, const std::string& value);
         void add_header_option(const RestParams& headers);
+        /** As pointer to the callback is kept.  The caller must 
+            make sure that this pointer life span is as long as the 
+            life span of the Easy object.
+         */
         void add_callback_option(CURLoption option, CURLoption userDataOption, CurlCallback& callback);
         void add_data_option(CURLoption option, const void * data);
 
-        /* Perform the request in a blocking manner.  No exception will be
+        /** Perform the request in a blocking manner.  No exception will be
            thrown if there is an error; instead it will be returned in the
            CURLcode that is returned from the result of this command.
         */
         CURLcode perform();
 
-        /* reset the options while keeping the handle.  there could be a speed 
+        /** reset the options while keeping the handle.  there could be a speed 
            advantage to reuse the same Easy object */
         void reset();
 

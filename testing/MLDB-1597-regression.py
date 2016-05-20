@@ -112,14 +112,13 @@ class Mldb1597Test(MldbUnitTest):
         """)
         self.assertEqual(resp1, resp2)
 
-    @unittest.skip("awaiting MLDB-1500")
     def test_order_by_with_aggregate(self):
         mldb.query("""
         select 
             sum(c) as s
         from ds 
         group by dow
-        order by sum(income)
+        order by sum(c)
         """)
 
         mldb.query("""
@@ -128,7 +127,7 @@ class Mldb1597Test(MldbUnitTest):
             sum(c - d) as p
         from ds 
         group by dow
-        order by 1-(0.001+sum(cost))/(0.001+sum(income))
+        order by 1-(0.001+sum(d))/(0.001+sum(c))
         """)
 
     def run_query_and_compare(self, query):
@@ -203,39 +202,55 @@ class Mldb1597Test(MldbUnitTest):
         # of these two equivalent joins are currently very different
         self.assertEqual(len(resp), len(resp2), 'expected response sizes to match')
 
-    def test_remaining(self):
-        # setup
-        mldb.post("/v1/procedures", {
-                "type": "transform",
-                "params":{
-                    "inputData": """
-                        select
-                            dow, a_int, 
-                            sum(e_1)/sum(e_2) as e, 
-                            avg({b_1, b_2}) as *,
-                            avg(b_1)/avg(b_2) as b_ratio, 
-                            1-sum(d_1+d_2-c_2)/sum(c_1) as r
-                        from ds
-                        group by dow, a_int
-                    """,
-                    "outputDataset": {"id":"ds_stats", "type":"tabular"},
-                    "runOnCreation": True
-                }
-            })
+    @unittest.skip("awaiting MLDB-1659")
+    def test_r2_bug(self):
 
-        # BUG: 
+        mldb.query("select 11.0 as score, ds.c as label from ds")
+
         # r2 should not be null every time score has only zeros after the decimal point
-        mldb.post("/v1/procedures", {
+        result = mldb.post("/v1/procedures", {
             "type": "classifier.test",
             "params": {
-                "testingData": "select 11.0 as score, ds.c as label from ds_train",
+                "testingData": "select 11.0 as score, ds.c as label from ds",
                 "mode": "regression",
                 "runOnCreation": True
             }
         })
+        r2 = result.json()["status"]["firstRun"]["status"]["r2"]
+        self.assertTrue( r2 is not None )
 
-        #setup
+    @unittest.skip("awaiting MLDB-1660")
+    def test_function_creation_bug(self):
+        mldb.post("/v1/procedures", {
+            "type": "import.text",
+            "params":{
+                "dataFileUrl": "http://public.mldb.ai/narrow_test.csv.gz",
+                "outputDataset": "narrow",
+                "runOnCreation": True
+            }
+        })
 
+        # it seems that the training fails to save the function but we proceed to testing
+        # where we try to use the function but then can't find it
+        # 1) we should not move to testing if function-creation fails
+           # we should report that function-creation failed
+        # 2) function creation should not fail for a dt on this dataset
+
+        mldb.put("/v1/procedures/train", {
+            "type": "classifier.experiment",
+            "params": {
+                "experimentName": "x",
+                "trainingData": "select {a} as features, b as label from narrow",
+                "algorithm": "dt",
+                "mode": "regression",
+                "configurationFile": "./mldb/container_files/classifiers.json",
+                "modelFileUrlPattern": "file:///tmp/MLDB-1597-creation$runid.cls",
+                "runOnCreation": True
+            }
+        })
+
+    @unittest.skip("illustrative test only, no asserts")
+    def test_permutations(self):
         def train(features, label, algo):
             try:
                 result = mldb.post("/v1/procedures", {
