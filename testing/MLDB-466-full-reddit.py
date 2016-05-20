@@ -44,7 +44,16 @@ class RedditTest(MldbUnitTest):
                             columnName() LIMIT 4000) 
                     FROM reddit_dataset
                 """,
-                "columnOutputDataset" : "reddit_svd_embedding",
+                "columnOutputDataset" : {
+                    "id": "reddit_svd_embedding", 
+                    "type":"embedding",
+                    "params": {"metric":"euclidean"}
+                },
+                "rowOutputDataset" : {
+                    "id": "reddit_svd_embedding_rows", 
+                    "type":"embedding",
+                    "params": {"metric":"cosine"} #test that cosine doesn't crash
+                },
                 "modelFileUrl": "file://tmp/MLDB-466.svd",
                 "functionName": "embedder",
                 "runOnCreation": True
