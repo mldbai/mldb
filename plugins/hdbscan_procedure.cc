@@ -62,6 +62,7 @@ HDBSCANConfigDescription()
              "and the lowest ones kept.",
              -1);
     addField("coreDistance", &HDBSCANConfig::coreDistance," ", 5);
+    addField("minClusterSize", &HDBSCANConfig::minClusterSize," ", 5);
     addParent<ProcedureConfig>();
 
   //  onPostValidate = validateFunction<HDBSCANConfig>();
@@ -132,7 +133,7 @@ run(const ProcedureRunConfig & run,
 
     int coreDistance = runProcConf.coreDistance;
     std::vector<double> coreDistances;
-    std::vector<std::vector<std::pair<int, double>>> reachability;
+   // std::vector<std::vector<std::pair<int, double>>> reachability;
 
     for (unsigned i = 0;  i < vecs.size();  ++i) {
         ML::distribution<double> x = vecs[i];
@@ -171,42 +172,56 @@ run(const ProcedureRunConfig & run,
         ExcAssert(!kclosest.empty());
 
         coreDistances.push_back(kclosest.back().second);
-        reachability.push_back(std::move(kclosest));
+       // reachability.push_back(std::move(kclosest));
     }
 
     //2.0 mutual reachability. max(core(x), core(y), d(x,y))
 
-    for (unsigned i = 0;  i < vecs.size();  ++i) {
+ /*   for (unsigned i = 0;  i < vecs.size();  ++i) {
         double myCoreDistance = coreDistances[i];
         for (auto& pair : reachability[i]) {
             int j = pair.first;
             double otherCoreDistance = coreDistances[j];
             pair.second = std::max(pair.second, std::max(myCoreDistance, otherCoreDistance));
         }
-    }
+    }*/
+
+    auto getMutualReachability = [&] (int i, int j) {
+        double myCoreDistance = coreDistances[i];
+        double otherCoreDistance = coreDistances[j];
+        ML::distribution<double> x = vecs[i];
+        ML::distribution<double> y = vecs[j];
+        double distance = (x - y).two_norm();
+        return std::max(distance, std::max(myCoreDistance, otherCoreDistance));
+    };
 
     //3.0 build the minimum spanning tree via Prim's algorithm.
     //    should do a more efficient implementation
-    std::vector<std::pair<int, int>> edges;
+    std::vector<std::tuple<int, int, double> > edges;
     std::vector<int> used;
     used.push_back(0);
 
     while (used.size() < vecs.size()) {
-        //cerr << "NEW ITERATION" << endl;
+    //    cerr << "NEW ITERATION" << endl;
         int minI = 0;
         int minJ = 0;
-        int minDistance = 0.0f;
+        double minDistance = 0.0f;
 
         for (int i : used) {       
-          //  cerr << "from " <<  i << " to " << endl; 
-            for (const auto& pair : reachability[i]) {
-                int j = pair.first;
-            //    cerr << j << endl; 
+           // cerr << "from " <<  i << " to " << endl; 
+            //for (const auto& pair : reachability[i]) {
+              //  int j = pair.first;
+            for (int j = 0; j < vecs.size(); ++j) {
+
+                if (i == j )
+                    continue;
+
+               // cerr << j << endl; 
                 if (std::find(used.begin(), used.end(), j) == used.end()) {
-                    double mutualReachability = pair.second;
-              //      cerr << "distance " << mutualReachability << endl; 
+                    double mutualReachability = getMutualReachability(i, j);//pair.second ;
+                 //   cerr << "distance " << mutualReachability << " vs " << minDistance << endl; 
                     if (minJ == 0 || mutualReachability < minDistance) {
-                //        cerr << "new minimum" << endl;
+                   //     cerr << "new minimum" << endl;
                         minI = i;
                         minJ = j;
                         minDistance = mutualReachability;
@@ -218,12 +233,100 @@ run(const ProcedureRunConfig & run,
         ExcAssert(minJ != 0);
 
         used.push_back(minJ);
-        edges.emplace_back(minI, minJ);
+        edges.emplace_back(minI, minJ, minDistance);
     }
 
-  //  for (auto& edge : edges) {
-  //      cerr << edge.first << " -> " << edge.second << endl;
-  //  }
+  /*  for (auto& edge : edges) {
+        cerr << std::get<0>(edge) << " -> " << std::get<1>(edge) << "   , " << std::get<2>(edge) << endl;
+    }*/
+
+    //4.0 Build the cluster hierarchy. Not optimized, etc, etc.
+    std::sort(edges.begin(), edges.end(), [] (const std::tuple<int, int, double>& a, const std::tuple<int, int, double>& b) {
+        return std::get<2>(a) < std::get<2>(b);
+    });
+
+    cerr << "sorted edges" << endl;
+    for (auto& edge : edges) {
+        cerr << std::get<0>(edge) << " -> " << std::get<1>(edge) << "   , " << std::get<2>(edge) << endl;
+    }
+
+    std::vector<std::pair<int, int>> clusterTops; //last added edges to a cluster. edge / clustersize
+    std::vector<int> clusterSizes(edges.size(), 0);
+
+    clusterTops.emplace_back(0, 2);
+    clusterSizes[0] = 2;
+
+    auto shareVertex = [&] (int i, int j) {
+        const auto& edgeI = edges[i];
+        const auto& edgeJ = edges[j];
+
+        if (std::get<0>(edgeI) == std::get<0>(edgeJ) || std::get<0>(edgeI) == std::get<1>(edgeJ))
+            return std::get<0>(edgeI);
+        else if (std::get<1>(edgeI) == std::get<0>(edgeJ) || std::get<1>(edgeI) == std::get<1>(edgeJ))
+            return std::get<1>(edgeI);
+        else
+            return -1;
+    };
+
+    cerr << "BUILDING CLUSTER HIERARCHY" << endl;
+    for (int edgeIndex = 1; edgeIndex < edges.size(); ++edgeIndex) {
+        cerr << "Edge" << edgeIndex << endl;
+        cerr << "clusterTops.size(): " << clusterTops.size() << endl;
+        //try to find one or two clusters it joins
+        int i = clusterTops.size();
+        int j = clusterTops.size();
+        for (i = 0; i < clusterTops.size(); ++i) {
+            if (shareVertex(std::get<0>(clusterTops[i]), edgeIndex) >= 0) {
+                cerr << "found first child: " << std::get<0>(clusterTops[i]) << endl;
+                break;
+            }
+        }
+        if (i < clusterTops.size()) {
+            for (j = i+1; j < clusterTops.size(); ++j) {
+                if (shareVertex(std::get<0>(clusterTops[j]), edgeIndex) >= 0) {
+                    cerr << "found second child: " << std::get<0>(clusterTops[j]) << endl;
+                    break;
+                }
+            }
+        }
+
+        int childClustersize = 0;
+
+        //remove i and j if found
+        bool bothChild = false;
+        if (i < clusterTops.size()) {
+            cerr << "fdss";
+            childClustersize += std::get<1>(clusterTops[i]);
+            clusterTops.erase(clusterTops.begin() + i);
+            if (j -1 < clusterTops.size()) {
+                bothChild = true;
+                childClustersize += std::get<1>(clusterTops[j-1]);
+                cerr << "ERASING BOTH" << endl;
+                clusterTops.erase(clusterTops.begin() + (j-1));
+            }
+        }
+        cerr << "childClustersize " << childClustersize << endl;
+
+        int clusterSize = childClustersize == 0 ? 2 : childClustersize + 1;
+        clusterSize = bothChild ? childClustersize : clusterSize;
+
+
+        //add as a new cluster top
+        clusterSizes[edgeIndex] = clusterSize;
+        clusterTops.emplace_back(edgeIndex, clusterSize);
+
+    }
+
+    cerr << "clusterTops.size(): " << clusterTops.size() << endl;
+
+    ExcAssert(clusterTops.size() == 1);
+
+    cerr << "cluster sizes" << endl;
+    for (auto& size : clusterSizes) {
+        cerr << size << endl;
+    }
+
+    //int minClusterSize = runProcConf.minClusterSize;
 
     return Any();
 }

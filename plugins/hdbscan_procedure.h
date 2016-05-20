@@ -32,7 +32,8 @@ struct HDBSCANConfig : public ProcedureConfig  {
 
     HDBSCANConfig()
         : numInputDimensions(-1),
-          coreDistance(5)
+          coreDistance(5),
+          minClusterSize(5)
     {
     }
 
@@ -41,7 +42,8 @@ struct HDBSCANConfig : public ProcedureConfig  {
     static constexpr char const * defaultOutputDatasetType = "embedding";
 
     int numInputDimensions;
-    int coreDistance; 
+    int coreDistance;
+    int minClusterSize;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(HDBSCANConfig);
