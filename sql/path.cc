@@ -85,14 +85,14 @@ parse(const char * p, size_t l)
     return result;
 }
 
-PathElement
+std::pair<PathElement, bool>
 PathElement::
-parsePartial(const char * & p, const char * e)
+tryParsePartial(const char * & p, const char * e, bool exceptions)
 {
     ExcAssertLessEqual((void *)p, (void *)e);
 
     if (p == e) {
-        return PathElement();
+        return { PathElement(), true };
     }
 
     if (*p == '\"') {
@@ -100,27 +100,39 @@ parsePartial(const char * & p, const char * e)
         ++p;
 
         if (p == e) {
-            throw HttpReturnException(400, "Path quoted incorrectly");
+            if (exceptions)
+                throw HttpReturnException(400, "Path quoted incorrectly");
+            else return { PathElement(), false };
         }
 
-        utf8::iterator<const char *> ufirst(p, p, e);
-        utf8::iterator<const char *> ulast(e, p, e);
+        try {
+            utf8::iterator<const char *> ufirst(p, p, e);
+            utf8::iterator<const char *> ulast(e, p, e);
 
-        while (ufirst != ulast) {
-            auto c = *ufirst++;
-            if (c == '\"') {
-                if (ufirst == ulast || *ufirst != '\"') {
-                    p = ufirst.base();
-                    return result;
+            while (ufirst != ulast) {
+                auto c = *ufirst++;
+                if (c == '\"') {
+                    if (ufirst == ulast || *ufirst != '\"') {
+                        p = ufirst.base();
+                        return { std::move(result), true };
+                    }
+                    result += '\"';
+                    ++ufirst;  // skip the second quote
                 }
-                result += '\"';
-                ++ufirst;  // skip the second quote
+                else {
+                    result += c;
+                }
             }
-            else {
-                result += c;
-            }
+        } catch (const utf8::exception & exc) {
+            if (exceptions)
+                throw;
+            else return { PathElement(), false };
         }
-        throw HttpReturnException(400, "PathElement terminated incorrectly");
+
+        if (exceptions)
+            throw HttpReturnException(400, "PathElement terminated incorrectly");
+
+        else return { PathElement(), false };
     }
     else {
         const char * start = p;
@@ -128,24 +140,41 @@ parsePartial(const char * & p, const char * e)
             unsigned char c = *start++;
             if (c == '\"' || c < ' ') {
                 if (c == '\"') {
-                    throw HttpReturnException
-                        (400, "invalid char in PathElement '" + Utf8String(start, e)
-                         + "'.  Quotes must be doubled.");
+                    if (exceptions) {
+                        throw HttpReturnException
+                            (400, "invalid char in PathElement '" + Utf8String(start, e)
+                             + "'.  Quotes must be doubled.");
+                    }
+                    else {
+                        return { PathElement(), false };
+                    }
                 }
                 else {
-                    throw HttpReturnException
-                        (400, "invalid char in PathElement '" + Utf8String(start, e)
-                         + "'.  Special characters must be quoted.");
+                    if (exceptions) {
+                        throw HttpReturnException
+                            (400, "invalid char in PathElement '" + Utf8String(start, e)
+                             + "'.  Special characters must be quoted.");
+                    }
+                    else {
+                        return { PathElement(), false };
+                    }
                 }
             }
         }
         size_t sz = start - p;
         if (sz == 0)
-            return PathElement();
+            return { PathElement(), true };
         PathElement result(p, sz);
         p = start;
-        return std::move(result);
+        return { std::move(result), true };
     }
+}
+
+PathElement
+PathElement::
+parsePartial(const char * & p, const char * e)
+{
+    return tryParsePartial(p, e, true /* exceptions */).first;
 }
 
 bool
@@ -727,9 +756,9 @@ toUtf8String() const
     return result;
 }
 
-Path
+std::pair<Path, bool>
 Path::
-parse(const char * str, size_t len)
+parseImpl(const char * str, size_t len, bool exceptions)
 {
     Path result;
     result.reserve(4);
@@ -738,16 +767,27 @@ parse(const char * str, size_t len)
     const char * e = p + len;
 
     if (p == e) {
-        return result;
+        return { result, true };
     }
 
     while (p < e) {
-        result.emplace_back(PathElement::parsePartial(p, e));
+        bool valid;
+        PathElement el;
+        std::tie(el, valid) = PathElement::tryParsePartial(p, e, exceptions);
+        result.emplace_back(std::move(el));
         if (p < e) {
             if (*p != '.') {
-                throw HttpReturnException(400, "expected '.' between elements in Path, got " + to_string((int)*p),
-                                          "position", p - str,
-                                          "val", Utf8String(str, len));
+                if (exceptions) {
+                    throw HttpReturnException
+                        (400,
+                         "expected '.' between elements in Path, got Unicode "
+                         + to_string((int)*p),
+                         "position", p - str,
+                         "val", Utf8String(str, len));
+                }
+                else {
+                    return { Path(), false };
+                }
             }
             ++p;
         }
@@ -757,7 +797,22 @@ parse(const char * str, size_t len)
         result.emplace_back();
     }
 
-    return result;
+    return { std::move(result), true };
+    
+}
+
+std::pair<Path, bool>
+Path::
+tryParse(const Utf8String & str)
+{
+    return parseImpl(str.rawData(), str.rawLength(), false /* exceptions */);
+}
+
+Path
+Path::
+parse(const char * str, size_t len)
+{
+    return parseImpl(str, len, true /* exceptions */).first;
 }
 
 Path
