@@ -154,7 +154,6 @@ BOOST_AUTO_TEST_CASE(test_coords_parsing)
 
     {
         JML_TRACE_EXCEPTIONS(false);
-        BOOST_CHECK_THROW(Path::parse(""), ML::Exception);
         BOOST_CHECK_THROW(Path::parse("\n"), ML::Exception);
         BOOST_CHECK_THROW(Path::parse("\""), ML::Exception);
         BOOST_CHECK_THROW(Path::parse("\"x."), ML::Exception);

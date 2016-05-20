@@ -30,12 +30,12 @@ class ImproveErrorMessageNamedOnNullTest(MldbUnitTest): # noqa
            mldb.query('SELECT * NAMED behA FROM ds')
 
     def test_non_working_case_2(self):
-        expect = "Can't create a row with an empty name"
+        expect = "Can't create a row with a null or empty name"
         with self.assertMldbRaises(expected_regexp=expect) as re:
            mldb.query("SELECT * NAMED '' FROM ds")
 
     def test_non_working_case_3(self):
-        expect = "NAMED expression must evaluate to a single value"
+        expect = "Row names must be"
         with self.assertMldbRaises(expected_regexp=expect) as re:
            mldb.query("SELECT * NAMED {1} FROM ds")
 

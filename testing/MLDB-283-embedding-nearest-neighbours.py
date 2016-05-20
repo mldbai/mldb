@@ -28,7 +28,7 @@ class Mldb283Test(MldbUnitTest):
         mldb.put("/v1/functions/nn", {
             "type": 'embedding.neighbors',
             "params": {
-                'dataset': {"id": 'test', "type": "embedding"}
+                'dataset': 'test'
             }
         })
 

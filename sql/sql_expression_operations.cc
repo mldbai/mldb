@@ -3260,7 +3260,20 @@ bind(SqlBindingScope & scope) const
                                                                val.getEffectiveTimestamp()));
                 },
                 this,
-                    std::make_shared<BooleanValueInfo>()};
+                    std::make_shared<BlobValueInfo>()};
+    }
+    else if (type == "path") {
+        return {[=] (const SqlRowScope & row,
+                     ExpressionValue & storage,
+                     const VariableFilter & filter) -> const ExpressionValue &
+                {
+                    ExpressionValue valStorage;
+                    const ExpressionValue & val = boundExpr(row, valStorage, filter);
+                    return storage = std::move(ExpressionValue(CellValue(val.coerceToPath()),
+                                                               val.getEffectiveTimestamp()));
+                },
+                this,
+                std::make_shared<PathValueInfo>()};
     }
     else throw HttpReturnException(400, "Unknown type '" + type
                                    + "' for CAST (" + expr->surface

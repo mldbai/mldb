@@ -170,10 +170,29 @@ doGetFunction(const Utf8String & functionName,
                      const SqlRowScope & rowScope)
                 {
                     auto & row = rowScope.as<PipelineResults>();
-                    return row.values.at(fieldOffset + ROW_NAME);
+                    const ExpressionValue& rowNameValue = row.values.at(fieldOffset + ROW_PATH);
+
+                    //Can be empty in case of unmatched outerjoin
+                    if (rowNameValue.empty()) {
+                        return ExpressionValue("", Date::Date::notADate());
+                    }
+                    else {
+                        return ExpressionValue(rowNameValue.toUtf8String(),row.values.at(fieldOffset + ROW_PATH).getEffectiveTimestamp());
+                    }
+                    
                 },
                 std::make_shared<Utf8StringValueInfo>()
-                    };
+            };
+    }
+    else if (functionName == "rowPath") {
+        return {[=] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & rowScope)
+                {
+                    auto & row = rowScope.as<PipelineResults>();
+                    return row.values.at(fieldOffset + ROW_PATH);
+                },
+                std::make_shared<PathValueInfo>()
+                };
     }
 
     else if (functionName == "rowHash") {
@@ -181,12 +200,13 @@ doGetFunction(const Utf8String & functionName,
                      const SqlRowScope & rowScope)
                 {
                     auto & row = rowScope.as<PipelineResults>();
-                    RowHash result(Path(PathElement(row.values.at(fieldOffset + ROW_NAME).toUtf8String())));
+                    RowHash result(row.values.at(fieldOffset + ROW_PATH)
+                                   .coerceToPath());
                     return ExpressionValue(result.hash(),
                                            Date::notADate());
                 },
                 std::make_shared<Uint64ValueInfo>()
-                    };
+                };
     }
 
     return BoundFunction();
@@ -258,7 +278,7 @@ take()
     //cerr << "got row " << current[currentDone].rowName << " "
     //     << jsonEncodeStr(current[currentDone].columns) << endl;
 
-    result->values.emplace_back(current[currentDone].rowName.toSimpleName(),
+    result->values.emplace_back(current[currentDone].rowName,
                                 Date::notADate());
     result->values.emplace_back(std::move(current[currentDone].columns));
     ++currentDone;
@@ -1039,6 +1059,9 @@ take()
             l->values.pop_back();
             r->values.pop_back();
 
+            auto numL = l->values.size();
+            auto numR = r->values.size();
+
             for (auto & v: r->values)
                 l->values.emplace_back(std::move(v));
 
@@ -1050,20 +1073,17 @@ take()
             if (!crossWhereTrue && outerLeft) {
                  ExpressionValue where = lEmbedding.getColumn(1, GET_ALL);
                  if (!where.asBool()) {
-                     result->values.pop_back();
-                     result->values.pop_back();
-                     result->values.push_back(ExpressionValue());
-                     result->values.push_back(ExpressionValue());
+                     for (auto i = 0; i < numR; i++)
+                         result->values.pop_back();
+                     for (auto i = 0; i < numR; i++)
+                         result->values.push_back(ExpressionValue());
                  }
             }
             else if (!crossWhereTrue && outerRight) {
                  ExpressionValue where = lEmbedding.getColumn(1, GET_ALL);
                  if (!where.asBool()) {
-                     result->values.clear();
-                     result->values.push_back(ExpressionValue());
-                     result->values.push_back(ExpressionValue());
-                     for (auto & v: r->values)
-                         result->values.emplace_back(std::move(v));
+                     for (auto i = 0; i < numL; i++)
+                         result->values[i] = ExpressionValue();
                  }
             }
             else if (!crossWhereTrue && !outerRight && !outerLeft) {
@@ -1941,7 +1961,7 @@ take()
     auto result = key;
     result->group = std::move(group);
 
-    //cerr << "got group " << jsonEncode(result->group) << endl;
+   //cerr << "got group " << jsonEncode(result->group) << endl;
 
     return result;
 }
@@ -1965,7 +1985,8 @@ Bound(std::shared_ptr<BoundPipelineElement> source,
     : source_(std::move(source)),
       outputScope_(source_->outputScope()
                    ->tableScope(std::make_shared<AggregateLexicalScope>
-                                (source_->outputScope())))
+                                (source_->outputScope()))),
+      numValues_(numValues)
 {
 }
 

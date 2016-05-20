@@ -81,6 +81,107 @@ function createDataset()
 
 createDataset();
 
-mldb.log(mldb.get('/v1/query', { q: 'select * from reddit limit 1' }));
+res = mldb.get('/v1/query', { q: 'select sum(horizontal_count({*})) as width from transpose(reddit) group by rowName() order by sum(horizontal_count({*})) desc limit 2' });
 
-mldb.log(mldb.get('/v1/query', { q: 'select sum(horizontal_count({*})) from transpose(reddit) group by rowName() order by sum(horizontal_count({*})) desc limit 20' }));
+//Check that we get largest value first and second largest second
+expected = [
+      {
+         "columns" : [
+            [ "width", 780, "2016-03-09T02:33:24Z" ]
+         ],
+         "rowHash" : "1a6e08b48361f340",
+         "rowName" : "\"[\"\"AskReddit\"\"]\""
+      },
+      {
+         "columns" : [
+            [ "width", 757, "2016-03-09T02:33:24Z" ]
+         ],
+         "rowHash" : "2d6c95775e682799",
+         "rowName" : "\"[\"\"funny\"\"]\""
+      }
+   ];
+
+mldb.log(res)
+
+assertEqual(mldb.diff(expected, res.json, false /* strict */), {},
+            "output was not the same as expected output in batch executor desc");
+
+res = mldb.get('/v1/query', { q: 'select sum(horizontal_count({*})) as width from transpose(reddit) group by rowName() order by sum(horizontal_count({*})) asc limit 2' });
+
+//Check that we get smallest value first and second smallest second
+expected = [
+      {
+         "columns" : [
+            [ "width", 1, "2016-03-09T02:33:24Z" ]
+         ],
+         "rowHash" : "eb2bdafd2845aedc",
+         "rowName" : "\"[\"\"NBASpurs\"\"]\""
+      },
+      {
+         "columns" : [
+            [ "width", 1, "2016-03-09T02:33:24Z" ]
+         ],
+         "rowHash" : "d8a98107674ca65f",
+         "rowName" : "\"[\"\"MvC3\"\"]\""
+      }
+   ];
+
+mldb.log(res)
+
+assertEqual(mldb.diff(expected, res.json, false /* strict */), {},
+            "output was not the same as expected output in batch executor asc");
+
+// now with the pipeline executor
+mldb.put('/v1/functions/bop', {
+    'type': 'sql.query',
+    'params': {
+        'query': 'select rowName(), sum(horizontal_count({*})) as width from transpose(reddit) group by rowName() order by sum(horizontal_count({*})) desc limit 2'
+    }
+})
+
+res = mldb.get('/v1/query', {q: 'select bop()', format: 'table'});
+
+//check that we get biggest value, should be the same as in the batch executor
+expected = [
+      [ "_rowName", "bop().rowName()", "bop().width" ],
+      [ "result", "AskReddit", 780 ]
+   ]
+
+
+mldb.log(res)
+
+assertEqual(mldb.diff(expected, res.json, false /* strict */), {},
+            "output was not the same as expected output in pipeline executor");
+
+// now with the pipeline executor
+mldb.put('/v1/functions/bop2', {
+    'type': 'sql.query',
+    'params': {
+        'query': 'select rowName(), sum(horizontal_count({*})) as width from transpose(reddit) group by rowName() order by sum(horizontal_count({*})) asc limit 2'
+    }
+})
+
+res = mldb.get('/v1/query', {q: 'select bop2()', format: 'table'});
+
+//check that we get smallest value, should be the same (value) as in the batch executor
+expected = [
+      [ "_rowName", "bop2().rowName()", "bop2().width" ],
+      [ "result", "NBASpurs", 1 ]
+   ]
+
+mldb.log(res)
+
+assertEqual(mldb.diff(expected, res.json, false /* strict */), {},
+            "output was not the same as expected output in pipeline executor");
+
+//check with non aggregator expression in order by in the presence of a group by
+//should return an error
+res = mldb.get('/v1/query', { q: 'select sum(horizontal_count({*})) as width from transpose(reddit) group by rowName() order by horizontal_count({*}) asc limit 2' });
+
+mldb.log(res.json.error)
+
+assertEqual(res.json.error, "Non-aggregator 'horizontal_count({*})' with GROUP BY clause is not allowed",
+            "Did not get the expected error");
+
+"success"
+
