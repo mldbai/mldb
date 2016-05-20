@@ -144,24 +144,24 @@ struct MldbServer: public ServicePeer, public EventRecorder {
     std::string prefixUrl(std::string url) const;
     std::string prefixUrl(const char* url) const;
     
-    InProcessRestConnection mldbPerform(
+    InProcessRestConnection restPerform(
         const std::string & verb,
         const Utf8String & resource,
         const RestParams & params = RestParams(),
         Json::Value payload = Json::Value(),
         const RestParams & headers = RestParams()) const;
-    InProcessRestConnection mldbGet(
+    InProcessRestConnection restGet(
         const Utf8String & resource,
         const RestParams & params = RestParams()) const;
 
-    InProcessRestConnection mldbDelete(
+    InProcessRestConnection restDelete(
         const Utf8String & resource,
         const RestParams & params = RestParams()) const;
-    InProcessRestConnection mldbPut(
+    InProcessRestConnection restPut(
         const Utf8String & resource,
         const RestParams & params = RestParams(),
         const Json::Value payload = Json::Value()) const;
-    InProcessRestConnection mldbPost(
+    InProcessRestConnection restPost(
         const Utf8String & resource,
         const RestParams & params = RestParams(),
         const Json::Value payload = Json::Value()) const;
