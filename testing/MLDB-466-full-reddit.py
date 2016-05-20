@@ -17,7 +17,7 @@ class RedditTest(MldbUnitTest):
                 'delimiter':'', 
                 'quotechar':'',
                 'outputDataset': 'reddit_raw',
-                'limit': 5000,
+                'limit': 2000,
                 'runOnCreation': True
             } 
         })
@@ -99,7 +99,7 @@ class RedditTest(MldbUnitTest):
 
         import math
         # MLDB-1677
-        #self.assertEqual(math.sqrt(dist_accum), result["x.distance"])
+        self.assertLess(abs(math.sqrt(dist_accum) - result["x.distance"]), 0.00001)
 
         mldb.put('/v1/procedures/reddit_kmeans', {
             "type" : "kmeans.train",
