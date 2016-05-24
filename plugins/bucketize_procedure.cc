@@ -1,8 +1,6 @@
 /**
  * bucketize_procedure.cc
  * Mich, 2015-10-27
- * Copyright (c) 2015 Datacratic Inc. All rights reserved.
- *
  * This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
  **/
 
@@ -22,6 +20,7 @@
 #include "mldb/types/date.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/plugins/sql_config_validator.h"
+#include "progress.h"
 #include <memory>
 
 using namespace std;
@@ -29,80 +28,6 @@ using namespace std;
 
 namespace Datacratic {
 namespace MLDB {
-
-struct Step {
-    Step(const std::string & name) 
-        : name(name), percent(0)
-    {}
-    Step()
-    {}
-
-    // signals that the step is completed and that the next one can start
-    std::shared_ptr<Step> nextStep() {
-        ended = Date::now();
-        percent = 1;
-        auto nextStep = _nextStep.lock();
-        if (nextStep)
-            nextStep->started = Date::now();
-        return nextStep;
-    }
-
-    std::string name;
-    Date started;
-    Date ended;
-    float percent;
-    std::weak_ptr<Step> _nextStep;
-};
-
-DEFINE_STRUCTURE_DESCRIPTION(Step);
-StepDescription::
-StepDescription()
-{
-    addField("name", &Step::name, "");
-    addField("started", &Step::started, "");
-    addField("ended", &Step::ended, "");
-    addField("percent", &Step::percent, "");
-}
-
-struct Progress {
-    Progress(){}
-    std::shared_ptr<Step> steps(std::vector<std::string> names) {
-        std::shared_ptr<Step> previousStep;
-        for (const auto & name : names) {
-            std::shared_ptr<Step> step = std::make_shared<Step>(name);
-            if (previousStep)
-                previousStep->_nextStep = step;
-            _steps.push_back(step);
-            previousStep = step;
-        }
-        auto firstStep = _steps.begin();
-        if (firstStep != _steps.end())
-            (*firstStep)->started = Date::now();
-        return *firstStep;
-    }
-    std::vector<std::shared_ptr<Step> > _steps;
-};
-
-DEFINE_STRUCTURE_DESCRIPTION(Progress);
-ProgressDescription::
-ProgressDescription()
-{
-    addField("steps", &Progress::_steps, "");
-}
-
-struct IterationProgress {
-    IterationProgress() : percent(0)
-    {}
-    float percent;
-};
-
-DEFINE_STRUCTURE_DESCRIPTION(IterationProgress);
-
-IterationProgressDescription::
-IterationProgressDescription() 
-{
-    addField("percent", &IterationProgress::percent, "");
-}
 
 BucketizeProcedureConfig::
 BucketizeProcedureConfig()
@@ -227,7 +152,7 @@ run(const ProcedureRunConfig & run,
     };
 
     auto onProgress2 = [&](const Json::Value & progress) {
-        IterationProgress itProgress = jsonDecode<IterationProgress>(progress);
+        auto itProgress = jsonDecode<IterationProgress>(progress);
         iterationStep->percent = itProgress.percent;
         return onProgress(jsonEncode(bucketizeProgress));
     };
