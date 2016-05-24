@@ -1,14 +1,12 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* feature.h                                                       -*- C++ -*-
    Jeremy Barnes, 29 March 2009
    Copyright (c) 2009 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Definition of a feature.
 */
 
-#ifndef __boosting__feature_h__
-#define __boosting__feature_h__
+#pragma once
 
 #include <ostream>
 #include "mldb/compiler/compiler.h"
@@ -106,6 +104,3 @@ extern const Feature MISSING_FEATURE;
 std::ostream & operator << (std::ostream & stream, const Feature & feature);
 
 } // namespace ML
-
-
-#endif /* __boosting__feature_h__ */
