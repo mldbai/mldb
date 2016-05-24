@@ -1,8 +1,8 @@
 # Files and URLs
 
-MLDB gives users full control over where and how data is persisted. Datasets can be saved and loaded from files. Procedures can create files and Functions can load up parameters from files. 
+MLDB gives users full control over where and how data is persisted. Datasets can be saved and loaded from files. Procedures can create files and Functions can load up parameters from files.
 
-If data is stored in a system such as S3 or HDFS, it is possible to run multiple instances of MLDB so as to distribute computational load. For example, one powerful and expensive machine could handle model training, storing model files on S3, while a load-balanced cluster of smaller, cheaper machines could load these model files and do real-time scoring over HTTP. 
+If data is stored in a system such as S3 or HDFS, it is possible to run multiple instances of MLDB so as to distribute computational load. For example, one powerful and expensive machine could handle model training, storing model files on S3, while a load-balanced cluster of smaller, cheaper machines could load these model files and do real-time scoring over HTTP.
 
 ## Protocol Handlers
 
@@ -46,32 +46,73 @@ external tools.
 
 ## Credentials
 
-MLDB uses an subprogram known as `credentialsd` to keep credentials and supply them to the main
-MLDB process when required.
+MLDB can store credentials and supply them whenever required.
 
-This allows for MLDB users to control how credentials are stored and used, and
-to create temporary credentials for MLDB to limit its permissions to exactly what are needed.
+MLDB exposes a REST API which is accessible at the route `/v1/credentials`. It
+is also possible to specify credentials when starting MLDB.  Please refer
+to the [BatchMode](BatchMode.md) Section for details.
 
-The credentialsd program has a REST API, which is accessible at the route `/v1/creds` in
-the container.
+### Credential rules
 
-### Credentials rules
+Credentials are specified by giving rules.  A credential rule contains two parts:
 
-Credentials are specified by giving rules.  A credentials rule contains two parts:
+1.  The credentials, which gives the actual secret information to access a resource as well
+    as the location of that resource and other metadata required for the service
+    hosting the resource to complete the request;
+2.  A rule which includes the resource type (e.g. S3) and a resource path prefix.
+    The rule allows a user to store many credentials for the same service
+    and control when the credentials is used.
 
-1.  The credentials, which give the actual credentials to access a resource as well
-    as the location of that resource and other metadata required to complete the request;
-2.  A rule which tells us which requests are covered by this resource.
+When a resource that requires credentials is requested, MLDB will scan the stored
+rules for matching credentials.  The matching is performed on the resource path
+using prefixes.  For example, suppose that two sets of credentials are stored
+in MLDB for the AWS S3 service, one set with read-only access
 
-When a resource that requires credentials is requested, MLDB will ask the credentials
-daemon for those credentials, passing it the resource and the context (user id, etc)
-in which the request is being made.  The credenials service will scan through its list
-of rules, and return the credentials of the first matching rule to satisfy the request.
+```
+{
+  "store":{
+    "resource":"s3://public.example.com",
+    "resourceType":"aws:s3",
+    "credential":{
+      "protocol":"http",
+      "location":"s3.amazonaws.com",
+      "id":"<READ ACCESS KEY ID>",
+      "secret":"<READ ACCESS KEY>",
+      "validUntil":"2030-01-01T00:00:00Z"
+    }
+  }
+}
+```
+
+and one set with read-write access
+
+```
+{
+  "store":{
+    "resource":"s3://public.example.com/mystuff",
+    "resourceType":"aws:s3",
+    "credential":{
+      "protocol":"http",
+      "location":"s3.amazonaws.com",
+      "id":"<READ-WRITE ACCESS KEY ID>",
+      "secret":"<READ-WRITE ACCESS KEY>",
+      "validUntil":"2030-01-01T00:00:00Z"
+    }
+  }
+}
+```
+When requesting this resource `s3://public.example.com/text.csv`, MLDB will match the first
+rule only because its `resource` field is a prefix of the resource path and it will therefore
+use the read-only credentials. On the other-hand, if the resource
+`s3://public.example.com/mystuff/text.csv` is requested, both rules will match but
+MLDB will use the second one because it matches a longer prefix of the resource path.
 
 ### Credentials storage
 
-Credentials are stored in the `mldb_data` directory under the `.mldb_credentials` subdirectory.
-Each one is in a pure JSON file.
+Unlike other resources stored in MLDB, the credentials are persisted to disk under the `.mldb_credentials`
+sub-folder of the `mldb_data` folder.  The credentials are persisted in clear so it is important to
+protect them and users are encourage to put in place the proper safeguards on that location.
+Deleting a credential entity will also delete its persisted copy.
 
 ### Credentials objects
 
@@ -87,21 +128,21 @@ access) as follows:
 ### Storing credentials
 
 You can `PUT` (without an ID) or `POST` (with an ID) the following object to
-`/v1/creds/rules` in order to store new credentials:
+`/v1/credentials` in order to store new credentials:
 
-![](%%type Datacratic::CredentialRuleConfig)
+![](%%type Datacratic::MLDB::CredentialRuleConfig)
 
 
 ### Example: storing Amazon Web Services S3 credentials
 
 The first thing that you will probably want to do is to post some AWS S3
-credentials into the credentials daemon, as otherwise you won't be able to
+credentials into MLDB, as otherwise you won't be able to
 do anything on Amazon.
 
-The way to do this is to `PUT` to `/v1/creds/rules/<id>`:
+The way to do this is to `PUT` to `/v1/credentials/<id>`:
 
 ```python
-mldb.put("/v1/creds/rules/mys3creds", {
+mldb.put("/v1/credentials/mys3creds", {
     "store":
     {
         "resource":"s3://",
@@ -138,7 +179,7 @@ for that resource.
 
 ### Amazon Web Services
 
-Requests to AWS all start with resourceType of `aws:`.
+Requests to AWS all start with `resourceType` of `aws:`.
 
 #### Amazon S3
 
@@ -153,4 +194,3 @@ The `extra` parameters that can be returned are:
 - `bandwidthToServiceMbps`: if this is set, then it indicates the available total
   bandwidth to the S3 service in mbps (default 20).  This influences the timeouts
   that are calculated on S3 requests.
-

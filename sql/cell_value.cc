@@ -12,11 +12,14 @@
 #include "mldb/http/http_exception.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/enum_description.h"
+#include "mldb/types/vector_description.h"
 #include "mldb/types/itoa.h"
 #include "cell_value_impl.h"
 #include "mldb/base/parse_context.h"
+#include "mldb/compiler/compiler.h"
 #include "interval.h"
 #include "path.h"
+#include "mldb/ext/s2/s2.h"
 
 using namespace std;
 
@@ -25,9 +28,27 @@ namespace Datacratic {
 namespace MLDB {
 
 /*****************************************************************************/
-/* VALUE                                                                     */
+/* CELL VALUE                                                                */
 /*****************************************************************************/
 
+CellValue::
+CellValue(const Path & path)
+{
+    Utf8String u = path.toUtf8String();
+
+    strLength = u.rawLength();
+
+    if (strLength <= INTERNAL_LENGTH) {
+        std::copy(u.rawData(), u.rawData() + strLength, shortString);
+        type = ST_SHORT_PATH;
+    }
+    else {
+        void * mem = malloc(sizeof(StringRepr) + strLength);
+        longString = new (mem) StringRepr;
+        std::copy(u.rawData(), u.rawData() + strLength, longString->repr);
+        type = ST_LONG_PATH;
+    }
+}
 
 CellValue
 CellValue::
@@ -173,7 +194,8 @@ CellValue(const CellValue & other)
 {
     if (other.type == ST_ASCII_LONG_STRING
         || other.type == ST_UTF8_LONG_STRING
-        || other.type == ST_LONG_BLOB) {
+        || other.type == ST_LONG_BLOB
+        || other.type == ST_LONG_PATH) {
         void * mem = malloc(sizeof(StringRepr) + other.strLength + 1);
         longString = new (mem) StringRepr;
         std::copy(other.longString->repr, other.longString->repr + strLength,
@@ -266,9 +288,12 @@ cellType() const
     case ST_SHORT_BLOB:
     case ST_LONG_BLOB:
         return BLOB;
-    default:
-        throw HttpReturnException(400, "unknown CellValue type");
+    case ST_SHORT_PATH:
+    case ST_LONG_PATH:
+        return PATH;
     }
+
+    throw HttpReturnException(400, "unknown CellValue type");
 }
 
 Utf8String
@@ -279,11 +304,13 @@ toUtf8String() const
     case ST_UTF8_SHORT_STRING:
     case ST_ASCII_SHORT_STRING:
     case ST_SHORT_BLOB:
+    case ST_SHORT_PATH:
         return Utf8String((const char *)shortString, (size_t)strLength);
     case ST_UTF8_LONG_STRING:
     case ST_ASCII_LONG_STRING:
     case ST_LONG_BLOB:
-        try {
+    case ST_LONG_PATH:
+         try {
             return Utf8String(longString->repr, (size_t)strLength);
         } catch (...) {
             for (unsigned i = 0;  i < strLength;  ++i) {
@@ -345,6 +372,10 @@ toString() const
             .printIso8601(-1 /* as many digits as necessary */);
     case ST_TIMEINTERVAL:
         return printInterval();
+    case ST_SHORT_PATH:
+        return string(shortString, shortString + strLength);
+    case ST_LONG_PATH:
+        return string(longString->repr, longString->repr + strLength);
     case ST_SHORT_BLOB:
     case ST_LONG_BLOB:
         throw HttpReturnException(400, "Cannot call toString() on a blob");
@@ -561,6 +592,18 @@ coerceToPathElement() const
     else return PathElement(toUtf8String());
 }
 
+Path
+CellValue::
+coerceToPath() const
+{
+    if (type == ST_EMPTY)
+        return Path();
+    else if (type == ST_SHORT_PATH || type == ST_LONG_PATH) {
+        return Path::parse(toUtf8String());
+    }
+    else return Path(toUtf8String());
+}
+
 bool
 CellValue::
 asBool() const
@@ -580,6 +623,8 @@ asBool() const
     case ST_ASCII_LONG_STRING:
     case ST_UTF8_SHORT_STRING:
     case ST_UTF8_LONG_STRING:
+    case ST_SHORT_PATH:
+    case ST_LONG_PATH:
         return strLength;
     case ST_TIMEINTERVAL:
         return timeInterval.months || timeInterval.days || timeInterval.seconds;
@@ -609,9 +654,14 @@ isNumber() const
     case ST_TIMESTAMP:
     case ST_TIMEINTERVAL:
         return false;
-    default:
-        throw HttpReturnException(400, "unknown CellValue type");
+    case ST_SHORT_BLOB:
+    case ST_LONG_BLOB:
+    case ST_SHORT_PATH:
+    case ST_LONG_PATH:
+        return false;
     }
+
+    throw HttpReturnException(400, "unknown CellValue type");
 }
 
 bool
@@ -633,13 +683,14 @@ isFalse() const
     case ST_UTF8_LONG_STRING:
     case ST_SHORT_BLOB:
     case ST_LONG_BLOB:
+    case ST_SHORT_PATH:
+    case ST_LONG_PATH:
         return !strLength;
     case ST_TIMESTAMP:
     case ST_TIMEINTERVAL:
         return false;
-    default:
-        throw HttpReturnException(400, "unknown CellValue type");
     }
+    throw HttpReturnException(400, "unknown CellValue type");
 }
 
 const HashSeed defaultSeedStable { .i64 = { 0x1958DF94340e7cbaULL, 0x8928Fc8B84a0ULL } };
@@ -668,6 +719,9 @@ hash() const
         return CellValueHash(longString->hash);
     case ST_TIMEINTERVAL:
         return CellValueHash(mldb_siphash24(shortString, 12, defaultSeedStable.b));
+    case ST_SHORT_PATH:
+    case ST_LONG_PATH:
+        return CellValueHash(coerceToPath().hash());
     default:
         if (bits2 != 0)
             cerr << "hashing " << jsonEncodeStr(*this) << endl;
@@ -711,11 +765,13 @@ operator == (const CellValue & other) const
     case ST_ASCII_SHORT_STRING:
     case ST_UTF8_SHORT_STRING:
     case ST_SHORT_BLOB:
+    case ST_SHORT_PATH:
         return strLength == other.strLength
             && strncmp(shortString, other.shortString, strLength) == 0;
     case ST_ASCII_LONG_STRING:
     case ST_UTF8_LONG_STRING:
     case ST_LONG_BLOB:
+    case ST_LONG_PATH:
         return strLength == other.strLength
             && strncmp(longString->repr, other.longString->repr, strLength) == 0;
     case ST_TIMESTAMP:
@@ -844,6 +900,14 @@ operator <  (const CellValue & other) const
             return std::lexicographical_compare
                 (blobData(), blobData() + blobLength(),
                  other.blobData(), other.blobData() + other.blobLength());
+        case ST_SHORT_PATH:
+        case ST_LONG_PATH:
+            if (!isPathType((StorageType)other.type))
+                return false;
+
+            return std::lexicographical_compare
+                (stringChars(), stringChars() + toStringLength(),
+                 other.stringChars(), other.stringChars() + other.toStringLength());
         default:
             throw HttpReturnException(400, "unknown CellValue type");
         }
@@ -870,14 +934,15 @@ stringChars() const
         return nullptr;
     case ST_ASCII_SHORT_STRING:
     case ST_UTF8_SHORT_STRING:
+    case ST_SHORT_PATH:
         return shortString;
     case ST_ASCII_LONG_STRING:
     case ST_UTF8_LONG_STRING:
+    case ST_LONG_PATH:
         return longString->repr;
-    default:
-        cerr << "unknown cell value type " << endl;
-        throw HttpReturnException(400, "unknown CellValue type");
     }
+    cerr << "unknown cell value type " << endl;
+    throw HttpReturnException(400, "unknown CellValue type");
 }
 
 uint32_t
@@ -897,10 +962,13 @@ toStringLength() const
     case ST_ASCII_LONG_STRING:
     case ST_UTF8_SHORT_STRING:
     case ST_UTF8_LONG_STRING:
+    case ST_SHORT_BLOB:
+    case ST_LONG_BLOB:
+    case ST_SHORT_PATH:
+    case ST_LONG_PATH:
         return strLength;
-    default:
-        throw HttpReturnException(400, "unknown CellValue type");
     }
+    throw HttpReturnException(400, "unknown CellValue type");
 }
 
 const unsigned char *
@@ -946,6 +1014,8 @@ isExactDouble() const
     case ST_UTF8_LONG_STRING:
     case ST_SHORT_BLOB:
     case ST_LONG_BLOB:
+    case ST_SHORT_PATH:
+    case ST_LONG_PATH:
         return false;
     case ST_INTEGER:
         return int64_t(toDouble()) == toInt();
@@ -953,9 +1023,9 @@ isExactDouble() const
         return uint64_t(toDouble()) == toUInt();
     case ST_FLOAT:
         return true;
-    default:
-        throw HttpReturnException(400, "unknown CellValue type");
     }
+
+    throw HttpReturnException(400, "unknown CellValue type");
 }
 
 void
@@ -981,7 +1051,7 @@ trimmedExceptionString() const
 
         return Utf8String(str, 0, 200) + "... (trimmed)";
     }
-    catch(...) {
+    JML_CATCH_ALL {
         return Utf8String("Exception trying to print string");
     }
 }
@@ -1160,6 +1230,19 @@ extractStructuredJson(JsonPrintingContext & context) const
         context.endObject();
         return;
     }
+    case CellValue::PATH:
+        context.startObject();
+        context.startMember("path");
+        context.startArray();
+
+        for (auto & p: coerceToPath()) {
+            context.newArrayElement();
+            context.writeStringUtf8(p.toUtf8String());
+        }
+
+        context.endArray();
+        context.endObject();
+        return;
     default:
         throw HttpReturnException(400, "unknown cell type");
         return;
@@ -1180,10 +1263,12 @@ memusage() const
     case ST_INTEGER:
     case ST_UNSIGNED:
     case ST_FLOAT:
+    case ST_SHORT_PATH:
         return sizeof(*this);
     case ST_ASCII_LONG_STRING:
     case ST_UTF8_LONG_STRING:
     case ST_LONG_BLOB:
+    case ST_LONG_PATH:
         return sizeof(*this) + sizeof(StringRepr) + strLength;
     }
     throw HttpReturnException(400, "unknown CellValue type");
@@ -1267,6 +1352,13 @@ struct CellValueDescription: public ValueDescriptionT<CellValue> {
 
                 *val = CellValue::blob(std::move(contents));
             }
+            else if (v.isMember("path")) {
+                std::vector<PathElement> result;
+                for (auto & e: jsonDecode<std::vector<Utf8String> >(v["path"])) {
+                    result.emplace_back(e);
+                }
+                *val = Path(result.data(), result.size());
+            }
             else {
                 throw HttpReturnException(400, "Unknown JSON CellValue '" + v.toStringNoNewLine() + "'");
             }
@@ -1329,6 +1421,8 @@ CellTypeDescription()
     addValue("UTF8_STRING", CellValue::CellType::UTF8_STRING, "Cell contains a utf8 string");
     addValue("TIMESTAMP", CellValue::CellType::TIMESTAMP, "Cell contains a timestamp");
     addValue("TIMEINTERVAL", CellValue::CellType::TIMEINTERVAL, "Cell contains a time interval");
+    addValue("BLOB", CellValue::CellType::BLOB, "Cell contains a binary blob");
+    addValue("PATH", CellValue::CellType::PATH, "Cell contains a path (row or column name)");
 }
 
 std::ostream & operator << (std::ostream & stream, const CellValue & val)

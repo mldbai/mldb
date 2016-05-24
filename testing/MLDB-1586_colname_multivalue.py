@@ -1,11 +1,7 @@
 #
-# 2016-01-01
+# 2016-05-13
 # This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
 #
-
-# add this line to testing.mk:
-# $(eval $(call mldb_unit_test,MLDBFB-336-sample_test.py,,manual))
-
 
 import unittest
 
@@ -13,7 +9,6 @@ mldb = mldb_wrapper.wrap(mldb) # noqa
 
 class Mldb1586Test(MldbUnitTest):  
 
-    @unittest.expectedFailure
     def test_colnames(self):
         mldb.put('/v1/datasets/example', {"type":"sparse.mutable"})
         mldb.post('/v1/datasets/example/rows', { "rowName": "r1", 
@@ -26,8 +21,8 @@ class Mldb1586Test(MldbUnitTest):
             mldb.query("select a from example"),
             [
                 ["_rowName", "a"],
-                [      "r1",  2 ],
-                [      "r2",  3 ]
+                [      "r2",  3 ],
+                [      "r1",  2 ]
             ]
         )
 

@@ -8,6 +8,7 @@
 */
 
 #include "credential_provider.h"
+#include "mldb/types/optional.h"
 #include <mutex>
 #include <iostream>
 
@@ -27,90 +28,60 @@ CredentialProvider::
 namespace {
 
 std::mutex providersLock;
-std::multimap<std::string, std::shared_ptr<CredentialProvider> > providers;
+std::vector<std::shared_ptr<CredentialProvider> > providers;
 
 } // file scope
 
 void
 CredentialProvider::
-registerProvider(const std::string & name,
-                 std::shared_ptr<CredentialProvider> provider)
+registerProvider(std::shared_ptr<CredentialProvider> provider)
 {
     std::unique_lock<std::mutex> guard(providersLock);
-
-    auto prefixes = provider->getResourceTypePrefixes();
-
-    for (string prefix: prefixes)
-        providers.insert({ prefix, provider });
-}
-
-std::vector<Credential>
-getCredentials(const std::string & resourceType,
-               const std::string & resource,
-               const CredentialContext & context,
-               Json::Value extraData)
-{
-    std::unique_lock<std::mutex> guard(providersLock);
-
-    std::vector<Credential> result;
-
-    for (auto it = providers.lower_bound(resourceType);  it != providers.end();
-           ++it) {
-        if (resourceType.find(it->first) != 0)
-            break;  // not a prefix
-        auto creds = it->second->getSync(resourceType, resource, context,
-                                         extraData);
-        result.insert(result.end(), creds.begin(), creds.end());
-    }
-
-    return result;
+    providers.push_back(provider);
 }
 
 Credential
 getCredential(const std::string & resourceType,
-              const std::string & resource,
-              const CredentialContext & context,
-              Json::Value extraData,
-              TimePeriod validTime)
+              const std::string & resource)
 {
-    std::unique_lock<std::mutex> guard(providersLock);
+    std::vector<StoredCredentials> candidates;
+    {
+        std::unique_lock<std::mutex> guard(providersLock);
 
-    cerr << "getCredential" << endl;
-
-    for (auto it = providers.begin(), end = providers.end();
-         it != end;  ++it) {
-        // cerr << "testing " << it->first << " against " << resourceType
-        //     << " " << resource << endl;
-        if (resourceType.find(it->first) != 0)
-            break;  // not a prefix
-        // cerr << "FOUND" << endl;
-
-        auto creds = it->second->getSync(resourceType, resource, context,
-                                         extraData);
-        if (!creds.empty()) {
-            /**** THIS WILL OUTPUT CREDENTIALS IN CLEAR - KEEP COMMENTED OUT EXCEPT WHEN DEBUGGING ****/
-            // cerr << "credentials for " << resourceType << " " << resource
-            //      << " are " << endl << jsonEncode(creds[0]) << endl;
-            return creds[0];
+        // find all credentials matching the resource type
+        for (auto it = providers.begin(), end = providers.end();
+             it != end;  ++it) {
+            auto creds = (*it)->getCredentialsOfType(resourceType);
+            if (!creds.empty()) {
+                candidates.insert(candidates.end(), creds.begin(), creds.end());
+                cerr << "found candidates in " << creds[0].credential.provider << endl;
+            }
         }
     }
 
-    for (auto it = providers.lower_bound(resourceType);  it != providers.end();
-           ++it) {
-        // cerr << "testing " << it->first << " against " << resourceType
-        //     << endl;
-        if (resourceType.find(it->first) != 0)
-            break;  // not a prefix
-        // cerr << "FOUND" << endl;
+    // find the best match
 
-        auto creds = it->second->getSync(resourceType, resource, context,
-                                         extraData);
-        if (!creds.empty()) {
-             /**** THIS WILL OUTPUT CREDENTIALS IN CLEAR - KEEP COMMENTED OUT EXCEPT WHEN DEBUGGING ****/
-            // cerr << "credentials for " << resourceType << " " << resource
-            //      << " are " << endl << jsonEncode(creds[0]) << endl;
-            return creds[0];
+    // This might be too simplistic but we assume here that longer
+    // is the prefix matching a resource URI better is the match.
+    // In particular, this logic has no understanding of URI structure
+    // like folders, buckets, filename, extension and so on.
+    Optional<StoredCredentials> bestMatch;
+    for (const auto & storedCredential : candidates) {
+        ExcAssertEqual(resourceType, storedCredential.resourceType);
+
+        if (resource.find(storedCredential.resource) != 0)
+            continue;  // not a prefix
+
+        // better match on path
+        if (!bestMatch || bestMatch->resource.find(storedCredential.resource)) {
+            bestMatch.reset(new StoredCredentials(storedCredential));
+            cerr << "found matching with path " << storedCredential.resource << endl;
         }
+    }
+
+    if (bestMatch) {
+        // found credentials for the resource
+        return bestMatch->credential;
     }
 
     throw ML::Exception("No credentials found for " + resourceType + " "
@@ -119,4 +90,3 @@ getCredential(const std::string & resourceType,
 
 
 } // namespace Datacratic
-

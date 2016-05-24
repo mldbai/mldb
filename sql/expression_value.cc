@@ -9,6 +9,7 @@
 
 #include "expression_value.h"
 #include "sql_expression.h"
+#include "path.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/enum_description.h"
 #include "mldb/types/vector_description.h"
@@ -1591,7 +1592,7 @@ parseJson(JsonParsingContext & context,
 {
     if (context.isObject()) {
 
-        std::vector<std::tuple<PathElement, ExpressionValue> > out;
+        StructValue out;
         out.reserve(16);  // TODO: context may know object size
 
         auto onObjectField = [&] ()
@@ -1606,7 +1607,7 @@ parseJson(JsonParsingContext & context,
         return std::move(out);
     }
     else if (context.isArray()) {
-        std::vector<std::tuple<PathElement, ExpressionValue> > out;
+        StructValue out;
         out.reserve(16);  // TODO: context may know array length
 
         bool hasNonAtom = false;
@@ -1817,7 +1818,7 @@ ExpressionValue(ExpressionValue && other) noexcept
 }
 
 ExpressionValue::
-ExpressionValue(std::vector<std::tuple<PathElement, ExpressionValue> > vals) noexcept
+ExpressionValue(StructValue vals) noexcept
     : type_(Type::NONE)
 {
     initStructured(std::move(vals));
@@ -3468,10 +3469,13 @@ getFilteredDestructive(const VariableFilter & filter)
             accum(val);
             ExpressionValue storage;
             const ExpressionValue * output = accum.extract(storage);
-            ExcAssert(output);
-            if (output != &storage)
-                rows.emplace_back(std::move(col), *output);
-            else rows.emplace_back(std::move(col), std::move(storage));
+            if (output) {
+                 if (output != &storage)
+                    rows.emplace_back(std::move(col), *output);
+                 else
+                    rows.emplace_back(std::move(col), std::move(storage));
+            }
+           
             return true;
         };
     
@@ -3964,10 +3968,11 @@ Path
 ExpressionValue::
 coerceToPath() const
 {
-    if (empty())
+    if (empty()) {
         return Path();
+    }
     else if (isAtom()) {
-        return PathElement(getAtom().coerceToPathElement());
+        return getAtom().coerceToPath();
     }
     else {
         vector<CellValue> vals = getEmbeddingCell();
@@ -3977,7 +3982,7 @@ coerceToPath() const
             coords.emplace_back(v.coerceToPathElement());
         }
         return Path(std::make_move_iterator(coords.begin()),
-                      std::make_move_iterator(coords.end()));
+                    std::make_move_iterator(coords.end()));
     }
 }
 
@@ -4398,6 +4403,7 @@ template class ExpressionValueInfoT<CellValue>;
 template class ExpressionValueInfoT<std::string>;
 template class ExpressionValueInfoT<Utf8String>;
 template class ExpressionValueInfoT<std::vector<unsigned char> >;
+template class ExpressionValueInfoT<Path>;
 template class ExpressionValueInfoT<int64_t>;
 template class ExpressionValueInfoT<uint64_t>;
 template class ExpressionValueInfoT<char>;
@@ -4408,6 +4414,7 @@ template class ScalarExpressionValueInfoT<CellValue>;
 template class ScalarExpressionValueInfoT<std::string>;
 template class ScalarExpressionValueInfoT<Utf8String>;
 template class ScalarExpressionValueInfoT<std::vector<unsigned char> >;
+template class ScalarExpressionValueInfoT<Path>;
 template class ScalarExpressionValueInfoT<int64_t>;
 template class ScalarExpressionValueInfoT<uint64_t>;
 template class ScalarExpressionValueInfoT<char>;
@@ -4422,22 +4429,21 @@ template class ExpressionValueInfoT<ML::distribution<double, std::vector<double>
 /* SEARCH ROW                                                                */
 /*****************************************************************************/
 
-template<typename Key>
 const ExpressionValue *
-doSearchRow(const std::vector<std::tuple<Key, CellValue, Date> > & columns,
-            const Key & key,
+doSearchRow(const RowValue & columns,
+            const ColumnName & columnName,
             const VariableFilter & filter,
             ExpressionValue & storage)
 {
     int index = -1;
 
-    //cerr << "doSearchRow columns " << jsonEncode(columns) << " key " << key << endl;
+    //cerr << "doSearchRow columns " << jsonEncode(columns) << " columnName " << columnName << endl;
 
     switch (filter) {
     case GET_ANY_ONE:
         for (unsigned i = 0;  i < columns.size();  ++i) {
             const auto & c = columns[i];
-            if (std::get<0>(c) == key) {
+            if (std::get<0>(c) == columnName) {
                 index = i;
                 break;
             }
@@ -4450,7 +4456,7 @@ doSearchRow(const std::vector<std::tuple<Key, CellValue, Date> > & columns,
         for (unsigned i = 0;  i < columns.size();  ++i) {
             const auto & c = columns[i];
             
-            if (std::get<0>(c) == key) {
+            if (std::get<0>(c) == columnName) {
                 if (index == -1
                     || std::get<2>(c) < foundDate
                     || (std::get<2>(c) == foundDate
@@ -4469,7 +4475,7 @@ doSearchRow(const std::vector<std::tuple<Key, CellValue, Date> > & columns,
         for (unsigned i = 0;  i < columns.size();  ++i) {
             const auto & c = columns[i];
             
-            if (std::get<0>(c) == key) {
+            if (std::get<0>(c) == columnName) {
                 if (index == -1
                     || std::get<2>(c) > foundDate
                     || (std::get<2>(c) == foundDate
@@ -4483,108 +4489,14 @@ doSearchRow(const std::vector<std::tuple<Key, CellValue, Date> > & columns,
     }
 
     case GET_ALL: {
-        RowValue row;
-        for (unsigned i = 0;  i < columns.size();  ++i) {
-            const auto & c = columns[i];
-            
-            if (std::get<0>(c) == key) {
-                index = i;
-                row.push_back(c);
-            }
-        }
-        
-        // TODO - we may want to revisit this
-        // when only one value is found, return a scalar not a row
-        if (row.size() > 1)
-            return &(storage = std::move(ExpressionValue(std::move(row))));
-        break;
-    }
-
-    default:
-        throw HttpReturnException
-            (500, "Unknown variable filter not implemented for datasets");
-    }
-
-    if (index == -1)
-        return nullptr;
-    
-    return &(storage = std::move(ExpressionValue(std::get<1>(columns[index]),
-                                                 std::get<2>(columns[index]))));
-}
-
-const ExpressionValue *
-searchRow(const std::vector<std::tuple<ColumnName, CellValue, Date> > & columns,
-          const ColumnName & key,
-          const VariableFilter & filter,
-          ExpressionValue & storage)
-{
-    return doSearchRow(columns, key, filter, storage);
-}
-
-template<typename Key>
-const ExpressionValue *
-doSearchRow(const std::vector<std::tuple<Key, ExpressionValue> > & columns,
-            const Key & key,
-            const VariableFilter & filter,
-            ExpressionValue & storage)
-{
-    int index = -1;
-
-    switch (filter) {
-    case GET_ANY_ONE:
-        for (unsigned i = 0;  i < columns.size();  ++i) {
-            const auto & c = columns[i];
-            if (std::get<0>(c) == key) {
-                index = i;
-                break;
-            }
-        }
-        break;
-        
-    case GET_EARLIEST: {
-        Date foundDate;
-
-        for (unsigned i = 0;  i < columns.size();  ++i) {
-            const auto & c = columns[i];
-            
-            if (std::get<0>(c) == key) {
-                const ExpressionValue & v = std::get<1>(c);
-                Date ts = v.getEffectiveTimestamp();
-                if (index == -1 || v.isEarlier(ts, std::get<1>(columns[index]))){
-                    index = i;
-                    foundDate = ts;
-                }
-            }
-        }
-        break;
-    }
-
-    case GET_LATEST: {
-        Date foundDate;
-
-        for (unsigned i = 0;  i < columns.size();  ++i) {
-            const auto & c = columns[i];
-            
-            if (std::get<0>(c) == key) {
-                const ExpressionValue & v = std::get<1>(c);
-                Date ts = v.getEffectiveTimestamp();
-                if (index == -1 || v.isLater(ts, std::get<1>(columns[index]))){
-                    index = i;
-                    foundDate = ts;
-                }
-            }
-        }
-
-        break;
-    }
-
-    case GET_ALL: {
         StructValue row;
 
         for (unsigned i = 0;  i < columns.size();  ++i) {
             const auto & c = columns[i];
-            if (std::get<0>(c) == key) {
-                row.emplace_back(PathElement(), std::get<1>(c));
+            if (std::get<0>(c) == columnName) {
+                row.emplace_back(PathElement(), 
+                                 ExpressionValue(std::get<1>(c),
+                                                 std::get<2>(c)));
                 index = i;
             }
         }
@@ -4599,42 +4511,53 @@ doSearchRow(const std::vector<std::tuple<Key, ExpressionValue> > & columns,
     }
 
     default:
-        throw HttpReturnException(500, "Unknown GET_ALL not implemented for datasets");
+        throw HttpReturnException
+            (500, "Unknown variable filter");
     }
 
     if (index == -1)
         return nullptr;
     
-    return &std::get<1>(columns[index]);
+    return &(storage = std::move(ExpressionValue(std::get<1>(columns[index]),
+                                                 std::get<2>(columns[index]))));
 }
 
 const ExpressionValue *
-searchRow(const std::vector<std::tuple<PathElement, ExpressionValue> > & columns,
-          const PathElement & key,
+searchRow(const RowValue & columns,
+          const ColumnName & columnName,
+          const VariableFilter & filter,
+          ExpressionValue & storage)
+{
+    return doSearchRow(columns, columnName, filter, storage);
+}
+
+const ExpressionValue *
+searchRow(const StructValue & columns,
+          const PathElement & columnName,
           const VariableFilter & filter,
           ExpressionValue & storage)
 {
     FilterAccumulator accum(filter);
-    iterateStructured(columns, key, accum);
+    iterateStructured(columns, columnName, accum);
     if (accum.empty())
         return nullptr;
     return accum.extract(storage);
 }
 
 const ExpressionValue *
-searchRow(const std::vector<std::tuple<PathElement, ExpressionValue> > & columns,
-          const ColumnName & key,
+searchRow(const StructValue & columns,
+          const ColumnName & columnName,
           const VariableFilter & filter,
           ExpressionValue & storage)
 {
-    ExcAssert(!key.empty());
+    ExcAssert(!columnName.empty());
 
     FilterAccumulator accum(filter);
-    ColumnName tail = key.tail();
+    ColumnName tail = columnName.tail();
 
     auto onValue = [&] (const ExpressionValue & val) -> bool
         {
-            if (key.size() == 1) {
+            if (columnName.size() == 1) {
                 return accum(val);
             }
             else {
@@ -4642,7 +4565,7 @@ searchRow(const std::vector<std::tuple<PathElement, ExpressionValue> > & columns
             }
         };
 
-    iterateStructured(columns, key.head(), onValue);
+    iterateStructured(columns, columnName.head(), onValue);
 
     if (accum.empty())
         return nullptr;

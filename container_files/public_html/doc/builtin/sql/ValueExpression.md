@@ -310,8 +310,18 @@ Note that this syntax is not part of SQL, it is an MLDB extension.
 
 ### Dataset-provided functions
 
+These functions are always available when processing rows from a dataset, and
+will change values on each row under consideration.
+
 - `rowHash()`: returns the internal hash value of the current row, useful for random sampling and providing a stable [order](OrderByExpression.md) in query results
 - `rowName()`: returns the name the current row 
+- `rowPath()` is the structured path to the row under consideration.
+- `rowPathElement(n)` is the nth element of the `rowPath()` of the row
+  under consideration.  If n is less than zero, it will be a distance from the
+  end (for example, -1 is the last element).  For a rowName of `x.y.2`, then
+  `rowPathElement(0)` will be `x`, `rowPathElement(1)` will be `y` and
+  `rowPathElement(2)` is equivalent to `rowPathElement(-1)` which will
+  be `2`. 
 - `columnCount()`: returns the number of columns with explicit values set in the current row 
 
 ### Encoding and decoding functions
@@ -409,11 +419,19 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
   system locale.
 - `regex_replace(string, regex, replacement)` will return the given string with
   matches of the `regex` replaced by the `replacement`.  Perl-style regular
-  expressions are supported.
+  expressions are supported.  It is normally preferable that the `regex` be a
+  constant string; performance will be very poor if not as the regular expression
+  will need to be recompiled on every application.
 - `regex_match(string, regex)` will return true if the *entire* string matches
   the regex, and false otherwise.  If `string` is null, then null will be returned.
+  It is normally preferable that the `regex` be a
+  constant string; performance will be very poor if not as the regular expression
+  will need to be recompiled on every application.
 - `regex_search(string, regex)` will return true if *any portion of * `string` matches
   the regex, and false otherwise.  If `string` is null, then null will be returned.
+  It is normally preferable that the `regex` be a
+  constant string; performance will be very poor if not as the regular expression
+  will need to be recompiled on every application.
 
 ### Timestamp functions
 
@@ -450,6 +468,27 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
   - For example, `date_trunc('month', '1969-07-24')` will return `'1969-07-01'`
   - `day`, `dow`, `doy`, `isodow`, `isodoy` will all truncate to the day
 
+
+### Path manipulation functions
+
+MLDB represents structured data as a collection of distinct atoms, with each
+one having a path to where in the structure the atom lived.  The paths are
+used as row and column names.  The following functions are available to
+manipulate them:
+
+- `print_path(path)` will return a string representation of a path, with the
+  elements separated by periods and any elements with periods or quotes
+  quoted (and internal quotes doubled).  This is what is used by the `rowName()`
+  function to convert from the structured `rowPath()` representation.  For
+  example, a path with elements 'x' and 'hello.world' when passed through would
+  return the string `x."hello.world"`.  This is the inverse of `parse_path`
+  (below).
+- `parse_path(string)` will turn the string argument into a structured path
+  which may be used for example as the result of a `NAMED` clause.  This is the
+  inverse of `print_path` (above).
+- `path_element(path, n)` will return element `n` of the given path.
+
+
 ### Vector space functions
 
 - `norm(vec, p)` will return the L-`p` norm of `vec`. The L-0 norm is the count of non-zero
@@ -470,6 +509,17 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
   elements will be taken from end end dimensions first, ie
   `flatten([ [ 1, 2], [3, 4] ])` will be `[1, 2, 3, 4]`.
 
+### Geographical functions
+
+The following functions operate on latitudes and longtitudes and can be used to
+calculate
+
+- `geo_distance(lat1, lon1, lat2, lon2)` calculates the great circle distance from
+  the point at `(lat1, lon1)` to the point at (lat2, lon2)` in meters assuming that
+  the Earth is a perfect sphere with a radius of 6371008.8 meters.  It will be
+  accurate to within 0.3% anywhere on earth, apart from near the North or South
+  Poles.
+
 ### <a name="importfunctions"></a>Data import functions
 
 - `tokenize(str, {splitchars: ',', quotechar: '', offset: 0, limit: null, value: null, min_token_length: 1, ngram_range:[1, 1]})`
@@ -489,15 +539,15 @@ number of occurrences of those tokens within `str`. For example `tokenize('a b b
 
 The following standard SQL aggregation functions are supported. They may only be used in SELECT and HAVING clauses. If an aggregation function appears in the SELECT clause and no GROUP BY clause is used, an empty GROUP BY clause will be inferred.
 
-- `avg` calculates the average of all values in the group.  It works in
+- `avg` returns the average of all values in the group.  It works in
   double precision floating point only.
-- `sum` calculates the sum of all values in the group.  It works in
+- `sum` returns the sum of all values in the group.  It works in
   double precision floating point only.
-- `min` calculates the minimum of all values in the group.
-- `max` calculates the maximum of all values in the group.
-- `count` calculates the number of non-null values in the group.
+- `min` returns the minimum of all values in the group.
+- `max` returns the maximum of all values in the group.
+- `count` returns the number of non-null values in the group.
     - `count(*)` is a special function which will count the number of rows in the group with non-null values in any column
-- 'count_distinct' calculates the number of unique, distinct non-null values in the group.
+- `count_distinct` returns the number of unique, distinct non-null values in the group.
 
 The following useful non-standard aggregation functions is also supported:
 
@@ -557,7 +607,6 @@ The standard SQL aggregation functions operate 'vertically' down columns. MLDB d
   - `temporal_max(<row>)` returns the maximum of the non-null value per cell.
   - `temporal_latest(<row>)` returns the non-null value with the latest timestamp per cell.
   - `temporal_earliest(<row>)` returns the non-null value with the earliest timestamp per cell.
-
 
 ## Evaluating a JS function from SQL (Experimental)
 

@@ -1127,7 +1127,8 @@ struct GroupContext: public SqlExpressionDatasetScope {
                                         SqlBindingScope & argScope)
     {
 
-        auto getGroupRowName = [] (const SqlRowScope & context){
+        auto getGroupRowName = [] (const SqlRowScope & context) -> RowName
+            {
             auto & row = context.as<RowScope>();
 
             //Todo: now we end up with extra quotes, not super pretty
@@ -1140,7 +1141,7 @@ struct GroupContext: public SqlExpressionDatasetScope {
             scontext.writeUtf8 = true;
             desc.printJsonTyped(&row.currentGroupKey, scontext);
 
-            return result;
+            return PathElement(result);
         };
 
         if (functionName == "rowName") {
@@ -1148,18 +1149,28 @@ struct GroupContext: public SqlExpressionDatasetScope {
                         const SqlRowScope & context)
                     {                        
                         auto result = getGroupRowName(context);
-                        return ExpressionValue(std::move(Utf8String(std::move(result), false /* check */)),
+                        return ExpressionValue(result.toUtf8String(),
                                                Date::negativeInfinity());
                     },
                     std::make_shared<StringValueInfo>()};
+        }
+        if (functionName == "rowPath") {
+            return {[getGroupRowName] (const std::vector<ExpressionValue> & args,
+                        const SqlRowScope & context)
+                    {                        
+                        auto result = getGroupRowName(context);
+                        return ExpressionValue(CellValue(result),
+                                               Date::negativeInfinity());
+                    },
+                    std::make_shared<PathValueInfo>()};
         }
         else if (functionName == "rowHash") {
                 return {[getGroupRowName] (const std::vector<ExpressionValue> & args,
                         const SqlRowScope & context)
                     {                        
                         auto rowName = getGroupRowName(context);
-                        return ExpressionValue(RowHash(RowName(std::move(rowName))),
-                                           Date::negativeInfinity());
+                        return ExpressionValue(RowHash(rowName),
+                                               Date::negativeInfinity());
                         
                     },
                     std::make_shared<Uint64ValueInfo>()};
@@ -1371,6 +1382,7 @@ BoundGroupByQuery(const SelectExpression & select,
       groupBy(groupBy),
       select(select),
       having(having),
+      orderBy(orderBy),
       numBuckets(1)
 {
     for (auto & g: groupBy.clauses) {
@@ -1389,9 +1401,6 @@ BoundGroupByQuery(const SelectExpression & select,
            calc.emplace_back(a);
         } 
     }
-
-    // Bind in the order by expression
-    boundOrderBy = orderBy.bindAll(*groupContext);
 
     // Bind the row name expression
     boundRowName = rowName.bind(*groupContext);
@@ -1439,6 +1448,10 @@ execute(RowProcessor processor,
     //The bound having must resolve to a boolean expression
     if (!having.isConstantTrue() && !having.isConstantFalse() && dynamic_cast<BooleanValueInfo*>(boundHaving.info.get()) == nullptr)
         throw HttpReturnException(400, "HAVING must be a boolean expression");
+
+    // Bind in the order by expression. Must be bound after the having because
+    //we placed the orderby aggregators after the having aggregator in the list
+    boundOrderBy = orderBy.bindAll(*groupContext);
 
     // When we get a row, we record it under the group key
     auto onRow = [&] (NamedRowValue & row,
@@ -1511,7 +1524,7 @@ execute(RowProcessor processor,
         if (!havingResult.isTrue())
             continue;
 
-        outputRow.rowName = RowName(boundRowName(rowContext, GET_LATEST).toUtf8String());
+        outputRow.rowName = boundRowName(rowContext, GET_LATEST).coerceToPath();
         outputRow.rowHash = outputRow.rowName;        
 
         //Evaluating the whole bound select expression

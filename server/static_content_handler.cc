@@ -211,7 +211,7 @@ getStaticRouteHandler(string dir, MldbServer * server, bool hideInternalEntities
                     if (filenameToLoad.find("file://") == 0)
                         filenameToLoad = string(filenameToLoad, 7);
 
-                    cerr << "Loading file " << filename << " as " << filenameToLoad << endl;
+                    //cerr << "Loading file " << filename << " as " << filenameToLoad << endl;
                     ML::File_Read_Buffer buf(filenameToLoad);
             
                     string result(buf.start(), buf.end());
@@ -251,7 +251,7 @@ getStaticRouteHandler(string dir, MldbServer * server, bool hideInternalEntities
                 if (filenameToLoad.find("file://") == 0)
                     filenameToLoad = string(filenameToLoad, 7);
 
-                cerr << "Loading file " << markdownFile << " as " << filenameToLoad << endl;
+                //cerr << "Loading file " << markdownFile << " as " << filenameToLoad << endl;
 
                 ML::File_Read_Buffer buf(filenameToLoad);
 

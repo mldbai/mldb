@@ -233,7 +233,15 @@ struct TableOperations {
                                      ssize_t limit)>
     runQuery;
 
-    bool operator ! () const {return !getRowInfo && !getFunction  && !runQuery; }
+    /// What aliases (sub-dataset names) does this dataset contain?
+    /// Normally used in a join
+    std::function<std::vector<Utf8String> () > getChildAliases;
+
+    bool operator ! () const
+    {
+        return !getRowInfo && !getFunction && !runQuery
+            && !getChildAliases;
+    }
 };
 
 /*****************************************************************************/
@@ -464,7 +472,7 @@ std::shared_ptr<void> registerDatasetFunction(Utf8String name, ExternalDatasetFu
 struct GetAllColumnsOutput {
 
     /// Function that will return a row with the given columns
-    std::function<ExpressionValue (const SqlRowScope &)> exec;
+    std::function<ExpressionValue (const SqlRowScope &,  const VariableFilter &)> exec;
 
     /// Row information about the value returned from calling getColumns
     std::shared_ptr<RowValueInfo> info;
@@ -1021,7 +1029,10 @@ struct SqlExpression: public std::enable_shared_from_this<SqlExpression> {
         Caller must pass true if there is a GROUP BY clause associated with
         this expression.
     */
-    std::vector<std::shared_ptr<SqlExpression> > findAggregators(bool withGroupBy) const;
+    virtual std::vector<std::shared_ptr<SqlExpression> > findAggregators(bool withGroupBy) const;
+
+    virtual bool isAggregator() const {return false; }
+    virtual bool isWildcard() const {return false; }
 
     //should be private:
     typedef std::shared_ptr<SqlExpression> (*OperatorHandler)
@@ -1201,7 +1212,6 @@ struct SelectExpression: public SqlRowExpression {
     {
         return ! operator == (other);
     }
-
 };
 
 PREDECLARE_VALUE_DESCRIPTION(SelectExpression);
@@ -1303,6 +1313,10 @@ struct OrderByExpression {
         expression so that the order by expression stands on its own.
     */
     OrderByExpression substitute(const SelectExpression & select) const;
+
+    std::vector<std::shared_ptr<SqlExpression> > findAggregators(bool withGroupBy) const;
+
+    std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
 
     bool operator == (const OrderByExpression & other) const;
     bool operator != (const OrderByExpression & other) const

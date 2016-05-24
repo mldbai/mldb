@@ -32,6 +32,11 @@ A single leading `-` in the string will reverse the direction of the interval, e
   contains characters that can't be represented as a string.
   - Binary blobs can appear in queries using the `base64_decode` function
     with a string as its argument.
+- A path.  This type is a list of coordinates into an array or object, and is
+  used as row and column names.  For example, the value `3` inside
+  `{ "x": [ 1, 2, 3 ] }` will be represented by the path `x.2`, ie the structure
+  `x` with the 3rd (zero-based) element.  Paths are in some ways similar to
+  strings, but are internally structured as arrays of elements.
 
 ## Data Point Timestamps
 

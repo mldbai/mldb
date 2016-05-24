@@ -127,6 +127,7 @@ SPECIALIZE_STORAGE_TYPE(Utf8String,           ST_UTF8STRING);
 SPECIALIZE_STORAGE_TYPE(CellValue,            ST_ATOM);
 SPECIALIZE_STORAGE_TYPE(bool,                 ST_BOOL);
 SPECIALIZE_STORAGE_TYPE(Date,                 ST_TIMESTAMP);
+SPECIALIZE_STORAGE_TYPE(Path,                 ST_ATOM);
 
 /** Return the ExpressionValueInfo type for the given storage type. */
 std::shared_ptr<ExpressionValueInfo>
@@ -647,7 +648,7 @@ struct ExpressionValue {
     ExpressionValue(RowValue row) noexcept;
 
     // Construct from a set of named values as a row
-    ExpressionValue(std::vector<std::tuple<PathElement, ExpressionValue> > vals) noexcept;
+    ExpressionValue(StructValue vals) noexcept;
     // Construct from JSON.  Will convert to an atom or a row.
     ExpressionValue(const Json::Value & json, Date ts);
     
@@ -1148,6 +1149,7 @@ extern template class ExpressionValueInfoT<CellValue>;
 extern template class ExpressionValueInfoT<std::string>;
 extern template class ExpressionValueInfoT<Utf8String>;
 extern template class ExpressionValueInfoT<std::vector<uint8_t> >;
+extern template class ExpressionValueInfoT<Path>;
 extern template class ExpressionValueInfoT<int64_t>;
 extern template class ExpressionValueInfoT<uint64_t>;
 extern template class ExpressionValueInfoT<char>;
@@ -1158,6 +1160,7 @@ extern template class ScalarExpressionValueInfoT<CellValue>;
 extern template class ScalarExpressionValueInfoT<std::string>;
 extern template class ScalarExpressionValueInfoT<Utf8String>;
 extern template class ScalarExpressionValueInfoT<std::vector<uint8_t> >;
+extern template class ScalarExpressionValueInfoT<Path>;
 extern template class ScalarExpressionValueInfoT<int64_t>;
 extern template class ScalarExpressionValueInfoT<uint64_t>;
 extern template class ScalarExpressionValueInfoT<char>;
@@ -1215,6 +1218,19 @@ struct BlobValueInfo: public ScalarExpressionValueInfoT<std::vector<uint8_t> > {
     virtual std::string getScalarDescription() const
     {
         return "blob";
+    }
+};
+
+struct PathValueInfo: public ScalarExpressionValueInfoT<Path> {
+    /// Is the other value compatible with this info?
+    virtual bool isCompatible(const ExpressionValue & value) const
+    {
+        return value.isAtom() && value.getAtom().isPath();
+    }
+
+    virtual std::string getScalarDescription() const
+    {
+        return "path";
     }
 };
 
@@ -1422,20 +1438,20 @@ DECLARE_STRUCTURE_DESCRIPTION(NamedRowValue);
 
 /** These functions search the given row for the named value. */
 const ExpressionValue *
-searchRow(const std::vector<std::tuple<ColumnName, CellValue, Date> > & columns,
-          const ColumnName & key,
+searchRow(const RowValue & columns,
+          const ColumnName & columnName,
           const VariableFilter & filter,
           ExpressionValue & storage);
 
 const ExpressionValue *
-searchRow(const std::vector<std::tuple<PathElement, ExpressionValue> > & columns,
-          const PathElement & key,
+searchRow(const StructValue & columns,
+          const PathElement & columnName,
           const VariableFilter & filter,
           ExpressionValue & storage);
 
 const ExpressionValue *
-searchRow(const std::vector<std::tuple<PathElement, ExpressionValue> > & columns,
-          const ColumnName & key,
+searchRow(const StructValue & columns,
+          const ColumnName & columnName,
           const VariableFilter & filter,
           ExpressionValue & storage);
 

@@ -28,11 +28,48 @@ fi
 # FIXME: these should not be writable outside of dev environment
 chown -R $MLDB_USER:$MLDB_USER /opt
 
-if [ -z "$(find /mldb_data -maxdepth 0 -user $(id -u $MLDB_USER))" ]; then
+if [ $(id -u $MLDB_USER) -eq 0 ]; then
     echo "" >&2
     echo "" >&2
     echo "" >&2
-    echo "Aborting boot: bad permissions on /mldb_data (not owned by $(id $MLDB_USER))" >&2
+    echo "Aborting boot: cannot run MLDB as root" >&2
+    echo "" >&2
+    echo "Please use different values for MLDB_IDS" >&2
+    echo "" >&2
+    echo "" >&2
+    echo "" >&2
+    echo "" >&2
+    exit 1
+fi
+
+if [ $(stat -c '%u' /mldb_data) -eq 0 ]; then
+    echo "" >&2
+    echo "" >&2
+    echo "" >&2
+    echo "Aborting boot: directory mapped to /mldb_data owned by root" >&2
+    echo "" >&2
+    echo "Expected owner uid from MLDB_IDS is: $(id -u $MLDB_USER)" >&2
+    echo "" >&2
+    echo "If the directory mapped to /mldb_data did not exist before launching MLDB," >&2
+    echo "it is automatically created and owned by root. If this is what happened," >&2
+    echo "please change the owner of the directory and relaunch." >&2
+    echo "" >&2
+    echo "" >&2
+    echo "" >&2
+    echo "" >&2
+    exit 1
+fi
+
+if [ $(id -u $MLDB_USER) -ne $(stat -c '%u' /mldb_data) ]; then
+    echo "" >&2
+    echo "" >&2
+    echo "" >&2
+    echo "Aborting boot: bad owner on directory mapped to /mldb_data" >&2
+    echo "" >&2
+    echo "Apparent owner uid from within Docker container is: $(stat -c '%u' /mldb_data)" >&2
+    echo "" >&2
+    echo "Expected owner uid from MLDB_IDS is: $(id -u $MLDB_USER)" >&2
+    echo "" >&2
     echo "" >&2
     echo "" >&2
     echo "" >&2
