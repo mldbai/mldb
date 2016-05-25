@@ -23,37 +23,37 @@ The helper parameter `kfold` can also be used to generate a `datasetFolds` confi
 implementing a standard k-fold cross-validation. The dataset will be split in $$k$$ subsamples and
 each fold will use one subsample as its test set and train on the other $$k-1$$ folds.
 
-When using the `kfold` parameter, the `testing_dataset` parameter should not be specified.
+When using the `kfold` parameter, the `testingDataOverride` parameter should not be specified.
 
 ### Default behaviour
 
 If no fold configuration is specified and a testing dataset...
 
-- **is specified**, a `dataset_folds` configuration that uses
-all the `training_dataset` for training and all the `testing_dataset` for testing
+- **is specified**, a `datasetFolds` configuration that uses
+all the `inputData` for training and all the `testingDataOverride` for testing
 will be generated.
-- **is NOT specified**, a `dataset_folds` configuration that splits
+- **is NOT specified**, a `datasetFolds` configuration that splits
 the dataset in half for training and testing will be generated.
 
 
 ### Example: 3-fold cross-validation
 
-To perform a 3-fold cross-validation, set the parameter `kfolds = 3` and the following
-configuration will be generated for the `dataset_folds` parameter:
+To perform a 3-fold cross-validation, set the parameter `kfold` to 3 and the following
+configuration will be generated for the `datasetFolds` parameter:
 
 ```python
 [
     {
-        "training_where": "rowHash() % 3 != 0",
-        "testing_where": "rowHash() % 3 = 0",
+        "trainingWhere": "rowHash() % 3 != 0",
+        "testingWhere": "rowHash() % 3 = 0",
     },
     {
-        "training_where": "rowHash() % 3 != 1",
-        "testing_where": "rowHash() % 3 = 1",
+        "trainingWhere": "rowHash() % 3 != 1",
+        "testingWhere": "rowHash() % 3 = 1",
     },
     {
-        "training_where": "rowHash() % 3 != 2",
-        "testing_where": "rowHash() % 3 = 2",
+        "trainingWhere": "rowHash() % 3 != 2",
+        "testingWhere": "rowHash() % 3 = 2",
     }
 ]
 ```
@@ -91,18 +91,18 @@ The following example would be for a 2-fold run:
         "folds": [
             {
                 "resultsTest" : { <classifier.test output for fold 1> },
-                "fold": { <dataset_fold used for fold 1> }
+                "fold": { <datasetFold used for fold 1> }
             },
             {
                 "resultsTest" : { <classifier.test output for fold 2> },
-                "fold": { <dataset_fold used for fold 2> }
+                "fold": { <datasetFold used for fold 2> }
             }
         ]
     }
 }
 ```
 
-If the training set is also evaluated, the additional keys `aggregated_train` and `results_train` 
+If the training set is also evaluated, the additional keys `aggregatedTrain` and `resultsTrain` 
 will also be returned and will have the same structure as the results for the testing set.
 
 ## Examples

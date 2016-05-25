@@ -210,7 +210,7 @@ class Mldb174Test(MldbUnitTest):
             return {
                 "type": "classifier.experiment",
                 "params": {
-                    "trainingData": """
+                    "inputData": """
                         select
                         {* EXCLUDING(quality)} as features,
                         quality as label
@@ -218,8 +218,8 @@ class Mldb174Test(MldbUnitTest):
                     """ % dataset,
                     "datasetFolds": [
                             {
-                                "training_where": "rowHash() % 2 = 0",
-                                "testing_where": "rowHash() % 2 = 1"
+                                "trainingWhere": "rowHash() % 2 = 0",
+                                "testingWhere": "rowHash() % 2 = 1"
                             }
                         ],
                     "experimentName": "winer",
@@ -353,7 +353,7 @@ class Mldb174Test(MldbUnitTest):
         config = {
                 "type": "classifier.experiment",
                 "params": {
-                    "trainingData": """
+                    "inputData": """
                         select
                         {* EXCLUDING (quality)} as features,
                         quality as label
@@ -362,8 +362,8 @@ class Mldb174Test(MldbUnitTest):
                     """,
                     "datasetFolds": [
                         {
-                            "training_where": "implicit_cast(rowName()) % 2 = 0",
-                            "testing_where": "implicit_cast(rowName()) % 2 = 1"
+                            "trainingWhere": "implicit_cast(rowName()) % 2 = 0",
+                            "testingWhere": "implicit_cast(rowName()) % 2 = 1"
                         }
                     ],
                     "experimentName": "winer",
@@ -461,7 +461,7 @@ class Mldb174Test(MldbUnitTest):
             return {
                 "type": "classifier.experiment",
                 "params": {
-                    "trainingData": """
+                    "inputData": """
                         select
                         {* EXCLUDING(quality)} as features,
                         quality as label
@@ -469,8 +469,8 @@ class Mldb174Test(MldbUnitTest):
                     """ % dataset,
                     "datasetFolds": [
                             {
-                                "training_where": "rowHash() % 2 = 0",
-                                "testing_where": "rowHash() % 2 = 1"
+                                "trainingWhere": "rowHash() % 2 = 0",
+                                "testingWhere": "rowHash() % 2 = 1"
                             }
                         ],
                     "experimentName": "winer_dt",
