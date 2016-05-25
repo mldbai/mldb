@@ -332,7 +332,24 @@ struct SqlExpressionExtractScope: public SqlBindingScope {
 };
 
 
+/*****************************************************************************/
+/* UTILITY FUNCTIONS                                                         */
+/*****************************************************************************/
 
+/** Utility function that will attempt to implement rowPath(),
+    rowPathElement(), etc in terms of rowName().  Will return a non-empty
+    bound function if possible.
+
+    The baseFunctionName is "row" for when we're binding a row expression,
+    and "column" for when we're binding a column expression.
+*/
+BoundFunction
+getDatasetDerivedFunction(const Utf8String & tableName,
+                          const Utf8String & functionName,
+                          const std::vector<BoundSqlExpression> & args,
+                          SqlBindingScope & argScope,
+                          SqlBindingScope & datasetScope,
+                          const Utf8String & baseFunctionName);
 
 
 } // namespace MLDB

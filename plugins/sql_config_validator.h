@@ -119,10 +119,10 @@ struct PlainColumnSelect
                 return std::dynamic_pointer_cast<const SelectColumnExpression>(expression);
             };
 
-        auto getComputedColumn = [] (const std::shared_ptr<SqlRowExpression> expression)
-            -> std::shared_ptr<const ComputedColumn>
+        auto getNamedColumnExpression = [] (const std::shared_ptr<SqlRowExpression> expression)
+            -> std::shared_ptr<const NamedColumnExpression>
             {
-                return std::dynamic_pointer_cast<const ComputedColumn>(expression);
+                return std::dynamic_pointer_cast<const NamedColumnExpression>(expression);
             };
 
         auto getReadVariable = [] (const std::shared_ptr<SqlExpression> expression)
@@ -185,7 +185,7 @@ struct PlainColumnSelect
                 if (columnExpression)
                     continue;
 
-                auto computedVariable = getComputedColumn(clause);
+                auto computedVariable = getNamedColumnExpression(clause);
 
                 if (computedVariable) {
                     auto readVariable = getReadVariable(computedVariable->expression);
@@ -239,16 +239,16 @@ struct PlainColumnSelect
 inline bool containsNamedSubSelect(const InputQuery& query, const Utf8String& name) 
 {
 
-    auto getComputedColumn = [] (const std::shared_ptr<SqlRowExpression> expression)
-        -> std::shared_ptr<const ComputedColumn>
+    auto getNamedColumnExpression = [] (const std::shared_ptr<SqlRowExpression> expression)
+        -> std::shared_ptr<const NamedColumnExpression>
         {
-            return std::dynamic_pointer_cast<const ComputedColumn>(expression);
+            return std::dynamic_pointer_cast<const NamedColumnExpression>(expression);
         };
 
     if (query.stm) {
         auto & select = query.stm->select;
         for (const auto & clause : select.clauses) {
-            auto computedVariable = getComputedColumn(clause);
+            auto computedVariable = getNamedColumnExpression(clause);
             if (computedVariable
                 && computedVariable->alias.size() == 1
                 && computedVariable->alias[0] ==  name)

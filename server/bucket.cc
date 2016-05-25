@@ -91,6 +91,8 @@ getBucket(const CellValue & val) const
         return strings.getBucket(val);
     case CellValue::BLOB:
         return blobs.getBucket(val);
+    case CellValue::PATH:
+        return paths.getBucket(val);
     case CellValue::TIMESTAMP:
         return timestamps.getBucket(val);
     case CellValue::TIMEINTERVAL:
@@ -216,7 +218,7 @@ initialize(std::vector<CellValue> values, int numBuckets)
 
     // TODO: complete this (MLDB-1457)
     
-    for (auto type: { CellValue::BLOB, CellValue::TIMESTAMP, CellValue::TIMEINTERVAL } ) {
+    for (auto type: { CellValue::BLOB, CellValue::TIMESTAMP, CellValue::TIMEINTERVAL, CellValue::PATH } ) {
         if (!typeValues[(int)type].empty())
             throw HttpReturnException(500, "Can't bucketize blob, timestamp, interval types");
     }

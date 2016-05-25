@@ -164,9 +164,18 @@ run(const ProcedureRunConfig & run,
 
     // this includes being empty
     if(!runProcConf.modelFileUrl.valid()) {
-        throw ML::Exception(ML::format("The 'modelFileUrl' parameter "
-                    "is not valid. Value: '%s'",
-                    runProcConf.modelFileUrl.toString()));
+        throw HttpReturnException
+            (400, "The 'modelFileUrl' parameter '"
+             + runProcConf.modelFileUrl.toString()
+             + " is not valid.");
+    }
+
+    if (!runProcConf.functionName.empty()
+        && runProcConf.modelFileUrl.empty()) {
+        throw HttpReturnException
+            (400, "The 'modelFileUrl' parameter must be set if the "
+             "functionName parameter is set so that the function can "
+             "load the classifier");
     }
 
     // try to create output folder and write open a writer to make sure 
@@ -639,17 +648,21 @@ run(const ProcedureRunConfig & run,
 
     INFO_MSG(logger) << "trained classifier in " << timer.elapsed();
 
-    bool saved = true;
-    try {
-        classifier.save(runProcConf.modelFileUrl.toString());
-    }
-    catch (const std::exception & exc) {
-        saved = false;
-        INFO_MSG(logger) << "Error saving classifier: " << exc.what();
+    if (!runProcConf.modelFileUrl.empty()) {
+        try {
+            classifier.save(runProcConf.modelFileUrl.toString());
+        }
+        JML_CATCH_ALL {
+            rethrowHttpException(400, "Error saving classifier to '"
+                                 + runProcConf.modelFileUrl.toString() + "': "
+                                 + ML::getExceptionString(),
+                                 "url", runProcConf.modelFileUrl);
+        }
+        INFO_MSG(logger) << "Saved classifier to " << runProcConf.modelFileUrl;
     }
 
 
-    if(saved && !runProcConf.functionName.empty()) {
+    if(!runProcConf.functionName.empty()) {
         PolyConfig clsFuncPC;
         clsFuncPC.type = "classifier";
         clsFuncPC.id = runProcConf.functionName;

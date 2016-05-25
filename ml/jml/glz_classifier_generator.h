@@ -62,7 +62,10 @@ public:
     bool add_bias;          ///< Do we add and learn a bias term?
     bool do_decode;         ///< Do we run a decoder at all?
     bool normalize;         ///< Do we normalize the feature matrix beforehand?
-    bool ridge_regression;  ///< Do we use a ridge regression to sparsify weights?
+    Regularization regularization;  ///< Regularization algorithm to use if any
+    double regularization_factor; ///< regularization factor to use
+    int max_regularization_iteration; ///< Maximum number of iterations in regularization
+    double regularization_epsilon; ///< Epsilon to use when looking for convergence in regularization
     bool condition;         ///< Do we condition the feature matrix beforehand?
 
     Link_Function link_function;

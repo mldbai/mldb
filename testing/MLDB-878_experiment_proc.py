@@ -60,7 +60,7 @@ class Mldb878Test(MldbUnitTest):
                         "verbosity": 3,
                         "normalize": False,
                         "link": "linear",
-                        "ridge_regression": True
+                        "regularization": 'l2'
                     }
                 },
                 "outputAccuracyDataset": False
@@ -281,7 +281,7 @@ class Mldb878Test(MldbUnitTest):
                         "verbosity": 3,
                         "normalize": False,
                         "link": "linear",
-                        "ridge_regression": True
+                        "regularization": 'l2'
                     }
                 },
                 "outputAccuracyDataset": False,
@@ -320,7 +320,7 @@ class Mldb878Test(MldbUnitTest):
                         "verbosity": 3,
                         "normalize": False,
                         "link": "linear",
-                        "ridge_regression": True
+                        "regularization": 'l2'
                     }
                 },
                 "outputAccuracyDataset": False,

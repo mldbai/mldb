@@ -125,45 +125,7 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
                 return std::make_shared<AnyValueInfo>();
             };
 
-        bool hasGroupBy = !config.query.stm->groupBy.empty();
-        std::vector< std::shared_ptr<SqlExpression> > aggregators = config.query.stm->select.findAggregators(hasGroupBy);
-
-        if (!hasGroupBy && !aggregators.empty()) {
-            //if we have no group by but aggregators, make a universal group
-            config.query.stm->groupBy.clauses.emplace_back(SqlExpression::parse("1"));
-            hasGroupBy = true;
-        }
-
-        if (hasGroupBy) {
-
-            // Create our pipeline
-            pipeline
-                = getMldbRoot(function->server)
-                ->params(getParamInfo)
-                ->from(config.query.stm->from, config.query.stm->when,
-                       SelectExpression::STAR, config.query.stm->where)
-                ->where(config.query.stm->where)
-                ->select(config.query.stm->groupBy)
-                ->sort(config.query.stm->groupBy)
-                ->partition(config.query.stm->groupBy.clauses.size())
-                ->where(config.query.stm->having)
-                ->select(config.query.stm->orderBy)
-                ->sort(config.query.stm->orderBy)
-                ->select(config.query.stm->select);
-        }
-        else {
-
-            // Create our pipeline
-            pipeline
-                = getMldbRoot(function->server)
-                ->params(getParamInfo)
-                ->from(config.query.stm->from, config.query.stm->when,
-                       SelectExpression::STAR, config.query.stm->where)
-                ->where(config.query.stm->where)
-                ->select(config.query.stm->orderBy)
-                ->sort(config.query.stm->orderBy)
-                ->select(config.query.stm->select);
-        }
+        pipeline = getMldbRoot(function->server)->statement(*config.query.stm, getParamInfo);
 
         std::vector<KnownColumn> inputColumns;
         inputColumns.reserve(inputParams.size());
@@ -222,7 +184,6 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
                 // reference chain that stops the elements from being
                 // released.
                 output->group.clear();
-
                 result = std::move(output->values.back());
             }
 

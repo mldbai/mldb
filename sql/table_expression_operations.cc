@@ -270,7 +270,7 @@ bind(SqlBindingScope & scope) const
                 std::shared_ptr<SqlExpression> where = where_.shallowCopy();
 
                 auto getRowName
-                    = SqlExpression::parse("rowName()")->bind(...);
+                    = SqlExpression::parse("rowPath()")->bind(...);
 
                 auto exec = [=] (ssize_t numToGenerate,
                                  SqlRowScope & rowScope,
@@ -730,7 +730,7 @@ bind(SqlBindingScope & context) const
                                          select, when, *where, orderBy,
                                          TupleExpression(),
                                          *SqlExpression::TRUE,
-                                         *SqlExpression::parse("rowName()"),
+                                         *SqlExpression::parse("rowPath()"),
                                          offset, limit, "" /* dataset alias */,
                                          false /* allow multithreading */);
             };

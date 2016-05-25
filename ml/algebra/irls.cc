@@ -40,6 +40,37 @@ double erfinv(double y)
 
 namespace ML {
 
+std::string print(Regularization regularization)
+{
+    switch (regularization) {
+    case Regularization_none:        return "NONE";
+    case Regularization_l1:          return "L1";
+    case Regularization_l2:          return "L2";
+    default:           return format("Regularization(%d)", regularization);
+    }
+}
+
+Regularization parse_regularization_function(const std::string & regularization_name)
+{
+    Regularization regularization;
+
+    if (lowercase(regularization_name) == "none")
+        regularization = Regularization_none;
+    else if (lowercase(regularization_name) == "l1")
+        regularization = Regularization_l1;
+    else if (lowercase(regularization_name) == "l2")
+        regularization = Regularization_l2;
+    else throw Exception("parse_regularization_function(): option '"
+                         + regularization_name + "' is not known ('none', 'l1', 'l2' accepted)");
+    return regularization;
+}
+
+/** Put a regularization option in a stream. */
+std::ostream & operator << (std::ostream & stream, Regularization regularization)
+{
+    return stream << print(regularization);
+}
+
 __thread std::ostream * debug_remove_dependent = 0;
 __thread bool check_remove_dependent = 0;
 
@@ -291,6 +322,10 @@ calc(const boost::multi_array<double, 2> & A,
     return least_squares(A, b);
 }
 
+/*****************************************************************************/
+/* RIDGE REGRESSOR                                                           */
+/*****************************************************************************/
+
 Ridge_Regressor::
 Ridge_Regressor(double lambda)
     : lambda(lambda)
@@ -342,6 +377,36 @@ const Regressor & default_regressor()
     return result;
 }
 
+/*****************************************************************************/
+/* LASSO REGRESSOR                                                           */
+/*****************************************************************************/
+
+Lasso_Regressor::
+Lasso_Regressor(double lambda, int maxIter, double epsilon)
+    : lambda(lambda), maxIter(maxIter), epsilon(epsilon)
+{
+}
+
+Lasso_Regressor::
+~Lasso_Regressor()
+{
+}
+
+distribution<float>
+Lasso_Regressor::
+calc(const boost::multi_array<float, 2> & A,
+     const distribution<float> & b) const
+{
+    return lasso_regression(A, b, lambda, maxIter, epsilon);
+}
+
+distribution<double>
+Lasso_Regressor::
+calc(const boost::multi_array<double, 2> & A,
+     const distribution<double> & b) const
+{
+    return lasso_regression(A, b, lambda, maxIter, epsilon);
+}
 
 /*****************************************************************************/
 /* IRLS                                                                      */
@@ -353,7 +418,10 @@ perform_irls_unconditioned(const distribution<Float> & correct,
                            const boost::multi_array<Float, 2> & outputs,
                            const distribution<Float> & w,
                            Link_Function link_function,
-                           bool ridge_regression)
+                           Regularization regularization,
+                           Float regularization_factor,
+                           int maxIter,
+                           Float epsilon)
 {
     int nx = correct.size();
 
@@ -363,22 +431,36 @@ perform_irls_unconditioned(const distribution<Float> & correct,
     distribution<Float> trained;
 
     if (link_function == LINEAR && (w.min() == w.max())) {
-        if (ridge_regression) {
-            Ridge_Regressor regressor(1e-5);
+        if (regularization == Regularization_l2) {
+            Ridge_Regressor regressor(regularization_factor);
+            trained = regressor.calc(transpose(outputs), correct);
+        }
+        else if (regularization == Regularization_l1){
+            Lasso_Regressor regressor(regularization_factor, maxIter, epsilon);
             trained = regressor.calc(transpose(outputs), correct);
         }
         else {
+             if(regularization != Regularization_none)
+                throw Exception("Unknown regularization method in perform_irls_unconditioned");
             Least_Squares_Regressor regressor;
             trained = regressor.calc(transpose(outputs), correct);
         }
     }
     else {
-        if (ridge_regression) {
-            Ridge_Regressor regressor(1e-5);
+        if (regularization == Regularization_l2) {
+            Ridge_Regressor regressor(regularization_factor);
+            trained
+                = run_irls(correct, outputs, w, link_function, regressor);
+        }
+        else if (regularization == Regularization_l1){
+            Lasso_Regressor regressor(regularization_factor, maxIter, epsilon);
             trained
                 = run_irls(correct, outputs, w, link_function, regressor);
         }
         else {
+            if(regularization != Regularization_none)
+                throw Exception("Unknown regularization method in perform_irls_unconditioned");
+
             Least_Squares_Regressor regressor;
             trained
                 = run_irls(correct, outputs, w, link_function, regressor);
@@ -398,7 +480,10 @@ perform_irls_conditioned(const distribution<Float> & correct,
                               const boost::multi_array<Float, 2> & outputs,
                               const distribution<Float> & w,
                               Link_Function link_function,
-                              bool ridge_regression)
+                              Regularization regularization, 
+                              Float regularization_factor,
+                              int maxIter,
+                              Float epsilon)
 {
     int nx = correct.size();
     int nv = outputs.shape()[0];
@@ -504,7 +589,10 @@ perform_irls_conditioned(const distribution<Float> & correct,
 
     distribution<Float> trained = perform_irls_unconditioned(correct, outputs_reduced,
                                                              w, link_function,
-                                                             ridge_regression);
+                                                             regularization,
+                                                             regularization_factor,
+                                                             maxIter,
+                                                             epsilon);
 
     doneTimer("training");
 
@@ -580,15 +668,18 @@ perform_irls(const distribution<float> & correct,
              const boost::multi_array<float, 2> & outputs,
              const distribution<float> & w,
              Link_Function link_function,
-             bool ridge_regression,
+             Regularization regularization,
+             float regularization_factor,
+             int maxIter,
+             float epsilon,
              bool condition)
 {
     if (condition)
         return perform_irls_conditioned(correct, outputs, w, link_function,
-                                        ridge_regression);
+                                        regularization, regularization_factor, maxIter, epsilon);
     else
         return perform_irls_unconditioned(correct, outputs, w, link_function,
-                                          ridge_regression);
+                                          regularization, regularization_factor, maxIter, epsilon);
 }
 
 distribution<double>
@@ -596,15 +687,18 @@ perform_irls(const distribution<double> & correct,
              const boost::multi_array<double, 2> & outputs,
              const distribution<double> & w,
              Link_Function link_function,
-             bool ridge_regression,
+             Regularization regularization,
+             double regularization_factor,
+             int maxIter,
+             double epsilon,
              bool condition)
 {
     if (condition)
         return perform_irls_conditioned(correct, outputs, w, link_function,
-                                        ridge_regression);
+                                        regularization, regularization_factor, maxIter, epsilon);
     else
         return perform_irls_unconditioned(correct, outputs, w, link_function,
-                                          ridge_regression);
+                                          regularization, regularization_factor, maxIter, epsilon);
 }
 
 distribution<double>
@@ -660,7 +754,8 @@ irls_complog(const distribution<double> & correct,
 distribution<double>
 run_irls(const distribution<double> & correct,
          const boost::multi_array<double, 2> & outputs,
-         const distribution<double> & w, Link_Function func,
+         const distribution<double> & w, 
+         Link_Function func,
          const Regressor & regressor)
 {
     switch (func) {
@@ -739,7 +834,8 @@ irls_complog(const distribution<float> & correct,
 distribution<float>
 run_irls(const distribution<float> & correct,
          const boost::multi_array<float, 2> & outputs,
-         const distribution<float> & w, Link_Function func,
+         const distribution<float> & w, 
+         Link_Function func,
          const Regressor & regressor)
 {
     switch (func) {
@@ -838,6 +934,17 @@ Enum_Info<ML::Link_Function>::OPT[5] = {
 
 const char * Enum_Info<ML::Link_Function>::NAME
    = "Link_Function";
+
+COMPACT_PERSISTENT_ENUM_IMPL(Regularization);
+  
+const Enum_Opt<ML::Regularization>
+Enum_Info<ML::Regularization>::OPT[3] = {
+    { "none", ML::Regularization_none },
+    { "l1",   ML::Regularization_l1 },
+    { "l2",   ML::Regularization_l2 }};
+
+const char * Enum_Info<ML::Regularization>::NAME
+   = "Regularization";
 
 } // namespace ML
 
