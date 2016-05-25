@@ -525,6 +525,65 @@ prefixUrl(const char* url) const
     return prefixUrl(str).rawString();
 }
 
+InProcessRestConnection
+MldbServer::
+restPerform(const std::string & verb,
+            const Utf8String & resource,
+            const RestParams & params,
+            Json::Value payload,
+            const RestParams & headers) const
+{
+    if (payload.isString()) {
+        payload = Json::parse(payload.asString());
+    }
+
+    HttpHeader header;
+    header.verb = verb;
+    header.resource = resource.rawString();
+    header.queryParams = params;
+    for (auto & h: headers) {
+        header.headers.insert({h.first.toLower().rawString(),
+                               h.second.rawString()});
+    }
+
+    RestRequest request(header,
+                        payload.isNull() ? "" : payload.toStringNoNewLine());
+
+    InProcessRestConnection connection;
+
+    handleRequest(connection, request);
+
+    return connection;
+}
+
+InProcessRestConnection
+MldbServer::
+restGet(const Utf8String & resource, const RestParams & params) const {
+    return restPerform("GET", resource, params);
+}
+
+InProcessRestConnection
+MldbServer::
+restDelete(const Utf8String & resource, const RestParams & params) const {
+    return restPerform("DELETE", resource, params);
+}
+
+InProcessRestConnection
+MldbServer::
+restPut(const Utf8String & resource, const RestParams & params,
+        const Json::Value payload) const {
+    return restPerform("PUT", resource, params, std::move(payload));
+}
+
+InProcessRestConnection
+MldbServer::
+restPost(const Utf8String & resource, const RestParams & params,
+         const Json::Value payload) const {
+    return restPerform("POST", resource, params, std::move(payload));
+}
+
+
+
 namespace {
 struct OnInit {
     OnInit()

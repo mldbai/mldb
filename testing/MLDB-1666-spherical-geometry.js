@@ -36,7 +36,7 @@ recordExample("oak", 37.721306, -122.220721);
 
 dataset.commit()
 
-var resp = mldb.get("/v1/query", {q: "select round(geo_distance(x.lat, x.lon, y.lat, y.lon) / 1000) as dst from airports as x join airports as y where x.rowName() < y.rowName() order by dst desc", format: 'table'});
+var resp = mldb.get("/v1/query", {q: "select round(geo_distance(x.lat, x.lon, y.lat, y.lon) / 1000) as dst from airports as x join airports as y where x.rowName() < y.rowName() order by dst desc, rowName()", format: 'table'});
 
 plugin.log(resp.json);
 
