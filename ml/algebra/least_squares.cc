@@ -431,8 +431,8 @@ ridge_regression_impl(const boost::multi_array<Float, 2> & A,
 {
     using namespace std;
     float initialLambda = lambda < 0 ? 1e-5 : lambda;
-    cerr << "ridge_regression: A = " << A.shape()[0] << "x" << A.shape()[1]
-         << " b = " << b.size() << endl;
+    //cerr << "ridge_regression: A = " << A.shape()[0] << "x" << A.shape()[1]
+    //     << " b = " << b.size() << endl;
 
     //cerr << "b = " << b << endl;
     //cerr << "A = " << A << endl;
@@ -539,7 +539,7 @@ ridge_regression_impl(const boost::multi_array<Float, 2> & A,
 
         RidgeRegressionIterations<Float> iterations;
 
-        for (unsigned i = 0; current_lambda >= 1e-14;  ++i, current_lambda /= 10.0) {
+        for (; current_lambda >= 1e-14; current_lambda /= 10.0) {
             Iteration iter;
             iter.lambda = initialLambda;
             iter.current_lambda = current_lambda;

@@ -282,8 +282,6 @@ irls(const distribution<Float> & y, const boost::multi_array<Float, 2> & x,
      const Dist & dist,
      const Regressor & regressor)
 {
-    std::cerr << "IRLS" << std::endl;
-
     using namespace std;
 
     bool debug = false;
