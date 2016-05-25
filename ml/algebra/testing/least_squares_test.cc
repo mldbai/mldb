@@ -235,7 +235,6 @@ void do_test_lasso()
 
     boost::multi_array<Float, 2> A(boost::extents[5][4]);
     distribution<Float> b(5);
-    distribution<Float> stds(4, 1.0f);
 
     A[0][0] = 0.00002;
     A[1][0] = 0.00003;
@@ -258,7 +257,7 @@ void do_test_lasso()
     b[3] = 4.9866e-07;
     b[4] = 5.8619e-07;
 
-    distribution<Float> x = lasso_regression(A, b, stds, 0.0000000001);
+    distribution<Float> x = lasso_regression(A, b, 0.0000000001);
 
     cerr << "A = " << A << endl;
     cerr << "x = " << x << endl;
@@ -287,7 +286,6 @@ void do_test_lasso2()
 
     boost::multi_array<Float, 2> A(boost::extents[5][4]);
     distribution<Float> b(5), secret(4);
-    distribution<Float> stds(4, 1.0f);
 
     A[0][0] = 1;
     A[1][0] = 3;
@@ -311,7 +309,7 @@ void do_test_lasso2()
     cerr << "A = " << A << endl;
     cerr << "b = " << b << endl;
 
-    distribution<Float> x = lasso_regression(A, b, stds, 0.001);
+    distribution<Float> x = lasso_regression(A, b, 0.001);
     
     cerr << "x = " << x << endl;
     cerr << "A x  = " << (A * x) << endl;
@@ -328,7 +326,113 @@ void do_test_lasso2()
     BOOST_CHECK(abs(x[1]) < 1e-3);
     BOOST_CHECK(abs(x[2]) < 1e-3);
     BOOST_CHECK(abs(x[2]) < 1e-3);
+}
 
+template<typename Float>
+void test_lasso_scikit_learn()
+{
+    // we center the data because it gives really better results (weights of 0
+    // instead of 1e-15 and the like)
+    //
+    // import sklearn
+    // from numpy import arange, hstack, ones
+    // from sklearn import linear_model
+    // assert sklearn.__version__ == '0.17.1'
+    // n=5000
+    // d=10
+    // X = arange(n*d, dtype='float64').reshape(n,d)
+    // X -= X.mean(axis=0)
+    // X /= X.std(axis=0)
+    // X = hstack((X, ones(n).reshape(-1,1)))
+    // y = arange(n, dtype='float64') #+ normal(size=(n,))
+    // y -= y.mean()
+
+    // reg = linear_model.Lasso(alpha=.01, fit_intercept=False, max_iter=1000,
+    //                          normalize=False, tol=0.0001)
+    // reg.fit(X,y)
+    // print(reg.predict(X[3:4]))
+    // print(y[3:4])
+    // print(reg.coef_)
+
+    int n=5000;
+    int d=10;
+    boost::multi_array<Float, 2> A(boost::extents[n][d+1]);
+    distribution<Float> b(n);
+
+    // (ugly) shortcut to get the mean and std of the columns
+    distribution<Float> mean(d + 1);
+    for (int j=0; j < d; ++j)
+        mean[j] = 1. * d * (n - 1) / 2. + j;
+    Float std = sqrt(1. * d * d * (n + 1) * (n-1)/ 12.);
+    cerr << "std " << std << endl;
+
+    // 0 1 2 3 4 5 6 7 8 9
+    // 10 11 ... etc
+    // but standardized
+    for (int i=0; i < n * d; ++i) {
+        A[int(i / d)][i % d] = 1. * i;
+        // standardization
+        A[int(i / d)][i % d] -= mean[i % d];
+        A[int(i / d)][i % d] /= std;
+    }
+
+    // add ones for not-so-hacky intercept
+    for (int i=0; i < n; ++i)
+        A[i][d] = 1.;
+
+    // the target
+    for (int i=0; i < n; ++i)
+        b[i] = 1. * i - (n-1)/2.;
+
+    // the one from scikit-learn
+    Float alpha = 0.01;
+    // conversion to our cost function (no "/ 2n" for the LSE term)
+    Float lambda = 1. * alpha * n * 2;
+
+    distribution<Float> x = lasso_regression(A, b, lambda, 1000, 1e-4);
+
+    Float pred_3=0.;
+    for (int j=0; j < d + 1; ++j)
+        pred_3 += x[j] * A[3][j];
+
+    cerr << x << endl;
+
+    Float tol = 0.001;
+    BOOST_CHECK_CLOSE(pred_3, -2496.48270374, tol);
+    BOOST_CHECK_CLOSE(x[0], 1443.36564411, tol);
+    for (int i=1; i < d + 1; ++i)
+        BOOST_CHECK_EQUAL(x[i], 0);
+
+}
+
+template<typename Float>
+void test_ridge_scikit_learn()
+{
+    // import sklearn
+    // from sklearn import linear_model
+    // print(sklearn.__version__)
+    // # 0.17.1
+    // ridge = linear_model.Ridge(alpha=.5, solver='cholesky', fit_intercept=False)
+    // ridge.fit([[0,0], [1,1], [2,2]], [0,.1, 1])
+    // print(ridge.coef_)
+    // # [ 0.2  0.2]
+
+    boost::multi_array<Float, 2> A(boost::extents[3][2]);
+    distribution<Float> b(3);
+    for (int i=0; i < 3; ++i) {
+        A[i][0] = i;
+        A[i][1] = i;
+    }
+    b[0] = 0.;
+    b[1] = .1;
+    b[2] = 1.;
+
+    Float lambda = .5;
+
+    distribution<Float> x = ridge_regression(A, b, lambda);
+    float tol = 1e-2;
+    BOOST_CHECK_CLOSE(x[0], .2, tol);
+    BOOST_CHECK_CLOSE(x[1], .2, tol);
 }
 
 BOOST_AUTO_TEST_CASE( test_lasso )
@@ -337,6 +441,8 @@ BOOST_AUTO_TEST_CASE( test_lasso )
     do_test_lasso<double>();
     do_test_lasso2<float>();
     do_test_lasso2<float>();
+    test_ridge_scikit_learn<float>();
+    test_ridge_scikit_learn<double>();
+    test_lasso_scikit_learn<float>();
+    test_lasso_scikit_learn<double>();
 }
-
-

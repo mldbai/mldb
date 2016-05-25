@@ -193,7 +193,6 @@ run(const ProcedureRunConfig & run,
     boost::multi_array<double, 2> outputs(boost::extents[2][nx]);  // value, bias
     ML::distribution<double> correct(nx, 0.0);
     ML::distribution<double> weights(nx, 1.0);
-    ML::distribution<double> stds(nx, 1.0);
 
     size_t numTrue = 0;
 
@@ -240,7 +239,7 @@ run(const ProcedureRunConfig & run,
 
     ML::Ridge_Regressor regressor;
     ML::distribution<double> probParams
-        = ML::run_irls(correct, outputs, weights, stds, link, regressor);
+        = ML::run_irls(correct, outputs, weights, link, regressor);
 
     cerr << "probParams = " << probParams << endl;
 

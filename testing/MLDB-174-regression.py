@@ -6,7 +6,7 @@
 import unittest, json
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
-class Mldb174Test(MldbUnitTest):  
+class Mldb174Test(MldbUnitTest):
 
     @classmethod
     def setUpClass(self):
@@ -37,7 +37,8 @@ class Mldb174Test(MldbUnitTest):
                 "verbosity": 3,
                 "normalize": True,
                 "link_function": 'linear',
-                "regularization": 'l1'
+                "regularization": 'l1',
+                "regularization_factor": 0.001
             },
             "dt": {
                 "type": "decision_tree",
@@ -46,7 +47,7 @@ class Mldb174Test(MldbUnitTest):
                 "update_alg": "prob"
             }
         }
-        
+
 
         ## load wine datasets
         rez = mldb.put('/v1/procedures/wine_red', {
@@ -60,7 +61,7 @@ class Mldb174Test(MldbUnitTest):
                 }
             }
         })
-        
+
         rez = mldb.put('/v1/procedures/wine_white', {
             "type": "import.text",
             "params": {
@@ -125,7 +126,7 @@ class Mldb174Test(MldbUnitTest):
         trainClassifierProcedureConfig = {
             "type": "classifier.train",
             "params": {
-                "trainingData": { 
+                "trainingData": {
                     "select": "{x} as features, y as label",
                     "from": { "id": "test" }
                 },
@@ -169,7 +170,7 @@ class Mldb174Test(MldbUnitTest):
         trainClassifierProcedureConfig = {
             "type": "classifier.train",
             "params": {
-                "trainingData": { 
+                "trainingData": {
                     "select": "{x} as features, y as label",
                     "from": { "id": "test" }
                 },
@@ -202,7 +203,7 @@ class Mldb174Test(MldbUnitTest):
         mldb.log(jsSelected)
         result = jsSelected["output"]["score"]
 
-        self.assertAlmostEqual(result, value, delta=0.0001)
+        self.assertAlmostEqual(result, value, delta=0.01)
 
     def test_wine_quality_merged_regression_glz(self):
         def getConfig(dataset):
@@ -217,7 +218,7 @@ class Mldb174Test(MldbUnitTest):
                     """ % dataset,
                     "datasetFolds": [
                             {
-                                "training_where": "rowHash() % 2 = 0", 
+                                "training_where": "rowHash() % 2 = 0",
                                 "testing_where": "rowHash() % 2 = 1"
                             }
                         ],
@@ -249,7 +250,7 @@ class Mldb174Test(MldbUnitTest):
         self.assertGreater(len(usedFeatures), 2)
 
 
-        # run an explain over the 
+        # run an explain over the
         mldb.put("/v1/functions/explainer", {
             "type": "classifier.explain",
             "params": {
@@ -264,57 +265,180 @@ class Mldb174Test(MldbUnitTest):
                 where rowHash() % 2 = 1
                 limit 2
         """)
-        
+
         self.assertEqual(len(explain_rez), 3)
 
         # TODO an actual test
 
     def test_wine_quality_merged_regression_glz_l1(self):
-        def getConfig(dataset):
-            return {
+        """ We are comparing the results to scikit learn's results for the same
+            data. I used scikit-learn in the same way we do it with our GLZ.
+        """
+        # Here is the python code for the same thing in scikit learn
+        #
+        # import sklearn, csv
+        # from numpy import *
+        # from sklearn import linear_model
+        # assert sklearn.__version__ == '0.17.1'
+        #
+        # def load_csv(filename):
+        #     data = []
+        #     for x in csv.DictReader(open(filename), delimiter=';'):
+        #         data.append(x)
+        #     return data
+        #
+        # data = load_csv('/Users/simon/Downloads/winequality-red.csv')
+        # put them in the same order MLDB puts them
+        # keys = ['total sulfur dioxide', 'pH', 'free sulfur dioxide', 'chlorides',
+        #         'fixed acidity', 'density', 'volatile acidity', 'residual sugar',
+        #         'alcohol', 'citric acid', 'sulphates']
+        #
+        # X = empty((len(data), len(keys)), dtype='float64')
+        # y = empty(len(data), dtype='float64')
+        # for i, d in enumerate(data):
+        #     for j,k in enumerate(keys):
+        #         X[i,j] = float(d[k])
+        #     y[i] = float(d['quality'])
+        #
+        # train_X = X[::2]
+        # test_X = X[1::2]
+        # train_y = y[::2]
+        # test_y = y[1::2]
+        #
+        # mean_train = train_X.mean(axis=0)
+        # mean_train_y = train_y.mean()
+        # std_train = train_X.std(axis=0)
+        #
+        # train_X -= mean_train
+        # train_X /= std_train
+        # train_X = hstack((train_X, ones(train_X.shape[0]).reshape(-1,1)))
+        #
+        # # train_y -= mean_train_y
+        #
+        # test_X -= mean_train
+        # test_X /= std_train
+        # test_X = hstack((test_X, ones(test_X.shape[0]).reshape(-1,1)))
+        #
+        # reg = linear_model.Lasso(alpha=.01, fit_intercept=False, max_iter=1000,
+        #                         normalize=False, tol=0.00001)
+        # reg.fit(train_X,train_y)
+        # # intercept
+        # print(-(mean_train/std_train * reg.coef_[:-1]).sum() + reg.coef_[-1])
+        # for k,v in zip(keys, reg.coef_[:-1] / std_train):
+        #     print('{:30} {}'.format(k,v))
+        # print(reg.coef_[:-1] / std_train)
+        # print(reg.score(test_X, test_y))
+        # print(reg.predict(test_X[0:5]))
+
+        # we count how many positive examples we are using to adjust the lambda
+        # so that it corresponds to scikit learn's alpha
+        n = mldb.get('/v1/query',
+                     q="""
+                    select count(*)
+                    from wine_red
+                    where implicit_cast(rowName()) % 2 = 0
+                    """).json()[0]['columns'][0][1]
+
+        # mldb.put('/v1/procedures/patate', {
+        #     'type': 'transform',
+        #     'params': {
+        #         'inputData': 'select * EXCLUDING (quality), quality - 5.67125 as quality'
+        #                      ' from wine_red',
+        #         'outputDataset': 'wine_red_norm',
+        #         'runOnCreation': True
+        #     }
+        # })
+
+        modelFileUrl = 'file://tmp/MLDB-174-wine.cls'
+        config = {
                 "type": "classifier.experiment",
                 "params": {
                     "trainingData": """
                         select
-                        {* EXCLUDING(quality)} as features,
+                        {* EXCLUDING (quality)} as features,
                         quality as label
-                        from %s
-                    """ % dataset,
+                        from wine_red
+                        order by implicit_cast(rowName()) -- to compare with scikit learn
+                    """,
                     "datasetFolds": [
-                            {
-                                "training_where": "rowHash() % 2 = 0", 
-                                "testing_where": "rowHash() % 2 = 1"
-                            }
-                        ],
+                        {
+                            "training_where": "implicit_cast(rowName()) % 2 = 0",
+                            "testing_where": "implicit_cast(rowName()) % 2 = 1"
+                        }
+                    ],
                     "experimentName": "winer",
-                    "modelFileUrlPattern": "file://tmp/MLDB-174-wine.cls",
+                    "modelFileUrlPattern": modelFileUrl,
                     "algorithm": "glz_l1",
-                    "configuration": self.cls_conf,
+                    "configuration": {
+                        "glz_l1": {
+                            "type": "glz",
+                            "verbosity": 3,
+                            "normalize": True,
+                            "link_function": 'linear',
+                            "regularization": 'l1',
+                            "max_regularization_iteration": 1000,
+                            # times 2 * n to match sklearn's lambda
+                            "regularization_factor": 0.01 * (2. * n)
+                        }
+                    },
                     "mode": "regression",
                     "runOnCreation": True
                 }
             }
-
-        # this should fail because we check for dupes
-        with self.assertRaises(mldb_wrapper.ResponseException) as re:
-            mldb.put('/v1/procedures/wine_trainer', getConfig("wine_full_collision"))
-
         # the training should now work
-        config = getConfig("wine_full")
         rez = mldb.put('/v1/procedures/wine_trainer', config)
 
         # check the performance is in the expected range
-        self.assertAlmostEqual(rez.json()["status"]["firstRun"]["status"]["folds"][0]["resultsTest"]["r2"], 0.28, places=2)
+        perf = rez.json()["status"]["firstRun"]["status"] \
+                         ["folds"][0]["resultsTest"]["r2"]
+        mldb.log(perf)
+        self.assertAlmostEqual(perf, 0.362, places=2)
 
         # make sure the trained model used all features
         scorerDetails = mldb.get("/v1/functions/winer_scorer_0/details").json()
         mldb.log(scorerDetails)
-        usedFeatures = [x["feature"] for x in scorerDetails["model"]["params"]["features"]]
+        usedFeatures = [x["feature"]
+                        for x in scorerDetails["model"]["params"]["features"]]
         mldb.log(usedFeatures)
         self.assertGreater(len(usedFeatures), 2)
 
+        functionConfig = {
+            "type": "classifier",
+            "params": {
+                "modelFileUrl": modelFileUrl
+            }
+        }
+        createFunctionOutput = mldb.put("/v1/functions/regressor_l1",
+                                        functionConfig)
+        mldb.log(createFunctionOutput.json())
 
-        # run an explain over the 
+        # compare the weights of the model with the weights from sciki learn
+        details = mldb.get('/v1/functions/regressor_l1/details').json()
+        weights = details['model']['params']['weights'][0][:-1]
+        weights_scikit_learn = [
+            -2.74455747e-03, -3.25523337e-01, 3.53340841e-03,  -1.55484223e+00,
+            1.20525662e-03, -0.00000000e+00, -8.56879480e-01, -2.56506702e-03,
+            2.63893600e-01, 0.00000000e+00, 9.06624432e-01]
+        mldb.log(weights)
+        self.assertEqual(len(weights), len(weights_scikit_learn))
+        for a,b in zip(weights, weights_scikit_learn):
+            self.assertAlmostEqual(a, b, delta=1e-3)
+        # TODO add the bias when it's in there (MLDBFB-535)
+
+        vals = mldb.get('/v1/query', q="""
+            SELECT regressor_l1({features: {* EXCLUDING (quality)}}) as *
+            FROM wine_red
+            WHERE implicit_cast(rowName()) % 2 = 1
+            ORDER BY implicit_cast(rowName())
+            LIMIT 5""", format='soa').json()['score']
+        mldb.log(vals)
+        vals_sklearn = [5.19923122, 5.66831682, 5.14151357, 5.34206547,
+                        5.67785202]
+        for a,b in zip(vals, vals_sklearn):
+            self.assertAlmostEqual(a, b, delta=1e-3)
+
+
+        # run an explain over the
         mldb.put("/v1/functions/explainer", {
             "type": "classifier.explain",
             "params": {
@@ -325,14 +449,12 @@ class Mldb174Test(MldbUnitTest):
         explain_rez = mldb.query("""
                 select explainer({{* EXCLUDING(quality)} as features,
                                   quality as label})
-                from wine_full
+                from wine_red
                 where rowHash() % 2 = 1
                 limit 2
         """)
-        
-        self.assertEqual(len(explain_rez), 3)
 
-        # TODO an actual test
+        self.assertEqual(len(explain_rez), 3)
 
     def test_wine_quality_merged_regression_dt(self):
         def getConfig(dataset):
@@ -371,7 +493,7 @@ class Mldb174Test(MldbUnitTest):
         mldb.log(rez)
 
 
-        # run an explain over the 
+        # run an explain over the
         mldb.put("/v1/functions/explainer_dt", {
             "type": "classifier.explain",
             "params": {
@@ -398,7 +520,7 @@ class Mldb174Test(MldbUnitTest):
             clsProcConf = {
                 "type": "classifier.train",
                 "params": {
-                    "trainingData": { 
+                    "trainingData": {
                         "select": "{x, y} as features, label as label",
                         "from": { "id": "test2" }
                     },

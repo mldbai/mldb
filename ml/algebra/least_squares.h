@@ -136,7 +136,7 @@ ridge_regression(const boost::multi_array<double, 2> & A,
                  float lambda);
 
 /** Solve a least squares linear problem using LASSO regression
-    using 'shooting' L1 regularization
+    (LSE + L1 cost on the weigths) using coordinate descent.
 
     \param    A the coefficient matrix
     \param    b the required output vector
@@ -148,17 +148,15 @@ ridge_regression(const boost::multi_array<double, 2> & A,
 distribution<float>
 lasso_regression(const boost::multi_array<float, 2> & A,
                  const distribution<float> & b,
-                 const distribution<float> & stds,
                  float lambda,
-                 int maxIter = 20,
+                 int maxIter = 1000,
                  float epsilon = 1e-4);
 
 distribution<double>
 lasso_regression(const boost::multi_array<double, 2> & A,
                  const distribution<double> & b,
-                 const distribution<double> & stds,
                  float lambda,
-                 int maxIter = 20,
+                 int maxIter = 1000,
                  float epsilon = 1e-4);
 
 
@@ -280,7 +278,6 @@ template<class Link, class Dist, class Float, class Regressor>
 distribution<Float>
 irls(const distribution<Float> & y, const boost::multi_array<Float, 2> & x,
      const distribution<Float> & w, 
-     const distribution<Float> & stds, 
      const Link & link, 
      const Dist & dist,
      const Regressor & regressor)
@@ -387,7 +384,7 @@ irls(const distribution<Float> & y, const boost::multi_array<Float, 2> & x,
 
         /* Solve the reweighted problem using a linear least squares. */
         b2                 = b;
-        b                  = regressor.calc_scaled(x, fit_weights, xTwz, stds);
+        b                  = regressor.calc_scaled(x, fit_weights, xTwz);
         
         //if (debug_irls)
         //    (*debug_irls) << "b: " << b << endl;

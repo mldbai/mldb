@@ -88,15 +88,17 @@ options() const
         .add("link_function", link_function,
              "which link function to use for the output function")
         .add("regularization", regularization,
-             "regularization factor to use. L1 is slower.")
+             "regularization on the weights (l1 is slower)")
         .add("regularization_factor", regularization_factor, "-1 to infinite",
-             "regularization factor to use. Auto-determined if negative. Auto-determined is slower.")
+             "regularization factor to use. auto-determined if negative (slower)")
         .add("max_regularization_iteration", max_regularization_iteration, "1 to infinite",
-             "Maximum number of iterations in regularization. Not all regularizations will need to iterate.")
+             "maximum number of iterations in regularization (only applies to iterative algorithms)")
         .add("regularization_epsilon", regularization_epsilon, "positive number",
-             "Epsilon to use when looking for convergence in regularization. Smaller numbers will mean more iterations.")
+             "smallest weight update before assuming convergence for iterative algorithms")
         .add("normalize", normalize,
-             "normalize features to have zero mean and unit variance for greater numeric stability (but slower training)")
+             "normalize features to have zero mean and unit variance for"
+             " greater numeric stability (slower training but recommended with"
+             " L1 regularization)")
         .add("condition", condition,
              "condition features to have no correlation for greater numeric stability (but much slower training)")
         .add("feature_proportion", feature_proportion, "0 to 1",
@@ -276,7 +278,7 @@ train_weighted(Thread_Context & thread_context,
     size_t nx2 = indexes.size();
 
     //cerr << "nx = " << nx << " nv = " << nv << " nx * nv = " << nx * nv
-    //     << endl;
+    //    << endl;
 
     Timer t;
 
@@ -384,7 +386,6 @@ train_weighted(Thread_Context & thread_context,
             
         distribution<double> trained
             = perform_irls(correct[l], dense_data, w[l], link_function,
-                           stds,
                            regularization, regularization_factor, max_regularization_iteration, regularization_epsilon, 
                            condition);
 

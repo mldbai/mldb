@@ -606,45 +606,44 @@ template<class Float>
 distribution<Float>
 lasso_regression_impl(const boost::multi_array<Float, 2> & A,
                       const distribution<Float> & b,
-                      const distribution<Float>& stds,
                       float lambda,
                       int maxIter,
                       float epsilon)
 { 
-    //cerr << "lasso_regression: A = " << A.shape()[0] << "x" << A.shape()[1]
-    //     << " b = " << b.size() 
-    //     << " lambda " << lambda
-    //     << endl;
+    // cerr << "lasso_regression: A = " << A.shape()[0] << "x" << A.shape()[1]
+    //     << " b = " << b.size() << " lambda = " << lambda <<" maxIter = "
+    //     << maxIter << " epsilon = " << epsilon << endl;
+
+    //  ref: https://www.coursera.org/learn/ml-regression/lecture/AsCvQ/coordinate-descent-for-lasso-unnormalized-features
+    //
+    //  on why standardisation might be required before using LASSO:
+    //  http://stats.stackexchange.com/q/86434/22296
 
     int n = A.shape()[0];   //Number of samples
     int p = A.shape()[1];   //Number of variables
-    ExcAssertEqual(stds.size(), p);
 
-     distribution<Float> x(p); //our solution vector
+     distribution<Float> x(p, 0.); //our solution vector
 
     if (lambda <= 0) {
         x = ridge_regression_impl(A, b, lambda); //Use the ridge regression to determine lambda and use the result as initialization
     }
 
     Float halflambda = lambda / 2.0f;
-    distribution<Float> AtY(p);                             //Correlation of each variable with the target vector
-    boost::multi_array<Float, 2> XtX(boost::extents[p][p]); //Correlation betwen each variables
+    distribution<Float> Atb(p, 0.);                        //Correlation of each variable with the target vector
+    boost::multi_array<Float, 2> AtA(boost::extents[p][p]); //Correlation betwen each variables
 
-    //Precompute AtY and XtX
+    //Precompute Atb and AtA
     for (int j = 0; j < p; ++j) {
-        Float dotprod = 0.0f;
         for (int i = 0; i < n; ++i) {
-            dotprod += A[i][j] * b[i];
+            Atb[j] += A[i][j] * b[i];
         }
-        AtY[j] = dotprod;
-
         //each column dot each column
         for (int i = 0; i < p; ++i) { //todo: optimise for triangular matrix
-            Float dotprod2 = 0.0f;
+            Float dotprod = 0.;
             for (int r = 0; r < n; ++r) {
-                dotprod2 += A[r][i]*A[r][j];
+                dotprod += A[r][i] * A[r][j];
             }
-            XtX[j][i] = dotprod2;
+            AtA[j][i] = dotprod;
         }
     }
 
@@ -652,51 +651,48 @@ lasso_regression_impl(const boost::multi_array<Float, 2> & A,
     //We do this in a roundrobin fashion.
     int iter = 0;
     do {
-        Float convergence = 0.0f;
-        bool kept = false;              //In case one iteration puts ALL to zero
+        Float max_step = 0.;
         distribution<Float> oldX(p);
         oldX = x;
 
-        //it is critical for convergence that we update the values of x one by one
-
         for (int j = 0; j < p; ++j) { //for each column / variable
 
-            Float rho = 0.0f;
+            Float rho = Atb[j];
 
-            rho = AtY[j];
             for (int i = 0; i < p; ++i){    //scales with the number of variables
                 if (i != j)
-                    rho -= XtX[j][i]*x[i];
+                    rho -= AtA[j][i] * x[i];
             }
 
-            //Float rhoN = rho / (XtX[j][j] * stds[j] );
-            //cerr << "column " << j << " rho: " << rho << " rho normalized: " << rhoN << endl;
-
-            if (rho > halflambda * XtX[j][j] * stds[j]) {
-                x[j] = (rho - halflambda) / (XtX[j][j]);  //XtX[j][j] is for normalization. Should be 1.0f is already normalized.
-                kept = true;
+            if (rho > halflambda) {
+                x[j] = (rho - halflambda) / (AtA[j][j]);
             }
-            else if (rho < -halflambda * XtX[j][j] * stds[j]){
-                x[j] = (rho + halflambda) / (XtX[j][j]);
-                kept = true;
+            else if (rho < -halflambda) {
+                x[j] = (rho + halflambda) / (AtA[j][j]);
             }
             else {
                 x[j] = 0;
             }
 
 	        //cerr << "x[j]: " << x[j] << endl; 
-
-            convergence += fabs(x[j] - oldX[j]);
+            Float step = fabs(x[j] - oldX[j]);
+            if (step > max_step)
+                max_step = step;
         }
 
-        //cerr << "convergence: " << convergence << endl;
+        // cerr << "max_step: " << max_step << endl;
 
-        if (kept) {
-                if (convergence < epsilon || iter >= maxIter)
-                    break;
-            }
-        else {
-            x = oldX;
+        // if the biggest step we took was smaller than our threshold, let's
+        // stop there and assume we have converged
+        if (max_step < epsilon) {
+            break;
+        }
+        if (iter >= maxIter) {
+            // if we stopped after max iteration and not because we have
+            // converge, let's issue a warning
+            cerr << ML::format("LASSO did not converge in %i iterations, last "
+                               " max_step > eps (%f > %f)",
+                               iter, max_step, epsilon);
             break;
         }
         iter++;
@@ -708,23 +704,21 @@ lasso_regression_impl(const boost::multi_array<Float, 2> & A,
 distribution<float>
 lasso_regression(const boost::multi_array<float, 2> & A,
                  const distribution<float> & b,
-                 const distribution<float>& stds,
                  float lambda,
                  int maxIter,
                  float epsilon)
 {
-    return lasso_regression_impl(A, b, stds, lambda, maxIter, epsilon);
+    return lasso_regression_impl(A, b, lambda, maxIter, epsilon);
 }
 
 distribution<double>
 lasso_regression(const boost::multi_array<double, 2> & A,
                  const distribution<double> & b,
-                 const distribution<double>& stds,
                  float lambda,
                  int maxIter,
                  float epsilon)
 {
-    return lasso_regression_impl(A, b, stds, lambda, maxIter, epsilon);
+    return lasso_regression_impl(A, b, lambda, maxIter, epsilon);
 }
 
 //***********************************************

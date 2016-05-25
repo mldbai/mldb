@@ -114,28 +114,24 @@ struct Regressor {
     /// Calculates the least squares of Ax = B
     virtual distribution<float>
     calc(const boost::multi_array<float, 2> & A,
-         const distribution<float> & b,
-         const distribution<float>& stds) const = 0;
+         const distribution<float> & b) const = 0;
 
     /// Calculates the least squares of Ax = B
     virtual distribution<double>
     calc(const boost::multi_array<double, 2> & A,
-         const distribution<double> & b,
-         const distribution<double>& stds) const = 0;
+         const distribution<double> & b) const = 0;
 
     /// Calculates the least squares of A * diag(aScale) * transpose(A) * x = b
     virtual distribution<float>
     calc_scaled(const boost::multi_array<float, 2> & A,
                 const distribution<float> & aScale,
-                const distribution<float> & b,
-                const distribution<float>& stds) const;
+                const distribution<float> & b) const;
 
     /// Calculates the least squares of A * diag(aScale) * transpose(A) * x = b
     virtual distribution<double>
     calc_scaled(const boost::multi_array<double, 2> & A,
                 const distribution<double> & aScale,
-                const distribution<double> & b,
-                const distribution<double>& stds) const;
+                const distribution<double> & b) const;
 };
 
 struct Least_Squares_Regressor : Regressor {
@@ -147,13 +143,11 @@ struct Least_Squares_Regressor : Regressor {
 
     virtual distribution<float>
     calc(const boost::multi_array<float, 2> & A,
-         const distribution<float> & b,
-         const distribution<float>& stds) const;
+         const distribution<float> & b) const;
 
     virtual distribution<double>
     calc(const boost::multi_array<double, 2> & A,
-         const distribution<double> & b,
-         const distribution<double>& stds) const;
+         const distribution<double> & b) const;
 };
 
 struct Ridge_Regressor : Regressor {
@@ -164,42 +158,36 @@ struct Ridge_Regressor : Regressor {
 
     virtual distribution<float>
     calc(const boost::multi_array<float, 2> & A,
-         const distribution<float> & b,
-         const distribution<float>& stds) const;
+         const distribution<float> & b) const;
 
     virtual distribution<double>
     calc(const boost::multi_array<double, 2> & A,
-         const distribution<double> & b,
-         const distribution<double>& stds) const;
+         const distribution<double> & b) const;
 
     virtual distribution<float>
     calc_scaled(const boost::multi_array<float, 2> & A,
                 const distribution<float> & aScale,
-                const distribution<float> & b,
-                const distribution<float>& stds) const;
+                const distribution<float> & b) const;
 
     virtual distribution<double>
     calc_scaled(const boost::multi_array<double, 2> & A,
                 const distribution<double> & aScale,
-                const distribution<double> & b,
-                const distribution<double>& stds) const;
+                const distribution<double> & b) const;
 };
 
 struct Lasso_Regressor : Regressor {
 
-    Lasso_Regressor(double lambda = 1e-5, int maxIter = 20, double epsilon = 1e-4);
+    Lasso_Regressor(double lambda = 1e-5, int maxIter = 1000, double epsilon = 1e-4);
 
     virtual ~Lasso_Regressor();
 
     virtual distribution<float>
     calc(const boost::multi_array<float, 2> & A,
-         const distribution<float> & b,
-         const distribution<float>& stds) const;
+         const distribution<float> & b) const;
 
     virtual distribution<double>
     calc(const boost::multi_array<double, 2> & A,
-         const distribution<double> & b,
-        const distribution<double>& stds) const;
+         const distribution<double> & b) const;
 
     double lambda;
     int maxIter;
@@ -228,14 +216,12 @@ distribution<double>
 irls_logit(const distribution<double> & correct,
            const boost::multi_array<double, 2> & outputs,
            const distribution<double> & w,
-           const distribution<double>& stds,
            const Regressor & regressor);
 
 distribution<float>
 irls_logit(const distribution<float> & correct,
            const boost::multi_array<float, 2> & outputs,
            const distribution<float> & w,
-           const distribution<double>& stds,
            const Regressor & regressor);
 
 
@@ -248,14 +234,12 @@ distribution<double>
 irls_log(const distribution<double> & correct,
          const boost::multi_array<double, 2> & outputs,
          const distribution<double> & w,
-         const distribution<double>& stds,
          const Regressor & regressor);
 
 distribution<float>
 irls_log(const distribution<float> & correct,
          const boost::multi_array<float, 2> & outputs,
          const distribution<float> & w,
-         const distribution<double>& stds,
          const Regressor & regressor);
 
 
@@ -268,14 +252,12 @@ distribution<double>
 irls_linear(const distribution<double> & correct,
             const boost::multi_array<double, 2> & outputs,
             const distribution<double> & w,
-            const distribution<double>& stds,
             const Regressor & regressor);
 
 distribution<float>
 irls_linear(const distribution<float> & correct,
             const boost::multi_array<float, 2> & outputs,
             const distribution<float> & w,
-            const distribution<double>& stds,
             const Regressor & regressor);
 
 
@@ -288,14 +270,12 @@ distribution<double>
 irls_probit(const distribution<double> & correct,
             const boost::multi_array<double, 2> & outputs,
             const distribution<double> & w,
-            const distribution<double>& stds,
             const Regressor & regressor);
 
 distribution<float>
 irls_probit(const distribution<float> & correct,
             const boost::multi_array<float, 2> & outputs,
             const distribution<float> & w,
-            const distribution<double>& stds,
             const Regressor & regressor);
 
 
@@ -308,14 +288,12 @@ distribution<double>
 irls_complog(const distribution<double> & correct,
              const boost::multi_array<double, 2> & outputs,
              const distribution<double> & w,
-             const distribution<double>& stds,
              const Regressor & regressor);
 
 distribution<float>
 irls_complog(const distribution<float> & correct,
              const boost::multi_array<float, 2> & outputs,
              const distribution<float> & w,
-             const distribution<double>& stds,
              const Regressor & regressor);
 
 
@@ -329,7 +307,6 @@ distribution<double>
 run_irls(const distribution<double> & correct,
          const boost::multi_array<double, 2> & outputs,
          const distribution<double> & w,
-         const distribution<double>& stds,
          Link_Function func = LOGIT,
          const Regressor & regressor = default_regressor());
 
@@ -337,7 +314,6 @@ distribution<float>
 run_irls(const distribution<float> & correct,
          const boost::multi_array<float, 2> & outputs,
          const distribution<float> & w,
-         const distribution<double>& stds,
          Link_Function func = LOGIT,
          const Regressor & regressor = default_regressor());
 
@@ -362,7 +338,6 @@ perform_irls(const distribution<float> & correct,
              const boost::multi_array<float, 2> & outputs,
              const distribution<float> & w,
              Link_Function link_function,
-             const distribution<double>& stds,
              bool ridge_regression = true,
              float regularization_factor = 1e-5,
              int maxIter = 20,
@@ -382,7 +357,6 @@ perform_irls(const distribution<double> & correct,
              const boost::multi_array<double, 2> & outputs,
              const distribution<double> & w,
              Link_Function link_function,
-             const distribution<double>& stds,
              Regularization = Regularization_l2,
              double regularization_factor = 1e-5,
              int maxIter = 20,
