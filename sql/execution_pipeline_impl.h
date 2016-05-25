@@ -66,6 +66,7 @@ struct GenerateRowsExecutor: public ElementExecutor {
 
     std::shared_ptr<Dataset> dataset;
     BasicRowGenerator generator;
+    std::function<MatrixColumn (size_t offset)> columnGenerator;
     BoundParameters params;
 
     std::vector<NamedRowValue> current;
@@ -75,6 +76,8 @@ struct GenerateRowsExecutor: public ElementExecutor {
     bool generateMore(SqlRowScope & scope);
 
     virtual std::shared_ptr<PipelineResults> take();
+
+    std::shared_ptr<PipelineResults> takeColumn();
 
     virtual void restart();
 };
@@ -171,7 +174,13 @@ struct SubSelectExecutor: public ElementExecutor {
 
     virtual std::shared_ptr<PipelineResults> take();
 
+    virtual std::shared_ptr<PipelineResults> takeColumn();
+
     virtual void restart();
+
+    std::shared_ptr<std::vector<std::shared_ptr<PipelineResults> > > rows;
+    std::vector<PathElement> columnNames;
+    int columnIndex;
 };
 
 
@@ -787,6 +796,75 @@ struct ParamsElement: public PipelineElement {
     };
 
     std::shared_ptr<BoundPipelineElement> bind() const;
+};
+
+/*****************************************************************************/
+/* TRANSPOSE LEXICAL SCOPE                                                   */
+/*****************************************************************************/
+
+struct TransposeLexicalScope: public TableLexicalScope {
+
+    TransposeLexicalScope(std::shared_ptr<PipelineExpressionScope> inner, std::shared_ptr<RowValueInfo> rowInfo, Utf8String asName_);
+
+    std::shared_ptr<PipelineExpressionScope> inner;
+
+    virtual ColumnGetter
+    doGetColumn(const ColumnName & columnName, int fieldOffset);
+
+    virtual GetAllColumnsOutput
+    doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep, int fieldOffset);
+
+    virtual std::set<Utf8String> tableNames() const;
+
+    virtual std::vector<std::shared_ptr<ExpressionValueInfo> >
+    outputAdded() const;
+};
+
+/*****************************************************************************/
+/* DATASET FUNCTION ELEMENT                                                  */
+/*****************************************************************************/
+
+struct DatasetFunctionElement : public PipelineElement {
+
+    DatasetFunctionElement(std::shared_ptr<PipelineElement> source,
+                           std::shared_ptr<DatasetFunctionExpression> function,
+                           GetParamInfo getParamInfo);
+
+    std::shared_ptr<PipelineElement> source_;
+    std::shared_ptr<DatasetFunctionExpression> function_;
+
+    std::shared_ptr<PipelineElement> pipeline;
+    std::shared_ptr<PipelineElement> subpipeline_;
+
+    struct TransposeExecutor: public ElementExecutor {
+        TransposeExecutor(std::shared_ptr<ElementExecutor> subpipeline);
+        virtual std::shared_ptr<PipelineResults> take();
+        virtual void restart();
+
+        std::shared_ptr<ElementExecutor> subpipeline_;
+    };
+
+    struct Bound: public BoundPipelineElement {
+        Bound(std::shared_ptr<BoundPipelineElement> source, std::shared_ptr<BoundPipelineElement> subpipeline, const Utf8String& asName);
+
+        std::shared_ptr<BoundPipelineElement> source_;
+        std::shared_ptr<BoundPipelineElement> subpipeline_;
+        Utf8String asName_;
+        std::shared_ptr<PipelineExpressionScope> outputScope_;
+
+        std::shared_ptr<ElementExecutor>
+        start(const BoundParameters & getParam) const;
+
+        virtual std::shared_ptr<BoundPipelineElement>
+        boundSource() const;
+
+        virtual std::shared_ptr<PipelineExpressionScope> outputScope() const;
+
+        std::shared_ptr<PipelineExpressionScope> createOuputScope();
+    };
+
+    std::shared_ptr<BoundPipelineElement> bind() const;
+
 };
 
 } // namespace MLDB

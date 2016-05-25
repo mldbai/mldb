@@ -286,6 +286,31 @@ take()
     return result;
 }
 
+std::shared_ptr<PipelineResults> 
+GenerateRowsExecutor::
+takeColumn()
+{
+    auto result = source->take();
+
+    if (!result)
+        return result;
+
+    auto column = columnGenerator(currentDone);
+
+    if (column.columnName.empty())
+        return nullptr;
+
+    //cerr << "got column " << column.columnName << " "
+    //     << jsonEncodeStr(column.rows) << endl;
+
+    result->values.emplace_back(column.columnName,
+                                Date::notADate());
+    result->values.emplace_back(std::move(column.rows));
+
+    ++currentDone;
+    return result;
+}
+
 void
 GenerateRowsExecutor::
 restart()
@@ -353,6 +378,7 @@ start(const BoundParameters & getParam) const
                                 parent->orderBy,
                                 0 /* offset */, -1 /* limit */);
     result->params = getParam;
+    result->columnGenerator = parent->from.getColumn;
     ExcAssert(result->params);
     return result;
 }
@@ -435,7 +461,7 @@ outputAdded() const {
 
 SubSelectExecutor::
 SubSelectExecutor(std::shared_ptr<BoundPipelineElement> boundSelect,
-                  const BoundParameters & getParam)
+                  const BoundParameters & getParam) : columnIndex(0)
 {
     pipeline = boundSelect->start(getParam);
 }
@@ -451,11 +477,80 @@ take()
     return subResult;
 }
 
+std::shared_ptr<PipelineResults> 
+SubSelectExecutor::
+takeColumn()
+{
+    //We must do the terrible thing and query everything to build a transposed view.
+    if (!rows) {
+
+        rows = make_shared<std::vector<std::shared_ptr<PipelineResults> > >();
+
+        while (1){
+            auto subResult = pipeline->take();
+
+            if (!subResult)
+                break;
+
+            rows->push_back(subResult);
+
+            auto pushColumn = [&] (const PathElement & columnName, const ExpressionValue & val) {
+                columnNames.push_back(columnName);
+                return true;
+            };
+
+            ExpressionValue& values = subResult->values[1]; //TODO: will it always be 1?
+            values.forEachColumn(pushColumn);
+        }
+
+        sort( columnNames.begin(), columnNames.end() );
+        columnNames.erase( unique( columnNames.begin(), columnNames.end() ), columnNames.end() );
+
+        columnIndex = 0;
+    }
+
+    if (columnIndex >= columnNames.size())
+        return nullptr;
+
+    PathElement subColumnName = columnNames[columnIndex++];
+
+    std::shared_ptr<PipelineResults> result = make_shared<PipelineResults>();
+
+    result->values.emplace_back(subColumnName.toUtf8String(), Date::notADate()); //column name becomes the rowname
+
+    RowValue resultValues;
+
+    for (auto& r : *rows) {
+
+        ExpressionValue& rowName = r->values[0]; //rowName becomes the colum name
+        Path rowNamePath;
+        rowNamePath.parse(rowName.toUtf8String());
+
+        auto pushResult = [&] (const PathElement & columnName, const ExpressionValue & val) {
+            if (columnName == subColumnName) {
+                resultValues.emplace_back(rowNamePath, val.coerceToAtom(), val.getEffectiveTimestamp());
+            }
+
+            return true;
+        };
+
+        ExpressionValue& values = r->values[1]; //TODO: will it always be 1?
+        values.forEachColumn(pushResult);
+    }
+
+    result->values.emplace_back(resultValues);
+
+    return result;
+}
+
 void
 SubSelectExecutor::
 restart()
 {
     pipeline->restart();
+    rows.reset();
+    columnNames.clear();
+    columnIndex = 0;
 }
 
 
@@ -1348,7 +1443,9 @@ FromElement(std::shared_ptr<PipelineElement> root_,
     ExcAssert(this->root);
 
     UnboundEntities unbound = from->getUnbound();
-    //cerr << "unbound for from = " << jsonEncode(unbound) << endl;   
+    //cerr << "unbound for from = " << jsonEncode(unbound) << endl;
+
+    cerr << from->getType() << endl;
 
     if (from->getType() == "join") {
         std::shared_ptr<JoinExpression> join
@@ -1379,6 +1476,22 @@ FromElement(std::shared_ptr<PipelineElement> root_,
             getParamInfo = params_;
 
         impl.reset(new SubSelectElement(root, subSelect->statement, getParamInfo, from->getAs()));
+    }
+    else if (from->getType() == "datasetFunction") {
+        std::shared_ptr<DatasetFunctionExpression> function = std::dynamic_pointer_cast<DatasetFunctionExpression>(from);
+        ExcAssert(this->root);
+        ExcAssert(function);
+
+        GetParamInfo getParamInfo = [&] (const Utf8String & paramName)
+            -> std::shared_ptr<ExpressionValueInfo>
+            {
+                throw HttpReturnException(500, "No query parameter " + paramName);
+            };
+
+        if (params_)
+            getParamInfo = params_;
+
+        impl.reset(new DatasetFunctionElement(this->root, function, getParamInfo));
     }
     else {
 #if 0
@@ -1463,6 +1576,7 @@ FromElement(std::shared_ptr<PipelineElement> root_,
                                                orderBy));
         }
         else { 
+
             // Need to bound here to get the dataset
             auto rootBound = root->bind();
             auto scope = rootBound->outputScope();
@@ -2098,6 +2212,203 @@ outputScope() const
     return outputScope_;
 }
 
+/*****************************************************************************/
+/* DATASET FUNCTION ELEMENT                                                  */
+/*****************************************************************************/
+
+DatasetFunctionElement::
+DatasetFunctionElement(std::shared_ptr<PipelineElement> root, std::shared_ptr<DatasetFunctionExpression> function, GetParamInfo getParamInfo)
+ : source_(std::move(root)), function_(function)
+{
+    ExcAssert(function->args.size() == 1);
+    ExcAssert(source_);
+    ExcAssert(getParamInfo);
+
+    pipeline = source_
+            ->params(getParamInfo)
+            ->from(function->args[0], WhenExpression::TRUE,
+                   SelectExpression::STAR, SelectExpression::TRUE,
+                   OrderByExpression(), getParamInfo);
+}
+
+std::shared_ptr<BoundPipelineElement>
+DatasetFunctionElement::
+bind() const
+{
+    return std::make_shared<Bound>(source_->bind(), pipeline->bind(), function_->getAs());
+}
+
+/*****************************************************************************/
+/* TRANSPOSE LEXICAL SCOPE                                                   */
+/*****************************************************************************/
+
+TransposeLexicalScope::
+TransposeLexicalScope(std::shared_ptr<PipelineExpressionScope> inner, std::shared_ptr<RowValueInfo> rowValueInfo, Utf8String asName)
+                    : TableLexicalScope(rowValueInfo, asName),
+                    inner(inner) {
+
+}
+
+GetAllColumnsOutput
+TransposeLexicalScope::
+doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
+                int fieldOffset)
+{
+    //cerr << "transpose lexical scope get columns: fieldOffset = "
+    //     << fieldOffset << endl;
+
+    ExcAssertGreaterEqual(fieldOffset, 0);
+
+    std::vector<KnownColumn> columnsWithInfo;
+
+    auto exec = [=] (const SqlRowScope & rowScope, const VariableFilter & filter) -> ExpressionValue
+        {
+            auto & row = rowScope.as<PipelineResults>();
+
+            const ExpressionValue & rowContents
+            = row.values.at(fieldOffset + ROW_CONTENTS);
+
+            RowValue result;
+
+            auto onColumn = [&] (const PathElement & columnName,
+                                 const ExpressionValue & value)
+            {
+                //We have to check it in here because we dont know all the rownames in
+                ColumnName outputName = keep(columnName);
+
+                if (outputName.empty() && !asName.empty()) {
+
+                    //try with the table alias
+                    outputName = keep(PathElement(asName) + columnName);
+                }
+
+                if (outputName.empty())
+                    return true;
+
+                auto onAtom = [&] (const Path & columnName,
+                                   const Path & prefix,
+                                   CellValue atom,
+                                   Date ts)
+                {
+                    result.emplace_back(prefix + columnName,
+                                        std::move(atom), ts);
+                    return true;
+                };
+
+                // TODO: lots of optimizations possible here...
+                value.forEachAtom(onAtom, outputName);
+
+                return true;
+            };
+
+            if (!rowContents.empty())
+                rowContents.forEachColumn(onColumn);
+
+            ExpressionValue val(std::move(result));
+            return val.getFilteredDestructive(filter);
+        };
+
+    GetAllColumnsOutput result;
+    result.info = std::make_shared<RowValueInfo>(columnsWithInfo, SCHEMA_OPEN);
+    result.exec = exec;
+    return result;
+}
+
+ColumnGetter
+TransposeLexicalScope::
+doGetColumn(const ColumnName & columnName, int fieldOffset)
+{
+    return TableLexicalScope::doGetColumn(columnName, fieldOffset);
+}
+
+std::set<Utf8String>
+TransposeLexicalScope::
+tableNames() const {
+    return {asName};
+}
+
+std::vector<std::shared_ptr<ExpressionValueInfo> >
+TransposeLexicalScope::
+outputAdded() const {
+
+    return TableLexicalScope::outputAdded();
+}
+
+/*****************************************************************************/
+/* DATASET FUNCTION ELEMENT TRANSPOSE EXECUTOR                               */
+/*****************************************************************************/
+
+DatasetFunctionElement::TransposeExecutor::
+TransposeExecutor(std::shared_ptr<ElementExecutor> subpipeline) :
+     subpipeline_(subpipeline)
+{
+
+}
+
+std::shared_ptr<PipelineResults>
+DatasetFunctionElement::TransposeExecutor::
+take()
+{
+    return subpipeline_->takeColumn();
+}
+
+void
+DatasetFunctionElement::TransposeExecutor::
+restart()
+{
+    subpipeline_->restart();
+}
+
+/*****************************************************************************/
+/* BOUND DATASET FUNCTION ELEMENT                                            */
+/*****************************************************************************/
+
+DatasetFunctionElement::Bound::
+Bound(std::shared_ptr<BoundPipelineElement> source,
+      std::shared_ptr<BoundPipelineElement> subpipeline,
+      const Utf8String& asName)
+    : source_(std::move(source)),
+      subpipeline_(std::move(subpipeline)),
+      asName_(asName),
+      outputScope_(createOuputScope())
+{
+}
+
+std::shared_ptr<PipelineExpressionScope>
+DatasetFunctionElement::Bound::
+createOuputScope()
+{
+    //To get a complete scheme we would need all the row names from the sub pipeline.
+    std::vector<KnownColumn> columns;
+
+    std::shared_ptr<RowValueInfo> rowValueInfo = std::make_shared<RowValueInfo>(columns, SCHEMA_OPEN);
+
+    auto tableScope = source_->outputScope()
+        ->tableScope(std::make_shared<TransposeLexicalScope>(subpipeline_->outputScope(), rowValueInfo, asName_));
+
+    return tableScope;
+}
+
+std::shared_ptr<ElementExecutor>
+DatasetFunctionElement::Bound::
+start(const BoundParameters & getParam) const
+{
+    return std::make_shared<TransposeExecutor>(subpipeline_->start(getParam));
+}
+
+std::shared_ptr<BoundPipelineElement>
+DatasetFunctionElement::Bound::
+boundSource() const
+{
+    return source_;
+}
+
+std::shared_ptr<PipelineExpressionScope>
+DatasetFunctionElement::Bound::
+outputScope() const
+{
+    return outputScope_;
+}
 
 } // namespace MLDB
 } // namespace Datacratic

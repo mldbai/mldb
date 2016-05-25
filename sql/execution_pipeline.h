@@ -223,6 +223,9 @@ struct ElementExecutor {
     /** Take one element from the pipeline. */
     virtual std::shared_ptr<PipelineResults> take() = 0;
 
+    /** Take one element from the pipeline. */
+    virtual std::shared_ptr<PipelineResults> takeColumn();
+
     /** Take all elements from the pipeline.  inParallel describes whether
         the function can be called from multiple threads at once.
     */
