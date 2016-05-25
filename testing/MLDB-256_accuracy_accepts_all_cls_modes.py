@@ -87,7 +87,7 @@ class Mldb256Test(MldbUnitTest):
                             "verbosity": 3,
                             "normalize": True,
                             "link_function": "logit",
-                            "ridge_regression": True
+                            "regularization": 'l2'
                         }
                     },
                     "kfold": 2,
@@ -113,7 +113,7 @@ class Mldb256Test(MldbUnitTest):
                         "verbosity": 3,
                         "normalize": True,
                         "link_function": "logit",
-                        "ridge_regression": True
+                        "regularization": 'l2'
                     },
                     "dt": {
                         "type": "decision_tree",
@@ -152,7 +152,7 @@ class Mldb256Test(MldbUnitTest):
                         "verbosity": 3,
                         "normalize": True,
                         "link_function": "logit",
-                        "ridge_regression": True
+                        "regularization": 'l2'
                     },
                     "dt": {
                         "type": "decision_tree",
@@ -264,7 +264,7 @@ class Mldb256Test(MldbUnitTest):
                         "verbosity": 3,
                         "normalize": False,
                         "link_function": "linear",
-                        "ridge_regression": True
+                        "regularization": 'l2'
                     }
                 },
                 "datasetFolds": [
@@ -346,7 +346,7 @@ class Mldb256Test(MldbUnitTest):
                         "verbosity": 3,
                         "normalize": False,
                         "link_function": "linear",
-                        "ridge_regression": False
+                        "regularization": 'none'
                     },
                     "dt": {
                         "type": "decision_tree",

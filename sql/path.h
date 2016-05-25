@@ -86,6 +86,12 @@ struct PathElement {
     static PathElement parse(const char * p, size_t l);
     static PathElement parsePartial(const char * & p, const char * e);
 
+    /** Attempt to parse.  Returns the element, plus a boolean flag which indicates
+        whether it was successfully parsed or not.
+    */
+    static std::pair<PathElement, bool>
+    tryParsePartial(const char * & p, const char * e, bool exceptions);
+
     ~PathElement()
     {
         if (complex_)
@@ -361,6 +367,11 @@ struct Path: protected ML::compact_vector<PathElement, 2, uint32_t, false> {
     static Path parse(const Utf8String & str);
     static Path parse(const char * str, size_t len);
 
+    /** Attempt to parse.  Returns the element, plus a boolean flag which indicates
+        whether it was successfully parsed or not.
+    */
+    static std::pair<Path, bool> tryParse(const Utf8String & str);
+
     /** This function asserts that there is only a single element in
         the scope, and returns it as an Utf8String.  This is used
         for when we want to access the value as a simple, unadulterated
@@ -464,6 +475,16 @@ struct Path: protected ML::compact_vector<PathElement, 2, uint32_t, false> {
     }
 
     size_t memusage() const;
+
+private:
+    /** Internal parsing method.  Will attempt to parse the given range
+        which is assumed to contain valid UTF-8 data, and will return
+        the parsed version and true if valid, or if invalid either throw
+        an exception (if exceptions is true) or return false in the
+        second member.
+    */
+    static std::pair<Path, bool>
+    parseImpl(const char * str, size_t len, bool exceptions);
 };
 
 std::ostream & operator << (std::ostream & stream, const Path & id);

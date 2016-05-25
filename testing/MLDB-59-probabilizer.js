@@ -129,7 +129,7 @@ if (trainClassifier) {
                     type: "glz",
                     verbosity: 3,
                     normalize: true,
-                    ridge_regression: true
+                    regularization: 'l2'
                 }
             },
             algorithm: "glz",

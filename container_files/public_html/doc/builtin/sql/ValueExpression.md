@@ -545,15 +545,15 @@ number of occurrences of those tokens within `str`. For example `tokenize('a b b
 
 The following standard SQL aggregation functions are supported. They may only be used in SELECT and HAVING clauses. If an aggregation function appears in the SELECT clause and no GROUP BY clause is used, an empty GROUP BY clause will be inferred.
 
-- `avg` calculates the average of all values in the group.  It works in
+- `avg` returns the average of all values in the group.  It works in
   double precision floating point only.
-- `sum` calculates the sum of all values in the group.  It works in
+- `sum` returns the sum of all values in the group.  It works in
   double precision floating point only.
-- `min` calculates the minimum of all values in the group.
-- `max` calculates the maximum of all values in the group.
-- `count` calculates the number of non-null values in the group.
+- `min` returns the minimum of all values in the group.
+- `max` returns the maximum of all values in the group.
+- `count` returns the number of non-null values in the group.
     - `count(*)` is a special function which will count the number of rows in the group with non-null values in any column
-- 'count_distinct' calculates the number of unique, distinct non-null values in the group.
+- `count_distinct` returns the number of unique, distinct non-null values in the group.
 
 The following useful non-standard aggregation functions is also supported:
 
