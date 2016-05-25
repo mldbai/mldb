@@ -18,6 +18,28 @@
 
 namespace ML {
 
+/*****************************************************************************/
+/* Regularization                                                            */
+/*****************************************************************************/
+
+enum Regularization{
+    Regularization_none = 0,
+    Regularization_l1,
+    Regularization_l2,
+};
+
+COMPACT_PERSISTENT_ENUM_DECL(Regularization);
+
+/** Print out a Regularization enum. */
+std::string print(Regularization link);
+
+/** Parse the name of a Regularization enum. */
+Regularization parse_regularization_function(const std::string & name);
+
+/** Put a Regularization enum in a stream. */
+std::ostream & operator << (std::ostream & stream, Regularization link);
+
+
 
 /** Implementation of the removal of the linearly dependent rows.
     In addition to the permutation vector, it also provides a vector
@@ -151,6 +173,25 @@ struct Ridge_Regressor : Regressor {
     calc_scaled(const boost::multi_array<double, 2> & A,
                 const distribution<double> & aScale,
                 const distribution<double> & b) const;
+};
+
+struct Lasso_Regressor : Regressor {
+
+    Lasso_Regressor(double lambda = 1e-5, int maxIter = 1000, double epsilon = 1e-4);
+
+    virtual ~Lasso_Regressor();
+
+    virtual distribution<float>
+    calc(const boost::multi_array<float, 2> & A,
+         const distribution<float> & b) const;
+
+    virtual distribution<double>
+    calc(const boost::multi_array<double, 2> & A,
+         const distribution<double> & b) const;
+
+    double lambda;
+    int maxIter;
+    double epsilon;
 };
 
 
@@ -298,6 +339,9 @@ perform_irls(const distribution<float> & correct,
              const distribution<float> & w,
              Link_Function link_function,
              bool ridge_regression = true,
+             float regularization_factor = 1e-5,
+             int maxIter = 20,
+             float epsilon = 1e-4,
              bool condition = true);
 
 /** Perform an IRLS in double precision.
@@ -313,7 +357,10 @@ perform_irls(const distribution<double> & correct,
              const boost::multi_array<double, 2> & outputs,
              const distribution<double> & w,
              Link_Function link_function,
-             bool ridge_regression = true,
+             Regularization = Regularization_l2,
+             double regularization_factor = 1e-5,
+             int maxIter = 20,
+             double epsilon = 1e-4,
              bool condition = true);
 
 
@@ -321,7 +368,7 @@ perform_irls(const distribution<double> & correct,
 
 
 DECLARE_ENUM_INFO(ML::Link_Function, 5);
-
+DECLARE_ENUM_INFO(ML::Regularization, 3);
 
 #endif /* __boosting__irls_h__ */
 

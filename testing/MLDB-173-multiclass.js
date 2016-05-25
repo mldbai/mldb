@@ -51,7 +51,7 @@ var trainClassifierProcedureConfig = {
                 verbosity: 3,
                 normalize: false,
                 link_function: 'linear',
-                ridge_regression: false
+                "regularization": 'none'
             }
         },
         algorithm: "glz",
