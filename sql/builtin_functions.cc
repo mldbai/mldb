@@ -1350,10 +1350,8 @@ BoundFunction jaccard_index(const std::vector<BoundSqlExpression> & args)
                 auto it=std::set_intersection(a.begin(), a.end(), b.begin(), b.end(), intersect.begin());
                 ssize_t intersect_size = it-intersect.begin();
 
-                double denom = a.size() + b.size() - intersect_size;
-                double index = 1;
-                if(denom != 0)
-                    index = intersect_size / denom;
+                const double union_size = a.size() + b.size() - intersect_size;
+                double index = intersect_size / union_size;
 
                 return ExpressionValue(index, Date::now());
             },
