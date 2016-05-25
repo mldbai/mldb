@@ -2526,6 +2526,8 @@ BoundFunction levenshtein_distance(const std::vector<BoundSqlExpression> & args)
      return {[=] (const std::vector<ExpressionValue> & args,
                   const SqlRowScope & scope) -> ExpressionValue
              {
+                using namespace Edlib;
+
                 ExcAssertEqual(args.size(), 2);
                 const auto query = args[0].getAtom().toUtf8String().rawString();
                 const auto target = args[1].getAtom().toUtf8String().rawString();
