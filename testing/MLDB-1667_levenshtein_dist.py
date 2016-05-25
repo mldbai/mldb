@@ -54,7 +54,16 @@ class Mldb1667(MldbUnitTest):
         mldb.log(len(text))
         doTestWords(text, text2, 10)
 
-        
-        
+
+    def test_wrong_type(self):
+        def doWrongTypeQuery(a, b):
+            with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
+                                        'function must be strings'):
+                mldb.query("SELECT levenshtein_distance(%s, %s) as dist" % (a, b))
+
+        doWrongTypeQuery(5, 5)
+        doWrongTypeQuery("'a'", 5)
+        doWrongTypeQuery(5, "'b'")
+        doWrongTypeQuery("{pwet: 'asdf'}", "'asdf'")
 
 mldb.run_tests()

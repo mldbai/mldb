@@ -2523,10 +2523,14 @@ BoundFunction levenshtein_distance(const std::vector<BoundSqlExpression> & args)
     if (args.size() != 2)
         throw HttpReturnException(400, "levenshtein_distance function takes 2 arguments");
 
-     return {[=] (const std::vector<ExpressionValue> & args,
-                  const SqlRowScope & scope) -> ExpressionValue
+     return {[] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
              {
                 using namespace Edlib;
+
+                if(!args[0].isString() || !args[1].isString())
+                    throw ML::Exception("The parameters passed to the levenshtein_distance "
+                            "function must be strings");
 
                 ExcAssertEqual(args.size(), 2);
                 const auto query = args[0].getAtom().toUtf8String().rawString();
@@ -2544,6 +2548,8 @@ BoundFunction levenshtein_distance(const std::vector<BoundSqlExpression> & args)
                                            args[0].getEffectiveTimestamp());
 
 
+                // We convert the strings to ints (from 0 to n, where n is the number
+                // of unique chars) because edlib requires we give it the input in that format
                 unsigned char convQuery[query.size()];
                 unsigned char convTarget[target.size()];
 
@@ -2606,7 +2612,7 @@ BoundFunction levenshtein_distance(const std::vector<BoundSqlExpression> & args)
                 return std::move(ExpressionValue(bestScore,
                                        args[0].getEffectiveTimestamp()));
             },
-            std::make_shared<Utf8StringValueInfo>()
+            std::make_shared<IntegerValueInfo>()
     };
 }
 
