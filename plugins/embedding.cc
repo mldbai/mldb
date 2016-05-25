@@ -1236,8 +1236,7 @@ applyT(const ApplierT & applier_, NearestNeighborsInput input) const
     else if(inputRow.isEmbedding() || inputRow.isRow()) {
         auto embedding = applier.getEmbeddingFromExpr(inputRow);
         neighbors = applier.embeddingDataset
-            ->getNeighbors(inputRow.getEmbedding(-1),
-                           numNeighbors, maxDistance);
+            ->getNeighbors(embedding.cast<float>(), numNeighbors, maxDistance);
     }
     else {
         throw ML::Exception("Input row must be either a row name or an embedding");

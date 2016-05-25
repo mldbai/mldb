@@ -90,6 +90,12 @@ class JoinTest(MldbUnitTest):
         ds.record_row("04",[["y1", 4, 0]])
         ds.commit()
 
+        ds = mldb.create_dataset({ "id": "z", "type": "tabular" })
+        ds.record_row("01",[["z1", 1, 0], ["z2", 11, 0]])
+        ds.record_row("02",[["z1", 2, 0], ["z2", 22, 0]])
+        ds.record_row("03",[["z1", 3, 0], ["z2", 33, 0]])
+        ds.commit()
+
 
     def test_table_as(self):
         res = mldb.query("""
@@ -1961,5 +1967,84 @@ class JoinTest(MldbUnitTest):
         # number of columns
         self.assertEqual(len(res[0]), 2 + 2 + 2 + 1)
 
+    # MDLB-1602
+    def test_left_join_with_and(self):
+        res1 = mldb.query("""
+        select * from x 
+        left join y on (x.x1 = y.y1) 
+        left join z on (x.x1 = z.z1 and x.x2 = z.z2)
+        order by rowName()
+        """)
+        pprint(res1)
+
+        res2 = mldb.query("""
+        select * from x 
+        left join y on (x.x1 = y.y1) 
+        left join z on (x.x1 + x.x2 = z.z1 + z.z2)
+        order by rowName()
+        """)
+        pprint(res2)
+        self.assertEquals(res1, res2)
+
+    # MDLB-1602
+    def test_right_join_with_and(self):
+        """
+        Note the difference in naming the last row.
+        This is tracked by MLDBFB-536.
+        """
+        res = mldb.query("""
+        select * from x 
+        right join y on (x.x1 = y.y1) 
+        right join z on (x.x1 = z.z1 and x.x2 = z.z2)
+        order by rowName()
+        """)
+
+        self.assertTableResultEquals(res, 
+            [
+                [u'_rowName', u'x.x1', u'x.x2', u'y.y1', u'y.y2', u'z.z1', u'z.z2'] ,
+                [u'[01]-[01]-[01]', 1, 11, 1, 111, 1, 11] ,
+                [u'[02]-[02]-[02]', 2, 22, 2, 222, 2, 22] ,
+                [u'[]-[]-[03]', None, None, None, None, 3, 33]
+            ]
+        )
+
+        res = mldb.query("""
+        select * from x 
+        right join y on (x.x1 = y.y1) 
+        right join z on (x.x1 + x.x2 = z.z1 + z.z2)
+        order by rowName()
+        """)
+
+        self.assertTableResultEquals(res, 
+            [
+                [u'_rowName', u'x.x1', u'x.x2', u'y.y1', u'y.y2', u'z.z1', u'z.z2'] ,
+                [u'[01]-[01]-[01]', 1, 11, 1, 111, 1, 11] ,
+                [u'[02]-[02]-[02]', 2, 22, 2, 222, 2, 22] ,
+                [u'[]-[03]', None, None, None, None, 3, 33]
+            ]
+        )
+
+
+    @unittest.expectedFailure # MLDBFB-536
+    def test_row_naming_in_two_executors(self):
+
+        res1 = mldb.query("""
+        select * from x 
+        right join y on (x.x1 = y.y1) 
+        right join z on (x.x1 = z.z1 and x.x2 = z.z2)
+        order by rowName()
+        """)
+        pprint(res1)
+        res2 = mldb.query("""
+        select * from x 
+        right join y on (x.x1 = y.y1) 
+        right join z on (x.x1 + x.x2 = z.z1 + z.z2)
+        order by rowName()
+        """)
+        pprint(res2)
+        # the first join is processed by the pipeline executor
+        # the second join is processed by the batch executor
+        # note the difference in naming the last row
+        self.assertEquals(res1, res2)
 
 mldb.run_tests()
