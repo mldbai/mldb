@@ -163,10 +163,10 @@ ExperimentProcedureConfigDescription()
               "If true, an output dataset for scored examples will created for each fold.",
               true);
     addField("uniqueScoresOnly", &ExperimentProcedureConfig::uniqueScoresOnly,
-              "If `outputAccuracyDataset` is set and mode is set to `binary`, setting this parameter "
+              "If `outputAccuracyDataset` is set and `mode` is set to `boolean`, setting this parameter "
               "to `true` will output a single row per unique score. This is useful if the "
               "test set is very large and aggregate statistics for each unique score is "
-              "sufficient, for instance to generate a ROC curve. This has not effect "
+              "sufficient, for instance to generate a ROC curve. This has no effect "
               "for other values of `mode`.", false);
     addParent<ProcedureConfig>();
 
