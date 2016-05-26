@@ -30,30 +30,30 @@ namespace MLDB {
 
 struct DatasetFoldConfig {
     DatasetFoldConfig(
-            std::shared_ptr<SqlExpression> training_where = SqlExpression::parse("true"),
-            std::shared_ptr<SqlExpression> testing_where = SqlExpression::parse("true"))
-        : training_where(training_where),
-          testing_where(testing_where),
+            std::shared_ptr<SqlExpression> trainingWhere = SqlExpression::parse("true"),
+            std::shared_ptr<SqlExpression> testingWhere = SqlExpression::parse("true"))
+        : trainingWhere(trainingWhere),
+          testingWhere(testingWhere),
           orderBy(OrderByExpression::parse("rowHash()")),
-          training_offset(0), testing_offset(0),
-          training_limit(-1), testing_limit(-1)
+          trainingOffset(0), testingOffset(0),
+          trainingLimit(-1), testingLimit(-1)
     {
     }
 
     /// The WHERE clause for which rows to include from the dataset
-    std::shared_ptr<SqlExpression> training_where;
-    std::shared_ptr<SqlExpression> testing_where;
+    std::shared_ptr<SqlExpression> trainingWhere;
+    std::shared_ptr<SqlExpression> testingWhere;
 
     /// How to order the rows when using an offset and a limit
     OrderByExpression orderBy;
 
     /// Where to start running
-    ssize_t training_offset;
-    ssize_t testing_offset;
+    ssize_t trainingOffset;
+    ssize_t testingOffset;
 
     /// Maximum number of rows to use
-    ssize_t training_limit;
-    ssize_t testing_limit;
+    ssize_t trainingLimit;
+    ssize_t testingLimit;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(DatasetFoldConfig);
@@ -78,8 +78,8 @@ struct ExperimentProcedureConfig : public ProcedureConfig {
     bool keepArtifacts;
 
     /// SQL query to select the training data
-    InputQuery trainingData;
-    Optional<InputQuery> testingData;
+    InputQuery inputData;
+    Optional<InputQuery> testingDataOverride;
 
     ssize_t kfold;
     std::vector<DatasetFoldConfig> datasetFolds;

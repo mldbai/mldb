@@ -699,7 +699,7 @@ struct SparseMatrixDataset::Itl
                    const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals,
                    WriteTransaction & trans)
     {
-        if (rowName == RowName())
+        if (rowName.empty())
             throw HttpReturnException(400, "Datasets don't accept empty row names");
 
         RowHash hash(rowName);

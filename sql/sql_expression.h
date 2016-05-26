@@ -1029,7 +1029,10 @@ struct SqlExpression: public std::enable_shared_from_this<SqlExpression> {
         Caller must pass true if there is a GROUP BY clause associated with
         this expression.
     */
-    std::vector<std::shared_ptr<SqlExpression> > findAggregators(bool withGroupBy) const;
+    virtual std::vector<std::shared_ptr<SqlExpression> > findAggregators(bool withGroupBy) const;
+
+    virtual bool isAggregator() const {return false; }
+    virtual bool isWildcard() const {return false; }
 
     //should be private:
     typedef std::shared_ptr<SqlExpression> (*OperatorHandler)
@@ -1209,7 +1212,6 @@ struct SelectExpression: public SqlRowExpression {
     {
         return ! operator == (other);
     }
-
 };
 
 PREDECLARE_VALUE_DESCRIPTION(SelectExpression);
@@ -1311,6 +1313,10 @@ struct OrderByExpression {
         expression so that the order by expression stands on its own.
     */
     OrderByExpression substitute(const SelectExpression & select) const;
+
+    std::vector<std::shared_ptr<SqlExpression> > findAggregators(bool withGroupBy) const;
+
+    std::vector<std::shared_ptr<SqlExpression> > getChildren() const;
 
     bool operator == (const OrderByExpression & other) const;
     bool operator != (const OrderByExpression & other) const

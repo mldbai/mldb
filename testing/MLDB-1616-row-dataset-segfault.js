@@ -21,7 +21,7 @@ var expected = [
          [ "y.column", "x", "-Inf" ],
          [ "y.value", 1, "-Inf" ]
       ],
-      "rowName" : "result-0"
+      "rowName" : "[result]-[0]"
    }
 ];
 
@@ -39,7 +39,7 @@ var expected = [
          [ "z.column", "z", "-Inf" ],
          [ "z.value", 2, "-Inf" ]
       ],
-      "rowName" : "result-0-0"
+      "rowName" : "[result]-[[0]-[0]]"
    }
 ];
 

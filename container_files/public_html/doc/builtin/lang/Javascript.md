@@ -188,6 +188,14 @@ MLDB's atomic types are represented in Javascript as follows:
   of months (integral), days (integral) and seconds (floating point) in
   the interval, or an object with the structure 
   `{ months: xxx, days: xxx, seconds: xxx.yy }`.
+- To represent a path (for example as a row name in recordRow), there are two
+  options.  These may also be wrapped into a Path value using the `createPath()`
+  function:
+  - An individual atom (string or number) will be used as a one-element path
+    with the value as the stringification of the passed element;
+  - An array will be used as a compound path with the elements as specified.
+
+
 
 ### Filesystem access
 

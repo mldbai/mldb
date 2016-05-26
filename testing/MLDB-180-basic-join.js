@@ -186,7 +186,7 @@ testQuery(
     'SELECT poil_group() as *',
     [
         [ "_rowName", "\"max(t1.y)\"", "\"min(t3.x)\"", "rn", "t1.x" ],
-        [ "result", 2, 1, "ex1-ex4-ex4", 1 ]
+        [ "result", 2, 1, "[[ex1]-[ex4]]-[ex4]", 1 ]
     ]);
 
 // big example with where and groupby
@@ -474,11 +474,29 @@ dataset7.recordRow("blah", [[ "k", 1, ts ]] );
 
 dataset7.commit()
 
+// Test that "table2.* as *" returns the right thing (non-prefixed names)
+expected = [
+   [ "_rowName", "x", "z" ],
+   [ "[blah]-[ex4]", 1, 2 ],
+   [ "[blah]-[ex5]", 2, 2 ],
+   [ "[blah]-[ex6]", null, 3 ],
+   [ "[x]-[ex4]", 1, 2 ],
+   [ "[x]-[ex5]", 2, 2 ],
+   [ "[x]-[ex6]", null, 3 ]
+];
+
+testQuery('SELECT table2.* as * FROM test7 as table1 JOIN test2 as table2',
+          expected);
+
 expected = [
    [ "_rowName", "table1.k", "table2.x", "table2.z" ],
    [ "[x]-[ex4]", 1, 1, 2 ],
    [ "[x]-[ex5]", 1, 2, 2 ],
    [ "[x]-[ex6]", 1, null, 3 ]];
+
+// This one matches nothing, because the keys of table2.* all start with table2.
+testQuery('SELECT * FROM test7 as table1 JOIN test2 as table2 where table1.rowName() IN (KEYS OF ({table2.*}))',
+          [["_rowName"]]);
 
 testQuery('SELECT * FROM test7 as table1 JOIN test2 as table2 where table1.rowName() IN (KEYS OF ({table2.* as *}))',
           expected);

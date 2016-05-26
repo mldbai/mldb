@@ -8,6 +8,7 @@
 */
 
 #include "mldb/sql/cell_value.h"
+#include "mldb/sql/path.h"
 #include "mldb/types/value_description.h"
 #include "http/http_exception.h"
 
@@ -309,3 +310,11 @@ BOOST_AUTO_TEST_CASE (test_exception_messages)
     BOOST_CHECK_EXCEPTION( cv.toString(), std::exception, exceptionCheck<std::exception>("... (trimmed)'"));
 }
 
+BOOST_AUTO_TEST_CASE (test_path)
+{
+    Path p1(PathElement(1));
+    auto cv = CellValue(p1);
+    Path p2 = cv.coerceToPath();
+
+    BOOST_CHECK_EQUAL(p1, p2);
+}

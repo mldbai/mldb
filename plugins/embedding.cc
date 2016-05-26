@@ -17,6 +17,7 @@
 #include "mldb/sql/sql_expression.h"
 #include "mldb/types/tuple_description.h"
 #include "mldb/types/vector_description.h"
+#include "mldb/types/set_description.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/jml/db/persistent.h"
 #include "mldb/types/jml_serialization.h"
@@ -1106,6 +1107,13 @@ getKnownColumnInfos(const std::vector<ColumnName> & columnNames) const
 }
 
 
+static RegisterDatasetType<EmbeddingDataset, EmbeddingDatasetConfig>
+regEmbedding(builtinPackage(),
+             "embedding",
+             "Dataset to record a set of coordinates per row",
+             "datasets/EmbeddingDataset.md.html");
+
+
 /*****************************************************************************/
 /* NEAREST NEIGHBOUR FUNCTION                                                */
 /*****************************************************************************/
@@ -1126,7 +1134,18 @@ NearestNeighborsFunctionConfigDescription()
              "a call-by-call basis.",
              double(INFINITY));
     addField("dataset", &NearestNeighborsFunctionConfig::dataset,
-             "Embedding dataset in which to find neighbors.");
+             "Embedding dataset in which to find neighbors.  This must be a "
+             "dataset of type `embedding`.");
+    addField("columnName", &NearestNeighborsFunctionConfig::columnName,
+             "The column name within the embedding dataset to use to match "
+             "values against.  This must match the columns within the dataset "
+             "referred to in the `dataset` parameter.  "
+             "In the case that the embedding contains values from multiple "
+             "columns instead of a single embedding (in other words, they "
+             "are not of the format `columnName.0, columnName.1, ...` but "
+             "instead look like `name1, name2, ...`), then pass "
+             "in `[]` which signifies use all columns (and is the default).",
+             ColumnName());
 }
 
 NearestNeighborsInput::
@@ -1146,7 +1165,7 @@ NearestNeighborsInputDescription()
              "Maximum distance to accept.  Passing null will use the "
              "value in the config", CellValue());
     addField("coords", &NearestNeighborsInput::coords,
-             "PathElementinates of the value whose neighbors are being sought, "
+             "Coordinates of the value whose neighbors are being sought, "
              "or alternatively the `rowName` of the value in the underlying "
              "dataset whose neighbors are being sought");
 }
@@ -1217,8 +1236,7 @@ applyT(const ApplierT & applier_, NearestNeighborsInput input) const
     else if(inputRow.isEmbedding() || inputRow.isRow()) {
         auto embedding = applier.getEmbeddingFromExpr(inputRow);
         neighbors = applier.embeddingDataset
-            ->getNeighbors(inputRow.getEmbedding(-1),
-                           numNeighbors, maxDistance);
+            ->getNeighbors(embedding.cast<float>(), numNeighbors, maxDistance);
     }
     else {
         throw ML::Exception("Input row must be either a row name or an embedding");
@@ -1244,17 +1262,62 @@ bindT(SqlBindingScope & outerContext, const std::shared_ptr<RowValueInfo> & inpu
     if (!boundDataset.dataset) {
         throw HttpReturnException
             (400, "Nearest neighbors function cannot operate on the output of "
-             "a table expression, only dataset of type embedding.");
+             "a table expression, only dataset of type embedding (passed "
+             "dataset was '" + functionConfig.dataset->surface + "'");
     }
     
     std::shared_ptr<ExpressionValueInfo> datasetInput
         = boundDataset.dataset->getRowInfo();
     vector<ColumnName> columnNames
         = datasetInput->allColumnNames();
+
+    // Remove the columnName from these columns, to allow us to get the actual
+    // embedding
+    vector<ColumnName> reducedColumnNames;
+
+    if (!functionConfig.columnName.empty()) {
+        for (auto & c: columnNames) {
+            if (c.startsWith(functionConfig.columnName)) {
+                ColumnName tail = c.removePrefix(functionConfig.columnName);
+                if (tail.size() != 1 || !tail.at(0).isIndex()) {
+                    throw HttpReturnException
+                        (400, "The column name passed into the embedding.neighbors "
+                         "function is not a simple embedding, as it contains the "
+                         "column '" + c.toUtf8String() +"' inside the dataset '"
+                         + functionConfig.dataset->surface + "'.");
+                }
+                reducedColumnNames.emplace_back(std::move(tail));
+            }
+        }
+        
+        if (reducedColumnNames.empty()) {
+            std::set<ColumnName> knownEmbeddings;
+
+            for (auto & c: columnNames) {
+                if (!c.empty() || c.back().isIndex()) {
+                    ColumnName knownEmbedding = c;
+                    knownEmbedding.pop_back();
+                    knownEmbeddings.insert(c);
+                }
+            }
+
+            throw HttpReturnException
+                (400, "The column name '" + functionConfig.columnName.toUtf8String()
+                 + "' passed into the embedding.neighbors function "
+                 + "does not exist inside the dataset '"
+                 + functionConfig.dataset->surface + "'",
+                 "knownColumnNames", columnNames,
+                 "knownEmbeddings", knownEmbeddings);
+        }
+    }
+    else {
+        reducedColumnNames = columnNames;
+    }
+
     auto coordInput = *input;//input.getValueInfo("coords").getExpressionValueInfo();
     if (coordInput.couldBeRow()) {
         result->getEmbeddingFromExpr
-            = coordInput.extractDoubleEmbedding(columnNames);
+            = coordInput.extractDoubleEmbedding(reducedColumnNames);
     }
 
     result->embeddingDataset
@@ -1262,17 +1325,13 @@ bindT(SqlBindingScope & outerContext, const std::shared_ptr<RowValueInfo> & inpu
     if (!result->embeddingDataset) {
         throw HttpReturnException
             (400, "A dataset of type embedding needs to be provided for "
-             "the nearest.neighbors function");
+             "the nearest.neighbors function; the provided dataset '"
+             + functionConfig.dataset->surface + "' is of type '"
+             + ML::type_name(*boundDataset.dataset) + "'");
     }
  
     return std::move(result);
 }
-
-static RegisterDatasetType<EmbeddingDataset, EmbeddingDatasetConfig>
-regEmbedding(builtinPackage(),
-             "embedding",
-             "Dataset to record a set of coordinates per row",
-             "datasets/EmbeddingDataset.md.html");
 
 static RegisterFunctionType<NearestNeighborsFunction, NearestNeighborsFunctionConfig>
 regNearestNeighborsFunction(builtinPackage(),

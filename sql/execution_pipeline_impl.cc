@@ -139,7 +139,8 @@ doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
                 return true;
             };
 
-            rowContents.forEachColumn(onColumn);
+            if (!rowContents.empty())
+                rowContents.forEachColumn(onColumn);
             
             ExpressionValue val(std::move(result));
             return val.getFilteredDestructive(filter);
@@ -169,10 +170,29 @@ doGetFunction(const Utf8String & functionName,
                      const SqlRowScope & rowScope)
                 {
                     auto & row = rowScope.as<PipelineResults>();
-                    return row.values.at(fieldOffset + ROW_NAME);
+                    const ExpressionValue& rowNameValue = row.values.at(fieldOffset + ROW_PATH);
+
+                    //Can be empty in case of unmatched outerjoin
+                    if (rowNameValue.empty()) {
+                        return ExpressionValue("", Date::Date::notADate());
+                    }
+                    else {
+                        return ExpressionValue(rowNameValue.toUtf8String(),row.values.at(fieldOffset + ROW_PATH).getEffectiveTimestamp());
+                    }
+                    
                 },
                 std::make_shared<Utf8StringValueInfo>()
-                    };
+            };
+    }
+    else if (functionName == "rowPath") {
+        return {[=] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & rowScope)
+                {
+                    auto & row = rowScope.as<PipelineResults>();
+                    return row.values.at(fieldOffset + ROW_PATH);
+                },
+                std::make_shared<PathValueInfo>()
+                };
     }
 
     else if (functionName == "rowHash") {
@@ -180,12 +200,13 @@ doGetFunction(const Utf8String & functionName,
                      const SqlRowScope & rowScope)
                 {
                     auto & row = rowScope.as<PipelineResults>();
-                    RowHash result(Path(PathElement(row.values.at(fieldOffset + ROW_NAME).toUtf8String())));
+                    RowHash result(row.values.at(fieldOffset + ROW_PATH)
+                                   .coerceToPath());
                     return ExpressionValue(result.hash(),
                                            Date::notADate());
                 },
                 std::make_shared<Uint64ValueInfo>()
-                    };
+                };
     }
 
     return BoundFunction();
@@ -257,7 +278,7 @@ take()
     //cerr << "got row " << current[currentDone].rowName << " "
     //     << jsonEncodeStr(current[currentDone].columns) << endl;
 
-    result->values.emplace_back(current[currentDone].rowName.toSimpleName(),
+    result->values.emplace_back(current[currentDone].rowName,
                                 Date::notADate());
     result->values.emplace_back(std::move(current[currentDone].columns));
     ++currentDone;
@@ -395,32 +416,10 @@ doGetColumn(const ColumnName & columnName, int fieldOffset)
 
 }
 
-BoundFunction
-SubSelectLexicalScope::
-doGetFunction(const Utf8String & functionName,
-              const std::vector<BoundSqlExpression> & args,
-              int fieldOffset,
-              SqlBindingScope & argsScope) {
-
-    if (functionName == "rowName") {
-
-        auto exec = [=] (const std::vector<ExpressionValue> & args,
-                         const SqlRowScope & context)
-            -> ExpressionValue
-            {
-                return ExpressionValue("result", Date::notADate());
-            };
-
-        return { exec, std::make_shared<Utf8StringValueInfo>() };
-    }
-
-    return inner->doGetFunction(Utf8String(), functionName, args, argsScope);
-}
-
 std::set<Utf8String>
 SubSelectLexicalScope::
 tableNames() const {
-    return {};
+    return {asName};
 }
 
 std::vector<std::shared_ptr<ExpressionValueInfo> >
@@ -625,11 +624,12 @@ doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
             //cerr << "get all columns merging "
             //     << jsonEncode(leftResult) << " and "
             //     << jsonEncode(rightResult) << endl;
-
                 
             StructValue output;
             output.emplace_back(leftPrefix, std::move(leftResult));
             output.emplace_back(rightPrefix, std::move(rightResult));
+
+            //cerr << "returning " << jsonEncode(output) << endl;
 
             return std::move(output);
         };
@@ -671,11 +671,14 @@ doGetFunction(const Utf8String & functionName,
                          const SqlRowScope & context)
             -> ExpressionValue
             {
-                return ExpressionValue
-                (leftRowName(args, context).toUtf8String()
-                 + "-"
-                 + rightRowName(args, context).toUtf8String(),
-                 Date::notADate());
+                Utf8String rowName;
+                ExpressionValue left = leftRowName(args, context);
+                ExpressionValue right = rightRowName(args, context);
+
+                rowName = left.empty() ? "[]-" : "[" + left.toUtf8String() + "]-";
+                rowName += right.empty() ? "[]" : "[" + right.toUtf8String() + "]";
+
+                return ExpressionValue(std::move(rowName),Date::notADate());
             };
 
         return { exec, leftRowName.resultInfo };
@@ -736,7 +739,7 @@ JoinElement(std::shared_ptr<PipelineElement> root,
     : root(root),
       left(left), boundLeft(boundLeft), right(right), boundRight(boundRight),
       on(on), select(select), where(where), orderBy(orderBy),
-      condition(left, right, on, where), joinQualification(joinQualification)
+      condition(left, right, on, where, joinQualification), joinQualification(joinQualification)
 {
     switch (condition.style) {
     case AnnotatedJoinCondition::CROSS_JOIN:
@@ -846,6 +849,11 @@ std::shared_ptr<PipelineResults>
 JoinElement::CrossJoinExecutor::
 take()
 {
+    bool outerLeft = parent->joinQualification_ == JOIN_LEFT
+        || parent->joinQualification_ == JOIN_FULL;
+    bool outerRight = parent->joinQualification_ == JOIN_RIGHT
+        || parent->joinQualification_ == JOIN_FULL;
+
     for (;;) {
 
         if (!l) {
@@ -860,6 +868,62 @@ take()
         //cerr << "Cross join got a row" << endl;
         //cerr << "l = " << jsonEncode(l) << endl;
         //cerr << "r = " << jsonEncode(r) << endl;
+
+        ExpressionValue & lEmbedding = l->values.back();
+        ExpressionValue & rEmbedding = r->values.back();
+
+        if (outerLeft){
+            ExpressionValue where = lEmbedding.getColumn(1, GET_ALL);
+            if (!where.asBool()) {
+
+                //take left
+                // Pop the selected join condition from left
+                l->values.pop_back();
+
+                //empty values for right without the selected join condition
+                size_t numR = r->values.size();
+                for (int i = 0; i < numR - 1; ++i) {
+                    l->values.emplace_back(ExpressionValue());
+                }
+
+                auto result = l;
+
+                l = this->left->take();
+
+                //cerr << "cross outer left returning " << jsonEncode(result) << endl;
+
+                return result;
+            }
+        }
+
+        if (outerRight){
+            ExpressionValue where = rEmbedding.getColumn(1, GET_ALL);
+            if (!where.asBool()) {
+
+                size_t numL = l->values.size();
+
+                //empty values for left without the selected join condition
+                l->values.clear();
+                for (int i = 0; i < numL - 1; ++i) {
+                    l->values.emplace_back(ExpressionValue());
+                }
+
+                // Add r
+                for (auto & v: r->values)
+                    l->values.emplace_back(v);
+
+                // Pop the selected join condition from r
+                l->values.pop_back();
+
+                auto result = l;
+
+                l = this->left->take();
+
+                //cerr << "cross outer right returning " << jsonEncode(result) << endl;
+
+                return result;
+            }
+        }
 
         // Pop the selected join condition from l
         l->values.pop_back();
@@ -879,7 +943,6 @@ take()
         ExpressionValue storage;
         if (!parent->crossWhere_(*result, storage, GET_LATEST).isTrue())
             continue;
-
 
         return result;
     }
@@ -951,7 +1014,16 @@ takeMoreInput()
     takeValueFromSide(l, this->left, outerLeft);
     takeValueFromSide(r, this->right, outerRight);   
 }
-            
+ 
+/**
+    Whevever the left side value of the pivot is greater
+    than the right side we get the next item on the right side
+    and rewind the left side until its value is equal or
+    greater than the new right side value.  Such rewinding is
+    necessary because there might be several identical values
+    on each side and in this case, we need to return all the rows
+    in the cross product.
+*/
 std::shared_ptr<PipelineResults>
 JoinElement::EquiJoinExecutor::
 take()
@@ -988,62 +1060,110 @@ take()
             return false;
         };    
 
+        auto rewindLeftSideToValue = [&] (const ExpressionValue & rField) {
+            left->restart();
+            auto l = left->take();
+            while (l && l->values.back().getColumn(0, GET_ALL) < rField)
+                l = left->take();
+            return l;
+        };
+
         if (lField == rField) {
             // Got a row!
             //cerr << "*** got row match on " << jsonEncode(lField) << endl;
 
-            // Pop the selected join condition from l
+            // Pop the selected join conditions from left
             l->values.pop_back();
 
-            // Pop the selected join condition from r
-            r->values.pop_back();
+            auto numL = l->values.size();
+            auto numR = r->values.size() - 1;
 
-            for (auto & v: r->values)
-                l->values.emplace_back(std::move(v));
+            for (auto i = 0; i < numR; ++i)
+                l->values.push_back(r->values[i]);
 
-            //cerr << "returning " << jsonEncode(l) << endl;
-
-            std::shared_ptr<PipelineResults> result = std::move(l);
-
-            l = left->take();
-            r = right->take();
-
-            //cerr << "applying where " << parent->crossWhere_.expr->print()
-            //     << " to " << jsonEncode(result->values) << endl;
+            shared_ptr<PipelineResults> result = std::move(l);
 
             ExpressionValue storage;
-            if (!parent->crossWhere_(*result, storage, GET_LATEST).isTrue())
-            {
+            auto crossWhereTrue = parent->crossWhere_(*result, storage, GET_LATEST).isTrue();
+
+            if (!crossWhereTrue && outerLeft) {
+                 ExpressionValue where = lEmbedding.getColumn(1, GET_ALL);
+                 if (!where.asBool()) {
+                     for (auto i = 0; i < numR; i++)
+                         result->values.pop_back();
+                     for (auto i = 0; i < numR; i++)
+                         result->values.push_back(ExpressionValue());
+                 }
+            }
+            else if (!crossWhereTrue && outerRight) {
+                 ExpressionValue where = lEmbedding.getColumn(1, GET_ALL);
+                 if (!where.asBool()) {
+                     for (auto i = 0; i < numL; i++)
+                         result->values[i] = ExpressionValue();
+                 }
+            }
+            else if (!crossWhereTrue && !outerRight && !outerLeft) {
+
+                l = left->take();
                 continue;
             }
 
-            return std::move(result);
+            l = left->take();
+            if (l) {
+                ExpressionValue nextLField =  l->values.back().getColumn(0, GET_ALL);
+                if (nextLField == lField) {
+                    // we have the same left-side value again
+                    // take the left-side but leave the right-side as-is
+                    // to generate the cross product of rows on matching
+                    // that value
+                    ExcAssert(nextLField == rField);
+                    return std::move(result);
+                }
+            }
+
+            r = right->take();
+            if (r) {
+                ExpressionValue nextRField =  r->values.back().getColumn(0, GET_ALL);
+                if (nextRField == rField) {
+                    // we have the same right-side value again
+                    // and the left-side value is different
+                    // rewind the left-side to the first occurrence
+                    // of the former value to generate the cross product
+
+                    ExcAssert(nextRField == lField);
+                    l = rewindLeftSideToValue(rField);
+                }
+            }
+                    
+            return result;
         }
         else if (lField < rField) {
             // loop until left field value is equal to the right field value
             // returning nulls if left outer
             do {
                 if (outerLeft && checkOuterWhere(l, left, lField, rEmbedding)) {
-                    auto result = std::move(l);                
+                    auto result = std::move(l);
                     l = left->take();
                     return std::move(result);
                 } else {
-                    l = this->left->take();
+                    l = left->take();
                 }     
-            } while (l && l->values.back() < rField);
+            } while (l && l->values.back().getColumn(0, GET_ALL) < rField);
         }
         else {
             // loop until right field value is equal to the left field value
             // returning nulls if right outer
+            ExcAssert(lField > rField);
+
             do {
                 if (outerRight && checkOuterWhere(r, right, rField, lEmbedding)) {
-                    auto result = std::move(r);                
+                    auto result = std::move(r);
                     r = right->take();
                     return std::move(result);
                 } else {
-                    r = this->right->take();
+                    r = right->take();
                 }
-            } while (r && r->values.back() < lField);
+            } while (r && r->values.back().getColumn(0, GET_ALL) < lField);
         }
     }
 
@@ -1884,7 +2004,7 @@ take()
     auto result = key;
     result->group = std::move(group);
 
-    //cerr << "got group " << jsonEncode(result->group) << endl;
+   //cerr << "got group " << jsonEncode(result->group) << endl;
 
     return result;
 }
@@ -1908,7 +2028,8 @@ Bound(std::shared_ptr<BoundPipelineElement> source,
     : source_(std::move(source)),
       outputScope_(source_->outputScope()
                    ->tableScope(std::make_shared<AggregateLexicalScope>
-                                (source_->outputScope())))
+                                (source_->outputScope()))),
+      numValues_(numValues)
 {
 }
 

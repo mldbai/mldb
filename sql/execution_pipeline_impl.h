@@ -32,7 +32,7 @@ struct TableLexicalScope: public LexicalScope {
     std::vector<KnownColumn> knownColumns;
     bool hasUnknownColumns;
 
-    static constexpr int ROW_NAME = 0;
+    static constexpr int ROW_PATH = 0;
     static constexpr int ROW_CONTENTS = 1;
 
     virtual ColumnGetter
@@ -150,12 +150,6 @@ struct SubSelectLexicalScope: public TableLexicalScope {
 
     virtual GetAllColumnsOutput
     doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep, int fieldOffset);
-
-    virtual BoundFunction
-    doGetFunction(const Utf8String & functionName,
-                  const std::vector<BoundSqlExpression> & args,
-                  int fieldOffset,
-                  SqlBindingScope & argsScope);
 
     virtual std::set<Utf8String> tableNames() const;
 
@@ -344,10 +338,14 @@ struct JoinElement: public PipelineElement {
         void restart();
     };
 
-    /** Execution runs on left rows and right rows together.  The complexity is
-        therefore O(max(left rows, right rows)).  The canonical example of this
-        is `SELECT * FROM t1 JOIN t2 ON t1.id = t2.id`.  This requires that the
-        the id column is sorted.
+    /** Execution runs on left rows and right rows together.  This requires to
+        sort the value that will be compared (ie. the pivot).  The worse case
+        complexity is O(left rows) * O(right rows) when the pivot value is a
+        constant but in general the complexity should be closer to
+        O(max(left rows, right rows)) when the pivot do not have too many 
+        duplicated values.  The canonical example of this
+        is `SELECT * FROM t1 JOIN t2 ON t1.id = t2.id`.  Here `id` is the pivot
+        and rows are sorted by id.
     */
     struct EquiJoinExecutor: public ElementExecutor {
         EquiJoinExecutor(const Bound * parent,

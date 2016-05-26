@@ -208,6 +208,7 @@ struct JoinedDataset::Itl
       
         AnnotatedJoinCondition condition(leftExpr, rightExpr, on, 
                                          nullptr, //where
+                                         qualification,
                                          debug);
 
         if (debug)
@@ -232,29 +233,31 @@ struct JoinedDataset::Itl
         } else {
             // Complex join condition.  We need to generate the full set of
             // values.  To do this, we use the new executor.
-            auto gotElement = [&] (std::shared_ptr<PipelineResults> & res) -> bool
-                {
-                    //cerr << "got rows complex " << res->values.size() << endl;
-                    Utf8String leftNameUtf8 = res->values.at(0).toUtf8String();
-                    size_t i = 2;
-                    for (; i+ 2 < res->values.size(); i+=2)
-                    {
-                        leftNameUtf8 += "-" + res->values.at(i).toUtf8String();
-                    }                        
+            auto gotElement = [&] (std::shared_ptr<PipelineResults> & res) -> bool {
+                //cerr << "got rows complex " << res->values.size() << endl;
+                Utf8String leftNameUtf8 = "";
+                if (!res->values.at(0).empty())
+                    leftNameUtf8 = res->values.at(0).toUtf8String();
+                size_t i = 2;
+                for (; i + 2 < res->values.size(); i+=2) {
+                    if (i == 2)
+                        leftNameUtf8 = "[" + leftNameUtf8 + "]";
                     
-                    RowName leftName;
-                    if (leftNameUtf8 != "")
-                        leftName = RowName(leftNameUtf8);
+                    leftNameUtf8 += res->values.at(0).empty() ? "-[]" :
+                        "-[" + res->values.at(i).toUtf8String() + "]";
+                }      
+                  
+                RowName leftName = RowName::parse(leftNameUtf8);
+                
+                Utf8String rightNameUtf8 = "";
+                if (!res->values.at(i).empty())
+                    rightNameUtf8 = res->values.at(i).toUtf8String();
+                RowName rightName = RowName::parse(rightNameUtf8);
 
-                    Utf8String rightNameUtf8 = res->values.at(i).toUtf8String();
-                    RowName rightName;
-                    if (rightNameUtf8 != "")
-                        rightName = RowName(rightNameUtf8);
-
-                    recordJoinRow(leftName, leftName, rightName, rightName);
-
-                    return true;
-                };
+                recordJoinRow(leftName, leftName, rightName, rightName);
+                
+                return true;
+            };
             
             auto getParam = [&] (const Utf8String & paramName)
                 -> ExpressionValue
@@ -512,6 +515,7 @@ struct JoinedDataset::Itl
                 ++it2;
             }
             else {
+
                 ExcAssertEqual(val1, val2);
 
                 // We got a match on the join condition.  So now

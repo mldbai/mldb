@@ -613,7 +613,7 @@ queryStructured(const Dataset * dataset,
     std::shared_ptr<SqlExpression> rowNameParsed;
     if (!rowName.empty())
         rowNameParsed = SqlExpression::parse(rowName);
-    else rowNameParsed = SqlExpression::parse(string("rowName()"));
+    else rowNameParsed = SqlExpression::parse("rowPath()");
 
     //cerr << "limit = " << limit << endl;
     //cerr << "offset = " << offset << endl;

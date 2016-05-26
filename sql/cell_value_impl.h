@@ -134,6 +134,12 @@ isBlobType(StorageType type)
     return type == ST_SHORT_BLOB || type == ST_LONG_BLOB;
 }
 
+bool
+CellValue::
+isPathType(StorageType type)
+{
+    return type == ST_SHORT_PATH || type == ST_LONG_PATH;
+}
 
 } // namespace MLDB
 } // namespace Datacratic
