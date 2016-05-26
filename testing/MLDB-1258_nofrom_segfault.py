@@ -225,7 +225,7 @@ class NoFromSegfaultTest(unittest.TestCase):
                         "verbosity": 3,
                         "normalize": False,
                         "link_function": 'linear',
-                        "ridge_regression": False
+                        "regularization": 'none'
                     }
                 },
                 "mode": "regression",

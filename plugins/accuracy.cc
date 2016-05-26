@@ -50,38 +50,31 @@ AccuracyConfigDescription()
     optionalOutputDataset.emplace(PolyConfigT<Dataset>().
                                   withType(AccuracyConfig::defaultOutputDatasetType));
 
-    addField("testingData", &AccuracyConfig::testingData,
-             "Specification of the data for input to the accuracy procedure. "
-             "The select expression must contain these sub-expressions: one scalar expression "
-             "to identify the label and one scalar expression to identify the score. "
-             "The type of the label expression must match "
-             "that of the classifier mode from which the model was trained. "
-             "Labels with a null value will have their row skipped. "
-             "The expression to generate the score represents the output "
-             "of whatever is having its accuracy tested.  This needs to be "
-             "a number, and normally should be a floating point number that "
-             "represents the degree of confidence in the prediction, not "
-             "just the class. This is typically, the training function returned "
-             "by a classifier.train procedure. "
-             "The select expression can also contain an optional weight sub-expression. "
-             "This expression generates the relative weight for each example.  In some "
-             "circumstances it is necessary to calculate accuracy statistics "
-             "with uneven weighting, for example to counteract the effect of "
-             "non-uniform sampling in dataset.  By default, each class will "
-             "get the same weight.  This value is relative to the other "
-             "examples, in other words having all examples weighted 1 or all "
-             "examples weighted 10 will have the same effect.  That being "
-             "said, it is a good idea to keep the weights centered around 1 "
-             "to avoid numeric errors in the calculations."
-             "The select statement does not support groupby and having clauses.");
     addField("mode", &AccuracyConfig::mode,
-             "Controls how the label is interpreted and "
-             "what is the expected output of the classifier is. This must match "
-             "what was used during training.");
+             "Model mode: `boolean`, `regression` or `categorical`. "
+             "Controls how the label is interpreted and what is the output of the classifier. "
+             "This must match what was used during training.", CM_BOOLEAN);
+    addField("testingData", &AccuracyConfig::testingData,
+             "SQL query which specifies the scores, labels and optional weights for evaluation. "
+             "The query is usually of the form: "
+             "`select classifier_function({features: {f1, f2}})[score] as score, x as label from ds`.\n\n"
+             "The select expression must contain these two columns: \n\n"
+             "  * `score`: one scalar expression which evaluates to the score a classifier "
+             "has assigned to the given row, and \n"
+             "  * `label`: one scalar expression to identify the row's label, and whose type "
+             "must match that of the classifier mode. Rows with null labels will be ignored. \n"
+             "     * `boolean` mode: a boolean (0 or 1)\n"
+             "     * `regression` mode: a real number\n"
+             "     * `categorical` mode: any combination of numbers and strings for\n\n"
+             "The select expression can contain an optional `weight` column. The weight "
+             "allows the relative importance of examples to be set. It must "
+             "be a real number. If the `weight` is not specified each row will have "
+             "a weight of 1. Rows with a null weight will cause a training error. \n\n"
+             "The query must not contain `GROUP BY` or `HAVING` clauses. ");
     addField("outputDataset", &AccuracyConfig::outputDataset,
              "Output dataset for scored examples. The score for the test "
              "example will be written to this dataset. Examples get grouped when "
-              "they have the same score when mode=boolean. Specifying a "
+              "they have the same score when `mode` is `boolean`. Specifying a "
              "dataset is optional.", optionalOutputDataset);
     addParent<ProcedureConfig>();
 

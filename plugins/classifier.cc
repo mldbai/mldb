@@ -66,23 +66,30 @@ DEFINE_STRUCTURE_DESCRIPTION(ClassifierConfig);
 ClassifierConfigDescription::
 ClassifierConfigDescription()
 {
+    addField("mode", &ClassifierConfig::mode,
+             "Model mode: `boolean`, `regression` or `categorical`. "
+             "Controls how the label is interpreted and what is the output of the classifier. "
+             , CM_BOOLEAN);
     addField("trainingData", &ClassifierConfig::trainingData,
-             "Specification of the data for input to the classifier procedure. "
-             "The select expression must contain these two sub-expressions: one row expression "
-             "to identify the features on which to train and one scalar expression "
-             "to identify the label.  The type of the label expression must match "
-             "that of the classifier mode: a boolean (0 or 1) for `boolean` mode; "
-             "a real for regression mode, and any combination of numbers and strings "
-             "for `categorical` mode.  Labels with a null value will have their row skipped. "
-             "The select expression can contain an optional weigth expression.  The weight "
-             "allows the relative importance of examples to be set.  It must "
-             "be a real number.  If the expression is not specified each example will have "
-             "a weight of one.  Rows with a null weight will cause a training error. "
-             "The select statement does not support groupby and having clauses. "
-             "Also, unlike most select expressions, this one can only select whole columns, "
-             "not expressions involving columns. So X will work, but not X + 1. "
-             "If you need derived values in the select expression, create a dataset with "
-             "the derived columns as a previous step and run the classifier over that dataset instead.");
+             "SQL query which specifies the features, labels and optional weights for training. "
+             "The query should be of the form `select {f1, f2} as features, x as label from ds`.\n\n"
+             "The select expression must contain these two columns: \n\n"
+             "  * `features`: a row expression to identify the features on which to \n"
+             "    train, and \n"
+             "  * `label`: one scalar expression to identify the row's label, and whose type "
+             "must match that of the classifier mode. Rows with null labels will be ignored. \n"
+             "     * `boolean` mode: a boolean (0 or 1)\n"
+             "     * `regression` mode: a real number\n"
+             "     * `categorical` mode: any combination of numbers and strings for\n\n"
+             "The select expression can contain an optional `weight` column. The weight "
+             "allows the relative importance of examples to be set. It must "
+             "be a real number. If the `weight` is not specified each row will have "
+             "a weight of 1. Rows with a null weight will cause a training error. \n\n"
+             "The query must not contain `GROUP BY` or `HAVING` clauses and, "
+             "unlike most select expressions, this one can only select whole columns, "
+             "not expressions involving columns. So `X` will work, but not `X + 1`. "
+             "If you need derived values in the query, create a dataset with "
+             "the derived columns as a previous step and use a query on that dataset instead.");
     addField("algorithm", &ClassifierConfig::algorithm,
              "Algorithm to use to train classifier with.  This must point to "
              "an entry in the configuration or configurationFile parameters");
@@ -104,9 +111,6 @@ ClassifierConfigDescription()
              "A number between will choose a balanced tradeoff.  Typically 0.5 (default) "
              "is a good number to use for unbalanced probabilities",
              0.5);
-    addField("mode", &ClassifierConfig::mode,
-             "Mode of classifier.  Controls how the label is interpreted and "
-             "what is the output of the classifier.", CM_BOOLEAN);
     addField("modelFileUrl", &ClassifierConfig::modelFileUrl,
              "URL where the model file (with extension '.cls') should be saved. "
              "This file can be loaded by the ![](%%doclink classifier function). "

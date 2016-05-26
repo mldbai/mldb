@@ -1998,7 +1998,7 @@ class JoinTest(MldbUnitTest):
         right join z on (x.x1 = z.z1 and x.x2 = z.z2)
         order by rowName()
         """)
-
+        pprint(res)
         self.assertTableResultEquals(res, 
             [
                 [u'_rowName', u'x.x1', u'x.x2', u'y.y1', u'y.y2', u'z.z1', u'z.z2'] ,
@@ -2014,7 +2014,7 @@ class JoinTest(MldbUnitTest):
         right join z on (x.x1 + x.x2 = z.z1 + z.z2)
         order by rowName()
         """)
-
+        pprint(res)
         self.assertTableResultEquals(res, 
             [
                 [u'_rowName', u'x.x1', u'x.x2', u'y.y1', u'y.y2', u'z.z1', u'z.z2'] ,
@@ -2046,5 +2046,67 @@ class JoinTest(MldbUnitTest):
         # the second join is processed by the batch executor
         # note the difference in naming the last row
         self.assertEquals(res1, res2)
+
+
+    def test_worst_case_equi_join(self):
+        """ 
+        When an equijoin is done on a constant value than
+        the cross product of the table is expected
+        """
+        ds = mldb.create_dataset({ "id": "LEFT_TBL", "type": "tabular" })
+        ds.record_row("01",[["y1", 1, 0], ["y2", 111, 0]])
+        ds.record_row("02",[["y1", 1, 0], ["y2", 111, 0]])
+        ds.record_row("03",[["y1", 1, 0], ["y2", 111, 0]])
+        ds.commit()
+
+        ds = mldb.create_dataset({ "id": "RIGHT_TBL", "type": "tabular" })
+        ds.record_row("01",[["z1", 1, 0], ["z2", 111, 0]])
+        ds.record_row("02",[["z1", 1, 0], ["z2", 111, 0]])
+        ds.record_row("03",[["z1", 1, 0], ["z2", 111, 0]])
+        ds.commit()
+        
+        res1 = mldb.query("""
+        select * from LEFT_TBL join RIGHT_TBL on LEFT_TBL.y1 = RIGHT_TBL.z1 order by rowName()
+        """)
+        pprint(res1)
+        res2 = mldb.query("""
+        select * from LEFT_TBL join RIGHT_TBL on LEFT_TBL.y1 = RIGHT_TBL.z1 AND LEFT_TBL.y2 = RIGHT_TBL.z2 order by rowName()
+        """)
+        pprint(res2)
+        # the first join is processed by the pipeline executor
+        # the second join is processed by the batch executor
+        # note the difference in naming the last row
+        self.assertEquals(res1, res2)
+
+    def test_outer_join_with_pipeline_executor(self):
+        # res = mldb.query("""
+        # select * from x 
+        # right join z on (x.x1 = z.z1 and x.x2 = z.z2)
+        # order by rowName()
+        # """)
+        # pprint(res)
+        # self.assertTableResultEquals(res, 
+        #     [
+        #         [u'_rowName', u'x.x1', u'x.x2', u'z.z1', u'z.z2'] ,
+        #         [u'[01]-[01]', 1, 11, 1, 11] ,
+        #         [u'[02]-[02]', 2, 22, 2, 22] ,
+        #         [u'[]-[03]', None, None, 3, 33]
+        #     ]
+        # )
+
+        res = mldb.query("""
+        select * from z 
+        left join x on (x.x1 = z.z1 and x.x2 = z.z2)
+        order by rowName()
+        """)
+        pprint(res)
+        self.assertTableResultEquals(res, 
+            [
+                [u'_rowName', u'x.x1', u'x.x2', u'z.z1', u'z.z2'] ,
+                [u'[01]-[01]', 1, 11, 1, 11] ,
+                [u'[02]-[02]', 2, 22, 2, 22] ,
+                [u'[03]-[]', None, None, 3, 33]
+            ]
+        )
 
 mldb.run_tests()

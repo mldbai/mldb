@@ -439,11 +439,10 @@ class TemporalTest(MldbUnitTest):
                 ]
             )
 
-    @unittest.expectedFailure
     def test_mldbfb_516_aggregator_incorrect_with_join(self):
         ds = mldb.create_dataset({
-            'id' : 'ds_join',
-            'type' : 'beh.binary.mutable'
+            'id' : 'ds516',
+            'type' : 'sparse.mutable'
         })
         ds.record_row('user3', [['behA', 1, 11], ['conv', 1, 70],
                                 ['behB', 1, 14], ['behA', 1, 14]])
@@ -451,24 +450,26 @@ class TemporalTest(MldbUnitTest):
 
         ds = mldb.create_dataset({
             'id' : 'conv',
-            'type' : 'beh.mutable'
+            'type' : 'sparse.mutable'
         })
         ds.record_row('user3', [['ts', 70, 0]])
         ds.commit()
 
         res = mldb.query("""
-            SELECT temporal_count({ds_join.*}) AS *
-            FROM ds_join
+            SELECT temporal_count({ds516.*}) AS *
+            FROM ds516
         """)
+        mldb.log(res)
         self.assertTableResultEquals(res, [
             ['_rowName', 'behA', 'behB', 'conv'],
             ['user3', 2, 1, 1]
         ])
 
         res = mldb.query("""
-            SELECT temporal_count({ds_join.*}) AS *
-            FROM ds_join INNER JOIN conv ON ds_join.rowName() = conv.rowName()
+            SELECT temporal_count({ds516.* as *}) AS *
+            FROM ds516 INNER JOIN conv ON ds516.rowName() = conv.rowName()
         """)
+        mldb.log(res)
         self.assertTableResultEquals(res, [
             ['_rowName', 'behA', 'behB', 'conv'],
             ['[user3]-[user3]', 2, 1, 1]
