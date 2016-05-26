@@ -38,17 +38,17 @@ class Mldb878Test(MldbUnitTest):
             "type": "classifier.experiment",
             "params": {
                 "experimentName": "my_test_exp",
-                "trainingData": "select {* EXCLUDING(label)} as features, label from toy",
-                "testingData": "select {* EXCLUDING(label)} as features, label from toy",
+                "inputData": "select {* EXCLUDING(label)} as features, label from toy",
+                "testingDataOverride": "select {* EXCLUDING(label)} as features, label from toy",
                 "datasetFolds" : [
                     {
-                        "training_where": "rowHash() % 5 != 3",
-                        "testing_where": "rowHash() % 5 = 3",
+                        "trainingWhere": "rowHash() % 5 != 3",
+                        "testingWhere": "rowHash() % 5 = 3",
                         "orderBy": "rowHash() ASC",
                     },
                     {
-                        "training_where": "rowHash() % 5 != 2",
-                        "testing_where": "rowHash() % 5 = 2",
+                        "trainingWhere": "rowHash() % 5 != 2",
+                        "testingWhere": "rowHash() % 5 = 2",
                     }],
                 "modelFileUrlPattern": "file://build/x86_64/tmp/bouya-$runid.cls",
                 "algorithm": "glz",
@@ -108,7 +108,7 @@ class Mldb878Test(MldbUnitTest):
         #mldb.log(trained_files_mod_ts)
 
         # repost and inverse label
-        conf["params"]["trainingData"] = "select {* EXCLUDING(label)} as features, NOT label as label from toy"
+        conf["params"]["inputData"] = "select {* EXCLUDING(label)} as features, NOT label as label from toy"
         mldb.put("/v1/procedures/rocket_science", conf)
         mldb.post("/v1/procedures/rocket_science/runs")
 
@@ -122,7 +122,7 @@ class Mldb878Test(MldbUnitTest):
         score_run2 = apply_predictor()
         #mldb.log(score_run2)
         assert set(score_run1) != set(score_run2)
-        conf["params"]["trainingData"] = "select {* EXCLUDING(label)} as features, label from toy"
+        conf["params"]["inputData"] = "select {* EXCLUDING(label)} as features, label from toy"
 
 
         #######
@@ -153,7 +153,7 @@ class Mldb878Test(MldbUnitTest):
         # no split specified
         ######
 
-        del conf["params"]["testingData"]
+        del conf["params"]["testingDataOverride"]
         conf["params"]["experimentName"] = "no_fold_&_no_testing"
 
         rez = mldb.put("/v1/procedures/rocket_science8", conf)
@@ -198,7 +198,7 @@ class Mldb878Test(MldbUnitTest):
         ######
 
         conf["params"]["experimentName"] = "5fold_fold_diff_dataset"
-        conf["params"]["testingData"] = \
+        conf["params"]["testingDataOverride"] = \
             "select {* EXCLUDING(label)} as features, label from toy2"
         conf["params"]["kfold"] = 5
 
@@ -214,7 +214,7 @@ class Mldb878Test(MldbUnitTest):
         ######
 
         conf["params"]["experimentName"] = "diff_dataset"
-        conf["params"]["testingData"] = \
+        conf["params"]["testingDataOverride"] = \
             "select {* EXCLUDING(label)} as features, label from toy2"
         del conf["params"]["kfold"]
 
@@ -226,8 +226,8 @@ class Mldb878Test(MldbUnitTest):
 
         js_rez = rez.json()
         assert len(js_rez["status"]["folds"]) == 1
-        assert js_rez["status"]["folds"][0]["fold"]["training_where"] == "true"
-        assert js_rez["status"]["folds"][0]["fold"]["testing_where"] == "true"
+        assert js_rez["status"]["folds"][0]["fold"]["trainingWhere"] == "true"
+        assert js_rez["status"]["folds"][0]["fold"]["testingWhere"] == "true"
 
 
 
@@ -235,15 +235,15 @@ class Mldb878Test(MldbUnitTest):
         # missing feature/label for traing or test data
         ######
 
-        #"trainingData": "select {* EXCLUDING(label)} as features, label from toy",
-        conf["params"]["trainingData"] = "select * from toy"
-        conf["params"]["testingData"] = "select * from toy"
+        #"inputData": "select {* EXCLUDING(label)} as features, label from toy",
+        conf["params"]["inputData"] = "select * from toy"
+        conf["params"]["testingDataOverride"] = "select * from toy"
 
         with self.assertRaises(mldb_wrapper.ResponseException) as re:
             mldb.put("/v1/procedures/rocket_science5", conf)
 
         # fix training
-        conf["params"]["trainingData"] = "select {* EXCLUDING(label)} as features, label from toy"
+        conf["params"]["inputData"] = "select {* EXCLUDING(label)} as features, label from toy"
 
         with self.assertRaises(mldb_wrapper.ResponseException) as re:
             mldb.put("/v1/procedures/rocket_science5", conf)
@@ -254,17 +254,17 @@ class Mldb878Test(MldbUnitTest):
             "type": "classifier.experiment",
             "params": {
                 "experimentName": "my_test_exp",
-                "trainingData": "select {* EXCLUDING(label)} as features, label from toy",
-                "testingData": "select {* EXCLUDING(label)} as features, label from toy",
+                "inputData": "select {* EXCLUDING(label)} as features, label from toy",
+                "testingDataOverride": "select {* EXCLUDING(label)} as features, label from toy",
                 "datasetFolds" : [
                     {
-                        "training_where": "rowHash() % 5 != 3",
-                        "testing_where": "rowHash() % 5 = 3",
+                        "trainingWhere": "rowHash() % 5 != 3",
+                        "testingWhere": "rowHash() % 5 = 3",
                         "orderBy": "rowHash() ASC",
                     },
                     {
-                        "training_where": "rowHash() % 5 != 2",
-                        "testing_where": "rowHash() % 5 = 2",
+                        "trainingWhere": "rowHash() % 5 != 2",
+                        "testingWhere": "rowHash() % 5 = 2",
                     }],
                 "modelFileUrlPattern": "file://build/x86_64/tmp/bouya-$runid.cls",
                 "algorithm": "glz",
@@ -304,7 +304,7 @@ class Mldb878Test(MldbUnitTest):
             "type": "classifier.experiment",
             "params": {
                 "experimentName": "my_test_no_write",
-                "trainingData": "select {* EXCLUDING(label)} as features, label from toy",
+                "inputData": "select {* EXCLUDING(label)} as features, label from toy",
                 "kfold": 2,
                 "modelFileUrlPattern": "file:///bouya-$runid.cls",
                 "algorithm": "glz",
@@ -334,7 +334,7 @@ class Mldb878Test(MldbUnitTest):
                 "type": "classifier.experiment",
                 "params": {
                     "experimentName": "uniqueScoreOutputTest",
-                    "trainingData": "select {* EXCLUDING(label)} as features, label from toy",
+                    "inputData": "select {* EXCLUDING(label)} as features, label from toy",
                     "modelFileUrlPattern": "file://build/x86_64/tmp/bouya-pwet-$runid.cls",
                     "algorithm": "dt",
                     "mode": "boolean",
@@ -370,8 +370,7 @@ class Mldb878Test(MldbUnitTest):
             # if we're asking for a 1-1 mapping between the output dataset and
             # the test set
             else:
-                test_where = jsRez["status"]["firstRun"]["status"]["folds"][0]["fold"]["testing_where"]
-                #mldb.log("select count(*) from toy where %s" % test_where)
+                test_where = jsRez["status"]["firstRun"]["status"]["folds"][0]["fold"]["testingWhere"]
                 count2 = mldb.query("select count(*) from toy where %s" % test_where)[1][1]
 
             self.assertEqual(count, count2)

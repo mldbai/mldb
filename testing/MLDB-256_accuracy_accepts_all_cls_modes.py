@@ -76,7 +76,7 @@ class Mldb256Test(MldbUnitTest):
             rez = mldb.put("/v1/procedures/bool_cls_seg", {
                 "type": "classifier.experiment",
                 "params": {
-                    "trainingData": "select {x, y} as features, label as label from categorical", # on purpose the wrong dataset
+                    "inputData": "select {x, y} as features, label as label from categorical", # on purpose the wrong dataset
                     "experimentName": "bool_exp_seg",
                     "keepArtifacts": True,
                     "modelFileUrlPattern": "file://temp/mldb-256_bool_seg.cls",
@@ -102,7 +102,7 @@ class Mldb256Test(MldbUnitTest):
         rez = mldb.put("/v1/procedures/bool_cls", {
             "type": "classifier.experiment",
             "params": {
-                "trainingData": "select {x, y} as features, label as label from boolean",
+                "inputData": "select {x, y} as features, label as label from boolean",
                 "experimentName": "bool_exp",
                 "keepArtifacts": True,
                 "modelFileUrlPattern": "file://temp/mldb-256_bool.cls",
@@ -124,8 +124,8 @@ class Mldb256Test(MldbUnitTest):
                 },
                 "datasetFolds": [
                     {
-                        "training_where": "rowHash() % 2 = 1",
-                        "testing_where": "rowHash() % 2 = 0",
+                        "trainingWhere": "rowHash() % 2 = 1",
+                        "testingWhere": "rowHash() % 2 = 0",
                     }],
                 "mode": "boolean",
                 "outputAccuracyDataset": True,
@@ -141,7 +141,7 @@ class Mldb256Test(MldbUnitTest):
         rez = mldb.put("/v1/procedures/bool_cls_weighted", {
             "type": "classifier.experiment",
             "params": {
-                "trainingData": "select {x, y} as features, label as label, weight as weight from boolean",
+                "inputData": "select {x, y} as features, label as label, weight as weight from boolean",
                 "experimentName": "bool_exp",
                 "keepArtifacts": True,
                 "modelFileUrlPattern": "file://temp/mldb-256_bool.cls",
@@ -163,8 +163,8 @@ class Mldb256Test(MldbUnitTest):
                 },
                 "datasetFolds": [
                     {
-                        "training_where": "rowHash() % 2 = 1",
-                        "testing_where": "rowHash() % 2 = 0",
+                        "trainingWhere": "rowHash() % 2 = 1",
+                        "testingWhere": "rowHash() % 2 = 0",
                     }],
                 "mode": "boolean",
                 "outputAccuracyDataset": True,
@@ -253,7 +253,7 @@ class Mldb256Test(MldbUnitTest):
         rez = mldb.put("/v1/procedures/categorical_cls", {
             "type": "classifier.experiment",
             "params": {
-                "trainingData": "select {col*} as features, label as label from categorical",
+                "inputData": "select {col*} as features, label as label from categorical",
                 "experimentName": "categorical_exp",
                 "keepArtifacts": True,
                 "modelFileUrlPattern": "file://temp/mldb-256_cat.cls",
@@ -269,8 +269,8 @@ class Mldb256Test(MldbUnitTest):
                 },
                 "datasetFolds": [
                     {
-                        "training_where": "rowHash() % 2 = 1",
-                        "testing_where": "rowHash() % 2 = 0",
+                        "trainingWhere": "rowHash() % 2 = 1",
+                        "testingWhere": "rowHash() % 2 = 0",
                     }],
                 "mode": "categorical",
                 "outputAccuracyDataset": True,
@@ -335,7 +335,7 @@ class Mldb256Test(MldbUnitTest):
         rez = mldb.put("/v1/procedures/regression_cls", {
             "type": "classifier.experiment",
             "params": {
-                "trainingData": "select {col*} as features, label as label from regression",
+                "inputData": "select {col*} as features, label as label from regression",
                 "experimentName": "reg_exp",
                 "keepArtifacts": True,
                 "modelFileUrlPattern": "file://temp/mldb-256_reg.cls",
