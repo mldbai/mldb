@@ -29,6 +29,7 @@
 #include "mldb/types/optional_description.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/vfs/filter_streams.h"
+#include "mldb/plugins/progress.h"
 
 using namespace std;
 
@@ -139,7 +140,7 @@ getStatus() const
 RunOutput
 KmeansProcedure::
 run(const ProcedureRunConfig & run,
-      const std::function<bool (const Json::Value &)> & onProgress) const
+      const std::function<bool (const Step &)> & onProgress) const
 {
     auto runProcConf = applyRunConfOverProcConf(kmeansConfig, run);
 
@@ -154,12 +155,14 @@ run(const ProcedureRunConfig & run,
         checkWritability(runProcConf.modelFileUrl.toString(), "modelFileUrl");
     }
 
-    auto onProgress2 = [&] (const Json::Value & progress)
-        {
-            Json::Value value;
-            value["dataset"] = progress;
-            return onProgress(value);
-        };
+    Progress progress;
+    std::shared_ptr<Step> iterationStep = progress.steps({
+        make_pair("iterating", "percentile"),
+    });
+    auto onProgress2 = [&](float progressPct) {
+        iterationStep->value = progressPct;
+        return onProgress(*iterationStep.get());
+    };
 
     SqlExpressionMldbScope context(server);
 

@@ -18,6 +18,7 @@
 #include "mldb/base/parallel.h"
 #include <boost/algorithm/string.hpp>
 #include "mldb/http/http_exception.h"
+#include "mldb/plugins/progress.h"
 
 #include <git2.h>
 #include <git2/revwalk.h>
@@ -456,7 +457,7 @@ struct GitImporter: public Procedure {
     }
 
     virtual RunOutput run(const ProcedureRunConfig & run,
-                          const std::function<bool (const Json::Value &)> & onProgress) const
+                          const std::function<bool (const Step &)> & onProgress) const
     {
         auto runProcConf = applyRunConfOverProcConf(config, run);
         auto checkError = [&] (int error, const char * msg)

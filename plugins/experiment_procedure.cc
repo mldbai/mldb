@@ -23,6 +23,7 @@
 #include "mldb/plugins/sql_config_validator.h"
 #include "mldb/plugins/sql_expression_extractors.h"
 #include "mldb/plugins/sparse_matrix_dataset.h"
+#include "mldb/plugins/progress.h"
 
 using namespace std;
 
@@ -270,7 +271,7 @@ getStatus() const
 RunOutput
 ExperimentProcedure::
 run(const ProcedureRunConfig & run,
-    const std::function<bool (const Json::Value &)> & onProgress) const
+    const std::function<bool (const Step &)> & onProgress) const
 {
     JsStatsStatsGenerator statsGen;
     JsStatsStatsGenerator statsGenTrain;
@@ -281,13 +282,14 @@ run(const ProcedureRunConfig & run,
     std::atomic<int> progress(0);
 
 
-    auto onProgress2 = [&] (const Json::Value & details)
-        {
-            Json::Value value;
-            value["foldNumber"] = (int)progress;
-            value["details"] = details;
-            return onProgress(value);
-        };
+    Progress progressSteps;
+    std::shared_ptr<Step> iterationStep = progressSteps.steps({
+        make_pair("iterating", "percentile"),
+    });
+    auto onProgress2 = [&](float progressPct) {
+        iterationStep->value = progressPct;
+        return onProgress(*iterationStep.get());
+    };
 
     vector<string> resourcesToDelete;
 

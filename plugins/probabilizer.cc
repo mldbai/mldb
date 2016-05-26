@@ -27,6 +27,7 @@
 #include "mldb/types/distribution_description.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/vfs/filter_streams.h"
+#include "mldb/plugins/progress.h"
 
 #include "mldb/server/analytics.h"
 
@@ -122,7 +123,7 @@ getStatus() const
 RunOutput
 ProbabilizerProcedure::
 run(const ProcedureRunConfig & run,
-      const std::function<bool (const Json::Value &)> & onProgress) const
+      const std::function<bool (const Step &)> & onProgress) const
 {
     // 1.  Construct an applyFunctionToProcedure object
 
@@ -135,12 +136,14 @@ run(const ProcedureRunConfig & run,
     auto runProcConf = applyRunConfOverProcConf(probabilizerConfig, run);
 
 
-    auto onProgress2 = [&] (const Json::Value & progress)
-        {
-            Json::Value value;
-            value["dataset"] = progress;
-            return onProgress(value);
-        };
+    Progress progress;
+    std::shared_ptr<Step> iterationStep = progress.steps({
+        make_pair("iterating", "percentile"),
+    });
+    auto onProgress2 = [&](float progressPct) {
+        iterationStep->value = progressPct;
+        return onProgress(*iterationStep.get());
+    };
 
     SqlExpressionMldbScope context(server);
 

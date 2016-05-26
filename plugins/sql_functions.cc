@@ -22,6 +22,7 @@
 #include "mldb/rest/in_process_rest_connection.h"
 #include "mldb/plugins/sql_config_validator.h"
 #include "mldb/server/analytics.h"
+#include "mldb/plugins/progress.h"
 #include <memory>
 
 using namespace std;
@@ -538,8 +539,12 @@ TransformDataset(MldbServer * owner,
 RunOutput
 TransformDataset::
 run(const ProcedureRunConfig & run,
-    const std::function<bool (const Json::Value &)> & onProgress) const
+    const std::function<bool (const Step &)> & onProgress) const
 {
+    Progress progress;
+    std::shared_ptr<Step> iterationStep = progress.steps({
+        make_pair("iterating", "percentile"),
+    });
     auto runProcConf = applyRunConfOverProcConf(procedureConfig, run);
 
     // Get the input dataset
@@ -574,6 +579,10 @@ run(const ProcedureRunConfig & run,
 
 
     auto boundDataset = runProcConf.inputData.stm->from->bind(context);
+    auto onProgress2 = [&](float progressPct) {
+        iterationStep->value = progressPct;
+        return onProgress(*iterationStep.get());
+    };
     if (runProcConf.inputData.stm->groupBy.clauses.empty() && aggregators.empty()) {
 
         // We accumulate multiple rows per thread and insert with recordRows
@@ -620,7 +629,7 @@ run(const ProcedureRunConfig & run,
             .execute({recordRowInOutputDataset, true /*processInParallel*/},
                      runProcConf.inputData.stm->offset,
                      runProcConf.inputData.stm->limit,
-                     onProgress);
+                     onProgress2);
 
         // Finish off the last bits of each thread
         accum.forEach([&] (std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > * rows)
@@ -654,7 +663,7 @@ run(const ProcedureRunConfig & run,
             .execute({recordRowInOutputDataset, false /*processInParallel*/},
                      runProcConf.inputData.stm->offset,
                      runProcConf.inputData.stm->limit,
-                     onProgress);
+                     onProgress2);
     }
 
     // Save the dataset we created

@@ -16,6 +16,7 @@
 #include "mldb/soa/service/runner.h"
 #include <boost/filesystem.hpp>
 #include "mldb/types/any_impl.h"
+#include "mldb/plugins/progress.h"
 
 
 using namespace std;
@@ -71,7 +72,7 @@ getStatus() const
 RunOutput
 ExternalPythonProcedure::
 run(const ProcedureRunConfig & run,
-    const std::function<bool (const Json::Value &)> & onProgress) const
+    const std::function<bool (const Step &)> & onProgress) const
 {
     ExternalPythonProcedureConfig newProcConf =
         applyRunConfOverProcConf(procedureConfig, run);

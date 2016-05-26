@@ -24,6 +24,7 @@
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/soa/utils/csv_writer.h"
 #include "mldb/plugins/sql_config_validator.h"
+#include "mldb/plugins/progress.h"
 #include <memory>
 
 using namespace std;
@@ -83,8 +84,13 @@ CsvExportProcedure(MldbServer * owner,
 RunOutput
 CsvExportProcedure::
 run(const ProcedureRunConfig & run,
-    const std::function<bool (const Json::Value &)> & onProgress) const
+    const std::function<bool (const Step &)> & onProgress) const
 {
+    Progress progress;
+    std::shared_ptr<Step> iterationStep = progress.steps({
+        make_pair("iterating", "percentile"),
+    });
+
     auto runProcConf = applyRunConfOverProcConf(procedureConfig, run);
     SqlExpressionMldbScope context(server);
     filter_ostream out(runProcConf.dataFileUrl.toString());
@@ -199,10 +205,16 @@ run(const ProcedureRunConfig & run,
         }
         csv.endl();
     }
+
+    auto onProgress2 = [&](float progressPct) {
+        iterationStep->value = progressPct;
+        return onProgress(*iterationStep.get());
+    };
+
     bsq.execute({outputCsvLine, false/*processInParallel*/},
                 runProcConf.exportData.stm->offset,
                 runProcConf.exportData.stm->limit,
-                onProgress);
+                onProgress2);
     RunOutput output;
     return output;
 }

@@ -20,6 +20,7 @@
 #include "mldb/plugins/sql_expression_extractors.h"
 #include "mldb/plugins/sparse_matrix_dataset.h"
 #include "mldb/server/bound_queries.h"
+#include "mldb/plugins/progress.h"
 
 using namespace std;
 
@@ -96,7 +97,7 @@ getStatus() const
 RunOutput
 MeltProcedure::
 run(const ProcedureRunConfig & run,
-    const std::function<bool (const Json::Value &)> & onProgress) const
+    const std::function<bool (const Step &)> & onProgress) const
 {
     auto runProcConf = applyRunConfOverProcConf(procConfig, run);
 

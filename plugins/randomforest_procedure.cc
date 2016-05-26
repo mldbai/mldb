@@ -24,6 +24,7 @@
 #include "mldb/types/set_description.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/plugins/sql_config_validator.h"
+#include "mldb/plugins/progress.h"
 
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/uniform_int.hpp>
@@ -120,7 +121,7 @@ struct RandomForestRNG {
 RunOutput
 RandomForestProcedure::
 run(const ProcedureRunConfig & run,
-      const std::function<bool (const Json::Value &)> & onProgress) const
+      const std::function<bool (const Step &)> & onProgress) const
 {
     //Todo: we will need heuristics for those. (MLDB-1449)
     int maxBagsAtOnce = 1;

@@ -31,6 +31,7 @@ namespace MLDB {
 
 struct MldbServer;
 struct Procedure;
+struct Step;
 
 typedef EntityType<Procedure> ProcedureType;
 
@@ -110,7 +111,7 @@ struct Procedure: public MldbEntity, public RestEntity {
     }
 
     virtual RunOutput run(const ProcedureRunConfig & run,
-                          const std::function<bool (const Json::Value &)> & onProgress)
+                          const std::function<bool (const Step &)> & onProgress)
         const = 0;
 
     virtual bool isCollection() const;
@@ -200,7 +201,7 @@ struct NullProcedure: public Procedure {
     virtual Any getStatus() const;
 
     virtual RunOutput run(const ProcedureRunConfig & run,
-                          const std::function<bool (const Json::Value &)> & onProgress)
+                          const std::function<bool (const Step &)> & onProgress)
         const;
 };
 
@@ -245,7 +246,7 @@ struct SerialProcedure: public Procedure {
     virtual Any getStatus() const;
 
     virtual RunOutput run(const ProcedureRunConfig & run,
-                          const std::function<bool (const Json::Value &)> & onProgress)
+                          const std::function<bool (const Step &)> & onProgress)
         const;
 
     std::vector<std::shared_ptr<Procedure> > steps;
@@ -289,7 +290,7 @@ struct CreateEntityProcedure: public Procedure {
     virtual Any getStatus() const;
 
     virtual RunOutput run(const ProcedureRunConfig & run,
-                          const std::function<bool (const Json::Value &)> & onProgress)
+                          const std::function<bool (const Step &)> & onProgress)
         const;
 };
 
@@ -301,7 +302,7 @@ struct CreateEntityProcedure: public Procedure {
 std::shared_ptr<Procedure>
 obtainProcedure(MldbServer * server,
                 const PolyConfig & config,
-                const std::function<bool (const Json::Value & progress)> & onProgress
+                const std::function<bool (const Step & progress)> & onProgress
                     = nullptr);
 
 
@@ -339,7 +340,7 @@ registerProcedureType(const Package & package,
         (package, Config::name, description,
          [] (RestDirectory * server,
              PolyConfig config,
-             const std::function<bool (const Json::Value)> & onProgress)
+             const std::function<bool (const Json::Value &)> & onProgress)
          {
              auto procedure = new ProcedureT(ProcedureT::getOwner(server), config, onProgress);
              procedure->logger = MLDB::getMldbLog<ProcedureT>();

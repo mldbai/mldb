@@ -607,7 +607,7 @@ obtainDataset(MldbServer * server,
 std::shared_ptr<Dataset>
 createDataset(MldbServer * server,
               const PolyConfig & config,
-              const std::function<bool (const Json::Value & progress)> & onProgress
+              const std::function<bool (const float)> & onProgress
               = nullptr,
               bool overwrite = false);
 

@@ -19,6 +19,7 @@
 #include "mldb/server/dataset_context.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/vfs/fs_utils.h"
+#include "mldb/plugins/progress.h"
 
 
 using namespace std;
@@ -1092,14 +1093,17 @@ getStatus() const
 RunOutput
 ImportTextProcedure::
 run(const ProcedureRunConfig & run,
-    const std::function<bool (const Json::Value &)> & onProgress) const
+    const std::function<bool (const Step &)> & onProgress) const
 {
     auto runProcConf = applyRunConfOverProcConf(config, run);
 
-    auto onProgress2 = [&] (const Json::Value & progress) {
-        Json::Value value;
-        value["dataset"] = progress;
-        return onProgress(value);
+    Progress progress;
+    std::shared_ptr<Step> iterationStep = progress.steps({
+        make_pair("iterating", "percentile"),
+    });
+    auto onProgress2 = [&](float progressPct) {
+        iterationStep->value = progressPct;
+        return onProgress(*iterationStep.get());
     };
 
     std::shared_ptr<Dataset> dataset

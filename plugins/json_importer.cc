@@ -21,6 +21,7 @@
 #include "mldb/base/parallel.h"
 #include "mldb/arch/timers.h"
 #include "mldb/base/parse_context.h"
+#include "mldb/plugins/progress.h"
 
 using namespace std;
 
@@ -88,7 +89,7 @@ struct JSONImporter: public Procedure {
     JSONImporterConfig config;
 
     virtual RunOutput run(const ProcedureRunConfig & run,
-                          const std::function<bool (const Json::Value &)> & onProgress) const
+                          const std::function<bool (const Step &)> & onProgress) const
     {
         auto runProcConf = applyRunConfOverProcConf(config, run);
 

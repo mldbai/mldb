@@ -17,6 +17,7 @@
 #include "mldb/types/any_impl.h"
 #include "mldb/http/http_exception.h"
 #include "mldb/ext/tinyxml2/tinyxml2.h"
+#include "mldb/plugins/progress.h"
 
 
 using namespace std;
@@ -673,7 +674,7 @@ struct XlsxImporter: public Procedure {
     XlsxImporterConfig config;
 
     virtual RunOutput run(const ProcedureRunConfig & run,
-                          const std::function<bool (const Json::Value &)> & onProgress) const
+                          const std::function<bool (const Step &)> & onProgress) const
     {
         SharedStrings strings;
         Workbook workbook;

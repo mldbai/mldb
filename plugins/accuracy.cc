@@ -32,6 +32,7 @@
 #include "mldb/plugins/sql_config_validator.h"
 #include "mldb/plugins/sql_expression_extractors.h"
 #include "mldb/server/parallel_merge_sort.h"
+#include "mldb/plugins/progress.h"
 
 using namespace std;
 
@@ -580,7 +581,7 @@ runRegression(AccuracyConfig & runAccuracyConf,
 RunOutput
 AccuracyProcedure::
 run(const ProcedureRunConfig & run,
-    const std::function<bool (const Json::Value &)> & onProgress) const
+    const std::function<bool (const Step &)> & onProgress) const
 {
     auto runAccuracyConf = applyRunConfOverProcConf(accuracyConfig, run);
 

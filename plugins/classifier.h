@@ -24,6 +24,7 @@ struct Classifier_Impl;
 namespace Datacratic {
 namespace MLDB {
 
+struct Step;
 
 class SqlExpression;
 
@@ -86,7 +87,7 @@ struct ClassifierProcedure: public Procedure {
                 const std::function<bool (const Json::Value &)> & onProgress);
 
     virtual RunOutput run(const ProcedureRunConfig & run,
-                          const std::function<bool (const Json::Value &)> & onProgress) const;
+                          const std::function<bool (const Step &)> & onProgress) const;
 
     virtual Any getStatus() const;
 

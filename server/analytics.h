@@ -117,14 +117,14 @@ getEmbedding(const SelectExpression & select,
              const OrderByExpression & orderBy = ORDER_BY_NOTHING,
              int offset = 0,
              int limit = -1,
-             const std::function<bool (const Json::Value &)> & onProgress = nullptr);
+             const std::function<bool (const float &)> & onProgress = nullptr);
 
 std::pair<std::vector<std::tuple<RowHash, RowName, std::vector<double>, std::vector<ExpressionValue> > >,
           std::vector<KnownColumn> >
 getEmbedding(const SelectStatement & stm,
              SqlExpressionMldbScope & context,
              int maxDimensions = -1,
-             const std::function<bool (const Json::Value &)> & onProgress = nullptr);
+             const std::function<bool (const float)> & onProgress = nullptr);
 
 /** SELECT without FROM.
    

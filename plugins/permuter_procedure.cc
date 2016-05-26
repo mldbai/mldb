@@ -13,6 +13,7 @@
 #include "mldb/types/any_impl.h"
 #include "jml/utils/string_functions.h"
 #include "mldb/http/http_exception.h"
+#include "mldb/plugins/progress.h"
 
 using namespace std;
 
@@ -141,7 +142,7 @@ forEachPermutation(
 RunOutput
 PermutationProcedure::
 run(const ProcedureRunConfig & run,
-    const std::function<bool (const Json::Value &)> & onProgress) const
+    const std::function<bool (const Step &)> & onProgress) const
 {
     auto runProcConf = applyRunConfOverProcConf(procConf, run);
 

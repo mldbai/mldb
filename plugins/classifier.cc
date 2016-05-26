@@ -42,6 +42,7 @@
 #include "mldb/types/any_impl.h"
 #include "mldb/rest/in_process_rest_connection.h"
 #include "mldb/server/static_content_macro.h"
+#include "mldb/plugins/progress.h"
 
 
 using namespace std;
@@ -148,7 +149,7 @@ getStatus() const
 RunOutput
 ClassifierProcedure::
 run(const ProcedureRunConfig & run,
-      const std::function<bool (const Json::Value &)> & onProgress) const
+      const std::function<bool (const Step &)> & onProgress) const
 {
     // 1.  Construct an applyFunctionToProcedure object
 

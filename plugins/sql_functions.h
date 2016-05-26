@@ -20,6 +20,7 @@ namespace MLDB {
 struct SqlExpression;
 struct SqlExpressionMldbScope;
 struct SqlExpressionExtractScope;
+struct Step;
 
 
 /*****************************************************************************/
@@ -149,7 +150,7 @@ struct TransformDataset: public Procedure {
                      const std::function<bool (const Json::Value &)> & onProgress);
 
     virtual RunOutput run(const ProcedureRunConfig & run,
-                          const std::function<bool (const Json::Value &)> & onProgress) const;
+                          const std::function<bool (const Step &)> & onProgress) const;
 
     virtual Any getStatus() const;
 

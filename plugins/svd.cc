@@ -33,6 +33,7 @@
 #include "mldb/http/http_exception.h"
 #include "mldb/types/hash_wrapper_description.h"
 #include "mldb/vfs/filter_streams.h"
+#include "mldb/plugins/progress.h"
 
 using namespace std;
 
@@ -677,7 +678,7 @@ getStatus() const
 RunOutput
 SvdProcedure::
 run(const ProcedureRunConfig & run,
-      const std::function<bool (const Json::Value &)> & onProgress) const
+      const std::function<bool (const Step &)> & onProgress) const
 {
     auto runProcConf = applyRunConfOverProcConf(svdConfig, run);
 

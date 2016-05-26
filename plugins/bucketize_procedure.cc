@@ -113,7 +113,7 @@ BucketizeProcedure(MldbServer * owner,
 RunOutput
 BucketizeProcedure::
 run(const ProcedureRunConfig & run,
-    const std::function<bool (const Json::Value &)> & onProgress) const
+    const std::function<bool (const Step &)> & onProgress) const
 {
     auto runProcConf = applyRunConfOverProcConf(procedureConfig, run);
     Progress bucketizeProgress;
@@ -155,9 +155,9 @@ run(const ProcedureRunConfig & run,
     };
 
     auto onProgress2 = [&](float progressPct) {
-        //auto itProgress = jsonDecode<IterationProgress>(progress);
         iterationStep->value = progressPct;
-        return onProgress(jsonEncode(bucketizeProgress));
+        const Step & s = *(iterationStep.get());
+        return onProgress(s);
     };
 
     BoundSelectQuery(select,
@@ -203,7 +203,7 @@ run(const ProcedureRunConfig & run,
             }
             if ((rowIndex.load() % 2048) == 0) {
                 bucketizeStep->value = (float)(rowIndex.load()) / rowCount;
-                onProgress(jsonEncode(bucketizeProgress));
+                onProgress(*bucketizeStep.get());
             }
         };
         auto range = mappedRange.second;

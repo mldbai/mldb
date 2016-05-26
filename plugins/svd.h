@@ -22,6 +22,7 @@ namespace MLDB {
 
 struct SelectExpression;
 struct SqlExpression;
+struct Step;
 
 struct SvdConfig : ProcedureConfig {
     static constexpr char const * name = "svd.train";
@@ -127,7 +128,7 @@ struct SvdProcedure: public Procedure {
                 const std::function<bool (const Json::Value &)> & onProgress);
 
     virtual RunOutput run(const ProcedureRunConfig & run,
-                          const std::function<bool (const Json::Value &)> & onProgress) const;
+                          const std::function<bool (const Step &)> & onProgress) const;
 
     virtual Any getStatus() const;
 

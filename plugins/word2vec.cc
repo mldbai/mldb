@@ -13,6 +13,7 @@
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/jml/stats/distribution.h"
+#include "mldb/plugins/progress.h"
 #include <boost/algorithm/string.hpp>
 
 using namespace std;
@@ -73,7 +74,7 @@ struct Word2VecImporter: public Procedure {
     Word2VecImporterConfig config;
 
     virtual RunOutput run(const ProcedureRunConfig & run,
-                          const std::function<bool (const Json::Value &)> & onProgress) const
+                          const std::function<bool (const Step &)> & onProgress) const
     {
         auto runProcConf = applyRunConfOverProcConf(config, run);
         auto info = getUriObjectInfo(runProcConf.dataFileUrl.toString());
