@@ -46,7 +46,8 @@ class ProcedureProgressTest(MldbUnitTest):
         })
 
         running = True
-        last_percent = 0.0
+        iterating_last_pct = 0.0
+        bucketizing_last_pct = 0.0
         while(running):
             resp = mldb.get(location).json()
             self.assertTrue('id' in resp,
@@ -55,19 +56,33 @@ class ProcedureProgressTest(MldbUnitTest):
                 'state' in resp,
                 "status is expected to return the state of the run")
             if resp['state'] == 'finished':
+                mldb.log(resp)
                 running = False
             elif resp['state'] == 'executing': # still executing
                 self.assertTrue(
                     'progress' in resp,
                     "status is expected to return the progress of the run "
                     + str(resp))
-                current_percent = resp['progress']['steps'][0]['percent']
-                self.assertGreaterEqual(current_percent, last_percent,
-                                        'percent must be increasing')
-                last_percent = current_percent
+                if resp['progress']['steps'][0]['name'] == 'iterating':
+                    iterating_current_pct = \
+                        resp['progress']['steps'][0]['percent']
+                    bucketizing_current_pct = \
+                        resp['progress']['steps'][1]['percent']
+                else:
+                    iterating_current_pct = \
+                        resp['progress']['steps'][1]['percent']
+                    bucketizing_current_pct = \
+                        resp['progress']['steps'][0]['percent']
+                self.assertGreaterEqual(
+                    iterating_current_pct, iterating_last_pct,
+                    'percent must be increasing')
+                iterating_last_pct = iterating_current_pct
+                self.assertGreaterEqual(
+                    bucketizing_current_pct, bucketizing_last_pct,
+                    'percent must be increasing')
+                bucketizing_last_pct = bucketizing_current_pct
                 mldb.log(resp)
             time.sleep(0.001)
-
 
         resp = mldb.put("/v1/procedures/test", {
             'type' : 'bucketize',
