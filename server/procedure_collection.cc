@@ -37,6 +37,15 @@ obtainProcedure(MldbServer * server,
     return server->procedures->obtainEntitySync(config, onProgress);
 }
 
+std::shared_ptr<Procedure>
+createProcedure(MldbServer * server,
+                const PolyConfig & config,
+                const std::function<bool (const Json::Value & progress)> & onProgress,
+                bool overwrite)
+{
+    return server->procedures->createEntitySync(config, onProgress, overwrite);
+}
+
 std::shared_ptr<ProcedureType>
 registerProcedureType(const Package & package,
                       const Utf8String & name,

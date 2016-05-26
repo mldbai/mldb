@@ -134,18 +134,15 @@ class Mldb878Test(MldbUnitTest):
         conf["params"]["outputAccuracyDataset"] = True
 
         rez = mldb.put("/v1/procedures/rocket_science2", conf)
-        #mldb.log(rez)
 
         rez = mldb.post("/v1/procedures/rocket_science2/runs")
-        #mldb.log(rez)
-
         js_rez = rez.json()
-        #mldb.log(js_rez)
 
-        # did we run two training jobs that both got a good auc ?
+        # did we get the rez for 1 fold?
         assert len(js_rez["status"]["folds"]) == 1
+        accuracyDataset = js_rez["status"]["folds"][0]["accuracyDataset"]
 
-        # did we create two output datasets?
+        # did we create the output dataset?
         rez = mldb.get("/v1/datasets")
         js_rez = rez.json()
         #mldb.log(js_rez)
@@ -160,8 +157,6 @@ class Mldb878Test(MldbUnitTest):
         conf["params"]["experimentName"] = "no_fold_&_no_testing"
 
         rez = mldb.put("/v1/procedures/rocket_science8", conf)
-        #mldb.log(rez)
-
         rez = mldb.post("/v1/procedures/rocket_science8/runs")
         #mldb.log(rez)
 
@@ -330,6 +325,57 @@ class Mldb878Test(MldbUnitTest):
         with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
                 'Error when trying'):
             rez = mldb.put("/v1/procedures/rocket_science", conf)
+
+
+    def test_uniqueScoreOutput(self):
+        counts = {}
+        for unique in [True, False]:
+            conf = {
+                "type": "classifier.experiment",
+                "params": {
+                    "experimentName": "uniqueScoreOutputTest",
+                    "trainingData": "select {* EXCLUDING(label)} as features, label from toy",
+                    "modelFileUrlPattern": "file://build/x86_64/tmp/bouya-pwet-$runid.cls",
+                    "algorithm": "dt",
+                    "mode": "boolean",
+                    "configuration": {
+                        "dt": {
+                            "type": "decision_tree",
+                            "max_depth": 8,
+                            "verbosity": 3,
+                            "update_alg": "prob"
+                        }
+                    },
+                    "outputAccuracyDataset": True,
+                    "evalTrain": True,
+                    "runOnCreation": True,
+                    "uniqueScoresOnly": unique
+                }
+            }
+            rez = mldb.put("/v1/procedures/test_uniqueScoreOutput", conf)
+            jsRez = rez.json()
+
+            datasetName = jsRez["status"]["firstRun"]["status"]["folds"][0]["accuracyDataset"]
+
+            count = mldb.query("select count(*) from " + datasetName)[1][1]
+
+            # if we're asking for only unique scores
+            if unique:
+                count2 = mldb.query("""
+                    select sum(cnt) 
+                    from (
+                        select count(*) as cnt from %s group by score
+                    )""" % datasetName)[1][1]
+
+            # if we're asking for a 1-1 mapping between the output dataset and
+            # the test set
+            else:
+                test_where = jsRez["status"]["firstRun"]["status"]["folds"][0]["fold"]["testing_where"]
+                #mldb.log("select count(*) from toy where %s" % test_where)
+                count2 = mldb.query("select count(*) from toy where %s" % test_where)[1][1]
+
+            self.assertEqual(count, count2)
+
 
 
 mldb.run_tests()
