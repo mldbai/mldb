@@ -67,11 +67,9 @@ The `update_alg` parameter can take three different values: `prob`, `normal` and
 Here is how they work, using an example with a leaf node that contains 8 positive
 and 2 negative labels:
 
-`prob` is the proportion of positive classes: \\(\#pos/(\#pos + \#neg)\\). For our example the output is \\(8/10=0.8\\)
-
-`normal` uses the margin between both probabilities, 80% positives, 20% negatives. For our example the output is\\(0.8 - 0.2 = 0.6\\) and \\(1 - 0.6 = 0.4\\). These scores are fed to a function, $$f$$, of the exponential family (bounded between -infinity and +infinity). For our example the output is \\(f(0.6) - f(0.4)\\)
-
-`gentle` also uses the margin, but with a different function, $$g$$, bounded between -1 and 1.
+* `prob` is the proportion of positive classes: \\(\#pos/(\#pos + \#neg)\\). For our example the output is \\(8/10=0.8\\)
+* `normal` uses the margin between both probabilities, 80% positives, 20% negatives. For our example the output is\\(0.8 - 0.2 = 0.6\\) and \\(1 - 0.6 = 0.4\\). These scores are fed to a function, $$f$$, of the exponential family (bounded between -infinity and +infinity). For our example the output is \\(f(0.6) - f(0.4)\\)
+* `gentle` also uses the margin, but with a different function, $$g$$, bounded between -1 and 1.
 In an ensemble, such as boosting or random forest, it is recommended to use this value. For our example the output is \\(g(0.6) - g(0.4)\\)
 
 For more details, please refer to [Friedman, Hastie, Tibshirani, "Additive Logistic Regression: A Statistical View of Boosting"](http://projecteuclid.org/download/pdf_1/euclid.aos/1016218223)
