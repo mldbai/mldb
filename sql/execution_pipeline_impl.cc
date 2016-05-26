@@ -499,7 +499,10 @@ takeColumn()
                 return true;
             };
 
-            ExpressionValue& values = subResult->values[1]; //TODO: will it always be 1?
+            ssize_t valuesOffset = subResult->values.size() - 1;
+
+            ExpressionValue& values = subResult->values[valuesOffset];
+
             values.forEachColumn(pushColumn);
         }
 
@@ -522,9 +525,11 @@ takeColumn()
 
     for (auto& r : *rows) {
 
-        ExpressionValue& rowName = r->values[0]; //rowName becomes the colum name
-        Path rowNamePath;
-        rowNamePath.parse(rowName.toUtf8String());
+        ssize_t valuesOffset = r->values.size() - 1;
+        ssize_t rowNameOffset = valuesOffset - 1;
+
+        ExpressionValue& rowName = r->values[rowNameOffset]; //rowName becomes the colum name
+        Path rowNamePath = Path::parse(rowName.toUtf8String());
 
         auto pushResult = [&] (const PathElement & columnName, const ExpressionValue & val) {
             if (columnName == subColumnName) {
@@ -534,7 +539,7 @@ takeColumn()
             return true;
         };
 
-        ExpressionValue& values = r->values[1]; //TODO: will it always be 1?
+        ExpressionValue& values = r->values[valuesOffset];
         values.forEachColumn(pushResult);
     }
 
