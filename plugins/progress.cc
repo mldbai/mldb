@@ -15,13 +15,14 @@ using namespace std;
 
 shared_ptr<Step>
 Step::
-nextStep() {
+nextStep(float endValue) {
     ended = Date::now();
-    percent = 1;
+    value = endValue;
     auto nextStep = _nextStep.lock();
-    if (nextStep) {
-        nextStep->started = Date::now();
+    if (!nextStep) {
+        throw ML::Exception("No next step!");
     }
+    nextStep->started = Date::now();
     return nextStep;
 }
 
@@ -32,23 +33,27 @@ StepDescription()
     addField("name", &Step::name, "");
     addField("started", &Step::started, "");
     addField("ended", &Step::ended, "");
-    addField("percent", &Step::percent, "");
+    addField("value", &Step::value, "");
+    addField("type", &Step::type, "");
 }
 
-std::shared_ptr<Step>
+shared_ptr<Step>
 Progress::
-steps(std::vector<std::string> names) {
+steps(vector<pair<string, string>> nameAndTypes) {
     std::shared_ptr<Step> previousStep;
-    for (const auto & name : names) {
-        std::shared_ptr<Step> step = std::make_shared<Step>(name);
-        if (previousStep)
+    for (const auto & nameAndType : nameAndTypes) {
+        auto step = std::make_shared<Step>(nameAndType.first,
+                                           nameAndType.second);
+        if (previousStep) {
             previousStep->_nextStep = step;
+        }
         _steps.push_back(step);
         previousStep = step;
     }
     auto firstStep = _steps.begin();
-    if (firstStep != _steps.end())
+    if (firstStep != _steps.end()) {
         (*firstStep)->started = Date::now();
+    }
     return *firstStep;
 }
 
@@ -57,13 +62,6 @@ ProgressDescription::
 ProgressDescription()
 {
     addField("steps", &Progress::_steps, "");
-}
-
-DEFINE_STRUCTURE_DESCRIPTION(IterationProgress);
-IterationProgressDescription::
-IterationProgressDescription()
-{
-    addField("percent", &IterationProgress::percent, "");
 }
 
 } // namespace MLDB

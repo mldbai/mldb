@@ -117,7 +117,10 @@ run(const ProcedureRunConfig & run,
 {
     auto runProcConf = applyRunConfOverProcConf(procedureConfig, run);
     Progress bucketizeProgress;
-    std::shared_ptr<Step> iterationStep = bucketizeProgress.steps({"iterating","bucketizing"});
+    std::shared_ptr<Step> iterationStep = bucketizeProgress.steps({
+        make_pair("iterating", "percentile"),
+        make_pair("bucketizing", "percentile")
+    });
 
     SqlExpressionMldbScope context(server);
 
@@ -151,9 +154,9 @@ run(const ProcedureRunConfig & run,
         return true;
     };
 
-    auto onProgress2 = [&](const Json::Value & progress) {
-        auto itProgress = jsonDecode<IterationProgress>(progress);
-        iterationStep->percent = itProgress.percent;
+    auto onProgress2 = [&](float progressPct) {
+        //auto itProgress = jsonDecode<IterationProgress>(progress);
+        iterationStep->value = progressPct;
         return onProgress(jsonEncode(bucketizeProgress));
     };
 
@@ -165,9 +168,9 @@ run(const ProcedureRunConfig & run,
                      runProcConf.inputData.stm->orderBy,
                      calc)
 
-        .execute({getSize, false/*processInParallel*/}, 
-                 runProcConf.inputData.stm->offset, 
-                 runProcConf.inputData.stm->limit, 
+        .execute({getSize, false/*processInParallel*/},
+                 runProcConf.inputData.stm->offset,
+                 runProcConf.inputData.stm->limit,
                  onProgress2);
 
     int64_t rowCount = orderedRowNames.size();
@@ -177,11 +180,10 @@ run(const ProcedureRunConfig & run,
                                 nullptr, true /*overwrite*/);
 
     typedef tuple<ColumnName, CellValue, Date> Cell;
-    PerThreadAccumulator<vector<pair<RowName, vector<Cell> > > > accum;
+    PerThreadAccumulator<vector<pair<RowName, vector<Cell>>>> accum;
 
-    auto bucketizeStep = iterationStep->nextStep();
-    float bucketCount = runProcConf.percentileBuckets.size();
-    unsigned int bucketIndex = 1; 
+    auto bucketizeStep = iterationStep->nextStep(1);
+    atomic<ssize_t> rowIndex(0);
     for (const auto & mappedRange: runProcConf.percentileBuckets) {
         std::vector<Cell> rowValue;
         rowValue.emplace_back(ColumnName("bucket"),
@@ -189,8 +191,8 @@ run(const ProcedureRunConfig & run,
                               globalMaxOrderByTimestamp);
 
 
-        auto applyFct = [&] (int64_t index)
-        {
+        auto applyFct = [&] (int64_t index) {
+            ++ rowIndex;
             auto & rows = accum.get();
             rows.reserve(1024);
             rows.emplace_back(orderedRowNames[index], rowValue);
@@ -198,6 +200,10 @@ run(const ProcedureRunConfig & run,
             if (rows.size() >= 1024) {
                 output->recordRows(rows);
                 rows.clear();
+            }
+            if ((rowIndex.load() % 2048) == 0) {
+                bucketizeStep->value = (float)(rowIndex.load()) / rowCount;
+                onProgress(jsonEncode(bucketizeProgress));
             }
         };
         auto range = mappedRange.second;
@@ -211,17 +217,11 @@ run(const ProcedureRunConfig & run,
         logger->debug() << "Bucket " << mappedRange.first << " from " << lowerBound
                         << " to " << higherBound;
 
-        if (onProgress) {
-            bucketizeStep->percent = bucketIndex / bucketCount;
-            onProgress(jsonEncode(bucketizeProgress));
-            bucketIndex++;
-        }
-
         parallelMap(lowerBound, higherBound, applyFct);
     }
 
     // record remainder
-    accum.forEach([&] (vector<pair<RowName, vector<Cell> > > * rows)
+    accum.forEach([&] (vector<pair<RowName, vector<Cell>>> * rows)
     {
         output->recordRows(*rows);
     });

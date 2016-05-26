@@ -724,8 +724,9 @@ setProgress(const Json::Value & _progress)
     
     if (!_progress.isNull()) {
         progress = _progress;
-        for (auto & f: onProgressFunctions)
-            f(progress);
+        for (auto & f: onProgressFunctions) {
+            f(progress["percent"].asDouble());
+        }
     }
 }
 

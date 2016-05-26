@@ -17,33 +17,29 @@ namespace Datacratic {
 namespace MLDB {
 
 struct Step {
-    Step(const std::string & name)
-        : name(name), percent(0) {}
+    Step(const std::string & name, const std::string & type)
+        : name(name), value(0), type(type) {}
     Step() {}
 
     // signals that the step is completed and that the next one can start
-    std::shared_ptr<Step> nextStep();
+    std::shared_ptr<Step> nextStep(float endValue);
 
     std::string name;
     Date started;
     Date ended;
-    float percent;
+    float value;
+    std::string type;
     std::weak_ptr<Step> _nextStep;
 };
 DECLARE_STRUCTURE_DESCRIPTION(Step);
 
 struct Progress {
     Progress() {}
-    std::shared_ptr<Step> steps(std::vector<std::string> names);
+    std::shared_ptr<Step>
+        steps(std::vector<std::pair<std::string, std::string>> nameAndTypes);
     std::vector<std::shared_ptr<Step> > _steps;
 };
 DECLARE_STRUCTURE_DESCRIPTION(Progress);
-
-struct IterationProgress {
-    IterationProgress() : percent(0) {}
-    float percent;
-};
-DECLARE_STRUCTURE_DESCRIPTION(IterationProgress);
 
 } // namespace MLDB
 } // namespace Datacratic

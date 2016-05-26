@@ -50,29 +50,32 @@ class ProcedureProgressTest(MldbUnitTest):
         bucketizing_last_pct = 0.0
         while(running):
             resp = mldb.get(location).json()
+            mldb.log(resp)
             self.assertTrue('id' in resp,
                             "status is expected to return the id of the run")
             self.assertTrue(
                 'state' in resp,
                 "status is expected to return the state of the run")
             if resp['state'] == 'finished':
-                mldb.log(resp)
                 running = False
             elif resp['state'] == 'executing': # still executing
                 self.assertTrue(
                     'progress' in resp,
-                    "status is expected to return the progress of the run "
-                    + str(resp))
+                    "status is expected to return the progress of the run ")
+                self.assertEqual(resp['progress']['steps'][0]['type'],
+                                 'percentile')
+                self.assertEqual(resp['progress']['steps'][1]['type'],
+                                 'percentile')
                 if resp['progress']['steps'][0]['name'] == 'iterating':
                     iterating_current_pct = \
-                        resp['progress']['steps'][0]['percent']
+                        resp['progress']['steps'][0]['value']
                     bucketizing_current_pct = \
-                        resp['progress']['steps'][1]['percent']
+                        resp['progress']['steps'][1]['value']
                 else:
                     iterating_current_pct = \
-                        resp['progress']['steps'][1]['percent']
+                        resp['progress']['steps'][1]['value']
                     bucketizing_current_pct = \
-                        resp['progress']['steps'][0]['percent']
+                        resp['progress']['steps'][0]['value']
                 self.assertGreaterEqual(
                     iterating_current_pct, iterating_last_pct,
                     'percent must be increasing')
@@ -81,7 +84,6 @@ class ProcedureProgressTest(MldbUnitTest):
                     bucketizing_current_pct, bucketizing_last_pct,
                     'percent must be increasing')
                 bucketizing_last_pct = bucketizing_current_pct
-                mldb.log(resp)
             time.sleep(0.001)
 
         resp = mldb.put("/v1/procedures/test", {
