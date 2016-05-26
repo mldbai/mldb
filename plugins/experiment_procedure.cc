@@ -77,75 +77,71 @@ ExperimentProcedureConfigDescription()
     addField("experimentName", &ExperimentProcedureConfig::experimentName,
              "A string without spaces which will be used to name the various datasets, "
              "procedures and functions created this procedure runs.");
+     addField("mode", &ExperimentProcedureConfig::mode,
+             "Model mode: `boolean`, `regression` or `categorical`. "
+             "Controls how the label is interpreted and what is the output of the classifier. "
+             , CM_BOOLEAN);
     addField("inputData", &ExperimentProcedureConfig::inputData,
-             "Specification of the data for input to the experiment procedure. "
-             "Usually an SQL query of the form `select {f1, f2} as features, x as label from ds`.\n"
+             "SQL query which specifies the features, labels and optional weights for the training and testing procedures. "
+             "This query is used to create a training and testing set according to the [steps laid "
+             "out below](#TrainTest).\n\n"
+             "The query should be of the form `select {f1, f2} as features, x as label from ds`.\n\n"
              "The select expression must contain these two columns: \n\n"
              "  * `features`: a row expression to identify the features on which to \n"
              "    train, and \n"
-             "  * `label`: one scalar expression to identify the label.\n\n"
-             "The type of the `label` column must match that of the classifier mode: \n\n"
-             "  * a boolean (0 or 1) for `boolean` mode;\n"
-             "  * a real for `regression mode`; and\n"
-             "  * any combination of numbers and strings for `categorical` mode.\n\n"
-            "Labels with a null value will have their row skipped. \n\n"
+             "  * `label`: one scalar expression to identify the row's label, and whose type "
+             "must match that of the classifier mode. Rows with null labels will be ignored. \n"
+             "     * `boolean` mode: a boolean (0 or 1)\n"
+             "     * `regression` mode: a real number\n"
+             "     * `categorical` mode: any combination of numbers and strings for\n\n"
              "The select expression can contain an optional `weight` column. The weight "
              "allows the relative importance of examples to be set. It must "
-             "be a real number. If the expression is not specified each example will have "
+             "be a real number. If the `weight` is not specified each row will have "
              "a weight of 1. Rows with a null weight will cause a training error. \n\n"
-             "The select statement does not support `GROUP BY` or `HAVING` clauses and, "
+             "The query must not contain `GROUP BY` or `HAVING` clauses and, "
              "unlike most select expressions, this one can only select whole columns, "
              "not expressions involving columns. So `X` will work, but not `X + 1`. "
-             "If you need derived values in the select expression, create a dataset with "
+             "If you need derived values in the query, create a dataset with "
              "the derived columns as a previous step and use a query on that dataset instead.");
-    addField("testingDataOverride", &ExperimentProcedureConfig::testingDataOverride,
-             "Specification of the data for input to the accuracy procedure. "
-             "This optional parameter must be of the same form as the `inputData` "
-             "parameter above, and in fact by default it takes the same value as "
-             "`inputData`.\n\n"
-             "This parameter is transformed into an actual test set according to the steps "
-             "laid out below.\n\n"
-             "This parameter is useful when it is necessary to test on data contained in "
-             "a different dataset from the training data, or to calculate accuracy statistics "
-             "with uneven weighting, for example to counteract the effect of "
-             "non-uniform sampling in dataset.  By default, each class will "
-             "get the same weight.  This value is relative to the other "
-             "examples, in other words having all examples weighted 1 or all "
-             "examples weighted 10 will have the same effect.  That being "
-             "said, it is a good idea to keep the weights centered around 1 "
-             "to avoid numeric errors in the calculations.");
-    addField("keepArtifacts", &ExperimentProcedureConfig::keepArtifacts,
-             "If true, all procedures and intermediary datasets are kept.", false);
+    addField("kfold", &ExperimentProcedureConfig::kfold,
+             "Do a k-fold cross-validation. This is a helper parameter that "
+             "generates a [DatasetFoldConfig](#DatasetFoldConfig) splitting the dataset into k subsamples, "
+             "each fold testing on one `k`th of the input data and training on the rest.\n\n"
+             "0 means it is not used and 1 is an invalid number. It cannot be specified at the "
+             "same time as the `datasetFolds` parameter "
+             "and in general should not be used at the same time as the `testingDataOverride` "
+             "parameter.", ssize_t(0));
     addField("datasetFolds", &ExperimentProcedureConfig::datasetFolds,
-             "Dataset folds to use. This parameter can be used if the dataset folds "
+             "[DatasetFoldConfig](#DatasetFoldConfig) to use. This parameter can be used if the dataset folds "
              "required are more complex than a simple k-fold cross-validation. "
              "It cannot be specified as the same time as the `kfold` parameter "
              "and in general should not be used at the same time as the `testingDataOverride` "
              "parameter.");
-    addField("kfold", &ExperimentProcedureConfig::kfold,
-             "Do a k-fold cross-validation. This is a helper parameter that "
-             "generates a `datasetFolds` configuration splitting the dataset in k subsamples, "
-             "each fold testing on one subsample and training on the rest. 0 means it is not used and "
-             "1 is an invalid number. It cannot be specified at the "
-             "same time as the `datasetFolds` parameter "
-             "and in general should not be used at the same time as the `testingDataOverride` "
-             "parameter.", ssize_t(0));
-    addField("modelFileUrlPattern", &ExperimentProcedureConfig::modelFileUrlPattern,
-             "URL where the model file (with extension '.cls') should be saved. It "
-             "should include the string $runid that will be replaced by an identifier "
-             "for each run, if using multiple dataset folds.");
+    addField("testingDataOverride", &ExperimentProcedureConfig::testingDataOverride,
+             "SQL query which overrides the input data for the testing procedure. "
+             "This optional parameter must be of the same form as the `inputData` "
+             "parameter above, and by default takes the same value as `inputData`.\n\n"
+             "This query is used to create a test set according to the [steps laid "
+             "out below](#TrainTest).\n\n"
+             "This parameter is useful when it is necessary to test on data contained in "
+             "a different dataset from the training data, or to calculate accuracy statistics "
+             "with uneven weighting, for example to counteract the effect of "
+             "non-uniform sampling in the `inputData`.");
     addField("algorithm", &ExperimentProcedureConfig::algorithm,
              "Algorithm to use to train classifier with.  This must point to "
-             "an entry in the configuration or configurationFile parameters");
+             "an entry in the configuration or configurationFile parameters. "
+             "See the [`classifier.train` procedure documentation](Classifier.md.html) for details.");
     addField("configuration", &ExperimentProcedureConfig::configuration,
              "Configuration object to use for the classifier.  Each one has "
              "its own parameters.  If none is passed, then the configuration "
-             "will be loaded from the ConfigurationFile parameter",
+             "will be loaded from the ConfigurationFile parameter. "
+             "See the [`classifier.train` procedure documentation](Classifier.md.html) for details.",
              Json::Value());
     addField("configurationFile", &ExperimentProcedureConfig::configurationFile,
              "File to load configuration from.  This is a JSON file containing "
              "only objects, strings and numbers.  If the configuration object is "
-             "non-empty, then that will be used preferentially.",
+             "non-empty, then that will be used preferentially. "
+             "See the [`classifier.train` procedure documentation](Classifier.md.html) for details.",
              string("/opt/bin/classifiers.json"));
     addField("equalizationFactor", &ExperimentProcedureConfig::equalizationFactor,
               "Amount to adjust weights so that all classes have an equal "
@@ -153,10 +149,14 @@ ExperimentProcedureConfigDescription()
               "at all.  A value of 1 will ensure that the total weight for "
               "both positive and negative examples is exactly identical. "
               "A number between will choose a balanced tradeoff.  Typically 0.5 "
-              "is a good number to use for unbalanced probabilities", 0.5);
-     addField("mode", &ExperimentProcedureConfig::mode,
-              "Mode of classifier.  Controls how the label is interpreted and "
-              "what is the output of the classifier.", CM_BOOLEAN);
+              "is a good number to use for unbalanced probabilities. "
+             "See the [`classifier.train` procedure documentation](Classifier.md.html) for details.", 0.5);
+    addField("modelFileUrlPattern", &ExperimentProcedureConfig::modelFileUrlPattern,
+             "URL where the model file (with extension '.cls') should be saved. It "
+             "should include the string $runid that will be replaced by an identifier "
+             "for each run, if using multiple dataset folds.");
+    addField("keepArtifacts", &ExperimentProcedureConfig::keepArtifacts,
+             "If true, all procedures and intermediary datasets are kept.", false);
      addField("evalTrain", &ExperimentProcedureConfig::evalTrain,
               "Run the evaluation on the training set. If true, the same performance "
               "statistics that are returned for the testing set will also be "
