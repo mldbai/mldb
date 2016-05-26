@@ -67,7 +67,16 @@ struct StructureDescriptionBase {
     typedef std::map<const char *, FieldDescription, StrCompare> Fields;
     Fields fields;
 
-    std::vector<std::string> fieldNames;
+    /* A deleter that works with buffers allocated with malloc */
+    struct FreeDeleter {
+        void operator () (void * p)
+            const
+        {
+            ::free(p);
+        }
+    };
+
+    std::vector<std::unique_ptr<char, FreeDeleter> > fieldNames;
 
     std::vector<Fields::const_iterator> orderedFields;
 
@@ -171,8 +180,8 @@ struct StructureDescription
         if (fields.count(name.c_str()))
             throw ML::Exception("field '" + name + "' added twice");
 
-        fieldNames.push_back(name);
-        const char * fieldName = fieldNames.back().c_str();
+        fieldNames.emplace_back(::strdup(name.c_str()));
+        const char * fieldName = fieldNames.back().get();
         
         auto it = fields.insert
             (Fields::value_type(fieldName, std::move(FieldDescription())))
@@ -203,8 +212,8 @@ struct StructureDescription
         if (fields.count(name.c_str()))
             throw ML::Exception("field '" + name + "' added twice");
 
-        fieldNames.push_back(name);
-        const char * fieldName = fieldNames.back().c_str();
+        fieldNames.emplace_back(::strdup(name.c_str()));
+        const char * fieldName = fieldNames.back().get();
         
         auto it = fields.insert
             (Fields::value_type(fieldName, std::move(FieldDescription())))
@@ -341,8 +350,8 @@ addParent(ValueDescriptionT<V> * description_)
         FieldDescription & ofd = const_cast<FieldDescription &>(oit->second);
         const std::string & name = ofd.fieldName;
 
-        fieldNames.push_back(name);
-        const char * fieldName = fieldNames.back().c_str();
+        fieldNames.emplace_back(::strdup(name.c_str()));
+        const char * fieldName = fieldNames.back().get();
 
         auto it = fields.insert(Fields::value_type(fieldName, std::move(FieldDescription()))).first;
         FieldDescription & fd = it->second;
