@@ -77,7 +77,7 @@ AccuracyConfigDescription()
               "they have the same score when `mode` is `boolean`. Specifying a "
              "dataset is optional.", optionalOutputDataset);
     addField("uniqueScoresOnly", &AccuracyConfig::uniqueScoresOnly,
-              "If `outputDataset` is set and mode is set to `boolean`, setting this parameter "
+              "If `outputDataset` is set and `mode` is set to `boolean`, setting this parameter "
               "to `true` will output a single row per unique score. This is useful if the "
               "test set is very large and aggregate statistics for each unique score is "
               "sufficient, for instance to generate a ROC curve. This has no effect "
