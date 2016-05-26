@@ -1,4 +1,3 @@
-
 # coding: utf-8
 
 # # Spam Filtering Using [Euron's Dataset][1]
@@ -9,104 +8,47 @@
 from pymldb import Connection
 mldb = Connection('http://localhost:8087')
 
-import sys, tarfile, gzip
-import requests
-from random import randrange, seed
-from StringIO import StringIO
-from pymldb import Connection
-
-# remove control chars that mldb doesn't like at the moment (see MLDB-1630)
-# http://stackoverflow.com/a/93029/1067132
-import unicodedata, re
-all_chars = (unichr(i) for i in xrange(0x110000))
-control_chars = ''.join(map(unichr, range(0,32) + range(127,160)))
-control_char_re = re.compile('[%s]' % re.escape(control_chars))
-
-def remove_control_chars(s):
-    return control_char_re.sub('', s)
-
-seed(1234)
-
-enron_base_url = 'http://www.aueb.gr/users/ion/data/enron-spam/preprocessed/'
-enron_data_url = enron_base_url + 'enron{}.tar.gz'
-
-def add_enron_file_to_dataset(mldb, dataset, no, max_msg=None):
-    req = requests.get(enron_data_url.format(no))
-    if req.status_code != 200:
-        raise RuntimeError('enron files not found')
-    content = StringIO(req.content)
-    gz = gzip.GzipFile(fileobj=content)
-    file = tarfile.TarFile(fileobj=gz)
-
-    files = file.getnames()
-    ham = sorted([f for f in files if f.endswith('.ham.txt')])
-    spam = sorted([f for f in files if f.endswith('.spam.txt')])
-    # We insert the spam randomly in the ham, but keeping the ordering. It
-    # follows the logic from the article pointed out here:
-    # http://www.aueb.gr/users/ion/data/enron-spam/readme.txt
-    where_to_insert = \
-        sorted([randrange(len(ham) + 1) for i in xrange(len(spam))])
-    # Simply taking into account the fact that the list with get bigger every
-    # time we add a new item
-    where_to_insert = [x + i for i,x in enumerate(where_to_insert)]
-
-    ham_spam = ham
-    for w,s in zip(where_to_insert, spam):
-        ham_spam.insert(w, s)
-
-    for i, name in enumerate(ham_spam):
-        msg = file.extractfile(name).read()
-        # mldb doesn't like some funny characters, which are present in some
-        # mails, so let's get rid of them
-        msg = msg.decode('utf-8', 'ignore')
-        msg = remove_control_chars(msg)
-
-        msg = msg.replace('\r\n', '\n')
-        mldb.post(dataset + '/rows', {
-            'rowName': 'enron_{}_mail_{}'.format(no,i),
-            'columns': [
-                ['label', 'spam' if 'spam' in name else 'ham', 0],
-                ['index', i, 0],
-                ['msg', msg, 0],
-                ['dataset', no, 0],
-                ['file', name, 0]]})
-
-        if max_msg is not None and i >= max_msg - 1:
-            break
-
-
 # First let's load the 1st of Enron's datasets (there are 6) into MDLB, using a separate script.
 
 # In[2]:
 
-NB_TRAIN = 2500
-NB_TEST = 2500
-
 def import_data():
-    mldb.put('/v1/datasets/enron_data', {'type': 'sparse.mutable'})
-    add_enron_file_to_dataset(mldb, '/v1/datasets/enron_data', 1, max_msg=NB_TRAIN + NB_TEST)
-    mldb.post('/v1/datasets/enron_data/commit')
-
-
-# MEGA HACK to prevent de |1 in the svd
-def add_0_column(dataset_name):
-    # BROKEN
-    mldb.put("/v1/datasets/" + dataset_name + '_t', {
-        "type": "transposed",
-        "params": {
-            "dataset": {'id': dataset_name}
+    print mldb.post('/v1/procedures', {
+        'type': 'import.text',
+        'params': {
+            'dataFileUrl': 'http://public.mldb.ai/datasets/enron.csv.gz',
+            'outputDataset': 'enron_all',
+            'named': "'enron_' + dataset + '_mail_' + index",
+            'where': 'dataset = 1',
+            'runOnCreation': True
         }
     })
 
-    cols = mldb.get('/v1/query', q='select rowName() as row_name from '
-                       + dataset_name + '_t', rowNames=0, format='soa') \
-        .json()['row_name']
-    for col in cols:
+    n = mldb.get('/v1/query', q='select count(*) as n from enron_all',
+                              format='aos').json()[0]['n']
+    print('there are', n, 'data points')
+    nb_train = n // 2
+    nb_test = n - nb_train
 
-        mldb.post('/v1/datasets/' + dataset_name + '/rows', {
-            'rowName': 'hack_email',
-            'columns': [[col, 0, 0]]})
-    mldb.post('/v1/datasets/' + dataset_name + '/commit')
+    # train test split
+    for limit_offset, id in [
+        ('limit ' + str(nb_train), 'enron_train'),
+        ('limit {} offset {} '.format(nb_test, nb_train), 'enron_test')]:
+        print mldb.post('/v1/procedures', {
+            'type': 'transform',
+            'params': {
+                'inputData': """
+                    select msg, label from enron_all
+                    order by index
+                    {}
+                    """.format(limit_offset),
+                'outputDataset': {
+                    'type': 'tabular',
+                    'id': id
+                },
+                'runOnCreation': True
+            }
+        })
 
 
 def import_w2v():
@@ -154,32 +96,28 @@ def fg_bow():
         }
     })
 
-    # FIXME min_token_length 2
-    # FIXME ngram_range:[1,3]
     print mldb.put('/v1/functions/bow2', {
         'type': 'sql.expression',
         'params': {
             'expression': """
                 tokenize(stemmerdoc({document:msg})[document], {
-                    splitchars: ' \n', quotechar: '', ngram_range:[1,2],
-                    min_token_length:3}) as bow2
+                    splitchars: ' \n', quotechar: '', ngram_range:[1,3],
+                    min_token_length:1}) as bow2
                 """
         }
     })
 
-    if 0:
-        for which in ['bow', 'bow2']:
-            print mldb.put('/v1/procedures/generate_{}'.format(which), {
-                'type': 'transform',
-                'params': {
-                    'inputData': """
-                        select {0}({{msg:msg}})[{0}] as *
-                        from enron_data
-                        """.format(which),
-                    'outputDataset': 'enron_{}'.format(which),
-                    'runOnCreation': True
-                }
-            })
+    print mldb.post('/v1/procedures', {
+        'type': 'transform',
+        'params': {
+            'inputData': """
+                select bow2({msg})[bow2] as *
+                from enron_train
+                """,
+            'outputDataset': 'enron_train_bow2',
+            'runOnCreation': True
+        }
+    })
 
 
 def fg_svd():
@@ -191,29 +129,36 @@ def fg_svd():
             'trainingData': """
                 select column expr (
                     order by rowCount() desc
-                    limit 1000
+                    limit 10000
                 )
-                from enron_bow2
-                limit {}
-            """.format(NB_TRAIN),
-            'numSingularValues': 50,
+                from enron_train_bow2
+            """,
+            'numSingularValues': 100,
             'numDenseBasisVectors': 2000,
             'modelFileUrl': 'file://enron_bow2.svd',
             'runOnCreation': True,
-            'columnOutputDataset': 'enron_bow2_svd_output'
+            'columnOutputDataset': 'enron_bow2_svd_output',
+            'functionName': 'bow2_svd_embed_row'
         }
     })
 
-    print mldb.put('/v1/procedures/apply_svd', {
-        'type': 'transform',
+    print mldb.put('/v1/functions/bow2_svd_embed_msg', {
+        'type': 'sql.expression',
         'params': {
-            'inputData': """
-                select svd({ {*} as row}) from enron_bow2
-            """,
-            'outputDataset': 'enron_bow2_svd',
-            'runOnCreation': True
+            'expression': 'bow2_svd_embed_row({row: {bow2({msg})[bow2] as *}})'
         }
     })
+
+    # print mldb.put('/v1/procedures/apply_svd', {
+    #     'type': 'transform',
+    #     'params': {
+    #         'inputData': """
+    #             select svd({ {*} as row}) from enron_bow2
+    #         """,
+    #         'outputDataset': 'enron_bow2_svd',
+    #         'runOnCreation': True
+    #     }
+    # })
 
 
 def fg_w2v():
@@ -236,10 +181,10 @@ def fg_stats_table():
     print mldb.put('/v1/procedures/train_stats_tables', {
         'type': 'statsTable.bagOfWords.train',
         'params': {
-            'trainingData': 'select bow2({msg:msg})[bow2] as * from enron_data',
+            'trainingData': 'select bow2({msg})[bow2] as * from enron_train',
             'outcomes': [['label', "label = 'spam'"]],
             'statsTableFileUrl': 'file://bow2_stats_table.st',
-            'outputDataset': 'bow2_st',
+            # 'outputDataset': 'bow2_st',
             'runOnCreation': True
         }
     })
@@ -249,7 +194,7 @@ def fg_stats_table():
         'params': {
             'numPos': 10000,
             'numNeg': 10000,
-            'minTrials': 10,
+            'minTrials': 5,
             'outcomeToUse': 'label',
             'statsTableFileUrl': 'file://bow2_stats_table.st'
         }
@@ -258,7 +203,7 @@ def fg_stats_table():
     print mldb.put('/v1/functions/apply_bow2_posneg', {
         'type': 'sql.expression',
         'params': {
-            'expression': 'bow2_posneg({words: {bow2({msg:msg})[bow2] as *}})[probs] as *'
+            'expression': 'bow2_posneg({words: {bow2({msg})[bow2] as *}})[probs] as *'
         }
     })
 
@@ -273,29 +218,22 @@ def fg_stats_table():
 
 
 def fg_all():
-    # print mldb.put('/v1/datasets/all_feats', {
-    #     'type': 'merged',
-    #     'params':{
-    #         'datasets': ['enron_bow_embed']
-    #     }
-    # })
-
-    print mldb.put('/v1/procedures/generate_raw_feats', {
-        'type': 'transform',
-        'params': {
-            'inputData': """
-            select {
-                    bow({msg}) as words,
-                    -- bow_embed({msg}) as *,
-                    agg_bow2_posneg({msg}) as *,
-                    } as features,
-                    label = 'spam' as label
-                from enron_data
-                """,
-            'outputDataset': 'enron_features',
-            'runOnCreation': True
-        }
-    })
+    for dataset in ['train', 'test']:
+        print mldb.put('/v1/procedures/generate_raw_feats', {
+            'type': 'transform',
+            'params': {
+                'inputData': """
+                    select {
+                        -- bow_embed({msg}) as *,
+                        -- agg_bow2_posneg({msg}) as *
+                        bow2_svd_embed_msg({msg}) as *
+                        } as features,
+                        label = 'spam' as label
+                    from enron_""" + dataset,
+                'outputDataset': 'enron_{}_features'.format(dataset),
+                'runOnCreation': True
+            }
+        })
 
 # Finally, let's train a very simple classifier, by training on the first half of the messages, and testing on the second half. This classifier will give a score to every email, and we can then choose a threshold where everything above the threshold is classified as spam, and every thing below as ham.
 
@@ -303,36 +241,23 @@ def fg_all():
 
 
 def train():
-    # n = mldb.get('/v1/query', q='select count(*) as n from enron_features',
-    #             format='aos').json()[0]['n']
     res = mldb.put('/v1/procedures/experiment', {
-        'type': 'classifier.experiment',
+        'type': 'classifier.train',
         'params': {
-            'experimentName': 'enron_experiment1',
-            # 'trainingData': 'select {features.* as *} as features, label from enron_features',
-            'trainingData': 'select {features.*} as features, label from enron_features',
-
-            # for now 50/50 split in time, but we might do something more
-            # fancy later!
-            'datasetFolds': [{
-                'training_limit': NB_TRAIN,
-                'testing_offset': NB_TRAIN,
-                'testing_limit': NB_TEST,
-                'orderBy': 'index',
-            }],
-            'modelFileUrlPattern': 'file://enron_model.cls',
+            'trainingData': 'select {features.*} as features, label from enron_train_features',
+            'modelFileUrl': 'file://enron_model.cls',
             'algorithm': 'bbdt',
+            'functionName': 'score',
             'runOnCreation': True
         }
     })
     print res
 
-
     # In[7]:
 
     from pprint import pprint
     pprint(res.json())
-    print 'AUC =', res.json()['status']['firstRun']['status']['aggregatedTest']['auc']['mean']
+    # print 'AUC =', res.json()['status']['firstRun']['status']['aggregatedTest']['auc']['mean']
 
 
 # Not a bad AUC for a model that simple. But [the AUC score of a classifier is only a very generic measure of performance][1]. When having a specific problem like spam filtering, we're better off using a performance metric that truly matches our intuition about what a good spam filter ought to be. Namely, a good spam filtering algorithm should almost never flag as spam a legitime email, while keeping your inbox as spam-free as possible. This is what should be used to choose the threshold for the classifier, and then to measure its performance.
@@ -355,35 +280,43 @@ def test():
         }
     })
 
+    for dataset in ['train', 'test']:
+        res = mldb.post('/v1/procedures', {
+            'type': 'classifier.test',
+            'params': {
+                'testingData': 'select score({{features: {{features.*}}}})[score] as score, label from enron_{}_features'.format(dataset),
+                'mode': 'boolean',
+                'outputDataset': 'enron_{}_test_results'.format(dataset),
+                'runOnCreation': True
+            }
+        })
+        print(res)
 
-    # In[9]:
 
     print mldb.query("""
         select "truePositives", "trueNegatives", "falsePositives", "falseNegatives", precision, recall, score,
             enron_score({precision, recall, ratio:0.05}) as *
-        from enron_experiment1_results_0
+        from enron_test_test_results
         order by enron_score desc
         limit 3
     """)
 
-    print mldb.put('/v1/functions/classify', {
-        'type': 'classifier',
-        'params': {
-            'modelFileUrl': 'file://enron_model.cls'
-        }
-    })
-
 
 #     As you can see, the best threshold is the one where in case of doubt, everything is classified as "ham". This leads to 615 spam messages in the inbox, but no ham wrongly filtered as spam. Clearly this can be improved!
 
-import_data()
+# print('import')
+# import_data()
 # import_w2v()
-fg_bow()
+print('fg bow')
+# fg_bow()
+print('fg w2v')
 # fg_w2v()
-fg_stats_table()
+print('fg svd')
+fg_svd()
+# fg_stats_table()
+print('generate features')
 fg_all()
+print('train')
 train()
+print('test')
 test()
-
-# add_0_column('enron_bow2')
-# fg_svd() # waiting for the svd to get fixed
