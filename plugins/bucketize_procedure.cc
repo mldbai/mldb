@@ -155,7 +155,6 @@ run(const ProcedureRunConfig & run,
     };
 
     auto onProgress2 = [&](float progressPct) {
-        //auto itProgress = jsonDecode<IterationProgress>(progress);
         iterationStep->value = progressPct;
         return onProgress(jsonEncode(bucketizeProgress));
     };
