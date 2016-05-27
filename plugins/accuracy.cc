@@ -76,6 +76,12 @@ AccuracyConfigDescription()
              "example will be written to this dataset. Examples get grouped when "
               "they have the same score when `mode` is `boolean`. Specifying a "
              "dataset is optional.", optionalOutputDataset);
+    addField("uniqueScoresOnly", &AccuracyConfig::uniqueScoresOnly,
+              "If `outputDataset` is set and `mode` is set to `boolean`, setting this parameter "
+              "to `true` will output a single row per unique score. This is useful if the "
+              "test set is very large and aggregate statistics for each unique score is "
+              "sufficient, for instance to generate a ROC curve. This has no effect "
+              "for other values of `mode`.", false);
     addParent<ProcedureConfig>();
 
     onPostValidate = validateQuery(&AccuracyConfig::testingData,
@@ -112,8 +118,8 @@ getStatus() const
 
 RunOutput
 runBoolean(AccuracyConfig & runAccuracyConf,
-            BoundSelectQuery & selectQuery,
-            std::shared_ptr<Dataset> output)
+           BoundSelectQuery & selectQuery,
+           std::shared_ptr<Dataset> output)
 {
 
     PerThreadAccumulator<ScoredStats> accum;
@@ -149,26 +155,14 @@ runBoolean(AccuracyConfig & runAccuracyConf,
     //stats.sort();
     stats.calculate();
     if(output) {
-        Date recordDate = Date::now();
+        const Date recordDate = Date::now();
 
         int prevIncludedPop = 0;
 
         std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > rows;
 
-        for (unsigned i = 1, j = 0;  i < stats.stats.size();  ++i) {
-            auto & bstats = stats.stats[i];
-            auto & entry = stats.entries[j];
-
-            // the difference between included population of the current versus
-            // last stats.stats represents the number of exemples included in the stats.
-            // examples get grouped when they have the same score. use the unweighted
-            // scores because we care about the actual number of examples, whatever
-            // what their training weight was
-            j += (bstats.includedPopulation(false) - prevIncludedPop);
-            prevIncludedPop = bstats.includedPopulation(false);
-
-            ExcAssertEqual(bstats.threshold, entry.score);
-
+        auto recordRow = [&] (unsigned i, const BinaryStats & bstats, ScoredStats::ScoredEntry & entry)
+        {
             std::vector<std::tuple<RowName, CellValue, Date> > row;
 
             row.emplace_back(ColumnName("index"), i, recordDate);
@@ -185,9 +179,35 @@ runBoolean(AccuracyConfig & runAccuracyConf,
             row.emplace_back(ColumnName("falsePositiveRate"), bstats.falsePositiveRate(), recordDate);
 
             rows.emplace_back(boost::any_cast<RowName>(entry.key), std::move(row));
-            if (rows.size() > 1000) {
+            if (rows.size() > 10000) {
                 output->recordRows(rows);
                 rows.clear();
+            }
+        };
+
+        for (unsigned i = 1, j = 0;  i < stats.stats.size();  ++i) {
+            auto & bstats = stats.stats[i];
+            auto & entry = stats.entries[j];
+
+            // the difference between included population of the current versus
+            // last stats.stats represents the number of exemples included in the stats.
+            // examples get grouped when they have the same score. use the unweighted
+            // scores because we care about the actual number of examples, whatever
+            // what their training weight was
+            unsigned next_j = j + (bstats.includedPopulation(false) - prevIncludedPop);
+            prevIncludedPop = bstats.includedPopulation(false);
+
+            if(runAccuracyConf.uniqueScoresOnly) {
+                j = next_j;
+                ExcAssertEqual(bstats.threshold, entry.score);
+                recordRow(i, bstats, entry);
+            }
+            else {
+                for(; j<next_j; j++) {
+                    entry = stats.entries[j];
+                    ExcAssertEqual(bstats.threshold, entry.score);
+                    recordRow(i, bstats, entry);
+                }
             }
         }
 
@@ -212,8 +232,8 @@ runBoolean(AccuracyConfig & runAccuracyConf,
 
 RunOutput
 runCategorical(AccuracyConfig & runAccuracyConf,
-                BoundSelectQuery & selectQuery,
-                std::shared_ptr<Dataset> output)
+               BoundSelectQuery & selectQuery,
+               std::shared_ptr<Dataset> output)
 {
     typedef vector<std::tuple<CellValue, CellValue, double, double, RowName>> AccumBucket;
     PerThreadAccumulator<AccumBucket> accum;
