@@ -402,7 +402,7 @@ struct MergedDataset::Itl
         if (bitmap)
         {
             int bit = ML::lowest_bit(bitmap, -1);
-            result = std::move(datasets[bit]->getColumnIndex()->getColumnValues(columnName));
+            result = std::move(datasets[bit]->getColumnIndex()->getColumnValues(columnName, filter));
 
             bitmap = bitmap & ~(1 << bit);
             bool sorted = std::is_sorted(result.begin(), result.end());  // true
