@@ -80,7 +80,13 @@ call(Words input) const
                        const CellValue & val,
                        Date ts)
         {
+            if(columnName.size() != 1) {
+                rtnRow.push_back(make_tuple(columnName, val, ts));
+                return true;
+            }
+
             const string colStr = columnName.toSimpleName().stealRawString();
+
             if(!selected_stopwords->count(colStr)) {
                 rtnRow.push_back(make_tuple(columnName, val, ts));
             }
