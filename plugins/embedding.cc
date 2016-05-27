@@ -1251,7 +1251,7 @@ applyT(const ApplierT & applier_, NearestNeighborsInput input) const
     neighborsOut.reserve(neighbors.size());
     for(auto & neighbor : neighbors) {
         distances.emplace_back(get<0>(neighbor), get<2>(neighbor), ts);
-        neighborsOut.emplace_back(std::move(std::get<2>(neighbor)));
+        neighborsOut.emplace_back(std::move(std::get<0>(neighbor)));
     }
 
     return {ExpressionValue(std::move(neighborsOut), ts),
