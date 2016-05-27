@@ -376,6 +376,54 @@ class Mldb878Test(MldbUnitTest):
             self.assertEqual(count, count2)
 
 
+    def test_limitoffset(self):
+            conf = {
+                "type": "classifier.experiment",
+                "params": {
+                    "experimentName": "limitoffset",
+                    "inputData": "select {* EXCLUDING(label)} as features, label from toy",
+                    "modelFileUrlPattern": "file://build/x86_64/tmp/bouya-pwet-$runid.cls",
+                    "algorithm": "dt",
+                    "mode": "boolean",
+                    "configuration": {
+                        "dt": {
+                            "type": "decision_tree",
+                            "max_depth": 8,
+                            "verbosity": 3,
+                            "update_alg": "prob"
+                        }
+                    },
+                    "datasetFolds": [
+                        {
+                            "trainingLimit": 2500,
+                            "testingOffset": 2500
+                        },
+                        {
+                            "testingLimit": 2500,
+                            "trainingOffset": 2500
+                        }
+                    ],
+                    "outputAccuracyDataset": True,
+                    "evalTrain": False,
+                    "runOnCreation": True
+                }
+            }
+            rez = mldb.put("/v1/procedures/test_limitoffset", conf)
+            jsRez = rez.json()
+
+            datasetNames = [jsRez["status"]["firstRun"]["status"]["folds"][0]["accuracyDataset"],
+                            jsRez["status"]["firstRun"]["status"]["folds"][1]["accuracyDataset"]]
+
+            rowNames = []
+            for datasetName in datasetNames:
+                rowNames.append(set([x[0] for x in mldb.query("select rowName() from %s" % datasetName)[1:]]))
+                self.assertEqual(len(rowNames[-1]), 2500)
+
+            # if the limit and offsets are working, we should get no duplicate rowNames
+            # and get back all the rownames in the dataset
+            set_difference = len(rowNames[0].union(rowNames[1]))
+            self.assertEqual(set_difference, 5000)
+
 
 mldb.run_tests()
 

@@ -353,6 +353,8 @@ run(const ProcedureRunConfig & run,
         ClassifierConfig clsProcConf;
         clsProcConf.trainingData = runProcConf.inputData;
         clsProcConf.trainingData.stm->where = datasetFold.trainingWhere;
+        clsProcConf.trainingData.stm->limit = datasetFold.trainingLimit;
+        clsProcConf.trainingData.stm->offset = datasetFold.trainingOffset;
 
         string baseUrl = runProcConf.modelFileUrlPattern.toString();
         ML::replace_all(baseUrl, "$runid",
@@ -489,10 +491,14 @@ run(const ProcedureRunConfig & run,
                         runProcConf.testingDataOverride ? *runProcConf.testingDataOverride
                                                         : runProcConf.inputData;
                     accuracyConfig.testingData.stm->where = datasetFold.testingWhere;
+                    accuracyConfig.testingData.stm->limit = datasetFold.testingLimit;
+                    accuracyConfig.testingData.stm->offset = datasetFold.testingOffset;
                 }
                 else {
                     accuracyConfig.testingData = runProcConf.inputData;
                     accuracyConfig.testingData.stm->where = datasetFold.trainingWhere;
+                    accuracyConfig.testingData.stm->limit = datasetFold.trainingLimit;
+                    accuracyConfig.testingData.stm->offset = datasetFold.trainingOffset;
                 }
 
                 return accuracyConfig;
