@@ -723,14 +723,10 @@ setProgress(const Json::Value & _progress)
     progress.clear();
     
     if (!_progress.isNull()) {
-        if (_progress.isObject()) {
-            progress = _progress;
-        }
-        else {
-            progress["percent"] = _progress;
-        }
+        ExcAssert(_progress.isObject());
+        progress = _progress;
         for (auto & f: onProgressFunctions) {
-            f(progress["percent"].asDouble());
+            f(progress);
         }
     }
 }
