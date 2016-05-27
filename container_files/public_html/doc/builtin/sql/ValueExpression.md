@@ -417,6 +417,7 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
   system locale.
 - `upper(string)` returns the uppercase version of the string, according to the
   system locale.
+- `str_length(string)` returns the length of the string.
 - `regex_replace(string, regex, replacement)` will return the given string with
   matches of the `regex` replaced by the `replacement`.  Perl-style regular
   expressions are supported.  It is normally preferable that the `regex` be a

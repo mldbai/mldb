@@ -2571,6 +2571,28 @@ BoundFunction upper(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerUpper(upper, "upper");
 
+BoundFunction str_length(const std::vector<BoundSqlExpression> & args)
+{
+    if (args.size() != 1)
+        throw HttpReturnException(400, "str_length function takes a single argument");
+
+     return {[] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+             {
+                ExcAssertEqual(args.size(), 1);
+                if(!args[0].isString())
+                    throw ML::Exception("The parameter passed to the str_length "
+                            "function must be a string");
+
+                return std::move(
+                        ExpressionValue(args[0].getAtom().toUtf8String().length(), 
+                                        args[0].getEffectiveTimestamp()));
+            },
+            std::make_shared<IntegerValueInfo>()
+    };
+}
+
+static RegisterBuiltin registerStrLength(str_length, "str_length");
 
 BoundFunction levenshtein_distance(const std::vector<BoundSqlExpression> & args)
 {
@@ -2582,11 +2604,11 @@ BoundFunction levenshtein_distance(const std::vector<BoundSqlExpression> & args)
              {
                 using namespace Edlib;
 
+                ExcAssertEqual(args.size(), 2);
                 if(!args[0].isString() || !args[1].isString())
                     throw ML::Exception("The parameters passed to the levenshtein_distance "
                             "function must be strings");
 
-                ExcAssertEqual(args.size(), 2);
                 const auto query = args[0].getAtom().toUtf8String().rawString();
                 const auto target = args[1].getAtom().toUtf8String().rawString();
 
