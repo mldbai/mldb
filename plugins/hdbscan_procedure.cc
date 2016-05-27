@@ -236,10 +236,6 @@ run(const ProcedureRunConfig & run,
         edges.emplace_back(minI, minJ, minDistance);
     }
 
-  /*  for (auto& edge : edges) {
-        cerr << std::get<0>(edge) << " -> " << std::get<1>(edge) << "   , " << std::get<2>(edge) << endl;
-    }*/
-
     //4.0 Build the cluster hierarchy. Not optimized, etc, etc.
     std::sort(edges.begin(), edges.end(), [] (const std::tuple<int, int, double>& a, const std::tuple<int, int, double>& b) {
         return std::get<2>(a) < std::get<2>(b);
@@ -250,76 +246,40 @@ run(const ProcedureRunConfig & run,
         cerr << std::get<0>(edge) << " -> " << std::get<1>(edge) << "   , " << std::get<2>(edge) << endl;
     }
 
-    std::vector<std::pair<int, int>> clusterTops; //last added edges to a cluster. edge / clustersize
-    std::vector<int> clusterSizes(edges.size(), 0);
+    std::vector<int> clusterSizes;
+    clusterSizes.reserve(edges.size());
+    std::vector<int> clusterIndex(vecs.size(), -1);
+    std::vector<int> clusterParent(vecs.size(), -1);
 
-    clusterTops.emplace_back(0, 2);
-    clusterSizes[0] = 2;
+    for (auto& edge : edges) {
 
-    auto shareVertex = [&] (int i, int j) {
-        const auto& edgeI = edges[i];
-        const auto& edgeJ = edges[j];
+        int newCluster = clusterSizes.size();
 
-        if (std::get<0>(edgeI) == std::get<0>(edgeJ) || std::get<0>(edgeI) == std::get<1>(edgeJ))
-            return std::get<0>(edgeI);
-        else if (std::get<1>(edgeI) == std::get<0>(edgeJ) || std::get<1>(edgeI) == std::get<1>(edgeJ))
-            return std::get<1>(edgeI);
-        else
-            return -1;
-    };
+        int& cluster0 = clusterIndex[std::get<0>(edge)];
+        int& cluster1 = clusterIndex[std::get<1>(edge)];
 
-    cerr << "BUILDING CLUSTER HIERARCHY" << endl;
-    for (int edgeIndex = 1; edgeIndex < edges.size(); ++edgeIndex) {
-        cerr << "Edge" << edgeIndex << endl;
-        cerr << "clusterTops.size(): " << clusterTops.size() << endl;
-        //try to find one or two clusters it joins
-        int i = clusterTops.size();
-        int j = clusterTops.size();
-        for (i = 0; i < clusterTops.size(); ++i) {
-            if (shareVertex(std::get<0>(clusterTops[i]), edgeIndex) >= 0) {
-                cerr << "found first child: " << std::get<0>(clusterTops[i]) << endl;
-                break;
-            }
-        }
-        if (i < clusterTops.size()) {
-            for (j = i+1; j < clusterTops.size(); ++j) {
-                if (shareVertex(std::get<0>(clusterTops[j]), edgeIndex) >= 0) {
-                    cerr << "found second child: " << std::get<0>(clusterTops[j]) << endl;
-                    break;
-                }
+        int clusterParent0 = clusterParent[std::get<0>(edge)];
+        int clusterParent1 = clusterParent[std::get<1>(edge)];
+
+        int size0 = clusterParent0 >= 0 ? clusterSizes[clusterParent0] : 1;
+        int size1 = clusterParent1 >= 0 ? clusterSizes[clusterParent1] : 1;
+
+        for (auto& p : clusterParent) {
+            if ((p == clusterParent0 && clusterParent0 != -1) || (p == clusterParent1 && clusterParent1 != -1)) {
+                p = newCluster;
             }
         }
 
-        int childClustersize = 0;
+        clusterParent[std::get<0>(edge)] = newCluster;
+        clusterParent[std::get<1>(edge)] = newCluster;
 
-        //remove i and j if found
-        bool bothChild = false;
-        if (i < clusterTops.size()) {
-            cerr << "fdss";
-            childClustersize += std::get<1>(clusterTops[i]);
-            clusterTops.erase(clusterTops.begin() + i);
-            if (j -1 < clusterTops.size()) {
-                bothChild = true;
-                childClustersize += std::get<1>(clusterTops[j-1]);
-                cerr << "ERASING BOTH" << endl;
-                clusterTops.erase(clusterTops.begin() + (j-1));
-            }
-        }
-        cerr << "childClustersize " << childClustersize << endl;
+        if (cluster0 < 0)
+            cluster0 = newCluster;
+        if (cluster1 < 0)
+            cluster1 = newCluster;
 
-        int clusterSize = childClustersize == 0 ? 2 : childClustersize + 1;
-        clusterSize = bothChild ? childClustersize : clusterSize;
-
-
-        //add as a new cluster top
-        clusterSizes[edgeIndex] = clusterSize;
-        clusterTops.emplace_back(edgeIndex, clusterSize);
-
-    }
-
-    cerr << "clusterTops.size(): " << clusterTops.size() << endl;
-
-    ExcAssert(clusterTops.size() == 1);
+        clusterSizes.push_back(size0 + size1);
+    }   
 
     cerr << "cluster sizes" << endl;
     for (auto& size : clusterSizes) {
