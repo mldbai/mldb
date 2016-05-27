@@ -154,8 +154,9 @@ run(const ProcedureRunConfig & run,
         return true;
     };
 
-    auto onProgress2 = [&](float progressPct) {
-        iterationStep->value = progressPct;
+    auto onProgress2 = [&](const Json::Value & progress) {
+        auto itProgress = jsonDecode<IterationProgress>(progress);
+        iterationStep->value = itProgress.percent;
         return onProgress(jsonEncode(bucketizeProgress));
     };
 

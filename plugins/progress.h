@@ -41,5 +41,11 @@ struct Progress {
 };
 DECLARE_STRUCTURE_DESCRIPTION(Progress);
 
+struct IterationProgress {
+    IterationProgress() : percent(0) {}
+    float percent;
+};
+DECLARE_STRUCTURE_DESCRIPTION(IterationProgress);
+
 } // namespace MLDB
 } // namespace Datacratic

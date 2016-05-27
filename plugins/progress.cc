@@ -64,5 +64,12 @@ ProgressDescription()
     addField("steps", &Progress::_steps, "");
 }
 
+DEFINE_STRUCTURE_DESCRIPTION(IterationProgress);
+IterationProgressDescription::
+IterationProgressDescription()
+{
+    addField("percent", &IterationProgress::percent, "");
+}
+
 } // namespace MLDB
 } // namespace Datacratic
