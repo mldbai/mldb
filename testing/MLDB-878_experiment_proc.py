@@ -44,7 +44,6 @@ class Mldb878Test(MldbUnitTest):
                     {
                         "trainingWhere": "rowHash() % 5 != 3",
                         "testingWhere": "rowHash() % 5 = 3",
-                        "orderBy": "rowHash() ASC",
                     },
                     {
                         "trainingWhere": "rowHash() % 5 != 2",
@@ -260,7 +259,6 @@ class Mldb878Test(MldbUnitTest):
                     {
                         "trainingWhere": "rowHash() % 5 != 3",
                         "testingWhere": "rowHash() % 5 = 3",
-                        "orderBy": "rowHash() ASC",
                     },
                     {
                         "trainingWhere": "rowHash() % 5 != 2",

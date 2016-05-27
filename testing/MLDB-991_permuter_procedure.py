@@ -34,7 +34,7 @@ procedure_conf = {
             {
                 "trainingWhere": "rowHash() % 5 != 3",
                 "testingWhere": "rowHash() % 5 = 3",
-                "orderBy": "rowHash() ASC",
+                "trainingOrderBy": "rowHash() ASC",
             },
             {
                 "trainingWhere": "rowHash() % 5 != 2",

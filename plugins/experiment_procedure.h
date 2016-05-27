@@ -34,7 +34,8 @@ struct DatasetFoldConfig {
             std::shared_ptr<SqlExpression> testingWhere = SqlExpression::parse("true"))
         : trainingWhere(trainingWhere),
           testingWhere(testingWhere),
-          orderBy(OrderByExpression::parse("rowHash()")),
+          trainingOrderBy(OrderByExpression::parse("true")),
+          testingOrderBy(OrderByExpression::parse("true")),
           trainingOffset(0), testingOffset(0),
           trainingLimit(-1), testingLimit(-1)
     {
@@ -45,7 +46,8 @@ struct DatasetFoldConfig {
     std::shared_ptr<SqlExpression> testingWhere;
 
     /// How to order the rows when using an offset and a limit
-    OrderByExpression orderBy;
+    OrderByExpression trainingOrderBy;
+    OrderByExpression testingOrderBy;
 
     /// Where to start running
     ssize_t trainingOffset;

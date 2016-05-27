@@ -59,10 +59,14 @@ DatasetFoldConfigDescription()
              "How many rows of data to use.  -1 (the default) means use all "
              "of the rest of the rows in the dataset after skipping OFFSET rows.",
              ssize_t(-1));
-    addField("orderBy", &DatasetFoldConfig::orderBy,
-             "How to order the rows.  This only has an effect when OFFSET "
-             "and LIMIT are used.  Default is to order by rowHash(). ",
-             OrderByExpression::parse("rowHash()"));
+    addField("trainingOrderBy", &DatasetFoldConfig::trainingOrderBy,
+             "How to order the rows.  This only has an effect when `trainingOffset` "
+             "or `trainingLimit` are used.",
+             OrderByExpression::parse("true"));
+    addField("testingOrderBy", &DatasetFoldConfig::testingOrderBy,
+             "How to order the rows.  This only has an effect when `testingOffset` "
+             "or `testingLimit` are used.",
+             OrderByExpression::parse("true"));
     setTypeName("DatasetFoldConfig");
     documentationUri = "/doc/builtin/procedures/ExperimentProcedure.md#DatasetFoldConfig";
 }
@@ -355,6 +359,7 @@ run(const ProcedureRunConfig & run,
         clsProcConf.trainingData.stm->where = datasetFold.trainingWhere;
         clsProcConf.trainingData.stm->limit = datasetFold.trainingLimit;
         clsProcConf.trainingData.stm->offset = datasetFold.trainingOffset;
+        clsProcConf.trainingData.stm->orderBy = datasetFold.trainingOrderBy;
 
         string baseUrl = runProcConf.modelFileUrlPattern.toString();
         ML::replace_all(baseUrl, "$runid",
@@ -493,12 +498,14 @@ run(const ProcedureRunConfig & run,
                     accuracyConfig.testingData.stm->where = datasetFold.testingWhere;
                     accuracyConfig.testingData.stm->limit = datasetFold.testingLimit;
                     accuracyConfig.testingData.stm->offset = datasetFold.testingOffset;
+                    accuracyConfig.testingData.stm->orderBy = datasetFold.testingOrderBy;
                 }
                 else {
                     accuracyConfig.testingData = runProcConf.inputData;
                     accuracyConfig.testingData.stm->where = datasetFold.trainingWhere;
                     accuracyConfig.testingData.stm->limit = datasetFold.trainingLimit;
                     accuracyConfig.testingData.stm->offset = datasetFold.trainingOffset;
+                    accuracyConfig.testingData.stm->orderBy = datasetFold.trainingOrderBy;
                 }
 
                 return accuracyConfig;
