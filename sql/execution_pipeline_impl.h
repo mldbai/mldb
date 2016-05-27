@@ -367,6 +367,8 @@ struct JoinElement: public PipelineElement {
             
         virtual std::shared_ptr<PipelineResults> take();
 
+        virtual std::shared_ptr<PipelineResults> takeColumn();
+
         virtual void restart();
     };
 

@@ -1250,6 +1250,121 @@ take()
     return nullptr;
 }
 
+std::shared_ptr<PipelineResults> 
+JoinElement::EquiJoinExecutor::
+takeColumn()
+{
+    //Transpose of joins should be avoided.
+    //We need to build the full row list and column index before we can proceed
+
+    typedef std::map<RowHash, ML::compact_vector<RowName, 1> > SideRowIndex;
+
+    SideRowIndex leftRowIndex;
+    SideRowIndex rightRowIndex;
+
+    int side = 0;
+
+    bool doneYet = false;
+
+    if (!doneYet) {
+        while (1){
+            auto res = take();
+            if (!res)
+                break;
+
+            ssize_t columnsOffset = res->values.size() -1;
+            ssize_t rowNameOffset = columnsOffset -1;
+
+            Utf8String rowNameUtf8 = res->values.at(rowNameOffset).toUtf8String();
+            RowName rowName = RowName::parse(rowNameUtf8);
+
+            Utf8String leftNameUtf8 = "";
+            if (!res->values.at(0).empty()) //TODO: Always 0?
+                leftNameUtf8 = res->values.at(0).toUtf8String();
+            size_t i = 2;
+            for (; i + 2 < res->values.size(); i+=2) {
+                if (i == 2)
+                    leftNameUtf8 = "[" + leftNameUtf8 + "]";
+                
+                leftNameUtf8 += res->values.at(0).empty() ? "-[]" :
+                    "-[" + res->values.at(i).toUtf8String() + "]";
+            }      
+              
+            RowName leftName = RowName::parse(leftNameUtf8);
+            
+            Utf8String rightNameUtf8 = "";
+            if (!res->values.at(i).empty())
+                rightNameUtf8 = res->values.at(i).toUtf8String();
+            RowName rightName = RowName::parse(rightNameUtf8);
+
+            //recordJoinRow(leftName, leftName, rightName, rightName);
+
+            leftRowIndex[leftName].push_back(rowName);
+            rightRowIndex[rightName].push_back(rowName);
+        }
+    }
+
+    std::shared_ptr<Datacratic::MLDB::PipelineResults> columnResult;
+
+    SideRowIndex* index = &leftRowIndex;
+    if (side == 0){
+        columnResult = this->left->takeColumn();
+        if (!columnResult)
+           ++side; 
+    }
+    if (side == 1){
+        index = &rightRowIndex;
+        columnResult = this->right->takeColumn();
+        if (!columnResult)
+           ++side; 
+    }
+
+    if (!columnResult)
+        return columnResult;
+
+    //For each row in the return column, filter out those that weren't joined
+    ssize_t columnsOffset = columnResult->values.size() -1;
+   // ssize_t rowNameOffset = columnsOffset -1;
+
+    const ExpressionValue& rows = columnResult->values[columnsOffset];
+
+    //typedef std::vector<std::tuple<Path, CellValue, Date> > RowValue;
+    //RowValue values;
+    //typedef std::vector<std::tuple<PathElement, ExpressionValue> > StructValue;
+    StructValue values;
+
+    //Date ts = rows.getEffectiveTimestamp();
+
+    auto onRow = [&] (const PathElement & columnName, const ExpressionValue & val) {
+        RowHash rowHash = RowName(columnName);
+
+        // Does this row appear in the output?  If not, nothing to
+        // do with it
+        auto it = index->find(rowHash);
+        if (it == index->end())
+            return true;
+
+        //copy the value
+        if (it->second.size() == 1) {
+            values.emplace_back(it->second[0][0], std::move(val));
+        }
+        else {
+            // Can't move the value to avoid it becoming null
+            for (const RowName & outputRowName: it->second) {
+                values.emplace_back(outputRowName[0], val);
+            }
+        }
+
+        return true;
+    };
+
+    rows.forEachColumn(onRow);
+
+    columnResult->values[columnsOffset] = std::move(values);
+
+    return columnResult;
+}
+
 void
 JoinElement::EquiJoinExecutor::
 restart()
