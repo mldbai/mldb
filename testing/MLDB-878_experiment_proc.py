@@ -421,8 +421,8 @@ class Mldb878Test(MldbUnitTest):
 
             # if the limit and offsets are working, we should get no duplicate rowNames
             # and get back all the rownames in the dataset
-            set_difference = len(rowNames[0].union(rowNames[1]))
-            self.assertEqual(set_difference, 5000)
+            set_union = len(rowNames[0].union(rowNames[1]))
+            self.assertEqual(set_union, 5000)
 
 
 mldb.run_tests()
