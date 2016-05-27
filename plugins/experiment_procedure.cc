@@ -1,7 +1,5 @@
 /** experiment_procedure.cc
     Francois Maillet, 8 septembre 2015
-    Copyright (c) 2015 Datacratic Inc.  All rights reserved.
-
     This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Experiment procedure
@@ -61,10 +59,14 @@ DatasetFoldConfigDescription()
              "How many rows of data to use.  -1 (the default) means use all "
              "of the rest of the rows in the dataset after skipping OFFSET rows.",
              ssize_t(-1));
-    addField("orderBy", &DatasetFoldConfig::orderBy,
-             "How to order the rows.  This only has an effect when OFFSET "
-             "and LIMIT are used.  Default is to order by rowHash(). ",
-             OrderByExpression::parse("rowHash()"));
+    addField("trainingOrderBy", &DatasetFoldConfig::trainingOrderBy,
+             "How to order the rows.  This only has an effect when `trainingOffset` "
+             "or `trainingLimit` are used.",
+             OrderByExpression::parse("true"));
+    addField("testingOrderBy", &DatasetFoldConfig::testingOrderBy,
+             "How to order the rows.  This only has an effect when `testingOffset` "
+             "or `testingLimit` are used.",
+             OrderByExpression::parse("true"));
     setTypeName("DatasetFoldConfig");
     documentationUri = "/doc/builtin/procedures/ExperimentProcedure.md#DatasetFoldConfig";
 }
@@ -164,6 +166,12 @@ ExperimentProcedureConfigDescription()
      addField("outputAccuracyDataset", &ExperimentProcedureConfig::outputAccuracyDataset,
               "If true, an output dataset for scored examples will created for each fold.",
               true);
+    addField("uniqueScoresOnly", &ExperimentProcedureConfig::uniqueScoresOnly,
+              "If `outputAccuracyDataset` is set and `mode` is set to `boolean`, setting this parameter "
+              "to `true` will output a single row per unique score. This is useful if the "
+              "test set is very large and aggregate statistics for each unique score is "
+              "sufficient, for instance to generate a ROC curve. This has no effect "
+              "for other values of `mode`.", false);
     addParent<ProcedureConfig>();
 
     onPostValidate = chain(validateQuery(&ExperimentProcedureConfig::inputData,
@@ -349,6 +357,9 @@ run(const ProcedureRunConfig & run,
         ClassifierConfig clsProcConf;
         clsProcConf.trainingData = runProcConf.inputData;
         clsProcConf.trainingData.stm->where = datasetFold.trainingWhere;
+        clsProcConf.trainingData.stm->limit = datasetFold.trainingLimit;
+        clsProcConf.trainingData.stm->offset = datasetFold.trainingOffset;
+        clsProcConf.trainingData.stm->orderBy = datasetFold.trainingOrderBy;
 
         string baseUrl = runProcConf.modelFileUrlPattern.toString();
         ML::replace_all(baseUrl, "$runid",
@@ -370,12 +381,12 @@ run(const ProcedureRunConfig & run,
             clsProcPC.params = jsonEncode(clsProcConf);
 
             cerr << " >>>>> Creating training procedure" << endl;
-            clsProcedure = obtainProcedure(server, clsProcPC, onProgress2);
+            clsProcedure = createProcedure(server, clsProcPC, onProgress2, true);
             resourcesToDelete.push_back("/v1/procedures/"+clsProcPC.id.utf8String());
         }
 
         if(!clsProcedure) {
-            throw ML::Exception("Was unable to obtain classifier.train procedure");
+            throw ML::Exception("Was unable to create classifier.train procedure");
         }
 
         // create run configuration
@@ -385,9 +396,6 @@ run(const ProcedureRunConfig & run,
         Date trainStart = Date::now();
         RunOutput output = clsProcedure->run(clsProcRunConf, onProgress2);
         Date trainFinish = Date::now();
-
-        // cout << jsonEncode(output.results).toStyledString() << endl;
-        // cout << jsonEncode(output.details).toStyledString() << endl;
 
 
         /***
@@ -408,7 +416,7 @@ run(const ProcedureRunConfig & run,
             accuracyProcPC.params = accuracyConf;
 
             cerr << " >>>>> Creating testing procedure" << endl;
-            accuracyProc = obtainProcedure(server, accuracyProcPC, onProgress2);
+            accuracyProc = createProcedure(server, accuracyProcPC, onProgress2, true);
 
             resourcesToDelete.push_back("/v1/procedures/"+accuracyProcPC.id.utf8String());
         };
@@ -425,7 +433,6 @@ run(const ProcedureRunConfig & run,
         // this lambda actually runs the accuracy procedure for the given config
         auto runAccuracyFor = [&] (AccuracyConfig & accuracyConf)
         {
-
             auto features = extractNamedSubSelect("features", accuracyConf.testingData.stm->select);
             auto label = extractNamedSubSelect("label", accuracyConf.testingData.stm->select);
             shared_ptr<SqlRowExpression> weight = extractNamedSubSelect("weight", accuracyConf.testingData.stm->select);
@@ -440,10 +447,8 @@ run(const ProcedureRunConfig & run,
 
             ML::Timer timer;
 
-
-            if(!accuracyProc) {
-                throw ML::Exception("Was unable to obtain accuracy procedure");
-            }
+            if(!accuracyProc)
+                throw ML::Exception("Was unable to create accuracy procedure");
 
             ProcedureRunConfig accuracyProcRunConf;
             accuracyProcRunConf.id = "run_"+to_string(progress);
@@ -459,45 +464,69 @@ run(const ProcedureRunConfig & run,
         };
 
 
-        // create config for the accuracy procedure
-        AccuracyConfig accuracyConfig;
-        accuracyConfig.mode = runProcConf.mode;
-
-        if(runProcConf.outputAccuracyDataset) {
-            PolyConfigT<Dataset> outputPC;
-            outputPC.id = ML::format("%s_results_%d", runProcConf.experimentName, (int)progress);
-            outputPC.type = "tabular";
-
+        auto getAccuracyConfig = [&] (bool onTestSet)
             {
-                InProcessRestConnection connection;
-                RestRequest request("DELETE", "/v1/datasets/"+outputPC.id.utf8String(), RestParams(), "{}");
-                server->handleRequest(connection, request);
-            }
-            accuracyConfig.outputDataset.emplace(outputPC);
-        }
+                // create config for the accuracy procedure
+                AccuracyConfig accuracyConfig;
+                accuracyConfig.mode = runProcConf.mode;
+                accuracyConfig.uniqueScoresOnly = runProcConf.uniqueScoresOnly;
 
-        // setup to run on the training set
-        accuracyConfig.testingData = runProcConf.testingDataOverride ? *runProcConf.testingDataOverride
-                                                             : runProcConf.inputData;
-        accuracyConfig.testingData.stm->where = datasetFold.testingWhere;
+                if(runProcConf.outputAccuracyDataset && onTestSet) {
+                    PolyConfigT<Dataset> outputPC;
+                    outputPC.id = ML::format("%s_results_%d", runProcConf.experimentName, 
+                                                              (int)progress);
+                    outputPC.type = "tabular";
+
+                    {
+                        InProcessRestConnection connection;
+                        RestRequest request("DELETE", "/v1/datasets/"+outputPC.id.utf8String(),
+                                            RestParams(), "{}");
+                        server->handleRequest(connection, request);
+
+                        if(connection.responseCode != 204) {
+                            throw ML::Exception("HTTP error "+std::to_string(connection.responseCode)+
+                                " when trying to DELETE dataset '"+outputPC.id.utf8String()+"'");
+                        }
+                    }
+                    accuracyConfig.outputDataset.emplace(outputPC);
+                }
+
+                if(onTestSet) {
+                    accuracyConfig.testingData =
+                        runProcConf.testingDataOverride ? *runProcConf.testingDataOverride
+                                                        : runProcConf.inputData;
+                    accuracyConfig.testingData.stm->where = datasetFold.testingWhere;
+                    accuracyConfig.testingData.stm->limit = datasetFold.testingLimit;
+                    accuracyConfig.testingData.stm->offset = datasetFold.testingOffset;
+                    accuracyConfig.testingData.stm->orderBy = datasetFold.testingOrderBy;
+                }
+                else {
+                    accuracyConfig.testingData = runProcConf.inputData;
+                    accuracyConfig.testingData.stm->where = datasetFold.trainingWhere;
+                    accuracyConfig.testingData.stm->limit = datasetFold.trainingLimit;
+                    accuracyConfig.testingData.stm->offset = datasetFold.trainingOffset;
+                    accuracyConfig.testingData.stm->orderBy = datasetFold.trainingOrderBy;
+                }
+
+                return accuracyConfig;
+            };
+
+        auto accuracyConfig = getAccuracyConfig(true);
 
         // create empty testing procedure
         if(progress == 0)
             createAccuracyProcedure(accuracyConfig);
 
+        // run evaluation on testing
         auto accuracyOutput = runAccuracyFor(accuracyConfig);
 
         // run evaluation on training
         std::tuple<RunOutput, double> accuracyOutputTrain;
         if(runProcConf.evalTrain) {
-            accuracyConfig.testingData = runProcConf.inputData;
-            accuracyConfig.testingData.stm->where = datasetFold.trainingWhere;
-
-            accuracyOutputTrain = runAccuracyFor(accuracyConfig);
+            auto accuracyTrainingConf = getAccuracyConfig(false);
+            createAccuracyProcedure(accuracyTrainingConf);
+            accuracyOutputTrain = runAccuracyFor(accuracyTrainingConf);
         }
-
-        // cout << jsonEncode(accuracyOutput.results).toStyledString() << endl;
-        // cout << jsonEncode(accuracyOutput.details).toStyledString() << endl;
 
         Json::Value duration;
         duration["train"] = trainFinish.secondsSinceEpoch() - trainStart.secondsSinceEpoch();
@@ -509,6 +538,10 @@ run(const ProcedureRunConfig & run,
         Json::Value foldRez;
         foldRez["fold"] = jsonEncode(datasetFold);
         foldRez["modelFileUrl"] = clsProcConf.modelFileUrl.toUtf8String();
+
+        if(runProcConf.outputAccuracyDataset)
+            foldRez["accuracyDataset"] = accuracyConfig.outputDataset->id;
+
         foldRez["resultsTest"] = jsonEncode(get<0>(accuracyOutput).results);
         foldRez["durationSecs"] = duration;
         statsGen.accumStats(foldRez["resultsTest"], "");
