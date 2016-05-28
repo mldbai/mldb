@@ -82,4 +82,10 @@ js_rez = rez.json()
 mldb.log(js_rez)
 do_check(js_rez)
 
+
+#####
+# the following shouldn't error out (MLDB-1689)
+# rez = mldb.get("/v1/query", q=""" select stop({ words: {} } ) """)
+
+
 mldb.script.set_return("success")
