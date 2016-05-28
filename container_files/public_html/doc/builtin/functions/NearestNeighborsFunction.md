@@ -1,6 +1,6 @@
 # Nearest Neighbors Function
 
-The `embedding.neighbors` function type returns informatin about the nearest
+The `embedding.neighbors` function type returns information about the nearest
 neighbor rows in an existing ![](%%doclink embedding dataset) to an arbitrary point.
 
 ## Configuration
