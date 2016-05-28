@@ -485,7 +485,7 @@ one having a path to where in the structure the atom lived.  The paths are
 used as row and column names.  The following functions are available to
 manipulate them:
 
-- `print_path(path)` will return a string representation of a path, with the
+- `stringify_path(path)` will return a string representation of a path, with the
   elements separated by periods and any elements with periods or quotes
   quoted (and internal quotes doubled).  This is what is used by the `rowName()`
   function to convert from the structured `rowPath()` representation.  For
@@ -494,7 +494,7 @@ manipulate them:
   (below).
 - `parse_path(string)` will turn the string argument into a structured path
   which may be used for example as the result of a `NAMED` clause.  This is the
-  inverse of `print_path` (above).
+  inverse of `stringify_path` (above).
 - `path_element(path, n)` will return element `n` of the given path.
 
 ### Vector space functions
