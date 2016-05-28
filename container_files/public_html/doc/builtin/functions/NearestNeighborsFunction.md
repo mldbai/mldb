@@ -1,8 +1,7 @@
 # Nearest Neighbors Function
 
-The Nearest Neighbors type creates a function that returns the nearest
-neighbors of a known row or an arbitrary point 
-in an existing ![](%%doclink embedding dataset).
+The `embedding.neighbors` function type returns informatin about the nearest
+neighbor rows in an existing ![](%%doclink embedding dataset) to an arbitrary point.
 
 ## Configuration
 
@@ -16,8 +15,9 @@ Functions of this type have the following input values:
 * `num_neighbours`: optional integer overriding the function's default value if specified 
 * `max_distance`: optional double overriding the function's default value if specified
 
-Functions of this type have a single output value `neighbors`
-which is a row with `keys=rownames` and `values=distances`.
+Functions of this type have the following output values:
+* `neighbors`: an embedding of the rowPaths of the nearest neighbors in order of proximity
+* `distances`: a row of rowName to distance for the nearest neighbors
 
 ## See also
 

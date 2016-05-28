@@ -110,7 +110,7 @@ class Mldb1415Test(MldbUnitTest):
         # make sure if we only ask for 1 neighhbor, we'll get the centroid back and the other
         # cols will be null
         rez = mldb.query("""
-            select nn({coords: {* excluding (class)}, numNeighbors:1}) as * from iris_kmeans_centroids
+            select nn({coords: {* excluding (class)}, numNeighbors:1})[distances] as distances from iris_kmeans_centroids
         """)
         mldb.log("--- only himself")
         mldb.log(rez)

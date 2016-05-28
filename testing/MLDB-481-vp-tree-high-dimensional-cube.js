@@ -56,7 +56,7 @@ coords = [];
 for(var i=0; i<numDims; i++) coords.push(0);
 coords[0] = 1;
 
-var res = mldb.query("select nn({coords: "+JSON.stringify(coords)+", numNeighbors:5})[neighbors] as *");
+var res = mldb.query("select nn({coords: "+JSON.stringify(coords)+", numNeighbors:5})[distances] as *");
 
 plugin.log(res);
 
