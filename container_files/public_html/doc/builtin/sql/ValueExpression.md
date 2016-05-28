@@ -18,9 +18,9 @@ A Value expression can include [literal representations of constants](TypeSystem
 
 ## <a name="Columnreferences"></a>Column references
 
-To refer to a column, you use its name, in accordance with the [quoting rules](Sql.md).  So to read the value of the column `x` and add one, use `x + 1`.
+To refer to a column, you use its name, which is the string representation of its path, as explained in the [Intro to Datasets](../datasets/Datasets.md) and must be used in accordance with the [quoting rules](Sql.md).  So to read the value of the column `x` and add one, use `x + 1`.
 
-*N.B. References to non-existent columns are always evaluated as `NULL`.*
+> **Unlike in conventional SQL,** references to non-existent columns are always evaluated as `NULL`. A common mistake is to use double-quotes to represent a string, which usually results in a reference to a non-existent column, and therefore `NULL`.
 
 ### Referring to columns by dataset
 
@@ -30,24 +30,6 @@ the query will run on several datasets (See [From Expression](FromExpression.md)
 For example, to refer the column `y` from a dataset whose name or alias is `x`, you must use `x.y` in the value expression. 
 
 If the dataset has been aliased (e.g. `FROM dataset AS x`), you **must** use the alias `x` instead of the original name `dataset`.
-
-In cases where the name or alias of the column or the name or alias of the dataset contains a `.`, you can use double-quotes to resolve any ambiguity.
-For example, if you have a join between a dataset named `x` with a column `y.z` and a dataset named `x.y` with column `z` :
-
-
-* `x.y.z`       will refer to dataset x column y.z
-* `"x.y".z`     will refer to dataset x.y column z
-* `"z".x.y`     will return an error because there is no dataset named z
-
-
-Alternatively, you can alias the conflicting dataset's name to something unambiguous. In the previous example, if we alias the datasets with
-`FROM x AS blue JOIN y as red` then:
-
-* `x.y.z`       will return an error because neither x, x.y nor x.y.z refer to a dataset's alias
-* `"x.y".z`     will return an error because the dataset x.y as been aliased to 'red'
-* `blue.y.z`    will refer to dataset blue (x) column y.z
-* `red.z`       will refer to dataset red (y.z) column z
-
 
 ## <a name="operators"></a>Operators
 
@@ -59,7 +41,9 @@ always are left associative, that is the expression
 `x / y % z` is evaluated as `(x / y) % z`.
 
   Operator  |  Type              | Precedence 
-:----------:|--------------------|:------------:
+:----------:|:--------------------:|:------------:
+     `.`      |  indirection  |          0 
+     `@`      |  timestamp association  |          0 
      `~`      |  unary arithmetic  |          1 
      `*` , `/` , `%`      |  binary arithmetic |          2 
      `+` , `-`      |  unary arithmetic  |          3 
@@ -311,7 +295,7 @@ Note that this syntax is not part of SQL, it is an MLDB extension.
 ### Dataset-provided functions
 
 These functions are always available when processing rows from a dataset, and
-will change values on each row under consideration.
+will change values on each row under consideration. See the [Intro to Datasets](../datasets/Datasets.md) documentation for more information about names and paths.
 
 - `rowHash()`: returns the internal hash value of the current row, useful for random sampling and providing a stable [order](OrderByExpression.md) in query results
 - `rowName()`: returns the name the current row 
@@ -323,6 +307,23 @@ will change values on each row under consideration.
   `rowPathElement(2)` is equivalent to `rowPathElement(-1)` which will
   be `2`. 
 - `columnCount()`: returns the number of columns with explicit values set in the current row 
+
+
+### Path manipulation functions
+
+ See the [Intro to Datasets](../datasets/Datasets.md) documentation for more information about names and paths.
+
+- `stringify_path(path)` will return a string representation its argument, with the
+  elements separated by periods and any elements with periods or quotes
+  quoted (and internal quotes doubled).  This is what is used by the `rowName()`
+  function to convert from the structured `rowPath()` representation.  For
+  example, the path `['x', 'hello.world']` when passed through would
+  return the string `'x."hello.world"'`.  This is the inverse of `parse_path`
+  (below).
+- `parse_path(string)` will return its argument as a structured path
+  which may be used for example as the result of a `NAMED` clause.  This is the
+  inverse of `stringify_path` (above).
+- `path_element(path, n)` will return element `n` of the given `path`.
 
 ### Encoding and decoding functions
 
@@ -405,9 +406,9 @@ expression|result
 - `replace_inf(x, y)`: replace all `Inf`s and `-Inf`s in `x` by `y`.  Works on scalars or rows.
 - `replace_not_finite(x, y)`: replace all `Inf`s, `-Inf`s and `NaN`s in `x` by `y`.  Works on scalars or rows.
 - `replace_null(x, y)`: replace all `null`s in `x` by `y`.  Works on scalars or rows.
+- `clamp(x,lower,upper)` will clamp the value 'x' between the lower and upper bounds.
 - `binomial_lb_80(trials, successes)` returns the 80% lower bound using the Wilson score.
 - `binomial_ub_80(trials, successes)` returns the 80% upper bound using the Wilson score.
-- `clamp(x,lower,upper)` will clamp the value 'x' between the lower and upper bounds.
 
 More details on the [Binomial proportion confidence interval Wikipedia page](https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval).
 
@@ -478,25 +479,6 @@ More details on the [Binomial proportion confidence interval Wikipedia page](htt
   on the output of the `tokenize` function. The function will return 1 if the sets are equal, and 0 if they are 
   completely different.
 
-### Path manipulation functions
-
-MLDB represents structured data as a collection of distinct atoms, with each
-one having a path to where in the structure the atom lived.  The paths are
-used as row and column names.  The following functions are available to
-manipulate them:
-
-- `stringify_path(path)` will return a string representation of a path, with the
-  elements separated by periods and any elements with periods or quotes
-  quoted (and internal quotes doubled).  This is what is used by the `rowName()`
-  function to convert from the structured `rowPath()` representation.  For
-  example, a path with elements 'x' and 'hello.world' when passed through would
-  return the string `x."hello.world"`.  This is the inverse of `parse_path`
-  (below).
-- `parse_path(string)` will turn the string argument into a structured path
-  which may be used for example as the result of a `NAMED` clause.  This is the
-  inverse of `stringify_path` (above).
-- `path_element(path, n)` will return element `n` of the given path.
-
 ### Vector space functions
 
 - `norm(vec, p)` will return the L-`p` norm of `vec`. The L-0 norm is the count of non-zero
@@ -533,7 +515,7 @@ calculate
 - `tokenize(str, {splitchars: ',', quotechar: '', offset: 0, limit: null, value: null, min_token_length: 1, ngram_range:[1, 1]})`
 can be used to create bag-of-tokens representations of strings, by returning a row whose
 columns are formed by tokenizing `str` by splitting along `splitchars` and whose values by default are the
-number of occurrences of those tokens within `str`. For example `tokenize('a b b c c c', {splitchars:' '})` will return the row `{'a': 1, 'b': 2, 'c': 3}`
+number of occurrences of those tokens within `str`. For example `tokenize('a b b c c c', {splitchars:' '})` will return the row `{'a': 1, 'b': 2, 'c': 3}`.
   - `offset` and `limit` are used to skip the first `offset` tokens and only generate `limit` tokens
   - `value` (if not set to `null`) will be used instead of token-counts for the values of the columns in the output row
   - `quotechar` is interpreted as a single character to delimit tokens which may contain the `splitchars`, so by default `tokenize('a,"b,c"', {quotechar:'"'})` will return the row `{'a':1,'b,c':1}`
