@@ -2571,17 +2571,17 @@ BoundFunction upper(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerUpper(upper, "upper");
 
-BoundFunction str_length(const std::vector<BoundSqlExpression> & args)
+BoundFunction length(const std::vector<BoundSqlExpression> & args)
 {
     if (args.size() != 1)
-        throw HttpReturnException(400, "str_length function takes a single argument");
+        throw HttpReturnException(400, "length function takes a single argument");
 
      return {[] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
              {
                 ExcAssertEqual(args.size(), 1);
                 if(!args[0].isString())
-                    throw ML::Exception("The parameter passed to the str_length "
+                    throw ML::Exception("The parameter passed to the length "
                             "function must be a string");
 
                 return std::move(
@@ -2592,7 +2592,7 @@ BoundFunction str_length(const std::vector<BoundSqlExpression> & args)
     };
 }
 
-static RegisterBuiltin registerStrLength(str_length, "str_length");
+static RegisterBuiltin registerLength(length, "length");
 
 BoundFunction levenshtein_distance(const std::vector<BoundSqlExpression> & args)
 {

@@ -22,13 +22,13 @@ class Mldb1691(MldbUnitTest):
             ]
         )
  
-    def test_str_length(self):
-        self.doTest("select str_length('abcde') as rez", 5)
-        self.doTest("select str_length('abcdéç') as rez", 6)
+    def test_length(self):
+        self.doTest("select length('abcde') as rez", 5)
+        self.doTest("select length('abcdéç') as rez", 6)
 
         with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
                                   'must be a string'):
-            mldb.query("SELECT str_length(5) as length")
+            mldb.query("SELECT length(5) as length")
 
     def test_upper_lower(self):
         self.doTest("select upper('abcde') as rez", "ABCDE")
