@@ -341,6 +341,7 @@ $(eval $(call mldb_unit_test,MLDB-1552-where-and-rowname-optim.py))
 $(eval $(call mldb_unit_test,MLDB-1486-embedding-types.js))
 $(eval $(call mldb_unit_test,MLDBFB-506-stats-tbl-sql-expr.py))
 $(eval $(call mldb_unit_test,MLDB-1594-aggregator-empty-row.py))
+$(eval $(call mldb_unit_test,MLDB-1617-like-precedence.py))
 
 # The MLDB-1398 test case requires a library and a plugin
 # Tensorflow plugins
