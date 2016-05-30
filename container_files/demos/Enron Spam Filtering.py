@@ -19,7 +19,7 @@ def import_data():
             'dataFileUrl': 'http://public.mldb.ai/datasets/enron.csv.gz',
             'outputDataset': 'enron_all',
             'named': "'enron_' + dataset + '_mail_' + index",
-            'where': 'dataset = 1',
+            # 'where': 'dataset = 1',
             'runOnCreation': True
         }
     })
@@ -27,21 +27,23 @@ def import_data():
     n = mldb.get('/v1/query', q='select count(*) as n from enron_all',
                               format='aos').json()[0]['n']
     print('there are', n, 'data points')
-    nb_train = n // 2
+    nb_train = n * 5 // 6
     nb_test = n - nb_train
 
     # train test split
-    for limit_offset, id in [
+    for where, id in [
         ('limit ' + str(nb_train), 'enron_train'),
         ('limit {} offset {} '.format(nb_test, nb_train), 'enron_test')]:
+        # ('dataset != 6', 'enron_train'),
+        # ('dataset = 6', 'enron_test')]:
         print mldb.post('/v1/procedures', {
             'type': 'transform',
             'params': {
                 'inputData': """
                     select msg, label from enron_all
-                    order by index
+                    order by index, rowHash()
                     {}
-                    """.format(limit_offset),
+                    """.format(where),
                 'outputDataset': {
                     'type': 'tabular',
                     'id': id
@@ -102,7 +104,7 @@ def fg_bow():
             'expression': """
                 tokenize(stemmerdoc({document:msg})[document], {
                     splitchars: ' \n', quotechar: '', ngram_range:[1,3],
-                    min_token_length:1}) as bow2
+                    min_token_length:2}) as bow2
                 """
         }
     })
@@ -121,8 +123,8 @@ def fg_bow():
 
 
 def fg_svd():
-    # TODO use the names of the features with a  features.bow2.* as * ou qqch
-    # quand ce sera supporte
+    # FIXME the column expr here is really slow
+    # do we really need it??? I could just uste everything
     print mldb.put('/v1/procedures/train_svd', {
         'type': 'svd.train',
         'params': {
@@ -145,7 +147,7 @@ def fg_svd():
     print mldb.put('/v1/functions/bow2_svd_embed_msg', {
         'type': 'sql.expression',
         'params': {
-            'expression': 'bow2_svd_embed_row({row: {bow2({msg})[bow2] as *}})'
+            'expression': 'bow2_svd_embed_row({row: {bow2({msg})[bow2] as *}}) as *'
         }
     })
 
@@ -224,8 +226,8 @@ def fg_all():
             'params': {
                 'inputData': """
                     select {
-                        -- bow_embed({msg}) as *,
-                        -- agg_bow2_posneg({msg}) as *
+                        bow_embed({msg}) as *,
+                        agg_bow2_posneg({msg}) as *,
                         bow2_svd_embed_msg({msg}) as *
                         } as features,
                         label = 'spam' as label
@@ -301,22 +303,33 @@ def test():
         limit 3
     """)
 
+def explain():
+    mldb.put('/v1/functions/explain', {
+        'type': 'classifier.explain',
+        'params': {
+            'modelFileUrl': 'file://enron_model.cls'
+        }
+    })
+
+    # mldb.post('/v1/procedures', {
+    #     'type': 'procedures.transform'
 
 #     As you can see, the best threshold is the one where in case of doubt, everything is classified as "ham". This leads to 615 spam messages in the inbox, but no ham wrongly filtered as spam. Clearly this can be improved!
 
-# print('import')
-# import_data()
+print('import')
+import_data()
 # import_w2v()
 print('fg bow')
-# fg_bow()
+fg_bow()
 print('fg w2v')
-# fg_w2v()
+fg_w2v()
 print('fg svd')
 fg_svd()
-# fg_stats_table()
+fg_stats_table()
 print('generate features')
 fg_all()
 print('train')
 train()
 print('test')
 test()
+explain()
