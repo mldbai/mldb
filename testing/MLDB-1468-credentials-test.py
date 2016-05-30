@@ -14,7 +14,35 @@ class CredentialTest(MldbUnitTest):
     def test_creation_of_dummy_creds(self):
         # try something that should work
         # mldb.get asserts the result status_code is >= 200 and < 400
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
+                                  "doesn't exist"):
+            mldb.get("/v1/credentials/s3cred")
+
         resp = mldb.put("/v1/credentials/s3cred", {
+            "store" : {
+                "resourceType" : "aws:s3",
+                "resource" : "s3://",
+                "credential" : {
+                    "provider" : "Credentials collection",
+                    "protocol" : "http",
+                    "location" : "s3.amazonaws.com",
+                    "id" : "this is my key",
+                    "secret" : "this is my secret"
+                }
+            }
+        })
+
+        mldb.log(resp)
+        
+        mldb.get("/v1/credentials/s3cred")
+        
+        resp = mldb.delete("/v1/credentials/s3cred")
+
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
+                                  "doesn't exist"):
+            mldb.get("/v1/credentials/s3cred")
+
+        resp = mldb.post("/v1/credentials", {
             "store" : {
                 "resourceType" : "aws:s3",
                 "resource" : "s3://",
