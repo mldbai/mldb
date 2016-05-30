@@ -1014,7 +1014,16 @@ takeMoreInput()
     takeValueFromSide(l, this->left, outerLeft);
     takeValueFromSide(r, this->right, outerRight);   
 }
-            
+ 
+/**
+    Whevever the left side value of the pivot is greater
+    than the right side we get the next item on the right side
+    and rewind the left side until its value is equal or
+    greater than the new right side value.  Such rewinding is
+    necessary because there might be several identical values
+    on each side and in this case, we need to return all the rows
+    in the cross product.
+*/
 std::shared_ptr<PipelineResults>
 JoinElement::EquiJoinExecutor::
 take()
@@ -1051,19 +1060,26 @@ take()
             return false;
         };    
 
+        auto rewindLeftSideToValue = [&] (const ExpressionValue & rField) {
+            left->restart();
+            auto l = left->take();
+            while (l && l->values.back().getColumn(0, GET_ALL) < rField)
+                l = left->take();
+            return l;
+        };
+
         if (lField == rField) {
             // Got a row!
             //cerr << "*** got row match on " << jsonEncode(lField) << endl;
 
-            // Pop the selected join conditions from left and right
+            // Pop the selected join conditions from left
             l->values.pop_back();
-            r->values.pop_back();
 
             auto numL = l->values.size();
-            auto numR = r->values.size();
+            auto numR = r->values.size() - 1;
 
-            for (auto & v: r->values)
-                l->values.emplace_back(std::move(v));
+            for (auto i = 0; i < numR; ++i)
+                l->values.push_back(r->values[i]);
 
             shared_ptr<PipelineResults> result = std::move(l);
 
@@ -1087,40 +1103,67 @@ take()
                  }
             }
             else if (!crossWhereTrue && !outerRight && !outerLeft) {
+
                 l = left->take();
-                r = right->take();
                 continue;
             }
 
             l = left->take();
+            if (l) {
+                ExpressionValue nextLField =  l->values.back().getColumn(0, GET_ALL);
+                if (nextLField == lField) {
+                    // we have the same left-side value again
+                    // take the left-side but leave the right-side as-is
+                    // to generate the cross product of rows on matching
+                    // that value
+                    ExcAssert(nextLField == rField);
+                    return std::move(result);
+                }
+            }
+
             r = right->take();
-            return std::move(result);
+            if (r) {
+                ExpressionValue nextRField =  r->values.back().getColumn(0, GET_ALL);
+                if (nextRField == rField) {
+                    // we have the same right-side value again
+                    // and the left-side value is different
+                    // rewind the left-side to the first occurrence
+                    // of the former value to generate the cross product
+
+                    ExcAssert(nextRField == lField);
+                    l = rewindLeftSideToValue(rField);
+                }
+            }
+                    
+            return result;
         }
         else if (lField < rField) {
             // loop until left field value is equal to the right field value
             // returning nulls if left outer
             do {
                 if (outerLeft && checkOuterWhere(l, left, lField, rEmbedding)) {
-                    auto result = std::move(l);                
+                    auto result = std::move(l);
                     l = left->take();
                     return std::move(result);
                 } else {
-                    l = this->left->take();
+                    l = left->take();
                 }     
-            } while (l && l->values.back() < rField);
+            } while (l && l->values.back().getColumn(0, GET_ALL) < rField);
         }
         else {
             // loop until right field value is equal to the left field value
             // returning nulls if right outer
+            ExcAssert(lField > rField);
+
             do {
                 if (outerRight && checkOuterWhere(r, right, rField, lEmbedding)) {
-                    auto result = std::move(r);                
+                    auto result = std::move(r);
                     r = right->take();
                     return std::move(result);
                 } else {
-                    r = this->right->take();
+                    r = right->take();
                 }
-            } while (r && r->values.back() < lField);
+            } while (r && r->values.back().getColumn(0, GET_ALL) < lField);
         }
     }
 
