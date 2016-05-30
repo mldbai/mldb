@@ -35,9 +35,9 @@
 <form>
 <div class="form-horizontal  col-lg-10 col-lg-offset-1">
 <fieldset>
-  <legend>Already have an MLDB Enterprise Edition license code?</legend>
+  <legend>Already have an MLDB Enterprise Edition license key?</legend>
     <div id="requestsuccess" class="alert alert-success col-lg-12" role="alert" style="display: none;">Thanks! Please check your email for the license code and enter it below.</div>
-    <div id="validationfailure" class="alert alert-danger" role="alert" style="display: none;">Sorry, but there was a problem with the email address/license code combination, please check your input and try again.</div>
+    <div id="validationfailure" class="alert alert-danger" role="alert" style="display: none;">Sorry, but there was a problem with the email address/license key combination, please check your input and try again.</div>
 
   <div class="form-group">
     <label class="col-lg-3 control-label" for="inputEmailActivation">Email address</label>
@@ -46,10 +46,10 @@
     </div>
   </div>
   <div class="form-group">
-    <label class="col-lg-3 control-label" for="inputActivationCode">License code</label>
+    <label class="col-lg-3 control-label" for="inputActivationCode">License key</label>
     <div class="col-lg-7">
       <textarea class="form-control" id="inputActivationCode" style="height: 100px; font-family: Courier;"></textarea>
-      <p class="help-block with-errors">The license code must match the email address used to request it.</p>
+      <p class="help-block with-errors">The license key must match the email address used to request it.</p>
     </div>
   </div>
   <div class="form-group">
@@ -67,61 +67,10 @@
 <form>
 <div id="request_form" class="form-horizontal  col-lg-10 col-lg-offset-1">
   <fieldset>
-  <legend>Get a Free Trial license code instantly via email</legend>
+  <legend>Get a Free Trial license code instantly from MLDB.ai</legend>
 
+  <p>You can create your Free Trial license key instantly by <a href="https://mldb.ai/#license_management" target="_blank">signing up to MLDB.ai</p> and filling out the request form.</p>
 
-  <div class="form-group">
-    <label for="inputUserName" class="col-lg-3 control-label">Name</label>
-    <div class="col-lg-7">
-      <input type="text" class="form-control" id="inputUserName" placeholder="Your name (required)">
-    </div>
-  </div>
-  
-  <div class="form-group">
-    <label for="inputRequestCompanyName" class="col-lg-3 control-label">Company</label>
-    <div class="col-lg-7">
-      <input type="text" class="form-control" id="inputRequestCompanyName" placeholder="Company name (optional)">
-    </div>
-  </div>
-
-  <div class="form-group">
-    <label for="inputRequestEmail" class="col-lg-3 control-label">Email address</label>
-    <div class="col-lg-7">
-      <input type="email" class="form-control" id="inputRequestEmail" placeholder="Email address (required)">
-      <p class="help-block with-errors" style="margin-bottom: 0;">You will receive a license code immediately, and this address will never be shared.</p>
-    </div>
-  </div>
-
-  <div class="form-group">
-    <div class="col-lg-offset-3 col-lg-7">
-      <div class="checkbox">
-        <label>
-          <input type="checkbox" id="mailingListCheckBox"> I would like to join the MLDB announcement mailing list
-        </label>
-      </div>
-    </div>
-  </div>
-
- <div class="form-group">
-    <label class="col-lg-3 control-label">License</label>
-    <div class="col-lg-7">
-      <div class="checkbox">
-          <p>The MLDB Enterprise Edition, which includes the closed-source MLDB Pro Plugin, is being licensed to you by Datacratic Inc. and is not being sold. This software is provided under the <a href="/resources/MLDB_License.pdf" target="_blank"><em>MLDB End User License Agreement, Non-Commercial Software License version 1.0</em></a>, which specifies what you may do with the software and contains important limitations on representations, warranties, conditions, remedies, and liabilities.</p>
-          
-        <label>
-          <input type="checkbox" id="licenseCheckBox"> I accept the terms of the <em>MLDB End User License Agreement, Non-Commercial Software License version 1.0</em> (required)
-        </label>
-      </div>
-    </div>
-  </div>
-
-    <div id="requestfailure" class="alert alert-danger" role="alert" style="display: none;">Sorry, but there was a problem in submitting your request. Please check your input or try again later.</div>
-    <div id="inputfailure" class="alert alert-danger" role="alert" style="display: none;">Sorry, but there was a problem with your input. Please correct the fields in red.</div>
-  <div class="form-group">
-    <div class="col-lg-offset-3 col-lg-7">
-      <button type="submit" class="btn btn-primary" id="requestActivationButton">Request Free Trial license code</button>
-    </div>
-  </div>
 </fieldset>
 </div>
 </form>

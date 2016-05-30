@@ -230,6 +230,9 @@ void runHttpQuery(std::function<std::vector<MatrixNamedRow> ()> runQuery,
                         cellValue = CellValue(stringVal);
                     }
                 }
+                else if (cellValue.isPath()) {
+                    cellValue = CellValue(cellValue.coerceToPath().toUtf8String());
+                }
 
                 rowOut[columnIndex[columnName] + rowHashes + rowNames] = std::move(cellValue);
             }

@@ -90,7 +90,7 @@ class RedditTest(MldbUnitTest):
             from transpose(( 
                 select nearest_subreddit({ coords: 
                     embedder({ row: {soccer: 1} })[embedding]
-                })[neighbors] as *
+                })[distances] as *
                 named 'distance'
             )) as x
             join reddit_svd_embedding as neighbour

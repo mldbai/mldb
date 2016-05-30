@@ -299,6 +299,12 @@ struct CreateEntityProcedure: public Procedure {
 /*****************************************************************************/
 
 std::shared_ptr<Procedure>
+createProcedure(MldbServer * server,
+                const PolyConfig & config,
+                const std::function<bool (const Json::Value & progress)> & onProgress,
+                bool overwrite);
+
+std::shared_ptr<Procedure>
 obtainProcedure(MldbServer * server,
                 const PolyConfig & config,
                 const std::function<bool (const Json::Value & progress)> & onProgress
