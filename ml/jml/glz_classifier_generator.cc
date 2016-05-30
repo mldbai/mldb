@@ -69,7 +69,7 @@ defaults()
     normalize = true;
     condition = false;
     regularization = Regularization_l2;
-    regularization_factor = 1e-5;
+    regularization_factor = -1;
     max_regularization_iteration = 1000;
     regularization_epsilon = 1e-4;
     feature_proportion = 1.0;
