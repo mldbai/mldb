@@ -54,7 +54,8 @@ mldb.log("Commited!!")
         print rez
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(rez), 2)
-        self.assertEqual(rez[0]["rowName"], "id_2")
+        self.assertEqual(rez[0]["rowName"], "id_3")
+        self.assertEqual(rez[1]["rowName"], "id_2")
     
     def test_dataset_biggerEq2dot5(self):
         response = requests.get(self.url+"/datasets/testing_types/query?select=*&where=x='2.5'")

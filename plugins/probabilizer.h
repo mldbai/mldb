@@ -29,6 +29,8 @@ class SqlExpression;
 
 
 struct ProbabilizerConfig : public ProcedureConfig {
+    static constexpr const char * name = "probabilizer.train";
+
     ProbabilizerConfig()
         : link(ML::LOGIT)
     {
@@ -87,7 +89,7 @@ struct ProbabilizeFunction: public Function {
     ProbabilizeFunction(MldbServer * owner,
                      PolyConfig config,
                      const std::function<bool (const Json::Value &)> & onProgress);
-    
+
     // Initiialize programatically from a trained probabilizer
     ProbabilizeFunction(MldbServer * owner,
                      const ML::GLZ_Probabilizer & in);
@@ -96,8 +98,8 @@ struct ProbabilizeFunction: public Function {
 
     virtual Any getStatus() const;
 
-    virtual FunctionOutput apply(const FunctionApplier & applier,
-                              const FunctionContext & context) const;
+    virtual ExpressionValue apply(const FunctionApplier & applier,
+                              const ExpressionValue & context) const;
 
     /** Describe what the input and output is for this function. */
     virtual FunctionInfo getFunctionInfo() const;

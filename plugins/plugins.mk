@@ -2,27 +2,16 @@
 
 # Behavioural dataset plugin
 LIBMLDB_BUILTIN_PLUGIN_SOURCES:= \
-	svd.cc \
 	matrix.cc \
-	sql_functions.cc \
 	for_each_line.cc \
-	classifier.cc \
-	probabilizer.cc \
 	dataset_feature_space.cc \
 	accuracy.cc \
-	tsne.cc \
 	metric_space.cc \
-	kmeans.cc \
-	embedding.cc \
 	sqlite_dataset.cc \
 	sparse_matrix_dataset.cc \
 	script_procedure.cc \
-	script_function.cc \
 	permuter_procedure.cc \
-	svm.cc \
-	feature_generators.cc \
 	external_python_procedure.cc \
-	stats_table_procedure.cc \
 	experiment_procedure.cc \
 	docker_plugin.cc \
 	continuous_dataset.cc \
@@ -31,11 +20,7 @@ LIBMLDB_BUILTIN_PLUGIN_SOURCES:= \
 	sentiwordnet.cc \
 	bucketize_procedure.cc \
 	git.cc \
-	tfidf.cc \
-	tokensplit.cc \
 	csv_export_procedure.cc \
-	em.cc \
-	pooling_function.cc \
 	xlsx_importer.cc \
 	json_importer.cc \
 	melt_procedure.cc \
@@ -43,13 +28,31 @@ LIBMLDB_BUILTIN_PLUGIN_SOURCES:= \
 	fetcher.cc \
 	importtext_procedure.cc \
 	tabular_dataset.cc \
+	frozen_column.cc \
+	column_types.cc \
+	tabular_dataset_column.cc \
 	randomforest_procedure.cc \
+	classifier.cc \
+	sql_functions.cc \
+	embedding.cc \
+	svd.cc \
+	kmeans.cc \
+	probabilizer.cc \
+	pooling_function.cc \
+	feature_generators.cc \
+	em.cc \
+	tsne.cc \
+	svm.cc \
+	stats_table_procedure.cc \
+	tfidf.cc \
+	tokensplit.cc \
+	script_function.cc \
 
 
 # Needed so that Python plugin can find its header
 $(eval $(call set_compile_option,python_plugin_loader.cc,-I$(PYTHON_INCLUDE_PATH)))
 
-$(eval $(call library,mldb_builtin_plugins,$(LIBMLDB_BUILTIN_PLUGIN_SOURCES),datacratic_sqlite ml mldb_lang_plugins mldb_algo_plugins mldb_misc_plugins mldb_ui_plugins tsne svm libstemmer algebra svdlibc csv_writer))
+$(eval $(call library,mldb_builtin_plugins,$(LIBMLDB_BUILTIN_PLUGIN_SOURCES),datacratic_sqlite ml mldb_lang_plugins mldb_algo_plugins mldb_misc_plugins mldb_ui_plugins tsne svm libstemmer edlib algebra svdlibc csv_writer))
 $(eval $(call library_forward_dependency,mldb_builtin_plugins,mldb_lang_plugins mldb_algo_plugins mldb_misc_plugins mldb_ui_plugins))
 
 $(eval $(call include_sub_make,lang))

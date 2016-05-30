@@ -44,26 +44,11 @@ generateWhereExpression(const std::vector<AnnotatedClause> & clause,
 
 //Check if the idenfifier refers to this dataset and if so, remove the prefix.
 bool
-extractTableName(Utf8String & variableName, const Utf8String& tableName)
+extractTableName(ColumnName & columnName, const Utf8String& tableName)
 {    
-    if (!tableName.empty() && !variableName.empty()) {
-
-        Utf8String aliasWithDot = tableName + ".";
-
-        if (!variableName.removePrefix(aliasWithDot)) {
-
-            //maybe there are quotes around the prefix.             
-
-            auto it1 = variableName.begin();
-            if (*it1 == '\"') {
-                
-                aliasWithDot = "\"" + tableName + "\"" + ".";
-
-                if (variableName.removePrefix(aliasWithDot))
-                    return true;             
-            }  
-        }
-        else  {
+    if (!tableName.empty() && !columnName.empty()) {
+        if (columnName.startsWith(tableName)) {
+            columnName = columnName.removePrefix(tableName);
             return true;
         }
     }   
@@ -72,22 +57,24 @@ extractTableName(Utf8String & variableName, const Utf8String& tableName)
 }
 
 bool
-extractTableName(Utf8String & variableName, const std::set<Utf8String> & tables)
+extractTableName(ColumnName & columnName, const std::set<Utf8String> & tables)
 {
     for (const Utf8String& tableName : tables)
     {
-        if (extractTableName(variableName, tableName))
+        if (extractTableName(columnName, tableName))
             return true;
     }
     return false;
 }
 
-
 // Replace all variable names like "table.x" with "x" to be run
 // in the context of a table
 std::shared_ptr<SqlExpression>
-removeTableName(const SqlExpression & expr, const Utf8String & tableName, const std::set<Utf8String>& childAliases)
+removeTableName(const SqlExpression & expr,
+                const Utf8String & tableName,
+                const std::set<Utf8String>& childAliases)
 {
+#if 0
     //prefixes to look for in variable names
     //variable names use only the table name not the child aliases
     //because the child columns will have been flattened
@@ -97,9 +84,10 @@ removeTableName(const SqlExpression & expr, const Utf8String & tableName, const 
     Utf8String prefixToFind2 = "\"" + tableName + "\"" + ".";
     size_t prefixLength2 = prefixToFind2.length();
 
-    std::vector<std::tuple<Utf8String, Utf8String, size_t> >  variablePrefixes = 
-            {(std::make_tuple(tableName, std::move(prefixToFind), prefixLength)), 
-             (std::make_tuple(tableName, std::move(prefixToFind2), prefixLength2)) };
+    std::vector<std::tuple<Utf8String, Utf8String, size_t> >
+        variablePrefixes{
+            (std::make_tuple(tableName, std::move(prefixToFind), prefixLength)), 
+            (std::make_tuple(tableName, std::move(prefixToFind2), prefixLength2)) };
 
     //build list of prefixes to look for in function names
     //with a tuple of table-name, prefix, prefix length
@@ -116,7 +104,9 @@ removeTableName(const SqlExpression & expr, const Utf8String & tableName, const 
         Utf8String prefixToFind2 = "\"" + alias + "\"" + ".";
         length = prefixToFind.length();
         functionprefixes.push_back(std::make_tuple(alias, std::move(prefixToFind2), length));
-    } 
+    }
+#endif
+
 
     // If an expression refers to a variable, then remove the table name
     // from it.  Otherwise return the same expression.
@@ -137,36 +127,24 @@ removeTableName(const SqlExpression & expr, const Utf8String & tableName, const 
     doArg = [&] (std::shared_ptr<SqlExpression> a)
         -> std::shared_ptr<SqlExpression>
         {
-            auto var = std::dynamic_pointer_cast<ReadVariableExpression>(a);
+            auto var = std::dynamic_pointer_cast<ReadColumnExpression>(a);
             if (var) {
-
-                for (auto& prefixt : variablePrefixes)
-                {
-                     if (var->variableName.startsWith(std::get<1>(prefixt))) {
-                        Utf8String name(var->variableName);
-                        name.replace(0, std::get<2>(prefixt), Utf8String());
-                        ExcAssert(!name.empty());
-                        ExcAssert(!name.startsWith("."));
-                        return std::make_shared<ReadVariableExpression>(std::get<0>(prefixt), name);
-                    }
-                }               
+                if (!tableName.empty() && var->columnName.startsWith(tableName)) {
+                    Path newName = var->columnName.removePrefix(PathElement(tableName));
+                    return std::make_shared<ReadColumnExpression>(newName);
+                }
             }
-            auto func = std::dynamic_pointer_cast<FunctionCallWrapper>(a);
-            if (func) {
-                for (auto& prefixt : functionprefixes)
-                {
-                    if (func->functionName.startsWith(std::get<1>(prefixt))) {
-                        Utf8String name(func->functionName);
-                        name.replace(0, std::get<2>(prefixt), Utf8String());
-                        ExcAssert(!name.empty());
-                        ExcAssert(!name.startsWith("."));
 
-                        vector<std::shared_ptr<SqlExpression> > newArgs;
-                        for (auto & a: func->args) {
-                            newArgs.emplace_back(std::move(doArg(a)));
-                        }
-                        return std::make_shared<FunctionCallWrapper>(std::get<0>(prefixt), name, std::move(newArgs), func->extract);
+            auto func = std::dynamic_pointer_cast<FunctionCallExpression>(a);
+            if (func) {
+                if (childAliases.count(func->tableName)) {
+                    vector<std::shared_ptr<SqlExpression> > newArgs;
+                    Utf8String newTableName = func->tableName;
+                    for (auto & a: func->args) {
+                        newArgs.emplace_back(std::move(doArg(a)));
                     }
+                    return std::make_shared<FunctionCallExpression>
+                        (newTableName, func->functionName, std::move(newArgs));
                 }
             }
 
@@ -182,6 +160,7 @@ removeTableName(const SqlExpression & expr, const Utf8String & tableName, const 
 
     return result;
 }
+
 
 /*****************************************************************************/
 /* ANNOTATED CLAUSE                                                          */
@@ -199,16 +178,14 @@ AnnotatedClause(std::shared_ptr<SqlExpression> c,
     
     // Which table does it refer to?
     for (auto & var: vars) {
-        Utf8String v = var.first.name;
+        ColumnName v = var.first.name;
 
-        if (extractTableName(v,leftTables)) {
+        if (extractTableName(v, leftTables)) {
             ExcAssert(!v.empty());
-            ExcAssert(!v.startsWith("."));
             leftVars.emplace_back(std::move(v));
         }
         else if (extractTableName(v,rightTables)) {
             ExcAssert(!v.empty());
-            ExcAssert(!v.startsWith("."));
             rightVars.emplace_back(std::move(v));
         }
         else {
@@ -217,6 +194,7 @@ AnnotatedClause(std::shared_ptr<SqlExpression> c,
     }
     
     for (auto & func: funcs) {
+/*
         Utf8String v = func.first.name;
 
         auto dotIt = v.find('.');
@@ -224,24 +202,20 @@ AnnotatedClause(std::shared_ptr<SqlExpression> c,
             externalFuncs.emplace_back(v);
             continue;
         }
+*/
+        const Utf8String & tableName = func.first.scope;
 
-        Utf8String tableName(v.begin(), dotIt);
-        if (leftTables.count(tableName)) {
-            v.replace(0, tableName.length() + 1,
-                      Utf8String(""));
-            ExcAssert(!v.empty());
-            ExcAssert(!v.startsWith("."));
-            leftFuncs.emplace_back(std::move(v));
+        // Functions can only have simple names, so toSimpleName() is OK
+        // here.
+        Utf8String functionName = func.first.name.toSimpleName();
+
+        if (!tableName.empty() && leftTables.count(tableName)) {
+            leftFuncs.emplace_back(func.first);
         }
-        else if (rightTables.count(tableName)) {
-            v.replace(0, tableName.length() + 1,
-                      Utf8String(""));
-            ExcAssert(!v.empty());
-            ExcAssert(!v.startsWith("."));
-            rightFuncs.emplace_back(std::move(v));
+        else if (!tableName.empty() && rightTables.count(tableName)) {
+            rightFuncs.emplace_back(func.first);
         }
-        else externalFuncs.emplace_back(v);
-        
+        else externalFuncs.emplace_back(func.first);
     }
 
     if (leftVars.empty() && rightVars.empty()
@@ -314,6 +288,7 @@ AnnotatedJoinCondition(std::shared_ptr<TableExpression> leftTable,
                        std::shared_ptr<TableExpression> rightTable,
                        std::shared_ptr<SqlExpression> on,
                        std::shared_ptr<SqlExpression> where,
+                       JoinQualification joinQualification,
                        bool debug)
     : debug(debug), on(on), where(where),
       style(UNKNOWN), left(leftTable), right(rightTable)
@@ -327,7 +302,8 @@ AnnotatedJoinCondition(std::shared_ptr<TableExpression> leftTable,
                           std::back_inserter(commonTables));
 
     if (!commonTables.empty()) {
-        throw HttpReturnException(400, "Join has ambiguous table name(s) with same name occurring on both left and right side",
+        throw HttpReturnException(400, "Join has ambiguous table name(s) with "
+                                  "same name occurring on both left and right side",
                                   "ambiguousTableNames", commonTables,
                                   "left", left,
                                   "right", right,
@@ -335,54 +311,67 @@ AnnotatedJoinCondition(std::shared_ptr<TableExpression> leftTable,
     }
     
 
+    auto checkAndClauses = [&] (std::vector<std::shared_ptr<SqlExpression> >::iterator start) {
+        // For each one, figure out which tables are referred to
+        //for (auto & c: andClauses) {
+        for (auto iter = start; iter != andClauses.end(); ++iter) {
+
+            auto& c = *iter;
+
+            if (debug)
+                cerr << "clause " << c->print() << endl;
+            AnnotatedClause clauseOut(c, leftTables, rightTables, debug);
+
+            if (!clauseOut.externalVars.empty()) {
+                throw HttpReturnException(400, "Join condition refers to unknown variables",
+                                          "unknownVariables", clauseOut.externalVars,
+                                          "clause", c,
+                                          "left", left,
+                                          "right",right,
+                                          "on", on);
+            }
+
+            switch (clauseOut.role) {
+            case AnnotatedClause::CONSTANT:
+                constantConditions.emplace_back(std::move(clauseOut));
+                break;
+            case AnnotatedClause::LEFT:
+                left.whereClauses.emplace_back(std::move(clauseOut));
+                break;
+            case AnnotatedClause::RIGHT:
+                right.whereClauses.emplace_back(std::move(clauseOut));
+                break;
+            case AnnotatedClause::CROSS:
+                crossConditions.emplace_back(std::move(clauseOut));
+                break;
+            }
+        }
+    };
+
     // No join clause = cross join
-    if (on)
+    if (on) {
         analyze(on);
-    if (where)
+        checkAndClauses(andClauses.begin());
+    }
+
+    //If we do an outer join its important that the 'where' be applied *after* the join else we will be missing rows
+    if (where && joinQualification == JOIN_INNER) {
+        auto numOnClauses = andClauses.size();
         analyze(where);
+        checkAndClauses(andClauses.begin() + numOnClauses);
+    }
 
     if (debug) {
-        cerr << "got " << andClauses.size() << " and clauses" << endl;
+        cerr << "got " << andClauses.size() << " AND clauses" << endl;
         cerr << jsonEncode(andClauses) << endl;
-    }
-
-    // For each one, figure out which tables are referred to
-    for (auto & c: andClauses) {
-        if (debug)
-            cerr << "clause " << c->print() << endl;
-        AnnotatedClause clauseOut(c, leftTables, rightTables);
-
-        if (!clauseOut.externalVars.empty()) {
-            throw HttpReturnException(400, "Join condition refers to unknown variables",
-                                      "unknownVariables", clauseOut.externalVars,
-                                      "clause", c,
-                                      "left", left,
-                                      "right",right,
-                                      "on", on);
-        }
-            
-        switch (clauseOut.role) {
-        case AnnotatedClause::CONSTANT:
-            constantConditions.emplace_back(std::move(clauseOut));
-            break;
-        case AnnotatedClause::LEFT:
-            left.whereClauses.emplace_back(std::move(clauseOut));
-            break;
-        case AnnotatedClause::RIGHT:
-            right.whereClauses.emplace_back(std::move(clauseOut));
-            break;
-        case AnnotatedClause::CROSS:
-            crossConditions.emplace_back(std::move(clauseOut));
-            break;
-        }
-    }
+    }    
 
     left.where = generateWhereExpression(left.whereClauses,
                                          leftTable->getAs());
     right.where = generateWhereExpression(right.whereClauses,
                                           rightTable->getAs());
 
-    //WHEN is not supported in JOIN
+    // WHEN is not supported in JOIN
     left.when = WhenExpression::parse("true");
     right.when = WhenExpression::parse("true");
 
@@ -399,6 +388,7 @@ AnnotatedJoinCondition(std::shared_ptr<TableExpression> leftTable,
             = SqlExpression::parse("true");
     }
     else {
+        // check for a possibility to optimize with an equijoin
         for (auto & c: crossConditions) {
             // Look for an equality condition in the cross condition
             auto cmpExpr = std::dynamic_pointer_cast<ComparisonExpression>(c.expr);
@@ -421,8 +411,10 @@ AnnotatedJoinCondition(std::shared_ptr<TableExpression> leftTable,
                     std::swap(leftAnnotated, rightAnnotated);
             
                 if (leftAnnotated.role != AnnotatedClause::LEFT
-                    || rightAnnotated.role != AnnotatedClause::RIGHT)
+                    || rightAnnotated.role != AnnotatedClause::RIGHT) {
+                    nonPivotWhere.push_back(c);
                     continue;
+                }
 
                 c.pivot = AnnotatedClause::POSSIBLE_PIVOT;
 
@@ -442,10 +434,10 @@ AnnotatedJoinCondition(std::shared_ptr<TableExpression> leftTable,
         }
 
         if (style != EQUIJOIN) {
-            throw HttpReturnException
-                (400, "Could not find join clause pivot: "
-                 "Join condition must have one clause of form left.var1 = right.var2",
-                 "conditions", *this);
+            style = CROSS_JOIN;
+            left.equalExpression
+                = right.equalExpression
+                = SqlExpression::parse("true");
         }
     }
 
@@ -463,8 +455,8 @@ AnnotatedJoinCondition(std::shared_ptr<TableExpression> leftTable,
             // Construct the select expression.  It's simply the value of
             // the join expression.
             side.select.clauses.push_back
-            (std::make_shared<ComputedVariable>(Utf8String("val"),
-                                                localExpr));
+            (std::make_shared<NamedColumnExpression>(PathElement("val"),
+                                              localExpr));
             side.select.surface = side.select.print();
             
             // Construct the order by expression.  Again, it's simply the

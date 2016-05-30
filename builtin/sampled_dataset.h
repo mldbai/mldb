@@ -56,6 +56,8 @@ struct SampledDataset: public Dataset {
     virtual std::shared_ptr<MatrixView> getMatrixView() const;
     virtual std::shared_ptr<ColumnIndex> getColumnIndex() const;
 
+    static std::string getErrorMsg(const std::string msg);
+
 private:
     
     SampledDatasetConfig datasetConfig;

@@ -23,17 +23,17 @@ class WhenInWhen(unittest.TestCase):
         for i in xrange(row_count - 1):
             # row name is x's value
             ds1.record_row(str(i),
-                           [['x', i, same_time_tomorrow], ['y', i, now]])
+                           [['x', str(i), same_time_tomorrow], ['y', str(i), now]])
 
-        ds1.record_row(str(row_count - 1), [['x', 9, same_time_tomorrow],
-                                            ['y', 9, same_time_tomorrow]])
+        ds1.record_row(str(row_count - 1), [['x', "9", same_time_tomorrow],
+                                            ['y', "9", same_time_tomorrow]])
         ds1.commit()
 
     def test_1(self):
         def validate1(result):
             mldb.log(result)
             for row in result.json():
-                if row['rowName'] != 9:
+                if row['rowName'] != '9':
                     self.assertEqual(len(row["columns"]), 1,
                                      'expected x to be filtered out')
                 else:
@@ -52,23 +52,23 @@ class WhenInWhen(unittest.TestCase):
             rows = result.json()
             msg = 'expected where clause to filter all but row 9'
             self.assertEqual(len(rows), 1, msg)
-            self.assertEqual(rows[0]['rowName'], 9, msg)
+            self.assertEqual(rows[0]['rowName'], '9', msg)
             self.assertEqual(
                 len(rows[0]['columns']), 2,
                 'expected the two tuples to be preserved by WHEN clause')
 
         validate2(mldb.get(
             '/v1/query',
-            q="SELECT * FROM dataset1 WHEN value_timestamp() = latest_timestamp(x) WHERE x = 9"))
+            q="SELECT * FROM dataset1 WHEN value_timestamp() = latest_timestamp(x) WHERE x = '9'"))
         validate2(mldb.get('/v1/datasets/dataset1/query',
-                           when='value_timestamp() = latest_timestamp(x)', where='x = 9'))
+                           when='value_timestamp() = latest_timestamp(x)', where="x = '9'"))
     
     def test_3(self):
         def validate3(result):
             mldb.log(result)
             rows = result.json()
             for row in rows:
-                if row['rowName'] != 9:
+                if row['rowName'] != '9':
                     self.assertEqual(len(row["columns"]), 1,
                                      'expected y to be filtered out')
                 else:
@@ -85,7 +85,7 @@ class WhenInWhen(unittest.TestCase):
             mldb.log(result)
             rows = result.json()
             for row in rows:
-                if row['rowName'] != 9:
+                if row['rowName'] != '9':
                     self.assertEqual(len(row["columns"]), 1,
                                      'expected y to be filtered out')
                 else:
@@ -137,7 +137,7 @@ class WhenInWhen(unittest.TestCase):
             mldb.log(result)
             rows = result.json()
             for row in rows:
-                if row['rowName'] != 9:
+                if row['rowName'] != '9':
                     self.assertTrue('columns' not in row,
                                     'expected x and y to be filtered out')
                 else:

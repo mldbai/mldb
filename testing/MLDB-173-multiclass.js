@@ -51,7 +51,7 @@ var trainClassifierProcedureConfig = {
                 verbosity: 3,
                 normalize: false,
                 link_function: 'linear',
-                ridge_regression: false
+                "regularization": 'none'
             }
         },
         algorithm: "glz",
@@ -96,9 +96,9 @@ plugin.log(result);
 
 var resp = mldb.get('/v1/query', { q: 'select label, sum(regressor(  {{x,y} as features }  )[scores]) from test group by label', format: 'table' });
 
-assertEqual(resp.responseCode, 200);
-
 plugin.log(resp);
+
+assertEqual(resp.responseCode, 200);
 
 if (Math.abs(result - 10) > 0.0001)
     throw "Regressor is not regressing";

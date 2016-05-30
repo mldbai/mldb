@@ -1,9 +1,9 @@
-/* importextprocedure.h
+/* importextprocedure.h                                            -*- C++ -*-
     Mathieu Marquis Bolduc, February 12, 2016
     Copyright (c) 2016 Datacratic Inc.  All rights reserved.
 
     This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
-    
+
     Procedure that reads text files into an indexed dataset.
 */
 
@@ -16,18 +16,14 @@
 #include "mldb/ml/value_descriptions.h"
 #include "mldb/types/optional.h"
 
-namespace ML
-{
-	struct filter_istream;
-}
-
 namespace Datacratic {
 namespace MLDB {
 
-struct TabularDataset;
 
 struct ImportTextConfig : public ProcedureConfig  {
-    ImportTextConfig()     
+    static constexpr const char * name = "import.text";
+
+    ImportTextConfig()
         : delimiter(","),
           quoter("\""),
           encoding("utf-8"),
@@ -35,12 +31,14 @@ struct ImportTextConfig : public ProcedureConfig  {
           limit(-1),
           offset(0),
           ignoreBadLines(false),
+          structuredColumnNames(false),
+          allowMultiLines(false),
           select(SelectExpression::STAR),
           where(SqlExpression::TRUE),
           named(SqlExpression::parse("lineNumber()")),
           timestamp(SqlExpression::parse("fileTimestamp()"))
     {
-    	outputDataset.withType("tabular");
+        outputDataset.withType("tabular");
     }
 
     Url dataFileUrl;
@@ -53,6 +51,8 @@ struct ImportTextConfig : public ProcedureConfig  {
     int64_t limit;
     int64_t offset;
     bool ignoreBadLines;
+    bool structuredColumnNames;
+    bool allowMultiLines;
 
     SelectExpression select;               ///< What to select from the CSV
     std::shared_ptr<SqlExpression> where;  ///< Filter for the CSV
@@ -71,7 +71,7 @@ DECLARE_STRUCTURE_DESCRIPTION(ImportTextConfig);
 /*****************************************************************************/
 
 struct ImportTextProcedure: public Procedure {
-    
+
     ImportTextProcedure(MldbServer * owner,
                 PolyConfig config,
                 const std::function<bool (const Json::Value &)> & onProgress);
@@ -87,5 +87,5 @@ private:
 
 };
 
-}
-}
+} // namespace MLDB
+} // namespace Datacratic

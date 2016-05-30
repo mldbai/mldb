@@ -29,10 +29,13 @@ dataset.record_row("r4", [["person", "francois", 0],
 mldb.log("Committing dataset")
 dataset.commit()
 
+# mldb.log(mldb.get('/v1/query', q='select * from example').json())
+
 result = mldb.get(
     '/v1/query',
     q='select pivot(thing, has) as * from example group by person')
-mldb.log(result)
+
+mldb.log(result.json());
 
 rez = mldb.put("/v1/procedures/dataset_creator", {
     "type": "transform",
@@ -41,16 +44,49 @@ rez = mldb.put("/v1/procedures/dataset_creator", {
         "outputDataset": { "id": "example2", "type":"sparse.mutable" }
     }
 })
-mldb.log(rez)
 
 rez = mldb.post("/v1/procedures/dataset_creator/runs")
-mldb.log(rez)
 
 result = mldb.get('/v1/query', q='select * from example2')
-mldb.log(result)
 
-row = result.json()[0]
-assert row['columns'][0][0] == "tsla" or row['columns'][0][0] == "appl"
+expected = [
+    {
+        "rowName": "\"[\"\"nick\"\"]\"",
+        "rowHash": "676fb0c3ba9e8500",
+        "columns": [
+            [
+                "appl",
+                1,
+                "1970-01-01T00:00:00Z"
+            ],
+            [
+                "goog",
+                2,
+                "1970-01-01T00:00:00Z"
+            ]
+        ]
+    },
+    {
+        "rowName": "\"[\"\"francois\"\"]\"",
+        "rowHash": "65a04ce6031d924d",
+        "columns": [
+            [
+                "appl",
+                3,
+                "1970-01-01T00:00:00Z"
+            ],
+            [
+                "tsla",
+                4,
+                "1970-01-01T00:00:00Z"
+            ]
+        ]
+    }
+]
+
+mldb.log(result.json())
+
+assert result.json() == expected;
 
 #MLDB-914
 
@@ -83,8 +119,8 @@ result = mldb.get('/v1/query',
 mldb.log(result)
 
 assert result.json()[0]['rowName'] \
-    == unicode('["françois"]',encoding='utf-8'), 'failed non-ascii support'
+    == unicode('"[""françois""]"',encoding='utf-8'), 'failed non-ascii support'
 assert result.json()[1]['rowName'] \
-    == unicode('["nick"]',encoding='utf-8'), 'failed non-ascii support'
+    == unicode('"[""nick""]"',encoding='utf-8'), 'failed non-ascii support'
 
 mldb.script.set_return("success")

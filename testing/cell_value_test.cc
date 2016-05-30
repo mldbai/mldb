@@ -8,7 +8,9 @@
 */
 
 #include "mldb/sql/cell_value.h"
+#include "mldb/sql/path.h"
 #include "mldb/types/value_description.h"
+#include "http/http_exception.h"
 
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
@@ -92,7 +94,9 @@ void checkOrdering(const CellValue & v1,
 
 BOOST_AUTO_TEST_CASE( test_ordering )
 {
-    vector<CellValue> values { CellValue(), std::numeric_limits<float>::quiet_NaN(), -1.5, 1, 2, 2.3, 3, 3.0, 3.5, "", "one", "three", "three hundred and forty-five thousand", "two" };
+    vector<CellValue> values { CellValue(), std::numeric_limits<float>::quiet_NaN(),
+                                -1.5, 1, 2, 2.3, 3, 3.0, 3.5, "", "one", "three",
+                                "three hundred and forty-five thousand", "two" };
 
     for (auto & v1: values) {
         for (auto & v2: values) {
@@ -214,7 +218,7 @@ BOOST_AUTO_TEST_CASE (test_int_to_string)
 
 BOOST_AUTO_TEST_CASE (test_realistic_float)
 {
-    constexpr char * realisticFloat1 = "-0.38860246539115906";
+    constexpr const char * realisticFloat1 = "-0.38860246539115906";
 
     auto cell1 = CellValue::parse(realisticFloat1, 
                                   strlen(realisticFloat1), 
@@ -222,7 +226,7 @@ BOOST_AUTO_TEST_CASE (test_realistic_float)
 
     BOOST_CHECK_EQUAL(cell1.cellType(), CellValue::FLOAT);
 
-    constexpr char * realisticFloat2 = "-0.38860246539115906123454634";
+    constexpr const char * realisticFloat2 = "-0.38860246539115906123454634";
 
     auto cell2 = CellValue::parse(realisticFloat2, 
                                   strlen(realisticFloat1), // intended - must not read passed the length
@@ -234,7 +238,7 @@ BOOST_AUTO_TEST_CASE (test_realistic_float)
 
 BOOST_AUTO_TEST_CASE (test_realistic_int)
 {
-    constexpr char * realisticInt1 = "-38860246539115906";
+    constexpr const char * realisticInt1 = "-38860246539115906";
 
     auto cell1 = CellValue::parse(realisticInt1, 
                                   strlen(realisticInt1), 
@@ -242,7 +246,7 @@ BOOST_AUTO_TEST_CASE (test_realistic_int)
 
     BOOST_CHECK_EQUAL(cell1.cellType(), CellValue::INTEGER);
 
-    constexpr char * realisticInt2 = "-38860246539115906123454634";
+    constexpr const char * realisticInt2 = "-38860246539115906123454634";
 
     auto cell2 = CellValue::parse(realisticInt2, 
                                   strlen(realisticInt1), // intended - must not read passed the length
@@ -254,7 +258,7 @@ BOOST_AUTO_TEST_CASE (test_realistic_int)
 
 BOOST_AUTO_TEST_CASE (test_realistic_uint)
 {
-    constexpr char * realisticUInt1 = "38860246539115906";
+    constexpr const char * realisticUInt1 = "38860246539115906";
 
     auto cell1 = CellValue::parse(realisticUInt1, 
                                   strlen(realisticUInt1), 
@@ -262,7 +266,7 @@ BOOST_AUTO_TEST_CASE (test_realistic_uint)
 
     BOOST_CHECK_EQUAL(cell1.cellType(), CellValue::INTEGER);
 
-    constexpr char * realisticUInt2 = "38860246539115906123454634";
+    constexpr const char * realisticUInt2 = "38860246539115906123454634";
 
     auto cell2 = CellValue::parse(realisticUInt2, 
                                   strlen(realisticUInt1), // intended - must not read passed the length
@@ -272,4 +276,45 @@ BOOST_AUTO_TEST_CASE (test_realistic_uint)
     BOOST_CHECK_EQUAL(cell1, cell2);
 }
 
+template<typename T>
+std::function<bool(T const&)>
+exceptionCheck(const std::string & pattern) {
+    return [=] ( T const& ex )
+        {
+            cout << ex.what() << endl;
+            return string(ex.what()).find(pattern) != std::string::npos;
+        };
+}
 
+BOOST_AUTO_TEST_CASE (test_exception_messages)
+{
+    auto cv = CellValue(Utf8String("françois"));
+
+    auto returnExceptCheck = exceptionCheck<std::exception>("value 'fran");
+    BOOST_CHECK_EXCEPTION( cv.toString(), std::exception, returnExceptCheck);
+    BOOST_CHECK_EXCEPTION( cv.toDouble(), std::exception, returnExceptCheck);
+    BOOST_CHECK_EXCEPTION( cv.toInt(), std::exception, returnExceptCheck);
+
+    auto returnHttpExcptCheck = exceptionCheck<HttpReturnException>("value 'fran");
+    BOOST_CHECK_EXCEPTION( cv.toTimestamp(), HttpReturnException, returnHttpExcptCheck);
+    BOOST_CHECK_EXCEPTION( cv.toMonthDaySecond(), HttpReturnException, returnHttpExcptCheck);
+    BOOST_CHECK_EXCEPTION( cv.blobData(), HttpReturnException, returnHttpExcptCheck);
+    BOOST_CHECK_EXCEPTION( cv.blobLength(), HttpReturnException, returnHttpExcptCheck);
+
+    // make sure we'll trim the exception
+    cv = CellValue(Utf8String("éabcdefasdfasdeifjshifjsifjsijasdfweoinnvoijoiwnvoijwef"
+                              "abcdefasdfasdeifjshifjsifjsijasdfweoinnvoijoiwnvoijwef"
+                              "abcdefasdfasdeifjshifjsifjsijasdfweoinnvoijoiwnvoijwef"
+                              "abcdefasdfasdeifjshifjsifjsijasdfweoinnvoijoiwnvoijwef"
+                              "abcdefasdfasdeifjshifjsifjsijasdfweoinnvoijoiwnvoijwef"));
+    BOOST_CHECK_EXCEPTION( cv.toString(), std::exception, exceptionCheck<std::exception>("... (trimmed)'"));
+}
+
+BOOST_AUTO_TEST_CASE (test_path)
+{
+    Path p1(PathElement(1));
+    auto cv = CellValue(p1);
+    Path p2 = cv.coerceToPath();
+
+    BOOST_CHECK_EQUAL(p1, p2);
+}

@@ -25,6 +25,55 @@
 using namespace std;
 using namespace Datacratic;
 
+// MLDB-1579
+BOOST_AUTO_TEST_CASE (test_threads_disappearing_jobs_run)
+{
+    ThreadPool threadPool(1);
+
+    std::atomic<uint64_t> jobsSubmitted(0);
+    std::atomic<uint64_t> jobsRun(0);
+
+    auto doJob = [&] ()
+        {
+            ++jobsRun;
+        };
+
+    auto runThread = [&] ()
+        {
+            threadPool.add(doJob);
+            ++jobsSubmitted;
+            // Now exit our thread
+        };
+
+    for (int i = 0;  i < 1000;  ++i) {
+        std::thread(runThread).detach();
+    }
+
+    while (jobsSubmitted < 1000) ;
+
+    BOOST_CHECK_EQUAL(jobsRun, 1000);
+}
+
+//Failing depending on availability of cores...
+BOOST_AUTO_TEST_CASE (thread_pool_idle_cpu_usage)
+{
+    static const char * env_name = getenv("MLDB_NO_TIMING_TESTS");
+    if (env_name)
+        return;
+
+    ThreadPool threadPool(32);
+    // let it start up and settle down
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    ML::Timer timer;
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    double elapsedCpu = timer.elapsed_cpu();
+    double elapsedWall = timer.elapsed_wall();
+    double cores = elapsedCpu / elapsedWall;
+    cerr << "idle thread pool used " << cores * 100
+         << "% cores" << endl;
+    BOOST_CHECK_LE(cores, 0.01);
+}
+
 BOOST_AUTO_TEST_CASE (thread_pool_startup_shutdown_one_job)
 {
     ThreadPool threadPool(1);
@@ -56,8 +105,13 @@ BOOST_AUTO_TEST_CASE (thread_pool_startup_shutdown_zero_threads)
     BOOST_CHECK_EQUAL(threadPool.jobsRunning(), 0);
 }
 
+//Failing depending on availability of cores...
 BOOST_AUTO_TEST_CASE (thread_pool_no_busy_looping)
 {
+    static const char * env_name = getenv("MLDB_NO_TIMING_TESTS");
+    if (env_name)
+        return;
+
     ThreadPool threadPool(10);
     BOOST_CHECK_EQUAL(threadPool.jobsSubmitted(), 0);
     std::atomic<int> finished(0);
@@ -468,3 +522,4 @@ BOOST_AUTO_TEST_CASE(PushPopSteal) {
 BOOST_AUTO_TEST_CASE(PushPopStealWithWraparound) {
     TestPushPopSteal(std::numeric_limits<uint_fast32_t>::max() - 10 /* top and bottom of empty queue */);
 }
+

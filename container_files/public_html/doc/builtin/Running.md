@@ -2,10 +2,47 @@
 table {font-size: 18px; border: 2px solid white; border-collapse: collapse;}
 td, th {padding: 12px;}
 hr {margin: 40px;}
+#try {
+        color: #fff;
+    background-color: #337ab7;
+    border-color: #2e6da4;
+        display: inline-block;
+    padding: 6px 12px;
+    margin-bottom: 0;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.42857143;
+    text-align: center;
+    white-space: nowrap;
+    text-decoration: none;
+    vertical-align: middle;
+    -ms-touch-action: manipulation;
+    touch-action: manipulation;
+    cursor: pointer;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    background-image: none;
+    border: 1px solid transparent;
+    border-radius: 4px;
+        padding: 10px 16px;
+    font-size: 18px;
+    line-height: 1.3333333;
+    border-radius: 6px;
+}
 </style>
 
 # Running MLDB
 
+The easiest way to get started with MLDB is to [sign up to MLDB.ai](https://mldb.ai/#signup) and launch a free 90-minute hosted MLDB session. You'll be able to browse the live documentation and run and modify the demos yourselve. You can even try running MLDB on some of your own data.
+
+<p align="center"><a id="try" href="https://mldb.ai/#signup" target="_blank"> Try MLDB online right now! </a></p>
+
+
+## Installing MLDB locally
+
+If you want to run MLDB on your own hardware, either bare metal or in the cloud, you can choose between the open-source Community Edition and the closed-source Enterprise Edition. Building the Community Edition takes about an hour on powerful hardware but you can be up and running with the Enterprise Edition Free Trial in about 5 minutes.
 
           &nbsp;            | Community Edition | Enterprise Edition <br/> Free Trial | Enterprise Edition
 :---------------------------:|:-:|:-:|:-:
@@ -14,20 +51,16 @@ hr {margin: 40px;}
 **Licensing**     | [Apache License v2.0](https://github.com/mldbai/mldb/blob/master/LICENSE) | [Non-Commercial](licenses.md) | [Commercial](licenses.md)
 **Pricing**     | free! |  free! | <a href="http://datacratic.com/site/contact-us" target="_blank">contact sales</a>
 **Support**     | [Github Issues](https://github.com/mldbai/mldb/issues/new) | <a href="http://datacratic.com/site/contact-us" target="_blank">Datacratic Support</a> | <a href="http://datacratic.com/site/contact-us" target="_blank">Datacratic Support</a>
-**Getting Started**   | [build from source](https://github.com/mldbai/mldb/blob/master/Building.md) |  download & activate |  download & activate
+**Getting Started**   | [build from source](https://github.com/mldbai/mldb/blob/master/Building.md)<p>takes about 1 hr |  [download](#packages) <p>takes about 5 min |  [download](#packages) <p>takes about 5 min
 
-------------------------
+### Creating a Free Trial license key is easy
 
-## Getting a Free Trial license code instantly by email
-
-When you run the MLDB Enterprise Edition for the first time, you will be prompted for a license code to activate the software. 
-
-You can get a Free Trial license code emailed to you instantly by [filling out this form](http://mldb.ai/licensing.html).
+When you run the MLDB Enterprise Edition for the first time, you will be prompted for a license key to activate the software. You can create your Free Trial license key instantly by signing up to [MLDB.ai](https://mldb.ai/#license_management) and filling out the request form.
 
 ------------------------
 
 <a name="packages"></a>
-## Getting and Running the MLDB Enterprise Edition
+## Downloading and Running the MLDB Enterprise Edition
 
 The MLDB Enterprise Edition is available as a pre-built binary in the following formats:
 

@@ -56,12 +56,12 @@ testQuery("SELECT * FROM row_dataset({x:1, y:2, z:'three'}) ORDER BY rowName()",
           expected);
 
 expected = [
-   [ "_rowName", "x.column", "x.value" ],
+   [ "_rowName", "column", "value" ],
    [ "0", "x", 1 ],
    [ "1", "y", 2 ],
    [ "2", "z", "three" ]
 ];
-testQuery("SELECT x.* FROM row_dataset({x: 1, y:2, z: 'three'}) AS x ORDER BY rowName()",
+testQuery('SELECT x.* FROM row_dataset({x: 1, y:2, z: \'three\'}) AS x ORDER BY rowName()',
           expected);
 
 var resp = mldb.put("/v1/functions/x", { type: "sql.query", params: { query: "SELECT * from row_dataset({a:1,b:2})", output: "NAMED_COLUMNS"} });

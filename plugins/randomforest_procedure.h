@@ -21,10 +21,12 @@ namespace MLDB {
 
 
 struct RandomForestProcedureConfig : public ProcedureConfig {
-    RandomForestProcedureConfig() : featureVectorSamplings(5), 
-                                    featureSamplings(20), 
-                                    featureVectorSamplingProp(0.3f), 
-                                    featureSamplingProp(0.3f), 
+    static constexpr const char * name = "randomforest.binary.train";
+
+    RandomForestProcedureConfig() : featureVectorSamplings(5),
+                                    featureSamplings(20),
+                                    featureVectorSamplingProp(0.3f),
+                                    featureSamplingProp(0.3f),
                                     maxDepth(20),
                                     verbosity(false)
     {

@@ -209,19 +209,6 @@ class NoFromSegfaultTest(unittest.TestCase):
             mldb.put("/v1/procedures/trainer3", conf)
         self.assertEqual(re.exception.response.status_code, 400)
 
-    def test_14(self):
-        conf = {
-            "type": "transform",
-            "params": {
-                "inputData": """
-                    select {* EXCLUDING(quality)} as features, quality as label
-                """,
-                "runOnCreation": True
-            }
-        }
-        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, 'must contain a FROM clause') as re:
-            mldb.put("/v1/procedures/trainer3", conf)
-        self.assertEqual(re.exception.response.status_code, 400)
 
     def test_MLDB_1386(self):
         conf = {
@@ -238,7 +225,7 @@ class NoFromSegfaultTest(unittest.TestCase):
                         "verbosity": 3,
                         "normalize": False,
                         "link_function": 'linear',
-                        "ridge_regression": False
+                        "regularization": 'none'
                     }
                 },
                 "mode": "regression",

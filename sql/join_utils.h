@@ -8,10 +8,14 @@
 #pragma once
 
 #include "sql_expression.h"
+#include "mldb/sql/table_expression_operations.h" //for join qualification
 
 namespace Datacratic {
 namespace MLDB {
 
+/** Fix up an expression, by looking for all column references and removing
+    the table name in the set of aliases from each one.
+*/
 std::shared_ptr<SqlExpression>
 removeTableName(const SqlExpression & expr,
                 const Utf8String & tableName,
@@ -43,10 +47,12 @@ struct AnnotatedClause {
     std::shared_ptr<SqlExpression> expr;
 
     /// Lists of variables on the left, the right, and satisfied by neither side
-    std::vector<Utf8String> leftVars, rightVars, externalVars;
+    std::vector<ColumnName> leftVars, rightVars, externalVars;
 
     /// Lists of functions on the left, the right, and satisfied by neither side
-    std::vector<Utf8String> leftFuncs, rightFuncs, externalFuncs;
+    /// We still need to keep the scope, as table1.rowName() is not the same as
+    /// rowName() for a joined table.
+    std::vector<ScopedName> leftFuncs, rightFuncs, externalFuncs;
     
     /// Role that this clause plays in the overall join logic
     enum Role {
@@ -92,7 +98,8 @@ struct AnnotatedJoinCondition {
     AnnotatedJoinCondition(std::shared_ptr<TableExpression> left,
                            std::shared_ptr<TableExpression> right,
                            std::shared_ptr<SqlExpression> on,
-                           std::shared_ptr<SqlExpression> where = nullptr,
+                           std::shared_ptr<SqlExpression> where,
+                           JoinQualification joinQualification,
                            bool debug = false);
 
     bool debug;
@@ -108,11 +115,11 @@ struct AnnotatedJoinCondition {
     /// Original ON clause
     std::shared_ptr<SqlExpression> on;
 
-    /// Original WHERE clause
+    /// Original WHERE clause as in 
+    /// SELECT * FROM t1 JOIN t2 ON t1.c = t2.c WHERE c > 0
     std::shared_ptr<SqlExpression> where;
 
-    // Analyze the ON clause.  We look for any combination of AND
-    // clauses, and get the entire list no matter how nested.
+    /// Holds all the AND clauses in the ON and the WHERE statements
     std::vector<std::shared_ptr<SqlExpression> > andClauses;
 
     /// Style of join
@@ -135,7 +142,7 @@ struct AnnotatedJoinCondition {
         // WHERE condition on rows on the left side
         std::vector<AnnotatedClause> whereClauses;
         
-        /// Left side of equality part of the join expression, for JOIN_EQUAL
+        /// Left side of equality part of the join expression, for EQUIJOIN
         std::shared_ptr<SqlExpression> equalExpression;
 
         /// Clause for the select expression

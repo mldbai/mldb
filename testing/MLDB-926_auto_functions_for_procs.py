@@ -56,7 +56,7 @@ conf = {
                 "verbosity": 3,
                 "normalize": False,
                 "link": "linear",
-                "ridge_regression": True
+               "regularization": 'l2'
             }
         },
         "functionName": "cls_func"
@@ -80,26 +80,14 @@ do_checks(conf)
 del conf['params']['modelFileUrl']
 conf['params']['runOnCreation'] = True
 try:
-    mldb.put("/v1/procedures/" + conf["type"], conf)
+    mldb.put("/v1/procedures/failing_kmeans", conf)
 except mldb_wrapper.ResponseException as exc:
     rez = exc.response
 else:
-    assert False, 'should not be here'
+    assert False, 'should not be here 1'
 response = rez.json()
 mldb.log(response)
 
-assert rez.status_code == 400, 'expecting call to fail when no model file URL'
-assert 'error' in response, 'expecting the error message to appear'
-assert 'httpCode' in response, 'expecting an httpCode for the run error'
-
-try:
-    mldb.post("/v1/procedures/" + conf["type"] + "/runs")
-except mldb_wrapper.ResponseException as exc:
-    rez = exc.response
-else:
-    assert False, 'should not be here'
-response = rez.json()
-mldb.log(response)
 assert rez.status_code == 400, 'expecting call to fail when no model file URL'
 assert 'error' in response, 'expecting the error message to appear'
 assert 'httpCode' in response, 'expecting an httpCode for the run error'
@@ -107,11 +95,11 @@ assert 'httpCode' in response, 'expecting an httpCode for the run error'
 conf['params']['modelFileUrl'] = "not://a/valid/path"
 conf['params']['runOnCreation'] = True
 try:
-    mldb.put("/v1/procedures/" + conf["type"], conf)
+    mldb.put("/v1/procedures/failing_kmeans2", conf)
 except mldb_wrapper.ResponseException as exc:
     rez = exc.response
 else:
-    assert False, 'should not be here'
+    assert False, 'should not be here 2'
 response = rez.json()
 mldb.log(response)
 
@@ -159,4 +147,3 @@ conf = {
 do_checks(conf)
 
 mldb.script.set_return("success")
-

@@ -33,6 +33,7 @@ using Datacratic::getDefaultDescriptionShared;
 
 DEFINE_ENUM_DESCRIPTION_NAMED(FeatureTypeDescription, ML::Feature_Type);
 DEFINE_ENUM_DESCRIPTION_NAMED(LinkFunctionDescription, ML::Link_Function);
+DEFINE_ENUM_DESCRIPTION_NAMED(RegularizationDescription, ML::Regularization);
 
 struct ClassifierImplDescription
     : public Datacratic::ValueDescriptionT<std::shared_ptr<ML::Classifier_Impl> > {
@@ -69,6 +70,14 @@ LinkFunctionDescription()
     addValue("COMP_LOG_LOG", ML::COMP_LOG_LOG, "Also good for probabilistic");
     addValue("LINEAR", ML::LINEAR, "Linear; makes it solve linear least squares (identity)");
     addValue("LOG", ML::LOG, "Logarithm; good for transforming the output of boosting");
+}
+
+RegularizationDescription::
+RegularizationDescription()
+{
+    addValue("NONE", ML::Regularization_none, "No regularization.");
+    addValue("L1", ML::Regularization_l1, "L1 regularization using LASSO.");
+    addValue("L2", ML::Regularization_l2, "L2 regularization using ridge regression.");  
 }
 
 struct DenseFeatureSpaceDescription

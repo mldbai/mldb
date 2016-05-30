@@ -25,7 +25,7 @@ dateutils==0.6.6
 python-dateutil==2.4.2
 pytz==2015.7
 requests[security]==2.9.1
-python-prctl==1.6.1
+#python-prctl==1.6.1
 Pygments==2.1.1
 setuptools==20.3.1
 lz4==0.7.0
@@ -37,3 +37,5 @@ bottle==0.12.9
 elasticsearch==2.2.0
 psutil==3.4.2
 
+# MLDBFB-499
+boto==2.39.0

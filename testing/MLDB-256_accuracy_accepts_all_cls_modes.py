@@ -76,7 +76,7 @@ class Mldb256Test(MldbUnitTest):
             rez = mldb.put("/v1/procedures/bool_cls_seg", {
                 "type": "classifier.experiment",
                 "params": {
-                    "trainingData": "select {x, y} as features, label as label from categorical", # on purpose the wrong dataset
+                    "inputData": "select {x, y} as features, label as label from categorical", # on purpose the wrong dataset
                     "experimentName": "bool_exp_seg",
                     "keepArtifacts": True,
                     "modelFileUrlPattern": "file://temp/mldb-256_bool_seg.cls",
@@ -87,7 +87,7 @@ class Mldb256Test(MldbUnitTest):
                             "verbosity": 3,
                             "normalize": True,
                             "link_function": "logit",
-                            "ridge_regression": True
+                            "regularization": 'l2'
                         }
                     },
                     "kfold": 2,
@@ -102,7 +102,7 @@ class Mldb256Test(MldbUnitTest):
         rez = mldb.put("/v1/procedures/bool_cls", {
             "type": "classifier.experiment",
             "params": {
-                "trainingData": "select {x, y} as features, label as label from boolean",
+                "inputData": "select {x, y} as features, label as label from boolean",
                 "experimentName": "bool_exp",
                 "keepArtifacts": True,
                 "modelFileUrlPattern": "file://temp/mldb-256_bool.cls",
@@ -113,7 +113,7 @@ class Mldb256Test(MldbUnitTest):
                         "verbosity": 3,
                         "normalize": True,
                         "link_function": "logit",
-                        "ridge_regression": True
+                        "regularization": 'l2'
                     },
                     "dt": {
                         "type": "decision_tree",
@@ -124,8 +124,8 @@ class Mldb256Test(MldbUnitTest):
                 },
                 "datasetFolds": [
                     {
-                        "training_where": "rowHash() % 2 = 1",
-                        "testing_where": "rowHash() % 2 = 0",
+                        "trainingWhere": "rowHash() % 2 = 1",
+                        "testingWhere": "rowHash() % 2 = 0",
                     }],
                 "mode": "boolean",
                 "outputAccuracyDataset": True,
@@ -141,7 +141,7 @@ class Mldb256Test(MldbUnitTest):
         rez = mldb.put("/v1/procedures/bool_cls_weighted", {
             "type": "classifier.experiment",
             "params": {
-                "trainingData": "select {x, y} as features, label as label, weight as weight from boolean",
+                "inputData": "select {x, y} as features, label as label, weight as weight from boolean",
                 "experimentName": "bool_exp",
                 "keepArtifacts": True,
                 "modelFileUrlPattern": "file://temp/mldb-256_bool.cls",
@@ -152,7 +152,7 @@ class Mldb256Test(MldbUnitTest):
                         "verbosity": 3,
                         "normalize": True,
                         "link_function": "logit",
-                        "ridge_regression": True
+                        "regularization": 'l2'
                     },
                     "dt": {
                         "type": "decision_tree",
@@ -163,8 +163,8 @@ class Mldb256Test(MldbUnitTest):
                 },
                 "datasetFolds": [
                     {
-                        "training_where": "rowHash() % 2 = 1",
-                        "testing_where": "rowHash() % 2 = 0",
+                        "trainingWhere": "rowHash() % 2 = 1",
+                        "testingWhere": "rowHash() % 2 = 0",
                     }],
                 "mode": "boolean",
                 "outputAccuracyDataset": True,
@@ -253,7 +253,7 @@ class Mldb256Test(MldbUnitTest):
         rez = mldb.put("/v1/procedures/categorical_cls", {
             "type": "classifier.experiment",
             "params": {
-                "trainingData": "select {col*} as features, label as label from categorical",
+                "inputData": "select {col*} as features, label as label from categorical",
                 "experimentName": "categorical_exp",
                 "keepArtifacts": True,
                 "modelFileUrlPattern": "file://temp/mldb-256_cat.cls",
@@ -264,13 +264,13 @@ class Mldb256Test(MldbUnitTest):
                         "verbosity": 3,
                         "normalize": False,
                         "link_function": "linear",
-                        "ridge_regression": True
+                        "regularization": 'l2'
                     }
                 },
                 "datasetFolds": [
                     {
-                        "training_where": "rowHash() % 2 = 1",
-                        "testing_where": "rowHash() % 2 = 0",
+                        "trainingWhere": "rowHash() % 2 = 1",
+                        "testingWhere": "rowHash() % 2 = 0",
                     }],
                 "mode": "categorical",
                 "outputAccuracyDataset": True,
@@ -322,9 +322,10 @@ class Mldb256Test(MldbUnitTest):
 
         quart_rez = mldb.query("""select abs((label-score)/label) as prnct_error, label, score 
                                   from toy_regression order by prnct_error ASC""")
+        mldb.log("------------------------ here")
         mldb.log(quart_rez)
-        self.assertAlmostEqual(jsRez["status"]["firstRun"]["status"]["quantileErrors"]["0.5"], quart_rez[2][1])
-        self.assertAlmostEqual(jsRez["status"]["firstRun"]["status"]["quantileErrors"]["0.9"], quart_rez[3][1])
+        self.assertAlmostEqual(jsRez["status"]["firstRun"]["status"]["quantileErrors"]["0.5"], quart_rez[2][2])
+        self.assertAlmostEqual(jsRez["status"]["firstRun"]["status"]["quantileErrors"]["0.9"], quart_rez[3][2])
 
         # Check the accuracy dataset
         self.assertEqual(len(mldb.query("select * from toy_reg_output")), 5)
@@ -334,7 +335,7 @@ class Mldb256Test(MldbUnitTest):
         rez = mldb.put("/v1/procedures/regression_cls", {
             "type": "classifier.experiment",
             "params": {
-                "trainingData": "select {col*} as features, label as label from regression",
+                "inputData": "select {col*} as features, label as label from regression",
                 "experimentName": "reg_exp",
                 "keepArtifacts": True,
                 "modelFileUrlPattern": "file://temp/mldb-256_reg.cls",
@@ -345,7 +346,7 @@ class Mldb256Test(MldbUnitTest):
                         "verbosity": 3,
                         "normalize": False,
                         "link_function": "linear",
-                        "ridge_regression": False
+                        "regularization": 'none'
                     },
                     "dt": {
                         "type": "decision_tree",
@@ -363,7 +364,7 @@ class Mldb256Test(MldbUnitTest):
 
         jsRez = rez.json()
         mldb.log(jsRez)
-        self.assertGreater(jsRez["status"]["firstRun"]["status"]["aggregatedTest"]["r2"]["mean"], 0.98)
+        self.assertGreater(jsRez["status"]["firstRun"]["status"]["aggregatedTest"]["r2"]["mean"], 0.94)
 
 
 mldb.run_tests()

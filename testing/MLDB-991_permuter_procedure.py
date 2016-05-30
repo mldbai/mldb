@@ -28,17 +28,17 @@ procedure_conf = {
     "type": "classifier.experiment",
     "params": {
         "experimentName": "my_test-exp_$permutation",
-        "trainingData": "select {* EXCLUDING(label)} as features, label from toy",
-        "testingData": "select {* EXCLUDING(label)} as features, label from toy",
+        "inputData": "select {* EXCLUDING(label)} as features, label from toy",
+        "testingDataOverride": "select {* EXCLUDING(label)} as features, label from toy",
         "datasetFolds" : [
             {
-                "training_where": "rowHash() % 5 != 3",
-                "testing_where": "rowHash() % 5 = 3",
-                "orderBy": "rowHash() ASC",
+                "trainingWhere": "rowHash() % 5 != 3",
+                "testingWhere": "rowHash() % 5 = 3",
+                "trainingOrderBy": "rowHash() ASC",
             },
             {
-                "training_where": "rowHash() % 5 != 2",
-                "testing_where": "rowHash() % 5 = 2",
+                "trainingWhere": "rowHash() % 5 != 2",
+                "testingWhere": "rowHash() % 5 = 2",
             }],
         "modelFileUrlPattern": "file://build/x86_64/tmp/bouya-$runid.cls",
         "algorithm": "glz",
@@ -50,7 +50,7 @@ procedure_conf = {
                 "verbosity": 3,
                 "normalize": False,
                 "link": "linear",
-                "ridge_regression": True
+                "regularization": 'l2'
             },
             "bglz": {
                 "type": "bagging",

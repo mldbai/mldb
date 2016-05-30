@@ -19,7 +19,7 @@ result = mldb.perform("PUT", "/v1/procedures/titanic_train_scorer", [], {
     "params": {
         "experimentName": "titanic",
         "keepArtifacts": True,
-        "trainingData": """
+        "inputData": """
             select 
                 {Sex, Age, Fare, Embarked, Parch, SibSp, Pclass} as features,
                 label
@@ -59,6 +59,7 @@ result = mldb.perform("PUT", "/v1/functions/titanic_explainer", [], {
     "type": "classifier.explain",
     "params": { "modelFileUrl": "file://tmp/MLDB-1304.cls" }
 })
+mldb.log(result)
 assert result["statusCode"] < 400, result["response"]
 
 

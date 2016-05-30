@@ -18,7 +18,8 @@
 #include "mldb/arch/timers.h"
 #include "mldb/base/parallel.h"
 #include "mldb/base/thread_pool.h"
-#include "mldb/arch/spinlock.h"
+#include "mldb/utils/atomic_shared_ptr.h"
+#include "mldb/server/parallel_merge_sort.h"
 #include <mutex>
 
 using namespace std;
@@ -26,38 +27,6 @@ using namespace std;
 
 namespace Datacratic {
 namespace MLDB {
-
-// Note: in GCC 4.9+, we can use the std::atomic_xxx overloads for
-// std::shared_ptr.  Once the Concurrency TR is available, we can
-// replace with those classes.  For the moment we use a simple,
-// spinlock protected implementation that is a lowest common
-// denominator.
-template<typename T>
-struct atomic_shared_ptr {
-
-    template<typename... Args>
-    atomic_shared_ptr(Args&&... args)
-        : ptr(std::forward<Args>(args)...)
-    {
-    }
-    
-    std::shared_ptr<T> load() const
-    {
-        std::unique_lock<ML::Spinlock> guard(lock);
-        return ptr;
-    }
-
-    void store(std::shared_ptr<T> newVal)
-    {
-        std::unique_lock<ML::Spinlock> guard(lock);
-        ptr = std::move(newVal);
-    }
-
-private:
-    mutable ML::Spinlock lock;
-    std::shared_ptr<T> ptr;
-};
-
 
 DEFINE_STRUCTURE_DESCRIPTION(BaseEntry);
 
@@ -510,8 +479,9 @@ struct SparseMatrixDataset::Itl
 
     uint64_t encodeCol(const ColumnName & col, WriteTransaction & trans)
     {
-        if (col == ColumnName())
-            throw HttpReturnException(400, "Datasets don't accept empty column names");
+        if (col.empty())
+            throw HttpReturnException(400,
+                                      "Datasets don't accept empty column names");
 
         ColumnHash ch(col);
         if (!trans.values->knownRow(ch.hash())) {
@@ -519,7 +489,7 @@ struct SparseMatrixDataset::Itl
             entry.rowcol = 0;
             entry.timestamp = 0;
             entry.val = 0;
-            entry.metadata.push_back(col.toString());
+            entry.metadata.push_back(col.toUtf8String().rawData());
             trans.values->recordRow(ch.hash(), &entry, 1);
         }
         return ch.hash();
@@ -533,15 +503,12 @@ struct SparseMatrixDataset::Itl
         trans->matrix
             ->iterateRows([&] (uint64_t row)
                           {
-                              result.emplace_back(getRowNameTrans(RowHash(row), *trans));
+                              result.emplace_back(getRowNameTrans(RowHash(row),
+                                                                  *trans));
                               return true;
                           });
 
-         std::sort(result.begin(), result.end(),
-              [&] (const RowName & r1, const RowName & r2)
-              {
-                  return r1.hash() < r2.hash();
-              });
+        //Make sure that the result of the above is in a deterministic order
 
         if (start < 0)
             throw HttpReturnException(400, "Invalid start for row names",
@@ -575,7 +542,7 @@ struct SparseMatrixDataset::Itl
                               return true;
                           });
 
-        std::sort(result.begin(), result.end());
+        //Make sure that the result of the above is in a deterministic order
 
         if (start < 0)
             throw HttpReturnException(400, "Invalid start for row names",
@@ -631,7 +598,7 @@ struct SparseMatrixDataset::Itl
 
         auto onRow = [&] (const BaseEntry & entry)
             {
-                result = RowName(entry.metadata.at(0));
+                result = RowName::parse(entry.metadata.at(0));
                 return false;
             };
             
@@ -659,7 +626,7 @@ struct SparseMatrixDataset::Itl
 
         auto onRow = [&] (const BaseEntry & entry)
             {
-                result = ColumnName(entry.metadata.at(0));
+                result = ColumnName::parse(entry.metadata.at(0));
                 return false;  // return false to short circuit
             };
             
@@ -732,7 +699,7 @@ struct SparseMatrixDataset::Itl
                    const std::vector<std::tuple<ColumnName, CellValue, Date> > & vals,
                    WriteTransaction & trans)
     {
-        if (rowName == RowName())
+        if (rowName.empty())
             throw HttpReturnException(400, "Datasets don't accept empty row names");
 
         RowHash hash(rowName);
@@ -743,7 +710,7 @@ struct SparseMatrixDataset::Itl
             entry.rowcol = 0;
             entry.timestamp = 0;
             entry.val = 0;
-            entry.metadata.push_back(rowName.toString());
+            entry.metadata.push_back(rowName.toUtf8String().rawData());
             trans.values->recordRow(hash, &entry, 1);
         }
         
@@ -933,7 +900,7 @@ enum CommitMode {
 struct MutableBaseData {
 
     MutableBaseData(CommitMode commitMode)
-        : repr(new Repr()), commitMode(commitMode)
+        : repr(std::make_shared<Repr>()), commitMode(commitMode)
     {
     }
 
@@ -1008,8 +975,16 @@ struct MutableBaseData {
                 }
             }
 
-            std::sort(allRows.begin(), allRows.end());
-            auto end = std::unique(allRows.begin(), allRows.end());
+            std::vector<uint64_t>::iterator end;
+            if (entries.size() > 1) {
+                //if we haven't commited the entries yet there can be duplicates
+                parallelQuickSortRecursive(allRows);
+                end = std::unique(allRows.begin(), allRows.end());
+            }
+            else{
+                end = allRows.end();
+            }
+ 
             for (auto it = allRows.begin(); it != end;  ++it) {
                 if (!onRow(*it))
                     return false;
@@ -1047,10 +1022,17 @@ struct MutableBaseData {
                 }
             }
 
-            std::sort(allRows.begin(), allRows.end());
+            int64_t rowCount = 0;
 
-            int64_t rowCount = std::unique(allRows.begin(), allRows.end())
-                - allRows.begin();
+            if (entries.size() > 1) {
+                //if we haven't commited the entries yet there can be duplicates
+                parallelQuickSortRecursive(allRows);
+                rowCount = std::unique(allRows.begin(), allRows.end()) - allRows.begin();
+            }
+            else{
+                rowCount = allRows.size();
+            }
+
             cachedRowCount = rowCount;
             return rowCount;
         }

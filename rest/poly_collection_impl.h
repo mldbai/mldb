@@ -161,6 +161,15 @@ getExistingEntity(const Utf8String & key) const
 }
 
 template<typename Entity>
+std::shared_ptr<Entity>
+PolyCollection<Entity>::
+tryGetExistingEntity(const Utf8String & key) const
+{
+    return std::static_pointer_cast<Entity>
+        (PolyCollectionBase::tryGetExistingEntry(key));
+}
+
+template<typename Entity>
 struct PolyCollection<Entity>::Registry {
     mutable std::recursive_mutex mutex;
 
@@ -425,7 +434,7 @@ createCollection(int numResourcesProducedByPathSpec,
                  const Utf8String & nounSingular,
                  const Utf8String & nounPlural,
                  RestDirectory * server, RestRouteManager & routeManager,
-                 std::shared_ptr<CollectionConfigStore> configStore)
+                 std::shared_ptr<CollectionConfigStore> configStore = nullptr)
 {
     auto result = std::make_shared<Collection>(Collection::EntityT::getOwner(server));
     result->init(configStore);

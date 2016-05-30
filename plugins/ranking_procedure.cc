@@ -10,7 +10,6 @@
 #include "mldb/server/dataset_context.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/base/parallel.h"
-#include "mldb/server/function_contexts.h"
 #include "mldb/server/bound_queries.h"
 #include "mldb/sql/table_expression_operations.h"
 #include "mldb/sql/join_utils.h"
@@ -63,9 +62,8 @@ RankingProcedureConfigDescription()
     addField("rankingColumnName", &RankingProcedureConfig::rankingColumnName,
              "The name to give the ranking column.");
     addParent<ProcedureConfig>();
-    onPostValidate = validate<RankingProcedureConfig, 
-                              InputQuery, 
-                              MustContainFrom>(&RankingProcedureConfig::inputData, "ranking");
+    onPostValidate = validateQuery(&RankingProcedureConfig::inputData,
+                                   MustContainFrom());
 }
 
 RankingProcedure::
@@ -83,7 +81,7 @@ run(const ProcedureRunConfig & run,
     const std::function<bool (const Json::Value &)> & onProgress) const
 {
     auto runProcConf = applyRunConfOverProcConf(procedureConfig, run);
-    SqlExpressionMldbContext context(server);
+    SqlExpressionMldbScope context(server);
 
     auto boundDataset = runProcConf.inputData.stm->from->bind(context);
 
@@ -93,10 +91,9 @@ run(const ProcedureRunConfig & run,
     // We calculate an expression with the timestamp of the order by
     // clause.  First, we need to calculate each of the order by clauses
     for (auto & c: runProcConf.inputData.stm->orderBy.clauses) {
-        auto whenClause = std::make_shared<FunctionCallWrapper>
-            ("", "latest_timestamp",
-             vector<shared_ptr<SqlExpression> >(1, c.first),
-             nullptr /* extract */);
+        auto whenClause = std::make_shared<FunctionCallExpression>
+            ("" /* tableName */, "latest_timestamp",
+             vector<shared_ptr<SqlExpression> >(1, c.first));
         calc.emplace_back(whenClause);
     }
 
@@ -123,7 +120,7 @@ run(const ProcedureRunConfig & run,
                      *runProcConf.inputData.stm->where,
                      runProcConf.inputData.stm->orderBy,
                      calc)
-        .execute(getSize,
+        .execute({getSize,false/*processInParallel*/},
                  runProcConf.inputData.stm->offset,
                  runProcConf.inputData.stm->limit,
                  onProgress);
@@ -199,12 +196,11 @@ getStatus() const
 static RegisterProcedureType<RankingProcedure, RankingProcedureConfig>
 regRankingProcedure(
     builtinPackage(),
-    "ranking",
     "Assign ranks over a sorted dataset",
     "procedures/RankingProcedure.md.html",
     nullptr /* static route */,
     { MldbEntity::INTERNAL_ENTITY });
- 
+
 
 } // namespace MLDB
 } // namespace Datacratic

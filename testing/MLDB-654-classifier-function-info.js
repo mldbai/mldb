@@ -74,7 +74,7 @@ var trainClassifierProcedureConfig = {
                 verbosity: 3,
                 normalize: false,
                 link_function: 'linear',
-                ridge_regression: false
+                regularization: 'none'
             }
         },
         algorithm: "glz",
@@ -111,36 +111,114 @@ assertEqual(functionOutput.responseCode, 201);
 
 var functionInfo = mldb.get("/v1/functions/iris_cls/info");
 
-plugin.log(functionInfo);
+plugin.log(functionInfo.json);
 
-assertEqual(functionInfo.json.input.values.features.valueInfo.kind, "row");
-assertEqual(functionInfo.json.input.values.features.valueInfo.knownColumns.length, 4);
-assertEqual(functionInfo.json.input.values.features.valueInfo.knownColumns[0].columnName, "petal length");
-assertEqual(functionInfo.json.input.values.features.valueInfo.knownColumns[0].valueInfo.kind, "scalar");
-assertEqual(functionInfo.json.input.values.features.valueInfo.knownColumns[0].valueInfo.scalar, "float");
-assertEqual(functionInfo.json.input.values.features.valueInfo.knownColumns[1].columnName, "petal width");
-assertEqual(functionInfo.json.input.values.features.valueInfo.knownColumns[1].valueInfo.kind, "scalar");
-assertEqual(functionInfo.json.input.values.features.valueInfo.knownColumns[1].valueInfo.scalar, "float");
-assertEqual(functionInfo.json.input.values.features.valueInfo.knownColumns[2].columnName, "sepal length");
-assertEqual(functionInfo.json.input.values.features.valueInfo.knownColumns[2].valueInfo.kind, "scalar");
-assertEqual(functionInfo.json.input.values.features.valueInfo.knownColumns[2].valueInfo.scalar, "float");
-assertEqual(functionInfo.json.input.values.features.valueInfo.knownColumns[3].columnName, "sepal width");
-assertEqual(functionInfo.json.input.values.features.valueInfo.knownColumns[3].valueInfo.kind, "scalar");
-assertEqual(functionInfo.json.input.values.features.valueInfo.knownColumns[3].valueInfo.scalar, "float");
+var expected = {
+    "input" : {
+        "hasUnknownColumns" : false,
+        "kind" : "row",
+        "knownColumns" : [
+            {
+                "columnName" : "features",
+                "sparsity" : "dense",
+                "valueInfo" : {
+                    "hasUnknownColumns" : false,
+                    "kind" : "row",
+                    "knownColumns" : [
+                        {
+                            "columnName" : "petal length",
+                            "sparsity" : "dense",
+                            "valueInfo" : {
+                                "kind" : "scalar",
+                                "scalar" : "float",
+                                "type" : "Datacratic::MLDB::Float32ValueInfo"
+                            }
+                        },
+                        {
+                            "columnName" : "petal width",
+                            "sparsity" : "dense",
+                            "valueInfo" : {
+                                "kind" : "scalar",
+                                "scalar" : "float",
+                                "type" : "Datacratic::MLDB::Float32ValueInfo"
+                            }
+                        },
+                        {
+                            "columnName" : "sepal length",
+                            "sparsity" : "dense",
+                            "valueInfo" : {
+                                "kind" : "scalar",
+                                "scalar" : "float",
+                                "type" : "Datacratic::MLDB::Float32ValueInfo"
+                            }
+                        },
+                        {
+                            "columnName" : "sepal width",
+                            "sparsity" : "dense",
+                            "valueInfo" : {
+                                "kind" : "scalar",
+                                "scalar" : "float",
+                                "type" : "Datacratic::MLDB::Float32ValueInfo"
+                            }
+                        }
+                    ],
+                    "type" : "Datacratic::MLDB::RowValueInfo"
+                }
+            }
+        ],
+        "type" : "Datacratic::MLDB::RowValueInfo"
+    },
+    "output" : {
+        "hasUnknownColumns" : false,
+        "kind" : "row",
+        "knownColumns" : [
+            {
+                "columnName" : "scores",
+                "offset" : 0,
+                "sparsity" : "dense",
+                "valueInfo" : {
+                    "hasUnknownColumns" : false,
+                    "kind" : "row",
+                    "knownColumns" : [
+                        {
+                            "columnName" : "Iris-setosa",
+                            "offset" : 0,
+                            "sparsity" : "dense",
+                            "valueInfo" : {
+                                "kind" : "scalar",
+                                "scalar" : "float",
+                                "type" : "Datacratic::MLDB::Float32ValueInfo"
+                            }
+                        },
+                        {
+                            "columnName" : "Iris-versicolor",
+                            "offset" : 1,
+                            "sparsity" : "dense",
+                            "valueInfo" : {
+                                "kind" : "scalar",
+                                "scalar" : "float",
+                                "type" : "Datacratic::MLDB::Float32ValueInfo"
+                            }
+                        },
+                        {
+                            "columnName" : "Iris-virginica",
+                            "offset" : 2,
+                            "sparsity" : "dense",
+                            "valueInfo" : {
+                                "kind" : "scalar",
+                                "scalar" : "float",
+                                "type" : "Datacratic::MLDB::Float32ValueInfo"
+                            }
+                        }
+                    ],
+                    "type" : "Datacratic::MLDB::RowValueInfo"
+                }
+            }
+        ],
+        "type" : "Datacratic::MLDB::RowValueInfo"
+    }
+};
 
-assertEqual(functionInfo.json.output.values.scores.valueInfo.kind, "row");
-assertEqual(functionInfo.json.output.values.scores.valueInfo.knownColumns.length, 3);
-assertEqual(functionInfo.json.output.values.scores.valueInfo.knownColumns[0].columnName, '"Iris-setosa"');
-assertEqual(functionInfo.json.output.values.scores.valueInfo.knownColumns[0].sparsity, "dense");
-assertEqual(functionInfo.json.output.values.scores.valueInfo.knownColumns[0].valueInfo.kind, "scalar");
-assertEqual(functionInfo.json.output.values.scores.valueInfo.knownColumns[0].valueInfo.scalar, "float");
-assertEqual(functionInfo.json.output.values.scores.valueInfo.knownColumns[1].columnName, '"Iris-versicolor"');
-assertEqual(functionInfo.json.output.values.scores.valueInfo.knownColumns[1].sparsity, "dense");
-assertEqual(functionInfo.json.output.values.scores.valueInfo.knownColumns[1].valueInfo.kind, "scalar");
-assertEqual(functionInfo.json.output.values.scores.valueInfo.knownColumns[1].valueInfo.scalar, "float");
-assertEqual(functionInfo.json.output.values.scores.valueInfo.knownColumns[2].columnName, '"Iris-virginica"');
-assertEqual(functionInfo.json.output.values.scores.valueInfo.knownColumns[2].sparsity, "dense");
-assertEqual(functionInfo.json.output.values.scores.valueInfo.knownColumns[2].valueInfo.kind, "scalar");
-assertEqual(functionInfo.json.output.values.scores.valueInfo.knownColumns[2].valueInfo.scalar, "float");
+assertEqual(functionInfo.json, expected);
 
 "success"

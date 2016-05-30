@@ -1,8 +1,7 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* compact_vector.h                                                -*- C++ -*-
    Jeremy Barnes, 3 March 2009
    Copyright (c) 2009 Jeremy Barnes.  All rights reserved.
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    An optimized class for holding a variable length unbounded vector.  If the
    vector is below a certain threshold, then the data will all be stored
@@ -613,6 +612,33 @@ operator < (const compact_vector<Data, Internal, Size, Safe, Pointer, Allocator>
 {
     return std::lexicographical_compare(cv1.begin(), cv1.end(),
                                         cv2.begin(), cv2.end());
+}
+
+template<class Data, size_t Internal, class Size, bool Safe,
+         class Pointer, class Allocator>
+bool
+operator <= (const compact_vector<Data, Internal, Size, Safe, Pointer, Allocator> & cv1,
+             const compact_vector<Data, Internal, Size, Safe, Pointer, Allocator> & cv2)
+{
+    return (cv1 == cv2 || cv1 < cv2);
+}
+
+template<class Data, size_t Internal, class Size, bool Safe,
+         class Pointer, class Allocator>
+bool
+operator > (const compact_vector<Data, Internal, Size, Safe, Pointer, Allocator> & cv1,
+             const compact_vector<Data, Internal, Size, Safe, Pointer, Allocator> & cv2)
+{
+    return cv2 < cv1;
+}
+
+template<class Data, size_t Internal, class Size, bool Safe,
+         class Pointer, class Allocator>
+bool
+operator >= (const compact_vector<Data, Internal, Size, Safe, Pointer, Allocator> & cv1,
+             const compact_vector<Data, Internal, Size, Safe, Pointer, Allocator> & cv2)
+{
+    return cv1 == cv2 || cv2 < cv1;
 }
 
 template<class Data, size_t Internal, class Size, bool Safe,

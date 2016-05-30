@@ -132,25 +132,48 @@ void to_js(JS::JSValue & value, const CellValue & val)
     }
 }
 
-Coord from_js(const JS::JSValue & value, Coord *)
+PathElement from_js(const JS::JSValue & value, PathElement *)
 {
     if (value->IsNull() || value->IsUndefined())
-        return Coord();
-    return jsonDecode<Coord>(JS::from_js(value, (Json::Value *)0));
+        return PathElement();
+    return JS::from_js(value, (Utf8String *)0);
 }
 
-Coord from_js_ref(const JS::JSValue & value, Coord *)
+PathElement from_js_ref(const JS::JSValue & value, PathElement *)
 {
     if (value->IsNull() || value->IsUndefined())
-        return Coord();
-    return jsonDecode<Coord>(JS::from_js(value, (Json::Value *)0));
+        return PathElement();
+    return JS::from_js(value, (Utf8String *)0);
 }
 
-void to_js(JS::JSValue & value, const Coord & val)
+void to_js(JS::JSValue & value, const PathElement & val)
 {
     if (val.empty())
         value = v8::Null();
-    return to_js(value, jsonEncode(val));
+    return to_js(value, val.toUtf8String());
+}
+
+Path from_js(const JS::JSValue & value, Path *)
+{
+    if (value->IsNull() || value->IsUndefined())
+        return Path();
+    if (value->IsArray()) {
+        auto vals = JS::from_js(value, (std::vector<PathElement> *)0);
+        return Path(vals.data(), vals.size());
+    }
+    return jsonDecode<Path>(JS::from_js(value, (Json::Value *)0));
+}
+
+Path from_js_ref(const JS::JSValue & value, Path *)
+{
+    return from_js(value, (Path *)0);
+}
+
+void to_js(JS::JSValue & value, const Path & val)
+{
+    if (val.empty())
+        value = v8::Null();
+    return to_js(value, vector<PathElement>(val.begin(), val.end()));
 }
 
 void to_js(JS::JSValue & value, const ExpressionValue & val)
