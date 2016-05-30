@@ -55,8 +55,12 @@ BOOST_AUTO_TEST_CASE (test_threads_disappearing_jobs_run)
 }
 
 //Failing depending on availability of cores...
-/*BOOST_AUTO_TEST_CASE (thread_pool_idle_cpu_usage)
+BOOST_AUTO_TEST_CASE (thread_pool_idle_cpu_usage)
 {
+    static const char * env_name = getenv("MLDB_NO_TIMING_TESTS");
+    if (env_name)
+        return;
+
     ThreadPool threadPool(32);
     // let it start up and settle down
     std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -68,7 +72,7 @@ BOOST_AUTO_TEST_CASE (test_threads_disappearing_jobs_run)
     cerr << "idle thread pool used " << cores * 100
          << "% cores" << endl;
     BOOST_CHECK_LE(cores, 0.01);
-}*/
+}
 
 BOOST_AUTO_TEST_CASE (thread_pool_startup_shutdown_one_job)
 {
@@ -102,8 +106,12 @@ BOOST_AUTO_TEST_CASE (thread_pool_startup_shutdown_zero_threads)
 }
 
 //Failing depending on availability of cores...
-/*BOOST_AUTO_TEST_CASE (thread_pool_no_busy_looping)
+BOOST_AUTO_TEST_CASE (thread_pool_no_busy_looping)
 {
+    static const char * env_name = getenv("MLDB_NO_TIMING_TESTS");
+    if (env_name)
+        return;
+
     ThreadPool threadPool(10);
     BOOST_CHECK_EQUAL(threadPool.jobsSubmitted(), 0);
     std::atomic<int> finished(0);
@@ -125,7 +133,7 @@ BOOST_AUTO_TEST_CASE (thread_pool_startup_shutdown_zero_threads)
     // Check that we're spending less than a CPU, whcih means that we're
     // not busy waiting.
     BOOST_CHECK_LT(cpus, 0.8);
-}*/
+}
 
 BOOST_AUTO_TEST_CASE(thread_pool_test)
 {
