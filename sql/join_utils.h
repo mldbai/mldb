@@ -17,9 +17,7 @@ namespace MLDB {
     the table name in the set of aliases from each one.
 */
 std::shared_ptr<SqlExpression>
-removeTableName(const SqlExpression & expr,
-                const Utf8String & tableName,
-                const std::set<Utf8String>& aliases);
+removeTableNameFromExpression(const SqlExpression & expr, const Utf8String & tableName);
 
 
 /*****************************************************************************/

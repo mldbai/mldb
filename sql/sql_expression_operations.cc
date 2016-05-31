@@ -3004,6 +3004,7 @@ transform(const TransformArgs & transformArgs) const
 
     switch (kind) {
     case SUBTABLE:
+        //SelectSubtableExpression is  a tableExpression, not an SQLExpression
         result->subtable = std::make_shared<SelectSubtableExpression>(*(result->subtable));
         break;
     case TUPLE:

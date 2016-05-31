@@ -17,6 +17,7 @@
 #include "mldb/jml/math/xdiv.h"
 #include "mldb/base/hash.h"
 #include "mldb/base/parse_context.h"
+#include "mldb/sql/join_utils.h"
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/clamp.hpp>
 #include "mldb/ext/edlib/src/edlib.h"
@@ -2960,6 +2961,85 @@ BoundFunction path_element(const std::vector<BoundSqlExpression> & args)
 }
 
 static RegisterBuiltin registerPathElement(path_element, "path_element");
+
+/*****************************************************************************/
+/* DIAGNOSTIC FUNCTIONS                                                      */
+/*****************************************************************************/
+
+/* These functions allow for unit testing of MLDB within SQL, and expose some
+   of the details of how SQL works.  They are undocumented for the moment and
+   all begin with an underscore.
+*/
+
+BoundFunction analyze_join(const std::vector<BoundSqlExpression> & args)
+{
+    // Return the result indexed on a single dimension
+
+    // Arguments are:
+    // - A string with the left table expression
+    // - A string with the right table expression
+    // - A string with the on condition
+    // - A string with the external where condition
+    checkArgsSize(args.size(), 4);
+
+    auto outputInfo
+        = std::make_shared<UnknownRowValueInfo>();
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                ExcAssertEqual(args.size(), 4);
+                std::shared_ptr<TableExpression> left
+                    = TableExpression::parse(args[0].getAtom().toUtf8String());
+                std::shared_ptr<TableExpression> right
+                    = TableExpression::parse(args[1].getAtom().toUtf8String());
+                std::shared_ptr<SqlExpression> on
+                    = SqlExpression::parse(args[2].getAtom().toUtf8String());
+                std::shared_ptr<SqlExpression> where
+                    = SqlExpression::parse(args[3].getAtom().toUtf8String());
+
+                AnnotatedJoinCondition cond(left, right, on, where, JOIN_INNER, false/*debug*/);
+
+                Date ts = Date::negativeInfinity();
+                return ExpressionValue(jsonEncode(cond), ts);
+            },
+            outputInfo
+        };
+}
+
+static RegisterBuiltin registerAnalyzeJoin(analyze_join, "_analyze_join");
+
+BoundFunction remove_table_name(const std::vector<BoundSqlExpression> & args)
+{
+    // Return the result indexed on a single dimension
+
+    // Arguments are:
+    // - An expression to be analyzed (string)
+    // - A table name to be removed
+    // - A set of aliases
+    checkArgsSize(args.size(), 2);
+
+    auto outputInfo
+        = std::make_shared<UnknownRowValueInfo>();
+
+    return {[=] (const std::vector<ExpressionValue> & args,
+                 const SqlRowScope & scope) -> ExpressionValue
+            {
+                ExcAssertEqual(args.size(), 2);
+                std::shared_ptr<SqlExpression> expr
+                    = SqlExpression::parse(args[0].getAtom().toUtf8String());
+                Utf8String tableName = args[1].getAtom().toUtf8String();
+
+                auto res = removeTableNameFromExpression(*expr, tableName);
+                Date ts = Date::negativeInfinity();
+                return ExpressionValue(jsonEncode(res), ts);
+            },
+            outputInfo
+        };
+}
+
+static RegisterBuiltin registerRemoveTableName(remove_table_name, "_remove_table_name");
+
 
 } // namespace Builtins
 } // namespace MLDB
