@@ -69,8 +69,8 @@ defaults()
     normalize = true;
     condition = false;
     regularization = Regularization_l2;
-    regularization_factor = 1e-5;
-    max_regularization_iteration = 20;
+    regularization_factor = -1;
+    max_regularization_iteration = 1000;
     regularization_epsilon = 1e-4;
     feature_proportion = 1.0;
 }
@@ -88,22 +88,28 @@ options() const
         .add("link_function", link_function,
              "which link function to use for the output function")
         .add("regularization", regularization,
-             "regularization on the weights (l1 is slower)")
+             "type of regularization on the weights (L1 is slower due to an"
+             " iterative algorithm)")
         .add("regularization_factor", regularization_factor, "-1 to infinite",
-             "regularization factor to use. auto-determined if negative (slower)")
-        .add("max_regularization_iteration", max_regularization_iteration, "1 to infinite",
-             "maximum number of iterations in regularization (only applies to iterative algorithms)")
-        .add("regularization_epsilon", regularization_epsilon, "positive number",
-             "smallest weight update before assuming convergence for iterative algorithms")
+             "regularization factor to use. auto-determined if negative"
+             " (slower). the bigger this value is, the more regularization on"
+             " the weights")
+        .add("max_regularization_iteration", max_regularization_iteration,
+             "1 to infinite", "maximum number of iterations for the L1"
+             " regularization")
+        .add("regularization_epsilon", regularization_epsilon,
+             "positive number", "smallest weight update before assuming"
+             " convergence for the L1 iterative algorithm")
         .add("normalize", normalize,
              "normalize features to have zero mean and unit variance for"
              " greater numeric stability (slower training but recommended with"
              " L1 regularization)")
         .add("condition", condition,
-             "condition features to have no correlation for greater numeric stability (but much slower training)")
+             "condition features to have no correlation for greater numeric"
+             " stability (but much slower training)")
         .add("feature_proportion", feature_proportion, "0 to 1",
-             "use only a (random) portion of available features when training classifier");
-    
+             "use only a (random) portion of available features when training"
+             " classifier");
 
     return result;
 }

@@ -51,7 +51,7 @@ The procedure first assembles a DatasetFoldConfig using the following rules:
 1. if `datasetFolds` is specified, that is the DatasetFoldConfig
 1. else if `kfold` is specified, a DatasetFoldConfig is generated as per the example above
 1. else if `testingDataOverride` is specified, the DatasetFoldConfig is `[{"trainingWhere": "true", "testingWhere": "true"}]` (i.e. the procedure will train on `inputData` and test on `testingDataOverride`)
-1. else (i.e. **base case** of only `inputData` specified) the DatasetFoldConfig is `[{"trainingWhere": "rowHash() % 2 != 0", "testingWhere": "rowHash() % 2 = 0"}]` (i.e. the procedure will train on half of `inputData` and test on the other half)
+1. else (i.e. **base case** of only `inputData` specified) the DatasetFoldConfig is `[{"trainingWhere": "rowHash() % 2 != 1", "testingWhere": "rowHash() % 2 = 1"}]` (i.e. the procedure will train on half of `inputData` and test on the other half)
 
 The procedure then assembles training and testing sets for each entry in the DatasetFoldConfig:
 

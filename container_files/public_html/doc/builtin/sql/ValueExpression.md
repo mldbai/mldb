@@ -159,6 +159,7 @@ following:
   - number
   - boolean
   - timestamp
+  - path
 
 The integer, number and boolean conversions will work with strings
 and other numbers.
