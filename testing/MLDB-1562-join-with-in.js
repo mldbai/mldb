@@ -15,23 +15,21 @@ function assertEqual(expr, val, msg)
         + " not equal to " + JSON.stringify(val);
 }
 
-// Make sure we can remove table1
-var res = mldb.get('/v1/query', { q: "SELECT _remove_table_name('table1.rowName() IN (KEYS OF { table2.* })', 'table1', ['table1']) NAMED 'res'", format: "table"});
+var res = mldb.get('/v1/query', { q: "SELECT _remove_table_name('table1.rowName() IN (KEYS OF { table2.* })', 'table1') NAMED 'res'", format: "table"});
 
 mldb.log(res);
 
 assertEqual(res.responseCode, 200, "failed to analyze join");
 
-assertEqual(res.json[1][1], "in(\"function(\"rowName\"),keys,select(columns(\"\",\"table2.\",\"table2.\",[])))");
+assertEqual(res.json[1][1], "in(\"function(\"table1\",\"rowName\"),keys,select(columns(\"table2\",\"table2\",[])))");
 
-// Make sure we can remove table2
-var res = mldb.get('/v1/query', { q: "SELECT _remove_table_name('table1.rowName() IN (KEYS OF { table2.* })', 'table2', ['table2']) NAMED 'res'", format: "table"});
+var res = mldb.get('/v1/query', { q: "SELECT _remove_table_name('table1.rowName() IN (KEYS OF { table2.* })', 'table2') NAMED 'res'", format: "table"});
 
 mldb.log(res);
 
 assertEqual(res.responseCode, 200, "failed to analyze join");
 
-assertEqual(res.json[1][1], "in(\"function(\"table1.rowName\"),keys,select(columns(\"\",\"\",\"\",[])))");
+assertEqual(res.json[1][1], "in(\"function(\"table1\",\"rowName\"),keys,select(columns(\"table2\",\"table2\",[])))");
 
 // Make sure we get the join type and conditions right
 var res = mldb.get('/v1/query', { q: "SELECT _analyze_join('table1', 'table2', 'table1.rowName() IN (KEYS OF ({table2.*}))', 'true') AS *", format: "aos"});
@@ -44,13 +42,13 @@ assertEqual(res.responseCode, 200, "failed to analyze join");
 assertEqual(res.json[0]["style"], "CROSS_JOIN");
 
 // There is no purely left condition
-assertEqual(res.json[0]["left.where"], "constant([1, \"NaD\"]");
+assertEqual(res.json[0]["left.where"], "constant([1,\"NaD\"])");
 
 // There is no purely right condition
-assertEqual(res.json[0]["right.where"], "constant([1, \"NaD\"]");
+assertEqual(res.json[0]["right.where"], "constant([1,\"NaD\"])");
 
 // There is a cross join condition
-assertEqual(res.json[0]["crossWhere"], "in(\"function(\"table1.rowName\"),keys,select(columns(\"\",\"table2.\",\"table2.\",[])))");
+assertEqual(res.json[0]["crossWhere"], "in(\"function(\"table1\",\"rowName\"),keys,select(columns(\"table2\",\"table2\",[])))");
 
 "success"
 

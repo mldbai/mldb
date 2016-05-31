@@ -2998,7 +2998,7 @@ BoundFunction analyze_join(const std::vector<BoundSqlExpression> & args)
                 std::shared_ptr<SqlExpression> where
                     = SqlExpression::parse(args[3].getAtom().toUtf8String());
 
-                AnnotatedJoinCondition cond(left, right, on, where);
+                AnnotatedJoinCondition cond(left, right, on, where, JOIN_INNER, false/*debug*/);
 
                 Date ts = Date::negativeInfinity();
                 return ExpressionValue(jsonEncode(cond), ts);
@@ -3017,7 +3017,7 @@ BoundFunction remove_table_name(const std::vector<BoundSqlExpression> & args)
     // - An expression to be analyzed (string)
     // - A table name to be removed
     // - A set of aliases
-    checkArgsSize(args.size(), 3);
+    checkArgsSize(args.size(), 2);
 
     auto outputInfo
         = std::make_shared<UnknownRowValueInfo>();
@@ -3025,15 +3025,12 @@ BoundFunction remove_table_name(const std::vector<BoundSqlExpression> & args)
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                ExcAssertEqual(args.size(), 3);
+                ExcAssertEqual(args.size(), 2);
                 std::shared_ptr<SqlExpression> expr
                     = SqlExpression::parse(args[0].getAtom().toUtf8String());
                 Utf8String tableName = args[1].getAtom().toUtf8String();
-                std::set<Utf8String> aliases;
-                for (const CellValue & v: args[2].getEmbeddingCell())
-                    aliases.insert(v.toUtf8String());
 
-                auto res = removeTableName(*expr, tableName, aliases);
+                auto res = removeTableNameFromExpression(*expr, tableName);
                 Date ts = Date::negativeInfinity();
                 return ExpressionValue(jsonEncode(res), ts);
             },
