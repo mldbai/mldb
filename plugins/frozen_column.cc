@@ -158,6 +158,7 @@ struct SparseTableFrozenColumn: public FrozenColumn {
             writer.write(i.second, indexBits);
         }
 
+#if 0
         size_t mem = memusage();
         if (mem > 30000) {
             using namespace std;
@@ -166,6 +167,7 @@ struct SparseTableFrozenColumn: public FrozenColumn {
                  << column.minRowNumber << " to " << column.maxRowNumber
                  << " and " << table.size()
                  << " uniques takes " << mem << " memory" << endl;
+#endif
 
             for (unsigned i = 0;  i < 5 && i < table.size();  ++i) {
                 cerr << "  " << table[i] << endl;
