@@ -3,15 +3,16 @@
 # datacratic, 2015
 # this file is part of mldb. copyright 2015 datacratic. all rights reserved.
 #
-import random, datetime, os
+import datetime, os
+from numpy.random import normal, random
 
-import unittest
 
 if False:
     mldb_wrapper = None
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
-class Mldb878Test(MldbUnitTest):  
+
+class Mldb878Test(MldbUnitTest):
 
     @classmethod
     def setUpClass(self):
@@ -26,9 +27,9 @@ class Mldb878Test(MldbUnitTest):
             now = datetime.datetime.now()
 
             for i in xrange(5000):
-                label = random.random() < 0.2
-                dataset.record_row("u%d" % i, [["feat1", random.gauss(5 if label else 15, 3), now],
-                                               ["feat2", random.gauss(-5 if label else 10, 10), now],
+                label = random() < 0.2
+                dataset.record_row("u%d" % i, [["feat1", normal(5 if label else 15, 3), now],
+                                               ["feat2", normal(-5 if label else 10, 10), now],
                                                ["label", label, now]])
 
             dataset.commit()
@@ -139,7 +140,6 @@ class Mldb878Test(MldbUnitTest):
 
         # did we get the rez for 1 fold?
         assert len(js_rez["status"]["folds"]) == 1
-        accuracyDataset = js_rez["status"]["folds"][0]["accuracyDataset"]
 
         # did we create the output dataset?
         rez = mldb.get("/v1/datasets")
@@ -238,15 +238,15 @@ class Mldb878Test(MldbUnitTest):
         conf["params"]["inputData"] = "select * from toy"
         conf["params"]["testingDataOverride"] = "select * from toy"
 
-        with self.assertRaises(mldb_wrapper.ResponseException) as re:
+        with self.assertRaises(mldb_wrapper.ResponseException):
             mldb.put("/v1/procedures/rocket_science5", conf)
 
         # fix training
         conf["params"]["inputData"] = "select {* EXCLUDING(label)} as features, label from toy"
 
-        with self.assertRaises(mldb_wrapper.ResponseException) as re:
+        with self.assertRaises(mldb_wrapper.ResponseException):
             mldb.put("/v1/procedures/rocket_science5", conf)
-    
+
 
     def test_eval_training(self):
         conf = {
@@ -295,7 +295,7 @@ class Mldb878Test(MldbUnitTest):
         # performance should be comparable
         self.assertAlmostEqual(js_rez["status"]["folds"][0]["resultsTrain"]["auc"],
                                js_rez["status"]["folds"][0]["resultsTest"]["auc"], delta=0.05)
-    
+
 
     def test_no_cls_write_perms(self):
         conf = {
@@ -322,11 +322,10 @@ class Mldb878Test(MldbUnitTest):
         }
         with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
                 'Error when trying'):
-            rez = mldb.put("/v1/procedures/rocket_science", conf)
+            mldb.put("/v1/procedures/rocket_science", conf)
 
 
     def test_uniqueScoreOutput(self):
-        counts = {}
         for unique in [True, False]:
             conf = {
                 "type": "classifier.experiment",
@@ -360,7 +359,7 @@ class Mldb878Test(MldbUnitTest):
             # if we're asking for only unique scores
             if unique:
                 count2 = mldb.query("""
-                    select sum(cnt) 
+                    select sum(cnt)
                     from (
                         select count(*) as cnt from %s group by score
                     )""" % datasetName)[1][1]
@@ -422,6 +421,61 @@ class Mldb878Test(MldbUnitTest):
             set_union = len(rowNames[0].union(rowNames[1]))
             self.assertEqual(set_union, 5000)
 
+    def test_orderby(self):
+        n,d = 1000, 200
+        data = normal(size=(n,d))
+
+        mldb.put('/v1/datasets/ds_ob', {
+            'type': 'sparse.mutable'
+        })
+
+        for no, row in enumerate(data):
+            mldb.post('/v1/datasets/ds_ob/rows', {
+                'rowName': str(no),
+                'columns': [['order', random(), 0]] + [['x' + str(i), x, 0]
+                                              for i,x in enumerate(row)] \
+                           + [['label', random() > 1, 0]]
+
+
+            })
+        mldb.post('/v1/datasets/ds_ob/commit')
+
+        # mldb.log(mldb.get('/v1/query', q='select * from ds_ob order by no',
+        #                   format='soa'))
+
+        conf = {
+            'type': 'classifier.experiment',
+            'params': {
+                'inputData': 'select {* EXCLUDING (label, no)} as features, label from ds_ob',
+                'datasetFolds': [
+                    # training on the first half and testing on the second
+                    {
+                        'trainingLimit': n // 2,
+                        'trainingOrderBy': 'order',
+                        'testingOffset': n // 2,
+                        'testingOrderBy': 'order'
+                    },
+                ],
+                'mode': 'boolean',
+                'algorithm': 'dt',
+                'modelFileUrlPattern': 'file://test_orderby_$runid',
+                "configuration": {
+                    "dt": {
+                        "type": "decision_tree",
+                        "max_depth": 8,
+                        "verbosity": 3,
+                        "update_alg": "prob"
+                    }
+                },
+                'runOnCreation': True
+            }
+        }
+
+        # running twice should yield the same result
+        res1 = mldb.post('/v1/procedures', conf).json()['status']['firstRun'] \
+            ['status']['folds'][0]['resultsTest']['auc']
+        res2 = mldb.post('/v1/procedures', conf).json()['status']['firstRun'] \
+            ['status']['folds'][0]['resultsTest']['auc']
+        self.assertEqual(res1, res2)
 
 mldb.run_tests()
-
