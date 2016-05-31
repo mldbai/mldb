@@ -167,12 +167,12 @@ struct SparseTableFrozenColumn: public FrozenColumn {
                  << column.minRowNumber << " to " << column.maxRowNumber
                  << " and " << table.size()
                  << " uniques takes " << mem << " memory" << endl;
-#endif
 
             for (unsigned i = 0;  i < 5 && i < table.size();  ++i) {
                 cerr << "  " << table[i] << endl;
             }
         }
+#endif
     }
 
     virtual CellValue get(uint32_t rowIndex) const

@@ -2580,9 +2580,9 @@ BoundFunction length(const std::vector<BoundSqlExpression> & args)
                  const SqlRowScope & scope) -> ExpressionValue
              {
                 ExcAssertEqual(args.size(), 1);
-                if(!args[0].isString())
-                    throw ML::Exception("The parameter passed to the length "
-                            "function must be a string");
+                //if(!args[0].isString())
+                    //throw ML::Exception("The parameter passed to the length "
+                            //"function must be a string");
 
                 return std::move(
                         ExpressionValue(args[0].getAtom().toUtf8String().length(), 

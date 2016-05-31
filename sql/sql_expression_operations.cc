@@ -3096,19 +3096,23 @@ bind(SqlBindingScope & scope) const
             const ExpressionValue & value = boundLeft(rowScope, vstorage, filter);
 
             if (!value.isString())
-                throw HttpReturnException(400, "LIKE expression expected its left hand value to be a string, got " + value.getTypeAsString());
+                throw HttpReturnException(400, "LIKE expression expected its left "
+                        "hand value to be a string, got " + value.getTypeAsString());
 
             const ExpressionValue & filterEV = boundRight(rowScope, fstorage, filter);
 
             if (!filterEV.isString())
-                throw HttpReturnException(400, "LIKE expression expected its right hand value to be a string, got " + filterEV.getTypeAsString());
+                throw HttpReturnException(400, "LIKE expression expected its right "
+                        "hand value to be a string, got " + filterEV.getTypeAsString());
 
             Utf8String valueString = value.toUtf8String();
             Utf8String filterString = filterEV.toUtf8String();
 
             bool matched = matchSqlFilter(valueString, filterString);
 
-            return storage = std::move(ExpressionValue(matched != isnegative, std::max(value.getEffectiveTimestamp(), filterEV.getEffectiveTimestamp())));
+            return storage = std::move(ExpressionValue(matched != isnegative,
+                                        std::max(value.getEffectiveTimestamp(),
+                                                 filterEV.getEffectiveTimestamp())));
         },
         this,
         std::make_shared<BooleanValueInfo>()};
