@@ -1,6 +1,6 @@
 #
 # MLDB-1661-function-name-conflict.py
-# 2016-05-31
+# Mathieu Marquis Bolduc, 2016-05-31
 # This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
 #
 
@@ -20,18 +20,13 @@ class FunctionNameTest(MldbUnitTest):
 
     def test_valid_group_by(self):
 
-        with self.assertRaises(mldb_wrapper.ResponseException) as re:
+        with self.assertMldbRaises(expected_regexp="MLDB already has a built-in function named"):
             res = mldb.put('/v1/functions/temporal_earliest', {
                     'type': 'sql.query',
                     'params': {
                   'query': 'SELECT temporal_earliest({}) FROM dataset'
                     }})
 
-        result = re.exception.response
-        mldb.log(result)
-
-        self.assertTrue("MLDB already has a built-in function named" in result.json()["error"], "did not get the expected message MLDB-1661")
-
-        res = mldb.query('SELECT temporal_earliest({}) FROM dataset')
+        mldb.query('SELECT temporal_earliest({}) FROM dataset')
 
 mldb.run_tests()
