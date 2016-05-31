@@ -1440,14 +1440,14 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
                     lhs->surface = ML::trim(token.captured());
                 }
                 else if (matchKeyword(context, "KEYS OF")) {
-                    auto rhs = SqlExpression::parse(context, allowUtf8, 10);
+                    auto rhs = SqlExpression::parse(context, 10, allowUtf8);
                     skip_whitespace(context);
                     context.expect_literal(')');
                     lhs = std::make_shared<InExpression>(lhs, rhs, negative, InExpression::KEYS);
                     lhs->surface = ML::trim(token.captured());                
                 }
                 else if (matchKeyword(context, "VALUES OF")) {
-                    auto rhs = SqlExpression::parse(context, allowUtf8, 10);
+                    auto rhs = SqlExpression::parse(context, 10, allowUtf8);
                     skip_whitespace(context);
                     context.expect_literal(')');
                     lhs = std::make_shared<InExpression>(lhs, rhs, negative, InExpression::VALUES);
@@ -1469,7 +1469,7 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         if ((negative = matchKeyword(context, "NOT LIKE")) || matchKeyword(context, "LIKE")) {
             expect_whitespace(context);
 
-            auto rhs = SqlExpression::parse(context, allowUtf8, 10);
+            auto rhs = SqlExpression::parse(context, 10, allowUtf8);
 
             lhs = std::make_shared<LikeExpression>(lhs, rhs, negative);
             lhs->surface = ML::trim(token.captured());
