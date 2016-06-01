@@ -2738,6 +2738,15 @@ BoundFunction flatten(const std::vector<BoundSqlExpression> & args)
         return {[=] (const std::vector<ExpressionValue> & args,
                      const SqlRowScope & scope) -> ExpressionValue
                 {
+                    ExcAssertEqual(args.size(), 1);
+
+                    // If this is an embedding (but couldn't be proved statically),
+                    // then do it the simple and efficient way
+                    if (args[0].isEmbedding()) {
+                        size_t len = args[0].rowLength();
+                        return args[0].reshape({len});
+                    }
+
                     std::vector<std::tuple<ColumnName, CellValue> > vals;
                     vals.reserve(100);
                     Date tsOut = Date::negativeInfinity();
