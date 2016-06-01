@@ -424,8 +424,8 @@ expected = [
    [ "[ex1]-[]-[ex1]", null, null, 1, 2, null, 3, null ],
    [ "[ex2]-[]-[]", null, null, 2, null, null, null, 4 ],
    [ "[ex3]-[ex3]-[]", 1, 2, null, null, null, null, 3 ],
-   [ "[]-[ex5]", null, null, null, null, 1, 2, null ],
-   [ "[]-[ex6]", null, null, null, null, 2, 2, null ]
+   [ "[]-[]-[ex5]", null, null, null, null, 1, 2, null ],
+   [ "[]-[]-[ex6]", null, null, null, null, 2, 2, null ]
 ];
 
 testQuery('SELECT * FROM test3 OUTER JOIN test4 ON test3.rowName() = test4.rowName() OUTER JOIN test5 on test3.rowName() = test5.rowName()',
@@ -439,16 +439,17 @@ dataset6.recordRow("ex6", [ [ "x", null, ts ], ["z", 3, ts] ]);
 dataset6.commit()
 
 expected = [
-   [ "_rowName", "test4.x", "test4.z", "test5.x", "test5.z", "test3.x", "test3.y", "test3.z", "test6.x", "test6.z"],
-   [ "[]-[ex4]-[]-[]", 2, 2, null, null, null, null, null, null, null ],
-   [ "[]-[ex5]-[]", null, null, 1, 2, null, null, null, null, null ],
-   [ "[]-[ex5]-[]-[]", null, 3, null, null, null, null, null, null, null ],
-   [ "[]-[ex6]-[]", null, null, 2, 2, null, null, null, null, null ],
-   [ "[ex1]-[]-[ex1]-[]", null, null, null, 3, 1, 2, null, null, null ],
+   [
+      "_rowName", "test5.x", "test5.z", "test4.x", "test4.z", "test3.x", "test3.y", "test3.z", "test6.x", "test6.z"],
+   [ "[]-[]-[ex5]-[]", 1, 2, null, null, null, null, null, null, null ],
+   [ "[]-[]-[ex6]-[]", 2, 2, null, null, null, null, null, null, null ],
+   [ "[]-[ex4]-[]-[]", null, null, 2, 2, null, null, null, null, null ],
+   [ "[]-[ex5]-[]-[]", null, null, null, 3, null, null, null, null, null ],
+   [ "[ex1]-[]-[ex1]-[]", null, 3, null, null, 1, 2, null, null, null ],
    [ "[ex2]-[]-[]-[]", null, null, null, null, 2, null, 4, null, null ],
-   [ "[ex3]-[ex3]-[]-[ex3]", 1, 2, null, null, null, null, 3, 1, 2 ],
-   [ "[]-[ex4]", null, null, null, null, null, null, null, 2, 2 ],
-   [ "[]-[ex6]", null, null, null, null, null, null, null, null, 3 ]
+   [ "[ex3]-[ex3]-[]-[ex3]", null, null, 1, 2, null, null, 3, 1, 2 ],
+   [ "[]-[]-[]-[ex4]", null, null, null, null, null, null, null, 2, 2 ],
+   [ "[]-[]-[]-[ex6]", null, null, null, null, null, null, null, null, 3 ]
 ];
 
 
