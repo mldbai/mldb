@@ -10,13 +10,13 @@ mldb = mldb_wrapper.wrap(mldb)  # noqa
 
 class TestErrorOnDsWoCols(MldbUnitTest):  # noqa
 
-    @unittest.expectedFailure
     def test_it(self):
         ds = mldb.create_dataset({'id' : 'noColDs', 'type' : 'sparse.mutable'})
         ds.record_row('row1', [])
         ds.commit()
 
         res = mldb.query("SELECT sum({*}) FROM noColDs")
+
         self.assertEqual(len(res[1]), 1) #rowname, no columns
 
 

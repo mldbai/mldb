@@ -158,6 +158,7 @@ struct SparseTableFrozenColumn: public FrozenColumn {
             writer.write(i.second, indexBits);
         }
 
+#if 0
         size_t mem = memusage();
         if (mem > 30000) {
             using namespace std;
@@ -171,6 +172,7 @@ struct SparseTableFrozenColumn: public FrozenColumn {
                 cerr << "  " << table[i] << endl;
             }
         }
+#endif
     }
 
     virtual CellValue get(uint32_t rowIndex) const

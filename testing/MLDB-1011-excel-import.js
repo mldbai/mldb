@@ -563,9 +563,9 @@ var expected = {
     "twolettercolumns.xlsx": [
         [
             "_rowName",
+            "A",
             "AA",
             "AB",
-            "A",
             "B",
             "C",
             "D",
@@ -576,12 +576,12 @@ var expected = {
             "I",
             "Z"
         ],
-        [ "Sheet1:1", 11, 12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 ],
+        [ "Sheet1:1", 1, 11, 12, 2, 3, 4, 5, 6, 7, 8, 9, 10 ],
         [
             "Sheet1:2",
+            "a",
             "I",
             "j",
-            "a",
             "b",
             "c",
             "d",
