@@ -221,6 +221,11 @@ struct PathElement {
     int compareString(const char * str, size_t len) const;
     int compareStringNullTerminated(const char * str) const;
 
+    int compare(const PathElement & other) const
+    {
+        return compareString(other.data(), other.dataLength());
+    }
+    
     const Utf8String & getComplex() const;
     Utf8String & getComplex();
 

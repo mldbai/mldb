@@ -441,8 +441,8 @@ dataset6.commit()
 expected = [
    [ "_rowName", "test4.x", "test4.z", "test5.x", "test5.z", "test3.x", "test3.y", "test3.z", "test6.x", "test6.z"],
    [ "[]-[ex4]-[]-[]", 2, 2, null, null, null, null, null, null, null ],
-   [ "[]-[ex5]-[]-[]", null, 3, null, null, null, null, null, null, null ],
    [ "[]-[ex5]-[]", null, null, 1, 2, null, null, null, null, null ],
+   [ "[]-[ex5]-[]-[]", null, 3, null, null, null, null, null, null, null ],
    [ "[]-[ex6]-[]", null, null, 2, 2, null, null, null, null, null ],
    [ "[ex1]-[]-[ex1]-[]", null, null, null, 3, 1, 2, null, null, null ],
    [ "[ex2]-[]-[]-[]", null, null, null, null, 2, null, 4, null, null ],
