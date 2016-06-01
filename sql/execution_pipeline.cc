@@ -10,6 +10,8 @@
 #include "mldb/http/http_exception.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/jml/utils/smart_ptr_utils.h"
+#include <algorithm>
+
 
 using namespace std;
 
