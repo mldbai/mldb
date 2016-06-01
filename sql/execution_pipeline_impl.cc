@@ -626,10 +626,19 @@ doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
             //     << jsonEncode(rightResult) << endl;
                 
             StructValue output;
-            output.emplace_back(leftPrefix, std::move(leftResult));
-            output.emplace_back(rightPrefix, std::move(rightResult));
+            if (!leftPrefix.empty()) {
+                output.emplace_back(leftPrefix, std::move(leftResult));
+            }
+            else {
+                leftResult.mergeToRowDestructive(output);
+            }
 
-            //cerr << "returning " << jsonEncode(output) << endl;
+            if (!rightPrefix.empty()) {
+                output.emplace_back(rightPrefix, std::move(rightResult));
+            }
+            else {
+                rightResult.mergeToRowDestructive(output);
+            }
 
             return std::move(output);
         };

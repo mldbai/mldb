@@ -647,16 +647,96 @@ static strnverscmp(const char * s1, const char * s2, size_t len)
 }
 #endif
 
+std::pair<size_t, size_t>
+countDigits(const char * p, size_t len)
+{
+    // Count leading zeros
+    size_t lz = 0;
+    size_t i = 0;
+    while (i < len && p[i] == '0') {
+        ++i;
+        ++lz;
+    }
+
+    // If we're at the end, then we have only zeros,
+    // followed by one significant figure (the zero)
+    if (i == len || !isdigit(p[i])) {
+        return { i - 1, 1 };
+    }
+
+    // Otherwise, count digits
+    while (i < len && isdigit(p[i]))
+        ++i;
+                    
+    return { lz, i - lz };
+}
+
+
 int
 PathElement::
 compareString(const char * str, size_t len) const
 {
-#if 0
+    const char * p1 = data();
+    size_t len1 = dataLength();
+    const char * p2 = str;
+    size_t len2 = len;
+    
+    size_t i1 = 0, i2 = 0;
+    
+    while (i1 < len1 && i2 < len2) {
+        char c1 = p1[i1], c2 = p2[i2];
+
+        if (isdigit(c1) && isdigit(c2)) {
+            size_t lz1, digits1, lz2, digits2;
+            std::tie(lz1, digits1) = countDigits(p1 + i1, len1 - i1);
+            std::tie(lz2, digits2) = countDigits(p2 + i2, len2 - i2);
+
+            // More significant non-zero digits means bigger not matter what
+            if (digits1 < digits2)
+                return -1;
+            else if (digits1 > digits2)
+                return 1;
+
+            // Same number of significant digits; compare the strings
+            int res = std::strncmp(p1 + i1 + lz1, p2 + i2 + lz2, digits1);
+
+            // If not the same return result
+            if (res)
+                return res;
+            
+            // Finally, the one with more significant digits is smaller
+            if (lz1 != lz2)
+                return lz1 < lz2 ? 1 : -1;
+
+            // Out of the run of digits... update the pointers
+            ExcAssertEqual(lz1 + digits1, lz2 + digits2);
+            i1 += lz1 + digits1;
+            i2 += lz2 + digits2;
+        }
+        else if (c1 == c2) {
+            // Not both digits but equal; continue
+            ++i1;
+            ++i2;
+        }
+        else {
+            // Not both digits and unequal
+            return c1 < c2 ? -1 : 1;
+        }
+    }
+
+    if (i1 == len1 && i2 == len2) {
+        ExcAssertEqual(len1, len2);
+        return 0;
+    }
+
+    return len1 < len2 ? -1 : 1;
+
+#if 1
     std::string s1(str, str + len);
     std::string s2(data(), data() + dataLength());
 
-    cerr << "strverscmp " << s1 << " and " << s2 << " = "
-         << strverscmp(s2.c_str(), s1.c_str()) << endl;
+    //cerr << "strverscmp " << s1 << " and " << s2 << " = "
+    //     << strverscmp(s2.c_str(), s1.c_str()) << endl;
 
     return strverscmp(s2.c_str(), s1.c_str());
 #endif    
