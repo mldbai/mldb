@@ -23,6 +23,33 @@ using namespace std;
 using namespace Datacratic;
 using namespace Datacratic::MLDB;
 
+BOOST_AUTO_TEST_CASE(test_element_compare)
+{
+    PathElement el;
+    PathElement el0("0");
+    PathElement el00("00");
+    PathElement el1("1");
+    PathElement el10("10");
+    PathElement el010("010");
+    PathElement el0010("0010");
+    PathElement elx("x");
+
+    BOOST_CHECK_EQUAL(el0.compare(el0), 0);
+    BOOST_CHECK_EQUAL(el0.compare(el00), 1);
+    BOOST_CHECK_EQUAL(el00.compare(el0), -1);
+    BOOST_CHECK_EQUAL(el1.compare(el0), 1);
+    BOOST_CHECK_EQUAL(el1.compare(el00), 1);
+    BOOST_CHECK_EQUAL(el1.compare(el10), -1);
+    BOOST_CHECK_EQUAL(el1.compare(el010), -1);
+    BOOST_CHECK_EQUAL(el1.compare(el0010), -1);
+    BOOST_CHECK_EQUAL(el.compare(el0), -1);
+    BOOST_CHECK_EQUAL(el0.compare(elx), -1);
+
+    // Longer prefixes should be smaller, as then it allows for numbers
+    // like 0.01 to be larger than 0.001
+    BOOST_CHECK_EQUAL(el0010.compare(el010), -1);
+}
+
 BOOST_AUTO_TEST_CASE(test_coord_constructor)
 {
     PathElement coord1;
