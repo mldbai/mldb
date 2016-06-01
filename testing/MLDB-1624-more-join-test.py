@@ -1615,7 +1615,6 @@ class JoinTest(MldbUnitTest):
             ]
         )
 
-    @unittest.expectedFailure # MLDB-1671
     def test_multiway_join(self):
         """
         the name of the row is incorrect
@@ -1639,8 +1638,9 @@ class JoinTest(MldbUnitTest):
 
         res = mldb.query("""
         select * from x left join y on (x.x1 = y.y1) left join x as xx
-        on (x.x1 = xx.xx1)
+        on (x.x1 = xx.x1)
         """)
+
         pprint(res)
         # number of columns
         self.assertEqual(len(res[0]), 2 + 2 + 2 + 1)
@@ -1907,7 +1907,6 @@ class JoinTest(MldbUnitTest):
             ]
         )
 
-    @unittest.expectedFailure # MLDB-1671
     def test_join_with_constant_expression_failing_on_row_name(self):
         """
         - [u'[]-[03]', None, None, None, None, None, None, u'dd', 3, 33]
@@ -2020,12 +2019,10 @@ class JoinTest(MldbUnitTest):
                 [u'_rowName', u'x.x1', u'x.x2', u'y.y1', u'y.y2', u'z.z1', u'z.z2'] ,
                 [u'[01]-[01]-[01]', 1, 11, 1, 111, 1, 11] ,
                 [u'[02]-[02]-[02]', 2, 22, 2, 222, 2, 22] ,
-                [u'[]-[03]', None, None, None, None, 3, 33]
+                [u'[]-[]-[03]', None, None, None, None, 3, 33]
             ]
         )
 
-
-    @unittest.expectedFailure # MLDBFB-536
     def test_row_naming_in_two_executors(self):
 
         res1 = mldb.query("""
