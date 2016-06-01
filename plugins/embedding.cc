@@ -1302,9 +1302,8 @@ bindT(SqlBindingScope & outerContext, const std::shared_ptr<RowValueInfo> & inpu
 
             for (auto & c: columnNames) {
                 if (!c.empty() || c.back().isIndex()) {
-                    ColumnName knownEmbedding = c;
-                    knownEmbedding.pop_back();
-                    knownEmbeddings.insert(c);
+                    ColumnName knownEmbedding(c.begin(), c.end() - 1);
+                    knownEmbeddings.insert(knownEmbedding);
                 }
             }
 
