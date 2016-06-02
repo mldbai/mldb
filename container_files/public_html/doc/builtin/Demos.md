@@ -40,6 +40,10 @@ The ![](%%nblink _demos/Recommending Movies) demo shows how to use MLDB to do re
 
 The ![](%%nblink _demos/Exploring Favourite Recipes) demo shows how to use MLDB to do clustering/topic extraction among recipes with the ![](%%doclink kmeans.train procedure).
 
+## Spam Filtering
+
+The ![](%%nblink _demos/Enron Spam Filtering) demo uses MLDB to show the perils of over-reliance on Area Under the Curve as a metric for evaluating classifiers.
+
 ## Transfer Learning with Tensorflow
 
 The ![](%%nblink _demos/Transfer Learning with Tensorflow) demo demonstrates how to do transfer learning to leverage the power of a deep convolutional neural network without having to train one yourself. Most people do not train those types of networks from scratch because of the large data and computational power requirements. What is more common is to train the network on a large dataset (unrelated to our task) and then leverage the representation it learnt.
