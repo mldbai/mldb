@@ -71,6 +71,12 @@ COMPILER_CACHE:=ccache
 
 ## Building a Docker image
 
+You'll need to add your user to the `docker` group otherwise you'll need to `sudo` to build the Docker image:
+
+```bash
+sudo usermod -a -G docker `whoami`
+```
+
 To *build* a development Docker image just run the following command from the top level of this repo:
 
 ```bash
