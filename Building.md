@@ -27,12 +27,12 @@ You will first need to have a Github account with [SSH keys](https://help.github
 ssh -T git@github.com
 ```
 
-**Note** the `master` branch is bleeding edge and the demos or documentation may be slightly out of sync with the code at any given point in time. To avoid this, it is recommended to build the Community Edition from [the latest tagged release](https://github.com/mldbai/mldb/releases/latest).
+**Note** the `master` branch is bleeding edge and the demos or documentation may be slightly out of sync with the code at any given point in time. To avoid this, it is recommended to build the Community Edition from [the latest tagged release](https://github.com/mldbai/mldb/releases/latest) which is tracked by the `release_latest` branch.
 
 ```bash
 git clone git@github.com:mldbai/mldb.git
 cd mldb
-# git checkout < tag from https://github.com/mldbai/mldb/releases/latest >
+git checkout release_latest
 git submodule update --init --recursive
 make dependencies
 make -k compile
