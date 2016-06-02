@@ -475,6 +475,7 @@ struct JoinedDataset::Itl
 
         leftRows = runSide(condition.left, *left.dataset, outerLeft,
                            recordOuterLeft);
+
         rightRows = runSide(condition.right, *right.dataset, outerRight,
                             recordOuterRight);
 
@@ -565,14 +566,14 @@ struct JoinedDataset::Itl
                 else if (qualification != JOIN_INNER) {
                     for (auto it1a = it1; it1a < erng1 && outerLeft;  ++it1a) {
                         // For LEFT and FULL joins
-                        recordJoinRow(std::get<1>(*it1), std::get<2>(*it1),
+                        recordJoinRow(std::get<1>(*it1a), std::get<2>(*it1a),
                                       RowName(), RowHash());
                     }
                     
                     for (auto it2a = it2; it2a < erng2 && outerRight;  ++it2a) {
                         // For RIGHT and FULL joins
-                        recordJoinRow(RowName(), RowHash(),std::get<1>(*it2),
-                                      std::get<2>(*it2));
+                        recordJoinRow(RowName(), RowHash(),std::get<1>(*it2a),
+                                      std::get<2>(*it2a));
                     }
                 }
 
