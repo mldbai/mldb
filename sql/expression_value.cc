@@ -21,6 +21,7 @@
 #include "mldb/types/hash_wrapper_description.h"
 #include "mldb/jml/utils/less.h"
 #include "mldb/jml/utils/lightweight_hash.h"
+#include "mldb/jml/utils/compact_vector.h"
 
 using namespace std;
 

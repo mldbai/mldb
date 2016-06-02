@@ -272,6 +272,17 @@ getEntityStatus(const Function & function) const
     return function.getStatus();
 }
 
+std::shared_ptr<PolyEntity>
+FunctionCollection::
+construct(PolyConfig config, const OnProgress & onProgress) const
+{
+    auto factory = tryLookupFunction(config.id);
+    if (factory)
+        throw HttpReturnException(400, "Cannot add function: MLDB already has a built-in function named " + config.id);
+
+    return PolyCollection<Function>::construct(config, onProgress);
+}
+
 } // namespace MLDB
 
 template class PolyCollection<MLDB::Function>;

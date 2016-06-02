@@ -13,10 +13,12 @@ function assertEqual(expr, val)
 }
 
 
-function testQuery(query, expected) {
+function testQuery(query, expected, sortColumns) {
+    if (sortColumns === undefined)
+        sortColumns = false;
     mldb.log("testing query", query);
 
-    var resp = mldb.get('/v1/query', {q: query, format: 'table'});
+    var resp = mldb.get('/v1/query', {q: query, format: 'table', sortColumns: sortColumns});
 
     mldb.log("received", resp.json);
     mldb.log("expected", expected);
@@ -439,22 +441,21 @@ dataset6.recordRow("ex6", [ [ "x", null, ts ], ["z", 3, ts] ]);
 dataset6.commit()
 
 expected = [
-   [
-      "_rowName", "test5.x", "test5.z", "test4.x", "test4.z", "test3.x", "test3.y", "test3.z", "test6.x", "test6.z"],
-   [ "[]-[]-[ex5]-[]", 1, 2, null, null, null, null, null, null, null ],
-   [ "[]-[]-[ex6]-[]", 2, 2, null, null, null, null, null, null, null ],
-   [ "[]-[ex4]-[]-[]", null, null, 2, 2, null, null, null, null, null ],
-   [ "[]-[ex5]-[]-[]", null, null, null, 3, null, null, null, null, null ],
-   [ "[ex1]-[]-[ex1]-[]", null, 3, null, null, 1, 2, null, null, null ],
-   [ "[ex2]-[]-[]-[]", null, null, null, null, 2, null, 4, null, null ],
-   [ "[ex3]-[ex3]-[]-[ex3]", null, null, 1, 2, null, null, 3, 1, 2 ],
+   [ "_rowName","test3.x","test3.y","test3.z","test4.x","test4.z","test5.x","test5.z","test6.x","test6.z"],
    [ "[]-[]-[]-[ex4]", null, null, null, null, null, null, null, 2, 2 ],
-   [ "[]-[]-[]-[ex6]", null, null, null, null, null, null, null, null, 3 ]
+   [ "[]-[]-[]-[ex6]", null, null, null, null, null, null, null, null, 3 ],
+   [ "[]-[]-[ex5]-[]", null, null, null, null, null, 1, 2, null, null ],
+   [ "[]-[]-[ex6]-[]", null, null, null, null, null, 2, 2, null, null ],
+   [ "[]-[ex4]-[]-[]", null, null, null, 2, 2, null, null, null, null ],
+   [ "[]-[ex5]-[]-[]", null, null, null, null, 3, null, null, null, null ],
+   [ "[ex1]-[]-[ex1]-[]", 1, 2, null, null, null, null, 3, null, null ],
+   [ "[ex2]-[]-[]-[]", 2, null, 4, null, null, null, null, null, null ],
+   [ "[ex3]-[ex3]-[]-[ex3]", null, null, 3, 1, 2, null, null, 1, 2 ]
 ];
 
 
-testQuery('SELECT * FROM test3 OUTER JOIN test4 ON test3.rowName() = test4.rowName() OUTER JOIN test5 on test3.rowName() = test5.rowName() OUTER JOIN test6 on test3.rowName() = test6.rowName()',
-          expected);
+testQuery('SELECT * FROM test3 OUTER JOIN test4 ON test3.rowName() = test4.rowName() OUTER JOIN test5 on test3.rowName() = test5.rowName() OUTER JOIN test6 on test3.rowName() = test6.rowName() ORDER BY rowName()',
+          expected, true /* sortColumns */);
 
 //MLDB-1384
 //asking for unknow column in the WHERE should not throw.

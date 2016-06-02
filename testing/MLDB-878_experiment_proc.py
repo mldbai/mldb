@@ -78,7 +78,7 @@ class Mldb878Test(MldbUnitTest):
         assert len(js_rez["status"]["folds"]) == 2
         for i in xrange(2):
             assert js_rez["status"]["folds"][i]["resultsTest"]["auc"] > 0.95, \
-                'expected AUC to be above 0.95'
+                'expected AUC %f to be above 0.95' % js_rez["status"]["folds"][i]["resultsTest"]["auc"]
 
         # score using the predictor (MLDB-1070)
         def apply_predictor():
