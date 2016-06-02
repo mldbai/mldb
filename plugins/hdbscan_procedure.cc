@@ -248,18 +248,30 @@ run(const ProcedureRunConfig & run,
 
     std::vector<int> clusterSizes;
     clusterSizes.reserve(edges.size());
-    std::vector<int> clusterIndex(vecs.size(), -1);
+  //  std::vector<int> clusterIndex(vecs.size(), -1);
     std::vector<int> clusterParent(vecs.size(), -1);
+    std::vector<std::pair<int, int> > clusterChilds;
+    clusterChilds.reserve(edges.size());
+
+    //init the leaf clusters
+    for (int index = 0; index < vecs.size(); ++index) {
+  //      clusterIndex[index] = index;
+        clusterParent[index] = index;
+        clusterSizes.push_back(1);
+        clusterChilds.emplace_back(-1, -1);
+    }
 
     for (auto& edge : edges) {
 
         int newCluster = clusterSizes.size();
 
-        int& cluster0 = clusterIndex[std::get<0>(edge)];
-        int& cluster1 = clusterIndex[std::get<1>(edge)];
+     //   int& cluster0 = clusterIndex[std::get<0>(edge)];
+     //   int& cluster1 = clusterIndex[std::get<1>(edge)];
 
         int clusterParent0 = clusterParent[std::get<0>(edge)];
         int clusterParent1 = clusterParent[std::get<1>(edge)];
+
+        clusterChilds.emplace_back(clusterParent0, clusterParent1);
 
         int size0 = clusterParent0 >= 0 ? clusterSizes[clusterParent0] : 1;
         int size1 = clusterParent1 >= 0 ? clusterSizes[clusterParent1] : 1;
@@ -273,10 +285,12 @@ run(const ProcedureRunConfig & run,
         clusterParent[std::get<0>(edge)] = newCluster;
         clusterParent[std::get<1>(edge)] = newCluster;
 
-        if (cluster0 < 0)
+        
+
+     /*   if (cluster0 < 0)
             cluster0 = newCluster;
         if (cluster1 < 0)
-            cluster1 = newCluster;
+            cluster1 = newCluster;*/
 
         clusterSizes.push_back(size0 + size1);
     }   
@@ -286,7 +300,40 @@ run(const ProcedureRunConfig & run,
         cerr << size << endl;
     }
 
-    //int minClusterSize = runProcConf.minClusterSize;
+    //5.0 Condense the clusters
+
+    int minClusterSize = runProcConf.minClusterSize;
+
+    struct MetaCluster {
+
+    };
+
+    std::vector<MetaCluster> metaClusters;
+
+    std::function<void(ssize_t)> condenseClusterRecursive = [&] (ssize_t i) {
+        auto childs = clusterChilds[i];
+
+        int childIndex1 = childs.first;
+        ssize_t childSize1 = clusterSizes[childIndex1];
+        int childIndex2 = childs.second;
+        ssize_t childSize2 = clusterSizes[childIndex2];
+
+        if (childSize1 < minClusterSize || childSize2 < minClusterSize) {
+            //Add the data to compute the lambda
+        } else {
+            condenseClusterRecursive(childIndex2);
+            condenseClusterRecursive(childIndex2);
+        }
+
+        metaClusters.emplace_back();
+
+    };
+
+    condenseClusterRecursive(clusterSizes.size() -1 );
+
+    cerr << "number of meta clusters: " << metaClusters.size() << endl;
+
+    //5.0 Extract the clusters   
 
     return Any();
 }
