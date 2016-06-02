@@ -30,6 +30,9 @@ struct FunctionCollection: public PolyCollection<Function> {
 
     virtual Any getEntityStatus(const Function & function) const;
 
+    virtual std::shared_ptr<PolyEntity>
+    construct(PolyConfig config, const OnProgress & onProgress) const;
+
     void applyFunction(const Function * function,
                        const std::map<Utf8String, ExpressionValue> & input,
                        const std::vector<Utf8String> & keepPins,

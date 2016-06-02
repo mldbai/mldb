@@ -898,3 +898,65 @@
    fun:_dl_init
    obj:/lib/x86_64-linux-gnu/ld-2.19.so
 }
+
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:_Znwm
+   fun:_ZNSs4_Rep9_S_createEmmRKSaIcE
+   obj:/usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.21
+   fun:_ZNSsC1EPKcRKSaIcE
+   fun:__static_initialization_and_destruction_0
+   ...
+   fun:call_init.part.0
+   fun:call_init
+   fun:_dl_init
+   obj:/lib/x86_64-linux-gnu/ld-2.19.so
+}
+
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   ...
+   fun:_ZN2ML11Dense_LayerIfE10RegisterMeC1Ev
+   ...
+   fun:_dl_init
+   obj:/lib/x86_64-linux-gnu/ld-2.19.so
+}
+
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   ...
+   fun:_ZN2ML11Dense_LayerIdE10RegisterMeC1Ev
+   ...
+   fun:_dl_init
+   obj:/lib/x86_64-linux-gnu/ld-2.19.so
+}
+
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:_Znwm
+   fun:_ZN10Datacratic20ValueDescriptionInitISt3mapISsNS_8JsonDiffESt4lessISsESaISt4pairIKSsS2_EEEE6createEv
+   fun:operator()
+   fun:_ZN10Datacratic24registerValueDescriptionERKSt9type_infoSt8functionIFPNS_16ValueDescriptionEvEES3_IFvRS4_EEb
+   fun:_ZN10Datacratic27getDefaultDescriptionSharedISt3mapISsNS_8JsonDiffESt4lessISsESaISt4pairIKSsS2_EEEEESt10shared_ptrIKNS_17ValueDescriptionTIT_EEEPSC_
+   fun:getDefaultDescriptionSharedT<std::map<std::basic_string<char>, Datacratic::JsonDiff> >
+   fun:addField<std::map<std::basic_string<char>, Datacratic::JsonDiff>, Datacratic::JsonDiff>
+   fun:_ZN10Datacratic19JsonDiffDescriptionC1Ev
+   fun:_ZN10Datacratic21getDefaultDescriptionEPNS_8JsonDiffE
+   fun:_ZN10Datacratic31JsonArrayElementDiffDescriptionC1Ev
+   fun:operator()
+   fun:_ZNSt17_Function_handlerIFPN10Datacratic16ValueDescriptionEvEZNS0_31JsonArrayElementDiffDescription5RegmeC1EvEUlvE_E9_M_invokeERKSt9_Any_data
+   fun:operator()
+   fun:_ZN10Datacratic24registerValueDescriptionERKSt9type_infoSt8functionIFPNS_16ValueDescriptionEvEES3_IFvRS4_EEb
+   fun:_ZN10Datacratic24registerValueDescriptionERKSt9type_infoSt8functionIFPNS_16ValueDescriptionEvEEb
+   fun:_ZN10Datacratic31JsonArrayElementDiffDescription5RegmeC1Ev
+   fun:__static_initialization_and_destruction_0
+   fun:_GLOBAL__sub_I_json_diff.cc
+}
