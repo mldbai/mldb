@@ -175,6 +175,13 @@ void runHttpQuery(std::function<std::vector<MatrixNamedRow> ()> runQuery,
             }
         }
 
+        if (sortColumns) {
+            std::sort(columns.begin(), columns.end());
+            for (size_t i = 0;  i < columns.size();  ++i) {
+                columnIndex[columns[i]] = i;
+            }
+        }
+
         // Now, send them back
         std::vector<std::vector<CellValue> > output;
         output.reserve(sparseOutput.size() + createHeaders);

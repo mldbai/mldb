@@ -363,7 +363,8 @@ doGetColumn(const Utf8String & tableName,
     if (!info) {
         // Don't know the column.  Is it because it never exists, or because
         // the schema is dynamic, or because its deeper?
-        if (inputInfo->getSchemaCompleteness() != SCHEMA_CLOSED || columnName.size() > 1) {
+        if (inputInfo->getSchemaCompleteness() != SCHEMA_CLOSED
+            || columnName.size() > 1) {
             // Dynamic columns; be prepared to do either depending upon
             // what we find
 

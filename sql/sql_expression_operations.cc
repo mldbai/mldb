@@ -3004,6 +3004,7 @@ transform(const TransformArgs & transformArgs) const
 
     switch (kind) {
     case SUBTABLE:
+        //SelectSubtableExpression is  a tableExpression, not an SQLExpression
         result->subtable = std::make_shared<SelectSubtableExpression>(*(result->subtable));
         break;
     case TUPLE:
@@ -3607,18 +3608,33 @@ bind(SqlBindingScope & scope) const
                          const VariableFilter & filter)
             -> const ExpressionValue &
             {
-                const ExpressionValue & val = exprBound(scope, storage, filter);
-                StructValue row;
-                if (&val == &storage) {
-                    // We own the only copy; we can move it
-                    storage.appendToRowDestructive(alias, row);
-                    return storage = std::move(row);
-                }
-                else {
-                    // We got a reference; copy it
-                    storage.appendToRow(alias, row);
-                    return storage = std::move(row);
-                }
+                ExpressionValue valStorage;
+                const ExpressionValue & val
+                    = exprBound(scope, valStorage, filter);
+
+                // Recursive function to build up an ExpressionValue
+                // with the same structure as the alias
+                std::function<ExpressionValue (size_t i)>
+                getRow = [&] (size_t i) -> ExpressionValue
+                {
+                    if (i == alias.size()) {
+                        if (&val == &valStorage) {
+                            // We own the only copy; we can move it
+                            return std::move(valStorage);
+                        }
+                        else {
+                            // We got a reference; copy it
+                            return val;
+                        }
+                    }
+                    else {
+                        StructValue row;
+                        row.emplace_back(alias[i], getRow(i + 1));
+                        return std::move(row);
+                    }
+                };
+
+                return storage = getRow(0);
             };
 
         std::vector<KnownColumn> knownColumns = {

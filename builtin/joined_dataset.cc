@@ -126,7 +126,7 @@ struct JoinedDataset::Itl
     std::shared_ptr<Dataset> leftDataset, rightDataset;
 
     // is the dataset on the left a join too?
-    bool isChainedJoin;
+    int chainedJoinDepth;
 
     /// Names of tables, so that we can correctly identify where each
     /// column came from.
@@ -154,7 +154,9 @@ struct JoinedDataset::Itl
         std::set<Utf8String> leftTables = v2s(left.table.getChildAliases());
         std::set<Utf8String> rightTables = v2s(right.table.getChildAliases());
 
-        isChainedJoin = dynamic_cast<JoinedDataset*>(left.dataset.get()) != nullptr;
+        JoinedDataset* left_joined_dataset = dynamic_cast<JoinedDataset*>(left.dataset.get());
+
+        chainedJoinDepth = left_joined_dataset != nullptr ? left_joined_dataset->getChainedJoinDepth() + 1 : 0;
 
         if (!left.dataset) {
             throw HttpReturnException
@@ -323,10 +325,20 @@ struct JoinedDataset::Itl
         bool debug = false;
         RowName rowName;
 
-        if (isChainedJoin && !leftName.empty())
+        if (chainedJoinDepth > 0 && !leftName.empty()) {
             rowName = std::move(RowName(leftName.toUtf8String() + "-" + "[" + rightName.toUtf8String() + "]"));
-        else
+        }
+        else if (chainedJoinDepth == 0) {
             rowName = std::move(RowName("[" + leftName.toUtf8String() + "]" + "-" + "[" + rightName.toUtf8String() + "]"));
+        }
+        else {
+            Utf8String left;
+            for (int i = 0; i <= chainedJoinDepth; ++i) {
+                left += "[]-";
+            }
+
+            rowName = std::move(RowName(left + "[" + rightName.toUtf8String() + "]"));
+        }
 
         RowHash rowHash(rowName);
 
@@ -339,6 +351,8 @@ struct JoinedDataset::Itl
         if (debug)
             cerr << "added entry number " << rows.size()
                  << " named " << "("<< rowName <<")"
+                 << " from left (" << leftName <<")"
+                 << " and right (" << rightName <<")"
                  << endl;
 
         rows.emplace_back(std::move(entry));
@@ -461,6 +475,7 @@ struct JoinedDataset::Itl
 
         leftRows = runSide(condition.left, *left.dataset, outerLeft,
                            recordOuterLeft);
+
         rightRows = runSide(condition.right, *right.dataset, outerRight,
                             recordOuterRight);
 
@@ -551,14 +566,14 @@ struct JoinedDataset::Itl
                 else if (qualification != JOIN_INNER) {
                     for (auto it1a = it1; it1a < erng1 && outerLeft;  ++it1a) {
                         // For LEFT and FULL joins
-                        recordJoinRow(std::get<1>(*it1), std::get<2>(*it1),
+                        recordJoinRow(std::get<1>(*it1a), std::get<2>(*it1a),
                                       RowName(), RowHash());
                     }
                     
                     for (auto it2a = it2; it2a < erng2 && outerRight;  ++it2a) {
                         // For RIGHT and FULL joins
-                        recordJoinRow(RowName(), RowHash(),std::get<1>(*it2),
-                                      std::get<2>(*it2));
+                        recordJoinRow(RowName(), RowHash(),std::get<1>(*it2a),
+                                      std::get<2>(*it2a));
                     }
                 }
 
@@ -647,7 +662,9 @@ struct JoinedDataset::Itl
                 {
                     ColumnHash colHash = rowName;
                     auto it = mapping.find(colHash);
+
                     if (it != mapping.end()) {
+
                         result.columns.emplace_back(it->second,
                                                     std::move(val),
                                                     ts);
@@ -1007,6 +1024,13 @@ JoinedDataset::
 getOriginalRowName(const Utf8String& tableName, const RowName & name) const
 {
     return itl->getOriginalRowName(tableName, name);
+}
+
+int
+JoinedDataset::
+getChainedJoinDepth() const
+{
+    return itl->chainedJoinDepth;
 }
 
 

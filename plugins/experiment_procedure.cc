@@ -62,11 +62,11 @@ DatasetFoldConfigDescription()
     addField("trainingOrderBy", &DatasetFoldConfig::trainingOrderBy,
              "How to order the rows.  This only has an effect when `trainingOffset` "
              "or `trainingLimit` are used.",
-             OrderByExpression::parse("true"));
+             OrderByExpression::parse("rowHash()"));
     addField("testingOrderBy", &DatasetFoldConfig::testingOrderBy,
              "How to order the rows.  This only has an effect when `testingOffset` "
              "or `testingLimit` are used.",
-             OrderByExpression::parse("true"));
+             OrderByExpression::parse("rowHash()"));
     setTypeName("DatasetFoldConfig");
     documentationUri = "/doc/builtin/procedures/ExperimentProcedure.md#DatasetFoldConfig";
 }

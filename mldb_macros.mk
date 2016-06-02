@@ -4,6 +4,7 @@
 # $(3) options for the test
 #      - manual: run the test manually
 #      - virtualenv: set up the Python virtualenv even for a non-python test
+#      - valgrind: run the test within valgrind
 
 define mldb_unit_test
 ifneq ($(PREMAKE),1)
@@ -16,7 +17,7 @@ TEST_$(1)_SETUP := $$(if $$(findstring .py,$(1))$$(findstring virtualenv,$(3)),.
 
 # Command to actually run for the test.  Constructs the call to mldb_runner and the
 # command line options to pass to it.
-TEST_$(1)_RAW_COMMAND := $$(BIN)/mldb_runner -h localhost -p '11700-12700' $$(foreach plugin,$(2),--plugin-directory file://$(PLUGINS)/$$(plugin)) --run-script $(CWD)/$(1) --mute-final-output
+TEST_$(1)_RAW_COMMAND := $(call TEST_PRE_OPTIONS,$(3)) $$(BIN)/mldb_runner -h localhost -p '11700-12700' $$(foreach plugin,$(2),--plugin-directory file://$(PLUGINS)/$$(plugin)) --run-script $(CWD)/$(1) --mute-final-output
 
 # Command that is run in the shell.  This takes care of printing the right message
 # out and capturing the output in the right place.
