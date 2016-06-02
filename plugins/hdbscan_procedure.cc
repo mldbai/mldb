@@ -248,6 +248,8 @@ run(const ProcedureRunConfig & run,
 
     std::vector<int> clusterSizes;
     clusterSizes.reserve(edges.size());
+    std::vector<double> clusterDistances; //length of the edge that merges two clusters into this one
+    clusterDistances.reserve(edges.size());
   //  std::vector<int> clusterIndex(vecs.size(), -1);
     std::vector<int> clusterParent(vecs.size(), -1);
     std::vector<std::pair<int, int> > clusterChilds;
@@ -259,6 +261,7 @@ run(const ProcedureRunConfig & run,
         clusterParent[index] = index;
         clusterSizes.push_back(1);
         clusterChilds.emplace_back(-1, -1);
+        clusterDistances.push_back(0);
     }
 
     for (auto& edge : edges) {
@@ -293,6 +296,7 @@ run(const ProcedureRunConfig & run,
             cluster1 = newCluster;*/
 
         clusterSizes.push_back(size0 + size1);
+        clusterDistances.push_back(std::get<2>(edge));
     }   
 
     cerr << "cluster sizes" << endl;
@@ -306,34 +310,141 @@ run(const ProcedureRunConfig & run,
 
     struct MetaCluster {
 
+        MetaCluster(double lambda_) {parent = -1; lambda = lambda_; stability = 0; /*leftoversCount = 0;*/ selected = false;}
+
+        std::vector<ssize_t> childs;
+        //std::std::vector<ssize_t> parents;
+        ssize_t parent;
+        double lambda;
+
+        double stability;
+       // size_t leftoversCount;
+        bool selected;
     };
 
     std::vector<MetaCluster> metaClusters;
 
-    std::function<void(ssize_t)> condenseClusterRecursive = [&] (ssize_t i) {
-        auto childs = clusterChilds[i];
+    cerr << "CONDENSING THE CLUSTERS" << endl;
+
+    std::function<ssize_t(ssize_t, ssize_t, double)> condenseClusterRecursive = [&] (ssize_t i, ssize_t metaIndex, double lambda) {
+        auto childs = clusterChilds[i];        
 
         int childIndex1 = childs.first;
         ssize_t childSize1 = clusterSizes[childIndex1];
         int childIndex2 = childs.second;
         ssize_t childSize2 = clusterSizes[childIndex2];
 
-        if (childSize1 < minClusterSize || childSize2 < minClusterSize) {
-            //Add the data to compute the lambda
-        } else {
-            condenseClusterRecursive(childIndex2);
-            condenseClusterRecursive(childIndex2);
+        if (metaIndex < 0) {
+            metaClusters.emplace_back(lambda);
+            metaIndex = metaClusters.size() - 1;
         }
 
-        metaClusters.emplace_back();
+    //    MetaCluster & metacluster =  metaClusters[metaIndex];
+
+        if (childSize1 < minClusterSize && childSize2 < minClusterSize) {
+            //Add the leftovers from both side
+            MetaCluster & metacluster =  metaClusters[metaIndex];
+            double lambda1 = (1.0/clusterDistances[childIndex1]) - lambda;
+            double lambda2 = (1.0/clusterDistances[childIndex2]) - lambda;
+            metacluster.stability += lambda1*childSize1;
+            metacluster.stability += lambda2*childSize2;
+        }
+        else if (childSize1 < minClusterSize) {
+            //need to merge with child2
+            condenseClusterRecursive(childIndex2, metaIndex, lambda);
+            //and add the "leftovers" from child1
+            MetaCluster & metacluster =  metaClusters[metaIndex];
+            double lambda1 = (1.0/clusterDistances[childIndex1]) - lambda;
+            metacluster.stability += lambda1*childSize1;
+        }
+        else if (childSize2 < minClusterSize) {
+            //need to merge with child1
+            condenseClusterRecursive(childIndex1, metaIndex, lambda);
+            //and add the "leftovers" from child2
+            MetaCluster & metacluster =  metaClusters[metaIndex];
+            double lambda2 = (1.0/clusterDistances[childIndex2]) - lambda;
+            metacluster.stability += lambda2*childSize2;
+        }
+        else {
+            //True split
+
+            //need the lambda of the split
+            double childLambda = 1.0 / clusterDistances[i];
+
+            auto child1 = condenseClusterRecursive(childIndex1, -1, childLambda);
+            auto child2 = condenseClusterRecursive(childIndex2, -1, childLambda);
+
+            cerr << metaIndex << ",";
+            cerr << child1 << ",";
+            cerr << child2 << endl;
+
+            MetaCluster & metacluster =  metaClusters[metaIndex];
+
+            metacluster.childs.push_back(child1);
+            metacluster.childs.push_back(child2);
+
+            metaClusters[child1].parent = metaIndex;
+            metaClusters[child2].parent = metaIndex;
+        } 
+
+        cerr << "returning meta index: " << metaIndex << endl;
+        return metaIndex;
 
     };
 
-    condenseClusterRecursive(clusterSizes.size() -1 );
+    condenseClusterRecursive(clusterSizes.size() -1, -1, 0.0);
 
     cerr << "number of meta clusters: " << metaClusters.size() << endl;
 
-    //5.0 Extract the clusters   
+    //5.0 Extract the clusters
+
+    cerr << "EXTRACTING CLUSTERS" << endl;
+
+    std::function<double(ssize_t)> getStabilityRecursive = [&] (ssize_t i) {
+        MetaCluster & metacluster =  metaClusters[i];        
+
+        if (metacluster.childs.size() > 0) {
+
+            cerr << "Parent Meta Cluster: " << i << endl;
+
+            double childStability1 = getStabilityRecursive(metacluster.childs[0]);
+            double childStability2 = getStabilityRecursive(metacluster.childs[1]);
+
+            
+            cerr << "child stabilities: " << childStability1 << " , " << childStability2 << endl;
+            cerr << "vs own: " << metacluster.stability << endl;
+
+            metacluster.selected = metacluster.stability > childStability1 + childStability2;
+            return metacluster.stability;
+        }
+        else
+        {
+            cerr << "Meta Cluster: " << i << endl;
+            cerr << "   is a leaf " << endl;
+            metacluster.selected = true;
+            return metacluster.stability;
+        }
+
+    };
+
+    //this will flag as true clusters or not
+    getStabilityRecursive(0);
+
+    //6.0 Finalize
+
+    std::function<void(ssize_t)> finalizeRecursive = [&] (ssize_t i) {
+
+        MetaCluster & metacluster =  metaClusters[i];
+        if (metacluster.selected) {
+            cerr << "MetaCluster " << i << " is a true cluster" << endl;
+        }
+        else if (metacluster.childs.size() > 0) {
+            finalizeRecursive(metacluster.childs[0]);
+            finalizeRecursive(metacluster.childs[1]);
+        }
+    };
+
+    finalizeRecursive(0);
 
     return Any();
 }
