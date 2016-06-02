@@ -4,7 +4,7 @@ These instructions are designed for a vanilla installation of **Ubuntu 14.04** a
 
 It will take around **45 minutes on a 32-core machine with 244GB of RAM** to run through these steps (i.e. on an Amazon EC2 r3.8xlarge instance) and longer on smaller machines. However, you can get up and running in 5 minutes by [using a pre-built Docker images of the MLDB Enterprise Edition](http://mldb.ai/doc/#builtin/Running.md.html) for free with a trial license, which can be obtained instantly by filling out [this form](http://mldb.ai/licensing.html).
 
-## System dependencies
+## Installing system dependencies via `apt-get`
 
 For C++ code to compile and the Python modules to install correctly, the following system packages need to be installed:
 
@@ -16,10 +16,11 @@ libpython-dev libgit2-dev libv8-dev libarchive-dev libffi-dev \
 libfreetype6-dev libpng12-dev libcap-dev autoconf libtool unzip \
 language-pack-en
 ```
+## Installing Docker
 
 To build and run the Docker image, you will need to install Docker: https://docs.docker.com/engine/installation/ubuntulinux/
 
-## Cloning, compiling and test
+## Cloning, compiling and testing
 
 You will first need to have a Github account with [SSH keys](https://help.github.com/categories/ssh/) set up because the repo uses SSH paths in its submodule configuration. You can test that keys are correctly set up by running the following command and seeing "successfully authenticated":
 
