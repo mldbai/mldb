@@ -1326,8 +1326,8 @@ operator == (const Path & other) const
     //if (digits_ != other.digits_)
     //    return false;
 
-    // Short circuit
-    if (offset(0) == 0 && other.offset(0) == 0) {
+    // Short circuit (currently offset(0) is always 0, so always taken).
+    if (/*offset(0) == 0 && other.offset(0) == 0*/ true) {
         for (size_t i = 1;  i <= length_;  ++i) {
             if (offset(i) != other.offset(i)) {
                 return false;
