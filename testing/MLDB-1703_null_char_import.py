@@ -21,7 +21,8 @@ class Mldb1703(MldbUnitTest):
                 "select": "* EXCLUDING(rowName)",
                 "runOnCreation": True,
                 "structuredColumnNames": True,
-                "allowMultiLines": False
+                "allowMultiLines": False,
+                "replaceInvalidCharactersWith": " "
             }
         }))
 
