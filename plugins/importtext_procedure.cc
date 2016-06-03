@@ -913,7 +913,7 @@ struct ImportTextProcedureWorkInstance
                            int64_t lineNum)
         {
             int64_t actualLineNum = lineNum + lineOffset;
-#if 0
+#if 1
             uint64_t linesDone = totalLinesProcessed.fetch_add(1);
 
             if (linesDone && linesDone % 1000000 == 0) {
