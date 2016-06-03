@@ -848,7 +848,7 @@ private:
     }
 
     /// Return the byte offsets of the begin and end of this element
-    inline size_t offset(size_t el) const
+    JML_ALWAYS_INLINE size_t offset(size_t el) const
     {
         //ExcAssertLessEqual(el, length_);
         if (JML_LIKELY(!externalOfs())) {
