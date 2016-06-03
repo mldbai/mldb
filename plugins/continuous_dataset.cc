@@ -514,38 +514,15 @@ ContinuousWindowDatasetConfigDescription()
     object for the dataset.
 */
 static PolyConfigT<const Dataset>
-reconstituteConfig(const MatrixNamedRow & row)
+reconstituteConfig(MatrixNamedRow row)
 {
-    Json::Value current;
-
-    auto pruneDoubleQuotes = [] (const string & in) {
-        string out;
-        for (auto c: in) {
-            if (c == '"') {
-                continue;
-            }
-            out += c;
-        }
-        return out;
-    };
-
-    for (auto & col: row.columns) {
-        Json::Value * p = &current;
-        vector<string> parts = ML::split(std::get<0>(col).toUtf8String().rawString(), '.');
-        if (pruneDoubleQuotes(parts[0]) != "config") {
-            continue;
-        }
-        for (unsigned i = 1;  i < parts.size();  ++i) {
-            Json::Value & v2 = (*p)[pruneDoubleQuotes(parts[i])];
-            p = &v2;
-        }
-
-        *p = jsonEncode(std::get<1>(col));
-    }
-
+    Json::Value current
+        = ExpressionValue(std::move(row.columns)).getColumn("config").extractJson();
     current["id"] = jsonEncode(row.rowName);
 
     ExcAssert(current.isMember("params"));
+
+    // Check that we can decode it properly
     jsonDecode<PersistentDatasetConfig>(current["params"]);
 
     return jsonDecode<PolyConfigT<const Dataset> >(current);
@@ -588,7 +565,7 @@ getDatasetConfig(std::shared_ptr<SqlExpression> datasetsWhere,
 
     for (auto & ds: datasets) {
         // Reconstitute a configuration
-        params.datasets.emplace_back(reconstituteConfig(ds));
+        params.datasets.emplace_back(reconstituteConfig(std::move(ds)));
     }
     
     PolyConfigT<const Dataset> result;
