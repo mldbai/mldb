@@ -401,8 +401,8 @@ SqlBindingScope::
 doResolveTableName(const ColumnName & fullColumnName,
                    Utf8String &tableName) const
 {
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
-                              + " does not support resolving table names");
+    //default behaviour is there is no dataset so return the full column name
+    return fullColumnName;
 }
 
 MldbServer *
