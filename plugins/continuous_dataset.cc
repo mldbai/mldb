@@ -518,13 +518,25 @@ reconstituteConfig(const MatrixNamedRow & row)
 {
     Json::Value current;
 
+    auto pruneDoubleQuotes = [] (const string & in) {
+        string out;
+        for (auto c: in) {
+            if (c == '"') {
+                continue;
+            }
+            out += c;
+        }
+        return out;
+    };
+
     for (auto & col: row.columns) {
         Json::Value * p = &current;
         vector<string> parts = ML::split(std::get<0>(col).toUtf8String().rawString(), '.');
-        if (parts[0] != "config")
+        if (pruneDoubleQuotes(parts[0]) != "config") {
             continue;
+        }
         for (unsigned i = 1;  i < parts.size();  ++i) {
-            Json::Value & v2 = (*p)[parts[i]];
+            Json::Value & v2 = (*p)[pruneDoubleQuotes(parts[i])];
             p = &v2;
         }
 
@@ -532,6 +544,9 @@ reconstituteConfig(const MatrixNamedRow & row)
     }
 
     current["id"] = jsonEncode(row.rowName);
+
+    ExcAssert(current.isMember("params"));
+    jsonDecode<PersistentDatasetConfig>(current["params"]);
 
     return jsonDecode<PolyConfigT<const Dataset> >(current);
 }
@@ -611,7 +626,7 @@ ContinuousWindowDataset(MldbServer * owner,
                              "metadata query: " + ML::getExceptionString(),
                              "continuousDatasetConfig", config);
     }
-    
+
     try {
         // Obtain the merged dataset, recursively
         std::shared_ptr<Dataset> underlying
