@@ -25,8 +25,11 @@ namespace MLDB {
 
 ColumnTypes::   
 ColumnTypes()
-    : numNulls(0), numIntegers(0),
-      minNegativeInteger(0), maxPositiveInteger(0),
+    : numNulls(0), numZeros(0), numIntegers(0),
+      minNegativeInteger(std::numeric_limits<int64_t>::max()),
+      maxNegativeInteger(0),
+      minPositiveInteger(std::numeric_limits<uint64_t>::max()),
+      maxPositiveInteger(0),
       numReals(0), numStrings(0), numBlobs(0),
       numOther(0)
 {
@@ -46,10 +49,16 @@ update(const CellValue & val)
     case CellValue::INTEGER:
         numIntegers += 1;
         if (val.isUInt64()) {
-            maxPositiveInteger = std::max(maxPositiveInteger, val.toUInt());
+            uint64_t i = val.toUInt();
+            numZeros += (i == 0);
+            minPositiveInteger = std::min(minPositiveInteger, i);
+            maxPositiveInteger = std::max(maxPositiveInteger, i);
         }
         else {
-            minNegativeInteger = std::min(minNegativeInteger, val.toInt());
+            int64_t i = val.toInt();
+            numZeros += (i == 0);
+            minNegativeInteger = std::min(minNegativeInteger, i);
+            maxNegativeInteger = std::max(maxNegativeInteger, i);
         }
         break;
     case CellValue::ASCII_STRING:
