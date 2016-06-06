@@ -226,8 +226,8 @@ class HorizontalTest(MldbUnitTest):
         self.assertEqual(res[1][1], '2015-01-01T00:00:00Z')
 
         res = mldb.query("""
-            SELECT horizontal_max({'2015-01-01T00:00:00Z',
-                                   '2016-01-01T00:00:00Z'})
+            SELECT horizontal_max({CAST ('2015-01-01T00:00:00Z' AS TIMESTAMP),
+                                   CAST ('2016-01-01T00:00:00Z' AS TIMESTAMP)})
         """)
         self.assertEqual(res[1][1], '2016-01-01T00:00:00Z')
 
