@@ -209,71 +209,27 @@ class HorizontalTest(MldbUnitTest):
 
     @unittest.expectedFailure
     def test_mldbfb_558_no_need_to_cast_ts_on_data(self):
-        res1 = mldb.query("""
-            SELECT CAST (horizontal_min({CAST (earliest_timestamp(col1) AS NUMBER),
-                                         CAST (earliest_timestamp(col2) AS NUMBER)})
-                         AS TIMESTAMP) AS res
-            FROM dataset
-            WHERE rowName() = 'z'
-        """)
-        res2 = mldb.query("""
-            SELECT horizontal_min({earliest_timestamp(col1),
-                                   earliest_timestamp(col2)}) AS res
-            FROM dataset
-            WHERE rowName() = 'z'
-        """)
-        self.assertEqual(res1, res2)
-
-        res1 = mldb.query("""
-            SELECT CAST (horizontal_max({CAST (earliest_timestamp(col1) AS NUMBER),
-                                         CAST (earliest_timestamp(col2) AS NUMBER)})
-                         AS TIMESTAMP) AS res
-            FROM dataset
-            WHERE rowName() = 'z'
-        """)
-        res2 = mldb.query("""
-            SELECT horizontal_max({earliest_timestamp(col1),
-                                   earliest_timestamp(col2)}) AS res
-            FROM dataset
-            WHERE rowName() = 'z'
-        """)
-        self.assertEqual(res1, res2)
-
-        res1 = mldb.query("""
-            SELECT CAST (horizontal_avg({CAST (earliest_timestamp(col1) AS NUMBER),
-                                         CAST (earliest_timestamp(col2) AS NUMBER)})
-                         AS TIMESTAMP) AS res
-            FROM dataset
-            WHERE rowName() = 'z'
-        """)
-        res2 = mldb.query("""
-            SELECT horizontal_avg({earliest_timestamp(col1),
-                                   earliest_timestamp(col2)}) AS res
-            FROM dataset
-            WHERE rowName() = 'z'
-        """)
-        self.assertEqual(res1, res2)
-
-    @unittest.expectedFailure
-    def test_mldbfb_558_no_need_to_cast_ts_on_text(self):
         res = mldb.query("""
-            SELECT horizontal_min({'2016-05-01T00:00:00Z',
-                                   '2016-05-21T00:00:00Z'}) AS res
+            SELECT horizontal_min({'a', 'b'})
         """)
-        self.assertEqual(res[1][1], '2016-05-01T00:00:00Z')
+        self.assertEqual(res[1][1], 'a')
 
         res = mldb.query("""
-            SELECT horizontal_max({'2016-05-01T00:00:00Z',
-                                   '2016-05-21T00:00:00Z'}) AS res
+            SELECT horizontal_max({'a', 'b'})
         """)
-        self.assertEqual(res[1][1], '2016-05-21T00:00:00Z')
+        self.assertEqual(res[1][1], 'b')
 
         res = mldb.query("""
-            SELECT horizontal_avg({'2016-05-01T00:00:00Z',
-                                   '2016-05-21T00:00:00Z'}) AS res
+            SELECT horizontal_min({'2015-01-01T00:00:00Z',
+                                   '2016-01-01T00:00:00Z'})
         """)
-        self.assertEqual(res[1][1], '2016-05-11T00:00:00Z')
+        self.assertEqual(res[1][1], '2015-01-01T00:00:00Z')
+
+        res = mldb.query("""
+            SELECT horizontal_max({'2015-01-01T00:00:00Z',
+                                   '2016-01-01T00:00:00Z'})
+        """)
+        self.assertEqual(res[1][1], '2016-01-01T00:00:00Z')
 
 
 mldb.run_tests()
-
