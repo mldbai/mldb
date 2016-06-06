@@ -3,12 +3,11 @@
 # datacratic, 2015
 # this file is part of mldb. copyright 2015 datacratic. all rights reserved.
 #
-import datetime
 import unittest
 
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
-class HorizontalTest(MldbUnitTest):  
+class HorizontalTest(MldbUnitTest):
 
     sometime = '2016-01-02T12:23:34Z'
     before = '2016-01-01T12:23:34Z'
@@ -45,10 +44,10 @@ class HorizontalTest(MldbUnitTest):
 
         dataset.commit()
 
-        
+
     def test_horizontal_count(self):
         resp = mldb.get("/v1/query", q="select horizontal_count({*}) from dataset order by rowName()").json()
-        
+
         self.assertFullResultEquals(resp,
             [
                 {
@@ -56,7 +55,7 @@ class HorizontalTest(MldbUnitTest):
                     "columns": [ [ "horizontal_count({*})", 3, HorizontalTest.sometime ] ]
                 },
                 {
-                    "rowName": "y", "rowHash": "75c422100f18a043", 
+                    "rowName": "y", "rowHash": "75c422100f18a043",
                     "columns": [ [ "horizontal_count({*})", 3, HorizontalTest.after ] ]
                 },
                 {
@@ -69,7 +68,7 @@ class HorizontalTest(MldbUnitTest):
 
     def test_horizontal_count_prefix(self):
         resp = mldb.get("/v1/query", q="select horizontal_count({p*}) from dataset order by rowName()").json()
-        
+
         self.assertFullResultEquals(resp,
             [
                 {
@@ -77,7 +76,7 @@ class HorizontalTest(MldbUnitTest):
                     "columns": [ [ "horizontal_count({p*})", 1, HorizontalTest.sometime ] ]
                 },
                 {
-                    "rowName": "y", "rowHash": "75c422100f18a043", 
+                    "rowName": "y", "rowHash": "75c422100f18a043",
                     "columns": [ [ "horizontal_count({p*})", 1, HorizontalTest.sometime ] ]
                 },
                 {
@@ -89,7 +88,7 @@ class HorizontalTest(MldbUnitTest):
 
     def test_horizontal_sum(self):
         resp = mldb.get("/v1/query", q="select horizontal_sum({*}) from dataset order by rowName()").json()
-        
+
         self.assertFullResultEquals(resp,
             [
                 {
@@ -97,7 +96,7 @@ class HorizontalTest(MldbUnitTest):
                     "columns": [ [ "horizontal_sum({*})", 3, HorizontalTest.sometime ] ]
                 },
                 {
-                    "rowName": "y", "rowHash": "75c422100f18a043", 
+                    "rowName": "y", "rowHash": "75c422100f18a043",
                     "columns": [ [ "horizontal_sum({*})", 3, HorizontalTest.after ] ]
                 },
                 {
@@ -109,7 +108,7 @@ class HorizontalTest(MldbUnitTest):
 
     def test_horizontal_avg(self):
         resp = mldb.get("/v1/query", q="select horizontal_avg({*}) from dataset order by rowName()").json()
-        
+
         self.assertFullResultEquals(resp,
             [
                 {
@@ -117,7 +116,7 @@ class HorizontalTest(MldbUnitTest):
                     "columns": [ [ "horizontal_avg({*})", 1, HorizontalTest.sometime ] ]
                 },
                 {
-                    "rowName": "y", "rowHash": "75c422100f18a043", 
+                    "rowName": "y", "rowHash": "75c422100f18a043",
                     "columns": [ [ "horizontal_avg({*})", 1, HorizontalTest.after ] ]
                 },
                 {
@@ -129,7 +128,7 @@ class HorizontalTest(MldbUnitTest):
 
     def test_horizontal_min(self):
         resp = mldb.get("/v1/query", q="select horizontal_min({*}) from dataset order by rowName()").json()
-        
+
         self.assertFullResultEquals(resp,
             [
                 {
@@ -137,7 +136,7 @@ class HorizontalTest(MldbUnitTest):
                     "columns": [ [ "horizontal_min({*})", 1, HorizontalTest.sometime ] ]
                 },
                 {
-                    "rowName": "y", "rowHash": "75c422100f18a043", 
+                    "rowName": "y", "rowHash": "75c422100f18a043",
                     "columns": [ [ "horizontal_min({*})", 1, HorizontalTest.after ] ]
                 },
                 {
@@ -149,7 +148,7 @@ class HorizontalTest(MldbUnitTest):
 
     def test_horizontal_max(self):
         resp = mldb.get("/v1/query", q="select horizontal_max({*}) from dataset order by rowName()").json()
-        
+
         self.assertFullResultEquals(resp,
             [
                 {
@@ -157,7 +156,7 @@ class HorizontalTest(MldbUnitTest):
                     "columns": [ [ "horizontal_max({*})", 1, HorizontalTest.sometime ] ]
                 },
                 {
-                    "rowName": "y", "rowHash": "75c422100f18a043", 
+                    "rowName": "y", "rowHash": "75c422100f18a043",
                     "columns": [ [ "horizontal_max({*})", 1, HorizontalTest.after ] ]
                 },
                 {
@@ -170,7 +169,7 @@ class HorizontalTest(MldbUnitTest):
 
     def test_horizontal_earliest(self):
         resp = mldb.get("/v1/query", q="select horizontal_earliest({*}) from dataset order by rowName()").json()
-        
+
         self.assertFullResultEquals(resp,
             [
                 {
@@ -178,7 +177,7 @@ class HorizontalTest(MldbUnitTest):
                     "columns": [ [ "horizontal_earliest({*})", 1, HorizontalTest.sometime ] ]
                 },
                 {
-                    "rowName": "y", "rowHash": "75c422100f18a043", 
+                    "rowName": "y", "rowHash": "75c422100f18a043",
                     "columns": [ [ "horizontal_earliest({*})", 1, HorizontalTest.sometime ] ]
                 },
                 {
@@ -187,10 +186,10 @@ class HorizontalTest(MldbUnitTest):
                 }
             ]
         )
-        
+
     def test_horizontal_latest(self):
         resp = mldb.get("/v1/query", q="select horizontal_latest({*}) from dataset order by rowName()").json()
-        
+
         self.assertFullResultEquals(resp,
             [
                 {
@@ -198,7 +197,7 @@ class HorizontalTest(MldbUnitTest):
                     "columns": [ [ "horizontal_latest({*})", 1, HorizontalTest.sometime ] ]
                 },
                 {
-                    "rowName": "y", "rowHash": "75c422100f18a043", 
+                    "rowName": "y", "rowHash": "75c422100f18a043",
                     "columns": [ [ "horizontal_latest({*})", 1, HorizontalTest.after ] ]
                 },
                 {
@@ -207,6 +206,74 @@ class HorizontalTest(MldbUnitTest):
                 }
             ]
         )
+
+    @unittest.expectedFailure
+    def test_mldbfb_558_no_need_to_cast_ts_on_data(self):
+        res1 = mldb.query("""
+            SELECT CAST (horizontal_min({CAST (earliest_timestamp(col1) AS NUMBER),
+                                         CAST (earliest_timestamp(col2) AS NUMBER)})
+                         AS TIMESTAMP) AS res
+            FROM dataset
+            WHERE rowName() = 'z'
+        """)
+        res2 = mldb.query("""
+            SELECT horizontal_min({earliest_timestamp(col1),
+                                   earliest_timestamp(col2)}) AS res
+            FROM dataset
+            WHERE rowName() = 'z'
+        """)
+        self.assertEqual(res1, res2)
+
+        res1 = mldb.query("""
+            SELECT CAST (horizontal_max({CAST (earliest_timestamp(col1) AS NUMBER),
+                                         CAST (earliest_timestamp(col2) AS NUMBER)})
+                         AS TIMESTAMP) AS res
+            FROM dataset
+            WHERE rowName() = 'z'
+        """)
+        res2 = mldb.query("""
+            SELECT horizontal_max({earliest_timestamp(col1),
+                                   earliest_timestamp(col2)}) AS res
+            FROM dataset
+            WHERE rowName() = 'z'
+        """)
+        self.assertEqual(res1, res2)
+
+        res1 = mldb.query("""
+            SELECT CAST (horizontal_avg({CAST (earliest_timestamp(col1) AS NUMBER),
+                                         CAST (earliest_timestamp(col2) AS NUMBER)})
+                         AS TIMESTAMP) AS res
+            FROM dataset
+            WHERE rowName() = 'z'
+        """)
+        res2 = mldb.query("""
+            SELECT horizontal_avg({earliest_timestamp(col1),
+                                   earliest_timestamp(col2)}) AS res
+            FROM dataset
+            WHERE rowName() = 'z'
+        """)
+        self.assertEqual(res1, res2)
+
+    @unittest.expectedFailure
+    def test_mldbfb_558_no_need_to_cast_ts_on_text(self):
+        res = mldb.query("""
+            SELECT horizontal_min({'2016-05-01T00:00:00Z',
+                                   '2016-05-21T00:00:00Z'}) AS res
+        """)
+        self.assertEqual(res[1][1], '2016-05-01T00:00:00Z')
+
+        res = mldb.query("""
+            SELECT horizontal_max({'2016-05-01T00:00:00Z',
+                                   '2016-05-21T00:00:00Z'}) AS res
+        """)
+        self.assertEqual(res[1][1], '2016-05-21T00:00:00Z')
+
+        res = mldb.query("""
+            SELECT horizontal_avg({'2016-05-01T00:00:00Z',
+                                   '2016-05-21T00:00:00Z'}) AS res
+        """)
+        self.assertEqual(res[1][1], '2016-05-11T00:00:00Z')
+
 
 mldb.run_tests()
 
