@@ -42,6 +42,7 @@ struct PathElement {
     PathElement(Utf8String && str);
     PathElement(std::string str);
     PathElement(const char * str, size_t len);
+    PathElement(const char * str, size_t len, int digits);
     PathElement(const char * str)
         : PathElement(str, std::strlen(str))
     {
@@ -216,6 +217,7 @@ struct PathElement {
     void initStringUnchecked(Str && str);
 
     void initChars(const char * str, size_t len);
+    void initChars(const char * str, size_t len, int digits);
 
     const char * data() const;
     size_t dataLength() const;
@@ -239,13 +241,22 @@ struct PathElement {
         uint64_t savedHash;
     };
 
+    static constexpr int EMPTY = 0;
+    static constexpr int DIGITS_ONLY = 1;
+    static constexpr int NO_DIGITS = 2;
+    static constexpr int SOME_DIGITS = 3;
+
     static constexpr size_t INTERNAL_WORDS = 3;
     static constexpr size_t INTERNAL_BYTES = 8 * INTERNAL_WORDS;
 
     union {
         // The complex_ flag means we can't simply copy the words around;
         // we need to do some more work.
-        struct { uint8_t complex_: 1; uint8_t simpleLen_:5; };
+        struct {
+            uint8_t complex_: 1;   ///< If true, we're stored in an external string
+            uint8_t simpleLen_:5;  ///< If complex_ is false, this is the length
+            uint8_t digits_:2;     ///< Do we have digits in our path element?
+        };
         uint8_t bytes[INTERNAL_BYTES];
         uint64_t words[INTERNAL_WORDS];
         Str str;
@@ -533,6 +544,7 @@ struct PathBuilder {
 private:
     std::vector<uint32_t> indexes;
     InternedString<244, char> bytes;
+    uint32_t digits_;
 };
 
 
@@ -546,7 +558,7 @@ private:
 
 struct Path {
     Path()
-        : length_(0), ofsPtr_(0)
+        : length_(0), digits_(0), ofsPtr_(0)
     {
     }
 
@@ -575,6 +587,7 @@ struct Path {
     Path(const Path & other)
         : bytes_(other.bytes_),
           length_(other.length_),
+          digits_(other.digits_),
           ofsBits_(other.ofsBits_)
     {
         if (JML_UNLIKELY(externalOfs())) {
@@ -598,6 +611,7 @@ struct Path {
         bytes_.swap(other.bytes_);
         swap(ofsBits_, other.ofsBits_);
         swap(length_, other.length_);
+        swap(digits_, other.digits_);
     }
 
     Path & operator = (Path && other) noexcept
@@ -781,7 +795,12 @@ struct Path {
         const char * d = data();
         const char * b = d + offset(el);
         const char * e = d + offset(el + 1);
-        return PathElement(b, e - b);
+        if (JML_LIKELY(el < 16)) {
+            return PathElement(b, e - b, digits(el));
+        }
+        else {
+            return PathElement(b, e - b);
+        }
     }
 
     PathElement front() const
@@ -838,6 +857,21 @@ private:
         return ofsPtr_[el];
     }
     
+    /// Return what the composition of the value at the given position is:
+    /// does it contain no digits, only digits, or a mixture?  This is
+    /// important to know as strings with only digits can be compared more
+    /// efficiently (those without a leading zero whose length differs
+    /// don't need any comparison at all), and strings without digits can
+    /// be compared efficiently with memcmp.  This saves a big amount of
+    /// runtime in reducing the expensive natural string ordering comparisons.
+    inline int digits(size_t el) const
+    {
+        return
+            (el < 16)
+            ? (digits_ >> (2 * el)) & 3  // for the first 16, read directly
+            : PathElement::SOME_DIGITS;  // for the rest, assume the worst
+    }
+
     /// Return the range of bytes for the given element
     std::pair<const char *, size_t>
     getStringView(size_t el) const
@@ -860,6 +894,14 @@ private:
 
     /// Number of elements in the path
     uint32_t length_;
+
+    /// Flags about digits per path element.  Contains 16 separate 2 bit
+    /// flags, each of which has the following interpretation:
+    /// 0 = (not set, invalid)
+    /// 1 = only digits
+    /// 2 = only non-digits
+    /// 3 = digits and non-digits
+    uint32_t digits_;
     
     /// Byte index of the first 8 components of the path, or a ptr to
     /// an array with all the rest if length_ > 8

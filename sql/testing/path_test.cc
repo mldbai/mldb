@@ -43,7 +43,7 @@ BOOST_AUTO_TEST_CASE(test_element_compare)
     BOOST_CHECK_EQUAL(el1.compare(el010), -1);
     BOOST_CHECK_EQUAL(el1.compare(el0010), -1);
     BOOST_CHECK_EQUAL(el.compare(el0), -1);
-    BOOST_CHECK_EQUAL(el0.compare(elx), -1);
+    BOOST_CHECK_LE(el0.compare(elx), -1);
 
     // Longer prefixes should be smaller, as then it allows for numbers
     // like 0.01 to be larger than 0.001

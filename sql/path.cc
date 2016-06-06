@@ -24,6 +24,114 @@ namespace MLDB {
 
 
 /*****************************************************************************/
+/* COMPARISON FUNCTIONS                                                      */
+/*****************************************************************************/
+
+/** Return a flag for what the mix of digits and non-digits is in a
+    path element.
+*/
+int calcDigits(const char * begin, const char * end)
+{
+    bool hasDigit = false;
+    bool hasNonDigit = false;
+    
+    for (const char * it = begin;  it != end;  ++it) {
+        bool d = isdigit(*it);
+        hasDigit = hasDigit || d;
+        hasNonDigit = hasNonDigit || (!d);
+    }
+
+    return (hasDigit    * PathElement::DIGITS_ONLY)
+        |  (hasNonDigit * PathElement::NO_DIGITS);
+}
+
+int calcDigits(const char * begin, size_t len)
+{
+    return calcDigits(begin, begin + len);
+}
+
+std::pair<size_t, size_t>
+countDigits(const char * p, size_t len)
+{
+    // Count leading zeros
+    size_t lz = 0;
+    size_t i = 0;
+    while (i < len && p[i] == '0') {
+        ++i;
+        ++lz;
+    }
+
+    // If we're at the end, then we have only zeros,
+    // followed by one significant figure (the zero)
+    if (i == len || !isdigit(p[i])) {
+        return { i - 1, 1 };
+    }
+
+    // Otherwise, count digits
+    while (i < len && isdigit(p[i]))
+        ++i;
+                    
+    return { lz, i - lz };
+}
+
+/** Compare two UTF-8 encoded strings, with numeric ranges sorting in
+    natural order.
+*/
+int
+compareNatural(const char * p1, size_t len1,
+               const char * p2, size_t len2)
+{
+    size_t i1 = 0, i2 = 0;
+    
+    while (i1 < len1 && i2 < len2) {
+        char c1 = p1[i1], c2 = p2[i2];
+
+        if (isdigit(c1) && isdigit(c2)) {
+            size_t lz1, digits1, lz2, digits2;
+            std::tie(lz1, digits1) = countDigits(p1 + i1, len1 - i1);
+            std::tie(lz2, digits2) = countDigits(p2 + i2, len2 - i2);
+
+            // More significant non-zero digits means bigger not matter what
+            if (digits2 != digits1)
+                return digits1 - digits2;
+
+            // Same number of significant digits; compare the strings
+            int res = std::strncmp(p1 + i1 + lz1, p2 + i2 + lz2, digits1);
+
+            // If not the same return result
+            if (res)
+                return res;
+            
+            // Finally, the one with more significant digits is smaller
+            if (lz1 != lz2)
+                return lz2 - lz1;
+
+            // Out of the run of digits... update the pointers
+            ExcAssertEqual(lz1 + digits1, lz2 + digits2);
+            i1 += lz1 + digits1;
+            i2 += lz2 + digits2;
+        }
+        else if (c1 == c2) {
+            // Not both digits but equal; continue
+            ++i1;
+            ++i2;
+        }
+        else {
+            // Not both digits and unequal
+            return (int)c1 - (int)c2;
+        }
+    }
+
+    if (i1 == len1 && i2 == len2) {
+        ExcAssertEqual(len1, len2);
+        return 0;
+    }
+
+    return len1 - len2;
+}
+
+
+/*****************************************************************************/
 /* PATH ELEMENT                                                              */
 /*****************************************************************************/
 
@@ -58,13 +166,27 @@ PathElement(const char * str, size_t len)
 }
 
 PathElement::
+PathElement(const char * str, size_t len, int digits)
+{
+#if 0
+    if (digits != calcDigits(str, len)) {
+        cerr << "for string '" << string(str, len) << "' with length " << len
+             << ": digits = " << digits
+             << endl;
+    }
+    ExcAssertEqual(digits, calcDigits(str, len));
+#endif
+    initChars(str, len, digits);
+}
+
+PathElement::
 PathElement(uint64_t i)
 {
     ItoaBuf buf;
     char * begin;
     char * end;
     std::tie(begin, end) = itoa(i, buf);
-    initChars(begin, end - begin);
+    initChars(begin, end - begin, DIGITS_ONLY);
 }
 
 PathElement
@@ -246,7 +368,11 @@ bool
 PathElement::
 operator == (const PathElement & other) const
 {
-    return dataLength() == other.dataLength()
+    //ExcAssertEqual(digits_, calcDigits(data(), dataLength()));
+    //ExcAssertEqual(other.digits_, calcDigits(other.data(), other.dataLength()));
+
+    return digits_ == other.digits_
+        && dataLength() == other.dataLength()
         && compareString(other.data(), other.dataLength()) == 0;
 }
 
@@ -261,6 +387,17 @@ bool
 PathElement::
 operator <  (const PathElement & other) const
 {
+    //ExcAssertEqual(digits_, calcDigits(data(), dataLength()));
+    //ExcAssertEqual(other.digits_, calcDigits(other.data(), other.dataLength()));
+
+    if (digits_ == NO_DIGITS && other.digits_ == NO_DIGITS) {
+        size_t l1 = dataLength();
+        size_t l2 = other.dataLength();
+        int res = std::memcmp(data(), other.data(), std::min(l1, l2));
+        if (res) return res < 0;
+        return l1 < l2;
+    }
+
     return compareString(other.data(), other.dataLength()) < 0;
 }
 
@@ -346,6 +483,9 @@ ssize_t
 PathElement::
 toIndex() const
 {
+    //ExcAssertEqual((int)digits_, calcDigits(data(), dataLength()));
+    if (digits_ != DIGITS_ONLY)
+        return -1;
     if (dataLength() > 12)
         return -1;
     uint64_t val = 0;
@@ -441,77 +581,6 @@ stealBytes()
     else return std::string(data(), data() + dataLength());
 }
 
-
-#if 0
-PathElement
-PathElement::
-operator + (const PathElement & other) const
-{
-    size_t l1 = dataLength();
-    size_t l2 = other.dataLength();
-
-    if (l1 == 0)
-        return other;
-    if (l2 == 0)
-        return *this;
-
-    size_t len = 1 + l1 + l2;
-
-    PathElement result;
-
-    if (len <= INTERNAL_BYTES - 1) {
-        // We can construct in-place
-        result.complex_ = 0;
-        result.simpleLen_ = len;
-        auto d = data();
-        std::copy(d, d + l1, result.bytes + 1);
-        result.bytes[l1 + 1] = '.';
-        d = other.data();
-        std::copy(d, d + l2, result.bytes + l1 + 2);
-    }
-    else if (len < 4096) {
-        // Construct on the stack and do just one allocation
-        char str[4096];
-        result.complex_ = 1;
-        auto d = data();
-        std::copy(d, d + l1, str);
-        str[l1] = '.';
-        d = other.data();
-        std::copy(d, d + l2, str + l1 + 1);
-        new (&result.str.str) Utf8String(str, len);
-    }
-    else {
-        // It's long; just use the Utf8String
-        result = toUtf8String() + "." + other.toUtf8String();
-    }
-
-    return result;
-}
-
-PathElement
-PathElement::
-operator + (PathElement && other) const
-{
-    if (empty())
-        return std::move(other);
-    return operator + ((const PathElement &)other);
-}
-#endif
-
-#if 0
-PathElement::
-operator RowHash() const
-{
-    return RowHash(hash());
-}
-
-PathElement::
-operator ColumnHash() const
-{
-    return ColumnHash(hash());
-}
-#endif
-
 size_t
 PathElement::
 memusage() const
@@ -564,8 +633,6 @@ size_t rawLength(const std::string & str)
     return str.size();
 }
 
-
-
 } // file scope
 
 template<typename T>
@@ -585,6 +652,7 @@ initStringUnchecked(T && str)
     // This method is used only for when we know we may have invalid
     // characters, for example when importing legacy files.
     words[0] = words[1] = words[2] = 0;
+    digits_ = calcDigits(rawData(str), rawLength(str));
     if (rawLength(str) <= INTERNAL_BYTES - 1) {
         complex_ = 0;
         simpleLen_ = rawLength(str);
@@ -604,11 +672,15 @@ template void PathElement::initStringUnchecked<const std::string &>(const std::s
 
 void
 PathElement::
-initChars(const char * str, size_t len)
+initChars(const char * str, size_t len, int digits)
 {
+    //cerr << "str = " << string(str, str + len) << " len = " << len
+    //     << " digits = " << digits << endl;
+    //ExcAssert(digits != 0 || len == 0);
     //cerr << "len = " << len << endl;
     ExcAssertLess(len, 1ULL << 32);
     words[0] = words[1] = words[2] = 0;
+    digits_ = digits;
     if (len <= INTERNAL_BYTES - 1) {
         complex_ = 0;
         simpleLen_ = len;
@@ -618,6 +690,13 @@ initChars(const char * str, size_t len)
         complex_ = 1;
         new (&this->str.str) Utf8String(str, len);
     }
+}
+
+void
+PathElement::
+initChars(const char * str, size_t len)
+{
+    return initChars(str, len, calcDigits(str, len));
 }
 
 const char *
@@ -636,118 +715,6 @@ dataLength() const
     if (complex_)
         return getComplex().rawLength();
     else return simpleLen_;
-}
-
-#if 0
-/** Compares two strings based upon natural ordering, whereby
-    numbers after a dot are compared numerically not lexically.
-*/
-static strnverscmp(const char * s1, const char * s2, size_t len)
-{
-    if (len == 0)
-        return 0;
-    if (isdigit(*s1) && isdigit(*s2)) {
-        // We are comparing numbers now
-        const char * endn1 = s1 + 1;
-        const char * endn2 = s2 + 1;
-        size_t n = 1;
-
-        while (n < len && isdigit(*endn1) && isdigit(*endn2)) {
-            ++endn1;
-            ++endn2;
-        }
-
-        // ...
-    }
-
-    if (*s1 < *s2)
-        return -1;
-    if (*s1 > *s2)
-        return 1;
-    return strnverscmp(s1 + 1, s2 + 1, len - 1);
-}
-#endif
-
-std::pair<size_t, size_t>
-countDigits(const char * p, size_t len)
-{
-    // Count leading zeros
-    size_t lz = 0;
-    size_t i = 0;
-    while (i < len && p[i] == '0') {
-        ++i;
-        ++lz;
-    }
-
-    // If we're at the end, then we have only zeros,
-    // followed by one significant figure (the zero)
-    if (i == len || !isdigit(p[i])) {
-        return { i - 1, 1 };
-    }
-
-    // Otherwise, count digits
-    while (i < len && isdigit(p[i]))
-        ++i;
-                    
-    return { lz, i - lz };
-}
-
-/** Compare two UTF-8 encoded strings, with numeric ranges sorting in
-    natural order.
-*/
-int
-compareNatural(const char * p1, size_t len1,
-               const char * p2, size_t len2)
-{
-    size_t i1 = 0, i2 = 0;
-    
-    while (i1 < len1 && i2 < len2) {
-        char c1 = p1[i1], c2 = p2[i2];
-
-        if (isdigit(c1) && isdigit(c2)) {
-            size_t lz1, digits1, lz2, digits2;
-            std::tie(lz1, digits1) = countDigits(p1 + i1, len1 - i1);
-            std::tie(lz2, digits2) = countDigits(p2 + i2, len2 - i2);
-
-            // More significant non-zero digits means bigger not matter what
-            if (digits1 < digits2)
-                return -1;
-            else if (digits1 > digits2)
-                return 1;
-
-            // Same number of significant digits; compare the strings
-            int res = std::strncmp(p1 + i1 + lz1, p2 + i2 + lz2, digits1);
-
-            // If not the same return result
-            if (res)
-                return res;
-            
-            // Finally, the one with more significant digits is smaller
-            if (lz1 != lz2)
-                return lz1 < lz2 ? 1 : -1;
-
-            // Out of the run of digits... update the pointers
-            ExcAssertEqual(lz1 + digits1, lz2 + digits2);
-            i1 += lz1 + digits1;
-            i2 += lz2 + digits2;
-        }
-        else if (c1 == c2) {
-            // Not both digits but equal; continue
-            ++i1;
-            ++i2;
-        }
-        else {
-            // Not both digits and unequal
-            return c1 < c2 ? -1 : 1;
-        }
-    }
-
-    if (i1 == len1 && i2 == len2) {
-        ExcAssertEqual(len1, len2);
-        return 0;
-    }
-
-    return len1 < len2 ? -1 : 1;
 }
 
 int
@@ -805,6 +772,7 @@ std::istream & operator >> (std::istream & stream, PathElement & path)
 
 PathBuilder::
 PathBuilder()
+    : digits_(0)
 {
     indexes.reserve(8);
     indexes.push_back(0);
@@ -821,6 +789,12 @@ add(PathElement && element)
         auto v = element.getStringView();
         bytes.append(v.first, v.first + v.second);
     }
+    
+    if (indexes.size() <= 16) {
+        //ExcAssertEqual(calcDigits(v.first, v.first + v.second), element.digits_);
+        digits_ = digits_ | ((int)element.digits_ << (2 * (indexes.size() - 1)));
+    }
+
     indexes.emplace_back(bytes.size());
     return *this;
 }
@@ -831,8 +805,12 @@ add(const PathElement & element)
 {
     auto v = element.getStringView();
     bytes.append(v.first, v.first + v.second);
+    if (indexes.size() <= 16) {
+        //ExcAssertEqual(calcDigits(v.first, v.first + v.second), element.digits_);
+        digits_ = digits_ | ((int)element.digits_ << (2 * (indexes.size() - 1)));
+    }
     indexes.emplace_back(bytes.size());
-
+    
     return *this;
 }
 
@@ -858,6 +836,7 @@ extract()
     Path result;
     result.bytes_ = std::move(bytes);
     result.length_ = indexes.size() - 1;
+    result.digits_ = digits_;
 
     bool isExternal = result.externalOfs();
 
@@ -878,7 +857,8 @@ extract()
 /*****************************************************************************/
 
 Path::Path(PathElement && path)
-    : length_(1), ofsBits_(0)
+    : length_(1), digits_(path.digits_),
+      ofsBits_(0)
 {
     if (path.empty()) {
         length_ = 0;
@@ -897,7 +877,8 @@ Path::Path(PathElement && path)
 }
 
 Path::Path(const PathElement & path)
-    : length_(1), ofsBits_(0)
+    : length_(1), digits_(path.digits_),
+      ofsBits_(0)
 {
     if (path.empty()) {
         length_ = 0;
@@ -1257,7 +1238,7 @@ bool
 Path::
 lessElement(size_t el, const Path & other, size_t otherEl) const
 {
-    return compareElement(el, other, otherEl) == -1;
+    return compareElement(el, other, otherEl) < 0;
 }
 
 int
@@ -1271,6 +1252,15 @@ compareElement(size_t el, const Path & other, size_t otherEl) const
     
     std::tie(s0, l0) = getStringView(el);
     std::tie(s1, l1) = other.getStringView(otherEl);
+    int d0 = digits(el);
+    int d1 = other.digits(otherEl);
+
+    if (d0 == PathElement::NO_DIGITS && d1 == PathElement::NO_DIGITS) {
+        int res = std::memcmp(s0, s1, std::min(l0, l1));
+        if (res)
+            return res;
+        return l0 - l1;
+    }
 
     return compareNatural(s0, l0, s1, l1);
 }
@@ -1295,6 +1285,8 @@ operator == (const Path & other) const
     if (length_ != other.length_) {
         return false;
     }
+    //if (digits_ != other.digits_)
+    //    return false;
 
     // Short circuit (currently offset(0) is always 0, so always taken).
     if (/*offset(0) == 0 && other.offset(0) == 0*/ true) {
