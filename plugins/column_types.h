@@ -64,6 +64,30 @@ struct ColumnTypes {
         return numReals == 0 && numStrings == 0 && numBlobs == 0 && numOther == 0;
     }
 
+    /// Are there only double-valued numbers (reals, and integers which
+    /// can be represented exactly as a double)?
+    bool onlyExactDoubles() const
+    {
+        return numNulls == 0 && onlyExactDoublesAndNulls();
+    }
+
+    /// Are there only double-valued numbers (reals, and integers which
+    /// can be represented exactly as a double) as well as nulls?
+    bool onlyExactDoublesAndNulls() const
+    {
+        if (numStrings || numBlobs || numOther)
+            return false;
+        if (hasPositiveIntegers()) {
+            if (maxPositiveInteger > (1ULL << 53))
+                return false;  // out of range for exact double
+        }
+        if (hasNegativeIntegers()) {
+            if (minNegativeInteger < -(1LL << 53))
+                return false;  // out of range for exact double
+        }
+        return true;
+    }
+
     uint64_t numReals;
     uint64_t numStrings;
     uint64_t numBlobs;
