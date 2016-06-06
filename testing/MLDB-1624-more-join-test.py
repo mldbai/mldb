@@ -1850,7 +1850,7 @@ class JoinTest(MldbUnitTest):
             ]
         )
 
-    @unittest.expectedFailure # MLDB-1674
+    # MLDB-1674
     def test_join_with_constant_expression_failing_on_parsing(self):
         """
         confusing INNER JOIN with IN oeprator
