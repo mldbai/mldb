@@ -1421,7 +1421,8 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         bool negative = false;
         // IN and NOT IN precedence is the same as the NOT operator
         if (currentPrecedence > 5) {
-            if ((negative = matchKeyword(context, "NOT IN")) || matchKeyword(context, "IN")) {
+            if ((negative = matchKeyword(context, "NOT IN")) ||
+                (!peekKeyword(context, "INNER") && matchKeyword(context, "IN"))) {
                 expect_whitespace(context);
 
                 context.expect_literal('(');
