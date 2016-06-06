@@ -573,16 +573,16 @@ Path
 PathElement::
 operator + (const PathElement & other) const
 {
-    Path result(*this);
-    return result + other;
+    PathBuilder builder;
+    return builder.add(*this).add(other).extract();
 }
 
 Path
 PathElement::
 operator + (PathElement && other) const
 {
-    Path result(*this);
-    return result + std::move(other);
+    PathBuilder builder;
+    return builder.add(*this).add(std::move(other)).extract();
 }
 
 Path
