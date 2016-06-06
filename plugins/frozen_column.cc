@@ -778,7 +778,6 @@ struct NumberFrozenColumn: public FrozenColumn {
         return result;
     }
 };
-#endif
 
 std::shared_ptr<FrozenColumn>
 FrozenColumn::
