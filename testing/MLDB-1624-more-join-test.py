@@ -1809,7 +1809,7 @@ class JoinTest(MldbUnitTest):
             ]
         )
 
-    @unittest.expectedFailure # MLDB-1673
+    # MLDB-1673
     def test_join_with_constant_expression_failing_on_get_variable(self):
         """
         {"details":{"columnName":"s2.n"},"error":"Get variable without table name with no default table in scope","httpCode":500}
@@ -1820,15 +1820,15 @@ class JoinTest(MldbUnitTest):
             (SELECT name, n, 2 as s2_2 FROM t2) AS s2
             INNER JOIN
             (SELECT name, n, 3 as s3_2 FROM t3) AS s3
-            ON s2.name = s3.name AND s2.n = s3.n
+            ON s2.name = s3.name AND s2.n + 1 = s3.n
         """)
 
         pprint(res)
         self.assertTableResultEquals(res, 
             [
-                [u'_rowName', u's2.name', u's2.s2_2', u's2.n', u's3.name', u's3.s3_2', u's3.n'] ,
-                [u'[01]-[01]', u'bb', 2, 12, u'bb', 3, 13] ,
-                [u'[02]-[02]', u'cc', 2, 22, u'cc', 3, 23]
+                [u'_rowName', u's2.n', u's2.name', u's2.s2_2', u's3.n', u's3.name', u's3.s3_2'] ,
+                [u'[01]-[01]', 12, u'bb', 2, 13, u'bb', 3] ,
+                [u'[02]-[02]', 22, u'cc', 2, 23, u'cc', 3]
             ]
         )
 
@@ -1838,7 +1838,7 @@ class JoinTest(MldbUnitTest):
             (SELECT name, n AS s2_n, 2 as s2_2 FROM t2) AS s2
             INNER JOIN
             (SELECT name, n AS s3_n, 3 as s3_2 FROM t3) AS s3
-            ON s2.name = s3.name AND s2.s2_n = s3.s3_n
+            ON s2.name = s3.name AND s2.s2_n + 1 = s3.s3_n
         """)
 
         pprint(res)
