@@ -46,12 +46,13 @@ ifneq ($(__BASH_MAKE_COMPLETION__),1)
 NOTHING :=
 SPACE := $(NOTHING) $(NOTHING)
 TAB := $(NOTHING)	$(NOTHING)
+DOLLAR := $$
 
 hash_command2 = $(wordlist 1,1,$(shell echo $(strip $(1)) | md5sum))
 
 hash_command1 = $(eval HASH:=$(call hash_command2,$(1)))$(shell echo $(1)_hash:=$(HASH) >> .make_hash_cache)$(eval $(1)_hash:=$(HASH))
 
-command_key = $(subst =,_,$(subst $(SPACE),_,$(strip $(1))))
+command_key = $(subst =,_,$(subst $(SPACE),_,$(subst $(DOLLAR),_,$(subst \,,$(strip $(1))))))
 
 hash_command = $(eval KEY=$(call command_key,$(1)))$(if $($(KEY)_hash),,$(call hash_command1,$(KEY)))$(if $($(KEY)_hash),,$(error hash_command1 didnt set variable $(KEY)_hash))$($(KEY)_hash)
 
