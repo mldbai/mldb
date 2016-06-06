@@ -3004,6 +3004,7 @@ transform(const TransformArgs & transformArgs) const
 
     switch (kind) {
     case SUBTABLE:
+        //SelectSubtableExpression is  a tableExpression, not an SQLExpression
         result->subtable = std::make_shared<SelectSubtableExpression>(*(result->subtable));
         break;
     case TUPLE:
@@ -3096,19 +3097,23 @@ bind(SqlBindingScope & scope) const
             const ExpressionValue & value = boundLeft(rowScope, vstorage, filter);
 
             if (!value.isString())
-                throw HttpReturnException(400, "LIKE expression expected its left hand value to be a string, got " + value.getTypeAsString());
+                throw HttpReturnException(400, "LIKE expression expected its left "
+                        "hand value to be a string, got " + value.getTypeAsString());
 
             const ExpressionValue & filterEV = boundRight(rowScope, fstorage, filter);
 
             if (!filterEV.isString())
-                throw HttpReturnException(400, "LIKE expression expected its right hand value to be a string, got " + filterEV.getTypeAsString());
+                throw HttpReturnException(400, "LIKE expression expected its right "
+                        "hand value to be a string, got " + filterEV.getTypeAsString());
 
             Utf8String valueString = value.toUtf8String();
             Utf8String filterString = filterEV.toUtf8String();
 
             bool matched = matchSqlFilter(valueString, filterString);
 
-            return storage = std::move(ExpressionValue(matched != isnegative, std::max(value.getEffectiveTimestamp(), filterEV.getEffectiveTimestamp())));
+            return storage = std::move(ExpressionValue(matched != isnegative,
+                                        std::max(value.getEffectiveTimestamp(),
+                                                 filterEV.getEffectiveTimestamp())));
         },
         this,
         std::make_shared<BooleanValueInfo>()};
@@ -3603,18 +3608,33 @@ bind(SqlBindingScope & scope) const
                          const VariableFilter & filter)
             -> const ExpressionValue &
             {
-                const ExpressionValue & val = exprBound(scope, storage, filter);
-                StructValue row;
-                if (&val == &storage) {
-                    // We own the only copy; we can move it
-                    storage.appendToRowDestructive(alias, row);
-                    return storage = std::move(row);
-                }
-                else {
-                    // We got a reference; copy it
-                    storage.appendToRow(alias, row);
-                    return storage = std::move(row);
-                }
+                ExpressionValue valStorage;
+                const ExpressionValue & val
+                    = exprBound(scope, valStorage, filter);
+
+                // Recursive function to build up an ExpressionValue
+                // with the same structure as the alias
+                std::function<ExpressionValue (size_t i)>
+                getRow = [&] (size_t i) -> ExpressionValue
+                {
+                    if (i == alias.size()) {
+                        if (&val == &valStorage) {
+                            // We own the only copy; we can move it
+                            return std::move(valStorage);
+                        }
+                        else {
+                            // We got a reference; copy it
+                            return val;
+                        }
+                    }
+                    else {
+                        StructValue row;
+                        row.emplace_back(alias[i], getRow(i + 1));
+                        return std::move(row);
+                    }
+                };
+
+                return storage = getRow(0);
             };
 
         std::vector<KnownColumn> knownColumns = {

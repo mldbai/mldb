@@ -30,8 +30,8 @@ namespace MLDB {
 
 struct DatasetFoldConfig {
     DatasetFoldConfig(
-            std::shared_ptr<SqlExpression> trainingWhere = SqlExpression::parse("true"),
-            std::shared_ptr<SqlExpression> testingWhere = SqlExpression::parse("true"))
+            std::shared_ptr<SqlExpression> trainingWhere = SqlExpression::parse("rowHash()"),
+            std::shared_ptr<SqlExpression> testingWhere = SqlExpression::parse("rowHash()"))
         : trainingWhere(trainingWhere),
           testingWhere(testingWhere),
           trainingOrderBy(OrderByExpression::parse("true")),

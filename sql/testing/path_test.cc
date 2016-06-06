@@ -23,6 +23,33 @@ using namespace std;
 using namespace Datacratic;
 using namespace Datacratic::MLDB;
 
+BOOST_AUTO_TEST_CASE(test_element_compare)
+{
+    PathElement el;
+    PathElement el0("0");
+    PathElement el00("00");
+    PathElement el1("1");
+    PathElement el10("10");
+    PathElement el010("010");
+    PathElement el0010("0010");
+    PathElement elx("x");
+
+    BOOST_CHECK_EQUAL(el0.compare(el0), 0);
+    BOOST_CHECK_EQUAL(el0.compare(el00), 1);
+    BOOST_CHECK_EQUAL(el00.compare(el0), -1);
+    BOOST_CHECK_EQUAL(el1.compare(el0), 1);
+    BOOST_CHECK_EQUAL(el1.compare(el00), 1);
+    BOOST_CHECK_EQUAL(el1.compare(el10), -1);
+    BOOST_CHECK_EQUAL(el1.compare(el010), -1);
+    BOOST_CHECK_EQUAL(el1.compare(el0010), -1);
+    BOOST_CHECK_EQUAL(el.compare(el0), -1);
+    BOOST_CHECK_LE(el0.compare(elx), -1);
+
+    // Longer prefixes should be smaller, as then it allows for numbers
+    // like 0.01 to be larger than 0.001
+    BOOST_CHECK_EQUAL(el0010.compare(el010), -1);
+}
+
 BOOST_AUTO_TEST_CASE(test_coord_constructor)
 {
     PathElement coord1;
@@ -35,7 +62,7 @@ BOOST_AUTO_TEST_CASE(test_coord_constructor)
 
     BOOST_CHECK_EQUAL(coords1.toUtf8String(), "");
 
-    BOOST_CHECK_EQUAL((coords1 + coord1).toUtf8String(), "");
+    BOOST_CHECK_EQUAL((coords1 + coord1).toUtf8String(), "\"\"");
     BOOST_CHECK_EQUAL(Path(coord1).toUtf8String(), "");
 
     vector<PathElement> coords2;
@@ -210,4 +237,80 @@ BOOST_AUTO_TEST_CASE(test_remove_prefix)
 
     BOOST_CHECK(test.startsWith(none));
     BOOST_CHECK_EQUAL(test.removePrefix(none), test);
+}
+
+void test_self_compare(const Path & p)
+{
+    BOOST_CHECK_EQUAL(p, p);
+    BOOST_CHECK(!(p != p));
+    BOOST_CHECK_LE(p, p);
+    BOOST_CHECK_GE(p, p);
+    BOOST_CHECK(!(p < p));
+    BOOST_CHECK(!(p > p));
+    BOOST_CHECK_EQUAL(p.compare(p), 0);
+}
+
+void test_compare_eq(const Path & p1, const Path & p2)
+{
+    BOOST_CHECK_EQUAL(p1, p2);
+    BOOST_CHECK_EQUAL(p1 < p2, false);
+    BOOST_CHECK_EQUAL(p1 > p2, false);
+    BOOST_CHECK_EQUAL(p1 <= p2, true);
+    BOOST_CHECK_EQUAL(p1 >= p2, true);
+    BOOST_CHECK_EQUAL(p1.compare(p2), 0);
+    BOOST_CHECK_EQUAL(p1.toUtf8String(), p2.toUtf8String());
+}
+
+void test_compare_ordered(const Path & p1, const Path & p2)
+{
+    BOOST_CHECK_NE(p1, p2);
+
+    BOOST_CHECK_EQUAL(p1 < p2, true);
+    BOOST_CHECK_EQUAL(p1 <= p2, true);
+    BOOST_CHECK_EQUAL(p1 > p2, false);
+    BOOST_CHECK_EQUAL(p1 >= p2, false);
+    BOOST_CHECK_LE(p1.compare(p2), -1);
+
+    BOOST_CHECK_EQUAL(p2 < p1, false);
+    BOOST_CHECK_EQUAL(p2 <= p1, false);
+    BOOST_CHECK_EQUAL(p2 > p1, true);
+    BOOST_CHECK_EQUAL(p2 >= p1, true);
+    BOOST_CHECK_GE(p2.compare(p1), 1);
+}
+
+BOOST_AUTO_TEST_CASE(test_compare)
+{
+    Path p0 {};
+    Path p1a { 1 };
+    Path p1b { 2 };
+    Path p2a { 1, 2 };
+    Path p2b { 1, 3 };
+    Path p2c { 2, 3 };
+    Path p3a { 1, 2, 3 };
+
+    vector<Path> ordered = { p0, p1a, p2a, p3a, p1b, p2c };
+
+    for (size_t i = 0;  i < ordered.size();  ++i) {
+
+        test_compare_eq(ordered[i], ordered[i]);
+        test_self_compare(ordered[i]);
+
+        for (size_t j = 0;  j < i;  ++j) {
+            test_compare_ordered(ordered[j], ordered[i]);
+        }
+
+        for (size_t j = i + 1;  j < ordered.size();  ++j) {
+            test_compare_ordered(ordered[i], ordered[j]);
+        }
+    }
+}
+
+BOOST_AUTO_TEST_CASE(test_append)
+{
+    Path p0 {};
+    Path p1 { 1 };
+
+    BOOST_CHECK_EQUAL(p0 + p0, p0);
+    BOOST_CHECK_EQUAL(p0 + p1, p1);
+    BOOST_CHECK_EQUAL(p1 + p0, p1);
 }

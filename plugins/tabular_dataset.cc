@@ -913,8 +913,23 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             mem += c.memusage();
         }
 
+        size_t columnMem = 0;
+        for (auto & c: columns) {
+            size_t bytesUsed = 0;
+            for (auto & chunk: c.chunks) {
+                bytesUsed += chunk.second->memusage();
+            }
+            cerr << "column " << c.columnName << " used "
+                 << bytesUsed << " bytes at "
+                 << 1.0 * bytesUsed / totalRows << " per row" << endl;
+            columnMem += bytesUsed;
+        }
+
         cerr << "total mem usage is " << mem << " bytes" << " for "
+             << totalRows << " rows and " << columns.size() << " columns for "
              << 1.0 * mem / rowCount << " bytes/row" << endl;
+        cerr << "column memory is " << columnMem << endl;
+
     }
 
     /// The number of background jobs that we're currently waiting for
@@ -1022,7 +1037,8 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
                         (400,
                          "New column name while recording row in tabular dataset "
                          "with unknownColumns=ERROR",
-                         "columnName", c.toUtf8String());
+                         "columnName", c.toUtf8String(),
+                         "knownColumns", fixedColumns);
                 case UC_IGNORE:
                     continue;
                 case UC_ADD:
