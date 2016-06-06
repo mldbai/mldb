@@ -51,11 +51,11 @@ class Mldb1705(MldbUnitTest):
 
     def test_calling_from_application(self):
         data = {
-            "data1.x": 1,
-            "data2.y": 2
+            "data1": { "x": 1 },
+            "data2": { "y": 2 }
         }
 
-        rez = mldb2.perform("GET", "/v1/functions/func/application", [["input", json.dumps(data)]]) 
+        rez = mldb2.perform("GET", "/v1/functions/func/application", [["input", json.dumps(data)]])
         jsRez = json.loads(rez["response"])
 
         self.assertEqual(jsRez["output"]["horizontal_string_agg({data1.x, data2.y}, '-')"], "1-2")
