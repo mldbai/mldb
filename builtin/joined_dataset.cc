@@ -233,14 +233,20 @@ struct JoinedDataset::Itl
                                   qualification);            
 
         } else {
+
             // Complex join condition.  We need to generate the full set of
             // values.  To do this, we use the new executor.
             auto gotElement = [&] (std::shared_ptr<PipelineResults> & res) -> bool {
                 //cerr << "got rows complex " << res->values.size() << endl;
                 Utf8String leftNameUtf8 = "";
-                if (!res->values.at(0).empty())
-                    leftNameUtf8 = res->values.at(0).toUtf8String();
-                size_t i = 2;
+
+                ssize_t i = res->values.size() - (chainedJoinDepth*2+4);
+
+                if (!res->values.at(i).empty())
+                    leftNameUtf8 = res->values.at(i).toUtf8String();
+
+                i += 2;
+
                 for (; i + 2 < res->values.size(); i+=2) {
                     if (i == 2)
                         leftNameUtf8 = "[" + leftNameUtf8 + "]";
