@@ -6,6 +6,8 @@
 # In[1]:
 
 from pymldb import Connection
+import pandas
+
 mldb = Connection('http://localhost:8087')
 
 # First let's load the 1st of Enron's datasets (there are 6) into MDLB, using a separate script.
@@ -19,7 +21,7 @@ def import_data():
             'dataFileUrl': 'http://public.mldb.ai/datasets/enron.csv.gz',
             'outputDataset': 'enron_all',
             'named': "'enron_' + dataset + '_mail_' + index",
-            # 'where': 'dataset = 1',
+            'where': 'dataset < 4',
             'runOnCreation': True
         }
     })
@@ -27,22 +29,22 @@ def import_data():
     n = mldb.get('/v1/query', q='select count(*) as n from enron_all',
                               format='aos').json()[0]['n']
     print('there are', n, 'data points')
-    nb_train = n * 5 // 6
-    nb_test = n - nb_train
+    # nb_train = n * 5 // 6
+    # nb_test = n - nb_train
 
     # train test split
     for where, id in [
-        ('limit ' + str(nb_train), 'enron_train'),
-        ('limit {} offset {} '.format(nb_test, nb_train), 'enron_test')]:
-        # ('dataset != 6', 'enron_train'),
-        # ('dataset = 6', 'enron_test')]:
+        # ('limit ' + str(nb_train), 'enron_train'),
+        # ('limit {} offset {} '.format(nb_test, nb_train), 'enron_test')]:
+        ('rowHash() % 2 = 0', 'enron_train'),
+        ('rowHash() % 2 = 1', 'enron_test')]:
         print mldb.post('/v1/procedures', {
             'type': 'transform',
             'params': {
                 'inputData': """
                     select msg, label from enron_all
+                    where {}
                     order by index, rowHash()
-                    {}
                     """.format(where),
                 'outputDataset': {
                     'type': 'tabular',
@@ -86,8 +88,8 @@ def fg_bow():
         'type': 'sql.expression',
         'params': {
             'expression': """
-                tokenize(msg, {splitchars: ' \n', quotechar: ''}) as bow
-                """
+            tokenize(msg, {splitchars: ' :;.-!?''"()[],', quotechar: ''}) as bow
+            """
         }
     })
 
@@ -130,12 +132,11 @@ def fg_svd():
         'params': {
             'trainingData': """
                 select column expr (
-                    order by rowCount() desc
-                    limit 10000
+                    where rowCount() > 10
                 )
                 from enron_train_bow2
             """,
-            'numSingularValues': 100,
+            'numSingularValues': 200,
             'numDenseBasisVectors': 2000,
             'modelFileUrl': 'file://enron_bow2.svd',
             'runOnCreation': True,
@@ -219,6 +220,21 @@ def fg_stats_table():
     })
 
 
+def fg_stats():
+    print mldb.put('/v1/functions/stats', {
+        'type': 'sql.expression',
+        'params': {
+            'expression': """
+            horizontal_sum({bow({msg})}) as nb_words,
+            'drugs' IN (KEYS OF {bow({msg})[bow] as *}) as drugs,
+            'vcagra' IN (KEYS OF {bow({msg})[bow] as *}) as vcagra,
+            'viagra' IN (KEYS OF {bow({msg})[bow] as *}) as viagra,
+            'discount' IN (KEYS OF {bow({msg})[bow] as *}) as discount
+            """
+        }
+    })
+
+
 def fg_all():
     for dataset in ['train', 'test']:
         print mldb.put('/v1/procedures/generate_raw_feats', {
@@ -226,9 +242,11 @@ def fg_all():
             'params': {
                 'inputData': """
                     select {
-                        bow_embed({msg}) as *,
-                        agg_bow2_posneg({msg}) as *,
-                        bow2_svd_embed_msg({msg}) as *
+                        -- bow_embed({msg}) as *,
+                        -- agg_bow2_posneg({msg}) as *,
+                        -- bow2_svd_embed_msg({msg}) as *,
+                        bow({msg}) as *
+                        -- stats({msg}) as *
                         } as features,
                         label = 'spam' as label
                     from enron_""" + dataset,
@@ -286,7 +304,7 @@ def test():
         res = mldb.post('/v1/procedures', {
             'type': 'classifier.test',
             'params': {
-                'testingData': 'select score({{features: {{features.*}}}})[score] as score, label from enron_{}_features'.format(dataset),
+                'testingData': 'select score({features: {features.*}})[score] as score, label from enron_%s_features' % dataset,
                 'mode': 'boolean',
                 'outputDataset': 'enron_{}_test_results'.format(dataset),
                 'runOnCreation': True
@@ -311,25 +329,46 @@ def explain():
         }
     })
 
+    for set_ in ['enron_train_features', 'enron_test_features']:
+        print(set_)
+        x = mldb.query(
+            """
+            select * from
+                transpose((
+                    select sum(explain({features: {features.*}, label })[explanation]) as *
+                    named 'explain'
+                    from %s
+                ))
+            order by abs(explain) desc
+            """ % set_
+        )
+
+        with pandas.option_context('display.max_rows', 1000):
+            print(x)
     # mldb.post('/v1/procedures', {
     #     'type': 'procedures.transform'
 
 #     As you can see, the best threshold is the one where in case of doubt, everything is classified as "ham". This leads to 615 spam messages in the inbox, but no ham wrongly filtered as spam. Clearly this can be improved!
 
-print('import')
-import_data()
+# print('import')
+# import_data()
+# print('import w2v')
 # import_w2v()
-print('fg bow')
-fg_bow()
-print('fg w2v')
-fg_w2v()
-print('fg svd')
-fg_svd()
-fg_stats_table()
-print('generate features')
-fg_all()
-print('train')
-train()
-print('test')
-test()
+# print('fg bow')
+# fg_bow()
+# print('fg w2v')
+# fg_w2v()
+# print('fg stats')
+# fg_stats()
+# print('fg svd')
+# fg_svd()
+# print('fg st')
+# fg_stats_table()
+# print('generate features')
+# fg_all()
+# print('train')
+# train()
+# print('test')
+# test()
+print('explain')
 explain()
