@@ -188,10 +188,9 @@ struct ContinuousDataset::Itl {
         switch (val.type()) {
         case Json::objectValue:
             for (auto it = val.begin(), end = val.end();  it != end;  ++it) {
-                ColumnName newPrefix
-                    = prefix == ColumnName()
-                    ? ColumnName(it.memberName())
-                    : ColumnName(prefix.toUtf8String() + "." + it.memberName());
+                ColumnName newPrefix = prefix == ColumnName()
+                                     ? ColumnName(it.memberName())
+                                     : ColumnName(prefix + it.memberName());
                 auto child = extractMetadata(*it, newPrefix);
                 result.insert(result.end(),
                               std::make_move_iterator(child.begin()),
@@ -516,8 +515,8 @@ ContinuousWindowDatasetConfigDescription()
 static PolyConfigT<const Dataset>
 reconstituteConfig(MatrixNamedRow row)
 {
-    Json::Value current
-        = ExpressionValue(std::move(row.columns)).getColumn("config").extractJson();
+    Json::Value current = ExpressionValue(std::move(row.columns))
+        .getColumn("config").extractJson();
     current["id"] = jsonEncode(row.rowName);
 
     ExcAssert(current.isMember("params"));
