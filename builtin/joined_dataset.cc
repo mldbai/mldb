@@ -240,7 +240,14 @@ struct JoinedDataset::Itl
                 //cerr << "got rows complex " << res->values.size() << endl;
                 Utf8String leftNameUtf8 = "";
 
+                //results come in rowName/Columns pair
+                //last two are the joined row (+2)
+                //the two before that are the right row (+2)
+                //and before that the left row which can be chained (chainedJoinDepth*2)
+                //Deeper than the chained depth could be a subselect, for example.
+                
                 ssize_t i = res->values.size() - (chainedJoinDepth*2+4);
+                ExcAssert(i >= 0);
 
                 if (!res->values.at(i).empty())
                     leftNameUtf8 = res->values.at(i).toUtf8String();
