@@ -70,6 +70,8 @@ struct JoinedDataset: public Dataset {
     virtual RowName getOriginalRowName(const Utf8String& tableName,
                                        const RowName & name) const;
 
+    virtual int getChainedJoinDepth() const;
+
 private:
     JoinedDatasetConfig datasetConfig;
     struct Itl;

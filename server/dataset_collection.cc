@@ -175,6 +175,13 @@ void runHttpQuery(std::function<std::vector<MatrixNamedRow> ()> runQuery,
             }
         }
 
+        if (sortColumns) {
+            std::sort(columns.begin(), columns.end());
+            for (size_t i = 0;  i < columns.size();  ++i) {
+                columnIndex[columns[i]] = i;
+            }
+        }
+
         // Now, send them back
         std::vector<std::vector<CellValue> > output;
         output.reserve(sparseOutput.size() + createHeaders);
@@ -229,6 +236,9 @@ void runHttpQuery(std::function<std::vector<MatrixNamedRow> ()> runQuery,
                         std::string stringVal = std::signbit(value) ? "-Inf" : "Inf";
                         cellValue = CellValue(stringVal);
                     }
+                }
+                else if (cellValue.isPath()) {
+                    cellValue = CellValue(cellValue.coerceToPath().toUtf8String());
                 }
 
                 rowOut[columnIndex[columnName] + rowHashes + rowNames] = std::move(cellValue);

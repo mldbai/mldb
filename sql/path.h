@@ -9,7 +9,6 @@
 #include "mldb/types/string.h"
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/base/exc_assert.h"
-#include "mldb/jml/utils/compact_vector.h"
 #include <vector>
 #include <cstring>
 
@@ -43,6 +42,7 @@ struct PathElement {
     PathElement(Utf8String && str);
     PathElement(std::string str);
     PathElement(const char * str, size_t len);
+    PathElement(const char * str, size_t len, int digits);
     PathElement(const char * str)
         : PathElement(str, std::strlen(str))
     {
@@ -147,6 +147,9 @@ struct PathElement {
 
     Utf8String toEscapedUtf8String() const;
 
+    std::string stealBytes();
+    std::string getBytes() const;
+    
     /** Returns if this is an index, that is a non-negative integer
         (possibly with leading zeros) that can be converted into an
         array index.
@@ -214,6 +217,7 @@ struct PathElement {
     void initStringUnchecked(Str && str);
 
     void initChars(const char * str, size_t len);
+    void initChars(const char * str, size_t len, int digits);
 
     const char * data() const;
     size_t dataLength() const;
@@ -221,6 +225,11 @@ struct PathElement {
     int compareString(const char * str, size_t len) const;
     int compareStringNullTerminated(const char * str) const;
 
+    int compare(const PathElement & other) const
+    {
+        return compareString(other.data(), other.dataLength());
+    }
+    
     const Utf8String & getComplex() const;
     Utf8String & getComplex();
 
@@ -232,13 +241,22 @@ struct PathElement {
         uint64_t savedHash;
     };
 
+    static constexpr int EMPTY = 0;
+    static constexpr int DIGITS_ONLY = 1;
+    static constexpr int NO_DIGITS = 2;
+    static constexpr int SOME_DIGITS = 3;
+
     static constexpr size_t INTERNAL_WORDS = 3;
     static constexpr size_t INTERNAL_BYTES = 8 * INTERNAL_WORDS;
 
     union {
         // The complex_ flag means we can't simply copy the words around;
         // we need to do some more work.
-        struct { uint8_t complex_: 1; uint8_t simpleLen_:5; };
+        struct {
+            uint8_t complex_: 1;   ///< If true, we're stored in an external string
+            uint8_t simpleLen_:5;  ///< If complex_ is false, this is the length
+            uint8_t digits_:2;     ///< Do we have digits in our path element?
+        };
         uint8_t bytes[INTERNAL_BYTES];
         uint64_t words[INTERNAL_WORDS];
         Str str;
@@ -337,32 +355,368 @@ struct PathElementNewHasher
 
 
 /*****************************************************************************/
-/* PATHS                                                                    */
+/* INTERNED STRING                                                           */
+/*****************************************************************************/
+
+template<size_t Bytes, typename Char = char>
+struct InternedString {
+    InternedString()
+        : intIsExt_(0), intLength_(0)
+    {
+        //std::memset(this, 0, sizeof(*this));
+    }
+
+    InternedString(const InternedString & other)
+        : InternedString()
+    {
+        append(other.data(), other.length());
+    }
+
+    template<size_t OtherBytes>
+    InternedString(const InternedString<OtherBytes, Char> & other)
+        : InternedString()
+    {
+        append(other.data(), other.length());
+    }
+
+    template<size_t OtherBytes>
+    InternedString(InternedString<OtherBytes, Char> && other) noexcept
+        : InternedString()
+    {
+        if (other.length() > Bytes) {
+            // Can't fit internally.  If the other is external, steal it
+            if (other.isExt()) {
+                extIsExt_ = 1;
+                extLength_ = other.extLength_;
+                extCapacity_ = other.extCapacity_;
+                extBytes_ = other.extBytes_;
+                other.extIsExt_ = 0;
+                other.intLength_ = 0;
+                return;
+            }
+        }
+
+        // Otherwise, simply append it
+        append(other.data(), other.size());
+    }
+
+    InternedString(const std::basic_string<Char> & other)
+        : InternedString()
+    {
+        append(other.data(), other.length());
+    }
+
+    InternedString & operator = (const InternedString & other)
+    {
+        InternedString newMe(other);
+        swap(newMe);
+        return *this;
+    }
+
+    InternedString & operator = (InternedString && other) noexcept
+    {
+        InternedString newMe(std::move(other));
+        swap(newMe);
+        return *this;
+    }
+
+    ~InternedString()
+    {
+        if (isExt())
+            deleteExt();
+    }
+
+    const Char * data() const
+    {
+        return isExt() ? extBytes_ : intBytes_;
+    }
+
+    void swap(InternedString & other) noexcept
+    {
+        for (size_t i = 0;  i < NUM_WORDS;  ++i) {
+            std::swap(words[i], other.words[i]);
+        }
+    }
+
+    size_t size() const
+    {
+        return isExt() ? extLength_ : intLength_;
+    }
+
+    size_t length() const
+    {
+        return size();
+    }
+
+    bool empty() const
+    {
+        return size() == 0;
+    }
+
+    void reserve(size_t newCapacity)
+    {
+        if (newCapacity < capacity())
+            return;
+
+        bool wasExt = isExt();
+
+        char * newBytes = new Char[newCapacity];
+        size_t l = size();
+        std::memcpy(newBytes, data(), l);
+        extIsExt_ = 1;
+        extLength_ = l;
+        extCapacity_ = newCapacity;
+
+        if (wasExt)
+            delete[] extBytes_;
+
+        extBytes_ = newBytes;
+    }
+
+    size_t capacity() const
+    {
+        return isExt() ? extCapacity_ : Bytes;
+    }
+
+    void append(const Char * start, const Char * end)
+    {
+        append(start, end - start);
+    }
+
+    void append(const Char * bytes, size_t n)
+    {
+        if (n + size() > capacity()) {
+            reserve(std::max(capacity() * 2, capacity() + n));
+        }
+        ExcAssertGreaterEqual(capacity(), size() + n);
+        std::memcpy((Char *)(data() + size()), bytes, n);
+        if (isExt()) {
+            extLength_ += n;
+        }
+        else intLength_ += n;
+    }
+
+private:
+    template<size_t OtherBytes, typename OtherChar>
+    friend class InternedString;
+
+    bool isExt() const noexcept { return intIsExt_; }
+
+    void deleteExt()
+    {
+        delete[] extBytes_;
+    }
+
+    static constexpr size_t INTERNAL_BYTES = Bytes;
+    static constexpr size_t NUM_WORDS = (Bytes + 2) / 8;
+
+    union {
+        struct {
+            uint8_t intIsExt_;
+            uint8_t intLength_;
+            Char intBytes_[Bytes];
+        };
+        struct {
+            uint8_t extIsExt_;
+            uint8_t unused[3];
+            uint32_t extLength_;
+            uint32_t extCapacity_;
+            Char * extBytes_;
+        };
+        uint64_t words[NUM_WORDS];
+    };
+};
+
+
+/*****************************************************************************/
+/* PATH BUILDER                                                              */
+/*****************************************************************************/
+
+/** This structure is responsible for building paths in an optimal fashion. */
+
+struct PathBuilder {
+    PathBuilder();
+    PathBuilder & add(PathElement && element);
+    PathBuilder & add(const PathElement & element);
+    PathBuilder & addRange(const Path & path, size_t first, size_t last);
+    Path extract();
+
+private:
+    std::vector<uint32_t> indexes;
+    InternedString<244, char> bytes;
+    uint32_t digits_;
+};
+
+
+/*****************************************************************************/
+/* PATH                                                                      */
 /*****************************************************************************/
 
 /** A list of path elements points that gives a full path to an entity.
     Row and column names are paths.
 */
 
-struct Path: protected ML::compact_vector<PathElement, 2, uint32_t, false> {
-    typedef ML::compact_vector<PathElement, 2, uint32_t, false> Base;
+struct Path {
+    Path()
+        : length_(0), digits_(0), ofsPtr_(0)
+    {
+    }
 
-    Path();
     Path(PathElement && path);
     Path(const PathElement & path);
+
     template<typename T>
     Path(const std::initializer_list<T> & val)
         : Path(val.begin(), val.end())
     {
     }
 
+    Path(const PathElement * start, size_t len);
+
     template<typename It>
     Path(It first, It last)
-        : Base(first, last)
+        : Path()
     {
+        PathBuilder result;
+        while (first != last) {
+            result.add(std::move(*first++));
+        }
+        *this = result.extract();
     }
 
-    Path(const PathElement * path, size_t length);
+    Path(const Path & other)
+        : bytes_(other.bytes_),
+          length_(other.length_),
+          digits_(other.digits_),
+          ofsBits_(other.ofsBits_)
+    {
+        if (JML_UNLIKELY(externalOfs())) {
+            ofsPtr_ = new uint32_t[length_ + 1];
+            ExcAssert(other.ofsPtr_);
+            for (size_t i = 0;  i <= length_;  ++i) {
+                ofsPtr_[i] = other.ofsPtr_[i];
+            }
+        }
+    }
+
+    Path(Path && other) noexcept
+        : Path()
+    {
+        swap(other);
+    }
+
+    void swap(Path & other) noexcept
+    {
+        using std::swap;
+        bytes_.swap(other.bytes_);
+        swap(ofsBits_, other.ofsBits_);
+        swap(length_, other.length_);
+        swap(digits_, other.digits_);
+    }
+
+    Path & operator = (Path && other) noexcept
+    {
+        swap(other);
+        return *this;
+    }
+
+    Path & operator = (const Path & other)
+    {
+        Path newMe(other);
+        swap(newMe);
+        return *this;
+    }
+
+    ~Path()
+    {
+        if (JML_UNLIKELY(externalOfs())) {
+            delete[] ofsPtr_;
+        }
+    }
+
+    struct Iterator
+        : public std::iterator<std::random_access_iterator_tag, const PathElement,
+                               std::ptrdiff_t, const PathElement*,
+                               const PathElement &> {
+        const Path * p;
+        size_t index;
+
+        Iterator(const Path * p = nullptr, size_t index = 0)
+            : p(p), index(index)
+        {
+        }
+
+        PathElement operator * () const
+        {
+            ExcAssert(p);
+            return p->at(index);
+        }
+
+        Iterator& operator ++ ()
+        {
+            ++index;
+            return *this;
+        }
+
+        Iterator operator ++ (int)
+        {
+            Iterator result = *this;
+            operator ++ ();
+            return result;
+        }
+
+        std::ptrdiff_t operator - (const Iterator & other) const
+        {
+            return index - other.index;
+        }
+
+        Iterator operator + (std::ptrdiff_t offset) const
+        {
+            Iterator result = *this;
+            result.index += offset;
+            return result;
+        }
+
+        Iterator operator - (std::ptrdiff_t offset) const
+        {
+            Iterator result = *this;
+            result.index -= offset;
+            return result;
+        }
+
+        Iterator & operator += (std::ptrdiff_t offset)
+        {
+            index += offset;
+            return *this;
+        }
+
+        bool operator == (const Iterator & other) const
+        {
+            return p == other.p && index == other.index;
+        }
+
+        bool operator != (const Iterator & other) const
+        {
+            return ! operator == (other);
+        }
+
+        bool operator < (const Iterator & other) const
+        {
+            // Not well defined if base pointers aren't the same
+            ExcAssert(p == other.p);
+            return index < other.index;
+        }
+    };
+
+    Iterator begin() const
+    {
+        return Iterator(this, 0);
+    }
+
+    Iterator end() const
+    {
+        return Iterator(this, length_);
+    }
 
     static Path parse(const Utf8String & str);
     static Path parse(const char * str, size_t len);
@@ -421,62 +775,111 @@ struct Path: protected ML::compact_vector<PathElement, 2, uint32_t, false> {
     /// with legacy hashes.
     uint64_t newHash() const;
 
-    using Base::size;
-    using Base::empty;
-    using Base::begin;
-    using Base::end;
-    using Base::at;
-    using Base::front;
-    using Base::back;
-    using Base::operator [];
-    using Base::pop_back;
+    size_t size() const
+    {
+        return length_;
+    }
 
-    PathElement head() const
+    bool empty() const
+    {
+        return length_ == 0;
+    }
+
+    PathElement operator [] (size_t el) const
+    {
+        return at(el);
+    }
+    
+    PathElement at(size_t el) const
+    {
+        const char * d = data();
+        const char * b = d + offset(el);
+        const char * e = d + offset(el + 1);
+        if (JML_LIKELY(el < 16)) {
+            return PathElement(b, e - b, digits(el));
+        }
+        else {
+            return PathElement(b, e - b);
+        }
+    }
+
+    PathElement front() const
     {
         return at(0);
     }
 
-    Path tail() const
+    PathElement back() const
     {
-        ExcAssert(!empty());
-        Path result;
-        result.insert(result.end(), begin() + 1, end());
-        return result;
+        return at(length_ - 1);
     }
 
-    bool operator == (const Path & other) const
+    PathElement head() const
     {
-        return static_cast<const Base &>(*this) == other;
+        return front();
     }
 
-    bool operator != (const Path & other) const
-    {
-        return ! operator == (other);
-    }
+    Path tail() const;
 
-    bool operator < (const Path & other) const
-    {
-        return static_cast<const Base &>(*this) < other;
-    }
+    bool operator == (const Path & other) const;
+    bool operator != (const Path & other) const;
+    bool operator < (const Path & other) const;
+    bool operator <= (const Path & other) const;
+    bool operator > (const Path & other) const;
+    bool operator >= (const Path & other) const;
 
-    bool operator <= (const Path & other) const
-    {
-        return static_cast<const Base &>(*this) <= other;
-    }
-
-    bool operator > (const Path & other) const
-    {
-        return static_cast<const Base &>(*this) > other;
-    }
-
-    bool operator >= (const Path & other) const
-    {
-        return static_cast<const Base &>(*this) >= other;
-    }
+    int compare(const Path & other) const;
 
     size_t memusage() const;
 
 private:
+    friend class PathBuilder;
+    bool equalElement(size_t el, const Path & other, size_t otherEl) const;
+    bool lessElement(size_t el, const Path & other, size_t otherEl) const;
+    int compareElement(size_t el, const Path & other, size_t otherEl) const;
+
+    bool externalOfs() const
+    {
+        return length_ >= 8 || bytes_.size() >= 256;
+    }
+    
+    const char * data() const
+    {
+        return bytes_.data();
+    }
+
+    /// Return the byte offsets of the begin and end of this element
+    inline size_t offset(size_t el) const
+    {
+        //ExcAssertLessEqual(el, length_);
+        if (JML_LIKELY(!externalOfs())) {
+            return ofs_[el];
+        }
+        return ofsPtr_[el];
+    }
+    
+    /// Return what the composition of the value at the given position is:
+    /// does it contain no digits, only digits, or a mixture?  This is
+    /// important to know as strings with only digits can be compared more
+    /// efficiently (those without a leading zero whose length differs
+    /// don't need any comparison at all), and strings without digits can
+    /// be compared efficiently with memcmp.  This saves a big amount of
+    /// runtime in reducing the expensive natural string ordering comparisons.
+    inline int digits(size_t el) const
+    {
+        return
+            (el < 16)
+            ? (digits_ >> (2 * el)) & 3  // for the first 16, read directly
+            : PathElement::SOME_DIGITS;  // for the rest, assume the worst
+    }
+
+    /// Return the range of bytes for the given element
+    std::pair<const char *, size_t>
+    getStringView(size_t el) const
+    {
+        size_t o0 = offset(el), o1 = offset(el + 1);
+        return { data() + o0, o1 - o0 };
+    }
+
     /** Internal parsing method.  Will attempt to parse the given range
         which is assumed to contain valid UTF-8 data, and will return
         the parsed version and true if valid, or if invalid either throw
@@ -485,6 +888,28 @@ private:
     */
     static std::pair<Path, bool>
     parseImpl(const char * str, size_t len, bool exceptions);
+
+    /// Encoded version of the string, not including separators
+    InternedString<46, char> bytes_;
+
+    /// Number of elements in the path
+    uint32_t length_;
+
+    /// Flags about digits per path element.  Contains 16 separate 2 bit
+    /// flags, each of which has the following interpretation:
+    /// 0 = (not set, invalid)
+    /// 1 = only digits
+    /// 2 = only non-digits
+    /// 3 = digits and non-digits
+    uint32_t digits_;
+    
+    /// Byte index of the first 8 components of the path, or a ptr to
+    /// an array with all the rest if length_ > 8
+    union {
+        uint8_t ofs_[8];
+        uint32_t * ofsPtr_;
+        uint64_t ofsBits_;
+    };
 };
 
 std::ostream & operator << (std::ostream & stream, const Path & id);

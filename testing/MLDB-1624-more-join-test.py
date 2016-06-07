@@ -1476,57 +1476,34 @@ class JoinTest(MldbUnitTest):
             ]
         )
 
-
-    @unittest.expectedFailure # MLDB-1672
     def test_left_outer_join(self):
-        """
-        row 11 on the left table should be outputted
-        row 10 is outputted twice
-        - [u'[10]-[]', u'null', u'', None, None, None, None]
-        ?      ^                                 ^^^^
-        
-        + [u'[11]-[]', u'null', u'', None, None, 0, None]
-        ?      ^                                 ^
-        """
-
         res = mldb.query("""
             SELECT '' AS "xxx", *
             FROM J1_TBL LEFT OUTER JOIN J2_TBL ON J1_TBL.i = J2_TBL.i
             ORDER BY J1_TBL.i, J2_TBL.k, J1_TBL.t
         """)
-
         pprint(res)
         self.assertTableResultEquals(res, 
             [
-                [u'_rowName', u'J1_TBL.t', u'xxx', u'J1_TBL.i', u'J2_TBL.i', u'J1_TBL.j', u'J2_TBL.k'] ,
+                [u'_rowName', u'J1_TBL.t', u'xxx', u'J1_TBL.j', u'J1_TBL.i', u'J2_TBL.i', u'J2_TBL.k'] ,
                 [u'[10]-[]', u'null', u'', None, None, None, None] ,
-                [u'[11]-[]', u'zero', u'', None, None, 0, None] ,
-                [u'[09]-[07]', u'zero', u'', 0, 0, None, None] ,
-                [u'[01]-[01]', u'one', u'', 1, 1, 4, -1] ,
-                [u'[02]-[02]', u'two', u'', 2, 2, 3, 2] ,
-                [u'[02]-[04]', u'two', u'', 2, 2, 3, 4] ,
-                [u'[03]-[03]', u'three', u'', 3, 3, 2, -3] ,
-                [u'[04]-[]', u'four', u'', 4, None, 1, None] ,
-                [u'[05]-[05]', u'five', u'', 5, 5, 0, -5] ,
-                [u'[05]-[06]', u'five', u'', 5, 5, 0, -5] ,
-                [u'[06]-[]', u'six', u'', 6, None, 6, None] ,
-                [u'[07]-[]', u'seven', u'', 7, None, 7, None] ,
-                [u'[08]-[]', u'eight', u'', 8, None, 8, None]
+                [u'[11]-[]', u'zero', u'', 0, None, None, None] ,
+                [u'[09]-[07]', u'zero', u'', None, 0, 0, None] ,
+                [u'[01]-[01]', u'one', u'', 4, 1, 1, -1] ,
+                [u'[02]-[02]', u'two', u'', 3, 2, 2, 2] ,
+                [u'[02]-[04]', u'two', u'', 3, 2, 2, 4] ,
+                [u'[03]-[03]', u'three', u'', 2, 3, 3, -3] ,
+                [u'[04]-[]', u'four', u'', 1, 4, None, None] ,
+                [u'[05]-[05]', u'five', u'', 0, 5, 5, -5] ,
+                [u'[05]-[06]', u'five', u'', 0, 5, 5, -5] ,
+                [u'[06]-[]', u'six', u'', 6, 6, None, None] ,
+                [u'[07]-[]', u'seven', u'', 7, 7, None, None] ,
+                [u'[08]-[]', u'eight', u'', 8, 8, None, None]
             ]
         )
 
-    @unittest.expectedFailure # MLDB-1672
+    # MLDB-1672
     def test_right_outer_join(self):
-        """
-        row 9 on the right table should be outputted
-        row 8 is outputted twice
-        - [u'[]-[08]', u'', None, None, None, None, None]
-        ?         ^                                 ^^^^
-        
-        + [u'[]-[09]', u'', None, None, None, None, 0]
-        ?         ^                                 ^
-        """
-
         res = mldb.query("""
             SELECT '' AS "xxx", *
         FROM J1_TBL RIGHT OUTER JOIN J2_TBL ON J1_TBL.i = J2_TBL.i
@@ -1535,31 +1512,21 @@ class JoinTest(MldbUnitTest):
         pprint(res)
         self.assertTableResultEquals(res, 
             [
-                [u'_rowName', u'xxx', u'J1_TBL.i', u'J1_TBL.t', u'J2_TBL.i', u'J1_TBL.j', u'J2_TBL.k'] ,
+                [u'_rowName', u'xxx', u'J2_TBL.k', u'J1_TBL.i', u'J1_TBL.t', u'J2_TBL.i', u'J1_TBL.j'] ,
                 [u'[]-[08]', u'', None, None, None, None, None] ,
-                [u'[]-[09]', u'', None, None, None, None, 0] ,
-                [u'[09]-[07]', u'', 0, u'zero', 0, None, None] ,
-                [u'[01]-[01]', u'', 1, u'one', 1, 4, -1] ,
-                [u'[02]-[02]', u'', 2, u'two', 2, 3, 2] ,
-                [u'[02]-[04]', u'', 2, u'two', 2, 3, 4] ,
-                [u'[03]-[03]', u'', 3, u'three', 3, 2, -3] ,
-                [u'[05]-[05]', u'', 5, u'five', 5, 0, -5] ,
-                [u'[05]-[06]', u'', 5, u'five', 5, 0, -5]
+                [u'[]-[09]', u'', 0, None, None, None, None] ,
+                [u'[09]-[07]', u'', None, 0, u'zero', 0, None] ,
+                [u'[01]-[01]', u'', -1, 1, u'one', 1, 4] ,
+                [u'[02]-[02]', u'', 2, 2, u'two', 2, 3] ,
+                [u'[02]-[04]', u'', 4, 2, u'two', 2, 3] ,
+                [u'[03]-[03]', u'', -3, 3, u'three', 3, 2] ,
+                [u'[05]-[05]', u'', -5, 5, u'five', 5, 0] ,
+                [u'[05]-[06]', u'', -5, 5, u'five', 5, 0]
             ]
         )
 
-    @unittest.expectedFailure # MLDB-1672
+    # MLDB-1672
     def test_full_outer_join(self):
-        """
-        row 11 on the left table should be outputted
-        row 9 on the right table should be outputted
-        - [u'[]-[08]', u'', None, None, None, None, None]
-        ?         ^                                 ^^^^
-        
-        + [u'[]-[09]', u'', None, None, None, None, 0]
-        ?         ^                                 ^
-        """
-
         res = mldb.query("""
             SELECT '' AS "xxx", *
             FROM J1_TBL FULL OUTER JOIN J2_TBL ON J1_TBL.i = J2_TBL.i
@@ -1569,19 +1536,19 @@ class JoinTest(MldbUnitTest):
         pprint(res)
         self.assertTableResultEquals(res, 
             [
-                [u'_rowName', u'xxx', u'J1_TBL.t', u'J1_TBL.i', u'J2_TBL.i', u'J1_TBL.j', u'J2_TBL.k'] ,
+                [u'_rowName', u'xxx', u'J1_TBL.t', u'J1_TBL.j', u'J2_TBL.k', u'J1_TBL.i', u'J2_TBL.i'] ,
                 [u'[]-[08]', u'', None, None, None, None, None] ,
-                [u'[]-[09]', u'', None, None, None, None, 0] ,
                 [u'[10]-[]', u'', u'null', None, None, None, None] ,
-                [u'[11]-[]', u'zero', u'', None, None, 0, None] ,
-                [u'[09]-[07]', u'', u'zero', 0, 0, None, None] ,
-                [u'[01]-[01]', u'', u'one', 1, 1, 4, -1] ,
-                [u'[02]-[02]', u'', u'two', 2, 2, 3, 2] ,
-                [u'[02]-[04]', u'', u'two', 2, 2, 3, 4] ,
-                [u'[03]-[03]', u'', u'three', 3, 3, 2, -3] ,
-                [u'[04]-[]', u'', u'four', 4, None, 1, None] ,
-                [u'[05]-[05]', u'', u'five', 5, 5, 0, -5] ,
-                [u'[05]-[06]', u'', u'five', 5, 5, 0, -5] ,
+                [u'[11]-[]', u'', u'zero', 0, None, None, None] ,
+                [u'[]-[09]', u'', None, None, 0, None, None] ,
+                [u'[09]-[07]', u'', u'zero', None, None, 0, 0] ,
+                [u'[01]-[01]', u'', u'one', 4, -1, 1, 1] ,
+                [u'[02]-[02]', u'', u'two', 3, 2, 2, 2] ,
+                [u'[02]-[04]', u'', u'two', 3, 4, 2, 2] ,
+                [u'[03]-[03]', u'', u'three', 2, -3, 3, 3] ,
+                [u'[04]-[]', u'', u'four', 1, None, 4, None] ,
+                [u'[05]-[05]', u'', u'five', 0, -5, 5, 5] ,
+                [u'[05]-[06]', u'', u'five', 0, -5, 5, 5] ,
                 [u'[06]-[]', u'', u'six', 6, None, 6, None] ,
                 [u'[07]-[]', u'', u'seven', 7, None, 7, None] ,
                 [u'[08]-[]', u'', u'eight', 8, None, 8, None]
@@ -1615,7 +1582,6 @@ class JoinTest(MldbUnitTest):
             ]
         )
 
-    @unittest.expectedFailure # MLDB-1671
     def test_multiway_join(self):
         """
         the name of the row is incorrect
@@ -1639,8 +1605,9 @@ class JoinTest(MldbUnitTest):
 
         res = mldb.query("""
         select * from x left join y on (x.x1 = y.y1) left join x as xx
-        on (x.x1 = xx.xx1)
+        on (x.x1 = xx.x1)
         """)
+
         pprint(res)
         # number of columns
         self.assertEqual(len(res[0]), 2 + 2 + 2 + 1)
@@ -1842,7 +1809,7 @@ class JoinTest(MldbUnitTest):
             ]
         )
 
-    @unittest.expectedFailure # MLDB-1673
+    # MLDB-1673
     def test_join_with_constant_expression_failing_on_get_variable(self):
         """
         {"details":{"columnName":"s2.n"},"error":"Get variable without table name with no default table in scope","httpCode":500}
@@ -1853,15 +1820,15 @@ class JoinTest(MldbUnitTest):
             (SELECT name, n, 2 as s2_2 FROM t2) AS s2
             INNER JOIN
             (SELECT name, n, 3 as s3_2 FROM t3) AS s3
-            ON s2.name = s3.name AND s2.n = s3.n
+            ON s2.name = s3.name AND s2.n + 1 = s3.n
         """)
 
         pprint(res)
         self.assertTableResultEquals(res, 
             [
-                [u'_rowName', u's2.name', u's2.s2_2', u's2.n', u's3.name', u's3.s3_2', u's3.n'] ,
-                [u'[01]-[01]', u'bb', 2, 12, u'bb', 3, 13] ,
-                [u'[02]-[02]', u'cc', 2, 22, u'cc', 3, 23]
+                [u'_rowName', u's2.n', u's2.name', u's2.s2_2', u's3.n', u's3.name', u's3.s3_2'] ,
+                [u'[01]-[01]', 12, u'bb', 2, 13, u'bb', 3] ,
+                [u'[02]-[02]', 22, u'cc', 2, 23, u'cc', 3]
             ]
         )
 
@@ -1871,7 +1838,7 @@ class JoinTest(MldbUnitTest):
             (SELECT name, n AS s2_n, 2 as s2_2 FROM t2) AS s2
             INNER JOIN
             (SELECT name, n AS s3_n, 3 as s3_2 FROM t3) AS s3
-            ON s2.name = s3.name AND s2.s2_n = s3.s3_n
+            ON s2.name = s3.name AND s2.s2_n + 1 = s3.s3_n
         """)
 
         pprint(res)
@@ -1883,7 +1850,7 @@ class JoinTest(MldbUnitTest):
             ]
         )
 
-    @unittest.expectedFailure # MLDB-1674
+    # MLDB-1674
     def test_join_with_constant_expression_failing_on_parsing(self):
         """
         confusing INNER JOIN with IN oeprator
@@ -1907,7 +1874,6 @@ class JoinTest(MldbUnitTest):
             ]
         )
 
-    @unittest.expectedFailure # MLDB-1671
     def test_join_with_constant_expression_failing_on_row_name(self):
         """
         - [u'[]-[03]', None, None, None, None, None, None, u'dd', 3, 33]
@@ -2020,12 +1986,10 @@ class JoinTest(MldbUnitTest):
                 [u'_rowName', u'x.x1', u'x.x2', u'y.y1', u'y.y2', u'z.z1', u'z.z2'] ,
                 [u'[01]-[01]-[01]', 1, 11, 1, 111, 1, 11] ,
                 [u'[02]-[02]-[02]', 2, 22, 2, 222, 2, 22] ,
-                [u'[]-[03]', None, None, None, None, 3, 33]
+                [u'[]-[]-[03]', None, None, None, None, 3, 33]
             ]
         )
 
-
-    @unittest.expectedFailure # MLDBFB-536
     def test_row_naming_in_two_executors(self):
 
         res1 = mldb.query("""

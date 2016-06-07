@@ -81,6 +81,7 @@ call(Words input) const
                        Date ts)
         {
             const string colStr = columnName.toSimpleName().stealRawString();
+
             if(!selected_stopwords->count(colStr)) {
                 rtnRow.push_back(make_tuple(columnName, val, ts));
             }

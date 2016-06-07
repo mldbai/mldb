@@ -206,6 +206,11 @@ struct SqlCsvScope: public SqlExpressionMldbScope {
             }
         }
 
+        // Fill out the offset so we know where it is in the input
+        for (size_t i = 0;  i < columnsWithInfo.size();  ++i) {
+            columnsWithInfo[i].offset = i;
+        }
+        
         auto exec = [=] (const SqlRowScope & scope, const VariableFilter & filter)
             {
                 /* 
@@ -219,7 +224,7 @@ struct SqlCsvScope: public SqlExpressionMldbScope {
                 RowValue result;
 
                 for (unsigned i = 0;  i < columnNames.size();  ++i) {
-                    if (toKeep[i] != ColumnName())
+                    if (!toKeep[i].empty())
                         result.emplace_back(columnNames[i], row.row[i], row.ts);
                 }
 
@@ -781,10 +786,6 @@ struct ImportTextProcedureWorkInstance
         // optimizations to avoid calling into the SQL layer
         SqlExpressionDatasetScope noContext(*dataset, ""); //needs a context because x.* is ambiguous
         isIdentitySelect = config.select.isIdentitySelect(noContext);  
-
-        // Is the name the lineNumber()?  If so, we can save on
-        // calculating it
-        //cerr << "name = " << config.named->print() << endl;
 
         // Figure out our output column names from the bound
         // select clause
