@@ -135,7 +135,7 @@ struct NoOffset
     {
         if (query.stm) {
             if (query.stm->offset != -1) {
-                throw ML::Exception(name + " does not support limit");
+                throw ML::Exception(name + " does not support offset");
             }
         }
     }
