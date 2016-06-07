@@ -487,6 +487,14 @@ doGetAllColumns(const Utf8String & tableName,
                                         std::move(val),
                                         ts);
                 }
+                else if (!prefix.empty()){
+                    it = toKeep.find(prefix);
+                    if (it != toKeep.end()) {
+                        output.emplace_back(prefix + columnName,
+                                            std::move(val),
+                                            ts);
+                    }
+                }
                 return true;
             };
 
