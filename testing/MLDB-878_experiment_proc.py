@@ -5,13 +5,11 @@
 #
 import random, datetime, os
 
-import unittest
-
 if False:
     mldb_wrapper = None
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
-class Mldb878Test(MldbUnitTest):  
+class Mldb878Test(MldbUnitTest):  # noqa
 
     @classmethod
     def setUpClass(self):
@@ -65,19 +63,18 @@ class Mldb878Test(MldbUnitTest):
                 "outputAccuracyDataset": False
             }
         }
-        rez = mldb.put("/v1/procedures/rocket_science", conf)
-        #mldb.log(rez.json())
+        mldb.put("/v1/procedures/rocket_science", conf)
 
         rez = mldb.post("/v1/procedures/rocket_science/runs")
         js_rez = rez.json()
-        #mldb.log(js_rez)
         trained_files = [x["modelFileUrl"].replace("file://", "")
                          for x in js_rez["status"]["folds"]]
 
         # did we run two training jobs that both got a good auc ?
-        assert len(js_rez["status"]["folds"]) == 2
+        self.assertEqual(len(js_rez["status"]["folds"]), 2)
         for i in xrange(2):
-            self.assertGreater(js_rez["status"]["folds"][i]["resultsTest"]["auc"], 0.95)
+            self.assertGreater(
+                js_rez["status"]["folds"][i]["resultsTest"]["auc"], 0.95)
 
         # score using the predictor (MLDB-1070)
         def apply_predictor():
@@ -90,37 +87,35 @@ class Mldb878Test(MldbUnitTest):
             return score_runs
 
         score_run1 = apply_predictor()
-        assert len(score_run1) == 2
-        #mldb.log(score_run1)
+        self.assertEqual(len(score_run1), 2)
 
         # did we create two output datasets?
         rez = mldb.get("/v1/datasets")
         js_rez = rez.json()
-        #mldb.log(js_rez)
-        assert not any(("results_" in x for x in js_rez))
+        self.assertFalse(any(("results_" in x for x in js_rez)))
 
         ########
         # make sure if we post a slightly modified version of the config and rerun it
         # overrides everything
         trained_files_mod_ts = max([os.path.getmtime(path) for path in trained_files])
-        #mldb.log(trained_files_mod_ts)
 
         # repost and inverse label
-        conf["params"]["inputData"] = "select {* EXCLUDING(label)} as features, NOT label as label from toy"
+        conf["params"]["inputData"] = \
+            "select {* EXCLUDING(label)} as features, NOT label as label from toy"
         mldb.put("/v1/procedures/rocket_science", conf)
         mldb.post("/v1/procedures/rocket_science/runs")
 
-        new_trained_files_mod_ts = min([os.path.getmtime(path) for path in trained_files])
-        #mldb.log(new_trained_files_mod_ts)
+        new_trained_files_mod_ts = \
+            min([os.path.getmtime(path) for path in trained_files])
 
         # make sure the files are newer
         assert trained_files_mod_ts < new_trained_files_mod_ts
 
         # compare scoring with 1st run (MLDB-1070)
         score_run2 = apply_predictor()
-        #mldb.log(score_run2)
-        assert set(score_run1) != set(score_run2)
-        conf["params"]["inputData"] = "select {* EXCLUDING(label)} as features, label from toy"
+        self.assertNotEqual(set(score_run1), set(score_run2))
+        conf["params"]["inputData"] = \
+            "select {* EXCLUDING(label)} as features, label from toy"
 
 
         #######
@@ -131,20 +126,19 @@ class Mldb878Test(MldbUnitTest):
         conf["params"]["experimentName"] = "no_fold"
         conf["params"]["outputAccuracyDataset"] = True
 
-        rez = mldb.put("/v1/procedures/rocket_science2", conf)
+        mldb.put("/v1/procedures/rocket_science2", conf)
 
         rez = mldb.post("/v1/procedures/rocket_science2/runs")
         js_rez = rez.json()
 
         # did we get the rez for 1 fold?
-        assert len(js_rez["status"]["folds"]) == 1
-        accuracyDataset = js_rez["status"]["folds"][0]["accuracyDataset"]
+        self.assertEqual(len(js_rez["status"]["folds"]), 1)
+        self.assertTrue('accuracyDataset' in js_rez["status"]["folds"][0])
 
         # did we create the output dataset?
         rez = mldb.get("/v1/datasets")
         js_rez = rez.json()
-        #mldb.log(js_rez)
-        assert any(("results_" in x for x in js_rez))
+        self.assertTrue(any(("results_" in x for x in js_rez)))
 
 
         #######
@@ -175,19 +169,16 @@ class Mldb878Test(MldbUnitTest):
 
 
         rez = mldb.put("/v1/procedures/rocket_science3", conf)
-        #mldb.log(conf)
-        #mldb.log(rez)
-
         js_rez = rez.json()
-        #mldb.log(js_rez)
 
         # did we run two training jobs that both got a good auc ?
-        assert len(js_rez["status"]["firstRun"]["status"]["folds"]) == 5
+        self.assertEqual(len(js_rez["status"]["firstRun"]["status"]["folds"]),
+                         5)
 
         # make sure all the AUCs are ok
         for fold in js_rez["status"]["firstRun"]["status"]["folds"]:
-            assert fold["resultsTest"]["auc"] > 0.5, \
-                'expect an AUC above 0.5, got ' + str(fold)
+            self.assertGreater(fold["resultsTest"]["auc"], 0.5,
+                               'expect an AUC above 0.5, got ' + str(fold))
 
 
         #######
@@ -200,12 +191,9 @@ class Mldb878Test(MldbUnitTest):
             "select {* EXCLUDING(label)} as features, label from toy2"
         conf["params"]["kfold"] = 5
 
-        try:
+        with self.assertRaises(mldb_wrapper.ResponseException) as exc:
             mldb.put("/v1/procedures/rocket_science4", conf)
-        except mldb_wrapper.ResponseException as exc:
-            mldb.log(exc.response)
-        else:
-            assert False, 'should not be here'
+        mldb.log(exc.exception.response)
 
         #######
         # default val for different datasets
@@ -216,16 +204,14 @@ class Mldb878Test(MldbUnitTest):
             "select {* EXCLUDING(label)} as features, label from toy2"
         del conf["params"]["kfold"]
 
-        rez = mldb.put("/v1/procedures/rocket_science5", conf)
-        #mldb.log(rez)
+        mldb.put("/v1/procedures/rocket_science5", conf)
 
         rez = mldb.post("/v1/procedures/rocket_science5/runs")
-        #mldb.log(rez)
 
         js_rez = rez.json()
-        assert len(js_rez["status"]["folds"]) == 1
-        assert js_rez["status"]["folds"][0]["fold"]["trainingWhere"] == "true"
-        assert js_rez["status"]["folds"][0]["fold"]["testingWhere"] == "true"
+        self.assertEqual(len(js_rez["status"]["folds"]), 1)
+        self.assertTrue(js_rez["status"]["folds"][0]["fold"]["trainingWhere"])
+        self.assertTrue(js_rez["status"]["folds"][0]["fold"]["testingWhere"])
 
 
 
@@ -237,15 +223,16 @@ class Mldb878Test(MldbUnitTest):
         conf["params"]["inputData"] = "select * from toy"
         conf["params"]["testingDataOverride"] = "select * from toy"
 
-        with self.assertRaises(mldb_wrapper.ResponseException) as re:
+        with self.assertRaises(mldb_wrapper.ResponseException):
             mldb.put("/v1/procedures/rocket_science5", conf)
 
         # fix training
-        conf["params"]["inputData"] = "select {* EXCLUDING(label)} as features, label from toy"
+        conf["params"]["inputData"] = \
+            "select {* EXCLUDING(label)} as features, label from toy"
 
-        with self.assertRaises(mldb_wrapper.ResponseException) as re:
+        with self.assertRaises(mldb_wrapper.ResponseException):
             mldb.put("/v1/procedures/rocket_science5", conf)
-    
+
 
     def test_eval_training(self):
         conf = {
@@ -281,7 +268,6 @@ class Mldb878Test(MldbUnitTest):
             }
         }
         rez = mldb.put("/v1/procedures/rocket_science", conf)
-        #mldb.log(rez.json())
 
         rez = mldb.post("/v1/procedures/rocket_science/runs")
         js_rez = rez.json()
@@ -292,9 +278,10 @@ class Mldb878Test(MldbUnitTest):
         self.assertTrue("resultsTrain" in js_rez["status"]["folds"][0])
 
         # performance should be comparable
-        self.assertAlmostEqual(js_rez["status"]["folds"][0]["resultsTrain"]["auc"],
-                               js_rez["status"]["folds"][0]["resultsTest"]["auc"], delta=0.05)
-    
+        self.assertAlmostEqual(
+            js_rez["status"]["folds"][0]["resultsTrain"]["auc"],
+            js_rez["status"]["folds"][0]["resultsTest"]["auc"],
+            delta=0.05)
 
     def test_no_cls_write_perms(self):
         conf = {
@@ -321,11 +308,10 @@ class Mldb878Test(MldbUnitTest):
         }
         with self.assertRaisesRegexp(mldb_wrapper.ResponseException,
                 'Error when trying'):
-            rez = mldb.put("/v1/procedures/rocket_science", conf)
+            mldb.put("/v1/procedures/rocket_science", conf)
 
 
     def test_uniqueScoreOutput(self):
-        counts = {}
         for unique in [True, False]:
             conf = {
                 "type": "classifier.experiment",
@@ -359,7 +345,7 @@ class Mldb878Test(MldbUnitTest):
             # if we're asking for only unique scores
             if unique:
                 count2 = mldb.query("""
-                    select sum(cnt) 
+                    select sum(cnt)
                     from (
                         select count(*) as cnt from %s group by score
                     )""" % datasetName)[1][1]
@@ -374,53 +360,53 @@ class Mldb878Test(MldbUnitTest):
 
 
     def test_limitoffset(self):
-            conf = {
-                "type": "classifier.experiment",
-                "params": {
-                    "experimentName": "limitoffset",
-                    "inputData": "select {* EXCLUDING(label)} as features, label from toy",
-                    "modelFileUrlPattern": "file://build/x86_64/tmp/bouya-pwet-$runid.cls",
-                    "algorithm": "dt",
-                    "mode": "boolean",
-                    "configuration": {
-                        "dt": {
-                            "type": "decision_tree",
-                            "max_depth": 8,
-                            "verbosity": 3,
-                            "update_alg": "prob"
-                        }
+        conf = {
+            "type": "classifier.experiment",
+            "params": {
+                "experimentName": "limitoffset",
+                "inputData": "select {* EXCLUDING(label)} as features, label from toy",
+                "modelFileUrlPattern": "file://build/x86_64/tmp/bouya-pwet-$runid.cls",
+                "algorithm": "dt",
+                "mode": "boolean",
+                "configuration": {
+                    "dt": {
+                        "type": "decision_tree",
+                        "max_depth": 8,
+                        "verbosity": 3,
+                        "update_alg": "prob"
+                    }
+                },
+                "datasetFolds": [
+                    {
+                        "trainingLimit": 2500,
+                        "testingOffset": 2500
                     },
-                    "datasetFolds": [
-                        {
-                            "trainingLimit": 2500,
-                            "testingOffset": 2500
-                        },
-                        {
-                            "testingLimit": 2500,
-                            "trainingOffset": 2500
-                        }
-                    ],
-                    "outputAccuracyDataset": True,
-                    "evalTrain": False,
-                    "runOnCreation": True
-                }
+                    {
+                        "testingLimit": 2500,
+                        "trainingOffset": 2500
+                    }
+                ],
+                "outputAccuracyDataset": True,
+                "evalTrain": False,
+                "runOnCreation": True
             }
-            rez = mldb.put("/v1/procedures/test_limitoffset", conf)
-            jsRez = rez.json()
+        }
+        rez = mldb.put("/v1/procedures/test_limitoffset", conf)
+        jsRez = rez.json()
 
-            datasetNames = [jsRez["status"]["firstRun"]["status"]["folds"][0]["accuracyDataset"],
-                            jsRez["status"]["firstRun"]["status"]["folds"][1]["accuracyDataset"]]
+        datasetNames = [
+            jsRez["status"]["firstRun"]["status"]["folds"][0]["accuracyDataset"],
+            jsRez["status"]["firstRun"]["status"]["folds"][1]["accuracyDataset"]]
 
-            rowNames = []
-            for datasetName in datasetNames:
-                rowNames.append(set([x[0] for x in mldb.query("select rowName() from %s" % datasetName)[1:]]))
-                self.assertEqual(len(rowNames[-1]), 2500)
+        rowNames = []
+        for datasetName in datasetNames:
+            rowNames.append(set([x[0] for x in mldb.query("select rowName() from %s" % datasetName)[1:]]))
+            self.assertEqual(len(rowNames[-1]), 2500)
 
-            # if the limit and offsets are working, we should get no duplicate rowNames
-            # and get back all the rownames in the dataset
-            set_union = len(rowNames[0].union(rowNames[1]))
-            self.assertEqual(set_union, 5000)
+        # if the limit and offsets are working, we should get no duplicate rowNames
+        # and get back all the rownames in the dataset
+        set_union = len(rowNames[0].union(rowNames[1]))
+        self.assertEqual(set_union, 5000)
 
-
-mldb.run_tests()
-
+if __name__ == '__main__':
+    mldb.run_tests()
