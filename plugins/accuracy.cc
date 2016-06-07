@@ -600,7 +600,34 @@ run(const ProcedureRunConfig & run,
     // 1.  Get the input dataset
     SqlExpressionMldbScope context(server);
 
-    auto dataset = runAccuracyConf.testingData.stm->from->bind(context).dataset;
+    auto boundDataset = runAccuracyConf.testingData.stm->from->bind(context);
+    auto dataset = boundDataset.dataset;
+
+    {
+        const auto & stm = runAccuracyConf.testingData.stm;
+        vector<shared_ptr<SqlExpression> > calc;
+        bool hasOne = false;
+        auto getOne = [&] (NamedRowValue & row,
+                            const vector<ExpressionValue> & calc)
+        {
+            hasOne = true;
+            return false;
+        };
+        BoundSelectQuery(stm->select,
+                        *dataset,
+                        boundDataset.asName,
+                        stm->when,
+                        *stm->where,
+                        stm->orderBy,
+                        calc)
+            .execute({getOne, false/*processInParallel*/},
+                     stm->offset,
+                     stm->limit,
+                     onProgress);
+        if (!hasOne) {
+            throw ML::Exception("Testing set is empty");
+        }
+    }
 
     // prepare output dataset
     std::shared_ptr<Dataset> output;
