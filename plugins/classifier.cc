@@ -191,32 +191,6 @@ run(const ProcedureRunConfig & run,
 
     auto boundDataset = runProcConf.trainingData.stm->from->bind(context);
 
-    {
-        const auto & stm = runProcConf.trainingData.stm;
-        vector<shared_ptr<SqlExpression> > calc;
-        bool hasOne = false;
-        auto getOne = [&] (NamedRowValue & row,
-                            const vector<ExpressionValue> & calc)
-        {
-            hasOne = true;
-            return false;
-        };
-        BoundSelectQuery(stm->select,
-                        *boundDataset.dataset,
-                        boundDataset.asName,
-                        stm->when,
-                        *stm->where,
-                        stm->orderBy,
-                        calc)
-            .execute({getOne, false/*processInParallel*/},
-                     stm->offset,
-                     stm->limit,
-                     onProgress);
-        if (!hasOne) {
-            throw ML::Exception("Training set is empty");
-        }
-    }
-
     std::shared_ptr<ML::Mutable_Categorical_Info> categorical;
 
     ML::Mutable_Feature_Info labelInfo;
