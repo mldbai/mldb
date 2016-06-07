@@ -322,6 +322,21 @@ Encoding parseEncoding(const std::string & encodingStr)
     return encoding;
 }
 
+const char * findInvalidAscii(const char * start, size_t length, char*buf, char replaceInvalidCharactersWith) {
+
+    memcpy(buf, start, length);
+
+    char* p = buf;
+    char* end = buf+length;
+    while (p != end) {
+        if (!isJsonValid(*p))
+            *p = replaceInvalidCharactersWith;
+        ++p;
+    }
+
+    return buf;
+}
+
 } // file scope
 
 namespace {
@@ -381,9 +396,17 @@ parseFixedWidthCsvRow(const char * & line,
     auto finishString = [encoding,replaceInvalidCharactersWith]
         (const char * start, size_t len, bool eightBit)
         {
-            //cerr << "finishing string " << string(start, len) << " with eightBit " << eightBit << " and encoding " << encoding << endl;
+            //cerr << "finishing string " << string(start, len)
+            //     << " with eightBit " << eightBit
+            //     << " encoding " << encoding
+            //     << " replaceInvalidCharactersWith " << replaceInvalidCharactersWith << endl;
 
             if (!eightBit) {
+                char buf[len];
+                if (replaceInvalidCharactersWith >= 0) {
+                    ExcAssert(replaceInvalidCharactersWith < 256);
+                    start = findInvalidAscii(start, len, buf, (char)replaceInvalidCharactersWith);
+                }
                 return CellValue::parse(start, len, STRING_IS_VALID_ASCII);
             }
 
