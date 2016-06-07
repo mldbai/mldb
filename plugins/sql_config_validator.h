@@ -82,6 +82,28 @@ struct NoGroupByHaving
 };
 
 /**
+ *  Accept any select statement with empty WHERE clause.
+ *  FieldType must contain a SelectStatement named stm.
+ */
+struct NoWhere
+{
+    void operator()(const InputQuery & query, const std::string & name) const
+    {
+        if (query.stm) {
+            if (!query.stm->where->isConstantTrue()) {
+                throw ML::Exception(name + " does not support where");
+            }
+        }
+    }
+
+    void operator()(const Optional<InputQuery> & query,
+                    const std::string & name) const
+    {
+        if (query) operator()(*query, name);
+    }
+};
+
+/**
   *  Must contain a FROM clause
  */
 struct MustContainFrom

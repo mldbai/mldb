@@ -408,5 +408,63 @@ class Mldb878Test(MldbUnitTest):  # noqa
         set_union = len(rowNames[0].union(rowNames[1]))
         self.assertEqual(set_union, 5000)
 
+    def test_where_not_accepted(self):
+        with self.assertRaises(mldb_wrapper.ResponseException):
+            mldb.post("/v1/procedures", {
+                "type": "classifier.experiment",
+                "params": {
+                    'runOnCreation' : True,
+                    "experimentName": "test_no_test_data",
+                    "inputData": """
+                        SELECT {* EXCLUDING(label)} AS features, label
+                        FROM toy WHERE (rowHash() / 128) % 2 = 3""",
+                    "modelFileUrlPattern":
+                        "file://build/x86_64/tmp/test_no_test_data_$runid.cls",
+                    "algorithm": "glz",
+                    "equalizationFactor": 0.5,
+                    "mode": "boolean",
+                    "configuration": {
+                        "glz": {
+                            "type": "glz",
+                            "verbosity": 3,
+                            "normalize": False,
+                            "link": "linear",
+                            "regularization": 'l2'
+                        }
+                    },
+                    "outputAccuracyDataset": False
+                }
+            })
+
+        with self.assertRaises(mldb_wrapper.ResponseException):
+            mldb.post("/v1/procedures", {
+                "type": "classifier.experiment",
+                "params": {
+                    'runOnCreation' : True,
+                    "experimentName": "test_no_test_data",
+                    "inputData": """
+                        SELECT {* EXCLUDING(label)} AS features, label
+                        FROM toy""",
+                    "testingDataOverride" : """
+                        SELECT {* EXCLUDING(label)} AS features, label
+                        FROM toy WHERE (rowHash() / 128) % 2 = 3""",
+                    "modelFileUrlPattern":
+                        "file://build/x86_64/tmp/test_no_test_data_$runid.cls",
+                    "algorithm": "glz",
+                    "equalizationFactor": 0.5,
+                    "mode": "boolean",
+                    "configuration": {
+                        "glz": {
+                            "type": "glz",
+                            "verbosity": 3,
+                            "normalize": False,
+                            "link": "linear",
+                            "regularization": 'l2'
+                        }
+                    },
+                    "outputAccuracyDataset": False
+                }
+            })
+
 if __name__ == '__main__':
     mldb.run_tests()
