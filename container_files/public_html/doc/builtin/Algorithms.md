@@ -13,6 +13,10 @@
 * The ![](%%doclink svm.train procedure) can train [Support Vector Machines (SVM)](https://en.wikipedia.org/wiki/Support_vector_machine)
 * The ![](%%doclink probabilizer.train procedure) can calibrate classifiers
 
+## Deep Learning
+
+* * The ![](%%doclink tensorflow.graph function) can execute [TensorFlow](https://www.tensorflow.org/) models
+
 ## Clustering 
 
 * The ![](%%doclink kmeans.train procedure) can train [K-Means models](https://en.wikipedia.org/wiki/K-means_clustering) 
