@@ -1,4 +1,4 @@
-# Tensorflow Graph Function (Experimental)
+# Tensorflow Graph Function
 
 The Tensorflow Graph function creates a function which, when called,
 will apply a Tensorflow graph to the given inputs.
