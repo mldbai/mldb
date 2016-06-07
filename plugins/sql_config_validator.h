@@ -134,7 +134,7 @@ struct NoOffset
     void operator()(const InputQuery & query, const std::string & name) const
     {
         if (query.stm) {
-            if (query.stm->offset != -1) {
+            if (query.stm->offset > 0) {
                 throw ML::Exception(name + " does not support offset");
             }
         }

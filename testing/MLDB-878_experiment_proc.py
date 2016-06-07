@@ -466,7 +466,6 @@ class Mldb878Test(MldbUnitTest):  # noqa
                 }
             })
 
-    @unittest.expectedFailure
     def test_limit_not_accepted(self):
         with self.assertRaises(mldb_wrapper.ResponseException):
             mldb.post("/v1/procedures", {
@@ -525,7 +524,6 @@ class Mldb878Test(MldbUnitTest):  # noqa
                 }
             })
 
-    @unittest.expectedFailure
     def test_offset_not_accepted(self):
         with self.assertRaises(mldb_wrapper.ResponseException):
             mldb.post("/v1/procedures", {
