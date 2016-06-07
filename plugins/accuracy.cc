@@ -601,7 +601,7 @@ run(const ProcedureRunConfig & run,
     SqlExpressionMldbScope context(server);
 
     auto boundDataset = runAccuracyConf.testingData.stm->from->bind(context);
-    auto dataset = boundDataset.dataset;
+    const auto & dataset = boundDataset.dataset;
 
     {
         const auto & stm = runAccuracyConf.testingData.stm;
