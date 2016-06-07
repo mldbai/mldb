@@ -322,7 +322,7 @@ Encoding parseEncoding(const std::string & encodingStr)
     return encoding;
 }
 
-const char * find_invalid_ascii(const char * start, size_t length, char*buf, char replaceInvalidCharactersWith) {
+const char * findInvalidAscii(const char * start, size_t length, char*buf, char replaceInvalidCharactersWith) {
 
     memcpy(buf, start, length);
 
@@ -405,7 +405,7 @@ parseFixedWidthCsvRow(const char * & line,
                 char buf[len];
                 if (replaceInvalidCharactersWith >= 0) {
                     ExcAssert(replaceInvalidCharactersWith < 256);
-                    start = find_invalid_ascii(start, len, buf, (char)replaceInvalidCharactersWith);
+                    start = findInvalidAscii(start, len, buf, (char)replaceInvalidCharactersWith);
                 }
                 return CellValue::parse(start, len, STRING_IS_VALID_ASCII);
             }
