@@ -1,6 +1,8 @@
 # MLDB is the Machine Learning Database
 ### by [Datacratic](http://datacratic.com/)
 
+[![Join the chat at https://gitter.im/mldbai/mldb](https://badges.gitter.im/mldbai/mldb.svg)](https://gitter.im/mldbai/mldb?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 MLDB is a new kind of database, one that is specifically designed for operationalizing machine learning. You install it wherever you want and send it commands over a RESTful API to store and explore data, train machine learning models on that data, and then expose those models as APIs. More information is available at http://mldb.ai
 
 This repository contains the source code for MLDB, which can be used to [build the MLDB Community Edition](Building.md), which is a Docker image containing all of MLDB's dependencies and can be run anywhere.
