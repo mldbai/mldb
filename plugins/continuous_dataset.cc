@@ -179,40 +179,6 @@ struct ContinuousDataset::Itl {
 
     /// Date of the last commit
     std::atomic<double> lastCommit;
-    
-    static std::vector<std::tuple<ColumnName, CellValue, Date> >
-    extractMetadata(const Json::Value & val, ColumnName prefix = ColumnName())
-    {
-        std::vector<std::tuple<ColumnName, CellValue, Date> > result;
-        
-        switch (val.type()) {
-        case Json::objectValue:
-            for (auto it = val.begin(), end = val.end();  it != end;  ++it) {
-                ColumnName newPrefix = prefix == ColumnName()
-                                     ? ColumnName(it.memberName())
-                                     : ColumnName(prefix + it.memberName());
-                auto child = extractMetadata(*it, newPrefix);
-                result.insert(result.end(),
-                              std::make_move_iterator(child.begin()),
-                              std::make_move_iterator(child.end()));
-            }
-            break;
-        case Json::arrayValue:
-            for (unsigned i = 0;  i < val.size();  ++i) {
-                ColumnName newPrefix
-                    (prefix.toUtf8String() + "[" + std::to_string(i) + "]");
-                auto child = extractMetadata(val[i], newPrefix);
-                result.insert(result.end(),
-                              std::make_move_iterator(child.begin()),
-                              std::make_move_iterator(child.end()));
-            }
-            break;
-        default:
-            result.emplace_back(prefix, jsonDecode<CellValue>(val), Date::now());
-        }
-        
-        return result;
-    }
 
     /** Rotate the dataset, atomically, and add it to the metadata store. */
     void rotate(Date commitStarted)
@@ -289,31 +255,31 @@ struct ContinuousDataset::Itl {
         // Take the metadata and put it in the metadata database
         
         Json::Value resultsJson = jsonEncode(saveOutput.results);
-        const Json::Value & metadataJson = resultsJson["metadata"];
-        const Json::Value & configJson = resultsJson["config"];
-
         cerr << "metadata is " << jsonEncode(saveOutput) << endl;
 
         RowName rowName(savedDataset->config_->id);
 
-        std::vector<std::tuple<ColumnName, CellValue, Date> > metadata
-            = extractMetadata(metadataJson, ColumnName("md"));
-
-        std::vector<std::tuple<ColumnName, CellValue, Date> > config
-            = extractMetadata(configJson, ColumnName("config"));
-
-        metadata.insert(metadata.end(),
-                        std::make_move_iterator(config.begin()),
-                        std::make_move_iterator(config.end()));
+        std::vector<std::tuple<ColumnName, CellValue, Date> > metadata;
+        Date date = Date::now();
+        StructuredJsonParsingContext context(resultsJson);
+        auto expr = ExpressionValue::parseJson(context, date);
+        const auto onEachAtom = [&] (const Path & colName, const Path & prefix,
+                                     const CellValue & val, Date ts)
+        {
+            metadata.emplace_back(prefix.empty() ? colName : prefix + colName,
+                                  val,
+                                  ts);
+            return true;
+        };
+        expr.forEachAtom(onEachAtom);
 
         Date earliest, latest;
-        std::tie(earliest, latest)
-            = savedDataset->getTimestampRange();
+        std::tie(earliest, latest) = savedDataset->getTimestampRange();
 
         // TODO: the procedure should return this...
         metadata.emplace_back(ColumnName("earliest"), earliest, Date::now());
         metadata.emplace_back(ColumnName("latest"), latest, Date::now());
-        
+
         metadataDataset->recordRow(rowName, metadata);
 
         datasetWatches.trigger(savedDataset);
