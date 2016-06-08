@@ -172,34 +172,39 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
             if (limit != -1)
                 upper = std::min((size_t)(offset+limit), upper);
 
-            if (processInParallel) {
-
-                parallelMap(offset, upper, doRow);
-            }
-            else if (offset <= upper)
-            {
-                //Todo: to reduce memory usage, we should fill blocks of output on worker threads
-                // in order as much as possible
-                // while calling the aggregator on the caller thread.
-                ExcAssert(offset >= 0 && offset <= upper);
-                std::vector<std::tuple<NamedRowValue, std::vector<ExpressionValue> > > output(upper-offset);
-
-                auto copyRow = [&] (int rowNum)
-                {
-                   auto row = matrix->getRow(rows[rowNum]);
-
-                   auto outputRow = processRow(row, rowNum, numPerBucket, selectStar);
-                   output[rowNum-offset] = std::move(outputRow);
-                };
-
-                parallelMap(offset, upper, copyRow);
-
-                for (size_t i = offset; i < upper; ++i) {
-                    auto& outputRow = output[i-offset];
-                    if (!processor(std::get<0>(outputRow), std::get<1>(outputRow), -1))
-                        break;
+            if (offset <= upper) {
+                if (processInParallel) {
+                    parallelMap(offset, upper, doRow);
                 }
-            }            
+                else {
+                    // TODO: to reduce memory usage, we should fill blocks of
+                    // output on worker threads
+                    // in order as much as possible
+                    // while calling the aggregator on the caller thread.
+                    ExcAssert(offset >= 0 && offset <= upper);
+                    std::vector<std::tuple<NamedRowValue, std::vector<ExpressionValue> >>
+                        output(upper-offset);
+
+                    auto copyRow = [&] (int rowNum)
+                    {
+                        auto row = matrix->getRow(rows[rowNum]);
+
+                        auto outputRow =
+                            processRow(row, rowNum, numPerBucket, selectStar);
+                        output[rowNum-offset] = std::move(outputRow);
+                    };
+
+                    parallelMap(offset, upper, copyRow);
+
+                    for (size_t i = offset; i < upper; ++i) {
+                        auto& outputRow = output[i-offset];
+                        if (!processor(std::get<0>(outputRow),
+                                       std::get<1>(outputRow), -1)) {
+                            break;
+                        }
+                    }
+                }
+            }
         }
     }
 
