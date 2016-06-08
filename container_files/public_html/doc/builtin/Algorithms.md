@@ -1,6 +1,8 @@
 # Algorithm Support
 
-## Regression & Classification
+MLDB [Procedures](procedures/Procedures.md) are used to train models, which can then be applied via [Functions](functions/Functions.md).
+
+## Supervised Machine Learning
 
 * The ![](%%doclink classifier.train procedure) can train:
     * [Generalized Linear Models](https://en.wikipedia.org/wiki/Generalized_linear_model) 
@@ -15,7 +17,7 @@
 
 ## Deep Learning
 
-* * The ![](%%doclink tensorflow.graph function) can execute [TensorFlow](https://www.tensorflow.org/) models
+* The ![](%%doclink tensorflow.graph function) can execute [TensorFlow](https://www.tensorflow.org/) models
 
 ## Clustering 
 
@@ -30,4 +32,6 @@
 
 * The ![](%%doclink import.sentiwordnet procedure) can import [SentiWordNet](http://sentiwordnet.isti.cnr.it/) models 
 * The ![](%%doclink import.word2vec procedure) can import [Word2Vec](https://code.google.com/p/word2vec/) embeddings 
+* The ![](%%doclink tfidf.train procedure) can train [Term-Frequency/Inverse-Document-Frequency (TF-IDF) models](https://en.wikipedia.org/wiki/Tf%E2%80%93idf)
+* The ![](%%doclink statsTable.train procedure) can assemble tables of counts to assemble [count-based features](https://www.youtube.com/watch?v=b7OSggJUVPY)
 

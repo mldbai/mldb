@@ -35,7 +35,7 @@ hr {margin: 40px;}
 
 # Running MLDB
 
-The easiest way to get started with MLDB is to [sign up to MLDB.ai](https://mldb.ai/#signup) and launch a free 90-minute hosted MLDB session. You'll be able to browse the live documentation and run and modify the demos yourselve. You can even try running MLDB on some of your own data.
+The easiest way to get started with MLDB is to [sign up to MLDB.ai](https://mldb.ai/#signup) and launch a free 90-minute hosted MLDB session. You'll be able to browse the live documentation and run and modify the demos yourself. You can even try running MLDB on some of your own data.
 
 <p align="center"><a id="try" href="https://mldb.ai/#signup" target="_blank"> Try MLDB online right now! </a></p>
 
