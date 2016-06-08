@@ -80,7 +80,7 @@ assertContains(res2.json.error, "Exception running");
 var res3 = mldb.get("/v1/datasets/test/query",
                     { select: "jseval('return 3;')" });
 
-assertContains(res3.json.error, "jseval expected 2 arguments");
+assertContains(res3.json.error, "jseval expected at least 2 arguments");
 
 plugin.log(res3);
 
