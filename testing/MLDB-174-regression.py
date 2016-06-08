@@ -563,6 +563,41 @@ class Mldb174Test(MldbUnitTest):
             for line in explain_rez[1:]:
                 self.assertAlmostEqual(sum((x for x in line[1:4] if x != None)), line[5], places=5)
 
+    def test_mldb_1712_failure_on_non_matching_features(self):
+        model_file_url = "file://tmp/MLDB-1712-sum-explain.cls"
+
+        mldb.put("/v1/procedures/cls_train_mldb_1712", {
+            "type": "classifier.train",
+            "params": {
+                "trainingData": {
+                    "select": "{x, y} as features, label as label",
+                    "from": { "id": "test2" }
+                },
+                "configuration": self.cls_conf,
+                "algorithm": 'glz',
+                "modelFileUrl": model_file_url,
+                "mode": "regression",
+                "runOnCreation": True
+            }
+        })
+
+        mldb.put("/v1/functions/explain_dt_mldb_1712", {
+            "type": "classifier.explain",
+            "params": {
+                "modelFileUrl": model_file_url
+            }
+        })
+
+
+        msg = "The specified features couldn't be found in the classifier."
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+            mldb.query("""
+                SELECT explain_dt_mldb_1712({{octosanchez} AS features,
+                                              label AS label}) AS explain,
+                        label AS label
+                FROM test2
+            """)
+
 
     def test_r2(self):
         ds = mldb.create_dataset({ "id": "r2_sample", "type": "sparse.mutable" })
