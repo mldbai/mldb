@@ -42,7 +42,7 @@ class ClassifierTestErrorWhenNoDataTest(MldbUnitTest):  # noqa
         })
 
     def test_classifier_test_no_data(self):
-        err_str = 'Testing set is empty'
+        err_str = "Cannot run classifier.test procedure on empty test set"
         with self.assertRaisesRegexp(mldb_wrapper.ResponseException, err_str):
             mldb.post('/v1/procedures', {
                 "type": "classifier.test",

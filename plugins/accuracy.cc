@@ -33,6 +33,8 @@
 #include "mldb/plugins/sql_expression_extractors.h"
 #include "mldb/server/parallel_merge_sort.h"
 
+#define NO_DATA_ERR_MSG "Cannot run classifier.test procedure on empty test set"
+
 using namespace std;
 
 
@@ -42,6 +44,7 @@ namespace MLDB {
 typedef std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > Rows;
 
 DEFINE_STRUCTURE_DESCRIPTION(AccuracyConfig);
+
 
 AccuracyConfigDescription::
 AccuracyConfigDescription()
@@ -144,13 +147,18 @@ runBoolean(AccuracyConfig & runAccuracyConf,
 
     // Now merge out stats together
     ScoredStats stats;
+    bool gotStuff = false;
 
     accum.forEach([&] (ScoredStats * thrStats)
                   {
+                      gotStuff = true;
                       thrStats->sort();
                       stats.add(*thrStats);
                   });
 
+    if (!gotStuff) {
+        throw ML::Exception(NO_DATA_ERR_MSG);
+    }
 
     //stats.sort();
     stats.calculate();
@@ -310,8 +318,10 @@ runCategorical(AccuracyConfig & runAccuracyConf,
     map<CellValue, map<CellValue, unsigned>> confusion_matrix;
     map<CellValue, unsigned> predicted_sums;
     map<CellValue, unsigned> real_sums;
+    bool gotStuff = false;
     accum.forEach([&] (AccumBucket * thrBucket)
             {
+                gotStuff = true;
                 for(auto & elem : *thrBucket) {
                     const CellValue & label = std::get<0>(elem);
                     const CellValue & predicted = std::get<1>(elem);
@@ -332,7 +342,9 @@ runCategorical(AccuracyConfig & runAccuracyConf,
                 }
             });
 
-
+    if (!gotStuff) {
+        throw ML::Exception(NO_DATA_ERR_MSG);
+    }
     // Create per-class statistics
     Json::Value results;
     results["labelStatistics"] = Json::Value();
@@ -506,8 +518,9 @@ runRegression(AccuracyConfig & runAccuracyConf,
                         allThreadLabels.emplace_back(std::move(thrStats->labels));
                   });
 
-    if(n == 0)
-        throw ML::Exception("Cannot run classifier.test procedure on empty test set");
+    if(n == 0) {
+        throw ML::Exception(NO_DATA_ERR_MSG);
+    }
 
     std::mutex mergeAccumsLock;
 
@@ -595,39 +608,13 @@ AccuracyProcedure::
 run(const ProcedureRunConfig & run,
     const std::function<bool (const Json::Value &)> & onProgress) const
 {
+    cerr << "IN RUN" << endl;
     auto runAccuracyConf = applyRunConfOverProcConf(accuracyConfig, run);
 
     // 1.  Get the input dataset
     SqlExpressionMldbScope context(server);
 
-    auto boundDataset = runAccuracyConf.testingData.stm->from->bind(context);
-    const auto & dataset = boundDataset.dataset;
-
-    {
-        const auto & stm = runAccuracyConf.testingData.stm;
-        vector<shared_ptr<SqlExpression> > calc;
-        bool hasOne = false;
-        auto getOne = [&] (NamedRowValue & row,
-                            const vector<ExpressionValue> & calc)
-        {
-            hasOne = true;
-            return false;
-        };
-        BoundSelectQuery(stm->select,
-                        *dataset,
-                        boundDataset.asName,
-                        stm->when,
-                        *stm->where,
-                        stm->orderBy,
-                        calc)
-            .execute({getOne, false/*processInParallel*/},
-                     stm->offset,
-                     stm->limit,
-                     onProgress);
-        if (!hasOne) {
-            throw ML::Exception("Testing set is empty");
-        }
-    }
+    auto dataset = runAccuracyConf.testingData.stm->from->bind(context).dataset;
 
     // prepare output dataset
     std::shared_ptr<Dataset> output;
@@ -659,6 +646,7 @@ run(const ProcedureRunConfig & run,
                      calc);
 
     if(runAccuracyConf.mode == CM_BOOLEAN)
+        cerr << "Going to run boolean!" << endl;
         return runBoolean(runAccuracyConf, boundQuery, output);
     if(runAccuracyConf.mode == CM_CATEGORICAL)
         return runCategorical(runAccuracyConf, boundQuery, output);
