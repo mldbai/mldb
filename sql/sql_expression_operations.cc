@@ -63,8 +63,8 @@ doComparison(const SqlExpression * expr,
             -> const ExpressionValue &
             {
                 ExpressionValue lstorage, rstorage;
-                const ExpressionValue & l = boundLhs(row, lstorage, filter);
-                const ExpressionValue & r = boundRhs(row, rstorage, filter);
+                const ExpressionValue & l = boundLhs(row, lstorage, GET_LATEST);
+                const ExpressionValue & r = boundRhs(row, rstorage, GET_LATEST);
                 // cerr << "left " << l << " " << "right " << r << endl;
                 Date ts = calcTs(l, r);
                 if (l.empty() || r.empty())
