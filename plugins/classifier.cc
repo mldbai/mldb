@@ -1076,6 +1076,11 @@ apply(const FunctionApplier & applier,
 
     std::tie(dense, fset, ts) = getFeatureSet(context, false /* attempt to optimize */);
 
+    if (fset->features.empty()) {
+        throw ML::Exception("The specified features couldn't be found in the "
+                            "classifier.");
+    }
+
     CellValue label = context.getColumn("label").getAtom();
 
     ML::Explanation expl
