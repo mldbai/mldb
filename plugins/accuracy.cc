@@ -608,7 +608,6 @@ AccuracyProcedure::
 run(const ProcedureRunConfig & run,
     const std::function<bool (const Json::Value &)> & onProgress) const
 {
-    cerr << "IN RUN" << endl;
     auto runAccuracyConf = applyRunConfOverProcConf(accuracyConfig, run);
 
     // 1.  Get the input dataset
@@ -646,7 +645,6 @@ run(const ProcedureRunConfig & run,
                      calc);
 
     if(runAccuracyConf.mode == CM_BOOLEAN)
-        cerr << "Going to run boolean!" << endl;
         return runBoolean(runAccuracyConf, boundQuery, output);
     if(runAccuracyConf.mode == CM_CATEGORICAL)
         return runCategorical(runAccuracyConf, boundQuery, output);
