@@ -776,7 +776,8 @@ registerMod(mod, std::make_shared<IntegerValueInfo>(), "mod");
 double ln(double v)
 {
     if (v <= 0)
-        throw HttpReturnException(400, "ln function supports positive numbers only");
+        throw HttpReturnException(400, "ln function supports strictly"
+                                       " positive numbers only");
 
     return std::log(v);
 }
@@ -784,7 +785,8 @@ double ln(double v)
 double sqrt(double v)
 {
     if (v < 0)
-        throw HttpReturnException(400, "sqrt function supports positive numbers only");
+        throw HttpReturnException(400, "sqrt function supports non-negative"
+                                       " numbers only");
 
     return std::sqrt(v);
 }
