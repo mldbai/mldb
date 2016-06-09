@@ -1078,7 +1078,8 @@ apply(const FunctionApplier & applier,
 
     if (fset->features.empty()) {
         throw ML::Exception("The specified features couldn't be found in the "
-                            "classifier.");
+                            "classifier. At least one non-null feature column "
+                            "must be provided.");
     }
 
     CellValue label = context.getColumn("label").getAtom();
