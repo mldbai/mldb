@@ -153,6 +153,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
             ExcAssert(processInParallel);
             ExcAssertEqual(limit, -1);
             ExcAssertEqual(offset, 0);
+            std::atomic_ulong bucketCount(0);
             auto doBucket = [&] (int bucketNumber) -> bool
                 {
                     size_t it = bucketNumber * numPerBucket;
@@ -161,6 +162,12 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                     {
                         if (!doRow(it))
                             return false;
+                    }
+
+                    if (onProgress) {
+                        Json::Value progress;
+                        progress["percent"] = (float) ++bucketCount / effectiveNumBucket;
+                        onProgress(progress);
                     }
                     return true;
                 };
@@ -242,8 +249,9 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
 
         ExcAssert(processInParallel);
 
+        std::atomic_ulong bucketCount(0);
         auto doBucket = [&] (int bucketNumber) -> bool
-            {                
+            {
                 size_t it = bucketNumber * numPerBucket;
                 int stopIt = bucketNumber == numBuckets - 1 ? numRows : it + numPerBucket;
                 auto stream = whereGenerator.rowStream->clone();
@@ -259,6 +267,11 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                     /* Finally, pass to the terminator to continue. */
                     if (!processor(std::get<0>(output), std::get<1>(output), bucketNumber))
                         return false;
+                }
+                if (onProgress) {
+                    Json::Value progress;
+                    progress["percent"] = (float) ++bucketCount / effectiveNumBucket;
+                    onProgress(progress);
                 }
                 return true;
             };
@@ -382,8 +395,11 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
 
                 auto row = matrix->getRow(rows[rowNum]);
 
-                //if (rowNum % 1000 == 0)
-                //    cerr << "applying row " << rowNum << " of " << rows.size() << endl;
+                if (onProgress && rowsAdded % 1000 == 0) {
+                    Json::Value progress;
+                    progress["percent"] = (float) rowsAdded / rows.size();
+                    onProgress(progress);
+                }
 
                 // Check it matches the where expression.  If not, we don't process
                 // it.
@@ -533,7 +549,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
     }
 
      /* execute_bloc will query all the relevant rowNames in advance
-       using the whereGenerator()                                           */          
+       using the whereGenerator()                                           */
      virtual void execute_bloc(std::function<bool (NamedRowValue & output,
                                              std::vector<ExpressionValue> & calcd,
                                              int rowNum)> processor,
