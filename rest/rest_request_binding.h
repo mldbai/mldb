@@ -397,7 +397,8 @@ createParameterExtractor(Json::Value & argHelp,
                 const RestRequest & request,
                 const RestRequestParsingContext & context)
         {
-            Json::Value parsed = Json::parse(request.payload);
+            Json::Value parsed = request.payload == "" ?
+                Json::objectValue : Json::parse(request.payload);
             return JsonCodec<T>::decode(p.name.empty() ? parsed : parsed[p.name]);
         };
 }
