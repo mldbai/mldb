@@ -122,7 +122,7 @@ struct MldbServer: public ServicePeer, public EventRecorder {
                       bool rowNames,
                       bool rowHashes,
                       bool sortColumns,
-                      const Utf8String & fmlh) const;
+                      const Utf8String & bQuery) const;
 
     /** Get a type info structure for the given type. */
     Json::Value

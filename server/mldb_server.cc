@@ -188,7 +188,7 @@ initRoutes()
     if (supportsSystemRequirements()) {
         const auto queryStringDef = "The string representing the SQL query. "
                                     "Must be defined either as a query string "
-                                    "parameter or as JSON the body.";
+                                    "parameter or the JSON body.";
         addRouteAsync(versionNode, "/query", { "GET" },
                       "Select from dataset",
                       &MldbServer::runHttpQuery,
