@@ -186,9 +186,9 @@ initRoutes()
 
    // MLDB-1380 - make sure that the CPU support the minimal instruction sets
     if (supportsSystemRequirements()) {
-        const auto queryStringDef = "The SQL query string. Must be defined "
-                                    "either as a query string parameter or "
-                                    "in the body.";
+        const auto queryStringDef = "The string representing the SQL query. "
+                                    "Must be defined either as a query string "
+                                    "parameter or as JSON the body.";
         addRouteAsync(versionNode, "/query", { "GET" },
                       "Select from dataset",
                       &MldbServer::runHttpQuery,
@@ -254,13 +254,13 @@ runHttpQuery(const Utf8String& qsQuery,
     if (qsQuery == "" && bQuery == "") {
         throw ML::Exception("q is currently undefined. It must be defined "
                             "either as a query string parameter or as a key "
-                            "in body data.");
+                            "in body payload.");
     }
 
     if (qsQuery != "" && bQuery != "") {
         throw ML::Exception("q is currently defined twice. It must be defined "
                             "either as a query string parameter or as a key "
-                            "in body data.");
+                            "in body paylaod.");
     }
 
     auto stm = SelectStatement::parse(
