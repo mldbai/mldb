@@ -186,12 +186,15 @@ initRoutes()
 
    // MLDB-1380 - make sure that the CPU support the minimal instruction sets
     if (supportsSystemRequirements()) {
+        const auto queryStringDef = "The SQL query string. Must be defined "
+                                    "either as a query string parameter or "
+                                    "in the body.";
         addRouteAsync(versionNode, "/query", { "GET" },
                       "Select from dataset",
                       &MldbServer::runHttpQuery,
                       this,
                       // Query string parameters
-                      RestParamDefault<Utf8String>("q", "The SQL query string", ""),
+                      RestParamDefault<Utf8String>("q", queryStringDef, ""),
                       PassConnectionId(),
                       RestParamDefault<std::string>("format",
                                                     "Format of output",
@@ -210,7 +213,7 @@ initRoutes()
                                              false),
 
                       // Body parameters
-                      JsonParam<Utf8String>("q", "Query payload ftw"));
+                      JsonParam<Utf8String>("q", queryStringDef));
 
 
         this->versionNode = &versionNode;
