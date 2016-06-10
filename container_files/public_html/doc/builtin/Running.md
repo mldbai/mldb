@@ -181,7 +181,11 @@ Either double-click on the OVA file or open VirtualBox and choose *Import Applia
 
 **Step 3 - Run the MLDB Virtual Machine**
 
-Double-click on the MLDB Appliance in the main VirtualBox window, which will launch the VM. When it's booted, you will see a login prompt, but **you do not need to log in**, you can just proceed to the next step. If you do want to log in, the username is `ubuntu` and the password is `mldb`. You can also SSH into the VM on port 2222 on localhost.
+Double-click on the MLDB Appliance in the main VirtualBox window, which will launch the VM. When it's booted, you will see a login prompt, but **you do not need to log in**, you can just proceed to the next step. If you do want to log in, the username is `ubuntu` and the password is `mldb`. You can also SSH into the VM on port 2222 on localhost:
+
+```
+ssh -P2222 ubuntu@localhost
+```
 
 **Step 4 - Activate MLDB**
 
