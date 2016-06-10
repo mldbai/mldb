@@ -263,15 +263,8 @@ struct ContinuousDataset::Itl {
         Date date = Date::now();
         StructuredJsonParsingContext context(resultsJson);
         auto expr = ExpressionValue::parseJson(context, date);
-        const auto onEachAtom = [&] (const Path & colName, const Path & prefix,
-                                     const CellValue & val, Date ts)
-        {
-            metadata.emplace_back(prefix.empty() ? colName : prefix + colName,
-                                  val,
-                                  ts);
-            return true;
-        };
-        expr.forEachAtom(onEachAtom);
+        Path path;
+        expr.appendToRowDestructive(path, metadata);
 
         Date earliest, latest;
         std::tie(earliest, latest) = savedDataset->getTimestampRange();
