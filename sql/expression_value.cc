@@ -201,26 +201,98 @@ getDouble(const void * buf, StorageType storageType, size_t n)
 }
 #endif
 
-double coerceTo(const CellValue & val, double *)
-{
-    return val.coerceToNumber().toDouble();
-}
-
 double coerceTo(Date d, double *)
 {
     return d.secondsSinceEpoch();
 }
 
+float coerceTo(Date d, float *)
+{
+    return d.secondsSinceEpoch();
+}
+
 template<typename T>
-double coerceTo(const T & t, double *,
-                typename std::enable_if<std::is_arithmetic<T>::value>::type * = 0)
+T coerceTo(const T & t, T *)
 {
     return t;
 }
 
 template<typename T>
-double coerceTo(const T & t, double *,
-                typename std::enable_if<!std::is_arithmetic<T>::value>::type * = 0)
+CellValue coerceTo(const T & t, CellValue *)
+{
+    return t;
+}
+
+CellValue coerceTo(const CellValue & t, CellValue *)
+{
+    return t;
+}
+
+float coerceTo(const CellValue & v, float *)
+{
+    return v.toDouble();
+}
+
+double coerceTo(const CellValue & v, double *)
+{
+    return v.toDouble();
+}
+
+uint8_t coerceTo(const CellValue & v, uint8_t *)
+{
+    return v.toUInt();
+}
+
+uint16_t coerceTo(const CellValue & v, uint16_t *)
+{
+    return v.toUInt();
+}
+
+uint32_t coerceTo(const CellValue & v, uint32_t *)
+{
+    return v.toUInt();
+}
+
+uint64_t coerceTo(const CellValue & v, uint64_t *)
+{
+    return v.toUInt();
+}
+
+int8_t coerceTo(const CellValue & v, int8_t *)
+{
+    return v.toInt();
+}
+
+int16_t coerceTo(const CellValue & v, int16_t *)
+{
+    return v.toInt();
+}
+
+int32_t coerceTo(const CellValue & v, int32_t *)
+{
+    return v.toInt();
+}
+
+int64_t coerceTo(const CellValue & v, int64_t *)
+{
+    return v.toInt();
+}
+
+bool coerceTo(const CellValue & v, bool *)
+{
+    return v.toInt();
+}
+
+template<typename T, typename TResult>
+TResult coerceTo(const T & t, TResult *,
+                 typename std::enable_if<std::is_arithmetic<T>::value && std::is_arithmetic<TResult>::value>::type * = 0)
+{
+    return t;
+}
+
+template<typename T, typename TReturn>
+TReturn coerceTo(const T & t, TReturn *,
+                 typename std::enable_if<!(std::is_arithmetic<T>::value && std::is_arithmetic<TReturn>::value)>::type * = 0)
 {
     throw HttpReturnException(400, "Can't coerce non-numeric value to numeric type");
 }
@@ -2827,6 +2899,115 @@ getEmbedding(const ColumnName * knownNames, size_t len) const
     }
 
     return features;
+}
+
+void
+ExpressionValue::
+convertEmbedding(void * buf, size_t len, StorageType bufType) const
+{
+    switch (type_) {
+
+    case Type::EMBEDDING: {
+        std::vector<size_t> shape = getEmbeddingShape();
+        size_t totalLength = 1;
+        for (auto & s: shape)
+            totalLength *= s;
+
+        if (len != totalLength)
+            throw HttpReturnException(400,
+                                      "wrong number of columns for embedding",
+                                      "shape", shape,
+                                      "totalLength", totalLength,
+                                      "numExpectedCols", len);
+
+        switch (bufType) {
+        case ST_FLOAT32:
+            getNumbers(embedding_->data_.get(),
+                       embedding_->storageType_,
+                       (float *)buf, len);
+            return;
+        case ST_FLOAT64:
+            getNumbers(embedding_->data_.get(),
+                       embedding_->storageType_,
+                       (double *)buf, len);
+            return;
+        case ST_INT8:
+            getNumbers(embedding_->data_.get(),
+                       embedding_->storageType_,
+                       (int8_t *)buf, len);
+            return;
+        case ST_UINT8:
+            getNumbers(embedding_->data_.get(),
+                       embedding_->storageType_,
+                       (uint8_t *)buf, len);
+            return;
+        case ST_INT16:
+            getNumbers(embedding_->data_.get(),
+                       embedding_->storageType_,
+                       (int16_t *)buf, len);
+            return;
+        case ST_UINT16:
+            getNumbers(embedding_->data_.get(),
+                       embedding_->storageType_,
+                       (uint16_t *)buf, len);
+            return;
+        case ST_INT32:
+            getNumbers(embedding_->data_.get(),
+                       embedding_->storageType_,
+                       (int32_t *)buf, len);
+            return;
+        case ST_UINT32:
+            getNumbers(embedding_->data_.get(),
+                       embedding_->storageType_,
+                       (uint32_t *)buf, len);
+            return;
+        case ST_INT64:
+            getNumbers(embedding_->data_.get(),
+                       embedding_->storageType_,
+                       (int64_t *)buf, len);
+            return;
+        case ST_UINT64:
+            getNumbers(embedding_->data_.get(),
+                       embedding_->storageType_,
+                       (uint64_t *)buf, len);
+            return;
+        case ST_BLOB:
+            getNumbers(embedding_->data_.get(),
+                       embedding_->storageType_,
+                       (std::vector<uint8_t> *)buf, len);
+            return;
+        case ST_STRING:
+            getNumbers(embedding_->data_.get(),
+                       embedding_->storageType_,
+                       (std::string *)buf, len);
+            return;
+        case ST_UTF8STRING:
+            getNumbers(embedding_->data_.get(),
+                       embedding_->storageType_,
+                       (Utf8String *)buf, len);
+            return;
+        case ST_ATOM:
+            getNumbers(embedding_->data_.get(),
+                       embedding_->storageType_,
+                       (CellValue *)buf, len);
+            return;
+        case ST_BOOL:
+            getNumbers(embedding_->data_.get(),
+                       embedding_->storageType_,
+                       (bool *)buf, len);
+            return;
+        case ST_TIMESTAMP:
+            getNumbers(embedding_->data_.get(),
+                       embedding_->storageType_,
+                       (Date *)buf, len);
+            return;
+        case ST_TIMEINTERVAL:
+            throw HttpReturnException(500, "Can't store time intervals");
+        }
+    }
+    default:
+        throw HttpReturnException(500, "convertEmbedding called for non-embedding");
+    }
 }
 
 std::vector<CellValue>
