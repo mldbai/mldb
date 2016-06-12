@@ -51,6 +51,7 @@ LIBMLDB_BUILTIN_PLUGIN_SOURCES:= \
 	progress.cc \
 	useragent_function.cc \
 	summary_statistics_proc.cc \
+	lidar.cc \
 
 
 # Needed so that Python plugin can find its header
