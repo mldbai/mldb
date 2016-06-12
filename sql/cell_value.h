@@ -485,7 +485,8 @@ private:
         };
         struct {
             uint32_t strType:4;
-            uint32_t strLength:28;
+            uint32_t strFlags:4;
+            uint32_t strLength:24;
         };
         struct {
             uint32_t floatType:4;

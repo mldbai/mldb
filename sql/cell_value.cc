@@ -34,9 +34,34 @@ namespace MLDB {
 CellValue::
 CellValue(const Path & path)
 {
+    // Optimized path for when we have just one simple element
+    if (path.size() == 1) {
+
+        const char * p;
+        size_t l;
+        std::tie(p, l) = path.getStringView(0);
+
+        strLength = l;
+        strFlags = 1;  // length of path
+
+        if (strLength <= INTERNAL_LENGTH) {
+            std::copy(p, p + strLength, shortString);
+            type = ST_SHORT_PATH;
+        }
+        else {
+            void * mem = malloc(sizeof(StringRepr) + strLength);
+            longString = new (mem) StringRepr;
+            std::copy(p, p + strLength, longString->repr);
+            type = ST_LONG_PATH;
+        }
+
+        return;
+    }
+
     Utf8String u = path.toUtf8String();
 
     strLength = u.rawLength();
+    strFlags = path.size() > 15 ? 15 : path.size();
 
     if (strLength <= INTERNAL_LENGTH) {
         std::copy(u.rawData(), u.rawData() + strLength, shortString);
@@ -599,7 +624,17 @@ coerceToPath() const
     if (type == ST_EMPTY)
         return Path();
     else if (type == ST_SHORT_PATH || type == ST_LONG_PATH) {
-        return Path::parse(toUtf8String());
+        if (strFlags == 1) {
+            // Single-element; fast path
+            PathBuilder builder;
+            return builder.add(stringChars(), toStringLength()).extract();
+        }
+        return Path::parse(stringChars(), toStringLength());
+    }
+    else if (type == ST_ASCII_SHORT_STRING || type == ST_ASCII_LONG_STRING
+             || type == ST_UTF8_SHORT_STRING || type == ST_UTF8_LONG_STRING) {
+        PathBuilder builder;
+        return builder.add(stringChars(), toStringLength()).extract();
     }
     else return Path(toUtf8String());
 }
