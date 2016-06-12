@@ -1984,7 +1984,7 @@ ExpressionValue(std::vector<CellValue> values,
     content->storageType_ = ST_ATOM;
     content->dims_ = std::move(shape);
     if (content->dims_.empty())
-        content->dims_ = { values.size() };
+        content->dims_ = { movedVals->size() };
 
     new (storage_) std::shared_ptr<const Embedding>(std::move(content));
     type_ = Type::EMBEDDING;
@@ -1995,17 +1995,16 @@ ExpressionValue(std::vector<float> values, Date ts,
                 std::vector<size_t> shape)
     : type_(Type::NONE), ts_(ts)
 {
-    std::shared_ptr<float> vals(new float[values.size()],
-                                    [] (float * p) { delete[] p; });
-    std::copy(std::make_move_iterator(values.begin()),
-              std::make_move_iterator(values.end()),
-              vals.get());
+    // This avoids needing to reallocate... it essentially allows us to create
+    // a shared_ptr that owns the storage of a vector
+    auto movedVals = std::make_shared<std::vector<float> >(std::move(values));
+    std::shared_ptr<float> vals(movedVals, movedVals->data());
     std::shared_ptr<Embedding> content(new Embedding());
     content->data_ = std::move(vals);
     content->storageType_ = ST_FLOAT32;
     content->dims_ = std::move(shape);
     if (content->dims_.empty())
-        content->dims_ = { values.size() };
+        content->dims_ = { movedVals->size() };
     
     new (storage_) std::shared_ptr<const Embedding>(std::move(content));
     type_ = Type::EMBEDDING;
@@ -2016,17 +2015,16 @@ ExpressionValue(std::vector<double> values, Date ts,
                 std::vector<size_t> shape)
     : type_(Type::NONE), ts_(ts)
 {
-    std::shared_ptr<double> vals(new double[values.size()],
-                                    [] (double * p) { delete[] p; });
-    std::copy(std::make_move_iterator(values.begin()),
-              std::make_move_iterator(values.end()),
-              vals.get());
+    // This avoids needing to reallocate... it essentially allows us to create
+    // a shared_ptr that owns the storage of a vector
+    auto movedVals = std::make_shared<std::vector<double> >(std::move(values));
+    std::shared_ptr<double> vals(movedVals, movedVals->data());
     std::shared_ptr<Embedding> content(new Embedding());
     content->data_ = std::move(vals);
     content->storageType_ = ST_FLOAT64;
     content->dims_ = std::move(shape);
     if (content->dims_.empty())
-        content->dims_ = { values.size() };
+        content->dims_ = { movedVals->size() };
     
     new (storage_) std::shared_ptr<const Embedding>(std::move(content));
     type_ = Type::EMBEDDING;
