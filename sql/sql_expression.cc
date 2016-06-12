@@ -117,8 +117,9 @@ ExpressionValue
 BoundSqlExpression::
 constantValue() const
 {
+    return expr->constantValue();
+
     if (!metadata.isConstant) {
-        cerr << "surface = " << expr->surface << endl;
         throw HttpReturnException
             (400, "Attempt to extract constant from non-constant expression.  "
              "One of the elements of the expression requires a constant "
@@ -3098,6 +3099,17 @@ isIdentitySelect(SqlExpressionDatasetScope & context) const
     // execution of some expressions.
     return clauses.size() == 1
         && clauses[0]->isIdentitySelect(context);
+}
+
+bool
+SelectExpression::
+isConstant() const
+{
+    for (auto & c: clauses) {
+        if (!c->isConstant())
+            return false;
+    }
+    return true;
 }
 
 struct SelectExpressionDescription
