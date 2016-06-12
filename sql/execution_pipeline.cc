@@ -534,16 +534,19 @@ partition(int numElements)
 
 std::shared_ptr<PipelineElement>
 PipelineElement::
-statement(SelectStatement& stm, GetParamInfo getParamInfo)
+statement(const SelectStatement& stm, GetParamInfo getParamInfo)
 {
     auto root = shared_from_this();
 
     bool hasGroupBy = !stm.groupBy.empty();
-    std::vector< std::shared_ptr<SqlExpression> > aggregators = stm.select.findAggregators(hasGroupBy);
+    std::vector< std::shared_ptr<SqlExpression> > aggregators
+        = stm.select.findAggregators(hasGroupBy);
+
+    auto groupBy = stm.groupBy;
 
     if (!hasGroupBy && !aggregators.empty()) {
         //if we have no group by but aggregators, make a universal group
-        stm.groupBy.clauses.emplace_back(SqlExpression::parse("1"));
+        groupBy.clauses.emplace_back(SqlExpression::parse("1"));
         hasGroupBy = true;
     }
 
@@ -555,9 +558,9 @@ statement(SelectStatement& stm, GetParamInfo getParamInfo)
                    SelectExpression::STAR, stm.where,
                    OrderByExpression(), getParamInfo)
             ->where(stm.where)
-            ->select(stm.groupBy)
-            ->sort(stm.groupBy)
-            ->partition(stm.groupBy.clauses.size())
+            ->select(groupBy)
+            ->sort(groupBy)
+            ->partition(groupBy.clauses.size())
             ->where(stm.having)
             ->select(stm.orderBy)
             ->sort(stm.orderBy)

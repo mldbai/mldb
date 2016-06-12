@@ -446,6 +446,20 @@ struct Dataset: public MldbEntity {
                     Utf8String alias = "") const;
 
     /** Select from the database. */
+    virtual bool
+    queryStructuredIncremental(std::function<bool (Path &, ExpressionValue &)> & onRow,
+                               const SelectExpression & select,
+                               const WhenExpression & when,
+                               const SqlExpression & where,
+                               const OrderByExpression & orderBy,
+                               const TupleExpression & groupBy,
+                               const SqlExpression & having,
+                               const SqlExpression & rowName,
+                               ssize_t offset,
+                               ssize_t limit,
+                               Utf8String alias = "") const;
+
+    /** Select from the database. */
     virtual std::vector<MatrixNamedRow>
     queryString(const Utf8String & query) const;
     
