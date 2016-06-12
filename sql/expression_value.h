@@ -833,6 +833,13 @@ struct ExpressionValue {
     ML::distribution<double, std::vector<double> >
     getEmbedding(const ColumnName * knownNames, size_t len) const;
 
+    /** Convert an embedding to an array of the given storage type.  The
+        elements will be filled in to the existing memory.  Throws an
+        exception if len is not correct to cover the exact amount of
+        memory required.
+    */
+    void convertEmbedding(void * buf, size_t len, StorageType bufType) const;
+
     /** Iterate over the child expression, with an ExpressionValue at each
         level.  Note that if isRow() is false, than this function will
         NOT call the callback; it's only called for row-valued values.
