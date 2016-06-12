@@ -47,6 +47,7 @@ LIBMLDB_BUILTIN_PLUGIN_SOURCES:= \
 	tfidf.cc \
 	tokensplit.cc \
 	script_function.cc \
+	lidar.cc \
 
 
 # Needed so that Python plugin can find its header
