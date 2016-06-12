@@ -118,7 +118,8 @@ toValueInfo(std::shared_ptr<const ValueDescription> desc)
         // transformation.
         
         if (*desc->type == typeid(ExpressionValue)) {
-            auto info = std::make_shared<AnyValueInfo>();
+            auto info = extractExpressionValueInfo(desc);
+
             FromInput fromInput = [] (void * obj, const ExpressionValue & input)
                 {
                     *static_cast<ExpressionValue *>(obj) = input;
@@ -145,7 +146,6 @@ toValueInfo(std::shared_ptr<const ValueDescription> desc)
                 };
             
             return std::make_tuple(info, fromInput, toOutput);
-           
         }
         break;
     }
