@@ -1781,9 +1781,12 @@ bind(SqlBindingScope & scope) const
                 cells.reserve(boundClauses.size());
 
                 for (auto & c: boundClauses) {
-                    ExpressionValue v = c(scope, filter);
+                    ExpressionValue storage2;
+                    const ExpressionValue & v = c(scope, storage2, filter);
                     ts.setMax(v.getEffectiveTimestamp());
-                    cells.emplace_back(v.stealAtom());
+                    if (&v == &storage2)
+                        cells.emplace_back(storage2.stealAtom());
+                    else cells.emplace_back(v.getAtom());
                 }
 
                 ExpressionValue result(std::move(cells), ts);
