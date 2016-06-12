@@ -816,6 +816,19 @@ add(const PathElement & element)
 
 PathBuilder &
 PathBuilder::
+add(const char * utf8Str, size_t charLength)
+{
+    bytes.append(utf8Str, utf8Str + charLength);
+    if (indexes.size() <= 16) {
+        digits_ = digits_ | (calcDigits(utf8Str, charLength) << (2 * (indexes.size() - 1)));
+    }
+    indexes.emplace_back(bytes.size());
+    
+    return *this;
+}
+
+PathBuilder &
+PathBuilder::
 addRange(const Path & path, size_t first, size_t last)
 {
     if (last > path.size())
