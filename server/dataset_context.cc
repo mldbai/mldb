@@ -242,14 +242,6 @@ doGetFunction(const Utf8String & tableName,
     if (fnoverride)
         return fnoverride;
 
-    // Look for a derived function
-    auto fnderived
-        = getDatasetDerivedFunction(tableName, functionName, args, argScope,
-                                    *this, "row");
-
-    if (fnderived)
-        return fnderived;
-
     if (functionName == "rowName") {
         return {[=] (const std::vector<ExpressionValue> & args,
                      const SqlRowScope & context)
@@ -285,6 +277,14 @@ doGetFunction(const Utf8String & tableName,
                 std::make_shared<Uint64ValueInfo>()
                 };
     }
+
+    // Look for a derived function
+    auto fnderived
+        = getDatasetDerivedFunction(tableName, functionName, args, argScope,
+                                    *this, "row");
+
+    if (fnderived)
+        return fnderived;
 
     /* columnCount function: return number of columns with explicit values set
        in the current row.
