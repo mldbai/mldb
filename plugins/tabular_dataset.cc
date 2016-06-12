@@ -504,8 +504,13 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         cerr << "hasOther = " << types.hasOther << endl;
 #endif
 
+        ssize_t fixedOffset
+            = it->second < fixedColumns.size()
+            ? it->second
+            : -1;
+
         return KnownColumn(columnName, types.getExpressionValueInfo(),
-                           COLUMN_IS_DENSE);
+                           COLUMN_IS_DENSE, fixedOffset);
     }
 
     template<typename T>

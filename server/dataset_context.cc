@@ -308,6 +308,41 @@ doGetColumn(const Utf8String & tableName,
     }
     if (simplified.empty())
         simplified = columnName;
+    
+    // Look to see if we can immediately know which element is this column
+    // TODO: use getKnownColumnInfo...
+    auto info = dataset.getRowInfo();
+
+    std::shared_ptr<ExpressionValueInfo> knownColInfo;
+    ssize_t knownOffset = -1;
+    for (auto & i: info->getKnownColumns()) {
+        if (i.columnName == simplified) {
+            knownOffset = i.offset;
+            knownColInfo = i.valueInfo;
+            break;
+        }
+    }
+
+    if (!knownColInfo)
+        knownColInfo.reset(new AtomValueInfo());
+
+    if (knownOffset != -1) {
+        // We know exactly where it lives, so we can look it up directly
+        // without scanning the whole row
+        return {[=] (const SqlRowScope & context,
+                     ExpressionValue & storage,
+                     const VariableFilter & filter) -> const ExpressionValue &
+                {
+                    auto & row = context.as<RowScope>();
+                    ExcAssertEqual(std::get<0>(row.row.columns.at(knownOffset)),
+                                   simplified);
+                    return storage = ExpressionValue
+                        (std::get<1>(row.row.columns[knownOffset]),
+                         std::get<2>(row.row.columns[knownOffset]));
+                },
+                knownColInfo};
+    }
+
 
     //cerr << "doGetColumn: " << tableName << " " << columnName << endl;
     //cerr << columnName.size() << endl;
@@ -323,7 +358,7 @@ doGetColumn(const Utf8String & tableName,
                 auto & row = context.as<RowScope>();
                 return row.getColumn(simplified, filter, storage);
             },
-            std::make_shared<AtomValueInfo>()};
+            knownColInfo};
 }
 
 
