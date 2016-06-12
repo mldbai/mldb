@@ -310,13 +310,13 @@ toUtf8String() const
     case ST_ASCII_LONG_STRING:
     case ST_LONG_BLOB:
     case ST_LONG_PATH:
-         try {
+        try {
             return Utf8String(longString->repr, (size_t)strLength);
         } catch (...) {
-            for (unsigned i = 0;  i < strLength;  ++i) {
-                cerr << "char at index " << i << " of " << strLength << " is "
-                     << (int)longString->repr[i] << endl;
-            }
+            //for (unsigned i = 0;  i < strLength;  ++i) {
+            //    cerr << "char at index " << i << " of " << strLength << " is "
+            //         << (int)longString->repr[i] << endl;
+            //}
             throw;
         }
     default:
