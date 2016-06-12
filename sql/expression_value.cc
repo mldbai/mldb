@@ -1833,21 +1833,24 @@ ExpressionValue(RowValue row) noexcept
     initStructured(doLevel(row.begin(), row.end(), 0 /* level */));
 }
 
+void
 ExpressionValue::
-~ExpressionValue()
+destroy()
 {
     typedef std::shared_ptr<const Structured> StructuredRepr;
     typedef std::shared_ptr<const Embedding> EmbeddingRepr;
     typedef std::shared_ptr<const Superposition> SuperpositionRepr;
 
-    switch (type_) {
+    auto type = type_;
+    type_ = Type::NONE;
+
+    switch (type) {
     case Type::NONE: return;
     case Type::ATOM: cell_.~CellValue();  return;
     case Type::STRUCTURED:  structured_.~StructuredRepr();  return;
     case Type::EMBEDDING: embedding_.~EmbeddingRepr();  return;
     case Type::SUPERPOSITION: superposition_.~SuperpositionRepr();  return;
     }
-    throw HttpReturnException(400, "Unknown expression value type");
 }
 
 ExpressionValue::
@@ -1874,6 +1877,7 @@ ExpressionValue(const ExpressionValue & other)
     throw HttpReturnException(400, "Unknown expression value type");
 }
 
+#if 0
 ExpressionValue::
 ExpressionValue(ExpressionValue && other) noexcept
     : type_(Type::NONE)
@@ -1890,6 +1894,7 @@ ExpressionValue(ExpressionValue && other) noexcept
     }
     throw HttpReturnException(400, "Unknown expression value type");
 }
+#endif
 
 ExpressionValue::
 ExpressionValue(StructValue vals) noexcept
@@ -1907,6 +1912,7 @@ operator = (const ExpressionValue & other)
     return *this;
 }
 
+#if 0
 ExpressionValue &
 ExpressionValue::
 operator = (ExpressionValue && other) noexcept
@@ -1915,7 +1921,6 @@ operator = (ExpressionValue && other) noexcept
     swap(newMe);
     return *this;
 }
-
 void
 ExpressionValue::
 swap(ExpressionValue & other) noexcept
@@ -1927,6 +1932,7 @@ swap(ExpressionValue & other) noexcept
     std::swap(storage_[1], other.storage_[1]);
     std::swap(ts_, other.ts_);
 }
+#endif
 
 ExpressionValue::
 ExpressionValue(std::vector<CellValue> values,
@@ -1952,8 +1958,6 @@ ExpressionValue(const std::vector<double> & values,
                 Date ts)
     : type_(Type::NONE), ts_(ts)
 {
-    ExcAssertEqual(values.size(), (*cols).size());
-
     ExcAssertEqual(values.size(), (*cols).size());
 
     RowValue row;

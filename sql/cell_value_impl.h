@@ -22,12 +22,14 @@ typedef HashWrapper<4> CellValueHash;
 /* CELL VALUE                                                                */
 /*****************************************************************************/
 
+#if 0
 CellValue::
 CellValue() noexcept
     : bits1(0), bits2(0), flags(0)
 {
 
 }
+#endif
 
 CellValue::
 CellValue(unsigned long long intValue) noexcept

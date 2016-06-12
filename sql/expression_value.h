@@ -662,14 +662,43 @@ struct ExpressionValue {
               Date timestamp,
               JsonArrayHandling arrays = PARSE_ARRAYS);
 
-    ~ExpressionValue();
+    ~ExpressionValue()
+    {
+        if (type_ == Type::NONE)
+            return;
+        destroy();
+    }
+
     ExpressionValue(const ExpressionValue & other);
-    ExpressionValue(ExpressionValue && other) noexcept;
+
+    JML_ALWAYS_INLINE ExpressionValue(ExpressionValue && other) noexcept
+    {
+        // Dodgy as hell.  But none of them have self referential pointers, and so it
+        // works and with no possibility of an exception.
+        std::memcpy(this, &other, sizeof(ExpressionValue));
+        other.type_ = Type::NONE;
+    }
 
     ExpressionValue & operator = (const ExpressionValue & other);
-    ExpressionValue & operator = (ExpressionValue && other) noexcept;
 
-    void swap(ExpressionValue & other) noexcept;
+    JML_ALWAYS_INLINE ExpressionValue &
+    operator = (ExpressionValue && other) noexcept
+    {
+        ExpressionValue newMe(std::move(other));
+        swap(newMe);
+        return *this;
+    }
+
+    JML_ALWAYS_INLINE
+    void swap(ExpressionValue & other) noexcept
+    {
+        // Dodgy as hell.  But none of them have self referential pointers, and so it
+        // works and with no possibility of an exception.
+        std::swap(type_,    other.type_);
+        std::swap(storage_[0], other.storage_[0]);
+        std::swap(storage_[1], other.storage_[1]);
+        std::swap(ts_, other.ts_);
+    }
 
     double toDouble() const;
     int64_t toInt() const;
@@ -1037,6 +1066,9 @@ private:
     */
     template<typename Fn>
     bool forEachAtomDestructiveT(Fn && onColumn);
+
+    /** Destroy complex value, leaving an empty value. */
+    void destroy();
 
     enum class Type : uint8_t {
         NONE,        ///< Expression is empty or not initialized yet.  Shouldn't be exposed to user.
