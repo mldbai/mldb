@@ -2513,6 +2513,27 @@ tryGetColumn(const PathElement & columnName,
 {
     switch (type_) {
     case Type::STRUCTURED: {
+        // Note that in the structured representation, we will never have
+        // more than one value for a column.  So we simply need to return
+        // filtered version of the column.
+        bool found = false;
+        auto onValue = [&] (ExpressionValue val) -> bool
+            {
+                if (found)
+                    return false;
+                storage = val.getFilteredDestructive(filter);
+                found = true;
+                return true;
+            };
+        
+        if (iterateStructured(*structured_, columnName, onValue)) {
+            if (found)
+                return &storage;
+            else return nullptr;
+        }
+
+        // More than one value, fall back
+        // (shouldn't happen)
         FilterAccumulator accum(filter);
         iterateStructured(*structured_, columnName, accum);
         return accum.extract(storage);
@@ -3979,7 +4000,8 @@ initStructured(Structured value) noexcept
                 }
             }
 
-
+            // Just a single value.  We don't need to wrap it up in a
+            // superposition.
             if (j == i + 1) {
                 newValue.emplace_back(std::move(value[i]));
                 i = j;
