@@ -4215,11 +4215,20 @@ extractJson() const
 */
 struct ExpressionValueDescription
     : public ValueDescriptionT<ExpressionValue> {
+    ExpressionValueDescription(std::shared_ptr<ExpressionValueInfo> info
+                               = std::make_shared<AnyValueInfo>())
+        : info(std::move(info))
+    {
+        ExcAssert(this->info);
+    }
+
     virtual void parseJsonTyped(ExpressionValue * val,
                                 JsonParsingContext & context) const;
     virtual void printJsonTyped(const ExpressionValue * val,
                                 JsonPrintingContext & context) const;
     virtual bool isDefaultTyped(const ExpressionValue * val) const;
+
+    std::shared_ptr<ExpressionValueInfo> info;
 };
 
 /** Value description not including the timestamp.  It serializes as just the
@@ -4238,6 +4247,25 @@ std::shared_ptr<ValueDescriptionT<ExpressionValue> >
 getExpressionValueDescriptionNoTimestamp()
 {
     return std::make_shared<ExpressionValueDescriptionNoTimestamp>();
+}
+
+std::shared_ptr<const ValueDescriptionT<ExpressionValue> >
+makeExpressionValueDescription(std::shared_ptr<ExpressionValueInfo> info)
+{
+    return std::make_shared<ExpressionValueDescription>(std::move(info));
+}
+
+std::shared_ptr<ExpressionValueInfo>
+extractExpressionValueInfo(const std::shared_ptr<const ValueDescription> & desc)
+{
+    ExcAssert(desc);
+    const ExpressionValueDescription * descCast
+        = dynamic_cast<const ExpressionValueDescription *>(desc.get());
+    if (!descCast) {
+        cerr << "field type was " << ML::type_name(*desc) << endl;
+        return nullptr;
+    }
+    return descCast->info;
 }
 
 void
