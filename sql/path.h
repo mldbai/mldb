@@ -9,6 +9,7 @@
 #include "mldb/types/string.h"
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/base/exc_assert.h"
+#include "mldb/jml/utils/compact_vector.h"
 #include <vector>
 #include <cstring>
 
@@ -543,7 +544,7 @@ struct PathBuilder {
     Path extract();
 
 private:
-    std::vector<uint32_t> indexes;
+    ML::compact_vector<uint32_t, 8> indexes;
     InternedString<244, char> bytes;
     uint32_t digits_;
 };
