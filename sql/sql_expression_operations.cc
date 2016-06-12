@@ -1712,6 +1712,12 @@ getChildren() const
     return result;
 }
 
+bool
+SelectWithinExpression::
+isConstant() const
+{
+    return select->isConstant();
+}
 
 /*****************************************************************************/
 /* EMBEDDING EXPRESSION                                                      */

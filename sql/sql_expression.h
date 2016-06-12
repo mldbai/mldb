@@ -1205,6 +1205,8 @@ struct SelectExpression: public SqlRowExpression {
 
     virtual bool isIdentitySelect(SqlExpressionDatasetScope & context) const;
 
+    virtual bool isConstant() const;
+
     std::vector<std::shared_ptr<SqlRowExpression> > clauses;
 
     bool operator == (const SelectExpression & other) const;
