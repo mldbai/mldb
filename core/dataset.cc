@@ -735,6 +735,70 @@ queryStructured(const SelectExpression & select,
     return output;
 }
 
+bool
+Dataset::
+queryStructuredIncremental(std::function<bool (Path &, ExpressionValue &)> & onRow,
+                           const SelectExpression & select,
+                           const WhenExpression & when,
+                           const SqlExpression & where,
+                           const OrderByExpression & orderBy,
+                           const TupleExpression & groupBy,
+                           const SqlExpression & having,
+                           const SqlExpression & rowName,
+                           ssize_t offset,
+                           ssize_t limit,
+                           Utf8String alias) const
+{
+    if (!having.isConstantTrue() && groupBy.clauses.empty())
+        throw HttpReturnException
+            (400, "HAVING expression requires a GROUP BY expression");
+
+    std::vector< std::shared_ptr<SqlExpression> > aggregators
+        = select.findAggregators(!groupBy.clauses.empty());
+    std::vector< std::shared_ptr<SqlExpression> > havingaggregators
+        = having.findAggregators(!groupBy.clauses.empty());
+    std::vector< std::shared_ptr<SqlExpression> > orderbyaggregators
+        = orderBy.findAggregators(!groupBy.clauses.empty());
+
+    // Do it ungrouped if possible
+    if (groupBy.clauses.empty() && aggregators.empty()) {
+        auto processor = [&] (NamedRowValue & row_,
+                              const std::vector<ExpressionValue> & calc)
+            {
+                Path path = getValidatedRowName(calc.at(0));
+                ExpressionValue val(std::move(row_.columns));
+                return onRow(path, val);
+            };
+
+        return iterateDataset(select, *this, alias, when, where,
+                              { rowName.shallowCopy() },
+                              {processor, true/*processInParallel*/},
+                              orderBy, offset, limit,
+                              nullptr);
+    }
+    else {
+
+        aggregators.insert(aggregators.end(), havingaggregators.begin(),
+                           havingaggregators.end());
+        aggregators.insert(aggregators.end(), orderbyaggregators.begin(),
+                           orderbyaggregators.end());
+
+        // Otherwise do it grouped...
+        auto processor = [&] (NamedRowValue & row)
+            {
+                ExpressionValue val(std::move(row.columns));
+                return onRow(row.rowName, val);
+            };
+
+         //QueryStructured always want a stable ordering, but it doesnt have to be by rowhash
+        return iterateDatasetGrouped(select, *this, alias, when, where,
+                                     groupBy, aggregators, having, rowName,
+                                     {processor, true/*processInParallel*/},
+                                     orderBy, offset, limit,
+                                     nullptr);
+    }
+}
+
 template<typename Filter>
 static std::pair<std::vector<RowName>, Any>
 executeFilteredColumnExpression(const Dataset & dataset,

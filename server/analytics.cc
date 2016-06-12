@@ -36,7 +36,7 @@ namespace MLDB {
 /** Equivalent to SELECT (select) FROM (dataset) WHEN (when) WHERE (where), and each matching
     row is passed to the aggregator.
 */
-void iterateDataset(const SelectExpression & select,
+bool iterateDataset(const SelectExpression & select,
                     const Dataset & from,
                     const Utf8String & alias,
                     const WhenExpression & when,
@@ -48,13 +48,13 @@ void iterateDataset(const SelectExpression & select,
                     ssize_t limit,
                     std::function<bool (const Json::Value &)> onProgress)
 {
-    BoundSelectQuery(select, from, alias, when, where, orderBy, calc)
+    return BoundSelectQuery(select, from, alias, when, where, orderBy, calc)
         .execute(processor, offset, limit, onProgress);
 }
 
 
 /** Full select function, with grouping. */
-void iterateDatasetGrouped(const SelectExpression & select,
+bool iterateDatasetGrouped(const SelectExpression & select,
                            const Dataset & from,
                            const Utf8String & alias,
                            const WhenExpression & when,
@@ -69,11 +69,12 @@ void iterateDatasetGrouped(const SelectExpression & select,
                            ssize_t limit,
                            std::function<bool (const Json::Value &)> onProgress)
 {
-    BoundGroupByQuery(select, from, alias, when, where, groupBy, aggregators, having, rowName, orderBy)
+    return BoundGroupByQuery(select, from, alias, when, where, groupBy,
+                             aggregators, having, rowName, orderBy)
       .execute(processor, offset, limit, onProgress);
 }
 
-void iterateDataset(const SelectExpression & select,
+bool iterateDataset(const SelectExpression & select,
                     const Dataset & from,
                     const Utf8String & alias,
                     const WhenExpression & when,
@@ -92,7 +93,7 @@ void iterateDataset(const SelectExpression & select,
             return processor(output);
         };
 
-    iterateDataset(select, from, std::move(alias), when, where, {}, {processor2, processor.processInParallel}, orderBy, offset, limit, onProgress);
+    return iterateDataset(select, from, std::move(alias), when, where, {}, {processor2, processor.processInParallel}, orderBy, offset, limit, onProgress);
 }
 
 /** Iterates over the dataset, extracting a dense feature vector from each row. */
@@ -299,7 +300,7 @@ getEmbedding(const SelectStatement & stm,
 }
 
 std::vector<MatrixNamedRow>
-queryWithoutDataset(SelectStatement& stm, SqlBindingScope& scope)
+queryWithoutDataset(const SelectStatement& stm, SqlBindingScope& scope)
 {
     auto boundSelect = stm.select.bind(scope);
     SqlRowScope context;
@@ -315,7 +316,7 @@ queryWithoutDataset(SelectStatement& stm, SqlBindingScope& scope)
 }
 
 std::vector<MatrixNamedRow>
-queryFromStatement(SelectStatement & stm,
+queryFromStatement(const SelectStatement & stm,
                    SqlBindingScope & scope,
                    BoundParameters params)
 {
@@ -381,6 +382,93 @@ queryFromStatement(SelectStatement & stm,
     else {
         // No from at all
         return queryWithoutDataset(stm, scope);
+    }
+}
+
+/** Select from the given statement.  This will choose the most
+    appropriate execution method based upon what is in the query.
+
+    The scope should be a clean scope, not requiring any row scope.
+    See the comment above if you have errors inside this function.
+
+    Will return the results one by one, and will stop when the
+    onRow function returns false.  Returns false if one of the
+    onRow calls returned false, or true otherwise.
+*/
+bool
+queryFromStatement(std::function<bool (Path &, ExpressionValue &)> & onRow,
+                   const SelectStatement & stm,
+                   SqlBindingScope & scope,
+                   BoundParameters params)
+{
+    BoundTableExpression table = stm.from->bind(scope);
+    
+    if (table.dataset) {
+        return table.dataset->queryStructuredIncremental
+            (onRow, stm.select, stm.when,
+             *stm.where,
+             stm.orderBy, stm.groupBy,
+             *stm.having,
+             *stm.rowName,
+             stm.offset, stm.limit, 
+             table.asName);
+    }
+    else if (table.table.runQuery && stm.from) {
+
+        auto getParamInfo = [&] (const Utf8String & paramName)
+            -> std::shared_ptr<ExpressionValueInfo>
+            {
+                throw HttpReturnException(500, "No query parameter " + paramName);
+            };
+        
+        if (!params)
+            params = [] (const Utf8String & param) -> ExpressionValue { throw HttpReturnException(500, "No query parameter " + param); };
+
+        std::shared_ptr<PipelineElement> pipeline
+            = PipelineElement::root(scope)->statement(stm, getParamInfo);
+
+        auto boundPipeline = pipeline->bind();
+
+        auto executor = boundPipeline->start(params);
+        
+        std::vector<MatrixNamedRow> rows;
+
+        ssize_t limit = stm.limit;
+        ssize_t offset = stm.offset;
+
+        auto output = executor->take();
+
+        for (size_t n = 0;
+             output && (limit == -1 || n < limit + offset);
+             output = executor->take(), ++n) {
+
+            // MLDB-1329 band-aid fix.  This appears to break a circlar
+            // reference chain that stops the elements from being
+            // released.
+            output->group.clear();
+
+            if (n < offset) {
+                continue;
+            }
+
+            Path path = output->values.at(output->values.size() - 2)
+                .coerceToPath(); 
+            ExpressionValue val(std::move(output->values.back()));
+            if (!onRow(path, val))
+                return false;
+        }
+            
+        return true;
+    }
+    else {
+        // No from at all
+        auto rows = queryWithoutDataset(stm, scope);
+        for (auto & r: rows) {
+            ExpressionValue val(std::move(r.columns));
+            if (!onRow(r.rowName, val))
+                return false;
+        }
+        return true;
     }
 }
 
