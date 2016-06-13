@@ -53,6 +53,7 @@ var expected = [
          [ "y.column", "x", "-Inf" ],
          [ "y.value", 1, "-Inf" ]
       ],
+      "rowHash" : "77a5d17e0b01f7cb",
       "rowName" : "[result]-[0]"
    }
 ];
