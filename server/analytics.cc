@@ -370,8 +370,9 @@ queryFromStatement(const SelectStatement & stm,
 
             MatrixNamedRow row;
             // Second last element is the row name
-            row.rowName = RowName(output->values.at(output->values.size() - 2).toUtf8String());
-
+            row.rowName = output->values.at(output->values.size() - 2)
+                .coerceToPath(); 
+            row.rowHash = row.rowName;
             output->values.back().mergeToRowDestructive(row.columns);
             rows.emplace_back(std::move(row));
         }

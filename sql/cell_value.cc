@@ -633,7 +633,8 @@ coerceToPath() const
     }
     else if (type == ST_ASCII_SHORT_STRING || type == ST_ASCII_LONG_STRING
              || type == ST_UTF8_SHORT_STRING || type == ST_UTF8_LONG_STRING) {
-        return Path::parse(stringChars(), toStringLength());
+        PathBuilder builder;
+        return builder.add(stringChars(), toStringLength()).extract();
     }
     else return Path(toUtf8String());
 }
