@@ -13,8 +13,9 @@ class Mldb1721(MldbUnitTest):
     def setUpClass(self):
         ds = mldb.create_dataset({ "id": "sample", "type": "sparse.mutable" })
         ds.record_row("a",[["text", "hola \nreturn", 0]])
+        ds.record_row("b",[["text", "hola \\return", 0]])
         ds.commit()
-        
+
     def test_select_after_token(self):
         print mldb.post('/v1/procedures', {
             'type': 'transform',
@@ -32,7 +33,18 @@ class Mldb1721(MldbUnitTest):
             }
         })
 
-        mldb.log(mldb.query("select * from bag_of_words where rowName() = 'b'"))
+        self.assertTableResultEquals(
+            mldb.query("select * from bag_of_words"),
+                [
+                    [
+                        "_rowName",
+                        "\\return",
+                        "hola",
+                        "\"\nreturn\""
+                    ],
+                    ["b", 1, 1, None],
+                    ["a", None, 1, 1]
+                ])
 
 mldb.run_tests()
 
