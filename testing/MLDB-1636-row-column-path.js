@@ -40,22 +40,22 @@ var resp = mldb.query('select rowPath(), * from (select 1) as x join row_dataset
 mldb.log(resp);
 
 var expected = [
-   {
-      "columns" : [
-         [
-            "rowPath()",
-            {
-               "path" : [ "[result]-[0]" ]
-            },
-            "NaD"
-         ],
-         [ "x.1", 1, "-Inf" ],
-         [ "y.column", "x", "-Inf" ],
-         [ "y.value", 1, "-Inf" ]
-      ],
-       "rowHash" : "77a5d17e0b01f7cb",
-       "rowName" : "[result]-[0]"
-   }
+    {
+        "columns" : [
+            [
+                "rowPath()",
+                {
+                    "path" : [ "[result]-[0]" ]
+                },
+                "NaD"
+            ],
+            [ "x.1", 1, "-Inf" ],
+            [ "y.column", "x", "-Inf" ],
+            [ "y.value", 1, "-Inf" ]
+        ],
+        "rowHash" : "77a5d17e0b01f7cb",
+        "rowName" : "[result]-[0]"
+    }
 ];
 
 assertEqual(resp, expected);
