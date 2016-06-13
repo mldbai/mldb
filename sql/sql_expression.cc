@@ -241,7 +241,8 @@ doGetFunction(const Utf8String & tableName,
 
 //These are functions in table expression, i.e. in FROM clauses
 
-std::shared_ptr<void> registerDatasetFunction(Utf8String name, ExternalDatasetFunction function)
+std::shared_ptr<void>
+registerDatasetFunction(Utf8String name, ExternalDatasetFunction function)
 {
     auto unregister = [=] (void *)
         {
@@ -272,7 +273,7 @@ BoundTableExpression
 SqlBindingScope::
 doGetDatasetFunction(const Utf8String & functionName,
                      const std::vector<BoundTableExpression> & args,
-                     const ExpressionValue & options,
+                     const BoundSqlExpression & options,
                      const Utf8String & alias)
 {
     auto factory = tryLookupDatasetFunction(functionName);

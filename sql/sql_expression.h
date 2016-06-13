@@ -166,6 +166,8 @@ struct BoundSqlExpression {
     
     operator bool () const { return !!exec; };
 
+    bool empty() const { return !exec; }
+
     ExecFunction exec;
     std::shared_ptr<const SqlExpression> expr;
 
@@ -456,14 +458,17 @@ struct RegisterAggregator {
 /** Type of an external dataset function factory.  This should return the bound
     version of the function.
 */
-typedef std::function<BoundTableExpression(const Utf8String & str,
-                                    const std::vector<BoundTableExpression> & args,
-                                    const ExpressionValue & options,
-                                    const SqlBindingScope & context,
-                                    const Utf8String& alias)>
-    ExternalDatasetFunction;
+typedef std::function<BoundTableExpression
+                      (const Utf8String & str,
+                       const std::vector<BoundTableExpression> & args,
+                       const BoundSqlExpression & options,
+                       const SqlBindingScope & context,
+                       const Utf8String& alias)>
+ExternalDatasetFunction;
 
-std::shared_ptr<void> registerDatasetFunction(Utf8String name, ExternalDatasetFunction function);
+std::shared_ptr<void>
+registerDatasetFunction(Utf8String name, ExternalDatasetFunction function);
+
 
 /*****************************************************************************/
 /* GET ALL COLUMNS OUTPUT                                                    */
@@ -552,7 +557,7 @@ struct SqlBindingScope {
     virtual BoundTableExpression
     doGetDatasetFunction(const Utf8String & functionName,
                          const std::vector<BoundTableExpression> & args,
-                         const ExpressionValue & options,
+                         const BoundSqlExpression & options,
                          const Utf8String & alias);
     
     virtual BoundAggregator
