@@ -152,11 +152,6 @@ applyFunction(const Function * function,
               const std::vector<Utf8String> & bKeepValues
               ) const
 {
-//     if (qsInput.empty() && bInput.empty()) {
-//         throw ML::Exception("input is currently undefined. It must be defined "
-//                             "either as a query string parameter or as a key "
-//                             "in body payload.");
-//     }
     if (!qsInput.empty() && !bInput.empty()) {
         throw ML::Exception("input is currently defined twice. It must be "
                             "defined either as a query string parameter or "
