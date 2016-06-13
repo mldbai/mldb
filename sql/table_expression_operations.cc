@@ -539,18 +539,16 @@ DatasetFunctionExpression::
 bind(SqlBindingScope & context) const
 {
     std::vector<BoundTableExpression> boundArgs;
-    for (auto arg : args)
+    for (auto & arg : args)
         boundArgs.push_back(arg->bind(context));
 
-    ExpressionValue expValOptions;
-    if (options) {
-        expValOptions = options->constantValue();
-    }
-
-    auto fn = context.doGetDatasetFunction(functionName, boundArgs, expValOptions, asName);
+    auto fn = context.doGetDatasetFunction
+        (functionName, boundArgs,
+         options ? options->bind(context) : BoundSqlExpression(), asName);
 
     if (!fn)
-        throw HttpReturnException(400, "could not bind dataset function " + functionName);
+        throw HttpReturnException
+            (400, "could not bind dataset function " + functionName);
 
     return fn;
 }
