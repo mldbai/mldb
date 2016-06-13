@@ -179,9 +179,18 @@ BOOST_AUTO_TEST_CASE(test_coords_parsing)
         BOOST_CHECK_EQUAL(coords1.toUtf8String(), "\"\".\"\"");
     }
 
+    // MLDB-1721
+    {
+        Path coords1 = Path::parse("\"\n\"");
+        BOOST_CHECK_EQUAL(coords1.size(), 1);
+        BOOST_CHECK_EQUAL(coords1.toUtf8String(), "\"\n\"");
+    }
+
     {
         JML_TRACE_EXCEPTIONS(false);
         BOOST_CHECK_THROW(Path::parse("\n"), ML::Exception);
+        BOOST_CHECK_THROW(Path::parse("\0", 1), ML::Exception);
+        BOOST_CHECK_THROW(Path::parse("\"\0\"", 3), ML::Exception);
         BOOST_CHECK_THROW(Path::parse("\""), ML::Exception);
         BOOST_CHECK_THROW(Path::parse("\"x."), ML::Exception);
         BOOST_CHECK_THROW(Path::parse("\"x."), ML::Exception);

@@ -32,7 +32,7 @@ class Mldb1721(MldbUnitTest):
             }
         })
 
-        mldb.query("select * from bag_of_words where rowName() = 'b'")
+        mldb.log(mldb.query("select * from bag_of_words where rowName() = 'b'"))
 
 mldb.run_tests()
 
