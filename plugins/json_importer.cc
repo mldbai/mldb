@@ -62,7 +62,7 @@ JSONImporterConfigDescription()
              "URL to load text file from");
     addField("outputDataset", &JSONImporterConfig::outputDataset,
              "Configuration for output dataset",
-             PolyConfigT<Dataset>().withType("sparse.mutable"));
+             PolyConfigT<Dataset>().withType("tabular"));
     addField("limit", &JSONImporterConfig::limit,
              "Maximum number of lines to process");
     addField("offset", &JSONImporterConfig::offset,
@@ -95,10 +95,8 @@ struct JSONImporter: public Procedure {
         // Create the output dataset
         std::shared_ptr<Dataset> outputDataset;
 
-        if (!runProcConf.outputDataset.type.empty()
-            || !runProcConf.outputDataset.id.empty()) {
-            outputDataset = createDataset(server, runProcConf.outputDataset, nullptr, true);
-        }
+        outputDataset = createDataset(server, runProcConf.outputDataset,
+                                      onProgress, true);
 
         if(!outputDataset) {
             throw ML::Exception("Unable to obtain output dataset");
