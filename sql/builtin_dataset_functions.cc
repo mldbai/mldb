@@ -28,7 +28,7 @@ namespace Builtins {
 
 typedef BoundTableExpression (*BuiltinDatasetFunction) (const SqlBindingScope & context,
                                                         const std::vector<BoundTableExpression> &,
-                                                        const ExpressionValue & options,
+                                                        const BoundSqlExpression & options,
                                                         const Utf8String& alias);
 
 struct RegisterBuiltin {
@@ -48,7 +48,7 @@ struct RegisterBuiltin {
     {
         auto fn = [=] (const Utf8String & str,
                        const std::vector<BoundTableExpression> & args,
-                       const ExpressionValue & options,
+                       const BoundSqlExpression & options,
                        const SqlBindingScope & context,
                        const Utf8String& alias)
             -> BoundTableExpression
@@ -75,7 +75,7 @@ struct RegisterBuiltin {
 
 BoundTableExpression transpose(const SqlBindingScope & context,
                                const std::vector<BoundTableExpression> & args,
-                               const ExpressionValue & options,
+                               const BoundSqlExpression & options,
                                const Utf8String& alias)
 {
     if (args.size() != 1)
@@ -98,7 +98,7 @@ static RegisterBuiltin registerTranspose(transpose, "transpose");
 
 BoundTableExpression merge(const SqlBindingScope & context,
                            const std::vector<BoundTableExpression> & args,
-                           const ExpressionValue & options,
+                           const BoundSqlExpression & options,
                            const Utf8String& alias)
 {
     if (args.size() < 2)
@@ -129,7 +129,7 @@ static RegisterBuiltin registerMerge(merge, "merge");
 
 BoundTableExpression sample(const SqlBindingScope & context,
                             const std::vector<BoundTableExpression> & args,
-                            const ExpressionValue & options,
+                            const BoundSqlExpression & optionsBound,
                             const Utf8String& alias)
 {
     if (args.size() != 1)
@@ -137,8 +137,10 @@ BoundTableExpression sample(const SqlBindingScope & context,
                                   "followed by a row expression of optional parameters. "
                                   "See the documentation of the 'From Expressions' for "
                                   "more details.",
-                                  "options", options,
+                                  "options", optionsBound.expr,
                                   "alias", alias);
+
+    ExpressionValue options = optionsBound.constantValue();
 
     if(!options.empty() && !options.isRow()) {
         throw HttpReturnException(400,
