@@ -391,8 +391,7 @@ queryFromStatement(const SelectStatement & stm,
 
             MatrixNamedRow row;
             // Second last element is the row name
-            row.rowName = output->values.at(output->values.size() - 2)
-                .coerceToPath(); 
+            row.rowName = getValidatedRowName(output->values.at(output->values.size() - 2));
             row.rowHash = row.rowName;
             output->values.back().mergeToRowDestructive(row.columns);
             rows.emplace_back(std::move(row));
@@ -475,8 +474,7 @@ queryFromStatement(std::function<bool (Path &, ExpressionValue &)> & onRow,
                 continue;
             }
 
-            Path path = output->values.at(output->values.size() - 2)
-                .coerceToPath(); 
+            Path path = getValidatedRowName(output->values.at(output->values.size() - 2));
             ExpressionValue val(std::move(output->values.back()));
             if (!onRow(path, val))
                 return false;

@@ -310,7 +310,7 @@ struct CreateImageProcedure: public Procedure {
         }
         
         auto tensor = ExpressionValue::embedding
-            (Date::notADate(), rgba, ST_UINT8, vector<size_t>{ py, px, 4 });
+            (Date::notADate(), rgba, ST_UINT8, DimsVector{ py, px, 4 });
 
         ExternalFunction fn = lookupFunction("tf_EncodePng");
         
