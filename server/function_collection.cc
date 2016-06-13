@@ -145,10 +145,35 @@ FunctionCollection(MldbServer * server)
 void
 FunctionCollection::
 applyFunction(const Function * function,
-              const std::map<Utf8String, ExpressionValue> & input,
-              const std::vector<Utf8String> & keepValues,
-              RestConnection & connection) const
+              const std::map<Utf8String, ExpressionValue> & qsInput,
+              const std::vector<Utf8String> & qsKeepValues,
+              RestConnection & connection,
+              const std::map<Utf8String, ExpressionValue> & bInput,
+              const std::vector<Utf8String> & bKeepValues
+              ) const
 {
+//     if (qsInput.empty() && bInput.empty()) {
+//         throw ML::Exception("input is currently undefined. It must be defined "
+//                             "either as a query string parameter or as a key "
+//                             "in body payload.");
+//     }
+    if (!qsInput.empty() && !bInput.empty()) {
+        throw ML::Exception("input is currently defined twice. It must be "
+                            "defined either as a query string parameter or "
+                            "as a key in body payload.");
+    }
+    if (!qsKeepValues.empty() && !bKeepValues.empty()) {
+        throw ML::Exception("keepValues is currently defined twice. It must "
+                            "be defined either as a query string parameter or "
+                            "as a key in body payload.");
+    }
+
+    const std::map<Utf8String, ExpressionValue> & input =
+        qsInput.empty() ? bInput : qsInput;
+    const std::vector<Utf8String> & keepValues =
+        qsKeepValues.empty() ? bKeepValues : qsKeepValues;
+
+
     StructValue inputExpr;
     inputExpr.reserve(input.size());
     for (auto & i: input) {
@@ -214,16 +239,29 @@ initRoutes(RouteManager & manager)
     auto mapDesc = std::make_shared<MapDescription<Utf8String, ExpressionValue> >
         (getExpressionValueDescriptionNoTimestamp());
 
+    const auto inputDefStr = "Object with input values. "
+                             "Must be defined either as a query string "
+                             "parameter or the json body.";
+    const auto keepValuesDefStr = "Keep only these values for the output. "
+                                  "Must be defined either as a query string "
+                                  "parameter or the json body.";
+
     addRouteAsync(*manager.valueNode, "/application", { "GET" },
                   "Apply a function to a given set of input values and return the output",
                   //"Output of all values or those selected in the keepValues parameter",
                   &FunctionCollection::applyFunction,
                   manager.getCollection,
                   getFunction,
-                  RestParamJson<std::map<Utf8String, ExpressionValue> >("input", "Object with input values", JsonStrCodec<MapType>(mapDesc)),
-                  RestParamJsonDefault<std::vector<Utf8String> >
-                  ("keepValues", "Keep only these values for the output", {}),
-                  PassConnectionId());
+                  RestParamJsonDefault<std::map<Utf8String, ExpressionValue>>(
+                      "input", inputDefStr, {}, "", JsonStrCodec<MapType>(mapDesc)),
+                  RestParamJsonDefault<std::vector<Utf8String>>
+                  ("keepValues", keepValuesDefStr, {}),
+                  PassConnectionId(),
+
+                  // Alternative parameters as body
+                  JsonParamDefault<std::map<Utf8String, ExpressionValue>>("input", inputDefStr),
+                  JsonParamDefault<std::vector<Utf8String>>("keepValues", keepValuesDefStr)
+                  );
 
     addRouteSyncJsonReturn(*manager.valueNode, "/info", { "GET" },
                            "Return information about the values and metadata of the function",

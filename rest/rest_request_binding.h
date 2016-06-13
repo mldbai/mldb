@@ -397,11 +397,47 @@ createParameterExtractor(Json::Value & argHelp,
                 const RestRequest & request,
                 const RestRequestParsingContext & context)
         {
-            Json::Value parsed = request.payload == "" ?
-                Json::objectValue : Json::parse(request.payload);
+            Json::Value parsed = Json::parse(request.payload);
             return JsonCodec<T>::decode(p.name.empty() ? parsed : parsed[p.name]);
         };
 }
+
+template<typename T>
+static std::function<decltype(JsonCodec<T>::decode(std::declval<Json::Value>()))
+                     (RestConnection & connection,
+                      const RestRequest & request,
+                      const RestRequestParsingContext & context)>
+createParameterExtractor(Json::Value & argHelp,
+                         const JsonParamDefault<T> & p, void * = 0)
+{
+    Json::Value & v = argHelp["jsonParams"];
+    Json::Value & v2 = v[v.size()];
+    if (!p.name.empty()) {
+        v2["name"] = p.name;
+    }
+    v2["description"] = p.description;
+    v2["cppType"] = ML::type_name<T>();
+    v2["encoding"] = "JSON";
+    v2["location"] = "Request Body";
+
+    return [=] (RestConnection & connection,
+                const RestRequest & request,
+                const RestRequestParsingContext & context)
+        {
+            if (request.payload == "") {
+                return p.defaultValue;
+            }
+            Json::Value parsed = Json::parse(request.payload);
+            if (p.name.empty()) {
+                return JsonCodec<T>::decode(parsed);
+            }
+            if (parsed.isMember(p.name.rawString())) {
+                return JsonCodec<T>::decode(parsed[p.name]);
+            }
+            return p.defaultValue;
+        };
+}
+
 
 /** Free function to be called in order to generate a parameter extractor
     for the given parameter.  See the CreateRestParameterGenerator class for more

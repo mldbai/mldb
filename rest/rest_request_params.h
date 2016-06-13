@@ -281,6 +281,31 @@ struct JsonParam {
     Utf8String description;
 };
 
+template<typename T>
+struct JsonParamDefault {
+    JsonParamDefault()
+    {
+    }
+
+    JsonParamDefault(const Utf8String & name, const Utf8String & description,
+                     T defaultValue = T())
+        : name(name), description(description), defaultValue(defaultValue)
+    {
+    }
+    
+    JsonParamDefault(const JsonParamDefault & other)
+        : name(other.name), description(other.description),
+          defaultValue(other.defaultValue)
+    {
+    }
+    
+    Utf8String name;
+    Utf8String description;
+    T defaultValue;
+};
+
+
+
 
 /** This indicates that we get a parameter from the path of the request. 
     For example, GET /v1/object/3/value, this would be able to bind "3" to

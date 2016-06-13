@@ -213,7 +213,7 @@ initRoutes()
                                              false),
 
                       // Body parameters
-                      JsonParam<Utf8String>("q", queryStringDef));
+                      JsonParamDefault<Utf8String>("q", queryStringDef));
 
 
         this->versionNode = &versionNode;
