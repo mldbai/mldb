@@ -508,7 +508,7 @@ private:
     }
 
     static constexpr size_t INTERNAL_BYTES = Bytes;
-    static constexpr size_t NUM_WORDS = (Bytes + 2) / 8;
+    static constexpr size_t NUM_WORDS = (Bytes + 9) / 8;
 
     union {
         struct {
@@ -543,7 +543,7 @@ struct PathBuilder {
 
 private:
     std::vector<uint32_t> indexes;
-    InternedString<46, char> bytes;
+    InternedString<244, char> bytes;
     uint32_t digits_;
 };
 
@@ -599,7 +599,11 @@ struct Path {
         }
     }
 
-    Path(Path && other) noexcept;
+    Path(Path && other) noexcept
+        : Path()
+    {
+        swap(other);
+    }
 
     void swap(Path & other) noexcept
     {

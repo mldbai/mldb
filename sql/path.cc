@@ -940,13 +940,6 @@ Path(const PathElement * start, size_t len)
 {
 }
 
-Path::
-Path(Path && other) noexcept
-    : Path()
-{
-    swap(other);
-}
-
 Utf8String
 Path::
 toSimpleName() const
