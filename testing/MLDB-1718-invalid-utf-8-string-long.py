@@ -22,14 +22,13 @@ class Mldb1718(MldbUnitTest):
             }
         })
 
-#         res = mldb.query("""SELECT "0" FROM testset WHERE rowName() = '1' """)
-#         mldb.log(res)
-#         self.assertEqual(res[1][1], "x")
+        res = mldb.query("""SELECT "0" FROM testset WHERE rowName() = '1' """)
+        self.assertEqual(res[1][1], "x")
 
-        res = mldb.query("""
+        # test that the query works
+        mldb.query("""
             SELECT count(*) FROM (SELECT "0" FROM testset) GROUP BY "0"
         """)
-        mldb.log(res)
 
 if __name__ == '__main__':
     mldb.run_tests()
