@@ -41,7 +41,9 @@ struct JSONImporterConfig : ProcedureConfig {
           limit(-1),
           offset(0),
           ignoreBadLines(false)
-    {}
+    {
+        outputDataset.withType("tabular");
+    }
 
     Url dataFileUrl;
     PolyConfigT<Dataset> outputDataset;
@@ -95,6 +97,13 @@ struct JSONImporter: public Procedure {
         // Create the output dataset
         std::shared_ptr<Dataset> outputDataset;
 
+        if (runProcConf.outputDataset.type == "tabular" &&
+            runProcConf.outputDataset.params == nullptr)
+        {
+             Json::Value params;
+             params["unknownColumns"] = "add";
+             runProcConf.outputDataset.params = params;
+        }
         outputDataset = createDataset(server, runProcConf.outputDataset,
                                       onProgress, true);
 
