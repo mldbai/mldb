@@ -94,17 +94,16 @@ You can get MLDB as a Docker image and run it as a Docker container. If you've n
     
 *Note: the following procedure is meant to be run as a regular user, running the MLDB container as `root` is not recommended. See the official Docker [documentation](https://docs.docker.com/installation/ubuntulinux/#create-a-docker-group) for more information regarding running containers from regular user accounts.*
 
-First, create an *empty* directory on the host machine:
+First, create an *empty* directory on the host machine by running the following command, where `</absolute/path/to/mldb_data>` needs to be replaced by the absolute path on your local machine where you want your MLDB working directory to be:
 
 ```bash
 mkdir </absolute/path/to/mldb_data>
 ```
 
-You can now execute the following command where `<mldbport>` is a port of your choice to be used in the next section (e.g. `8080`).
+You can now execute the following command, where `<mldbport>` is a port of your choice to be used in the next section (e.g. `8080`).
 
 ```bash
-docker run \
---name=mldb --rm=true \
+docker run --rm=true \
 -v </absolute/path/to/mldb_data>:/mldb_data \
 -e MLDB_IDS="`id`" \
 -p 127.0.0.1:<mldbport>:80 \
@@ -181,7 +180,11 @@ Either double-click on the OVA file or open VirtualBox and choose *Import Applia
 
 **Step 3 - Run the MLDB Virtual Machine**
 
-Double-click on the MLDB Appliance in the main VirtualBox window, which will launch the VM. When it's booted, you will see a login prompt, but **you do not need to log in**, you can just proceed to the next step. If you do want to log in, the username is `ubuntu` and the password is `mldb`. You can also SSH into the VM on port 2222 on localhost.
+Double-click on the MLDB Appliance in the main VirtualBox window, which will launch the VM. When it's booted, you will see a login prompt, but **you do not need to log in**, you can just proceed to the next step. If you do want to log in, the username is `ubuntu` and the password is `mldb`. You can also SSH into the VM on port 2222 on localhost:
+
+```
+ssh -P2222 ubuntu@localhost
+```
 
 **Step 4 - Activate MLDB**
 

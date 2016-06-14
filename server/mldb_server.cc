@@ -186,11 +186,15 @@ initRoutes()
 
    // MLDB-1380 - make sure that the CPU support the minimal instruction sets
     if (supportsSystemRequirements()) {
+        const auto queryStringDef = "The string representing the SQL query. "
+                                    "Must be defined either as a query string "
+                                    "parameter or the JSON body.";
         addRouteAsync(versionNode, "/query", { "GET" },
                       "Select from dataset",
                       &MldbServer::runHttpQuery,
                       this,
-                      RestParam<Utf8String>("q", "The SQL query string"),
+                      // Query string parameters
+                      RestParamDefault<Utf8String>("q", queryStringDef, ""),
                       PassConnectionId(),
                       RestParamDefault<std::string>("format",
                                                     "Format of output",
@@ -206,7 +210,10 @@ initRoutes()
                                              false),
                       RestParamDefault<bool>("sortColumns",
                                              "Do we sort the column names",
-                                             false));
+                                             false),
+
+                      // Body parameters
+                      JsonParam<Utf8String>("q", queryStringDef));
 
 
         this->versionNode = &versionNode;
@@ -234,15 +241,30 @@ initRoutes()
 
 void
 MldbServer::
-runHttpQuery(const Utf8String& query,
+runHttpQuery(const Utf8String& qsQuery,
              RestConnection & connection,
              const std::string & format,
              bool createHeaders,
              bool rowNames,
              bool rowHashes,
-             bool sortColumns) const
+             bool sortColumns,
+             const Utf8String & bQuery
+             ) const
 {
-    auto stm = SelectStatement::parse(query.rawString());
+    if (qsQuery == "" && bQuery == "") {
+        throw ML::Exception("q is currently undefined. It must be defined "
+                            "either as a query string parameter or as a key "
+                            "in body payload.");
+    }
+
+    if (qsQuery != "" && bQuery != "") {
+        throw ML::Exception("q is currently defined twice. It must be defined "
+                            "either as a query string parameter or as a key "
+                            "in body paylaod.");
+    }
+
+    auto stm = SelectStatement::parse(
+        qsQuery != "" ? qsQuery.rawString() : bQuery.rawString());
     SqlExpressionMldbScope mldbContext(this);
 
     auto runQuery = [&] ()
@@ -250,7 +272,8 @@ runHttpQuery(const Utf8String& query,
             return queryFromStatement(stm, mldbContext);
         };
 
-    MLDB::runHttpQuery(runQuery, connection, format, createHeaders,
+    MLDB::runHttpQuery(runQuery,
+                       connection, format, createHeaders,
                        rowNames, rowHashes, sortColumns);
 }
 

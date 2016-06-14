@@ -1792,12 +1792,14 @@ BoundFunction parse_json(const std::vector<BoundSqlExpression> & args)
                 JsonArrayHandling encode = PARSE_ARRAYS;
 
                 if (args.size() > 1) {
-                    Utf8String arrays
-                        = args[1].getColumn("arrays").toUtf8String();
+                    const auto & col = args[1].getColumn("arrays");
+                    if(col.empty())
+                        throw HttpReturnException(400, " value of 'arrays' must be 'parse' or 'encode', got: NULL");
+                    Utf8String arrays = col.toUtf8String();
                     if (arrays == "encode")
-                      encode = ENCODE_ARRAYS;
+                        encode = ENCODE_ARRAYS;
                     else if (arrays != "parse")
-                      throw HttpReturnException(400, " value of 'arrays' must be 'parse' or 'encode', got: " + arrays);
+                        throw HttpReturnException(400, " value of 'arrays' must be 'parse' or 'encode', got: " + arrays);
                 }
 
                 StreamingJsonParsingContext parser(str.rawString(),

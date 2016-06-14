@@ -616,13 +616,13 @@ class mldb_wrapper(object):
         def get_http_bound_address(self):
             return self._mldb.get_http_bound_address()
 
-        def get(self, url, **kwargs):
+        def get(self, url, data=None, **kwargs):
             query_string = []
             for k, v in kwargs.iteritems():
                 if type(v) in [list, dict]:
                     v = mldb_wrapper.jsonlib.dumps(v)
                 query_string.append([unicode(k), unicode(v)])
-            return self._perform('GET', url, query_string)
+            return self._perform('GET', url, query_string, data)
 
         def _post_put(self, verb, url, data=None, async=False):
             if async:
@@ -636,10 +636,8 @@ class mldb_wrapper(object):
             return self._perform('DELETE', url, [], {}, [['async', 'true']])
 
         def query(self, query):
-            return self._perform('GET', '/v1/query', [
-                ['q', query],
-                ['format', 'table']
-            ]).json()
+            return self._perform('GET', '/v1/query', [['format', 'table']],
+                                 {'q' : query}).json()
 
         def run_tests(self):
             import StringIO
