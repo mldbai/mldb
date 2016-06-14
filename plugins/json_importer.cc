@@ -97,12 +97,20 @@ struct JSONImporter: public Procedure {
         // Create the output dataset
         std::shared_ptr<Dataset> outputDataset;
 
-        if (runProcConf.outputDataset.type == "tabular" &&
-            runProcConf.outputDataset.params == nullptr)
-        {
-             Json::Value params;
-             params["unknownColumns"] = "add";
-             runProcConf.outputDataset.params = params;
+        if (runProcConf.outputDataset.type == "tabular") {
+            if (runProcConf.outputDataset.params == nullptr) {
+                 Json::Value params;
+                 params["unknownColumns"] = "add";
+                 runProcConf.outputDataset.params = params;
+            }
+            else {
+                auto params =
+                    runProcConf.outputDataset.params.as<Json::Value>();
+                if (!params.isMember("unknownColumns")) {
+                    params["unknownColumns"] = "add";
+                    runProcConf.outputDataset.params = params;
+                }
+            }
         }
         outputDataset = createDataset(server, runProcConf.outputDataset,
                                       onProgress, true);

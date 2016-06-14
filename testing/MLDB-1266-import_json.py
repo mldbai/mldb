@@ -149,5 +149,27 @@ class ImportJsonTest(unittest.TestCase):
                        q="SELECT * FROM my_json_dataset ORDER BY rowName()")
         self.do_asserts("", res.json())
 
+    def test_mldb_1729_output_dataset_string_def_params(self):
+        """
+        Make sure the defaults don't overwrite the given config.
+        """
+        conf = {
+            "id": "json_importer",
+            "type": "import.json",
+            "params": {
+                "dataFileUrl": "file://mldb/testing/dataset/json_dataset.json",
+                "outputDataset": {
+                    'id' : "my_json_dataset",
+                    'params' : {
+                        'unknownColumns' : 'error'
+                    }
+                },
+                "runOnCreation": True
+            }
+        }
+
+        with self.assertRaises(mldb_wrapper.ResponseException):
+            mldb.put("/v1/procedures/json_importer", conf)
+
 if __name__ == '__main__':
     mldb.run_tests()
