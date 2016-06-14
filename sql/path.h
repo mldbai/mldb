@@ -543,7 +543,7 @@ struct PathBuilder {
 
 private:
     std::vector<uint32_t> indexes;
-    InternedString<244, char> bytes;
+    InternedString<46, char> bytes;
     uint32_t digits_;
 };
 
@@ -599,11 +599,7 @@ struct Path {
         }
     }
 
-    Path(Path && other) noexcept
-        : Path()
-    {
-        swap(other);
-    }
+    Path(Path && other) noexcept;
 
     void swap(Path & other) noexcept
     {
