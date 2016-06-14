@@ -508,7 +508,7 @@ private:
     }
 
     static constexpr size_t INTERNAL_BYTES = Bytes;
-    static constexpr size_t NUM_WORDS = (Bytes + 2) / 8;
+    static constexpr size_t NUM_WORDS = (Bytes + 9) / 8;
 
     union {
         struct {
