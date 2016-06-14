@@ -4,8 +4,6 @@
 # This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
 #
 
-import unittest
-
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
 class Mldb1718(MldbUnitTest):
@@ -24,13 +22,14 @@ class Mldb1718(MldbUnitTest):
             }
         })
 
-        res = mldb.query("""select "0" from testset where rowName() = '1' """)
-        mldb.log(res)
-        self.assertEqual(res[1][1], "x")
+#         res = mldb.query("""SELECT "0" FROM testset WHERE rowName() = '1' """)
+#         mldb.log(res)
+#         self.assertEqual(res[1][1], "x")
 
-        res = mldb.query("""select count(*) from (select "0" from testset) group by "0" """)
+        res = mldb.query("""
+            SELECT count(*) FROM (SELECT "0" FROM testset) GROUP BY "0"
+        """)
         mldb.log(res)
 
 if __name__ == '__main__':
     mldb.run_tests()
-

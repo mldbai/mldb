@@ -719,6 +719,7 @@ initChars(const char * str, size_t len, int digits)
     ExcAssertLess(len, 1ULL << 32);
     words[0] = words[1] = words[2] = 0;
     digits_ = digits;
+    //cerr << str << endl;
     if (len <= INTERNAL_BYTES - 1) {
         complex_ = 0;
         simpleLen_ = len;
@@ -872,7 +873,6 @@ PathBuilder::
 extract()
 {
     Path result;
-    result.bytes_ = std::move(bytes);
     result.length_ = indexes.size() - 1;
     result.digits_ = digits_;
 
@@ -938,6 +938,13 @@ Path::
 Path(const PathElement * start, size_t len)
     : Path(start, start + len)
 {
+}
+
+Path::
+Path(Path && other) noexcept
+    : Path()
+{
+    swap(other);
 }
 
 Utf8String
