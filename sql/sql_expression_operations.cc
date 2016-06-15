@@ -10,6 +10,7 @@
 #include <boost/algorithm/string.hpp>
 #include "mldb/types/structure_description.h"
 #include "mldb/types/vector_description.h"
+#include "mldb/types/compact_vector_description.h"
 #include "table_expression_operations.h"
 #include <unordered_set>
 #include "mldb/server/dataset_context.h"
@@ -1753,7 +1754,7 @@ bind(SqlBindingScope & scope) const
     }
 
     vector<BoundSqlExpression> boundClauses;
-    vector<size_t> knownDims = {clauses.size()};
+    DimsVector knownDims = {clauses.size()};
 
     std::vector<std::shared_ptr<ExpressionValueInfo> > clauseInfo;
 
@@ -1794,7 +1795,9 @@ bind(SqlBindingScope & scope) const
             }
             else {
 
-                std::vector<size_t> dims = { boundClauses.size() };
+                std::vector<CellValue> cells;
+
+                DimsVector dims { boundClauses.size() };
 
                 for (unsigned i = 0;  i < boundClauses.size();  ++i) {
                     auto & c = boundClauses[i];

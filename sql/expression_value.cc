@@ -13,6 +13,7 @@
 #include "mldb/types/structure_description.h"
 #include "mldb/types/enum_description.h"
 #include "mldb/types/vector_description.h"
+#include "mldb/types/compact_vector_description.h"
 #include "mldb/types/tuple_description.h"
 #include "ml/value_descriptions.h"
 #include "mldb/http/http_exception.h"
@@ -1271,7 +1272,7 @@ struct ExpressionValue::Flattened {
 struct ExpressionValue::Embedding {
     std::shared_ptr<const void> data_;
     StorageType storageType_;
-    std::vector<size_t> dims_;
+    DimsVector dims_;
     std::shared_ptr<const EmbeddingMetadata> metadata_;
 
     size_t length() const
@@ -1328,7 +1329,7 @@ struct ExpressionValue::Embedding {
                 offset += stride * index;
             }
 
-            std::vector<size_t> newDims;
+            DimsVector newDims;
             for (size_t i = column.size();  i < dims_.size();  ++i)
                 newDims.emplace_back(dims_[i]);
             
@@ -1407,7 +1408,7 @@ struct ExpressionValue::Embedding {
         }
         else {
             // Each value is a sub-embedding
-            std::vector<size_t> newDims;
+            DimsVector newDims;
             newDims.reserve(dims_.size() - 1);
             size_t stride = 1;
             for (size_t i = 1;  i < dims_.size();  ++i) {
@@ -1968,7 +1969,7 @@ ExpressionValue(const std::vector<double> & values,
 ExpressionValue::
 ExpressionValue(std::vector<CellValue> values,
                 Date ts,
-                std::vector<size_t> shape)
+                DimsVector shape)
     : type_(Type::NONE), ts_(ts)
 {
     // This avoids needing to reallocate... it essentially allows us to create
@@ -1988,7 +1989,7 @@ ExpressionValue(std::vector<CellValue> values,
 
 ExpressionValue::
 ExpressionValue(std::vector<float> values, Date ts,
-                std::vector<size_t> shape)
+                DimsVector shape)
     : type_(Type::NONE), ts_(ts)
 {
     // This avoids needing to reallocate... it essentially allows us to create
@@ -2008,7 +2009,7 @@ ExpressionValue(std::vector<float> values, Date ts,
 
 ExpressionValue::
 ExpressionValue(std::vector<double> values, Date ts,
-                std::vector<size_t> shape)
+                DimsVector shape)
     : type_(Type::NONE), ts_(ts)
 {
     // This avoids needing to reallocate... it essentially allows us to create
@@ -2031,7 +2032,7 @@ ExpressionValue::
 embedding(Date ts,
        std::shared_ptr<const void> data,
        StorageType storageType,
-       std::vector<size_t> dims,
+       DimsVector dims,
        std::shared_ptr<const EmbeddingMetadata> md)
 {
     auto embeddingData = std::make_shared<Embedding>();
@@ -2630,7 +2631,7 @@ getNestedColumn(const ColumnName & columnName, const VariableFilter & filter) co
     else return *val;
 }
 
-std::vector<size_t>
+DimsVector
 ExpressionValue::
 getEmbeddingShape() const
 {
@@ -2651,7 +2652,7 @@ getEmbeddingShape() const
 
 ExpressionValue
 ExpressionValue::
-reshape(std::vector<size_t> newShape) const
+reshape(DimsVector newShape) const
 {
     switch (type_) {
     case Type::NONE:
@@ -2818,7 +2819,7 @@ getEmbedding(const ColumnName * knownNames, size_t len) const
     switch (type_) {
 
     case Type::EMBEDDING: {
-        std::vector<size_t> shape = getEmbeddingShape();
+        DimsVector shape = getEmbeddingShape();
         size_t totalLength = 1;
         for (auto & s: shape)
             totalLength *= s;
@@ -2901,7 +2902,7 @@ convertEmbedding(void * buf, size_t len, StorageType bufType) const
     switch (type_) {
 
     case Type::EMBEDDING: {
-        std::vector<size_t> shape = getEmbeddingShape();
+        DimsVector shape = getEmbeddingShape();
         size_t totalLength = 1;
         for (auto & s: shape)
             totalLength *= s;

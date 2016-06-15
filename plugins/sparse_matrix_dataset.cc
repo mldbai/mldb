@@ -9,7 +9,7 @@
 
 #include "sparse_matrix_dataset.h"
 #include "mldb/types/basic_value_descriptions.h"
-#include "mldb/types/compact_vector_value_description.h"
+#include "mldb/types/compact_vector_description.h"
 #include "mldb/types/map_description.h"
 #include "sparse_matrix.h"
 #include "mldb/sql/sql_expression.h"

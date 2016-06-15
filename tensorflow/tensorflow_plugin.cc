@@ -956,7 +956,7 @@ struct TensorflowGraphBase: public Function {
         
         auto flattened = tensor.flat<T>();
         size_t n = flattened.size();
-        vector<size_t> shape;
+        DimsVector shape;
         for (unsigned i = 0;  i < tensor.dims();  ++i) {
             shape.emplace_back(tensor.dim_size(i));
         }
@@ -987,7 +987,7 @@ struct TensorflowGraphBase: public Function {
         
         auto flattened = tensor.flat<std::string>();
         size_t n = flattened.size();
-        vector<size_t> shape;
+        DimsVector shape;
         for (unsigned i = 0;  i < tensor.dims();  ++i) {
             shape.emplace_back(tensor.dim_size(i));
         }
