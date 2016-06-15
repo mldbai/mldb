@@ -124,6 +124,7 @@ applyT(const ApplierT & applier_, PoolingInput input) const
 
     size_t num_embed_cols = columnNames.size() * functionConfig.aggregators.size();
 
+    Date outputTs = input.words.getEffectiveTimestamp();
     StructValue inputRow;
     inputRow.emplace_back("words", std::move(input.words));
 
@@ -132,8 +133,6 @@ applyT(const ApplierT & applier_, PoolingInput input) const
 
     std::vector<double> outputEmbedding;
     outputEmbedding.reserve(num_embed_cols);
-
-    Date outputTs = input.words.getEffectiveTimestamp();
 
     if (queryOutput.empty()) {
         outputEmbedding.resize(num_embed_cols, 0.0);  // TODO: should be NaN?

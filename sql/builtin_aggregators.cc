@@ -11,6 +11,7 @@
 #include "mldb/jml/stats/distribution.h"
 #include "mldb/jml/utils/csv.h"
 #include "mldb/types/vector_description.h"
+#include "mldb/base/optimized_path.h"
 #include <array>
 #include <unordered_set>
 
@@ -52,6 +53,12 @@ struct RegisterAggregator {
 
     std::vector<std::shared_ptr<void> > handles;
 };
+
+/// Allow control over whether the given optimization path is run
+/// so that we can test both with and without optimization.
+static const OptimizedPath optimizeDenseAggregators
+("mldb.sql.optimizeDenseAggregators");
+
 
 template<typename State>
 struct AggregatorT {
@@ -209,6 +216,9 @@ struct AggregatorT {
                 return;
             }
             const ExpressionValue & val = args[0];
+
+            if (val.empty())
+                return;
 
             // Check if the column names or number don't match, and
             // pessimize back to the sparse version if it's the case.
@@ -384,14 +394,7 @@ struct AggregatorT {
 
         auto rowInfo = std::make_shared<RowValueInfo>(cols, hasUnknown);
 
-        if (!isDense) {
-            return { sparseRowInit,
-                     sparseRowProcess,
-                     sparseRowExtract,
-                     sparseRowMerge,
-                     rowInfo };
-        }
-        else {
+        if (optimizeDenseAggregators(isDense)) {
             // ExpressionValues will always sort their columns, so do so here
             // so we don't just mess up the ordering.
             if (!std::is_sorted(denseColumnNames.begin(),
@@ -406,6 +409,14 @@ struct AggregatorT {
                      denseRowProcess,
                      denseRowExtract,
                      denseRowMerge,
+                     rowInfo };
+        }
+        else {
+            // Do it the slow way by looking up keys in maps
+            return { sparseRowInit,
+                     sparseRowProcess,
+                     sparseRowExtract,
+                     sparseRowMerge,
                      rowInfo };
         }
     }

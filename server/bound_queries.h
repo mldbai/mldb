@@ -113,6 +113,20 @@ struct BoundSelectQuery {
                  ssize_t limit,
                  std::function<bool (const Json::Value &)> onProgress);
 
+    bool executeExpr(RowProcessorExpr processor,
+                     ssize_t offset,
+                     ssize_t limit,
+                     std::function<bool (const Json::Value &)> onProgress);
+
+    bool executeExpr(std::function<bool (RowName & rowName,
+                                         ExpressionValue & val,
+                                         std::vector<ExpressionValue> & calcd,
+                                         int rowNum)> processor,
+                     bool processInParallel,
+                     ssize_t offset,
+                     ssize_t limit,
+                     std::function<bool (const Json::Value &)> onProgress);
+
     std::shared_ptr<Executor> executor;
 
     std::shared_ptr<ExpressionValueInfo> getSelectOutputInfo() const;

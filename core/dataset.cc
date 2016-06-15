@@ -856,19 +856,19 @@ queryStructuredIncremental(std::function<bool (Path &, ExpressionValue &)> & onR
 
     // Do it ungrouped if possible
     if (groupBy.clauses.empty() && aggregators.empty()) {
-        auto processor = [&] (NamedRowValue & row_,
-                              const std::vector<ExpressionValue> & calc)
+        auto processor = [&] (RowName & rowName,
+                              ExpressionValue & row,
+                              std::vector<ExpressionValue> & calc)
             {
                 Path path = getValidatedRowName(calc.at(0));
-                ExpressionValue val(std::move(row_.columns));
-                return onRow(path, val);
+                return onRow(path, row);
             };
 
-        return iterateDataset(select, *this, alias, when, where,
-                              { rowName.shallowCopy() },
-                              {processor, true/*processInParallel*/},
-                              orderBy, offset, limit,
-                              nullptr);
+        return iterateDatasetExpr(select, *this, alias, when, where,
+                                  { rowName.shallowCopy() },
+                                  { processor, true /*processInParallel*/ },
+                                  orderBy, offset, limit,
+                                  nullptr);
     }
     else {
 
@@ -1938,13 +1938,14 @@ queryBasic(const SqlBindingScope & scope,
                 
                 auto doRow = [&] (int rowNum) -> bool
                     {
-                        auto row = matrix->getRow(rows[rowNum]);
+                        auto row = this->getRowExpr(rows[rowNum]);
 
                         NamedRowValue outputRow;
-                        outputRow.rowName = row.rowName;
-                        outputRow.rowHash = row.rowName;
+                        outputRow.rowName = rows[rowNum];
+                        outputRow.rowHash = rows[rowNum];
 
-                        auto rowScope = selectScope.getRowScope(row, &params);
+                        auto rowScope
+                            = selectScope.getRowScope(rows[rowNum], row, &params);
 
                         // Filter the tuple using the WHEN expression
                         if (!whenTrue)
@@ -1954,8 +1955,7 @@ queryBasic(const SqlBindingScope & scope,
                         std::vector<ExpressionValue> sortFields;
 
                         if (selectStar) {
-                            ExpressionValue selectOutput(std::move(row.columns));
-                            selectOutput.mergeToRowDestructive(outputRow.columns);
+                            row.mergeToRowDestructive(outputRow.columns);
 
                             // We can move things out of the row scope,
                             // since they will be found in the output
@@ -1967,8 +1967,7 @@ queryBasic(const SqlBindingScope & scope,
                         }
                         else {
                             ExpressionValue selectOutput
-                            = boundSelect(rowScope, GET_LATEST);
-                            
+                                = boundSelect(rowScope, GET_LATEST);
                             selectOutput.mergeToRowDestructive(outputRow.columns);
 
                             // Get the order by scope, which can read from both the result

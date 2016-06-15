@@ -1590,12 +1590,25 @@ makeInputDatasetDescription();
 
 struct BoundWhenExpression {
     
-    typedef std::function<void (MatrixNamedRow & row,
+    typedef std::function<void (ExpressionValue & row,
                                 const SqlRowScope & rowScope)> FilterFunction;
 
-    FilterFunction filterInPlace;
+    BoundWhenExpression(FilterFunction fn = nullptr,
+                        const WhenExpression * expr = nullptr)
+        : filterInPlaceFn(fn), expr(expr)
+    {
+    }
 
-    /// Expression that lef to this bound expression
+    FilterFunction filterInPlaceFn;
+
+    void filterInPlace(ExpressionValue & row,
+                       const SqlRowScope & rowScope) const
+    {
+        if (filterInPlaceFn)
+            filterInPlaceFn(row, rowScope);
+    }
+
+    /// Expression that led to this bound expression
     const WhenExpression * expr;
 };
 
