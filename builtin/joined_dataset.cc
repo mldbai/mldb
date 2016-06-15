@@ -815,6 +815,7 @@ struct JoinedDataset::Itl
         auto iter = rowIndex.find(rowHash);
         if (iter == rowIndex.end())
             return RowName();
+   
 
         int64_t index = iter->second;
         const RowEntry& entry = rows[index];
@@ -1010,6 +1011,28 @@ overrideFunction(const Utf8String & tableName,
         Utf8String newTableName = functionName;
         newTableName.removeSuffix(".rowName");
         return overrideFunction(newTableName, newFunctionName, scope);
+    }
+    if (functionName == "leftRowName") {
+        return {[&] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & scope)
+                {
+                    auto & row = scope.as<SqlExpressionDatasetScope::RowScope>();
+                    RowHash rowHash(row.row.rowName);
+                    return ExpressionValue(itl->rows[itl->rowIndex[rowHash]].leftName, Date::negativeInfinity());
+                },
+                std::make_shared<Utf8StringValueInfo>()
+            };
+    }
+    else if (functionName == "rightRowName") {
+      return {[&] (const std::vector<ExpressionValue> & args,
+                     const SqlRowScope & scope)
+                {
+                    auto & row = scope.as<SqlExpressionDatasetScope::RowScope>();
+                    RowHash rowHash(row.row.rowName);
+                    return ExpressionValue(itl->rows[itl->rowIndex[rowHash]].rightName, Date::negativeInfinity());
+                },
+                std::make_shared<Utf8StringValueInfo>()
+            };
     }
 
     return BoundFunction();

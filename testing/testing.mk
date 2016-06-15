@@ -272,6 +272,7 @@ $(eval $(call mldb_unit_test,MLDB-1440_sqlexpr_ignore_unknown_param.py))
 $(eval $(call mldb_unit_test,MLDB-1595-count-distinct.py))
 $(eval $(call mldb_unit_test,MLDB-1639-join-where.py))
 $(eval $(call mldb_unit_test,MLDB-1661-function-name-conflict.py))
+$(eval $(call mldb_unit_test,MLDB-1710-left-right-rowname.py))
 
 #$(eval $(call mldb_unit_test,pytanic_plugin_test.py))
 $(eval $(call python_test,mldb_merged_dataset_test,mldb_py_runner))
