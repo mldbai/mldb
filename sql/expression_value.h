@@ -72,6 +72,9 @@ enum JsonArrayHandling {
     ENCODE_ARRAYS ///< Arrays are encoded as one-hot or JSON literals
 };
 
+/** Vector of dimensions for an embedding. */
+typedef ML::compact_vector<size_t, 4> DimsVector;
+
 /*****************************************************************************/
 /* STORAGE TYPE                                                              */
 /*****************************************************************************/
@@ -594,17 +597,17 @@ struct ExpressionValue {
     */
     ExpressionValue(std::vector<CellValue> values,
                     Date ts,
-                    std::vector<size_t> shape = std::vector<size_t>());
+                    DimsVector shape = DimsVector());
 
     // Construct from a pure embedding
     ExpressionValue(std::vector<float> values,
                     Date ts,
-                    std::vector<size_t> shape = std::vector<size_t>());
+                    DimsVector shape = DimsVector());
 
     // Construct from a pure embedding
     ExpressionValue(std::vector<double> values,
                     Date ts,
-                    std::vector<size_t> shape = std::vector<size_t>());
+                    DimsVector shape = DimsVector());
     
     /** Construct from a generalized uniform embedding, which is stored as
         a contiguous (flat), column-major array (ie, standard c storage).
@@ -626,7 +629,7 @@ struct ExpressionValue {
     embedding(Date ts,
               std::shared_ptr<const void> data,
               StorageType storage,
-              std::vector<size_t> dims,
+              DimsVector dims,
               std::shared_ptr<const EmbeddingMetadata> md = nullptr);
 
     /** Create a single ExpressionValue that is the superposition of several
@@ -839,7 +842,7 @@ struct ExpressionValue {
     getEmbeddingCell(ssize_t knownLength = -1) const;
 
     /** Return the shape of the embedding. */
-    std::vector<size_t>
+    DimsVector
     getEmbeddingShape() const;
 
     /** Reshape the embedding into a new shape.  The total number of
@@ -847,7 +850,7 @@ struct ExpressionValue {
 
         This will throw an exception if the shape doesn't match.
     */
-    ExpressionValue reshape(std::vector<size_t> newShape) const;
+    ExpressionValue reshape(DimsVector newShape) const;
 
     /** Return an embedding from the value, asserting on the names of the
         columns.  Note that this method will not extract the given names;
