@@ -108,6 +108,8 @@ getDefaultDescription(RestCollectionChildEvent<Key, Value> * = 0);
 /** Base class for background tasks. */
 
 struct BackgroundTaskBase {
+    enum State {_initializing, _executing, _cancelled, _finished, _error};
+
     BackgroundTaskBase();
 
     /** When destroying a background task, we make sure it's cancelled or
@@ -124,7 +126,7 @@ struct BackgroundTaskBase {
     void cancel();
 
     void setError(std::exception_ptr exc = nullptr);
-
+    void setProgress(const Json::Value & progress);
     void setFinished();
 
     /** Set the handle of the thread that's doing this task, so we know what
@@ -141,8 +143,7 @@ struct BackgroundTaskBase {
     typedef std::function<bool (const Json::Value &)> OnProgress;
 
     std::atomic<bool> cancelled, error, finished;
-    //std::atomic<std::exception_ptr> exc;
-
+    std::atomic<State> state;
     WatchesT<bool> cancelledWatches;
     
     /// Everything below here is protected by this mutex

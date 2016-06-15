@@ -41,7 +41,9 @@ struct JSONImporterConfig : ProcedureConfig {
           limit(-1),
           offset(0),
           ignoreBadLines(false)
-    {}
+    {
+        outputDataset.withType("tabular");
+    }
 
     Url dataFileUrl;
     PolyConfigT<Dataset> outputDataset;
@@ -62,7 +64,7 @@ JSONImporterConfigDescription()
              "URL to load text file from");
     addField("outputDataset", &JSONImporterConfig::outputDataset,
              "Configuration for output dataset",
-             PolyConfigT<Dataset>().withType("sparse.mutable"));
+             PolyConfigT<Dataset>().withType("tabular"));
     addField("limit", &JSONImporterConfig::limit,
              "Maximum number of lines to process");
     addField("offset", &JSONImporterConfig::offset,
@@ -95,10 +97,23 @@ struct JSONImporter: public Procedure {
         // Create the output dataset
         std::shared_ptr<Dataset> outputDataset;
 
-        if (!runProcConf.outputDataset.type.empty()
-            || !runProcConf.outputDataset.id.empty()) {
-            outputDataset = createDataset(server, runProcConf.outputDataset, nullptr, true);
+        if (runProcConf.outputDataset.type == "tabular") {
+            if (runProcConf.outputDataset.params == nullptr) {
+                 Json::Value params;
+                 params["unknownColumns"] = "add";
+                 runProcConf.outputDataset.params = params;
+            }
+            else {
+                auto params =
+                    runProcConf.outputDataset.params.as<Json::Value>();
+                if (!params.isMember("unknownColumns")) {
+                    params["unknownColumns"] = "add";
+                    runProcConf.outputDataset.params = params;
+                }
+            }
         }
+        outputDataset = createDataset(server, runProcConf.outputDataset,
+                                      onProgress, true);
 
         if(!outputDataset) {
             throw ML::Exception("Unable to obtain output dataset");
