@@ -1,16 +1,13 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /* naive_bayes_generator.h                                          -*- C++ -*-
    Jeremy Barnes, 15 March 2006
    Copyright (c) 2006 Jeremy Barnes.  All rights reserved.
-   $Source$
+
+   This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
    Generator for a naive_bayes.
 */
 
-#ifndef __boosting__naive_bayes_generator_h__
-#define __boosting__naive_bayes_generator_h__
-
+#pragma once
 
 #include "classifier_generator.h"
 #include "naive_bayes.h"
@@ -54,10 +51,8 @@ public:
     virtual std::shared_ptr<Classifier_Impl>
     generate(Thread_Context & context,
              const Training_Data & training_data,
-             const Training_Data & validation_data,
              const distribution<float> & training_weights,
-             const distribution<float> & validation_weights,
-             const std::vector<Feature> & features, int) const;
+             const std::vector<Feature> & features, int) const override;
 
     int trace;
     float feature_prop;
@@ -75,6 +70,3 @@ public:
 
 
 } // namespace ML
-
-
-#endif /* __boosting__naive_bayes_generator_h__ */
