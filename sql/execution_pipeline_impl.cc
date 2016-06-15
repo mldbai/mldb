@@ -466,9 +466,11 @@ restart()
 SubSelectElement::
 SubSelectElement(std::shared_ptr<PipelineElement> root,
                  SelectStatement& stm,
+                 OrderByExpression& orderBy,
                  GetParamInfo getParamInfo,
                  const Utf8String& asName) : root(root), asName(asName) {
-
+    if (!orderBy.clauses.empty())
+        stm.orderBy = orderBy;
     pipeline = root->statement(stm, getParamInfo);
 }
 
@@ -691,6 +693,36 @@ doGetFunction(const Utf8String & functionName,
             };
 
         return { exec, leftRowName.resultInfo };
+    }
+
+    if (functionName == "leftRowName") {
+        auto leftRowName
+            = left->doGetFunction("rowName", args, leftFieldOffset(fieldOffset), argScope);
+
+        auto exec = [=] (const std::vector<ExpressionValue> & args,
+                         const SqlRowScope & context)
+            -> ExpressionValue
+            {
+                Utf8String rowName;
+                return leftRowName(args, context);
+            };
+
+        return { exec, leftRowName.resultInfo };
+    }
+
+    if (functionName == "rightRowName") {
+        auto rightRowName
+            = right->doGetFunction("rowName", args, rightFieldOffset(fieldOffset), argScope);
+
+        auto exec = [=] (const std::vector<ExpressionValue> & args,
+                         const SqlRowScope & context)
+            -> ExpressionValue
+            {
+                Utf8String rowName;
+                return rightRowName(args, context);
+            };
+
+        return { exec, rightRowName.resultInfo };
     }
 
     // For now, don't allow joins to override functions
@@ -1411,7 +1443,7 @@ FromElement(std::shared_ptr<PipelineElement> root_,
                                    join->left, BoundTableExpression(),
                                    join->right, BoundTableExpression(),
                                    join->on, join->qualification,
-                                   select, where, orderBy_));
+                                   select, where, orderBy));
         // TODO: order by for join output
             
     }
@@ -1430,7 +1462,7 @@ FromElement(std::shared_ptr<PipelineElement> root_,
         if (params_)
             getParamInfo = params_;
 
-        impl.reset(new SubSelectElement(root, subSelect->statement, getParamInfo, from->getAs()));
+        impl.reset(new SubSelectElement(root, subSelect->statement, orderBy, getParamInfo, from->getAs()));
     }
     else {
 #if 0
@@ -1793,7 +1825,7 @@ take()
                 return parent->orderBy_.less(p1->values, p2->values,
                                              offset);
             };
-                
+
         std::sort(sorted.begin(), sorted.end(), compare);
                 
         numDone = 0;
