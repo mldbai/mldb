@@ -453,6 +453,20 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
         return result;
     }
 
+    virtual ExpressionValue getRowExpr(const RowName & rowName) const
+    {
+        auto it = rowIndex.find(rowName);
+        if (it == rowIndex.end()) {
+            throw HttpReturnException
+                (400, "Row not found in tabular dataset: "
+                 + rowName.toUtf8String(),
+                 "rowName", rowName);
+        }
+
+        return chunks.at(it->second.first)
+            .getRowExpr(it->second.second, fixedColumns);
+    }
+
     virtual RowName getRowName(const RowHash & rowHash) const override
     {
         auto it = rowIndex.find(rowHash);
@@ -1172,6 +1186,13 @@ getRowStream() const
     return std::make_shared<TabularDataStore::TabularDataStoreRowStream>
         (itl.get()); 
 } 
+
+ExpressionValue
+TabularDataset::
+getRowExpr(const RowName & row) const
+{
+    return itl->getRowExpr(row);
+}
 
 GenerateRowsWhereFunction
 TabularDataset::

@@ -48,6 +48,20 @@ struct RowProcessor {
     bool operator () (NamedRowValue & output) {return processorfct(output);}
 };
 
+struct RowProcessorExpr {
+    std::function<bool (Path & rowName,
+                        ExpressionValue & output,
+                        std::vector<ExpressionValue> & calc)> processorfct;
+    bool processInParallel;
+
+    bool operator () (Path & rowName,
+                      ExpressionValue & output,
+                      std::vector<ExpressionValue> & calc)
+    {
+        return processorfct(rowName, output, calc);
+    }
+};
+
 struct RowProcessorEx {
     std::function<bool (NamedRowValue & output, const std::vector<ExpressionValue> & calc)> processorfct;
     bool processInParallel;
@@ -68,6 +82,21 @@ bool iterateDataset(const SelectExpression & select,
                     ssize_t offset,
                     ssize_t limit,
                     std::function<bool (const Json::Value &)> onProgress);
+
+/** Equivalent to SELECT (select) FROM (dataset) WHEN (when) WHERE (where), and each matching
+    row is passed to the aggregator.
+*/
+bool iterateDatasetExpr(const SelectExpression & select,
+                        const Dataset & from,
+                        const Utf8String & alias,
+                        const WhenExpression & when,
+                        const SqlExpression & where,
+                        std::vector<std::shared_ptr<SqlExpression> > calc,
+                        RowProcessorExpr processor,
+                        const OrderByExpression & orderBy,
+                        ssize_t offset,
+                        ssize_t limit,
+                        std::function<bool (const Json::Value &)> onProgress);
 
 /** Equivalent to SELECT (select) FROM (dataset) WHEN (when) WHERE (where), and each matching
     row is passed to the aggregator.

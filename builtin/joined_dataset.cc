@@ -995,10 +995,12 @@ overrideFunction(const Utf8String & tableName,
         if (tableSide != JoinedDataset::Itl::JOIN_SIDE_MAX)
         {
             return {[&, tableSide] (const std::vector<ExpressionValue> & args,
-                     const SqlRowScope & scope)
+                                    const SqlRowScope & scope)
                 { 
                     auto & row = scope.as<SqlExpressionDatasetScope::RowScope>();
-                    return ExpressionValue(itl->getSubRowName(row.row.rowName, tableSide).toUtf8String(), Date::negativeInfinity());
+                    return ExpressionValue(itl->getSubRowName(row.getRowName(),
+                                                              tableSide).toUtf8String(),
+                                           Date::negativeInfinity());
                 },
                 std::make_shared<Utf8StringValueInfo>()
             };
@@ -1015,7 +1017,10 @@ overrideFunction(const Utf8String & tableName,
                      const SqlRowScope & scope)
                 {
                     auto & row = scope.as<SqlExpressionDatasetScope::RowScope>();
-                    return ExpressionValue(itl->getSubRowNameFromChildTable(tableName, row.row.rowName, tableSide).toUtf8String(), Date::negativeInfinity());
+                    return ExpressionValue(itl->getSubRowNameFromChildTable
+                                               (tableName, row.getRowName(), tableSide)
+                                           .toUtf8String(),
+                                           Date::negativeInfinity());
                 },
                 std::make_shared<Utf8StringValueInfo>()
             };

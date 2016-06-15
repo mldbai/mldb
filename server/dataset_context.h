@@ -11,6 +11,7 @@
 
 #include "mldb/sql/sql_expression.h"
 #include "mldb/sql/binding_contexts.h"
+#include <unordered_map>
 
 namespace Datacratic {
 namespace MLDB {
@@ -78,12 +79,45 @@ struct SqlExpressionDatasetScope: public SqlExpressionMldbScope {
 
     struct RowScope: public SqlRowScope {
         RowScope(const MatrixNamedRow & row,
-                   const BoundParameters * params = nullptr)
-            : row(row), params(params)
+                 const BoundParameters * params = nullptr)
+            : row(&row), expr(nullptr), params(params)
         {
         }
 
-        const MatrixNamedRow & row;
+        RowScope(const RowName & rowName,
+                 const ExpressionValue & row,
+                 const BoundParameters * params = nullptr)
+            : row(nullptr), rowName(&rowName), expr(&row), params(params)
+        {
+        }
+
+        /// Return the row name of the row being processed
+        const RowName & getRowName() const;
+
+        /// Return the hash of the row name of the row being processed
+        RowHash getRowHash() const;
+
+        /// Return the value of the given column.  If knownOffset is set,
+        /// then it can be used to immediately find the column within
+        /// the structure without doing a lookup.
+        const ExpressionValue & getColumn(const ColumnName & columnName,
+                                          const VariableFilter & filter,
+                                          ExpressionValue & storage,
+                                          ssize_t knownOffset = -1) const;
+
+        ExpressionValue
+        getColumnCount() const;
+        
+        ExpressionValue
+        getFilteredValue(const VariableFilter & filter) const;
+
+        ExpressionValue
+        getReshaped(const std::unordered_map<ColumnHash, ColumnName> & index,
+                    const VariableFilter & filter) const;
+
+        const MatrixNamedRow * row;
+        const RowName * rowName;
+        const ExpressionValue * expr;
 
         /// If set, this tells us how to get the value of a bound parameter
         const BoundParameters * params;
@@ -124,9 +158,16 @@ struct SqlExpressionDatasetScope: public SqlExpressionMldbScope {
     doGetBoundParameter(const Utf8String & paramName);
     
     static RowScope getRowScope(const MatrixNamedRow & row,
-                                    const BoundParameters * params = nullptr)
+                                const BoundParameters * params = nullptr)
     {
         return RowScope(row, params);
+    }
+
+    static RowScope getRowScope(const RowName & rowName,
+                                const ExpressionValue & row,
+                                const BoundParameters * params = nullptr)
+    {
+        return RowScope(rowName, row, params);
     }
 
     virtual ColumnName
