@@ -334,11 +334,7 @@ doGetColumn(const Utf8String & tableName,
                      const VariableFilter & filter) -> const ExpressionValue &
                 {
                     auto & row = context.as<RowScope>();
-                    ExcAssertEqual(std::get<0>(row.row.columns.at(knownOffset)),
-                                   simplified);
-                    return storage = ExpressionValue
-                        (std::get<1>(row.row.columns[knownOffset]),
-                         std::get<2>(row.row.columns[knownOffset]));
+                    return row.getColumn(simplified, filter, storage, knownOffset);
                 },
                 knownColInfo};
     }

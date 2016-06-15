@@ -325,21 +325,30 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
     }
 
     std::tuple<RowName, ExpressionValue, std::vector<ExpressionValue> >
-    processRow(const RowName & rowName,
-               ExpressionValue & row,
+    processRow(const std::shared_ptr<void> & rowToken,
                int rowNum,
                int numPerBucket,
                bool selectStar)
     {
-        auto rowContext = context.getRowScope(rowName, row);
+        auto rowContext = context.getRowScope(dataset, rowToken.get());
 
-        whenBound.filterInPlace(row, rowContext);
+        //throw HttpReturnException(600, "whenBound filter in place");
+        //whenBound.filterInPlace(row, rowContext);
 
         std::tuple<RowName, ExpressionValue, std::vector<ExpressionValue> > output;
 
         std::get<0>(output) = rowName;
 
         auto selectRowScope = context.getRowScope(rowName, row);
+
+        if (selectStar) {
+            // Move into place, since we know we're selecting *
+            std::get<1>(output) = std::move(row);
+        }
+        else {
+            // Run the select expression
+            std::get<1>(output) = boundSelect(selectRowScope, GET_ALL);
+        }
 
         vector<ExpressionValue>& calcd = std::get<2>(output);
         calcd.resize(boundCalc.size());
@@ -350,6 +359,27 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
             calcd[i] = std::move(boundCalc[i](selectRowScope, GET_LATEST));
         }
 
+        return output;
+    }
+
+    std::tuple<RowName, ExpressionValue, std::vector<ExpressionValue> >
+    processRow(const RowName & rowName,
+               ExpressionValue & row,
+               int rowNum,
+               int numPerBucket,
+               bool selectStar)
+    {
+        auto rowContext = context.getRowScope(rowName, row);
+
+        //throw HttpReturnException(600, "whenBound filter in place");
+        //whenBound.filterInPlace(row, rowContext);
+
+        std::tuple<RowName, ExpressionValue, std::vector<ExpressionValue> > output;
+
+        std::get<0>(output) = rowName;
+
+        auto selectRowScope = context.getRowScope(rowName, row);
+
         if (selectStar) {
             // Move into place, since we know we're selecting *
             std::get<1>(output) = std::move(row);
@@ -357,6 +387,14 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
         else {
             // Run the select expression
             std::get<1>(output) = boundSelect(selectRowScope, GET_ALL);
+        }
+
+        vector<ExpressionValue>& calcd = std::get<2>(output);
+        calcd.resize(boundCalc.size());
+
+        // Run the extra calculations
+        for (unsigned i = 0;  i < boundCalc.size();  ++i) {
+            calcd[i] = std::move(boundCalc[i](selectRowScope, GET_LATEST));
         }
 
         return output;
@@ -1236,6 +1274,56 @@ executeExpr(std::function<bool (Path & rowName,
                                      offset, limit, onProgress);
     } JML_CATCH_ALL {
         rethrowHttpException(KEEP_HTTP_CODE, "Execution error: "
+                             + ML::getExceptionString(),
+                             "select", select.surface,
+                             "from", from.getStatus(),
+                             "where", where.shallowCopy(),
+                             "calc", calc,
+                             "orderBy", orderBy,
+                             "offset", offset,
+                             "limit", limit);
+    }
+}
+
+bool
+BoundSelectQuery::
+executeExpr(RowProcessorExpr processor,
+            ssize_t offset,
+            ssize_t limit,
+            std::function<bool (const Json::Value &)> onProgress)
+{
+    auto subProcessor = [&] (Path & rowName,
+                             ExpressionValue & row,
+                             std::vector<ExpressionValue> & calc,
+                             int groupNum)
+        {
+            return processor(rowName, row, calc);
+        };
+    
+    return executeExpr(subProcessor, processor.processInParallel,
+                       offset, limit, onProgress);
+}
+
+bool
+BoundSelectQuery::
+executeExpr(std::function<bool (Path & rowName,
+                                ExpressionValue & output,
+                                std::vector<ExpressionValue> & calcd,
+                                int groupNum)> processor,
+            bool processInParallel,
+            ssize_t offset,
+            ssize_t limit,
+            std::function<bool (const Json::Value &)> onProgress)
+{
+    //STACK_PROFILE(BoundSelectQuery);
+
+    ExcAssert(processor);
+
+    try {
+        return executor->executeExpr(processor, processInParallel,
+                                     offset, limit, onProgress);
+    } JML_CATCH_ALL {
+        rethrowHttpException(-1, "Execution error: "
                              + ML::getExceptionString(),
                              "select", select.surface,
                              "from", from.getStatus(),
