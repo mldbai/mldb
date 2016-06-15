@@ -237,36 +237,17 @@ struct JoinedDataset::Itl
             // Complex join condition.  We need to generate the full set of
             // values.  To do this, we use the new executor.
             auto gotElement = [&] (std::shared_ptr<PipelineResults> & res) -> bool {
-                //cerr << "got rows complex " << res->values.size() << endl;
+
+                ssize_t numValues = res->values.size();
+
                 Utf8String leftNameUtf8 = "";
-
-                //results come in rowName/Columns pair
-                //last two are the joined row (+2)
-                //the two before that are the right row (+2)
-                //and before that the left row which can be chained (chainedJoinDepth*2)
-                //Deeper than the chained depth could be a subselect, for example.
-                
-                ssize_t i = res->values.size() - (chainedJoinDepth*2+4);
-                ExcAssert(i >= 0);
-
-                if (!res->values.at(i).empty())
-                    leftNameUtf8 = res->values.at(i).toUtf8String();
-
-                i += 2;
-
-                for (; i + 2 < res->values.size(); i+=2) {
-                    if (i == 2)
-                        leftNameUtf8 = "[" + leftNameUtf8 + "]";
-                    
-                    leftNameUtf8 += res->values.at(0).empty() ? "-[]" :
-                        "-[" + res->values.at(i).toUtf8String() + "]";
-                }      
-                  
+                if (!res->values.at(numValues-2).empty())
+                    leftNameUtf8 = res->values.at(numValues-2).toUtf8String();
                 RowName leftName = RowName::parse(leftNameUtf8);
-                
+
                 Utf8String rightNameUtf8 = "";
-                if (!res->values.at(i).empty())
-                    rightNameUtf8 = res->values.at(i).toUtf8String();
+                if (!res->values.at(numValues-1).empty())
+                    rightNameUtf8 = res->values.at(numValues-1).toUtf8String();
                 RowName rightName = RowName::parse(rightNameUtf8);
 
                 recordJoinRow(leftName, leftName, rightName, rightName);
@@ -282,6 +263,8 @@ struct JoinedDataset::Itl
 
             PipelineElement::root(scope)
                 ->join(leftExpr, left, rightExpr, right, on, qualification)
+                ->select(SqlExpression::parse("leftRowName()"))
+                ->select(SqlExpression::parse("rightRowName()"))
                 ->bind()
                 ->start(getParam)
                 ->takeAll(gotElement);

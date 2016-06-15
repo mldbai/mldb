@@ -349,6 +349,8 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
         ssize_t limit,
         std::function<bool (const Json::Value &)> onProgress)
     {
+        //STACK_PROFILE(OrderedExecutor);
+
         QueryThreadTracker parentTracker;
 
         // Get a list of rows that we run over
@@ -430,7 +432,7 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
 
         parallelMap(0, rows.size(), doWhere);
 
-        cerr << "map took " << timer.elapsed() << endl;
+        //cerr << "map took " << timer.elapsed() << endl;
         timer.restart();
         
         // Compare two rows according to the sort criteria
@@ -442,7 +444,7 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
             
         auto rowsSorted = parallelMergeSort(accum.threads, compareRows);
 
-        cerr << "shuffle took " << timer.elapsed() << endl;
+        //cerr << "shuffle took " << timer.elapsed() << endl;
         timer.restart();
 
         auto doSelect = [&] (int rowNum) -> bool
@@ -972,8 +974,13 @@ BoundSelectQuery(const SelectExpression & select,
         if (newOrderBy.clauses.size() == 1
             && newOrderBy.clauses[0].second == ASC
             && newOrderBy.clauses[0].first->getType() == "function"
-            && newOrderBy.clauses[0].first->getOperation() == "rowHash")
+            && newOrderBy.clauses[0].first->getOperation() == "rowHash") {
             orderByRowHash = true;
+        }
+        else if (newOrderBy.clauses.size() > 0) {
+            //if we have an order by, always add a rowHash() to make sure we have a fully deterministic sorting order
+            newOrderBy.clauses.emplace_back(SqlExpression::parse("rowHash()"), ASC);
+        }
  
         if (orderByRowHash) {
             ExcAssert(numBuckets < 0);
