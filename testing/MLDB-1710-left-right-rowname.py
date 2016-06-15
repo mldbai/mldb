@@ -30,7 +30,7 @@ class LikeTest(MldbUnitTest):
         res1 = mldb.query("select leftRowName() from ds1 join ds2")
         mldb.log(res1)
 
-        expected = [["_rowName", "leftRowName()"],["[x]-[y]","x"]]   
+        expected = [["_rowName", "leftRowName()"],["[x]-[y]","x"]]
 
         self.assertEqual(res1, expected);
 
@@ -57,10 +57,28 @@ class LikeTest(MldbUnitTest):
 
         expected = [["_rowName","leftRowName()"],["[x]-[y]-[z]","[x]-[y]"]]
 
+        self.assertEqual(res1, expected);
+
         res1 = mldb.query("select rightRowName() from (ds1 join ds2) join ds3")
         mldb.log(res1)
 
         expected = [["_rowName","rightRowName()"],["[x]-[y]-[z]","z"]]
+
+        self.assertEqual(res1, expected);
+
+    def test_outer(self):
+
+        res1 = mldb.query("select leftRowName() from ds1 left join ds2 on ds1.a = ds2.a + 1")
+        mldb.log(res1)
+
+        expected = [["_rowName", "leftRowName()"],["[x]-[]","x"]]
+
+        self.assertEqual(res1, expected);
+
+        res1 = mldb.query("select rightRowName() from ds1 left join ds2 on ds1.a = ds2.a + 1")
+        mldb.log(res1)
+
+        expected = [["_rowName", "rightRowName()"],["[x]-[]",""]]
 
         self.assertEqual(res1, expected);
 
