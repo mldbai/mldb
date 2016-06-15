@@ -137,6 +137,7 @@ struct PathElement {
     bool operator == (const PathElement & other) const;
     bool operator != (const PathElement & other) const;
     bool operator <  (const PathElement & other) const;
+    bool operator <= (const PathElement & other) const;
 
     bool startsWith(const std::string & other) const;
     bool startsWith(const PathElement & other) const;

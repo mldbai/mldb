@@ -3974,7 +3974,12 @@ ExpressionValue::
 initStructured(Structured value) noexcept
 {
     // Do we need sorting, etc?
-    bool needsSorting = true;  // TODO: detect this; it will make things much faster
+    bool needsSorting = false;  // TODO: detect this; it will make things much faster
+
+    for (size_t i = 1;  i < value.size() && !needsSorting;  ++i) {
+        if (std::get<0>(value[i]) <= std::get<0>(value[i - 1]))
+            needsSorting = true;
+    }
 
     if (needsSorting) {
         // Deduplicate...

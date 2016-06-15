@@ -403,6 +403,24 @@ operator <  (const PathElement & other) const
 
 bool
 PathElement::
+operator <= (const PathElement & other) const
+{
+    //ExcAssertEqual(digits_, calcDigits(data(), dataLength()));
+    //ExcAssertEqual(other.digits_, calcDigits(other.data(), other.dataLength()));
+
+    if (digits_ == NO_DIGITS && other.digits_ == NO_DIGITS) {
+        size_t l1 = dataLength();
+        size_t l2 = other.dataLength();
+        int res = std::memcmp(data(), other.data(), std::min(l1, l2));
+        if (res) return res <= 0;
+        return l1 <= l2;
+    }
+
+    return compareString(other.data(), other.dataLength()) <= 0;
+}
+
+bool
+PathElement::
 startsWith(const std::string & other) const
 {
     return toUtf8String().startsWith(other);
