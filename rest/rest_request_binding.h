@@ -431,7 +431,7 @@ createParameterExtractor(Json::Value & argHelp,
             if (p.name.empty()) {
                 return JsonCodec<T>::decode(parsed);
             }
-            if (parsed.isMember(p.name.rawString())) {
+            if (parsed.isMember(p.name)) {
                 return JsonCodec<T>::decode(parsed[p.name]);
             }
             return p.defaultValue;
