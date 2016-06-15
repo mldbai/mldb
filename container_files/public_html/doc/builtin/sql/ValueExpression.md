@@ -308,7 +308,7 @@ will change values on each row under consideration. See the [Intro to Datasets](
   `rowPathElement(2)` is equivalent to `rowPathElement(-1)` which will
   be `2`. 
 - `columnCount()`: returns the number of columns with explicit values set in the current row
-- `leftRowName()` and `rightRowName()`: in the context if a join, will return the name of the row that was joined on the left or right, respectively.
+- `leftRowName()` and `rightRowName()`: in the context of a join, returns the name of the row that was joined on the left or right side respectively.
 
 
 ### Path manipulation functions
