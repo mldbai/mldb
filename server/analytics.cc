@@ -52,6 +52,21 @@ bool iterateDataset(const SelectExpression & select,
         .execute(processor, offset, limit, onProgress);
 }
 
+bool iterateDatasetExpr(const SelectExpression & select,
+                        const Dataset & from,
+                        const Utf8String & alias,
+                        const WhenExpression & when,
+                        const SqlExpression & where,
+                        std::vector<std::shared_ptr<SqlExpression> > calc,
+                        RowProcessorExpr processor,
+                        const OrderByExpression & orderBy,
+                        ssize_t offset,
+                        ssize_t limit,
+                        std::function<bool (const Json::Value &)> onProgress)
+{
+    return BoundSelectQuery(select, from, alias, when, where, orderBy, calc)
+        .executeExpr(processor, offset, limit, onProgress);
+}
 
 /** Full select function, with grouping. */
 bool iterateDatasetGrouped(const SelectExpression & select,

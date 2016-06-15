@@ -762,19 +762,19 @@ queryStructuredIncremental(std::function<bool (Path &, ExpressionValue &)> & onR
 
     // Do it ungrouped if possible
     if (groupBy.clauses.empty() && aggregators.empty()) {
-        auto processor = [&] (NamedRowValue & row_,
-                              const std::vector<ExpressionValue> & calc)
+        auto processor = [&] (RowName & rowName,
+                              ExpressionValue & row,
+                              std::vector<ExpressionValue> & calc)
             {
                 Path path = getValidatedRowName(calc.at(0));
-                ExpressionValue val(std::move(row_.columns));
-                return onRow(path, val);
+                return onRow(path, row);
             };
 
-        return iterateDataset(select, *this, alias, when, where,
-                              { rowName.shallowCopy() },
-                              {processor, true/*processInParallel*/},
-                              orderBy, offset, limit,
-                              nullptr);
+        return iterateDatasetExpr(select, *this, alias, when, where,
+                                  { rowName.shallowCopy() },
+                                  { processor, true /*processInParallel*/ },
+                                  orderBy, offset, limit,
+                                  nullptr);
     }
     else {
 

@@ -132,6 +132,31 @@ struct TabularDatasetChunk {
         return result;
     }
 
+    /// Get the row with the given index
+    ExpressionValue
+    getRowExpr(size_t index, const std::vector<ColumnName> & fixedColumnNames) const
+    {
+        ExcAssertLess(index, rowNames.size());
+        std::vector<std::tuple<ColumnName, CellValue, Date> > result;
+        result.reserve(columns.size());
+        Date ts = timestamps->get(index).toTimestamp();
+        for (size_t i = 0;  i < columns.size();  ++i) {
+            CellValue val = columns[i]->get(index);
+            if (val.empty())
+                continue;
+            result.emplace_back(fixedColumnNames[i], std::move(val), ts);
+        }
+
+        for (auto & c: sparseColumns) {
+            CellValue val = c.second->get(index);
+            if (val.empty())
+                continue;
+            result.emplace_back(c.first, std::move(val), ts);
+
+        }
+        return std::move(result);
+    }
+
     /// Add the given column to the column with the given index
     void addToColumn(int columnIndex,
                      const ColumnName & colName,
