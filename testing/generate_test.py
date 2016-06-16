@@ -29,7 +29,7 @@ if __name__ == '__main__':
     mldb.run_tests()"""
 
 
-def get_filename():
+def get_filename_from_args():
     parser = argparse.ArgumentParser(description=
         "Create a test file skeleton and create the entry in the makefile.")
     parser.add_argument('filename', nargs=1, help="The filename to create.")
@@ -65,10 +65,9 @@ def get_class_from_filename(filename):
 
 
 def update_makefile(filename):
-    for test in [('testing.mk', False), ('pro_testing.mk', True)]:
-        if os.path.isfile(test[0]):
-            pro = test[1]
-            f = open(test[0], 'at+')
+    for mk_file, pro in [('testing.mk', False), ('pro_testing.mk', True)]:
+        if os.path.isfile(mk_file):
+            f = open(mk_file, 'at+')
             break
     else:
         raise Exception("*.mk not found")
@@ -86,7 +85,7 @@ def update_makefile(filename):
 
 
 def do_it():
-    filename = get_filename()
+    filename = get_filename_from_args()
     author = \
         subprocess.check_output(['git', 'config', '--get', 'user.name'])[:-1]
     now = datetime.datetime.now().isoformat()
