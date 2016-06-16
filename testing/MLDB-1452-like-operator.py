@@ -62,7 +62,7 @@ class LikeTest(unittest.TestCase):
         res = mldb.query('''
             select x LIKE '%t_' as v
             from sample
-        ''')        
+        ''')
 
         expected = [["_rowName","v"],["d",0],["e",1],["c",0],["b",0],["a",0]]
         self.assertEqual(res, expected)
@@ -96,7 +96,7 @@ class LikeTest(unittest.TestCase):
         ds.record_row("e",[["x", "eg(ro)te", 0]])
         ds.record_row("f",[["x", "famelico$e", 0]])
         ds.record_row("g",[["x", "gardev^iance", 0]])
-        ds.commit()       
+        ds.commit()
 
         res = mldb.query('''
             select x
@@ -168,7 +168,7 @@ class LikeTest(unittest.TestCase):
         ds.record_row("a",[["x", 0, 0]])
         ds.record_row("b",[["x", 12345, 0]])
         ds.record_row("c",[["x", 12345.00, 0]])
-        ds.commit()       
+        ds.commit()
 
         with self.assertRaises(mldb_wrapper.ResponseException) as re:
             res = mldb.query('''
@@ -192,5 +192,11 @@ class LikeTest(unittest.TestCase):
 
         expected = [["_rowName","x"],["a","hyometer"]]
         self.assertEqual(res, expected)
+
+    def test_null_like(self):
+        """
+        MLDB-1727 test null like
+        """
+        res = mldb.query("SELECT NULL LIKE 'abc'")
 
 mldb.run_tests()
