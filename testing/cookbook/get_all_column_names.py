@@ -13,6 +13,6 @@ ds.record_row('user1', [['eventA', 1, 0]])
 ds.record_row('user2', [['eventB', 1, 0]])
 ds.commit()
 
-mldb.log(mldb.query("SELECT rowName() FROM transpose(ds)"))
+mldb.log(mldb.get('/v1/datasets/ds/columns').json())
 
 mldb.script.set_return("success")

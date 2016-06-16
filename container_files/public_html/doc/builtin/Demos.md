@@ -15,6 +15,10 @@ MLDB ships with some demo and tutorial [Notebooks](Notebooks.md).
 
 The ![](%%nblink _demos/Benchmarking MLDB) notebook shows how to run the [The Absolute Minimal Machine Learning Benchmark](https://github.com/szilard/benchm-ml/tree/master/z-other-tools) with MLDB.
 
+## Transfer Learning with Tensorflow
+
+The ![](%%nblink _demos/Transfer Learning with Tensorflow) demo demonstrates how to do transfer learning to leverage the power of a deep convolutional neural network without having to train one yourself. Most people do not train those types of networks from scratch because of the large data and computational power requirements. What is more common is to train the network on a large dataset (unrelated to our task) and then leverage the representation it learned.
+
 ## Predicting Titanic Survival
 
 The ![](%%nblink _demos/Predicting Titanic Survival) demo shows a classification workflow:
@@ -40,7 +44,12 @@ The ![](%%nblink _demos/Recommending Movies) demo shows how to use MLDB to do re
 
 The ![](%%nblink _demos/Exploring Favourite Recipes) demo shows how to use MLDB to do clustering/topic extraction among recipes with the ![](%%doclink kmeans.train procedure).
 
-## Transfer Learning with Tensorflow
+## Spam Filtering
 
-The ![](%%nblink _demos/Transfer Learning with Tensorflow) demo demonstrates how to do transfer learning to leverage the power of a deep convolutional neural network without having to train one yourself. Most people do not train those types of networks from scratch because of the large data and computational power requirements. What is more common is to train the network on a large dataset (unrelated to our task) and then leverage the representation it learnt.
+The ![](%%nblink _demos/Enron Spam Filtering) demo uses MLDB to show the perils of over-reliance on Area Under the Curve as a metric for evaluating classifiers.
+
+## Text Processing with Word2Vec
+
+The ![](%%nblink _demos/Mapping Election Press Releases) demo uses MLDB to visualize the relationships between texts with Word2Vec using the ![](%%doclink import.word2vec procedure).
+
 

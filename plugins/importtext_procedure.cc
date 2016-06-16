@@ -19,6 +19,7 @@
 #include "mldb/server/dataset_context.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/vfs/fs_utils.h"
+#include "mldb/plugins/progress.h"
 
 
 using namespace std;
@@ -205,6 +206,11 @@ struct SqlCsvScope: public SqlExpressionMldbScope {
             }
         }
 
+        // Fill out the offset so we know where it is in the input
+        for (size_t i = 0;  i < columnsWithInfo.size();  ++i) {
+            columnsWithInfo[i].offset = i;
+        }
+        
         auto exec = [=] (const SqlRowScope & scope, const VariableFilter & filter)
             {
                 /* 
@@ -218,7 +224,7 @@ struct SqlCsvScope: public SqlExpressionMldbScope {
                 RowValue result;
 
                 for (unsigned i = 0;  i < columnNames.size();  ++i) {
-                    if (toKeep[i] != ColumnName())
+                    if (!toKeep[i].empty())
                         result.emplace_back(columnNames[i], row.row[i], row.ts);
                 }
 
@@ -317,6 +323,21 @@ Encoding parseEncoding(const std::string & encodingStr)
     return encoding;
 }
 
+const char * findInvalidAscii(const char * start, size_t length, char*buf, char replaceInvalidCharactersWith) {
+
+    memcpy(buf, start, length);
+
+    char* p = buf;
+    char* end = buf+length;
+    while (p != end) {
+        if (!isJsonValid(*p))
+            *p = replaceInvalidCharactersWith;
+        ++p;
+    }
+
+    return buf;
+}
+
 } // file scope
 
 namespace {
@@ -376,9 +397,17 @@ parseFixedWidthCsvRow(const char * & line,
     auto finishString = [encoding,replaceInvalidCharactersWith]
         (const char * start, size_t len, bool eightBit)
         {
-            //cerr << "finishing string " << string(start, len) << " with eightBit " << eightBit << " and encoding " << encoding << endl;
+            //cerr << "finishing string " << string(start, len)
+            //     << " with eightBit " << eightBit
+            //     << " encoding " << encoding
+            //     << " replaceInvalidCharactersWith " << replaceInvalidCharactersWith << endl;
 
             if (!eightBit) {
+                char buf[len];
+                if (replaceInvalidCharactersWith >= 0) {
+                    ExcAssert(replaceInvalidCharactersWith < 256);
+                    start = findInvalidAscii(start, len, buf, (char)replaceInvalidCharactersWith);
+                }
                 return CellValue::parse(start, len, STRING_IS_VALID_ASCII);
             }
 
@@ -629,9 +658,11 @@ struct ImportTextProcedureWorkInstance
     uint64_t numLineErrors;
 
     /*    Load a text file and filter according to the configuration  */
-    void loadText(const ImportTextConfig& config, std::shared_ptr<Dataset> dataset, MldbServer * server)
+    void loadText(const ImportTextConfig& config,
+                  std::shared_ptr<Dataset> dataset,
+                  MldbServer * server,
+                  const std::function<bool (const Json::Value &)> & onProgress)
     {
-
         string filename = config.dataFileUrl.toString();
 
         // Ask for a memory mappable stream if possible
@@ -779,10 +810,6 @@ struct ImportTextProcedureWorkInstance
         SqlExpressionDatasetScope noContext(*dataset, ""); //needs a context because x.* is ambiguous
         isIdentitySelect = config.select.isIdentitySelect(noContext);  
 
-        // Is the name the lineNumber()?  If so, we can save on
-        // calculating it
-        //cerr << "name = " << config.named->print() << endl;
-
         // Figure out our output column names from the bound
         // select clause
 
@@ -826,7 +853,7 @@ struct ImportTextProcedureWorkInstance
             getline(stream, line);
         }
 
-        loadTextData(dataset, stream, config, scope);
+        loadTextData(dataset, stream, config, scope, onProgress);
     }
 
     /*    Load, filter and format all lines and process them  */
@@ -834,8 +861,14 @@ struct ImportTextProcedureWorkInstance
     loadTextData(std::shared_ptr<Dataset> dataset,
                  std::istream& stream,
                  const ImportTextConfig& config,
-                 SqlCsvScope& scope)
+                 SqlCsvScope& scope,
+                 const std::function<bool (const Json::Value &)> & onProgress)
     {
+        Progress progress;
+        std::shared_ptr<Step> iterationStep = progress.steps({
+            make_pair("iterating", "lines"),
+        });
+
         // Do we have a "where true'?  In that case, we don't need to
         // call the SQL parser
         bool isWhereTrue = config.where->isConstantTrue();
@@ -906,11 +939,16 @@ struct ImportTextProcedureWorkInstance
                 return true;
             };
 
+        atomic<ssize_t> lineCount(0);
         auto onLine = [&] (const char * line,
                            size_t length,
                            int chunkNum,
                            int64_t lineNum)
         {
+            if (++lineCount % 1000 == 0) {
+                iterationStep->value = lineCount;
+                onProgress(jsonEncode(iterationStep));
+            }
             int64_t actualLineNum = lineNum + lineOffset;
 #if 0
             uint64_t linesDone = totalLinesProcessed.fetch_add(1);
@@ -1096,19 +1134,13 @@ run(const ProcedureRunConfig & run,
 {
     auto runProcConf = applyRunConfOverProcConf(config, run);
 
-    auto onProgress2 = [&] (const Json::Value & progress) {
-        Json::Value value;
-        value["dataset"] = progress;
-        return onProgress(value);
-    };
-
     std::shared_ptr<Dataset> dataset
-        = createDataset(server, runProcConf.outputDataset, onProgress2,
+        = createDataset(server, runProcConf.outputDataset, onProgress,
                         true /*overwrite*/);
 
     ImportTextProcedureWorkInstance instance;
 
-    instance.loadText(config, dataset, server);
+    instance.loadText(config, dataset, server, onProgress);
 
     Json::Value status;
     status["numLineErrors"] = instance.numLineErrors;

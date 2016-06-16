@@ -363,7 +363,8 @@ doGetColumn(const Utf8String & tableName,
     if (!info) {
         // Don't know the column.  Is it because it never exists, or because
         // the schema is dynamic, or because its deeper?
-        if (inputInfo->getSchemaCompleteness() != SCHEMA_CLOSED || columnName.size() > 1) {
+        if (inputInfo->getSchemaCompleteness() != SCHEMA_CLOSED
+            || columnName.size() > 1) {
             // Dynamic columns; be prepared to do either depending upon
             // what we find
 
@@ -485,6 +486,14 @@ doGetAllColumns(const Utf8String & tableName,
                     output.emplace_back(it->second,
                                         std::move(val),
                                         ts);
+                }
+                else if (!prefix.empty()){
+                    it = toKeep.find(prefix);
+                    if (it != toKeep.end()) {
+                        output.emplace_back(prefix + columnName,
+                                            std::move(val),
+                                            ts);
+                    }
                 }
                 return true;
             };

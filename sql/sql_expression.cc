@@ -222,6 +222,12 @@ doGetFunction(const Utf8String & tableName,
     if (factory) {
         return factory(functionName, args, argScope);
     }
+
+    if (functionName == "leftRowName")
+        throw HttpReturnException(400, "Function 'leftRowName' is not available outside of a join");
+
+    if (functionName == "rightRowName")
+        throw HttpReturnException(400, "Function 'rightRowName' is not available outside of a join");
     
     return {nullptr, nullptr};
 }
@@ -401,8 +407,8 @@ SqlBindingScope::
 doResolveTableName(const ColumnName & fullColumnName,
                    Utf8String &tableName) const
 {
-    throw HttpReturnException(400, "Binding context " + ML::type_name(*this)
-                              + " does not support resolving table names");
+    //default behaviour is there is no dataset so return the full column name
+    return fullColumnName;
 }
 
 MldbServer *
@@ -1421,7 +1427,8 @@ parse(ML::Parse_Context & context, int currentPrecedence, bool allowUtf8)
         bool negative = false;
         // IN and NOT IN precedence is the same as the NOT operator
         if (currentPrecedence > 5) {
-            if ((negative = matchKeyword(context, "NOT IN")) || matchKeyword(context, "IN")) {
+            if ((negative = matchKeyword(context, "NOT IN")) ||
+                (!peekKeyword(context, "INNER") && matchKeyword(context, "IN"))) {
                 expect_whitespace(context);
 
                 context.expect_literal('(');
