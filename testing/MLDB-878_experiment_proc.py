@@ -4,7 +4,7 @@
 # this file is part of mldb. copyright 2015 datacratic. all rights reserved.
 #
 import datetime, os
-from numpy.random import normal, random
+from random import random, gauss
 
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
@@ -24,8 +24,8 @@ class Mldb878Test(MldbUnitTest):  # noqa
 
             for i in xrange(5000):
                 label = random() < 0.2
-                dataset.record_row("u%d" % i, [["feat1", normal(5 if label else 15, 3), now],
-                                               ["feat2", normal(-5 if label else 10, 10), now],
+                dataset.record_row("u%d" % i, [["feat1", gauss(5 if label else 15, 3), now],
+                                               ["feat2", gauss(-5 if label else 10, 10), now],
                                                ["label", label, now]])
 
             dataset.commit()
@@ -524,19 +524,18 @@ class Mldb878Test(MldbUnitTest):  # noqa
             })
 
     def test_orderby(self):
-        n,d = 1000, 200
-        data = normal(size=(n,d))
-
         mldb.put('/v1/datasets/ds_ob', {
             'type': 'sparse.mutable'
         })
 
-        for no, row in enumerate(data):
+        n=200
+        for i in xrange(n):
             mldb.post('/v1/datasets/ds_ob/rows', {
-                'rowName': str(no),
-                'columns': [['order', random(), 0]] + [['x' + str(i), x, 0]
-                                              for i,x in enumerate(row)] \
-                           + [['label', random() > 1, 0]]
+                'rowName': str(i),
+                'columns': [['order', random(), 0]]
+                            + [['x' + str(j), gauss(0,1), 0]
+                                for j in xrange(20)]
+                            + [['label', random() > 1, 0]]
 
 
             })
@@ -545,7 +544,8 @@ class Mldb878Test(MldbUnitTest):  # noqa
         conf = {
             'type': 'classifier.experiment',
             'params': {
-                'inputData': 'select {* EXCLUDING (label, no)} as features, label from ds_ob',
+                'inputData': 'select {* EXCLUDING (label, order)} as features,'
+                             'label from ds_ob',
                 'datasetFolds': [
                     # training on the first half and testing on the second
                     {
