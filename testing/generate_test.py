@@ -32,9 +32,9 @@ if __name__ == '__main__':
 def get_filename_from_args():
     parser = argparse.ArgumentParser(description=
         "Create a test file skeleton and create the entry in the makefile.")
-    parser.add_argument('filename', nargs=1, help="The filename to create.")
+    parser.add_argument('filename', help="The filename to create.")
     args = parser.parse_args()
-    filename = args.filename[0]
+    filename = args.filename
 
     if not filename.endswith('.py'):
         filename += '.py'
