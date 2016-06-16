@@ -1,6 +1,6 @@
 #
 # MLDB-1724-naive-bayes.py
-# Francois Maillet, 15 juin 2016
+# Simon Lemieux, 15 juin 2016
 # This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
 #
 import csv
@@ -9,7 +9,14 @@ from StringIO import StringIO
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
 
-class Mldb1721(MldbUnitTest):
+def try_parse_to_float(x):
+    try:
+        return float(x)
+    except:
+        return x
+
+
+class Mldb1724(MldbUnitTest):
     @classmethod
     def setUpClass(self):
         # example from wikipedia
@@ -23,7 +30,7 @@ male 5.92 165 10
 female 5 100 6
 female 5.5 150 8
 female 5.42 130 7
-female 5.75 150 9""".strip())
+female 5.75 150 9""")
         reader = csv.DictReader(data, delimiter=' ')
 
         ds = mldb.create_dataset({"id": "data",
@@ -31,10 +38,9 @@ female 5.75 150 9""".strip())
         for i, row in enumerate(reader):
             ds.record_row(
                 'dude_' + str(i),
-                [[col, val, 0] for col,val in row.iteritems()])
+                [[col, try_parse_to_float(val), 0] for col,val
+                 in row.iteritems()])
         ds.commit()
-
-        mldb.log(mldb.query('select * from data'))
 
     def test_naive_bayes(self):
         mldb.post('/v1/procedures', {
@@ -50,6 +56,16 @@ female 5.75 150 9""".strip())
                 'configuration': {
                     'naive_bayes': {
                         'type': 'naive_bayes'
+                    },
+                    "dt": {
+                        "_note": "Plain decision tree",
+                        "type": "decision_tree",
+                        "max_depth": 8,
+                        "verbosity": 3,
+                        "update_alg": "prob"
+                    },
+                    'glz': {
+                        'type': 'glz'
                     }
                 },
                 'modelFileUrl': 'file://model.cls.gz',
@@ -58,11 +74,19 @@ female 5.75 150 9""".strip())
             }
         })
 
-        # TODO
-        # self.assertEqual(mldb.query("""
-        #     SELECT classify({
-        #         height:6.02
-        #     }
-        # """), 1)
+        for feats, target in [
+            ('foot_size:11', 1),
+            ('height:5.8, weight:200', 1),
+            ('height:6, weight:180, foot_size:12', 1),
+            ('height:5, weight:120, foot_size:6', 0),
+            ('height:5, weight:120, foot_size:6', 0),
+                ]:
+            prediction = mldb.get('/v1/query',
+                q="""SELECT classify({features: {%s}}) as *""" % feats,
+                format='aos').json()[0]['score']
+            print prediction
+            # FIXME the predictions using naive_bayes are always .5
+            # self.assertLess(prediction - target, .5)
+
 
 mldb.run_tests()
