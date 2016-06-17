@@ -402,13 +402,13 @@ createParameterExtractor(Json::Value & argHelp,
         };
 }
 
-template<typename T>
+template<typename T, typename Codec>
 static std::function<decltype(JsonCodec<T>::decode(std::declval<Json::Value>()))
                      (RestConnection & connection,
                       const RestRequest & request,
                       const RestRequestParsingContext & context)>
 createParameterExtractor(Json::Value & argHelp,
-                         const JsonParamDefault<T> & p, void * = 0)
+                         const JsonParamDefault<T, Codec> & p, void * = 0)
 {
     Json::Value & v = argHelp["jsonParams"];
     Json::Value & v2 = v[v.size()];
@@ -427,12 +427,13 @@ createParameterExtractor(Json::Value & argHelp,
             if (request.payload == "") {
                 return p.defaultValue;
             }
+
             Json::Value parsed = Json::parse(request.payload);
             if (p.name.empty()) {
-                return JsonCodec<T>::decode(parsed);
+                return p.codec.decode(request.payload);
             }
             if (parsed.isMember(p.name)) {
-                return JsonCodec<T>::decode(parsed[p.name]);
+                return p.codec.decode(parsed[p.name].toStyledString());
             }
             return p.defaultValue;
         };

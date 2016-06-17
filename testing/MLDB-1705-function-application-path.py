@@ -47,7 +47,7 @@ class Mldb1705(MldbUnitTest):
                     "1-2"
                 ]
             ])
-    
+
 
     def test_calling_from_application(self):
         data = {
@@ -55,10 +55,23 @@ class Mldb1705(MldbUnitTest):
             "data2": { "y": 2 }
         }
 
-        rez = mldb2.perform("GET", "/v1/functions/func/application", [["input", json.dumps(data)]])
-        jsRez = json.loads(rez["response"])
+        rez = mldb.get("/v1/functions/func/application",
+                       input=json.dumps(data))
+        js_rez = rez.json()
 
-        self.assertEqual(jsRez["output"]["horizontal_string_agg({data1.x, data2.y}, '-')"], "1-2")
+        self.assertEqual(
+            js_rez["output"]["horizontal_string_agg({data1.x, data2.y}, '-')"],
+            "1-2")
+
+    def test_calling_from_application_with_body(self):
+        data = {
+            "data1": { "x": 1 },
+            "data2": { "y": 2 }
+        }
+
+        rez = mldb.get("/v1/functions/func/application",
+                       data={"input" : data})
+        mldb.log(rez)
+        #self.assertEqual(jsRez["output"]["horizontal_string_agg({data1.x, data2.y}, '-')"], "1-2")
 
 mldb.run_tests()
-
