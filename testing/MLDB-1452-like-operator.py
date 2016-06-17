@@ -193,4 +193,15 @@ class LikeTest(unittest.TestCase):
         expected = [["_rowName","x"],["a","hyometer"]]
         self.assertEqual(res, expected)
 
+    # MLDB-1617
+    def test_join_no_on_clause(self):
+
+        res1 = mldb.query("select 'apple' like ('%'+'p'+'%')")
+        mldb.log(res1)
+
+        res2 = mldb.query("select 'apple' like '%'+'p'+'%'")
+        mldb.log(res2)
+
+        self.assertEqual(res1[1], res2[1]);
+
 mldb.run_tests()
