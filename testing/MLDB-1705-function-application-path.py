@@ -70,8 +70,9 @@ class Mldb1705(MldbUnitTest):
         }
 
         rez = mldb.get("/v1/functions/func/application",
-                       data={"input" : data})
-        mldb.log(rez)
-        #self.assertEqual(jsRez["output"]["horizontal_string_agg({data1.x, data2.y}, '-')"], "1-2")
+                       data={"input" : data}).json()
+        self.assertEqual(
+            rez["output"]["horizontal_string_agg({data1.x, data2.y}, '-')"],
+            "1-2")
 
 mldb.run_tests()
