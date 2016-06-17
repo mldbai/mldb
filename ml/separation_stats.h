@@ -66,6 +66,12 @@ struct BinaryStats {
         return falseNegatives(weighted) + trueNegatives(weighted);
     }
 
+    double accuracy() const
+    {
+        return ML::xdiv(truePositives() + trueNegatives(),
+                        totalPositives() + totalNegatives());
+    }
+
     double precision() const
     {
         return ML::xdiv(truePositives(), truePositives() + falsePositives());

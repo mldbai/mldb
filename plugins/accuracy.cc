@@ -181,6 +181,7 @@ runBoolean(AccuracyConfig & runAccuracyConf,
             row.emplace_back(ColumnName("falsePositives"), bstats.falsePositives(), recordDate);
             row.emplace_back(ColumnName("trueNegatives"), bstats.trueNegatives(), recordDate);
             row.emplace_back(ColumnName("falseNegatives"), bstats.falseNegatives(), recordDate);
+            row.emplace_back(ColumnName("accuracy"), bstats.accuracy(), recordDate);
             row.emplace_back(ColumnName("precision"), bstats.precision(), recordDate);
             row.emplace_back(ColumnName("recall"), bstats.recall(), recordDate);
             row.emplace_back(ColumnName("truePositiveRate"), bstats.truePositiveRate(), recordDate);
@@ -349,6 +350,7 @@ runCategorical(AccuracyConfig & runAccuracyConf,
     Json::Value results;
     results["labelStatistics"] = Json::Value();
 
+    double total_accuracy = 0;
     double total_precision = 0;
     double total_recall = 0; // i'll be back!
     double total_f1 = 0;
@@ -375,15 +377,18 @@ runCategorical(AccuracyConfig & runAccuracyConf,
 
         Json::Value class_stats;
 
+        double accuracy = ML::xdiv(tp, float(real_sums[actual_it.first]));
         double precision = ML::xdiv(tp, float(predicted_sums[actual_it.first]));
         double recall = ML::xdiv(tp, float(tp + fn));
         unsigned support = real_sums[actual_it.first];
+        class_stats["accuracy"] = accuracy;
         class_stats["precision"] = precision;
         class_stats["recall"] = recall;
         class_stats["f"] = 2 * ML::xdiv((precision * recall), (precision + recall));
         class_stats["support"] = support;
         results["labelStatistics"][actual_it.first.toString()] = class_stats;
 
+        total_accuracy += accuracy * support;
         total_precision += precision * support;
         total_recall += recall * support;
         total_f1 += class_stats["f"].asDouble() * support;
@@ -392,6 +397,7 @@ runCategorical(AccuracyConfig & runAccuracyConf,
 
     // Create weighted statistics
     Json::Value weighted_stats;
+    weighted_stats["accuracy"] = total_accuracy / total_support;
     weighted_stats["precision"] = total_precision / total_support;
     weighted_stats["recall"] = total_recall / total_support;
     weighted_stats["f"] = total_f1 / total_support;
