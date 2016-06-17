@@ -199,4 +199,17 @@ class LikeTest(unittest.TestCase):
         """
         res = mldb.query("SELECT NULL LIKE 'abc'")
 
+    def test_join_no_on_clause(self):
+        """
+        MLDB-1617
+        """
+        res1 = mldb.query("select 'apple' like ('%'+'p'+'%')")
+        mldb.log(res1)
+
+        res2 = mldb.query("select 'apple' like '%'+'p'+'%'")
+        mldb.log(res2)
+
+        self.assertEqual(res1[1], res2[1]);
+
+
 mldb.run_tests()

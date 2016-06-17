@@ -1277,6 +1277,12 @@ Value::isMember( const CppTL::ConstString &key ) const
 }
 #endif
 
+bool
+Value::isMember( const Utf8String &key ) const
+{
+   return isMember( key.rawData() );
+}
+
 Value::Members
 Value::getMemberNames() const
 {

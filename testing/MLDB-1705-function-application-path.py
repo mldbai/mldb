@@ -47,7 +47,7 @@ class Mldb1705(MldbUnitTest):
                     "1-2"
                 ]
             ])
-    
+
 
     def test_calling_from_application(self):
         data = {
@@ -55,10 +55,36 @@ class Mldb1705(MldbUnitTest):
             "data2": { "y": 2 }
         }
 
-        rez = mldb2.perform("GET", "/v1/functions/func/application", [["input", json.dumps(data)]])
-        jsRez = json.loads(rez["response"])
+        rez = mldb.get("/v1/functions/func/application",
+                       input=json.dumps(data))
+        js_rez = rez.json()
 
-        self.assertEqual(jsRez["output"]["horizontal_string_agg({data1.x, data2.y}, '-')"], "1-2")
+        self.assertEqual(
+            js_rez["output"]["horizontal_string_agg({data1.x, data2.y}, '-')"],
+            "1-2")
+
+    def test_calling_from_application_with_body(self):
+        data = {
+            "data1": { "x": 1 },
+            "data2": { "y": 2 }
+        }
+
+        rez = mldb.get("/v1/functions/func/application",
+                       data={"input" : data}).json()
+        self.assertEqual(
+            rez["output"]["horizontal_string_agg({data1.x, data2.y}, '-')"],
+            "1-2")
+
+    def test_calling_from_application_double_params(self):
+        data = {
+            "data1": { "x": 1 },
+            "data2": { "y": 2 }
+        }
+
+        msg = ("You cannot define input in both the query string and the "
+               "request body")
+        with self.assertRaisesRegexp(mldb_wrapper.ResponseException, msg):
+            mldb.get("/v1/functions/func/application",
+                     input=json.dumps(data), data={"input" : data})
 
 mldb.run_tests()
-
