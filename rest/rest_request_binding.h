@@ -463,7 +463,10 @@ createParameterExtractor(Json::Value & argHelp,
                 const RestRequest & request,
                 const RestRequestParsingContext & context)
         {
-            Json::Value parsed = Json::parse(request.payload);
+            Json::Value parsed;
+            if (!request.payload.empty()) {
+                parsed = Json::parse(request.payload);
+            }
             if (request.params.hasValue(p.name)) {
                 if (parsed.isMember(p.name)) {
                     throw ML::Exception(
