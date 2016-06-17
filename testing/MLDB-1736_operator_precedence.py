@@ -37,5 +37,23 @@ class MLDB1736OperatorPrecedence(MldbUnitTest):
             ]
         )
 
+    def test_is_not_null(self):
+        self.assertTableResultEquals(
+            mldb.query("""
+                select x, 
+                        x + 5 IS NOT NULL as colA,
+                        x + (5 IS NOT NULL) as colB,
+                        (x + 5) IS NOT NULL as colC
+                from (
+                    select {x: 5} as *
+                )
+            """),
+            [
+                ["_rowName", "colA", "colB", "colC", "x"],
+                [  "result",  6, 6, 1, 5]
+            ]
+        )
+
+
 if __name__ == '__main__':
     mldb.run_tests()
