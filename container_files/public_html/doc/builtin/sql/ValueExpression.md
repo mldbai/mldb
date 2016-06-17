@@ -51,7 +51,8 @@ always are left associative, that is the expression
      `&` , <code>&#124;</code> , `^`      |  binary bitwise    |          3 
      `=` , `!=`, `>` , `<` , `>=` , `<=`       |  binary comparison |          4 
      `NOT`    |  unary boolean     |          5 
-     `AND` , `OR`     |  binary boolean    |          7 
+     `AND`    |  binary boolean    |          6 
+     `OR`     |  binary boolean    |          7 
 
 <!--
      ALL      unary unimp                 7  All true 
