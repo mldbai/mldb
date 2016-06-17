@@ -152,6 +152,11 @@ applyFunction(const Function * function,
               const std::vector<Utf8String> & bKeepValues
               ) const
 {
+    if (qsInput.empty() && bInput.empty()) {
+        throw ML::Exception("input is currently undefined. It must be "
+                            "defined either as a query string parameter or "
+                            "as a key in body payload.");
+    }
     if (!qsInput.empty() && !bInput.empty()) {
         throw ML::Exception("input is currently defined twice. It must be "
                             "defined either as a query string parameter or "
@@ -247,16 +252,23 @@ initRoutes(RouteManager & manager)
                   &FunctionCollection::applyFunction,
                   manager.getCollection,
                   getFunction,
-                  RestParamJsonDefault<std::map<Utf8String, ExpressionValue>>(
-                      "input", inputDefStr, {}, "", JsonStrCodec<MapType>(mapDesc)),
+                  RestParamJsonDefault<MapType>(
+                      "input", inputDefStr, {}, "",
+                      JsonStrCodec<MapType>(mapDesc)),
                   RestParamJsonDefault<std::vector<Utf8String>>
                   ("keepValues", keepValuesDefStr, {}),
                   PassConnectionId(),
 
                   // Alternative parameters as body
-                  JsonParamDefault<std::map<Utf8String, ExpressionValue>>("input", inputDefStr),
-                  JsonParamDefault<std::vector<Utf8String>>("keepValues", keepValuesDefStr)
+                  JsonParamDefault<MapType>(
+                      "input", inputDefStr, {}, "",
+                      JsonStrCodec<MapType>(mapDesc)),
+                  JsonParamDefault<std::vector<Utf8String>>("keepValues",
+                                                            keepValuesDefStr)
                   );
+
+
+
 
     addRouteSyncJsonReturn(*manager.valueNode, "/info", { "GET" },
                            "Return information about the values and metadata of the function",
