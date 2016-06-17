@@ -281,30 +281,39 @@ struct JsonParam {
     Utf8String description;
 };
 
-template<typename T>
+template<typename T, typename Codec = JsonStrCodec<T> >
 struct JsonParamDefault {
     JsonParamDefault()
     {
     }
 
-    JsonParamDefault(const Utf8String & name, const Utf8String & description,
-                     T defaultValue = T())
-        : name(name), description(description), defaultValue(defaultValue)
+    JsonParamDefault(const Utf8String & name,
+                     const Utf8String & description,
+                     T defaultValue = T(),
+                     const Utf8String & defaultValueStr = "",
+                     Codec codec = Codec())
+        : name(name), description(description), defaultValue(defaultValue),
+          defaultValueStr(codec.encode(defaultValue)),
+          codec(std::move(codec))
     {
     }
     
     JsonParamDefault(const JsonParamDefault & other)
         : name(other.name), description(other.description),
-          defaultValue(other.defaultValue)
+          defaultValue(other.defaultValue),
+          defaultValueStr(other.defaultValueStr), codec(other.codec)
     {
     }
     
     Utf8String name;
     Utf8String description;
     T defaultValue;
+    Utf8String defaultValueStr;
+    Codec codec;
+
+private:
+    void operator = (const JsonParamDefault & other);
 };
-
-
 
 
 /** This indicates that we get a parameter from the path of the request. 
