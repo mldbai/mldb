@@ -4,10 +4,9 @@
 # This file is part of MLDB. Copyright 2016 Datacratic. All rights reserved.
 #
 
-import unittest, json
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
-class LikeTest(unittest.TestCase):
+class LikeTest(MldbUnitTest):  # noqa
 
     def test_like_select(self):
 
@@ -197,7 +196,12 @@ class LikeTest(unittest.TestCase):
         """
         MLDB-1727 test null like
         """
-        res = mldb.query("SELECT NULL LIKE 'abc'")
+        res = mldb.get('/v1/query',
+                       q="SELECT NULL LIKE 'abc' AS res NAMED 'row'")
+        self.assertFullResultEquals(res.json(), [{
+            'rowName' : "row",
+            'columns' : [['res', None, "-Inf"]]
+        }])
 
     def test_join_no_on_clause(self):
         """
