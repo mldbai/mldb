@@ -145,30 +145,11 @@ FunctionCollection(MldbServer * server)
 void
 FunctionCollection::
 applyFunction(const Function * function,
-              const std::map<Utf8String, ExpressionValue> & qsInput,
-              const std::vector<Utf8String> & qsKeepValues,
-              RestConnection & connection,
-              const std::map<Utf8String, ExpressionValue> & bInput,
-              const std::vector<Utf8String> & bKeepValues
+              const std::map<Utf8String, ExpressionValue> & input,
+              const std::vector<Utf8String> & keepValues,
+              RestConnection & connection
               ) const
 {
-    if (!qsInput.empty() && !bInput.empty()) {
-        throw ML::Exception("input is currently defined twice. It must be "
-                            "defined either as a query string parameter or "
-                            "as a key in body payload.");
-    }
-    if (!qsKeepValues.empty() && !bKeepValues.empty()) {
-        throw ML::Exception("keepValues is currently defined twice. It must "
-                            "be defined either as a query string parameter or "
-                            "as a key in body payload.");
-    }
-
-    const std::map<Utf8String, ExpressionValue> & input =
-        qsInput.empty() ? bInput : qsInput;
-    const std::vector<Utf8String> & keepValues =
-        qsKeepValues.empty() ? bKeepValues : qsKeepValues;
-
-
     StructValue inputExpr;
     inputExpr.reserve(input.size());
     for (auto & i: input) {
@@ -247,19 +228,12 @@ initRoutes(RouteManager & manager)
                   &FunctionCollection::applyFunction,
                   manager.getCollection,
                   getFunction,
-                  RestParamJsonDefault<MapType>(
+                  HybridParamJsonDefault<MapType>(
                       "input", inputDefStr, {}, "",
                       JsonStrCodec<MapType>(mapDesc)),
-                  RestParamJsonDefault<std::vector<Utf8String>>
-                  ("keepValues", keepValuesDefStr, {}),
-                  PassConnectionId(),
-
-                  // Alternative parameters as body
-                  JsonParamDefault<MapType>(
-                      "input", inputDefStr, {}, "",
-                      JsonStrCodec<MapType>(mapDesc)),
-                  JsonParamDefault<std::vector<Utf8String>>("keepValues",
-                                                            keepValuesDefStr)
+                  HybridParamJsonDefault<std::vector<Utf8String>>(
+                      "keepValues", keepValuesDefStr, {}),
+                  PassConnectionId()
                   );
 
 

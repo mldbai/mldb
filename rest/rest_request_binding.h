@@ -439,6 +439,46 @@ createParameterExtractor(Json::Value & argHelp,
         };
 }
 
+template<typename T, typename Codec>
+static std::function<decltype(JsonCodec<T>::decode(std::declval<Json::Value>()))
+                     (RestConnection & connection,
+                      const RestRequest & request,
+                      const RestRequestParsingContext & context)>
+createParameterExtractor(Json::Value & argHelp,
+                         const HybridParamJsonDefault<T, Codec> & p, void * = 0)
+{
+    Json::Value desc;
+    desc["name"] = p.name;
+    desc["description"] = p.description;
+    desc["cppType"] = ML::type_name<T>();
+    desc["encoding"] = "URI encoded or JSON";
+    desc["location"] = "query string or Request Body";
+
+    for (const auto key: {"requestParams", "jsonParams"}) {
+        Json::Value & v = argHelp[key];
+        v[v.size()] = desc;
+    }
+
+    return [=] (RestConnection & connection,
+                const RestRequest & request,
+                const RestRequestParsingContext & context)
+        {
+            Json::Value parsed = Json::parse(request.payload);
+            if (request.params.hasValue(p.name)) {
+                if (parsed.isMember(p.name)) {
+                    throw ML::Exception(
+                        "You cannot define %s in both the query string and "
+                        "the request body", p.name.rawData());
+                }
+                return p.codec.decode(request.params.getValue(p.name));
+            }
+            if (parsed.isMember(p.name)) {
+                return p.codec.decode(parsed[p.name].toStyledString());
+            }
+            return p.defaultValue;
+        };
+}
+
 
 /** Free function to be called in order to generate a parameter extractor
     for the given parameter.  See the CreateRestParameterGenerator class for more
