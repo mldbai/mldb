@@ -54,7 +54,28 @@ struct TabularDataset : public Dataset {
     virtual std::shared_ptr<RowStream> getRowStream() const;
 
     virtual ExpressionValue getRowExpr(const RowName & row) const;
+
+    virtual const RowName &
+    getRowNameFromToken(const void * token,RowName & storage) const;
+
+    virtual RowHash getRowHashFromToken(const void * token) const;
+
+    virtual const ExpressionValue &
+    getRowFromToken(const void * token, ExpressionValue & storage) const;
+
+    virtual const ExpressionValue *
+    tryGetCellFromToken(const void * rowToken,
+                        const ColumnName & columnName,
+                        ExpressionValue & storage,
+                        const VariableFilter & filter) const;
+
+    virtual std::shared_ptr<const void> 
+    tryGetRowToken(const RowName & rowName) const;
     
+    virtual std::pair<std::vector<const void *>,
+                      std::shared_ptr<const void> >
+    getAllRowTokens() const;
+
     virtual std::pair<Date, Date> getTimestampRange() const;
 
     virtual GenerateRowsWhereFunction

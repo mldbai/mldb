@@ -85,14 +85,24 @@ struct SqlExpressionDatasetScope: public SqlExpressionMldbScope {
     struct RowScope: public SqlRowScope {
         RowScope(const MatrixNamedRow & rowValue,
                  const BoundParameters * params = nullptr)
-            : row(&rowValue), rowName(nullptr), expr(nullptr), params(params)
+            : dataset(nullptr), rowToken(nullptr),
+              row(&rowValue), expr(nullptr), params(params)
         {
         }
 
         RowScope(const RowName & rowName,
                  const ExpressionValue & rowValue,
                  const BoundParameters * params = nullptr)
-            : row(nullptr), rowName(&rowName), expr(&rowValue), params(params)
+            : dataset(nullptr), rowToken(nullptr),
+              row(nullptr), rowName(&rowName), expr(&rowValue), params(params)
+        {
+        }
+
+        RowScope(const Dataset * dataset,
+                 const void * rowToken,
+                 const BoundParameters * params = nullptr)
+            : dataset(dataset), rowToken(rowToken),
+              row(nullptr), rowName(nullptr), expr(nullptr), params(params)
         {
         }
 
@@ -126,6 +136,8 @@ struct SqlExpressionDatasetScope: public SqlExpressionMldbScope {
             associated with it.
         */
         ExpressionValue getColumnCount() const;
+
+        const ExpressionValue & getValue(ExpressionValue & storage) const;
         
         /** Return a reference to the filtered version of the row value.
             Storage is set as in ther other methods.
@@ -144,6 +156,14 @@ struct SqlExpressionDatasetScope: public SqlExpressionMldbScope {
         ExpressionValue
         getReshaped(const std::unordered_map<ColumnHash, ColumnName> & index,
                     const VariableFilter & filter) const;
+
+        /// Return a version of this row, filtered by the given when
+        /// expression.
+        RowScope filterWhen(const BoundWhenExpression & when) const;
+        
+        /// For when initialized with dataset and token
+        const Dataset * dataset;
+        const void * rowToken;
 
         /** If we contain a MatrixNamedRow (legacy), this contains a pointer
             to that value.
@@ -209,20 +229,16 @@ struct SqlExpressionDatasetScope: public SqlExpressionMldbScope {
         return RowScope(rowName, row, params);
     }
 
+    static RowScope getRowScope(const Dataset & dataset,
+                                const void * rowToken,
+                                const BoundParameters * params = nullptr)
+    {
+        return RowScope(&dataset, rowToken, params);
+    }
+
     virtual ColumnName
     doResolveTableName(const ColumnName & fullColumnName,
                        Utf8String & tableName) const;
-    
-#if 0
-protected:
-
-    // This is for the context where we have several datasets
-    // resolve ambiguity of different table names
-    // by finding the dataset name that resolves first.
-    Utf8String resolveTableName(const Utf8String& columnName) const;
-    Utf8String resolveTableName(const Utf8String& columnName,
-                                Utf8String& resolvedTableName) const;
-#endif
 };
 
 
@@ -243,7 +259,7 @@ struct SqlExpressionOrderByScope: public ReadThroughBindingScope {
 
     struct RowScope: public ReadThroughBindingScope::RowScope {
         RowScope(const SqlRowScope & outer,
-                   const NamedRowValue & output)
+                 const NamedRowValue & output)
             : ReadThroughBindingScope::RowScope(outer), output(output)
         {
         }

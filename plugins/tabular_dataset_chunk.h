@@ -144,6 +144,27 @@ private:
 public:
     std::shared_ptr<FrozenColumn> timestamps;
 
+    const ExpressionValue *
+    tryGetCell(size_t rowIndex, size_t columnIndex, const Path & columnName,
+               ExpressionValue & storage) const
+    {
+        CellValue cell;
+        if (columnIndex < columns.size()) {
+            cell = columns[columnIndex]->get(rowIndex);
+        }
+        else {
+            auto it = sparseColumns.find(columnName);
+            if (it == sparseColumns.end())
+                return nullptr;
+            cell = it->second->get(rowIndex);
+        }
+
+        storage = ExpressionValue(std::move(cell),
+                                  timestamps->get(rowIndex)
+                                  .toTimestamp());
+        return &storage;
+    }
+
     /// Get the row with the given index
     std::vector<std::tuple<ColumnName, CellValue, Date> >
     getRow(size_t index, const std::vector<ColumnName> & fixedColumnNames) const

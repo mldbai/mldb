@@ -996,8 +996,9 @@ overrideFunctionFromSide(JoinSide tableSide,
                      const SqlRowScope & scope)
                 {
                     auto & row = scope.as<SqlExpressionDatasetScope::RowScope>();
+                    RowName rowNameStorage;
                     return ExpressionValue
-                        (itl->getSubRowName(row.getRowName(), tableSide)
+                        (itl->getSubRowName(row.getRowName(rowNameStorage), tableSide)
                              .toUtf8String(),
                          Date::negativeInfinity());
                 },
@@ -1041,9 +1042,10 @@ overrideFunctionFromChild(JoinSide tableSide,
                      const SqlRowScope & scope)
                 {
                     auto & row = scope.as<SqlExpressionDatasetScope::RowScope>();
+                    RowName rowNameStorage;
                     return ExpressionValue
                         (itl->getSubRowNameFromChildTable
-                         (tableName, row.getRowName(), tableSide).toUtf8String(),
+                         (tableName, row.getRowName(rowNameStorage), tableSide).toUtf8String(),
                          Date::negativeInfinity());
                 },
                 std::make_shared<Utf8StringValueInfo>()

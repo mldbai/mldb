@@ -290,6 +290,20 @@ struct RowStream {
     */
     virtual const RowName & rowName(RowName & storage) const = 0;
 
+    /** Return the rowHash() at the current position of the
+        stream.  This may be called as many times as required.
+        Undefined behaviour if it is called on a stream without
+        initAt() having been called or having advanced to the
+        end.
+    */
+    virtual RowHash rowHash() const;
+
+    /** Return a token that uniquely identifies the current row
+        and allows us to store a reference to it that is controlled
+        by the shared pointer and outlives the current iterator.
+    */
+    virtual std::shared_ptr<const void> rowToken() const;
+
     /** Advance by a single position, but without returning a
         rowName().  More efficient than next() when just skipping
         ahead.
@@ -510,7 +524,6 @@ struct Dataset: public MldbEntity {
     */
     virtual ExpressionValue getRowExpr(const RowName & row) const;
 
-
     /** Commit changes to the database.  Default is a no-op.
 
         This function must be thread safe with respect to concurrent calls to
@@ -646,7 +659,45 @@ struct Dataset: public MldbEntity {
 
     virtual std::shared_ptr<MatrixView> getMatrixView() const = 0;
     virtual std::shared_ptr<ColumnIndex> getColumnIndex() const = 0;
-    virtual std::shared_ptr<RowStream> getRowStream() const { return std::shared_ptr<RowStream>(); } //optional but recommanded for performance
+
+    // optional but recommanded for performance
+    virtual std::shared_ptr<RowStream> getRowStream() const
+    {
+        return std::shared_ptr<RowStream>();
+    }
+
+#if 0
+    /** Return an accessor for a given column.  May return a null function if
+        it's not possible to do it in an optimized manner.  The token is what
+        is passed out of the generateRowsWhere() function.
+
+        Default returns a null function; datasets that are organized by column
+        will need to implement this directly.
+    */
+    virtual std::function<const ExpressionValue &(const void * token, ExpressionValue &)>
+    getOptimizedColumnAccessor(ColumnName columnName) const;
+#endif
+
+    virtual const RowName &
+    getRowNameFromToken(const void * token,RowName & storage) const;
+
+    virtual RowHash getRowHashFromToken(const void * token) const;
+
+    virtual const ExpressionValue &
+    getRowFromToken(const void * token, ExpressionValue & storage) const;
+
+    virtual const ExpressionValue *
+    tryGetCellFromToken(const void * rowToken,
+                        const ColumnName & columnName,
+                        ExpressionValue & storage,
+                        const VariableFilter & filter) const;
+
+    virtual std::shared_ptr<const void> 
+    tryGetRowToken(const RowName & rowName) const;
+
+    virtual std::pair<std::vector<const void *>,
+                      std::shared_ptr<const void> >
+    getAllRowTokens() const;
 
     /** Return the range of timestamps in the file.  The default implementation
         will scan the whole dataset, but other implementions may override for

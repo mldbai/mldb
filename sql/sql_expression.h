@@ -1416,6 +1416,13 @@ PREDECLARE_VALUE_DESCRIPTION(TupleExpression);
 /* GENERATE ROWS WHERE FUNCTION                                              */
 /*****************************************************************************/
 
+typedef compact_vector<uint64_t, 3> RowToken;
+
+struct MatchingRows {
+    std::vector<RowToken> tokens;   ///< Tokens matching this row
+    std::shared_ptr<void> itl;      ///< Internal data
+};
+
 /** Function to generate the values over multiple rows.  Only really applies
     to contexts in which there *are* multiple rows, such as datasets.
 
@@ -1435,8 +1442,10 @@ struct GenerateRowsWhereFunction {
 
     };
 
-    typedef std::function<std::pair<std::vector<RowName>, Any>
-                          (ssize_t numToGenerate, Any token,
+    typedef std::function<std::pair<std::vector<const void *>,
+                                    std::shared_ptr<const void> >
+                          (ssize_t numToGenerate,
+                           std::shared_ptr<const void> token,
                            const BoundParameters & params)> Exec;
 
     GenerateRowsWhereFunction(Exec exec = nullptr,
@@ -1451,8 +1460,8 @@ struct GenerateRowsWhereFunction {
     {
     }
 
-    std::pair<std::vector<RowName>, Any>
-    operator () (ssize_t numToGenerate, Any token,
+    std::pair<std::vector<const void *>, std::shared_ptr<const void> >
+    operator () (ssize_t numToGenerate, std::shared_ptr<const void> token,
                  const BoundParameters & params = BoundParameters()) const
     {
         return exec(numToGenerate, token, params);

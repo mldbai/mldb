@@ -144,22 +144,14 @@ doGetAllColumns(const Utf8String & tableName,
 /* ROW EXPRESSION DATASET CONTEXT                                            */
 /*****************************************************************************/
 
-RowName
-SqlExpressionDatasetScope::RowScope::
-getRowName() const
-{
-    if (rowName) return *rowName;
-    else {
-        ExcAssert(row);
-        return row->rowName;
-    }
-}
-
 const RowName &
 SqlExpressionDatasetScope::RowScope::
 getRowName(RowName & storage) const
 {
-    if (rowName) return *rowName;
+    if (dataset) {
+        return dataset->getRowNameFromToken(rowToken, storage);
+    }
+    else if (rowName) return *rowName;
     else return row->rowName;
 }
 
@@ -167,7 +159,8 @@ RowHash
 SqlExpressionDatasetScope::RowScope::
 getRowHash() const
 {
-    if (rowName) return *rowName;
+    if (dataset) return dataset->getRowHashFromToken(rowToken);
+    else if (rowName) return *rowName;
     else return row->rowHash;
 }
 
@@ -178,7 +171,14 @@ getColumn(const ColumnName & columnName,
           ExpressionValue & storage,
           ssize_t knownOffset) const
 {
-    if (expr) {
+    if (dataset) {
+        const ExpressionValue * val
+            = dataset->tryGetCellFromToken(rowToken, columnName, storage, filter);
+        if (!val)
+            return storage = ExpressionValue::null(Date::negativeInfinity());
+        else return *val;
+    }
+    else if (expr) {
         const ExpressionValue * val
             = expr->tryGetNestedColumn(columnName, storage, filter);
         if (!val)
@@ -216,13 +216,39 @@ getColumnCount() const
     
     return ExpressionValue(columns.size(), ts);
 }
-        
+
+const ExpressionValue &
+SqlExpressionDatasetScope::RowScope::
+getValue(ExpressionValue & storage) const
+{
+    if (dataset) {
+        return dataset->getRowFromToken(rowToken, storage);
+    }
+    else if (row) {
+        return storage = row->columns;
+    }
+    else {
+        return *expr;
+    }
+}
+
 const ExpressionValue &
 SqlExpressionDatasetScope::RowScope::
 getFilteredValue(const VariableFilter & filter,
                  ExpressionValue & storage) const
 {
-    if (row) {
+    if (dataset) {
+        ExpressionValue storage;
+        const ExpressionValue & unfiltered
+            = dataset->getRowFromToken(rowToken, storage);
+        if (&unfiltered == &storage) {
+            return storage.getFilteredDestructive(filter);
+        }
+        else {
+            return unfiltered.getFiltered(filter, storage);
+        }
+    }
+    else if (row) {
         // TODO: if one day we are able to prove that this is
         // the only expression that touches the row, we could
         // move it into place
@@ -265,7 +291,20 @@ getReshaped(const std::unordered_map<ColumnHash, ColumnName> & index,
                 return true;
             };
 
-        expr->forEachAtom(onAtom);
+        if (dataset) {
+            ExpressionValue storage;
+            const ExpressionValue & unfiltered
+                = dataset->getRowFromToken(rowToken, storage);
+            if (&unfiltered == &storage) {
+                return storage.getFilteredDestructive(filter);
+            }
+            else {
+                return unfiltered.getFiltered(filter, storage);
+            }
+        }
+        else {
+            expr->forEachAtom(onAtom);
+        }
     }
 
     ExpressionValue val(std::move(result));
@@ -376,7 +415,9 @@ doGetFunction(const Utf8String & tableName,
                      const SqlRowScope & context)
                 {
                     auto & row = context.as<RowScope>();
-                    return ExpressionValue(row.getRowName().toUtf8String(),
+                    RowName rowNameStorage;
+                    return ExpressionValue(row.getRowName(rowNameStorage)
+                                           .toUtf8String(),
                                            Date::negativeInfinity());
                 },
                 std::make_shared<Utf8StringValueInfo>()
@@ -388,7 +429,8 @@ doGetFunction(const Utf8String & tableName,
                      const SqlRowScope & context)
                 {
                     auto & row = context.as<RowScope>();
-                    return ExpressionValue(CellValue(row.getRowName()),
+                    RowName rowNameStorage;
+                    return ExpressionValue(CellValue(row.getRowName(rowNameStorage)),
                                            Date::negativeInfinity());
                 },
                 std::make_shared<PathValueInfo>()

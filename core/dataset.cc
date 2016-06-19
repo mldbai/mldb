@@ -136,6 +136,27 @@ supportsExtendedInterface() const
     return false;
 }
 
+const RowName &
+RowStream::
+rowName(RowName & storage) const
+{
+    throw HttpReturnException(600, "unimplemented rowStream method");
+}
+    
+RowHash
+RowStream::
+rowHash() const
+{
+    throw HttpReturnException(600, "unimplemented rowStream method");
+}
+
+std::shared_ptr<const void>
+RowStream::
+rowToken() const
+{
+    throw HttpReturnException(600, "unimplemented rowStream method");
+}
+
 void
 RowStream::
 extractColumns(size_t numValues,
@@ -161,7 +182,6 @@ extractNumbers(size_t numValues,
     }
 }
     
-
 
 /*****************************************************************************/
 /* DATASET                                                                   */
@@ -550,6 +570,52 @@ recordRowItl(const RowName & rowName,
     throw ML::Exception(("Dataset type '" + getType() + "' doesn't allow recording").rawString());
 }
 
+const RowName &
+Dataset::
+getRowNameFromToken(const void * token, RowName & storage) const
+{
+    throw HttpReturnException(500, "Dataset type hasn't implemented tokens");
+}
+
+RowHash
+Dataset::
+getRowHashFromToken(const void * token) const
+{
+    throw HttpReturnException(500, "Dataset type hasn't implemented tokens");
+}
+
+const ExpressionValue &
+Dataset::
+getRowFromToken(const void * token, ExpressionValue & storage) const
+{
+    throw HttpReturnException(500, "Dataset type hasn't implemented tokens");
+}
+
+const ExpressionValue *
+Dataset::
+tryGetCellFromToken(const void * rowToken,
+                    const ColumnName & columnName,
+                    ExpressionValue & storage,
+                    const VariableFilter & filter) const
+{
+    throw HttpReturnException(500, "Dataset type hasn't implemented tokens");
+}
+
+std::shared_ptr<const void> 
+Dataset::
+tryGetRowToken(const RowName & rowName) const
+{
+    throw HttpReturnException(500, "Dataset type hasn't implemented tokens");
+}
+
+std::pair<std::vector<const void *>,
+          std::shared_ptr<const void> >
+Dataset::
+getAllRowTokens() const
+{
+    throw HttpReturnException(500, "Dataset type hasn't implemented tokens");
+}
+
 std::pair<Date, Date>
 Dataset::
 getTimestampRange() const
@@ -905,13 +971,14 @@ queryStructuredIncremental(std::function<bool (Path &, ExpressionValue &)> & onR
 }
 
 template<typename Filter>
-static std::pair<std::vector<RowName>, Any>
+static std::pair<std::vector<const void *>, std::shared_ptr<const void> >
 executeFilteredColumnExpression(const Dataset & dataset,
-                                ssize_t numToGenerate, Any token,
+                                ssize_t numToGenerate, std::shared_ptr<const void> token,
                                 const BoundParameters & params,
                                 const ColumnName & columnName,
                                 const Filter & filter)
 {
+#if 0
     auto columnIndex = dataset.getColumnIndex();
 
     if (columnIndex->knownColumn(columnName)) {
@@ -930,12 +997,15 @@ executeFilteredColumnExpression(const Dataset & dataset,
         rows.erase(std::unique(rows.begin(), rows.end()),
                    rows.end());
 
-        return std::pair<std::vector<RowName>, Any>(std::move(rows), std::move(Any()));
+        return std::pair<std::vector<const void *>,
+                         std::shared_ptr<const void> >
+            (std::move(rows), nullptr);
     }
     else {
         return {};
     }
-    
+#endif
+    throw HttpReturnException(600, "executeFilteredColumnExpression");
 }
 
 template<typename Filter>
@@ -1025,15 +1095,24 @@ generateRowNameIsConstant(const Dataset & dataset,
     RowName rowName;
     std::tie(rowName, wasParsed)
         = RowName::tryParse(rowNameExpr.constant.toUtf8String());
-    return {[=] (ssize_t numToGenerate, Any token,
-                 const BoundParameters & params)
-            -> std::pair<std::vector<RowName>, Any>
-            {
-                // There should be exactly one row
 
-                if (datasetPtr->getMatrixView()->knownRow(rowName))
-                    return { { rowName }, token };
-                else return { {}, token };
+    return {[=] (ssize_t numToGenerate,
+                 std::shared_ptr<const void> token,
+                 const BoundParameters & params)
+            -> std::pair<std::vector<const void *>,
+                         std::shared_ptr<const void> >
+            {
+                // If token is non-null, we're not starting from the start
+                ExcAssert(!token);
+
+                // There should be exactly one row
+                auto rowToken = datasetPtr->tryGetRowToken(rowName);
+                if (token) {
+                    return { { rowToken.get() }, rowToken };
+                }
+                else {
+                    return { {}, nullptr };
+                }
             },
             "generate single row matching rowName()"};
 }
@@ -1048,20 +1127,30 @@ generateRowNameIsExpression(const Dataset & dataset,
     SqlExpressionParamScope scope(const_cast<SqlBindingScope &>(outerScope));
     auto bound = rowNameExpr.bind(scope);
 
-    return {[=] (ssize_t numToGenerate, Any token,
+    return {[=] (ssize_t numToGenerate, std::shared_ptr<const void> token,
                  const BoundParameters & params)
-            -> std::pair<std::vector<RowName>, Any>
+            -> std::pair<std::vector<const void *>,
+                         std::shared_ptr<const void> >
             {
+                // If token is non-null, we're not starting from the start
+                ExcAssert(!token);
+
                 SqlExpressionParamScope::RowScope rowScope(params);
                 bool wasParsed;
                 RowName rowName;
                 std::tie(rowName, wasParsed)
                     = RowName::tryParse(bound(rowScope, GET_LATEST).toUtf8String());
+                if (!wasParsed)
+                    return { {}, nullptr };
 
                 // There should be exactly one row
-                if (datasetPtr->getMatrixView()->knownRow(rowName))
-                    return { { rowName }, token };
-                else return { {}, token };
+                auto rowToken = datasetPtr->tryGetRowToken(rowName);
+                if (token) {
+                    return { { rowToken.get() }, rowToken };
+                }
+                else {
+                    return { {}, nullptr };
+                }
             },
             "generate single row matching rowName() expression"};
 }
@@ -1074,16 +1163,24 @@ generateRowPathIsConstant(const Dataset & dataset,
 
     RowName rowName = rowNameExpr.constantValue().coerceToPath();
 
-    return {[=] (ssize_t numToGenerate, Any token,
+    return {[=] (ssize_t numToGenerate,
+                 std::shared_ptr<const void> token,
                  const BoundParameters & params)
-            -> std::pair<std::vector<RowName>, Any>
+            -> std::pair<std::vector<const void *>, std::shared_ptr<const void> >
             {
+                // If token is non-null, we're not starting from the start
+                ExcAssert(!token);
+                
                 // There should be exactly one row
-                if (datasetPtr->getMatrixView()->knownRow(rowName))
-                    return { { rowName }, token };
-                else return { {}, token };
+                auto rowToken = datasetPtr->tryGetRowToken(rowName);
+                if (token) {
+                    return { { rowToken.get() }, rowToken };
+                }
+                else {
+                    return { {}, nullptr };
+                }
             },
-            "generate single row matching rowName()"};
+            "generate single row matching rowPath()"};
 }
 
 static GenerateRowsWhereFunction
@@ -1096,16 +1193,24 @@ generateRowPathIsExpression(const Dataset & dataset,
     SqlExpressionParamScope scope(const_cast<SqlBindingScope &>(outerScope));
     auto bound = rowNameExpr.bind(scope);
 
-    return {[=] (ssize_t numToGenerate, Any token,
+    return {[=] (ssize_t numToGenerate, std::shared_ptr<const void> token,
                  const BoundParameters & params)
-            -> std::pair<std::vector<RowName>, Any>
+            -> std::pair<std::vector<const void *>, std::shared_ptr<const void> >
             {
+                // If token is non-null, we're not starting from the start
+                ExcAssert(!token);
+
                 SqlExpressionParamScope::RowScope rowScope(params);
                 RowName rowName = bound(rowScope, GET_LATEST).coerceToPath();
+
                 // There should be exactly one row
-                if (datasetPtr->getMatrixView()->knownRow(rowName))
-                    return { { rowName }, token };
-                else return { {}, token };
+                auto rowToken = datasetPtr->tryGetRowToken(rowName);
+                if (token) {
+                    return { { rowToken.get() }, rowToken };
+                }
+                else {
+                    return { {}, nullptr };
+                }
             },
             "generate single row matching rowName() expression"};
 }
@@ -1329,13 +1434,14 @@ generateRowsWhere(const SqlBindingScope & scope,
                         //filterCallback = getFilteredRowNameFromBoundParameter;
                     }
                     
-                    return {[=] (ssize_t numToGenerate, Any token,
+                    return {[=] (ssize_t numToGenerate, std::shared_ptr<const void> token,
                                  const BoundParameters & params)
-                            -> std::pair<std::vector<RowName>, Any>
+                            -> std::pair<std::vector<const void *>, std::shared_ptr<const void> >
                             {
+#if 0
                                 RowName except = filterCallback(params);
 
-                                auto rows = gen(-1, Any(), params).first;
+                                auto rows = gen(-1, nullptr, params).first;
                                 auto iter = std::find(rows.begin(), rows.end(),
                                                       except);
                                 if (iter != rows.end()) {
@@ -1343,7 +1449,9 @@ generateRowsWhere(const SqlBindingScope & scope,
                                     rows.pop_back();
                                 }
 
-                                return { std::move(rows), Any() };
+                                return { std::move(rows), nullptr };
+#endif
+                                throw HttpReturnException(600, "isLeftRight");
                             },
                             "",
                             GenerateRowsWhereFunction::BETTER_THAN_TABLESCAN};
@@ -1358,12 +1466,14 @@ generateRowsWhere(const SqlBindingScope & scope,
             if (lhsGen.complexity < GenerateRowsWhereFunction::UNFILTERED_TABLESCAN 
                 && rhsGen.complexity < GenerateRowsWhereFunction::UNFILTERED_TABLESCAN) {
 
-                return {[=] (ssize_t numToGenerate, Any token,
+                return {[=] (ssize_t numToGenerate, std::shared_ptr<const void> token,
                              const BoundParameters & params)
-                        -> std::pair<std::vector<RowName>, Any>
+                        -> std::pair<std::vector<const void *>,
+                                     std::shared_ptr<const void> >
                         {
-                            auto lhsRows = lhsGen(-1, Any(), params).first;
-                            auto rhsRows = rhsGen(-1, Any(), params).first;
+#if 0
+                            auto lhsRows = lhsGen(-1, nullptr, params).first;
+                            auto rhsRows = rhsGen(-1, nullptr, params).first;
 
                             std::sort(lhsRows.begin(), lhsRows.end(), SortByRowHash());
                             std::sort(rhsRows.begin(), rhsRows.end(), SortByRowHash());
@@ -1374,7 +1484,10 @@ generateRowsWhere(const SqlBindingScope & scope,
                                                   std::back_inserter(intersection),
                                                   SortByRowHash());
 
-                            return { std::move(intersection), Any() };
+                            return { std::move(intersection), nullptr };
+#endif
+                            
+                            throw HttpReturnException(600, "Row stream intersection");
                         },
                         "set intersection for AND " + boolean->print().rawString(),
                         GenerateRowsWhereFunction::BETTER_THAN_TABLESCAN };
@@ -1388,12 +1501,13 @@ generateRowsWhere(const SqlBindingScope & scope,
                 = generateRowsWhere(scope, alias, *boolean->rhs, 0, -1);
 
             if (lhsGen.explain != "scan table" && rhsGen.explain != "scan table") {
-                return {[=] (ssize_t numToGenerate, Any token,
+                return {[=] (ssize_t numToGenerate, std::shared_ptr<const void> token,
                              const BoundParameters & params)
-                        -> std::pair<std::vector<RowName>, Any>
+                        -> std::pair<std::vector<const void *>, std::shared_ptr<const void> >
                         {
-                            auto lhsRows = lhsGen(-1, Any(), params).first;
-                            auto rhsRows = rhsGen(-1, Any(), params).first;
+#if 0
+                            auto lhsRows = lhsGen(-1, nullptr, params).first;
+                            auto rhsRows = rhsGen(-1, nullptr, params).first;
 
                             std::sort(lhsRows.begin(), lhsRows.end(),
                                       SortByRowHash());
@@ -1406,7 +1520,9 @@ generateRowsWhere(const SqlBindingScope & scope,
                                            std::back_inserter(u),
                                            SortByRowHash());
 
-                            return { std::move(u), Any() };
+                            return { std::move(u), nullptr };
+#endif
+                            throw HttpReturnException(600, "Row stream union");
                         },
                         "set union for OR " + boolean->print().rawString(),
                         GenerateRowsWhereFunction::BETTER_THAN_TABLESCAN };
@@ -1453,21 +1569,40 @@ generateRowsWhere(const SqlBindingScope & scope,
                     });
             
             if (inExpression->tuple && inExpression->tuple->isConstant()) {
-                return {[=] (ssize_t numToGenerate, Any token,
+                return {[=] (ssize_t numToGenerate,
+                             std::shared_ptr<const void> token,
                              const BoundParameters & params)
-                        -> std::pair<std::vector<RowName>, Any>
+                        -> std::pair<std::vector<const void *>,
+                                     std::shared_ptr<const void> >
                         {
-                            std::vector<RowName> filtered;
-                            auto matrixView = this->getMatrixView();
+#if 0
+                            std::vector<const void *> filtered;
 
                             for (auto& c : inExpression->tuple->clauses) {
                                 ExpressionValue v = c->constantValue();
                                 RowName rowName = extractPath(v);
 
+                                // There should be exactly one row
+                                auto rowToken
+                                    = datasetPtr->tryGetRowToken(rowName);
+                                if (!rowToken)
+                                    continue;
+
+                                if (token) {
+                                    
+                                    return { { rowToken.get() }, rowToken };
+                                }
+                                else {
+                                    return { {}, nullptr };
+                                }
+
+
                                 if (matrixView->knownRow(rowName))
                                     filtered.push_back(rowName);
                             }
-                            return { std::move(filtered), Any() };
+                            return { std::move(filtered), nullptr };
+#endif
+                            throw HttpReturnException(600, "In tuple");
                         },
                         "rowName in tuple " + inExpression->tuple->print().rawString(),
                         GenerateRowsWhereFunction::BETTER_THAN_TABLESCAN };
@@ -1493,10 +1628,11 @@ generateRowsWhere(const SqlBindingScope & scope,
                         bool values = (inExpression->kind == InExpression::VALUES);
                         ExcAssert(keys || values);
 
-                        return {[=] (ssize_t numToGenerate, Any token,
+                        return {[=] (ssize_t numToGenerate, std::shared_ptr<const void> token,
                                      const BoundParameters & params)
-                                -> std::pair<std::vector<RowName>, Any>
+                                -> std::pair<std::vector<const void *>, std::shared_ptr<const void> >
                                 {
+#if 0
                                     SqlExpressionParamScope::RowScope rowScope(params);
                                     ExpressionValue evaluatedSet
                                         = boundSet(rowScope, GET_LATEST);
@@ -1539,7 +1675,9 @@ generateRowsWhere(const SqlBindingScope & scope,
                                         else evaluatedSet.forEachColumn(onValue);
                                     }
 
-                                    return { std::move(filtered), Any() };
+                                    return { std::move(filtered), nullptr };
+#endif
+                                    throw HttpReturnException(600, "In keys/values");
                                 },
                                 fexpr->functionName + " in "
                                     + (keys ? "keys" : "values")
@@ -1668,13 +1806,18 @@ generateRowsWhere(const SqlBindingScope & scope,
                          (400, "unknown operator for comparison",
                           "op", comparison->op);
                 
+#if 0
                 uint64_t m = crhs2->constant.getAtom().toUInt();
                 uint64_t c = crhs->constant.getAtom().toUInt();
+#endif
 
-                return {[=] (ssize_t numToGenerate, Any token,
+                return {[=] (ssize_t numToGenerate,
+                             std::shared_ptr<const void> token,
                              const BoundParameters & params)
-                        -> std::pair<std::vector<RowName>, Any>
+                        -> std::pair<std::vector<const void *>,
+                                     std::shared_ptr<const void> >
                         {
+#if 0
                             std::vector<RowName> filtered;
 
                             // getRowNames can return row names in an arbitrary order as long as it is deterministic.
@@ -1693,7 +1836,9 @@ generateRowsWhere(const SqlBindingScope & scope,
                                 ->getRowHashes().size() << " rows" << endl;
 #endif
 
-                            return { std::move(filtered), Any() };
+                            return { std::move(filtered), nullptr };
+#endif
+                            throw HttpReturnException(600, "rowHash % expression");
                         },
                         "rowName modulus expression " + comparison->print().rawString(),
                         GenerateRowsWhereFunction::BETTER_THAN_TABLESCAN };
@@ -1730,31 +1875,40 @@ generateRowsWhere(const SqlBindingScope & scope,
     if (where.isConstant()) {
         if (where.constantValue().isTrue()) {
             GenerateRowsWhereFunction wheregen
-                = {[=] (ssize_t numToGenerate, Any token,
+                = {[=] (ssize_t numToGenerate,
+                        std::shared_ptr<const void> token,
                         const BoundParameters & params)
-                    {
-                        ssize_t start = 0;
-                        ssize_t limit = numToGenerate;
+                   -> std::pair<std::vector<const void *>,
+                                std::shared_ptr<const void> >
+                   {
+                       // TODO: use the row stream
+                       return this->getAllRowTokens();
 
-                        ExcAssertNotEqual(limit, 0);
+#if 0
+                       ssize_t start = 0;
+                       ssize_t limit = numToGenerate;
+
+                       ExcAssertNotEqual(limit, 0);
             
-                        if (!token.empty())
-                            start = token.convert<size_t>();
+                       if (!token.empty())
+                           start = token.convert<size_t>();
 
-                        //Row names can be returned in an arbitrary order as long as it is deterministic.
-                        auto rows = this->getMatrixView()
-                            ->getRowNames(start, limit);
+                       //Row names can be returned in an arbitrary order as long as it is deterministic.
+                       auto rows = this->getMatrixView()
+                       ->getRowNames(start, limit);
 
-                        start += rows.size();
-                        Any newToken;
-                        if (rows.size() == limit)
-                            newToken = start;
+                       start += rows.size();
+                       Any newToken;
+                       if (rows.size() == limit)
+                           newToken = start;
                 
-                        return make_pair(std::move(rows),
-                                         std::move(newToken));
+                       return make_pair(std::move(rows),
+                                        std::move(newToken));
+#endif
+                        throw HttpReturnException(600, "where true");
                     },
-                    "Scan table keeping all rows",
-                    GenerateRowsWhereFunction::UNFILTERED_TABLESCAN};
+                   "Scan table keeping all rows",
+                   GenerateRowsWhereFunction::UNFILTERED_TABLESCAN};
 
             wheregen.rowStreamTotalRows = this->getMatrixView()->getRowCount();
             wheregen.rowStream = this->getRowStream();
@@ -1763,11 +1917,13 @@ generateRowsWhere(const SqlBindingScope & scope,
 
         }
         else {
-            return { [=] (ssize_t numToGenerate, Any token,
+            return { [=] (ssize_t numToGenerate,
+                          std::shared_ptr<const void> token,
                           const BoundParameters & params)
-                    -> std::pair<std::vector<RowName>, Any>
+                    -> std::pair<std::vector<const void *>,
+                                 std::shared_ptr<const void> >
                     {
-                        return { {}, Any() };
+                        return { {}, nullptr };
                     },
 
                     "Return nothing as constant where expression doesn't evaluate true",
@@ -1787,17 +1943,20 @@ generateRowsWhere(const SqlBindingScope & scope,
     UnboundEntities unbound = where.getUnbound();
 
     // Look for a free variable
-    bool needsColumns = unbound.needsRow();
-
+    //bool needsColumns = unbound.needsRow();
 
     //cerr << "needsColumns for " << where.print() << " returned "
     //     << jsonEncode(unbound) << " and result " << needsColumns << endl;
 
     //no need to check for where == true, it was checked above...
 
-    return {[=] (ssize_t numToGenerate, Any token,
+    return {[=] (ssize_t numToGenerate,
+                 std::shared_ptr<const void> token,
                  const BoundParameters & params)
+            -> std::pair<std::vector<const void *>,
+                         std::shared_ptr<const void> >
             {
+#if 0
                 ssize_t start = 0;
                 ssize_t limit = numToGenerate;
 
@@ -1867,6 +2026,8 @@ generateRowsWhere(const SqlBindingScope & scope,
                 
                 return std::move(make_pair(std::move(rowsToKeep),
                                            std::move(newToken)));
+#endif
+                throw HttpReturnException(600, "scan where");
             },
             "scan table filtering by where expression"};
 }
@@ -1914,17 +2075,17 @@ queryBasic(const SqlBindingScope & scope,
     auto boundOrderBy = newOrderBy.bindAll(orderByScope);
 
     // Do we select *?  In that case we can avoid a lot of copying
-    bool selectStar = select.isIdentitySelect(selectScope);
+    //bool selectStar = select.isIdentitySelect(selectScope);
 
     // Do we have when TRUE?  In that case we can avoid filtering
-    bool whenTrue = when.when->isConstantTrue();
+    //bool whenTrue = when.when->isConstantTrue();
 
     auto exec = [=] (ssize_t numToGenerate,
                      SqlRowScope & rowScope,
                      const BoundParameters & params)
         {
             // Get a list of rows that we run over
-            auto rows = rowGenerator(-1, Any(), params).first;
+            auto rows = rowGenerator(-1, nullptr, params).first;
     
             if (true) {
                 //cerr << "order by is " << jsonEncodeStr(orderBy) << endl;
@@ -1936,7 +2097,9 @@ queryBasic(const SqlBindingScope & scope,
    
                 // For each one, generate the order by key
 
-                typedef std::tuple<std::vector<ExpressionValue>, NamedRowValue, std::vector<ExpressionValue> > SortedRow;
+                typedef std::tuple<std::vector<ExpressionValue>,
+                                   NamedRowValue,
+                                   std::vector<ExpressionValue> > SortedRow;
                 typedef std::vector<SortedRow> SortedRows;
         
                 PerThreadAccumulator<SortedRows> accum;
@@ -1949,6 +2112,7 @@ queryBasic(const SqlBindingScope & scope,
                 
                 auto doRow = [&] (int rowNum) -> bool
                     {
+#if 0
                         auto row = this->getRowExpr(rows[rowNum]);
 
                         NamedRowValue outputRow;
@@ -2001,6 +2165,8 @@ queryBasic(const SqlBindingScope & scope,
                                                  std::move(outputRow),
                                                  std::move(calcd));
                         return true;
+#endif
+                        throw HttpReturnException(600, "exec where");
                     };
                 
                 parallelMap(0, rows.size(), doRow);

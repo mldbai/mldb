@@ -49,6 +49,37 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
     {
     }
 
+    // Deleter that doesn't
+    static void nodelete(const void * p)
+    {
+    }
+
+    static std::pair<uint64_t, uint64_t>
+    decodeToken(const void * token)
+    {
+        uint64_t cast = reinterpret_cast<uint64_t>(token);
+        uint64_t chunkNum = cast >> 32;
+        uint32_t rowInChunk = cast;
+
+        return { chunkNum, rowInChunk - 1 };
+    }
+
+    static const void * encodeToken(uint64_t chunkNum, uint64_t rowInChunk)
+    {
+        // Add 1 so the first row doesn't have a null token
+        ExcAssertLessEqual(chunkNum, 0xffffffff);
+        ExcAssertLessEqual(rowInChunk, 0xfffffffe);
+        uint64_t both = (chunkNum << 32) | (rowInChunk + 1);
+        return reinterpret_cast<void *>(both);
+    }
+
+    static std::shared_ptr<const void>
+    createToken(uint64_t chunkNum, uint64_t rowInChunk)
+    {
+        return std::shared_ptr<const void>(encodeToken(chunkNum, rowInChunk),
+                                           nodelete);
+    }
+
     /** A stream of row names used to incrementally query available rows
         without creating an entire list in memory.
     */
@@ -138,7 +169,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             else return row;
         }
 
-        virtual void advance()
+        virtual void advance() override
         {
             ExcAssert(rowIndex < rowCount);
             rowIndex++;
@@ -229,6 +260,23 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
             return extractT<CellValue>(numValues, columnNames, output);
         }
 
+        virtual RowHash rowHash() const override
+        {
+            RowName storage;
+            return rowName(storage);
+        }
+
+        virtual std::shared_ptr<const void> rowToken() const override
+        {
+            // We encode into the pointer:
+            // 1.  A chunk number
+            // 2.  A row number within the chunk
+
+            uint64_t chunkNum = chunkiter - store->chunks.begin();
+
+            return createToken(chunkNum, rowIndex);
+        }
+
         TabularDataStore* store;
         std::vector<TabularDatasetChunk>::const_iterator chunkiter;
         size_t rowIndex;   ///< Number of row within this chunk
@@ -246,7 +294,7 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
     struct ColumnEntry {
         ColumnEntry()
-            : rowCount(0)
+            : rowCount(0), fixedPosition(-1)
         {
         }
 
@@ -254,6 +302,10 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
         /// The number of non-null values of this row
         size_t rowCount;
+
+
+        /// The fixed position for this column, when sorted.
+        ssize_t fixedPosition;
 
         /// The set of chunks that contain the column.  This may not be all
         /// chunks for sparse columns.
@@ -622,6 +674,89 @@ struct TabularDataset::TabularDataStore: public ColumnIndex, public MatrixView {
 
         return chunks.at(it->second.first)
             .getRowExpr(it->second.second, fixedColumns);
+    }
+
+    virtual const RowName &
+    getRowNameFromToken(const void * token, RowName & storage) const
+    {
+        uint64_t chunkNumber, rowNumber;
+        std::tie(chunkNumber, rowNumber) = decodeToken(token);
+
+        try {
+            return chunks.at(chunkNumber).getRowName(rowNumber);
+        } catch (...) {
+            static std::mutex bugMutex;
+            std::unique_lock<std::mutex> guard(bugMutex);
+            cerr << "token = " << token << endl;
+            cerr << "chunkNumber = " << chunkNumber << endl;
+            cerr << "rowNumber = " << rowNumber << endl;
+            cerr << "chunks.size() = " << chunks.size() << endl;
+            cerr << "rowNames.size() = "
+                 << chunks.at(chunkNumber).rowCount() << endl;
+            throw;
+        }
+    }
+
+    virtual RowHash getRowHashFromToken(const void * token) const
+    {
+        RowName storage;
+        return getRowNameFromToken(token, storage);
+    }
+
+    virtual const ExpressionValue &
+    getRowFromToken(const void * token, ExpressionValue & storage) const
+    {
+        uint64_t chunkNumber, rowNumber;
+        std::tie(chunkNumber, rowNumber) = decodeToken(token);
+        return storage
+            = chunks.at(chunkNumber)
+            .getRowExpr(rowNumber, fixedColumns);
+    }
+
+    virtual const ExpressionValue *
+    tryGetCellFromToken(const void * rowToken,
+                        const ColumnName & columnName,
+                        ExpressionValue & storage,
+                        const VariableFilter & filter) const
+    {
+        uint64_t chunkNumber, rowNumber;
+        std::tie(chunkNumber, rowNumber) = decodeToken(rowToken);
+
+        auto it = columnIndex.find(columnName.newHash());
+        if (it == columnIndex.end()) {
+            return nullptr;
+        }
+        
+        return chunks.at(chunkNumber)
+            .tryGetCell(rowNumber, it->second, columnName, storage);
+    }
+
+    virtual std::shared_ptr<const void> 
+    tryGetRowToken(const RowName & rowName) const
+    {
+        RowHash rowHash(rowName);
+        int shard = getRowShard(rowHash);
+        auto it = rowIndex[shard].find(rowHash);
+        if (it == rowIndex[shard].end()) {
+            return nullptr;
+        }
+
+        return createToken(it->second.first, it->second.second);
+    }
+
+    virtual std::pair<std::vector<const void *>,
+                      std::shared_ptr<const void> >
+    getAllRowTokens() const
+    {
+        std::vector<const void *> handles;
+        handles.reserve(rowCount);
+        for (size_t i = 0;  i < chunks.size();  ++i) {
+            for (size_t j = 0;  j < chunks[i].rowCount();  ++j) {
+                handles.emplace_back(encodeToken(i, j));
+            }
+        }
+        
+        return { std::move(handles), nullptr };
     }
 
     virtual RowName getRowName(const RowHash & rowHash) const override
@@ -1398,6 +1533,52 @@ TabularDataset::
 getRowExpr(const RowName & row) const
 {
     return itl->getRowExpr(row);
+}
+
+const RowName &
+TabularDataset::
+getRowNameFromToken(const void * token, RowName & storage) const
+{
+    return itl->getRowNameFromToken(token, storage);
+}
+
+RowHash
+TabularDataset::
+getRowHashFromToken(const void * token) const
+{
+    return itl->getRowHashFromToken(token);
+}
+
+const ExpressionValue &
+TabularDataset::
+getRowFromToken(const void * token, ExpressionValue & storage) const
+{
+    return itl->getRowFromToken(token, storage);
+}
+
+const ExpressionValue *
+TabularDataset::
+tryGetCellFromToken(const void * rowToken,
+                    const ColumnName & columnName,
+                    ExpressionValue & storage,
+                    const VariableFilter & filter) const
+{
+    return itl->tryGetCellFromToken(rowToken, columnName, storage, filter);
+}
+
+std::shared_ptr<const void> 
+TabularDataset::
+tryGetRowToken(const RowName & rowName) const
+{
+    return itl->tryGetRowToken(rowName);
+}
+
+std::pair<std::vector<const void *>,
+          std::shared_ptr<const void> >
+TabularDataset::
+getAllRowTokens() const
+{
+    return itl->getAllRowTokens();
 }
 
 GenerateRowsWhereFunction
