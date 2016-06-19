@@ -156,7 +156,7 @@ struct BoundGroupByQuery {
     const Dataset & from;
     WhenExpression when;
     const SqlExpression & where;
-    std::shared_ptr<SqlExpressionDatasetScope> rowContext;
+    std::shared_ptr<SqlExpressionDatasetScope> rowScope;
     std::shared_ptr<GroupContext> groupContext;
     TupleExpression groupBy;
 

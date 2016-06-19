@@ -155,7 +155,10 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
 
         // Get a list of rows that we run over
         // Ordering is arbitrary but deterministic
-        auto rows = whereGenerator(-1, Any()).first;
+        std::vector<const void *> rows;
+        std::shared_ptr<const void> token;
+        
+        std::tie(rows, token) = whereGenerator(-1, nullptr);
 
         //cerr << "ROWS MEMORY SIZE " << rows.size() * sizeof(RowName) << endl;
 
@@ -177,8 +180,8 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
 
                 //RowName rowName = rows[rowNum];
 
-                ExpressionValue row = dataset.getRowExpr(rows[rowNum]);
-                auto output = processRow(rows[rowNum], row, rowNum, numPerBucket,
+                //ExpressionValue row = dataset.getRowExpr(rows[rowNum]);
+                auto output = processRow(rows[rowNum], rowNum, numPerBucket,
                                          selectStar);
 
                 int bucketNumber
@@ -229,8 +232,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                 
                 auto copyRow = [&] (int rowNum)
                 {
-                    auto row = dataset.getRowExpr(rows[rowNum]);
-                    auto outputRow = processRow(rows[rowNum], row, rowNum,
+                    auto outputRow = processRow(rows[rowNum], rowNum,
                                                 numPerBucket, selectStar);
                     output[rowNum-offset] = std::move(outputRow);
                 };
@@ -291,10 +293,15 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                 auto stream = whereGenerator.rowStream->clone();
                 stream->initAt(it);
                 for (;  it < stopIt; ++it) {
+                    auto output = processRow(stream->rowToken().get(), it,
+                                             numPerBucket, selectStar);
+                    
+#if 0
                     RowName rowName = stream->next();
                     auto row = dataset.getRowExpr(rowName);
 
                     auto output = processRow(rowName, row, it, numPerBucket, selectStar);
+#endif
                     int bucketNumber
                         = numBuckets > 0 ? std::min((size_t)(it/numPerBucket),
                                                     (size_t)(numBuckets-1)) : -1;
@@ -311,25 +318,54 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
     }
 
     std::tuple<RowName, ExpressionValue, std::vector<ExpressionValue> >
-    processRow(const std::shared_ptr<void> & rowToken,
+    processRow(const RowName & rowName,
+               const ExpressionValue & row,
                int rowNum,
                int numPerBucket,
                bool selectStar)
     {
-        auto rowContext = context.getRowScope(dataset, rowToken.get());
+        auto rowScope = context.getRowScope(rowName, row);
+        return processRow(rowScope, rowNum, numPerBucket, selectStar);
+    }
 
+    std::tuple<RowName, ExpressionValue, std::vector<ExpressionValue> >
+    processRow(const void * rowToken,
+               int rowNum,
+               int numPerBucket,
+               bool selectStar)
+    {
+        auto rowScope = context.getRowScope(dataset, rowToken);
+        return processRow(rowScope, rowNum, numPerBucket, selectStar);
+    }
+
+    std::tuple<RowName, ExpressionValue, std::vector<ExpressionValue> >
+    processRow(SqlExpressionDatasetScope::RowScope & rowScope,
+               int rowNum,
+               int numPerBucket,
+               bool selectStar)
+    {
         //throw HttpReturnException(600, "whenBound filter in place");
-        //whenBound.filterInPlace(row, rowContext);
+        //whenBound.filterInPlace(row, rowScope);
+
+        // After the when, we need to create another scope
+        //auto selectRowScope = context.getRowScope(rowName, row);
+        auto & selectRowScope = rowScope;
 
         std::tuple<RowName, ExpressionValue, std::vector<ExpressionValue> > output;
 
-        std::get<0>(output) = rowName;
-
-        auto selectRowScope = context.getRowScope(rowName, row);
+        RowName rowNameStorage;
+        std::get<0>(output) = rowScope.getRowName(rowNameStorage);
 
         if (selectStar) {
             // Move into place, since we know we're selecting *
-            std::get<1>(output) = std::move(row);
+            ExpressionValue rowStorage;
+            const ExpressionValue & row = selectRowScope.getValue(rowStorage);
+            if (&row == &rowStorage) {
+                std::get<1>(output) = std::move(rowStorage);
+            }
+            else {
+                std::get<1>(output) = row;
+            }
         }
         else {
             // Run the select expression
@@ -354,10 +390,10 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
                int numPerBucket,
                bool selectStar)
     {
-        auto rowContext = context.getRowScope(rowName, row);
+        auto rowScope = context.getRowScope(rowName, row);
 
         //throw HttpReturnException(600, "whenBound filter in place");
-        //whenBound.filterInPlace(row, rowContext);
+        //whenBound.filterInPlace(row, rowScope);
 
         std::tuple<RowName, ExpressionValue, std::vector<ExpressionValue> > output;
 
@@ -393,7 +429,7 @@ struct UnorderedExecutor: public BoundSelectQuery::Executor {
 
 struct OrderedExecutor: public BoundSelectQuery::Executor {
 
-    std::shared_ptr<MatrixView> matrix;
+    const Dataset & dataset;
     GenerateRowsWhereFunction whereGenerator;
     SqlExpressionDatasetScope & context;
     BoundWhenExpression whenBound;
@@ -401,14 +437,14 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
     std::vector<BoundSqlExpression> boundCalc;
     OrderByExpression newOrderBy;
 
-    OrderedExecutor(std::shared_ptr<MatrixView> matrix,
+    OrderedExecutor(const Dataset & dataset,
                     GenerateRowsWhereFunction whereGenerator,
                     SqlExpressionDatasetScope & context,
                     BoundWhenExpression whenBound,
                     BoundSqlExpression boundSelect,
                     std::vector<BoundSqlExpression> boundCalc,
                     OrderByExpression newOrderBy)
-        : matrix(std::move(matrix)),
+        : dataset(dataset),
           whereGenerator(std::move(whereGenerator)),
           context(context),
           whenBound(std::move(whenBound)),
@@ -430,7 +466,10 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
 
         // Get a list of rows that we run over
         // Ordering is arbitrary but deterministic
-        auto rows = whereGenerator(-1, Any()).first;
+        std::vector<const void *> rows;
+        std::shared_ptr<const void> token;
+        
+        std::tie(rows, token) = whereGenerator(-1, nullptr);
 
         // cerr << "doing " << rows.size() << " rows with order by" << endl;
         // We have a defined order, so we need to sort here
@@ -455,20 +494,21 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
 
         auto doWhere = [&] (int rowNum) -> bool
             {
+#if 0
                 QueryThreadTracker childTracker = parentTracker.child();
 
-                auto row = matrix->getRow(rows[rowNum]);
+                //auto row = matrix->getRowFromToken(rows[rowNum]);
 
                 //if (rowNum % 1000 == 0)
                 //    cerr << "applying row " << rowNum << " of " << rows.size() << endl;
 
                 // Check it matches the where expression.  If not, we don't process
                 // it.
-                auto rowContext = context.getRowScope(row);
+                auto rowScope = context.getRowScope(dataset, rows[rowNum]);
 
                 //where already checked in whereGenerator
 
-                whenBound.filterInPlace(row, rowContext);
+                auto filteredRowScope = rowScope.filterWhen(whenBound);
 
                 NamedRowValue outputRow;
                 outputRow.rowName = row.rowName;
@@ -478,7 +518,7 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
              
                 // Run the bound select expressions
                 ExpressionValue selectOutput
-                = boundSelect(selectRowScope, GET_ALL);
+                    = boundSelect(selectRowScope, GET_ALL);
                 selectOutput.mergeToRowDestructive(outputRow.columns);
 
                 vector<ExpressionValue> calcd(boundCalc.size());
@@ -489,7 +529,7 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
                 // Get the order by context, which can read from both the result
                 // of the select and the underlying row.
                 auto orderByRowScope
-                    = orderByContext.getRowScope(rowContext, outputRow);
+                    = orderByContext.getRowScope(rowScope, outputRow);
 
                 std::vector<ExpressionValue> sortFields
                     = boundOrderBy.apply(orderByRowScope);
@@ -500,6 +540,8 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
                                          std::move(calcd));
 
                 ++rowsAdded;
+#endif
+                throw HttpReturnException(600, "Ordered execute");
                 return true;
             };
 
@@ -546,7 +588,6 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
         }
 
         cerr << "reduce took " << timer.elapsed() << endl;
-
         return true;
     }
 
@@ -555,6 +596,8 @@ struct OrderedExecutor: public BoundSelectQuery::Executor {
         return boundSelect.info;
     }
 };
+
+#if 0
 
 namespace {
 
@@ -629,7 +672,10 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
 
         // Get a list of rows that we run over
         // Ordering is arbitrary but deterministic
-        auto rows = whereGenerator(-1, Any()).first;
+        std::vector<const void *> rows;
+        std::shared_ptr<const void> token;
+        
+        std::tie(rows, token) = whereGenerator(-1, nullptr);
 
         if (!std::is_sorted(rows.begin(), rows.end(), SortByRowHash()))
             std::sort(rows.begin(), rows.end(), SortByRowHash());
@@ -701,18 +747,18 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
 
                     // Check it matches the where expression.  If not, we don't process
                     // it.
-                    auto rowContext = context.getRowScope(row);
+                    auto rowScope = context.getRowScope(row);
 
                     //where was already filtered by the where generator
 
-                    whenBound.filterInPlace(row, rowContext);
+                    whenBound.filterInPlace(row, rowScope);
                     NamedRowValue outputRow;
                     outputRow.rowName = row.rowName;
                     outputRow.rowHash = row.rowName;
 
                     vector<ExpressionValue> calcd(boundCalc.size());
                     for (unsigned i = 0;  i < boundCalc.size();  ++i) {
-                        calcd[i] = std::move(boundCalc[i](rowContext, GET_LATEST));
+                        calcd[i] = std::move(boundCalc[i](rowScope, GET_LATEST));
                     }
 
                     if (selectStar) {
@@ -725,7 +771,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
                     }
                     else {
                         // Run the select expression
-                        ExpressionValue selectOutput = boundSelect(rowContext, GET_ALL);
+                        ExpressionValue selectOutput = boundSelect(rowScope, GET_ALL);
                         selectOutput.mergeToRowDestructive(outputRow.columns);
                     }
 
@@ -901,44 +947,41 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
         auto doChunk = [&] (int bucketIndex)
         {
           int index = bucketIndex*chunkSize;
-          int stopIndex = bucketIndex == numChunk - 1 ? upperBound : index + chunkSize;
+          int stopIndex
+              = bucketIndex == numChunk - 1
+              ? upperBound
+              : index + chunkSize;
+
           AccumRows& rows = accum.get();
 
           auto stream = whereGenerator.rowStream->clone();
           stream->initAt(index);
 
-          while (index < stopIndex)
-          {
-              RowName rowName = stream->next();
-
-              if (rowName == RowName())
-                  break;
-
-              RowHash r1 = RowHash(rowName);
+          for (; index < stopIndex;  stream->advance(), ++index) {
               bool spaceLeft = rows.size() < numNeeded;
+              RowHash r1 = stream->rowHash();
 
-              if (spaceLeft || RowHash(rows[numNeeded-1]) > r1)
-              {
+              if (spaceLeft || RowHash(rows[numNeeded-1]) > r1) {
                   //evaluate the BoundWhere here?
 
                   if (!spaceLeft)
-                    rows.pop_back();
+                      rows.pop_back();
 
                   //sorted insert
                   auto iter = rows.begin();
                   for (; iter != rows.end(); ++iter) {
                       if (r1 < RowHash(*iter)) {
-                          rows.insert(iter, rowName);
+                          RowName rowNameStorage;
+                          rows.insert(iter, stream->rowName(rowNameStorage));
                           break;
                       }
                   }   
 
-                  if (iter == rows.end())
-                    rows.insert(iter, rowName);  
-
+                  if (iter == rows.end()) {
+                      RowName rowNameStorage;
+                      rows.insert(iter, stream->rowName(rowNameStorage));
+                  }
               }
-
-              ++index;
           }
         };      
 
@@ -963,7 +1006,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
 
         //Assuming the limit is small enough we can output the rows in order
 
-         // Do we select *?  In that case we can avoid a lot of copying
+        // Do we select *?  In that case we can avoid a lot of copying
         bool selectStar = boundSelect.expr->isIdentitySelect(context);
 
         // TODO: parallel...
@@ -971,16 +1014,16 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
         for (auto & r : rowsMerged) {
 
             MatrixNamedRow row = std::move(matrix->getRow(r));
-            auto rowContext = context.getRowScope(row);
+            auto rowScope = context.getRowScope(row);
 
-            whenBound.filterInPlace(row, rowContext);
+            whenBound.filterInPlace(row, rowScope);
             NamedRowValue outputRow;
             outputRow.rowName = row.rowName;
             outputRow.rowHash = row.rowName;
 
             vector<ExpressionValue> calcd(boundCalc.size());
             for (unsigned i = 0;  i < boundCalc.size();  ++i) {
-                calcd[i] = std::move(boundCalc[i](rowContext, GET_LATEST));
+                calcd[i] = std::move(boundCalc[i](rowScope, GET_LATEST));
             }
 
             if (selectStar) {
@@ -993,7 +1036,7 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
             }
             else {
                 // Run the select expression
-                ExpressionValue selectOutput = boundSelect(rowContext, GET_ALL);
+                ExpressionValue selectOutput = boundSelect(rowScope, GET_ALL);
                 selectOutput.mergeToRowDestructive(outputRow.columns);
             }
             if (!processor(outputRow, calcd, count))
@@ -1010,6 +1053,8 @@ struct RowHashOrderedExecutor: public BoundSelectQuery::Executor {
         return boundSelect.info;
     }
 };
+
+#endif
 
 BoundSelectQuery::
 BoundSelectQuery(const SelectExpression & select,
@@ -1054,14 +1099,15 @@ BoundSelectQuery(const SelectExpression & select,
         }
 
         bool orderByRowHash = false;
-        bool outputInParallel = false /*newOrderBy.clauses.empty()*/;
+        //bool outputInParallel = false /*newOrderBy.clauses.empty()*/;
         if (newOrderBy.clauses.size() == 1
             && newOrderBy.clauses[0].second == ASC
             && newOrderBy.clauses[0].first->getType() == "function"
             && newOrderBy.clauses[0].first->getOperation() == "rowHash")
             orderByRowHash = true;
  
-        if (orderByRowHash) {
+        if (orderByRowHash && false) {
+#if 0
             ExcAssert(numBuckets < 0);
             executor.reset(new RowHashOrderedExecutor(std::move(matrix),
                                                       std::move(whereGenerator),
@@ -1071,11 +1117,11 @@ BoundSelectQuery(const SelectExpression & select,
                                                       std::move(boundCalc),
                                                       std::move(newOrderBy),
                                                       outputInParallel));          
-           
+#endif           
         }
         else if (!newOrderBy.clauses.empty()) {
             ExcAssert(numBuckets < 0);
-            executor.reset(new OrderedExecutor(std::move(matrix),
+            executor.reset(new OrderedExecutor(from,
                                                std::move(whereGenerator),
                                                *context,
                                                std::move(whenBound),
@@ -1500,7 +1546,7 @@ BoundGroupByQuery(const SelectExpression & select,
     : from(from),
       when(when),
       where(where),
-      rowContext(new SqlExpressionDatasetScope(from, alias)),
+      rowScope(new SqlExpressionDatasetScope(from, alias)),
       groupContext(new GroupContext(from, alias, groupBy)),
       groupBy(groupBy),
       select(select),
@@ -1639,19 +1685,19 @@ execute(RowProcessor processor,
          // Create the context to evaluate the row name and order by
         NamedRowValue outputRow;
 
-        auto rowContext = groupContext->getRowScope(outputRow, rowKey);
+        auto rowScope = groupContext->getRowScope(outputRow, rowKey);
 
         //Evaluate the HAVING expression
-        ExpressionValue havingResult = boundHaving(rowContext, GET_LATEST);
+        ExpressionValue havingResult = boundHaving(rowScope, GET_LATEST);
 
         if (!havingResult.isTrue())
             continue;
 
-        outputRow.rowName = boundRowName(rowContext, GET_LATEST).coerceToPath();
+        outputRow.rowName = boundRowName(rowScope, GET_LATEST).coerceToPath();
         outputRow.rowHash = outputRow.rowName;        
 
         //Evaluating the whole bound select expression
-        ExpressionValue result = boundSelect(rowContext, GET_ALL);
+        ExpressionValue result = boundSelect(rowScope, GET_ALL);
         result.mergeToRowDestructive(outputRow.columns);
 
         //In case of no output ordering, we can early exit
@@ -1666,7 +1712,7 @@ execute(RowProcessor processor,
         {
              //Else we add the result to the output rows
             std::vector<ExpressionValue> sortFields
-            = boundOrderBy.apply(rowContext);
+            = boundOrderBy.apply(rowScope);
 
             std::vector<ExpressionValue> calcd;
                 
