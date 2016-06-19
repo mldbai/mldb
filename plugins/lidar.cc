@@ -111,6 +111,74 @@ CreateImageConfigDescription()
              "");
 }
 
+struct ZRenderOptions {
+    size_t w;
+    size_t h;
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(ZRenderOptions);
+DEFINE_STRUCTURE_DESCRIPTION(ZRenderOptions);
+
+ZRenderOptionsDescription::
+ZRenderOptionsDescription()
+{
+    
+}
+
+BoundTableExpression
+zrender(const SqlBindingScope & context,
+        const std::vector<BoundTableExpression> & args,
+        const BoundSqlExpression & optionsBound,
+        const Utf8String& alias)
+{
+    BoundTableExpression result;
+    result.asName = alias;
+    
+    auto options
+        = jsonDecode<ZRenderOptions>(optionsBound.constantValue().extractJson());
+    
+    //auto info = std::make_shared<EmbeddingValueInfo>({ options.w, options.h, 4 },
+    //                                                 ST_UINT8);
+    
+    // We return an embedding that's actually the image
+    result.table.getRowInfo = [=] () -> std::shared_ptr<RowValueInfo>
+        {
+            //return info;
+            return nullptr;
+        };
+
+    // No special functions for me
+    result.table.getFunction = [=]
+        (SqlBindingScope & scope,
+         const Utf8String & tableName,
+         const Utf8String & functionName,
+         const std::vector<std::shared_ptr<ExpressionValueInfo> > & args)
+        -> BoundFunction
+        {
+            return BoundFunction();
+        };
+    
+    result.table.runQuery = [=]
+        (const SqlBindingScope & context,
+         const SelectExpression & select,
+         const WhenExpression & when,
+         const SqlExpression & where,
+         const OrderByExpression & orderBy,
+         ssize_t offset,
+         ssize_t limit) -> BasicRowGenerator
+        {
+            return BasicRowGenerator();
+        };
+
+    // Not a join so no aliases
+    result.table.getChildAliases = [=] () -> std::vector<Utf8String>
+        {
+            return {};
+        };
+
+    return result;
+}
+
 struct CreateImageProcedure: public Procedure {
 
     CreateImageProcedure(MldbServer * owner,
@@ -231,8 +299,9 @@ struct CreateImageProcedure: public Procedure {
         // run the query
         cerr << "running query" << endl;
 
-        auto doRow = [&] (int i)
+        auto doRow = [&] (double x, double y, double z, uint8_t r, uint8_t g, uint8_t b)
             {
+#if 0
                 double x, y, z;
                 uint8_t r, g, b;
 
@@ -247,6 +316,7 @@ struct CreateImageProcedure: public Procedure {
                 x = std::get<1>(row.columns[3]).toDouble();
                 y = std::get<1>(row.columns[4]).toDouble();
                 z = std::get<1>(row.columns[5]).toDouble();
+#endif
 
                 recordValue(x * 0.001 + 2000, y * 0.001, z * 0.01 + 500, r, g, b);
             };
@@ -254,6 +324,21 @@ struct CreateImageProcedure: public Procedure {
         std::function<bool (Path &, ExpressionValue &)>
             onResult = [&] (Path & rowName, ExpressionValue & expr) -> bool
             {
+                static const PathElement coordKey("coord");
+                static const PathElement colorKey("color");
+
+                ExpressionValue coordVal = expr.getColumn(coordKey);
+                ExpressionValue colorVal = expr.getColumn(colorKey);
+
+                double coord[3];
+                uint8_t color[3];
+
+                coordVal.convertEmbedding(coord, 3, ST_FLOAT64);
+                colorVal.convertEmbedding(color, 3, ST_UINT8);
+
+                doRow(coord[0], coord[1], coord[2],
+                      color[0], color[1], color[2]);
+                
                 return true;
             };
 
