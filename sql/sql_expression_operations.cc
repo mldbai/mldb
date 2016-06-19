@@ -1776,18 +1776,18 @@ bind(SqlBindingScope & scope) const
                      const VariableFilter & filter) -> const ExpressionValue &
         {  
             Date ts = Date::negativeInfinity();
-            std::vector<CellValue> cells;
 
             if (lastLevel) {
-                cells.reserve(boundClauses.size());
+                std::vector<CellValue> cells(boundClauses.size());
 
-                for (auto & c: boundClauses) {
+                for (size_t i = 0;  i < boundClauses.size();  ++i) {
+                    auto & c = boundClauses[i];
                     ExpressionValue storage2;
                     const ExpressionValue & v = c(scope, storage2, filter);
                     ts.setMax(v.getEffectiveTimestamp());
                     if (&v == &storage2)
-                        cells.emplace_back(storage2.stealAtom());
-                    else cells.emplace_back(v.getAtom());
+                        cells[i] = storage2.stealAtom();
+                    else cells[i] = v.getAtom();
                 }
 
                 ExpressionValue result(std::move(cells), ts);
