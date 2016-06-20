@@ -15,6 +15,7 @@
 #include "table_expression_operations.h"
 #include <algorithm>
 #include "mldb/sql/sql_expression_operations.h"
+#include "mldb/jml/utils/compact_vector.h"
 
 using namespace std;
 
@@ -566,9 +567,11 @@ restart()
 SubSelectElement::
 SubSelectElement(std::shared_ptr<PipelineElement> root,
                  SelectStatement& stm,
+                 OrderByExpression& orderBy,
                  GetParamInfo getParamInfo,
                  const Utf8String& asName) : root(root), asName(asName) {
-
+    if (!orderBy.clauses.empty())
+        stm.orderBy = orderBy;
     pipeline = root->statement(stm, getParamInfo);
 }
 
@@ -726,10 +729,19 @@ doGetAllColumns(std::function<ColumnName (const ColumnName &)> keep,
             //     << jsonEncode(rightResult) << endl;
                 
             StructValue output;
-            output.emplace_back(leftPrefix, std::move(leftResult));
-            output.emplace_back(rightPrefix, std::move(rightResult));
+            if (!leftPrefix.empty()) {
+                output.emplace_back(leftPrefix, std::move(leftResult));
+            }
+            else {
+                leftResult.mergeToRowDestructive(output);
+            }
 
-            //cerr << "returning " << jsonEncode(output) << endl;
+            if (!rightPrefix.empty()) {
+                output.emplace_back(rightPrefix, std::move(rightResult));
+            }
+            else {
+                rightResult.mergeToRowDestructive(output);
+            }
 
             return std::move(output);
         };
@@ -782,6 +794,36 @@ doGetFunction(const Utf8String & functionName,
             };
 
         return { exec, leftRowName.resultInfo };
+    }
+
+    if (functionName == "leftRowName") {
+        auto leftRowName
+            = left->doGetFunction("rowName", args, leftFieldOffset(fieldOffset), argScope);
+
+        auto exec = [=] (const std::vector<ExpressionValue> & args,
+                         const SqlRowScope & context)
+            -> ExpressionValue
+            {
+                Utf8String rowName;
+                return leftRowName(args, context);
+            };
+
+        return { exec, leftRowName.resultInfo };
+    }
+
+    if (functionName == "rightRowName") {
+        auto rightRowName
+            = right->doGetFunction("rowName", args, rightFieldOffset(fieldOffset), argScope);
+
+        auto exec = [=] (const std::vector<ExpressionValue> & args,
+                         const SqlRowScope & context)
+            -> ExpressionValue
+            {
+                Utf8String rowName;
+                return rightRowName(args, context);
+            };
+
+        return { exec, rightRowName.resultInfo };
     }
 
     // For now, don't allow joins to override functions
@@ -1114,7 +1156,16 @@ takeMoreInput()
     takeValueFromSide(l, this->left, outerLeft);
     takeValueFromSide(r, this->right, outerRight);   
 }
-            
+ 
+/**
+    Whevever the left side value of the pivot is greater
+    than the right side we get the next item on the right side
+    and rewind the left side until its value is equal or
+    greater than the new right side value.  Such rewinding is
+    necessary because there might be several identical values
+    on each side and in this case, we need to return all the rows
+    in the cross product.
+*/
 std::shared_ptr<PipelineResults>
 JoinElement::EquiJoinExecutor::
 take()
@@ -1151,19 +1202,26 @@ take()
             return false;
         };    
 
+        auto rewindLeftSideToValue = [&] (const ExpressionValue & rField) {
+            left->restart();
+            auto l = left->take();
+            while (l && l->values.back().getColumn(0, GET_ALL) < rField)
+                l = left->take();
+            return l;
+        };
+
         if (lField == rField) {
             // Got a row!
             //cerr << "*** got row match on " << jsonEncode(lField) << endl;
 
-            // Pop the selected join conditions from left and right
+            // Pop the selected join conditions from left
             l->values.pop_back();
-            r->values.pop_back();
 
             auto numL = l->values.size();
-            auto numR = r->values.size();
+            auto numR = r->values.size() - 1;
 
-            for (auto & v: r->values)
-                l->values.emplace_back(std::move(v));
+            for (auto i = 0; i < numR; ++i)
+                l->values.push_back(r->values[i]);
 
             shared_ptr<PipelineResults> result = std::move(l);
 
@@ -1187,40 +1245,67 @@ take()
                  }
             }
             else if (!crossWhereTrue && !outerRight && !outerLeft) {
+
                 l = left->take();
-                r = right->take();
                 continue;
             }
 
             l = left->take();
+            if (l) {
+                ExpressionValue nextLField =  l->values.back().getColumn(0, GET_ALL);
+                if (nextLField == lField) {
+                    // we have the same left-side value again
+                    // take the left-side but leave the right-side as-is
+                    // to generate the cross product of rows on matching
+                    // that value
+                    ExcAssert(nextLField == rField);
+                    return std::move(result);
+                }
+            }
+
             r = right->take();
-            return std::move(result);
+            if (r) {
+                ExpressionValue nextRField =  r->values.back().getColumn(0, GET_ALL);
+                if (nextRField == rField) {
+                    // we have the same right-side value again
+                    // and the left-side value is different
+                    // rewind the left-side to the first occurrence
+                    // of the former value to generate the cross product
+
+                    ExcAssert(nextRField == lField);
+                    l = rewindLeftSideToValue(rField);
+                }
+            }
+                    
+            return result;
         }
         else if (lField < rField) {
             // loop until left field value is equal to the right field value
             // returning nulls if left outer
             do {
                 if (outerLeft && checkOuterWhere(l, left, lField, rEmbedding)) {
-                    auto result = std::move(l);                
+                    auto result = std::move(l);
                     l = left->take();
                     return std::move(result);
                 } else {
-                    l = this->left->take();
+                    l = left->take();
                 }     
-            } while (l && l->values.back() < rField);
+            } while (l && l->values.back().getColumn(0, GET_ALL) < rField);
         }
         else {
             // loop until right field value is equal to the left field value
             // returning nulls if right outer
+            ExcAssert(lField > rField);
+
             do {
                 if (outerRight && checkOuterWhere(r, right, rField, lEmbedding)) {
-                    auto result = std::move(r);                
+                    auto result = std::move(r);
                     r = right->take();
                     return std::move(result);
                 } else {
-                    r = this->right->take();
+                    r = right->take();
                 }
-            } while (r && r->values.back() < lField);
+            } while (r && r->values.back().getColumn(0, GET_ALL) < lField);
         }
     }
 
@@ -1576,7 +1661,7 @@ FromElement(std::shared_ptr<PipelineElement> root_,
                                    join->left, BoundTableExpression(),
                                    join->right, BoundTableExpression(),
                                    join->on, join->qualification,
-                                   select, where, orderBy_));
+                                   select, where, orderBy));
         // TODO: order by for join output
             
     }
@@ -1595,7 +1680,7 @@ FromElement(std::shared_ptr<PipelineElement> root_,
         if (params_)
             getParamInfo = params_;
 
-        impl.reset(new SubSelectElement(root, subSelect->statement, getParamInfo, from->getAs()));
+        impl.reset(new SubSelectElement(root, subSelect->statement, orderBy, getParamInfo, from->getAs()));
     }
     else if (from->getType() == "datasetFunction") {
         std::shared_ptr<DatasetFunctionExpression> function = std::dynamic_pointer_cast<DatasetFunctionExpression>(from);
@@ -1975,7 +2060,7 @@ take()
                 return parent->orderBy_.less(p1->values, p2->values,
                                              offset);
             };
-                
+
         std::sort(sorted.begin(), sorted.end(), compare);
                 
         numDone = 0;

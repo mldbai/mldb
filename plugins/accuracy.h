@@ -28,7 +28,7 @@ struct AccuracyConfig : public ProcedureConfig {
     static constexpr const char * name = "classifier.test";
 
     AccuracyConfig()
-          : mode(CM_BOOLEAN)
+          : mode(CM_BOOLEAN), uniqueScoresOnly(false)
     {
     }
 
@@ -37,6 +37,8 @@ struct AccuracyConfig : public ProcedureConfig {
 
     /// What mode to run in
     ClassifierMode mode;
+
+    bool uniqueScoresOnly;
 
     /// Dataset we output to
     Optional<PolyConfigT<Dataset> > outputDataset;

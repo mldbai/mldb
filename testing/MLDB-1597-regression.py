@@ -211,7 +211,7 @@ class Mldb1597Test(MldbUnitTest):
         result = mldb.post("/v1/procedures", {
             "type": "classifier.test",
             "params": {
-                "testingData": "select 11.0 as score, ds.c as label from ds",
+                "testingDataOverride": "select 11.0 as score, ds.c as label from ds",
                 "mode": "regression",
                 "runOnCreation": True
             }
@@ -219,7 +219,6 @@ class Mldb1597Test(MldbUnitTest):
         r2 = result.json()["status"]["firstRun"]["status"]["r2"]
         self.assertTrue( r2 is not None )
 
-    @unittest.skip("awaiting MLDB-1660")
     def test_function_creation_bug(self):
         mldb.post("/v1/procedures", {
             "type": "import.text",
@@ -240,11 +239,11 @@ class Mldb1597Test(MldbUnitTest):
             "type": "classifier.experiment",
             "params": {
                 "experimentName": "x",
-                "trainingData": "select {a} as features, b as label from narrow",
+                "inputData": "select {a} as features, b as label from narrow",
                 "algorithm": "dt",
                 "mode": "regression",
                 "configurationFile": "./mldb/container_files/classifiers.json",
-                "modelFileUrlPattern": "file:///tmp/MLDB-1597-creation$runid.cls",
+                "modelFileUrlPattern": "file://tmp/MLDB-1597-creation$runid.cls",
                 "runOnCreation": True
             }
         })
@@ -257,7 +256,7 @@ class Mldb1597Test(MldbUnitTest):
                     "type": "classifier.experiment",
                     "params": {
                         "experimentName": "ds",
-                        "trainingData": 
+                        "inputData": 
                             "select { %s } as features, %s as label from ds_train" % (
                                 ",".join(features), label),
                         "algorithm": algo,

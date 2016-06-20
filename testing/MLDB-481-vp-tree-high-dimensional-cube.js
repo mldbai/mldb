@@ -56,7 +56,7 @@ coords = [];
 for(var i=0; i<numDims; i++) coords.push(0);
 coords[0] = 1;
 
-var res = mldb.query("select nn({coords: "+JSON.stringify(coords)+", numNeighbors:5})[neighbors] as *");
+var res = mldb.query("select nn({coords: "+JSON.stringify(coords)+", numNeighbors:5})[distances] as *");
 
 plugin.log(res);
 
@@ -64,10 +64,10 @@ gres = res[0]["columns"];
 
 // First two should have distance 0, the rest should have distance sqrt(2) as a 32 bit float
 assertEqual(gres.length, 5, "length");
-assertEqual(gres[0][0], "row0_a", "name0");
-assertEqual(gres[1][0], "row0", "name1");
-assertEqual(gres[0][1], 0, "dist0");
-assertEqual(gres[1][1], 0, "dist1");
+assertEqual(gres[1][0], "row0_a", "name0");
+assertEqual(gres[0][0], "row0", "name1");
+assertEqual(gres[1][1], 0, "dist0");
+assertEqual(gres[0][1], 0, "dist1");
 assertEqual(gres[2][1], 1.4142135381698608, "dist2");
 assertEqual(gres[3][1], 1.4142135381698608, "dist3");
 assertEqual(gres[4][1], 1.4142135381698608, "dist4");

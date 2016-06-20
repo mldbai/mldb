@@ -100,7 +100,7 @@ callAndAssert("ln(12.4343454)", "float1", 2.5204624341327104, "failed on 12.4343
 
 /* natural logarithm on non-positive gives an error */
 var resp = mldb.get("/v1/datasets/test/query", {select:"ln(value)", where:"rowName()='zero'"});
-assertContains(resp.json.error, "positive number");
+assertContains(resp.json.error, "strictly positive");
 assertEqual(resp.responseCode, 400, "expecting 400 on invalid input");
 
 /* exp */

@@ -197,6 +197,7 @@ struct SubSelectElement: public PipelineElement {
 
     SubSelectElement(std::shared_ptr<PipelineElement> root,
                      SelectStatement& statement,
+                     OrderByExpression& orderBy,
                      GetParamInfo getParamInfo,
                      const Utf8String& asName);
 
@@ -347,10 +348,14 @@ struct JoinElement: public PipelineElement {
         void restart();
     };
 
-    /** Execution runs on left rows and right rows together.  The complexity is
-        therefore O(max(left rows, right rows)).  The canonical example of this
-        is `SELECT * FROM t1 JOIN t2 ON t1.id = t2.id`.  This requires that the
-        the id column is sorted.
+    /** Execution runs on left rows and right rows together.  This requires to
+        sort the value that will be compared (ie. the pivot).  The worse case
+        complexity is O(left rows) * O(right rows) when the pivot value is a
+        constant but in general the complexity should be closer to
+        O(max(left rows, right rows)) when the pivot do not have too many 
+        duplicated values.  The canonical example of this
+        is `SELECT * FROM t1 JOIN t2 ON t1.id = t2.id`.  Here `id` is the pivot
+        and rows are sorted by id.
     */
     struct EquiJoinExecutor: public ElementExecutor {
         EquiJoinExecutor(const Bound * parent,

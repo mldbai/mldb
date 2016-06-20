@@ -120,6 +120,7 @@ DECLARE_STRUCTURE_DESCRIPTION(NearestNeighborsInput);
 
 struct NearestNeighborsOutput {
     ExpressionValue neighbors;
+    ExpressionValue distances;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(NearestNeighborsOutput);

@@ -13,10 +13,12 @@ function assertEqual(expr, val)
 }
 
 
-function testQuery(query, expected) {
+function testQuery(query, expected, sortColumns) {
+    if (sortColumns === undefined)
+        sortColumns = false;
     mldb.log("testing query", query);
 
-    var resp = mldb.get('/v1/query', {q: query, format: 'table'});
+    var resp = mldb.get('/v1/query', {q: query, format: 'table', sortColumns: sortColumns});
 
     mldb.log("received", resp.json);
     mldb.log("expected", expected);
@@ -424,8 +426,8 @@ expected = [
    [ "[ex1]-[]-[ex1]", null, null, 1, 2, null, 3, null ],
    [ "[ex2]-[]-[]", null, null, 2, null, null, null, 4 ],
    [ "[ex3]-[ex3]-[]", 1, 2, null, null, null, null, 3 ],
-   [ "[]-[ex5]", null, null, null, null, 1, 2, null ],
-   [ "[]-[ex6]", null, null, null, null, 2, 2, null ]
+   [ "[]-[]-[ex5]", null, null, null, null, 1, 2, null ],
+   [ "[]-[]-[ex6]", null, null, null, null, 2, 2, null ]
 ];
 
 testQuery('SELECT * FROM test3 OUTER JOIN test4 ON test3.rowName() = test4.rowName() OUTER JOIN test5 on test3.rowName() = test5.rowName()',
@@ -439,21 +441,21 @@ dataset6.recordRow("ex6", [ [ "x", null, ts ], ["z", 3, ts] ]);
 dataset6.commit()
 
 expected = [
-   [ "_rowName", "test4.x", "test4.z", "test5.x", "test5.z", "test3.x", "test3.y", "test3.z", "test6.x", "test6.z"],
-   [ "[]-[ex4]-[]-[]", 2, 2, null, null, null, null, null, null, null ],
-   [ "[]-[ex5]-[]-[]", null, 3, null, null, null, null, null, null, null ],
-   [ "[]-[ex5]-[]", null, null, 1, 2, null, null, null, null, null ],
-   [ "[]-[ex6]-[]", null, null, 2, 2, null, null, null, null, null ],
-   [ "[ex1]-[]-[ex1]-[]", null, null, null, 3, 1, 2, null, null, null ],
-   [ "[ex2]-[]-[]-[]", null, null, null, null, 2, null, 4, null, null ],
-   [ "[ex3]-[ex3]-[]-[ex3]", 1, 2, null, null, null, null, 3, 1, 2 ],
-   [ "[]-[ex4]", null, null, null, null, null, null, null, 2, 2 ],
-   [ "[]-[ex6]", null, null, null, null, null, null, null, null, 3 ]
+   [ "_rowName","test3.x","test3.y","test3.z","test4.x","test4.z","test5.x","test5.z","test6.x","test6.z"],
+   [ "[]-[]-[]-[ex4]", null, null, null, null, null, null, null, 2, 2 ],
+   [ "[]-[]-[]-[ex6]", null, null, null, null, null, null, null, null, 3 ],
+   [ "[]-[]-[ex5]-[]", null, null, null, null, null, 1, 2, null, null ],
+   [ "[]-[]-[ex6]-[]", null, null, null, null, null, 2, 2, null, null ],
+   [ "[]-[ex4]-[]-[]", null, null, null, 2, 2, null, null, null, null ],
+   [ "[]-[ex5]-[]-[]", null, null, null, null, 3, null, null, null, null ],
+   [ "[ex1]-[]-[ex1]-[]", 1, 2, null, null, null, null, 3, null, null ],
+   [ "[ex2]-[]-[]-[]", 2, null, 4, null, null, null, null, null, null ],
+   [ "[ex3]-[ex3]-[]-[ex3]", null, null, 3, 1, 2, null, null, 1, 2 ]
 ];
 
 
-testQuery('SELECT * FROM test3 OUTER JOIN test4 ON test3.rowName() = test4.rowName() OUTER JOIN test5 on test3.rowName() = test5.rowName() OUTER JOIN test6 on test3.rowName() = test6.rowName()',
-          expected);
+testQuery('SELECT * FROM test3 OUTER JOIN test4 ON test3.rowName() = test4.rowName() OUTER JOIN test5 on test3.rowName() = test5.rowName() OUTER JOIN test6 on test3.rowName() = test6.rowName() ORDER BY rowName()',
+          expected, true /* sortColumns */);
 
 //MLDB-1384
 //asking for unknow column in the WHERE should not throw.
@@ -474,11 +476,29 @@ dataset7.recordRow("blah", [[ "k", 1, ts ]] );
 
 dataset7.commit()
 
+// Test that "table2.* as *" returns the right thing (non-prefixed names)
+expected = [
+   [ "_rowName", "x", "z" ],
+   [ "[blah]-[ex4]", 1, 2 ],
+   [ "[blah]-[ex5]", 2, 2 ],
+   [ "[blah]-[ex6]", null, 3 ],
+   [ "[x]-[ex4]", 1, 2 ],
+   [ "[x]-[ex5]", 2, 2 ],
+   [ "[x]-[ex6]", null, 3 ]
+];
+
+testQuery('SELECT table2.* as * FROM test7 as table1 JOIN test2 as table2',
+          expected);
+
 expected = [
    [ "_rowName", "table1.k", "table2.x", "table2.z" ],
    [ "[x]-[ex4]", 1, 1, 2 ],
    [ "[x]-[ex5]", 1, 2, 2 ],
    [ "[x]-[ex6]", 1, null, 3 ]];
+
+// This one matches nothing, because the keys of table2.* all start with table2.
+testQuery('SELECT * FROM test7 as table1 JOIN test2 as table2 where table1.rowName() IN (KEYS OF ({table2.*}))',
+          [["_rowName"]]);
 
 testQuery('SELECT * FROM test7 as table1 JOIN test2 as table2 where table1.rowName() IN (KEYS OF ({table2.* as *}))',
           expected);

@@ -2,6 +2,6 @@
     "httpCode": 401,
     "error": "Activation Required",
     "details": {
-        "message": "Please activate MLDB by browsing to /licensing.html and entering a license code."
+        "message": "Please activate MLDB by browsing to /licensing.html and entering a license key."
     }
 }

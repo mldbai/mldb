@@ -370,9 +370,9 @@ operator = (const StructureDescriptionBase & other)
 
     // Don't set owner
     for (auto & f: other.orderedFields) {
-        string s = f->first;
-        fieldNames.push_back(s);
-        auto it = fields.insert(make_pair(fieldNames.back().c_str(), f->second))
+        const char * s = f->first;
+        fieldNames.emplace_back(::strdup(s));
+        auto it = fields.insert(make_pair(fieldNames.back().get(), f->second))
             .first;
         orderedFields.push_back(it);
     }

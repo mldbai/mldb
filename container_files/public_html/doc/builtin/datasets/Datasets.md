@@ -1,8 +1,10 @@
 # Intro to Datasets
 
-Datasets are named sets of data points composed of (row, column, timestamp, value) tuples. Datasets can have millions of named columns and rows, and data points can take on multiple timestamped values which can be numbers or strings. 
+Datasets are schema-less, append-only named sets of *data points*, which are contained in *cells*, which sit at the intersection of *rows* and *columns*. Data points are composed of a *value* and a *timestamp*. Each data point can thus be represented as a (row, column, timestamp, value) tuple, and datasets can be thought of as sparse 3-dimensional matrices. The rows and columns of a dataset can be interchanged by transposing the matrix. Datasets can contain billions of data points arranged in millions of rows with millions of columns.
 
-Datasets can be loaded from or saved to files, and can serve as the input to Procedures as well as be created by them. And of course, Datasets can be queried via [SQL queries](../sql/Sql.md). 
+Rows and columns have structured identifiers, called *paths*. A path is an array of UTF-8 strings without null characters called *path elements* (e.g. `['a','b']`) and can be represented as strings called *names* with dots between the path elements (e.g. `'a.b'`). Dots can appear in path elements, causing their string representation to be surrounded by double-quote characters, which can themselves appear in path elements, and are doubled up in the string representation: the path `['a.b', '"hello"']` is stringified as `"a.b"."""hello"""`. These rules make it possible to manipulate hierarchically-structured (i.e. JSON) data within [SQL queries](../sql/Sql.md).
+
+Datasets can be created and data can be appended to them via the [REST API](../WorkingWithRest.md) and they can also loaded from or saved to files via [Procedures](../procedures/Procedures.md).
 
 ## Matrix View
 
@@ -14,15 +16,6 @@ happens when we "slice" the matrix at a particular point in time.
 Ignoring the time dimension, you can imagine that the data looks something like this:
 
 <table cellpadding="0" cellspacing="0" class="c17"><tbody><tr class="c3"><td class="c5" colspan="1" rowspan="1"><p class="c8 c12"><span class="c7"></span></p></td><td class="c5" colspan="1" rowspan="1"><p class="c8"><span class="c7">ColumnA</span></p></td><td class="c5" colspan="1" rowspan="1"><p class="c8"><span class="c7">ColumnB</span></p></td><td class="c5" colspan="1" rowspan="1"><p class="c8"><span class="c7">ColumnC</span></p></td><td class="c5" colspan="1" rowspan="1"><p class="c8"><span class="c7">ColumnD</span></p></td><td class="c5" colspan="1" rowspan="1"><p class="c8"><span class="c7">ColumnE</span></p></td></tr><tr class="c3"><td class="c5" colspan="1" rowspan="1"><p class="c8"><span class="c7">RowA</span></p></td><td class="c5" colspan="1" rowspan="1"><p class="c8 c12"><span class="c0"></span></p></td><td class="c5" colspan="1" rowspan="1"><p class="c8 c12"><span class="c0"></span></p></td><td class="c5" colspan="1" rowspan="1"><p class="c8 c12"><span class="c0"></span></p></td><td class="c5" colspan="1" rowspan="1"><p class="c8 c12"><span class="c0"></span></p></td><td class="c5" colspan="1" rowspan="1"><p class="c8 c12"><span class="c0"></span></p></td></tr><tr class="c3"><td class="c5" colspan="1" rowspan="1"><p class="c8"><span class="c7">RowB</span></p></td><td class="c5" colspan="1" rowspan="1"><p class="c8"><span class="c0">123</span></p></td><td class="c5" colspan="1" rowspan="1"><p class="c8 c12"><span class="c0"></span></p></td><td class="c5" colspan="1" rowspan="1"><p class="c8"><span class="c0">7634.2</span></p></td><td class="c5" colspan="1" rowspan="1"><p class="c8 c12"><span class="c0"></span></p></td><td class="c5" colspan="1" rowspan="1"><p class="c8 c12"><span class="c0"></span></p></td></tr><tr class="c3"><td class="c5" colspan="1" rowspan="1"><p class="c8"><span class="c7">RowC</span></p></td><td class="c5" colspan="1" rowspan="1"><p class="c8 c12"><span class="c0"></span></p></td><td class="c5" colspan="1" rowspan="1"><p class="c8"><span class="c0">&quot;hello&quot;</span></p></td><td class="c5" colspan="1" rowspan="1"><p class="c8 c12"><span class="c0"></span></p></td><td class="c5" colspan="1" rowspan="1"><p class="c8 c12"><span class="c0"></span></p></td><td class="c5" colspan="1" rowspan="1"><p class="c8 c12"><span class="c0"></span></p></td></tr><tr class="c3"><td class="c5" colspan="1" rowspan="1"><p class="c8"><span class="c7">RowD</span></p></td><td class="c5" colspan="1" rowspan="1"><p class="c8 c12"><span class="c0"></span></p></td><td class="c5" colspan="1" rowspan="1"><p class="c8 c12"><span class="c0"></span></p></td><td class="c5" colspan="1" rowspan="1"><p class="c8 c12"><span class="c0"></span></p></td><td class="c5" colspan="1" rowspan="1"><p class="c8 c12"><span class="c0"></span></p></td><td class="c5" colspan="1" rowspan="1"><p class="c8 c12"><span class="c0"></span></p></td></tr><tr class="c3"><td class="c5" colspan="1" rowspan="1"><p class="c8"><span class="c7">RowE</span></p></td><td class="c5" colspan="1" rowspan="1"><p class="c8 c12"><span class="c0"></span></p></td><td class="c5" colspan="1" rowspan="1"><p class="c8 c12"><span class="c0"></span></p></td><td class="c5" colspan="1" rowspan="1"><p class="c8 c12"><span class="c0"></span></p></td><td class="c5" colspan="1" rowspan="1"><p class="c8 c12"><span class="c0"></span></p></td><td class="c5" colspan="1" rowspan="1"><p class="c8 c12"><span class="c0"></span></p></td></tr></tbody></table>
-
-There are several important points here:
-
-1. Each "cell" has a row name, a column name, and a value.
-1. The values can be strings, integers, floating point numbers, or empty
-1. The row names and column names are NOT numbers.  They are arbitrary strings. 
-1. There is no concept of rows or columns being "in order" like a spreadsheet.
-
-We also allow each column and row to have a different value at each time point.
 
 ## Events View
 
@@ -36,21 +29,6 @@ learning.  The two versions of
 Bob's score are both recorded, along with the time at which it changed.
 This allows MLDB to reconstruct what was known at a given point in time,
 making historical data far more useful to learn from.
-
-## Rows Versus Columns
-
-Under the MLDB data model, rows and columns are isomorphic.  In other words,
-they are both represented in the same way.
-
-That being said, most algorithms work best when the number of rows is greater
-than the number of columns.  So if you are using rows to represent users
-(of which there are lots) and columns to represent attributes (of which there
-are fewer), then the algorithms will run better with the data represented this
-way than the inverse.
-
-In the rare cases where this doesn't work, it is possible to transpose a dataset with the ![](%%doclink transposed dataset),
-so that rows become columns and vice-versa, but this can be highly inefficient,
-and most well designed algorithms do not require this to be done.
 
 
 ## Available Dataset Types

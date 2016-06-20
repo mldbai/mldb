@@ -559,14 +559,7 @@ addBackgroundJobInThread(Key key,
         auto onProgressFn = [=] (const Json::Value & progress)
             {
                 std::unique_lock<std::mutex> guard(task->mutex);
-                task->progress.clear();
-
-                if (!progress.isNull()) {
-                    task->progress["progress"] = progress;
-                    for (auto & f: task->onProgressFunctions)
-                        f(progress);
-                }
-
+                task->setProgress(progress);
                 return !task->cancelled;
             };
 
@@ -601,8 +594,6 @@ addBackgroundJobInThread(Key key,
 
         if (impl->entries.cmp_xchg(oldEntries, newEntries, true)) {
             // Now we can start the task, since the commit succeeded
-            onProgressFn(Json::Value());
-
             std::thread thread(toRun);
 
             auto handle = thread.native_handle();

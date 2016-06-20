@@ -17,7 +17,7 @@ class RedditTest(MldbUnitTest):
                 'delimiter':'', 
                 'quotechar':'',
                 'outputDataset': 'reddit_raw',
-                'limit': 5000,
+                'limit': 2000,
                 'runOnCreation': True
             } 
         })
@@ -44,7 +44,16 @@ class RedditTest(MldbUnitTest):
                             columnName() LIMIT 4000) 
                     FROM reddit_dataset
                 """,
-                "columnOutputDataset" : "reddit_svd_embedding",
+                "columnOutputDataset" : {
+                    "id": "reddit_svd_embedding", 
+                    "type":"embedding",
+                    "params": {"metric":"euclidean"}
+                },
+                "rowOutputDataset" : {
+                    "id": "reddit_svd_embedding_rows", 
+                    "type":"embedding",
+                    "params": {"metric":"cosine"} #test that cosine doesn't crash
+                },
                 "modelFileUrl": "file://tmp/MLDB-466.svd",
                 "functionName": "embedder",
                 "runOnCreation": True
@@ -81,7 +90,7 @@ class RedditTest(MldbUnitTest):
             from transpose(( 
                 select nearest_subreddit({ coords: 
                     embedder({ row: {soccer: 1} })[embedding]
-                })[neighbors] as *
+                })[distances] as *
                 named 'distance'
             )) as x
             join reddit_svd_embedding as neighbour
@@ -99,7 +108,7 @@ class RedditTest(MldbUnitTest):
 
         import math
         # MLDB-1677
-        #self.assertEqual(math.sqrt(dist_accum), result["x.distance"])
+        self.assertLess(abs(math.sqrt(dist_accum) - result["x.distance"]), 0.00001)
 
         mldb.put('/v1/procedures/reddit_kmeans', {
             "type" : "kmeans.train",

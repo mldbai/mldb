@@ -82,6 +82,72 @@ struct NoGroupByHaving
 };
 
 /**
+ *  Accept any select statement with empty WHERE clause.
+ *  FieldType must contain a SelectStatement named stm.
+ */
+struct NoWhere
+{
+    void operator()(const InputQuery & query, const std::string & name) const
+    {
+        if (query.stm) {
+            if (!query.stm->where->isConstantTrue()) {
+                throw ML::Exception(name + " does not support where");
+            }
+        }
+    }
+
+    void operator()(const Optional<InputQuery> & query,
+                    const std::string & name) const
+    {
+        if (query) operator()(*query, name);
+    }
+};
+
+/**
+ *  Accept any select statement with empty LIMIT clause.
+ *  FieldType must contain a SelectStatement named stm.
+ */
+struct NoLimit
+{
+    void operator()(const InputQuery & query, const std::string & name) const
+    {
+        if (query.stm) {
+            if (query.stm->limit != -1) {
+                throw ML::Exception(name + " does not support limit");
+            }
+        }
+    }
+
+    void operator()(const Optional<InputQuery> & query,
+                    const std::string & name) const
+    {
+        if (query) operator()(*query, name);
+    }
+};
+
+/**
+ *  Accept any select statement with empty OFFSET clause.
+ *  FieldType must contain a SelectStatement named stm.
+ */
+struct NoOffset
+{
+    void operator()(const InputQuery & query, const std::string & name) const
+    {
+        if (query.stm) {
+            if (query.stm->offset > 0) {
+                throw ML::Exception(name + " does not support offset");
+            }
+        }
+    }
+
+    void operator()(const Optional<InputQuery> & query,
+                    const std::string & name) const
+    {
+        if (query) operator()(*query, name);
+    }
+};
+
+/**
   *  Must contain a FROM clause
  */
 struct MustContainFrom

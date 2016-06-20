@@ -332,4 +332,30 @@ print "a"
     cerr << getResult << endl;
     BOOST_CHECK(getResult.body().find("<h1>My markdown doc") != string::npos);
 
+
+    //// checking out specific revision for a plugin
+    auto checkCode = [&] (const std::string & url, int code)
+    {
+        plugRes.address = url;
+        pluginConfig2.params = plugRes;
+        putStatus = proxy.put("/v1/plugins/test_git_plugin",
+                                   jsonEncode(pluginConfig2));
+
+        // if we're expecting a failure
+        if(code == -1) {
+            cerr << putStatus << endl;
+            BOOST_CHECK_EQUAL(putStatus.code(), 400);
+        }
+        else {
+            getResult = proxy.get("/v1/plugins/test_git_plugin/routes");
+            BOOST_CHECK_EQUAL(getResult.code(), 200);
+            BOOST_CHECK_EQUAL(getResult.jsonBody()["version"].asInt(), code);
+        }
+    };
+
+    checkCode("git://github.com/mldbai/test_git_plugin.git", 2); // HEAD
+    checkCode("git://github.com/mldbai/test_git_plugin.git#6057a0d7cd370adc45eb40de97ebc00e79a7aef1", 1);
+    checkCode("git://github.com/mldbai/test_git_plugin.git#5787ed0a4ac8b2b100fbd473b6f03251b929aca5", 2);
+    checkCode("git://github.com/mldbai/test_git_plugin.git#patate", -1);
+
 }
