@@ -79,8 +79,8 @@ mldb.put('/v1/functions/complex', conf)
 conf['params']['prepared'] = True
 mldb.put('/v1/functions/complex_prep', conf)
 
-a = mldb.query('select complex({*}) from ds limit 2')
-b = mldb.query('select complex_prep({*}) from ds limit 2')
+a = mldb.query('select complex({*}) as * from ds limit 2')
+b = mldb.query('select complex_prep({*}) as * from ds limit 2')
 mldb.log(a)
 mldb.log(b)
 assert a == b
