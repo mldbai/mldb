@@ -610,10 +610,6 @@ hasUnboundVariables() const
             return true;
     }
 
-    if (funcs.find("columnCount") != funcs.end()) {
-        return true;
-    }
-
     return false;
 }
 
