@@ -702,6 +702,8 @@ struct ExpressionValue {
 
     bool isRow() const;
 
+    // isNull() -> use empty()
+
     /// Is this a superposition?  Meaning that there are multiple values
     /// superposed.
     bool isSuperposition() const;
