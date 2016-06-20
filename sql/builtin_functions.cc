@@ -1934,6 +1934,10 @@ BoundFunction tokenize(const std::vector<BoundSqlExpression> & args)
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
+                if (args[0].empty()) {
+                    return ExpressionValue::null(Date::negativeInfinity());
+                }
+
                 Date ts = args[0].getEffectiveTimestamp();
 
                 Utf8String text = args[0].toUtf8String();
