@@ -180,5 +180,16 @@ class TokenizeTest(MldbUnitTest):  # noqa
         self.find_column(result, "tokens",
                     '{"I.am.a":1,"and.this":1,"dog":1,"is.my":1,"life.":1}')
 
+    def test_tokenize_null(self):
+        """
+        MLDB-1726
+        """
+        res = mldb.get('/v1/query',
+                       q="SELECT tokenize(NULL) NAMED 'res'").json()
+        self.assertFullResultEquals(res, [{
+            'rowName' : 'res',
+            'columns' : [['tokenize(NULL)', None, '-Inf']]
+        }])
+
 if __name__ == '__main__':
     mldb.run_tests()
