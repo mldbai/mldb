@@ -776,7 +776,8 @@ registerMod(mod, std::make_shared<IntegerValueInfo>(), "mod");
 double ln(double v)
 {
     if (v <= 0)
-        throw HttpReturnException(400, "ln function supports positive numbers only");
+        throw HttpReturnException(400, "the argument of the ln function must"
+                                       " be strictly positive");
 
     return std::log(v);
 }
@@ -784,7 +785,8 @@ double ln(double v)
 double sqrt(double v)
 {
     if (v < 0)
-        throw HttpReturnException(400, "sqrt function supports positive numbers only");
+        throw HttpReturnException(400, "the argument of the sqrt function must"
+                                       " be non-negative");
 
     return std::sqrt(v);
 }
@@ -1790,12 +1792,14 @@ BoundFunction parse_json(const std::vector<BoundSqlExpression> & args)
                 JsonArrayHandling encode = PARSE_ARRAYS;
 
                 if (args.size() > 1) {
-                    Utf8String arrays
-                        = args[1].getColumn("arrays").toUtf8String();
+                    const auto & col = args[1].getColumn("arrays");
+                    if(col.empty())
+                        throw HttpReturnException(400, " value of 'arrays' must be 'parse' or 'encode', got: NULL");
+                    Utf8String arrays = col.toUtf8String();
                     if (arrays == "encode")
-                      encode = ENCODE_ARRAYS;
+                        encode = ENCODE_ARRAYS;
                     else if (arrays != "parse")
-                      throw HttpReturnException(400, " value of 'arrays' must be 'parse' or 'encode', got: " + arrays);
+                        throw HttpReturnException(400, " value of 'arrays' must be 'parse' or 'encode', got: " + arrays);
                 }
 
                 StreamingJsonParsingContext parser(str.rawString(),
@@ -2177,7 +2181,7 @@ BoundFunction horizontal_min(const std::vector<BoundSqlExpression> & args)
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                double min_val = nan("");
+                CellValue min_val;
                 Date ts = Date::negativeInfinity();
 
                 auto onAtom = [&] (const Path & columnName,
@@ -2186,10 +2190,9 @@ BoundFunction horizontal_min(const std::vector<BoundSqlExpression> & args)
                                    Date atomTs)
                     {
                         if (!val.empty()) {
-                            double curr = val.toDouble();
-                            if(std::isnan(min_val) || curr < min_val) {
+                            if(min_val.empty() || val < min_val) {
                                 ts = atomTs;
-                                min_val = curr;
+                                min_val = val;
                             }
                         }
                         return true;
@@ -2199,7 +2202,7 @@ BoundFunction horizontal_min(const std::vector<BoundSqlExpression> & args)
 
                 return ExpressionValue(min_val, ts);
             },
-            std::make_shared<Float64ValueInfo>()};
+            std::make_shared<AnyValueInfo>()};
 }
 static RegisterBuiltin registerHorizontal_Min(horizontal_min, "horizontal_min");
 
@@ -2210,7 +2213,7 @@ BoundFunction horizontal_max(const std::vector<BoundSqlExpression> & args)
     return {[=] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
             {
-                double max_val = nan("");
+                CellValue max_val;
                 Date ts = Date::negativeInfinity();
 
                 auto onAtom = [&] (const Path & columnName,
@@ -2219,10 +2222,9 @@ BoundFunction horizontal_max(const std::vector<BoundSqlExpression> & args)
                                    Date atomTs)
                     {
                         if (!val.empty()) {
-                            double curr = val.toDouble();
-                            if(std::isnan(max_val) || curr > max_val) {
+                            if(max_val.empty() || val > max_val) {
                                 ts = atomTs;
-                                max_val = curr;
+                                max_val = val;
                             }
                         }
                         return true;
@@ -2232,7 +2234,7 @@ BoundFunction horizontal_max(const std::vector<BoundSqlExpression> & args)
 
                 return ExpressionValue(max_val, ts);
             },
-            std::make_shared<Float64ValueInfo>()};
+            std::make_shared<AnyValueInfo>()};
 }
 static RegisterBuiltin registerHorizontal_Max(horizontal_max, "horizontal_max");
 

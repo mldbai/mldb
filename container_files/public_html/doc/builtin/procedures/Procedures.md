@@ -3,7 +3,7 @@
 Procedures are named, reusable programs used to implement long-running batch operations with no return values. Procedures generally run over Datasets and can be configured via [SQL expressions](../sql/Sql.md). The outputs of a Procedure can include Datasets and files. Procedures are used to:
 
 * Transform/clean up data
-* Train machine learning models
+* Train machine learning models (by creating [Functions](../functions/Functions.md))
 * Apply machine models in batch mode
 
 ## Running a Procedure

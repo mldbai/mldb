@@ -1494,8 +1494,8 @@ class JoinTest(MldbUnitTest):
                 [u'[02]-[04]', u'two', u'', 3, 2, 2, 4] ,
                 [u'[03]-[03]', u'three', u'', 2, 3, 3, -3] ,
                 [u'[04]-[]', u'four', u'', 1, 4, None, None] ,
-                [u'[05]-[05]', u'five', u'', 0, 5, 5, -5] ,
                 [u'[05]-[06]', u'five', u'', 0, 5, 5, -5] ,
+                [u'[05]-[05]', u'five', u'', 0, 5, 5, -5] ,
                 [u'[06]-[]', u'six', u'', 6, 6, None, None] ,
                 [u'[07]-[]', u'seven', u'', 7, 7, None, None] ,
                 [u'[08]-[]', u'eight', u'', 8, 8, None, None]
@@ -1547,8 +1547,8 @@ class JoinTest(MldbUnitTest):
                 [u'[02]-[04]', u'', u'two', 3, 4, 2, 2] ,
                 [u'[03]-[03]', u'', u'three', 2, -3, 3, 3] ,
                 [u'[04]-[]', u'', u'four', 1, None, 4, None] ,
-                [u'[05]-[05]', u'', u'five', 0, -5, 5, 5] ,
                 [u'[05]-[06]', u'', u'five', 0, -5, 5, 5] ,
+                [u'[05]-[05]', u'', u'five', 0, -5, 5, 5] ,
                 [u'[06]-[]', u'', u'six', 6, None, 6, None] ,
                 [u'[07]-[]', u'', u'seven', 7, None, 7, None] ,
                 [u'[08]-[]', u'', u'eight', 8, None, 8, None]
@@ -1850,7 +1850,7 @@ class JoinTest(MldbUnitTest):
             ]
         )
 
-    @unittest.expectedFailure # MLDB-1674
+    # MLDB-1674
     def test_join_with_constant_expression_failing_on_parsing(self):
         """
         confusing INNER JOIN with IN oeprator

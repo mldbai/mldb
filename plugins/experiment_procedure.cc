@@ -100,7 +100,8 @@ ExperimentProcedureConfigDescription()
              "allows the relative importance of examples to be set. It must "
              "be a real number. If the `weight` is not specified each row will have "
              "a weight of 1. Rows with a null weight will cause a training error. \n\n"
-             "The query must not contain `GROUP BY` or `HAVING` clauses and, "
+             "The query must not contain `WHERE`, `LIMIT`, `OFFSET`, `GROUP BY` or `HAVING` clauses "
+             "(they can be defined in datasetFolds) and, "
              "unlike most select expressions, this one can only select whole columns, "
              "not expressions involving columns. So `X` will work, but not `X + 1`. "
              "If you need derived values in the query, create a dataset with "
@@ -128,7 +129,13 @@ ExperimentProcedureConfigDescription()
              "This parameter is useful when it is necessary to test on data contained in "
              "a different dataset from the training data, or to calculate accuracy statistics "
              "with uneven weighting, for example to counteract the effect of "
-             "non-uniform sampling in the `inputData`.");
+             "non-uniform sampling in the `inputData`.\n\n"
+             "The query must not contain `WHERE`, `LIMIT`, `OFFSET`, `GROUP BY` or `HAVING` clauses "
+             "(they can be defined in datasetFolds) and, "
+             "unlike most select expressions, this one can only select whole columns, "
+             "not expressions involving columns. So `X` will work, but not `X + 1`. "
+             "If you need derived values in the query, create a dataset with "
+             "the derived columns as a previous step and use a query on that dataset instead.");
     addField("algorithm", &ExperimentProcedureConfig::algorithm,
              "Algorithm to use to train classifier with.  This must point to "
              "an entry in the configuration or configurationFile parameters. "
@@ -176,11 +183,17 @@ ExperimentProcedureConfigDescription()
 
     onPostValidate = chain(validateQuery(&ExperimentProcedureConfig::inputData,
                                          NoGroupByHaving(),
+                                         NoWhere(),
+                                         NoLimit(),
+                                         NoOffset(),
                                          MustContainFrom(),
                                          PlainColumnSelect(),
                                          FeaturesLabelSelect()),
                            validateQuery(&ExperimentProcedureConfig::testingDataOverride,
                                          NoGroupByHaving(),
+                                         NoWhere(),
+                                         NoLimit(),
+                                         NoOffset(),
                                          MustContainFrom(),
                                          PlainColumnSelect(),
                                          FeaturesLabelSelect()));

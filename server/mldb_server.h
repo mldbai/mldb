@@ -115,13 +115,14 @@ struct MldbServer: public ServicePeer, public EventRecorder {
     /** Parse and perform an SQL query, returning the results
         on the given HTTP connection.
     */
-    void runHttpQuery(const Utf8String& query,
+    void runHttpQuery(const Utf8String& qsQuery,
                       RestConnection & connection,
                       const std::string & format,
                       bool createHeaders,
                       bool rowNames,
                       bool rowHashes,
-                      bool sortColumns) const;
+                      bool sortColumns,
+                      const Utf8String & bQuery) const;
 
     /** Get a type info structure for the given type. */
     Json::Value

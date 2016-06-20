@@ -33,6 +33,8 @@
 #include "mldb/plugins/sql_expression_extractors.h"
 #include "mldb/server/parallel_merge_sort.h"
 
+#define NO_DATA_ERR_MSG "Cannot run classifier.test procedure on empty test set"
+
 using namespace std;
 
 
@@ -42,6 +44,7 @@ namespace MLDB {
 typedef std::vector<std::pair<RowName, std::vector<std::tuple<ColumnName, CellValue, Date> > > > Rows;
 
 DEFINE_STRUCTURE_DESCRIPTION(AccuracyConfig);
+
 
 AccuracyConfigDescription::
 AccuracyConfigDescription()
@@ -144,13 +147,18 @@ runBoolean(AccuracyConfig & runAccuracyConf,
 
     // Now merge out stats together
     ScoredStats stats;
+    bool gotStuff = false;
 
     accum.forEach([&] (ScoredStats * thrStats)
                   {
+                      gotStuff = true;
                       thrStats->sort();
                       stats.add(*thrStats);
                   });
 
+    if (!gotStuff) {
+        throw ML::Exception(NO_DATA_ERR_MSG);
+    }
 
     //stats.sort();
     stats.calculate();
@@ -173,6 +181,7 @@ runBoolean(AccuracyConfig & runAccuracyConf,
             row.emplace_back(ColumnName("falsePositives"), bstats.falsePositives(), recordDate);
             row.emplace_back(ColumnName("trueNegatives"), bstats.trueNegatives(), recordDate);
             row.emplace_back(ColumnName("falseNegatives"), bstats.falseNegatives(), recordDate);
+            row.emplace_back(ColumnName("accuracy"), bstats.accuracy(), recordDate);
             row.emplace_back(ColumnName("precision"), bstats.precision(), recordDate);
             row.emplace_back(ColumnName("recall"), bstats.recall(), recordDate);
             row.emplace_back(ColumnName("truePositiveRate"), bstats.truePositiveRate(), recordDate);
@@ -310,8 +319,10 @@ runCategorical(AccuracyConfig & runAccuracyConf,
     map<CellValue, map<CellValue, unsigned>> confusion_matrix;
     map<CellValue, unsigned> predicted_sums;
     map<CellValue, unsigned> real_sums;
+    bool gotStuff = false;
     accum.forEach([&] (AccumBucket * thrBucket)
             {
+                gotStuff = true;
                 for(auto & elem : *thrBucket) {
                     const CellValue & label = std::get<0>(elem);
                     const CellValue & predicted = std::get<1>(elem);
@@ -332,11 +343,14 @@ runCategorical(AccuracyConfig & runAccuracyConf,
                 }
             });
 
-
+    if (!gotStuff) {
+        throw ML::Exception(NO_DATA_ERR_MSG);
+    }
     // Create per-class statistics
     Json::Value results;
     results["labelStatistics"] = Json::Value();
 
+    double total_accuracy = 0;
     double total_precision = 0;
     double total_recall = 0; // i'll be back!
     double total_f1 = 0;
@@ -363,15 +377,18 @@ runCategorical(AccuracyConfig & runAccuracyConf,
 
         Json::Value class_stats;
 
+        double accuracy = ML::xdiv(tp, float(real_sums[actual_it.first]));
         double precision = ML::xdiv(tp, float(predicted_sums[actual_it.first]));
         double recall = ML::xdiv(tp, float(tp + fn));
         unsigned support = real_sums[actual_it.first];
+        class_stats["accuracy"] = accuracy;
         class_stats["precision"] = precision;
         class_stats["recall"] = recall;
         class_stats["f"] = 2 * ML::xdiv((precision * recall), (precision + recall));
         class_stats["support"] = support;
         results["labelStatistics"][actual_it.first.toString()] = class_stats;
 
+        total_accuracy += accuracy * support;
         total_precision += precision * support;
         total_recall += recall * support;
         total_f1 += class_stats["f"].asDouble() * support;
@@ -380,6 +397,7 @@ runCategorical(AccuracyConfig & runAccuracyConf,
 
     // Create weighted statistics
     Json::Value weighted_stats;
+    weighted_stats["accuracy"] = total_accuracy / total_support;
     weighted_stats["precision"] = total_precision / total_support;
     weighted_stats["recall"] = total_recall / total_support;
     weighted_stats["f"] = total_f1 / total_support;
@@ -506,8 +524,9 @@ runRegression(AccuracyConfig & runAccuracyConf,
                         allThreadLabels.emplace_back(std::move(thrStats->labels));
                   });
 
-    if(n == 0)
-        throw ML::Exception("Cannot run classifier.test procedure on empty test set");
+    if(n == 0) {
+        throw ML::Exception(NO_DATA_ERR_MSG);
+    }
 
     std::mutex mergeAccumsLock;
 

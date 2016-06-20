@@ -188,6 +188,7 @@ struct SubSelectElement: public PipelineElement {
 
     SubSelectElement(std::shared_ptr<PipelineElement> root,
                      SelectStatement& statement,
+                     OrderByExpression& orderBy,
                      GetParamInfo getParamInfo,
                      const Utf8String& asName);
 

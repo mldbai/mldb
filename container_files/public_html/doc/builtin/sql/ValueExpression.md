@@ -51,7 +51,8 @@ always are left associative, that is the expression
      `&` , <code>&#124;</code> , `^`      |  binary bitwise    |          3 
      `=` , `!=`, `>` , `<` , `>=` , `<=`       |  binary comparison |          4 
      `NOT`    |  unary boolean     |          5 
-     `AND` , `OR`     |  binary boolean    |          7 
+     `AND`    |  binary boolean    |          6 
+     `OR`     |  binary boolean    |          7 
 
 <!--
      ALL      unary unimp                 7  All true 
@@ -307,7 +308,8 @@ will change values on each row under consideration. See the [Intro to Datasets](
   `rowPathElement(0)` will be `x`, `rowPathElement(1)` will be `y` and
   `rowPathElement(2)` is equivalent to `rowPathElement(-1)` which will
   be `2`. 
-- `columnCount()`: returns the number of columns with explicit values set in the current row 
+- `columnCount()`: returns the number of columns with explicit values set in the current row
+- `leftRowName()` and `rightRowName()`: in the context of a join, returns the name of the row that was joined on the left or right side respectively.
 
 
 ### Path manipulation functions
@@ -343,7 +345,7 @@ will change values on each row under consideration. See the [Intro to Datasets](
   there is ambiguity in the expression (for example, the same key with multiple
   values), then one of the values of the key will be chosen to represent the value
   of the key.
-- <a name="parse_json"></a>`parse_json(string, {arrays: string})` returns a row with the JSON decoding of the
+- <a name="parse_json"></a>`parse_json(string, {arrays: 'parse'})` returns a row with the JSON decoding of the
   string in the argument. If the `arrays` option is set to `'parse'` (this is the default) then nested arrays and objects will be parsed recursively; no flattening is performed. If the `arrays` option is set to `'encode'`, then arrays containing only scalar values will be one-hot encoded and arrays containing only objects will contain the string representation of the objects. 
 
   Here are examples with the following JSON string:
@@ -378,7 +380,7 @@ With `{arrays: 'encode'}` the output will be:
 - `ln(x)`: returns the natural logarithm of x.
 - `ceil(x)`: returns the smaller integer not less than x.
 - `floor(x)`: returns the largest integer not greater than x.
-- `mod(x, y)`: returns x modulo y.  The value of x and y must be an integer.
+- `mod(x, y)`: returns x modulo y.  The value of x and y must be an integer. Another way to get the modulo is `x % y`.
 - `abs(x)`: returns the absolute value of x.
 - `sqrt(x)`: returns the square root of x.  The value of x must be greater or equal to 0.
 - `isnan(x)`: return true if x is 'NaN' in the floating point representation.
