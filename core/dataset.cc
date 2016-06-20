@@ -1364,11 +1364,12 @@ generateRowsWhere(const SqlBindingScope & scope,
                                             return true;
                                         };
                                     
-                                    
-                                    if (keys)
-                                        evaluatedSet.forEachColumn(onKey);
-                                    else evaluatedSet.forEachColumn(onValue);
-                                    
+                                    if (!evaluatedSet.empty()) {
+                                        if (keys)
+                                            evaluatedSet.forEachColumn(onKey);
+                                        else evaluatedSet.forEachColumn(onValue);
+                                    }
+
                                     return { std::move(filtered), Any() };
                                 },
                                 fexpr->functionName + " in "
