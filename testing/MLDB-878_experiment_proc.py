@@ -3,10 +3,9 @@
 # datacratic, 2015
 # this file is part of mldb. copyright 2015 datacratic. all rights reserved.
 #
-import random, datetime, os
+import datetime, os
+from random import random, gauss
 
-if False:
-    mldb_wrapper = None
 mldb = mldb_wrapper.wrap(mldb) # noqa
 
 class Mldb878Test(MldbUnitTest):  # noqa
@@ -24,9 +23,9 @@ class Mldb878Test(MldbUnitTest):  # noqa
             now = datetime.datetime.now()
 
             for i in xrange(5000):
-                label = random.random() < 0.2
-                dataset.record_row("u%d" % i, [["feat1", random.gauss(5 if label else 15, 3), now],
-                                               ["feat2", random.gauss(-5 if label else 10, 10), now],
+                label = random() < 0.2
+                dataset.record_row("u%d" % i, [["feat1", gauss(5 if label else 15, 3), now],
+                                               ["feat2", gauss(-5 if label else 10, 10), now],
                                                ["label", label, now]])
 
             dataset.commit()
@@ -524,6 +523,60 @@ class Mldb878Test(MldbUnitTest):  # noqa
                 }
             })
 
+    def test_orderby(self):
+        mldb.put('/v1/datasets/ds_ob', {
+            'type': 'sparse.mutable'
+        })
+
+        n=200
+        for i in xrange(n):
+            mldb.post('/v1/datasets/ds_ob/rows', {
+                'rowName': str(i),
+                'columns': [['order', random(), 0]]
+                            + [['x' + str(j), gauss(0,1), 0]
+                                for j in xrange(20)]
+                            + [['label', random() > 1, 0]]
+
+
+            })
+        mldb.post('/v1/datasets/ds_ob/commit')
+
+        conf = {
+            'type': 'classifier.experiment',
+            'params': {
+                'inputData': 'select {* EXCLUDING (label, order)} as features,'
+                             'label from ds_ob',
+                'datasetFolds': [
+                    # training on the first half and testing on the second
+                    {
+                        'trainingLimit': n // 2,
+                        'trainingOrderBy': 'order',
+                        'testingOffset': n // 2,
+                        'testingOrderBy': 'order'
+                    },
+                ],
+                'mode': 'boolean',
+                'algorithm': 'dt',
+                'modelFileUrlPattern': 'file://test_orderby_$runid',
+                "configuration": {
+                    "dt": {
+                        "type": "decision_tree",
+                        "max_depth": 8,
+                        "verbosity": 3,
+                        "update_alg": "prob"
+                    }
+                },
+                'runOnCreation': True
+            }
+        }
+
+        # running twice should yield the same result
+        res1 = mldb.post('/v1/procedures', conf).json()['status']['firstRun'] \
+            ['status']['folds'][0]['resultsTest']['auc']
+        res2 = mldb.post('/v1/procedures', conf).json()['status']['firstRun'] \
+            ['status']['folds'][0]['resultsTest']['auc']
+        self.assertEqual(res1, res2)
+
     def test_offset_not_accepted(self):
         with self.assertRaises(mldb_wrapper.ResponseException):
             mldb.post("/v1/procedures", {
@@ -581,6 +634,7 @@ class Mldb878Test(MldbUnitTest):  # noqa
                     "outputAccuracyDataset": False
                 }
             })
+
 
 if __name__ == '__main__':
     mldb.run_tests()

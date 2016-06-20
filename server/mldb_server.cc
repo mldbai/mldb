@@ -213,7 +213,7 @@ initRoutes()
                                              false),
 
                       // Body parameters
-                      JsonParam<Utf8String>("q", queryStringDef));
+                      JsonParamDefault<Utf8String>("q", queryStringDef));
 
 
         this->versionNode = &versionNode;
@@ -283,7 +283,6 @@ query(const Utf8String& query) const
 {
     auto stm = SelectStatement::parse(query.rawString());
     SqlExpressionMldbScope mldbContext(this);
-    BoundTableExpression table = stm.from->bind(mldbContext);
 
     return queryFromStatement(stm, mldbContext);
 }
