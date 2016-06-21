@@ -16,7 +16,7 @@ template = """#
 
 mldb = mldb_wrapper.wrap(mldb)  # noqa
 
-class {classname}(MldbUnitTest):
+class {classname}(MldbUnitTest):  # noqa
 
     @classmethod
     def setUpClass(cls):
