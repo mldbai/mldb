@@ -85,6 +85,9 @@ ImportTextConfigDescription::ImportTextConfigDescription()
              "This option disables many optimizations and makes the procedure "
              "run much slower. Only use if necessary. The `offset` parameter "
              "will not be reliable when this is activated.", false);
+    addField("autoGenerateHeaders", &ImportTextConfig::autoGenerateHeaders,
+             "If true, the indexes of the columns will be used to name them.",
+             false);
 
     addParent<ProcedureConfig>();
     onUnknownField = [] (ImportTextConfig * config,
@@ -104,6 +107,14 @@ ImportTextConfigDescription::ImportTextConfigDescription()
                                   + " parsing import.text configuration");
             }
         };
+
+    onPostValidate = [] (ImportTextConfig * config,
+                         JsonParsingContext & context) {
+        if (!config->headers.empty() && config->autoGenerateHeaders) {
+            throw ML::Exception("autoGenerateHeaders cannot be true if "
+                                "headers is defined.");
+        }
+    };
 }
 
 
@@ -704,14 +715,15 @@ struct ImportTextProcedureWorkInstance
 
 
         if (isTextLine) {
-
             //MLDB-1312 optimize if there is no delimiter: only 1 column
             if (config.headers.empty()) {
-                inputColumnNames = { ColumnName("lineText") };
+                inputColumnNames = { ColumnName(config.autoGenerateHeaders ? 0 : "lineText") };
             }
-            else {
-                if (inputColumnNames.size() != 1)
-                    throw HttpReturnException(400, "Custom CSV header must have only one element if there is no delimiter");
+            else if (inputColumnNames.size() != 1) {
+                throw HttpReturnException(
+                    400,
+                    "Custom CSV header must have only one element if there is "
+                    "no delimiter");
             }
         }
         else {
@@ -733,7 +745,6 @@ struct ImportTextProcedureWorkInstance
 
                 // Read header line
                 string prevHeader;
-                lineOffset += 1;
                 while(true) {
                     std::getline(stream, header);
 
@@ -758,20 +769,30 @@ struct ImportTextProcedureWorkInstance
                     }
                 }
 
-                switch (encoding) {
-                case ASCII:
-                    for (const auto & f: fields)
-                        inputColumnNames.emplace_back(parseColumnName(f));
-                    break;
-                case UTF8:
-                    for (const auto & f: fields)
-                        inputColumnNames.emplace_back(parseColumnName(Utf8String(f)));
-                    break;
-                case LATIN1:
-                    for (const auto & f: fields)
-                        inputColumnNames.emplace_back(parseColumnName(Utf8String::fromLatin1(f)));
-                    break;
-                };
+                if (config.autoGenerateHeaders) {
+                    stream.seekg(0);
+                    auto limit = fields.size();
+                    for (ssize_t i = 0; i < limit; ++i) {
+                        inputColumnNames.emplace_back(i);
+                    }
+                }
+                else {
+                    lineOffset += 1;
+                    switch (encoding) {
+                    case ASCII:
+                        for (const auto & f: fields)
+                            inputColumnNames.emplace_back(parseColumnName(f));
+                        break;
+                    case UTF8:
+                        for (const auto & f: fields)
+                            inputColumnNames.emplace_back(parseColumnName(Utf8String(f)));
+                        break;
+                    case LATIN1:
+                        for (const auto & f: fields)
+                            inputColumnNames.emplace_back(parseColumnName(Utf8String::fromLatin1(f)));
+                        break;
+                    };
+                }
             }
             else {
                 for (const auto & f: config.headers) {
