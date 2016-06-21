@@ -25,7 +25,7 @@ var fetcherConfig = {
 };
 var fetcher = mldb.createFunction(fetcherConfig);
 
-var res = mldb.query("SELECT tf_DecodeJpeg(fetch({url: 'file://mldb/ext/tensorflow/tensorflow/examples/label_image/data/grace_hopper.jpg'})[content], {ratio: 8}) as px");
+//var res = mldb.query("SELECT tf_DecodeJpeg(fetch({url: 'file://mldb/ext/tensorflow/tensorflow/examples/label_image/data/grace_hopper.jpg'})[content], {ratio: 8}) as px");
 
 mldb.log(res);
 // The labels for the Inception classifier live within the zip file
