@@ -344,7 +344,6 @@ $(eval $(call mldb_unit_test,MLDB-1570-procedure-progress.py))
 $(eval $(call mldb_unit_test,MLDB-1486-embedding-types.js))
 $(eval $(call mldb_unit_test,MLDBFB-506-stats-tbl-sql-expr.py))
 $(eval $(call mldb_unit_test,MLDB-1594-aggregator-empty-row.py))
-$(eval $(call mldb_unit_test,MLDB-1617-like-precedence.py))
 $(eval $(call mldb_unit_test,MLDB-1707-no-context-resolve-table.py))
 $(eval $(call mldb_unit_test,MLDB-1706-horizontal.py))
 

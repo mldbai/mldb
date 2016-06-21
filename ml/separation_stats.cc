@@ -66,6 +66,7 @@ toJson() const
     Json::Value result;
     result["population"]["included"] = includedPopulation();
     result["population"]["excluded"] = excludedPopulation();
+    result["pr"]["accuracy"] = accuracy();
     result["pr"]["precision"] = precision();
     result["pr"]["recall"] = recall();
     result["pr"]["f"] = f();
@@ -314,6 +315,7 @@ dumpRocCurveJs(std::ostream & stream) const
         const BinaryStats & x = stats[i];
         stream << ML::format("\n  \"%8.05f\": { ", x.threshold);
         stream << ML::format("\n  tpr : %8.05f,", x.recall());
+        stream << ML::format("\n  accuracy : %8.05f,", x.accuracy());
         stream << ML::format("\n  precision : %8.05f,", x.precision());
         stream << ML::format("\n  fscore : %8.05f,", x.f());
         stream << ML::format("\n  fpr : %8.05f,", x.falsePositiveRate());

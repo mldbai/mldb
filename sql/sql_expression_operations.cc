@@ -3096,6 +3096,10 @@ bind(SqlBindingScope & scope) const
 
             const ExpressionValue & value = boundLeft(rowScope, vstorage, filter);
 
+            if (value.empty()) {
+                return storage =
+                    std::move(ExpressionValue::null(Date::negativeInfinity()));
+            }
             if (!value.isString())
                 throw HttpReturnException(400, "LIKE expression expected its left "
                         "hand value to be a string, got " + value.getTypeAsString());

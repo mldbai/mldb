@@ -184,6 +184,7 @@ run(const ProcedureRunConfig & run,
 
     auto bucketizeStep = iterationStep->nextStep(1);
     atomic<ssize_t> rowIndex(0);
+    mutex progressMutex;
     for (const auto & mappedRange: runProcConf.percentileBuckets) {
         std::vector<Cell> rowValue;
         rowValue.emplace_back(ColumnName("bucket"),
@@ -202,7 +203,11 @@ run(const ProcedureRunConfig & run,
                 rows.clear();
             }
             if ((rowIndex.load() % 2048) == 0) {
-                bucketizeStep->value = (float)(rowIndex.load()) / rowCount;
+                float newVal = (float)(rowIndex.load()) / rowCount;
+                lock_guard<mutex> lock(progressMutex);
+                if (newVal > bucketizeStep->value) {
+                    bucketizeStep->value = newVal;
+                }
                 onProgress(jsonEncode(bucketizeProgress));
             }
         };

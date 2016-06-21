@@ -51,7 +51,8 @@ always are left associative, that is the expression
      `&` , <code>&#124;</code> , `^`      |  binary bitwise    |          3 
      `=` , `!=`, `>` , `<` , `>=` , `<=`       |  binary comparison |          4 
      `NOT`    |  unary boolean     |          5 
-     `AND` , `OR`     |  binary boolean    |          7 
+     `AND`    |  binary boolean    |          6 
+     `OR`     |  binary boolean    |          7 
 
 <!--
      ALL      unary unimp                 7  All true 
@@ -379,7 +380,7 @@ With `{arrays: 'encode'}` the output will be:
 - `ln(x)`: returns the natural logarithm of x.
 - `ceil(x)`: returns the smaller integer not less than x.
 - `floor(x)`: returns the largest integer not greater than x.
-- `mod(x, y)`: returns x modulo y.  The value of x and y must be an integer.
+- `mod(x, y)`: returns x modulo y.  The value of x and y must be an integer. Another way to get the modulo is `x % y`.
 - `abs(x)`: returns the absolute value of x.
 - `sqrt(x)`: returns the square root of x.  The value of x must be greater or equal to 0.
 - `isnan(x)`: return true if x is 'NaN' in the floating point representation.
