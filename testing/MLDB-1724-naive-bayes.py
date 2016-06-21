@@ -86,8 +86,7 @@ female 5.75 150 9""")
                 q="""SELECT classify({features: {%s}}) as *""" % feats,
                 format='aos').json()[0]['score']
             print prediction
-            # FIXME the predictions using naive_bayes are always .5
-            self.assertLess(prediction - target, .5)
+            self.assertLess(prediction - target, .001)
 
 
 mldb.run_tests()
