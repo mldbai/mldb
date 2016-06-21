@@ -176,8 +176,11 @@ struct SqlQueryFunctionApplier: public FunctionApplier {
         switch (function->functionConfig.output) {
         case FIRST_ROW: {
             ExpressionValue result;
-
             auto output = executor->take();
+            ssize_t offset = function->functionConfig.query.stm->offset;
+
+            for (size_t n = 0; output && n < offset; ++n)
+                 output = executor->take();
 
             if (output) {
                 // MLDB-1329 band-aid fix.  This appears to break a circlar
