@@ -1,8 +1,8 @@
-// This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
-
 /** quadtree.h                                                     -*- C++ -*-
     Jeremy Barnes, 17 November 2014
     Copyright (c) 2014 Datacratic Inc.  All rights reserved.
+
+    This file is part of MLDB. Copyright 2015 Datacratic. All rights reserved.
 
     Released under the BSD license, no attribution required.
 */
@@ -16,6 +16,8 @@
 #include <iostream>
 
 namespace ML {
+
+using Datacratic::compact_vector;
 
 typedef compact_vector<float, 3, uint32_t, false> QCoord;
 

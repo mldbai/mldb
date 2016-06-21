@@ -20,6 +20,8 @@
 
 namespace ML {
 
+using Datacratic::compact_vector;
+
 template<typename Item>
 struct VantagePointTreeT {
 
