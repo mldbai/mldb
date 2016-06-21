@@ -80,13 +80,13 @@ female 5.75 150 9""")
             ('height:5.8, weight:200', 1),
             ('height:6, weight:180, foot_size:12', 1),
             ('height:5, weight:120, foot_size:6', 0),
-            ('height:5, weight:120, foot_size:6', 0),
+            ('height:5.4, foot_size:6', 0),
                 ]:
             prediction = mldb.get('/v1/query',
                 q="""SELECT classify({features: {%s}}) as *""" % feats,
                 format='aos').json()[0]['score']
             print prediction
-            self.assertLess(prediction - target, .001)
+            self.assertLess(prediction - target, .01)
 
 
 mldb.run_tests()
