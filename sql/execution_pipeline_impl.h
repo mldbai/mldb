@@ -330,6 +330,7 @@ struct JoinElement: public PipelineElement {
     std::shared_ptr<PipelineElement> rightRaw;
 
     struct Bound;
+    struct JoinTransposeExecutor;
 
     /** Execution runs over all left rows for each right row.  The complexity is
         therefore O(left rows) * O(right rows).  The canonical example of this
@@ -339,14 +340,20 @@ struct JoinElement: public PipelineElement {
         CrossJoinExecutor(const Bound * parent,
                           std::shared_ptr<ElementExecutor> root,
                           std::shared_ptr<ElementExecutor> left,
-                          std::shared_ptr<ElementExecutor> right);
+                          std::shared_ptr<ElementExecutor> right,
+                          std::shared_ptr<ElementExecutor> leftRaw,
+                          std::shared_ptr<ElementExecutor> rightRaw);
 
         const Bound * parent;
-        std::shared_ptr<ElementExecutor> root, left, right;
+        std::shared_ptr<ElementExecutor> root, left, right, leftRaw, rightRaw;
         
         std::shared_ptr<PipelineResults> l,r;
+
+        std::shared_ptr<JoinTransposeExecutor> transpose_;
             
         virtual std::shared_ptr<PipelineResults> take();
+
+        virtual std::shared_ptr<PipelineResults> takeColumn();
 
         void restart();
     };
@@ -369,18 +376,10 @@ struct JoinElement: public PipelineElement {
                          std::shared_ptr<ElementExecutor> rightRaw);
 
         const Bound * parent;
-        std::shared_ptr<ElementExecutor> root, left, right, leftRaw, rightRaw;
-        
+        std::shared_ptr<ElementExecutor> root, left, right, leftRaw, rightRaw;        
         std::shared_ptr<PipelineResults> l,r;
 
-        int side;
-
-         typedef std::map<RowHash, ML::compact_vector<RowName, 1> > SideRowIndex;
-
-        SideRowIndex leftRowIndex;
-        SideRowIndex rightRowIndex;
-
-        bool doneYet/* = false*/;
+        std::shared_ptr<JoinTransposeExecutor> transpose_;
 
         void takeMoreInput();
             
@@ -433,6 +432,24 @@ struct JoinElement: public PipelineElement {
         */
         virtual std::shared_ptr<PipelineExpressionScope> outputScope() const;
        
+    };
+
+    struct JoinTransposeExecutor {
+
+        JoinTransposeExecutor(ElementExecutor& joinExecutor, std::shared_ptr<ElementExecutor> leftRaw, std::shared_ptr<ElementExecutor> rightRaw);
+
+        std::shared_ptr<PipelineResults> take();
+
+        ElementExecutor& joinExecutor;
+        std::shared_ptr<ElementExecutor> leftRaw;
+        std::shared_ptr<ElementExecutor> rightRaw;
+
+        int side;
+
+        typedef std::map<RowHash, ML::compact_vector<RowName, 1> > SideRowIndex;
+
+        SideRowIndex leftRowIndex;
+        SideRowIndex rightRowIndex;
     };
 
     std::shared_ptr<BoundPipelineElement>

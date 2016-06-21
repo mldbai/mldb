@@ -86,6 +86,27 @@ class DatasetFunctionTest(MldbUnitTest):
 
         self.assertEqual(res, expected)
 
+    def test_transpose_join_cross(self):
+
+        res = mldb.query("select * from transpose(dataset1 as t1 JOIN dataset2 as t2)");
+
+        mldb.log(res)
+
+        res = mldb.put('/v1/functions/bop', {
+            'type': 'sql.query',
+            'params': {
+                'query': "select * from transpose(dataset1 as t1 JOIN dataset2 as t2)"
+            }
+        })      
+
+        res = mldb.query("select bop()")
+        mldb.log(res)
+
+        expected =  [["_rowName", "bop().[a]-[row_a]", "bop().[a]-[row_b]"],
+                     ["result", "toy story", "toy story"]]
+
+        self.assertEqual(res, expected)
+
     def test_transpose_transpose(self):
 
         res = mldb.put('/v1/functions/bop', {

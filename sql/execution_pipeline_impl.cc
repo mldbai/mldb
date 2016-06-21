@@ -988,11 +988,15 @@ JoinElement::CrossJoinExecutor::
 CrossJoinExecutor(const Bound * parent,
                   std::shared_ptr<ElementExecutor> root,
                   std::shared_ptr<ElementExecutor> left,
-                  std::shared_ptr<ElementExecutor> right)
+                  std::shared_ptr<ElementExecutor> right,
+                  std::shared_ptr<ElementExecutor> leftRaw,
+                  std::shared_ptr<ElementExecutor> rightRaw)
     : parent(parent),
       root(std::move(root)),
       left(std::move(left)),
-      right(std::move(right))
+      right(std::move(right)),
+      leftRaw(std::move(leftRaw)),
+      rightRaw(std::move(rightRaw))
 {
     ExcAssert(parent && this->root && this->left && this->right);
     l = this->left->take();
@@ -1102,10 +1106,22 @@ take()
     }
 }
 
+std::shared_ptr<PipelineResults> 
+JoinElement::CrossJoinExecutor::
+takeColumn()
+{
+    if (!transpose_)
+        transpose_ = make_shared<JoinTransposeExecutor>(*this, leftRaw, rightRaw);
+
+    return transpose_->take();
+}
+
 void
 JoinElement::CrossJoinExecutor::
 restart()
 {
+    transpose_.reset();
+
     left->restart();
     right->restart();
     l = left->take();
@@ -1131,8 +1147,6 @@ EquiJoinExecutor(const Bound * parent,
       leftRaw(std::move(leftRaw)),
       rightRaw(std::move(rightRaw))
 {
-    side = 0;
-    doneYet = false;
     l = this->left->take();
     r = this->right->take();
     takeMoreInput();
@@ -1357,46 +1371,73 @@ std::shared_ptr<PipelineResults>
 JoinElement::EquiJoinExecutor::
 takeColumn()
 {
+    if (!transpose_)
+        transpose_ = make_shared<JoinTransposeExecutor>(*this, leftRaw, rightRaw);
+
+    return transpose_->take();
+}
+
+void
+JoinElement::EquiJoinExecutor::
+restart()
+{
+    left->restart();
+    right->restart();
+    leftRaw->restart();
+    rightRaw->restart();
+
+    transpose_.reset();
+
+    l = left->take();
+    r = right->take();
+    takeMoreInput();
+}
+
+JoinElement::JoinTransposeExecutor::
+JoinTransposeExecutor(ElementExecutor& joinExecutor, std::shared_ptr<ElementExecutor> leftRaw, std::shared_ptr<ElementExecutor> rightRaw) : 
+joinExecutor(joinExecutor), leftRaw(std::move(leftRaw)), rightRaw(std::move(rightRaw))
+{
+    side = 0;
+
     //Transpose of joins should be avoided.
     //We need to build the full row list and column index before we can proceed
+    while (1){
+        auto res = joinExecutor.take();
+        if (!res)
+            break;
 
-    if (!doneYet) {
-        while (1){
-            auto res = take();
-            if (!res)
-                break;
+        //TODO: This will not work in so many cases. Use the scope
+        Utf8String leftNameUtf8 = "";
+        if (!res->values.at(0).empty()) //TODO: Always 0?
+            leftNameUtf8 = res->values.at(0).toUtf8String();
+        size_t i = 2;
+        for (; i + 2 < res->values.size(); i+=2) {
+            if (i == 2)
+                leftNameUtf8 = "[" + leftNameUtf8 + "]";
 
-            //TODO: This will not work in so many cases. Use the scope
-
-
-            Utf8String leftNameUtf8 = "";
-            if (!res->values.at(0).empty()) //TODO: Always 0?
-                leftNameUtf8 = res->values.at(0).toUtf8String();
-            size_t i = 2;
-            for (; i + 2 < res->values.size(); i+=2) {
-                if (i == 2)
-                    leftNameUtf8 = "[" + leftNameUtf8 + "]";
-                
-                leftNameUtf8 += res->values.at(0).empty() ? "-[]" :
-                    "-[" + res->values.at(i).toUtf8String() + "]";
-            }      
-              
-            RowName leftName = RowName::parse(leftNameUtf8);
-            
-            Utf8String rightNameUtf8 = "";
-            if (!res->values.at(i).empty())
-                rightNameUtf8 = res->values.at(i).toUtf8String();
-            RowName rightName = RowName::parse(rightNameUtf8);
-
-            RowName rowName = RowName::parse("[" + leftNameUtf8 + "]-[" + rightNameUtf8 + "]");
-
-            leftRowIndex[leftName].push_back(rowName);
-            rightRowIndex[rightName].push_back(rowName);
+            leftNameUtf8 += res->values.at(0).empty() ? "-[]" :
+                "-[" + res->values.at(i).toUtf8String() + "]";
         }
 
-        doneYet = true;
+        RowName leftName = RowName::parse(leftNameUtf8);
+
+        Utf8String rightNameUtf8 = "";
+        if (!res->values.at(i).empty())
+            rightNameUtf8 = res->values.at(i).toUtf8String();
+        RowName rightName = RowName::parse(rightNameUtf8);
+
+        RowName rowName = RowName::parse("[" + leftNameUtf8 + "]-[" + rightNameUtf8 + "]");
+
+        leftRowIndex[leftName].push_back(rowName);
+        rightRowIndex[rightName].push_back(rowName);
     }
 
+}
+
+std::shared_ptr<PipelineResults> 
+JoinElement::JoinTransposeExecutor::
+take()
+{
     std::shared_ptr<Datacratic::MLDB::PipelineResults> columnResult;
 
     SideRowIndex* index = &leftRowIndex;
@@ -1449,26 +1490,6 @@ takeColumn()
     columnResult->values[columnsOffset] = std::move(values);
 
     return columnResult;
-}
-
-void
-JoinElement::EquiJoinExecutor::
-restart()
-{
-    //cerr << "**** equijoin restart" << endl;
-    side = 0;
-    left->restart();
-    right->restart();
-    leftRaw->restart();
-    rightRaw->restart();
-
-    doneYet = false;
-    leftRowIndex.clear();
-    rightRowIndex.clear();
-
-    l = left->take();
-    r = right->take();
-    takeMoreInput();
 }
 
 
@@ -1539,7 +1560,9 @@ start(const BoundParameters & getParam) const
             (this,
              root_->start(getParam),
              left_->start(getParam),
-             right_->start(getParam));
+             right_->start(getParam),
+             leftRaw_->start(getParam),
+             rightRaw_->start(getParam));
 
     case AnnotatedJoinCondition::EQUIJOIN:
         return std::make_shared<EquiJoinExecutor>
