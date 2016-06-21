@@ -37,8 +37,15 @@ S2_CC_FILES:= \
 	util/math/mathlimits.cc \
 	util/math/mathutil.cc
 
+ifeq ($(toolchain),gcc)
+S2_WARNING_OPTIONS:=-Wno-format-contains-nul -Wno-parentheses
+endif
+ifeq ($(toolchain),clang)
+S2_WARNING_OPTIONS:=-Wno-parentheses -Wno-absolute-value -Wno-unused-local-typedef -Wno-unused-const-variable -Wno-format -Wno-dynamic-class-memaccess
+endif
+
 S2_COMPILE_OPTIONS:=-Imldb/ext/s2-geometry-library/geometry -Imldb/ext/s2-geometry-library/geometry/s2 -DS2_USE_EXACTFLOAT -DHASH_NAMESPACE=std
 
-$(eval $(call set_compile_option,$(S2_CC_FILES),$(S2_COMPILE_OPTIONS) -Wno-format-contains-nul -Wno-parentheses))
+$(eval $(call set_compile_option,$(S2_CC_FILES),$(S2_COMPILE_OPTIONS) $(S2_WARNING_OPTIONS)))
 
 $(eval $(call library,s2,$(S2_CC_FILES)))

@@ -515,7 +515,10 @@ struct FunctionCallExpression: public SqlRowExpression {
     virtual std::map<ScopedName, UnboundFunction>
     functionNames() const override;
 
-    virtual bool isAggregator() const { return !!tryLookupAggregator(functionName); }
+    virtual bool isAggregator() const override
+    {
+        return !!tryLookupAggregator(functionName);
+    }
 
 private:
 
