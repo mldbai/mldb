@@ -55,7 +55,8 @@ female 5.75 150 9""")
                 'algorithm': 'naive_bayes',
                 'configuration': {
                     'naive_bayes': {
-                        'type': 'naive_bayes'
+                        'type': 'naive_bayes',
+                        'verbosity': 3
                     },
                     "dt": {
                         "_note": "Plain decision tree",
@@ -86,7 +87,7 @@ female 5.75 150 9""")
                 format='aos').json()[0]['score']
             print prediction
             # FIXME the predictions using naive_bayes are always .5
-            # self.assertLess(prediction - target, .5)
+            self.assertLess(prediction - target, .5)
 
 
 mldb.run_tests()

@@ -352,24 +352,7 @@ void Naive_Bayes::serialize(DB::Store_Writer & store) const
     }
 
     store << label_priors;
-
-    for (unsigned f = 0;  f < features.size();  ++f)
-        for (unsigned i = 0;  i < 3;  ++i)
-            for (unsigned l = 0;  l < label_count();  ++l)
-                store << probs[f][i][l];
-
-#if 0
-    ofstream dump("nb-serial.txt");
-    dump << features.size() << " " << label_count() << endl;
-    for (unsigned f = 0;  f < features.size();  ++f) {
-        dump << "f = " << f << endl;
-        for (unsigned i = 0;  i < 3;  ++i) {
-            for (unsigned l = 0;  l < label_count();  ++l)
-                dump << " " << probs[f][i][l];
-            dump << endl;
-        }
-    }
-#endif
+    store << probs;
 }
 
 Naive_Bayes::
@@ -408,34 +391,9 @@ Naive_Bayes(DB::Store_Reader & store,
     //sort_on_first_ascending(sorted);
 
     store >> label_priors;
-
-    boost::multi_array<float, 3> probs(boost::extents[num_features][3][label_count]);
-    for (unsigned f = 0;  f < num_features;  ++f) {
-        int f2 = sorted[f].second;
-        //cerr << "f2 = " << f2 << endl;
-        for (unsigned i = 0;  i < 3;  ++i)
-            for (unsigned l = 0;  l < label_count;  ++l)
-                store >> probs[f2][i][l];
-    }
-
-#if 0
-    ofstream dump("nb-reconst.txt");
-    dump << num_features.size_ << " " << label_count << endl;
-    for (unsigned f = 0;  f < num_features;  ++f) {
-        dump << "f = " << f << endl;
-        for (unsigned i = 0;  i < 3;  ++i) {
-            for (unsigned l = 0;  l < label_count;  ++l)
-                dump << " " << probs[f][i][l];
-            dump << endl;
-        }
-    }
-#endif
-
-    this->probs = probs;
-    //probs.swap(this->probs);
+    store >> probs;
     this->features = vector<Bayes_Feature>
         (first_extractor(sorted.begin()), first_extractor(sorted.end()));
-
     calc_missing_total();
 }
 
