@@ -22,7 +22,7 @@
 #include "mldb/types/hash_wrapper_description.h"
 #include "mldb/jml/utils/less.h"
 #include "mldb/jml/utils/lightweight_hash.h"
-#include "mldb/jml/utils/compact_vector.h"
+#include "mldb/utils/compact_vector.h"
 
 using namespace std;
 
@@ -4323,7 +4323,7 @@ extractJson(JsonPrintingContext & context) const
     case ExpressionValue::Type::STRUCTURED: {
         context.startObject();
 
-        std::map<PathElement, ML::compact_vector<int, 2> > vals;
+        std::map<PathElement, compact_vector<int, 2> > vals;
 
         for (int i = 0;  i < structured_->size();  ++i) {
             // We need to deal with doubled values

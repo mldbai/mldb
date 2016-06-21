@@ -12,7 +12,7 @@
 #include "mldb/jml/stats/distribution.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/jml/db/persistent.h"
-#include "mldb/jml/utils/compact_vector.h"
+#include "mldb/utils/compact_vector.h"
 #include "mldb/jml/utils/compact_vector_persistence.h"
 #include <iostream>
 #include <thread>
@@ -32,7 +32,7 @@ struct VantagePointTreeT {
     {
     }
 
-    VantagePointTreeT(ML::compact_vector<Item, 1> items, double radius,
+    VantagePointTreeT(compact_vector<Item, 1> items, double radius,
                       std::unique_ptr<VantagePointTreeT> && inside,
                       std::unique_ptr<VantagePointTreeT> && outside)
         : items(std::move(items)),
@@ -44,8 +44,8 @@ struct VantagePointTreeT {
     /** Construct for a clump of items all of which are equidistant from the
         given item.
     */
-    VantagePointTreeT(ML::compact_vector<Item, 1> items, double clumpRadius,
-                      ML::compact_vector<Item, 1> clumpItems)
+    VantagePointTreeT(compact_vector<Item, 1> items, double clumpRadius,
+                      compact_vector<Item, 1> clumpItems)
         : items(std::move(items)), radius(clumpRadius), clump(std::move(clumpItems))
     {
     }
@@ -76,7 +76,7 @@ struct VantagePointTreeT {
     {
     }
 
-    ML::compact_vector<Item, 1> items; ///< All these have distance zero from each other
+    compact_vector<Item, 1> items; ///< All these have distance zero from each other
     double radius;  ///< Radius of the ball in which we choose inside versus outside
 
     /** Points that are in a clump with the same distance between the point and the
@@ -85,7 +85,7 @@ struct VantagePointTreeT {
         These are suspected or known to be distributed over the corners of a high
         dimensional hyper-cube.
     */
-    ML::compact_vector<Item, 1> clump;
+    compact_vector<Item, 1> clump;
     
     /// Children that are inside the ball of the given radius on object
     std::unique_ptr<VantagePointTreeT> inside;

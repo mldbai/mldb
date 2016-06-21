@@ -14,6 +14,7 @@
 #include "mldb/types/date.h"
 #include "mldb/arch/demangle.h"
 #include "mldb/base/exc_assert.h"
+#include "mldb/utils/compact_vector.h"
 #include "cell_value.h"
 #include <cstdint>
 
@@ -73,7 +74,7 @@ enum JsonArrayHandling {
 };
 
 /** Vector of dimensions for an embedding. */
-typedef ML::compact_vector<size_t, 4> DimsVector;
+typedef compact_vector<size_t, 4> DimsVector;
 
 /*****************************************************************************/
 /* STORAGE TYPE                                                              */

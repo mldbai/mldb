@@ -33,14 +33,15 @@ namespace ML {
 
 template<typename F, class Underlying> class distribution;
 
-template<typename T, size_t I, typename Sz, bool Sf, typename P, class A>
-struct compact_vector;
-
 } // namespace ML
 
 namespace Datacratic {
 
 struct HttpReturnException;
+
+template<typename T, size_t I, typename Sz, bool Sf, typename P, class A>
+struct compact_vector;
+
 
 namespace JS {
 
@@ -560,7 +561,7 @@ void to_js(JSValue & val, const v8::Persistent<V8Value> & val2)
 }
 
 template<typename T, size_t I, typename Sz, bool Sf, typename P, class A>
-void to_js(JSValue & val, const ML::compact_vector<T, I, Sz, Sf, P, A> & v)
+void to_js(JSValue & val, const compact_vector<T, I, Sz, Sf, P, A> & v)
 {
     v8::HandleScope scope;
 

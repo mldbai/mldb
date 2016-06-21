@@ -904,7 +904,7 @@ struct MutableBaseData {
     {
     }
 
-    typedef std::unordered_map<uint64_t, ML::compact_vector<BaseEntry, 1> > RowsEntry;
+    typedef std::unordered_map<uint64_t, compact_vector<BaseEntry, 1> > RowsEntry;
 
     struct Rows {
         Rows()

@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "mldb/jml/utils/compact_vector.h"
+#include "mldb/utils/compact_vector.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/jml/db/persistent_fwd.h"
 #include <memory>
@@ -17,7 +17,7 @@
 
 namespace ML {
 
-typedef ML::compact_vector<float, 3, uint32_t, false> QCoord;
+typedef compact_vector<float, 3, uint32_t, false> QCoord;
 
 struct QuadtreeNode {
 
@@ -83,7 +83,7 @@ struct QuadtreeNode {
     float recipNumChildren[2];  //< 1/numChildren, 1/(numChildren-1
 
     /** The different quadrants for when we're a NODE. */
-    ML::compact_vector<QuadtreeNode *, 4, uint32_t, true> quadrants;
+    compact_vector<QuadtreeNode *, 4, uint32_t, true> quadrants;
 
     /** Insert the given point into the tree. */
     void insert(QCoord point, int depth = 0, int n = 1)
