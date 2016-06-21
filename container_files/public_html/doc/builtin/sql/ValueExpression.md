@@ -37,7 +37,7 @@ The following standard SQL operators are supported by MLDB.  An
 operator with lower precedence binds tighter than one with a
 higher predecence, so for example `x + y * z` is the same as
 `x + (y * z)`.  Expressions at the same precedence level are 
-always are left associative, that is the expression
+always left associative, that is the expression
 `x / y % z` is evaluated as `(x / y) % z`.
 
   Operator  |  Type              | Precedence 
