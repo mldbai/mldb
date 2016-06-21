@@ -2523,8 +2523,8 @@ bind(SqlBindingScope & scope) const
                         return boundElse(row, storage, filter);
                     }
 
-                    if (boundWhen.size() == 1 && boundWhen[0].second.info->isRow()) {
-                        // No else defined, first case returned a row,
+                    if (boundWhen.size() > 0 && boundWhen[0].second.info->isRow()) {
+                        // No else defined, first when returned a row,
                         // return an empty row as default else
                         return storage = std::move(ExpressionValue(RowValue()));
                     }
