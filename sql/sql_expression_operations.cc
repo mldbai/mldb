@@ -2507,7 +2507,7 @@ bind(SqlBindingScope & scope) const
                 {
                     ExpressionValue vstorage;
                     const ExpressionValue & v = boundExpr(row, vstorage, filter);
-                    
+
                     if (!v.empty()) {
                         for (auto & w: boundWhen) {
                             ExpressionValue wstorage;
@@ -2519,9 +2519,18 @@ bind(SqlBindingScope & scope) const
                         }
                     }
 
-                    if (elseExpr)
+                    if (elseExpr) {
                         return boundElse(row, storage, filter);
-                    else return storage = std::move(ExpressionValue());
+                    }
+
+                    if (boundWhen.size() == 1 && boundWhen[0].second.info->isRow()) {
+                        // No else defined, first case returned a row,
+                        // return an empty row as default else
+                        return storage = std::move(ExpressionValue(RowValue()));
+                    }
+
+                    // default else returns an empty value
+                    return storage = std::move(ExpressionValue());
                 },
                 this,
                 // TODO: infer the type
