@@ -3836,8 +3836,8 @@ SelectStatement::parse(ML::Parse_Context& context, bool acceptUtf8)
     if (statement.from->getType() == "null") {
         for (const auto & c: statement.select.clauses) {
             if (typeid(*c.get()) == typeid(WildcardExpression)) {
-                throw HttpReturnException(
-                    400, "Wildcard usage requires a FROM statement");
+                throw ML::Exception(
+                    "Wildcard usage requires a FROM statement");
             }
         }
     }
